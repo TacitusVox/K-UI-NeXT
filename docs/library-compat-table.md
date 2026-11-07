@@ -36,12 +36,12 @@ now read), compact Background stage end `0x8cebe748`. The admission sources matc
 | ELEMENTAL GIMMICK GEAR | T41601N | 670 | virtual VMU | — |  | — | saves and loads (Background, virtual VMU in A1) |
 | EVOLUTION - THE WORLD OF SACRED DEVICE | T17706N | 2,093 | virtual VMU | — |  | — | save and load succeed; FMV slowdown reported (virtual VMU (A1 builds)) |
 | EVOLUTION2 | T1711N | 3,961 | virtual VMU | — |  | — | save and load succeed; FMV slowdown reported (virtual VMU (A1 builds)) |
-| GRANDIA2 | T17716N | 1,249 | virtual VMU | — |  | no profile: CD music Off | works with virtual VMU (virtual VMU) |
+| GRANDIA2 | T17716N | 1,249 | virtual VMU | — |  | — (only short layout tracks) | works with virtual VMU (virtual VMU) |
 | JET GRIND RADIO | MK-51058 | 3,003 | virtual VMU | — |  | — | virtual A2 works (virtual VMU (A2)) |
 | POWER STONE 2 USA | T1211N | 3,024 | virtual VMU | — |  | — | saves and loads after a complete reboot (SD, card p0005); physical-disc virtual VMU also saves and reloads (SD virtual VMU and physical disc) |
 | PSO | MK-51100 | 3,694 | virtual VMU | — |  | — | works; intro video slow (native) |
 | RAYMAN 2 THE GREAT ESCAPE | 17707N | 913 | virtual VMU | — |  | — | virtual VMU shown; saving and loading work; FMVs and gameplay flawless (New with virtual VMU) |
-| RECORD OF LODOSS WAR | T40218N | 3,392 | virtual VMU | — |  | no profile: CD music Off | virtual VMU shown; saving and loading work; FMVs and gameplay flawless (New with virtual VMU) |
+| RECORD OF LODOSS WAR | T40218N | 3,392 | virtual VMU | — |  | — (only short layout tracks) | virtual VMU shown; saving and loading work; FMVs and gameplay flawless (New with virtual VMU) |
 | RESIDENT EVIL CODE VERONICA | T1204N | 3,823 | virtual VMU | — |  | — | saves, power-cycle reload and Disc 2 verified (Background New (X), virtual VMU) |
 | SEGA SMASH PACK VOLUME 1 | MK-51146 | 207 | virtual VMU | — |  | Smash collection route | hardware-accepted (Smash collection) |
 | SILVER | T15108N | 2,886 | virtual VMU | — |  | — | works: saves survive power-off, reboot and reload (tested before the prefetch work) (virtual VMU) |
@@ -59,17 +59,17 @@ now read), compact Background stage end `0x8cebe748`. The admission sources matc
 | MDK2 | T12502N | 733 | refused | New, no virtual VMU | Maple driver family not resolved | native profile (MDK2) |  |
 | OMIKRON THE NOMAD SOUL | T36807N | 1,038 | refused | New, no virtual VMU | heap initializer call not proved | no profile: CD music Off |  |
 | POWER STONE | T1201N | 3,334 | refused | New, no virtual VMU | Maple layout not resolved | — |  |
-| RUSH 2049 | T-9707N | 1,097 | refused | New, no virtual VMU | SDK heap family not resolved | no profile: CD music Off |  |
+| RUSH 2049 | T-9707N | 1,097 | refused | New, no virtual VMU | SDK heap family not resolved | — (only short layout tracks) |  |
 | SPAWN IN THE DEMONS HAND | T1216N | 1,191 | refused | New, no virtual VMU | no heap initializer slot (fixed RAM; needs a RAM map) | — | boots; intro problems; audio distortion observed (native) |
-| TONY HAWKS PRO SKATER 2 | T13006N | 3,428 | refused | New, no virtual VMU | 284 KiB lease does not fit | no profile: CD music Off |  |
+| TONY HAWKS PRO SKATER 2 | T13006N | 3,428 | refused | New, no virtual VMU | 284 KiB lease does not fit | — (only short layout tracks) |  |
 | ZOMBIE REVENGE | MK-51038 | 10,057 | refused | New, no virtual VMU | Maple layout not resolved | — | works without virtual VMU (standalone New); known limit: six-input Maple layout and allocator/reservation (integration roadmap section 3; not owner-confirmed) |
 | BLUE STINGER | T13001N | 1,929 | refused | refused | Maple driver family not resolved | — | known limit: earlier interrupt-table initializer and its ownership (integration roadmap section 3; not owner-confirmed) |
-| SHENMUE | MK-51059 | 2,632 | refused | refused | Maple driver family not resolved | no profile: CD music Off |  |
+| SHENMUE | MK-51059 | 2,632 | refused | refused | Maple driver family not resolved | — (only short layout tracks) |  |
 | SHENMUE | MK-51059 | 4,936 | refused | refused | Maple driver family not resolved | no profile: CD music Off |  |
-| SHENMUE2 EU | MK-5118450 | 3,121 | refused | refused | Maple driver family not resolved | no profile: CD music Off |  |
-| SOUL REAVER | T36802N | 3,374 | refused | refused | 284 KiB lease does not fit | no profile: CD music Off |  |
+| SHENMUE2 EU | MK-5118450 | 3,121 | refused | refused | Maple driver family not resolved | — (only short layout tracks) |  |
+| SOUL REAVER | T36802N | 3,374 | refused | refused | 284 KiB lease does not fit | — (only short layout tracks) |  |
 | QUAKE III ARENA | MK-51061 | 96 | not established (loader) | not established (loader) | boot file is only a loader; the stage binds the loader, not the program it starts. Its programs: Q3_USA.BIN (1,285 KiB) terminal exits not resolved; INTRO.BIN (346 KiB) terminal exits not resolved | no profile: CD music Off |  |
-| TEST DRIVE LE MANS | T15123N | 105 | not established (loader) | not established (loader) | boot file is only a loader; the stage binds the loader, not the program it starts. Its programs: LEMANS24.BIN (2,229 KiB) Maple layout not resolved; FMV.BIN (487 KiB) SDK heap family not resolved | no profile: CD music Off |  |
+| TEST DRIVE LE MANS | T15123N | 105 | not established (loader) | not established (loader) | boot file is only a loader; the stage binds the loader, not the program it starts. Its programs: LEMANS24.BIN (2,229 KiB) Maple layout not resolved; FMV.BIN (487 KiB) SDK heap family not resolved | — (only short layout tracks) |  |
 | ARMADA | T40301N 00 | 1,224 | Windows CE reader | — |  | CE profile (Armada) | boots; intro movie playback is poor (under investigation) (Windows CE) |
 | BUST A MOVE 4 | T-8117N | 1,788 | Windows CE reader | — |  | CE profile (Bust-A-Move 4) |  |
 | NIGHTMARE CREATURES II | T9504M | 2,368 | Windows CE reader | — |  | no profile: CD music Off |  |
@@ -111,9 +111,13 @@ Also listed: 89 files in other image formats.
     also lacks the SDK SCI family).
   - One each: Omikron (heap initializer call), Generator 2 (exits; a demo disc
     whose menu starts several games).
-- **CD music is the largest missing feature.** 12 native games and Nightmare
-  Creatures II have CD-audio tracks and no CD-music profile, so they play with
-  CD music Off (where the game uses CD audio at all).
+- **CD music gaps are few.** Most "CD audio" discs hold only short silent
+  tracks that separate data tracks in the GD layout (6–9 seconds each); those
+  are marked "only short layout tracks". Real audio without a CD-music profile:
+  Quake III (16 tracks, about 44 minutes), Nightmare Creatures II (85 tracks),
+  Omikron (one 4.7-minute track), Frogger 2 (one 78-second track), Generator 2
+  (a demo disc) and Shenmue disc 4. Omikron ships the exact `AUDIO64.DRV` the
+  MDK2 CD-music adapter is built around.
 - **Loaders (Quake III, Test Drive Le Mans):** the boot file is a small Katana
   program that loads the game program to the same address and jumps to it.
   The stage binds hooks to the boot file only, so any Background or New

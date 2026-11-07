@@ -38,6 +38,7 @@ ARENA_SOURCES = ('tools/native_arena_plan_probe.c', 'src/core/vmu_native_heap.c'
                  'src/core/vmu_native_patch.c', 'src/core/hash.c', 'src/core/data.c')
 AUDIO_SOURCES = ('tools/library_audio_profile_probe.c', 'src/core/hash.c', 'src/core/data.c')
 SMASH_PRODUCT = 'MK-51146'
+PADDING_SECONDS = 10  # GD layouts separate data tracks with short silent audio tracks
 REQUESTS = ROOT / 'tools/kui-library-startup-requests.json'
 STAGE_BEGIN = 0x8ce00000
 NOTES = dict(sweep.GATE_NOTES, placement_384k='284 KiB lease does not fit',
@@ -93,10 +94,25 @@ def audio_profiles(files, work):
     return result
 
 
+def audio_seconds(blob):
+    """Lengths of a bundle's high-density audio tracks, from its startup-info.json."""
+    with zipfile.ZipFile(io.BytesIO(blob)) as archive:
+        infos = {info.filename: info for info in archive.infolist()}
+        if 'startup-info.json' not in infos:
+            return None
+        report = json.loads(sweep.bounded_read(archive, infos['startup-info.json'], sweep.INFO_LIMIT,
+                                               'startup-info.json'))
+    return [round((track['end_lba'] - track['start_lba']) / 75) for track in report.get('tracks', [])
+            if track.get('control') == 0 and track.get('start_lba', 0) >= 45000]
+
+
 def cd_music(row, profile):
     """What the launcher offers for CD music on this disc."""
     if not row.get('cdda_tracks'):
         return '—'
+    seconds = row.get('audio_seconds')
+    if seconds and max(seconds) <= PADDING_SECONDS:
+        return '— (only short layout tracks)'
     if product_key(row.get('product')) == SMASH_PRODUCT:
         return 'Smash collection route'
     if row.get('windows_ce'):
@@ -167,6 +183,8 @@ def build(parts, work, stage_end, console_path=CONSOLE):
                             path.write_bytes(data)
                             programs[digest] = path
                         row['programs'].append((name, digest))
+            if row['status'] == 'bundled' and row.get('cdda_tracks'):
+                row['audio_seconds'] = audio_seconds(blobs[row['archive']])
             if row['status'] == 'bundled' and row.get('windows_ce'):
                 key = row['startup_key']
                 if key not in kernels:
@@ -199,7 +217,8 @@ def build(parts, work, stage_end, console_path=CONSOLE):
             continue
         out = {key: row[key] for key in ('source', 'status', 'title', 'product', 'version', 'region',
                                          'disc', 'boot_filename', 'boot_bytes', 'boot_sha256',
-                                         'windows_ce', 'cdda_tracks', 'duplicate_of', 'error', 'format')
+                                         'windows_ce', 'cdda_tracks', 'audio_seconds', 'duplicate_of', 'error',
+                                         'format')
                if key in row}
         key = row.get('boot_sha256')
         if key in startups and row['status'] in ('bundled', 'already_sent') and not row.get('windows_ce'):
