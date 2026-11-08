@@ -183,6 +183,7 @@ static void packaged_kernel_rejections(bool cooked) {
 int main(int argc,char **argv) {
     int first=1;
     if(argc>1 && !strcmp(argv[1],"--wwp")) {packaged_profile=KUI_WINCE_CDDA_WORMS_WORLD_PARTY;++first;}
+    else if(argc>1 && !strcmp(argv[1],"--armada")) {packaged_profile=KUI_WINCE_CDDA_ARMADA;++first;}
     CHECK(argc>=first+2);
     if(strcmp(argv[first],"-")) {
         owner_kernel=read_whole(argv[first],&owner_bytes);

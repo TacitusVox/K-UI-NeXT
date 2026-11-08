@@ -1,4 +1,10 @@
 /* SPDX-License-Identifier: GPL-3.0-only */
+#if KUI_ARMADA_CE_MOVIE_TIMING
+/* Diagnostic only: the controller entry reaches this through a sampling
+ * wrapper of the same name (armada_ce_excerpt_entry.c); calls inside this
+ * unit use the unchanged core directly. */
+#define kui_armada_ce_stream_needs_deferred(...) kui_armada_ce_stream_needs_deferred_core(__VA_ARGS__)
+#endif
 #include "kui/target.h"
 #include "kui/armada_ce_excerpt.h"
 #include "kui/armada_ce_stream_seed.h"

@@ -63,7 +63,7 @@ static void armada_ce_audio_report(void) {
     retail_display_values("CMD FIRST LAST PLAYCUR WRITECUR",s->cursor,5);
 #endif
 }
-#if KUI_ARMADA_CE_STREAM
+#if KUI_ARMADA_CE_STREAM && !KUI_ARMADA_CE_MOVIE_TIMING
 static void armada_ce_audio_history(unsigned page) {
     /* Terminal execution has stopped: copy authored history only, without
      * sampling guest memory, clocks or native sound methods. */

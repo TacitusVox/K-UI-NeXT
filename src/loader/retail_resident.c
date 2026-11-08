@@ -1252,6 +1252,11 @@ armada_return_pages:
     retail_display_pause(900u); /* ~15 seconds at 60 Hz to capture the counters */
 #endif
 #if KUI_ARMADA_CE_STREAM && KUI_ARMADA_CE_AUDIO_OBSERVE
+#if KUI_ARMADA_CE_MOVIE_TIMING
+    /* The movie timing fits the first page; redraw it until power-off.
+     * The CD music history pages are omitted from this diagnostic only. */
+    goto armada_return_pages;
+#else
     /* Additional terminal pages retain the timing missing from a single
      * cumulative photograph. No game, card, clock or native audio resumes. */
     for(unsigned page=0;page<3u;page++) {
@@ -1261,6 +1266,7 @@ armada_return_pages:
     }
     /* Keep all terminal evidence available until physical power-off. */
     goto armada_return_pages;
+#endif
 #endif
     /* Leave through the boot ROM, as KOS arch_reboot() does, with interrupts
      * still masked: the console restarts and boots the K-UI disc in the drive.
@@ -1530,6 +1536,21 @@ static void meter_call(uint32_t started) {
     meter.shown[4] = decimal(service.diag.sectors_read);
     retail_display_status("CALLS    COMMAND  KIB/S    BUSY PCT SECTORS", meter.shown, 5);
 }
+#elif KUI_ARMADA_CE_MOVIE_TIMING
+/* Diagnostic build only: TMU0 ticks spent inside this reader's GD calls
+ * (words 0,1: ticks, calls) and its interrupt (words 2,3), added to a slot
+ * the high controller reserves and reports. No drawing, scheduling or
+ * timer configuration; a call or interrupt is far shorter than TMU0's
+ * period, so one wrap is the most it can see. */
+static void meter_add(uint32_t started, unsigned slot) {
+    volatile const uint32_t *tmu = (volatile const uint32_t *)(uintptr_t)TCOR0;
+    uint32_t ended = tmu[1], period = tmu[0] + 1u;
+    volatile uint32_t *acc = (volatile uint32_t *)(uintptr_t)KUI_ARMADA_CE_MOVIE_TIMING_ADDRESS;
+    acc[slot] += started >= ended ? started - ended : started + period - ended;
+    acc[slot + 1u]++;
+}
+static void meter_busy(uint32_t started) {meter_add(started, 2u);}
+static void meter_call(uint32_t started) {meter_add(started, 0u);}
 #else
 /* The full player keeps terminal counters in its high controller. Repeated
  * framebuffer drawing inside CE's masked reader competes with FMV audio and

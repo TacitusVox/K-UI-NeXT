@@ -339,6 +339,53 @@ int kui_armada_ce_stream_bind_native(struct kui_armada_ce_live_stream_api *out) 
     return status==KUI_ARMADA_CE_LIVE_OK;
 }
 #endif
+#if KUI_ARMADA_CE_MOVIE_TIMING
+#include "kui/armada_ce_movie_timing.h"
+#if !KUI_ARMADA_CE_STREAM || KUI_WINCE_CDDA_WORMS || KUI_WINCE_CDDA_BAM4 || KUI_WINCE_CDDA_WWP
+#error "Movie timing is an Armada stream diagnostic only"
+#endif
+static struct kui_armada_movie_timing movie;
+/* File scope keeps the audited terminal label tables' local names. */
+static const char movie_labels[4][40]={
+    "MOVIE-MS SECTORS KB/S READS STATUS", "CALL-MS IRQ-MS BUSY% CALLS IRQS",
+    "PEND-MS PEND% GAPMAX GAPS>90 PENDGAP", "1S-WINS PEAK% HOT>50 LOW-KB/S SAMPLES"};
+/* CE async resident: kui_retail_ce_kernel is pinned at 0x8c008324 by its
+ * linker script; word 2 is KData, whose millisecond count follows at +4. */
+#define MOVIE_CE_KERNEL_DATA 0x8c00832cu
+static void movie_sample(void) {
+    const struct kui_retail_gd *s=kui_armada_ce_stream_transport_service();
+    uint32_t kdata=*(volatile const uint32_t *)(uintptr_t)MOVIE_CE_KERNEL_DATA;
+    if(!s || !kdata) return;
+    volatile const uint32_t *acc=(volatile const uint32_t *)(uintptr_t)KUI_ARMADA_CE_MOVIE_TIMING_ADDRESS;
+    struct kui_armada_movie_input in={
+        *(volatile const uint32_t *)(uintptr_t)(kdata+4u),s->diag.last_lba,s->token,s->pending,
+        s->diag.sectors_read,{acc[0],acc[1],acc[2],acc[3]},
+        kui_armada_movie_ticks_per_ms(*(volatile const uint16_t *)(uintptr_t)0xffd80010u)};
+    kui_armada_movie_sample(&movie,&in);
+}
+/* The audited entry's bytes are unchanged: its existing calls to these two
+ * functions reach same-named wrappers. The poll wrapper samples before the
+ * player's unchanged answer; the terminal wrapper rewrites rows 3-6 of the
+ * first page after the frozen history copy. */
+int kui_armada_ce_stream_needs_deferred_core(void);
+void kui_armada_ce_stream_underrun_snapshot_core(struct kui_armada_ce_stream_underrun_snapshot *);
+__attribute__((noipa)) int kui_armada_ce_stream_needs_deferred(void) {
+    movie_sample();
+    return kui_armada_ce_stream_needs_deferred_core();
+}
+__attribute__((noipa)) void kui_armada_ce_stream_underrun_snapshot(
+        struct kui_armada_ce_stream_underrun_snapshot *out) {
+    kui_armada_ce_stream_underrun_snapshot_core(out);
+    uint32_t rows[4][5];
+    kui_armada_movie_rows(&movie,
+        kui_armada_movie_ticks_per_ms(*(volatile const uint16_t *)(uintptr_t)0xffd80010u),rows);
+    uint32_t *targets[4]={snapshot.context,snapshot.playback,snapshot.buffer,snapshot.cursor};
+    for(unsigned r=0;r<4u;r++) {
+        for(unsigned c=0;c<5u;c++) targets[r][c]=rows[r][c];
+        snapshot.report_labels[2u+r]=(uint32_t)(uintptr_t)movie_labels[r];
+    }
+}
+#endif
 static void capture_audio(void) {
     kui_armada_ce_excerpt_snapshot(&audio);
     snapshot.context[0]=audio.caller_sr;snapshot.context[1]=audio.caller_fpscr;

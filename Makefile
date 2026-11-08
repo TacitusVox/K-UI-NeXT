@@ -1511,6 +1511,12 @@ build/test-games-cdda-status: tests/test_games_cdda_status.c include/kui/games_c
 	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) $< -o $@
 
 .PHONY: test-retail-map-diagnostic
+.PHONY: test-armada-ce-movie-timing
+test-armada-ce-movie-timing: build/test-armada-ce-movie-timing
+	./build/test-armada-ce-movie-timing
+build/test-armada-ce-movie-timing: tests/test_armada_ce_movie_timing.c include/kui/armada_ce_movie_timing.h
+	@mkdir -p $(@D)
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) tests/test_armada_ce_movie_timing.c -o $@
 build/test-wince-packaged-prepare: tests/test_wince_packaged_prepare.c tests/test_armada_ce_excerpt_prepare.c src/apps/games_retail.c $(ARMADA_PREPARE_TEST_SOURCES) include/kui/wince_cdda_profiles.h include/kui/armada_ce_stream_seed.h include/kui/games_retail.h include/kui/wince_cdda_wwp_kernel.h
 build/test-wince-packaged-prepare: src/apps/games_native_cache.inc
 	@mkdir -p $(@D)

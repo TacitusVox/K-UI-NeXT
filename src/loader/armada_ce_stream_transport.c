@@ -264,6 +264,11 @@ enum kui_armada_ce_stream_transport_status kui_armada_ce_stream_transport_cancel
     return KUI_ARMADA_CE_STREAM_TRANSPORT_CANCELLED;
 }
 bool kui_armada_ce_stream_transport_attached(void) { return t.stats.attached==1u; }
+#if KUI_ARMADA_CE_MOVIE_TIMING
+const struct kui_retail_gd *kui_armada_ce_stream_transport_service(void) {
+    return t.stats.attached==1u ? &t.bus.region->shared.service : NULL;
+}
+#endif
 uint32_t kui_armada_ce_stream_transport_event(uint32_t event,uintptr_t argument) {
 #if KUI_ARMADA_CE_VMU_WRITE_RUNTIME
     if(event==KUI_ARMADA_CE_STREAM_BUS_STORAGE_CLAIM) {
