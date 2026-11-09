@@ -23,20 +23,46 @@ audio path; it only counts where time goes while the movie streams.
   history pages are dropped from this build only, to fit the low reader.
 
 Built from published `e20eae43` with `KUI_ARMADA_CE_MOVIE_TIMING=1`; the
-normal Armada reader rebuilds byte-identical and the Worms, Bust-A-Move and
-Worms World Party readers still pass their audits.
+normal Armada reader rebuilds identical except its build ID, and the Worms,
+Bust-A-Move and Worms World Party readers still pass their audits.
+`KUI_ARMADA_CE_MOVIE_TIMING_PARTS=low|high` builds one half alone.
+
+## Why the first two timing readers stopped
+
+`df69c40` and `5cd7014` both stopped at Entering Windows CE, with a fresh
+published GUI and with the owner's working GUI `00d8ed67d9ad`. The GUI was
+not the cause. In both, eleven calls into the low reader's SD delivery chain
+(`_place`, `_drain`, `_piece`, `_deliver`) landed four bytes into the callee,
+skipping its first register pushes, so the callee popped registers it never
+saved. The counters moved a literal word that relaxation deletes to just
+before those functions, and `sh-elf` ld 2.45.1 left section+addend calls to
+them stale. It is the same fault as Chat's `67b0df9` VMU-Off reader: its
+`4d893b3` repair changed exactly eleven such displacements by four bytes and
+booted.
+
+When the low-reader counters are built in, the low reader's LTRANS is
+assembled with `--renesas` (as the WWP adapter already does) so named callee
+relocations relax correctly, the link keeps its relocations (`-Wl,-q`), and
+[`tools/check_relaxed_calls.py`](../tools/check_relaxed_calls.py) fails the
+build if any real `bra`/`bsr` enters another function mid-way. Reader
+`689b6572affb` (payload CRC32 `B285267E`): 323 branch sites, none affected;
+it differs from `5cd701429f0a` only in those eleven displacements and the
+build ID. `make test-check-relaxed-calls` covers the gate.
+
+The same gate finds eight such calls (`_step`, `_file_read`, `_data_header`,
+`_read_run`) in the published synchronous SCI resident embedded in the
+Armada CD-music reader. That resident serves only the Standard reader on
+SCI; the Background reader (`resident-scia`) has none. It is unchanged here
+and not yet console-checked; a Standard-reader WinCE CD-music launch would
+be expected to fail.
 
 ## GUI
 
 Use the owner's working GUI `00d8ed67d9ad` (from
 `KUI-Armada-VMU-Off-Fix-07NOV2026-1325-CST-4d893b3.zip`) and replace only
 `ce-cdda-armada.kui`; with that GUI, Virtual VMU Off selects this reader.
-The first delivery paired the reader with a fresh build of the published
-GUI. That GUI predates the November 6 23:48 WinCE track-map change (its
-strings lack the "Windows CE background map ... tracks and their data
-extents" handling), and the console stopped at Entering Windows CE. That
-pairing is unproven for WinCE on this card; whether the GUI or the old
-counter slot caused the stop was not isolated.
+`KUI-Armada-Movie-Timing-08NOV2026-2208-CST-689b657.zip` is that set with
+only this reader changed.
 
 ## Report rows (decimal)
 
