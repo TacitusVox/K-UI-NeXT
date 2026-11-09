@@ -174,6 +174,44 @@ on 4,000 blocks under qemu-sh4. The controller is byte-identical to
 Expected: IRQ-MS falls by roughly a tenth and BUSY to about 17-18%; the
 stream counts stay similar.
 
+## Third result: fast check, reader 8cdbc0a351f8 (9 Nov 2026)
+
+Same route and GUI. Owner: overall it sounds great; a tiny bit of static
+in the background at certain points, possibly present in the original.
+
+| Value | 5d92a111 | 8cdbc0a3 |
+| --- | --- | --- |
+| Movie window | 119,325 ms; 30,314 sectors; 508 KB/s; 1,323 reads | 119,525 ms; 30,328 sectors; 507 KB/s; 1,333 reads |
+| GD calls / interrupt | 3,867 / 19,985 ms | 3,693 / 17,457 ms |
+| BUSY / PEND / busiest second | 19% / 75% / 35% | 17% / 75% / 26% |
+| Calls / interrupts / samples | 20,865 / 142,662 / 19,543 | 20,537 / 142,664 / 19,205 |
+| DMA-OK / POLLED / OVERRUN / RESTART | 136,693 / 2,640 / 5,898 / 6,042 | 136,939 / 2,489 / 5,631 / 5,791 |
+| CRC-ERR / REPAIR | 10 / 73 | 22 / 95 |
+| SLOW-OK / SLOWOVR | 98,520 / 2,646 | 98,979 / 2,504 |
+| TOKBYTES / YIELDS | 1,995,011 / 6,212 | 1,942,599 / 5,993 |
+| OVRTICKS / MAXTICK / RUN-MS / GAPMAX | 2,797 / 13 / 450 / 525 | 2,749 / 14 / 300 / 525 |
+
+The two runs read the same movie the same way (sectors and reads within
+0.8%). Interrupt time fell 2,528 ms (12.6%): 140 to 122 us per interrupt.
+For about 21% fewer instructions per block, that saving puts the block
+check at roughly 85 us per block before and 67 us now, so it was a larger
+share than estimated above and is still about half of the interrupt time
+(an inference from the totals, not a separate timing). CRC-ERR also counts
+resumed blocks, which take refuses by design and reads again; it moved
+with REPAIR. One run's change of this size is not yet a trend.
+
+## Next: Virtual VMU On
+
+The owner needs Virtual VMU On. That route loads
+`ce-armada-all-on.kui` (build `67b0df9469cc`, payload CRC32 `073826F5`),
+which has neither measured change. Its source and the GUI `00d8ed67d9ad`
+source were not recovered from the earlier session (Chat's 8 Nov
+handoff); only a partial reconstruction of the combined CD music and
+virtual A2 build survives. Carrying the two changes into VMU On is
+therefore a rebuild from the published source and that reconstruction:
+new work that needs its own console check of launch, CD music, the movie
+and virtual card save/load.
+
 ## Decision
 
 - **BUSY% high (about 20% or more), or many HOT>50 windows:** K-UI's per-block
