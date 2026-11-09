@@ -21,12 +21,26 @@ WINCE_CDDA_CONTROLLER_BEGIN ?= 0x8cfa7000
 # Diagnostic only (Armada): K-UI's time in its GD calls and interrupt during
 # the intro movie. The low reader keeps TMU0 tick totals in its own region;
 # the controller reads them through its attached bus and reports them.
+# KUI_ARMADA_CE_MOVIE_TIMING_PARTS isolates a half for a boot check: low
+# (the low reader's counters only) or high (the controller's sampling only).
+KUI_ARMADA_CE_MOVIE_TIMING_PARTS ?= both
 ifeq ($(KUI_ARMADA_CE_MOVIE_TIMING),1)
 ifneq ($(KUI_WINCE_CDDA_PROFILE),)
 $(error Movie timing is an Armada diagnostic only)
 endif
-override ARMADA_AUDIO_DIR := build/armada-ce-movie-timing
 WINCE_CDDA_PROFILE_FLAGS += -DKUI_ARMADA_CE_MOVIE_TIMING=1
+ifeq ($(KUI_ARMADA_CE_MOVIE_TIMING_PARTS),both)
+override ARMADA_AUDIO_DIR := build/armada-ce-movie-timing
+WINCE_CDDA_PROFILE_FLAGS += -DKUI_ARMADA_CE_MOVIE_TIMING_LOW=1 -DKUI_ARMADA_CE_MOVIE_TIMING_HIGH=1
+else ifeq ($(KUI_ARMADA_CE_MOVIE_TIMING_PARTS),low)
+override ARMADA_AUDIO_DIR := build/armada-ce-movie-timing-low
+WINCE_CDDA_PROFILE_FLAGS += -DKUI_ARMADA_CE_MOVIE_TIMING_LOW=1
+else ifeq ($(KUI_ARMADA_CE_MOVIE_TIMING_PARTS),high)
+override ARMADA_AUDIO_DIR := build/armada-ce-movie-timing-high
+WINCE_CDDA_PROFILE_FLAGS += -DKUI_ARMADA_CE_MOVIE_TIMING_HIGH=1
+else
+$(error KUI_ARMADA_CE_MOVIE_TIMING_PARTS must be both, low or high)
+endif
 endif
 override ARMADA_AUDIO_EXTRA_FLAGS := -DKUI_ARMADA_CE_EXCERPT=1 -DKUI_ARMADA_CE_STREAM=1 $(WINCE_CDDA_PROFILE_FLAGS)
 override ARMADA_AUDIO_EXTRA_STAGE_FLAGS := -DKUI_ARMADA_CE_RAM_BIND_STAGE=1 -DKUI_ARMADA_CE_EXCERPT_STAGE=1 -DKUI_ARMADA_CE_STREAM=1 -DKUI_RETAIL_EXTENDED_MAP=1 $(WINCE_CDDA_PROFILE_FLAGS)

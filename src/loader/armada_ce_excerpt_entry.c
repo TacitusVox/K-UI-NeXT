@@ -339,7 +339,7 @@ int kui_armada_ce_stream_bind_native(struct kui_armada_ce_live_stream_api *out) 
     return status==KUI_ARMADA_CE_LIVE_OK;
 }
 #endif
-#if KUI_ARMADA_CE_MOVIE_TIMING
+#if KUI_ARMADA_CE_MOVIE_TIMING_HIGH
 #include "kui/armada_ce_movie_timing.h"
 #if !KUI_ARMADA_CE_STREAM || KUI_WINCE_CDDA_WORMS || KUI_WINCE_CDDA_BAM4 || KUI_WINCE_CDDA_WWP
 #error "Movie timing is an Armada stream diagnostic only"

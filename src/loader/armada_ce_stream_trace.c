@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: GPL-3.0-only */
-#if KUI_ARMADA_CE_MOVIE_TIMING
+#if KUI_ARMADA_CE_MOVIE_TIMING_HIGH
 /* Diagnostic only: the controller entry reaches this through a sampling
  * wrapper of the same name (armada_ce_excerpt_entry.c); calls inside this
  * unit use the unchanged core directly. */

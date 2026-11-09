@@ -1252,7 +1252,7 @@ armada_return_pages:
     retail_display_pause(900u); /* ~15 seconds at 60 Hz to capture the counters */
 #endif
 #if KUI_ARMADA_CE_STREAM && KUI_ARMADA_CE_AUDIO_OBSERVE
-#if KUI_ARMADA_CE_MOVIE_TIMING
+#if KUI_ARMADA_CE_MOVIE_TIMING_LOW
     /* The movie timing fits the first page; redraw it until power-off.
      * The CD music history pages are omitted from this diagnostic only. */
     goto armada_return_pages;
@@ -1536,7 +1536,7 @@ static void meter_call(uint32_t started) {
     meter.shown[4] = decimal(service.diag.sectors_read);
     retail_display_status("CALLS    COMMAND  KIB/S    BUSY PCT SECTORS", meter.shown, 5);
 }
-#elif KUI_ARMADA_CE_MOVIE_TIMING
+#elif KUI_ARMADA_CE_MOVIE_TIMING_LOW
 /* Diagnostic build only: TMU0 ticks spent inside this reader's GD calls
  * (words 0,1: ticks, calls) and its interrupt (words 2,3), kept in this
  * reader's own region; the high controller reads them through its bus.
