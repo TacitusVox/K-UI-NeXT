@@ -110,6 +110,11 @@ override ARMADA_AUDIO_EXTRA_FLAGS += -DKUI_ARMADA_CE_MOVIE_TIMING=1 -DKUI_ARMADA
 override ARMADA_AUDIO_EXTRA_STAGE_FLAGS += -DKUI_ARMADA_CE_MOVIE_TIMING=1
 ARMADA_A2_HOOK_TIMING_FLAGS := -DKUI_ARMADA_CE_HOOK_TIMING=1
 ARMADA_A2_TIMING_CHECK := --timing
+# The controller's movie rows read the reader's 6.25 MHz counters only when
+# compiled with the same reader change (a measurement view, no behavior).
+ifeq ($(ARMADA_CDDA_VMU_READER_FIXES),1)
+ARMADA_STREAM_EXTRA_FLAGS += -DKUI_CE_SCI_SLOW_AFTER_OVERRUN=1
+endif
 else ifneq ($(ARMADA_CDDA_VMU_TIMING),0)
 $(error ARMADA_CDDA_VMU_TIMING must be 0 or 1)
 endif
