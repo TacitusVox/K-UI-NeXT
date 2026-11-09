@@ -116,6 +116,11 @@
 /* STREAM only: immutable entry word naming the checked SCI bus descriptor.
  * The stage attaches it after bootstrap/controller/pool checks pass. */
 #define KUI_RETAIL_CE_STREAM_BUS 0x8c008334
+#if KUI_ARMADA_CE_CDDA_VMU
+#define KUI_ARMADA_CE_CDDA_VMU_SPILL_P1 0x8cfc0000
+#define KUI_ARMADA_CE_CDDA_VMU_SPILL_P2 0xacfc0000
+#define KUI_ARMADA_CE_CDDA_VMU_SPILL_BYTES 2048
+#endif
 #if KUI_RETAIL_LOW_RESIDENT && !defined(KUI_RETAIL_CE)
 #undef KUI_RETAIL_RESIDENT_ADDRESS
 #undef KUI_RETAIL_STANDARD_LIMIT

@@ -247,6 +247,29 @@ STREAM_BUS_VALID_BYTES = bytes.fromhex(
     "f35408200b8df4548362147f264ff66ef66df66cf66bf66af6692b42f66800e0147f"
     "264ff66ef66df66cf66bf66af6690b00f668c454a045007dff7300000000")
 STREAM_BUS_RELAY_BYTES = bytes.fromhex("02d0536700e643652b40fee400000000")
+# The combined CD music + writable virtual A2 build (Makefile.armada-cdda-vmu)
+# moves the 2 KiB CE data spill out of the low region to a fixed P2 page and
+# raises the low data limit for the VMU write runtime. The only change in the
+# pinned guard is its one halfword constant (limit - 0x8c008300 - region
+# bytes); the delivered 67b0df9 all-on controller carries the same bytes.
+LOW_LIMIT, LOW_REGION_BYTES = 0x8c00d800, 0xf60
+CDDA_VMU_LOW_LIMIT, CDDA_VMU_LOW_REGION_BYTES = 0x8c00dc00, 0xf60 - 0x800
+STREAM_BUS_VALID_SPAN_OFFSET = 0x126
+
+
+def low_layout(cdda_vmu=False):
+    return (CDDA_VMU_LOW_LIMIT, CDDA_VMU_LOW_REGION_BYTES) if cdda_vmu else (LOW_LIMIT, LOW_REGION_BYTES)
+
+
+def stream_bus_valid_bytes(cdda_vmu=False):
+    expected = bytearray(STREAM_BUS_VALID_BYTES)
+    at = STREAM_BUS_VALID_SPAN_OFFSET
+    if struct.unpack_from("<H", expected, at)[0] != LOW_LIMIT - 0x8c008300 - LOW_REGION_BYTES:
+        raise ValueError("Pinned stream bus guard lost its low-span constant")
+    if cdda_vmu:
+        limit, region_bytes = low_layout(True)
+        struct.pack_into("<H", expected, at, limit - 0x8c008300 - region_bytes)
+    return bytes(expected)
 
 # Whole linked bootstrap handoff bodies, reviewed for the stage's original
 # immutable-code/BSS/source checks followed by the sole activation call.
@@ -601,6 +624,10 @@ def audit_bam4_stage_literals(code, image, *, original_literals=False, photo_hol
 # checking two constants in otherwise unaudited code would be insufficient.
 MAP_BYTES = 220
 MAP_SHA256 = "d0c40ff2abc2a371a56ab0e801f3b41ba83c6ef3e475b710e11adf2d651f5349"
+# Combined CD music + virtual A2: the same guard also refuses the Maple/VMU
+# reservation. Byte-identical (all 224 bytes, same address) to the guard in
+# the delivered 67b0df9469cc all-on reader that booted on the owner's console.
+MAP_SHA256_CDDA_VMU = "8047a79311fc7571667543102554c8e772e3a1d09a131951384c82aac3fee852"
 SEED_HEADER = struct.pack("<16I", 0x31584543, 1, PCM_BYTES, 0,
                           SECTORS, START_LBA, *([0] * 10))
 STREAM_SEED_HEADER = struct.pack("<16I", 0x32584543, 2, 0x8cf50040,
@@ -817,7 +844,7 @@ def audit_stream_contract(image, *, worms=False):
             "pcm_code_ranges_disjoint": True}
 
 
-def audit_map_guard(image, sizes, *, worms=False):
+def audit_map_guard(image, sizes, *, worms=False, cdda_vmu=False):
     start = image["symbols"].get("_map_guest", 0)
     span = sizes.get("_map_guest") or (0, 0)
     if span[0] != start or span[1] < MAP_BYTES:
@@ -832,7 +859,7 @@ def audit_map_guard(image, sizes, *, worms=False):
             if code[offset:offset + 4] != struct.pack('<I', expected):
                 raise ValueError('Worms direct-RAM pool guard literal changed')
             code[offset:offset + 4] = struct.pack('<I', original)
-    if hashlib.sha256(code).hexdigest() != MAP_SHA256:
+    if hashlib.sha256(code).hexdigest() != (MAP_SHA256_CDDA_VMU if cdda_vmu else MAP_SHA256):
         raise ValueError("Linked direct-RAM pool exclusion has changed; review required")
 
 
@@ -979,13 +1006,15 @@ def audit_stream_native_code(image, locals, *, worms=False):
             "native_code_main_ram_admission_pinned": True}
 
 
-def audit_stream_bus(controller, controller_locals, resident, resident_spans, *, worms=False):
+def audit_stream_bus(controller, controller_locals, resident, resident_spans, *, worms=False,
+                     cdda_vmu=False):
     """Admit the exact low descriptor, relay and high pre-dereference guard."""
     STREAM_BASE, _, _, _ = stream_layout(worms=worms)
+    low_limit, low_region_bytes = low_layout(cdda_vmu)
     unit = "armada_ce_stream_transport.c"
     high_payload, low_payload = controller["payload"], resident["payload"]
     for name, expected in (("_low_code", STREAM_LOW_CODE_BYTES),
-                           ("_bus_valid", STREAM_BUS_VALID_BYTES)):
+                           ("_bus_valid", stream_bus_valid_bytes(cdda_vmu))):
         start, count = controller_locals.get((unit, name), (0, 0))
         if (start % 4 or count != len(expected) or
                 not STREAM_BASE <= start <= STREAM_BASE + len(high_payload) - count):
@@ -1004,9 +1033,9 @@ def audit_stream_bus(controller, controller_locals, resident, resident_spans, *,
     region_start, region_bytes = resident_spans.get("_kui_retail_async_region") or (0, 0)
     if (descriptor_bytes != 60 or descriptor % 4 or symbols.get(descriptor_name) != descriptor or
             not 0x8c008300 <= descriptor <= 0x8c008300 + len(low_payload) - 60 or
-            region_start % 32 or region_bytes != 0xf60 or
+            region_start % 32 or region_bytes != low_region_bytes or
             symbols.get("_kui_retail_async_region") != region_start or
-            not 0x8c008300 <= region_start <= 0x8c00d800 - region_bytes):
+            not 0x8c008300 <= region_start <= low_limit - region_bytes):
         raise ValueError("Missing exact immutable low bus descriptor/region")
     targets = []
     for callback in STREAM_BUS_CALLBACKS:
@@ -1151,7 +1180,10 @@ def audit_stream_boot_arm(controller, controller_spans, resident, resident_spans
             "photo_hold_frames": photo_frames, "only_final_photo_hold_removed": not photo_hold}
 
 
-def check(directory, *, stream=False, bam4=False, worms=False, wwp=False):
+def check(directory, *, stream=False, bam4=False, worms=False, wwp=False, cdda_vmu=False):
+    if cdda_vmu and (not stream or bam4 or worms or wwp):
+        raise ValueError('The combined Armada CD music and virtual A2 audit is an Armada stream audit')
+    low_limit, _ = low_layout(cdda_vmu)
     if sum((bam4, worms, wwp)) > 1:
         raise ValueError('Select only one WinCE title profile')
     if (bam4 or worms or wwp) and not stream:
@@ -1219,16 +1251,22 @@ def check(directory, *, stream=False, bam4=False, worms=False, wwp=False):
         raise ValueError("Missing pre-boot admitted CE loader")
 
     resident_elf = (directory / "resident-scia.elf").read_bytes()
-    resident = inspect_elf(resident_elf, 0x8c008300, 0x8c00d800)
+    resident = inspect_elf(resident_elf, 0x8c008300, low_limit)
     stream_bus = audit_stream_bus(controller, controller_locals, resident,
-                                   function_sizes(resident_elf, kinds=(1, 2)), worms=worms) if stream else None
+                                   function_sizes(resident_elf, kinds=(1, 2)), worms=worms,
+                                   cdda_vmu=cdda_vmu) if stream else None
+    # The pinned boot bodies are the CD-music-only module's. The combined
+    # build adds the loan claim/release to the event relay, the A2 relay to the
+    # stage and the larger low limit to the resident; no independent pinned
+    # reference exists for those bodies, so this proof is reported as absent.
     stream_boot_arm = audit_stream_boot_arm(controller, controller_sizes, resident,
                           function_sizes(resident_elf, kinds=(1, 2)), stage,
                           function_sizes(stage_elf, kinds=(1, 2)), bam4=bam4, worms=worms,
-                          wwp=wwp) if stream else None
+                          wwp=wwp) if stream and not cdda_vmu else (
+                          "not established for the combined CD music and virtual A2 build" if cdda_vmu else None)
     if resident["symbols"].get("_kui_armada_ce_bind_probe") != controller_base:
         raise ValueError("Resident controller call target moved")
-    audit_map_guard(resident, function_sizes(resident_elf), worms=worms)
+    audit_map_guard(resident, function_sizes(resident_elf), worms=worms, cdda_vmu=cdda_vmu)
     _, calls = load(sorted((directory / "scia/lto").glob("*.ci")), qualified=wwp)
     sources = {base(source) for source, edges in calls.items()
                if any(base(target) == "kui_armada_ce_bind_probe" for target, _ in edges)}
@@ -2034,6 +2072,8 @@ def main():
     parser.add_argument("--bam4", action="store_true", help="Use the exact Bust-A-Move 4 US kernel profile")
     parser.add_argument("--worms", action="store_true", help="Use the exact Worms Armageddon US kernel profile")
     parser.add_argument("--wwp", action="store_true", help="Use the exact Worms World Party US kernel profile")
+    parser.add_argument("--cdda-vmu", action="store_true",
+                        help="Armada stream with the writable virtual A2 (combined low layout)")
     parser.add_argument('--wwp-drive-link', type=Path, metavar='ELF',
                         help='Emit one checked WWP scalar linker assignment from the controller ELF')
     args = parser.parse_args()
@@ -2049,8 +2089,8 @@ def main():
     if args.self_test:
         print(f"PASS Armada excerpt linked-auditor self-test: {self_test()} checks")
     if args.directory:
-        print(json.dumps(check(args.directory, stream=args.stream, bam4=args.bam4,
-                               worms=args.worms, wwp=args.wwp), indent=2))
+        print(json.dumps(check(args.directory, stream=args.stream or args.cdda_vmu, bam4=args.bam4,
+                               worms=args.worms, wwp=args.wwp, cdda_vmu=args.cdda_vmu), indent=2))
     elif not args.self_test:
         parser.error("Provide a build directory or --self-test")
 

@@ -1210,7 +1210,7 @@ armada_return_pages:
     terminal_row("PERIOD VBI COST16 STILL", image.block + 20, 4);
 #endif
 #endif
-#if KUI_ARMADA_CE_MAPLE_OBSERVE && KUI_ARMADA_CE_MAPLE_PROOF
+#if KUI_ARMADA_CE_MAPLE_OBSERVE && KUI_ARMADA_CE_MAPLE_PROOF && !KUI_ARMADA_CE_CDDA_VMU
     /* Only authored snapshots are displayed. No fresh CE/cache/card reads
      * or game/storage execution occur between these terminal pages. */
     retail_display_line(
@@ -1235,7 +1235,7 @@ armada_return_pages:
     armada_ce_maple_page^=1u;
 #endif
     goto armada_return_pages;
-#elif KUI_RETAIL_RETURN_TRACE || KUI_ARMADA_CE_MAPLE_OBSERVE
+#elif KUI_RETAIL_RETURN_TRACE || (KUI_ARMADA_CE_MAPLE_OBSERVE && !KUI_ARMADA_CE_CDDA_VMU)
 #if KUI_RETAIL_RETURN_TRACE == 3
     retail_display_line("PHOTO POWER CYCLE");
 #else
@@ -1264,6 +1264,15 @@ armada_return_pages:
         armada_ce_audio_history(page);
         retail_display_pause(300u);
     }
+#if KUI_ARMADA_CE_CDDA_VMU
+    retail_display_restore(&display);
+    /* The hook's A2 log (armada_ce_vmu_a2_write.ld.S): six rows of five
+     * words; INFO..FINALIZE is the second row and the fault the sixth. */
+    const uint32_t *a2=(const void *)(uintptr_t)UINT32_C(0xacfcff00);
+    retail_display_values("A2 INFO ALLINFO MEDIA READ FINALIZE",a2+5,5);
+    retail_display_values("A2 FAULT WHY AT VALUE EXPECT DETAIL",a2+25,5);
+    retail_display_pause(300u);
+#endif
     /* Keep all terminal evidence available until physical power-off. */
     goto armada_return_pages;
 #endif

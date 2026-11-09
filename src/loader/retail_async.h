@@ -160,7 +160,9 @@ struct kui_retail_async_shared {
 struct kui_retail_async_region {
     uint8_t area0[KUI_SCI_STREAM_AREA_BYTES] __attribute__((aligned(32)));
     uint8_t area1[KUI_SCI_STREAM_AREA_BYTES] __attribute__((aligned(32)));
+#if !KUI_ARMADA_CE_CDDA_VMU
     uint8_t spill[KUI_RETAIL_ASYNC_SPILL_BYTES];
+#endif
     struct kui_retail_async engine;
     struct kui_retail_async_shared shared;
 #if KUI_ARMADA_CE_MOVIE_TIMING

@@ -450,6 +450,12 @@ static void place(const uint8_t *bytes, uint32_t count) {
     kui_retail_ce_payload_copy(out,bytes,count);
     e.piece_filled += count;
 }
+#if KUI_ARMADA_CE_CDDA_VMU
+_Static_assert(KUI_RETAIL_ASYNC_SPILL_BYTES==KUI_ARMADA_CE_CDDA_VMU_SPILL_BYTES,"combined spill size");
+#define CE_DATA_SPILL ((uint8_t *)(uintptr_t)KUI_ARMADA_CE_CDDA_VMU_SPILL_P2)
+#else
+#define CE_DATA_SPILL (R.spill)
+#endif
 /* Drain oldest bytes first, and touch virtual destinations only while CE's
  * own call supplies their address space. A finished cursor may still have
  * a queued tail, so draining does not depend on e.active. */
@@ -460,7 +466,7 @@ static void drain(void) {
         if(n > e.spill_bytes) n = e.spill_bytes;
         uint32_t contiguous = KUI_RETAIL_ASYNC_SPILL_BYTES - e.spill_from;
         if(n > contiguous) n = contiguous;
-        place(R.spill + e.spill_from, n);
+        place(CE_DATA_SPILL + e.spill_from, n);
         if(e.failed) return;
         e.spill_from = (e.spill_from + n) & (KUI_RETAIL_ASYNC_SPILL_BYTES - 1u);
         e.spill_bytes -= n;
@@ -486,7 +492,7 @@ static void write_out(void *unused, uint32_t offset, const uint8_t *bytes, uint3
         uint32_t at = (e.spill_from + e.spill_bytes) & (KUI_RETAIL_ASYNC_SPILL_BYTES - 1u);
         uint32_t n = KUI_RETAIL_ASYNC_SPILL_BYTES - at;
         if(n > count) n = count;
-        memcpy(R.spill + at, bytes, n);
+        memcpy(CE_DATA_SPILL + at, bytes, n);
         e.spill_bytes += n; bytes += n; count -= n;
     }
     if(e.spill_bytes > e.queue_highwater) e.queue_highwater = e.spill_bytes;

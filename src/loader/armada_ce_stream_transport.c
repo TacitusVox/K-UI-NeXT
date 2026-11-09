@@ -114,8 +114,11 @@ bool kui_armada_ce_stream_transport_init(const struct kui_retail_manifest *map,
        kui_retail_manifest_validate(map)!=KUI_GAME_OK) return false;
 #ifndef KUI_ARMADA_CE_STREAM_TRANSPORT_TEST
     if(!((first==KUI_ARMADA_CE_STREAM_SOURCE_BEGIN &&
-          end==KUI_ARMADA_CE_STREAM_SOURCE_BEGIN+KUI_ARMADA_CE_STREAM_SOURCE_BYTES) ||
-         (first==KUI_ARMADA_CE_STREAM_WORK_BEGIN && end==KUI_ARMADA_CE_STREAM_WORK_END))) return false;
+          end==KUI_ARMADA_CE_STREAM_SOURCE_BEGIN+KUI_ARMADA_CE_STREAM_SOURCE_BYTES)
+#if !KUI_ARMADA_CE_CDDA_VMU
+         || (first==KUI_ARMADA_CE_STREAM_WORK_BEGIN && end==KUI_ARMADA_CE_STREAM_WORK_END)
+#endif
+        )) return false;
 #endif
     t.map=map;t.first=first;t.end=end;t.initialized=1u;return true;
 }

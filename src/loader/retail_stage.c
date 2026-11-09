@@ -149,10 +149,21 @@ const uint32_t kui_armada_ce_bind_stage_contract
 #endif
 #endif
 #if KUI_ARMADA_CE_MAPLE_HOOK_STAGE
-#if KUI_ARMADA_CE_MAPLE_HOOK_STAGE != 1 || !KUI_ARMADA_CE_RAM_BIND_STAGE || !KUI_ARMADA_CE_MAPLE_OBSERVE || KUI_ARMADA_CE_EXCERPT_STAGE
+#if KUI_ARMADA_CE_MAPLE_HOOK_STAGE != 1 || !KUI_ARMADA_CE_RAM_BIND_STAGE || !KUI_ARMADA_CE_MAPLE_OBSERVE || (KUI_ARMADA_CE_EXCERPT_STAGE && !KUI_ARMADA_CE_CDDA_VMU)
 #error "Maple completion observer requires its separate exact Armada stage"
 #endif
 #include "kui/armada_ce_maple_reservation.h"
+#if KUI_ARMADA_CE_CDDA_VMU
+#if !KUI_ARMADA_CE_EXCERPT_STAGE || !KUI_ARMADA_CE_STREAM || !KUI_ARMADA_CE_VMU_WRITE_RUNTIME
+#error "Combined Armada stage requires the admitted stream and writable A2"
+#endif
+_Static_assert(KUI_ARMADA_CE_CDDA_VMU_SPILL_P1==KUI_ARMADA_CE_STREAM_WORK_BEGIN &&
+    KUI_ARMADA_CE_CDDA_VMU_SPILL_P1+KUI_ARMADA_CE_CDDA_VMU_SPILL_BYTES<=KUI_MAPLE_RESERVE_BEGIN,
+    "Combined stage spill and VMU separation");
+#define ARMADA_MAPLE_RAM_END KUI_ARMADA_CE_EXCERPT_POOL_BEGIN
+#else
+#define ARMADA_MAPLE_RAM_END KUI_MAPLE_RESERVE_BEGIN
+#endif
 #if KUI_ARMADA_CE_MAPLE_WRITE_LAYOUT
 /* ELF-only source-profile witness; the default image has no new bytes or
  * symbol. Package admission pairs this exact TU with the expanded helper. */
@@ -816,9 +827,9 @@ static void armada_maple_hook_reserve(void) {
        kui_armada_ce_vmu_runtime_services_validate(services))
         stopped("CE VMU RESIDENT SERVICES COPY REFUSED",0);
 #endif
-    *(volatile uint32_t *)(uintptr_t)plan.ram_end_word=plan.ram_end;
+    *(volatile uint32_t *)(uintptr_t)plan.ram_end_word=ARMADA_MAPLE_RAM_END;
     for(unsigned i=0;i<84u;i++) {
-        uint8_t expected=i>=28u && i<32u ? (uint8_t)(plan.ram_end>>((i-28u)*8u)):
+        uint8_t expected=i>=28u && i<32u ? (uint8_t)(ARMADA_MAPLE_RAM_END>>((i-28u)*8u)):
             armada_maple_original_header[i];
         if(header[i]!=expected) stopped("MAPLE RAM HEADER PATCH CHANGED",i);
     }
@@ -834,7 +845,7 @@ static void armada_maple_hook_relay_install(void) {
     const uint8_t *page=(const void *)(uintptr_t)(KUI_MAPLE_RESERVE_BEGIN|0x20000000u);
     size_t bytes=(size_t)(__maple_hook_blob_end-__maple_hook_blob_start);
     for(unsigned i=0;i<84u;i++) {
-        uint8_t expected=i>=28u && i<32u ? (uint8_t)(KUI_MAPLE_RESERVE_BEGIN>>((i-28u)*8u)):
+        uint8_t expected=i>=28u && i<32u ? (uint8_t)(ARMADA_MAPLE_RAM_END>>((i-28u)*8u)):
             armada_maple_original_header[i];
         if(header[i]!=expected) relay_stopped("BOOTSTRAP ALTERED MAPLE RESERVATION",i);
     }
@@ -945,11 +956,20 @@ static void armada_excerpt_reserve(void) {
     memset((void *)(uintptr_t)KUI_ARMADA_CE_STREAM_SOURCE_BEGIN,0,KUI_ARMADA_CE_STREAM_SOURCE_BYTES);
     memcpy((void *)(uintptr_t)KUI_ARMADA_CE_STREAM_MAP_BEGIN,
         armada_excerpt_seed.wire,sizeof(armada_excerpt_seed.wire));
+#if KUI_ARMADA_CE_CDDA_VMU
+    memset((void *)(uintptr_t)KUI_ARMADA_CE_CDDA_VMU_SPILL_P1,0,KUI_ARMADA_CE_CDDA_VMU_SPILL_BYTES);
+#else
     memset((void *)(uintptr_t)KUI_ARMADA_CE_STREAM_WORK_BEGIN,0,
         KUI_ARMADA_CE_STREAM_GUARD_END-KUI_ARMADA_CE_STREAM_WORK_BEGIN);
+#endif
     if(memcmp((const void *)(uintptr_t)KUI_ARMADA_CE_STREAM_MAP_BEGIN,
         armada_excerpt_seed.wire,sizeof(armada_excerpt_seed.wire)))
         stopped("ARMADA STREAM MAP COPY CHANGED",0);
+#if KUI_ARMADA_CE_CDDA_VMU
+    /* Maple checks the original header before both services reserve the
+     * common ceiling. The report covers only this combined preparation. */
+    retail_display_line("ARMADA CE CD MUSIC AND VIRTUAL A2");
+#else
     *(volatile uint32_t *)(uintptr_t)KUI_ARMADA_CE_EXCERPT_RAM_END_WORD=
         KUI_ARMADA_CE_EXCERPT_POOL_BEGIN;
     for(unsigned i=0;i<sizeof(armada_original_romhdr);i++) {
@@ -958,6 +978,7 @@ static void armada_excerpt_reserve(void) {
         if(header[i]!=expected) stopped("ARMADA ROM HEADER PATCH CHANGED",i);
     }
     retail_display_line("ARMADA CE FULL CD MUSIC TEST");
+#endif
     retail_display_hex("AUDIO MAP CRC32",word(armada_excerpt_seed.wire+16u));
 #else
     struct kui_armada_ce_excerpt_pool_inputs inputs={
@@ -1011,6 +1032,11 @@ static void armada_excerpt_relay_check(void) {
         (KUI_ARMADA_CE_STREAM_SOURCE_BEGIN|0x20000000u);
     for(unsigned i=0;i<KUI_ARMADA_CE_STREAM_SOURCE_BYTES/4u;i++)
         if(source[i]) relay_stopped("BOOTSTRAP ALTERED AUDIO SOURCE BANK",i);
+#if KUI_ARMADA_CE_CDDA_VMU
+    const volatile uint32_t *spill=(const void *)(uintptr_t)KUI_ARMADA_CE_CDDA_VMU_SPILL_P2;
+    for(unsigned i=0;i<KUI_ARMADA_CE_CDDA_VMU_SPILL_BYTES/4u;i++)
+        if(spill[i]) relay_stopped("BOOTSTRAP ALTERED CE DATA SPILL",i);
+#endif
 #else
     const uint8_t *pcm=(const uint8_t *)(uintptr_t)(KUI_ARMADA_CE_EXCERPT_PCM_BEGIN|0x20000000u);
     if(memcmp((const void *)(uintptr_t)(KUI_ARMADA_CE_EXCERPT_POOL_BEGIN|0x20000000u),

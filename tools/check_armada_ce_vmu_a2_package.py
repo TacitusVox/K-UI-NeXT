@@ -81,18 +81,27 @@ def check_runtime_contract(stage,resident,resident_data,profile_wire):
             'low_guard_bottom':'0x8c00dc00','low_stack_top':'0x8c00e000'}}
 
 
-def check(directory):
-    directory=Path(directory);report=check_binding(directory)
+def check(directory,*,cdda_vmu=False):
+    directory=Path(directory)
+    # Combined CD music + virtual A2 (Makefile.armada-cdda-vmu): the binding
+    # probe slot holds the high stream controller, which the excerpt audit
+    # admits with --cdda-vmu; every A2 hook/stage/resident check below runs.
+    report={} if cdda_vmu else check_binding(directory)
     adapter=check_a2(directory)
     write_layout=adapter.get('write_layout',False)
     runtime=adapter.get('write_runtime',False)
     reserve_begin=int(adapter['reserved_range_p1'][0],16)
-    controller=inspect_elf((directory/'bind-probe.elf').read_bytes(),0x8c004000,0x8c007c00,
-        entry_symbol='_kui_armada_ce_bind_probe')
-    at=controller['symbols'].get('_kui_armada_ce_maple_probe_contract',0)-0x8c004000
-    if region(controller['payload'],at,4,'A2 report contract')!=b'CMP8':
-        raise ValueError('A2 controller requires CMP8')
-    report['cache_reader']=audit_cache_reader(controller,function_sizes((directory/'bind-probe.elf').read_bytes()))
+    if cdda_vmu:
+        if not (write_layout and runtime):
+            raise ValueError('The combined build requires the writable A2 runtime')
+        report['controller']='stream controller (check_armada_ce_excerpt.py --cdda-vmu)'
+    else:
+        controller=inspect_elf((directory/'bind-probe.elf').read_bytes(),0x8c004000,0x8c007c00,
+            entry_symbol='_kui_armada_ce_bind_probe')
+        at=controller['symbols'].get('_kui_armada_ce_maple_probe_contract',0)-0x8c004000
+        if region(controller['payload'],at,4,'A2 report contract')!=b'CMP8':
+            raise ValueError('A2 controller requires CMP8')
+        report['cache_reader']=audit_cache_reader(controller,function_sizes((directory/'bind-probe.elf').read_bytes()))
     stage_data=(directory/'stage.elf').read_bytes()
     stage=inspect_elf(stage_data,0x8ce10000,reserve_begin)
     check_layout_marker(stage_data,'__kui_maple_write_layout_stage',write_layout)
@@ -157,6 +166,7 @@ def check(directory):
 
 def main():
     parser=argparse.ArgumentParser(description=__doc__);parser.add_argument('directory',type=Path)
-    args=parser.parse_args();print(json.dumps(check(args.directory),indent=2))
+    parser.add_argument('--cdda-vmu',action='store_true',help='combined Armada CD music and virtual A2 module')
+    args=parser.parse_args();print(json.dumps(check(args.directory,cdda_vmu=args.cdda_vmu),indent=2))
 
 if __name__=='__main__':main()

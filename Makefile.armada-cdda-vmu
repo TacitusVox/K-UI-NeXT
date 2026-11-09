@@ -1,0 +1,17 @@
+# SPDX-License-Identifier: GPL-3.0-only
+override ARMADA_A2_DIR := build/armada-ce-cdda-vmu
+override ARMADA_A2_CDDA := 1
+override ARMADA_A2_WRITE_LAYOUT := 1
+override ARMADA_A2_WRITE_STAGING := 1
+override ARMADA_A2_WRITE_RUNTIME := 1
+override SD_PROFILE := $(ARMADA_A2_DIR)/vmu-sd-template.bin
+
+.PHONY: armada-cdda-vmu
+armada-cdda-vmu: $(ARMADA_A2_DIR)/entry.elf
+
+$(SD_PROFILE): tools/vmu_persist_profile.py
+	python3 $< --template $@ > /dev/null
+# The layout record hashes the profile, so the template must exist first.
+$(ARMADA_A2_DIR)/layout-config: $(SD_PROFILE)
+
+include Makefile.armada-vmu-a2

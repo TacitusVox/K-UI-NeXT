@@ -56,7 +56,10 @@ SHIM_PREFIX=bytes.fromhex(
     '02033360f0cb0e4008d0f620862022403620036f06d00b400900f660264ff668f261'
     '136f0e400b000900090000fefcac')
 SHIM_BYTES=52
-RUNTIME_SHIM_BYTES=184
+# The writable runtime's traffic shim (armada_ce_maple_traffic_entry.S) is
+# 200 bytes as published; 184 predates it and failed the unchanged published
+# VMU-only runtime too. The delivered 67b0df9469cc all-on hook is identical.
+RUNTIME_SHIM_BYTES=200
 RUNTIME_HANDOFF=0xACFCE200
 RUNTIME_HANDOFF_BYTES=1272
 RUNTIME_SERVICES=0xACFCE700
@@ -64,17 +67,20 @@ RUNTIME_SERVICES_BYTES=32
 RUNTIME_STACK_BOTTOM=0xACFCE800
 RUNTIME_STACK_TOP=0xACFCF800
 # Complete authored service/ordinary-stack-wait/remask/terminal stream. Only
-# the bounded C entries and retained bridge-return cell are relocated.
+# the bounded C entries and retained bridge-return cell are relocated. Each
+# call reserves CE's 16-byte argument home area (add #-16/#16 around it);
+# these are the bytes of the delivered 67b0df9469cc all-on hook.
 RUNTIME_SHIM=bytes.fromhex(
-    '02033360f0cb0e4024d0f62086202240362046206620036ff35126d2122233671fd0'
-    '0b40090008202e8901882a8bf2501fd11820268bf3681adf0e4081541ad00b400900'
-    '036702033360f0cb0e40836f78270f8b855f82500e40815413d00b40090003670203'
-    '3360f0cb0e40836f78270089fee7f15402e5f26609d00b400900d1af0900feaf0900'
-    'f250f3512a41f458f551136f0e400b000900090000fefcacdc65fc8c00f8fcac8c8d'
-    'fc8c8865fc8cf0000010a0befcac')
-RUNTIME_SHIM_RELOCATIONS=((160,'_kui_armada_ce_maple_traffic_run'),
-    (168,'_kui_armada_ce_vmu_runtime_work'),(172,'_kui_armada_ce_maple_runtime_wait'),
-    (180,'_kui_armada_ce_maple_bridge_return'))
+    '02033360f0cb0e4028d0f62086202240362046206620036ff3512ad21222336723'
+    'd0f07f0b400900107f082034890188308bf25022d118202c8bf3681ddf0e408154'
+    '1dd0f07f0b400900107f036702033360f0cb0e40836f7827118b855f82500e4081'
+    '5415d0f07f0b400900107f036702033360f0cb0e40836f78270089fee7f15402e5'
+    'f2660ad0f07f0b400900107fcbaf0900feaf0900f250f3512a41f458f551136f0e'
+    '400b000900090000fefcacc465fc8c00f8fcacb08dfc8c6c65fc8cf000001040c0'
+    'fcac')
+RUNTIME_SHIM_RELOCATIONS=((176,'_kui_armada_ce_maple_traffic_run'),
+    (184,'_kui_armada_ce_vmu_runtime_work'),(188,'_kui_armada_ce_maple_runtime_wait'),
+    (196,'_kui_armada_ce_maple_bridge_return'))
 ROOT='kui_armada_ce_maple_traffic_run'
 READ_CALLBACKS=('traffic_read_p1','traffic_read_cache','traffic_read_p2')
 MMIO_CALLBACKS=('fence_read_mmio','fence_write_mmio')

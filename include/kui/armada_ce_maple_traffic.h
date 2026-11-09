@@ -47,7 +47,11 @@ static inline bool kui_armada_ce_maple_traffic_fail(struct kui_armada_ce_maple_t
     return false;
 }
 static inline bool kui_armada_ce_maple_traffic_owned(uint32_t p1,uint32_t bytes) {
-#if KUI_ARMADA_CE_MAPLE_A2
+#if KUI_ARMADA_CE_MAPLE_A2 && KUI_ARMADA_CE_CDDA_VMU
+    /* CD music pool, controller and data spill lie below the VMU reservation;
+     * the combined build lowers CE's RAM end to the pool's first byte. */
+    return p1<KUI_ARMADA_CE_VMU_RESERVE_END && p1+bytes>UINT32_C(0x8cf50000);
+#elif KUI_ARMADA_CE_MAPLE_A2
     return p1<KUI_ARMADA_CE_VMU_RESERVE_END && p1+bytes>KUI_ARMADA_CE_VMU_RESERVE_BEGIN;
 #elif KUI_ARMADA_CE_MAPLE_FENCE
     return p1<UINT32_C(0x8cfd0000) && p1+bytes>UINT32_C(0x8cfcd000);
