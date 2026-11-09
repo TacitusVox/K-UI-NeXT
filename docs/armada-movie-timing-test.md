@@ -66,15 +66,68 @@ only this reader changed.
 
 ## Report rows (decimal)
 
+The first console result used four rows (reader `689b6572affb`); later
+timing readers show six, all supplied by the controller:
+
 | Row | Meaning |
 | --- | --- |
 | MOVIE-MS SECTORS KB/S READS STATUS | Movie window length, sectors read, average KB/s, read requests, flags (1 movie seen, 2 game left the movie, 4 clock valid; expect 7) |
-| CALL-MS IRQ-MS BUSY% CALLS IRQS | Time inside K-UI's GD calls and interrupt, their share of the window, and counts |
-| PEND-MS PEND% GAPMAX GAPS>90 PENDGAP | Time a read was outstanding and its share; longest interval between the game's polls; intervals of 90 ms or more; longest interval with a read outstanding |
-| 1S-WINS PEAK% HOT>50 LOW-KB/S SAMPLES | One-second windows, the busiest window's K-UI share, windows at 50% or more, the slowest window's KB/s, poll samples |
+| CALL-MS IRQ-MS BUSY% PEND% PEAK% | Time inside K-UI's GD calls and interrupt, their share of the window, share of the window with a read outstanding, busiest one-second window |
+| DMA-OK POLLED OVERRUN RESTART CRC-ERR | Movie-window stream counts: completed DMA receptions, programmed (CPU) receptions, unrecovered overruns, CMD18 starts, CRC failures |
+| SLOW-OK SLOWOVR TOKBYTES YIELDS REPAIR | 6.25 MHz receptions completed and overrun (trial only), bytes clocked searching for data tokens, searches paused at a slice, in-place resumes |
+| OVRTICKS MAXTICK RUN-MS GAPMAX LOWKB/S | CE clock steps (25 ms) with any overrun, most overruns in one step, longest run of consecutive steps with overruns, longest interval between polls, slowest one-second KB/s |
+| CALLS IRQS SAMPLES HOT>50 1S-WINS | GD calls and interrupts in the window, poll samples, one-second windows at 50% or more, one-second windows |
 
-CE's millisecond clock advances in its tick steps, so gaps are coarse;
-totals over a minute are not.
+CE's millisecond clock advances in 25 ms steps on this kernel, so gaps and
+runs are coarse; totals over a minute are not.
+
+## First result: reader 689b6572affb (8 Nov 2026)
+
+US raw GDI, SCI, Background reader, CD Music On, Virtual VMU Off, GUI
+`00d8ed67d9ad`, intro played once:
+
+| Value | Result |
+| --- | --- |
+| Movie window | 140,500 ms; 31,077 sectors; 442 KB/s; 1,976 reads; status 7 |
+| K-UI time | 38,623 ms in GD calls, 31,371 ms in the interrupt: 49% of the window |
+| Calls / interrupts | 78,116 / 143,121 |
+| Read outstanding | 100,225 ms (71%); longest poll gap 325 ms; one gap of 90 ms or more |
+| One-second windows | 140; busiest 62%; 72 at 50% or more; slowest 352 KB/s |
+
+K-UI's reader takes about half the CPU for the whole movie, so the movie
+player is starved; the decision table points at the cost per SD block.
+The raw image's 31,077 sectors are about 142,800 card blocks; the 143,121
+interrupts are one per DMA reception.
+
+Why each block is expensive (code and earlier counters): under continuous
+clocking the card leaves one byte between CMD18 blocks
+([2 Oct capture](evidence/sci-async-speed-cmd18-2026-10-02.md)), so the
+normal per-block token search is short. The 4 Oct Armada counters had
+about 22% of receptions overrun, one CMD12/CMD18 restart per overrun
+(18,893 starts) and 6,524,422 token bytes, about 345 per restart: the
+card's first-token delay after CMD18 (about 280 us at 12.5 MHz). Each
+overrun therefore costs a restart, that wait and a 514-byte programmed
+refetch, all with interrupts held off; an immediate 12.5 MHz DMA retry
+almost always overran again (2.01 overruns per polled block before the
+first-overrun fallback). The new rows count these for the movie window.
+
+## Trial: 6.25 MHz after an overrun (reader 5d92a111b0fa)
+
+One behavior change on the measured reader, built with
+`KUI_ARMADA_CE_MOVIE_TIMING=1 KUI_ARMADA_CE_SLOW_AFTER_OVERRUN=1`: an
+overrun at 12.5 MHz moves the next 64 receptions, the refetch included, to
+6.25 MHz (1.28 us per byte); an overrun at 6.25 MHz returns to 12.5 MHz and
+the old programmed refetch. Commands and token searches stay at 12.5 MHz.
+Every block keeps its CRC check; blocks that lost a byte are still refused.
+To fit, the trial reuses the two late-snapshot counters and drops the
+background reader's call-history ring, which only the synchronous reader
+displays. Payload CRC32 `27EC7CAE`;
+`KUI-Armada-Slow-Refetch-Trial-08NOV2026-2249-CST-5d92a11.zip`.
+
+Expected readings: if stalls are mostly shorter than 1.28 us, POLLED and
+RESTART fall well below OVERRUN's first-attempt count, SLOWOVR stays small
+and BUSY falls; if SLOWOVR approaches SLOW-OK, the stalls are longer and
+the next step is to avoid the restart's token wait or the refetch itself.
 
 ## Decision
 
