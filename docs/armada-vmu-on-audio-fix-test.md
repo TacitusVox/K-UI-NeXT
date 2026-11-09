@@ -322,3 +322,36 @@ Two separate costs, each shared differently:
   (Virtua Cop 2, Sega Swirl) compile too. It is enabled only for the
   combined Armada build until this console check passes. Native games use a
   different VMU implementation; this measurement says nothing about them.
+
+## Console result: steady poll (`cb07c6454454`, 9 Nov 2026)
+
+Same route and GUI. Owner: "Intro is mostly smooth. Maybe a tiny bit of
+lag/reverb exists." Two photographs:
+
+| Value | VMU Off `8cdbc0a351f8` | VMU On `e73f99a93865` | VMU On `cb07c6454454` |
+| --- | --- | --- | --- |
+| Movie window | 119,525 ms; 30,328 sectors; 507 KB/s; 1,333 reads | 119,950 ms; 29,717; 495 KB/s; 1,148 | 119,275 ms; 30,411; 509 KB/s; 1,352; status 7 |
+| GD calls / interrupt | 3,693 / 17,457 ms | 3,598 / 17,055 ms | 3,851 / 17,724 ms |
+| BUSY / PEND / busiest second | 17% / 75% / 26% | 17% / 81% / 25% | 18% / 75% / 27% |
+| DMA-OK / POLLED / OVERRUN / RESTART / CRC-ERR | 136,939 / 2,489 / 5,631 / 5,791 / 22 | 133,953 / 2,621 / 5,690 / 5,725 / 35 | 137,145 / 2,675 / 5,976 / 6,149 / 25 |
+| SLOW-OK / SLOWOVR | 98,979 / 2,504 | (not shown) | 95,463 / 2,689 |
+| TOKBYTES / YIELDS / REPAIR | 1,942,599 / 5,993 / 95 | 1,810,721 / 5,721 / 112 | 1,962,746 / 6,145 / 95 |
+| OVRTICKS / MAXTICK / RUN-MS / GAPMAX | 2,749 / 14 / 300 / 525 | 2,961 / 12 / 325 / 75 | 2,758 / 13 / 325 / 525 |
+| Maple hook ms / % / phases / longest / steady | none | 16,907 / 14% / 14,416 / 2,352 us / - | 1,049 / 0% / 14,332 / 2,370 us / 7,056 |
+
+GAME RETURN: guard 0, 0xDC23 steps, 0x903F sectors. A2 page: INFO 1,
+ALLINFO 0, MEDIA 1, READ 0x16 (22), FINALIZE 0x16 (22), no fault.
+
+The hook fell from 16.9 s to 1.05 s of the window (14% to under 1%). Of
+7,166 completions, 7,056 repeated the proven poll; the other 110 are the
+full proofs, one per 64 polls as designed. Those still take about 2.4 ms,
+which is now HOOKMAX-US, about once a second. Every reader and stream value
+is now within run-to-run variation of VMU Off, PEND is back to 75%, and the
+card answered the same INFO, MEDIA and 22 READ/FINALIZE requests as before
+without a fault. The remaining hook time is about 56 us per phase on
+average, plus the periodic full proofs.
+
+Established on the console: the Virtual VMU On intro with CD Music On, and
+virtual-card detection and reads. Not yet established: CD music in game,
+saving, and a save surviving a power cycle with this build (test 2 in its
+package), the same without the timing rows, and the other WinCE titles.
