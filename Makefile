@@ -705,6 +705,8 @@ build/test-retail-async-ce-fast: tests/test_retail_async_ce.c tests/sci_stream_m
 test-ce-fast-take: build/test-sci-stream-ce-fast build/test-retail-async-ce-fast
 	./build/test-sci-stream-ce-fast
 	./build/test-retail-async-ce-fast
+# Both switches are on by default in every CE reader build.
+test: test-ce-slow-after-overrun test-ce-fast-take
 # The same check's SH-4 assembly, built with the resident's CPU flags and
 # run under qemu-sh4 (Linux user mode) against a bitwise reference.
 SH4_TEST_FLAGS := -std=c11 -Os -Wall -Wextra -Werror -m4-single -ml -mdiv=call-div1 \
