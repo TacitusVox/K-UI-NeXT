@@ -354,9 +354,9 @@ static const char movie_labels[4][40]={
 #define MOVIE_CE_KERNEL_DATA 0x8c00832cu
 static void movie_sample(void) {
     const struct kui_retail_gd *s=kui_armada_ce_stream_transport_service();
+    const volatile uint32_t *acc=kui_armada_ce_stream_transport_movie_timing();
     uint32_t kdata=*(volatile const uint32_t *)(uintptr_t)MOVIE_CE_KERNEL_DATA;
-    if(!s || !kdata) return;
-    volatile const uint32_t *acc=(volatile const uint32_t *)(uintptr_t)KUI_ARMADA_CE_MOVIE_TIMING_ADDRESS;
+    if(!s || !acc || !kdata) return;
     struct kui_armada_movie_input in={
         *(volatile const uint32_t *)(uintptr_t)(kdata+4u),s->diag.last_lba,s->token,s->pending,
         s->diag.sectors_read,{acc[0],acc[1],acc[2],acc[3]},

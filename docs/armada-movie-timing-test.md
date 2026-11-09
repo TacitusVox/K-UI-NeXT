@@ -9,9 +9,11 @@ audio path; it only counts where time goes while the movie streams.
 ## What the build adds
 
 - The low CE reader adds the TMU0 ticks spent inside its own GD calls and
-  inside its SCI interrupt to a 64-byte slot at the end of the high
-  controller's reserved 96 KiB (`0x8cfbefc0`). TMU0 drives CE's tick and is
-  only read.
+  inside its SCI interrupt to four words at the end of its own region; the
+  controller reads them through its attached bus. TMU0 drives CE's tick and
+  is only read. (The first build kept them in the controller's reserved
+  tail, which the stage requires to stay zero through bootstrap; that slot
+  is no longer used.)
 - The controller samples at each of the game's GD EXEC/CHECK polls, through a
   same-named wrapper so the audited controller entry keeps its exact bytes.
   The window opens at the first request inside `MOVIE2.SFD` (LBA 434,063 to
@@ -22,8 +24,18 @@ audio path; it only counts where time goes while the movie streams.
 
 Built from published `e20eae43` with `KUI_ARMADA_CE_MOVIE_TIMING=1`; the
 normal Armada reader rebuilds byte-identical and the Worms, Bust-A-Move and
-Worms World Party readers still pass their audits. The GUI is the published
-`e20eae43fa50` build.
+Worms World Party readers still pass their audits.
+
+## GUI
+
+Use the owner's working GUI `00d8ed67d9ad` (from
+`KUI-Armada-VMU-Off-Fix-07NOV2026-1325-CST-4d893b3.zip`) and replace only
+`ce-cdda-armada.kui`; with that GUI, Virtual VMU Off selects this reader.
+The first delivery paired the reader with a fresh build of the published
+GUI. That GUI predates the November 6 23:48 WinCE track-map change (its
+strings lack the "Windows CE background map ... tracks and their data
+extents" handling), and the console stopped at Entering Windows CE. The
+published GUI is not a valid baseline for WinCE on this card.
 
 ## Report rows (decimal)
 

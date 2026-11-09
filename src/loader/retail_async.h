@@ -163,6 +163,11 @@ struct kui_retail_async_region {
     uint8_t spill[KUI_RETAIL_ASYNC_SPILL_BYTES];
     struct kui_retail_async engine;
     struct kui_retail_async_shared shared;
+#if KUI_ARMADA_CE_MOVIE_TIMING
+    /* Diagnostic only: TMU0 ticks and counts for this reader's GD calls and
+     * interrupt, read by the high controller through its attached bus. */
+    uint32_t movie_timing[4];
+#endif
 };
 #elif KUI_NATIVE_GD_LEGACY_STREAM && KUI_NATIVE_STANDALONE_FOREGROUND && !defined(KUI_RETAIL_ASYNC_TEST)
 /* This foreground-only profile publishes no vectors or SDK callbacks. Keep

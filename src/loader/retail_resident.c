@@ -1538,14 +1538,14 @@ static void meter_call(uint32_t started) {
 }
 #elif KUI_ARMADA_CE_MOVIE_TIMING
 /* Diagnostic build only: TMU0 ticks spent inside this reader's GD calls
- * (words 0,1: ticks, calls) and its interrupt (words 2,3), added to a slot
- * the high controller reserves and reports. No drawing, scheduling or
- * timer configuration; a call or interrupt is far shorter than TMU0's
- * period, so one wrap is the most it can see. */
+ * (words 0,1: ticks, calls) and its interrupt (words 2,3), kept in this
+ * reader's own region; the high controller reads them through its bus.
+ * No drawing, scheduling or timer configuration; a call or interrupt is far
+ * shorter than TMU0's period, so one wrap is the most it can see. */
 static void meter_add(uint32_t started, unsigned slot) {
     volatile const uint32_t *tmu = (volatile const uint32_t *)(uintptr_t)TCOR0;
     uint32_t ended = tmu[1], period = tmu[0] + 1u;
-    volatile uint32_t *acc = (volatile uint32_t *)(uintptr_t)KUI_ARMADA_CE_MOVIE_TIMING_ADDRESS;
+    volatile uint32_t *acc = kui_retail_async_region.movie_timing;
     acc[slot] += started >= ended ? started - ended : started + period - ended;
     acc[slot + 1u]++;
 }
