@@ -71,3 +71,30 @@ without echo, CD music in game, the existing save loads, a new save
 survives a power cycle. If it fails, the previous reader restores the
 working route; the restore-only reader separates the rebuild from the
 fix. Not yet run on a Dreamcast.
+
+## First console result: GUI refusal, and the fix (`7827779d`)
+
+The owner's GUI `00d8ed67d9ad` refused `a1aae09ade29` before launching:
+"Armada all-on module capability is missing or invalid". The installed
+GUI's admission code (disassembled; its source is not recovered) compares
+the payload's 16 bytes at 0x150 with `KUIAVM01`, version 1 and `0x1000`
+(after the CE package-layout check, which passed). The delivered 67b0df9
+module carries exactly that record; the reconstruction omitted it.
+
+The combined build's entry now emits it at `0x8c010150`, and the
+`--cdda-vmu` stream audit checks it as the GUI does. The section is empty
+elsewhere: the Armada, Armada timing and WWP readers, the VMU-only A2
+module and the standard retail and retail-CE modules rebuild with
+identical images. The other all-on refusals in that GUI ("no card profile
+slot", "no complete CD music seed") concern structures already equal to
+67b0df9's: one valid profile slot and the same blank `CEX2` stream seed.
+
+| Reader | Build | Payload bytes | Payload CRC32 |
+| --- | --- | --- | --- |
+| Candidate (installed) | `7827779dd053` | 205,244 | `D52C4A40` |
+| Without the reader fixes (optional) | `7827779dd053` | 204,988 | `F58CFC4C` |
+
+Both pass `test-wince-packaged-prepare --armada` with the owner kernel.
+Package `KUI-Armada-VMU-On-Audio-Fix-09NOV2026-0734-CST-7827779.zip`
+(SHA-256 `7174c4659d637bf7ca0f96f564881aca111706f34ea0dde16b04cafc7711ebe5`)
+supersedes the 0709 package; the console test steps are unchanged.
