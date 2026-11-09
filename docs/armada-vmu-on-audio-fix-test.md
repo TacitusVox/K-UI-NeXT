@@ -355,3 +355,92 @@ Established on the console: the Virtual VMU On intro with CD Music On, and
 virtual-card detection and reads. Not yet established: CD music in game,
 saving, and a save surviving a power cycle with this build (test 2 in its
 package), the same without the timing rows, and the other WinCE titles.
+
+## Console result: saves and CD music (`cb07c6454454`, 9 Nov 2026)
+
+Owner, after test 2 of that package (load the existing save, save again,
+power off, cold-boot, load): "Tested Armada's saves and it works fine. CD
+Music also plays fine." With the intro result above, Armada with Virtual
+VMU On and CD Music On now matches VMU Off on the console: the intro, CD
+music in game, and virtual-card saves. That build still carries the
+diagnostic timing rows.
+
+The same report: "Worms stutters with CD music both on and off." Those runs
+used the installed Worms modules, `ce-boot.kui` `3ebb874349dd` (CD Music
+Off) and `ce-cdda-worms.kui` `eeed38bd540e` (CD Music On). Neither enables
+the reader changes. The owner earlier described the Worms FMVs as failing
+the same way as Armada's.
+
+## WinCE reader rollout candidate (`7b216f2e1136`, 9 Nov 2026)
+
+Behavior change: both reader switches are now on by default
+(`KUI_CE_READER_FIXES ?= 1` in `Makefile.dc` and `Makefile.armada-stream`).
+Every CE SCI background reader therefore does two things:
+
+- after a 12.5 MHz overrun, it reads the next 64 receptions at 6.25 MHz;
+- it folds each block's CRC and bit reversal into one pass.
+
+Every block is still CRC-checked. The synchronous CE reader is unchanged.
+`42f0f314` adds the generic module's optional 96-slot map and KUICEM01
+record (both off by default) so that the installed generic module can be
+rebuilt for GUI `00d8ed67d9ad`.
+
+| Module | Previous | Payload / CRC32 | Reader end | Removed to fit |
+| --- | --- | --- | --- | --- |
+| `ce-boot.kui` (any title, CD Music Off) | `3ebb874349dd` | 84,836 / `04D83892` | `0x8c00d660` | live status meter |
+| `ce-cdda-armada.kui` | `8cdbc0a351f8` | 135,092 / `E2B9F52B` | `0x8c00d7a0` | timing rows, history pages |
+| `ce-cdda-bam4.kui` | `eeed38bd540e` | 135,076 / `45BFC073` | `0x8c00d7a0` | history pages |
+| `ce-cdda-worms.kui` | `eeed38bd540e` | 136,004 / `4CD08180` | `0x8c00d7a0` | history pages |
+| `ce-cdda-wwp.kui` | `eeed38bd540e` | 135,716 / `FAFCB488` | `0x8c00d7c0` | history pages |
+| `ce-armada-all-on.kui` | `cb07c6454454` | 206,140 / `1E633670` | (combined) | timing rows |
+
+The low reader limit is `0x8c00d800`: above it, the retail resident
+overlaps its guarded service stack. Without the removals, the generic
+reader and the CD music readers each ended 96 bytes past it.
+
+- Every one of these readers drops the async call ring, which only the
+  synchronous reader displays.
+- The generic reader also drops its live status meter, which drew a status
+  line from inside the masked reader every half second.
+- The CD music readers keep the first terminal report page. They drop the
+  history pages.
+- The combined VMU On reader already carried both changes. Its new build
+  only drops the timing rows that `cb07c6454454` showed.
+
+`ce-boot.kui` is built with `KUI_RETAIL_CE_ASYNC_SLOTS=96
+KUI_RETAIL_CE_MAP_RECORD=1`. Its KUICEM01 record (v1, 96, at payload
+0x140) matches the installed module's. With the switches off, its reader is
+byte-identical to the installed `3ebb874349dd` reader. Its stage is built
+from this repository, because the source of the installed stage is not
+here. The KUIAVM01 record (v1, 4096, at payload 0x150) is unchanged in the
+VMU On module.
+
+Host checks:
+
+- the relaxed-call gate: 308 branch sites (generic), 322 (CD music) and 326
+  (combined), none mid-function;
+- `check_retail_loader_layout --ce`;
+- `check_armada_ce_excerpt` `--stream` for Worms, BAM4 and WWP with
+  `--reader-fixes`, and `--cdda-vmu`;
+- `test-wince-packaged-prepare`: Armada CD music and VMU On with the owner
+  kernel, and Worms and WWP with the synthetic fingerprint fixture (BAM4
+  has no profile);
+- `test-ce-fast-take`, `test-ce-slow-after-overrun`,
+  `test-sh4-check-words` and `test-check-relaxed-calls`.
+
+With `KUI_CE_READER_FIXES=0`, the installed `eeed38bd540e` Worms, BAM4 and
+WWP modules and the published generic module rebuild byte-identically, and
+`8cdbc0a351f8` and `7827779dd053` are unchanged. The Smash Pack CE modules
+(`cc81e63ca4d2`) and `ce-probe.kui` are not rebuilt. The steady-state
+poll stays enabled only in the combined Armada build.
+
+The package is `KUI-WinCE-Reader-Fixes-09NOV2026-1633-CST-7b216f2.zip`
+(SHA-256 `45acb5d2c3d46c4269952d68dd1664a67a8366694c6c8fa8e531e52350202807`).
+It contains the owner's installation after the steady-poll package, with
+only these six files changed. GUI `00d8ed67d9ad` is retained, and its
+`boot.kui` and `runtime.kui` are identical. The six previous files are in
+`IF-NEEDED/`.
+
+The question for the console: Worms Armageddon FMVs with CD Music Off and
+On, then a quick check of BAM4, WWP and other WinCE titles, and of Armada
+with VMU Off and On. Not yet run on a Dreamcast.

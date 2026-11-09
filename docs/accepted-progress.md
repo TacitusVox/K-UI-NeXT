@@ -33,6 +33,37 @@ may select a stale bank, while cold ROOT boot bypasses selectors. The physical
 card is unavailable, so existing banks are not assumed present or absent.
 Claude's original-backed SA1 result is recorded as an external report only.
 
+## WinCE Armada: Virtual VMU On accepted, cb07c6454454, 2026-11-09
+
+The setup was the owner's US raw Armada GDI with CD Music On, GUI
+`00d8ed67d9ad`, booted cold from ROOT. With it, `ce-armada-all-on.kui`
+`cb07c6454454` (payload CRC `F86EA178`) does three things:
+
+- plays the intro as smoothly as VMU Off ("mostly smooth. Maybe a tiny bit
+  of lag/reverb exists");
+- plays CD music in game;
+- saves on the virtual card. The test was: load the existing save, save
+  again, power off, cold-boot, then load. The owner replied: "Tested
+  Armada's saves and it works fine. CD Music also plays fine."
+
+VMU Off `ce-cdda-armada.kui` `8cdbc0a351f8` (CRC `4E747363`) is the
+owner-approved VMU Off reader ("overall it sounds great"). Both are
+timing-diagnostic builds. See
+[the VMU On record](armada-vmu-on-audio-fix-test.md) and
+[the movie timing record](armada-movie-timing-test.md).
+
+Pending console test: `7b216f2e1136`. It puts the same two reader changes
+into every WinCE module:
+
+- the generic module;
+- the Armada, BAM4, Worms and WWP CD music modules;
+- Armada VMU On, without the timing rows.
+
+It was delivered as `KUI-WinCE-Reader-Fixes-09NOV2026-1633-CST-7b216f2.zip`.
+Until that test passes, the six modules it replaces remain the reference.
+They are in its `IF-NEEDED/`. The Smash Pack CE modules and `ce-probe.kui`
+are unchanged.
+
 ## Sega Smash Pack accepted: cc81e63ca4d2, 2026-11-06
 
 The owner accepts the collection integration as complete after this exact
