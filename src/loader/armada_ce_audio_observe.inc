@@ -63,7 +63,16 @@ static void armada_ce_audio_report(void) {
     retail_display_values("CMD FIRST LAST PLAYCUR WRITECUR",s->cursor,5);
 #endif
 }
-#if KUI_ARMADA_CE_STREAM && !KUI_ARMADA_CE_MOVIE_TIMING_LOW
+/* The terminal CD music history pages need low-reader space. The movie
+ * timing counters use it instead, and so do the reader changes (slow refetch,
+ * fast block check) in the CD music readers' 0x8c00d800 layout; the combined
+ * Virtual VMU On reader's larger layout keeps them. */
+#if KUI_ARMADA_CE_MOVIE_TIMING_LOW || (KUI_CE_SCI_SLOW_AFTER_OVERRUN && !KUI_ARMADA_CE_CDDA_VMU)
+#define KUI_ARMADA_CE_HISTORY_PAGES 0
+#else
+#define KUI_ARMADA_CE_HISTORY_PAGES 1
+#endif
+#if KUI_ARMADA_CE_STREAM && KUI_ARMADA_CE_HISTORY_PAGES
 static void armada_ce_audio_history(unsigned page) {
     /* Terminal execution has stopped: copy authored history only, without
      * sampling guest memory, clocks or native sound methods. */

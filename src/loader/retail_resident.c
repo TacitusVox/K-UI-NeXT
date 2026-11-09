@@ -1252,12 +1252,13 @@ armada_return_pages:
     retail_display_pause(900u); /* ~15 seconds at 60 Hz to capture the counters */
 #endif
 #if KUI_ARMADA_CE_STREAM && KUI_ARMADA_CE_AUDIO_OBSERVE
-#if KUI_ARMADA_CE_MOVIE_TIMING_LOW && !KUI_ARMADA_CE_CDDA_VMU
-    /* The movie timing fits the first page; redraw it until power-off.
-     * The CD music history pages are omitted from this diagnostic only. */
+#if !KUI_ARMADA_CE_HISTORY_PAGES && !KUI_ARMADA_CE_CDDA_VMU
+    /* The first page only, redrawn until power-off: the CD music history
+     * pages give their low-reader space to the movie timing or the reader
+     * changes (armada_ce_audio_observe.inc). */
     goto armada_return_pages;
 #else
-#if !KUI_ARMADA_CE_MOVIE_TIMING_LOW
+#if KUI_ARMADA_CE_HISTORY_PAGES
     /* Additional terminal pages retain the timing missing from a single
      * cumulative photograph. No game, card, clock or native audio resumes. */
     for(unsigned page=0;page<3u;page++) {
@@ -1518,7 +1519,8 @@ int kui_mdk2_cdda_manifest_bind(const struct kui_retail_manifest *temporary,
 #define TCOR0 0xffd80008u
 #define TCNT0 0xffd8000cu
 #define TCR0 0xffd80010u
-#if !KUI_ARMADA_CE_STREAM && !KUI_ARMADA_CE_VMU_WRITE_RUNTIME
+#if !KUI_ARMADA_CE_STREAM && !KUI_ARMADA_CE_VMU_WRITE_RUNTIME && \
+    !(KUI_CE_SCI_SLOW_AFTER_OVERRUN && defined(KUI_RETAIL_ASYNC))
 static struct { uint32_t since, sectors, busy, shown[5]; } meter;
 /* n's decimal digits as hexadecimal ones, for the hexadecimal printer. */
 static uint32_t decimal(uint32_t n) {
@@ -1567,7 +1569,9 @@ static void meter_call(uint32_t started) {meter_add(started, 0u);}
 #else
 /* The full player keeps terminal counters in its high controller. Repeated
  * framebuffer drawing inside CE's masked reader competes with FMV audio and
- * needlessly occupies the constrained low resident. */
+ * needlessly occupies the constrained low resident. The generic background
+ * reader with the slow refetch omits it too: that is what fits its 96-slot
+ * map (ce-boot.kui), and FMV gains the same. */
 static inline void meter_busy(uint32_t started) {(void)started;}
 static inline void meter_call(uint32_t started) {(void)started;}
 #endif

@@ -387,7 +387,7 @@ build/retail/layout-config: force-retail-layout
 	@if ! cmp -s $@.new $@; then mv $@.new $@; else rm $@.new; fi
 build/retail-ce/layout-config: force-retail-layout
 	@mkdir -p $(@D)
-	@printf '%s\n' 'LOW=0 TRACE=0 SONIC=0 BUILD=$(BUILD_ID)$(if $(filter 1,$(KUI_CE_SCI_RESUME_FIX)), CE_SCI_RESUME_FIX=1)$(if $(filter-out 64,$(KUI_RETAIL_CE_ASYNC_SLOTS)), CE_ASYNC_SLOTS=$(KUI_RETAIL_CE_ASYNC_SLOTS))$(if $(filter 1,$(KUI_RETAIL_CE_MAP_RECORD)), CE_MAP_RECORD=1)' > $@.new
+	@printf '%s\n' 'LOW=0 TRACE=0 SONIC=0 BUILD=$(BUILD_ID)$(if $(filter 1,$(KUI_CE_SCI_RESUME_FIX)), CE_SCI_RESUME_FIX=1)$(if $(filter-out 64,$(KUI_RETAIL_CE_ASYNC_SLOTS)), CE_ASYNC_SLOTS=$(KUI_RETAIL_CE_ASYNC_SLOTS))$(if $(filter 1,$(KUI_RETAIL_CE_MAP_RECORD)), CE_MAP_RECORD=1)$(if $(filter 1,$(KUI_CE_READER_FIXES)), CE_READER_FIXES=1)' > $@.new
 	@if ! cmp -s $@.new $@; then mv $@.new $@; else rm $@.new; fi
 # SCI's DMA reader shares the original protected low-memory reservation.
 # Cross-unit optimization and SH call relaxation recover code space without
@@ -433,7 +433,16 @@ RETAIL_NATIVE_SCIA_DEFS := $(RETAIL_SCIA_DEFS) $(RETAIL_NATIVE_DEFS) $(if $(filt
 KUI_RETAIL_CE_ASYNC_SLOTS ?= 64
 KUI_RETAIL_CE_MAP_RECORD ?= 0
 RETAIL_CE_MAP_DEFS := $(if $(filter-out 64,$(KUI_RETAIL_CE_ASYNC_SLOTS)),-DKUI_RETAIL_ASYNC_SLOTS=$(KUI_RETAIL_CE_ASYNC_SLOTS)u)
-RETAIL_CE_SCIA_DEFS := $(filter-out -DKUI_RETAIL_MANIFEST_SLOTS=%,$(RETAIL_SCIA_DEFS)) -DKUI_RETAIL_MANIFEST_SLOTS=$(KUI_RETAIL_CE_ASYNC_SLOTS) -DKUI_RETAIL_CE=1 $(if $(filter 1,$(KUI_CE_SCI_RESUME_FIX)),-DKUI_CE_SCI_RESUME_FIX=1)
+# Every WinCE background reader: after a 12.5 MHz DMA overrun the next 64
+# receptions run at 6.25 MHz, and each block's CRC and bit reversal run as one
+# tighter pass (console-measured on Armada: 8cdbc0a351f8, cb07c6454454). The
+# changed layout gets the relaxed-call gate (tools/check_relaxed_calls.py).
+# 0 rebuilds the earlier generic reader byte-identical.
+KUI_CE_READER_FIXES ?= 1
+RETAIL_CE_READER_DEFS := $(if $(filter 1,$(KUI_CE_READER_FIXES)),-DKUI_CE_SCI_SLOW_AFTER_OVERRUN=1 -DKUI_CE_SCI_FAST_TAKE=1)
+RETAIL_CE_READER_COMMA := ,
+RETAIL_CE_READER_LINK := $(if $(filter 1,$(KUI_CE_READER_FIXES)),-Wa$(RETAIL_CE_READER_COMMA)--renesas -Wl$(RETAIL_CE_READER_COMMA)-q)
+RETAIL_CE_SCIA_DEFS := $(filter-out -DKUI_RETAIL_MANIFEST_SLOTS=%,$(RETAIL_SCIA_DEFS)) -DKUI_RETAIL_MANIFEST_SLOTS=$(KUI_RETAIL_CE_ASYNC_SLOTS) -DKUI_RETAIL_CE=1 $(if $(filter 1,$(KUI_CE_SCI_RESUME_FIX)),-DKUI_CE_SCI_RESUME_FIX=1) $(RETAIL_CE_READER_DEFS)
 RETAIL_SCIA_SRC := src/loader/retail_resident.c src/core/retail_gd.c src/loader/minic.c \
     src/core/retail_image.c src/loader/retail_display.c src/loader/sci_sd_bus.c \
     src/core/retail_cursor.c src/loader/sci_stream.c src/loader/retail_async.c
@@ -606,7 +615,8 @@ build/retail-ce/scia/src/loader/retail_display.o: force-build-id
 build/retail-ce/resident-scia.elf: $(RETAIL_CE_SCIA) src/loader/retail_resident_ce_async.ld
 	@mkdir -p build/retail-ce/scia/lto
 	rm -f build/retail-ce/resident-scia.elf.ltrans* build/retail-ce/scia/lto/*
-	sh-elf-gcc $(RETAIL_LINK) $(RETAIL_SCIA_LINK) -Wl,-u,_kui_retail_ce_irq -Tsrc/loader/retail_resident_ce_async.ld -Wl,-Map,build/retail-ce/resident-scia.map -o $@ $(RETAIL_CE_SCIA) -lgcc
+	sh-elf-gcc $(RETAIL_LINK) $(RETAIL_SCIA_LINK) $(RETAIL_CE_READER_LINK) -Wl,-u,_kui_retail_ce_irq -Tsrc/loader/retail_resident_ce_async.ld -Wl,-Map,build/retail-ce/resident-scia.map -o $@ $(RETAIL_CE_SCIA) -lgcc
+	$(if $(filter 1,$(KUI_CE_READER_FIXES)),python3 tools/check_relaxed_calls.py $@)
 	cp build/retail-ce/resident-scia.elf.ltrans*.su build/retail-ce/resident-scia.elf.ltrans*.ci build/retail-ce/scia/lto/
 build/retail-ce/resident-scia.bin: build/retail-ce/resident-scia.elf
 	sh-elf-objcopy -O binary $< $@

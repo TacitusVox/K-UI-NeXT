@@ -753,8 +753,12 @@ def wwp_drive_status_symbol(data):
     return address
 
 
-def audit_wwp_drive_projection(controller_elf, resident, sizes, calls):
-    """Pin one atomic scalar load and preserve the booting bridge call graph."""
+def audit_wwp_drive_projection(controller_elf, resident, sizes, calls, history_pages=True):
+    """Pin one atomic scalar load and preserve the booting bridge call graph.
+
+    With the reader changes the CD music history pages are omitted from the
+    low reader (armada_ce_audio_observe.inc), and with them one terminal
+    snapshot call from the menu return; no call is added either way."""
     address = wwp_drive_status_symbol(controller_elf)
     if resident['symbols'].get(WWP_DRIVE_SYMBOL) != address:
         raise ValueError('Low WWP status symbol differs from the linked controller object')
@@ -777,10 +781,11 @@ def audit_wwp_drive_projection(controller_elf, resident, sizes, calls):
                            for source, edges in calls.items() for target, label in edges
                            if base(target) == 'kui_armada_ce_bind_probe')
     expected = Counter({('stream_event', 'retail_async.c'): 1,
-                        ('kui_retail_menu_return', 'armada_ce_audio_observe.inc'): 2,
+                        ('kui_retail_menu_return', 'armada_ce_audio_observe.inc'): 2 if history_pages else 1,
                         ('kui_retail_resident_dispatch', 'armada_ce_audio_observe.inc'): 2})
     if bridge_calls != expected:
-        raise ValueError('WWP adds or changes a cross-controller bootstrap/audio call')
+        raise ValueError('WWP adds or changes a cross-controller bootstrap/audio call: ' +
+                         repr(sorted(bridge_calls.items())))
     return {'word_address': hex(address), 'word_bytes': 4, 'word_alignment': 4,
             'public_zero_initialized_controller_bss_object': True,
             'exact_linked_object_not_fixed_offset': True,
@@ -1203,7 +1208,8 @@ def audit_stream_boot_arm(controller, controller_spans, resident, resident_spans
             "photo_hold_frames": photo_frames, "only_final_photo_hold_removed": not photo_hold}
 
 
-def check(directory, *, stream=False, bam4=False, worms=False, wwp=False, cdda_vmu=False):
+def check(directory, *, stream=False, bam4=False, worms=False, wwp=False, cdda_vmu=False,
+          reader_fixes=False):
     if cdda_vmu and (not stream or bam4 or worms or wwp):
         raise ValueError('The combined Armada CD music and virtual A2 audit is an Armada stream audit')
     low_limit, _ = low_layout(cdda_vmu)
@@ -1299,7 +1305,8 @@ def check(directory, *, stream=False, bam4=False, worms=False, wwp=False, cdda_v
     if sources != expected_sources:
         raise ValueError("Controller entry has an unexpected resident caller")
     drive_projection = audit_wwp_drive_projection(elf, resident,
-                        function_sizes(resident_elf), calls) if wwp else None
+                        function_sizes(resident_elf), calls,
+                        history_pages=not reader_fixes) if wwp else None
     controller_reports = [directory / "bind-probe.ci", directory / "excerpt.ci"]
     if stream:
         controller_reports += sorted(directory.glob("stream-*.ci"))
@@ -2098,6 +2105,8 @@ def main():
     parser.add_argument("--wwp", action="store_true", help="Use the exact Worms World Party US kernel profile")
     parser.add_argument("--cdda-vmu", action="store_true",
                         help="Armada stream with the writable virtual A2 (combined low layout)")
+    parser.add_argument("--reader-fixes", action="store_true",
+                        help="With --stream: the reader changes are built in (no CD music history pages)")
     parser.add_argument("--timing", action="store_true",
                         help="With --cdda-vmu: the Virtual VMU On timing diagnostic's reader region")
     parser.add_argument('--wwp-drive-link', type=Path, metavar='ELF',
@@ -2114,13 +2123,16 @@ def main():
         parser.error('Title profiles require --stream')
     if args.timing and not args.cdda_vmu:
         parser.error('--timing applies only to --cdda-vmu')
+    if args.reader_fixes and not args.stream:
+        parser.error('--reader-fixes applies only to --stream')
     global CDDA_VMU_TIMING
     CDDA_VMU_TIMING = args.timing
     if args.self_test:
         print(f"PASS Armada excerpt linked-auditor self-test: {self_test()} checks")
     if args.directory:
         print(json.dumps(check(args.directory, stream=args.stream or args.cdda_vmu, bam4=args.bam4,
-                               worms=args.worms, wwp=args.wwp, cdda_vmu=args.cdda_vmu), indent=2))
+                               worms=args.worms, wwp=args.wwp, cdda_vmu=args.cdda_vmu,
+                               reader_fixes=args.reader_fixes), indent=2))
     elif not args.self_test:
         parser.error("Provide a build directory or --self-test")
 

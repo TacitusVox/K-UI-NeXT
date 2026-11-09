@@ -62,12 +62,27 @@ endif
 else ifneq ($(KUI_ARMADA_CE_SLOW_AFTER_OVERRUN)$(KUI_ARMADA_CE_FAST_TAKE),)
 $(error The slow-after-overrun and fast-check trials need KUI_ARMADA_CE_MOVIE_TIMING=1)
 endif
+# Every WinCE CD music reader (Armada, Worms, Bust-A-Move 4, Worms World
+# Party): after a 12.5 MHz DMA overrun the next 64 receptions run at
+# 6.25 MHz, and each block's CRC and bit reversal run as one tighter pass.
+# Console-measured on Armada (VMU Off 8cdbc0a351f8, VMU On cb07c6454454).
+# 0 rebuilds the earlier readers (eeed38bd540e) byte-identical. The timing
+# diagnostics above keep their own explicit trial settings.
+KUI_CE_READER_FIXES ?= 1
+ifneq ($(filter $(KUI_CE_READER_FIXES),0 1),$(KUI_CE_READER_FIXES))
+$(error KUI_CE_READER_FIXES must be 0 or 1)
+endif
+ifneq ($(KUI_ARMADA_CE_MOVIE_TIMING),1)
+ifeq ($(KUI_CE_READER_FIXES),1)
+WINCE_CDDA_PROFILE_FLAGS += -DKUI_CE_SCI_SLOW_AFTER_OVERRUN=1 -DKUI_CE_SCI_FAST_TAKE=1
+endif
+endif
 override ARMADA_AUDIO_EXTRA_FLAGS := -DKUI_ARMADA_CE_EXCERPT=1 -DKUI_ARMADA_CE_STREAM=1 $(WINCE_CDDA_PROFILE_FLAGS)
 override ARMADA_AUDIO_EXTRA_STAGE_FLAGS := -DKUI_ARMADA_CE_RAM_BIND_STAGE=1 -DKUI_ARMADA_CE_EXCERPT_STAGE=1 -DKUI_ARMADA_CE_STREAM=1 -DKUI_RETAIL_EXTENDED_MAP=1 $(WINCE_CDDA_PROFILE_FLAGS)
 override ARMADA_AUDIO_EXTRA_STAGE_DEPS := $(ARMADA_AUDIO_DIR)/bind-probe.bin
 override ARMADA_AUDIO_EXTRA_ASM_FLAGS := -DKUI_ARMADA_CE_RAM_BIND_STAGE=1 -DKUI_ARMADA_CE_RAM_BIND_BIN='"$(ARMADA_AUDIO_DIR)/bind-probe.bin"'
 override ARMADA_AUDIO_EXTRA_LINK_FLAGS := -Wl,--defsym,_kui_armada_ce_bind_probe=$(WINCE_CDDA_CONTROLLER_BEGIN)
-override ARMADA_AUDIO_EXTRA_CHECK := python3 tools/check_armada_ce_excerpt.py --stream $(WINCE_CDDA_PROFILE_CHECK) $(ARMADA_AUDIO_DIR)
+override ARMADA_AUDIO_EXTRA_CHECK := python3 tools/check_armada_ce_excerpt.py --stream $(WINCE_CDDA_PROFILE_CHECK) $(if $(filter 1,$(KUI_CE_READER_FIXES)),$(if $(filter 1,$(KUI_ARMADA_CE_MOVIE_TIMING)),,--reader-fixes)) $(ARMADA_AUDIO_DIR)
 ifeq ($(KUI_WINCE_CDDA_PROFILE),wwp)
 # The controller is linked first. Export only its checked scalar object;
 # importing the whole controller symbol table would collide with low helpers.
@@ -76,12 +91,12 @@ override ARMADA_AUDIO_EXTRA_LINK_FLAGS += -Wl,-T,$(ARMADA_AUDIO_DIR)/wwp-drive-s
 # optimization otherwise leaves stale branch targets after linker relaxation.
 override ARMADA_AUDIO_EXTRA_LINK_FLAGS += -Wa,--renesas
 endif
-ifneq ($(findstring -DKUI_ARMADA_CE_MOVIE_TIMING_LOW=1,$(WINCE_CDDA_PROFILE_FLAGS)),)
-# The timing counters move the low reader's relaxed layout onto the same
-# fault: eleven calls into the SD delivery chain landed four bytes into
-# their callees (as in the 67b0df9 VMU-Off reader, which stopped at
-# Entering Windows CE). Keep named callee relocations, keep the final
-# relocations, and refuse any branch that enters a function mid-way.
+ifneq ($(findstring -DKUI_ARMADA_CE_MOVIE_TIMING_LOW=1,$(WINCE_CDDA_PROFILE_FLAGS))$(findstring -DKUI_CE_SCI_SLOW_AFTER_OVERRUN=1,$(WINCE_CDDA_PROFILE_FLAGS)),)
+# The timing counters (and equally the reader changes) move the low reader's
+# relaxed layout onto the same fault: eleven calls into the SD delivery chain
+# landed four bytes into their callees (as in the 67b0df9 VMU-Off reader,
+# which stopped at Entering Windows CE). Keep named callee relocations, keep
+# the final relocations, and refuse any branch that enters a function mid-way.
 override ARMADA_AUDIO_EXTRA_LINK_FLAGS += -Wa,--renesas -Wl,-q
 override ARMADA_AUDIO_SCIA_POSTLINK := python3 tools/check_relaxed_calls.py
 endif
@@ -93,3 +108,14 @@ $(ARMADA_AUDIO_DIR)/entry.elf: tools/check_retail_calls.py
 endif
 
 include Makefile.armada-stream-controller
+
+# These directories have no other flags record: rebuild every object when the
+# reader changes are switched.
+.PHONY: force-wince-reader-config
+force-wince-reader-config:
+$(ARMADA_AUDIO_DIR)/reader-config: force-wince-reader-config
+	@mkdir -p $(@D)
+	@printf '%s\n' 'READER_FIXES=$(KUI_CE_READER_FIXES)' > $@.tmp
+	@cmp -s $@.tmp $@ || cp $@.tmp $@
+	@rm -f $@.tmp
+$(ARMADA_AUDIO_STAGE) $(ARMADA_AUDIO_SCIF) $(ARMADA_AUDIO_IDE) $(ARMADA_AUDIO_SCI) $(ARMADA_AUDIO_SCIA) $(ARMADA_STREAM_OBJS) $(ARMADA_AUDIO_DIR)/retail_entry_asm.o: $(ARMADA_AUDIO_DIR)/reader-config
