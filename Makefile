@@ -694,6 +694,29 @@ build/test-retail-async-ce-slow: tests/test_retail_async_ce.c tests/sci_stream_m
 test-ce-slow-after-overrun: build/test-sci-stream-ce-slow build/test-retail-async-ce-slow
 	./build/test-sci-stream-ce-slow
 	./build/test-retail-async-ce-slow
+# The same trial with the faster per-block check (identical bytes and CRC).
+build/test-sci-stream-ce-fast: tests/test_sci_stream.c tests/sci_stream_model.h src/loader/sci_stream.c src/loader/sci_stream.h src/loader/sci_stream_check.h src/loader/sd_reader.h src/loader/sci_sd_bus.h
+	@mkdir -p $(@D)
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) -DKUI_SCI_STREAM_TEST=1 -DKUI_RETAIL_CE=1 -DKUI_CE_SCI_SLOW_AFTER_OVERRUN=1 -DKUI_CE_SCI_FAST_TAKE=1 -Iinclude -Isrc/loader src/loader/sci_stream.c tests/test_sci_stream.c -o $@
+build/test-retail-async-ce-fast: tests/test_retail_async_ce.c tests/sci_stream_model.h src/loader/retail_async.c src/loader/retail_async.h src/loader/sci_stream.c src/loader/sci_stream.h src/loader/sci_stream_check.h src/core/retail_cursor.c src/core/retail_image.c src/core/retail_gd.c include/kui/retail_gd.h include/kui/retail_cursor.h include/kui/retail_image.h include/kui/retail_loader_layout.h include/kui/ata.h
+	@mkdir -p $(@D)
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) -DKUI_RETAIL_ASYNC_TEST=1 -DKUI_SCI_STREAM_TEST=1 -DKUI_RETAIL_ASYNC=1 -DKUI_RETAIL_GD_ASYNC=1 -DKUI_RETAIL_CE=1 -DKUI_RETAIL_TRANSPORT=1 -DKUI_CE_SCI_SLOW_AFTER_OVERRUN=1 -DKUI_CE_SCI_FAST_TAKE=1 -Iinclude -Isrc/loader src/loader/retail_async.c src/loader/sci_stream.c src/core/retail_cursor.c src/core/retail_image.c src/core/retail_gd.c tests/test_retail_async_ce.c -o $@
+.PHONY: test-ce-fast-take
+test-ce-fast-take: build/test-sci-stream-ce-fast build/test-retail-async-ce-fast
+	./build/test-sci-stream-ce-fast
+	./build/test-retail-async-ce-fast
+# The same check's SH-4 assembly, built with the resident's CPU flags and
+# run under qemu-sh4 (Linux user mode) against a bitwise reference.
+SH4_TEST_FLAGS := -std=c11 -Os -Wall -Wextra -Werror -m4-single -ml -mdiv=call-div1 \
+    -mfixed-range=fr0-fr15,fpul-fpul -ffreestanding -nostdlib -static -fno-builtin \
+    -Wl,-Ttext=0x10000 -Wl,-e,__start -Wl,--build-id=none \
+    -Wl,-z,max-page-size=0x1000 -Wl,-z,common-page-size=0x1000
+build/sh4-tests/test-check-words: tests/sh4/test_check_words.c src/loader/sci_stream_check.h
+	@mkdir -p $(@D)
+	sh-elf-gcc $(SH4_TEST_FLAGS) -Isrc/loader $< -lgcc -o $@
+.PHONY: test-sh4-check-words
+test-sh4-check-words: build/sh4-tests/test-check-words
+	qemu-sh4 $<
 
 build/test-ce-load-plan: tests/test_ce_load_plan.c src/core/ce_load_plan.c include/kui/ce_load_plan.h include/kui/retail_loader_layout.h
 	@mkdir -p $(@D)

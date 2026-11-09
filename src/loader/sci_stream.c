@@ -128,7 +128,10 @@ static inline __attribute__((__always_inline__)) uint32_t reverse_data_word(uint
     return x ^ t ^ (t << 4);
 }
 #endif
-#ifdef KUI_RETAIL_CE
+#if defined(KUI_RETAIL_CE) && KUI_CE_SCI_FAST_TAKE
+/* The bit-0-folded table and the block check shared with the SH-4 test. */
+#include "sci_stream_check.h"
+#elif defined(KUI_RETAIL_CE)
 /* The byte update is linear: table[x ^ 128] = table[x] XOR 0x9188.
  * Keep the first 128 entries and reconstruct the high-bit contribution.
  * Every byte still receives the complete 0x1021 CRC update. This saves
@@ -153,7 +156,14 @@ static const uint16_t ce_crc16_table[128] __attribute__((aligned(32))) = {
     0xff9fu, 0xefbeu, 0xdfddu, 0xcffcu, 0xbf1bu, 0xaf3au, 0x9f59u, 0x8f78u,
 };
 #endif
-#ifdef KUI_RETAIL_CE
+#if defined(KUI_RETAIL_CE) && KUI_CE_SCI_FAST_TAKE
+static inline uint32_t crc16(uint32_t crc, uint8_t data) {
+    uint32_t index=(crc>>8)^data;
+    uint32_t value=kui_sci_check_table[(index>>1)&127u];
+    if(index&1u)value^=0x1021u;
+    return ((crc<<8)&0xffffu)^value;
+}
+#elif defined(KUI_RETAIL_CE)
 /* Keep the normalized accumulator in a full SH register, avoiding per-byte
  * uint16_t spills. The masked shifted state, table value and high-bit XOR
  * are all 16-bit, so the next table index remains within 0..127. */
@@ -169,6 +179,9 @@ static inline uint16_t crc16(uint16_t crc, uint8_t data) {
     x ^= x >> 4;
     return (uint16_t)((crc << 8) ^ (x << 12) ^ (x << 5) ^ x);
 }
+#endif
+#if KUI_CE_SCI_FAST_TAKE && !defined(KUI_RETAIL_CE)
+#error "The fast block check is the CE stream reader's"
 #endif
 static uint8_t crc7(const uint8_t *p) {
     unsigned c = 0;
@@ -623,6 +636,9 @@ const uint8_t *kui_sci_stream_take(uint32_t lba, enum kui_sci_stream_result *res
 #else
         uint16_t crc = 0;
 #endif
+#if KUI_CE_SCI_FAST_TAKE && __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
+        crc = kui_sci_check_words((kui_sci_check_word *)(void *)area, wire);
+#else
         for(unsigned w = 0; w < 128u; ++w) {
             uint32_t word = ((alias_word *)area)[w];
 #if KUI_TOY_PILOT_WORD_REVERSE_PROFILE
@@ -638,6 +654,7 @@ const uint8_t *kui_sci_stream_take(uint32_t lba, enum kui_sci_stream_result *res
 #endif
             }
         }
+#endif
         if(wire) {high = (uint8_t)reverse(high); low = (uint8_t)reverse(low);}
         uint16_t sent = (uint16_t)(high << 8 | low);
         if(crc != sent && lost) {
