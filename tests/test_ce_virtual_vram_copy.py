@@ -29,6 +29,21 @@ BASELINE='d393b859a9ee23d372daca54ef13c7839072097a'
 BASELINE_HASHES={
     'src/loader/retail_async.c':'e17b7517e5d442d01a3488ce0de322a10116c4c2c3332464d60ee237715fa4cf',
     'src/core/retail_image.c':'08b6e2db82bf77f91c2ad944235d3233e96eff59f711d782984a605e1018455c'}
+# Later reviewed hunks this control predates, each off in its build: the CE
+# reader's slow-refetch exception (KUI_CE_SCI_SLOW_AFTER_OVERRUN) and the
+# combined Armada CD music and virtual VMU build's fixed spill
+# (KUI_ARMADA_CE_CDDA_VMU). Each must occur exactly once.
+LATER_HUNKS={'src/loader/retail_async.c':(
+    ('    if(result == KUI_SCI_STREAM_OVERRUN\n#if KUI_CE_SCI_SLOW_AFTER_OVERRUN\n'
+     '       /* A fast overrun is refetched by DMA at the slower clock first. */\n'
+     '       && !kui_sci_stream_slow_pending()\n#endif\n      ) e.early_polled = 1;\n',
+     '    if(result == KUI_SCI_STREAM_OVERRUN) e.early_polled = 1;\n'),
+    ('#if KUI_ARMADA_CE_CDDA_VMU\n_Static_assert(KUI_RETAIL_ASYNC_SPILL_BYTES=='
+     'KUI_ARMADA_CE_CDDA_VMU_SPILL_BYTES,"combined spill size");\n'
+     '#define CE_DATA_SPILL ((uint8_t *)(uintptr_t)KUI_ARMADA_CE_CDDA_VMU_SPILL_P2)\n'
+     '#else\n#define CE_DATA_SPILL (R.spill)\n#endif\n',''),
+    ('        place(CE_DATA_SPILL + e.spill_from, n);\n','        place(R.spill + e.spill_from, n);\n'),
+    ('        memcpy(CE_DATA_SPILL + at, bytes, n);\n','        memcpy(R.spill + at, bytes, n);\n'))}
 SOURCES=('src/loader/retail_async.c','src/loader/sci_stream.c',
          'src/core/retail_cursor.c','src/core/retail_image.c','src/core/retail_gd.c')
 FLAGS=('-std=c11','-O1','-g','-Wall','-Wextra','-Werror','-Wpedantic',
@@ -145,13 +160,18 @@ int main(void) {
 
 def sha(data):return hashlib.sha256(data).hexdigest()
 def old_source(source):
-    """Reverse only the exact two new hunks, then bind the complete old file.
+    """Reverse only exact reviewed hunks, then bind the complete old file.
+
+    LATER_HUNKS go first, then this control's own two hunks.
 
     This runs in shallow CI checkouts without requesting historical Git bytes.
     Future unrelated changes need a reviewed new baseline hash/control rather
     than silently executing a guessed old source.
     """
     body=(ROOT/source).read_text()
+    for new,old in LATER_HUNKS.get(source,()):
+        if body.count(new)!=1:raise AssertionError('Later reviewed hunk changed: '+source)
+        body=body.replace(new,old,1)
     include='#ifdef KUI_RETAIL_CE\n#include "kui/retail_ce_payload_copy.h"\n#endif\n'
     if body.count(include)!=1:raise AssertionError('CE include changed: '+source)
     body=body.replace(include,'',1)

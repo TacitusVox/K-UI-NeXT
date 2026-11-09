@@ -2,16 +2,18 @@
 # SPDX-License-Identifier: GPL-3.0-only
 """Verify the shared CE CRC16 table factoring without removing block checks.
 
-The exact old production fragment reconstructs the complete historical source
-with a pinned SHA. Pure old/current updates execute exhaustively on host and
-bounded emitted SH updates execute with authored table/code memory. Physical
-SD, DMA timing and elapsed console performance are outside this test.
+With both CE reader switches resolved off, the exact old production fragment
+reconstructs the complete historical source with a pinned SHA. Pure
+old/current updates execute exhaustively on host and bounded emitted SH
+updates execute with authored table/code memory. Physical SD, DMA timing and
+elapsed console performance are outside this test.
 """
 import argparse
 import hashlib
 import json
 import os
 from pathlib import Path
+import re
 import struct
 import subprocess
 import sys
@@ -47,14 +49,60 @@ int main(void) {
 
 def sha(body):return hashlib.sha256(body).hexdigest()
 def signed(value,bits):return value-(1<<bits) if value&(1<<(bits-1)) else value
+# The CE reader switches are on by default in CE builds and absent from native
+# ones. Resolved off, the reader must reduce to its exact pre-switch text, so
+# every reconstruction below binds the same historical hashes. Only these
+# reviewed conditions are resolved; any other use of a switch fails the test.
+READER_SWITCHES=('KUI_CE_SCI_SLOW_AFTER_OVERRUN','KUI_CE_SCI_FAST_TAKE')
+READER_CONDITIONS={
+    '#if defined(KUI_RETAIL_CE) && KUI_CE_SCI_FAST_TAKE':False,
+    '#if KUI_CE_SCI_FAST_TAKE && !defined(KUI_RETAIL_CE)':False,
+    '#if KUI_CE_SCI_FAST_TAKE && __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__':False,
+    '#if KUI_CE_SCI_SLOW_AFTER_OVERRUN':False,
+    '#if !KUI_CE_SCI_SLOW_AFTER_OVERRUN':True}
+def without_reader_switches(source):
+    """Resolve the reviewed switch conditionals, both switches off.
+
+    A resolved group is [live, taken]; other groups are kept as written (None).
+    A plain #elif that becomes a group's first possible branch reopens it as
+    its original #ifdef/#if. The caller's pinned hashes check the result."""
+    out=[];stack=[]
+    def live():return all(f is None or f[0] for f in stack)
+    for line in source.splitlines(keepends=True):
+        text=line.strip();match=re.match(r'#\s*(\w+)',text)
+        word=match.group(1) if match else ''
+        mentions=any(name in text for name in READER_SWITCHES)
+        if word in ('if','ifdef','ifndef'):
+            if text in READER_CONDITIONS:
+                value=READER_CONDITIONS[text];stack.append([value,value]);continue
+            if mentions:raise AssertionError('Unreviewed reader-switch condition: '+text)
+            stack.append(None)
+        elif word=='elif':
+            if mentions:raise AssertionError('Unreviewed reader-switch condition: '+text)
+            if stack and stack[-1] is not None:
+                if stack[-1][1]:stack[-1][0]=False;continue
+                condition=text[len('#elif'):].strip()
+                name=re.fullmatch(r'defined\((\w+)\)',condition)
+                stack[-1]=None
+                if live():out.append(('#ifdef '+name.group(1) if name else '#if '+condition)+'\n')
+                continue
+        elif word=='else' and stack and stack[-1] is not None:
+            stack[-1]=[not stack[-1][1],True];continue
+        elif word=='endif':
+            if not stack:raise AssertionError('Unbalanced #endif')
+            if stack.pop() is not None:continue
+        if live():out.append(line)
+    if stack:raise AssertionError('Unbalanced conditional')
+    return ''.join(out)
 def fragments():
     source=(ROOT/SOURCE).read_text();old=(ROOT/FIXTURE).read_text()
     if sha(old.encode())!=FRAGMENT_SHA:raise AssertionError('Historical production CRC fragment changed')
-    start=source.index('#ifdef KUI_RETAIL_CE\n/* The byte update is linear:')
-    end=source.index('#else\nstatic inline uint16_t crc16',start)
-    baseline=source[:start]+old+source[end:]
+    plain=without_reader_switches(source)
+    start=plain.index('#ifdef KUI_RETAIL_CE\n/* The byte update is linear:')
+    end=plain.index('#else\nstatic inline uint16_t crc16',start)
+    baseline=plain[:start]+old+plain[end:]
     if sha(baseline.encode())!=BASELINE_SHA:raise AssertionError('Historical complete SCI source differs')
-    current=source[start:end]
+    current=plain[start:end]
     old=old.replace('static inline uint32_t crc16(',
         'uint32_t __attribute__((noinline,noipa)) old_crc16(').replace(
             'ce_crc16_table','old_ce_crc16_table')
