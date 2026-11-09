@@ -219,3 +219,106 @@ Compare with VMU Off `8cdbc0a351f8` (third result in
 - **Both near VMU Off, but PEND% or GAPMAX high, or A2 READ counts during
   the intro:** card-storage loans or Maple waits stall the movie's reads.
   Look at the loan path next.
+
+## Measurement result: the Maple hook, not the reader (`e73f99a93865`)
+
+Owner, 9 Nov 2026, US raw GDI, SCI, Background reader, CD Music On,
+Virtual VMU On: "The video starts solid and progressively gets worse, with
+the video becoming a slide show." Two photographs:
+
+| Value | VMU Off `8cdbc0a351f8` | VMU On `e73f99a93865` |
+| --- | --- | --- |
+| Movie window | 119,525 ms; 30,328 sectors; 507 KB/s; 1,333 reads | 119,950 ms; 29,717 sectors; 495 KB/s; 1,148 reads; status 7 |
+| GD calls / interrupt | 3,693 / 17,457 ms | 3,598 / 17,055 ms |
+| BUSY / PEND / busiest second | 17% / 75% / 26% | 17% / 81% / 25% |
+| DMA-OK / POLLED / OVERRUN / RESTART / CRC-ERR | 136,939 / 2,489 / 5,631 / 5,791 / 22 | 133,953 / 2,621 / 5,690 / 5,725 / 35 |
+| TOKBYTES / YIELDS / REPAIR | 1,942,599 / 5,993 / 95 | 1,810,721 / 5,721 / 112 |
+| OVRTICKS / MAXTICK / RUN-MS / GAPMAX | 2,749 / 14 / 300 / 525 | 2,961 / 12 / 325 / 75 |
+| Maple hook (HOOK-MS / HOOK% / phases / longest) | none | 16,907 ms / 14% / 14,416 / 2,352 us |
+
+GAME RETURN: guard 0, 0xD96D steps, 0x8D89 sectors. A2 page: INFO 1,
+ALLINFO 0, MEDIA 1, READ 0x16 (22), FINALIZE 0x16 (22), no fault. SLOW-OK
+and SLOWOVR read 0 because the controller was built without the reader
+change it reads them under (fixed for later timing builds in `2e4f800f`); the
+matching OVERRUN, RESTART and POLLED counts show the slow window ran.
+
+The reader costs what it costs on VMU Off. The hook adds 14% of the movie
+window: about 120 phases a second (PRE and POST at every Maple completion),
+1.2 ms each on average and up to 2.35 ms, all with interrupts masked. Each
+PRE phase ran the full capture (page-table walks, the extension's metadata
+through cache-line snapshots, every list word twice), then both RX-slice
+ownership queries, then the publisher's final query again, to set one
+attachment bit in the controller's reply. The movie decoder gets 14% less
+CPU and the reader's interrupt waits behind the masked phases (PEND 81%).
+The 67b0df9 module has the same hook, so this also explains its echo.
+
+## Candidate: repeat a proven controller poll (`cb07c645`)
+
+After a full publication of a controller poll without an A2 request, a
+completion that provably repeats it repeats only that publication: same
+owner context and extension argument, MDSTAR the proven list, every list
+word and the parent's reply and request function read again from RAM as
+the DMA saw them; then the same MMIO admission and held fence, the same
+final MDEN/MDST/MDSTAR and reply check, and the same single store with
+read-back. Any difference, any A2 request, fault, diagnostic mode or
+pending continuation, and every 64th poll take the full path, which
+re-proves and replaces the template. Card requests (INFO, MEDIA, READ,
+WRITE, FINALIZE) always take the full path. The earlier readonly console run
+(`af18576dba18`) had 1,199 such polls in 1,200 completions.
+
+`ARMADA_A2_STEADY=1` is the combined build's default. With it the helper
+outgrew the 48 KiB image by 0x360 bytes, so the combined reservation starts
+at `0x8cfc2000`. Below `0x8cfc4000` this layout used only the 2 KiB spill at
+`0x8cfc0000`. The fixed P2 handoff, services, stacks and logs keep their
+addresses. Proof-stack bound 1,272 of 1,448 bytes (call graphs, every
+indirect site taking any admitted callback). `ARMADA_A2_STEADY=0` rebuilds
+`7827779dd053` byte-identical; VMU Off `8cdbc0a351f8` is unchanged.
+
+Built with the timing (`ARMADA_CDDA_VMU_TIMING=1`) so one run shows the
+result. The sixth row is now `HOOK-MS HOOK% HOOKS HOOKMAX-US STEADY`, where
+STEADY counts repeated polls in the window.
+
+| Reader | Build | Payload bytes | Payload CRC32 |
+| --- | --- | --- | --- |
+| Candidate (installed) | `cb07c6454454` | 208,116 | `F86EA178` |
+| Previous VMU On (optional) | `67b0df9469cc` | 206,208 | `073826F5` |
+
+Capability record, card-profile slot and blank `CEX2` seed as in
+`7827779dd053`; `test-wince-packaged-prepare --armada` passes with the
+owner kernel (raw and 2048 DATA); relaxed-call gate 326 sites, none
+mid-function; the reader still ends at `0x8c00d760`. Package
+`KUI-Armada-VMU-On-Steady-Poll-09NOV2026-1553-CST-cb07c64.zip` (SHA-256
+`bc5fbf3f4f421295120d87b6ace21f3439a7ec85678b1b7371e2f690f6d6eb6b`): the
+owner's installation with only `ce-armada-all-on.kui` changed. Test: the
+intro and its two report pages; then, only if the intro is good and after
+backing up `KUI/vmu-test`, load a save, make a new one and load it after a
+power cycle. Not yet run on a Dreamcast.
+
+Expected: HOOK% about 1% (one full proof of about 2.3 ms per 64 polls plus
+a short check on the others), STEADY close to 63/64 of the PRE phases
+(about 7,000 over the intro), BUSY and the stream counts as on VMU Off, and
+the movie as smooth as VMU Off.
+
+- **HOOK% about 1% and a smooth movie:** the hook's per-poll proof was the
+  cause. Next: the save/load and power-cycle check, then a build without
+  the timing rows.
+- **STEADY small and HOOK% still high:** Armada's polls do not repeat as
+  the readonly run showed; find what differs between consecutive polls.
+- **Smooth movie but the card is missing or a save fails:** the A2 page's
+  fault row identifies the refused step.
+
+## Scope across WinCE titles
+
+Two separate costs, each shared differently:
+
+- The reader changes (`KUI_CE_SCI_SLOW_AFTER_OVERRUN`,
+  `KUI_CE_SCI_FAST_TAKE`) are in the common CE SCI stream reader, but only
+  the Armada builds enable them. Worms, Bust-A-Move 4 and Worms World Party
+  build the same reader without them; the owner reports Worms FMVs suffer
+  the same way. Enabling them there (each reader must still fit its low
+  layout) is the next shared change, checked with a Worms FMV run.
+- The steady-state poll is in the CE Maple helper
+  (`armada_ce_maple_traffic.c`), which the Smash Pack CE VMU helpers
+  (Virtua Cop 2, Sega Swirl) compile too. It is enabled only for the
+  combined Armada build until this console check passes. Native games use a
+  different VMU implementation; this measurement says nothing about them.
