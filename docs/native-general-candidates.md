@@ -54,9 +54,15 @@ virtual VMU admission.
 
 ## Prefetch that pauses while the game streams
 
-On the console, prefetch removed the residual gameplay lag in Evolution 1
-but made Sonic Adventure 2's FMVs much worse, with video out of sync with
-audio. A TICK spends up to one PIO window of masked CPU in its controller
+On the console, prefetch removed the residual gameplay lag in Evolution 1.
+The owner also first reported that it made Sonic Adventure 2's FMVs much
+worse, with video out of sync with audio. On 27 Oct 2026 the owner corrected
+this: SA2's Sonic and Shadow intros are rendered in-game, not FMVs. The
+stream guard below did not change the poor Shadow intro, whose cause is
+unknown. With the guard, Evolution 1's intro FMV was slightly better in sync
+than with prefetch always on
+([result](evidence/native-general-prefetch-auto-289eaf-console-2026-10-27.json)).
+A TICK spends up to one PIO window of masked CPU in its controller
 frame. Between bursts of reads that buys cached blocks for the next read;
 during an FMV the game streams continuously, so the same cost recurs every
 frame for little data, and the decoder loses that time.
