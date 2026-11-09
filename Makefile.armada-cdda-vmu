@@ -1,8 +1,13 @@
 # SPDX-License-Identifier: GPL-3.0-only
 # Not a delivery recipe: its reader (7827779dd053) failed on the console;
-# see docs/armada-vmu-on-audio-fix-test.md. Virtual VMU On ships the patched
-# delivered reader (make armada-all-on-slow-refetch).
+# see docs/armada-vmu-on-audio-fix-test.md. ARMADA_CDDA_VMU_TIMING=1 builds
+# the same reader with the VMU Off movie timing and the Maple hook's own time
+# (build/armada-ce-cdda-vmu-timing), a measurement only.
+ifeq ($(ARMADA_CDDA_VMU_TIMING),1)
+override ARMADA_A2_DIR := build/armada-ce-cdda-vmu-timing
+else
 override ARMADA_A2_DIR := build/armada-ce-cdda-vmu
+endif
 override ARMADA_A2_CDDA := 1
 override ARMADA_A2_WRITE_LAYOUT := 1
 override ARMADA_A2_WRITE_STAGING := 1

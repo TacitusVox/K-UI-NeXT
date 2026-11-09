@@ -36,4 +36,10 @@
 #define KUI_ARMADA_CE_VMU_SERVICES_SIZE 32
 #define KUI_ARMADA_CE_VMU_WORKER_STACK_BOTTOM 0xacfce800
 #define KUI_ARMADA_CE_VMU_WORKER_STACK_TOP 0xacfcf800
+/* Diagnostic hook timing (KUI_ARMADA_CE_HOOK_TIMING builds only): after the
+ * A2 log, inside the zeroed reservation. Words: TMU0 ticks spent in the
+ * helper's PRE/POST phases (interrupts masked), phases, the longest phase.
+ * The stage zeroes the reservation before NK; nothing else uses these. */
+#define KUI_ARMADA_CE_HOOK_TIMING_P2 0xacfcffc0
+#define KUI_ARMADA_CE_HOOK_TIMING_WORDS 3
 #endif

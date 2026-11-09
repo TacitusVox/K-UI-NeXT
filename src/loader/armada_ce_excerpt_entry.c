@@ -350,7 +350,19 @@ static struct kui_armada_movie_timing movie;
 static const char movie_labels[KUI_ARMADA_MOVIE_ROWS][40]={
     "MOVIE-MS SECTORS KB/S READS STATUS", "CALL-MS IRQ-MS BUSY% PEND% PEAK%",
     "DMA-OK POLLED OVERRUN RESTART CRC-ERR", "SLOW-OK SLOWOVR TOKBYTES YIELDS REPAIR",
-    "OVRTICKS MAXTICK RUN-MS GAPMAX LOWKB/S", "CALLS IRQS SAMPLES HOT>50 1S-WINS"};
+    "OVRTICKS MAXTICK RUN-MS GAPMAX LOWKB/S",
+#if KUI_ARMADA_CE_HOOK_TIMING
+    "HOOK-MS HOOK% HOOKS HOOKMAX-US HOT>50"};
+#else
+    "CALLS IRQS SAMPLES HOT>50 1S-WINS"};
+#endif
+#if KUI_ARMADA_CE_HOOK_TIMING
+#include "kui/armada_ce_vmu_layout.h"
+/* Virtual VMU On timing: the Maple hook's own words (ticks, phases, longest
+ * phase; armada_ce_maple_traffic.c), read over the same movie window as the
+ * reader's totals. The longest phase restarts when the window opens. */
+static uint32_t hook_base[2],hook_end[2],hook_max;
+#endif
 /* CE async resident: kui_retail_ce_kernel is pinned at 0x8c008324 by its
  * linker script; word 2 is KData, whose millisecond count follows at +4. */
 #define MOVIE_CE_KERNEL_DATA 0x8c00832cu
@@ -372,7 +384,20 @@ static void movie_sample(void) {
          0u,0u
 #endif
         }};
+#if KUI_ARMADA_CE_HOOK_TIMING
+    volatile uint32_t *hook=(volatile uint32_t *)(uintptr_t)KUI_ARMADA_CE_HOOK_TIMING_P2;
+    bool opened=(movie.flags&KUI_ARMADA_MOVIE_STARTED)!=0;
+#endif
     kui_armada_movie_sample(&movie,&in);
+#if KUI_ARMADA_CE_HOOK_TIMING
+    if(!(movie.flags&KUI_ARMADA_MOVIE_STARTED)) return;
+    if(!opened) {
+        hook_base[0]=hook_end[0]=hook[0];hook_base[1]=hook_end[1]=hook[1];
+        hook[2]=0;hook_max=0;
+    } else if(kui_armada_movie_lba(in.lba)) {
+        hook_end[0]=hook[0];hook_end[1]=hook[1];hook_max=hook[2];
+    }
+#endif
 }
 /* The audited entry's bytes are unchanged: its existing calls to these two
  * functions reach same-named wrappers. The poll wrapper samples before the
@@ -388,8 +413,15 @@ __attribute__((noipa)) void kui_armada_ce_stream_underrun_snapshot(
         struct kui_armada_ce_stream_underrun_snapshot *out) {
     kui_armada_ce_stream_underrun_snapshot_core(out);
     uint32_t rows[KUI_ARMADA_MOVIE_ROWS][5];
-    kui_armada_movie_rows(&movie,
-        kui_armada_movie_ticks_per_ms(*(volatile const uint16_t *)(uintptr_t)0xffd80010u),rows);
+    uint32_t per_ms=kui_armada_movie_ticks_per_ms(*(volatile const uint16_t *)(uintptr_t)0xffd80010u);
+    kui_armada_movie_rows(&movie,per_ms,rows);
+#if KUI_ARMADA_CE_HOOK_TIMING
+    uint32_t elapsed=movie.end_ms-movie.start_ms;
+    uint32_t hook_ms=per_ms?(hook_end[0]-hook_base[0])/per_ms:0u;
+    uint32_t hook_values[5]={hook_ms,elapsed?hook_ms*100u/elapsed:0u,hook_end[1]-hook_base[1],
+        per_ms?(uint32_t)((uint64_t)hook_max*1000u/per_ms):0u,movie.hot};
+    for(unsigned c=0;c<5u;c++) rows[KUI_ARMADA_MOVIE_ROWS-1u][c]=kui_armada_movie_decimal(hook_values[c]);
+#endif
     /* The low reader prints label i with these arrays in this order. */
     uint32_t *targets[KUI_ARMADA_MOVIE_ROWS]={snapshot.binding,snapshot.fault,snapshot.context,
         snapshot.playback,snapshot.buffer,snapshot.cursor};

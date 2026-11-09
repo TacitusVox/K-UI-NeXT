@@ -254,6 +254,11 @@ STREAM_BUS_RELAY_BYTES = bytes.fromhex("02d0536700e643652b40fee400000000")
 # bytes); the delivered 67b0df9 all-on controller carries the same bytes.
 LOW_LIMIT, LOW_REGION_BYTES = 0x8c00d800, 0xf60
 CDDA_VMU_LOW_LIMIT, CDDA_VMU_LOW_REGION_BYTES = 0x8c00dc00, 0xf60 - 0x800
+# Virtual VMU On timing diagnostic only (ARMADA_CDDA_VMU_TIMING=1, --timing):
+# the reader region gains the four movie-timing words, rounded to its 32-byte
+# alignment. Never a delivery layout.
+CDDA_VMU_TIMING_REGION_BYTES = CDDA_VMU_LOW_REGION_BYTES + 0x20
+CDDA_VMU_TIMING = False
 STREAM_BUS_VALID_SPAN_OFFSET = 0x126
 
 
@@ -273,7 +278,10 @@ def audit_all_on_capability(directory):
 
 
 def low_layout(cdda_vmu=False):
-    return (CDDA_VMU_LOW_LIMIT, CDDA_VMU_LOW_REGION_BYTES) if cdda_vmu else (LOW_LIMIT, LOW_REGION_BYTES)
+    if cdda_vmu:
+        return CDDA_VMU_LOW_LIMIT, (CDDA_VMU_TIMING_REGION_BYTES if CDDA_VMU_TIMING
+                                    else CDDA_VMU_LOW_REGION_BYTES)
+    return LOW_LIMIT, LOW_REGION_BYTES
 
 
 def stream_bus_valid_bytes(cdda_vmu=False):
@@ -2090,6 +2098,8 @@ def main():
     parser.add_argument("--wwp", action="store_true", help="Use the exact Worms World Party US kernel profile")
     parser.add_argument("--cdda-vmu", action="store_true",
                         help="Armada stream with the writable virtual A2 (combined low layout)")
+    parser.add_argument("--timing", action="store_true",
+                        help="With --cdda-vmu: the Virtual VMU On timing diagnostic's reader region")
     parser.add_argument('--wwp-drive-link', type=Path, metavar='ELF',
                         help='Emit one checked WWP scalar linker assignment from the controller ELF')
     args = parser.parse_args()
@@ -2102,6 +2112,10 @@ def main():
         parser.error('Select only one WinCE title profile')
     if (args.bam4 or args.worms or args.wwp) and not args.stream:
         parser.error('Title profiles require --stream')
+    if args.timing and not args.cdda_vmu:
+        parser.error('--timing applies only to --cdda-vmu')
+    global CDDA_VMU_TIMING
+    CDDA_VMU_TIMING = args.timing
     if args.self_test:
         print(f"PASS Armada excerpt linked-auditor self-test: {self_test()} checks")
     if args.directory:

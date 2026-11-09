@@ -1252,11 +1252,12 @@ armada_return_pages:
     retail_display_pause(900u); /* ~15 seconds at 60 Hz to capture the counters */
 #endif
 #if KUI_ARMADA_CE_STREAM && KUI_ARMADA_CE_AUDIO_OBSERVE
-#if KUI_ARMADA_CE_MOVIE_TIMING_LOW
+#if KUI_ARMADA_CE_MOVIE_TIMING_LOW && !KUI_ARMADA_CE_CDDA_VMU
     /* The movie timing fits the first page; redraw it until power-off.
      * The CD music history pages are omitted from this diagnostic only. */
     goto armada_return_pages;
 #else
+#if !KUI_ARMADA_CE_MOVIE_TIMING_LOW
     /* Additional terminal pages retain the timing missing from a single
      * cumulative photograph. No game, card, clock or native audio resumes. */
     for(unsigned page=0;page<3u;page++) {
@@ -1264,6 +1265,9 @@ armada_return_pages:
         armada_ce_audio_history(page);
         retail_display_pause(300u);
     }
+#endif
+    /* Virtual VMU On: the A2 page follows (the timing diagnostic omits only
+     * the CD music history pages). */
 #if KUI_ARMADA_CE_CDDA_VMU
     retail_display_restore(&display);
     /* The hook's A2 log (armada_ce_vmu_a2_write.ld.S): six rows of five

@@ -98,6 +98,21 @@ $(error ARMADA_CDDA_VMU_READER_FIXES must be 0 or 1)
 endif
 override ARMADA_AUDIO_EXTRA_STAGE_FLAGS += $(ARMADA_A2_CDDA_FLAGS) -DKUI_ARMADA_CE_EXCERPT_STAGE=1 -DKUI_RETAIL_EXTENDED_MAP=1
 override ARMADA_AUDIO_EXTRA_ASM_FLAGS += $(ARMADA_A2_CDDA_FLAGS)
+# Diagnostic only, never a delivery default: the VMU Off movie timing (the
+# low reader's TMU0 totals and the controller's six report rows) plus the
+# Maple hook's own time in the sixth row, to find where Virtual VMU On loses
+# time in the intro. The reader region gains the timing words, so the
+# reader, controller and stage all see the same layout.
+ARMADA_CDDA_VMU_TIMING ?= 0
+ifeq ($(ARMADA_CDDA_VMU_TIMING),1)
+ARMADA_STREAM_EXTRA_FLAGS += -DKUI_ARMADA_CE_MOVIE_TIMING=1 -DKUI_ARMADA_CE_MOVIE_TIMING_HIGH=1 -DKUI_ARMADA_CE_HOOK_TIMING=1
+override ARMADA_AUDIO_EXTRA_FLAGS += -DKUI_ARMADA_CE_MOVIE_TIMING=1 -DKUI_ARMADA_CE_MOVIE_TIMING_LOW=1
+override ARMADA_AUDIO_EXTRA_STAGE_FLAGS += -DKUI_ARMADA_CE_MOVIE_TIMING=1
+ARMADA_A2_HOOK_TIMING_FLAGS := -DKUI_ARMADA_CE_HOOK_TIMING=1
+ARMADA_A2_TIMING_CHECK := --timing
+else ifneq ($(ARMADA_CDDA_VMU_TIMING),0)
+$(error ARMADA_CDDA_VMU_TIMING must be 0 or 1)
+endif
 # The GUI admits the all-on route by the entry's capability record.
 override ARMADA_AUDIO_EXTRA_ENTRY_FLAGS := -DKUI_ARMADA_CE_CDDA_VMU=1
 # Named callee relocations (--renesas) avoid SH relaxation's stale section+
@@ -105,7 +120,7 @@ override ARMADA_AUDIO_EXTRA_ENTRY_FLAGS := -DKUI_ARMADA_CE_CDDA_VMU=1
 # enters a function mid-way (tools/check_relaxed_calls.py).
 override ARMADA_AUDIO_EXTRA_LINK_FLAGS := -Wl,--defsym,_kui_armada_ce_bind_probe=$(WINCE_CDDA_CONTROLLER_BEGIN) -Wa,--renesas -Wl,-q
 override ARMADA_AUDIO_SCIA_POSTLINK := python3 tools/check_relaxed_calls.py
-override ARMADA_AUDIO_EXTRA_CHECK := python3 tools/check_armada_ce_excerpt.py --cdda-vmu $(ARMADA_AUDIO_DIR)
+override ARMADA_AUDIO_EXTRA_CHECK := python3 tools/check_armada_ce_excerpt.py --cdda-vmu $(ARMADA_A2_TIMING_CHECK) $(ARMADA_AUDIO_DIR)
 endif
 include Makefile.armada-audio
 ifeq ($(ARMADA_A2_CDDA),1)
@@ -137,7 +152,7 @@ ifeq ($(ARMADA_A2_WRITE_RUNTIME),1)
 	@sha256sum '$(SD_PROFILE)' >> $@.tmp
 endif
 ifeq ($(ARMADA_A2_CDDA),1)
-	@printf '%s\n' 'READER_FIXES=$(ARMADA_CDDA_VMU_READER_FIXES)' >> $@.tmp
+	@printf '%s\n' 'READER_FIXES=$(ARMADA_CDDA_VMU_READER_FIXES)' 'TIMING=$(ARMADA_CDDA_VMU_TIMING)' >> $@.tmp
 endif
 	@cmp -s $@.tmp $@ || cp $@.tmp $@
 	@rm -f $@.tmp
@@ -178,7 +193,7 @@ $(ARMADA_AUDIO_DIR)/traffic-entry.o: src/loader/armada_ce_maple_traffic_entry.S
 	sh-elf-gcc $(RETAIL_FLAGS) $(ARMADA_A2_EXPERIMENT_FLAGS) $(ARMADA_A2_AUTO_FLAGS) -c $< -o $@
 $(ARMADA_AUDIO_DIR)/traffic.o: src/loader/armada_ce_maple_traffic.c include/kui/armada_ce_maple_traffic.h include/kui/armada_ce_maple_traffic_types.h
 	@mkdir -p $(@D)
-	sh-elf-gcc $(RETAIL_FLAGS) $(ARMADA_A2_EXPERIMENT_FLAGS) -DKUI_ARMADA_CE_MAPLE_FENCE=1 -DKUI_ARMADA_CE_MAPLE_A2=1 -DKUI_VMU_READONLY_ADDRESS=2 -DKUI_ARMADA_CE_CACHE_SNAPSHOT_NATIVE=1 $(ARMADA_A2_AUTO_FLAGS) -fcallgraph-info=su -MMD -MP -c $< -o $@
+	sh-elf-gcc $(RETAIL_FLAGS) $(ARMADA_A2_EXPERIMENT_FLAGS) -DKUI_ARMADA_CE_MAPLE_FENCE=1 -DKUI_ARMADA_CE_MAPLE_A2=1 -DKUI_VMU_READONLY_ADDRESS=2 -DKUI_ARMADA_CE_CACHE_SNAPSHOT_NATIVE=1 $(ARMADA_A2_AUTO_FLAGS) $(ARMADA_A2_HOOK_TIMING_FLAGS) -fcallgraph-info=su -MMD -MP -c $< -o $@
 -include $(ARMADA_AUDIO_DIR)/traffic.d
 
 $(addprefix $(ARMADA_AUDIO_DIR)/,$(addsuffix .o,$(ARMADA_A2_CORE_NAMES))): $(ARMADA_AUDIO_DIR)/%.o: src/core/%.c

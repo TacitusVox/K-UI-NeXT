@@ -566,6 +566,12 @@ static unsigned a2_pending(void) {
 }
 #endif
 #endif
+#if KUI_ARMADA_CE_HOOK_TIMING
+/* Diagnostic build only: the body below keeps its exact code under a private
+ * name; the shim's entry symbol becomes a timing wrapper (end of file). */
+#define kui_armada_ce_maple_traffic_run armada_hook_timed_run
+static __attribute__((noinline))
+#endif
 #if KUI_ARMADA_CE_VMU_WRITE_RUNTIME
 #define TRAFFIC_DONE() return KUI_ARMADA_CE_MAPLE_CONTINUE
 unsigned
@@ -695,3 +701,31 @@ kui_armada_ce_maple_traffic_run(uint32_t raw,uint32_t original_sp,
     TRAFFIC_DONE();
 }
 #undef TRAFFIC_DONE
+#if KUI_ARMADA_CE_HOOK_TIMING
+#undef kui_armada_ce_maple_traffic_run
+/* TMU0 (CE's tick timer, only read) around each PRE/POST phase, interrupts
+ * masked throughout. A phase is far shorter than TMU0's period, so it sees
+ * at most one reload. The service and CE-wait segments run outside it. */
+#if KUI_ARMADA_CE_VMU_WRITE_RUNTIME
+unsigned
+#else
+void
+#endif
+kui_armada_ce_maple_traffic_run(uint32_t raw,uint32_t original_sp,
+    uint32_t original_pr,uint32_t previous_mode) {
+    volatile const uint32_t *tmu=(volatile const uint32_t *)(uintptr_t)UINT32_C(0xffd80008);
+    uint32_t started=tmu[1];
+#if KUI_ARMADA_CE_VMU_WRITE_RUNTIME
+    unsigned result=
+#endif
+    armada_hook_timed_run(raw,original_sp,original_pr,previous_mode);
+    uint32_t ended=tmu[1],period=tmu[0]+1u;
+    uint32_t elapsed=started>=ended?started-ended:started+period-ended;
+    volatile uint32_t *timing=(volatile uint32_t *)(uintptr_t)KUI_ARMADA_CE_HOOK_TIMING_P2;
+    timing[0]+=elapsed;timing[1]++;
+    if(elapsed>timing[2]) timing[2]=elapsed;
+#if KUI_ARMADA_CE_VMU_WRITE_RUNTIME
+    return result;
+#endif
+}
+#endif

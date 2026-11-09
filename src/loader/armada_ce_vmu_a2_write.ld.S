@@ -98,6 +98,7 @@ SECTIONS {
         _kui_armada_ce_maple_proof_initial = .; . += 4;
         _kui_armada_ce_maple_proof_final = .; . += 4;
     } :private
+    ASSERT(. <= KUI_ARMADA_CE_HOOK_TIMING_P2, "A2 log overlaps the diagnostic hook timing words")
     ASSERT(. <= 0xacfd0000, "Traffic observer leaves reserved pages")
     /DISCARD/ : { *(.comment) *(.note*) *(.eh_frame*) }
 }
