@@ -9,6 +9,9 @@
 #if KUI_ARMADA_CE_VMU_WRITE_RUNTIME
 #include "kui/armada_ce_vmu_runtime.h"
 #endif
+#if KUI_ARMADA_CE_MAPLE_STEADY && (!KUI_ARMADA_CE_MAPLE_A2 || !KUI_ARMADA_CE_VMU_WRITE_RUNTIME)
+#error "The steady-state controller poll is part of the writable A2 helper"
+#endif
 extern struct kui_armada_ce_maple_traffic_snapshot kui_armada_ce_maple_hook_log;
 extern volatile uint32_t kui_armada_ce_maple_traffic_freeze;
 static struct kui_armada_ce_maple_traffic_scratch traffic_scratch;
@@ -564,6 +567,95 @@ static unsigned a2_pending(void) {
     }
     return a2_service();
 }
+#if KUI_ARMADA_CE_MAPLE_STEADY
+#if !KUI_ARMADA_CE_MAPLE_FENCE || !KUI_ARMADA_CE_MAPLE_WRITE_STAGING
+#error "The steady-state controller poll needs the fenced writable A2 helper"
+#endif
+/* Steady-state controller poll. The full capture, both RX-slice ownership
+ * queries and the final query cost about 2.3 ms per completion with
+ * interrupts masked (console, e73f99a93865: 14% of the intro), yet nearly
+ * every completion is the same controller poll whose only A2 work is the
+ * attachment bit in the controller's reply. After a full publication of
+ * such a poll (no A2 request) succeeds, a completion whose DMA list is
+ * provably that one (same owner context and extension argument, MDSTAR the
+ * proven list, every list word and the parent's reply read again from RAM as
+ * the DMA saw them) repeats only that publication: the same held fence, the
+ * same single 4-byte store with read-back. Any difference, any A2 request,
+ * any fault or diagnostic mode, a pending continuation, or the 64th poll
+ * since the last full proof takes the full path, which re-proves and replaces
+ * the template. Valid only while traffic_scratch, a2_input and a2_context
+ * still hold that full publication: every full visit either replaces the
+ * template or clears it. */
+#define A2_STEADY_PROOF_FRAMES 64u
+static struct {
+    uint32_t valid,frames,raw,ttb,process,ccr;
+} a2_steady;
+static bool a2_steady_reply(void) {
+    const struct kui_armada_ce_vmu_a2_parent *p=&a2_input.parent;
+    uint32_t value;uint8_t words[4];
+    if(!traffic_read_p2(NULL,p->rx_bus|0xa0000000u,&value) || value!=p->response_header ||
+       !traffic_read_p2(NULL,(p->rx_bus+4u)|0xa0000000u,&value) || value!=p->response_function)
+        return false;
+    if((p->request_header>>24) && (!a2_payload(a2_context.index[0],1u,words) ||
+       ((uint32_t)words[0]|(uint32_t)words[1]<<8|(uint32_t)words[2]<<16|(uint32_t)words[3]<<24)!=
+       p->request_function)) return false;
+    return true;
+}
+/* Before the fence: may this completion repeat the template's publication? */
+static bool a2_steady_admit(uint32_t raw,uint32_t ttb,uint32_t process,uint32_t ccr) {
+    uint32_t value;
+    if(!a2_steady.valid || a2_steady.frames>=A2_STEADY_PROOF_FRAMES || raw!=a2_steady.raw ||
+       ttb!=a2_steady.ttb || process!=a2_steady.process || ccr!=a2_steady.ccr ||
+       kui_armada_ce_maple_diagnostic_mode || kui_armada_ce_vmu_a2_log.fault[0] ||
+       a2_input.target_present || a2_continuation.pending ||
+       (a2_continuation.bound && *(volatile const uint32_t *)(uintptr_t)KUI_CE_MAPLE_CURRENT_THREAD!=
+           a2_continuation.thread)) return false;
+    /* The completed DMA ran the list at MDSTAR: it must be the proven list,
+     * word for word, ending where the proven list ended. */
+    if(!fence_read_mmio(NULL,KUI_ARMADA_CE_MAPLE_FENCE_MDSTAR,&value) || value!=traffic_scratch.word[1])
+        return false;
+    for(unsigned i=0;i<a2_context.records;i++) {
+        const uint32_t *row=traffic_scratch.row[i];
+        for(unsigned j=0;j<3u;j++)
+            if(!traffic_read_p2(NULL,(traffic_scratch.word[1]+row[0]+4u*j)|0xa0000000u,&value) ||
+               value!=row[j+1u]) return false;
+    }
+    return a2_steady_reply();
+}
+/* Under the held fence: the same final admission words, then the same store. */
+static void a2_steady_publish(void) {
+    uint32_t value;
+    if(!fence_read_mmio(NULL,KUI_ARMADA_CE_MAPLE_FENCE_MDEN,&value) || value ||
+       !fence_read_mmio(NULL,KUI_ARMADA_CE_MAPLE_FENCE_MDST,&value) || value ||
+       !fence_read_mmio(NULL,KUI_ARMADA_CE_MAPLE_FENCE_MDSTAR,&value) || value!=traffic_scratch.word[1] ||
+       !a2_steady_reply()) {a2_steady.valid=0;return;}
+    struct kui_armada_ce_vmu_a2_publish_snapshot *out=&kui_armada_ce_vmu_a2_log;
+    const struct kui_armada_ce_vmu_a2_parent *p=&a2_input.parent;
+    uint32_t advertised=p->response_header|KUI_CE_VMU_ATTACHMENT_BIT;
+    a2_context.parent=p->rx_bus|0xa0000000u;a2_context.target_bytes=0;
+    out->counts[1]=kui_armada_ce_maple_traffic_inc(out->counts[1]);out->status[4]=1u;
+    if(!a2_store32(NULL,a2_context.parent,advertised)) {
+        a2_steady.valid=0;a2_fault(111u,a2_context.parent,advertised,p->response_header,0);return;
+    }
+    out->status[2]=kui_armada_ce_maple_traffic_inc(out->status[2]);
+    out->counts[3]=kui_armada_ce_maple_traffic_inc(out->counts[3]);
+    out->counts[2]=kui_armada_ce_maple_traffic_inc(out->counts[2]);
+    ++a2_steady.frames;
+#if KUI_ARMADA_CE_HOOK_TIMING
+    volatile uint32_t *timing=(volatile uint32_t *)(uintptr_t)KUI_ARMADA_CE_HOOK_TIMING_P2;
+    timing[3]=kui_armada_ce_maple_traffic_inc(timing[3]);
+#endif
+}
+/* After every full visit: the template is this poll's publication, or none. */
+static void a2_steady_capture(bool published,uint32_t raw,uint32_t ttb,uint32_t process,uint32_t ccr) {
+    a2_steady.valid=0;
+    if(!published || a2_continuation.result!=KUI_ARMADA_CE_VMU_A2_PUBLISH_OK ||
+       !a2_continuation.checked || a2_input.target_present || kui_armada_ce_vmu_a2_log.fault[0] ||
+       !a2_context.records || a2_context.records>KUI_ARMADA_CE_MAPLE_TRAFFIC_RECORD_LIMIT) return;
+    a2_steady.raw=raw;a2_steady.ttb=ttb;a2_steady.process=process;a2_steady.ccr=ccr;
+    a2_steady.frames=0;a2_steady.valid=1u;
+}
+#endif
 #endif
 #endif
 #if KUI_ARMADA_CE_HOOK_TIMING
@@ -631,9 +723,21 @@ kui_armada_ce_maple_traffic_run(uint32_t raw,uint32_t original_sp,
     const uint32_t ttb=*(volatile const uint32_t *)(uintptr_t)0xff000008u;
     const uint32_t process=*(volatile const uint32_t *)(uintptr_t)KUI_CE_MAPLE_CURRENT_PROCESS;
     const uint32_t ccr=*(volatile const uint32_t *)(uintptr_t)0xff00001cu;
+#if KUI_ARMADA_CE_MAPLE_STEADY
+    /* A repeat of the proven controller poll skips the capture (above). */
+    const bool steady=!resuming && a2_steady_admit(raw,ttb,process,ccr);
+    unsigned result=steady?KUI_ARMADA_CE_MAPLE_TRAFFIC_OK:kui_armada_ce_maple_traffic_visit(raw,ttb,process,ccr,
+        traffic_read_p1,traffic_read_cache,traffic_read_p2,NULL,
+        &traffic_scratch,&kui_armada_ce_maple_hook_log);
+    if(steady) {
+        kui_armada_ce_maple_hook_log.counts[1]=kui_armada_ce_maple_traffic_inc(kui_armada_ce_maple_hook_log.counts[1]);
+        kui_armada_ce_maple_hook_log.counts[2]=kui_armada_ce_maple_traffic_inc(kui_armada_ce_maple_hook_log.counts[2]);
+    }
+#else
     unsigned result=kui_armada_ce_maple_traffic_visit(raw,ttb,process,ccr,
         traffic_read_p1,traffic_read_cache,traffic_read_p2,NULL,
         &traffic_scratch,&kui_armada_ce_maple_hook_log);
+#endif
 #if KUI_ARMADA_CE_VMU_WRITE_RUNTIME
     /* The same DMA-off window survives unmasked service. Re-walk the complete
      * capture anyway: no owner, mapping, request or header may change while
@@ -670,7 +774,18 @@ kui_armada_ce_maple_traffic_run(uint32_t raw,uint32_t original_sp,
         return a2_terminal(108u,fence_result);
 #endif
 #if KUI_ARMADA_CE_MAPLE_A2
+#if KUI_ARMADA_CE_MAPLE_STEADY
+    const bool held=!fence_result && fence_state.active && fence_state.pending;
+    if(steady) {
+        if(held) a2_steady_publish();
+        if(kui_armada_ce_vmu_a2_log.fault[0]) return a2_terminal(109u,kui_armada_ce_vmu_a2_log.fault[0]);
+        TRAFFIC_DONE();
+    }
+    if(held) a2_run(ttb,process,ccr);
+    a2_steady_capture(held,raw,ttb,process,ccr);
+#else
     if(!fence_result && fence_state.active && fence_state.pending) a2_run(ttb,process,ccr);
+#endif
 #if KUI_ARMADA_CE_VMU_WRITE_RUNTIME
     if(kui_armada_ce_vmu_a2_log.fault[0]) return a2_terminal(109u,kui_armada_ce_vmu_a2_log.fault[0]);
     if(!fence_result && fence_state.active && fence_state.pending &&

@@ -352,16 +352,16 @@ static const char movie_labels[KUI_ARMADA_MOVIE_ROWS][40]={
     "DMA-OK POLLED OVERRUN RESTART CRC-ERR", "SLOW-OK SLOWOVR TOKBYTES YIELDS REPAIR",
     "OVRTICKS MAXTICK RUN-MS GAPMAX LOWKB/S",
 #if KUI_ARMADA_CE_HOOK_TIMING
-    "HOOK-MS HOOK% HOOKS HOOKMAX-US HOT>50"};
+    "HOOK-MS HOOK% HOOKS HOOKMAX-US STEADY"};
 #else
     "CALLS IRQS SAMPLES HOT>50 1S-WINS"};
 #endif
 #if KUI_ARMADA_CE_HOOK_TIMING
 #include "kui/armada_ce_vmu_layout.h"
 /* Virtual VMU On timing: the Maple hook's own words (ticks, phases, longest
- * phase; armada_ce_maple_traffic.c), read over the same movie window as the
- * reader's totals. The longest phase restarts when the window opens. */
-static uint32_t hook_base[2],hook_end[2],hook_max;
+ * phase, steady polls; armada_ce_maple_traffic.c), read over the same movie
+ * window as the reader's totals. The longest phase restarts at the window. */
+static uint32_t hook_base[3],hook_end[3],hook_max;
 #endif
 /* CE async resident: kui_retail_ce_kernel is pinned at 0x8c008324 by its
  * linker script; word 2 is KData, whose millisecond count follows at +4. */
@@ -393,9 +393,9 @@ static void movie_sample(void) {
     if(!(movie.flags&KUI_ARMADA_MOVIE_STARTED)) return;
     if(!opened) {
         hook_base[0]=hook_end[0]=hook[0];hook_base[1]=hook_end[1]=hook[1];
-        hook[2]=0;hook_max=0;
+        hook_base[2]=hook_end[2]=hook[3];hook[2]=0;hook_max=0;
     } else if(kui_armada_movie_lba(in.lba)) {
-        hook_end[0]=hook[0];hook_end[1]=hook[1];hook_max=hook[2];
+        hook_end[0]=hook[0];hook_end[1]=hook[1];hook_end[2]=hook[3];hook_max=hook[2];
     }
 #endif
 }
@@ -419,7 +419,7 @@ __attribute__((noipa)) void kui_armada_ce_stream_underrun_snapshot(
     uint32_t elapsed=movie.end_ms-movie.start_ms;
     uint32_t hook_ms=per_ms?(hook_end[0]-hook_base[0])/per_ms:0u;
     uint32_t hook_values[5]={hook_ms,elapsed?hook_ms*100u/elapsed:0u,hook_end[1]-hook_base[1],
-        per_ms?(uint32_t)((uint64_t)hook_max*1000u/per_ms):0u,movie.hot};
+        per_ms?(uint32_t)((uint64_t)hook_max*1000u/per_ms):0u,hook_end[2]-hook_base[2]};
     for(unsigned c=0;c<5u;c++) rows[KUI_ARMADA_MOVIE_ROWS-1u][c]=kui_armada_movie_decimal(hook_values[c]);
 #endif
     /* The low reader prints label i with these arrays in this order. */

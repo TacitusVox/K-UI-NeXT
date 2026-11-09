@@ -20,6 +20,13 @@
 #define KUI_ARMADA_CE_VMU_RESERVE_BEGIN 0x8cfb8000
 #elif KUI_VC2_VMU_PERSIST
 #define KUI_ARMADA_CE_VMU_RESERVE_BEGIN 0x8cfc0000
+#elif KUI_ARMADA_CE_MAPLE_WRITE_LAYOUT && KUI_ARMADA_CE_CDDA_VMU && KUI_ARMADA_CE_MAPLE_STEADY
+/* Combined CD music and writable A2 with the steady-state controller poll:
+ * the helper outgrew the 48 KiB image. Below it, the CD music work area holds
+ * only the 2 KiB data spill at 0x8cfc0000 in this layout (the controller's
+ * transport admits only its source ring), so the image starts 8 KiB lower.
+ * The fixed P2 handoff, services, stacks and logs keep their addresses. */
+#define KUI_ARMADA_CE_VMU_RESERVE_BEGIN 0x8cfc2000
 #elif KUI_ARMADA_CE_MAPLE_WRITE_LAYOUT
 #define KUI_ARMADA_CE_VMU_RESERVE_BEGIN 0x8cfc4000
 #else
@@ -38,8 +45,9 @@
 #define KUI_ARMADA_CE_VMU_WORKER_STACK_TOP 0xacfcf800
 /* Diagnostic hook timing (KUI_ARMADA_CE_HOOK_TIMING builds only): after the
  * A2 log, inside the zeroed reservation. Words: TMU0 ticks spent in the
- * helper's PRE/POST phases (interrupts masked), phases, the longest phase.
+ * helper's PRE/POST phases (interrupts masked), phases, the longest phase,
+ * and steady-state controller polls (KUI_ARMADA_CE_MAPLE_STEADY).
  * The stage zeroes the reservation before NK; nothing else uses these. */
 #define KUI_ARMADA_CE_HOOK_TIMING_P2 0xacfcffc0
-#define KUI_ARMADA_CE_HOOK_TIMING_WORDS 3
+#define KUI_ARMADA_CE_HOOK_TIMING_WORDS 4
 #endif

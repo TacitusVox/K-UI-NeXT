@@ -4,6 +4,13 @@ ARMADA_A2_AUTO_STOP ?= 0
 ARMADA_A2_AUTO_PHASE ?= 1
 ARMADA_A2_AUTO_LIMIT ?= 1200
 ARMADA_A2_DIAGNOSTIC_MODE ?= 0
+# Writable A2 only: repeat a proven controller poll's publication without
+# re-running the capture and RX-slice queries (armada_ce_maple_traffic.c).
+# Every unit sees it: with CD music the helper's reservation starts lower.
+ARMADA_A2_STEADY ?= 0
+ifneq ($(filter $(ARMADA_A2_STEADY),0 1),$(ARMADA_A2_STEADY))
+$(error ARMADA_A2_STEADY must be 0 or 1)
+endif
 ARMADA_A2_WRITE_LAYOUT ?= 0
 ARMADA_A2_WRITE_STAGING ?= 0
 ARMADA_A2_WRITE_RUNTIME ?= 0
@@ -43,7 +50,7 @@ endif
 endif
 # A larger reservation grants no backend/SD capability. Keep the accepted
 # readonly linker script and absent experiment flags unchanged by default.
-ARMADA_A2_EXPERIMENT_FLAGS := $(if $(filter 1,$(ARMADA_A2_WRITE_LAYOUT)),-DKUI_ARMADA_CE_MAPLE_WRITE_LAYOUT=1) $(if $(filter 1,$(ARMADA_A2_WRITE_STAGING)),-DKUI_ARMADA_CE_MAPLE_WRITE_STAGING=1) $(if $(filter 1,$(ARMADA_A2_WRITE_RUNTIME)),-DKUI_ARMADA_CE_VMU_WRITE_RUNTIME=1) $(if $(filter 1,$(ARMADA_A2_CDDA)),-DKUI_ARMADA_CE_CDDA_VMU=1)
+ARMADA_A2_EXPERIMENT_FLAGS := $(if $(filter 1,$(ARMADA_A2_WRITE_LAYOUT)),-DKUI_ARMADA_CE_MAPLE_WRITE_LAYOUT=1) $(if $(filter 1,$(ARMADA_A2_WRITE_STAGING)),-DKUI_ARMADA_CE_MAPLE_WRITE_STAGING=1) $(if $(filter 1,$(ARMADA_A2_WRITE_RUNTIME)),-DKUI_ARMADA_CE_VMU_WRITE_RUNTIME=1) $(if $(filter 1,$(ARMADA_A2_CDDA)),-DKUI_ARMADA_CE_CDDA_VMU=1) $(if $(filter 1,$(ARMADA_A2_STEADY)),-DKUI_ARMADA_CE_MAPLE_STEADY=1)
 ARMADA_A2_LAYOUT_SCRIPT := $(if $(filter 1,$(ARMADA_A2_WRITE_LAYOUT)),$(ARMADA_A2_DIR)/a2-write.ld,src/loader/armada_ce_vmu_a2.ld)
 ARMADA_A2_AUTO_FLAGS := -DKUI_ARMADA_CE_MAPLE_AUTO_STOP=$(ARMADA_A2_AUTO_STOP) -DKUI_ARMADA_CE_MAPLE_AUTO_PHASE=$(ARMADA_A2_AUTO_PHASE) -DKUI_ARMADA_CE_MAPLE_AUTO_LIMIT=$(ARMADA_A2_AUTO_LIMIT) -DKUI_ARMADA_CE_MAPLE_DIAGNOSTIC_MODE=$(ARMADA_A2_DIAGNOSTIC_MODE)
 ARMADA_A2_CORE_NAMES := armada_ce_vmu_readonly vmu_readonly vmu_emulation vmu_image
@@ -152,6 +159,9 @@ force-armada-a2-layout:
 $(ARMADA_A2_DIR)/layout-config: force-armada-a2-layout
 	@mkdir -p $(@D)
 	@printf '%s\n' 'WRITE_LAYOUT=$(ARMADA_A2_WRITE_LAYOUT)' 'WRITE_STAGING=$(ARMADA_A2_WRITE_STAGING)' 'WRITE_RUNTIME=$(ARMADA_A2_WRITE_RUNTIME)' 'BUILD_ID=$(BUILD_ID)' 'AUTO_STOP=$(ARMADA_A2_AUTO_STOP)' 'AUTO_PHASE=$(ARMADA_A2_AUTO_PHASE)' 'AUTO_LIMIT=$(ARMADA_A2_AUTO_LIMIT)' 'DIAGNOSTIC_MODE=$(ARMADA_A2_DIAGNOSTIC_MODE)' > $@.tmp
+ifeq ($(ARMADA_A2_STEADY),1)
+	@printf '%s\n' 'STEADY=1' >> $@.tmp
+endif
 ifeq ($(ARMADA_A2_WRITE_RUNTIME),1)
 	@printf '%s\n' 'SD_PROFILE=$(SD_PROFILE)' >> $@.tmp
 	@sha256sum '$(SD_PROFILE)' >> $@.tmp

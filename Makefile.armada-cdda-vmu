@@ -9,6 +9,9 @@ else
 override ARMADA_A2_DIR := build/armada-ce-cdda-vmu
 endif
 override ARMADA_A2_CDDA := 1
+# The candidate: proven controller polls skip the hook's per-completion proofs
+# (the e73f99a93865 measurement: 14% of the intro). 0 rebuilds that baseline.
+ARMADA_A2_STEADY ?= 1
 override ARMADA_A2_WRITE_LAYOUT := 1
 override ARMADA_A2_WRITE_STAGING := 1
 override ARMADA_A2_WRITE_RUNTIME := 1
