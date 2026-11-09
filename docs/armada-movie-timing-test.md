@@ -34,8 +34,9 @@ Use the owner's working GUI `00d8ed67d9ad` (from
 The first delivery paired the reader with a fresh build of the published
 GUI. That GUI predates the November 6 23:48 WinCE track-map change (its
 strings lack the "Windows CE background map ... tracks and their data
-extents" handling), and the console stopped at Entering Windows CE. The
-published GUI is not a valid baseline for WinCE on this card.
+extents" handling), and the console stopped at Entering Windows CE. That
+pairing is unproven for WinCE on this card; whether the GUI or the old
+counter slot caused the stop was not isolated.
 
 ## Report rows (decimal)
 
