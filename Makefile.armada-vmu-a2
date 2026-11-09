@@ -86,6 +86,16 @@ WINCE_CDDA_CONTROLLER_BEGIN := 0x8cfa7000
 ARMADA_A2_CDDA_FLAGS := -DKUI_ARMADA_CE_CDDA_VMU=1 -DKUI_ARMADA_CE_STREAM=1
 ARMADA_STREAM_EXTRA_FLAGS := $(ARMADA_A2_CDDA_FLAGS) $(ARMADA_A2_EXPERIMENT_FLAGS)
 override ARMADA_AUDIO_EXTRA_FLAGS += $(ARMADA_A2_CDDA_FLAGS) -DKUI_ARMADA_CE_EXCERPT=1
+# The background reader's two console-measured changes (Armada VMU Off,
+# readers 5d92a111b0fa and 8cdbc0a351f8): after a 12.5 MHz DMA overrun the
+# next 64 receptions run at 6.25 MHz, and each block's CRC and bit reversal
+# run as one tighter pass. On by default; 0 rebuilds the restore-only reader.
+ARMADA_CDDA_VMU_READER_FIXES ?= 1
+ifeq ($(ARMADA_CDDA_VMU_READER_FIXES),1)
+override ARMADA_AUDIO_EXTRA_FLAGS += -DKUI_CE_SCI_SLOW_AFTER_OVERRUN=1 -DKUI_CE_SCI_FAST_TAKE=1
+else ifneq ($(ARMADA_CDDA_VMU_READER_FIXES),0)
+$(error ARMADA_CDDA_VMU_READER_FIXES must be 0 or 1)
+endif
 override ARMADA_AUDIO_EXTRA_STAGE_FLAGS += $(ARMADA_A2_CDDA_FLAGS) -DKUI_ARMADA_CE_EXCERPT_STAGE=1 -DKUI_RETAIL_EXTENDED_MAP=1
 override ARMADA_AUDIO_EXTRA_ASM_FLAGS += $(ARMADA_A2_CDDA_FLAGS)
 # Named callee relocations (--renesas) avoid SH relaxation's stale section+
@@ -123,6 +133,9 @@ $(ARMADA_A2_DIR)/layout-config: force-armada-a2-layout
 ifeq ($(ARMADA_A2_WRITE_RUNTIME),1)
 	@printf '%s\n' 'SD_PROFILE=$(SD_PROFILE)' >> $@.tmp
 	@sha256sum '$(SD_PROFILE)' >> $@.tmp
+endif
+ifeq ($(ARMADA_A2_CDDA),1)
+	@printf '%s\n' 'READER_FIXES=$(ARMADA_CDDA_VMU_READER_FIXES)' >> $@.tmp
 endif
 	@cmp -s $@.tmp $@ || cp $@.tmp $@
 	@rm -f $@.tmp
