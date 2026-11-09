@@ -37,7 +37,11 @@
  * standard reader's step) or 25 (ASYNC_EAGER). */
 enum kui_retail_reader { KUI_RETAIL_READER_STANDARD, KUI_RETAIL_READER_ASYNC,
     KUI_RETAIL_READER_ASYNC_EAGER };
+#ifndef KUI_RETAIL_ASYNC_SLOTS
+/* The generic Windows CE module may be built with a larger map (Makefile.dc
+ * KUI_RETAIL_CE_ASYNC_SLOTS); its stage and reader then agree on that size. */
 #define KUI_RETAIL_ASYNC_SLOTS 64u
+#endif
 /* Slots a manifest holds in memory. The background game reader's resident
  * is built with fewer (KUI_RETAIL_ASYNC_SLOTS) to fit its receive areas;
  * the layout is otherwise identical, so a prefix copy of a full manifest

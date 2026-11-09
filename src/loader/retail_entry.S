@@ -140,6 +140,14 @@ _start:
     .long KUI_SMASH_CARD_RECEIPT_VERSION,96,0,0
     .zero 72
 #endif
+#if KUI_RETAIL_CE_MAP_RECORD
+    /* Generic Windows CE module (ce-boot.kui). GUI 00d8ed67d9ad admits it with
+     * this record at payload 0x140: "KUICEM01", version 1, and the background
+     * map's slot capacity, exactly as in the delivered 3ebb874349dd module. */
+    .section .ce_map_capability,"a"
+    .ascii "KUICEM01"
+    .long 1,KUI_RETAIL_CE_MAP_RECORD
+#endif
 #if KUI_ARMADA_CE_CDDA_VMU
     /* Combined Armada CD music + writable virtual A2 (ce-armada-all-on.kui).
      * GUI 00d8ed67d9ad admits that route only with this record at payload

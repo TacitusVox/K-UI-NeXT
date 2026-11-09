@@ -10,6 +10,9 @@ SECTIONS {
  . = 0x8c010100;
  .package_header : { KEEP(*(.package_header)) } :image
  ASSERT(SIZEOF(.package_header)==64,"retail header must be 64 bytes")
+ . = 0x8c010140;
+ .ce_map_capability : { KEEP(*(.ce_map_capability)) } :image
+ ASSERT(SIZEOF(.ce_map_capability)==0 || SIZEOF(.ce_map_capability)==16,"CE map capability must be 16 bytes")
  . = 0x8c010150;
  .armada_all_on_capability : { KEEP(*(.armada_all_on_capability)) } :image
  ASSERT(SIZEOF(.armada_all_on_capability)==0 || SIZEOF(.armada_all_on_capability)==16,"Armada all-on capability must be 16 bytes")

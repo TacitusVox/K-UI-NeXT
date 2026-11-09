@@ -387,7 +387,7 @@ build/retail/layout-config: force-retail-layout
 	@if ! cmp -s $@.new $@; then mv $@.new $@; else rm $@.new; fi
 build/retail-ce/layout-config: force-retail-layout
 	@mkdir -p $(@D)
-	@printf '%s\n' 'LOW=0 TRACE=0 SONIC=0 BUILD=$(BUILD_ID)$(if $(filter 1,$(KUI_CE_SCI_RESUME_FIX)), CE_SCI_RESUME_FIX=1)' > $@.new
+	@printf '%s\n' 'LOW=0 TRACE=0 SONIC=0 BUILD=$(BUILD_ID)$(if $(filter 1,$(KUI_CE_SCI_RESUME_FIX)), CE_SCI_RESUME_FIX=1)$(if $(filter-out 64,$(KUI_RETAIL_CE_ASYNC_SLOTS)), CE_ASYNC_SLOTS=$(KUI_RETAIL_CE_ASYNC_SLOTS))$(if $(filter 1,$(KUI_RETAIL_CE_MAP_RECORD)), CE_MAP_RECORD=1)' > $@.new
 	@if ! cmp -s $@.new $@; then mv $@.new $@; else rm $@.new; fi
 # SCI's DMA reader shares the original protected low-memory reservation.
 # Cross-unit optimization and SH call relaxation recover code space without
@@ -426,7 +426,14 @@ RETAIL_SCIA_DEFS := -DKUI_RETAIL_TRANSPORT=1 -DKUI_RETAIL_ASYNC=1 -DKUI_RETAIL_G
     -DKUI_SCI_SD_NO_BLOCK=1 -DKUI_RETAIL_MANIFEST_SLOTS=64
 # Native and CE resume repairs retain their independently tested corrections.
 RETAIL_NATIVE_SCIA_DEFS := $(RETAIL_SCIA_DEFS) $(RETAIL_NATIVE_DEFS) $(if $(filter 1,$(KUI_GENERAL_SCI_RESUME_FIX)),-DKUI_GENERAL_SCI_RESUME_FIX=1)
-RETAIL_CE_SCIA_DEFS := $(RETAIL_SCIA_DEFS) -DKUI_RETAIL_CE=1 $(if $(filter 1,$(KUI_CE_SCI_RESUME_FIX)),-DKUI_CE_SCI_RESUME_FIX=1)
+# The generic Windows CE module's background map capacity. 64 keeps the
+# published module. The owner's ce-boot.kui (3ebb874349dd) has 96 slots, and
+# GUI 00d8ed67d9ad admits it by the entry's KUICEM01 record declaring them
+# (KUI_RETAIL_CE_MAP_RECORD=1). Stage and reader always agree on the size.
+KUI_RETAIL_CE_ASYNC_SLOTS ?= 64
+KUI_RETAIL_CE_MAP_RECORD ?= 0
+RETAIL_CE_MAP_DEFS := $(if $(filter-out 64,$(KUI_RETAIL_CE_ASYNC_SLOTS)),-DKUI_RETAIL_ASYNC_SLOTS=$(KUI_RETAIL_CE_ASYNC_SLOTS)u)
+RETAIL_CE_SCIA_DEFS := $(filter-out -DKUI_RETAIL_MANIFEST_SLOTS=%,$(RETAIL_SCIA_DEFS)) -DKUI_RETAIL_MANIFEST_SLOTS=$(KUI_RETAIL_CE_ASYNC_SLOTS) -DKUI_RETAIL_CE=1 $(if $(filter 1,$(KUI_CE_SCI_RESUME_FIX)),-DKUI_CE_SCI_RESUME_FIX=1)
 RETAIL_SCIA_SRC := src/loader/retail_resident.c src/core/retail_gd.c src/loader/minic.c \
     src/core/retail_image.c src/loader/retail_display.c src/loader/sci_sd_bus.c \
     src/core/retail_cursor.c src/loader/sci_stream.c src/loader/retail_async.c
@@ -605,16 +612,16 @@ build/retail-ce/resident-scia.bin: build/retail-ce/resident-scia.elf
 	sh-elf-objcopy -O binary $< $@
 build/retail-ce/common/%.o: %.c
 	@mkdir -p $(@D)
-	sh-elf-gcc $(RETAIL_LEGACY_FLAGS) -MMD -MP -c $< -o $@
+	sh-elf-gcc $(RETAIL_LEGACY_FLAGS) $(RETAIL_CE_MAP_DEFS) -MMD -MP -c $< -o $@
 build/retail-ce/retail_stage_asm.o: src/loader/retail_stage.S build/retail-ce/resident-scif.bin build/retail-ce/resident-ide.bin build/retail-ce/resident-sci.bin build/retail-ce/resident-scia.bin
 	@mkdir -p $(@D)
-	sh-elf-gcc $(RETAIL_LEGACY_FLAGS) -DKUI_RETAIL_CE=1 -MMD -MP -c $< -o $@
+	sh-elf-gcc $(RETAIL_LEGACY_FLAGS) $(RETAIL_CE_MAP_DEFS) -DKUI_RETAIL_CE=1 -MMD -MP -c $< -o $@
 build/retail-ce/retail_stage.o: src/loader/retail_stage.c
 	@mkdir -p $(@D)
-	sh-elf-gcc $(RETAIL_LEGACY_FLAGS) -DKUI_RETAIL_CE=1 -MMD -MP -c $< -o $@
+	sh-elf-gcc $(RETAIL_LEGACY_FLAGS) $(RETAIL_CE_MAP_DEFS) -DKUI_RETAIL_CE=1 -MMD -MP -c $< -o $@
 build/retail-ce/ce_load_plan.o: src/core/ce_load_plan.c
 	@mkdir -p $(@D)
-	sh-elf-gcc $(RETAIL_LEGACY_FLAGS) -MMD -MP -c $< -o $@
+	sh-elf-gcc $(RETAIL_LEGACY_FLAGS) $(RETAIL_CE_MAP_DEFS) -MMD -MP -c $< -o $@
 build/retail-ce/retail_display.o: src/loader/retail_display.c force-build-id
 	@mkdir -p $(@D)
 	sh-elf-gcc $(RETAIL_LEGACY_FLAGS) -DKUI_RETAIL_CE=1 -MMD -MP -c $< -o $@
@@ -623,7 +630,7 @@ build/retail-ce/stage.elf: $(RETAIL_CE_STAGE) src/loader/retail_stage_ce.ld
 build/retail-ce/stage.bin: build/retail-ce/stage.elf
 	sh-elf-objcopy -O binary $< $@
 build/retail-ce/retail_entry_asm.o: src/loader/retail_entry.S build/retail-ce/stage.bin
-	sh-elf-gcc $(RETAIL_LEGACY_FLAGS) -DKUI_RETAIL_CE=1 -DKUI_RETAIL_STAGE_BIN='"build/retail-ce/stage.bin"' -MMD -MP -c $< -o $@
+	sh-elf-gcc $(RETAIL_LEGACY_FLAGS) -DKUI_RETAIL_CE=1 $(if $(filter 1,$(KUI_RETAIL_CE_MAP_RECORD)),-DKUI_RETAIL_CE_MAP_RECORD=$(KUI_RETAIL_CE_ASYNC_SLOTS)) -DKUI_RETAIL_STAGE_BIN='"build/retail-ce/stage.bin"' -MMD -MP -c $< -o $@
 build/retail-ce/entry.elf: build/retail-ce/retail_entry_asm.o src/loader/retail_entry.ld
 	sh-elf-gcc $(RETAIL_LINK) -Tsrc/loader/retail_entry.ld -Wl,-Map,build/retail-ce/entry.map -o $@ $<
 	python3 tools/check_retail_instructions.py build/retail-ce
