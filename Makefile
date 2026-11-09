@@ -718,6 +718,27 @@ build/sh4-tests/test-check-words: tests/sh4/test_check_words.c src/loader/sci_st
 test-sh4-check-words: build/sh4-tests/test-check-words
 	qemu-sh4 $<
 
+# Armada Virtual VMU On: the slow refetch patched into the delivered
+# 67b0df9469cc all-on reader (its source was not recovered).
+ALL_ON_SLOW_DIR := build/armada-all-on-slow
+$(ALL_ON_SLOW_DIR)/patch.elf: src/loader/armada_all_on_slow_refetch.S src/loader/armada_all_on_slow_refetch.ld
+	@mkdir -p $(@D)
+	sh-elf-gcc -m4-single -ml -c $< -o $(@D)/patch.o
+	sh-elf-gcc -m4-single -ml -nostdlib -Wl,--build-id=none -Tsrc/loader/armada_all_on_slow_refetch.ld -o $@ $(@D)/patch.o
+$(ALL_ON_SLOW_DIR)/patch-span.bin: $(ALL_ON_SLOW_DIR)/patch.elf
+	sh-elf-objcopy -O binary $< $@
+build/sh4-tests/test-all-on-slow-refetch: tests/sh4/test_all_on_slow_refetch.c $(ALL_ON_SLOW_DIR)/patch-span.bin
+	@mkdir -p $(@D)
+	sh-elf-gcc $(SH4_TEST_FLAGS) -DIMAGE_FILE='"$(ALL_ON_SLOW_DIR)/patch-span.bin"' $< -lgcc -o $@
+.PHONY: test-sh4-all-on-slow-refetch
+test-sh4-all-on-slow-refetch: build/sh4-tests/test-all-on-slow-refetch
+	qemu-sh4 $<
+# ALL_ON_ORIGINAL: the delivered ce-armada-all-on.kui (not in the repository).
+.PHONY: armada-all-on-slow-refetch
+armada-all-on-slow-refetch: $(ALL_ON_SLOW_DIR)/patch.elf
+	@test -n "$(ALL_ON_ORIGINAL)" || { echo "Set ALL_ON_ORIGINAL to the delivered 67b0df9469cc ce-armada-all-on.kui"; exit 1; }
+	python3 tools/patch_armada_all_on_slow_refetch.py '$(ALL_ON_ORIGINAL)' $< $(ALL_ON_SLOW_DIR)/ce-armada-all-on.kui --build-id $(BUILD_ID)
+
 build/test-ce-load-plan: tests/test_ce_load_plan.c src/core/ce_load_plan.c include/kui/ce_load_plan.h include/kui/retail_loader_layout.h
 	@mkdir -p $(@D)
 	$(CC) $(HOST_FLAGS) $(SANITIZERS) -Iinclude src/core/ce_load_plan.c tests/test_ce_load_plan.c -o $@
