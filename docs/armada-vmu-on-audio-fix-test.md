@@ -98,3 +98,48 @@ Both pass `test-wince-packaged-prepare --armada` with the owner kernel.
 Package `KUI-Armada-VMU-On-Audio-Fix-09NOV2026-0734-CST-7827779.zip`
 (SHA-256 `7174c4659d637bf7ca0f96f564881aca111706f34ea0dde16b04cafc7711ebe5`)
 supersedes the 0709 package; the console test steps are unchanged.
+
+## Second console result: the rebuild fails; patch the delivered reader instead
+
+Owner, `7827779dd053` (CD Music On, Virtual VMU On): the intro audio
+repeated slightly and the video became a slideshow after about 20
+seconds. The A+B+X+Y+Start report showed `BIND` 0 and `WORKER` 0, and the
+following pages (the CD music history and the two A2 rows) read all
+zeros: the virtual card's INFO count was zero, so the rebuilt module's
+virtual A2 apparently never answered. The VMU Off reader in that package
+was unchanged (`8cdbc0a351f8`).
+
+The rebuild is not the delivered program: its CD music controller, stage
+and background reader differ from 67b0df9 in about 1,900, 1,500 and 800
+instruction slots respectively (lost source), and the reconstruction even
+placed the CE data spill in uncached memory (`0xacfc0000`) where 67b0df9
+uses cached (`0x8cfc0000`). `Makefile.armada-cdda-vmu` is therefore not a
+delivery recipe.
+
+Instead, `2116a813` patches the delivered module itself
+(`tools/patch_armada_all_on_slow_refetch.py`): only its background reader
+changes, in two spans at the same addresses as the published reader's
+(`start_dma` at `0x8c009028`, rewritten to the same register writes plus
+the 6.25 MHz window; the overrun path of `finish` at `0x8c00965c`, whose
+two late diagnostic snapshots give way to the window's update). The
+window is counted when a reception starts. The polled refetch after a fast
+overrun stays (its condition does not fit in place; about 2% of the CPU
+on the VMU Off measurements). 67b0df9's own block check is already a
+full-table loop, so the faster check is not carried. `make
+test-sh4-all-on-slow-refetch` runs the patch under qemu-sh4 at its
+addresses, moved below `0x80000000` with its literals, and checks every
+register write and window transition; 67b0df9's original `start_dma`
+passes the same fast-path checks.
+
+| Reader | Build | Payload bytes | Payload CRC32 |
+| --- | --- | --- | --- |
+| Candidate (installed) | `2116a813ada6` | 206,208 | `EEABEF94` |
+| Previous (optional) | `67b0df9469cc` | 206,208 | `073826F5` |
+
+Only the two spans and the five build ID strings differ from 67b0df9
+(225 payload bytes). The GUI capability, the card-profile slot and the
+blank `CEX2` seed are unchanged; `test-wince-packaged-prepare --armada`
+passes with the owner kernel. Package
+`KUI-Armada-VMU-On-Slow-Refetch-09NOV2026-1115-CST-2116a81.zip` (SHA-256
+`cd282e78ccae72fac363a529cbc3293d6f6763c5273b4592f38fd5fcf165c6ea`).
+Not yet run on a Dreamcast.
