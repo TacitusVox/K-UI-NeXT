@@ -1208,6 +1208,15 @@ def audit_stream_boot_arm(controller, controller_spans, resident, resident_spans
             "photo_hold_frames": photo_frames, "only_final_photo_hold_removed": not photo_hold}
 
 
+def recorded_reader_fixes(directory):
+    """The CE reader switches a stream build recorded (its reader-config)."""
+    fields = dict(token.split('=', 1) for token in
+                  (Path(directory) / 'reader-config').read_text().split())
+    if fields.get('READER_FIXES') not in ('0', '1'):
+        raise ValueError('Stream build lacks a valid reader-fixes record: ' + str(directory))
+    return fields['READER_FIXES'] == '1'
+
+
 def check(directory, *, stream=False, bam4=False, worms=False, wwp=False, cdda_vmu=False,
           reader_fixes=False):
     if cdda_vmu and (not stream or bam4 or worms or wwp):

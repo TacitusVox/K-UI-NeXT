@@ -8,7 +8,7 @@ from pathlib import Path
 import subprocess
 import zipfile
 
-from check_armada_ce_excerpt import check as check_linked
+from check_armada_ce_excerpt import check as check_linked, recorded_reader_fixes
 from package_armada_excerpt import check, digest, verify_members
 from package_armada_ce_stream import inspect_stream_seed
 from package_wince_cdda_diagnostic import matched_package
@@ -53,7 +53,8 @@ def build(args):
     module, module_info, module_compile, module_evidence = matched_package(
         directory / 'entry.elf', directory / 'ce-cdda-wwp.kui', commit, retail=True)
     seed = inspect_stream_seed(module)
-    audit = check_linked(directory, stream=True, wwp=True)
+    audit = check_linked(directory, stream=True, wwp=True,
+                         reader_fixes=recorded_reader_fixes(directory))
     check(audit['title_profile'] == 'wwp-us' and audit['stream_profile'] is True and
           audit['distributed_pcm_bytes'] == 0 and audit['distributed_audio_map_bytes'] == 4096 and
           seed['wire_all_zero'] is True and

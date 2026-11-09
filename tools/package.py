@@ -250,8 +250,10 @@ def audit_wince_cdda(directory, data, profile):
         from package_bam4_ce_stream import audit_stream
         return audit_stream(directory, data)
     from package_armada_ce_stream import inspect_stream_seed
-    from check_armada_ce_excerpt import check
-    return inspect_stream_seed(data), check(directory, stream=True, wwp=profile == "wwp")
+    from check_armada_ce_excerpt import check, recorded_reader_fixes
+    # The audit follows the reader switches this build recorded.
+    return inspect_stream_seed(data), check(directory, stream=True, wwp=profile == "wwp",
+                                            reader_fixes=recorded_reader_fixes(directory))
 
 
 def write_wince_cdda_modules(games, dist, commit):

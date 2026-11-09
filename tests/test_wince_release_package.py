@@ -13,6 +13,7 @@ from unittest.mock import patch
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "tools"))
 import package
+import check_armada_ce_excerpt
 from retail_package import HEADER_BYTES, HEADER_OFFSET, STAGE_BLOB_OFFSET, relocation_header
 from runtime_package import ADDRESS, envelope, verify
 from test_image_loader_layout import executable
@@ -197,10 +198,24 @@ class DefaultMusicBuild(unittest.TestCase):
 class MusicAuditRouting(unittest.TestCase):
     def test_world_party_always_selects_the_wwp_linked_audit(self):
         with patch("package_armada_ce_stream.inspect_stream_seed", return_value={}) as seed, \
+                patch("check_armada_ce_excerpt.recorded_reader_fixes", return_value=True) as fixes, \
                 patch("check_armada_ce_excerpt.check", return_value={}) as audit:
             package.audit_wince_cdda(Path("/audit"), b"module", "wwp")
         seed.assert_called_once_with(b"module")
-        audit.assert_called_once_with(Path("/audit"), stream=True, wwp=True)
+        fixes.assert_called_once_with(Path("/audit"))
+        audit.assert_called_once_with(Path("/audit"), stream=True, wwp=True, reader_fixes=True)
+
+    def test_reader_fixes_follow_the_build_record(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            directory = Path(temporary)
+            with self.assertRaisesRegex(FileNotFoundError, "reader-config"):
+                check_armada_ce_excerpt.recorded_reader_fixes(directory)
+            for text, expected in (("READER_FIXES=1\n", True), ("READER_FIXES=0\n", False)):
+                (directory / "reader-config").write_text(text)
+                self.assertIs(check_armada_ce_excerpt.recorded_reader_fixes(directory), expected)
+            (directory / "reader-config").write_text("READER_FIXES=2\n")
+            with self.assertRaisesRegex(ValueError, "reader-fixes record"):
+                check_armada_ce_excerpt.recorded_reader_fixes(directory)
 
     def test_unknown_profile_cannot_fall_through_to_armada(self):
         with self.assertRaisesRegex(ValueError, "Unknown WinCE"):
