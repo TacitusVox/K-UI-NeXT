@@ -257,6 +257,21 @@ CDDA_VMU_LOW_LIMIT, CDDA_VMU_LOW_REGION_BYTES = 0x8c00dc00, 0xf60 - 0x800
 STREAM_BUS_VALID_SPAN_OFFSET = 0x126
 
 
+# GUI 00d8ed67d9ad admits ce-armada-all-on.kui only when the payload holds,
+# at 0x150, "KUIAVM01", version 1 and a 4096-byte card profile slot (its
+# check compares these 16 bytes; the delivered 67b0df9469cc module has them).
+ALL_ON_CAPABILITY_OFFSET = 0x150
+ALL_ON_CAPABILITY = b"KUIAVM01" + struct.pack("<2I", 1, 4096)
+
+
+def audit_all_on_capability(directory):
+    entry = inspect_elf((Path(directory) / "entry.elf").read_bytes(), 0x8c010000, 0x8c112000)
+    if region(entry["payload"], ALL_ON_CAPABILITY_OFFSET, 16, "all-on capability") != ALL_ON_CAPABILITY:
+        raise ValueError("Armada all-on capability record is missing or changed")
+    return {"payload_offset": hex(ALL_ON_CAPABILITY_OFFSET), "magic": "KUIAVM01",
+            "version": 1, "profile_bytes": 4096}
+
+
 def low_layout(cdda_vmu=False):
     return (CDDA_VMU_LOW_LIMIT, CDDA_VMU_LOW_REGION_BYTES) if cdda_vmu else (LOW_LIMIT, LOW_REGION_BYTES)
 
@@ -1334,6 +1349,7 @@ def check(directory, *, stream=False, bam4=False, worms=False, wwp=False, cdda_v
             "cache_reader": cache_reader, "native_worker_code": native_code,
             "native_owner_reader": owner_reader,
             "stream_bus": stream_bus, "stream_boot_arm": stream_boot_arm,
+            "all_on_capability": audit_all_on_capability(directory) if cdda_vmu else None,
             "terminal_snapshot": terminal_snapshot, "drive_status_projection": drive_projection,
             "linked_direct_calls": direct_calls}
 

@@ -72,7 +72,7 @@ $(ARMADA_AUDIO_DIR)/stage.elf: $(ARMADA_AUDIO_STAGE) src/loader/retail_stage_ce.
 $(ARMADA_AUDIO_DIR)/stage.bin: $(ARMADA_AUDIO_DIR)/stage.elf
 	sh-elf-objcopy -O binary $< $@
 $(ARMADA_AUDIO_DIR)/retail_entry_asm.o: src/loader/retail_entry.S $(ARMADA_AUDIO_DIR)/stage.bin
-	sh-elf-gcc $(RETAIL_FLAGS) -DKUI_RETAIL_CE=1 -DKUI_RETAIL_STAGE_BIN='"$(ARMADA_AUDIO_DIR)/stage.bin"' -MMD -MP -c $< -o $@
+	sh-elf-gcc $(RETAIL_FLAGS) -DKUI_RETAIL_CE=1 $(ARMADA_AUDIO_EXTRA_ENTRY_FLAGS) -DKUI_RETAIL_STAGE_BIN='"$(ARMADA_AUDIO_DIR)/stage.bin"' -MMD -MP -c $< -o $@
 $(ARMADA_AUDIO_DIR)/entry.elf: $(ARMADA_AUDIO_DIR)/retail_entry_asm.o src/loader/retail_entry.ld
 	sh-elf-gcc $(RETAIL_LINK) -Tsrc/loader/retail_entry.ld -Wl,-Map,$(@:.elf=.map) -o $@ $<
 	python3 tools/check_retail_instructions.py $(ARMADA_AUDIO_DIR)

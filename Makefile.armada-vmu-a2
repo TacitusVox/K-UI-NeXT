@@ -98,6 +98,8 @@ $(error ARMADA_CDDA_VMU_READER_FIXES must be 0 or 1)
 endif
 override ARMADA_AUDIO_EXTRA_STAGE_FLAGS += $(ARMADA_A2_CDDA_FLAGS) -DKUI_ARMADA_CE_EXCERPT_STAGE=1 -DKUI_RETAIL_EXTENDED_MAP=1
 override ARMADA_AUDIO_EXTRA_ASM_FLAGS += $(ARMADA_A2_CDDA_FLAGS)
+# The GUI admits the all-on route by the entry's capability record.
+override ARMADA_AUDIO_EXTRA_ENTRY_FLAGS := -DKUI_ARMADA_CE_CDDA_VMU=1
 # Named callee relocations (--renesas) avoid SH relaxation's stale section+
 # addend branches; keep the final relocations and refuse any branch that
 # enters a function mid-way (tools/check_relaxed_calls.py).

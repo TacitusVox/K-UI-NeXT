@@ -140,6 +140,15 @@ _start:
     .long KUI_SMASH_CARD_RECEIPT_VERSION,96,0,0
     .zero 72
 #endif
+#if KUI_ARMADA_CE_CDDA_VMU
+    /* Combined Armada CD music + writable virtual A2 (ce-armada-all-on.kui).
+     * GUI 00d8ed67d9ad admits that route only with this record at payload
+     * 0x150: "KUIAVM01", version 1, and the 4096-byte card profile slot,
+     * exactly as in the delivered 67b0df9469cc module. */
+    .section .armada_all_on_capability,"a"
+    .ascii "KUIAVM01"
+    .long 1,4096
+#endif
     .section .package_header,"a"
     .ascii PACKAGE_MAGIC
     .long KUI_RETAIL_PACKAGE_VERSION
