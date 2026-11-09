@@ -271,6 +271,9 @@ const struct kui_retail_gd *kui_armada_ce_stream_transport_service(void) {
 const volatile uint32_t *kui_armada_ce_stream_transport_movie_timing(void) {
     return t.stats.attached==1u ? t.bus.region->movie_timing : NULL;
 }
+const volatile struct kui_sci_stream_stats *kui_armada_ce_stream_transport_stream_stats(void) {
+    return t.stats.attached==1u ? &t.bus.region->shared.stream.stats : NULL;
+}
 #endif
 uint32_t kui_armada_ce_stream_transport_event(uint32_t event,uintptr_t argument) {
 #if KUI_ARMADA_CE_VMU_WRITE_RUNTIME

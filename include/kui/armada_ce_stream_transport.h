@@ -67,11 +67,13 @@ uint32_t kui_armada_ce_stream_transport_event(uint32_t event,uintptr_t argument)
  * after the controller's code, zero state and source pool are verified. */
 bool kui_armada_ce_stream_transport_attached(void);
 #if KUI_ARMADA_CE_MOVIE_TIMING_HIGH
-/* Diagnostic: read-only views of the low service and the low reader's four
- * timing words, NULL until attached. */
+/* Diagnostic: read-only views of the low service, the low reader's four
+ * timing words and its stream counters, NULL until attached. */
 struct kui_retail_gd;
+struct kui_sci_stream_stats;
 const struct kui_retail_gd *kui_armada_ce_stream_transport_service(void);
 const volatile uint32_t *kui_armada_ce_stream_transport_movie_timing(void);
+const volatile struct kui_sci_stream_stats *kui_armada_ce_stream_transport_stream_stats(void);
 #endif
 /* Masked authored-state update only. Enter urgency at one second of fresh
  * PCM, leave at1.5 seconds, and clear when inactive. A changed priority
