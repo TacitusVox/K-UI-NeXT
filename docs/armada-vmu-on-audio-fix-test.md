@@ -143,3 +143,79 @@ passes with the owner kernel. Package
 `KUI-Armada-VMU-On-Slow-Refetch-09NOV2026-1115-CST-2116a81.zip` (SHA-256
 `cd282e78ccae72fac363a529cbc3293d6f6763c5273b4592f38fd5fcf165c6ea`).
 Not yet run on a Dreamcast.
+
+## Third console result: the patched delivered reader also fails
+
+Owner, after `2116a813ada6` and its fallback (`67b0df9469cc`, in
+`IF-NEEDED/`), in their words: "it keeps breaking everything ... the vmu off
+route works PERFECT and the vmu on route is broken. If-needed also fails.
+Wicked echo." No photograph. The fallback's echo is the delivered reader's
+known fault. What the patched reader did is not recorded beyond that.
+
+The patch itself was re-audited. No code outside the two spans branches
+into them, loads a literal from them or holds a pointer to them: only the
+two calls to `start_dma` (`0x8c009106`, `0x8c0096e6`) reach the new code. The
+slow-state byte `s+75` has no other reader or writer. The handoff after every
+reception (inlined in `finish`, `0x8c009596`) restores BRR=0 as the
+published reader's does. The five replaced build-ID strings are display text
+only. No structural fault was found. So with or without the VMU Off reader
+changes, Virtual VMU On has a cost that VMU Off does not have, and two
+attempts to carry the reader changes across without measuring it have failed.
+
+## Re-think: measure Virtual VMU On first (`e73f99a9`)
+
+VMU Off became clean only after its movie timing showed where the time went.
+Virtual VMU On has never been measured. Beyond VMU Off, it runs the Maple
+hook at every Maple completion (60 Hz): the PRE and POST helper phases,
+with interrupts masked, its C code cached but its stack and workspace in
+uncached P2. An earlier proof-only build of this hook stopped the video
+outright ([armada-ce-cached-proof-candidate.md](armada-ce-cached-proof-candidate.md)).
+The cached build was only ever compared with the old reader's baseline,
+which already echoed.
+
+`make -f Makefile.armada-cdda-vmu armada-cdda-vmu ARMADA_CDDA_VMU_TIMING=1`
+builds the failing combined reader (the `7827779dd053` configuration, both
+reader changes) with the VMU Off movie timing and the hook's own time. It
+changes no behavior:
+
+- the low reader's TMU0 totals and the controller's report rows, exactly as
+  in the VMU Off timing readers;
+- a wrapper around the helper's C entry adds each PRE/POST phase's TMU0
+  ticks, the phase count and the longest phase to three words after the A2
+  log (`0xacfcffc0`, inside the zeroed reservation);
+- the sixth row becomes `HOOK-MS HOOK% HOOKS HOOKMAX-US HOT>50` over the
+  same MOVIE2.SFD window, and the A2 page follows the timing page.
+
+The reader region grows from `0x760` to `0x780` (one line for the timing
+words), admitted only by `check_armada_ce_excerpt.py --cdda-vmu --timing`.
+The reader passes the relaxed-call gate (326 sites, none mid-function) and
+ends at `0x8c00d760`. Without the option, VMU Off `8cdbc0a351f8` and the
+combined `7827779dd053` rebuild byte-identical to their delivered modules.
+
+| Reader | Build | Payload bytes | Payload CRC32 |
+| --- | --- | --- | --- |
+| Measurement (installed) | `e73f99a93865` | 207,220 | `2BE09713` |
+| Previous VMU On (optional) | `67b0df9469cc` | 206,208 | `073826F5` |
+
+The GUI capability record, the card-profile slot and the blank `CEX2` seed
+match `7827779dd053`, which the GUI admitted. `test-wince-packaged-prepare
+--armada` passes with the owner kernel (raw and 2048 DATA). Package
+`KUI-Armada-VMU-On-Timing-09NOV2026-1214-CST-e73f99a.zip` (SHA-256
+`aa2cab460a4f6b3db3a0ddb57611ad084988125be74579915836cbe4c659a259`): the
+owner's installation with only `ce-armada-all-on.kui` changed. Not yet run
+on a Dreamcast.
+
+Test: CD Music On, Virtual VMU On. Let the intro play, then A+B+X+Y+Start
+(after about a minute if it becomes a slideshow), and photograph both pages.
+Compare with VMU Off `8cdbc0a351f8` (third result in
+[armada-movie-timing-test.md](armada-movie-timing-test.md)):
+
+- **HOOK% large, or HOOKMAX-US in the hundreds or more:** the hook's own
+  work, with interrupts masked, takes the time the movie needs. Cut the
+  hook's per-completion cost next. The reader is not the problem.
+- **BUSY% well above 17% with a small HOOK%:** the combined reader's own
+  additions cost the time (for example the uncached P2 spill). Fix those
+  next.
+- **Both near VMU Off, but PEND% or GAPMAX high, or A2 READ counts during
+  the intro:** card-storage loans or Maple waits stall the movie's reads.
+  Look at the loan path next.
