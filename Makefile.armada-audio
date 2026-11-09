@@ -49,6 +49,7 @@ $(ARMADA_AUDIO_DIR)/resident-sci.elf: $(ARMADA_AUDIO_SCI) src/loader/retail_resi
 $(ARMADA_AUDIO_DIR)/resident-scia.elf: $(ARMADA_AUDIO_SCIA) $(ARMADA_AUDIO_SCIA_LINKER)
 	@mkdir -p $(ARMADA_AUDIO_DIR)/scia/lto
 	sh-elf-gcc $(RETAIL_LINK) $(RETAIL_SCIA_LINK) $(ARMADA_AUDIO_EXTRA_LINK_FLAGS) -Wl,-u,_kui_retail_ce_irq -T$(ARMADA_AUDIO_SCIA_LINKER) -Wl,-Map,$(@:.elf=.map) -o $@ $(ARMADA_AUDIO_SCIA) -lgcc
+	$(if $(ARMADA_AUDIO_SCIA_POSTLINK),$(ARMADA_AUDIO_SCIA_POSTLINK) $@)
 	cp $@.ltrans*.su $@.ltrans*.ci $(ARMADA_AUDIO_DIR)/scia/lto/
 $(ARMADA_AUDIO_DIR)/resident-%.bin: $(ARMADA_AUDIO_DIR)/resident-%.elf
 	sh-elf-objcopy -O binary $< $@

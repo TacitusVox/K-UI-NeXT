@@ -56,6 +56,15 @@ override ARMADA_AUDIO_EXTRA_LINK_FLAGS += -Wl,-T,$(ARMADA_AUDIO_DIR)/wwp-drive-s
 # optimization otherwise leaves stale branch targets after linker relaxation.
 override ARMADA_AUDIO_EXTRA_LINK_FLAGS += -Wa,--renesas
 endif
+ifneq ($(findstring -DKUI_ARMADA_CE_MOVIE_TIMING_LOW=1,$(WINCE_CDDA_PROFILE_FLAGS)),)
+# The timing counters move the low reader's relaxed layout onto the same
+# fault: eleven calls into the SD delivery chain landed four bytes into
+# their callees (as in the 67b0df9 VMU-Off reader, which stopped at
+# Entering Windows CE). Keep named callee relocations, keep the final
+# relocations, and refuse any branch that enters a function mid-way.
+override ARMADA_AUDIO_EXTRA_LINK_FLAGS += -Wa,--renesas -Wl,-q
+override ARMADA_AUDIO_SCIA_POSTLINK := python3 tools/check_relaxed_calls.py
+endif
 include Makefile.armada-audio
 ifeq ($(KUI_WINCE_CDDA_PROFILE),wwp)
 # The embedded synchronous fallback also uses LTRANS and SH relaxation.
