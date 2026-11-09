@@ -444,3 +444,30 @@ only these six files changed. GUI `00d8ed67d9ad` is retained, and its
 The question for the console: Worms Armageddon FMVs with CD Music Off and
 On, then a quick check of BAM4, WWP and other WinCE titles, and of Armada
 with VMU Off and On. Not yet run on a Dreamcast.
+
+## Console result: Worms Armageddon (`7b216f2e1136`, 9 Nov 2026)
+
+Owner, with the rollout package and GUI `00d8ed67d9ad`: "Okay, tested Worms
+Armageddon. Works with both CD Music on and off." Later in the same message:
+"it runs fantastic."
+
+| Route | Module | Payload CRC32 |
+| --- | --- | --- |
+| CD Music Off | `ce-boot.kui` `7b216f2e1136` | `04D83892` |
+| CD Music On | `ce-cdda-worms.kui` `7b216f2e1136` | `4CD08180` |
+
+Before this package, both routes stuttered on the installed `3ebb874349dd`
+and `eeed38bd540e` modules. The owner did not report the on-screen build
+line; the table lists the package's modules for those routes.
+
+Not yet reported for `7b216f2e1136`:
+
+- Bust-A-Move 4;
+- Worms World Party;
+- other titles on the generic module;
+- Armada with VMU Off or On.
+
+The owner also notes that Worms has no virtual VMU. That is expected, not a
+regression. A WinCE virtual card has been built only for Armada and the
+Smash Pack titles (Virtua Cop 2, Sega Swirl). Each one starts from an audit
+of that game's own kernel Maple driver.

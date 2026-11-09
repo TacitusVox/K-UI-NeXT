@@ -60,9 +60,19 @@ into every WinCE module:
 - Armada VMU On, without the timing rows.
 
 It was delivered as `KUI-WinCE-Reader-Fixes-09NOV2026-1633-CST-7b216f2.zip`.
-Until that test passes, the six modules it replaces remain the reference.
-They are in its `IF-NEEDED/`. The Smash Pack CE modules and `ce-probe.kui`
-are unchanged.
+
+Owner result, 9 Nov 2026: Worms Armageddon works with CD Music On and Off
+("it runs fantastic"). That run used `ce-cdda-worms.kui` and the generic
+`ce-boot.kui`. Not yet reported:
+
+- Bust-A-Move 4;
+- Worms World Party;
+- other titles on the generic module;
+- the package's two Armada modules.
+
+Until they are, the modules they replace remain their reference. Those
+modules are in the package's `IF-NEEDED/`. The Smash Pack CE modules and
+`ce-probe.kui` are unchanged.
 
 ## Sega Smash Pack accepted: cc81e63ca4d2, 2026-11-06
 
