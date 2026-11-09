@@ -428,7 +428,12 @@ static void failure(enum kui_sci_stream_result result) {
     /* An unrecovered overrun already failed this DMA block. Avoid
      * repeating that attempt before the existing polled
      * fallback. Repaired overruns return PENDING and do not reach here. */
-    if(result == KUI_SCI_STREAM_OVERRUN) e.early_polled = 1;
+    if(result == KUI_SCI_STREAM_OVERRUN
+#if KUI_CE_SCI_SLOW_AFTER_OVERRUN
+       /* A fast overrun is refetched by DMA at the slower clock first. */
+       && !kui_sci_stream_slow_pending()
+#endif
+      ) e.early_polled = 1;
 #endif
     if(++e.retries > RETRIES || result == KUI_SCI_STREAM_RESET) e.failed = KUI_GD_ERROR_IO;
 }

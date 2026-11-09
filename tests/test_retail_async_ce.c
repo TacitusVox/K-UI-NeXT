@@ -716,7 +716,7 @@ static void test_polled_irq_yields(void) {
     CHECK(ram[OUTPUT - BEGIN + 8u * 2048u] == 0xa5);
     CHECK(R.engine.polled_call_max == call_max && R.engine.polled_irq_max == irq_max);
 }
-static void test_first_unrecovered_overrun(void) {
+static void __attribute__((unused)) test_first_unrecovered_overrun(void) {
     setup(2000, true);
     mode(2048);
     int32_t token = request(KUI_GD_DMAREAD, 45000, 3, OUTPUT);
@@ -749,6 +749,45 @@ static void test_first_unrecovered_overrun(void) {
     CHECK(!memcmp(ram + OUTPUT - BEGIN, expected, 3u * 2048u));
     CHECK(ram[OUTPUT - BEGIN + 3u * 2048u] == 0xa5);
 }
+#if KUI_CE_SCI_SLOW_AFTER_OVERRUN
+/* The policy under test: a first unrecovered overrun at 12.5 MHz is
+ * refetched by DMA at 6.25 MHz, not by programmed transfers; a second one,
+ * at 6.25 MHz, keeps the existing programmed refetch. Payload stays exact. */
+static void test_first_unrecovered_overrun_slow(void) {
+    for(unsigned twice = 0; twice < 2; ++twice) {
+        setup(2000, true);
+        mode(2048);
+        int32_t token = request(KUI_GD_DMAREAD, 45000, 3, OUTPUT);
+        uint32_t first = R.engine.cursor.block;
+        unsigned dma = m.dma_starts;
+        const struct kui_sci_stream_stats *ss = kui_sci_stream_stats();
+        const struct kui_sci_stream_stats before = *ss;
+        m.overrun_after = 512u; /* the second CRC byte held off */
+        m.overrun_again = twice ? 512u : 0u;
+        arrived_irq();
+        CHECK(ss->overruns - before.overruns == 1u && ss->polled == before.polled);
+        CHECK(R.engine.retries == 1u && !R.engine.early_polled);
+        CHECK(R.engine.cursor.block == first && kui_sci_stream_busy());
+        CHECK(m.dma_starts == dma + 1u && m.rx_brr == 1u);
+        untouched(ram + OUTPUT - BEGIN, 3u * 2048u);
+        arrived_irq();
+        if(twice) {
+            /* The 6.25 MHz refetch overran too: back to 12.5 MHz, and the
+             * block is refetched by programmed transfers. */
+            CHECK(ss->slow_overruns - before.slow_overruns == 1u);
+            CHECK(R.engine.early_polled && !kui_sci_stream_slow_pending());
+        } else {
+            CHECK(ss->slow_blocks - before.slow_blocks >= 1u && ss->polled == before.polled);
+        }
+        CHECK(finish(token, 5) == KUI_GD_COMPLETED);
+        CHECK(ss->polled - before.polled == twice);
+        reference_read(45000, 3);
+        CHECK(!memcmp(ram + OUTPUT - BEGIN, expected, 3u * 2048u));
+        CHECK(ram[OUTPUT - BEGIN + 3u * 2048u] == 0xa5);
+        CHECK(m.brr == 0 && !kui_sci_stream_busy());
+    }
+}
+#endif
 static void test_deferred_repair_stays_dma(void) {
     setup(2000, true);
     mode(2048);
@@ -941,7 +980,11 @@ int main(void) {
     test_token_slices();
     test_token_pause_abort();
     test_polled_irq_yields();
+#if KUI_CE_SCI_SLOW_AFTER_OVERRUN
+    test_first_unrecovered_overrun_slow();
+#else
     test_first_unrecovered_overrun();
+#endif
     test_deferred_repair_stays_dma();
     test_other_errors_keep_retry_threshold();
     test_failures_complete_the_request();

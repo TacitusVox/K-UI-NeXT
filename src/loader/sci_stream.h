@@ -55,9 +55,15 @@ struct kui_sci_stream_stats {
     /* Incomplete receptions, including repair attempts, by DMA bytes still
      * remaining: 0, 1..128, 129..384, 385 or more. These are not timings. */
     uint32_t incomplete[4];
+#if KUI_CE_SCI_SLOW_AFTER_OVERRUN
+    /* This trial reuses the two late-snapshot words: DMA receptions at the
+     * slower clock that completed, and that overran. */
+    uint32_t slow_blocks, slow_overruns;
+#else
     /* Read-only snapshots after the existing stop/handoff, not at the
      * instant of failure; correlation alone does not establish contention. */
     uint32_t incomplete_ch2_active, incomplete_dmaor_bad;
+#endif
 #endif
 #if KUI_SCI_STREAM_TOKEN_SLICED
     uint32_t token_bytes, token_max; /* all search bytes, including token/error */
@@ -84,6 +90,11 @@ struct kui_sci_stream_state {
     uint8_t ready[2], wire[2], rdr[2], held[2], hold[2], kept, sptr, unrepaired;
 #if KUI_SCI_STREAM_TOKEN_SLICED
     uint8_t token_bounded, token_polled;
+#if KUI_CE_SCI_SLOW_AFTER_OVERRUN
+    /* In the padding byte: bits 0..6, receptions still to run at the
+     * slower clock; bit 7, the DMA reception in flight runs at it. */
+    uint8_t slow;
+#endif
     uint32_t token_limit, token_used, token_budget;
 #endif
     struct kui_sci_stream_stats stats;
@@ -115,6 +126,16 @@ bool kui_sci_stream_ready(uint32_t lba);
  * this slice (their original total byte limit still applies). */
 void kui_sci_stream_token_budget(bool bounded);
 bool kui_sci_stream_token_pending(void);
+#endif
+#if KUI_CE_SCI_SLOW_AFTER_OVERRUN
+/* A DMA overrun at 12.5 MHz moves the next KUI_SCI_STREAM_SLOW_BLOCKS
+ * receptions to 6.25 MHz (BRR 1), which gives the channel twice as long
+ * to take each byte; an overrun at 6.25 MHz returns to 12.5 MHz. Commands
+ * and token searches always run at 12.5 MHz. Whether the slower clock is
+ * pending: a reader then refetches an overrun block by DMA, not by
+ * programmed transfers. */
+#define KUI_SCI_STREAM_SLOW_BLOCKS 64u
+bool kui_sci_stream_slow_pending(void);
 #endif
 /* If the in-flight block has arrived (or reception stopped), end it and hand
  * the SCI back: OK (the block is ready: kui_sci_stream_take), PENDING (still

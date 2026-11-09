@@ -41,6 +41,18 @@ WINCE_CDDA_PROFILE_FLAGS += -DKUI_ARMADA_CE_MOVIE_TIMING_HIGH=1
 else
 $(error KUI_ARMADA_CE_MOVIE_TIMING_PARTS must be both, low or high)
 endif
+# One behavior change on the measured timing reader: after a DMA overrun at
+# 12.5 MHz, receive the next 64 blocks (the refetch included) at 6.25 MHz;
+# an overrun there returns to 12.5 MHz and the programmed refetch.
+ifeq ($(KUI_ARMADA_CE_SLOW_AFTER_OVERRUN),1)
+ifneq ($(KUI_ARMADA_CE_MOVIE_TIMING_PARTS),both)
+$(error The slow-after-overrun trial runs on the complete timing reader)
+endif
+override ARMADA_AUDIO_DIR := build/armada-ce-movie-timing-slow
+WINCE_CDDA_PROFILE_FLAGS += -DKUI_CE_SCI_SLOW_AFTER_OVERRUN=1
+endif
+else ifeq ($(KUI_ARMADA_CE_SLOW_AFTER_OVERRUN),1)
+$(error The slow-after-overrun trial needs KUI_ARMADA_CE_MOVIE_TIMING=1)
 endif
 override ARMADA_AUDIO_EXTRA_FLAGS := -DKUI_ARMADA_CE_EXCERPT=1 -DKUI_ARMADA_CE_STREAM=1 $(WINCE_CDDA_PROFILE_FLAGS)
 override ARMADA_AUDIO_EXTRA_STAGE_FLAGS := -DKUI_ARMADA_CE_RAM_BIND_STAGE=1 -DKUI_ARMADA_CE_EXCERPT_STAGE=1 -DKUI_ARMADA_CE_STREAM=1 -DKUI_RETAIL_EXTENDED_MAP=1 $(WINCE_CDDA_PROFILE_FLAGS)

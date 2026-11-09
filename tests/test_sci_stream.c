@@ -637,11 +637,72 @@ static void test_ce_counters(void) {
         const struct kui_sci_stream_stats *st = kui_sci_stream_stats();
         for(unsigned b = 0; b < 4; ++b)
             assert(st->incomplete[b] - before.incomplete[b] == (b == i));
+#if !KUI_CE_SCI_SLOW_AFTER_OVERRUN
         assert(st->incomplete_ch2_active - before.incomplete_ch2_active == (i == 1u));
         assert(st->incomplete_dmaor_bad - before.incomplete_dmaor_bad == (i & 1u));
+#endif
         assert(kui_sci_stream_stop() == KUI_SCI_STREAM_OK);
         check_restored(); check_channel_restored();
     }
+}
+#endif
+#if KUI_CE_SCI_SLOW_AFTER_OVERRUN
+/* Receive one block of the open stream at lba (DMA unless polled) and
+ * check it; returns the BRR its DMA started at, or 0xff if programmed. */
+static uint8_t slow_block(uint32_t lba, bool polled) {
+    enum kui_sci_stream_result r;
+    unsigned starts = m.dma_starts;
+    assert(kui_sci_stream_fetch(lba, LIMIT, polled) == KUI_SCI_STREAM_OK);
+    uint8_t rate = m.dma_starts == starts ? 0xffu : m.rx_brr;
+    if(kui_sci_stream_busy()) assert(kui_sci_stream_wait() == KUI_SCI_STREAM_OK);
+    check_block(lba, kui_sci_stream_take(lba, &r));
+    check_restored(); check_channel_restored();
+    return rate;
+}
+static void test_ce_slow_after_overrun(void) {
+    reset_model(); open_stream(false);
+    const struct kui_sci_stream_stats *st = kui_sci_stream_stats();
+    const struct kui_sci_stream_stats b = *st;
+    enum kui_sci_stream_result r;
+    uint32_t lba = 900;
+    m.overrun_fast_only = true;
+    assert(!kui_sci_stream_slow_pending() && slow_block(lba++, false) == 0);
+    /* The second CRC byte held off at 12.5 MHz: an unrecovered overrun. */
+    m.overrun_after = 512u;
+    assert(kui_sci_stream_fetch(lba, LIMIT, false) == KUI_SCI_STREAM_OK && m.rx_brr == 0);
+    assert(kui_sci_stream_wait() == KUI_SCI_STREAM_OVERRUN);
+    check_restored(); check_channel_restored();
+    assert(st->overruns - b.overruns == 1u && kui_sci_stream_slow_pending() && st->slow_overruns == b.slow_overruns);
+    /* The refetch runs at 6.25 MHz and survives the same stall; commands,
+     * the token search and the restored bus stay at 12.5 MHz. */
+    unsigned cmd18 = card.cmd18;
+    assert(slow_block(lba, false) == 1u && card.cmd18 == cmd18 + 1u);
+    assert(st->slow_blocks - b.slow_blocks == 1u && st->overruns - b.overruns == 1u && st->polled == b.polled);
+    m.overrun_after = 0;
+    /* The window: 64 completed receptions, programmed ones included. */
+    for(unsigned i = 1; i < KUI_SCI_STREAM_SLOW_BLOCKS; ++i)
+        assert(slow_block(++lba, i == 10u) == (i == 10u ? 0xffu : 1u));
+    assert(!kui_sci_stream_slow_pending() && st->slow_blocks - b.slow_blocks == KUI_SCI_STREAM_SLOW_BLOCKS - 1u);
+    assert(slow_block(++lba, false) == 0);
+    /* A data byte lost at 12.5 MHz: its resumed reception and refetch run
+     * slowly; the resumed block is still refused, never rebuilt. */
+    m.overrun_after = 300u;
+    assert(kui_sci_stream_fetch(++lba, LIMIT, false) == KUI_SCI_STREAM_OK);
+    assert(kui_sci_stream_poll(false) == KUI_SCI_STREAM_PENDING && m.rx_brr == 1u);
+    assert(kui_sci_stream_wait() == KUI_SCI_STREAM_OK && st->repaired - b.repaired == 1u);
+    assert(!kui_sci_stream_take(lba, &r) && r == KUI_SCI_STREAM_CRC);
+    check_restored(); check_channel_restored();
+    m.overrun_after = 0;
+    assert(slow_block(lba, false) == 1u);
+    /* A stall at 6.25 MHz too: back to 12.5 MHz, and the reader's
+     * programmed refetch (polled) still delivers the exact block. */
+    m.overrun_fast_only = false; m.overrun_after = 512u;
+    assert(kui_sci_stream_fetch(++lba, LIMIT, false) == KUI_SCI_STREAM_OK && m.rx_brr == 1u);
+    assert(kui_sci_stream_wait() == KUI_SCI_STREAM_OVERRUN);
+    assert(st->slow_overruns - b.slow_overruns == 1u && !kui_sci_stream_slow_pending());
+    check_restored(); check_channel_restored();
+    assert(slow_block(lba, true) == 0xffu && st->polled - b.polled == 2u);
+    assert(slow_block(++lba, false) == 0);
 }
 #endif
 int main(void) {
@@ -660,6 +721,9 @@ int main(void) {
 #ifdef KUI_RETAIL_CE
     test_ce_counters();
     test_ce_token_slices();
+#endif
+#if KUI_CE_SCI_SLOW_AFTER_OVERRUN
+    test_ce_slow_after_overrun();
 #endif
     puts("sci stream: ok");
     return 0;

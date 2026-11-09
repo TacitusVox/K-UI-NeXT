@@ -188,6 +188,9 @@ enum kui_sci_stream_result kui_sci_stream_open(const struct kui_loader_sd *card,
     s.area[0] = area0; s.area[1] = area1;
     s.state = unknown ? LOST : CLOSED;
     s.ready[0] = s.ready[1] = 0; s.kept = 0; s.unrepaired = 0; s.arrived = 0;
+#if KUI_CE_SCI_SLOW_AFTER_OVERRUN
+    s.slow = 0;
+#endif
     s.sptr = rd8(SPTR);
     /* A deselected idle byte at the fast rate: the bus leaves its slow
      * acquisition rate and the card sees whole bytes. */
@@ -205,6 +208,14 @@ void kui_sci_stream_token_budget(bool bounded) {
     s.token_budget = KUI_SCI_STREAM_TOKEN_SLICE;
 }
 bool kui_sci_stream_token_pending(void) { return s.state == TOKEN_WAIT; }
+#endif
+#if KUI_CE_SCI_SLOW_AFTER_OVERRUN
+#define SLOW_RX 0x80u
+#define SLOW_LEFT 0x7fu
+_Static_assert(KUI_SCI_STREAM_SLOW_BLOCKS <= SLOW_LEFT, "slow window fits seven bits");
+bool kui_sci_stream_slow_pending(void) { return (s.slow & SLOW_LEFT) != 0; }
+/* After a completed reception: one fewer still to run slowly. */
+static void __attribute__((noinline)) slow_done(void) { if(s.slow & SLOW_LEFT) --s.slow; }
 #endif
 const struct kui_sci_stream_stats *kui_sci_stream_stats(void) { return &s.stats; }
 void kui_sci_stream_discard(void) { s.ready[0] = s.ready[1] = 0; s.kept = 0; s.arrived = 0; }
@@ -364,6 +375,12 @@ static enum kui_sci_stream_result start_dma(uint32_t area, uint32_t offset) {
     for(unsigned j = 0; j < 4; ++j) s.saved[j] = rd32(SAR + 4u * j);
 #endif
     wr8(SCR, 0);
+#if KUI_CE_SCI_SLOW_AFTER_OVERRUN
+    /* 6.25 MHz for this reception only; handoff restores 12.5 MHz. The
+     * settle exceeds one bit before the receiver is enabled. */
+    s.slow &= SLOW_LEFT;
+    if(s.slow) {s.slow |= SLOW_RX; wr8(BRR, 1u); settle(64);}
+#endif
     wr32(CHCR, 0);
     wr32(SAR, RDR & UINT32_C(0x1fffffff));
     wr32(DAR, physical(s.area[area]) + offset);
@@ -402,6 +419,9 @@ static enum kui_sci_stream_result receive(bool polled) {
         s.arrived = s.position;
         s.state = PAUSED;
         ++s.stats.polled;
+#if KUI_CE_SCI_SLOW_AFTER_OVERRUN
+        slow_done();
+#endif
         return KUI_SCI_STREAM_OK;
     }
     purge(p, AREA_BYTES);
@@ -506,8 +526,10 @@ static enum kui_sci_stream_result finish(bool later) {
         ++s.stats.incomplete[bucket];
         /* The SCI and our channel have already stopped and handed back.
          * These late snapshots cannot identify the exact fault-time owner. */
+#if !KUI_CE_SCI_SLOW_AFTER_OVERRUN
         s.stats.incomplete_ch2_active += (rd32(CHCR + 0x10u) & 3u) == 1u;
         s.stats.incomplete_dmaor_bad += (rd32(DMAOR) & 7u) != 1u;
+#endif
 #endif
         /* The channel was held off the bus (the game's own DMA) and the
          * receiver overran mid-block: the byte that overran is lost and the
@@ -519,6 +541,15 @@ static enum kui_sci_stream_result finish(bool later) {
          * waited, deselected) and rebuild the lost one from the CRC when
          * the block is taken. */
         uint32_t at = DMA_BYTES - count, held = status & RDRF ? 1u : 0u, lost = at + held;
+#if KUI_CE_SCI_SLOW_AFTER_OVERRUN
+        /* An overrun at the fast clock starts the slow window; one at the
+         * slow clock ends it, so a bus that holds the channel off longer
+         * than 1.28 us gets the existing programmed refetch, not a repeat. */
+        if(status & ORER) {
+            if(s.slow & SLOW_RX) {++s.stats.slow_overruns; s.slow = 0;}
+            else s.slow = KUI_SCI_STREAM_SLOW_BLOCKS;
+        }
+#endif
         if((status & ORER) && lost < 512u && !s.lost[area] && s.unrepaired < 2u) {
             s.lost[area] = (uint16_t)(lost + 1u);
             s.hold[area] = (uint8_t)held;
@@ -542,6 +573,10 @@ static enum kui_sci_stream_result finish(bool later) {
     s.rdr[area] = tail;
     s.state = PAUSED;
     STREAM_OBSERVE(++s.stats.blocks);
+#if KUI_CE_SCI_SLOW_AFTER_OVERRUN
+    if(s.slow & SLOW_RX) ++s.stats.slow_blocks;
+    slow_done();
+#endif
     return KUI_SCI_STREAM_OK;
 }
 enum kui_sci_stream_result kui_sci_stream_poll(bool interrupt) {

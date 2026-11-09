@@ -280,7 +280,7 @@ volatile uint32_t kui_retail_native_caller[2];
 /* Windows CE boot test: the caller's PR and stack (set by the entry), and
  * the last four calls' R7, R4, R5 and R6, shown if a call fails. */
 volatile uint32_t kui_retail_hook_caller[2];
-#if !KUI_ARMADA_CE_VMU_WRITE_RUNTIME || !defined(KUI_RETAIL_ASYNC)
+#if !(KUI_ARMADA_CE_VMU_WRITE_RUNTIME || KUI_CE_SCI_SLOW_AFTER_OVERRUN) || !defined(KUI_RETAIL_ASYNC)
 static uint32_t ce_calls[4][4], ce_count;
 #endif
 extern volatile uint32_t kui_retail_ce_kernel[KUI_RETAIL_CE_KERNEL_WORDS];
@@ -1598,10 +1598,12 @@ void kui_retail_ce_stream_wake(void) {
  * as E0). Returns whether that is all the call asks: the image is in the
  * virtual drive, unchanged. */
 static int ce_record(uint32_t source, uint32_t r4, uint32_t r5, uint32_t r6, uint32_t r7) {
-#if KUI_ARMADA_CE_VMU_WRITE_RUNTIME && defined(KUI_RETAIL_ASYNC)
+#if (KUI_ARMADA_CE_VMU_WRITE_RUNTIME || KUI_CE_SCI_SLOW_AFTER_OVERRUN) && defined(KUI_RETAIL_ASYNC)
     /* Writable runtime retains fault and terminal reports. Its private VMU
      * diagnostics replace this unused async call-history ring and periodic
-     * framebuffer meter; no GD command or interrupt behavior changes. */
+     * framebuffer meter; no GD command or interrupt behavior changes. The
+     * slow-after-overrun trial drops the ring (only the synchronous reader
+     * displays it) to fit its low reader. */
     (void)r4;(void)r5;(void)r6;(void)r7;
 #else
     uint32_t *call=ce_calls[ce_count++&3u];

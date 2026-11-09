@@ -148,6 +148,11 @@ static struct {
      * it runs ahead of where the reader resumes it. */
     unsigned ahead_on_resume;
     bool foreign_during_rx;
+    /* Overruns come from stalls shorter than a byte at 6.25 MHz: a
+     * reception started with BRR 1 is not held off long enough to lose a
+     * byte. rx_brr: the rate the reception in flight started at. */
+    bool overrun_fast_only;
+    uint8_t rx_brr;
     uint8_t *areas[2];
     unsigned purges, module_resets, dma_starts, irq_starts, settles, fences;
     uint32_t armed_chcr;
@@ -169,8 +174,9 @@ static void receive(void) {
         uint8_t wire = rev8(card_clock(0xff));
         ++m.received;
         unsigned at = m.overrun_every ? m.overrun_every : m.overrun_after;
+        bool stalled = at && 513u - m.tcr == at && !(m.overrun_fast_only && m.rx_brr);
         bool dma = (m.chcr & 1u) && m.tcr && m.sar == (RDR & 0x1fffffffu) && (m.dmaor & 7u) == 1u &&
-            !(at && 513u - m.tcr == at);
+            !stalled;
         if(dma) {
             *memory(m.dar++) = wire;
             if(!--m.tcr) m.chcr |= 2u;
@@ -242,6 +248,8 @@ void kui_sci_stream_test_write(uint32_t address, uint32_t value, unsigned width)
                 --m.ahead_on_resume;
                 (void)card_clock(0xff);
             }
+            assert(m.brr == 0 || m.brr == 1); /* 12.5 or 6.25 MHz */
+            m.rx_brr = m.brr;
             m.rx = true; m.rx_delay = m.delay; ++m.dma_starts;
             if(m.on_dma_start) m.on_dma_start();
             m.armed_chcr = m.chcr;
