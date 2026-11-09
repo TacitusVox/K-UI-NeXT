@@ -129,6 +129,51 @@ RESTART fall well below OVERRUN's first-attempt count, SLOWOVR stays small
 and BUSY falls; if SLOWOVR approaches SLOW-OK, the stalls are longer and
 the next step is to avoid the restart's token wait or the refetch itself.
 
+## Second result: slow refetch, reader 5d92a111b0fa (8 Nov 2026)
+
+Same route and GUI. Owner: no echo; the video is cleaner too; a slight
+audio distortion remains. Gameplay not yet compared.
+
+| Value | 689b6572 | 5d92a111 |
+| --- | --- | --- |
+| Movie window | 140,500 ms | 119,325 ms (the movie now runs at its own speed) |
+| GD calls / interrupt | 38,623 / 31,371 ms | 3,867 / 19,985 ms |
+| BUSY / PEND / busiest second | 49% / 71% / 62% | 19% / 75% / 35% |
+| Seconds at 50% or more | 72 of 140 | 0 of 118 |
+| Calls / interrupts | 78,116 / 143,121 | 20,865 / 142,662 |
+
+Stream counts in the movie window: 136,693 DMA receptions and 2,640
+programmed ones; 5,898 unrecovered overruns; 6,042 CMD18 starts; 10 CRC
+failures; 1,995,011 token bytes (330 per start) with 6,212 yields; 73
+in-place resumes. 98,520 receptions ran at 6.25 MHz and 2,646 of them
+overran (2.6%), so most stalls lie between 0.64 and 1.28 us. Overruns
+touched 2,797 of about 4,770 CE clock steps (at most 13 in one step,
+longest run 450 ms). The slowest one-second window read nothing (the
+player was not reading); the longest poll gap was 525 ms.
+
+Estimated remainder of the 19%: the per-block CRC and bit reversal about
+6%, other per-block work (interrupt entry, SCI turnaround, the copy into
+the game's buffer, the controller's hooks) about 7%, restarts and
+programmed refetches about 3%, other GD-call work about 3%.
+
+## Trial: faster block check (reader 8cdbc0a351f8)
+
+One change on 5d92a111 (`KUI_ARMADA_CE_FAST_TAKE=1`): the CRC table is
+folded on bit 0 instead of bit 7 (the same 256 bytes;
+table[x ^ 1] = table[x] ^ 0x1021), so on SH-4 one r0 value serves the
+offset mask and the indexed load; each byte is a 12-instruction step with
+no stack spill and the reversal is inline
+([`sci_stream_check.h`](../src/loader/sci_stream_check.h)). About 93
+instead of 118 instructions per word. Identical bytes and CRC: the host
+suites pass, every one of the 16,777,216 state/byte steps matches a
+bitwise reference, and `make test-sh4-check-words` runs the SH-4 assembly
+on 4,000 blocks under qemu-sh4. The controller is byte-identical to
+5d92a111's. Payload CRC32 `4E747363`;
+`KUI-Armada-Fast-Check-Trial-09NOV2026-0611-CST-8cdbc0a.zip`.
+
+Expected: IRQ-MS falls by roughly a tenth and BUSY to about 17-18%; the
+stream counts stay similar.
+
 ## Decision
 
 - **BUSY% high (about 20% or more), or many HOT>50 windows:** K-UI's per-block
