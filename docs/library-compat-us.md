@@ -1,7 +1,8 @@
 # US library compatibility table
 
 Every US Dreamcast startup from the owner's full US library run
-(`US-startup-01` to `08`, bundler v2.2, run `c2f5d6564a7a`), together with the
+(`US-startup-01` to `08`, bundler v2.2, run `c2f5d6564a7a`), the v2.3 rerun
+that added the three oversized boot programs (run `7eef3609bcec`), and the
 earlier library runs that already held 41 of them. Each row went through the
 launcher's own admission checks with `tools/library_compat_table.py`, against
 the compact Background stage end `0x8cebe748`. Column meanings and the gate
@@ -12,12 +13,13 @@ Static results are necessary evidence, not console compatibility.
 | --- | ---: |
 | Background reader with virtual VMU admitted | 54 |
 | Background reader only (virtual VMU blocked) | 138 |
-| Neither (Standard reader only) | 22 |
+| Neither (Standard reader only) | 25 |
 | Boot file is only a loader | 2 |
 | Windows CE (separate reader; see [driver families](wince-vmu-driver-families.md)) | 36 |
 
-Three discs could not be read; duplicate discs and repeat listings are not
-rows.
+Every disc was read. Duplicate discs and repeat listings are not rows. Sports
+Jam, Street Fighter III: 3rd Strike and Toy Story 2 have 13.5 to 14.3 MB boot
+programs; all three stop at the extent check.
 
 ## What blocks virtual VMU, by games affected
 
@@ -33,7 +35,7 @@ further blockers behind that one.
 | `placement_384k` | 17 | 384 KiB lease does not fit |
 | `initializer_call` | 15 | Heap initializer call not proved |
 | `initializer_slot` | 8 | No heap initializer slot (fixed RAM; needs a RAM map) |
-| `extent` | 6 | Executable extent not proved |
+| `extent` | 9 | Executable extent not proved |
 | `guarded_exits` | 4 | Terminal exits overlap hook windows |
 | `loader_program` | 2 | Boot file only loads another program (rebinding needed) |
 
@@ -255,7 +257,10 @@ VMU.
 | SHENMUE | MK-51059 | 4,936 | refused | refused | Maple driver family not resolved | no profile: CD music Off |  |
 | SHENMUE2 EU | MK-5118450 | 3,121 | refused | refused | Maple driver family not resolved | — (only short layout tracks) |  |
 | SOUL REAVER | T36802N | 3,374 | refused | refused | 284 KiB lease does not fit | — (only short layout tracks) |  |
+| SPORTS JAM | T44304N | 13,164 | refused | refused | executable extent not proved | — |  |
+| STREET FIGHTER 3 3RD STRIKE | T1213N | 13,993 | refused | refused | executable extent not proved | — |  |
 | SYDNEY 2000 | T36808N | 1,608 | refused | refused | Maple driver family not resolved | no profile: CD music Off |  |
+| TOY STORY 2 / BUZZ LIGHTYEAR TO THE RESCUE | T13003N | 13,311 | refused | refused | executable extent not proved | — |  |
 | VF3TB | MK-51001 | 1,152 | refused | refused | Maple driver family not resolved | — |  |
 | VIRTUA STRIKER 2 VER.2000.1 | MK-51028 | 2,112 | refused | refused | Maple driver family not resolved | — |  |
 | WETRIXPLUS | T8111N | 1,441 | refused | refused | Maple driver family not resolved | no profile: CD music Off |  |
@@ -301,14 +306,17 @@ VMU.
 | Not checked yet | Product | Why | Console (recorded) |
 | --- | --- | --- | --- |
 | NBA2K1 | MK-51063 | same startup as 129-MK-51004-NBA-2K |  |
+| NBA2K1 | MK-51063 | same startup as NBA 2K v1.008 (1999)(Sega)(US)[!][1S]/NBA 2K v1.008 (1999)(Sega)(US)[!][1S].gdi |  |
 | NBA2K2 | MK-51178 | same startup as 129-MK-51004-NBA-2K |  |
+| NBA2K2 | MK-51178 | same startup as NBA 2K v1.008 (1999)(Sega)(US)[!][1S]/NBA 2K v1.008 (1999)(Sega)(US)[!][1S].gdi |  |
 | NFL2K1 | MK-51062 | same startup as 138-MK-51176-NCAA-COLLEGE-FOOTBALL-2K2 |  |
+| NFL2K1 | MK-51062 | same startup as NCAA College Football 2K2 - Road to the Rose Bowl v1.003 (2001)(Sega)(US)[!][2S]/NCAA College Football 2K2 - Road to the Rose Bowl v1.003 (2001)(Sega)(US)[!][2S].gdi |  |
 | NFL2K2 | MK-51168 | same startup as 129-MK-51004-NBA-2K |  |
+| NFL2K2 | MK-51168 | same startup as NBA 2K v1.008 (1999)(Sega)(US)[!][1S]/NBA 2K v1.008 (1999)(Sega)(US)[!][1S].gdi |  |
 | ROGUESPEAR | T40402N | same startup as 060-T9505N-ESPN-NBA2NIGHT |  |
+| ROGUESPEAR | T40402N | same startup as ESPN NBA 2night v1.005 (2000)(Konami)(US)[!][1S]/ESPN NBA 2night v1.005 (2000)(Konami)(US)[!][1S].gdi |  |
 | SOULCALIBUR | T1401N | not read: Startup extent leaves the data tracks at LBA 547203 (tracks 0-300, 450-976 audio, 45000-171916) | known limit: incomplete dump (its data track ends before the boot file); set aside for now |
-| SPORTS JAM | T44304N | not read: Required startup file 1ST_READ.BIN is 13,480,448 bytes; the per-file limit is 12,582,912 bytes |  |
-| STREET FIGHTER 3 3RD STRIKE | T1213N | not read: Required startup file 1ST_READ.BIN is 14,329,504 bytes; the per-file limit is 12,582,912 bytes |  |
-| TOY STORY 2 / BUZZ LIGHTYEAR TO THE RESCUE | T13003N | not read: Required startup file 1ST_READ.BIN is 13,631,086 bytes; the per-file limit is 12,582,912 bytes |  |
 | WORLD SERIES BASEBALL 2K2 | MK-51152 | same startup as 287-T15125N-UNREAL-TOURNAMENT |  |
+| WORLD SERIES BASEBALL 2K2 | MK-51152 | same startup as Unreal Tournament v1.000 (2001)(Infogrames)(US)(M5)[!]/Unreal Tournament v1.000 (2001)(Infogrames)(US)(M5)[!].gdi |  |
 
 Also listed: 89 files in other image formats.
