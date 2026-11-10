@@ -49,3 +49,44 @@ therefore has the same address in those kernels. These differ:
 
 Not established: hook points, reservation fit and console behavior for any
 family except Armada's; JPN and PAL kernels.
+
+## Hook windows (survey, 10 Nov 2026)
+
+The reviewed `maple.dll` windows behind the Armada hook
+(`tools/armada_ce_maple_hook_owner_audit.py`) and the VC2 helper
+(`tools/vc2_ce_vmu_owner_audit.py`) were searched in one driver per family.
+
+- **Wild Metal (family 6):** every Armada window is at Armada's RVA. The
+  windows that differ hold absolute addresses, and they differ only by the
+  module base (`0x01b40000` against `0x01dd0000`). The Armada helper applies
+  after relocation, with Armada's memory layout.
+- **Families 2 (World Party), 4 (NC2) and 5 (BAM4):** exactly two Armada
+  windows match, the two initialization kernel-mode windows. They are at
+  `0x20f8`/`0x234e` in family 2 and `0x2100`/`0x2356` in families 4 and 5.
+  Family 5 also has Armada's 28-byte completion entry, at `0x6f64` (VC2's
+  completion RVA). VC2's 13 windows match 1 of 13 in families 4 and 5, and
+  none in family 2.
+- **Family 8 (Worms Armageddon):** no Armada window matches.
+
+Each of these families therefore needs its own audit, as Armada and VC2 had,
+covering:
+
+- the completion entry and walker, and the worker's completion call;
+- worker thread creation;
+- the `SetKMode` and `WaitForSingleObject` import stubs;
+- the root global;
+- the text-tail padding for the bridge.
+
+## Next steps
+
+1. Family 2 (14 games, World Party among them): audit `maple.dll` as above
+   and derive its hook profile.
+2. Parameterize the CE Maple helper by family profile and module base. Today
+   it holds Armada's constants in its linker scripts and
+   `include/kui/armada_ce_maple_observe.h`.
+3. Build a GUI from this repository's source that routes Virtual VMU On for
+   WinCE games by kernel family. It must keep the installed GUI's Armada
+   routing (the `KUIAVM01` card profile slot and the all-on module) and the
+   generic module's `KUICEM01` record.
+4. Test package: the new GUI with World Party's virtual VMU, CD music Off and
+   On. Check first that Armada VMU On behaves exactly as before.
