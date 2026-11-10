@@ -23,11 +23,13 @@ import json
 import os
 from pathlib import Path
 import re
+import shutil
+import subprocess
 import tempfile
 import uuid
 import zipfile
 
-LIBRARY_VERSION = '2.3'
+LIBRARY_VERSION = '2.4'
 SCHEMA = 'kui.library-startup.v2'
 DESCRIPTOR_LIMIT = 4096
 WALK_LIMIT = 1000000
@@ -378,8 +380,19 @@ def describe(row):
     return f"{kind}; {row['boot_filename']} {row['boot_bytes']:,} bytes, {row['copied_files']} files"
 
 
+def extract_chd(chdman, chd, folder):
+    """Write a CHD's GDI into folder with MAME's chdman; return the descriptor."""
+    gdi = Path(folder) / 'disc.gdi'
+    result = subprocess.run([chdman, 'extractcd', '-i', str(chd), '-o', str(gdi)],
+                            capture_output=True, text=True)
+    if result.returncode or not gdi.is_file():
+        message = (result.stderr or result.stdout).strip().splitlines()
+        raise ValueError('chdman could not extract this CHD' + (': ' + message[-1] if message else ''))
+    return gdi
+
+
 def build(root, output_dir, name, part_mb, known_path=None, log=print, requests_path=None,
-          windows_ce_only=False):
+          windows_ce_only=False, chdman=None):
     root, output_dir = Path(root), Path(output_dir)
     if root.is_symlink() or not root.is_dir():
         raise ValueError(f'{root} is not a folder')
@@ -393,12 +406,27 @@ def build(root, output_dir, name, part_mb, known_path=None, log=print, requests_
     if not descriptors and not others:
         raise ValueError(f'No .gdi or .cue files below {root}')
     method = compression()
+    chds = [path for path in others if chdman and path.suffix.lower() == '.chd']
+    others = [path for path in others if path not in chds]
+    total = len(descriptors) + len(chds)
     rows, by_key = [], {}
     with tempfile.TemporaryDirectory(prefix='.kui-library-', dir=output_dir) as work:
         staging = Path(work)
-        for index, descriptor in enumerate(descriptors, 1):
-            row = classify(descriptor, root, index, method, staging, known, requests,
-                           windows_ce_only=windows_ce_only)
+        jobs = [(descriptor, None) for descriptor in descriptors] + [(None, chd) for chd in chds]
+        for index, (descriptor, chd) in enumerate(jobs, 1):
+            if chd is None:
+                row = classify(descriptor, root, index, method, staging, known, requests,
+                               windows_ce_only=windows_ce_only)
+            else:
+                # One CHD at a time: a temporary GDI beside the output, removed after reading.
+                with tempfile.TemporaryDirectory(prefix='.kui-chd-', dir=output_dir) as temporary:
+                    try:
+                        gdi = extract_chd(chdman, chd, temporary)
+                        row = classify(gdi, Path(temporary), index, method, staging, known, requests,
+                                       windows_ce_only=windows_ce_only)
+                    except (OSError, ValueError) as error:
+                        row = {'status': 'error', 'error': str(error)}
+                row.update(source=chd.relative_to(root).as_posix(), converted_from='chd')
             if row['status'] in ('bundled', 'already_sent'):
                 key = row['startup_key']
                 if key in by_key:
@@ -410,7 +438,7 @@ def build(root, output_dir, name, part_mb, known_path=None, log=print, requests_
                 else:
                     by_key[key] = row.get('slug') or row['source']
             rows.append(row)
-            log(f'[{index}/{len(descriptors)}] {row.get("title") or row["source"]}: {describe(row)}')
+            log(f'[{index}/{total}] {row.get("title") or row["source"]}: {describe(row)}')
         for path in others:
             rows.append({'source': path.relative_to(root).as_posix(), 'status': 'other_format',
                          'format': path.suffix.lower().lstrip('.')})
@@ -446,6 +474,9 @@ def main():
                         help='Largest part in MiB (default 25); 0 writes one ZIP')
     parser.add_argument('--resend-all', action='store_true',
                         help=f'Ignore {KNOWN_NAME} and copy every startup again')
+    parser.add_argument('--chd', action='store_true',
+                        help='Also read CHD images, one at a time through MAME chdman '
+                             '(needs chdman and free space for one GDI beside the output)')
     parser.add_argument('--windows-ce', action='store_true',
                         help='Copy only Windows CE games, including ones sent before; '
                              'native games are listed from their header, not copied')
@@ -454,11 +485,14 @@ def main():
         parser.error('--name takes letters, digits, - and _; --part-mb is 0 or more')
     print(version, flush=True)
     known = None if args.resend_all else Path(__file__).resolve().with_name(KNOWN_NAME)
+    chdman = shutil.which('chdman') if args.chd else None
+    if args.chd and not chdman:
+        parser.error('--chd needs MAME chdman on the PATH (package mame-tools, or MAME for Windows)')
     try:
         rows, created = build(args.folder, args.output_dir, args.name, args.part_mb,
                               known_path=known, log=lambda line: print(line, flush=True),
                               requests_path=Path(__file__).resolve().with_name(REQUESTS_NAME),
-                              windows_ce_only=args.windows_ce)
+                              windows_ce_only=args.windows_ce, chdman=chdman)
     except (OSError, ValueError, zipfile.BadZipFile, UnicodeError) as error:
         parser.exit(1, f'Bundling stopped: {error}\n')
     except KeyboardInterrupt:

@@ -1,4 +1,4 @@
-# Whole-library startup bundle (v2.3)
+# Whole-library startup bundle (v2.4)
 
 One command inventories every Dreamcast image below a folder and collects what
 K-UI needs to check each game against its launch routes: the disc header
@@ -44,8 +44,13 @@ What it does with each image:
 - **Anything it cannot read:** listed with the reason; the rest continue.
   Unusual file names elsewhere on a disc no longer stop it; only the copied
   files need ordinary names.
-- **CDI, CHD, CSO, ZSO and other formats:** listed by name only. To include
-  one of those games, convert it to GDI or CUE/BIN first.
+- **CHD images:** read with `--chd`, one at a time. MAME's `chdman` (Linux
+  package `mame-tools`; included with MAME on Windows) writes each CHD out as a
+  temporary GDI beside the output folder. The tool reads it like any GDI and
+  deletes it before the next game. Allow free space for one game (about 1.2 GB).
+  Without `--chd`, CHDs are listed by name only.
+- **CDI, CSO, ZSO and other formats:** listed by name only. To include one of
+  those games, convert it to GDI or CUE/BIN first.
 
 The tracks are only read, never changed, and existing ZIPs are never
 overwritten. Symlinked folders and macOS `._` files are skipped. This prepares

@@ -8,6 +8,8 @@ import importlib.util
 import io
 import json
 from pathlib import Path
+import shutil
+import subprocess
 import sys
 import tempfile
 import unittest
@@ -254,6 +256,33 @@ class LibraryStartupBundleTests(unittest.TestCase):
             self.assertEqual([name for name in archive.namelist() if name.startswith('games/')],
                              [ce['archive']])
         self.assertEqual(sweep.verdict(native)[1], 'not_native')
+
+    def test_chd_images_read_through_chdman_match_their_gdi(self):
+        chdman = shutil.which('chdman')
+        if not chdman:
+            self.skipTest('needs MAME chdman')
+        gdi_rows, _ = self.build()
+        alpha = next(row for row in gdi_rows if row['source'] == 'Alpha/disc.gdi')
+        chd_root = self.folder / 'CHD'
+        (chd_root / 'Alpha').mkdir(parents=True)
+        subprocess.run([chdman, 'createcd', '-i', str(self.games / 'Alpha' / 'disc.gdi'),
+                        '-o', str(chd_root / 'Alpha' / 'game.chd')], check=True, capture_output=True)
+        (chd_root / 'Broken').mkdir()
+        (chd_root / 'Broken' / 'bad.chd').write_bytes(b'not a chd')
+        self.output = self.folder / 'out-chd'
+        self.output.mkdir()
+        rows, _ = library.build(chd_root, self.output, 'Library-startup', 0, log=lambda line: None,
+                                chdman=chdman)
+        by = {row['source']: row for row in rows}
+        self.assertEqual(by['Alpha/game.chd']['status'], 'bundled')
+        self.assertEqual(by['Alpha/game.chd']['converted_from'], 'chd')
+        self.assertEqual(by['Alpha/game.chd']['startup_key'], alpha['startup_key'])
+        self.assertEqual(by['Broken/bad.chd']['status'], 'error')
+        self.assertEqual(list(self.output.glob('.kui-chd-*')), [], 'temporary GDIs are removed')
+        self.output = self.folder / 'out-plain'
+        self.output.mkdir()
+        rows, _ = library.build(chd_root, self.output, 'Library-startup', 0, log=lambda line: None)
+        self.assertEqual({row['status'] for row in rows}, {'other_format'}, 'CHD needs --chd')
 
     def test_parts_split_and_every_part_lists_every_game(self):
         rows, created = self.build(part_mb=0.001)
