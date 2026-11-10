@@ -57,6 +57,8 @@ formats first if they matter.
 - Sports Jam, Street Fighter III: 3rd Strike and Toy Story 2 (boot programs of
   13.5 to 14.3 MB) came from a v2.3 rerun, after the per-file limit was raised
   to the main-RAM bound.
+- US CD audio: 99 games with real audio tracks; native ones ship a few standard sound
+  drivers (`MANATEE.DRV`, `AUDIO64.DRV`, `MANATEE2.DRV`). See [US CD audio](library-cd-audio-us.md).
 - Still to run: PAL and JPN Windows CE, then PAL and JPN native startups.
 
 ## What the discs cannot tell us

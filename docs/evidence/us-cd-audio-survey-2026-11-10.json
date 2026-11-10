@@ -1,0 +1,1274 @@
+{
+ "schema": "kui.library.cd-audio-survey.v1",
+ "date": "2026-11-10",
+ "source": "owner US startup runs c2f5d6564a7a and 7eef3609bcec with the earlier library runs; 244 distinct US startups",
+ "method": [
+  "A high-density audio track is control 0 at LBA 45000 or later; real CD audio means one such track of 30 s or more",
+  "Sound-driver builds are grouped by exact SHA-256, counted once per native game with real CD audio"
+ ],
+ "counts": {
+  "startups": 244,
+  "real_cd_audio": 99,
+  "native": 73,
+  "windows_ce": 26,
+  "short_layout_tracks_only": 55
+ },
+ "drivers": {
+  "MANATEE.DRV": [
+   {
+    "sha256_prefix": "64c38a8d253c",
+    "bytes": 33568,
+    "games": [
+     "DISNEY S DONALD DUCK GOIN QUACKER",
+     "MAGFORCE RACING",
+     "PLASMA SWORD",
+     "POD SPEEDZONE",
+     "RIPPIN' RIDERS",
+     "SEVENTH CROSS EVOLUTION",
+     "SYDNEY 2000",
+     "UNREAL TOURNAMENT"
+    ]
+   },
+   {
+    "sha256_prefix": "906e3b8a1336",
+    "bytes": 33408,
+    "games": [
+     "AIRFORCE DELTA",
+     "EXPENDABLE",
+     "GENERATOR 2",
+     "SOUL FIGHTER",
+     "THE KING OF FIGHTERS DREAM MATCH 1999",
+     "TRICKSTYLE",
+     "WETRIXPLUS"
+    ]
+   },
+   {
+    "sha256_prefix": "11c89eaa2b20",
+    "bytes": 36160,
+    "games": [
+     "BANGAI-O",
+     "CHUCHU ROCKET",
+     "COASTER WORKS",
+     "GENERATOR 2",
+     "SEGAGT",
+     "STRIKER PRO 2000"
+    ]
+   },
+   {
+    "sha256_prefix": "8631470a329d",
+    "bytes": 33288,
+    "games": [
+     "GENERATOR 2",
+     "MONACO GRAND PRIX",
+     "POD SPEEDZONE",
+     "SEVENTH CROSS EVOLUTION",
+     "SPEED DEVILS",
+     "SPEED DEVILS ONLINE"
+    ]
+   },
+   {
+    "sha256_prefix": "12c461d78bcf",
+    "bytes": 33568,
+    "games": [
+     "CENTIPEDE",
+     "MORTAL KOMBAT GOLD",
+     "NBA SHOWTIME:NBA ON NBC",
+     "NFL BLITZ 2000",
+     "NFL BLITZ 2001",
+     "READY 2 RUMBLE BOXING"
+    ]
+   },
+   {
+    "sha256_prefix": "b95396e19897",
+    "bytes": 36064,
+    "games": [
+     "BANGAI-O",
+     "GIGAWING"
+    ]
+   },
+   {
+    "sha256_prefix": "8c4a4d3b2b91",
+    "bytes": 36960,
+    "games": [
+     "FATAL FURY MARK OF THE WOLVES",
+     "THE LAST BLADE 2"
+    ]
+   },
+   {
+    "sha256_prefix": "fecdab296c8b",
+    "bytes": 36480,
+    "games": [
+     "SEGA SMASH PACK VOLUME 1"
+    ]
+   },
+   {
+    "sha256_prefix": "49e26ddf0d7e",
+    "bytes": 33328,
+    "games": [
+     "GIGAWING"
+    ]
+   },
+   {
+    "sha256_prefix": "1b1c71711bcc",
+    "bytes": 33288,
+    "games": [
+     "INCOMING"
+    ]
+   },
+   {
+    "sha256_prefix": "3c76d1dc9177",
+    "bytes": 36192,
+    "games": [
+     "MAKEN X"
+    ]
+   },
+   {
+    "sha256_prefix": "938069c72b0f",
+    "bytes": 36704,
+    "games": [
+     "MS. PAC-MAN MAZE MADNESS"
+    ]
+   },
+   {
+    "sha256_prefix": "3f6aabe1fc73",
+    "bytes": 36768,
+    "games": [
+     "REELFISHINGWILD"
+    ]
+   },
+   {
+    "sha256_prefix": "4320e30aed03",
+    "bytes": 32424,
+    "games": [
+     "TOKYO XTREME RACER"
+    ]
+   },
+   {
+    "sha256_prefix": "afb9469debb8",
+    "bytes": 32820,
+    "games": [
+     "TOKYO XTREME RACER"
+    ]
+   },
+   {
+    "sha256_prefix": "a70defb3d960",
+    "bytes": 36768,
+    "games": [
+     "UNREAL TOURNAMENT"
+    ]
+   }
+  ],
+  "AUDIO64.DRV": [
+   {
+    "sha256_prefix": "af8f90440edc",
+    "bytes": 20824,
+    "games": [
+     "DAVE MIRRA FREESTYLE BMX",
+     "DEEP FIGHTER",
+     "GENERATOR 2",
+     "MDK2",
+     "OMIKRON THE NOMAD SOUL",
+     "ROADSTERS RC7",
+     "SOUTH PARK RALLY",
+     "SPECOPS OMEGA SQUAD",
+     "TEST DRIVE V-RALLY",
+     "WALT DISNEY WORLD QUEST MAGICAL RACING TOUR"
+    ]
+   },
+   {
+    "sha256_prefix": "9fcdbb82d761",
+    "bytes": 18608,
+    "games": [
+     "FROGGER 2",
+     "KAO THE KANGAROO",
+     "RAZOR FREESTYLE SCOOTER",
+     "SOLDIER OF FORTUNE",
+     "SPEED DEVILS ONLINE",
+     "VANISHING POINT"
+    ]
+   },
+   {
+    "sha256_prefix": "91979d045fb7",
+    "bytes": 20824,
+    "games": [
+     "CENTIPEDE",
+     "GENERATOR 2",
+     "NBA SHOWTIME:NBA ON NBC",
+     "RE-VOLT",
+     "VIGILANTE 8 SECOND OFFENSE"
+    ]
+   },
+   {
+    "sha256_prefix": "659654410298",
+    "bytes": 20668,
+    "games": [
+     "HYDRO THUNDER",
+     "NFL BLITZ 2000",
+     "READY 2 RUMBLE BOXING"
+    ]
+   },
+   {
+    "sha256_prefix": "5f99adacb1af",
+    "bytes": 19180,
+    "games": [
+     "QUAKE III ARENA",
+     "STAR WARS DEMOLITION"
+    ]
+   },
+   {
+    "sha256_prefix": "c1100593c84e",
+    "bytes": 18540,
+    "games": [
+     "ARABIAN NIGHTS - PRINCE OF PERSIA",
+     "NFL BLITZ 2001"
+    ]
+   },
+   {
+    "sha256_prefix": "477ede3766c2",
+    "bytes": 20740,
+    "games": [
+     "TOY COMMANDER"
+    ]
+   },
+   {
+    "sha256_prefix": "fe0fe456a1bf",
+    "bytes": 18540,
+    "games": [
+     "ECCO THE DOLPHIN DEFENDER OF THE FUTURE"
+    ]
+   },
+   {
+    "sha256_prefix": "45906bf0bdd1",
+    "bytes": 18632,
+    "games": [
+     "LOONEY TUNES SPACE RACE"
+    ]
+   },
+   {
+    "sha256_prefix": "51269efc2d6b",
+    "bytes": 20668,
+    "games": [
+     "MORTAL KOMBAT GOLD"
+    ]
+   },
+   {
+    "sha256_prefix": "066e9c4ef8cb",
+    "bytes": 18132,
+    "games": [
+     "NHL 2K"
+    ]
+   }
+  ],
+  "SOUND.BIN": [
+   {
+    "sha256_prefix": "90c3b3f48e97",
+    "bytes": 1052600,
+    "games": [
+     "CART RACING"
+    ]
+   },
+   {
+    "sha256_prefix": "e2d37d24d03f",
+    "bytes": 24,
+    "games": [
+     "POD SPEEDZONE"
+    ]
+   },
+   {
+    "sha256_prefix": "069d6e4e03cc",
+    "bytes": 16,
+    "games": [
+     "SPEED DEVILS"
+    ]
+   },
+   {
+    "sha256_prefix": "fd610d25e3f7",
+    "bytes": 16,
+    "games": [
+     "SPEED DEVILS"
+    ]
+   },
+   {
+    "sha256_prefix": "4758236e8c53",
+    "bytes": 16,
+    "games": [
+     "SPEED DEVILS"
+    ]
+   },
+   {
+    "sha256_prefix": "a220c379dcba",
+    "bytes": 16,
+    "games": [
+     "SPEED DEVILS"
+    ]
+   },
+   {
+    "sha256_prefix": "b049598cc971",
+    "bytes": 16,
+    "games": [
+     "SPEED DEVILS"
+    ]
+   },
+   {
+    "sha256_prefix": "7b0a1f3d065a",
+    "bytes": 16,
+    "games": [
+     "SPEED DEVILS"
+    ]
+   },
+   {
+    "sha256_prefix": "18d55b35f7f3",
+    "bytes": 16,
+    "games": [
+     "SPEED DEVILS"
+    ]
+   },
+   {
+    "sha256_prefix": "bac781f94461",
+    "bytes": 16,
+    "games": [
+     "SPEED DEVILS"
+    ]
+   },
+   {
+    "sha256_prefix": "5f78948455a3",
+    "bytes": 16,
+    "games": [
+     "SPEED DEVILS"
+    ]
+   },
+   {
+    "sha256_prefix": "162503495803",
+    "bytes": 16,
+    "games": [
+     "SPEED DEVILS"
+    ]
+   }
+  ],
+  "MANATEE2.DRV": [
+   {
+    "sha256_prefix": "11c89eaa2b20",
+    "bytes": 36160,
+    "games": [
+     "ARABIAN NIGHTS - PRINCE OF PERSIA",
+     "DAVE MIRRA FREESTYLE BMX",
+     "DEEP FIGHTER",
+     "GENERATOR 2",
+     "OMIKRON THE NOMAD SOUL",
+     "SPECOPS OMEGA SQUAD",
+     "TEST DRIVE V-RALLY",
+     "VIGILANTE 8 SECOND OFFENSE",
+     "WALT DISNEY WORLD QUEST MAGICAL RACING TOUR"
+    ]
+   }
+  ],
+  "AICADRV.BIN": [
+   {
+    "sha256_prefix": "c12bee5264e6",
+    "bytes": 63432,
+    "games": [
+     "ALIENFRONT ONLINE",
+     "SHENMUE"
+    ]
+   },
+   {
+    "sha256_prefix": "5206fba73962",
+    "bytes": 57216,
+    "games": [
+     "GENERATOR 2"
+    ]
+   },
+   {
+    "sha256_prefix": "3f88553a52a6",
+    "bytes": 59264,
+    "games": [
+     "SHENMUE"
+    ]
+   }
+  ],
+  "MIDIDA.DRV": [
+   {
+    "sha256_prefix": "1063ed11b9ae",
+    "bytes": 31244,
+    "games": [
+     "NBA HOOPZ",
+     "STAR WARS DEMOLITION"
+    ]
+   },
+   {
+    "sha256_prefix": "10c1e706b17b",
+    "bytes": 31312,
+    "games": [
+     "LOONEY TUNES SPACE RACE"
+    ]
+   }
+  ],
+  "ARMCOM.DRV": [
+   {
+    "sha256_prefix": "5f8e777ef507",
+    "bytes": 30888,
+    "games": [
+     "GENERATOR 2",
+     "SEGA SMASH PACK VOLUME 1"
+    ]
+   }
+  ]
+ },
+ "real_cd_audio": [
+  {
+   "title": "4WHEELTHUNDER",
+   "product": "T-9708N",
+   "windows_ce": false,
+   "hd_audio_tracks": 14,
+   "longest_s": 311,
+   "total_s": 2911
+  },
+  {
+   "title": "4X4 EVOLUTION",
+   "product": "T41903N",
+   "windows_ce": true,
+   "hd_audio_tracks": 7,
+   "longest_s": 231,
+   "total_s": 1307
+  },
+  {
+   "title": "AIRFORCE DELTA",
+   "product": "T9501N",
+   "windows_ce": false,
+   "hd_audio_tracks": 26,
+   "longest_s": 255,
+   "total_s": 5070
+  },
+  {
+   "title": "ALIENFRONT ONLINE",
+   "product": "MK-51171",
+   "windows_ce": false,
+   "hd_audio_tracks": 1,
+   "longest_s": 78,
+   "total_s": 78
+  },
+  {
+   "title": "ARABIAN NIGHTS - PRINCE OF PERSIA",
+   "product": "T41405N",
+   "windows_ce": false,
+   "hd_audio_tracks": 1,
+   "longest_s": 1928,
+   "total_s": 1928
+  },
+  {
+   "title": "ARMADA",
+   "product": "T40301N 00",
+   "windows_ce": true,
+   "hd_audio_tracks": 1,
+   "longest_s": 3788,
+   "total_s": 3788
+  },
+  {
+   "title": "BANG! GUNSHIP ELITE",
+   "product": "T44102N",
+   "windows_ce": true,
+   "hd_audio_tracks": 5,
+   "longest_s": 505,
+   "total_s": 1202
+  },
+  {
+   "title": "BANGAI-O",
+   "product": "T40217N",
+   "windows_ce": false,
+   "hd_audio_tracks": 33,
+   "longest_s": 194,
+   "total_s": 3451
+  },
+  {
+   "title": "BUST A MOVE 4",
+   "product": "T-8117N",
+   "windows_ce": true,
+   "hd_audio_tracks": 22,
+   "longest_s": 277,
+   "total_s": 2365
+  },
+  {
+   "title": "CAESARS PALACE 2000",
+   "product": "T-12504N",
+   "windows_ce": true,
+   "hd_audio_tracks": 16,
+   "longest_s": 131,
+   "total_s": 362
+  },
+  {
+   "title": "CART RACING",
+   "product": "MK-51007",
+   "windows_ce": false,
+   "hd_audio_tracks": 20,
+   "longest_s": 319,
+   "total_s": 3522
+  },
+  {
+   "title": "CENTIPEDE",
+   "product": "T40602N",
+   "windows_ce": false,
+   "hd_audio_tracks": 15,
+   "longest_s": 88,
+   "total_s": 1154
+  },
+  {
+   "title": "CHAMPIONSHIP SURFER",
+   "product": "T41403N",
+   "windows_ce": true,
+   "hd_audio_tracks": 10,
+   "longest_s": 186,
+   "total_s": 1290
+  },
+  {
+   "title": "CHUCHU ROCKET",
+   "product": "MK-51049",
+   "windows_ce": false,
+   "hd_audio_tracks": 15,
+   "longest_s": 372,
+   "total_s": 2002
+  },
+  {
+   "title": "COASTER WORKS",
+   "product": "T15128N",
+   "windows_ce": false,
+   "hd_audio_tracks": 13,
+   "longest_s": 120,
+   "total_s": 758
+  },
+  {
+   "title": "CYBER TROOPERS VIRTUAL-ON ORATORIO TANGRAM",
+   "product": "T13004N",
+   "windows_ce": false,
+   "hd_audio_tracks": 54,
+   "longest_s": 184,
+   "total_s": 4614
+  },
+  {
+   "title": "DAVE MIRRA FREESTYLE BMX",
+   "product": "T-8120N",
+   "windows_ce": false,
+   "hd_audio_tracks": 10,
+   "longest_s": 138,
+   "total_s": 1311
+  },
+  {
+   "title": "DEEP FIGHTER",
+   "product": "T17705N",
+   "windows_ce": false,
+   "hd_audio_tracks": 16,
+   "longest_s": 244,
+   "total_s": 2121
+  },
+  {
+   "title": "DISNEY S DONALD DUCK GOIN QUACKER",
+   "product": "T17714D50",
+   "windows_ce": false,
+   "hd_audio_tracks": 1,
+   "longest_s": 78,
+   "total_s": 78
+  },
+  {
+   "title": "DUCATI WORLD",
+   "product": "T-8113N",
+   "windows_ce": true,
+   "hd_audio_tracks": 11,
+   "longest_s": 425,
+   "total_s": 2962
+  },
+  {
+   "title": "ECCO THE DOLPHIN DEFENDER OF THE FUTURE",
+   "product": "MK-51033",
+   "windows_ce": false,
+   "hd_audio_tracks": 1,
+   "longest_s": 52,
+   "total_s": 52
+  },
+  {
+   "title": "EXPENDABLE",
+   "product": "T15104N",
+   "windows_ce": false,
+   "hd_audio_tracks": 24,
+   "longest_s": 246,
+   "total_s": 3932
+  },
+  {
+   "title": "F1 WORLD GRAND PRIX",
+   "product": "T3001N",
+   "windows_ce": false,
+   "hd_audio_tracks": 19,
+   "longest_s": 213,
+   "total_s": 2008
+  },
+  {
+   "title": "FATAL FURY MARK OF THE WOLVES",
+   "product": "T44306N",
+   "windows_ce": false,
+   "hd_audio_tracks": 1,
+   "longest_s": 103,
+   "total_s": 103
+  },
+  {
+   "title": "FROGGER 2",
+   "product": "T40604N",
+   "windows_ce": false,
+   "hd_audio_tracks": 1,
+   "longest_s": 78,
+   "total_s": 78
+  },
+  {
+   "title": "GENERATOR 2",
+   "product": "MK-51057",
+   "windows_ce": false,
+   "hd_audio_tracks": 6,
+   "longest_s": 154,
+   "total_s": 534
+  },
+  {
+   "title": "GIGAWING",
+   "product": "T1209N",
+   "windows_ce": false,
+   "hd_audio_tracks": 8,
+   "longest_s": 155,
+   "total_s": 639
+  },
+  {
+   "title": "GREATEST ARCADE HITS 2",
+   "product": "T-9714N",
+   "windows_ce": true,
+   "hd_audio_tracks": 26,
+   "longest_s": 329,
+   "total_s": 1693
+  },
+  {
+   "title": "HYDRO THUNDER",
+   "product": "T-9702N",
+   "windows_ce": false,
+   "hd_audio_tracks": 33,
+   "longest_s": 122,
+   "total_s": 2640
+  },
+  {
+   "title": "INCOMING",
+   "product": "T12503N",
+   "windows_ce": false,
+   "hd_audio_tracks": 10,
+   "longest_s": 300,
+   "total_s": 1954
+  },
+  {
+   "title": "KAO THE KANGAROO",
+   "product": "T22903N",
+   "windows_ce": false,
+   "hd_audio_tracks": 54,
+   "longest_s": 92,
+   "total_s": 3891
+  },
+  {
+   "title": "KISS PSYCHO CIRCUS THE NIGHTMARE CHILD",
+   "product": "T41901N",
+   "windows_ce": true,
+   "hd_audio_tracks": 29,
+   "longest_s": 280,
+   "total_s": 4191
+  },
+  {
+   "title": "LOONEY TUNES SPACE RACE",
+   "product": "T15116N",
+   "windows_ce": false,
+   "hd_audio_tracks": 13,
+   "longest_s": 196,
+   "total_s": 2179
+  },
+  {
+   "title": "MAGFORCE RACING",
+   "product": "T40208N",
+   "windows_ce": false,
+   "hd_audio_tracks": 9,
+   "longest_s": 311,
+   "total_s": 2519
+  },
+  {
+   "title": "MAKEN X",
+   "product": "MK-51050",
+   "windows_ce": false,
+   "hd_audio_tracks": 5,
+   "longest_s": 229,
+   "total_s": 399
+  },
+  {
+   "title": "MDK2",
+   "product": "T12502N",
+   "windows_ce": false,
+   "hd_audio_tracks": 27,
+   "longest_s": 329,
+   "total_s": 5028
+  },
+  {
+   "title": "MONACO GRAND PRIX",
+   "product": "17701N",
+   "windows_ce": false,
+   "hd_audio_tracks": 19,
+   "longest_s": 190,
+   "total_s": 3200
+  },
+  {
+   "title": "MORTAL KOMBAT GOLD",
+   "product": "T-9701N",
+   "windows_ce": false,
+   "hd_audio_tracks": 49,
+   "longest_s": 92,
+   "total_s": 1856
+  },
+  {
+   "title": "MR.DRILLER",
+   "product": "T1402N",
+   "windows_ce": false,
+   "hd_audio_tracks": 25,
+   "longest_s": 215,
+   "total_s": 2797
+  },
+  {
+   "title": "MS. PAC-MAN MAZE MADNESS",
+   "product": "T1404N",
+   "windows_ce": false,
+   "hd_audio_tracks": 15,
+   "longest_s": 182,
+   "total_s": 1817
+  },
+  {
+   "title": "NBA HOOPZ",
+   "product": "T9709N",
+   "windows_ce": false,
+   "hd_audio_tracks": 1,
+   "longest_s": 4282,
+   "total_s": 4282
+  },
+  {
+   "title": "NBA SHOWTIME:NBA ON NBC",
+   "product": "T-9706N",
+   "windows_ce": false,
+   "hd_audio_tracks": 1,
+   "longest_s": 4263,
+   "total_s": 4263
+  },
+  {
+   "title": "NFL BLITZ 2000",
+   "product": "T-9703N",
+   "windows_ce": false,
+   "hd_audio_tracks": 1,
+   "longest_s": 664,
+   "total_s": 664
+  },
+  {
+   "title": "NFL BLITZ 2001",
+   "product": "T9712N",
+   "windows_ce": false,
+   "hd_audio_tracks": 1,
+   "longest_s": 2034,
+   "total_s": 2034
+  },
+  {
+   "title": "NFL QUARTERBACK CLUB 2001",
+   "product": "T-8115N",
+   "windows_ce": true,
+   "hd_audio_tracks": 1,
+   "longest_s": 75,
+   "total_s": 75
+  },
+  {
+   "title": "NHL 2K",
+   "product": "MK-51025",
+   "windows_ce": false,
+   "hd_audio_tracks": 1,
+   "longest_s": 95,
+   "total_s": 95
+  },
+  {
+   "title": "NIGHTMARE CREATURES II",
+   "product": "T9504M",
+   "windows_ce": true,
+   "hd_audio_tracks": 85,
+   "longest_s": 32,
+   "total_s": 1267
+  },
+  {
+   "title": "OMIKRON THE NOMAD SOUL",
+   "product": "T36807N",
+   "windows_ce": false,
+   "hd_audio_tracks": 1,
+   "longest_s": 283,
+   "total_s": 283
+  },
+  {
+   "title": "PENPEN TRIICELON",
+   "product": "T15105N",
+   "windows_ce": false,
+   "hd_audio_tracks": 44,
+   "longest_s": 205,
+   "total_s": 4690
+  },
+  {
+   "title": "PLASMA SWORD",
+   "product": "T1207N",
+   "windows_ce": false,
+   "hd_audio_tracks": 62,
+   "longest_s": 222,
+   "total_s": 5218
+  },
+  {
+   "title": "POD SPEEDZONE",
+   "product": "T-17713N",
+   "windows_ce": false,
+   "hd_audio_tracks": 7,
+   "longest_s": 123,
+   "total_s": 833
+  },
+  {
+   "title": "QBERT",
+   "product": "T40403N",
+   "windows_ce": true,
+   "hd_audio_tracks": 9,
+   "longest_s": 96,
+   "total_s": 510
+  },
+  {
+   "title": "QUAKE III ARENA",
+   "product": "MK-51061",
+   "windows_ce": false,
+   "hd_audio_tracks": 16,
+   "longest_s": 213,
+   "total_s": 2619
+  },
+  {
+   "title": "QUARTERBACK CLUB 2000",
+   "product": "T-8101N",
+   "windows_ce": true,
+   "hd_audio_tracks": 1,
+   "longest_s": 75,
+   "total_s": 75
+  },
+  {
+   "title": "RAILROAD TYCOON II DREAMCAST EDITION",
+   "product": "T41902N",
+   "windows_ce": true,
+   "hd_audio_tracks": 9,
+   "longest_s": 254,
+   "total_s": 1631
+  },
+  {
+   "title": "RAINBOW SIX",
+   "product": "T40401N",
+   "windows_ce": true,
+   "hd_audio_tracks": 31,
+   "longest_s": 149,
+   "total_s": 1507
+  },
+  {
+   "title": "RAZOR FREESTYLE SCOOTER",
+   "product": "T40219N",
+   "windows_ce": false,
+   "hd_audio_tracks": 8,
+   "longest_s": 283,
+   "total_s": 1680
+  },
+  {
+   "title": "RE-VOLT",
+   "product": "T-8109N",
+   "windows_ce": false,
+   "hd_audio_tracks": 14,
+   "longest_s": 382,
+   "total_s": 3189
+  },
+  {
+   "title": "READY 2 RUMBLE BOXING",
+   "product": "T9704N",
+   "windows_ce": false,
+   "hd_audio_tracks": 3,
+   "longest_s": 160,
+   "total_s": 308
+  },
+  {
+   "title": "REELFISHINGWILD",
+   "product": "T44303N",
+   "windows_ce": false,
+   "hd_audio_tracks": 17,
+   "longest_s": 181,
+   "total_s": 2420
+  },
+  {
+   "title": "RESIDENT EVIL 2",
+   "product": "T1205N",
+   "windows_ce": true,
+   "hd_audio_tracks": 2,
+   "longest_s": 64,
+   "total_s": 74
+  },
+  {
+   "title": "RIPPIN' RIDERS",
+   "product": "MK-51010",
+   "windows_ce": false,
+   "hd_audio_tracks": 15,
+   "longest_s": 344,
+   "total_s": 3440
+  },
+  {
+   "title": "ROADSTERS RC7",
+   "product": "T22901N",
+   "windows_ce": false,
+   "hd_audio_tracks": 8,
+   "longest_s": 228,
+   "total_s": 1517
+  },
+  {
+   "title": "SEGA RALLY 2",
+   "product": "MK-51019",
+   "windows_ce": true,
+   "hd_audio_tracks": 17,
+   "longest_s": 264,
+   "total_s": 2843
+  },
+  {
+   "title": "SEGA SMASH PACK VOLUME 1",
+   "product": "MK-51146",
+   "windows_ce": false,
+   "hd_audio_tracks": 36,
+   "longest_s": 281,
+   "total_s": 2132
+  },
+  {
+   "title": "SEGAGT",
+   "product": "MK-51053",
+   "windows_ce": false,
+   "hd_audio_tracks": 11,
+   "longest_s": 482,
+   "total_s": 3905
+  },
+  {
+   "title": "SEVENTH CROSS EVOLUTION",
+   "product": "T41301N",
+   "windows_ce": false,
+   "hd_audio_tracks": 13,
+   "longest_s": 225,
+   "total_s": 748
+  },
+  {
+   "title": "SHENMUE",
+   "product": "MK-51059",
+   "windows_ce": false,
+   "hd_audio_tracks": 3,
+   "longest_s": 127,
+   "total_s": 144
+  },
+  {
+   "title": "SNO-CROSS",
+   "product": "T40207N",
+   "windows_ce": true,
+   "hd_audio_tracks": 13,
+   "longest_s": 317,
+   "total_s": 2942
+  },
+  {
+   "title": "SOLDIER OF FORTUNE",
+   "product": "T40212N",
+   "windows_ce": false,
+   "hd_audio_tracks": 2,
+   "longest_s": 198,
+   "total_s": 205
+  },
+  {
+   "title": "SOUL FIGHTER",
+   "product": "T41401N",
+   "windows_ce": false,
+   "hd_audio_tracks": 11,
+   "longest_s": 289,
+   "total_s": 1740
+  },
+  {
+   "title": "SOUTH PARK RALLY",
+   "product": "T-8116N",
+   "windows_ce": false,
+   "hd_audio_tracks": 9,
+   "longest_s": 250,
+   "total_s": 1774
+  },
+  {
+   "title": "SPECOPS OMEGA SQUAD",
+   "product": "T41704N",
+   "windows_ce": false,
+   "hd_audio_tracks": 8,
+   "longest_s": 423,
+   "total_s": 2493
+  },
+  {
+   "title": "SPEED DEVILS",
+   "product": "T17702N",
+   "windows_ce": false,
+   "hd_audio_tracks": 7,
+   "longest_s": 139,
+   "total_s": 846
+  },
+  {
+   "title": "SPEED DEVILS ONLINE",
+   "product": "T17718N",
+   "windows_ce": false,
+   "hd_audio_tracks": 9,
+   "longest_s": 227,
+   "total_s": 1862
+  },
+  {
+   "title": "SPIRIT OF SPEED 1937",
+   "product": "T-8118N",
+   "windows_ce": true,
+   "hd_audio_tracks": 4,
+   "longest_s": 260,
+   "total_s": 921
+  },
+  {
+   "title": "STAR WARS DEMOLITION",
+   "product": "T23003N",
+   "windows_ce": false,
+   "hd_audio_tracks": 11,
+   "longest_s": 248,
+   "total_s": 2207
+  },
+  {
+   "title": "STRIKER PRO 2000",
+   "product": "T15111N",
+   "windows_ce": false,
+   "hd_audio_tracks": 3,
+   "longest_s": 333,
+   "total_s": 962
+  },
+  {
+   "title": "SUPER RUNABOUT",
+   "product": "T12509N",
+   "windows_ce": true,
+   "hd_audio_tracks": 19,
+   "longest_s": 431,
+   "total_s": 3293
+  },
+  {
+   "title": "SUZUKI ALSTARE EXTREME RACING",
+   "product": "T17703N",
+   "windows_ce": false,
+   "hd_audio_tracks": 11,
+   "longest_s": 290,
+   "total_s": 2192
+  },
+  {
+   "title": "SYDNEY 2000",
+   "product": "T36808N",
+   "windows_ce": false,
+   "hd_audio_tracks": 2,
+   "longest_s": 242,
+   "total_s": 441
+  },
+  {
+   "title": "TEST DRIVE V-RALLY",
+   "product": "T15110N",
+   "windows_ce": false,
+   "hd_audio_tracks": 6,
+   "longest_s": 273,
+   "total_s": 1221
+  },
+  {
+   "title": "THE KING OF FIGHTERS DREAM MATCH 1999",
+   "product": "T3101N",
+   "windows_ce": false,
+   "hd_audio_tracks": 39,
+   "longest_s": 161,
+   "total_s": 3509
+  },
+  {
+   "title": "THE LAST BLADE 2",
+   "product": "T44305N",
+   "windows_ce": false,
+   "hd_audio_tracks": 1,
+   "longest_s": 103,
+   "total_s": 103
+  },
+  {
+   "title": "THE NEXT TETRIS ONLINE EDITION",
+   "product": "T40214N",
+   "windows_ce": true,
+   "hd_audio_tracks": 10,
+   "longest_s": 334,
+   "total_s": 2105
+  },
+  {
+   "title": "TOKYO XTREME RACER",
+   "product": "T40202N",
+   "windows_ce": false,
+   "hd_audio_tracks": 17,
+   "longest_s": 257,
+   "total_s": 3145
+  },
+  {
+   "title": "TOMB RAIDER CHRONICLES",
+   "product": "T36812N",
+   "windows_ce": true,
+   "hd_audio_tracks": 4,
+   "longest_s": 79,
+   "total_s": 315
+  },
+  {
+   "title": "TOY COMMANDER",
+   "product": "MK-57020",
+   "windows_ce": false,
+   "hd_audio_tracks": 11,
+   "longest_s": 287,
+   "total_s": 2340
+  },
+  {
+   "title": "TRICKSTYLE",
+   "product": "T-8102N",
+   "windows_ce": false,
+   "hd_audio_tracks": 11,
+   "longest_s": 266,
+   "total_s": 2132
+  },
+  {
+   "title": "UNREAL TOURNAMENT",
+   "product": "T15125N",
+   "windows_ce": false,
+   "hd_audio_tracks": 19,
+   "longest_s": 303,
+   "total_s": 3929
+  },
+  {
+   "title": "URBAN CHAOS",
+   "product": "T36810N",
+   "windows_ce": true,
+   "hd_audio_tracks": 1,
+   "longest_s": 220,
+   "total_s": 220
+  },
+  {
+   "title": "VANISHING POINT",
+   "product": "T-8110N",
+   "windows_ce": false,
+   "hd_audio_tracks": 12,
+   "longest_s": 253,
+   "total_s": 2327
+  },
+  {
+   "title": "VIGILANTE 8 SECOND OFFENSE",
+   "product": "T13002N",
+   "windows_ce": false,
+   "hd_audio_tracks": 16,
+   "longest_s": 186,
+   "total_s": 2105
+  },
+  {
+   "title": "WALT DISNEY WORLD QUEST MAGICAL RACING TOUR",
+   "product": "T36804N",
+   "windows_ce": false,
+   "hd_audio_tracks": 15,
+   "longest_s": 252,
+   "total_s": 2106
+  },
+  {
+   "title": "WETRIXPLUS",
+   "product": "T8111N",
+   "windows_ce": false,
+   "hd_audio_tracks": 9,
+   "longest_s": 487,
+   "total_s": 2234
+  },
+  {
+   "title": "WILD METAL",
+   "product": "T42101N 00",
+   "windows_ce": true,
+   "hd_audio_tracks": 6,
+   "longest_s": 174,
+   "total_s": 663
+  },
+  {
+   "title": "WORMS ARMAGEDDON",
+   "product": "T40601N",
+   "windows_ce": true,
+   "hd_audio_tracks": 4,
+   "longest_s": 1544,
+   "total_s": 3838
+  },
+  {
+   "title": "WORMS WORLD PARTY",
+   "product": "T22904N",
+   "windows_ce": true,
+   "hd_audio_tracks": 14,
+   "longest_s": 334,
+   "total_s": 3769
+  },
+  {
+   "title": "XTREME SPORTS",
+   "product": "T15126N",
+   "windows_ce": false,
+   "hd_audio_tracks": 34,
+   "longest_s": 299,
+   "total_s": 4791
+  }
+ ],
+ "short_layout_tracks_only": [
+  "102 DALMATIANS",
+  "ALONE IN THE DARK - THE NEW NIGHTMARE",
+  "ARMY MEN SARGES HEROES",
+  "ATARI ANNIVERSARY EDITION",
+  "BUZZ 2000",
+  "CHICKEN RUN",
+  "CONFLICT ZONE",
+  "DEMOLITION RACER NO EXIT DC",
+  "DRACONUS CULT OF THE WYRM",
+  "DRAGONRIDERS - THE CHRONICLES OF PERN",
+  "ECW ANARCHY RULZ",
+  "ECW HARDCORE REVOLUTION",
+  "ESPN NBA2NIGHT",
+  "EVIL DEAD HAIL TO THE KING",
+  "FIGHTING FORCE 2",
+  "FLOIGAN BROS. EPISODE 1  MOIGLE'S SECTRET PROJECT",
+  "GAUNTLET LEGENDS",
+  "GRAND THEFT AUTO 2",
+  "GRANDIA2",
+  "GREATEST ARCADE HITS 1",
+  "HIDDEN AND DANGEROUS",
+  "HOYLE CASINO",
+  "JEREMY MCGRATH SUPERCROSS 2000",
+  "MAT HOFFMANS PRO BMX",
+  "MAX STEEL COV",
+  "MTV SPORTS SKATEBOARDING",
+  "NAMCO MUSEUM",
+  "NBA 2K",
+  "NCAA COLLEGE FOOTBALL 2K2",
+  "NFL 2K",
+  "NHL2K2",
+  "OOGA BOOGA",
+  "READY 2 RUMBLE BOXING ROUND 2",
+  "RECORD OF LODOSS WAR",
+  "RUSH 2049",
+  "SHADOWMAN",
+  "SHENMUE2 EU",
+  "SIERRA SPORTS MAXIMUM POOL",
+  "SLAVE ZERO",
+  "SOUL REAVER",
+  "SOUTH PARK CHEFS",
+  "SPIDER-MAN",
+  "STAR WARS EPISODE 1 RACER",
+  "STAR WARS EPISODE ONE JEDI POWER BATTLES",
+  "STARLANCER",
+  "SURF ROCKET RACERS",
+  "TEST DRIVE 6",
+  "TEST DRIVE LE MANS",
+  "THE GRINCH",
+  "THE TYPING OF THE DEAD",
+  "TONY HAWK'S PRO SKATER",
+  "TONY HAWKS PRO SKATER 2",
+  "ULTIMATE FIGHTING CHAMPIONSHIP",
+  "WHO WANTS TO BEAT UP A MILLIONAIRE",
+  "WWF: ATTITUDE"
+ ],
+ "not_established": [
+  "Whether each game actually plays its audio tracks (tracks alone do not prove CD streaming)",
+  "Driver equivalence beyond exact bytes",
+  "PAL and JPN releases"
+ ],
+ "private_inputs": "No game bytes; names, sizes, durations and hash prefixes only"
+}
