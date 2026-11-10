@@ -54,6 +54,9 @@ formats first if they matter.
 - US Windows CE: all 36 games. See [driver families](wince-vmu-driver-families.md).
 - US native: the whole US library, in 8 parts. See [US compatibility](library-compat-us.md),
   where Maple layout, Maple driver and SDK heap families are the first blocker for 91 games.
+- Not collected: Sports Jam, Street Fighter III: 3rd Strike and Toy Story 2. Their
+  `1ST_READ.BIN` files are 13.0 to 13.7 MiB, above the bundler's 12 MiB per-file
+  limit. A later tool version should raise that limit; a rerun then picks them up.
 - Still to run: PAL and JPN Windows CE, then PAL and JPN native startups.
 
 ## What the discs cannot tell us
