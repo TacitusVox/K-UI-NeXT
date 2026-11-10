@@ -1,186 +1,1022 @@
 {
-  "schema": "kui.library-startup.already-sent.v1",
-  "note": "Startups already received (Library-startup-01, 28 Oct 2026; runs 401cd6d5 and 2d6d4dcb, 7 Nov 2026): native boot-file SHA256 values and Windows CE startup keys. Hashes only; no game bytes.",
-  "startups": [
-    {
-      "title": "ARMADA",
-      "startup_key": "032e67812643ba793b36f255a0ce6eadd05314f5318117252e16c962e8537054"
-    },
-    {
-      "title": "BLUE STINGER",
-      "boot_sha256": "491fd69cd64100786372169e95e50ca2733bbfb88a54ef15da6a1f66297f5593"
-    },
-    {
-      "title": "BUST A MOVE 4",
-      "startup_key": "77d6e1be627be9fd09fa0a3e97f2b61f23a987342ab01592796d9b0674cf1a1f"
-    },
-    {
-      "title": "CRAZY TAXI",
-      "boot_sha256": "67daaabc743ad6da0515cc25363eaf5e6624fba9353cda4dabfe2ee5c610c044"
-    },
-    {
-      "title": "CRAZY TAXI 2",
-      "boot_sha256": "8057a8e37636ad78b1fc70ee590bd314686546b13ffe100623d86b572aec53c1"
-    },
-    {
-      "title": "DEAD OR ALIVE 2",
-      "boot_sha256": "105056d9ffef86bf5e470fa28dc5907443156f9ab1c6bc009f73661d9c047a85"
-    },
-    {
-      "title": "ELEMENTAL GIMMICK GEAR",
-      "boot_sha256": "2589fa5b63072473d190767903e08c9cde8e7acfc1e2b524fd4943332cbd0630"
-    },
-    {
-      "title": "EVOLUTION - THE WORLD OF SACRED DEVICE",
-      "boot_sha256": "ffb5a8e5ff5547026d93649e1f9058b7ee5e29d8d0ff8a89335701f7e9647f35"
-    },
-    {
-      "title": "EVOLUTION2",
-      "boot_sha256": "16b45fcc84992a60d5a64bf64bf22b699b27306b95f177ba3d9730ca380069ae"
-    },
-    {
-      "title": "FROGGER 2",
-      "boot_sha256": "74ba3244472763a07131d7b12463575f536c1089c2ede902a350b04cc40bd84c"
-    },
-    {
-      "title": "GENERATOR 2",
-      "boot_sha256": "90dfaa341e5908d4fd40af438fd4e244d2ee066554b95b30e0b4fca144e48722"
-    },
-    {
-      "title": "GRANDIA2",
-      "boot_sha256": "dd583571969d275b479e33edfd98ed5e2097d16c37ff6aaba59a7abaf057dc45"
-    },
-    {
-      "title": "JET GRIND RADIO",
-      "boot_sha256": "8b294765225fc32020dd59010464a730b710d0bd79f69c79f16218cc4feac6a6"
-    },
-    {
-      "title": "MDK2",
-      "boot_sha256": "ac5826c9a371de04207748e60e49e0a3c13a39468902f89d8c1c82e1f544bb48"
-    },
-    {
-      "title": "NIGHTMARE CREATURES II",
-      "startup_key": "4c15fcd2a80bf5352f80ad717d67aabfc7317611c9981a6768e62a44abbb3797"
-    },
-    {
-      "title": "OMIKRON THE NOMAD SOUL",
-      "boot_sha256": "5567589856f88d448bdd4fe640133cac208357ab29f17308bd7363ef359cbb6c"
-    },
-    {
-      "title": "POWER STONE",
-      "boot_sha256": "66003bf4aa549c8b78692080b46ffa1446432762609da9bc8c323633079546a5"
-    },
-    {
-      "title": "POWER STONE 2 USA",
-      "boot_sha256": "a3dcd09a96045839dbbc35697eb4336e4eba79b52203a46bb2f8ee9a4ba2eed8"
-    },
-    {
-      "title": "PSO",
-      "boot_sha256": "11dc59ee0278675decf5e0bf1fa30646f889a0e5a7f10251f3c3a697e42a28e5"
-    },
-    {
-      "title": "QUAKE III ARENA",
-      "boot_sha256": "5c7506857fdea9062ae322dd20bb4691ca5bcee1e066e90029666eb5c994f088"
-    },
-    {
-      "title": "QUAKE III ARENA (with program files)",
-      "startup_key": "bceaf262d1b4cfa47e70031493035c578bfd521a79bf911363b7b76ade9423f3"
-    },
-    {
-      "title": "RAYMAN 2 THE GREAT ESCAPE",
-      "boot_sha256": "9e34357880d5fbbca1559ce8797baed66c6b4370e967b2af23f07cba9b3a7099"
-    },
-    {
-      "title": "RECORD OF LODOSS WAR",
-      "boot_sha256": "b05853a539011b02fff09062441372a924f4ac2465abc498d69631d4b137bdf5"
-    },
-    {
-      "title": "RESIDENT EVIL CODE VERONICA",
-      "boot_sha256": "199b72af9bcd7fb80d401d4645c731e595970a0dcbcfd98e1bec187f4382fbbb"
-    },
-    {
-      "title": "RUSH 2049",
-      "boot_sha256": "336c97aa409e4b38582c43077381b1c99d6a64bbec630e3be7a9829adda8e688"
-    },
-    {
-      "title": "SEGA SMASH PACK VOLUME 1",
-      "boot_sha256": "3a311b189a4870ccbefc4fcd306e2d38e5ae810ae5edd225af6b9aa6d5df5f10"
-    },
-    {
-      "title": "SHENMUE",
-      "boot_sha256": "ca98879a97df87b668836bbfa597d38c6f9efc3fd45160208b8d5d866325f32c"
-    },
-    {
-      "title": "SHENMUE",
-      "boot_sha256": "c3dbf4924d0dceac5e7155299cbc291af7eff2825aa0ef15a798e4ab3d451a63"
-    },
-    {
-      "title": "SHENMUE2 EU",
-      "boot_sha256": "4004da908c85d358b3c92c888501c8e872e70afcc6141141bff05bfe9e255fe3"
-    },
-    {
-      "title": "SILVER",
-      "boot_sha256": "4460c60597d6c1f587c125c2dd4b2b491d0a568f31b52c91bce7d8c74f9d550d"
-    },
-    {
-      "title": "SKIES OF ARCADIA DISC 1",
-      "boot_sha256": "4218c07829d63080be2da86413ec023e6d77001c13a1494648db6e2e5cb73611"
-    },
-    {
-      "title": "SONIC ADVENTURE",
-      "boot_sha256": "8a65a81fb0f862da473c0e3489c063defb4dac25b9ee382d13108cd59635b86e"
-    },
-    {
-      "title": "SONIC ADVENTURE 2",
-      "boot_sha256": "6919ed8bc96782d041be41ba86f90bf86d99632b8b7787391969721bc0991736"
-    },
-    {
-      "title": "SOUL REAVER",
-      "boot_sha256": "775dc1d401c907f44ce1754017150e9b333dcccf32f563ed69cb4d7be8cb25d9"
-    },
-    {
-      "title": "SPAWN IN THE DEMONS HAND",
-      "boot_sha256": "8f085c28f6a579662f95b65b0611f1dc08dded35fd5c6e676821c72a5384ed5f"
-    },
-    {
-      "title": "SWORD OF THE BERSERK GUTS RAGE",
-      "boot_sha256": "5211c62a000b7d96e2c17f2a04b14511e4ce47c6cb585a2da89716786000b7ca"
-    },
-    {
-      "title": "TEST DRIVE LE MANS",
-      "boot_sha256": "955a20882f7669c0f17646d2b445d32f56440a4f6dcf82e02a0b4c8d594b8713"
-    },
-    {
-      "title": "TEST DRIVE LE MANS (with program files)",
-      "startup_key": "51c7cd42ba322100dd15b8e93c99783b1acf31bb783936be033548a21f09fdd1"
-    },
-    {
-      "title": "THE HOUSE OF THE DEAD 2",
-      "boot_sha256": "37817967c2949de6ca4c83522f7eff36fb18ea17a5f06d995f6e93319511ee6f"
-    },
-    {
-      "title": "TIME STALKERS",
-      "boot_sha256": "a9fa66b6bcc482dfaa47683d552e42f24a8200c8efa5ed905d8184eedeba3ac0"
-    },
-    {
-      "title": "TONY HAWKS PRO SKATER 2",
-      "boot_sha256": "5f56ecf0e681fa1e8c3d07cfd84c14984a0a23cecfd629a61286a80f1c9d63fc"
-    },
-    {
-      "title": "TOY COMMANDER",
-      "boot_sha256": "ee68a326da964fec5892b7226311f2293fd3a0bbf5bac496ec82991964d49bbd"
-    },
-    {
-      "title": "WORMS ARMAGEDDON",
-      "startup_key": "6768dbd72c2bc6f954d187582737b93902bb567a1d3abbd96e926d06bd827e60"
-    },
-    {
-      "title": "WORMS WORLD PARTY",
-      "startup_key": "286991eae263574cd44fb46971ae0a679172f554ed38d97518868e33d9d04182"
-    },
-    {
-      "title": "ZOMBIE REVENGE",
-      "boot_sha256": "53ba792a409a0796db47e4b8b1b2a00019a3c4647558068c55612b4b17c5ea96"
-    }
-  ]
+ "schema": "kui.library-startup.already-sent.v1",
+ "note": "Startups already received: Library-startup-01 (28 Oct 2026); runs 401cd6d5 and 2d6d4dcb (7 Nov 2026); the US Windows CE run 7b966705 and the US run c2f5d656 (10 Nov 2026). Native boot-file SHA256 values and Windows CE startup keys. Hashes only; no game bytes.",
+ "startups": [
+  {
+   "title": "ARMADA",
+   "startup_key": "032e67812643ba793b36f255a0ce6eadd05314f5318117252e16c962e8537054"
+  },
+  {
+   "title": "BLUE STINGER",
+   "boot_sha256": "491fd69cd64100786372169e95e50ca2733bbfb88a54ef15da6a1f66297f5593"
+  },
+  {
+   "title": "BUST A MOVE 4",
+   "startup_key": "77d6e1be627be9fd09fa0a3e97f2b61f23a987342ab01592796d9b0674cf1a1f"
+  },
+  {
+   "title": "CRAZY TAXI",
+   "boot_sha256": "67daaabc743ad6da0515cc25363eaf5e6624fba9353cda4dabfe2ee5c610c044"
+  },
+  {
+   "title": "CRAZY TAXI 2",
+   "boot_sha256": "8057a8e37636ad78b1fc70ee590bd314686546b13ffe100623d86b572aec53c1"
+  },
+  {
+   "title": "DEAD OR ALIVE 2",
+   "boot_sha256": "105056d9ffef86bf5e470fa28dc5907443156f9ab1c6bc009f73661d9c047a85"
+  },
+  {
+   "title": "ELEMENTAL GIMMICK GEAR",
+   "boot_sha256": "2589fa5b63072473d190767903e08c9cde8e7acfc1e2b524fd4943332cbd0630"
+  },
+  {
+   "title": "EVOLUTION - THE WORLD OF SACRED DEVICE",
+   "boot_sha256": "ffb5a8e5ff5547026d93649e1f9058b7ee5e29d8d0ff8a89335701f7e9647f35"
+  },
+  {
+   "title": "EVOLUTION2",
+   "boot_sha256": "16b45fcc84992a60d5a64bf64bf22b699b27306b95f177ba3d9730ca380069ae"
+  },
+  {
+   "title": "FROGGER 2",
+   "boot_sha256": "74ba3244472763a07131d7b12463575f536c1089c2ede902a350b04cc40bd84c"
+  },
+  {
+   "title": "GENERATOR 2",
+   "boot_sha256": "90dfaa341e5908d4fd40af438fd4e244d2ee066554b95b30e0b4fca144e48722"
+  },
+  {
+   "title": "GRANDIA2",
+   "boot_sha256": "dd583571969d275b479e33edfd98ed5e2097d16c37ff6aaba59a7abaf057dc45"
+  },
+  {
+   "title": "JET GRIND RADIO",
+   "boot_sha256": "8b294765225fc32020dd59010464a730b710d0bd79f69c79f16218cc4feac6a6"
+  },
+  {
+   "title": "MDK2",
+   "boot_sha256": "ac5826c9a371de04207748e60e49e0a3c13a39468902f89d8c1c82e1f544bb48"
+  },
+  {
+   "title": "NIGHTMARE CREATURES II",
+   "startup_key": "4c15fcd2a80bf5352f80ad717d67aabfc7317611c9981a6768e62a44abbb3797"
+  },
+  {
+   "title": "OMIKRON THE NOMAD SOUL",
+   "boot_sha256": "5567589856f88d448bdd4fe640133cac208357ab29f17308bd7363ef359cbb6c"
+  },
+  {
+   "title": "POWER STONE",
+   "boot_sha256": "66003bf4aa549c8b78692080b46ffa1446432762609da9bc8c323633079546a5"
+  },
+  {
+   "title": "POWER STONE 2 USA",
+   "boot_sha256": "a3dcd09a96045839dbbc35697eb4336e4eba79b52203a46bb2f8ee9a4ba2eed8"
+  },
+  {
+   "title": "PSO",
+   "boot_sha256": "11dc59ee0278675decf5e0bf1fa30646f889a0e5a7f10251f3c3a697e42a28e5"
+  },
+  {
+   "title": "QUAKE III ARENA",
+   "boot_sha256": "5c7506857fdea9062ae322dd20bb4691ca5bcee1e066e90029666eb5c994f088"
+  },
+  {
+   "title": "QUAKE III ARENA (with program files)",
+   "startup_key": "bceaf262d1b4cfa47e70031493035c578bfd521a79bf911363b7b76ade9423f3"
+  },
+  {
+   "title": "RAYMAN 2 THE GREAT ESCAPE",
+   "boot_sha256": "9e34357880d5fbbca1559ce8797baed66c6b4370e967b2af23f07cba9b3a7099"
+  },
+  {
+   "title": "RECORD OF LODOSS WAR",
+   "boot_sha256": "b05853a539011b02fff09062441372a924f4ac2465abc498d69631d4b137bdf5"
+  },
+  {
+   "title": "RESIDENT EVIL CODE VERONICA",
+   "boot_sha256": "199b72af9bcd7fb80d401d4645c731e595970a0dcbcfd98e1bec187f4382fbbb"
+  },
+  {
+   "title": "RUSH 2049",
+   "boot_sha256": "336c97aa409e4b38582c43077381b1c99d6a64bbec630e3be7a9829adda8e688"
+  },
+  {
+   "title": "SEGA SMASH PACK VOLUME 1",
+   "boot_sha256": "3a311b189a4870ccbefc4fcd306e2d38e5ae810ae5edd225af6b9aa6d5df5f10"
+  },
+  {
+   "title": "SHENMUE",
+   "boot_sha256": "ca98879a97df87b668836bbfa597d38c6f9efc3fd45160208b8d5d866325f32c"
+  },
+  {
+   "title": "SHENMUE",
+   "boot_sha256": "c3dbf4924d0dceac5e7155299cbc291af7eff2825aa0ef15a798e4ab3d451a63"
+  },
+  {
+   "title": "SHENMUE2 EU",
+   "boot_sha256": "4004da908c85d358b3c92c888501c8e872e70afcc6141141bff05bfe9e255fe3"
+  },
+  {
+   "title": "SILVER",
+   "boot_sha256": "4460c60597d6c1f587c125c2dd4b2b491d0a568f31b52c91bce7d8c74f9d550d"
+  },
+  {
+   "title": "SKIES OF ARCADIA DISC 1",
+   "boot_sha256": "4218c07829d63080be2da86413ec023e6d77001c13a1494648db6e2e5cb73611"
+  },
+  {
+   "title": "SONIC ADVENTURE",
+   "boot_sha256": "8a65a81fb0f862da473c0e3489c063defb4dac25b9ee382d13108cd59635b86e"
+  },
+  {
+   "title": "SONIC ADVENTURE 2",
+   "boot_sha256": "6919ed8bc96782d041be41ba86f90bf86d99632b8b7787391969721bc0991736"
+  },
+  {
+   "title": "SOUL REAVER",
+   "boot_sha256": "775dc1d401c907f44ce1754017150e9b333dcccf32f563ed69cb4d7be8cb25d9"
+  },
+  {
+   "title": "SPAWN IN THE DEMONS HAND",
+   "boot_sha256": "8f085c28f6a579662f95b65b0611f1dc08dded35fd5c6e676821c72a5384ed5f"
+  },
+  {
+   "title": "SWORD OF THE BERSERK GUTS RAGE",
+   "boot_sha256": "5211c62a000b7d96e2c17f2a04b14511e4ce47c6cb585a2da89716786000b7ca"
+  },
+  {
+   "title": "TEST DRIVE LE MANS",
+   "boot_sha256": "955a20882f7669c0f17646d2b445d32f56440a4f6dcf82e02a0b4c8d594b8713"
+  },
+  {
+   "title": "TEST DRIVE LE MANS (with program files)",
+   "startup_key": "51c7cd42ba322100dd15b8e93c99783b1acf31bb783936be033548a21f09fdd1"
+  },
+  {
+   "title": "THE HOUSE OF THE DEAD 2",
+   "boot_sha256": "37817967c2949de6ca4c83522f7eff36fb18ea17a5f06d995f6e93319511ee6f"
+  },
+  {
+   "title": "TIME STALKERS",
+   "boot_sha256": "a9fa66b6bcc482dfaa47683d552e42f24a8200c8efa5ed905d8184eedeba3ac0"
+  },
+  {
+   "title": "TONY HAWKS PRO SKATER 2",
+   "boot_sha256": "5f56ecf0e681fa1e8c3d07cfd84c14984a0a23cecfd629a61286a80f1c9d63fc"
+  },
+  {
+   "title": "TOY COMMANDER",
+   "boot_sha256": "ee68a326da964fec5892b7226311f2293fd3a0bbf5bac496ec82991964d49bbd"
+  },
+  {
+   "title": "WORMS ARMAGEDDON",
+   "startup_key": "6768dbd72c2bc6f954d187582737b93902bb567a1d3abbd96e926d06bd827e60"
+  },
+  {
+   "title": "WORMS WORLD PARTY",
+   "startup_key": "286991eae263574cd44fb46971ae0a679172f554ed38d97518868e33d9d04182"
+  },
+  {
+   "title": "ZOMBIE REVENGE",
+   "boot_sha256": "53ba792a409a0796db47e4b8b1b2a00019a3c4647558068c55612b4b17c5ea96"
+  },
+  {
+   "title": "102 DALMATIANS",
+   "boot_sha256": "b0f3dd439aa741d98a031feced021c8605986d792b7503fec4cfb258a14c08d6"
+  },
+  {
+   "title": "18WHEELER",
+   "boot_sha256": "f957768b6609c9ced6318c9460e72175fa15004453256b76ddfd2c91efa1cd2e"
+  },
+  {
+   "title": "4WHEELTHUNDER",
+   "boot_sha256": "4e78d2fbfdddc87fcf5cce1254d04b7e6621921a3bed340aef5bfd4bd046d8f4"
+  },
+  {
+   "title": "4X4 EVOLUTION",
+   "startup_key": "12d68bb28afaf19e6ea2e24270fe93e79941e564b4f554d24d30b8632479f152"
+  },
+  {
+   "title": "AEROWINGS 2 AIR STRIKE",
+   "boot_sha256": "e7f7e294ae5ee101c4ed1b831667e0065c317265801017f058cd9078ba7b2559"
+  },
+  {
+   "title": "AEROWINGS",
+   "boot_sha256": "65de3685895201a932c2f00efeaef580a904134dd5fdee63fe088da6e3ce0eae"
+  },
+  {
+   "title": "AIRFORCE DELTA",
+   "boot_sha256": "edfd6a069157e57a71966da014e6d2749257a26d160580d3d17773aa5acbdd74"
+  },
+  {
+   "title": "ALIENFRONT ONLINE",
+   "boot_sha256": "d64999653917c570be5164a1c82e113f527f5886b8240924a14c65287d22ef1b"
+  },
+  {
+   "title": "ALONE IN THE DARK - THE NEW NIGHTMARE",
+   "boot_sha256": "c7f5b54950908cca941096d065039dc031ad016b369b8264c7b5e468ccabc51b"
+  },
+  {
+   "title": "ARMY MEN SARGES HEROES",
+   "boot_sha256": "f0b845b381f8e8c022c3dc10b1d3b5dd0df709892c63a126a4561f0bfbcc1f96"
+  },
+  {
+   "title": "ATARI ANNIVERSARY EDITION",
+   "startup_key": "e397fe1cda0ad58af2f88cdf49ba2667b840d4e39f3494e94a69729d02e6a385"
+  },
+  {
+   "title": "BANG! GUNSHIP ELITE",
+   "startup_key": "a1d27105a67269943f01343e0a63cd9f8623b40de63956facb88b28ab4ab6626"
+  },
+  {
+   "title": "BANGAI-O",
+   "boot_sha256": "8e0dbca43f5e68c28f77572b4c0ba9abe8717e15e1952174bb7e68bb83701459"
+  },
+  {
+   "title": "BOMBERMAN ONLINE",
+   "boot_sha256": "a05630d7b4aed49894f2ae68abd8f0276bfd0ac12415e5ad1457296059f2a5f8"
+  },
+  {
+   "title": "BUZZ 2000",
+   "boot_sha256": "2f1ed68428ae87c7e80b6e18067b40f56813f85a1f743900b3d72b13ed6efca2"
+  },
+  {
+   "title": "CAESARS PALACE 2000",
+   "startup_key": "8f63a1a0a9ebb106a10e2d71f9609bfcdd23b86536b32f3e959cfbaa209ae6b8"
+  },
+  {
+   "title": "CANNON SPIKE",
+   "boot_sha256": "1777b7c5f5823eee0b66fd5b309b675b3bdd4cd69fdb76de51366f1591f2d525"
+  },
+  {
+   "title": "CAPCOM VS SNK",
+   "boot_sha256": "f04ce1aebcb8c2e6c38245974023fe111ab593f4f6b5eddd718f750cfb20365a"
+  },
+  {
+   "title": "CARRIER",
+   "boot_sha256": "4a6d66492c565e543a89b54425810b22d0f5c1844b696ed3a4145d7195766dfd"
+  },
+  {
+   "title": "CENTIPEDE",
+   "boot_sha256": "02c3a4d11ab7814e42bdb0d9de086b4a330bc0f1e73f3ab41b52b01ebbafad2e"
+  },
+  {
+   "title": "CHAMPIONSHIP SURFER",
+   "startup_key": "1d3bbea8e93bc266dfc44c1267493fc6ae187e72ef35e0352ad7d102af7b41f4"
+  },
+  {
+   "title": "CHARGEN BLAST",
+   "boot_sha256": "e9fbcccf8f0fae983afb487eccffa7d9e70a9f787467b29623b8f100cd17e822"
+  },
+  {
+   "title": "CHICKEN RUN",
+   "boot_sha256": "0c096d98717b7619a5e08650755d2584ea4c6fd6789cab446d0213286bbb639e"
+  },
+  {
+   "title": "CHUCHU ROCKET",
+   "boot_sha256": "f130321f6c991b265d1ac02af1f0c16c0d7be7016e3460f8c1603003517e2d6c"
+  },
+  {
+   "title": "COASTER WORKS",
+   "boot_sha256": "3f88677f5add4044174ec05b83a348ada24fe4ceeec196bf84fb978584f42c09"
+  },
+  {
+   "title": "CONFIDENTIAL MISSION",
+   "boot_sha256": "2c1c77ba80b3848476434638f032e47fb4fed7c50b2ba1fb4847b05df22359b0"
+  },
+  {
+   "title": "CONFLICT ZONE",
+   "boot_sha256": "5faa0abac65de77c28b7aa12835ffecb31adc1b6191d3afbffe464f4671fd38c"
+  },
+  {
+   "title": "CYBER TROOPERS VIRTUAL-ON ORATORIO TANGRAM",
+   "boot_sha256": "9cffbc89b8fb1fe231ecaa51d54f816fc93d9374abc03957a22986c5bc8aa68f"
+  },
+  {
+   "title": "D2",
+   "boot_sha256": "a26f8701923dac31f7391073d19cfbfa4ca2c2f1e393dbc5339e5d735017e4d3"
+  },
+  {
+   "title": "DAVE MIRRA FREESTYLE BMX",
+   "boot_sha256": "92a401674dce43cd6c8239b1954fca133228285569db74e3c7f36a4f867e7fbf"
+  },
+  {
+   "title": "DAYTONAUSA",
+   "boot_sha256": "6efd2be0aba141ab92b1281fd9a885c8ca0482208c725c4087ee68a16b22a3ba"
+  },
+  {
+   "title": "DEATH CRIMSON OX",
+   "boot_sha256": "677bc926a60afa48b031312f4dd0176262b34afc7e159aa277b7bec3db3513fe"
+  },
+  {
+   "title": "DEEP FIGHTER",
+   "boot_sha256": "c97ac5a5b6d1c2eaff761cde9e7353b6e9f6d2853ec8660b6ea0f31c4dc647c3"
+  },
+  {
+   "title": "DEMOLITION RACER NO EXIT DC",
+   "boot_sha256": "9ef5917a238449e7c81988089add1651f442e87daac56cad6808a57ee8efb7c4"
+  },
+  {
+   "title": "DINO CRISIS",
+   "boot_sha256": "141f24a9ff0625be891b90a6aa7cb820889b7f561ff322d9b85aa6910f63e9b9"
+  },
+  {
+   "title": "DISNEYS DINOSAUR",
+   "boot_sha256": "f6c11b7904718705fa4a46ea6a35b2065aa5baf0a41dac8096f161ea3d0465ed"
+  },
+  {
+   "title": "DISNEY S DONALD DUCK GOIN QUACKER",
+   "boot_sha256": "0f55a9e89e57be18e9beb81d6b30b9a08a4cf5cf62973d2cc4bf7c3e08917a27"
+  },
+  {
+   "title": "DRACONUS CULT OF THE WYRM",
+   "boot_sha256": "a59ff87c15b7cff926fc77089ae315cf30905586e34504a18b426d634f4567da"
+  },
+  {
+   "title": "DRAGONRIDERS - THE CHRONICLES OF PERN",
+   "boot_sha256": "b409c277321ac6da9957f1446f5b6999f4c278b1d93f5be0c5eb62e863df177c"
+  },
+  {
+   "title": "DUCATI WORLD",
+   "startup_key": "b72c9e3ca1e3c16a4d4ef37bdc68c01060df7994b901c04d6ca7203e89ae2035"
+  },
+  {
+   "title": "DYNAMITE COP",
+   "boot_sha256": "e4bbd9a753532baf55ed4b44fa53930f1a765d5d3df726a0811cf272317aab5d"
+  },
+  {
+   "title": "ECW ANARCHY RULZ",
+   "boot_sha256": "e828c59edcbfef3f0a9d1a8d88bcd1a65866c2832e5c8d442e6ebb651fb511e3"
+  },
+  {
+   "title": "ECW HARDCORE REVOLUTION",
+   "boot_sha256": "82e2c2230e9a06069d0ddc33240f4aa85be6be6366820b177ac287569613392c"
+  },
+  {
+   "title": "ESPN INTERNATIONAL TRACK AND FIELD",
+   "boot_sha256": "dfd62711dd622376e11c0cd5378a6ed3a3a91a671cabaebebccb77f3e3aba68b"
+  },
+  {
+   "title": "ESPN NBA2NIGHT",
+   "boot_sha256": "dbd33f99090467ac14e5aa190e2cdccb6e3774e9a1a71a826c521daa767d812a"
+  },
+  {
+   "title": "ECCO THE DOLPHIN DEFENDER OF THE FUTURE",
+   "boot_sha256": "a2f7c749f16ae22713ac15b3e332cbdfaf6ae3c7a3760b092966c66119489e35"
+  },
+  {
+   "title": "EVIL DEAD HAIL TO THE KING",
+   "boot_sha256": "de26cba0d4e6035d1128daf504a2257a695050bac11ecdf6e9e2e0baf0f26841"
+  },
+  {
+   "title": "EXPENDABLE",
+   "boot_sha256": "ee709ef91bf7569159dcdf4d143f1fe691369480eebecaa7d00417839ccd6d93"
+  },
+  {
+   "title": "F1 WORLD GRAND PRIX",
+   "boot_sha256": "98c9efe29ab0e0a533a5b42b483363f81919df004785a1f3ea967e9cbd55e150"
+  },
+  {
+   "title": "F355 CHALLENGE",
+   "boot_sha256": "bf4d89d5ad20db276bd58c24e9f7c6b874d53b18ae000aaed75845fe3ace6a20"
+  },
+  {
+   "title": "FATAL FURY MARK OF THE WOLVES",
+   "boot_sha256": "a3354ed00e337641d318b38ffaa1ba1300b4531c36a939805f26bbdb93569b78"
+  },
+  {
+   "title": "FIGHTING FORCE 2",
+   "boot_sha256": "1b79b046720a051a748ca80000057f505643fe76fd3db1f3f587d60f198dc1c8"
+  },
+  {
+   "title": "FIGHTING FORCE 2",
+   "boot_sha256": "f5dd51e0da361855ebb7b58fd3f85fdf0f3f902a89dd3214725c7bc74163193c"
+  },
+  {
+   "title": "CART RACING",
+   "boot_sha256": "7a6ff44f0aec04b1ba302081be97642133dc45258912b302f2ee02e3bbfee881"
+  },
+  {
+   "title": "FLOIGAN BROS. EPISODE 1  MOIGLE'S SECTRET PROJECT",
+   "boot_sha256": "d8508805ed0b865123b6ea51dbe0486638c04dce1a35199aba735daa2317c4f2"
+  },
+  {
+   "title": "FUR FIGHTERS",
+   "boot_sha256": "c0762590907ddaf342539f48cb5957d0e507e2c4f22b5c464af6bee3e58369fc"
+  },
+  {
+   "title": "GAUNTLET LEGENDS",
+   "boot_sha256": "12beaddf38e11d368bb8839b5502260755c21fe0ba47a650d9b98699fa484337"
+  },
+  {
+   "title": "GIGA WING2",
+   "boot_sha256": "bd0b6942a6bc03b3ffa328baae2cc6a70141991a2e477977a5edc45c7e03cc83"
+  },
+  {
+   "title": "GIGAWING",
+   "boot_sha256": "93c26b170ac5630853d84e5b4aaf4517cccf743c1949ac1d181853001df8bed3"
+  },
+  {
+   "title": "GRAND THEFT AUTO 2",
+   "boot_sha256": "5c8a5164b147c29bd3b7ddde446916273eb97f411f1575ff3ee58e88c606e2ce"
+  },
+  {
+   "title": "THE GRINCH",
+   "boot_sha256": "2109a0646bf3c4fbab5b0166067782ea3e528c8919dac04fe438a358e17cabc4"
+  },
+  {
+   "title": "GUNBIRD2",
+   "boot_sha256": "518c5ece44ededa47fe7e337748e7705585c02edecadb0a22818ce5ffcb7886a"
+  },
+  {
+   "title": "GUNDAM SIDE STORY 0079  RISE FROM THE ASHES",
+   "boot_sha256": "64679d497408d8b27cdb0448d929da11512994495db8c40f813f300aaa1a3ba2"
+  },
+  {
+   "title": "HEAVY METAL GEOMATRIX",
+   "boot_sha256": "87abc8672bd88f6f258f514d61dd3718bea005bbcf48a02924091c9991f1494e"
+  },
+  {
+   "title": "HIDDEN AND DANGEROUS",
+   "startup_key": "7c0192c85d1fdae3b978802b21b7e0311a877c750ff59b88c56fabe5391e8cc7"
+  },
+  {
+   "title": "HOYLE CASINO",
+   "startup_key": "fb9c220f177b1e3119696969096966b2950995ad52eb6eddc7fc133d782b439c"
+  },
+  {
+   "title": "HYDRO THUNDER",
+   "boot_sha256": "5749211daa4bb371e4d9da4f600bcda38fb5b4c1b1450762f72a58ef337fb1dc"
+  },
+  {
+   "title": "HYDRO THUNDER",
+   "boot_sha256": "d6e4e74828281cd06366c5d19d8b30d33c016677288a1bed243ab187443e8c2c"
+  },
+  {
+   "title": "ILLBLEED",
+   "boot_sha256": "af9686e11df9efc02bcf97b7e5e744a4d981cfebdab7e1fe8a0281396461cee7"
+  },
+  {
+   "title": "INCOMING",
+   "boot_sha256": "fec4d04c300664f0ab4d2e1932af126e32daa39eabc07da00d7f015ca1e0fe93"
+  },
+  {
+   "title": "I - SPY",
+   "boot_sha256": "e0633665bef85070d8bd4bc3268def164210d00a7bfead51721924193b2d4af7"
+  },
+  {
+   "title": "IRON ACES",
+   "boot_sha256": "8e3a6b28f55a5294f680b216ef62859f99aaabd2cef8cbd482b1ba5d461b607c"
+  },
+  {
+   "title": "JEREMY MCGRATH SUPERCROSS 2000",
+   "boot_sha256": "2ea5444d87f612fe1b7727aac22971772e8e976259e403fe266c4ac1990b4972"
+  },
+  {
+   "title": "JOJO S BIZARRE ADVENTURE",
+   "boot_sha256": "02ead9c68aacf5e9153fedff30c4a141ba6e7842b6535c1d96d79485b30a622d"
+  },
+  {
+   "title": "KAO THE KANGAROO",
+   "boot_sha256": "e003ae47026181e8402c8e0a47a98032c19c6c8b8659d7b13ec277af6bbf9b6b"
+  },
+  {
+   "title": "THE KING OF FIGHTERS EVOLUTION",
+   "boot_sha256": "cbfd9d0bc3a1687ec60006f6f379d6b753109fe5b93188eb56d2ad00c5bb84bc"
+  },
+  {
+   "title": "THE KING OF FIGHTERS DREAM MATCH 1999",
+   "boot_sha256": "0bb29b1b6b6b61ac5d57f9468e5077f475b26af479b7f4d2eb4a9e34d7598266"
+  },
+  {
+   "title": "KISS PSYCHO CIRCUS THE NIGHTMARE CHILD",
+   "startup_key": "74978289a9b835c870f0bd8cf634857d784ee93ffac84efc60dc1f5c9762bab4"
+  },
+  {
+   "title": "THE LAST BLADE 2",
+   "boot_sha256": "23539d88d73cdf80ed5cf892aca9d2b2f9bf7ee8d824a157c574c749323c2f84"
+  },
+  {
+   "title": "LOONEY TUNES SPACE RACE",
+   "boot_sha256": "b1948018c9df00e05816278f49a34480bb38e54c0da85354bf094bbe8090fbc7"
+  },
+  {
+   "title": "MTV SPORTS SKATEBOARDING",
+   "boot_sha256": "ed08e60742576e3ae6102d37ace12088d288121cc20d8fbcf39234b9ffda67a2"
+  },
+  {
+   "title": "MAGFORCE RACING",
+   "boot_sha256": "8daa659f15e1ad90bee424211cefc47bb7e4eda710ab7b74a4ab8f590e391ea3"
+  },
+  {
+   "title": "MAKEN X",
+   "boot_sha256": "803782ebff7b0a7b6d04dd61debe861fbba39e4931e1879ff880a8de0fca313f"
+  },
+  {
+   "title": "MARS MATRIX",
+   "boot_sha256": "88a597409c454d75d74970972140da8f85eb4d4ac9f0d8461047a29cbb55044a"
+  },
+  {
+   "title": "MARVEL VS.CAPCOM",
+   "boot_sha256": "785c8691e7c2a0fcbeeef6c478db960fef7c354cd9eb9bb6d6fd7b5b92526db5"
+  },
+  {
+   "title": "MARVEL VS CAPCOM 2",
+   "boot_sha256": "862e43cdd42fab395e2d71c8f1d9435f41af79380fe3b2820cb9ba25fe1f234f"
+  },
+  {
+   "title": "MAT HOFFMANS PRO BMX",
+   "boot_sha256": "62f32a70610a154ea941ec25151fad2578209de67fb74477cadca92ca26c721f"
+  },
+  {
+   "title": "MAX STEEL COV",
+   "boot_sha256": "cf4dadde0e4418c41531852db09d6423d699b7a26900f806d26fb9fa4da96497"
+  },
+  {
+   "title": "SIERRA SPORTS MAXIMUM POOL",
+   "startup_key": "f88c5a2df7992f41e81ee2c5ae2a103726ea722d77f45a694db1619fc947fe70"
+  },
+  {
+   "title": "METROPOLIS STREET RACER",
+   "boot_sha256": "b5515a96ba7e67dc2dfe08b6adf7d99a4d6c95e7e9fb015fe1f70dffa59af0e9"
+  },
+  {
+   "title": "GREATEST ARCADE HITS 1",
+   "startup_key": "53f3fe936dc4b0b90242dfa37f03370806c43927f5ea95cadbe4138ef3aa0273"
+  },
+  {
+   "title": "GREATEST ARCADE HITS 2",
+   "startup_key": "0aa2045f89fcc9662a6412da80478352db52a3bebc67a2b5b91edfb9facc111a"
+  },
+  {
+   "title": "MONACO GRAND PRIX",
+   "boot_sha256": "aeddd1f5f6ab7e4707d2608167d7a3a2afd70d7399d03d4085ba17516b36ea50"
+  },
+  {
+   "title": "MORTAL KOMBAT GOLD",
+   "boot_sha256": "e2421ea4c502a59380e0ff7b9335aa84878161061471d8505b0c81ed362a998c"
+  },
+  {
+   "title": "MORTAL KOMBAT GOLD",
+   "boot_sha256": "0518524820d8a24d6978b494cf71a319635bbe6f8ad2c8941cf85bfa41d1e37a"
+  },
+  {
+   "title": "MR.DRILLER",
+   "boot_sha256": "2b4af7d1b390a6e2645ea1b12d24cdfbe525e8fa3cf190fa5b7b4dbfdc3747d0"
+  },
+  {
+   "title": "MS. PAC-MAN MAZE MADNESS",
+   "boot_sha256": "fbe1efb3f0bc168e9a5ca8b86a3aeefae20e5c3c6c73b6f4a929cca724119a57"
+  },
+  {
+   "title": "NBA 2K",
+   "boot_sha256": "0024d74d1bb1fdc1e535d85ea90e5a57ff4e0b86f3c6e67aa95049f59d07cb6f"
+  },
+  {
+   "title": "NBA HOOPZ",
+   "boot_sha256": "00d54803d78b18e4d51b80a00e25d8cc506deb802f2d7b7be5fdb5889a8bea3f"
+  },
+  {
+   "title": "NBA SHOWTIME:NBA ON NBC",
+   "boot_sha256": "80261f3bb758cef39913be45f1e24bfb991f5770b059aab6fd05abad88045c9d"
+  },
+  {
+   "title": "NCAA COLLEGE FOOTBALL 2K2",
+   "boot_sha256": "741e1365b983ad231420006deb6d766bc282e784d4f796a578fa02c9633e330b"
+  },
+  {
+   "title": "NFL 2K",
+   "boot_sha256": "7ec7268bf0e59efef6da9b035e6be106fa3067ba80c4781e05b1e8ebcc239303"
+  },
+  {
+   "title": "NFL BLITZ 2000",
+   "boot_sha256": "3bfd2c609274cd1f948872cc22a15ca5620d2a6d98bc0ce48b563150a4d3fb4f"
+  },
+  {
+   "title": "NFL BLITZ 2000",
+   "boot_sha256": "0eea12c5c56613388098d2acbd9e9ab9d1deaf37fe15bd1bee6799750f206c5e"
+  },
+  {
+   "title": "NFL BLITZ 2001",
+   "boot_sha256": "342a9a097c387800d2df7ff017e5cca7164a751756006fea65a885523bc35007"
+  },
+  {
+   "title": "NFL QUARTERBACK CLUB 2001",
+   "startup_key": "d48456a091ac88b8fe32d4718e75e64396f2d21d328092995ab4b5327b1d927b"
+  },
+  {
+   "title": "QUARTERBACK CLUB 2000",
+   "startup_key": "2ae65035f9dfb7059df38e4a534e61f134d08d6629ef51ecbdb7946c2b1e2570"
+  },
+  {
+   "title": "NHL 2K",
+   "boot_sha256": "5c0cd99ac78da7d4290adb687b9cd3c12239eb61b60602da4c1ece441948fe50"
+  },
+  {
+   "title": "NHL2K2",
+   "boot_sha256": "3ce140149cf450191362a3207279951de4c3850f01387bf941c2b9de3741305c"
+  },
+  {
+   "title": "NAMCO MUSEUM",
+   "boot_sha256": "3c3313cad72ba35c5b1142a8a35ee0dd5b3c5279a125b1211b4fb78b937ed654"
+  },
+  {
+   "title": "THE NEXT TETRIS ONLINE EDITION",
+   "startup_key": "2908d54efe0a1b42c64fa953e76edab6d683948f5d73e10fba579408a1ca3768"
+  },
+  {
+   "title": "OOGA BOOGA",
+   "boot_sha256": "4b949225eedb2aa3ef6f3b1e3bae40a3ecb143f1e5c0a404b07fe39d5c7904b1"
+  },
+  {
+   "title": "OUTTRIGGER",
+   "boot_sha256": "566adfd5c2415db6b062ae8b2e8875a654057bc38d5d8212c3f81b0de5a78fc8"
+  },
+  {
+   "title": "POD SPEEDZONE",
+   "boot_sha256": "7c20be7e7bf8160c0d2b6f1ea405ec8bfe4bf02094f29423a9d6ec557e8b5cac"
+  },
+  {
+   "title": "PENPEN TRIICELON",
+   "boot_sha256": "e1f16ce1d46cba458b26f3b791a6f2939fcc54e064b80c75c13dac9b4583c59d"
+  },
+  {
+   "title": "PSO VER.2",
+   "boot_sha256": "f1178af0a4ec1b117a8ebd620b38ea7556cb20b451951dbb3ed06c7ea7069b4a"
+  },
+  {
+   "title": "PLASMA SWORD",
+   "boot_sha256": "925624720fa1825f9b107cbe860e168ae391f78046df8c3516a1e4a9dc9d493d"
+  },
+  {
+   "title": "ARABIAN NIGHTS - PRINCE OF PERSIA",
+   "boot_sha256": "b3bdfc13f64bcb9894f3b357a96ce09abe16f5e49ae044e984e045963f8f34e1"
+  },
+  {
+   "title": "PROJECT JUSTICE",
+   "boot_sha256": "93cbcb3c88135ae1175837f919bed21655cf7d33d37bebe5c551beb81b4faad4"
+  },
+  {
+   "title": "PSYCHIC FORCE 2012",
+   "boot_sha256": "3d1ccf10f2640199694fe8519f77e62d8879a24dd91a70190ec538c071643b15"
+  },
+  {
+   "title": "QBERT",
+   "startup_key": "42faeb0a929a02f81582f7f3f0558f0397ed6bf0a2ac708344840f0b99e5da54"
+  },
+  {
+   "title": "RAILROAD TYCOON II DREAMCAST EDITION",
+   "startup_key": "a290902e8527c640b58534c848369ec3610cc065cfa42bd75010b06f38cd17d7"
+  },
+  {
+   "title": "RAZOR FREESTYLE SCOOTER",
+   "boot_sha256": "b93aa97ddd23016fa8b9b9d59e14792e10f38ffa36747e86b381abac4aabec9c"
+  },
+  {
+   "title": "RE-VOLT",
+   "boot_sha256": "a1ee22e4a2925d3a547a17adc4d7d432fc8f9cfecdb15f70904f6625b611d86b"
+  },
+  {
+   "title": "READY 2 RUMBLE BOXING ROUND 2",
+   "boot_sha256": "90497f1596be6be18091bb8a4292fc25b63d11740fec73aa67cbd17634df2559"
+  },
+  {
+   "title": "READY 2 RUMBLE BOXING",
+   "boot_sha256": "78659115088acfa5899d79445630c20105f887ac78671f0c61bbffdb5eae46da"
+  },
+  {
+   "title": "READY 2 RUMBLE BOXING",
+   "boot_sha256": "21cc3c944532f82abcc2af6ae1b670beb7a3de95db3774882a0b049bff897624"
+  },
+  {
+   "title": "RED DOG SUPERIOR FIREPOWER",
+   "boot_sha256": "d085e6916b8ea18683c3caae3612abb711063f81beacde3944997c61c11c954c"
+  },
+  {
+   "title": "REELFISHINGWILD",
+   "boot_sha256": "0c424d3c109ad1da6ff3c4f8d078a6cea05e97b3638781dd2c82be703353a052"
+  },
+  {
+   "title": "RESIDENT EVIL 2",
+   "startup_key": "84d4707259df9eba1e0a9faab0d5ed054f564c0552c1adb0214e4828786f136a"
+  },
+  {
+   "title": "RESIDENT EVIL 2",
+   "startup_key": "64719af6712619d8e2edc5fa7909b8fa8c75a93e67f3a5675c24de9e57e83b65"
+  },
+  {
+   "title": "RESIDENT EVIL3",
+   "boot_sha256": "b0535ba64cf02bd93e63b5b9b8675d96f4d737605668daca23c100ff43d781e2"
+  },
+  {
+   "title": "THE RING",
+   "boot_sha256": "94b540e63a8f817c2a4a62d1ceeb77c7919b4387d86fcf937adebf82c5aaea67"
+  },
+  {
+   "title": "RIPPIN' RIDERS",
+   "boot_sha256": "91526a90852eb2213430178c21d2fd91e1894dba720eaf61d35ca7c157686bfb"
+  },
+  {
+   "title": "ROADSTERS RC7",
+   "boot_sha256": "6534c7c73abc65718017925d0c0af86c3b6d1c9e09407ee648f51a5fdc46da56"
+  },
+  {
+   "title": "SAMBA DE AMIGO",
+   "boot_sha256": "239edb2d4da5573ed38ffacb74bdfc813a648a2bf1ca3f22b2672856f34718e5"
+  },
+  {
+   "title": "SEAMAN",
+   "boot_sha256": "c948b6a302393b865227393c82b55aa6853e0d155225c9ef94a361354894effe"
+  },
+  {
+   "title": "GETBASS2",
+   "boot_sha256": "cd1e21b45fe90108d49295c493a12791841b05e122bd5bd968af82467fdb76b8"
+  },
+  {
+   "title": "SEGA BASS FISHING",
+   "boot_sha256": "bd93c8bf513272cbb3b1802f7814047e75b89f503aeae75dbcd90e9fa735e6c1"
+  },
+  {
+   "title": "SEGAGT",
+   "boot_sha256": "b1f9d14cc0cd8609ffc39fb4d3322c5bfb854e6e24fd286bd1a0bf1b8a87ed5f"
+  },
+  {
+   "title": "SEGA MARINE FISHING",
+   "boot_sha256": "251872144747c914723cee5c5ec64bc65da61cba079d4ee72bc8bece1d4df313"
+  },
+  {
+   "title": "SEGA RALLY 2",
+   "startup_key": "7cf41aa66c504250628bdff9d8cae6cae3b4888b3c435ef759178cc591aa6b36"
+  },
+  {
+   "title": "SEVENTH CROSS EVOLUTION",
+   "boot_sha256": "876e0589320da3de94d6f5e022e56abab5136a5afb9df88c48efd5c226cffc26"
+  },
+  {
+   "title": "SHADOWMAN",
+   "boot_sha256": "24ccc485196cf9e23a2bee35ec0f6b90a9dadc6259c287fa47ba26b082d55f30"
+  },
+  {
+   "title": "SHADOWMAN",
+   "boot_sha256": "4ff3d1854ab4d2bc59c7a8a0b65990e9700c43fba3651aa245332ca26c066f31"
+  },
+  {
+   "title": "SILENT SCOPE",
+   "boot_sha256": "3cf1879f5cb7ed22780746c4b3256ac651b6a9b6c7d65684e17cc3cbdc6e120b"
+  },
+  {
+   "title": "SLAVE ZERO",
+   "boot_sha256": "f10c41c3adff9872a54732ecee5640c41ab07d76feb590d4930227d9380d96bd"
+  },
+  {
+   "title": "SLAVE ZERO",
+   "boot_sha256": "862ea661e6d7feb44d9bc2a9385935dd8aac58fece79683e72bcafcb74d51ee2"
+  },
+  {
+   "title": "SNO-CROSS",
+   "startup_key": "b23e34b77de825406d70ecbf35b2397b349025301bda9f79187032bea695c8ef"
+  },
+  {
+   "title": "SOLDIER OF FORTUNE",
+   "boot_sha256": "f4370fa1ef911e8ff26b6c6d1a3774eb3d7707db3691e09ea1305d22a4716121"
+  },
+  {
+   "title": "SONIC ADVENTURE LIMITED EDITION",
+   "boot_sha256": "1fa16103ef2095116ad39edbd8e11d384179be026be6f2c122ae55d8f5e5025f"
+  },
+  {
+   "title": "SONIC ADVENTURE",
+   "boot_sha256": "45bc5d3c25dcfe2cc2c5701311d46783f33e4daa44a951cd9896724d66f0367a"
+  },
+  {
+   "title": "SONIC SHUFFLE",
+   "boot_sha256": "e765a5f5e998a9f549d8f062c65fdc478bc4e5e3641b1d2b02f13b156370dd04"
+  },
+  {
+   "title": "SOULCALIBUR",
+   "boot_sha256": "646fd82c5a8c65f2ae91f4a049984f8509387b0b2da5f6f511d1ac876781fa7f"
+  },
+  {
+   "title": "SOUL FIGHTER",
+   "boot_sha256": "140c509993ee39e8410cba3570f7cdd7ad98082eacd94316bc64dbc5a035b13d"
+  },
+  {
+   "title": "SOUTH PARK CHEFS",
+   "startup_key": "7076bed2df4fd910d377dba53cf118b5dae2aaba7d466462ac6245296808fadd"
+  },
+  {
+   "title": "SOUTH PARK RALLY",
+   "boot_sha256": "e065c0d3705405c73af608eba654a58c25e5a878088c0da4442c71c52ec6cc77"
+  },
+  {
+   "title": "SPACECHANNEL5",
+   "boot_sha256": "4bf74525eb2e4922c732c8b708d7a542a3a8f33693afa62019abf241df56dfe5"
+  },
+  {
+   "title": "SPECOPS OMEGA SQUAD",
+   "boot_sha256": "171b3fc09ffed0045d20f9a9f69c294f904c991bdc3c13abcd828f321bfae537"
+  },
+  {
+   "title": "SPEED DEVILS ONLINE",
+   "boot_sha256": "6c71116a39ce475d3082f05191fb7aaf454e1ac9afff6b18a2d31e48ce4cfbfb"
+  },
+  {
+   "title": "SPEED DEVILS",
+   "boot_sha256": "622b44d86fec45d0855f427e4de68337d0f986997c466f5d997acaa7822371bd"
+  },
+  {
+   "title": "SPIDER-MAN",
+   "boot_sha256": "4c916ef9a01ede4b0234d58faad8e45d7bec3777e6e6949598ca1cf3d4ca3763"
+  },
+  {
+   "title": "SPIRIT OF SPEED 1937",
+   "startup_key": "31e81f43edc9432601e3904f6159371135841cfd65edbb176bc3a95a72ee66d4"
+  },
+  {
+   "title": "STAR WARS DEMOLITION",
+   "boot_sha256": "5a2e46e7b4c0937837923552592319b00f06cf49e433a7da97e24327efbace0f"
+  },
+  {
+   "title": "STAR WARS EPISODE ONE JEDI POWER BATTLES",
+   "boot_sha256": "c94935960431fc363ec1ac6bca4222b58b7dc83c18dbe4c166b3d56e762f07b2"
+  },
+  {
+   "title": "STAR WARS EPISODE 1 RACER",
+   "boot_sha256": "002355dad2bfb3c6d7963d70a81cac639aa7cce08c8099f29e634aab3d592475"
+  },
+  {
+   "title": "STARLANCER",
+   "startup_key": "ed937ac7ff85c922e49997fe720cd815c5a4c56fac462bca155caadf988d2244"
+  },
+  {
+   "title": "STREET FIGHTER ALPHA3 SAIKYO-DOJO",
+   "boot_sha256": "f071a30af108ceea39955559e4291472347de37d70ffb8120c320255f1d6c3b5"
+  },
+  {
+   "title": "STREET FIGHTER3 DOUBLE IMPACT",
+   "boot_sha256": "3e198df382fb18a19465df448d5a4d69870a3d0397b9a5c55a48312cc0a4053c"
+  },
+  {
+   "title": "STRIKER PRO 2000",
+   "boot_sha256": "cb2d353bd2c98dad99175d199b7f703f7dbbb54f3f9de476c28eeb9b1c7e4946"
+  },
+  {
+   "title": "STUPID INVADERS",
+   "boot_sha256": "8ad0df2bded98ae3f05b2f7ccbb6f6c26d5dc84ffef2e79c9df4a38196fc0338"
+  },
+  {
+   "title": "SUPER MAGNETIC NEO",
+   "boot_sha256": "fa0100ecfe0a94d75c8d8fd59c03ff3a685fbbd922a20a23b446e33d024ed30d"
+  },
+  {
+   "title": "SUPER RUNABOUT",
+   "startup_key": "2f3abbbd0297462a92028e57db280343f1fb1bb91b7c1f7f82baad19ded61e42"
+  },
+  {
+   "title": "SURF ROCKET RACERS",
+   "boot_sha256": "8f76df34a6203938e3533df12f60c0d319df320567e484c68e2a90edf167ea62"
+  },
+  {
+   "title": "SUZUKI ALSTARE EXTREME RACING",
+   "boot_sha256": "41d5fbc3fcb4ac619a79670e1f0d269e3e4e6736a7a178f1c7f844747c2b9ecd"
+  },
+  {
+   "title": "SYDNEY 2000",
+   "boot_sha256": "aec6e6b7002671faa9fbf963aacf606480cabb96885705f2c7c6ed6298b57258"
+  },
+  {
+   "title": "TNN MOTORSPORTS HARDCORE HEAT",
+   "boot_sha256": "2c8cadd54d3cd3fd4a1bd88aa954109ef8985aae112b9b38cd0daa286791d39d"
+  },
+  {
+   "title": "TECH ROMANCER",
+   "boot_sha256": "672e107d184b9d38b9b734d130850323456b781bad21a7359b749701bb5d52c3"
+  },
+  {
+   "title": "TEE OFF",
+   "boot_sha256": "5ae2851d3b9a19d02a9ad80a62cdc4aa94bf7fe641b81a7777ae68026632d5dc"
+  },
+  {
+   "title": "TENNIS 2K2",
+   "boot_sha256": "5bbce7cdf09b357cd31bd78cdb5077399019db75ad9f8dee37abd40d6fa29119"
+  },
+  {
+   "title": "TENNIS 2K2",
+   "boot_sha256": "693369441d8eba8bcba613e9df5ffed5253cc75a44b928118eb9cedbffb46b71"
+  },
+  {
+   "title": "TEST DRIVE 6",
+   "boot_sha256": "53eaf3951c9dffa89aa2ee920deacd1f383c0496030148810f20732b0f05b1bc"
+  },
+  {
+   "title": "TEST DRIVE V-RALLY",
+   "boot_sha256": "7b65eb9067046e2e6c32011c7564af430de2990b1a00dada0c252597a1fb2bad"
+  },
+  {
+   "title": "TOKYO XTREME RACER 2",
+   "boot_sha256": "e30d2f4372856c10f079f7e938989695196abb4a20a26af0fde299ff3940608f"
+  },
+  {
+   "title": "TOKYO XTREME RACER",
+   "boot_sha256": "f549b4abce1d7144a882fe241db4effb705e6602d237d92c0dee9a2d7a22a117"
+  },
+  {
+   "title": "RAINBOW SIX",
+   "startup_key": "9c073b4c6b01ec085b6332713f8d141989125d538c51bb97f6396c2d4207987f"
+  },
+  {
+   "title": "TOMB RAIDER THE LAST REVELATION",
+   "startup_key": "f98c1644639d21a094ac5191ed3bd118448c460acaad13b19396c7f65341772b"
+  },
+  {
+   "title": "TOMB RAIDER CHRONICLES",
+   "startup_key": "cb967641a83f7ddd198f7c8830b6242fc7699120eb29ffeb227b103211d437e6"
+  },
+  {
+   "title": "TONY HAWK'S PRO SKATER",
+   "boot_sha256": "80afe1974802edce321d0f0fa890f4bb71a5a72858fdaa11961319d7c286129b"
+  },
+  {
+   "title": "TRICKSTYLE",
+   "boot_sha256": "15f1577f476cef602d1572ad5e6578372b576290cd52ec0a605b9f737336cf36"
+  },
+  {
+   "title": "THE TYPING OF THE DEAD",
+   "boot_sha256": "77543aac9f9d677932d2ebd072ed3a9895baf2844e4f8160c4d07e0bf9c25141"
+  },
+  {
+   "title": "ULTIMATE FIGHTING CHAMPIONSHIP",
+   "boot_sha256": "ed3f90409142296e2281ede085ca52e111e2deeeee6db33409d74539f45635b3"
+  },
+  {
+   "title": "UNREAL TOURNAMENT",
+   "boot_sha256": "3bc993b6b480feebbc83d1d6c928758cd6ee0db829f552dd0eb658c02aa86c90"
+  },
+  {
+   "title": "URBAN CHAOS",
+   "startup_key": "687f31228a5f7dfb54704acbaa0b55e7fe9c035815d326e1712dba7bd916a03e"
+  },
+  {
+   "title": "VANISHING POINT",
+   "boot_sha256": "a5100e072a74c25cdd09ece9f978e08aa195eb2ac50f4227ed524b535032f95b"
+  },
+  {
+   "title": "VIGILANTE 8 SECOND OFFENSE",
+   "boot_sha256": "06f5a6fcdc9f8e0ef486a1ce1df7fcf61f5a756dbef7248139291ae520e3d3e7"
+  },
+  {
+   "title": "VIRTUAATHLETE2000",
+   "boot_sha256": "4b60448cd983cea327f49d7875a96e317e640dab0cef7eb59e7cb9e6991574a3"
+  },
+  {
+   "title": "VF3TB",
+   "boot_sha256": "37f38dd9a47b785f526157c4a1674ca75322f0de1342f64bbf33c88d128e4b32"
+  },
+  {
+   "title": "VIRTUA STRIKER 2 VER.2000.1",
+   "boot_sha256": "64da0ca6d241368af33be8a84f7a93624a9f888196ad051bc76d5dc4db59bea7"
+  },
+  {
+   "title": "VIRTUA TENNIS",
+   "boot_sha256": "e9df3b9fa9d27891550a300b62618b32f16cd37fd63d779afd3e46dd6ab3f21f"
+  },
+  {
+   "title": "WWF: ATTITUDE",
+   "boot_sha256": "8f85ac459511d17e7d64170e3931266931497fa7fc05e37706c086b41541d822"
+  },
+  {
+   "title": "ROYAL RUMBLE",
+   "boot_sha256": "2c97f9c661380f11faa9db6dbc7bb4c871e127d3aba3982ad4d61abe5af4f569"
+  },
+  {
+   "title": "WACKY RACES",
+   "boot_sha256": "d540d3f83130edf41056061255426910dcd79ed82eb13f5895ac51881e2c7439"
+  },
+  {
+   "title": "WALT DISNEY WORLD QUEST MAGICAL RACING TOUR",
+   "boot_sha256": "ed5bc9d0a2a1914a77cb90a989642ce383808f8639362fc29d63a2a24073e6db"
+  },
+  {
+   "title": "WETRIXPLUS",
+   "boot_sha256": "231ee77a342d91a5d983d41d3de2ffde768bf4c14b288344cd9c71f4c66e7173"
+  },
+  {
+   "title": "WHO WANTS TO BEAT UP A MILLIONAIRE",
+   "startup_key": "dcae14fdd6453e3112a11e7ca1774f7db734675a4ae293ec2c68a7ceadf39ee0"
+  },
+  {
+   "title": "WILD METAL",
+   "startup_key": "c009134e5ad5f00f0a092e5cfa9ab978845ce787d1f5c30d69d5e09cc6422058"
+  },
+  {
+   "title": "WORLD SERIES BASEBALL 2K1",
+   "boot_sha256": "75142e17ef9a1a1cea7b1af93ac9d51fe235d54143bec688b3aeed57e16e58c2"
+  },
+  {
+   "title": "XTREME SPORTS",
+   "boot_sha256": "1c4f18eb0e0a6e04ef221ed02c0fa75ce0a2163803e51aca436779a328cbb4f1"
+  }
+ ]
 }

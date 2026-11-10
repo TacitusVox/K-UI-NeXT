@@ -30,7 +30,9 @@ import zlib
 # The bounded reader and atomic publication follow K-UI's independently
 # authored Windows CE helper. This script is self-contained for the owner.
 RAW, DATA = 2352, 2048
-FILE_LIMIT = 12 * 1024 * 1024
+# A boot program loads at 0x8c010000 and must end within main RAM (0x8d000000);
+# some retail 1ST_READ.BIN files exceed 13 MiB.
+FILE_LIMIT = 0x8d000000 - 0x8c010000
 TOTAL_LIMIT = 32 * 1024 * 1024
 DIR_LIMIT = 1024 * 1024
 DIRECTORY_COUNT_LIMIT = 512

@@ -27,7 +27,7 @@ import tempfile
 import uuid
 import zipfile
 
-LIBRARY_VERSION = '2.2'
+LIBRARY_VERSION = '2.3'
 SCHEMA = 'kui.library-startup.v2'
 DESCRIPTOR_LIMIT = 4096
 WALK_LIMIT = 1000000

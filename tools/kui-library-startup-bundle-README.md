@@ -1,4 +1,4 @@
-# Whole-library startup bundle (v2.2)
+# Whole-library startup bundle (v2.3)
 
 One command inventories every Dreamcast image below a folder and collects what
 K-UI needs to check each game against its launch routes: the disc header
@@ -39,6 +39,8 @@ What it does with each image:
   or a 2048-byte copy of a raw GDI): listed as a duplicate, not copied again.
 - **Requested program files** (`requests.json`): copied for those games even
   when their boot file was already sent.
+- **Large boot programs:** a boot file may be as large as Dreamcast main RAM
+  allows (16,711,680 bytes). Version 2.2 stopped at 12 MiB.
 - **Anything it cannot read:** listed with the reason; the rest continue.
   Unusual file names elsewhere on a disc no longer stop it; only the copied
   files need ordinary names.
