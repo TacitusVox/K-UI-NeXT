@@ -59,7 +59,11 @@ formats first if they matter.
   to the main-RAM bound.
 - US CD audio: 99 games with real audio tracks; native ones ship a few standard sound
   drivers (`MANATEE.DRV`, `AUDIO64.DRV`, `MANATEE2.DRV`). See [US CD audio](library-cd-audio-us.md).
-- Still to run: PAL and JPN Windows CE, then PAL and JPN native startups.
+- JPN: all 615 discs (run `eee9cdc7`). See [JPN compatibility](library-compat-jpn.md);
+  the Maple driver family is the first blocker for 157 games. Its 45 Windows CE games
+  are in the [driver families](wince-vmu-driver-families.md), and its CD audio games in
+  [CD audio](library-cd-audio-us.md).
+- Still to run: PAL Windows CE and PAL native startups.
 
 ## What the discs cannot tell us
 

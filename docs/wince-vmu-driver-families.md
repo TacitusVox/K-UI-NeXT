@@ -90,3 +90,28 @@ covering:
    generic module's `KUICEM01` record.
 4. Test package: the new GUI with World Party's virtual VMU, CD music Off and
    On. Check first that Armada VMU On behaves exactly as before.
+
+## US and JPN together (10 Nov 2026)
+
+The JPN run adds 45 Windows CE games. Across 81 games and 75 distinct
+kernels there are 12 `maple.dll` families, each identical modulo
+relocation. Most JPN games join US families.
+Record: [US and JPN survey](evidence/wince-controller-driver-survey-us-jpn-2026-11-10.json).
+
+| `maple.dll` text | Kernels | Regions | Includes |
+| ---: | ---: | --- | --- |
+| 29,568 B | 10 | J, U | Bang! Gunship Elite, Evangelion Type C and Type E, Princess Maker Collection, Happy Lesson |
+| 29,552 B | 18 | J, U | Worms World Party's family |
+| 29,552 B | 2 | U | Urban Chaos, Spirit of Speed 1937 |
+| 27,744 B | 9 | J, U | Nightmare Creatures II's family, Super Robot Wars Alpha |
+| 27,696 B | 1 | J | Virtua Cop 2 (standalone JPN release; the Smash Pack VC2 driver size) |
+| 27,664 B | 12 | J, U | Bust-A-Move 4's family, Get Colony, Rune Jade |
+| 22,432 B | 4 | J, U | Armada, Wild Metal, Biohazard 2 Value Plus, Hello Kitty Lovely Fruit Park |
+| 19,504 B | 2 | J | World Neverland Plus, Kitahei Gold |
+| 19,472 B | 1 | U | Sega Rally 2 (US) |
+| 19,472 B | 6 | J | Morita no Saikyo Shogi and Reversi, Super Producers |
+| 19,456 B | 9 | J, U | Worms Armageddon's family, Space Griffon VF-9, Densha de Go |
+| 16,304 B | 1 | J | Sega Rally 2 (JPN) |
+
+Biohazard 2 Value Plus and Hello Kitty Lovely Fruit Park have Armada's exact
+drivers, as Wild Metal does. Their RAM layouts are in the record.

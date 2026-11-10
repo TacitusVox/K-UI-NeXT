@@ -32,3 +32,19 @@ Next, when native CD music work resumes: compare the driver builds the way the
 relocation and data. Then find which games actually play their tracks (the
 GD PLAY path in each executable), since audio tracks alone do not prove that.
 PAL and JPN runs extend the same survey.
+
+## JPN library (10 Nov 2026)
+
+The JPN run has 474 distinct startups. 100 carry real CD audio (80 native, 20
+Windows CE), and 29 have only short layout tracks.
+Record: [JPN CD audio survey](evidence/jpn-cd-audio-survey-2026-11-10.json).
+
+| Driver | Native CD-audio games | Distinct builds | Largest builds cover |
+| --- | ---: | ---: | --- |
+| `MANATEE.DRV` | 86 | 18 | 16, 16, 9, 7, 7, 5 games |
+| `SOUND.BIN` | 12 | 12 | one each |
+| `NAMIHEI.DRV` | 10 | not grouped | a JPN-specific driver |
+| `AICADRV.BIN` | 5 | 4 | 2 games |
+| `AUDIO64.DRV` | 5 | 3 | 3 games |
+
+`MANATEE.DRV` dominates in Japan: six exact builds cover 60 of its 86 games.

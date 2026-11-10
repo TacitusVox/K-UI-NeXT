@@ -1,0 +1,1061 @@
+{
+ "schema": "kui.wince.controller-driver-survey.v1",
+ "date": "2026-11-10",
+ "source": "owner US Windows CE run 7b966705 and JPN run eee9cdc7: 81 Windows CE startups, 75 distinct kernels",
+ "method": "As the US survey: maple.dll text equal word by word modulo relocation; ROMHDR from the ECEC marker, or a survey-only self-consistent search for CE2 kernels",
+ "families": [
+  {
+   "family": 1,
+   "maple_text_bytes": 29568,
+   "kernels": 10,
+   "games": [
+    "BANG! GUNSHIP ELITE",
+    "CHERRY BLOSSOM, FOR SYMPHONY, APRICOT, SWEET SEASON",
+    "EVANGELION TYPE C",
+    "EVANGELION TYPE E",
+    "FRAGRANCE TAIL",
+    "HAPPY LESSON",
+    "MISS MOONLIGHT",
+    "PRINCESS MAKER COLLECTION",
+    "YOSHIANOOKADE NEKORONDE",
+    "YUKIGATARI"
+   ]
+  },
+  {
+   "family": 2,
+   "maple_text_bytes": 29552,
+   "kernels": 18,
+   "games": [
+    "4X4 EVOLUTION",
+    "ATARI ANNIVERSARY EDITION",
+    "CHAMPIONSHIP SURFER",
+    "DUCATI WORLD",
+    "HIDDEN AND DANGEROUS",
+    "HOYLE CASINO",
+    "HUNDRED SWORDS",
+    "HUNDRED SWORDS KEY VERSION",
+    "NET DE PARA",
+    "NISHIKAZE",
+    "QBERT",
+    "RAILROAD TYCOON II DREAMCAST EDITION",
+    "SNO-CROSS",
+    "STARLANCER",
+    "THE NEXT TETRIS ONLINE EDITION",
+    "TOMB RAIDER CHRONICLES",
+    "WHO WANTS TO BEAT UP A MILLIONAIRE",
+    "WORMS WORLD PARTY"
+   ]
+  },
+  {
+   "family": 3,
+   "maple_text_bytes": 29552,
+   "kernels": 2,
+   "games": [
+    "SPIRIT OF SPEED 1937",
+    "URBAN CHAOS"
+   ]
+  },
+  {
+   "family": 4,
+   "maple_text_bytes": 27744,
+   "kernels": 9,
+   "games": [
+    "GREATEST ARCADE HITS 1",
+    "GREATEST ARCADE HITS 2",
+    "HELLO KITTY WAKUWAKU COOKIES",
+    "KISS PSYCHO CIRCUS THE NIGHTMARE CHILD",
+    "NFL QUARTERBACK CLUB 2001",
+    "NIGHTMARE CREATURES II",
+    "RAINBOW SIX",
+    "SIERRA SPORTS MAXIMUM POOL",
+    "SUPER ROBOT WARS ALPHA"
+   ]
+  },
+  {
+   "family": 5,
+   "maple_text_bytes": 27696,
+   "kernels": 1,
+   "games": [
+    "VIRTUACOP2"
+   ]
+  },
+  {
+   "family": 6,
+   "maple_text_bytes": 27664,
+   "kernels": 12,
+   "games": [
+    "BUST A MOVE 4",
+    "CAESARS PALACE 2000",
+    "DAISESSEN",
+    "GET COLONY",
+    "HELLO KITTY MAGICAL BLOCK",
+    "MARIONETTE COMPANY 2",
+    "PUZZLE BOBBLE4",
+    "RESIDENT EVIL 2, RESIDENT EVIL 2",
+    "RUNE JADE",
+    "SUPER RUNABOUT",
+    "SUPER RUNABOUT, SUPER RUNABOUT SAN FRANCISCO EDITION",
+    "TOMB RAIDER THE LAST REVELATION, TOMB RAIDER IV"
+   ]
+  },
+  {
+   "family": 7,
+   "maple_text_bytes": 22432,
+   "kernels": 4,
+   "games": [
+    "ARMADA",
+    "BIOHAZARD 2 VALUE PLUS",
+    "HELLO KITTY LOVELY FRUIT PARK",
+    "WILD METAL"
+   ]
+  },
+  {
+   "family": 8,
+   "maple_text_bytes": 19504,
+   "kernels": 2,
+   "games": [
+    "KITAHEI GOLD",
+    "WORLD NEVERLAND PLUS - OLERUD KINGDOM STORY -"
+   ]
+  },
+  {
+   "family": 9,
+   "maple_text_bytes": 19472,
+   "kernels": 1,
+   "games": [
+    "SEGA RALLY 2"
+   ]
+  },
+  {
+   "family": 10,
+   "maple_text_bytes": 19472,
+   "kernels": 6,
+   "games": [
+    "EISEIMEIJIN3 GAME CREATOR YOSIMURA NOBUHIRO NO ZUNOU",
+    "KITAE WHITE ILLUMINATION",
+    "MORITA NO SAIKYO REVERSI",
+    "MORITA NO SAIKYO SHOUGI",
+    "SEKAI FUSHIGI HAKKEN TROIA",
+    "SUPER PRODUCERS"
+   ]
+  },
+  {
+   "family": 11,
+   "maple_text_bytes": 19456,
+   "kernels": 9,
+   "games": [
+    "DENSHA DE GO 2 3K FOR DREAMCAST",
+    "KITTY GP",
+    "MARIONETTE COMPANY",
+    "PLUS PLUMB",
+    "QUARTERBACK CLUB 2000",
+    "SOUTH PARK CHEFS",
+    "SPACE GRIFFON VF-9",
+    "UNDERCOVER A.D.2025 KEI",
+    "WORMS ARMAGEDDON"
+   ]
+  },
+  {
+   "family": 12,
+   "maple_text_bytes": 16304,
+   "kernels": 1,
+   "games": [
+    "SEGA RALLY2"
+   ]
+  }
+ ],
+ "games": [
+  {
+   "title": "APRICOT",
+   "product": "T37910M",
+   "region": "J",
+   "kernel_sha256": "e53a68ac6d84662db295ca7f04365331b75dcc677e4a2ea575f2e5308f53e3c1",
+   "maple_family": 1,
+   "maple_base": "0x1c60000",
+   "maple_text_bytes": 29570,
+   "ram_end": null,
+   "rom_header": "marker"
+  },
+  {
+   "title": "CHERRY BLOSSOM",
+   "product": "T37912M",
+   "region": "J",
+   "kernel_sha256": "e53a68ac6d84662db295ca7f04365331b75dcc677e4a2ea575f2e5308f53e3c1",
+   "maple_family": 1,
+   "maple_base": "0x1c60000",
+   "maple_text_bytes": 29570,
+   "ram_end": "0x8cfd0000",
+   "rom_header": "marker"
+  },
+  {
+   "title": "EVANGELION TYPE C",
+   "product": "T35102M",
+   "region": "J",
+   "kernel_sha256": "7e3b1ca3c85bb62923caf50835533195fef53dcbc415acbe644881c09a1aa1b9",
+   "maple_family": 1,
+   "maple_base": "0x1c70000",
+   "maple_text_bytes": 29570,
+   "ram_end": "0x8cfd0000",
+   "rom_header": "marker"
+  },
+  {
+   "title": "EVANGELION TYPE E",
+   "product": "T35101M",
+   "region": "J",
+   "kernel_sha256": "8a9eda46120272b439c4a630a904317b7c69396f3b210c0c4888460977f811e4",
+   "maple_family": 1,
+   "maple_base": "0x1c70000",
+   "maple_text_bytes": 29570,
+   "ram_end": "0x8cfd0000",
+   "rom_header": "marker"
+  },
+  {
+   "title": "FOR SYMPHONY",
+   "product": "T37908M",
+   "region": "J",
+   "kernel_sha256": "e53a68ac6d84662db295ca7f04365331b75dcc677e4a2ea575f2e5308f53e3c1",
+   "maple_family": 1,
+   "maple_base": "0x1c60000",
+   "maple_text_bytes": 29570,
+   "ram_end": null,
+   "rom_header": "marker"
+  },
+  {
+   "title": "FRAGRANCE TAIL",
+   "product": "T37905M",
+   "region": "J",
+   "kernel_sha256": "3b9b6ddab0980017958fc37818b6a5f1b368ccb596393beb47bf0afdd1678190",
+   "maple_family": 1,
+   "maple_base": "0x1c60000",
+   "maple_text_bytes": 29570,
+   "ram_end": "0x8cfd0000",
+   "rom_header": "marker"
+  },
+  {
+   "title": "HAPPY LESSON",
+   "product": "T19503M",
+   "region": "J",
+   "kernel_sha256": "9429c849f49a08859805f32708b51c777232e2e54d2ba7820b9125a49bfcc516",
+   "maple_family": 1,
+   "maple_base": "0x1db0000",
+   "maple_text_bytes": 29570,
+   "ram_end": "0x8cfd0000",
+   "rom_header": "marker"
+  },
+  {
+   "title": "MISS MOONLIGHT",
+   "product": "T18702M",
+   "region": "J",
+   "kernel_sha256": "e4a4e5f9e588b73e3a25801a3e07cb2f4b6e12fa4507f4e6cfc616838d9dcdea",
+   "maple_family": 1,
+   "maple_base": "0x1db0000",
+   "maple_text_bytes": 29570,
+   "ram_end": "0x8cfd0000",
+   "rom_header": "marker"
+  },
+  {
+   "title": "PRINCESS MAKER COLLECTION",
+   "product": "T44801M",
+   "region": "J",
+   "kernel_sha256": "5699fcb655cc0551bb1f131f8db651437a93196ea69e076d038d95a98e1c4d14",
+   "maple_family": 1,
+   "maple_base": "0x1cb0000",
+   "maple_text_bytes": 29570,
+   "ram_end": "0x8cfd0000",
+   "rom_header": "marker"
+  },
+  {
+   "title": "SWEET SEASON",
+   "product": "T37911M",
+   "region": "J",
+   "kernel_sha256": "e53a68ac6d84662db295ca7f04365331b75dcc677e4a2ea575f2e5308f53e3c1",
+   "maple_family": 1,
+   "maple_base": "0x1c60000",
+   "maple_text_bytes": 29570,
+   "ram_end": null,
+   "rom_header": "marker"
+  },
+  {
+   "title": "YOSHIANOOKADE NEKORONDE",
+   "product": "T18704M",
+   "region": "J",
+   "kernel_sha256": "dc2f24752b00ed1b4cb230e1cabf723df6886e5b9dec4ec8f7225e3ec00df784",
+   "maple_family": 1,
+   "maple_base": "0x1da0000",
+   "maple_text_bytes": 29570,
+   "ram_end": "0x8cfd0000",
+   "rom_header": "marker"
+  },
+  {
+   "title": "YUKIGATARI",
+   "product": "T37909M",
+   "region": "J",
+   "kernel_sha256": "984f72230b9ad0f7859bc7b22c63f71000723f0c580df822043183aa814d3b02",
+   "maple_family": 1,
+   "maple_base": "0x1bd0000",
+   "maple_text_bytes": 29570,
+   "ram_end": "0x8cfd0000",
+   "rom_header": "marker"
+  },
+  {
+   "title": "BANG! GUNSHIP ELITE",
+   "product": "T44102N",
+   "region": "U",
+   "kernel_sha256": "e6f4e1b3830e72767b5aa359ef888b1b52ec54c4bc02ec489428a22fad32f727",
+   "maple_family": 1,
+   "maple_base": "0x1d80000",
+   "maple_text_bytes": 29570,
+   "ram_end": "0x8cfd0000",
+   "rom_header": "marker"
+  },
+  {
+   "title": "HUNDRED SWORDS",
+   "product": "HDR-0124",
+   "region": "J",
+   "kernel_sha256": "b15c6fac7ad832cbb92ddb89394b42bed9826b8ca4a9fa4524941e237c07cbbb",
+   "maple_family": 2,
+   "maple_base": "0x1b20000",
+   "maple_text_bytes": 29554,
+   "ram_end": "0x8cfd0000",
+   "rom_header": "marker"
+  },
+  {
+   "title": "HUNDRED SWORDS KEY VERSION",
+   "product": "HDR-0127",
+   "region": "J",
+   "kernel_sha256": "7a97c174199db75f7dfb4dfa01d7e92df022eb70032d69eb48d4cb18e83acfd2",
+   "maple_family": 2,
+   "maple_base": "0x1b20000",
+   "maple_text_bytes": 29554,
+   "ram_end": "0x8cfd0000",
+   "rom_header": "marker"
+  },
+  {
+   "title": "NET DE PARA",
+   "product": "T37903M",
+   "region": "J",
+   "kernel_sha256": "6f6a72907071088aff4be2db799c5f3ce06a36d2dd1e077780426f9637d4cc8c",
+   "maple_family": 2,
+   "maple_base": "0x1bd0000",
+   "maple_text_bytes": 29554,
+   "ram_end": "0x8cfd0000",
+   "rom_header": "marker"
+  },
+  {
+   "title": "NISHIKAZE",
+   "product": "T44502M",
+   "region": "J",
+   "kernel_sha256": "a98f6514c38cffc39124a2f433e2f0373c21dde91d9fa5ca85726bb1adf01e5a",
+   "maple_family": 2,
+   "maple_base": "0x1da0000",
+   "maple_text_bytes": 29554,
+   "ram_end": "0x8cfd0000",
+   "rom_header": "marker"
+  },
+  {
+   "title": "4X4 EVOLUTION",
+   "product": "T41903N",
+   "region": "U",
+   "kernel_sha256": "76e49e9f4cb78c7e1bee46a2990a4ca9bcbff8e19012f2b00b29845c956c89c3",
+   "maple_family": 2,
+   "maple_base": "0x1cd0000",
+   "maple_text_bytes": 29554,
+   "ram_end": "0x8cfd0000",
+   "rom_header": "marker"
+  },
+  {
+   "title": "ATARI ANNIVERSARY EDITION",
+   "product": "T15130N",
+   "region": "U",
+   "kernel_sha256": "3408e1ee7e3f6cc02a5210fabfec76e126583455898002d02adac67583efaa20",
+   "maple_family": 2,
+   "maple_base": "0x1d90000",
+   "maple_text_bytes": 29554,
+   "ram_end": "0x8cfd0000",
+   "rom_header": "marker"
+  },
+  {
+   "title": "CHAMPIONSHIP SURFER",
+   "product": "T41403N",
+   "region": "U",
+   "kernel_sha256": "28ed98cbb3b9edfc2de6072b536c1cb0e6e266f0384677ea21bde66556bab294",
+   "maple_family": 2,
+   "maple_base": "0x1cc0000",
+   "maple_text_bytes": 29554,
+   "ram_end": "0x8cfd0000",
+   "rom_header": "marker"
+  },
+  {
+   "title": "DUCATI WORLD",
+   "product": "T-8113N",
+   "region": "U",
+   "kernel_sha256": "41b0fe340c3a50471b27b655025baf7bcff4b66a0484e4aa2df5ed7106876b97",
+   "maple_family": 2,
+   "maple_base": "0x1da0000",
+   "maple_text_bytes": 29554,
+   "ram_end": "0x8cfd0000",
+   "rom_header": "marker"
+  },
+  {
+   "title": "HIDDEN AND DANGEROUS",
+   "product": "T-40502-N",
+   "region": "U",
+   "kernel_sha256": "5a02ed6b8ad7dde5965630b983f3081dd4b1f2438c7ed3386027e15f02e0ca83",
+   "maple_family": 2,
+   "maple_base": "0x1da0000",
+   "maple_text_bytes": 29554,
+   "ram_end": "0x8cfd0000",
+   "rom_header": "marker"
+  },
+  {
+   "title": "HOYLE CASINO",
+   "product": "T11008N 00",
+   "region": "U",
+   "kernel_sha256": "774e2e17009614966f80f5e2025007c1cfb22a93587531d843f4315bada9a5bb",
+   "maple_family": 2,
+   "maple_base": "0x1da0000",
+   "maple_text_bytes": 29554,
+   "ram_end": "0x8cfd0000",
+   "rom_header": "marker"
+  },
+  {
+   "title": "QBERT",
+   "product": "T40403N",
+   "region": "U",
+   "kernel_sha256": "46d1ef5e8559a9713f510909e2ef6cd38499cd69c67197e9a2df1fe769eea8a2",
+   "maple_family": 2,
+   "maple_base": "0x1da0000",
+   "maple_text_bytes": 29554,
+   "ram_end": "0x8cad0000",
+   "rom_header": "marker"
+  },
+  {
+   "title": "RAILROAD TYCOON II DREAMCAST EDITION",
+   "product": "T41902N",
+   "region": "U",
+   "kernel_sha256": "0974f36c0dfeeb933c43a58982233ac968c3a911b265eba5484d09e53f72d462",
+   "maple_family": 2,
+   "maple_base": "0x1dc0000",
+   "maple_text_bytes": 29554,
+   "ram_end": "0x8cfd0000",
+   "rom_header": "marker"
+  },
+  {
+   "title": "SNO-CROSS",
+   "product": "T40207N",
+   "region": "U",
+   "kernel_sha256": "b68a732a30ce51452873455cd546d7fdb978ab2f1e09f88542a97e039d4dd5a7",
+   "maple_family": 2,
+   "maple_base": "0x1dc0000",
+   "maple_text_bytes": 29554,
+   "ram_end": "0x8cfd0000",
+   "rom_header": "marker"
+  },
+  {
+   "title": "STARLANCER",
+   "product": "T40209N",
+   "region": "U",
+   "kernel_sha256": "3c7b808ed10545bf6e85842c246ce75f17ea063ab26039f8ce000562bb0701f2",
+   "maple_family": 2,
+   "maple_base": "0x1c80000",
+   "maple_text_bytes": 29554,
+   "ram_end": "0x8cfd0000",
+   "rom_header": "marker"
+  },
+  {
+   "title": "THE NEXT TETRIS ONLINE EDITION",
+   "product": "T40214N",
+   "region": "U",
+   "kernel_sha256": "4a6246a5f39bf991846050d87804b85909a79253423f02ed0a6a3222400ede09",
+   "maple_family": 2,
+   "maple_base": "0x1cc0000",
+   "maple_text_bytes": 29554,
+   "ram_end": "0x8cfd0000",
+   "rom_header": "marker"
+  },
+  {
+   "title": "TOMB RAIDER CHRONICLES",
+   "product": "T36812N",
+   "region": "U",
+   "kernel_sha256": "e4a5f96869ad890c8f59f1fe198970982d340d63c903ea05d7f61f3937a90c40",
+   "maple_family": 2,
+   "maple_base": "0x1db0000",
+   "maple_text_bytes": 29554,
+   "ram_end": "0x8cdd0000",
+   "rom_header": "marker"
+  },
+  {
+   "title": "WHO WANTS TO BEAT UP A MILLIONAIRE",
+   "product": "T11011N",
+   "region": "U",
+   "kernel_sha256": "24b52a5953d26206d6fea8dc23e4d19b9f4b5b5b329f1d105fb33033b0077cb4",
+   "maple_family": 2,
+   "maple_base": "0x1da0000",
+   "maple_text_bytes": 29554,
+   "ram_end": "0x8cfd0000",
+   "rom_header": "marker"
+  },
+  {
+   "title": "WORMS WORLD PARTY",
+   "product": "T22904N",
+   "region": "U",
+   "kernel_sha256": "189719d8d3763284f74c5e66704710b9f9968118cb58aeb0a0844bd121a629ab",
+   "maple_family": 2,
+   "maple_base": "0x1ce0000",
+   "maple_text_bytes": 29554,
+   "ram_end": "0x8cfd0000",
+   "rom_header": "marker"
+  },
+  {
+   "title": "SPIRIT OF SPEED 1937",
+   "product": "T-8118N",
+   "region": "U",
+   "kernel_sha256": "c625a8811ab29ce9c6a14fd1522e1995ab7003522b36f4f2069f3eaae7175c24",
+   "maple_family": 3,
+   "maple_base": "0x1da0000",
+   "maple_text_bytes": 29554,
+   "ram_end": "0x8cfd0000",
+   "rom_header": "marker"
+  },
+  {
+   "title": "URBAN CHAOS",
+   "product": "T36810N",
+   "region": "U",
+   "kernel_sha256": "10a7d074a1159aa2d235abbbd01801090b6677f8571a40385bab92f50206793c",
+   "maple_family": 3,
+   "maple_base": "0x1da0000",
+   "maple_text_bytes": 29554,
+   "ram_end": "0x8cfd0000",
+   "rom_header": "marker"
+  },
+  {
+   "title": "HELLO KITTY WAKUWAKU COOKIES",
+   "product": "HDR-0090",
+   "region": "J",
+   "kernel_sha256": "76f0d197dc6bc186da5a51dc93c7cd76fd1394003587ff478b5f3ad119fe3135",
+   "maple_family": 4,
+   "maple_base": "0x1da0000",
+   "maple_text_bytes": 27746,
+   "ram_end": "0x8cfd0000",
+   "rom_header": "marker"
+  },
+  {
+   "title": "SUPER ROBOT WARS ALPHA",
+   "product": "T20602M",
+   "region": "J",
+   "kernel_sha256": "633931183144e75a27ff83d033b7edbeaca8c40a1ddba653a00cb29a14c75639",
+   "maple_family": 4,
+   "maple_base": "0x1da0000",
+   "maple_text_bytes": 27746,
+   "ram_end": "0x8ccd0000",
+   "rom_header": "marker"
+  },
+  {
+   "title": "GREATEST ARCADE HITS 1",
+   "product": "T-9713N",
+   "region": "U",
+   "kernel_sha256": "f5f75d8019a8397bba4e9440c410d6478959e1c88c783e5e4bbba19294c05940",
+   "maple_family": 4,
+   "maple_base": "0x1c80000",
+   "maple_text_bytes": 27746,
+   "ram_end": "0x8cfd0000",
+   "rom_header": "marker"
+  },
+  {
+   "title": "GREATEST ARCADE HITS 2",
+   "product": "T-9714N",
+   "region": "U",
+   "kernel_sha256": "1e092410c41e493e6248b164f201873c16f24c2017d8e1ef830d7b62790b59a8",
+   "maple_family": 4,
+   "maple_base": "0x1d80000",
+   "maple_text_bytes": 27746,
+   "ram_end": "0x8cfd0000",
+   "rom_header": "marker"
+  },
+  {
+   "title": "KISS PSYCHO CIRCUS THE NIGHTMARE CHILD",
+   "product": "T41901N",
+   "region": "U",
+   "kernel_sha256": "0fe894cfd69748d1f6e63c5800815cd2cda000a899fc6bb3c49f60d9cd96bfb4",
+   "maple_family": 4,
+   "maple_base": "0x1da0000",
+   "maple_text_bytes": 27746,
+   "ram_end": "0x8cff0000",
+   "rom_header": "marker"
+  },
+  {
+   "title": "NFL QUARTERBACK CLUB 2001",
+   "product": "T-8115N",
+   "region": "U",
+   "kernel_sha256": "70202952058f5b18957de92d80efd1ee238e6936e544af014e61f39028fe3762",
+   "maple_family": 4,
+   "maple_base": "0x1db0000",
+   "maple_text_bytes": 27746,
+   "ram_end": "0x8cfd0000",
+   "rom_header": "marker"
+  },
+  {
+   "title": "NIGHTMARE CREATURES II",
+   "product": "T9504M",
+   "region": "U",
+   "kernel_sha256": "5908b5d30c5f8f3fd3661214cdbbae3459374dfec0136dbbf6226a7745f5527b",
+   "maple_family": 4,
+   "maple_base": "0x1d80000",
+   "maple_text_bytes": 27746,
+   "ram_end": "0x8cfd0000",
+   "rom_header": "marker"
+  },
+  {
+   "title": "RAINBOW SIX",
+   "product": "T40401N",
+   "region": "U",
+   "kernel_sha256": "f9fc0db1cda92e2aaa424b108bb49043699bd2bd9ad7accf5c13c6d700686727",
+   "maple_family": 4,
+   "maple_base": "0x1d80000",
+   "maple_text_bytes": 27746,
+   "ram_end": "0x8c500000",
+   "rom_header": "marker"
+  },
+  {
+   "title": "SIERRA SPORTS MAXIMUM POOL",
+   "product": "T11010N",
+   "region": "U",
+   "kernel_sha256": "750394f5acd1da26fac9a96bf52f52cfee06a84a8d460c9b1e2e9d0af63f2822",
+   "maple_family": 4,
+   "maple_base": "0x1cd0000",
+   "maple_text_bytes": 27746,
+   "ram_end": "0x8cfd0000",
+   "rom_header": "marker"
+  },
+  {
+   "title": "VIRTUACOP2",
+   "product": "HDR-0061",
+   "region": "J",
+   "kernel_sha256": "6c09543a5680d8255e64011ef44aff73816793674806ceb64cb0cd10e323e807",
+   "maple_family": 5,
+   "maple_base": "0x1cd0000",
+   "maple_text_bytes": 27698,
+   "ram_end": "0x8cfd0000",
+   "rom_header": "marker"
+  },
+  {
+   "title": "DAISESSEN",
+   "product": "T35403M",
+   "region": "J",
+   "kernel_sha256": "5fc403b72f8b3c49ede62d05a0a631ae564a60df536b1e6bef2ff2e621e88188",
+   "maple_family": 6,
+   "maple_base": "0x1c30000",
+   "maple_text_bytes": 27666,
+   "ram_end": "0x8cf3a000",
+   "rom_header": "marker"
+  },
+  {
+   "title": "GET COLONY",
+   "product": "HDR-0071",
+   "region": "J",
+   "kernel_sha256": "04f9b8cd872e0b45b680bd93fd2a1fb8d99ce1f6c33ca08a2bbccd3d2efb0365",
+   "maple_family": 6,
+   "maple_base": "0x1da0000",
+   "maple_text_bytes": 27666,
+   "ram_end": "0x8cfd0000",
+   "rom_header": "marker"
+  },
+  {
+   "title": "HELLO KITTY MAGICAL BLOCK",
+   "product": "HDR-0070",
+   "region": "J",
+   "kernel_sha256": "8cbfba9fc5e481fa3e095eed506e45b56596145c9f112c645b1b990bd1c27cc4",
+   "maple_family": 6,
+   "maple_base": "0x1c20000",
+   "maple_text_bytes": 27666,
+   "ram_end": "0x8cfd0000",
+   "rom_header": "marker"
+  },
+  {
+   "title": "MARIONETTE COMPANY 2",
+   "product": "T5203M",
+   "region": "J",
+   "kernel_sha256": "877c91cd39306c1ac3440f4c3553def28c508258c0cd31c05127acaa3b29a6af",
+   "maple_family": 6,
+   "maple_base": "0x1b70000",
+   "maple_text_bytes": 27666,
+   "ram_end": "0x8cfd0000",
+   "rom_header": "marker"
+  },
+  {
+   "title": "PUZZLE BOBBLE4",
+   "product": "T42301M",
+   "region": "J",
+   "kernel_sha256": "9d0ea356bd664028a5b8bb9df13a188e9835c40a788b39f5cb7b9064b81574a3",
+   "maple_family": 6,
+   "maple_base": "0x1ce0000",
+   "maple_text_bytes": 27666,
+   "ram_end": "0x8cfd0000",
+   "rom_header": "marker"
+  },
+  {
+   "title": "RUNE JADE",
+   "product": "T14304M",
+   "region": "J",
+   "kernel_sha256": "639f4c65d47dab308896e9bc426afff5e7c77a6cda71d58d3149ba47996fcf1e",
+   "maple_family": 6,
+   "maple_base": "0x1cf0000",
+   "maple_text_bytes": 27666,
+   "ram_end": "0x8cfd0000",
+   "rom_header": "marker"
+  },
+  {
+   "title": "SUPER RUNABOUT",
+   "product": "T22101M",
+   "region": "J",
+   "kernel_sha256": "c5424ab1c12c9ebb94790c8cd84feff63b693fbbcf601fee70cbaf7b8912ec59",
+   "maple_family": 6,
+   "maple_base": "0x1dd0000",
+   "maple_text_bytes": 27666,
+   "ram_end": "0x8cfd0000",
+   "rom_header": "marker"
+  },
+  {
+   "title": "SUPER RUNABOUT SAN FRANCISCO EDITION",
+   "product": "T22102M",
+   "region": "J",
+   "kernel_sha256": "b4bb0c6a5ca3418d0af2a7868397220a8741da10ca301c45842bb336d4072bff",
+   "maple_family": 6,
+   "maple_base": "0x1dd0000",
+   "maple_text_bytes": 27666,
+   "ram_end": null,
+   "rom_header": "marker"
+  },
+  {
+   "title": "TOMB RAIDER IV",
+   "product": "T1233M",
+   "region": "J",
+   "kernel_sha256": "943857d144c1dc0a869df52f0781f0eca8260c3b8960b01468ce8ce6db051850",
+   "maple_family": 6,
+   "maple_base": "0x1da0000",
+   "maple_text_bytes": 27666,
+   "ram_end": null,
+   "rom_header": "marker"
+  },
+  {
+   "title": "BUST A MOVE 4",
+   "product": "T-8117N",
+   "region": "U",
+   "kernel_sha256": "2a8d24738bb5ba0687fa56ad33e814fe798158f9cb8cacfd4a8a20dea6bbb35d",
+   "maple_family": 6,
+   "maple_base": "0x1ce0000",
+   "maple_text_bytes": 27666,
+   "ram_end": "0x8cfd0000",
+   "rom_header": "marker"
+  },
+  {
+   "title": "CAESARS PALACE 2000",
+   "product": "T-12504N",
+   "region": "U",
+   "kernel_sha256": "25e68cedcd08f4920eb1b08a91dfae4a3dfe66c7b72e9946641523843d00c8a4",
+   "maple_family": 6,
+   "maple_base": "0x1d80000",
+   "maple_text_bytes": 27666,
+   "ram_end": "0x8cfd0000",
+   "rom_header": "marker"
+  },
+  {
+   "title": "RESIDENT EVIL 2",
+   "product": "T1205N",
+   "region": "U",
+   "kernel_sha256": "65807058c3fbc8c81f6ef6d4d95237e3b239b64557020c106dd15beb7a67917c",
+   "maple_family": 6,
+   "maple_base": "0x1dd0000",
+   "maple_text_bytes": 27666,
+   "ram_end": "0x8cfd0000",
+   "rom_header": "marker"
+  },
+  {
+   "title": "RESIDENT EVIL 2",
+   "product": "T1205N",
+   "region": "U",
+   "kernel_sha256": "65807058c3fbc8c81f6ef6d4d95237e3b239b64557020c106dd15beb7a67917c",
+   "maple_family": 6,
+   "maple_base": "0x1dd0000",
+   "maple_text_bytes": 27666,
+   "ram_end": "0x8cfd0000",
+   "rom_header": "marker"
+  },
+  {
+   "title": "SUPER RUNABOUT",
+   "product": "T12509N",
+   "region": "U",
+   "kernel_sha256": "b4bb0c6a5ca3418d0af2a7868397220a8741da10ca301c45842bb336d4072bff",
+   "maple_family": 6,
+   "maple_base": "0x1dd0000",
+   "maple_text_bytes": 27666,
+   "ram_end": "0x8cfd0000",
+   "rom_header": "marker"
+  },
+  {
+   "title": "TOMB RAIDER THE LAST REVELATION",
+   "product": "T-36806N",
+   "region": "U",
+   "kernel_sha256": "943857d144c1dc0a869df52f0781f0eca8260c3b8960b01468ce8ce6db051850",
+   "maple_family": 6,
+   "maple_base": "0x1da0000",
+   "maple_text_bytes": 27666,
+   "ram_end": "0x8ced0000",
+   "rom_header": "marker"
+  },
+  {
+   "title": "BIOHAZARD 2 VALUE PLUS",
+   "product": "T1214M",
+   "region": "J",
+   "kernel_sha256": "27f83ff9c9cf6b8ddb28dfeaa6704ab6b8a3c9d42d59410198f2ac2aa1057c11",
+   "maple_family": 7,
+   "maple_base": "0x1df0000",
+   "maple_text_bytes": 22434,
+   "ram_end": "0x8cfd0000",
+   "rom_header": "marker"
+  },
+  {
+   "title": "HELLO KITTY LOVELY FRUIT PARK",
+   "product": "HDR-0055",
+   "region": "J",
+   "kernel_sha256": "e10fc4a684424b6fec8eb33f3dba24e7747a3b0799994b684bd12328e8c7bf38",
+   "maple_family": 7,
+   "maple_base": "0x1dc0000",
+   "maple_text_bytes": 22434,
+   "ram_end": "0x8cfd0000",
+   "rom_header": "marker"
+  },
+  {
+   "title": "ARMADA",
+   "product": "T40301N 00",
+   "region": "U",
+   "kernel_sha256": "a7628c78090fce2c93012d5e4db6142096e138dceb7ebbf555142e902ca03c1f",
+   "maple_family": 7,
+   "maple_base": "0x1dd0000",
+   "maple_text_bytes": 22434,
+   "ram_end": "0x8cfd0000",
+   "rom_header": "marker"
+  },
+  {
+   "title": "WILD METAL",
+   "product": "T42101N 00",
+   "region": "U",
+   "kernel_sha256": "4b01a13620c9882b7d8653223c7a5aae9d5fa9079b14fb3f163694568bc127dd",
+   "maple_family": 7,
+   "maple_base": "0x1b40000",
+   "maple_text_bytes": 22434,
+   "ram_end": "0x8cfd0000",
+   "rom_header": "marker"
+  },
+  {
+   "title": "KITAHEI GOLD",
+   "product": "T39801M",
+   "region": "J",
+   "kernel_sha256": "f567fb8938cc5b247bae98fd8adb37fad677d1db1347bd87a0676bc5460480bb",
+   "maple_family": 8,
+   "maple_base": "0x1b80000",
+   "maple_text_bytes": 19506,
+   "ram_end": "0x8cef0000",
+   "rom_header": "survey header 0x8c434704"
+  },
+  {
+   "title": "WORLD NEVERLAND PLUS - OLERUD KINGDOM STORY -",
+   "product": "T5301M",
+   "region": "J",
+   "kernel_sha256": "8adf95115b067f286b3c069191db33406e911609f8868d9a71fdfa6f890c1685",
+   "maple_family": 8,
+   "maple_base": "0x1ce0000",
+   "maple_text_bytes": 19506,
+   "ram_end": "0x8cef0000",
+   "rom_header": "survey header 0x8c3e0708"
+  },
+  {
+   "title": "SEGA RALLY 2",
+   "product": "MK-51019",
+   "region": "U",
+   "kernel_sha256": "018e747e54e5452bab05770b56a5ffa20330cdc1fb898840836a5ddae8d947b3",
+   "maple_family": 9,
+   "maple_base": "0x1de0000",
+   "maple_text_bytes": 19474,
+   "ram_end": "0x8cef0000",
+   "rom_header": "survey header 0x8c12ce38"
+  },
+  {
+   "title": "EISEIMEIJIN3 GAME CREATOR YOSIMURA NOBUHIRO NO ZUNOU",
+   "product": "T9503M",
+   "region": "J",
+   "kernel_sha256": "a7732659338338da63e797de99805609ab89e7a5351a15046750cc874a2ee936",
+   "maple_family": 10,
+   "maple_base": "0x1d20000",
+   "maple_text_bytes": 19474,
+   "ram_end": "0x8cef0000",
+   "rom_header": "survey header 0x8c167778"
+  },
+  {
+   "title": "KITAE WHITE ILLUMINATION",
+   "product": "T14301M",
+   "region": "J",
+   "kernel_sha256": "e356b87f7fd4d544f34654a01b8aacc2d6aa6cc2c653985ed9ca2121bff93b68",
+   "maple_family": 10,
+   "maple_base": "0x1d40000",
+   "maple_text_bytes": 19474,
+   "ram_end": "0x8cef0000",
+   "rom_header": "survey header 0x8c15e1d0"
+  },
+  {
+   "title": "MORITA NO SAIKYO REVERSI",
+   "product": "T39102M",
+   "region": "J",
+   "kernel_sha256": "9609184fa1078b24459fbddec449b41d02bb07ec66f51e68f60d3c591ddfb575",
+   "maple_family": 10,
+   "maple_base": "0x1d20000",
+   "maple_text_bytes": 19474,
+   "ram_end": "0x8cef0000",
+   "rom_header": "survey header 0x8c167778"
+  },
+  {
+   "title": "MORITA NO SAIKYO SHOUGI",
+   "product": "T39101M",
+   "region": "J",
+   "kernel_sha256": "1d82f862fad067f1b635f2e1cb8bbf0ef414b9de28dbd200cb0997b3b46db3bd",
+   "maple_family": 10,
+   "maple_base": "0x1d20000",
+   "maple_text_bytes": 19474,
+   "ram_end": "0x8cef0000",
+   "rom_header": "survey header 0x8c167778"
+  },
+  {
+   "title": "SEKAI FUSHIGI HAKKEN TROIA",
+   "product": "T39701M",
+   "region": "J",
+   "kernel_sha256": "f86dfa18b1ab42830b0ff2864adc29dd34fdfc351df5917618dfae5fbf806bc6",
+   "maple_family": 10,
+   "maple_base": "0x1d40000",
+   "maple_text_bytes": 19474,
+   "ram_end": "0x8cef0000",
+   "rom_header": "survey header 0x8c132520"
+  },
+  {
+   "title": "SUPER PRODUCERS",
+   "product": "T14303M",
+   "region": "J",
+   "kernel_sha256": "45ffe778a6d07b8b66e45f94bfd777ba8f070a640136d1e3324c23c877ff993f",
+   "maple_family": 10,
+   "maple_base": "0x1ee0000",
+   "maple_text_bytes": 19474,
+   "ram_end": "0x8cef0000",
+   "rom_header": "survey header 0x8c0d77a4"
+  },
+  {
+   "title": "DENSHA DE GO 2 3K FOR DREAMCAST",
+   "product": "T1102M",
+   "region": "J",
+   "kernel_sha256": "79f6df522e74d4668d2efb901d4f5b79da7f4c1e8032f798822399da5ace18b0",
+   "maple_family": 11,
+   "maple_base": "0x1e30000",
+   "maple_text_bytes": 19458,
+   "ram_end": "0x8cef0000",
+   "rom_header": "survey header 0x8c12c77c"
+  },
+  {
+   "title": "KITTY GP",
+   "product": "6107381",
+   "region": "J",
+   "kernel_sha256": "6ded86339c6a5b115ef6a180e37b76d89e7eb54d97a2d847157c0a1817c8222f",
+   "maple_family": 11,
+   "maple_base": "0x1e40000",
+   "maple_text_bytes": 19458,
+   "ram_end": "0x8cef0000",
+   "rom_header": "survey header 0x8c11a964"
+  },
+  {
+   "title": "MARIONETTE COMPANY",
+   "product": "T5202M",
+   "region": "J",
+   "kernel_sha256": "7c1da64242a791b42e4353ae23fa0e8b29d28e5227a87cd9c849956328a0462c",
+   "maple_family": 11,
+   "maple_base": "0x1d20000",
+   "maple_text_bytes": 19458,
+   "ram_end": "0x8cef0000",
+   "rom_header": "survey header 0x8c168564"
+  },
+  {
+   "title": "PLUS PLUMB",
+   "product": "T37901M",
+   "region": "J",
+   "kernel_sha256": "2e9fef1de8f5fd026d3a9d0a4b04935d05640a8d0a095a6047f75bfe6eb498cc",
+   "maple_family": 11,
+   "maple_base": "0x1e00000",
+   "maple_text_bytes": 19458,
+   "ram_end": "0x8cef0000",
+   "rom_header": "survey header 0x8c13e548"
+  },
+  {
+   "title": "SPACE GRIFFON VF-9",
+   "product": "T39601M",
+   "region": "J",
+   "kernel_sha256": "562da08daac5c92b2677fee6441d9a3bb515cedda1654d7d5c5b59f386908a0b",
+   "maple_family": 11,
+   "maple_base": "0x1e00000",
+   "maple_text_bytes": 19458,
+   "ram_end": "0x8cef0000",
+   "rom_header": "survey header 0x8c2bd2f4"
+  },
+  {
+   "title": "UNDERCOVER A.D.2025 KEI",
+   "product": "T39001M",
+   "region": "J",
+   "kernel_sha256": "de89652550181482a1edc13f69d05e30fa234b3028360ea5a4a583c5de98a6d4",
+   "maple_family": 11,
+   "maple_base": "0x1e30000",
+   "maple_text_bytes": 19458,
+   "ram_end": "0x8cef0000",
+   "rom_header": "survey header 0x8c10f8cc"
+  },
+  {
+   "title": "QUARTERBACK CLUB 2000",
+   "product": "T-8101N",
+   "region": "U",
+   "kernel_sha256": "3bc1b35610c9a5f8d7bf8fca79832a8f8158c9a9d97ac3e2171843f2961adfdc",
+   "maple_family": 11,
+   "maple_base": "0x1e20000",
+   "maple_text_bytes": 19458,
+   "ram_end": "0x8cef0000",
+   "rom_header": "survey header 0x8c1149f8"
+  },
+  {
+   "title": "SOUTH PARK CHEFS",
+   "product": "T-8105N",
+   "region": "U",
+   "kernel_sha256": "32fafb9749bcaef1cac88b4c54ce327fac500fab73dbd11ab9ae3d3b659d6d51",
+   "maple_family": 11,
+   "maple_base": "0x1e30000",
+   "maple_text_bytes": 19458,
+   "ram_end": "0x8cef0000",
+   "rom_header": "survey header 0x8c1099f8"
+  },
+  {
+   "title": "WORMS ARMAGEDDON",
+   "product": "T40601N",
+   "region": "U",
+   "kernel_sha256": "39b80e305947056551318bb65529cccc886021be60406c06f3110f7fe03bf571",
+   "maple_family": 11,
+   "maple_base": "0x1e00000",
+   "maple_text_bytes": 19458,
+   "ram_end": "0x8cef0000",
+   "rom_header": "marker"
+  },
+  {
+   "title": "SEGA RALLY2",
+   "product": "HDR0010",
+   "region": "J",
+   "kernel_sha256": "26fd1b380981588989473e3c6ad32d6778b7f39c292d6376bf022790867fd67a",
+   "maple_family": 12,
+   "maple_base": "0x1c20000",
+   "maple_text_bytes": 16306,
+   "ram_end": "0x8cef0000",
+   "rom_header": "survey header 0x8c170a00"
+  }
+ ],
+ "private_inputs": "No game bytes"
+}
