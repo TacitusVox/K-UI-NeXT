@@ -1,4 +1,4 @@
-# Whole-library startup bundle (v2.1)
+# Whole-library startup bundle (v2.2)
 
 One command inventories every Dreamcast image below a folder and collects what
 K-UI needs to check each game against its launch routes: the disc header
@@ -48,6 +48,21 @@ What it does with each image:
 The tracks are only read, never changed, and existing ZIPs are never
 overwritten. Symlinked folders and macOS `._` files are skipped. This prepares
 evidence for analysis; it is not a game patch or a compatibility claim.
+
+## Windows CE games only (`--windows-ce`)
+
+To collect just the Windows CE games, for example across a large collection,
+add `--windows-ce`:
+
+```sh
+mkdir -p ~/kui-wince
+python3 kui-library-startup-bundle.py /run/media/apollonius/Dreamcast/Games --output-dir ~/kui-wince --windows-ce
+```
+
+Every Windows CE game is copied, even one sent before. Each copy holds the disc
+header, the Windows CE kernel `0WINCEOS.BIN` the header names, the game's
+programs and the file listing. Native games are recognized from their disc
+header alone. They are listed by title and not copied, so the parts stay small.
 
 ## Why the startup count can be smaller than the collection
 

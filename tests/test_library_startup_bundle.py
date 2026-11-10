@@ -227,6 +227,34 @@ class LibraryStartupBundleTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, 'malformed SHA256'):
             self.build(known_path=known)
 
+    def test_windows_ce_only_recopies_ce_startups_and_lists_native_games(self):
+        first, _ = self.build()
+        gamma = next(row for row in first if row['source'] == 'Gamma CE/disc.gdi')
+        known = self.folder / 'already-sent.json'
+        known.write_text(json.dumps({'startups': [{'title': 'Gamma', 'startup_key': gamma['startup_key']}]}))
+        self.output = self.folder / 'out-ce'
+        self.output.mkdir()
+        before = self.hashes()
+        rows, created = self.build(known_path=known, windows_ce_only=True)
+        self.assertEqual(self.hashes(), before, 'source tracks are read only')
+        status = {row['source']: row['status'] for row in rows}
+        self.assertEqual(status, {
+            'Alpha/disc.gdi': 'not_windows_ce', 'Alpha copy/disc.gdi': 'not_windows_ce',
+            'Beta/disc.gdi': 'not_windows_ce', 'Broken/disc.gdi': 'error',
+            'Delta CDDA/disc.gdi': 'not_windows_ce', 'Eta (USA)/game.cue': 'not_windows_ce',
+            'Gamma CE/disc.gdi': 'bundled', 'Zeta-2048/disc.gdi': 'not_windows_ce',
+            'Epsilon/game.cdi': 'other_format', 'Loose/game.iso': 'other_format'})
+        native = next(row for row in rows if row['source'] == 'Alpha/disc.gdi')
+        self.assertEqual((native['title'], native['windows_ce']), ('Alpha Fixture', False))
+        self.assertNotIn('archive', native)
+        ce = next(row for row in rows if row['source'] == 'Gamma CE/disc.gdi')
+        self.assertEqual(ce['startup_key'], gamma['startup_key'], 'sent before, copied again')
+        with zipfile.ZipFile(created[0]) as archive:
+            self.assertIs(json.loads(archive.read('library.json'))['windows_ce_only'], True)
+            self.assertEqual([name for name in archive.namelist() if name.startswith('games/')],
+                             [ce['archive']])
+        self.assertEqual(sweep.verdict(native)[1], 'not_native')
+
     def test_parts_split_and_every_part_lists_every_game(self):
         rows, created = self.build(part_mb=0.001)
         bundled = [row for row in rows if row['status'] == 'bundled']

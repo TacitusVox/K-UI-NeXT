@@ -184,6 +184,7 @@ def verdict(row):
                 'cdda': 'CD audio (out of scope)',
                 'error': 'not read: ' + str(row.get('error')),
                 'other_format': 'not a GDI (' + str(row.get('format')) + ')',
+                'not_windows_ce': 'native, not copied by a Windows CE-only run',
                 'not_uploaded': 'part not uploaded'}[status], 'not_native'
     family = row.get('sdk_sci_family') == 1
     if row.get('structural_384k_models_passed') and family:

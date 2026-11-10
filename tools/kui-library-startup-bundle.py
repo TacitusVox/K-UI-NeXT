@@ -27,7 +27,7 @@ import tempfile
 import uuid
 import zipfile
 
-LIBRARY_VERSION = '2.1'
+LIBRARY_VERSION = '2.2'
 SCHEMA = 'kui.library-startup.v2'
 DESCRIPTOR_LIMIT = 4096
 WALK_LIMIT = 1000000
@@ -98,6 +98,33 @@ def ip_fields(ip):
         return ip[start:end].decode('ascii', 'replace').strip(' \0')
     return {'title': text(128, 256), 'product': text(64, 74), 'version': text(74, 80),
             'region': text(48, 56), 'disc': text(43, 48)}
+
+
+def peek_windows_ce(descriptor):
+    """(Windows CE flag, title fields) from the header sector alone, or None.
+
+    Only a valid GD header answers; anything else is left to full extraction."""
+    try:
+        original = descriptor.read_bytes()
+        if len(original) > 64 * 1024:
+            return None
+        parser = disc.parse_gdi if descriptor.suffix.lower() == '.gdi' else disc.parse_cue
+        tracks, _ = parser(descriptor, original)
+        for start, _end, control, path, stride, offset in tracks:
+            if control != 4 or start < 45000:
+                continue
+            with path.open('rb') as source:
+                source.seek(offset)
+                sector = source.read(stride)
+            ip = sector[16:16 + disc.DATA] if stride == disc.RAW else sector
+            peripheral = ip[56:63].decode('ascii')
+            if (ip[:16] != b'SEGA SEGAKATANA ' or ip[37:43] != b'GD-ROM' or ip[63:64] != b' ' or
+                    not re.fullmatch(r'[0-9A-Fa-f]{7}', peripheral)):
+                return None
+            return bool(int(peripheral, 16) & 1), ip_fields(ip)
+    except (OSError, ValueError, UnicodeError):
+        return None
+    return None
 
 
 def peek_ip(descriptor):
@@ -226,9 +253,18 @@ def load_requests(path):
     return requests
 
 
-def classify(descriptor, root, index, method, staging, known, requests=None):
-    """One library row; writes the inner ZIP into staging when bundled."""
+def classify(descriptor, root, index, method, staging, known, requests=None,
+             windows_ce_only=False):
+    """One library row; writes the inner ZIP into staging when bundled.
+
+    windows_ce_only lists native games from their header without copying them,
+    and copies every Windows CE startup even when it was sent before."""
     row = {'source': descriptor.relative_to(root).as_posix(), 'status': 'error'}
+    if windows_ce_only:
+        header = peek_windows_ce(descriptor)
+        if header and not header[0]:
+            row.update(header[1], windows_ce=False, status='not_windows_ce')
+            return row
     try:
         entries, report = disc.extract(descriptor)
         wanted = (requests or {}).get(product_key(report['product']), [])
@@ -262,8 +298,11 @@ def classify(descriptor, root, index, method, staging, known, requests=None):
         row['application_candidates'] = report['application_candidates']
     if wanted:
         row['requested_files'] = wanted
-    if ('key', row['startup_key']) in known or \
-            (not report['windows_ce'] and not wanted and ('boot', row['boot_sha256']) in known):
+    if windows_ce_only and not report['windows_ce']:
+        row['status'] = 'not_windows_ce'
+        return row
+    if not windows_ce_only and (('key', row['startup_key']) in known or
+            (not report['windows_ce'] and not wanted and ('boot', row['boot_sha256']) in known)):
         row['status'] = 'already_sent'
         return row
     row['slug'] = slug(index, row['product'], row['title'])
@@ -328,6 +367,8 @@ def describe(row):
     status = row['status']
     if status == 'error':
         return row['error']
+    if status == 'not_windows_ce':
+        return 'native; not copied (Windows CE games only)'
     kind = ('Windows CE' if row['windows_ce'] else 'native') + \
         (f", CD audio ({row['cdda_tracks']} tracks)" if row['cdda_tracks'] else '')
     if status == 'duplicate':
@@ -337,7 +378,8 @@ def describe(row):
     return f"{kind}; {row['boot_filename']} {row['boot_bytes']:,} bytes, {row['copied_files']} files"
 
 
-def build(root, output_dir, name, part_mb, known_path=None, log=print, requests_path=None):
+def build(root, output_dir, name, part_mb, known_path=None, log=print, requests_path=None,
+          windows_ce_only=False):
     root, output_dir = Path(root), Path(output_dir)
     if root.is_symlink() or not root.is_dir():
         raise ValueError(f'{root} is not a folder')
@@ -355,7 +397,8 @@ def build(root, output_dir, name, part_mb, known_path=None, log=print, requests_
     with tempfile.TemporaryDirectory(prefix='.kui-library-', dir=output_dir) as work:
         staging = Path(work)
         for index, descriptor in enumerate(descriptors, 1):
-            row = classify(descriptor, root, index, method, staging, known, requests)
+            row = classify(descriptor, root, index, method, staging, known, requests,
+                           windows_ce_only=windows_ce_only)
             if row['status'] in ('bundled', 'already_sent'):
                 key = row['startup_key']
                 if key in by_key:
@@ -383,7 +426,8 @@ def build(root, output_dir, name, part_mb, known_path=None, log=print, requests_
                        'part': number, 'parts': len(parts),
                        'purpose': 'K-UI startup sweep; game bytes unchanged',
                        'compression': 'lzma' if method == zipfile.ZIP_LZMA else 'deflate',
-                       'already_sent': len(known), 'summary': counts, 'games': rows}
+                       'already_sent': len(known), 'windows_ce_only': windows_ce_only,
+                       'summary': counts, 'games': rows}
             destination = output_dir / f'{name}-{number:02d}.zip'
             publish(destination, library, part, staging)
             created.append(destination)
@@ -402,6 +446,9 @@ def main():
                         help='Largest part in MiB (default 25); 0 writes one ZIP')
     parser.add_argument('--resend-all', action='store_true',
                         help=f'Ignore {KNOWN_NAME} and copy every startup again')
+    parser.add_argument('--windows-ce', action='store_true',
+                        help='Copy only Windows CE games, including ones sent before; '
+                             'native games are listed from their header, not copied')
     args = parser.parse_args()
     if not re.fullmatch(r'[A-Za-z0-9_-]{1,40}', args.name) or args.part_mb < 0:
         parser.error('--name takes letters, digits, - and _; --part-mb is 0 or more')
@@ -410,7 +457,8 @@ def main():
     try:
         rows, created = build(args.folder, args.output_dir, args.name, args.part_mb,
                               known_path=known, log=lambda line: print(line, flush=True),
-                              requests_path=Path(__file__).resolve().with_name(REQUESTS_NAME))
+                              requests_path=Path(__file__).resolve().with_name(REQUESTS_NAME),
+                              windows_ce_only=args.windows_ce)
     except (OSError, ValueError, zipfile.BadZipFile, UnicodeError) as error:
         parser.exit(1, f'Bundling stopped: {error}\n')
     except KeyboardInterrupt:
