@@ -49,6 +49,13 @@ averaged about 1.3 MB per native startup, so a 200-game run is about 11
 parts. Only GDI and CUE/BIN images are read; convert CDI, CHD and other
 formats first if they matter.
 
+## Collected so far
+
+- US Windows CE: all 36 games. See [driver families](wince-vmu-driver-families.md).
+- US native: the whole US library, in 8 parts. See [US compatibility](library-compat-us.md),
+  where Maple layout, Maple driver and SDK heap families are the first blocker for 91 games.
+- Still to run: PAL and JPN Windows CE, then PAL and JPN native startups.
+
 ## What the discs cannot tell us
 
 - Console behavior: launches, FMV smoothness, saves and power-cycle reloads
