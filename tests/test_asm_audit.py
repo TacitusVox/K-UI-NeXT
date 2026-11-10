@@ -15,7 +15,8 @@
    and freestanding loaders. The preprocessor runs over disc.c and the CE music loaders under
    EACH SH-4 macro set: every mode must select the same console branch.
 This does not prove anything compiles on the console toolchain; it stops these two known ways of
-failing there from coming back."""
+failing there from coming back. REVIEWED_ASM lists the one exception, pinned to its exact text."""
+import hashlib
 import pathlib
 import re
 import shutil
@@ -25,6 +26,14 @@ import unittest
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 MAX_OPERANDS = 3   # the tree's asm has 0 to 1; KOS's failing helper had 9
+# One reviewed exception, pinned to the SHA-256 of its comment-stripped statement: the CE
+# reader's per-byte block check (src/loader/sci_stream_check.h, console-tested in 7b216f2e1136).
+# Six register operands and no memory operand, unlike KOS's failing helper (eight memory
+# operands). The pinned GCC 15.2.0 compiles it in every CE reader build, and
+# test-sh4-check-words runs it under qemu-sh4 against a bitwise reference. Any edit to the
+# statement drops the exception; every other asm keeps the limit.
+REVIEWED_ASM = {("src/loader/sci_stream_check.h",
+                 "676118afd27f1b67ca778a744f52c0f671bd396a0ff7f232e5b2488e11459708"): 6}
 TARGET_DETECTORS = {"include/kui/target.h"}
 RAW_TARGET_MACROS = re.compile(r"__SH4|__sh__|_arch_dreamcast|__DREAMCAST__")
 
@@ -74,13 +83,20 @@ def operand_count(asm_args):
     return sum(len([o for o in top_level_split(s, ",") if o.strip()]) for s in sections[1:3])
 
 
-def audit(root):
-    """Return (file, operands) for every over-complex asm statement under root."""
+def statement_key(path, args):
+    return (path, hashlib.sha256(args.encode()).hexdigest())
+
+
+def audit(root, reviewed=None):
+    """Return (file, operands) for every over-complex asm statement under root, except an
+    exact reviewed statement with its reviewed operand count."""
     bad = []
     for path in sorted(list(root.glob("src/**/*.[ch]")) + list(root.glob("include/**/*.h"))):
+        relative = str(path.relative_to(root))
         for args in asm_statements(strip_comments(path.read_text())):
             n = operand_count(args)
-            if n > MAX_OPERANDS: bad.append((str(path.relative_to(root)), n))
+            if n > MAX_OPERANDS and (reviewed or {}).get(statement_key(relative, args)) != n:
+                bad.append((relative, n))
     return bad
 
 
@@ -155,7 +171,21 @@ class AsmAudit(unittest.TestCase):
         self.assertEqual(operand_count(' "a:b,c)" : "=r"(x), "=r"(y) : "r"(z) '), 3)   # ':' ',' ')' inside a template
 
     def test_tree_has_only_simple_inline_asm(self):
-        self.assertEqual(audit(ROOT), [], "inline asm with too many operands (see this file's docstring)")
+        self.assertEqual(audit(ROOT, REVIEWED_ASM), [],
+                         "inline asm with too many operands (see this file's docstring)")
+
+    def test_reviewed_exception_is_exact_and_current(self):
+        found = {}
+        for (path, digest), operands in REVIEWED_ASM.items():
+            for args in asm_statements(strip_comments((ROOT / path).read_text())):
+                if statement_key(path, args) == (path, digest):
+                    found[(path, digest)] = operand_count(args)
+        self.assertEqual(found, REVIEWED_ASM, "a reviewed asm statement changed or was removed")
+        with tempfile.TemporaryDirectory() as d:
+            root = pathlib.Path(d)
+            (root / "src").mkdir()
+            (root / "src" / "busy.c").write_text("void f(void *ptr) {\n" + KOS_PURGE_LINE + "\n}\n")
+            self.assertEqual(audit(root, REVIEWED_ASM), [("src/busy.c", 9)])
 
 
 class ConsoleMacro(unittest.TestCase):
