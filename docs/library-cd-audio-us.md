@@ -48,3 +48,24 @@ Record: [JPN CD audio survey](evidence/jpn-cd-audio-survey-2026-11-10.json).
 | `AUDIO64.DRV` | 5 | 3 | 3 games |
 
 `MANATEE.DRV` dominates in Japan: six exact builds cover 60 of its 86 games.
+
+## Worldwide (11 Nov 2026)
+
+Across every startup received (1,154 distinct by product and title), 370
+carry real CD audio: 297 native and 73 Windows CE.
+Record: [worldwide CD audio survey](evidence/world-cd-audio-survey-2026-11-11.json).
+
+| Driver | Native CD-audio games | Distinct builds | Largest builds cover |
+| --- | ---: | ---: | --- |
+| `MANATEE.DRV` | 200 | 22 | 29, 27, 23, 22, 19, 13 games |
+| `AUDIO64.DRV` | 92 | 17 | 24, 21, 12 games |
+| `MANATEE2.DRV` | 22 | 2 | 20, 2 games |
+| `SOUND.BIN` | 18 | 13 | 3, 3, 2 games |
+| `AICADRV.BIN` | 12 | 8 | 3, 2, 2 games |
+| `NAMIHEI.DRV` | 11 | 2 | 7, 4 games |
+| `MIDIDA.DRV` | 6 | 4 | 3 games |
+| `ARMCOM.DRV` | 3 | 1 | all 3 |
+
+Six `MANATEE.DRV` builds cover 133 games, and three `AUDIO64.DRV` builds
+cover 57. A native CD music adapter per common driver build would reach
+most of the library.

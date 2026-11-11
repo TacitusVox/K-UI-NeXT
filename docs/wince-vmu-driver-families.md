@@ -115,3 +115,20 @@ Record: [US and JPN survey](evidence/wince-controller-driver-survey-us-jpn-2026-
 
 Biohazard 2 Value Plus and Hello Kitty Lovely Fruit Park have Armada's exact
 drivers, as Wild Metal does. Their RAM layouts are in the record.
+
+## Worldwide (11 Nov 2026)
+
+The full CHD collection run adds PAL. 104 Windows CE games on 94 distinct
+kernels still fall into the same 12 `maple.dll` families; PAL adds no new
+family. The largest are:
+
+- World Party's family: 22 kernels.
+- BAM4's: 15.
+- Worms Armageddon's: 13.
+- Bang! Gunship Elite's: 12.
+- Nightmare Creatures II's: 10.
+
+The PAL Nightmare Creatures II and Taxi 2 kernels join the Urban Chaos family
+rather than the US NC2 family. A hook built per family therefore covers PAL
+releases too, but the family must be looked up per kernel, not per title.
+Record: [worldwide survey](evidence/wince-controller-driver-survey-world-2026-11-11.json).

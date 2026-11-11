@@ -63,7 +63,9 @@ formats first if they matter.
   the Maple driver family is the first blocker for 157 games. Its 45 Windows CE games
   are in the [driver families](wince-vmu-driver-families.md), and its CD audio games in
   [CD audio](library-cd-audio-us.md).
-- Still to run: PAL Windows CE and PAL native startups.
+- Worldwide: the full CHD collection run (`39dbe1a6`, 33 parts, bundler v2.4 with
+  `--chd`) adds PAL. See [worldwide compatibility](library-compat-world.md). Collection is
+  complete; 83 unreadable images are all unlicensed CD, MIL-CD, soundtrack or system discs.
 
 ## What the discs cannot tell us
 
