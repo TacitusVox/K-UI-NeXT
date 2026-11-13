@@ -1,0 +1,13 @@
+Mode 62: exact AVI names, context 8c00dc90, clip spans, ready, pending, stale and other chunk results passed
+Ahead idle verification, 3 exact warm tokens including ring wrap, 1 CMD18, 924 UPDATE entries passed
+Ahead bad raw EDC quarantined with no guest writes and exact same-token fallback passed
+Ahead canceled private in-flight DMA, no canceled writes, disjoint seek completed with original GD ownership
+Ahead old-token parked suffix rejected while verified warm data and new token remain correct
+Test 62 original masked 0x8c0b2b4e kick disarms ahead before EDC while same GD token succeeds
+Mode 64: exact AVI names, context 8c00dc90, clip spans, ready, pending, stale and other chunk results passed
+Ahead idle verification, 3 exact warm tokens including ring wrap, 1 CMD18, 924 UPDATE entries passed
+Ahead bad raw EDC quarantined with no guest writes and exact same-token fallback passed
+Ahead canceled private in-flight DMA, no canceled writes, disjoint seek completed with original GD ownership
+Ahead old-token parked suffix rejected while verified warm data and new token remain correct
+Kick-aware policy retains original masked enqueue/EXEC and delivers 3 verified future tokens
+A second blocking EXEC and a first kickoff without armed SCI retain strict fallback

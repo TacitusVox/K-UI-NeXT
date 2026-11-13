@@ -1,0 +1,2 @@
+Original DMAOR values 0x8201 at both C2 paths. Both cached and uncached patch addresses occur in Test41 and are absent from Test42 linked stages.
+All resident SCI bytes match Test41 after substituting the build ID 758c2eacaa9b -> 5425aca86182.

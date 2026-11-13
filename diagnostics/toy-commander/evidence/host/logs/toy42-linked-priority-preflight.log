@@ -1,0 +1,2 @@
+Original DMAOR values 0x8201 at both C2 paths; both cached and uncached patch addresses found in Test41 linked stage and absent from Test42.
+Resident SCI binary identical: False f79ad516ffbdbf722015be524fede168998e3d7e9cd7126111474b3ece3f0f50

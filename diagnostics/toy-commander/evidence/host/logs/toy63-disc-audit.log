@@ -1,0 +1,62 @@
+make: Entering directory '/workspace/scratch/1b16db76023d/trace-control'
+sh-elf-gcc -std=c11 -Os -g -Wall -Wextra -Werror -m4-single -ml -mdiv=call-div1 -mfixed-range=fr0-fr15,fpul-fpul -ffreestanding -fno-builtin -ffunction-sections -fdata-sections -fstack-usage -fcallgraph-info=su -Iinclude -Isrc/loader -DKUI_RETAIL_FAST_IO=1 -DKUI_DISC_STAGE_FAST_CRC32=1 -DKUI_RETAIL_NATIVE_HANDOFF_PAUSE_FRAMES=0 -DKUI_DISC_TOY_TRACE=1 -DKUI_BUILD_ID='"5034eb26898d"' -MMD -MP -c src/loader/retail_display.c -o build/disc-toy-frame63/src/loader/retail_display.o
+sh-elf-gcc -m4-single -ml -mdiv=call-div1 -mfixed-range=fr0-fr15,fpul-fpul -nostdlib -Wl,--gc-sections -Wl,--build-id=none -Tsrc/loader/disc_stage.ld -Wl,-Map,build/disc-toy-frame63/stage.map -o build/disc-toy-frame63/stage.elf build/disc-toy-frame63/src/loader/disc_stage.o build/disc-toy-frame63/src/core/disc_launch.o build/disc-toy-frame63/src/core/hash.o build/disc-toy-frame63/src/core/data.o build/disc-toy-frame63/src/loader/retail_display.o build/disc-toy-frame63/src/loader/minic.o build/disc-toy-frame63/disc_stage_asm.o build/disc-toy-frame63/disc_toy_trace_stage_asm.o -lgcc
+/workspace/scratch/1b16db76023d/toy34-inputs/.deps/sh-elf/bin/../lib/gcc/sh-elf/15.2.0/../../../../sh-elf/bin/ld: warning: build/disc-toy-frame63/stage.elf has a LOAD segment with RWX permissions
+python3 tools/record_build.py build/disc-toy-frame63/stage.elf
+sh-elf-objcopy -O binary build/disc-toy-frame63/stage.elf build/disc-toy-frame63/stage.bin
+sh-elf-gcc -std=c11 -Os -g -Wall -Wextra -Werror -m4-single -ml -mdiv=call-div1 -mfixed-range=fr0-fr15,fpul-fpul -ffreestanding -fno-builtin -ffunction-sections -fdata-sections -fstack-usage -fcallgraph-info=su -Iinclude -Isrc/loader -DKUI_RETAIL_FAST_IO=1 -DKUI_DISC_STAGE_FAST_CRC32=1 -DKUI_RETAIL_NATIVE_HANDOFF_PAUSE_FRAMES=0 -DKUI_DISC_TOY_TRACE=1 -DKUI_BUILD_ID='"5034eb26898d"' -DKUI_DISC_STAGE_BIN='"build/disc-toy-frame63/stage.bin"' -c src/loader/disc_entry.S -o build/disc-toy-frame63/disc_entry_asm.o
+sh-elf-gcc -m4-single -ml -mdiv=call-div1 -mfixed-range=fr0-fr15,fpul-fpul -nostdlib -Wl,--gc-sections -Wl,--build-id=none -Tsrc/loader/disc_entry.ld -Wl,-Map,build/disc-toy-frame63/entry.map -o build/disc-toy-frame63/entry.elf build/disc-toy-frame63/disc_entry_asm.o
+python3 tools/record_build.py build/disc-toy-frame63/entry.elf
+python3 tools/runtime_package.py build build/disc-toy-frame63/entry.elf build/disc-toy-frame63/native-toy-trace.kui --build-id 5034eb26898d
+{
+  "format": 1,
+  "build": "5034eb26898d",
+  "payload_bytes": 30240,
+  "memory_bytes": 30240,
+  "crc32": "408bface"
+}
+python3 tests/test_disc_stage_launch_policy.py --stage build/disc-toy-frame63/stage.elf --expected-frames 0
+kui-global-policy: line 1: .deps/kos/environ.sh: No such file or directory
+kui-global-policy: line 1: .deps/kos/environ.sh: No such file or directory
+kui-global-policy: line 1: .deps/kos/environ.sh: No such file or directory
+kui-global-policy: line 1: .deps/kos/environ.sh: No such file or directory
+{
+  "schema": "kui.disc-stage-launch-policy.v1",
+  "status": "PASS",
+  "normal": {
+    "photo_hold_frames": 0,
+    "pause_calls": 0
+  },
+  "explicit_photo_diagnostic": {
+    "photo_hold_frames": 30,
+    "pause_calls": 1
+  },
+  "old_unconditional_hold_refused": true,
+  "hardware_timing_measured": false,
+  "linked": {
+    "stage_sha256": "252b30508cf48e78d5d687ea3a510785da493416b3486d18c8447c3c643cbee9",
+    "photo_hold_frames": 0,
+    "linked_pause_implementations": 0,
+    "original_handoff": {
+      "entry": 2363495956,
+      "bootstrap2": 2885738496,
+      "target_literal": 2363496104,
+      "sp": 2348872704,
+      "vbr": 2348872704,
+      "sr": 1879048432
+    }
+  },
+  "wrong_linked_policy_refused": true,
+  "source_sha256": {
+    "src/loader/disc_stage.c": "a0e259d8df61e943f1a9e3b97ddd78d998ebd5007e184b39754d2b46a10ce170",
+    "Makefile.disc-native": "00c86d2a15ba6f369dba9e2a0d14374033b4fdbff6a0bf3b6e79579536e3ace2",
+    "tests/test_disc_stage_launch_policy.py": "f4592c20e16295e595ac0985dc56ec3bf6470483bf9f8465ab68337a9b5d87c0"
+  }
+}
+python3 tools/check_disc_handoff.py build/disc-toy-frame63/stage.elf
+PASS physical-disc linked handoff: bootstrap2=AC00E000 SP/VBR=8C00F400 SR/SSR=700000F0; controlling literals, cache publication, FPSCR, return handler and register setup verified
+python3 tests/test_disc_handoff.py build/disc-toy-frame63/stage.elf
+PASS physical-disc linked handoff mutations: 22 corruptions refused; actual resolved jumps, SP/VBR, SR/SSR, cache, GBR, FPSCR and delay slots
+python3 -c 'import sys,subprocess;sys.path.insert(0,"tools");from check_retail_instructions import audit;print("Physical-disc linked instructions:",sum(audit(n,subprocess.check_output(["sh-elf-objdump","-d","build/disc-toy-frame63/"+n+".elf"],text=True)) for n in ("entry","stage","toy-trace")))'
+Physical-disc linked instructions: 6902
+make: Leaving directory '/workspace/scratch/1b16db76023d/trace-control'

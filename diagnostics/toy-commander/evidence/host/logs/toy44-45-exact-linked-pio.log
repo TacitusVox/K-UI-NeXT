@@ -1,0 +1,2 @@
+trace-reader/build/toy-sequential-pio-final/resident-sci.elf: 12 exact linked SH-4 PIO cases, 570217 instructions
+trace-reader/build/toy-bounded-dma-final/resident-sci.elf: 12 exact linked SH-4 PIO cases, 570217 instructions

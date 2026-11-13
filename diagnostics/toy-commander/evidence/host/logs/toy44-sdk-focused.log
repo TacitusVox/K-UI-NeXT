@@ -1,0 +1,27 @@
+src/loader/sci_stream.c: In function ‘receive’:
+src/loader/sci_stream.c:576:24: error: ‘KUI_SCI_SD_PIO_PAYLOAD_BYTES’ undeclared (first use in this function); did you mean ‘KUI_SCI_STREAM_AREA_BYTES’?
+  576 |         _Static_assert(KUI_SCI_SD_PIO_PAYLOAD_BYTES == DMA_BYTES + 1u &&
+      |                        ^~~~~~~~~~~~~~~~~~~~~~~~~~~~
+      |                        KUI_SCI_STREAM_AREA_BYTES
+src/loader/sci_stream.c:576:24: note: each undeclared identifier is reported only once for each function it appears in
+src/loader/sci_stream.c:576:24: error: expression in static assertion is not an integer
+src/loader/sci_stream.c:579:17: error: implicit declaration of function ‘kui_sci_sd_pio_payload’ [-Wimplicit-function-declaration]
+  579 |             if(!kui_sci_sd_pio_payload(p)) {
+      |                 ^~~~~~~~~~~~~~~~~~~~~~
+tests/test_toy_sdk_liveness.c: In function ‘kui_sci_sd_pio_payload’:
+tests/test_toy_sdk_liveness.c:24:30: error: ‘KUI_SCI_SD_PIO_PAYLOAD_BYTES’ undeclared (first use in this function); did you mean ‘KUI_SCI_STREAM_AREA_BYTES’?
+   24 |     for(unsigned i = 0u; i < KUI_SCI_SD_PIO_PAYLOAD_BYTES; ++i) {
+      |                              ^~~~~~~~~~~~~~~~~~~~~~~~~~~~
+      |                              KUI_SCI_STREAM_AREA_BYTES
+tests/test_toy_sdk_liveness.c:24:30: note: each undeclared identifier is reported only once for each function it appears in
+In file included from tests/sci_stream_model.h:9,
+                 from tests/test_retail_async.c:8,
+                 from tests/test_retail_async_sdk_sci_route.c:21,
+                 from tests/test_toy_sdk_liveness.c:8:
+tests/test_toy_sdk_liveness.c: In function ‘slow_retry_keeps_pio_fallback’:
+tests/test_toy_sdk_liveness.c:1057:44: error: ‘KUI_SCI_SD_PIO_PAYLOAD_BYTES’ undeclared (first use in this function); did you mean ‘KUI_SCI_STREAM_AREA_BYTES’?
+ 1057 |     CHECK(payload_bytes == window_blocks * KUI_SCI_SD_PIO_PAYLOAD_BYTES);
+      |                                            ^~~~~~~~~~~~~~~~~~~~~~~~~~~~
+tests/test_toy_sdk_liveness.c:1057:5: note: in expansion of macro ‘CHECK’
+ 1057 |     CHECK(payload_bytes == window_blocks * KUI_SCI_SD_PIO_PAYLOAD_BYTES);
+      |     ^~~~~

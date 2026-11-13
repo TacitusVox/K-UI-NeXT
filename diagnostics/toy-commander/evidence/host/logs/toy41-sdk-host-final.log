@@ -1,0 +1,119 @@
+Mode 1 SDK route: 14 raw-image sectors accepted; overrun left DMA idle and request pending
+Mode 32: exact 28,672 bytes from 7 independent wake visits and 65 SCI interrupts
+Mode 32: exact 28,672 bytes from 7 independent wake visits and 65 SCI interrupts
+Mode 32: exact 28,672 bytes from 7 independent wake visits and 65 SCI interrupts
+Mode 32: exact 28,672 bytes from 7 independent wake visits and 65 SCI interrupts
+Mode 32: exact 28,672 bytes from 7 independent wake visits and 65 SCI interrupts
+Mode 32: exact 28,672 bytes from 5 independent wake visits and 65 SCI interrupts
+Mode 32: exact 28,672 bytes from 6 independent wake visits and 65 SCI interrupts
+Mode 32: bounded busy, status-only CHECK, masked fallback, cancellation, and independent terminal errors passed
+Mode 33: exact 28,672 bytes from 7 independent wake visits and 65 SCI interrupts
+Mode 33: exact 28,672 bytes from 7 independent wake visits and 65 SCI interrupts
+Mode 33: exact 28,672 bytes from 7 independent wake visits and 65 SCI interrupts
+Mode 33: exact 28,672 bytes from 7 independent wake visits and 65 SCI interrupts
+Mode 33: exact 28,672 bytes from 7 independent wake visits and 65 SCI interrupts
+Mode 33: exact 28,672 bytes from 5 independent wake visits and 65 SCI interrupts
+Mode 33: exact 28,672 bytes from 6 independent wake visits and 65 SCI interrupts
+Mode 33: bounded busy, status-only CHECK, masked fallback, cancellation, and independent terminal errors passed
+Mode 33: incomplete receive retries same LBA by DMA, then resumes next-LBA DMA
+Mode 33: masked SDK movie polls deliver exact data with IRQs and with continuous IMASK6; other callers retain catch-up
+Mode 34: exact 28,672 bytes from 8 independent wake visits and 64 SCI interrupts
+Mode 34: exact 28,672 bytes from 8 independent wake visits and 64 SCI interrupts
+Mode 34: exact 28,672 bytes from 7 independent wake visits and 65 SCI interrupts
+Mode 34: exact 28,672 bytes from 8 independent wake visits and 64 SCI interrupts
+Mode 34: exact 28,672 bytes from 7 independent wake visits and 65 SCI interrupts
+Mode 34: exact 28,672 bytes from 5 independent wake visits and 65 SCI interrupts
+Mode 34: exact 28,672 bytes from 6 independent wake visits and 65 SCI interrupts
+Mode 34: bounded busy, status-only CHECK, masked fallback, cancellation, and independent terminal errors passed
+Mode 34: incomplete receive retries same LBA by checked PIO, then resumes next-LBA DMA
+Mode 34: masked SDK movie polls deliver exact data with IRQs and with continuous IMASK6; other callers retain catch-up
+Mode 35: exact 28,672 bytes from 7 independent wake visits and 65 SCI interrupts
+Mode 35: exact 28,672 bytes from 7 independent wake visits and 65 SCI interrupts
+Mode 35: exact 28,672 bytes from 7 independent wake visits and 65 SCI interrupts
+Mode 35: exact 28,672 bytes from 7 independent wake visits and 65 SCI interrupts
+Mode 35: exact 28,672 bytes from 7 independent wake visits and 65 SCI interrupts
+Mode 35: exact 28,672 bytes from 5 independent wake visits and 65 SCI interrupts
+Mode 35: exact 28,672 bytes from 6 independent wake visits and 65 SCI interrupts
+Mode 35: bounded busy, status-only CHECK, masked fallback, cancellation, and independent terminal errors passed
+Mode 35: incomplete receive retries same LBA by DMA, then resumes next-LBA DMA
+Mode 35: masked SDK movie polls deliver exact data with IRQs and with continuous IMASK6; other callers retain catch-up
+Mode 35: exact zero-card-clock bumper replay across fragmented raw extents; incomplete or ineligible requests use SCI
+Mode 36: exact 28,672 bytes from 7 independent wake visits and 65 SCI interrupts
+Mode 36: exact 28,672 bytes from 7 independent wake visits and 65 SCI interrupts
+Mode 36: exact 28,672 bytes from 7 independent wake visits and 65 SCI interrupts
+Mode 36: exact 28,672 bytes from 7 independent wake visits and 65 SCI interrupts
+Mode 36: exact 28,672 bytes from 7 independent wake visits and 65 SCI interrupts
+Mode 36: exact 28,672 bytes from 5 independent wake visits and 65 SCI interrupts
+Mode 36: exact 28,672 bytes from 6 independent wake visits and 65 SCI interrupts
+Mode 36: bounded busy, status-only CHECK, masked fallback, cancellation, and independent terminal errors passed
+Mode 36: incomplete receive retries same LBA by DMA, then resumes next-LBA DMA
+Mode 36: masked SDK movie polls deliver exact data with IRQs and with continuous IMASK6; other callers retain catch-up
+Mode 36: exact 28,672 bytes from 1 independent wake visits and 62 SCI interrupts
+Mode 36: scoped DMAOR priority and one cut reported, owner registers and delivered data intact
+Mode 37: exact 28,672 bytes from 7 independent wake visits and 65 SCI interrupts
+Mode 37: exact 28,672 bytes from 7 independent wake visits and 65 SCI interrupts
+Mode 37: exact 28,672 bytes from 7 independent wake visits and 65 SCI interrupts
+Mode 37: exact 28,672 bytes from 7 independent wake visits and 65 SCI interrupts
+Mode 37: exact 28,672 bytes from 7 independent wake visits and 65 SCI interrupts
+Mode 37: exact 28,672 bytes from 5 independent wake visits and 65 SCI interrupts
+Mode 37: exact 28,672 bytes from 6 independent wake visits and 65 SCI interrupts
+Mode 37: bounded busy, status-only CHECK, masked fallback, cancellation, and independent terminal errors passed
+Mode 37: incomplete receive retries same LBA by checked 6.25 MHz DMA, then resumes next-LBA DMA
+Mode 37: exact 28,672 bytes from 1 independent wake visits and 65 SCI interrupts
+Mode 37: cut/CRC fallback, hardware ORER and exact-owner gating, cancellation and rate restoration passed
+Mode 37: masked SDK movie polls deliver exact data with IRQs and with continuous IMASK6; other callers retain catch-up
+Mode 38: exact 28,672 bytes from 7 independent wake visits and 65 SCI interrupts
+Mode 38: exact 28,672 bytes from 7 independent wake visits and 65 SCI interrupts
+Mode 38: exact 28,672 bytes from 7 independent wake visits and 65 SCI interrupts
+Mode 38: exact 28,672 bytes from 7 independent wake visits and 65 SCI interrupts
+Mode 38: exact 28,672 bytes from 7 independent wake visits and 65 SCI interrupts
+Mode 38: exact 28,672 bytes from 5 independent wake visits and 65 SCI interrupts
+Mode 38: exact 28,672 bytes from 6 independent wake visits and 65 SCI interrupts
+Mode 38: bounded busy, status-only CHECK, masked fallback, cancellation, and independent terminal errors passed
+Mode 38: incomplete receive retries same LBA by checked 6.25 MHz DMA, then resumes next-LBA DMA
+Mode 38: exact 28,672 bytes from 1 independent wake visits and 65 SCI interrupts
+Mode 38: cut/CRC fallback, hardware ORER and exact-owner gating, cancellation and rate restoration passed
+Mode 38: scheduled refill honors time, block and PIO caps; CHECK and one-pass preserved
+Mode 38: masked SDK movie polls deliver exact data with IRQs and with continuous IMASK6; other callers retain catch-up
+Mode 39: exact 28,672 bytes from 7 independent wake visits and 65 SCI interrupts
+Mode 39: exact 28,672 bytes from 7 independent wake visits and 65 SCI interrupts
+Mode 39: exact 28,672 bytes from 7 independent wake visits and 65 SCI interrupts
+Mode 39: exact 28,672 bytes from 7 independent wake visits and 65 SCI interrupts
+Mode 39: exact 28,672 bytes from 7 independent wake visits and 65 SCI interrupts
+Mode 39: exact 28,672 bytes from 5 independent wake visits and 65 SCI interrupts
+Mode 39: exact 28,672 bytes from 6 independent wake visits and 65 SCI interrupts
+Mode 39: bounded busy, status-only CHECK, masked fallback, cancellation, and independent terminal errors passed
+Mode 39: incomplete receive retries same LBA by checked 6.25 MHz DMA, then resumes next-LBA DMA
+Mode 39: exact 28,672 bytes from 1 independent wake visits and 65 SCI interrupts
+Mode 39: cut/CRC fallback, hardware ORER and exact-owner gating, cancellation and rate restoration passed
+Mode 38: scheduled refill honors time, block and PIO caps; CHECK and one-pass preserved
+Mode 39: masked SDK movie polls deliver exact data with IRQs and with continuous IMASK6; other callers retain catch-up
+Mode 40: exact 28,672 bytes from 7 independent wake visits and 65 SCI interrupts
+Mode 40: exact 28,672 bytes from 7 independent wake visits and 65 SCI interrupts
+Mode 40: exact 28,672 bytes from 7 independent wake visits and 65 SCI interrupts
+Mode 40: exact 28,672 bytes from 7 independent wake visits and 65 SCI interrupts
+Mode 40: exact 28,672 bytes from 7 independent wake visits and 65 SCI interrupts
+Mode 40: exact 28,672 bytes from 5 independent wake visits and 65 SCI interrupts
+Mode 40: exact 28,672 bytes from 6 independent wake visits and 65 SCI interrupts
+Mode 40: bounded busy, status-only CHECK, masked fallback, cancellation, and independent terminal errors passed
+Mode 40: incomplete receive retries same LBA by checked 6.25 MHz DMA, then resumes next-LBA DMA
+Mode 40: exact 28,672 bytes from 1 independent wake visits and 65 SCI interrupts
+Mode 40: checked PIO window is sequential, returns to DMA, and clears on cancellation or extent changes
+Mode 40: cut/CRC fallback, hardware ORER and exact-owner gating, cancellation and rate restoration passed
+Mode 38: scheduled refill honors time, block and PIO caps; CHECK and one-pass preserved
+Mode 40: masked SDK movie polls deliver exact data with IRQs and with continuous IMASK6; other callers retain catch-up
+Mode 41: exact 28,672 bytes from 7 independent wake visits and 65 SCI interrupts
+Mode 41: exact 28,672 bytes from 7 independent wake visits and 65 SCI interrupts
+Mode 41: exact 28,672 bytes from 7 independent wake visits and 65 SCI interrupts
+Mode 41: exact 28,672 bytes from 7 independent wake visits and 65 SCI interrupts
+Mode 41: exact 28,672 bytes from 7 independent wake visits and 65 SCI interrupts
+Mode 41: exact 28,672 bytes from 5 independent wake visits and 65 SCI interrupts
+Mode 41: exact 28,672 bytes from 6 independent wake visits and 65 SCI interrupts
+Mode 41: bounded busy, status-only CHECK, masked fallback, cancellation, and independent terminal errors passed
+Mode 41: incomplete receive retries same LBA by checked 6.25 MHz DMA, then resumes next-LBA DMA
+Mode 41: exact 28,672 bytes from 1 independent wake visits and 65 SCI interrupts
+Mode 40: checked PIO window is sequential, returns to DMA, and clears on cancellation or extent changes
+Mode 41: only window reads use the 514-byte helper, and partial failure publishes no data
+Mode 41: cut/CRC fallback, hardware ORER and exact-owner gating, cancellation and rate restoration passed
+Mode 38: scheduled refill honors time, block and PIO caps; CHECK and one-pass preserved
+Mode 41: masked SDK movie polls deliver exact data with IRQs and with continuous IMASK6; other callers retain catch-up

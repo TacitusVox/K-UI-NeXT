@@ -1,0 +1,214 @@
+{
+  "resident-sci": {
+    "bss_end": "0x8c007e80",
+    "stack_bottom": "0x8c007e80",
+    "stack_top": "0x8c007fe0",
+    "total_bytes": 316,
+    "available_bytes": 352,
+    "paths": {
+      "kui_retail_resident_dispatch": {
+        "c_bytes": 212,
+        "assembly_entry_bytes": 0,
+        "bytes": 212,
+        "path": [
+          "kui_retail_resident_dispatch(44)",
+          "build/toy-wake-resume-final/resident-sci.elf.ltrans0.o:deliver(8)",
+          "build/toy-wake-resume-final/resident-sci.elf.ltrans0.o:deliver_work(40)",
+          "build/toy-wake-resume-final/resident-sci.elf.ltrans0.o:kui_retail_cursor_feed(56)",
+          "build/toy-wake-resume-final/resident-sci.elf.ltrans0.o:write_out(16)",
+          "build/toy-wake-resume-final/resident-sci.elf.ltrans0.o:native_background_map(8)",
+          "kui_vmu_observe_low_failure(40)"
+        ]
+      },
+      "kui_retail_async_irq": {
+        "c_bytes": 188,
+        "assembly_entry_bytes": 44,
+        "bytes": 232,
+        "path": [
+          "kui_retail_async_irq(20)",
+          "build/toy-wake-resume-final/resident-sci.elf.ltrans0.o:deliver(8)",
+          "build/toy-wake-resume-final/resident-sci.elf.ltrans0.o:deliver_work(40)",
+          "build/toy-wake-resume-final/resident-sci.elf.ltrans0.o:kui_retail_cursor_feed(56)",
+          "build/toy-wake-resume-final/resident-sci.elf.ltrans0.o:write_out(16)",
+          "build/toy-wake-resume-final/resident-sci.elf.ltrans0.o:native_background_map(8)",
+          "kui_vmu_observe_low_failure(40)"
+        ]
+      },
+      "kui_retail_menu_return": {
+        "c_bytes": 4,
+        "assembly_entry_bytes": 0,
+        "bytes": 4,
+        "path": [
+          "kui_retail_menu_return(4)"
+        ]
+      },
+      "kui_retail_sdk_sci_dispatch": {
+        "c_bytes": 200,
+        "assembly_entry_bytes": 0,
+        "bytes": 200,
+        "path": [
+          "kui_retail_sdk_sci_dispatch(12)",
+          "kui_retail_async_irq(20)",
+          "build/toy-wake-resume-final/resident-sci.elf.ltrans0.o:deliver(8)",
+          "build/toy-wake-resume-final/resident-sci.elf.ltrans0.o:deliver_work(40)",
+          "build/toy-wake-resume-final/resident-sci.elf.ltrans0.o:kui_retail_cursor_feed(56)",
+          "build/toy-wake-resume-final/resident-sci.elf.ltrans0.o:write_out(16)",
+          "build/toy-wake-resume-final/resident-sci.elf.ltrans0.o:native_background_map(8)",
+          "kui_vmu_observe_low_failure(40)"
+        ]
+      }
+    },
+    "callbacks": 7,
+    "escapes": 2
+  },
+  "resident-legacy": {
+    "bss_end": "0x8c007ba0",
+    "stack_bottom": "0x8c007ba0",
+    "stack_top": "0x8c007d00",
+    "total_bytes": 336,
+    "available_bytes": 352,
+    "paths": {
+      "kui_retail_resident_dispatch": {
+        "c_bytes": 228,
+        "assembly_entry_bytes": 0,
+        "bytes": 228,
+        "path": [
+          "kui_retail_resident_dispatch(40)",
+          "build/toy-wake-resume-final/resident-legacy.elf.ltrans0.o:deliver(80)",
+          "build/toy-wake-resume-final/resident-legacy.elf.ltrans0.o:kui_sci_stream_fetch.constprop.0(40)",
+          "build/toy-wake-resume-final/resident-legacy.elf.ltrans0.o:stop_card(24)",
+          "build/toy-wake-resume-final/resident-legacy.elf.ltrans0.o:command(20)",
+          "build/toy-wake-resume-final/resident-legacy.elf.ltrans0.o:byte(0)",
+          "build/toy-wake-resume-final/resident-legacy.elf.ltrans0.o:transfer(24)"
+        ]
+      },
+      "kui_retail_async_irq": {
+        "c_bytes": 208,
+        "assembly_entry_bytes": 44,
+        "bytes": 252,
+        "path": [
+          "kui_retail_async_irq(20)",
+          "build/toy-wake-resume-final/resident-legacy.elf.ltrans0.o:deliver(80)",
+          "build/toy-wake-resume-final/resident-legacy.elf.ltrans0.o:kui_sci_stream_fetch.constprop.0(40)",
+          "build/toy-wake-resume-final/resident-legacy.elf.ltrans0.o:stop_card(24)",
+          "build/toy-wake-resume-final/resident-legacy.elf.ltrans0.o:command(20)",
+          "build/toy-wake-resume-final/resident-legacy.elf.ltrans0.o:byte(0)",
+          "build/toy-wake-resume-final/resident-legacy.elf.ltrans0.o:transfer(24)"
+        ]
+      },
+      "kui_retail_menu_return": {
+        "c_bytes": 148,
+        "assembly_entry_bytes": 0,
+        "bytes": 148,
+        "path": [
+          "kui_retail_menu_return(8)",
+          "build/toy-wake-resume-final/resident-legacy.elf.ltrans0.o:native_reader_report(16)",
+          "build/toy-wake-resume-final/resident-legacy.elf.ltrans0.o:retail_display_values(76)",
+          "build/toy-wake-resume-final/resident-legacy.elf.ltrans0.o:retail_display_line(48)"
+        ]
+      }
+    },
+    "callbacks": 6,
+    "escapes": 2
+  },
+  "auxiliary_layout": {
+    "context": "0xac421040",
+    "context_bytes": 1584,
+    "stack_bottom": "0xac424000",
+    "stack_top": "0xac425000",
+    "typed_low_ops": {
+      "address": 2348842396,
+      "bytes": 52,
+      "region_cell": 2348842516,
+      "functions": {
+        "_deliver_work": 2348831728,
+        "_hook": 2348831528,
+        "_unhook": 2348831620,
+        "_kui_sci_stream_fetch": 2348829732,
+        "_kui_sci_stream_poll": 2348830584,
+        "_kui_sci_stream_take": 2348830664,
+        "_kui_sci_stream_stop": 2348831248,
+        "_kui_sci_stream_busy": 2348828868,
+        "_kui_retail_cursor_feed": 2348828154
+      }
+    },
+    "physical_loads": [
+      {
+        "offset": 256,
+        "virtual": 2353139712,
+        "physical": 2353139712,
+        "first": 205656064,
+        "bytes": 64,
+        "memory": 64,
+        "flags": 4,
+        "alignment": 128
+      },
+      {
+        "offset": 320,
+        "virtual": 2890010688,
+        "physical": 2353139776,
+        "first": 205656128,
+        "bytes": 1584,
+        "memory": 3680,
+        "flags": 6,
+        "alignment": 128
+      },
+      {
+        "offset": 1920,
+        "virtual": 2353143808,
+        "physical": 2353143808,
+        "first": 205660160,
+        "bytes": 7584,
+        "memory": 12288,
+        "flags": 7,
+        "alignment": 128
+      }
+    ]
+  },
+  "auxiliary_stack": {
+    "available_bytes": 4096,
+    "worst_c_bytes": 372,
+    "library_margin_bytes": 4,
+    "explicit_margin_bytes": 64,
+    "guard_bytes": 16,
+    "top_gap_bytes": 32,
+    "total_bytes": 488,
+    "roots": {
+      "kui_native_readahead_aux_init": {
+        "bytes": 104,
+        "path": [
+          "aux:kui_native_readahead_aux_init(88)",
+          "aux:kui_native_ra_cache_init(16)"
+        ]
+      },
+      "kui_native_readahead_aux_dispatch": {
+        "bytes": 372,
+        "path": [
+          "aux:kui_native_readahead_aux_dispatch(184)",
+          "aux:src/loader/native_readahead_aux.c:toy_resume_retry(28)",
+          "low:build/toy-wake-resume-final/resident-sci.elf.ltrans0.o:deliver_work(40)",
+          "low:build/toy-wake-resume-final/resident-sci.elf.ltrans0.o:kui_retail_cursor_feed(56)",
+          "low:build/toy-wake-resume-final/resident-sci.elf.ltrans0.o:write_out(16)",
+          "low:build/toy-wake-resume-final/resident-sci.elf.ltrans0.o:native_background_map(8)",
+          "low:kui_vmu_observe_low_failure(40)"
+        ]
+      }
+    },
+    "typed_low_indirect_sites": 16,
+    "missing_or_recursive_callbacks_rejected": true,
+    "all_emitted_callgraphs_closed": true,
+    "callgraph_closure_mutation_rejections": 14
+  },
+  "auxiliary_gateway": {
+    "actual_linked_gateway_cases": 8064,
+    "all16_imasks": true,
+    "both_integer_banks": true,
+    "both_bl_states": true,
+    "owner_sr_pr_sp_and_callee_saved_preserved": true,
+    "private_stack_switch_before_c": true,
+    "busy_and_guard_checks_before_stack_writes": true,
+    "parked_owner_stack_bytes": 20,
+    "auxiliary_stack_prefix_bytes": 0,
+    "c_payload_model": "ABI-adversarial substitute; actual producer separately host-tested"
+  }
+}

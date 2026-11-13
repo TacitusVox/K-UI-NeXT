@@ -1,0 +1,3 @@
+512 aligned bytes: 793 -> 321 SH-4 instructions
+2048 aligned bytes: 3097 -> 1233 SH-4 instructions
+307 linked copy/mapper cases, 14-sector full publish 56630 -> 22087 instructions

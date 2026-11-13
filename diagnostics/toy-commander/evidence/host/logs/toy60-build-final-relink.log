@@ -1,0 +1,20 @@
+sh-elf-gcc -m4-single -ml -mdiv=call-div1 -mfixed-range=fr0-fr15,fpul-fpul -nostdlib -Wl,--gc-sections -Wl,--build-id=none -Tsrc/loader/retail_entry.ld -Wl,-Map,build/toy-frame-timing60-final/entry.map -o build/toy-frame-timing60-final/entry.elf build/toy-frame-timing60-final/entry_asm.o
+python3 tools/record_build.py build/toy-frame-timing60-final/entry.elf
+python3 tools/runtime_package.py build build/toy-frame-timing60-final/entry.elf build/toy-frame-timing60-final/retail-maple-observe.kui --build-id b0e6305f53f5
+{
+  "format": 1,
+  "build": "b0e6305f53f5",
+  "payload_bytes": 285360,
+  "memory_bytes": 285360,
+  "crc32": "55447aba"
+}
+python3 tools/runtime_package.py verify build/toy-frame-timing60-final/retail-maple-observe.kui
+{
+  "format": 1,
+  "build": "b0e6305f53f5",
+  "payload_bytes": 285360,
+  "memory_bytes": 285360,
+  "crc32": "55447aba"
+}
+cp build/toy-frame-timing60-final/retail-maple-observe.kui build/toy-frame-timing60-final/retail-native-dual.kui
+cp build/toy-frame-timing60-final/retail-native-dual.kui build/toy-frame-timing60-final/retail-toy-test-60.kui

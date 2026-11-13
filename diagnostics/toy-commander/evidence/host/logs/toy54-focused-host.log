@@ -1,0 +1,3 @@
+Mode 54: exact AVI names, context 8c00dc90, clip spans, ready, pending, stale and other chunk results passed
+Mode 54: staged SDK refill caps, status-only checks, and IRQ/PIO bounds passed
+Mode 54: real GD/SCI same-CMD18 resume, EDC quarantine, and clean strict fallback passed

@@ -1,0 +1,212 @@
+{
+  "stage": {
+    "enabled": true,
+    "object_address": "0x8ce43480",
+    "object_bytes": 65536,
+    "smash_child_callbacks": {
+      "enabled": false,
+      "menu_capture": false,
+      "original_GIN_adoption": false,
+      "child_ids_exercised": [],
+      "frame_after_immutable_base": false,
+      "already_captured_GIN_frame_not_synthesized": false,
+      "arguments_after_immutable_discovery_and_hooks": false,
+      "context_and_ip_p2_spans_exact": false,
+      "original_GIN_context_restore_ABI_boundary": false,
+      "return_publication_after_arguments_and_native_arming": false,
+      "phase_text_continues_normal_owner": false,
+      "photo_terminal_profile": false,
+      "callback_semantics_separately_production_c_tested": true,
+      "callback_callees_modeled_as_abi_adversaries": true
+    },
+    "preheap_exact_low_resume_offset": 164,
+    "installer_sp": "0x8ce53460",
+    "stage_bss_end": "0x8cebcb68",
+    "ordinary_entry_and_relay_stack": "0x8cff0000",
+    "package_stack_unchanged": true,
+    "typed_zero_fill_object": true,
+    "complete_bss_in_live_allocation_guard": true,
+    "actual_allocation_wrapper_cases": 768,
+    "actual_relay_publication_cases": 3840,
+    "actual_low_hook_cases": 576,
+    "mutation_rejections": 0,
+    "selected_low_callback_helpers_executed": true,
+    "selected_callback_reader": 1,
+    "selected_callback_table_bytes": 48,
+    "selected_callback_code_and_immutable_table": {
+      "_native_arm_heap_hook": {
+        "address": "0x8ce01dc4",
+        "bytes": 208,
+        "sha256": "416c1dafdcd1706cda6920483b35efdf30f6280fcc513626bd340e8f9a2c65e7"
+      },
+      "_native_low_bindings": {
+        "address": "0x8ce0150c",
+        "bytes": 64,
+        "sha256": "b469fedd75b1c54289a5aeaff5f75e602d6e0c76b5c0c453a479efe8f7dcf203"
+      },
+      "_native_low_bindings_table": {
+        "address": "0x8ce2e070",
+        "bytes": 48,
+        "sha256": "ffb3d6228f0add804ded643d7d0ab4481625e78ed3774b38464d923394a9a831"
+      }
+    },
+    "selected_indexed_load_scalar_truth_cases": 1024,
+    "selected_row_matches_actual_resident_roles": true,
+    "selected_stack_top_mutant_executes_actual_relay_and_helpers": false,
+    "owner_stack_physical_bounds": {
+      "low": "0x0c008100",
+      "high": "0x0c00f400"
+    },
+    "owner_stack_boundary_execution_cases": 1536,
+    "owner_stack_hook_sha256": "eb46c2c79b2410240bc92e6e9c831c4ccf5daba0b0bd851662ac106c8f1d30a1",
+    "owner_stack_hook_address": "0x8c0073cc",
+    "owner_stack_hook_bytes": 244,
+    "rayman_original_startup_sp_rejected_by_old_bound_cases": 3,
+    "inherited_52byte_frame_above_retained_low_stack": true,
+    "cold_sdk_slot_refusal_before_any_arming_cases": 960,
+    "cold_sdk_slot_selected_target": "_native_sdk_coherence_after_image_proof",
+    "shared_cached_discovery_marker": true,
+    "shared_discovery_refusal_before_any_SDK_or_arming_cases": 960,
+    "actual_post_image_proof_finisher_executed": true,
+    "cold_crt_prearm_after_low_arming_before_owner_entry": true,
+    "cold_crt_prearm_result_refusal_cases": 20,
+    "complete_source_owner_refusal_cases": 0,
+    "complete_source_owner_actual_helper_and_memcmp": false,
+    "complete_source_owner_geometry_and_current_SHA_bound": false,
+    "prefix_complete_source_SHA_has_separate_core_execution_proof": false,
+    "full_source_verified_before_program_extent": true,
+    "normal_and_shortened_extent_arming_routes": true,
+    "runtime_modes": [
+      0,
+      2,
+      4,
+      5,
+      6
+    ],
+    "control_preserves_original_frame_and_allocator": false,
+    "initializer_preserves_original_stack_and_sr": true,
+    "private_stack_before_allocation_or_worker_writes": true,
+    "departed_relay_stack_clobber_preserves_caller": true
+  },
+  "original_sdk": {
+    "owner_digest": "ee68a326da964fec5892b7226311f2293fd3a0bbf5bac496ec82991964d49bbd",
+    "game": "K-UI",
+    "owner_program_bytes": 748444,
+    "original_sdk_owner_contract": {
+      "family": "full-fpu",
+      "game": "K-UI",
+      "load": 2348875776,
+      "vector": 2349613056,
+      "event": 2349613976,
+      "default": 2349589512,
+      "helper": 2349612292,
+      "commons": [
+        2349613196,
+        2349613556
+      ],
+      "table_init": 2349590194,
+      "table_stop": 2349590224,
+      "frame_pairs": [
+        [
+          2349613198,
+          2349613498
+        ],
+        [
+          2349613594,
+          2349613904
+        ]
+      ],
+      "dispatches": [
+        2349613328,
+        2349613724
+      ],
+      "continuations": [
+        2349613372,
+        2349613768
+      ],
+      "source_bytes": 748444,
+      "source_sha256": "ee68a326da964fec5892b7226311f2293fd3a0bbf5bac496ec82991964d49bbd",
+      "program_bytes": 748444,
+      "program_sha256": "ee68a326da964fec5892b7226311f2293fd3a0bbf5bac496ec82991964d49bbd",
+      "digest": "ee68a326da964fec5892b7226311f2293fd3a0bbf5bac496ec82991964d49bbd",
+      "dispatch": 2349613724,
+      "continuation": 2349613768,
+      "vbr": 2348872704,
+      "eri_slot": 2348873308,
+      "rxi_slot": 2348873312
+    },
+    "original_sdk_owner_execution": {
+      "game": "K-UI",
+      "source_bytes": 748444,
+      "program_bytes": 748444,
+      "source_sha256": "ee68a326da964fec5892b7226311f2293fd3a0bbf5bac496ec82991964d49bbd",
+      "program_sha256": "ee68a326da964fec5892b7226311f2293fd3a0bbf5bac496ec82991964d49bbd",
+      "actual_table_initializer_cases": 16,
+      "actual_control_frame_roundtrip_cases": 32,
+      "callback_argument_register": "r4",
+      "callback_return": "RTS to original JSR continuation",
+      "owner_vbr": "0x8c00f400",
+      "eri_slot": "0x8c00f65c",
+      "rxi_slot": "0x8c00f660",
+      "default": "0x8c0be408",
+      "dispatch": "0x8c0c429c",
+      "event": "0x8c0c4398",
+      "continuation": "0x8c0c42c8",
+      "full_fpu_prologue_modelled": false,
+      "console_execution_verified": false
+    },
+    "original_sci_default_helper_execution": {
+      "game": "K-UI",
+      "helper": "0x8c0c3d04",
+      "actual_sci_return_cases": 32,
+      "events": [
+        "0x4e0",
+        "0x500"
+      ],
+      "masks": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12,
+        13,
+        14,
+        15
+      ],
+      "maximum_own_frame_bytes": 44,
+      "external_code_data_mmio_reads": 0,
+      "writes_outside_own_frame": 0,
+      "unrelated_debug_print_paths_executed": false
+    },
+    "structural_family": "full-fpu",
+    "actual_sdk_integer_dispatch_to_linked_callback_cases": 1280,
+    "both_original_common_modes_executed": true,
+    "dynamic_vbrs": [
+      "0x8c00f400",
+      "0x8cc80000"
+    ],
+    "actual_sdk_event_table_lookup_and_jsr_executed": true,
+    "raw_u0_default_and_continuation_preserved": false,
+    "production_extent_and_structural_source_live_models_checked": true,
+    "source_identity_freshly_hashed": true,
+    "full_sdk_fpu_prologue_and_epilogue_executed": false,
+    "console_performance_verified": false
+  },
+  "package": {
+    "format": 1,
+    "build": "1ad2afff629c",
+    "payload_bytes": 282424,
+    "memory_bytes": 282424,
+    "crc32": "7160b3bd"
+  },
+  "entry_byte_copy": 274232,
+  "stage_sci_blob_bytes": 15820
+}

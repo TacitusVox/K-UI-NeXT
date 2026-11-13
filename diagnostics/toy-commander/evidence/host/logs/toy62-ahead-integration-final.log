@@ -1,0 +1,5 @@
+Mode 62: exact AVI names, context 8c00dc90, clip spans, ready, pending, stale and other chunk results passed
+Test 62 idle verification, 3 exact warm tokens including ring wrap, 1 CMD18, 924 UPDATE entries passed
+Test 62 bad raw EDC quarantined with no guest writes and exact same-token fallback passed
+Test 62 canceled private in-flight DMA, no canceled writes, disjoint seek completed with original GD ownership
+Test 62 old-token parked suffix rejected while verified warm data and new token remain correct

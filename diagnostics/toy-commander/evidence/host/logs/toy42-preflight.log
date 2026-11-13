@@ -1,0 +1,20 @@
+sh-elf-gcc -m4-single -ml -mdiv=call-div1 -mfixed-range=fr0-fr15,fpul-fpul -nostdlib -Wl,--gc-sections -Wl,--build-id=none -Tsrc/loader/retail_entry.ld -Wl,-Map,build/toy-graphics-priority/entry.map -o build/toy-graphics-priority/entry.elf build/toy-graphics-priority/entry_asm.o
+python3 tools/record_build.py build/toy-graphics-priority/entry.elf
+python3 tools/runtime_package.py build build/toy-graphics-priority/entry.elf build/toy-graphics-priority/retail-maple-observe.kui --build-id 420000000000
+{
+  "format": 1,
+  "build": "420000000000",
+  "payload_bytes": 279748,
+  "memory_bytes": 279748,
+  "crc32": "0aefcf11"
+}
+python3 tools/runtime_package.py verify build/toy-graphics-priority/retail-maple-observe.kui
+{
+  "format": 1,
+  "build": "420000000000",
+  "payload_bytes": 279748,
+  "memory_bytes": 279748,
+  "crc32": "0aefcf11"
+}
+cp build/toy-graphics-priority/retail-maple-observe.kui build/toy-graphics-priority/retail-native-dual.kui
+cp build/toy-graphics-priority/retail-native-dual.kui build/toy-graphics-priority/retail-toy-test-42.kui

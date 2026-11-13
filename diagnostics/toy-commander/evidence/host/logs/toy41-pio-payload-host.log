@@ -1,0 +1,5 @@
+cc -std=c11 -O1 -g -Wall -Wextra -Werror -Wpedantic -ffunction-sections -fdata-sections -fsanitize=address,undefined -fno-omit-frame-pointer -fno-pie -no-pie -Iinclude -Isrc/loader -O2 \
+ -DKUI_SCI_SD_TEST=1 -DKUI_SCI_SD_NO_BLOCK=1 -DKUI_RETAIL_TRANSPORT=1 -DKUI_TOY_SUITE_MODE=41 \
+ tests/test_toy_pio_payload.c src/loader/sci_sd_bus.c -Wl,--gc-sections -o build/host41-mode/test-toy-pio-payload
+ASAN_OPTIONS=detect_leaks=0 build/host41-mode/test-toy-pio-payload
+Test 41 real SCI PIO helper: one-byte credit, 514 exact bytes, CRC tail and bounded faults passed

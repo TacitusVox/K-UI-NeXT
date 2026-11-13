@@ -1,0 +1,6 @@
+Mode 55: exact AVI names, context 8c00dc90, clip spans, ready, pending, stale and other chunk results passed
+Mode 55: staged SDK refill caps, status-only checks, and IRQ/PIO bounds passed
+Mode 55: real GD/SCI same-CMD18 resume, EDC quarantine, and clean strict fallback passed
+Mode 56: exact AVI names, context 8c00dc90, clip spans, ready, pending, stale and other chunk results passed
+Mode 56: staged SDK refill caps, status-only checks, and IRQ/PIO bounds passed
+Mode 56: real GD/SCI same-CMD18 resume, EDC quarantine, and clean strict fallback passed

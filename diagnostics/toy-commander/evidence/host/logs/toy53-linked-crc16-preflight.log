@@ -1,0 +1,3 @@
+wire: 64 matched cases, instructions 17562–17569 → 14363–14370, 3199–3199 fewer
+pio: 64 matched cases, instructions 12888–12895 → 9689–9696, 3199–3199 fewer
+recovered: 24 matched cases, instructions 17695–28897 → 14494–24678, 3201–4219 fewer
