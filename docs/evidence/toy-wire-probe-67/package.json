@@ -1,0 +1,59 @@
+{
+  "schema": 1,
+  "test": 67,
+  "prepared": "2026-11-13 09:40 CST (America/Chicago)",
+  "source_commit": "e5fa67e75f7322d404c7ee8136711f4eb3f85d0a",
+  "baseline": {
+    "test": 63,
+    "build": "5034eb26898d",
+    "module_sha256": "545c6c2cdbd79b6a0243135b18ab5d8c052bfc35c393b3efde2d9ddab30531ff",
+    "reproduced_byte_identical_with_probe_off": true
+  },
+  "toolchain": {
+    "gcc": "15.2.0",
+    "binutils": "2.45.1",
+    "newlib": "4.6.0.20260123",
+    "kos": "fcfa7d869471591ca1c777543261a7bfea7cb726"
+  },
+  "archive": {
+    "name": "KUI-Toy-Wire-Probe-Test-67-13NOV2026-0940-CST-e5fa67e.zip",
+    "bytes": 1651998,
+    "sha256": "5e8044d3a6821f8f0b8a80258faff8f20e9912259298ea1b8bed5d25d3b0b9ac"
+  },
+  "files": [
+    {
+      "path": "KUI/apps/disc/native-toy-trace.kui",
+      "status": "changed",
+      "bytes": 37860,
+      "sha256": "7533fb8b0e483567c9b015542f1c6897d5e8fffebd028ab7f84a83201edaf4e5",
+      "module": {
+        "format": 1,
+        "build": "e5fa67e75f73",
+        "payload_bytes": 37796,
+        "memory_bytes": 37796,
+        "crc32": "2bef9b88"
+      }
+    },
+    {
+      "path": "KUI/tools.kui",
+      "status": "unchanged, identical to the Test 66 package",
+      "bytes": 3131480,
+      "sha256": "04b8657aa6a1530b1bdbb002b481853eef656ef0f4da44cd910faab6eab3c800",
+      "module": {
+        "format": 1,
+        "build": "09c9a4b686d4",
+        "payload_bytes": 3131416,
+        "memory_bytes": 7428496,
+        "crc32": "8111e794"
+      }
+    }
+  ],
+  "console_result": null,
+  "checks": {
+    "host_model_scenarios_passed": 16,
+    "mutations_caught": "25 of 25",
+    "reproducible_build": true,
+    "card_tools_admission_on_packaged_bytes": true,
+    "linked_audits": true
+  }
+}
