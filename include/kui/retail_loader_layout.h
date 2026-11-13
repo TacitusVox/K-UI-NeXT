@@ -49,8 +49,25 @@
 #endif
 #define KUI_RETAIL_LOW_RESIDENT_ADDRESS 0x8c004000
 #define KUI_RETAIL_LOW_STANDARD_LIMIT 0x8c007800
+#if KUI_TOY_SUITE_MODE == 41 || KUI_TOY_SUITE_MODE == 42 || KUI_TOY_SUITE_MODE == 43 || KUI_TOY_SUITE_MODE == 44 || KUI_TOY_SUITE_MODE == 45 || KUI_TOY_SUITE_MODE == 46 || KUI_TOY_SUITE_MODE == 47 || KUI_TOY_SUITE_MODE == 48 || KUI_TOY_SUITE_MODE == 49 || KUI_TOY_SUITE_MODE == 50 || KUI_TOY_SUITE_MODE == 51 || KUI_TOY_SUITE_MODE == 52 || KUI_TOY_SUITE_MODE == 53 || KUI_TOY_SUITE_MODE == 54 || KUI_TOY_SUITE_MODE == 55 || KUI_TOY_SUITE_MODE == 56 || KUI_TOY_SUITE_MODE == 57 || KUI_TOY_SUITE_MODE == 58 || KUI_TOY_SUITE_MODE == 59 || KUI_TOY_SUITE_MODE == 60 || KUI_TOY_SUITE_MODE == 61 || KUI_TOY_SUITE_MODE == 62 || KUI_TOY_SUITE_MODE == 64 || KUI_TOY_SUITE_MODE == 65
+/* The pipelined recovery code uses another 288 firmware-area bytes and
+ * keeps the guarded service stack below IP.BIN. */
+#define KUI_RETAIL_LOW_ASYNC_LIMIT 0x8c007e80
+#define KUI_RETAIL_LOW_HOOK_STACK 0x8c007fe0
+#elif KUI_TOY_SUITE_MODE == 40
+/* The recovery window uses another 128 firmware-area bytes. The 352-byte
+ * guarded stack still ends below IP.BIN at 0x8c008000. */
+#define KUI_RETAIL_LOW_ASYNC_LIMIT 0x8c007d60
+#define KUI_RETAIL_LOW_HOOK_STACK 0x8c007ec0
+#elif KUI_TOY_SUITE_MODE == 37 || KUI_TOY_SUITE_MODE == 38 || KUI_TOY_SUITE_MODE == 39
+/* Allow the checked retry code another 320 bytes in the existing firmware
+ * area. Keep the 352-byte guarded stack and leave IP.BIN at 0x8c008000. */
+#define KUI_RETAIL_LOW_ASYNC_LIMIT 0x8c007ce0
+#define KUI_RETAIL_LOW_HOOK_STACK 0x8c007e40
+#else
 #define KUI_RETAIL_LOW_ASYNC_LIMIT 0x8c007ba0
 #define KUI_RETAIL_LOW_HOOK_STACK 0x8c007d00
+#endif
 #if KUI_NATIVE_GD_PIO_STREAM
 /* The native PIO bridge still reserves352 guarded stack bytes, entirely
  * below IP.BIN. Its extra code/state uses another640 bytes of the firmware

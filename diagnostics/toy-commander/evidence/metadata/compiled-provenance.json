@@ -1,0 +1,2376 @@
+{
+  "modules": [
+    {
+      "role": "gui",
+      "build": "01c2ec1ac285",
+      "payload_crc32": "219cb534",
+      "sha256": "6a9d5ae2a809aa9ca71a79d581e3bf06591d7214d9aaf5cacbaf514b7bb66f4e",
+      "source_object": {
+        "source_repository": "toy34-inputs/gui-source.git",
+        "commit": "01c2ec1ac285fcc616a5d0d88914a1b5d71b2840",
+        "subject": "Route Toy movie read ahead and physical disc baseline"
+      },
+      "clean_exact_compiles": [
+        {
+          "elf": "trace-gui/build/kui-runtime-toy57-62-63.elf",
+          "commit": "01c2ec1ac285fcc616a5d0d88914a1b5d71b2840",
+          "source_dirty": false,
+          "elf_sha256": "545569d590af9fc2f950c127881a023da32681438b8e60c87d6540a9763c88d9"
+        }
+      ],
+      "other_exact_compiles": [],
+      "membership": [
+        {
+          "archive": "KUI-Toy-Tests-62-63-12NOV2026-1941-CST-7beafbe.zip",
+          "member": "KUI/tools.kui"
+        }
+      ]
+    },
+    {
+      "role": "gui",
+      "build": "24d5ad5c11ff",
+      "payload_crc32": "5a41b19f",
+      "sha256": "1616387b46f65e9cc7339870a7b49d907125a6eba492792b890f2143e99d1067",
+      "source_object": {
+        "source_repository": "toy34-inputs/gui-source.git",
+        "commit": "24d5ad5c11ff35e45b9156b4a77ab5cf26d35b5b",
+        "subject": "Route Toy Commander graphics priority through Card Tools"
+      },
+      "clean_exact_compiles": [],
+      "other_exact_compiles": [],
+      "membership": [
+        {
+          "archive": "KUI-Toy-SCI-Graphics-Priority-Test-42-12NOV2026-1346-CST-5425aca.zip",
+          "member": "KUI/tools.kui"
+        }
+      ]
+    },
+    {
+      "role": "gui",
+      "build": "2e9301147c33",
+      "payload_crc32": "fae6eda8",
+      "sha256": "cf007ad0392182f86b6fb265bccc6d8730a9c190560cf14e4d03abb79f72eb2d",
+      "source_object": {
+        "source_repository": "toy34-inputs/gui-source.git",
+        "commit": "2e9301147c33ec4ad2a4dde709fddec324b91863",
+        "subject": "Expose the Toy Commander intro-prefill comparison"
+      },
+      "clean_exact_compiles": [],
+      "other_exact_compiles": [],
+      "membership": [
+        {
+          "archive": "KUI-Toy-SCI-Tests-55-56-12NOV2026-1737-CST-27e5a7a.zip",
+          "member": "KUI/tools.kui"
+        }
+      ]
+    },
+    {
+      "role": "gui",
+      "build": "2f8c0445c1f7",
+      "payload_crc32": "d5d49e3b",
+      "sha256": "a60a5f55606b493ac4064f0e45da848c411a54138112ee48836361b7876a23bd",
+      "source_object": {
+        "source_repository": "toy34-inputs/gui-source.git",
+        "commit": "2f8c0445c1f7459c455a5c1e461851575fdac075",
+        "subject": "Route Toy Commander continuous PIO through Card Tools"
+      },
+      "clean_exact_compiles": [],
+      "other_exact_compiles": [],
+      "membership": [
+        {
+          "archive": "KUI-Toy-SCI-Continuous-PIO-Test-43-12NOV2026-1357-CST-eceac28.zip",
+          "member": "KUI/tools.kui"
+        }
+      ]
+    },
+    {
+      "role": "gui",
+      "build": "33096173765e",
+      "payload_crc32": "ebd8b6c3",
+      "sha256": "4199e0ffc1ae0d9300f45f3e4064462d0721899e1a468b32ef2da1d3926239fb",
+      "source_object": {
+        "source_repository": "toy34-inputs/gui-source.git",
+        "commit": "33096173765e1961188577c09fae7a46fd2f44e9",
+        "subject": "Route Toy Commander checked recovery through Card Tools"
+      },
+      "clean_exact_compiles": [],
+      "other_exact_compiles": [],
+      "membership": [
+        {
+          "archive": "KUI-Toy-SCI-Checked-Recovery-Test-34-12NOV2026-1136-CST-225358d.zip",
+          "member": "KUI/tools.kui"
+        }
+      ]
+    },
+    {
+      "role": "gui",
+      "build": "354bfafb6ef4",
+      "payload_crc32": "d49fedb8",
+      "sha256": "f08cedfcfcfcc7731dce9bd941463aff5a4ff6f2fee5ef94308150d01376781a",
+      "source_object": {
+        "source_repository": "toy34-inputs/gui-source.git",
+        "commit": "354bfafb6ef45fdd8b44a94ea4e5df2ef92d06b7",
+        "subject": "Route Toy Commander slow retry through Card Tools"
+      },
+      "clean_exact_compiles": [],
+      "other_exact_compiles": [],
+      "membership": [
+        {
+          "archive": "KUI-Toy-SCI-Slow-Retry-Test-37-12NOV2026-1232-CST-4520d99.zip",
+          "member": "KUI/tools.kui"
+        }
+      ]
+    },
+    {
+      "role": "gui",
+      "build": "41dc9ec85129",
+      "payload_crc32": "703549fc",
+      "sha256": "172877d86803aacf69815044ef3906f47db6cc1eeef89b2ae48ab1672d215b63",
+      "source_object": null,
+      "clean_exact_compiles": [],
+      "other_exact_compiles": [],
+      "membership": [
+        {
+          "archive": "KUI-Toy-SCI-Tests-08-10-11NOV2026-2020-CST-5db8cbd.zip",
+          "member": "KUI/tools.kui"
+        }
+      ]
+    },
+    {
+      "role": "gui",
+      "build": "44878b9cb9e4",
+      "payload_crc32": "ccc5b602",
+      "sha256": "aede8dcd7251c13da0119f2a2f1934070d80115549f3b57a583e8cf9d37a0d30",
+      "source_object": {
+        "source_repository": "toy34-inputs/gui-source.git",
+        "commit": "44878b9cb9e447655d6232666018a7e438d16359",
+        "subject": "Route Toy Commander recovery window through Card Tools"
+      },
+      "clean_exact_compiles": [],
+      "other_exact_compiles": [],
+      "membership": [
+        {
+          "archive": "KUI-Toy-SCI-Recovery-Window-Test-40-12NOV2026-1318-CST-061f0b5.zip",
+          "member": "KUI/tools.kui"
+        }
+      ]
+    },
+    {
+      "role": "gui",
+      "build": "47c6fdaef7b5",
+      "payload_crc32": "a020c0bb",
+      "sha256": "cdbcd61d05ece1b43c0d60f484fd0444ecbff208ccf0650ebc15ceb2b1db4236",
+      "source_object": {
+        "source_repository": "toy34-inputs/gui-source.git",
+        "commit": "47c6fdaef7b5afd4dd7932beec4bcf54db23300d",
+        "subject": "Select isolated Toy Commander frame timing and bumper tests"
+      },
+      "clean_exact_compiles": [
+        {
+          "elf": "trace-gui/build/kui-runtime-toy57-60.elf",
+          "commit": "47c6fdaef7b5afd4dd7932beec4bcf54db23300d",
+          "source_dirty": false,
+          "elf_sha256": "02bf373da7b3216dd9eb6ef891e4527e2d87815922af1310f6437260b59950e9"
+        }
+      ],
+      "other_exact_compiles": [],
+      "membership": [
+        {
+          "archive": "KUI-Toy-SCI-Test-60-12NOV2026-1856-CST-b0e6305.zip",
+          "member": "KUI/tools.kui"
+        }
+      ]
+    },
+    {
+      "role": "gui",
+      "build": "48e3e3833598",
+      "payload_crc32": "a44fdbe8",
+      "sha256": "e736c6b0e65468fdb9fa7c49573d2784c3181545f0f52a095735925bbbed77f4",
+      "source_object": null,
+      "clean_exact_compiles": [],
+      "other_exact_compiles": [],
+      "membership": [
+        {
+          "archive": "KUI-Toy-SCI-Tests-11-15-11NOV2026-2052-CST-cfd2042.zip",
+          "member": "KUI/tools.kui"
+        }
+      ]
+    },
+    {
+      "role": "gui",
+      "build": "5aadb758f2d1",
+      "payload_crc32": "b0d71665",
+      "sha256": "aa2ce8ffb6da3b5a8ac097099f26426d971e7e3530b8a29a5ce5736cc3933d1f",
+      "source_object": null,
+      "clean_exact_compiles": [],
+      "other_exact_compiles": [],
+      "membership": [
+        {
+          "archive": "KUI-Toy-SCI-Test-Suite-11NOV2026-1637-CST-70723b3.zip",
+          "member": "KUI/tools.kui"
+        }
+      ]
+    },
+    {
+      "role": "gui",
+      "build": "5f93e5244f6b",
+      "payload_crc32": "847056f0",
+      "sha256": "437b775f5e0fa4cf9398cc646fdd4fccaa79895f5fffbf19ee813415d07f1a5e",
+      "source_object": {
+        "source_repository": "toy34-inputs/gui-source.git",
+        "commit": "5f93e5244f6b7a53b9d4fdd7402b82e01b7798ba",
+        "subject": "Route Toy Commander DMA priority through Card Tools"
+      },
+      "clean_exact_compiles": [],
+      "other_exact_compiles": [],
+      "membership": [
+        {
+          "archive": "KUI-Toy-SCI-DMA-Priority-Test-36-12NOV2026-1207-CST-5ecb060.zip",
+          "member": "KUI/tools.kui"
+        }
+      ]
+    },
+    {
+      "role": "gui",
+      "build": "62a4916ebd34",
+      "payload_crc32": "e99bcad9",
+      "sha256": "b824baca0426df007342c05605da3ab37d581920e91713f02b82445b93a8acf5",
+      "source_object": null,
+      "clean_exact_compiles": [],
+      "other_exact_compiles": [],
+      "membership": [
+        {
+          "archive": "KUI-Toy-SCI-Async-Demand-Test-32-12NOV2026-1001-CST-f3aaa6e.zip",
+          "member": "KUI/tools.kui"
+        }
+      ]
+    },
+    {
+      "role": "gui",
+      "build": "637fbd5621f0",
+      "payload_crc32": "dc34a3fd",
+      "sha256": "0207ec52e92da1995797ab886f5e1ec5b3d1426d6138f5e54e82a6f200d0fe63",
+      "source_object": null,
+      "clean_exact_compiles": [],
+      "other_exact_compiles": [],
+      "membership": [
+        {
+          "archive": "KUI-Toy-SCI-Checked-Refill-Test-31-12NOV2026-0928-CST-54b1248.zip",
+          "member": "KUI/tools.kui"
+        }
+      ]
+    },
+    {
+      "role": "gui",
+      "build": "6475bd127acf",
+      "payload_crc32": "24f4afe0",
+      "sha256": "01ced7f41b9e5200110b9554728d0677c2f8703aa813d57e105a2b46eafd012f",
+      "source_object": null,
+      "clean_exact_compiles": [],
+      "other_exact_compiles": [],
+      "membership": [
+        {
+          "archive": "KUI-Toy-Continuous-Reader-Test-18-11NOV2026-2208-CST-80c54f8.zip",
+          "member": "KUI/tools.kui"
+        }
+      ]
+    },
+    {
+      "role": "gui",
+      "build": "6f344cc7fde5",
+      "payload_crc32": "3c8f7de7",
+      "sha256": "177bfbebfd87028d355ecae582a3c99cf72012af8c9a3610b7b0f504fbcd1a2c",
+      "source_object": null,
+      "clean_exact_compiles": [],
+      "other_exact_compiles": [],
+      "membership": [
+        {
+          "archive": "KUI-Toy-Cutoff-Tests-16-17-11NOV2026-2135-CST-4c62921.zip",
+          "member": "KUI/tools.kui"
+        }
+      ]
+    },
+    {
+      "role": "gui",
+      "build": "7386d06f30aa",
+      "payload_crc32": "c321c4d2",
+      "sha256": "cce9eee981a305d0d073585b6faa4678dc410be07334b4714cd698e3cf817305",
+      "source_object": {
+        "source_repository": "toy34-inputs/gui-source.git",
+        "commit": "7386d06f30aac56423e92449d653c421ad4af6e6",
+        "subject": "Expose Toy Commander DMA sharing and stream-resume tests"
+      },
+      "clean_exact_compiles": [],
+      "other_exact_compiles": [],
+      "membership": [
+        {
+          "archive": "KUI-Toy-SCI-Tests-47-48-12NOV2026-1454-CST-1c90d14.zip",
+          "member": "KUI/tools.kui"
+        }
+      ]
+    },
+    {
+      "role": "gui",
+      "build": "7ee0638f0372",
+      "payload_crc32": "017e8c3c",
+      "sha256": "5e147c5f2367853a76a3d2f1d768eeb4c410844ea18e5e7f5d1a9e89cbc6e651",
+      "source_object": {
+        "source_repository": "toy34-inputs/gui-source.git",
+        "commit": "7ee0638f03725ec6629cecada3e8f90de065e745",
+        "subject": "Expose Toy Commander faster-checks test beside resume cadence"
+      },
+      "clean_exact_compiles": [],
+      "other_exact_compiles": [],
+      "membership": [
+        {
+          "archive": "KUI-Toy-SCI-Faster-Checks-Test-50-12NOV2026-1528-CST-1ad2aff.zip",
+          "member": "KUI/tools.kui"
+        }
+      ]
+    },
+    {
+      "role": "gui",
+      "build": "8af4a09880bf",
+      "payload_crc32": "b464780a",
+      "sha256": "17a796fb2b96db07126d1613b1c175b4df5ac4a7e75ddf8ba56eb034a76ea18a",
+      "source_object": {
+        "source_repository": "toy34-inputs/gui-source.git",
+        "commit": "8af4a09880bf5fdce2b618e44934334b04c9e5f8",
+        "subject": "Route Toy Commander movie exit tracing through Card Tools"
+      },
+      "clean_exact_compiles": [],
+      "other_exact_compiles": [],
+      "membership": [
+        {
+          "archive": "KUI-Toy-SCI-Movie-Exit-Test-39-12NOV2026-1304-CST-2979534.zip",
+          "member": "KUI/tools.kui"
+        },
+        {
+          "archive": "KUI-Toy-SCI-Movie-Exit-Test-39-12NOV2026-1306-CST-c5cd2b9.zip",
+          "member": "KUI/tools.kui"
+        }
+      ]
+    },
+    {
+      "role": "gui",
+      "build": "9d4535c53b97",
+      "payload_crc32": "b36f357b",
+      "sha256": "8ba49b34ed1e80782911e471a7c1ec7c18fcd83a1daa78ff799d895a205d0237",
+      "source_object": {
+        "source_repository": "toy34-inputs/gui-source.git",
+        "commit": "9d4535c53b97c82c2ae24c70b7103d53eee7321e",
+        "subject": "Route Toy Commander pipelined recovery through Card Tools"
+      },
+      "clean_exact_compiles": [],
+      "other_exact_compiles": [],
+      "membership": [
+        {
+          "archive": "KUI-Toy-SCI-Pipelined-Recovery-Test-41-12NOV2026-1332-CST-758c2ea.zip",
+          "member": "KUI/tools.kui"
+        },
+        {
+          "archive": "KUI-Toy-SCI-Pipelined-Recovery-Test-41-12NOV2026-1335-CST-e5aac92.zip",
+          "member": "KUI/tools.kui"
+        }
+      ]
+    },
+    {
+      "role": "gui",
+      "build": "a4c5b883208a",
+      "payload_crc32": "fd3b6f36",
+      "sha256": "fc4a81161e93f655ffc89ad0e51c682b98f2c6263c8caa2558712adc8bb18d02",
+      "source_object": {
+        "source_repository": "toy34-inputs/gui-source.git",
+        "commit": "a4c5b883208a4c1bfe1ee9f27a262da78ce46da3",
+        "subject": "Route Toy Commander RAM window through Card Tools"
+      },
+      "clean_exact_compiles": [],
+      "other_exact_compiles": [],
+      "membership": [
+        {
+          "archive": "KUI-Toy-SCI-RAM-Window-Test-35-12NOV2026-1152-CST-f1dc87f.zip",
+          "member": "KUI/tools.kui"
+        }
+      ]
+    },
+    {
+      "role": "gui",
+      "build": "afb564e9d11b",
+      "payload_crc32": "733f2264",
+      "sha256": "f358e6ed8fdce880042356425b3802a9463d7efcfa1fab703785d4ff402e7048",
+      "source_object": null,
+      "clean_exact_compiles": [],
+      "other_exact_compiles": [],
+      "membership": [
+        {
+          "archive": "KUI-Toy-Contention-Tests-23-25-11NOV2026-2315-CST-e6eb8f5.zip",
+          "member": "KUI/tools.kui"
+        }
+      ]
+    },
+    {
+      "role": "gui",
+      "build": "b8402043053c",
+      "payload_crc32": "6dca347f",
+      "sha256": "2ce86f1bd3d38b9d1a067a9e3eaff2841cbb958a3d9c51f89354e8a7ecaeb56b",
+      "source_object": null,
+      "clean_exact_compiles": [],
+      "other_exact_compiles": [],
+      "membership": [
+        {
+          "archive": "KUI-Toy-SCI-Burst-Test-26-12NOV2026-0624-CST-1e2d51d.zip",
+          "member": "KUI/tools.kui"
+        }
+      ]
+    },
+    {
+      "role": "gui",
+      "build": "bb58959f9425",
+      "payload_crc32": "1015f0a2",
+      "sha256": "422ee9c669de79be741bbfc1fc1ed1ef06d054a5c0ff9666b1f0c6b6a9942616",
+      "source_object": null,
+      "clean_exact_compiles": [],
+      "other_exact_compiles": [],
+      "membership": [
+        {
+          "archive": "KUI-Toy-Solution-Batch-19-22-11NOV2026-2243-CST-1911657.zip",
+          "member": "KUI/tools.kui"
+        }
+      ]
+    },
+    {
+      "role": "gui",
+      "build": "c0022192fb5f",
+      "payload_crc32": "9dae928d",
+      "sha256": "9ab088c2fbc50062237b0a62fe06e22643d26c805aad7e735400ce85149f9a17",
+      "source_object": null,
+      "clean_exact_compiles": [],
+      "other_exact_compiles": [],
+      "membership": [
+        {
+          "archive": "KUI-Toy-GD-SCI-FMV-Trace-12NOV2026-0858-CST-5107e2b.zip",
+          "member": "KUI/tools.kui"
+        },
+        {
+          "archive": "KUI-Toy-GD-SCI-FMV-Trace-12NOV2026-0900-CST-3336f96.zip",
+          "member": "KUI/tools.kui"
+        }
+      ]
+    },
+    {
+      "role": "gui",
+      "build": "ca0f81eb3456",
+      "payload_crc32": "194ec557",
+      "sha256": "cd33128dfa5495a11504be495f7a950f5c01e285efa7e1a801385c0b23745722",
+      "source_object": null,
+      "clean_exact_compiles": [],
+      "other_exact_compiles": [],
+      "membership": [
+        {
+          "archive": "KUI-Toy-SCI-Movie-Poll-Test-33-12NOV2026-1023-CST-e0a49a4.zip",
+          "member": "KUI/tools.kui"
+        }
+      ]
+    },
+    {
+      "role": "gui",
+      "build": "cb4d69803453",
+      "payload_crc32": "bc8a9ad1",
+      "sha256": "edfb68bd2d8bd8cfdc3cffa998c6eaba3cf4c00bb64e9ca6fc357491504c045d",
+      "source_object": {
+        "source_repository": "toy34-inputs/gui-source.git",
+        "commit": "cb4d69803453ca7d808946ce1f74670ebd63463c",
+        "subject": "Offer isolated Toy Commander bumper read latency test"
+      },
+      "clean_exact_compiles": [
+        {
+          "elf": "trace-gui/build/kui-runtime-toy57-61.elf",
+          "commit": "cb4d69803453ca7d808946ce1f74670ebd63463c",
+          "source_dirty": false,
+          "elf_sha256": "3b7a044d09755c6a872bf6f91a2afa32be843bad5ecfd911929037bf304af908"
+        }
+      ],
+      "other_exact_compiles": [],
+      "membership": [
+        {
+          "archive": "KUI-Toy-SCI-Test-61-12NOV2026-1912-CST-e0cc7c1.zip",
+          "member": "KUI/tools.kui"
+        }
+      ]
+    },
+    {
+      "role": "gui",
+      "build": "d5102f34611e",
+      "payload_crc32": "ef518465",
+      "sha256": "594cef2abfa31144f018e1ecfac3b29259522b5eb145d79552bd20ddd1f1d98d",
+      "source_object": {
+        "source_repository": "toy34-inputs/gui-source.git",
+        "commit": "d5102f34611e7d62b3c8130456311cea4a513f6f",
+        "subject": "Route Toy Commander sequential PIO and bounded DMA through Card Tools"
+      },
+      "clean_exact_compiles": [],
+      "other_exact_compiles": [],
+      "membership": [
+        {
+          "archive": "KUI-Toy-SCI-Tests-44-45-12NOV2026-1412-CST-becd132.zip",
+          "member": "KUI/tools.kui"
+        }
+      ]
+    },
+    {
+      "role": "gui",
+      "build": "d7245817bed4",
+      "payload_crc32": "cd82e6af",
+      "sha256": "c1ad437d89efd8c6679666e14ef4595b1d7f4a8df20014e9e09e98fee21bad3c",
+      "source_object": {
+        "source_repository": "toy34-inputs/gui-source.git",
+        "commit": "d7245817bed49b03f4c0218b3a07933936226ece",
+        "subject": "Route Toy Commander wake-resume test beside Test 50"
+      },
+      "clean_exact_compiles": [],
+      "other_exact_compiles": [],
+      "membership": [
+        {
+          "archive": "KUI-Toy-SCI-Wake-Resume-Test-51-12NOV2026-1551-CST-942509e.zip",
+          "member": "KUI/tools.kui"
+        }
+      ]
+    },
+    {
+      "role": "gui",
+      "build": "d735df0a6d75",
+      "payload_crc32": "1b51ff34",
+      "sha256": "66788794ab8903ba6696ccf7df80ee1a0a2894dcedf000514dbc6b5f2e9b2adb",
+      "source_object": {
+        "source_repository": "toy34-inputs/gui-source.git",
+        "commit": "d735df0a6d755b1002fa9cbd634bf29ea50ee0d0",
+        "subject": "Route Toy Commander resilient read-ahead Test 65"
+      },
+      "clean_exact_compiles": [
+        {
+          "elf": "trace-gui/build/kui-runtime-toy57-65-63.elf",
+          "commit": "d735df0a6d755b1002fa9cbd634bf29ea50ee0d0",
+          "source_dirty": false,
+          "elf_sha256": "99b17a836c9127f4cbb1e1b9cf881631d57ad306e86192f3bd5c208d980557f2"
+        }
+      ],
+      "other_exact_compiles": [],
+      "membership": [
+        {
+          "archive": "KUI-Toy-SCI-Test-65-12NOV2026-2054-CST-3f786e1.zip",
+          "member": "KUI/tools.kui"
+        }
+      ]
+    },
+    {
+      "role": "gui",
+      "build": "df1d026a1488",
+      "payload_crc32": "0e0c07b2",
+      "sha256": "3b28b938ea1f33461a7c17718eb6c08c56fa8b453a0f7ec4217877098ae7c8b0",
+      "source_object": {
+        "source_repository": "toy34-inputs/gui-source.git",
+        "commit": "df1d026a148830938e89e42e39ff5fdf6c094443",
+        "subject": "Expose Toy Commander resume-cadence test in Card Tools"
+      },
+      "clean_exact_compiles": [],
+      "other_exact_compiles": [],
+      "membership": [
+        {
+          "archive": "KUI-Toy-SCI-Resume-Cadence-Test-49-12NOV2026-1508-CST-befebdb.zip",
+          "member": "KUI/tools.kui"
+        }
+      ]
+    },
+    {
+      "role": "gui",
+      "build": "e16e724c9b65",
+      "payload_crc32": "a7fb446a",
+      "sha256": "35079d1ef1e033539735d8e095dfdb3a6bcf18d4fd1bf0245878e8ececbf05db",
+      "source_object": {
+        "source_repository": "toy34-inputs/gui-source.git",
+        "commit": "e16e724c9b65c284751811663c3dd8e62076d31d",
+        "subject": "Route Toy Commander read-ahead Test 64"
+      },
+      "clean_exact_compiles": [
+        {
+          "elf": "trace-gui/build/kui-runtime-toy57-64-63.elf",
+          "commit": "e16e724c9b65c284751811663c3dd8e62076d31d",
+          "source_dirty": false,
+          "elf_sha256": "1e2242295c18e4fa1c1a9b93c331be2742cd26fd4bbf24aef496e90be402b447"
+        }
+      ],
+      "other_exact_compiles": [],
+      "membership": [
+        {
+          "archive": "KUI-Toy-SCI-Test-64-12NOV2026-2021-CST-4f213ec.zip",
+          "member": "KUI/tools.kui"
+        },
+        {
+          "archive": "KUI-Toy-SCI-Test-64-12NOV2026-2024-CST-a867aae.zip",
+          "member": "KUI/tools.kui"
+        }
+      ]
+    },
+    {
+      "role": "gui",
+      "build": "e65c2e2af347",
+      "payload_crc32": "f6f53949",
+      "sha256": "ae40b04e993d03d4ef8420fff83210d4a40ef6c30802bd539e27c8a98ab2f82c",
+      "source_object": {
+        "source_repository": "toy34-inputs/gui-source.git",
+        "commit": "e65c2e2af3473b70e4cc44003d2e3bba6090880b",
+        "subject": "Start Toy Commander Card Tools tests again at 38"
+      },
+      "clean_exact_compiles": [],
+      "other_exact_compiles": [],
+      "membership": [
+        {
+          "archive": "KUI-Toy-SCI-Refill-Slice-Test-38-12NOV2026-1247-CST-8203e8e.zip",
+          "member": "KUI/tools.kui"
+        }
+      ]
+    },
+    {
+      "role": "gui",
+      "build": "eabe4c9cf2e3",
+      "payload_crc32": "d9ff6088",
+      "sha256": "17eb00aef8a03b1480146978a5d37ff5ba09ff8ac747afec441721c85a6ff5e4",
+      "source_object": {
+        "source_repository": "toy34-inputs/gui-source.git",
+        "commit": "eabe4c9cf2e3b5f58e075a3c91f9483aaf0f36b2",
+        "subject": "Route Toy Commander checksum and intro-buffer comparisons through Card Tools"
+      },
+      "clean_exact_compiles": [],
+      "other_exact_compiles": [],
+      "membership": [
+        {
+          "archive": "KUI-Toy-SCI-Tests-52-54-12NOV2026-1609-CST-fefd265.zip",
+          "member": "KUI/tools.kui"
+        }
+      ]
+    },
+    {
+      "role": "gui",
+      "build": "f51f08a04131",
+      "payload_crc32": "534d70a3",
+      "sha256": "82ffd7f714201564b95cf4f42ffbd22ec7b3c0eeff3afe5d9415ae9c4f530306",
+      "source_object": {
+        "source_repository": "toy34-inputs/gui-source.git",
+        "commit": "f51f08a04131e24b7f64f8f6f0dccb3ed7187cf5",
+        "subject": "Route Toy Commander playback and reader comparisons through Card Tools"
+      },
+      "clean_exact_compiles": [],
+      "other_exact_compiles": [],
+      "membership": [
+        {
+          "archive": "KUI-Toy-SCI-Tests-57-58-59-12NOV2026-1822-CST-e5b30cd.zip",
+          "member": "KUI/tools.kui"
+        }
+      ]
+    },
+    {
+      "role": "gui",
+      "build": "f6848517568d",
+      "payload_crc32": "af0108ca",
+      "sha256": "61a43a8aafdcf51b2fc0dc3944cb4da1dabd82efb0fe2ed903a0e8ce7a308f10",
+      "source_object": null,
+      "clean_exact_compiles": [],
+      "other_exact_compiles": [],
+      "membership": [
+        {
+          "archive": "KUI-Toy-SCI-Burst-Test-28-12NOV2026-0825-CST-1adeb5c.zip",
+          "member": "KUI/tools.kui"
+        }
+      ]
+    },
+    {
+      "role": "gui",
+      "build": "f6b701813b46",
+      "payload_crc32": "42e990e1",
+      "sha256": "0e28278138401d2f69ef9a43377b97b3c27352728dddfcf904b1bd790aa04486",
+      "source_object": {
+        "source_repository": "toy34-inputs/gui-source.git",
+        "commit": "f6b701813b462a1523db08896b6b1bfb48e9ba9a",
+        "subject": "Route Toy Commander first-cut PIO through Card Tools"
+      },
+      "clean_exact_compiles": [],
+      "other_exact_compiles": [],
+      "membership": [
+        {
+          "archive": "KUI-Toy-SCI-First-Cut-PIO-Test-46-12NOV2026-1428-CST-d87cf20.zip",
+          "member": "KUI/tools.kui"
+        }
+      ]
+    },
+    {
+      "role": "gui",
+      "build": "f8c8ac6c7591",
+      "payload_crc32": "ff643b6e",
+      "sha256": "778ad7caf3f0c751b89cb881a5ec0bce178b2658b936b01ab5cd30b30ad55482",
+      "source_object": null,
+      "clean_exact_compiles": [],
+      "other_exact_compiles": [],
+      "membership": [
+        {
+          "archive": "KUI-Toy-SCI-Burst-Test-27-12NOV2026-0809-CST-3ffbed7.zip",
+          "member": "KUI/tools.kui"
+        }
+      ]
+    },
+    {
+      "role": "gui",
+      "build": "fb22477999aa",
+      "payload_crc32": "14306596",
+      "sha256": "b4721166efcc6f971e323f1b1f3db998dcdf22475b79c199cb20d96f21f664fc",
+      "source_object": null,
+      "clean_exact_compiles": [],
+      "other_exact_compiles": [],
+      "membership": [
+        {
+          "archive": "KUI-Toy-SCI-Reports-11NOV2026-1855-CST-8f64f91.zip",
+          "member": "KUI/tools.kui"
+        }
+      ]
+    },
+    {
+      "role": "physical",
+      "build": "1de96fab36e3",
+      "payload_crc32": "c9e98560",
+      "sha256": "dafa3cf59d0653ea2f25a734eb196287b966c29e22c596745e6153c0b9e15791",
+      "source_object": null,
+      "clean_exact_compiles": [
+        {
+          "elf": "trace-reader/build/disc-toy-physical/entry.elf",
+          "commit": "1de96fab36e3d5d4120f0e703c49d3cdd0d0fd3d",
+          "source_dirty": false,
+          "elf_sha256": "7059bf10ab5823bfbffe5b0d1c9c2b49b01b0085e648d665844f3a48a5bd5281"
+        }
+      ],
+      "other_exact_compiles": [],
+      "membership": [
+        {
+          "archive": "KUI-Toy-GD-SCI-FMV-Trace-12NOV2026-0858-CST-5107e2b.zip",
+          "member": "KUI/apps/disc/native-toy-trace.kui"
+        },
+        {
+          "archive": "KUI-Toy-GD-SCI-FMV-Trace-12NOV2026-0900-CST-3336f96.zip",
+          "member": "KUI/apps/disc/native-toy-trace.kui"
+        }
+      ]
+    },
+    {
+      "role": "physical",
+      "build": "381c6c8ee270",
+      "payload_crc32": "fc742962",
+      "sha256": "df898d0dffadc3cde6d4ff2a53fce94b36846bdb85e3a3956146becc0d30b4ba",
+      "source_object": null,
+      "clean_exact_compiles": [
+        {
+          "elf": "trace-control/build/disc-toy-save/entry.elf",
+          "commit": "381c6c8ee2702abc1aa89578fadbce48c1c84192",
+          "source_dirty": false,
+          "elf_sha256": "08e34a140fe1349f44acba7c7a7129be3c9c8989a0da45d4cd1fa2a884e8ef0e"
+        }
+      ],
+      "other_exact_compiles": [],
+      "membership": [
+        {
+          "archive": "KUI-Toy-GD-Trace-Save-Fix-12NOV2026-0918-CST-381c6c8.zip",
+          "member": "KUI/apps/disc/native-toy-trace.kui"
+        }
+      ]
+    },
+    {
+      "role": "physical",
+      "build": "5034eb26898d",
+      "payload_crc32": "408bface",
+      "sha256": "545c6c2cdbd79b6a0243135b18ab5d8c052bfc35c393b3efde2d9ddab30531ff",
+      "source_object": {
+        "source_repository": "toy63-control.git",
+        "commit": "5034eb26898d25b7a2fc8021fbb842962699c5c2",
+        "subject": "Measure Toy Commander scene cadence on original GD firmware"
+      },
+      "clean_exact_compiles": [
+        {
+          "elf": "trace-control/build/disc-toy-frame63/entry.elf",
+          "commit": "5034eb26898d25b7a2fc8021fbb842962699c5c2",
+          "source_dirty": false,
+          "elf_sha256": "cd815e347cc0c090bd334fc8f0c5fca6af9929696711027a1c0eb46dfe2412d6"
+        }
+      ],
+      "other_exact_compiles": [],
+      "membership": [
+        {
+          "archive": "KUI-Toy-Tests-62-63-12NOV2026-1941-CST-7beafbe.zip",
+          "member": "KUI/apps/disc/native-toy-trace.kui"
+        },
+        {
+          "archive": "KUI-Toy-SCI-Test-64-12NOV2026-2021-CST-4f213ec.zip",
+          "member": "KUI/apps/disc/native-toy-trace.kui"
+        },
+        {
+          "archive": "KUI-Toy-SCI-Test-64-12NOV2026-2024-CST-a867aae.zip",
+          "member": "KUI/apps/disc/native-toy-trace.kui"
+        },
+        {
+          "archive": "KUI-Toy-SCI-Test-65-12NOV2026-2054-CST-3f786e1.zip",
+          "member": "KUI/apps/disc/native-toy-trace.kui"
+        }
+      ]
+    },
+    {
+      "role": "reader",
+      "build": "061f0b5a4f0b",
+      "payload_crc32": "72126ae2",
+      "sha256": "a953a68afc9c3cf3e882b59e89d65e3df48f2aa5e1b5fd1fc90f8cb68f440a4a",
+      "source_object": {
+        "source_repository": "toy34-inputs/reader-source.git",
+        "commit": "061f0b5a4f0bfb774d9cbd44bcfe1107ddaa6dd7",
+        "subject": "Keep three sequential Toy PIO recovery blocks in Test 40"
+      },
+      "clean_exact_compiles": [
+        {
+          "elf": "trace-reader/build/toy-recovery-window/entry.elf",
+          "commit": "061f0b5a4f0bfb774d9cbd44bcfe1107ddaa6dd7",
+          "source_dirty": false,
+          "elf_sha256": "679fdfe6d9702bb33cfca3608563acda8ff00c2365b7404b155a0d23b2e43f0e"
+        }
+      ],
+      "other_exact_compiles": [
+        {
+          "elf": "trace-reader/build/toy-pipelined-recovery-control40/entry.elf",
+          "commit": "061f0b5a4f0bfb774d9cbd44bcfe1107ddaa6dd7",
+          "source_dirty": true,
+          "elf_sha256": "679fdfe6d9702bb33cfca3608563acda8ff00c2365b7404b155a0d23b2e43f0e"
+        }
+      ],
+      "membership": [
+        {
+          "archive": "KUI-Toy-SCI-Recovery-Window-Test-40-12NOV2026-1318-CST-061f0b5.zip",
+          "member": "KUI/apps/games/retail-toy-test-40.kui"
+        }
+      ]
+    },
+    {
+      "role": "reader",
+      "build": "19116570a5a0",
+      "payload_crc32": "0573c3d2",
+      "sha256": "4eb5dba83a8330855c95835680daa0e771c4322bf71569516d05ed5a6852783b",
+      "source_object": null,
+      "clean_exact_compiles": [],
+      "other_exact_compiles": [],
+      "membership": [
+        {
+          "archive": "KUI-Toy-Solution-Batch-19-22-11NOV2026-2243-CST-1911657.zip",
+          "member": "KUI/apps/games/retail-toy-test-19.kui"
+        }
+      ]
+    },
+    {
+      "role": "reader",
+      "build": "19116570a5a0",
+      "payload_crc32": "b4b6f522",
+      "sha256": "8fa56f036c1a03a64422afac030ed200a8e33094a12ec670d48f181152ce76b2",
+      "source_object": null,
+      "clean_exact_compiles": [],
+      "other_exact_compiles": [],
+      "membership": [
+        {
+          "archive": "KUI-Toy-Solution-Batch-19-22-11NOV2026-2243-CST-1911657.zip",
+          "member": "KUI/apps/games/retail-toy-test-22.kui"
+        }
+      ]
+    },
+    {
+      "role": "reader",
+      "build": "19116570a5a0",
+      "payload_crc32": "b97f2721",
+      "sha256": "0b2fad872c909c07168ef2db49e01b53e208da41c170fef2bb793bdf399f445a",
+      "source_object": null,
+      "clean_exact_compiles": [],
+      "other_exact_compiles": [],
+      "membership": [
+        {
+          "archive": "KUI-Toy-Solution-Batch-19-22-11NOV2026-2243-CST-1911657.zip",
+          "member": "KUI/apps/games/retail-toy-test-21.kui"
+        }
+      ]
+    },
+    {
+      "role": "reader",
+      "build": "19116570a5a0",
+      "payload_crc32": "ed6bdd59",
+      "sha256": "b0d4315c32525c70d62bf2e9d06eebfb1d5a7aff298a9eb05b08973465ee3beb",
+      "source_object": null,
+      "clean_exact_compiles": [],
+      "other_exact_compiles": [],
+      "membership": [
+        {
+          "archive": "KUI-Toy-Solution-Batch-19-22-11NOV2026-2243-CST-1911657.zip",
+          "member": "KUI/apps/games/retail-toy-test-20.kui"
+        }
+      ]
+    },
+    {
+      "role": "reader",
+      "build": "1ad2afff629c",
+      "payload_crc32": "7160b3bd",
+      "sha256": "478eeecd364de0e82af218ba31a3d83614f2ac81fdb02e922edac8b992cdade6",
+      "source_object": {
+        "source_repository": "toy34-inputs/reader-source.git",
+        "commit": "1ad2afff629c5115172b88a03aa4c9898e53a796",
+        "subject": "Use cached two-byte sector checksum in Toy verified resume"
+      },
+      "clean_exact_compiles": [
+        {
+          "elf": "trace-reader/build/toy-faster-checks-final/entry.elf",
+          "commit": "1ad2afff629c5115172b88a03aa4c9898e53a796",
+          "source_dirty": false,
+          "elf_sha256": "c616938b9c7bca95e4295f7478c4cfd7e5b4e205a41163000bd21cf0ecf0e2c7"
+        }
+      ],
+      "other_exact_compiles": [],
+      "membership": [
+        {
+          "archive": "KUI-Toy-SCI-Faster-Checks-Test-50-12NOV2026-1528-CST-1ad2aff.zip",
+          "member": "KUI/apps/games/retail-toy-test-50.kui"
+        },
+        {
+          "archive": "KUI-Toy-SCI-Wake-Resume-Test-51-12NOV2026-1551-CST-942509e.zip",
+          "member": "KUI/apps/games/retail-toy-test-50.kui"
+        }
+      ]
+    },
+    {
+      "role": "reader",
+      "build": "1adeb5c2b65c",
+      "payload_crc32": "503900b7",
+      "sha256": "6b54cebdd4aa4a3a7cf5ead1c5dd737c9f91f7631b836729130745ac9354e09d",
+      "source_object": null,
+      "clean_exact_compiles": [],
+      "other_exact_compiles": [
+        {
+          "elf": "trace-control/build/trace-control/entry.elf",
+          "commit": "5107e2bb8e2dc741d6bbbf77117dfb2befd816f8",
+          "source_dirty": false,
+          "elf_sha256": "0d71d3e1a03c5e993d48edcd98ee92d5232058ad106ed82e3817728dfa2b7818"
+        }
+      ],
+      "membership": [
+        {
+          "archive": "KUI-Toy-SCI-Burst-Test-28-12NOV2026-0825-CST-1adeb5c.zip",
+          "member": "KUI/apps/games/retail-toy-test-28.kui"
+        }
+      ]
+    },
+    {
+      "role": "reader",
+      "build": "1c90d147e936",
+      "payload_crc32": "878304b4",
+      "sha256": "a68f441ddb9904dc68f2a0350b70723efb8f214fb60a39dbbf872d7287deeda6",
+      "source_object": {
+        "source_repository": "toy34-inputs/reader-source.git",
+        "commit": "1c90d147e936bf16f8c0090de3842d210f1c262d",
+        "subject": "Resume Toy movie SD blocks in place and verify raw sectors before delivery"
+      },
+      "clean_exact_compiles": [
+        {
+          "elf": "trace-reader/build/toy-verified-resume-final/entry.elf",
+          "commit": "1c90d147e936bf16f8c0090de3842d210f1c262d",
+          "source_dirty": false,
+          "elf_sha256": "30d414e9bb8d1b5867c53be53d76aeb93ee9516f41b592ca348c259571a200e5"
+        }
+      ],
+      "other_exact_compiles": [],
+      "membership": [
+        {
+          "archive": "KUI-Toy-SCI-Tests-47-48-12NOV2026-1454-CST-1c90d14.zip",
+          "member": "KUI/apps/games/retail-toy-test-48.kui"
+        },
+        {
+          "archive": "KUI-Toy-SCI-Resume-Cadence-Test-49-12NOV2026-1508-CST-befebdb.zip",
+          "member": "KUI/apps/games/retail-toy-test-48.kui"
+        }
+      ]
+    },
+    {
+      "role": "reader",
+      "build": "1e2d51de054a",
+      "payload_crc32": "dd949789",
+      "sha256": "9b2d9ff91a9e41b995478d777e36eb245b25a0d41619036634f6d59e73dacc57",
+      "source_object": null,
+      "clean_exact_compiles": [],
+      "other_exact_compiles": [],
+      "membership": [
+        {
+          "archive": "KUI-Toy-SCI-Burst-Test-26-12NOV2026-0624-CST-1e2d51d.zip",
+          "member": "KUI/apps/games/retail-toy-test-26.kui"
+        }
+      ]
+    },
+    {
+      "role": "reader",
+      "build": "225358d19816",
+      "payload_crc32": "54fab733",
+      "sha256": "8480652b98a78cbc2b0a7ad7f41defc9334aae2e8aae5f0588a2bcf7830efd58",
+      "source_object": {
+        "source_repository": "toy34-inputs/reader-source.git",
+        "commit": "225358d198165730a3bde3a1a65a8332660dc40b",
+        "subject": "Snapshot Test 33 reader with checked same-block recovery experiment"
+      },
+      "clean_exact_compiles": [
+        {
+          "elf": "trace-reader/build/toy-recovery-final/entry.elf",
+          "commit": "225358d198165730a3bde3a1a65a8332660dc40b",
+          "source_dirty": false,
+          "elf_sha256": "c23749cfc5bdba765ae074994cae47e1802942bb2890dc4e885774ace547b259"
+        }
+      ],
+      "other_exact_compiles": [],
+      "membership": [
+        {
+          "archive": "KUI-Toy-SCI-Checked-Recovery-Test-34-12NOV2026-1136-CST-225358d.zip",
+          "member": "KUI/apps/games/retail-toy-test-34.kui"
+        }
+      ]
+    },
+    {
+      "role": "reader",
+      "build": "27e5a7af0985",
+      "payload_crc32": "9181173a",
+      "sha256": "38980de39d54c79c1f0d371741e3f2f67d73c328cca2ecf5e9eb081262b49c32",
+      "source_object": {
+        "source_repository": "toy34-inputs/reader-source.git",
+        "commit": "27e5a7af09858a3400dfd4e169a1882297ed779d",
+        "subject": "Fill more of the existing Toy intro buffer in Test 56"
+      },
+      "clean_exact_compiles": [
+        {
+          "elf": "trace-reader/build/toy-intro-prefill56-final/entry.elf",
+          "commit": "27e5a7af09858a3400dfd4e169a1882297ed779d",
+          "source_dirty": false,
+          "elf_sha256": "5d7cd7073f425343a01f59dc532b607883ba9eb08b588096cf83b403aa4f68c0"
+        }
+      ],
+      "other_exact_compiles": [],
+      "membership": [
+        {
+          "archive": "KUI-Toy-SCI-Tests-55-56-12NOV2026-1737-CST-27e5a7a.zip",
+          "member": "KUI/apps/games/retail-toy-test-56.kui"
+        }
+      ]
+    },
+    {
+      "role": "reader",
+      "build": "2979534320ec",
+      "payload_crc32": "9c32ecca",
+      "sha256": "b513ca7435ba4c7896cfe9f2f73ccb844d8d0ce80a142ded2772770e7800c9e5",
+      "source_object": {
+        "source_repository": "toy34-inputs/reader-source.git",
+        "commit": "2979534320ecd3d796b993f9125be786beb0ea13",
+        "subject": "Record Toy movie player startup and exit results in Test 39"
+      },
+      "clean_exact_compiles": [],
+      "other_exact_compiles": [],
+      "membership": [
+        {
+          "archive": "KUI-Toy-SCI-Movie-Exit-Test-39-12NOV2026-1304-CST-2979534.zip",
+          "member": "KUI/apps/games/retail-toy-test-39.kui"
+        }
+      ]
+    },
+    {
+      "role": "reader",
+      "build": "3336f9682d6e",
+      "payload_crc32": "5077773a",
+      "sha256": "1d2a0b399c8ddcc3bbf08e23c8e2d7cb64aa18a645cc446b309821c4eaf50e96",
+      "source_object": null,
+      "clean_exact_compiles": [
+        {
+          "elf": "trace-reader/build/trace-sci/entry.elf",
+          "commit": "3336f9682d6ed4ef5b41e1d5d153fe04538f18a3",
+          "source_dirty": false,
+          "elf_sha256": "1c4fdaf71a28a7d2425141bf0c320b06a32b5853b95397d3e8a3828120fa8c28"
+        }
+      ],
+      "other_exact_compiles": [],
+      "membership": [
+        {
+          "archive": "KUI-Toy-GD-SCI-FMV-Trace-12NOV2026-0900-CST-3336f96.zip",
+          "member": "KUI/apps/games/retail-toy-test-29.kui"
+        }
+      ]
+    },
+    {
+      "role": "reader",
+      "build": "3f786e1926e2",
+      "payload_crc32": "733a69b1",
+      "sha256": "2a330caff6af0d7c60ac421d1ae7abb48616eca42e4d1a225504210f94442bd2",
+      "source_object": {
+        "source_repository": "toy34-inputs/reader-source.git",
+        "commit": "3f786e1926e23f92043980000471d76cf4c92a99",
+        "subject": "Preserve Toy movie read-ahead across recoverable SCI errors"
+      },
+      "clean_exact_compiles": [
+        {
+          "elf": "trace-reader/build/toy-resilient-ahead65-final/entry.elf",
+          "commit": "3f786e1926e23f92043980000471d76cf4c92a99",
+          "source_dirty": false,
+          "elf_sha256": "1352c93ddc2649fa76b19296338ab9dde95824c3e631a9b8fca72bc0d7e2a96b"
+        }
+      ],
+      "other_exact_compiles": [],
+      "membership": [
+        {
+          "archive": "KUI-Toy-SCI-Test-65-12NOV2026-2054-CST-3f786e1.zip",
+          "member": "KUI/apps/games/retail-toy-test-65.kui"
+        }
+      ]
+    },
+    {
+      "role": "reader",
+      "build": "3ffbed71e1cc",
+      "payload_crc32": "acd4b97d",
+      "sha256": "36831b24d9efa8aa368e6ceed2efe30319a6a228e9b502647cb0d546cac66de9",
+      "source_object": null,
+      "clean_exact_compiles": [],
+      "other_exact_compiles": [],
+      "membership": [
+        {
+          "archive": "KUI-Toy-SCI-Burst-Test-27-12NOV2026-0809-CST-3ffbed7.zip",
+          "member": "KUI/apps/games/retail-toy-test-27.kui"
+        }
+      ]
+    },
+    {
+      "role": "reader",
+      "build": "4520d99dd167",
+      "payload_crc32": "1e18fc2e",
+      "sha256": "bab8009618074babe9a7cbd3c2cfd8219f51d100569571b80f45af2f036dbaa8",
+      "source_object": {
+        "source_repository": "toy34-inputs/reader-source.git",
+        "commit": "4520d99dd1679503e03e8e299ce4fd4bcfe930d9",
+        "subject": "Retry cut Toy movie blocks at half SCI clock in Test 37"
+      },
+      "clean_exact_compiles": [
+        {
+          "elf": "trace-reader/build/toy-slow-retry/entry.elf",
+          "commit": "4520d99dd1679503e03e8e299ce4fd4bcfe930d9",
+          "source_dirty": false,
+          "elf_sha256": "f8cd3bad36adfe36e0ad4f23fced0e37ceb9ab968fd38f15c4a861b9b6d7c911"
+        }
+      ],
+      "other_exact_compiles": [
+        {
+          "elf": "trace-reader/build/toy-refill-slice-control37/entry.elf",
+          "commit": "4520d99dd1679503e03e8e299ce4fd4bcfe930d9",
+          "source_dirty": true,
+          "elf_sha256": "f8cd3bad36adfe36e0ad4f23fced0e37ceb9ab968fd38f15c4a861b9b6d7c911"
+        }
+      ],
+      "membership": [
+        {
+          "archive": "KUI-Toy-SCI-Slow-Retry-Test-37-12NOV2026-1232-CST-4520d99.zip",
+          "member": "KUI/apps/games/retail-toy-test-37.kui"
+        }
+      ]
+    },
+    {
+      "role": "reader",
+      "build": "4c62921b240b",
+      "payload_crc32": "6c6419f5",
+      "sha256": "7d25ee7bf03497834013cb8bf7c2bd6b245a80c4b7ab2e54d77d54b8435fdd0a",
+      "source_object": null,
+      "clean_exact_compiles": [],
+      "other_exact_compiles": [],
+      "membership": [
+        {
+          "archive": "KUI-Toy-Cutoff-Tests-16-17-11NOV2026-2135-CST-4c62921.zip",
+          "member": "KUI/apps/games/retail-toy-test-16.kui"
+        }
+      ]
+    },
+    {
+      "role": "reader",
+      "build": "4c62921b240b",
+      "payload_crc32": "ff9e67dd",
+      "sha256": "89bfcc4e8946cc7fda623d10c8b444648502ff229abf1573bdfc45c12c6d9ef5",
+      "source_object": null,
+      "clean_exact_compiles": [],
+      "other_exact_compiles": [],
+      "membership": [
+        {
+          "archive": "KUI-Toy-Cutoff-Tests-16-17-11NOV2026-2135-CST-4c62921.zip",
+          "member": "KUI/apps/games/retail-toy-test-17.kui"
+        }
+      ]
+    },
+    {
+      "role": "reader",
+      "build": "4f213ec141bf",
+      "payload_crc32": "02c30a52",
+      "sha256": "d6b013132d7d128bfe1a2de97df9c7155eff6813b2d0818d9169cefb3901a591",
+      "source_object": {
+        "source_repository": "toy34-inputs/reader-source.git",
+        "commit": "4f213ec141bf9a5c08aec91b5a5d8deec80fbd9b",
+        "subject": "Keep verified Toy movie read-ahead through the masked GDFS kickoff"
+      },
+      "clean_exact_compiles": [],
+      "other_exact_compiles": [],
+      "membership": [
+        {
+          "archive": "KUI-Toy-SCI-Test-64-12NOV2026-2021-CST-4f213ec.zip",
+          "member": "KUI/apps/games/retail-toy-test-64.kui"
+        }
+      ]
+    },
+    {
+      "role": "reader",
+      "build": "5107e2bb8e2d",
+      "payload_crc32": "19b9c720",
+      "sha256": "82d811bd9afb1ecfe9d7267e22b9505e88867c1baee715a4279d43c6863bb1bf",
+      "source_object": null,
+      "clean_exact_compiles": [],
+      "other_exact_compiles": [],
+      "membership": [
+        {
+          "archive": "KUI-Toy-GD-SCI-FMV-Trace-12NOV2026-0858-CST-5107e2b.zip",
+          "member": "KUI/apps/games/retail-toy-test-29.kui"
+        }
+      ]
+    },
+    {
+      "role": "reader",
+      "build": "5425aca86182",
+      "payload_crc32": "ab63266b",
+      "sha256": "d157153835178a7c6bd29b22fc5b2a60d019c1910b13ef45e4c3d480827207ec",
+      "source_object": {
+        "source_repository": "toy34-inputs/reader-source.git",
+        "commit": "5425aca86182d6de3c31c1a87ad0b4a425854428",
+        "subject": "Restore Toy graphics priority and trace video chunk readiness in Test 42"
+      },
+      "clean_exact_compiles": [
+        {
+          "elf": "trace-reader/build/toy-graphics-priority-final/entry.elf",
+          "commit": "5425aca86182d6de3c31c1a87ad0b4a425854428",
+          "source_dirty": false,
+          "elf_sha256": "9ef75e775507d2c781d56f4378f4dd4cb24c2e677eaaebf243286f9e2e524513"
+        }
+      ],
+      "other_exact_compiles": [],
+      "membership": [
+        {
+          "archive": "KUI-Toy-SCI-Graphics-Priority-Test-42-12NOV2026-1346-CST-5425aca.zip",
+          "member": "KUI/apps/games/retail-toy-test-42.kui"
+        }
+      ]
+    },
+    {
+      "role": "reader",
+      "build": "54b12486a48a",
+      "payload_crc32": "99c65d51",
+      "sha256": "a2fedc43925eb43f80a62c45603914cb0234b440bf471e2c0af712476ed437df",
+      "source_object": null,
+      "clean_exact_compiles": [
+        {
+          "elf": "trace-reader/build/toy-checked-refill/entry.elf",
+          "commit": "54b12486a48aaee0d37b79b5b5f56aab5f9d3d6f",
+          "source_dirty": false,
+          "elf_sha256": "bb64b2ea4135bd38d3b08ced6459b37903577a0e50bad23356956c033cf60c7d"
+        }
+      ],
+      "other_exact_compiles": [],
+      "membership": [
+        {
+          "archive": "KUI-Toy-SCI-Checked-Refill-Test-31-12NOV2026-0928-CST-54b1248.zip",
+          "member": "KUI/apps/games/retail-toy-test-31.kui"
+        }
+      ]
+    },
+    {
+      "role": "reader",
+      "build": "5db8cbd028c9",
+      "payload_crc32": "2bcc1480",
+      "sha256": "877dd03184556fb30238db351d8dafd9b7bd0e8596bec782944b57233e6795e3",
+      "source_object": null,
+      "clean_exact_compiles": [],
+      "other_exact_compiles": [],
+      "membership": [
+        {
+          "archive": "KUI-Toy-SCI-Tests-08-10-11NOV2026-2020-CST-5db8cbd.zip",
+          "member": "KUI/apps/games/retail-toy-test-9.kui"
+        }
+      ]
+    },
+    {
+      "role": "reader",
+      "build": "5db8cbd028c9",
+      "payload_crc32": "a136ee92",
+      "sha256": "5956855e2ba0262a5f14ebfc9f7ecd813b378e54cb1f6ba12ce1eee46d6c1e89",
+      "source_object": null,
+      "clean_exact_compiles": [],
+      "other_exact_compiles": [],
+      "membership": [
+        {
+          "archive": "KUI-Toy-SCI-Tests-08-10-11NOV2026-2020-CST-5db8cbd.zip",
+          "member": "KUI/apps/games/retail-toy-test-10.kui"
+        }
+      ]
+    },
+    {
+      "role": "reader",
+      "build": "5db8cbd028c9",
+      "payload_crc32": "b8147917",
+      "sha256": "a436c771ecd5c303a3bb8f46c7b3aeef259f7df6f3168fa02e510e96e42263d6",
+      "source_object": null,
+      "clean_exact_compiles": [],
+      "other_exact_compiles": [],
+      "membership": [
+        {
+          "archive": "KUI-Toy-SCI-Tests-08-10-11NOV2026-2020-CST-5db8cbd.zip",
+          "member": "KUI/apps/games/retail-toy-test-8.kui"
+        }
+      ]
+    },
+    {
+      "role": "reader",
+      "build": "5ecb06066b27",
+      "payload_crc32": "aa088b65",
+      "sha256": "3e23e56fb88288a1b4020875b7b0a248303d6e622d1fd50f7614502759dcb7b0",
+      "source_object": {
+        "source_repository": "toy34-inputs/reader-source.git",
+        "commit": "5ecb06066b27c7a7d63d6b4f2b4b3ca7e876fb50",
+        "subject": "Give Toy SCI receive priority over graphics DMA in Test 36"
+      },
+      "clean_exact_compiles": [
+        {
+          "elf": "trace-reader/build/toy-priority-final/entry.elf",
+          "commit": "5ecb06066b27c7a7d63d6b4f2b4b3ca7e876fb50",
+          "source_dirty": false,
+          "elf_sha256": "3aeeb3f9170998cf087bd2baac671af67a88f242d86acaa54d66b0627dfb6a06"
+        }
+      ],
+      "other_exact_compiles": [],
+      "membership": [
+        {
+          "archive": "KUI-Toy-SCI-DMA-Priority-Test-36-12NOV2026-1207-CST-5ecb060.zip",
+          "member": "KUI/apps/games/retail-toy-test-36.kui"
+        }
+      ]
+    },
+    {
+      "role": "reader",
+      "build": "70723b37cebb",
+      "payload_crc32": "1e0a875f",
+      "sha256": "351af2aa6314261f04fbc6ac034894c54c2e69f569ffe75429583ba6c039bc1c",
+      "source_object": null,
+      "clean_exact_compiles": [],
+      "other_exact_compiles": [],
+      "membership": [
+        {
+          "archive": "KUI-Toy-SCI-Test-Suite-11NOV2026-1637-CST-70723b3.zip",
+          "member": "KUI/apps/games/retail-toy-test-4.kui"
+        }
+      ]
+    },
+    {
+      "role": "reader",
+      "build": "70723b37cebb",
+      "payload_crc32": "2bfd23c1",
+      "sha256": "ae9956b83a451ccd26e073a197522b6af6519d0a7d63007674198d4db7bf002c",
+      "source_object": null,
+      "clean_exact_compiles": [],
+      "other_exact_compiles": [],
+      "membership": [
+        {
+          "archive": "KUI-Toy-SCI-Test-Suite-11NOV2026-1637-CST-70723b3.zip",
+          "member": "KUI/apps/games/retail-toy-test-3.kui"
+        }
+      ]
+    },
+    {
+      "role": "reader",
+      "build": "70723b37cebb",
+      "payload_crc32": "4ee3f408",
+      "sha256": "ca7bae4bfd6c4c1dcee91c2dd49d54b23f6331340c068574528987ecbdbd1f68",
+      "source_object": null,
+      "clean_exact_compiles": [],
+      "other_exact_compiles": [],
+      "membership": [
+        {
+          "archive": "KUI-Toy-SCI-Test-Suite-11NOV2026-1637-CST-70723b3.zip",
+          "member": "KUI/apps/games/retail-toy-test-6.kui"
+        }
+      ]
+    },
+    {
+      "role": "reader",
+      "build": "70723b37cebb",
+      "payload_crc32": "77598644",
+      "sha256": "b885ee7a2d88e0aa5f18720f1c09f7a8b56edb2df24dd413503a50eb6495be4c",
+      "source_object": null,
+      "clean_exact_compiles": [],
+      "other_exact_compiles": [],
+      "membership": [
+        {
+          "archive": "KUI-Toy-SCI-Test-Suite-11NOV2026-1637-CST-70723b3.zip",
+          "member": "KUI/apps/games/retail-toy-test-7.kui"
+        }
+      ]
+    },
+    {
+      "role": "reader",
+      "build": "70723b37cebb",
+      "payload_crc32": "824043b6",
+      "sha256": "f8d8509be7ecaaec69e20d3c960944730dedeca9f93a2e33b955ca7a9ee30a98",
+      "source_object": null,
+      "clean_exact_compiles": [],
+      "other_exact_compiles": [],
+      "membership": [
+        {
+          "archive": "KUI-Toy-SCI-Test-Suite-11NOV2026-1637-CST-70723b3.zip",
+          "member": "KUI/apps/games/retail-toy-test-1.kui"
+        }
+      ]
+    },
+    {
+      "role": "reader",
+      "build": "70723b37cebb",
+      "payload_crc32": "b5e75e1a",
+      "sha256": "65d0c4642c9f09151aa7f7a10404d608885e7ddbd14bb6ca885c118fe576f4a4",
+      "source_object": null,
+      "clean_exact_compiles": [],
+      "other_exact_compiles": [],
+      "membership": [
+        {
+          "archive": "KUI-Toy-SCI-Test-Suite-11NOV2026-1637-CST-70723b3.zip",
+          "member": "KUI/apps/games/retail-toy-test-2.kui"
+        }
+      ]
+    },
+    {
+      "role": "reader",
+      "build": "758c2eacaa9b",
+      "payload_crc32": "6c0d9953",
+      "sha256": "a5a0f3f1a45a3890ec652d1894e95ec26a916f29e7bd42e3243713278f66804c",
+      "source_object": {
+        "source_repository": "toy34-inputs/reader-source.git",
+        "commit": "758c2eacaa9b341eca7f0738a1c8a8916d9c678c",
+        "subject": "Pipeline Toy recovery-window PIO in Test 41"
+      },
+      "clean_exact_compiles": [
+        {
+          "elf": "trace-reader/build/toy-pipelined-recovery/entry.elf",
+          "commit": "758c2eacaa9b341eca7f0738a1c8a8916d9c678c",
+          "source_dirty": false,
+          "elf_sha256": "131a1624221828bbab8cca0ff60d349ded9304a9dea3514d51d0111c9920a304"
+        },
+        {
+          "elf": "trace-reader/build/toy-pipelined-recovery-clean/entry.elf",
+          "commit": "758c2eacaa9b341eca7f0738a1c8a8916d9c678c",
+          "source_dirty": false,
+          "elf_sha256": "131a1624221828bbab8cca0ff60d349ded9304a9dea3514d51d0111c9920a304"
+        }
+      ],
+      "other_exact_compiles": [],
+      "membership": [
+        {
+          "archive": "KUI-Toy-SCI-Pipelined-Recovery-Test-41-12NOV2026-1332-CST-758c2ea.zip",
+          "member": "KUI/apps/games/retail-toy-test-41.kui"
+        }
+      ]
+    },
+    {
+      "role": "reader",
+      "build": "7beafbe8da44",
+      "payload_crc32": "ad53b6e7",
+      "sha256": "e38af2233149fa81af888a1837c971087a71116437c687666502aa285fa24c8e",
+      "source_object": {
+        "source_repository": "toy34-inputs/reader-source.git",
+        "commit": "7beafbe8da44d4fabb0e8376d9430d117598410f",
+        "subject": "Read ahead of native Toy Commander movie requests in a verified sector window"
+      },
+      "clean_exact_compiles": [
+        {
+          "elf": "trace-reader/build/toy-movie-ahead62-final/entry.elf",
+          "commit": "7beafbe8da44d4fabb0e8376d9430d117598410f",
+          "source_dirty": false,
+          "elf_sha256": "57e1d116adbfdaea8d2b453e94292d411d7c43cb0745a36ebf231f3850fdf162"
+        }
+      ],
+      "other_exact_compiles": [],
+      "membership": [
+        {
+          "archive": "KUI-Toy-Tests-62-63-12NOV2026-1941-CST-7beafbe.zip",
+          "member": "KUI/apps/games/retail-toy-test-62.kui"
+        }
+      ]
+    },
+    {
+      "role": "reader",
+      "build": "80c54f8ddf34",
+      "payload_crc32": "9597aa99",
+      "sha256": "f42d5862653d74a80cac56b485ef8abcb349306fb0dd95de5b5c640cef6ea0a7",
+      "source_object": null,
+      "clean_exact_compiles": [],
+      "other_exact_compiles": [],
+      "membership": [
+        {
+          "archive": "KUI-Toy-Continuous-Reader-Test-18-11NOV2026-2208-CST-80c54f8.zip",
+          "member": "KUI/apps/games/retail-toy-test-18.kui"
+        }
+      ]
+    },
+    {
+      "role": "reader",
+      "build": "8203e8e86dad",
+      "payload_crc32": "e83ff458",
+      "sha256": "530acf8122dba1fa6998aae16643f06975c5721238883ec6941c50f799cd2ad1",
+      "source_object": {
+        "source_repository": "toy34-inputs/reader-source.git",
+        "commit": "8203e8e86dad4e5ca397340623dd2dce5040af75",
+        "subject": "Use bounded foreground refill on scheduled Toy movie polls"
+      },
+      "clean_exact_compiles": [
+        {
+          "elf": "trace-reader/build/toy-refill-slice/entry.elf",
+          "commit": "8203e8e86dad4e5ca397340623dd2dce5040af75",
+          "source_dirty": false,
+          "elf_sha256": "0f6136774f91b191c5e2a93932c6cae0153490e948a97478628b8ada8d490f81"
+        }
+      ],
+      "other_exact_compiles": [],
+      "membership": [
+        {
+          "archive": "KUI-Toy-SCI-Refill-Slice-Test-38-12NOV2026-1247-CST-8203e8e.zip",
+          "member": "KUI/apps/games/retail-toy-test-38.kui"
+        }
+      ]
+    },
+    {
+      "role": "reader",
+      "build": "8e732f81efd0",
+      "payload_crc32": "6a751c28",
+      "sha256": "30de483d6802d5729d54f6bde34c2df3198ab2362438b04fd6393be1dc752b11",
+      "source_object": {
+        "source_repository": "toy34-inputs/reader-source.git",
+        "commit": "8e732f81efd0ab8ebcf01888777c3ec6717e0024",
+        "subject": "Verify staged Toy sectors four bytes at a time in Test 52"
+      },
+      "clean_exact_compiles": [
+        {
+          "elf": "toy-test52-54-package/reader52/build/toy-fast-edc52-final/entry.elf",
+          "commit": "8e732f81efd0ab8ebcf01888777c3ec6717e0024",
+          "source_dirty": false,
+          "elf_sha256": "8bd7c63b88a142e904450973b64996e8834bbb7703c0b4da1377c0d84b4e51ae"
+        }
+      ],
+      "other_exact_compiles": [],
+      "membership": [
+        {
+          "archive": "KUI-Toy-SCI-Tests-52-54-12NOV2026-1609-CST-fefd265.zip",
+          "member": "KUI/apps/games/retail-toy-test-52.kui"
+        }
+      ]
+    },
+    {
+      "role": "reader",
+      "build": "8f64f91b4482",
+      "payload_crc32": "08d336cb",
+      "sha256": "66f275216dcbc2433712eb722b37efe64919cbebe24eb2e21182e4c1be9dbf66",
+      "source_object": null,
+      "clean_exact_compiles": [],
+      "other_exact_compiles": [],
+      "membership": [
+        {
+          "archive": "KUI-Toy-SCI-Reports-11NOV2026-1855-CST-8f64f91.zip",
+          "member": "KUI/apps/games/retail-toy-test-6.kui"
+        }
+      ]
+    },
+    {
+      "role": "reader",
+      "build": "8f64f91b4482",
+      "payload_crc32": "1afafc32",
+      "sha256": "560f1828152b45fa8aa949db40b07957bee6244d33b8b3671807dd0079483f2b",
+      "source_object": null,
+      "clean_exact_compiles": [],
+      "other_exact_compiles": [],
+      "membership": [
+        {
+          "archive": "KUI-Toy-SCI-Reports-11NOV2026-1855-CST-8f64f91.zip",
+          "member": "KUI/apps/games/retail-toy-test-7.kui"
+        }
+      ]
+    },
+    {
+      "role": "reader",
+      "build": "8f64f91b4482",
+      "payload_crc32": "4b41735e",
+      "sha256": "d82c32a073e8cd39ea7ba48fa205c39fbba70e8b5cbb0d4e7fff6076063eba43",
+      "source_object": null,
+      "clean_exact_compiles": [],
+      "other_exact_compiles": [],
+      "membership": [
+        {
+          "archive": "KUI-Toy-SCI-Reports-11NOV2026-1855-CST-8f64f91.zip",
+          "member": "KUI/apps/games/retail-toy-test-1.kui"
+        }
+      ]
+    },
+    {
+      "role": "reader",
+      "build": "8f64f91b4482",
+      "payload_crc32": "8db35b46",
+      "sha256": "2e83fedeb3eed34e7b1e2d35888d19c0332d0448ddf627966c432ef06f929dd9",
+      "source_object": null,
+      "clean_exact_compiles": [],
+      "other_exact_compiles": [],
+      "membership": [
+        {
+          "archive": "KUI-Toy-SCI-Reports-11NOV2026-1855-CST-8f64f91.zip",
+          "member": "KUI/apps/games/retail-toy-test-2.kui"
+        }
+      ]
+    },
+    {
+      "role": "reader",
+      "build": "8f64f91b4482",
+      "payload_crc32": "a069c39e",
+      "sha256": "f78ea0239ea5522fc2e0e3ed1c7b530d0c8043190177187f67f775693bfc1859",
+      "source_object": null,
+      "clean_exact_compiles": [],
+      "other_exact_compiles": [],
+      "membership": [
+        {
+          "archive": "KUI-Toy-SCI-Reports-11NOV2026-1855-CST-8f64f91.zip",
+          "member": "KUI/apps/games/retail-toy-test-4.kui"
+        }
+      ]
+    },
+    {
+      "role": "reader",
+      "build": "8f64f91b4482",
+      "payload_crc32": "dd92defb",
+      "sha256": "244680be47e2853f179611492e026532aa4a01702cba2e9886baa8bb63a19f7f",
+      "source_object": null,
+      "clean_exact_compiles": [],
+      "other_exact_compiles": [],
+      "membership": [
+        {
+          "archive": "KUI-Toy-SCI-Reports-11NOV2026-1855-CST-8f64f91.zip",
+          "member": "KUI/apps/games/retail-toy-test-3.kui"
+        }
+      ]
+    },
+    {
+      "role": "reader",
+      "build": "942509e6fe6e",
+      "payload_crc32": "415280a5",
+      "sha256": "6b0e4d4c1be48aee4dd5633768e48fad73111ba171438d7acebfe3f18d65a945",
+      "source_object": {
+        "source_repository": "toy34-inputs/reader-source.git",
+        "commit": "942509e6fe6ee7fa6db9902527cbabf7cd78a2c9",
+        "subject": "Resume parked Toy SCI transfers after verified controller replies"
+      },
+      "clean_exact_compiles": [
+        {
+          "elf": "trace-reader/build/toy-wake-resume-final/entry.elf",
+          "commit": "942509e6fe6ee7fa6db9902527cbabf7cd78a2c9",
+          "source_dirty": false,
+          "elf_sha256": "6fa106f5c3b8edcbda8314721ee7b417ec751e90cc313087b28cc9e9f61ff82d"
+        }
+      ],
+      "other_exact_compiles": [],
+      "membership": [
+        {
+          "archive": "KUI-Toy-SCI-Wake-Resume-Test-51-12NOV2026-1551-CST-942509e.zip",
+          "member": "KUI/apps/games/retail-toy-test-51.kui"
+        },
+        {
+          "archive": "KUI-Toy-SCI-Tests-52-54-12NOV2026-1609-CST-fefd265.zip",
+          "member": "KUI/apps/games/retail-toy-test-51.kui"
+        }
+      ]
+    },
+    {
+      "role": "reader",
+      "build": "a867aae40aac",
+      "payload_crc32": "ceff82f8",
+      "sha256": "7231741f2c23f2d2bbe7f12ed919749dd29355169d523a62ad90e0bf73dbacd3",
+      "source_object": {
+        "source_repository": "toy34-inputs/reader-source.git",
+        "commit": "a867aae40aaced736df1ba9259455f30cbb52828",
+        "subject": "Keep verified Toy movie read-ahead through the masked GDFS kickoff"
+      },
+      "clean_exact_compiles": [
+        {
+          "elf": "trace-reader/build/toy-movie-ahead64-final/entry.elf",
+          "commit": "a867aae40aaced736df1ba9259455f30cbb52828",
+          "source_dirty": false,
+          "elf_sha256": "34645dea418ccd86233b665c83c4f0f177147fad3e5633042be34cb39af56be7"
+        }
+      ],
+      "other_exact_compiles": [],
+      "membership": [
+        {
+          "archive": "KUI-Toy-SCI-Test-64-12NOV2026-2024-CST-a867aae.zip",
+          "member": "KUI/apps/games/retail-toy-test-64.kui"
+        }
+      ]
+    },
+    {
+      "role": "reader",
+      "build": "aa3ee4a8f9a5",
+      "payload_crc32": "e2802318",
+      "sha256": "6bbb11e32f43137cc635621482940f3111e094a8c7f7dd0aebf1804297df3af2",
+      "source_object": {
+        "source_repository": "toy34-inputs/reader-source.git",
+        "commit": "aa3ee4a8f9a573c8a6a181e8aa067fa791f30fb2",
+        "subject": "Shorten the SCI block CRC16 loop in Toy Test 53"
+      },
+      "clean_exact_compiles": [
+        {
+          "elf": "toy-test52-54-package/reader53/build/toy-fast-crc53-final/entry.elf",
+          "commit": "aa3ee4a8f9a573c8a6a181e8aa067fa791f30fb2",
+          "source_dirty": false,
+          "elf_sha256": "c90ac8410b34d56380689f4f4ca9ba11abfe0aae63fe786864f07bd9bccf0be1"
+        }
+      ],
+      "other_exact_compiles": [],
+      "membership": [
+        {
+          "archive": "KUI-Toy-SCI-Tests-52-54-12NOV2026-1609-CST-fefd265.zip",
+          "member": "KUI/apps/games/retail-toy-test-53.kui"
+        },
+        {
+          "archive": "KUI-Toy-SCI-Tests-55-56-12NOV2026-1737-CST-27e5a7a.zip",
+          "member": "KUI/apps/games/retail-toy-test-53.kui"
+        }
+      ]
+    },
+    {
+      "role": "reader",
+      "build": "b0e6305f53f5",
+      "payload_crc32": "55447aba",
+      "sha256": "26427d2985b0e13fa659e2799801234695d9bb8afe0f86210511dd35b364105c",
+      "source_object": {
+        "source_repository": "toy34-inputs/reader-source.git",
+        "commit": "b0e6305f53f5c92a607bcb354998494a9cc7a860",
+        "subject": "Measure Toy Commander frame submission cadence in Test 60"
+      },
+      "clean_exact_compiles": [
+        {
+          "elf": "trace-reader/build/toy-frame-timing60-final/entry.elf",
+          "commit": "b0e6305f53f5c92a607bcb354998494a9cc7a860",
+          "source_dirty": false,
+          "elf_sha256": "c51f7f3ff73799484d271c0cefabbeed1d16459663a40ada66ec758fc5faf4ac"
+        }
+      ],
+      "other_exact_compiles": [],
+      "membership": [
+        {
+          "archive": "KUI-Toy-SCI-Test-60-12NOV2026-1856-CST-b0e6305.zip",
+          "member": "KUI/apps/games/retail-toy-test-60.kui"
+        }
+      ]
+    },
+    {
+      "role": "reader",
+      "build": "becd132dfdc9",
+      "payload_crc32": "6843c3ea",
+      "sha256": "79af005338232da02768f557ea31c55b45a570ab50d11f4944f91b7563c582b4",
+      "source_object": {
+        "source_repository": "toy34-inputs/reader-source.git",
+        "commit": "becd132dfdc92f1bd332c0a2d1c821b341fd8aea",
+        "subject": "Cap verified Toy scheduled movie DMA batches in Test 45"
+      },
+      "clean_exact_compiles": [
+        {
+          "elf": "trace-reader/build/toy-sequential-pio-final/entry.elf",
+          "commit": "becd132dfdc92f1bd332c0a2d1c821b341fd8aea",
+          "source_dirty": false,
+          "elf_sha256": "b421c1fd490bacc4e4d505cee24015f57c518da0a9114228bdb77c1ca6df56c4"
+        }
+      ],
+      "other_exact_compiles": [],
+      "membership": [
+        {
+          "archive": "KUI-Toy-SCI-Tests-44-45-12NOV2026-1412-CST-becd132.zip",
+          "member": "KUI/apps/games/retail-toy-test-44.kui"
+        }
+      ]
+    },
+    {
+      "role": "reader",
+      "build": "becd132dfdc9",
+      "payload_crc32": "ec770cbb",
+      "sha256": "f4c4bab1fd4dcd18ebc3db7fae984e49d43508f647bc24a46854ee76e0483ea1",
+      "source_object": {
+        "source_repository": "toy34-inputs/reader-source.git",
+        "commit": "becd132dfdc92f1bd332c0a2d1c821b341fd8aea",
+        "subject": "Cap verified Toy scheduled movie DMA batches in Test 45"
+      },
+      "clean_exact_compiles": [
+        {
+          "elf": "trace-reader/build/toy-bounded-dma-final/entry.elf",
+          "commit": "becd132dfdc92f1bd332c0a2d1c821b341fd8aea",
+          "source_dirty": false,
+          "elf_sha256": "7659f9546c8dd6f3080fb8ce14737bef99d544cd0ff4db4929d37a5dd6b9fc82"
+        }
+      ],
+      "other_exact_compiles": [],
+      "membership": [
+        {
+          "archive": "KUI-Toy-SCI-Tests-44-45-12NOV2026-1412-CST-becd132.zip",
+          "member": "KUI/apps/games/retail-toy-test-45.kui"
+        }
+      ]
+    },
+    {
+      "role": "reader",
+      "build": "befebdbf446f",
+      "payload_crc32": "6d231579",
+      "sha256": "d3961d8c677d745801af50f0f3d91e41fce28b490a8943ba74a0ff0832230cf3",
+      "source_object": {
+        "source_repository": "toy34-inputs/reader-source.git",
+        "commit": "befebdbf446f7aac543c36a87c0dc7a3db5ee2be",
+        "subject": "Restore bounded foreground refill during verified Toy movie staging"
+      },
+      "clean_exact_compiles": [
+        {
+          "elf": "trace-reader/build/toy-resume-cadence-final/entry.elf",
+          "commit": "befebdbf446f7aac543c36a87c0dc7a3db5ee2be",
+          "source_dirty": false,
+          "elf_sha256": "52ae3a7c0a65d679fad392f1d803f1b05e11f56b0818fd4cb3b3fd4e4162f505"
+        }
+      ],
+      "other_exact_compiles": [],
+      "membership": [
+        {
+          "archive": "KUI-Toy-SCI-Resume-Cadence-Test-49-12NOV2026-1508-CST-befebdb.zip",
+          "member": "KUI/apps/games/retail-toy-test-49.kui"
+        },
+        {
+          "archive": "KUI-Toy-SCI-Faster-Checks-Test-50-12NOV2026-1528-CST-1ad2aff.zip",
+          "member": "KUI/apps/games/retail-toy-test-49.kui"
+        }
+      ]
+    },
+    {
+      "role": "reader",
+      "build": "c5cd2b945454",
+      "payload_crc32": "18f24402",
+      "sha256": "e4389206ae7aa46d0dc643859b31ad09d295ed279726c25e034acf97ab921a82",
+      "source_object": {
+        "source_repository": "toy34-inputs/reader-source.git",
+        "commit": "c5cd2b9454546316a5c26a688fb835e65ee0804d",
+        "subject": "Record Toy movie player startup and exit results in Test 39"
+      },
+      "clean_exact_compiles": [
+        {
+          "elf": "trace-reader/build/toy-movie-exit/entry.elf",
+          "commit": "c5cd2b9454546316a5c26a688fb835e65ee0804d",
+          "source_dirty": false,
+          "elf_sha256": "eb85347bf3797f0648f73d19814457d4e24bd65bedeb8319facbc4b60f29311f"
+        }
+      ],
+      "other_exact_compiles": [
+        {
+          "elf": "trace-reader/build/toy-recovery-window-control39/entry.elf",
+          "commit": "c5cd2b9454546316a5c26a688fb835e65ee0804d",
+          "source_dirty": true,
+          "elf_sha256": "eb85347bf3797f0648f73d19814457d4e24bd65bedeb8319facbc4b60f29311f"
+        }
+      ],
+      "membership": [
+        {
+          "archive": "KUI-Toy-SCI-Movie-Exit-Test-39-12NOV2026-1306-CST-c5cd2b9.zip",
+          "member": "KUI/apps/games/retail-toy-test-39.kui"
+        }
+      ]
+    },
+    {
+      "role": "reader",
+      "build": "cfd2042d9316",
+      "payload_crc32": "2585a574",
+      "sha256": "81f6339e74430557b608a10c36ebdb847ea13d639df65ba6e9b622a2d3862999",
+      "source_object": null,
+      "clean_exact_compiles": [],
+      "other_exact_compiles": [],
+      "membership": [
+        {
+          "archive": "KUI-Toy-SCI-Tests-11-15-11NOV2026-2052-CST-cfd2042.zip",
+          "member": "KUI/apps/games/retail-toy-test-12.kui"
+        }
+      ]
+    },
+    {
+      "role": "reader",
+      "build": "cfd2042d9316",
+      "payload_crc32": "729df9f2",
+      "sha256": "3e1d45a0f6e9a8b08c8a2958ad4a67749a1b3d55f03c40c9dd240afd11b66ced",
+      "source_object": null,
+      "clean_exact_compiles": [],
+      "other_exact_compiles": [],
+      "membership": [
+        {
+          "archive": "KUI-Toy-SCI-Tests-11-15-11NOV2026-2052-CST-cfd2042.zip",
+          "member": "KUI/apps/games/retail-toy-test-13.kui"
+        }
+      ]
+    },
+    {
+      "role": "reader",
+      "build": "cfd2042d9316",
+      "payload_crc32": "7914c3e0",
+      "sha256": "2ab3119b11ca6f17069cce0d76e0456072193aff0feab5ad9954beea0351c624",
+      "source_object": null,
+      "clean_exact_compiles": [],
+      "other_exact_compiles": [],
+      "membership": [
+        {
+          "archive": "KUI-Toy-SCI-Tests-11-15-11NOV2026-2052-CST-cfd2042.zip",
+          "member": "KUI/apps/games/retail-toy-test-15.kui"
+        }
+      ]
+    },
+    {
+      "role": "reader",
+      "build": "cfd2042d9316",
+      "payload_crc32": "d1e6baf8",
+      "sha256": "7e5ce9f1aa5543830bab401c282c4161fe37c82f546075999592e2de966755f7",
+      "source_object": null,
+      "clean_exact_compiles": [],
+      "other_exact_compiles": [],
+      "membership": [
+        {
+          "archive": "KUI-Toy-SCI-Tests-11-15-11NOV2026-2052-CST-cfd2042.zip",
+          "member": "KUI/apps/games/retail-toy-test-14.kui"
+        }
+      ]
+    },
+    {
+      "role": "reader",
+      "build": "cfd2042d9316",
+      "payload_crc32": "d47b36d5",
+      "sha256": "31653b2e9a9150f23bb2e64cee1345fd5e5ac97ea308130659dfdd4921c71ac8",
+      "source_object": null,
+      "clean_exact_compiles": [],
+      "other_exact_compiles": [],
+      "membership": [
+        {
+          "archive": "KUI-Toy-SCI-Tests-11-15-11NOV2026-2052-CST-cfd2042.zip",
+          "member": "KUI/apps/games/retail-toy-test-11.kui"
+        }
+      ]
+    },
+    {
+      "role": "reader",
+      "build": "d87cf2073493",
+      "payload_crc32": "fcfcda46",
+      "sha256": "47a07a38cf373964a2c3b5e619ac1332b1b292f68ac4c8a3aec43120ba4d9808",
+      "source_object": {
+        "source_repository": "toy34-inputs/reader-source.git",
+        "commit": "d87cf2073493890845413819460eea39490f741a",
+        "subject": "Retry verified Toy movie DMA overruns immediately with checked PIO in Test 46"
+      },
+      "clean_exact_compiles": [
+        {
+          "elf": "trace-reader/build/toy-first-cut-pio-final/entry.elf",
+          "commit": "d87cf2073493890845413819460eea39490f741a",
+          "source_dirty": false,
+          "elf_sha256": "dad2cd79848bb7bed324e5d53fa67e91bd61c478c77327ebf2a9d209fd446314"
+        }
+      ],
+      "other_exact_compiles": [],
+      "membership": [
+        {
+          "archive": "KUI-Toy-SCI-First-Cut-PIO-Test-46-12NOV2026-1428-CST-d87cf20.zip",
+          "member": "KUI/apps/games/retail-toy-test-46.kui"
+        }
+      ]
+    },
+    {
+      "role": "reader",
+      "build": "e0a49a4c33d8",
+      "payload_crc32": "d076555e",
+      "sha256": "d39ae3342a485859c8a752c8902919f1e1ce591a6992f96c0bf9e817d7ed4335",
+      "source_object": null,
+      "clean_exact_compiles": [
+        {
+          "elf": "trace-reader/build/toy-poll-final/entry.elf",
+          "commit": "e0a49a4c33d8c0d6a7fe319cec7669f8c04a0604",
+          "source_dirty": false,
+          "elf_sha256": "524923bf1857ea9622679055626b7d019d6c2fd857e9d7c52ed01de4cbe3af7b"
+        }
+      ],
+      "other_exact_compiles": [],
+      "membership": [
+        {
+          "archive": "KUI-Toy-SCI-Movie-Poll-Test-33-12NOV2026-1023-CST-e0a49a4.zip",
+          "member": "KUI/apps/games/retail-toy-test-33.kui"
+        }
+      ]
+    },
+    {
+      "role": "reader",
+      "build": "e0cc7c13ac3e",
+      "payload_crc32": "c6be5e8e",
+      "sha256": "c1537db134d33233ee0c6c7a2434f4362c2dea480ed1f117240273202fc7bd29",
+      "source_object": {
+        "source_repository": "toy34-inputs/reader-source.git",
+        "commit": "e0cc7c13ac3ef2c6633a42a4a7dfe4cf14a885d7",
+        "subject": "Test shorter Toy Commander bumper refills and trace frame delivery"
+      },
+      "clean_exact_compiles": [
+        {
+          "elf": "trace-reader/build/toy-bumper-latency61-final/entry.elf",
+          "commit": "e0cc7c13ac3ef2c6633a42a4a7dfe4cf14a885d7",
+          "source_dirty": false,
+          "elf_sha256": "f3f41cbef864179a626a1f6f102381ac9996727371d24d7c8af3bc4e3c7ebf6f"
+        }
+      ],
+      "other_exact_compiles": [],
+      "membership": [
+        {
+          "archive": "KUI-Toy-SCI-Test-61-12NOV2026-1912-CST-e0cc7c1.zip",
+          "member": "KUI/apps/games/retail-toy-test-61.kui"
+        }
+      ]
+    },
+    {
+      "role": "reader",
+      "build": "e28a31fa0051",
+      "payload_crc32": "f2d837f7",
+      "sha256": "031c07d585dd1683ea528d5f727d866769fa2b0485bc5b8cad67b665476e2ce0",
+      "source_object": {
+        "source_repository": "toy34-inputs/reader-source.git",
+        "commit": "e28a31fa005199b182ba800c63c5f929176d72dd",
+        "subject": "Test round-robin DMA arbitration with Toy graphics burst unchanged"
+      },
+      "clean_exact_compiles": [
+        {
+          "elf": "trace-reader/build/toy-dma-bus-share-final/entry.elf",
+          "commit": "e28a31fa005199b182ba800c63c5f929176d72dd",
+          "source_dirty": false,
+          "elf_sha256": "0c4ecd5d0d4e4faf70b1b17fb6f376ff5ec8ab69905b890e6933b7489b077634"
+        }
+      ],
+      "other_exact_compiles": [],
+      "membership": [
+        {
+          "archive": "KUI-Toy-SCI-Tests-47-48-12NOV2026-1454-CST-1c90d14.zip",
+          "member": "KUI/apps/games/retail-toy-test-47.kui"
+        },
+        {
+          "archive": "KUI-Toy-SCI-Resume-Cadence-Test-49-12NOV2026-1508-CST-befebdb.zip",
+          "member": "KUI/apps/games/retail-toy-test-47.kui"
+        }
+      ]
+    },
+    {
+      "role": "reader",
+      "build": "e5aac92d707f",
+      "payload_crc32": "53b270ae",
+      "sha256": "d268388abf15bb9ec01aaa2382d0f03a102da8393cd48a4851369a643f7a5aa6",
+      "source_object": {
+        "source_repository": "toy34-inputs/reader-source.git",
+        "commit": "e5aac92d707fd4f69a078b05a4edfbedc769a17c",
+        "subject": "Pipeline Toy recovery-window PIO in Test 41"
+      },
+      "clean_exact_compiles": [
+        {
+          "elf": "trace-reader/build/toy-pipelined-recovery-final/entry.elf",
+          "commit": "e5aac92d707fd4f69a078b05a4edfbedc769a17c",
+          "source_dirty": false,
+          "elf_sha256": "5ff8ce96e12314a325e7c3bdcc63ccac147da8e6e6e725da5c034efbb96576a4"
+        }
+      ],
+      "other_exact_compiles": [],
+      "membership": [
+        {
+          "archive": "KUI-Toy-SCI-Pipelined-Recovery-Test-41-12NOV2026-1335-CST-e5aac92.zip",
+          "member": "KUI/apps/games/retail-toy-test-41.kui"
+        }
+      ]
+    },
+    {
+      "role": "reader",
+      "build": "e5b30cdd569d",
+      "payload_crc32": "32acb464",
+      "sha256": "a6cd99b4e8b66e59c0fc2ddc582c1b2397aacc8965bee0ff4b79967afd27fc65",
+      "source_object": {
+        "source_repository": "toy34-inputs/reader-source.git",
+        "commit": "e5b30cdd569d987d3754b449076235a226b4626d",
+        "subject": "Report the first withheld intro read in Toy Test 57"
+      },
+      "clean_exact_compiles": [
+        {
+          "elf": "trace-reader/build/toy-fast-copy59-final/entry.elf",
+          "commit": "e5b30cdd569d987d3754b449076235a226b4626d",
+          "source_dirty": false,
+          "elf_sha256": "91c39c29686795e8a1ff24e9107d0502c4eed29e7074699ae462ffce587c08e6"
+        }
+      ],
+      "other_exact_compiles": [],
+      "membership": [
+        {
+          "archive": "KUI-Toy-SCI-Tests-57-58-59-12NOV2026-1822-CST-e5b30cd.zip",
+          "member": "KUI/apps/games/retail-toy-test-59.kui"
+        }
+      ]
+    },
+    {
+      "role": "reader",
+      "build": "e5b30cdd569d",
+      "payload_crc32": "7d6762c5",
+      "sha256": "61e37d61081389ebbb985159818e72bdd4adf9d21d2ce65288973940b768cd09",
+      "source_object": {
+        "source_repository": "toy34-inputs/reader-source.git",
+        "commit": "e5b30cdd569d987d3754b449076235a226b4626d",
+        "subject": "Report the first withheld intro read in Toy Test 57"
+      },
+      "clean_exact_compiles": [
+        {
+          "elf": "trace-reader/build/toy-decode-window57-final/entry.elf",
+          "commit": "e5b30cdd569d987d3754b449076235a226b4626d",
+          "source_dirty": false,
+          "elf_sha256": "c82e59496dc8255bf3b2be37a2f4114f1fdf0cbed13218067fa2fb8ec2ff0ef6"
+        }
+      ],
+      "other_exact_compiles": [],
+      "membership": [
+        {
+          "archive": "KUI-Toy-SCI-Tests-57-58-59-12NOV2026-1822-CST-e5b30cd.zip",
+          "member": "KUI/apps/games/retail-toy-test-57.kui"
+        },
+        {
+          "archive": "KUI-Toy-SCI-Test-60-12NOV2026-1856-CST-b0e6305.zip",
+          "member": "KUI/apps/games/retail-toy-test-57.kui"
+        },
+        {
+          "archive": "KUI-Toy-SCI-Test-61-12NOV2026-1912-CST-e0cc7c1.zip",
+          "member": "KUI/apps/games/retail-toy-test-57.kui"
+        },
+        {
+          "archive": "KUI-Toy-Tests-62-63-12NOV2026-1941-CST-7beafbe.zip",
+          "member": "KUI/apps/games/retail-toy-test-57.kui"
+        },
+        {
+          "archive": "KUI-Toy-SCI-Test-64-12NOV2026-2021-CST-4f213ec.zip",
+          "member": "KUI/apps/games/retail-toy-test-57.kui"
+        },
+        {
+          "archive": "KUI-Toy-SCI-Test-64-12NOV2026-2024-CST-a867aae.zip",
+          "member": "KUI/apps/games/retail-toy-test-57.kui"
+        },
+        {
+          "archive": "KUI-Toy-SCI-Test-65-12NOV2026-2054-CST-3f786e1.zip",
+          "member": "KUI/apps/games/retail-toy-test-57.kui"
+        }
+      ]
+    },
+    {
+      "role": "reader",
+      "build": "e5b30cdd569d",
+      "payload_crc32": "f549f21e",
+      "sha256": "68646a884702fd96e0a1cccbaf19f6ded6d0ffe358e994935a7a023736eb22e3",
+      "source_object": {
+        "source_repository": "toy34-inputs/reader-source.git",
+        "commit": "e5b30cdd569d987d3754b449076235a226b4626d",
+        "subject": "Report the first withheld intro read in Toy Test 57"
+      },
+      "clean_exact_compiles": [
+        {
+          "elf": "trace-reader/build/toy-table-crc58-final/entry.elf",
+          "commit": "e5b30cdd569d987d3754b449076235a226b4626d",
+          "source_dirty": false,
+          "elf_sha256": "1fa13a93453c18931f26c516f74b76d9fe6c33a1ebb73c4dbf8db8dcf5922135"
+        }
+      ],
+      "other_exact_compiles": [],
+      "membership": [
+        {
+          "archive": "KUI-Toy-SCI-Tests-57-58-59-12NOV2026-1822-CST-e5b30cd.zip",
+          "member": "KUI/apps/games/retail-toy-test-58.kui"
+        }
+      ]
+    },
+    {
+      "role": "reader",
+      "build": "e6eb8f5f2f0f",
+      "payload_crc32": "00b05878",
+      "sha256": "f6957d781c131262930fa74f3adb84a46d3e8c9f58188205c72654c51aada14c",
+      "source_object": null,
+      "clean_exact_compiles": [],
+      "other_exact_compiles": [],
+      "membership": [
+        {
+          "archive": "KUI-Toy-Contention-Tests-23-25-11NOV2026-2315-CST-e6eb8f5.zip",
+          "member": "KUI/apps/games/retail-toy-test-25.kui"
+        }
+      ]
+    },
+    {
+      "role": "reader",
+      "build": "e6eb8f5f2f0f",
+      "payload_crc32": "62d4d8fb",
+      "sha256": "c1fdb8fed31f3b9459800d8644c4739ad201a2720afd2d6dd8b35f4595fd43e5",
+      "source_object": null,
+      "clean_exact_compiles": [],
+      "other_exact_compiles": [],
+      "membership": [
+        {
+          "archive": "KUI-Toy-Contention-Tests-23-25-11NOV2026-2315-CST-e6eb8f5.zip",
+          "member": "KUI/apps/games/retail-toy-test-23.kui"
+        }
+      ]
+    },
+    {
+      "role": "reader",
+      "build": "e6eb8f5f2f0f",
+      "payload_crc32": "f4ae63d2",
+      "sha256": "81f35d673784d3c12d1ceac512240bf1639a7ec556b238bd7d9005f28fe6a9c0",
+      "source_object": null,
+      "clean_exact_compiles": [],
+      "other_exact_compiles": [],
+      "membership": [
+        {
+          "archive": "KUI-Toy-Contention-Tests-23-25-11NOV2026-2315-CST-e6eb8f5.zip",
+          "member": "KUI/apps/games/retail-toy-test-24.kui"
+        }
+      ]
+    },
+    {
+      "role": "reader",
+      "build": "eceac2869f9e",
+      "payload_crc32": "05034b71",
+      "sha256": "7e297a88e2b104b1a4a9d60fe6307fe04d4674267894f0c68d8a7e0a5effdea1",
+      "source_object": {
+        "source_repository": "toy34-inputs/reader-source.git",
+        "commit": "eceac2869f9e23cf76b8fe6179362f5c9cb4a6c7",
+        "subject": "Stream verified Toy Commander movie blocks continuously by PIO in Test 43"
+      },
+      "clean_exact_compiles": [
+        {
+          "elf": "trace-reader/build/toy-continuous-pio-final/entry.elf",
+          "commit": "eceac2869f9e23cf76b8fe6179362f5c9cb4a6c7",
+          "source_dirty": false,
+          "elf_sha256": "0a5deadb0bb3ae8953f9511463ac9dcaa2e0de303b4d9baf881165a0af7d9ddc"
+        }
+      ],
+      "other_exact_compiles": [],
+      "membership": [
+        {
+          "archive": "KUI-Toy-SCI-Continuous-PIO-Test-43-12NOV2026-1357-CST-eceac28.zip",
+          "member": "KUI/apps/games/retail-toy-test-43.kui"
+        }
+      ]
+    },
+    {
+      "role": "reader",
+      "build": "f1dc87f6bed5",
+      "payload_crc32": "b84bdc61",
+      "sha256": "669757653593e62123eeb2e42f629e7e381c435db0ffa25ef96b689523d438c2",
+      "source_object": {
+        "source_repository": "toy34-inputs/reader-source.git",
+        "commit": "f1dc87f6bed5def86ac0283b1aa0364641e3f029",
+        "subject": "Replay verified Toy bumper window from existing RAM"
+      },
+      "clean_exact_compiles": [
+        {
+          "elf": "trace-reader/build/toy-window-final/entry.elf",
+          "commit": "f1dc87f6bed5def86ac0283b1aa0364641e3f029",
+          "source_dirty": false,
+          "elf_sha256": "6c2317627392c31cf09c7409f87365434f5973ab75b5b6639d09d3af2ac44d45"
+        }
+      ],
+      "other_exact_compiles": [],
+      "membership": [
+        {
+          "archive": "KUI-Toy-SCI-RAM-Window-Test-35-12NOV2026-1152-CST-f1dc87f.zip",
+          "member": "KUI/apps/games/retail-toy-test-35.kui"
+        }
+      ]
+    },
+    {
+      "role": "reader",
+      "build": "f3aaa6ea60b0",
+      "payload_crc32": "09145154",
+      "sha256": "209cc5ab54cd9671a8da8a8589e5f4c107554d99162f5c31d946ea25bfa4a3d2",
+      "source_object": null,
+      "clean_exact_compiles": [
+        {
+          "elf": "trace-reader/build/toy-demand-final/entry.elf",
+          "commit": "f3aaa6ea60b03d227902df6078ad1b084397b180",
+          "source_dirty": false,
+          "elf_sha256": "7727775f37f769483e1aa61801ed0c248013665c96bc67b9eb5ad4b0bd3732e8"
+        }
+      ],
+      "other_exact_compiles": [],
+      "membership": [
+        {
+          "archive": "KUI-Toy-SCI-Async-Demand-Test-32-12NOV2026-1001-CST-f3aaa6e.zip",
+          "member": "KUI/apps/games/retail-toy-test-32.kui"
+        }
+      ]
+    },
+    {
+      "role": "reader",
+      "build": "fdb2da073851",
+      "payload_crc32": "bcacab28",
+      "sha256": "9971a596f6d12df8a8e361ed7abe951944342326bca348b1988ed1021220b2b5",
+      "source_object": {
+        "source_repository": "toy34-inputs/reader-source.git",
+        "commit": "fdb2da073851c3b68a9effe4b2a73b71774ffaca",
+        "subject": "Measure Toy AVI buffer and frame timing in Test 55"
+      },
+      "clean_exact_compiles": [
+        {
+          "elf": "toy-test55-56-package/reader55/build/toy-movie-timing55-final/entry.elf",
+          "commit": "fdb2da073851c3b68a9effe4b2a73b71774ffaca",
+          "source_dirty": false,
+          "elf_sha256": "a73f6e77cad578f89b532e5a87efc0a8d13c5a2808ff5ccbd21421f06b1ff956"
+        }
+      ],
+      "other_exact_compiles": [],
+      "membership": [
+        {
+          "archive": "KUI-Toy-SCI-Tests-55-56-12NOV2026-1737-CST-27e5a7a.zip",
+          "member": "KUI/apps/games/retail-toy-test-55.kui"
+        },
+        {
+          "archive": "KUI-Toy-SCI-Tests-57-58-59-12NOV2026-1822-CST-e5b30cd.zip",
+          "member": "KUI/apps/games/retail-toy-test-55.kui"
+        }
+      ]
+    },
+    {
+      "role": "reader",
+      "build": "fefd26538deb",
+      "payload_crc32": "e0761aa0",
+      "sha256": "3aaa648e192d92191524ec17123464bbb7e9ec1fad80e25934c371179c14b9e6",
+      "source_object": {
+        "source_repository": "toy34-inputs/reader-source.git",
+        "commit": "fefd26538debc859c87da5c4343dc414be1de5cc",
+        "subject": "Use the original SDK intro buffer capacity in Toy Test 54"
+      },
+      "clean_exact_compiles": [
+        {
+          "elf": "trace-reader/build/toy-intro-buffer54-final/entry.elf",
+          "commit": "fefd26538debc859c87da5c4343dc414be1de5cc",
+          "source_dirty": false,
+          "elf_sha256": "0054f0502f19eb3d3e66d0cd3aa567544810ec4a804781e28bf94389465be9b8"
+        }
+      ],
+      "other_exact_compiles": [],
+      "membership": [
+        {
+          "archive": "KUI-Toy-SCI-Tests-52-54-12NOV2026-1609-CST-fefd265.zip",
+          "member": "KUI/apps/games/retail-toy-test-54.kui"
+        }
+      ]
+    }
+  ]
+}

@@ -8,6 +8,8 @@
 #include "kui/native_disc_set.h"
 #include "kui/native_session_binding.h"
 #include "kui/native_readahead.h"
+#endif
+#if KUI_NATIVE_SESSION_CONTROLS || KUI_TOY_SUITE_MODE
 #include "native_return_hardware.h"
 #endif
 #if KUI_NATIVE_BACKGROUND_COMPACT && \
@@ -15,6 +17,10 @@
      !KUI_NATIVE_SPLIT_CONTROLLER_GENERAL || !KUI_VMU_NATIVE_CACHED_CODE || \
      !KUI_VMU_NATIVE_PERSISTENT_PROBE)
 #error "Compact Background worker requires its complete persistent General reader profile"
+#endif
+#if KUI_NATIVE_TOY_CACHE_CAPTURE && (!KUI_NATIVE_BACKGROUND_COMPACT || \
+     !KUI_NATIVE_SPLIT_CONTROLLER_STREAM_GUARD || !KUI_NATIVE_REQUEST_TIMING)
+#error "Toy cache capture requires the compact X stream guard and request timing"
 #endif
 #include "retail_display.h"
 #include <string.h>
@@ -238,7 +244,20 @@ static uint32_t receivers[48];
 #if KUI_VMU_NATIVE_READONLY_PROBE || KUI_VMU_NATIVE_PERSISTENT_PROBE
 #if KUI_VMU_NATIVE_PERSISTENT_PROBE
 static struct kui_vmu_durable durable_card;
+#if KUI_TOY_SUITE_MODE
+static union {
+    uint8_t bytes[ISSUED_CHAIN_BYTES];
+    struct {
+        uint8_t reserved[2048];
+        struct kui_native_return_controller_workspace controller;
+    } terminal;
+} issued_chain_storage;
+#define issued_chain issued_chain_storage.bytes
+_Static_assert(sizeof(issued_chain_storage)==ISSUED_CHAIN_BYTES,
+    "Terminal Maple workspace fits the retired issued chain");
+#else
 static _Alignas(32) uint8_t issued_chain[ISSUED_CHAIN_BYTES];
+#endif
 static struct kui_vmu_volatile_chain_frame chain_frames[KUI_VMU_VOLATILE_CHAIN_FRAMES];
 static struct kui_vmu_volatile_chain_plan issued_plan;
 static struct kui_vmu_native_passive_frame completion_frame;
@@ -296,7 +315,11 @@ static bool persistent_storage_guard(void);
 static bool persistent_context_guard(void);
 static bool installed_hooks_valid(void);
 static bool reader_only(void) {
-#if KUI_NATIVE_SPLIT_CONTROLLER_GENERAL && KUI_NATIVE_GENERAL_LEAN_LAYOUT && KUI_NATIVE_READAHEAD
+#if KUI_TOY_SUITE_MODE
+    /* Suite admission forces the physical-controller-only path. Keep the
+     * terminal services in this worker by removing unreachable VMU code. */
+    return true;
+#elif KUI_NATIVE_SPLIT_CONTROLLER_GENERAL && KUI_NATIVE_GENERAL_LEAN_LAYOUT && KUI_NATIVE_READAHEAD
     return config.diagnostics==KUI_VMU_NATIVE_DIAGNOSTICS_READER_ONLY;
 #else
     return false;
@@ -788,7 +811,13 @@ static uint32_t issued_physical(void) {
     return ram(address,sizeof(issued_chain),32u) && address>=begin &&
         address-begin<=WORKER_SPAN-sizeof(issued_chain)?address:0u;
 }
+#if KUI_TOY_SUITE_MODE && !defined(KUI_VMU_NATIVE_PASSIVE_HOST_TEST)
+#include "toy_suite_report_write.inc"
+#endif
 int kui_vmu_native_persistent_sd_transaction(void *context,struct kui_loader_sd *loan) {
+#if KUI_TOY_SUITE_MODE && !defined(KUI_VMU_NATIVE_PASSIVE_HOST_TEST)
+    if(context==&config.toy_report)return toy_suite_report_write(loan);
+#endif
 #if KUI_NATIVE_SESSION_CONTROLS
     if(context==&session_switch && session_switch.active==UINT32_C(0x4b535754)) {
         return native_session_switch_transaction(loan);
@@ -966,11 +995,366 @@ static uint8_t *readonly_rx(uint32_t address,unsigned bytes) {
 #endif
 static void report(void) __attribute__((noreturn));
 static void fail(uint32_t code) __attribute__((noreturn));
+#if KUI_TOY_SUITE_MODE
+static void toy_suite_finish_gesture(bool held) {
+    if(held_report<HELD_REPORT_FRAMES) {
+        held_report=held?held_report+1u:0u;
+        if(held_report<HELD_REPORT_FRAMES)return;
+    }
+    /* Give the foreground game a bounded opportunity to finish its active
+     * command before entering the terminal SD loan. Keep the screen report
+     * reachable even if the command never retires. */
+    const kui_retail_async_region_type *r=reader_capture_region();
+    if(!config.toy_report.test || !r ||
+       (!r->shared.service.pending && !r->shared.service.executing && !r->engine.active) ||
+       ++held_report>=HELD_REPORT_FRAMES+60u)fail(0x4fu);
+}
+#endif
 #if KUI_SMASH_NATIVE_CHILD
 #include "smash_native_vmu_probe.inc"
 #endif
 #if KUI_NATIVE_SESSION_CONTROLS
 #include "native_session_worker.inc"
+#endif
+#if KUI_NATIVE_TOY_PLAYBACK_CAPTURE && (!defined(KUI_VMU_NATIVE_PASSIVE_HOST_TEST) || defined(KUI_VMU_NATIVE_REPORT_HOST_RENDER))
+#if KUI_TOY_SUITE_MODE
+#define KUI_TOY_TEST_LABEL_(n) #n
+#define KUI_TOY_TEST_LABEL(n) KUI_TOY_TEST_LABEL_(n)
+#if KUI_TOY_FMV_COMPARE
+#define KUI_TOY_TEST_TITLE "TOY TEST 29"
+#else
+#define KUI_TOY_TEST_TITLE "TOY TEST " KUI_TOY_TEST_LABEL(KUI_TOY_SUITE_MODE)
+#endif
+#endif
+static void toy_playback_page(const struct kui_native_ra_public *ra) {
+#if KUI_TOY_SUITE_MODE
+#if KUI_TOY_SUITE_MODE == 1
+    if(ra->suite_source==2u)retail_display_line("TOY TEST 5 1/2 PLAYBACK / 781250 HZ");
+    else
+#endif
+    retail_display_line(KUI_TOY_TEST_TITLE " 1/2 PLAYBACK / 781250 HZ");
+#elif KUI_NATIVE_TOY_HEADER_REPLAY
+    retail_display_line("TOY 1/2 PLAYBACK / HEX / 781250 HZ");
+#else
+    retail_display_line("TOY PLAYBACK / HEX");
+#endif
+#if KUI_TOY_SUITE_FRAME_TIMING
+    for(unsigned i=0;i<2u;i++) {
+        const struct kui_toy_movie_present_trace *present=&ra->present[i];
+        const struct kui_toy_movie_exit_witness *w=&ra->movie_exit[i];
+        retail_display_values(i?"I SUBMIT CADENCE MAX AT TAIL":"B SUBMIT CADENCE MAX AT TAIL",
+            (uint32_t[]){present->submitted,present->on_time,present->max_gap,
+                present->max_gap_frame,present->tail_gap},5u);
+#if KUI_TOY_SUITE_MODE >= 61
+        retail_display_values(i?"I FIRST LAST CLK OUT SKIP":"B FIRST LAST CLK OUT SKIP",
+            (uint32_t[]){present->first_gap,present->last_frame,present->clock_lost,
+                w->output_frames,w->skipped_frames},5u);
+        retail_display_values(i?"I ENTER SCENE EXIT FRAME":"B ENTER SCENE EXIT FRAME",
+            (uint32_t[]){present->render_entries,present->scene_hits,w->status,w->frame},4u);
+#else
+        retail_display_values(i?"I FIRST LAST CLOCK LOST":"B FIRST LAST CLOCK LOST",
+            (uint32_t[]){present->first_gap,present->last_frame,present->clock_lost},3u);
+        retail_display_values(i?"I EXIT FRAME LAG LIMIT":"B EXIT FRAME LAG LIMIT",
+            (uint32_t[]){w->status,w->frame,w->lag,w->limit},4u);
+#endif
+    }
+#else
+    retail_display_hex("MAPPED / SEEN",ra->movie_mask);
+    for(unsigned i=0;i<2u;i++) {
+        const struct kui_toy_playback_stats *p=&ra->playback[i];
+        retail_display_values(i?"INTRO SECT SPAN END FAIL CLK":"BUMPER SECT SPAN END FAIL CLK",
+            p->progress,5u);
+#if KUI_TOY_SUITE_ASYNC_DEMAND
+        retail_display_values("GD WAIT ARG SCI WAKE MAX GD MAX BG",p->costs,5u);
+        retail_display_values("GAP LBA GD BLKS BG BLKS MAX REQ",p->reads,5u);
+#else
+        retail_display_values("GD WAIT SCI MAX-GD MAX-SCI",p->costs,5u);
+#if KUI_NATIVE_TOY_HEADER_REPLAY
+        retail_display_values("GAP LBA GD SCI REPLAY",p->reads,5u);
+#else
+        retail_display_values("GAP LBA GD BLKS SCI BLKS MAX REQ",p->reads,5u);
+#endif
+#endif
+    }
+#endif
+}
+#if KUI_TOY_SUITE_MODE
+#if KUI_TOY_SUITE_MODE == 65
+static uint32_t toy_ahead_stage_errors(const struct kui_native_ra_public *ra,unsigned stage) {
+    uint32_t errors=0u;
+    for(unsigned i=0;i<KUI_NATIVE_RA_RESULT_COUNT;++i)
+        errors+=ra->diagnostics.stage_result[stage][i];
+    return errors;
+}
+
+static void toy_ahead_recovery_report(const struct kui_native_ra_public *ra,
+    uint32_t recovery[4],uint32_t first[4]) {
+    const uint32_t *ahead=ra->diagnostics.stage_result[KUI_NATIVE_RA_STAGE_NONE];
+    const struct kui_native_ra_failure_snapshot *fault=&ra->diagnostics.first;
+    recovery[0]=ahead[3];
+    recovery[1]=toy_ahead_stage_errors(ra,KUI_NATIVE_RA_STAGE_POLL);
+    recovery[2]=toy_ahead_stage_errors(ra,KUI_NATIVE_RA_STAGE_TAKE);
+    recovery[3]=toy_ahead_stage_errors(ra,KUI_NATIVE_RA_STAGE_FETCH);
+    first[0]=fault->operation_lba;
+    first[1]=(fault->stage<<8)|fault->result;
+    first[2]=toy_ahead_stage_errors(ra,KUI_NATIVE_RA_STAGE_APPEND);
+    first[3]=ahead[4];
+}
+#endif
+static void toy_storage_page(const struct kui_native_ra_public *ra,
+    const kui_retail_async_region_type *region) {
+#if KUI_TOY_SUITE_MOVIE_POLL
+    (void)region;
+#else
+    const struct kui_sci_stream_stats *sd=&region->shared.stream.stats;
+#endif
+#if KUI_TOY_SUITE_MODE == 1
+    if(ra->suite_source==2u)retail_display_line("TOY TEST 5 2/2 EVIDENCE / HEX");
+    else
+#endif
+#if KUI_TOY_SUITE_MOVIE_POLL
+    retail_display_line(ra->demand.owner_verified?KUI_TOY_TEST_TITLE " 2/2 / ID1 HEX":
+        KUI_TOY_TEST_TITLE " 2/2 / ID0 HEX");
+#else
+    retail_display_line(KUI_TOY_TEST_TITLE " 2/2 EVIDENCE / HEX");
+#endif
+#if KUI_TOY_SUITE_MODE == 1
+    retail_display_values("LOADED CHECKED BAD LBA BYTE DATA",ra->suite,5u);
+#elif KUI_TOY_SUITE_MODE == 2 || KUI_TOY_SUITE_MODE == 6
+    retail_display_values("RAM BLOCKS HITS FIRST LAST MISS",ra->suite,5u);
+#elif KUI_TOY_SUITE_MODE == 3
+    retail_display_values("GUARDED PIO BUMPER INTRO",ra->suite,2u);
+#elif KUI_TOY_SUITE_MODE == 4
+    retail_display_values("BUDGET YIELDS BUMPER INTRO",ra->suite,2u);
+#elif KUI_TOY_SUITE_MODE == 7
+    retail_display_values("SERIAL BLOCKS BUMPER INTRO",ra->suite,2u);
+#elif KUI_TOY_SUITE_MODE == 31
+    retail_display_values("SLOW BLOCK RETRIES BUMPER INTRO",ra->suite,2u);
+#elif KUI_TOY_SUITE_FRAME_TIMING
+#if KUI_TOY_SUITE_MODE == 65
+    uint32_t recovery[4],first[4];
+    toy_ahead_recovery_report(ra,recovery,first);
+    retail_display_values("FIX POLL TAKE FETCH",recovery,4u);
+    retail_display_values("FIRST CARD WHY RAW SERVED",first,4u);
+#else
+    retail_display_values("INTRO DEFER WHY FIRST END",
+        (uint32_t[]){ra->onset[1].quiet_defers,ra->onset[1].quiet_reason,
+            ra->suite[4],ra->onset[1].quiet_end_frame},4u);
+#endif
+#if KUI_TOY_SUITE_MODE >= 62
+    const uint32_t *ahead=ra->diagnostics.stage_result[KUI_NATIVE_RA_STAGE_NONE];
+    retail_display_values("AHEAD B I REQS VERIFIED FALLBACK",
+        (uint32_t[]){ahead[0],ahead[1],ra->stats.hit_requests,
+            ra->stats.producer_blocks,ra->stats.abandoned},5u);
+#if KUI_TOY_SUITE_MODE == 64
+    retail_display_values("OPEN B I KICK WAIT FAIL",
+        (uint32_t[]){ahead[2],ahead[3],ahead[4],ahead[5],
+            ra->playback[0].failed+ra->playback[1].failed},5u);
+#endif
+#elif KUI_TOY_SUITE_MODE == 61
+    retail_display_values("B CAP FIRST LAST SECT",
+        (uint32_t[]){ra->onset[0].quiet_defers,ra->onset[0].quiet_tick,
+            ra->onset[0].quiet_end_frame,ra->onset[0].quiet_reason},4u);
+#endif
+    for(unsigned i=0;i<2u;i++) {
+        const struct kui_toy_movie_onset_trace *onset=&ra->onset[i];
+        const struct kui_toy_movie_wait_trace *wait=&ra->wait[i];
+        retail_display_values(i?"I WAIT USED NEED SKIP LBA":"B WAIT USED NEED SKIP LBA",
+            (uint32_t[]){onset->wait_frame,onset->wait_used,onset->wait_missing,
+                onset->skip_frame,wait->lba},5u);
+#if KUI_TOY_SUITE_MODE >= 61
+        retail_display_values(i?"I READ N VERIFIED TICK AGE DONE":"B READ N VERIFIED TICK AGE DONE",
+            (uint32_t[]){wait->sectors,wait->verified,wait->elapsed,wait->age,wait->to_complete},5u);
+#else
+        retail_display_values(i?"I READ N VERIFIED TICK":"B READ N VERIFIED TICK",
+            (uint32_t[]){wait->sectors,wait->verified,wait->elapsed},3u);
+#endif
+    }
+#elif KUI_TOY_SUITE_MOVIE_POLL
+    for(unsigned i=0;i<2u;i++) {
+#if !KUI_TOY_SUITE_MOVIE_CHUNK || (KUI_TOY_SUITE_SEQUENTIAL_PIO && !KUI_TOY_SUITE_DMA_ROUND_ROBIN)
+        const struct kui_toy_demand_movie_trace *m=&ra->demand.movie[i];
+#endif
+#if !KUI_TOY_SUITE_MOVIE_EXIT
+        retail_display_values(i?"INTRO POLL OTHER 900 MOVIE BLOCK":"BMP POLL OTHER 900 MOVIE BLOCK",
+            m->polls,4u);
+        retail_display_values(i?"INTRO EXEC SUM MAX CHECK SUM MAX":"BMP EXEC SUM MAX CHECK SUM MAX",
+            (uint32_t[4]){m->exec.ticks,m->exec.max,m->check.ticks,m->check.max},4u);
+#endif
+#if KUI_TOY_SUITE_MODE == 34
+        retail_display_values(i?"INTRO OVR START PIO WAKE ARM":"BMP OVR START PIO WAKE ARM",
+            (uint32_t[5]){m->overruns,m->starts,m->polled,m->wakes,m->wake_arms},5u);
+#elif KUI_TOY_SUITE_MODE == 36
+        retail_display_values(i?"INTRO DMA PR0 PR1 PR2 PR3 CUT":"BMP DMA PR0 PR1 PR2 PR3 CUT",
+            (uint32_t[5]){m->dma_priority[0],m->dma_priority[1],m->dma_priority[2],
+                m->dma_priority[3],m->overruns},5u);
+#elif KUI_TOY_SUITE_REFILL_SLICE
+#if KUI_TOY_SUITE_MOVIE_CHUNK
+#if KUI_TOY_SUITE_MOVIE_TIMING
+        const struct kui_toy_movie_onset_trace *onset=&ra->onset[i];
+#if KUI_TOY_SUITE_DECODE_WINDOW
+        if(!i)retail_display_values("INTRO DEFER WHY FIRST END",
+            (uint32_t[4]){ra->onset[1].quiet_defers,ra->onset[1].quiet_reason,
+                ra->suite[4],ra->onset[1].quiet_end_frame},4u);
+        else
+#endif
+        retail_display_values(i?"INTRO WAIT USED NEED SKIP LAST":"BMP WAIT USED NEED SKIP LAST",
+            (uint32_t[5]){onset->wait_frame,onset->wait_used,onset->wait_missing,
+                onset->skip_frame,onset->last_out_frame},5u);
+#else
+        const struct kui_toy_movie_chunk_trace *chunk=&ra->movie_chunk[i];
+#if KUI_TOY_SUITE_RESUME_WAKE
+        retail_display_values(i?"INTRO WK WGD RSM RET EXT":"BMP WK WGD RSM RET EXT",
+            (uint32_t[5]){ra->demand.movie[i].wake_resumes,chunk->wait_gd,ra->suite[i],
+                ra->suite[2u+i],ra->demand.movie[i].slice_blocks},5u);
+#elif KUI_TOY_SUITE_RESUME_SLICE
+        retail_display_values(i?"INTRO RDY WGD RSM RET EXT":"BMP RDY WGD RSM RET EXT",
+            (uint32_t[5]){chunk->ready,chunk->wait_gd,ra->suite[i],ra->suite[2u+i],
+                ra->demand.movie[i].slice_blocks},5u);
+#elif KUI_TOY_SUITE_VERIFIED_RESUME
+        retail_display_values(i?"INTRO RDY WGD NOGD RSM RET":"BMP RDY WGD NOGD RSM RET",
+            (uint32_t[5]){chunk->ready,chunk->wait_gd,chunk->wait_no_gd,ra->suite[i],ra->suite[2u+i]},5u);
+#elif KUI_TOY_SUITE_DMA_ROUND_ROBIN
+        retail_display_values(i?"INTRO RDY WGD NOGD DMA RR":"BMP RDY WGD NOGD DMA RR",
+            (uint32_t[5]){chunk->ready,chunk->wait_gd,chunk->wait_no_gd,ra->suite[2u*i],ra->suite[2u*i+1u]},5u);
+#elif KUI_TOY_SUITE_FIRST_CUT_PIO
+        retail_display_values(i?"INTRO RDY WGD NOGD PIO OK":"BMP RDY WGD NOGD PIO OK",
+            (uint32_t[5]){chunk->ready,chunk->wait_gd,chunk->wait_no_gd,m->window_pio,m->window_ok},5u);
+#elif KUI_TOY_SUITE_SEQUENTIAL_PIO
+        retail_display_values(i?"INTRO RDY WGD NOGD ARM OK":"BMP RDY WGD NOGD ARM OK",
+            (uint32_t[5]){chunk->ready,chunk->wait_gd,chunk->wait_no_gd,ra->suite[i],m->window_ok},5u);
+#elif KUI_TOY_SUITE_BOUNDED_DMA
+        retail_display_values(i?"INTRO RDY WGD NOGD RUN BLK":"BMP RDY WGD NOGD RUN BLK",
+            (uint32_t[5]){chunk->ready,chunk->wait_gd,chunk->wait_no_gd,ra->suite[2u*i],ra->suite[2u*i+1u]},5u);
+#else
+        retail_display_values(i?"INTRO CHUNK READY WAITGD NOGD OTHER":"BMP CHUNK READY WAITGD NOGD OTHER",
+            (uint32_t[4]){chunk->ready,chunk->wait_gd,chunk->wait_no_gd,chunk->other},4u);
+#endif
+#endif
+#elif KUI_TOY_SUITE_PIO_WINDOW
+        retail_display_values(i?"INTRO CUT PIO OK SLICES BLKS":"BMP CUT PIO OK SLICES BLKS",
+            (uint32_t[5]){m->overruns,m->window_pio,m->window_ok,m->slice_visits,m->slice_blocks},5u);
+#else
+        retail_display_values(i?"INTRO CUT SLOW OK SLICES BLKS":"BMP CUT SLOW OK SLICES BLKS",
+            (uint32_t[5]){m->overruns,m->retry_slow,m->retry_ok,m->slice_visits,m->slice_blocks},5u);
+#endif
+#if KUI_TOY_SUITE_MOVIE_EXIT
+        const struct kui_toy_movie_exit_witness *w=&ra->movie_exit[i];
+#if KUI_TOY_SUITE_MODE == 49 || KUI_TOY_SUITE_MODE == 50 || KUI_TOY_SUITE_MODE == 51 || KUI_TOY_SUITE_MODE == 52 || KUI_TOY_SUITE_MODE == 53 || KUI_TOY_SUITE_MODE == 54 || KUI_TOY_SUITE_MODE == 55 || KUI_TOY_SUITE_MODE == 56 || KUI_TOY_SUITE_MODE == 57 || KUI_TOY_SUITE_MODE == 58 || KUI_TOY_SUITE_MODE == 59 || KUI_TOY_SUITE_MODE == 60 || KUI_TOY_SUITE_MODE == 61 || KUI_TOY_SUITE_MODE == 62 || KUI_TOY_SUITE_MODE == 64 || KUI_TOY_SUITE_MODE == 65
+        retail_display_values(i?"INTRO FLG START OUT SKIP":"BMP FLG START OUT SKIP",
+            (uint32_t[4]){w->flags,w->start_status,w->output_frames,w->skipped_frames},4u);
+#else
+        retail_display_values(i?"INTRO START FLG CODE FRAME SAMP":"BMP START FLG CODE FRAME SAMP",
+            (uint32_t[4]){w->flags,w->start_status,w->start_frame,w->start_samples},4u);
+#endif
+        retail_display_values(i?"INTRO EXIT CODE FRAME SAMP LAG LIM":"BMP EXIT CODE FRAME SAMP LAG LIM",
+            (uint32_t[5]){w->status,w->frame,w->samples,w->lag,w->limit},5u);
+#endif
+#elif KUI_TOY_SUITE_MODE == 37
+        retail_display_values(i?"INTRO CUT ORER SLOW OK IDLEMAX":"BMP CUT ORER SLOW OK IDLEMAX",
+            (uint32_t[5]){m->overruns,m->retry_orer,m->retry_slow,m->retry_ok,m->no_arm.max},5u);
+#elif KUI_TOY_SUITE_MODE != 35
+        retail_display_values(i?"INTRO NOARM N SUM MAX WAKE N ARM":"BMP NOARM N SUM MAX WAKE N ARM",
+            (uint32_t[5]){m->no_arm.count,m->no_arm.ticks,m->no_arm.max,m->wakes,m->wake_arms},5u);
+#endif
+    }
+#if KUI_TOY_SUITE_MOVIE_TIMING
+    retail_display_values("INTRO SKIP USED NEED",
+        (uint32_t[2]){ra->onset[1].skip_used,ra->onset[1].skip_missing},2u);
+#endif
+#if KUI_TOY_SUITE_MODE == 35
+    const struct kui_toy_window_trace *window=&ra->demand.window;
+    retail_display_values("RAM REQ SECT FIRST END MAXREQ",(uint32_t[5]){
+        window->requests,window->sectors,window->first_lba,window->end_lba,window->max_request_ticks},5u);
+    retail_display_values("TARGET 69263 SEED RAM REQ GAP",(uint32_t[4]){
+        window->seeded_blocks,window->target_ram,window->target_request_ticks,window->target_gap_ticks},4u);
+#endif
+#elif KUI_TOY_SUITE_ASYNC_DEMAND
+    const struct kui_toy_demand_movie_trace *bumper=&ra->demand.movie[0],*intro=&ra->demand.movie[1];
+    retail_display_values("BMP EXEC SUM MAX CHECK SUM MAX",(uint32_t[4]){
+        bumper->exec.ticks,bumper->exec.max,bumper->check.ticks,bumper->check.max},4u);
+    retail_display_values("BMP NOARM N SUM MAX WAKE N ARM",(uint32_t[5]){
+        bumper->no_arm.count,bumper->no_arm.ticks,bumper->no_arm.max,bumper->wakes,bumper->wake_arms},5u);
+    retail_display_values("INTRO EXEC N SUM MAX",(uint32_t[3]){
+        intro->exec.count,intro->exec.ticks,intro->exec.max},3u);
+    retail_display_values("INTRO CHECK N SUM MAX",(uint32_t[3]){
+        intro->check.count,intro->check.ticks,intro->check.max},3u);
+    retail_display_values("INTRO NOARM N SUM MAX WAKE N ARM",(uint32_t[5]){
+        intro->no_arm.count,intro->no_arm.ticks,intro->no_arm.max,intro->wakes,intro->wake_arms},5u);
+#elif KUI_TOY_SUITE_MODE == 26
+    retail_display_values("BURST ARM CHECKED CUT FALLBACK READY",ra->suite,5u);
+    const uint32_t *burst=ra->diagnostics.stage_result[KUI_NATIVE_RA_STAGE_NONE];
+    retail_display_values("BURST REQUEST FIRST LEAD WIRE",burst,4u);
+    retail_display_values("BURST TICK SUM MAX",burst+4u,2u);
+#elif KUI_TOY_SUITE_MODE == 27 || KUI_TOY_SUITE_MODE == 28
+    const struct kui_toy_burst_metrics *q=&ra->burst_quiet;
+#if KUI_TOY_SUITE_MODE == 27
+    const struct kui_toy_burst_metrics *m=&ra->burst_match;
+#endif
+    const struct kui_toy_burst_metrics *l=&ra->burst_live;
+    retail_display_values("QUIET STATUS START END",(uint32_t[]){ra->burst_quiet_status,
+        ra->burst_quiet_lba,ra->burst_quiet_end},3u);
+    retail_display_values("LATE START END",(uint32_t[]){ra->burst_quiet_late_lba,
+        ra->burst_quiet_late_end},2u);
+    retail_display_values("QUIET ARM SHORT FULL OK PCUT",(uint32_t[]){q->arms,
+        q->dma_short,q->dma_full,q->checked,q->parse_full_cut},5u);
+#if KUI_TOY_SUITE_MODE == 27
+    retail_display_values("MATCH ARM SHORT FULL OK PCUT",(uint32_t[]){m->arms,
+        m->dma_short,m->dma_full,m->checked,m->parse_full_cut},5u);
+#else
+    retail_display_values("FAST ARM FULL CHECKED",(uint32_t[]){ra->burst_fast.arms,
+        ra->burst_fast.dma_full,ra->burst_fast.checked},3u);
+    retail_display_values("SLOW ARM FULL CHECKED",(uint32_t[]){ra->burst_slow.arms,
+        ra->burst_slow.dma_full,ra->burst_slow.checked},3u);
+#endif
+    retail_display_values("LIVE ARM SHORT FULL OK PCUT",(uint32_t[]){l->arms,
+        l->dma_short,l->dma_full,l->checked,l->parse_full_cut},5u);
+#endif
+#if !KUI_TOY_SUITE_MOVIE_POLL
+    retail_display_values("SD BLOCKS PIO START OVR CRC",(uint32_t[5]){
+        sd->blocks,sd->polled,sd->starts,sd->overruns,sd->crc_errors},5u);
+#endif
+#if !KUI_TOY_SUITE_ASYNC_DEMAND
+    retail_display_values("SOURCE TOKEN REPAIR AHEAD DEFER",(uint32_t[5]){
+        ra->suite_source,sd->token_errors,sd->repaired,sd->ahead,sd->deferred},5u);
+#endif
+}
+#if !defined(KUI_VMU_NATIVE_PASSIVE_HOST_TEST)
+static void toy_report_pause(unsigned frames,bool *start_released,bool *reboot_refused) {
+    while(frames--) {
+        retail_display_pause(1u);
+        uint32_t buttons;
+        if(kui_native_return_controller_in(&issued_chain_storage.terminal.controller,&buttons)!=1)continue;
+        if(!(buttons&8u)) {*start_released=true;continue;}
+        if(!*start_released)continue;
+        *start_released=false;
+        if(kui_native_return_quiesce()) {
+            /* The ordinary retail return and KOS arch_reboot use this same
+             * boot-ROM entry with interrupts masked. The CD boots K-UI. */
+            ((void (*)(void))(uintptr_t)UINT32_C(0xa0000000))();
+            for(;;) __asm__ volatile("nop");
+        }
+        *reboot_refused=true;
+    }
+}
+#include "toy_suite_report_save.inc"
+#endif
+#elif KUI_NATIVE_TOY_HEADER_REPLAY
+static void toy_storage_page(const struct kui_native_ra_public *ra,
+    const kui_retail_async_region_type *region) {
+    const struct kui_native_ra_stats *cache=&ra->stats;
+    const struct kui_sci_stream_stats *sd=&region->shared.stream.stats;
+    const struct kui_native_ra_failure_snapshot *first=&ra->diagnostics.first;
+    uint32_t row[5];
+    retail_display_line("TOY 2/2 STORAGE / HEX / RUN TOTALS");
+    memcpy(row,cache,sizeof(row));
+    retail_display_values("CACHE HIT MISS REQ FILL VISITS",row,5u);
+    memcpy(row,sd,sizeof(row));
+    retail_display_values("SD BLOCKS POLLED START KEEP OVERRUN",row,5u);
+    retail_display_values("CRC TOKEN FAIL STAGE RESULT",(uint32_t[5]){
+        sd->crc_errors,sd->token_errors,ra->diagnostics.failures,first->stage,first->result},5u);
+}
+#endif
 #endif
 static void report(void) {
 #if KUI_SMASH_NATIVE_CHILD
@@ -997,7 +1381,61 @@ static void report(void) {
 #else
     struct retail_display_state display;memcpy(display.regs,config.display,sizeof(display.regs));
     retail_display_restore(&display);
+#if KUI_NATIVE_TOY_MOVIE_CAPTURE
+    const kui_retail_async_region_type *movie_region=state.error==0x4fu?reader_capture_region():NULL;
+    const struct kui_native_ra_exports *movie_aux=movie_region?reader_readahead_exports(movie_region):NULL;
+    if(movie_aux) {
+        const struct kui_native_ra_public *ra=movie_aux->context;
+#if KUI_NATIVE_TOY_PLAYBACK_CAPTURE
+#if KUI_NATIVE_TOY_HEADER_REPLAY || KUI_TOY_SUITE_MODE
+        /* The captured SPG_LOAD uses 624 for PAL or 524 for NTSC/VGA.
+         * The scanline counter keeps running with game interrupts masked. */
+        unsigned frames=(display.regs[8]>>16)>=600u?250u:300u;
+#if KUI_TOY_SUITE_MODE && !defined(KUI_VMU_NATIVE_PASSIVE_HOST_TEST)
+        bool saved=toy_suite_save_report(ra,movie_region);
+        bool start_released=false,reboot_refused=false;
+#endif
+        for(unsigned page=0u;;page^=1u) {
+            if(page)toy_storage_page(ra,movie_region);
+            else toy_playback_page(ra);
+#if KUI_TOY_SUITE_MODE && !defined(KUI_VMU_NATIVE_PASSIVE_HOST_TEST)
+            retail_display_line(saved?"REPORT SAVED TO SD":"SAVE FAILED / FILM BOTH PAGES");
+#if KUI_TOY_SUITE_MODE >= 64
+            if(!page)
+#endif
+            retail_display_line(reboot_refused?"RESTART BUSY / TRY START AGAIN":"START / REBOOT TO K-UI CD");
+            toy_report_pause(frames,&start_released,&reboot_refused);
+#else
+            retail_display_line("FILM BOTH PAGES / POWER OFF");
+            retail_display_pause(frames);
+#endif
+            retail_display_restore(&display);
+        }
+#else
+        toy_playback_page(ra);
+        retail_display_line("PHOTO / POWER OFF");
+#endif
+#else
+        retail_display_line("TOY MOVIE READS / HEX / 781250HZ");
+        retail_display_hex("MAPPED AND SEEN",ra->movie_mask);
+        if(!(ra->movie_mask&15u))retail_display_line("MOVIE FILES UNMAPPED");
+        for(unsigned i=0;i<2u;i++) {
+            const struct kui_toy_movie_stats *m=&ra->movies[i];
+            retail_display_values(i?"INTRO OK SECTORS FAIL CLOCK":"BUMPER OK SECTORS FAIL CLOCK",
+                m->totals,4u);
+            retail_display_values("MAX TICKS LBA N / GAP TICKS LBA",m->timing,5u);
+            retail_display_values("FIRST ERROR LBA N BYTES",m->error,4u);
+        }
+        retail_display_line("PHOTOGRAPH THIS PAGE / POWER OFF");
+#endif
+        for(;;) __asm__ volatile("nop");
+    }
+#endif
 #if KUI_VMU_NATIVE_PERSISTENT_PROBE
+#if KUI_NATIVE_TOY_HEADER_REPLAY || KUI_TOY_SUITE_MODE
+    retail_display_values("FAULT CODE AT VALUE EXPECT RESULT",(uint32_t[5]){
+        state.error,state.fault_at,state.fault_value,state.fault_expect,state.runtime_result},5u);
+#else
 #if KUI_NATIVE_MAPLE_DELAY_ISOLATION
     if(state.error==0x4du) retail_display_line("MAPLE DELAY CLOCK REFUSED");
 #endif
@@ -1020,17 +1458,29 @@ static void report(void) {
         reader_readahead_exports(reader_capture_region()):NULL;
     if(held_aux) {
         const struct kui_native_ra_public *ra=held_aux->context;
+#if KUI_NATIVE_TOY_CACHE_CAPTURE
+        const struct kui_native_ra_stats *s=&ra->stats;
+        retail_display_values("X HIT MISS FILL REQ GUARD",(uint32_t[5]){
+            s->hits,s->misses,s->producer_blocks,s->hit_requests,reader_stream.suppressed},5u);
+        retail_display_values("LAST CMD LBA N BYTES ERR",reader_stream.read,5u);
+        const struct kui_retail_async *e=&reader_capture_region()->engine;
+        retail_display_values("GUARD HITS MAX TICKS LBA N",(uint32_t[4]){
+            reader_stream.guard_hits+(reader_stream.guard_active?s->hits:0u),
+            e->stats.releases,e->native_max_lba,e->native_max_count},4u);
+#else
         const uint32_t *pio=ra->diagnostics.stage_result[KUI_NATIVE_RA_STAGE_NONE];
         retail_display_values("PIO N EVT ONE OVER AUX",(uint32_t[5]){
             pio[KUI_NATIVE_RA_PIO_ATTEMPTS],pio[KUI_NATIVE_RA_AUX_MAX_CONTEXT],
             pio[KUI_NATIVE_RA_PIO_MAX_SINGLE_TICKS],pio[KUI_NATIVE_RA_PIO_WINDOW_OVERRUNS],
             ra->stats.max_visit_ticks},5u);
+#endif
     } else
 #endif
     {
         retail_display_values("AT VALUE EXPECT CHECK LEASE",(uint32_t[5]){
             state.fault_at,state.fault_value,state.fault_expect,state.runtime_result,config.lease.payload},5u);
     }
+#endif
     retail_display_values("FRAME PR SR COPY PR SR",(uint32_t[5]){
         state.frame_address,state.frame_pr,state.frame_sr,completion_frame.pr,completion_frame.sr},5u);
     retail_display_line("PHOTO / POWER OFF");
@@ -1172,7 +1622,11 @@ int kui_vmu_native_passive_arm(const struct kui_vmu_native_passive_config *c,voi
     memset(&lifetime_plan,0,sizeof(lifetime_plan));
     hook_witness_ready=0u;hook_witness_count=0u;
     if(config.diagnostics>KUI_VMU_NATIVE_DIAGNOSTICS_READER_ONLY) {memset(&config,0,sizeof(config));return -2;}
-#if KUI_NATIVE_SPLIT_CONTROLLER_GENERAL
+#if KUI_TOY_SUITE_MODE
+    if(config.diagnostics!=KUI_VMU_NATIVE_DIAGNOSTICS_READER_ONLY) {
+        memset(&config,0,sizeof(config));return -2;
+    }
+#elif KUI_NATIVE_SPLIT_CONTROLLER_GENERAL
     if(config.diagnostics!=KUI_VMU_NATIVE_DIAGNOSTICS_NORMAL && !reader_only()) {
         memset(&config,0,sizeof(config));return -2;
     }
@@ -1792,7 +2246,11 @@ static bool controller_complete(const struct kui_vmu_native_passive_frame *f) {
 #if KUI_NATIVE_SESSION_CONTROLS
             if(command==9u) {
 #else
-            if(kui_vmu_native_early_server(NATIVE_HOT_CONFIG.driver.family) && command==9u) {
+            if((kui_vmu_native_early_server(NATIVE_HOT_CONFIG.driver.family)
+#if KUI_NATIVE_TOY_CACHE_CAPTURE || KUI_NATIVE_TOY_MOVIE_CAPTURE
+                || reader_only()
+#endif
+               ) && command==9u) {
 #endif
                 uint32_t controls;
                 if(!read_value(NULL,address+8u,4u,&controls))
@@ -1813,6 +2271,7 @@ static bool controller_complete(const struct kui_vmu_native_passive_frame *f) {
         controller_pair.pending=NATIVE_CONTROLLER_STOPPED;state.pending=0u;++state.completed;
         return false;
     }
+#if !KUI_TOY_SUITE_MODE
     held_report=held?held_report+1u:0u;
     if(held_report>=HELD_REPORT_FRAMES) {
 #if KUI_NATIVE_SESSION_CONTROLS
@@ -1821,6 +2280,7 @@ static bool controller_complete(const struct kui_vmu_native_passive_frame *f) {
         fail(0x4fu);
 #endif
     }
+#endif
     uint8_t *parent=readonly_rx(controller_pair.frames[controller_pair.parent].rx,1024u);
     if(!parent) CONTROLLER_FAIL(11u,controller_pair.parent,
         controller_pair.frames[controller_pair.parent].rx,0u,1024u);
@@ -1836,6 +2296,9 @@ static bool controller_complete(const struct kui_vmu_native_passive_frame *f) {
 #endif
     ++overlay.stats.completed;
     controller_pair.pending=0u;state.pending=0u;++state.completed;state.error=0u;
+#if KUI_TOY_SUITE_MODE
+    toy_suite_finish_gesture(held);
+#endif
 #if KUI_SMASH_NATIVE_CHILD && !KUI_SMASH_NATIVE_MENU
     smash_vmu_probe_complete();
 #endif

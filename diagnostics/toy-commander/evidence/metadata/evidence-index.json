@@ -1,0 +1,4438 @@
+{
+  "scope": "Toy Commander tests 1\u201365",
+  "console_files": [
+    {
+      "path": "console/1.txt",
+      "size_bytes": 1024,
+      "sha256": "a2218f7448ee13eebd2b1e04cfa1a501e7c30776557b5b3966f69bbffe0ce00e",
+      "test": 1,
+      "kind": "console-report",
+      "build": "8f64f91b4482"
+    },
+    {
+      "path": "console/2.txt",
+      "size_bytes": 1024,
+      "sha256": "eaf3fdfa033e9de1ed708335b87f7f5b29e5b4f804134d19edaae1c17d3d993c",
+      "test": 2,
+      "kind": "console-report",
+      "build": "8f64f91b4482"
+    },
+    {
+      "path": "console/3.txt",
+      "size_bytes": 1024,
+      "sha256": "e63b8ed2861d030ddda82cf8fff32a572aada1c8c1d59a1017f75e96d827aef1",
+      "test": 3,
+      "kind": "console-report",
+      "build": "8f64f91b4482"
+    },
+    {
+      "path": "console/4.txt",
+      "size_bytes": 1024,
+      "sha256": "25d38fcfe4f9ce04f8690a7b25c6c5411b75b35bf3ef4f2f01acd84fcfea6bf0",
+      "test": 4,
+      "kind": "console-report",
+      "build": "8f64f91b4482"
+    },
+    {
+      "path": "console/5.txt",
+      "size_bytes": 1024,
+      "sha256": "69686ff3552843fe46e049d816a8fb222ff4dbd72028f07eecf622563596395f",
+      "test": 5,
+      "kind": "console-report",
+      "build": "8f64f91b4482"
+    },
+    {
+      "path": "console/6.txt",
+      "size_bytes": 1024,
+      "sha256": "43c3b3b72cee683a7107a2c077de13674e7677398ded48123e12ab00f1bd54ab",
+      "test": 6,
+      "kind": "console-report",
+      "build": "8f64f91b4482"
+    },
+    {
+      "path": "console/7.txt",
+      "size_bytes": 1024,
+      "sha256": "8837808725a5113b697f730a04475a940e17d518545ca177203f10fd5e73b702",
+      "test": 7,
+      "kind": "console-report",
+      "build": "8f64f91b4482"
+    },
+    {
+      "path": "console/8.txt",
+      "size_bytes": 1024,
+      "sha256": "4c5f45b93e32f8d1e55a09ad8e25505deaf6e303363e38f96cf0d76f7b5bdd75",
+      "test": 8,
+      "kind": "console-report",
+      "build": "5db8cbd028c9"
+    },
+    {
+      "path": "console/9.txt",
+      "size_bytes": 1024,
+      "sha256": "a70ce109acf5fdec40e78ed9eed70867165943233631a56e4890f2b3169422ee",
+      "test": 9,
+      "kind": "console-report",
+      "build": "5db8cbd028c9"
+    },
+    {
+      "path": "console/10.txt",
+      "size_bytes": 1024,
+      "sha256": "da181cbdb2b401c4c0027cddbef02f2b8c7c7b82c15d3c3233fade8a15144a36",
+      "test": 10,
+      "kind": "console-report",
+      "build": "5db8cbd028c9"
+    },
+    {
+      "path": "console/11.txt",
+      "size_bytes": 1024,
+      "sha256": "bb075c31ed83154c26b792488bc243c0683ecdeb7acf74ac43b089337adcd6ed",
+      "test": 11,
+      "kind": "console-report",
+      "build": "cfd2042d9316"
+    },
+    {
+      "path": "console/12.txt",
+      "size_bytes": 1024,
+      "sha256": "559ce52d262c5c3e61f7c821de8341913cd071d6398fe06688a5c7cac8ddcce8",
+      "test": 12,
+      "kind": "console-report",
+      "build": "cfd2042d9316"
+    },
+    {
+      "path": "console/13.txt",
+      "size_bytes": 1024,
+      "sha256": "081ba7fa6e9bb650c9056e018a2381b095a6a7d707b9495d96c8fb7b1068d986",
+      "test": 13,
+      "kind": "console-report",
+      "build": "cfd2042d9316"
+    },
+    {
+      "path": "console/14.txt",
+      "size_bytes": 1024,
+      "sha256": "b5b2f00f42400e49004d5972207d934ff3f525c0dee60b9d1d7399b6de3a4987",
+      "test": 14,
+      "kind": "console-report",
+      "build": "cfd2042d9316"
+    },
+    {
+      "path": "console/15.txt",
+      "size_bytes": 1024,
+      "sha256": "6e89a504fba084f8e3d83b7273b859884412ac99893a71827a5b8bf44f8c089f",
+      "test": 15,
+      "kind": "console-report",
+      "build": "cfd2042d9316"
+    },
+    {
+      "path": "console/16.txt",
+      "size_bytes": 1024,
+      "sha256": "a2c0d2a03ea917ac1562777cbed97e1c2a226e7dfe2cc1cf70a950788244956e",
+      "test": 16,
+      "kind": "console-report",
+      "build": "4c62921b240b"
+    },
+    {
+      "path": "console/17.txt",
+      "size_bytes": 1024,
+      "sha256": "270c7d3d7174795a85e8ca8e3eac9e31736897a69e24f7feb96db857f6ce9d07",
+      "test": 17,
+      "kind": "console-report",
+      "build": "4c62921b240b"
+    },
+    {
+      "path": "console/18.txt",
+      "size_bytes": 1024,
+      "sha256": "a74bb49bc9c279eb108e0c7e8b0ad2e0d772a2e642e2b39b0b3707f8465157c6",
+      "test": 18,
+      "kind": "console-report",
+      "build": "80c54f8ddf34"
+    },
+    {
+      "path": "console/19.txt",
+      "size_bytes": 3072,
+      "sha256": "09cc29a9c5f8a5fab1eff7ebc6f11207fd7ab7e5ef800f844f88716e63efc70b",
+      "test": 19,
+      "kind": "reserved-placeholder",
+      "build": null
+    },
+    {
+      "path": "console/20.txt",
+      "size_bytes": 3072,
+      "sha256": "0cf207c17e9d3fd525bb818a9deb6d6e0efb983dc2a77ea79a2d456670fa4dd8",
+      "test": 20,
+      "kind": "console-report",
+      "build": "19116570a5a0"
+    },
+    {
+      "path": "console/21.txt",
+      "size_bytes": 3072,
+      "sha256": "df62be6154a032c4b124f2cef302c8a9aa5f5e4df44e4ec2fb0013d9b84a1b7c",
+      "test": 21,
+      "kind": "console-report",
+      "build": "19116570a5a0"
+    },
+    {
+      "path": "console/22.txt",
+      "size_bytes": 3072,
+      "sha256": "608e4a7505583bf07f8d29910157b09b19f1d07a8f33f383154b8cb0050592ce",
+      "test": 22,
+      "kind": "reserved-placeholder",
+      "build": null
+    },
+    {
+      "path": "console/23.txt",
+      "size_bytes": 3072,
+      "sha256": "f0e695eb127b70dcfde9b722386edc65aec7c586d8b8b7a3bb762936b7386a96",
+      "test": 23,
+      "kind": "console-report",
+      "build": "e6eb8f5f2f0f"
+    },
+    {
+      "path": "console/24.txt",
+      "size_bytes": 3072,
+      "sha256": "51cf2ba79d6c63ae59a8f981496e32b0d2150452254162c5ec9c06f92343ea37",
+      "test": 24,
+      "kind": "console-report",
+      "build": "e6eb8f5f2f0f"
+    },
+    {
+      "path": "console/25.txt",
+      "size_bytes": 3072,
+      "sha256": "4873ab8e1f438af098464a883562aa853e9e333dbb3b632cc4871084dd654a1b",
+      "test": 25,
+      "kind": "console-report",
+      "build": "e6eb8f5f2f0f"
+    },
+    {
+      "path": "console/26(1).txt",
+      "size_bytes": 1024,
+      "sha256": "af2475b2b2db55f3523f51cf87df216e25867b883a8f111f510c54fd7e3f4ddb",
+      "test": 26,
+      "kind": "console-report",
+      "build": "1e2d51de054a"
+    },
+    {
+      "path": "console/26.txt",
+      "size_bytes": 1024,
+      "sha256": "af2475b2b2db55f3523f51cf87df216e25867b883a8f111f510c54fd7e3f4ddb",
+      "test": 26,
+      "kind": "console-report",
+      "build": "1e2d51de054a"
+    },
+    {
+      "path": "console/27.txt",
+      "size_bytes": 1024,
+      "sha256": "d7a99c47ef570b867a93ec0f51d8b634f2d0de308990ad60fa8188bbdd969a1a",
+      "test": 27,
+      "kind": "console-report",
+      "build": "3ffbed71e1cc"
+    },
+    {
+      "path": "console/28.txt",
+      "size_bytes": 1024,
+      "sha256": "4903a743059e87f9e49ccc4439d2f265ad4edc4c01cbbe66d4ec85e2ef64dbbb",
+      "test": 28,
+      "kind": "console-report",
+      "build": "1adeb5c2b65c"
+    },
+    {
+      "path": "console/29.txt",
+      "size_bytes": 1024,
+      "sha256": "2f2bc7af78f8b0597905cb06dcac410b6f33b6e4e06d7764aa4a3e4e28540994",
+      "test": 29,
+      "kind": "console-report",
+      "build": "3336f9682d6e"
+    },
+    {
+      "path": "console/30.txt",
+      "size_bytes": 1024,
+      "sha256": "00a8a2809d8afdca152b490ca8cd47b6f159596d34d6903b5d2d6e2f66b5d027",
+      "test": 30,
+      "kind": "reserved-placeholder",
+      "build": null
+    },
+    {
+      "path": "console/31.txt",
+      "size_bytes": 1024,
+      "sha256": "ef0d2b079924ef6936470b70ba02b922b282386aacd0ab3757cfdb79baadd194",
+      "test": 31,
+      "kind": "console-report",
+      "build": "54b12486a48a"
+    },
+    {
+      "path": "console/32.txt",
+      "size_bytes": 1024,
+      "sha256": "bf74760381b5bfde635f5468192cd69d12e48090a36a85b36ef74453c828d853",
+      "test": 32,
+      "kind": "console-report",
+      "build": "f3aaa6ea60b0"
+    },
+    {
+      "path": "console/33.txt",
+      "size_bytes": 1024,
+      "sha256": "cd2280b22eaeb5fb5e822b043295fa80e4ade4e1f8bb9aee4e01a2fdbfdb5ee8",
+      "test": 33,
+      "kind": "console-report",
+      "build": "b36701a4673a"
+    },
+    {
+      "path": "console/34.txt",
+      "size_bytes": 1024,
+      "sha256": "97cd2bff66d46518feda7f0834ff7e7e99f54c6608b60497652e4fe7d0d0bd50",
+      "test": 34,
+      "kind": "console-report",
+      "build": "225358d19816"
+    },
+    {
+      "path": "console/36.txt",
+      "size_bytes": 1024,
+      "sha256": "c31ba074e7de9e1a10c9a43d9f80cdbdf56e1ef54e06405f98ec3dafee7b376c",
+      "test": 36,
+      "kind": "console-report",
+      "build": "5ecb06066b27"
+    },
+    {
+      "path": "console/37.txt",
+      "size_bytes": 1024,
+      "sha256": "50998aed5b33b46a2ac4c28f08a5819540e056d1e6ed3872d442c98c78ba50bc",
+      "test": 37,
+      "kind": "console-report",
+      "build": "4520d99dd167"
+    },
+    {
+      "path": "console/38.txt",
+      "size_bytes": 1024,
+      "sha256": "279f4a38e8be64202b66807b0deb0d2c92328c6ab6d4b4d4b6d5e4e6b188bef1",
+      "test": 38,
+      "kind": "console-report",
+      "build": "8203e8e86dad"
+    },
+    {
+      "path": "console/39.txt",
+      "size_bytes": 1024,
+      "sha256": "4411df2a8d1d1cde29aaf2601242fc7aa48327943c94c3abb1c34c4541ce65e5",
+      "test": 39,
+      "kind": "console-report",
+      "build": "c5cd2b945454"
+    },
+    {
+      "path": "console/40.txt",
+      "size_bytes": 1024,
+      "sha256": "085b19fc858f19bb803a268fe3442e0c659fc3dbdfbb770ebc2378b4eb246224",
+      "test": 40,
+      "kind": "console-report",
+      "build": "061f0b5a4f0b"
+    },
+    {
+      "path": "console/41.txt",
+      "size_bytes": 1024,
+      "sha256": "e7e21afdf999ee7402b87e0b4e2f886340d8552a57c2a19cb1adc909264b743e",
+      "test": 41,
+      "kind": "console-report",
+      "build": "e5aac92d707f"
+    },
+    {
+      "path": "console/42.txt",
+      "size_bytes": 1024,
+      "sha256": "50b1ce0651bd51fab97650a066e517b70821a622664d2c6f412234603dcb509a",
+      "test": 42,
+      "kind": "console-report",
+      "build": "5425aca86182"
+    },
+    {
+      "path": "console/44.txt",
+      "size_bytes": 1024,
+      "sha256": "115aa0ceeacd226b44b1b3ea5f4f0e951182579da376ae5d4f7910f051af3a79",
+      "test": 44,
+      "kind": "console-report",
+      "build": "becd132dfdc9"
+    },
+    {
+      "path": "console/45.txt",
+      "size_bytes": 1024,
+      "sha256": "fa04e3be34122d072d674750e23e0dee72ca042b68474abb3fec747d4f3cc34c",
+      "test": 45,
+      "kind": "console-report",
+      "build": "becd132dfdc9"
+    },
+    {
+      "path": "console/46.txt",
+      "size_bytes": 1024,
+      "sha256": "7642427cb2c170df6592cb372d8ff0b7072612842d36c2f13097fe41ee4b5eb5",
+      "test": 46,
+      "kind": "console-report",
+      "build": "d87cf2073493"
+    },
+    {
+      "path": "console/47.txt",
+      "size_bytes": 1024,
+      "sha256": "270af3fe784eae04d8c01757ae020885093f1e6f8b9a8e28cd2dabf3d23e6e31",
+      "test": 47,
+      "kind": "console-report",
+      "build": "e28a31fa0051"
+    },
+    {
+      "path": "console/48.txt",
+      "size_bytes": 1024,
+      "sha256": "7920bafa16b7c5750f205ff410c60fe9f7aa3904ffd7bdb7ef34a90bd940628f",
+      "test": 48,
+      "kind": "console-report",
+      "build": "1c90d147e936"
+    },
+    {
+      "path": "console/49.txt",
+      "size_bytes": 1024,
+      "sha256": "71f98334e67439645acee2d8ed974bfff0914c2bcc894902a241049c3796d692",
+      "test": 49,
+      "kind": "console-report",
+      "build": "befebdbf446f"
+    },
+    {
+      "path": "console/50.txt",
+      "size_bytes": 1024,
+      "sha256": "5c4bd17610e75061dc8550c07a4f3f48e939949308d4f9fb3fd07feb2b47c1f5",
+      "test": 50,
+      "kind": "console-report",
+      "build": "1ad2afff629c"
+    },
+    {
+      "path": "console/51.txt",
+      "size_bytes": 1024,
+      "sha256": "16f3b0a7bb4dc0a9274b87ca8bf9e70d48207316244d3b11f942e0280cae3065",
+      "test": 51,
+      "kind": "console-report",
+      "build": "942509e6fe6e"
+    },
+    {
+      "path": "console/52.txt",
+      "size_bytes": 1024,
+      "sha256": "b370df65368703303f26facb6182c8547df8b53a2da14e1d966c20b792526ebf",
+      "test": 52,
+      "kind": "console-report",
+      "build": "8e732f81efd0"
+    },
+    {
+      "path": "console/53.txt",
+      "size_bytes": 1024,
+      "sha256": "4d3d0394507b5768b56e6c70ef517523da086c5809b3e9f2781804c1ca53ce28",
+      "test": 53,
+      "kind": "console-report",
+      "build": "aa3ee4a8f9a5"
+    },
+    {
+      "path": "console/54.txt",
+      "size_bytes": 1024,
+      "sha256": "74ba40099b108dddc3e1d74ad12e22aa59f09d95c2c3b1064f59bfea2ce3df80",
+      "test": 54,
+      "kind": "console-report",
+      "build": "fefd26538deb"
+    },
+    {
+      "path": "console/55.txt",
+      "size_bytes": 1024,
+      "sha256": "ad00d670c19c9065ec09df3c0c92220a4671bfbd2b128b799fff7d3ab0d801ae",
+      "test": 55,
+      "kind": "console-report",
+      "build": "fdb2da073851"
+    },
+    {
+      "path": "console/56.txt",
+      "size_bytes": 1024,
+      "sha256": "46eca2f50bdf97bff01f1c9b0da1784a0e31a7fa38d9236aa313ff6b561c8306",
+      "test": 56,
+      "kind": "console-report",
+      "build": "27e5a7af0985"
+    },
+    {
+      "path": "console/57.txt",
+      "size_bytes": 1024,
+      "sha256": "96c938e6f8251a5263214fad3bfcaf8d7190c823c7b672b8cc37abb03f54369b",
+      "test": 57,
+      "kind": "console-report",
+      "build": "e5b30cdd569d"
+    },
+    {
+      "path": "console/58.txt",
+      "size_bytes": 1024,
+      "sha256": "e3d11c7a2cf08b9f6215978296d95ca8085eafa168054525ea824b980c62f4ce",
+      "test": 58,
+      "kind": "console-report",
+      "build": "e5b30cdd569d"
+    },
+    {
+      "path": "console/59.txt",
+      "size_bytes": 1024,
+      "sha256": "067f6db8cf0d74091cf754431564196ff52630b2da2791eafe85c5d81c6f9008",
+      "test": 59,
+      "kind": "console-report",
+      "build": "e5b30cdd569d"
+    },
+    {
+      "path": "console/60.txt",
+      "size_bytes": 1024,
+      "sha256": "7a518713d464762beac207ef599d7fce7d137268e6dad25a2992ba10faaa3a24",
+      "test": 60,
+      "kind": "console-report",
+      "build": "b0e6305f53f5"
+    },
+    {
+      "path": "console/61.txt",
+      "size_bytes": 1024,
+      "sha256": "7ddb21ba7eb949980621a742d3cabc4f3c7017ff974988cdf4ee50e4ddbe1e27",
+      "test": 61,
+      "kind": "console-report",
+      "build": "e0cc7c13ac3e"
+    },
+    {
+      "path": "console/62.txt",
+      "size_bytes": 1024,
+      "sha256": "d956abe6776aa26f98896c005acd1a8b8cc04c7557206c95a8e0df83db8aa265",
+      "test": 62,
+      "kind": "console-report",
+      "build": "7beafbe8da44"
+    },
+    {
+      "path": "console/63.txt",
+      "size_bytes": 1024,
+      "sha256": "c2aeaaca321df4575200594b46849d1c0224432b684a8cd41d7d98fb13d301d5",
+      "test": 63,
+      "kind": "console-report",
+      "build": "5034eb26898d"
+    },
+    {
+      "path": "console/64.txt",
+      "size_bytes": 1024,
+      "sha256": "6916f7fecf12df6bb1941b69a63c2a8cfa1730cad412f5f8c5035cde0359de90",
+      "test": 64,
+      "kind": "console-report",
+      "build": "a867aae40aac"
+    },
+    {
+      "path": "console/65.txt",
+      "size_bytes": 1024,
+      "sha256": "eedb5f30e08dc5a7c68ddcb4d555a231addd419d837c9b323ffa51cb36bb17b7",
+      "test": 65,
+      "kind": "console-report",
+      "build": "3f786e1926e2"
+    }
+  ],
+  "packages": [
+    {
+      "archive_name": "KUI-Toy-SCI-Checked-Refill-Test-31-12NOV2026-0928-CST-54b1248.zip",
+      "archive_bytes": 1785262,
+      "archive_sha256": "38cf1ffafb59f83a3e313d170824b706b2875c7ad3db44c91854402f6203ed03",
+      "available_in_original_library": true,
+      "tests": [
+        31
+      ],
+      "members": [
+        {
+          "path": "KUI/tools.kui",
+          "size_bytes": 3131760,
+          "sha256": "0207ec52e92da1995797ab886f5e1ec5b3d1426d6138f5e54e82a6f200d0fe63",
+          "module": {
+            "format": 1,
+            "build": "637fbd5621f0",
+            "payload_bytes": 3131696,
+            "memory_bytes": 7428784,
+            "crc32": "dc34a3fd"
+          }
+        },
+        {
+          "path": "KUI/apps/games/retail-toy-test-31.kui",
+          "size_bytes": 278584,
+          "sha256": "a2fedc43925eb43f80a62c45603914cb0234b440bf471e2c0af712476ed437df",
+          "module": {
+            "format": 1,
+            "build": "54b12486a48a",
+            "payload_bytes": 278520,
+            "memory_bytes": 278520,
+            "crc32": "99c65d51"
+          }
+        },
+        {
+          "path": "README.txt",
+          "size_bytes": 2095,
+          "sha256": "b05ae0fcada8ae85d381d7d450108bf43c47a7e4f82c4af53fae618cb449d3af"
+        },
+        {
+          "path": "SHA256SUMS.txt",
+          "size_bytes": 184,
+          "sha256": "be9bcb78e90452c7f98f97ec72f6330acd596b7f50d135911ee8d7884d0897bb"
+        }
+      ]
+    },
+    {
+      "archive_name": "KUI-Toy-SCI-Async-Demand-Test-32-12NOV2026-1001-CST-f3aaa6e.zip",
+      "archive_bytes": 1785937,
+      "archive_sha256": "e8853f9e2fa84da41d03814303aeb63ee36359c787e54eb46e77546f266c9cdb",
+      "available_in_original_library": true,
+      "tests": [
+        32
+      ],
+      "members": [
+        {
+          "path": "KUI/tools.kui",
+          "size_bytes": 3131840,
+          "sha256": "b824baca0426df007342c05605da3ab37d581920e91713f02b82445b93a8acf5",
+          "module": {
+            "format": 1,
+            "build": "62a4916ebd34",
+            "payload_bytes": 3131776,
+            "memory_bytes": 7428848,
+            "crc32": "e99bcad9"
+          }
+        },
+        {
+          "path": "KUI/apps/games/retail-toy-test-32.kui",
+          "size_bytes": 274724,
+          "sha256": "209cc5ab54cd9671a8da8a8589e5f4c107554d99162f5c31d946ea25bfa4a3d2",
+          "module": {
+            "format": 1,
+            "build": "f3aaa6ea60b0",
+            "payload_bytes": 274660,
+            "memory_bytes": 274660,
+            "crc32": "09145154"
+          }
+        },
+        {
+          "path": "README.txt",
+          "size_bytes": 1541,
+          "sha256": "d3f9e279cdaf3c9b230c580e2ff258422ef62567ff3cb456ca53f06595f8a6e2"
+        },
+        {
+          "path": "SHA256SUMS.txt",
+          "size_bytes": 261,
+          "sha256": "d79c2e5715c948553d71bf3d86fbdb2a9b3853592d5074c0e207d4392bd8d7cc"
+        }
+      ]
+    },
+    {
+      "archive_name": "KUI-Toy-SCI-Movie-Poll-Test-33-12NOV2026-1023-CST-e0a49a4.zip",
+      "archive_bytes": 1786902,
+      "archive_sha256": "a970e5486ca9730c67220cb3addf56348dbfc05789e095e1b9deb8f99a5aea6b",
+      "available_in_original_library": true,
+      "tests": [
+        33
+      ],
+      "members": [
+        {
+          "path": "KUI/tools.kui",
+          "size_bytes": 3131916,
+          "sha256": "cd33128dfa5495a11504be495f7a950f5c01e285efa7e1a801385c0b23745722",
+          "module": {
+            "format": 1,
+            "build": "ca0f81eb3456",
+            "payload_bytes": 3131852,
+            "memory_bytes": 7428944,
+            "crc32": "194ec557"
+          }
+        },
+        {
+          "path": "KUI/apps/games/retail-toy-test-33.kui",
+          "size_bytes": 275476,
+          "sha256": "d39ae3342a485859c8a752c8902919f1e1ce591a6992f96c0bf9e817d7ed4335",
+          "module": {
+            "format": 1,
+            "build": "e0a49a4c33d8",
+            "payload_bytes": 275412,
+            "memory_bytes": 275412,
+            "crc32": "d076555e"
+          }
+        },
+        {
+          "path": "README.txt",
+          "size_bytes": 2641,
+          "sha256": "85fd7e79dc191a09b3d5c5f22fc0cd20aacd5c205a30c68c15b59a37e98cb069"
+        },
+        {
+          "path": "SHA256SUMS.txt",
+          "size_bytes": 261,
+          "sha256": "572fbf3449022e814d0c533b1142f33a60dd09c163898acc7eb14b4e8631a675"
+        }
+      ]
+    },
+    {
+      "archive_name": "KUI-Toy-SCI-Checked-Recovery-Test-34-12NOV2026-1136-CST-225358d.zip",
+      "archive_bytes": 1786991,
+      "archive_sha256": "70b7e280ab62ae7d81281e45cb8ecbdcd7eeba8ba648c731fd19abb74e8c1910",
+      "available_in_original_library": true,
+      "tests": [
+        34
+      ],
+      "members": [
+        {
+          "path": "KUI/tools.kui",
+          "size_bytes": 3132000,
+          "sha256": "4199e0ffc1ae0d9300f45f3e4064462d0721899e1a468b32ef2da1d3926239fb",
+          "module": {
+            "format": 1,
+            "build": "33096173765e",
+            "payload_bytes": 3131936,
+            "memory_bytes": 7429008,
+            "crc32": "ebd8b6c3"
+          }
+        },
+        {
+          "path": "KUI/apps/games/retail-toy-test-34.kui",
+          "size_bytes": 275652,
+          "sha256": "8480652b98a78cbc2b0a7ad7f41defc9334aae2e8aae5f0588a2bcf7830efd58",
+          "module": {
+            "format": 1,
+            "build": "225358d19816",
+            "payload_bytes": 275588,
+            "memory_bytes": 275588,
+            "crc32": "54fab733"
+          }
+        },
+        {
+          "path": "README.txt",
+          "size_bytes": 2315,
+          "sha256": "0f0a25eb690e62f2ebaf2b21964907f192535dfa2fded290a133900a3520b05e"
+        },
+        {
+          "path": "SHA256SUMS.txt",
+          "size_bytes": 261,
+          "sha256": "7df9557f549c1b6a8290fec0d9d7f542292d4a94c1087fe62734ac70bf21f3e0"
+        }
+      ]
+    },
+    {
+      "archive_name": "KUI-Toy-SCI-RAM-Window-Test-35-12NOV2026-1152-CST-f1dc87f.zip",
+      "archive_bytes": 1788362,
+      "archive_sha256": "37dd13564f4aea2ab3f9de2bf936f88a3cda9d5bec5a3cbc5c1955ed69cccf8c",
+      "available_in_original_library": true,
+      "tests": [
+        35
+      ],
+      "members": [
+        {
+          "path": "KUI/tools.kui",
+          "size_bytes": 3132076,
+          "sha256": "fc4a81161e93f655ffc89ad0e51c682b98f2c6263c8caa2558712adc8bb18d02",
+          "module": {
+            "format": 1,
+            "build": "a4c5b883208a",
+            "payload_bytes": 3132012,
+            "memory_bytes": 7429104,
+            "crc32": "fd3b6f36"
+          }
+        },
+        {
+          "path": "KUI/apps/games/retail-toy-test-35.kui",
+          "size_bytes": 277264,
+          "sha256": "669757653593e62123eeb2e42f629e7e381c435db0ffa25ef96b689523d438c2",
+          "module": {
+            "format": 1,
+            "build": "f1dc87f6bed5",
+            "payload_bytes": 277200,
+            "memory_bytes": 277200,
+            "crc32": "b84bdc61"
+          }
+        },
+        {
+          "path": "README.txt",
+          "size_bytes": 2320,
+          "sha256": "65cd82769cf8998cdd2de7fb4f21371c91e13e66040aa0afd3eab7ab9507280c"
+        },
+        {
+          "path": "SHA256SUMS.txt",
+          "size_bytes": 261,
+          "sha256": "ac69a40927adfdef534f789614d5baf22d5c39aa6144aafa6bfbadcfa822e3e3"
+        }
+      ]
+    },
+    {
+      "archive_name": "KUI-Toy-SCI-DMA-Priority-Test-36-12NOV2026-1207-CST-5ecb060.zip",
+      "archive_bytes": 1783128,
+      "archive_sha256": "a213ce5825237d8b8522d218a6aeca812b9f2d74d69e6b3e805a1d11b028cc28",
+      "available_in_original_library": true,
+      "tests": [
+        36
+      ],
+      "members": [
+        {
+          "path": "KUI/tools.kui",
+          "size_bytes": 3132168,
+          "sha256": "437b775f5e0fa4cf9398cc646fdd4fccaa79895f5fffbf19ee813415d07f1a5e",
+          "module": {
+            "format": 1,
+            "build": "5f93e5244f6b",
+            "payload_bytes": 3132104,
+            "memory_bytes": 7429200,
+            "crc32": "847056f0"
+          }
+        },
+        {
+          "path": "KUI/apps/games/retail-toy-test-36.kui",
+          "size_bytes": 275672,
+          "sha256": "3e23e56fb88288a1b4020875b7b0a248303d6e622d1fd50f7614502759dcb7b0",
+          "module": {
+            "format": 1,
+            "build": "5ecb06066b27",
+            "payload_bytes": 275608,
+            "memory_bytes": 275608,
+            "crc32": "aa088b65"
+          }
+        },
+        {
+          "path": "README.txt",
+          "size_bytes": 1917,
+          "sha256": "307792b00e1c77e412011a909944b471a0daca8d7d70c2f9f2b2844ee0e771dd"
+        },
+        {
+          "path": "SHA256SUMS.txt",
+          "size_bytes": 261,
+          "sha256": "83a31571b73f1aab3401c1194763194d1b1751f5cfb82395e4fb7ba9e89cf6fd"
+        }
+      ]
+    },
+    {
+      "archive_name": "KUI-Toy-SCI-Slow-Retry-Test-37-12NOV2026-1232-CST-4520d99.zip",
+      "archive_bytes": 1783728,
+      "archive_sha256": "837edb7a8fca7d5e0b4b3da90dcbf68d4edfebfa462f93851a7801963c7d13d1",
+      "available_in_original_library": true,
+      "tests": [
+        37
+      ],
+      "members": [
+        {
+          "path": "KUI/tools.kui",
+          "size_bytes": 3132120,
+          "sha256": "f08cedfcfcfcc7731dce9bd941463aff5a4ff6f2fee5ef94308150d01376781a",
+          "module": {
+            "format": 1,
+            "build": "354bfafb6ef4",
+            "payload_bytes": 3132056,
+            "memory_bytes": 7429136,
+            "crc32": "d49fedb8"
+          }
+        },
+        {
+          "path": "KUI/apps/games/retail-toy-test-37.kui",
+          "size_bytes": 276884,
+          "sha256": "bab8009618074babe9a7cbd3c2cfd8219f51d100569571b80f45af2f036dbaa8",
+          "module": {
+            "format": 1,
+            "build": "4520d99dd167",
+            "payload_bytes": 276820,
+            "memory_bytes": 276820,
+            "crc32": "1e18fc2e"
+          }
+        },
+        {
+          "path": "README.txt",
+          "size_bytes": 2159,
+          "sha256": "3a33a93ff332d0eaadb26e831638bd51a1651cf94ef75ad932689549d0fa548d"
+        },
+        {
+          "path": "SHA256SUMS.txt",
+          "size_bytes": 261,
+          "sha256": "3eb4662b7b56e2c4a1ad7a2a152ea30940dd566df113123eb01256364c7f134e"
+        }
+      ]
+    },
+    {
+      "archive_name": "KUI-Toy-SCI-Refill-Slice-Test-38-12NOV2026-1247-CST-8203e8e.zip",
+      "archive_bytes": 1782685,
+      "archive_sha256": "d021128dc0bbf681a066c5993e59555cb8f8931d425d86f295ca0d62e0da4022",
+      "available_in_original_library": true,
+      "tests": [
+        38
+      ],
+      "members": [
+        {
+          "path": "KUI/tools.kui",
+          "size_bytes": 3130920,
+          "sha256": "ae40b04e993d03d4ef8420fff83210d4a40ef6c30802bd539e27c8a98ab2f82c",
+          "module": {
+            "format": 1,
+            "build": "e65c2e2af347",
+            "payload_bytes": 3130856,
+            "memory_bytes": 7427952,
+            "crc32": "f6f53949"
+          }
+        },
+        {
+          "path": "KUI/apps/games/retail-toy-test-38.kui",
+          "size_bytes": 277240,
+          "sha256": "530acf8122dba1fa6998aae16643f06975c5721238883ec6941c50f799cd2ad1",
+          "module": {
+            "format": 1,
+            "build": "8203e8e86dad",
+            "payload_bytes": 277176,
+            "memory_bytes": 277176,
+            "crc32": "e83ff458"
+          }
+        },
+        {
+          "path": "README.txt",
+          "size_bytes": 2123,
+          "sha256": "e118f75495935fbf9259691bd26208cb88a5384aeacb85b13b56c0994d9db6fb"
+        },
+        {
+          "path": "SHA256SUMS.txt",
+          "size_bytes": 261,
+          "sha256": "9ca8c2be9aff7d94e8ff554f42a5e96af5fabd05bcc82029d7e8874c67e753a1"
+        }
+      ]
+    },
+    {
+      "archive_name": "KUI-Toy-SCI-Movie-Exit-Test-39-12NOV2026-1304-CST-2979534.zip",
+      "archive_bytes": 1782794,
+      "archive_sha256": "8274b120c1210a40ad873fa93c7c07aee3076e508b4493cae4eea75b3594069f",
+      "available_in_original_library": false,
+      "tests": [
+        39
+      ],
+      "members": [
+        {
+          "path": "KUI/tools.kui",
+          "size_bytes": 3130916,
+          "sha256": "17a796fb2b96db07126d1613b1c175b4df5ac4a7e75ddf8ba56eb034a76ea18a",
+          "module": {
+            "format": 1,
+            "build": "8af4a09880bf",
+            "payload_bytes": 3130852,
+            "memory_bytes": 7427952,
+            "crc32": "b464780a"
+          }
+        },
+        {
+          "path": "KUI/apps/games/retail-toy-test-39.kui",
+          "size_bytes": 277496,
+          "sha256": "b513ca7435ba4c7896cfe9f2f73ccb844d8d0ce80a142ded2772770e7800c9e5",
+          "module": {
+            "format": 1,
+            "build": "2979534320ec",
+            "payload_bytes": 277432,
+            "memory_bytes": 277432,
+            "crc32": "9c32ecca"
+          }
+        },
+        {
+          "path": "README.txt",
+          "size_bytes": 1887,
+          "sha256": "2318ff438321e085a79e6b5248eab15b82cedf37d5a4e52986024c97abded88a"
+        },
+        {
+          "path": "SHA256SUMS.txt",
+          "size_bytes": 261,
+          "sha256": "f902101cd6e77310d61f77caf8dbbec438863d4dbb75d88ef8c0d8bc4225aa25"
+        }
+      ]
+    },
+    {
+      "archive_name": "KUI-Toy-SCI-Movie-Exit-Test-39-12NOV2026-1306-CST-c5cd2b9.zip",
+      "archive_bytes": 1782795,
+      "archive_sha256": "5208d972e6bd0875a7a9b748cc99c078964b775e4cb5f6d003df92e855cc1165",
+      "available_in_original_library": true,
+      "tests": [
+        39
+      ],
+      "members": [
+        {
+          "path": "KUI/tools.kui",
+          "size_bytes": 3130916,
+          "sha256": "17a796fb2b96db07126d1613b1c175b4df5ac4a7e75ddf8ba56eb034a76ea18a",
+          "module": {
+            "format": 1,
+            "build": "8af4a09880bf",
+            "payload_bytes": 3130852,
+            "memory_bytes": 7427952,
+            "crc32": "b464780a"
+          }
+        },
+        {
+          "path": "KUI/apps/games/retail-toy-test-39.kui",
+          "size_bytes": 277496,
+          "sha256": "e4389206ae7aa46d0dc643859b31ad09d295ed279726c25e034acf97ab921a82",
+          "module": {
+            "format": 1,
+            "build": "c5cd2b945454",
+            "payload_bytes": 277432,
+            "memory_bytes": 277432,
+            "crc32": "18f24402"
+          }
+        },
+        {
+          "path": "README.txt",
+          "size_bytes": 1887,
+          "sha256": "d47f50883720383a42c528cd7bf31c8381a366ad87a0b004f094906b9a197671"
+        },
+        {
+          "path": "SHA256SUMS.txt",
+          "size_bytes": 261,
+          "sha256": "117238ec1e7c97f3505d6665293783d804a48308f37024b32872d4ee90cdab82"
+        }
+      ]
+    },
+    {
+      "archive_name": "KUI-Toy-SCI-Recovery-Window-Test-40-12NOV2026-1318-CST-061f0b5.zip",
+      "archive_bytes": 1783325,
+      "archive_sha256": "61ca1a1fd1da7ff0ee47327589712ed8d2aa5aeb50225c611ffa1e54f175b99c",
+      "available_in_original_library": true,
+      "tests": [
+        40
+      ],
+      "members": [
+        {
+          "path": "KUI/tools.kui",
+          "size_bytes": 3130920,
+          "sha256": "aede8dcd7251c13da0119f2a2f1934070d80115549f3b57a583e8cf9d37a0d30",
+          "module": {
+            "format": 1,
+            "build": "44878b9cb9e4",
+            "payload_bytes": 3130856,
+            "memory_bytes": 7427952,
+            "crc32": "ccc5b602"
+          }
+        },
+        {
+          "path": "KUI/apps/games/retail-toy-test-40.kui",
+          "size_bytes": 277888,
+          "sha256": "a953a68afc9c3cf3e882b59e89d65e3df48f2aa5e1b5fd1fc90f8cb68f440a4a",
+          "module": {
+            "format": 1,
+            "build": "061f0b5a4f0b",
+            "payload_bytes": 277824,
+            "memory_bytes": 277824,
+            "crc32": "72126ae2"
+          }
+        },
+        {
+          "path": "README.txt",
+          "size_bytes": 1944,
+          "sha256": "ab818969d3b52373e8101e88a7db40da4ea0356b0e05d7373af5fe2b5bf3a350"
+        },
+        {
+          "path": "SHA256SUMS.txt",
+          "size_bytes": 261,
+          "sha256": "1ce1844e5dd7f76a977b448402e1d02c1e0a600e7657480c72b75ec94baa4054"
+        }
+      ]
+    },
+    {
+      "archive_name": "KUI-Toy-SCI-Pipelined-Recovery-Test-41-12NOV2026-1332-CST-758c2ea.zip",
+      "archive_bytes": 1783528,
+      "archive_sha256": "225b74fef892c49eec79e491e62c8975600b4b94c01d8441c39aa87326250470",
+      "available_in_original_library": false,
+      "tests": [
+        41
+      ],
+      "members": [
+        {
+          "path": "KUI/tools.kui",
+          "size_bytes": 3130924,
+          "sha256": "8ba49b34ed1e80782911e471a7c1ec7c18fcd83a1daa78ff799d895a205d0237",
+          "module": {
+            "format": 1,
+            "build": "9d4535c53b97",
+            "payload_bytes": 3130860,
+            "memory_bytes": 7427952,
+            "crc32": "b36f357b"
+          }
+        },
+        {
+          "path": "KUI/apps/games/retail-toy-test-41.kui",
+          "size_bytes": 279252,
+          "sha256": "a5a0f3f1a45a3890ec652d1894e95ec26a916f29e7bd42e3243713278f66804c",
+          "module": {
+            "format": 1,
+            "build": "758c2eacaa9b",
+            "payload_bytes": 279188,
+            "memory_bytes": 279188,
+            "crc32": "6c0d9953"
+          }
+        },
+        {
+          "path": "README.txt",
+          "size_bytes": 1728,
+          "sha256": "7b3671f0bae5d288729ff179165269b8f80bc2232c892d21508e29caeeacd496"
+        },
+        {
+          "path": "SHA256SUMS.txt",
+          "size_bytes": 261,
+          "sha256": "796ed31d08f4a5712722e8c1bc832ea6ed9066881e85e9b701a8b61e396682b3"
+        }
+      ]
+    },
+    {
+      "archive_name": "KUI-Toy-SCI-Pipelined-Recovery-Test-41-12NOV2026-1335-CST-e5aac92.zip",
+      "archive_bytes": 1783483,
+      "archive_sha256": "11f2c732dec1fd47ea6e2d76e23714d7d2582b4df458fdee5c3746aa333bf85e",
+      "available_in_original_library": true,
+      "tests": [
+        41
+      ],
+      "members": [
+        {
+          "path": "KUI/tools.kui",
+          "size_bytes": 3130924,
+          "sha256": "8ba49b34ed1e80782911e471a7c1ec7c18fcd83a1daa78ff799d895a205d0237",
+          "module": {
+            "format": 1,
+            "build": "9d4535c53b97",
+            "payload_bytes": 3130860,
+            "memory_bytes": 7427952,
+            "crc32": "b36f357b"
+          }
+        },
+        {
+          "path": "KUI/apps/games/retail-toy-test-41.kui",
+          "size_bytes": 279108,
+          "sha256": "d268388abf15bb9ec01aaa2382d0f03a102da8393cd48a4851369a643f7a5aa6",
+          "module": {
+            "format": 1,
+            "build": "e5aac92d707f",
+            "payload_bytes": 279044,
+            "memory_bytes": 279044,
+            "crc32": "53b270ae"
+          }
+        },
+        {
+          "path": "README.txt",
+          "size_bytes": 1728,
+          "sha256": "79db8de2ba47aac9a06ee3ebb4115cee4ff14c633cba07bde8a34c7e93a4d259"
+        },
+        {
+          "path": "SHA256SUMS.txt",
+          "size_bytes": 261,
+          "sha256": "6c71e25b996c6d7895028bc92381b1dbeaa95ed29c18b1f510e27635c70e7a1a"
+        }
+      ]
+    },
+    {
+      "archive_name": "KUI-Toy-SCI-Graphics-Priority-Test-42-12NOV2026-1346-CST-5425aca.zip",
+      "archive_bytes": 1783913,
+      "archive_sha256": "94a97644d68e479ca04dc7e904b3f40eb25da0089d94be381bdea0e11317e6cb",
+      "available_in_original_library": true,
+      "tests": [
+        42
+      ],
+      "members": [
+        {
+          "path": "KUI/tools.kui",
+          "size_bytes": 3130924,
+          "sha256": "1616387b46f65e9cc7339870a7b49d907125a6eba492792b890f2143e99d1067",
+          "module": {
+            "format": 1,
+            "build": "24d5ad5c11ff",
+            "payload_bytes": 3130860,
+            "memory_bytes": 7427952,
+            "crc32": "5a41b19f"
+          }
+        },
+        {
+          "path": "KUI/apps/games/retail-toy-test-42.kui",
+          "size_bytes": 279812,
+          "sha256": "d157153835178a7c6bd29b22fc5b2a60d019c1910b13ef45e4c3d480827207ec",
+          "module": {
+            "format": 1,
+            "build": "5425aca86182",
+            "payload_bytes": 279748,
+            "memory_bytes": 279748,
+            "crc32": "ab63266b"
+          }
+        },
+        {
+          "path": "README.txt",
+          "size_bytes": 1796,
+          "sha256": "7f28265e63ab930dd5da400aef9e1ff0b1307d3c0ecab30d4634c050b4fdc9ae"
+        },
+        {
+          "path": "SHA256SUMS.txt",
+          "size_bytes": 261,
+          "sha256": "706b718aa57722ce5ca738dc409bb41159d0319a98195646b51e5f935497688b"
+        }
+      ]
+    },
+    {
+      "archive_name": "KUI-Toy-SCI-Continuous-PIO-Test-43-12NOV2026-1357-CST-eceac28.zip",
+      "archive_bytes": 1783628,
+      "archive_sha256": "4342948d3aebecd3598fff4892e31b0b91bf894d7854f51a5da597a9ef2c07af",
+      "available_in_original_library": true,
+      "tests": [
+        43
+      ],
+      "members": [
+        {
+          "path": "KUI/tools.kui",
+          "size_bytes": 3130920,
+          "sha256": "a60a5f55606b493ac4064f0e45da848c411a54138112ee48836361b7876a23bd",
+          "module": {
+            "format": 1,
+            "build": "2f8c0445c1f7",
+            "payload_bytes": 3130856,
+            "memory_bytes": 7427952,
+            "crc32": "d5d49e3b"
+          }
+        },
+        {
+          "path": "KUI/apps/games/retail-toy-test-43.kui",
+          "size_bytes": 279044,
+          "sha256": "7e297a88e2b104b1a4a9d60fe6307fe04d4674267894f0c68d8a7e0a5effdea1",
+          "module": {
+            "format": 1,
+            "build": "eceac2869f9e",
+            "payload_bytes": 278980,
+            "memory_bytes": 278980,
+            "crc32": "05034b71"
+          }
+        },
+        {
+          "path": "README.txt",
+          "size_bytes": 1940,
+          "sha256": "31af46868e3418d936bba280f41081dcc26664dbd36a8161abf66bea3624ef38"
+        },
+        {
+          "path": "SHA256SUMS.txt",
+          "size_bytes": 261,
+          "sha256": "29b395a28267ce80604ea1c69fe3c622f890cda99d82b4e6fe80974b2afe1b46"
+        }
+      ]
+    },
+    {
+      "archive_name": "KUI-Toy-SCI-Tests-44-45-12NOV2026-1412-CST-becd132.zip",
+      "archive_bytes": 1944363,
+      "archive_sha256": "8afc3215fb7f264c3383136efd2c308260629a1010ac807268a7ca406dc6ddaa",
+      "available_in_original_library": true,
+      "tests": [
+        44,
+        45
+      ],
+      "members": [
+        {
+          "path": "KUI/tools.kui",
+          "size_bytes": 3130984,
+          "sha256": "594cef2abfa31144f018e1ecfac3b29259522b5eb145d79552bd20ddd1f1d98d",
+          "module": {
+            "format": 1,
+            "build": "d5102f34611e",
+            "payload_bytes": 3130920,
+            "memory_bytes": 7428016,
+            "crc32": "ef518465"
+          }
+        },
+        {
+          "path": "KUI/apps/games/retail-toy-test-44.kui",
+          "size_bytes": 280148,
+          "sha256": "79af005338232da02768f557ea31c55b45a570ab50d11f4944f91b7563c582b4",
+          "module": {
+            "format": 1,
+            "build": "becd132dfdc9",
+            "payload_bytes": 280084,
+            "memory_bytes": 280084,
+            "crc32": "6843c3ea"
+          }
+        },
+        {
+          "path": "KUI/apps/games/retail-toy-test-45.kui",
+          "size_bytes": 279984,
+          "sha256": "f4c4bab1fd4dcd18ebc3db7fae984e49d43508f647bc24a46854ee76e0483ea1",
+          "module": {
+            "format": 1,
+            "build": "becd132dfdc9",
+            "payload_bytes": 279920,
+            "memory_bytes": 279920,
+            "crc32": "ec770cbb"
+          }
+        },
+        {
+          "path": "README.txt",
+          "size_bytes": 2596,
+          "sha256": "7cadfeafdddadd850813cce421d70742810537817d245e3feed55f3d51710d1f"
+        },
+        {
+          "path": "SHA256SUMS.txt",
+          "size_bytes": 365,
+          "sha256": "c39666edb664e3f68b3ccf9b3f24342c0f6e36e644dbec2dec69fa05c8c8ec8b"
+        }
+      ]
+    },
+    {
+      "archive_name": "KUI-Toy-SCI-First-Cut-PIO-Test-46-12NOV2026-1428-CST-d87cf20.zip",
+      "archive_bytes": 1784352,
+      "archive_sha256": "776070a22dc344739a1123e310e9cf51fd9d93ff19062d84da208c91fc29bf4c",
+      "available_in_original_library": true,
+      "tests": [
+        46
+      ],
+      "members": [
+        {
+          "path": "KUI/tools.kui",
+          "size_bytes": 3130920,
+          "sha256": "0e28278138401d2f69ef9a43377b97b3c27352728dddfcf904b1bd790aa04486",
+          "module": {
+            "format": 1,
+            "build": "f6b701813b46",
+            "payload_bytes": 3130856,
+            "memory_bytes": 7427952,
+            "crc32": "42e990e1"
+          }
+        },
+        {
+          "path": "KUI/apps/games/retail-toy-test-46.kui",
+          "size_bytes": 280176,
+          "sha256": "47a07a38cf373964a2c3b5e619ac1332b1b292f68ac4c8a3aec43120ba4d9808",
+          "module": {
+            "format": 1,
+            "build": "d87cf2073493",
+            "payload_bytes": 280112,
+            "memory_bytes": 280112,
+            "crc32": "fcfcda46"
+          }
+        },
+        {
+          "path": "README.txt",
+          "size_bytes": 1914,
+          "sha256": "9de6e60a83f7c8441ef974c6f5a3914eca562f1e2e86fa318ad3beb5ea6dee7a"
+        },
+        {
+          "path": "SHA256SUMS.txt",
+          "size_bytes": 261,
+          "sha256": "49f4ac328c6019e22a3ccf9d43ed9f1372799b5361f162fd5c2b4cd9dd5f21da"
+        }
+      ]
+    },
+    {
+      "archive_name": "KUI-Toy-SCI-Tests-47-48-12NOV2026-1454-CST-1c90d14.zip",
+      "archive_bytes": 1945119,
+      "archive_sha256": "f12a45c24a593a28635b50e822aa9219ed7288d1ba910502248239f0ce8eb69d",
+      "available_in_original_library": true,
+      "tests": [
+        47,
+        48
+      ],
+      "members": [
+        {
+          "path": "KUI/tools.kui",
+          "size_bytes": 3130992,
+          "sha256": "cce9eee981a305d0d073585b6faa4678dc410be07334b4714cd698e3cf817305",
+          "module": {
+            "format": 1,
+            "build": "7386d06f30aa",
+            "payload_bytes": 3130928,
+            "memory_bytes": 7428016,
+            "crc32": "c321c4d2"
+          }
+        },
+        {
+          "path": "KUI/apps/games/retail-toy-test-47.kui",
+          "size_bytes": 280244,
+          "sha256": "031c07d585dd1683ea528d5f727d866769fa2b0485bc5b8cad67b665476e2ce0",
+          "module": {
+            "format": 1,
+            "build": "e28a31fa0051",
+            "payload_bytes": 280180,
+            "memory_bytes": 280180,
+            "crc32": "f2d837f7"
+          }
+        },
+        {
+          "path": "KUI/apps/games/retail-toy-test-48.kui",
+          "size_bytes": 282140,
+          "sha256": "a68f441ddb9904dc68f2a0350b70723efb8f214fb60a39dbbf872d7287deeda6",
+          "module": {
+            "format": 1,
+            "build": "1c90d147e936",
+            "payload_bytes": 282076,
+            "memory_bytes": 282076,
+            "crc32": "878304b4"
+          }
+        },
+        {
+          "path": "README.txt",
+          "size_bytes": 2415,
+          "sha256": "f57e657388c85b6025868ec439592ccbe035f88bc8c82b5dd5e822d70a08ddc6"
+        },
+        {
+          "path": "SHA256SUMS.txt",
+          "size_bytes": 365,
+          "sha256": "c2ad97830c9859c8e7d8be2b1216a93df042b15fb2ed43d36ec114417429955f"
+        }
+      ]
+    },
+    {
+      "archive_name": "KUI-Toy-SCI-Resume-Cadence-Test-49-12NOV2026-1508-CST-befebdb.zip",
+      "archive_bytes": 2105758,
+      "archive_sha256": "977184553239085fff95fd6842d551add00c0d93d8afe068a0de2e9329ec245e",
+      "available_in_original_library": true,
+      "tests": [
+        47,
+        48,
+        49
+      ],
+      "members": [
+        {
+          "path": "KUI/tools.kui",
+          "size_bytes": 3131060,
+          "sha256": "3b28b938ea1f33461a7c17718eb6c08c56fa8b453a0f7ec4217877098ae7c8b0",
+          "module": {
+            "format": 1,
+            "build": "df1d026a1488",
+            "payload_bytes": 3130996,
+            "memory_bytes": 7428080,
+            "crc32": "0e0c07b2"
+          }
+        },
+        {
+          "path": "KUI/apps/games/retail-toy-test-47.kui",
+          "size_bytes": 280244,
+          "sha256": "031c07d585dd1683ea528d5f727d866769fa2b0485bc5b8cad67b665476e2ce0",
+          "module": {
+            "format": 1,
+            "build": "e28a31fa0051",
+            "payload_bytes": 280180,
+            "memory_bytes": 280180,
+            "crc32": "f2d837f7"
+          }
+        },
+        {
+          "path": "KUI/apps/games/retail-toy-test-48.kui",
+          "size_bytes": 282140,
+          "sha256": "a68f441ddb9904dc68f2a0350b70723efb8f214fb60a39dbbf872d7287deeda6",
+          "module": {
+            "format": 1,
+            "build": "1c90d147e936",
+            "payload_bytes": 282076,
+            "memory_bytes": 282076,
+            "crc32": "878304b4"
+          }
+        },
+        {
+          "path": "KUI/apps/games/retail-toy-test-49.kui",
+          "size_bytes": 282292,
+          "sha256": "d3961d8c677d745801af50f0f3d91e41fce28b490a8943ba74a0ff0832230cf3",
+          "module": {
+            "format": 1,
+            "build": "befebdbf446f",
+            "payload_bytes": 282228,
+            "memory_bytes": 282228,
+            "crc32": "6d231579"
+          }
+        },
+        {
+          "path": "README.txt",
+          "size_bytes": 2309,
+          "sha256": "8b8691b016788862ef712fb6d635b52083dbfcc6138e26f8d6cae127d686c6be"
+        },
+        {
+          "path": "SHA256SUMS.txt",
+          "size_bytes": 469,
+          "sha256": "3b2291b81bb791a55d68dfa8f2b5e02fbd90c63a57d9d72af5b7eb2b9a9a1c22"
+        }
+      ]
+    },
+    {
+      "archive_name": "KUI-Toy-SCI-Faster-Checks-Test-50-12NOV2026-1528-CST-1ad2aff.zip",
+      "archive_bytes": 1945876,
+      "archive_sha256": "1c8b26761990d2c5a307ee7a44d7a0383d47fa15a455b7d9b17d079e9db2233d",
+      "available_in_original_library": true,
+      "tests": [
+        49,
+        50
+      ],
+      "members": [
+        {
+          "path": "KUI/tools.kui",
+          "size_bytes": 3130992,
+          "sha256": "5e147c5f2367853a76a3d2f1d768eeb4c410844ea18e5e7f5d1a9e89cbc6e651",
+          "module": {
+            "format": 1,
+            "build": "7ee0638f0372",
+            "payload_bytes": 3130928,
+            "memory_bytes": 7428016,
+            "crc32": "017e8c3c"
+          }
+        },
+        {
+          "path": "KUI/apps/games/retail-toy-test-49.kui",
+          "size_bytes": 282292,
+          "sha256": "d3961d8c677d745801af50f0f3d91e41fce28b490a8943ba74a0ff0832230cf3",
+          "module": {
+            "format": 1,
+            "build": "befebdbf446f",
+            "payload_bytes": 282228,
+            "memory_bytes": 282228,
+            "crc32": "6d231579"
+          }
+        },
+        {
+          "path": "KUI/apps/games/retail-toy-test-50.kui",
+          "size_bytes": 282488,
+          "sha256": "478eeecd364de0e82af218ba31a3d83614f2ac81fdb02e922edac8b992cdade6",
+          "module": {
+            "format": 1,
+            "build": "1ad2afff629c",
+            "payload_bytes": 282424,
+            "memory_bytes": 282424,
+            "crc32": "7160b3bd"
+          }
+        },
+        {
+          "path": "README.txt",
+          "size_bytes": 1976,
+          "sha256": "f6c436ce737461e25d802b98c4c8f2bca6f440954ce5e36792bd4270ba4e8f86"
+        },
+        {
+          "path": "SHA256SUMS.txt",
+          "size_bytes": 365,
+          "sha256": "0bb18d7f73c663efd90b36e7bb9ec2454de839a5b68b50943231a2ca7d03b70b"
+        }
+      ]
+    },
+    {
+      "archive_name": "KUI-Toy-SCI-Wake-Resume-Test-51-12NOV2026-1551-CST-942509e.zip",
+      "archive_bytes": 1946183,
+      "archive_sha256": "2a4e1312dcf7b5e671e1bf0b9b54f8e196f6d2254d9a5dc620eaf297faf3c52a",
+      "available_in_original_library": true,
+      "tests": [
+        50,
+        51
+      ],
+      "members": [
+        {
+          "path": "KUI/tools.kui",
+          "size_bytes": 3130988,
+          "sha256": "c1ad437d89efd8c6679666e14ef4595b1d7f4a8df20014e9e09e98fee21bad3c",
+          "module": {
+            "format": 1,
+            "build": "d7245817bed4",
+            "payload_bytes": 3130924,
+            "memory_bytes": 7428016,
+            "crc32": "cd82e6af"
+          }
+        },
+        {
+          "path": "KUI/apps/games/retail-toy-test-50.kui",
+          "size_bytes": 282488,
+          "sha256": "478eeecd364de0e82af218ba31a3d83614f2ac81fdb02e922edac8b992cdade6",
+          "module": {
+            "format": 1,
+            "build": "1ad2afff629c",
+            "payload_bytes": 282424,
+            "memory_bytes": 282424,
+            "crc32": "7160b3bd"
+          }
+        },
+        {
+          "path": "KUI/apps/games/retail-toy-test-51.kui",
+          "size_bytes": 282676,
+          "sha256": "6b0e4d4c1be48aee4dd5633768e48fad73111ba171438d7acebfe3f18d65a945",
+          "module": {
+            "format": 1,
+            "build": "942509e6fe6e",
+            "payload_bytes": 282612,
+            "memory_bytes": 282612,
+            "crc32": "415280a5"
+          }
+        },
+        {
+          "path": "README.txt",
+          "size_bytes": 2031,
+          "sha256": "f608e8c7d2f856e513ab69f14e7194b85d62380596b0e5ed613bc9aea0f8a31e"
+        },
+        {
+          "path": "SHA256SUMS.txt",
+          "size_bytes": 365,
+          "sha256": "f76fd25f29e7bb007e0d258654c3f159fbfd20159c780a54fd691e4862cba7ea"
+        }
+      ]
+    },
+    {
+      "archive_name": "KUI-Toy-SCI-Tests-52-54-12NOV2026-1609-CST-fefd265.zip",
+      "archive_bytes": 2268242,
+      "archive_sha256": "853625cebf8155eeae232302d9404e2698e1be932f3ad4af0bb9dd414335c28e",
+      "available_in_original_library": true,
+      "tests": [
+        51,
+        52,
+        53,
+        54
+      ],
+      "members": [
+        {
+          "path": "KUI/tools.kui",
+          "size_bytes": 3131164,
+          "sha256": "17eb00aef8a03b1480146978a5d37ff5ba09ff8ac747afec441721c85a6ff5e4",
+          "module": {
+            "format": 1,
+            "build": "eabe4c9cf2e3",
+            "payload_bytes": 3131100,
+            "memory_bytes": 7428176,
+            "crc32": "d9ff6088"
+          }
+        },
+        {
+          "path": "KUI/apps/games/retail-toy-test-51.kui",
+          "size_bytes": 282676,
+          "sha256": "6b0e4d4c1be48aee4dd5633768e48fad73111ba171438d7acebfe3f18d65a945",
+          "module": {
+            "format": 1,
+            "build": "942509e6fe6e",
+            "payload_bytes": 282612,
+            "memory_bytes": 282612,
+            "crc32": "415280a5"
+          }
+        },
+        {
+          "path": "KUI/apps/games/retail-toy-test-52.kui",
+          "size_bytes": 282576,
+          "sha256": "30de483d6802d5729d54f6bde34c2df3198ab2362438b04fd6393be1dc752b11",
+          "module": {
+            "format": 1,
+            "build": "8e732f81efd0",
+            "payload_bytes": 282512,
+            "memory_bytes": 282512,
+            "crc32": "6a751c28"
+          }
+        },
+        {
+          "path": "KUI/apps/games/retail-toy-test-53.kui",
+          "size_bytes": 282640,
+          "sha256": "6bbb11e32f43137cc635621482940f3111e094a8c7f7dd0aebf1804297df3af2",
+          "module": {
+            "format": 1,
+            "build": "aa3ee4a8f9a5",
+            "payload_bytes": 282576,
+            "memory_bytes": 282576,
+            "crc32": "e2802318"
+          }
+        },
+        {
+          "path": "KUI/apps/games/retail-toy-test-54.kui",
+          "size_bytes": 282864,
+          "sha256": "3aaa648e192d92191524ec17123464bbb7e9ec1fad80e25934c371179c14b9e6",
+          "module": {
+            "format": 1,
+            "build": "fefd26538deb",
+            "payload_bytes": 282800,
+            "memory_bytes": 282800,
+            "crc32": "e0761aa0"
+          }
+        },
+        {
+          "path": "README.txt",
+          "size_bytes": 2525,
+          "sha256": "75e7c8876b48d13486c9f82bbc1ed14af7c407675af2d47d88cd5d8991074f6d"
+        },
+        {
+          "path": "SHA256SUMS.txt",
+          "size_bytes": 573,
+          "sha256": "2939119a3acb9b89b923989c263d1a53dc4c5d074656266969458d0e434f09a6"
+        }
+      ]
+    },
+    {
+      "archive_name": "KUI-Toy-SCI-Tests-55-56-12NOV2026-1737-CST-27e5a7a.zip",
+      "archive_bytes": 2107881,
+      "archive_sha256": "d246910849702d1777c631a18702b349423196f3b8e87720e621cc050cb05c96",
+      "available_in_original_library": true,
+      "tests": [
+        53,
+        55,
+        56
+      ],
+      "members": [
+        {
+          "path": "KUI/tools.kui",
+          "size_bytes": 3131060,
+          "sha256": "cf007ad0392182f86b6fb265bccc6d8730a9c190560cf14e4d03abb79f72eb2d",
+          "module": {
+            "format": 1,
+            "build": "2e9301147c33",
+            "payload_bytes": 3130996,
+            "memory_bytes": 7428080,
+            "crc32": "fae6eda8"
+          }
+        },
+        {
+          "path": "KUI/apps/games/retail-toy-test-53.kui",
+          "size_bytes": 282640,
+          "sha256": "6bbb11e32f43137cc635621482940f3111e094a8c7f7dd0aebf1804297df3af2",
+          "module": {
+            "format": 1,
+            "build": "aa3ee4a8f9a5",
+            "payload_bytes": 282576,
+            "memory_bytes": 282576,
+            "crc32": "e2802318"
+          }
+        },
+        {
+          "path": "KUI/apps/games/retail-toy-test-55.kui",
+          "size_bytes": 283376,
+          "sha256": "9971a596f6d12df8a8e361ed7abe951944342326bca348b1988ed1021220b2b5",
+          "module": {
+            "format": 1,
+            "build": "fdb2da073851",
+            "payload_bytes": 283312,
+            "memory_bytes": 283312,
+            "crc32": "bcacab28"
+          }
+        },
+        {
+          "path": "KUI/apps/games/retail-toy-test-56.kui",
+          "size_bytes": 282736,
+          "sha256": "38980de39d54c79c1f0d371741e3f2f67d73c328cca2ecf5e9eb081262b49c32",
+          "module": {
+            "format": 1,
+            "build": "27e5a7af0985",
+            "payload_bytes": 282672,
+            "memory_bytes": 282672,
+            "crc32": "9181173a"
+          }
+        },
+        {
+          "path": "README.txt",
+          "size_bytes": 2251,
+          "sha256": "641f617ef2247c28afaf79ebd00f1deb1121266a41ae0549445fe62966cc5e16"
+        },
+        {
+          "path": "SHA256SUMS.txt",
+          "size_bytes": 469,
+          "sha256": "efc31927ec887b01fb042eca3ae83abb0bf428b272930ba911435b1743e30fda"
+        }
+      ]
+    },
+    {
+      "archive_name": "KUI-Toy-SCI-Tests-57-58-59-12NOV2026-1822-CST-e5b30cd.zip",
+      "archive_bytes": 2272519,
+      "archive_sha256": "f01434ec5d1f22a781ec09ab35a168efb9ac4dcb8ebe9c20a6a08afe02f296ad",
+      "available_in_original_library": true,
+      "tests": [
+        55,
+        57,
+        58,
+        59
+      ],
+      "members": [
+        {
+          "path": "KUI/tools.kui",
+          "size_bytes": 3131180,
+          "sha256": "82ffd7f714201564b95cf4f42ffbd22ec7b3c0eeff3afe5d9415ae9c4f530306",
+          "module": {
+            "format": 1,
+            "build": "f51f08a04131",
+            "payload_bytes": 3131116,
+            "memory_bytes": 7428208,
+            "crc32": "534d70a3"
+          }
+        },
+        {
+          "path": "KUI/apps/games/retail-toy-test-55.kui",
+          "size_bytes": 283376,
+          "sha256": "9971a596f6d12df8a8e361ed7abe951944342326bca348b1988ed1021220b2b5",
+          "module": {
+            "format": 1,
+            "build": "fdb2da073851",
+            "payload_bytes": 283312,
+            "memory_bytes": 283312,
+            "crc32": "bcacab28"
+          }
+        },
+        {
+          "path": "KUI/apps/games/retail-toy-test-57.kui",
+          "size_bytes": 284304,
+          "sha256": "61e37d61081389ebbb985159818e72bdd4adf9d21d2ce65288973940b768cd09",
+          "module": {
+            "format": 1,
+            "build": "e5b30cdd569d",
+            "payload_bytes": 284240,
+            "memory_bytes": 284240,
+            "crc32": "7d6762c5"
+          }
+        },
+        {
+          "path": "KUI/apps/games/retail-toy-test-58.kui",
+          "size_bytes": 284576,
+          "sha256": "68646a884702fd96e0a1cccbaf19f6ded6d0ffe358e994935a7a023736eb22e3",
+          "module": {
+            "format": 1,
+            "build": "e5b30cdd569d",
+            "payload_bytes": 284512,
+            "memory_bytes": 284512,
+            "crc32": "f549f21e"
+          }
+        },
+        {
+          "path": "KUI/apps/games/retail-toy-test-59.kui",
+          "size_bytes": 283692,
+          "sha256": "a6cd99b4e8b66e59c0fc2ddc582c1b2397aacc8965bee0ff4b79967afd27fc65",
+          "module": {
+            "format": 1,
+            "build": "e5b30cdd569d",
+            "payload_bytes": 283628,
+            "memory_bytes": 283628,
+            "crc32": "32acb464"
+          }
+        },
+        {
+          "path": "README.txt",
+          "size_bytes": 2339,
+          "sha256": "915df5df40fa45186d666a19d7b63dbef32829108ff2b9776559992cf664e046"
+        },
+        {
+          "path": "SHA256SUMS.txt",
+          "size_bytes": 573,
+          "sha256": "667186ba3444032cc3c71ec84d3bf41ba204154823f4809507b823c08db58b40"
+        }
+      ]
+    },
+    {
+      "archive_name": "KUI-Toy-SCI-Test-60-12NOV2026-1856-CST-b0e6305.zip",
+      "archive_bytes": 1949698,
+      "archive_sha256": "68711a31c7b09dc4f5fa3c72707453ada941ea890011480161e8893e550fa034",
+      "available_in_original_library": true,
+      "tests": [
+        57,
+        60
+      ],
+      "members": [
+        {
+          "path": "KUI/tools.kui",
+          "size_bytes": 3130988,
+          "sha256": "cdbcd61d05ece1b43c0d60f484fd0444ecbff208ccf0650ebc15ceb2b1db4236",
+          "module": {
+            "format": 1,
+            "build": "47c6fdaef7b5",
+            "payload_bytes": 3130924,
+            "memory_bytes": 7428016,
+            "crc32": "a020c0bb"
+          }
+        },
+        {
+          "path": "KUI/apps/games/retail-toy-test-57.kui",
+          "size_bytes": 284304,
+          "sha256": "61e37d61081389ebbb985159818e72bdd4adf9d21d2ce65288973940b768cd09",
+          "module": {
+            "format": 1,
+            "build": "e5b30cdd569d",
+            "payload_bytes": 284240,
+            "memory_bytes": 284240,
+            "crc32": "7d6762c5"
+          }
+        },
+        {
+          "path": "KUI/apps/games/retail-toy-test-60.kui",
+          "size_bytes": 285424,
+          "sha256": "26427d2985b0e13fa659e2799801234695d9bb8afe0f86210511dd35b364105c",
+          "module": {
+            "format": 1,
+            "build": "b0e6305f53f5",
+            "payload_bytes": 285360,
+            "memory_bytes": 285360,
+            "crc32": "55447aba"
+          }
+        },
+        {
+          "path": "README.txt",
+          "size_bytes": 2217,
+          "sha256": "20467a043fa021a8a6f104ef9da6feacda967f7b1d8fbbe9a0d24b5e3326335f"
+        },
+        {
+          "path": "SHA256SUMS.txt",
+          "size_bytes": 365,
+          "sha256": "235f544ed906db3fa96148fc3d4aef29e2d4ec34aeea2559a0cf668d567976d2"
+        }
+      ]
+    },
+    {
+      "archive_name": "KUI-Toy-SCI-Test-61-12NOV2026-1912-CST-e0cc7c1.zip",
+      "archive_bytes": 1951197,
+      "archive_sha256": "83cfb68acc40b41e4b9c999ad93a31306a4fa9028b4d254bd6dbc7fe63ce8f04",
+      "available_in_original_library": true,
+      "tests": [
+        57,
+        61
+      ],
+      "members": [
+        {
+          "path": "KUI/tools.kui",
+          "size_bytes": 3130996,
+          "sha256": "edfb68bd2d8bd8cfdc3cffa998c6eaba3cf4c00bb64e9ca6fc357491504c045d",
+          "module": {
+            "format": 1,
+            "build": "cb4d69803453",
+            "payload_bytes": 3130932,
+            "memory_bytes": 7428016,
+            "crc32": "bc8a9ad1"
+          }
+        },
+        {
+          "path": "KUI/apps/games/retail-toy-test-57.kui",
+          "size_bytes": 284304,
+          "sha256": "61e37d61081389ebbb985159818e72bdd4adf9d21d2ce65288973940b768cd09",
+          "module": {
+            "format": 1,
+            "build": "e5b30cdd569d",
+            "payload_bytes": 284240,
+            "memory_bytes": 284240,
+            "crc32": "7d6762c5"
+          }
+        },
+        {
+          "path": "KUI/apps/games/retail-toy-test-61.kui",
+          "size_bytes": 286804,
+          "sha256": "c1537db134d33233ee0c6c7a2434f4362c2dea480ed1f117240273202fc7bd29",
+          "module": {
+            "format": 1,
+            "build": "e0cc7c13ac3e",
+            "payload_bytes": 286740,
+            "memory_bytes": 286740,
+            "crc32": "c6be5e8e"
+          }
+        },
+        {
+          "path": "README.txt",
+          "size_bytes": 2669,
+          "sha256": "7e850cb9a320506daae0c27068260765d6c82a5903f89729782124c95bb329a4"
+        },
+        {
+          "path": "SHA256SUMS.txt",
+          "size_bytes": 365,
+          "sha256": "a31776486a2bcfe2e5c68bae9a5720c1d9ec34c15f116ff6ec0461aec3df28d5"
+        }
+      ]
+    },
+    {
+      "archive_name": "KUI-Toy-Tests-62-63-12NOV2026-1941-CST-7beafbe.zip",
+      "archive_bytes": 1967948,
+      "archive_sha256": "d7338595504bbe01af78f7f9d8a007e105d223ca59e7fb0ba4c8c7e564f3db2e",
+      "available_in_original_library": true,
+      "tests": [
+        57,
+        62,
+        63
+      ],
+      "members": [
+        {
+          "path": "KUI/tools.kui",
+          "size_bytes": 3131480,
+          "sha256": "6a9d5ae2a809aa9ca71a79d581e3bf06591d7214d9aaf5cacbaf514b7bb66f4e",
+          "module": {
+            "format": 1,
+            "build": "01c2ec1ac285",
+            "payload_bytes": 3131416,
+            "memory_bytes": 7428496,
+            "crc32": "219cb534"
+          }
+        },
+        {
+          "path": "KUI/apps/games/retail-toy-test-57.kui",
+          "size_bytes": 284304,
+          "sha256": "61e37d61081389ebbb985159818e72bdd4adf9d21d2ce65288973940b768cd09",
+          "module": {
+            "format": 1,
+            "build": "e5b30cdd569d",
+            "payload_bytes": 284240,
+            "memory_bytes": 284240,
+            "crc32": "7d6762c5"
+          }
+        },
+        {
+          "path": "KUI/apps/games/retail-toy-test-62.kui",
+          "size_bytes": 288292,
+          "sha256": "e38af2233149fa81af888a1837c971087a71116437c687666502aa285fa24c8e",
+          "module": {
+            "format": 1,
+            "build": "7beafbe8da44",
+            "payload_bytes": 288228,
+            "memory_bytes": 288228,
+            "crc32": "ad53b6e7"
+          }
+        },
+        {
+          "path": "KUI/apps/disc/native-toy-trace.kui",
+          "size_bytes": 30304,
+          "sha256": "545c6c2cdbd79b6a0243135b18ab5d8c052bfc35c393b3efde2d9ddab30531ff",
+          "module": {
+            "format": 1,
+            "build": "5034eb26898d",
+            "payload_bytes": 30240,
+            "memory_bytes": 30240,
+            "crc32": "408bface"
+          }
+        },
+        {
+          "path": "README.txt",
+          "size_bytes": 2723,
+          "sha256": "696a8795482b98e9114b936c7bd9a13f3cf7875eeadb5b226f50d778c51ef4b4"
+        },
+        {
+          "path": "SHA256SUMS.txt",
+          "size_bytes": 466,
+          "sha256": "ebbbd75b08b891223b8d47a97520519068e36e02572c3635741f1fb24f40f9da"
+        }
+      ]
+    },
+    {
+      "archive_name": "KUI-Toy-SCI-Test-64-12NOV2026-2021-CST-4f213ec.zip",
+      "archive_bytes": 1967710,
+      "archive_sha256": "0d82389e134c46f66c10b4bebb51a11b115e593f9ab525882ff801cc5feb2018",
+      "available_in_original_library": false,
+      "tests": [
+        57,
+        63,
+        64
+      ],
+      "members": [
+        {
+          "path": "KUI/tools.kui",
+          "size_bytes": 3131480,
+          "sha256": "35079d1ef1e033539735d8e095dfdb3a6bcf18d4fd1bf0245878e8ececbf05db",
+          "module": {
+            "format": 1,
+            "build": "e16e724c9b65",
+            "payload_bytes": 3131416,
+            "memory_bytes": 7428496,
+            "crc32": "a7fb446a"
+          }
+        },
+        {
+          "path": "KUI/apps/games/retail-toy-test-57.kui",
+          "size_bytes": 284304,
+          "sha256": "61e37d61081389ebbb985159818e72bdd4adf9d21d2ce65288973940b768cd09",
+          "module": {
+            "format": 1,
+            "build": "e5b30cdd569d",
+            "payload_bytes": 284240,
+            "memory_bytes": 284240,
+            "crc32": "7d6762c5"
+          }
+        },
+        {
+          "path": "KUI/apps/games/retail-toy-test-64.kui",
+          "size_bytes": 288484,
+          "sha256": "d6b013132d7d128bfe1a2de97df9c7155eff6813b2d0818d9169cefb3901a591",
+          "module": {
+            "format": 1,
+            "build": "4f213ec141bf",
+            "payload_bytes": 288420,
+            "memory_bytes": 288420,
+            "crc32": "02c30a52"
+          }
+        },
+        {
+          "path": "KUI/apps/disc/native-toy-trace.kui",
+          "size_bytes": 30304,
+          "sha256": "545c6c2cdbd79b6a0243135b18ab5d8c052bfc35c393b3efde2d9ddab30531ff",
+          "module": {
+            "format": 1,
+            "build": "5034eb26898d",
+            "payload_bytes": 30240,
+            "memory_bytes": 30240,
+            "crc32": "408bface"
+          }
+        },
+        {
+          "path": "README.txt",
+          "size_bytes": 1912,
+          "sha256": "5b633d582cfc7ba1756524af7c68fe2280c2ea945951942cdfeadb8a0787af1c"
+        },
+        {
+          "path": "SHA256SUMS.txt",
+          "size_bytes": 466,
+          "sha256": "5f7ca67b97e1871c6332c01ccf5114509089a582f7922a724cbe128b226b4236"
+        }
+      ]
+    },
+    {
+      "archive_name": "KUI-Toy-SCI-Test-64-12NOV2026-2024-CST-a867aae.zip",
+      "archive_bytes": 1967741,
+      "archive_sha256": "10ee581776b0f91a9b098e91dd8ba0304a0fa067dbff94c9cc661ed3c89235e7",
+      "available_in_original_library": true,
+      "tests": [
+        57,
+        63,
+        64
+      ],
+      "members": [
+        {
+          "path": "KUI/tools.kui",
+          "size_bytes": 3131480,
+          "sha256": "35079d1ef1e033539735d8e095dfdb3a6bcf18d4fd1bf0245878e8ececbf05db",
+          "module": {
+            "format": 1,
+            "build": "e16e724c9b65",
+            "payload_bytes": 3131416,
+            "memory_bytes": 7428496,
+            "crc32": "a7fb446a"
+          }
+        },
+        {
+          "path": "KUI/apps/games/retail-toy-test-57.kui",
+          "size_bytes": 284304,
+          "sha256": "61e37d61081389ebbb985159818e72bdd4adf9d21d2ce65288973940b768cd09",
+          "module": {
+            "format": 1,
+            "build": "e5b30cdd569d",
+            "payload_bytes": 284240,
+            "memory_bytes": 284240,
+            "crc32": "7d6762c5"
+          }
+        },
+        {
+          "path": "KUI/apps/games/retail-toy-test-64.kui",
+          "size_bytes": 288516,
+          "sha256": "7231741f2c23f2d2bbe7f12ed919749dd29355169d523a62ad90e0bf73dbacd3",
+          "module": {
+            "format": 1,
+            "build": "a867aae40aac",
+            "payload_bytes": 288452,
+            "memory_bytes": 288452,
+            "crc32": "ceff82f8"
+          }
+        },
+        {
+          "path": "KUI/apps/disc/native-toy-trace.kui",
+          "size_bytes": 30304,
+          "sha256": "545c6c2cdbd79b6a0243135b18ab5d8c052bfc35c393b3efde2d9ddab30531ff",
+          "module": {
+            "format": 1,
+            "build": "5034eb26898d",
+            "payload_bytes": 30240,
+            "memory_bytes": 30240,
+            "crc32": "408bface"
+          }
+        },
+        {
+          "path": "README.txt",
+          "size_bytes": 1912,
+          "sha256": "489718f8601298022ba700d1847da7c0cb7c800279d72ce82b4cd076134b3600"
+        },
+        {
+          "path": "SHA256SUMS.txt",
+          "size_bytes": 466,
+          "sha256": "6391495ba8538a00778ce88329ac5057372aeabb04d07c0076572bb4733560c0"
+        }
+      ]
+    },
+    {
+      "archive_name": "KUI-Toy-SCI-Test-65-12NOV2026-2054-CST-3f786e1.zip",
+      "archive_bytes": 1968234,
+      "archive_sha256": "9af967ca02928c3f98a57af7aa87393e77fd3b68d51dd36bd393c02816ce9891",
+      "available_in_original_library": true,
+      "tests": [
+        57,
+        63,
+        65
+      ],
+      "members": [
+        {
+          "path": "KUI/tools.kui",
+          "size_bytes": 3131616,
+          "sha256": "66788794ab8903ba6696ccf7df80ee1a0a2894dcedf000514dbc6b5f2e9b2adb",
+          "module": {
+            "format": 1,
+            "build": "d735df0a6d75",
+            "payload_bytes": 3131552,
+            "memory_bytes": 7428624,
+            "crc32": "1b51ff34"
+          }
+        },
+        {
+          "path": "KUI/apps/games/retail-toy-test-57.kui",
+          "size_bytes": 284304,
+          "sha256": "61e37d61081389ebbb985159818e72bdd4adf9d21d2ce65288973940b768cd09",
+          "module": {
+            "format": 1,
+            "build": "e5b30cdd569d",
+            "payload_bytes": 284240,
+            "memory_bytes": 284240,
+            "crc32": "7d6762c5"
+          }
+        },
+        {
+          "path": "KUI/apps/games/retail-toy-test-65.kui",
+          "size_bytes": 288804,
+          "sha256": "2a330caff6af0d7c60ac421d1ae7abb48616eca42e4d1a225504210f94442bd2",
+          "module": {
+            "format": 1,
+            "build": "3f786e1926e2",
+            "payload_bytes": 288740,
+            "memory_bytes": 288740,
+            "crc32": "733a69b1"
+          }
+        },
+        {
+          "path": "KUI/apps/disc/native-toy-trace.kui",
+          "size_bytes": 30304,
+          "sha256": "545c6c2cdbd79b6a0243135b18ab5d8c052bfc35c393b3efde2d9ddab30531ff",
+          "module": {
+            "format": 1,
+            "build": "5034eb26898d",
+            "payload_bytes": 30240,
+            "memory_bytes": 30240,
+            "crc32": "408bface"
+          }
+        },
+        {
+          "path": "README.txt",
+          "size_bytes": 2129,
+          "sha256": "10d12f3fa7569031d0fb9ab4a28d272bf511f00974d12f508313ba935265dcda"
+        },
+        {
+          "path": "SHA256SUMS.txt",
+          "size_bytes": 466,
+          "sha256": "d1207bd6cbd1617eb99d7e52778779ac71fd57d7d7088cc632d1ac5698d62c4e"
+        }
+      ]
+    },
+    {
+      "archive_name": "KUI-Toy-GD-SCI-FMV-Trace-12NOV2026-0858-CST-5107e2b.zip",
+      "archive_bytes": 1803102,
+      "archive_sha256": "efcd223a95723243111e6c5200f0c7a2ee0a13696945524e6e230de6dbddb28d",
+      "available_in_original_library": false,
+      "tests": [
+        29,
+        30
+      ],
+      "members": [
+        {
+          "path": "KUI/tools.kui",
+          "size_bytes": 3131672,
+          "sha256": "9ab088c2fbc50062237b0a62fe06e22643d26c805aad7e735400ce85149f9a17",
+          "module": {
+            "format": 1,
+            "build": "c0022192fb5f",
+            "payload_bytes": 3131608,
+            "memory_bytes": 7428688,
+            "crc32": "9dae928d"
+          }
+        },
+        {
+          "path": "KUI/apps/games/retail-toy-test-29.kui",
+          "size_bytes": 284996,
+          "sha256": "82d811bd9afb1ecfe9d7267e22b9505e88867c1baee715a4279d43c6863bb1bf",
+          "module": {
+            "format": 1,
+            "build": "5107e2bb8e2d",
+            "payload_bytes": 284932,
+            "memory_bytes": 284932,
+            "crc32": "19b9c720"
+          }
+        },
+        {
+          "path": "KUI/apps/disc/native-toy-trace.kui",
+          "size_bytes": 28236,
+          "sha256": "dafa3cf59d0653ea2f25a734eb196287b966c29e22c596745e6153c0b9e15791",
+          "module": {
+            "format": 1,
+            "build": "1de96fab36e3",
+            "payload_bytes": 28172,
+            "memory_bytes": 28172,
+            "crc32": "c9e98560"
+          }
+        },
+        {
+          "path": "README.txt",
+          "size_bytes": 2004,
+          "sha256": "83f4fe0d7affe078bb0b103c5e9d6a914f3ecbdd369e3b536be8a3ae9ab921cf"
+        },
+        {
+          "path": "SHA256SUMS.txt",
+          "size_bytes": 362,
+          "sha256": "9edf6d6353d8ab95940716e5cddb2a93e087266f2fe2798b4071941dd785405e"
+        }
+      ]
+    },
+    {
+      "archive_name": "KUI-Toy-GD-SCI-FMV-Trace-12NOV2026-0900-CST-3336f96.zip",
+      "archive_bytes": 1803183,
+      "archive_sha256": "39cb424a8892c056a02a9869d216ee3e0dd5909c0f4c90b016ccdb7ff85eb569",
+      "available_in_original_library": true,
+      "tests": [
+        29,
+        30
+      ],
+      "members": [
+        {
+          "path": "KUI/tools.kui",
+          "size_bytes": 3131672,
+          "sha256": "9ab088c2fbc50062237b0a62fe06e22643d26c805aad7e735400ce85149f9a17",
+          "module": {
+            "format": 1,
+            "build": "c0022192fb5f",
+            "payload_bytes": 3131608,
+            "memory_bytes": 7428688,
+            "crc32": "9dae928d"
+          }
+        },
+        {
+          "path": "KUI/apps/games/retail-toy-test-29.kui",
+          "size_bytes": 285156,
+          "sha256": "1d2a0b399c8ddcc3bbf08e23c8e2d7cb64aa18a645cc446b309821c4eaf50e96",
+          "module": {
+            "format": 1,
+            "build": "3336f9682d6e",
+            "payload_bytes": 285092,
+            "memory_bytes": 285092,
+            "crc32": "5077773a"
+          }
+        },
+        {
+          "path": "KUI/apps/disc/native-toy-trace.kui",
+          "size_bytes": 28236,
+          "sha256": "dafa3cf59d0653ea2f25a734eb196287b966c29e22c596745e6153c0b9e15791",
+          "module": {
+            "format": 1,
+            "build": "1de96fab36e3",
+            "payload_bytes": 28172,
+            "memory_bytes": 28172,
+            "crc32": "c9e98560"
+          }
+        },
+        {
+          "path": "README.txt",
+          "size_bytes": 2004,
+          "sha256": "fb1c493cbbcc4a2edfa6780a108673a4e0836ee95cb5332b7cf45e094af5ebd9"
+        },
+        {
+          "path": "SHA256SUMS.txt",
+          "size_bytes": 362,
+          "sha256": "4a44cc61f06e95ebbc251fc87bac6dd10084bbffb97ca8736c3d6719fee22ebf"
+        }
+      ]
+    },
+    {
+      "archive_name": "KUI-Toy-GD-Trace-Save-Fix-12NOV2026-0918-CST-381c6c8.zip",
+      "archive_bytes": 14868,
+      "archive_sha256": "ca4af545eda2f2a9350db69f432a78518ebb8a8c3ba131207ccd07c6696ebd10",
+      "available_in_original_library": true,
+      "tests": [
+        30
+      ],
+      "members": [
+        {
+          "path": "KUI/apps/disc/native-toy-trace.kui",
+          "size_bytes": 28256,
+          "sha256": "df898d0dffadc3cde6d4ff2a53fce94b36846bdb85e3a3956146becc0d30b4ba",
+          "module": {
+            "format": 1,
+            "build": "381c6c8ee270",
+            "payload_bytes": 28192,
+            "memory_bytes": 28192,
+            "crc32": "fc742962"
+          }
+        },
+        {
+          "path": "README.txt",
+          "size_bytes": 1538,
+          "sha256": "53492e0fbb2c91e360187d39ddb8d35e9f65c15534474b787a434ea2d1785c1f"
+        },
+        {
+          "path": "SHA256SUMS.txt",
+          "size_bytes": 101,
+          "sha256": "d1c1fe37d8ee8e7926aee43298e1b2afa6a86d273ecb46988a3b3421bf149064"
+        }
+      ]
+    },
+    {
+      "archive_name": "KUI-Toy-Contention-Tests-23-25-11NOV2026-2315-CST-e6eb8f5.zip",
+      "archive_bytes": 2112276,
+      "archive_sha256": "dc782f86a63792c00e2bbeef7cb8b5a6b7d368f75739e49ea1b2306b1f807d6c",
+      "available_in_original_library": true,
+      "tests": [
+        23,
+        24,
+        25
+      ],
+      "members": [
+        {
+          "path": "KUI/tools.kui",
+          "size_bytes": 3130980,
+          "sha256": "f358e6ed8fdce880042356425b3802a9463d7efcfa1fab703785d4ff402e7048",
+          "module": {
+            "format": 1,
+            "build": "afb564e9d11b",
+            "payload_bytes": 3130916,
+            "memory_bytes": 7428016,
+            "crc32": "733f2264"
+          }
+        },
+        {
+          "path": "KUI/apps/games/retail-toy-test-23.kui",
+          "size_bytes": 282056,
+          "sha256": "c1fdb8fed31f3b9459800d8644c4739ad201a2720afd2d6dd8b35f4595fd43e5",
+          "module": {
+            "format": 1,
+            "build": "e6eb8f5f2f0f",
+            "payload_bytes": 281992,
+            "memory_bytes": 281992,
+            "crc32": "62d4d8fb"
+          }
+        },
+        {
+          "path": "KUI/apps/games/retail-toy-test-24.kui",
+          "size_bytes": 283092,
+          "sha256": "81f35d673784d3c12d1ceac512240bf1639a7ec556b238bd7d9005f28fe6a9c0",
+          "module": {
+            "format": 1,
+            "build": "e6eb8f5f2f0f",
+            "payload_bytes": 283028,
+            "memory_bytes": 283028,
+            "crc32": "f4ae63d2"
+          }
+        },
+        {
+          "path": "KUI/apps/games/retail-toy-test-25.kui",
+          "size_bytes": 283124,
+          "sha256": "f6957d781c131262930fa74f3adb84a46d3e8c9f58188205c72654c51aada14c",
+          "module": {
+            "format": 1,
+            "build": "e6eb8f5f2f0f",
+            "payload_bytes": 283060,
+            "memory_bytes": 283060,
+            "crc32": "00b05878"
+          }
+        },
+        {
+          "path": "README.txt",
+          "size_bytes": 3419,
+          "sha256": "8b7baff8ed60d24ed8665523b20f5b14a16a214d0c366b02c102a5d73bdb4b08"
+        },
+        {
+          "path": "SHA256SUMS.txt",
+          "size_bytes": 469,
+          "sha256": "fdba5adbff1162bac954b69fb195cfa420f2a987f677a0481c55ddb07c23d7cf"
+        }
+      ]
+    },
+    {
+      "archive_name": "KUI-Toy-Continuous-Reader-Test-18-11NOV2026-2208-CST-80c54f8.zip",
+      "archive_bytes": 1783600,
+      "archive_sha256": "bed4a21be0bf82a3ff1821f3658fda07ffaf8d7371c05564877e538b58a1fd48",
+      "available_in_original_library": true,
+      "tests": [
+        18
+      ],
+      "members": [
+        {
+          "path": "KUI/tools.kui",
+          "size_bytes": 3130824,
+          "sha256": "01ced7f41b9e5200110b9554728d0677c2f8703aa813d57e105a2b46eafd012f",
+          "module": {
+            "format": 1,
+            "build": "6475bd127acf",
+            "payload_bytes": 3130760,
+            "memory_bytes": 7427856,
+            "crc32": "24f4afe0"
+          }
+        },
+        {
+          "path": "KUI/apps/games/retail-toy-test-18.kui",
+          "size_bytes": 278728,
+          "sha256": "f42d5862653d74a80cac56b485ef8abcb349306fb0dd95de5b5c640cef6ea0a7",
+          "module": {
+            "format": 1,
+            "build": "80c54f8ddf34",
+            "payload_bytes": 278664,
+            "memory_bytes": 278664,
+            "crc32": "9597aa99"
+          }
+        },
+        {
+          "path": "README.txt",
+          "size_bytes": 2474,
+          "sha256": "85da52b99e9b3ea441ca6e08084107737c8119c9d1aed3bb7ad123a3b6c5c739"
+        },
+        {
+          "path": "SHA256SUMS.txt",
+          "size_bytes": 261,
+          "sha256": "9fcf66081a91f4c4ad9e750cba6b9e1083e23a4643758ee7d8ee4fc5f5eac0f1"
+        }
+      ]
+    },
+    {
+      "archive_name": "KUI-Toy-Cutoff-Tests-16-17-11NOV2026-2135-CST-4c62921.zip",
+      "archive_bytes": 1942089,
+      "archive_sha256": "f4b2b6fefcf5c56ff9f829bb282f979f48bae32747bf90a8e4d3bc98715390fc",
+      "available_in_original_library": true,
+      "tests": [
+        16,
+        17
+      ],
+      "members": [
+        {
+          "path": "KUI/tools.kui",
+          "size_bytes": 3131304,
+          "sha256": "177bfbebfd87028d355ecae582a3c99cf72012af8c9a3610b7b0f504fbcd1a2c",
+          "module": {
+            "format": 1,
+            "build": "6f344cc7fde5",
+            "payload_bytes": 3131240,
+            "memory_bytes": 7428336,
+            "crc32": "3c8f7de7"
+          }
+        },
+        {
+          "path": "KUI/apps/games/retail-toy-test-16.kui",
+          "size_bytes": 277752,
+          "sha256": "7d25ee7bf03497834013cb8bf7c2bd6b245a80c4b7ab2e54d77d54b8435fdd0a",
+          "module": {
+            "format": 1,
+            "build": "4c62921b240b",
+            "payload_bytes": 277688,
+            "memory_bytes": 277688,
+            "crc32": "6c6419f5"
+          }
+        },
+        {
+          "path": "KUI/apps/games/retail-toy-test-17.kui",
+          "size_bytes": 277784,
+          "sha256": "89bfcc4e8946cc7fda623d10c8b444648502ff229abf1573bdfc45c12c6d9ef5",
+          "module": {
+            "format": 1,
+            "build": "4c62921b240b",
+            "payload_bytes": 277720,
+            "memory_bytes": 277720,
+            "crc32": "ff9e67dd"
+          }
+        },
+        {
+          "path": "README.txt",
+          "size_bytes": 1873,
+          "sha256": "f85a3ca6fd1bbb98376badd7e3df3b5c15090bde482d2c5700059a6867d8ab4c"
+        },
+        {
+          "path": "SHA256SUMS.txt",
+          "size_bytes": 365,
+          "sha256": "85c14dd051354a858b4332b6dbee1bd6da14439bec31b135933a176c5cd2c5ce"
+        }
+      ]
+    },
+    {
+      "archive_name": "KUI-Toy-SCI-Burst-Test-26-12NOV2026-0624-CST-1e2d51d.zip",
+      "archive_bytes": 1783975,
+      "archive_sha256": "c9cb51192b9548621ce5a58718ce2a010a4865f2c70870401c8788577dadaf0a",
+      "available_in_original_library": true,
+      "tests": [
+        26
+      ],
+      "members": [
+        {
+          "path": "KUI/tools.kui",
+          "size_bytes": 3130852,
+          "sha256": "2ce86f1bd3d38b9d1a067a9e3eaff2841cbb958a3d9c51f89354e8a7ecaeb56b",
+          "module": {
+            "format": 1,
+            "build": "b8402043053c",
+            "payload_bytes": 3130788,
+            "memory_bytes": 7427888,
+            "crc32": "6dca347f"
+          }
+        },
+        {
+          "path": "KUI/apps/games/retail-toy-test-26.kui",
+          "size_bytes": 279020,
+          "sha256": "9b2d9ff91a9e41b995478d777e36eb245b25a0d41619036634f6d59e73dacc57",
+          "module": {
+            "format": 1,
+            "build": "1e2d51de054a",
+            "payload_bytes": 278956,
+            "memory_bytes": 278956,
+            "crc32": "dd949789"
+          }
+        },
+        {
+          "path": "README.txt",
+          "size_bytes": 1281,
+          "sha256": "5071ab3add051c32eddf6c05a52bb24274a95d6dad59b93acf09047f7316ee42"
+        },
+        {
+          "path": "SHA256SUMS.txt",
+          "size_bytes": 261,
+          "sha256": "127ab03bee7db9150c23780d1562126c651cfde4fffc301a90a85e75cc78f88a"
+        }
+      ]
+    },
+    {
+      "archive_name": "KUI-Toy-SCI-Burst-Test-27-12NOV2026-0809-CST-3ffbed7.zip",
+      "archive_bytes": 1787195,
+      "archive_sha256": "31a658d05eb81d8c959f7c21c69d67644cd91df96cba3e3f70a873934f5e5ce0",
+      "available_in_original_library": true,
+      "tests": [
+        27
+      ],
+      "members": [
+        {
+          "path": "KUI/tools.kui",
+          "size_bytes": 3130928,
+          "sha256": "778ad7caf3f0c751b89cb881a5ec0bce178b2658b936b01ab5cd30b30ad55482",
+          "module": {
+            "format": 1,
+            "build": "f8c8ac6c7591",
+            "payload_bytes": 3130864,
+            "memory_bytes": 7427952,
+            "crc32": "ff643b6e"
+          }
+        },
+        {
+          "path": "KUI/apps/games/retail-toy-test-27.kui",
+          "size_bytes": 283556,
+          "sha256": "36831b24d9efa8aa368e6ceed2efe30319a6a228e9b502647cb0d546cac66de9",
+          "module": {
+            "format": 1,
+            "build": "3ffbed71e1cc",
+            "payload_bytes": 283492,
+            "memory_bytes": 283492,
+            "crc32": "acd4b97d"
+          }
+        },
+        {
+          "path": "README.txt",
+          "size_bytes": 1548,
+          "sha256": "a6609b3194cb5fafa531bcd8d85b65727533df6b47057246ac1ee66c90c70405"
+        },
+        {
+          "path": "SHA256SUMS.txt",
+          "size_bytes": 261,
+          "sha256": "bd3c783264c43660f50f2c2f459ee57f7e8f83b9b84421655a4cb93370c45b96"
+        }
+      ]
+    },
+    {
+      "archive_name": "KUI-Toy-SCI-Burst-Test-28-12NOV2026-0825-CST-1adeb5c.zip",
+      "archive_bytes": 1787556,
+      "archive_sha256": "c8cf61f2818967bf9de92286aff50e342f0000734a02f34e562cbe608daf5e56",
+      "available_in_original_library": true,
+      "tests": [
+        28
+      ],
+      "members": [
+        {
+          "path": "KUI/tools.kui",
+          "size_bytes": 3131004,
+          "sha256": "61a43a8aafdcf51b2fc0dc3944cb4da1dabd82efb0fe2ed903a0e8ce7a308f10",
+          "module": {
+            "format": 1,
+            "build": "f6848517568d",
+            "payload_bytes": 3130940,
+            "memory_bytes": 7428016,
+            "crc32": "af0108ca"
+          }
+        },
+        {
+          "path": "KUI/apps/games/retail-toy-test-28.kui",
+          "size_bytes": 283908,
+          "sha256": "6b54cebdd4aa4a3a7cf5ead1c5dd737c9f91f7631b836729130745ac9354e09d",
+          "module": {
+            "format": 1,
+            "build": "1adeb5c2b65c",
+            "payload_bytes": 283844,
+            "memory_bytes": 283844,
+            "crc32": "503900b7"
+          }
+        },
+        {
+          "path": "README.txt",
+          "size_bytes": 1712,
+          "sha256": "e1f5245c700d0a722f54e17bbac1813d3fbf8c4fc0e117700ed00b44b7dd61fe"
+        },
+        {
+          "path": "SHA256SUMS.txt",
+          "size_bytes": 261,
+          "sha256": "5acb2b0d2bca5dcad4044f570519185c2ff5461269ae72e372d102964c9f7ed0"
+        }
+      ]
+    },
+    {
+      "archive_name": "KUI-Toy-SCI-Reports-11NOV2026-1855-CST-8f64f91.zip",
+      "archive_bytes": 2584608,
+      "archive_sha256": "f700456313f7149c80268d824359314e626e27bca87f6661a1faba81686a2ce1",
+      "available_in_original_library": true,
+      "tests": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7
+      ],
+      "members": [
+        {
+          "path": "KUI/tools.kui",
+          "size_bytes": 3131284,
+          "sha256": "b4721166efcc6f971e323f1b1f3db998dcdf22475b79c199cb20d96f21f664fc",
+          "module": {
+            "format": 1,
+            "build": "fb22477999aa",
+            "payload_bytes": 3131220,
+            "memory_bytes": 7428304,
+            "crc32": "14306596"
+          }
+        },
+        {
+          "path": "KUI/apps/games/retail-toy-test-1.kui",
+          "size_bytes": 280448,
+          "sha256": "d82c32a073e8cd39ea7ba48fa205c39fbba70e8b5cbb0d4e7fff6076063eba43",
+          "module": {
+            "format": 1,
+            "build": "8f64f91b4482",
+            "payload_bytes": 280384,
+            "memory_bytes": 280384,
+            "crc32": "4b41735e"
+          }
+        },
+        {
+          "path": "KUI/apps/games/retail-toy-test-2.kui",
+          "size_bytes": 280376,
+          "sha256": "2e83fedeb3eed34e7b1e2d35888d19c0332d0448ddf627966c432ef06f929dd9",
+          "module": {
+            "format": 1,
+            "build": "8f64f91b4482",
+            "payload_bytes": 280312,
+            "memory_bytes": 280312,
+            "crc32": "8db35b46"
+          }
+        },
+        {
+          "path": "KUI/apps/games/retail-toy-test-3.kui",
+          "size_bytes": 278808,
+          "sha256": "244680be47e2853f179611492e026532aa4a01702cba2e9886baa8bb63a19f7f",
+          "module": {
+            "format": 1,
+            "build": "8f64f91b4482",
+            "payload_bytes": 278744,
+            "memory_bytes": 278744,
+            "crc32": "dd92defb"
+          }
+        },
+        {
+          "path": "KUI/apps/games/retail-toy-test-4.kui",
+          "size_bytes": 278904,
+          "sha256": "f78ea0239ea5522fc2e0e3ed1c7b530d0c8043190177187f67f775693bfc1859",
+          "module": {
+            "format": 1,
+            "build": "8f64f91b4482",
+            "payload_bytes": 278840,
+            "memory_bytes": 278840,
+            "crc32": "a069c39e"
+          }
+        },
+        {
+          "path": "KUI/apps/games/retail-toy-test-6.kui",
+          "size_bytes": 280376,
+          "sha256": "66f275216dcbc2433712eb722b37efe64919cbebe24eb2e21182e4c1be9dbf66",
+          "module": {
+            "format": 1,
+            "build": "8f64f91b4482",
+            "payload_bytes": 280312,
+            "memory_bytes": 280312,
+            "crc32": "08d336cb"
+          }
+        },
+        {
+          "path": "KUI/apps/games/retail-toy-test-7.kui",
+          "size_bytes": 278600,
+          "sha256": "560f1828152b45fa8aa949db40b07957bee6244d33b8b3671807dd0079483f2b",
+          "module": {
+            "format": 1,
+            "build": "8f64f91b4482",
+            "payload_bytes": 278536,
+            "memory_bytes": 278536,
+            "crc32": "1afafc32"
+          }
+        },
+        {
+          "path": "README.txt",
+          "size_bytes": 3707,
+          "sha256": "282afa1b68ccecf092aac23f64c9bc9288a7290406cc8e924004d0bd5acafc3d"
+        },
+        {
+          "path": "SHA256SUMS.txt",
+          "size_bytes": 775,
+          "sha256": "72420ac1b35075c5c3ca1646eb7c6640867aaf48ba879c9b8eab8bc6b0a11cfa"
+        }
+      ]
+    },
+    {
+      "archive_name": "KUI-Toy-SCI-Test-Suite-11NOV2026-1637-CST-70723b3.zip",
+      "archive_bytes": 2649361,
+      "archive_sha256": "1c0c5828de215ec98a8dffa45371335b7f414db8146a30cac11f9ab8cdfe8f7d",
+      "available_in_original_library": true,
+      "tests": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7
+      ],
+      "members": [
+        {
+          "path": "KUI/tools.kui",
+          "size_bytes": 3130620,
+          "sha256": "aa2ce8ffb6da3b5a8ac097099f26426d971e7e3530b8a29a5ce5736cc3933d1f",
+          "module": {
+            "format": 1,
+            "build": "5aadb758f2d1",
+            "payload_bytes": 3130556,
+            "memory_bytes": 7427632,
+            "crc32": "b0d71665"
+          }
+        },
+        {
+          "path": "KUI/apps/games/retail-toy-test-1.kui",
+          "size_bytes": 294624,
+          "sha256": "f8d8509be7ecaaec69e20d3c960944730dedeca9f93a2e33b955ca7a9ee30a98",
+          "module": {
+            "format": 1,
+            "build": "70723b37cebb",
+            "payload_bytes": 294560,
+            "memory_bytes": 294560,
+            "crc32": "824043b6"
+          }
+        },
+        {
+          "path": "KUI/apps/games/retail-toy-test-2.kui",
+          "size_bytes": 294680,
+          "sha256": "65d0c4642c9f09151aa7f7a10404d608885e7ddbd14bb6ca885c118fe576f4a4",
+          "module": {
+            "format": 1,
+            "build": "70723b37cebb",
+            "payload_bytes": 294616,
+            "memory_bytes": 294616,
+            "crc32": "b5e75e1a"
+          }
+        },
+        {
+          "path": "KUI/apps/games/retail-toy-test-3.kui",
+          "size_bytes": 293176,
+          "sha256": "ae9956b83a451ccd26e073a197522b6af6519d0a7d63007674198d4db7bf002c",
+          "module": {
+            "format": 1,
+            "build": "70723b37cebb",
+            "payload_bytes": 293112,
+            "memory_bytes": 293112,
+            "crc32": "2bfd23c1"
+          }
+        },
+        {
+          "path": "KUI/apps/games/retail-toy-test-4.kui",
+          "size_bytes": 293272,
+          "sha256": "351af2aa6314261f04fbc6ac034894c54c2e69f569ffe75429583ba6c039bc1c",
+          "module": {
+            "format": 1,
+            "build": "70723b37cebb",
+            "payload_bytes": 293208,
+            "memory_bytes": 293208,
+            "crc32": "1e0a875f"
+          }
+        },
+        {
+          "path": "KUI/apps/games/retail-toy-test-6.kui",
+          "size_bytes": 294680,
+          "sha256": "ca7bae4bfd6c4c1dcee91c2dd49d54b23f6331340c068574528987ecbdbd1f68",
+          "module": {
+            "format": 1,
+            "build": "70723b37cebb",
+            "payload_bytes": 294616,
+            "memory_bytes": 294616,
+            "crc32": "4ee3f408"
+          }
+        },
+        {
+          "path": "KUI/apps/games/retail-toy-test-7.kui",
+          "size_bytes": 292968,
+          "sha256": "b885ee7a2d88e0aa5f18720f1c09f7a8b56edb2df24dd413503a50eb6495be4c",
+          "module": {
+            "format": 1,
+            "build": "70723b37cebb",
+            "payload_bytes": 292904,
+            "memory_bytes": 292904,
+            "crc32": "77598644"
+          }
+        },
+        {
+          "path": "README.txt",
+          "size_bytes": 3325,
+          "sha256": "c4d26a8b7d72de29410cb167489f3d70abe54abf92ceb0800f8977a7b3fcf991"
+        },
+        {
+          "path": "SHA256SUMS.txt",
+          "size_bytes": 775,
+          "sha256": "aaabad0b5836da8c158f85a03f65da01be0408a56513480e586f225177ba1fbc"
+        }
+      ]
+    },
+    {
+      "archive_name": "KUI-Toy-SCI-Tests-08-10-11NOV2026-2020-CST-5db8cbd.zip",
+      "archive_bytes": 2105922,
+      "archive_sha256": "c05669ba19d1db07b52e898b5d10d2d1efbcd3364f04850d888807ec8bea5b43",
+      "available_in_original_library": true,
+      "tests": [
+        8,
+        9,
+        10
+      ],
+      "members": [
+        {
+          "path": "KUI/tools.kui",
+          "size_bytes": 3131500,
+          "sha256": "172877d86803aacf69815044ef3906f47db6cc1eeef89b2ae48ab1672d215b63",
+          "module": {
+            "format": 1,
+            "build": "41dc9ec85129",
+            "payload_bytes": 3131436,
+            "memory_bytes": 7428528,
+            "crc32": "703549fc"
+          }
+        },
+        {
+          "path": "KUI/apps/games/retail-toy-test-8.kui",
+          "size_bytes": 280632,
+          "sha256": "a436c771ecd5c303a3bb8f46c7b3aeef259f7df6f3168fa02e510e96e42263d6",
+          "module": {
+            "format": 1,
+            "build": "5db8cbd028c9",
+            "payload_bytes": 280568,
+            "memory_bytes": 280568,
+            "crc32": "b8147917"
+          }
+        },
+        {
+          "path": "KUI/apps/games/retail-toy-test-9.kui",
+          "size_bytes": 280376,
+          "sha256": "877dd03184556fb30238db351d8dafd9b7bd0e8596bec782944b57233e6795e3",
+          "module": {
+            "format": 1,
+            "build": "5db8cbd028c9",
+            "payload_bytes": 280312,
+            "memory_bytes": 280312,
+            "crc32": "2bcc1480"
+          }
+        },
+        {
+          "path": "KUI/apps/games/retail-toy-test-10.kui",
+          "size_bytes": 280088,
+          "sha256": "5956855e2ba0262a5f14ebfc9f7ecd813b378e54cb1f6ba12ce1eee46d6c1e89",
+          "module": {
+            "format": 1,
+            "build": "5db8cbd028c9",
+            "payload_bytes": 280024,
+            "memory_bytes": 280024,
+            "crc32": "a136ee92"
+          }
+        },
+        {
+          "path": "README.txt",
+          "size_bytes": 2087,
+          "sha256": "4110c2a8096717c48d47f0abdcd781879ac1b189c425d7a33f145165ac0ed31b"
+        },
+        {
+          "path": "SHA256SUMS.txt",
+          "size_bytes": 467,
+          "sha256": "f5c05679df5b70b31cf593142f6a51fc68bc440b010870492f6dc4ade14641e2"
+        }
+      ]
+    },
+    {
+      "archive_name": "KUI-Toy-SCI-Tests-11-15-11NOV2026-2052-CST-cfd2042.zip",
+      "archive_bytes": 2421084,
+      "archive_sha256": "2df1803d9294999cb17932a5c7731065f299a3675c0a8fc22bebd9f6dcca1646",
+      "available_in_original_library": true,
+      "tests": [
+        11,
+        12,
+        13,
+        14,
+        15
+      ],
+      "members": [
+        {
+          "path": "KUI/tools.kui",
+          "size_bytes": 3131160,
+          "sha256": "e736c6b0e65468fdb9fa7c49573d2784c3181545f0f52a095735925bbbed77f4",
+          "module": {
+            "format": 1,
+            "build": "48e3e3833598",
+            "payload_bytes": 3131096,
+            "memory_bytes": 7428176,
+            "crc32": "a44fdbe8"
+          }
+        },
+        {
+          "path": "KUI/apps/games/retail-toy-test-11.kui",
+          "size_bytes": 277592,
+          "sha256": "31653b2e9a9150f23bb2e64cee1345fd5e5ac97ea308130659dfdd4921c71ac8",
+          "module": {
+            "format": 1,
+            "build": "cfd2042d9316",
+            "payload_bytes": 277528,
+            "memory_bytes": 277528,
+            "crc32": "d47b36d5"
+          }
+        },
+        {
+          "path": "KUI/apps/games/retail-toy-test-12.kui",
+          "size_bytes": 278776,
+          "sha256": "81f6339e74430557b608a10c36ebdb847ea13d639df65ba6e9b622a2d3862999",
+          "module": {
+            "format": 1,
+            "build": "cfd2042d9316",
+            "payload_bytes": 278712,
+            "memory_bytes": 278712,
+            "crc32": "2585a574"
+          }
+        },
+        {
+          "path": "KUI/apps/games/retail-toy-test-13.kui",
+          "size_bytes": 280280,
+          "sha256": "3e1d45a0f6e9a8b08c8a2958ad4a67749a1b3d55f03c40c9dd240afd11b66ced",
+          "module": {
+            "format": 1,
+            "build": "cfd2042d9316",
+            "payload_bytes": 280216,
+            "memory_bytes": 280216,
+            "crc32": "729df9f2"
+          }
+        },
+        {
+          "path": "KUI/apps/games/retail-toy-test-14.kui",
+          "size_bytes": 279928,
+          "sha256": "7e5ce9f1aa5543830bab401c282c4161fe37c82f546075999592e2de966755f7",
+          "module": {
+            "format": 1,
+            "build": "cfd2042d9316",
+            "payload_bytes": 279864,
+            "memory_bytes": 279864,
+            "crc32": "d1e6baf8"
+          }
+        },
+        {
+          "path": "KUI/apps/games/retail-toy-test-15.kui",
+          "size_bytes": 277592,
+          "sha256": "2ab3119b11ca6f17069cce0d76e0456072193aff0feab5ad9954beea0351c624",
+          "module": {
+            "format": 1,
+            "build": "cfd2042d9316",
+            "payload_bytes": 277528,
+            "memory_bytes": 277528,
+            "crc32": "7914c3e0"
+          }
+        },
+        {
+          "path": "README.txt",
+          "size_bytes": 2279,
+          "sha256": "62d0dc67f7678c240d6828cdf0198a6fb68e7cf2fa97e32db151e3c77f66c320"
+        },
+        {
+          "path": "SHA256SUMS.txt",
+          "size_bytes": 677,
+          "sha256": "978badcf599e5348b0581366fc27f9b0a51fda8fd980f369db52c49c1cdc83c6"
+        }
+      ]
+    },
+    {
+      "archive_name": "KUI-Toy-Solution-Batch-19-22-11NOV2026-2243-CST-1911657.zip",
+      "archive_bytes": 2276325,
+      "archive_sha256": "867ba5a30e3944587e5cb3cb6d89fab68fa263fbe336705368779c9e04290437",
+      "available_in_original_library": true,
+      "tests": [
+        19,
+        20,
+        21,
+        22
+      ],
+      "members": [
+        {
+          "path": "KUI/apps/games/retail-toy-test-19.kui",
+          "size_bytes": 281928,
+          "sha256": "4eb5dba83a8330855c95835680daa0e771c4322bf71569516d05ed5a6852783b",
+          "module": {
+            "format": 1,
+            "build": "19116570a5a0",
+            "payload_bytes": 281864,
+            "memory_bytes": 281864,
+            "crc32": "0573c3d2"
+          }
+        },
+        {
+          "path": "KUI/apps/games/retail-toy-test-20.kui",
+          "size_bytes": 281960,
+          "sha256": "b0d4315c32525c70d62bf2e9d06eebfb1d5a7aff298a9eb05b08973465ee3beb",
+          "module": {
+            "format": 1,
+            "build": "19116570a5a0",
+            "payload_bytes": 281896,
+            "memory_bytes": 281896,
+            "crc32": "ed6bdd59"
+          }
+        },
+        {
+          "path": "KUI/apps/games/retail-toy-test-21.kui",
+          "size_bytes": 284648,
+          "sha256": "0b2fad872c909c07168ef2db49e01b53e208da41c170fef2bb793bdf399f445a",
+          "module": {
+            "format": 1,
+            "build": "19116570a5a0",
+            "payload_bytes": 284584,
+            "memory_bytes": 284584,
+            "crc32": "b97f2721"
+          }
+        },
+        {
+          "path": "KUI/apps/games/retail-toy-test-22.kui",
+          "size_bytes": 284680,
+          "sha256": "8fa56f036c1a03a64422afac030ed200a8e33094a12ec670d48f181152ce76b2",
+          "module": {
+            "format": 1,
+            "build": "19116570a5a0",
+            "payload_bytes": 284616,
+            "memory_bytes": 284616,
+            "crc32": "b4b6f522"
+          }
+        },
+        {
+          "path": "KUI/tools.kui",
+          "size_bytes": 3131060,
+          "sha256": "422ee9c669de79be741bbfc1fc1ed1ef06d054a5c0ff9666b1f0c6b6a9942616",
+          "module": {
+            "format": 1,
+            "build": "bb58959f9425",
+            "payload_bytes": 3130996,
+            "memory_bytes": 7428080,
+            "crc32": "1015f0a2"
+          }
+        },
+        {
+          "path": "README.txt",
+          "size_bytes": 3601,
+          "sha256": "f06eb90a1e8353b9a72f4020a46d3586b678e5621e81342b56cdcb8b009566b4"
+        },
+        {
+          "path": "SHA256SUMS.txt",
+          "size_bytes": 573,
+          "sha256": "10231ad1bc756bcbc541a74f76a1ce0eeafd1a91cde792656e9f00d899c4566c"
+        }
+      ]
+    }
+  ],
+  "tests": [
+    {
+      "test": 1,
+      "description": "Raw demand, guest payload witness",
+      "console_status": "console-report",
+      "reports": [
+        {
+          "path": "console/1.txt",
+          "size_bytes": 1024,
+          "sha256": "a2218f7448ee13eebd2b1e04cfa1a501e7c30776557b5b3966f69bbffe0ce00e",
+          "test": 1,
+          "kind": "console-report",
+          "build": "8f64f91b4482"
+        }
+      ],
+      "transcriptions": [],
+      "packages": [
+        "KUI-Toy-SCI-Reports-11NOV2026-1855-CST-8f64f91.zip",
+        "KUI-Toy-SCI-Test-Suite-11NOV2026-1637-CST-70723b3.zip"
+      ],
+      "notes": ""
+    },
+    {
+      "test": 2,
+      "description": "Verified RAM window at LBA 469080",
+      "console_status": "console-report",
+      "reports": [
+        {
+          "path": "console/2.txt",
+          "size_bytes": 1024,
+          "sha256": "eaf3fdfa033e9de1ed708335b87f7f5b29e5b4f804134d19edaae1c17d3d993c",
+          "test": 2,
+          "kind": "console-report",
+          "build": "8f64f91b4482"
+        }
+      ],
+      "transcriptions": [],
+      "packages": [
+        "KUI-Toy-SCI-Reports-11NOV2026-1855-CST-8f64f91.zip",
+        "KUI-Toy-SCI-Test-Suite-11NOV2026-1637-CST-70723b3.zip"
+      ],
+      "notes": ""
+    },
+    {
+      "test": 3,
+      "description": "DMA guard before SCI reception",
+      "console_status": "console-report",
+      "reports": [
+        {
+          "path": "console/3.txt",
+          "size_bytes": 1024,
+          "sha256": "e63b8ed2861d030ddda82cf8fff32a572aada1c8c1d59a1017f75e96d827aef1",
+          "test": 3,
+          "kind": "console-report",
+          "build": "8f64f91b4482"
+        }
+      ],
+      "transcriptions": [],
+      "packages": [
+        "KUI-Toy-SCI-Reports-11NOV2026-1855-CST-8f64f91.zip",
+        "KUI-Toy-SCI-Test-Suite-11NOV2026-1637-CST-70723b3.zip"
+      ],
+      "notes": ""
+    },
+    {
+      "test": 4,
+      "description": "4 ms foreground delivery budget",
+      "console_status": "console-report",
+      "reports": [
+        {
+          "path": "console/4.txt",
+          "size_bytes": 1024,
+          "sha256": "25d38fcfe4f9ce04f8690a7b25c6c5411b75b35bf3ef4f2f01acd84fcfea6bf0",
+          "test": 4,
+          "kind": "console-report",
+          "build": "8f64f91b4482"
+        }
+      ],
+      "transcriptions": [],
+      "packages": [
+        "KUI-Toy-SCI-Reports-11NOV2026-1855-CST-8f64f91.zip",
+        "KUI-Toy-SCI-Test-Suite-11NOV2026-1637-CST-70723b3.zip"
+      ],
+      "notes": ""
+    },
+    {
+      "test": 5,
+      "description": "Cooked 2048, demand control",
+      "console_status": "console-report",
+      "reports": [
+        {
+          "path": "console/5.txt",
+          "size_bytes": 1024,
+          "sha256": "69686ff3552843fe46e049d816a8fb222ff4dbd72028f07eecf622563596395f",
+          "test": 5,
+          "kind": "console-report",
+          "build": "8f64f91b4482"
+        }
+      ],
+      "transcriptions": [],
+      "packages": [
+        "KUI-Toy-SCI-Reports-11NOV2026-1855-CST-8f64f91.zip",
+        "KUI-Toy-SCI-Test-Suite-11NOV2026-1637-CST-70723b3.zip"
+      ],
+      "notes": "Cooked 2048-byte image control using Test 1 module. Separate image layout affects comparison."
+    },
+    {
+      "test": 6,
+      "description": "Verified RAM window at LBA 468128",
+      "console_status": "console-report",
+      "reports": [
+        {
+          "path": "console/6.txt",
+          "size_bytes": 1024,
+          "sha256": "43c3b3b72cee683a7107a2c077de13674e7677398ded48123e12ab00f1bd54ab",
+          "test": 6,
+          "kind": "console-report",
+          "build": "8f64f91b4482"
+        }
+      ],
+      "transcriptions": [],
+      "packages": [
+        "KUI-Toy-SCI-Reports-11NOV2026-1855-CST-8f64f91.zip",
+        "KUI-Toy-SCI-Test-Suite-11NOV2026-1637-CST-70723b3.zip"
+      ],
+      "notes": ""
+    },
+    {
+      "test": 7,
+      "description": "Serialize receive and copy",
+      "console_status": "console-report",
+      "reports": [
+        {
+          "path": "console/7.txt",
+          "size_bytes": 1024,
+          "sha256": "8837808725a5113b697f730a04475a940e17d518545ca177203f10fd5e73b702",
+          "test": 7,
+          "kind": "console-report",
+          "build": "8f64f91b4482"
+        }
+      ],
+      "transcriptions": [],
+      "packages": [
+        "KUI-Toy-SCI-Reports-11NOV2026-1855-CST-8f64f91.zip",
+        "KUI-Toy-SCI-Test-Suite-11NOV2026-1637-CST-70723b3.zip"
+      ],
+      "notes": ""
+    },
+    {
+      "test": 8,
+      "description": "Two verified RAM windows",
+      "console_status": "console-report",
+      "reports": [
+        {
+          "path": "console/8.txt",
+          "size_bytes": 1024,
+          "sha256": "4c5f45b93e32f8d1e55a09ad8e25505deaf6e303363e38f96cf0d76f7b5bdd75",
+          "test": 8,
+          "kind": "console-report",
+          "build": "5db8cbd028c9"
+        }
+      ],
+      "transcriptions": [],
+      "packages": [
+        "KUI-Toy-SCI-Tests-08-10-11NOV2026-2020-CST-5db8cbd.zip"
+      ],
+      "notes": ""
+    },
+    {
+      "test": 9,
+      "description": "Late RAM window",
+      "console_status": "console-report",
+      "reports": [
+        {
+          "path": "console/9.txt",
+          "size_bytes": 1024,
+          "sha256": "a70ce109acf5fdec40e78ed9eed70867165943233631a56e4890f2b3169422ee",
+          "test": 9,
+          "kind": "console-report",
+          "build": "5db8cbd028c9"
+        }
+      ],
+      "transcriptions": [],
+      "packages": [
+        "KUI-Toy-SCI-Tests-08-10-11NOV2026-2020-CST-5db8cbd.zip"
+      ],
+      "notes": ""
+    },
+    {
+      "test": 10,
+      "description": "Stage windows, serve from SD",
+      "console_status": "console-report",
+      "reports": [
+        {
+          "path": "console/10.txt",
+          "size_bytes": 1024,
+          "sha256": "da181cbdb2b401c4c0027cddbef02f2b8c7c7b82c15d3c3233fade8a15144a36",
+          "test": 10,
+          "kind": "console-report",
+          "build": "5db8cbd028c9"
+        }
+      ],
+      "transcriptions": [],
+      "packages": [
+        "KUI-Toy-SCI-Tests-08-10-11NOV2026-2020-CST-5db8cbd.zip"
+      ],
+      "notes": ""
+    },
+    {
+      "test": 11,
+      "description": "Raw rolling DMA",
+      "console_status": "console-report",
+      "reports": [
+        {
+          "path": "console/11.txt",
+          "size_bytes": 1024,
+          "sha256": "bb075c31ed83154c26b792488bc243c0683ecdeb7acf74ac43b089337adcd6ed",
+          "test": 11,
+          "kind": "console-report",
+          "build": "cfd2042d9316"
+        }
+      ],
+      "transcriptions": [],
+      "packages": [
+        "KUI-Toy-SCI-Tests-11-15-11NOV2026-2052-CST-cfd2042.zip"
+      ],
+      "notes": ""
+    },
+    {
+      "test": 12,
+      "description": "Raw rolling DMA with prefix",
+      "console_status": "console-report",
+      "reports": [
+        {
+          "path": "console/12.txt",
+          "size_bytes": 1024,
+          "sha256": "559ce52d262c5c3e61f7c821de8341913cd071d6398fe06688a5c7cac8ddcce8",
+          "test": 12,
+          "kind": "console-report",
+          "build": "cfd2042d9316"
+        }
+      ],
+      "transcriptions": [],
+      "packages": [
+        "KUI-Toy-SCI-Tests-11-15-11NOV2026-2052-CST-cfd2042.zip"
+      ],
+      "notes": ""
+    },
+    {
+      "test": 13,
+      "description": "Play early prefix from RAM",
+      "console_status": "console-report",
+      "reports": [
+        {
+          "path": "console/13.txt",
+          "size_bytes": 1024,
+          "sha256": "081ba7fa6e9bb650c9056e018a2381b095a6a7d707b9495d96c8fb7b1068d986",
+          "test": 13,
+          "kind": "console-report",
+          "build": "cfd2042d9316"
+        }
+      ],
+      "transcriptions": [],
+      "packages": [
+        "KUI-Toy-SCI-Tests-11-15-11NOV2026-2052-CST-cfd2042.zip"
+      ],
+      "notes": ""
+    },
+    {
+      "test": 14,
+      "description": "Stage prefix, serve from SD",
+      "console_status": "console-report",
+      "reports": [
+        {
+          "path": "console/14.txt",
+          "size_bytes": 1024,
+          "sha256": "b5b2f00f42400e49004d5972207d934ff3f525c0dee60b9d1d7399b6de3a4987",
+          "test": 14,
+          "kind": "console-report",
+          "build": "cfd2042d9316"
+        }
+      ],
+      "transcriptions": [],
+      "packages": [
+        "KUI-Toy-SCI-Tests-11-15-11NOV2026-2052-CST-cfd2042.zip"
+      ],
+      "notes": ""
+    },
+    {
+      "test": 15,
+      "description": "Cooked 2048, rolling DMA",
+      "console_status": "console-report",
+      "reports": [
+        {
+          "path": "console/15.txt",
+          "size_bytes": 1024,
+          "sha256": "6e89a504fba084f8e3d83b7273b859884412ac99893a71827a5b8bf44f8c089f",
+          "test": 15,
+          "kind": "console-report",
+          "build": "cfd2042d9316"
+        }
+      ],
+      "transcriptions": [],
+      "packages": [
+        "KUI-Toy-SCI-Tests-11-15-11NOV2026-2052-CST-cfd2042.zip"
+      ],
+      "notes": ""
+    },
+    {
+      "test": 16,
+      "description": "Mid-window RAM, stage cutoff control",
+      "console_status": "console-report",
+      "reports": [
+        {
+          "path": "console/16.txt",
+          "size_bytes": 1024,
+          "sha256": "a2c0d2a03ea917ac1562777cbed97e1c2a226e7dfe2cc1cf70a950788244956e",
+          "test": 16,
+          "kind": "console-report",
+          "build": "4c62921b240b"
+        }
+      ],
+      "transcriptions": [],
+      "packages": [
+        "KUI-Toy-Cutoff-Tests-16-17-11NOV2026-2135-CST-4c62921.zip"
+      ],
+      "notes": ""
+    },
+    {
+      "test": 17,
+      "description": "Mid-window RAM plus verified cutoff window",
+      "console_status": "console-report",
+      "reports": [
+        {
+          "path": "console/17.txt",
+          "size_bytes": 1024,
+          "sha256": "270c7d3d7174795a85e8ca8e3eac9e31736897a69e24f7feb96db857f6ce9d07",
+          "test": 17,
+          "kind": "console-report",
+          "build": "4c62921b240b"
+        }
+      ],
+      "transcriptions": [],
+      "packages": [
+        "KUI-Toy-Cutoff-Tests-16-17-11NOV2026-2135-CST-4c62921.zip"
+      ],
+      "notes": ""
+    },
+    {
+      "test": 18,
+      "description": "Continuous raw producer",
+      "console_status": "console-report",
+      "reports": [
+        {
+          "path": "console/18.txt",
+          "size_bytes": 1024,
+          "sha256": "a74bb49bc9c279eb108e0c7e8b0ad2e0d772a2e642e2b39b0b3707f8465157c6",
+          "test": 18,
+          "kind": "console-report",
+          "build": "80c54f8ddf34"
+        }
+      ],
+      "transcriptions": [],
+      "packages": [
+        "KUI-Toy-Continuous-Reader-Test-18-11NOV2026-2208-CST-80c54f8.zip"
+      ],
+      "notes": ""
+    },
+    {
+      "test": 19,
+      "description": "1 MiB reader arena",
+      "console_status": "reserved-placeholder",
+      "reports": [
+        {
+          "path": "console/19.txt",
+          "size_bytes": 3072,
+          "sha256": "09cc29a9c5f8a5fab1eff7ebc6f11207fd7ab7e5ef800f844f88716e63efc70b",
+          "test": 19,
+          "kind": "reserved-placeholder",
+          "build": null
+        }
+      ],
+      "transcriptions": [],
+      "packages": [
+        "KUI-Toy-Solution-Batch-19-22-11NOV2026-2243-CST-1911657.zip"
+      ],
+      "notes": "Uploaded file contains only reserved placeholders. Earlier investigation records original game allocation failure before report saving."
+    },
+    {
+      "test": 20,
+      "description": "Small arena with graphics/G2 guard",
+      "console_status": "console-report",
+      "reports": [
+        {
+          "path": "console/20.txt",
+          "size_bytes": 3072,
+          "sha256": "0cf207c17e9d3fd525bb818a9deb6d6e0efb983dc2a77ea79a2d456670fa4dd8",
+          "test": 20,
+          "kind": "console-report",
+          "build": "19116570a5a0"
+        }
+      ],
+      "transcriptions": [],
+      "packages": [
+        "KUI-Toy-Solution-Batch-19-22-11NOV2026-2243-CST-1911657.zip"
+      ],
+      "notes": ""
+    },
+    {
+      "test": 21,
+      "description": "Small arena with resume and Mode 1 EDC",
+      "console_status": "console-report",
+      "reports": [
+        {
+          "path": "console/21.txt",
+          "size_bytes": 3072,
+          "sha256": "df62be6154a032c4b124f2cef302c8a9aa5f5e4df44e4ec2fb0013d9b84a1b7c",
+          "test": 21,
+          "kind": "console-report",
+          "build": "19116570a5a0"
+        }
+      ],
+      "transcriptions": [],
+      "packages": [
+        "KUI-Toy-Solution-Batch-19-22-11NOV2026-2243-CST-1911657.zip"
+      ],
+      "notes": ""
+    },
+    {
+      "test": 22,
+      "description": "1 MiB arena, graphics/G2 guard and EDC",
+      "console_status": "reserved-placeholder",
+      "reports": [
+        {
+          "path": "console/22.txt",
+          "size_bytes": 3072,
+          "sha256": "608e4a7505583bf07f8d29910157b09b19f1d07a8f33f383154b8cb0050592ce",
+          "test": 22,
+          "kind": "reserved-placeholder",
+          "build": null
+        }
+      ],
+      "transcriptions": [],
+      "packages": [
+        "KUI-Toy-Solution-Batch-19-22-11NOV2026-2243-CST-1911657.zip"
+      ],
+      "notes": "Uploaded file contains only reserved placeholders. Earlier investigation records original game allocation failure before report saving."
+    },
+    {
+      "test": 23,
+      "description": "Small arena, serialize receive and copy",
+      "console_status": "console-report",
+      "reports": [
+        {
+          "path": "console/23.txt",
+          "size_bytes": 3072,
+          "sha256": "f0e695eb127b70dcfde9b722386edc65aec7c586d8b8b7a3bb762936b7386a96",
+          "test": 23,
+          "kind": "console-report",
+          "build": "e6eb8f5f2f0f"
+        }
+      ],
+      "transcriptions": [],
+      "packages": [
+        "KUI-Toy-Contention-Tests-23-25-11NOV2026-2315-CST-e6eb8f5.zip"
+      ],
+      "notes": ""
+    },
+    {
+      "test": 24,
+      "description": "Small arena, fence audio cache flush",
+      "console_status": "console-report",
+      "reports": [
+        {
+          "path": "console/24.txt",
+          "size_bytes": 3072,
+          "sha256": "51cf2ba79d6c63ae59a8f981496e32b0d2150452254162c5ec9c06f92343ea37",
+          "test": 24,
+          "kind": "console-report",
+          "build": "e6eb8f5f2f0f"
+        }
+      ],
+      "transcriptions": [],
+      "packages": [
+        "KUI-Toy-Contention-Tests-23-25-11NOV2026-2315-CST-e6eb8f5.zip"
+      ],
+      "notes": ""
+    },
+    {
+      "test": 25,
+      "description": "Small arena, serialization and fence",
+      "console_status": "console-report",
+      "reports": [
+        {
+          "path": "console/25.txt",
+          "size_bytes": 3072,
+          "sha256": "4873ab8e1f438af098464a883562aa853e9e333dbb3b632cc4871084dd654a1b",
+          "test": 25,
+          "kind": "console-report",
+          "build": "e6eb8f5f2f0f"
+        }
+      ],
+      "transcriptions": [],
+      "packages": [
+        "KUI-Toy-Contention-Tests-23-25-11NOV2026-2315-CST-e6eb8f5.zip"
+      ],
+      "notes": ""
+    },
+    {
+      "test": 26,
+      "description": "SCI-Burst-Test-26-12NOV2026-0624-CST-1e2d51d",
+      "console_status": "console-report",
+      "reports": [
+        {
+          "path": "console/26(1).txt",
+          "size_bytes": 1024,
+          "sha256": "af2475b2b2db55f3523f51cf87df216e25867b883a8f111f510c54fd7e3f4ddb",
+          "test": 26,
+          "kind": "console-report",
+          "build": "1e2d51de054a"
+        },
+        {
+          "path": "console/26.txt",
+          "size_bytes": 1024,
+          "sha256": "af2475b2b2db55f3523f51cf87df216e25867b883a8f111f510c54fd7e3f4ddb",
+          "test": 26,
+          "kind": "console-report",
+          "build": "1e2d51de054a"
+        }
+      ],
+      "transcriptions": [],
+      "packages": [
+        "KUI-Toy-SCI-Burst-Test-26-12NOV2026-0624-CST-1e2d51d.zip"
+      ],
+      "notes": "Two original console report uploads, 26.txt and 26(1).txt."
+    },
+    {
+      "test": 27,
+      "description": "SCI-Burst-Test-27-12NOV2026-0809-CST-3ffbed7",
+      "console_status": "console-report",
+      "reports": [
+        {
+          "path": "console/27.txt",
+          "size_bytes": 1024,
+          "sha256": "d7a99c47ef570b867a93ec0f51d8b634f2d0de308990ad60fa8188bbdd969a1a",
+          "test": 27,
+          "kind": "console-report",
+          "build": "3ffbed71e1cc"
+        }
+      ],
+      "transcriptions": [],
+      "packages": [
+        "KUI-Toy-SCI-Burst-Test-27-12NOV2026-0809-CST-3ffbed7.zip"
+      ],
+      "notes": ""
+    },
+    {
+      "test": 28,
+      "description": "SCI-Burst-Test-28-12NOV2026-0825-CST-1adeb5c",
+      "console_status": "console-report",
+      "reports": [
+        {
+          "path": "console/28.txt",
+          "size_bytes": 1024,
+          "sha256": "4903a743059e87f9e49ccc4439d2f265ad4edc4c01cbbe66d4ec85e2ef64dbbb",
+          "test": 28,
+          "kind": "console-report",
+          "build": "1adeb5c2b65c"
+        }
+      ],
+      "transcriptions": [],
+      "packages": [
+        "KUI-Toy-SCI-Burst-Test-28-12NOV2026-0825-CST-1adeb5c.zip"
+      ],
+      "notes": "Two Library copies plus workspace copy have identical SHA-256. One byte-exact console file is retained."
+    },
+    {
+      "test": 29,
+      "description": "GD-SCI-FMV-Trace-12NOV2026-0858-CST-5107e2b",
+      "console_status": "console-report",
+      "reports": [
+        {
+          "path": "console/29.txt",
+          "size_bytes": 1024,
+          "sha256": "2f2bc7af78f8b0597905cb06dcac410b6f33b6e4e06d7764aa4a3e4e28540994",
+          "test": 29,
+          "kind": "console-report",
+          "build": "3336f9682d6e"
+        }
+      ],
+      "transcriptions": [],
+      "packages": [
+        "KUI-Toy-GD-SCI-FMV-Trace-12NOV2026-0858-CST-5107e2b.zip",
+        "KUI-Toy-GD-SCI-FMV-Trace-12NOV2026-0900-CST-3336f96.zip"
+      ],
+      "notes": ""
+    },
+    {
+      "test": 30,
+      "description": "GD-SCI-FMV-Trace-12NOV2026-0858-CST-5107e2b",
+      "console_status": "transcription",
+      "reports": [
+        {
+          "path": "console/30.txt",
+          "size_bytes": 1024,
+          "sha256": "00a8a2809d8afdca152b490ca8cd47b6f159596d34d6903b5d2d6e2f66b5d027",
+          "test": 30,
+          "kind": "reserved-placeholder",
+          "build": null
+        }
+      ],
+      "transcriptions": [
+        "transcriptions/test-30-photo.txt"
+      ],
+      "packages": [
+        "KUI-Toy-GD-SCI-FMV-Trace-12NOV2026-0858-CST-5107e2b.zip",
+        "KUI-Toy-GD-SCI-FMV-Trace-12NOV2026-0900-CST-3336f96.zip",
+        "KUI-Toy-GD-Trace-Save-Fix-12NOV2026-0918-CST-381c6c8.zip"
+      ],
+      "notes": "SD report save failed. Original uploaded file is a placeholder. Measurement survives as a screen-photo transcription with provenance."
+    },
+    {
+      "test": 31,
+      "description": "SCI-Checked-Refill-Test-31-12NOV2026-0928-CST-54b1248",
+      "console_status": "console-report",
+      "reports": [
+        {
+          "path": "console/31.txt",
+          "size_bytes": 1024,
+          "sha256": "ef0d2b079924ef6936470b70ba02b922b282386aacd0ab3757cfdb79baadd194",
+          "test": 31,
+          "kind": "console-report",
+          "build": "54b12486a48a"
+        }
+      ],
+      "transcriptions": [],
+      "packages": [
+        "KUI-Toy-SCI-Checked-Refill-Test-31-12NOV2026-0928-CST-54b1248.zip"
+      ],
+      "notes": ""
+    },
+    {
+      "test": 32,
+      "description": "SCI-Async-Demand-Test-32-12NOV2026-1001-CST-f3aaa6e",
+      "console_status": "console-report",
+      "reports": [
+        {
+          "path": "console/32.txt",
+          "size_bytes": 1024,
+          "sha256": "bf74760381b5bfde635f5468192cd69d12e48090a36a85b36ef74453c828d853",
+          "test": 32,
+          "kind": "console-report",
+          "build": "f3aaa6ea60b0"
+        }
+      ],
+      "transcriptions": [],
+      "packages": [
+        "KUI-Toy-SCI-Async-Demand-Test-32-12NOV2026-1001-CST-f3aaa6e.zip"
+      ],
+      "notes": ""
+    },
+    {
+      "test": 33,
+      "description": "SCI-Movie-Poll-Test-33-12NOV2026-1023-CST-e0a49a4",
+      "console_status": "console-report",
+      "reports": [
+        {
+          "path": "console/33.txt",
+          "size_bytes": 1024,
+          "sha256": "cd2280b22eaeb5fb5e822b043295fa80e4ade4e1f8bb9aee4e01a2fdbfdb5ee8",
+          "test": 33,
+          "kind": "console-report",
+          "build": "b36701a4673a"
+        }
+      ],
+      "transcriptions": [],
+      "packages": [
+        "KUI-Toy-SCI-Movie-Poll-Test-33-12NOV2026-1023-CST-e0a49a4.zip"
+      ],
+      "notes": "Console report identifies b36701a4673a. Delivered archive label/reader identifies e0a49a4. Preserve both and verify component identity before causal comparison."
+    },
+    {
+      "test": 34,
+      "description": "SCI-Checked-Recovery-Test-34-12NOV2026-1136-CST-225358d",
+      "console_status": "console-report",
+      "reports": [
+        {
+          "path": "console/34.txt",
+          "size_bytes": 1024,
+          "sha256": "97cd2bff66d46518feda7f0834ff7e7e99f54c6608b60497652e4fe7d0d0bd50",
+          "test": 34,
+          "kind": "console-report",
+          "build": "225358d19816"
+        }
+      ],
+      "transcriptions": [],
+      "packages": [
+        "KUI-Toy-SCI-Checked-Recovery-Test-34-12NOV2026-1136-CST-225358d.zip"
+      ],
+      "notes": ""
+    },
+    {
+      "test": 35,
+      "description": "SCI-RAM-Window-Test-35-12NOV2026-1152-CST-f1dc87f",
+      "console_status": "transcription",
+      "reports": [],
+      "transcriptions": [
+        "transcriptions/test-35-chat.txt"
+      ],
+      "packages": [
+        "KUI-Toy-SCI-RAM-Window-Test-35-12NOV2026-1152-CST-f1dc87f.zip"
+      ],
+      "notes": "Report survives as owner-pasted chat text with provenance. Original SD bytes unavailable."
+    },
+    {
+      "test": 36,
+      "description": "SCI-DMA-Priority-Test-36-12NOV2026-1207-CST-5ecb060",
+      "console_status": "console-report",
+      "reports": [
+        {
+          "path": "console/36.txt",
+          "size_bytes": 1024,
+          "sha256": "c31ba074e7de9e1a10c9a43d9f80cdbdf56e1ef54e06405f98ec3dafee7b376c",
+          "test": 36,
+          "kind": "console-report",
+          "build": "5ecb06066b27"
+        }
+      ],
+      "transcriptions": [],
+      "packages": [
+        "KUI-Toy-SCI-DMA-Priority-Test-36-12NOV2026-1207-CST-5ecb060.zip"
+      ],
+      "notes": ""
+    },
+    {
+      "test": 37,
+      "description": "SCI-Slow-Retry-Test-37-12NOV2026-1232-CST-4520d99",
+      "console_status": "console-report",
+      "reports": [
+        {
+          "path": "console/37.txt",
+          "size_bytes": 1024,
+          "sha256": "50998aed5b33b46a2ac4c28f08a5819540e056d1e6ed3872d442c98c78ba50bc",
+          "test": 37,
+          "kind": "console-report",
+          "build": "4520d99dd167"
+        }
+      ],
+      "transcriptions": [],
+      "packages": [
+        "KUI-Toy-SCI-Slow-Retry-Test-37-12NOV2026-1232-CST-4520d99.zip"
+      ],
+      "notes": ""
+    },
+    {
+      "test": 38,
+      "description": "SCI-Refill-Slice-Test-38-12NOV2026-1247-CST-8203e8e",
+      "console_status": "console-report",
+      "reports": [
+        {
+          "path": "console/38.txt",
+          "size_bytes": 1024,
+          "sha256": "279f4a38e8be64202b66807b0deb0d2c92328c6ab6d4b4d4b6d5e4e6b188bef1",
+          "test": 38,
+          "kind": "console-report",
+          "build": "8203e8e86dad"
+        }
+      ],
+      "transcriptions": [],
+      "packages": [
+        "KUI-Toy-SCI-Refill-Slice-Test-38-12NOV2026-1247-CST-8203e8e.zip"
+      ],
+      "notes": ""
+    },
+    {
+      "test": 39,
+      "description": "SCI-Movie-Exit-Test-39-12NOV2026-1304-CST-2979534",
+      "console_status": "console-report",
+      "reports": [
+        {
+          "path": "console/39.txt",
+          "size_bytes": 1024,
+          "sha256": "4411df2a8d1d1cde29aaf2601242fc7aa48327943c94c3abb1c34c4541ce65e5",
+          "test": 39,
+          "kind": "console-report",
+          "build": "c5cd2b945454"
+        }
+      ],
+      "transcriptions": [],
+      "packages": [
+        "KUI-Toy-SCI-Movie-Exit-Test-39-12NOV2026-1304-CST-2979534.zip",
+        "KUI-Toy-SCI-Movie-Exit-Test-39-12NOV2026-1306-CST-c5cd2b9.zip"
+      ],
+      "notes": "Two local candidate archives retained in metadata. The console report identifies final c5cd2b945454."
+    },
+    {
+      "test": 40,
+      "description": "SCI-Recovery-Window-Test-40-12NOV2026-1318-CST-061f0b5",
+      "console_status": "console-report",
+      "reports": [
+        {
+          "path": "console/40.txt",
+          "size_bytes": 1024,
+          "sha256": "085b19fc858f19bb803a268fe3442e0c659fc3dbdfbb770ebc2378b4eb246224",
+          "test": 40,
+          "kind": "console-report",
+          "build": "061f0b5a4f0b"
+        }
+      ],
+      "transcriptions": [],
+      "packages": [
+        "KUI-Toy-SCI-Recovery-Window-Test-40-12NOV2026-1318-CST-061f0b5.zip"
+      ],
+      "notes": ""
+    },
+    {
+      "test": 41,
+      "description": "SCI-Pipelined-Recovery-Test-41-12NOV2026-1332-CST-758c2ea",
+      "console_status": "console-report",
+      "reports": [
+        {
+          "path": "console/41.txt",
+          "size_bytes": 1024,
+          "sha256": "e7e21afdf999ee7402b87e0b4e2f886340d8552a57c2a19cb1adc909264b743e",
+          "test": 41,
+          "kind": "console-report",
+          "build": "e5aac92d707f"
+        }
+      ],
+      "transcriptions": [],
+      "packages": [
+        "KUI-Toy-SCI-Pipelined-Recovery-Test-41-12NOV2026-1332-CST-758c2ea.zip",
+        "KUI-Toy-SCI-Pipelined-Recovery-Test-41-12NOV2026-1335-CST-e5aac92.zip"
+      ],
+      "notes": "Two local candidate archives retained in metadata. The console report identifies final e5aac92d707f."
+    },
+    {
+      "test": 42,
+      "description": "SCI-Graphics-Priority-Test-42-12NOV2026-1346-CST-5425aca",
+      "console_status": "console-report",
+      "reports": [
+        {
+          "path": "console/42.txt",
+          "size_bytes": 1024,
+          "sha256": "50b1ce0651bd51fab97650a066e517b70821a622664d2c6f412234603dcb509a",
+          "test": 42,
+          "kind": "console-report",
+          "build": "5425aca86182"
+        }
+      ],
+      "transcriptions": [],
+      "packages": [
+        "KUI-Toy-SCI-Graphics-Priority-Test-42-12NOV2026-1346-CST-5425aca.zip"
+      ],
+      "notes": "Chunk counters all zero due to rejecting the original low-stack context. Both lag exits are valid. Corrected in later tests."
+    },
+    {
+      "test": 43,
+      "description": "SCI-Continuous-PIO-Test-43-12NOV2026-1357-CST-eceac28",
+      "console_status": "no-console-report",
+      "reports": [],
+      "transcriptions": [],
+      "packages": [
+        "KUI-Toy-SCI-Continuous-PIO-Test-43-12NOV2026-1357-CST-eceac28.zip"
+      ],
+      "notes": "Owner reported immediate hard reset before game boot. No console report recovered. Host linked startup checks did not reproduce the reset."
+    },
+    {
+      "test": 44,
+      "description": "SCI-Tests-44-45-12NOV2026-1412-CST-becd132",
+      "console_status": "console-report",
+      "reports": [
+        {
+          "path": "console/44.txt",
+          "size_bytes": 1024,
+          "sha256": "115aa0ceeacd226b44b1b3ea5f4f0e951182579da376ae5d4f7910f051af3a79",
+          "test": 44,
+          "kind": "console-report",
+          "build": "becd132dfdc9"
+        }
+      ],
+      "transcriptions": [],
+      "packages": [
+        "KUI-Toy-SCI-Tests-44-45-12NOV2026-1412-CST-becd132.zip"
+      ],
+      "notes": "Owner said first movie nearly finished. Second paused, advanced twice, then exited. Original report retained."
+    },
+    {
+      "test": 45,
+      "description": "SCI-Tests-44-45-12NOV2026-1412-CST-becd132",
+      "console_status": "console-report",
+      "reports": [
+        {
+          "path": "console/45.txt",
+          "size_bytes": 1024,
+          "sha256": "fa04e3be34122d072d674750e23e0dee72ca042b68474abb3fec747d4f3cc34c",
+          "test": 45,
+          "kind": "console-report",
+          "build": "becd132dfdc9"
+        }
+      ],
+      "transcriptions": [],
+      "packages": [
+        "KUI-Toy-SCI-Tests-44-45-12NOV2026-1412-CST-becd132.zip"
+      ],
+      "notes": "Owner said slightly less first-movie progress than 44. Second paused and advanced once before exiting."
+    },
+    {
+      "test": 46,
+      "description": "SCI-First-Cut-PIO-Test-46-12NOV2026-1428-CST-d87cf20",
+      "console_status": "console-report",
+      "reports": [
+        {
+          "path": "console/46.txt",
+          "size_bytes": 1024,
+          "sha256": "7642427cb2c170df6592cb372d8ff0b7072612842d36c2f13097fe41ee4b5eb5",
+          "test": 46,
+          "kind": "console-report",
+          "build": "d87cf2073493"
+        }
+      ],
+      "transcriptions": [],
+      "packages": [
+        "KUI-Toy-SCI-First-Cut-PIO-Test-46-12NOV2026-1428-CST-d87cf20.zip"
+      ],
+      "notes": ""
+    },
+    {
+      "test": 47,
+      "description": "SCI-Tests-47-48-12NOV2026-1454-CST-1c90d14",
+      "console_status": "console-report",
+      "reports": [
+        {
+          "path": "console/47.txt",
+          "size_bytes": 1024,
+          "sha256": "270af3fe784eae04d8c01757ae020885093f1e6f8b9a8e28cd2dabf3d23e6e31",
+          "test": 47,
+          "kind": "console-report",
+          "build": "e28a31fa0051"
+        }
+      ],
+      "transcriptions": [],
+      "packages": [
+        "KUI-Toy-SCI-Tests-47-48-12NOV2026-1454-CST-1c90d14.zip",
+        "KUI-Toy-SCI-Resume-Cadence-Test-49-12NOV2026-1508-CST-befebdb.zip"
+      ],
+      "notes": ""
+    },
+    {
+      "test": 48,
+      "description": "SCI-Tests-47-48-12NOV2026-1454-CST-1c90d14",
+      "console_status": "console-report",
+      "reports": [
+        {
+          "path": "console/48.txt",
+          "size_bytes": 1024,
+          "sha256": "7920bafa16b7c5750f205ff410c60fe9f7aa3904ffd7bdb7ef34a90bd940628f",
+          "test": 48,
+          "kind": "console-report",
+          "build": "1c90d147e936"
+        }
+      ],
+      "transcriptions": [],
+      "packages": [
+        "KUI-Toy-SCI-Tests-47-48-12NOV2026-1454-CST-1c90d14.zip",
+        "KUI-Toy-SCI-Resume-Cadence-Test-49-12NOV2026-1508-CST-befebdb.zip"
+      ],
+      "notes": ""
+    },
+    {
+      "test": 49,
+      "description": "SCI-Resume-Cadence-Test-49-12NOV2026-1508-CST-befebdb",
+      "console_status": "console-report",
+      "reports": [
+        {
+          "path": "console/49.txt",
+          "size_bytes": 1024,
+          "sha256": "71f98334e67439645acee2d8ed974bfff0914c2bcc894902a241049c3796d692",
+          "test": 49,
+          "kind": "console-report",
+          "build": "befebdbf446f"
+        }
+      ],
+      "transcriptions": [],
+      "packages": [
+        "KUI-Toy-SCI-Resume-Cadence-Test-49-12NOV2026-1508-CST-befebdb.zip",
+        "KUI-Toy-SCI-Faster-Checks-Test-50-12NOV2026-1528-CST-1ad2aff.zip"
+      ],
+      "notes": ""
+    },
+    {
+      "test": 50,
+      "description": "SCI-Faster-Checks-Test-50-12NOV2026-1528-CST-1ad2aff",
+      "console_status": "console-report",
+      "reports": [
+        {
+          "path": "console/50.txt",
+          "size_bytes": 1024,
+          "sha256": "5c4bd17610e75061dc8550c07a4f3f48e939949308d4f9fb3fd07feb2b47c1f5",
+          "test": 50,
+          "kind": "console-report",
+          "build": "1ad2afff629c"
+        }
+      ],
+      "transcriptions": [],
+      "packages": [
+        "KUI-Toy-SCI-Faster-Checks-Test-50-12NOV2026-1528-CST-1ad2aff.zip",
+        "KUI-Toy-SCI-Wake-Resume-Test-51-12NOV2026-1551-CST-942509e.zip"
+      ],
+      "notes": ""
+    },
+    {
+      "test": 51,
+      "description": "SCI-Wake-Resume-Test-51-12NOV2026-1551-CST-942509e",
+      "console_status": "console-report",
+      "reports": [
+        {
+          "path": "console/51.txt",
+          "size_bytes": 1024,
+          "sha256": "16f3b0a7bb4dc0a9274b87ca8bf9e70d48207316244d3b11f942e0280cae3065",
+          "test": 51,
+          "kind": "console-report",
+          "build": "942509e6fe6e"
+        }
+      ],
+      "transcriptions": [],
+      "packages": [
+        "KUI-Toy-SCI-Wake-Resume-Test-51-12NOV2026-1551-CST-942509e.zip",
+        "KUI-Toy-SCI-Tests-52-54-12NOV2026-1609-CST-fefd265.zip"
+      ],
+      "notes": ""
+    },
+    {
+      "test": 52,
+      "description": "SCI-Tests-52-54-12NOV2026-1609-CST-fefd265",
+      "console_status": "console-report",
+      "reports": [
+        {
+          "path": "console/52.txt",
+          "size_bytes": 1024,
+          "sha256": "b370df65368703303f26facb6182c8547df8b53a2da14e1d966c20b792526ebf",
+          "test": 52,
+          "kind": "console-report",
+          "build": "8e732f81efd0"
+        }
+      ],
+      "transcriptions": [],
+      "packages": [
+        "KUI-Toy-SCI-Tests-52-54-12NOV2026-1609-CST-fefd265.zip"
+      ],
+      "notes": ""
+    },
+    {
+      "test": 53,
+      "description": "SCI-Tests-52-54-12NOV2026-1609-CST-fefd265",
+      "console_status": "console-report",
+      "reports": [
+        {
+          "path": "console/53.txt",
+          "size_bytes": 1024,
+          "sha256": "4d3d0394507b5768b56e6c70ef517523da086c5809b3e9f2781804c1ca53ce28",
+          "test": 53,
+          "kind": "console-report",
+          "build": "aa3ee4a8f9a5"
+        }
+      ],
+      "transcriptions": [],
+      "packages": [
+        "KUI-Toy-SCI-Tests-52-54-12NOV2026-1609-CST-fefd265.zip",
+        "KUI-Toy-SCI-Tests-55-56-12NOV2026-1737-CST-27e5a7a.zip"
+      ],
+      "notes": ""
+    },
+    {
+      "test": 54,
+      "description": "SCI-Tests-52-54-12NOV2026-1609-CST-fefd265",
+      "console_status": "console-report",
+      "reports": [
+        {
+          "path": "console/54.txt",
+          "size_bytes": 1024,
+          "sha256": "74ba40099b108dddc3e1d74ad12e22aa59f09d95c2c3b1064f59bfea2ce3df80",
+          "test": 54,
+          "kind": "console-report",
+          "build": "fefd26538deb"
+        }
+      ],
+      "transcriptions": [],
+      "packages": [
+        "KUI-Toy-SCI-Tests-52-54-12NOV2026-1609-CST-fefd265.zip"
+      ],
+      "notes": ""
+    },
+    {
+      "test": 55,
+      "description": "SCI-Tests-55-56-12NOV2026-1737-CST-27e5a7a",
+      "console_status": "console-report",
+      "reports": [
+        {
+          "path": "console/55.txt",
+          "size_bytes": 1024,
+          "sha256": "ad00d670c19c9065ec09df3c0c92220a4671bfbd2b128b799fff7d3ab0d801ae",
+          "test": 55,
+          "kind": "console-report",
+          "build": "fdb2da073851"
+        }
+      ],
+      "transcriptions": [],
+      "packages": [
+        "KUI-Toy-SCI-Tests-55-56-12NOV2026-1737-CST-27e5a7a.zip",
+        "KUI-Toy-SCI-Tests-57-58-59-12NOV2026-1822-CST-e5b30cd.zip"
+      ],
+      "notes": ""
+    },
+    {
+      "test": 56,
+      "description": "SCI-Tests-55-56-12NOV2026-1737-CST-27e5a7a",
+      "console_status": "console-report",
+      "reports": [
+        {
+          "path": "console/56.txt",
+          "size_bytes": 1024,
+          "sha256": "46eca2f50bdf97bff01f1c9b0da1784a0e31a7fa38d9236aa313ff6b561c8306",
+          "test": 56,
+          "kind": "console-report",
+          "build": "27e5a7af0985"
+        }
+      ],
+      "transcriptions": [],
+      "packages": [
+        "KUI-Toy-SCI-Tests-55-56-12NOV2026-1737-CST-27e5a7a.zip"
+      ],
+      "notes": ""
+    },
+    {
+      "test": 57,
+      "description": "SCI-Tests-57-58-59-12NOV2026-1822-CST-e5b30cd",
+      "console_status": "console-report",
+      "reports": [
+        {
+          "path": "console/57.txt",
+          "size_bytes": 1024,
+          "sha256": "96c938e6f8251a5263214fad3bfcaf8d7190c823c7b672b8cc37abb03f54369b",
+          "test": 57,
+          "kind": "console-report",
+          "build": "e5b30cdd569d"
+        }
+      ],
+      "transcriptions": [],
+      "packages": [
+        "KUI-Toy-SCI-Tests-57-58-59-12NOV2026-1822-CST-e5b30cd.zip",
+        "KUI-Toy-SCI-Test-60-12NOV2026-1856-CST-b0e6305.zip",
+        "KUI-Toy-SCI-Test-61-12NOV2026-1912-CST-e0cc7c1.zip",
+        "KUI-Toy-Tests-62-63-12NOV2026-1941-CST-7beafbe.zip",
+        "KUI-Toy-SCI-Test-64-12NOV2026-2021-CST-4f213ec.zip",
+        "KUI-Toy-SCI-Test-64-12NOV2026-2024-CST-a867aae.zip",
+        "KUI-Toy-SCI-Test-65-12NOV2026-2054-CST-3f786e1.zip"
+      ],
+      "notes": ""
+    },
+    {
+      "test": 58,
+      "description": "SCI-Tests-57-58-59-12NOV2026-1822-CST-e5b30cd",
+      "console_status": "console-report",
+      "reports": [
+        {
+          "path": "console/58.txt",
+          "size_bytes": 1024,
+          "sha256": "e3d11c7a2cf08b9f6215978296d95ca8085eafa168054525ea824b980c62f4ce",
+          "test": 58,
+          "kind": "console-report",
+          "build": "e5b30cdd569d"
+        }
+      ],
+      "transcriptions": [],
+      "packages": [
+        "KUI-Toy-SCI-Tests-57-58-59-12NOV2026-1822-CST-e5b30cd.zip"
+      ],
+      "notes": "Console report retained although later menu removed this candidate. Use module build and CRC from package metadata."
+    },
+    {
+      "test": 59,
+      "description": "SCI-Tests-57-58-59-12NOV2026-1822-CST-e5b30cd",
+      "console_status": "console-report",
+      "reports": [
+        {
+          "path": "console/59.txt",
+          "size_bytes": 1024,
+          "sha256": "067f6db8cf0d74091cf754431564196ff52630b2da2791eafe85c5d81c6f9008",
+          "test": 59,
+          "kind": "console-report",
+          "build": "e5b30cdd569d"
+        }
+      ],
+      "transcriptions": [],
+      "packages": [
+        "KUI-Toy-SCI-Tests-57-58-59-12NOV2026-1822-CST-e5b30cd.zip"
+      ],
+      "notes": ""
+    },
+    {
+      "test": 60,
+      "description": "SCI-Test-60-12NOV2026-1856-CST-b0e6305",
+      "console_status": "console-report",
+      "reports": [
+        {
+          "path": "console/60.txt",
+          "size_bytes": 1024,
+          "sha256": "7a518713d464762beac207ef599d7fce7d137268e6dad25a2992ba10faaa3a24",
+          "test": 60,
+          "kind": "console-report",
+          "build": "b0e6305f53f5"
+        }
+      ],
+      "transcriptions": [],
+      "packages": [
+        "KUI-Toy-SCI-Test-60-12NOV2026-1856-CST-b0e6305.zip"
+      ],
+      "notes": ""
+    },
+    {
+      "test": 61,
+      "description": "SCI-Test-61-12NOV2026-1912-CST-e0cc7c1",
+      "console_status": "console-report",
+      "reports": [
+        {
+          "path": "console/61.txt",
+          "size_bytes": 1024,
+          "sha256": "7ddb21ba7eb949980621a742d3cabc4f3c7017ff974988cdf4ee50e4ddbe1e27",
+          "test": 61,
+          "kind": "console-report",
+          "build": "e0cc7c13ac3e"
+        }
+      ],
+      "transcriptions": [],
+      "packages": [
+        "KUI-Toy-SCI-Test-61-12NOV2026-1912-CST-e0cc7c1.zip"
+      ],
+      "notes": ""
+    },
+    {
+      "test": 62,
+      "description": "Tests-62-63-12NOV2026-1941-CST-7beafbe",
+      "console_status": "console-report",
+      "reports": [
+        {
+          "path": "console/62.txt",
+          "size_bytes": 1024,
+          "sha256": "d956abe6776aa26f98896c005acd1a8b8cc04c7557206c95a8e0df83db8aa265",
+          "test": 62,
+          "kind": "console-report",
+          "build": "7beafbe8da44"
+        }
+      ],
+      "transcriptions": [],
+      "packages": [
+        "KUI-Toy-Tests-62-63-12NOV2026-1941-CST-7beafbe.zip"
+      ],
+      "notes": ""
+    },
+    {
+      "test": 63,
+      "description": "Tests-62-63-12NOV2026-1941-CST-7beafbe",
+      "console_status": "console-report",
+      "reports": [
+        {
+          "path": "console/63.txt",
+          "size_bytes": 1024,
+          "sha256": "c2aeaaca321df4575200594b46849d1c0224432b684a8cd41d7d98fb13d301d5",
+          "test": 63,
+          "kind": "console-report",
+          "build": "5034eb26898d"
+        }
+      ],
+      "transcriptions": [],
+      "packages": [
+        "KUI-Toy-Tests-62-63-12NOV2026-1941-CST-7beafbe.zip",
+        "KUI-Toy-SCI-Test-64-12NOV2026-2021-CST-4f213ec.zip",
+        "KUI-Toy-SCI-Test-64-12NOV2026-2024-CST-a867aae.zip",
+        "KUI-Toy-SCI-Test-65-12NOV2026-2054-CST-3f786e1.zip"
+      ],
+      "notes": "Physical GD-ROM control. Report identifies 5034eb26898d. Do not interpret it as SCI delivery."
+    },
+    {
+      "test": 64,
+      "description": "SCI-Test-64-12NOV2026-2021-CST-4f213ec",
+      "console_status": "console-report",
+      "reports": [
+        {
+          "path": "console/64.txt",
+          "size_bytes": 1024,
+          "sha256": "6916f7fecf12df6bb1941b69a63c2a8cfa1730cad412f5f8c5035cde0359de90",
+          "test": 64,
+          "kind": "console-report",
+          "build": "a867aae40aac"
+        }
+      ],
+      "transcriptions": [],
+      "packages": [
+        "KUI-Toy-SCI-Test-64-12NOV2026-2021-CST-4f213ec.zip",
+        "KUI-Toy-SCI-Test-64-12NOV2026-2024-CST-a867aae.zip"
+      ],
+      "notes": "Superseded 2021 local candidate metadata retained. Delivered 2024 archive identifies a867aae."
+    },
+    {
+      "test": 65,
+      "description": "SCI-Test-65-12NOV2026-2054-CST-3f786e1",
+      "console_status": "console-report",
+      "reports": [
+        {
+          "path": "console/65.txt",
+          "size_bytes": 1024,
+          "sha256": "eedb5f30e08dc5a7c68ddcb4d555a231addd419d837c9b323ffa51cb36bb17b7",
+          "test": 65,
+          "kind": "console-report",
+          "build": "3f786e1926e2"
+        }
+      ],
+      "transcriptions": [],
+      "packages": [
+        "KUI-Toy-SCI-Test-65-12NOV2026-2054-CST-3f786e1.zip"
+      ],
+      "notes": ""
+    }
+  ]
+}

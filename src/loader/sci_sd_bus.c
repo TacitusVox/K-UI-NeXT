@@ -282,6 +282,32 @@ static uint8_t transfer(void *ctx, uint8_t data, bool slow) {
     return reverse(received);
 }
 
+#if KUI_TOY_SUITE_MODE == 41 || KUI_TOY_SUITE_MODE == 42 || KUI_TOY_SUITE_MODE == 43 || KUI_TOY_SUITE_MODE == 44 || KUI_TOY_SUITE_MODE == 45 || KUI_TOY_SUITE_MODE == 46 || KUI_TOY_SUITE_MODE == 47
+bool __attribute__((noipa,section(".toy_pio_payload"))) kui_sci_sd_pio_payload(uint8_t *area) {
+    /* The token used the fast command path. Refuse a missing lease or
+     * unexpected slow state before touching the selected card. */
+    if(!port.acquired || port.fault || port.slow) return false;
+    /* Like the byte loop, charge the bounded attempt's nominal wire work.
+     * A failed flag wait latches the fault and stops the actual wire clock. */
+    port.work += KUI_SCI_SD_PIO_PAYLOAD_BYTES * 8u;
+    wr8(SCR, 0x30u);
+    if(!wait_flag(TDRE)) return false;
+    wr8(TDR, 0xffu);
+    wr8(SSR, 0x7cu);
+    unsigned remaining = KUI_SCI_SD_PIO_PAYLOAD_BYTES;
+    do {
+        if(!wait_flag(RDRF | TDRE)) return false;
+        uint8_t received = rd8(RDR);
+        wr8(SSR, 0xbcu);
+        /* The idle transmit byte stays latched in TDR. Drain RDR before
+         * clocking its successor, then reverse/store during that byte. */
+        if(--remaining) wr8(SSR, 0x7cu);
+        *area++ = (uint8_t)reverse(received);
+    } while(remaining);
+    return true;
+}
+#endif
+
 #ifndef KUI_SCI_SD_NO_BLOCK
 #if !KUI_SCI_SD_PIO_ONLY
 static uint32_t mask_interrupts(void) {

@@ -1,19 +1,49 @@
 /* SPDX-License-Identifier: GPL-3.0-only */
 #ifndef KUI_NATIVE_READAHEAD_H
 #define KUI_NATIVE_READAHEAD_H
+#include <stddef.h>
 #include <stdint.h>
 #include <stdbool.h>
 #include "kui/retail_cursor.h"
 #include "sci_stream.h"
 #include "retail_async.h"
 #include "kui/native_readahead_layout.h"
+#if KUI_NATIVE_TOY_MOVIE_CAPTURE
+#include "kui/toy_movie_trace.h"
+#endif
+#if KUI_TOY_SUITE_MOVIE_EXIT
+#include "kui/toy_movie_exit.h"
+#endif
+#if KUI_TOY_FMV_COMPARE
+#include "kui/toy_fmv_compare.h"
+#endif
+#if KUI_TOY_SUITE_ASYNC_DEMAND
+#include "kui/toy_demand_trace.h"
+#endif
 enum kui_native_ra_event {
     KUI_NATIVE_RA_DELIVER=1u,
     KUI_NATIVE_RA_TICK=2u,
     KUI_NATIVE_RA_QUIESCE=3u,
     KUI_NATIVE_RA_RESUME=4u,
     KUI_NATIVE_RA_RESET=5u,
-    KUI_NATIVE_RA_CAPTURE_START=6u
+    KUI_NATIVE_RA_CAPTURE_START=6u,
+#if KUI_NATIVE_TOY_MOVIE_CAPTURE
+    KUI_NATIVE_RA_MOVIE_COMPLETE=7u,
+#endif
+#if KUI_TOY_SUITE_MODE == 27 || KUI_TOY_SUITE_MODE == 28
+    KUI_NATIVE_RA_CALIBRATE=8u,
+#endif
+#if KUI_TOY_FMV_COMPARE
+    KUI_NATIVE_RA_FMV_REQUEST=9u,
+    KUI_NATIVE_RA_FMV_ACK=10u,
+#endif
+#if KUI_TOY_SUITE_ASYNC_DEMAND
+    KUI_NATIVE_RA_DEMAND_GD_ENTER=11u,
+    KUI_NATIVE_RA_DEMAND_GD_LEAVE=12u,
+#endif
+#if KUI_TOY_SUITE_MODE >= 62
+    KUI_NATIVE_RA_MOVIE_AHEAD=13u,
+#endif
 };
 /* TICK's argument limits optional work without changing the visit ABI or
  * stopping a partial block. Zero retains the historical two-block policy;
@@ -31,7 +61,11 @@ struct kui_native_ra_low_ops {
     void (*hook)(void);
     void (*unhook)(void);
     enum kui_sci_stream_result (*fetch)(uint32_t lba,uint32_t token_limit,bool polled);
+#if KUI_TOY_SUITE_MODE == 27 || KUI_TOY_SUITE_MODE == 28
+    bool (*cold_bus)(bool acquire);
+#else
     enum kui_sci_stream_result (*poll)(bool interrupt);
+#endif
     const uint8_t *(*take)(uint32_t lba,enum kui_sci_stream_result *result);
     enum kui_sci_stream_result (*stop)(void);
     bool (*busy)(void);
@@ -45,6 +79,16 @@ struct kui_native_ra_config {
     const struct kui_native_ra_low_ops *ops;
     uint8_t *data;
     uint32_t data_bytes,lease,lease_bytes;
+#if KUI_NATIVE_TOY_MOVIE_CAPTURE
+    struct kui_toy_movie_range movie_ranges[4];
+#endif
+#if defined(KUI_TOY_SUITE_MODE)
+    struct kui_toy_suite_seed suite_seed;
+    uint32_t suite_source;
+#endif
+#if KUI_TOY_SUITE_MOVIE_POLL
+    uint32_t toy_poll_owner;
+#endif
 };
 /* The relocation domain includes exports, context, code and private stack;
  * the separately owned data arena is passed by the cold stage, never relocated. */
@@ -142,17 +186,122 @@ struct kui_native_ra_diagnostics {
     uint32_t skipped[KUI_NATIVE_RA_SKIP_COUNT];
     struct kui_native_ra_failure_snapshot first,last;
 };
+#if KUI_TOY_SUITE_MODE == 27 || KUI_TOY_SUITE_MODE == 28
+struct kui_toy_burst_cut {
+    uint32_t tcr,chcr2,c2dst,g2adst;
+};
+struct kui_toy_burst_metrics {
+    /* Arms and byte totals refer to owned DMA starts and stable retires. */
+    uint32_t arms,requested,received,dma_short,dma_full;
+    uint32_t checked,parse_full_cut,bad_token,bad_crc,timeout,reset,usable,command_error;
+    /* Stable receive remainder and concurrent register samples after retire.
+     * The latter are observations only; they cannot establish bus ownership. */
+    struct kui_toy_burst_cut first_short,last_short;
+};
+#endif
+#if KUI_TOY_SUITE_MODE == 28
+struct kui_toy_burst_rate {
+    uint32_t arms, dma_full, checked;
+};
+#endif
+#if KUI_TOY_SUITE_MOVIE_CHUNK
+struct kui_toy_movie_chunk_trace {
+    uint32_t ready, wait_gd, wait_no_gd, other;
+};
+#endif
+#if KUI_TOY_SUITE_MOVIE_TIMING
+struct kui_toy_movie_onset_trace {
+    /* Frame cursor snapshots, plus one so zero means unobserved. */
+    uint32_t wait_frame, wait_used, wait_missing, skip_frame, last_out_frame;
+    uint32_t skip_used, skip_missing, last_out_count;
+#if KUI_TOY_SUITE_DECODE_WINDOW
+    uint32_t quiet_ctx, quiet_tick, quiet_defers, quiet_reason, quiet_end_frame;
+#else
+    uint32_t reserved[5];
+#endif
+};
+_Static_assert(sizeof(struct kui_toy_movie_onset_trace)==sizeof(struct kui_toy_movie_stats),
+    "Onset trace reuses the unused suite movie-statistics slot");
+#endif
+#if KUI_TOY_SUITE_FRAME_TIMING
+struct kui_toy_movie_present_trace {
+    uint32_t submitted, on_time, first_gap, max_gap, max_gap_frame;
+    uint32_t tail_gap, last_frame, last_tick, clock_lost;
+#if KUI_TOY_SUITE_MODE >= 61
+    uint32_t render_entries, scene_hits;
+#endif
+};
+struct kui_toy_movie_wait_trace {
+    uint32_t lba, sectors, verified, elapsed;
+#if KUI_TOY_SUITE_MODE >= 61
+    uint32_t age, to_complete;
+#endif
+};
+#endif
 struct kui_native_ra_public {
     uint32_t busy;
     struct kui_native_ra_stats stats;
     struct kui_native_ra_diagnostics diagnostics;
+#if KUI_TOY_SUITE_MOVIE_EXIT
+    struct kui_toy_movie_exit_witness movie_exit[2];
+#endif
+#if KUI_TOY_SUITE_MOVIE_CHUNK
+    struct kui_toy_movie_chunk_trace movie_chunk[2];
+#endif
+#if KUI_NATIVE_TOY_MOVIE_CAPTURE
+#if KUI_TOY_SUITE_MOVIE_TIMING
+    struct kui_toy_movie_onset_trace onset[2];
+#else
+    struct kui_toy_movie_stats movies[2];
+#endif
+    uint32_t movie_mask;
+#endif
+#if KUI_NATIVE_TOY_PLAYBACK_CAPTURE
+    struct kui_toy_playback_stats playback[2];
+#endif
+#if defined(KUI_TOY_SUITE_MODE)
+    uint32_t suite[5], suite_source;
+#endif
+#if KUI_TOY_SUITE_ASYNC_DEMAND
+    struct kui_toy_demand_trace demand;
+#endif
+#if KUI_TOY_SUITE_FRAME_TIMING
+    struct kui_toy_movie_present_trace present[2];
+    struct kui_toy_movie_wait_trace wait[2];
+#endif
+#if KUI_TOY_SUITE_MODE == 27 || KUI_TOY_SUITE_MODE == 28
+    uint32_t burst_quiet_status,burst_quiet_lba,burst_quiet_end;
+    uint32_t burst_quiet_late_lba,burst_quiet_late_end;
+    struct kui_toy_burst_metrics burst_quiet,burst_live,burst_match;
+#endif
+#if KUI_TOY_SUITE_MODE == 28
+    struct kui_toy_burst_rate burst_fast,burst_slow;
+#endif
+#if KUI_TOY_FMV_COMPARE
+    struct kui_toy_fmv_trace fmv_trace;
+#endif
 };
 _Static_assert(sizeof(struct kui_native_ra_hw_snapshot)==32u,"read-ahead hardware snapshot ABI");
 _Static_assert(sizeof(struct kui_native_ra_failure_snapshot)==148u,"read-ahead failure snapshot ABI");
-_Static_assert(sizeof(struct kui_native_ra_public)==656u,"read-ahead diagnostic prefix ABI");
+_Static_assert(offsetof(struct kui_native_ra_public,diagnostics)==76u,"read-ahead diagnostic prefix ABI");
+#if KUI_TOY_SUITE_MOVIE_EXIT
+_Static_assert(offsetof(struct kui_native_ra_public,movie_exit)==KUI_TOY_MOVIE_EXIT_OFFSET,
+    "Toy movie exit witness assembly offset");
+#endif
+#if !KUI_NATIVE_TOY_MOVIE_CAPTURE
+_Static_assert(sizeof(struct kui_native_ra_public)==656u,"read-ahead diagnostic prefix size");
+#endif
 #if UINTPTR_MAX == UINT32_MAX
 _Static_assert(sizeof(struct kui_native_ra_low_ops)==52u,"read-ahead low operations ABI");
 _Static_assert(sizeof(struct kui_native_ra_exports)==64u,"read-ahead auxiliary exports ABI");
+#if KUI_TOY_SUITE_MOVIE_POLL
+_Static_assert(sizeof(struct kui_native_ra_config)==88u,"Toy movie poll configuration ABI");
+#elif defined(KUI_TOY_SUITE_MODE)
+_Static_assert(sizeof(struct kui_native_ra_config)==84u,"Toy suite configuration ABI");
+#elif KUI_NATIVE_TOY_MOVIE_CAPTURE
+_Static_assert(sizeof(struct kui_native_ra_config)==64u,"movie trace configuration ABI");
+#else
 _Static_assert(sizeof(struct kui_native_ra_config)==32u,"read-ahead configuration ABI");
+#endif
 #endif
 #endif

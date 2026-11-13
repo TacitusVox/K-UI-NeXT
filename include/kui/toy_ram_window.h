@@ -1,0 +1,11 @@
+/* SPDX-License-Identifier: GPL-3.0-only */
+#ifndef KUI_TOY_RAM_WINDOW_H
+#define KUI_TOY_RAM_WINDOW_H
+
+#define KUI_TOY_RAM_WINDOW_TARGET 0x69263u
+#define KUI_TOY_RAM_WINDOW_FIRST (KUI_TOY_RAM_WINDOW_TARGET-40u)
+#define KUI_TOY_RAM_WINDOW_END (KUI_TOY_RAM_WINDOW_TARGET+40u)
+#define KUI_TOY_RAM_WINDOW_VARIANT 1u /* 60 Hz bumper extent index. */
+#define KUI_TOY_RAM_WINDOW_MAX_REQUEST 24u
+
+#endif

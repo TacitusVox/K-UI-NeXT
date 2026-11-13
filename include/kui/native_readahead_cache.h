@@ -6,7 +6,13 @@
 #include <stddef.h>
 #include <stdint.h>
 
+#if (KUI_TOY_SUITE_MODE == 26 || KUI_TOY_SUITE_MODE == 27 || KUI_TOY_SUITE_MODE == 28)
+#define KUI_NATIVE_RA_CACHE_BLOCKS 344u
+#elif KUI_TOY_SUITE_MODE == 57 || KUI_TOY_SUITE_MODE == 58 || KUI_TOY_SUITE_MODE == 59 || KUI_TOY_SUITE_MODE == 60 || KUI_TOY_SUITE_MODE == 61 || KUI_TOY_SUITE_MODE == 62 || KUI_TOY_SUITE_MODE == 64 || KUI_TOY_SUITE_MODE == 65
+#define KUI_NATIVE_RA_CACHE_BLOCKS 376u
+#else
 #define KUI_NATIVE_RA_CACHE_BLOCKS 384u
+#endif
 #define KUI_NATIVE_RA_CACHE_BLOCK_BYTES 512u
 #define KUI_NATIVE_RA_CACHE_BYTES (KUI_NATIVE_RA_CACHE_BLOCKS * KUI_NATIVE_RA_CACHE_BLOCK_BYTES)
 
@@ -19,7 +25,7 @@ struct kui_native_ra_cache {
     uint32_t base,head,count,end;
 };
 
-/* Exact192KiB,32-byte aligned arena, disjoint from the metadata. No arena
+/* Exact configured cache size, 32-byte aligned and disjoint from the metadata. No arena
  * clearing or IO occurs. Invalid arguments preserve the previous metadata. */
 bool kui_native_ra_cache_init(struct kui_native_ra_cache *,void *data,size_t bytes);
 /* Discard validity and select [base,end), end exclusive. The geometry must

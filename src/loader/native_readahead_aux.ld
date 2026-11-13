@@ -8,6 +8,9 @@ PHDRS {
     code PT_LOAD FLAGS(7);
 }
 SECTIONS {
+    PROVIDE(__native_ra_extra_code = 0);
+    ASSERT(__native_ra_extra_code == 0 || __native_ra_extra_code == 0x1000,
+           "Read-ahead auxiliary code extension must be one page")
     . = 0x8c421000;
     .exports : { KEEP(*(.native_ra_exports)) } :exports
     ASSERT(SIZEOF(.exports)==64,"Read-ahead exports must be64bytes")
@@ -25,14 +28,14 @@ SECTIONS {
     .rodata : { *(.rodata .rodata.*) } :code
     .image_align : { BYTE(0) . = ALIGN(32); } :code
     __native_ra_image_end = .;
-    ASSERT(.<=0x8c424000,"Read-ahead code exceeds its owned8KiB budget")
-    . = 0x8c424000;
+    ASSERT(.<=0x8c424000+__native_ra_extra_code,"Read-ahead code exceeds its owned span")
+    . = 0x8c424000+__native_ra_extra_code;
     .stack (NOLOAD) : {
         __native_ra_stack_bottom = .+0x20000000;
         . += 0x1000;
         __native_ra_stack_top = .+0x20000000;
     } :code
     __native_ra_memory_end = .+0x20000000;
-    ASSERT(__native_ra_memory_end==0xac425000,"Read-ahead auxiliary span changed")
+    ASSERT(__native_ra_memory_end==0xac425000+__native_ra_extra_code,"Read-ahead auxiliary span changed")
     /DISCARD/ : { *(.comment) *(.note*) *(.eh_frame*) }
 }

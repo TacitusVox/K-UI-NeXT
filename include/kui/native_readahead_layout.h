@@ -23,6 +23,21 @@
 #if KUI_NATIVE_BACKGROUND_COMPACT && !KUI_NATIVE_GENERAL_LEAN_LAYOUT
 #error "Compact Background extends the separately reviewed lean layout"
 #endif
+#if defined(KUI_TOY_SUITE_MODE) && (KUI_TOY_SUITE_MODE == 26 || KUI_TOY_SUITE_MODE == 27 || KUI_TOY_SUITE_MODE == 28 || \
+    KUI_TOY_SUITE_MODE == 57 || KUI_TOY_SUITE_MODE == 58 || KUI_TOY_SUITE_MODE == 59 || KUI_TOY_SUITE_MODE == 60 || KUI_TOY_SUITE_MODE == 61 || KUI_TOY_SUITE_MODE == 62 || KUI_TOY_SUITE_MODE == 64 || KUI_TOY_SUITE_MODE == 65)
+#if !KUI_NATIVE_BACKGROUND_COMPACT
+#error "The extended Toy auxiliary requires the compact Background layout"
+#endif
+#define KUI_NATIVE_RA_LEASE_BYTES UINT32_C(0x47000)
+#define KUI_NATIVE_RA_AUX_OFFSET UINT32_C(0x13000)
+#define KUI_NATIVE_RA_STACK_OFFSET UINT32_C(0x17000)
+#define KUI_NATIVE_RA_STACK_END UINT32_C(0x18000)
+#define KUI_NATIVE_RA_DATA_OFFSET UINT32_C(0x18000)
+#define KUI_NATIVE_RA_AUX_SPAN UINT32_C(0x5000)
+#define KUI_NATIVE_RA_AUX_IMAGE_BYTES UINT32_C(0x4000)
+#define KUI_NATIVE_RA_DATA_BYTES UINT32_C(0x2f000)
+#define KUI_NATIVE_RA_BLOCKS 376u
+#else
 #if KUI_NATIVE_BACKGROUND_COMPACT
 #define KUI_NATIVE_RA_LEASE_BYTES UINT32_C(0x47000)
 #define KUI_NATIVE_RA_AUX_OFFSET UINT32_C(0x13000)
@@ -46,14 +61,14 @@
 #define KUI_NATIVE_RA_AUX_IMAGE_BYTES UINT32_C(0x3000)
 #define KUI_NATIVE_RA_DATA_BYTES UINT32_C(0x30000)
 #define KUI_NATIVE_RA_BLOCKS 384u
+#endif
 #define KUI_NATIVE_RA_LOW_ENTRY_OFFSET 40u
 #define KUI_NATIVE_RA_ENTRY_INDEX 0u
 #define KUI_NATIVE_RA_CONTEXT_INDEX 1u
 #define KUI_NATIVE_RA_OPS_MAGIC UINT32_C(0x4b52414f)
 #define KUI_NATIVE_RA_AUX_MAGIC UINT32_C(0x4b524131)
 #define KUI_NATIVE_RA_VERSION 1u
-/* Keep the full 192 KiB cache directly after the auxiliary private stack.
- * Compaction removes unused gaps, never shared ownership or stack guards. */
+/* Keep the cache directly after the auxiliary private stack and within its lease. */
 _Static_assert(KUI_NATIVE_RA_AUX_OFFSET+KUI_NATIVE_RA_AUX_IMAGE_BYTES==KUI_NATIVE_RA_STACK_OFFSET,
     "Auxiliary initialized bytes stop before its private stack");
 _Static_assert(KUI_NATIVE_RA_AUX_OFFSET+KUI_NATIVE_RA_AUX_SPAN==KUI_NATIVE_RA_STACK_END &&
