@@ -5,7 +5,7 @@ TOY_FMV_COMPARE ?= 0
 ifneq ($(words $(TOY_SUITE_MODE)),1)
 $(error TOY_SUITE_MODE must be a single test number)
 endif
-ifeq ($(filter $(TOY_SUITE_MODE),1 2 3 4 6 7 26 27 28 31 32 33 34 35 36 37 38 39 40 41 42 43 44 45 46 47 48 49 50 51 52 53 54 55 56 57 58 59 60 61 62 64 65),)
+ifeq ($(filter $(TOY_SUITE_MODE),1 2 3 4 6 7 26 27 28 31 32 33 34 35 36 37 38 39 40 41 42 43 44 45 46 47 48 49 50 51 52 53 54 55 56 57 58 59 60 61 62 64 65 66),)
 $(error Unsupported TOY_SUITE_MODE $(TOY_SUITE_MODE))
 endif
 BUILD ?= build/toy-suite-$(TOY_SUITE_MODE)
@@ -30,36 +30,36 @@ $(BUILD)/native-ra-aux.elf: $(BUILD)/ra/src/loader/toy_fmv_compare.o
 $(BUILD)/retail-toy-test-29.kui: $(BUILD)/retail-native-dual.kui
 	cp $< $@
 endif
-ifneq ($(filter $(TOY_SUITE_MODE),26 27 28 57 58 59 60 61 62 64 65),)
+ifneq ($(filter $(TOY_SUITE_MODE),26 27 28 57 58 59 60 61 62 64 65 66),)
 # Move one cache page to auxiliary code within the existing lease.
 RA_AUX_LINK_FLAGS := -Wl,--defsym=__native_ra_extra_code=0x1000
 RA_AUX_SPAN := 0x5000
 endif
-ifneq ($(filter $(TOY_SUITE_MODE),39 40 41 42 43 44 45 46 47 48 49 50 51 52 53 54 55 56 57 58 59 60 61 62 64 65),)
+ifneq ($(filter $(TOY_SUITE_MODE),39 40 41 42 43 44 45 46 47 48 49 50 51 52 53 54 55 56 57 58 59 60 61 62 64 65 66),)
 $(BUILD)/native_ra_aux_entry.o: src/loader/toy_movie_exit_hook.inc include/kui/toy_movie_exit.h
 endif
-ifneq ($(filter $(TOY_SUITE_MODE),42 44 45 46 47 48 49 50 51 52 53 54 55 56 57 58 59 60 61 62 64 65),)
+ifneq ($(filter $(TOY_SUITE_MODE),42 44 45 46 47 48 49 50 51 52 53 54 55 56 57 58 59 60 61 62 64 65 66),)
 $(BUILD)/native_ra_aux_entry.o: src/loader/toy_movie_chunk_hook.inc
 endif
-ifneq ($(filter $(TOY_SUITE_MODE),57 60 61 62 64 65),)
+ifneq ($(filter $(TOY_SUITE_MODE),57 60 61 62 64 65 66),)
 $(BUILD)/native_ra_aux_entry.o: src/loader/toy_movie_refill_hook.inc
 endif
-ifneq ($(filter $(TOY_SUITE_MODE),60 61 62 64 65),)
+ifneq ($(filter $(TOY_SUITE_MODE),60 61 62 64 65 66),)
 $(BUILD)/native_ra_aux_entry.o: src/loader/toy_movie_present_hook.inc
 $(BUILD)/ra/src/loader/native_readahead_aux.o: src/loader/toy_movie_present_trace.inc
 endif
-ifneq ($(filter $(TOY_SUITE_MODE),62 64 65),)
+ifneq ($(filter $(TOY_SUITE_MODE),62 64 65 66),)
 $(BUILD)/ra/src/loader/native_readahead_aux.o: src/loader/toy_movie_ahead.inc
 endif
 ifeq ($(TOY_SUITE_MODE),58)
 RA_SRC += src/loader/toy_sd_crc16.c
 $(BUILD)/native-ra-aux.elf: $(BUILD)/ra/src/loader/toy_sd_crc16.o
 endif
-ifneq ($(filter $(TOY_SUITE_MODE),48 49 50 51 52 53 54 55 56 57 58 59 60 61 62 64 65),)
+ifneq ($(filter $(TOY_SUITE_MODE),48 49 50 51 52 53 54 55 56 57 58 59 60 61 62 64 65 66),)
 RA_SRC += src/core/retail_cursor.c src/core/hash.c src/core/data.c
 $(BUILD)/native-ra-aux.elf: $(BUILD)/ra/src/core/retail_cursor.o $(BUILD)/ra/src/core/hash.o $(BUILD)/ra/src/core/data.o
 endif
-ifneq ($(filter $(TOY_SUITE_MODE),50 51 53 54 55 56 57 58 59 60 61 62 64 65),)
+ifneq ($(filter $(TOY_SUITE_MODE),50 51 53 54 55 56 57 58 59 60 61 62 64 65 66),)
 $(BUILD)/ra/src/core/hash.o: private RA_FLAGS += -DKUI_CD_EDC_CACHED_PAIR=1
 endif
 NATIVE_SRC += src/loader/native_return_hardware.c
@@ -121,7 +121,7 @@ toy-suite-burst-aux-host-test toy-suite-burst-compare-host-test toy-suite-burst-
 .PHONY: toy-suite-sdk-liveness-host-test
 toy-suite-sdk-liveness-host-test:
 	@mkdir -p $(BUILD)
-	@set -e; for mode in 1 32 33 34 35 36 37 38 39 40 41 42 43 44 45 46 47 48 49 50 51 52 53 54 55 56 57 58 59 60 61 62 64 65; do \
+	@set -e; for mode in 1 32 33 34 35 36 37 38 39 40 41 42 43 44 45 46 47 48 49 50 51 52 53 54 55 56 57 58 59 60 61 62 64 65 66; do \
 	 source=tests/test_toy_sdk_liveness.c; \
 	 if [ "$$mode" -ge 48 ]; then source=tests/test_toy_resume_integration.c; fi; \
 	 edc_flags=; if [ "$$mode" -ge 50 ] && [ "$$mode" -ne 52 ]; then edc_flags=-DKUI_CD_EDC_CACHED_PAIR=1; fi; \

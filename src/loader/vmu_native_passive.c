@@ -1136,6 +1136,10 @@ static void toy_storage_page(const struct kui_native_ra_public *ra,
     toy_ahead_recovery_report(ra,recovery,first);
     retail_display_values("FIX POLL TAKE FETCH",recovery,4u);
     retail_display_values("FIRST CARD WHY RAW SERVED",first,4u);
+#elif KUI_TOY_SUITE_MODE == 66
+    const struct kui_sci_stream_stats *sd=&region->shared.stream.stats;
+    retail_display_values("SD BLOCKS PIO OVR CRC",
+        (uint32_t[]){sd->blocks,sd->polled,sd->overruns,sd->crc_errors},4u);
 #else
     retail_display_values("INTRO DEFER WHY FIRST END",
         (uint32_t[]){ra->onset[1].quiet_defers,ra->onset[1].quiet_reason,
@@ -1146,8 +1150,12 @@ static void toy_storage_page(const struct kui_native_ra_public *ra,
     retail_display_values("AHEAD B I REQS VERIFIED FALLBACK",
         (uint32_t[]){ahead[0],ahead[1],ra->stats.hit_requests,
             ra->stats.producer_blocks,ra->stats.abandoned},5u);
-#if KUI_TOY_SUITE_MODE == 64
+#if KUI_TOY_SUITE_MODE == 64 || KUI_TOY_SUITE_MODE == 66
+#if KUI_TOY_SUITE_MODE == 66
+    retail_display_values("PIPE B I CALLS IRQ FAIL",
+#else
     retail_display_values("OPEN B I KICK WAIT FAIL",
+#endif
         (uint32_t[]){ahead[2],ahead[3],ahead[4],ahead[5],
             ra->playback[0].failed+ra->playback[1].failed},5u);
 #endif
@@ -1240,7 +1248,7 @@ static void toy_storage_page(const struct kui_native_ra_public *ra,
 #endif
 #if KUI_TOY_SUITE_MOVIE_EXIT
         const struct kui_toy_movie_exit_witness *w=&ra->movie_exit[i];
-#if KUI_TOY_SUITE_MODE == 49 || KUI_TOY_SUITE_MODE == 50 || KUI_TOY_SUITE_MODE == 51 || KUI_TOY_SUITE_MODE == 52 || KUI_TOY_SUITE_MODE == 53 || KUI_TOY_SUITE_MODE == 54 || KUI_TOY_SUITE_MODE == 55 || KUI_TOY_SUITE_MODE == 56 || KUI_TOY_SUITE_MODE == 57 || KUI_TOY_SUITE_MODE == 58 || KUI_TOY_SUITE_MODE == 59 || KUI_TOY_SUITE_MODE == 60 || KUI_TOY_SUITE_MODE == 61 || KUI_TOY_SUITE_MODE == 62 || KUI_TOY_SUITE_MODE == 64 || KUI_TOY_SUITE_MODE == 65
+#if KUI_TOY_SUITE_MODE == 49 || KUI_TOY_SUITE_MODE == 50 || KUI_TOY_SUITE_MODE == 51 || KUI_TOY_SUITE_MODE == 52 || KUI_TOY_SUITE_MODE == 53 || KUI_TOY_SUITE_MODE == 54 || KUI_TOY_SUITE_MODE == 55 || KUI_TOY_SUITE_MODE == 56 || KUI_TOY_SUITE_MODE == 57 || KUI_TOY_SUITE_MODE == 58 || KUI_TOY_SUITE_MODE == 59 || KUI_TOY_SUITE_MODE == 60 || KUI_TOY_SUITE_MODE == 61 || KUI_TOY_SUITE_MODE == 62 || KUI_TOY_SUITE_MODE == 64 || KUI_TOY_SUITE_MODE == 65 || KUI_TOY_SUITE_MODE == 66
         retail_display_values(i?"INTRO FLG START OUT SKIP":"BMP FLG START OUT SKIP",
             (uint32_t[4]){w->flags,w->start_status,w->output_frames,w->skipped_frames},4u);
 #else

@@ -84,10 +84,14 @@ static void toy_report_format(char *text,const struct kui_native_ra_public *ra,
     toy_ahead_recovery_report(ra,recovery,first);
     toy_report_row(&at,"FIX POLL TAKE FETCH",recovery,4u);
     toy_report_row(&at,"FIRST CARD WHY RAW SERVED",first,4u);
-#elif KUI_TOY_SUITE_MODE == 64
+#elif KUI_TOY_SUITE_MODE == 64 || KUI_TOY_SUITE_MODE == 66
     const uint32_t *admission=ra->diagnostics.stage_result[KUI_NATIVE_RA_STAGE_NONE];
     (void)sd;
+#if KUI_TOY_SUITE_MODE == 66
+    toy_report_row(&at,"PIPE B I CALLS IRQ FAIL",
+#else
     toy_report_row(&at,"OPEN B I KICK WAIT FAIL",
+#endif
         (uint32_t[]){admission[2],admission[3],admission[4],admission[5],
             ra->playback[0].failed+ra->playback[1].failed},5u);
 #elif KUI_TOY_SUITE_MODE >= 61
@@ -97,8 +101,11 @@ static void toy_report_format(char *text,const struct kui_native_ra_public *ra,
 #else
     toy_report_row(&at,"SD BLOCKS CRC",(uint32_t[]){sd->blocks,sd->crc_errors},2u);
 #endif
-#if KUI_TOY_SUITE_MODE != 65
-#if KUI_TOY_SUITE_MODE == 64
+#if KUI_TOY_SUITE_MODE == 66
+    toy_report_row(&at,"SD BLOCKS PIO OVR CRC",
+        (uint32_t[]){sd->blocks,sd->polled,sd->overruns,sd->crc_errors},4u);
+#elif KUI_TOY_SUITE_MODE != 65
+#if KUI_TOY_SUITE_MODE == 64 || KUI_TOY_SUITE_MODE == 66
     const char *intro_defer_label="I DEFER WHY FIRST END";
 #else
     const char *intro_defer_label="INTRO DEFER WHY FIRST END";
@@ -282,7 +289,7 @@ static void toy_report_format(char *text,const struct kui_native_ra_public *ra,
             (uint32_t[5]){m->overruns,m->retry_slow,m->retry_ok,m->slice_visits,m->slice_blocks},5u);
 #endif
         const struct kui_toy_movie_exit_witness *w=&ra->movie_exit[i];
-#if KUI_TOY_SUITE_MODE == 49 || KUI_TOY_SUITE_MODE == 50 || KUI_TOY_SUITE_MODE == 51 || KUI_TOY_SUITE_MODE == 52 || KUI_TOY_SUITE_MODE == 53 || KUI_TOY_SUITE_MODE == 54 || KUI_TOY_SUITE_MODE == 55 || KUI_TOY_SUITE_MODE == 56 || KUI_TOY_SUITE_MODE == 57 || KUI_TOY_SUITE_MODE == 58 || KUI_TOY_SUITE_MODE == 59 || KUI_TOY_SUITE_MODE == 60 || KUI_TOY_SUITE_MODE == 61 || KUI_TOY_SUITE_MODE == 62 || KUI_TOY_SUITE_MODE == 64 || KUI_TOY_SUITE_MODE == 65
+#if KUI_TOY_SUITE_MODE == 49 || KUI_TOY_SUITE_MODE == 50 || KUI_TOY_SUITE_MODE == 51 || KUI_TOY_SUITE_MODE == 52 || KUI_TOY_SUITE_MODE == 53 || KUI_TOY_SUITE_MODE == 54 || KUI_TOY_SUITE_MODE == 55 || KUI_TOY_SUITE_MODE == 56 || KUI_TOY_SUITE_MODE == 57 || KUI_TOY_SUITE_MODE == 58 || KUI_TOY_SUITE_MODE == 59 || KUI_TOY_SUITE_MODE == 60 || KUI_TOY_SUITE_MODE == 61 || KUI_TOY_SUITE_MODE == 62 || KUI_TOY_SUITE_MODE == 64 || KUI_TOY_SUITE_MODE == 65 || KUI_TOY_SUITE_MODE == 66
         toy_report_row(&at,i?"INTRO FLG START OUT SKIP":"BMP FLG START OUT SKIP",
             (uint32_t[4]){w->flags,w->start_status,w->output_frames,w->skipped_frames},4u);
 #else

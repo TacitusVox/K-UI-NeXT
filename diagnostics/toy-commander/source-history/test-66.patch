@@ -1,0 +1,482 @@
+commit 3124522ea906c8bd9c9cdcfd2ac5f1e87a99f3ae
+Author:     Codex <codex@openai.com>
+AuthorDate: Thu Nov 12 21:19:21 2026 -0600
+Commit:     Codex <codex@openai.com>
+CommitDate: Thu Nov 12 21:19:21 2026 -0600
+
+    Drive verified Toy movie FIFO through the original native low pipeline
+
+diff --git a/Makefile.vmu-native-toy-suite b/Makefile.vmu-native-toy-suite
+index f8601f7..df4c49f 100644
+--- a/Makefile.vmu-native-toy-suite
++++ b/Makefile.vmu-native-toy-suite
+@@ -5,7 +5,7 @@ TOY_FMV_COMPARE ?= 0
+ ifneq ($(words $(TOY_SUITE_MODE)),1)
+ $(error TOY_SUITE_MODE must be a single test number)
+ endif
+-ifeq ($(filter $(TOY_SUITE_MODE),1 2 3 4 6 7 26 27 28 31 32 33 34 35 36 37 38 39 40 41 42 43 44 45 46 47 48 49 50 51 52 53 54 55 56 57 58 59 60 61 62 64 65),)
++ifeq ($(filter $(TOY_SUITE_MODE),1 2 3 4 6 7 26 27 28 31 32 33 34 35 36 37 38 39 40 41 42 43 44 45 46 47 48 49 50 51 52 53 54 55 56 57 58 59 60 61 62 64 65 66),)
+ $(error Unsupported TOY_SUITE_MODE $(TOY_SUITE_MODE))
+ endif
+ BUILD ?= build/toy-suite-$(TOY_SUITE_MODE)
+@@ -30,36 +30,36 @@ $(BUILD)/native-ra-aux.elf: $(BUILD)/ra/src/loader/toy_fmv_compare.o
+ $(BUILD)/retail-toy-test-29.kui: $(BUILD)/retail-native-dual.kui
+ 	cp $< $@
+ endif
+-ifneq ($(filter $(TOY_SUITE_MODE),26 27 28 57 58 59 60 61 62 64 65),)
++ifneq ($(filter $(TOY_SUITE_MODE),26 27 28 57 58 59 60 61 62 64 65 66),)
+ # Move one cache page to auxiliary code within the existing lease.
+ RA_AUX_LINK_FLAGS := -Wl,--defsym=__native_ra_extra_code=0x1000
+ RA_AUX_SPAN := 0x5000
+ endif
+-ifneq ($(filter $(TOY_SUITE_MODE),39 40 41 42 43 44 45 46 47 48 49 50 51 52 53 54 55 56 57 58 59 60 61 62 64 65),)
++ifneq ($(filter $(TOY_SUITE_MODE),39 40 41 42 43 44 45 46 47 48 49 50 51 52 53 54 55 56 57 58 59 60 61 62 64 65 66),)
+ $(BUILD)/native_ra_aux_entry.o: src/loader/toy_movie_exit_hook.inc include/kui/toy_movie_exit.h
+ endif
+-ifneq ($(filter $(TOY_SUITE_MODE),42 44 45 46 47 48 49 50 51 52 53 54 55 56 57 58 59 60 61 62 64 65),)
++ifneq ($(filter $(TOY_SUITE_MODE),42 44 45 46 47 48 49 50 51 52 53 54 55 56 57 58 59 60 61 62 64 65 66),)
+ $(BUILD)/native_ra_aux_entry.o: src/loader/toy_movie_chunk_hook.inc
+ endif
+-ifneq ($(filter $(TOY_SUITE_MODE),57 60 61 62 64 65),)
++ifneq ($(filter $(TOY_SUITE_MODE),57 60 61 62 64 65 66),)
+ $(BUILD)/native_ra_aux_entry.o: src/loader/toy_movie_refill_hook.inc
+ endif
+-ifneq ($(filter $(TOY_SUITE_MODE),60 61 62 64 65),)
++ifneq ($(filter $(TOY_SUITE_MODE),60 61 62 64 65 66),)
+ $(BUILD)/native_ra_aux_entry.o: src/loader/toy_movie_present_hook.inc
+ $(BUILD)/ra/src/loader/native_readahead_aux.o: src/loader/toy_movie_present_trace.inc
+ endif
+-ifneq ($(filter $(TOY_SUITE_MODE),62 64 65),)
++ifneq ($(filter $(TOY_SUITE_MODE),62 64 65 66),)
+ $(BUILD)/ra/src/loader/native_readahead_aux.o: src/loader/toy_movie_ahead.inc
+ endif
+ ifeq ($(TOY_SUITE_MODE),58)
+ RA_SRC += src/loader/toy_sd_crc16.c
+ $(BUILD)/native-ra-aux.elf: $(BUILD)/ra/src/loader/toy_sd_crc16.o
+ endif
+-ifneq ($(filter $(TOY_SUITE_MODE),48 49 50 51 52 53 54 55 56 57 58 59 60 61 62 64 65),)
++ifneq ($(filter $(TOY_SUITE_MODE),48 49 50 51 52 53 54 55 56 57 58 59 60 61 62 64 65 66),)
+ RA_SRC += src/core/retail_cursor.c src/core/hash.c src/core/data.c
+ $(BUILD)/native-ra-aux.elf: $(BUILD)/ra/src/core/retail_cursor.o $(BUILD)/ra/src/core/hash.o $(BUILD)/ra/src/core/data.o
+ endif
+-ifneq ($(filter $(TOY_SUITE_MODE),50 51 53 54 55 56 57 58 59 60 61 62 64 65),)
++ifneq ($(filter $(TOY_SUITE_MODE),50 51 53 54 55 56 57 58 59 60 61 62 64 65 66),)
+ $(BUILD)/ra/src/core/hash.o: private RA_FLAGS += -DKUI_CD_EDC_CACHED_PAIR=1
+ endif
+ NATIVE_SRC += src/loader/native_return_hardware.c
+@@ -121,7 +121,7 @@ toy-suite-burst-aux-host-test toy-suite-burst-compare-host-test toy-suite-burst-
+ .PHONY: toy-suite-sdk-liveness-host-test
+ toy-suite-sdk-liveness-host-test:
+ 	@mkdir -p $(BUILD)
+-	@set -e; for mode in 1 32 33 34 35 36 37 38 39 40 41 42 43 44 45 46 47 48 49 50 51 52 53 54 55 56 57 58 59 60 61 62 64 65; do \
++	@set -e; for mode in 1 32 33 34 35 36 37 38 39 40 41 42 43 44 45 46 47 48 49 50 51 52 53 54 55 56 57 58 59 60 61 62 64 65 66; do \
+ 	 source=tests/test_toy_sdk_liveness.c; \
+ 	 if [ "$$mode" -ge 48 ]; then source=tests/test_toy_resume_integration.c; fi; \
+ 	 edc_flags=; if [ "$$mode" -ge 50 ] && [ "$$mode" -ne 52 ]; then edc_flags=-DKUI_CD_EDC_CACHED_PAIR=1; fi; \
+diff --git a/include/kui/native_readahead_cache.h b/include/kui/native_readahead_cache.h
+index 63db35e..8ea7d27 100644
+--- a/include/kui/native_readahead_cache.h
++++ b/include/kui/native_readahead_cache.h
+@@ -8,7 +8,7 @@
+ 
+ #if (KUI_TOY_SUITE_MODE == 26 || KUI_TOY_SUITE_MODE == 27 || KUI_TOY_SUITE_MODE == 28)
+ #define KUI_NATIVE_RA_CACHE_BLOCKS 344u
+-#elif KUI_TOY_SUITE_MODE == 57 || KUI_TOY_SUITE_MODE == 58 || KUI_TOY_SUITE_MODE == 59 || KUI_TOY_SUITE_MODE == 60 || KUI_TOY_SUITE_MODE == 61 || KUI_TOY_SUITE_MODE == 62 || KUI_TOY_SUITE_MODE == 64 || KUI_TOY_SUITE_MODE == 65
++#elif KUI_TOY_SUITE_MODE == 57 || KUI_TOY_SUITE_MODE == 58 || KUI_TOY_SUITE_MODE == 59 || KUI_TOY_SUITE_MODE == 60 || KUI_TOY_SUITE_MODE == 61 || KUI_TOY_SUITE_MODE == 62 || KUI_TOY_SUITE_MODE == 64 || KUI_TOY_SUITE_MODE == 65 || KUI_TOY_SUITE_MODE == 66
+ #define KUI_NATIVE_RA_CACHE_BLOCKS 376u
+ #else
+ #define KUI_NATIVE_RA_CACHE_BLOCKS 384u
+diff --git a/include/kui/native_readahead_layout.h b/include/kui/native_readahead_layout.h
+index 0595ee7..a76c170 100644
+--- a/include/kui/native_readahead_layout.h
++++ b/include/kui/native_readahead_layout.h
+@@ -24,7 +24,7 @@
+ #error "Compact Background extends the separately reviewed lean layout"
+ #endif
+ #if defined(KUI_TOY_SUITE_MODE) && (KUI_TOY_SUITE_MODE == 26 || KUI_TOY_SUITE_MODE == 27 || KUI_TOY_SUITE_MODE == 28 || \
+-    KUI_TOY_SUITE_MODE == 57 || KUI_TOY_SUITE_MODE == 58 || KUI_TOY_SUITE_MODE == 59 || KUI_TOY_SUITE_MODE == 60 || KUI_TOY_SUITE_MODE == 61 || KUI_TOY_SUITE_MODE == 62 || KUI_TOY_SUITE_MODE == 64 || KUI_TOY_SUITE_MODE == 65)
++    KUI_TOY_SUITE_MODE == 57 || KUI_TOY_SUITE_MODE == 58 || KUI_TOY_SUITE_MODE == 59 || KUI_TOY_SUITE_MODE == 60 || KUI_TOY_SUITE_MODE == 61 || KUI_TOY_SUITE_MODE == 62 || KUI_TOY_SUITE_MODE == 64 || KUI_TOY_SUITE_MODE == 65 || KUI_TOY_SUITE_MODE == 66)
+ #if !KUI_NATIVE_BACKGROUND_COMPACT
+ #error "The extended Toy auxiliary requires the compact Background layout"
+ #endif
+diff --git a/include/kui/retail_loader_layout.h b/include/kui/retail_loader_layout.h
+index 1514b07..de6e99e 100644
+--- a/include/kui/retail_loader_layout.h
++++ b/include/kui/retail_loader_layout.h
+@@ -49,7 +49,7 @@
+ #endif
+ #define KUI_RETAIL_LOW_RESIDENT_ADDRESS 0x8c004000
+ #define KUI_RETAIL_LOW_STANDARD_LIMIT 0x8c007800
+-#if KUI_TOY_SUITE_MODE == 41 || KUI_TOY_SUITE_MODE == 42 || KUI_TOY_SUITE_MODE == 43 || KUI_TOY_SUITE_MODE == 44 || KUI_TOY_SUITE_MODE == 45 || KUI_TOY_SUITE_MODE == 46 || KUI_TOY_SUITE_MODE == 47 || KUI_TOY_SUITE_MODE == 48 || KUI_TOY_SUITE_MODE == 49 || KUI_TOY_SUITE_MODE == 50 || KUI_TOY_SUITE_MODE == 51 || KUI_TOY_SUITE_MODE == 52 || KUI_TOY_SUITE_MODE == 53 || KUI_TOY_SUITE_MODE == 54 || KUI_TOY_SUITE_MODE == 55 || KUI_TOY_SUITE_MODE == 56 || KUI_TOY_SUITE_MODE == 57 || KUI_TOY_SUITE_MODE == 58 || KUI_TOY_SUITE_MODE == 59 || KUI_TOY_SUITE_MODE == 60 || KUI_TOY_SUITE_MODE == 61 || KUI_TOY_SUITE_MODE == 62 || KUI_TOY_SUITE_MODE == 64 || KUI_TOY_SUITE_MODE == 65
++#if KUI_TOY_SUITE_MODE == 41 || KUI_TOY_SUITE_MODE == 42 || KUI_TOY_SUITE_MODE == 43 || KUI_TOY_SUITE_MODE == 44 || KUI_TOY_SUITE_MODE == 45 || KUI_TOY_SUITE_MODE == 46 || KUI_TOY_SUITE_MODE == 47 || KUI_TOY_SUITE_MODE == 48 || KUI_TOY_SUITE_MODE == 49 || KUI_TOY_SUITE_MODE == 50 || KUI_TOY_SUITE_MODE == 51 || KUI_TOY_SUITE_MODE == 52 || KUI_TOY_SUITE_MODE == 53 || KUI_TOY_SUITE_MODE == 54 || KUI_TOY_SUITE_MODE == 55 || KUI_TOY_SUITE_MODE == 56 || KUI_TOY_SUITE_MODE == 57 || KUI_TOY_SUITE_MODE == 58 || KUI_TOY_SUITE_MODE == 59 || KUI_TOY_SUITE_MODE == 60 || KUI_TOY_SUITE_MODE == 61 || KUI_TOY_SUITE_MODE == 62 || KUI_TOY_SUITE_MODE == 64 || KUI_TOY_SUITE_MODE == 65 || KUI_TOY_SUITE_MODE == 66
+ /* The pipelined recovery code uses another 288 firmware-area bytes and
+  * keeps the guarded service stack below IP.BIN. */
+ #define KUI_RETAIL_LOW_ASYNC_LIMIT 0x8c007e80
+diff --git a/include/kui/toy_movie_exit.h b/include/kui/toy_movie_exit.h
+index 2e9fb0c..14f71e8 100644
+--- a/include/kui/toy_movie_exit.h
++++ b/include/kui/toy_movie_exit.h
+@@ -16,7 +16,7 @@
+ 
+ struct kui_toy_movie_exit_witness {
+     uint32_t flags, start_status;
+-#if KUI_TOY_SUITE_MODE == 49 || KUI_TOY_SUITE_MODE == 50 || KUI_TOY_SUITE_MODE == 51 || KUI_TOY_SUITE_MODE == 52 || KUI_TOY_SUITE_MODE == 53 || KUI_TOY_SUITE_MODE == 54 || KUI_TOY_SUITE_MODE == 55 || KUI_TOY_SUITE_MODE == 56 || KUI_TOY_SUITE_MODE == 57 || KUI_TOY_SUITE_MODE == 58 || KUI_TOY_SUITE_MODE == 59 || KUI_TOY_SUITE_MODE == 60 || KUI_TOY_SUITE_MODE == 61 || KUI_TOY_SUITE_MODE == 62 || KUI_TOY_SUITE_MODE == 64 || KUI_TOY_SUITE_MODE == 65
++#if KUI_TOY_SUITE_MODE == 49 || KUI_TOY_SUITE_MODE == 50 || KUI_TOY_SUITE_MODE == 51 || KUI_TOY_SUITE_MODE == 52 || KUI_TOY_SUITE_MODE == 53 || KUI_TOY_SUITE_MODE == 54 || KUI_TOY_SUITE_MODE == 55 || KUI_TOY_SUITE_MODE == 56 || KUI_TOY_SUITE_MODE == 57 || KUI_TOY_SUITE_MODE == 58 || KUI_TOY_SUITE_MODE == 59 || KUI_TOY_SUITE_MODE == 60 || KUI_TOY_SUITE_MODE == 61 || KUI_TOY_SUITE_MODE == 62 || KUI_TOY_SUITE_MODE == 64 || KUI_TOY_SUITE_MODE == 65 || KUI_TOY_SUITE_MODE == 66
+     uint32_t output_frames, skipped_frames;
+ #else
+     uint32_t start_frame, start_samples;
+diff --git a/src/loader/native_readahead_aux_entry.S b/src/loader/native_readahead_aux_entry.S
+index 76f682f..341e2f6 100644
+--- a/src/loader/native_readahead_aux_entry.S
++++ b/src/loader/native_readahead_aux_entry.S
+@@ -10,7 +10,7 @@ C_SYMBOL(kui_native_readahead_aux_exports):
+     .long C_SYMBOL(kui_native_readahead_aux_init)
+     .long C_SYMBOL(kui_native_readahead_aux_context)
+     .long __native_ra_image_end,__native_ra_stack_bottom,__native_ra_stack_top,__native_ra_memory_end
+-#if KUI_TOY_SUITE_MODE == 42 || KUI_TOY_SUITE_MODE == 44 || KUI_TOY_SUITE_MODE == 45 || KUI_TOY_SUITE_MODE == 46 || KUI_TOY_SUITE_MODE == 47 || KUI_TOY_SUITE_MODE == 48 || KUI_TOY_SUITE_MODE == 49 || KUI_TOY_SUITE_MODE == 50 || KUI_TOY_SUITE_MODE == 51 || KUI_TOY_SUITE_MODE == 52 || KUI_TOY_SUITE_MODE == 53 || KUI_TOY_SUITE_MODE == 54 || KUI_TOY_SUITE_MODE == 55 || KUI_TOY_SUITE_MODE == 56 || KUI_TOY_SUITE_MODE == 57 || KUI_TOY_SUITE_MODE == 58 || KUI_TOY_SUITE_MODE == 59 || KUI_TOY_SUITE_MODE == 60 || KUI_TOY_SUITE_MODE == 61 || KUI_TOY_SUITE_MODE == 62 || KUI_TOY_SUITE_MODE == 64 || KUI_TOY_SUITE_MODE == 65
++#if KUI_TOY_SUITE_MODE == 42 || KUI_TOY_SUITE_MODE == 44 || KUI_TOY_SUITE_MODE == 45 || KUI_TOY_SUITE_MODE == 46 || KUI_TOY_SUITE_MODE == 47 || KUI_TOY_SUITE_MODE == 48 || KUI_TOY_SUITE_MODE == 49 || KUI_TOY_SUITE_MODE == 50 || KUI_TOY_SUITE_MODE == 51 || KUI_TOY_SUITE_MODE == 52 || KUI_TOY_SUITE_MODE == 53 || KUI_TOY_SUITE_MODE == 54 || KUI_TOY_SUITE_MODE == 55 || KUI_TOY_SUITE_MODE == 56 || KUI_TOY_SUITE_MODE == 57 || KUI_TOY_SUITE_MODE == 58 || KUI_TOY_SUITE_MODE == 59 || KUI_TOY_SUITE_MODE == 60 || KUI_TOY_SUITE_MODE == 61 || KUI_TOY_SUITE_MODE == 62 || KUI_TOY_SUITE_MODE == 64 || KUI_TOY_SUITE_MODE == 65 || KUI_TOY_SUITE_MODE == 66
+     .long C_SYMBOL(kui_toy_movie_exit_hook),C_SYMBOL(kui_toy_movie_chunk_hook)
+ #if KUI_TOY_SUITE_MODE >= 61
+     .long C_SYMBOL(kui_toy_movie_refill_hook),C_SYMBOL(kui_toy_movie_present_slot)
+@@ -132,15 +132,15 @@ C_SYMBOL(kui_native_readahead_aux_visit):
+ .Ldispatch: .long C_SYMBOL(kui_native_readahead_aux_dispatch)
+     .size C_SYMBOL(kui_native_readahead_aux_visit),.-C_SYMBOL(kui_native_readahead_aux_visit)
+ 
+-#if KUI_TOY_SUITE_MODE >= 39 && KUI_TOY_SUITE_MODE <= 65
++#if KUI_TOY_SUITE_MODE >= 39 && KUI_TOY_SUITE_MODE <= 66
+ #include "toy_movie_exit_hook.inc"
+ #endif
+-#if KUI_TOY_SUITE_MODE == 42 || KUI_TOY_SUITE_MODE == 44 || KUI_TOY_SUITE_MODE == 45 || KUI_TOY_SUITE_MODE == 46 || KUI_TOY_SUITE_MODE == 47 || KUI_TOY_SUITE_MODE == 48 || KUI_TOY_SUITE_MODE == 49 || KUI_TOY_SUITE_MODE == 50 || KUI_TOY_SUITE_MODE == 51 || KUI_TOY_SUITE_MODE == 52 || KUI_TOY_SUITE_MODE == 53 || KUI_TOY_SUITE_MODE == 54 || KUI_TOY_SUITE_MODE == 55 || KUI_TOY_SUITE_MODE == 56 || KUI_TOY_SUITE_MODE == 57 || KUI_TOY_SUITE_MODE == 58 || KUI_TOY_SUITE_MODE == 59 || KUI_TOY_SUITE_MODE == 60 || KUI_TOY_SUITE_MODE == 61 || KUI_TOY_SUITE_MODE == 62 || KUI_TOY_SUITE_MODE == 64 || KUI_TOY_SUITE_MODE == 65
++#if KUI_TOY_SUITE_MODE == 42 || KUI_TOY_SUITE_MODE == 44 || KUI_TOY_SUITE_MODE == 45 || KUI_TOY_SUITE_MODE == 46 || KUI_TOY_SUITE_MODE == 47 || KUI_TOY_SUITE_MODE == 48 || KUI_TOY_SUITE_MODE == 49 || KUI_TOY_SUITE_MODE == 50 || KUI_TOY_SUITE_MODE == 51 || KUI_TOY_SUITE_MODE == 52 || KUI_TOY_SUITE_MODE == 53 || KUI_TOY_SUITE_MODE == 54 || KUI_TOY_SUITE_MODE == 55 || KUI_TOY_SUITE_MODE == 56 || KUI_TOY_SUITE_MODE == 57 || KUI_TOY_SUITE_MODE == 58 || KUI_TOY_SUITE_MODE == 59 || KUI_TOY_SUITE_MODE == 60 || KUI_TOY_SUITE_MODE == 61 || KUI_TOY_SUITE_MODE == 62 || KUI_TOY_SUITE_MODE == 64 || KUI_TOY_SUITE_MODE == 65 || KUI_TOY_SUITE_MODE == 66
+ #include "toy_movie_chunk_hook.inc"
+ #endif
+-#if KUI_TOY_SUITE_MODE == 57 || KUI_TOY_SUITE_MODE == 60 || KUI_TOY_SUITE_MODE == 61 || KUI_TOY_SUITE_MODE == 62 || KUI_TOY_SUITE_MODE == 64 || KUI_TOY_SUITE_MODE == 65
++#if KUI_TOY_SUITE_MODE == 57 || KUI_TOY_SUITE_MODE == 60 || KUI_TOY_SUITE_MODE == 61 || KUI_TOY_SUITE_MODE == 62 || KUI_TOY_SUITE_MODE == 64 || KUI_TOY_SUITE_MODE == 65 || KUI_TOY_SUITE_MODE == 66
+ #include "toy_movie_refill_hook.inc"
+ #endif
+-#if KUI_TOY_SUITE_MODE == 60 || KUI_TOY_SUITE_MODE == 61 || KUI_TOY_SUITE_MODE == 62 || KUI_TOY_SUITE_MODE == 64 || KUI_TOY_SUITE_MODE == 65
++#if KUI_TOY_SUITE_MODE == 60 || KUI_TOY_SUITE_MODE == 61 || KUI_TOY_SUITE_MODE == 62 || KUI_TOY_SUITE_MODE == 64 || KUI_TOY_SUITE_MODE == 65 || KUI_TOY_SUITE_MODE == 66
+ #include "toy_movie_present_hook.inc"
+ #endif
+diff --git a/src/loader/native_readahead_aux_internal.h b/src/loader/native_readahead_aux_internal.h
+index 5a2dc2f..c495e96 100644
+--- a/src/loader/native_readahead_aux_internal.h
++++ b/src/loader/native_readahead_aux_internal.h
+@@ -115,7 +115,7 @@ struct kui_native_readahead_aux_context {
+         uint32_t first, head, verified, failed_token, receive_token;
+         uint8_t variant;
+         bool error, receiving;
+-#if KUI_TOY_SUITE_MODE == 65
++#if KUI_TOY_SUITE_MODE >= 65
+         uint8_t retry;
+ #endif
+     } movie_ahead;
+diff --git a/src/loader/retail_resident.S b/src/loader/retail_resident.S
+index e5615c1..b785f1a 100644
+--- a/src/loader/retail_resident.S
++++ b/src/loader/retail_resident.S
+@@ -37,7 +37,7 @@
+     .global __kui_native_gd_mmu_buffers_entry
+     .set __kui_native_gd_mmu_buffers_entry,1
+ #endif
+-#if KUI_TOY_SUITE_MODE == 37 || KUI_TOY_SUITE_MODE == 38 || KUI_TOY_SUITE_MODE == 39 || KUI_TOY_SUITE_MODE == 40 || KUI_TOY_SUITE_MODE == 41 || KUI_TOY_SUITE_MODE == 42 || KUI_TOY_SUITE_MODE == 43 || KUI_TOY_SUITE_MODE == 46 || KUI_TOY_SUITE_MODE == 48 || KUI_TOY_SUITE_MODE == 49 || KUI_TOY_SUITE_MODE == 50 || KUI_TOY_SUITE_MODE == 51 || KUI_TOY_SUITE_MODE == 52 || KUI_TOY_SUITE_MODE == 53 || KUI_TOY_SUITE_MODE == 54 || KUI_TOY_SUITE_MODE == 55 || KUI_TOY_SUITE_MODE == 56 || KUI_TOY_SUITE_MODE == 57 || KUI_TOY_SUITE_MODE == 58 || KUI_TOY_SUITE_MODE == 59 || KUI_TOY_SUITE_MODE == 60 || KUI_TOY_SUITE_MODE == 61 || KUI_TOY_SUITE_MODE == 62 || KUI_TOY_SUITE_MODE == 64 || KUI_TOY_SUITE_MODE == 65
++#if KUI_TOY_SUITE_MODE == 37 || KUI_TOY_SUITE_MODE == 38 || KUI_TOY_SUITE_MODE == 39 || KUI_TOY_SUITE_MODE == 40 || KUI_TOY_SUITE_MODE == 41 || KUI_TOY_SUITE_MODE == 42 || KUI_TOY_SUITE_MODE == 43 || KUI_TOY_SUITE_MODE == 46 || KUI_TOY_SUITE_MODE == 48 || KUI_TOY_SUITE_MODE == 49 || KUI_TOY_SUITE_MODE == 50 || KUI_TOY_SUITE_MODE == 51 || KUI_TOY_SUITE_MODE == 52 || KUI_TOY_SUITE_MODE == 53 || KUI_TOY_SUITE_MODE == 54 || KUI_TOY_SUITE_MODE == 55 || KUI_TOY_SUITE_MODE == 56 || KUI_TOY_SUITE_MODE == 57 || KUI_TOY_SUITE_MODE == 58 || KUI_TOY_SUITE_MODE == 59 || KUI_TOY_SUITE_MODE == 60 || KUI_TOY_SUITE_MODE == 61 || KUI_TOY_SUITE_MODE == 62 || KUI_TOY_SUITE_MODE == 64 || KUI_TOY_SUITE_MODE == 65 || KUI_TOY_SUITE_MODE == 66
+     .global __kui_toy_slow_retry_stack_bottom, __kui_toy_slow_retry_stack_top
+     .set __kui_toy_slow_retry_stack_bottom,KUI_RETAIL_LOW_ASYNC_LIMIT
+     .set __kui_toy_slow_retry_stack_top,KUI_RETAIL_LOW_HOOK_STACK
+@@ -259,7 +259,7 @@ __kui_vc2_gd_retry_before_trace:
+     mov.l r1,@r0
+     mov.l .Lsource,r0
+     mov.l r9,@r0
+-#if (KUI_TOY_SUITE_MODE == 33 || KUI_TOY_SUITE_MODE == 34 || KUI_TOY_SUITE_MODE == 35 || KUI_TOY_SUITE_MODE == 36 || KUI_TOY_SUITE_MODE == 37 || KUI_TOY_SUITE_MODE == 38 || KUI_TOY_SUITE_MODE == 39 || KUI_TOY_SUITE_MODE == 40 || KUI_TOY_SUITE_MODE == 41 || KUI_TOY_SUITE_MODE == 42 || KUI_TOY_SUITE_MODE == 43 || KUI_TOY_SUITE_MODE == 46 || KUI_TOY_SUITE_MODE == 48 || KUI_TOY_SUITE_MODE == 49 || KUI_TOY_SUITE_MODE == 50 || KUI_TOY_SUITE_MODE == 51 || KUI_TOY_SUITE_MODE == 52 || KUI_TOY_SUITE_MODE == 53 || KUI_TOY_SUITE_MODE == 54 || KUI_TOY_SUITE_MODE == 55 || KUI_TOY_SUITE_MODE == 56 || KUI_TOY_SUITE_MODE == 57 || KUI_TOY_SUITE_MODE == 58 || KUI_TOY_SUITE_MODE == 59 || KUI_TOY_SUITE_MODE == 60 || KUI_TOY_SUITE_MODE == 61 || KUI_TOY_SUITE_MODE == 62 || KUI_TOY_SUITE_MODE == 64 || KUI_TOY_SUITE_MODE == 65)
++#if (KUI_TOY_SUITE_MODE == 33 || KUI_TOY_SUITE_MODE == 34 || KUI_TOY_SUITE_MODE == 35 || KUI_TOY_SUITE_MODE == 36 || KUI_TOY_SUITE_MODE == 37 || KUI_TOY_SUITE_MODE == 38 || KUI_TOY_SUITE_MODE == 39 || KUI_TOY_SUITE_MODE == 40 || KUI_TOY_SUITE_MODE == 41 || KUI_TOY_SUITE_MODE == 42 || KUI_TOY_SUITE_MODE == 43 || KUI_TOY_SUITE_MODE == 46 || KUI_TOY_SUITE_MODE == 48 || KUI_TOY_SUITE_MODE == 49 || KUI_TOY_SUITE_MODE == 50 || KUI_TOY_SUITE_MODE == 51 || KUI_TOY_SUITE_MODE == 52 || KUI_TOY_SUITE_MODE == 53 || KUI_TOY_SUITE_MODE == 54 || KUI_TOY_SUITE_MODE == 55 || KUI_TOY_SUITE_MODE == 56 || KUI_TOY_SUITE_MODE == 57 || KUI_TOY_SUITE_MODE == 58 || KUI_TOY_SUITE_MODE == 59 || KUI_TOY_SUITE_MODE == 60 || KUI_TOY_SUITE_MODE == 61 || KUI_TOY_SUITE_MODE == 62 || KUI_TOY_SUITE_MODE == 64 || KUI_TOY_SUITE_MODE == 65 || KUI_TOY_SUITE_MODE == 66)
+     /* Pass the original, locked BIOS save frame to the poll classifier. */
+     mov.l .Ltoy_poll_frame,r0
+     mov.l r8,@r0
+@@ -543,7 +543,7 @@ __kui_vc2_gd_legacy_busy:
+ .Lguard_value: .long 0x4b554947
+ .Ldispatch: .long C_SYMBOL(kui_retail_resident_dispatch)
+ .Lsource: .long C_SYMBOL(kui_retail_hook_source)
+-#if (KUI_TOY_SUITE_MODE == 33 || KUI_TOY_SUITE_MODE == 34 || KUI_TOY_SUITE_MODE == 35 || KUI_TOY_SUITE_MODE == 36 || KUI_TOY_SUITE_MODE == 37 || KUI_TOY_SUITE_MODE == 38 || KUI_TOY_SUITE_MODE == 39 || KUI_TOY_SUITE_MODE == 40 || KUI_TOY_SUITE_MODE == 41 || KUI_TOY_SUITE_MODE == 42 || KUI_TOY_SUITE_MODE == 43 || KUI_TOY_SUITE_MODE == 46 || KUI_TOY_SUITE_MODE == 48 || KUI_TOY_SUITE_MODE == 49 || KUI_TOY_SUITE_MODE == 50 || KUI_TOY_SUITE_MODE == 51 || KUI_TOY_SUITE_MODE == 52 || KUI_TOY_SUITE_MODE == 53 || KUI_TOY_SUITE_MODE == 54 || KUI_TOY_SUITE_MODE == 55 || KUI_TOY_SUITE_MODE == 56 || KUI_TOY_SUITE_MODE == 57 || KUI_TOY_SUITE_MODE == 58 || KUI_TOY_SUITE_MODE == 59 || KUI_TOY_SUITE_MODE == 60 || KUI_TOY_SUITE_MODE == 61 || KUI_TOY_SUITE_MODE == 62 || KUI_TOY_SUITE_MODE == 64 || KUI_TOY_SUITE_MODE == 65)
++#if (KUI_TOY_SUITE_MODE == 33 || KUI_TOY_SUITE_MODE == 34 || KUI_TOY_SUITE_MODE == 35 || KUI_TOY_SUITE_MODE == 36 || KUI_TOY_SUITE_MODE == 37 || KUI_TOY_SUITE_MODE == 38 || KUI_TOY_SUITE_MODE == 39 || KUI_TOY_SUITE_MODE == 40 || KUI_TOY_SUITE_MODE == 41 || KUI_TOY_SUITE_MODE == 42 || KUI_TOY_SUITE_MODE == 43 || KUI_TOY_SUITE_MODE == 46 || KUI_TOY_SUITE_MODE == 48 || KUI_TOY_SUITE_MODE == 49 || KUI_TOY_SUITE_MODE == 50 || KUI_TOY_SUITE_MODE == 51 || KUI_TOY_SUITE_MODE == 52 || KUI_TOY_SUITE_MODE == 53 || KUI_TOY_SUITE_MODE == 54 || KUI_TOY_SUITE_MODE == 55 || KUI_TOY_SUITE_MODE == 56 || KUI_TOY_SUITE_MODE == 57 || KUI_TOY_SUITE_MODE == 58 || KUI_TOY_SUITE_MODE == 59 || KUI_TOY_SUITE_MODE == 60 || KUI_TOY_SUITE_MODE == 61 || KUI_TOY_SUITE_MODE == 62 || KUI_TOY_SUITE_MODE == 64 || KUI_TOY_SUITE_MODE == 65 || KUI_TOY_SUITE_MODE == 66)
+ .Ltoy_poll_frame: .long C_SYMBOL(kui_toy_poll_frame)
+ #else
+ .Lcaller_sr: .long C_SYMBOL(kui_retail_hook_sr)
+diff --git a/src/loader/sci_stream.h b/src/loader/sci_stream.h
+index 830693a..28f5fab 100644
+--- a/src/loader/sci_stream.h
++++ b/src/loader/sci_stream.h
+@@ -3,7 +3,7 @@
+ #define KUI_SCI_STREAM_H
+ #include "sd_reader.h"
+ #define KUI_TOY_SUITE_WIDE_EDC (KUI_TOY_SUITE_MODE == 52)
+-#define KUI_TOY_SUITE_FRAME_TIMING (KUI_TOY_SUITE_MODE >= 60 && KUI_TOY_SUITE_MODE <= 65)
++#define KUI_TOY_SUITE_FRAME_TIMING (KUI_TOY_SUITE_MODE >= 60 && KUI_TOY_SUITE_MODE <= 66)
+ #define KUI_TOY_SUITE_DECODE_WINDOW (KUI_TOY_SUITE_MODE == 57 || KUI_TOY_SUITE_FRAME_TIMING)
+ #define KUI_TOY_SUITE_TABLE_CRC16 (KUI_TOY_SUITE_MODE == 58)
+ #define KUI_TOY_SUITE_FAST_COPY (KUI_TOY_SUITE_MODE == 59)
+diff --git a/src/loader/toy_movie_ahead.inc b/src/loader/toy_movie_ahead.inc
+index 43d8218..784bd78 100644
+--- a/src/loader/toy_movie_ahead.inc
++++ b/src/loader/toy_movie_ahead.inc
+@@ -32,20 +32,34 @@ static uint8_t *toy_ahead_sector(uint32_t lba) {
+ }
+ 
+ static void toy_ahead_write(void *unused,uint32_t offset,const uint8_t *data,uint32_t bytes) {
++#if KUI_TOY_SUITE_MODE == 66
++    struct kui_retail_async *e=unused;
++    const struct kui_retail_cursor *cursor=&e->cursor;
++    if(A.error || e->failed)return;
++#else
+     (void)unused;
++    const struct kui_retail_cursor *cursor=&A.cursor;
+     if(A.error)return;
+-    const uint32_t lba=A.cursor.lba+A.cursor.done;
+-    const uint32_t part=A.cursor.offset;
++#endif
++    const uint32_t lba=cursor->lba+cursor->done;
++    const uint32_t part=cursor->offset;
+     if(lba!=A.verified || lba-A.first>=AHEAD_SLOTS ||
+-       offset!=A.cursor.done*KUI_GAME_RAW_BYTES+part || !bytes || bytes>KUI_GAME_RAW_BYTES-part) {
++       offset!=cursor->done*KUI_GAME_RAW_BYTES+part || !bytes || bytes>KUI_GAME_RAW_BYTES-part) {
+         A.error=true;
++#if KUI_TOY_SUITE_MODE == 66
++        e->failed=KUI_GD_ERROR_IO;
++#endif
+         return;
+     }
+     uint8_t *raw=toy_ahead_sector(lba);
+     memcpy(raw+part,data,bytes);
+     if(part+bytes!=KUI_GAME_RAW_BYTES)return;
+-    if(raw[15]!=1u || !kui_sector_edc_valid_at(raw,lba+150u))A.error=true;
+-    else ++A.verified;
++    if(raw[15]!=1u || !kui_sector_edc_valid_at(raw,lba+150u)) {
++        A.error=true;
++#if KUI_TOY_SUITE_MODE == 66
++        e->failed=KUI_GD_ERROR_IO;
++#endif
++    } else ++A.verified;
+ }
+ 
+ static bool toy_ahead_live(void) {
+@@ -73,17 +87,24 @@ static bool toy_ahead_begin(const struct kui_retail_async *e,unsigned variant) {
+     const uint32_t end=range->lba+range->count;
+     if(end>track->end_lba || e->cursor.done || e->cursor.offset || !e->cursor.write ||
+        kui_retail_cursor_begin(&A.cursor,e->manifest,e->cursor.lba,end-e->cursor.lba,
+-           KUI_GAME_SECTOR_RAW,toy_ahead_write,NULL)!=KUI_GAME_OK)return false;
++           KUI_GAME_SECTOR_RAW,toy_ahead_write,
++#if KUI_TOY_SUITE_MODE == 66
++           (void *)e
++#else
++           NULL
++#endif
++           )!=KUI_GAME_OK)return false;
+     A.variant=(uint8_t)variant;
+     A.first=A.verified=e->cursor.lba;
+     A.head=0u;
+     A.error=false;
+-#if KUI_TOY_SUITE_MODE == 65
++#if KUI_TOY_SUITE_MODE >= 65
+     A.retry=0u;
+ #endif
+     return true;
+ }
+ 
++#if KUI_TOY_SUITE_MODE != 66
+ static bool toy_ahead_dma_idle(void) {
+     return !(read_hw(UINT32_C(0xffa0001c),4u)&7u) &&
+         (read_hw(UINT32_C(0xffa00040),4u)&7u)==1u;
+@@ -110,6 +131,59 @@ static enum kui_sci_stream_result toy_ahead_arm(kui_retail_async_region_type *r,
+     return result;
+ }
+ 
++#else
++/* Install the private RAW cursor only for the original native delivery
++ * callback. Completion publication still sees the restored guest cursor. */
++static void toy_ahead_pump(kui_retail_async_region_type *r,bool demand) {
++    (void)demand;
++    struct kui_retail_async *e=&r->engine;
++    struct kui_sci_stream_state *stream=&r->shared.stream;
++    const struct kui_retail_cursor saved_cursor=e->cursor;
++    const uint32_t saved_active=e->active,saved_failed=e->failed;
++    const uint32_t saved_retries=e->retries,saved_since=e->since;
++    const uint8_t saved_policy=stream->toy_suite_active,saved_poll=stream->toy_suite_poll;
++    const uint32_t verified=A.verified;
++    const bool room=A.cursor.done<A.cursor.count && A.verified-A.first<=AHEAD_SLOTS-2u;
++    const bool was_busy=C.config.ops->busy();
++    const bool owned=!A.receive_token || A.receive_token==e->token;
++    const bool foreground=!e->in_irq;
++    const bool slice=foreground && room && (saved_poll==1u || saved_poll==2u);
++
++    if(!room && !was_busy)return;
++    e->cursor=A.cursor;
++    e->active=room;
++    e->failed=0u;
++    e->retries=A.retry;
++    e->since=0u;
++    /* Idle UPDATE has no GD save frame. Keep every scoped delivery on
++     * the native one-pass branch, including when its SCI route is lost. */
++    if(!saved_poll)stream->toy_suite_poll=2u;
++    stream->toy_suite_active=saved_policy|1u;
++    if(owned)stream->toy_suite_active|=KUI_TOY_SUITE_RESUME_ACTIVE|
++        (foreground || e->in_irq==2u?KUI_TOY_SUITE_RESUME_FOREGROUND:0u);
++    if(!was_busy)A.receive_token=e->token;
++    C.config.ops->hook();
++    uint32_t *trace=C.diagnostics.stage_result[KUI_NATIVE_RA_STAGE_NONE];
++    ++trace[foreground?4u:5u];
++    if(slice)toy_resume_slice(r,(A.variant-1u)/2u);
++    else C.config.ops->deliver(0u);
++    A.cursor=e->cursor;
++    A.retry=(uint8_t)e->retries;
++    A.error=A.error || e->failed;
++    C.stats.producer_blocks+=A.verified-verified;
++    A.receiving=C.config.ops->busy() || stream->state>RA_PAUSED;
++    if(!A.receiving)A.receive_token=0u;
++    e->cursor=saved_cursor;
++    e->active=saved_active;
++    e->failed=saved_failed;
++    e->retries=saved_retries;
++    e->since=saved_since;
++    stream->toy_suite_active=saved_policy;
++    stream->toy_suite_poll=saved_poll;
++}
++#endif
++
++#if KUI_TOY_SUITE_MODE != 66
+ /* One block per callback. Start the next DMA before CRC/EDC on the ready
+  * block, reserving space for both and for a block that straddles sectors. */
+ static void toy_ahead_pump(kui_retail_async_region_type *r,bool demand) {
+@@ -216,6 +290,8 @@ restore:
+     stream->token_budget=saved_budget;
+ }
+ 
++#endif
++
+ static bool toy_ahead_publish(kui_retail_async_region_type *r) {
+     struct kui_retail_async *e=&r->engine;
+     const struct kui_retail_gd *s=&r->shared.service;
+@@ -230,6 +306,11 @@ static bool toy_ahead_publish(kui_retail_async_region_type *r) {
+         if(A.head>=AHEAD_SLOTS)A.head-=AHEAD_SLOTS;
+         e->cursor.done=s->count;
+         e->since=e->target;
++#if KUI_TOY_SUITE_MODE == 66
++        uint32_t *trace=C.diagnostics.stage_result[KUI_NATIVE_RA_STAGE_NONE];
++        trace[(A.variant-1u)/2u]+=s->count;
++        ++C.stats.hit_requests;
++#endif
+     }
+     e->active=0u;
+     return true;
+@@ -299,13 +380,17 @@ static bool toy_movie_ahead(kui_retail_async_region_type *r,unsigned variant,boo
+         toy_resume_invalidate();
+ #if KUI_TOY_SUITE_MODE == 64
+         ++trace[2u+(variant-1u)/2u];
++#elif KUI_TOY_SUITE_MODE == 66
++        ++C.diagnostics.stage_result[KUI_NATIVE_RA_STAGE_NONE][2u+(variant-1u)/2u];
+ #endif
+     }
+     if(selected && !A.error && toy_ahead_publish(r)) {
+-        uint32_t *stats=C.diagnostics.stage_result[KUI_NATIVE_RA_STAGE_NONE];
+         if(!e->failed) {
++#if KUI_TOY_SUITE_MODE != 66
++            uint32_t *stats=C.diagnostics.stage_result[KUI_NATIVE_RA_STAGE_NONE];
+             stats[(variant-1u)/2u]+=s->count;
+             ++C.stats.hit_requests;
++#endif
+             toy_ahead_pump(r,false);
+         }
+         return true;
+diff --git a/src/loader/toy_movie_exit_hook.inc b/src/loader/toy_movie_exit_hook.inc
+index ded9c06..11cb283 100644
+--- a/src/loader/toy_movie_exit_hook.inc
++++ b/src/loader/toy_movie_exit_hook.inc
+@@ -2,7 +2,7 @@
+ #include "kui/toy_movie_exit.h"
+ 
+ #define TOY_INTRO_OPEN_POLICY (KUI_TOY_SUITE_MODE == 54 || KUI_TOY_SUITE_MODE == 56)
+-#define TOY_MOVIE_OUTPUT_WITNESS (KUI_TOY_SUITE_MODE >= 49 && KUI_TOY_SUITE_MODE <= 65)
++#define TOY_MOVIE_OUTPUT_WITNESS (KUI_TOY_SUITE_MODE >= 49 && KUI_TOY_SUITE_MODE <= 66)
+ #define TOY_MOVIE_PRESENT_WITNESS (KUI_TOY_SUITE_MODE == 60 || KUI_TOY_SUITE_MODE >= 61)
+ 
+ /* Installed at the exact original movie-update pointer. Tail-call the
+diff --git a/src/loader/toy_suite_report_save.inc b/src/loader/toy_suite_report_save.inc
+index adfc1d6..ab1245b 100644
+--- a/src/loader/toy_suite_report_save.inc
++++ b/src/loader/toy_suite_report_save.inc
+@@ -84,10 +84,14 @@ static void toy_report_format(char *text,const struct kui_native_ra_public *ra,
+     toy_ahead_recovery_report(ra,recovery,first);
+     toy_report_row(&at,"FIX POLL TAKE FETCH",recovery,4u);
+     toy_report_row(&at,"FIRST CARD WHY RAW SERVED",first,4u);
+-#elif KUI_TOY_SUITE_MODE == 64
++#elif KUI_TOY_SUITE_MODE == 64 || KUI_TOY_SUITE_MODE == 66
+     const uint32_t *admission=ra->diagnostics.stage_result[KUI_NATIVE_RA_STAGE_NONE];
+     (void)sd;
++#if KUI_TOY_SUITE_MODE == 66
++    toy_report_row(&at,"PIPE B I CALLS IRQ FAIL",
++#else
+     toy_report_row(&at,"OPEN B I KICK WAIT FAIL",
++#endif
+         (uint32_t[]){admission[2],admission[3],admission[4],admission[5],
+             ra->playback[0].failed+ra->playback[1].failed},5u);
+ #elif KUI_TOY_SUITE_MODE >= 61
+@@ -97,8 +101,11 @@ static void toy_report_format(char *text,const struct kui_native_ra_public *ra,
+ #else
+     toy_report_row(&at,"SD BLOCKS CRC",(uint32_t[]){sd->blocks,sd->crc_errors},2u);
+ #endif
+-#if KUI_TOY_SUITE_MODE != 65
+-#if KUI_TOY_SUITE_MODE == 64
++#if KUI_TOY_SUITE_MODE == 66
++    toy_report_row(&at,"SD BLOCKS PIO OVR CRC",
++        (uint32_t[]){sd->blocks,sd->polled,sd->overruns,sd->crc_errors},4u);
++#elif KUI_TOY_SUITE_MODE != 65
++#if KUI_TOY_SUITE_MODE == 64 || KUI_TOY_SUITE_MODE == 66
+     const char *intro_defer_label="I DEFER WHY FIRST END";
+ #else
+     const char *intro_defer_label="INTRO DEFER WHY FIRST END";
+@@ -282,7 +289,7 @@ static void toy_report_format(char *text,const struct kui_native_ra_public *ra,
+             (uint32_t[5]){m->overruns,m->retry_slow,m->retry_ok,m->slice_visits,m->slice_blocks},5u);
+ #endif
+         const struct kui_toy_movie_exit_witness *w=&ra->movie_exit[i];
+-#if KUI_TOY_SUITE_MODE == 49 || KUI_TOY_SUITE_MODE == 50 || KUI_TOY_SUITE_MODE == 51 || KUI_TOY_SUITE_MODE == 52 || KUI_TOY_SUITE_MODE == 53 || KUI_TOY_SUITE_MODE == 54 || KUI_TOY_SUITE_MODE == 55 || KUI_TOY_SUITE_MODE == 56 || KUI_TOY_SUITE_MODE == 57 || KUI_TOY_SUITE_MODE == 58 || KUI_TOY_SUITE_MODE == 59 || KUI_TOY_SUITE_MODE == 60 || KUI_TOY_SUITE_MODE == 61 || KUI_TOY_SUITE_MODE == 62 || KUI_TOY_SUITE_MODE == 64 || KUI_TOY_SUITE_MODE == 65
++#if KUI_TOY_SUITE_MODE == 49 || KUI_TOY_SUITE_MODE == 50 || KUI_TOY_SUITE_MODE == 51 || KUI_TOY_SUITE_MODE == 52 || KUI_TOY_SUITE_MODE == 53 || KUI_TOY_SUITE_MODE == 54 || KUI_TOY_SUITE_MODE == 55 || KUI_TOY_SUITE_MODE == 56 || KUI_TOY_SUITE_MODE == 57 || KUI_TOY_SUITE_MODE == 58 || KUI_TOY_SUITE_MODE == 59 || KUI_TOY_SUITE_MODE == 60 || KUI_TOY_SUITE_MODE == 61 || KUI_TOY_SUITE_MODE == 62 || KUI_TOY_SUITE_MODE == 64 || KUI_TOY_SUITE_MODE == 65 || KUI_TOY_SUITE_MODE == 66
+         toy_report_row(&at,i?"INTRO FLG START OUT SKIP":"BMP FLG START OUT SKIP",
+             (uint32_t[4]){w->flags,w->start_status,w->output_frames,w->skipped_frames},4u);
+ #else
+diff --git a/src/loader/vmu_native_passive.c b/src/loader/vmu_native_passive.c
+index 4a9193d..92855b5 100644
+--- a/src/loader/vmu_native_passive.c
++++ b/src/loader/vmu_native_passive.c
+@@ -1136,6 +1136,10 @@ static void toy_storage_page(const struct kui_native_ra_public *ra,
+     toy_ahead_recovery_report(ra,recovery,first);
+     retail_display_values("FIX POLL TAKE FETCH",recovery,4u);
+     retail_display_values("FIRST CARD WHY RAW SERVED",first,4u);
++#elif KUI_TOY_SUITE_MODE == 66
++    const struct kui_sci_stream_stats *sd=&region->shared.stream.stats;
++    retail_display_values("SD BLOCKS PIO OVR CRC",
++        (uint32_t[]){sd->blocks,sd->polled,sd->overruns,sd->crc_errors},4u);
+ #else
+     retail_display_values("INTRO DEFER WHY FIRST END",
+         (uint32_t[]){ra->onset[1].quiet_defers,ra->onset[1].quiet_reason,
+@@ -1146,8 +1150,12 @@ static void toy_storage_page(const struct kui_native_ra_public *ra,
+     retail_display_values("AHEAD B I REQS VERIFIED FALLBACK",
+         (uint32_t[]){ahead[0],ahead[1],ra->stats.hit_requests,
+             ra->stats.producer_blocks,ra->stats.abandoned},5u);
+-#if KUI_TOY_SUITE_MODE == 64
++#if KUI_TOY_SUITE_MODE == 64 || KUI_TOY_SUITE_MODE == 66
++#if KUI_TOY_SUITE_MODE == 66
++    retail_display_values("PIPE B I CALLS IRQ FAIL",
++#else
+     retail_display_values("OPEN B I KICK WAIT FAIL",
++#endif
+         (uint32_t[]){ahead[2],ahead[3],ahead[4],ahead[5],
+             ra->playback[0].failed+ra->playback[1].failed},5u);
+ #endif
+@@ -1240,7 +1248,7 @@ static void toy_storage_page(const struct kui_native_ra_public *ra,
+ #endif
+ #if KUI_TOY_SUITE_MOVIE_EXIT
+         const struct kui_toy_movie_exit_witness *w=&ra->movie_exit[i];
+-#if KUI_TOY_SUITE_MODE == 49 || KUI_TOY_SUITE_MODE == 50 || KUI_TOY_SUITE_MODE == 51 || KUI_TOY_SUITE_MODE == 52 || KUI_TOY_SUITE_MODE == 53 || KUI_TOY_SUITE_MODE == 54 || KUI_TOY_SUITE_MODE == 55 || KUI_TOY_SUITE_MODE == 56 || KUI_TOY_SUITE_MODE == 57 || KUI_TOY_SUITE_MODE == 58 || KUI_TOY_SUITE_MODE == 59 || KUI_TOY_SUITE_MODE == 60 || KUI_TOY_SUITE_MODE == 61 || KUI_TOY_SUITE_MODE == 62 || KUI_TOY_SUITE_MODE == 64 || KUI_TOY_SUITE_MODE == 65
++#if KUI_TOY_SUITE_MODE == 49 || KUI_TOY_SUITE_MODE == 50 || KUI_TOY_SUITE_MODE == 51 || KUI_TOY_SUITE_MODE == 52 || KUI_TOY_SUITE_MODE == 53 || KUI_TOY_SUITE_MODE == 54 || KUI_TOY_SUITE_MODE == 55 || KUI_TOY_SUITE_MODE == 56 || KUI_TOY_SUITE_MODE == 57 || KUI_TOY_SUITE_MODE == 58 || KUI_TOY_SUITE_MODE == 59 || KUI_TOY_SUITE_MODE == 60 || KUI_TOY_SUITE_MODE == 61 || KUI_TOY_SUITE_MODE == 62 || KUI_TOY_SUITE_MODE == 64 || KUI_TOY_SUITE_MODE == 65 || KUI_TOY_SUITE_MODE == 66
+         retail_display_values(i?"INTRO FLG START OUT SKIP":"BMP FLG START OUT SKIP",
+             (uint32_t[4]){w->flags,w->start_status,w->output_frames,w->skipped_frames},4u);
+ #else

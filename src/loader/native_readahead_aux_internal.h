@@ -115,7 +115,7 @@ struct kui_native_readahead_aux_context {
         uint32_t first, head, verified, failed_token, receive_token;
         uint8_t variant;
         bool error, receiving;
-#if KUI_TOY_SUITE_MODE == 65
+#if KUI_TOY_SUITE_MODE >= 65
         uint8_t retry;
 #endif
     } movie_ahead;

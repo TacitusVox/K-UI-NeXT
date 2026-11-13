@@ -1,0 +1,11 @@
+{
+  "file": "compiled-tests-1-65.tar.xz",
+  "size_bytes": 2989788,
+  "sha256": "2e3fb71d0bd6806eeb2a786d9600e2968fae0373e71942a9b89020990cac84d9",
+  "archives": 44,
+  "unique_modules": 114,
+  "original_software_bytes": 142518680,
+  "catalog_files": 250,
+  "compression": "tar + XZ LZMA2 preset 9 extreme, 256 MiB dictionary, one thread",
+  "verified": "Every decompressed catalog file matches the original staged bytes and checksums. Every software module maps to its original archive member bytes."
+}

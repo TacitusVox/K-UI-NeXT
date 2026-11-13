@@ -2,7 +2,7 @@
 #include "kui/toy_movie_exit.h"
 
 #define TOY_INTRO_OPEN_POLICY (KUI_TOY_SUITE_MODE == 54 || KUI_TOY_SUITE_MODE == 56)
-#define TOY_MOVIE_OUTPUT_WITNESS (KUI_TOY_SUITE_MODE >= 49 && KUI_TOY_SUITE_MODE <= 65)
+#define TOY_MOVIE_OUTPUT_WITNESS (KUI_TOY_SUITE_MODE >= 49 && KUI_TOY_SUITE_MODE <= 66)
 #define TOY_MOVIE_PRESENT_WITNESS (KUI_TOY_SUITE_MODE == 60 || KUI_TOY_SUITE_MODE >= 61)
 
 /* Installed at the exact original movie-update pointer. Tail-call the

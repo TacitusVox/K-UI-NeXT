@@ -1,0 +1,50 @@
+{
+  "schema": 1,
+  "base": "776c9259c00cf2aa8acd341f5ab8ac14017d5898",
+  "bundles": [
+    {
+      "role": "reader",
+      "ref": "refs/heads/toy-reader-history",
+      "head": "3124522ea906c8bd9c9cdcfd2ac5f1e87a99f3ae",
+      "prerequisite": "776c9259c00cf2aa8acd341f5ab8ac14017d5898",
+      "source_object_count": 4627,
+      "base_object_count": 3997,
+      "packed_object_count": 666,
+      "shared_object_count": 3961,
+      "bytes": 509110,
+      "sha256": "7c74459bcc8c129ca214a133c6adb2a6976d6153a26839a4bb8a28477928336d",
+      "validation": "PASS, independent base-only clone from fetched remote main, exact original HEAD and tree, every reachable object present, fsck clean",
+      "tree": "0a11034bc44980fcc7cd12a6d010fe9021851c21"
+    },
+    {
+      "role": "gui",
+      "ref": "refs/heads/toy-gui-history",
+      "head": "09c9a4b686d4b469e9cd18c7a86d5a03bf874eae",
+      "prerequisite": "776c9259c00cf2aa8acd341f5ab8ac14017d5898",
+      "source_object_count": 4250,
+      "base_object_count": 3997,
+      "packed_object_count": 278,
+      "shared_object_count": 3972,
+      "bytes": 375014,
+      "sha256": "6d37df5116470658a1f1860753a4343a7b673610dca0bb02dab76cc5643c0a50",
+      "validation": "PASS, independent base-only clone from fetched remote main, exact original HEAD and tree, every reachable object present, fsck clean",
+      "tree": "b7c1689ba984ba40f4386ae180874e8c3e3b3ca7"
+    },
+    {
+      "role": "disc",
+      "ref": "refs/heads/toy-disc-history",
+      "head": "5034eb26898d25b7a2fc8021fbb842962699c5c2",
+      "prerequisite": "776c9259c00cf2aa8acd341f5ab8ac14017d5898",
+      "source_object_count": 4047,
+      "base_object_count": 3997,
+      "packed_object_count": 84,
+      "shared_object_count": 3963,
+      "bytes": 332379,
+      "sha256": "aec55d1d119a2a9c7205bfbb6d5f8db5c342f5dff23fd66f848b853557c41761",
+      "validation": "PASS, independent base-only clone from fetched remote main, exact original HEAD and tree, every reachable object present, fsck clean",
+      "tree": "47e15d522e94f0b3071bd77cfe81a5ea3623e182"
+    }
+  ],
+  "remote": "https://github.com/TacitusVox/K-UI-NeXT.git",
+  "remote_main_verified": true
+}

@@ -1,0 +1,27 @@
+Remote main fetched directly from https://github.com/TacitusVox/K-UI-NeXT.git at 776c9259c00cf2aa8acd341f5ab8ac14017d5898
+Each bundle independently fetched into a separate shallow base-only clone.
+
+/workspace/scratch/1b16db76023d/toy-handoff/diagnostics/toy-commander/source-history/reader-history.bundle is okay
+The bundle contains this ref:
+3124522ea906c8bd9c9cdcfd2ac5f1e87a99f3ae refs/heads/toy-reader-history
+The bundle requires this ref:
+776c9259c00cf2aa8acd341f5ab8ac14017d5898 
+The bundle uses this hash algorithm: sha1
+From /workspace/scratch/1b16db76023d/toy-handoff/diagnostics/toy-commander/source-history/reader-history.bundle
+ * [new branch]      toy-reader-history -> toy-reader-history
+/workspace/scratch/1b16db76023d/toy-handoff/diagnostics/toy-commander/source-history/gui-history.bundle is okay
+The bundle contains this ref:
+09c9a4b686d4b469e9cd18c7a86d5a03bf874eae refs/heads/toy-gui-history
+The bundle requires this ref:
+776c9259c00cf2aa8acd341f5ab8ac14017d5898 
+The bundle uses this hash algorithm: sha1
+From /workspace/scratch/1b16db76023d/toy-handoff/diagnostics/toy-commander/source-history/gui-history.bundle
+ * [new branch]      toy-gui-history -> toy-gui-history
+/workspace/scratch/1b16db76023d/toy-handoff/diagnostics/toy-commander/source-history/disc-history.bundle is okay
+The bundle contains this ref:
+5034eb26898d25b7a2fc8021fbb842962699c5c2 refs/heads/toy-disc-history
+The bundle requires this ref:
+776c9259c00cf2aa8acd341f5ab8ac14017d5898 
+The bundle uses this hash algorithm: sha1
+From /workspace/scratch/1b16db76023d/toy-handoff/diagnostics/toy-commander/source-history/disc-history.bundle
+ * [new branch]      toy-disc-history -> toy-disc-history

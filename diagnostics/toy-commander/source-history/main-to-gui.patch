@@ -1,0 +1,1584 @@
+diff --git a/Makefile.dc b/Makefile.dc
+index 0612a708..ac2c3a89 100644
+--- a/Makefile.dc
++++ b/Makefile.dc
+@@ -145,6 +145,18 @@ RUNTIME_OBJECTS += $(patsubst %.c,build/dc/%.o,$(APP_SOURCES))
+ ifeq ($(KUI_SMASH_LAUNCH_TIMING),1)
+ RUNTIME_OBJECTS += build/dc/src/core/smash_phase_clock.o build/dc/src/core/smash_phase_trace.o build/dc/src/core/smash_phase_video.o
+ endif
++KUI_TOY_SUITE ?= 0
++TOY_SUITE_GUI_OBJECTS := build/dc/src/core/shell.o build/dc/src/dreamcast/shell_draw.o \
++    build/dc/src/apps/games.o build/dc/src/apps/games_retail.o build/dc/src/apps/disc_launcher.o build/dc/main-runtime.o
++$(TOY_SUITE_GUI_OBJECTS): CPPFLAGS += -DKUI_TOY_SUITE=$(KUI_TOY_SUITE)
++$(TOY_SUITE_GUI_OBJECTS): build/dc/toy-suite.config
++build/dc/src/apps/games_retail.o: src/apps/toy_suite_report_prepare.inc include/kui/toy_suite_report_wire.h
++.PHONY: force-toy-suite-config
++force-toy-suite-config:
++build/dc/toy-suite.config: force-toy-suite-config
++	@mkdir -p $(@D)
++	@printf 'KUI_TOY_SUITE=%s\n' '$(KUI_TOY_SUITE)' > $@.new
++	@cmp -s $@.new $@ && rm $@.new || mv $@.new $@
+ BUILD_ID ?= $(shell git rev-parse --short=12 HEAD 2>/dev/null || echo local)
+ 
+ .PHONY: all force-build-id wince-cdda native-cdda
+diff --git a/include/kui/disc_launcher.h b/include/kui/disc_launcher.h
+index 6cfe6be9..7eb3c3e0 100644
+--- a/include/kui/disc_launcher.h
++++ b/include/kui/disc_launcher.h
+@@ -4,6 +4,7 @@
+ #include "kui/apps.h"
+ #include "kui/runtime.h"
+ #include "kui/disc_boot.h"
++#include "kui/toy_suite.h"
+ #include "kui/vmu_game_info.h"
+ /* Exclusive optical worker operations. Check reads native GD boot metadata and
+  * exact hashes only. Prepare additionally reads our small trusted bootstrap
+@@ -15,6 +16,12 @@ void kui_disc_launcher_check(struct kui_app_status *out,kui_log_fn log,
+ bool kui_disc_launcher_prepare(struct kui_runtime_image *image,
+     struct kui_app_status *out,kui_log_fn log,kui_cancel_fn cancel,
+     kui_app_progress_fn progress);
++#if KUI_TOY_DISC_TRACE_ENABLED
++bool kui_disc_launcher_prepare_toy(struct kui_runtime_image *image,
++    struct kui_app_status *out,kui_log_fn log,kui_cancel_fn cancel,
++    kui_app_progress_fn progress);
++bool kui_toy_report_prepare_disc(struct kui_runtime_image *,kui_log_fn,kui_cancel_fn);
++#endif
+ /* Shared optical preparation for the optional disc VMU frontend. The callback
+  * runs with no optical read in flight and no filesystem mounted by this layer.
+  * It receives the actual checked physical product and complete staged immutable
+diff --git a/include/kui/games.h b/include/kui/games.h
+index 1f6f6702..e33db16c 100644
+--- a/include/kui/games.h
++++ b/include/kui/games.h
+@@ -77,6 +77,7 @@ struct kui_games_detail {
+      * launch default only; executable/reader admission still runs at launch. */
+     bool background_default;
+     bool smash_native_child; /* Complete source identity admitted for explicit native-child tests. */
++    unsigned toy_suite_sector_bytes; /* Complete Toy identity; 0 unless the diagnostic GUI verified it. */
+     enum kui_game_image_format format;
+     bool cover; /* Large box art was loaded for this image. */
+ };
+diff --git a/include/kui/recovery_scan.h b/include/kui/recovery_scan.h
+index d609cb85..18ce539b 100644
+--- a/include/kui/recovery_scan.h
++++ b/include/kui/recovery_scan.h
+@@ -12,7 +12,7 @@
+ enum kui_scan_result { KUI_SCAN_FAILED, KUI_SCAN_STOPPED, KUI_SCAN_CLEAN, KUI_SCAN_ISSUES, KUI_SCAN_STRUCTURAL };
+ struct kui_scan_status {
+     enum kui_scan_result result;
+-    bool complete;
++    bool complete, reading_tracks;
+     bool reference_hashes, checkpoint_checked;
+     bool catalogue_checked;
+     bool storage_unstable, guard_cleared;
+@@ -20,6 +20,7 @@ struct kui_scan_status {
+     struct kui_known_summary catalogue; /* Independent; reference_hashes remains manifest-only. */
+     unsigned track, tracks;
+     uint64_t done, total, elapsed_ms;
++    uint64_t read_eta_seconds; /* Zero until enough track data has been checked. */
+     uint32_t data_sectors, audio_sectors, bad_sectors, unsupported_sectors;
+     uint32_t crc_mismatches, sha_mismatches;
+     char message[128];
+diff --git a/include/kui/shell.h b/include/kui/shell.h
+index f8373b22..b7e3c970 100644
+--- a/include/kui/shell.h
++++ b/include/kui/shell.h
+@@ -376,7 +376,7 @@ struct kui_shell {
+     unsigned games_vmu_generation;
+     bool games_vmu_loading;
+     /* Disc card selection has its own product source; it never borrows Games metadata. */
+-    bool games_vmu_disc,gd_vmu_launch,gd_auto_launch;
++    bool games_vmu_disc,gd_vmu_launch,gd_auto_launch,gd_toy_trace_launch;
+     unsigned gd_options_selected,gd_region_generation;
+     bool gd_region_loading,gd_region_known,gd_region_enabled,gd_region_requested;
+     char gd_region_notice[128];
+@@ -568,6 +568,8 @@ bool kui_shell_games_image_ready(const struct kui_shell *shell);
+ /* Only fresh inspection of the selected exact Smash Pack release exposes
+  * these explicit cold native-child VMU tests. No saved setting is changed. */
+ bool kui_shell_games_smash_native_ready(const struct kui_shell *shell);
++unsigned kui_shell_games_test_count(const struct kui_shell *shell);
++unsigned kui_shell_games_toy_test_mode(const struct kui_shell *shell,unsigned row);
+ /* The view to draw: the saved view once known, else the list. */
+ unsigned kui_shell_games_view(const struct kui_shell *shell);
+ bool kui_shell_set_games_layout_saved(struct kui_shell *,unsigned generation,unsigned view,
+diff --git a/include/kui/toy_suite.h b/include/kui/toy_suite.h
+new file mode 100644
+index 00000000..bd6a7f39
+--- /dev/null
++++ b/include/kui/toy_suite.h
+@@ -0,0 +1,306 @@
++/* SPDX-License-Identifier: GPL-3.0-only */
++#ifndef KUI_TOY_SUITE_H
++#define KUI_TOY_SUITE_H
++#include "kui/game_image.h"
++#include "kui/game_metadata.h"
++#include "kui/vmu_launch_package.h"
++
++#ifndef KUI_TOY_SUITE
++#define KUI_TOY_SUITE 0
++#endif
++
++#define KUI_TOY_PHYSICAL_BASELINE_ENABLED \
++    (KUI_TOY_SUITE == 62 || (KUI_TOY_SUITE >= 64 && KUI_TOY_SUITE <= 66))
++#define KUI_TOY_DISC_TRACE_ENABLED \
++    ((KUI_TOY_SUITE >= 29 && KUI_TOY_SUITE < 38) || KUI_TOY_PHYSICAL_BASELINE_ENABLED)
++
++/* Transient Games request bits, stripped before building the manifest. */
++#define KUI_TOY_SUITE_SHIFT 16u
++#define KUI_TOY_SUITE_MASK (127u << KUI_TOY_SUITE_SHIFT)
++enum kui_toy_suite_mode {
++    KUI_TOY_SUITE_NONE, KUI_TOY_SUITE_VERIFY, KUI_TOY_SUITE_RAM,
++    KUI_TOY_SUITE_DMA_GUARD, KUI_TOY_SUITE_PACE, KUI_TOY_SUITE_COOKED,
++    KUI_TOY_SUITE_RAM_EARLY, KUI_TOY_SUITE_NO_OVERLAP,
++    KUI_TOY_SUITE_BURST=26, KUI_TOY_SUITE_BURST_COMPARE=27, KUI_TOY_SUITE_BURST_RECOVERY=28,
++    KUI_TOY_SUITE_FMV_TRACE=29, KUI_TOY_SUITE_DISC_TRACE=30,
++    KUI_TOY_SUITE_CHECKED_REFILL=31, KUI_TOY_SUITE_ASYNC_DEMAND=32,
++    KUI_TOY_SUITE_MOVIE_POLL=33, KUI_TOY_SUITE_CHECKED_RECOVERY=34,
++    KUI_TOY_SUITE_RAM_WINDOW=35, KUI_TOY_SUITE_DMA_PRIORITY=36,
++    KUI_TOY_SUITE_SLOW_RETRY=37, KUI_TOY_SUITE_REFILL_SLICE=38,
++    KUI_TOY_SUITE_MOVIE_EXIT=39, KUI_TOY_SUITE_RECOVERY_WINDOW=40,
++    KUI_TOY_SUITE_PIPELINED_RECOVERY=41, KUI_TOY_SUITE_GRAPHICS_PRIORITY=42,
++    KUI_TOY_SUITE_CONTINUOUS_PIO=43, KUI_TOY_SUITE_SEQUENTIAL_PIO=44,
++    KUI_TOY_SUITE_BOUNDED_DMA=45, KUI_TOY_SUITE_FIRST_CUT_PIO=46,
++    KUI_TOY_SUITE_DMA_BUS_SHARE=47, KUI_TOY_SUITE_STREAM_RESUME=48,
++    KUI_TOY_SUITE_RESUME_CADENCE=49, KUI_TOY_SUITE_FASTER_CHECKS=50,
++    KUI_TOY_SUITE_SCI_WAKE_RESUME=51, KUI_TOY_SUITE_FAST_SECTOR_EDC=52,
++    KUI_TOY_SUITE_FAST_BLOCK_CRC16=53, KUI_TOY_SUITE_INTRO_BUFFER=54,
++    KUI_TOY_SUITE_MOVIE_TIMING=55, KUI_TOY_SUITE_INTRO_PREFILL=56,
++    KUI_TOY_SUITE_DECODE_WINDOW=57, KUI_TOY_SUITE_TABLE_CRC16=58,
++    KUI_TOY_SUITE_FAST_COPY=59, KUI_TOY_SUITE_FRAME_TIMING=60,
++    KUI_TOY_SUITE_BUMPER_READ_LATENCY=61, KUI_TOY_SUITE_MOVIE_READ_AHEAD=62,
++    KUI_TOY_SUITE_PHYSICAL_BASELINE=63, KUI_TOY_SUITE_MOVIE_READ_AHEAD_RETRY=64,
++    KUI_TOY_SUITE_RESILIENT_READ_AHEAD=65, KUI_TOY_SUITE_MOVIE_PLAYBACK=66
++};
++
++#define KUI_TOY_DISC_TRACE_PACKAGE "0:/KUI/apps/disc/native-toy-trace.kui"
++#if KUI_TOY_PHYSICAL_BASELINE_ENABLED
++#define KUI_TOY_DISC_TRACE_TEST KUI_TOY_SUITE_PHYSICAL_BASELINE
++#define KUI_TOY_DISC_TRACE_RANGE_SEED "KUITFR63"
++#else
++#define KUI_TOY_DISC_TRACE_TEST KUI_TOY_SUITE_DISC_TRACE
++#define KUI_TOY_DISC_TRACE_RANGE_SEED "KUITFR01"
++#endif
++
++static inline const char *kui_toy_suite_name(unsigned mode) {
++#if (KUI_TOY_SUITE >= 60 && KUI_TOY_SUITE <= 62) || (KUI_TOY_SUITE >= 64 && KUI_TOY_SUITE <= 66)
++    if(mode==KUI_TOY_SUITE_DECODE_WINDOW)return "SCI decode window";
++#if KUI_TOY_SUITE == 66
++    return mode==KUI_TOY_SUITE_MOVIE_PLAYBACK?"SCI movie playback":NULL;
++#elif KUI_TOY_SUITE == 65
++    return mode==KUI_TOY_SUITE_RESILIENT_READ_AHEAD?"SCI resilient movie read ahead":NULL;
++#elif KUI_TOY_SUITE == 64
++    return mode==KUI_TOY_SUITE_MOVIE_READ_AHEAD_RETRY?"SCI movie read ahead":NULL;
++#elif KUI_TOY_SUITE == 62
++    return mode==KUI_TOY_SUITE_MOVIE_READ_AHEAD?"SCI movie read ahead":NULL;
++#elif KUI_TOY_SUITE == 61
++    return mode==KUI_TOY_SUITE_BUMPER_READ_LATENCY?"SCI bumper read latency":NULL;
++#else
++    return mode==KUI_TOY_SUITE_FRAME_TIMING?"SCI frame timing":NULL;
++#endif
++#elif KUI_TOY_SUITE >= 57 && KUI_TOY_SUITE <= 59
++    if(mode==KUI_TOY_SUITE_DECODE_WINDOW)return "SCI decode window";
++#if KUI_TOY_SUITE == 58
++    if(mode==KUI_TOY_SUITE_TABLE_CRC16)return "SCI table CRC16";
++#endif
++#if KUI_TOY_SUITE >= 59
++    if(mode==KUI_TOY_SUITE_FAST_COPY)return "SCI fast copy";
++#endif
++    return mode==KUI_TOY_SUITE_MOVIE_TIMING?"SCI movie timing":NULL;
++#elif KUI_TOY_SUITE == 55 || KUI_TOY_SUITE == 56
++    if(mode==KUI_TOY_SUITE_FAST_BLOCK_CRC16)return "SCI faster CRC16";
++#if KUI_TOY_SUITE == 56
++    if(mode==KUI_TOY_SUITE_INTRO_PREFILL)return "SCI intro prefill";
++#endif
++    return mode==KUI_TOY_SUITE_MOVIE_TIMING?"SCI movie timing":NULL;
++#elif KUI_TOY_SUITE == 54
++    if(mode==KUI_TOY_SUITE_SCI_WAKE_RESUME)return "SCI wake resume";
++    if(mode==KUI_TOY_SUITE_FAST_SECTOR_EDC)return "SCI faster EDC";
++    if(mode==KUI_TOY_SUITE_FAST_BLOCK_CRC16)return "SCI faster CRC16";
++    return mode==KUI_TOY_SUITE_INTRO_BUFFER?"SCI intro buffer":NULL;
++#elif KUI_TOY_SUITE == 51
++    if(mode==KUI_TOY_SUITE_FASTER_CHECKS)return "SCI faster checks";
++    return mode==KUI_TOY_SUITE_SCI_WAKE_RESUME?"SCI wake resume":NULL;
++#elif KUI_TOY_SUITE == 50
++    if(mode==KUI_TOY_SUITE_RESUME_CADENCE)return "SCI resume cadence";
++    return mode==KUI_TOY_SUITE_FASTER_CHECKS?"SCI faster checks":NULL;
++#elif KUI_TOY_SUITE == 48 || KUI_TOY_SUITE == 49
++#if KUI_TOY_SUITE == 49
++    if(mode==KUI_TOY_SUITE_RESUME_CADENCE)return "SCI resume cadence";
++#endif
++    if(mode==KUI_TOY_SUITE_DMA_BUS_SHARE)return "SCI DMA bus share";
++    return mode==KUI_TOY_SUITE_STREAM_RESUME?"SCI stream resume":NULL;
++#elif KUI_TOY_SUITE == 47
++    return mode==KUI_TOY_SUITE_DMA_BUS_SHARE?"SCI DMA bus share":NULL;
++#elif KUI_TOY_SUITE == 46
++    return mode==KUI_TOY_SUITE_FIRST_CUT_PIO?"SCI first-cut PIO":NULL;
++#elif KUI_TOY_SUITE >= 44
++    if(mode==KUI_TOY_SUITE_SEQUENTIAL_PIO)return "SCI sequential PIO";
++    return mode==KUI_TOY_SUITE_BOUNDED_DMA?"SCI bounded DMA":NULL;
++#elif KUI_TOY_SUITE == 43
++    return mode==KUI_TOY_SUITE_CONTINUOUS_PIO?"SCI continuous PIO":NULL;
++#elif KUI_TOY_SUITE == 42
++    return mode==KUI_TOY_SUITE_GRAPHICS_PRIORITY?"SCI graphics priority":NULL;
++#elif KUI_TOY_SUITE == 41
++    return mode==KUI_TOY_SUITE_PIPELINED_RECOVERY?"SCI pipelined recovery":NULL;
++#elif KUI_TOY_SUITE == 40
++    return mode==KUI_TOY_SUITE_RECOVERY_WINDOW?"SCI recovery window":NULL;
++#elif KUI_TOY_SUITE == 39
++    return mode==KUI_TOY_SUITE_MOVIE_EXIT?"SCI movie exit":NULL;
++#elif KUI_TOY_SUITE == 38
++    return mode==KUI_TOY_SUITE_REFILL_SLICE?"SCI refill slice":NULL;
++#else
++#if KUI_TOY_SUITE >= 37
++    if(mode==KUI_TOY_SUITE_SLOW_RETRY)return "SCI slow retry";
++#endif
++#if KUI_TOY_SUITE >= 36
++    if(mode==KUI_TOY_SUITE_DMA_PRIORITY)return "SCI DMA priority";
++#endif
++#if KUI_TOY_SUITE >= 35
++    if(mode==KUI_TOY_SUITE_RAM_WINDOW)return "SCI RAM window";
++#endif
++#if KUI_TOY_SUITE >= 34
++    if(mode==KUI_TOY_SUITE_CHECKED_RECOVERY)return "SCI checked recovery";
++#endif
++#if KUI_TOY_SUITE >= 33
++    if(mode==KUI_TOY_SUITE_MOVIE_POLL)return "SCI movie poll";
++#endif
++#if KUI_TOY_SUITE >= 32
++    if(mode==KUI_TOY_SUITE_ASYNC_DEMAND)return "SCI async demand";
++#endif
++#if KUI_TOY_SUITE >= 31
++    if(mode==KUI_TOY_SUITE_CHECKED_REFILL)return "SCI checked refill";
++#endif
++#if KUI_TOY_SUITE >= 29
++    if(mode==KUI_TOY_SUITE_FMV_TRACE)return "SCI movie trace";
++#endif
++#if KUI_TOY_SUITE >= 28
++    if(mode==KUI_TOY_SUITE_BURST_RECOVERY)return "SCI burst speed recovery";
++#endif
++#if KUI_TOY_SUITE >= 27
++    if(mode==KUI_TOY_SUITE_BURST_COMPARE)return "SCI burst quiet vs live";
++#endif
++#if KUI_TOY_SUITE >= 26
++    return mode==KUI_TOY_SUITE_BURST?"SCI burst movie reader":NULL;
++#else
++    static const char *const names[]={NULL,"Verify bytes","RAM window (baseline stop)",
++        "DMA contention guard","GD pacing","2048-byte reference",
++        "RAM window (newer stop)","Nonoverlap DMA"};
++    return mode<sizeof(names)/sizeof(*names)?names[mode]:NULL;
++#endif
++#endif
++}
++
++static inline const char *kui_toy_suite_package(unsigned mode) {
++#if (KUI_TOY_SUITE >= 60 && KUI_TOY_SUITE <= 62) || (KUI_TOY_SUITE >= 64 && KUI_TOY_SUITE <= 66)
++    if(mode==KUI_TOY_SUITE_DECODE_WINDOW)return "0:/KUI/apps/games/retail-toy-test-57.kui";
++#if KUI_TOY_SUITE == 66
++    return mode==KUI_TOY_SUITE_MOVIE_PLAYBACK?"0:/KUI/apps/games/retail-toy-test-66.kui":NULL;
++#elif KUI_TOY_SUITE == 65
++    return mode==KUI_TOY_SUITE_RESILIENT_READ_AHEAD?"0:/KUI/apps/games/retail-toy-test-65.kui":NULL;
++#elif KUI_TOY_SUITE == 64
++    return mode==KUI_TOY_SUITE_MOVIE_READ_AHEAD_RETRY?"0:/KUI/apps/games/retail-toy-test-64.kui":NULL;
++#elif KUI_TOY_SUITE == 62
++    return mode==KUI_TOY_SUITE_MOVIE_READ_AHEAD?"0:/KUI/apps/games/retail-toy-test-62.kui":NULL;
++#elif KUI_TOY_SUITE == 61
++    return mode==KUI_TOY_SUITE_BUMPER_READ_LATENCY?"0:/KUI/apps/games/retail-toy-test-61.kui":NULL;
++#else
++    return mode==KUI_TOY_SUITE_FRAME_TIMING?"0:/KUI/apps/games/retail-toy-test-60.kui":NULL;
++#endif
++#elif KUI_TOY_SUITE >= 57 && KUI_TOY_SUITE <= 59
++    if(mode==KUI_TOY_SUITE_DECODE_WINDOW)return "0:/KUI/apps/games/retail-toy-test-57.kui";
++#if KUI_TOY_SUITE == 58
++    if(mode==KUI_TOY_SUITE_TABLE_CRC16)return "0:/KUI/apps/games/retail-toy-test-58.kui";
++#endif
++#if KUI_TOY_SUITE >= 59
++    if(mode==KUI_TOY_SUITE_FAST_COPY)return "0:/KUI/apps/games/retail-toy-test-59.kui";
++#endif
++    return mode==KUI_TOY_SUITE_MOVIE_TIMING?"0:/KUI/apps/games/retail-toy-test-55.kui":NULL;
++#elif KUI_TOY_SUITE == 55 || KUI_TOY_SUITE == 56
++    if(mode==KUI_TOY_SUITE_FAST_BLOCK_CRC16)return "0:/KUI/apps/games/retail-toy-test-53.kui";
++#if KUI_TOY_SUITE == 56
++    if(mode==KUI_TOY_SUITE_INTRO_PREFILL)return "0:/KUI/apps/games/retail-toy-test-56.kui";
++#endif
++    return mode==KUI_TOY_SUITE_MOVIE_TIMING?"0:/KUI/apps/games/retail-toy-test-55.kui":NULL;
++#elif KUI_TOY_SUITE == 54
++    if(mode==KUI_TOY_SUITE_SCI_WAKE_RESUME)return "0:/KUI/apps/games/retail-toy-test-51.kui";
++    if(mode==KUI_TOY_SUITE_FAST_SECTOR_EDC)return "0:/KUI/apps/games/retail-toy-test-52.kui";
++    if(mode==KUI_TOY_SUITE_FAST_BLOCK_CRC16)return "0:/KUI/apps/games/retail-toy-test-53.kui";
++    return mode==KUI_TOY_SUITE_INTRO_BUFFER?"0:/KUI/apps/games/retail-toy-test-54.kui":NULL;
++#elif KUI_TOY_SUITE == 51
++    if(mode==KUI_TOY_SUITE_FASTER_CHECKS)return "0:/KUI/apps/games/retail-toy-test-50.kui";
++    return mode==KUI_TOY_SUITE_SCI_WAKE_RESUME?"0:/KUI/apps/games/retail-toy-test-51.kui":NULL;
++#elif KUI_TOY_SUITE == 50
++    if(mode==KUI_TOY_SUITE_RESUME_CADENCE)return "0:/KUI/apps/games/retail-toy-test-49.kui";
++    return mode==KUI_TOY_SUITE_FASTER_CHECKS?"0:/KUI/apps/games/retail-toy-test-50.kui":NULL;
++#elif KUI_TOY_SUITE == 48 || KUI_TOY_SUITE == 49
++#if KUI_TOY_SUITE == 49
++    if(mode==KUI_TOY_SUITE_RESUME_CADENCE)return "0:/KUI/apps/games/retail-toy-test-49.kui";
++#endif
++    if(mode==KUI_TOY_SUITE_DMA_BUS_SHARE)return "0:/KUI/apps/games/retail-toy-test-47.kui";
++    return mode==KUI_TOY_SUITE_STREAM_RESUME?"0:/KUI/apps/games/retail-toy-test-48.kui":NULL;
++#elif KUI_TOY_SUITE == 47
++    return mode==KUI_TOY_SUITE_DMA_BUS_SHARE?"0:/KUI/apps/games/retail-toy-test-47.kui":NULL;
++#elif KUI_TOY_SUITE == 46
++    return mode==KUI_TOY_SUITE_FIRST_CUT_PIO?"0:/KUI/apps/games/retail-toy-test-46.kui":NULL;
++#elif KUI_TOY_SUITE >= 44
++    if(mode==KUI_TOY_SUITE_SEQUENTIAL_PIO)return "0:/KUI/apps/games/retail-toy-test-44.kui";
++    return mode==KUI_TOY_SUITE_BOUNDED_DMA?"0:/KUI/apps/games/retail-toy-test-45.kui":NULL;
++#elif KUI_TOY_SUITE == 43
++    return mode==KUI_TOY_SUITE_CONTINUOUS_PIO?"0:/KUI/apps/games/retail-toy-test-43.kui":NULL;
++#elif KUI_TOY_SUITE == 42
++    return mode==KUI_TOY_SUITE_GRAPHICS_PRIORITY?"0:/KUI/apps/games/retail-toy-test-42.kui":NULL;
++#elif KUI_TOY_SUITE == 41
++    return mode==KUI_TOY_SUITE_PIPELINED_RECOVERY?"0:/KUI/apps/games/retail-toy-test-41.kui":NULL;
++#elif KUI_TOY_SUITE == 40
++    return mode==KUI_TOY_SUITE_RECOVERY_WINDOW?"0:/KUI/apps/games/retail-toy-test-40.kui":NULL;
++#elif KUI_TOY_SUITE == 39
++    return mode==KUI_TOY_SUITE_MOVIE_EXIT?"0:/KUI/apps/games/retail-toy-test-39.kui":NULL;
++#elif KUI_TOY_SUITE == 38
++    return mode==KUI_TOY_SUITE_REFILL_SLICE?"0:/KUI/apps/games/retail-toy-test-38.kui":NULL;
++#else
++#if KUI_TOY_SUITE >= 37
++    if(mode==KUI_TOY_SUITE_SLOW_RETRY)return "0:/KUI/apps/games/retail-toy-test-37.kui";
++#endif
++#if KUI_TOY_SUITE >= 36
++    if(mode==KUI_TOY_SUITE_DMA_PRIORITY)return "0:/KUI/apps/games/retail-toy-test-36.kui";
++#endif
++#if KUI_TOY_SUITE >= 35
++    if(mode==KUI_TOY_SUITE_RAM_WINDOW)return "0:/KUI/apps/games/retail-toy-test-35.kui";
++#endif
++#if KUI_TOY_SUITE >= 34
++    if(mode==KUI_TOY_SUITE_CHECKED_RECOVERY)return "0:/KUI/apps/games/retail-toy-test-34.kui";
++#endif
++#if KUI_TOY_SUITE >= 33
++    if(mode==KUI_TOY_SUITE_MOVIE_POLL)return "0:/KUI/apps/games/retail-toy-test-33.kui";
++#endif
++#if KUI_TOY_SUITE >= 32
++    if(mode==KUI_TOY_SUITE_ASYNC_DEMAND)return "0:/KUI/apps/games/retail-toy-test-32.kui";
++#endif
++#if KUI_TOY_SUITE >= 31
++    if(mode==KUI_TOY_SUITE_CHECKED_REFILL)return "0:/KUI/apps/games/retail-toy-test-31.kui";
++#endif
++#if KUI_TOY_SUITE >= 29
++    if(mode==KUI_TOY_SUITE_FMV_TRACE)return "0:/KUI/apps/games/retail-toy-test-29.kui";
++    if(mode==KUI_TOY_SUITE_DISC_TRACE)return KUI_TOY_DISC_TRACE_PACKAGE;
++#endif
++#if KUI_TOY_SUITE >= 28
++    if(mode==KUI_TOY_SUITE_BURST_RECOVERY)return "0:/KUI/apps/games/retail-toy-test-28.kui";
++#endif
++#if KUI_TOY_SUITE >= 27
++    if(mode==KUI_TOY_SUITE_BURST_COMPARE)return "0:/KUI/apps/games/retail-toy-test-27.kui";
++#endif
++#if KUI_TOY_SUITE >= 26
++    return mode==KUI_TOY_SUITE_BURST?"0:/KUI/apps/games/retail-toy-test-26.kui":NULL;
++#else
++    static const char *const paths[]={NULL,"0:/KUI/apps/games/retail-toy-test-1.kui",
++        "0:/KUI/apps/games/retail-toy-test-2.kui","0:/KUI/apps/games/retail-toy-test-3.kui",
++        "0:/KUI/apps/games/retail-toy-test-4.kui","0:/KUI/apps/games/retail-toy-test-1.kui",
++        "0:/KUI/apps/games/retail-toy-test-6.kui","0:/KUI/apps/games/retail-toy-test-7.kui"};
++    return mode<sizeof(paths)/sizeof(*paths)?paths[mode]:NULL;
++#endif
++#endif
++}
++
++/* Identity is independently checked by Games inspection, at launch, and
++ * by the detached loader. A name, product code, or folder suffix is not
++ * an image format or executable check. */
++static inline unsigned kui_toy_suite_sector_bytes(const struct kui_game_image *image,
++    const struct kui_game_metadata *metadata) {
++    if(!image || !metadata || image->format!=KUI_GAME_IMAGE_GDI || image->compressed ||
++       image->scrambled || image->cd_image || image->count!=15u ||
++       image->data_lba!=KUI_VMU_LAUNCH_TOY_SESSION_LBA ||
++       metadata->session_lba!=KUI_VMU_LAUNCH_TOY_SESSION_LBA ||
++       !metadata->ip_valid || !metadata->boot_valid || !metadata->native_gd ||
++       metadata->native_cd || metadata->windows_ce ||
++       metadata->boot_lba!=KUI_VMU_LAUNCH_TOY_BOOT_LBA ||
++       metadata->boot_bytes!=KUI_VMU_LAUNCH_TOY_EXEC_BYTES)return 0u;
++    static const uint32_t starts[]={0u,7257u,45000u,201900u,219712u,234091u,
++        255599u,272017u,282799u,303092u,323352u,341314u,356690u,374201u,377422u};
++    static const uint32_t ends[]={7107u,7753u,201750u,219712u,234091u,
++        255599u,272017u,282799u,303092u,323352u,341314u,356690u,374201u,377272u,549150u};
++    const unsigned bytes=image->tracks[0].sector_bytes;
++    if(bytes!=KUI_GAME_DATA_BYTES && bytes!=KUI_GAME_RAW_BYTES)return 0u;
++    for(unsigned i=0;i<image->count;i++) {
++        const struct kui_game_image_track *track=&image->tracks[i];
++        const bool data=i==0u || i==2u || i==14u;
++        if(track->number!=i+1u || track->start_lba!=starts[i] || track->end_lba!=ends[i] ||
++           track->control!=(data?4u:0u) || track->file_offset ||
++           track->file_bytes!=(uint64_t)(ends[i]-starts[i])*track->sector_bytes ||
++           track->sector_bytes!=(data?bytes:KUI_GAME_RAW_BYTES) ||
++           track->sector_mode!=(data?1u:0u) ||
++           track->data_offset!=(data && bytes==KUI_GAME_RAW_BYTES?16u:0u))return 0u;
++    }
++    return bytes;
++}
++#endif
+diff --git a/include/kui/toy_suite_report_wire.h b/include/kui/toy_suite_report_wire.h
+new file mode 100644
+index 00000000..900b5248
+--- /dev/null
++++ b/include/kui/toy_suite_report_wire.h
+@@ -0,0 +1,39 @@
++/* SPDX-License-Identifier: GPL-3.0-only */
++#ifndef KUI_TOY_SUITE_REPORT_WIRE_H
++#define KUI_TOY_SUITE_REPORT_WIRE_H
++
++#define KUI_TOY_REPORT_MAGIC0 0x5449554b
++#define KUI_TOY_REPORT_MAGIC1 0x31305352
++#define KUI_TOY_REPORT_VERSION 1
++#define KUI_TOY_REPORT_WIRE_BYTES 64
++#define KUI_TOY_REPORT_TEST_OFFSET 16
++#define KUI_TOY_REPORT_LBA_OFFSET 20
++#define KUI_TOY_REPORT_PLACEHOLDER_OFFSET 28
++#define KUI_TOY_REPORT_CID_OFFSET 36
++#define KUI_TOY_REPORT_HC_OFFSET 52
++#define KUI_TOY_REPORT_RESERVED_OFFSET 56
++#define KUI_TOY_REPORT_CRC_OFFSET 60
++#define KUI_TOY_REPORT_SECTOR_BYTES 512
++#define KUI_TOY_REPORT_FILE_BYTES 1024
++
++#ifndef __ASSEMBLER__
++#include <stddef.h>
++#include <stdint.h>
++
++/* Little-endian ABI. The first four words identify the all-zero template. */
++struct kui_toy_report_wire {
++    uint32_t magic[2],version,bytes,test,lba[2],placeholder_crc[2];
++    uint8_t cid[16];
++    uint32_t high_capacity,reserved,crc32;
++};
++_Static_assert(sizeof(struct kui_toy_report_wire)==KUI_TOY_REPORT_WIRE_BYTES,"Toy report wire size");
++_Static_assert(offsetof(struct kui_toy_report_wire,test)==KUI_TOY_REPORT_TEST_OFFSET,"Toy report test offset");
++_Static_assert(offsetof(struct kui_toy_report_wire,lba)==KUI_TOY_REPORT_LBA_OFFSET,"Toy report LBA offset");
++_Static_assert(offsetof(struct kui_toy_report_wire,placeholder_crc)==KUI_TOY_REPORT_PLACEHOLDER_OFFSET,
++    "Toy report placeholder CRC offset");
++_Static_assert(offsetof(struct kui_toy_report_wire,cid)==KUI_TOY_REPORT_CID_OFFSET,"Toy report CID offset");
++_Static_assert(offsetof(struct kui_toy_report_wire,high_capacity)==KUI_TOY_REPORT_HC_OFFSET,"Toy report HC offset");
++_Static_assert(offsetof(struct kui_toy_report_wire,reserved)==KUI_TOY_REPORT_RESERVED_OFFSET,"Toy report reserved offset");
++_Static_assert(offsetof(struct kui_toy_report_wire,crc32)==KUI_TOY_REPORT_CRC_OFFSET,"Toy report CRC offset");
++#endif
++#endif
+diff --git a/src/apps/disc_launcher.c b/src/apps/disc_launcher.c
+index 258d4ad2..195e014b 100644
+--- a/src/apps/disc_launcher.c
++++ b/src/apps/disc_launcher.c
+@@ -3,6 +3,7 @@
+ #include "kui/disc_boot.h"
+ #include "kui/disc_launch.h"
+ #include "kui/hash.h"
++#include "kui/toy_suite.h"
+ #include "../loader/stage_fast_crc32.h"
+ #include "platform.h"
+ #include <inttypes.h>
+@@ -411,6 +412,56 @@ bool kui_disc_launcher_prepare(struct kui_runtime_image *image,
+     struct kui_app_status *out,kui_log_fn log,kui_cancel_fn cancel,kui_app_progress_fn progress) {
+     return kui_disc_launcher_prepare_module(KUI_DISC_LAUNCH_PACKAGE,NULL,NULL,NULL,image,out,log,cancel,progress);
+ }
++#if KUI_TOY_DISC_TRACE_ENABLED
++bool kui_disc_launcher_prepare_toy(struct kui_runtime_image *image,
++    struct kui_app_status *out,kui_log_fn log,kui_cancel_fn cancel,kui_app_progress_fn progress) {
++    return kui_disc_launcher_prepare_module(KUI_TOY_DISC_TRACE_PACKAGE,NULL,NULL,NULL,image,out,log,cancel,progress);
++}
++static enum kui_game_metadata_io_result trace_movie_sector(void *context,uint32_t lba,
++    uint8_t out[KUI_GAME_METADATA_SECTOR_BYTES]) {
++    struct release_metadata *release=context;
++    if(!release_range(release,lba,1u))return KUI_GAME_METADATA_IO_ERROR;
++    switch(read_sector(release->optical,lba+150u,out)) {
++    case KUI_DISC_BOOT_IO_OK:return KUI_GAME_METADATA_IO_OK;
++    case KUI_DISC_BOOT_IO_CANCELLED:return KUI_GAME_METADATA_IO_CANCELLED;
++    default:return KUI_GAME_METADATA_IO_ERROR;
++    }
++}
++static bool trace_movie_prepare(struct optical_source *s,const struct kui_disc_boot_source *source,
++    const struct kui_disc_boot_plan *plan,struct kui_runtime_image *image) {
++    uint32_t ranges[4][2];
++    static const uint8_t seed[8u+sizeof(ranges)]=KUI_TOY_DISC_TRACE_RANGE_SEED;
++    uint8_t *payload=image->data,*slot=NULL;
++    const size_t bytes=image->info.payload_bytes;
++    for(size_t at=0;bytes>=sizeof(seed) && at<=bytes-sizeof(seed);at+=4u) {
++        if(memcmp(payload+at,seed,sizeof(seed)))continue;
++        if(slot)return false;
++        slot=payload+at;
++    }
++    if(!slot)return false;
++    static const char *const names[]={"50HZ_BUMPER_LRTF.AVI","60HZ_BUMPER_LRTF.AVI",
++        "50HZ_INTRO_LRTF.AVI","60HZ_INTRO_LRTF.AVI"};
++    struct release_metadata release={.optical=s,.source=source};
++    const struct kui_game_metadata_ops ops={&release,trace_movie_sector,release_range};
++    struct kui_game_metadata metadata=plan->metadata;
++    read_phase(s,"Toy Commander movie index");
++    for(unsigned i=0;i<4u;i++) {
++        uint32_t lba,size;
++        if(kui_game_metadata_find(&ops,&metadata,names[i],UINT32_MAX,&lba,&size)!=KUI_GAME_METADATA_OK ||
++           lba<metadata.session_lba || !size)return false;
++        const uint32_t count=(size-1u)/KUI_GAME_METADATA_SECTOR_BYTES+1u;
++        for(unsigned j=0;j<i;j++) {
++            const uint32_t other=ranges[j][0],other_count=ranges[j][1];
++            if(lba<other+other_count && other<lba+count &&
++               !(i/2u==j/2u && lba==other && count==other_count))return false;
++        }
++        ranges[i][0]=lba;ranges[i][1]=count;
++        s->log("Toy Commander disc trace: %s LBA %" PRIu32 " count %" PRIu32,names[i],lba,count);
++    }
++    memcpy(slot+8u,ranges,sizeof(ranges));
++    return true;
++}
++#endif
+ /* Staging and preflight each need a bounded sector buffer, but never at the
+  * same time. Keep this frame separate so the I/O worker does not reserve both
+  * buffers while hashing the physical disc during inspect(). */
+@@ -439,6 +490,9 @@ bool kui_disc_launcher_prepare_module(const char *package,kui_disc_launcher_card
+     if(!package || !image || !out || !log || !cancel) return false;
+     *image=(struct kui_runtime_image){0};*out=(struct kui_app_status){0};
+     struct optical_source s={.log=log,.cancel=cancel,.progress=progress,.status=out,.phase="bootstrap template"};
++#if KUI_TOY_DISC_TRACE_ENABLED
++    const bool toy_trace=!strcmp(package,KUI_TOY_DISC_TRACE_PACKAGE);
++#endif
+     if(stopped(&s)) return fail(&s,"Direct disc boot stopped.");
+     /* Only the optional frontend supplies a card callback. The validated
+      * physical-only baseline never reads a virtual preference or card. */
+@@ -459,6 +513,17 @@ bool kui_disc_launcher_prepare_module(const char *package,kui_disc_launcher_card
+     }
+     struct kui_disc_boot_source source;struct kui_disc_boot_plan plan;
+     if(!inspect(&s,&source,&plan,KUI_DISC_LAUNCH_EXEC_MAX_BYTES)) {kui_runtime_free(image);return false;}
++#if KUI_TOY_DISC_TRACE_ENABLED
++    if(toy_trace && (plan.metadata.session_lba!=KUI_VMU_LAUNCH_TOY_SESSION_LBA ||
++       plan.metadata.boot_lba!=KUI_VMU_LAUNCH_TOY_BOOT_LBA ||
++       plan.metadata.boot_bytes!=KUI_VMU_LAUNCH_TOY_EXEC_BYTES ||
++       plan.ip_crc32!=KUI_VMU_LAUNCH_TOY_IP_CRC || plan.boot_crc32!=KUI_VMU_LAUNCH_TOY_EXEC_CRC)) {
++        kui_runtime_free(image);return fail(&s,"Toy movie trace requires the same physical Toy Commander release as Test 29.");
++    }
++    if(toy_trace && !trace_movie_prepare(&s,&source,&plan,image)) {
++        kui_runtime_free(image);return fail(&s,"Could not bind the Toy Commander movie index; use the matching trace module.");
++    }
++#endif
+     if(region && !region->region_free &&
+        ((region->console!='J' && region->console!='U' && region->console!='E') ||
+         !memchr(plan.metadata.region,region->console,sizeof(plan.metadata.region)))) {
+@@ -480,6 +545,11 @@ bool kui_disc_launcher_prepare_module(const char *package,kui_disc_launcher_card
+     }
+     layout.ip_crc32=plan.ip_crc32;layout.exec_crc32=plan.boot_crc32;
+     memcpy(layout.ip_sha256,plan.ip_sha256,32u);memcpy(layout.exec_sha256,plan.boot_sha256,32u);
++#if KUI_TOY_DISC_TRACE_ENABLED
++    if(toy_trace && !kui_toy_report_prepare_disc(image,log,cancel)) {
++        kui_runtime_free(image);return fail(&s,"Could not reserve the Toy disc report on SCI microSD.");
++    }
++#endif
+     if(card) {
+         s.phase="checking virtual VMU compatibility and card";
+         uint8_t profile[KUI_DISC_LAUNCH_VMU_PROFILE_BYTES]={0};
+@@ -511,7 +581,11 @@ bool kui_disc_launcher_prepare_module(const char *package,kui_disc_launcher_card
+     image->info.payload_bytes=image->info.memory_bytes=layout.payload_bytes;
+     image->info.crc32=kui_stage_crc32(0,grown,layout.payload_bytes);
+     out->complete=out->passed=true;
+-    snprintf(out->message,sizeof(out->message),"%s",card?
++    snprintf(out->message,sizeof(out->message),"%s",
++#if KUI_TOY_DISC_TRACE_ENABLED
++        toy_trace?"Toy Commander physical-disc movie trace prepared.":
++#endif
++        card?
+         "Direct-disc boot prepared with the selected virtual VMU.":
+         "Direct-disc boot prepared. Virtual VMU is disabled for this test.");
+     log("Physical disc: direct native boot prepared; build %s; %s",image->info.build,
+diff --git a/src/apps/games.c b/src/apps/games.c
+index 127b4243..31f4a1e3 100644
+--- a/src/apps/games.c
++++ b/src/apps/games.c
+@@ -4,6 +4,9 @@
+ #include "kui/game_metadata.h"
+ #include "kui/smash_native_child.h"
+ #include "kui/games_cdda_status.h"
++#if KUI_TOY_SUITE
++#include "kui/toy_suite.h"
++#endif
+ #include "kui/games_storage.h"
+ #include "kui/hash.h"
+ #include "kui/retail_image.h"
+@@ -859,8 +862,10 @@ static bool metadata_range(void *ctx,uint32_t lba,uint32_t count) {
+  * repeats its own detached executable/runtime checks. */
+ static enum kui_game_result tested_audio_status(const struct kui_game_image *image,
+         struct image_files *files,const struct kui_game_metadata *metadata,
+-        enum kui_game_cdda_compatibility *out,struct kui_game_profile_match *profile,bool *smash_child,kui_log_fn log) {
++        enum kui_game_cdda_compatibility *out,struct kui_game_profile_match *profile,bool *smash_child,
++        unsigned *toy_suite_sector_bytes,kui_log_fn log) {
+     *out=KUI_GAME_CDDA_UNTESTED;*smash_child=false;
++    *toy_suite_sector_bytes=0u;
+     const bool smash_candidate=image->format==KUI_GAME_IMAGE_GDI && kui_storage_active()==KUI_STORAGE_SCI &&
+         !image->compressed && !image->scrambled && !image->cd_image && kui_smash_native_child_candidate(metadata);
+     memset(profile,0,sizeof(*profile));
+@@ -873,7 +878,13 @@ static enum kui_game_result tested_audio_status(const struct kui_game_image *ima
+     snprintf(identity.region,sizeof(identity.region),"%s",metadata->region);
+     struct kui_game_profile_pack *pack=malloc(sizeof(*pack));
+     if(pack)(void)kui_game_profile_pack_load(pack,log);
+-    if(!candidate && !smash_candidate && !kui_game_profile_candidate(&identity,pack)) {free(pack);return KUI_GAME_OK;}
++    unsigned toy_layout=0u;
++#if KUI_TOY_SUITE
++    if(kui_storage_active()==KUI_STORAGE_SCI)toy_layout=kui_toy_suite_sector_bytes(image,metadata);
++#endif
++    if(!candidate && !smash_candidate && !toy_layout && !kui_game_profile_candidate(&identity,pack)) {
++        free(pack);return KUI_GAME_OK;
++    }
+     FIL cached;files->identity_reader=&cached;files->identity_open=false;
+     struct kui_sha256 hash;kui_sha256_init(&hash);
+     uint8_t sector[2048],digest[32];uint32_t ip_crc=0;
+@@ -895,6 +906,8 @@ static enum kui_game_result tested_audio_status(const struct kui_game_image *ima
+     if(result==KUI_GAME_OK) {
+         kui_sha256_digest(&hash,digest);
+         *out=kui_games_cdda_test_status(candidate,ip_crc,digest);
++        if(toy_layout && kui_games_cdda_test_status(4u,ip_crc,digest)==KUI_GAME_CDDA_TESTED_LIMITED)
++            *toy_suite_sector_bytes=toy_layout;
+         *smash_child=smash_candidate && kui_smash_native_child_menu_owner(ip_crc,metadata->boot_bytes,digest);
+         identity.ip_crc32=ip_crc;memcpy(identity.boot_sha256,digest,sizeof(digest));
+         (void)kui_game_profile_query(&identity,pack,profile);
+@@ -1047,7 +1060,8 @@ bool kui_games_inspect_with_codec(const char *path,enum kui_zso_codec codec,stru
+         problem="Boot executable and full IP must be in boot-session data tracks";goto done;
+     }
+     out->valid=true;
+-    result=tested_audio_status(image,&files,&metadata,&out->cdda_compatibility,&out->profile,&out->smash_native_child,log);
++    result=tested_audio_status(image,&files,&metadata,&out->cdda_compatibility,&out->profile,
++        &out->smash_native_child,&out->toy_suite_sector_bytes,log);
+     if(result!=KUI_GAME_OK) {out->valid=false;problem=kui_game_result_name(result);goto done;}
+     out->zso_launch=image->compressed && !out->windows_ce && (out->native_gd || out->native_cd) &&
+         kui_storage_active()==KUI_STORAGE_SCI && out->boot_bytes>=KUI_RETAIL_TRAMPOLINE_BYTES &&
+diff --git a/src/apps/games_retail.c b/src/apps/games_retail.c
+index 58476e48..3587aae0 100644
+--- a/src/apps/games_retail.c
++++ b/src/apps/games_retail.c
+@@ -27,6 +27,7 @@ extern void kui_vmu_launch_history_end(void) __attribute__((weak));
+ #include "kui/retail_zso.h"
+ #include "kui/retail_loader_layout.h"
+ #include "kui/vmu_launch_package.h"
++#include "kui/toy_suite.h"
+ #include "kui/native_dual_reader.h"
+ #include "kui/native_standalone_capability.h"
+ #include "kui/native_physical_capability.h"
+@@ -850,6 +851,9 @@ static void smash_native_boot_target(struct kui_game_metadata *metadata,
+ }
+ #include "smash_menu_capsule_prepare.inc"
+ #endif
++#if KUI_TOY_SUITE
++#include "toy_suite_report_prepare.inc"
++#endif
+ static bool prepare_launch(const char *path,uint32_t reader,const struct kui_game_ram_patches *patches,
+     const struct kui_vmu_game_selection *selection,const struct kui_native_session_request *session,
+     bool reporting,struct kui_runtime_image *package,kui_log_fn log,kui_cancel_fn cancel,unsigned smash_child) {
+@@ -858,6 +862,20 @@ static bool prepare_launch(const char *path,uint32_t reader,const struct kui_gam
+     if(!log || !cancel) return false;
+     kui_smash_launch_timing_phase(KUI_SMASH_UI_METADATA);
+     const struct kui_game_ram_patches off={0};
++    unsigned toy_test=KUI_TOY_SUITE_NONE;
++#if KUI_TOY_SUITE
++    toy_test=(reader&KUI_TOY_SUITE_MASK)>>KUI_TOY_SUITE_SHIFT;
++    reader&=~KUI_TOY_SUITE_MASK;
++    if(toy_test) {
++        if(!kui_toy_suite_package(toy_test) || reader!=KUI_RETAIL_READER_ASYNC ||
++           smash_child!=KUI_SMASH_NATIVE_CHILD_NONE) {
++            log("Toy movie test: invalid reader request");return false;
++        }
++        patches=&off;
++        selection=NULL;
++        session=NULL;
++    }
++#endif
+     if(!patches) patches=&off;
+     if(!kui_game_ram_patches_valid(patches)) {log("RAM patches: invalid address or duplicate target");return false;}
+     const bool patched=kui_game_ram_patches_enabled(patches);
+@@ -929,13 +947,14 @@ static bool prepare_launch(const char *path,uint32_t reader,const struct kui_gam
+     bool emulation_enabled=true;
+     /* This preference controls native virtual cards. Separate WinCE modules
+      * neither consult it nor inherit a failure from damaged native settings. */
+-    if(!ce && !ce_excerpt && !smash_native) {
++    if(toy_test)emulation_enabled=false;
++    else if(!ce && !ce_excerpt && !smash_native) {
+         if(!kui_vmu_emulation_settings_load(&emulation_enabled,log)) {
+             problem="cannot read the saved VMU emulation setting; check VMU tools";goto done;
+         }
+         log("Native VMU emulation: %s; background reader selection is unchanged",emulation_enabled?"On":"Off");
+     }
+-    if(kui_vmu_launch_history_begin_mounted) {
++    if(!toy_test && kui_vmu_launch_history_begin_mounted) {
+         KUI_SMASH_TIME_SPAN(early_resume_time,KUI_SMASH_UI_EARLY_RESUME);
+         kui_vmu_launch_history_begin_mounted(log,cancel);
+         KUI_SMASH_TIME_END(early_resume_time);
+@@ -979,6 +998,10 @@ static bool prepare_launch(const char *path,uint32_t reader,const struct kui_gam
+     struct kui_game_metadata metadata;struct kui_game_metadata_ops metadata_ops={image,metadata_read,metadata_range};
+     enum kui_game_metadata_status ms=kui_game_metadata_read(&metadata_ops,map->session_lba,&metadata);
+     if(ms!=KUI_GAME_METADATA_OK) {problem=kui_game_metadata_status_text(ms);goto done;}
++    const unsigned toy_bytes=toy_test==KUI_TOY_SUITE_COOKED?KUI_GAME_DATA_BYTES:KUI_GAME_RAW_BYTES;
++    if(toy_test && kui_toy_suite_sector_bytes(image,&metadata)!=toy_bytes) {
++        problem="Toy movie test needs the verified original or 2048-byte GDI for the selected mode";goto done;
++    }
+     if((native_standard || native_dual) && metadata.native_gd)
+         kui_smash_launch_timing_native(path,KUI_BUILD_ID,metadata.product,native_dual?
+             (reader==KUI_RETAIL_READER_ASYNC?"Background New":"Background Legacy"):"Standard",
+@@ -989,6 +1012,11 @@ static bool prepare_launch(const char *path,uint32_t reader,const struct kui_gam
+      * takes the A2 module and its unchanged reader. */
+     const bool dual_a1=native_dual && virtual_a1 && emulation_enabled;
+     if(native_dual)launch_package=kui_native_background_package(reader,dual_a1);
++    if(toy_test) {
++        launch_package=kui_toy_suite_package(toy_test);
++        log("Toy movie test %u: %s, %u-byte image, CD music and virtual VMU Off",
++            toy_test,kui_toy_suite_name(toy_test),toy_bytes);
++    }
+     if(dual_a1) log("Virtual card in A1 for this game: %s",launch_package);
+ #if KUI_VMU_GAME_CARDS
+     if(native_standard) launch_package=smash_native?KUI_SMASH_NATIVE_CHILD_PACKAGE:kui_native_standard_package(emulation_enabled);
+@@ -1013,7 +1041,8 @@ static bool prepare_launch(const char *path,uint32_t reader,const struct kui_gam
+ #endif
+             rr=kui_runtime_read(launch_package,package,log,cancel);
+         if(rr!=KUI_RUNTIME_OK) {
+-            problem=native_dual?"Background module missing or unreadable; install the matching update":
++            problem=toy_test?"Toy test module missing or unreadable; copy the matching test ZIP":
++                native_dual?"Background module missing or unreadable; install the matching update":
+                 kui_runtime_result_name(rr);goto done;
+         }
+         kui_smash_launch_timing_phase(KUI_SMASH_UI_MODULE_VERIFY);
+@@ -1240,7 +1269,7 @@ static bool prepare_launch(const char *path,uint32_t reader,const struct kui_gam
+         if(image->tracks[i].sector_bytes==KUI_GAME_DATA_BYTES &&
+             image->tracks[i].start_lba<boot_end && image->tracks[i].end_lba>map->boot_lba)
+             cooked_boot=true;
+-    const bool required_boot_crc=patched || cdda || cooked_boot || vmu_package || image->format!=KUI_GAME_IMAGE_GDI;
++    const bool required_boot_crc=toy_test || patched || cdda || cooked_boot || vmu_package || image->format!=KUI_GAME_IMAGE_GDI;
+     const bool need_boot_crc=reporting || required_boot_crc;
+     /* Standard cache-bearing VMU modules also read the full source for SHA
+      * and SDK preflight. Reuse that read's exact-byte CRC as X/Y already do.
+@@ -1484,7 +1513,7 @@ static bool prepare_launch(const char *path,uint32_t reader,const struct kui_gam
+     if(cache==NATIVE_CACHE_SKIPPED)
+         cache=native_cache_prepare(image,map,!ce && metadata.native_gd,
+             requested_options,patched,package,files.root,emulation_enabled,log,cancel,defer_boot_crc?&source_proof:NULL,
+-            native_dual?&standalone_candidate:NULL);
++            native_dual && !toy_test?&standalone_candidate:NULL);
+     if(smash_native && (cache!=NATIVE_CACHE_READY || !source_proof.complete ||
+        source_proof.crc32!=KUI_SMASH_NATIVE_ENGINE_CRC32 ||
+        !kui_smash_native_child_engine_owner(map->boot_bytes,source_proof.sha256))) {
+@@ -1589,6 +1618,10 @@ static bool prepare_launch(const char *path,uint32_t reader,const struct kui_gam
+         }
+         log("Retail boot: executable CRC32=%08x",map->boot_crc32);
+     }
++    if(toy_test && (map->ip_crc32!=KUI_VMU_LAUNCH_TOY_IP_CRC ||
++       map->boot_crc32!=KUI_VMU_LAUNCH_TOY_EXEC_CRC)) {
++        problem="Toy movie test requires the verified MK-57020 boot image";goto done;
++    }
+     if(!close_reader(&files)) {problem="cannot close reader before preparing in-game controls";goto done;}
+     kui_smash_launch_timing_phase(KUI_SMASH_UI_SESSION_PREPARE);
+     if(!ce && !cdda && !ce_excerpt && !zso &&
+@@ -1640,6 +1673,10 @@ static bool prepare_launch(const char *path,uint32_t reader,const struct kui_gam
+         if(!kui_game_launch_report_save(&report,log,cancel))
+             log("Launch report unavailable; continuing without a new saved report");
+     }
++#if KUI_TOY_SUITE
++    if(toy_test && !toy_report_prepare(&fs,&volume,map,package,toy_test,log,cancel))
++        log("Toy report file unavailable; the game can still show its report pages");
++#endif
+     log("%s prepared: %u tracks, %u extents; IP CRC32=%08x, %s=%u bytes checked at load",
+         ce_excerpt?"Windows CE CD music":ce?"Windows CE boot test":"Retail boot",
+         map->track_count,map->extent_count,map->ip_crc32,map->bootfile,map->boot_bytes);
+diff --git a/src/apps/toy_suite_report_prepare.inc b/src/apps/toy_suite_report_prepare.inc
+new file mode 100644
+index 00000000..c27884b1
+--- /dev/null
++++ b/src/apps/toy_suite_report_prepare.inc
+@@ -0,0 +1,143 @@
++/* SPDX-License-Identifier: GPL-3.0-only */
++#include "kui/toy_suite_report_wire.h"
++#include "kui/vmu_backing.h"
++#include "kui/disc_launcher.h"
++
++static size_t toy_report_seed_slot(const struct kui_runtime_image *package) {
++    const uint8_t *payload=package->data;
++    const size_t bytes=package->info.payload_bytes;
++    size_t found=SIZE_MAX;
++    for(size_t at=0;bytes>=KUI_TOY_REPORT_WIRE_BYTES && at<=bytes-KUI_TOY_REPORT_WIRE_BYTES;at+=4u) {
++        const uint8_t *p=payload+at;
++        if(le32(p)!=KUI_TOY_REPORT_MAGIC0 || le32(p+4u)!=KUI_TOY_REPORT_MAGIC1 ||
++           le32(p+8u)!=KUI_TOY_REPORT_VERSION || le32(p+12u)!=KUI_TOY_REPORT_WIRE_BYTES)continue;
++        unsigned nonblank=0;
++        for(unsigned i=KUI_TOY_REPORT_TEST_OFFSET;i<KUI_TOY_REPORT_WIRE_BYTES;i++)nonblank|=p[i];
++        if(nonblank || found!=SIZE_MAX)return SIZE_MAX;
++        found=at;
++    }
++    return found;
++}
++
++static bool toy_report_create(unsigned test,char path[48],uint8_t blank[KUI_TOY_REPORT_FILE_BYTES],
++    kui_log_fn log,kui_cancel_fn cancel) {
++    static const char *const dirs[]={"0:/reports","0:/reports/toy"};
++    for(unsigned i=0;i<sizeof(dirs)/sizeof(*dirs);i++) {
++        if(cancel())return false;
++        FRESULT r=f_mkdir(dirs[i]);
++        if(r!=FR_OK && r!=FR_EXIST) {log("Toy report folder failed: FatFs=%u",(unsigned)r);return false;}
++    }
++    FIL file;
++    for(unsigned run=1u;run<=9999u && !cancel();run++) {
++        if(run==1u)snprintf(path,48u,"0:/reports/toy/%u.txt",test);
++        else snprintf(path,48u,"0:/reports/toy/%u-%u.txt",test,run);
++        FRESULT r=f_open(&file,path,FA_CREATE_NEW|FA_WRITE);
++        if(r==FR_EXIST)continue;
++        if(r!=FR_OK) {log("Toy report create failed: FatFs=%u",(unsigned)r);return false;}
++        memset(blank,' ',KUI_TOY_REPORT_FILE_BYTES);
++        for(unsigned i=0;i<2u;i++) {
++            uint8_t *p=blank+i*KUI_TOY_REPORT_SECTOR_BYTES;
++            int n=snprintf((char *)p,KUI_TOY_REPORT_SECTOR_BYTES,
++                "K-UI Toy Commander test %u, run %u, reserved block %u/2\n"
++                "Report pending. Hold both triggers and A+B+X+Y in the game to save.\n",test,run,i+1u);
++            if(n<0 || (unsigned)n>=KUI_TOY_REPORT_SECTOR_BYTES) {
++                (void)f_close(&file);return false;
++            }
++            p[n]=' ';
++            p[KUI_TOY_REPORT_SECTOR_BYTES-1u]='\n';
++        }
++        UINT written=0;
++        bool ok=f_write(&file,blank,KUI_TOY_REPORT_FILE_BYTES,&written)==FR_OK &&
++            written==KUI_TOY_REPORT_FILE_BYTES;
++        if(ok)ok=f_sync(&file)==FR_OK;
++        if(f_close(&file)!=FR_OK)ok=false;
++        if(!ok)log("Toy report allocation could not be flushed: %s",path+2u);
++        return ok;
++    }
++    log("Toy report allocation cancelled or all run numbers are in use");
++    return false;
++}
++
++static bool toy_report_sectors(const struct kui_retail_extent extents[2],unsigned count,
++    const struct kui_retail_manifest *map,const struct kui_volume *volume,
++    uint64_t data_first,uint32_t lba[2]) {
++    unsigned at=0;
++    if(!count || count>2u ||
++       (map && map->track_count+map->extent_count>KUI_RETAIL_ASYNC_SLOTS))return false;
++    for(unsigned i=0;i<count;i++) {
++        const struct kui_retail_extent *e=&extents[i];
++        if(e->file_block!=at || !e->blocks || e->blocks>2u-at || e->card_lba<data_first ||
++           e->card_lba<volume->start ||
++           (uint64_t)e->card_lba+e->blocks>(uint64_t)volume->start+volume->count)return false;
++        for(unsigned j=0;j<e->blocks;j++)lba[at++]=e->card_lba+j;
++        for(unsigned j=0;map && j<map->extent_count;j++) {
++            const struct kui_retail_extent *g=&map->slots[map->track_count+j].extent;
++            if((uint64_t)e->card_lba<(uint64_t)g->card_lba+g->blocks &&
++               (uint64_t)g->card_lba<(uint64_t)e->card_lba+e->blocks)return false;
++        }
++    }
++    return at==2u && lba[0]!=lba[1];
++}
++
++/* The last operation with this mounted card. Leave it unmounted if we get
++ * as far as the physical proof. A failed proof leaves the reader seed blank. */
++static bool toy_report_prepare(FATFS *fs,const struct kui_volume *volume,
++    const struct kui_retail_manifest *map,struct kui_runtime_image *package,unsigned test,
++    kui_log_fn log,kui_cancel_fn cancel) {
++    const size_t slot=toy_report_seed_slot(package);
++    if(slot==SIZE_MAX) {log("Toy report binding needs a matching reader module");return false;}
++    const uint64_t volume_end=(uint64_t)volume->start+volume->count;
++    if((!kui_toy_suite_package(test) && !(KUI_TOY_DISC_TRACE_ENABLED &&
++       test==KUI_TOY_DISC_TRACE_TEST)) || (fs->fs_type!=FS_FAT32 && fs->fs_type!=FS_EXFAT) ||
++       kui_storage_active()!=KUI_STORAGE_SCI || (map &&
++       (map->storage_transport!=KUI_STORAGE_SCI || volume->start!=map->partition_start ||
++        volume_end!=map->partition_end)))return false;
++    char path[48];
++    _Alignas(32) uint8_t blank[KUI_TOY_REPORT_FILE_BYTES],sector[KUI_TOY_REPORT_SECTOR_BYTES];
++    if(!toy_report_create(test,path,blank,log,cancel))return false;
++    struct kui_retail_extent extents[2];unsigned count=0;uint64_t bytes=0;
++    const char *problem=NULL;
++    struct kui_toy_report_wire seed={.magic={KUI_TOY_REPORT_MAGIC0,KUI_TOY_REPORT_MAGIC1},
++        .version=KUI_TOY_REPORT_VERSION,.bytes=KUI_TOY_REPORT_WIRE_BYTES,.test=test};
++    if(!kui_native_session_map_file(fs,volume,path,extents,2u,&count,&bytes,&problem,cancel) ||
++       bytes!=KUI_TOY_REPORT_FILE_BYTES ||
++       !toy_report_sectors(extents,count,map,volume,(uint64_t)volume->start+fs->database,seed.lba)) {
++        log("Toy report allocation could not be mapped safely: %s",path+2u);return false;
++    }
++    if(f_mount(NULL,"0:",0)!=FR_OK || cancel())return false;
++    struct kui_media_ops raw;
++    struct kui_vmu_sd_identity identity;
++    if(!kui_sd_raw_read_ops(&raw) || !raw.read || !kui_sd_card_identity(&identity) ||
++       identity.sectors<volume_end)return false;
++    for(unsigned i=0;i<2u;i++) {
++        if(cancel() || raw.read(raw.ctx,seed.lba[i],1u,sector) ||
++           memcmp(sector,blank+i*KUI_TOY_REPORT_SECTOR_BYTES,KUI_TOY_REPORT_SECTOR_BYTES)) {
++            log("Toy report physical readback failed: %s block %u",path+2u,i+1u);return false;
++        }
++        seed.placeholder_crc[i]=kui_retail_crc32(0,sector,sizeof(sector));
++    }
++    memcpy(seed.cid,identity.cid,sizeof(seed.cid));
++    seed.high_capacity=identity.high_capacity?1u:0u;
++    seed.crc32=kui_retail_crc32(0,&seed,KUI_TOY_REPORT_CRC_OFFSET);
++    memcpy((uint8_t *)package->data+slot,&seed,sizeof(seed));
++    log("Toy report file prepared: %s",path+2u);
++    return true;
++}
++
++#if KUI_TOY_DISC_TRACE_ENABLED
++bool kui_toy_report_prepare_disc(struct kui_runtime_image *package,kui_log_fn log,kui_cancel_fn cancel) {
++    if(toy_report_seed_slot(package)==SIZE_MAX)return false;
++    const bool photo_fallback=KUI_TOY_PHYSICAL_BASELINE_ENABLED;
++    if(!kui_sd_connect()) {
++        if(photo_fallback)log("Toy disc report unavailable; photograph the report pages");
++        return photo_fallback && !cancel();
++    }
++    FATFS fs;
++    bool ready=kui_mount(&fs,log) && toy_report_prepare(&fs,kui_media_volume(),NULL,
++        package,KUI_TOY_DISC_TRACE_TEST,log,cancel);
++    bool unmounted=f_mount(NULL,"0:",0)==FR_OK;
++    kui_sd_disconnect();
++    if(!ready && photo_fallback)log("Toy disc report unavailable; photograph the report pages");
++    return (ready || photo_fallback) && unmounted && !cancel();
++}
++#endif
+diff --git a/src/core/recovery_scan.c b/src/core/recovery_scan.c
+index 8813b71c..e4b8ace1 100644
+--- a/src/core/recovery_scan.c
++++ b/src/core/recovery_scan.c
+@@ -8,10 +8,12 @@
+ #include <stdlib.h>
+ #include <string.h>
+ 
+-#define SCAN_CHUNK_SECTORS 16u
++/* 32 raw sectors end on a 512-byte SD block boundary. */
++#define SCAN_CHUNK_SECTORS 32u
+ #define SCAN_REPORT_BAD_LIMIT 4096u
+ #define SCAN_SAMPLE_LIMIT 64u
+ #define SAMPLE_BYTES (64u+3u*KUI_RAW_BYTES)
++#define SAMPLE_READBACK_BYTES 4096u
+ struct scan {
+     struct kui_scan_manifest manifest;
+     struct kui_scan_gdi gdi;
+@@ -19,7 +21,8 @@ struct scan {
+     struct kui_known_track known[99];
+     uint8_t record[KUI_CHECKPOINT_BYTES];
+     uint8_t data[SCAN_CHUNK_SECTORS*KUI_RAW_BYTES];
+-    uint8_t repeat[4096], sample[SAMPLE_BYTES];
++    uint8_t repeat[SCAN_CHUNK_SECTORS*KUI_RAW_BYTES];
++    uint8_t sample[SAMPLE_BYTES];
+     char text[KUI_SCAN_MANIFEST_LIMIT+1u];
+     char directory[KUI_DEST_JOB_CAP],path[KUI_DEST_PATH_CAP];
+     FIL report;
+@@ -29,13 +32,25 @@ struct scan {
+     unsigned reported_bad;
+     const struct kui_scan_ops *ops;
+     struct kui_scan_status *status;
+-    uint64_t started,last_progress;
++    uint64_t started,read_started,last_progress;
+ };
+ static bool cancelled(struct scan *s) {return s->ops->cancelled && s->ops->cancelled(s->ops->ctx);}
+ static void update(struct scan *s,bool force) {
+     uint64_t now=s->ops->now_ms?s->ops->now_ms(s->ops->ctx):0;
+     s->status->elapsed_ms=now>=s->started?now-s->started:0;
+     if(s->ops->progress && (force || now-s->last_progress>=100 || !s->ops->now_ms)) {
++        struct kui_scan_status *status=s->status;
++        status->read_eta_seconds=0;
++        uint64_t read_ms=now>=s->read_started?now-s->read_started:0;
++        if(status->reading_tracks && read_ms>=2000u && status->done && status->done<status->total) {
++            uint64_t remaining=status->total-status->done;
++            if(read_ms>UINT64_MAX/remaining) status->read_eta_seconds=UINT64_MAX;
++            else {
++                uint64_t scaled=read_ms*remaining;
++                uint64_t ms=scaled/status->done;
++                status->read_eta_seconds=ms/1000u+(ms%1000u!=0 || scaled%status->done!=0);
++            }
++        }
+         s->last_progress=now;s->ops->progress(s->ops->ctx,s->status);
+     }
+ }
+@@ -242,7 +257,7 @@ static bool new_report(struct scan *s) {
+         if(f_open(&s->samples,s->sample_path,FA_READ|FA_WRITE|FA_CREATE_NEW)!=FR_OK)
+             return fail(s,"Cannot create independent saved-read samples");
+         s->samples_open=true;
+-        if(!line(s,"Every saved chunk is independently reopened and compared.\n"
++        if(!line(s,"Every saved chunk is independently read twice and compared.\n"
+             "Up to %u structural suspects retain three samples in %s.\n"
+             "Saved-read disagreements quarantine this job until a full consistent scan.\n",SCAN_SAMPLE_LIMIT,s->sample_path+2))return false;
+         return true;
+@@ -254,23 +269,16 @@ static bool unstable(struct scan *s,unsigned track,uint32_t sector,const char *p
+     if(!kui_recovery_guard_mark(s->directory,s->ops->log))return fail(s,"Saved reads disagree; quarantine publication failed");
+     return line(s,"UNSTABLE track=%02u sector=%" PRIu32 " phase=%s; optical repair blocked\n",track+1,sector,phase);
+ }
+-/* The second handle is opened afresh for each chunk, not sought backwards in
+- * the original handle's cache. This checks all saved bytes, including audio. */
+-static bool repeat_chunk(struct scan *s,unsigned ti,uint32_t position,unsigned bytes,const char *name) {
+-    path(s,name);FIL f;if(f_open(&f,s->path,FA_READ)!=FR_OK)return fail(s,"Cannot reopen saved track for consistency check");
+-    uint64_t offset=(uint64_t)position*KUI_RAW_BYTES;
+-    bool ok=f_lseek(&f,(FSIZE_t)offset)==FR_OK && f_tell(&f)==offset,differs=false;
+-    if(!ok)fail(s,"Cannot seek independent saved-track consistency read");
+-    for(unsigned at=0;ok && at<bytes;) {
+-        if(cancelled(s)) {ok=false;break;}
+-        UINT n=bytes-at>sizeof(s->repeat)?sizeof(s->repeat):bytes-at,got=0;
+-        if(f_read(&f,s->repeat,n,&got)!=FR_OK || got!=n) {ok=fail(s,"Independent saved-track read failed");break;}
+-        if(memcmp(s->repeat,s->data+at,n))differs=true;
+-        at+=n;
+-    }
+-    if(f_close(&f)!=FR_OK)ok=fail(s,"Independent saved-track close failed");
+-    if(!ok)return false;
+-    return !differs || unstable(s,ti,position,"whole-chunk repeat");
++/* Separate FILs have independent file pointers and data buffers (FF_FS_TINY=0).
++ * Advance both streams forward to avoid rewalking the track's cluster chain. */
++static bool repeat_chunk(struct scan *s,FIL *file,unsigned ti,uint32_t position,unsigned bytes) {
++    if(f_tell(file)!=(uint64_t)position*KUI_RAW_BYTES)
++        return fail(s,"Independent saved-track position differs");
++    if(cancelled(s)) return false;
++    UINT got=0;
++    if(f_read(file,s->repeat,bytes,&got)!=FR_OK || got!=bytes)
++        return fail(s,"Independent saved-track read failed");
++    return !memcmp(s->repeat,s->data,bytes) || unstable(s,ti,position,"whole-chunk repeat");
+ }
+ static void sample_put32(uint8_t *p,uint32_t n) {for(unsigned i=0;i<4;++i)p[i]=(uint8_t)(n>>(8*i));}
+ static bool sample_suspect(struct scan *s,unsigned ti,uint32_t position,unsigned flags,const char *name,const uint8_t *raw) {
+@@ -304,7 +312,7 @@ static bool sample_suspect(struct scan *s,unsigned ti,uint32_t position,unsigned
+     }
+     if(f_lseek(&s->samples,offset)!=FR_OK || f_tell(&s->samples)!=offset)return fail(s,"Cannot seek evidence readback");
+     for(unsigned at=0;at<SAMPLE_BYTES;) {
+-        UINT n=SAMPLE_BYTES-at>sizeof(s->repeat)?sizeof(s->repeat):SAMPLE_BYTES-at,got=0;
++        UINT n=SAMPLE_BYTES-at>SAMPLE_READBACK_BYTES?SAMPLE_READBACK_BYTES:SAMPLE_BYTES-at,got=0;
+         if(f_read(&s->samples,s->repeat,n,&got)!=FR_OK || got!=n || memcmp(s->repeat,record+at,n))return fail(s,"Saved-read evidence readback differs");
+         at+=n;
+     }
+@@ -317,11 +325,17 @@ static bool scan_track(struct scan *s,unsigned index) {
+     if(s->status->reference_hashes) snprintf(name,sizeof(name),"track%02u.%s",index+1,t->control==4?"bin":"raw");
+     else snprintf(name,sizeof(name),"%s",s->gdi.files[index]);
+     path(s,name);
+-    FIL file;
++    FIL file,repeat;
+     FRESULT r=f_open(&file,s->path,FA_READ);
+     if(r!=FR_OK) return file_error(s,"Track open failed",name,r);
+-    bool ok=true;uint64_t wanted=(uint64_t)(t->end-t->start)*KUI_RAW_BYTES;
+-    if(f_size(&file)!=wanted) {file_error(s,"Track length differs from metadata",name,FR_INVALID_PARAMETER);ok=false;}
++    r=f_open(&repeat,s->path,FA_READ);
++    if(r!=FR_OK) {
++        (void)f_close(&file);
++        return file_error(s,"Independent saved-track open failed",name,r);
++    }
++    uint64_t wanted=(uint64_t)(t->end-t->start)*KUI_RAW_BYTES;
++    bool ok=f_size(&file)==wanted && f_size(&repeat)==wanted;
++    if(!ok) file_error(s,"Track length differs from metadata",name,FR_INVALID_PARAMETER);
+     struct kui_sha256 sha;kui_sha256_init(&sha);uint32_t crc=0,position=0;
+     s->status->track=index+1;
+     snprintf(s->status->message,sizeof(s->status->message),"Checking %.70s: %s",name,t->control==4?"CRC + Mode 1 EDC/PQ":
+@@ -334,7 +348,7 @@ static bool scan_track(struct scan *s,unsigned index) {
+         r=f_read(&file,s->data,bytes,&got);
+         if(r!=FR_OK || got!=bytes) {file_error(s,"Track read failed",name,r==FR_OK?FR_INT_ERR:r);ok=false;break;}
+         uint32_t before=kui_crc32(0,s->data,bytes);
+-        if(!repeat_chunk(s,index,position,bytes,name)) {ok=false;break;}
++        if(!repeat_chunk(s,&repeat,index,position,bytes)) {ok=false;break;}
+         crc=kui_crc32(crc,s->data,bytes);
+         if(!s->manifest.crc_only) kui_sha256_update(&sha,s->data,bytes);
+         for(unsigned i=0;i<count;++i) {
+@@ -359,6 +373,7 @@ static bool scan_track(struct scan *s,unsigned index) {
+         if(before!=kui_crc32(0,s->data,bytes) && !unstable(s,index,position,"scan buffer changed")) {ok=false;break;}
+         position+=count;update(s,false);
+     }
++    if(f_close(&repeat)!=FR_OK) {fail(s,"Independent saved-track close failed");ok=false;}
+     if(f_close(&file)!=FR_OK) {fail(s,"Track close failed; scan is incomplete");ok=false;}
+     if(!ok) return false;
+     s->known[index]=(struct kui_known_track){index+1,t->control==4,wanted,crc};
+@@ -418,7 +433,10 @@ enum kui_scan_result kui_recovery_scan(const char *directory,const struct kui_sc
+     ops->log("Advanced CRC selected folder: %s",normalized);
+     if(!load_metadata(s) || cancelled(s) || !new_report(s)) goto done;
+     ops->log("Advanced CRC: saved files in %s; no optical rereads or repairs",normalized);
++    s->read_started=ops->now_ms?ops->now_ms(ops->ctx):0;
++    out->reading_tracks=true;
+     for(unsigned i=0;i<s->manifest.plan.count;++i) if(!scan_track(s,i)) goto done;
++    out->reading_tracks=false;
+     if(!check_catalogue(s)) goto done;
+     if(!out->storage_unstable && !kui_recovery_guard_validate(s->directory,ops->log)) {
+         fail(s,"Saved-read quarantine identity/CRC differs; scan cannot clear it");goto done;
+@@ -434,6 +452,7 @@ enum kui_scan_result kui_recovery_scan(const char *directory,const struct kui_sc
+     if(f_sync(&s->report)!=FR_OK) {fail(s,"Report sync failed; scan result is incomplete");goto done;}
+     finished=true;
+ done:
++    out->reading_tracks=false;
+     if(!finished) {
+         out->result=cancelled(s) && !s->failed?KUI_SCAN_STOPPED:KUI_SCAN_FAILED;
+         if(out->result==KUI_SCAN_STOPPED) snprintf(out->message,sizeof(out->message),"Stopped; original files preserved");
+diff --git a/src/core/shell.c b/src/core/shell.c
+index ae0b6bba..8210eb5e 100644
+--- a/src/core/shell.c
++++ b/src/core/shell.c
+@@ -2,6 +2,7 @@
+ #include "kui/shell.h"
+ #include "kui/retail_image.h"
+ #include "kui/games_retail.h"
++#include "kui/toy_suite.h"
+ #include <limits.h>
+ #include <stdio.h>
+ #include <string.h>
+@@ -1262,6 +1263,123 @@ bool kui_shell_games_smash_native_ready(const struct kui_shell *s) {
+         kui_shell_games_image_ready(s) && !s->games_detail.stopped &&
+         s->games_detail.smash_native_child;
+ }
++unsigned kui_shell_games_toy_test_mode(const struct kui_shell *s,unsigned row) {
++#if KUI_TOY_SUITE
++    if(!s || !s->games_tests_from_options || s->games_loading ||
++       !kui_shell_games_image_ready(s) || s->games_detail.stopped || row<2u)return KUI_TOY_SUITE_NONE;
++#if (KUI_TOY_SUITE >= 60 && KUI_TOY_SUITE <= 62) || (KUI_TOY_SUITE >= 64 && KUI_TOY_SUITE <= 66)
++    static const unsigned raw_modes[]={KUI_TOY_SUITE_DECODE_WINDOW,
++#if KUI_TOY_SUITE == 66
++        KUI_TOY_SUITE_MOVIE_PLAYBACK,
++#elif KUI_TOY_SUITE == 65
++        KUI_TOY_SUITE_RESILIENT_READ_AHEAD,
++#elif KUI_TOY_SUITE == 64
++        KUI_TOY_SUITE_MOVIE_READ_AHEAD_RETRY,
++#elif KUI_TOY_SUITE == 62
++        KUI_TOY_SUITE_MOVIE_READ_AHEAD,
++#elif KUI_TOY_SUITE == 61
++        KUI_TOY_SUITE_BUMPER_READ_LATENCY,
++#else
++        KUI_TOY_SUITE_FRAME_TIMING,
++#endif
++    };
++#elif KUI_TOY_SUITE >= 57 && KUI_TOY_SUITE <= 59
++    static const unsigned raw_modes[]={KUI_TOY_SUITE_MOVIE_TIMING,KUI_TOY_SUITE_DECODE_WINDOW,
++#if KUI_TOY_SUITE == 58
++        KUI_TOY_SUITE_TABLE_CRC16,
++#endif
++#if KUI_TOY_SUITE >= 59
++        KUI_TOY_SUITE_FAST_COPY,
++#endif
++    };
++#elif KUI_TOY_SUITE == 55 || KUI_TOY_SUITE == 56
++    static const unsigned raw_modes[]={KUI_TOY_SUITE_FAST_BLOCK_CRC16,KUI_TOY_SUITE_MOVIE_TIMING,
++#if KUI_TOY_SUITE == 56
++        KUI_TOY_SUITE_INTRO_PREFILL,
++#endif
++    };
++#elif KUI_TOY_SUITE == 54
++    static const unsigned raw_modes[]={KUI_TOY_SUITE_SCI_WAKE_RESUME,
++        KUI_TOY_SUITE_FAST_SECTOR_EDC,KUI_TOY_SUITE_FAST_BLOCK_CRC16,KUI_TOY_SUITE_INTRO_BUFFER};
++#elif KUI_TOY_SUITE == 51
++    static const unsigned raw_modes[]={KUI_TOY_SUITE_FASTER_CHECKS,KUI_TOY_SUITE_SCI_WAKE_RESUME};
++#elif KUI_TOY_SUITE == 50
++    static const unsigned raw_modes[]={KUI_TOY_SUITE_RESUME_CADENCE,KUI_TOY_SUITE_FASTER_CHECKS};
++#elif KUI_TOY_SUITE == 48 || KUI_TOY_SUITE == 49
++    static const unsigned raw_modes[]={KUI_TOY_SUITE_DMA_BUS_SHARE,KUI_TOY_SUITE_STREAM_RESUME,
++#if KUI_TOY_SUITE == 49
++        KUI_TOY_SUITE_RESUME_CADENCE,
++#endif
++    };
++#elif KUI_TOY_SUITE == 47
++    static const unsigned raw_modes[]={KUI_TOY_SUITE_DMA_BUS_SHARE};
++#elif KUI_TOY_SUITE == 46
++    static const unsigned raw_modes[]={KUI_TOY_SUITE_FIRST_CUT_PIO};
++#elif KUI_TOY_SUITE >= 44
++    static const unsigned raw_modes[]={KUI_TOY_SUITE_SEQUENTIAL_PIO,KUI_TOY_SUITE_BOUNDED_DMA};
++#elif KUI_TOY_SUITE == 43
++    static const unsigned raw_modes[]={KUI_TOY_SUITE_CONTINUOUS_PIO};
++#elif KUI_TOY_SUITE == 42
++    static const unsigned raw_modes[]={KUI_TOY_SUITE_GRAPHICS_PRIORITY};
++#elif KUI_TOY_SUITE == 41
++    static const unsigned raw_modes[]={KUI_TOY_SUITE_PIPELINED_RECOVERY};
++#elif KUI_TOY_SUITE == 40
++    static const unsigned raw_modes[]={KUI_TOY_SUITE_RECOVERY_WINDOW};
++#elif KUI_TOY_SUITE == 39
++    static const unsigned raw_modes[]={KUI_TOY_SUITE_MOVIE_EXIT};
++#elif KUI_TOY_SUITE == 38
++    static const unsigned raw_modes[]={KUI_TOY_SUITE_REFILL_SLICE};
++#elif KUI_TOY_SUITE >= 29
++    static const unsigned raw_modes[]={
++#if KUI_TOY_SUITE >= 37
++        KUI_TOY_SUITE_SLOW_RETRY,
++#endif
++#if KUI_TOY_SUITE >= 36
++        KUI_TOY_SUITE_DMA_PRIORITY,
++#endif
++#if KUI_TOY_SUITE >= 35
++        KUI_TOY_SUITE_RAM_WINDOW,
++#endif
++#if KUI_TOY_SUITE >= 34
++        KUI_TOY_SUITE_CHECKED_RECOVERY,
++#endif
++#if KUI_TOY_SUITE >= 33
++        KUI_TOY_SUITE_MOVIE_POLL,
++#endif
++#if KUI_TOY_SUITE >= 32
++        KUI_TOY_SUITE_ASYNC_DEMAND,
++#endif
++#if KUI_TOY_SUITE >= 31
++        KUI_TOY_SUITE_CHECKED_REFILL,
++#endif
++        KUI_TOY_SUITE_FMV_TRACE,KUI_TOY_SUITE_BURST_RECOVERY,
++        KUI_TOY_SUITE_BURST_COMPARE,KUI_TOY_SUITE_BURST};
++#elif KUI_TOY_SUITE == 28
++    static const unsigned raw_modes[]={KUI_TOY_SUITE_BURST_RECOVERY,KUI_TOY_SUITE_BURST_COMPARE,
++        KUI_TOY_SUITE_BURST};
++#elif KUI_TOY_SUITE == 27
++    static const unsigned raw_modes[]={KUI_TOY_SUITE_BURST_COMPARE,KUI_TOY_SUITE_BURST};
++#elif KUI_TOY_SUITE == 26
++    static const unsigned raw_modes[]={KUI_TOY_SUITE_BURST};
++#else
++    static const unsigned raw_modes[]={KUI_TOY_SUITE_VERIFY,KUI_TOY_SUITE_RAM,
++        KUI_TOY_SUITE_DMA_GUARD,KUI_TOY_SUITE_PACE,KUI_TOY_SUITE_RAM_EARLY,KUI_TOY_SUITE_NO_OVERLAP};
++    if(s->games_detail.toy_suite_sector_bytes==KUI_GAME_DATA_BYTES && row==2u)
++        return KUI_TOY_SUITE_COOKED;
++#endif
++    if(s->games_detail.toy_suite_sector_bytes==KUI_GAME_RAW_BYTES && row-2u<sizeof(raw_modes)/sizeof(*raw_modes))
++        return raw_modes[row-2u];
++#else
++    (void)s;
++    (void)row;
++#endif
++    return KUI_TOY_SUITE_NONE;
++}
++unsigned kui_shell_games_test_count(const struct kui_shell *s) {
++    unsigned rows=2u;
++    while(kui_shell_games_toy_test_mode(s,rows))++rows;
++    return rows>2u?rows:kui_shell_games_smash_native_ready(s)?4u:2u;
++}
+ bool kui_shell_games_retail_ready(const struct kui_shell *s) {
+     return kui_shell_games_image_ready(s) &&
+         memchr(s->games_detail.title,0,sizeof(s->games_detail.title)) &&
+@@ -3477,12 +3595,17 @@ enum kui_shell_action kui_shell_input(struct kui_shell *s,
+         break;
+     case KUI_SHELL_GAMES_PATCHES:
+         return game_patch_input(s,buttons);
+-    case KUI_SHELL_GAMES_TESTS:
++    case KUI_SHELL_GAMES_TESTS: {
+         if(buttons==KUI_SHELL_UP || buttons==KUI_SHELL_DOWN) {
+-            s->game_tests_selected=move_count(s->game_tests_selected,buttons,
+-                kui_shell_games_smash_native_ready(s)?4u:2u);break;
++            s->game_tests_selected=move_count(s->game_tests_selected,buttons,kui_shell_games_test_count(s));
++            break;
+         }
+         if(buttons!=KUI_SHELL_A) break;
++        unsigned toy=kui_shell_games_toy_test_mode(s,s->game_tests_selected);
++        if(toy) {
++            s->games_retail_reader=KUI_RETAIL_READER_ASYNC | (toy<<KUI_TOY_SUITE_SHIFT);
++            return KUI_SHELL_GAMES_RETAIL;
++        }
+         if(s->game_tests_selected==0u && kui_shell_games_image_ready(s) &&
+            s->games_detail.format==KUI_GAME_IMAGE_GDI) s->page=KUI_SHELL_GAMES_IMAGE_PROBE_CONFIRM;
+         else if(s->game_tests_selected==1u) s->page=KUI_SHELL_GAMES_PROBE_CONFIRM;
+@@ -3491,6 +3614,7 @@ enum kui_shell_action kui_shell_input(struct kui_shell *s,
+             if(s->game_tests_selected==3u)return KUI_SHELL_GAMES_SMASH_SHINING_FORCE;
+         }
+         break;
++    }
+     case KUI_SHELL_GAMES_INFO:
+         break;
+     case KUI_SHELL_FILES:
+@@ -4145,6 +4269,12 @@ enum kui_shell_action kui_shell_input(struct kui_shell *s,
+         }
+         break;
+     case KUI_SHELL_GD_PLAY:
++#if KUI_TOY_DISC_TRACE_ENABLED
++        if(buttons==KUI_SHELL_RIGHT) {
++            s->gd_toy_trace_launch=true;
++            return KUI_SHELL_GD_DIRECT_BOOT;
++        }
++#endif
+         if(buttons==KUI_SHELL_START) {
+             s->page=KUI_SHELL_DISC_CARDS;s->disc_cards_selected=0;s->disc_cards_confirming=false;
+             s->gd_auto_launch=s->gd_vmu_launch=s->games_vmu_pick_pending_launch=false;
+diff --git a/src/dreamcast/main.c b/src/dreamcast/main.c
+index a7bc3100..ad54f83e 100644
+--- a/src/dreamcast/main.c
++++ b/src/dreamcast/main.c
+@@ -50,6 +50,7 @@ static volatile uint8_t kui_update_ram_handoff[KUI_UPDATE_HANDOFF_BYTES]
+ #include "kui/games_probe.h"
+ #include "kui/games_image_probe.h"
+ #include "kui/games_retail.h"
++#include "kui/toy_suite.h"
+ #include "kui/smash_native_child.h"
+ #include "kui/games_covers.h"
+ #include "kui/games_storage.h"
+@@ -213,6 +214,9 @@ static uint8_t vmu_name_identity_pending[16];
+ static struct kui_vmu_game_info vmu_game_info_snapshot,disc_vmu_info_snapshot;
+ static unsigned disc_vmu_info_generation,disc_vmu_info_request_pending,disc_vmu_info_request_result;
+ static bool disc_vmu_launch_pending;
++#if KUI_TOY_DISC_TRACE_ENABLED
++static bool disc_toy_trace_pending;
++#endif
+ static struct kui_disc_cards_request disc_cards_pending;
+ static struct kui_disc_cards_view disc_cards_snapshot;
+ static unsigned disc_cards_generation;
+@@ -1748,7 +1752,20 @@ static void scan_progress(void *ctx,const struct kui_scan_status *status) {
+         .complete=status->complete,.passed=status->result==KUI_SCAN_CLEAN && status->complete,
+         .stopped=status->result==KUI_SCAN_STOPPED,.line_count=5};
+     snprintf(view.message,sizeof(view.message),"%s",status->message);
+-    snprintf(view.lines[0],KUI_APP_LINE_CAP,"Track %u / %u",status->track,status->tracks);
++    if(status->total) {
++        unsigned percent=kui_shell_progress_tenths(status->done,status->total);
++        char eta[32]="";
++        if(status->reading_tracks && status->done<status->total) {
++            uint64_t seconds=status->read_eta_seconds;
++            if(!seconds) snprintf(eta,sizeof(eta),"   ETA estimating");
++            else if(seconds>=360000u) snprintf(eta,sizeof(eta),"   ETA >99h");
++            else if(seconds>=3600u) snprintf(eta,sizeof(eta),"   ETA %u:%02u:%02u",
++                (unsigned)(seconds/3600u),(unsigned)(seconds/60u%60u),(unsigned)(seconds%60u));
++            else snprintf(eta,sizeof(eta),"   ETA %u:%02u",(unsigned)(seconds/60u),(unsigned)(seconds%60u));
++        }
++        snprintf(view.lines[0],KUI_APP_LINE_CAP,"Track %u / %u   %u.%u%%%s",
++            status->track,status->tracks,percent/10u,percent%10u,eta);
++    } else snprintf(view.lines[0],KUI_APP_LINE_CAP,"Track %u / %u",status->track,status->tracks);
+     snprintf(view.lines[1],KUI_APP_LINE_CAP,"Data sectors %lu  Audio sectors %lu",
+         (unsigned long)status->data_sectors,(unsigned long)status->audio_sectors);
+     snprintf(view.lines[2],KUI_APP_LINE_CAP,"Bad sectors %lu  Unsupported %lu",
+@@ -4098,24 +4115,26 @@ static void *worker(void *unused) {
+             if(action==56 || action==57 || action==58 || action==104 || action==121 || action==122) {
+                 kui_sd_set_params(KUI_STORAGE_AUTO,true);
+                 struct kui_native_session_request session_request={0};
+-                bool session_ready=(action==58 || action==121 || action==122) && !kui_cancelled() &&
++                bool toy_test=KUI_TOY_SUITE && action==58 && (games_reader_pending&KUI_TOY_SUITE_MASK);
++                bool normal_game=(action==58 || action==121 || action==122) && !toy_test;
++                bool session_ready=normal_game && !kui_cancelled() &&
+                     kui_games_library_session_request(games_activity_root_pending,games_path_pending,
+                         &session_request,kui_log,kui_cancelled);
+                 struct kui_games_activity_entry recent_key;
+-                bool recent_ready=(action==58 || action==121 || action==122) && !kui_cancelled() &&
++                bool recent_ready=normal_game && !kui_cancelled() &&
+                     kui_games_library_activity_key(games_activity_root_pending,games_path_pending,&recent_key,kui_log);
+                 /* Resolve the disc-set identity while normal file services
+                  * still own it, then release catalogue RAM before preparation. */
+                 if(action==58 || action==121 || action==122) {kui_games_library_clear();(void)kui_games_storage_release();}
+-                if(action!=104) (void)games_selection_store(true);
+-                else disc_launch_release_menu_memory();
++                if(action==104)disc_launch_release_menu_memory();
++                else if(!toy_test)(void)games_selection_store(true);
+                 kui_sd_set_params(KUI_STORAGE_AUTO,true);
+                 struct kui_app_status disc_result;
+                 /* Recover on the prepare's mounted owner, after selection
+                  * writes but before launch/card allocation. The request is
+                  * consumed even by CE/CDDA/standalone routes without a card
+                  * boundary. No proof survives this one foreground call. */
+-                if((action==58 || action==121 || action==122) && vmu_history_resume_needed && vmu_emulation_generation &&
++                if(normal_game && vmu_history_resume_needed && vmu_emulation_generation &&
+                    vmu_emulation_ok && vmu_emulation_enabled) {
+                     kui_vmu_launch_history_request(true);
+                 } else kui_vmu_launch_history_request(false);
+@@ -4124,7 +4143,12 @@ static void *worker(void *unused) {
+                         KUI_SMASH_NATIVE_CHILD_SHINING_FORCE,games_path_pending,games_reader_pending,
+                         &games_patches_pending,&games_vmu_selection_pending,session_ready?&session_request:NULL,
+                         &probe_image,kui_log,kui_cancelled):action==104?
+-                    (disc_vmu_launch_pending?
++                    (
++#if KUI_TOY_DISC_TRACE_ENABLED
++                     disc_toy_trace_pending?
++                     kui_disc_launcher_prepare_toy(&probe_image,&disc_result,kui_log,kui_cancelled,disc_launch_progress):
++#endif
++                     disc_vmu_launch_pending?
+                      kui_disc_launcher_prepare_vmu(&games_vmu_selection_pending,&probe_image,&disc_result,kui_log,kui_cancelled,disc_launch_progress):
+                      kui_disc_launcher_prepare(&probe_image,&disc_result,kui_log,kui_cancelled,disc_launch_progress)):action==58?
+                     kui_games_retail_prepare_launch_session_card(games_path_pending,games_reader_pending,&games_patches_pending,
+@@ -5700,6 +5724,7 @@ int main(void) {
+                     action==54 || action==109 || action==114?shell.games_path:shell.games_selected_path);
+                 games_offset_pending=shell.games_page*KUI_GAMES_ROWS;
+                 games_reader_pending=shell.games_retail_reader;
++                if(KUI_TOY_SUITE && action==58)shell.games_retail_reader&=~KUI_TOY_SUITE_MASK;
+                 games_patches_pending=shell.games_launch_patches;
+                 games_vmu_selection_pending=shell.games_vmu_selection;
+             }
+@@ -5719,6 +5744,11 @@ int main(void) {
+             if(action==105) disc_vmu_info_request_pending=shell.games_vmu_generation;
+             if(action==104) {
+                 disc_vmu_launch_pending=shell.gd_vmu_launch;
++#if KUI_TOY_DISC_TRACE_ENABLED
++                disc_toy_trace_pending=shell.gd_toy_trace_launch;
++                shell.gd_toy_trace_launch=false;
++                if(disc_toy_trace_pending)disc_vmu_launch_pending=false;
++#endif
+                 games_vmu_selection_pending=disc_vmu_launch_pending?shell.games_vmu_selection:(struct kui_vmu_game_selection){0};
+             }
+             if(action==55) {games_codec_pending=shell.games_launch_codec;games_codec_override_pending=shell.games_codec_override;}
+diff --git a/src/dreamcast/shell_draw.c b/src/dreamcast/shell_draw.c
+index 28618ddc..f0bc2fdc 100644
+--- a/src/dreamcast/shell_draw.c
++++ b/src/dreamcast/shell_draw.c
+@@ -4,6 +4,7 @@
+ #include "kui/shell_font.h"
+ #include "kui/retail_image.h"
+ #include "kui/storage.h"
++#include "kui/toy_suite.h"
+ #include "shell_art.inc"
+ #include <stdio.h>
+ #include <string.h>
+@@ -2195,6 +2196,11 @@ static void gd_play(struct paint *p,const struct kui_shell_view *v) {
+     panel(p,32,174,576,224,PANEL);
+     label(p,48,190,WHITE,"A K-UI boot");
+     label(p,48,214,CYAN,"X Stock retail boot");
++#if KUI_TOY_PHYSICAL_BASELINE_ENABLED
++    label(p,352,214,CYAN,"Right 63 Toy movie trace");
++#elif KUI_TOY_DISC_TRACE_ENABLED
++    label(p,352,214,CYAN,"Right Toy movie trace");
++#endif
+     label(p,48,238,CYAN,"Y Options");
+     label(p,352,238,CYAN,"START Save cards");
+     const struct kui_app_status *status=v->app_status;
+@@ -2999,6 +3005,22 @@ static void games_tests(struct paint *p,const struct kui_shell *s) {
+     words(p,40,140,608,CYAN,s->games_tests_from_options?s->games_selected_path:"SD loader diagnostics",false);
+     bool smash=kui_shell_games_smash_native_ready(s);
+     const char *names[]={"Image read test","Loader read test","Phantasy Star II VMU","Shining Force VMU"};
++    if(kui_shell_games_toy_test_mode(s,2u)) {
++        const unsigned count=kui_shell_games_test_count(s);
++        const unsigned row_spacing=count>12u?18u:count>11u?19u:count>10u?21u:count>9u?23u:count>8u?26u:29u;
++        for(unsigned i=0;i<count;i++) {
++            unsigned y=166u+i*row_spacing;
++            unsigned mode=kui_shell_games_toy_test_mode(s,i);
++            char name[64];
++            if(mode)snprintf(name,sizeof(name),"%u  %s",mode,kui_toy_suite_name(mode));
++            panel(p,32,y,576,row_spacing-3u,s->game_tests_selected==i?SELECTED:PANEL);
++            label(p,48,y+4u,WHITE,mode?name:names[i]);
++        }
++        label(p,40,count==3u?266u:count>12u?410u:402u,MUTED,
++            count==3u?"Toy Commander runs with CD music and virtual VMU Off.":
++            "Toy tests use New (X), CD music and virtual VMU Off.");
++        return;
++    }
+     const char *hints[]={"Read samples from the selected GDI.","Run the standalone SD loader test program.",
+         "Start with VC2's shared test card in A1.","Start with VC2's shared test card in A1."};
+     for(unsigned i=0;i<(smash?4u:2u);i++) {
+diff --git a/tests/recovery_scan_image.c b/tests/recovery_scan_image.c
+index cce56573..6b1f96db 100644
+--- a/tests/recovery_scan_image.c
++++ b/tests/recovery_scan_image.c
+@@ -10,11 +10,13 @@
+ #include <string.h>
+ #include <sys/stat.h>
+ #include <unistd.h>
++#define FIXTURE_FILE_CAP (40u*KUI_RAW_BYTES+1u)
+ static struct {
+     FILE *image;uint64_t blocks;const char *fault;bool scanning,injected,cancelled;
+     bool report_seen,complete_seen;uint32_t first_track;
+     DWORD track_clusters[3];uint64_t track_read_bytes;unsigned catalogue_cancel_checks;
+     unsigned track_reads[3];
++    LBA_t tail_block;unsigned tail_offset,tail_reads;
+     unsigned writes;uint64_t now;
+     struct kui_scan_status *status;
+ } test;
+@@ -32,7 +34,12 @@ static int read_image(void *ctx,uint32_t block,size_t count,uint8_t *data) {
+     if((fault("read-fail") || fault("read-fail-cancel")) && block<=test.first_track && test.first_track<block+count) {
+         test.injected=true;if(fault("read-fail-cancel")) test.cancelled=true;return -1;
+     }
+-    return fseeko(test.image,(off_t)block*512,SEEK_SET) || fread(data,512,count,test.image)!=count?-1:0;
++    if(fseeko(test.image,(off_t)block*512,SEEK_SET) || fread(data,512,count,test.image)!=count) return -1;
++    if(fault("unstable-tail") && block<=test.tail_block && test.tail_block<block+count &&
++       ++test.tail_reads==2) {
++        data[(test.tail_block-block)*512+test.tail_offset]^=1;test.injected=true;
++    }
++    return 0;
+ }
+ static int write_image(void *ctx,uint32_t block,size_t count,const uint8_t *data) {
+     (void)ctx;++test.writes;
+@@ -78,9 +85,13 @@ static bool cancel(void *ctx) {
+     return test.cancelled || fault("cancel-before") ||
+         ((fault("cancel-scan") || fault("guard-cancel")) && test.status->done>=2*KUI_RAW_BYTES);
+ }
+-static uint64_t now_ms(void *ctx) {(void)ctx;test.now+=100;return test.now;}
++static uint64_t now_ms(void *ctx) {(void)ctx;test.now+=1000;return test.now;}
+ static void progress(void *ctx,const struct kui_scan_status *status) {
+     (void)ctx;assert(status->done<=status->total);assert(status->track<=status->tracks);
++    if(!status->reading_tracks || !status->done || status->done==status->total)
++        assert(!status->read_eta_seconds);
++    if(fault("clean") && status->reading_tracks && status->track==1u && status->done==5u*KUI_RAW_BYTES)
++        assert(status->read_eta_seconds==4u); /* Two seconds for 5 sectors, 9 left. */
+ }
+ static void remount(void) {assert(f_mount(NULL,"0:",0)==FR_OK);kui_media_set(&media);assert(kui_mount(&fs,log_line));}
+ static void file_path(char out[KUI_DEST_PATH_CAP],const char *name) {snprintf(out,KUI_DEST_PATH_CAP,"%s/%s",folder,name);}
+@@ -121,7 +132,7 @@ static void seed_catalogue(void) {
+ static void seed(const char *host) {
+     assert(f_mkdir("0:/Games")==FR_OK);assert(f_mkdir(folder)==FR_OK);
+     for(unsigned i=0;i<sizeof(files)/sizeof(files[0]);++i) {
+-        char path[1024],dest[KUI_DEST_PATH_CAP];uint8_t data[32768];
++        char path[1024],dest[KUI_DEST_PATH_CAP];uint8_t data[FIXTURE_FILE_CAP];
+         snprintf(path,sizeof(path),"%s/%s",host,files[i]);FILE *file=fopen(path,"rb");assert(file);
+         size_t size=fread(data,1,sizeof(data),file);assert(size<sizeof(data) && !ferror(file) && !fclose(file));
+         file_path(dest,files[i]);write_file(dest,data,(UINT)size);
+@@ -179,12 +190,17 @@ static void seed(const char *host) {
+         char path[KUI_DEST_PATH_CAP];file_path(path,files[4+i]);FIL file;assert(f_open(&file,path,FA_READ)==FR_OK);
+         test.track_clusters[i]=file.obj.sclust;
+         if(!i) test.first_track=(uint32_t)(fs.database+(LBA_t)(file.obj.sclust-2)*fs.csize);
++        if(i==2 && !strcmp(test.fault,"unstable-tail")) {
++            FSIZE_t last=f_size(&file)-1;
++            assert(last>=32u*KUI_RAW_BYTES && f_lseek(&file,last)==FR_OK && file.sect);
++            test.tail_block=file.sect;test.tail_offset=(unsigned)(last%512);
++        }
+         assert(f_close(&file)==FR_OK);
+     }
+ }
+ static void originals(uint32_t hashes[7],size_t sizes[7]) {
+     for(unsigned i=0;i<7;++i) {
+-        char path[KUI_DEST_PATH_CAP];uint8_t data[32768];file_path(path,files[i]);FILINFO info;FRESULT r=f_stat(path,&info);
++        char path[KUI_DEST_PATH_CAP];uint8_t data[FIXTURE_FILE_CAP];file_path(path,files[i]);FILINFO info;FRESULT r=f_stat(path,&info);
+         if(r==FR_NO_FILE) {sizes[i]=SIZE_MAX;hashes[i]=0;continue;}
+         assert(r==FR_OK);sizes[i]=load(path,data,sizeof(data));hashes[i]=kui_crc32(0,data,sizes[i]);
+     }
+@@ -219,6 +235,7 @@ int main(int argc,char **argv) {
+     struct kui_scan_status status;test.status=&status;test.scanning=true;
+     const struct kui_scan_ops ops={NULL,cancel,now_ms,progress,log_line};
+     enum kui_scan_result result=kui_recovery_scan(!strcmp(test.fault,"parent")?"0:/Games":folder,&ops,&status);
++    assert(!status.reading_tracks && !status.read_eta_seconds);
+     test.scanning=false;test.cancelled=false;
+     bool good=!strcmp(test.fault,"clean") || !strcmp(test.fault,"one-checkpoint") || !strcmp(test.fault,"repeat") || !strcmp(test.fault,"sha") ||
+         !strcmp(test.fault,"no-checkpoints") || !strcmp(test.fault,"named") || !strcmp(test.fault,"named-sha") || !strcmp(test.fault,"long-folder") ||
+@@ -228,17 +245,20 @@ int main(int argc,char **argv) {
+         !strcmp(test.fault,"imported-catalogue-audio-mismatch") || !strcmp(test.fault,"imported-catalogue-size-mismatch") ||
+         !strcmp(test.fault,"imported-catalogue-partial") || !strcmp(test.fault,"imported-catalogue-unrelated") ||
+         !strcmp(test.fault,"imported-catalogue-invalid");
++    bool unstable_tail=!strcmp(test.fault,"unstable-tail");
+     bool issues=!strcmp(test.fault,"damaged") || !strcmp(test.fault,"unsupported") || !strcmp(test.fault,"imported-damaged") ||
+         !strcmp(test.fault,"imported-catalogue-bad-sector") || !strcmp(test.fault,"catalogue-manifest-mismatch") ||
+-        !strcmp(test.fault,"unstable-data") || !strcmp(test.fault,"unstable-audio");
++        !strcmp(test.fault,"unstable-data") || !strcmp(test.fault,"unstable-audio") || unstable_tail;
+     bool stopped=!strcmp(test.fault,"cancel-before") || !strcmp(test.fault,"cancel-scan") || !strcmp(test.fault,"imported-catalogue-cancel") || !strcmp(test.fault,"guard-cancel");
+     assert(result==(good?KUI_SCAN_CLEAN:structural?KUI_SCAN_STRUCTURAL:issues?KUI_SCAN_ISSUES:stopped?KUI_SCAN_STOPPED:KUI_SCAN_FAILED));
+     assert(status.complete==(good || structural || issues));
+     if(good || issues || structural) {
+-        assert(status.done==14u*KUI_RAW_BYTES && status.total==status.done);
+-        assert(status.data_sectors==10 && status.audio_sectors==4);
++        unsigned sectors=unstable_tail?49u:14u;
++        assert(status.done==sectors*KUI_RAW_BYTES && status.total==status.done);
++        assert(status.data_sectors==sectors-4 && status.audio_sectors==4);
+         assert(strstr(status.report,".txt"));
+-        assert(test.track_read_bytes==(28u+2u*status.sampled)*KUI_RAW_BYTES); /* Full independent repeat plus two extra reads per retained suspect. */
++        assert(test.track_read_bytes==2u*(sectors+status.sampled)*KUI_RAW_BYTES); /* Full independent repeat plus two extra reads per retained suspect. */
++        if(unstable_tail) assert(test.tail_reads==2);
+         assert(status.catalogue_checked);
+     }
+     if(structural || !strcmp(test.fault,"imported-damaged")) assert(!status.reference_hashes && !status.checkpoint_checked && !status.crc_mismatches);
+diff --git a/tests/test_recovery_scan_images.py b/tests/test_recovery_scan_images.py
+index d9fe0239..28a23918 100644
+--- a/tests/test_recovery_scan_images.py
++++ b/tests/test_recovery_scan_images.py
+@@ -20,6 +20,7 @@ def main():
+         _fixture.make_fixture(base / "clean")
+         _fixture.make_fixture(base / "damaged", damaged=True)
+         _fixture.make_fixture(base / "sha", sha=True)
++        _fixture.make_fixture(base / "long", last_track_sectors=40)
+         cases = ("clean", "damaged", "sha", "repeat", "unsupported", "bad-manifest",
+                  "one-checkpoint", "both-checkpoints", "conflict", "gdi-trailing", "truncated",
+                  "cancel-before", "cancel-scan", "read-fail", "read-fail-cancel", "write-fail",
+@@ -31,7 +32,7 @@ def main():
+                  "imported-catalogue-size-mismatch", "imported-catalogue-partial",
+                  "imported-catalogue-unrelated", "imported-catalogue-invalid",
+                  "imported-catalogue-cancel", "imported-catalogue-bad-sector",
+-                 "catalogue-manifest-mismatch", "unstable-data", "unstable-audio",
++                 "catalogue-manifest-mismatch", "unstable-data", "unstable-audio", "unstable-tail",
+                  "guard-seeded", "guard-torn", "guard-cancel", "guard-report-fail",
+                  "guard-foreign", "guard-foreign-part", "guard-corrupt")
+         for kind in ("fat32", "exfat"):
+@@ -42,7 +43,8 @@ def main():
+             for case in cases:
+                 image = base / f"{kind}-{case}.img"
+                 shutil.copyfile(seed, image)
+-                fixture = base / ("damaged" if case in ("damaged", "imported-damaged") else
++                fixture = base / ("long" if case == "unstable-tail" else
++                                  "damaged" if case in ("damaged", "imported-damaged") else
+                                   "sha" if case in ("sha", "named-sha") else "clean")
+                 output = run(BINARY, str(image), str(fixture), case)
+                 assert f"PASS Advanced CRC {case}; original files unchanged" in output
+diff --git a/tools/make_scan_fixtures.py b/tools/make_scan_fixtures.py
+index 0a37a119..f59cf5d0 100644
+--- a/tools/make_scan_fixtures.py
++++ b/tools/make_scan_fixtures.py
+@@ -21,7 +21,7 @@ _vectors = importlib.util.module_from_spec(_spec)
+ _spec.loader.exec_module(_vectors)
+ 
+ 
+-def make_fixture(folder, damaged=False, sha=False):
++def make_fixture(folder, damaged=False, sha=False, last_track_sectors=5):
+     folder = Path(folder)
+     folder.mkdir(parents=True, exist_ok=True)
+     identity = hashlib.sha256(b"K-UI synthetic Advanced CRC fixture v1; not a retail disc").digest()
+@@ -29,7 +29,7 @@ def make_fixture(folder, damaged=False, sha=False):
+     content = []
+     for number, session, control, start, end, toc_end in (
+         (1, 0, 4, 150, 155, 305), (2, 0, 0, 305, 309, 309),
+-        (3, 1, 4, 45150, 45155, 45155),
++        (3, 1, 4, 45150, 45150 + last_track_sectors, 45150 + last_track_sectors),
+     ):
+         if control == 4:
+             data = b"".join(_vectors.sector(fad, number * 17 + fad % 128) for fad in range(start, end))

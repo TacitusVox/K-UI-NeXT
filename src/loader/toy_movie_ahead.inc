@@ -32,20 +32,34 @@ static uint8_t *toy_ahead_sector(uint32_t lba) {
 }
 
 static void toy_ahead_write(void *unused,uint32_t offset,const uint8_t *data,uint32_t bytes) {
+#if KUI_TOY_SUITE_MODE == 66
+    struct kui_retail_async *e=unused;
+    const struct kui_retail_cursor *cursor=&e->cursor;
+    if(A.error || e->failed)return;
+#else
     (void)unused;
+    const struct kui_retail_cursor *cursor=&A.cursor;
     if(A.error)return;
-    const uint32_t lba=A.cursor.lba+A.cursor.done;
-    const uint32_t part=A.cursor.offset;
+#endif
+    const uint32_t lba=cursor->lba+cursor->done;
+    const uint32_t part=cursor->offset;
     if(lba!=A.verified || lba-A.first>=AHEAD_SLOTS ||
-       offset!=A.cursor.done*KUI_GAME_RAW_BYTES+part || !bytes || bytes>KUI_GAME_RAW_BYTES-part) {
+       offset!=cursor->done*KUI_GAME_RAW_BYTES+part || !bytes || bytes>KUI_GAME_RAW_BYTES-part) {
         A.error=true;
+#if KUI_TOY_SUITE_MODE == 66
+        e->failed=KUI_GD_ERROR_IO;
+#endif
         return;
     }
     uint8_t *raw=toy_ahead_sector(lba);
     memcpy(raw+part,data,bytes);
     if(part+bytes!=KUI_GAME_RAW_BYTES)return;
-    if(raw[15]!=1u || !kui_sector_edc_valid_at(raw,lba+150u))A.error=true;
-    else ++A.verified;
+    if(raw[15]!=1u || !kui_sector_edc_valid_at(raw,lba+150u)) {
+        A.error=true;
+#if KUI_TOY_SUITE_MODE == 66
+        e->failed=KUI_GD_ERROR_IO;
+#endif
+    } else ++A.verified;
 }
 
 static bool toy_ahead_live(void) {
@@ -73,17 +87,24 @@ static bool toy_ahead_begin(const struct kui_retail_async *e,unsigned variant) {
     const uint32_t end=range->lba+range->count;
     if(end>track->end_lba || e->cursor.done || e->cursor.offset || !e->cursor.write ||
        kui_retail_cursor_begin(&A.cursor,e->manifest,e->cursor.lba,end-e->cursor.lba,
-           KUI_GAME_SECTOR_RAW,toy_ahead_write,NULL)!=KUI_GAME_OK)return false;
+           KUI_GAME_SECTOR_RAW,toy_ahead_write,
+#if KUI_TOY_SUITE_MODE == 66
+           (void *)e
+#else
+           NULL
+#endif
+           )!=KUI_GAME_OK)return false;
     A.variant=(uint8_t)variant;
     A.first=A.verified=e->cursor.lba;
     A.head=0u;
     A.error=false;
-#if KUI_TOY_SUITE_MODE == 65
+#if KUI_TOY_SUITE_MODE >= 65
     A.retry=0u;
 #endif
     return true;
 }
 
+#if KUI_TOY_SUITE_MODE != 66
 static bool toy_ahead_dma_idle(void) {
     return !(read_hw(UINT32_C(0xffa0001c),4u)&7u) &&
         (read_hw(UINT32_C(0xffa00040),4u)&7u)==1u;
@@ -110,6 +131,59 @@ static enum kui_sci_stream_result toy_ahead_arm(kui_retail_async_region_type *r,
     return result;
 }
 
+#else
+/* Install the private RAW cursor only for the original native delivery
+ * callback. Completion publication still sees the restored guest cursor. */
+static void toy_ahead_pump(kui_retail_async_region_type *r,bool demand) {
+    (void)demand;
+    struct kui_retail_async *e=&r->engine;
+    struct kui_sci_stream_state *stream=&r->shared.stream;
+    const struct kui_retail_cursor saved_cursor=e->cursor;
+    const uint32_t saved_active=e->active,saved_failed=e->failed;
+    const uint32_t saved_retries=e->retries,saved_since=e->since;
+    const uint8_t saved_policy=stream->toy_suite_active,saved_poll=stream->toy_suite_poll;
+    const uint32_t verified=A.verified;
+    const bool room=A.cursor.done<A.cursor.count && A.verified-A.first<=AHEAD_SLOTS-2u;
+    const bool was_busy=C.config.ops->busy();
+    const bool owned=!A.receive_token || A.receive_token==e->token;
+    const bool foreground=!e->in_irq;
+    const bool slice=foreground && room && (saved_poll==1u || saved_poll==2u);
+
+    if(!room && !was_busy)return;
+    e->cursor=A.cursor;
+    e->active=room;
+    e->failed=0u;
+    e->retries=A.retry;
+    e->since=0u;
+    /* Idle UPDATE has no GD save frame. Keep every scoped delivery on
+     * the native one-pass branch, including when its SCI route is lost. */
+    if(!saved_poll)stream->toy_suite_poll=2u;
+    stream->toy_suite_active=saved_policy|1u;
+    if(owned)stream->toy_suite_active|=KUI_TOY_SUITE_RESUME_ACTIVE|
+        (foreground || e->in_irq==2u?KUI_TOY_SUITE_RESUME_FOREGROUND:0u);
+    if(!was_busy)A.receive_token=e->token;
+    C.config.ops->hook();
+    uint32_t *trace=C.diagnostics.stage_result[KUI_NATIVE_RA_STAGE_NONE];
+    ++trace[foreground?4u:5u];
+    if(slice)toy_resume_slice(r,(A.variant-1u)/2u);
+    else C.config.ops->deliver(0u);
+    A.cursor=e->cursor;
+    A.retry=(uint8_t)e->retries;
+    A.error=A.error || e->failed;
+    C.stats.producer_blocks+=A.verified-verified;
+    A.receiving=C.config.ops->busy() || stream->state>RA_PAUSED;
+    if(!A.receiving)A.receive_token=0u;
+    e->cursor=saved_cursor;
+    e->active=saved_active;
+    e->failed=saved_failed;
+    e->retries=saved_retries;
+    e->since=saved_since;
+    stream->toy_suite_active=saved_policy;
+    stream->toy_suite_poll=saved_poll;
+}
+#endif
+
+#if KUI_TOY_SUITE_MODE != 66
 /* One block per callback. Start the next DMA before CRC/EDC on the ready
  * block, reserving space for both and for a block that straddles sectors. */
 static void toy_ahead_pump(kui_retail_async_region_type *r,bool demand) {
@@ -216,6 +290,8 @@ restore:
     stream->token_budget=saved_budget;
 }
 
+#endif
+
 static bool toy_ahead_publish(kui_retail_async_region_type *r) {
     struct kui_retail_async *e=&r->engine;
     const struct kui_retail_gd *s=&r->shared.service;
@@ -230,6 +306,11 @@ static bool toy_ahead_publish(kui_retail_async_region_type *r) {
         if(A.head>=AHEAD_SLOTS)A.head-=AHEAD_SLOTS;
         e->cursor.done=s->count;
         e->since=e->target;
+#if KUI_TOY_SUITE_MODE == 66
+        uint32_t *trace=C.diagnostics.stage_result[KUI_NATIVE_RA_STAGE_NONE];
+        trace[(A.variant-1u)/2u]+=s->count;
+        ++C.stats.hit_requests;
+#endif
     }
     e->active=0u;
     return true;
@@ -299,13 +380,17 @@ static bool toy_movie_ahead(kui_retail_async_region_type *r,unsigned variant,boo
         toy_resume_invalidate();
 #if KUI_TOY_SUITE_MODE == 64
         ++trace[2u+(variant-1u)/2u];
+#elif KUI_TOY_SUITE_MODE == 66
+        ++C.diagnostics.stage_result[KUI_NATIVE_RA_STAGE_NONE][2u+(variant-1u)/2u];
 #endif
     }
     if(selected && !A.error && toy_ahead_publish(r)) {
-        uint32_t *stats=C.diagnostics.stage_result[KUI_NATIVE_RA_STAGE_NONE];
         if(!e->failed) {
+#if KUI_TOY_SUITE_MODE != 66
+            uint32_t *stats=C.diagnostics.stage_result[KUI_NATIVE_RA_STAGE_NONE];
             stats[(variant-1u)/2u]+=s->count;
             ++C.stats.hit_requests;
+#endif
             toy_ahead_pump(r,false);
         }
         return true;
