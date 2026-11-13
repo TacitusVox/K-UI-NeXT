@@ -1,0 +1,71 @@
+{
+  "archive_name": "KUI-Toy-SCI-Resume-Cadence-Test-49-12NOV2026-1508-CST-befebdb.zip",
+  "archive_bytes": 2105758,
+  "archive_sha256": "977184553239085fff95fd6842d551add00c0d93d8afe068a0de2e9329ec245e",
+  "available_in_original_library": true,
+  "tests": [
+    47,
+    48,
+    49
+  ],
+  "members": [
+    {
+      "path": "KUI/tools.kui",
+      "size_bytes": 3131060,
+      "sha256": "3b28b938ea1f33461a7c17718eb6c08c56fa8b453a0f7ec4217877098ae7c8b0",
+      "module": {
+        "format": 1,
+        "build": "df1d026a1488",
+        "payload_bytes": 3130996,
+        "memory_bytes": 7428080,
+        "crc32": "0e0c07b2"
+      }
+    },
+    {
+      "path": "KUI/apps/games/retail-toy-test-47.kui",
+      "size_bytes": 280244,
+      "sha256": "031c07d585dd1683ea528d5f727d866769fa2b0485bc5b8cad67b665476e2ce0",
+      "module": {
+        "format": 1,
+        "build": "e28a31fa0051",
+        "payload_bytes": 280180,
+        "memory_bytes": 280180,
+        "crc32": "f2d837f7"
+      }
+    },
+    {
+      "path": "KUI/apps/games/retail-toy-test-48.kui",
+      "size_bytes": 282140,
+      "sha256": "a68f441ddb9904dc68f2a0350b70723efb8f214fb60a39dbbf872d7287deeda6",
+      "module": {
+        "format": 1,
+        "build": "1c90d147e936",
+        "payload_bytes": 282076,
+        "memory_bytes": 282076,
+        "crc32": "878304b4"
+      }
+    },
+    {
+      "path": "KUI/apps/games/retail-toy-test-49.kui",
+      "size_bytes": 282292,
+      "sha256": "d3961d8c677d745801af50f0f3d91e41fce28b490a8943ba74a0ff0832230cf3",
+      "module": {
+        "format": 1,
+        "build": "befebdbf446f",
+        "payload_bytes": 282228,
+        "memory_bytes": 282228,
+        "crc32": "6d231579"
+      }
+    },
+    {
+      "path": "README.txt",
+      "size_bytes": 2309,
+      "sha256": "8b8691b016788862ef712fb6d635b52083dbfcc6138e26f8d6cae127d686c6be"
+    },
+    {
+      "path": "SHA256SUMS.txt",
+      "size_bytes": 469,
+      "sha256": "3b2291b81bb791a55d68dfa8f2b5e02fbd90c63a57d9d72af5b7eb2b9a9a1c22"
+    }
+  ]
+}

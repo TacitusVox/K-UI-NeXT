@@ -1,5 +1,5 @@
 {
-  "scope": "Toy Commander tests 1\u201365",
+  "scope": "Toy Commander tests 1–66",
   "console_files": [
     {
       "path": "console/1.txt",
@@ -512,6 +512,14 @@
       "test": 65,
       "kind": "console-report",
       "build": "3f786e1926e2"
+    },
+    {
+      "path": "console/66.txt",
+      "size_bytes": 1024,
+      "sha256": "ada5855c6d4bc028fe2fd9bf9bcfcd2749c7084ddc5eef379d3542a896a7ba11",
+      "test": 66,
+      "kind": "console-report",
+      "build": "3124522ea906"
     }
   ],
   "packages": [
@@ -3108,6 +3116,46 @@
           "sha256": "10231ad1bc756bcbc541a74f76a1ce0eeafd1a91cde792656e9f00d899c4566c"
         }
       ]
+    },
+    {
+      "archive_name": "KUI-Toy-SCI-Test-66-12NOV2026-2121-CST-3124522.zip",
+      "archive_bytes": 1967848,
+      "archive_sha256": "71a11087f6ab0b486f47f241a822d20dc5bb4f081b8e6dfdacf43d66b999e3b8",
+      "tests": [
+        66
+      ],
+      "members": [
+        {
+          "path": "KUI/tools.kui",
+          "size_bytes": 3131480,
+          "sha256": "04b8657aa6a1530b1bdbb002b481853eef656ef0f4da44cd910faab6eab3c800"
+        },
+        {
+          "path": "KUI/apps/games/retail-toy-test-57.kui",
+          "size_bytes": 284304,
+          "sha256": "61e37d61081389ebbb985159818e72bdd4adf9d21d2ce65288973940b768cd09"
+        },
+        {
+          "path": "KUI/apps/games/retail-toy-test-66.kui",
+          "size_bytes": 288356,
+          "sha256": "06f347789a76d1b9df274e946033270c5d7eb404bde323aec7187fee6e68f8d2"
+        },
+        {
+          "path": "KUI/apps/disc/native-toy-trace.kui",
+          "size_bytes": 30304,
+          "sha256": "545c6c2cdbd79b6a0243135b18ab5d8c052bfc35c393b3efde2d9ddab30531ff"
+        },
+        {
+          "path": "README.txt",
+          "size_bytes": 2157,
+          "sha256": "91def72e32297a93cfd1089c004bf4ac452d32775b235ec38d623ccb63651900"
+        },
+        {
+          "path": "SHA256SUMS.txt",
+          "size_bytes": 466,
+          "sha256": "1baf7c8fe26e8dba6652458c30d535914c3cd3ca9cfca65265d922331fc9e26f"
+        }
+      ]
     }
   ],
   "tests": [
@@ -4433,6 +4481,27 @@
         "KUI-Toy-SCI-Test-65-12NOV2026-2054-CST-3f786e1.zip"
       ],
       "notes": ""
+    },
+    {
+      "test": 66,
+      "description": "Final native-reader movie experiment",
+      "console_status": "console-report",
+      "reports": [
+        {
+          "path": "console/66.txt",
+          "size_bytes": 1024,
+          "sha256": "ada5855c6d4bc028fe2fd9bf9bcfcd2749c7084ddc5eef379d3542a896a7ba11",
+          "test": 66,
+          "kind": "console-report",
+          "build": "3124522ea906"
+        }
+      ],
+      "transcriptions": [],
+      "packages": [
+        "KUI-Toy-SCI-Test-66-12NOV2026-2121-CST-3124522.zip"
+      ],
+      "notes": "Owner reported mild improvements. Smooth completion was not reported. Final authorized test.",
+      "observation": "analysis/test-66-console-outcome.md"
     }
   ]
 }

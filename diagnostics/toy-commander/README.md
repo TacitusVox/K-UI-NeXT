@@ -1,11 +1,28 @@
 # Toy Commander SCI investigation handoff
 
 This branch preserves the Toy Commander investigation for independent review.
-The root source initially matches reader Test 65, commit
-`3f786e1926e23f92043980000471d76cf4c92a99`. The branch's merge parents retain
-the complete locally available reader, Card Tools and physical-control histories.
-The current main branch is also a parent, allowing reviewers to compare the work
-with the published project.
+
+## Downloads
+
+- [Final Test 66 ZIP](builds/KUI-Toy-SCI-Test-66-12NOV2026-2121-CST-3124522.zip) — ready to install; console tested; owner reports mild improvements, unresolved.
+- [Complete Tests 1–66 evidence archive](evidence-1-66.tar.xz) — all recovered console records, package inventories, host logs, scripts and provenance metadata.
+- [Compiled Tests 1–65 archive](builds/compiled-tests-1-65.tar.xz) — 114 distinct original modules from 44 recovered archives.
+- [Test 66 qualification archive](test-66.tar.xz) — build logs, linked ELF artifacts, host checks and reproduction scripts.
+- [Source histories and import instructions](source-history/README.md) — reader, Card Tools GUI and physical-disc control bundles.
+- [Recovery and publication record](RECOVERY.md) — what survived, what had reached GitHub, evidence gaps and verification.
+
+The original `evidence-1-65.tar.xz` is retained unchanged.
+[Test 66 console log](evidence/console/66.txt) and the [owner’s result](evidence/analysis/test-66-console-outcome.md) are included in the complete archive.
+
+The `evidence/` directory exposes the recovered reports and per-test index for browsing.
+Extract `evidence-1-66.tar.xz` into an empty directory for the complete evidence tree.
+Extract `test-66.tar.xz` separately for the complete final-test qualification tree.
+The top-level `SHA256SUMS.txt` verifies all downloadable archives and history bundles.
+
+The root source matches reader Test 66, commit `3124522ea906`.
+The `source-history/` bundles retain the complete locally available reader,
+Card Tools and physical-control histories. The published main checkpoint
+`776c9259c00cf2aa8acd341f5ab8ac14017d5898` is a parent of this handoff branch.
 
 ## Playback target and hardware
 
@@ -23,9 +40,11 @@ hexadecimal.
 
 ## Console results and reproducibility
 
-Original console reports, package metadata, source mappings, test scripts,
-build logs and the per-test evidence index are under `evidence/`.
-Compiled test archives are under `builds/`.
+Original console reports and the per-test index are browsable under `evidence/`.
+Complete package metadata, source mappings, test scripts and build logs are
+preserved in `evidence-1-65.tar.xz`. The deduplicated compiled module catalog is under
+`builds/`. It preserves every distinct original KUI module from the recovered
+delivery archives, with mappings back to each archive's original file paths.
 The evidence index identifies reports that were unavailable or tests that
 failed before a report could be generated. Transcriptions retain their source
 provenance and are distinguishable from uploaded report bytes.
@@ -70,10 +89,35 @@ and the real SCI/PVR DMA contention before increasing buffer sizes.
 
 ## Accessing historical source
 
-Use `git log --all --oneline` after cloning the branch. Reader, GUI and physical
-histories are merge parents, so their original commit IDs remain addressable.
+Clone this branch, then run `git fetch` on each local
+`source-history/*-history.bundle` to import its historical refs. The bundle
+manifest gives exact branch refs, original heads, checksums and the required
+published main checkpoint. The branch's own history contains that checkpoint.
+Original source commit IDs become addressable after importing the bundles.
 The source-provenance table maps module build IDs and package CRCs to available
 commits. Earlier missing source objects are explicitly listed.
+
+## Final console experiment
+
+Test 66 replaces the separate FIFO transport pump with the established native
+low reader. The native reader retains its existing retry count, programmed
+fallback and bounded scheduled refill. The private movie cursor and original
+guest cursor are exchanged only during the reader callback and restored before
+native completion publication. Complete raw sectors still require their
+address and EDC checks.
+
+A matched original scheduled EXEC replay completed the same 14-sector request
+in 22 foreground calls with Test 66, compared with 65 foreground calls using
+Test 65's custom pump. The first scheduled Test 66 visit processed three card
+blocks. A separate repeated-overrun replay took 135 calls with Test 66 and
+132 with Test 65. The latter comparison establishes no playback speedup.
+The host model cannot establish real decode or SCI timing.
+
+Test 66 passed cancellation, malformed-token retry exhaustion, raw EDC rejection,
+ring wrap, full-buffer receive retirement, exact request bytes, original
+GDFS/renderer replay and FAT32/exFAT routing checks. The owner tested it and reported mild improvements. The original report is
+retained byte-for-byte; smooth completion of both movies was not reported.
+This remains the final authorized console test.
 
 Build instructions are retained in each original package README and source
 Makefile. The toolchain version used locally is SH ELF GCC 15.2.0 with

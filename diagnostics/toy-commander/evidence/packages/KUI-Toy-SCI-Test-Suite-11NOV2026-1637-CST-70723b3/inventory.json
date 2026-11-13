@@ -1,0 +1,111 @@
+{
+  "archive_name": "KUI-Toy-SCI-Test-Suite-11NOV2026-1637-CST-70723b3.zip",
+  "archive_bytes": 2649361,
+  "archive_sha256": "1c0c5828de215ec98a8dffa45371335b7f414db8146a30cac11f9ab8cdfe8f7d",
+  "available_in_original_library": true,
+  "tests": [
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7
+  ],
+  "members": [
+    {
+      "path": "KUI/tools.kui",
+      "size_bytes": 3130620,
+      "sha256": "aa2ce8ffb6da3b5a8ac097099f26426d971e7e3530b8a29a5ce5736cc3933d1f",
+      "module": {
+        "format": 1,
+        "build": "5aadb758f2d1",
+        "payload_bytes": 3130556,
+        "memory_bytes": 7427632,
+        "crc32": "b0d71665"
+      }
+    },
+    {
+      "path": "KUI/apps/games/retail-toy-test-1.kui",
+      "size_bytes": 294624,
+      "sha256": "f8d8509be7ecaaec69e20d3c960944730dedeca9f93a2e33b955ca7a9ee30a98",
+      "module": {
+        "format": 1,
+        "build": "70723b37cebb",
+        "payload_bytes": 294560,
+        "memory_bytes": 294560,
+        "crc32": "824043b6"
+      }
+    },
+    {
+      "path": "KUI/apps/games/retail-toy-test-2.kui",
+      "size_bytes": 294680,
+      "sha256": "65d0c4642c9f09151aa7f7a10404d608885e7ddbd14bb6ca885c118fe576f4a4",
+      "module": {
+        "format": 1,
+        "build": "70723b37cebb",
+        "payload_bytes": 294616,
+        "memory_bytes": 294616,
+        "crc32": "b5e75e1a"
+      }
+    },
+    {
+      "path": "KUI/apps/games/retail-toy-test-3.kui",
+      "size_bytes": 293176,
+      "sha256": "ae9956b83a451ccd26e073a197522b6af6519d0a7d63007674198d4db7bf002c",
+      "module": {
+        "format": 1,
+        "build": "70723b37cebb",
+        "payload_bytes": 293112,
+        "memory_bytes": 293112,
+        "crc32": "2bfd23c1"
+      }
+    },
+    {
+      "path": "KUI/apps/games/retail-toy-test-4.kui",
+      "size_bytes": 293272,
+      "sha256": "351af2aa6314261f04fbc6ac034894c54c2e69f569ffe75429583ba6c039bc1c",
+      "module": {
+        "format": 1,
+        "build": "70723b37cebb",
+        "payload_bytes": 293208,
+        "memory_bytes": 293208,
+        "crc32": "1e0a875f"
+      }
+    },
+    {
+      "path": "KUI/apps/games/retail-toy-test-6.kui",
+      "size_bytes": 294680,
+      "sha256": "ca7bae4bfd6c4c1dcee91c2dd49d54b23f6331340c068574528987ecbdbd1f68",
+      "module": {
+        "format": 1,
+        "build": "70723b37cebb",
+        "payload_bytes": 294616,
+        "memory_bytes": 294616,
+        "crc32": "4ee3f408"
+      }
+    },
+    {
+      "path": "KUI/apps/games/retail-toy-test-7.kui",
+      "size_bytes": 292968,
+      "sha256": "b885ee7a2d88e0aa5f18720f1c09f7a8b56edb2df24dd413503a50eb6495be4c",
+      "module": {
+        "format": 1,
+        "build": "70723b37cebb",
+        "payload_bytes": 292904,
+        "memory_bytes": 292904,
+        "crc32": "77598644"
+      }
+    },
+    {
+      "path": "README.txt",
+      "size_bytes": 3325,
+      "sha256": "c4d26a8b7d72de29410cb167489f3d70abe54abf92ceb0800f8977a7b3fcf991"
+    },
+    {
+      "path": "SHA256SUMS.txt",
+      "size_bytes": 775,
+      "sha256": "aaabad0b5836da8c158f85a03f65da01be0408a56513480e586f225177ba1fbc"
+    }
+  ]
+}

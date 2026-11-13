@@ -1,0 +1,84 @@
+{
+  "archive_name": "KUI-Toy-SCI-Tests-52-54-12NOV2026-1609-CST-fefd265.zip",
+  "archive_bytes": 2268242,
+  "archive_sha256": "853625cebf8155eeae232302d9404e2698e1be932f3ad4af0bb9dd414335c28e",
+  "available_in_original_library": true,
+  "tests": [
+    51,
+    52,
+    53,
+    54
+  ],
+  "members": [
+    {
+      "path": "KUI/tools.kui",
+      "size_bytes": 3131164,
+      "sha256": "17eb00aef8a03b1480146978a5d37ff5ba09ff8ac747afec441721c85a6ff5e4",
+      "module": {
+        "format": 1,
+        "build": "eabe4c9cf2e3",
+        "payload_bytes": 3131100,
+        "memory_bytes": 7428176,
+        "crc32": "d9ff6088"
+      }
+    },
+    {
+      "path": "KUI/apps/games/retail-toy-test-51.kui",
+      "size_bytes": 282676,
+      "sha256": "6b0e4d4c1be48aee4dd5633768e48fad73111ba171438d7acebfe3f18d65a945",
+      "module": {
+        "format": 1,
+        "build": "942509e6fe6e",
+        "payload_bytes": 282612,
+        "memory_bytes": 282612,
+        "crc32": "415280a5"
+      }
+    },
+    {
+      "path": "KUI/apps/games/retail-toy-test-52.kui",
+      "size_bytes": 282576,
+      "sha256": "30de483d6802d5729d54f6bde34c2df3198ab2362438b04fd6393be1dc752b11",
+      "module": {
+        "format": 1,
+        "build": "8e732f81efd0",
+        "payload_bytes": 282512,
+        "memory_bytes": 282512,
+        "crc32": "6a751c28"
+      }
+    },
+    {
+      "path": "KUI/apps/games/retail-toy-test-53.kui",
+      "size_bytes": 282640,
+      "sha256": "6bbb11e32f43137cc635621482940f3111e094a8c7f7dd0aebf1804297df3af2",
+      "module": {
+        "format": 1,
+        "build": "aa3ee4a8f9a5",
+        "payload_bytes": 282576,
+        "memory_bytes": 282576,
+        "crc32": "e2802318"
+      }
+    },
+    {
+      "path": "KUI/apps/games/retail-toy-test-54.kui",
+      "size_bytes": 282864,
+      "sha256": "3aaa648e192d92191524ec17123464bbb7e9ec1fad80e25934c371179c14b9e6",
+      "module": {
+        "format": 1,
+        "build": "fefd26538deb",
+        "payload_bytes": 282800,
+        "memory_bytes": 282800,
+        "crc32": "e0761aa0"
+      }
+    },
+    {
+      "path": "README.txt",
+      "size_bytes": 2525,
+      "sha256": "75e7c8876b48d13486c9f82bbc1ed14af7c407675af2d47d88cd5d8991074f6d"
+    },
+    {
+      "path": "SHA256SUMS.txt",
+      "size_bytes": 573,
+      "sha256": "2939119a3acb9b89b923989c263d1a53dc4c5d074656266969458d0e434f09a6"
+    }
+  ]
+}

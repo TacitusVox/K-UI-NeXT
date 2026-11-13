@@ -1,0 +1,45 @@
+{
+  "archive_name": "KUI-Toy-SCI-Movie-Poll-Test-33-12NOV2026-1023-CST-e0a49a4.zip",
+  "archive_bytes": 1786902,
+  "archive_sha256": "a970e5486ca9730c67220cb3addf56348dbfc05789e095e1b9deb8f99a5aea6b",
+  "available_in_original_library": true,
+  "tests": [
+    33
+  ],
+  "members": [
+    {
+      "path": "KUI/tools.kui",
+      "size_bytes": 3131916,
+      "sha256": "cd33128dfa5495a11504be495f7a950f5c01e285efa7e1a801385c0b23745722",
+      "module": {
+        "format": 1,
+        "build": "ca0f81eb3456",
+        "payload_bytes": 3131852,
+        "memory_bytes": 7428944,
+        "crc32": "194ec557"
+      }
+    },
+    {
+      "path": "KUI/apps/games/retail-toy-test-33.kui",
+      "size_bytes": 275476,
+      "sha256": "d39ae3342a485859c8a752c8902919f1e1ce591a6992f96c0bf9e817d7ed4335",
+      "module": {
+        "format": 1,
+        "build": "e0a49a4c33d8",
+        "payload_bytes": 275412,
+        "memory_bytes": 275412,
+        "crc32": "d076555e"
+      }
+    },
+    {
+      "path": "README.txt",
+      "size_bytes": 2641,
+      "sha256": "85fd7e79dc191a09b3d5c5f22fc0cd20aacd5c205a30c68c15b59a37e98cb069"
+    },
+    {
+      "path": "SHA256SUMS.txt",
+      "size_bytes": 261,
+      "sha256": "572fbf3449022e814d0c533b1142f33a60dd09c163898acc7eb14b4e8631a675"
+    }
+  ]
+}

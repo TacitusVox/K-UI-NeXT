@@ -1,0 +1,45 @@
+{
+  "archive_name": "KUI-Toy-SCI-Movie-Exit-Test-39-12NOV2026-1304-CST-2979534.zip",
+  "archive_bytes": 1782794,
+  "archive_sha256": "8274b120c1210a40ad873fa93c7c07aee3076e508b4493cae4eea75b3594069f",
+  "available_in_original_library": false,
+  "tests": [
+    39
+  ],
+  "members": [
+    {
+      "path": "KUI/tools.kui",
+      "size_bytes": 3130916,
+      "sha256": "17a796fb2b96db07126d1613b1c175b4df5ac4a7e75ddf8ba56eb034a76ea18a",
+      "module": {
+        "format": 1,
+        "build": "8af4a09880bf",
+        "payload_bytes": 3130852,
+        "memory_bytes": 7427952,
+        "crc32": "b464780a"
+      }
+    },
+    {
+      "path": "KUI/apps/games/retail-toy-test-39.kui",
+      "size_bytes": 277496,
+      "sha256": "b513ca7435ba4c7896cfe9f2f73ccb844d8d0ce80a142ded2772770e7800c9e5",
+      "module": {
+        "format": 1,
+        "build": "2979534320ec",
+        "payload_bytes": 277432,
+        "memory_bytes": 277432,
+        "crc32": "9c32ecca"
+      }
+    },
+    {
+      "path": "README.txt",
+      "size_bytes": 1887,
+      "sha256": "2318ff438321e085a79e6b5248eab15b82cedf37d5a4e52986024c97abded88a"
+    },
+    {
+      "path": "SHA256SUMS.txt",
+      "size_bytes": 261,
+      "sha256": "f902101cd6e77310d61f77caf8dbbec438863d4dbb75d88ef8c0d8bc4225aa25"
+    }
+  ]
+}

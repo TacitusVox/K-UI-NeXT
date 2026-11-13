@@ -1,0 +1,71 @@
+{
+  "archive_name": "KUI-Toy-Contention-Tests-23-25-11NOV2026-2315-CST-e6eb8f5.zip",
+  "archive_bytes": 2112276,
+  "archive_sha256": "dc782f86a63792c00e2bbeef7cb8b5a6b7d368f75739e49ea1b2306b1f807d6c",
+  "available_in_original_library": true,
+  "tests": [
+    23,
+    24,
+    25
+  ],
+  "members": [
+    {
+      "path": "KUI/tools.kui",
+      "size_bytes": 3130980,
+      "sha256": "f358e6ed8fdce880042356425b3802a9463d7efcfa1fab703785d4ff402e7048",
+      "module": {
+        "format": 1,
+        "build": "afb564e9d11b",
+        "payload_bytes": 3130916,
+        "memory_bytes": 7428016,
+        "crc32": "733f2264"
+      }
+    },
+    {
+      "path": "KUI/apps/games/retail-toy-test-23.kui",
+      "size_bytes": 282056,
+      "sha256": "c1fdb8fed31f3b9459800d8644c4739ad201a2720afd2d6dd8b35f4595fd43e5",
+      "module": {
+        "format": 1,
+        "build": "e6eb8f5f2f0f",
+        "payload_bytes": 281992,
+        "memory_bytes": 281992,
+        "crc32": "62d4d8fb"
+      }
+    },
+    {
+      "path": "KUI/apps/games/retail-toy-test-24.kui",
+      "size_bytes": 283092,
+      "sha256": "81f35d673784d3c12d1ceac512240bf1639a7ec556b238bd7d9005f28fe6a9c0",
+      "module": {
+        "format": 1,
+        "build": "e6eb8f5f2f0f",
+        "payload_bytes": 283028,
+        "memory_bytes": 283028,
+        "crc32": "f4ae63d2"
+      }
+    },
+    {
+      "path": "KUI/apps/games/retail-toy-test-25.kui",
+      "size_bytes": 283124,
+      "sha256": "f6957d781c131262930fa74f3adb84a46d3e8c9f58188205c72654c51aada14c",
+      "module": {
+        "format": 1,
+        "build": "e6eb8f5f2f0f",
+        "payload_bytes": 283060,
+        "memory_bytes": 283060,
+        "crc32": "00b05878"
+      }
+    },
+    {
+      "path": "README.txt",
+      "size_bytes": 3419,
+      "sha256": "8b7baff8ed60d24ed8665523b20f5b14a16a214d0c366b02c102a5d73bdb4b08"
+    },
+    {
+      "path": "SHA256SUMS.txt",
+      "size_bytes": 469,
+      "sha256": "fdba5adbff1162bac954b69fb195cfa420f2a987f677a0481c55ddb07c23d7cf"
+    }
+  ]
+}

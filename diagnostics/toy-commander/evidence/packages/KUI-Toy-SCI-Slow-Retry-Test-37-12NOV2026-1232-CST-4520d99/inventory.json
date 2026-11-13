@@ -1,0 +1,45 @@
+{
+  "archive_name": "KUI-Toy-SCI-Slow-Retry-Test-37-12NOV2026-1232-CST-4520d99.zip",
+  "archive_bytes": 1783728,
+  "archive_sha256": "837edb7a8fca7d5e0b4b3da90dcbf68d4edfebfa462f93851a7801963c7d13d1",
+  "available_in_original_library": true,
+  "tests": [
+    37
+  ],
+  "members": [
+    {
+      "path": "KUI/tools.kui",
+      "size_bytes": 3132120,
+      "sha256": "f08cedfcfcfcc7731dce9bd941463aff5a4ff6f2fee5ef94308150d01376781a",
+      "module": {
+        "format": 1,
+        "build": "354bfafb6ef4",
+        "payload_bytes": 3132056,
+        "memory_bytes": 7429136,
+        "crc32": "d49fedb8"
+      }
+    },
+    {
+      "path": "KUI/apps/games/retail-toy-test-37.kui",
+      "size_bytes": 276884,
+      "sha256": "bab8009618074babe9a7cbd3c2cfd8219f51d100569571b80f45af2f036dbaa8",
+      "module": {
+        "format": 1,
+        "build": "4520d99dd167",
+        "payload_bytes": 276820,
+        "memory_bytes": 276820,
+        "crc32": "1e18fc2e"
+      }
+    },
+    {
+      "path": "README.txt",
+      "size_bytes": 2159,
+      "sha256": "3a33a93ff332d0eaadb26e831638bd51a1651cf94ef75ad932689549d0fa548d"
+    },
+    {
+      "path": "SHA256SUMS.txt",
+      "size_bytes": 261,
+      "sha256": "3eb4662b7b56e2c4a1ad7a2a152ea30940dd566df113123eb01256364c7f134e"
+    }
+  ]
+}

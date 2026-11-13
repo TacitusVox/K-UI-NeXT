@@ -1,0 +1,45 @@
+{
+  "archive_name": "KUI-Toy-Continuous-Reader-Test-18-11NOV2026-2208-CST-80c54f8.zip",
+  "archive_bytes": 1783600,
+  "archive_sha256": "bed4a21be0bf82a3ff1821f3658fda07ffaf8d7371c05564877e538b58a1fd48",
+  "available_in_original_library": true,
+  "tests": [
+    18
+  ],
+  "members": [
+    {
+      "path": "KUI/tools.kui",
+      "size_bytes": 3130824,
+      "sha256": "01ced7f41b9e5200110b9554728d0677c2f8703aa813d57e105a2b46eafd012f",
+      "module": {
+        "format": 1,
+        "build": "6475bd127acf",
+        "payload_bytes": 3130760,
+        "memory_bytes": 7427856,
+        "crc32": "24f4afe0"
+      }
+    },
+    {
+      "path": "KUI/apps/games/retail-toy-test-18.kui",
+      "size_bytes": 278728,
+      "sha256": "f42d5862653d74a80cac56b485ef8abcb349306fb0dd95de5b5c640cef6ea0a7",
+      "module": {
+        "format": 1,
+        "build": "80c54f8ddf34",
+        "payload_bytes": 278664,
+        "memory_bytes": 278664,
+        "crc32": "9597aa99"
+      }
+    },
+    {
+      "path": "README.txt",
+      "size_bytes": 2474,
+      "sha256": "85da52b99e9b3ea441ca6e08084107737c8119c9d1aed3bb7ad123a3b6c5c739"
+    },
+    {
+      "path": "SHA256SUMS.txt",
+      "size_bytes": 261,
+      "sha256": "9fcf66081a91f4c4ad9e750cba6b9e1083e23a4643758ee7d8ee4fc5f5eac0f1"
+    }
+  ]
+}

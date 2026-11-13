@@ -1,0 +1,33 @@
+{
+  "archive_name": "KUI-Toy-GD-Trace-Save-Fix-12NOV2026-0918-CST-381c6c8.zip",
+  "archive_bytes": 14868,
+  "archive_sha256": "ca4af545eda2f2a9350db69f432a78518ebb8a8c3ba131207ccd07c6696ebd10",
+  "available_in_original_library": true,
+  "tests": [
+    30
+  ],
+  "members": [
+    {
+      "path": "KUI/apps/disc/native-toy-trace.kui",
+      "size_bytes": 28256,
+      "sha256": "df898d0dffadc3cde6d4ff2a53fce94b36846bdb85e3a3956146becc0d30b4ba",
+      "module": {
+        "format": 1,
+        "build": "381c6c8ee270",
+        "payload_bytes": 28192,
+        "memory_bytes": 28192,
+        "crc32": "fc742962"
+      }
+    },
+    {
+      "path": "README.txt",
+      "size_bytes": 1538,
+      "sha256": "53492e0fbb2c91e360187d39ddb8d35e9f65c15534474b787a434ea2d1785c1f"
+    },
+    {
+      "path": "SHA256SUMS.txt",
+      "size_bytes": 101,
+      "sha256": "d1c1fe37d8ee8e7926aee43298e1b2afa6a86d273ecb46988a3b3421bf149064"
+    }
+  ]
+}

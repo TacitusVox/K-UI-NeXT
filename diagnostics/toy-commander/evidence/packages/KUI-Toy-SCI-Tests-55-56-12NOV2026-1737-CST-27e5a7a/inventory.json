@@ -1,0 +1,71 @@
+{
+  "archive_name": "KUI-Toy-SCI-Tests-55-56-12NOV2026-1737-CST-27e5a7a.zip",
+  "archive_bytes": 2107881,
+  "archive_sha256": "d246910849702d1777c631a18702b349423196f3b8e87720e621cc050cb05c96",
+  "available_in_original_library": true,
+  "tests": [
+    53,
+    55,
+    56
+  ],
+  "members": [
+    {
+      "path": "KUI/tools.kui",
+      "size_bytes": 3131060,
+      "sha256": "cf007ad0392182f86b6fb265bccc6d8730a9c190560cf14e4d03abb79f72eb2d",
+      "module": {
+        "format": 1,
+        "build": "2e9301147c33",
+        "payload_bytes": 3130996,
+        "memory_bytes": 7428080,
+        "crc32": "fae6eda8"
+      }
+    },
+    {
+      "path": "KUI/apps/games/retail-toy-test-53.kui",
+      "size_bytes": 282640,
+      "sha256": "6bbb11e32f43137cc635621482940f3111e094a8c7f7dd0aebf1804297df3af2",
+      "module": {
+        "format": 1,
+        "build": "aa3ee4a8f9a5",
+        "payload_bytes": 282576,
+        "memory_bytes": 282576,
+        "crc32": "e2802318"
+      }
+    },
+    {
+      "path": "KUI/apps/games/retail-toy-test-55.kui",
+      "size_bytes": 283376,
+      "sha256": "9971a596f6d12df8a8e361ed7abe951944342326bca348b1988ed1021220b2b5",
+      "module": {
+        "format": 1,
+        "build": "fdb2da073851",
+        "payload_bytes": 283312,
+        "memory_bytes": 283312,
+        "crc32": "bcacab28"
+      }
+    },
+    {
+      "path": "KUI/apps/games/retail-toy-test-56.kui",
+      "size_bytes": 282736,
+      "sha256": "38980de39d54c79c1f0d371741e3f2f67d73c328cca2ecf5e9eb081262b49c32",
+      "module": {
+        "format": 1,
+        "build": "27e5a7af0985",
+        "payload_bytes": 282672,
+        "memory_bytes": 282672,
+        "crc32": "9181173a"
+      }
+    },
+    {
+      "path": "README.txt",
+      "size_bytes": 2251,
+      "sha256": "641f617ef2247c28afaf79ebd00f1deb1121266a41ae0549445fe62966cc5e16"
+    },
+    {
+      "path": "SHA256SUMS.txt",
+      "size_bytes": 469,
+      "sha256": "efc31927ec887b01fb042eca3ae83abb0bf428b272930ba911435b1743e30fda"
+    }
+  ]
+}

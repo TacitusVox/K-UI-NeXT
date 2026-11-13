@@ -1,0 +1,58 @@
+{
+  "archive_name": "KUI-Toy-SCI-Faster-Checks-Test-50-12NOV2026-1528-CST-1ad2aff.zip",
+  "archive_bytes": 1945876,
+  "archive_sha256": "1c8b26761990d2c5a307ee7a44d7a0383d47fa15a455b7d9b17d079e9db2233d",
+  "available_in_original_library": true,
+  "tests": [
+    49,
+    50
+  ],
+  "members": [
+    {
+      "path": "KUI/tools.kui",
+      "size_bytes": 3130992,
+      "sha256": "5e147c5f2367853a76a3d2f1d768eeb4c410844ea18e5e7f5d1a9e89cbc6e651",
+      "module": {
+        "format": 1,
+        "build": "7ee0638f0372",
+        "payload_bytes": 3130928,
+        "memory_bytes": 7428016,
+        "crc32": "017e8c3c"
+      }
+    },
+    {
+      "path": "KUI/apps/games/retail-toy-test-49.kui",
+      "size_bytes": 282292,
+      "sha256": "d3961d8c677d745801af50f0f3d91e41fce28b490a8943ba74a0ff0832230cf3",
+      "module": {
+        "format": 1,
+        "build": "befebdbf446f",
+        "payload_bytes": 282228,
+        "memory_bytes": 282228,
+        "crc32": "6d231579"
+      }
+    },
+    {
+      "path": "KUI/apps/games/retail-toy-test-50.kui",
+      "size_bytes": 282488,
+      "sha256": "478eeecd364de0e82af218ba31a3d83614f2ac81fdb02e922edac8b992cdade6",
+      "module": {
+        "format": 1,
+        "build": "1ad2afff629c",
+        "payload_bytes": 282424,
+        "memory_bytes": 282424,
+        "crc32": "7160b3bd"
+      }
+    },
+    {
+      "path": "README.txt",
+      "size_bytes": 1976,
+      "sha256": "f6c436ce737461e25d802b98c4c8f2bca6f440954ce5e36792bd4270ba4e8f86"
+    },
+    {
+      "path": "SHA256SUMS.txt",
+      "size_bytes": 365,
+      "sha256": "0bb18d7f73c663efd90b36e7bb9ec2454de839a5b68b50943231a2ca7d03b70b"
+    }
+  ]
+}

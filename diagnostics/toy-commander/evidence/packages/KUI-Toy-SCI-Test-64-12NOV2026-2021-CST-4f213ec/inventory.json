@@ -1,0 +1,71 @@
+{
+  "archive_name": "KUI-Toy-SCI-Test-64-12NOV2026-2021-CST-4f213ec.zip",
+  "archive_bytes": 1967710,
+  "archive_sha256": "0d82389e134c46f66c10b4bebb51a11b115e593f9ab525882ff801cc5feb2018",
+  "available_in_original_library": false,
+  "tests": [
+    57,
+    63,
+    64
+  ],
+  "members": [
+    {
+      "path": "KUI/tools.kui",
+      "size_bytes": 3131480,
+      "sha256": "35079d1ef1e033539735d8e095dfdb3a6bcf18d4fd1bf0245878e8ececbf05db",
+      "module": {
+        "format": 1,
+        "build": "e16e724c9b65",
+        "payload_bytes": 3131416,
+        "memory_bytes": 7428496,
+        "crc32": "a7fb446a"
+      }
+    },
+    {
+      "path": "KUI/apps/games/retail-toy-test-57.kui",
+      "size_bytes": 284304,
+      "sha256": "61e37d61081389ebbb985159818e72bdd4adf9d21d2ce65288973940b768cd09",
+      "module": {
+        "format": 1,
+        "build": "e5b30cdd569d",
+        "payload_bytes": 284240,
+        "memory_bytes": 284240,
+        "crc32": "7d6762c5"
+      }
+    },
+    {
+      "path": "KUI/apps/games/retail-toy-test-64.kui",
+      "size_bytes": 288484,
+      "sha256": "d6b013132d7d128bfe1a2de97df9c7155eff6813b2d0818d9169cefb3901a591",
+      "module": {
+        "format": 1,
+        "build": "4f213ec141bf",
+        "payload_bytes": 288420,
+        "memory_bytes": 288420,
+        "crc32": "02c30a52"
+      }
+    },
+    {
+      "path": "KUI/apps/disc/native-toy-trace.kui",
+      "size_bytes": 30304,
+      "sha256": "545c6c2cdbd79b6a0243135b18ab5d8c052bfc35c393b3efde2d9ddab30531ff",
+      "module": {
+        "format": 1,
+        "build": "5034eb26898d",
+        "payload_bytes": 30240,
+        "memory_bytes": 30240,
+        "crc32": "408bface"
+      }
+    },
+    {
+      "path": "README.txt",
+      "size_bytes": 1912,
+      "sha256": "5b633d582cfc7ba1756524af7c68fe2280c2ea945951942cdfeadb8a0787af1c"
+    },
+    {
+      "path": "SHA256SUMS.txt",
+      "size_bytes": 466,
+      "sha256": "5f7ca67b97e1871c6332c01ccf5114509089a582f7922a724cbe128b226b4236"
+    }
+  ]
+}

@@ -1,0 +1,58 @@
+{
+  "archive_name": "KUI-Toy-SCI-Wake-Resume-Test-51-12NOV2026-1551-CST-942509e.zip",
+  "archive_bytes": 1946183,
+  "archive_sha256": "2a4e1312dcf7b5e671e1bf0b9b54f8e196f6d2254d9a5dc620eaf297faf3c52a",
+  "available_in_original_library": true,
+  "tests": [
+    50,
+    51
+  ],
+  "members": [
+    {
+      "path": "KUI/tools.kui",
+      "size_bytes": 3130988,
+      "sha256": "c1ad437d89efd8c6679666e14ef4595b1d7f4a8df20014e9e09e98fee21bad3c",
+      "module": {
+        "format": 1,
+        "build": "d7245817bed4",
+        "payload_bytes": 3130924,
+        "memory_bytes": 7428016,
+        "crc32": "cd82e6af"
+      }
+    },
+    {
+      "path": "KUI/apps/games/retail-toy-test-50.kui",
+      "size_bytes": 282488,
+      "sha256": "478eeecd364de0e82af218ba31a3d83614f2ac81fdb02e922edac8b992cdade6",
+      "module": {
+        "format": 1,
+        "build": "1ad2afff629c",
+        "payload_bytes": 282424,
+        "memory_bytes": 282424,
+        "crc32": "7160b3bd"
+      }
+    },
+    {
+      "path": "KUI/apps/games/retail-toy-test-51.kui",
+      "size_bytes": 282676,
+      "sha256": "6b0e4d4c1be48aee4dd5633768e48fad73111ba171438d7acebfe3f18d65a945",
+      "module": {
+        "format": 1,
+        "build": "942509e6fe6e",
+        "payload_bytes": 282612,
+        "memory_bytes": 282612,
+        "crc32": "415280a5"
+      }
+    },
+    {
+      "path": "README.txt",
+      "size_bytes": 2031,
+      "sha256": "f608e8c7d2f856e513ab69f14e7194b85d62380596b0e5ed613bc9aea0f8a31e"
+    },
+    {
+      "path": "SHA256SUMS.txt",
+      "size_bytes": 365,
+      "sha256": "f76fd25f29e7bb007e0d258654c3f159fbfd20159c780a54fd691e4862cba7ea"
+    }
+  ]
+}

@@ -1,0 +1,45 @@
+{
+  "archive_name": "KUI-Toy-SCI-Pipelined-Recovery-Test-41-12NOV2026-1335-CST-e5aac92.zip",
+  "archive_bytes": 1783483,
+  "archive_sha256": "11f2c732dec1fd47ea6e2d76e23714d7d2582b4df458fdee5c3746aa333bf85e",
+  "available_in_original_library": true,
+  "tests": [
+    41
+  ],
+  "members": [
+    {
+      "path": "KUI/tools.kui",
+      "size_bytes": 3130924,
+      "sha256": "8ba49b34ed1e80782911e471a7c1ec7c18fcd83a1daa78ff799d895a205d0237",
+      "module": {
+        "format": 1,
+        "build": "9d4535c53b97",
+        "payload_bytes": 3130860,
+        "memory_bytes": 7427952,
+        "crc32": "b36f357b"
+      }
+    },
+    {
+      "path": "KUI/apps/games/retail-toy-test-41.kui",
+      "size_bytes": 279108,
+      "sha256": "d268388abf15bb9ec01aaa2382d0f03a102da8393cd48a4851369a643f7a5aa6",
+      "module": {
+        "format": 1,
+        "build": "e5aac92d707f",
+        "payload_bytes": 279044,
+        "memory_bytes": 279044,
+        "crc32": "53b270ae"
+      }
+    },
+    {
+      "path": "README.txt",
+      "size_bytes": 1728,
+      "sha256": "79db8de2ba47aac9a06ee3ebb4115cee4ff14c633cba07bde8a34c7e93a4d259"
+    },
+    {
+      "path": "SHA256SUMS.txt",
+      "size_bytes": 261,
+      "sha256": "6c71e25b996c6d7895028bc92381b1dbeaa95ed29c18b1f510e27635c70e7a1a"
+    }
+  ]
+}

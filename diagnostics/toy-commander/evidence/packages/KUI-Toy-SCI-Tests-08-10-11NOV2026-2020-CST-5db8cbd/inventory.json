@@ -1,0 +1,71 @@
+{
+  "archive_name": "KUI-Toy-SCI-Tests-08-10-11NOV2026-2020-CST-5db8cbd.zip",
+  "archive_bytes": 2105922,
+  "archive_sha256": "c05669ba19d1db07b52e898b5d10d2d1efbcd3364f04850d888807ec8bea5b43",
+  "available_in_original_library": true,
+  "tests": [
+    8,
+    9,
+    10
+  ],
+  "members": [
+    {
+      "path": "KUI/tools.kui",
+      "size_bytes": 3131500,
+      "sha256": "172877d86803aacf69815044ef3906f47db6cc1eeef89b2ae48ab1672d215b63",
+      "module": {
+        "format": 1,
+        "build": "41dc9ec85129",
+        "payload_bytes": 3131436,
+        "memory_bytes": 7428528,
+        "crc32": "703549fc"
+      }
+    },
+    {
+      "path": "KUI/apps/games/retail-toy-test-8.kui",
+      "size_bytes": 280632,
+      "sha256": "a436c771ecd5c303a3bb8f46c7b3aeef259f7df6f3168fa02e510e96e42263d6",
+      "module": {
+        "format": 1,
+        "build": "5db8cbd028c9",
+        "payload_bytes": 280568,
+        "memory_bytes": 280568,
+        "crc32": "b8147917"
+      }
+    },
+    {
+      "path": "KUI/apps/games/retail-toy-test-9.kui",
+      "size_bytes": 280376,
+      "sha256": "877dd03184556fb30238db351d8dafd9b7bd0e8596bec782944b57233e6795e3",
+      "module": {
+        "format": 1,
+        "build": "5db8cbd028c9",
+        "payload_bytes": 280312,
+        "memory_bytes": 280312,
+        "crc32": "2bcc1480"
+      }
+    },
+    {
+      "path": "KUI/apps/games/retail-toy-test-10.kui",
+      "size_bytes": 280088,
+      "sha256": "5956855e2ba0262a5f14ebfc9f7ecd813b378e54cb1f6ba12ce1eee46d6c1e89",
+      "module": {
+        "format": 1,
+        "build": "5db8cbd028c9",
+        "payload_bytes": 280024,
+        "memory_bytes": 280024,
+        "crc32": "a136ee92"
+      }
+    },
+    {
+      "path": "README.txt",
+      "size_bytes": 2087,
+      "sha256": "4110c2a8096717c48d47f0abdcd781879ac1b189c425d7a33f145165ac0ed31b"
+    },
+    {
+      "path": "SHA256SUMS.txt",
+      "size_bytes": 467,
+      "sha256": "f5c05679df5b70b31cf593142f6a51fc68bc440b010870492f6dc4ade14641e2"
+    }
+  ]
+}

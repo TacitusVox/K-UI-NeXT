@@ -1,0 +1,71 @@
+{
+  "archive_name": "KUI-Toy-SCI-Test-64-12NOV2026-2024-CST-a867aae.zip",
+  "archive_bytes": 1967741,
+  "archive_sha256": "10ee581776b0f91a9b098e91dd8ba0304a0fa067dbff94c9cc661ed3c89235e7",
+  "available_in_original_library": true,
+  "tests": [
+    57,
+    63,
+    64
+  ],
+  "members": [
+    {
+      "path": "KUI/tools.kui",
+      "size_bytes": 3131480,
+      "sha256": "35079d1ef1e033539735d8e095dfdb3a6bcf18d4fd1bf0245878e8ececbf05db",
+      "module": {
+        "format": 1,
+        "build": "e16e724c9b65",
+        "payload_bytes": 3131416,
+        "memory_bytes": 7428496,
+        "crc32": "a7fb446a"
+      }
+    },
+    {
+      "path": "KUI/apps/games/retail-toy-test-57.kui",
+      "size_bytes": 284304,
+      "sha256": "61e37d61081389ebbb985159818e72bdd4adf9d21d2ce65288973940b768cd09",
+      "module": {
+        "format": 1,
+        "build": "e5b30cdd569d",
+        "payload_bytes": 284240,
+        "memory_bytes": 284240,
+        "crc32": "7d6762c5"
+      }
+    },
+    {
+      "path": "KUI/apps/games/retail-toy-test-64.kui",
+      "size_bytes": 288516,
+      "sha256": "7231741f2c23f2d2bbe7f12ed919749dd29355169d523a62ad90e0bf73dbacd3",
+      "module": {
+        "format": 1,
+        "build": "a867aae40aac",
+        "payload_bytes": 288452,
+        "memory_bytes": 288452,
+        "crc32": "ceff82f8"
+      }
+    },
+    {
+      "path": "KUI/apps/disc/native-toy-trace.kui",
+      "size_bytes": 30304,
+      "sha256": "545c6c2cdbd79b6a0243135b18ab5d8c052bfc35c393b3efde2d9ddab30531ff",
+      "module": {
+        "format": 1,
+        "build": "5034eb26898d",
+        "payload_bytes": 30240,
+        "memory_bytes": 30240,
+        "crc32": "408bface"
+      }
+    },
+    {
+      "path": "README.txt",
+      "size_bytes": 1912,
+      "sha256": "489718f8601298022ba700d1847da7c0cb7c800279d72ce82b4cd076134b3600"
+    },
+    {
+      "path": "SHA256SUMS.txt",
+      "size_bytes": 466,
+      "sha256": "6391495ba8538a00778ce88329ac5057372aeabb04d07c0076572bb4733560c0"
+    }
+  ]
+}

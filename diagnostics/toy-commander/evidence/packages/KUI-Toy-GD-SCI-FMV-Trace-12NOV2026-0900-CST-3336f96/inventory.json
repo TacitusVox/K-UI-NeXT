@@ -1,0 +1,58 @@
+{
+  "archive_name": "KUI-Toy-GD-SCI-FMV-Trace-12NOV2026-0900-CST-3336f96.zip",
+  "archive_bytes": 1803183,
+  "archive_sha256": "39cb424a8892c056a02a9869d216ee3e0dd5909c0f4c90b016ccdb7ff85eb569",
+  "available_in_original_library": true,
+  "tests": [
+    29,
+    30
+  ],
+  "members": [
+    {
+      "path": "KUI/tools.kui",
+      "size_bytes": 3131672,
+      "sha256": "9ab088c2fbc50062237b0a62fe06e22643d26c805aad7e735400ce85149f9a17",
+      "module": {
+        "format": 1,
+        "build": "c0022192fb5f",
+        "payload_bytes": 3131608,
+        "memory_bytes": 7428688,
+        "crc32": "9dae928d"
+      }
+    },
+    {
+      "path": "KUI/apps/games/retail-toy-test-29.kui",
+      "size_bytes": 285156,
+      "sha256": "1d2a0b399c8ddcc3bbf08e23c8e2d7cb64aa18a645cc446b309821c4eaf50e96",
+      "module": {
+        "format": 1,
+        "build": "3336f9682d6e",
+        "payload_bytes": 285092,
+        "memory_bytes": 285092,
+        "crc32": "5077773a"
+      }
+    },
+    {
+      "path": "KUI/apps/disc/native-toy-trace.kui",
+      "size_bytes": 28236,
+      "sha256": "dafa3cf59d0653ea2f25a734eb196287b966c29e22c596745e6153c0b9e15791",
+      "module": {
+        "format": 1,
+        "build": "1de96fab36e3",
+        "payload_bytes": 28172,
+        "memory_bytes": 28172,
+        "crc32": "c9e98560"
+      }
+    },
+    {
+      "path": "README.txt",
+      "size_bytes": 2004,
+      "sha256": "fb1c493cbbcc4a2edfa6780a108673a4e0836ee95cb5332b7cf45e094af5ebd9"
+    },
+    {
+      "path": "SHA256SUMS.txt",
+      "size_bytes": 362,
+      "sha256": "4a44cc61f06e95ebbc251fc87bac6dd10084bbffb97ca8736c3d6719fee22ebf"
+    }
+  ]
+}

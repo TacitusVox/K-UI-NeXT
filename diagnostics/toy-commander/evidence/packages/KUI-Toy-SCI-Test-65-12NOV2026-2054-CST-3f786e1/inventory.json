@@ -1,0 +1,71 @@
+{
+  "archive_name": "KUI-Toy-SCI-Test-65-12NOV2026-2054-CST-3f786e1.zip",
+  "archive_bytes": 1968234,
+  "archive_sha256": "9af967ca02928c3f98a57af7aa87393e77fd3b68d51dd36bd393c02816ce9891",
+  "available_in_original_library": true,
+  "tests": [
+    57,
+    63,
+    65
+  ],
+  "members": [
+    {
+      "path": "KUI/tools.kui",
+      "size_bytes": 3131616,
+      "sha256": "66788794ab8903ba6696ccf7df80ee1a0a2894dcedf000514dbc6b5f2e9b2adb",
+      "module": {
+        "format": 1,
+        "build": "d735df0a6d75",
+        "payload_bytes": 3131552,
+        "memory_bytes": 7428624,
+        "crc32": "1b51ff34"
+      }
+    },
+    {
+      "path": "KUI/apps/games/retail-toy-test-57.kui",
+      "size_bytes": 284304,
+      "sha256": "61e37d61081389ebbb985159818e72bdd4adf9d21d2ce65288973940b768cd09",
+      "module": {
+        "format": 1,
+        "build": "e5b30cdd569d",
+        "payload_bytes": 284240,
+        "memory_bytes": 284240,
+        "crc32": "7d6762c5"
+      }
+    },
+    {
+      "path": "KUI/apps/games/retail-toy-test-65.kui",
+      "size_bytes": 288804,
+      "sha256": "2a330caff6af0d7c60ac421d1ae7abb48616eca42e4d1a225504210f94442bd2",
+      "module": {
+        "format": 1,
+        "build": "3f786e1926e2",
+        "payload_bytes": 288740,
+        "memory_bytes": 288740,
+        "crc32": "733a69b1"
+      }
+    },
+    {
+      "path": "KUI/apps/disc/native-toy-trace.kui",
+      "size_bytes": 30304,
+      "sha256": "545c6c2cdbd79b6a0243135b18ab5d8c052bfc35c393b3efde2d9ddab30531ff",
+      "module": {
+        "format": 1,
+        "build": "5034eb26898d",
+        "payload_bytes": 30240,
+        "memory_bytes": 30240,
+        "crc32": "408bface"
+      }
+    },
+    {
+      "path": "README.txt",
+      "size_bytes": 2129,
+      "sha256": "10d12f3fa7569031d0fb9ab4a28d272bf511f00974d12f508313ba935265dcda"
+    },
+    {
+      "path": "SHA256SUMS.txt",
+      "size_bytes": 466,
+      "sha256": "d1207bd6cbd1617eb99d7e52778779ac71fd57d7d7088cc632d1ac5698d62c4e"
+    }
+  ]
+}

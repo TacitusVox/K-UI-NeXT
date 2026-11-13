@@ -1,0 +1,71 @@
+{
+  "archive_name": "KUI-Toy-Tests-62-63-12NOV2026-1941-CST-7beafbe.zip",
+  "archive_bytes": 1967948,
+  "archive_sha256": "d7338595504bbe01af78f7f9d8a007e105d223ca59e7fb0ba4c8c7e564f3db2e",
+  "available_in_original_library": true,
+  "tests": [
+    57,
+    62,
+    63
+  ],
+  "members": [
+    {
+      "path": "KUI/tools.kui",
+      "size_bytes": 3131480,
+      "sha256": "6a9d5ae2a809aa9ca71a79d581e3bf06591d7214d9aaf5cacbaf514b7bb66f4e",
+      "module": {
+        "format": 1,
+        "build": "01c2ec1ac285",
+        "payload_bytes": 3131416,
+        "memory_bytes": 7428496,
+        "crc32": "219cb534"
+      }
+    },
+    {
+      "path": "KUI/apps/games/retail-toy-test-57.kui",
+      "size_bytes": 284304,
+      "sha256": "61e37d61081389ebbb985159818e72bdd4adf9d21d2ce65288973940b768cd09",
+      "module": {
+        "format": 1,
+        "build": "e5b30cdd569d",
+        "payload_bytes": 284240,
+        "memory_bytes": 284240,
+        "crc32": "7d6762c5"
+      }
+    },
+    {
+      "path": "KUI/apps/games/retail-toy-test-62.kui",
+      "size_bytes": 288292,
+      "sha256": "e38af2233149fa81af888a1837c971087a71116437c687666502aa285fa24c8e",
+      "module": {
+        "format": 1,
+        "build": "7beafbe8da44",
+        "payload_bytes": 288228,
+        "memory_bytes": 288228,
+        "crc32": "ad53b6e7"
+      }
+    },
+    {
+      "path": "KUI/apps/disc/native-toy-trace.kui",
+      "size_bytes": 30304,
+      "sha256": "545c6c2cdbd79b6a0243135b18ab5d8c052bfc35c393b3efde2d9ddab30531ff",
+      "module": {
+        "format": 1,
+        "build": "5034eb26898d",
+        "payload_bytes": 30240,
+        "memory_bytes": 30240,
+        "crc32": "408bface"
+      }
+    },
+    {
+      "path": "README.txt",
+      "size_bytes": 2723,
+      "sha256": "696a8795482b98e9114b936c7bd9a13f3cf7875eeadb5b226f50d778c51ef4b4"
+    },
+    {
+      "path": "SHA256SUMS.txt",
+      "size_bytes": 466,
+      "sha256": "ebbbd75b08b891223b8d47a97520519068e36e02572c3635741f1fb24f40f9da"
+    }
+  ]
+}

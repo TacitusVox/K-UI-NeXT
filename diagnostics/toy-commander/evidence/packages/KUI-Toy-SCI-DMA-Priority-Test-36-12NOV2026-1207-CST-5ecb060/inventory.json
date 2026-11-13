@@ -1,0 +1,45 @@
+{
+  "archive_name": "KUI-Toy-SCI-DMA-Priority-Test-36-12NOV2026-1207-CST-5ecb060.zip",
+  "archive_bytes": 1783128,
+  "archive_sha256": "a213ce5825237d8b8522d218a6aeca812b9f2d74d69e6b3e805a1d11b028cc28",
+  "available_in_original_library": true,
+  "tests": [
+    36
+  ],
+  "members": [
+    {
+      "path": "KUI/tools.kui",
+      "size_bytes": 3132168,
+      "sha256": "437b775f5e0fa4cf9398cc646fdd4fccaa79895f5fffbf19ee813415d07f1a5e",
+      "module": {
+        "format": 1,
+        "build": "5f93e5244f6b",
+        "payload_bytes": 3132104,
+        "memory_bytes": 7429200,
+        "crc32": "847056f0"
+      }
+    },
+    {
+      "path": "KUI/apps/games/retail-toy-test-36.kui",
+      "size_bytes": 275672,
+      "sha256": "3e23e56fb88288a1b4020875b7b0a248303d6e622d1fd50f7614502759dcb7b0",
+      "module": {
+        "format": 1,
+        "build": "5ecb06066b27",
+        "payload_bytes": 275608,
+        "memory_bytes": 275608,
+        "crc32": "aa088b65"
+      }
+    },
+    {
+      "path": "README.txt",
+      "size_bytes": 1917,
+      "sha256": "307792b00e1c77e412011a909944b471a0daca8d7d70c2f9f2b2844ee0e771dd"
+    },
+    {
+      "path": "SHA256SUMS.txt",
+      "size_bytes": 261,
+      "sha256": "83a31571b73f1aab3401c1194763194d1b1751f5cfb82395e4fb7ba9e89cf6fd"
+    }
+  ]
+}

@@ -1,0 +1,45 @@
+{
+  "archive_name": "KUI-Toy-SCI-RAM-Window-Test-35-12NOV2026-1152-CST-f1dc87f.zip",
+  "archive_bytes": 1788362,
+  "archive_sha256": "37dd13564f4aea2ab3f9de2bf936f88a3cda9d5bec5a3cbc5c1955ed69cccf8c",
+  "available_in_original_library": true,
+  "tests": [
+    35
+  ],
+  "members": [
+    {
+      "path": "KUI/tools.kui",
+      "size_bytes": 3132076,
+      "sha256": "fc4a81161e93f655ffc89ad0e51c682b98f2c6263c8caa2558712adc8bb18d02",
+      "module": {
+        "format": 1,
+        "build": "a4c5b883208a",
+        "payload_bytes": 3132012,
+        "memory_bytes": 7429104,
+        "crc32": "fd3b6f36"
+      }
+    },
+    {
+      "path": "KUI/apps/games/retail-toy-test-35.kui",
+      "size_bytes": 277264,
+      "sha256": "669757653593e62123eeb2e42f629e7e381c435db0ffa25ef96b689523d438c2",
+      "module": {
+        "format": 1,
+        "build": "f1dc87f6bed5",
+        "payload_bytes": 277200,
+        "memory_bytes": 277200,
+        "crc32": "b84bdc61"
+      }
+    },
+    {
+      "path": "README.txt",
+      "size_bytes": 2320,
+      "sha256": "65cd82769cf8998cdd2de7fb4f21371c91e13e66040aa0afd3eab7ab9507280c"
+    },
+    {
+      "path": "SHA256SUMS.txt",
+      "size_bytes": 261,
+      "sha256": "ac69a40927adfdef534f789614d5baf22d5c39aa6144aafa6bfbadcfa822e3e3"
+    }
+  ]
+}

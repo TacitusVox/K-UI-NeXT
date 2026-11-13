@@ -1,6 +1,6 @@
 # Evidence index
 
-All numbered tests from 1 through 65 are represented below. Console files retain their original bytes. Their sizes include fixed padding. Host-generated report fixtures live separately under `host/fixtures`.
+All numbered tests from 1 through 66 are represented below. Console files retain their original bytes. Their sizes include fixed padding. Host-generated report fixtures live separately under `host/fixtures`.
 
 Package folders contain the original README and SHA-256 list plus a verified archive-member inventory. Compiled game-reader modules are identified by build, payload CRC and SHA-256 in those inventories.
 
@@ -71,6 +71,8 @@ Package folders contain the original README and SHA-256 list plus a verified arc
 | 63 | [63.txt](../console/63.txt) | 5034eb26898d | 1024 | [KUI-Toy-Tests-62-63-12NOV2026-1941-CST-7beafbe](../packages/KUI-Toy-Tests-62-63-12NOV2026-1941-CST-7beafbe/inventory.json), [KUI-Toy-SCI-Test-64-12NOV2026-2021-CST-4f213ec](../packages/KUI-Toy-SCI-Test-64-12NOV2026-2021-CST-4f213ec/inventory.json), [KUI-Toy-SCI-Test-64-12NOV2026-2024-CST-a867aae](../packages/KUI-Toy-SCI-Test-64-12NOV2026-2024-CST-a867aae/inventory.json), [KUI-Toy-SCI-Test-65-12NOV2026-2054-CST-3f786e1](../packages/KUI-Toy-SCI-Test-65-12NOV2026-2054-CST-3f786e1/inventory.json) | Physical GD-ROM control. Report identifies 5034eb26898d. Do not interpret it as SCI delivery. |
 | 64 | [64.txt](../console/64.txt) | a867aae40aac | 1024 | [KUI-Toy-SCI-Test-64-12NOV2026-2021-CST-4f213ec](../packages/KUI-Toy-SCI-Test-64-12NOV2026-2021-CST-4f213ec/inventory.json), [KUI-Toy-SCI-Test-64-12NOV2026-2024-CST-a867aae](../packages/KUI-Toy-SCI-Test-64-12NOV2026-2024-CST-a867aae/inventory.json) | Superseded 2021 local candidate metadata retained. Delivered 2024 archive identifies a867aae. |
 | 65 | [65.txt](../console/65.txt) | 3f786e1926e2 | 1024 | [KUI-Toy-SCI-Test-65-12NOV2026-2054-CST-3f786e1](../packages/KUI-Toy-SCI-Test-65-12NOV2026-2054-CST-3f786e1/inventory.json) |  |
+
+| 66 | [66.txt](../console/66.txt) | 3124522ea906 | 1024 | [Final Test 66 ZIP](../../builds/KUI-Toy-SCI-Test-66-12NOV2026-2121-CST-3124522.zip) | Owner reported mild improvements; unresolved. [Observation](../analysis/test-66-console-outcome.md). |
 
 ## Remaining evidence gaps
 
