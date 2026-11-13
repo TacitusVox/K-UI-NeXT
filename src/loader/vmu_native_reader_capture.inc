@@ -195,7 +195,7 @@ static void __attribute__((noipa)) reader_window_clock(struct kui_vmu_native_pro
 #endif
 }
 #endif
-#if KUI_NATIVE_SPLIT_CONTROLLER_STREAM_GUARD
+#if KUI_NATIVE_SPLIT_CONTROLLER_STREAM_GUARD && !KUI_TOY_SUITE_ASYNC_DEMAND
 /* A TICK may spend up to one PIO window of masked CPU in this controller
  * frame. That pays off between bursts of reads, not while the game streams
  * (an FMV): there it adds little data and takes time from the decoder.
@@ -249,6 +249,22 @@ static bool __attribute__((noipa)) reader_streaming(void) {
 }
 #endif
 static void __attribute__((noipa)) reader_cooperative_service(void) {
+#if KUI_TOY_SUITE_ASYNC_DEMAND
+    /* Restart admitted demand from a validated physical controller reply.
+     * The SDK callback keeps its own VBR. Leave SCI priority with the
+     * reader while DMA is armed so that the next completion can chain. */
+    if(config.diagnostics!=KUI_VMU_NATIVE_DIAGNOSTICS_READER_ONLY ||
+       durable_card.inflight || durable_card.handling) return;
+    const kui_retail_async_region_type *r=reader_capture_region();
+    if(!r || !r->engine.active || !r->shared.stream.toy_suite_active) return;
+#ifdef KUI_VMU_NATIVE_PASSIVE_HOST_TEST
+    extern int kui_native_cooperative_test_visit(void);
+    (void)kui_native_cooperative_test_visit();
+#else
+    int (*visit)(kui_vmu_sd_transaction,void *)=(void *)(uintptr_t)config.sd_lease;
+    (void)visit(NULL,(void *)(uintptr_t)KUI_RETAIL_NATIVE_PUMP_COOKIE);
+#endif
+#else
 #if KUI_NATIVE_READAHEAD && !KUI_NATIVE_RA_TICK_OFF_ISOLATION
 #if KUI_NATIVE_SPLIT_CONTROLLER_STREAM_GUARD
     if(!reader_streaming() && !durable_card.inflight && !durable_card.handling)
@@ -341,6 +357,7 @@ static void __attribute__((noipa)) reader_cooperative_service(void) {
     else if(result!=KUI_VMU_SD_LEASE_OK)++reader_cooperative.faults;
     reader_cooperative.blocks+=r->engine.stats.irq_blocks-before;
 #endif
+#endif
 }
 #endif
 static kui_retail_async_region_type *reader_capture_region(void) {
@@ -417,7 +434,10 @@ static void reader_capture_poll(const struct kui_vmu_native_profile_sample *cloc
 #endif
         .call_blocks=a->stats.call_blocks,.polled=s->polled,
         .crc=s->crc_errors,.token_errors=s->token_errors,.foreign=s->foreign,
-        .repaired=s->repaired,.overruns=s->overruns,.deferred=s->deferred,
+        .overruns=s->overruns,
+#if !KUI_TOY_SUITE_SLOW_RETRY
+        .repaired=s->repaired,.deferred=s->deferred,
+#endif
         .function=g->diag.last_function,.command=g->command,.token=g->token,
         .block=a->cursor.block,.done=a->cursor.done,.pending=g->pending};
 #if KUI_NATIVE_REQUEST_TIMING

@@ -7,17 +7,21 @@ static struct kui_toy_movie_range toy_movie_ranges[4];
 #include "kui/native_readahead_layout.h"
 static struct kui_toy_suite_seed toy_suite_seed;
 static uint32_t toy_suite_source;
-#if KUI_TOY_SUITE_MODE == 1 || KUI_TOY_SUITE_MODE == 2 || KUI_TOY_SUITE_MODE == 6
+#if KUI_TOY_SUITE_MODE == 1 || KUI_TOY_SUITE_MODE == 2 || KUI_TOY_SUITE_MODE == 6 || KUI_TOY_SUITE_MODE == 35
 static _Alignas(32) uint8_t toy_suite_data[KUI_NATIVE_RA_DATA_BYTES];
 #endif
 #if KUI_TOY_SUITE_MODE == 1
 #include "toy_suite_witness_stage.inc"
-#elif KUI_TOY_SUITE_MODE == 2 || KUI_TOY_SUITE_MODE == 6
+#elif KUI_TOY_SUITE_MODE == 2 || KUI_TOY_SUITE_MODE == 6 || KUI_TOY_SUITE_MODE == 35
 #include "toy_suite_ram_stage.inc"
 #endif
 
 static const struct kui_retail_track *toy_suite_movie_track(void) {
+#if KUI_TOY_SUITE_MODE == 35
+    const struct kui_toy_movie_range *movie=&toy_movie_ranges[KUI_TOY_RAM_WINDOW_VARIANT];
+#else
     const struct kui_toy_movie_range *movie=&toy_movie_ranges[3];
+#endif
     if(!movie->count)return NULL;
     for(uint32_t i=0u;i<manifest.track_count;i++) {
         const struct kui_retail_track *track=&manifest.slots[i].track;
@@ -126,7 +130,7 @@ static void toy_movie_scan(void) {
     if(toy_suite_source==1u && card.transport==KUI_STORAGE_SCI) {
 #if KUI_TOY_SUITE_MODE == 1
         if(!toy_suite_witness_seed())memset(&toy_suite_seed,0,sizeof(toy_suite_seed));
-#elif KUI_TOY_SUITE_MODE == 2 || KUI_TOY_SUITE_MODE == 6
+#elif KUI_TOY_SUITE_MODE == 2 || KUI_TOY_SUITE_MODE == 6 || KUI_TOY_SUITE_MODE == 35
         (void)toy_suite_ram_seed(track);
 #endif
     }

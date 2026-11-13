@@ -97,14 +97,6 @@ static uint32_t milliseconds(uint32_t ticks) {
     return (ticks/3125u)*4u+((ticks%3125u)*4u+3124u)/3125u;
 }
 
-void kui_toy_fmv_format_bin(char text[KUI_TOY_FMV_BIN_TEXT_BYTES], const struct kui_toy_fmv_bin *bin) {
-    char *at=text;
-    hex(&at,bin->requested,4u);*at++=' ';
-    hex(&at,bin->completed,4u);*at++=' ';
-    hex(&at,milliseconds(bin->longest),4u);*at++=' ';
-    hex(&at,milliseconds(bin->gap),4u);
-}
-
 void kui_toy_fmv_format(char text[KUI_TOY_REPORT_FILE_BYTES], const struct kui_toy_fmv_trace *trace,
     const char *source, const char *build) {
     char *at=text;
@@ -129,9 +121,11 @@ void kui_toy_fmv_format(char text[KUI_TOY_REPORT_FILE_BYTES], const struct kui_t
             *at++=j==7u?'\n':' ';
         }
         for(unsigned j=0u;j<KUI_TOY_FMV_BINS;++j) {
-            kui_toy_fmv_format_bin(at,&movie->bins[j]);
-            at+=KUI_TOY_FMV_BIN_TEXT_BYTES;
-            *at++='\n';
+            const struct kui_toy_fmv_bin *bin=&movie->bins[j];
+            hex(&at,bin->requested,4u);*at++=' ';
+            hex(&at,bin->completed,4u);*at++=' ';
+            hex(&at,milliseconds(bin->longest),4u);*at++=' ';
+            hex(&at,milliseconds(bin->gap),4u);*at++='\n';
         }
     }
     append(&at,"CLOCK LOST ");hex(&at,trace->clock_lost,8u);*at++='\n';

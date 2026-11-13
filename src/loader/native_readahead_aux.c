@@ -1,13 +1,23 @@
 /* SPDX-License-Identifier: GPL-3.0-only */
 /* Optional physical-card look-ahead. The normal reader remains the sole
  * owner of demand completion, guest destinations, retries and card adoption.
- * This module runs only through its separately guarded private-stack entry. */
+ * Reader policy runs through its separately guarded private-stack entry. */
 #include "native_readahead_aux_internal.h"
 #include "kui/vmu_native_background.h"
 #include "kui/toy_pilot_clock.h"
 #include <string.h>
+#if KUI_TOY_SUITE_WIDE_EDC
+#include "kui/hash.h"
+#include "kui/retail_image.h"
+#endif
+#if KUI_TOY_SUITE_SLOW_RETRY || KUI_TOY_SUITE_VERIFIED_RESUME
+#include "kui/retail_loader_layout.h"
+#define RA_LOW_LIMIT KUI_RETAIL_LOW_ASYNC_LIMIT
+#else
+#define RA_LOW_LIMIT UINT32_C(0x8c007ba0)
+#endif
 
-#if !KUI_NATIVE_READAHEAD || defined(KUI_RETAIL_CE) || KUI_SCI_STREAM_TOKEN_SLICED
+#if !KUI_NATIVE_READAHEAD || defined(KUI_RETAIL_CE) || (KUI_SCI_STREAM_TOKEN_SLICED && !KUI_TOY_SUITE_ASYNC_DEMAND)
 #error "Read-ahead auxiliary code requires its separate native unsliced SCI profile"
 #endif
 #if KUI_NATIVE_BACKGROUND_COMPACT && \
@@ -27,7 +37,7 @@
 
 /* These are the existing unsliced sci_stream.c states. No new state or field
  * is inserted in the tightly bounded low reader region. */
-enum { RA_CLOSED=0u,RA_PAUSED=1u,RA_DMA=2u,RA_LOST=3u,RA_RESUME=4u };
+enum { RA_CLOSED=0u,RA_PAUSED=1u,RA_DMA=KUI_SCI_STREAM_DMA_STATE,RA_LOST=3u,RA_RESUME=4u };
 #define SPEC_TOKEN_LIMIT 256u
 __asm__(".global __kui_native_readahead_diagnostic_auxiliary\n"
         ".set __kui_native_readahead_diagnostic_auxiliary,1\n"
@@ -75,10 +85,15 @@ static struct ra_clock clock_read(void) {
         kui_toy_pilot_clock_profile(frqcr,tcor,tcr,tstr)?1u:0u};
     return result;
 }
+#if KUI_TOY_SUITE_FRAME_TIMING
+#include "toy_movie_present_trace.inc"
+#endif
+#if !KUI_TOY_SUITE_ASYNC_DEMAND
 static bool dma_idle(void) {
     return !(read_hw(UINT32_C(0xffa0001c),4u)&7u) &&
         (read_hw(UINT32_C(0xffa00040),4u)&7u)==1u;
 }
+#endif
 static bool no_overlap(const void *a,size_t an,const void *b,size_t bn) {
     uintptr_t x=(uintptr_t)a,y=(uintptr_t)b;
     return x<=UINTPTR_MAX-an && y<=UINTPTR_MAX-bn && (x+an<=y || y+bn<=x);
@@ -86,7 +101,7 @@ static bool no_overlap(const void *a,size_t an,const void *b,size_t bn) {
 #ifndef KUI_NATIVE_READAHEAD_AUX_HOST_TEST
 static bool low_code(uintptr_t address) {
     return !(address&1u) && address>=UINT32_C(0x8c004028) &&
-        address<UINT32_C(0x8c007ba0);
+        address<RA_LOW_LIMIT;
 }
 #endif
 static bool config_valid(const struct kui_native_ra_config *c) {
@@ -108,10 +123,10 @@ static bool config_valid(const struct kui_native_ra_config *c) {
        (uintptr_t)c->region!=(p|UINT32_C(0x80000000))+KUI_VMU_NATIVE_BACKGROUND_REGION_OFFSET ||
        (uintptr_t)c->data!=(p|UINT32_C(0xa0000000))+KUI_NATIVE_RA_DATA_OFFSET ||
        (ops&3u) || ops<UINT32_C(0x8c004028) ||
-       ops>UINT32_C(0x8c007ba0)-sizeof(*c->ops))return false;
+       ops>RA_LOW_LIMIT-sizeof(*c->ops))return false;
     uintptr_t cell=(uintptr_t)c->ops->region_storage;
     if(
-       (cell&3u) || cell<UINT32_C(0x8c004000) || cell>UINT32_C(0x8c007b9c) ||
+       (cell&3u) || cell<UINT32_C(0x8c004000) || cell>RA_LOW_LIMIT-4u ||
        !low_code((uintptr_t)c->ops->deliver) || !low_code((uintptr_t)c->ops->hook) ||
        !low_code((uintptr_t)c->ops->unhook) || !low_code((uintptr_t)c->ops->fetch) ||
 #if KUI_TOY_SUITE_MODE != 26 && KUI_TOY_SUITE_MODE != 27 && KUI_TOY_SUITE_MODE != 28
@@ -133,6 +148,24 @@ static bool config_valid(const struct kui_native_ra_config *c) {
 #endif
         o->stop && o->busy && o->feed;
 }
+#if KUI_TOY_SUITE_WIDE_EDC
+static struct kui_cd_edc_table *toy_edc_table(const struct kui_native_ra_config *config) {
+    /* This demand profile has no speculative cache producer. Reserve the
+     * table after the largest staged raw request in the same owned arena. */
+    _Static_assert(KUI_RETAIL_IMAGE_MAX_SECTORS*KUI_GAME_RAW_BYTES <=
+        KUI_NATIVE_RA_DATA_BYTES-sizeof(struct kui_cd_edc_table),
+        "Raw staging and the EDC table must be disjoint");
+    _Static_assert((KUI_NATIVE_RA_DATA_BYTES-sizeof(struct kui_cd_edc_table))%32u==0u,
+        "The EDC table has private cache lines");
+    _Static_assert(KUI_GAME_RAW_BYTES%4u==0u,
+        "Every staged raw sector is word aligned");
+    uintptr_t data=(uintptr_t)config->data;
+#ifndef KUI_NATIVE_READAHEAD_AUX_HOST_TEST
+    data&=~(uintptr_t)UINT32_C(0x20000000);
+#endif
+    return (void *)(data+KUI_NATIVE_RA_DATA_BYTES-sizeof(struct kui_cd_edc_table));
+}
+#endif
 int kui_native_readahead_aux_init(const struct kui_native_ra_config *c) {
     if(C.busy || C.initialized || !config_valid(c))return -1;
     struct kui_native_ra_cache cache;
@@ -146,6 +179,15 @@ int kui_native_readahead_aux_init(const struct kui_native_ra_config *c) {
 #endif
     memset(&C,0,sizeof(C));
     C.config=*c;C.cache=cache;C.initialized=1u;
+#if KUI_TOY_SUITE_WIDE_EDC
+    if(c->toy_poll_owner)kui_cd_edc_table_init(toy_edc_table(c));
+#endif
+#if KUI_TOY_SUITE_MOVIE_POLL
+    C.demand.owner_verified=c->toy_poll_owner;
+#endif
+#if KUI_TOY_SUITE_MODE == 35
+    if(c->toy_poll_owner) C.demand.window.seeded_blocks=seed->count[0]+seed->count[1];
+#endif
 #if defined(KUI_TOY_SUITE_MODE)
     C.suite_source=c->suite_source;
 #if KUI_TOY_SUITE_MODE == 1 || KUI_TOY_SUITE_MODE == 2 || KUI_TOY_SUITE_MODE == 6
@@ -158,7 +200,7 @@ int kui_native_readahead_aux_init(const struct kui_native_ra_config *c) {
 #endif
     return 0;
 }
-#if KUI_TOY_SUITE_MODE != 26 && KUI_TOY_SUITE_MODE != 27 && KUI_TOY_SUITE_MODE != 28
+#if KUI_TOY_SUITE_MODE != 26 && KUI_TOY_SUITE_MODE != 27 && KUI_TOY_SUITE_MODE != 28 && !KUI_TOY_SUITE_ASYNC_DEMAND
 static void snapshot_hw(struct kui_native_ra_hw_snapshot *s) {
     /* Sequential, read-only observations: DMA can advance between reads.
      * Never read RDR, fence/purge memory, or change transport registers. */
@@ -231,7 +273,7 @@ static void snapshot_failure(const kui_retail_async_region_type *r,
 static bool skipped(enum kui_native_ra_skip reason) {
     ++C.diagnostics.skipped[reason];return true;
 }
-#if KUI_TOY_SUITE_MODE != 26 && KUI_TOY_SUITE_MODE != 27 && KUI_TOY_SUITE_MODE != 28
+#if KUI_TOY_SUITE_MODE != 26 && KUI_TOY_SUITE_MODE != 27 && KUI_TOY_SUITE_MODE != 28 && !KUI_TOY_SUITE_ASYNC_DEMAND
 static void abandon(kui_retail_async_region_type *r,enum kui_sci_stream_result result) {
     snapshot_failure(r,result);
     if(result==KUI_SCI_STREAM_CRC)++C.stats.crc_errors;
@@ -376,6 +418,7 @@ static void seed_completed(kui_retail_async_region_type *r) {
     C.have_seed=1u;C.abandoned=0u;
 }
 #endif
+#if !KUI_TOY_SUITE_ASYNC_DEMAND
 static void demand_complete(kui_retail_async_region_type *r) {
     struct kui_retail_async *e=&r->engine;
     if(e->cursor.done!=e->cursor.count)return;
@@ -388,9 +431,10 @@ static void demand_complete(kui_retail_async_region_type *r) {
     }
 #endif
 }
+#endif
 #if KUI_TOY_SUITE_MODE == 2 || KUI_TOY_SUITE_MODE == 3 || KUI_TOY_SUITE_MODE == 4 || \
     KUI_TOY_SUITE_MODE == 6 || KUI_TOY_SUITE_MODE == 7 || KUI_TOY_SUITE_MODE == 26 || \
-    KUI_TOY_SUITE_MODE == 27 || KUI_TOY_SUITE_MODE == 28
+    KUI_TOY_SUITE_MODE == 27 || KUI_TOY_SUITE_MODE == 28 || KUI_TOY_SUITE_MODE == 31 || KUI_TOY_SUITE_ASYNC_DEMAND
 static unsigned movie_variant(const struct kui_retail_gd *s);
 static unsigned suite_movie(const kui_retail_async_region_type *r) {
     const struct kui_retail_async *e=&r->engine;
@@ -400,7 +444,7 @@ static unsigned suite_movie(const kui_retail_async_region_type *r) {
     unsigned variant=movie_variant(s);
     if(!variant)return 0u;
     const struct kui_toy_movie_range *movie=&C.config.movie_ranges[variant-1u];
-#if KUI_TOY_SUITE_MODE == 26 || KUI_TOY_SUITE_MODE == 27 || KUI_TOY_SUITE_MODE == 28
+#if KUI_TOY_SUITE_MODE >= 26
     if(!e->cursor.manifest || e->cursor.track>=e->cursor.manifest->track_count ||
        e->cursor.track>=KUI_RETAIL_MANIFEST_SLOTS || e->cursor.raw)return 0u;
 #endif
@@ -412,7 +456,176 @@ static unsigned suite_movie(const kui_retail_async_region_type *r) {
     return variant;
 }
 #endif
-#if KUI_TOY_SUITE_MODE == 3 || KUI_TOY_SUITE_MODE == 4 || KUI_TOY_SUITE_MODE == 7
+#if KUI_TOY_SUITE_ASYNC_DEMAND
+#if KUI_TOY_SUITE_REFILL_SLICE
+enum { TOY_REFILL_TICKS=1172u, TOY_REFILL_BLOCKS=3u, TOY_REFILL_EXTRA_LIMIT=256u };
+
+static inline bool toy_refill_time_left(struct ra_clock start) {
+    const struct ra_clock now=clock_read();
+    return now.valid && start.counter-now.counter<TOY_REFILL_TICKS;
+}
+#endif
+#if KUI_TOY_SUITE_MODE == 35
+#include "toy_ram_window.inc"
+#endif
+#if KUI_TOY_SUITE_VERIFIED_RESUME
+#include "toy_resume_verify.inc"
+#endif
+#if KUI_TOY_SUITE_MODE >= 62
+#include "toy_movie_ahead.inc"
+extern uint32_t kui_native_readahead_aux_visit(uint32_t,uint32_t,
+    kui_retail_async_region_type *,uint32_t);
+
+void kui_toy_movie_ahead_update(uint32_t ctx) {
+    if(C.initialized && toy_present.owner==ctx)
+        (void)kui_native_readahead_aux_visit(KUI_NATIVE_RA_MOVIE_AHEAD,ctx,C.config.region,0u);
+}
+#endif
+#if KUI_TOY_SUITE_SEQUENTIAL_PIO
+static bool toy_sequential_pio_step(kui_retail_async_region_type *r,bool selected) {
+    struct kui_sci_stream_state *stream=&r->shared.stream;
+    const struct kui_retail_cursor *cursor=&r->engine.cursor;
+    /* Reuse the low reader's checked window only at an already open card
+     * boundary. A seek, incomplete block or changed owner stays on the
+     * established fetch/retry path. */
+    const bool offered=selected && stream->state==RA_PAUSED && !stream->toy_suite_slow_pending &&
+       (stream->position==cursor->block ||
+        (cursor->run>1u && stream->position-cursor->block==1u));
+    const uint32_t reads=stream->stats.toy_pio_window_blocks;
+    if(offered)stream->toy_suite_slow_pending=KUI_TOY_SCI_PIO_WINDOW_FIRST;
+    C.config.ops->deliver(0u);
+    if(offered && stream->toy_suite_slow_pending>=KUI_TOY_SCI_PIO_WINDOW_FIRST)
+        stream->toy_suite_slow_pending=0u;
+    return offered && stream->stats.toy_pio_window_blocks!=reads;
+}
+#endif
+static void suite_demand(uint32_t wait,kui_retail_async_region_type *r) {
+    unsigned variant=suite_movie(r);
+#if KUI_TOY_SUITE_MODE == 35
+    const bool first_visit=!r->shared.stream.toy_suite_active;
+#endif
+    /* Keep the original opening fill and nonmovie reads on the full
+     * demand path. Retain the decision for the separate controller wake. */
+    if(r->engine.active && !r->engine.failed) {
+        unsigned active=1u;
+#if KUI_TOY_SUITE_SLOW_RETRY
+        if(C.config.toy_poll_owner)active|=KUI_TOY_SUITE_SLOW_MOVIE;
+#endif
+        r->shared.stream.toy_suite_active=variant &&
+            r->shared.service.lba-C.config.movie_ranges[variant-1u].lba>=386u?active:0u;
+    }
+#if KUI_TOY_SUITE_MODE == 35
+    if(first_visit && r->shared.stream.toy_suite_active && toy_window_deliver(r,variant))return;
+#endif
+#if KUI_TOY_SUITE_AFTER_START
+    bool in_play=false;
+    if(variant && r->engine.active && !r->engine.failed &&
+       (KUI_TOY_SUITE_FIRST_CUT_PIO || KUI_TOY_SUITE_VERIFIED_RESUME || !r->engine.in_irq) &&
+       (KUI_TOY_SUITE_VERIFIED_RESUME?
+        C.config.toy_poll_owner && r->shared.stream.toy_suite_active:
+        (r->shared.stream.toy_suite_active&KUI_TOY_SUITE_SLOW_MOVIE))) {
+        const volatile struct kui_toy_movie_exit_witness *w=&C.movie_exit[(variant-1u)/2u];
+        in_play=(w->flags&(KUI_TOY_MOVIE_EXIT_STARTED|KUI_TOY_MOVIE_EXIT_TERMINAL))==
+            KUI_TOY_MOVIE_EXIT_STARTED && w->start_status==0x07dbu;
+    }
+#endif
+#if KUI_TOY_SUITE_VERIFIED_RESUME
+#if KUI_TOY_SUITE_MODE >= 62
+    if(toy_movie_ahead(r,variant,in_play,wait))return;
+#endif
+    if(toy_resume_deliver(wait,r,variant,in_play))return;
+#endif
+#if KUI_TOY_SUITE_FIRST_CUT_PIO
+    if(in_play)r->shared.stream.toy_suite_active|=KUI_TOY_SUITE_FIRST_CUT_ACTIVE;
+#endif
+#if KUI_TOY_SUITE_BOUNDED_DMA
+    if(in_play && r->shared.stream.toy_suite_poll==1u && r->engine.target) {
+        const uint32_t target=r->engine.target;
+        const uint32_t before=r->engine.stats.call_blocks;
+        /* Lend the scheduled foreground caller the established full
+         * receive/wait step, with its native foreground block cap lowered
+         * for this visit. IRQs and one-pass polling keep their old path. */
+        r->engine.target=target<6u?target:6u;
+        r->shared.stream.toy_suite_poll=0u;
+        C.config.ops->deliver(r->engine.target);
+        r->shared.stream.toy_suite_poll=1u;
+        r->engine.target=target;
+        const unsigned clip=(variant-1u)/2u;
+        /* This test's suite slots record visits and deliveries from the
+         * capped wait alone, separate from the ordinary background slice. */
+        ++C.suite[2u*clip];
+        C.suite[2u*clip+1u]+=r->engine.stats.call_blocks-before;
+        return;
+    }
+#endif
+#if KUI_TOY_SUITE_REFILL_SLICE
+    const bool direct_pio=
+#if KUI_TOY_SUITE_SEQUENTIAL_PIO
+        in_play;
+#else
+        KUI_TOY_SUITE_DIRECT_PIO &&
+        (r->shared.stream.toy_suite_active&KUI_TOY_SUITE_SLOW_MOVIE);
+#endif
+    /* Borrow a bounded interval from the scheduled EXEC. Direct PIO has
+     * no SCI wake, so also use the decoder's recognized one-pass EXEC.
+     * Neither caller enters the resident's synchronous wait. */
+    if(variant && r->engine.active && !r->engine.failed &&
+       r->shared.stream.toy_suite_active && !r->engine.in_irq &&
+       (r->shared.stream.toy_suite_poll==1u ||
+        (direct_pio && r->shared.stream.toy_suite_poll==2u))) {
+        const struct ra_clock start=clock_read();
+        const uint32_t blocks=r->engine.stats.call_blocks;
+        const uint32_t polled=r->shared.stream.stats.polled;
+        /* Movie PIO leaves no SCI interrupt to advance a parked block.
+         * The same scheduled slice can therefore step up to three PIO
+         * blocks, including a buffered block's completion. Other traffic
+         * retains the ordinary one-PIO allowance. */
+        const uint32_t pio_limit=direct_pio?3u:1u;
+#if KUI_TOY_SUITE_SEQUENTIAL_PIO
+        const unsigned clip=(variant-1u)/2u;
+        const bool first_pio=toy_sequential_pio_step(r,direct_pio && start.valid);
+        if(!KUI_TOY_SUITE_DMA_ROUND_ROBIN) C.suite[clip]+=first_pio;
+#else
+        C.config.ops->deliver(0u);
+#endif
+        if(!start.valid)return;
+        const uint32_t first=r->engine.stats.call_blocks;
+        unsigned extra=0u;
+        while(r->engine.active && !r->engine.failed &&
+              r->engine.stats.call_blocks-blocks<TOY_REFILL_BLOCKS &&
+              r->shared.stream.stats.polled-polled<pio_limit && extra<TOY_REFILL_EXTRA_LIMIT) {
+            if(!toy_refill_time_left(start))break;
+            ++extra;
+#if KUI_TOY_SUITE_SEQUENTIAL_PIO
+            const bool extra_pio=toy_sequential_pio_step(r,direct_pio);
+            if(!KUI_TOY_SUITE_DMA_ROUND_ROBIN) C.suite[clip]+=extra_pio;
+#else
+            C.config.ops->deliver(0u);
+#endif
+        }
+        if(extra && !KUI_TOY_SUITE_RESUME_SLICE) {
+            struct kui_toy_demand_movie_trace *movie=&C.demand.movie[(variant-1u)/2u];
+            ++movie->slice_visits;
+            movie->slice_blocks+=r->engine.stats.call_blocks-first;
+        }
+        return;
+    }
+#endif
+    C.config.ops->deliver(wait);
+}
+#elif KUI_TOY_SUITE_MODE == 31
+static void suite_demand(uint32_t wait,kui_retail_async_region_type *r) {
+    unsigned variant=suite_movie(r);
+    if(variant && r->shared.service.lba-C.config.movie_ranges[variant-1u].lba<386u)
+        variant=0u;
+    struct kui_sci_stream_state *stream=&r->shared.stream;
+    uint8_t before=stream->toy_suite_retries;
+    stream->toy_suite_active=variant!=0u;
+    C.config.ops->deliver(wait);
+    stream->toy_suite_active=0u;
+    if(variant) C.suite[(variant-1u)/2u]+=(uint8_t)(stream->toy_suite_retries-before);
+}
+#elif KUI_TOY_SUITE_MODE == 3 || KUI_TOY_SUITE_MODE == 4 || KUI_TOY_SUITE_MODE == 7
 static void suite_demand(uint32_t wait,kui_retail_async_region_type *r) {
     unsigned variant=suite_movie(r);
 #if KUI_TOY_SUITE_MODE == 3 || KUI_TOY_SUITE_MODE == 4
@@ -495,7 +708,7 @@ extern enum kui_sci_stream_result toy_sci_burst_stop(kui_retail_async_region_typ
 #if KUI_TOY_SUITE_MODE == 27 || KUI_TOY_SUITE_MODE == 28
 #include "toy_suite_quiet_burst.inc"
 #endif
-#else
+#elif !KUI_TOY_SUITE_ASYNC_DEMAND
 static void deliver(uint32_t wait,kui_retail_async_region_type *r) {
     const struct kui_native_ra_low_ops *o=C.config.ops;
     struct kui_retail_async *e=&r->engine;
@@ -545,6 +758,11 @@ static uint32_t quiesce(kui_retail_async_region_type *r) {
     C.quiesced=1u;
 #if KUI_TOY_SUITE_MODE == 26 || KUI_TOY_SUITE_MODE == 27 || KUI_TOY_SUITE_MODE == 28
     return burst_release(r) && !C.config.ops->busy();
+#elif KUI_TOY_SUITE_ASYNC_DEMAND
+#if KUI_TOY_SUITE_MODE >= 62
+    if(!toy_ahead_clear(r))return 0u;
+#endif
+    return !C.config.ops->busy();
 #else
     ++C.stats.quiesces;
     if(C.spec_owned) {
@@ -571,6 +789,324 @@ static unsigned movie_variant(const struct kui_retail_gd *s) {
     }
     return 0u;
 }
+#if KUI_TOY_SUITE_MOVIE_CHUNK
+static uint32_t toy_chunk_word(uint32_t address) {
+#ifdef KUI_NATIVE_READAHEAD_AUX_HOST_TEST
+    extern uint32_t kui_toy_movie_chunk_test_word(uint32_t);
+    return kui_toy_movie_chunk_test_word(address);
+#else
+    return *(const volatile uint32_t *)(uintptr_t)address;
+#endif
+}
+
+#define TOY_NAME_WORD(a,b,c,d) ((uint32_t)(a) | (uint32_t)(b)<<8 | (uint32_t)(c)<<16 | (uint32_t)(d)<<24)
+/* Same exact game context and filenames as the movie exit witness. */
+static unsigned toy_chunk_variant(uint32_t name) {
+    unsigned rate;
+    switch(toy_chunk_word(name)) {
+    case TOY_NAME_WORD('5','0','h','z'): rate=1u;break;
+    case TOY_NAME_WORD('6','0','h','z'): rate=2u;break;
+    default: return 0u;
+    }
+    switch(toy_chunk_word(name+4u)) {
+    case TOY_NAME_WORD('_','B','u','m'):
+        return toy_chunk_word(name+8u)==TOY_NAME_WORD('p','e','r','_') &&
+            toy_chunk_word(name+12u)==TOY_NAME_WORD('L','R','T','F') &&
+            toy_chunk_word(name+16u)==TOY_NAME_WORD('.','a','v','i') &&
+            !(toy_chunk_word(name+20u)&255u)?rate:0u;
+    case TOY_NAME_WORD('_','I','n','t'):
+        return toy_chunk_word(name+8u)==TOY_NAME_WORD('r','o','_','L') &&
+            toy_chunk_word(name+12u)==TOY_NAME_WORD('R','T','F','.') &&
+            toy_chunk_word(name+16u)==TOY_NAME_WORD('a','v','i','\0')?rate+2u:0u;
+    default: return 0u;
+    }
+}
+#undef TOY_NAME_WORD
+
+static bool toy_chunk_pending(const struct kui_toy_movie_range *range) {
+    const volatile struct kui_retail_gd *s=&C.config.region->shared.service;
+    if(!s->pending)return false;
+    const uint32_t token=s->token,command=s->command,lba=s->lba,count=s->count;
+    const uint32_t offset=lba-range->lba;
+    return (command==KUI_GD_PIOREAD || command==KUI_GD_DMAREAD) &&
+        offset<range->count && count && count<=range->count-offset &&
+        s->pending && s->token==token;
+}
+
+#if KUI_TOY_SUITE_MOVIE_TIMING
+/* Follow only the exact owner's foreground AVI/stream objects in main RAM.
+ * P1 and P2 are the two legitimate aliases for these objects. */
+static bool toy_chunk_ram(uint32_t address,uint32_t bytes) {
+    const uint32_t physical=address&UINT32_C(0x1fffffff);
+    return (address&UINT32_C(0xdf000003))==UINT32_C(0x8c000000) &&
+        physical>=UINT32_C(0x0c010000) && physical<=UINT32_C(0x0d000000)-bytes;
+}
+
+static bool toy_chunk_buffer(uint32_t ctx,uint32_t *ring_used,uint32_t *missing) {
+    const uint32_t unknown=UINT32_MAX;
+    *ring_used=*missing=unknown;
+    const uint32_t stream=toy_chunk_word(ctx+8u);
+    if(!toy_chunk_ram(stream,20u))return false;
+    const uint32_t channel=toy_chunk_word(stream+4u);
+    if(!toy_chunk_ram(channel,72u))return false;
+    const uint32_t avi=toy_chunk_word(channel+68u);
+    if(!toy_chunk_ram(avi,108u))return false;
+    const uint32_t capacity=toy_chunk_word(avi+0x14u);
+    const uint32_t released=toy_chunk_word(avi+0x64u);
+    const uint32_t filled=toy_chunk_word(avi+0x68u);
+    const uint32_t used=filled-released;
+    /* Original 8c098a02 reports capacity+released-filled as free bytes. */
+    if(!capacity || capacity>UINT32_C(0x400000) || used>capacity)return false;
+    *ring_used=used;
+
+    const uint32_t entries=toy_chunk_word(avi+0x38u);
+    const uint32_t count=toy_chunk_word(avi+0x44u);
+    const uint32_t next=toy_chunk_word(stream+0x10u)+1u;
+    const uint32_t kind=toy_chunk_word(channel+4u);
+    if(kind>255u || count>65536u || next>=count || !toy_chunk_ram(entries,count*12u))return false;
+    const uint32_t base=toy_chunk_word(avi+0x20u);
+    uint32_t limit=count-next;
+    if(limit>32u)limit=32u;
+    /* Same kind and next index as original acquisition at 8c08ee38.
+     * Stop at the first matching video entry, with a bounded scan. */
+    for(uint32_t entry=entries+next*12u;limit;--limit,entry+=12u) {
+        const uint32_t metadata=toy_chunk_word(entry+8u);
+        if((metadata&255u)!=kind)continue;
+        const uint32_t offset=toy_chunk_word(entry);
+        const uint32_t size=toy_chunk_word(entry+4u);
+        if(offset>UINT32_MAX-base || size>UINT32_MAX-(offset+base))return false;
+        const uint32_t end=offset+base+size;
+        *missing=end>filled?end-filled:0u;
+        /* Original acquisition at 8c08eeda requires ready bit 1 and
+         * rejects released bit 2. */
+        return (metadata&0x300u)==0x100u && size && end<=filled;
+    }
+    return false;
+}
+
+#if KUI_TOY_SUITE_DECODE_WINDOW
+enum {
+    TOY_QUIET_LIMIT=1u, TOY_QUIET_RING, TOY_QUIET_REQUEST, TOY_QUIET_CONTEXT,
+    TOY_QUIET_MAX_FRAME=30u, TOY_QUIET_MAX_SAMPLES=44100u,
+    TOY_QUIET_MAX_TICKS=976562u, TOY_QUIET_MIN_USED=384u*1024u
+};
+
+static bool toy_quiet_refuse(struct kui_toy_movie_onset_trace *onset,
+    uint32_t frame,uint32_t reason,bool permanent) {
+    onset->quiet_reason=reason;
+    onset->quiet_end_frame=frame+1u;
+    if(permanent || onset->quiet_defers)onset->quiet_ctx=UINT32_MAX;
+    return false;
+}
+
+/* Called only at the original enqueue site, after the ordinary AVI parser
+ * has processed the prior result. Never touch any guest or service state. */
+bool kui_toy_movie_refill_defer(uint32_t avi,uint32_t file,uint32_t bytes) {
+    struct kui_toy_movie_onset_trace *onset=&C.onset[1];
+    const uint32_t ctx=onset->quiet_ctx;
+    if(!ctx || ctx==UINT32_MAX)return false;
+    const volatile struct kui_toy_movie_exit_witness *w=&C.movie_exit[1];
+    if((w->flags&(KUI_TOY_MOVIE_EXIT_STARTED|KUI_TOY_MOVIE_EXIT_TERMINAL))!=
+       KUI_TOY_MOVIE_EXIT_STARTED || w->start_status!=0x07dbu ||
+       (ctx&UINT32_C(0xdf000003))!=UINT32_C(0x8c000000) ||
+       (ctx&UINT32_C(0x1fffffff))<UINT32_C(0x0c008000) ||
+       (ctx&UINT32_C(0x1fffffff))>UINT32_C(0x0d000000)-0x248u)return false;
+    const uint32_t frame=toy_chunk_word(ctx+0x1c0u);
+    const struct ra_clock now=clock_read();
+    if(frame>=TOY_QUIET_MAX_FRAME || toy_chunk_word(ctx+0x244u)>=TOY_QUIET_MAX_SAMPLES ||
+       (now.valid && onset->quiet_tick-now.counter>=TOY_QUIET_MAX_TICKS))
+        return toy_quiet_refuse(onset,frame,TOY_QUIET_LIMIT,true);
+    if(!now.valid || !bytes || (bytes&2047u) || bytes>1024u*1024u ||
+       toy_chunk_word(ctx)!=avi || !toy_chunk_ram(avi,108u))
+        return toy_quiet_refuse(onset,frame,TOY_QUIET_CONTEXT,true);
+    const uint32_t owner=toy_chunk_word(avi);
+    if(!toy_chunk_ram(owner,112u) || toy_chunk_word(owner+108u)!=file ||
+       !toy_chunk_ram(file,4u))
+        return toy_quiet_refuse(onset,frame,TOY_QUIET_CONTEXT,true);
+    const volatile kui_retail_async_region_type *r=C.config.region;
+    if(r->shared.service.pending || r->shared.service.executing || r->engine.active ||
+       r->shared.stream.state>RA_PAUSED || toy_chunk_word(UINT32_C(0x8c0b0228)))
+        return toy_quiet_refuse(onset,frame,TOY_QUIET_REQUEST,false);
+    uint32_t used,missing;
+    if(!toy_chunk_buffer(ctx,&used,&missing) || used<TOY_QUIET_MIN_USED)
+        return toy_quiet_refuse(onset,frame,TOY_QUIET_RING,false);
+    onset->quiet_reason=0u;
+    onset->quiet_end_frame=frame+1u;
+    if(!onset->quiet_defers)C.suite[4]=frame+1u;
+    ++onset->quiet_defers;
+    return true;
+}
+#if KUI_TOY_SUITE_MODE == 61
+/* Leave the stock AVI parser and enqueue in control of file position and
+ * completion. At 8c0989d8 the AVI records the exact byte count returned by
+ * GDFS, so the following refill starts where this shorter one ends. */
+uint32_t kui_toy_movie_refill_length(uint32_t avi,uint32_t file,uint32_t bytes,
+    uint32_t dest) {
+    if(kui_toy_movie_refill_defer(avi,file,bytes))return UINT32_MAX;
+
+    enum { CAP_SECTORS=8u, CAP_BYTES=CAP_SECTORS*KUI_GAME_DATA_BYTES,
+        CAP_MIN_BYTES=13u*KUI_GAME_DATA_BYTES, CAP_MIN_USED=16u*1024u,
+        CAP_MAX_USED=192u*1024u };
+    struct kui_toy_movie_onset_trace *onset=&C.onset[0];
+    const uint32_t ctx=onset->quiet_ctx;
+    const volatile struct kui_toy_movie_exit_witness *w=&C.movie_exit[0];
+    if(!ctx || bytes<CAP_MIN_BYTES || bytes>KUI_RETAIL_IMAGE_MAX_SECTORS*KUI_GAME_DATA_BYTES ||
+       (bytes&(KUI_GAME_DATA_BYTES-1u)) || (dest&31u) ||
+       (w->flags&(KUI_TOY_MOVIE_EXIT_STARTED|KUI_TOY_MOVIE_EXIT_TERMINAL))!=
+           KUI_TOY_MOVIE_EXIT_STARTED || w->start_status!=0x07dbu ||
+       toy_chunk_word(ctx)!=avi || !toy_chunk_ram(avi,108u) || toy_chunk_word(avi+16u)!=6u)
+        return bytes;
+
+    const uint32_t capacity=toy_chunk_word(avi+0x14u);
+    const uint32_t ring=toy_chunk_word(avi+0x1cu),write=toy_chunk_word(avi+0x60u);
+    const uint32_t used=toy_chunk_word(avi+0x68u)-toy_chunk_word(avi+0x64u);
+    const uint32_t ring_end=toy_chunk_word(avi+0x18u);
+    if(used<CAP_MIN_USED || used>CAP_MAX_USED || used>capacity || capacity>UINT32_C(0x400000) ||
+       capacity-used<CAP_BYTES || write>=capacity || capacity-write<CAP_BYTES ||
+       write>=ring_end || ring_end-write<CAP_BYTES ||
+       !toy_chunk_ram(ring,capacity) || dest!=ring+write)
+        return bytes;
+
+    const uint32_t owner=toy_chunk_word(avi);
+    if(!toy_chunk_ram(owner,112u) || toy_chunk_word(owner+108u)!=file ||
+       !toy_chunk_ram(file,80u))return bytes;
+    const uint32_t device=toy_chunk_word(file),file_mode=toy_chunk_word(file+76u);
+    const uint32_t start=toy_chunk_word(file+8u),position=toy_chunk_word(file+20u);
+    const uint32_t length=toy_chunk_word(file+16u);
+    if(!(file_mode&0xffffu) || (file_mode>>16)!=1u || !toy_chunk_ram(device,32u) ||
+       toy_chunk_word(device+12u)!=UINT32_C(0x8c0c6260) || toy_chunk_word(device+28u) ||
+       position>=length || (bytes/KUI_GAME_DATA_BYTES)>length-position ||
+       start<150u || start>=720000u || position>=720000u-start)
+        return bytes;
+
+    const unsigned variant=toy_chunk_variant(ctx+0xbcu);
+    if(!variant || variant>2u)return bytes;
+    const struct kui_toy_movie_range *range=&C.config.movie_ranges[variant-1u];
+    const uint32_t offset=start+position-150u-range->lba;
+    if(offset<386u || offset>=range->count || bytes/KUI_GAME_DATA_BYTES>range->count-offset)
+        return bytes;
+
+    const volatile kui_retail_async_region_type *r=C.config.region;
+    if(r->shared.service.command || r->shared.service.pending || r->shared.service.executing ||
+       r->shared.service.sector_bytes!=KUI_GAME_DATA_BYTES || r->engine.active || r->engine.in_irq ||
+       r->shared.stream.state>RA_PAUSED || !r->shared.port.acquired || r->shared.port.fault ||
+       toy_chunk_word(UINT32_C(0x8c0b0228)) ||
+       toy_chunk_word(UINT32_C(0x8c11546c))!=toy_chunk_word(UINT32_C(0x8c115470)))
+        return bytes;
+
+    const uint32_t frame=toy_chunk_word(ctx+0x1c0u)+1u;
+    if(!onset->quiet_defers)onset->quiet_tick=frame;
+    ++onset->quiet_defers;
+    onset->quiet_end_frame=frame;
+    onset->quiet_reason+=bytes/KUI_GAME_DATA_BYTES-CAP_SECTORS;
+    return CAP_BYTES;
+}
+#endif
+#endif
+
+static void toy_chunk_onset(uint32_t ctx,unsigned movie,bool pending) {
+    const volatile struct kui_toy_movie_exit_witness *w=&C.movie_exit[movie];
+    if((w->flags&(KUI_TOY_MOVIE_EXIT_STARTED|KUI_TOY_MOVIE_EXIT_TERMINAL))!=KUI_TOY_MOVIE_EXIT_STARTED ||
+       w->start_status!=0x07dbu)return;
+    struct kui_toy_movie_onset_trace *onset=&C.onset[movie];
+    const uint32_t outputs=toy_chunk_word(ctx+0xacu);
+    const uint32_t frame=toy_chunk_word(ctx+0x1c0u)+1u;
+#if KUI_TOY_SUITE_DECODE_WINDOW
+#if KUI_TOY_SUITE_MODE == 61
+    if(movie==0u && !onset->quiet_ctx)onset->quiet_ctx=ctx;
+#endif
+    if(movie==1u && !onset->quiet_ctx) {
+        const struct ra_clock now=clock_read();
+        if(frame<=TOY_QUIET_MAX_FRAME && now.valid) {
+            onset->quiet_tick=now.counter;
+            onset->quiet_ctx=ctx;
+        } else {
+            toy_quiet_refuse(onset,frame-1u,now.valid?TOY_QUIET_LIMIT:TOY_QUIET_CONTEXT,true);
+        }
+    }
+#endif
+    if(outputs!=onset->last_out_count) {
+        onset->last_out_frame=frame;
+        onset->last_out_count=outputs;
+    }
+    const bool skip=!onset->skip_frame && toy_chunk_word(ctx+0x90u);
+    const bool wait=pending && outputs && !onset->wait_frame;
+    if(skip || wait) {
+        uint32_t used,missing;
+        (void)toy_chunk_buffer(ctx,&used,&missing);
+        if(skip) {
+            onset->skip_frame=frame;
+            onset->skip_used=used;
+            onset->skip_missing=missing;
+        }
+        if(!wait)return;
+        onset->wait_frame=frame;
+        onset->wait_used=used;
+        onset->wait_missing=missing;
+#if KUI_TOY_SUITE_FRAME_TIMING
+        const volatile struct kui_retail_gd *service=&C.config.region->shared.service;
+        struct kui_toy_movie_wait_trace *reading=&C.wait[movie];
+        const uint32_t token=service->token;
+        reading->lba=service->lba;
+        reading->sectors=service->count;
+        reading->verified=UINT32_MAX;
+        if(C.resume.state==TOY_RESUME_STAGE && C.resume.token==token)
+            reading->verified=C.resume.checked;
+#if KUI_TOY_SUITE_MODE >= 62
+        if(C.movie_ahead.variant && !C.movie_ahead.error && C.movie_ahead.first==reading->lba &&
+           C.movie_ahead.verified-C.movie_ahead.first<reading->sectors)
+            reading->verified=C.movie_ahead.verified-C.movie_ahead.first;
+#endif
+        reading->elapsed=UINT32_MAX;
+        if(toy_present.owner==ctx && toy_present.start_valid) {
+            const struct ra_clock now=clock_read();
+            const uint32_t elapsed=toy_present.start_tick-now.counter;
+            if(now.valid && elapsed<=INT32_MAX)reading->elapsed=elapsed;
+        }
+#if KUI_TOY_SUITE_MODE >= 61
+        const volatile struct kui_retail_async *engine=&C.config.region->engine;
+        reading->age=reading->to_complete=UINT32_MAX;
+        if(token && service->pending && service->token==token && engine->token==token) {
+            const uint32_t started=engine->stats.hooks;
+            const struct ra_clock now=clock_read();
+            const uint32_t age=started-now.counter;
+            if(now.valid && age<=INT32_MAX) {
+                reading->age=age;
+                C.wait_token[movie]=token;
+            }
+        }
+#endif
+#endif
+    }
+}
+#endif
+
+/* Foreground game-stack observer. Service metadata is sampled read-only. */
+void kui_toy_movie_chunk_observe(uint32_t ctx,int32_t result) {
+    if(!C.initialized || !C.config.toy_poll_owner ||
+       (ctx&UINT32_C(0xdf000003))!=UINT32_C(0x8c000000))return;
+    const uint32_t physical=ctx&UINT32_C(0x1fffffff);
+    const uint32_t begin=KUI_TOY_SUITE_AFTER_START?UINT32_C(0x0c008000):UINT32_C(0x0c010000);
+#if KUI_TOY_SUITE_MOVIE_TIMING
+    const uint32_t bytes=0x1c4u;
+#else
+    const uint32_t bytes=0xd4u;
+#endif
+    if(physical<begin || physical>UINT32_C(0x0d000000)-bytes)return;
+    const unsigned variant=toy_chunk_variant(ctx+0xbcu);
+    if(!variant || !(C.movie_mask&(1u<<(variant-1u))))return;
+    const unsigned movie=(variant-1u)/2u;
+    struct kui_toy_movie_chunk_trace *trace=&C.movie_chunk[movie];
+    const bool pending=result==-2 && toy_chunk_pending(&C.config.movie_ranges[variant-1u]);
+    if(result>=0)++trace->ready;
+    else if(result!=-2)++trace->other;
+    else if(pending)++trace->wait_gd;
+    else ++trace->wait_no_gd;
+#if KUI_TOY_SUITE_MOVIE_TIMING
+    toy_chunk_onset(ctx,movie,pending);
+#endif
+}
+#endif
 #if KUI_NATIVE_TOY_HEADER_REPLAY
 #include "toy_header_replay.inc"
 #endif
@@ -597,6 +1133,18 @@ static void playback_complete(const struct kui_retail_gd *s,unsigned variant,
     struct kui_toy_playback_stats *p=&C.playback[movie];
     p->sectors+=s->count;
     p->end_lba=s->lba+s->count;
+#if KUI_TOY_SUITE_MODE == 35
+    struct kui_toy_window_trace *window=&C.demand.window;
+    const bool from_ram=C.window_token && C.window_token==s->token;
+    if(from_ram) {
+        C.window_token=0u;
+        if(!window->requests++)window->first_lba=s->lba;
+        window->sectors+=s->count;
+        window->end_lba=s->lba+s->count;
+    }
+    const bool target=variant==KUI_TOY_RAM_WINDOW_VARIANT+1u && s->lba==KUI_TOY_RAM_WINDOW_TARGET;
+    if(target && from_ram)++window->target_ram;
+#endif
     if(!now.valid || elapsed>=UINT32_C(0x80000000)) {
         ++p->bad_clock;C.last_play_variant=0u;return;
     }
@@ -610,6 +1158,13 @@ static void playback_complete(const struct kui_retail_gd *s,unsigned variant,
     if(elapsed>p->longest)p->longest=elapsed;
 #endif
     uint32_t gap=C.last_play_tick-now.counter;
+#if KUI_TOY_SUITE_MODE == 35
+    if(from_ram && elapsed>window->max_request_ticks)window->max_request_ticks=elapsed;
+    if(target && (from_ram || !window->target_ram)) {
+        window->target_request_ticks=elapsed;
+        window->target_gap_ticks=C.last_play_variant==variant && gap<UINT32_C(0x80000000)?gap:0u;
+    }
+#endif
     if(C.last_play_variant==variant && gap<UINT32_C(0x80000000) && gap>p->gap) {
         p->gap=gap;p->gap_lba=s->lba;
     }
@@ -671,6 +1226,16 @@ static void movie_complete(const kui_retail_async_region_type *r) {
 #endif
     struct ra_clock now=clock_read();
     uint32_t elapsed=r->engine.stats.hooks-now.counter;
+#if KUI_TOY_SUITE_MODE >= 61
+    const unsigned movie=(variant-1u)/2u;
+    struct kui_toy_movie_wait_trace *reading=&C.wait[movie];
+    if(C.wait_token[movie] && s->token==C.wait_token[movie] && s->lba==reading->lba &&
+       s->count==reading->sectors && r->engine.token==s->token && now.valid &&
+       elapsed<=INT32_MAX && elapsed>=reading->age) {
+        reading->to_complete=elapsed-reading->age;
+        C.wait_token[movie]=0u;
+    }
+#endif
 #if KUI_NATIVE_TOY_PLAYBACK_CAPTURE
     playback_complete(s,variant,now,elapsed);
 #endif
@@ -692,11 +1257,56 @@ static void movie_complete(const kui_retail_async_region_type *r) {
 #if KUI_TOY_SUITE_MODE == 1
 #include "toy_suite_witness.inc"
 #endif
+#if KUI_TOY_SUITE_ASYNC_DEMAND && KUI_TOY_SUITE_MODE < 62
+#include "toy_demand_trace.inc"
+#endif
+#if KUI_TOY_SUITE_MOVIE_POLL
+static uint32_t toy_poll_word(uint32_t address) {
+#ifdef KUI_NATIVE_READAHEAD_AUX_HOST_TEST
+    extern uint32_t kui_toy_poll_test_word(uint32_t);
+    return kui_toy_poll_test_word(address);
+#else
+    return *(const volatile uint32_t *)(uintptr_t)address;
+#endif
+}
+
+/* The BIOS jump stub is shared. Its saved PR plus the two original SDK
+ * frames distinguish a scheduled or one-pass poll from a blocking wait.
+ * Read only a checked slice of the game stack, under the GD entry lock. */
+static uint32_t toy_poll_context(uint32_t function,uint32_t frame) {
+    if(!C.config.toy_poll_owner || (frame&UINT32_C(0xdf000003))!=UINT32_C(0x8c000000))return 0u;
+    const uint32_t physical=frame&UINT32_C(0x1fffffff);
+    if(physical<UINT32_C(0x0c008000) || physical>UINT32_C(0x0d000000)-104u)return 0u;
+    const uint32_t pr=toy_poll_word(frame+28u);
+    uint32_t outer;
+    if(function==KUI_GD_EXEC && pr==UINT32_C(0x8c0bd55a) &&
+       toy_poll_word(frame+36u)==UINT32_C(0x8c0b1fe6))
+        outer=toy_poll_word(frame+40u);
+    else if(function==KUI_GD_CHECK && pr==UINT32_C(0x8c0bd374) &&
+            toy_poll_word(frame+52u)==UINT32_C(0x8c0b145c))
+        outer=toy_poll_word(frame+100u);
+    else return 0u;
+    switch(outer) {
+    case UINT32_C(0x8c0b3b88): return 1u;
+    case UINT32_C(0x8c097144): return 2u;
+    case UINT32_C(0x8c09712a): return 3u;
+    default: return 0u;
+    }
+}
+#endif
 uint32_t kui_native_readahead_aux_dispatch(uint32_t event,uint32_t arg,
     kui_retail_async_region_type *r,uint32_t reserved) {
-    if(!C.initialized || reserved || r!=C.config.region ||
+    if(!C.initialized || r!=C.config.region ||
+#if KUI_TOY_SUITE_MOVIE_POLL
+       (reserved && event!=KUI_NATIVE_RA_DEMAND_GD_ENTER) ||
+#else
+       reserved ||
+#endif
        *C.config.ops->region_storage!=r) {
         ++C.stats.guard_faults;
+#if KUI_TOY_SUITE_MOVIE_POLL
+        if(event==KUI_NATIVE_RA_DEMAND_GD_ENTER || event==KUI_NATIVE_RA_DEMAND_GD_LEAVE)return 0u;
+#endif
 #if KUI_TOY_SUITE_MODE == 27 || KUI_TOY_SUITE_MODE == 28
         if(event==KUI_NATIVE_RA_CALIBRATE) return 0u;
 #endif
@@ -705,9 +1315,33 @@ uint32_t kui_native_readahead_aux_dispatch(uint32_t event,uint32_t arg,
 #if KUI_TOY_SUITE_MODE == 27 || KUI_TOY_SUITE_MODE == 28
     if(event==KUI_NATIVE_RA_CALIBRATE) return arg ? 0u : burst_quiet_calibrate(r);
 #endif
+#if KUI_TOY_SUITE_ASYNC_DEMAND
+    if(event==KUI_NATIVE_RA_DEMAND_GD_ENTER || event==KUI_NATIVE_RA_DEMAND_GD_LEAVE) {
+#if KUI_TOY_SUITE_MOVIE_POLL
+        uint32_t poll=event==KUI_NATIVE_RA_DEMAND_GD_ENTER?toy_poll_context(arg,reserved):0u;
+#if KUI_TOY_SUITE_MODE < 62
+        (void)toy_demand_gd_trace(event,arg,r,poll);
+#endif
+        /* The gateway can return 1 on a guard fault. Only 2 and 3 admit. */
+        return poll==1u || poll==2u ? poll+1u : 0u;
+#else
+        return toy_demand_gd_trace(event,arg,r);
+#endif
+    }
+#endif
 #if KUI_TOY_FMV_COMPARE
     if(event==KUI_NATIVE_RA_FMV_REQUEST || event==KUI_NATIVE_RA_FMV_ACK) {
         const struct kui_retail_gd *service=&r->shared.service;
+        if(event==KUI_NATIVE_RA_FMV_REQUEST) {
+            unsigned variant=playback_variant(service);
+            if(!variant) return 1u;
+            const struct kui_toy_movie_range *range=&C.config.movie_ranges[variant-1u];
+            if(service->lba-range->lba>=range->count) return 1u;
+        } else {
+            unsigned i=0u;
+            while(i<KUI_TOY_FMV_PENDING && C.fmv_trace.pending[i].token!=service->token) ++i;
+            if(i==KUI_TOY_FMV_PENDING) return 1u;
+        }
         struct ra_clock now=clock_read();
         if(!now.valid) ++C.fmv_trace.clock_lost;
         else if(event==KUI_NATIVE_RA_FMV_REQUEST)
@@ -721,6 +1355,16 @@ uint32_t kui_native_readahead_aux_dispatch(uint32_t event,uint32_t arg,
 #endif
 #if KUI_NATIVE_TOY_MOVIE_CAPTURE
     if(event==KUI_NATIVE_RA_MOVIE_COMPLETE && !arg) {
+#if KUI_TOY_SUITE_MODE >= 62
+        if(C.movie_ahead.variant && (r->shared.service.error==KUI_GD_ERROR_CANCELLED ||
+           r->shared.service.status==KUI_GD_NOT_FOUND)) {
+            C.movie_ahead.error=true;
+            (void)toy_ahead_clear(r);
+        }
+#endif
+#if KUI_TOY_SUITE_VERIFIED_RESUME
+        if(!r->shared.service.pending)toy_resume_invalidate();
+#endif
 #if KUI_TOY_SUITE_MODE == 26 || KUI_TOY_SUITE_MODE == 27 || KUI_TOY_SUITE_MODE == 28
         if(r->shared.service.error==KUI_GD_ERROR_CANCELLED) (void)burst_release(r);
 #endif
@@ -731,6 +1375,18 @@ uint32_t kui_native_readahead_aux_dispatch(uint32_t event,uint32_t arg,
 #if KUI_TOY_SUITE_MODE == 1
         toy_suite_witness_complete(r);
 #endif
+        return 1u;
+    }
+#endif
+#if KUI_TOY_SUITE_MODE >= 62
+    if(event==KUI_NATIVE_RA_MOVIE_AHEAD) {
+        /* The game UPDATE owns the foreground. It may resume an idle
+         * sequential token search without pretending a GD request exists. */
+        if(arg==toy_present.owner && C.movie_ahead.variant &&
+           r->engine.native_loan_state==KUI_VMU_NATIVE_ASYNC_LOAN_IDLE &&
+           !r->engine.active && !r->shared.service.pending && !r->shared.service.executing &&
+           !r->engine.in_irq && !C.quiesced)
+            (void)toy_movie_ahead(r,0u,false,0u);
         return 1u;
     }
 #endif
@@ -761,18 +1417,54 @@ uint32_t kui_native_readahead_aux_dispatch(uint32_t event,uint32_t arg,
     uint32_t visit_context=event|((arg&UINT32_C(0xffff))<<8)|((r->engine.in_irq&255u)<<24);
 #if KUI_NATIVE_TOY_PLAYBACK_CAPTURE
     unsigned playing=event==KUI_NATIVE_RA_DELIVER?playback_delivery(r):0u;
+#if KUI_TOY_SUITE_ASYNC_DEMAND
+    bool irq=(visit_context>>24)!=0u;
+#else
     bool irq=(visit_context>>24)==1u;
+#endif
     uint32_t blocks=playing?(irq?r->engine.stats.irq_blocks:r->engine.stats.call_blocks):0u;
 #endif
     struct ra_clock before=clock_read();uint32_t result=1u;
+#if KUI_TOY_SUITE_ASYNC_DEMAND && KUI_TOY_SUITE_MODE < 62
+    bool was_armed=event==KUI_NATIVE_RA_DELIVER && toy_demand_before(playing,r,before);
+#endif
+#if KUI_TOY_SUITE_MODE == 34
+    const struct kui_sci_stream_stats *sd=&r->shared.stream.stats;
+    uint32_t overruns=sd->overruns,starts=sd->starts,polled=sd->polled;
+#elif KUI_TOY_SUITE_PIO_WINDOW
+    const struct kui_sci_stream_stats *sd=&r->shared.stream.stats;
+    const uint32_t overruns=sd->overruns,polled=sd->toy_pio_window_blocks,ok=sd->toy_pio_window_ok;
+#elif KUI_TOY_SUITE_SLOW_RETRY
+    const struct kui_sci_stream_stats *sd=&r->shared.stream.stats;
+    const uint32_t overruns=sd->overruns,orer=sd->toy_retry_orer;
+    const uint32_t slow=sd->toy_retry_slow,ok=sd->toy_retry_ok;
+#endif
+#if KUI_TOY_SUITE_MODE == 36
+    const uint32_t overruns=r->shared.stream.stats.overruns;
+    struct kui_toy_demand_movie_trace *dma_movie=playing?&C.demand.movie[(playing-1u)/2u]:NULL;
+    if(dma_movie && was_armed) {
+        const unsigned priority=(read_hw(UINT32_C(0xffa00040),4u)>>8)&3u;
+        ++dma_movie->dma_priority[priority];
+    }
+#endif
+#if KUI_TOY_SUITE_DMA_ROUND_ROBIN
+    if(playing && was_armed && C.config.toy_poll_owner) {
+        const unsigned clip=(playing-1u)/2u;
+        const uint32_t mode=read_hw(UINT32_C(0xffa00040),4u)&UINT32_C(0x8307);
+        ++C.suite[2u*clip];
+        if(mode==UINT32_C(0x8301)) ++C.suite[2u*clip+1u];
+    }
+#endif
     switch(event) {
     case KUI_NATIVE_RA_DELIVER:
 #if KUI_TOY_SUITE_MODE == 26 || KUI_TOY_SUITE_MODE == 27 || KUI_TOY_SUITE_MODE == 28
         burst_service(arg,r);
+#elif KUI_TOY_SUITE_ASYNC_DEMAND
+        suite_demand(arg,r);
 #elif KUI_NATIVE_TOY_HEADER_REPLAY
         header_deliver(arg,r);
 #else
-#if KUI_TOY_SUITE_MODE == 1
+#if KUI_TOY_SUITE_MODE == 1 || KUI_TOY_SUITE_MODE == 31
         if(C.suite_source==1u)suite_demand(arg,r);
         else
 #elif KUI_TOY_SUITE_MODE == 2 || KUI_TOY_SUITE_MODE == 6
@@ -786,24 +1478,34 @@ uint32_t kui_native_readahead_aux_dispatch(uint32_t event,uint32_t arg,
         ++C.stats.heartbeat_visits;
 #if KUI_TOY_SUITE_MODE == 26 || KUI_TOY_SUITE_MODE == 27 || KUI_TOY_SUITE_MODE == 28
         burst_service(0,r);break;
-#elif KUI_TOY_SUITE_MODE == 1
+#elif KUI_TOY_SUITE_ASYNC_DEMAND
+        break;
+#elif KUI_TOY_SUITE_MODE == 1 || KUI_TOY_SUITE_MODE == 31
         if(C.suite_source==1u)break;
 #elif KUI_TOY_SUITE_MODE == 2 || KUI_TOY_SUITE_MODE == 6
         if(C.config.suite_seed.count[0])break;
 #endif
-#if KUI_TOY_SUITE_MODE != 26 && KUI_TOY_SUITE_MODE != 27 && KUI_TOY_SUITE_MODE != 28
+#if KUI_TOY_SUITE_MODE != 26 && KUI_TOY_SUITE_MODE != 27 && KUI_TOY_SUITE_MODE != 28 && !KUI_TOY_SUITE_ASYNC_DEMAND
         if(C.quiesced && r->engine.opened && r->shared.port.acquired) {
             C.quiesced=0u;++C.stats.resumes;
         }
         seed_completed(r);producer(r,false,arg==KUI_NATIVE_RA_TICK_ONE_BLOCK?
             1u:KUI_NATIVE_RA_PIO_BLOCK_LIMIT);break;
 #endif
-    case KUI_NATIVE_RA_QUIESCE:result=quiesce(r);break;
+    case KUI_NATIVE_RA_QUIESCE:
+        result=quiesce(r);
+#if KUI_TOY_SUITE_VERIFIED_RESUME
+        if(result)toy_resume_invalidate();
+#endif
+        break;
     case KUI_NATIVE_RA_RESUME:
         C.quiesced=0u;++C.stats.resumes;break;
     case KUI_NATIVE_RA_RESET:
         result=quiesce(r);
         if(result) {
+#if KUI_TOY_SUITE_VERIFIED_RESUME
+            toy_resume_invalidate();
+#endif
 #if KUI_NATIVE_TOY_PLAYBACK_CAPTURE
             C.playback_token=C.last_play_variant=0u;
 #endif
@@ -823,6 +1525,35 @@ uint32_t kui_native_readahead_aux_dispatch(uint32_t event,uint32_t arg,
     default:++C.stats.guard_faults;result=0u;break;
     }
     struct ra_clock after=clock_read();uint32_t elapsed=before.counter-after.counter;
+#if KUI_TOY_SUITE_ASYNC_DEMAND && KUI_TOY_SUITE_MODE < 62
+    if(event==KUI_NATIVE_RA_DELIVER) toy_demand_after(playing,(visit_context>>24)==2u,was_armed,r,after);
+#endif
+#if KUI_TOY_SUITE_MODE == 34
+    if(playing) {
+        struct kui_toy_demand_movie_trace *movie=&C.demand.movie[(playing-1u)/2u];
+        movie->overruns+=sd->overruns-overruns;
+        movie->starts+=sd->starts-starts;
+        movie->polled+=sd->polled-polled;
+    }
+#endif
+#if KUI_TOY_SUITE_MODE == 36
+    if(dma_movie)dma_movie->overruns+=r->shared.stream.stats.overruns-overruns;
+#elif KUI_TOY_SUITE_PIO_WINDOW
+    if(playing) {
+        struct kui_toy_demand_movie_trace *movie=&C.demand.movie[(playing-1u)/2u];
+        movie->overruns+=sd->overruns-overruns;
+        movie->window_pio+=sd->toy_pio_window_blocks-polled;
+        movie->window_ok+=sd->toy_pio_window_ok-ok;
+    }
+#elif KUI_TOY_SUITE_SLOW_RETRY
+    if(playing) {
+        struct kui_toy_demand_movie_trace *movie=&C.demand.movie[(playing-1u)/2u];
+        movie->overruns+=sd->overruns-overruns;
+        movie->retry_orer+=sd->toy_retry_orer-orer;
+        movie->retry_slow+=sd->toy_retry_slow-slow;
+        movie->retry_ok+=sd->toy_retry_ok-ok;
+    }
+#endif
 #if KUI_TOY_SUITE_MODE == 26 || KUI_TOY_SUITE_MODE == 27 || KUI_TOY_SUITE_MODE == 28
     if(event==KUI_NATIVE_RA_TICK && C.burst.variant>=3u && before.valid && after.valid &&
        elapsed<UINT32_C(0x80000000)) {

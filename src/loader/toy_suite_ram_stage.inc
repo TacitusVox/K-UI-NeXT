@@ -1,12 +1,19 @@
 /* SPDX-License-Identifier: GPL-3.0-only */
 #include "kui/hash.h"
+#include "kui/toy_ram_window.h"
 /* Load a narrow original-data window while the cold stage owns the card. */
 static bool toy_suite_ram_seed(const struct kui_retail_track *track) {
+#if KUI_TOY_SUITE_MODE == 35
+    const struct kui_toy_movie_range *movie=&toy_movie_ranges[KUI_TOY_RAM_WINDOW_VARIANT];
+    const uint32_t first=KUI_TOY_RAM_WINDOW_FIRST,last=KUI_TOY_RAM_WINDOW_END;
+    if(first<movie->lba+386u || last>movie->lba+movie->count)return false;
+#else
     const struct kui_toy_movie_range *movie=&toy_movie_ranges[3];
     uint32_t center=KUI_TOY_SUITE_MODE==2?469080u:468128u;
     uint32_t first=center-40u,last=center+40u;
     if(movie->lba!=452810u || movie->count!=26208u ||
        first<movie->lba || last>movie->lba+movie->count)return false;
+#endif
     uint32_t offset=kui_retail_track_file_offset(track);
     uint32_t first_byte=offset+(first-track->start_lba)*KUI_GAME_RAW_BYTES;
     uint32_t block=first_byte/512u;

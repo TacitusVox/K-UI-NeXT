@@ -11,8 +11,18 @@ struct kui_native_readahead_aux_context {
     uint32_t busy;
     struct kui_native_ra_stats stats;
     struct kui_native_ra_diagnostics diagnostics;
+#if KUI_TOY_SUITE_MOVIE_EXIT
+    struct kui_toy_movie_exit_witness movie_exit[2];
+#endif
+#if KUI_TOY_SUITE_MOVIE_CHUNK
+    struct kui_toy_movie_chunk_trace movie_chunk[2];
+#endif
 #if KUI_NATIVE_TOY_MOVIE_CAPTURE
+#if KUI_TOY_SUITE_MOVIE_TIMING
+    struct kui_toy_movie_onset_trace onset[2];
+#else
     struct kui_toy_movie_stats movies[2];
+#endif
     uint32_t movie_mask;
 #endif
 #if KUI_NATIVE_TOY_PLAYBACK_CAPTURE
@@ -20,6 +30,13 @@ struct kui_native_readahead_aux_context {
 #endif
 #if defined(KUI_TOY_SUITE_MODE)
     uint32_t suite[5], suite_source;
+#endif
+#if KUI_TOY_SUITE_ASYNC_DEMAND
+    struct kui_toy_demand_trace demand;
+#endif
+#if KUI_TOY_SUITE_FRAME_TIMING
+    struct kui_toy_movie_present_trace present[2];
+    struct kui_toy_movie_wait_trace wait[2];
 #endif
 #if KUI_TOY_SUITE_MODE == 27 || KUI_TOY_SUITE_MODE == 28
     uint32_t burst_quiet_status,burst_quiet_lba,burst_quiet_end;
@@ -41,6 +58,13 @@ struct kui_native_readahead_aux_context {
      * growing the private stack for every transport operation. */
     struct kui_native_ra_failure_snapshot observation;
     uint32_t current_event;
+#if KUI_TOY_SUITE_VERIFIED_RESUME
+    struct {
+        struct kui_retail_cursor cursor;
+        uint32_t token,written,checked,resumed_start;
+        uint8_t state,variant;
+    } resume;
+#endif
 #if KUI_TOY_SUITE_MODE == 26 || KUI_TOY_SUITE_MODE == 27 || KUI_TOY_SUITE_MODE == 28
     struct {
         uint32_t variant, frontier, lba, frames, bytes, offset, parsed;
@@ -62,6 +86,9 @@ struct kui_native_readahead_aux_context {
 #if KUI_NATIVE_TOY_PLAYBACK_CAPTURE
     uint32_t playback_started[2], playback_valid;
     uint32_t playback_token, playback_variant;
+#if KUI_TOY_SUITE_MODE == 35
+    uint32_t window_token;
+#endif
     uint32_t last_play_variant, last_play_tick;
 #endif
 #if KUI_NATIVE_TOY_HEADER_REPLAY
@@ -79,6 +106,20 @@ struct kui_native_readahead_aux_context {
         _Alignas(4) uint8_t data[KUI_GAME_DATA_BYTES];
     } header;
 #endif
+#if KUI_TOY_SUITE_MODE >= 61
+    uint32_t wait_token[2];
+#endif
+#if KUI_TOY_SUITE_MODE >= 62
+    struct {
+        struct kui_retail_cursor cursor;
+        uint32_t first, head, verified, failed_token, receive_token;
+        uint8_t variant;
+        bool error, receiving;
+#if KUI_TOY_SUITE_MODE >= 65
+        uint8_t retry;
+#endif
+    } movie_ahead;
+#endif
 };
 _Static_assert(offsetof(struct kui_native_readahead_aux_context,busy)==0u,
     "auxiliary assembly busy word");
@@ -86,6 +127,15 @@ _Static_assert(offsetof(struct kui_native_readahead_aux_context,stats)==4u,
     "auxiliary public statistics prefix");
 _Static_assert(offsetof(struct kui_native_readahead_aux_context,diagnostics)==76u,
     "auxiliary appended diagnostic prefix");
+#if KUI_TOY_SUITE_MOVIE_EXIT
+_Static_assert(offsetof(struct kui_native_readahead_aux_context,movie_exit)==KUI_TOY_MOVIE_EXIT_OFFSET,
+    "Toy movie exit witness assembly offset");
+#endif
+#if KUI_TOY_SUITE_MOVIE_CHUNK
+_Static_assert(offsetof(struct kui_native_readahead_aux_context,movie_chunk)==
+    offsetof(struct kui_native_ra_public,movie_chunk),"Toy movie chunk report prefix");
+void kui_toy_movie_chunk_observe(uint32_t ctx,int32_t result);
+#endif
 #if KUI_NATIVE_TOY_PLAYBACK_CAPTURE
 _Static_assert(offsetof(struct kui_native_readahead_aux_context,playback)==
     offsetof(struct kui_native_ra_public,playback),"playback report prefix");
@@ -105,6 +155,16 @@ _Static_assert(offsetof(struct kui_native_readahead_aux_context,burst_slow)==
 #if KUI_TOY_FMV_COMPARE
 _Static_assert(offsetof(struct kui_native_readahead_aux_context,fmv_trace)==
     offsetof(struct kui_native_ra_public,fmv_trace),"Toy FMV compare report prefix");
+#endif
+#if KUI_TOY_SUITE_ASYNC_DEMAND
+_Static_assert(offsetof(struct kui_native_readahead_aux_context,demand)==
+    offsetof(struct kui_native_ra_public,demand),"Toy demand report prefix");
+#endif
+#if KUI_TOY_SUITE_FRAME_TIMING
+_Static_assert(offsetof(struct kui_native_readahead_aux_context,present)==
+    offsetof(struct kui_native_ra_public,present),"Toy frame timing report prefix");
+_Static_assert(offsetof(struct kui_native_readahead_aux_context,wait)==
+    offsetof(struct kui_native_ra_public,wait),"Toy movie wait report prefix");
 #endif
 _Static_assert(offsetof(struct kui_native_readahead_aux_context,stats)+
     offsetof(struct kui_native_ra_stats,guard_faults)==64u,

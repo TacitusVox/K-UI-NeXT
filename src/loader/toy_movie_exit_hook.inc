@@ -2,8 +2,15 @@
 #include "kui/toy_movie_exit.h"
 
 #define TOY_INTRO_OPEN_POLICY (KUI_TOY_SUITE_MODE == 54 || KUI_TOY_SUITE_MODE == 56)
-#define TOY_MOVIE_OUTPUT_WITNESS (KUI_TOY_SUITE_MODE >= 49 && KUI_TOY_SUITE_MODE <= 62)
-#define TOY_MOVIE_PRESENT_WITNESS (KUI_TOY_SUITE_MODE >= 60 && KUI_TOY_SUITE_MODE <= 62)
+#define TOY_MOVIE_OUTPUT_WITNESS (KUI_TOY_SUITE_MODE >= 49 && KUI_TOY_SUITE_MODE <= 66)
+#define TOY_MOVIE_PRESENT_WITNESS (KUI_TOY_SUITE_MODE == 60 || KUI_TOY_SUITE_MODE >= 61)
+/* The SD reader's read-ahead window follows the player's updates. The
+ * physical-disc trace module shares this hook and has no such window. */
+#if KUI_TOY_SUITE_MODE >= 62 && !KUI_DISC_TOY_TRACE
+#define TOY_MOVIE_AHEAD_UPDATE 1
+#else
+#define TOY_MOVIE_AHEAD_UPDATE 0
+#endif
 
 /* Installed at the exact original movie-update pointer. Tail-call the
  * original for every untracked caller. Capture start and first terminal
@@ -97,7 +104,27 @@ C_SYMBOL(kui_toy_movie_exit_hook):
     bf .Lexit_name
     mov.w .Lexit_stop_status,r2
     cmp/eq r2,r0
+#if TOY_MOVIE_AHEAD_UPDATE
+    bt .Lexit_name
+    tst r5,r5
     bf .Lexit_done
+    add #-16,r15
+    sts pr,r1
+    mov.l r1,@(12,r15)
+    mov.l r7,@(8,r15)
+    mov.l r0,@(4,r15)
+    mov.l .Lexit_ahead_update,r1
+    jsr @r1
+    nop
+    mov.l @(12,r15),r1
+    lds r1,pr
+    mov.l @(4,r15),r0
+    mov.l @(8,r15),r7
+    bra .Lexit_done
+    add #16,r15
+#else
+    bf .Lexit_done
+#endif
 .Lexit_name:
     mov.w .Lexit_name_offset,r1
     add r4,r1
@@ -382,6 +409,9 @@ C_SYMBOL(kui_toy_movie_exit_hook):
 .Lexit_witness: .long C_SYMBOL(kui_native_readahead_aux_context)+KUI_TOY_MOVIE_EXIT_OFFSET
 #if TOY_MOVIE_PRESENT_WITNESS
 .Lexit_present_boundary_handler: .long C_SYMBOL(kui_toy_movie_present_boundary)
+#endif
+#if TOY_MOVIE_AHEAD_UPDATE
+.Lexit_ahead_update: .long C_SYMBOL(kui_toy_movie_ahead_update)
 #endif
 .Lexit_lag: .long 0x8c1138c4
 .Lexit_name_ntsc: .ascii "60hz"

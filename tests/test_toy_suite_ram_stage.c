@@ -46,8 +46,15 @@ static void raw_sector(uint8_t *sector,uint32_t lba) {
 }
 
 int main(void) {
+#if KUI_TOY_SUITE_MODE == 35
+    const uint32_t first=0x69263u-40u,last=0x69263u+40u;
+    const unsigned movie=1u;
+#else
     const uint32_t center=KUI_TOY_SUITE_MODE==2?469080u:468128u;
-    const uint32_t first=center-40u,last=center+40u,track_start=45000u;
+    const uint32_t first=center-40u,last=center+40u;
+    const unsigned movie=3u;
+#endif
+    const uint32_t track_start=45000u;
     const uint32_t first_byte=(first-track_start)*KUI_GAME_RAW_BYTES+17u;
     first_block=first_byte/512u;
     uint32_t blocks=((last-track_start)*KUI_GAME_RAW_BYTES+17u+511u)/512u-first_block;
@@ -55,7 +62,11 @@ int main(void) {
     manifest.slots[1].extent=(struct kui_retail_extent){0u,1000u,first_block};
     manifest.slots[2].extent=(struct kui_retail_extent){first_block,2000000u,111u};
     manifest.slots[3].extent=(struct kui_retail_extent){first_block+111u,3000000u,blocks-111u};
-    toy_movie_ranges[3]=(struct kui_toy_movie_range){452810u,26208u};
+#if KUI_TOY_SUITE_MODE == 35
+    toy_movie_ranges[movie]=(struct kui_toy_movie_range){first-386u,386u+last-first};
+#else
+    toy_movie_ranges[movie]=(struct kui_toy_movie_range){452810u,26208u};
+#endif
     for(uint32_t n=0u;n<last-first;n++)
         raw_sector(original+(first_byte&511u)+n*KUI_GAME_RAW_BYTES,first+n);
     const struct kui_retail_track *track=&manifest.slots[0].track;
@@ -69,6 +80,18 @@ int main(void) {
     assert(!toy_suite_ram_seed(track) && !toy_suite_seed.count[0] && reads==fail_at);
     reads=fail_at=0u;original[(first_byte&511u)+31u]^=1u;
     assert(!toy_suite_ram_seed(track) && !toy_suite_seed.count[0] && reads==blocks);
-    reads=0u;--toy_movie_ranges[3].count;
+    reads=0u;--toy_movie_ranges[movie].count;
     assert(!toy_suite_ram_seed(track) && !reads);
+#if KUI_TOY_SUITE_MODE == 35
+    ++toy_movie_ranges[movie].count;
+    ++toy_movie_ranges[movie].lba;
+    assert(!toy_suite_ram_seed(track) && !reads);
+    --toy_movie_ranges[movie].lba;
+
+    /* A window that crosses more than two card extents is never published. */
+    ++manifest.slots[0].track.extent_count;
+    --manifest.slots[3].extent.blocks;
+    manifest.slots[4].extent=(struct kui_retail_extent){first_block+blocks-1u,4000000u,1u};
+    assert(!toy_suite_ram_seed(track) && !reads && !toy_suite_seed.count[0]);
+#endif
 }

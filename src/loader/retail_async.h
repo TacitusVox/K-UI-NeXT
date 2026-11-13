@@ -277,6 +277,10 @@ void kui_retail_async_session_rebind(const struct kui_retail_manifest *next);
  * the high controller owns audio jobs and any parked checked blocks. */
 /* Every GD call, masked on the private stack, before the service runs it. */
 void kui_retail_async_call(uint32_t function);
+#if KUI_TOY_SUITE_ASYNC_DEMAND
+/* Masked call after an admitted native controller completion. */
+bool kui_retail_native_demand_wake(void);
+#endif
 /* After the service ran it: start a new read, or stop an abandoned one. */
 void kui_retail_async_after(uint32_t function, int32_t result);
 #if KUI_TOY_FMV_COMPARE

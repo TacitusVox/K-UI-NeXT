@@ -6,7 +6,6 @@
 
 #define KUI_TOY_FMV_BINS 13u
 #define KUI_TOY_FMV_BIN_TICKS 390625u
-#define KUI_TOY_FMV_BIN_TEXT_BYTES 19u
 #define KUI_TOY_FMV_PENDING 4u
 
 struct kui_toy_fmv_bin {
@@ -29,7 +28,6 @@ void kui_toy_fmv_request(struct kui_toy_fmv_trace *, const struct kui_toy_movie_
     uint32_t token, uint32_t lba, uint32_t sectors, uint32_t tick);
 void kui_toy_fmv_status(struct kui_toy_fmv_trace *, uint32_t token, uint32_t tick,
     int32_t status, uint32_t bytes);
-void kui_toy_fmv_format_bin(char text[KUI_TOY_FMV_BIN_TEXT_BYTES], const struct kui_toy_fmv_bin *);
 void kui_toy_fmv_format(char text[KUI_TOY_REPORT_FILE_BYTES], const struct kui_toy_fmv_trace *,
     const char *source, const char *build);
 #endif

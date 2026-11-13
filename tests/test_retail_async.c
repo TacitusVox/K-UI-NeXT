@@ -564,7 +564,11 @@ static void test_faults_retried(void) {
     /* Held off the bus mid-block: resumed in place, the byte rebuilt. */
     m.overrun_after = 200;
     read_and_compare(45040, 10, true, 0);
+#if KUI_TOY_SUITE_SLOW_RETRY
+    CHECK(kui_sci_stream_stats()->overruns == 1u);
+#else
     CHECK(kui_sci_stream_stats()->repaired == 1 && !kui_sci_stream_stats()->overruns);
+#endif
     card.bad_token_lba = 0; card.bad_token_count = 0;
     /* A busy channel: programmed reception for those blocks. */
     m.chcr = 1;
@@ -655,11 +659,19 @@ static void test_stress(void) {
         const struct kui_retail_async_stats *st = &R.engine.stats;
         const struct kui_sci_stream_stats *ss = kui_sci_stream_stats();
         printf("stress %s: irq %u call %u waits %u rehooks %u releases %u | "
+#if KUI_TOY_SUITE_SLOW_RETRY
+            "dma %u polled %u starts %u kept %u overruns %u\n", how == Y ? "Y" : "X",
+            st->irq_blocks, st->call_blocks, st->waits,
+            R.engine.release.rehooks, st->releases, ss->blocks, ss->polled, ss->starts, ss->kept,
+            ss->overruns);
+        CHECK(ss->overruns);
+#else
             "dma %u polled %u starts %u kept %u repaired %u deferred %u ahead %u\n", how == Y ? "Y" : "X",
             st->irq_blocks, st->call_blocks, st->waits,
             R.engine.release.rehooks, st->releases, ss->blocks, ss->polled, ss->starts, ss->kept,
             ss->repaired, ss->deferred, ss->ahead);
         CHECK(ss->repaired && ss->deferred && ss->ahead);
+#endif
     }
 }
 

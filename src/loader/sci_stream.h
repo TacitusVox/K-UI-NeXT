@@ -2,7 +2,44 @@
 #ifndef KUI_SCI_STREAM_H
 #define KUI_SCI_STREAM_H
 #include "sd_reader.h"
-#if defined(KUI_RETAIL_CE) || KUI_TOY_PILOT_SHARED_SCI || KUI_TOY_PILOT_DATA_SCHEDULE_MODE == 2
+#define KUI_TOY_SUITE_WIDE_EDC (KUI_TOY_SUITE_MODE == 52)
+#define KUI_TOY_SUITE_FRAME_TIMING (KUI_TOY_SUITE_MODE >= 60 && KUI_TOY_SUITE_MODE <= 66)
+#define KUI_TOY_SUITE_DECODE_WINDOW (KUI_TOY_SUITE_MODE == 57 || KUI_TOY_SUITE_FRAME_TIMING)
+#define KUI_TOY_SUITE_TABLE_CRC16 (KUI_TOY_SUITE_MODE == 58)
+#define KUI_TOY_SUITE_FAST_COPY (KUI_TOY_SUITE_MODE == 59)
+#define KUI_TOY_SUITE_MOVIE_TIMING (KUI_TOY_SUITE_MODE == 55 || KUI_TOY_SUITE_DECODE_WINDOW || \
+    KUI_TOY_SUITE_TABLE_CRC16 || KUI_TOY_SUITE_FAST_COPY)
+#define KUI_TOY_SUITE_INTRO_PREFILL (KUI_TOY_SUITE_MODE == 56)
+#define KUI_TOY_SUITE_FAST_CRC16 (KUI_TOY_SUITE_MODE == 53 || KUI_TOY_SUITE_MOVIE_TIMING || \
+    KUI_TOY_SUITE_INTRO_PREFILL)
+#define KUI_TOY_SUITE_INTRO_BUFFER (KUI_TOY_SUITE_MODE == 54)
+#define KUI_TOY_SUITE_RESUME_WAKE (KUI_TOY_SUITE_MODE == 51 || KUI_TOY_SUITE_WIDE_EDC || \
+    KUI_TOY_SUITE_FAST_CRC16 || KUI_TOY_SUITE_INTRO_BUFFER)
+#define KUI_TOY_SUITE_FAST_EDC (KUI_TOY_SUITE_MODE == 50 || KUI_TOY_SUITE_RESUME_WAKE)
+#define KUI_TOY_SUITE_RESUME_SLICE (KUI_TOY_SUITE_MODE == 49 || KUI_TOY_SUITE_FAST_EDC)
+#define KUI_TOY_SUITE_VERIFIED_RESUME (KUI_TOY_SUITE_MODE == 48 || KUI_TOY_SUITE_RESUME_SLICE)
+#define KUI_TOY_SUITE_RESUME_ACTIVE 8u
+#define KUI_TOY_SUITE_RESUME_FOREGROUND 16u
+#define KUI_TOY_SUITE_FIRST_CUT_PIO (KUI_TOY_SUITE_MODE == 46)
+#define KUI_TOY_SUITE_FIRST_CUT_ACTIVE 4u
+#define KUI_TOY_SUITE_DMA_ROUND_ROBIN (KUI_TOY_SUITE_MODE == 47)
+#define KUI_TOY_SUITE_SEQUENTIAL_PIO (KUI_TOY_SUITE_MODE == 44 || KUI_TOY_SUITE_FIRST_CUT_PIO || KUI_TOY_SUITE_DMA_ROUND_ROBIN)
+#define KUI_TOY_SUITE_BOUNDED_DMA (KUI_TOY_SUITE_MODE == 45)
+#define KUI_TOY_SUITE_AFTER_START (KUI_TOY_SUITE_SEQUENTIAL_PIO || KUI_TOY_SUITE_BOUNDED_DMA || KUI_TOY_SUITE_VERIFIED_RESUME)
+#define KUI_TOY_SUITE_MOVIE_CHUNK (KUI_TOY_SUITE_MODE == 42 || KUI_TOY_SUITE_AFTER_START)
+#define KUI_TOY_SUITE_DIRECT_PIO (KUI_TOY_SUITE_MODE == 43)
+#define KUI_TOY_SUITE_PIPELINED_PIO (KUI_TOY_SUITE_MODE == 41 || (KUI_TOY_SUITE_MOVIE_CHUNK && !KUI_TOY_SUITE_VERIFIED_RESUME) || KUI_TOY_SUITE_DIRECT_PIO)
+#define KUI_TOY_SUITE_PIO_WINDOW (KUI_TOY_SUITE_MODE == 40 || KUI_TOY_SUITE_PIPELINED_PIO)
+#define KUI_TOY_SCI_PIO_WINDOW_FIRST 253u
+#define KUI_TOY_SUITE_MOVIE_EXIT (KUI_TOY_SUITE_MODE == 39 || KUI_TOY_SUITE_PIO_WINDOW || KUI_TOY_SUITE_VERIFIED_RESUME)
+#define KUI_TOY_SUITE_REFILL_SLICE (KUI_TOY_SUITE_MODE == 38 || KUI_TOY_SUITE_MOVIE_EXIT)
+#define KUI_TOY_SUITE_SLOW_RETRY (KUI_TOY_SUITE_MODE == 37 || (KUI_TOY_SUITE_REFILL_SLICE && !KUI_TOY_SUITE_VERIFIED_RESUME))
+#define KUI_TOY_SUITE_MOVIE_POLL \
+    (KUI_TOY_SUITE_MODE == 33 || KUI_TOY_SUITE_MODE == 34 || KUI_TOY_SUITE_MODE == 35 || \
+     KUI_TOY_SUITE_MODE == 36 || KUI_TOY_SUITE_SLOW_RETRY || KUI_TOY_SUITE_VERIFIED_RESUME)
+#define KUI_TOY_SUITE_SLOW_MOVIE 2u
+#define KUI_TOY_SUITE_ASYNC_DEMAND (KUI_TOY_SUITE_MODE == 32 || KUI_TOY_SUITE_MOVIE_POLL)
+#if defined(KUI_RETAIL_CE) || KUI_TOY_PILOT_SHARED_SCI || KUI_TOY_PILOT_DATA_SCHEDULE_MODE == 2 || KUI_TOY_SUITE_ASYNC_DEMAND
 #define KUI_SCI_STREAM_TOKEN_SLICED 1
 #else
 #define KUI_SCI_STREAM_TOKEN_SLICED 0
@@ -31,6 +68,7 @@
  * kui_sci_stream_stop and kui_sci_stream_wait. All card waits are bounded by
  * byte counts. The bus must be acquired and the card ready at fast speed. */
 #define KUI_SCI_STREAM_AREA_BYTES 544u /* 513 DMA bytes in whole cache lines */
+#define KUI_SCI_STREAM_DMA_STATE 2u
 enum kui_sci_stream_result {
     KUI_SCI_STREAM_OK, KUI_SCI_STREAM_PENDING,
     KUI_SCI_STREAM_BUSY,     /* channel 1 or the SCI was taken over: not ours */
@@ -53,11 +91,22 @@ struct kui_sci_stream_stats {
 #else
     uint32_t blocks, polled, starts, kept, overruns;
     uint32_t crc_errors, token_errors, foreign;
-    uint32_t repaired; /* overruns resumed in place, the lost byte rebuilt from the CRC */
+#if KUI_TOY_SUITE_SLOW_RETRY
+    /* Strict rereads never use the three in-place repair counters. */
+    uint32_t toy_retry_orer, toy_retry_slow, toy_retry_ok;
+#if KUI_TOY_SUITE_PIO_WINDOW
+    uint32_t toy_pio_window_blocks, toy_pio_window_ok;
+#endif
+#else
+    union {
+        uint32_t repaired; /* Overruns resumed in place before an ordinary CRC-checked reread. */
+        uint32_t toy_resumed_blocks; /* Provisional blocks passed only to RAW staging. */
+    };
     /* ahead: repaired blocks whose last byte was the card's gap or next
      * token: the resumed reception ran a byte ahead (fetched again). */
     uint32_t ahead;
     uint32_t deferred; /* of those repaired, resumed by a later fetch (interrupt) */
+#endif
 #endif
 #ifdef KUI_RETAIL_CE
     /* Incomplete receptions, including repair attempts, by DMA bytes still
@@ -73,7 +122,7 @@ struct kui_sci_stream_stats {
     uint32_t incomplete_ch2_active, incomplete_dmaor_bad;
 #endif
 #endif
-#if KUI_SCI_STREAM_TOKEN_SLICED
+#if KUI_SCI_STREAM_TOKEN_SLICED && !KUI_TOY_SUITE_ASYNC_DEMAND
     uint32_t token_bytes, token_max; /* all search bytes, including token/error */
     uint32_t stops; /* CMD12 attempts */
     uint32_t token_yields; /* token search paused at an entry's byte budget */
@@ -89,6 +138,29 @@ struct kui_sci_stream_state {
     /* lost: 1 + the index of a byte an overrun lost (0: none); hold: the
      * receiver still held the byte before it (held), which the channel
      * never took. */
+#if KUI_TOY_SUITE_ASYNC_DEMAND
+    /* Fresh rereads leave no reconstruction state live. Reuse those bytes
+     * for resumable card framing without changing the vector region ABI. */
+    union { uint16_t lost[2]; uint32_t token_used; };
+    uint8_t ready[2],wire[2],rdr[2];
+    uint8_t token_bounded,token_polled,token_budget,stop_failed;
+    uint8_t kept,sptr;
+#if KUI_TOY_SUITE_MOVIE_POLL
+    uint8_t toy_suite_poll;
+#else
+    uint8_t unrepaired;
+#endif
+    uint8_t toy_suite_active,toy_suite_kick;
+#if KUI_TOY_SUITE_MODE == 34
+    /* One failed physical block, held across bounded card-framing visits. */
+    uint8_t toy_suite_pio_retry;
+#elif KUI_TOY_SUITE_SLOW_RETRY
+    /* In-flight admission or one same-position retry retained through
+     * bounded card framing. Test 40 also encodes a remaining PIO window.
+     * A new GD request invalidates this state. */
+    uint8_t toy_suite_slow_pending;
+#endif
+#else
     uint16_t lost[2];
     /* kept: 1 + the area holding the last block taken, or 0. wire: the
      * area holds bit-reversed DMA bytes rather than programmed-read bytes.
@@ -96,7 +168,9 @@ struct kui_sci_stream_state {
      * (not a byte ahead); after two the card is taken not to resume
      * mid-block as expected, and overruns restart. */
     uint8_t ready[2], wire[2], rdr[2], held[2], hold[2], kept, sptr, unrepaired;
-#if KUI_TOY_SUITE_LOW_DEMAND
+#if KUI_TOY_SUITE_MODE == 31
+    uint8_t toy_suite_active, toy_suite_rate, toy_suite_retries;
+#elif KUI_TOY_SUITE_LOW_DEMAND
     /* Existing alignment padding. The masked auxiliary arms only an
      * admitted movie demand visit and accumulates the wrapping event delta. */
     uint8_t toy_suite_active;
@@ -111,9 +185,10 @@ struct kui_sci_stream_state {
 #endif
     uint32_t token_limit, token_used, token_budget;
 #endif
+#endif
     struct kui_sci_stream_stats stats;
 };
-#if KUI_TOY_SUITE_LOW_DEMAND
+#if KUI_TOY_SUITE_LOW_DEMAND || KUI_TOY_SUITE_MODE == 31
 _Static_assert(!KUI_SCI_STREAM_TOKEN_SLICED &&
     offsetof(struct kui_sci_stream_state,stats)==
     ((offsetof(struct kui_sci_stream_state,unrepaired)+4u)&~3u),
@@ -140,7 +215,11 @@ bool kui_sci_stream_busy(void);
  * the other area. */
 bool kui_sci_stream_ready(uint32_t lba);
 #if KUI_SCI_STREAM_TOKEN_SLICED
+#if KUI_TOY_SUITE_ASYNC_DEMAND
+#define KUI_SCI_STREAM_TOKEN_SLICE 64u
+#else
 #define KUI_SCI_STREAM_TOKEN_SLICE 256u
+#endif
 /* Once per external service entry, shared by its before/after work. Before
  * CE's interrupt service is installed, token searches remain unbounded by
  * this slice (their original total byte limit still applies). */

@@ -23,9 +23,10 @@
 #if KUI_NATIVE_BACKGROUND_COMPACT && !KUI_NATIVE_GENERAL_LEAN_LAYOUT
 #error "Compact Background extends the separately reviewed lean layout"
 #endif
-#if defined(KUI_TOY_SUITE_MODE) && (KUI_TOY_SUITE_MODE == 26 || KUI_TOY_SUITE_MODE == 27 || KUI_TOY_SUITE_MODE == 28)
+#if defined(KUI_TOY_SUITE_MODE) && (KUI_TOY_SUITE_MODE == 26 || KUI_TOY_SUITE_MODE == 27 || KUI_TOY_SUITE_MODE == 28 || \
+    KUI_TOY_SUITE_MODE == 57 || KUI_TOY_SUITE_MODE == 58 || KUI_TOY_SUITE_MODE == 59 || KUI_TOY_SUITE_MODE == 60 || KUI_TOY_SUITE_MODE == 61 || KUI_TOY_SUITE_MODE == 62 || KUI_TOY_SUITE_MODE == 64 || KUI_TOY_SUITE_MODE == 65 || KUI_TOY_SUITE_MODE == 66)
 #if !KUI_NATIVE_BACKGROUND_COMPACT
-#error "Toy SCI burst requires the compact Background layout"
+#error "The extended Toy auxiliary requires the compact Background layout"
 #endif
 #define KUI_NATIVE_RA_LEASE_BYTES UINT32_C(0x47000)
 #define KUI_NATIVE_RA_AUX_OFFSET UINT32_C(0x13000)

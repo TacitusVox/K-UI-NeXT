@@ -5,6 +5,9 @@
 #include "sci_stream.h"
 #include "sci_sd_bus.h"
 #include "kui/general_sci_options.h"
+#if KUI_TOY_SUITE_TABLE_CRC16
+#include "kui/toy_sd_crc16.h"
+#endif
 #if KUI_TOY_PIPELINE_HIGH_STREAM
 #include "kui/toy_loader_data_pipeline.h"
 #endif
@@ -44,6 +47,8 @@
 #define TEND 0x04u
 #define DMA_BYTES 513u
 #define AREA_BYTES KUI_SCI_STREAM_AREA_BYTES
+#define STRICT_REREAD (KUI_TOY_SUITE_MODE == 26 || KUI_TOY_SUITE_MODE == 27 || \
+    KUI_TOY_SUITE_MODE == 28 || KUI_TOY_SUITE_MODE == 31 || KUI_TOY_SUITE_ASYNC_DEMAND)
 #if KUI_NATIVE_GD_DMA_STREAM
 #define STREAM_OBSERVE(...) do {} while(0)
 #else
@@ -92,17 +97,62 @@ static void fence(const void *area) {
 
 typedef uint32_t alias_word __attribute__((__may_alias__));
 /* RESUME: stopped mid-block by an overrun in an interrupt, to be resumed. */
-enum { CLOSED, PAUSED, DMA, LOST, RESUME
+enum { CLOSED, PAUSED, DMA=KUI_SCI_STREAM_DMA_STATE, LOST, RESUME
 #if KUI_SCI_STREAM_TOKEN_SLICED
     , TOKEN_WAIT
 #endif
+#if KUI_TOY_SUITE_ASYNC_DEMAND
+    , STOP_WAIT, START_WAIT
+#endif
 };
+#if KUI_TOY_SUITE_MODE == 31
+enum { TOY_FAST, TOY_RETRY_SLOW, TOY_SLOW_DMA };
+#endif
+#if KUI_TOY_SUITE_SLOW_RETRY
+enum { TOY_RETRY_WAITING = 1u, TOY_RETRY_ARMED = KUI_TOY_SUITE_SLOW_MOVIE };
+#define TOY_SLOW_WIRE 2u /* wire[area] also marks the actual DMA rate */
+#endif
+#if KUI_TOY_SUITE_PIO_WINDOW
+/* Reserve the final three byte values. Incrementing after each receive
+ * returns to zero; the separate receive-area marker identifies PIO CRCs. */
+enum { TOY_PIO_WINDOW = KUI_TOY_SCI_PIO_WINDOW_FIRST, TOY_PIO_WINDOW_WIRE = 4u };
+#endif
 #ifdef KUI_RETAIL_ASYNC
 /* The game reader keeps this state between its interrupt vectors. */
 #include "retail_async.h"
 #define s (kui_retail_async_region.shared.stream)
 #else
 static struct kui_sci_stream_state s;
+#endif
+
+#if KUI_TOY_SUITE_VERIFIED_RESUME
+#if !defined(KUI_RETAIL_ASYNC)
+#error "Toy verified resume requires the retained asynchronous request token"
+#endif
+#define TOY_RESUMED_WIRE 8u
+/* The receive DMA ends at byte 512. Keep provenance in the same area,
+ * independent of the token-framing fields in the retained stream ABI. */
+struct __attribute__((__may_alias__)) toy_resume_meta {
+    uint32_t token, lost;
+};
+#define TOY_RESUME_META_OFFSET 516u
+_Static_assert(TOY_RESUME_META_OFFSET+sizeof(struct toy_resume_meta)<=AREA_BYTES,
+    "Toy resume metadata must fit outside the wire bytes");
+static inline uint8_t *resume_area(unsigned area) {
+    uintptr_t p=(uintptr_t)s.area[area];
+#ifndef KUI_SCI_STREAM_TEST
+    p=(p&UINT32_C(0x1fffffff))|UINT32_C(0xa0000000);
+#endif
+    return (uint8_t *)p;
+}
+static inline volatile struct toy_resume_meta *resume_meta(unsigned area) {
+    return (volatile struct toy_resume_meta *)(void *)(resume_area(area)+TOY_RESUME_META_OFFSET);
+}
+static inline bool resume_admitted(unsigned area) {
+    uint32_t token=kui_retail_async_region.engine.token;
+    return token && (s.toy_suite_active&KUI_TOY_SUITE_RESUME_ACTIVE) &&
+        resume_meta(area)->token==token;
+}
 #endif
 
 static uint8_t byte(uint8_t value) { return s.card->bus.transfer(s.card->bus.ctx, value, false); }
@@ -183,6 +233,36 @@ static inline uint16_t crc16(uint16_t crc, uint8_t data) {
 #if KUI_CE_SCI_FAST_TAKE && !defined(KUI_RETAIL_CE)
 #error "The fast block check is the CE stream reader's"
 #endif
+#if KUI_TOY_SUITE_FAST_CRC16 && !KUI_TOY_SUITE_TABLE_CRC16 && defined(__sh__)
+/* The low 16 bits carry the full CRC16 state. swap.b selects its high
+ * byte, so discarded upper bits can accumulate until the end of the block. */
+static inline __attribute__((always_inline)) uint32_t toy_crc16_word(uint32_t crc, uint32_t word) {
+    const int shift4=-4, shift5=5, shift12=12;
+    unsigned bytes=4;
+    uint32_t index, term;
+    __asm__("1: swap.b %[crc],%[index]\n\t"
+            "xor %[word],%[index]\n\t"
+            "extu.b %[index],%[index]\n\t"
+            "mov %[index],%[term]\n\t"
+            "shld %[shift4],%[term]\n\t"
+            "xor %[term],%[index]\n\t"
+            "mov %[index],%[term]\n\t"
+            "shll8 %[crc]\n\t"
+            "xor %[index],%[crc]\n\t"
+            "shld %[shift12],%[term]\n\t"
+            "shld %[shift5],%[index]\n\t"
+            "xor %[term],%[crc]\n\t"
+            "xor %[index],%[crc]\n\t"
+            "dt %[bytes]\n\t"
+            "bf/s 1b\n\t"
+            "shlr8 %[word]"
+            : [crc] "+&r"(crc), [word] "+&r"(word), [bytes] "+&r"(bytes),
+              [index] "=&r"(index), [term] "=&r"(term)
+            : [shift4] "r"(shift4), [shift5] "r"(shift5), [shift12] "r"(shift12)
+            : "t");
+    return crc;
+}
+#endif
 static uint8_t crc7(const uint8_t *p) {
     unsigned c = 0;
     for(unsigned i = 0; i < 5; ++i) for(unsigned j = 0; j < 8; ++j) {
@@ -200,7 +280,15 @@ enum kui_sci_stream_result kui_sci_stream_open(const struct kui_loader_sd *card,
     s.card = card;
     s.area[0] = area0; s.area[1] = area1;
     s.state = unknown ? LOST : CLOSED;
-    s.ready[0] = s.ready[1] = 0; s.kept = 0; s.unrepaired = 0; s.arrived = 0;
+    s.ready[0] = s.ready[1] = 0; s.kept = 0; s.arrived = 0;
+#if !KUI_TOY_SUITE_MOVIE_POLL
+    s.unrepaired = 0;
+#endif
+#if KUI_TOY_SUITE_MODE == 31
+    s.toy_suite_rate = TOY_FAST;
+#elif KUI_TOY_SUITE_SLOW_RETRY
+    s.toy_suite_slow_pending = 0u;
+#endif
 #if KUI_CE_SCI_SLOW_AFTER_OVERRUN
     s.slow = 0;
 #endif
@@ -240,10 +328,15 @@ bool kui_sci_stream_slow_pending(void) { return (s.slow & SLOW_LEFT) != 0; }
 static void __attribute__((noinline)) slow_done(void) { if(s.slow & SLOW_LEFT) --s.slow; }
 #endif
 const struct kui_sci_stream_stats *kui_sci_stream_stats(void) { return &s.stats; }
-void kui_sci_stream_discard(void) { s.ready[0] = s.ready[1] = 0; s.kept = 0; s.arrived = 0; }
+void kui_sci_stream_discard(void) {
+    s.ready[0] = s.ready[1] = 0; s.kept = 0; s.arrived = 0;
+#if KUI_TOY_SUITE_SLOW_RETRY
+    s.toy_suite_slow_pending = 0u;
+#endif
+}
 
 /* Data token after the card's wait (0xff); TEND before the DMA starts. */
-#if KUI_SCI_STREAM_TOKEN_SLICED
+#if KUI_SCI_STREAM_TOKEN_SLICED && !KUI_TOY_SUITE_ASYNC_DEMAND
 static void token_count(uint32_t bytes) {
     s.stats.token_bytes += bytes;
     if(bytes > s.stats.token_max) s.stats.token_max = bytes;
@@ -252,11 +345,17 @@ static void token_count(uint32_t bytes) {
 static enum kui_sci_stream_result token(uint32_t limit) {
 #if KUI_SCI_STREAM_TOKEN_SLICED
     if(s.state != TOKEN_WAIT) {
+#if !KUI_TOY_SUITE_ASYNC_DEMAND
         s.token_limit = limit;
+#endif
         s.token_used = 0;
         s.state = TOKEN_WAIT;
     }
+#if KUI_TOY_SUITE_ASYNC_DEMAND
+    uint32_t remaining = s.token_used<limit ? limit-s.token_used : 0u, run = remaining;
+#else
     uint32_t remaining = s.token_limit - s.token_used, run = remaining;
+#endif
     if(s.token_bounded && run > s.token_budget) run = s.token_budget;
     uint32_t n = 0;
     uint8_t value = 0xff;
@@ -269,16 +368,22 @@ static enum kui_sci_stream_result token(uint32_t limit) {
     if(s.token_bounded) s.token_budget -= n;
     if(value == 0xfe) {
         for(unsigned k = 0; k < 64u && !(rd8(SSR) & TEND); ++k) {}
+#if !KUI_TOY_SUITE_ASYNC_DEMAND
         token_count(s.token_used);
+#endif
         return KUI_SCI_STREAM_OK;
     }
     if(value == 0xff && n < remaining && healthy()) {
         select(false); /* no more clocks until the same search resumes */
         if(!healthy()) {s.state = LOST; return KUI_SCI_STREAM_RESET;}
+#if !KUI_TOY_SUITE_ASYNC_DEMAND
         if(n) ++s.stats.token_yields; /* count work paused, not zero-budget probes */
+#endif
         return KUI_SCI_STREAM_PENDING;
     }
+#if !KUI_TOY_SUITE_ASYNC_DEMAND
     token_count(s.token_used);
+#endif
     s.state = LOST;
 #else
     for(uint32_t n = 0; n < limit; ++n) {
@@ -312,10 +417,37 @@ static uint8_t command(const uint8_t packet[6], bool stop) {
 #define START_IDLE_LIMIT 50000u
 #define STOP_BUSY_LAST 200000u
 #endif
+#if KUI_TOY_SUITE_ASYNC_DEMAND
+/* Resume the same busy/idle phase across visits, sharing the current
+ * token budget. The full transaction limit still applies across visits. */
+static enum kui_sci_stream_result command_ready(uint32_t limit) {
+    while(s.token_used<limit && (!s.token_bounded || s.token_budget)) {
+        uint8_t value=byte(0xff);
+        ++s.token_used;
+        if(s.token_bounded) --s.token_budget;
+        if(!healthy()) return KUI_SCI_STREAM_RESET;
+        if(value==0xffu) return KUI_SCI_STREAM_OK;
+    }
+    return s.token_used<limit ? KUI_SCI_STREAM_PENDING : KUI_SCI_STREAM_COMMAND;
+}
+#endif
 /* CMD12 into the stream, its R1b busy, deselection and an idle byte. An
  * idle card answers "illegal command" (0x04): it is stopped all the same. */
 static enum kui_sci_stream_result stop_card(void) {
     static const uint8_t stop[6] = {0x4c, 0, 0, 0, 0, 0x61};
+#if KUI_TOY_SUITE_ASYNC_DEMAND
+    if(s.state==START_WAIT) {s.state=CLOSED;return KUI_SCI_STREAM_OK;}
+    select(true);
+    if(s.state!=STOP_WAIT) {
+        s.stop_failed=(command(stop,true)&~0x04u)!=0u;
+        s.state=STOP_WAIT;s.token_used=0u;
+    }
+    enum kui_sci_stream_result result=command_ready(STOP_BUSY_LAST+1u);
+    select(false);
+    if(result==KUI_SCI_STREAM_PENDING) return result;
+    (void)byte(0xff);
+    if(result==KUI_SCI_STREAM_OK && s.stop_failed) result=KUI_SCI_STREAM_COMMAND;
+#else
 #if KUI_SCI_STREAM_TOKEN_SLICED
     if(s.state == TOKEN_WAIT) token_count(s.token_used);
     ++s.stats.stops;
@@ -327,6 +459,7 @@ static enum kui_sci_stream_result stop_card(void) {
         if(n >= STOP_BUSY_LAST || !healthy()) {result = KUI_SCI_STREAM_COMMAND; break;}
     select(false);
     (void)byte(0xff);
+#endif
     s.state = result == KUI_SCI_STREAM_OK ? CLOSED : LOST;
     return healthy() ? result : KUI_SCI_STREAM_RESET;
 }
@@ -336,8 +469,18 @@ static enum kui_sci_stream_result start(uint32_t lba, uint32_t limit) {
         (uint8_t)(address >> 8), (uint8_t)address, 0};
     packet[5] = crc7(packet);
     select(true);
+#if KUI_TOY_SUITE_ASYNC_DEMAND
+    if(s.state!=START_WAIT) {s.state=START_WAIT;s.position=lba;s.token_used=0u;}
+    enum kui_sci_stream_result ready=command_ready(START_IDLE_LIMIT);
+    if(ready!=KUI_SCI_STREAM_OK) {
+        select(false);
+        if(ready!=KUI_SCI_STREAM_PENDING) s.state=CLOSED;
+        return ready;
+    }
+#else
     for(uint32_t n = 0; byte(0xff) != 0xffu;)
         if(++n >= START_IDLE_LIMIT || !healthy()) return KUI_SCI_STREAM_COMMAND;
+#endif
     s.state = LOST; /* from here on, CMD18 may be running */
     STREAM_OBSERVE(++s.stats.starts);
     uint8_t r1 = command(packet, false);
@@ -397,6 +540,22 @@ static enum kui_sci_stream_result start_dma(uint32_t area, uint32_t offset) {
     for(unsigned j = 0; j < 4; ++j) s.saved[j] = rd32(SAR + 4u * j);
 #endif
     wr8(SCR, 0);
+#if KUI_TOY_SUITE_MODE == 31
+    if(s.toy_suite_rate == TOY_RETRY_SLOW) {
+        s.toy_suite_rate = TOY_SLOW_DMA;
+        ++s.toy_suite_retries;
+        wr8(BRR, 1u);
+        settle(64);
+    }
+#elif KUI_TOY_SUITE_SLOW_RETRY
+    if(s.toy_suite_slow_pending == TOY_RETRY_WAITING) {
+        s.wire[area] |= TOY_SLOW_WIRE;
+        ++s.stats.toy_retry_slow;
+        wr8(BRR, 1u);
+        settle(64); /* 6.25 MHz for this data receive only */
+    }
+    s.toy_suite_slow_pending = s.toy_suite_active & KUI_TOY_SUITE_SLOW_MOVIE;
+#endif
 #if KUI_CE_SCI_SLOW_AFTER_OVERRUN
     /* 6.25 MHz for this reception only; handoff restores 12.5 MHz. The
      * settle exceeds one bit before the receiver is enabled. */
@@ -428,7 +587,9 @@ static enum kui_sci_stream_result receive(bool polled) {
     s.fill = area;
     s.arrived = 0;
     s.ready[area] = 0;
+#if !KUI_TOY_SUITE_ASYNC_DEMAND
     s.lost[area] = 0;
+#endif
     settle(64); /* the token byte's last edge */
 #if KUI_TOY_SUITE_MODE == 3
     /* Switch this fresh block before clocking its payload. CHCR2 and the
@@ -440,12 +601,60 @@ static enum kui_sci_stream_result receive(bool polled) {
         polled = true;
     }
 #endif
-    if(polled || !channel_idle()) {
-        for(unsigned i = 0; i < DMA_BYTES; ++i) p[i] = byte(0xff);
-        s.rdr[area] = byte(0xff);
+#if KUI_TOY_SUITE_DIRECT_PIO
+    const bool pio_window = s.toy_suite_active & KUI_TOY_SUITE_SLOW_MOVIE;
+    if(pio_window || polled || !channel_idle()) {
+#elif KUI_TOY_SUITE_PIO_WINDOW
+    bool pio_window = (int8_t)s.toy_suite_slow_pending < 0;
+    const bool dma_idle = (pio_window || !polled) && channel_idle();
+    pio_window = pio_window && dma_idle;
+    if(polled || pio_window || !dma_idle) {
+#else
+    if(polled ||
+#if KUI_TOY_SUITE_MODE == 34
+       s.toy_suite_pio_retry ||
+#endif
+       !channel_idle()) {
+#endif
+#if KUI_TOY_SUITE_MODE == 34
+        /* Complete this fresh block by programmed reads. A CRC failure
+         * consumes the ordinary retry limit before anything is delivered. */
+        s.toy_suite_pio_retry=0u;
+#elif KUI_TOY_SUITE_PIO_WINDOW
+        s.wire[area] = pio_window ? TOY_PIO_WINDOW_WIRE : 0u;
+#if KUI_TOY_SUITE_DIRECT_PIO
+        s.toy_suite_slow_pending = 0u;
+        if(pio_window) ++s.stats.toy_pio_window_blocks;
+#else
+        if(pio_window) {
+            ++s.toy_suite_slow_pending;
+            ++s.stats.toy_pio_window_blocks;
+        } else s.toy_suite_slow_pending = 0u;
+#endif
+#elif KUI_TOY_SUITE_SLOW_RETRY
+        /* Keep the ordinary fallback when the guest owns the channel. */
+        s.toy_suite_slow_pending=0u;
+#endif
+#if KUI_TOY_SUITE_PIPELINED_PIO
+        _Static_assert(KUI_SCI_SD_PIO_PAYLOAD_BYTES == DMA_BYTES + 1u &&
+            KUI_SCI_SD_PIO_PAYLOAD_BYTES <= AREA_BYTES, "Toy window buffer includes both CRC bytes");
+        if(pio_window) {
+            if(!kui_sci_sd_pio_payload(p)) {
+                select(false);
+                return KUI_SCI_STREAM_RESET;
+            }
+            s.rdr[area] = p[DMA_BYTES];
+        } else
+#endif
+        {
+            for(unsigned i = 0; i < DMA_BYTES; ++i) p[i] = byte(0xff);
+            s.rdr[area] = byte(0xff);
+        }
         select(false);
         if(!healthy()) return KUI_SCI_STREAM_RESET;
+#if !KUI_TOY_SUITE_PIO_WINDOW
         s.wire[area] = 0;
+#endif
         s.ready[area] = 1;
         s.ready_lba[area] = s.position++;
         s.arrived = s.position;
@@ -468,7 +677,39 @@ enum kui_sci_stream_result kui_sci_stream_fetch(uint32_t lba, uint32_t token_lim
     if(s.state >= KUI_TOY_SCI_BURST_TOKEN) return KUI_SCI_STREAM_BUSY;
 #endif
     if(s.state == DMA) return KUI_SCI_STREAM_BUSY;
+#if KUI_TOY_SUITE_MODE == 34
+    if(lba!=s.position) s.toy_suite_pio_retry=0u;
+#elif KUI_TOY_SUITE_SLOW_RETRY
+    if(lba!=s.position || !(s.toy_suite_active&KUI_TOY_SUITE_SLOW_MOVIE))
+        s.toy_suite_slow_pending=0u;
+#endif
+#if KUI_TOY_SUITE_MODE == 31
+    if(!s.toy_suite_active || polled || lba != s.position || !channel_idle())
+        s.toy_suite_rate = TOY_FAST;
+#endif
     enum kui_sci_stream_result result;
+#if KUI_TOY_SUITE_VERIFIED_RESUME
+    if(s.state==RESUME) {
+        const bool wake=KUI_TOY_SUITE_RESUME_WAKE && kui_retail_async_region.engine.in_irq==2u;
+        if(s.position==lba && resume_admitted(s.fill)) {
+            if(!(s.toy_suite_active&KUI_TOY_SUITE_RESUME_FOREGROUND)) return KUI_SCI_STREAM_PENDING;
+            uint32_t lost=resume_meta(s.fill)->lost;
+            if(lost && lost<=512u && !polled && channel_idle()) {
+                select(true);
+                result=start_dma(s.fill,lost);
+                if(result!=KUI_SCI_STREAM_OK) {
+                    select(false);
+                    s.state=LOST;
+                    if(wake)return KUI_SCI_STREAM_PENDING;
+                }
+                return result;
+            }
+        }
+        /* The independent controller reply may only restart the parked
+         * suffix. Leave command stop/reopen to a foreground visit. */
+        if(wake)return KUI_SCI_STREAM_PENDING;
+    }
+#elif !KUI_TOY_SUITE_ASYNC_DEMAND
     if(s.state == RESUME && s.position == lba) {
         /* Resumed where an overrun in an interrupt stopped it. */
 #if KUI_GENERAL_SCI_RESUME_FIX || KUI_CE_SCI_RESUME_FIX
@@ -493,6 +734,7 @@ enum kui_sci_stream_result kui_sci_stream_fetch(uint32_t lba, uint32_t token_lim
         }
 #endif
     }
+#endif
 #if KUI_SCI_STREAM_TOKEN_SLICED
     bool pending = s.state == TOKEN_WAIT && s.position == lba;
     if(!pending) s.token_polled = polled;
@@ -508,16 +750,24 @@ enum kui_sci_stream_result kui_sci_stream_fetch(uint32_t lba, uint32_t token_lim
             if(result != KUI_SCI_STREAM_PENDING)
 #endif
                 s.state = LOST;
-            return result;
+            goto framing_result;
         }
     } else {
-        if(s.state != CLOSED && (result = stop_card()) != KUI_SCI_STREAM_OK) return result;
+        if(s.state != CLOSED
+#if KUI_TOY_SUITE_ASYNC_DEMAND
+           && !(s.state==START_WAIT && s.position==lba)
+#endif
+           && (result = stop_card()) != KUI_SCI_STREAM_OK) goto framing_result;
         result = start(lba, token_limit);
-        if(result != KUI_SCI_STREAM_OK) return result;
+        if(result != KUI_SCI_STREAM_OK) goto framing_result;
     }
     s.position = lba;
     result = receive(polled);
     if(result != KUI_SCI_STREAM_OK) s.state = LOST;
+framing_result:
+#if KUI_TOY_SUITE_SLOW_RETRY
+    if(result > KUI_SCI_STREAM_PENDING) s.toy_suite_slow_pending=0u;
+#endif
     return result;
 }
 /* End a reception: let the receiver take the second CRC byte and stop on the
@@ -525,9 +775,19 @@ enum kui_sci_stream_result kui_sci_stream_fetch(uint32_t lba, uint32_t token_lim
  * the RDR byte, then hand the SCI back to command bytes. A channel someone
  * else reprogrammed is left alone; the SCI is handed back in every case.
  * later: a mid-block overrun is resumed by the next fetch, not now. */
-static enum kui_sci_stream_result finish(bool later) {
+static enum kui_sci_stream_result
+#if KUI_TOY_SUITE_VERIFIED_RESUME
+/* Reuse the late Toy receive slot so the low SD lease retains its
+ * original firmware admission bound. Mode 48 has no pipelined PIO. */
+__attribute__((noipa,section(".toy_pio_payload")))
+#endif
+finish(bool later) {
     uint32_t area = s.fill, start = physical(s.area[area]), control = 0, count = 1;
     s.state = LOST;
+#if KUI_TOY_SUITE_SLOW_RETRY
+    const bool toy_retry_armed = s.toy_suite_slow_pending == TOY_RETRY_ARMED;
+    s.toy_suite_slow_pending = 0u;
+#endif
     if(rd32(CHCR) & 2u)
         for(unsigned n = 0; n < 512u && !(rd8(SSR) & ORER); ++n) {}
     wr8(SCR, 0);
@@ -547,6 +807,10 @@ static enum kui_sci_stream_result finish(bool later) {
         }
     }
     uint8_t status = rd8(SSR), tail = 0;
+#if KUI_TOY_SUITE_MODE == 31
+    const bool slow_receive = s.toy_suite_rate == TOY_SLOW_DMA;
+    s.toy_suite_rate = TOY_FAST;
+#endif
     if(status & RDRF) tail = rd8(RDR);
     wr8(SSR, status & ~(RDRF | FLAGS));
     enum kui_sci_stream_result result = handoff(status & ORER);
@@ -556,6 +820,15 @@ static enum kui_sci_stream_result finish(bool later) {
         return KUI_SCI_STREAM_BUSY;
     }
     if(count || !(control & 2u) || !(status & RDRF)) {
+#if KUI_TOY_SUITE_MODE == 31
+        /* Reread the whole damaged block with its own CRC. At the slower
+         * rate a second cut goes through the existing demand retry limit. */
+        if(slow_receive || (s.toy_suite_active && (status & ORER))) {
+            if(!slow_receive) s.toy_suite_rate = TOY_RETRY_SLOW;
+            STREAM_OBSERVE(++s.stats.overruns);
+            return KUI_SCI_STREAM_OVERRUN;
+        }
+#endif
 #ifdef KUI_RETAIL_CE
         unsigned bucket = !count ? 0u : count <= 128u ? 1u : count <= 384u ? 2u : 3u;
         ++s.stats.incomplete[bucket];
@@ -566,7 +839,25 @@ static enum kui_sci_stream_result finish(bool later) {
         s.stats.incomplete_dmaor_bad += (rd32(DMAOR) & 7u) != 1u;
 #endif
 #endif
-#if KUI_TOY_SUITE_MODE != 26 && KUI_TOY_SUITE_MODE != 27 && KUI_TOY_SUITE_MODE != 28
+#if KUI_TOY_SUITE_VERIFIED_RESUME
+        if((status&FLAGS)==ORER && (s.toy_suite_active&KUI_TOY_SUITE_RESUME_ACTIVE) &&
+           s.wire[area]==1u && kui_retail_async_region.engine.token) {
+            const uint32_t at=DMA_BYTES-count, held=(status&RDRF)!=0u, lost=at+held;
+            if(lost<512u) {
+                uint8_t *wire=resume_area(area);
+                if(held)wire[at]=tail;
+                wire[lost]=0u;
+                resume_meta(area)->lost=lost+1u;
+                resume_meta(area)->token=kui_retail_async_region.engine.token;
+                s.wire[area]|=TOY_RESUMED_WIRE;
+                /* Re-arm only through the next eligible foreground fetch.
+                 * SCI IRQ re-arming failed on the original hardware. */
+                s.state=RESUME;
+                return KUI_SCI_STREAM_PENDING;
+            }
+        }
+#endif
+#if !STRICT_REREAD
         /* The channel was held off the bus (the game's own DMA) and the
          * receiver overran mid-block: the byte that overran is lost and the
          * card stopped after it. The channel has `at` bytes; usually it
@@ -601,11 +892,25 @@ static enum kui_sci_stream_result finish(bool later) {
             return result == KUI_SCI_STREAM_OK ? KUI_SCI_STREAM_PENDING : result;
         }
 #else
-        /* Mode 26's strict stock fallback never publishes a reconstructed
-         * block. Restart at the same LBA instead of spending another receive
-         * on an already invalid block. This path retains the normal PIO
-         * retry policy and checks both CRC bytes on each fresh read. */
+        /* Reconstructed blocks cannot be published. Restart at the same
+         * LBA and check both CRC bytes from a fresh reception. */
         (void)later;
+#if KUI_TOY_SUITE_MODE == 34
+        s.toy_suite_pio_retry=s.toy_suite_active;
+#elif KUI_TOY_SUITE_SLOW_RETRY
+        if((status&ORER) && toy_retry_armed) {
+            ++s.stats.toy_retry_orer;
+            /* A fresh CMD18 at the unchanged position keeps both CRC
+             * bytes. The ordinary retry limit still owns PIO fallback. */
+            if(!(s.wire[area]&TOY_SLOW_WIRE))
+                s.toy_suite_slow_pending=KUI_TOY_SUITE_FIRST_CUT_PIO &&
+                    (s.toy_suite_active&KUI_TOY_SUITE_FIRST_CUT_ACTIVE)?
+                    KUI_TOY_SCI_PIO_WINDOW_FIRST:TOY_RETRY_WAITING;
+#if KUI_TOY_SUITE_PIO_WINDOW
+            else s.toy_suite_slow_pending=TOY_PIO_WINDOW;
+#endif
+        }
+#endif
 #endif
         STREAM_OBSERVE(++s.stats.overruns);
         return KUI_SCI_STREAM_OVERRUN;
@@ -646,10 +951,18 @@ enum kui_sci_stream_result kui_sci_stream_wait(void) {
  * (x^16+x^12+x^5+1 has its constant term, so each step is invertible). What
  * remains is one byte's own step, t ^ t << 5 ^ t << 12 with t = x ^ x >> 4:
  * its low byte gives t, t gives x, and the whole step must match. */
-#if KUI_TOY_SUITE_MODE != 26 && KUI_TOY_SUITE_MODE != 27 && KUI_TOY_SUITE_MODE != 28
+#if (!STRICT_REREAD || KUI_TOY_SUITE_VERIFIED_RESUME) && \
+    !(KUI_TOY_SUITE_TABLE_CRC16 && defined(__sh__))
 static int rebuild(uint32_t syndrome, uint32_t after) {
+#if KUI_TOY_SUITE_VERIFIED_RESUME
+    /* Four inverse bit steps at once. The four low-bit basis vectors
+     * become 0x1102 shifted left 0..3, with disjoint result bits. */
+    for(uint32_t n=after*2u;n;--n)
+        syndrome=(syndrome>>4)^((syndrome&15u)*0x1102u);
+#else
     for(uint32_t n = after * 8u; n; --n)
         syndrome = syndrome & 1u ? ((syndrome ^ 0x1021u) >> 1) | 0x8000u : syndrome >> 1;
+#endif
     uint32_t t = (syndrome ^ syndrome << 5) & 0xffu, x = t ^ t >> 4;
     return crc16(0, (uint8_t)x) == syndrome ? (int)x : -1;
 }
@@ -659,8 +972,23 @@ const uint8_t *kui_sci_stream_take(uint32_t lba, enum kui_sci_stream_result *res
         if(!s.ready[i] || s.ready_lba[i] != lba) continue;
         s.ready[i] = 0;
         uint8_t *area = s.area[i];
+#if KUI_TOY_SUITE_VERIFIED_RESUME
+        uint32_t lost=0u;
+        if(s.wire[i]&TOY_RESUMED_WIRE) {
+            if(s.arrived==lba+1u)s.arrived=0u;
+            if(!resume_admitted(i) || !(lost=resume_meta(i)->lost) || lost>512u) {
+                *result=KUI_SCI_STREAM_CRC;
+                return NULL;
+            }
+        }
+#elif KUI_TOY_SUITE_ASYNC_DEMAND
+        const uint32_t lost = 0u; /* strict mode never records a partial block */
+#else
         uint32_t lost = s.lost[i];
-#if (KUI_TOY_SUITE_MODE == 26 || KUI_TOY_SUITE_MODE == 27 || KUI_TOY_SUITE_MODE == 28)
+#endif
+#if KUI_TOY_SUITE_VERIFIED_RESUME
+        /* The missing wire byte already stands as zero in the area. */
+#elif STRICT_REREAD
         if(lost) {
             ++s.stats.crc_errors;
             *result=KUI_SCI_STREAM_CRC;
@@ -672,9 +1000,49 @@ const uint8_t *kui_sci_stream_take(uint32_t lba, enum kui_sci_stream_result *res
             area[lost - 1u] = 0;
         }
 #endif
+#if !(KUI_TOY_SUITE_TABLE_CRC16 && defined(__sh__))
         uint8_t high = area[512], low = s.rdr[i];
+#endif
+#if KUI_TOY_SUITE_PIO_WINDOW || KUI_TOY_SUITE_VERIFIED_RESUME
+        bool wire = s.wire[i] & 1u;
+#else
         bool wire = s.wire[i];
-#ifdef KUI_RETAIL_CE
+#endif
+#if KUI_TOY_SUITE_TABLE_CRC16 && defined(__sh__)
+        const kui_toy_sd_crc16_check_fn check=(kui_toy_sd_crc16_check_fn)(uintptr_t)
+            kui_retail_async_region.vector600[KUI_TOY_SD_CRC16_SLOT];
+        if(check) {
+            if(!check(area,s.rdr[i],wire,lost))goto crc_error;
+            if(lost)goto recovered;
+        } else {
+            /* Verified resume only runs after the high helper is installed.
+             * Before binding, check intact blocks and reject any lost byte. */
+            if(lost)goto crc_error;
+            uint16_t crc=0;
+            for(unsigned w=0;w<128u;++w) {
+                uint32_t word=((alias_word *)area)[w];
+                if(wire)((alias_word *)area)[w]=word=reverse(word);
+                for(unsigned b=0;b<4u;++b) {
+                    crc=crc16(crc,(uint8_t)word);
+                    word>>=8;
+                }
+            }
+            uint32_t sent=((uint32_t)area[512]<<8)|s.rdr[i];
+            if(wire)sent=(uint16_t)reverse(sent);
+            if(crc!=sent)goto crc_error;
+        }
+        goto intact;
+crc_error:
+        ++s.stats.crc_errors;
+        *result=KUI_SCI_STREAM_CRC;
+        return NULL;
+recovered:
+        ++s.stats.toy_resumed_blocks;
+        *result=KUI_SCI_STREAM_OK;
+        return area;
+intact:
+#else
+#if defined(KUI_RETAIL_CE) || (KUI_TOY_SUITE_FAST_CRC16 && defined(__sh__))
         uint32_t crc = 0;
 #else
         uint16_t crc = 0;
@@ -689,6 +1057,9 @@ const uint8_t *kui_sci_stream_take(uint32_t lba, enum kui_sci_stream_result *res
 #else
             if(wire) ((alias_word *)area)[w] = word = reverse(word);
 #endif
+#if KUI_TOY_SUITE_FAST_CRC16 && defined(__sh__) && __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
+            crc = toy_crc16_word(crc, word);
+#else
             for(unsigned b = 0; b < 4u; ++b) {
 #if __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
                 crc = crc16(crc, (uint8_t)word); word >>= 8;
@@ -696,11 +1067,30 @@ const uint8_t *kui_sci_stream_take(uint32_t lba, enum kui_sci_stream_result *res
                 crc = crc16(crc, (uint8_t)(word >> 24)); word <<= 8;
 #endif
             }
+#endif
         }
+#endif
+#if KUI_TOY_SUITE_FAST_CRC16 && defined(__sh__)
+        crc = (uint16_t)crc;
 #endif
         if(wire) {high = (uint8_t)reverse(high); low = (uint8_t)reverse(low);}
         uint16_t sent = (uint16_t)(high << 8 | low);
-#if KUI_TOY_SUITE_MODE != 26 && KUI_TOY_SUITE_MODE != 27 && KUI_TOY_SUITE_MODE != 28
+#if KUI_TOY_SUITE_VERIFIED_RESUME
+        if(lost) {
+            int value=crc==sent?0:((low|1u)==0xffu?-1:rebuild(crc^sent,512u-lost));
+            if(value<0) {
+                ++s.stats.crc_errors;
+                *result=KUI_SCI_STREAM_CRC;
+                return NULL;
+            }
+            area[lost-1u]=(uint8_t)value;
+            ++s.stats.toy_resumed_blocks;
+            /* The high cursor is currently RAW and targets only private
+             * scratch. The candidate never becomes a reusable kept block. */
+            *result=KUI_SCI_STREAM_OK;
+            return area;
+        }
+#elif !STRICT_REREAD
         if(crc != sent && lost) {
             /* The gap byte (0xff) or the next token (0xfe) where the second
              * CRC byte belongs: the resumed reception ran a byte ahead. */
@@ -719,9 +1109,20 @@ const uint8_t *kui_sci_stream_take(uint32_t lba, enum kui_sci_stream_result *res
          * with bounded programmed-I/O fallback under repeated contention. */
         if(((uint32_t)crc ^ sent) | lost) {
             STREAM_OBSERVE(++s.stats.crc_errors);
+#if KUI_TOY_SUITE_PIO_WINDOW
+            if((int8_t)s.toy_suite_slow_pending < 0)
+                s.toy_suite_slow_pending = 0u;
+#endif
             *result = KUI_SCI_STREAM_CRC;
             return NULL;
         }
+#endif
+#if KUI_TOY_SUITE_SLOW_RETRY
+        if(s.wire[i]&TOY_SLOW_WIRE) ++s.stats.toy_retry_ok;
+#endif
+#if KUI_TOY_SUITE_PIO_WINDOW
+        if(s.wire[i] == TOY_PIO_WINDOW_WIRE) ++s.stats.toy_pio_window_ok;
+#endif
         s.kept = (uint8_t)(i + 1u);
         s.kept_lba = lba;
         *result = KUI_SCI_STREAM_OK;
@@ -736,6 +1137,20 @@ const uint8_t *kui_sci_stream_take(uint32_t lba, enum kui_sci_stream_result *res
     return NULL;
 }
 enum kui_sci_stream_result kui_sci_stream_stop(void) {
+#if KUI_TOY_SUITE_ASYNC_DEMAND
+    /* Exclusive shutdown must finish its transaction before releasing SCI. */
+    s.token_bounded=0u;
+#endif
+#if KUI_TOY_SUITE_MODE == 31
+    /* Invalidate the retry after stopping, including a newly cut receive. */
+    s.toy_suite_active = 0u;
+    if(s.toy_suite_rate != TOY_SLOW_DMA) s.toy_suite_rate = TOY_FAST;
+#elif KUI_TOY_SUITE_SLOW_RETRY
+    s.toy_suite_active &= (uint8_t)~KUI_TOY_SUITE_SLOW_MOVIE;
+    s.toy_suite_slow_pending = 0u;
+#elif KUI_TOY_SUITE_VERIFIED_RESUME
+    s.toy_suite_active &= (uint8_t)~(KUI_TOY_SUITE_RESUME_ACTIVE|KUI_TOY_SUITE_RESUME_FOREGROUND);
+#endif
 #if (KUI_TOY_SUITE_MODE == 26 || KUI_TOY_SUITE_MODE == 27 || KUI_TOY_SUITE_MODE == 28)
     /* Only the auxiliary can finish its sliced token or fence its receive. */
     if(s.state >= KUI_TOY_SCI_BURST_TOKEN) return KUI_SCI_STREAM_BUSY;

@@ -10,7 +10,25 @@ C_SYMBOL(kui_native_readahead_aux_exports):
     .long C_SYMBOL(kui_native_readahead_aux_init)
     .long C_SYMBOL(kui_native_readahead_aux_context)
     .long __native_ra_image_end,__native_ra_stack_bottom,__native_ra_stack_top,__native_ra_memory_end
+#if KUI_TOY_SUITE_MODE == 42 || KUI_TOY_SUITE_MODE == 44 || KUI_TOY_SUITE_MODE == 45 || KUI_TOY_SUITE_MODE == 46 || KUI_TOY_SUITE_MODE == 47 || KUI_TOY_SUITE_MODE == 48 || KUI_TOY_SUITE_MODE == 49 || KUI_TOY_SUITE_MODE == 50 || KUI_TOY_SUITE_MODE == 51 || KUI_TOY_SUITE_MODE == 52 || KUI_TOY_SUITE_MODE == 53 || KUI_TOY_SUITE_MODE == 54 || KUI_TOY_SUITE_MODE == 55 || KUI_TOY_SUITE_MODE == 56 || KUI_TOY_SUITE_MODE == 57 || KUI_TOY_SUITE_MODE == 58 || KUI_TOY_SUITE_MODE == 59 || KUI_TOY_SUITE_MODE == 60 || KUI_TOY_SUITE_MODE == 61 || KUI_TOY_SUITE_MODE == 62 || KUI_TOY_SUITE_MODE == 64 || KUI_TOY_SUITE_MODE == 65 || KUI_TOY_SUITE_MODE == 66
+    .long C_SYMBOL(kui_toy_movie_exit_hook),C_SYMBOL(kui_toy_movie_chunk_hook)
+#if KUI_TOY_SUITE_MODE >= 61
+    .long C_SYMBOL(kui_toy_movie_refill_hook),C_SYMBOL(kui_toy_movie_present_slot)
+    .long C_SYMBOL(kui_toy_movie_render_hook),0
+#elif KUI_TOY_SUITE_MODE == 60
+    .long C_SYMBOL(kui_toy_movie_refill_hook),C_SYMBOL(kui_toy_movie_present_slot),0,0
+#elif KUI_TOY_SUITE_MODE == 57
+    .long C_SYMBOL(kui_toy_movie_refill_hook),0,0,0
+#elif KUI_TOY_SUITE_MODE == 58
+    .long C_SYMBOL(kui_toy_sd_crc16_check),0,0,0
+#else
+    .long 0,0,0,0
+#endif
+#elif KUI_TOY_SUITE_MODE == 39 || KUI_TOY_SUITE_MODE == 40 || KUI_TOY_SUITE_MODE == 41 || KUI_TOY_SUITE_MODE == 43
+    .long C_SYMBOL(kui_toy_movie_exit_hook),0,0,0,0,0
+#else
     .long 0,0,0,0,0,0
+#endif
     .size C_SYMBOL(kui_native_readahead_aux_exports),64
     .global __kui_native_readahead_auxiliary
     .set __kui_native_readahead_auxiliary,1
@@ -113,3 +131,16 @@ C_SYMBOL(kui_native_readahead_aux_visit):
 .Lcanary: .long 0x4b524147
 .Ldispatch: .long C_SYMBOL(kui_native_readahead_aux_dispatch)
     .size C_SYMBOL(kui_native_readahead_aux_visit),.-C_SYMBOL(kui_native_readahead_aux_visit)
+
+#if KUI_TOY_SUITE_MODE >= 39 && KUI_TOY_SUITE_MODE <= 66
+#include "toy_movie_exit_hook.inc"
+#endif
+#if KUI_TOY_SUITE_MODE == 42 || KUI_TOY_SUITE_MODE == 44 || KUI_TOY_SUITE_MODE == 45 || KUI_TOY_SUITE_MODE == 46 || KUI_TOY_SUITE_MODE == 47 || KUI_TOY_SUITE_MODE == 48 || KUI_TOY_SUITE_MODE == 49 || KUI_TOY_SUITE_MODE == 50 || KUI_TOY_SUITE_MODE == 51 || KUI_TOY_SUITE_MODE == 52 || KUI_TOY_SUITE_MODE == 53 || KUI_TOY_SUITE_MODE == 54 || KUI_TOY_SUITE_MODE == 55 || KUI_TOY_SUITE_MODE == 56 || KUI_TOY_SUITE_MODE == 57 || KUI_TOY_SUITE_MODE == 58 || KUI_TOY_SUITE_MODE == 59 || KUI_TOY_SUITE_MODE == 60 || KUI_TOY_SUITE_MODE == 61 || KUI_TOY_SUITE_MODE == 62 || KUI_TOY_SUITE_MODE == 64 || KUI_TOY_SUITE_MODE == 65 || KUI_TOY_SUITE_MODE == 66
+#include "toy_movie_chunk_hook.inc"
+#endif
+#if KUI_TOY_SUITE_MODE == 57 || KUI_TOY_SUITE_MODE == 60 || KUI_TOY_SUITE_MODE == 61 || KUI_TOY_SUITE_MODE == 62 || KUI_TOY_SUITE_MODE == 64 || KUI_TOY_SUITE_MODE == 65 || KUI_TOY_SUITE_MODE == 66
+#include "toy_movie_refill_hook.inc"
+#endif
+#if KUI_TOY_SUITE_MODE == 60 || KUI_TOY_SUITE_MODE == 61 || KUI_TOY_SUITE_MODE == 62 || KUI_TOY_SUITE_MODE == 64 || KUI_TOY_SUITE_MODE == 65 || KUI_TOY_SUITE_MODE == 66
+#include "toy_movie_present_hook.inc"
+#endif

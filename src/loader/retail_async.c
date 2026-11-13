@@ -114,6 +114,9 @@ static uintptr_t stream_event(uint32_t event,uintptr_t argument) {
 #define TARGET_Y 25u
 /* The GD caller's SR, published by the resident's hook entry. */
 extern volatile uint32_t kui_retail_hook_sr;
+#if KUI_TOY_SUITE_MOVIE_POLL
+extern volatile uint32_t kui_toy_poll_frame;
+#endif
 
 #ifdef KUI_RETAIL_CE
 /* Windows CE: its MMU control register, and the entries of its interrupt
@@ -312,7 +315,7 @@ static void hook(void) {
     if(!e.hooked) {e.release.sci=b&SCI_FIELD;e.hooked=1u;}
     else if((b&SCI_FIELD)!=e.release.armed) {
         e.release.sci=b&SCI_FIELD;
-#if !KUI_NATIVE_GD_MMU_BUFFERS
+#if !KUI_NATIVE_GD_MMU_BUFFERS && !KUI_TOY_SUITE_MOVIE_POLL
         ++e.stats.execs;
 #endif
     }
@@ -679,6 +682,19 @@ static bool tops_up(uint32_t function) {
 #endif
 }
 #endif
+#if KUI_TOY_SUITE_ASYNC_DEMAND
+static bool movie_poll_can_yield(void) {
+    /* The SDK SCI callback runs at level 1. Retain the synchronous path
+     * if the original GD caller would prevent that interrupt. */
+#if KUI_TOY_SUITE_MOVIE_POLL && !defined(KUI_RETAIL_ASYNC_TEST)
+    const volatile uint32_t *frame=(const void *)(uintptr_t)kui_toy_poll_frame;
+    const uint32_t caller_sr=frame[8];
+#else
+    const uint32_t caller_sr=kui_retail_hook_sr;
+#endif
+    return !(caller_sr&UINT32_C(0x100000f0));
+}
+#endif
 /* Finish an arrived block, then deliver blocks in order: the next one of the
  * run is started before each block is checked and copied. Returns while a block is in
  * flight, after up to wait blocks have been waited for. Without an active
@@ -692,6 +708,16 @@ __attribute__((noipa))
 #endif
 deliver_work(uint32_t wait) {
     uint32_t delivered = 0;
+#if KUI_TOY_SUITE_ASYNC_DEMAND
+    const bool bounded=R.shared.stream.toy_suite_active && (
+#if KUI_TOY_SUITE_MOVIE_POLL
+        R.shared.stream.toy_suite_poll ||
+#endif
+        (e.release.armed && (e.in_irq || R.shared.stream.toy_suite_kick || movie_poll_can_yield())));
+    kui_sci_stream_token_budget(bounded);
+    unsigned steps=0u;
+    if(bounded) wait=0u;
+#endif
 #if KUI_TOY_SUITE_MODE == 4
     /* The auxiliary validates TMU0 before arming this foreground visit.
      * The guest cannot reconfigure it during this masked delivery call. */
@@ -708,6 +734,11 @@ deliver_work(uint32_t wait) {
     uint32_t irq_steps = 0;
 #endif
     for(;;) {
+#if KUI_TOY_SUITE_ASYNC_DEMAND
+        /* At most one checked block plus its next receive, or one retry
+         * opportunity after an error. Never spin on PENDING. */
+        if(bounded && (delivered || steps++>=2u)) return;
+#endif
 #if KUI_RETAIL_NATIVE_HYBRID
         /* Retain the proved 20/25-block catch-up and full DMA wait. Only
          * stop the formerly unlimited run of already-completed blocks. */
@@ -810,7 +841,7 @@ deliver_work(uint32_t wait) {
 #endif
             if(e.cursor.done == e.cursor.count) {
                 e.active = 0;
-#if KUI_NATIVE_REQUEST_TIMING && !KUI_NATIVE_STANDALONE_READER
+#if KUI_NATIVE_REQUEST_TIMING && !KUI_NATIVE_STANDALONE_READER && KUI_TOY_SUITE_MODE != 34
                 uint32_t elapsed=e.stats.hooks-rd32(UINT32_C(0xffd8000c));
                 if(elapsed>e.stats.releases) {
                     e.stats.releases=elapsed;
@@ -837,6 +868,9 @@ deliver_work(uint32_t wait) {
         /* BUSY: the next block, started early, still arrives; this one is
          * fetched again after it (not a failure of its own). */
         r = kui_sci_stream_fetch(lba, TOKEN_LIMIT, retry_polled());
+#if KUI_TOY_SUITE_ASYNC_DEMAND
+        if(bounded && r==KUI_SCI_STREAM_PENDING) return;
+#endif
         if(r > KUI_SCI_STREAM_BUSY) failure(r);
     }
 }
@@ -845,7 +879,11 @@ static uint32_t native_readahead_visit(uint32_t event,uint32_t arg) {
     kui_native_ra_visit visit=(kui_native_ra_visit)(uintptr_t)
         R.vector600[KUI_NATIVE_RA_ENTRY_INDEX];
     /* An unbound auxiliary has no speculative receiver to quiesce. */
-    return visit?visit(event,arg,&R,0u):event==KUI_NATIVE_RA_QUIESCE;
+    uint32_t frame=0u;
+#if KUI_TOY_SUITE_MOVIE_POLL
+    if(event==KUI_NATIVE_RA_DEMAND_GD_ENTER)frame=kui_toy_poll_frame;
+#endif
+    return visit?visit(event,arg,&R,frame):event==KUI_NATIVE_RA_QUIESCE;
 }
 #if KUI_TOY_FMV_COMPARE
 void kui_retail_fmv_compare(uint32_t function,uint32_t input,int32_t result) {
@@ -968,6 +1006,12 @@ static void start(void) {
     e.stats.hooks=rd32(UINT32_C(0xffd8000c));
 #endif
     e.failed = 0; e.retries = 0; e.active = 0;
+#if KUI_TOY_SUITE_MODE == 34
+    /* The old command's recovery cannot carry into a new request. */
+    R.shared.stream.toy_suite_pio_retry=0u;
+#elif KUI_TOY_SUITE_SLOW_RETRY
+    R.shared.stream.toy_suite_slow_pending=0u;
+#endif
 #if KUI_NATIVE_PACED_CHECK
     e.stats.exec_int=0u;
 #endif
@@ -1328,6 +1372,16 @@ void kui_retail_async_call(uint32_t function) {
     install();
     kui_sci_stream_token_budget(e.isr && function != KUI_GD_PIO_TRANSFER);
 #endif
+#if KUI_TOY_SUITE_ASYNC_DEMAND
+    if(function!=KUI_GD_EXEC) R.shared.stream.toy_suite_kick=0u;
+    if(function==KUI_GD_CHECK && (
+#if KUI_TOY_SUITE_MOVIE_POLL
+       R.shared.stream.toy_suite_poll ||
+#endif
+       (e.active && R.shared.stream.toy_suite_active && movie_poll_can_yield() && sdk_sci_ready()))) {
+        report();return;
+    }
+#endif
     if(e.active) {
         hook();
 #if !KUI_RETAIL_NATIVE_HYBRID
@@ -1339,23 +1393,67 @@ void kui_retail_async_call(uint32_t function) {
         /* An EXEC or CHECK waits for the blocks nothing delivered since the
          * previous one, up to the target: the data a game waits for keeps
          * coming while the interrupt is held off. */
-        if(tops_up(function) && e.since < e.target) {
+        if(
+#if KUI_TOY_SUITE_MOVIE_POLL
+           !R.shared.stream.toy_suite_poll &&
+#endif
+           tops_up(function) && e.since < e.target) {
             wait = e.target - e.since;
-#if !KUI_NATIVE_GD_MMU_BUFFERS
+#if !KUI_NATIVE_GD_MMU_BUFFERS && !KUI_TOY_SUITE_MOVIE_POLL
             ++e.stats.waits;
 #endif
         }
     }
     deliver(wait);
+#if KUI_TOY_SUITE_ASYNC_DEMAND
+    R.shared.stream.toy_suite_kick=0u;
+#endif
     report();
 }
+#if KUI_TOY_SUITE_ASYNC_DEMAND
+bool kui_retail_native_demand_wake(void) {
+    if(kui_retail_hook_active || native_loan_blocked() || !e.active || e.failed || e.in_irq ||
+       !e.opened || !R.shared.stream.toy_suite_active || !R.shared.service.pending ||
+       R.shared.service.token!=e.token || !sdk_sci_ready()) return false;
+    if(kui_sci_stream_busy()) {
+        /* The SDK may rewrite IPRB without moving its vector table. */
+        hook();
+        return false;
+    }
+    e.in_irq=2u;
+    hook();deliver(0);e.in_irq=0u;
+    report();
+    if(!kui_sci_stream_busy()) unhook();
+    return true;
+}
+#endif
 #if KUI_NATIVE_LOADER_TIMELINE && !KUI_NATIVE_STANDALONE_READER
 /* Installed only after retained-region binding from the typed immutable
  * worker descriptor. Bootstrap workspace and normal mode keep this zero. */
 void __attribute__((noipa)) kui_retail_async_trace(uint32_t exit,uint32_t function) {
+#if KUI_TOY_SUITE_ASYNC_DEMAND
+#if KUI_TOY_SUITE_MOVIE_POLL
+    uint32_t poll=0u;
+    if(R.shared.stream.toy_suite_active && topping(function))
+        poll=native_readahead_visit(exit?KUI_NATIVE_RA_DEMAND_GD_LEAVE:
+            KUI_NATIVE_RA_DEMAND_GD_ENTER,function);
+#if KUI_TOY_SUITE_REFILL_SLICE
+    /* Keep the exact scheduled and one-pass callers distinguishable for
+     * the auxiliary. Both still use status-only CHECK. */
+    R.shared.stream.toy_suite_poll=poll-2u<2u?poll-1u:0u;
+#else
+    R.shared.stream.toy_suite_poll=poll-2u<2u;
+#endif
+#else
+    if(R.shared.stream.toy_suite_active && topping(function))
+        (void)native_readahead_visit(exit?KUI_NATIVE_RA_DEMAND_GD_LEAVE:
+            KUI_NATIVE_RA_DEMAND_GD_ENTER,function);
+#endif
+#else
     void (*visit)(uint32_t,uint32_t,uint32_t,void *)=
         (void (*)(uint32_t,uint32_t,uint32_t,void *))(uintptr_t)R.vector600[11];
     if(visit)visit(exit,function,kui_retail_hook_sr,&R);
+#endif
 }
 #endif
 #if KUI_NATIVE_STANDALONE_FOREGROUND
@@ -1456,7 +1554,11 @@ void kui_retail_async_after(uint32_t function, int32_t result) {
 #endif
     struct kui_retail_gd *s = &R.shared.service;
 #if KUI_NATIVE_TOY_MOVIE_CAPTURE && KUI_NATIVE_READAHEAD
+#if KUI_TOY_SUITE_MODE >= 62
+    if(!result && (function==KUI_GD_ABORT || function==KUI_GD_INIT || function==KUI_GD_RESET))
+#else
     if(function==KUI_GD_ABORT && !result)
+#endif
         (void)native_readahead_visit(KUI_NATIVE_RA_MOVIE_COMPLETE,0u);
 #endif
     if(((function == KUI_GD_REQUEST && result > 0)
@@ -1476,6 +1578,13 @@ void kui_retail_async_after(uint32_t function, int32_t result) {
             ) && s->outputs[0]))
 #endif
        ) {
+#if KUI_TOY_SUITE_ASYNC_DEMAND
+        R.shared.stream.toy_suite_active=0u;
+        /* Katana submits REQUEST and its first EXEC with IMASK15, then
+         * restores the caller's mask. Bound that kick as well as REQUEST.
+         * Any subsequent masked poll retains synchronous progress. */
+        R.shared.stream.toy_suite_kick=1u;
+#endif
         start();
         if(e.active) {hook(); deliver(0);}
 #if KUI_NATIVE_GD_DMA_STREAM
@@ -1500,6 +1609,9 @@ void kui_retail_async_after(uint32_t function, int32_t result) {
 #endif
     } else if(!s->pending || e.token != s->token) {
         e.active = 0; /* aborted or reset: nothing more is written */
+#if KUI_TOY_SUITE_SLOW_RETRY
+        R.shared.stream.toy_suite_slow_pending=0u;
+#endif
 #ifdef KUI_RETAIL_CE
         e.piece_set = 0; e.spill_from = e.spill_bytes = 0; e.piece_direct = NULL;
         e.early_polled = 0;
@@ -1525,7 +1637,7 @@ void kui_retail_async_after(uint32_t function, int32_t result) {
 #endif
 }
 uint32_t kui_retail_async_irq(void) {
-#if KUI_NATIVE_IRQ_REARM && !KUI_NATIVE_GD_MMU_BUFFERS
+#if KUI_NATIVE_IRQ_REARM && !KUI_NATIVE_GD_MMU_BUFFERS && !KUI_TOY_SUITE_MOVIE_POLL
     ++e.stats.exec_int;
 #endif
 #if KUI_VMU_NATIVE_BACKGROUND
@@ -1562,6 +1674,9 @@ uint32_t kui_retail_async_irq(void) {
 #endif
     deliver(0);
     e.in_irq = 0;
+#if KUI_TOY_SUITE_ASYNC_DEMAND
+    if((!e.active || e.failed) && R.shared.stream.toy_suite_active) report();
+#endif
 #ifdef KUI_RETAIL_CE
     report();
     /* The stream stopped short of the read (a block for a virtual piece, or
