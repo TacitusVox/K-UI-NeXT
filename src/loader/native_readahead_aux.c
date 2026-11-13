@@ -15,6 +15,15 @@
      !KUI_VMU_NATIVE_CACHED_CODE || !KUI_VMU_NATIVE_PERSISTENT_PROBE)
 #error "Compact Background auxiliary requires its complete persistent General reader profile"
 #endif
+#if KUI_NATIVE_TOY_PLAYBACK_CAPTURE && !KUI_NATIVE_TOY_MOVIE_CAPTURE
+#error "Playback capture requires the stage's Toy movie ranges"
+#endif
+#if KUI_NATIVE_TOY_HEADER_REPLAY && !KUI_NATIVE_TOY_PLAYBACK_CAPTURE
+#error "Header replay requires the Toy movie playback profile"
+#endif
+#if defined(KUI_TOY_SUITE_MODE) && (!KUI_NATIVE_TOY_PLAYBACK_CAPTURE || KUI_NATIVE_TOY_HEADER_REPLAY)
+#error "Toy suite requires the playback profile with stock demand"
+#endif
 
 /* These are the existing unsliced sci_stream.c states. No new state or field
  * is inserted in the tightly bounded low reader region. */
@@ -105,24 +114,51 @@ static bool config_valid(const struct kui_native_ra_config *c) {
        (cell&3u) || cell<UINT32_C(0x8c004000) || cell>UINT32_C(0x8c007b9c) ||
        !low_code((uintptr_t)c->ops->deliver) || !low_code((uintptr_t)c->ops->hook) ||
        !low_code((uintptr_t)c->ops->unhook) || !low_code((uintptr_t)c->ops->fetch) ||
+#if KUI_TOY_SUITE_MODE != 26 && KUI_TOY_SUITE_MODE != 27 && KUI_TOY_SUITE_MODE != 28
        !low_code((uintptr_t)c->ops->poll) || !low_code((uintptr_t)c->ops->take) ||
+#elif KUI_TOY_SUITE_MODE == 27 || KUI_TOY_SUITE_MODE == 28
+       !low_code((uintptr_t)c->ops->cold_bus) ||
+#endif
        !low_code((uintptr_t)c->ops->stop) || !low_code((uintptr_t)c->ops->busy) ||
        !low_code((uintptr_t)c->ops->feed))return false;
 #endif
     const struct kui_native_ra_low_ops *o=c->ops;
     return o->magic==KUI_NATIVE_RA_OPS_MAGIC && o->version==KUI_NATIVE_RA_VERSION &&
         o->bytes==sizeof(*o) && o->region_storage && *o->region_storage==c->region &&
-        o->deliver && o->hook && o->unhook && o->fetch && o->poll && o->take &&
+        o->deliver && o->hook && o->unhook && o->fetch &&
+#if KUI_TOY_SUITE_MODE != 26 && KUI_TOY_SUITE_MODE != 27 && KUI_TOY_SUITE_MODE != 28
+        o->poll && o->take &&
+#elif KUI_TOY_SUITE_MODE == 27 || KUI_TOY_SUITE_MODE == 28
+        o->cold_bus &&
+#endif
         o->stop && o->busy && o->feed;
 }
 int kui_native_readahead_aux_init(const struct kui_native_ra_config *c) {
     if(C.busy || C.initialized || !config_valid(c))return -1;
     struct kui_native_ra_cache cache;
-    if(!kui_native_ra_cache_init(&cache,c->data,c->data_bytes))return -1;
+    if(!kui_native_ra_cache_init(&cache,c->data,KUI_NATIVE_RA_CACHE_BYTES))return -1;
+#if defined(KUI_TOY_SUITE_MODE)
+    const struct kui_toy_suite_seed *seed=&c->suite_seed;
+    uint32_t max_seed=KUI_NATIVE_RA_DATA_BYTES/(KUI_TOY_SUITE_MODE==1?KUI_GAME_DATA_BYTES:512u);
+    if(c->suite_source>2u || seed->count[0]>max_seed || seed->count[1]>max_seed-seed->count[0] ||
+       (seed->count[1] && !seed->count[0]) ||
+       seed->base[0]>UINT32_MAX-seed->count[0] || seed->base[1]>UINT32_MAX-seed->count[1])return -1;
+#endif
     memset(&C,0,sizeof(C));
     C.config=*c;C.cache=cache;C.initialized=1u;
+#if defined(KUI_TOY_SUITE_MODE)
+    C.suite_source=c->suite_source;
+#if KUI_TOY_SUITE_MODE == 1 || KUI_TOY_SUITE_MODE == 2 || KUI_TOY_SUITE_MODE == 6
+    C.suite[0]=seed->count[0]+seed->count[1];
+#endif
+#endif
+#if KUI_NATIVE_TOY_MOVIE_CAPTURE
+    for(unsigned i=0;i<4u;i++)
+        if(c->movie_ranges[i].count)C.movie_mask|=1u<<i;
+#endif
     return 0;
 }
+#if KUI_TOY_SUITE_MODE != 26 && KUI_TOY_SUITE_MODE != 27 && KUI_TOY_SUITE_MODE != 28
 static void snapshot_hw(struct kui_native_ra_hw_snapshot *s) {
     /* Sequential, read-only observations: DMA can advance between reads.
      * Never read RDR, fence/purge memory, or change transport registers. */
@@ -191,9 +227,11 @@ static void snapshot_failure(const kui_retail_async_region_type *r,
     }
     ++C.diagnostics.failures;
 }
+#endif
 static bool skipped(enum kui_native_ra_skip reason) {
     ++C.diagnostics.skipped[reason];return true;
 }
+#if KUI_TOY_SUITE_MODE != 26 && KUI_TOY_SUITE_MODE != 27 && KUI_TOY_SUITE_MODE != 28
 static void abandon(kui_retail_async_region_type *r,enum kui_sci_stream_result result) {
     snapshot_failure(r,result);
     if(result==KUI_SCI_STREAM_CRC)++C.stats.crc_errors;
@@ -337,6 +375,7 @@ static void seed_completed(kui_retail_async_region_type *r) {
     }
     C.have_seed=1u;C.abandoned=0u;
 }
+#endif
 static void demand_complete(kui_retail_async_region_type *r) {
     struct kui_retail_async *e=&r->engine;
     if(e->cursor.done!=e->cursor.count)return;
@@ -349,13 +388,121 @@ static void demand_complete(kui_retail_async_region_type *r) {
     }
 #endif
 }
+#if KUI_TOY_SUITE_MODE == 2 || KUI_TOY_SUITE_MODE == 3 || KUI_TOY_SUITE_MODE == 4 || \
+    KUI_TOY_SUITE_MODE == 6 || KUI_TOY_SUITE_MODE == 7 || KUI_TOY_SUITE_MODE == 26 || \
+    KUI_TOY_SUITE_MODE == 27 || KUI_TOY_SUITE_MODE == 28
+static unsigned movie_variant(const struct kui_retail_gd *s);
+static unsigned suite_movie(const kui_retail_async_region_type *r) {
+    const struct kui_retail_async *e=&r->engine;
+    const struct kui_retail_gd *s=&r->shared.service;
+    if(C.suite_source!=1u || !e->active || e->failed || !s->pending || e->token!=s->token ||
+       s->sector_bytes!=KUI_GAME_DATA_BYTES || !s->count)return 0u;
+    unsigned variant=movie_variant(s);
+    if(!variant)return 0u;
+    const struct kui_toy_movie_range *movie=&C.config.movie_ranges[variant-1u];
+#if KUI_TOY_SUITE_MODE == 26 || KUI_TOY_SUITE_MODE == 27 || KUI_TOY_SUITE_MODE == 28
+    if(!e->cursor.manifest || e->cursor.track>=e->cursor.manifest->track_count ||
+       e->cursor.track>=KUI_RETAIL_MANIFEST_SLOTS || e->cursor.raw)return 0u;
+#endif
+    const struct kui_retail_track *track=&e->cursor.manifest->slots[e->cursor.track].track;
+    if(s->lba<movie->lba || s->lba-movie->lba>=movie->count ||
+       s->count>movie->count-(s->lba-movie->lba) ||
+       kui_retail_track_sector_bytes(track)!=KUI_GAME_RAW_BYTES ||
+       kui_retail_track_header_bytes(track)!=16u)return 0u;
+    return variant;
+}
+#endif
+#if KUI_TOY_SUITE_MODE == 3 || KUI_TOY_SUITE_MODE == 4 || KUI_TOY_SUITE_MODE == 7
+static void suite_demand(uint32_t wait,kui_retail_async_region_type *r) {
+    unsigned variant=suite_movie(r);
+#if KUI_TOY_SUITE_MODE == 3 || KUI_TOY_SUITE_MODE == 4
+    if(r->engine.in_irq)variant=0u;
+#endif
+#if KUI_TOY_SUITE_MODE == 4
+    if(variant && !clock_read().valid)variant=0u;
+#endif
+    uint16_t before=r->shared.stream.toy_suite_events;
+    r->shared.stream.toy_suite_active=variant!=0u;
+    C.config.ops->deliver(wait);
+    r->shared.stream.toy_suite_active=0u;
+    if(variant)C.suite[(variant-1u)/2u]+=(uint16_t)(r->shared.stream.toy_suite_events-before);
+}
+#else
+static inline void suite_demand(uint32_t wait,kui_retail_async_region_type *r) {
+    (void)r;
+    C.config.ops->deliver(wait);
+}
+#endif
+
+#if KUI_TOY_SUITE_MODE == 2 || KUI_TOY_SUITE_MODE == 6
+static const uint8_t *suite_window_block(uint32_t lba) {
+    const struct kui_toy_suite_seed *seed=&C.config.suite_seed;
+    uint32_t first=lba-seed->base[0];
+    if(first<seed->count[0])return C.config.data+first*512u;
+    uint32_t second=lba-seed->base[1];
+    return second<seed->count[1]?C.config.data+(seed->count[0]+second)*512u:NULL;
+}
+static void suite_window_deliver(uint32_t wait,kui_retail_async_region_type *r) {
+    const struct kui_native_ra_low_ops *o=C.config.ops;
+    struct kui_retail_async *e=&r->engine;
+    if(suite_movie(r)!=4u) {
+        o->deliver(wait);return;
+    }
+    uint32_t center=KUI_TOY_SUITE_MODE==2?469080u:468128u;
+    unsigned limit=e->in_irq?KUI_RETAIL_NATIVE_IRQ_BATCH_LIMIT:e->target;
+    if(limit>25u)limit=25u;
+    bool idle=!o->busy();
+    for(unsigned i=0u;i<limit;i++) {
+        uint32_t sector=e->cursor.lba+e->cursor.done;
+        if(sector<center-40u || sector>=center+40u) {
+            if(!i)o->deliver(wait);
+            return;
+        }
+        const uint8_t *block=idle?suite_window_block(e->cursor.block):NULL;
+        if(!block) {
+            if(!i) {++C.suite[4];o->deliver(wait);}
+            return;
+        }
+        e->retries=0u;
+        if(o->feed(&e->cursor,block)!=KUI_GAME_OK) {
+            e->failed=KUI_GD_ERROR_IO;return;
+        }
+        if(!C.suite[1]++)C.suite[2]=sector;
+        C.suite[3]=sector;
+        ++e->since;
+        if(e->in_irq)++e->stats.irq_blocks;else ++e->stats.call_blocks;
+        demand_complete(r);
+        if(!e->active)return;
+    }
+}
+#endif
+#if KUI_TOY_SUITE_MODE == 26 || KUI_TOY_SUITE_MODE == 27 || KUI_TOY_SUITE_MODE == 28
+#ifdef KUI_TOY_BURST_PRODUCER_TEST
+extern enum kui_sci_stream_result toy_sci_burst_start(kui_retail_async_region_type *,
+    uint32_t, unsigned, uint8_t *);
+#if KUI_TOY_SUITE_MODE == 28
+extern enum kui_sci_stream_result toy_sci_burst_start_rate(kui_retail_async_region_type *,
+    uint32_t, unsigned, uint8_t *, bool);
+#endif
+extern enum kui_sci_stream_result toy_sci_burst_poll(kui_retail_async_region_type *,
+    const uint8_t *, unsigned, uint32_t *);
+extern enum kui_sci_stream_result toy_sci_burst_stop(kui_retail_async_region_type *,
+    const uint8_t *, unsigned);
+#else
+#include "toy_sci_burst.inc"
+#endif
+#include "toy_suite_burst.inc"
+#if KUI_TOY_SUITE_MODE == 27 || KUI_TOY_SUITE_MODE == 28
+#include "toy_suite_quiet_burst.inc"
+#endif
+#else
 static void deliver(uint32_t wait,kui_retail_async_region_type *r) {
     const struct kui_native_ra_low_ops *o=C.config.ops;
     struct kui_retail_async *e=&r->engine;
     if(e->in_irq)++C.stats.irq_visits;
     retire_spec(r,e->in_irq!=0u);
     if(!e->active) {
-        if(!C.spec_owned)o->deliver(wait);
+        if(!C.spec_owned)suite_demand(wait,r);
         seed_completed(r);producer(r,e->in_irq!=0u,KUI_NATIVE_RA_PIO_BLOCK_LIMIT);return;
     }
     if(C.quiesced) {C.quiesced=0u;++C.stats.resumes;}
@@ -387,14 +534,19 @@ static void deliver(uint32_t wait,kui_retail_async_region_type *r) {
                 (void)o->stop();C.spec_owned=C.deferred=0u;o->unhook();
             }
         }
-        o->deliver(wait);
+        suite_demand(wait,r);
     }
     seed_completed(r);producer(r,e->in_irq!=0u,KUI_NATIVE_RA_PIO_BLOCK_LIMIT);
 }
+#endif
 static uint32_t quiesce(kui_retail_async_region_type *r) {
     if(r->engine.active || r->engine.in_irq || r->shared.service.pending ||
        r->shared.service.executing)return 0u;
-    C.quiesced=1u;++C.stats.quiesces;
+    C.quiesced=1u;
+#if KUI_TOY_SUITE_MODE == 26 || KUI_TOY_SUITE_MODE == 27 || KUI_TOY_SUITE_MODE == 28
+    return burst_release(r) && !C.config.ops->busy();
+#else
+    ++C.stats.quiesces;
     if(C.spec_owned) {
         snapshot_pre(KUI_NATIVE_RA_STAGE_QUIESCE,r,C.spec_lba);
         enum kui_sci_stream_result result=C.config.ops->stop();
@@ -406,13 +558,182 @@ static uint32_t quiesce(kui_retail_async_region_type *r) {
         }
     }
     return C.config.ops->busy()?0u:1u;
+#endif
 }
+#if KUI_NATIVE_TOY_MOVIE_CAPTURE
+/* Return the matched variant plus one; zero means no matching movie. */
+static unsigned movie_variant(const struct kui_retail_gd *s) {
+    if(!C.movie_mask || (s->command!=KUI_GD_PIOREAD && s->command!=KUI_GD_DMAREAD))return 0u;
+    for(unsigned i=0;i<4u;i++) {
+        const struct kui_toy_movie_range *range=&C.config.movie_ranges[i];
+        if(range->count && s->lba<range->lba+range->count &&
+           range->lba<s->lba+s->count)return i+1u;
+    }
+    return 0u;
+}
+#if KUI_NATIVE_TOY_HEADER_REPLAY
+#include "toy_header_replay.inc"
+#endif
+#if KUI_NATIVE_TOY_PLAYBACK_CAPTURE
+static unsigned playback_variant(const struct kui_retail_gd *s) {
+    unsigned variant=movie_variant(s);
+    /* Both observed opening reads start two sectors in and request 384.
+     * Include only requests beginning beyond those initial AVI sectors. */
+    return variant && s->lba>=C.config.movie_ranges[variant-1u].lba+386u?variant:0u;
+}
+static unsigned playback_delivery(const kui_retail_async_region_type *r) {
+    const struct kui_retail_gd *s=&r->shared.service;
+    if(!(C.movie_mask&15u) || !r->engine.active || !s->pending || r->engine.token!=s->token)return 0u;
+    if(s->token!=C.playback_token) {
+        C.playback_token=s->token;
+        C.playback_variant=playback_variant(s);
+    }
+    return C.playback_variant;
+}
+static void playback_complete(const struct kui_retail_gd *s,unsigned variant,
+    struct ra_clock now,uint32_t elapsed) {
+    if(s->lba<C.config.movie_ranges[variant-1u].lba+386u) {C.last_play_variant=0u;return;}
+    unsigned movie=(variant-1u)/2u;
+    struct kui_toy_playback_stats *p=&C.playback[movie];
+    p->sectors+=s->count;
+    p->end_lba=s->lba+s->count;
+    if(!now.valid || elapsed>=UINT32_C(0x80000000)) {
+        ++p->bad_clock;C.last_play_variant=0u;return;
+    }
+    uint32_t bit=1u<<movie;
+    if(!(C.playback_valid&bit)) {
+        C.playback_valid|=bit;
+        C.playback_started[movie]=now.counter+elapsed;
+    }
+    p->span=C.playback_started[movie]-now.counter;
+#if !KUI_NATIVE_TOY_HEADER_REPLAY
+    if(elapsed>p->longest)p->longest=elapsed;
+#endif
+    uint32_t gap=C.last_play_tick-now.counter;
+    if(C.last_play_variant==variant && gap<UINT32_C(0x80000000) && gap>p->gap) {
+        p->gap=gap;p->gap_lba=s->lba;
+    }
+    C.last_play_variant=variant;C.last_play_tick=now.counter;
+}
+static void playback_visit(unsigned variant,bool irq,uint32_t wait,uint32_t blocks,
+    uint32_t elapsed,bool clock_valid) {
+    struct kui_toy_playback_stats *p=&C.playback[(variant-1u)/2u];
+    if(irq)p->sci_irq_blocks+=blocks;
+    else p->foreground_blocks+=blocks;
+    if(!clock_valid) {++p->bad_clock;return;}
+    if(irq) {
+        p->sci_irq+=elapsed;
+        if(elapsed>p->sci_irq_max)p->sci_irq_max=elapsed;
+    } else {
+        p->foreground+=elapsed;
+        if(wait)p->foreground_wait+=elapsed;
+        if(elapsed>p->foreground_max)p->foreground_max=elapsed;
+    }
+}
+#endif
+/* GD progress has already published terminal status. Ordinary completions
+ * and cache-only completions share this exact observer. */
+static void movie_complete(const kui_retail_async_region_type *r) {
+    const struct kui_retail_gd *s=&r->shared.service;
+    if(!C.movie_mask || (s->command!=KUI_GD_PIOREAD && s->command!=KUI_GD_DMAREAD) ||
+       (s->status!=KUI_GD_FAILED && s->status!=KUI_GD_COMPLETED))return;
+    unsigned variant=movie_variant(s);
+    if(!variant) {
+#if !KUI_NATIVE_TOY_HEADER_REPLAY && !defined(KUI_TOY_SUITE_MODE)
+        C.last_movie=0u;
+#endif
+#if KUI_NATIVE_TOY_PLAYBACK_CAPTURE
+        C.last_play_variant=0u;
+#endif
+        return;
+    }
+    /* Playback reports retain the ABI without repeating whole-movie totals. */
+#if !KUI_NATIVE_TOY_HEADER_REPLAY && !defined(KUI_TOY_SUITE_MODE)
+    struct kui_toy_movie_stats *m=&C.movies[(variant-1u)/2u];
+#endif
+    C.movie_mask|=1u<<(variant+3u);
+    if(s->status==KUI_GD_FAILED) {
+#if !KUI_NATIVE_TOY_HEADER_REPLAY && !defined(KUI_TOY_SUITE_MODE)
+        if(!m->failed++) {
+            m->first_error=s->error;m->first_error_lba=s->lba;
+            m->first_error_count=s->count;m->first_error_bytes=s->completed_bytes;
+        }
+        C.last_movie=0u;
+#endif
+#if KUI_NATIVE_TOY_PLAYBACK_CAPTURE
+        ++C.playback[(variant-1u)/2u].failed;
+        C.last_play_variant=0u;
+#endif
+        return;
+    }
+#if !KUI_NATIVE_TOY_HEADER_REPLAY && !defined(KUI_TOY_SUITE_MODE)
+    ++m->completed;m->sectors+=s->count;
+#endif
+    struct ra_clock now=clock_read();
+    uint32_t elapsed=r->engine.stats.hooks-now.counter;
+#if KUI_NATIVE_TOY_PLAYBACK_CAPTURE
+    playback_complete(s,variant,now,elapsed);
+#endif
+#if !KUI_NATIVE_TOY_HEADER_REPLAY && !defined(KUI_TOY_SUITE_MODE)
+    if(!now.valid || elapsed>=UINT32_C(0x80000000)) {
+        ++m->bad_clock;C.last_movie=0u;return;
+    }
+    if(elapsed>m->longest) {
+        m->longest=elapsed;m->longest_lba=s->lba;m->longest_count=s->count;
+    }
+    uint32_t gap=C.last_movie_tick-now.counter;
+    if(C.last_movie==variant && gap<UINT32_C(0x80000000) && gap>m->gap) {
+        m->gap=gap;m->gap_lba=s->lba;
+    }
+    C.last_movie=variant;C.last_movie_tick=now.counter;
+#endif
+}
+#endif
+#if KUI_TOY_SUITE_MODE == 1
+#include "toy_suite_witness.inc"
+#endif
 uint32_t kui_native_readahead_aux_dispatch(uint32_t event,uint32_t arg,
     kui_retail_async_region_type *r,uint32_t reserved) {
     if(!C.initialized || reserved || r!=C.config.region ||
        *C.config.ops->region_storage!=r) {
-        ++C.stats.guard_faults;return event==KUI_NATIVE_RA_QUIESCE?0u:1u;
+        ++C.stats.guard_faults;
+#if KUI_TOY_SUITE_MODE == 27 || KUI_TOY_SUITE_MODE == 28
+        if(event==KUI_NATIVE_RA_CALIBRATE) return 0u;
+#endif
+        return event==KUI_NATIVE_RA_QUIESCE?0u:1u;
     }
+#if KUI_TOY_SUITE_MODE == 27 || KUI_TOY_SUITE_MODE == 28
+    if(event==KUI_NATIVE_RA_CALIBRATE) return arg ? 0u : burst_quiet_calibrate(r);
+#endif
+#if KUI_TOY_FMV_COMPARE
+    if(event==KUI_NATIVE_RA_FMV_REQUEST || event==KUI_NATIVE_RA_FMV_ACK) {
+        const struct kui_retail_gd *service=&r->shared.service;
+        struct ra_clock now=clock_read();
+        if(!now.valid) ++C.fmv_trace.clock_lost;
+        else if(event==KUI_NATIVE_RA_FMV_REQUEST)
+            kui_toy_fmv_request(&C.fmv_trace,C.config.movie_ranges,service->token,
+                service->lba,service->count,now.counter);
+        else
+            kui_toy_fmv_status(&C.fmv_trace,service->token,now.counter,(int32_t)arg,
+                service->completed_bytes);
+        return 1u;
+    }
+#endif
+#if KUI_NATIVE_TOY_MOVIE_CAPTURE
+    if(event==KUI_NATIVE_RA_MOVIE_COMPLETE && !arg) {
+#if KUI_TOY_SUITE_MODE == 26 || KUI_TOY_SUITE_MODE == 27 || KUI_TOY_SUITE_MODE == 28
+        if(r->shared.service.error==KUI_GD_ERROR_CANCELLED) (void)burst_release(r);
+#endif
+#if KUI_NATIVE_TOY_HEADER_REPLAY
+        header_publish(r);
+#endif
+        movie_complete(r);
+#if KUI_TOY_SUITE_MODE == 1
+        toy_suite_witness_complete(r);
+#endif
+        return 1u;
+    }
+#endif
     /* Admit the event-specific argument before clocks, seeding or any low
      * operation. DELIVER's wait is unchanged; an invalid optional budget must
      * never silently turn into the larger historical PIO window. */
@@ -421,6 +742,10 @@ uint32_t kui_native_readahead_aux_dispatch(uint32_t event,uint32_t arg,
         event!=KUI_NATIVE_RA_DELIVER && arg)) {
         ++C.stats.guard_faults;return 0u;
     }
+#if KUI_NATIVE_TOY_HEADER_REPLAY
+    if(event==KUI_NATIVE_RA_QUIESCE || event==KUI_NATIVE_RA_RESET || event==KUI_NATIVE_RA_RESUME ||
+       r->engine.native_loan_state!=KUI_VMU_NATIVE_ASYNC_LOAN_IDLE)header_invalidate();
+#endif
     if(r->engine.native_loan_state!=KUI_VMU_NATIVE_ASYNC_LOAN_IDLE) {
         skipped(KUI_NATIVE_RA_SKIP_LOAN);
         return event==KUI_NATIVE_RA_QUIESCE?0u:1u;
@@ -434,24 +759,62 @@ uint32_t kui_native_readahead_aux_dispatch(uint32_t event,uint32_t arg,
     /* Preserve entry context across low callbacks which may update the
      * mutable engine. This uses no additional clock sample or public state. */
     uint32_t visit_context=event|((arg&UINT32_C(0xffff))<<8)|((r->engine.in_irq&255u)<<24);
+#if KUI_NATIVE_TOY_PLAYBACK_CAPTURE
+    unsigned playing=event==KUI_NATIVE_RA_DELIVER?playback_delivery(r):0u;
+    bool irq=(visit_context>>24)==1u;
+    uint32_t blocks=playing?(irq?r->engine.stats.irq_blocks:r->engine.stats.call_blocks):0u;
+#endif
     struct ra_clock before=clock_read();uint32_t result=1u;
     switch(event) {
-    case KUI_NATIVE_RA_DELIVER:deliver(arg,r);break;
+    case KUI_NATIVE_RA_DELIVER:
+#if KUI_TOY_SUITE_MODE == 26 || KUI_TOY_SUITE_MODE == 27 || KUI_TOY_SUITE_MODE == 28
+        burst_service(arg,r);
+#elif KUI_NATIVE_TOY_HEADER_REPLAY
+        header_deliver(arg,r);
+#else
+#if KUI_TOY_SUITE_MODE == 1
+        if(C.suite_source==1u)suite_demand(arg,r);
+        else
+#elif KUI_TOY_SUITE_MODE == 2 || KUI_TOY_SUITE_MODE == 6
+        if(C.config.suite_seed.count[0])suite_window_deliver(arg,r);
+        else
+#endif
+        deliver(arg,r);
+#endif
+        break;
     case KUI_NATIVE_RA_TICK:
         ++C.stats.heartbeat_visits;
+#if KUI_TOY_SUITE_MODE == 26 || KUI_TOY_SUITE_MODE == 27 || KUI_TOY_SUITE_MODE == 28
+        burst_service(0,r);break;
+#elif KUI_TOY_SUITE_MODE == 1
+        if(C.suite_source==1u)break;
+#elif KUI_TOY_SUITE_MODE == 2 || KUI_TOY_SUITE_MODE == 6
+        if(C.config.suite_seed.count[0])break;
+#endif
+#if KUI_TOY_SUITE_MODE != 26 && KUI_TOY_SUITE_MODE != 27 && KUI_TOY_SUITE_MODE != 28
         if(C.quiesced && r->engine.opened && r->shared.port.acquired) {
             C.quiesced=0u;++C.stats.resumes;
         }
         seed_completed(r);producer(r,false,arg==KUI_NATIVE_RA_TICK_ONE_BLOCK?
             1u:KUI_NATIVE_RA_PIO_BLOCK_LIMIT);break;
+#endif
     case KUI_NATIVE_RA_QUIESCE:result=quiesce(r);break;
     case KUI_NATIVE_RA_RESUME:
         C.quiesced=0u;++C.stats.resumes;break;
     case KUI_NATIVE_RA_RESET:
         result=quiesce(r);
         if(result) {
-            (void)kui_native_ra_cache_init(&C.cache,C.config.data,C.config.data_bytes);
+#if KUI_NATIVE_TOY_PLAYBACK_CAPTURE
+            C.playback_token=C.last_play_variant=0u;
+#endif
+            (void)kui_native_ra_cache_init(&C.cache,C.config.data,KUI_NATIVE_RA_CACHE_BYTES);
+#if KUI_TOY_SUITE_MODE == 26 || KUI_TOY_SUITE_MODE == 27 || KUI_TOY_SUITE_MODE == 28
+            C.burst.have_token=false;
+#endif
             C.have_seed=C.have_hit=C.abandoned=0u;
+#if defined(KUI_TOY_SUITE_MODE)
+            C.config.suite_seed.count[0]=C.config.suite_seed.count[1]=0u;
+#endif
             /* A later heartbeat must not republish the old completed
              * cursor after explicit validity reset. A new token may seed. */
             C.have_completed=1u;C.completed_token=r->engine.token;
@@ -460,6 +823,19 @@ uint32_t kui_native_readahead_aux_dispatch(uint32_t event,uint32_t arg,
     default:++C.stats.guard_faults;result=0u;break;
     }
     struct ra_clock after=clock_read();uint32_t elapsed=before.counter-after.counter;
+#if KUI_TOY_SUITE_MODE == 26 || KUI_TOY_SUITE_MODE == 27 || KUI_TOY_SUITE_MODE == 28
+    if(event==KUI_NATIVE_RA_TICK && C.burst.variant>=3u && before.valid && after.valid &&
+       elapsed<UINT32_C(0x80000000)) {
+        uint32_t *metrics=C.diagnostics.stage_result[KUI_NATIVE_RA_STAGE_NONE];
+        metrics[4]+=elapsed;
+        if(elapsed>metrics[5])metrics[5]=elapsed;
+    }
+#endif
+#if KUI_NATIVE_TOY_PLAYBACK_CAPTURE
+    if(playing)playback_visit(playing,irq,arg,
+        (irq?r->engine.stats.irq_blocks:r->engine.stats.call_blocks)-blocks,
+        elapsed,before.valid && after.valid && elapsed<UINT32_C(0x80000000));
+#endif
     if(!before.valid || !after.valid || elapsed>=UINT32_C(0x80000000))++C.stats.clock_bad;
     else if(elapsed>C.stats.max_visit_ticks) {
         C.stats.max_visit_ticks=elapsed;

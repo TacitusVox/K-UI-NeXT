@@ -205,6 +205,9 @@ static void __attribute__((noipa)) reader_window_clock(struct kui_vmu_native_pro
 #define READER_STREAM_BLOCKS 96u
 static struct {
     uint32_t last,sum;uint8_t blocks[READER_STREAM_FRAMES];uint8_t at,primed;
+#if KUI_NATIVE_TOY_CACHE_CAPTURE
+    uint32_t suppressed,guard_hits,guard_active,read[5];
+#endif
 } reader_stream;
 static bool __attribute__((noipa)) reader_streaming(void) {
     const kui_retail_async_region_type *r=reader_capture_region();
@@ -217,7 +220,32 @@ static bool __attribute__((noipa)) reader_streaming(void) {
     reader_stream.sum+=delta-reader_stream.blocks[reader_stream.at];
     reader_stream.blocks[reader_stream.at]=(uint8_t)delta;
     reader_stream.at=(uint8_t)((reader_stream.at+1u)&(READER_STREAM_FRAMES-1u));
-    return reader_stream.sum>READER_STREAM_BLOCKS;
+    bool streaming=reader_stream.sum>READER_STREAM_BLOCKS;
+#if KUI_NATIVE_TOY_CACHE_CAPTURE
+    bool capture=config.diagnostics==KUI_VMU_NATIVE_DIAGNOSTICS_READER_ONLY;
+    if(capture && streaming!=(reader_stream.guard_active!=0u)) {
+        const struct kui_native_ra_exports *a=reader_readahead_exports(r);
+        if(a) {
+            const struct kui_native_ra_public *ra=a->context;
+            /* A new guarded span subtracts its starting total; its closing
+             * total is added at the next transition or on the report page. */
+            reader_stream.guard_hits+=streaming?0u-ra->stats.hits:ra->stats.hits;
+            reader_stream.guard_active=streaming;
+        }
+    }
+    if(capture && streaming) {
+        ++reader_stream.suppressed;
+        const struct kui_retail_gd *g=&r->shared.service;
+        if(g->command==KUI_GD_PIOREAD || g->command==KUI_GD_DMAREAD) {
+            reader_stream.read[0]=g->command;
+            reader_stream.read[1]=g->lba;
+            reader_stream.read[2]=g->count;
+            reader_stream.read[3]=g->completed_bytes;
+            reader_stream.read[4]=g->error;
+        }
+    }
+#endif
+    return streaming;
 }
 #endif
 static void __attribute__((noipa)) reader_cooperative_service(void) {

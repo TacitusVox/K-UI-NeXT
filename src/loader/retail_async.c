@@ -408,6 +408,21 @@ static bool open_bus(void) {
         kui_sci_stream_open(&R.shared.card.device.sd, R.area0, R.area1, false) == KUI_SCI_STREAM_OK;
     return e.opened;
 }
+#if KUI_TOY_SUITE_MODE == 27 || KUI_TOY_SUITE_MODE == 28
+/* Cold-only operations for an initially closed lease. The auxiliary must
+ * finish CMD18 and prove its DMA stopped before requesting a release. */
+static bool __attribute__((noipa)) cold_burst_bus(bool acquire) {
+    if(e.active || e.in_irq || e.hooked || e.release.armed || e.release.depth ||
+       e.native_loan_state || R.shared.service.pending || R.shared.service.executing ||
+       R.shared.stream.state || R.shared.port.fault ||
+       e.opened!=(uint32_t)R.shared.port.acquired || e.opened==(uint32_t)acquire)
+        return false;
+    if(acquire) return open_bus();
+    kui_sci_sd_release();
+    e.opened=0u;
+    return !R.shared.port.acquired && !R.shared.port.fault;
+}
+#endif
 #if KUI_ARMADA_CE_STREAM
 extern void kui_retail_ce_stream_wake(void);
 static void stream_wake(void) { wake();kui_retail_ce_stream_wake(); }
@@ -677,6 +692,12 @@ __attribute__((noipa))
 #endif
 deliver_work(uint32_t wait) {
     uint32_t delivered = 0;
+#if KUI_TOY_SUITE_MODE == 4
+    /* The auxiliary validates TMU0 before arming this foreground visit.
+     * The guest cannot reconfigure it during this masked delivery call. */
+    const bool timed = wait && R.shared.stream.toy_suite_active && !e.in_irq;
+    const uint32_t started = timed ? rd32(UINT32_C(0xffd8000c)) : 0u;
+#endif
 #ifndef KUI_RETAIL_CE
     /* A native GD entry has at most one active delivery visit: REQUEST
      * rejects an owned command even if before-work just completed it;
@@ -701,6 +722,15 @@ deliver_work(uint32_t wait) {
          * masked. Its ready block stays buffered for the next GD entry;
          * DMA-only work keeps the existing target and receive-ahead path. */
         if(R.shared.stream.stats.polled!=polled_entry) return;
+#endif
+#if KUI_TOY_SUITE_MODE == 4
+        if(timed && e.active && !e.failed) {
+            uint32_t elapsed = started - rd32(UINT32_C(0xffd8000c));
+            if(elapsed >= 3125u && elapsed < UINT32_C(0x80000000)) {
+                ++R.shared.stream.toy_suite_events;
+                return;
+            }
+        }
 #endif
 #if KUI_ARMADA_CE_STREAM
         if(!stream_event(KUI_ARMADA_CE_STREAM_BUS_DATA_ENTER,delivered<wait)) return;
@@ -748,8 +778,13 @@ deliver_work(uint32_t wait) {
 #if KUI_ARMADA_CE_STREAM
            && stream_event(KUI_ARMADA_CE_STREAM_BUS_DATA_PREFETCH,0)
 #endif
-          )
+          ) {
+#if KUI_TOY_SUITE_MODE == 7
+            if(R.shared.stream.toy_suite_active) ++R.shared.stream.toy_suite_events;
+            else
+#endif
             (void)kui_sci_stream_fetch(lba + 1u, TOKEN_LIMIT, false);
+        }
 #if KUI_ARMADA_CE_STREAM
         struct kui_armada_ce_stream_data_take held={lba,KUI_SCI_STREAM_PENDING,0,NULL};
         (void)stream_event(KUI_ARMADA_CE_STREAM_BUS_DATA_TAKE,(uintptr_t)&held);
@@ -812,8 +847,25 @@ static uint32_t native_readahead_visit(uint32_t event,uint32_t arg) {
     /* An unbound auxiliary has no speculative receiver to quiesce. */
     return visit?visit(event,arg,&R,0u):event==KUI_NATIVE_RA_QUIESCE;
 }
+#if KUI_TOY_FMV_COMPARE
+void kui_retail_fmv_compare(uint32_t function,uint32_t input,int32_t result) {
+    const struct kui_retail_gd *service=&R.shared.service;
+    if(function==KUI_GD_REQUEST && result>0 &&
+       (input==KUI_GD_PIOREAD || input==KUI_GD_DMAREAD))
+        (void)native_readahead_visit(KUI_NATIVE_RA_FMV_REQUEST,0u);
+    else if(function==KUI_GD_CHECK && input && input==service->token && !service->command &&
+            (result==KUI_GD_COMPLETED || result==KUI_GD_FAILED))
+        (void)native_readahead_visit(KUI_NATIVE_RA_FMV_ACK,(uint32_t)result);
+}
+#endif
 static void deliver(uint32_t wait) {
-    if(!native_readahead_visit(KUI_NATIVE_RA_DELIVER,wait))deliver_work(wait);
+    if(native_readahead_visit(KUI_NATIVE_RA_DELIVER,wait))return;
+#if (KUI_TOY_SUITE_MODE == 26 || KUI_TOY_SUITE_MODE == 27 || KUI_TOY_SUITE_MODE == 28)
+    /* A missing auxiliary cannot retire its receiver or resume its token.
+     * The stock BUSY retry assumes one of its own blocks can complete. */
+    if(R.shared.stream.state>=KUI_TOY_SCI_BURST_TOKEN)return;
+#endif
+    deliver_work(wait);
 }
 /* The stage proves every complete entry and the retained region pointer
  * against this immutable, separately gated low-resident descriptor. */
@@ -821,7 +873,13 @@ const struct kui_native_ra_low_ops kui_native_ra_reader_ops
     __attribute__((section(".rodata.native_readahead")))={
     KUI_NATIVE_RA_OPS_MAGIC,KUI_NATIVE_RA_VERSION,sizeof(struct kui_native_ra_low_ops),
     &kui_retail_async_region_storage,deliver_work,hook,unhook,
-    kui_sci_stream_fetch,kui_sci_stream_poll,kui_sci_stream_take,
+    kui_sci_stream_fetch,
+#if KUI_TOY_SUITE_MODE == 27 || KUI_TOY_SUITE_MODE == 28
+    cold_burst_bus,
+#else
+    kui_sci_stream_poll,
+#endif
+    kui_sci_stream_take,
     kui_sci_stream_stop,kui_sci_stream_busy,kui_retail_cursor_feed
 };
 #elif defined(KUI_RETAIL_CE)
@@ -883,6 +941,9 @@ static void report(void) {
 #else
     kui_retail_gd_progress(s, e.cursor.done, e.failed);
 #endif
+#endif
+#if KUI_NATIVE_TOY_MOVIE_CAPTURE && KUI_NATIVE_READAHEAD
+    if(!s->pending) (void)native_readahead_visit(KUI_NATIVE_RA_MOVIE_COMPLETE,0u);
 #endif
 }
 static bool reads(uint32_t command) {
@@ -1394,6 +1455,10 @@ void kui_retail_async_after(uint32_t function, int32_t result) {
     }
 #endif
     struct kui_retail_gd *s = &R.shared.service;
+#if KUI_NATIVE_TOY_MOVIE_CAPTURE && KUI_NATIVE_READAHEAD
+    if(function==KUI_GD_ABORT && !result)
+        (void)native_readahead_visit(KUI_NATIVE_RA_MOVIE_COMPLETE,0u);
+#endif
     if(((function == KUI_GD_REQUEST && result > 0)
 #if KUI_NATIVE_GD_LEGACY_STREAM
         || (function == KUI_GD_DMA_TRANSFER && !result)

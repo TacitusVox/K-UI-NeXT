@@ -4,22 +4,54 @@ BUILD ?= build/disc-native
 BUILD_ID ?= $(shell git rev-parse --short=12 HEAD)
 HOST_CC ?= cc
 KUI_RETAIL_NATIVE_HANDOFF_PAUSE_FRAMES ?= 0
+TOY_TRACE ?= 0
+PACKAGE ?= native-disc.kui
 CPU := -m4-single -ml -mdiv=call-div1 -mfixed-range=fr0-fr15,fpul-fpul
 FLAGS := -std=c11 -Os -g -Wall -Wextra -Werror $(CPU) -ffreestanding -fno-builtin \
  -ffunction-sections -fdata-sections -fstack-usage -fcallgraph-info=su \
  -Iinclude -Isrc/loader -DKUI_RETAIL_FAST_IO=1 -DKUI_DISC_STAGE_FAST_CRC32=1 \
- -DKUI_RETAIL_NATIVE_HANDOFF_PAUSE_FRAMES=$(KUI_RETAIL_NATIVE_HANDOFF_PAUSE_FRAMES) -DKUI_BUILD_ID='"$(BUILD_ID)"'
+ -DKUI_RETAIL_NATIVE_HANDOFF_PAUSE_FRAMES=$(KUI_RETAIL_NATIVE_HANDOFF_PAUSE_FRAMES) \
+ -DKUI_DISC_TOY_TRACE=$(TOY_TRACE) -DKUI_BUILD_ID='"$(BUILD_ID)"'
 LINK := $(CPU) -nostdlib -Wl,--gc-sections -Wl,--build-id=none
 SOURCES := src/loader/disc_stage.c src/core/disc_launch.c src/core/hash.c src/core/data.c \
  src/loader/retail_display.c src/loader/minic.c
 OBJECTS := $(patsubst %.c,$(BUILD)/%.o,$(SOURCES)) $(BUILD)/disc_stage_asm.o
+.DEFAULT_GOAL := all
 .PHONY: all test audit force-build-id force-handoff-config
-all: $(BUILD)/native-disc.kui audit
+ifeq ($(TOY_TRACE),1)
+PACKAGE = native-toy-trace.kui
+OBJECTS += $(BUILD)/disc_toy_trace_stage_asm.o
+TOY_FLAGS = $(FLAGS) -DKUI_ON_CONSOLE=1 -DKUI_RETAIL_TRANSPORT=1 -DKUI_TOY_SUITE_MODE=62 \
+ -DKUI_SCI_SD_PIO_ONLY=1 -DKUI_VMU_NATIVE_PERSISTENT_PROBE=1
+TOY_SOURCES = src/loader/disc_toy_trace.c src/loader/toy_fmv_compare.c \
+ src/loader/retail_display.c src/loader/minic.c src/loader/sd_reader.c \
+ src/loader/sci_sd_bus.c src/loader/vmu_backing.c src/dreamcast/sci_sd_storage.c
+TOY_OBJECTS = $(patsubst %.c,$(BUILD)/trace/%.o,$(TOY_SOURCES)) $(BUILD)/trace/disc_toy_trace_asm.o
+$(BUILD)/src/loader/disc_stage.o: $(BUILD)/toy-trace.bin src/loader/disc_toy_trace_stage.inc
+$(BUILD)/src/loader/disc_stage.o: private FLAGS += -DKUI_DISC_TOY_TRACE_BIN='"$(BUILD)/toy-trace.bin"'
+$(BUILD)/trace/%.o: %.c $(BUILD)/handoff-config
+	@mkdir -p $(@D)
+	sh-elf-gcc $(TOY_FLAGS) -MMD -MP -c $< -o $@
+$(BUILD)/trace/disc_toy_trace_asm.o: src/loader/disc_toy_trace_asm.S src/loader/toy_movie_exit_hook.inc src/loader/toy_movie_present_hook.inc include/kui/toy_movie_exit.h
+	@mkdir -p $(@D)
+	sh-elf-gcc $(TOY_FLAGS) -c $< -o $@
+$(BUILD)/disc_toy_trace_stage_asm.o: src/loader/disc_toy_trace_stage.S include/kui/toy_pilot_boot.h
+	@mkdir -p $(@D)
+	sh-elf-gcc $(FLAGS) -c $< -o $@
+$(BUILD)/toy-trace.elf: $(TOY_OBJECTS) src/loader/disc_toy_trace.ld
+	sh-elf-gcc $(LINK) -Tsrc/loader/disc_toy_trace.ld -Wl,-Map,$(BUILD)/toy-trace.map -o $@ $(TOY_OBJECTS) -lgcc
+	@test -z "$$(sh-elf-nm -u $@)"
+	python3 tools/record_build.py $@
+$(BUILD)/toy-trace.bin: $(BUILD)/toy-trace.elf
+	sh-elf-objcopy -O binary $< $@
+-include $(TOY_OBJECTS:.o=.d)
+endif
+all: $(BUILD)/$(PACKAGE) audit
 force-build-id:
 force-handoff-config:
 $(BUILD)/handoff-config: force-handoff-config
 	@mkdir -p $(@D)
-	@printf '%s\n' 'HANDOFF_PAUSE_FRAMES=$(KUI_RETAIL_NATIVE_HANDOFF_PAUSE_FRAMES)' > $@.tmp
+	@printf '%s\n' 'HANDOFF_PAUSE_FRAMES=$(KUI_RETAIL_NATIVE_HANDOFF_PAUSE_FRAMES)' 'TOY_TRACE=$(TOY_TRACE)' 'BUILD_ID=$(BUILD_ID)' > $@.tmp
 	@cmp -s $@.tmp $@ || cp $@.tmp $@
 	@rm -f $@.tmp
 $(BUILD)/src/loader/disc_stage.o: $(BUILD)/handoff-config Makefile.disc-native
@@ -42,7 +74,7 @@ $(BUILD)/entry.elf: $(BUILD)/disc_entry_asm.o src/loader/disc_entry.ld
 	sh-elf-gcc $(LINK) -Tsrc/loader/disc_entry.ld -Wl,-Map,$(BUILD)/entry.map -o $@ $<
 	@test -z "$$(sh-elf-nm -u $@)"
 	python3 tools/record_build.py $@
-$(BUILD)/native-disc.kui: $(BUILD)/entry.elf
+$(BUILD)/$(PACKAGE): $(BUILD)/entry.elf
 	python3 tools/runtime_package.py build $< $@ --build-id $(BUILD_ID)
 test:
 	@mkdir -p $(BUILD)
@@ -51,9 +83,9 @@ test:
 	 -ffunction-sections -fdata-sections -Iinclude tests/test_disc_launch.c \
 	 src/core/disc_launch.c src/core/hash.c src/core/data.c -Wl,--gc-sections -o $(BUILD)/test-disc-launch
 	ASAN_OPTIONS=detect_leaks=0 $(BUILD)/test-disc-launch
-audit: $(BUILD)/native-disc.kui
+audit: $(BUILD)/$(PACKAGE)
 	python3 tests/test_disc_stage_launch_policy.py --stage $(BUILD)/stage.elf --expected-frames $(KUI_RETAIL_NATIVE_HANDOFF_PAUSE_FRAMES)
 	python3 tools/check_disc_handoff.py $(BUILD)/stage.elf
 	python3 tests/test_disc_handoff.py $(BUILD)/stage.elf
-	python3 -c 'import sys,subprocess;sys.path.insert(0,"tools");from check_retail_instructions import audit;print("Physical-disc linked instructions:",sum(audit(n,subprocess.check_output(["sh-elf-objdump","-d","$(BUILD)/"+n+".elf"],text=True)) for n in ("entry","stage")))'
+	python3 -c 'import sys,subprocess;sys.path.insert(0,"tools");from check_retail_instructions import audit;print("Physical-disc linked instructions:",sum(audit(n,subprocess.check_output(["sh-elf-objdump","-d","$(BUILD)/"+n+".elf"],text=True)) for n in $(if $(filter 1,$(TOY_TRACE)),("entry","stage","toy-trace"),("entry","stage"))))'
 -include $(OBJECTS:.o=.d)

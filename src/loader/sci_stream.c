@@ -213,7 +213,16 @@ enum kui_sci_stream_result kui_sci_stream_open(const struct kui_loader_sd *card,
         return KUI_SCI_STREAM_RESET;
     return KUI_SCI_STREAM_OK;
 }
-bool kui_sci_stream_busy(void) { return s.state == DMA; }
+bool kui_sci_stream_busy(void) {
+#if (KUI_TOY_SUITE_MODE == 26 || KUI_TOY_SUITE_MODE == 27 || KUI_TOY_SUITE_MODE == 28)
+    _Static_assert(DMA==2u && RESUME==4u && KUI_TOY_SCI_BURST_TOKEN==5u &&
+        KUI_TOY_SCI_BURST_DMA==6u && !KUI_SCI_STREAM_TOKEN_SLICED,
+        "Toy burst reuses the low SCI interrupt route");
+    return (s.state&~4u)==DMA;
+#else
+    return s.state == DMA;
+#endif
+}
 bool kui_sci_stream_ready(uint32_t lba) { return s.arrived == lba + 1u; }
 #if KUI_SCI_STREAM_TOKEN_SLICED
 void kui_sci_stream_token_budget(bool bounded) {
@@ -421,6 +430,16 @@ static enum kui_sci_stream_result receive(bool polled) {
     s.ready[area] = 0;
     s.lost[area] = 0;
     settle(64); /* the token byte's last edge */
+#if KUI_TOY_SUITE_MODE == 3
+    /* Switch this fresh block before clocking its payload. CHCR2 and the
+     * Holly Channel 2 start bit are observations of competing traffic. */
+    if(!polled && s.toy_suite_active && !kui_retail_async_region.engine.in_irq &&
+       channel_idle() && ((rd32(UINT32_C(0xffa0002c)) & 3u) == 1u ||
+                         (rd32(UINT32_C(0xa05f6808)) & 1u))) {
+        ++s.toy_suite_events;
+        polled = true;
+    }
+#endif
     if(polled || !channel_idle()) {
         for(unsigned i = 0; i < DMA_BYTES; ++i) p[i] = byte(0xff);
         s.rdr[area] = byte(0xff);
@@ -445,6 +464,9 @@ static enum kui_sci_stream_result receive(bool polled) {
     return start_dma(area, 0);
 }
 enum kui_sci_stream_result kui_sci_stream_fetch(uint32_t lba, uint32_t token_limit, bool polled) {
+#if (KUI_TOY_SUITE_MODE == 26 || KUI_TOY_SUITE_MODE == 27 || KUI_TOY_SUITE_MODE == 28)
+    if(s.state >= KUI_TOY_SCI_BURST_TOKEN) return KUI_SCI_STREAM_BUSY;
+#endif
     if(s.state == DMA) return KUI_SCI_STREAM_BUSY;
     enum kui_sci_stream_result result;
     if(s.state == RESUME && s.position == lba) {
@@ -544,6 +566,7 @@ static enum kui_sci_stream_result finish(bool later) {
         s.stats.incomplete_dmaor_bad += (rd32(DMAOR) & 7u) != 1u;
 #endif
 #endif
+#if KUI_TOY_SUITE_MODE != 26 && KUI_TOY_SUITE_MODE != 27 && KUI_TOY_SUITE_MODE != 28
         /* The channel was held off the bus (the game's own DMA) and the
          * receiver overran mid-block: the byte that overran is lost and the
          * card stopped after it. The channel has `at` bytes; usually it
@@ -577,6 +600,13 @@ static enum kui_sci_stream_result finish(bool later) {
             result = start_dma(area, lost + 1u);
             return result == KUI_SCI_STREAM_OK ? KUI_SCI_STREAM_PENDING : result;
         }
+#else
+        /* Mode 26's strict stock fallback never publishes a reconstructed
+         * block. Restart at the same LBA instead of spending another receive
+         * on an already invalid block. This path retains the normal PIO
+         * retry policy and checks both CRC bytes on each fresh read. */
+        (void)later;
+#endif
         STREAM_OBSERVE(++s.stats.overruns);
         return KUI_SCI_STREAM_OVERRUN;
     }
@@ -593,6 +623,9 @@ static enum kui_sci_stream_result finish(bool later) {
     return KUI_SCI_STREAM_OK;
 }
 enum kui_sci_stream_result kui_sci_stream_poll(bool interrupt) {
+#if (KUI_TOY_SUITE_MODE == 26 || KUI_TOY_SUITE_MODE == 27 || KUI_TOY_SUITE_MODE == 28)
+    if(s.state >= KUI_TOY_SCI_BURST_TOKEN) return KUI_SCI_STREAM_BUSY;
+#endif
     if(s.state != DMA) return KUI_SCI_STREAM_OK;
     uint32_t control = rd32(CHCR);
     /* Still receiving, unless the channel stopped or the receiver overran. */
@@ -613,22 +646,32 @@ enum kui_sci_stream_result kui_sci_stream_wait(void) {
  * (x^16+x^12+x^5+1 has its constant term, so each step is invertible). What
  * remains is one byte's own step, t ^ t << 5 ^ t << 12 with t = x ^ x >> 4:
  * its low byte gives t, t gives x, and the whole step must match. */
+#if KUI_TOY_SUITE_MODE != 26 && KUI_TOY_SUITE_MODE != 27 && KUI_TOY_SUITE_MODE != 28
 static int rebuild(uint32_t syndrome, uint32_t after) {
     for(uint32_t n = after * 8u; n; --n)
         syndrome = syndrome & 1u ? ((syndrome ^ 0x1021u) >> 1) | 0x8000u : syndrome >> 1;
     uint32_t t = (syndrome ^ syndrome << 5) & 0xffu, x = t ^ t >> 4;
     return crc16(0, (uint8_t)x) == syndrome ? (int)x : -1;
 }
+#endif
 const uint8_t *kui_sci_stream_take(uint32_t lba, enum kui_sci_stream_result *result) {
     for(unsigned i = 0; i < 2; ++i) {
         if(!s.ready[i] || s.ready_lba[i] != lba) continue;
         s.ready[i] = 0;
         uint8_t *area = s.area[i];
         uint32_t lost = s.lost[i];
+#if (KUI_TOY_SUITE_MODE == 26 || KUI_TOY_SUITE_MODE == 27 || KUI_TOY_SUITE_MODE == 28)
+        if(lost) {
+            ++s.stats.crc_errors;
+            *result=KUI_SCI_STREAM_CRC;
+            return NULL;
+        }
+#else
         if(lost) {
             if(s.hold[i]) area[lost - 2u] = s.held[i];
             area[lost - 1u] = 0;
         }
+#endif
         uint8_t high = area[512], low = s.rdr[i];
         bool wire = s.wire[i];
 #ifdef KUI_RETAIL_CE
@@ -657,6 +700,7 @@ const uint8_t *kui_sci_stream_take(uint32_t lba, enum kui_sci_stream_result *res
 #endif
         if(wire) {high = (uint8_t)reverse(high); low = (uint8_t)reverse(low);}
         uint16_t sent = (uint16_t)(high << 8 | low);
+#if KUI_TOY_SUITE_MODE != 26 && KUI_TOY_SUITE_MODE != 27 && KUI_TOY_SUITE_MODE != 28
         if(crc != sent && lost) {
             /* The gap byte (0xff) or the next token (0xfe) where the second
              * CRC byte belongs: the resumed reception ran a byte ahead. */
@@ -667,6 +711,7 @@ const uint8_t *kui_sci_stream_take(uint32_t lba, enum kui_sci_stream_result *res
                 else ++s.unrepaired;
             }
         }
+#endif
         /* A reconstructed byte consumes eight bits of the CRC's evidence:
          * broader receive damage can then satisfy the remaining checksum.
          * Never publish a block whose DMA reception lost a byte. Keep the
@@ -691,6 +736,10 @@ const uint8_t *kui_sci_stream_take(uint32_t lba, enum kui_sci_stream_result *res
     return NULL;
 }
 enum kui_sci_stream_result kui_sci_stream_stop(void) {
+#if (KUI_TOY_SUITE_MODE == 26 || KUI_TOY_SUITE_MODE == 27 || KUI_TOY_SUITE_MODE == 28)
+    /* Only the auxiliary can finish its sliced token or fence its receive. */
+    if(s.state >= KUI_TOY_SCI_BURST_TOKEN) return KUI_SCI_STREAM_BUSY;
+#endif
     enum kui_sci_stream_result result = KUI_SCI_STREAM_OK;
 #if (KUI_TOY_PIPELINE_HIGH_STREAM && KUI_TOY_PIPELINE_RESUME_FIX) || KUI_GENERAL_SCI_RESUME_FIX || KUI_CE_SCI_RESUME_FIX
     /* Cancellation must fence the receiver, not launch another repair and

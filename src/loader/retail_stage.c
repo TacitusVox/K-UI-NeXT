@@ -1563,6 +1563,9 @@ void kui_retail_stage_main(const uint8_t *wire) {
     smash_outer_return_mark(UINT32_C(0x114));
 #endif
     boot_crc=kui_retail_crc32(0,boot,exec_bytes);
+#if KUI_NATIVE_TOY_MOVIE_CAPTURE
+    toy_movie_scan();
+#endif
 #if KUI_SMASH_PHASE_DIAGNOSTIC && KUI_SMASH_NATIVE_MENU
     kui_smash_phase_stage_mark(KUI_SMASH_PHASE_MDE_DONE);
 #endif

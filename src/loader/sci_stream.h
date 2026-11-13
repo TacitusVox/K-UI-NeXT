@@ -7,6 +7,14 @@
 #else
 #define KUI_SCI_STREAM_TOKEN_SLICED 0
 #endif
+#define KUI_TOY_SUITE_LOW_DEMAND \
+    (KUI_TOY_SUITE_MODE == 3 || KUI_TOY_SUITE_MODE == 4 || KUI_TOY_SUITE_MODE == 7)
+#if (KUI_TOY_SUITE_MODE == 26 || KUI_TOY_SUITE_MODE == 27 || KUI_TOY_SUITE_MODE == 28)
+/* Mode 26's auxiliary owns the large receive. The low SCI callback uses the
+ * DMA marker only to route its ERI to the auxiliary. */
+#define KUI_TOY_SCI_BURST_DMA 6u
+#define KUI_TOY_SCI_BURST_TOKEN 5u
+#endif
 
 /* Game-reader CMD18 streaming over SCI with receive-only DMA on channel 1.
  * Each block is 513 bytes of DMA; the receiver then takes the second CRC byte
@@ -88,6 +96,12 @@ struct kui_sci_stream_state {
      * (not a byte ahead); after two the card is taken not to resume
      * mid-block as expected, and overruns restart. */
     uint8_t ready[2], wire[2], rdr[2], held[2], hold[2], kept, sptr, unrepaired;
+#if KUI_TOY_SUITE_LOW_DEMAND
+    /* Existing alignment padding. The masked auxiliary arms only an
+     * admitted movie demand visit and accumulates the wrapping event delta. */
+    uint8_t toy_suite_active;
+    uint16_t toy_suite_events;
+#endif
 #if KUI_SCI_STREAM_TOKEN_SLICED
     uint8_t token_bounded, token_polled;
 #if KUI_CE_SCI_SLOW_AFTER_OVERRUN
@@ -99,6 +113,12 @@ struct kui_sci_stream_state {
 #endif
     struct kui_sci_stream_stats stats;
 };
+#if KUI_TOY_SUITE_LOW_DEMAND
+_Static_assert(!KUI_SCI_STREAM_TOKEN_SLICED &&
+    offsetof(struct kui_sci_stream_state,stats)==
+    ((offsetof(struct kui_sci_stream_state,unrepaired)+4u)&~3u),
+    "Toy suite demand policy preserves the native stream layout");
+#endif
 /* Adopt the bus (acquired, card ready) and two 32-byte-aligned receive areas
  * of KUI_SCI_STREAM_AREA_BYTES that nothing else writes. unknown: the card
  * may still be streaming (after a bus fault), so the first fetch stops it

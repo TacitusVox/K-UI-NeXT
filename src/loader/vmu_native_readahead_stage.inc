@@ -110,7 +110,30 @@ static void __attribute__((noipa)) native_readahead_bind(uint32_t payload) {
     struct kui_native_ra_config cfg={KUI_NATIVE_RA_VERSION,sizeof(cfg),r,
         (const void *)(uintptr_t)descriptor,
         (void *)(uintptr_t)(lease+UINT32_C(0x20000000)+KUI_NATIVE_RA_DATA_OFFSET),
-        KUI_NATIVE_RA_DATA_BYTES,lease&UINT32_C(0x1fffffff),KUI_NATIVE_RA_LEASE_BYTES};
+        KUI_NATIVE_RA_DATA_BYTES,lease&UINT32_C(0x1fffffff),KUI_NATIVE_RA_LEASE_BYTES
+#if KUI_NATIVE_TOY_MOVIE_CAPTURE
+        ,{{0}}
+#endif
+#if defined(KUI_TOY_SUITE_MODE)
+        ,{{0},{0}},0u
+#endif
+    };
+#if KUI_NATIVE_TOY_MOVIE_CAPTURE
+    memcpy(cfg.movie_ranges,toy_movie_ranges,sizeof(cfg.movie_ranges));
+#endif
+#if defined(KUI_TOY_SUITE_MODE)
+    cfg.suite_seed=toy_suite_seed;
+    cfg.suite_source=toy_suite_source;
+#if KUI_TOY_SUITE_MODE == 1 || KUI_TOY_SUITE_MODE == 2 || KUI_TOY_SUITE_MODE == 6
+    uint32_t seeded=cfg.suite_seed.count[0]+cfg.suite_seed.count[1];
+#if KUI_TOY_SUITE_MODE == 1
+    uint32_t unit=KUI_GAME_DATA_BYTES;
+#else
+    uint32_t unit=512u;
+#endif
+    if(seeded && seeded<=cfg.data_bytes/unit)memcpy(cfg.data,toy_suite_data,seeded*unit);
+#endif
+#endif
     uint32_t unused=0;
 #if KUI_NATIVE_COLD_PROGRESS_STAGE
     retail_display_line("COLD 43 AUXILIARY INITIALIZE BEGIN");
@@ -134,7 +157,25 @@ static void __attribute__((noipa)) native_readahead_bind(uint32_t payload) {
     native_publish(address+0x500u+4u*KUI_NATIVE_RA_ENTRY_INDEX);
     if(native_word((address+0x500u+4u*KUI_NATIVE_RA_ENTRY_INDEX)|UINT32_C(0x20000000))!=
        (uint32_t)(uintptr_t)e->visit)native_report(11u,12u);
+#if KUI_TOY_SUITE_MODE == 27 || KUI_TOY_SUITE_MODE == 28
+    retail_display_line("SCI QUIET MOVIE SAMPLE");
+    const volatile struct kui_native_ra_public *aux=(const void *)(uintptr_t)context;
+    uint32_t opened=r->engine.opened;
+    if(e->visit(KUI_NATIVE_RA_CALIBRATE,0u,r,0u)!=1u ||
+       !native_ra_stack_valid(e->stack_bottom,e->stack_top) ||
+       aux->busy || !aux->burst_quiet_status ||
+       r->engine.active || r->engine.in_irq || r->engine.hooked ||
+       r->engine.release.armed || r->engine.release.depth || r->engine.native_loan_state ||
+       r->shared.service.pending || r->shared.service.executing ||
+       r->shared.stream.state>1u || r->shared.port.fault ||
+       r->engine.opened!=opened || (uint32_t)r->shared.port.acquired!=opened)
+        native_report(11u,13u);
+#endif
+#if KUI_TOY_SUITE_MODE == 26 || KUI_TOY_SUITE_MODE == 27 || KUI_TOY_SUITE_MODE == 28
+    retail_display_line("SCI BURST MOVIE READER READY");
+#else
     retail_display_line("BOUNDED READ AHEAD READY / 192 KIB CACHE");
+#endif
 #if KUI_NATIVE_COLD_PROGRESS_STAGE
     retail_display_line("COLD 45 READ AHEAD BOUND");
 #endif

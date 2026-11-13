@@ -1,0 +1,6 @@
+# SPDX-License-Identifier: GPL-3.0-only
+BUILD ?= build/native-toy-header
+include Makefile.vmu-native-toy-playback
+FLAGS += -DKUI_NATIVE_TOY_HEADER_REPLAY=1
+NATIVE_FLAGS += -DKUI_NATIVE_TOY_HEADER_REPLAY=1
+TOY_MOVIE_TEST_FLAGS += -DKUI_NATIVE_TOY_HEADER_REPLAY=1

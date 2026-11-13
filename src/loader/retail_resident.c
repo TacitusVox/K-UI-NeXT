@@ -1681,6 +1681,9 @@ int32_t kui_retail_resident_dispatch(uint32_t r4, uint32_t r5,
 #if KUI_ARMADA_CE_AUDIO_OBSERVE
     armada_ce_audio_record(r7, r4, result);
 #endif
+#if KUI_TOY_FMV_COMPARE
+    kui_retail_fmv_compare(r7,r4,result);
+#endif
     kui_retail_async_after(r7, result);
 #if KUI_NATIVE_GD_DMA_STREAM
     /* Native stream pieces finish within FN6, so every completion is drained

@@ -5,6 +5,13 @@
 #ifndef KUI_BUILD_ID
 #define KUI_BUILD_ID "LOCAL"
 #endif
+/* The altered Toy SCI residents draw fixed terminal rows after a full
+ * clear. The high playback report and cold stage keep their full renderer. */
+#if defined(KUI_RETAIL_ASYNC) && (KUI_TOY_SUITE_MODE == 3 || KUI_TOY_SUITE_MODE == 4 || KUI_TOY_SUITE_MODE == 7)
+#define KUI_TOY_LOW_TERMINAL 1
+#else
+#define KUI_TOY_LOW_TERMINAL 0
+#endif
 /* Register meanings: KallistiOS fcfa7d869471591ca1c777543261a7bfea7cb726,
  * dc/pvr/pvr_regs.h and hardware/video.c. Capture the cable-appropriate
  * 640x480 RGB565 mode left by arch_shutdown, rather than inventing timings.
@@ -144,7 +151,7 @@ void retail_display_line(const char *text) {
 #if !(KUI_NATIVE_GD_VRAM_DMA && defined(KUI_RETAIL_ASYNC))
     if(row>444) row=124;
 #endif
-#if !(KUI_NATIVE_GD_DMA_STREAM && defined(KUI_RETAIL_ASYNC))
+#if !(KUI_NATIVE_GD_DMA_STREAM && defined(KUI_RETAIL_ASYNC)) && !KUI_TOY_LOW_TERMINAL
     for(unsigned y=row;y<row+RETAIL_LINE_PITCH;y++)
         for(unsigned a=16;a<624;a++) frame[y*stride+a]=0x0864;
 #endif
@@ -153,7 +160,7 @@ void retail_display_line(const char *text) {
      * Keep the stage and every live/scrolling renderer on the original path. */
     while(*text && x<612) {
         unsigned char c=(unsigned char)*text++;
-#if KUI_NATIVE_GD_VRAM_DMA && defined(KUI_RETAIL_ASYNC)
+#if (KUI_NATIVE_GD_VRAM_DMA && defined(KUI_RETAIL_ASYNC)) || KUI_TOY_LOW_TERMINAL
         /* This terminal's fixed labels and hex rows contain only ASCII
          * letters, digits and spaces; no title or external string is drawn. */
         if(c>='a')c-=32;
@@ -164,7 +171,7 @@ void retail_display_line(const char *text) {
 #endif
         for(unsigned y=0;y<7;y++) {
             unsigned bits=n>=0?glyph_row((unsigned)n,y):
-#if KUI_NATIVE_GD_VRAM_DMA && defined(KUI_RETAIL_ASYNC)
+#if (KUI_NATIVE_GD_VRAM_DMA && defined(KUI_RETAIL_ASYNC)) || KUI_TOY_LOW_TERMINAL
                 /* This stopped profile prints only letters, digits and
                  * spaces. Keep its fixed diagnostic pixels unchanged. */
                 0;
@@ -174,7 +181,7 @@ void retail_display_line(const char *text) {
                 c=='/'?1u<<(y<5?y:4):0;
 #endif
             for(unsigned a=0;a<5;a++) if(bits&(16u>>a))
-#if KUI_NATIVE_GD_DMA_STREAM && defined(KUI_RETAIL_ASYNC)
+#if (KUI_NATIVE_GD_DMA_STREAM && defined(KUI_RETAIL_ASYNC)) || KUI_TOY_LOW_TERMINAL
             {
                 /* x starts at20 and advances12; every doubled glyph column
                  * is a naturally aligned pair of RGB565 pixels. Preserve

@@ -279,6 +279,9 @@ void kui_retail_async_session_rebind(const struct kui_retail_manifest *next);
 void kui_retail_async_call(uint32_t function);
 /* After the service ran it: start a new read, or stop an abandoned one. */
 void kui_retail_async_after(uint32_t function, int32_t result);
+#if KUI_TOY_FMV_COMPARE
+void kui_retail_fmv_compare(uint32_t function, uint32_t input, int32_t result);
+#endif
 /* The handler behind VBR+0x600 for the stream's events: zero when handled,
  * nonzero to pass the event on as any other (kui_retail_release_600). Under
  * Windows CE, CE's dispatch calls it for the SCI's events; nonzero: none was

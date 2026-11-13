@@ -1,0 +1,88 @@
+# SPDX-License-Identifier: GPL-3.0-only
+# One selectable Toy Commander test per immutable module envelope.
+TOY_SUITE_MODE ?= 1
+TOY_FMV_COMPARE ?= 0
+ifneq ($(words $(TOY_SUITE_MODE)),1)
+$(error TOY_SUITE_MODE must be a single test number)
+endif
+ifeq ($(filter $(TOY_SUITE_MODE),1 2 3 4 6 7 26 27 28),)
+$(error TOY_SUITE_MODE must be 1, 2, 3, 4, 6, 7, 26, 27 or 28)
+endif
+BUILD ?= build/toy-suite-$(TOY_SUITE_MODE)
+include Makefile.vmu-native-toy-playback
+FLAGS += -DKUI_TOY_SUITE_MODE=$(TOY_SUITE_MODE)
+NATIVE_FLAGS += -DKUI_TOY_SUITE_MODE=$(TOY_SUITE_MODE)
+TOY_MOVIE_TEST_FLAGS += -DKUI_TOY_SUITE_MODE=$(TOY_SUITE_MODE)
+LEGACY_FLAGS := $(filter-out -DKUI_TOY_SUITE_MODE=%,$(LEGACY_FLAGS))
+ifeq ($(TOY_FMV_COMPARE),1)
+ifneq ($(TOY_SUITE_MODE),28)
+$(error TOY_FMV_COMPARE requires the Test 28 SCI reader)
+endif
+FLAGS += -DKUI_TOY_FMV_COMPARE=1
+NATIVE_FLAGS += -DKUI_TOY_FMV_COMPARE=1
+RA_SRC += src/loader/toy_fmv_compare.c
+NATIVE_SRC += src/loader/toy_fmv_compare.c
+$(BUILD)/native-ra-aux.elf: $(BUILD)/ra/src/loader/toy_fmv_compare.o
+$(BUILD)/retail-toy-test-29.kui: $(BUILD)/retail-native-dual.kui
+	cp $< $@
+endif
+ifneq ($(filter $(TOY_SUITE_MODE),26 27 28),)
+# Move one cache page to auxiliary code within the existing lease.
+RA_AUX_LINK_FLAGS := -Wl,--defsym=__native_ra_extra_code=0x1000
+RA_AUX_SPAN := 0x5000
+endif
+NATIVE_SRC += src/loader/native_return_hardware.c
+NATIVE_OBJ += $(BUILD)/toy_return_hardware.o
+
+$(BUILD)/toy_return_hardware.o: src/loader/native_return_hardware.S $(BUILD)/readonly-config
+	@mkdir -p $(@D)
+	$(CC) $(NATIVE_FLAGS) -c $< -o $@
+
+$(BUILD)/native-worker.elf: $(NATIVE_OBJ)
+
+$(BUILD)/toy-suite-config: force-mode-config
+	@mkdir -p $(BUILD)
+	@printf '%s\n' 'TOY_SUITE_MODE=$(TOY_SUITE_MODE)' 'TOY_FMV_COMPARE=$(TOY_FMV_COMPARE)' > $@.tmp
+	@cmp -s $@.tmp $@ || cp $@.tmp $@
+	@rm -f $@.tmp
+
+$(RESIDENT_OBJ) $(LEGACY_OBJ) $(STAGE_OBJ) $(NATIVE_OBJ) $(WORKER_OBJ) $(RA_OBJ): $(BUILD)/toy-suite-config
+
+$(BUILD)/retail-toy-test-$(TOY_SUITE_MODE).kui: $(BUILD)/retail-native-dual.kui
+	cp $< $@
+
+.PHONY: toy-suite-witness-host-test
+toy-suite-witness-host-test:
+	@mkdir -p $(BUILD)
+	$(HOST_CC) $(PASSIVE_HOST_FLAGS) -O2 $(STALL_READER_FLAGS) \
+	 -DKUI_VMU_NATIVE_BACKGROUND=1 -DKUI_NATIVE_TOY_MOVIE_CAPTURE=1 \
+	 -DKUI_TOY_SUITE_MODE=1 -DKUI_TOY_WITNESS_HOST_TEST=1 \
+	 tests/test_toy_suite_witness.c src/core/hash.c src/core/data.c -o $(BUILD)/test-toy-suite-witness
+	ASAN_OPTIONS=detect_leaks=0 $(BUILD)/test-toy-suite-witness
+
+.PHONY: toy-suite-ram-stage-host-test
+toy-suite-ram-stage-host-test:
+	@mkdir -p $(BUILD)
+	@set -e; for mode in 2 6; do \
+	 $(HOST_CC) $(PASSIVE_HOST_FLAGS) -DKUI_TOY_SUITE_MODE=$$mode \
+	  tests/test_toy_suite_ram_stage.c src/core/hash.c src/core/data.c -o $(BUILD)/test-toy-suite-ram-$$mode; \
+	 ASAN_OPTIONS=detect_leaks=0 $(BUILD)/test-toy-suite-ram-$$mode; \
+	done
+
+.PHONY: toy-suite-burst-aux-host-test toy-suite-burst-compare-host-test toy-suite-burst-recovery-host-test
+toy-suite-burst-aux-host-test: private BURST_HOST_MODE := 26
+toy-suite-burst-compare-host-test: private BURST_HOST_MODE := 27
+toy-suite-burst-recovery-host-test: private BURST_HOST_MODE := 28
+toy-suite-burst-aux-host-test toy-suite-burst-compare-host-test toy-suite-burst-recovery-host-test:
+	@mkdir -p $(BUILD)
+	$(HOST_CC) $(PASSIVE_HOST_FLAGS) -O2 $(STALL_READER_FLAGS) \
+	 -DKUI_NATIVE_READAHEAD=1 -DKUI_VMU_NATIVE_BACKGROUND=1 -DKUI_NATIVE_REQUEST_TIMING=1 \
+	 -DKUI_NATIVE_READAHEAD_AUX_HOST_TEST=1 -DKUI_TOY_BURST_PRODUCER_TEST=1 \
+	 -DKUI_NATIVE_TOY_MOVIE_CAPTURE=1 -DKUI_NATIVE_TOY_PLAYBACK_CAPTURE=1 -DKUI_TOY_SUITE_MODE=$(BURST_HOST_MODE) \
+	 -DKUI_NATIVE_BACKGROUND_COMPACT=1 -DKUI_NATIVE_GENERAL_LEAN_LAYOUT=1 \
+	 -DKUI_NATIVE_SPLIT_CONTROLLER_ISOLATION=1 -DKUI_NATIVE_SPLIT_CONTROLLER_GENERAL=1 \
+	 -DKUI_VMU_NATIVE_CACHED_CODE=1 -DKUI_VMU_NATIVE_PERSISTENT_PROBE=1 -DKUI_NATIVE_DUAL_READERS=1 \
+	 -DKUI_NATIVE_SPLIT_CONTROLLER_PREFETCH=1 -DKUI_NATIVE_COOP_PUMP=1 \
+	 tests/test_toy_burst_aux.c src/loader/native_readahead_aux.c src/core/native_readahead_cache.c \
+	 src/core/retail_cursor.c -o $(BUILD)/test-toy-burst-aux-$(BURST_HOST_MODE)
+	ASAN_OPTIONS=detect_leaks=0 $(BUILD)/test-toy-burst-aux-$(BURST_HOST_MODE)

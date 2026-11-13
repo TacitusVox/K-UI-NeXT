@@ -71,9 +71,18 @@ static uint32_t native_runtime_mode(void) {return KUI_VMU_NATIVE_MODE_NORMAL;}
 static enum kui_loader_sd_result native_persist_storage_init(struct kui_retail_storage *,uint32_t) __attribute__((noipa));
 #define kui_retail_storage_init native_persist_storage_init
 #endif
+#if KUI_NATIVE_TOY_MOVIE_CAPTURE
+static void toy_movie_scan(void);
+#endif
 #define kui_retail_stage_relay kui_native_heap_base_relay
 #include "retail_stage.c"
 #undef kui_retail_stage_relay
+#if KUI_NATIVE_TOY_MOVIE_CAPTURE
+#include "toy_movie_iso_stage.inc"
+#endif
+#if KUI_TOY_SUITE_MODE
+#include "toy_suite_report_stage.inc"
+#endif
 #if KUI_NATIVE_VMU_ONLY
 __asm__(".global __kui_native_vmu_sci_rx_policy_stage\n"
         ".set __kui_native_vmu_sci_rx_policy_stage," KUI_NATIVE_VMU_SCI_RX_POLICY_TEXT "\n");
