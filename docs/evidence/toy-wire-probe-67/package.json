@@ -48,7 +48,49 @@
       }
     }
   ],
-  "console_result": null,
+  "console_result": {
+    "received": "2026-11-13 (America/Chicago)",
+    "provenance": "Owner-pasted chat text, preserved in console-report-pasted.txt without the report's blank padding. Original SD bytes and file name were not supplied; the installed Card Tools names the file 63-N.txt.",
+    "reported_build": "e5fa67e75f73",
+    "card_tools": "09c9a4b686d4 as installed from the Test 66 package; not separately confirmed for this run",
+    "owner_observation": null,
+    "stream": {
+      "state": 3,
+      "error": 0,
+      "timer_channel": 1,
+      "segments": 5222,
+      "tail_blocks_ok": 30,
+      "tail_blocks_bad": 0
+    },
+    "bumper": {
+      "frames": 331,
+      "on_time": 330,
+      "skipped": 0,
+      "exit": "7DC",
+      "span_s": 10.96,
+      "wire_bytes": 9497637,
+      "bytes_per_s": 866000,
+      "bytes_per_s_outside_gd": 939000,
+      "needed_bytes_per_s": 809000,
+      "cuts": 6004,
+      "handler_share_percent": 1.31,
+      "waiting_percent": 43.7
+    },
+    "intro": {
+      "frames": 1968,
+      "on_time": 1966,
+      "skipped": 0,
+      "exit": "7DC",
+      "span_s": 65.4,
+      "wire_bytes": 73401493,
+      "bytes_per_s": 1122000,
+      "bytes_per_s_outside_gd": 1227000,
+      "needed_bytes_per_s": 939000,
+      "cuts": 27783,
+      "handler_share_percent": 1.15,
+      "waiting_percent": 27.4
+    }
+  },
   "checks": {
     "host_model_scenarios_passed": 16,
     "mutations_caught": "25 of 25",

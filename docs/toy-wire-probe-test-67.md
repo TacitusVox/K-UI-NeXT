@@ -1,7 +1,8 @@
 # Toy Commander Test 67: SCI wire probe on the physical GD-ROM
 
-Prepared 2026-11-13 (America/Chicago). Source commit `e5fa67e75f73`. This build
-has passed host and linked checks only. No console result exists yet.
+Prepared 2026-11-13 (America/Chicago). Source commit `e5fa67e75f73`. The owner
+ran it on the console the same day; the result is recorded under
+[Console result](#console-result) below.
 
 ## The question
 
@@ -138,6 +139,77 @@ eight refusals, a foreign channel, an abandoned stream, damaged data and
 complete restoration of every borrowed register. While building it the model
 exposed two defects that were fixed: a stall landing on a segment's last byte
 was treated as a fault, and the first run had no start time for `LATE`.
+
+## Console result
+
+Received 2026-11-13 as text pasted by the owner, preserved in
+`docs/evidence/toy-wire-probe-67/console-report-pasted.txt`. The report names
+build `e5fa67e75f73`. The original SD bytes and file name were not supplied,
+and no remark on how the movies looked came with it.
+
+| | Bumper | Intro |
+| --- | ---: | ---: |
+| Frames submitted / on time / skipped | 331 / 330 / 0 | 1,968 / 1,966 / 0 |
+| Player exit, longest frame gap | `7DC`, 47.3 ms | `7DC`, 59.2 ms |
+| Test 63 for comparison | 331 / 330 / 0, 47.1 ms | 1,968 / 1,966 / 0, 59.3 ms |
+| Window | 10.96 s | 65.40 s |
+| Wire bytes | 9,497,637 | 73,401,493 |
+| Wire rate, whole window | 0.87 MB/s (55% of the limit) | 1.12 MB/s (72%) |
+| Wire rate outside GD-ROM transfers | 0.94 MB/s | 1.23 MB/s |
+| Average the raw image needs | 0.81 MB/s | 0.94 MB/s |
+| Time inside the handler | 1.31% | 1.15% |
+| Handler calls | 1,051 /s, 12.4 us each | 818 /s, 14.1 us each |
+| Overruns | 6,004 | 27,783 |
+| of which after fewer than 128 bytes | 4,935 | 21,218 |
+| Time waiting after short runs | 43.7% | 27.4% |
+| Time an overrun waited for service | 0.39% | 0.31% |
+| Share of the window in GD-ROM transfers | 11.6% | 19.0% |
+
+The stream closed cleanly (`ST 3`, `ERR 0`) after 5,222 segments, about
+85.6 MB. It used TMU1 for waits; TMU2 was not free. The last segment held 30
+SD blocks with a correct CRC16, none bad. The counters agree with each other
+exactly: handler calls equal overruns plus waits plus segment ends in both
+windows.
+
+What this establishes:
+
+- The probe did not disturb playback. Every frame counter matches Test 63.
+- With the decoder at full speed, background reception carried more than the
+  movie's average rate in both windows, at a little over 1% of the CPU in the
+  handler. The SD reader of Test 57 held the CPU for about 60% of its intro
+  window to deliver the same rate.
+- Interrupt level 1 is served promptly; raising it would gain nothing.
+- The wire was always either receiving or deliberately waiting. All the time
+  it did not receive is the wait after short runs.
+- Reception has two regimes within each frame. For most of the frame it runs
+  with an overrun only about every 10 KB (about 100 a second). For the rest,
+  runs last a few dozen bytes and the wait ladder sits at its 1.3 ms limit.
+  About half of all overruns interrupted one 64-byte code region at
+  `0x8c084180`, in both movies.
+- GD-ROM transfers halve reception while they last. `0x8c003180`, the second
+  intro region, is the firmware's GD-ROM code in low RAM. An SD reader has
+  neither.
+
+What it does not establish:
+
+- What the code at `0x8c084180` does. If it is the player waiting for its
+  audio clock, a reader may take that time in the foreground at no cost to
+  the decoder. If it is the player uploading a frame, it may not. The lighter
+  movie spending more of its time there (44% against 27%) points to waiting,
+  but that is an inference from two movies.
+- That the stream keeps up through the intro's densest stretch. Its peak
+  second needs 1.57 MB/s, above the receiver's absolute limit, so the lead
+  has to come from the game's 1 MiB buffer and the loader's arena. The
+  average margin measured here is 20% over the whole window and 31% outside
+  disc transfers.
+- That one lost byte per overrun is always at the logged position. The last
+  segment had no overrun in it, so the block check here proves the stream
+  stayed framed and intact through 33,787 resumes, not each repair. Tests 48
+  to 51 verified in-place resume against the sector checksum.
+- Anything about serving game reads. No data from this stream was used.
+
+The result meets the conditions set above for building a reader on this
+transport. That reader is a separate change with its own baseline.
 
 ## Limits
 
