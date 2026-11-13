@@ -9,6 +9,12 @@
 #include "stage_fast_crc32.h"
 #include "../dreamcast/sci_sd_storage.h"
 #include <string.h>
+#ifndef KUI_TOY_WIRE_PROBE
+#define KUI_TOY_WIRE_PROBE 0
+#endif
+#if KUI_TOY_WIRE_PROBE
+#include "toy_wire_probe.h"
+#endif
 
 struct kui_disc_toy_trace_config kui_disc_toy_config;
 uint32_t kui_disc_toy_gd_active;
@@ -60,7 +66,35 @@ static struct ra_clock clock_read(void) {
     const uint32_t tstr=*(volatile const uint8_t *)0xffd80004u;
     return (struct ra_clock){word(0xffd8000cu),kui_toy_pilot_clock_profile(frqcr,tcor,tcr,tstr)};
 }
+#if KUI_TOY_WIRE_PROBE
+/* The probe follows the same two player boundaries and scene submissions the
+ * frame trace already observes. The trace's own records are unchanged. */
+#define kui_toy_movie_present_boundary toy_present_boundary_traced
+#define kui_toy_movie_scene_observe toy_scene_observe_traced
+void toy_present_boundary_traced(uint32_t ctx,uintptr_t witness,unsigned phase);
+void toy_scene_observe_traced(void);
+#endif
 #include "toy_movie_present_trace.inc"
+#if KUI_TOY_WIRE_PROBE
+#undef kui_toy_movie_present_boundary
+#undef kui_toy_movie_scene_observe
+void kui_toy_movie_present_boundary(uint32_t ctx,uintptr_t witness,unsigned phase) {
+    const unsigned intro=witness==(uintptr_t)&C.movie_exit[1];
+    if(phase==KUI_TOY_MOVIE_EXIT_STARTED) {
+        toy_present_boundary_traced(ctx,witness,phase);
+        if(C.movie_exit[intro].start_status==0x07dbu)kui_wire_movie_start(intro);
+        return;
+    }
+    kui_wire_movie_end(intro);
+    toy_present_boundary_traced(ctx,witness,phase);
+}
+
+void kui_toy_movie_scene_observe(void) {
+    toy_scene_observe_traced();
+    if(toy_present.owner && toy_present.trace->submitted)
+        kui_wire_frame(toy_present.trace==&C.present[1]);
+}
+#endif
 
 static bool movie_request(uint32_t fad, uint32_t count) {
     if(fad<KUI_GD_FAD_OFFSET || !count) return false;
@@ -80,6 +114,9 @@ static bool tracked_token(uint32_t token) {
 }
 
 void kui_disc_toy_gd_before(uint32_t frame[21]) {
+#if KUI_TOY_WIRE_PROBE
+    kui_wire_poll();
+#endif
     if(frame[14]!=0u) return;
     uint32_t function=frame[13], argument=frame[16], output=frame[15];
     gd.fad=0u;
@@ -105,12 +142,18 @@ void kui_disc_toy_gd_after(uint32_t frame[21]) {
     kui_disc_toy_gd_active=0u;
     int32_t result=(int32_t)frame[20];
     if(gd.function==KUI_GD_REQUEST && result>0 && gd.fad) {
+#if KUI_TOY_WIRE_PROBE
+        kui_wire_gd(true);
+#endif
         const struct ra_clock now=clock_read();
         if(!now.valid) {++trace.clock_lost;return;}
         kui_toy_fmv_request(&trace,kui_disc_toy_config.movie,(uint32_t)result,
             gd.fad-KUI_GD_FAD_OFFSET,gd.sectors,now.counter);
     } else if(gd.function==KUI_GD_CHECK && gd.argument &&
               (result==KUI_GD_COMPLETED || result==KUI_GD_FAILED)) {
+#if KUI_TOY_WIRE_PROBE
+        kui_wire_gd(false);
+#endif
         const volatile uint32_t *status=guest_words(gd.output,16u);
         if(!status) return;
         const struct ra_clock now=clock_read();
@@ -168,6 +211,14 @@ static char *report_string(char *at,const char *value) {
 
 static void report_row(char **at,const char *label,const uint32_t *values,unsigned count) {
     if(!at) {
+#if KUI_TOY_WIRE_PROBE
+        /* The screen shows five values a row. */
+        if(count>5u) {
+            retail_display_values(label,values,3u);
+            retail_display_values("...",values+3u,count-3u);
+            return;
+        }
+#endif
         retail_display_values(label,values,count);
         return;
     }
@@ -181,6 +232,7 @@ static void report_row(char **at,const char *label,const uint32_t *values,unsign
     *at=out;
 }
 
+#if !KUI_TOY_WIRE_PROBE
 static void movie_rows(char **at,unsigned i) {
     const struct kui_toy_movie_exit_witness *w=&C.movie_exit[i];
     const struct kui_toy_movie_present_trace *p=&C.present[i];
@@ -206,7 +258,77 @@ static void transport_rows(char **at,unsigned i) {
     report_row(at,i?"I SECT MAXREQ MAXGAP":"B SECT MAXREQ MAXGAP",
         (uint32_t[]){total,longest,gap},3u);
 }
+#endif
 
+#if KUI_TOY_WIRE_PROBE
+/* Every row is a fixed label and fixed-width values, so the report has one
+ * length whatever the run measured. sizeof counts the label's newline. */
+#define WIRE_HEAD "K-UI TOY COMMANDER REPORT\nTEST 67\nBUILD " KUI_BUILD_ID \
+    "\nHEX / 781250 HZ\n"
+#define WIRE_STATE "ST ERR AUX MODE SEGS"
+#define WIRE_FRAMES "SUB CAD MAXGAP SKIP EXIT MAXREQ"
+#define WIRE_BYTES "SPAN BYTES CUTS IRQ ISR"
+#define WIRE_PAUSE "PAUSE TICKS MAX LATE"
+#define WIRE_DISC "GD TICKS BYTES CUTS"
+#define WIRE_RUNS "RUN 16 64 256 1K 4K MORE"
+#define WIRE_CODE "PC N PC N"
+#define WIRE_TAIL "TAIL BYTES OK BAD HOLE"
+#define WIRE_ROW(label,values) (sizeof(label)+9u*(values))
+#define WIRE_MOVIE_ROW(label,values) (2u+WIRE_ROW(label,values))
+_Static_assert(sizeof(WIRE_HEAD)-1u+WIRE_ROW(WIRE_STATE,5u)+
+    2u*(WIRE_MOVIE_ROW(WIRE_FRAMES,6u)+WIRE_MOVIE_ROW(WIRE_BYTES,5u)+WIRE_MOVIE_ROW(WIRE_PAUSE,4u)+
+        WIRE_MOVIE_ROW(WIRE_DISC,3u)+WIRE_MOVIE_ROW(WIRE_RUNS,6u)+WIRE_MOVIE_ROW(WIRE_CODE,4u))+
+    WIRE_ROW(WIRE_TAIL,4u)+12u<=KUI_TOY_REPORT_FILE_BYTES,
+    "Toy wire probe report must fit its two reserved sectors");
+
+static uint32_t longest_request(unsigned i) {
+    uint32_t longest=0u;
+    for(unsigned j=0;j<KUI_TOY_FMV_BINS;j++)
+        if(trace.movie[i].bins[j].longest>longest)longest=trace.movie[i].bins[j].longest;
+    return longest;
+}
+
+/* part 0: frames, 1: wire totals, 2: waits, 3: disc share, 4: run lengths,
+ * 5: code. */
+static void wire_row(char **at,unsigned i,unsigned part) {
+    const struct kui_toy_movie_exit_witness *w=&C.movie_exit[i];
+    const struct kui_toy_movie_present_trace *p=&C.present[i];
+    const struct kui_wire_window *v=&kui_wire_summary()->window[i];
+    switch(part) {
+    case 0u:report_row(at,i?"I " WIRE_FRAMES:"B " WIRE_FRAMES,(uint32_t[]){p->submitted,p->on_time,
+        p->max_gap,w->skipped_frames,w->status,longest_request(i)},6u);break;
+    case 1u:report_row(at,i?"I " WIRE_BYTES:"B " WIRE_BYTES,(uint32_t[]){v->span,v->total.bytes,
+        v->total.cuts,v->total.irqs,v->total.isr_ticks},5u);break;
+    case 2u:report_row(at,i?"I " WIRE_PAUSE:"B " WIRE_PAUSE,(uint32_t[]){v->total.pauses,
+        v->total.paused_ticks,v->pause_max,v->total.late_ticks},4u);break;
+    case 3u:report_row(at,i?"I " WIRE_DISC:"B " WIRE_DISC,(uint32_t[]){v->gd_ticks,v->gd_bytes,
+        v->gd_cuts},3u);break;
+    case 4u:report_row(at,i?"I " WIRE_RUNS:"B " WIRE_RUNS,v->total.run,KUI_WIRE_RUN_BUCKETS);break;
+    default:report_row(at,i?"I " WIRE_CODE:"B " WIRE_CODE,(uint32_t[]){v->top_pc[0],v->top_count[0],
+        v->top_pc[1],v->top_count[1]},4u);break;
+    }
+}
+
+static void wire_state_row(char **at) {
+    const struct kui_wire_summary *s=kui_wire_summary();
+    report_row(at,WIRE_STATE,(uint32_t[]){s->state,s->error,s->detail,s->mode,s->segments},5u);
+}
+
+static void wire_tail_rows(char **at) {
+    const struct kui_wire_summary *s=kui_wire_summary();
+    report_row(at,WIRE_TAIL,(uint32_t[]){s->tail_bytes,s->tail_ok,s->tail_bad,s->tail_holed},4u);
+}
+
+static void format_report(void) {
+    memset(report_text,' ',sizeof(report_text));
+    char *at=report_string(report_text,WIRE_HEAD);
+    wire_state_row(&at);
+    for(unsigned i=0;i<2u;i++)
+        for(unsigned part=0;part<6u;part++)wire_row(&at,i,part);
+    wire_tail_rows(&at);
+    memcpy(report_text+sizeof(report_text)-12u,"\nEND REPORT\n",12u);
+}
+#else
 static void format_report(void) {
     memset(report_text,' ',sizeof(report_text));
     char *at=report_string(report_text,"K-UI TOY COMMANDER REPORT\nTEST 63\nBUILD " KUI_BUILD_ID
@@ -219,19 +341,51 @@ static void format_report(void) {
     report_row(&at,"I LAG LIMIT",(uint32_t[]){C.movie_exit[1].lag,C.movie_exit[1].limit},2u);
     memcpy(report_text+sizeof(report_text)-12u,"\nEND REPORT\n",12u);
 }
+#endif
 
 void kui_disc_toy_terminal(void) __attribute__((noreturn));
 void kui_disc_toy_terminal(void) {
     volatile uint32_t *vector=(volatile uint32_t *)KUI_DISC_TOY_TRACE_GD_VECTOR;
     if(*vector==(uint32_t)(uintptr_t)kui_disc_toy_gd_proxy)
         *vector=kui_disc_toy_config.firmware;
+#if KUI_TOY_WIRE_PROBE
+    /* Stop the stream and give the SCI port back before the report uses it. */
+    kui_wire_shutdown();
+#endif
     format_report();
     const char *error=save_report();
     retail_display_restore(&kui_disc_toy_config.display);
     if(!error) {
+#if KUI_TOY_WIRE_PROBE
+        retail_display_line("TOY COMMANDER GD-ROM + SCI WIRE PROBE");
+#else
         retail_display_line("TOY COMMANDER PHYSICAL GD-ROM");
+#endif
         retail_display_line("REPORT SAVED TO SD");
         retail_display_line("POWER OFF AFTER CAPTURE");
+#if KUI_TOY_WIRE_PROBE
+    } else {
+        /* The same rows as the file, at most twelve lines a screen. */
+        unsigned frames=(kui_disc_toy_config.display.regs[8]>>16)>=600u?250u:300u;
+        for(unsigned page=0;;page=page==4u?0u:page+1u) {
+            static const char *const title[5]={"TOY TEST 67 / 1 OF 5 / HEX","TOY TEST 67 / 2 OF 5 / HEX",
+                "TOY TEST 67 / 3 OF 5 / HEX","TOY TEST 67 / 4 OF 5 / HEX","TOY TEST 67 / 5 OF 5 / HEX"};
+            retail_display_line(title[page]);
+            if(!page) {
+                retail_display_line(error);
+                wire_state_row(NULL);
+                wire_tail_rows(NULL);
+            } else {
+                const unsigned movie=(page-1u)>>1;
+                if(page&1u)for(unsigned part=0;part<3u;part++)wire_row(NULL,movie,part);
+                else for(unsigned part=3u;part<6u;part++)wire_row(NULL,movie,part);
+            }
+            retail_display_line("FILM ALL FIVE PAGES");
+            retail_display_pause(frames);
+            retail_display_restore(&kui_disc_toy_config.display);
+        }
+    }
+#else
     } else {
         unsigned frames=(kui_disc_toy_config.display.regs[8]>>16)>=600u?250u:300u;
         for(;;) {
@@ -251,5 +405,6 @@ void kui_disc_toy_terminal(void) {
             retail_display_restore(&kui_disc_toy_config.display);
         }
     }
+#endif
     for(;;) __asm__ volatile("nop");
 }
