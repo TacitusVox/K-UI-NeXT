@@ -1,0 +1,8 @@
+fat32
+Verified mode 47 build e28a31fa0051 payload f2d837f7 and report 0:/reports/toy/47.txt
+Verified mode 47 build e28a31fa0051 payload f2d837f7 and report 0:/reports/toy/47-2.txt
+Exact readers and original executable admitted; independent report sectors verified; retired routes rejected and reports preserved
+exfat-128k
+Verified mode 47 build e28a31fa0051 payload f2d837f7 and report 0:/reports/toy/47.txt
+Verified mode 47 build e28a31fa0051 payload f2d837f7 and report 0:/reports/toy/47-2.txt
+Exact readers and original executable admitted; independent report sectors verified; retired routes rejected and reports preserved

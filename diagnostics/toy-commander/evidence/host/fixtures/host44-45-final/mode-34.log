@@ -1,0 +1,10 @@
+Mode 34: exact 28,672 bytes from 8 independent wake visits and 64 SCI interrupts
+Mode 34: exact 28,672 bytes from 8 independent wake visits and 64 SCI interrupts
+Mode 34: exact 28,672 bytes from 7 independent wake visits and 65 SCI interrupts
+Mode 34: exact 28,672 bytes from 8 independent wake visits and 64 SCI interrupts
+Mode 34: exact 28,672 bytes from 7 independent wake visits and 65 SCI interrupts
+Mode 34: exact 28,672 bytes from 5 independent wake visits and 65 SCI interrupts
+Mode 34: exact 28,672 bytes from 6 independent wake visits and 65 SCI interrupts
+Mode 34: bounded busy, status-only CHECK, masked fallback, cancellation, and independent terminal errors passed
+Mode 34: incomplete receive retries same LBA by checked PIO, then resumes next-LBA DMA
+Mode 34: masked SDK movie polls deliver exact data with IRQs and with continuous IMASK6; other callers retain catch-up

@@ -1,0 +1,17 @@
+Published Test 51 preserved byte-for-byte: 6b0e4d4c1be48aee4dd5633768e48fad73111ba171438d7acebfe3f18d65a945
+fat32
+Verified mode 51 build 942509e6fe6e payload 415280a5 and report 0:/reports/toy/51-2.txt
+Verified mode 51 build 942509e6fe6e payload 415280a5 and report 0:/reports/toy/51-3.txt
+Verified mode 52 build 8e732f81efd0 payload 6a751c28 and report 0:/reports/toy/52.txt
+Verified mode 52 build 8e732f81efd0 payload 6a751c28 and report 0:/reports/toy/52-2.txt
+Verified mode 53 build aa3ee4a8f9a5 payload e2802318 and report 0:/reports/toy/53.txt
+Verified mode 53 build aa3ee4a8f9a5 payload e2802318 and report 0:/reports/toy/53-2.txt
+Exact readers and original executable admitted; independent report sectors verified; retired routes rejected and reports preserved
+exfat-128k
+Verified mode 51 build 942509e6fe6e payload 415280a5 and report 0:/reports/toy/51-2.txt
+Verified mode 51 build 942509e6fe6e payload 415280a5 and report 0:/reports/toy/51-3.txt
+Verified mode 52 build 8e732f81efd0 payload 6a751c28 and report 0:/reports/toy/52.txt
+Verified mode 52 build 8e732f81efd0 payload 6a751c28 and report 0:/reports/toy/52-2.txt
+Verified mode 53 build aa3ee4a8f9a5 payload e2802318 and report 0:/reports/toy/53.txt
+Verified mode 53 build aa3ee4a8f9a5 payload e2802318 and report 0:/reports/toy/53-2.txt
+Exact readers and original executable admitted; independent report sectors verified; retired routes rejected and reports preserved

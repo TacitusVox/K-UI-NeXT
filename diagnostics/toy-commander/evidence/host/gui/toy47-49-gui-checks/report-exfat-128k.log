@@ -1,0 +1,10 @@
+Toy report binding needs a matching reader module
+Toy report file prepared: /reports/toy/49.txt
+Toy report file prepared: /reports/toy/49-2.txt
+Toy report physical readback failed: /reports/toy/49-3.txt block 1
+SD exFAT, 196608 sectors, cluster=131072 bytes
+Volume start=0 (superfloppy)
+Loading /KUI/tools.kui
+Package df1d026a1488 (3130996 bytes)
+Linked tools.kui passed cold SCI boot and empty handoff
+Toy report FAT create/map/preserve and raw proof passed

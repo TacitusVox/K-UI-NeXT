@@ -1,0 +1,10 @@
+Toy report binding needs a matching reader module
+Toy report file prepared: /reports/toy/31.txt
+Toy report file prepared: /reports/toy/31-2.txt
+Toy report physical readback failed: /reports/toy/31-3.txt block 1
+SD FAT32, 196608 sectors, cluster=512 bytes
+Volume start=0 (superfloppy)
+Loading /KUI/tools.kui
+Package 637fbd5621f0 (3131696 bytes)
+Linked tools.kui passed cold SCI boot and empty handoff
+Toy report FAT create/map/preserve and raw proof passed

@@ -1,0 +1,5 @@
+wire: 64 matched cases, instructions 14363–14370 → 9249–9256, 5113–5115 fewer
+pio: 64 matched cases, instructions 9689–9696 → 3967–3974, 5721–5723 fewer
+recovered: 32 matched cases, instructions 14435–24678 → 9320–20585, 4092–5116 fewer
+/workspace/scratch/1b16db76023d/trace-reader/build/toy-table-crc58-final/resident-sci.elf: 200 linked SH-4 foreground/controller suffix cases, 20 controller refusals with no peripheral writes, and two re-arm faults
+512 exact table entries, 2 relocated callbacks, 128 unbound intact checks, and 22 resumed edge cases passed

@@ -1,0 +1,217 @@
+/* SPDX-License-Identifier: GPL-3.0-only */
+#ifndef KUI_SCI_STREAM_H
+#define KUI_SCI_STREAM_H
+#include "sd_reader.h"
+#define KUI_TOY_SUITE_MOVIE_POLL \
+    (KUI_TOY_SUITE_MODE == 33 || KUI_TOY_SUITE_MODE == 34 || KUI_TOY_SUITE_MODE == 35)
+#define KUI_TOY_SUITE_ASYNC_DEMAND (KUI_TOY_SUITE_MODE == 32 || KUI_TOY_SUITE_MOVIE_POLL)
+#if defined(KUI_RETAIL_CE) || KUI_TOY_PILOT_SHARED_SCI || KUI_TOY_PILOT_DATA_SCHEDULE_MODE == 2 || KUI_TOY_SUITE_ASYNC_DEMAND
+#define KUI_SCI_STREAM_TOKEN_SLICED 1
+#else
+#define KUI_SCI_STREAM_TOKEN_SLICED 0
+#endif
+#define KUI_TOY_SUITE_LOW_DEMAND \
+    (KUI_TOY_SUITE_MODE == 3 || KUI_TOY_SUITE_MODE == 4 || KUI_TOY_SUITE_MODE == 7)
+#if (KUI_TOY_SUITE_MODE == 26 || KUI_TOY_SUITE_MODE == 27 || KUI_TOY_SUITE_MODE == 28)
+/* Mode 26's auxiliary owns the large receive. The low SCI callback uses the
+ * DMA marker only to route its ERI to the auxiliary. */
+#define KUI_TOY_SCI_BURST_DMA 6u
+#define KUI_TOY_SCI_BURST_TOKEN 5u
+#endif
+
+/* Game-reader CMD18 streaming over SCI with receive-only DMA on channel 1.
+ * Each block is 513 bytes of DMA; the receiver then takes the second CRC byte
+ * into RDR and stops on the next byte's overrun, so only the card's one-byte
+ * gap is lost. Between blocks: deselect, SCI module reset (MSTP0) and
+ * re-initialization, then reselection, where the card resumes with the next
+ * block's data token. The stream stays open between calls; the card simply
+ * waits while it is not clocked. Two receive areas let one block be checked
+ * while the next one is received. If channel 1 is not idle when a block's
+ * token has arrived, that block is received by programmed transfers instead.
+ *
+ * Every function runs with interrupts masked (a game-service call) or in the
+ * reader's own interrupt handler (SR.BL set); none waits for a DMA except
+ * kui_sci_stream_stop and kui_sci_stream_wait. All card waits are bounded by
+ * byte counts. The bus must be acquired and the card ready at fast speed. */
+#define KUI_SCI_STREAM_AREA_BYTES 544u /* 513 DMA bytes in whole cache lines */
+#define KUI_SCI_STREAM_DMA_STATE 2u
+enum kui_sci_stream_result {
+    KUI_SCI_STREAM_OK, KUI_SCI_STREAM_PENDING,
+    KUI_SCI_STREAM_BUSY,     /* channel 1 or the SCI was taken over: not ours */
+    KUI_SCI_STREAM_COMMAND,  /* CMD18/CMD12 rejected or unanswered */
+    KUI_SCI_STREAM_TOKEN,    /* no data token (wrong byte or wait limit) */
+    KUI_SCI_STREAM_CRC,      /* a received block failed its CRC16 */
+    KUI_SCI_STREAM_OVERRUN,  /* reception stopped before the block's end */
+    KUI_SCI_STREAM_RESET     /* SCI or bus did not return to a known state */
+};
+struct kui_sci_stream_stats {
+#if KUI_NATIVE_GD_DMA_STREAM
+    /* This compact native profile has no SCI counter rows. Keep the
+     * scheduling counter independent; the other names are zero aliases
+     * only, not protocol, retry, CRC, or recovery state. */
+    union {
+        uint32_t blocks,starts,kept,overruns,crc_errors,token_errors;
+        uint32_t foreign,repaired,ahead,deferred;
+    };
+    uint32_t polled;
+#else
+    uint32_t blocks, polled, starts, kept, overruns;
+    uint32_t crc_errors, token_errors, foreign;
+    uint32_t repaired; /* overruns resumed in place, the lost byte rebuilt from the CRC */
+    /* ahead: repaired blocks whose last byte was the card's gap or next
+     * token: the resumed reception ran a byte ahead (fetched again). */
+    uint32_t ahead;
+    uint32_t deferred; /* of those repaired, resumed by a later fetch (interrupt) */
+#endif
+#ifdef KUI_RETAIL_CE
+    /* Incomplete receptions, including repair attempts, by DMA bytes still
+     * remaining: 0, 1..128, 129..384, 385 or more. These are not timings. */
+    uint32_t incomplete[4];
+#if KUI_CE_SCI_SLOW_AFTER_OVERRUN
+    /* This trial reuses the two late-snapshot words: DMA receptions at the
+     * slower clock that completed, and that overran. */
+    uint32_t slow_blocks, slow_overruns;
+#else
+    /* Read-only snapshots after the existing stop/handoff, not at the
+     * instant of failure; correlation alone does not establish contention. */
+    uint32_t incomplete_ch2_active, incomplete_dmaor_bad;
+#endif
+#endif
+#if KUI_SCI_STREAM_TOKEN_SLICED && !KUI_TOY_SUITE_ASYNC_DEMAND
+    uint32_t token_bytes, token_max; /* all search bytes, including token/error */
+    uint32_t stops; /* CMD12 attempts */
+    uint32_t token_yields; /* token search paused at an entry's byte budget */
+#endif
+};
+/* Engine state, placed by the resident (sci_stream.c owns it otherwise). */
+struct kui_sci_stream_state {
+    const struct kui_loader_sd *card;
+    uint8_t *area[2];
+    /* arrived: 1 + the block last received, ready, while no other reception
+     * has started since (0: none). */
+    uint32_t state, position, fill, ready_lba[2], kept_lba, saved[4], arrived;
+    /* lost: 1 + the index of a byte an overrun lost (0: none); hold: the
+     * receiver still held the byte before it (held), which the channel
+     * never took. */
+#if KUI_TOY_SUITE_ASYNC_DEMAND
+    /* Fresh rereads leave no reconstruction state live. Reuse those bytes
+     * for resumable card framing without changing the vector region ABI. */
+    union { uint16_t lost[2]; uint32_t token_used; };
+    uint8_t ready[2],wire[2],rdr[2];
+    uint8_t token_bounded,token_polled,token_budget,stop_failed;
+    uint8_t kept,sptr;
+#if KUI_TOY_SUITE_MOVIE_POLL
+    uint8_t toy_suite_poll;
+#else
+    uint8_t unrepaired;
+#endif
+    uint8_t toy_suite_active,toy_suite_kick;
+#if KUI_TOY_SUITE_MODE == 34
+    /* One failed physical block, held across bounded card-framing visits. */
+    uint8_t toy_suite_pio_retry;
+#endif
+#else
+    uint16_t lost[2];
+    /* kept: 1 + the area holding the last block taken, or 0. wire: the
+     * area holds bit-reversed DMA bytes rather than programmed-read bytes.
+     * unrepaired: repaired blocks that failed their CRC for an unknown reason
+     * (not a byte ahead); after two the card is taken not to resume
+     * mid-block as expected, and overruns restart. */
+    uint8_t ready[2], wire[2], rdr[2], held[2], hold[2], kept, sptr, unrepaired;
+#if KUI_TOY_SUITE_MODE == 31
+    uint8_t toy_suite_active, toy_suite_rate, toy_suite_retries;
+#elif KUI_TOY_SUITE_LOW_DEMAND
+    /* Existing alignment padding. The masked auxiliary arms only an
+     * admitted movie demand visit and accumulates the wrapping event delta. */
+    uint8_t toy_suite_active;
+    uint16_t toy_suite_events;
+#endif
+#if KUI_SCI_STREAM_TOKEN_SLICED
+    uint8_t token_bounded, token_polled;
+#if KUI_CE_SCI_SLOW_AFTER_OVERRUN
+    /* In the padding byte: bits 0..6, receptions still to run at the
+     * slower clock; bit 7, the DMA reception in flight runs at it. */
+    uint8_t slow;
+#endif
+    uint32_t token_limit, token_used, token_budget;
+#endif
+#endif
+    struct kui_sci_stream_stats stats;
+};
+#if KUI_TOY_SUITE_LOW_DEMAND || KUI_TOY_SUITE_MODE == 31
+_Static_assert(!KUI_SCI_STREAM_TOKEN_SLICED &&
+    offsetof(struct kui_sci_stream_state,stats)==
+    ((offsetof(struct kui_sci_stream_state,unrepaired)+4u)&~3u),
+    "Toy suite demand policy preserves the native stream layout");
+#endif
+/* Adopt the bus (acquired, card ready) and two 32-byte-aligned receive areas
+ * of KUI_SCI_STREAM_AREA_BYTES that nothing else writes. unknown: the card
+ * may still be streaming (after a bus fault), so the first fetch stops it
+ * first. RESET if the SCI is not in the bus's fast synchronous state. */
+enum kui_sci_stream_result kui_sci_stream_open(const struct kui_loader_sd *card,
+    uint8_t *area0, uint8_t *area1, bool unknown);
+/* Start receiving card block lba: continue the open stream when it is at lba,
+ * otherwise stop it (CMD12) and issue CMD18 there. No DMA may be in flight.
+ * token_limit bounds the token search in bytes. The channel raises no
+ * interrupt; a reception ends on the receiver's overrun, which raises the
+ * SCI's ERI wherever its level allows. polled: receive by programmed
+ * transfers (masked, about 0.7 ms, cannot overrun) instead of DMA. OK: the
+ * DMA runs, or the block was received by programmed transfers and is ready. */
+enum kui_sci_stream_result kui_sci_stream_fetch(uint32_t lba, uint32_t token_limit, bool polled);
+/* Whether a DMA is in flight. */
+bool kui_sci_stream_busy(void);
+/* Whether the block last received is lba, arrived and not yet taken (nothing
+ * in flight): the next one may be fetched before it is taken, and goes into
+ * the other area. */
+bool kui_sci_stream_ready(uint32_t lba);
+#if KUI_SCI_STREAM_TOKEN_SLICED
+#if KUI_TOY_SUITE_ASYNC_DEMAND
+#define KUI_SCI_STREAM_TOKEN_SLICE 64u
+#else
+#define KUI_SCI_STREAM_TOKEN_SLICE 256u
+#endif
+/* Once per external service entry, shared by its before/after work. Before
+ * CE's interrupt service is installed, token searches remain unbounded by
+ * this slice (their original total byte limit still applies). */
+void kui_sci_stream_token_budget(bool bounded);
+bool kui_sci_stream_token_pending(void);
+#endif
+#if KUI_CE_SCI_SLOW_AFTER_OVERRUN
+/* A DMA overrun at 12.5 MHz moves the next KUI_SCI_STREAM_SLOW_BLOCKS
+ * receptions to 6.25 MHz (BRR 1), which gives the channel twice as long
+ * to take each byte; an overrun at 6.25 MHz returns to 12.5 MHz. Commands
+ * and token searches always run at 12.5 MHz. Whether the slower clock is
+ * pending: a reader then refetches an overrun block by DMA, not by
+ * programmed transfers. */
+#define KUI_SCI_STREAM_SLOW_BLOCKS 64u
+bool kui_sci_stream_slow_pending(void);
+#endif
+/* If the in-flight block has arrived (or reception stopped), end it and hand
+ * the SCI back: OK (the block is ready: kui_sci_stream_take), PENDING (still
+ * arriving, or resumed after a mid-block overrun) or an error (the next
+ * fetch restarts the stream). interrupt: a mid-block overrun is not resumed
+ * now but left for the next fetch of that block (PENDING, not busy): repairs
+ * resumed from the game reader's interrupt, at the overrun, failed on the
+ * console where those resumed later did not. */
+enum kui_sci_stream_result kui_sci_stream_poll(bool interrupt);
+/* Wait for the in-flight block (bounded; a stalled one ends as OVERRUN). */
+enum kui_sci_stream_result kui_sci_stream_wait(void);
+/* The 512 checked bytes of block lba, or NULL: *result is PENDING (not here)
+ * or CRC (failed; the block must be fetched again). A block whose reception
+ * overran once mid-block was resumed in place: exactly one byte was lost,
+ * and it is rebuilt from the block's CRC16 (a second fault there is still
+ * detected 255 times in 256 and refetched). If its last byte is the card's
+ * gap or next token instead of the second CRC byte, the reception ran a
+ * byte ahead and the block is refetched without a rebuild, which could
+ * otherwise accept it 1 time in 256. A ready block is checked
+ * once. The last block taken stays available, its bytes untouched by any
+ * fetch, until another block is taken (or a block received before it is
+ * taken needs its area): a block shared by two requests is not read twice,
+ * and a caller may fetch the next block before copying. */
+const uint8_t *kui_sci_stream_take(uint32_t lba, enum kui_sci_stream_result *result);
+/* Forget ready and kept blocks. */
+void kui_sci_stream_discard(void);
+/* Wait for any in-flight block, then CMD12: the card is idle. */
+enum kui_sci_stream_result kui_sci_stream_stop(void);
+const struct kui_sci_stream_stats *kui_sci_stream_stats(void);
+#endif

@@ -1,0 +1,11 @@
+Traceback (most recent call last):
+  File "/workspace/scratch/1b16db76023d/toy61-refill-cap-replay.py", line 259, in <module>
+    if __name__ == "__main__":
+        ^^^^^^
+  File "/workspace/scratch/1b16db76023d/toy61-refill-cap-replay.py", line 253, in main
+    guards = guard_matrix(image, aux)
+          ^^^^^^^^^^^^^^^^^^^^
+  File "/workspace/scratch/1b16db76023d/toy61-refill-cap-replay.py", line 236, in hook_abi
+    assert cpu.pc == refill.ENQUEUE and cpu.pr == pr
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError

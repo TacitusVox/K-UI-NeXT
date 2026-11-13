@@ -1,0 +1,226 @@
+SD exFAT, 3145728 sectors, cluster=131072 bytes
+Volume start=0 (superfloppy)
+Retail boot storage: SCI microSD
+Retail image: GDI, session LBA 45000
+Toy movie test 26: SCI burst movie reader, 2352-byte image, CD music and virtual VMU Off
+Loading /KUI/apps/games/retail-toy-test-26.kui
+Package 1e2d51de054a (278956 bytes)
+Retail boot: TOY COMMANDER; product=MK-57020 version=V1.000 region=U
+Retail warning: CD audio playback is unsupported (11 candidate tracks); commands are acknowledged silently, so music using them is absent
+Retail boot: mapping 15 tracks
+Retail map T01: 2352-byte sectors, 1 extents
+Retail map T02: 2352-byte sectors, 1 extents
+Retail map T03: 2352-byte sectors, 1 extents
+Retail map T04: 2352-byte sectors, 1 extents
+Retail map T05: 2352-byte sectors, 1 extents
+Retail map T06: 2352-byte sectors, 1 extents
+Retail map T07: 2352-byte sectors, 1 extents
+Retail map T08: 2352-byte sectors, 1 extents
+Retail map T09: 2352-byte sectors, 1 extents
+Retail map T10: 2352-byte sectors, 1 extents
+Retail map T11: 2352-byte sectors, 1 extents
+Retail map T12: 2352-byte sectors, 1 extents
+Retail map T13: 2352-byte sectors, 1 extents
+Retail map T14: 2352-byte sectors, 1 extents
+Retail map T15: 2352-byte sectors, 1 extents
+Retail boot reader: New background (X) with virtual A2; SDK families are checked at startup
+Native VMU mapping: reading 748444 executable bytes
+Native VMU mapping: validating executable lifetime extent
+Native VMU mapping: checking saved proof
+Native VMU mapping: scanning SDK families
+Native VMU mapping: resolved complete executable proof; live ownership remains checked
+Virtual A2 Off: physical VMUs pass through; the full reader cache remains reserved
+Retail boot: executable CRC32=cdc493b3
+Prepared launch report /KUI/apps/games/last-launch-a.txt sequence=1
+Toy report file prepared: /reports/toy/26.txt
+Retail boot prepared: 15 tracks, 15 extents; IP CRC32=38ba2868, 1GUTH.BIN=748444 bytes checked at load
+Verified mode 26 build 1e2d51de054a payload dd949789 and report 0:/reports/toy/26.txt
+SD exFAT, 3145728 sectors, cluster=131072 bytes
+Volume start=0 (superfloppy)
+Retail boot storage: SCI microSD
+Retail image: GDI, session LBA 45000
+Toy movie test 27: SCI burst quiet vs live, 2352-byte image, CD music and virtual VMU Off
+Loading /KUI/apps/games/retail-toy-test-27.kui
+Package 3ffbed71e1cc (283492 bytes)
+Retail boot: TOY COMMANDER; product=MK-57020 version=V1.000 region=U
+Retail warning: CD audio playback is unsupported (11 candidate tracks); commands are acknowledged silently, so music using them is absent
+Retail boot: mapping 15 tracks
+Retail map T01: 2352-byte sectors, 1 extents
+Retail map T02: 2352-byte sectors, 1 extents
+Retail map T03: 2352-byte sectors, 1 extents
+Retail map T04: 2352-byte sectors, 1 extents
+Retail map T05: 2352-byte sectors, 1 extents
+Retail map T06: 2352-byte sectors, 1 extents
+Retail map T07: 2352-byte sectors, 1 extents
+Retail map T08: 2352-byte sectors, 1 extents
+Retail map T09: 2352-byte sectors, 1 extents
+Retail map T10: 2352-byte sectors, 1 extents
+Retail map T11: 2352-byte sectors, 1 extents
+Retail map T12: 2352-byte sectors, 1 extents
+Retail map T13: 2352-byte sectors, 1 extents
+Retail map T14: 2352-byte sectors, 1 extents
+Retail map T15: 2352-byte sectors, 1 extents
+Retail boot reader: New background (X) with virtual A2; SDK families are checked at startup
+Native VMU mapping: reading 748444 executable bytes
+Native VMU mapping: validating executable lifetime extent
+Native VMU mapping: checking saved proof
+Native VMU mapping: scanning SDK families
+Native VMU mapping: resolved complete executable proof; live ownership remains checked
+Virtual A2 Off: physical VMUs pass through; the full reader cache remains reserved
+Retail boot: executable CRC32=cdc493b3
+Prepared launch report /KUI/apps/games/last-launch-b.txt sequence=2
+Toy report file prepared: /reports/toy/27.txt
+Retail boot prepared: 15 tracks, 15 extents; IP CRC32=38ba2868, 1GUTH.BIN=748444 bytes checked at load
+Verified mode 27 build 3ffbed71e1cc payload acd4b97d and report 0:/reports/toy/27.txt
+SD exFAT, 3145728 sectors, cluster=131072 bytes
+Volume start=0 (superfloppy)
+Retail boot storage: SCI microSD
+Retail image: GDI, session LBA 45000
+Toy movie test 28: SCI burst speed recovery, 2352-byte image, CD music and virtual VMU Off
+Loading /KUI/apps/games/retail-toy-test-28.kui
+Package 1adeb5c2b65c (283844 bytes)
+Retail boot: TOY COMMANDER; product=MK-57020 version=V1.000 region=U
+Retail warning: CD audio playback is unsupported (11 candidate tracks); commands are acknowledged silently, so music using them is absent
+Retail boot: mapping 15 tracks
+Retail map T01: 2352-byte sectors, 1 extents
+Retail map T02: 2352-byte sectors, 1 extents
+Retail map T03: 2352-byte sectors, 1 extents
+Retail map T04: 2352-byte sectors, 1 extents
+Retail map T05: 2352-byte sectors, 1 extents
+Retail map T06: 2352-byte sectors, 1 extents
+Retail map T07: 2352-byte sectors, 1 extents
+Retail map T08: 2352-byte sectors, 1 extents
+Retail map T09: 2352-byte sectors, 1 extents
+Retail map T10: 2352-byte sectors, 1 extents
+Retail map T11: 2352-byte sectors, 1 extents
+Retail map T12: 2352-byte sectors, 1 extents
+Retail map T13: 2352-byte sectors, 1 extents
+Retail map T14: 2352-byte sectors, 1 extents
+Retail map T15: 2352-byte sectors, 1 extents
+Retail boot reader: New background (X) with virtual A2; SDK families are checked at startup
+Native VMU mapping: reading 748444 executable bytes
+Native VMU mapping: validating executable lifetime extent
+Native VMU mapping: checking saved proof
+Native VMU mapping: scanning SDK families
+Native VMU mapping: resolved complete executable proof; live ownership remains checked
+Virtual A2 Off: physical VMUs pass through; the full reader cache remains reserved
+Retail boot: executable CRC32=cdc493b3
+Prepared launch report /KUI/apps/games/last-launch-a.txt sequence=3
+Toy report file prepared: /reports/toy/28.txt
+Retail boot prepared: 15 tracks, 15 extents; IP CRC32=38ba2868, 1GUTH.BIN=748444 bytes checked at load
+Verified mode 28 build 1adeb5c2b65c payload 503900b7 and report 0:/reports/toy/28.txt
+SD exFAT, 3145728 sectors, cluster=131072 bytes
+Volume start=0 (superfloppy)
+Retail boot storage: SCI microSD
+Retail image: GDI, session LBA 45000
+Toy movie test 29: SCI movie trace, 2352-byte image, CD music and virtual VMU Off
+Loading /KUI/apps/games/retail-toy-test-29.kui
+Package 3336f9682d6e (285092 bytes)
+Retail boot: TOY COMMANDER; product=MK-57020 version=V1.000 region=U
+Retail warning: CD audio playback is unsupported (11 candidate tracks); commands are acknowledged silently, so music using them is absent
+Retail boot: mapping 15 tracks
+Retail map T01: 2352-byte sectors, 1 extents
+Retail map T02: 2352-byte sectors, 1 extents
+Retail map T03: 2352-byte sectors, 1 extents
+Retail map T04: 2352-byte sectors, 1 extents
+Retail map T05: 2352-byte sectors, 1 extents
+Retail map T06: 2352-byte sectors, 1 extents
+Retail map T07: 2352-byte sectors, 1 extents
+Retail map T08: 2352-byte sectors, 1 extents
+Retail map T09: 2352-byte sectors, 1 extents
+Retail map T10: 2352-byte sectors, 1 extents
+Retail map T11: 2352-byte sectors, 1 extents
+Retail map T12: 2352-byte sectors, 1 extents
+Retail map T13: 2352-byte sectors, 1 extents
+Retail map T14: 2352-byte sectors, 1 extents
+Retail map T15: 2352-byte sectors, 1 extents
+Retail boot reader: New background (X) with virtual A2; SDK families are checked at startup
+Native VMU mapping: reading 748444 executable bytes
+Native VMU mapping: validating executable lifetime extent
+Native VMU mapping: checking saved proof
+Native VMU mapping: scanning SDK families
+Native VMU mapping: resolved complete executable proof; live ownership remains checked
+Virtual A2 Off: physical VMUs pass through; the full reader cache remains reserved
+Retail boot: executable CRC32=cdc493b3
+Prepared launch report /KUI/apps/games/last-launch-b.txt sequence=4
+Toy report file prepared: /reports/toy/29.txt
+Retail boot prepared: 15 tracks, 15 extents; IP CRC32=38ba2868, 1GUTH.BIN=748444 bytes checked at load
+Verified mode 29 build 3336f9682d6e payload 5077773a and report 0:/reports/toy/29.txt
+SD exFAT, 3145728 sectors, cluster=131072 bytes
+Volume start=0 (superfloppy)
+Retail boot storage: SCI microSD
+Retail image: GDI, session LBA 45000
+Toy movie test 31: SCI checked refill, 2352-byte image, CD music and virtual VMU Off
+Loading /KUI/apps/games/retail-toy-test-31.kui
+Package 54b12486a48a (278520 bytes)
+Retail boot: TOY COMMANDER; product=MK-57020 version=V1.000 region=U
+Retail warning: CD audio playback is unsupported (11 candidate tracks); commands are acknowledged silently, so music using them is absent
+Retail boot: mapping 15 tracks
+Retail map T01: 2352-byte sectors, 1 extents
+Retail map T02: 2352-byte sectors, 1 extents
+Retail map T03: 2352-byte sectors, 1 extents
+Retail map T04: 2352-byte sectors, 1 extents
+Retail map T05: 2352-byte sectors, 1 extents
+Retail map T06: 2352-byte sectors, 1 extents
+Retail map T07: 2352-byte sectors, 1 extents
+Retail map T08: 2352-byte sectors, 1 extents
+Retail map T09: 2352-byte sectors, 1 extents
+Retail map T10: 2352-byte sectors, 1 extents
+Retail map T11: 2352-byte sectors, 1 extents
+Retail map T12: 2352-byte sectors, 1 extents
+Retail map T13: 2352-byte sectors, 1 extents
+Retail map T14: 2352-byte sectors, 1 extents
+Retail map T15: 2352-byte sectors, 1 extents
+Retail boot reader: New background (X) with virtual A2; SDK families are checked at startup
+Native VMU mapping: reading 748444 executable bytes
+Native VMU mapping: validating executable lifetime extent
+Native VMU mapping: checking saved proof
+Native VMU mapping: scanning SDK families
+Native VMU mapping: resolved complete executable proof; live ownership remains checked
+Virtual A2 Off: physical VMUs pass through; the full reader cache remains reserved
+Retail boot: executable CRC32=cdc493b3
+Prepared launch report /KUI/apps/games/last-launch-a.txt sequence=5
+Toy report file prepared: /reports/toy/31.txt
+Retail boot prepared: 15 tracks, 15 extents; IP CRC32=38ba2868, 1GUTH.BIN=748444 bytes checked at load
+Verified mode 31 build 54b12486a48a payload 99c65d51 and report 0:/reports/toy/31.txt
+SD exFAT, 3145728 sectors, cluster=131072 bytes
+Volume start=0 (superfloppy)
+Retail boot storage: SCI microSD
+Retail image: GDI, session LBA 45000
+Toy movie test 32: SCI async demand, 2352-byte image, CD music and virtual VMU Off
+Loading /KUI/apps/games/retail-toy-test-32.kui
+Package f3aaa6ea60b0 (274660 bytes)
+Retail boot: TOY COMMANDER; product=MK-57020 version=V1.000 region=U
+Retail warning: CD audio playback is unsupported (11 candidate tracks); commands are acknowledged silently, so music using them is absent
+Retail boot: mapping 15 tracks
+Retail map T01: 2352-byte sectors, 1 extents
+Retail map T02: 2352-byte sectors, 1 extents
+Retail map T03: 2352-byte sectors, 1 extents
+Retail map T04: 2352-byte sectors, 1 extents
+Retail map T05: 2352-byte sectors, 1 extents
+Retail map T06: 2352-byte sectors, 1 extents
+Retail map T07: 2352-byte sectors, 1 extents
+Retail map T08: 2352-byte sectors, 1 extents
+Retail map T09: 2352-byte sectors, 1 extents
+Retail map T10: 2352-byte sectors, 1 extents
+Retail map T11: 2352-byte sectors, 1 extents
+Retail map T12: 2352-byte sectors, 1 extents
+Retail map T13: 2352-byte sectors, 1 extents
+Retail map T14: 2352-byte sectors, 1 extents
+Retail map T15: 2352-byte sectors, 1 extents
+Retail boot reader: New background (X) with virtual A2; SDK families are checked at startup
+Native VMU mapping: reading 748444 executable bytes
+Native VMU mapping: validating executable lifetime extent
+Native VMU mapping: checking saved proof
+Native VMU mapping: scanning SDK families
+Native VMU mapping: resolved complete executable proof; live ownership remains checked
+Virtual A2 Off: physical VMUs pass through; the full reader cache remains reserved
+Retail boot: executable CRC32=cdc493b3
+Prepared launch report /KUI/apps/games/last-launch-b.txt sequence=6
+Toy report file prepared: /reports/toy/32.txt
+Retail boot prepared: 15 tracks, 15 extents; IP CRC32=38ba2868, 1GUTH.BIN=748444 bytes checked at load
+Verified mode 32 build f3aaa6ea60b0 payload 09145154 and report 0:/reports/toy/32.txt
+SD exFAT, 3145728 sectors, cluster=131072 bytes
+Volume start=0 (superfloppy)
+Toy report file prepared: /reports/toy/30.txt
+Production Games path admitted exact linked module, verified original startup, and bound report seed

@@ -1,0 +1,117 @@
+SD exFAT, 196608 sectors, cluster=131072 bytes
+Volume start=0 (superfloppy)
+SD exFAT, 196608 sectors, cluster=131072 bytes
+Volume start=0 (superfloppy)
+Loading /KUI/apps/disc/native-toy-trace.kui
+Package 381c6c8ee270 (28192 bytes)
+Physical disc: DATA track 3 FAD 45150..201900; excluded gap 150
+Physical disc: DATA track 5 FAD 377572..549300; excluded gap 0
+Physical disc: leadout approach FAD 549150..549300 uses single-sector PIO; full extents retained
+Physical disc: reading IP header (paired raw PIO)
+Physical disc: IP header raw run FAD 45150 count 1 did not verify; reducing to single-sector PIO
+Physical disc: raw single attempt 2 at FAD 45150: raw sector EDC mismatch
+Physical disc: raw single attempt 3 at FAD 45150: raw sector EDC mismatch
+Physical disc: trying firmware Mode1 2048-byte repeated reads at FAD 45150; raw acquisition did not verify; external raw EDC unavailable on this path
+Physical disc: using repeated cooked sectors for this preparation; metadata and staged hashes remain checked
+Physical disc: reading ISO descriptors (paired cooked PIO)
+Physical disc: reading IP.BIN verification (paired cooked PIO)
+Physical disc: reading boot executable verification (paired cooked PIO)
+Physical disc: TOY COMMANDER; product MK-57020; region U; 1GUTH.BIN
+Physical disc: session DATA bounds FAD 45150..549300; boot FAD 548784; 748444 bytes
+Physical disc: full IP CRC32 38ba2868; exact executable CRC32 cdc493b3
+Physical disc acquisition: raw single requests=2; paired cooked sectors=385
+Physical disc: boot executable verification: Could not bind the Toy Commander movie index; use the matching trace module.
+SD exFAT, 196608 sectors, cluster=131072 bytes
+Volume start=0 (superfloppy)
+SD exFAT, 196608 sectors, cluster=131072 bytes
+Volume start=0 (superfloppy)
+Loading /KUI/apps/disc/native-toy-trace.kui
+Package 5034eb26898d (30240 bytes)
+Physical disc: DATA track 3 FAD 45150..201900; excluded gap 150
+Physical disc: DATA track 5 FAD 377572..549300; excluded gap 0
+Physical disc: leadout approach FAD 549150..549300 uses single-sector PIO; full extents retained
+Physical disc: reading IP header (paired raw PIO)
+Physical disc: IP header raw run FAD 45150 count 1 did not verify; reducing to single-sector PIO
+Physical disc: raw single attempt 2 at FAD 45150: raw sector EDC mismatch
+Physical disc: raw single attempt 3 at FAD 45150: raw sector EDC mismatch
+Physical disc: trying firmware Mode1 2048-byte repeated reads at FAD 45150; raw acquisition did not verify; external raw EDC unavailable on this path
+Physical disc: using repeated cooked sectors for this preparation; metadata and staged hashes remain checked
+Physical disc: reading ISO descriptors (paired cooked PIO)
+Physical disc: reading IP.BIN verification (paired cooked PIO)
+Physical disc: reading boot executable verification (paired cooked PIO)
+Physical disc: TOY COMMANDER; product MK-57020; region U; 1GUTH.BIN
+Physical disc: session DATA bounds FAD 45150..549300; boot FAD 548784; 748444 bytes
+Physical disc: full IP CRC32 38ba2868; exact executable CRC32 cdc493b3
+Physical disc acquisition: raw single requests=2; paired cooked sectors=385
+Physical disc: reading Toy Commander movie index (paired cooked PIO)
+Toy Commander disc trace: 50HZ_BUMPER_LRTF.AVI LBA 444000 count 700
+Toy Commander disc trace: 60HZ_BUMPER_LRTF.AVI LBA 444000 count 700
+Toy Commander disc trace: 50HZ_INTRO_LRTF.AVI LBA 453000 count 4000
+Physical disc: Toy Commander movie index: Could not bind the Toy Commander movie index; use the matching trace module.
+SD exFAT, 196608 sectors, cluster=131072 bytes
+Volume start=0 (superfloppy)
+Loading /KUI/apps/disc/native-toy-trace.kui
+Package 5034eb26898d (30240 bytes)
+Physical disc: DATA track 3 FAD 45150..201900; excluded gap 150
+Physical disc: DATA track 5 FAD 377572..549300; excluded gap 0
+Physical disc: leadout approach FAD 549150..549300 uses single-sector PIO; full extents retained
+Physical disc: reading IP header (paired raw PIO)
+Physical disc: IP header raw run FAD 45150 count 1 did not verify; reducing to single-sector PIO
+Physical disc: raw single attempt 2 at FAD 45150: raw sector EDC mismatch
+Physical disc: raw single attempt 3 at FAD 45150: raw sector EDC mismatch
+Physical disc: trying firmware Mode1 2048-byte repeated reads at FAD 45150; raw acquisition did not verify; external raw EDC unavailable on this path
+Physical disc: using repeated cooked sectors for this preparation; metadata and staged hashes remain checked
+Physical disc: reading ISO descriptors (paired cooked PIO)
+Physical disc: reading IP.BIN verification (paired cooked PIO)
+Physical disc: reading boot executable verification (paired cooked PIO)
+Physical disc: TOY COMMANDER; product MK-57020; region U; 1GUTH.BIN
+Physical disc: session DATA bounds FAD 45150..549300; boot FAD 548784; 748444 bytes
+Physical disc: full IP CRC32 38ba2868; exact executable CRC32 cdc493b3
+Physical disc acquisition: raw single requests=2; paired cooked sectors=385
+Physical disc: reading Toy Commander movie index (paired cooked PIO)
+Toy Commander disc trace: 50HZ_BUMPER_LRTF.AVI LBA 444000 count 700
+Toy Commander disc trace: 60HZ_BUMPER_LRTF.AVI LBA 444000 count 700
+Toy Commander disc trace: 50HZ_INTRO_LRTF.AVI LBA 453000 count 4000
+Toy Commander disc trace: 60HZ_INTRO_LRTF.AVI LBA 463000 count 4000
+Physical disc: allocating 811452 byte payload for 748444 byte executable
+Physical disc: reading IP.BIN staging (paired cooked PIO)
+Physical disc: reading boot executable staging (paired cooked PIO)
+SD exFAT, 196608 sectors, cluster=131072 bytes
+Volume start=0 (superfloppy)
+Toy report file prepared: /reports/toy/63.txt
+Physical disc: direct native boot prepared; build 5034eb26898d; no VMU/card lookup
+SD exFAT, 196608 sectors, cluster=131072 bytes
+Volume start=0 (superfloppy)
+Loading /KUI/apps/disc/native-toy-trace.kui
+Package 5034eb26898d (30240 bytes)
+Physical disc: DATA track 3 FAD 45150..201900; excluded gap 150
+Physical disc: DATA track 5 FAD 377572..549300; excluded gap 0
+Physical disc: leadout approach FAD 549150..549300 uses single-sector PIO; full extents retained
+Physical disc: reading IP header (paired raw PIO)
+Physical disc: IP header raw run FAD 45150 count 1 did not verify; reducing to single-sector PIO
+Physical disc: raw single attempt 2 at FAD 45150: raw sector EDC mismatch
+Physical disc: raw single attempt 3 at FAD 45150: raw sector EDC mismatch
+Physical disc: trying firmware Mode1 2048-byte repeated reads at FAD 45150; raw acquisition did not verify; external raw EDC unavailable on this path
+Physical disc: using repeated cooked sectors for this preparation; metadata and staged hashes remain checked
+Physical disc: reading ISO descriptors (paired cooked PIO)
+Physical disc: reading IP.BIN verification (paired cooked PIO)
+Physical disc: reading boot executable verification (paired cooked PIO)
+Physical disc: TOY COMMANDER; product MK-57020; region U; 1GUTH.BIN
+Physical disc: session DATA bounds FAD 45150..549300; boot FAD 548784; 748444 bytes
+Physical disc: full IP CRC32 38ba2868; exact executable CRC32 cdc493b3
+Physical disc acquisition: raw single requests=2; paired cooked sectors=385
+Physical disc: reading Toy Commander movie index (paired cooked PIO)
+Toy Commander disc trace: 50HZ_BUMPER_LRTF.AVI LBA 444000 count 700
+Toy Commander disc trace: 60HZ_BUMPER_LRTF.AVI LBA 444000 count 700
+Toy Commander disc trace: 50HZ_INTRO_LRTF.AVI LBA 453000 count 4000
+Toy Commander disc trace: 60HZ_INTRO_LRTF.AVI LBA 463000 count 4000
+Physical disc: allocating 811452 byte payload for 748444 byte executable
+Physical disc: reading IP.BIN staging (paired cooked PIO)
+Physical disc: reading boot executable staging (paired cooked PIO)
+SD exFAT, 196608 sectors, cluster=131072 bytes
+Volume start=0 (superfloppy)
+Toy report physical readback failed: /reports/toy/63-2.txt block 1
+Toy disc report unavailable; photograph the report pages
+Physical disc: direct native boot prepared; build 5034eb26898d; no VMU/card lookup
+Production physical trace launch admitted exact optical executable, linked physical module and authored movie index, and bound report seed
+Stale Test30 module refused; corrupt report proof retained photo-only Test63 launch

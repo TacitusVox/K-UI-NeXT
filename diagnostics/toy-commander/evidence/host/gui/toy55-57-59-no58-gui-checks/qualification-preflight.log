@@ -1,0 +1,17 @@
+Published Test 55 preserved byte-for-byte: 9971a596f6d12df8a8e361ed7abe951944342326bca348b1988ed1021220b2b5
+fat32
+Verified mode 55 build fdb2da073851 payload bcacab28 and report 0:/reports/toy/55-2.txt
+Verified mode 55 build fdb2da073851 payload bcacab28 and report 0:/reports/toy/55-3.txt
+Verified mode 57 build 570000000000 payload befabdaa and report 0:/reports/toy/57.txt
+Verified mode 57 build 570000000000 payload befabdaa and report 0:/reports/toy/57-2.txt
+Verified mode 59 build 590000000000 payload 6561f20a and report 0:/reports/toy/59.txt
+Verified mode 59 build 590000000000 payload 6561f20a and report 0:/reports/toy/59-2.txt
+Exact readers and original executable admitted; independent report sectors verified; retired routes rejected and reports preserved
+exfat-128k
+Verified mode 55 build fdb2da073851 payload bcacab28 and report 0:/reports/toy/55-2.txt
+Verified mode 55 build fdb2da073851 payload bcacab28 and report 0:/reports/toy/55-3.txt
+Verified mode 57 build 570000000000 payload befabdaa and report 0:/reports/toy/57.txt
+Verified mode 57 build 570000000000 payload befabdaa and report 0:/reports/toy/57-2.txt
+Verified mode 59 build 590000000000 payload 6561f20a and report 0:/reports/toy/59.txt
+Verified mode 59 build 590000000000 payload 6561f20a and report 0:/reports/toy/59-2.txt
+Exact readers and original executable admitted; independent report sectors verified; retired routes rejected and reports preserved

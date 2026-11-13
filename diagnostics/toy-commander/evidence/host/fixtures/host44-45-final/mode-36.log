@@ -1,0 +1,12 @@
+Mode 36: exact 28,672 bytes from 7 independent wake visits and 65 SCI interrupts
+Mode 36: exact 28,672 bytes from 7 independent wake visits and 65 SCI interrupts
+Mode 36: exact 28,672 bytes from 7 independent wake visits and 65 SCI interrupts
+Mode 36: exact 28,672 bytes from 7 independent wake visits and 65 SCI interrupts
+Mode 36: exact 28,672 bytes from 7 independent wake visits and 65 SCI interrupts
+Mode 36: exact 28,672 bytes from 5 independent wake visits and 65 SCI interrupts
+Mode 36: exact 28,672 bytes from 6 independent wake visits and 65 SCI interrupts
+Mode 36: bounded busy, status-only CHECK, masked fallback, cancellation, and independent terminal errors passed
+Mode 36: incomplete receive retries same LBA by DMA, then resumes next-LBA DMA
+Mode 36: masked SDK movie polls deliver exact data with IRQs and with continuous IMASK6; other callers retain catch-up
+Mode 36: exact 28,672 bytes from 1 independent wake visits and 62 SCI interrupts
+Mode 36: scoped DMAOR priority and one cut reported, owner registers and delivered data intact

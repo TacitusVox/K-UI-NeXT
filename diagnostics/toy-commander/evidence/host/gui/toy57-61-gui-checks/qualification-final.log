@@ -1,0 +1,17 @@
+Published Test 57 preserved byte-for-byte: 61e37d61081389ebbb985159818e72bdd4adf9d21d2ce65288973940b768cd09
+fat32
+Verified mode 57 build e5b30cdd569d payload 7d6762c5 and report 0:/reports/toy/57-2.txt
+Verified mode 57 build e5b30cdd569d payload 7d6762c5 and report 0:/reports/toy/57-3.txt
+Verified mode 61 build e0cc7c13ac3e payload c6be5e8e and report 0:/reports/toy/61.txt
+Verified mode 61 build e0cc7c13ac3e payload c6be5e8e and report 0:/reports/toy/61-2.txt
+Test 61 launch continues with a blank report binding after failed raw proof
+Exact readers and original executable admitted; independent report sectors verified; retired routes rejected and reports preserved
+Rejected SCIF, CDDA request, and modified executable
+exfat-128k
+Verified mode 57 build e5b30cdd569d payload 7d6762c5 and report 0:/reports/toy/57-2.txt
+Verified mode 57 build e5b30cdd569d payload 7d6762c5 and report 0:/reports/toy/57-3.txt
+Verified mode 61 build e0cc7c13ac3e payload c6be5e8e and report 0:/reports/toy/61.txt
+Verified mode 61 build e0cc7c13ac3e payload c6be5e8e and report 0:/reports/toy/61-2.txt
+Test 61 launch continues with a blank report binding after failed raw proof
+Exact readers and original executable admitted; independent report sectors verified; retired routes rejected and reports preserved
+Rejected SCIF, CDDA request, and modified executable

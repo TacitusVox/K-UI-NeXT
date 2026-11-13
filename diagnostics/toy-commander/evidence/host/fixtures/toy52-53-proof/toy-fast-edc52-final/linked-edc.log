@@ -1,0 +1,2 @@
+133 linked Mode 1/2 cases; all 1024 table entries, guard and P1 use verified
+Aligned 2064-byte validation: Test 51 16823 instructions, Test 52 14173 (15.8% fewer); input reads {1: 21, 2: 1032, 4: 0} -> {1: 17, 2: 0, 4: 517}

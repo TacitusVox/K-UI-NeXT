@@ -1,0 +1,89 @@
+{
+  "enabled": true,
+  "object_address": "0x8ce42720",
+  "object_bytes": 65536,
+  "smash_child_callbacks": {
+    "enabled": false,
+    "menu_capture": false,
+    "original_GIN_adoption": false,
+    "child_ids_exercised": [],
+    "frame_after_immutable_base": false,
+    "already_captured_GIN_frame_not_synthesized": false,
+    "arguments_after_immutable_discovery_and_hooks": false,
+    "context_and_ip_p2_spans_exact": false,
+    "original_GIN_context_restore_ABI_boundary": false,
+    "return_publication_after_arguments_and_native_arming": false,
+    "phase_text_continues_normal_owner": false,
+    "photo_terminal_profile": false,
+    "callback_semantics_separately_production_c_tested": true,
+    "callback_callees_modeled_as_abi_adversaries": true
+  },
+  "preheap_exact_low_resume_offset": 164,
+  "installer_sp": "0x8ce52700",
+  "stage_bss_end": "0x8cebbe08",
+  "ordinary_entry_and_relay_stack": "0x8cff0000",
+  "package_stack_unchanged": true,
+  "typed_zero_fill_object": true,
+  "complete_bss_in_live_allocation_guard": true,
+  "actual_allocation_wrapper_cases": 768,
+  "actual_relay_publication_cases": 3840,
+  "actual_low_hook_cases": 576,
+  "mutation_rejections": 0,
+  "selected_low_callback_helpers_executed": true,
+  "selected_callback_reader": 1,
+  "selected_callback_table_bytes": 48,
+  "selected_callback_code_and_immutable_table": {
+    "_native_arm_heap_hook": {
+      "address": "0x8ce01da8",
+      "bytes": 208,
+      "sha256": "33a3b80cd28cd712fe2083845359590cf54a1563630f3366b2d76cfe8c95c819"
+    },
+    "_native_low_bindings": {
+      "address": "0x8ce014f0",
+      "bytes": 64,
+      "sha256": "3491257b14b8cb146591a8d5cb0113624e2f468322eea004b14bb5a65990a274"
+    },
+    "_native_low_bindings_table": {
+      "address": "0x8ce2d38c",
+      "bytes": 48,
+      "sha256": "0e7986e11fdf148f96911ecca2c3814c677362ff717b756f5fff17b798b8b0cb"
+    }
+  },
+  "selected_indexed_load_scalar_truth_cases": 1024,
+  "selected_row_matches_actual_resident_roles": true,
+  "selected_stack_top_mutant_executes_actual_relay_and_helpers": false,
+  "owner_stack_physical_bounds": {
+    "low": "0x0c008100",
+    "high": "0x0c00f400"
+  },
+  "owner_stack_boundary_execution_cases": 1536,
+  "owner_stack_hook_sha256": "51e574ae0d2fa6a910cfa1cdd5ca7b05a42ee77851703b46dbbd9d75aaafa69a",
+  "owner_stack_hook_address": "0x8c007678",
+  "owner_stack_hook_bytes": 244,
+  "rayman_original_startup_sp_rejected_by_old_bound_cases": 3,
+  "inherited_52byte_frame_above_retained_low_stack": true,
+  "cold_sdk_slot_refusal_before_any_arming_cases": 960,
+  "cold_sdk_slot_selected_target": "_native_sdk_coherence_after_image_proof",
+  "shared_cached_discovery_marker": true,
+  "shared_discovery_refusal_before_any_SDK_or_arming_cases": 960,
+  "actual_post_image_proof_finisher_executed": true,
+  "cold_crt_prearm_after_low_arming_before_owner_entry": true,
+  "cold_crt_prearm_result_refusal_cases": 20,
+  "complete_source_owner_refusal_cases": 0,
+  "complete_source_owner_actual_helper_and_memcmp": false,
+  "complete_source_owner_geometry_and_current_SHA_bound": false,
+  "prefix_complete_source_SHA_has_separate_core_execution_proof": false,
+  "full_source_verified_before_program_extent": true,
+  "normal_and_shortened_extent_arming_routes": true,
+  "runtime_modes": [
+    0,
+    2,
+    4,
+    5,
+    6
+  ],
+  "control_preserves_original_frame_and_allocator": false,
+  "initializer_preserves_original_stack_and_sr": true,
+  "private_stack_before_allocation_or_worker_writes": true,
+  "departed_relay_stack_clobber_preserves_caller": true
+}
