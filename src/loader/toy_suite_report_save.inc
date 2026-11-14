@@ -130,7 +130,13 @@ static void toy_report_wire(char **at,const char *end,const struct kui_native_ra
     toy_report_short(at,end,"W FILL BYTES MOST REF BAD DECL",
         (uint32_t[]){w->filled,w->filled_bytes,w->most_lost,w->refused,w->check_bad,w->declined},6u);
     toy_report_short(at,end,"W STOP C J S F X",w->stops,KUI_TOY_WIRE_STOPS);
-#if KUI_TOY_WIRE_WORDS
+#if KUI_TOY_WIRE_PACE
+    toy_report_short(at,end,"U SEEN WORK DUE",
+        (uint32_t[]){w->updates,w->update_work,w->update_due},3u);
+    /* The low reader's own rows gave way to the course above. */
+    (void)sd;
+}
+#elif KUI_TOY_WIRE_WORDS
     toy_report_short(at,end,"F END HELD TWICE",
         (uint32_t[]){w->n.frame_end,w->n.frame_held,w->n.frame_twice},3u);
     /* The low reader's own rows gave way to the course above. */
@@ -252,7 +258,7 @@ static void toy_report_format(char *text,const struct kui_native_ra_public *ra,
     toy_report_string(&at,"K-UI TOY COMMANDER REPORT\nTEST ");
 #if KUI_TOY_WIRE_STREAM
     /* Card Tools starts this reader from its Test 66 entry. */
-    test=KUI_TOY_WIRE_TICK?69u:KUI_TOY_WIRE_WORDS?71u:KUI_TOY_WIRE_CACHED?70u:68u;
+    test=KUI_TOY_WIRE_TICK?69u:KUI_TOY_WIRE_PACE?72u:KUI_TOY_WIRE_WORDS?71u:KUI_TOY_WIRE_CACHED?70u:68u;
 #endif
     if(test>=10u)*at++=(char)('0'+test/10u);
     *at++=(char)('0'+test%10u);

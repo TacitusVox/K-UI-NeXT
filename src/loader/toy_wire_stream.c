@@ -298,7 +298,7 @@ static bool wire_account(struct kui_wire_stream *w, uint32_t count, uint32_t sta
     const uint32_t at = w->seg_begin + w->seg_len - count, held = status & RDRF ? 1u : 0u;
     if(held) w->ring[at & MASK] = tail;
     const uint32_t lost = at + held;
-#if KUI_TOY_WIRE_WORDS
+#if KUI_TOY_WIRE_WORDS && !KUI_TOY_WIRE_PACE
     {
         const uint32_t entry = w->hole_put & HOLE_MASK;
         if(held) w->held[entry >> 5] |= UINT32_C(1) << (entry & 31u);
@@ -354,6 +354,14 @@ bool kui_wire_tick(struct kui_wire_stream *w, uint32_t ticks) {
     timer_arm(w, ticks);
     ++w->n->ticks;
     return true;
+}
+#endif
+
+#if KUI_TOY_WIRE_PACE
+bool kui_wire_overdue(const struct kui_wire_stream *w) {
+    if(w->state == KUI_WIRE_RUN) return (rd8(SSR) & ORER) != 0u;
+    if(w->state == KUI_WIRE_WAIT) return !w->mode || (rd16(w->timer_reg + 8u) & 0x0100u) != 0u;
+    return false;
 }
 #endif
 
@@ -665,7 +673,7 @@ static bool wire_gap_like(const struct kui_wire_stream *w, uint32_t at) {
     return value == IDLE_WIRE || value == TOKEN_WIRE;
 }
 
-#if KUI_TOY_WIRE_MEASURE
+#if KUI_TOY_WIRE_MEASURE && !KUI_TOY_WIRE_PACE
 /* Keep what lay around the byte at `at` that is neither idle nor a token. */
 static void wire_frame_note(struct kui_wire_stream *w, uint32_t at, uint32_t landed) {
     struct kui_wire_counters *n = w->n;
@@ -770,7 +778,7 @@ enum kui_wire_parse kui_wire_next(struct kui_wire_stream *w, struct kui_wire_blo
                 w->alternative = 0;
                 ++w->n->gap_token;
             } else {
-#if KUI_TOY_WIRE_MEASURE
+#if KUI_TOY_WIRE_MEASURE && !KUI_TOY_WIRE_PACE
                 wire_frame_note(w, at, landed);
 #endif
                 return wire_refuse(w, KUI_WIRE_LOST_FRAME);
@@ -816,7 +824,7 @@ enum kui_wire_parse kui_wire_next(struct kui_wire_stream *w, struct kui_wire_blo
         }
         if(w->alternative) ++w->n->gap_idle;
         ++w->n->blocks;
-#if KUI_TOY_WIRE_MEASURE
+#if KUI_TOY_WIRE_MEASURE && !KUI_TOY_WIRE_PACE
         ++w->handed;
         w->last_kind = rebuilt ? 2u : lost_data || lost_crc ? 3u : 1u;
         w->gap_begin = end;

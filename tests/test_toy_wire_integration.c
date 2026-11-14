@@ -25,6 +25,9 @@
 enum { RING_BYTES = 32768u, FIRST = MOVIE_LBA, REQUEST = 13u, WINDOW_END = 45291u };
 void kui_toy_wire_timer_callback(uint32_t event);
 void kui_toy_movie_present_boundary(uint32_t ctx, uintptr_t witness, unsigned phase);
+void kui_toy_movie_ahead_update(uint32_t ctx);
+#define PLAYER UINT32_C(0x8c00dc90)
+static unsigned long gate_visits;
 
 /* ---- what the stream needs beyond the shared model ---- */
 static struct {
@@ -96,6 +99,7 @@ uint32_t kui_native_readahead_aux_visit(uint32_t event, uint32_t arg,
     static unsigned depth;
     CHECK(!depth);
     ++depth;
+    ++gate_visits;
     const uint32_t sr = hw.sr;
     hw.sr |= UINT32_C(0x100000f0);
     const uint32_t result = kui_native_readahead_aux_dispatch(event, arg, r, reserved);
@@ -194,7 +198,7 @@ static void open_movie(unsigned extent_blocks, bool scattered, bool with_parity)
     fixture_movie_started(KUI_TOY_MOVIE_EXIT_STARTED, 0x07dbu);
     /* The player has started the second movie: its presentation clock runs
      * from here, and with it the report's course of that movie. */
-    kui_toy_movie_present_boundary(UINT32_C(0x8c00dc90),
+    kui_toy_movie_present_boundary(PLAYER,
         (uintptr_t)&kui_native_readahead_aux_context.movie_exit[1], KUI_TOY_MOVIE_EXIT_STARTED);
     /* The intro's quiet opening phase is over: the window may serve. */
     kui_native_readahead_aux_context.onset[1].quiet_ctx = UINT32_MAX;
@@ -494,6 +498,120 @@ static void course_pieces(void) {
 }
 #endif
 
+/* The player's update calls. While a movie plays the game calls the
+ * player's update about 2,500 times a second, between and during its
+ * frames, and the hook passes the calls on to the reader. Test 71 passed
+ * every one on; Test 72 passes on those the reader has work for and
+ * otherwise one in four milliseconds. What the game is served must not
+ * change, and its data must still be ready when it asks. */
+static void updating(uint32_t mean, unsigned dense) {
+    open_movie(2000u, false, true);
+    stall_mean = mean; stall_dense = dense;
+    const struct kui_toy_wire_report *w = report();
+    const uint32_t *trace = kui_native_readahead_aux_context.diagnostics.stage_result[KUI_NATIVE_RA_STAGE_NONE];
+    reader_pace(70u);
+    m.delay = 100000u;
+    run_owed = 0u;
+    unsigned long calls = 0;
+    /* Before the window opens an update visit has nothing to do. */
+    const unsigned long gate = gate_visits;
+    for(unsigned i = 0; i < 50u; ++i, ++calls) kui_toy_movie_ahead_update(PLAYER);
+    CHECK(!trace[4]);
+#if KUI_TOY_WIRE_PACE
+    CHECK(gate_visits == gate);
+#else
+    CHECK(gate_visits == gate + 50u);
+#endif
+    uint32_t lba = FIRST;
+    read_request(lba, REQUEST, 0u);
+    lba += REQUEST;
+    unsigned requests = 0, ready = 0;
+    const unsigned long first_gate = gate_visits;
+    const unsigned long first_calls = calls;
+    while(lba + REQUEST <= WINDOW_END) {
+        for(unsigned moment = 0u; moment < 25u; ++moment) {
+            /* Three update calls to a moment of 1.3 ms. */
+            for(unsigned i = 0; i < 3u; ++i, ++calls) {
+                kui_toy_movie_ahead_update(PLAYER);
+                invariants();
+            }
+            (void)hardware_at(2048u);
+        }
+        if(kui_native_readahead_aux_context.movie_ahead.variant &&
+           kui_native_readahead_aux_context.movie_ahead.first == lba &&
+           kui_native_readahead_aux_context.movie_ahead.verified - lba >= REQUEST) ++ready;
+        read_request(lba, REQUEST, 0u);
+        ++requests;
+        lba += REQUEST;
+    }
+    reader_pace(0u);
+    m.delay = 0u;
+    CHECK(kui_native_readahead_aux_context.stats.hit_requests == requests + 1u);
+    CHECK(!w->first_error && !w->declined && !w->stops[KUI_TOY_WIRE_STOP_FAULT]);
+    visits_accounted();
+    const unsigned long passed = gate_visits - first_gate, made = calls - first_calls;
+#if KUI_TOY_WIRE_PACE
+    CHECK(w->updates == calls && w->update_due);
+    /* Far fewer visits than calls, and still the frame's data is ready
+     * unless streams had to be started again. */
+    CHECK((w->update_work + w->update_due) * 4u <= made);
+    if(!dense && ready + 2u * (w->n.starts - 1u) < requests)
+        fprintf(stderr, "updating %u/%u: ready %u of %u, work %u due %u starts %u fulls %u\n", (unsigned)mean, dense,
+            ready, requests, (unsigned)w->update_work, (unsigned)w->update_due, (unsigned)w->n.starts, (unsigned)w->n.fulls);
+    if(!dense) CHECK(ready + 2u * (w->n.starts - 1u) >= requests);
+    /* On a quiet bus the ring fills between interrupt visits: those are
+     * the calls passed on for work. */
+    if(!mean) CHECK(w->update_work);
+    printf("  update calls, stall every ~%u bytes, %u%% busy phases: %lu calls, %u passed on for work and %u as due; "
+           "all visits %lu; data ready for %u of %u frames when asked; fulls %u, streams %u\n",
+        (unsigned)mean, dense, calls, (unsigned)w->update_work, (unsigned)w->update_due, passed, ready, requests,
+        (unsigned)w->n.fulls, (unsigned)w->n.starts);
+#else
+    /* Every update call with a window is a visit. */
+    CHECK(passed >= made);
+    printf("  update calls, stall every ~%u bytes, %u%% busy phases: %lu calls, each one a visit; all visits %lu; "
+           "data ready for %u of %u frames when asked; fulls %u, streams %u\n",
+        (unsigned)mean, dense, calls, passed, ready, requests, (unsigned)w->n.fulls, (unsigned)w->n.starts);
+#endif
+}
+
+#if KUI_TOY_WIRE_PACE
+/* An overrun whose interrupt does not come (held off by the game, or its
+ * level taken by the SDK) is answered by the next update call, whatever
+ * the spacing says. */
+static void overdue(void) {
+    open_movie(2000u, false, true);
+    const struct kui_toy_wire_report *w = report();
+    read_request(FIRST, REQUEST, 3u);
+    /* Let the window fill and the reader come to rest, then make room. */
+    idle(100000u);
+    read_request(FIRST + REQUEST, REQUEST, 3u);
+    read_request(FIRST + 2u * REQUEST, REQUEST, 3u);
+    CHECK(stream_on());
+    /* A run stays in flight until the wire has brought it; then it
+     * reaches its end and nobody is told. */
+    m.delay = 100000u;
+    for(unsigned n = 0u; n < 100000u && !m.rx; ++n)
+        if(!hardware()) kui_toy_movie_ahead_update(PLAYER);
+    CHECK(m.rx && stream_on());
+    /* While it is arriving nothing is overdue: a call so soon after the
+     * last one that read is not passed on. */
+    unsigned long gate = gate_visits;
+    uint32_t work = w->update_work, due = w->update_due;
+    kui_toy_movie_ahead_update(PLAYER);
+    CHECK(gate_visits == gate && w->update_work == work && w->update_due == due);
+    elapse();
+    (void)kui_sci_stream_test_read(SSR, 1u);
+    CHECK((m.ssr & ORER) && m.scr == 0x50u);
+    kui_toy_movie_ahead_update(PLAYER);
+    CHECK(gate_visits == gate + 1u && w->update_work == work + 1u && w->update_due == due);
+    CHECK(!(m.ssr & ORER));
+    m.delay = 0u;
+    invariants();
+    printf("  an overrun whose interrupt does not come: answered by the next update call\n");
+}
+#endif
+
 /* A whole block arrives damaged without a lost byte: its CRC16 stops the
  * stream, the low reader seeks again and the game still gets the image. */
 static void damaged_block(void) {
@@ -613,7 +731,7 @@ int main(void) {
     }
     /* Test 66's own chunk classification is untouched by the switch. */
     movie_chunk_classification();
-    printf("Test %u reader, real low reader + auxiliary + stream on the card model:\n", KUI_TOY_WIRE_TICK ? 69u : KUI_TOY_WIRE_WORDS ? 71u : KUI_TOY_WIRE_CACHED ? 70u : 68u);
+    printf("Test %u reader, real low reader + auxiliary + stream on the card model:\n", KUI_TOY_WIRE_TICK ? 69u : KUI_TOY_WIRE_PACE ? 72u : KUI_TOY_WIRE_WORDS ? 71u : KUI_TOY_WIRE_CACHED ? 70u : 68u);
     steady(2000u, false, 0u, 0u, 3u);
     steady(2000u, false, 0u, 0u, 0u);
     steady(2000u, false, 6000u, 0u, 3u);
@@ -645,11 +763,17 @@ int main(void) {
 #if KUI_TOY_WIRE_WORDS
     course_pieces();
 #endif
+    updating(0u, 0u);
+    updating(6000u, 0u);
+    updating(1500u, 20u);
+#if KUI_TOY_WIRE_PACE
+    overdue();
+#endif
     damaged_block();
     no_parity();
     other_read();
     ended_in_interrupt();
     degraded();
-    printf("PASS Test %u reader integration: %u checks\n", KUI_TOY_WIRE_TICK ? 69u : KUI_TOY_WIRE_WORDS ? 71u : KUI_TOY_WIRE_CACHED ? 70u : 68u, checks);
+    printf("PASS Test %u reader integration: %u checks\n", KUI_TOY_WIRE_TICK ? 69u : KUI_TOY_WIRE_PACE ? 72u : KUI_TOY_WIRE_WORDS ? 71u : KUI_TOY_WIRE_CACHED ? 70u : 68u, checks);
     return 0;
 }

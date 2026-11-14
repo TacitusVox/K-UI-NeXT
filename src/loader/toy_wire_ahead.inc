@@ -41,6 +41,10 @@ struct toy_wire_keep {
     uint32_t restarting, restart_start; /* a stream was given up at this clock value */
     uint32_t wait_token, wait_start;    /* a request waits for the window since then */
 #endif
+#if KUI_TOY_WIRE_PACE
+    uint32_t update_tick;               /* clock value of the last call of the game's that read */
+    uint32_t clock_good;                /* the clock was the expected one then */
+#endif
 };
 #define TOY_WIRE_STATE_OFFSET (AHEAD_SLOTS*KUI_GAME_RAW_BYTES)
 #define TOY_WIRE_KEEP_OFFSET (KUI_RETAIL_IMAGE_MAX_SECTORS*KUI_GAME_RAW_BYTES)
@@ -425,6 +429,45 @@ static void toy_wire_timer_visit(void) {
 }
 #endif
 
+#if KUI_TOY_WIRE_PACE
+/* Test 72. While a movie plays the game calls the player's update some
+ * 2,500 times a second, and the hook passed every one on as a visit: gate,
+ * dispatcher and this reader, 52 microseconds inside the reader alone on
+ * the console, mostly to find nothing to do. That was two thirds of the
+ * reader's time and more than a tenth of the CPU, taken from a player that
+ * was short of exactly that. Requests visit as before. An update call
+ * visits when the reader needs the foreground: a stream to be started, or
+ * one that stands still because the ring is full while the window has
+ * room, or one whose interrupt is due and has not come (held off, or its
+ * level taken by the SDK). Otherwise one call in four milliseconds is
+ * passed on, to read what the interrupt visits left and to notice a window
+ * that is over.
+ *
+ * This runs on the game's stack with interrupts open. Of the reader's
+ * state it only reads; it writes its own three counts and the clock value
+ * of the spacing, which no interrupt visit touches. A visit that
+ * interrupts it can at worst make one call's answer stale. */
+enum { TOY_WIRE_UPDATE_TICKS=3125u };
+static bool toy_wire_update_due(void) {
+    struct toy_wire_keep *k=toy_wire_keep();
+    ++k->report.updates;
+    /* Without a window an update visit does nothing at all. */
+    if(!A.variant)return false;
+    if((toy_wire_room() && (!k->on || toy_wire_stream()->state==KUI_WIRE_FULL)) ||
+       (k->on && kui_wire_overdue(toy_wire_stream()))) {
+        ++k->report.update_work;
+        return true;
+    }
+    const uint32_t now=read_hw(UINT32_C(0xffd8000c),4u);
+    /* A window in error is given up by a visit; a clock that is not the
+     * expected one cannot space the calls. */
+    if(!A.error && k->clock_good && k->update_tick-now<TOY_WIRE_UPDATE_TICKS)return false;
+    k->update_tick=now;
+    ++k->report.update_due;
+    return true;
+}
+#endif
+
 static void toy_ahead_pump(kui_retail_async_region_type *r,bool demand) {
     struct kui_sci_stream_state *stream=&r->shared.stream;
     struct toy_wire_keep *k=toy_wire_keep();
@@ -472,6 +515,13 @@ static void toy_ahead_pump(kui_retail_async_region_type *r,bool demand) {
     if(!A.receiving)A.receive_token=0u;
 #if KUI_TOY_WIRE_MEASURE
     toy_wire_visit_time(k,r->engine.in_irq?KUI_TOY_WIRE_VISIT_SCI:KUI_TOY_WIRE_VISIT_GAME,entered);
+#endif
+#if KUI_TOY_WIRE_PACE
+    /* Any call of the game's that has just read counts for the spacing. */
+    if(!r->engine.in_irq) {
+        k->update_tick=entered.counter;
+        k->clock_good=entered.valid;
+    }
 #endif
 }
 

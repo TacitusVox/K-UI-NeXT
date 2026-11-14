@@ -1026,6 +1026,8 @@ static void toy_suite_finish_gesture(bool held) {
 /* Card Tools starts this reader from its Test 66 entry. */
 #if defined(KUI_TOY_WIRE_TICK) && KUI_TOY_WIRE_TICK
 #define KUI_TOY_TEST_TITLE "TOY TEST 69"
+#elif defined(KUI_TOY_WIRE_PACE) && KUI_TOY_WIRE_PACE
+#define KUI_TOY_TEST_TITLE "TOY TEST 72"
 #elif defined(KUI_TOY_WIRE_WORDS) && KUI_TOY_WIRE_WORDS
 #define KUI_TOY_TEST_TITLE "TOY TEST 71"
 #elif defined(KUI_TOY_WIRE_CACHED) && KUI_TOY_WIRE_CACHED

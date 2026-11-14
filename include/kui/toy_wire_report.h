@@ -31,6 +31,16 @@
 #if KUI_TOY_WIRE_WORDS && !KUI_TOY_WIRE_CACHED
 #error "Test 71 builds on Test 70"
 #endif
+/* Test 72: Test 71 with the player's update calls passed on to the reader
+ * only when it has work or has not been called for a while
+ * (toy_wire_ahead.inc). The notes on unexpected bytes have served and are
+ * left out. */
+#ifndef KUI_TOY_WIRE_PACE
+#define KUI_TOY_WIRE_PACE 0
+#endif
+#if KUI_TOY_WIRE_PACE && !KUI_TOY_WIRE_WORDS
+#error "Test 72 builds on Test 71"
+#endif
 /* The second movie in pieces of 2^22 ticks, 5.4 s: twelve cover it. */
 #define KUI_TOY_WIRE_BUCKETS 12u
 #define KUI_TOY_WIRE_BUCKET_SHIFT 22u
@@ -144,6 +154,12 @@ struct kui_toy_wire_report {
     uint16_t course_stops[KUI_TOY_WIRE_BUCKETS];
     uint32_t course_wait[KUI_TOY_WIRE_BUCKETS], course_interrupt[KUI_TOY_WIRE_BUCKETS];
     uint32_t course_game[KUI_TOY_WIRE_BUCKETS];
+#endif
+#if KUI_TOY_WIRE_PACE
+    /* The player's update calls while a movie plays: all of them, those
+     * passed on because the reader had work only the foreground can do,
+     * and those passed on because none had been for a while. */
+    uint32_t updates, update_work, update_due;
 #endif
 #else
     uint32_t handler_ticks, handler_calls, handler_max; /* SCI interrupt visits while streaming */

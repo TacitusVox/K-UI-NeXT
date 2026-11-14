@@ -483,7 +483,11 @@ extern uint32_t kui_native_readahead_aux_visit(uint32_t,uint32_t,
     kui_retail_async_region_type *,uint32_t);
 
 void kui_toy_movie_ahead_update(uint32_t ctx) {
-    if(C.initialized && toy_present.owner==ctx)
+    if(C.initialized && toy_present.owner==ctx
+#if KUI_TOY_WIRE_STREAM && KUI_TOY_WIRE_PACE
+       && toy_wire_update_due()
+#endif
+       )
         (void)kui_native_readahead_aux_visit(KUI_NATIVE_RA_MOVIE_AHEAD,ctx,C.config.region,0u);
 }
 #endif

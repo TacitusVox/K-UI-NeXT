@@ -32,8 +32,10 @@ AHEAD = "src/loader/toy_movie_ahead.inc"
 TICK = os.environ.get("TOY_WIRE_TICK", "0")
 CACHED = os.environ.get("TOY_WIRE_CACHED", "0" if TICK == "1" else "1")
 WORDS = os.environ.get("TOY_WIRE_WORDS", CACHED)
-SWITCHES = [f"TOY_WIRE_TICK={TICK}", f"TOY_WIRE_CACHED={CACHED}", f"TOY_WIRE_WORDS={WORDS}"]
-DEFINES = [f"-DKUI_TOY_WIRE_TICK={TICK}", f"-DKUI_TOY_WIRE_CACHED={CACHED}", f"-DKUI_TOY_WIRE_WORDS={WORDS}"]
+PACE = os.environ.get("TOY_WIRE_PACE", WORDS)
+SWITCHES = [f"TOY_WIRE_TICK={TICK}", f"TOY_WIRE_CACHED={CACHED}", f"TOY_WIRE_WORDS={WORDS}", f"TOY_WIRE_PACE={PACE}"]
+DEFINES = [f"-DKUI_TOY_WIRE_TICK={TICK}", f"-DKUI_TOY_WIRE_CACHED={CACHED}", f"-DKUI_TOY_WIRE_WORDS={WORDS}",
+           f"-DKUI_TOY_WIRE_PACE={PACE}"]
 MUTATIONS = [
  (STREAM, "resume one byte early", "    w->head = lost + 1u;\n", "    w->head = lost;\n"),
  (STREAM, "resume one byte late", "    w->head = lost + 1u;\n", "    w->head = lost + 2u;\n"),
@@ -105,6 +107,23 @@ WORDS_MUTATIONS = [
  (GLUE, "interrupt and game time swapped in the course", "(who==KUI_TOY_WIRE_VISIT_GAME?k->report.course_game:k->report.course_interrupt)", "(who!=KUI_TOY_WIRE_VISIT_GAME?k->report.course_game:k->report.course_interrupt)"),
  (GLUE, "restarts missing from the course", "        if(piece>=0)++k->report.course_stops[piece];\n", ""),
 ]
+# Test 72 leaves the notes on unexpected bytes out of the build: their
+# mutations go with them.
+NOTES = {"note taken of the byte behind", "note's gap not counted from the block's end",
+         "register byte not marked in the log", "repeated byte looked for one position off"}
+# What only Test 72 has: the player's update calls held back.
+PACE_MUTATIONS = [
+ (GLUE, "update calls never held back", "    if(!A.error && k->clock_good && k->update_tick-now<TOY_WIRE_UPDATE_TICKS)return false;", "    if(false)return false;"),
+ (GLUE, "update calls visit without a window", "    if(!A.variant)return false;", "    if(!A.variant)return true;"),
+ (GLUE, "a ring that stands full does not call for the foreground", "    if((toy_wire_room() && (!k->on || toy_wire_stream()->state==KUI_WIRE_FULL)) ||", "    if((toy_wire_room() && !k->on) ||"),
+ (GLUE, "the clock is never taken as good", "        k->clock_good=entered.valid;", "        k->clock_good=0u;"),
+ (GLUE, "an overrun left unanswered does not call for the foreground", "       (k->on && kui_wire_overdue(toy_wire_stream()))) {", "       false) {"),
+ (STREAM, "an unanswered overrun is not overdue", "    if(w->state == KUI_WIRE_RUN) return (rd8(SSR) & ORER) != 0u;", "    if(w->state == KUI_WIRE_RUN) return false;"),
+ (STREAM, "a wait whose timer ran out is not overdue", "    if(w->state == KUI_WIRE_WAIT) return !w->mode || (rd16(w->timer_reg + 8u) & 0x0100u) != 0u;", "    if(w->state == KUI_WIRE_WAIT) return !w->mode;"),
+ (STREAM, "a wait without a timer is not overdue", "    if(w->state == KUI_WIRE_WAIT) return !w->mode || (rd16(w->timer_reg + 8u) & 0x0100u) != 0u;", "    if(w->state == KUI_WIRE_WAIT) return w->mode && (rd16(w->timer_reg + 8u) & 0x0100u) != 0u;"),
+ (GLUE, "update calls not counted", "    ++k->report.updates;\n", ""),
+ (GLUE, "due calls not counted", "    ++k->report.update_due;\n", ""),
+]
 if WORDS == "1":
     MUTATIONS += WORDS_MUTATIONS
 if TICK == "1" or CACHED == "1":
@@ -113,6 +132,8 @@ if TICK == "1":
     MUTATIONS += TICK_MUTATIONS
 if CACHED == "1":
     MUTATIONS += CACHED_MUTATIONS
+if PACE == "1":
+    MUTATIONS = [m for m in MUTATIONS if m[1] not in NOTES] + PACE_MUTATIONS
 
 
 def run(cmd, cwd, timeout):

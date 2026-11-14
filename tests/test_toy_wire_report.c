@@ -46,7 +46,13 @@ static const struct kui_toy_wire_report *toy_wire_report_block(void) { return &w
 #include "toy_suite_report_save.inc"
 
 #if KUI_TOY_WIRE_WORDS
+#if KUI_TOY_WIRE_PACE
+#define TEST_NUMBER "72"
+#define LAST_ROW "U SEEN WORK DUE"
+#else
 #define TEST_NUMBER "71"
+#define LAST_ROW "F END HELD TWICE"
+#endif
 /* Test 71's rows: Test 70's down to the requests' waits, the second
  * movie's course, the stream. */
 static const char *const labels[] = {
@@ -57,7 +63,7 @@ static const char *const labels[] = {
     "P BUDGET RT RMAX", "TF", "TD", "TW", "TI", "TG", "TX",
     "W START SEG CUT WAIT FULL", "W BYTES WTICK TMR ERR DET", "W BLK FIX UNFIX HOLED NOCRC SEEK",
     "W GAPI GAPT BADCRC FRAME AMBIG", "W FILL BYTES MOST REF BAD DECL",
-    "W STOP C J S F X", "F END HELD TWICE",
+    "W STOP C J S F X", LAST_ROW,
 };
 enum { LABELS = sizeof(labels) / sizeof(labels[0]), ESSENTIAL = 16 };
 #elif KUI_TOY_WIRE_MEASURE
@@ -183,6 +189,9 @@ int main(int argc, char **argv) {
     }
     wire.n.frame_end = 0x80; wire.n.frame_held = 0x7c; wire.n.frame_twice = 0x79;
 #endif
+#if KUI_TOY_WIRE_PACE
+    wire.updates = 0x2d500; wire.update_work = 0x1200; wire.update_due = 0x4a00;
+#endif
     /* Both movies with the reader at Test 68's measured cost, most of its
      * interrupt time now behind the timer; the console's count of streams
      * that could not be followed, and two of them noted. */
@@ -242,7 +251,11 @@ int main(int argc, char **argv) {
     assert(strstr(text, "TI\n24252627 28292A2B 2C2D2E2F\n"));
     assert(strstr(text, "TG\nC0CFFFF FFFFFFFF FFFFFF0C\n"));
     assert(strstr(text, "W STOP C J S F X\n3 4 5 6 7\n"));
+#if KUI_TOY_WIRE_PACE
+    assert(strstr(text, "U SEEN WORK DUE\n2D500 1200 4A00\n"));
+#else
     assert(strstr(text, "F END HELD TWICE\n80 7C 79\n"));
+#endif
 #elif KUI_TOY_WIRE_MEASURE
     /* Everything fits at a full run's values. */
     assert(essential_rows == ESSENTIAL && rows == LABELS);

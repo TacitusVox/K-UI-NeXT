@@ -138,6 +138,13 @@ void kui_wire_timer(struct kui_wire_stream *);
  * call was arranged. */
 bool kui_wire_tick(struct kui_wire_stream *, uint32_t ticks);
 #endif
+#if KUI_TOY_WIRE_PACE
+/* Whether the stream waits for an interrupt whose cause is already there:
+ * an overrun not yet answered, a wait whose timer has run out, or a wait
+ * with no timer to end it. Read-only. A caller that sees this is where it
+ * will be answered: the interrupt has been held off or its level taken. */
+bool kui_wire_overdue(const struct kui_wire_stream *);
+#endif
 /* The next block, if all of it has arrived. A negative result means this
  * stream cannot be followed any further and must be stopped. */
 enum kui_wire_parse kui_wire_next(struct kui_wire_stream *, struct kui_wire_block *);

@@ -156,7 +156,7 @@ static bool timer_armed(void) { return w.mode && (hw.tstr & (1u << w.mode)) && (
 
 int main(int argc, char **argv) {
     unsigned long total = 0, restarts = 0, wrong = 0, rewinds[4] = {0};
-    printf("Test %u card stream on the wire model:\n", KUI_TOY_WIRE_TICK ? 69u : KUI_TOY_WIRE_WORDS ? 71u : KUI_TOY_WIRE_CACHED ? 70u : 68u);
+    printf("Test %u card stream on the wire model:\n", KUI_TOY_WIRE_TICK ? 69u : KUI_TOY_WIRE_PACE ? 72u : KUI_TOY_WIRE_WORDS ? 71u : KUI_TOY_WIRE_CACHED ? 70u : 68u);
     for(unsigned run = 0; run < (argc > 1 ? (unsigned)atoi(argv[1]) : 12u); ++run) {
         seed = 77u + run * 1000u;
         memset(&hw, 0, sizeof hw); hw.dmaor = 0x8201u; hw.sar = 0x11; hw.dar = 0x22; hw.count = 0x33;
@@ -180,11 +180,24 @@ int main(int argc, char **argv) {
         while(expect < BLOCKS / 4u) {
             pump(1u + rnd() % 3000u);
             if(rnd() % 3u || (hw.ssr & 0x20)) kui_wire_service(&w);
+#if KUI_TOY_WIRE_PACE
+            /* Overdue is exactly: an overrun not yet answered, a wait whose
+             * timer has run out, or a wait without a timer. */
+            if(w.state == KUI_WIRE_RUN) {
+                const bool was = (hw.ssr & 0x20u) != 0u, overdue = kui_wire_overdue(&w);
+                assert((!was || overdue) && (!overdue || (hw.ssr & 0x20u)));
+            } else if(w.state == KUI_WIRE_WAIT) {
+                assert(kui_wire_overdue(&w) == (!w.mode || (hw.tcr[w.mode] & 0x100u)));
+            } else assert(!kui_wire_overdue(&w));
+#endif
             if(w.state == KUI_WIRE_WAIT && timer_armed() && !(rnd() % 3u)) {
                 /* Some waits end with a caller waiting for a position a few
                  * bytes on: the run is cut to it, also right at the ring's end. */
                 if(run % 3u == 2u) w.want = w.head + 1u + rnd() % 60u;
                 hw.tcr[w.mode] |= 0x100u;
+#if KUI_TOY_WIRE_PACE
+                assert(kui_wire_overdue(&w));
+#endif
                 if(rnd() & 1u) kui_wire_timer(&w); else kui_wire_service(&w);
             }
             if(w.state == KUI_WIRE_FAULT) { fprintf(stderr, "fault %u %x\n", w.error, w.detail); return 1; }
@@ -265,7 +278,7 @@ int main(int argc, char **argv) {
             run, run % 5u == 4u ? 0u : run % 2u ? 1u : 2u, stall_every, stall_percent_dense, n.blocks, n.rebuilt, n.unsolved, n.holed, n.cuts, n.segments, n.waits, n.fulls, n.gap_idle, n.gap_token, n.bad_crc, n.ambiguous);
     }
     assert(!rewinds[1]);
-#if KUI_TOY_WIRE_MEASURE
+#if KUI_TOY_WIRE_MEASURE && !KUI_TOY_WIRE_PACE
     /* A byte between blocks that is neither idle nor the token: the stream
      * cannot be followed, and the report keeps what lay around the byte. */
     for(unsigned trial = 0; trial < 3u; ++trial) {
@@ -314,7 +327,7 @@ int main(int argc, char **argv) {
     stray_block = 0;
     printf("  a byte between blocks that is neither idle nor the token: stream stopped, bytes around it kept\n");
 #endif
-#if KUI_TOY_WIRE_WORDS
+#if KUI_TOY_WIRE_WORDS && !KUI_TOY_WIRE_PACE
     /* A held byte stored twice: the block it lies in has one position too
      * many, the reader finds that block's own last CRC byte where the space
      * behind it should begin, and the report says what it found there. */
@@ -356,6 +369,6 @@ int main(int argc, char **argv) {
     printf("PASS Test %u card stream: %lu blocks checked against the card over %lu overruns; %lu streams restarted "
            "(clean block failing CRC16 %lu, too many lost bytes %lu); %lu uncheckable blocks handed on wrong, "
            "each with lost bytes behind a lost gap byte, left to the sector check\n",
-        KUI_TOY_WIRE_TICK ? 69u : KUI_TOY_WIRE_WORDS ? 71u : KUI_TOY_WIRE_CACHED ? 70u : 68u, total, overruns, restarts, rewinds[2], rewinds[3], wrong);
+        KUI_TOY_WIRE_TICK ? 69u : KUI_TOY_WIRE_PACE ? 72u : KUI_TOY_WIRE_WORDS ? 71u : KUI_TOY_WIRE_CACHED ? 70u : 68u, total, overruns, restarts, rewinds[2], rewinds[3], wrong);
     return 0;
 }
