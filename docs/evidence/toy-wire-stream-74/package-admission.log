@@ -1,0 +1,27 @@
+Main module:
+envelope: OK build=e82b31657f69 payload=299556 memory=299556 crc=bc747ef0
+payload CRC32: ok
+layout_codec: ok
+dual descriptor: 1 at 0x34340 lease=0x47000
+session descriptor: 0
+background_module_matches(ASYNC): ok
+toggle capability: 1 at 0x34320
+emulation Off: ok, mode slot at 0x20260 (GUI writes 7 at +16)
+native cache seed: blank slot at 0x328a0
+toy report seed: blank slot at 0x20280
+handoff staging limit 0x112000: ok
+RESULT: admitted by Card Tools' module checks, report seed bound
+
+Second module (TOY_WIRE_MSB=0):
+envelope: OK build=e82b31657f69 payload=299012 memory=299012 crc=3085dc70
+payload CRC32: ok
+layout_codec: ok
+dual descriptor: 1 at 0x34120 lease=0x47000
+session descriptor: 0
+background_module_matches(ASYNC): ok
+toggle capability: 1 at 0x34100
+emulation Off: ok, mode slot at 0x20260 (GUI writes 7 at +16)
+native cache seed: blank slot at 0x32680
+toy report seed: blank slot at 0x20280
+handoff staging limit 0x112000: ok
+RESULT: admitted by Card Tools' module checks, report seed bound

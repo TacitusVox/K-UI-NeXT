@@ -1,0 +1,26 @@
+On source commit e82b31657f69, clean worktree. Each is another suite's own test, run because it compiles or reads
+tests/sci_stream_model.h, which Test 74's base commit extends.
+
+test-sci-stream exit 0: sci stream: ok
+test-sci-stream-ce exit 0: sci stream: ok
+test-sci-stream-ce-slow exit 0: sci stream: ok
+test-sci-stream-ce-fast exit 0: sci stream: ok
+test-retail-async exit 0: retail async reader: 221287 checks passed
+test-retail-async-native-resume exit 0: retail async reader: 221287 checks passed
+test-retail-async-native-bounds exit 0: native background bounded fallback: 10388 checks passed
+test-retail-async-native-hybrid exit 0: native DMA ceiling: 23130 checks passed; original 20/25 catch-up retained
+test-retail-async-ce exit 0: retail async reader (Windows CE): 163659 checks passed
+test-retail-async-ce-slow exit 0: retail async reader (Windows CE): 164229 checks passed
+test-retail-async-ce-fast exit 0: retail async reader (Windows CE): 164229 checks passed
+test-armada-ce-stream-boot exit 0: Armada stream bootstrap/relay handoff: 50248 checks passed
+readahead-aux-host-tests exit 0: native read-ahead auxiliary: 2531408 checks; real cursor bytes, strict visit caps, fresh-PAUSED heartbeat-only
+toy-movie-host-tests exit 0: ASAN_OPTIONS=detect_leaks=0 build/movie-host/test-movie-iso
+test-ce-gd-completion-lifecycle exit 0
+test-sci-stream-quarantine exit 2
+test_smash_native_raw_protocol exit 0
+test_smash_menu_raw_batch exit 0
+
+test-sci-stream-quarantine does not get as far as the wire model. It stops in tests/test_ce_crc16_factoring.py on its
+fingerprint of src/loader/sci_stream.c ("Historical complete SCI source differs"). It stops the same way at Test 73's
+commit e623c2a697d5. Tests 68 to 74 do not change that file or those two tests; the file was last changed by e1104f4,
+the import of the reader source that built Test 66. Not a result of this change, and not repaired here.
