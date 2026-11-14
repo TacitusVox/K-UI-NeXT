@@ -225,6 +225,46 @@ CLEAN_MUTATIONS = [
  (GLUE, "the lighter check not switched off", "    bool light=!lost && !k->loose && !k->light_off && k->head_fad+1u==lba+150u;",
   "    bool light=!lost && !k->loose && k->head_fad+1u==lba+150u;"),
 ]
+# MSB: the bit order asked of the receiver and read from the first token.
+MSB_MUTATIONS = [
+
+ (STREAM, "the bit order left changed for the module reset", "    if(w->asked) wr8(SCMR, 0);\n", ""),
+ (STREAM, "MSB first asked again after the receiver's answer",
+  "    w->asked = w->msb = counters->order != KUI_WIRE_ORDER_LSB && counters->order != KUI_WIRE_ORDER_BACK;",
+  "    w->asked = w->msb = true;"),
+ (STREAM, "the bit not written for a run", "    if(w->msb) wr8(SCMR, SDIR);\n", ""),
+ (STREAM, "wrong polynomial for bytes as sent", "c << 1 ^ 0x1021u", "c << 1 ^ 0x1001u"),
+ (STREAM, "the remainder for bytes as sent not byte-swapped", "            c = (c >> 8 | c << 8) & 0xffffu;\n", ""),
+ (STREAM, "bytes as sent stored reversed all the same", "        w->reverse[i] = (uint8_t)r;",
+  "        w->reverse[i] = (uint8_t)(((i * 0x0802u & 0x22110u) | (i * 0x8020u & 0x88440u)) * 0x10101u >> 16);"),
+ (STREAM, "the order settled with a lost byte ahead of the token",
+  "                if(w->gap_hole || (value != TOKEN_TRUE && value != TOKEN_WIRE)) {",
+  "                if(value != TOKEN_TRUE && value != TOKEN_WIRE) {"),
+ (STREAM, "the question never given up",
+  "                    if(++w->n->undecided >= KUI_WIRE_ASKS) w->n->order = KUI_WIRE_ORDER_LSB;",
+  "                    ++w->n->undecided;"),
+ (STREAM, "a token the old way round not believed",
+  "                    w->n->order = KUI_WIRE_ORDER_LSB;\n                    w->msb = 0u;",
+  "                    w->n->order = KUI_WIRE_ORDER_SEEN;\n                    w->msb = 0u;"),
+ (STREAM, "the old tables not rebuilt for a token the old way round",
+  "                    wire_tables(w, w->reverse);\n", ""),
+ (STREAM, "a byte rebuilt before the order is confirmed", "            && w->n->order != KUI_WIRE_ORDER_SEEN\n", ""),
+ (STREAM, "a first block's failed check does not end the asking",
+  "                w->n->order = KUI_WIRE_ORDER_BACK;", "                (void)0;"),
+ (STREAM, "the order confirmed by a block with lost bytes",
+  "        if(w->n->order == KUI_WIRE_ORDER_SEEN && !lost_data && !lost_crc) w->n->order = KUI_WIRE_ORDER_MSB;",
+  "        if(w->n->order == KUI_WIRE_ORDER_SEEN) w->n->order = KUI_WIRE_ORDER_MSB;"),
+ (STREAM, "bytes as sent: second pair of a word not shifted down", "        index = (uint32_t)remainder ^ word >> 16;",
+  "        index = (uint32_t)remainder ^ word >> 8;"),
+ (STREAM, "bytes as sent: table halves swapped",
+  "        remainder = pair[index & 0xffu] ^ step[index >> 8 & 0xffu];\n        index = (uint32_t)remainder ^ word >> 16;",
+  "        remainder = step[index & 0xffu] ^ pair[index >> 8 & 0xffu];\n        index = (uint32_t)remainder ^ word >> 16;"),
+ (STREAM, "bytes as sent: third byte of a word stored from the second", "        out[2] = (uint8_t)(word >> 16);",
+  "        out[2] = (uint8_t)(word >> 8);"),
+ (STREAM, "bytes as sent: last byte of a word not written", "        out[3] = (uint8_t)(word >> 24);\n", ""),
+ (STREAM, "bytes as sent: sign bits of the table left in the CRC", "    return (uint32_t)remainder & 0xffffu;",
+  "    return (uint32_t)remainder;"),
+]
 # What Test 74 no longer samples or times.
 LEAN_GONE = {"update time counted outside the second movie", "the buffer's free space not the most",
              "the lag not the highest", "a buffer without capacity taken", "more in the buffer than it holds taken",
@@ -246,7 +286,7 @@ if IDLE == "1":
     MUTATIONS = [m for m in MUTATIONS if m[1] not in RESTARTS]
 if LEAN == "1":
     MUTATIONS = [m for m in MUTATIONS if m[1] not in LEAN_GONE] + LEAN_MUTATIONS
-    for part, mutations in (("OPEN", OPEN_MUTATIONS), ("CLEAN", CLEAN_MUTATIONS)):
+    for part, mutations in (("OPEN", OPEN_MUTATIONS), ("CLEAN", CLEAN_MUTATIONS), ("MSB", MSB_MUTATIONS)):
         # A part left out of the build under test is left out here too.
         if os.environ.get(f"TOY_WIRE_{part}", "1") == "1":
             MUTATIONS += mutations

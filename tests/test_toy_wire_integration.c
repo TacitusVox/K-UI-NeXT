@@ -90,10 +90,15 @@ uint32_t kui_wire_test_read(uint32_t address, unsigned width) {
     if(address >= 0x8c00f600u && address < 0x8c00f700u) return wx.slots[(address - 0x8c00f600u) / 4u];
     return kui_sci_stream_test_read(address, width);
 }
+static unsigned long sdir_writes; /* times MSB first was asked of the receiver */
 void kui_wire_test_write(uint32_t address, uint32_t value, unsigned width) {
-    /* The bit order register: written only with the SCI stopped, and only
-     * with zero. */
-    if(address == SCMR) CHECK(!m.scr && !value);
+    /* The bit order: written only with the SCI stopped, only by a build
+     * that asks, and back at zero before the module reset, which is not
+     * relied on to clear it. */
+    if(address == SCMR) {
+        CHECK(!m.scr && (value == 0u || value == 8u) && (KUI_TOY_WIRE_MSB || !value));
+        if(value) ++sdir_writes;
+    }
     if(address == STBCR && (value & 1u)) CHECK(!m.scmr);
     if(address == PDTR) {
         /* The stream moves the card's chip select itself, as the probe did. */
@@ -512,6 +517,18 @@ static void steady(unsigned extent_blocks, bool scattered, uint32_t mean, unsign
     if(!mean && !scattered && !refill_clock_extra_ticks) CHECK(w->light == 274u && w->edc == 16u && w->mends == 81u);
     if(!mean && !scattered) CHECK(w->light > 4u * w->edc && w->mends);
     else if(!mean || mean >= 6000u) CHECK(w->light > (scattered ? 1u : 2u) * w->edc && w->mends);
+#endif
+#if KUI_TOY_WIRE_MSB
+    /* The receiver's answer was read right. With stalls far denser than
+     * any console run the question can go unanswered: four streams in a row
+     * that lose a byte ahead of their first token end the asking, and a
+     * token read MSB first stays unconfirmed while no block arrives whole.
+     * Either way the data is the image's. */
+    if(getenv("WIRE_VERBOSE")) fprintf(stderr, "bit order %u, undecided %u\n", (unsigned)w->n.order, (unsigned)w->n.undecided);
+    if(!sdir_answer) CHECK(w->n.order == KUI_WIRE_ORDER_LSB);
+    else if(!mean || mean >= 1500u) CHECK(w->n.order == KUI_WIRE_ORDER_MSB);
+    else CHECK(w->n.order == KUI_WIRE_ORDER_MSB || (w->n.order == KUI_WIRE_ORDER_SEEN && !w->light) ||
+        (w->n.order == KUI_WIRE_ORDER_LSB && w->n.undecided == 4u));
 #endif
     if(!mean) {
         CHECK(!w->n.cuts && !w->n.waits && !w->refused && !w->check_bad && !w->n.unsolved);
@@ -1263,7 +1280,14 @@ static void other_read(void) {
     /* The movie goes on: a new window, a new stream. */
     read_request(FIRST + REQUEST, REQUEST, 3u);
     read_request(FIRST + 2u * REQUEST, REQUEST, 3u);
-    CHECK(w->n.starts == 2u && kui_native_readahead_aux_context.stats.hit_requests == 3u);
+    /* This run's first stall falls on the first stream's first byte: with
+     * the bit order still to be asked, that stream is given up undecided
+     * and the next one asks again. */
+    CHECK(w->n.lost_frame == (KUI_TOY_WIRE_MSB ? 1u : 0u) && w->n.starts == 2u + w->n.lost_frame);
+    CHECK(kui_native_readahead_aux_context.stats.hit_requests == 3u);
+#if KUI_TOY_WIRE_MSB
+    CHECK(w->n.undecided == 1u && w->n.order == (sdir_answer ? KUI_WIRE_ORDER_MSB : KUI_WIRE_ORDER_LSB));
+#endif
     printf("  another read in the middle of the movie: stream stopped, CMD12 from the foreground, read exact\n");
 }
 
@@ -1443,6 +1467,63 @@ static void window_gone(unsigned what) {
 }
 #endif
 
+#if KUI_TOY_WIRE_MSB
+/* The bit order is asked of the receiver by looking at a stream's first
+ * token. A stream that loses a byte ahead of that token is given up without
+ * an answer, and after four of them the question is: the stream then runs as
+ * Test 73's does, whatever the receiver could have done, and the bit is not
+ * written again. */
+static void order_given_up(void) {
+    open_movie(2000u, false, true);
+    const struct kui_toy_wire_report *w = report();
+    /* Idle bytes between blocks: the byte lost is one of them and the
+     * token itself arrives, behind it. */
+    card.nac = 5u;
+    first_cuts = 5u;
+    uint32_t lba = FIRST;
+    for(unsigned i = 0; i < 4u; ++i, lba += REQUEST) read_request(lba, REQUEST, 3u);
+    /* Four streams given up; the fifth no longer asks, and its lost byte
+     * is one like any other. */
+    if(getenv("WIRE_VERBOSE")) fprintf(stderr, "order given up: first_cuts %u undecided %u order %u lost_frame %u starts %u\n",
+        first_cuts, (unsigned)w->n.undecided, (unsigned)w->n.order, (unsigned)w->n.lost_frame, (unsigned)w->n.starts);
+    CHECK(!first_cuts && w->n.undecided == 4u && w->n.order == KUI_WIRE_ORDER_LSB && w->n.lost_frame == 4u);
+    CHECK(w->n.starts == 5u && stream_on() && !m.scmr);
+    const unsigned long asked = sdir_writes;
+    for(unsigned i = 0; i < 4u; ++i, lba += REQUEST) read_request(lba, REQUEST, 3u);
+    CHECK(sdir_writes == asked && w->n.order == KUI_WIRE_ORDER_LSB && (!KUI_TOY_WIRE_CLEAN || w->light));
+    printf("  four streams in a row that lose a byte ahead of their first token: the bit order is no longer asked, "
+           "data exact\n");
+}
+/* A token that came MSB first says so before any block has passed its
+ * CRC16 that way. Until one has, a single lost byte is not rebuilt from a
+ * CRC16 taken in that order: the block goes on with the byte listed, for
+ * its sector's parity and EDC. Where the token came the old way the order
+ * is known, and the byte is rebuilt as ever. */
+static void order_unconfirmed(void) {
+    open_movie(2000u, false, true);
+    const struct kui_toy_wire_report *w = report();
+    early_cut = true;
+    memset(ram + (OUTPUT - BEGIN), 0xa5, 64u * 2352u + 16u);
+    const uint32_t token = (uint32_t)request(FIRST, REQUEST, OUTPUT);
+    for(unsigned n = 0u; !w->n.blocks; ++n) {
+        CHECK(n < 200000u && R.shared.service.pending && !R.engine.failed);
+        if(!hardware()) game_poll();
+    }
+    /* The first block of the first stream is the one with the lost byte. */
+    CHECK(!early_cut && w->n.starts == 1u && w->n.holed == (sdir_answer ? 1u : 0u) && w->n.rebuilt >= (sdir_answer ? 0u : 1u));
+    for(unsigned n = 0u; R.shared.service.pending; ++n) {
+        CHECK(n < 200000u && !R.engine.failed);
+        if(!hardware()) game_poll();
+    }
+    CHECK(sdk_poll(KUI_GD_CHECK, token, movie_async_poll) == KUI_GD_COMPLETED);
+    compare(FIRST, REQUEST, OUTPUT);
+    CHECK(w->n.order == (sdir_answer ? KUI_WIRE_ORDER_MSB : KUI_WIRE_ORDER_LSB) && !w->check_bad);
+    printf("  a byte lost in the first stream's first block: %s\n", sdir_answer ?
+        "not rebuilt while the bit order was unconfirmed, filled from the sector's parity, data exact" :
+        "rebuilt, the bit order known from the token");
+}
+#endif
+
 /* No free timer, no interrupt route, no free channel. */
 static void degraded(void) {
     open_movie(2000u, false, true);
@@ -1507,6 +1588,12 @@ int main(void) {
     /* Test 66's own chunk classification is untouched by the switch. */
     movie_chunk_classification();
     printf("Test %u reader, real low reader + auxiliary + stream on the card model:\n", KUI_TOY_WIRE_TICK ? 69u : KUI_TOY_WIRE_LEAN ? 74u : KUI_TOY_WIRE_IDLE ? 73u : KUI_TOY_WIRE_PACE ? 72u : KUI_TOY_WIRE_WORDS ? 71u : KUI_TOY_WIRE_CACHED ? 70u : 68u);
+#if KUI_TOY_WIRE_MSB
+    /* Everything twice: with a receiver that ignores the bit order asked
+     * of it, and with one that delivers bytes MSB first. */
+    for(sdir_answer = 0u; sdir_answer < 2u; ++sdir_answer) {
+    printf(" the receiver %s SCSCMR1.SDIR:\n", sdir_answer ? "honours" : "ignores");
+#endif
     steady(2000u, false, 0u, 0u, 3u);
     steady(2000u, false, 0u, 0u, 0u);
     steady(2000u, false, 6000u, 0u, 3u);
@@ -1562,7 +1649,14 @@ int main(void) {
 #if KUI_TOY_WIRE_IDLE
     for(unsigned what = 0; what < GONE_CASES; ++what) window_gone(what);
 #endif
+#if KUI_TOY_WIRE_MSB
+    order_given_up();
+    order_unconfirmed();
+#endif
     degraded();
+#if KUI_TOY_WIRE_MSB
+    }
+#endif
     printf("PASS Test %u reader integration: %u checks\n", KUI_TOY_WIRE_TICK ? 69u : KUI_TOY_WIRE_LEAN ? 74u : KUI_TOY_WIRE_IDLE ? 73u : KUI_TOY_WIRE_PACE ? 72u : KUI_TOY_WIRE_WORDS ? 71u : KUI_TOY_WIRE_CACHED ? 70u : 68u, checks);
     return 0;
 }

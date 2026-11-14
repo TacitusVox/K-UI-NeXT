@@ -144,7 +144,7 @@ void kui_wire_test_write(uint32_t a, uint32_t v, unsigned width) {
     case 0xffe00010u: if((hw.ssr & 0x20) && !(v & 0x20)) stale = true; hw.ssr = (uint8_t)((hw.ssr & (v | ~0xf8u)) | (hw.ssr & 0x04u)); return;
     case 0xffe00018u:
         /* Written only with the SCI stopped, and only zero or SDIR. */
-        assert(!hw.scr && !v);
+        assert(!hw.scr && (v == 0 || v == 8) && (KUI_TOY_WIRE_MSB || !v));
         hw.scmr = (uint8_t)v; return;
     case 0xffe0001cu: hw.sptr = (uint8_t)v; return;
     /* The module reset is not relied on to clear SDIR: it is zero already. */
@@ -174,6 +174,9 @@ int main(int argc, char **argv) {
 #if KUI_TOY_WIRE_CLEAN
     unsigned long kinds[3] = {0};
 #endif
+#if KUI_TOY_WIRE_MSB
+    unsigned long orders[3] = {0}, unsettled = 0;
+#endif
     printf("Test %u card stream on the wire model:\n", KUI_TOY_WIRE_TICK ? 69u : KUI_TOY_WIRE_LEAN ? 74u : KUI_TOY_WIRE_IDLE ? 73u : KUI_TOY_WIRE_PACE ? 72u : KUI_TOY_WIRE_WORDS ? 71u : KUI_TOY_WIRE_CACHED ? 70u : 68u);
     for(unsigned run = 0; run < (argc > 1 ? (unsigned)atoi(argv[1]) : 12u); ++run) {
         seed = 77u + run * 1000u;
@@ -185,6 +188,10 @@ int main(int argc, char **argv) {
         stall_percent_dense = run % 4u == 0 ? 0u : 10u * (run % 7u);
         until_stall = 100u; dense_left = 0;
         uint32_t expect = 1; card_block = 1; card_at = 0;
+#if KUI_TOY_WIRE_MSB
+        unsigned undecided = 0;
+        sdir_answer = run % 3u;
+#endif
         const unsigned long overruns_before = overruns;
         const uint8_t timers_before = hw.tstr;
 #if KUI_TOY_WIRE_TICK
@@ -251,6 +258,12 @@ int main(int argc, char **argv) {
                 if(p == KUI_WIRE_NEED) break;
                 if(p != KUI_WIRE_BLOCK) {
                     /* the caller's rewind: stop, the low reader seeks to the block still wanted */
+#if KUI_TOY_WIRE_MSB
+                    /* A lost byte ahead of the very first token leaves the
+                     * bit order undecided: that stream is given up. */
+                    if(p == KUI_WIRE_LOST_FRAME && n.order == KUI_WIRE_ORDER_TRY) ++undecided;
+                    else
+#endif
                     ++rewinds[-(int)p];
                     assert(kui_wire_stop(&w));
                     assert(hw.scr == 0x30 && hw.smr == 0x80 && !hw.scmr && (hw.pdtr & 0x80) && hw.sar == 0x11 && hw.dar == 0x22 && hw.count == 0x33 && !(hw.chcr & 1u));
@@ -274,6 +287,21 @@ int main(int argc, char **argv) {
                 if(b.kind == KUI_WIRE_REBUILT) { assert(b.rebuilt_at < 512u); ++kinds[2]; }
                 else ++kinds[b.kind == KUI_WIRE_CLEAN];
                 if(b.lost_count) assert(b.kind == KUI_WIRE_LOOSE);
+#endif
+#if KUI_TOY_WIRE_MSB
+                /* Nothing but a block with no lost byte settles the order.
+                 * Before one has, a block is handed on only with lost bytes
+                 * listed, for the sector's check: never as clean or rebuilt.
+                 * With the token-only answer such a block is wrong all
+                 * through, and the sector's check is what refuses it. */
+                if(n.order == KUI_WIRE_ORDER_SEEN) {
+                    assert(sdir_answer && b.lost_count);
+#if KUI_TOY_WIRE_CLEAN
+                    assert(b.kind == KUI_WIRE_LOOSE);
+#endif
+                    if(sdir_answer == 2u) { assert(bad); ++unsettled; ++expect; continue; }
+                } else assert((n.order == KUI_WIRE_ORDER_MSB) == (sdir_answer == 1u) &&
+                    (n.order == KUI_WIRE_ORDER_LSB) == (sdir_answer == 0u));
 #endif
                 if(bad) {
                     /* Only the corner the caller's sector check covers: lost
@@ -304,11 +332,25 @@ int main(int argc, char **argv) {
             if(!stall_every) assert(!again);
         }
 #endif
+#if KUI_TOY_WIRE_MSB
+        /* The console's answer was read right: ignored, honoured, or the
+         * token alone, which the first block's CRC16 exposed once. */
+        assert(n.order == (sdir_answer == 0u ? KUI_WIRE_ORDER_LSB : sdir_answer == 1u ? KUI_WIRE_ORDER_MSB : KUI_WIRE_ORDER_BACK));
+        assert(!hw.scmr && n.lost_frame == undecided && n.undecided == undecided && undecided < 4u);
+        ++orders[sdir_answer];
+#endif
         /* Both spare timers are as the game left them. */
         assert(hw.tstr == timers_before && !(hw.tcr[1] & 0x20u) && !(hw.tcr[2] & 0x20u));
         /* Every overrun the model produced was accounted as a cut or a run's end
          * (the last run of each stream is stopped without being counted). */
         assert(n.cuts + n.segments <= overruns - overruns_before && overruns - overruns_before <= n.cuts + n.segments + n.starts);
+#if KUI_TOY_WIRE_MSB
+        /* Set aside what settling the order cost: the streams given up
+         * undecided, and for the token-only answer the one block that
+         * exposed it. The counts below are then as without the question. */
+        if(sdir_answer == 2u) { assert(n.bad_crc >= 1u && n.starts >= 2u); --n.bad_crc; --n.starts; }
+        n.lost_frame = 0; n.starts -= undecided;
+#endif
         assert(n.blocks >= 15000u - 1u && n.lost_frame == 0u);
         /* Without stalls the only lost bytes are the one behind each run. */
         if(!stall_every) assert(!n.cuts && !n.waits && !n.unsolved && !n.bad_crc && !n.ambiguous && n.starts == 1u &&
@@ -410,6 +452,12 @@ int main(int argc, char **argv) {
     printf("  blocks handed on as clean %lu, rebuilt %lu, left to the sector check %lu: none of the first two kinds had a wrong or missing byte\n",
         kinds[1], kinds[2], kinds[0]);
     assert(kinds[1] && kinds[2] && kinds[0]);
+#endif
+#if KUI_TOY_WIRE_MSB
+    printf("  bit order asked of the receiver: ignored in %lu runs, honoured in %lu, token only in %lu; each read right "
+           "(%lu blocks with lost bytes went to the sector check before a whole block had exposed the token-only answer)\n",
+        orders[0], orders[1], orders[2], unsettled);
+    assert(orders[0] && orders[1] && orders[2]);
 #endif
     printf("PASS Test %u card stream: %lu blocks checked against the card over %lu overruns; %lu streams restarted "
            "(clean block failing CRC16 %lu, too many lost bytes %lu); %lu uncheckable blocks handed on wrong, "

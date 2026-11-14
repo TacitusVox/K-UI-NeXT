@@ -131,6 +131,11 @@ struct kui_wire_stream {
 #if KUI_TOY_WIRE_LEAN
     uint32_t began;        /* how the running run began: 1 at once behind a cut, 2 after a wait, else 0 */
 #endif
+#if KUI_TOY_WIRE_MSB
+    uint32_t asked;        /* this stream has written SDIR: the register is cleared at every handoff */
+    uint32_t msb;          /* the ring's bytes are read as delivered MSB first; SDIR is written for each run */
+    uint32_t token;        /* the data token as the receiver delivers it in that order */
+#endif
     uint32_t hole[KUI_WIRE_HOLES];
     uint16_t lost[KUI_WIRE_BLOCK_LOST];
     _Alignas(4) uint8_t block[512];

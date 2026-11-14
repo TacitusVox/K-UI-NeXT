@@ -57,6 +57,24 @@
 #define NONE UINT32_C(0xffffffff)
 #define IDLE_WIRE 0xffu
 #define TOKEN_WIRE 0x7fu /* 0xfe as the LSB-first receiver delivers it */
+#if KUI_TOY_WIRE_MSB
+/* Test 74. SCSCMR1.SDIR: serial/parallel conversion most significant bit
+ * first. The SH7091's manual describes the bit for the smart card interface;
+ * whether the SCI honours it in clocked synchronous mode is something only
+ * the console can say, so the stream asks and looks at the first token it
+ * receives: 0xfe as sent means it did, 0x7f that it did not. In the first
+ * case no byte needs its bits reversed here; in the second nothing changes
+ * against Test 73 and the bit is not written again. The register is written
+ * with the SCI stopped, at each run's start, and is back at zero before the
+ * SCI is used for a command byte or handed to anyone else. */
+#define SDIR 0x08u
+#define TOKEN_TRUE 0xfeu
+/* Streams that may be given up for an answer before the question is. */
+#define KUI_WIRE_ASKS 4u
+#define TOKEN_OF(w) ((w)->token)
+#else
+#define TOKEN_OF(w) TOKEN_WIRE
+#endif
 #define FRAME 514u       /* a block's data and its two CRC bytes */
 #define WANT_MIN 64u
 /* Every run ends in a lost byte, so none is started for less than a full
@@ -173,6 +191,13 @@ INLINE void wire_select(void) { wr16(PDTR, rd16(PDTR) & (uint16_t)~CS); }
  * after an overrun, and restore the synchronous fast command settings.
  * Zero, or the step that failed. */
 static uint32_t wire_handoff(const struct kui_wire_stream *w, bool overrun) {
+#if KUI_TOY_WIRE_MSB
+    /* The SCI is stopped (every caller has written SCR). Whatever the
+     * module reset below does or does not do to the bit, the checks behind
+     * it see the register as they always have. Also for the stream that
+     * found the bit ignored: it had written it. */
+    if(w->asked) wr8(SCMR, 0);
+#endif
     if(!wire_deselect()) return 1u;
     if(!(rd16(PDTR) & CS)) return 2u;
     if(overrun) {
@@ -207,6 +232,9 @@ INLINE bool wire_start_dma(const struct kui_wire_stream *w, uint32_t index, uint
     wr8(SPTR, 0x83u); /* TxD latched high as GPIO before the transmitter is off */
     if((rd8(SPTR) & 0x8au) != 0x82u) return false;
     wr8(SCR, 0);
+#if KUI_TOY_WIRE_MSB
+    if(w->msb) wr8(SCMR, SDIR);
+#endif
     wr32(CHCR1, 0);
     wr32(SAR1, RDR_PHYSICAL);
     wr32(DAR1, w->ring_physical + index);
@@ -421,13 +449,31 @@ static void wire_tables(struct kui_wire_stream *w, uint8_t *tables) {
     w->crc = (uint16_t *)(void *)(tables + 512u);
     for(unsigned i = 0; i < 256u; ++i) {
         unsigned r = i, c = i;
+#if KUI_TOY_WIRE_MSB
+        if(w->msb) {
+            /* Bytes as the card sent them. CRC16-CCITT as it is defined,
+             * one byte a step: c = (c << 8) ^ T[(c >> 8) ^ byte]. With the
+             * remainder kept byte-swapped that is the very step the
+             * reflected table takes below, c = (c >> 8) ^ T'[(c ^ byte) &
+             * 0xff], for T' the same table byte-swapped: so every loop of
+             * this file runs unchanged on either table, zero means zero in
+             * both, and an entry's high byte still names it (it is the low
+             * byte of T, which takes every value once). */
+            c = i << 8;
+            for(unsigned bit = 0; bit < 8u; ++bit) c = (c & 0x8000u ? c << 1 ^ 0x1021u : c << 1) & 0xffffu;
+            c = (c >> 8 | c << 8) & 0xffffu;
+        } else {
+#endif
         r = (r >> 4 | r << 4) & 0xffu;
         r = ((r & 0xccu) >> 2 | (r & 0x33u) << 2) & 0xffu;
         r = ((r & 0xaau) >> 1 | (r & 0x55u) << 1) & 0xffu;
-        w->reverse[i] = (uint8_t)r;
         /* CRC16-CCITT taken bit-reversed, as the receiver delivers bytes:
          * the remainder of a block and its CRC is zero either way. */
         for(unsigned bit = 0; bit < 8u; ++bit) c = c & 1u ? c >> 1 ^ 0x8408u : c >> 1;
+#if KUI_TOY_WIRE_MSB
+        }
+#endif
+        w->reverse[i] = (uint8_t)r;
         w->crc[i] = (uint16_t)c;
         /* A step's high byte comes from the table alone and names its entry. */
         w->inverse[c >> 8] = (uint8_t)i;
@@ -455,6 +501,12 @@ bool kui_wire_start(struct kui_wire_stream *w, struct kui_wire_counters *counter
     w->sptr = sptr;
     w->backoff = KUI_WIRE_BACKOFF_MIN;
     w->phase = SEEK;
+#if KUI_TOY_WIRE_MSB
+    /* Ask for MSB first until a token has said the receiver does not do it
+     * or a first block has failed that way. */
+    w->asked = w->msb = counters->order != KUI_WIRE_ORDER_LSB && counters->order != KUI_WIRE_ORDER_BACK;
+    w->token = w->msb ? TOKEN_TRUE : TOKEN_WIRE;
+#endif
     const uint8_t status = rd8(SSR);
     if((sptr & 0x0au) || rd8(SCR) != 0x30u || rd8(SMR) != 0x80u || rd8(BRR) != 0 ||
        (status & (RDRF | FLAGS)) || !(rd16(PDTR) & CS) || (rd8(STBCR) & 1u)) {
@@ -577,6 +629,31 @@ wire_words(const struct kui_wire_stream *w, const alias_word *p, uint32_t words,
     return (uint32_t)c & 0xffffu;
 }
 #define WIRE_WORDS 1
+#if KUI_TOY_WIRE_MSB
+/* Test 74. The same for a receiver that delivers bytes as the card sent
+ * them: the CRC16 steps on the other table, and the bytes stored as they
+ * are. The destination is not aligned as the ring is (a block begins
+ * anywhere in the stream), so they are stored a byte at a time. */
+static uint32_t __attribute__((__noinline__, __optimize__("O2")))
+wire_words_true(const struct kui_wire_stream *w, const alias_word *p, uint32_t words, uint8_t *out, uint32_t crc) {
+    const int16_t *const step = (const int16_t *)(const void *)w->crc;
+    const int16_t *const pair = (const int16_t *)(const void *)w->crc2;
+    int32_t remainder = (int32_t)crc;
+    do {
+        const uint32_t word = *p++;
+        uint32_t index = (uint32_t)remainder ^ word;
+        remainder = pair[index & 0xffu] ^ step[index >> 8 & 0xffu];
+        index = (uint32_t)remainder ^ word >> 16;
+        remainder = pair[index & 0xffu] ^ step[index >> 8 & 0xffu];
+        out[0] = (uint8_t)word;
+        out[1] = (uint8_t)(word >> 8);
+        out[2] = (uint8_t)(word >> 16);
+        out[3] = (uint8_t)(word >> 24);
+        out += 4;
+    } while(--words);
+    return (uint32_t)remainder & 0xffffu;
+}
+#endif
 #else
 #define WIRE_WORDS 0
 #endif
@@ -605,7 +682,12 @@ static uint32_t wire_run(const struct kui_wire_stream *w, uint32_t from, uint32_
 #ifdef KUI_WIRE_STREAM_TEST
             const uint32_t before = crc;
 #endif
+#if KUI_TOY_WIRE_MSB
+            crc = w->msb ? wire_words_true(w, (const alias_word *)(const void *)p, words, out, crc) :
+                wire_words(w, (const alias_word *)(const void *)p, words, out, crc);
+#else
             crc = wire_words(w, (const alias_word *)(const void *)p, words, out, crc);
+#endif
 #ifdef KUI_WIRE_STREAM_TEST
             /* Host tests hold every word run against the byte steps. */
             uint32_t check = before;
@@ -681,7 +763,7 @@ static uint32_t wire_block(struct kui_wire_stream *w, uint32_t first, uint32_t *
 static bool wire_gap_like(const struct kui_wire_stream *w, uint32_t at) {
     if(wire_hole(w, at) == at) return true;
     const uint8_t value = w->ring[at & MASK];
-    return value == IDLE_WIRE || value == TOKEN_WIRE;
+    return value == IDLE_WIRE || value == TOKEN_OF(w);
 }
 
 #if KUI_TOY_WIRE_MEASURE && !KUI_TOY_WIRE_PACE
@@ -781,7 +863,30 @@ enum kui_wire_parse kui_wire_next(struct kui_wire_stream *w, struct kui_wire_blo
                 }
                 continue;
             }
-            if(value == TOKEN_WIRE) {
+#if KUI_TOY_WIRE_MSB
+            if(w->n->order == KUI_WIRE_ORDER_TRY) {
+                /* The stream began behind a block's CRC: the first byte
+                 * that is not idle is the token, and its bits say which way
+                 * round the receiver delivers them. A token that came the
+                 * old way means SDIR does nothing here: this stream's bytes
+                 * are read as before, and no later stream asks again. Any
+                 * other byte, or a lost one ahead of it, decides nothing:
+                 * the next stream asks anew. */
+                if(w->gap_hole || (value != TOKEN_TRUE && value != TOKEN_WIRE)) {
+                    /* Not asked for ever: the old order always works. */
+                    if(++w->n->undecided >= KUI_WIRE_ASKS) w->n->order = KUI_WIRE_ORDER_LSB;
+                    return wire_refuse(w, KUI_WIRE_LOST_FRAME);
+                }
+                if(value == TOKEN_TRUE) w->n->order = KUI_WIRE_ORDER_SEEN;
+                else {
+                    w->n->order = KUI_WIRE_ORDER_LSB;
+                    w->msb = 0u;
+                    w->token = TOKEN_WIRE;
+                    wire_tables(w, w->reverse);
+                }
+            }
+#endif
+            if(value == TOKEN_OF(w)) {
                 w->data_at = at + 1u;
                 w->alternative = w->gap_hole;
             } else if(w->gap_hole) {
@@ -815,7 +920,15 @@ enum kui_wire_parse kui_wire_next(struct kui_wire_stream *w, struct kui_wire_blo
         bool accept = true, rebuilt = false;
         if(crc == NONE) accept = false;
         else if(!lost_data && !lost_crc) accept = !crc;
-        else if(lost_data == 1u && !lost_crc) {
+        else if(lost_data == 1u && !lost_crc
+#if KUI_TOY_WIRE_MSB
+            /* Until a block with no lost byte has passed its CRC16 in the
+             * order the token suggested, nothing is rebuilt from a CRC16
+             * taken in that order: such a block goes on with its lost byte
+             * listed, for its sector's parity and EDC. */
+            && w->n->order != KUI_WIRE_ORDER_SEEN
+#endif
+            ) {
             const int value = wire_solve(w, crc, FRAME - 1u - w->lost[0]);
             if(value >= 0) {
                 w->block[w->lost[0]] = w->reverse[value];
@@ -831,8 +944,19 @@ enum kui_wire_parse kui_wire_next(struct kui_wire_stream *w, struct kui_wire_blo
                 ++w->n->gap_token;
                 continue;
             }
+#if KUI_TOY_WIRE_MSB
+            /* A token that looked MSB first, and then a block with no
+             * lost byte fails its CRC16 before any has passed that way: do
+             * not ask again. The caller's rewind starts the next stream the
+             * old way. */
+            if(w->n->order == KUI_WIRE_ORDER_SEEN && crc != NONE && !lost_data && !lost_crc)
+                w->n->order = KUI_WIRE_ORDER_BACK;
+#endif
             return wire_refuse(w, crc == NONE ? KUI_WIRE_AMBIGUOUS : KUI_WIRE_BAD_CRC);
         }
+#if KUI_TOY_WIRE_MSB
+        if(w->n->order == KUI_WIRE_ORDER_SEEN && !lost_data && !lost_crc) w->n->order = KUI_WIRE_ORDER_MSB;
+#endif
 #if KUI_TOY_WIRE_CLEAN
         out->kind = rebuilt ? KUI_WIRE_REBUILT : lost_data || lost_crc ? KUI_WIRE_LOOSE : KUI_WIRE_CLEAN;
         out->rebuilt_at = w->lost[0];
