@@ -710,6 +710,34 @@ static void degraded(void) {
     for(unsigned i = 0; i < 6u; ++i, lba += REQUEST) read_request(lba, REQUEST, 2u);
     const struct kui_toy_wire_report *w = report();
     CHECK(!w->timer_mode && w->n.waits && !timers && !w->first_error);
+#if KUI_TOY_WIRE_PACE
+    /* A wait that no timer ends is over at the next visit, so an update
+     * call that finds one is passed on at once, whatever the spacing. */
+    {
+        /* The stream's state lies behind the window's 62 raw sectors. */
+        const struct kui_wire_stream *s = (const void *)(arena + 62u * 2352u);
+        bool seen = false;
+        for(unsigned n = 0u; n < 12u && !seen; ++n, lba += REQUEST) {
+            read_request(lba, REQUEST, 2u); /* room in the window */
+            for(unsigned k = 0u; k < 4000u && !seen && hardware(); ++k) {
+                if(!stream_on() || s->state != KUI_WIRE_WAIT) continue;
+                CHECK(!s->mode && kui_wire_overdue(s));
+                const unsigned long gate = gate_visits;
+                const uint32_t work = w->update_work, due = w->update_due;
+                /* The run the visit starts stays in flight, so that the
+                 * wait is seen to be over and not followed by another. */
+                m.delay = 100000u;
+                kui_toy_movie_ahead_update(PLAYER);
+                m.delay = 0u;
+                CHECK(gate_visits == gate + 1u && w->update_work == work + 1u && w->update_due == due);
+                CHECK(s->state != KUI_WIRE_WAIT);
+                invariants();
+                seen = true;
+            }
+        }
+        CHECK(seen && !w->timer_mode && !timers && !w->first_error);
+    }
+#endif
 
     open_movie(2000u, false, true);
     m.chcr = 1u; /* the game uses DMA channel 1 */
@@ -718,7 +746,12 @@ static void degraded(void) {
     w = report();
     CHECK(w->declined && !w->n.starts && w->first_error == KUI_WIRE_E_CHANNEL && m.chcr == 1u);
     CHECK(w->seek_blocks >= 3u * REQUEST * 4u && !timers);
+#if KUI_TOY_WIRE_PACE
+    printf("  no free timer: waits end at the next visit, and an update call that finds one is passed on; "
+           "channel 1 taken: programmed reads only; data exact\n");
+#else
     printf("  no free timer: waits end at the next visit; channel 1 taken: programmed reads only; data exact\n");
+#endif
 }
 
 int main(void) {
