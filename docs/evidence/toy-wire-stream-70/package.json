@@ -1,0 +1,76 @@
+{
+  "schema": 1,
+  "test": 70,
+  "prepared": "2026-11-14 01:31 CST (America/Chicago)",
+  "source_commit": "b492f00a5478e526da08fb49fc160b8aff9de6cc",
+  "archive": {
+    "name": "KUI-Toy-Wire-Stream-Test-70-14NOV2026-0131-CST-b492f00.zip",
+    "bytes": 1801717,
+    "sha256": "196a1e9caf2392bcc2824c083bc5c012f003694f091c7f242866c7d8014aaa97",
+    "entries": [
+      "KUI/apps/games/retail-toy-test-66.kui",
+      "KUI/tools.kui",
+      "README.txt",
+      "SHA256SUMS.txt"
+    ]
+  },
+  "files": [
+    {
+      "path": "KUI/apps/games/retail-toy-test-66.kui",
+      "status": "changed: Test 70 reader, replaces the Test 69 module fb625c09dde6 at the path Card Tools loads",
+      "bytes": 298148,
+      "sha256": "7802a1d75e132f61837c7f8062974e297abd727a1233832313c38ab91316d7dd",
+      "module": {
+        "format": 1,
+        "build": "b492f00a5478",
+        "payload_bytes": 298084,
+        "memory_bytes": 298084,
+        "crc32": "3a86e651"
+      }
+    },
+    {
+      "path": "KUI/tools.kui",
+      "status": "unchanged, identical to the Test 66 package",
+      "bytes": 3131480,
+      "sha256": "04b8657aa6a1530b1bdbb002b481853eef656ef0f4da44cd910faab6eab3c800",
+      "module": {
+        "format": 1,
+        "build": "09c9a4b686d4",
+        "payload_bytes": 3131416,
+        "memory_bytes": 7428496,
+        "crc32": "8111e794"
+      }
+    }
+  ],
+  "readme_sha256": "66ea8a18b917b95ebebb20561f1d22bb69647e7abda00879f4e7c26758a97b4e",
+  "baseline": {
+    "test": 68,
+    "build": "806015566fc7",
+    "module_sha256": "ae72c817dbd5606d4e7a7a43814621bbfb8d648642b642be1d21dad41eb5c17a",
+    "reproduced_byte_identical_without_the_switch": true,
+    "console_result": "docs/toy-wire-stream-test-68.md, Console result"
+  },
+  "measurement": {
+    "test": 69,
+    "build": "fb625c09dde6",
+    "console_result": "docs/toy-wire-stream-test-69.md, Console result; docs/evidence/toy-wire-stream-69/console-report-66-3.txt",
+    "note": "regressed on the console; its timer continuation is not part of this build"
+  },
+  "toolchain": {
+    "gcc": "15.2.0",
+    "binutils": "2.45.1",
+    "newlib": "4.6.0.20260123",
+    "kos": "fcfa7d869471591ca1c777543261a7bfea7cb726"
+  },
+  "build": {
+    "switch": "TOY_SUITE_MODE=66 TOY_WIRE_STREAM=1 TOY_WIRE_CACHED=1",
+    "build_id": "b492f00a5478",
+    "source_dirty": false,
+    "reproduced_in": [
+      "clean worktree of the commit",
+      "working tree"
+    ]
+  },
+  "status": "host- and linked-qualified; not console-accepted",
+  "console_result": null
+}
