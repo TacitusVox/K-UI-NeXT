@@ -853,6 +853,9 @@ static bool toy_chunk_pending(const struct kui_toy_movie_range *range) {
 }
 
 #if KUI_TOY_SUITE_MOVIE_TIMING
+/* Test 74 without the hold reads none of the player's buffer objects. */
+#define TOY_CHUNK_OBJECTS (!(KUI_TOY_WIRE_STREAM && KUI_TOY_WIRE_LEAN && KUI_TOY_WIRE_OPEN))
+#if TOY_CHUNK_OBJECTS
 /* Follow only the exact owner's foreground AVI/stream objects in main RAM.
  * P1 and P2 are the two legitimate aliases for these objects. */
 static bool toy_chunk_ram(uint32_t address,uint32_t bytes) {
@@ -902,6 +905,7 @@ static bool toy_chunk_buffer(uint32_t ctx,uint32_t *ring_used,uint32_t *missing)
     }
     return false;
 }
+#endif
 
 #if KUI_TOY_SUITE_DECODE_WINDOW
 enum {
@@ -910,6 +914,7 @@ enum {
     TOY_QUIET_MAX_TICKS=976562u, TOY_QUIET_MIN_USED=384u*1024u
 };
 
+#if !(KUI_TOY_WIRE_STREAM && KUI_TOY_WIRE_OPEN)
 static bool toy_quiet_refuse(struct kui_toy_movie_onset_trace *onset,
     uint32_t frame,uint32_t reason,bool permanent) {
     onset->quiet_reason=reason;
@@ -917,10 +922,22 @@ static bool toy_quiet_refuse(struct kui_toy_movie_onset_trace *onset,
     if(permanent || onset->quiet_defers)onset->quiet_ctx=UINT32_MAX;
     return false;
 }
+#endif
 
 /* Called only at the original enqueue site, after the ordinary AVI parser
  * has processed the prior result. Never touch any guest or service state. */
 bool kui_toy_movie_refill_defer(uint32_t avi,uint32_t file,uint32_t bytes) {
+#if KUI_TOY_WIRE_STREAM && KUI_TOY_WIRE_OPEN
+    /* Test 74: no hold. Test 57 kept the player's refills back for up to a
+     * second at the second movie's start, until its buffer was half empty,
+     * to leave the first frames undisturbed by the low reader's blocking
+     * reads. With the card stream that only costs: the reader then starts
+     * beside a half-empty buffer and has to catch up while the movie plays.
+     * Without the hold it starts beside a full one and only has to keep
+     * pace, as it does in the first movie. */
+    (void)avi;(void)file;(void)bytes;
+    return false;
+#else
     struct kui_toy_movie_onset_trace *onset=&C.onset[1];
     const uint32_t ctx=onset->quiet_ctx;
     if(!ctx || ctx==UINT32_MAX)return false;
@@ -954,6 +971,7 @@ bool kui_toy_movie_refill_defer(uint32_t avi,uint32_t file,uint32_t bytes) {
     if(!onset->quiet_defers)C.suite[4]=frame+1u;
     ++onset->quiet_defers;
     return true;
+#endif
 }
 #if KUI_TOY_SUITE_MODE == 61
 /* Leave the stock AVI parser and enqueue in control of file position and
@@ -1030,7 +1048,7 @@ static void toy_chunk_onset(uint32_t ctx,unsigned movie,bool pending) {
     struct kui_toy_movie_onset_trace *onset=&C.onset[movie];
     const uint32_t outputs=toy_chunk_word(ctx+0xacu);
     const uint32_t frame=toy_chunk_word(ctx+0x1c0u)+1u;
-#if KUI_TOY_SUITE_DECODE_WINDOW
+#if KUI_TOY_SUITE_DECODE_WINDOW && !(KUI_TOY_WIRE_STREAM && KUI_TOY_WIRE_OPEN)
 #if KUI_TOY_SUITE_MODE == 61
     if(movie==0u && !onset->quiet_ctx)onset->quiet_ctx=ctx;
 #endif

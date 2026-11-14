@@ -176,6 +176,13 @@ LEAN_MUTATIONS = [
  (GLUE, "the game's calls not counted", "        ++k->report.gd_calls;\n", ""),
  (AUX, "the game's calls not timed", "        toy_wire_gd_time(event==KUI_NATIVE_RA_DEMAND_GD_ENTER);\n", ""),
 ]
+# OPEN: the second movie's refills are not held back at its start.
+OPEN_MUTATIONS = [
+ (AHEAD, "the second movie held back all the same",
+  "#if !(KUI_TOY_WIRE_STREAM && KUI_TOY_WIRE_OPEN)\n        /* Test 57's hold on the second movie's refills at its start: the",
+  "#if 1\n        /* Test 57's hold on the second movie's refills at its start: the"),
+ (AUX, "the player's refills held back", "    (void)avi;(void)file;(void)bytes;\n    return false;", "    (void)avi;(void)file;(void)bytes;\n    return true;"),
+]
 # What Test 74 no longer samples or times.
 LEAN_GONE = {"update time counted outside the second movie", "the buffer's free space not the most",
              "the lag not the highest", "a buffer without capacity taken", "more in the buffer than it holds taken",
@@ -197,6 +204,13 @@ if IDLE == "1":
     MUTATIONS = [m for m in MUTATIONS if m[1] not in RESTARTS]
 if LEAN == "1":
     MUTATIONS = [m for m in MUTATIONS if m[1] not in LEAN_GONE] + LEAN_MUTATIONS
+    for part, mutations in (("OPEN", OPEN_MUTATIONS),):
+        # A part left out of the build under test is left out here too.
+        if os.environ.get(f"TOY_WIRE_{part}", "1") == "1":
+            MUTATIONS += mutations
+        else:
+            SWITCHES.append(f"TOY_WIRE_{part}=0")
+            DEFINES.append(f"-DKUI_TOY_WIRE_{part}=0")
 if os.environ.get("TOY_WIRE_ONLY"):
     # A named part of the list, for running it in pieces: "from:to" of the list's positions.
     low, high = (int(v) for v in os.environ["TOY_WIRE_ONLY"].split(":"))

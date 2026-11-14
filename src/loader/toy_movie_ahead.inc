@@ -405,8 +405,14 @@ static bool toy_movie_ahead(kui_retail_async_region_type *r,unsigned variant,boo
         e->cursor.manifest==e->manifest && e->cursor.lba==s->lba && e->cursor.count==s->count &&
         !e->cursor.done && !e->cursor.offset && e->cursor.write &&
         s->count<=AHEAD_REQUEST_MAX &&
-        (!wait || kick || warm) &&
-        (variant<=2u || C.onset[1].quiet_ctx==UINT32_MAX);
+        (!wait || kick || warm)
+#if !(KUI_TOY_WIRE_STREAM && KUI_TOY_WIRE_OPEN)
+        /* Test 57's hold on the second movie's refills at its start: the
+         * window serves that movie only once the hold is over. Test 74
+         * has no hold (kui_toy_movie_refill_defer). */
+        && (variant<=2u || C.onset[1].quiet_ctx==UINT32_MAX)
+#endif
+        ;
 #if KUI_TOY_SUITE_MODE == 64
     uint32_t *trace=C.diagnostics.stage_result[KUI_NATIVE_RA_STAGE_NONE];
     if(demand && A.variant && wait && !warm) {

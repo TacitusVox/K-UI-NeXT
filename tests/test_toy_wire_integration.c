@@ -25,6 +25,7 @@
 enum { RING_BYTES = 32768u, FIRST = MOVIE_LBA, REQUEST = 13u, WINDOW_END = 45291u };
 void kui_toy_wire_timer_callback(uint32_t event);
 void kui_toy_movie_present_boundary(uint32_t ctx, uintptr_t witness, unsigned phase);
+bool kui_toy_movie_refill_defer(uint32_t avi, uint32_t file, uint32_t bytes);
 #define PLAYER UINT32_C(0x8c00dc90)
 static unsigned long gate_visits;
 #if KUI_TOY_WIRE_IDLE
@@ -277,8 +278,15 @@ static void open_movie(unsigned extent_blocks, bool scattered, bool with_parity)
      * from here, and with it the report's course of that movie. */
     kui_toy_movie_present_boundary(PLAYER,
         (uintptr_t)&kui_native_readahead_aux_context.movie_exit[1], KUI_TOY_MOVIE_EXIT_STARTED);
+#if !KUI_TOY_WIRE_OPEN
     /* The intro's quiet opening phase is over: the window may serve. */
     kui_native_readahead_aux_context.onset[1].quiet_ctx = UINT32_MAX;
+#else
+    /* Test 74: the player's refills are never held back. */
+    CHECK(!kui_toy_movie_refill_defer(UINT32_C(0x8c200200), UINT32_C(0x8c200300), 13u * 2048u));
+#endif
+    /* Test 74 has no such phase: the window serves the second movie from
+     * its first request, with the hold's state as the player's start left it. */
     m.sdir_answer = sdir_answer;
     memset(&wx, 0, sizeof(wx));
     for(unsigned i = 0; i < 64u; ++i) wx.slots[i] = UINT32_C(0x8c0be408);

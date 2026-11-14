@@ -53,13 +53,20 @@
 /* Test 74: Test 73 with the reader's own work cut down. The measurements of
  * Test 73 put the reader at about a third of the CPU in the second movie's
  * dense part, nearly all of it work on every byte. Its changes come each
- * under a switch of its own. What they share is here: the report's layout,
- * the game's calls timed whole, the runs cut again soon after they began. */
+ * under a switch of its own, so that one can be left out of a build:
+ *   OPEN   the second movie's refills are not held back at its start, so the
+ *          reader begins beside a full player buffer, as in the first movie. */
 #ifndef KUI_TOY_WIRE_LEAN
 #define KUI_TOY_WIRE_LEAN 0
 #endif
 #if KUI_TOY_WIRE_LEAN && !KUI_TOY_WIRE_IDLE
 #error "Test 74 builds on Test 73"
+#endif
+#ifndef KUI_TOY_WIRE_OPEN
+#define KUI_TOY_WIRE_OPEN KUI_TOY_WIRE_LEAN
+#endif
+#if KUI_TOY_WIRE_OPEN && !KUI_TOY_WIRE_LEAN
+#error "OPEN is a part of Test 74: use KUI_TOY_WIRE_LEAN"
 #endif
 /* The second movie in pieces of 2^22 ticks, 5.4 s: twelve cover it. */
 #define KUI_TOY_WIRE_BUCKETS 12u
