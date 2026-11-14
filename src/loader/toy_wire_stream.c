@@ -13,6 +13,9 @@
 #include "toy_wire_stream.h"
 #include <stddef.h>
 #include <string.h>
+#if defined(KUI_WIRE_STREAM_TEST) && KUI_TOY_WIRE_WORDS
+#include <assert.h>
+#endif
 
 #define SMR UINT32_C(0xffe00000)
 #define BRR UINT32_C(0xffe00004)
@@ -295,6 +298,13 @@ static bool wire_account(struct kui_wire_stream *w, uint32_t count, uint32_t sta
     const uint32_t at = w->seg_begin + w->seg_len - count, held = status & RDRF ? 1u : 0u;
     if(held) w->ring[at & MASK] = tail;
     const uint32_t lost = at + held;
+#if KUI_TOY_WIRE_WORDS
+    {
+        const uint32_t entry = w->hole_put & HOLE_MASK;
+        if(held) w->held[entry >> 5] |= UINT32_C(1) << (entry & 31u);
+        else w->held[entry >> 5] &= ~(UINT32_C(1) << (entry & 31u));
+    }
+#endif
     w->hole[w->hole_put++ & HOLE_MASK] = lost;
     w->head = lost + 1u;
     w->n->bytes += w->head - w->seg_begin;
@@ -403,6 +413,16 @@ static void wire_tables(struct kui_wire_stream *w, uint8_t *tables) {
         /* A step's high byte comes from the table alone and names its entry. */
         w->inverse[c >> 8] = (uint8_t)i;
     }
+#if KUI_TOY_WIRE_WORDS
+    /* Two steps in one for a pair of bytes b0, b1 and t = crc ^ (b0 | b1 << 8):
+     * the table is linear in its index, so the second step's entry splits
+     * into crc[t >> 8] and what the first step's result adds to it. */
+    w->crc2 = (uint16_t *)(void *)(tables + 1024u);
+    for(unsigned i = 0; i < 256u; ++i) {
+        const unsigned c = w->crc[i];
+        w->crc2[i] = (uint16_t)(c >> 8 ^ w->crc[c & 0xffu]);
+    }
+#endif
 }
 
 bool kui_wire_start(struct kui_wire_stream *w, struct kui_wire_counters *counters,
@@ -509,6 +529,39 @@ static uint32_t wire_hole(const struct kui_wire_stream *w, uint32_t from) {
     return NONE;
 }
 
+#if KUI_TOY_WIRE_WORDS && __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
+/* Test 71. `words` whole words at the ring's aligned address p: the same
+ * CRC16 and the same true bytes as the byte steps of wire_run give, with
+ * the CRC taken two bytes to a step and nothing kept in memory between
+ * words. Test 70's loop spent 79 instructions and nine stack accesses on
+ * four bytes; this is 49 and none (checked in the linked module). The
+ * tables are read as signed: the bits a sign extension adds are masked
+ * off where an index is taken and once at the end. */
+static uint32_t __attribute__((__noinline__, __optimize__("O2")))
+wire_words(const struct kui_wire_stream *w, const alias_word *p, uint32_t words, uint8_t *out, uint32_t crc) {
+    const int16_t *const one = (const int16_t *)(const void *)w->crc;
+    const int16_t *const two = (const int16_t *)(const void *)w->crc2;
+    const uint8_t *const reverse = w->reverse;
+    int32_t c = (int32_t)crc;
+    do {
+        const uint32_t x = *p++;
+        uint32_t t = (uint32_t)c ^ x;
+        c = two[t & 0xffu] ^ one[t >> 8 & 0xffu];
+        t = (uint32_t)c ^ x >> 16;
+        c = two[t & 0xffu] ^ one[t >> 8 & 0xffu];
+        out[0] = reverse[x & 0xffu];
+        out[1] = reverse[x >> 8 & 0xffu];
+        out[2] = reverse[x >> 16 & 0xffu];
+        out[3] = reverse[x >> 24];
+        out += 4;
+    } while(--words);
+    return (uint32_t)c & 0xffffu;
+}
+#define WIRE_WORDS 1
+#else
+#define WIRE_WORDS 0
+#endif
+
 /* `count` received bytes from position `from` on: the CRC advanced over
  * them as they came off the wire, and their true values written to out. */
 static uint32_t wire_run(const struct kui_wire_stream *w, uint32_t from, uint32_t count,
@@ -527,6 +580,26 @@ static uint32_t wire_run(const struct kui_wire_stream *w, uint32_t from, uint32_
         const uint8_t *p = w->ring + index;
         from += piece; count -= piece;
         for(; piece && ((uintptr_t)p & 3u); --piece) STEP(*p++);
+#if WIRE_WORDS
+        if(out && piece >= 4u) {
+            const uint32_t words = piece >> 2;
+#ifdef KUI_WIRE_STREAM_TEST
+            const uint32_t before = crc;
+#endif
+            crc = wire_words(w, (const alias_word *)(const void *)p, words, out, crc);
+#ifdef KUI_WIRE_STREAM_TEST
+            /* Host tests hold every word run against the byte steps. */
+            uint32_t check = before;
+            for(uint32_t i = 0; i < 4u * words; ++i) {
+                check = (check >> 8) ^ table[(check ^ p[i]) & 0xffu];
+                assert(out[i] == reverse[p[i]]);
+            }
+            assert(check == crc);
+#endif
+            p += 4u * words; out += 4u * words; piece &= 3u;
+        }
+#endif
+#if !WIRE_WORDS
         for(; piece >= 4u; piece -= 4u, p += 4) {
             const uint32_t word = *(const alias_word *)(const void *)p;
 #if __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
@@ -535,6 +608,9 @@ static uint32_t wire_run(const struct kui_wire_stream *w, uint32_t from, uint32_
             STEP(word >> 24); STEP(word >> 16 & 0xffu); STEP(word >> 8 & 0xffu); STEP(word & 0xffu);
 #endif
         }
+#endif
+        /* With the word loop above, what is left is a word's remainder, or
+         * the two CRC bytes, which are not written out. */
         for(; piece; --piece) STEP(*p++);
     }
 #undef STEP
@@ -599,6 +675,26 @@ static void wire_frame_note(struct kui_wire_stream *w, uint32_t at, uint32_t lan
     uint32_t *by_bit = &n->frame_bit[bit >> 2];
     if((*by_bit >> 8u * (bit & 3u) & 0xffu) != 0xffu) *by_bit += 1u << 8u * (bit & 3u);
     if((n->frame_kind >> 8u * w->last_kind & 0xffu) != 0xffu) n->frame_kind += 1u << 8u * w->last_kind;
+#if KUI_TOY_WIRE_WORDS
+    if(at == w->gap_begin && w->handed) {
+        /* The byte lies where the block before should have ended: that
+         * block's positions are one too many somewhere. Look at its lost
+         * positions for a byte taken from the receiver's register that
+         * repeats the byte the channel stored before it. */
+        bool held = false, twice = false;
+        for(uint32_t i = w->hole_put, seen = 0; i && seen < KUI_WIRE_HOLES; --i, ++seen) {
+            const uint32_t entry = (i - 1u) & HOLE_MASK, position = w->hole[entry];
+            if(position >= at) continue;
+            if(at - position > FRAME) break;
+            if(!(w->held[entry >> 5] >> (entry & 31u) & 1u) || position < 2u) continue;
+            held = true;
+            if(w->ring[(position - 1u) & MASK] == w->ring[(position - 2u) & MASK]) twice = true;
+        }
+        ++n->frame_end;
+        if(held) ++n->frame_held;
+        if(twice) ++n->frame_twice;
+    }
+#endif
     if(n->lost_frame >= 2u) return;
     struct kui_wire_frame_note *note = &n->frame_note[n->lost_frame];
     uint32_t words[2] = {0, 0}, lost = 0, arrived = 0, since = NONE;

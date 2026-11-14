@@ -78,9 +78,16 @@ static unsigned stall_percent_dense = 0, dense_left = 0, stall_every = 0;
 static uint32_t until_stall;
 static bool receiving(void) { return hw.scr == 0x50 && !(hw.ssr & 0x20) && !(hw.pdtr & 0x80) && !(hw.stbcr & 1); }
 static unsigned long overruns;
+/* Test 71's diagnostics: one stall, this many bytes on, at whose overrun
+ * the channel takes the held byte while the receiver still shows it full,
+ * so that the reader stores it a second time. Not something the earlier
+ * tests established the hardware does; the console's notes look like it. */
+static uint32_t twice_in;
+static bool twice_now;
 static void shift_one(void) {
     uint8_t wire = rev8(card_byte());
     bool stall = false;
+    if(twice_in && !--twice_in) { stall = true; twice_now = true; }
     if(stall_every) { if(!until_stall--) { stall = true; if(dense_left) { --dense_left; until_stall = 1u + rnd() % (rnd() % 100u < 41u ? 15u : 63u); } else { until_stall = rnd() % 100u < stall_percent_dense ? (dense_left = 3u + rnd() % 30u, 1u + rnd() % 40u) : 64u + rnd() % (2u * stall_every); } } }
     bool dma = (hw.chcr & 3u) == 1u && hw.count && hw.sar == 0x1fe00014u && (hw.dmaor & 7u) == 1u;
     if(dma && !stall && !(hw.ssr & 0x40)) {
@@ -88,6 +95,11 @@ static void shift_one(void) {
         ring[hw.dar - PHYS] = wire; ++hw.dar; if(!--hw.count) hw.chcr |= 2u;
     } else if(!(hw.ssr & 0x40)) { hw.rdr = wire; hw.ssr |= 0x40; }
     else { hw.ssr |= 0x20; ++overruns;
+        if(twice_now) {
+            twice_now = false;
+            assert(dma);
+            ring[hw.dar - PHYS] = hw.rdr; ++hw.dar; if(!--hw.count) hw.chcr |= 2u;
+        } else
         /* the channel, back on the bus, may still take the held byte */
         if(dma && (rnd() & 1u)) { ring[hw.dar - PHYS] = hw.rdr; ++hw.dar; if(!--hw.count) hw.chcr |= 2u; hw.ssr &= (uint8_t)~0x40; } }
 }
@@ -144,7 +156,7 @@ static bool timer_armed(void) { return w.mode && (hw.tstr & (1u << w.mode)) && (
 
 int main(int argc, char **argv) {
     unsigned long total = 0, restarts = 0, wrong = 0, rewinds[4] = {0};
-    printf("Test %u card stream on the wire model:\n", KUI_TOY_WIRE_TICK ? 69u : KUI_TOY_WIRE_CACHED ? 70u : 68u);
+    printf("Test %u card stream on the wire model:\n", KUI_TOY_WIRE_TICK ? 69u : KUI_TOY_WIRE_WORDS ? 71u : KUI_TOY_WIRE_CACHED ? 70u : 68u);
     for(unsigned run = 0; run < (argc > 1 ? (unsigned)atoi(argv[1]) : 12u); ++run) {
         seed = 77u + run * 1000u;
         memset(&hw, 0, sizeof hw); hw.dmaor = 0x8201u; hw.sar = 0x11; hw.dar = 0x22; hw.count = 0x33;
@@ -302,9 +314,48 @@ int main(int argc, char **argv) {
     stray_block = 0;
     printf("  a byte between blocks that is neither idle nor the token: stream stopped, bytes around it kept\n");
 #endif
+#if KUI_TOY_WIRE_WORDS
+    /* A held byte stored twice: the block it lies in has one position too
+     * many, the reader finds that block's own last CRC byte where the space
+     * behind it should begin, and the report says what it found there. */
+    for(unsigned trial = 0; trial < 4u; ++trial) {
+        seed = 900u + trial;
+        memset(&hw, 0, sizeof hw); hw.dmaor = 0x8201u;
+        for(unsigned i = 0; i < 64; ++i) hw.slots[i] = 0x8c0be408u;
+        stall_every = 0; until_stall = 100u; dense_left = 0;
+        card_block = 1; card_at = 0;
+        memset(&w, 0, sizeof w); memset(&n, 0, sizeof n);
+        command_framing();
+        memset(ring, 0xa5, sizeof ring);
+        assert(kui_wire_start(&w, &n, ring, tables, 0x05, 0x8c421234u));
+        /* Well inside a block some thousand bytes on, away from a run's end. */
+        twice_in = 20000u + 3000u * trial;
+        uint32_t handed = 0;
+        enum kui_wire_parse p = KUI_WIRE_NEED;
+        for(unsigned turn = 0; turn < 100000u && p >= KUI_WIRE_NEED; ++turn) {
+            pump(1u + rnd() % 3000u);
+            kui_wire_service(&w);
+            struct kui_wire_block b;
+            while((p = kui_wire_next(&w, &b)) == KUI_WIRE_BLOCK) ++handed;
+        }
+        if(twice_in || twice_now || p != KUI_WIRE_LOST_FRAME || n.lost_frame != 1u)
+            fprintf(stderr, "twice trial %u: in %u now %d parse %d lost_frame %u handed %u bad_crc %u unsolved %u\n",
+                trial, (unsigned)twice_in, twice_now, (int)p, (unsigned)n.lost_frame, (unsigned)handed,
+                (unsigned)n.bad_crc, (unsigned)n.unsolved);
+        assert(!twice_in && !twice_now && p == KUI_WIRE_LOST_FRAME && n.lost_frame == 1u);
+        assert(n.frame_end == 1u && n.frame_held == 1u && n.frame_twice == 1u);
+        const struct kui_wire_frame_note *note = &n.frame_note[0];
+        /* Directly behind the block's end, after a block handed on with a
+         * lost byte the CRC16 could not explain. */
+        assert(!(note->gap & 0xffffu) && note->blocks >> 28 == 3u && n.unsolved == 1u);
+        assert(note->since_lost && note->since_lost < 514u);
+        assert(kui_wire_stop(&w));
+    }
+    printf("  a held byte stored twice: found as an unexpected byte directly behind its block, and counted as such\n");
+#endif
     printf("PASS Test %u card stream: %lu blocks checked against the card over %lu overruns; %lu streams restarted "
            "(clean block failing CRC16 %lu, too many lost bytes %lu); %lu uncheckable blocks handed on wrong, "
            "each with lost bytes behind a lost gap byte, left to the sector check\n",
-        KUI_TOY_WIRE_TICK ? 69u : KUI_TOY_WIRE_CACHED ? 70u : 68u, total, overruns, restarts, rewinds[2], rewinds[3], wrong);
+        KUI_TOY_WIRE_TICK ? 69u : KUI_TOY_WIRE_WORDS ? 71u : KUI_TOY_WIRE_CACHED ? 70u : 68u, total, overruns, restarts, rewinds[2], rewinds[3], wrong);
     return 0;
 }

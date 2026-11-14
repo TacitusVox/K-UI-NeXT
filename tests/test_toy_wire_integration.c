@@ -24,6 +24,7 @@
 #define RING_PHYSICAL 0x0c300000u
 enum { RING_BYTES = 32768u, FIRST = MOVIE_LBA, REQUEST = 13u, WINDOW_END = 45291u };
 void kui_toy_wire_timer_callback(uint32_t event);
+void kui_toy_movie_present_boundary(uint32_t ctx, uintptr_t witness, unsigned phase);
 
 /* ---- what the stream needs beyond the shared model ---- */
 static struct {
@@ -191,6 +192,10 @@ static void open_movie(unsigned extent_blocks, bool scattered, bool with_parity)
     config.movie_ranges[3] = (struct kui_toy_movie_range){FIRST - 386u, WINDOW_END - (FIRST - 386u)};
     bind_movie_configuration(&config);
     fixture_movie_started(KUI_TOY_MOVIE_EXIT_STARTED, 0x07dbu);
+    /* The player has started the second movie: its presentation clock runs
+     * from here, and with it the report's course of that movie. */
+    kui_toy_movie_present_boundary(UINT32_C(0x8c00dc90),
+        (uintptr_t)&kui_native_readahead_aux_context.movie_exit[1], KUI_TOY_MOVIE_EXIT_STARTED);
     /* The intro's quiet opening phase is over: the window may serve. */
     kui_native_readahead_aux_context.onset[1].quiet_ctx = UINT32_MAX;
     memset(&wx, 0, sizeof(wx));
@@ -309,6 +314,18 @@ static void visits_accounted(void) {
     const uint32_t restarts = w->stops[KUI_TOY_WIRE_STOP_SECTOR] + w->stops[KUI_TOY_WIRE_STOP_FRAME] +
         w->stops[KUI_TOY_WIRE_STOP_FAULT];
     CHECK(w->restart_max <= w->restart_ticks && (restarts || !w->restart_ticks));
+#if KUI_TOY_WIRE_WORDS
+    /* The second movie's course adds up to the same totals: everything in
+     * these runs happens while it plays. */
+    uint32_t wait = 0, interrupt = 0, game = 0, sectors = 0, stops = 0;
+    for(unsigned i = 0; i < KUI_TOY_WIRE_BUCKETS; ++i) {
+        wait += w->course_wait[i]; interrupt += w->course_interrupt[i]; game += w->course_game[i];
+        sectors += w->course_sectors[i]; stops += w->course_stops[i];
+    }
+    CHECK(wait == w->wait_ticks[1] && game == w->visit_ticks[KUI_TOY_WIRE_VISIT_GAME]);
+    CHECK(interrupt == w->visit_ticks[KUI_TOY_WIRE_VISIT_SCI] + w->visit_ticks[KUI_TOY_WIRE_VISIT_TIMER]);
+    CHECK(sectors == trace[1] && stops == restarts);
+#endif
 }
 #else
 static void visits_accounted(void) {}
@@ -450,6 +467,33 @@ static unsigned playing(uint32_t mean, unsigned dense, uint32_t pace) {
     return ready;
 }
 
+#if KUI_TOY_WIRE_WORDS
+/* The course's pieces are 2^22 ticks of the movie's own clock, and what
+ * comes after the twelfth is kept in it. */
+static void course_pieces(void) {
+    open_movie(2000u, false, true);
+    const struct kui_toy_wire_report *w = report();
+    uint32_t lba = FIRST;
+    read_request(lba, REQUEST, 3u); lba += REQUEST;
+    CHECK(w->course_sectors[0] == REQUEST && !w->course_sectors[3]);
+    clock_counter -= UINT32_C(3) << KUI_TOY_WIRE_BUCKET_SHIFT;
+    read_request(lba, REQUEST, 3u); lba += REQUEST;
+    read_request(lba, REQUEST, 3u); lba += REQUEST;
+    CHECK(w->course_sectors[0] == REQUEST && w->course_sectors[3] == 2u * REQUEST && w->course_game[3]);
+    clock_counter -= UINT32_C(40) << KUI_TOY_WIRE_BUCKET_SHIFT;
+    read_request(lba, REQUEST, 3u);
+    CHECK(w->course_sectors[KUI_TOY_WIRE_BUCKETS - 1u] == REQUEST && w->course_game[KUI_TOY_WIRE_BUCKETS - 1u]);
+    for(unsigned i = 1; i < KUI_TOY_WIRE_BUCKETS - 1u; ++i) if(i != 3u) CHECK(!w->course_sectors[i] && !w->course_game[i]);
+    /* Once the movie is over nothing more is added. */
+    kui_toy_movie_present_boundary(UINT32_C(0x8c00dc90),
+        (uintptr_t)&kui_native_readahead_aux_context.movie_exit[1], KUI_TOY_MOVIE_EXIT_TERMINAL);
+    const uint32_t game = w->course_game[KUI_TOY_WIRE_BUCKETS - 1u];
+    game_poll();
+    CHECK(w->course_game[KUI_TOY_WIRE_BUCKETS - 1u] == game);
+    printf("  the second movie's course: pieces of 2^22 ticks from its start, the last keeps the rest\n");
+}
+#endif
+
 /* A whole block arrives damaged without a lost byte: its CRC16 stops the
  * stream, the low reader seeks again and the game still gets the image. */
 static void damaged_block(void) {
@@ -569,7 +613,7 @@ int main(void) {
     }
     /* Test 66's own chunk classification is untouched by the switch. */
     movie_chunk_classification();
-    printf("Test %u reader, real low reader + auxiliary + stream on the card model:\n", KUI_TOY_WIRE_TICK ? 69u : KUI_TOY_WIRE_CACHED ? 70u : 68u);
+    printf("Test %u reader, real low reader + auxiliary + stream on the card model:\n", KUI_TOY_WIRE_TICK ? 69u : KUI_TOY_WIRE_WORDS ? 71u : KUI_TOY_WIRE_CACHED ? 70u : 68u);
     steady(2000u, false, 0u, 0u, 3u);
     steady(2000u, false, 0u, 0u, 0u);
     steady(2000u, false, 6000u, 0u, 3u);
@@ -598,11 +642,14 @@ int main(void) {
 #else
     (void)at_cost;
 #endif
+#if KUI_TOY_WIRE_WORDS
+    course_pieces();
+#endif
     damaged_block();
     no_parity();
     other_read();
     ended_in_interrupt();
     degraded();
-    printf("PASS Test %u reader integration: %u checks\n", KUI_TOY_WIRE_TICK ? 69u : KUI_TOY_WIRE_CACHED ? 70u : 68u, checks);
+    printf("PASS Test %u reader integration: %u checks\n", KUI_TOY_WIRE_TICK ? 69u : KUI_TOY_WIRE_WORDS ? 71u : KUI_TOY_WIRE_CACHED ? 70u : 68u, checks);
     return 0;
 }

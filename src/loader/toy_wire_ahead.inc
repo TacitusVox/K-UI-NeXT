@@ -101,14 +101,32 @@ static void toy_wire_halt(kui_retail_async_region_type *r,unsigned why) {
     ++k->report.stops[why];
 }
 
+#if KUI_TOY_WIRE_WORDS
+/* Which piece of the second movie's course a clock value falls in, counted
+ * from the movie's start; or none while that movie is not the one playing. */
+static int toy_wire_course(uint32_t now) {
+    if(!toy_present.owner || toy_present.trace!=&C.present[1] || !toy_present.start_valid)return -1;
+    const uint32_t piece=(toy_present.start_tick-now)>>KUI_TOY_WIRE_BUCKET_SHIFT;
+    return piece<KUI_TOY_WIRE_BUCKETS?(int)piece:(int)KUI_TOY_WIRE_BUCKETS-1;
+}
+static void toy_wire_course_frame(uint32_t now) {
+    const int piece=toy_wire_course(now);
+    if(piece>=0)++toy_wire_keep()->report.course_frames[piece];
+}
+#endif
 #if KUI_TOY_WIRE_MEASURE
 /* The reader's own time in this visit, by who called. */
 static void toy_wire_visit_time(struct toy_wire_keep *k,unsigned who,struct ra_clock entered) {
     if(!entered.valid)return;
-    const uint32_t spent=entered.counter-clock_read().counter;
+    const struct ra_clock now=clock_read();
+    const uint32_t spent=entered.counter-now.counter;
     ++k->report.visit_calls[who];
     k->report.visit_ticks[who]+=spent;
     if(spent>k->report.visit_max[who])k->report.visit_max[who]=spent;
+#if KUI_TOY_WIRE_WORDS
+    const int piece=toy_wire_course(now.counter);
+    if(piece>=0)(who==KUI_TOY_WIRE_VISIT_GAME?k->report.course_game:k->report.course_interrupt)[piece]+=spent;
+#endif
 }
 
 /* A request the window cannot serve yet, and the moment it is served. */
@@ -131,7 +149,19 @@ static void toy_wire_wait_end(uint32_t token) {
     ++k->report.wait_calls[movie];
     k->report.wait_ticks[movie]+=spent;
     if(spent>k->report.wait_max[movie])k->report.wait_max[movie]=spent;
+#if KUI_TOY_WIRE_WORDS
+    const int piece=toy_wire_course(now.counter);
+    if(piece>=0)k->report.course_wait[piece]+=spent;
+#endif
 }
+#if KUI_TOY_WIRE_WORDS
+/* Sectors the window has just served a request with. */
+static void toy_wire_course_served(uint32_t sectors) {
+    const struct ra_clock now=clock_read();
+    const int piece=now.valid?toy_wire_course(now.counter):-1;
+    if(piece>=0)toy_wire_keep()->report.course_sectors[piece]+=(uint16_t)sectors;
+}
+#endif
 #endif
 
 /* Stop, and have the low reader seek again to the first sector not yet
@@ -143,6 +173,10 @@ static void toy_wire_rewind(kui_retail_async_region_type *r,unsigned why) {
         const struct ra_clock now=clock_read();
         k->restarting=now.valid;
         k->restart_start=now.counter;
+#if KUI_TOY_WIRE_WORDS
+        const int piece=now.valid?toy_wire_course(now.counter):-1;
+        if(piece>=0)++k->report.course_stops[piece];
+#endif
     }
 #endif
     toy_wire_halt(r,why);

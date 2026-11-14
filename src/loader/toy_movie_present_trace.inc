@@ -49,6 +49,9 @@ void kui_toy_movie_present_boundary(uint32_t ctx,uintptr_t witness,unsigned phas
     toy_present.owner=0u;
 }
 
+#if defined(KUI_TOY_WIRE_WORDS) && KUI_TOY_WIRE_WORDS
+static void toy_wire_course_frame(uint32_t now);
+#endif
 #if KUI_TOY_SUITE_MODE >= 61
 static void kui_toy_movie_present_observe(uint32_t ctx) {
 #else
@@ -86,6 +89,9 @@ void kui_toy_movie_present_observe(uint32_t ctx) {
                frame==trace->last_frame+1u)++trace->on_time;
         }
     }
+#if defined(KUI_TOY_WIRE_WORDS) && KUI_TOY_WIRE_WORDS
+    if(now.valid)toy_wire_course_frame(now.counter);
+#endif
     ++trace->submitted;
     trace->last_frame=frame;
     trace->last_tick=now.counter;

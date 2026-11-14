@@ -38,7 +38,12 @@
 #define KUI_WIRE_BACKOFF_MAX 1024u
 /* Room the caller provides for the tables: bit reversal, the reflected
  * CRC16 step and its inverse. Each start fills them again. */
+#if KUI_TOY_WIRE_WORDS
+/* And the CRC16 step for two bytes at once. */
+#define KUI_WIRE_TABLE_BYTES 1536u
+#else
 #define KUI_WIRE_TABLE_BYTES 1024u
+#endif
 
 enum kui_wire_state {
     KUI_WIRE_OFF,
@@ -99,6 +104,10 @@ struct kui_wire_stream {
     uint32_t gap_begin;    /* where the space ahead of the next block began */
     uint32_t handed;       /* blocks this stream has handed on */
     uint32_t last_kind;    /* of the last one: 1 clean, 2 rebuilt, 3 with lost bytes */
+#endif
+#if KUI_TOY_WIRE_WORDS
+    uint16_t *crc2;        /* 256: two bytes' worth of CRC16 steps for the first of them */
+    uint32_t held[KUI_WIRE_HOLES / 32u]; /* per log entry: the byte before it came from the register */
 #endif
     uint32_t hole[KUI_WIRE_HOLES];
     uint16_t lost[KUI_WIRE_BLOCK_LOST];

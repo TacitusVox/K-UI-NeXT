@@ -5,6 +5,7 @@ TOY_FMV_COMPARE ?= 0
 TOY_WIRE_STREAM ?= 0
 TOY_WIRE_TICK ?= 0
 TOY_WIRE_CACHED ?= 0
+TOY_WIRE_WORDS ?= 0
 ifneq ($(words $(TOY_SUITE_MODE)),1)
 $(error TOY_SUITE_MODE must be a single test number)
 endif
@@ -14,6 +15,8 @@ endif
 ifeq ($(TOY_WIRE_STREAM),1)
 ifeq ($(TOY_WIRE_TICK),1)
 TOY_WIRE_TEST := 69
+else ifeq ($(TOY_WIRE_CACHED)$(TOY_WIRE_WORDS),11)
+TOY_WIRE_TEST := 71
 else ifeq ($(TOY_WIRE_CACHED),1)
 TOY_WIRE_TEST := 70
 else
@@ -101,6 +104,19 @@ TOY_WIRE_TICK_FLAG := -DKUI_TOY_WIRE_CACHED=1
 else ifneq ($(TOY_WIRE_CACHED),0)
 $(error TOY_WIRE_CACHED must be 0 or 1)
 endif
+ifeq ($(TOY_WIRE_WORDS),1)
+# Test 71: Test 70 with the ring reader's block loop taken a word at a time,
+# and the second movie's course in the report.
+ifneq ($(TOY_WIRE_CACHED),1)
+$(error TOY_WIRE_WORDS builds on Test 70: use TOY_WIRE_CACHED=1)
+endif
+FLAGS += -DKUI_TOY_WIRE_WORDS=1
+NATIVE_FLAGS += -DKUI_TOY_WIRE_WORDS=1
+TOY_MOVIE_TEST_FLAGS += -DKUI_TOY_WIRE_WORDS=1
+TOY_WIRE_TICK_FLAG += -DKUI_TOY_WIRE_WORDS=1
+else ifneq ($(TOY_WIRE_WORDS),0)
+$(error TOY_WIRE_WORDS must be 0 or 1)
+endif
 RA_AUX_LINK_FLAGS := -Wl,--defsym=__native_ra_extra_code=0x3000
 RA_AUX_SPAN := 0x7000
 RA_SRC += src/loader/toy_wire_stream.c src/core/mode1_erasure.c
@@ -132,7 +148,7 @@ $(BUILD)/native-worker.elf: $(NATIVE_OBJ)
 
 $(BUILD)/toy-suite-config: force-mode-config
 	@mkdir -p $(BUILD)
-	@printf '%s\n' 'TOY_SUITE_MODE=$(TOY_SUITE_MODE)' 'TOY_FMV_COMPARE=$(TOY_FMV_COMPARE)' 'TOY_WIRE_STREAM=$(TOY_WIRE_STREAM)' $(if $(filter 1,$(TOY_WIRE_TICK)),'TOY_WIRE_TICK=1') $(if $(filter 1,$(TOY_WIRE_CACHED)),'TOY_WIRE_CACHED=1') > $@.tmp
+	@printf '%s\n' 'TOY_SUITE_MODE=$(TOY_SUITE_MODE)' 'TOY_FMV_COMPARE=$(TOY_FMV_COMPARE)' 'TOY_WIRE_STREAM=$(TOY_WIRE_STREAM)' $(if $(filter 1,$(TOY_WIRE_TICK)),'TOY_WIRE_TICK=1') $(if $(filter 1,$(TOY_WIRE_CACHED)),'TOY_WIRE_CACHED=1') $(if $(filter 1,$(TOY_WIRE_WORDS)),'TOY_WIRE_WORDS=1') > $@.tmp
 	@cmp -s $@.tmp $@ || cp $@.tmp $@
 	@rm -f $@.tmp
 
@@ -209,6 +225,9 @@ TOY_WIRE_HOST_FLAGS = -std=c11 -O1 -g -Wall -Wextra -Werror -Wpedantic \
 # The linked visit gate: which address the private stack is used at.
 toy-wire-linked-check: $(BUILD)/retail-toy-test-$(TOY_WIRE_TEST).kui
 	python3 tests/test_toy_wire_cached_stack.py $(BUILD)/native-ra-aux.elf $(if $(filter 1,$(TOY_WIRE_CACHED)),cached,uncached)
+ifeq ($(TOY_WIRE_WORDS),1)
+	python3 tests/test_toy_wire_word_loop.py $(BUILD)/native-ra-aux.elf
+endif
 toy-wire-host-tests:
 	@mkdir -p $(BUILD)
 	$(HOST_CC) $(TOY_WIRE_HOST_FLAGS) tests/test_mode1_erasure.c src/core/mode1_erasure.c \

@@ -45,7 +45,22 @@ static struct kui_toy_wire_report wire;
 static const struct kui_toy_wire_report *toy_wire_report_block(void) { return &wire; }
 #include "toy_suite_report_save.inc"
 
-#if KUI_TOY_WIRE_MEASURE
+#if KUI_TOY_WIRE_WORDS
+#define TEST_NUMBER "71"
+/* Test 71's rows: Test 70's down to the requests' waits, the second
+ * movie's course, the stream. */
+static const char *const labels[] = {
+    "PIPE B I CALLS IRQ", "AHEAD B I HIT EDC STOP",
+    "I SUBMIT CADENCE MAX AT", "I FIRST LAST SKIP EXIT WF SF",
+    "B SUBMIT CADENCE MAX AT", "B FIRST LAST SKIP EXIT WF SF",
+    "V SCI TMR GAME N TICKS", "V MAX SCI TMR GAME", "Q B N T MAX I N T MAX",
+    "P BUDGET RT RMAX", "TF", "TD", "TW", "TI", "TG", "TX",
+    "W START SEG CUT WAIT FULL", "W BYTES WTICK TMR ERR DET", "W BLK FIX UNFIX HOLED NOCRC SEEK",
+    "W GAPI GAPT BADCRC FRAME AMBIG", "W FILL BYTES MOST REF BAD DECL",
+    "W STOP C J S F X", "F END HELD TWICE",
+};
+enum { LABELS = sizeof(labels) / sizeof(labels[0]), ESSENTIAL = 16 };
+#elif KUI_TOY_WIRE_MEASURE
 #if KUI_TOY_WIRE_TICK
 #define TEST_NUMBER "69"
 #define P_ROW "P TICK BUDGET RT RMAX"
@@ -154,6 +169,20 @@ int main(int argc, char **argv) {
 #if KUI_TOY_WIRE_CACHED
     wire.ccr = 0x105; wire.mmucr = 0;
 #endif
+#if KUI_TOY_WIRE_WORDS
+    /* A second movie that plays its first ten seconds and its last five
+     * and skips in between, as wide as each piece's byte can show. */
+    for(unsigned i = 0; i < KUI_TOY_WIRE_BUCKETS; ++i) {
+        const bool plays = i < 2u || i == 11u;
+        wire.course_frames[i] = plays ? 161u : 9u + i;
+        wire.course_sectors[i] = plays ? 2112u : 2600u + 16u * i;
+        wire.course_stops[i] = (uint16_t)(3u * i);
+        wire.course_wait[i] = plays ? 0x3000u * i : 0x180000u + 0x4000u * i;
+        wire.course_interrupt[i] = 0x90000u + 0x4000u * i;
+        wire.course_game[i] = plays ? 0x30000u : 0x500000u;
+    }
+    wire.n.frame_end = 0x80; wire.n.frame_held = 0x7c; wire.n.frame_twice = 0x79;
+#endif
     /* Both movies with the reader at Test 68's measured cost, most of its
      * interrupt time now behind the timer; the console's count of streams
      * that could not be followed, and two of them noted. */
@@ -194,7 +223,27 @@ int main(int argc, char **argv) {
     ra.wait[0] = (struct kui_toy_movie_wait_trace){0x69263, 0x10, 0xc, 0x235678, 0x1345, 0x1ce1};
     ra.wait[1] = (struct kui_toy_movie_wait_trace){0x6e450, 0x11, 0x3, 0x2e4567, UINT32_MAX, UINT32_MAX};
     body = format(&ra, &region, text, &rows);
-#if KUI_TOY_WIRE_MEASURE
+#if KUI_TOY_WIRE_WORDS
+    /* Everything fits at a full run's values. */
+    assert(essential_rows == ESSENTIAL && rows == LABELS);
+    const char *last = strstr(text, "TX\n30609 C0F1215 181B1E21\n");
+    assert(last);
+    const size_t needed = (size_t)(last - text) + strlen("TX\n30609 C0F1215 181B1E21\n");
+    assert(needed + 60u <= KUI_TOY_REPORT_FILE_BYTES - 12u);
+    assert(strstr(text, "I SUBMIT CADENCE MAX AT\n7B0 7AE 92345 124\n"));
+    assert(strstr(text, "V SCI TMR GAME N TICKS\nC67C D000 26265 3A0000 4E0000 5B0000\n"));
+    assert(strstr(text, "Q B N T MAX I N T MAX\n3 2EE0 1770 4A 1E8480 EA60\n"));
+    assert(strstr(text, "P BUDGET RT RMAX\nA000 1D0000 C350\n"));
+    /* Frames as counted; sectors in sixteens; ticks in pieces of 2^14;
+     * each held to a byte, the earliest piece first. */
+    assert(strstr(text, "TF\nA1A10B0C D0E0F10 111213A1\n"));
+    assert(strstr(text, "TD\n8484A4A5 A6A7A8A9 AAABAC84\n"));
+    assert(strstr(text, "TW\n6263 64656667 68696A08\n"));
+    assert(strstr(text, "TI\n24252627 28292A2B 2C2D2E2F\n"));
+    assert(strstr(text, "TG\nC0CFFFF FFFFFFFF FFFFFF0C\n"));
+    assert(strstr(text, "W STOP C J S F X\n3 4 5 6 7\n"));
+    assert(strstr(text, "F END HELD TWICE\n80 7C 79\n"));
+#elif KUI_TOY_WIRE_MEASURE
     /* Everything fits at a full run's values. */
     assert(essential_rows == ESSENTIAL && rows == LABELS);
     /* And with the wider values a worse run would bring, the rows the

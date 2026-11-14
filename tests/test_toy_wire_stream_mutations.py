@@ -31,8 +31,9 @@ GLUE = "src/loader/toy_wire_ahead.inc"
 AHEAD = "src/loader/toy_movie_ahead.inc"
 TICK = os.environ.get("TOY_WIRE_TICK", "0")
 CACHED = os.environ.get("TOY_WIRE_CACHED", "0" if TICK == "1" else "1")
-SWITCHES = [f"TOY_WIRE_TICK={TICK}", f"TOY_WIRE_CACHED={CACHED}"]
-DEFINES = [f"-DKUI_TOY_WIRE_TICK={TICK}", f"-DKUI_TOY_WIRE_CACHED={CACHED}"]
+WORDS = os.environ.get("TOY_WIRE_WORDS", CACHED)
+SWITCHES = [f"TOY_WIRE_TICK={TICK}", f"TOY_WIRE_CACHED={CACHED}", f"TOY_WIRE_WORDS={WORDS}"]
+DEFINES = [f"-DKUI_TOY_WIRE_TICK={TICK}", f"-DKUI_TOY_WIRE_CACHED={CACHED}", f"-DKUI_TOY_WIRE_WORDS={WORDS}"]
 MUTATIONS = [
  (STREAM, "resume one byte early", "    w->head = lost + 1u;\n", "    w->head = lost;\n"),
  (STREAM, "resume one byte late", "    w->head = lost + 1u;\n", "    w->head = lost + 2u;\n"),
@@ -87,6 +88,25 @@ CACHED_MUTATIONS = [
  (GLUE, "timer visit not accounted", "    kui_wire_timer(toy_wire_stream());\n    toy_wire_visit_time(k,KUI_TOY_WIRE_VISIT_TIMER,entered);", "    kui_wire_timer(toy_wire_stream());"),
  (GLUE, "visits out of time not counted", "           k->on)++k->report.budget_ends;", "           k->on) {}"),
 ]
+# What only Test 71 has: the block loop a word at a time, and the report's
+# course of the second movie and count of positions that were not lost bytes.
+WORDS_MUTATIONS = [
+ (STREAM, "two-byte CRC table built from the wrong byte", "        w->crc2[i] = (uint16_t)(c >> 8 ^ w->crc[c & 0xffu]);", "        w->crc2[i] = (uint16_t)(c >> 8 ^ w->crc[c >> 8]);"),
+ (STREAM, "second pair of a word not shifted down", "        t = (uint32_t)c ^ x >> 16;", "        t = (uint32_t)c ^ x >> 8;"),
+ (STREAM, "table halves swapped", "        c = two[t & 0xffu] ^ one[t >> 8 & 0xffu];\n        t = (uint32_t)c ^ x >> 16;", "        c = one[t & 0xffu] ^ two[t >> 8 & 0xffu];\n        t = (uint32_t)c ^ x >> 16;"),
+ (STREAM, "third byte of a word reversed from the second", "        out[2] = reverse[x >> 16 & 0xffu];", "        out[2] = reverse[x >> 8 & 0xffu];"),
+ (STREAM, "last byte of a word not written", "        out[3] = reverse[x >> 24];\n", ""),
+ (STREAM, "sign bits of the table left in the CRC", "    return (uint32_t)c & 0xffffu;", "    return (uint32_t)c;"),
+ (STREAM, "bytes behind a word run dropped", "            p += 4u * words; out += 4u * words; piece &= 3u;", "            p += 4u * words; out += 4u * words; piece = 0u;"),
+ (STREAM, "register byte not marked in the log", "        if(held) w->held[entry >> 5] |= UINT32_C(1) << (entry & 31u);", "        if(!held) w->held[entry >> 5] |= UINT32_C(1) << (entry & 31u);"),
+ (STREAM, "repeated byte looked for one position off", "            if(w->ring[(position - 1u) & MASK] == w->ring[(position - 2u) & MASK]) twice = true;", "            if(w->ring[(position - 2u) & MASK] == w->ring[(position - 3u) & MASK]) twice = true;"),
+ (GLUE, "course pieces not counted from the movie's start", "    const uint32_t piece=(toy_present.start_tick-now)>>KUI_TOY_WIRE_BUCKET_SHIFT;", "    const uint32_t piece=now>>KUI_TOY_WIRE_BUCKET_SHIFT;"),
+ (GLUE, "course not held to its last piece", "    return piece<KUI_TOY_WIRE_BUCKETS?(int)piece:(int)KUI_TOY_WIRE_BUCKETS-1;", "    return piece<KUI_TOY_WIRE_BUCKETS?(int)piece:-1;"),
+ (GLUE, "interrupt and game time swapped in the course", "(who==KUI_TOY_WIRE_VISIT_GAME?k->report.course_game:k->report.course_interrupt)", "(who!=KUI_TOY_WIRE_VISIT_GAME?k->report.course_game:k->report.course_interrupt)"),
+ (GLUE, "restarts missing from the course", "        if(piece>=0)++k->report.course_stops[piece];\n", ""),
+]
+if WORDS == "1":
+    MUTATIONS += WORDS_MUTATIONS
 if TICK == "1" or CACHED == "1":
     MUTATIONS += MEASURE_MUTATIONS
 if TICK == "1":

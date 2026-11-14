@@ -450,6 +450,9 @@ static bool toy_movie_ahead(kui_retail_async_region_type *r,unsigned variant,boo
 #if KUI_TOY_WIRE_STREAM && KUI_TOY_WIRE_MEASURE
         toy_wire_wait_end(s->token);
 #endif
+#if KUI_TOY_WIRE_STREAM && KUI_TOY_WIRE_WORDS
+        if(!e->failed)toy_wire_course_served(s->count);
+#endif
         if(!e->failed) {
 #if KUI_TOY_SUITE_MODE != 66
             uint32_t *stats=C.diagnostics.stage_result[KUI_NATIVE_RA_STAGE_NONE];
@@ -472,6 +475,9 @@ static bool toy_movie_ahead(kui_retail_async_region_type *r,unsigned variant,boo
     if(selected && toy_ahead_publish(r)) {
 #if KUI_TOY_WIRE_STREAM && KUI_TOY_WIRE_MEASURE
         toy_wire_wait_end(s->token);
+#endif
+#if KUI_TOY_WIRE_STREAM && KUI_TOY_WIRE_WORDS
+        if(!e->failed)toy_wire_course_served(s->count);
 #endif
 #if KUI_TOY_SUITE_MODE == 65
         if(!e->failed)++AHEAD_TRACE[4];

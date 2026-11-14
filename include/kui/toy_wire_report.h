@@ -23,6 +23,17 @@
 #endif
 /* Both keep the report's account of the reader's time. */
 #define KUI_TOY_WIRE_MEASURE (KUI_TOY_WIRE_TICK || KUI_TOY_WIRE_CACHED)
+/* Test 71: Test 70 with the ring reader's block loop taken a word at a time
+ * (toy_wire_stream.c), and the second movie's course in the report. */
+#ifndef KUI_TOY_WIRE_WORDS
+#define KUI_TOY_WIRE_WORDS 0
+#endif
+#if KUI_TOY_WIRE_WORDS && !KUI_TOY_WIRE_CACHED
+#error "Test 71 builds on Test 70"
+#endif
+/* The second movie in pieces of 2^22 ticks, 5.4 s: twelve cover it. */
+#define KUI_TOY_WIRE_BUCKETS 12u
+#define KUI_TOY_WIRE_BUCKET_SHIFT 22u
 enum {
     KUI_TOY_WIRE_STOP_CLOSE,   /* window closed or its range complete */
     KUI_TOY_WIRE_STOP_JUMP,    /* the file continues elsewhere on the card */
@@ -88,6 +99,13 @@ struct kui_wire_counters {
     uint32_t frame_kind;   /* lost_frame by the kind of the block before, a byte each */
     struct kui_wire_frame_note frame_note[2]; /* the first two */
 #endif
+#if KUI_TOY_WIRE_WORDS
+    /* lost_frame directly behind a block's end, and of those: with a lost
+     * position in that block whose byte before it was stored from the
+     * receiver's register (not by the channel), and with such a byte equal
+     * to the one before it, as a byte taken twice would be. */
+    uint32_t frame_end, frame_held, frame_twice;
+#endif
 };
 struct kui_toy_wire_report {
     uint32_t magic;
@@ -116,6 +134,16 @@ struct kui_toy_wire_report {
      * decide how the private stack is reached and whether its writes are
      * kept in the cache. */
     uint32_t ccr, mmucr;
+#endif
+#if KUI_TOY_WIRE_WORDS
+    /* The second movie's course, a piece of 5.4 s each from its start:
+     * frames submitted, sectors served, streams given up; and ticks the
+     * requests waited, ticks in interrupt visits (SCI and timer) and in the
+     * game's calls. */
+    uint16_t course_frames[KUI_TOY_WIRE_BUCKETS], course_sectors[KUI_TOY_WIRE_BUCKETS];
+    uint16_t course_stops[KUI_TOY_WIRE_BUCKETS];
+    uint32_t course_wait[KUI_TOY_WIRE_BUCKETS], course_interrupt[KUI_TOY_WIRE_BUCKETS];
+    uint32_t course_game[KUI_TOY_WIRE_BUCKETS];
 #endif
 #else
     uint32_t handler_ticks, handler_calls, handler_max; /* SCI interrupt visits while streaming */

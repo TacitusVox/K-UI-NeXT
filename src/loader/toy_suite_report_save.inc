@@ -52,6 +52,20 @@ static const struct kui_toy_wire_report *toy_wire_report_block(void) {
 }
 #endif
 
+#if KUI_TOY_WIRE_WORDS
+/* One row of the second movie's course: each piece's count, or its ticks,
+ * shifted down and held to a byte, four pieces to a word. */
+static void toy_report_course(char **at,const char *end,const char *label,
+    const uint16_t *counts,const uint32_t *ticks,unsigned shift) {
+    uint32_t words[KUI_TOY_WIRE_BUCKETS/4u];
+    for(unsigned i=0;i<KUI_TOY_WIRE_BUCKETS;i++) {
+        const uint32_t value=(counts?counts[i]:ticks[i])>>shift;
+        if(!(i&3u))words[i/4u]=0u;
+        words[i/4u]|=(value<255u?value:255u)<<(24u-8u*(i&3u));
+    }
+    toy_report_short(at,end,label,words,KUI_TOY_WIRE_BUCKETS/4u);
+}
+#endif
 static void toy_report_wire(char **at,const char *end,const struct kui_native_ra_public *ra,
     const struct kui_sci_stream_stats *sd) {
     static const struct kui_toy_wire_report none;
@@ -86,7 +100,18 @@ static void toy_report_wire(char **at,const char *end,const struct kui_native_ra
     toy_report_short(at,end,"Q B N T MAX I N T MAX",
         (uint32_t[]){w->wait_calls[0],w->wait_ticks[0],w->wait_max[0],
             w->wait_calls[1],w->wait_ticks[1],w->wait_max[1]},6u);
-#if KUI_TOY_WIRE_CACHED
+#if KUI_TOY_WIRE_WORDS
+    toy_report_short(at,end,"P BUDGET RT RMAX",
+        (uint32_t[]){w->budget_ends,w->restart_ticks,w->restart_max},3u);
+    /* The second movie's course: twelve pieces of 5.4 s from its start, a
+     * byte each, the earliest in a word's top byte. */
+    toy_report_course(at,end,"TF",w->course_frames,NULL,0u);
+    toy_report_course(at,end,"TD",w->course_sectors,NULL,4u);
+    toy_report_course(at,end,"TW",NULL,w->course_wait,14u);
+    toy_report_course(at,end,"TI",NULL,w->course_interrupt,14u);
+    toy_report_course(at,end,"TG",NULL,w->course_game,14u);
+    toy_report_course(at,end,"TX",w->course_stops,NULL,0u);
+#elif KUI_TOY_WIRE_CACHED
     toy_report_short(at,end,"P CCR MMU BUDGET RT RMAX",
         (uint32_t[]){w->ccr,w->mmucr,w->budget_ends,w->restart_ticks,w->restart_max},5u);
 #else
@@ -105,6 +130,13 @@ static void toy_report_wire(char **at,const char *end,const struct kui_native_ra
     toy_report_short(at,end,"W FILL BYTES MOST REF BAD DECL",
         (uint32_t[]){w->filled,w->filled_bytes,w->most_lost,w->refused,w->check_bad,w->declined},6u);
     toy_report_short(at,end,"W STOP C J S F X",w->stops,KUI_TOY_WIRE_STOPS);
+#if KUI_TOY_WIRE_WORDS
+    toy_report_short(at,end,"F END HELD TWICE",
+        (uint32_t[]){w->n.frame_end,w->n.frame_held,w->n.frame_twice},3u);
+    /* The low reader's own rows gave way to the course above. */
+    (void)sd;
+}
+#else
     toy_report_short(at,end,"W DROP E N I C W O",w->drops,KUI_TOY_WIRE_DROPS);
     toy_report_short(at,end,"F BIT03 BIT47 KIND",
         (uint32_t[]){w->n.frame_bit[0],w->n.frame_bit[1],w->n.frame_kind},3u);
@@ -116,6 +148,7 @@ static void toy_report_wire(char **at,const char *end,const struct kui_native_ra
     toy_report_short(at,end,"SD BLK PIO START CRC",
         (uint32_t[]){sd->blocks,sd->polled,sd->starts,sd->crc_errors},4u);
 }
+#endif
 #else
     toy_report_short(at,end,"PIPE B I CALLS IRQ FAIL",
         (uint32_t[]){ahead[2],ahead[3],ahead[4],ahead[5],
@@ -219,7 +252,7 @@ static void toy_report_format(char *text,const struct kui_native_ra_public *ra,
     toy_report_string(&at,"K-UI TOY COMMANDER REPORT\nTEST ");
 #if KUI_TOY_WIRE_STREAM
     /* Card Tools starts this reader from its Test 66 entry. */
-    test=KUI_TOY_WIRE_TICK?69u:KUI_TOY_WIRE_CACHED?70u:68u;
+    test=KUI_TOY_WIRE_TICK?69u:KUI_TOY_WIRE_WORDS?71u:KUI_TOY_WIRE_CACHED?70u:68u;
 #endif
     if(test>=10u)*at++=(char)('0'+test/10u);
     *at++=(char)('0'+test%10u);
