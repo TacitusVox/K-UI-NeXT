@@ -1,0 +1,504 @@
+The Test 73 code as linked in the auxiliary (build e623c2a697d5), and the checks of Tests 70 and 71 on the same ELF:
+
+PASS cached gate at 0x8c426b70: with the MMU off the stack is used at 0x0c427fe0 and the guards read at 0x0c427000 and 0x0c427ff0; with it on at 0xac427fe0, 0xac427000 and 0xac427ff0 as before
+PASS word loop at 0x8c42543c: 49 instructions for four bytes, no stack access, 1 ring word, 4 CRC table loads, 4 reversed bytes stored
+
+Symbols:
+8c422000 00000040 t _clock_read
+8c426b70 000000e0 T _kui_native_readahead_aux_visit
+8c423c40 000001ec T _kui_toy_movie_ahead_update
+8c426c50 000001d6 T _kui_toy_movie_exit_hook
+8c4257c4 00000034 T _kui_wire_overdue
+8c4222e0 0000003c t _toy_chunk_ram
+8c423184 000004f8 t _toy_movie_ahead
+8c4220d8 00000038 t _toy_wire_course
+8c42222c 0000004c t _toy_wire_course_served
+8c422448 00000104 t _toy_wire_foreground_due
+8c4220a0 0000001c t _toy_wire_keep
+8c422278 00000020 t _toy_wire_room
+8c4220bc 0000001c t _toy_wire_stream
+
+1. The hook stub (sh-elf-objdump -d), up to the update's own call. The clock (0xffd8000c) is read before the
+   original update and kept in the word that was spare; after the original it is taken into R3 and handed to
+   kui_toy_movie_ahead_update as its second argument in the delay slot of the call.
+
+8c426c50 <_kui_toy_movie_exit_hook>:
+8c426c50:	movt	r7
+8c426c52:	sts	pr,r1
+8c426c54:	mov.l	8c426dcc <_kui_toy_movie_exit_hook+0x17c>,r2	! 8c06d3f0
+8c426c56:	cmp/eq	r2,r1
+8c426c58:	bf	8c426c64 <_kui_toy_movie_exit_hook+0x14>
+8c426c5a:	mov.w	8c426e14 <_kui_toy_movie_exit_hook+0x1c4>,r2	! 200
+8c426c5c:	cmp/eq	r2,r5
+8c426c5e:	bt	8c426c82 <_kui_toy_movie_exit_hook+0x32>
+8c426c60:	bra	8c426dc2 <_kui_toy_movie_exit_hook+0x172>
+8c426c62:	nop
+8c426c64:	mov.l	8c426dd0 <_kui_toy_movie_exit_hook+0x180>,r2	! 8c06d39a
+8c426c66:	cmp/eq	r2,r1
+8c426c68:	bf	8c426c72 <_kui_toy_movie_exit_hook+0x22>
+8c426c6a:	tst	r5,r5
+8c426c6c:	bt	8c426c82 <_kui_toy_movie_exit_hook+0x32>
+8c426c6e:	bra	8c426c78 <_kui_toy_movie_exit_hook+0x28>
+8c426c70:	nop
+8c426c72:	mov.l	8c426dd4 <_kui_toy_movie_exit_hook+0x184>,r2	! 8c06d3c0
+8c426c74:	cmp/eq	r2,r1
+8c426c76:	bf	8c426c7e <_kui_toy_movie_exit_hook+0x2e>
+8c426c78:	mov	#4,r2
+8c426c7a:	cmp/eq	r2,r5
+8c426c7c:	bt	8c426c82 <_kui_toy_movie_exit_hook+0x32>
+8c426c7e:	bra	8c426dc2 <_kui_toy_movie_exit_hook+0x172>
+8c426c80:	nop
+8c426c82:	mov.l	r4,@-r15
+8c426c84:	mov.l	r5,@-r15
+8c426c86:	sts.l	pr,@-r15
+8c426c88:	mov.l	8c426de8 <_kui_toy_movie_exit_hook+0x198>,r1	! ffd8000c
+8c426c8a:	mov.l	@r1,r1
+8c426c8c:	mov.l	r1,@-r15
+8c426c8e:	mov.l	8c426dc8 <_kui_toy_movie_exit_hook+0x178>,r1	! 8c08d638
+8c426c90:	jsr	@r1
+8c426c92:	shlr	r7
+8c426c94:	movt	r7
+8c426c96:	mov.l	@r15+,r3
+8c426c98:	lds.l	@r15+,pr
+8c426c9a:	mov.l	@r15+,r5
+8c426c9c:	mov.l	@r15+,r4
+8c426c9e:	mov.w	8c426e14 <_kui_toy_movie_exit_hook+0x1c4>,r2	! 200
+8c426ca0:	cmp/eq	r2,r5
+8c426ca2:	bt.s	8c426cd6 <_kui_toy_movie_exit_hook+0x86>
+8c426ca4:	mov	#1,r6
+8c426ca6:	mov	#2,r6
+8c426ca8:	cmp/pz	r0
+8c426caa:	bf	8c426cd6 <_kui_toy_movie_exit_hook+0x86>
+8c426cac:	mov.w	8c426e16 <_kui_toy_movie_exit_hook+0x1c6>,r2	! 7dc
+8c426cae:	cmp/eq	r2,r0
+8c426cb0:	bt	8c426cd6 <_kui_toy_movie_exit_hook+0x86>
+8c426cb2:	tst	r5,r5
+8c426cb4:	bt	8c426cba <_kui_toy_movie_exit_hook+0x6a>
+8c426cb6:	bra	8c426dbe <_kui_toy_movie_exit_hook+0x16e>
+8c426cb8:	nop
+8c426cba:	add	#-16,r15
+8c426cbc:	sts	pr,r1
+8c426cbe:	mov.l	r1,@(12,r15)
+8c426cc0:	mov.l	r7,@(8,r15)
+8c426cc2:	mov.l	r0,@(4,r15)
+8c426cc4:	mov.l	8c426de0 <_kui_toy_movie_exit_hook+0x190>,r1	! 8c423c40 <_kui_toy_movie_ahead_update>
+8c426cc6:	jsr	@r1
+8c426cc8:	mov	r3,r5
+8c426cca:	mov.l	@(12,r15),r1
+8c426ccc:	lds	r1,pr
+8c426cce:	mov.l	@(4,r15),r0
+8c426cd0:	mov.l	@(8,r15),r7
+
+2. kui_toy_movie_ahead_update with toy_wire_update_seen inlined. It runs on the game's stack, outside the gate:
+   28 bytes pushed. Every access to the game's memory is a read: the player's counters at ctx+0xac and ctx+0x90,
+   its lag counter at 0x8c1138c4, and its buffer behind three pointers each checked by toy_chunk_ram. Every
+   write goes to the reader's own kept block (R8). The gate is entered by a tail jump only when the call is
+   passed on.
+
+8c423c40 <_kui_toy_movie_ahead_update>:
+8c423c40:	mov.l	r8,@-r15
+8c423c42:	mov.l	r9,@-r15
+8c423c44:	mov	r4,r9
+8c423c46:	mov.l	r10,@-r15
+8c423c48:	mov.l	r11,@-r15
+8c423c4a:	mov.l	r12,@-r15
+8c423c4c:	mov.l	r13,@-r15
+8c423c4e:	mov.l	8c423dfc <_kui_toy_movie_ahead_update+0x1bc>,r1	! ac4215bc
+8c423c50:	sts.l	pr,@-r15
+8c423c52:	mov.l	@(24,r1),r1
+8c423c54:	tst	r1,r1
+8c423c56:	bt.s	8c423c62 <_kui_toy_movie_ahead_update+0x22>
+8c423c58:	mov	r5,r12
+8c423c5a:	mov.l	8c423e00 <_kui_toy_movie_ahead_update+0x1c0>,r10	! ac421760 <_toy_present>
+8c423c5c:	mov.l	@r10,r1
+8c423c5e:	cmp/eq	r4,r1
+8c423c60:	bt	8c423c66 <_kui_toy_movie_ahead_update+0x26>
+8c423c62:	bra	8c423dd4 <_kui_toy_movie_ahead_update+0x194>
+8c423c64:	nop
+8c423c66:	mov.l	8c423e04 <_kui_toy_movie_ahead_update+0x1c4>,r0	! 8c4220a0 <_toy_wire_keep>
+8c423c68:	jsr	@r0
+8c423c6a:	nop
+8c423c6c:	mov	r0,r8
+8c423c6e:	mov.l	8c423e08 <_kui_toy_movie_ahead_update+0x1c8>,r0	! 8c422000 <_clock_read>
+8c423c70:	jsr	@r0
+8c423c72:	nop
+8c423c74:	tst	r1,r1
+8c423c76:	bt.s	8c423c84 <_kui_toy_movie_ahead_update+0x44>
+8c423c78:	mov	r0,r4
+8c423c7a:	mov	r10,r1
+8c423c7c:	add	#16,r1
+8c423c7e:	mov.b	@r1,r1
+8c423c80:	tst	r1,r1
+8c423c82:	bf	8c423c88 <_kui_toy_movie_ahead_update+0x48>
+8c423c84:	bra	8c423d8e <_kui_toy_movie_ahead_update+0x14e>
+8c423c86:	nop
+8c423c88:	mov.w	8c423de4 <_kui_toy_movie_ahead_update+0x1a4>,r1	! ac
+8c423c8a:	sub	r4,r12
+8c423c8c:	mov.l	@(4,r10),r0
+8c423c8e:	add	r9,r1
+8c423c90:	mov.l	@r1,r5
+8c423c92:	mov.w	8c423de6 <_kui_toy_movie_ahead_update+0x1a6>,r1	! 90
+8c423c94:	add	r9,r1
+8c423c96:	mov.l	@r1,r6
+8c423c98:	mov.w	8c423de8 <_kui_toy_movie_ahead_update+0x1a8>,r1	! bc
+8c423c9a:	add	r8,r1
+8c423c9c:	mov.l	@(52,r1),r7
+8c423c9e:	mov.l	@(56,r1),r1
+8c423ca0:	add	r1,r7
+8c423ca2:	mov.w	8c423dea <_kui_toy_movie_ahead_update+0x1aa>,r1	! 33c
+8c423ca4:	add	r8,r1
+8c423ca6:	mov.l	@(4,r1),r2
+8c423ca8:	cmp/eq	r0,r2
+8c423caa:	bf	8c423cf8 <_kui_toy_movie_ahead_update+0xb8>
+8c423cac:	mov.l	@(12,r10),r3
+8c423cae:	mov.l	8c423e0c <_kui_toy_movie_ahead_update+0x1cc>,r2	! ac42150c
+8c423cb0:	cmp/eq	r2,r3
+8c423cb2:	mov.l	@(8,r1),r3
+8c423cb4:	movt	r2
+8c423cb6:	cmp/eq	r3,r5
+8c423cb8:	bf	8c423cbe <_kui_toy_movie_ahead_update+0x7e>
+8c423cba:	bra	8c423db4 <_kui_toy_movie_ahead_update+0x174>
+8c423cbc:	mov.l	@(12,r1),r3
+8c423cbe:	mov	#24,r3
+8c423cc0:	mov.w	8c423dec <_kui_toy_movie_ahead_update+0x1ac>,r10	! 22c
+8c423cc2:	mul.l	r3,r2
+8c423cc4:	sts	macl,r2
+8c423cc6:	add	r8,r2
+8c423cc8:	add	r2,r10
+8c423cca:	mov.l	@r10,r3
+8c423ccc:	add	#1,r3
+8c423cce:	mov.l	r3,@r10
+8c423cd0:	mov.w	8c423dee <_kui_toy_movie_ahead_update+0x1ae>,r10	! 230
+8c423cd2:	add	r2,r10
+8c423cd4:	mov.l	@r10,r3
+8c423cd6:	add	r12,r3
+8c423cd8:	mov.l	r3,@r10
+8c423cda:	mov.w	8c423df0 <_kui_toy_movie_ahead_update+0x1b0>,r10	! 234
+8c423cdc:	mov.l	@(20,r1),r11
+8c423cde:	add	r2,r10
+8c423ce0:	mov.l	@r10,r3
+8c423ce2:	add	r11,r3
+8c423ce4:	sub	r4,r3
+8c423ce6:	mov.l	r3,@r10
+8c423ce8:	mov.w	8c423df2 <_kui_toy_movie_ahead_update+0x1b2>,r3	! 238
+8c423cea:	mov.l	@(16,r1),r10
+8c423cec:	add	r3,r2
+8c423cee:	mov	r7,r3
+8c423cf0:	sub	r10,r3
+8c423cf2:	mov.l	@r2,r10
+8c423cf4:	add	r10,r3
+8c423cf6:	mov.l	r3,@r2
+8c423cf8:	mov.l	r0,@(4,r1)
+8c423cfa:	mov.l	8c423e10 <_kui_toy_movie_ahead_update+0x1d0>,r0	! 8c4220d8 <_toy_wire_course>
+8c423cfc:	mov.l	r5,@(8,r1)
+8c423cfe:	mov.l	r6,@(12,r1)
+8c423d00:	mov.l	r7,@(16,r1)
+8c423d02:	jsr	@r0
+8c423d04:	mov.l	r4,@(20,r1)
+8c423d06:	cmp/eq	#-1,r0
+8c423d08:	bt.s	8c423d8e <_kui_toy_movie_ahead_update+0x14e>
+8c423d0a:	mov	r0,r10
+8c423d0c:	mov.w	8c423df4 <_kui_toy_movie_ahead_update+0x1b4>,r11	! 23c
+8c423d0e:	add	r8,r11
+8c423d10:	mov.l	@(32,r11),r1
+8c423d12:	add	r12,r1
+8c423d14:	mov.l	r1,@(32,r11)
+8c423d16:	mov.l	8c423e14 <_kui_toy_movie_ahead_update+0x1d4>,r1	! 8c1138c4
+8c423d18:	mov.l	@r1,r2
+8c423d1a:	cmp/pz	r2
+8c423d1c:	bf	8c423d30 <_kui_toy_movie_ahead_update+0xf0>
+8c423d1e:	extu.w	r0,r1
+8c423d20:	mov.w	8c423df6 <_kui_toy_movie_ahead_update+0x1b6>,r3	! 27c
+8c423d22:	shll2	r1
+8c423d24:	add	r8,r1
+8c423d26:	add	r3,r1
+8c423d28:	mov.l	@(24,r1),r3
+8c423d2a:	cmp/hi	r3,r2
+8c423d2c:	bf	8c423d30 <_kui_toy_movie_ahead_update+0xf0>
+8c423d2e:	mov.l	r2,@(24,r1)
+8c423d30:	mov.l	8c423e18 <_kui_toy_movie_ahead_update+0x1d8>,r13	! 8c4222e0 <_toy_chunk_ram>
+8c423d32:	mov	#20,r5
+8c423d34:	mov.l	@(8,r9),r12
+8c423d36:	jsr	@r13
+8c423d38:	mov	r12,r4
+8c423d3a:	tst	r0,r0
+8c423d3c:	bt	8c423d8e <_kui_toy_movie_ahead_update+0x14e>
+8c423d3e:	mov.l	@(4,r12),r12
+8c423d40:	mov	#72,r5
+8c423d42:	jsr	@r13
+8c423d44:	mov	r12,r4
+8c423d46:	tst	r0,r0
+8c423d48:	bt	8c423d8e <_kui_toy_movie_ahead_update+0x14e>
+8c423d4a:	add	#68,r12
+8c423d4c:	mov.l	@r12,r12
+8c423d4e:	mov	#108,r5
+8c423d50:	jsr	@r13
+8c423d52:	mov	r12,r4
+8c423d54:	tst	r0,r0
+8c423d56:	bt	8c423d8e <_kui_toy_movie_ahead_update+0x14e>
+8c423d58:	mov.l	@(20,r12),r1
+8c423d5a:	mov	r12,r2
+8c423d5c:	add	#104,r2
+8c423d5e:	mov.l	@r2,r7
+8c423d60:	add	#100,r12
+8c423d62:	mov.l	8c423e1c <_kui_toy_movie_ahead_update+0x1dc>,r2	! 3fffff
+8c423d64:	mov	r1,r3
+8c423d66:	mov.l	@r12,r6
+8c423d68:	add	#-1,r3
+8c423d6a:	cmp/hi	r2,r3
+8c423d6c:	bt	8c423d8e <_kui_toy_movie_ahead_update+0x14e>
+8c423d6e:	mov	r7,r2
+8c423d70:	sub	r6,r2
+8c423d72:	cmp/hi	r1,r2
+8c423d74:	bt	8c423d8e <_kui_toy_movie_ahead_update+0x14e>
+8c423d76:	extu.w	r10,r10
+8c423d78:	mov.w	8c423df4 <_kui_toy_movie_ahead_update+0x1b4>,r3	! 23c
+8c423d7a:	shll2	r10
+8c423d7c:	mov.l	r1,@(36,r11)
+8c423d7e:	add	r10,r8
+8c423d80:	add	r3,r8
+8c423d82:	mov.l	@(40,r8),r2
+8c423d84:	add	r6,r1
+8c423d86:	sub	r7,r1
+8c423d88:	cmp/hi	r2,r1
+8c423d8a:	bf	8c423d8e <_kui_toy_movie_ahead_update+0x14e>
+8c423d8c:	mov.l	r1,@(40,r8)
+8c423d8e:	mov.l	8c423e20 <_kui_toy_movie_ahead_update+0x1e0>,r0	! 8c422448 <_toy_wire_foreground_due>
+8c423d90:	jsr	@r0
+8c423d92:	mov	#0,r4
+8c423d94:	tst	r0,r0
+8c423d96:	bt.s	8c423dd4 <_kui_toy_movie_ahead_update+0x194>
+8c423d98:	mov	#0,r7
+8c423d9a:	mov.l	8c423e24 <_kui_toy_movie_ahead_update+0x1e4>,r1	! ac42153c
+8c423d9c:	mov.l	8c423e28 <_kui_toy_movie_ahead_update+0x1e8>,r0	! 8c426b70 <_kui_native_readahead_aux_visit>
+8c423d9e:	mov	#13,r4
+8c423da0:	mov.l	@(52,r1),r6
+8c423da2:	mov	r9,r5
+8c423da4:	lds.l	@r15+,pr
+8c423da6:	mov.l	@r15+,r13
+8c423da8:	mov.l	@r15+,r12
+8c423daa:	mov.l	@r15+,r11
+8c423dac:	mov.l	@r15+,r10
+8c423dae:	mov.l	@r15+,r9
+8c423db0:	jmp	@r0
+8c423db2:	mov.l	@r15+,r8
+8c423db4:	cmp/eq	r3,r6
+8c423db6:	bt	8c423cf8 <_kui_toy_movie_ahead_update+0xb8>
+8c423db8:	mov	#24,r3
+8c423dba:	mov.w	8c423df4 <_kui_toy_movie_ahead_update+0x1b4>,r10	! 23c
+8c423dbc:	mul.l	r3,r2
+8c423dbe:	sts	macl,r2
+8c423dc0:	add	r8,r2
+8c423dc2:	add	r2,r10
+8c423dc4:	mov.l	@r10,r3
+8c423dc6:	add	#1,r3
+8c423dc8:	mov.l	r3,@r10
+8c423dca:	mov.w	8c423df8 <_kui_toy_movie_ahead_update+0x1b8>,r3	! 240
+8c423dcc:	add	r3,r2
+8c423dce:	mov.l	@r2,r3
+8c423dd0:	bra	8c423cf6 <_kui_toy_movie_ahead_update+0xb6>
+8c423dd2:	add	r12,r3
+8c423dd4:	lds.l	@r15+,pr
+8c423dd6:	mov.l	@r15+,r13
+8c423dd8:	mov.l	@r15+,r12
+8c423dda:	mov.l	@r15+,r11
+8c423ddc:	mov.l	@r15+,r10
+8c423dde:	mov.l	@r15+,r9
+8c423de0:	rts
+8c423de2:	mov.l	@r15+,r8
+8c423de4:	mov.b	@(r0,r10),r0
+8c423de6:	.word 0x0090
+8c423de8:	mov.b	@(r0,r11),r0
+8c423dea:	mov.b	@(r0,r3),r3
+8c423dec:	mov.b	@(r0,r2),r2
+8c423dee:	.word 0x0230
+8c423df0:	mov.b	r3,@(r0,r2)
+8c423df2:	.word 0x0238
+8c423df4:	mov.b	@(r0,r3),r2
+8c423df6:	mov.b	@(r0,r7),r2
+8c423df8:	.word 0x0240
+8c423dfa:	nop
+8c423dfc:	mov.l	r11,@(48,r5)
+8c423dfe:	bra	8c423686 <_kui_toy_movie_present_boundary+0xa>
+8c423e00:	mov.l	r6,@(0,r7)
+8c423e02:	bra	8c42368a <_kui_toy_movie_present_boundary+0xe>
+8c423e04:	mov.b	r10,@r0
+8c423e06:	.word 0x8c42
+8c423e08:	mov.b	r0,@r0
+8c423e0a:	.word 0x8c42
+8c423e0c:	mov.l	r0,@(48,r5)
+8c423e0e:	bra	8c423696 <_kui_toy_movie_present_boundary+0x1a>
+8c423e10:	tst	r13,r0
+8c423e12:	.word 0x8c42
+8c423e14:	div1	r12,r8
+8c423e16:	.word 0x8c11
+8c423e18:	mov.b	r14,@r2
+8c423e1a:	.word 0x8c42
+8c423e1c:	.word 0xffff
+8c423e1e:	mac.l	@r3+,@r0+
+8c423e20:	tst	r4,r4
+8c423e22:	.word 0x8c42
+8c423e24:	mov.l	r3,@(48,r5)
+8c423e26:	bra	8c4236ae <_kui_toy_movie_present_boundary+0x32>
+8c423e28:	mov.b	@r7,r11
+8c423e2a:	.word 0x8c42
+
+3. toy_wire_foreground_due(idle): one rule, two sets of counts.
+
+8c422448 <_toy_wire_foreground_due>:
+8c422448:	mov.l	r8,@-r15
+8c42244a:	mov.l	r9,@-r15
+8c42244c:	mov.l	8c422534 <_toy_wire_foreground_due+0xec>,r0	! 8c4220a0 <_toy_wire_keep>
+8c42244e:	mov.l	r10,@-r15
+8c422450:	mov.l	r11,@-r15
+8c422452:	sts.l	pr,@-r15
+8c422454:	jsr	@r0
+8c422456:	mov	r4,r10
+8c422458:	mov.w	8c42251c <_toy_wire_foreground_due+0xd4>,r11	! 1fc
+8c42245a:	tst	r10,r10
+8c42245c:	mov	r0,r8
+8c42245e:	bt.s	8c422482 <_toy_wire_foreground_due+0x3a>
+8c422460:	add	r0,r11
+8c422462:	mov.w	8c42251e <_toy_wire_foreground_due+0xd6>,r2	! 218
+8c422464:	mov.l	@(28,r11),r1
+8c422466:	add	r0,r2
+8c422468:	mov.l	8c422538 <_toy_wire_foreground_due+0xf0>,r9	! ac421740
+8c42246a:	add	#1,r1
+8c42246c:	mov.l	r1,@r2
+8c42246e:	mov.b	@(4,r9),r0
+8c422470:	tst	r0,r0
+8c422472:	bf.s	8c42248a <_toy_wire_foreground_due+0x42>
+8c422474:	mov	#0,r0
+8c422476:	lds.l	@r15+,pr
+8c422478:	mov.l	@r15+,r11
+8c42247a:	mov.l	@r15+,r10
+8c42247c:	mov.l	@r15+,r9
+8c42247e:	rts
+8c422480:	mov.l	@r15+,r8
+8c422482:	mov.w	8c422520 <_toy_wire_foreground_due+0xd8>,r2	! 20c
+8c422484:	mov.l	@(16,r11),r1
+8c422486:	bra	8c422468 <_toy_wire_foreground_due+0x20>
+8c422488:	add	r0,r2
+8c42248a:	mov.l	8c42253c <_toy_wire_foreground_due+0xf4>,r0	! 8c422278 <_toy_wire_room>
+8c42248c:	jsr	@r0
+8c42248e:	nop
+8c422490:	mov.w	8c422522 <_toy_wire_foreground_due+0xda>,r1	! 2bc
+8c422492:	tst	r0,r0
+8c422494:	add	r8,r1
+8c422496:	bt.s	8c4224d0 <_toy_wire_foreground_due+0x88>
+8c422498:	mov.l	@(8,r1),r1
+8c42249a:	tst	r1,r1
+8c42249c:	bf.s	8c4224aa <_toy_wire_foreground_due+0x62>
+8c42249e:	tst	r10,r10
+8c4224a0:	bf	8c422506 <_toy_wire_foreground_due+0xbe>
+8c4224a2:	mov.w	8c422524 <_toy_wire_foreground_due+0xdc>,r1	! 210
+8c4224a4:	add	r1,r8
+8c4224a6:	bra	8c42250c <_toy_wire_foreground_due+0xc4>
+8c4224a8:	mov.l	@(20,r11),r1
+8c4224aa:	mov.l	8c422540 <_toy_wire_foreground_due+0xf8>,r0	! 8c4220bc <_toy_wire_stream>
+8c4224ac:	jsr	@r0
+8c4224ae:	nop
+8c4224b0:	mov.l	@r0,r0
+8c4224b2:	cmp/eq	#3,r0
+8c4224b4:	bt.s	8c4224a0 <_toy_wire_foreground_due+0x58>
+8c4224b6:	tst	r10,r10
+8c4224b8:	mov.l	8c422540 <_toy_wire_foreground_due+0xf8>,r0	! 8c4220bc <_toy_wire_stream>
+8c4224ba:	jsr	@r0
+8c4224bc:	nop
+8c4224be:	mov	r0,r4
+8c4224c0:	mov.l	8c422544 <_toy_wire_foreground_due+0xfc>,r0	! 8c4257c4 <_kui_wire_overdue>
+8c4224c2:	jsr	@r0
+8c4224c4:	nop
+8c4224c6:	tst	r0,r0
+8c4224c8:	bt.s	8c4224d4 <_toy_wire_foreground_due+0x8c>
+8c4224ca:	tst	r10,r10
+8c4224cc:	bra	8c4224a0 <_toy_wire_foreground_due+0x58>
+8c4224ce:	nop
+8c4224d0:	tst	r1,r1
+8c4224d2:	bf	8c4224b8 <_toy_wire_foreground_due+0x70>
+8c4224d4:	mov.l	8c422548 <_toy_wire_foreground_due+0x100>,r1	! ffd8000c
+8c4224d6:	mov.b	@(5,r9),r0
+8c4224d8:	mov.w	8c422526 <_toy_wire_foreground_due+0xde>,r2	! 2fc
+8c4224da:	mov.l	@r1,r3
+8c4224dc:	tst	r0,r0
+8c4224de:	bf.s	8c4224f8 <_toy_wire_foreground_due+0xb0>
+8c4224e0:	add	r8,r2
+8c4224e2:	mov.w	8c422528 <_toy_wire_foreground_due+0xe0>,r1	! 33c
+8c4224e4:	add	r8,r1
+8c4224e6:	mov.l	@(0,r1),r1
+8c4224e8:	tst	r1,r1
+8c4224ea:	bt	8c4224f8 <_toy_wire_foreground_due+0xb0>
+8c4224ec:	mov.l	@(60,r2),r1
+8c4224ee:	mov.w	8c42252a <_toy_wire_foreground_due+0xe2>,r7	! c34
+8c4224f0:	sub	r3,r1
+8c4224f2:	cmp/hi	r7,r1
+8c4224f4:	bf.s	8c422476 <_toy_wire_foreground_due+0x2e>
+8c4224f6:	mov	#0,r0
+8c4224f8:	tst	r10,r10
+8c4224fa:	bt.s	8c422514 <_toy_wire_foreground_due+0xcc>
+8c4224fc:	mov.l	r3,@(60,r2)
+8c4224fe:	mov.w	8c42252c <_toy_wire_foreground_due+0xe4>,r1	! 220
+8c422500:	add	r1,r8
+8c422502:	bra	8c42250c <_toy_wire_foreground_due+0xc4>
+8c422504:	mov.l	@(36,r11),r1
+8c422506:	mov.w	8c42252e <_toy_wire_foreground_due+0xe6>,r7	! 21c
+8c422508:	mov.l	@(32,r11),r1
+8c42250a:	add	r7,r8
+8c42250c:	add	#1,r1
+8c42250e:	mov.l	r1,@r8
+8c422510:	bra	8c422476 <_toy_wire_foreground_due+0x2e>
+8c422512:	mov	#1,r0
+8c422514:	mov.w	8c422530 <_toy_wire_foreground_due+0xe8>,r2	! 214
+8c422516:	mov.l	@(24,r11),r1
+8c422518:	bra	8c42250c <_toy_wire_foreground_due+0xc4>
+8c42251a:	add	r2,r8
+8c42251c:	mov.b	@(r0,r15),r1
+8c42251e:	.word 0x0218
+8c422520:	mov.b	@(r0,r0),r2
+8c422522:	mov.b	@(r0,r11),r2
+8c422524:	.word 0x0210
+8c422526:	mov.b	@(r0,r15),r2
+8c422528:	mov.b	@(r0,r3),r3
+8c42252a:	mov.b	r3,@(r0,r12)
+8c42252c:	.word 0x0220
+8c42252e:	mov.b	@(r0,r1),r2
+8c422530:	mov.b	r1,@(r0,r2)
+8c422532:	nop
+8c422534:	mov.b	r10,@r0
+8c422536:	.word 0x8c42
+8c422538:	mov.l	r4,@(0,r7)
+8c42253a:	bra	8c421dc2 <_kui_native_readahead_aux_exports+0xdc2>
+8c42253c:	tst	r7,r2
+8c42253e:	.word 0x8c42
+8c422540:	cmp/str	r11,r0
+8c422542:	.word 0x8c42
+8c422544:	mov.l	@(16,r12),r7
+8c422546:	.word 0x8c42
+8c422548:	mov.b	@(r0,r0),r0
+8c42254a:	fmov	@r13,fr15
+
+4. The gate before the pump in toy_movie_ahead: the pump is called when the request waits (R12), in an
+   interrupt's visit, when the visit's event is not a delivery (1), or when toy_wire_foreground_due(1) says so.
+
+8c423596:	tst	r12,r12
+8c423598:	bt.s	8c42361c <_toy_movie_ahead+0x498>
+8c42359a:	mov	r9,r1
+8c42359c:	mov.l	8c42360c <_toy_movie_ahead+0x488>,r1	! 8c422c38 <_toy_ahead_pump>
+8c42359e:	mov	r8,r4
+8c4235a0:	jsr	@r1
+8c4235a2:	mov.l	@(20,r15),r5
+8c42361c:	add	#124,r1
+8c42361e:	mov.l	@(16,r1),r1
+8c423620:	tst	r1,r1
+8c423622:	bf	8c42359c <_toy_movie_ahead+0x418>
+8c423624:	mov.l	8c423668 <_toy_movie_ahead+0x4e4>,r1	! ac42167c
+8c423626:	mov.l	@(24,r1),r0
+8c423628:	cmp/eq	#1,r0
+8c42362a:	bf	8c42359c <_toy_movie_ahead+0x418>
+8c42362c:	mov.l	8c42366c <_toy_movie_ahead+0x4e8>,r0	! 8c422448 <_toy_wire_foreground_due>
+8c42362e:	jsr	@r0
+8c423630:	mov	#1,r4
+8c423632:	tst	r0,r0
+8c423634:	bf	8c42359c <_toy_movie_ahead+0x418>
+8c423636:	bra	8c4235a4 <_toy_movie_ahead+0x420>
+8c423638:	nop
