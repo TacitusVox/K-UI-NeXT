@@ -70,6 +70,14 @@
       "working tree"
     ]
   },
-  "status": "host- and linked-qualified; not console-accepted",
-  "console_result": null
+  "status": "ran on the console; stream and verification work, second movie not at full speed; not accepted",
+  "console_result": {
+    "date": "2026-11-13",
+    "report": "console-report-66-2.txt",
+    "report_sha256": "983da9af0078b3b6486e22b46678dc3012e5910511669a171b19904b7e18e92a",
+    "report_test": 68,
+    "report_build": "806015566fc7",
+    "owner_observation": "First movie played through without issue. Second movie became a slideshow two seconds in and stayed one to its end.",
+    "reading": "docs/toy-wire-stream-test-68.md, Console result"
+  }
 }

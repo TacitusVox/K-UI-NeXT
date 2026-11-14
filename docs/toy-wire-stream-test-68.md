@@ -1,6 +1,10 @@
 # Toy Commander Test 68: the continuous card stream under the movie window
 
-Status: host- and linked-qualified. It has not run on a console.
+Status: ran on the console on 2026-11-13 (build `806015566fc7`, owner's
+report `/reports/toy/66-2.txt`). The stream and its verification work; the
+first movie played through, the second fell into a slideshow two seconds in
+and stayed one to its end. Not accepted. See "Console result" below; the
+follow-up is Test 69 (`docs/toy-wire-stream-test-69.md`).
 
 ## Baseline and the one change
 
@@ -144,6 +148,88 @@ Reading it:
 - `W FULL` large with `W IRQ MAX` large: the ring reader, not the wire, is
   the limit.
 - `TMR` 0: no free timer; waits ended only at the next visit.
+
+## Console result
+
+Owner's run, cold CD boot, Card Tools 09c9a4b686d4, raw Toy Commander GDI,
+"66 SCI movie playback", CD Music and virtual VMU off. Saved report
+`docs/evidence/toy-wire-stream-68/console-report-66-2.txt` (1,024 bytes,
+SHA-256 `983da9af...e92a`), headed `TEST 68`, `BUILD 806015566fc7`. The GUI
+and module path are those of the package; the report does not carry the
+module's payload CRC.
+
+Owner's observation: "the first video played all the way through without
+issue. Second intro video turned into a slideshow two seconds in, but it did
+actually go until the end...just as a slideshow."
+
+| | First movie (B) | Second movie (I) |
+|---|---|---|
+| Windows opened / sectors served from them | 10 / 3,400 | 1 / 25,756 |
+| Frames submitted of the movie's | 317 of 331 | 319 of 1,968 |
+| Of those on time and in sequence | 307 | 272 |
+| Frames skipped | 14, from frame 11 | 1,649, from frame 23 |
+| Longest gap between frames | 98 ms at frame 204 | 2.15 s at frame 121 |
+| First read still pending with frames out | none | frame 116, 15,445 bytes short |
+| Player exit | `7DC` | `7DC` at frame 1,968 |
+
+Both movies together:
+
+| What | Value |
+|---|---|
+| Requests served from the window | 2,279; no failed game read |
+| Streams begun | 86 |
+| Wire bytes | 70,692,502 |
+| Full 8 KiB runs / overruns inside a run | 5,595 / 46,915 |
+| Overruns answered with a timer wait | 16,454, 3.35 s in all, on TMU1 |
+| Stops for room in the ring | 1,845 |
+| Blocks handed on | 134,272 |
+| One lost byte rebuilt from CRC16 / not explained by it | 17,140 / 11 |
+| Handed on with lost bytes / only a CRC byte lost | 15,993 / 82 |
+| Lost gap bytes read as idle / as token | 136 / 65 |
+| Clean block failing CRC16 | 0 |
+| Sectors filled from parity | 6,391 (34,526 bytes, at most 26 in one) |
+| Sectors beyond the fill / failing address or EDC | 0 / 1 |
+| Whole-sector parity consistent | yes |
+| Streams ended: close / jump / sector / frame / fault | 11 / 0 / 1 / 74 / 0 |
+| Windows given up: movie over / read waited for with interrupts off | 2 / 9 (all in the first movie) |
+| Reader visits from the game / from the SCI interrupt | 156,261 / 50,812 |
+| Time in the interrupt visits | 9.05 s, at most 5.29 ms in one |
+| Low reader: blocks by DMA / programmed / CMD18 starts / CRC failures | 14,718 / 81 / 425 / 0 |
+
+What the run establishes:
+
+1. The transport and its verification hold on the console. Lost positions
+   are exact for long runs resumed in the interrupt: 17,140 single losses
+   rebuilt against 11 unexplained. No clean block failed its CRC16, no sector
+   was beyond its parity, one failed its check and was read again, the image
+   carries real P and Q bytes, and no game read failed. Test 66's request
+   path serves from the window: all 25,756 sectors of the second movie.
+2. The second movie starved inside the reader, not on the wire. An interrupt
+   visit reads for 390 ticks, about six blocks at the cost measured here,
+   and a full run brings sixteen. 5,595 full runs carried 45.8 of the 70.7
+   MB; the ring filled and the stream stood still for room 1,845 times, one
+   stop to three full runs, until the game's next call. While a movie plays
+   in step the game calls once a frame, so the data for each frame was read
+   inside that call, with the decoder waiting, and the stream idle in
+   between. Once behind, the player skipped ahead in bursts: 272 of its 319
+   frames came in sequence and on time, between gaps of up to 2.15 s. The
+   host model reproduces this (`playing` in
+   `tests/test_toy_wire_integration.c`): on a quiet bus no frame finds its
+   data ready.
+3. The reader's own cost is high: 9.05 s in interrupt visits for an average
+   of 178 microseconds each, about 67 microseconds a block. The disassembly
+   of `kui_wire_next` shows why: a table step and a branch for every byte,
+   compiled for size, with loop counters kept on the auxiliary's stack,
+   which is uncached memory. For both movies that is roughly 15 s of the
+   CPU. Not changed by Test 69.
+4. 74 of the 86 streams ended at a byte between blocks that was neither
+   idle nor the token. The host model never produces this and the report
+   does not say what the byte was. Each cost a CMD12, a CMD18 and a block
+   by programmed transfers, from the foreground only. Unexplained; Test 69
+   records the bytes around the first two and a histogram.
+5. The first movie lost nine windows to reads the game waited for with
+   interrupts held off, which the low reader then served. It played
+   through regardless.
 
 ## Verification
 

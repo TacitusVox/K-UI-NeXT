@@ -1,0 +1,70 @@
+{
+  "schema": 1,
+  "test": 69,
+  "prepared": "2026-11-13 21:58 CST (America/Chicago)",
+  "source_commit": "fb625c09dde677b967fdc39f9d91355311460ca3",
+  "archive": {
+    "name": "KUI-Toy-Wire-Stream-Test-69-13NOV2026-2158-CST-fb625c0.zip",
+    "bytes": 1801651,
+    "sha256": "52d2b814e320794d652efca519e3b79622fe5999b084c15297471d2618764386",
+    "entries": [
+      "KUI/apps/games/retail-toy-test-66.kui",
+      "KUI/tools.kui",
+      "README.txt",
+      "SHA256SUMS.txt"
+    ]
+  },
+  "files": [
+    {
+      "path": "KUI/apps/games/retail-toy-test-66.kui",
+      "status": "changed: Test 69 reader, replaces the Test 68 module 806015566fc7 at the path Card Tools loads",
+      "bytes": 298436,
+      "sha256": "c6baf0104b347cea3252526302ae2e7dde3265081379e75c1ac591ecb0228beb",
+      "module": {
+        "format": 1,
+        "build": "fb625c09dde6",
+        "payload_bytes": 298372,
+        "memory_bytes": 298372,
+        "crc32": "adb4aa80"
+      }
+    },
+    {
+      "path": "KUI/tools.kui",
+      "status": "unchanged, identical to the Test 66 package",
+      "bytes": 3131480,
+      "sha256": "04b8657aa6a1530b1bdbb002b481853eef656ef0f4da44cd910faab6eab3c800",
+      "module": {
+        "format": 1,
+        "build": "09c9a4b686d4",
+        "payload_bytes": 3131416,
+        "memory_bytes": 7428496,
+        "crc32": "8111e794"
+      }
+    }
+  ],
+  "readme_sha256": "d6ad040a88ced30d94e6b6c28231467b764d444be39cb55d6428ef4711497799",
+  "baseline": {
+    "test": 68,
+    "build": "806015566fc7",
+    "module_sha256": "ae72c817dbd5606d4e7a7a43814621bbfb8d648642b642be1d21dad41eb5c17a",
+    "reproduced_byte_identical_without_the_switch": true,
+    "console_result": "docs/toy-wire-stream-test-68.md, Console result; docs/evidence/toy-wire-stream-68/console-report-66-2.txt"
+  },
+  "toolchain": {
+    "gcc": "15.2.0",
+    "binutils": "2.45.1",
+    "newlib": "4.6.0.20260123",
+    "kos": "fcfa7d869471591ca1c777543261a7bfea7cb726"
+  },
+  "build": {
+    "switch": "TOY_SUITE_MODE=66 TOY_WIRE_STREAM=1 TOY_WIRE_TICK=1",
+    "build_id": "fb625c09dde6",
+    "source_dirty": false,
+    "reproduced_in": [
+      "clean worktree of the commit",
+      "working tree"
+    ]
+  },
+  "status": "host- and linked-qualified; not console-accepted",
+  "console_result": null
+}

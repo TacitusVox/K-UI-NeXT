@@ -1,0 +1,31 @@
+Source commit fb625c09dde677b967fdc39f9d91355311460ca3, BUILD_ID fb625c09dde6
+Switch: TOY_SUITE_MODE=66 TOY_WIRE_STREAM=1 TOY_WIRE_TICK=1
+
+Module, built twice (clean worktree of the commit; working tree):
+c6baf0104b347cea3252526302ae2e7dde3265081379e75c1ac591ecb0228beb  clean69/build/toy-suite-69/retail-toy-test-69.kui
+c6baf0104b347cea3252526302ae2e7dde3265081379e75c1ac591ecb0228beb  build/final69/retail-toy-test-69.kui
+
+Clean worktree provenance record (entry.compile.json):
+{
+  "commit": "fb625c09dde677b967fdc39f9d91355311460ca3",
+  "source_dirty": false,
+  "elf_sha256": "b46b8ac1c19476654ae863dbf68eee9233c8e72da27839019f136295810aed09"
+}
+
+Low residents built with Test 66's build label (BUILD_ID=3124522ea906, TOY_WIRE_STREAM=1 TOY_WIRE_TICK=1) against Test 66's:
+  resident-sci.bin identical (5dd571f30c9d8cc72bda4d61fa882a0613e4603dffe52ef4f9a5326976878f66)
+  resident-legacy.bin identical (d4041dd912b04eb4ff2d1ef5446fc57bfbcfb204cd2348e826e8fdc8183aa42e)
+
+Low residents of this build against Test 66's and Test 68's: only bytes of the 12-character build label differ
+  resident-sci.bin: label at offsets 15491-15502 (10 bytes differ from Test 66's, 11 from Test 68's)
+  resident-legacy.bin: label at offsets 14659-14670 (10 bytes differ from Test 66's, 11 from Test 68's)
+
+Unchanged recipes on this source (clean worktree of the commit):
+  Test 68 (TOY_SUITE_MODE=66 TOY_WIRE_STREAM=1 BUILD_ID=806015566fc7): ae72c817dbd5606d4e7a7a43814621bbfb8d648642b642be1d21dad41eb5c17a
+  Test 66 (TOY_SUITE_MODE=66 BUILD_ID=3124522ea906): 06f347789a76d1b9df274e946033270c5d7eb404bde323aec7187fee6e68f8d2
+  Test 67 (TOY_TRACE=1 TOY_WIRE_PROBE=1 BUILD_ID=e5fa67e75f73): 7533fb8b0e483567c9b015542f1c6897d5e8fffebd028ab7f84a83201edaf4e5
+
+Auxiliary image:
+   text	   data	    bss	    dec	    hex	filename
+  20000	   1800	   6176	  27976	   6d48	native-ra-aux.elf
+  native-ra-aux.bin 24032 bytes of 24576 (0x6000); Test 68's was 22816
