@@ -1,0 +1,46 @@
+PASS Mode 1 lost-byte fill: 27329 patterns filled exactly, 11 refused; 1 of 8000 clustered patterns knotted
+Test 71 card stream on the wire model:
+  run  0 (timer 2, stall every ~0, 0% busy): blocks 15007, rebuilt 932, unsolved 0, holed 5, cuts 0, runs 978, waits 0, fulls 0, gap idle/token 40/1, stops crc/ambiguous 0/0
+  run  1 (timer 1, stall every ~1200, 10% busy): blocks 15011, rebuilt 4505, unsolved 0, holed 1506, cuts 18443, runs 229, waits 12517, fulls 0, gap idle/token 699/39, stops crc/ambiguous 0/21
+  run  2 (timer 2, stall every ~2400, 20% busy): blocks 15008, rebuilt 2403, unsolved 0, holed 1347, cuts 18008, runs 1057, waits 14969, fulls 0, gap idle/token 714/49, stops crc/ambiguous 1/36
+  run  3 (timer 1, stall every ~600, 30% busy): blocks 15054, rebuilt 4692, unsolved 1, holed 6085, cuts 84962, runs 113, waits 75702, fulls 0, gap idle/token 3071/250, stops crc/ambiguous 3/286
+  run  4 (timer 0, stall every ~0, 0% busy): blocks 15003, rebuilt 931, unsolved 0, holed 5, cuts 0, runs 977, waits 0, fulls 0, gap idle/token 40/1, stops crc/ambiguous 0/0
+  run  5 (timer 1, stall every ~2400, 50% busy): blocks 15048, rebuilt 1567, unsolved 0, holed 3363, cuts 55256, runs 1919, waits 52460, fulls 0, gap idle/token 2050/227, stops crc/ambiguous 3/278
+  run  6 (timer 2, stall every ~600, 60% busy): blocks 15150, rebuilt 2108, unsolved 2, holed 10001, cuts 189071, runs 11, waits 182544, fulls 0, gap idle/token 6395/805, stops crc/ambiguous 5/1116
+  run  7 (timer 1, stall every ~1200, 0% busy): blocks 15000, rebuilt 5132, unsolved 0, holed 606, cuts 6365, runs 243, waits 186, fulls 0, gap idle/token 241/17, stops crc/ambiguous 0/0
+  run  8 (timer 2, stall every ~0, 0% busy): blocks 15001, rebuilt 931, unsolved 0, holed 5, cuts 0, runs 977, waits 0, fulls 0, gap idle/token 40/1, stops crc/ambiguous 0/0
+  run  9 (timer 0, stall every ~600, 20% busy): blocks 15026, rebuilt 5730, unsolved 0, holed 4708, cuts 57532, runs 170, waits 47521, fulls 0, gap idle/token 2088/127, stops crc/ambiguous 2/133
+  run 10 (timer 2, stall every ~1200, 30% busy): blocks 15034, rebuilt 3313, unsolved 0, holed 3501, cuts 51191, runs 165, waits 45716, fulls 0, gap idle/token 1938/153, stops crc/ambiguous 4/169
+  run 11 (timer 1, stall every ~2400, 40% busy): blocks 15022, rebuilt 1900, unsolved 2, holed 2543, cuts 37970, runs 1628, waits 35027, fulls 0, gap idle/token 1418/134, stops crc/ambiguous 5/184
+  a byte between blocks that is neither idle nor the token: stream stopped, bytes around it kept
+  a held byte stored twice: found as an unexpected byte directly behind its block, and counted as such
+PASS Test 71 card stream: 180011 blocks checked against the card over 528436 overruns; 2599 streams restarted (clean block failing CRC16 23, too many lost bytes 2223); 353 uncheckable blocks handed on wrong, each with lost bytes behind a lost gap byte, left to the sector check
+PASS Test 71 report: 697 body bytes with nothing counted, 988 with a full run's values (essential rows end at 681 of 1012); at full width 16 of the 16 essential rows are written and no row is ever cut
+Mode 66: exact AVI names, context 8c00dc90, clip spans, ready, pending, stale and other chunk results passed
+Test 71 reader, real low reader + auxiliary + stream on the card model:
+  contiguous extents, stall every ~0 bytes, 0% busy phases, poll every 3: 22 requests, 21 served on arrival; streams 1, cuts 0, waits 0, fulls 84, blocks 1332 (rebuilt 84, holed 0), sectors filled 0 (most lost 0), re-read 0+0, stream ends close/jump/sector/frame 1/0/0/0, CMD18 1, CMD12 0, ERI 1, timer 0
+  contiguous extents, stall every ~0 bytes, 0% busy phases, poll every 0: 22 requests, 21 served on arrival; streams 1, cuts 0, waits 0, fulls 84, blocks 1332 (rebuilt 84, holed 0), sectors filled 0 (most lost 0), re-read 0+0, stream ends close/jump/sector/frame 1/0/0/0, CMD18 1, CMD12 0, ERI 1, timer 0
+  contiguous extents, stall every ~6000 bytes, 0% busy phases, poll every 3: 22 requests, 21 served on arrival; streams 1, cuts 115, waits 3, fulls 137, blocks 1332 (rebuilt 150, holed 7), sectors filled 7 (most lost 2), re-read 0+0, stream ends close/jump/sector/frame 1/0/0/0, CMD18 1, CMD12 0, ERI 3, timer 3
+  contiguous extents, stall every ~1500 bytes, 20% busy phases, poll every 2: 22 requests, 0 served on arrival; streams 42, cuts 3181, waits 2783, fulls 0, blocks 1284 (rebuilt 299, holed 195), sectors filled 87 (most lost 54), re-read 30+0, stream ends close/jump/sector/frame 0/0/30/11, CMD18 42, CMD12 41, ERI 2730, timer 2755
+  contiguous extents, stall every ~500 bytes, 50% busy phases, poll every 1: 22 requests, 0 served on arrival; streams 289, cuts 13459, waits 13005, fulls 0, blocks 981 (rebuilt 165, holed 675), sectors filled 64 (most lost 52), re-read 212+0, stream ends close/jump/sector/frame 0/0/212/76, CMD18 289, CMD12 288, ERI 308, timer 12772
+  contiguous extents, stall every ~150 bytes, 80% busy phases, poll every 4: 22 requests, 0 served on arrival; streams 431, cuts 18125, waits 18005, fulls 0, blocks 691 (rebuilt 0, holed 691), sectors filled 0 (most lost 56), re-read 286+0, stream ends close/jump/sector/frame 0/0/286/144, CMD18 431, CMD12 430, ERI 17800, timer 17595
+  scattered extents, stall every ~0 bytes, 0% busy phases, poll every 3: 22 requests, 18 served on arrival; streams 48, cuts 0, waits 0, fulls 108, blocks 1285 (rebuilt 56, holed 0), sectors filled 0 (most lost 0), re-read 0+0, stream ends close/jump/sector/frame 1/47/0/0, CMD18 48, CMD12 47, ERI 27, timer 0
+  scattered extents, stall every ~6000 bytes, 5% busy phases, poll every 2: 22 requests, 5 served on arrival; streams 54, cuts 657, waits 373, fulls 115, blocks 1288 (rebuilt 123, holed 27), sectors filled 20 (most lost 33), re-read 2+0, stream ends close/jump/sector/frame 1/48/2/3, CMD18 55, CMD12 54, ERI 381, timer 361
+  contiguous extents, stall every ~0 bytes, 0% busy phases, poll every 3: 22 requests, 0 served on arrival; streams 1, cuts 0, waits 0, fulls 83, blocks 1316 (rebuilt 83, holed 0), sectors filled 0 (most lost 0), re-read 0+0, stream ends close/jump/sector/frame 0/0/0/0, CMD18 1, CMD12 0, ERI 1, timer 0
+  contiguous extents, stall every ~1500 bytes, 20% busy phases, poll every 2: 22 requests, 0 served on arrival; streams 42, cuts 3181, waits 2783, fulls 1, blocks 1284 (rebuilt 300, holed 195), sectors filled 87 (most lost 54), re-read 30+0, stream ends close/jump/sector/frame 0/0/30/11, CMD18 42, CMD12 41, ERI 2730, timer 2755
+  contiguous extents, stall every ~150 bytes, 80% busy phases, poll every 4: 22 requests, 0 served on arrival; streams 431, cuts 18125, waits 18005, fulls 0, blocks 691 (rebuilt 0, holed 691), sectors filled 0 (most lost 56), re-read 286+0, stream ends close/jump/sector/frame 0/0/286/144, CMD18 431, CMD12 430, ERI 17800, timer 17595
+  scattered extents, stall every ~6000 bytes, 5% busy phases, poll every 2: 22 requests, 0 served on arrival; streams 54, cuts 673, waits 382, fulls 120, blocks 1288 (rebuilt 126, holed 27), sectors filled 20 (most lost 33), re-read 2+0, stream ends close/jump/sector/frame 1/48/2/3, CMD18 55, CMD12 54, ERI 391, timer 372
+  playing, stall every ~0 bytes, 0% busy phases, 70 ticks a block, without the timer's help: data ready for 0 of 21 frames when asked; fulls 30, SCI visits 86, timer visits 0
+  playing, stall every ~6000 bytes, 0% busy phases, 70 ticks a block, without the timer's help: data ready for 18 of 21 frames when asked; fulls 11, SCI visits 167, timer visits 3
+  playing, stall every ~1500 bytes, 20% busy phases, 70 ticks a block, without the timer's help: data ready for 0 of 21 frames when asked; fulls 0, SCI visits 3207, timer visits 2758
+  playing, stall every ~0 bytes, 0% busy phases, 35 ticks a block, without the timer's help: data ready for 20 of 21 frames when asked; fulls 25, SCI visits 87, timer visits 0
+  playing, stall every ~0 bytes, 0% busy phases, 23 ticks a block, without the timer's help: data ready for 21 of 21 frames when asked; fulls 11, SCI visits 86, timer visits 0
+  the second movie's course: pieces of 2^22 ticks from its start, the last keeps the rest
+  a block damaged on the wire: CRC16 refused it, one CMD12 and CMD18, data exact
+  image without parity: 102 sectors re-read by programmed transfers, data exact
+  another read in the middle of the movie: stream stopped, CMD12 from the foreground, read exact
+  movie ended under a waiting request: stream stopped in the interrupt visit, CMD12 later, read exact
+  no free timer: waits end at the next visit; channel 1 taken: programmed reads only; data exact
+PASS Test 71 reader integration: 21676826 checks
+PASS cached gate at 0x8c426aec: with the MMU off the stack is used at 0x0c427fe0 and the guards read at 0x0c427000 and 0x0c427ff0; with it on at 0xac427fe0, 0xac427000 and 0xac427ff0 as before
+PASS word loop at 0x8c425178: 49 instructions for four bytes, no stack access, 1 ring word, 4 CRC table loads, 4 reversed bytes stored

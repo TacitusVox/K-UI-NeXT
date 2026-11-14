@@ -1,0 +1,12 @@
+tests/test_toy_wire_word_loop.py and tests/test_toy_wire_cached_stack.py on the linked auxiliary (build 4ee37937a022):
+
+PASS word loop at 0x8c425178: 49 instructions for four bytes, no stack access, 1 ring word, 4 CRC table loads, 4 reversed bytes stored
+PASS cached gate at 0x8c426aec: with the MMU off the stack is used at 0x0c427fe0 and the guards read at 0x0c427000 and 0x0c427ff0; with it on at 0xac427fe0, 0xac427000 and 0xac427ff0 as before
+
+The Test 70 recipe on the same source has no word loop:
+AssertionError: the module has no word loop: not a Test 71 build
+
+wire_words as linked (sh-elf-objdump -d):
+
+For comparison, the same four bytes in Test 70's kui_wire_next (build b492f00a5478): 79 instructions,
+of them nine stack accesses (docs/toy-wire-stream-test-69.md, Console result, finding 3).
