@@ -1,6 +1,3 @@
-PARTIAL: the check of 79 mutations at source commit e623c2a697d5 was still running when this record was
-committed. 48 had run, 0 missed. The complete log replaces this file when the run has ended.
-
 caught  resume one byte early
 caught  resume one byte late
 caught  held byte not stored
@@ -49,3 +46,35 @@ caught  visits out of time not counted
 caught  the clock is never taken as good
 caught  an unanswered overrun is not overdue
 caught  a wait whose timer ran out is not overdue
+caught  a wait without a timer is not overdue
+caught  calls never held back
+caught  update calls visit without a window
+caught  a ring that stands full does not call for the foreground
+caught  an overrun left unanswered does not call for the foreground
+caught  calls not counted
+caught  due calls not counted
+caught  idle calls counted with the update calls
+caught  idle work counted with the update calls'
+caught  idle due calls counted with the update calls'
+caught  the game's idle calls always pump
+caught  a waiting request held to the spacing
+caught  an interrupt visit held to the spacing
+caught  an update call passed on is held again
+caught  an update visit not told from a delivery
+caught  an interrupt's delivery visit counted with the game's
+caught  delivery visits not counted
+caught  the output counter read at the skip counter's place
+caught  a movie's first call taken for a frame
+caught  a call that did both counted as a skip
+caught  skipped frames not counted
+caught  a skip's time counted with the frames put out
+caught  interrupt time not taken from the call before
+caught  the cycle not counted from the call before
+caught  the first movie counted with the second
+caught  update time counted outside the second movie
+caught  the buffer's free space not the most
+caught  the lag not the highest
+caught  a buffer without capacity taken
+caught  more in the buffer than it holds taken
+caught  a pointer outside the game's memory followed
+79 of 79 mutations caught

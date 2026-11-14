@@ -1,8 +1,14 @@
 # Toy Commander Test 73: the game's idle GD calls, and the player itself in the report
 
-Status: delivered on 2026-11-14 as build `e623c2a697d5`. Host and linked
-checks only; it has not run on a console. The owner's console report is
-pending.
+Status: ran on the console on 2026-11-14 (build `e623c2a697d5`, owner's
+report `/reports/toy/66-7.txt`). The change did what it was built to do
+and the second movie did not change: 513 frames against 567. The player's
+own figures, printed for the first time, show why Tests 70 to 73 moved so
+little: the reader's time is in the reading itself and in the dispatcher
+ahead of it, not in the number of visits, and the second movie's player is
+out of processor time by a hair. Kept as the baseline of Test 74
+(`docs/toy-wire-stream-test-74.md`); not accepted as a whole. See "Console
+result" below.
 
 ## Baseline and the one change
 
@@ -181,7 +187,137 @@ Gone to make room: `B FIRST`, `V MAX`, `Q`, `P`, `TX`, `W GAPI`, `W FILL`,
 
 ## Console result
 
-Pending.
+Owner's run, cold CD boot, Card Tools 09c9a4b686d4, raw Toy Commander GDI,
+"66 SCI movie playback", CD Music and virtual VMU off. Saved report
+`docs/evidence/toy-wire-stream-73/console-report-66-7.txt` (1,024 bytes,
+SHA-256 `fcdd2c57...e4ff`), headed `TEST 73`, `BUILD e623c2a697d5`.
+
+Owner's observation: "Test 73 wasn't substantially different than test 72.
+Maybe more of the intro was fluid before it started skipping around, but
+only like a half second more."
+
+| | First movie (B) | Second movie (I) |
+|---|---|---|
+| Frames submitted of the movie's | 331 of 331 | 513 of 1,968 (Test 72: 567) |
+| Of those on time and in sequence | 330 | 469 |
+| Frames skipped | not printed | 1,455, from frame 27 |
+| Longest gap between frames | 47 ms after frame 315 | 2.10 s after frame 1,021 |
+| Player exit | not printed | `7DC` at frame 1,968 |
+
+The player's own update calls (`IP`, `BP`, `IB`, `IC`):
+
+| | First movie | Second movie |
+|---|---|---|
+| Calls that put a frame out | 330 | 488 |
+| Time inside them | 8.79 s, 26.6 ms each | 41.75 s, 85.6 ms each |
+| From the call before to their end | 26.7 ms each | 85.6 ms each |
+| Reader's interrupt pumps in that span | 0.98 s, 2.97 ms each, 11.1% | 4.69 s, 9.62 ms each, 11.2% |
+| Calls that skipped and put nothing out | 0 | 19, 18.32 s, 0.96 s each |
+| Time inside all update calls | not printed | 65.67 s |
+| Chunk acquisitions: ready / not there with a request pending / with none / other | not printed | 1,968 / 7,275 / 410 / 1 |
+| Buffer capacity | | 823,584 bytes (402 sectors) |
+| Buffer at the first skip (frame 27) | | 362,241 bytes in it, the next chunk all there |
+| Buffer at the first wait (frame 121) | | 34,741 bytes in it, 128,967 of the next chunk missing |
+
+| Caller | Pumps | Time | Each | Test 72 |
+|---|---|---|---|---|
+| SCI interrupt | 35,892 | 7.94 s | 221 us | 31,335, 5.07 s |
+| Timer | 7,425 | 0.03 s | 4 us | 7,167, 0.03 s |
+| The game's calls | 17,109 | 7.15 s | 418 us | 119,274, 9.67 s |
+| All | 60,426 | 15.12 s | | 157,776, 14.77 s |
+
+Update calls: 91,373 seen, 10 passed on for work, 908 as due. Idle GD
+calls: 105,841 seen, 638 pumped for work, 5,331 as due. Delivery visits
+from the game's GD calls: 120,642, 14.50 s in the dispatcher.
+
+The second movie's course, twelve pieces of 5.4 s from its start:
+
+| Piece | 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| Frames submitted (161 is all) | 44 | 2 | 14 | 14 | 14 | 6 | 6 | 3 | 14 | 19 | 162 | 215 |
+| Sectors served | 1,712 | 2,448 | 2,384 | 2,416 | 2,352 | 2,320 | 2,400 | 2,384 | 2,432 | 2,496 | 640 | 1,680 |
+| Requests waited, s | 0.19 | 0.48 | 0.10 | 0.15 | 0.06 | 0.19 | 0.34 | 0.67 | 1.61 | 1.13 | 0 | 0 |
+| Most of the player's buffer free, KiB | 768 | 0 | 768 | 768 | 768 | 768 | 768 | 752 | 0 | 432 | 96 | 440 |
+| Highest lag counter | 2 | 0 | 2 | 2 | 2 | 2 | 2 | 2 | 0 | 2 | 0 | 1 |
+| Reader in interrupt visits, s | 0.46 | 0.63 | 0.59 | 0.59 | 0.59 | 0.59 | 0.63 | 0.63 | 0.73 | 0.71 | 0.15 | 0.40 |
+| Reader in the game's calls, s | 0.40 | 0.50 | 0.52 | 0.55 | 0.52 | 0.48 | 0.50 | 0.50 | 0.61 | 0.61 | 0.36 | 0.36 |
+
+Stream: 260 begun, 6,454 full runs, 30,974 overruns in a run, 8,562 timer
+waits (3.41 s), 1,634 stops for room, 72,834,759 wire bytes, TMU1, no
+fault. Blocks 134,563: 17,109 rebuilt from CRC16, 10 single losses not
+explained, 7,457 handed on with lost bytes, 54 with only a CRC byte lost;
+299 read by the low reader to open or reopen. No game read failed.
+
+What the run establishes:
+
+1. The change works as built. Of 105,841 idle GD calls 5,969 pumped, and
+   the pumps from the game's calls fell from 119,274 to 17,109. The first
+   movie is unchanged.
+2. The reader's time did not fall with them: 15.12 s in pumps against
+   14.77 s. What the idle pumps no longer read, the interrupt visits read
+   (7.94 s against 5.07 s) and the remaining pumps from the game (418
+   microseconds each). The pump's time is the reading: 112 microseconds
+   for each of the 134,563 card blocks, in every test since the word loop
+   of Test 71. Tests 72 and 73 took its "81 microseconds a visit" for a
+   fixed cost of visiting. That was wrong: it was the reading, done by
+   whoever visited.
+3. As linked, the reading is about 22 instructions for each byte of a
+   block: 49 for four bytes in the block loop (CRC16 and bit reversal),
+   6 for four in the copy to the window, and 16 for two in the sector's
+   EDC, which runs over every sector. Read from the Test 73 module, not
+   measured part by part.
+4. A delivery visit costs as much again outside the pump. The dispatcher
+   took 14.50 s for the game's 120,642 delivery visits, 7.15 s of that in
+   the pump: 61 microseconds a visit for the dispatcher's own path and for
+   copying 29,159 sectors out to the game. An interrupt's visit takes the
+   same path (43,317 of them); its share is not measured.
+5. The player is inside its update for 65.67 s of a movie of 65.4 s: in
+   the second movie it has no idle time. Every frame's chunk is acquired
+   (1,968 ready), shown or not. The calls that put a frame out take
+   85.6 ms on average against 26.6 ms in the first movie, and 19 calls
+   take about a second each and put nothing out. The last two pieces show
+   377 frames in 10.7 s, so those calls take at most 28.5 ms each there;
+   that leaves 49 to 53 s of such calls for the 1,590 or so frames of the
+   first 54 s: 31 to 33 ms a frame, shown or not. The player works
+   through that part at real time or just under it. It never gets ahead,
+   so it shows a frame or a few and is late again.
+6. Measured, the first movie's frame takes 26.6 ms of which 2.97 ms are
+   the reader's interrupt pumps, and leaves 6.7 ms of its 33.3 ms unused.
+   The rest of the reader's share inside those calls (the dispatcher's
+   path for each interrupt, and whatever GD calls the player makes there)
+   is not measured. Taking it at 4 to 5 ms, by the per-visit costs in 4,
+   the player's own work on a displayed frame comes to 19 to 20 ms. The
+   same reckoning for the first 54 s of the second movie (32 ms a frame,
+   the reader's share put at 12 to 13 ms as in 7) gives the same 19 to
+   20 ms. An estimate that agrees with itself across the two movies; not
+   a measurement of the decoder.
+7. On that estimate the player can spare about 13 ms of each frame for
+   whatever reads its data, and in the first 54 s of the second movie the
+   reader takes about that. Per frame there, from the report: 6.8 ms in
+   pumps and 3.2 ms in delivery visits outside the pump; and by estimate
+   0.9 ms in the same path for interrupt visits, 0.8 ms in the two trace
+   visits around every GD call, and the gate around all of them. The
+   second movie sits on the edge. That fits Tests 70 to 73 moving between
+   436 and 567 frames for reader times between 14.8 and 16.7 s, and the
+   first movie skipping only while the reader took 32 s (Tests 68 and
+   69).
+8. The first skip is not for want of data. At frame 27 the player's
+   buffer held 362,241 bytes and the next chunk was complete. Test 57's
+   opening hold on the game's refills is still in this build
+   (`kui_toy_movie_refill_defer`): it lets the buffer run from full down
+   to 384 KiB before the window may serve, so the reader has to start,
+   read ahead and keep pace all at once with half the buffer gone. From
+   frame 121 on the buffer is nearly empty at some point in most pieces.
+9. The lag counter at `0x8c1138c4` stands between 0 and 2. It is not a
+   count of frames behind.
+10. Pieces 1 and 8 show no free buffer and no lag. If no update call
+    returned in those 5.4 s there was nothing to sample; the 19 long
+    calls would have to include two of more than five seconds. Not
+    established.
+
+What follows for the next change: the reader has to cost half of what it
+does. Fewer visits do not get there; cheaper reading and a shorter way to
+it do. Test 74 is built on that.
 
 ## Verification
 
@@ -201,7 +337,7 @@ Logs are in `docs/evidence/toy-wire-stream-73/`.
 | The gate and the word loop as linked | `tests/test_toy_wire_cached_stack.py`, `tests/test_toy_wire_word_loop.py` | Unchanged from Tests 70 and 71 |
 | Whole reader | `tests/test_toy_wire_integration.c` in all six configurations | Passed; 28,400,636 checks in this one |
 | Report | `tests/test_toy_wire_report.c` on the production formatter | All 22 rows fit at a full run's values (976 of 1,012 bytes); the 17 rows the test is read by end at byte 758 |
-| Tests notice defects | `tests/test_toy_wire_stream_mutations.py` (`mutation-check.log`) | Still running when this record was committed: 48 of the 79 deliberate defects had run and 0 were missed. The final count follows in a later commit |
+| Tests notice defects | `tests/test_toy_wire_stream_mutations.py` (`mutation-check.log`) | 79 of 79 deliberate defects caught, 30 of them in what only Test 73 has |
 | Card Tools admission | `tests/test_toy_reader_package.c` on the packaged bytes | Admitted; one blank report seed |
 | Low residents | `cmp` against the Test 66 build | Byte-identical with Test 66's build label |
 | Reproducible | Clean worktree and working tree | Same module, SHA-256 `7f28c744...7124` |
