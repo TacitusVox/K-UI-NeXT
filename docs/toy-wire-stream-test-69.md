@@ -1,6 +1,11 @@
 # Toy Commander Test 69: reading the card stream between the game's calls
 
-Status: host- and linked-qualified. It has not run on a console.
+Status: ran on the console on 2026-11-14 (build `fb625c09dde6`, owner's
+report `/reports/toy/66-3.txt`). A regression against Test 68: the first
+movie skipped frames where it had been fluid, and the second fell into the
+slideshow sooner. Not accepted; the timer continuation is withdrawn. The
+run's measurements are what Test 70 rests on
+(`docs/toy-wire-stream-test-70.md`). See "Console result" below.
 
 ## Baseline and the one change
 
@@ -155,6 +160,79 @@ idle is `FF` and the token `7F`.
   framing slipped by a byte.
 - `V MAX` much above 390 for `SCI` or `TMR`: a visit held interrupts off
   that long, as Test 68's 5.29 ms did when a stream was stopped.
+
+## Console result
+
+Owner's run, cold CD boot, Card Tools 09c9a4b686d4, raw Toy Commander GDI,
+"66 SCI movie playback", CD Music and virtual VMU off. Saved report
+`docs/evidence/toy-wire-stream-69/console-report-66-3.txt` (1,024 bytes,
+SHA-256 `77544e94...7a3a`), headed `TEST 69`, `BUILD fb625c09dde6`.
+
+Owner's observation: "First video had some frame skips where it was
+completely fluid before. Second video turned into a slideshow much sooner,
+but still managed to make it till the end. This is a regression."
+
+| | First movie (B) | Second movie (I) |
+|---|---|---|
+| Frames submitted of the movie's | 224 of 331 (Test 68: 317) | 277 of 1,968 (Test 68: 319) |
+| Of those on time and in sequence | 205 | 226 |
+| Frames skipped | 107, from frame 3 (Test 68: 14) | 1,691, from frame 20 (Test 68: 1,649) |
+| Longest gap between frames | 0.53 s after frame 226 | 2.39 s after frame 61 |
+| Requests that waited for the window | 1, for 21 ms | 390, 7.31 s in all, at most 37 ms |
+| Player exit | `7DC` | `7DC` at frame 1,968 |
+
+The reader's own time, measured for the first time, over both movies
+(about 76 s):
+
+| Caller | Visits | Time | Longest |
+|---|---|---|---|
+| SCI interrupt | 24,538 | 9.80 s | 5.60 ms |
+| Timer | 15,144 | 7.12 s | 1.63 ms |
+| The game's calls | 113,302 | 15.45 s | 8.66 ms |
+| All | 152,984 | 32.37 s | |
+
+Stream: 29 begun, 5,751 full runs, 22,311 overruns in a run, 5,027 timer
+waits (0.96 s), 2,742 stops for room, 69,842,495 wire bytes, TMU1, no fault.
+Blocks 134,152: 17,953 rebuilt from CRC16, 3 single losses not explained,
+3,498 handed on with lost bytes, 99 with only a CRC byte lost. Sectors
+filled from parity 2,755; none beyond the fill; one failed its check. 29,960
+timer calls arranged by 29,984 visits that ran out of time. Streams ended:
+close 11, sector 1, frame 17. Restarted streams cost 104 ms in all, at most
+15.8 ms. No clean block failed its CRC16 and no game read failed.
+
+What the run establishes:
+
+1. The change did what it was built to do and that did not help. The timer
+   was called 15,144 times, and the first movie's requests no longer waited
+   for data (one, for 21 ms). It skipped 107 frames all the same. A movie
+   whose data is on time and which still skips is short of CPU, not of data.
+2. The reader takes about 42 % of the CPU. 32.4 s in its visits over 76 s
+   of movies, before interrupt entry and exit and before the copies to the
+   game. Test 68 had the same cost and did not measure it. Moving the work
+   between callers cannot help while it is this large, and the timer's
+   extra visits and the measurement itself added to it: hence the
+   regression.
+3. Where the time goes, from the compiled code of this build
+   (`kui_wire_next`, the per-word loop at `0x8c425fe6`): 79 instructions
+   and nine accesses to the auxiliary's private stack for every four bytes,
+   four writes and five reads of spilled temporaries, besides the one read
+   of the ring. That stack is at its uncached address, so each of those is
+   a bus cycle of some 70 ns: about 145 microseconds a block for this loop
+   alone, 90 of them stack traffic. The sector check (`kui_cd_edc`, eight
+   instructions a byte, no stack traffic) adds about 20 microseconds a
+   block. At about 185 microseconds a block, 134,152 blocks are 25 s; the
+   rest of the 32 s is the fixed cost of 153,000 visits.
+4. The unexpected bytes between blocks are explained as far as the note
+   reaches. All 17 followed a block handed on with lost bytes. In both
+   noted cases the byte lies directly behind the block's end, with one idle
+   byte and the token after it (`4E FF 7F`, `11 FF 7F`): it is that block's
+   own last CRC byte. The block as framed is one position short, so one of
+   its recorded lost positions was not a lost byte. That fits an overrun
+   flagged in the instant the channel took the held byte, with the next
+   byte delivered after all. 17 in 28,062 run ends here, 74 in 52,510 in
+   Test 68; half a percent of the blocks handed on with lost bytes in both.
+   Each costs one restart, 104 ms over the whole run. Not addressed.
+5. The card's gap is one idle byte before the token in both notes, not two.
 
 ## Verification
 

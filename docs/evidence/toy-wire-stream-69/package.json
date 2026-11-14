@@ -65,6 +65,14 @@
       "working tree"
     ]
   },
-  "status": "host- and linked-qualified; not console-accepted",
-  "console_result": null
+  "status": "ran on the console; regression against Test 68; not accepted, timer continuation withdrawn",
+  "console_result": {
+    "date": "2026-11-14",
+    "report": "console-report-66-3.txt",
+    "report_sha256": "77544e9410562fb2ed94b17d5e12f2f41f6a2f562c710d21e72cfa9fd7317a3a",
+    "report_test": 69,
+    "report_build": "fb625c09dde6",
+    "owner_observation": "First video had some frame skips where it was completely fluid before. Second video turned into a slideshow much sooner, but still managed to make it till the end. This is a regression.",
+    "reading": "docs/toy-wire-stream-test-69.md, Console result"
+  }
 }
