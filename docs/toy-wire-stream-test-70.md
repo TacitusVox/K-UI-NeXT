@@ -1,6 +1,12 @@
 # Toy Commander Test 70: the auxiliary's private stack through the cache
 
-Status: host- and linked-qualified. It has not run on a console.
+Status: ran on the console on 2026-11-14 (build `b492f00a5478`, owner's
+report `/reports/toy/66-4.txt`). The first movie now plays as from the
+disc. The reader's time fell by half. The second movie shows more frames
+than under Test 68 and is still a slideshow for most of its length. An
+improvement, kept as the baseline of Test 71
+(`docs/toy-wire-stream-test-71.md`); not accepted as a whole. See "Console
+result" below.
 
 ## Baseline and the one change
 
@@ -137,6 +143,74 @@ as in Test 68, and are counted.
   Test 68's `E`.
 - `Q` is large whenever the player skips, since it then reads as fast as
   it is served. It says something only once the skipping has stopped.
+
+## Console result
+
+Owner's run, cold CD boot, Card Tools 09c9a4b686d4, raw Toy Commander GDI,
+"66 SCI movie playback", CD Music and virtual VMU off. Saved report
+`docs/evidence/toy-wire-stream-70/console-report-66-4.txt` (1,024 bytes,
+SHA-256 `b57a5fd3...1219`), headed `TEST 70`, `BUILD b492f00a5478`.
+
+Owner's observation: "First video is fixed and completely smooth. Second
+video was smooth for about a second, skipped, was smooth for another half
+second, and then a slideshow for the rest of it. The very end of the video
+was smooth for about 2 seconds before completion, which was odd."
+
+| | First movie (B) | Second movie (I) |
+|---|---|---|
+| Frames submitted of the movie's | 331 of 331 | 436 of 1,968 (Test 68: 319) |
+| Of those on time and in sequence | 330 | 392 |
+| Frames skipped | 0 | 1,532, from frame 24 (Test 68: 1,649) |
+| Longest gap between frames | 48 ms after frame 191 | 2.16 s after frame 1,021 |
+| Requests that waited for the window | 1, for 21 ms | 330, 7.88 s in all, at most 42 ms |
+| Player exit | `7DC` | `7DC` at frame 1,968 |
+
+The first movie's row is the disc's own (Test 67: 331 submitted, 330 on
+time, none skipped).
+
+| Caller | Visits | Time | Longest | Test 69 |
+|---|---|---|---|---|
+| SCI interrupt | 44,818 | 6.18 s | 5.28 ms | 9.80 s |
+| Timer | 10,635 | 0.04 s | 15 us | 7.12 s (read then) |
+| The game's calls | 190,736 | 10.44 s | 8.23 ms | 15.45 s |
+| All | 246,189 | 16.66 s | | 32.37 s |
+
+`P CCR MMU`: `105` and `0`. The MMU is off, so the cached address was used;
+bit 1 of the cache control register is clear, so the stack's writes stayed
+in the cache. (Bit 2 is set as well: P1 is copy-back too in this game.)
+
+Stream: 154 begun, 5,944 full runs, 40,348 overruns in a run, 12,890 timer
+waits (3.60 s), 1,528 stops for room, 71,254,876 wire bytes, TMU1, no
+fault. Blocks 134,372: 15,945 rebuilt from CRC16, 12 single losses not
+explained, 11,625 handed on with lost bytes, 59 with only a CRC byte lost.
+Sectors filled from parity 4,341; 3 beyond the fill, 3 failed their check.
+One clean block failed its CRC16, the first in any run. Streams ended:
+close 11, sector 6, frame 137. Restarted streams cost 0.85 s in all, at
+most 32 ms. 11,341 visits ran out of time. No game read failed.
+
+What the run establishes:
+
+1. The change did what was estimated. The reader's time is 16.7 s against
+   32.4 s; the estimate was about 18 s. The game's calls cost 55
+   microseconds each against 136.
+2. That was the first movie's whole problem. It now shows every frame.
+3. The second movie is better and not well: 436 frames against 319. It
+   skips from frame 24 as in every run so far. The report gives totals
+   only; it cannot place the owner's smooth second at the start and two
+   smooth seconds at the end, or say what the reader was doing in between.
+   Test 71's report carries the movie's course for that.
+4. Streams that could not be followed went up, not down: 136 unexpected
+   bytes between blocks against 74 in Test 68 and 17 in Test 69, or 1.2 %
+   of the blocks handed on with lost bytes where both earlier runs had
+   0.5 %. All 136 followed such a block, directly behind its end. In the
+   second note the byte is again that block's own last CRC byte (`0B FF 7F
+   55`); in the first (`C8 48 A6 13`) the block is short by more than one
+   position. Each costs a restart and whatever the ring held: together
+   0.85 s of restarts and about 2 MB of wire bytes received twice. Whether
+   the faster path to the receiver's stop makes the cause more frequent is
+   not known. Test 71 counts, for each such byte, whether the block has a
+   byte stored from the receiver's register that repeats the byte before
+   it, as a held byte also taken by the channel would.
 
 ## Verification
 

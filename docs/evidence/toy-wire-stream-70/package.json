@@ -71,6 +71,14 @@
       "working tree"
     ]
   },
-  "status": "host- and linked-qualified; not console-accepted",
-  "console_result": null
+  "status": "ran on the console; first movie as from the disc, reader time halved, second movie improved and still mostly a slideshow; baseline of Test 71, not accepted as a whole",
+  "console_result": {
+    "date": "2026-11-14",
+    "report": "console-report-66-4.txt",
+    "report_sha256": "b57a5fd30e77c9aa238c5c3bc975f887498fca8a9fb59b3a49a4ebd2a3321219",
+    "report_test": 70,
+    "report_build": "b492f00a5478",
+    "owner_observation": "First video is fixed and completely smooth. Second video was smooth for about a second, skipped, was smooth for another half second, and then a slideshow for the rest of it. The very end of the video was smooth for about 2 seconds before completion, which was odd.",
+    "reading": "docs/toy-wire-stream-test-70.md, Console result"
+  }
 }
