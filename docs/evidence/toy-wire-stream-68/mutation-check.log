@@ -1,0 +1,32 @@
+caught  resume one byte early
+caught  resume one byte late
+caught  held byte not stored
+caught  held byte taken for the lost one
+caught  lost position not logged
+caught  no module reset
+caught  run started without room for it
+caught  short run for a waiting caller overshoots the ring
+caught  ring index ignores the wrap
+caught  channel not restored at stop
+caught  stop does not wait for a whole byte
+caught  wrong CRC polynomial
+caught  clean block not checked
+caught  rebuild counts one byte too few behind
+caught  rebuilt byte not reversed
+caught  lost data byte not listed
+caught  lost index off by one
+caught  lost gap byte never the token
+caught  second reading of the gap dropped
+caught  reader runs past what has landed
+caught  data token taken as received
+caught  block one byte short
+caught  lost bytes not mapped into the sector
+caught  failed sector not read again
+caught  extent jump ignored
+caught  stream state not handed back
+caught  resident not told the stream receives
+caught  rewind keeps the old cursor
+caught  sector served without its check
+caught  stream left running when the window closes
+30 of 30 mutations caught
+exit 0
