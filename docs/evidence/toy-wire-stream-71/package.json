@@ -65,6 +65,14 @@
       "working tree"
     ]
   },
-  "status": "host- and linked-qualified; not console-accepted",
-  "console_result": null
+  "status": "ran on the console; second movie improved again and at full speed for its last twelve seconds, still a slideshow before; baseline of Test 72, not accepted as a whole",
+  "console_result": {
+    "date": "2026-11-14",
+    "report": "console-report-66-5.txt",
+    "report_sha256": "8e442907e6ca2cdde42e235c41953173dc0185016366f878fa870c275f33bcd7",
+    "report_test": 71,
+    "report_build": "4ee37937a022",
+    "owner_observation": "Video 1 was flawless as per usual. Video 2 played for 2 seconds, stopped, played for another half second, stopped. It was a slideshow, but each time it would show a frame before, this time it would show 3-4 frames before stopping again.",
+    "reading": "docs/toy-wire-stream-test-71.md, Console result"
+  }
 }

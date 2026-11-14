@@ -1,6 +1,11 @@
 # Toy Commander Test 71: the ring reader's block loop, a word at a time
 
-Status: host- and linked-qualified. It has not run on a console.
+Status: ran on the console on 2026-11-14 (build `4ee37937a022`, owner's
+report `/reports/toy/66-5.txt`). A further improvement: the second movie
+shows 524 frames against 436, and its last twelve seconds run at full
+speed. Kept as the baseline of Test 72
+(`docs/toy-wire-stream-test-72.md`); not accepted as a whole. The course
+rows show what holds the second movie back. See "Console result" below.
 
 ## Baseline and the one change
 
@@ -115,6 +120,93 @@ reader's counts, and the control registers (`105` and `0`).
 - `F HELD` and `F TWICE` close to `F END`: the positions that are not lost
   bytes come from a held byte stored twice, and the reader can be taught
   to see it. `F TWICE` near nothing: another cause.
+
+## Console result
+
+Owner's run, cold CD boot, Card Tools 09c9a4b686d4, raw Toy Commander GDI,
+"66 SCI movie playback", CD Music and virtual VMU off. Saved report
+`docs/evidence/toy-wire-stream-71/console-report-66-5.txt` (1,024 bytes,
+SHA-256 `8e442907...bcd7`), headed `TEST 71`, `BUILD 4ee37937a022`.
+
+Owner's observation: "Video 1 was flawless as per usual. Video 2 played for
+2 seconds, stopped, played for another half second, stopped. It was a
+slideshow, but each time it would show a frame before, this time it would
+show 3-4 frames before stopping again."
+
+| | First movie (B) | Second movie (I) |
+|---|---|---|
+| Frames submitted of the movie's | 331 of 331 | 524 of 1,968 (Test 70: 436) |
+| Of those on time and in sequence | 329 | 481 |
+| Frames skipped | 0 | 1,444, from frame 25 (Test 70: 1,532) |
+| Longest gap between frames | 50 ms after frame 215 | 2.15 s after frame 1,021 |
+| Requests that waited for the window | 1, for 21 ms | 199, 4.60 s in all, at most 48 ms |
+| Player exit | `7DC` | `7DC` at frame 1,968 |
+
+| Caller | Visits | Time | Longest | Test 70 |
+|---|---|---|---|---|
+| SCI interrupt | 35,800 | 5.40 s | 5.54 ms | 6.18 s |
+| Timer | 7,901 | 0.03 s | 15 us | 0.04 s |
+| The game's calls | 193,622 | 9.99 s | 8.41 ms | 10.44 s |
+| All | 237,323 | 15.42 s | | 16.66 s |
+
+The second movie's course, twelve pieces of 5.4 s from its start (the last
+also holds the movie's final second):
+
+| Piece | 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| Frames submitted (161 is all) | 46 | 2 | 24 | 12 | 11 | 7 | 7 | 3 | 14 | 21 | 162 | 215 |
+| Sectors served | 1,712 | 2,464 | 2,352 | 2,416 | 2,352 | 2,336 | 2,368 | 2,416 | 2,448 | 2,496 | 608 | 1,680 |
+| Requests waited, s | 0.15 | 0.36 | 0.06 | 0.13 | 0.06 | 0.17 | 0.34 | 0.65 | 1.59 | 1.01 | 0 | 0 |
+| Reader in interrupt visits, s | 0.31 | 0.44 | 0.38 | 0.38 | 0.36 | 0.38 | 0.40 | 0.46 | 0.61 | 0.55 | 0.10 | 0.25 |
+| Reader in the game's calls, s | 0.52 | 0.67 | 0.73 | 0.73 | 0.69 | 0.69 | 0.69 | 0.67 | 0.71 | 0.73 | 0.65 | 0.78 |
+| Streams given up | 8 | 2 | 15 | 10 | 8 | 5 | 6 | 2 | 14 | 17 | 20 | 13 |
+
+Stream: 219 begun, 6,214 full runs, 30,956 overruns in a run, 10,062 timer
+waits (3.59 s), 1,577 stops for room, 72,184,733 wire bytes, TMU1, no
+fault. Blocks 134,504: 14,630 rebuilt from CRC16, 19 single losses not
+explained, 8,411 handed on with lost bytes, 72 with only a CRC byte lost.
+Sectors filled from parity 3,640; 1 beyond the fill, 5 failed their check.
+One clean block failed its CRC16. Streams ended: close 11, sector 6, frame
+202. Restarts cost 1.19 s in all, at most 35 ms. 10,302 visits ran out of
+time. No game read failed. `F END HELD TWICE`: 201, 2, 0.
+
+What the run establishes:
+
+1. The loop gained less than estimated: the reader's time is 15.4 s
+   against 16.7 s, not under 14 s. Reading blocks is the smaller part of
+   the visits; their fixed cost is the larger.
+2. The second movie plays at full speed for its last twelve seconds (162
+   and 215 frames in the last two pieces). That part of the movie needs a
+   third of the data: 608 and 1,680 sectors a piece against about 2,400.
+   Its first 54 s need 435 sectors a second, 1.02 MB/s of raw data, more
+   than the movie's average.
+3. Through the slideshow the player is short of CPU, not of data. In
+   pieces 1 to 7 requests waited between 0.06 and 0.65 s of each 5.4 s,
+   and the player took its data at 1.1 times the movie's own pace: it works
+   through the movie only a little faster than it plays, so once behind its
+   clock it stays behind and shows the odd frame. It catches up for three
+   or four frames at a time, as the owner saw.
+4. Two thirds of the reader's time is in the game's calls, and that time
+   does not follow the data: about 0.7 s in every piece, 0.65 s where 608
+   sectors were served and 0.73 s where 2,496 were. The game calls the
+   reader 193,622 times, some 2,500 a second, of which about 2,300 serve a
+   request. The others are the player's update calls, each of which the
+   hook in `toy_movie_exit_hook.inc` turns into a visit through
+   `kui_toy_movie_ahead_update`. At 52 microseconds each inside the reader,
+   and the gate and dispatcher around it unmeasured, they take more than a
+   tenth of the CPU and mostly find nothing to do. Test 72 acts on this.
+5. A held byte stored twice is not the cause of the positions that are not
+   lost bytes. All 201 unexpected bytes lie directly behind a block's end,
+   but only two of those blocks have a byte stored from the receiver's
+   register at all and none repeats the byte before it. The extra position
+   is one where the channel had already taken the held byte: an overrun
+   flagged with nothing lost behind it, or one byte more at the resume.
+   Which is not known. Either way the reader could try the block without
+   each of its lost positions before giving the stream up; the CRC16 would
+   settle it for a block with one such position. A later change.
+6. Restarts rose again to 208 (120 while the second movie played), 1.19 s
+   and about 3 MB of wire bytes received twice. The two pieces where
+   requests waited longest (8 and 9) had 14 and 17.
 
 ## Verification
 
