@@ -55,7 +55,10 @@
  * dense part, nearly all of it work on every byte. Its changes come each
  * under a switch of its own, so that one can be left out of a build:
  *   OPEN   the second movie's refills are not held back at its start, so the
- *          reader begins beside a full player buffer, as in the first movie. */
+ *          reader begins beside a full player buffer, as in the first movie;
+ *   CLEAN  a sector whose every block passed its CRC16 is not also passed
+ *          through its EDC, and a single lost byte rebuilt from the CRC16 is
+ *          checked against its sector's P parity instead (toy_wire_ahead.inc). */
 #ifndef KUI_TOY_WIRE_LEAN
 #define KUI_TOY_WIRE_LEAN 0
 #endif
@@ -65,8 +68,11 @@
 #ifndef KUI_TOY_WIRE_OPEN
 #define KUI_TOY_WIRE_OPEN KUI_TOY_WIRE_LEAN
 #endif
-#if KUI_TOY_WIRE_OPEN && !KUI_TOY_WIRE_LEAN
-#error "OPEN is a part of Test 74: use KUI_TOY_WIRE_LEAN"
+#ifndef KUI_TOY_WIRE_CLEAN
+#define KUI_TOY_WIRE_CLEAN KUI_TOY_WIRE_LEAN
+#endif
+#if (KUI_TOY_WIRE_OPEN || KUI_TOY_WIRE_CLEAN) && !KUI_TOY_WIRE_LEAN
+#error "OPEN and CLEAN are parts of Test 74: use KUI_TOY_WIRE_LEAN"
 #endif
 /* The second movie in pieces of 2^22 ticks, 5.4 s: twelve cover it. */
 #define KUI_TOY_WIRE_BUCKETS 12u

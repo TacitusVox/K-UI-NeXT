@@ -249,6 +249,9 @@ static void install_raw_sector(uint32_t lba, bool with_parity) {
 
 /* ---- the console's side ---- */
 static unsigned long eris, timers, polls;
+#if KUI_TOY_WIRE_CLEAN
+static uint32_t light_bad_expected;
+#endif
 /* The player's update has returned after `ticks` of its own, and the hook
  * calls the reader's side. Test 73's stub hands over the clock value it
  * read before the original. */
@@ -319,6 +322,11 @@ static void invariants(void) {
         CHECK(!(m.rx && m.dar >= RING_PHYSICAL && m.dar <= RING_PHYSICAL + RING_BYTES));
     }
     CHECK(!R.shared.port.fault && m.healthy);
+#if KUI_TOY_WIRE_CLEAN
+    /* The lighter sector check has never passed a sector its EDC refuses,
+     * but where a test stores wrong data on the card to see it found. */
+    CHECK(report()->light_bad <= light_bad_expected);
+#endif
 }
 static bool timer_running(unsigned *channel) {
     for(unsigned k = 1u; k <= 2u; ++k)
@@ -476,8 +484,35 @@ static void steady(unsigned extent_blocks, bool scattered, uint32_t mean, unsign
     const unsigned requests = (WINDOW_END - FIRST) / REQUEST;
     CHECK(kui_native_readahead_aux_context.stats.hit_requests == requests);
     CHECK(w->magic == KUI_TOY_WIRE_REPORT_MAGIC && !w->first_error && !w->declined);
-    CHECK(w->parity == 1u && w->timer_mode == 2u);
+    CHECK(w->parity == (KUI_TOY_WIRE_CLEAN ? 0u : 1u) && w->timer_mode == 2u);
     CHECK(w->n.cuts + w->n.segments >= 1u && w->n.blocks >= 1u);
+#if KUI_TOY_WIRE_CLEAN
+    /* Every sector the window took was taken one way or the other; the
+     * low reader's blocks, the first of every stream among them, never the
+     * lighter way; and in this image, with real parity and no wrong byte
+     * anywhere, every rebuilt byte the parity was asked about fitted. */
+    const uint32_t took = kui_native_readahead_aux_context.movie_ahead.verified - FIRST;
+    CHECK(w->light + w->edc >= took && w->light + w->edc <= took + w->check_bad + w->refused);
+    if(getenv("WIRE_VERBOSE") || w->mend_bad || !w->light || !w->edc)
+        fprintf(stderr, "sector checks: light %u edc %u mends %u mend_bad %u light_bad %u check_bad %u starts %u took %u\n",
+            (unsigned)w->light, (unsigned)w->edc, (unsigned)w->mends, (unsigned)w->mend_bad, (unsigned)w->light_bad,
+            (unsigned)w->check_bad, (unsigned)w->n.starts, (unsigned)took);
+    CHECK(w->edc && !w->mend_bad);
+    /* On a quiet bus, and with stalls as rare as a console run's, most
+     * sectors are taken the lighter way; with stalls far denser than any
+     * console run nearly every sector has a block the stream could not
+     * check, and the EDC does the work as before. */
+    /* Each stream's first sector comes from the low reader. */
+    if(!mean) CHECK(w->edc >= w->n.starts);
+    /* On a quiet bus with nothing scattered this model is the same run
+     * every time, and so is which of its 290 sectors takes the EDC: the
+     * low reader's first, and those a rebuilt block reaches whose byte
+     * could not be confirmed inside them. A change to those rules shows
+     * here, also one that only makes the reader check more than it must. */
+    if(!mean && !scattered && !refill_clock_extra_ticks) CHECK(w->light == 274u && w->edc == 16u && w->mends == 81u);
+    if(!mean && !scattered) CHECK(w->light > 4u * w->edc && w->mends);
+    else if(!mean || mean >= 6000u) CHECK(w->light > (scattered ? 1u : 2u) * w->edc && w->mends);
+#endif
     if(!mean) {
         CHECK(!w->n.cuts && !w->n.waits && !w->refused && !w->check_bad && !w->n.unsolved);
         CHECK(!w->stops[KUI_TOY_WIRE_STOP_SECTOR] && !w->stops[KUI_TOY_WIRE_STOP_FRAME] &&
@@ -1065,6 +1100,9 @@ static bool wrong_block(unsigned kind, unsigned shift) {
     /* The damaged block is the one handed on unchecked (or, where a run
      * also ended in it, with a data byte for the parity as well). */
     CHECK(kind == WRONG_UNCHECKED ? w->n.holed == 1u && w->n.unchecked <= 1u : kind == WRONG_ADDRESS || w->n.rebuilt >= 1u);
+#if KUI_TOY_WIRE_CLEAN
+    CHECK(w->mend_bad == (kind == WRONG_REBUILD ? 1u : 0u) && !w->light_bad && w->light > w->edc);
+#endif
     card.corrupt_custom = card.corrupt_fits = false;
     return true;
 }
@@ -1082,6 +1120,65 @@ static void wrong_blocks(void) {
         printf("  %s: refused by the sector's check in %u placements, the sector read again, data exact\n", names[kind], tried);
     }
 }
+#if KUI_TOY_WIRE_CLEAN
+/* What the lighter check gives up, and its watch. A block stored wrong on
+ * the card with a CRC16 that fits, no byte lost: every check of the stream
+ * passes it, and only the EDC knows. Test 73 refused such a sector; Test 74
+ * serves it as stored unless it is the one in sixteen passed through the EDC
+ * as a sample, and then the lighter check is switched off for good. */
+static void stored_wrong(void) {
+    unsigned found = 0, served = 0;
+    for(unsigned shift = 0; shift < 40u; ++shift) {
+        open_movie(2000u, false, true);
+        const struct kui_toy_wire_report *w = report();
+        uint32_t lba = FIRST;
+        read_request(lba, REQUEST, 3u);
+        lba += REQUEST;
+        const uint32_t sector = FIRST + 150u + shift;
+        unsigned offset;
+        const uint32_t block = raw_block(sector + 1u, 0u, &offset) - 2u;
+        card.corrupt_fits = true;
+        card.corrupt_lba = block; card.corrupt_count = 1u;
+        light_bad_expected = 1u;
+        unsigned differing = 0;
+        uint32_t light = 0, edc = 0;
+        bool tripped = false;
+        while(lba <= sector + 4u * REQUEST) {
+            memset(ram + (OUTPUT - BEGIN), 0xa5, 64u * 2352u + 16u);
+            const uint32_t token = (uint32_t)request(lba, REQUEST, OUTPUT);
+            for(unsigned n = 0u; R.shared.service.pending; ++n) {
+                CHECK(n < 200000u && !R.engine.failed);
+                if(!hardware()) game_poll();
+            }
+            CHECK(sdk_poll(KUI_GD_CHECK, token, movie_async_poll) == KUI_GD_COMPLETED);
+            /* Which of the request's sectors differ from the image. */
+            CHECK(kui_retail_image_read(&reference, lba, REQUEST, KUI_GAME_SECTOR_MODE1, expected,
+                sizeof(expected)) == KUI_GAME_OK);
+            for(uint32_t i = 0; i < REQUEST; ++i)
+                if(memcmp(ram + (OUTPUT - BEGIN) + i * KUI_GAME_DATA_BYTES, expected + i * KUI_GAME_DATA_BYTES,
+                    KUI_GAME_DATA_BYTES)) {++differing; CHECK(lba + i == sector);}
+            lba += REQUEST;
+            if(w->light_bad && !tripped) {tripped = true; light = w->light; edc = w->edc;}
+        }
+        card.corrupt_fits = false;
+        CHECK(!card.corrupt_count);
+        if(w->light_bad) {
+            /* The sample: refused, read again, right; and from then on
+             * every sector takes the EDC. */
+            CHECK(w->light_bad == 1u && w->check_bad == 1u && !differing);
+            CHECK(w->light == light && w->edc >= edc + REQUEST);
+            ++found;
+        } else if(differing) {
+            CHECK(differing == 1u && !w->check_bad);
+            ++served;
+        } else CHECK(w->check_bad == 1u); /* the sector took the EDC for another reason */
+        light_bad_expected = 0u;
+    }
+    CHECK(found >= 1u && found <= 4u && served >= 24u);
+    printf("  a block stored wrong with a fitting CRC16, in 40 places: served as stored %u times, found by the one-in-sixteen "
+           "EDC sample %u times, which then switched the lighter check off\n", served, found);
+}
+#endif
 
 /* A whole block arrives damaged without a lost byte: its CRC16 stops the
  * stream, the low reader seeks again and the game still gets the image. */
@@ -1118,10 +1215,36 @@ static void no_parity(void) {
         (unsigned)w->parity, (unsigned)w->filled, (unsigned)w->check_bad, (unsigned)w->refused,
         (unsigned)w->stops[KUI_TOY_WIRE_STOP_SECTOR], (unsigned)w->seek_blocks);
     /* A sector whose only losses lay in its parity bytes still passes. */
+#if KUI_TOY_WIRE_CLEAN
+    /* Test 74 does not ask once whether the image has parity: a rebuilt
+     * byte no code word confirms goes to the EDC, which passes it here. */
+    CHECK(!w->parity && w->check_bad >= 1u && w->stops[KUI_TOY_WIRE_STOP_SECTOR] >= 1u);
+#else
     CHECK(w->parity == 2u && w->check_bad >= 1u && w->stops[KUI_TOY_WIRE_STOP_SECTOR] >= 1u);
+#endif
     CHECK(w->check_bad + w->refused == w->stops[KUI_TOY_WIRE_STOP_SECTOR] && w->seek_blocks >= 5u);
     printf("  image without parity: %u sectors re-read by programmed transfers, data exact\n",
         (unsigned)w->stops[KUI_TOY_WIRE_STOP_SECTOR]);
+#if KUI_TOY_WIRE_CLEAN
+    /* The same image with stalls as rare as a console run's: single lost
+     * bytes are rebuilt from the CRC16, no code word confirms them, and
+     * the EDC passes every one, since they are right. Sectors without a
+     * rebuilt byte are still taken the lighter way. */
+    open_movie(2000u, false, false);
+    stall_mean = 6000u;
+    lba = FIRST;
+    for(unsigned i = 0; i < 16u; ++i, lba += REQUEST) read_request(lba, REQUEST, 2u);
+    w = report();
+    if(getenv("WIRE_VERBOSE")) fprintf(stderr, "no parity, rare stalls: light %u edc %u mends %u mend_bad %u bad %u\n",
+        (unsigned)w->light, (unsigned)w->edc, (unsigned)w->mends, (unsigned)w->mend_bad, (unsigned)w->check_bad);
+    /* A code word of bytes that are no parity still sums to zero once in
+     * 256 times, and a rebuilt sync byte is confirmed without one. */
+    CHECK(w->mend_bad >= 8u && w->mend_bad > 8u * w->mends && w->light);
+    /* What does fail is, as above, a sector with several lost bytes. */
+    CHECK(w->check_bad + w->refused == w->stops[KUI_TOY_WIRE_STOP_SECTOR]);
+    printf("  image without parity, rare stalls: %u rebuilt bytes no code word confirmed, each passed by the EDC\n",
+        (unsigned)w->mend_bad);
+#endif
 }
 
 /* The game reads something else while the stream runs: the window is given
@@ -1430,6 +1553,9 @@ int main(void) {
 #endif
     damaged_block();
     wrong_blocks();
+#if KUI_TOY_WIRE_CLEAN
+    stored_wrong();
+#endif
     no_parity();
     other_read();
     ended_in_interrupt();

@@ -171,6 +171,9 @@ static bool timer_armed(void) { return w.mode && (hw.tstr & (1u << w.mode)) && (
 
 int main(int argc, char **argv) {
     unsigned long total = 0, restarts = 0, wrong = 0, rewinds[4] = {0};
+#if KUI_TOY_WIRE_CLEAN
+    unsigned long kinds[3] = {0};
+#endif
     printf("Test %u card stream on the wire model:\n", KUI_TOY_WIRE_TICK ? 69u : KUI_TOY_WIRE_LEAN ? 74u : KUI_TOY_WIRE_IDLE ? 73u : KUI_TOY_WIRE_PACE ? 72u : KUI_TOY_WIRE_WORDS ? 71u : KUI_TOY_WIRE_CACHED ? 70u : 68u);
     for(unsigned run = 0; run < (argc > 1 ? (unsigned)atoi(argv[1]) : 12u); ++run) {
         seed = 77u + run * 1000u;
@@ -263,6 +266,15 @@ int main(int argc, char **argv) {
                     if(b.data[i] != data_byte(expect, i)) bad = true;
                 }
                 assert(li == b.lost_count);
+#if KUI_TOY_WIRE_CLEAN
+                /* What the caller may build on: a block called clean or
+                 * rebuilt has every byte, and every byte right. */
+                assert(b.kind == KUI_WIRE_CLEAN || b.kind == KUI_WIRE_REBUILT || b.kind == KUI_WIRE_LOOSE);
+                if(b.kind != KUI_WIRE_LOOSE) assert(!b.lost_count && !bad);
+                if(b.kind == KUI_WIRE_REBUILT) { assert(b.rebuilt_at < 512u); ++kinds[2]; }
+                else ++kinds[b.kind == KUI_WIRE_CLEAN];
+                if(b.lost_count) assert(b.kind == KUI_WIRE_LOOSE);
+#endif
                 if(bad) {
                     /* Only the corner the caller's sector check covers: lost
                      * bytes in the block and a lost byte in the gap before it. */
@@ -393,6 +405,11 @@ int main(int argc, char **argv) {
         assert(kui_wire_stop(&w));
     }
     printf("  a held byte stored twice: found as an unexpected byte directly behind its block, and counted as such\n");
+#endif
+#if KUI_TOY_WIRE_CLEAN
+    printf("  blocks handed on as clean %lu, rebuilt %lu, left to the sector check %lu: none of the first two kinds had a wrong or missing byte\n",
+        kinds[1], kinds[2], kinds[0]);
+    assert(kinds[1] && kinds[2] && kinds[0]);
 #endif
     printf("PASS Test %u card stream: %lu blocks checked against the card over %lu overruns; %lu streams restarted "
            "(clean block failing CRC16 %lu, too many lost bytes %lu); %lu uncheckable blocks handed on wrong, "

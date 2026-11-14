@@ -140,6 +140,9 @@ static bool toy_ahead_begin(const struct kui_retail_async *e,unsigned variant) {
 #if KUI_TOY_WIRE_STREAM
     struct toy_wire_keep *k=toy_wire_keep();
     k->bad=k->stalls=k->solid=k->lost_count=k->block_lost_count=0u;
+#if KUI_TOY_WIRE_CLEAN
+    k->loose=k->mend_count=0u;
+#endif
 #if KUI_TOY_WIRE_MEASURE
     k->restarting=k->wait_token=0u;
 #endif

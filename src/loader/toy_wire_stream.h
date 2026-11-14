@@ -73,10 +73,29 @@ enum kui_wire_parse {
     KUI_WIRE_AMBIGUOUS = -3   /* lost bytes between blocks left the next token unknown */
 };
 
+#if KUI_TOY_WIRE_CLEAN
+/* Test 74: how far a block handed on has been checked here. */
+enum kui_wire_kind {
+    /* Lost bytes are left in it, or its CRC16 could not be taken: nothing
+     * but its sector's own check covers it. Zero, so that a block nobody
+     * classified counts as this. */
+    KUI_WIRE_LOOSE,
+    KUI_WIRE_CLEAN,   /* no byte of it was lost and its CRC16 remainder was zero */
+    /* One data byte was lost and rebuilt from the CRC16. The remainder had
+     * to be one a single byte at that place can leave, which a wrong block
+     * meets once in 256 times: the block is as good as checked only once
+     * the rebuilt byte has been confirmed from elsewhere. */
+    KUI_WIRE_REBUILT
+};
+#endif
 struct kui_wire_block {
     const uint8_t *data;   /* 512 bytes in card order */
     const uint16_t *lost;  /* ascending indices of bytes that are not real */
     uint32_t lost_count;
+#if KUI_TOY_WIRE_CLEAN
+    uint32_t kind;         /* enum kui_wire_kind */
+    uint32_t rebuilt_at;   /* KUI_WIRE_REBUILT: the index of the rebuilt byte */
+#endif
 };
 struct kui_wire_stream {
     uint32_t state, error, detail;

@@ -183,6 +183,48 @@ OPEN_MUTATIONS = [
   "#if 1\n        /* Test 57's hold on the second movie's refills at its start: the"),
  (AUX, "the player's refills held back", "    (void)avi;(void)file;(void)bytes;\n    return false;", "    (void)avi;(void)file;(void)bytes;\n    return true;"),
 ]
+# CLEAN: a sector taken on its blocks' CRC16, a rebuilt byte on its P code
+# word, everything else through the EDC, and the sample that watches it.
+# Three of its conditions have no mutation here, because no test can fail
+# on them: the count of rebuilt bytes kept for a sector is held to six, and
+# a sector cannot have more (four blocks lie whole inside it and two reach
+# into it); a sector is taken the lighter way only behind the one accepted
+# before it, and a rewound sector's marks are cleared, where every stream's
+# first sector is the low reader's and takes the EDC whatever its marks say.
+CLEAN_MUTATIONS = [
+ (STREAM, "a rebuilt block called clean",
+  "        out->kind = rebuilt ? KUI_WIRE_REBUILT : lost_data || lost_crc ? KUI_WIRE_LOOSE : KUI_WIRE_CLEAN;",
+  "        out->kind = rebuilt ? KUI_WIRE_CLEAN : lost_data || lost_crc ? KUI_WIRE_LOOSE : KUI_WIRE_CLEAN;"),
+ (STREAM, "a block with lost bytes called clean",
+  "        out->kind = rebuilt ? KUI_WIRE_REBUILT : lost_data || lost_crc ? KUI_WIRE_LOOSE : KUI_WIRE_CLEAN;",
+  "        out->kind = rebuilt ? KUI_WIRE_REBUILT : KUI_WIRE_CLEAN;"),
+ (STREAM, "the rebuilt byte's place given wrong", "        out->rebuilt_at = w->lost[0];", "        out->rebuilt_at = w->lost[0] + 1u;"),
+ (GLUE, "a rebuilt byte taken without its code word",
+  "        for(uint32_t i=0u;i<mends && light;i++)light=toy_wire_mend_holds(raw,k->mend[i]);", "        (void)toy_wire_mend_holds;"),
+ (GLUE, "the code word summed one byte off", "    uint32_t word=at-12u,sum=0u;", "    uint32_t word=at-11u,sum=0u;"),
+ (GLUE, "the code word summed short of its last byte",
+  "    for(const uint8_t *p=raw+12u+word,*end=raw+TOY_WIRE_P_END;p<end;p+=86u)sum^=*p;",
+  "    for(const uint8_t *p=raw+12u+word,*end=raw+TOY_WIRE_P_END-86u;p<end;p+=86u)sum^=*p;"),
+ (GLUE, "a byte no code word reaches taken as covered",
+  "        } else if(part+at-first>=TOY_WIRE_P_END || k->mend_count==TOY_WIRE_MENDS) {",
+  "        } else if(k->mend_count==TOY_WIRE_MENDS) {"),
+ (GLUE, "a block never confirmed taken as checked in the next sector", "            if(k->block_open)k->loose=1u;", "            (void)0;"),
+ (GLUE, "a block confirmed by a sector that was not asked", "            k->block_open=0u;\n            goto accepted;",
+  "            goto accepted;"),
+ (GLUE, "a block the stream could not check taken on trust", "    } else if(k->block_kind!=KUI_WIRE_CLEAN)k->loose=1u;", "    }"),
+ (GLUE, "the low reader's blocks taken as the stream's", "        k->block_kind=KUI_WIRE_LOOSE;", "        k->block_kind=KUI_WIRE_CLEAN;"),
+ (GLUE, "the lighter check without the address",
+  "    return (raw[12]|(uint32_t)raw[13]<<8|(uint32_t)raw[14]<<16)==next && raw[15]==1u;", "    (void)next;return raw[15]==1u;"),
+ (GLUE, "the address not carried on to the next sector", "    k->head[2]=raw[14];\n", ""),
+ (GLUE, "the sample never taken",
+  "            if(!(++k->light_run%TOY_WIRE_SAMPLE) && !kui_sector_edc_valid_at(raw,lba+150u)) {",
+  "            if(!++k->light_run) {"),
+ (GLUE, "a failed sample leaves the lighter check on", "                k->light_off=1u;\n", ""),
+ (GLUE, "a failed sample's sector taken all the same",
+  "                k->light_off=1u;\n                return false;", "                k->light_off=1u;"),
+ (GLUE, "the lighter check not switched off", "    bool light=!lost && !k->loose && !k->light_off && k->head_fad+1u==lba+150u;",
+  "    bool light=!lost && !k->loose && k->head_fad+1u==lba+150u;"),
+]
 # What Test 74 no longer samples or times.
 LEAN_GONE = {"update time counted outside the second movie", "the buffer's free space not the most",
              "the lag not the highest", "a buffer without capacity taken", "more in the buffer than it holds taken",
@@ -204,7 +246,7 @@ if IDLE == "1":
     MUTATIONS = [m for m in MUTATIONS if m[1] not in RESTARTS]
 if LEAN == "1":
     MUTATIONS = [m for m in MUTATIONS if m[1] not in LEAN_GONE] + LEAN_MUTATIONS
-    for part, mutations in (("OPEN", OPEN_MUTATIONS),):
+    for part, mutations in (("OPEN", OPEN_MUTATIONS), ("CLEAN", CLEAN_MUTATIONS)):
         # A part left out of the build under test is left out here too.
         if os.environ.get(f"TOY_WIRE_{part}", "1") == "1":
             MUTATIONS += mutations

@@ -13,9 +13,39 @@
  * first sector not yet verified. */
 #include "toy_wire_stream.h"
 #include "kui/mode1_erasure.h"
+#if KUI_TOY_WIRE_CLEAN
+#include "toy_wire_msf.h"
+#endif
 
 enum { TOY_WIRE_STALL_LIMIT=8u, TOY_WIRE_SEEK_STEPS=64u };
 enum { TOY_WIRE_TICKS_FOREGROUND=1172u, TOY_WIRE_TICKS_INTERRUPT=390u };
+#if KUI_TOY_WIRE_CLEAN
+/* Test 74. Until now every sector was passed through its EDC, whatever its
+ * blocks had already been through: sixteen instructions for every two of
+ * its bytes, a third of all the reader did. A block the stream calls clean
+ * has had every byte under its CRC16 as stored; a sector made of such
+ * blocks alone is taken on its fixed bytes and its address. A block with
+ * one lost byte rebuilt from its CRC16 is clean once that byte is right,
+ * and the sector says whether it is: each P code word of a raw Mode 1
+ * sector, 26 bytes 86 apart, sums to zero (kui/mode1_erasure.h). So a
+ * rebuilt byte that its P code word confirms makes its block clean; that
+ * takes two things a wrong block meets once in 256 times each, the CRC16
+ * remainder being one a single byte can leave and that byte fitting its
+ * code word, which is the one chance in 65,536 a clean block's CRC16
+ * leaves too. Everything else goes through the EDC as before: a sector
+ * with a block the stream could not check, with a rebuilt byte the P
+ * parity does not cover or does not confirm, or reached by a rebuilt block
+ * whose byte lies in the other sector it touches; every block the low
+ * reader brought; and one in sixteen of the sectors the lighter check
+ * passes, as a watch on the lighter check itself: a single one of those
+ * that fails switches it off for good, and the report says so.
+ *
+ * The address needs no arithmetic: a sector taken the lighter way must
+ * carry the address after the one accepted before it, in the same binary
+ * coded decimal the EDC path has checked on that one. The first sector of
+ * every stream comes from the low reader and so through the EDC. */
+enum { TOY_WIRE_MENDS=6u, TOY_WIRE_SAMPLE=16u, TOY_WIRE_P_END=2248u };
+#endif
 #if KUI_TOY_WIRE_TICK
 /* Test 69. Test 68 on the console: an interrupt visit reads for half a
  * millisecond, a full run brings more than that reads, and a stream that
@@ -37,6 +67,16 @@ struct toy_wire_keep {
     const uint8_t *block;
     const uint16_t *block_lost;
     uint16_t lost[KUI_MODE1_ERASURE_MAX+2u];
+#if KUI_TOY_WIRE_CLEAN
+    uint32_t block_kind, block_rebuilt; /* of the block being fed: enum kui_wire_kind, the rebuilt byte's index */
+    uint32_t block_open;          /* its rebuilt byte has not been confirmed yet */
+    uint32_t loose;               /* the sector being assembled needs its EDC */
+    uint32_t mend_count;          /* rebuilt bytes of it awaiting their P code word */
+    uint32_t light_run, light_off;/* sectors the lighter check passed; it is switched off */
+    uint32_t head_fad;            /* the address of the sector accepted last */
+    uint8_t head[4];              /* and its minutes, seconds, frames as it carried them */
+    uint16_t mend[TOY_WIRE_MENDS];
+#endif
 #if KUI_TOY_WIRE_MEASURE
     uint32_t restarting, restart_start; /* a stream was given up at this clock value */
     uint32_t wait_token, wait_start;    /* a request waits for the window since then */
@@ -202,6 +242,10 @@ static void toy_wire_rewind(kui_retail_async_region_type *r,unsigned why) {
     toy_wire_halt(r,why);
     k->bad=0u;
     k->lost_count=0u;
+#if KUI_TOY_WIRE_CLEAN
+    /* The sector is received again from its first byte. */
+    k->loose=k->mend_count=0u;
+#endif
     /* A sector the stream could not deliver is read by programmed
      * transfers, which cannot overrun, before the stream takes over again:
      * however busy the bus is just now, every rewind gains a sector. */
@@ -215,6 +259,23 @@ static void toy_wire_rewind(kui_retail_async_region_type *r,unsigned why) {
 
 /* The lost bytes of the block being fed that fall into this piece of it. */
 static void toy_wire_note(struct toy_wire_keep *k,uint32_t part,const uint8_t *data,uint32_t bytes) {
+#if KUI_TOY_WIRE_CLEAN
+    /* What this piece means for its sector's check. */
+    if(k->block_kind==KUI_WIRE_REBUILT) {
+        const uint32_t first=(uint32_t)(data-k->block),at=k->block_rebuilt;
+        if(at<first) {
+            /* The rebuilt byte lay in the sector before, which is complete:
+             * this piece is checked if that sector confirmed the byte. */
+            if(k->block_open)k->loose=1u;
+        } else if(part+at-first>=TOY_WIRE_P_END || k->mend_count==TOY_WIRE_MENDS) {
+            /* It lies where no P code word of this sector covers it: in
+             * its Q parity, or in the next sector, to which the block goes
+             * on (a position past this sector's end). Or there are more of
+             * them than are kept. */
+            k->loose=1u;
+        } else k->mend[k->mend_count++]=(uint16_t)(part+at-first);
+    } else if(k->block_kind!=KUI_WIRE_CLEAN)k->loose=1u;
+#endif
     if(!k->block_lost_count)return;
     const uint32_t from=(uint32_t)(data-k->block);
     for(uint32_t i=0u;i<k->block_lost_count;i++) {
@@ -227,9 +288,55 @@ static void toy_wire_note(struct toy_wire_keep *k,uint32_t part,const uint8_t *d
 
 /* A sector has all its bytes: fill the lost ones from its own parity, then
  * the same address and EDC check every sector of the window passes. */
+#if KUI_TOY_WIRE_CLEAN
+/* Whether the sector is Mode 1 and carries the address that follows the
+ * one accepted before it (toy_wire_msf.h). */
+static bool toy_wire_head_holds(const struct toy_wire_keep *k,const uint8_t *raw) {
+    const uint32_t next=kui_toy_msf_next(k->head[0]|(uint32_t)k->head[1]<<8|(uint32_t)k->head[2]<<16);
+    return (raw[12]|(uint32_t)raw[13]<<8|(uint32_t)raw[14]<<16)==next && raw[15]==1u;
+}
+/* Whether the P code word through the byte at `at` sums to zero. The sync
+ * bytes ahead of the parity's reach are known outright. */
+static bool toy_wire_mend_holds(const uint8_t *raw,uint32_t at) {
+    if(at<12u)return raw[at]==(at-1u<10u?255u:0u);
+    uint32_t word=at-12u,sum=0u;
+    while(word>=86u)word-=86u;
+    for(const uint8_t *p=raw+12u+word,*end=raw+TOY_WIRE_P_END;p<end;p+=86u)sum^=*p;
+    return !sum;
+}
+#endif
 static bool toy_wire_sector(struct toy_wire_keep *k,uint8_t *raw,uint32_t lba) {
     const uint32_t lost=k->lost_count;
     k->lost_count=0u;
+#if KUI_TOY_WIRE_CLEAN
+    const uint32_t mends=k->mend_count;
+    /* A sector with lost bytes had a block that was not checked. */
+    bool light=!lost && !k->loose && !k->light_off && k->head_fad+1u==lba+150u;
+    k->loose=k->mend_count=0u;
+    if(light) {
+        if(!toy_wire_head_holds(k,raw)) {
+            ++k->report.check_bad;
+            return false;
+        }
+        for(uint32_t i=0u;i<mends && light;i++)light=toy_wire_mend_holds(raw,k->mend[i]);
+        if(!light)++k->report.mend_bad; /* the EDC decides below */
+        else {
+            /* One in sixteen is the sample. */
+            if(!(++k->light_run%TOY_WIRE_SAMPLE) && !kui_sector_edc_valid_at(raw,lba+150u)) {
+                ++k->report.light_bad;
+                ++k->report.check_bad;
+                k->light_off=1u;
+                return false;
+            }
+            ++k->report.light;
+            k->report.mends+=mends;
+            /* The block being fed is confirmed, if it was one of them. */
+            k->block_open=0u;
+            goto accepted;
+        }
+    }
+    ++k->report.edc;
+#endif
     if(lost) {
         if(lost>k->report.most_lost)k->report.most_lost=lost;
         if(lost>KUI_MODE1_ERASURE_MAX || !kui_mode1_fill_lost(raw,k->lost,lost,lba+150u)) {
@@ -244,7 +351,19 @@ static bool toy_wire_sector(struct toy_wire_keep *k,uint8_t *raw,uint32_t lba) {
     if(lost) {
         ++k->report.filled;
         k->report.filled_bytes+=lost;
-    } else if(!k->report.parity)k->report.parity=kui_mode1_parity_holds(raw)?1u:2u;
+    }
+#if KUI_TOY_WIRE_CLEAN
+    /* Whether this image's sectors carry real parity is no longer asked
+     * once: a rebuilt byte its code word does not confirm goes to the EDC
+     * each time, as above. */
+accepted:
+    k->head_fad=lba+150u;
+    k->head[0]=raw[12];
+    k->head[1]=raw[13];
+    k->head[2]=raw[14];
+#else
+    else if(!k->report.parity)k->report.parity=kui_mode1_parity_holds(raw)?1u:2u;
+#endif
     return true;
 }
 
@@ -332,6 +451,11 @@ static void toy_wire_seek(kui_retail_async_region_type *r) {
             break;
         }
         k->block_lost_count=0u;
+#if KUI_TOY_WIRE_CLEAN
+        /* What the low reader brings is not this stream's to vouch for:
+         * its sectors take the EDC, the first of every stream among them. */
+        k->block_kind=KUI_WIRE_LOOSE;
+#endif
         const uint32_t verified=A.verified;
         if(ops->feed(&A.cursor,data)!=KUI_GAME_OK)A.error=true;
         ++k->report.seek_blocks;
@@ -379,6 +503,11 @@ static bool toy_wire_drain(kui_retail_async_region_type *r,uint32_t ticks) {
         k->block=block.data;
         k->block_lost=block.lost;
         k->block_lost_count=block.lost_count;
+#if KUI_TOY_WIRE_CLEAN
+        k->block_kind=block.kind;
+        k->block_rebuilt=block.rebuilt_at;
+        k->block_open=block.kind==KUI_WIRE_REBUILT;
+#endif
         const enum kui_game_result fed=C.config.ops->feed(&A.cursor,block.data);
         k->block_lost_count=0u;
         if(k->bad) {

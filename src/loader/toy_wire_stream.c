@@ -833,6 +833,10 @@ enum kui_wire_parse kui_wire_next(struct kui_wire_stream *w, struct kui_wire_blo
             }
             return wire_refuse(w, crc == NONE ? KUI_WIRE_AMBIGUOUS : KUI_WIRE_BAD_CRC);
         }
+#if KUI_TOY_WIRE_CLEAN
+        out->kind = rebuilt ? KUI_WIRE_REBUILT : lost_data || lost_crc ? KUI_WIRE_LOOSE : KUI_WIRE_CLEAN;
+        out->rebuilt_at = w->lost[0];
+#endif
         if(w->alternative) ++w->n->gap_idle;
         ++w->n->blocks;
 #if KUI_TOY_WIRE_MEASURE && !KUI_TOY_WIRE_PACE

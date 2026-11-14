@@ -11,6 +11,7 @@ TOY_WIRE_IDLE ?= 0
 TOY_WIRE_LEAN ?= 0
 # Test 74's parts are on with it; one can be left out of a build.
 TOY_WIRE_OPEN ?= $(TOY_WIRE_LEAN)
+TOY_WIRE_CLEAN ?= $(TOY_WIRE_LEAN)
 ifneq ($(words $(TOY_SUITE_MODE)),1)
 $(error TOY_SUITE_MODE must be a single test number)
 endif
@@ -162,11 +163,14 @@ $(error TOY_WIRE_LEAN builds on Test 73: use TOY_WIRE_CACHED=1 TOY_WIRE_WORDS=1 
 endif
 TOY_WIRE_LEAN_FLAGS := -DKUI_TOY_WIRE_LEAN=1
 # A part left out is said so; the plain Test 74 build carries the one switch.
-ifneq ($(filter-out 0 1,$(TOY_WIRE_OPEN)),)
-$(error TOY_WIRE_OPEN must be 0 or 1)
+ifneq ($(filter-out 0 1,$(TOY_WIRE_OPEN) $(TOY_WIRE_CLEAN)),)
+$(error TOY_WIRE_OPEN and TOY_WIRE_CLEAN must be 0 or 1)
 endif
 ifeq ($(TOY_WIRE_OPEN),0)
 TOY_WIRE_LEAN_FLAGS += -DKUI_TOY_WIRE_OPEN=0
+endif
+ifeq ($(TOY_WIRE_CLEAN),0)
+TOY_WIRE_LEAN_FLAGS += -DKUI_TOY_WIRE_CLEAN=0
 endif
 FLAGS += $(TOY_WIRE_LEAN_FLAGS)
 NATIVE_FLAGS += $(TOY_WIRE_LEAN_FLAGS)
@@ -174,15 +178,15 @@ TOY_MOVIE_TEST_FLAGS += $(TOY_WIRE_LEAN_FLAGS)
 TOY_WIRE_TICK_FLAG += $(TOY_WIRE_LEAN_FLAGS)
 else ifneq ($(TOY_WIRE_LEAN),0)
 $(error TOY_WIRE_LEAN must be 0 or 1)
-else ifneq ($(TOY_WIRE_OPEN),0)
-$(error TOY_WIRE_OPEN is a part of Test 74: use TOY_WIRE_LEAN=1)
+else ifneq ($(TOY_WIRE_OPEN)$(TOY_WIRE_CLEAN),00)
+$(error TOY_WIRE_OPEN and TOY_WIRE_CLEAN are parts of Test 74: use TOY_WIRE_LEAN=1)
 endif
 RA_AUX_LINK_FLAGS := -Wl,--defsym=__native_ra_extra_code=0x3000
 RA_AUX_SPAN := 0x7000
 RA_SRC += src/loader/toy_wire_stream.c src/core/mode1_erasure.c
 $(BUILD)/native-ra-aux.elf: $(BUILD)/ra/src/loader/toy_wire_stream.o $(BUILD)/ra/src/core/mode1_erasure.o
 $(BUILD)/ra/src/loader/native_readahead_aux.o: src/loader/toy_wire_ahead.inc src/loader/toy_wire_stream.h \
- include/kui/mode1_erasure.h include/kui/toy_wire_report.h
+ src/loader/toy_wire_msf.h include/kui/mode1_erasure.h include/kui/toy_wire_report.h
 $(BUILD)/retail-toy-test-$(TOY_WIRE_TEST).kui: $(BUILD)/retail-native-dual.kui
 	cp $< $@
 endif
@@ -208,7 +212,7 @@ $(BUILD)/native-worker.elf: $(NATIVE_OBJ)
 
 $(BUILD)/toy-suite-config: force-mode-config
 	@mkdir -p $(BUILD)
-	@printf '%s\n' 'TOY_SUITE_MODE=$(TOY_SUITE_MODE)' 'TOY_FMV_COMPARE=$(TOY_FMV_COMPARE)' 'TOY_WIRE_STREAM=$(TOY_WIRE_STREAM)' $(if $(filter 1,$(TOY_WIRE_TICK)),'TOY_WIRE_TICK=1') $(if $(filter 1,$(TOY_WIRE_CACHED)),'TOY_WIRE_CACHED=1') $(if $(filter 1,$(TOY_WIRE_WORDS)),'TOY_WIRE_WORDS=1') $(if $(filter 1,$(TOY_WIRE_PACE)),'TOY_WIRE_PACE=1') $(if $(filter 1,$(TOY_WIRE_IDLE)),'TOY_WIRE_IDLE=1') $(if $(filter 1,$(TOY_WIRE_LEAN)),'TOY_WIRE_LEAN=1 OPEN=$(TOY_WIRE_OPEN)') > $@.tmp
+	@printf '%s\n' 'TOY_SUITE_MODE=$(TOY_SUITE_MODE)' 'TOY_FMV_COMPARE=$(TOY_FMV_COMPARE)' 'TOY_WIRE_STREAM=$(TOY_WIRE_STREAM)' $(if $(filter 1,$(TOY_WIRE_TICK)),'TOY_WIRE_TICK=1') $(if $(filter 1,$(TOY_WIRE_CACHED)),'TOY_WIRE_CACHED=1') $(if $(filter 1,$(TOY_WIRE_WORDS)),'TOY_WIRE_WORDS=1') $(if $(filter 1,$(TOY_WIRE_PACE)),'TOY_WIRE_PACE=1') $(if $(filter 1,$(TOY_WIRE_IDLE)),'TOY_WIRE_IDLE=1') $(if $(filter 1,$(TOY_WIRE_LEAN)),'TOY_WIRE_LEAN=1 OPEN=$(TOY_WIRE_OPEN) CLEAN=$(TOY_WIRE_CLEAN)') > $@.tmp
 	@cmp -s $@.tmp $@ || cp $@.tmp $@
 	@rm -f $@.tmp
 
@@ -299,6 +303,10 @@ toy-wire-host-tests:
 	$(HOST_CC) $(filter-out -Wpedantic,$(TOY_WIRE_HOST_FLAGS)) $(TOY_WIRE_TICK_FLAG) tests/test_toy_wire_report.c \
 	 -o $(BUILD)/test-toy-wire-report
 	ASAN_OPTIONS=detect_leaks=0 $(BUILD)/test-toy-wire-report
+ifeq ($(TOY_WIRE_CLEAN),1)
+	$(HOST_CC) $(TOY_WIRE_HOST_FLAGS) tests/test_toy_wire_msf.c -o $(BUILD)/test-toy-wire-msf
+	ASAN_OPTIONS=detect_leaks=0 $(BUILD)/test-toy-wire-msf
+endif
 # The real low reader, SDK SCI routing and auxiliary with the stream as the
 # window's producer, on the shared card model: the Test 66 liveness recipe
 # with the switch on.
