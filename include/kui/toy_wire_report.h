@@ -41,6 +41,15 @@
 #if KUI_TOY_WIRE_PACE && !KUI_TOY_WIRE_WORDS
 #error "Test 72 builds on Test 71"
 #endif
+/* Test 73: Test 72 with the same rule for the game's GD calls that carry
+ * no request, and the player's own calls, buffer and chunks in the report
+ * (toy_wire_ahead.inc). */
+#ifndef KUI_TOY_WIRE_IDLE
+#define KUI_TOY_WIRE_IDLE 0
+#endif
+#if KUI_TOY_WIRE_IDLE && !KUI_TOY_WIRE_PACE
+#error "Test 73 builds on Test 72"
+#endif
 /* The second movie in pieces of 2^22 ticks, 5.4 s: twelve cover it. */
 #define KUI_TOY_WIRE_BUCKETS 12u
 #define KUI_TOY_WIRE_BUCKET_SHIFT 22u
@@ -160,6 +169,28 @@ struct kui_toy_wire_report {
      * passed on because the reader had work only the foreground can do,
      * and those passed on because none had been for a while. */
     uint32_t updates, update_work, update_due;
+#endif
+#if KUI_TOY_WIRE_IDLE
+    /* The game's GD calls that reach the window with no request to serve:
+     * all of them, and those that pumped the reader for work or as due. */
+    uint32_t idles, idle_work, idle_due;
+    /* Delivery visits from the game's GD calls, whole, as the dispatcher
+     * times them: how many and their ticks. */
+    uint32_t deliver_calls, deliver_ticks;
+    /* The player's update calls, for each movie, by what the player's own
+     * counters say the call did. It put a frame out: how many such calls,
+     * their ticks inside the update, their ticks since the update before
+     * returned, and the reader's interrupt ticks in that span. It skipped
+     * a frame and put none out: how many and their ticks inside. */
+    struct kui_toy_wire_player {
+        uint32_t out, out_ticks, out_cycle, out_interrupt, skip, skip_ticks;
+    } player[2];
+    /* The second movie: ticks inside all its update calls; the capacity of
+     * the player's own buffer; and for each piece of the course the most
+     * of that buffer that was free and the most the player's lag counter
+     * showed. */
+    uint32_t update_ticks, buffer_capacity;
+    uint32_t course_free[KUI_TOY_WIRE_BUCKETS], course_lag[KUI_TOY_WIRE_BUCKETS];
 #endif
 #else
     uint32_t handler_ticks, handler_calls, handler_max; /* SCI interrupt visits while streaming */

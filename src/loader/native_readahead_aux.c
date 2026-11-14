@@ -482,6 +482,14 @@ static inline bool toy_refill_time_left(struct ra_clock start) {
 extern uint32_t kui_native_readahead_aux_visit(uint32_t,uint32_t,
     kui_retail_async_region_type *,uint32_t);
 
+#if KUI_TOY_WIRE_STREAM && KUI_TOY_WIRE_IDLE
+void kui_toy_movie_ahead_update(uint32_t ctx,uint32_t entered) {
+    if(!C.initialized || toy_present.owner!=ctx)return;
+    toy_wire_update_seen(ctx,entered);
+    if(toy_wire_update_due())
+        (void)kui_native_readahead_aux_visit(KUI_NATIVE_RA_MOVIE_AHEAD,ctx,C.config.region,0u);
+}
+#else
 void kui_toy_movie_ahead_update(uint32_t ctx) {
     if(C.initialized && toy_present.owner==ctx
 #if KUI_TOY_WIRE_STREAM && KUI_TOY_WIRE_PACE
@@ -490,6 +498,7 @@ void kui_toy_movie_ahead_update(uint32_t ctx) {
        )
         (void)kui_native_readahead_aux_visit(KUI_NATIVE_RA_MOVIE_AHEAD,ctx,C.config.region,0u);
 }
+#endif
 #endif
 #if KUI_TOY_SUITE_SEQUENTIAL_PIO
 static bool toy_sequential_pio_step(kui_retail_async_region_type *r,bool selected) {
@@ -1395,8 +1404,14 @@ uint32_t kui_native_readahead_aux_dispatch(uint32_t event,uint32_t arg,
         if(arg==toy_present.owner && C.movie_ahead.variant &&
            r->engine.native_loan_state==KUI_VMU_NATIVE_ASYNC_LOAN_IDLE &&
            !r->engine.active && !r->shared.service.pending && !r->shared.service.executing &&
-           !r->engine.in_irq && !C.quiesced)
+           !r->engine.in_irq && !C.quiesced) {
+#if KUI_TOY_WIRE_STREAM && KUI_TOY_WIRE_IDLE
+            /* Not a delivery: the window's rule for the game's idle GD
+             * calls does not hold this visit back a second time. */
+            C.current_event=event;
+#endif
             (void)toy_movie_ahead(r,0u,false,0u);
+        }
         return 1u;
     }
 #endif
@@ -1552,6 +1567,14 @@ uint32_t kui_native_readahead_aux_dispatch(uint32_t event,uint32_t arg,
     default:++C.stats.guard_faults;result=0u;break;
     }
     struct ra_clock after=clock_read();uint32_t elapsed=before.counter-after.counter;
+#if KUI_TOY_WIRE_STREAM && KUI_TOY_WIRE_IDLE
+    /* A delivery visit from one of the game's GD calls, whole. */
+    if(event==KUI_NATIVE_RA_DELIVER && !(visit_context>>24) && before.valid && after.valid) {
+        struct kui_toy_wire_report *w=&toy_wire_keep()->report;
+        ++w->deliver_calls;
+        w->deliver_ticks+=elapsed;
+    }
+#endif
 #if KUI_TOY_SUITE_ASYNC_DEMAND && KUI_TOY_SUITE_MODE < 62
     if(event==KUI_NATIVE_RA_DELIVER) toy_demand_after(playing,(visit_context>>24)==2u,was_armed,r,after);
 #endif

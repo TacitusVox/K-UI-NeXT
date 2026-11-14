@@ -11,6 +11,12 @@
 #else
 #define TOY_MOVIE_AHEAD_UPDATE 0
 #endif
+/* Test 73 hands the update's own time to the reader's hook. */
+#if TOY_MOVIE_AHEAD_UPDATE && defined(KUI_TOY_WIRE_IDLE) && KUI_TOY_WIRE_IDLE
+#define TOY_MOVIE_UPDATE_TIMED 1
+#else
+#define TOY_MOVIE_UPDATE_TIMED 0
+#endif
 
 /* Installed at the exact original movie-update pointer. Tail-call the
  * original for every untracked caller. Capture start and first terminal
@@ -79,6 +85,11 @@ C_SYMBOL(kui_toy_movie_exit_hook):
     sts.l pr,@-r15
 #if TOY_INTRO_OPEN_POLICY
     mov.l r2,@-r15
+#elif TOY_MOVIE_UPDATE_TIMED
+    /* Test 73: the clock before the original, kept in the spare word. */
+    mov.l .Lexit_clock,r1
+    mov.l @r1,r1
+    mov.l r1,@-r15
 #else
     add #-4,r15
 #endif
@@ -89,6 +100,9 @@ C_SYMBOL(kui_toy_movie_exit_hook):
 #if TOY_INTRO_OPEN_POLICY
     mov.l @r15+,r2
     or r2,r7
+#elif TOY_MOVIE_UPDATE_TIMED
+    /* R3 is not used again before the update's own call below. */
+    mov.l @r15+,r3
 #else
     add #4,r15
 #endif
@@ -115,7 +129,11 @@ C_SYMBOL(kui_toy_movie_exit_hook):
     mov.l r0,@(4,r15)
     mov.l .Lexit_ahead_update,r1
     jsr @r1
+#if TOY_MOVIE_UPDATE_TIMED
+    mov r3,r5
+#else
     nop
+#endif
     mov.l @(12,r15),r1
     lds r1,pr
     mov.l @(4,r15),r0
@@ -414,6 +432,9 @@ C_SYMBOL(kui_toy_movie_exit_hook):
 .Lexit_ahead_update: .long C_SYMBOL(kui_toy_movie_ahead_update)
 #endif
 .Lexit_lag: .long 0x8c1138c4
+#if TOY_MOVIE_UPDATE_TIMED
+.Lexit_clock: .long 0xffd8000c
+#endif
 .Lexit_name_ntsc: .ascii "60hz"
 .Lexit_name_pal: .ascii "50hz"
 .Lexit_bumper1: .ascii "_Bum"

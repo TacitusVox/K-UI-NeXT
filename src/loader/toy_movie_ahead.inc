@@ -466,6 +466,13 @@ static bool toy_movie_ahead(kui_retail_async_region_type *r,unsigned variant,boo
 #if KUI_TOY_WIRE_STREAM && KUI_TOY_WIRE_MEASURE
     if(demand && selected)toy_wire_wait_begin(s->token);
 #endif
+#if KUI_TOY_WIRE_STREAM && KUI_TOY_WIRE_IDLE
+    /* One of the game's GD calls with no request to serve or to wait for
+     * pumps only when the reader needs the foreground or has not been read
+     * for a while. An interrupt visit, a waiting request and an update
+     * call the hook has already passed on pump as before. */
+    if(demand || e->in_irq || C.current_event!=KUI_NATIVE_RA_DELIVER || toy_wire_idle_due())
+#endif
     toy_ahead_pump(r,demand);
     if(A.error) {
         if(demand)A.failed_token=s->token;

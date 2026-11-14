@@ -33,9 +33,12 @@ TICK = os.environ.get("TOY_WIRE_TICK", "0")
 CACHED = os.environ.get("TOY_WIRE_CACHED", "0" if TICK == "1" else "1")
 WORDS = os.environ.get("TOY_WIRE_WORDS", CACHED)
 PACE = os.environ.get("TOY_WIRE_PACE", WORDS)
-SWITCHES = [f"TOY_WIRE_TICK={TICK}", f"TOY_WIRE_CACHED={CACHED}", f"TOY_WIRE_WORDS={WORDS}", f"TOY_WIRE_PACE={PACE}"]
+IDLE = os.environ.get("TOY_WIRE_IDLE", PACE)
+AUX = "src/loader/native_readahead_aux.c"
+SWITCHES = [f"TOY_WIRE_TICK={TICK}", f"TOY_WIRE_CACHED={CACHED}", f"TOY_WIRE_WORDS={WORDS}", f"TOY_WIRE_PACE={PACE}",
+            f"TOY_WIRE_IDLE={IDLE}"]
 DEFINES = [f"-DKUI_TOY_WIRE_TICK={TICK}", f"-DKUI_TOY_WIRE_CACHED={CACHED}", f"-DKUI_TOY_WIRE_WORDS={WORDS}",
-           f"-DKUI_TOY_WIRE_PACE={PACE}"]
+           f"-DKUI_TOY_WIRE_PACE={PACE}", f"-DKUI_TOY_WIRE_IDLE={IDLE}"]
 MUTATIONS = [
  (STREAM, "resume one byte early", "    w->head = lost + 1u;\n", "    w->head = lost;\n"),
  (STREAM, "resume one byte late", "    w->head = lost + 1u;\n", "    w->head = lost + 2u;\n"),
@@ -111,19 +114,59 @@ WORDS_MUTATIONS = [
 # mutations go with them.
 NOTES = {"note taken of the byte behind", "note's gap not counted from the block's end",
          "register byte not marked in the log", "repeated byte looked for one position off"}
-# What only Test 72 has: the player's update calls held back.
+# Tests 72 and 73: the player's update calls held back. The stream's side
+# and the pump's are the same source for both.
 PACE_MUTATIONS = [
- (GLUE, "update calls never held back", "    if(!A.error && k->clock_good && k->update_tick-now<TOY_WIRE_UPDATE_TICKS)return false;", "    if(false)return false;"),
- (GLUE, "update calls visit without a window", "    if(!A.variant)return false;", "    if(!A.variant)return true;"),
- (GLUE, "a ring that stands full does not call for the foreground", "    if((toy_wire_room() && (!k->on || toy_wire_stream()->state==KUI_WIRE_FULL)) ||", "    if((toy_wire_room() && !k->on) ||"),
  (GLUE, "the clock is never taken as good", "        k->clock_good=entered.valid;", "        k->clock_good=0u;"),
- (GLUE, "an overrun left unanswered does not call for the foreground", "       (k->on && kui_wire_overdue(toy_wire_stream()))) {", "       false) {"),
  (STREAM, "an unanswered overrun is not overdue", "    if(w->state == KUI_WIRE_RUN) return (rd8(SSR) & ORER) != 0u;", "    if(w->state == KUI_WIRE_RUN) return false;"),
  (STREAM, "a wait whose timer ran out is not overdue", "    if(w->state == KUI_WIRE_WAIT) return !w->mode || (rd16(w->timer_reg + 8u) & 0x0100u) != 0u;", "    if(w->state == KUI_WIRE_WAIT) return !w->mode;"),
  (STREAM, "a wait without a timer is not overdue", "    if(w->state == KUI_WIRE_WAIT) return !w->mode || (rd16(w->timer_reg + 8u) & 0x0100u) != 0u;", "    if(w->state == KUI_WIRE_WAIT) return w->mode && (rd16(w->timer_reg + 8u) & 0x0100u) != 0u;"),
+]
+# Test 72's own rule for the update calls.
+PACE_ONLY_MUTATIONS = [
+ (GLUE, "update calls never held back", "    if(!A.error && k->clock_good && k->update_tick-now<TOY_WIRE_UPDATE_TICKS)return false;", "    if(false)return false;"),
+ (GLUE, "update calls visit without a window", "    if(!A.variant)return false;", "    if(!A.variant)return true;"),
+ (GLUE, "a ring that stands full does not call for the foreground", "    if((toy_wire_room() && (!k->on || toy_wire_stream()->state==KUI_WIRE_FULL)) ||", "    if((toy_wire_room() && !k->on) ||"),
+ (GLUE, "an overrun left unanswered does not call for the foreground", "       (k->on && kui_wire_overdue(toy_wire_stream()))) {", "       false) {"),
  (GLUE, "update calls not counted", "    ++k->report.updates;\n", ""),
  (GLUE, "due calls not counted", "    ++k->report.update_due;\n", ""),
 ]
+# Test 73: the same rule for the update calls and for the game's GD calls
+# that carry no request; and what the report takes from the player itself.
+IDLE_MUTATIONS = [
+ (GLUE, "calls never held back", "    if(!A.error && k->clock_good && k->update_tick-tick<TOY_WIRE_UPDATE_TICKS)return false;", "    if(false)return false;"),
+ (GLUE, "update calls visit without a window", "    if(A.variant==0u)return false;", "    if(A.variant==0u)return true;"),
+ (GLUE, "a ring that stands full does not call for the foreground", "    if((toy_wire_room() && (k->on==0u || toy_wire_stream()->state==KUI_WIRE_FULL)) ||", "    if((toy_wire_room() && k->on==0u) ||"),
+ (GLUE, "an overrun left unanswered does not call for the foreground", "       (k->on!=0u && kui_wire_overdue(toy_wire_stream()))) {", "       false) {"),
+ (GLUE, "calls not counted", "    ++*(idle?&w->idles:&w->updates);\n", ""),
+ (GLUE, "due calls not counted", "    ++*(idle?&w->idle_due:&w->update_due);\n", ""),
+ (GLUE, "idle calls counted with the update calls", "    ++*(idle?&w->idles:&w->updates);", "    ++w->updates;"),
+ (GLUE, "idle work counted with the update calls'", "        ++*(idle?&w->idle_work:&w->update_work);", "        ++w->update_work;"),
+ (GLUE, "idle due calls counted with the update calls'", "    ++*(idle?&w->idle_due:&w->update_due);", "    ++w->update_due;"),
+ (AHEAD, "the game's idle calls always pump", "    if(demand || e->in_irq || C.current_event!=KUI_NATIVE_RA_DELIVER || toy_wire_idle_due())", "    if(true)"),
+ (AHEAD, "a waiting request held to the spacing", "    if(demand || e->in_irq || C.current_event!=KUI_NATIVE_RA_DELIVER || toy_wire_idle_due())", "    if(e->in_irq || C.current_event!=KUI_NATIVE_RA_DELIVER || toy_wire_idle_due())"),
+ (AHEAD, "an interrupt visit held to the spacing", "    if(demand || e->in_irq || C.current_event!=KUI_NATIVE_RA_DELIVER || toy_wire_idle_due())", "    if(demand || C.current_event!=KUI_NATIVE_RA_DELIVER || toy_wire_idle_due())"),
+ (AHEAD, "an update call passed on is held again", "    if(demand || e->in_irq || C.current_event!=KUI_NATIVE_RA_DELIVER || toy_wire_idle_due())", "    if(demand || e->in_irq || toy_wire_idle_due())"),
+ (AUX, "an update visit not told from a delivery", "            C.current_event=event;\n#endif\n            (void)toy_movie_ahead(r,0u,false,0u);", "#endif\n            (void)toy_movie_ahead(r,0u,false,0u);"),
+ (AUX, "an interrupt's delivery visit counted with the game's", "    if(event==KUI_NATIVE_RA_DELIVER && !(visit_context>>24) && before.valid && after.valid) {", "    if(event==KUI_NATIVE_RA_DELIVER && before.valid && after.valid) {"),
+ (AUX, "delivery visits not counted", "        ++w->deliver_calls;\n", ""),
+ (GLUE, "the output counter read at the skip counter's place", "enum { TOY_PLAYER_OUT=0xacu, TOY_PLAYER_SKIP=0x90u };", "enum { TOY_PLAYER_OUT=0x90u, TOY_PLAYER_SKIP=0x90u };"),
+ (GLUE, "a movie's first call taken for a frame", "    if(k->seen_start==toy_present.start_tick) {", "    if(true) {"),
+ (GLUE, "a call that did both counted as a skip", "        if(out!=k->seen_out) {", "        if(out!=k->seen_out && skip==k->seen_skip) {"),
+ (GLUE, "skipped frames not counted", "            ++p->skip;\n", ""),
+ (GLUE, "a skip's time counted with the frames put out", "            p->skip_ticks+=spent;", "            p->out_ticks+=spent;"),
+ (GLUE, "interrupt time not taken from the call before", "    k->seen_interrupt=interrupt;\n", ""),
+ (GLUE, "the cycle not counted from the call before", "    k->seen_tick=now.counter;\n", ""),
+ (GLUE, "the first movie counted with the second", "    const unsigned movie=toy_present.trace==&C.present[1];", "    const unsigned movie=1u;"),
+ (GLUE, "update time counted outside the second movie", "    if(piece<0)return;\n    w->update_ticks+=spent;", "    w->update_ticks+=spent;\n    if(piece<0)return;"),
+ (GLUE, "the buffer's free space not the most", "    if(capacity-used>w->course_free[piece])w->course_free[piece]=capacity-used;", "    w->course_free[piece]=capacity-used;"),
+ (GLUE, "the lag not the highest", "    if(lag<=INT32_MAX && lag>w->course_lag[piece])w->course_lag[piece]=lag;", "    w->course_lag[piece]=lag;"),
+ (GLUE, "a buffer without capacity taken", "    if(!capacity || capacity>UINT32_C(0x400000) || used>capacity)return;", "    if(capacity>UINT32_C(0x400000) || used>capacity)return;"),
+ (GLUE, "more in the buffer than it holds taken", "    if(!capacity || capacity>UINT32_C(0x400000) || used>capacity)return;", "    if(!capacity || capacity>UINT32_C(0x400000))return;"),
+ (GLUE, "a pointer outside the game's memory followed", "    if(!toy_chunk_ram(stream,20u))return;\n    const uint32_t channel=toy_chunk_word(stream+4u);\n    if(!toy_chunk_ram(channel,72u))return;\n    const uint32_t avi=toy_chunk_word(channel+68u);\n    if(!toy_chunk_ram(avi,108u))return;\n    const uint32_t capacity=toy_chunk_word(avi+0x14u);\n    const uint32_t used=toy_chunk_word(avi+0x68u)-toy_chunk_word(avi+0x64u);\n    if(!capacity || capacity>UINT32_C(0x400000) || used>capacity)return;\n    w->buffer_capacity=capacity;", "    const uint32_t channel=toy_chunk_word(stream+4u);\n    if(!toy_chunk_ram(channel,72u))return;\n    const uint32_t avi=toy_chunk_word(channel+68u);\n    if(!toy_chunk_ram(avi,108u))return;\n    const uint32_t capacity=toy_chunk_word(avi+0x14u);\n    const uint32_t used=toy_chunk_word(avi+0x68u)-toy_chunk_word(avi+0x64u);\n    if(!capacity || capacity>UINT32_C(0x400000) || used>capacity)return;\n    w->buffer_capacity=capacity;"),
+]
+# Test 73 does not time restarts or place them in the course.
+RESTARTS = {"restart time not kept", "restarts missing from the course"}
 if WORDS == "1":
     MUTATIONS += WORDS_MUTATIONS
 if TICK == "1" or CACHED == "1":
@@ -134,6 +177,9 @@ if CACHED == "1":
     MUTATIONS += CACHED_MUTATIONS
 if PACE == "1":
     MUTATIONS = [m for m in MUTATIONS if m[1] not in NOTES] + PACE_MUTATIONS
+    MUTATIONS += IDLE_MUTATIONS if IDLE == "1" else PACE_ONLY_MUTATIONS
+if IDLE == "1":
+    MUTATIONS = [m for m in MUTATIONS if m[1] not in RESTARTS]
 
 
 def run(cmd, cwd, timeout):

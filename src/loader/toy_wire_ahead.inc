@@ -45,6 +45,12 @@ struct toy_wire_keep {
     uint32_t update_tick;               /* clock value of the last call of the game's that read */
     uint32_t clock_good;                /* the clock was the expected one then */
 #endif
+#if KUI_TOY_WIRE_IDLE
+    /* As the update call before left them: which movie's player (by its
+     * start), its output and skip counters, the reader's interrupt ticks
+     * and the clock. */
+    uint32_t seen_start, seen_out, seen_skip, seen_interrupt, seen_tick;
+#endif
 };
 #define TOY_WIRE_STATE_OFFSET (AHEAD_SLOTS*KUI_GAME_RAW_BYTES)
 #define TOY_WIRE_KEEP_OFFSET (KUI_RETAIL_IMAGE_MAX_SECTORS*KUI_GAME_RAW_BYTES)
@@ -172,7 +178,9 @@ static void toy_wire_course_served(uint32_t sectors) {
  * verified. */
 static void toy_wire_rewind(kui_retail_async_region_type *r,unsigned why) {
     struct toy_wire_keep *k=toy_wire_keep();
-#if KUI_TOY_WIRE_MEASURE
+    /* Test 73 has no room for the time and place of restarts: its report
+     * gives their number. */
+#if KUI_TOY_WIRE_MEASURE && !KUI_TOY_WIRE_IDLE
     if(k->on && !k->restarting) {
         const struct ra_clock now=clock_read();
         k->restarting=now.valid;
@@ -263,7 +271,7 @@ static bool toy_wire_take_over(kui_retail_async_region_type *r) {
     stream->state=RA_DMA;
     k->on=1u;
     k->report.timer_mode=w->mode;
-#if KUI_TOY_WIRE_MEASURE
+#if KUI_TOY_WIRE_MEASURE && !KUI_TOY_WIRE_IDLE
     if(k->restarting) {
         const struct ra_clock now=clock_read();
         k->restarting=0u;
@@ -448,6 +456,88 @@ static void toy_wire_timer_visit(void) {
  * of the spacing, which no interrupt visit touches. A visit that
  * interrupts it can at worst make one call's answer stale. */
 enum { TOY_WIRE_UPDATE_TICKS=3125u };
+#if KUI_TOY_WIRE_IDLE
+/* Test 73. Test 72's console run found the visits it removed were the
+ * cheap ones. The game's GD calls, EXEC and CHECK, come about 1,550 times
+ * a second while a movie plays, for some thirty requests; the low reader
+ * passes each on as a delivery visit, and each one without a request to
+ * serve ended in the foreground pump: 81 microseconds inside the pump,
+ * 9.7 s over both movies. The rule of Test 72 now holds for those calls
+ * too. A call that serves a request, or waits for one, pumps as before. */
+static bool toy_wire_foreground_due(bool idle) {
+    struct toy_wire_keep *k=toy_wire_keep();
+    struct kui_toy_wire_report *w=&k->report;
+    ++*(idle?&w->idles:&w->updates);
+    /* Without a window an update visit does nothing at all. */
+    if(A.variant==0u)return false;
+    if((toy_wire_room() && (k->on==0u || toy_wire_stream()->state==KUI_WIRE_FULL)) ||
+       (k->on!=0u && kui_wire_overdue(toy_wire_stream()))) {
+        ++*(idle?&w->idle_work:&w->update_work);
+        return true;
+    }
+    const uint32_t tick=read_hw(UINT32_C(0xffd8000c),4u);
+    if(!A.error && k->clock_good && k->update_tick-tick<TOY_WIRE_UPDATE_TICKS)return false;
+    k->update_tick=tick;
+    ++*(idle?&w->idle_due:&w->update_due);
+    return true;
+}
+static bool toy_wire_update_due(void) {return toy_wire_foreground_due(false);}
+static bool toy_wire_idle_due(void) {return toy_wire_foreground_due(true);}
+
+/* What the player itself did in the update call that has just returned.
+ * `entered` is the clock value the hook read before it called the
+ * original. The player's output and skip counters are the ones the exit
+ * witness records; its lag counter the one its lag exit reads. Only reads
+ * of the game's memory, on the game's stack, outside the gate. */
+enum { TOY_PLAYER_OUT=0xacu, TOY_PLAYER_SKIP=0x90u };
+#define TOY_PLAYER_LAG UINT32_C(0x8c1138c4)
+static uint32_t toy_chunk_word(uint32_t address);
+static bool toy_chunk_ram(uint32_t address,uint32_t bytes);
+static void toy_wire_update_seen(uint32_t ctx,uint32_t entered) {
+    struct toy_wire_keep *k=toy_wire_keep();
+    struct kui_toy_wire_report *w=&k->report;
+    const struct ra_clock now=clock_read();
+    if(!now.valid || !toy_present.start_valid)return;
+    const unsigned movie=toy_present.trace==&C.present[1];
+    struct kui_toy_wire_player *p=&w->player[movie];
+    const uint32_t spent=entered-now.counter;
+    const uint32_t out=toy_chunk_word(ctx+TOY_PLAYER_OUT),skip=toy_chunk_word(ctx+TOY_PLAYER_SKIP);
+    const uint32_t interrupt=w->visit_ticks[KUI_TOY_WIRE_VISIT_SCI]+w->visit_ticks[KUI_TOY_WIRE_VISIT_TIMER];
+    if(k->seen_start==toy_present.start_tick) {
+        if(out!=k->seen_out) {
+            ++p->out;
+            p->out_ticks+=spent;
+            p->out_cycle+=k->seen_tick-now.counter;
+            p->out_interrupt+=interrupt-k->seen_interrupt;
+        } else if(skip!=k->seen_skip) {
+            ++p->skip;
+            p->skip_ticks+=spent;
+        }
+    }
+    k->seen_start=toy_present.start_tick;
+    k->seen_out=out;
+    k->seen_skip=skip;
+    k->seen_interrupt=interrupt;
+    k->seen_tick=now.counter;
+    const int piece=toy_wire_course(now.counter);
+    if(piece<0)return;
+    w->update_ticks+=spent;
+    const uint32_t lag=toy_chunk_word(TOY_PLAYER_LAG);
+    if(lag<=INT32_MAX && lag>w->course_lag[piece])w->course_lag[piece]=lag;
+    /* The player's buffer, found as toy_chunk_buffer finds it. */
+    const uint32_t stream=toy_chunk_word(ctx+8u);
+    if(!toy_chunk_ram(stream,20u))return;
+    const uint32_t channel=toy_chunk_word(stream+4u);
+    if(!toy_chunk_ram(channel,72u))return;
+    const uint32_t avi=toy_chunk_word(channel+68u);
+    if(!toy_chunk_ram(avi,108u))return;
+    const uint32_t capacity=toy_chunk_word(avi+0x14u);
+    const uint32_t used=toy_chunk_word(avi+0x68u)-toy_chunk_word(avi+0x64u);
+    if(!capacity || capacity>UINT32_C(0x400000) || used>capacity)return;
+    w->buffer_capacity=capacity;
+    if(capacity-used>w->course_free[piece])w->course_free[piece]=capacity-used;
+}
+#else
 static bool toy_wire_update_due(void) {
     struct toy_wire_keep *k=toy_wire_keep();
     ++k->report.updates;
@@ -466,6 +556,7 @@ static bool toy_wire_update_due(void) {
     ++k->report.update_due;
     return true;
 }
+#endif
 #endif
 
 static void toy_ahead_pump(kui_retail_async_region_type *r,bool demand) {

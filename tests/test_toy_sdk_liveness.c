@@ -192,8 +192,17 @@ static void setup_movie(unsigned first_token_delay, bool scope_movie) {
 #define CHUNK_NAME (CHUNK_CONTEXT + 0xbcu)
 static unsigned chunk_word_reads;
 static uint8_t chunk_filename[24];
+#if defined(KUI_TOY_WIRE_IDLE) && KUI_TOY_WIRE_IDLE
+/* Test 73 reads more of the game's memory than the movie's name: a
+ * fixture that models the player supplies those words. */
+static bool (*chunk_word_other)(uint32_t address, uint32_t *value);
+#endif
 
 uint32_t kui_toy_movie_chunk_test_word(uint32_t address) {
+#if defined(KUI_TOY_WIRE_IDLE) && KUI_TOY_WIRE_IDLE
+    uint32_t other;
+    if(chunk_word_other && chunk_word_other(address, &other)) return other;
+#endif
     address &= ~UINT32_C(0x20000000);
     CHECK(address >= CHUNK_NAME && address <= CHUNK_NAME + 20u && !(address & 3u));
     ++chunk_word_reads;

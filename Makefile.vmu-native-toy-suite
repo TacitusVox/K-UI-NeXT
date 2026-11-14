@@ -7,6 +7,7 @@ TOY_WIRE_TICK ?= 0
 TOY_WIRE_CACHED ?= 0
 TOY_WIRE_WORDS ?= 0
 TOY_WIRE_PACE ?= 0
+TOY_WIRE_IDLE ?= 0
 ifneq ($(words $(TOY_SUITE_MODE)),1)
 $(error TOY_SUITE_MODE must be a single test number)
 endif
@@ -16,6 +17,8 @@ endif
 ifeq ($(TOY_WIRE_STREAM),1)
 ifeq ($(TOY_WIRE_TICK),1)
 TOY_WIRE_TEST := 69
+else ifeq ($(TOY_WIRE_CACHED)$(TOY_WIRE_WORDS)$(TOY_WIRE_PACE)$(TOY_WIRE_IDLE),1111)
+TOY_WIRE_TEST := 73
 else ifeq ($(TOY_WIRE_CACHED)$(TOY_WIRE_WORDS)$(TOY_WIRE_PACE),111)
 TOY_WIRE_TEST := 72
 else ifeq ($(TOY_WIRE_CACHED)$(TOY_WIRE_WORDS),11)
@@ -133,6 +136,20 @@ TOY_WIRE_TICK_FLAG += -DKUI_TOY_WIRE_PACE=1
 else ifneq ($(TOY_WIRE_PACE),0)
 $(error TOY_WIRE_PACE must be 0 or 1)
 endif
+ifeq ($(TOY_WIRE_IDLE),1)
+# Test 73: Test 72 with the game's GD calls that carry no request pumping the
+# reader only when it has work for the foreground or has not been read for a
+# while, and the player's own calls, buffer and chunks in the report.
+ifneq ($(TOY_WIRE_PACE),1)
+$(error TOY_WIRE_IDLE builds on Test 72: use TOY_WIRE_CACHED=1 TOY_WIRE_WORDS=1 TOY_WIRE_PACE=1)
+endif
+FLAGS += -DKUI_TOY_WIRE_IDLE=1
+NATIVE_FLAGS += -DKUI_TOY_WIRE_IDLE=1
+TOY_MOVIE_TEST_FLAGS += -DKUI_TOY_WIRE_IDLE=1
+TOY_WIRE_TICK_FLAG += -DKUI_TOY_WIRE_IDLE=1
+else ifneq ($(TOY_WIRE_IDLE),0)
+$(error TOY_WIRE_IDLE must be 0 or 1)
+endif
 RA_AUX_LINK_FLAGS := -Wl,--defsym=__native_ra_extra_code=0x3000
 RA_AUX_SPAN := 0x7000
 RA_SRC += src/loader/toy_wire_stream.c src/core/mode1_erasure.c
@@ -164,7 +181,7 @@ $(BUILD)/native-worker.elf: $(NATIVE_OBJ)
 
 $(BUILD)/toy-suite-config: force-mode-config
 	@mkdir -p $(BUILD)
-	@printf '%s\n' 'TOY_SUITE_MODE=$(TOY_SUITE_MODE)' 'TOY_FMV_COMPARE=$(TOY_FMV_COMPARE)' 'TOY_WIRE_STREAM=$(TOY_WIRE_STREAM)' $(if $(filter 1,$(TOY_WIRE_TICK)),'TOY_WIRE_TICK=1') $(if $(filter 1,$(TOY_WIRE_CACHED)),'TOY_WIRE_CACHED=1') $(if $(filter 1,$(TOY_WIRE_WORDS)),'TOY_WIRE_WORDS=1') $(if $(filter 1,$(TOY_WIRE_PACE)),'TOY_WIRE_PACE=1') > $@.tmp
+	@printf '%s\n' 'TOY_SUITE_MODE=$(TOY_SUITE_MODE)' 'TOY_FMV_COMPARE=$(TOY_FMV_COMPARE)' 'TOY_WIRE_STREAM=$(TOY_WIRE_STREAM)' $(if $(filter 1,$(TOY_WIRE_TICK)),'TOY_WIRE_TICK=1') $(if $(filter 1,$(TOY_WIRE_CACHED)),'TOY_WIRE_CACHED=1') $(if $(filter 1,$(TOY_WIRE_WORDS)),'TOY_WIRE_WORDS=1') $(if $(filter 1,$(TOY_WIRE_PACE)),'TOY_WIRE_PACE=1') $(if $(filter 1,$(TOY_WIRE_IDLE)),'TOY_WIRE_IDLE=1') > $@.tmp
 	@cmp -s $@.tmp $@ || cp $@.tmp $@
 	@rm -f $@.tmp
 
