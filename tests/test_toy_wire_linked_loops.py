@@ -18,7 +18,11 @@ the check on the interpreter.
 
 It checks the code as linked. It does not check the Dreamcast.
 
-usage: test_toy_wire_linked_loops.py native-ra-aux.elf [reference-aux.elf]
+A build that does not ask the receiver for bytes as sent (TOY_WIRE_MSB=0)
+has no use for the second routine and the linker leaves it out: with
+--no-as-sent it is not required. Wherever it is linked it is checked.
+
+usage: test_toy_wire_linked_loops.py [--no-as-sent] native-ra-aux.elf [reference-aux.elf]
 """
 import random
 import sys
@@ -170,11 +174,17 @@ def check(harness, name, true_order, compiled, trials, seed):
 
 
 def main():
-    elf = sys.argv[1]
+    arguments = sys.argv[1:]
+    as_sent = "--no-as-sent" not in arguments
+    arguments = [a for a in arguments if a != "--no-as-sent"]
+    elf = arguments[0]
     harness = Harness(elf)
     expect = {"_kui_wire_words_lsb": (False, (41, 9, 4)), "_kui_wire_words_true": (True, (34, 5, 4))}
     for name, (true_order, cost) in expect.items():
         if name not in harness.symbols:
+            if true_order and not as_sent:
+                print(f"{name[1:]} is not linked: this build does not ask for bytes as sent")
+                continue
             raise SystemExit(f"{elf} has no {name}: not a Test 74 build with the hand-written loops")
         per_word, rest = check(harness, name, true_order, False, 400, 74)
         if per_word != cost or rest != (0, 0, 0):
@@ -182,12 +192,12 @@ def main():
         print(f"PASS {name[1:]} as linked: 400 runs equal to the byte steps, a block's CRC16 taken to zero and a damaged "
               f"block's not; {per_word[0]} instructions, {per_word[1]} loads and {per_word[2]} stores for four bytes; "
               f"registers, stack and everything around the destination left alone")
-    if len(sys.argv) > 2:
-        reference = Harness(sys.argv[2])
+    if len(arguments) > 1:
+        reference = Harness(arguments[1])
         if "_wire_words" not in reference.symbols:
-            raise SystemExit(f"{sys.argv[2]} has no compiled word loop to compare the interpreter with")
+            raise SystemExit(f"{arguments[1]} has no compiled word loop to compare the interpreter with")
         per_word, _ = check(reference, "_wire_words", False, True, 400, 74)
-        print(f"PASS the compiler's wire_words of {sys.argv[2]} on the same data: the interpreter agrees with it "
+        print(f"PASS the compiler's wire_words of {arguments[1]} on the same data: the interpreter agrees with it "
               f"({per_word[0]} instructions, {per_word[1]} loads and {per_word[2]} stores for four bytes)")
 
 

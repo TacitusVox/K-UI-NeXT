@@ -304,7 +304,7 @@ TOY_WIRE_HOST_FLAGS = -std=c11 -O1 -g -Wall -Wextra -Werror -Wpedantic \
 toy-wire-linked-check: $(BUILD)/retail-toy-test-$(TOY_WIRE_TEST).kui
 	python3 tests/test_toy_wire_cached_stack.py $(BUILD)/native-ra-aux.elf $(if $(filter 1,$(TOY_WIRE_CACHED)),cached,uncached)
 ifeq ($(TOY_WIRE_SWIFT),1)
-	python3 tests/test_toy_wire_linked_loops.py $(BUILD)/native-ra-aux.elf $(TOY_WIRE_LOOP_REFERENCE)
+	python3 tests/test_toy_wire_linked_loops.py $(if $(filter 0,$(TOY_WIRE_MSB)),--no-as-sent) $(BUILD)/native-ra-aux.elf $(TOY_WIRE_LOOP_REFERENCE)
 else ifeq ($(TOY_WIRE_WORDS),1)
 	python3 tests/test_toy_wire_word_loop.py $(BUILD)/native-ra-aux.elf
 endif
