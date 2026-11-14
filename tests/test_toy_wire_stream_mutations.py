@@ -265,10 +265,47 @@ MSB_MUTATIONS = [
  (STREAM, "bytes as sent: sign bits of the table left in the CRC", "    return (uint32_t)remainder & 0xffffu;",
   "    return (uint32_t)remainder;"),
 ]
+# QUICK: the short way through the dispatcher, and each term of the
+# condition under which it may be taken. Two terms have no mutation here,
+# because no test can fail on them: a request under way and a wait asked
+# for, which the request's status, not yet "completed", rules out as well.
+QUICK_MUTATIONS = [
+ (AHEAD, "the short way while the region is lent out",
+  "        e->native_loan_state==KUI_VMU_NATIVE_ASYNC_LOAN_IDLE &&\n        r->shared.stream.state!=RA_RESUME &&",
+  "        r->shared.stream.state!=RA_RESUME &&"),
+ (AHEAD, "the short way with the low reader mid-resume",
+  "        e->native_loan_state==KUI_VMU_NATIVE_ASYNC_LOAN_IDLE &&\n        r->shared.stream.state!=RA_RESUME &&",
+  "        e->native_loan_state==KUI_VMU_NATIVE_ASYNC_LOAN_IDLE &&"),
+ (AHEAD, "the short way after the movie", "        !A.error && toy_ahead_live() && s->status==KUI_GD_COMPLETED &&",
+  "        !A.error && s->status==KUI_GD_COMPLETED &&"),
+ (AHEAD, "the short way after a request that did not complete",
+  "        !A.error && toy_ahead_live() && s->status==KUI_GD_COMPLETED &&", "        !A.error && toy_ahead_live() &&"),
+ (AHEAD, "the short way for a window in error", "        !A.error && toy_ahead_live() && s->status==KUI_GD_COMPLETED &&",
+  "        toy_ahead_live() && s->status==KUI_GD_COMPLETED &&"),
+ (AHEAD, "the short way under a command that is not a read",
+  "        (!s->command || s->command==KUI_GD_PIOREAD || s->command==KUI_GD_DMAREAD) &&\n        e->opened",
+  "        e->opened"),
+ (AHEAD, "the short way with the reader closed", "        e->opened && !r->shared.port.fault && r->shared.port.acquired;",
+  "        !r->shared.port.fault && r->shared.port.acquired;"),
+ (AHEAD, "the short way on a faulted bus", "        e->opened && !r->shared.port.fault && r->shared.port.acquired;",
+  "        e->opened && r->shared.port.acquired;"),
+ (AHEAD, "the short way on a released bus", "        e->opened && !r->shared.port.fault && r->shared.port.acquired;",
+  "        e->opened && !r->shared.port.fault;"),
+ (AUX, "an idle call always pumps on the short way", "        if(!r->engine.in_irq && !toy_wire_idle_due())return 1u;\n", ""),
+ (AUX, "an interrupt held to the idle rule on the short way",
+  "        if(!r->engine.in_irq && !toy_wire_idle_due())return 1u;", "        if(!toy_wire_idle_due())return 1u;"),
+ (AUX, "a pump's error on the short way leaves the window", "        if(!C.movie_ahead.error)return 1u;\n        ++C.stats.abandoned;",
+  "        return 1u;\n        ++C.stats.abandoned;"),
+ (AUX, "a window given up on the short way not counted", "        if(!C.movie_ahead.error)return 1u;\n        ++C.stats.abandoned;",
+  "        if(!C.movie_ahead.error)return 1u;"),
+]
 # What Test 74 no longer samples or times.
 LEAN_GONE = {"update time counted outside the second movie", "the buffer's free space not the most",
              "the lag not the highest", "a buffer without capacity taken", "more in the buffer than it holds taken",
              "a pointer outside the game's memory followed", "waiting requests not counted"}
+# With the short way, a call or an interrupt visit without a request no longer reaches Test 73's rule in
+# toy_movie_ahead: the same two mutations are made on the short way instead.
+QUICK_GONE = {"the game's idle calls always pump", "an interrupt visit held to the spacing"}
 # Test 73 does not time restarts or place them in the course.
 RESTARTS = {"restart time not kept", "restarts missing from the course"}
 if WORDS == "1":
@@ -286,10 +323,13 @@ if IDLE == "1":
     MUTATIONS = [m for m in MUTATIONS if m[1] not in RESTARTS]
 if LEAN == "1":
     MUTATIONS = [m for m in MUTATIONS if m[1] not in LEAN_GONE] + LEAN_MUTATIONS
-    for part, mutations in (("OPEN", OPEN_MUTATIONS), ("CLEAN", CLEAN_MUTATIONS), ("MSB", MSB_MUTATIONS)):
+    for part, mutations in (("OPEN", OPEN_MUTATIONS), ("CLEAN", CLEAN_MUTATIONS), ("MSB", MSB_MUTATIONS),
+                            ("QUICK", QUICK_MUTATIONS)):
         # A part left out of the build under test is left out here too.
         if os.environ.get(f"TOY_WIRE_{part}", "1") == "1":
             MUTATIONS += mutations
+            if part == "QUICK":
+                MUTATIONS = [m for m in MUTATIONS if m[1] not in QUICK_GONE]
         else:
             SWITCHES.append(f"TOY_WIRE_{part}=0")
             DEFINES.append(f"-DKUI_TOY_WIRE_{part}=0")

@@ -387,6 +387,26 @@ static bool toy_ahead_fallback(kui_retail_async_region_type *r) {
     return true;
 }
 
+#if KUI_TOY_WIRE_STREAM && KUI_TOY_WIRE_QUICK
+/* Test 74. A delivery visit that finds a window, no request, and nothing in
+ * the request state, the movie or the bus for toy_movie_ahead to act on:
+ * every reason it has to give the window up, to mark it in error or to
+ * serve from it is absent, and all it would do is pump under the rule for
+ * idle calls and return. The dispatcher does that directly. Each term is
+ * one of toy_movie_ahead's own, in its order; a visit that fails any of
+ * them takes the whole path as before. */
+static bool toy_ahead_plain(const kui_retail_async_region_type *r) {
+    const struct kui_retail_async *e=&r->engine;
+    const struct kui_retail_gd *s=&r->shared.service;
+    return A.variant && !e->active &&
+        e->native_loan_state==KUI_VMU_NATIVE_ASYNC_LOAN_IDLE &&
+        r->shared.stream.state!=RA_RESUME &&
+        !A.error && toy_ahead_live() && s->status==KUI_GD_COMPLETED &&
+        (!s->command || s->command==KUI_GD_PIOREAD || s->command==KUI_GD_DMAREAD) &&
+        e->opened && !r->shared.port.fault && r->shared.port.acquired;
+}
+#endif
+
 static bool toy_movie_ahead(kui_retail_async_region_type *r,unsigned variant,bool selected,
     uint32_t wait) {
     struct kui_retail_async *e=&r->engine;

@@ -13,6 +13,7 @@ TOY_WIRE_LEAN ?= 0
 TOY_WIRE_OPEN ?= $(TOY_WIRE_LEAN)
 TOY_WIRE_CLEAN ?= $(TOY_WIRE_LEAN)
 TOY_WIRE_MSB ?= $(TOY_WIRE_LEAN)
+TOY_WIRE_QUICK ?= $(TOY_WIRE_LEAN)
 ifneq ($(words $(TOY_SUITE_MODE)),1)
 $(error TOY_SUITE_MODE must be a single test number)
 endif
@@ -164,8 +165,8 @@ $(error TOY_WIRE_LEAN builds on Test 73: use TOY_WIRE_CACHED=1 TOY_WIRE_WORDS=1 
 endif
 TOY_WIRE_LEAN_FLAGS := -DKUI_TOY_WIRE_LEAN=1
 # A part left out is said so; the plain Test 74 build carries the one switch.
-ifneq ($(filter-out 0 1,$(TOY_WIRE_OPEN) $(TOY_WIRE_CLEAN) $(TOY_WIRE_MSB)),)
-$(error TOY_WIRE_OPEN, TOY_WIRE_CLEAN and TOY_WIRE_MSB must be 0 or 1)
+ifneq ($(filter-out 0 1,$(TOY_WIRE_OPEN) $(TOY_WIRE_CLEAN) $(TOY_WIRE_MSB) $(TOY_WIRE_QUICK)),)
+$(error TOY_WIRE_OPEN, TOY_WIRE_CLEAN, TOY_WIRE_MSB and TOY_WIRE_QUICK must be 0 or 1)
 endif
 ifeq ($(TOY_WIRE_OPEN),0)
 TOY_WIRE_LEAN_FLAGS += -DKUI_TOY_WIRE_OPEN=0
@@ -176,14 +177,17 @@ endif
 ifeq ($(TOY_WIRE_MSB),0)
 TOY_WIRE_LEAN_FLAGS += -DKUI_TOY_WIRE_MSB=0
 endif
+ifeq ($(TOY_WIRE_QUICK),0)
+TOY_WIRE_LEAN_FLAGS += -DKUI_TOY_WIRE_QUICK=0
+endif
 FLAGS += $(TOY_WIRE_LEAN_FLAGS)
 NATIVE_FLAGS += $(TOY_WIRE_LEAN_FLAGS)
 TOY_MOVIE_TEST_FLAGS += $(TOY_WIRE_LEAN_FLAGS)
 TOY_WIRE_TICK_FLAG += $(TOY_WIRE_LEAN_FLAGS)
 else ifneq ($(TOY_WIRE_LEAN),0)
 $(error TOY_WIRE_LEAN must be 0 or 1)
-else ifneq ($(TOY_WIRE_OPEN)$(TOY_WIRE_CLEAN)$(TOY_WIRE_MSB),000)
-$(error TOY_WIRE_OPEN, TOY_WIRE_CLEAN and TOY_WIRE_MSB are parts of Test 74: use TOY_WIRE_LEAN=1)
+else ifneq ($(TOY_WIRE_OPEN)$(TOY_WIRE_CLEAN)$(TOY_WIRE_MSB)$(TOY_WIRE_QUICK),0000)
+$(error TOY_WIRE_OPEN, TOY_WIRE_CLEAN, TOY_WIRE_MSB and TOY_WIRE_QUICK are parts of Test 74: use TOY_WIRE_LEAN=1)
 endif
 RA_AUX_LINK_FLAGS := -Wl,--defsym=__native_ra_extra_code=0x3000
 RA_AUX_SPAN := 0x7000
@@ -216,7 +220,7 @@ $(BUILD)/native-worker.elf: $(NATIVE_OBJ)
 
 $(BUILD)/toy-suite-config: force-mode-config
 	@mkdir -p $(BUILD)
-	@printf '%s\n' 'TOY_SUITE_MODE=$(TOY_SUITE_MODE)' 'TOY_FMV_COMPARE=$(TOY_FMV_COMPARE)' 'TOY_WIRE_STREAM=$(TOY_WIRE_STREAM)' $(if $(filter 1,$(TOY_WIRE_TICK)),'TOY_WIRE_TICK=1') $(if $(filter 1,$(TOY_WIRE_CACHED)),'TOY_WIRE_CACHED=1') $(if $(filter 1,$(TOY_WIRE_WORDS)),'TOY_WIRE_WORDS=1') $(if $(filter 1,$(TOY_WIRE_PACE)),'TOY_WIRE_PACE=1') $(if $(filter 1,$(TOY_WIRE_IDLE)),'TOY_WIRE_IDLE=1') $(if $(filter 1,$(TOY_WIRE_LEAN)),'TOY_WIRE_LEAN=1 OPEN=$(TOY_WIRE_OPEN) CLEAN=$(TOY_WIRE_CLEAN) MSB=$(TOY_WIRE_MSB)') > $@.tmp
+	@printf '%s\n' 'TOY_SUITE_MODE=$(TOY_SUITE_MODE)' 'TOY_FMV_COMPARE=$(TOY_FMV_COMPARE)' 'TOY_WIRE_STREAM=$(TOY_WIRE_STREAM)' $(if $(filter 1,$(TOY_WIRE_TICK)),'TOY_WIRE_TICK=1') $(if $(filter 1,$(TOY_WIRE_CACHED)),'TOY_WIRE_CACHED=1') $(if $(filter 1,$(TOY_WIRE_WORDS)),'TOY_WIRE_WORDS=1') $(if $(filter 1,$(TOY_WIRE_PACE)),'TOY_WIRE_PACE=1') $(if $(filter 1,$(TOY_WIRE_IDLE)),'TOY_WIRE_IDLE=1') $(if $(filter 1,$(TOY_WIRE_LEAN)),'TOY_WIRE_LEAN=1 OPEN=$(TOY_WIRE_OPEN) CLEAN=$(TOY_WIRE_CLEAN) MSB=$(TOY_WIRE_MSB) QUICK=$(TOY_WIRE_QUICK)') > $@.tmp
 	@cmp -s $@.tmp $@ || cp $@.tmp $@
 	@rm -f $@.tmp
 

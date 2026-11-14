@@ -1461,6 +1461,21 @@ uint32_t kui_native_readahead_aux_dispatch(uint32_t event,uint32_t arg,
         return 1u;
     }
 #endif
+#if KUI_TOY_WIRE_STREAM && KUI_TOY_WIRE_QUICK
+    if(event==KUI_NATIVE_RA_DELIVER && !arg && toy_ahead_plain(r)) {
+        /* Test 74 (toy_ahead_plain): what is left of the whole path for
+         * this visit. An interrupt visit pumps; one of the game's calls
+         * pumps when the rule for idle calls says so. A pump that ends in
+         * error gives the window up as toy_movie_ahead does, and if that
+         * leaves the request state to the low reader the whole path below
+         * hands it over. */
+        if(!r->engine.in_irq && !toy_wire_idle_due())return 1u;
+        toy_ahead_pump(r,false);
+        if(!C.movie_ahead.error)return 1u;
+        ++C.stats.abandoned;
+        if(toy_ahead_fallback(r))return 1u;
+    }
+#endif
     /* Admit the event-specific argument before clocks, seeding or any low
      * operation. DELIVER's wait is unchanged; an invalid optional budget must
      * never silently turn into the larger historical PIO window. */

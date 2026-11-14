@@ -813,8 +813,16 @@ static void polling(uint32_t mean, unsigned dense) {
     CHECK(idle_pumps * 4u <= idle && !w->updates && !w->update_work && !w->update_due);
     /* Each of the game's calls is one delivery visit, pumped or not; an
      * interrupt's visit is not one of them. */
+#if KUI_TOY_WIRE_QUICK
+    /* Test 74: a call that finds nothing to decide does not take the whole
+     * path, and only those that do are timed as delivery visits. The
+     * idle calls are counted where their rule is applied, as before. */
+    CHECK(w->deliver_calls >= requests && w->deliver_ticks && w->deliver_calls <= 4u * (requests + 1u));
+    CHECK(w->deliver_calls + w->idles >= idle + requests);
+#else
     CHECK(w->deliver_calls >= idle + requests && w->deliver_ticks);
     CHECK(w->deliver_calls <= polls + 4u * (requests + 1u));
+#endif
 #if KUI_TOY_WIRE_LEAN
     /* Each of the game's EXEC calls behind the first movie request is
      * timed whole, from the resident's entry visit to its exit visit. */
