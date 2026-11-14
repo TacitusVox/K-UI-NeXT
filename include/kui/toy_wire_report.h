@@ -63,7 +63,9 @@
  *          saves reversing every byte; the first token received says whether
  *          it did (toy_wire_stream.c);
  *   QUICK  a delivery visit with no request and nothing to decide goes
- *          straight to the pump's own rule (native_readahead_aux.c). */
+ *          straight to the pump's own rule (native_readahead_aux.c);
+ *   SWIFT  the block loop every received byte goes through is written by
+ *          hand, for either bit order (toy_wire_words.inc). */
 #ifndef KUI_TOY_WIRE_LEAN
 #define KUI_TOY_WIRE_LEAN 0
 #endif
@@ -82,8 +84,12 @@
 #ifndef KUI_TOY_WIRE_QUICK
 #define KUI_TOY_WIRE_QUICK KUI_TOY_WIRE_LEAN
 #endif
-#if (KUI_TOY_WIRE_OPEN || KUI_TOY_WIRE_CLEAN || KUI_TOY_WIRE_MSB || KUI_TOY_WIRE_QUICK) && !KUI_TOY_WIRE_LEAN
-#error "OPEN, CLEAN, MSB and QUICK are parts of Test 74: use KUI_TOY_WIRE_LEAN"
+#ifndef KUI_TOY_WIRE_SWIFT
+#define KUI_TOY_WIRE_SWIFT KUI_TOY_WIRE_LEAN
+#endif
+#if (KUI_TOY_WIRE_OPEN || KUI_TOY_WIRE_CLEAN || KUI_TOY_WIRE_MSB || KUI_TOY_WIRE_QUICK || KUI_TOY_WIRE_SWIFT) && \
+    !KUI_TOY_WIRE_LEAN
+#error "OPEN, CLEAN, MSB, QUICK and SWIFT are parts of Test 74: use KUI_TOY_WIRE_LEAN"
 #endif
 /* The second movie in pieces of 2^22 ticks, 5.4 s: twelve cover it. */
 #define KUI_TOY_WIRE_BUCKETS 12u

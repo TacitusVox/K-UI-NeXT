@@ -299,6 +299,8 @@ QUICK_MUTATIONS = [
  (AUX, "a window given up on the short way not counted", "        if(!C.movie_ahead.error)return 1u;\n        ++C.stats.abandoned;",
   "        if(!C.movie_ahead.error)return 1u;"),
 ]
+# SWIFT, the hand-written block loops, is SH-4 code no host test runs:
+# tests/test_toy_wire_linked_loops.py runs them as linked.
 # What Test 74 no longer samples or times.
 LEAN_GONE = {"update time counted outside the second movie", "the buffer's free space not the most",
              "the lag not the highest", "a buffer without capacity taken", "more in the buffer than it holds taken",

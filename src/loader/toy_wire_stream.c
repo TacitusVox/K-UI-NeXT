@@ -482,6 +482,8 @@ static void wire_tables(struct kui_wire_stream *w, uint8_t *tables) {
     /* Two steps in one for a pair of bytes b0, b1 and t = crc ^ (b0 | b1 << 8):
      * the table is linear in its index, so the second step's entry splits
      * into crc[t >> 8] and what the first step's result adds to it. */
+    /* The hand-written loops of Test 74 find both tables from the block's
+     * start: this layout is theirs too. */
     w->crc2 = (uint16_t *)(void *)(tables + 1024u);
     for(unsigned i = 0; i < 256u; ++i) {
         const unsigned c = w->crc[i];
@@ -600,7 +602,24 @@ static uint32_t wire_hole(const struct kui_wire_stream *w, uint32_t from) {
     return NONE;
 }
 
-#if KUI_TOY_WIRE_WORDS && __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
+#if KUI_TOY_WIRE_WORDS && KUI_TOY_WIRE_SWIFT && defined(__sh__) && !defined(KUI_WIRE_STREAM_TEST)
+/* Test 74: the loops below written by hand for the SH-4, 41 instructions
+ * for four bytes instead of 49, and 34 instead of 45 where no byte is
+ * reversed (toy_wire_words.inc). They take the table block itself: bit
+ * reversal first, the step table at 512 and the two-byte step table at 1024,
+ * as wire_tables lays it out. The host tests run the C loops, held against
+ * the byte steps; tests/test_toy_wire_linked_loops.py runs these as linked
+ * against the same steps. */
+extern uint32_t kui_wire_words_lsb(const alias_word *p, uint32_t words, uint8_t *out,
+    const uint8_t *tables, uint32_t crc);
+#define wire_words(w, p, words, out, crc) kui_wire_words_lsb(p, words, out, (w)->reverse, crc)
+#if KUI_TOY_WIRE_MSB
+extern uint32_t kui_wire_words_true(const alias_word *p, uint32_t words, uint8_t *out,
+    const uint8_t *tables, uint32_t crc);
+#define wire_words_true(w, p, words, out, crc) kui_wire_words_true(p, words, out, (w)->reverse, crc)
+#endif
+#define WIRE_WORDS 1
+#elif KUI_TOY_WIRE_WORDS && __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
 /* Test 71. `words` whole words at the ring's aligned address p: the same
  * CRC16 and the same true bytes as the byte steps of wire_run give, with
  * the CRC taken two bytes to a step and nothing kept in memory between

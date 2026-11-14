@@ -201,6 +201,12 @@ C_SYMBOL(kui_native_readahead_aux_visit):
 .Ldispatch: .long C_SYMBOL(kui_native_readahead_aux_dispatch)
     .size C_SYMBOL(kui_native_readahead_aux_visit),.-C_SYMBOL(kui_native_readahead_aux_visit)
 
+/* Test 74's hand-written block loops: on with the test unless a build
+ * leaves them out (include/kui/toy_wire_report.h has the same default). */
+#if defined(KUI_TOY_WIRE_LEAN) && KUI_TOY_WIRE_LEAN && (!defined(KUI_TOY_WIRE_SWIFT) || KUI_TOY_WIRE_SWIFT)
+#include "toy_wire_words.inc"
+    .section .text.native_ra_entry,"ax"
+#endif
 #if KUI_TOY_SUITE_MODE >= 39 && KUI_TOY_SUITE_MODE <= 66
 #include "toy_movie_exit_hook.inc"
 #endif
