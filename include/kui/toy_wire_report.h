@@ -11,6 +11,11 @@
 /* Where it lies in the arena: behind the largest staged raw request
  * (64 sectors of 2352 bytes), which is the arena's only other user. */
 #define KUI_TOY_WIRE_REPORT_OFFSET UINT32_C(150528)
+/* Test 69: reading the stream goes on from the stream's spare timer between
+ * the game's calls, and the report says where the reader's time went. */
+#ifndef KUI_TOY_WIRE_TICK
+#define KUI_TOY_WIRE_TICK 0
+#endif
 enum {
     KUI_TOY_WIRE_STOP_CLOSE,   /* window closed or its range complete */
     KUI_TOY_WIRE_STOP_JUMP,    /* the file continues elsewhere on the card */
@@ -28,6 +33,30 @@ enum {
     KUI_TOY_WIRE_DROP_OTHER,   /* a read this window does not serve */
     KUI_TOY_WIRE_DROPS
 };
+#if KUI_TOY_WIRE_TICK
+enum {
+    KUI_TOY_WIRE_VISIT_SCI,    /* the SCI's error interrupt: a run was cut or reached its end */
+    KUI_TOY_WIRE_VISIT_TIMER,  /* the stream's timer: a wait is over, or reading goes on */
+    KUI_TOY_WIRE_VISIT_GAME,   /* a call of the game's own: a request, a poll, a frame */
+    KUI_TOY_WIRE_VISITS
+};
+/* What lay around a byte between blocks that was neither idle nor a token.
+ * Bytes are as the receiver delivered them, bit-reversed, in stream order
+ * from the highest byte of a word down. */
+struct kui_wire_frame_note {
+    uint32_t before;      /* the four bytes ahead of it */
+    uint32_t after;       /* the byte and the three behind it */
+    /* Bits 0..15: bytes from the last block's end, or from the stream's
+     * start, to the byte. Bits 16..23: which of the eight bytes above were
+     * lost positions, the earliest in bit 16. Bits 24..27: how many of
+     * `after` had arrived. */
+    uint32_t gap;
+    uint32_t since_lost;  /* bytes back to the nearest lost position, all ones if none is known */
+    /* Bits 0..27: blocks this stream had handed on. Bits 28..31: the last
+     * one's kind: 0 none yet, 1 clean, 2 rebuilt, 3 handed on with lost bytes. */
+    uint32_t blocks;
+};
+#endif
 struct kui_wire_counters {
     uint32_t starts;       /* streams begun */
     uint32_t segments;     /* DMA runs that reached their count */
@@ -44,6 +73,14 @@ struct kui_wire_counters {
     uint32_t gap_idle;     /* lost bytes between blocks taken as idle bytes */
     uint32_t gap_token;    /* lost bytes between blocks taken as the token */
     uint32_t bad_crc, lost_frame, ambiguous; /* parse stops, by kind */
+#if KUI_TOY_WIRE_TICK
+    uint32_t ticks;        /* timer calls asked for to go on reading */
+    /* lost_frame by the byte's lowest zero bit, a count of at most 255 in
+     * a byte each: bits 0..3 in the first word, 4..7 in the second. */
+    uint32_t frame_bit[2];
+    uint32_t frame_kind;   /* lost_frame by the kind of the block before, a byte each */
+    struct kui_wire_frame_note frame_note[2]; /* the first two */
+#endif
 };
 struct kui_toy_wire_report {
     uint32_t magic;
@@ -58,6 +95,17 @@ struct kui_toy_wire_report {
     uint32_t parity;              /* 1: a sector that arrived whole has consistent parity; 2: not */
     uint32_t first_error, first_detail, timer_mode;
     uint32_t declined;            /* takeovers refused: no interrupt route or no channel */
+#if KUI_TOY_WIRE_TICK
+    /* The reader's own time, by who called: visits, their ticks, the longest. */
+    uint32_t visit_calls[KUI_TOY_WIRE_VISITS], visit_ticks[KUI_TOY_WIRE_VISITS];
+    uint32_t visit_max[KUI_TOY_WIRE_VISITS];
+    uint32_t budget_ends;         /* visits that stopped reading for time with blocks left to read */
+    uint32_t restart_ticks, restart_max; /* from a stream given up to its successor receiving */
+    /* Requests the window could not serve when first asked, per movie:
+     * how many, their ticks until served, the longest. */
+    uint32_t wait_calls[2], wait_ticks[2], wait_max[2];
+#else
     uint32_t handler_ticks, handler_calls, handler_max; /* SCI interrupt visits while streaming */
+#endif
 };
 #endif

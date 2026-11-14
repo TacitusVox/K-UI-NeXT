@@ -58,6 +58,60 @@ static void toy_report_wire(char **at,const char *end,const struct kui_native_ra
     const struct kui_toy_wire_report *w=toy_wire_report_block();
     if(w->magic!=KUI_TOY_WIRE_REPORT_MAGIC)w=&none;
     const uint32_t *ahead=ra->diagnostics.stage_result[KUI_NATIVE_RA_STAGE_NONE];
+#if KUI_TOY_WIRE_TICK
+    /* Test 69, most telling first: a row that no longer fits is left out
+     * whole. What the game showed; where the reader's time went and how
+     * long requests waited; the stream; then what stopped it. */
+    toy_report_short(at,end,"PIPE B I CALLS IRQ",
+        (uint32_t[]){ahead[2],ahead[3],ahead[4],ahead[5]},4u);
+    toy_report_short(at,end,"AHEAD B I HIT EDC STOP",
+        (uint32_t[]){ahead[0],ahead[1],ra->stats.hit_requests,
+            ra->stats.producer_blocks,ra->stats.abandoned},5u);
+    for(unsigned n=0;n<2u;n++) {
+        const unsigned i=1u-n;
+        const struct kui_toy_movie_present_trace *present=&ra->present[i];
+        const struct kui_toy_movie_exit_witness *x=&ra->movie_exit[i];
+        const struct kui_toy_movie_onset_trace *onset=&ra->onset[i];
+        toy_report_short(at,end,i?"I SUBMIT CADENCE MAX AT":"B SUBMIT CADENCE MAX AT",
+            (uint32_t[]){present->submitted,present->on_time,present->max_gap,
+                present->max_gap_frame},4u);
+        toy_report_short(at,end,i?"I FIRST LAST SKIP EXIT WF SF":"B FIRST LAST SKIP EXIT WF SF",
+            (uint32_t[]){present->first_gap,present->last_frame,x->skipped_frames,x->status,
+                onset->wait_frame,onset->skip_frame},6u);
+    }
+    toy_report_short(at,end,"V SCI TMR GAME N TICKS",
+        (uint32_t[]){w->visit_calls[0],w->visit_calls[1],w->visit_calls[2],
+            w->visit_ticks[0],w->visit_ticks[1],w->visit_ticks[2]},6u);
+    toy_report_short(at,end,"V MAX SCI TMR GAME",w->visit_max,KUI_TOY_WIRE_VISITS);
+    toy_report_short(at,end,"Q B N T MAX I N T MAX",
+        (uint32_t[]){w->wait_calls[0],w->wait_ticks[0],w->wait_max[0],
+            w->wait_calls[1],w->wait_ticks[1],w->wait_max[1]},6u);
+    toy_report_short(at,end,"P TICK BUDGET RT RMAX",
+        (uint32_t[]){w->n.ticks,w->budget_ends,w->restart_ticks,w->restart_max},4u);
+    toy_report_short(at,end,"W START SEG CUT WAIT FULL",
+        (uint32_t[]){w->n.starts,w->n.segments,w->n.cuts,w->n.waits,w->n.fulls},5u);
+    toy_report_short(at,end,"W BYTES WTICK TMR ERR DET",
+        (uint32_t[]){w->n.bytes,w->n.wait_ticks,w->timer_mode,w->first_error,w->first_detail},5u);
+    toy_report_short(at,end,"W BLK FIX UNFIX HOLED NOCRC SEEK",
+        (uint32_t[]){w->n.blocks,w->n.rebuilt,w->n.unsolved,w->n.holed,w->n.unchecked,
+            w->seek_blocks},6u);
+    toy_report_short(at,end,"W GAPI GAPT BADCRC FRAME AMBIG",
+        (uint32_t[]){w->n.gap_idle,w->n.gap_token,w->n.bad_crc,w->n.lost_frame,w->n.ambiguous},5u);
+    toy_report_short(at,end,"W FILL BYTES MOST REF BAD DECL",
+        (uint32_t[]){w->filled,w->filled_bytes,w->most_lost,w->refused,w->check_bad,w->declined},6u);
+    toy_report_short(at,end,"W STOP C J S F X",w->stops,KUI_TOY_WIRE_STOPS);
+    toy_report_short(at,end,"W DROP E N I C W O",w->drops,KUI_TOY_WIRE_DROPS);
+    toy_report_short(at,end,"F BIT03 BIT47 KIND",
+        (uint32_t[]){w->n.frame_bit[0],w->n.frame_bit[1],w->n.frame_kind},3u);
+    for(unsigned i=0;i<2u;i++) {
+        const struct kui_wire_frame_note *note=&w->n.frame_note[i];
+        toy_report_short(at,end,i?"F2":"F1",
+            (uint32_t[]){note->before,note->after,note->gap,note->since_lost,note->blocks},5u);
+    }
+    toy_report_short(at,end,"SD BLK PIO START CRC",
+        (uint32_t[]){sd->blocks,sd->polled,sd->starts,sd->crc_errors},4u);
+}
+#else
     toy_report_short(at,end,"PIPE B I CALLS IRQ FAIL",
         (uint32_t[]){ahead[2],ahead[3],ahead[4],ahead[5],
             ra->playback[0].failed+ra->playback[1].failed},5u);
@@ -106,6 +160,7 @@ static void toy_report_wire(char **at,const char *end,const struct kui_native_ra
     toy_report_short(at,end,"I LAG LIMIT",
         (uint32_t[]){ra->movie_exit[1].lag,ra->movie_exit[1].limit},2u);
 }
+#endif
 #endif
 
 #if KUI_TOY_SUITE_MODE == 27 || KUI_TOY_SUITE_MODE == 28
@@ -159,7 +214,7 @@ static void toy_report_format(char *text,const struct kui_native_ra_public *ra,
     toy_report_string(&at,"K-UI TOY COMMANDER REPORT\nTEST ");
 #if KUI_TOY_WIRE_STREAM
     /* Card Tools starts this reader from its Test 66 entry. */
-    test=68u;
+    test=KUI_TOY_WIRE_TICK?69u:68u;
 #endif
     if(test>=10u)*at++=(char)('0'+test/10u);
     *at++=(char)('0'+test%10u);

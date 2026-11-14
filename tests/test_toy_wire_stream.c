@@ -58,10 +58,14 @@ static uint8_t data_byte(uint32_t b, unsigned i) {
 }
 static uint32_t card_block, card_at; /* position inside [gap][FE][512][2] of card_block */
 static uint64_t clocked;
+/* Test 69's note: one block's last idle byte replaced by something else. */
+static uint32_t stray_block;
+static uint8_t stray_value;
 static uint8_t card_byte(void) {
     const unsigned gap = gap_of(card_block);
     uint8_t v;
-    if(card_at < gap) v = 0xff;
+    if(stray_block && card_block == stray_block && card_at + 1u == gap) v = stray_value;
+    else if(card_at < gap) v = 0xff;
     else if(card_at == gap) v = 0xfe;
     else if(card_at <= gap + 512u) v = data_byte(card_block, card_at - gap - 1u);
     else { uint8_t d[512]; for(unsigned i = 0; i < 512u; ++i) d[i] = data_byte(card_block, i); uint16_t c = crc16(d, 512u); v = card_at == gap + 513u ? (uint8_t)(c >> 8) : (uint8_t)c; }
@@ -140,7 +144,7 @@ static bool timer_armed(void) { return w.mode && (hw.tstr & (1u << w.mode)) && (
 
 int main(int argc, char **argv) {
     unsigned long total = 0, restarts = 0, wrong = 0, rewinds[4] = {0};
-    printf("Test 68 card stream on the wire model:\n");
+    printf("Test %u card stream on the wire model:\n", KUI_TOY_WIRE_TICK ? 69u : 68u);
     for(unsigned run = 0; run < (argc > 1 ? (unsigned)atoi(argv[1]) : 12u); ++run) {
         seed = 77u + run * 1000u;
         memset(&hw, 0, sizeof hw); hw.dmaor = 0x8201u; hw.sar = 0x11; hw.dar = 0x22; hw.count = 0x33;
@@ -152,6 +156,10 @@ int main(int argc, char **argv) {
         until_stall = 100u; dense_left = 0;
         uint32_t expect = 1; card_block = 1; card_at = 0;
         const unsigned long overruns_before = overruns;
+        const uint8_t timers_before = hw.tstr;
+#if KUI_TOY_WIRE_TICK
+        uint32_t asked = 0;
+#endif
         memset(&w, 0, sizeof w); memset(&n, 0, sizeof n);
         command_framing();
         memset(ring, 0xa5, sizeof ring);
@@ -168,6 +176,27 @@ int main(int argc, char **argv) {
                 if(rnd() & 1u) kui_wire_timer(&w); else kui_wire_service(&w);
             }
             if(w.state == KUI_WIRE_FAULT) { fprintf(stderr, "fault %u %x\n", w.error, w.detail); return 1; }
+#if KUI_TOY_WIRE_TICK
+            /* A caller that ran out of time asks for one more timer call.
+             * It gets one exactly while the stream receives or holds for
+             * room and a timer is free; a wait keeps its own timing. */
+            if(rnd() % 6u == 0u) {
+                const bool waiting = w.state == KUI_WIRE_WAIT, was_armed = timer_armed();
+                const uint32_t count = waiting && w.mode ? hw.tcnt[w.mode] : 0u;
+                const bool armed = kui_wire_tick(&w, 50u + rnd() % 500u);
+                assert(armed == (w.mode && (w.state == KUI_WIRE_RUN || w.state == KUI_WIRE_FULL)));
+                if(armed) { ++asked; assert(timer_armed() && ((hw.ipra >> (12u - 4u * w.mode)) & 15u)); }
+                else if(waiting && w.mode) assert(timer_armed() == was_armed && hw.tcnt[w.mode] == count);
+            }
+            /* The call comes: nothing but the timer changes unless a wait ends. */
+            if(w.state != KUI_WIRE_WAIT && timer_armed() && rnd() % 2u) {
+                const uint32_t state = w.state, head = w.head;
+                hw.tcr[w.mode] |= 0x100u;
+                kui_wire_timer(&w);
+                assert(!timer_armed() && w.state == state && w.head == head);
+            }
+            assert(n.ticks == asked);
+#endif
             /* Now and then a caller waits for a position just ahead: the
              * next run then ends there, wherever in the ring that is. */
             if(run % 3u == 2u && rnd() % 5u == 0u) w.want = w.head + 1u + rnd() % 300u;
@@ -210,6 +239,8 @@ int main(int argc, char **argv) {
             if(++idle > 5000u) { fprintf(stderr, "stuck: state %u head %u tail %u floor %u phase %u holes %u run %u\n", w.state, w.head, w.tail, w.floor, w.phase, w.hole_put - w.hole_get, run); return 1; }
         }
         assert(kui_wire_stop(&w));
+        /* Both spare timers are as the game left them. */
+        assert(hw.tstr == timers_before && !(hw.tcr[1] & 0x20u) && !(hw.tcr[2] & 0x20u));
         /* Every overrun the model produced was accounted as a cut or a run's end
          * (the last run of each stream is stopped without being counted). */
         assert(n.cuts + n.segments <= overruns - overruns_before && overruns - overruns_before <= n.cuts + n.segments + n.starts);
@@ -222,9 +253,58 @@ int main(int argc, char **argv) {
             run, run % 5u == 4u ? 0u : run % 2u ? 1u : 2u, stall_every, stall_percent_dense, n.blocks, n.rebuilt, n.unsolved, n.holed, n.cuts, n.segments, n.waits, n.fulls, n.gap_idle, n.gap_token, n.bad_crc, n.ambiguous);
     }
     assert(!rewinds[1]);
-    printf("PASS Test 68 card stream: %lu blocks checked against the card over %lu overruns; %lu streams restarted "
+#if KUI_TOY_WIRE_TICK
+    /* A byte between blocks that is neither idle nor the token: the stream
+     * cannot be followed, and the report keeps what lay around the byte. */
+    for(unsigned trial = 0; trial < 3u; ++trial) {
+        seed = 5u + trial;
+        memset(&hw, 0, sizeof hw); hw.dmaor = 0x8201u;
+        for(unsigned i = 0; i < 64; ++i) hw.slots[i] = 0x8c0be408u;
+        stall_every = 0; until_stall = 100u; dense_left = 0;
+        stray_block = 40u + trial * 23u;
+        while(gap_of(stray_block) < 5u) ++stray_block;
+        stray_value = trial == 0u ? 0xfd : trial == 1u ? 0x7e : 0x00; /* card order */
+        card_block = 1; card_at = 0;
+        memset(&w, 0, sizeof w); memset(&n, 0, sizeof n);
+        command_framing();
+        memset(ring, 0xa5, sizeof ring);
+        assert(kui_wire_start(&w, &n, ring, tables, 0x05, 0x8c421234u));
+        uint32_t handed = 0;
+        enum kui_wire_parse p = KUI_WIRE_NEED;
+        for(unsigned turn = 0; turn < 100000u && p >= KUI_WIRE_NEED; ++turn) {
+            pump(1u + rnd() % 3000u);
+            kui_wire_service(&w);
+            struct kui_wire_block b;
+            while((p = kui_wire_next(&w, &b)) == KUI_WIRE_BLOCK) ++handed;
+        }
+        assert(p == KUI_WIRE_LOST_FRAME && n.lost_frame == 1u && handed == stray_block - 1u);
+        const struct kui_wire_frame_note *note = &n.frame_note[0];
+        const uint8_t wire = rev8(stray_value);
+        unsigned bit = 0;
+        while(wire >> bit & 1u) ++bit;
+        /* Four idle bytes ahead of it, itself, and behind it the token and
+         * the block's first bytes as far as they had arrived. */
+        assert(note->before == 0xffffffffu && note->after >> 24 == wire);
+        const unsigned arrived = note->gap >> 24 & 15u;
+        assert(arrived >= 1u && arrived <= 4u);
+        if(arrived >= 2u) assert((note->after >> 16 & 0xffu) == 0x7fu);
+        if(arrived >= 3u) assert((note->after >> 8 & 0xffu) == rev8(data_byte(stray_block, 0)));
+        assert((note->gap & 0xffffu) == gap_of(stray_block) - 1u);
+        assert((note->blocks & 0x0fffffffu) == handed && note->blocks >> 28 >= 1u && note->blocks >> 28 <= 3u);
+        /* Without stalls the only lost bytes are those behind each run. */
+        assert(note->since_lost == 0xffffffffu || note->since_lost <= KUI_WIRE_SEGMENT_MAX + 2u);
+        assert(!(note->gap >> 16 & 0xffu) || note->since_lost <= 4u);
+        assert((n.frame_bit[bit >> 2] >> 8u * (bit & 3u) & 0xffu) == 1u &&
+            n.frame_bit[0] + n.frame_bit[1] == 1u << 8u * (bit & 3u));
+        assert(n.frame_kind == 1u << 8u * (note->blocks >> 28));
+        assert(kui_wire_stop(&w));
+    }
+    stray_block = 0;
+    printf("  a byte between blocks that is neither idle nor the token: stream stopped, bytes around it kept\n");
+#endif
+    printf("PASS Test %u card stream: %lu blocks checked against the card over %lu overruns; %lu streams restarted "
            "(clean block failing CRC16 %lu, too many lost bytes %lu); %lu uncheckable blocks handed on wrong, "
            "each with lost bytes behind a lost gap byte, left to the sector check\n",
-        total, overruns, restarts, rewinds[2], rewinds[3], wrong);
+        KUI_TOY_WIRE_TICK ? 69u : 68u, total, overruns, restarts, rewinds[2], rewinds[3], wrong);
     return 0;
 }

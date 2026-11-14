@@ -336,6 +336,17 @@ void kui_wire_timer(struct kui_wire_stream *w) {
     if(w->state == KUI_WIRE_WAIT) wire_resume(w);
 }
 
+#if KUI_TOY_WIRE_TICK
+bool kui_wire_tick(struct kui_wire_stream *w, uint32_t ticks) {
+    if(!w->mode || (w->state != KUI_WIRE_RUN && w->state != KUI_WIRE_FULL)) return false;
+    /* The SDK may rewrite the priority register for its own devices. */
+    if(!((rd16(IPRA) >> w->timer_shift) & 15u)) wr16(IPRA, rd16(IPRA) | 1u << w->timer_shift);
+    timer_arm(w, ticks);
+    ++w->n->ticks;
+    return true;
+}
+#endif
+
 void kui_wire_service(struct kui_wire_stream *w) {
     switch(w->state) {
     case KUI_WIRE_RUN:
@@ -578,6 +589,46 @@ static bool wire_gap_like(const struct kui_wire_stream *w, uint32_t at) {
     return value == IDLE_WIRE || value == TOKEN_WIRE;
 }
 
+#if KUI_TOY_WIRE_TICK
+/* Keep what lay around the byte at `at` that is neither idle nor a token. */
+static void wire_frame_note(struct kui_wire_stream *w, uint32_t at, uint32_t landed) {
+    struct kui_wire_counters *n = w->n;
+    const uint8_t value = w->ring[at & MASK];
+    unsigned bit = 0;
+    while(bit < 7u && (value >> bit & 1u)) ++bit;
+    uint32_t *by_bit = &n->frame_bit[bit >> 2];
+    if((*by_bit >> 8u * (bit & 3u) & 0xffu) != 0xffu) *by_bit += 1u << 8u * (bit & 3u);
+    if((n->frame_kind >> 8u * w->last_kind & 0xffu) != 0xffu) n->frame_kind += 1u << 8u * w->last_kind;
+    if(n->lost_frame >= 2u) return;
+    struct kui_wire_frame_note *note = &n->frame_note[n->lost_frame];
+    uint32_t words[2] = {0, 0}, lost = 0, arrived = 0, since = NONE;
+    for(unsigned i = 0; i < 8u; ++i) {
+        const uint32_t position = at - 4u + i;
+        uint32_t byte = 0;
+        /* Positions ahead of the stream's first byte, or not yet in. */
+        if(i < 4u ? at >= 4u - i : position < landed) {
+            byte = w->ring[position & MASK];
+            if(i >= 4u) ++arrived;
+        }
+        words[i >> 2] = words[i >> 2] << 8 | byte;
+    }
+    /* The log still holds positions the reader has passed, until they are
+     * written over. */
+    for(uint32_t i = w->hole_put, seen = 0; i && seen < KUI_WIRE_HOLES; --i, ++seen) {
+        const uint32_t position = w->hole[(i - 1u) & HOLE_MASK];
+        if(position + 4u >= at && position < at + 4u) lost |= 1u << (position + 4u - at);
+        if(position < at && since == NONE) since = at - position;
+        if(position + 4u < at) break;
+    }
+    const uint32_t gap = at - w->gap_begin;
+    note->before = words[0];
+    note->after = words[1];
+    note->gap = (gap < 0xffffu ? gap : 0xffffu) | lost << 16 | arrived << 24;
+    note->since_lost = since;
+    note->blocks = (w->handed & UINT32_C(0x0fffffff)) | w->last_kind << 28;
+}
+#endif
+
 static enum kui_wire_parse wire_refuse(struct kui_wire_stream *w, enum kui_wire_parse why) {
     if(why == KUI_WIRE_BAD_CRC) ++w->n->bad_crc;
     else if(why == KUI_WIRE_LOST_FRAME) ++w->n->lost_frame;
@@ -622,7 +673,12 @@ enum kui_wire_parse kui_wire_next(struct kui_wire_stream *w, struct kui_wire_blo
                 w->data_at = w->gap_hole;
                 w->alternative = 0;
                 ++w->n->gap_token;
-            } else return wire_refuse(w, KUI_WIRE_LOST_FRAME);
+            } else {
+#if KUI_TOY_WIRE_TICK
+                wire_frame_note(w, at, landed);
+#endif
+                return wire_refuse(w, KUI_WIRE_LOST_FRAME);
+            }
             w->phase = DATA;
             break;
         }
@@ -664,6 +720,11 @@ enum kui_wire_parse kui_wire_next(struct kui_wire_stream *w, struct kui_wire_blo
         }
         if(w->alternative) ++w->n->gap_idle;
         ++w->n->blocks;
+#if KUI_TOY_WIRE_TICK
+        ++w->handed;
+        w->last_kind = rebuilt ? 2u : lost_data || lost_crc ? 3u : 1u;
+        w->gap_begin = end;
+#endif
         if(rebuilt) {++w->n->rebuilt; lost_data = 0;}
         else if(lost_data || lost_crc) {
             ++w->n->holed;

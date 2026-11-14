@@ -31,6 +31,15 @@ static struct {
     uint16_t ipra, tcr[3];
     uint32_t tcor[3], tcnt[3], slots[64], tcnt0;
 } wx;
+/* What one look at the clock costs the stream's own timing. */
+static uint32_t clock_step = 5u;
+/* The reader looks at its clock once for every block it reads. With no
+ * extra cost a visit reads all there is; 70 ticks a look is the console's
+ * measured pace of about six blocks to an interrupt visit's 390 ticks. */
+static void reader_pace(uint32_t ticks) {
+    refill_clock_extra_ticks = ticks;
+    clock_step = ticks ? ticks : 5u;
+}
 static const struct kui_toy_wire_report *report(void) {
     return (const void *)(arena + KUI_TOY_WIRE_REPORT_OFFSET);
 }
@@ -43,7 +52,7 @@ static bool stream_on(void) {
 uint32_t kui_wire_test_read(uint32_t address, unsigned width) {
     if(address == 0xffd00004u) return wx.ipra;
     if(address == 0xffd80004u) return wx.tstr;
-    if(address == 0xffd8000cu) return wx.tcnt0 -= 5u;
+    if(address == 0xffd8000cu) return wx.tcnt0 -= clock_step;
     if(address >= 0xffd80008u && address < 0xffd8002cu) {
         const unsigned k = (address - 0xffd80008u) / 12u, field = (address - 0xffd80008u) % 12u;
         return field == 0u ? wx.tcor[k] : field == 4u ? wx.tcnt[k] : wx.tcr[k];
@@ -213,14 +222,25 @@ static bool timer_running(unsigned *channel) {
         if((wx.tstr & (1u << k)) && (wx.tcr[k] & 0x0020u)) {*channel = k; return true;}
     return false;
 }
-/* One moment of console time: whatever interrupt is due, else nothing. */
-static bool hardware(void) {
+/* One moment of console time: whatever interrupt is due, else nothing.
+ * With `wire_pace` the wire brings that many bytes a moment: the model
+ * lands a run whole, so the moments its bytes took are owed before the
+ * next run may land, and the stream's timer can call meanwhile. */
+static unsigned run_owed;
+static bool hardware_at(unsigned wire_pace) {
     unsigned channel;
     if(stream_on()) {
-        elapse();
         /* A run in flight ends at its overrun; the SCI then asks for its
          * error interrupt at the resident's level. */
-        if(m.rx) (void)kui_sci_stream_test_read(SSR, 1u);
+        if(m.rx) {
+            if(run_owed) --run_owed;
+            else {
+                const unsigned before = m.received;
+                elapse();
+                (void)kui_sci_stream_test_read(SSR, 1u);
+                if(wire_pace) run_owed = (m.received - before + wire_pace - 1u) / wire_pace - 1u;
+            }
+        }
         if((m.ssr & ORER) && m.scr == 0x50u) {
             CHECK(kui_retail_sdk_sci_dispatch(0x4e0u) == 0u);
             check_original_sdk_owner();
@@ -238,12 +258,15 @@ static bool hardware(void) {
             invariants();
             return true;
         }
+        /* Nothing is due, but the wire runs on. */
+        return m.rx;
     } else if(kui_sci_stream_busy()) {
         independent_sdk_irq();
         return true;
     }
     return false;
 }
+static bool hardware(void) { return hardware_at(0u); }
 static void game_poll(void) {
     CHECK(sdk_poll(KUI_GD_EXEC, 0u, movie_async_poll) == 0);
     ++polls;
@@ -267,6 +290,28 @@ static void read_request(uint32_t lba, uint32_t count, unsigned poll_every) {
 static void idle(unsigned moments) {
     for(unsigned n = 0u; n < moments; ++n) if(!hardware()) break;
 }
+#if KUI_TOY_WIRE_TICK
+/* The report's account of the reader's visits agrees with the console's side. */
+static void visits_accounted(void) {
+    const struct kui_toy_wire_report *w = report();
+    const uint32_t *trace = kui_native_readahead_aux_context.diagnostics.stage_result[KUI_NATIVE_RA_STAGE_NONE];
+    CHECK(w->visit_calls[KUI_TOY_WIRE_VISIT_SCI] == trace[5] && w->visit_calls[KUI_TOY_WIRE_VISIT_GAME] == trace[4]);
+    CHECK(w->visit_calls[KUI_TOY_WIRE_VISIT_TIMER] == timers);
+    for(unsigned i = 0; i < KUI_TOY_WIRE_VISITS; ++i) {
+        CHECK(w->visit_max[i] <= w->visit_ticks[i]);
+        CHECK(!w->visit_calls[i] == !w->visit_ticks[i]);
+    }
+    /* A timer call was asked for only by a visit that ran out of time. */
+    CHECK(w->n.ticks <= w->budget_ends);
+    for(unsigned i = 0; i < 2u; ++i) CHECK(w->wait_max[i] <= w->wait_ticks[i] && !w->wait_calls[i] == !w->wait_ticks[i]);
+    CHECK(!w->wait_calls[0]);
+    const uint32_t restarts = w->stops[KUI_TOY_WIRE_STOP_SECTOR] + w->stops[KUI_TOY_WIRE_STOP_FRAME] +
+        w->stops[KUI_TOY_WIRE_STOP_FAULT];
+    CHECK(w->restart_max <= w->restart_ticks && (restarts || !w->restart_ticks));
+}
+#else
+static void visits_accounted(void) {}
+#endif
 static void closed(void) {
     /* The SCI is the low reader's again, in its command framing. */
     CHECK(!stream_on() && m.scr == 0x30u && m.smr == 0x80u && m.brr == 0u && m.cs_high);
@@ -303,7 +348,10 @@ static void steady(unsigned extent_blocks, bool scattered, uint32_t mean, unsign
         CHECK(!w->n.cuts && !w->n.waits && !w->refused && !w->check_bad && !w->n.unsolved);
         CHECK(!w->stops[KUI_TOY_WIRE_STOP_SECTOR] && !w->stops[KUI_TOY_WIRE_STOP_FRAME] &&
             !w->stops[KUI_TOY_WIRE_STOP_FAULT]);
-        if(!scattered) CHECK(card.cmd18 == 1u && !card.cmd12 && w->n.starts == 1u && warm >= requests - 3u);
+        /* At the console's pace how many requests find the window ready
+         * depends on the time between them: playing() below checks that. */
+        if(!scattered) CHECK(card.cmd18 == 1u && !card.cmd12 && w->n.starts == 1u &&
+            (refill_clock_extra_ticks || warm >= requests - 3u));
         else CHECK(w->stops[KUI_TOY_WIRE_STOP_JUMP] >= 2u && card.cmd18 >= 3u);
     }
     if(w->stops[KUI_TOY_WIRE_STOP_FAULT] || w->n.unsolved)
@@ -311,6 +359,7 @@ static void steady(unsigned extent_blocks, bool scattered, uint32_t mean, unsign
             (unsigned)w->stops[KUI_TOY_WIRE_STOP_FAULT], (unsigned)w->n.unsolved,
             (unsigned)w->first_error, (unsigned)w->first_detail, (unsigned)mean, dense);
     CHECK(!w->stops[KUI_TOY_WIRE_STOP_FAULT] && !w->n.unsolved);
+    visits_accounted();
     printf("  %s extents, stall every ~%u bytes, %u%% busy phases, poll every %u: %u requests, %u served on arrival; "
            "streams %u, cuts %u, waits %u, fulls %u, blocks %u (rebuilt %u, holed %u), sectors filled %u (most lost %u), "
            "re-read %u+%u, stream ends close/jump/sector/frame %u/%u/%u/%u, CMD18 %u, CMD12 %u, ERI %lu, timer %lu\n",
@@ -319,6 +368,78 @@ static void steady(unsigned extent_blocks, bool scattered, uint32_t mean, unsign
         (unsigned)w->n.rebuilt, (unsigned)w->n.holed, (unsigned)w->filled, (unsigned)w->most_lost,
         (unsigned)w->refused, (unsigned)w->check_bad, (unsigned)w->stops[0], (unsigned)w->stops[1],
         (unsigned)w->stops[2], (unsigned)w->stops[3], card.cmd18, card.cmd12, eris, timers);
+}
+
+/* The console's Test 68 run. While the movie plays the game calls once a
+ * frame, for the frame's sectors, and decodes in between: only interrupts
+ * reach the reader then. Reading a block takes the reader real time, so an
+ * interrupt visit's 390 ticks read about six blocks where a full run brings
+ * sixteen. Test 68 left the rest in the ring until the game's next call,
+ * the stream stood still for room, and the window ran dry. Test 69 goes on
+ * reading from the stream's timer. */
+static void playing(uint32_t mean, unsigned dense) {
+    /* A moment is 1.3 ms: the wire brings 2048 bytes, and one timer call
+     * with its visit fits. A frame is 25 moments, in which the wire could
+     * bring 51 KB where the movie needs under 31. */
+    enum { WIRE_PACE = 2048u, FRAME_MOMENTS = 25u };
+    open_movie(2000u, false, true);
+    stall_mean = mean; stall_dense = dense;
+    reader_pace(70u);
+    /* A run lands when its time has passed, not when a visit looks. */
+    m.delay = 100000u;
+    run_owed = 0u;
+    const struct kui_toy_wire_report *w = report();
+    uint32_t lba = FIRST;
+    read_request(lba, REQUEST, 0u);
+    lba += REQUEST;
+    unsigned requests = 0, warm = 0, ready = 0;
+    while(lba + REQUEST <= WINDOW_END) {
+        /* A frame is decoded: interrupts come as they are due, no call. */
+        for(unsigned moment = 0u; moment < FRAME_MOMENTS; ++moment) if(!hardware_at(WIRE_PACE)) break;
+        /* Is the frame's data there when the game asks, or does the reader
+         * still have to read it inside the game's call? */
+        if(kui_native_readahead_aux_context.movie_ahead.variant &&
+           kui_native_readahead_aux_context.movie_ahead.first == lba &&
+           kui_native_readahead_aux_context.movie_ahead.verified - lba >= REQUEST) ++ready;
+        const unsigned before = (unsigned)polls;
+        read_request(lba, REQUEST, 0u);
+        if(polls == before) ++warm;
+        ++requests;
+        lba += REQUEST;
+    }
+    reader_pace(0u);
+    m.delay = 0u;
+    CHECK(kui_native_readahead_aux_context.stats.hit_requests == requests + 1u);
+    CHECK(!w->first_error && !w->declined && !w->stops[KUI_TOY_WIRE_STOP_FAULT] && w->timer_mode == 2u);
+    visits_accounted();
+#if KUI_TOY_WIRE_TICK
+    /* With stalls far denser than any console run the wire itself and the
+     * sectors read again set the pace: only the data is checked there. */
+    const bool paced_by_reader = !dense;
+    /* Every frame's data is there when the game asks, but for the few
+     * behind a stream that had to be started again. */
+    const unsigned again = (unsigned)(w->n.starts - 1u);
+    if(paced_by_reader) {
+        CHECK(ready + 2u * again >= requests && w->n.ticks && w->budget_ends);
+        CHECK(w->visit_calls[KUI_TOY_WIRE_VISIT_TIMER] && w->wait_calls[1] <= 1u + 2u * again);
+    }
+    CHECK(w->wait_calls[1] >= requests - warm);
+    printf("  playing, stall every ~%u bytes, %u%% busy phases: data ready for %u of %u frames when asked; "
+           "visits out of time %u, timer calls asked %u, timer visits %lu, SCI visits %lu, fulls %u, streams %u, "
+           "requests that waited %u for %u ticks (longest %u)\n", (unsigned)mean, dense, ready, requests,
+        (unsigned)w->budget_ends, (unsigned)w->n.ticks, timers, eris, (unsigned)w->n.fulls, (unsigned)w->n.starts,
+        (unsigned)w->wait_calls[1], (unsigned)w->wait_ticks[1], (unsigned)w->wait_max[1]);
+#else
+    /* The stall the console showed. On a quiet bus nearly all the data
+     * comes in full runs, an interrupt visit reads a third of each, and
+     * the stream stands still for room until the game's next call: no
+     * frame finds its data ready. */
+    if(!mean) CHECK(ready * 2u < requests && w->n.fulls >= requests);
+    printf("  playing, stall every ~%u bytes, %u%% busy phases, without the timer's help: data ready for %u of %u "
+           "frames when asked; fulls %u, SCI visits %lu, timer visits %lu\n", (unsigned)mean, dense, ready, requests,
+        (unsigned)w->n.fulls, eris, timers);
+#endif
+    (void)warm;
 }
 
 /* A whole block arrives damaged without a lost byte: its CRC16 stops the
@@ -335,6 +456,11 @@ static void damaged_block(void) {
     const struct kui_toy_wire_report *w = report();
     CHECK(!card.corrupt_count && w->n.bad_crc == 1u && w->stops[KUI_TOY_WIRE_STOP_FRAME] == 1u);
     CHECK(card.cmd12 == 1u && card.cmd18 == 2u && w->n.starts == 2u && !w->check_bad);
+#if KUI_TOY_WIRE_TICK
+    /* From the stream given up to its successor receiving. */
+    CHECK(w->restart_ticks && w->restart_max == w->restart_ticks);
+#endif
+    visits_accounted();
     printf("  a block damaged on the wire: CRC16 refused it, one CMD12 and CMD18, data exact\n");
 }
 
@@ -435,7 +561,7 @@ int main(void) {
     }
     /* Test 66's own chunk classification is untouched by the switch. */
     movie_chunk_classification();
-    printf("Test 68 reader, real low reader + auxiliary + stream on the card model:\n");
+    printf("Test %u reader, real low reader + auxiliary + stream on the card model:\n", KUI_TOY_WIRE_TICK ? 69u : 68u);
     steady(2000u, false, 0u, 0u, 3u);
     steady(2000u, false, 0u, 0u, 0u);
     steady(2000u, false, 6000u, 0u, 3u);
@@ -444,11 +570,21 @@ int main(void) {
     steady(2000u, false, 150u, 80u, 4u);
     steady(28u, true, 0u, 0u, 3u);
     steady(28u, true, 6000u, 5u, 2u);
+    /* The same with the reader at the console's pace. */
+    reader_pace(70u);
+    steady(2000u, false, 0u, 0u, 3u);
+    steady(2000u, false, 1500u, 20u, 2u);
+    steady(2000u, false, 150u, 80u, 4u);
+    steady(28u, true, 6000u, 5u, 2u);
+    reader_pace(0u);
+    playing(0u, 0u);
+    playing(6000u, 0u);
+    playing(1500u, 20u);
     damaged_block();
     no_parity();
     other_read();
     ended_in_interrupt();
     degraded();
-    printf("PASS Test 68 reader integration: %u checks\n", checks);
+    printf("PASS Test %u reader integration: %u checks\n", KUI_TOY_WIRE_TICK ? 69u : 68u, checks);
     return 0;
 }

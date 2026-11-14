@@ -95,6 +95,11 @@ struct kui_wire_stream {
     struct kui_wire_counters *n; /* kept by the caller across starts */
     uint32_t floor;        /* oldest position the reader may still read */
     uint32_t wait_ticks;   /* the running wait's length */
+#if KUI_TOY_WIRE_TICK
+    uint32_t gap_begin;    /* where the space ahead of the next block began */
+    uint32_t handed;       /* blocks this stream has handed on */
+    uint32_t last_kind;    /* of the last one: 1 clean, 2 rebuilt, 3 with lost bytes */
+#endif
     uint32_t hole[KUI_WIRE_HOLES];
     uint16_t lost[KUI_WIRE_BLOCK_LOST];
     _Alignas(4) uint8_t block[512];
@@ -116,6 +121,14 @@ bool kui_wire_start(struct kui_wire_stream *, struct kui_wire_counters *counters
 void kui_wire_service(struct kui_wire_stream *);
 /* The timer callback's work: a wait is over. */
 void kui_wire_timer(struct kui_wire_stream *);
+#if KUI_TOY_WIRE_TICK
+/* Have the timer callback come once more, `ticks` from now, so that a
+ * caller who ran out of time can go on reading without waiting for the
+ * next run to end. Only while the stream receives or holds for room: a
+ * wait uses the timer itself and brings the callback anyway. False if no
+ * call was arranged. */
+bool kui_wire_tick(struct kui_wire_stream *, uint32_t ticks);
+#endif
 /* The next block, if all of it has arrived. A negative result means this
  * stream cannot be followed any further and must be stopped. */
 enum kui_wire_parse kui_wire_next(struct kui_wire_stream *, struct kui_wire_block *);

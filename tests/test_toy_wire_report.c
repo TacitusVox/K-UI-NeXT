@@ -45,6 +45,24 @@ static struct kui_toy_wire_report wire;
 static const struct kui_toy_wire_report *toy_wire_report_block(void) { return &wire; }
 #include "toy_suite_report_save.inc"
 
+#if KUI_TOY_WIRE_TICK
+#define TEST_NUMBER "69"
+/* Test 69's rows, most telling first. All but the last three are what the
+ * test is read by. */
+static const char *const labels[] = {
+    "PIPE B I CALLS IRQ", "AHEAD B I HIT EDC STOP",
+    "I SUBMIT CADENCE MAX AT", "I FIRST LAST SKIP EXIT WF SF",
+    "B SUBMIT CADENCE MAX AT", "B FIRST LAST SKIP EXIT WF SF",
+    "V SCI TMR GAME N TICKS", "V MAX SCI TMR GAME", "Q B N T MAX I N T MAX",
+    "P TICK BUDGET RT RMAX",
+    "W START SEG CUT WAIT FULL", "W BYTES WTICK TMR ERR DET", "W BLK FIX UNFIX HOLED NOCRC SEEK",
+    "W GAPI GAPT BADCRC FRAME AMBIG", "W FILL BYTES MOST REF BAD DECL",
+    "W STOP C J S F X", "W DROP E N I C W O", "F BIT03 BIT47 KIND",
+    "F1", "F2", "SD BLK PIO START CRC",
+};
+enum { LABELS = sizeof(labels) / sizeof(labels[0]), ESSENTIAL = 18 };
+#else
+#define TEST_NUMBER "68"
 static const char *const labels[] = {
     "PIPE B I CALLS IRQ FAIL", "AHEAD B I HIT EDC STOP", "SD BLOCKS PIO START CRC",
     "W START SEG CUT WAIT FULL", "W BYTES WTICK TMR ERR DET", "W BLK FIX UNFIX HOLED NOCRC SEEK",
@@ -59,6 +77,7 @@ static const char *const labels[] = {
 /* The first ESSENTIAL rows are what Test 68 is read by; the rest are Test
  * 66's first-wait rows, written as far as room is left. */
 enum { LABELS = sizeof(labels) / sizeof(labels[0]), ESSENTIAL = 17 };
+#endif
 static unsigned essential_rows;
 
 /* Format into a guarded buffer and return the body's length. Every line
@@ -77,7 +96,7 @@ static size_t format(const struct kui_native_ra_public *ra, const kui_retail_asy
     while(end > out && end[-1] == ' ') --end;
     assert(end > out && end[-1] == '\n');
     /* Card Tools starts this reader from its Test 66 entry; the file says 68. */
-    assert(!strncmp(out, "K-UI TOY COMMANDER REPORT\nTEST 68\nBUILD DEADBEEF0123\nHEX / 781250 HZ\n", 69u));
+    assert(!strncmp(out, "K-UI TOY COMMANDER REPORT\nTEST " TEST_NUMBER "\nBUILD DEADBEEF0123\nHEX / 781250 HZ\n", 69u));
     *rows = 0;
     unsigned next = 0, essential = 0;
     const char *at = out + 69u;
@@ -125,7 +144,23 @@ int main(int argc, char **argv) {
     wire.seek_blocks = 0x2f; wire.filled = 0x1500; wire.filled_bytes = 0x6a00; wire.most_lost = 0x1d;
     wire.refused = 4; wire.check_bad = 2; wire.parity = 1; wire.timer_mode = 1;
     wire.first_error = 0x11; wire.first_detail = 0x00a45005; wire.declined = 0;
+#if KUI_TOY_WIRE_TICK
+    /* Both movies with the reader at Test 68's measured cost, most of its
+     * interrupt time now behind the timer; the console's count of streams
+     * that could not be followed, and two of them noted. */
+    wire.n.ticks = 0x9c40; wire.n.lost_frame = 0x4a;
+    wire.n.frame_bit[0] = 0x02010305; wire.n.frame_bit[1] = 0x003f0102; wire.n.frame_kind = 0x3d0a0300;
+    wire.n.frame_note[0] = (struct kui_wire_frame_note){0x1c5affff, 0xbf9d3311, 0x04000002, 0x1f3, 0x30000123};
+    wire.n.frame_note[1] = (struct kui_wire_frame_note){0xffffffff, 0x3fa0e6c4, 0x04100001, 0xffffffff, 0x1000fa37};
+    wire.visit_calls[0] = 0xc67c; wire.visit_calls[1] = 0xd000; wire.visit_calls[2] = 0x26265;
+    wire.visit_ticks[0] = 0x3a0000; wire.visit_ticks[1] = 0x4e0000; wire.visit_ticks[2] = 0x5b0000;
+    wire.visit_max[0] = 0x1023; wire.visit_max[1] = 0x1a0; wire.visit_max[2] = 0x7ff;
+    wire.budget_ends = 0xa000; wire.restart_ticks = 0x1d0000; wire.restart_max = 0xc350;
+    wire.wait_calls[0] = 3; wire.wait_ticks[0] = 0x2ee0; wire.wait_max[0] = 0x1770;
+    wire.wait_calls[1] = 0x4a; wire.wait_ticks[1] = 0x1e8480; wire.wait_max[1] = 0xea60;
+#else
     wire.handler_calls = 0xbe00; wire.handler_ticks = 0x1e8480; wire.handler_max = 0x1a0;
+#endif
     for(unsigned i = 0; i < KUI_TOY_WIRE_STOPS; ++i) wire.stops[i] = 3u + i;
     for(unsigned i = 0; i < KUI_TOY_WIRE_DROPS; ++i) wire.drops[i] = 1u + i;
     uint32_t *trace = ra.diagnostics.stage_result[KUI_NATIVE_RA_STAGE_NONE];
@@ -150,6 +185,36 @@ int main(int argc, char **argv) {
     ra.wait[0] = (struct kui_toy_movie_wait_trace){0x69263, 0x10, 0xc, 0x235678, 0x1345, 0x1ce1};
     ra.wait[1] = (struct kui_toy_movie_wait_trace){0x6e450, 0x11, 0x3, 0x2e4567, UINT32_MAX, UINT32_MAX};
     body = format(&ra, &region, text, &rows);
+#if KUI_TOY_WIRE_TICK
+    /* Everything fits at a full run's values. */
+    assert(essential_rows == ESSENTIAL && rows == LABELS);
+    /* And with the wider values a worse run would bring, the rows the
+     * test is read by still do: room behind them. */
+    const char *last = strstr(text, "F BIT03 BIT47 KIND\n2010305 3F0102 3D0A0300\n");
+    assert(last);
+    const size_t needed = (size_t)(last - text) + strlen("F BIT03 BIT47 KIND\n2010305 3F0102 3D0A0300\n");
+    assert(needed + 100u <= KUI_TOY_REPORT_FILE_BYTES - 12u);
+    assert(strstr(text, "PIPE B I CALLS IRQ\n2 3 9000 BE00\n"));
+    assert(strstr(text, "AHEAD B I HIT EDC STOP\n1100 6600 900 7700 2\n"));
+    assert(strstr(text, "I SUBMIT CADENCE MAX AT\n7B0 7AE 92345 124\n"));
+    assert(strstr(text, "I FIRST LAST SKIP EXIT WF SF\n23576 7B0 2 FFFFF843 BB C4\n"));
+    assert(strstr(text, "B SUBMIT CADENCE MAX AT\n14B 14A 12ABC F6\n"));
+    assert(strstr(text, "B FIRST LAST SKIP EXIT WF SF\n19807 14B 0 7DC 7C 95\n"));
+    assert(strstr(text, "V SCI TMR GAME N TICKS\nC67C D000 26265 3A0000 4E0000 5B0000\n"));
+    assert(strstr(text, "V MAX SCI TMR GAME\n1023 1A0 7FF\n"));
+    assert(strstr(text, "Q B N T MAX I N T MAX\n3 2EE0 1770 4A 1E8480 EA60\n"));
+    assert(strstr(text, "P TICK BUDGET RT RMAX\n9C40 A000 1D0000 C350\n"));
+    assert(strstr(text, "W START SEG CUT WAIT FULL\n1F 2800 83D7 6622 300\n"));
+    assert(strstr(text, "W BYTES WTICK TMR ERR DET\n4F0C2D5 1B3A6C0 1 11 A45005\n"));
+    assert(strstr(text, "W BLK FIX UNFIX HOLED NOCRC SEEK\n24C00 6100 5 1C00 90 2F\n"));
+    assert(strstr(text, "W GAPI GAPT BADCRC FRAME AMBIG\n7A0 41 3 4A 2\n"));
+    assert(strstr(text, "W FILL BYTES MOST REF BAD DECL\n1500 6A00 1D 4 2 0\n"));
+    assert(strstr(text, "W STOP C J S F X\n3 4 5 6 7\n"));
+    assert(strstr(text, "W DROP E N I C W O\n1 2 3 4 5 6\n"));
+    assert(strstr(text, "F1\n1C5AFFFF BF9D3311 4000002 1F3 30000123\n"));
+    assert(strstr(text, "F2\nFFFFFFFF 3FA0E6C4 4100001 FFFFFFFF 1000FA37\n"));
+    assert(strstr(text, "SD BLK PIO START CRC\n40 2F 1F 0\n"));
+#else
     assert(essential_rows == ESSENTIAL && rows >= ESSENTIAL + 3u);
     /* Room to spare behind the essential rows at these values. */
     const char *last = strstr(text, "I ENTER SCENE EXIT FRAME\n7B0 7B0 FFFFF843 7B0\n");
@@ -170,6 +235,7 @@ int main(int argc, char **argv) {
     assert(strstr(text, "I ENTER SCENE EXIT FRAME\n7B0 7B0 FFFFF843 7B0\n"));
     assert(strstr(text, "B FIRST LAST CLK OUT SKIP\n19807 14B 0 14A 0\n"));
     assert(strstr(text, "B READ N VERIFIED TICK AGE DONE\n10 C 235678 1345 1CE1\n"));
+#endif
     const size_t full = body;
     if(argc == 2) {
         FILE *out = fopen(argv[1], "wb");
@@ -192,7 +258,7 @@ int main(int argc, char **argv) {
     (void)format(&ra, &region, text, &rows);
     assert(strstr(text, "W START SEG CUT WAIT FULL\n0 0 0 0 0\n"));
     assert(!toy_suite_save_report(&ra, &region));
-    printf("PASS Test 68 report: %zu body bytes with nothing counted, %zu with a full run's values "
+    printf("PASS Test " TEST_NUMBER " report: %zu body bytes with nothing counted, %zu with a full run's values "
            "(essential rows end at %zu of 1012); at full width %u of the %u essential rows are written "
            "and no row is ever cut\n", empty, full, needed, widest, (unsigned)ESSENTIAL);
     return 0;

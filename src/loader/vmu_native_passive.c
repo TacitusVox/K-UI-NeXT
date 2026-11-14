@@ -1024,7 +1024,11 @@ static void toy_suite_finish_gesture(bool held) {
 #define KUI_TOY_TEST_TITLE "TOY TEST 29"
 #elif defined(KUI_TOY_WIRE_STREAM) && KUI_TOY_WIRE_STREAM
 /* Card Tools starts this reader from its Test 66 entry. */
+#if defined(KUI_TOY_WIRE_TICK) && KUI_TOY_WIRE_TICK
+#define KUI_TOY_TEST_TITLE "TOY TEST 69"
+#else
 #define KUI_TOY_TEST_TITLE "TOY TEST 68"
+#endif
 #else
 #define KUI_TOY_TEST_TITLE "TOY TEST " KUI_TOY_TEST_LABEL(KUI_TOY_SUITE_MODE)
 #endif
