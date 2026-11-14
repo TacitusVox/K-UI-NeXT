@@ -1,0 +1,142 @@
+{
+ "schema": "kui.native.lease-size-survey.v1",
+ "date": "2026-11-14",
+ "method": "Production structural corpus probe (tools/vmu_native_corpus_probe.c and its sources at the branch head) compiled with the compact Background defines; a scratch header copy replaced only the compact lease size and its static asserts. At 284 KiB it reproduces the worldwide table exactly (212 admitted, 60 placement refusals). Inputs: the distinct native startups from the worldwide table whose first refusal was placement or none.",
+ "stage": [
+  "0x8ce00000",
+  "0x8cebe748"
+ ],
+ "inputs": 272,
+ "counts": {
+  "284 KiB": {
+   "admitted": 212,
+   "placement_384k": 60
+  },
+  "208 KiB": {
+   "admitted": 214,
+   "placement_384k": 58
+  },
+  "156 KiB": {
+   "admitted": 218,
+   "placement_384k": 54
+  },
+  "128 KiB": {
+   "admitted": 218,
+   "placement_384k": 54
+  },
+  "92 KiB": {
+   "admitted": 218,
+   "placement_384k": 54
+  },
+  "72 KiB": {
+   "admitted": 219,
+   "placement_384k": 53
+  }
+ },
+ "newly_admitted": [
+  {
+   "title": "BUZZ 2000",
+   "product": "T13007N",
+   "region": "U",
+   "admitted_at_or_below_kib": 156
+  },
+  {
+   "title": "CHOUHATSUMEIBOY KANIPAN BOUSOUROBOTO NO NAZO",
+   "product": "HDR-0021",
+   "region": "J",
+   "admitted_at_or_below_kib": 208
+  },
+  {
+   "title": "JOJO",
+   "product": "T1231M",
+   "region": "J",
+   "admitted_at_or_below_kib": 72
+  },
+  {
+   "title": "POPN MUSIC 4 APPEND DISC",
+   "product": "T9592M",
+   "region": "J",
+   "admitted_at_or_below_kib": 208
+  },
+  {
+   "title": "BUZZ 2000",
+   "product": "T13005D 05",
+   "region": "E",
+   "admitted_at_or_below_kib": 156
+  },
+  {
+   "title": "BUZZ 2000",
+   "product": "T13005D 18",
+   "region": "E",
+   "admitted_at_or_below_kib": 156
+  },
+  {
+   "title": "BUZZ 2000",
+   "product": "T13005D 09",
+   "region": "E",
+   "admitted_at_or_below_kib": 156
+  }
+ ],
+ "remaining_at_72_kib": {
+  "allocator state (sentinel or dispatch table, or an unlisted allocator shape)": [
+   "GEKKA NO KENSHI2 FINAL EDITION",
+   "POPN MUSIC 2"
+  ],
+  "pool begins before the end of the program file (overlap 115 KiB)": [
+   "SUPER EURO SOCCER 2000"
+  ],
+  "pool begins before the end of the program file (overlap 127 KiB)": [
+   "CENTIPEDE",
+   "EVIL DEAD HAIL TO THE KING",
+   "EVILDEAD HAIL TO THE KING",
+   "GAUNTLET LEGENDS",
+   "NAMCO MUSEUM",
+   "NBA 2K",
+   "NBA 2K1",
+   "NBA2K2",
+   "NCAA COLLEGE FOOTBALL 2K2",
+   "NFL 2K",
+   "NFL 2K1",
+   "SOUL REAVER",
+   "TONY HAWKS PRO SKATER 2",
+   "WALT DISNEY WORLD QUEST MAGICAL RACING TOUR"
+  ],
+  "pool begins before the end of the program file (overlap 2 KiB)": [
+   "BERSERK TRIAL VERSION R"
+  ],
+  "pool begins before the end of the program file (overlap 8 KiB)": [
+   "READY 2 RUMBLE BOXING",
+   "READY 2 RUMBLE BOXING -- (C) 1999 MIDWAY, INC."
+  ],
+  "pool begins before the end of the program file (overlap under 1 KiB)": [
+   "EXPENDABLE",
+   "INCOMING",
+   "MILLENNIUM SOLDIER"
+  ],
+  "pool ends inside the stage": [
+   "SHUTOKOU BATTLE",
+   "TOKYO HIGHWAY CHALLENGE",
+   "TOKYO XTREME RACER"
+  ],
+  "pool lies inside the program image": [
+   "BUGGYHEAT"
+  ],
+  "pool smaller than the lease (game manages its own memory)": [
+   "CAPCOM TAISEN FANDISC",
+   "CAPCOM VS SNK",
+   "CAPCOM VS SNK PRO",
+   "CAPCOM VS SNK2",
+   "MARVEL VS CAPCOM 2"
+  ],
+  "pool starts inside the stage": [
+   "COJI COJI",
+   "TOKUSATSUBOUKENKATSUGEKI SUPERHERO RETSUDEN"
+  ]
+ },
+ "limits": [
+  "Static placement only; every other gate unchanged. Not console evidence.",
+  "The 72 KiB row is the VMU-lite card-only geometry; 92 KiB adds the read-ahead engine with no buffer; 128 and 156 KiB add 36 and 64 KiB buffers.",
+  "Games refused earlier (driver, layout, exits, heap, initializer) were not rerun; a smaller lease does not change those gates.",
+  "No game bytes are recorded."
+ ]
+}

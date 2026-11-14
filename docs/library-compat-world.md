@@ -1376,3 +1376,48 @@ Each game counts once, under the first check that refuses it.
 | WWF: ATTITUDE | T-8103N-18 | same startup as 1424-T-8103N-50-WWF-ATTITUDE |  |
 
 Also listed: 89 files in other image formats.
+
+## Lease size and the placement refusals (14 Nov 2026)
+
+The 60 `placement_384k` refusals and the 212 admitted startups were rerun
+through the production placement probe at six lease sizes. A scratch copy
+changed only the compact lease size and its fixed-size checks; at 284 KiB
+it reproduces this table exactly. Record:
+[lease-size survey](evidence/native-lease-size-survey-2026-11-14.json).
+
+| Lease | What it holds | Admitted | Still refused |
+| --- | --- | ---: | ---: |
+| 284 KiB | Today: card worker, read-ahead engine, 192 KiB cache | 212 | 60 |
+| 208 KiB | 116 KiB cache | 214 | 58 |
+| 156 KiB | 64 KiB cache | 218 | 54 |
+| 128 KiB | 36 KiB cache | 218 | 54 |
+| 92 KiB | Engine, no cache | 218 | 54 |
+| 72 KiB | Card worker only (the VMU-lite layout) | 219 | 53 |
+
+Only seven startups depend on the size: Buzz 2000 (US and three PAL), the
+Kanipan game and Pop'n Music 4 Append (JPN) and JoJo (JPN, card only). The
+other 53 are refused by where the game's memory pool lies, at any size:
+
+- **36 startups, 21 titles:** the pool begins before the end of the program
+  file, by under 1 KiB to 127 KiB, and runs to the top of RAM. The lease
+  would sit at the top, megabytes from the program, but the placement rule
+  refuses any overlap of pool and program. The titles include NFL 2K and
+  2K1, NBA 2K to 2K2, NCAA College Football 2K2, Tony Hawk's Pro Skater 2,
+  Soul Reaver, Gauntlet Legends, Ready 2 Rumble, Namco Museum, Centipede,
+  Evil Dead, Incoming, Expendable and Millennium Soldier.
+- **Capcom fighters** (Capcom vs. SNK and Pro, Capcom vs. SNK 2, Marvel vs.
+  Capcom 2, the Capcom Taisen fan disc): the SDK pool is smaller than any
+  lease. These games manage their own memory, as DOA2 does, and need a RAM map.
+- **Tokyo Xtreme Racer and Shutokou Battle:** the pool ends inside K-UI's
+  stage, so a lease at its top would cover the stage.
+- **Coji Coji and Superhero Retsuden:** the pool starts inside the stage.
+- **Gekka no Kenshi 2 and Pop'n Music 2:** allocator state.
+- **Buggy Heat:** its pool lies inside the program image.
+
+The executable-overlap rule was added with the installer-stack protection
+(`c6b7bccd`); why it must cover a pool's start inside the program tail is not
+recorded. Reviewing it is a check change, not a memory change.
+
+Fixed-RAM games (`heap`, `initializer_slot`, `initializer_call`) were not
+rerun: their gates come first. For them a smaller lease matters differently,
+because a RAM map must find a free region of that size.
