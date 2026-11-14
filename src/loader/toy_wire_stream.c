@@ -462,18 +462,20 @@ static void wire_tables(struct kui_wire_stream *w, uint8_t *tables) {
             c = i << 8;
             for(unsigned bit = 0; bit < 8u; ++bit) c = (c & 0x8000u ? c << 1 ^ 0x1021u : c << 1) & 0xffffu;
             c = (c >> 8 | c << 8) & 0xffffu;
+            /* Nothing to turn round: the table hands each byte back. */
+            w->reverse[i] = (uint8_t)i;
         } else {
 #endif
         r = (r >> 4 | r << 4) & 0xffu;
         r = ((r & 0xccu) >> 2 | (r & 0x33u) << 2) & 0xffu;
         r = ((r & 0xaau) >> 1 | (r & 0x55u) << 1) & 0xffu;
+        w->reverse[i] = (uint8_t)r;
         /* CRC16-CCITT taken bit-reversed, as the receiver delivers bytes:
          * the remainder of a block and its CRC is zero either way. */
         for(unsigned bit = 0; bit < 8u; ++bit) c = c & 1u ? c >> 1 ^ 0x8408u : c >> 1;
 #if KUI_TOY_WIRE_MSB
         }
 #endif
-        w->reverse[i] = (uint8_t)r;
         w->crc[i] = (uint16_t)c;
         /* A step's high byte comes from the table alone and names its entry. */
         w->inverse[c >> 8] = (uint8_t)i;
