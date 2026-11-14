@@ -2,11 +2,15 @@
 # One selectable Toy Commander test per immutable module envelope.
 TOY_SUITE_MODE ?= 1
 TOY_FMV_COMPARE ?= 0
+TOY_WIRE_STREAM ?= 0
 ifneq ($(words $(TOY_SUITE_MODE)),1)
 $(error TOY_SUITE_MODE must be a single test number)
 endif
 ifeq ($(filter $(TOY_SUITE_MODE),1 2 3 4 6 7 26 27 28 31 32 33 34 35 36 37 38 39 40 41 42 43 44 45 46 47 48 49 50 51 52 53 54 55 56 57 58 59 60 61 62 64 65 66),)
 $(error Unsupported TOY_SUITE_MODE $(TOY_SUITE_MODE))
+endif
+ifeq ($(TOY_WIRE_STREAM),1)
+BUILD ?= build/toy-suite-68
 endif
 BUILD ?= build/toy-suite-$(TOY_SUITE_MODE)
 include Makefile.vmu-native-toy-playback
@@ -51,6 +55,27 @@ endif
 ifneq ($(filter $(TOY_SUITE_MODE),62 64 65 66),)
 $(BUILD)/ra/src/loader/native_readahead_aux.o: src/loader/toy_movie_ahead.inc
 endif
+ifeq ($(TOY_WIRE_STREAM),1)
+# Test 68: the Test 66 reader with the continuous card stream as the movie
+# window's producer. Every mode switch stays at 66, so the low residents are
+# compiled exactly as for Test 66; the auxiliary takes two more lease pages.
+ifneq ($(TOY_SUITE_MODE),66)
+$(error TOY_WIRE_STREAM extends the Test 66 reader: use TOY_SUITE_MODE=66)
+endif
+# The low residents are Test 66's own: compiled without the switch.
+$(RESIDENT_OBJ) $(BUILD)/resident-sci.elf: private FLAGS := $(FLAGS)
+FLAGS += -DKUI_TOY_WIRE_STREAM=1
+NATIVE_FLAGS += -DKUI_TOY_WIRE_STREAM=1
+TOY_MOVIE_TEST_FLAGS += -DKUI_TOY_WIRE_STREAM=1
+RA_AUX_LINK_FLAGS := -Wl,--defsym=__native_ra_extra_code=0x3000
+RA_AUX_SPAN := 0x7000
+RA_SRC += src/loader/toy_wire_stream.c src/core/mode1_erasure.c
+$(BUILD)/native-ra-aux.elf: $(BUILD)/ra/src/loader/toy_wire_stream.o $(BUILD)/ra/src/core/mode1_erasure.o
+$(BUILD)/ra/src/loader/native_readahead_aux.o: src/loader/toy_wire_ahead.inc src/loader/toy_wire_stream.h \
+ include/kui/mode1_erasure.h include/kui/toy_wire_report.h
+$(BUILD)/retail-toy-test-68.kui: $(BUILD)/retail-native-dual.kui
+	cp $< $@
+endif
 ifeq ($(TOY_SUITE_MODE),58)
 RA_SRC += src/loader/toy_sd_crc16.c
 $(BUILD)/native-ra-aux.elf: $(BUILD)/ra/src/loader/toy_sd_crc16.o
@@ -73,14 +98,18 @@ $(BUILD)/native-worker.elf: $(NATIVE_OBJ)
 
 $(BUILD)/toy-suite-config: force-mode-config
 	@mkdir -p $(BUILD)
-	@printf '%s\n' 'TOY_SUITE_MODE=$(TOY_SUITE_MODE)' 'TOY_FMV_COMPARE=$(TOY_FMV_COMPARE)' > $@.tmp
+	@printf '%s\n' 'TOY_SUITE_MODE=$(TOY_SUITE_MODE)' 'TOY_FMV_COMPARE=$(TOY_FMV_COMPARE)' 'TOY_WIRE_STREAM=$(TOY_WIRE_STREAM)' > $@.tmp
 	@cmp -s $@.tmp $@ || cp $@.tmp $@
 	@rm -f $@.tmp
 
 $(RESIDENT_OBJ) $(LEGACY_OBJ) $(STAGE_OBJ) $(NATIVE_OBJ) $(WORKER_OBJ) $(RA_OBJ): $(BUILD)/toy-suite-config
 
+# With the wire stream the module is Test 68 and is built under that name
+# only; Card Tools still loads it from its Test 66 path (see the package).
+ifneq ($(TOY_WIRE_STREAM),1)
 $(BUILD)/retail-toy-test-$(TOY_SUITE_MODE).kui: $(BUILD)/retail-native-dual.kui
 	cp $< $@
+endif
 
 .PHONY: toy-suite-witness-host-test
 toy-suite-witness-host-test:
@@ -137,6 +166,49 @@ toy-suite-sdk-liveness-host-test:
 	  -Wl,--gc-sections -o $(BUILD)/test-toy-sdk-liveness-$$mode; \
 	 ASAN_OPTIONS=detect_leaks=0 $(BUILD)/test-toy-sdk-liveness-$$mode; \
 	done
+
+# Test 68: the continuous card stream. Host models and the production
+# sources; none of this is a console result.
+TOY_WIRE_HOST_FLAGS = -std=c11 -O1 -g -Wall -Wextra -Werror -Wpedantic \
+ -fsanitize=address,undefined -fno-omit-frame-pointer -Iinclude -Isrc/loader
+.PHONY: toy-wire-host-tests toy-wire-integration-host-test toy-wire-package-test
+toy-wire-host-tests:
+	@mkdir -p $(BUILD)
+	$(HOST_CC) $(TOY_WIRE_HOST_FLAGS) tests/test_mode1_erasure.c src/core/mode1_erasure.c \
+	 src/core/recovery_sector.c src/core/hash.c src/core/data.c -o $(BUILD)/test-mode1-erasure
+	ASAN_OPTIONS=detect_leaks=0 $(BUILD)/test-mode1-erasure
+	$(HOST_CC) $(TOY_WIRE_HOST_FLAGS) -DKUI_WIRE_STREAM_TEST=1 tests/test_toy_wire_stream.c \
+	 src/loader/toy_wire_stream.c -o $(BUILD)/test-toy-wire-stream
+	ASAN_OPTIONS=detect_leaks=0 $(BUILD)/test-toy-wire-stream
+	$(HOST_CC) $(filter-out -Wpedantic,$(TOY_WIRE_HOST_FLAGS)) tests/test_toy_wire_report.c \
+	 -o $(BUILD)/test-toy-wire-report
+	ASAN_OPTIONS=detect_leaks=0 $(BUILD)/test-toy-wire-report
+# The real low reader, SDK SCI routing and auxiliary with the stream as the
+# window's producer, on the shared card model: the Test 66 liveness recipe
+# with the switch on.
+toy-wire-integration-host-test:
+	@mkdir -p $(BUILD)
+	$(HOST_CC) $(PASSIVE_HOST_FLAGS) -O2 $(STALL_READER_FLAGS) -Itests \
+	 -DKUI_NATIVE_DUAL_READERS=1 -DKUI_NATIVE_SPLIT_CONTROLLER_ISOLATION=1 \
+	 -DKUI_NATIVE_SPLIT_CONTROLLER_GENERAL=1 -DKUI_NATIVE_SPLIT_CONTROLLER_PREFETCH=1 \
+	 -DKUI_VMU_NATIVE_CACHED_CODE=1 -DKUI_VMU_NATIVE_PERSISTENT_PROBE=1 \
+	 -DKUI_NATIVE_GENERAL_LEAN_LAYOUT=1 -DKUI_NATIVE_BACKGROUND_COMPACT=1 \
+	 -DKUI_NATIVE_REQUEST_TIMING=1 -DKUI_NATIVE_COOP_PUMP=1 -DKUI_NATIVE_IRQ_REARM=1 \
+	 -DKUI_NATIVE_LOADER_TIMELINE=1 -DKUI_VMU_NATIVE_BACKGROUND=1 -DKUI_NATIVE_SDK_SCI_ROUTE=1 \
+	 -DKUI_NATIVE_SDK_SCI_STRUCTURAL=1 -DKUI_NATIVE_READAHEAD=1 -DKUI_NATIVE_READAHEAD_AUX_HOST_TEST=1 \
+	 -DKUI_NATIVE_TOY_MOVIE_CAPTURE=1 -DKUI_NATIVE_TOY_PLAYBACK_CAPTURE=1 -DKUI_TOY_SUITE_MODE=66 \
+	 -DKUI_CD_EDC_CACHED_PAIR=1 -DKUI_TOY_WIRE_STREAM=1 -DKUI_WIRE_STREAM_TEST=1 \
+	 $(STALL_READER_SRC) src/loader/native_readahead_aux.c src/core/native_readahead_cache.c \
+	 src/loader/toy_wire_stream.c src/core/mode1_erasure.c \
+	 src/core/hash.c src/core/data.c tests/test_toy_wire_integration.c \
+	 -Wl,--gc-sections -o $(BUILD)/test-toy-wire-integration
+	ASAN_OPTIONS=detect_leaks=0 $(BUILD)/test-toy-wire-integration
+# Card Tools' own admission of the packaged module bytes.
+toy-wire-package-test: $(BUILD)/retail-toy-test-68.kui
+	$(HOST_CC) $(filter-out -Wpedantic,$(TOY_WIRE_HOST_FLAGS)) -Ifatfs/source tests/test_toy_reader_package.c \
+	 src/core/runtime_image.c src/core/native_session.c src/core/vmu_native_cache_seed.c \
+	 -o $(BUILD)/test-toy-reader-package
+	ASAN_OPTIONS=detect_leaks=0 $(BUILD)/test-toy-reader-package $(BUILD)/retail-toy-test-68.kui
 
 .PHONY: toy-suite-cached-edc-host-test
 toy-suite-cached-edc-host-test:

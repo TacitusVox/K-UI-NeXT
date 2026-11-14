@@ -157,12 +157,21 @@ static struct {
     unsigned purges, module_resets, dma_starts, irq_starts, settles, fences;
     uint32_t armed_chcr;
     void (*on_dma_start)(void); /* a test's look at the engine as a DMA starts */
+    /* For a second owner of the channel (the Toy wire stream): one more
+     * DMA destination, a stall decided per byte, and a look at every
+     * programmed bus byte. All unused unless a test sets them. */
+    uint8_t *extra;
+    uint32_t extra_base, extra_bytes;
+    bool (*stall_hook)(void);
+    void (*bus_check)(void);
 } m;
 static uint8_t *memory(uint32_t address) {
     for(unsigned i = 0; i < 2; ++i) {
         uint32_t base = AREA_BASE + i * 0x1000u;
         if(address >= base && address < base + KUI_SCI_STREAM_AREA_BYTES) return m.areas[i] + (address - base);
     }
+    if(m.extra && address >= m.extra_base && address - m.extra_base < m.extra_bytes)
+        return m.extra + (address - m.extra_base);
     assert(!"DMA outside the receive areas");
     return NULL;
 }
@@ -175,6 +184,7 @@ static void receive(void) {
         ++m.received;
         unsigned at = m.overrun_every ? m.overrun_every : m.overrun_after;
         bool stalled = at && 513u - m.tcr == at && !(m.overrun_fast_only && m.rx_brr);
+        if(m.stall_hook && m.stall_hook()) stalled = true;
         bool dma = (m.chcr & 1u) && m.tcr && m.sar == (RDR & 0x1fffffffu) && (m.dmaor & 7u) == 1u &&
             !stalled;
         if(dma) {
@@ -294,6 +304,7 @@ static uint8_t bus_transfer(void *ctx, uint8_t data, bool slow) {
     if(!m.healthy) return 0xff; /* a latched bus fault */
     assert(!slow && !(m.stbcr & 1u));
     assert(m.brr == 0 && m.smr == 0x80u && !m.rx);
+    if(m.bus_check) m.bus_check();
     m.scr = 0x30u;
     ++bus_bytes;
     return m.cs_high ? 0xffu : card_clock(data);

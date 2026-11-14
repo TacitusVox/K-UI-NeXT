@@ -44,6 +44,11 @@ enum kui_native_ra_event {
 #if KUI_TOY_SUITE_MODE >= 62
     KUI_NATIVE_RA_MOVIE_AHEAD=13u,
 #endif
+#if KUI_TOY_WIRE_STREAM
+    /* Test 68: the card stream's wait timer ran out. Sent by the auxiliary
+     * itself, from its own SDK timer callback. */
+    KUI_NATIVE_RA_WIRE_TIMER=14u,
+#endif
 };
 /* TICK's argument limits optional work without changing the visit ABI or
  * stopping a partial block. Zero retains the historical two-block policy;

@@ -6,6 +6,7 @@ static void toy_report_string(char **at,const char *text) {
     while(*text)*(*at)++=*text++;
 }
 
+#if !KUI_TOY_WIRE_STREAM
 static void toy_report_row(char **at,const char *label,const uint32_t *values,unsigned count) {
     toy_report_string(at,label);
     *(*at)++='\n';
@@ -16,6 +17,96 @@ static void toy_report_row(char **at,const char *label,const uint32_t *values,un
     }
     *(*at)++='\n';
 }
+#endif
+
+#if KUI_TOY_WIRE_STREAM
+#include "kui/toy_wire_report.h"
+/* Test 68 has more to say than fixed-width rows leave room for in the two
+ * report sectors. A row whose values are written without leading zeros,
+ * and only if all of it fits before `end`: a row is never cut short and
+ * nothing is ever written past the end marker's place. */
+static void toy_report_short(char **at,const char *end,const char *label,
+    const uint32_t *values,unsigned count) {
+    char row[104],*p=row;
+    while(*label && p<row+40)*p++=*label++;
+    *p++='\n';
+    for(unsigned i=0;i<count && i<6u;i++) {
+        if(i)*p++=' ';
+        unsigned shift=32u;
+        while(shift>4u && !(values[i]>>(shift-4u)))shift-=4u;
+        for(;shift;shift-=4u)*p++="0123456789ABCDEF"[(values[i]>>(shift-4u))&15u];
+    }
+    *p++='\n';
+    const uint32_t bytes=(uint32_t)(p-row);
+    if(bytes>(uint32_t)(end-*at))return;
+    memcpy(*at,row,bytes);
+    *at+=bytes;
+}
+
+#ifndef KUI_TOY_WIRE_REPORT_HOST_TEST
+/* The auxiliary keeps its stream counters in the reader arena and writes
+ * them through the cached view; read them the same way. */
+static const struct kui_toy_wire_report *toy_wire_report_block(void) {
+    const uint32_t lease=(config.lease.payload&UINT32_C(0x1fffffff))|UINT32_C(0x80000000);
+    return (const void *)(uintptr_t)(lease+KUI_NATIVE_RA_DATA_OFFSET+KUI_TOY_WIRE_REPORT_OFFSET);
+}
+#endif
+
+static void toy_report_wire(char **at,const char *end,const struct kui_native_ra_public *ra,
+    const struct kui_sci_stream_stats *sd) {
+    static const struct kui_toy_wire_report none;
+    const struct kui_toy_wire_report *w=toy_wire_report_block();
+    if(w->magic!=KUI_TOY_WIRE_REPORT_MAGIC)w=&none;
+    const uint32_t *ahead=ra->diagnostics.stage_result[KUI_NATIVE_RA_STAGE_NONE];
+    toy_report_short(at,end,"PIPE B I CALLS IRQ FAIL",
+        (uint32_t[]){ahead[2],ahead[3],ahead[4],ahead[5],
+            ra->playback[0].failed+ra->playback[1].failed},5u);
+    toy_report_short(at,end,"AHEAD B I HIT EDC STOP",
+        (uint32_t[]){ahead[0],ahead[1],ra->stats.hit_requests,
+            ra->stats.producer_blocks,ra->stats.abandoned},5u);
+    toy_report_short(at,end,"SD BLOCKS PIO START CRC",
+        (uint32_t[]){sd->blocks,sd->polled,sd->starts,sd->crc_errors},4u);
+    toy_report_short(at,end,"W START SEG CUT WAIT FULL",
+        (uint32_t[]){w->n.starts,w->n.segments,w->n.cuts,w->n.waits,w->n.fulls},5u);
+    toy_report_short(at,end,"W BYTES WTICK TMR ERR DET",
+        (uint32_t[]){w->n.bytes,w->n.wait_ticks,w->timer_mode,w->first_error,w->first_detail},5u);
+    toy_report_short(at,end,"W BLK FIX UNFIX HOLED NOCRC SEEK",
+        (uint32_t[]){w->n.blocks,w->n.rebuilt,w->n.unsolved,w->n.holed,w->n.unchecked,
+            w->seek_blocks},6u);
+    toy_report_short(at,end,"W GAPI GAPT BADCRC FRAME AMBIG",
+        (uint32_t[]){w->n.gap_idle,w->n.gap_token,w->n.bad_crc,w->n.lost_frame,w->n.ambiguous},5u);
+    toy_report_short(at,end,"W FILL BYTES MOST REFUSE BAD",
+        (uint32_t[]){w->filled,w->filled_bytes,w->most_lost,w->refused,w->check_bad},5u);
+    toy_report_short(at,end,"W STOP CLOSE JUMP SECT FRAME FAULT",w->stops,KUI_TOY_WIRE_STOPS);
+    toy_report_short(at,end,"W DROP ERR END IDLE CMD WAIT OTHER",w->drops,KUI_TOY_WIRE_DROPS);
+    toy_report_short(at,end,"W IRQ TICKS MAX PARITY DECL",
+        (uint32_t[]){w->handler_calls,w->handler_ticks,w->handler_max,w->parity,w->declined},5u);
+    for(unsigned i=0;i<2u;i++) {
+        const struct kui_toy_movie_present_trace *present=&ra->present[i];
+        const struct kui_toy_movie_exit_witness *x=&ra->movie_exit[i];
+        toy_report_short(at,end,i?"I SUBMIT CADENCE MAX AT TAIL":"B SUBMIT CADENCE MAX AT TAIL",
+            (uint32_t[]){present->submitted,present->on_time,present->max_gap,
+                present->max_gap_frame,present->tail_gap},5u);
+        toy_report_short(at,end,i?"I FIRST LAST CLK OUT SKIP":"B FIRST LAST CLK OUT SKIP",
+            (uint32_t[]){present->first_gap,present->last_frame,present->clock_lost,
+                x->output_frames,x->skipped_frames},5u);
+        toy_report_short(at,end,i?"I ENTER SCENE EXIT FRAME":"B ENTER SCENE EXIT FRAME",
+            (uint32_t[]){present->render_entries,present->scene_hits,x->status,x->frame},4u);
+    }
+    /* Test 66's first-wait rows, as far as room is left. */
+    for(unsigned i=0;i<2u;i++) {
+        const struct kui_toy_movie_onset_trace *onset=&ra->onset[i];
+        const struct kui_toy_movie_wait_trace *wait=&ra->wait[i];
+        toy_report_short(at,end,i?"I WAIT USED NEED SKIP LBA":"B WAIT USED NEED SKIP LBA",
+            (uint32_t[]){onset->wait_frame,onset->wait_used,onset->wait_missing,
+                onset->skip_frame,wait->lba},5u);
+        toy_report_short(at,end,i?"I READ N VERIFIED TICK AGE DONE":"B READ N VERIFIED TICK AGE DONE",
+            (uint32_t[]){wait->sectors,wait->verified,wait->elapsed,wait->age,wait->to_complete},5u);
+    }
+    toy_report_short(at,end,"I LAG LIMIT",
+        (uint32_t[]){ra->movie_exit[1].lag,ra->movie_exit[1].limit},2u);
+}
+#endif
 
 #if KUI_TOY_SUITE_MODE == 27 || KUI_TOY_SUITE_MODE == 28
 static void toy_report_burst(char **at,const char *label,const struct kui_toy_burst_metrics *m) {
@@ -66,6 +157,10 @@ static void toy_report_format(char *text,const struct kui_native_ra_public *ra,
     memset(text,' ',KUI_TOY_REPORT_FILE_BYTES);
     char *at=text;
     toy_report_string(&at,"K-UI TOY COMMANDER REPORT\nTEST ");
+#if KUI_TOY_WIRE_STREAM
+    /* Card Tools starts this reader from its Test 66 entry. */
+    test=68u;
+#endif
     if(test>=10u)*at++=(char)('0'+test/10u);
     *at++=(char)('0'+test%10u);
 #if KUI_TOY_SUITE_MOVIE_POLL
@@ -73,7 +168,9 @@ static void toy_report_format(char *text,const struct kui_native_ra_public *ra,
 #else
     toy_report_string(&at,"\nBUILD " KUI_BUILD_ID "\nVALUES HEX / TIMER 781250 HZ\n");
 #endif
-#if KUI_TOY_SUITE_MODE == 27 || KUI_TOY_SUITE_MODE == 28
+#if KUI_TOY_WIRE_STREAM
+    toy_report_wire(&at,text+KUI_TOY_REPORT_FILE_BYTES-12u,ra,sd);
+#elif KUI_TOY_SUITE_MODE == 27 || KUI_TOY_SUITE_MODE == 28
     (void)sd;
     toy_report_compare(&at,ra);
 #elif KUI_TOY_SUITE_FRAME_TIMING

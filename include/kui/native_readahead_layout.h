@@ -23,7 +23,28 @@
 #if KUI_NATIVE_BACKGROUND_COMPACT && !KUI_NATIVE_GENERAL_LEAN_LAYOUT
 #error "Compact Background extends the separately reviewed lean layout"
 #endif
-#if defined(KUI_TOY_SUITE_MODE) && (KUI_TOY_SUITE_MODE == 26 || KUI_TOY_SUITE_MODE == 27 || KUI_TOY_SUITE_MODE == 28 || \
+#ifndef KUI_TOY_WIRE_STREAM
+#define KUI_TOY_WIRE_STREAM 0
+#endif
+#if KUI_TOY_WIRE_STREAM != 0 && KUI_TOY_WIRE_STREAM != 1
+#error "KUI_TOY_WIRE_STREAM must be zero or one"
+#endif
+#if KUI_TOY_WIRE_STREAM
+/* Test 68 is Test 66 with the continuous card stream: the same lease, with
+ * two more pages of it given to auxiliary code. */
+#if !defined(KUI_TOY_SUITE_MODE) || KUI_TOY_SUITE_MODE != 66 || !KUI_NATIVE_BACKGROUND_COMPACT
+#error "The Toy wire stream extends the Test 66 reader only"
+#endif
+#define KUI_NATIVE_RA_LEASE_BYTES UINT32_C(0x47000)
+#define KUI_NATIVE_RA_AUX_OFFSET UINT32_C(0x13000)
+#define KUI_NATIVE_RA_STACK_OFFSET UINT32_C(0x19000)
+#define KUI_NATIVE_RA_STACK_END UINT32_C(0x1a000)
+#define KUI_NATIVE_RA_DATA_OFFSET UINT32_C(0x1a000)
+#define KUI_NATIVE_RA_AUX_SPAN UINT32_C(0x7000)
+#define KUI_NATIVE_RA_AUX_IMAGE_BYTES UINT32_C(0x6000)
+#define KUI_NATIVE_RA_DATA_BYTES UINT32_C(0x2d000)
+#define KUI_NATIVE_RA_BLOCKS 360u
+#elif defined(KUI_TOY_SUITE_MODE) && (KUI_TOY_SUITE_MODE == 26 || KUI_TOY_SUITE_MODE == 27 || KUI_TOY_SUITE_MODE == 28 || \
     KUI_TOY_SUITE_MODE == 57 || KUI_TOY_SUITE_MODE == 58 || KUI_TOY_SUITE_MODE == 59 || KUI_TOY_SUITE_MODE == 60 || KUI_TOY_SUITE_MODE == 61 || KUI_TOY_SUITE_MODE == 62 || KUI_TOY_SUITE_MODE == 64 || KUI_TOY_SUITE_MODE == 65 || KUI_TOY_SUITE_MODE == 66)
 #if !KUI_NATIVE_BACKGROUND_COMPACT
 #error "The extended Toy auxiliary requires the compact Background layout"

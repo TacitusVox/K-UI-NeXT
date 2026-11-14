@@ -4,7 +4,21 @@
  * sector becomes eligible only after its FAD and EDC pass. The game keeps
  * its original one-command queue, cursor, destination and completion. */
 #define A C.movie_ahead
+#ifndef KUI_TOY_WIRE_STREAM
+#define KUI_TOY_WIRE_STREAM 0
+#endif
+/* Test 66's producer: the low reader's own delivery with a borrowed cursor. */
+#define AHEAD_LOW_PIPE (KUI_TOY_SUITE_MODE == 66 && !KUI_TOY_WIRE_STREAM)
+#if KUI_TOY_WIRE_STREAM
+/* The arena also holds the card stream's ring and state (toy_wire_ahead.inc). */
+enum { AHEAD_SLOTS=62u, AHEAD_TOKEN_WAIT=5u, AHEAD_TOKEN_LIMIT=65536u };
+#else
 enum { AHEAD_SLOTS=80u, AHEAD_TOKEN_WAIT=5u, AHEAD_TOKEN_LIMIT=65536u };
+#endif
+/* The window serves whole requests only: one must fit beside the sector
+ * still being received. */
+enum { AHEAD_REQUEST_MAX=AHEAD_SLOTS-2u<KUI_RETAIL_IMAGE_MAX_SECTORS?
+    AHEAD_SLOTS-2u:KUI_RETAIL_IMAGE_MAX_SECTORS };
 _Static_assert(AHEAD_SLOTS*KUI_GAME_RAW_BYTES<=KUI_NATIVE_RA_DATA_BYTES,
     "Verified movie window must fit the private reader arena");
 #if KUI_TOY_SUITE_MODE == 65
@@ -31,8 +45,12 @@ static uint8_t *toy_ahead_sector(uint32_t lba) {
     return toy_resume_data()+slot*KUI_GAME_RAW_BYTES;
 }
 
+#if KUI_TOY_WIRE_STREAM
+#include "toy_wire_ahead.inc"
+#endif
+
 static void toy_ahead_write(void *unused,uint32_t offset,const uint8_t *data,uint32_t bytes) {
-#if KUI_TOY_SUITE_MODE == 66
+#if AHEAD_LOW_PIPE
     struct kui_retail_async *e=unused;
     const struct kui_retail_cursor *cursor=&e->cursor;
     if(A.error || e->failed)return;
@@ -41,25 +59,45 @@ static void toy_ahead_write(void *unused,uint32_t offset,const uint8_t *data,uin
     const struct kui_retail_cursor *cursor=&A.cursor;
     if(A.error)return;
 #endif
+#if KUI_TOY_WIRE_STREAM
+    struct toy_wire_keep *k=toy_wire_keep();
+    if(k->bad)return;
+#endif
     const uint32_t lba=cursor->lba+cursor->done;
     const uint32_t part=cursor->offset;
     if(lba!=A.verified || lba-A.first>=AHEAD_SLOTS ||
        offset!=cursor->done*KUI_GAME_RAW_BYTES+part || !bytes || bytes>KUI_GAME_RAW_BYTES-part) {
         A.error=true;
-#if KUI_TOY_SUITE_MODE == 66
+#if AHEAD_LOW_PIPE
         e->failed=KUI_GD_ERROR_IO;
 #endif
         return;
     }
     uint8_t *raw=toy_ahead_sector(lba);
     memcpy(raw+part,data,bytes);
+#if KUI_TOY_WIRE_STREAM
+    toy_wire_note(k,part,data,bytes);
+    if(k->lost_count>KUI_MODE1_ERASURE_MAX) {
+        /* Beyond what its parity can fill: no need to receive the rest. */
+        if(k->lost_count>k->report.most_lost)k->report.most_lost=k->lost_count;
+        ++k->report.refused;
+        k->lost_count=0u;
+        k->bad=1u;
+        return;
+    }
+    if(part+bytes!=KUI_GAME_RAW_BYTES)return;
+    /* A sector that fails here is read again; nothing of it is served. */
+    if(toy_wire_sector(k,raw,lba))++A.verified;
+    else k->bad=1u;
+#else
     if(part+bytes!=KUI_GAME_RAW_BYTES)return;
     if(raw[15]!=1u || !kui_sector_edc_valid_at(raw,lba+150u)) {
         A.error=true;
-#if KUI_TOY_SUITE_MODE == 66
+#if AHEAD_LOW_PIPE
         e->failed=KUI_GD_ERROR_IO;
 #endif
     } else ++A.verified;
+#endif
 }
 
 static bool toy_ahead_live(void) {
@@ -70,6 +108,11 @@ static bool toy_ahead_live(void) {
 }
 
 static bool toy_ahead_clear(kui_retail_async_region_type *r) {
+#if KUI_TOY_WIRE_STREAM
+    /* The stream is stopped at once, in an interrupt too. The card's
+     * CMD12 below then waits for the foreground as before. */
+    toy_wire_halt(r,KUI_TOY_WIRE_STOP_CLOSE);
+#endif
     if(A.receiving) {
         if(r->engine.in_irq)return false;
         if(C.config.ops->stop()!=KUI_SCI_STREAM_OK || C.config.ops->busy())return false;
@@ -88,12 +131,16 @@ static bool toy_ahead_begin(const struct kui_retail_async *e,unsigned variant) {
     if(end>track->end_lba || e->cursor.done || e->cursor.offset || !e->cursor.write ||
        kui_retail_cursor_begin(&A.cursor,e->manifest,e->cursor.lba,end-e->cursor.lba,
            KUI_GAME_SECTOR_RAW,toy_ahead_write,
-#if KUI_TOY_SUITE_MODE == 66
+#if AHEAD_LOW_PIPE
            (void *)e
 #else
            NULL
 #endif
            )!=KUI_GAME_OK)return false;
+#if KUI_TOY_WIRE_STREAM
+    struct toy_wire_keep *k=toy_wire_keep();
+    k->bad=k->stalls=k->solid=k->lost_count=k->block_lost_count=0u;
+#endif
     A.variant=(uint8_t)variant;
     A.first=A.verified=e->cursor.lba;
     A.head=0u;
@@ -131,7 +178,7 @@ static enum kui_sci_stream_result toy_ahead_arm(kui_retail_async_region_type *r,
     return result;
 }
 
-#else
+#elif !KUI_TOY_WIRE_STREAM
 /* Install the private RAW cursor only for the original native delivery
  * callback. Completion publication still sees the restored guest cursor. */
 static void toy_ahead_pump(kui_retail_async_region_type *r,bool demand) {
@@ -350,7 +397,7 @@ static bool toy_movie_ahead(kui_retail_async_region_type *r,unsigned variant,boo
     selected=selected && s->token && !s->executing && !s->completed_bytes &&
         e->cursor.manifest==e->manifest && e->cursor.lba==s->lba && e->cursor.count==s->count &&
         !e->cursor.done && !e->cursor.offset && e->cursor.write &&
-        s->count<=KUI_RETAIL_IMAGE_MAX_SECTORS &&
+        s->count<=AHEAD_REQUEST_MAX &&
         (!wait || kick || warm) &&
         (variant<=2u || C.onset[1].quiet_ctx==UINT32_MAX);
 #if KUI_TOY_SUITE_MODE == 64
@@ -365,6 +412,14 @@ static bool toy_movie_ahead(kui_retail_async_region_type *r,unsigned variant,boo
        (s->command && s->command!=KUI_GD_PIOREAD && s->command!=KUI_GD_DMAREAD) ||
        (demand && (!selected || variant!=A.variant || s->lba!=A.first)))) {
         if(demand)A.failed_token=s->token;
+#if KUI_TOY_WIRE_STREAM
+        /* Why the window is given up, for the report: the first that holds. */
+        ++toy_wire_keep()->report.drops[A.error?KUI_TOY_WIRE_DROP_ERROR:
+            !toy_ahead_live()?KUI_TOY_WIRE_DROP_ENDED:
+            !demand && s->status!=KUI_GD_COMPLETED?KUI_TOY_WIRE_DROP_IDLE:
+            s->command && s->command!=KUI_GD_PIOREAD && s->command!=KUI_GD_DMAREAD?KUI_TOY_WIRE_DROP_COMMAND:
+            wait && !kick && !warm?KUI_TOY_WIRE_DROP_WAITING:KUI_TOY_WIRE_DROP_OTHER];
+#endif
         if(toy_ahead_fallback(r))return true;
     }
     if(!e->opened || r->shared.port.fault || !r->shared.port.acquired) {

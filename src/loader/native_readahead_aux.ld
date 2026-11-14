@@ -9,8 +9,9 @@ PHDRS {
 }
 SECTIONS {
     PROVIDE(__native_ra_extra_code = 0);
-    ASSERT(__native_ra_extra_code == 0 || __native_ra_extra_code == 0x1000,
-           "Read-ahead auxiliary code extension must be one page")
+    ASSERT(__native_ra_extra_code == 0 || __native_ra_extra_code == 0x1000 ||
+           __native_ra_extra_code == 0x3000,
+           "Read-ahead auxiliary code extension must be one page, or three for the Toy wire stream")
     . = 0x8c421000;
     .exports : { KEEP(*(.native_ra_exports)) } :exports
     ASSERT(SIZEOF(.exports)==64,"Read-ahead exports must be64bytes")

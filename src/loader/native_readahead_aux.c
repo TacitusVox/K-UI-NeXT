@@ -166,6 +166,9 @@ static struct kui_cd_edc_table *toy_edc_table(const struct kui_native_ra_config 
     return (void *)(data+KUI_NATIVE_RA_DATA_BYTES-sizeof(struct kui_cd_edc_table));
 }
 #endif
+#if KUI_TOY_WIRE_STREAM
+static void toy_wire_reset(bool all);
+#endif
 int kui_native_readahead_aux_init(const struct kui_native_ra_config *c) {
     if(C.busy || C.initialized || !config_valid(c))return -1;
     struct kui_native_ra_cache cache;
@@ -197,6 +200,9 @@ int kui_native_readahead_aux_init(const struct kui_native_ra_config *c) {
 #if KUI_NATIVE_TOY_MOVIE_CAPTURE
     for(unsigned i=0;i<4u;i++)
         if(c->movie_ranges[i].count)C.movie_mask|=1u<<i;
+#endif
+#if KUI_TOY_WIRE_STREAM
+    toy_wire_reset(true);
 #endif
     return 0;
 }
@@ -1390,6 +1396,14 @@ uint32_t kui_native_readahead_aux_dispatch(uint32_t event,uint32_t arg,
         return 1u;
     }
 #endif
+#if KUI_TOY_WIRE_STREAM
+    if(event==KUI_NATIVE_RA_WIRE_TIMER) {
+        /* Nothing but the stream's own registers: no request state is read
+         * and no low reader entry is called from this timer interrupt. */
+        if(!arg && toy_wire_keep()->on)kui_wire_timer(toy_wire_stream());
+        return 1u;
+    }
+#endif
     /* Admit the event-specific argument before clocks, seeding or any low
      * operation. DELIVER's wait is unchanged; an invalid optional budget must
      * never silently turn into the larger historical PIO window. */
@@ -1409,6 +1423,9 @@ uint32_t kui_native_readahead_aux_dispatch(uint32_t event,uint32_t arg,
     if(event==KUI_NATIVE_RA_CAPTURE_START) {
         /* A gesture opens a statistics window, not a new cache lifetime. */
         memset(&C.stats,0,sizeof(C.stats));
+#if KUI_TOY_WIRE_STREAM
+        toy_wire_reset(false);
+#endif
         memset(&C.diagnostics,0,sizeof(C.diagnostics));return 1u;
     }
     C.current_event=event;
