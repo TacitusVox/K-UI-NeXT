@@ -140,8 +140,12 @@ static bool toy_ahead_begin(const struct kui_retail_async *e,unsigned variant) {
 #if KUI_TOY_WIRE_STREAM
     struct toy_wire_keep *k=toy_wire_keep();
     k->bad=k->stalls=k->solid=k->lost_count=k->block_lost_count=0u;
-#if KUI_TOY_WIRE_TICK
+#if KUI_TOY_WIRE_MEASURE
     k->restarting=k->wait_token=0u;
+#endif
+#if KUI_TOY_WIRE_CACHED && !defined(KUI_NATIVE_READAHEAD_AUX_HOST_TEST)
+    k->report.ccr=read_hw(UINT32_C(0xff00001c),4u);
+    k->report.mmucr=read_hw(UINT32_C(0xff000010),4u);
 #endif
 #endif
     A.variant=(uint8_t)variant;
@@ -443,7 +447,7 @@ static bool toy_movie_ahead(kui_retail_async_region_type *r,unsigned variant,boo
 #endif
     }
     if(selected && !A.error && toy_ahead_publish(r)) {
-#if KUI_TOY_WIRE_STREAM && KUI_TOY_WIRE_TICK
+#if KUI_TOY_WIRE_STREAM && KUI_TOY_WIRE_MEASURE
         toy_wire_wait_end(s->token);
 #endif
         if(!e->failed) {
@@ -456,7 +460,7 @@ static bool toy_movie_ahead(kui_retail_async_region_type *r,unsigned variant,boo
         }
         return true;
     }
-#if KUI_TOY_WIRE_STREAM && KUI_TOY_WIRE_TICK
+#if KUI_TOY_WIRE_STREAM && KUI_TOY_WIRE_MEASURE
     if(demand && selected)toy_wire_wait_begin(s->token);
 #endif
     toy_ahead_pump(r,demand);
@@ -466,7 +470,7 @@ static bool toy_movie_ahead(kui_retail_async_region_type *r,unsigned variant,boo
         return toy_ahead_fallback(r);
     }
     if(selected && toy_ahead_publish(r)) {
-#if KUI_TOY_WIRE_STREAM && KUI_TOY_WIRE_TICK
+#if KUI_TOY_WIRE_STREAM && KUI_TOY_WIRE_MEASURE
         toy_wire_wait_end(s->token);
 #endif
 #if KUI_TOY_SUITE_MODE == 65

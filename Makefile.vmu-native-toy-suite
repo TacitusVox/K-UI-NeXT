@@ -4,6 +4,7 @@ TOY_SUITE_MODE ?= 1
 TOY_FMV_COMPARE ?= 0
 TOY_WIRE_STREAM ?= 0
 TOY_WIRE_TICK ?= 0
+TOY_WIRE_CACHED ?= 0
 ifneq ($(words $(TOY_SUITE_MODE)),1)
 $(error TOY_SUITE_MODE must be a single test number)
 endif
@@ -13,12 +14,14 @@ endif
 ifeq ($(TOY_WIRE_STREAM),1)
 ifeq ($(TOY_WIRE_TICK),1)
 TOY_WIRE_TEST := 69
+else ifeq ($(TOY_WIRE_CACHED),1)
+TOY_WIRE_TEST := 70
 else
 TOY_WIRE_TEST := 68
 endif
 BUILD ?= build/toy-suite-$(TOY_WIRE_TEST)
-else ifneq ($(TOY_WIRE_TICK),0)
-$(error TOY_WIRE_TICK extends the Test 68 reader: use TOY_WIRE_STREAM=1)
+else ifneq ($(TOY_WIRE_TICK)$(TOY_WIRE_CACHED),00)
+$(error TOY_WIRE_TICK and TOY_WIRE_CACHED extend the Test 68 reader: use TOY_WIRE_STREAM=1)
 endif
 BUILD ?= build/toy-suite-$(TOY_SUITE_MODE)
 include Makefile.vmu-native-toy-playback
@@ -81,8 +84,22 @@ FLAGS += -DKUI_TOY_WIRE_TICK=1
 NATIVE_FLAGS += -DKUI_TOY_WIRE_TICK=1
 TOY_MOVIE_TEST_FLAGS += -DKUI_TOY_WIRE_TICK=1
 TOY_WIRE_TICK_FLAG := -DKUI_TOY_WIRE_TICK=1
+ifneq ($(TOY_WIRE_CACHED),0)
+$(error Test 69's timer was withdrawn after its console run: TOY_WIRE_CACHED builds on Test 68, without TOY_WIRE_TICK)
+endif
 else ifneq ($(TOY_WIRE_TICK),0)
 $(error TOY_WIRE_TICK must be 0 or 1)
+endif
+ifeq ($(TOY_WIRE_CACHED),1)
+# Test 70: Test 68 with the auxiliary's private stack used through the cache,
+# and Test 69's report rows. One name carries either test's switch to the
+# host tests.
+FLAGS += -DKUI_TOY_WIRE_CACHED=1
+NATIVE_FLAGS += -DKUI_TOY_WIRE_CACHED=1
+TOY_MOVIE_TEST_FLAGS += -DKUI_TOY_WIRE_CACHED=1
+TOY_WIRE_TICK_FLAG := -DKUI_TOY_WIRE_CACHED=1
+else ifneq ($(TOY_WIRE_CACHED),0)
+$(error TOY_WIRE_CACHED must be 0 or 1)
 endif
 RA_AUX_LINK_FLAGS := -Wl,--defsym=__native_ra_extra_code=0x3000
 RA_AUX_SPAN := 0x7000
@@ -115,7 +132,7 @@ $(BUILD)/native-worker.elf: $(NATIVE_OBJ)
 
 $(BUILD)/toy-suite-config: force-mode-config
 	@mkdir -p $(BUILD)
-	@printf '%s\n' 'TOY_SUITE_MODE=$(TOY_SUITE_MODE)' 'TOY_FMV_COMPARE=$(TOY_FMV_COMPARE)' 'TOY_WIRE_STREAM=$(TOY_WIRE_STREAM)' $(if $(filter 1,$(TOY_WIRE_TICK)),'TOY_WIRE_TICK=1') > $@.tmp
+	@printf '%s\n' 'TOY_SUITE_MODE=$(TOY_SUITE_MODE)' 'TOY_FMV_COMPARE=$(TOY_FMV_COMPARE)' 'TOY_WIRE_STREAM=$(TOY_WIRE_STREAM)' $(if $(filter 1,$(TOY_WIRE_TICK)),'TOY_WIRE_TICK=1') $(if $(filter 1,$(TOY_WIRE_CACHED)),'TOY_WIRE_CACHED=1') > $@.tmp
 	@cmp -s $@.tmp $@ || cp $@.tmp $@
 	@rm -f $@.tmp
 
@@ -188,7 +205,10 @@ toy-suite-sdk-liveness-host-test:
 # sources; none of this is a console result.
 TOY_WIRE_HOST_FLAGS = -std=c11 -O1 -g -Wall -Wextra -Werror -Wpedantic \
  -fsanitize=address,undefined -fno-omit-frame-pointer -Iinclude -Isrc/loader
-.PHONY: toy-wire-host-tests toy-wire-integration-host-test toy-wire-package-test
+.PHONY: toy-wire-host-tests toy-wire-integration-host-test toy-wire-package-test toy-wire-linked-check
+# The linked visit gate: which address the private stack is used at.
+toy-wire-linked-check: $(BUILD)/retail-toy-test-$(TOY_WIRE_TEST).kui
+	python3 tests/test_toy_wire_cached_stack.py $(BUILD)/native-ra-aux.elf $(if $(filter 1,$(TOY_WIRE_CACHED)),cached,uncached)
 toy-wire-host-tests:
 	@mkdir -p $(BUILD)
 	$(HOST_CC) $(TOY_WIRE_HOST_FLAGS) tests/test_mode1_erasure.c src/core/mode1_erasure.c \

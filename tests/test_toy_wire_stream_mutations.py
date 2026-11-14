@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: GPL-3.0-only
-"""Check that the Test 68 and Test 69 host tests notice deliberate defects.
+"""Check that the Test 68, 69 and 70 host tests notice deliberate defects.
 
 Each mutation changes one behaviour of the card stream, its ring reader, or
 the glue that feeds the verified movie window: a position, a lost-byte
@@ -11,9 +11,12 @@ test (tests/test_toy_wire_integration.c) through its make target. A
 mutation that no test fails is a gap in the tests. This checks the tests,
 not the Dreamcast.
 
-The tests are built as the delivered reader is: with Test 69's timer switch
-unless TOY_WIRE_TICK=0 is set, which checks the Test 68 recipe and leaves
-out the mutations of what only Test 69 has.
+The tests are built as the delivered reader is: Test 70's switch
+(TOY_WIRE_CACHED=1) unless the environment says otherwise. TOY_WIRE_TICK=1
+checks Test 69's recipe with the mutations of its timer; both at 0 check
+Test 68's and leave out the mutations of the report's measurements. Test
+70's own change is in the visit gate's assembly, which no host test can
+run: tests/test_toy_wire_cached_stack.py reads the linked module for it.
 """
 import os
 import shutil
@@ -26,7 +29,10 @@ ROOT = Path(__file__).resolve().parents[1]
 STREAM = "src/loader/toy_wire_stream.c"
 GLUE = "src/loader/toy_wire_ahead.inc"
 AHEAD = "src/loader/toy_movie_ahead.inc"
-TICK = os.environ.get("TOY_WIRE_TICK", "1")
+TICK = os.environ.get("TOY_WIRE_TICK", "0")
+CACHED = os.environ.get("TOY_WIRE_CACHED", "0" if TICK == "1" else "1")
+SWITCHES = [f"TOY_WIRE_TICK={TICK}", f"TOY_WIRE_CACHED={CACHED}"]
+DEFINES = [f"-DKUI_TOY_WIRE_TICK={TICK}", f"-DKUI_TOY_WIRE_CACHED={CACHED}"]
 MUTATIONS = [
  (STREAM, "resume one byte early", "    w->head = lost + 1u;\n", "    w->head = lost;\n"),
  (STREAM, "resume one byte late", "    w->head = lost + 1u;\n", "    w->head = lost + 2u;\n"),
@@ -59,22 +65,34 @@ MUTATIONS = [
  (AHEAD, "sector served without its check", "    if(toy_wire_sector(k,raw,lba))++A.verified;\n    else k->bad=1u;", "    (void)toy_wire_sector;++A.verified;"),
  (AHEAD, "stream left running when the window closes", "    toy_wire_halt(r,KUI_TOY_WIRE_STOP_CLOSE);\n#endif\n    if(A.receiving) {", "#endif\n    if(A.receiving) {"),
 ]
-# What only Test 69 has: reading continued from the stream's timer, and the
-# report's account of it.
+# What Tests 69 and 70 share: the report's account of the reader's time.
+MEASURE_MUTATIONS = [
+ (STREAM, "note taken of the byte behind", "    struct kui_wire_counters *n = w->n;\n    const uint8_t value = w->ring[at & MASK];", "    struct kui_wire_counters *n = w->n;\n    const uint8_t value = w->ring[(at + 1u) & MASK];"),
+ (STREAM, "note's gap not counted from the block's end", "        w->gap_begin = end;\n", ""),
+ (GLUE, "a visit out of time is not told apart", "            } else if(start.counter-clock_read().counter>=ticks) {more=true;break;}", "            } else if(start.counter-clock_read().counter>=ticks) {break;}"),
+ (GLUE, "waiting requests not counted", "    ++k->report.wait_calls[movie];\n", ""),
+ (GLUE, "restart time not kept", "            k->report.restart_ticks+=spent;\n", ""),
+ (GLUE, "visits not counted by caller", "    ++k->report.visit_calls[who];\n", ""),
+]
+# What only Test 69 has: reading continued from the stream's timer.
 TICK_MUTATIONS = [
  (STREAM, "timer call arranged over a running wait", "    if(!w->mode || (w->state != KUI_WIRE_RUN && w->state != KUI_WIRE_FULL)) return false;", "    if(!w->mode || w->state == KUI_WIRE_OFF) return false;"),
  (STREAM, "timer call counted but not arranged", "    timer_arm(w, ticks);\n    ++w->n->ticks;", "    ++w->n->ticks;"),
- (STREAM, "note taken of the byte behind", "    struct kui_wire_counters *n = w->n;\n    const uint8_t value = w->ring[at & MASK];", "    struct kui_wire_counters *n = w->n;\n    const uint8_t value = w->ring[(at + 1u) & MASK];"),
- (STREAM, "note's gap not counted from the block's end", "        w->gap_begin = end;\n", ""),
  (GLUE, "no timer call when a visit runs out of time", "    (void)kui_wire_tick(toy_wire_stream(),TOY_WIRE_TICK_GAP);", ""),
  (GLUE, "timer visit does not read", "        toy_wire_read(r,TOY_WIRE_TICKS_INTERRUPT);\n", ""),
- (GLUE, "a visit out of time is not told apart", "            } else if(start.counter-clock_read().counter>=ticks) {more=true;break;}", "            } else if(start.counter-clock_read().counter>=ticks) {break;}"),
- (GLUE, "timer visit not accounted", "    toy_wire_visit_time(k,KUI_TOY_WIRE_VISIT_TIMER,entered);", ""),
- (GLUE, "waiting requests not counted", "    ++k->report.wait_calls[movie];\n", ""),
- (GLUE, "restart time not kept", "            k->report.restart_ticks+=spent;\n", ""),
+ (GLUE, "timer visit not accounted", "    }\n    toy_wire_visit_time(k,KUI_TOY_WIRE_VISIT_TIMER,entered);", "    }"),
 ]
+# What only Test 70's report has.
+CACHED_MUTATIONS = [
+ (GLUE, "timer visit not accounted", "    kui_wire_timer(toy_wire_stream());\n    toy_wire_visit_time(k,KUI_TOY_WIRE_VISIT_TIMER,entered);", "    kui_wire_timer(toy_wire_stream());"),
+ (GLUE, "visits out of time not counted", "           k->on)++k->report.budget_ends;", "           k->on) {}"),
+]
+if TICK == "1" or CACHED == "1":
+    MUTATIONS += MEASURE_MUTATIONS
 if TICK == "1":
     MUTATIONS += TICK_MUTATIONS
+if CACHED == "1":
+    MUTATIONS += CACHED_MUTATIONS
 
 
 def run(cmd, cwd, timeout):
@@ -105,17 +123,17 @@ def main():
             if path == STREAM:
                 binary = Path(tmp) / "stream"
                 code = run([cc, "-std=c11", "-O1", "-g", "-w", "-fsanitize=address,undefined",
-                            "-DKUI_WIRE_STREAM_TEST=1", f"-DKUI_TOY_WIRE_TICK={TICK}", "-Iinclude", "-Isrc/loader",
+                            "-DKUI_WIRE_STREAM_TEST=1", *DEFINES, "-Iinclude", "-Isrc/loader",
                             "tests/test_toy_wire_stream.c", path, "-o", str(binary)], tree, 120)
                 if code == 0:
                     code = run([str(binary), "8"], tree, 300)
                 if code == 0:  # the stream mutant may still be caught end to end
                     code = run(["make", "-f", "Makefile.vmu-native-toy-suite", "TOY_SUITE_MODE=66",
-                                "TOY_WIRE_STREAM=1", f"TOY_WIRE_TICK={TICK}", f"BUILD={tmp}/build",
+                                "TOY_WIRE_STREAM=1", *SWITCHES, f"BUILD={tmp}/build",
                                 "toy-wire-integration-host-test"], tree, 900)
             else:
                 code = run(["make", "-f", "Makefile.vmu-native-toy-suite", "TOY_SUITE_MODE=66",
-                            "TOY_WIRE_STREAM=1", f"TOY_WIRE_TICK={TICK}", f"BUILD={tmp}/build",
+                            "TOY_WIRE_STREAM=1", *SWITCHES, f"BUILD={tmp}/build",
                             "toy-wire-integration-host-test"], tree, 900)
             (tree / path).write_text(original)
             print(("caught  " if code else "MISSED  ") + name, flush=True)

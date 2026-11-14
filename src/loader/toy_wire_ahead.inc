@@ -37,7 +37,7 @@ struct toy_wire_keep {
     const uint8_t *block;
     const uint16_t *block_lost;
     uint16_t lost[KUI_MODE1_ERASURE_MAX+2u];
-#if KUI_TOY_WIRE_TICK
+#if KUI_TOY_WIRE_MEASURE
     uint32_t restarting, restart_start; /* a stream was given up at this clock value */
     uint32_t wait_token, wait_start;    /* a request waits for the window since then */
 #endif
@@ -101,7 +101,7 @@ static void toy_wire_halt(kui_retail_async_region_type *r,unsigned why) {
     ++k->report.stops[why];
 }
 
-#if KUI_TOY_WIRE_TICK
+#if KUI_TOY_WIRE_MEASURE
 /* The reader's own time in this visit, by who called. */
 static void toy_wire_visit_time(struct toy_wire_keep *k,unsigned who,struct ra_clock entered) {
     if(!entered.valid)return;
@@ -138,7 +138,7 @@ static void toy_wire_wait_end(uint32_t token) {
  * verified. */
 static void toy_wire_rewind(kui_retail_async_region_type *r,unsigned why) {
     struct toy_wire_keep *k=toy_wire_keep();
-#if KUI_TOY_WIRE_TICK
+#if KUI_TOY_WIRE_MEASURE
     if(k->on && !k->restarting) {
         const struct ra_clock now=clock_read();
         k->restarting=now.valid;
@@ -225,7 +225,7 @@ static bool toy_wire_take_over(kui_retail_async_region_type *r) {
     stream->state=RA_DMA;
     k->on=1u;
     k->report.timer_mode=w->mode;
-#if KUI_TOY_WIRE_TICK
+#if KUI_TOY_WIRE_MEASURE
     if(k->restarting) {
         const struct ra_clock now=clock_read();
         k->restarting=0u;
@@ -379,6 +379,16 @@ static void toy_wire_tick_visit(kui_retail_async_region_type *r) {
     }
     toy_wire_visit_time(k,KUI_TOY_WIRE_VISIT_TIMER,entered);
 }
+#elif KUI_TOY_WIRE_MEASURE
+/* The stream's timer as Test 68 answers it: a wait is over. Nothing but
+ * the stream's own registers; the visit is counted. */
+static void toy_wire_timer_visit(void) {
+    struct toy_wire_keep *k=toy_wire_keep();
+    if(!k->on)return;
+    const struct ra_clock entered=clock_read();
+    kui_wire_timer(toy_wire_stream());
+    toy_wire_visit_time(k,KUI_TOY_WIRE_VISIT_TIMER,entered);
+}
 #endif
 
 static void toy_ahead_pump(kui_retail_async_region_type *r,bool demand) {
@@ -388,11 +398,11 @@ static void toy_ahead_pump(kui_retail_async_region_type *r,bool demand) {
     const bool interrupt=r->engine.in_irq==1u;
     uint32_t *trace=C.diagnostics.stage_result[KUI_NATIVE_RA_STAGE_NONE];
     ++trace[r->engine.in_irq?5u:4u];
-#if KUI_TOY_WIRE_TICK
+#if KUI_TOY_WIRE_MEASURE
     const struct ra_clock entered=clock_read();
 #endif
     if(k->on) {
-#if !KUI_TOY_WIRE_TICK
+#if !KUI_TOY_WIRE_MEASURE
         const struct ra_clock entered=clock_read();
 #endif
         struct kui_wire_stream *w=toy_wire_stream();
@@ -409,6 +419,9 @@ static void toy_ahead_pump(kui_retail_async_region_type *r,bool demand) {
          * the interrupt visit may then work as long as a foreground one. */
 #if KUI_TOY_WIRE_TICK
         toy_wire_read(r,interrupt && !waiting?TOY_WIRE_TICKS_INTERRUPT:TOY_WIRE_TICKS_FOREGROUND);
+#elif KUI_TOY_WIRE_MEASURE
+        if(toy_wire_drain(r,interrupt && !waiting?TOY_WIRE_TICKS_INTERRUPT:TOY_WIRE_TICKS_FOREGROUND) &&
+           k->on)++k->report.budget_ends;
 #else
         (void)toy_wire_drain(r,interrupt && !waiting?TOY_WIRE_TICKS_INTERRUPT:TOY_WIRE_TICKS_FOREGROUND);
         if(interrupt && entered.valid) {
@@ -423,7 +436,7 @@ static void toy_ahead_pump(kui_retail_async_region_type *r,bool demand) {
     C.stats.producer_blocks+=A.verified-verified;
     A.receiving=k->on || C.config.ops->busy() || stream->state>RA_PAUSED;
     if(!A.receiving)A.receive_token=0u;
-#if KUI_TOY_WIRE_TICK
+#if KUI_TOY_WIRE_MEASURE
     toy_wire_visit_time(k,r->engine.in_irq?KUI_TOY_WIRE_VISIT_SCI:KUI_TOY_WIRE_VISIT_GAME,entered);
 #endif
 }

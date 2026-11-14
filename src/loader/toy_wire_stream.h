@@ -95,7 +95,7 @@ struct kui_wire_stream {
     struct kui_wire_counters *n; /* kept by the caller across starts */
     uint32_t floor;        /* oldest position the reader may still read */
     uint32_t wait_ticks;   /* the running wait's length */
-#if KUI_TOY_WIRE_TICK
+#if KUI_TOY_WIRE_MEASURE
     uint32_t gap_begin;    /* where the space ahead of the next block began */
     uint32_t handed;       /* blocks this stream has handed on */
     uint32_t last_kind;    /* of the last one: 1 clean, 2 rebuilt, 3 with lost bytes */

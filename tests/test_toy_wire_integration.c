@@ -290,7 +290,7 @@ static void read_request(uint32_t lba, uint32_t count, unsigned poll_every) {
 static void idle(unsigned moments) {
     for(unsigned n = 0u; n < moments; ++n) if(!hardware()) break;
 }
-#if KUI_TOY_WIRE_TICK
+#if KUI_TOY_WIRE_MEASURE
 /* The report's account of the reader's visits agrees with the console's side. */
 static void visits_accounted(void) {
     const struct kui_toy_wire_report *w = report();
@@ -301,8 +301,9 @@ static void visits_accounted(void) {
         CHECK(w->visit_max[i] <= w->visit_ticks[i]);
         CHECK(!w->visit_calls[i] == !w->visit_ticks[i]);
     }
-    /* A timer call was asked for only by a visit that ran out of time. */
-    CHECK(w->n.ticks <= w->budget_ends);
+    /* A timer call was asked for only by a visit that ran out of time, and
+     * only Test 69 asks. */
+    CHECK(w->n.ticks <= w->budget_ends && (KUI_TOY_WIRE_TICK || !w->n.ticks));
     for(unsigned i = 0; i < 2u; ++i) CHECK(w->wait_max[i] <= w->wait_ticks[i] && !w->wait_calls[i] == !w->wait_ticks[i]);
     CHECK(!w->wait_calls[0]);
     const uint32_t restarts = w->stops[KUI_TOY_WIRE_STOP_SECTOR] + w->stops[KUI_TOY_WIRE_STOP_FRAME] +
@@ -377,14 +378,14 @@ static void steady(unsigned extent_blocks, bool scattered, uint32_t mean, unsign
  * sixteen. Test 68 left the rest in the ring until the game's next call,
  * the stream stood still for room, and the window ran dry. Test 69 goes on
  * reading from the stream's timer. */
-static void playing(uint32_t mean, unsigned dense) {
+static unsigned playing(uint32_t mean, unsigned dense, uint32_t pace) {
     /* A moment is 1.3 ms: the wire brings 2048 bytes, and one timer call
      * with its visit fits. A frame is 25 moments, in which the wire could
      * bring 51 KB where the movie needs under 31. */
     enum { WIRE_PACE = 2048u, FRAME_MOMENTS = 25u };
     open_movie(2000u, false, true);
     stall_mean = mean; stall_dense = dense;
-    reader_pace(70u);
+    reader_pace(pace);
     /* A run lands when its time has passed, not when a visit looks. */
     m.delay = 100000u;
     run_owed = 0u;
@@ -430,16 +431,23 @@ static void playing(uint32_t mean, unsigned dense) {
         (unsigned)w->budget_ends, (unsigned)w->n.ticks, timers, eris, (unsigned)w->n.fulls, (unsigned)w->n.starts,
         (unsigned)w->wait_calls[1], (unsigned)w->wait_ticks[1], (unsigned)w->wait_max[1]);
 #else
+#if KUI_TOY_WIRE_MEASURE
+    /* Without the timer's help the report still says what happened: visits
+     * that ran out of time, and requests that had to wait. */
+    if(!mean && pace >= 70u) CHECK(w->budget_ends && !w->n.ticks && w->wait_calls[1] >= requests / 2u);
+    CHECK(w->wait_calls[1] >= requests - warm);
+#endif
     /* The stall the console showed. On a quiet bus nearly all the data
      * comes in full runs, an interrupt visit reads a third of each, and
      * the stream stands still for room until the game's next call: no
      * frame finds its data ready. */
-    if(!mean) CHECK(ready * 2u < requests && w->n.fulls >= requests);
-    printf("  playing, stall every ~%u bytes, %u%% busy phases, without the timer's help: data ready for %u of %u "
-           "frames when asked; fulls %u, SCI visits %lu, timer visits %lu\n", (unsigned)mean, dense, ready, requests,
-        (unsigned)w->n.fulls, eris, timers);
+    if(!mean && pace >= 70u) CHECK(ready * 2u < requests && w->n.fulls >= requests);
+    printf("  playing, stall every ~%u bytes, %u%% busy phases, %u ticks a block, without the timer's help: data "
+           "ready for %u of %u frames when asked; fulls %u, SCI visits %lu, timer visits %lu\n", (unsigned)mean, dense,
+        (unsigned)pace, ready, requests, (unsigned)w->n.fulls, eris, timers);
 #endif
     (void)warm;
+    return ready;
 }
 
 /* A whole block arrives damaged without a lost byte: its CRC16 stops the
@@ -456,7 +464,7 @@ static void damaged_block(void) {
     const struct kui_toy_wire_report *w = report();
     CHECK(!card.corrupt_count && w->n.bad_crc == 1u && w->stops[KUI_TOY_WIRE_STOP_FRAME] == 1u);
     CHECK(card.cmd12 == 1u && card.cmd18 == 2u && w->n.starts == 2u && !w->check_bad);
-#if KUI_TOY_WIRE_TICK
+#if KUI_TOY_WIRE_MEASURE
     /* From the stream given up to its successor receiving. */
     CHECK(w->restart_ticks && w->restart_max == w->restart_ticks);
 #endif
@@ -561,7 +569,7 @@ int main(void) {
     }
     /* Test 66's own chunk classification is untouched by the switch. */
     movie_chunk_classification();
-    printf("Test %u reader, real low reader + auxiliary + stream on the card model:\n", KUI_TOY_WIRE_TICK ? 69u : 68u);
+    printf("Test %u reader, real low reader + auxiliary + stream on the card model:\n", KUI_TOY_WIRE_TICK ? 69u : KUI_TOY_WIRE_CACHED ? 70u : 68u);
     steady(2000u, false, 0u, 0u, 3u);
     steady(2000u, false, 0u, 0u, 0u);
     steady(2000u, false, 6000u, 0u, 3u);
@@ -577,14 +585,24 @@ int main(void) {
     steady(2000u, false, 150u, 80u, 4u);
     steady(28u, true, 6000u, 5u, 2u);
     reader_pace(0u);
-    playing(0u, 0u);
-    playing(6000u, 0u);
-    playing(1500u, 20u);
+    const unsigned at_cost = playing(0u, 0u, 70u);
+    (void)playing(6000u, 0u, 70u);
+    (void)playing(1500u, 20u, 70u);
+#if !KUI_TOY_WIRE_TICK
+    /* What a cheaper reader does to the same run, with nothing else
+     * changed: at half the cost an interrupt visit reads eleven of a full
+     * run's sixteen blocks instead of six, at a third all of them. This is
+     * the model's arithmetic, not a measurement of any build. */
+    const unsigned at_half = playing(0u, 0u, 35u), at_third = playing(0u, 0u, 23u);
+    CHECK(at_half >= at_cost && at_third >= at_half && at_third >= 19u);
+#else
+    (void)at_cost;
+#endif
     damaged_block();
     no_parity();
     other_read();
     ended_in_interrupt();
     degraded();
-    printf("PASS Test %u reader integration: %u checks\n", KUI_TOY_WIRE_TICK ? 69u : 68u, checks);
+    printf("PASS Test %u reader integration: %u checks\n", KUI_TOY_WIRE_TICK ? 69u : KUI_TOY_WIRE_CACHED ? 70u : 68u, checks);
     return 0;
 }

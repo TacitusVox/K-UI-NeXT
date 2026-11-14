@@ -1400,6 +1400,8 @@ uint32_t kui_native_readahead_aux_dispatch(uint32_t event,uint32_t arg,
     if(event==KUI_NATIVE_RA_WIRE_TIMER) {
 #if KUI_TOY_WIRE_TICK
         if(!arg)toy_wire_tick_visit(r);
+#elif KUI_TOY_WIRE_MEASURE
+        if(!arg)toy_wire_timer_visit();
 #else
         /* Nothing but the stream's own registers: no request state is read
          * and no low reader entry is called from this timer interrupt. */

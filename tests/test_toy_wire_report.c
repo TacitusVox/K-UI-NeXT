@@ -45,16 +45,22 @@ static struct kui_toy_wire_report wire;
 static const struct kui_toy_wire_report *toy_wire_report_block(void) { return &wire; }
 #include "toy_suite_report_save.inc"
 
+#if KUI_TOY_WIRE_MEASURE
 #if KUI_TOY_WIRE_TICK
 #define TEST_NUMBER "69"
-/* Test 69's rows, most telling first. All but the last three are what the
+#define P_ROW "P TICK BUDGET RT RMAX"
+#else
+#define TEST_NUMBER "70"
+#define P_ROW "P CCR MMU BUDGET RT RMAX"
+#endif
+/* Test 69's and Test 70's rows, most telling first. All but the last three are what the
  * test is read by. */
 static const char *const labels[] = {
     "PIPE B I CALLS IRQ", "AHEAD B I HIT EDC STOP",
     "I SUBMIT CADENCE MAX AT", "I FIRST LAST SKIP EXIT WF SF",
     "B SUBMIT CADENCE MAX AT", "B FIRST LAST SKIP EXIT WF SF",
     "V SCI TMR GAME N TICKS", "V MAX SCI TMR GAME", "Q B N T MAX I N T MAX",
-    "P TICK BUDGET RT RMAX",
+    P_ROW,
     "W START SEG CUT WAIT FULL", "W BYTES WTICK TMR ERR DET", "W BLK FIX UNFIX HOLED NOCRC SEEK",
     "W GAPI GAPT BADCRC FRAME AMBIG", "W FILL BYTES MOST REF BAD DECL",
     "W STOP C J S F X", "W DROP E N I C W O", "F BIT03 BIT47 KIND",
@@ -144,7 +150,10 @@ int main(int argc, char **argv) {
     wire.seek_blocks = 0x2f; wire.filled = 0x1500; wire.filled_bytes = 0x6a00; wire.most_lost = 0x1d;
     wire.refused = 4; wire.check_bad = 2; wire.parity = 1; wire.timer_mode = 1;
     wire.first_error = 0x11; wire.first_detail = 0x00a45005; wire.declined = 0;
-#if KUI_TOY_WIRE_TICK
+#if KUI_TOY_WIRE_MEASURE
+#if KUI_TOY_WIRE_CACHED
+    wire.ccr = 0x105; wire.mmucr = 0;
+#endif
     /* Both movies with the reader at Test 68's measured cost, most of its
      * interrupt time now behind the timer; the console's count of streams
      * that could not be followed, and two of them noted. */
@@ -185,7 +194,7 @@ int main(int argc, char **argv) {
     ra.wait[0] = (struct kui_toy_movie_wait_trace){0x69263, 0x10, 0xc, 0x235678, 0x1345, 0x1ce1};
     ra.wait[1] = (struct kui_toy_movie_wait_trace){0x6e450, 0x11, 0x3, 0x2e4567, UINT32_MAX, UINT32_MAX};
     body = format(&ra, &region, text, &rows);
-#if KUI_TOY_WIRE_TICK
+#if KUI_TOY_WIRE_MEASURE
     /* Everything fits at a full run's values. */
     assert(essential_rows == ESSENTIAL && rows == LABELS);
     /* And with the wider values a worse run would bring, the rows the
@@ -203,7 +212,11 @@ int main(int argc, char **argv) {
     assert(strstr(text, "V SCI TMR GAME N TICKS\nC67C D000 26265 3A0000 4E0000 5B0000\n"));
     assert(strstr(text, "V MAX SCI TMR GAME\n1023 1A0 7FF\n"));
     assert(strstr(text, "Q B N T MAX I N T MAX\n3 2EE0 1770 4A 1E8480 EA60\n"));
+#if KUI_TOY_WIRE_CACHED
+    assert(strstr(text, "P CCR MMU BUDGET RT RMAX\n105 0 A000 1D0000 C350\n"));
+#else
     assert(strstr(text, "P TICK BUDGET RT RMAX\n9C40 A000 1D0000 C350\n"));
+#endif
     assert(strstr(text, "W START SEG CUT WAIT FULL\n1F 2800 83D7 6622 300\n"));
     assert(strstr(text, "W BYTES WTICK TMR ERR DET\n4F0C2D5 1B3A6C0 1 11 A45005\n"));
     assert(strstr(text, "W BLK FIX UNFIX HOLED NOCRC SEEK\n24C00 6100 5 1C00 90 2F\n"));

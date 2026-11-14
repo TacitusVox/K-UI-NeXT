@@ -58,8 +58,8 @@ static void toy_report_wire(char **at,const char *end,const struct kui_native_ra
     const struct kui_toy_wire_report *w=toy_wire_report_block();
     if(w->magic!=KUI_TOY_WIRE_REPORT_MAGIC)w=&none;
     const uint32_t *ahead=ra->diagnostics.stage_result[KUI_NATIVE_RA_STAGE_NONE];
-#if KUI_TOY_WIRE_TICK
-    /* Test 69, most telling first: a row that no longer fits is left out
+#if KUI_TOY_WIRE_MEASURE
+    /* Tests 69 and 70, most telling first: a row that no longer fits is left out
      * whole. What the game showed; where the reader's time went and how
      * long requests waited; the stream; then what stopped it. */
     toy_report_short(at,end,"PIPE B I CALLS IRQ",
@@ -86,8 +86,13 @@ static void toy_report_wire(char **at,const char *end,const struct kui_native_ra
     toy_report_short(at,end,"Q B N T MAX I N T MAX",
         (uint32_t[]){w->wait_calls[0],w->wait_ticks[0],w->wait_max[0],
             w->wait_calls[1],w->wait_ticks[1],w->wait_max[1]},6u);
+#if KUI_TOY_WIRE_CACHED
+    toy_report_short(at,end,"P CCR MMU BUDGET RT RMAX",
+        (uint32_t[]){w->ccr,w->mmucr,w->budget_ends,w->restart_ticks,w->restart_max},5u);
+#else
     toy_report_short(at,end,"P TICK BUDGET RT RMAX",
         (uint32_t[]){w->n.ticks,w->budget_ends,w->restart_ticks,w->restart_max},4u);
+#endif
     toy_report_short(at,end,"W START SEG CUT WAIT FULL",
         (uint32_t[]){w->n.starts,w->n.segments,w->n.cuts,w->n.waits,w->n.fulls},5u);
     toy_report_short(at,end,"W BYTES WTICK TMR ERR DET",
@@ -214,7 +219,7 @@ static void toy_report_format(char *text,const struct kui_native_ra_public *ra,
     toy_report_string(&at,"K-UI TOY COMMANDER REPORT\nTEST ");
 #if KUI_TOY_WIRE_STREAM
     /* Card Tools starts this reader from its Test 66 entry. */
-    test=KUI_TOY_WIRE_TICK?69u:68u;
+    test=KUI_TOY_WIRE_TICK?69u:KUI_TOY_WIRE_CACHED?70u:68u;
 #endif
     if(test>=10u)*at++=(char)('0'+test/10u);
     *at++=(char)('0'+test%10u);

@@ -16,6 +16,13 @@
 #ifndef KUI_TOY_WIRE_TICK
 #define KUI_TOY_WIRE_TICK 0
 #endif
+/* Test 70: Test 68's reader, without Test 69's timer, with the auxiliary's
+ * private stack used through the cache (native_readahead_aux_entry.S). */
+#ifndef KUI_TOY_WIRE_CACHED
+#define KUI_TOY_WIRE_CACHED 0
+#endif
+/* Both keep the report's account of the reader's time. */
+#define KUI_TOY_WIRE_MEASURE (KUI_TOY_WIRE_TICK || KUI_TOY_WIRE_CACHED)
 enum {
     KUI_TOY_WIRE_STOP_CLOSE,   /* window closed or its range complete */
     KUI_TOY_WIRE_STOP_JUMP,    /* the file continues elsewhere on the card */
@@ -33,7 +40,7 @@ enum {
     KUI_TOY_WIRE_DROP_OTHER,   /* a read this window does not serve */
     KUI_TOY_WIRE_DROPS
 };
-#if KUI_TOY_WIRE_TICK
+#if KUI_TOY_WIRE_MEASURE
 enum {
     KUI_TOY_WIRE_VISIT_SCI,    /* the SCI's error interrupt: a run was cut or reached its end */
     KUI_TOY_WIRE_VISIT_TIMER,  /* the stream's timer: a wait is over, or reading goes on */
@@ -73,7 +80,7 @@ struct kui_wire_counters {
     uint32_t gap_idle;     /* lost bytes between blocks taken as idle bytes */
     uint32_t gap_token;    /* lost bytes between blocks taken as the token */
     uint32_t bad_crc, lost_frame, ambiguous; /* parse stops, by kind */
-#if KUI_TOY_WIRE_TICK
+#if KUI_TOY_WIRE_MEASURE
     uint32_t ticks;        /* timer calls asked for to go on reading */
     /* lost_frame by the byte's lowest zero bit, a count of at most 255 in
      * a byte each: bits 0..3 in the first word, 4..7 in the second. */
@@ -95,7 +102,7 @@ struct kui_toy_wire_report {
     uint32_t parity;              /* 1: a sector that arrived whole has consistent parity; 2: not */
     uint32_t first_error, first_detail, timer_mode;
     uint32_t declined;            /* takeovers refused: no interrupt route or no channel */
-#if KUI_TOY_WIRE_TICK
+#if KUI_TOY_WIRE_MEASURE
     /* The reader's own time, by who called: visits, their ticks, the longest. */
     uint32_t visit_calls[KUI_TOY_WIRE_VISITS], visit_ticks[KUI_TOY_WIRE_VISITS];
     uint32_t visit_max[KUI_TOY_WIRE_VISITS];
@@ -104,6 +111,12 @@ struct kui_toy_wire_report {
     /* Requests the window could not serve when first asked, per movie:
      * how many, their ticks until served, the longest. */
     uint32_t wait_calls[2], wait_ticks[2], wait_max[2];
+#if KUI_TOY_WIRE_CACHED
+    /* The game's cache and MMU control registers when a window opened: they
+     * decide how the private stack is reached and whether its writes are
+     * kept in the cache. */
+    uint32_t ccr, mmucr;
+#endif
 #else
     uint32_t handler_ticks, handler_calls, handler_max; /* SCI interrupt visits while streaming */
 #endif

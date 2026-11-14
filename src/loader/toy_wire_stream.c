@@ -589,7 +589,7 @@ static bool wire_gap_like(const struct kui_wire_stream *w, uint32_t at) {
     return value == IDLE_WIRE || value == TOKEN_WIRE;
 }
 
-#if KUI_TOY_WIRE_TICK
+#if KUI_TOY_WIRE_MEASURE
 /* Keep what lay around the byte at `at` that is neither idle nor a token. */
 static void wire_frame_note(struct kui_wire_stream *w, uint32_t at, uint32_t landed) {
     struct kui_wire_counters *n = w->n;
@@ -674,7 +674,7 @@ enum kui_wire_parse kui_wire_next(struct kui_wire_stream *w, struct kui_wire_blo
                 w->alternative = 0;
                 ++w->n->gap_token;
             } else {
-#if KUI_TOY_WIRE_TICK
+#if KUI_TOY_WIRE_MEASURE
                 wire_frame_note(w, at, landed);
 #endif
                 return wire_refuse(w, KUI_WIRE_LOST_FRAME);
@@ -720,7 +720,7 @@ enum kui_wire_parse kui_wire_next(struct kui_wire_stream *w, struct kui_wire_blo
         }
         if(w->alternative) ++w->n->gap_idle;
         ++w->n->blocks;
-#if KUI_TOY_WIRE_TICK
+#if KUI_TOY_WIRE_MEASURE
         ++w->handed;
         w->last_kind = rebuilt ? 2u : lost_data || lost_crc ? 3u : 1u;
         w->gap_begin = end;
