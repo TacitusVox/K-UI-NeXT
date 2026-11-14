@@ -1,0 +1,46 @@
+{
+  "schema": 1,
+  "test": 72,
+  "prepared": "2026-11-14 07:31 CST (America/Chicago)",
+  "source_commit": "8c00ede90b9afffb20fd132f934c0b2725a9b983",
+  "archive": {
+    "name": "KUI-Toy-Wire-Stream-Test-72-14NOV2026-0731-CST-8c00ede.zip",
+    "bytes": 1802084,
+    "sha256": "d9c828c9b8e1b44374b952c6c4305b6af02c635636dc8b265efb0d741954935a",
+    "entries": [
+      "KUI/apps/games/retail-toy-test-66.kui",
+      "KUI/tools.kui",
+      "README.txt",
+      "SHA256SUMS.txt"
+    ]
+  },
+  "files": [
+    {
+      "path": "KUI/apps/games/retail-toy-test-66.kui",
+      "status": "changed: Test 72 reader, replaces the Test 71 module 4ee37937a022 at the path Card Tools loads",
+      "bytes": 298916,
+      "sha256": "04c6b439ebb4ebb28f9f6b64de1cd00cb2ab148d3256411f74a5ef34cc5dfe9b",
+      "module": {
+        "format": 1,
+        "build": "8c00ede90b9a",
+        "payload_bytes": 298852,
+        "memory_bytes": 298852,
+        "crc32": "fc7bbf9f"
+      }
+    },
+    {
+      "path": "KUI/tools.kui",
+      "status": "unchanged, identical to the Test 66 package",
+      "bytes": 3131480,
+      "sha256": "04b8657aa6a1530b1bdbb002b481853eef656ef0f4da44cd910faab6eab3c800",
+      "module": {
+        "format": 1,
+        "build": "09c9a4b686d4",
+        "payload_bytes": 3131416,
+        "memory_bytes": 7428496,
+        "crc32": "8111e794"
+      }
+    }
+  ],
+  "readme_sha256": "65ca0b17eb3fa7ac9ec49509e3d0001d9dd844bcea65da89fd02d4fe836a0bc2"
+}

@@ -1,0 +1,12 @@
+envelope: OK build=8c00ede90b9a payload=298852 memory=298852 crc=fc7bbf9f
+payload CRC32: ok
+layout_codec: ok
+dual descriptor: 1 at 0x34080 lease=0x47000
+session descriptor: 0
+background_module_matches(ASYNC): ok
+toggle capability: 1 at 0x34060
+emulation Off: ok, mode slot at 0x20260 (GUI writes 7 at +16)
+native cache seed: blank slot at 0x325e0
+toy report seed: blank slot at 0x20280
+handoff staging limit 0x112000: ok
+RESULT: admitted by Card Tools' module checks, report seed bound

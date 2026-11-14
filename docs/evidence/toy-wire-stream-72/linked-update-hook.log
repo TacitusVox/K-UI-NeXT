@@ -1,0 +1,191 @@
+The update hook as linked in the auxiliary (build 8c00ede90b9a), and the checks of Tests 70 and 71 on the same ELF:
+
+PASS cached gate at 0x8c426974: with the MMU off the stack is used at 0x0c427fe0 and the guards read at 0x0c427000 and 0x0c427ff0; with it on at 0xac427fe0, 0xac427000 and 0xac427ff0 as before
+PASS word loop at 0x8c425240: 49 instructions for four bytes, no stack access, 1 ring word, 4 CRC table loads, 4 reversed bytes stored
+
+Symbols:
+8c426974 000000e0 T _kui_native_readahead_aux_visit
+8c423b88 000000ec T _kui_toy_movie_ahead_update
+8c4255c8 00000034 T _kui_wire_overdue
+8c4220a0 0000001c t _toy_wire_keep
+8c422278 00000020 t _toy_wire_room
+8c4220bc 0000001c t _toy_wire_stream
+
+kui_toy_movie_ahead_update with toy_wire_update_due inlined (sh-elf-objdump -d). It runs on the caller's stack
+without the gate: 20 bytes pushed, calls to four leaf functions (toy_wire_keep, toy_wire_room, toy_wire_stream,
+kui_wire_overdue), a read of SSR or of the timer's control register through kui_wire_overdue, a read of TCNT0,
+and a tail jump to the gate only when the call is passed on.
+
+8c423b88 <_kui_toy_movie_ahead_update>:
+8c423b88:	mov.l	r8,@-r15
+8c423b8a:	mov.l	r9,@-r15
+8c423b8c:	mov.l	r10,@-r15
+8c423b8e:	mov.l	r11,@-r15
+8c423b90:	mov.l	8c423c4c <_kui_toy_movie_ahead_update+0xc4>,r1	! ac4215bc
+8c423b92:	sts.l	pr,@-r15
+8c423b94:	mov.l	@(24,r1),r1
+8c423b96:	tst	r1,r1
+8c423b98:	bt.s	8c423c3a <_kui_toy_movie_ahead_update+0xb2>
+8c423b9a:	mov	r4,r11
+8c423b9c:	mov.l	8c423c50 <_kui_toy_movie_ahead_update+0xc8>,r1	! ac421760 <_toy_present>
+8c423b9e:	mov.l	@r1,r1
+8c423ba0:	cmp/eq	r4,r1
+8c423ba2:	bf	8c423c3a <_kui_toy_movie_ahead_update+0xb2>
+8c423ba4:	mov.l	8c423c54 <_kui_toy_movie_ahead_update+0xcc>,r0	! 8c4220a0 <_toy_wire_keep>
+8c423ba6:	mov.w	8c423c46 <_kui_toy_movie_ahead_update+0xbe>,r8	! 1fc
+8c423ba8:	mov.l	8c423c58 <_kui_toy_movie_ahead_update+0xd0>,r10	! ac421740
+8c423baa:	jsr	@r0
+8c423bac:	nop
+8c423bae:	add	r0,r8
+8c423bb0:	mov	r0,r9
+8c423bb2:	mov.l	@(16,r8),r1
+8c423bb4:	add	#1,r1
+8c423bb6:	mov.l	r1,@(16,r8)
+8c423bb8:	mov.b	@(4,r10),r0
+8c423bba:	tst	r0,r0
+8c423bbc:	bt	8c423c3a <_kui_toy_movie_ahead_update+0xb2>
+8c423bbe:	mov.l	8c423c5c <_kui_toy_movie_ahead_update+0xd4>,r0	! 8c422278 <_toy_wire_room>
+8c423bc0:	jsr	@r0
+8c423bc2:	nop
+8c423bc4:	tst	r0,r0
+8c423bc6:	bt.s	8c423c0e <_kui_toy_movie_ahead_update+0x86>
+8c423bc8:	mov.l	@(28,r8),r1
+8c423bca:	tst	r1,r1
+8c423bcc:	bf	8c423bec <_kui_toy_movie_ahead_update+0x64>
+8c423bce:	mov.l	@(20,r8),r1
+8c423bd0:	add	#1,r1
+8c423bd2:	mov.l	r1,@(20,r8)
+8c423bd4:	mov.l	8c423c60 <_kui_toy_movie_ahead_update+0xd8>,r1	! ac42153c
+8c423bd6:	mov	#0,r7
+8c423bd8:	mov.l	8c423c64 <_kui_toy_movie_ahead_update+0xdc>,r0	! 8c426974 <_kui_native_readahead_aux_visit>
+8c423bda:	mov	#13,r4
+8c423bdc:	mov.l	@(52,r1),r6
+8c423bde:	mov	r11,r5
+8c423be0:	lds.l	@r15+,pr
+8c423be2:	mov.l	@r15+,r11
+8c423be4:	mov.l	@r15+,r10
+8c423be6:	mov.l	@r15+,r9
+8c423be8:	jmp	@r0
+8c423bea:	mov.l	@r15+,r8
+8c423bec:	mov.l	8c423c68 <_kui_toy_movie_ahead_update+0xe0>,r0	! 8c4220bc <_toy_wire_stream>
+8c423bee:	jsr	@r0
+8c423bf0:	nop
+8c423bf2:	mov.l	@r0,r0
+8c423bf4:	cmp/eq	#3,r0
+8c423bf6:	bt	8c423bce <_kui_toy_movie_ahead_update+0x46>
+8c423bf8:	mov.l	8c423c68 <_kui_toy_movie_ahead_update+0xe0>,r0	! 8c4220bc <_toy_wire_stream>
+8c423bfa:	jsr	@r0
+8c423bfc:	nop
+8c423bfe:	mov	r0,r4
+8c423c00:	mov.l	8c423c6c <_kui_toy_movie_ahead_update+0xe4>,r0	! 8c4255c8 <_kui_wire_overdue>
+8c423c02:	jsr	@r0
+8c423c04:	nop
+8c423c06:	tst	r0,r0
+8c423c08:	bt	8c423c12 <_kui_toy_movie_ahead_update+0x8a>
+8c423c0a:	bra	8c423bd0 <_kui_toy_movie_ahead_update+0x48>
+8c423c0c:	mov.l	@(20,r8),r1
+8c423c0e:	tst	r1,r1
+8c423c10:	bf	8c423bf8 <_kui_toy_movie_ahead_update+0x70>
+8c423c12:	mov.l	8c423c70 <_kui_toy_movie_ahead_update+0xe8>,r1	! ffd8000c
+8c423c14:	mov.b	@(5,r10),r0
+8c423c16:	mov.l	@r1,r3
+8c423c18:	mov.w	8c423c48 <_kui_toy_movie_ahead_update+0xc0>,r1	! 27c
+8c423c1a:	tst	r0,r0
+8c423c1c:	bf.s	8c423c30 <_kui_toy_movie_ahead_update+0xa8>
+8c423c1e:	add	r9,r1
+8c423c20:	mov.l	@(20,r1),r2
+8c423c22:	tst	r2,r2
+8c423c24:	bt	8c423c30 <_kui_toy_movie_ahead_update+0xa8>
+8c423c26:	mov.l	@(16,r1),r2
+8c423c28:	mov.w	8c423c4a <_kui_toy_movie_ahead_update+0xc2>,r7	! c34
+8c423c2a:	sub	r3,r2
+8c423c2c:	cmp/hi	r7,r2
+8c423c2e:	bf	8c423c3a <_kui_toy_movie_ahead_update+0xb2>
+8c423c30:	mov.l	r3,@(16,r1)
+8c423c32:	mov.l	@(24,r8),r1
+8c423c34:	add	#1,r1
+8c423c36:	bra	8c423bd4 <_kui_toy_movie_ahead_update+0x4c>
+8c423c38:	mov.l	r1,@(24,r8)
+8c423c3a:	lds.l	@r15+,pr
+8c423c3c:	mov.l	@r15+,r11
+8c423c3e:	mov.l	@r15+,r10
+8c423c40:	mov.l	@r15+,r9
+8c423c42:	rts
+8c423c44:	mov.l	@r15+,r8
+8c423c46:	mov.b	@(r0,r15),r1
+8c423c48:	mov.b	@(r0,r7),r2
+8c423c4a:	mov.b	r3,@(r0,r12)
+8c423c4c:	mov.l	r11,@(48,r5)
+8c423c4e:	bra	8c4234d6 <_toy_movie_ahead+0x3de>
+8c423c50:	mov.l	r6,@(0,r7)
+8c423c52:	bra	8c4234da <_toy_movie_ahead+0x3e2>
+8c423c54:	mov.b	r10,@r0
+8c423c56:	.word 0x8c42
+8c423c58:	mov.l	r4,@(0,r7)
+8c423c5a:	bra	8c4234e2 <_toy_movie_ahead+0x3ea>
+8c423c5c:	tst	r7,r2
+8c423c5e:	.word 0x8c42
+8c423c60:	mov.l	r3,@(48,r5)
+8c423c62:	bra	8c4234ea <_toy_movie_ahead+0x3f2>
+8c423c64:	mov.b	@r7+,r9
+8c423c66:	.word 0x8c42
+8c423c68:	cmp/str	r11,r0
+8c423c6a:	.word 0x8c42
+8c423c6c:	mov.l	@(32,r12),r5
+8c423c6e:	.word 0x8c42
+8c423c70:	mov.b	@(r0,r0),r0
+8c423c72:	fmov	@r13,fr15
+
+8c4255c8 <_kui_wire_overdue>:
+8c4255c8:	mov.l	@r4,r0
+8c4255ca:	cmp/eq	#1,r0
+8c4255cc:	bf	8c4255dc <_kui_wire_overdue+0x14>
+8c4255ce:	mov.l	8c4255f8 <_kui_wire_overdue+0x30>,r1	! ffe00010
+8c4255d0:	mov.b	@r1,r0
+8c4255d2:	tst	#32,r0
+8c4255d4:	mov	#-1,r0
+8c4255d6:	negc	r0,r0
+8c4255d8:	rts
+8c4255da:	nop
+8c4255dc:	cmp/eq	#2,r0
+8c4255de:	bf.s	8c4255d8 <_kui_wire_overdue+0x10>
+8c4255e0:	mov	#0,r0
+8c4255e2:	mov.l	@(12,r4),r1
+8c4255e4:	tst	r1,r1
+8c4255e6:	bt.s	8c4255d8 <_kui_wire_overdue+0x10>
+8c4255e8:	mov	#1,r0
+8c4255ea:	add	#64,r4
+8c4255ec:	mov.l	@(28,r4),r0
+8c4255ee:	mov.w	@(8,r0),r0
+8c4255f0:	swap.b	r0,r0
+8c4255f2:	bra	8c4255d4 <_kui_wire_overdue+0xc>
+8c4255f4:	tst	#1,r0
+8c4255f6:	nop
+8c4255f8:	.word 0x0010
+8c4255fa:	fadd	fr14,fr15
+
+For comparison, the Test 71 hook (build 4ee37937a022, build/repro71): every call with a player is a visit.
+
+8c423b74 <_kui_toy_movie_ahead_update>:
+8c423b74:	mov.l	8c423b94 <_kui_toy_movie_ahead_update+0x20>,r1	! ac4215bc
+8c423b76:	mov.l	@(24,r1),r2
+8c423b78:	tst	r2,r2
+8c423b7a:	bt	8c423b90 <_kui_toy_movie_ahead_update+0x1c>
+8c423b7c:	mov.l	8c423b98 <_kui_toy_movie_ahead_update+0x24>,r2	! ac421760 <_toy_present>
+8c423b7e:	mov.l	@r2,r5
+8c423b80:	cmp/eq	r4,r5
+8c423b82:	bf.s	8c423b90 <_kui_toy_movie_ahead_update+0x1c>
+8c423b84:	add	#-128,r1
+8c423b86:	mov.l	8c423b9c <_kui_toy_movie_ahead_update+0x28>,r0	! 8c426aec <_kui_native_readahead_aux_visit>
+8c423b88:	mov.l	@(52,r1),r6
+8c423b8a:	mov	#0,r7
+8c423b8c:	jmp	@r0
+8c423b8e:	mov	#13,r4
+8c423b90:	rts
+8c423b92:	nop
+8c423b94:	mov.l	r11,@(48,r5)
+8c423b96:	bra	8c42341e <_toy_movie_ahead+0x33a>
+8c423b98:	mov.l	r6,@(0,r7)
+8c423b9a:	bra	8c423422 <_toy_movie_ahead+0x33e>
+8c423b9c:	extu.b	r14,r10
+8c423b9e:	.word 0x8c42

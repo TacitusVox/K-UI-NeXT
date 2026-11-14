@@ -195,6 +195,10 @@ What the run establishes:
    `kui_toy_movie_ahead_update`. At 52 microseconds each inside the reader,
    and the gate and dispatcher around it unmeasured, they take more than a
    tenth of the CPU and mostly find nothing to do. Test 72 acts on this.
+   Corrected by Test 72's console run: the visits that do not serve a
+   request are the game's GD calls as much as the update calls, and the
+   GD calls carry most of the time (`docs/toy-wire-stream-test-72.md`,
+   Console result, finding 2).
 5. A held byte stored twice is not the cause of the positions that are not
    lost bytes. All 201 unexpected bytes lie directly behind a block's end,
    but only two of those blocks have a byte stored from the receiver's
