@@ -73,7 +73,70 @@ static void toy_report_wire(char **at,const char *end,const struct kui_native_ra
     if(w->magic!=KUI_TOY_WIRE_REPORT_MAGIC)w=&none;
     const uint32_t *ahead=ra->diagnostics.stage_result[KUI_NATIVE_RA_STAGE_NONE];
 #if KUI_TOY_WIRE_MEASURE
-#if KUI_TOY_WIRE_IDLE
+#if KUI_TOY_WIRE_LEAN
+    /* Test 74, most telling first: a row that no longer fits is left out
+     * whole. What the game showed; what its player did; how the sectors
+     * were checked and which bit order the receiver gave; where the
+     * reader's time went; the second movie's course; the stream. */
+    toy_report_short(at,end,"PIPE B I CALLS IRQ",
+        (uint32_t[]){ahead[2],ahead[3],ahead[4],ahead[5]},4u);
+    toy_report_short(at,end,"AHEAD B I HIT EDC STOP",
+        (uint32_t[]){ahead[0],ahead[1],ra->stats.hit_requests,
+            ra->stats.producer_blocks,ra->stats.abandoned},5u);
+    const struct kui_toy_movie_present_trace *intro=&ra->present[1],*bumper=&ra->present[0];
+    const struct kui_toy_movie_onset_trace *onset=&ra->onset[1];
+    const struct kui_toy_movie_chunk_trace *chunk=&ra->movie_chunk[1];
+    toy_report_short(at,end,"I SUBMIT CADENCE MAX AT",
+        (uint32_t[]){intro->submitted,intro->on_time,intro->max_gap,intro->max_gap_frame},4u);
+    toy_report_short(at,end,"I FIRST LAST SKIP EXIT WF SF",
+        (uint32_t[]){intro->first_gap,intro->last_frame,ra->movie_exit[1].skipped_frames,
+            ra->movie_exit[1].status,onset->wait_frame,onset->skip_frame},6u);
+    toy_report_short(at,end,"B SUBMIT CADENCE MAX AT",
+        (uint32_t[]){bumper->submitted,bumper->on_time,bumper->max_gap,bumper->max_gap_frame},4u);
+    /* The player's update calls by what its own counters say they did. */
+    for(unsigned n=0;n<2u;n++) {
+        const struct kui_toy_wire_player *p=&w->player[1u-n];
+        toy_report_short(at,end,n?"BP ON OT OC OI SN ST":"IP ON OT OC OI SN ST",
+            (uint32_t[]){p->out,p->out_ticks,p->out_cycle,p->out_interrupt,p->skip,p->skip_ticks},6u);
+    }
+    toy_report_short(at,end,"IC RDY WGD NOGD",
+        (uint32_t[]){chunk->ready,chunk->wait_gd,chunk->wait_no_gd},3u);
+    /* Sectors taken on their blocks' CRC16 and sectors passed through the
+     * EDC; rebuilt bytes their P parity confirmed, and did not; sectors the
+     * EDC refused after the lighter check (must be 0); the bit order. */
+    toy_report_short(at,end,"K LIGHT EDC MEND MB LB ORD",
+        (uint32_t[]){w->light,w->edc,w->mends,w->mend_bad,w->light_bad,w->n.order},6u);
+    toy_report_short(at,end,"V SCI TMR GAME N TICKS",
+        (uint32_t[]){w->visit_calls[0],w->visit_calls[1],w->visit_calls[2],
+            w->visit_ticks[0],w->visit_ticks[1],w->visit_ticks[2]},6u);
+    toy_report_short(at,end,"U S W D G S W D",
+        (uint32_t[]){w->updates,w->update_work,w->update_due,w->idles,w->idle_work,w->idle_due},6u);
+    /* Delivery visits that took the whole path, and the game's EXEC and
+     * CHECK calls timed whole. */
+    toy_report_short(at,end,"D N T G N T",
+        (uint32_t[]){w->deliver_calls,w->deliver_ticks,w->gd_calls,w->gd_ticks},4u);
+    toy_report_course(at,end,"TF",w->course_frames,NULL,0u);
+    toy_report_course(at,end,"TD",w->course_sectors,NULL,4u);
+    toy_report_course(at,end,"TW",NULL,w->course_wait,14u);
+    toy_report_short(at,end,"W START SEG CUT WAIT FULL",
+        (uint32_t[]){w->n.starts,w->n.segments,w->n.cuts,w->n.waits,w->n.fulls},5u);
+    toy_report_short(at,end,"W BYTES WTICK TMR ERR DET",
+        (uint32_t[]){w->n.bytes,w->n.wait_ticks,w->timer_mode,w->first_error,w->first_detail},5u);
+    toy_report_short(at,end,"W BLK FIX UNFIX HOLED NOCRC SEEK",
+        (uint32_t[]){w->n.blocks,w->n.rebuilt,w->n.unsolved,w->n.holed,w->n.unchecked,
+            w->seek_blocks},6u);
+    /* Runs cut again within 8, 32, 128 bytes: begun at once behind a cut,
+     * and begun after a wait. */
+    toy_report_short(at,end,"R C8 32 128 W8 32 128",
+        (uint32_t[]){w->n.again[0][0],w->n.again[0][1],w->n.again[0][2],
+            w->n.again[1][0],w->n.again[1][1],w->n.again[1][2]},6u);
+    toy_report_short(at,end,"W FILL BYTES MOST REF BAD",
+        (uint32_t[]){w->filled,w->filled_bytes,w->most_lost,w->refused,w->check_bad},5u);
+    toy_report_course(at,end,"TI",NULL,w->course_interrupt,14u);
+    toy_report_course(at,end,"TG",NULL,w->course_game,14u);
+    (void)sd;
+}
+#elif KUI_TOY_WIRE_IDLE
     /* Test 73, most telling first: a row that no longer fits is left out
      * whole. What the game showed; what its player did and had; where the
      * reader's time went; the second movie's course; the stream. */
@@ -314,7 +377,7 @@ static void toy_report_format(char *text,const struct kui_native_ra_public *ra,
     toy_report_string(&at,"K-UI TOY COMMANDER REPORT\nTEST ");
 #if KUI_TOY_WIRE_STREAM
     /* Card Tools starts this reader from its Test 66 entry. */
-    test=KUI_TOY_WIRE_TICK?69u:KUI_TOY_WIRE_IDLE?73u:KUI_TOY_WIRE_PACE?72u:KUI_TOY_WIRE_WORDS?71u:KUI_TOY_WIRE_CACHED?70u:68u;
+    test=KUI_TOY_WIRE_TICK?69u:KUI_TOY_WIRE_LEAN?74u:KUI_TOY_WIRE_IDLE?73u:KUI_TOY_WIRE_PACE?72u:KUI_TOY_WIRE_WORDS?71u:KUI_TOY_WIRE_CACHED?70u:68u;
 #endif
     if(test>=10u)*at++=(char)('0'+test/10u);
     *at++=(char)('0'+test%10u);

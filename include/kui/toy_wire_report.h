@@ -50,6 +50,17 @@
 #if KUI_TOY_WIRE_IDLE && !KUI_TOY_WIRE_PACE
 #error "Test 73 builds on Test 72"
 #endif
+/* Test 74: Test 73 with the reader's own work cut down. The measurements of
+ * Test 73 put the reader at about a third of the CPU in the second movie's
+ * dense part, nearly all of it work on every byte. Its changes come each
+ * under a switch of its own. What they share is here: the report's layout,
+ * the game's calls timed whole, the runs cut again soon after they began. */
+#ifndef KUI_TOY_WIRE_LEAN
+#define KUI_TOY_WIRE_LEAN 0
+#endif
+#if KUI_TOY_WIRE_LEAN && !KUI_TOY_WIRE_IDLE
+#error "Test 74 builds on Test 73"
+#endif
 /* The second movie in pieces of 2^22 ticks, 5.4 s: twelve cover it. */
 #define KUI_TOY_WIRE_BUCKETS 12u
 #define KUI_TOY_WIRE_BUCKET_SHIFT 22u
@@ -125,7 +136,25 @@ struct kui_wire_counters {
      * to the one before it, as a byte taken twice would be. */
     uint32_t frame_end, frame_held, frame_twice;
 #endif
+#if KUI_TOY_WIRE_LEAN
+    /* Runs that an overrun cut short again within 8, 32 and 128 bytes of
+     * their start: those begun at once behind a cut, then those begun after
+     * a timer wait. They say whether receiving on at once is worth it. */
+    uint32_t again[2][3];
+    /* The bit order the receiver delivers bytes in (enum kui_wire_order),
+     * and how many streams were given up without an answer. */
+    uint32_t order, undecided;
+#endif
 };
+#if KUI_TOY_WIRE_LEAN
+enum kui_wire_order {
+    KUI_WIRE_ORDER_TRY,    /* not known yet: the next stream asks for MSB first */
+    KUI_WIRE_ORDER_LSB,    /* asked for MSB first and the token came LSB first: not asked again */
+    KUI_WIRE_ORDER_SEEN,   /* the token came MSB first; no block has passed its CRC16 yet */
+    KUI_WIRE_ORDER_MSB,    /* MSB first, and a block has passed its CRC16 that way */
+    KUI_WIRE_ORDER_BACK    /* the token came MSB first but the first block check failed: LSB first again */
+};
+#endif
 struct kui_toy_wire_report {
     uint32_t magic;
     struct kui_wire_counters n;
@@ -191,6 +220,19 @@ struct kui_toy_wire_report {
      * showed. */
     uint32_t update_ticks, buffer_capacity;
     uint32_t course_free[KUI_TOY_WIRE_BUCKETS], course_lag[KUI_TOY_WIRE_BUCKETS];
+#endif
+#if KUI_TOY_WIRE_LEAN
+    /* Sectors accepted without their EDC because every block of theirs was
+     * checked; sectors passed through the EDC; lost bytes rebuilt from a
+     * CRC16 that their sector's P parity confirmed; such bytes it did not
+     * confirm (the EDC then decided); and sectors the lighter check passed
+     * that the EDC, taken as a sample, refused: this must stay zero, and one
+     * such sector switches the lighter check off. */
+    uint32_t light, edc, mends, mend_bad, light_bad;
+    /* The game's EXEC and CHECK calls while a movie request is the last
+     * one, each timed whole from the resident's entry visit to its exit
+     * visit: how many and their ticks. */
+    uint32_t gd_calls, gd_ticks;
 #endif
 #else
     uint32_t handler_ticks, handler_calls, handler_max; /* SCI interrupt visits while streaming */

@@ -34,11 +34,12 @@ CACHED = os.environ.get("TOY_WIRE_CACHED", "0" if TICK == "1" else "1")
 WORDS = os.environ.get("TOY_WIRE_WORDS", CACHED)
 PACE = os.environ.get("TOY_WIRE_PACE", WORDS)
 IDLE = os.environ.get("TOY_WIRE_IDLE", PACE)
+LEAN = os.environ.get("TOY_WIRE_LEAN", IDLE)
 AUX = "src/loader/native_readahead_aux.c"
 SWITCHES = [f"TOY_WIRE_TICK={TICK}", f"TOY_WIRE_CACHED={CACHED}", f"TOY_WIRE_WORDS={WORDS}", f"TOY_WIRE_PACE={PACE}",
-            f"TOY_WIRE_IDLE={IDLE}"]
+            f"TOY_WIRE_IDLE={IDLE}", f"TOY_WIRE_LEAN={LEAN}"]
 DEFINES = [f"-DKUI_TOY_WIRE_TICK={TICK}", f"-DKUI_TOY_WIRE_CACHED={CACHED}", f"-DKUI_TOY_WIRE_WORDS={WORDS}",
-           f"-DKUI_TOY_WIRE_PACE={PACE}", f"-DKUI_TOY_WIRE_IDLE={IDLE}"]
+           f"-DKUI_TOY_WIRE_PACE={PACE}", f"-DKUI_TOY_WIRE_IDLE={IDLE}", f"-DKUI_TOY_WIRE_LEAN={LEAN}"]
 MUTATIONS = [
  (STREAM, "resume one byte early", "    w->head = lost + 1u;\n", "    w->head = lost;\n"),
  (STREAM, "resume one byte late", "    w->head = lost + 1u;\n", "    w->head = lost + 2u;\n"),
@@ -165,6 +166,20 @@ IDLE_MUTATIONS = [
  (GLUE, "more in the buffer than it holds taken", "    if(!capacity || capacity>UINT32_C(0x400000) || used>capacity)return;", "    if(!capacity || capacity>UINT32_C(0x400000))return;"),
  (GLUE, "a pointer outside the game's memory followed", "    if(!toy_chunk_ram(stream,20u))return;\n    const uint32_t channel=toy_chunk_word(stream+4u);\n    if(!toy_chunk_ram(channel,72u))return;\n    const uint32_t avi=toy_chunk_word(channel+68u);\n    if(!toy_chunk_ram(avi,108u))return;\n    const uint32_t capacity=toy_chunk_word(avi+0x14u);\n    const uint32_t used=toy_chunk_word(avi+0x68u)-toy_chunk_word(avi+0x64u);\n    if(!capacity || capacity>UINT32_C(0x400000) || used>capacity)return;\n    w->buffer_capacity=capacity;", "    const uint32_t channel=toy_chunk_word(stream+4u);\n    if(!toy_chunk_ram(channel,72u))return;\n    const uint32_t avi=toy_chunk_word(channel+68u);\n    if(!toy_chunk_ram(avi,108u))return;\n    const uint32_t capacity=toy_chunk_word(avi+0x14u);\n    const uint32_t used=toy_chunk_word(avi+0x68u)-toy_chunk_word(avi+0x64u);\n    if(!capacity || capacity>UINT32_C(0x400000) || used>capacity)return;\n    w->buffer_capacity=capacity;"),
 ]
+# Test 74. What every build of it has: the game's calls timed whole, and the
+# runs cut again soon after they began.
+LEAN_MUTATIONS = [
+ (STREAM, "runs cut again not counted",
+  "        ++w->n->again[w->began - 1u][run < 8u ? 0u : run < 32u ? 1u : 2u];", "        (void)run;"),
+ (STREAM, "a run behind a wait counted as one behind a cut", "    w->began = 2u;\n", "    w->began = 1u;\n"),
+ (GLUE, "a call's time counted without its start", "    if(!enter && k->gd_open) {", "    if(!enter) {"),
+ (GLUE, "the game's calls not counted", "        ++k->report.gd_calls;\n", ""),
+ (AUX, "the game's calls not timed", "        toy_wire_gd_time(event==KUI_NATIVE_RA_DEMAND_GD_ENTER);\n", ""),
+]
+# What Test 74 no longer samples or times.
+LEAN_GONE = {"update time counted outside the second movie", "the buffer's free space not the most",
+             "the lag not the highest", "a buffer without capacity taken", "more in the buffer than it holds taken",
+             "a pointer outside the game's memory followed", "waiting requests not counted"}
 # Test 73 does not time restarts or place them in the course.
 RESTARTS = {"restart time not kept", "restarts missing from the course"}
 if WORDS == "1":
@@ -180,6 +195,12 @@ if PACE == "1":
     MUTATIONS += IDLE_MUTATIONS if IDLE == "1" else PACE_ONLY_MUTATIONS
 if IDLE == "1":
     MUTATIONS = [m for m in MUTATIONS if m[1] not in RESTARTS]
+if LEAN == "1":
+    MUTATIONS = [m for m in MUTATIONS if m[1] not in LEAN_GONE] + LEAN_MUTATIONS
+if os.environ.get("TOY_WIRE_ONLY"):
+    # A named part of the list, for running it in pieces: "from:to" of the list's positions.
+    low, high = (int(v) for v in os.environ["TOY_WIRE_ONLY"].split(":"))
+    MUTATIONS = MUTATIONS[low:high]
 
 
 def run(cmd, cwd, timeout):

@@ -143,7 +143,7 @@ static bool toy_ahead_begin(const struct kui_retail_async *e,unsigned variant) {
 #if KUI_TOY_WIRE_MEASURE
     k->restarting=k->wait_token=0u;
 #endif
-#if KUI_TOY_WIRE_CACHED && !defined(KUI_NATIVE_READAHEAD_AUX_HOST_TEST)
+#if KUI_TOY_WIRE_CACHED && !KUI_TOY_WIRE_LEAN && !defined(KUI_NATIVE_READAHEAD_AUX_HOST_TEST)
     k->report.ccr=read_hw(UINT32_C(0xff00001c),4u);
     k->report.mmucr=read_hw(UINT32_C(0xff000010),4u);
 #endif

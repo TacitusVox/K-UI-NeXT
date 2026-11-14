@@ -1050,6 +1050,12 @@ static void toy_chunk_onset(uint32_t ctx,unsigned movie,bool pending) {
     }
     const bool skip=!onset->skip_frame && toy_chunk_word(ctx+0x90u);
     const bool wait=pending && outputs && !onset->wait_frame;
+#if KUI_TOY_WIRE_STREAM && KUI_TOY_WIRE_LEAN
+    /* Test 74 keeps the two frames; the buffer snapshots and the trace of
+     * the read being waited for have made room for the reader's new code. */
+    if(skip)onset->skip_frame=frame;
+    if(wait)onset->wait_frame=frame;
+#else
     if(skip || wait) {
         uint32_t used,missing;
         (void)toy_chunk_buffer(ctx,&used,&missing);
@@ -1097,6 +1103,7 @@ static void toy_chunk_onset(uint32_t ctx,unsigned movie,bool pending) {
 #endif
 #endif
     }
+#endif
 }
 #endif
 
@@ -1340,6 +1347,13 @@ uint32_t kui_native_readahead_aux_dispatch(uint32_t event,uint32_t arg,
         uint32_t poll=event==KUI_NATIVE_RA_DEMAND_GD_ENTER?toy_poll_context(arg,reserved):0u;
 #if KUI_TOY_SUITE_MODE < 62
         (void)toy_demand_gd_trace(event,arg,r,poll);
+#endif
+#if KUI_TOY_WIRE_STREAM && KUI_TOY_WIRE_LEAN
+        /* Test 74: the resident brackets each of the game's EXEC and CHECK
+         * calls with these two visits while a movie request is the last
+         * one. The clock between them is the whole call: the resident's
+         * own work, the delivery visit and whatever that did. */
+        toy_wire_gd_time(event==KUI_NATIVE_RA_DEMAND_GD_ENTER);
 #endif
         /* The gateway can return 1 on a guard fault. Only 2 and 3 admit. */
         return poll==1u || poll==2u ? poll+1u : 0u;

@@ -57,6 +57,7 @@ static uint8_t data_byte(uint32_t b, unsigned i) {
     return (uint8_t)(x >> 8);
 }
 static uint32_t card_block, card_at; /* position inside [gap][FE][512][2] of card_block */
+static bool card_token;              /* the byte just clocked out was a block's token */
 static uint64_t clocked;
 /* Test 69's note: one block's last idle byte replaced by something else. */
 static uint32_t stray_block;
@@ -69,6 +70,7 @@ static uint8_t card_byte(void) {
     else if(card_at == gap) v = 0xfe;
     else if(card_at <= gap + 512u) v = data_byte(card_block, card_at - gap - 1u);
     else { uint8_t d[512]; for(unsigned i = 0; i < 512u; ++i) d[i] = data_byte(card_block, i); uint16_t c = crc16(d, 512u); v = card_at == gap + 513u ? (uint8_t)(c >> 8) : (uint8_t)c; }
+    card_token = card_at == gap;
     if(++card_at == gap + 515u) { card_at = 0; ++card_block; }
     ++clocked;
     return v;
@@ -84,8 +86,14 @@ static unsigned long overruns;
  * tests established the hardware does; the console's notes look like it. */
 static uint32_t twice_in;
 static bool twice_now;
+/* Test 74's question to the console, in three answers: the receiver ignores
+ * SCSCMR1.SDIR (0), delivers every byte MSB first while it is set (1), or
+ * delivers only the token that way and the rest as before (2), which no
+ * hardware is known to do and the stream must still not be fooled by. */
+static unsigned sdir_answer;
 static void shift_one(void) {
-    uint8_t wire = rev8(card_byte());
+    const uint8_t sent = card_byte();
+    uint8_t wire = (hw.scmr & 8u) && (sdir_answer == 1u || (sdir_answer == 2u && card_token)) ? sent : rev8(sent);
     bool stall = false;
     if(twice_in && !--twice_in) { stall = true; twice_now = true; }
     if(stall_every) { if(!until_stall--) { stall = true; if(dense_left) { --dense_left; until_stall = 1u + rnd() % (rnd() % 100u < 41u ? 15u : 63u); } else { until_stall = rnd() % 100u < stall_percent_dense ? (dense_left = 3u + rnd() % 30u, 1u + rnd() % 40u) : 64u + rnd() % (2u * stall_every); } } }
@@ -130,10 +138,17 @@ void kui_wire_test_write(uint32_t a, uint32_t v, unsigned width) {
         /* The receiver is only ever switched off once it has stopped by
          * itself, at an overrun: the card is then on a whole byte. */
         if(v != 0x50) assert(!receiving());
+        /* Command framing never runs with the bit order changed. */
+        if(v == 0x30) assert(!hw.scmr);
         hw.scr = (uint8_t)v; return;
     case 0xffe00010u: if((hw.ssr & 0x20) && !(v & 0x20)) stale = true; hw.ssr = (uint8_t)((hw.ssr & (v | ~0xf8u)) | (hw.ssr & 0x04u)); return;
-    case 0xffe00018u: hw.scmr = (uint8_t)v; return; case 0xffe0001cu: hw.sptr = (uint8_t)v; return;
-    case 0xffc00004u: if(!(hw.stbcr & 1u) && (v & 1u)) { hw.scr = 0; hw.smr = 0; hw.brr = 0xff; hw.scmr = 0; hw.ssr = 0x84; hw.rdr = 0; stale = false; } hw.stbcr = (uint8_t)v; return;
+    case 0xffe00018u:
+        /* Written only with the SCI stopped, and only zero or SDIR. */
+        assert(!hw.scr && !v);
+        hw.scmr = (uint8_t)v; return;
+    case 0xffe0001cu: hw.sptr = (uint8_t)v; return;
+    /* The module reset is not relied on to clear SDIR: it is zero already. */
+    case 0xffc00004u: if(!(hw.stbcr & 1u) && (v & 1u)) { assert(!hw.scmr); hw.scr = 0; hw.smr = 0; hw.brr = 0xff; hw.ssr = 0x84; hw.rdr = 0; stale = false; } hw.stbcr = (uint8_t)v; return;
     case 0xff800030u: hw.pdtr = (uint16_t)v; return;
     case 0xffa00010u: hw.sar = v; return; case 0xffa00014u: hw.dar = v; return; case 0xffa00018u: hw.count = v; return; case 0xffa0001cu: hw.chcr = v; return;
     case 0xffd00004u: hw.ipra = (uint16_t)v; return; case 0xffd80004u: hw.tstr = (uint8_t)v; return;
@@ -156,7 +171,7 @@ static bool timer_armed(void) { return w.mode && (hw.tstr & (1u << w.mode)) && (
 
 int main(int argc, char **argv) {
     unsigned long total = 0, restarts = 0, wrong = 0, rewinds[4] = {0};
-    printf("Test %u card stream on the wire model:\n", KUI_TOY_WIRE_TICK ? 69u : KUI_TOY_WIRE_IDLE ? 73u : KUI_TOY_WIRE_PACE ? 72u : KUI_TOY_WIRE_WORDS ? 71u : KUI_TOY_WIRE_CACHED ? 70u : 68u);
+    printf("Test %u card stream on the wire model:\n", KUI_TOY_WIRE_TICK ? 69u : KUI_TOY_WIRE_LEAN ? 74u : KUI_TOY_WIRE_IDLE ? 73u : KUI_TOY_WIRE_PACE ? 72u : KUI_TOY_WIRE_WORDS ? 71u : KUI_TOY_WIRE_CACHED ? 70u : 68u);
     for(unsigned run = 0; run < (argc > 1 ? (unsigned)atoi(argv[1]) : 12u); ++run) {
         seed = 77u + run * 1000u;
         memset(&hw, 0, sizeof hw); hw.dmaor = 0x8201u; hw.sar = 0x11; hw.dar = 0x22; hw.count = 0x33;
@@ -235,7 +250,7 @@ int main(int argc, char **argv) {
                     /* the caller's rewind: stop, the low reader seeks to the block still wanted */
                     ++rewinds[-(int)p];
                     assert(kui_wire_stop(&w));
-                    assert(hw.scr == 0x30 && hw.smr == 0x80 && (hw.pdtr & 0x80) && hw.sar == 0x11 && hw.dar == 0x22 && hw.count == 0x33 && !(hw.chcr & 1u));
+                    assert(hw.scr == 0x30 && hw.smr == 0x80 && !hw.scmr && (hw.pdtr & 0x80) && hw.sar == 0x11 && hw.dar == 0x22 && hw.count == 0x33 && !(hw.chcr & 1u));
                     card_block = expect; card_at = 0; ++restarts; dense_left = 0;
                     command_framing(); hw.sar = 0x11; hw.dar = 0x22; hw.count = 0x33;
                     memset(ring, 0xa5, sizeof ring);
@@ -264,6 +279,19 @@ int main(int argc, char **argv) {
             if(++idle > 5000u) { fprintf(stderr, "stuck: state %u head %u tail %u floor %u phase %u holes %u run %u\n", w.state, w.head, w.tail, w.floor, w.phase, w.hole_put - w.hole_get, run); return 1; }
         }
         assert(kui_wire_stop(&w));
+#if KUI_TOY_WIRE_LEAN
+        /* Runs cut again soon after they began: each was a cut short of a
+         * good run, which is what a wait answers; the rest of the waits
+         * answer a first run's cut, or one behind a full run or a stop for
+         * room. */
+        {
+            uint32_t again = 0;
+            for(unsigned i = 0; i < 2u; ++i) for(unsigned j = 0; j < 3u; ++j) again += n.again[i][j];
+            assert(again <= n.waits && n.waits - again <= n.segments + n.starts + n.fulls);
+            if(stall_every && stall_percent_dense) assert(n.again[0][0] + n.again[0][1] + n.again[0][2] && n.again[1][0] + n.again[1][1] + n.again[1][2]);
+            if(!stall_every) assert(!again);
+        }
+#endif
         /* Both spare timers are as the game left them. */
         assert(hw.tstr == timers_before && !(hw.tcr[1] & 0x20u) && !(hw.tcr[2] & 0x20u));
         /* Every overrun the model produced was accounted as a cut or a run's end
@@ -369,6 +397,6 @@ int main(int argc, char **argv) {
     printf("PASS Test %u card stream: %lu blocks checked against the card over %lu overruns; %lu streams restarted "
            "(clean block failing CRC16 %lu, too many lost bytes %lu); %lu uncheckable blocks handed on wrong, "
            "each with lost bytes behind a lost gap byte, left to the sector check\n",
-        KUI_TOY_WIRE_TICK ? 69u : KUI_TOY_WIRE_IDLE ? 73u : KUI_TOY_WIRE_PACE ? 72u : KUI_TOY_WIRE_WORDS ? 71u : KUI_TOY_WIRE_CACHED ? 70u : 68u, total, overruns, restarts, rewinds[2], rewinds[3], wrong);
+        KUI_TOY_WIRE_TICK ? 69u : KUI_TOY_WIRE_LEAN ? 74u : KUI_TOY_WIRE_IDLE ? 73u : KUI_TOY_WIRE_PACE ? 72u : KUI_TOY_WIRE_WORDS ? 71u : KUI_TOY_WIRE_CACHED ? 70u : 68u, total, overruns, restarts, rewinds[2], rewinds[3], wrong);
     return 0;
 }

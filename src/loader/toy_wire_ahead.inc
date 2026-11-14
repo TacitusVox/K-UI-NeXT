@@ -51,6 +51,9 @@ struct toy_wire_keep {
      * and the clock. */
     uint32_t seen_start, seen_out, seen_skip, seen_interrupt, seen_tick;
 #endif
+#if KUI_TOY_WIRE_LEAN
+    uint32_t gd_open, gd_entered;       /* one of the game's GD calls is under way since this clock value */
+#endif
 };
 #define TOY_WIRE_STATE_OFFSET (AHEAD_SLOTS*KUI_GAME_RAW_BYTES)
 #define TOY_WIRE_KEEP_OFFSET (KUI_RETAIL_IMAGE_MAX_SECTORS*KUI_GAME_RAW_BYTES)
@@ -132,7 +135,9 @@ static void toy_wire_visit_time(struct toy_wire_keep *k,unsigned who,struct ra_c
     const uint32_t spent=entered.counter-now.counter;
     ++k->report.visit_calls[who];
     k->report.visit_ticks[who]+=spent;
+#if !KUI_TOY_WIRE_LEAN
     if(spent>k->report.visit_max[who])k->report.visit_max[who]=spent;
+#endif
 #if KUI_TOY_WIRE_WORDS
     const int piece=toy_wire_course(now.counter);
     if(piece>=0)(who==KUI_TOY_WIRE_VISIT_GAME?k->report.course_game:k->report.course_interrupt)[piece]+=spent;
@@ -154,11 +159,14 @@ static void toy_wire_wait_end(uint32_t token) {
     k->wait_token=0u;
     const struct ra_clock now=clock_read();
     if(!now.valid || !A.variant)return;
-    const unsigned movie=(A.variant-1u)/2u;
     const uint32_t spent=k->wait_start-now.counter;
+#if !KUI_TOY_WIRE_LEAN
+    /* Test 74's report has the waits by piece of the course only. */
+    const unsigned movie=(A.variant-1u)/2u;
     ++k->report.wait_calls[movie];
     k->report.wait_ticks[movie]+=spent;
     if(spent>k->report.wait_max[movie])k->report.wait_max[movie]=spent;
+#endif
 #if KUI_TOY_WIRE_WORDS
     const int piece=toy_wire_course(now.counter);
     if(piece>=0)k->report.course_wait[piece]+=spent;
@@ -492,7 +500,9 @@ static bool toy_wire_idle_due(void) {return toy_wire_foreground_due(true);}
 enum { TOY_PLAYER_OUT=0xacu, TOY_PLAYER_SKIP=0x90u };
 #define TOY_PLAYER_LAG UINT32_C(0x8c1138c4)
 static uint32_t toy_chunk_word(uint32_t address);
+#if !KUI_TOY_WIRE_LEAN
 static bool toy_chunk_ram(uint32_t address,uint32_t bytes);
+#endif
 static void toy_wire_update_seen(uint32_t ctx,uint32_t entered) {
     struct toy_wire_keep *k=toy_wire_keep();
     struct kui_toy_wire_report *w=&k->report;
@@ -519,6 +529,7 @@ static void toy_wire_update_seen(uint32_t ctx,uint32_t entered) {
     k->seen_skip=skip;
     k->seen_interrupt=interrupt;
     k->seen_tick=now.counter;
+#if !KUI_TOY_WIRE_LEAN
     const int piece=toy_wire_course(now.counter);
     if(piece<0)return;
     w->update_ticks+=spent;
@@ -536,6 +547,7 @@ static void toy_wire_update_seen(uint32_t ctx,uint32_t entered) {
     if(!capacity || capacity>UINT32_C(0x400000) || used>capacity)return;
     w->buffer_capacity=capacity;
     if(capacity-used>w->course_free[piece])w->course_free[piece]=capacity-used;
+#endif
 }
 #else
 static bool toy_wire_update_due(void) {
@@ -557,6 +569,21 @@ static bool toy_wire_update_due(void) {
     return true;
 }
 #endif
+#endif
+
+#if KUI_TOY_WIRE_LEAN
+/* One of the game's GD calls begins or ends (the resident's two trace
+ * visits). A call's ticks are counted when both ends were seen. */
+static void toy_wire_gd_time(bool enter) {
+    struct toy_wire_keep *k=toy_wire_keep();
+    const uint32_t now=read_hw(UINT32_C(0xffd8000c),4u);
+    if(!enter && k->gd_open) {
+        ++k->report.gd_calls;
+        k->report.gd_ticks+=k->gd_entered-now;
+    }
+    k->gd_open=enter;
+    k->gd_entered=now;
+}
 #endif
 
 static void toy_ahead_pump(kui_retail_async_region_type *r,bool demand) {

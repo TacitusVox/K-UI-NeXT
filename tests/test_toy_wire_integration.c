@@ -90,6 +90,10 @@ uint32_t kui_wire_test_read(uint32_t address, unsigned width) {
     return kui_sci_stream_test_read(address, width);
 }
 void kui_wire_test_write(uint32_t address, uint32_t value, unsigned width) {
+    /* The bit order register: written only with the SCI stopped, and only
+     * with zero. */
+    if(address == SCMR) CHECK(!m.scr && !value);
+    if(address == STBCR && (value & 1u)) CHECK(!m.scmr);
     if(address == PDTR) {
         /* The stream moves the card's chip select itself, as the probe did. */
         m.cs_high = (value & 0x80u) != 0u;
@@ -138,11 +142,41 @@ static uint32_t stall_seed, stall_mean, stall_left;
 static unsigned stall_dense, burst_left;
 static unsigned long stalls;
 static uint32_t stall_random(void) { stall_seed = stall_seed * 1664525u + 1013904223u; return stall_seed >> 8; }
+/* One byte of one card block lost on purpose: data byte cut_index of block
+ * cut_lba, or with 512 the first byte of its CRC. The byte before it is
+ * held in the receiver and the byte itself overruns. */
+static uint32_t cut_lba;
+static unsigned cut_index;
+/* This many streams lose their second byte: the first is held in the
+ * receiver and the next overruns, ahead of the stream's first token. */
+static unsigned first_cuts;
+/* The first stream loses the byte behind its hundredth: one byte of its
+ * first block's data. */
+static bool early_cut;
 static bool stall(void) {
     static bool held;
     /* Only the stream's runs: the low reader's own block receptions keep
      * the shared model's own overrun injection. */
-    if(!stall_mean || m.dar < RING_PHYSICAL || m.dar > RING_PHYSICAL + RING_BYTES) return false;
+    if(m.dar < RING_PHYSICAL || m.dar > RING_PHYSICAL + RING_BYTES) return false;
+    if(first_cuts && m.dar == RING_PHYSICAL && m.tcr == KUI_WIRE_SEGMENT_MAX) {
+        if(!(m.ssr & RDRF)) return true;
+        --first_cuts;
+        m.late_take = true;
+        return true;
+    }
+    if(early_cut && m.dar == RING_PHYSICAL + 100u && m.tcr == KUI_WIRE_SEGMENT_MAX - 100u) {
+        if(!(m.ssr & RDRF)) return true;
+        early_cut = false;
+        m.late_take = true;
+        return true;
+    }
+    if(cut_lba && card.streaming && card.lba == cut_lba && card.frame >= card.gap + 2u) {
+        /* The byte just clocked out is this data index of the block. */
+        const unsigned at = card.frame - card.gap - 2u;
+        if(at + 1u == cut_index) return true;
+        if(at == cut_index) {cut_lba = 0u; return true;}
+    }
+    if(!stall_mean) return false;
     /* A stall that matters lasts past the next byte: the receiver holds
      * one byte and the following one overruns. */
     if(held) {held = false; return true;}
@@ -159,8 +193,9 @@ static bool stall(void) {
     } else stall_left = 64u + stall_random() % (2u * stall_mean);
     return true;
 }
-/* No programmed bus byte may be clocked while the stream owns the SCI. */
-static void bus_check(void) { CHECK(!stream_on()); }
+/* No programmed bus byte may be clocked while the stream owns the SCI, nor
+ * with the receiver's bit order changed. */
+static void bus_check(void) { CHECK(!stream_on() && !m.scmr); }
 
 /* ---- raw sectors with address, EDC and real P/Q parity ---- */
 static uint8_t ecc_f[256], ecc_b[256];
@@ -228,6 +263,8 @@ static void player_update_for(uint32_t ticks) {
 #endif
 }
 static void player_update(void) { player_update_for(0u); }
+/* What the model's receiver does with SCSCMR1.SDIR in the runs that follow. */
+static unsigned sdir_answer;
 static void open_movie(unsigned extent_blocks, bool scattered, bool with_parity) {
     setup_movie_card_extents(1u, extent_blocks, scattered);
     for(uint32_t lba = manifest.slots[2].track.start_lba; lba < manifest.slots[2].track.end_lba; ++lba)
@@ -242,6 +279,7 @@ static void open_movie(unsigned extent_blocks, bool scattered, bool with_parity)
         (uintptr_t)&kui_native_readahead_aux_context.movie_exit[1], KUI_TOY_MOVIE_EXIT_STARTED);
     /* The intro's quiet opening phase is over: the window may serve. */
     kui_native_readahead_aux_context.onset[1].quiet_ctx = UINT32_MAX;
+    m.sdir_answer = sdir_answer;
     memset(&wx, 0, sizeof(wx));
     for(unsigned i = 0; i < 64u; ++i) wx.slots[i] = UINT32_C(0x8c0be408);
     wx.tcnt0 = UINT32_C(0x60000000);
@@ -252,6 +290,7 @@ static void open_movie(unsigned extent_blocks, bool scattered, bool with_parity)
     m.bus_check = bus_check;
     m.delay = 0u;
     stall_mean = 0u; stall_dense = 0u; stall_left = 0u; burst_left = 0u; stall_seed = 4242u;
+    cut_lba = 0u; first_cuts = 0u; early_cut = false;
     eris = timers = polls = 0;
 #if KUI_TOY_WIRE_IDLE
     /* A megabyte of buffer, three quarters full. */
@@ -378,7 +417,8 @@ static void visits_accounted(void) {
         wait += w->course_wait[i]; interrupt += w->course_interrupt[i]; game += w->course_game[i];
         sectors += w->course_sectors[i]; stops += w->course_stops[i];
     }
-    CHECK(wait == w->wait_ticks[1] && game == w->visit_ticks[KUI_TOY_WIRE_VISIT_GAME]);
+    /* Test 74 keeps the waits by piece only. */
+    CHECK((KUI_TOY_WIRE_LEAN ? !w->wait_ticks[1] : wait == w->wait_ticks[1]) && game == w->visit_ticks[KUI_TOY_WIRE_VISIT_GAME]);
     CHECK(interrupt == w->visit_ticks[KUI_TOY_WIRE_VISIT_SCI] + w->visit_ticks[KUI_TOY_WIRE_VISIT_TIMER]);
     CHECK(sectors == trace[1] && stops == (KUI_TOY_WIRE_IDLE ? 0u : restarts));
 #endif
@@ -388,7 +428,7 @@ static void visits_accounted(void) {}
 #endif
 static void closed(void) {
     /* The SCI is the low reader's again, in its command framing. */
-    CHECK(!stream_on() && m.scr == 0x30u && m.smr == 0x80u && m.brr == 0u && m.cs_high);
+    CHECK(!stream_on() && m.scr == 0x30u && m.smr == 0x80u && m.brr == 0u && !m.scmr && m.cs_high);
     CHECK(!(m.chcr & 1u) && m.sar == 0x11111111u && m.dar == 0x22222222u && m.tcr == 0x33u);
     unsigned channel;
     CHECK(!timer_running(&channel) && !(wx.ipra & 0x0ff0u));
@@ -402,6 +442,18 @@ static void steady(unsigned extent_blocks, bool scattered, uint32_t mean, unsign
     uint32_t lba = FIRST;
     read_request(lba, REQUEST, poll_every);
     lba += REQUEST;
+    if(getenv("WIRE_VERBOSE") && kui_native_readahead_aux_context.stats.hit_requests != 1u)
+        fprintf(stderr, "first request: hits %u starts %u order %u undecided %u lost_frame %u bad_crc %u blocks %u drops %u %u %u %u %u %u stops %u %u %u %u %u declined %u first_error %u seek %u\n",
+            (unsigned)kui_native_readahead_aux_context.stats.hit_requests, (unsigned)w->n.starts,
+#if KUI_TOY_WIRE_LEAN
+            (unsigned)w->n.order, (unsigned)w->n.undecided,
+#else
+            0u, 0u,
+#endif
+            (unsigned)w->n.lost_frame, (unsigned)w->n.bad_crc, (unsigned)w->n.blocks,
+            (unsigned)w->drops[0], (unsigned)w->drops[1], (unsigned)w->drops[2], (unsigned)w->drops[3], (unsigned)w->drops[4], (unsigned)w->drops[5],
+            (unsigned)w->stops[0], (unsigned)w->stops[1], (unsigned)w->stops[2], (unsigned)w->stops[3], (unsigned)w->stops[4],
+            (unsigned)w->declined, (unsigned)w->first_error, (unsigned)w->seek_blocks);
     CHECK(w->n.starts >= 1u && kui_native_readahead_aux_context.stats.hit_requests == 1u);
     unsigned warm = 0;
     while(lba + REQUEST <= WINDOW_END) {
@@ -507,8 +559,11 @@ static unsigned playing(uint32_t mean, unsigned dense, uint32_t pace) {
 #if KUI_TOY_WIRE_MEASURE
     /* Without the timer's help the report still says what happened: visits
      * that ran out of time, and requests that had to wait. */
-    if(!mean && pace >= 70u) CHECK(w->budget_ends && !w->n.ticks && w->wait_calls[1] >= requests / 2u);
+    if(!mean && pace >= 70u) CHECK(w->budget_ends && !w->n.ticks);
+#if !KUI_TOY_WIRE_LEAN
+    if(!mean && pace >= 70u) CHECK(w->wait_calls[1] >= requests / 2u);
     CHECK(w->wait_calls[1] >= requests - warm);
+#endif
 #endif
     /* The stall the console showed. On a quiet bus nearly all the data
      * comes in full runs, an interrupt visit reads a third of each, and
@@ -700,6 +755,15 @@ static void polling(uint32_t mean, unsigned dense) {
      * interrupt's visit is not one of them. */
     CHECK(w->deliver_calls >= idle + requests && w->deliver_ticks);
     CHECK(w->deliver_calls <= polls + 4u * (requests + 1u));
+#if KUI_TOY_WIRE_LEAN
+    /* Each of the game's EXEC calls behind the first movie request is
+     * timed whole, from the resident's entry visit to its exit visit. */
+    CHECK(w->gd_calls >= idle && w->gd_calls <= polls + 4u * (requests + 1u) && w->gd_ticks >= w->gd_calls);
+    /* An exit visit with no entry visit before it is not a call. */
+    const uint32_t timed = w->gd_calls;
+    CHECK(kui_native_readahead_aux_visit(KUI_NATIVE_RA_DEMAND_GD_LEAVE, KUI_GD_EXEC, &R, 0u) == 0u);
+    CHECK(w->gd_calls == timed);
+#endif
     if(!dense) CHECK(ready + 2u * (w->n.starts - 1u) >= requests);
     if(!mean) CHECK(w->idle_work);
     printf("  the game's idle GD calls, stall every ~%u bytes, %u%% busy phases: %lu calls, %u pumped for work and %u as due; "
@@ -754,6 +818,13 @@ static void waiting(void) {
 
 /* What Test 73 records of the player itself, from its own counters and its
  * own memory as the hook finds them when an update call has returned. */
+/* The player's buffer and lag as Test 73 samples them; Test 74 has given
+ * that sampling up for room and must leave its fields alone. */
+#if KUI_TOY_WIRE_LEAN
+#define SAMPLED(x) CHECK(!w->update_ticks && !w->buffer_capacity && !w->course_free[0] && !w->course_lag[0])
+#else
+#define SAMPLED(x) CHECK(x)
+#endif
 static void player_measured(void) {
     open_movie(2000u, false, true);
     const struct kui_toy_wire_report *w = report();
@@ -769,8 +840,9 @@ static void player_measured(void) {
     /* A movie's first call only takes the counters as they stand. */
     player.out = 7u; player.skip = 2u;
     player_update_for(100u);
-    CHECK(!intro->out && !intro->skip && w->update_ticks == 100u + step);
-    CHECK(w->buffer_capacity == 0x100000u && w->course_free[0] == 0x40000u && w->course_lag[0] == 3u);
+    CHECK(!intro->out && !intro->skip);
+    SAMPLED(w->update_ticks == 100u + step);
+    SAMPLED(w->buffer_capacity == 0x100000u && w->course_free[0] == 0x40000u && w->course_lag[0] == 3u);
     /* A frame put out in an update of 20,000 ticks, after a request and
      * its interrupt visits: the update's own time, the time since the
      * update before returned, and the reader's interrupt time in between. */
@@ -799,15 +871,15 @@ static void player_measured(void) {
     /* From the call before: its own 700 ticks and the few looks at the
      * clock since. */
     CHECK(intro->out_cycle - cycle >= 700u && intro->out_cycle - cycle < 900u);
-    CHECK(w->update_ticks == 100u + 20000u + 300u + 50u + 700u + 5u * step);
+    SAMPLED(w->update_ticks == 100u + 20000u + 300u + 50u + 700u + 5u * step);
     /* The buffer's emptiest moment in the piece is kept, and the lag's
      * highest; a fuller buffer and a lower lag afterwards change nothing. */
     player.filled -= 0x80000u; player.lag = 9u;
     player_update_for(10u);
-    CHECK(w->course_free[0] == 0xc0000u && w->course_lag[0] == 9u);
+    SAMPLED(w->course_free[0] == 0xc0000u && w->course_lag[0] == 9u);
     player.filled += 0xa0000u; player.lag = 2u;
     player_update_for(10u);
-    CHECK(w->course_free[0] == 0xc0000u && w->course_lag[0] == 9u);
+    SAMPLED(w->course_free[0] == 0xc0000u && w->course_lag[0] == 9u);
     /* A buffer that cannot be one is left out: no capacity, more in it
      * than it holds, a pointer outside the game's memory. */
     const uint32_t ticks = w->update_ticks;
@@ -817,14 +889,14 @@ static void player_measured(void) {
     player_update_for(10u);
     player.filled = player.released; player.stream = UINT32_C(0x8c000004);
     player_update_for(10u);
-    CHECK(w->course_free[0] == 0xc0000u && w->buffer_capacity == 0x100000u);
-    CHECK(w->update_ticks == ticks + 3u * (10u + step));
+    SAMPLED(w->course_free[0] == 0xc0000u && w->buffer_capacity == 0x100000u);
+    SAMPLED(w->update_ticks == ticks + 3u * (10u + step));
     /* Later pieces of the course are their own. */
     player.stream = PLAYER_STREAM; player.filled = player.released + 0xf0000u; player.lag = 1u;
     clock_counter -= UINT32_C(3) << KUI_TOY_WIRE_BUCKET_SHIFT;
     player_update_for(10u);
-    CHECK(w->course_free[3] == 0x10000u && w->course_lag[3] == 1u && !w->course_free[1] && !w->course_lag[2]);
-    CHECK(w->course_free[0] == 0xc0000u && w->course_lag[0] == 9u);
+    SAMPLED(w->course_free[3] == 0x10000u && w->course_lag[3] == 1u && !w->course_free[1] && !w->course_lag[2]);
+    SAMPLED(w->course_free[0] == 0xc0000u && w->course_lag[0] == 9u);
     /* Nothing of the reader's own was disturbed: only the game's memory
      * was read. */
     CHECK(intro->out == 2u && intro->skip == 1u && !bumper->out && !bumper->skip);
@@ -847,12 +919,14 @@ static void player_measured(void) {
     player_update_for(40u);
     CHECK(bumper->out == 1u && bumper->out_ticks == 15000u + step && bumper->skip == 1u && bumper->skip_ticks == 40u + step);
     CHECK(intro->out == 2u && intro->skip == 1u && w->update_ticks == all);
-    for(unsigned i = 0; i < KUI_TOY_WIRE_BUCKETS; ++i) CHECK(w->course_free[i] <= 0xc0000u && w->course_lag[i] <= 9u);
+    for(unsigned i = 0; i < KUI_TOY_WIRE_BUCKETS; ++i) SAMPLED(w->course_free[i] <= 0xc0000u && w->course_lag[i] <= 9u);
+    (void)ticks;
     reader_pace(0u);
     m.delay = 0u;
     printf("  the player itself: frames put out and skipped with their update's time, the reader's interrupt time "
-           "around them, its buffer's emptiest and its lag's highest in each piece; each movie apart\n");
+           "around them%s; each movie apart\n", KUI_TOY_WIRE_LEAN ? "" : ", its buffer's emptiest and its lag's highest in each piece");
 }
+#undef SAMPLED
 #endif
 
 /* An overrun whose interrupt does not come (held off by the game, or its
@@ -890,6 +964,116 @@ static void overdue(void) {
     printf("  an overrun whose interrupt does not come: answered by the next update call\n");
 }
 #endif
+
+/* ---- what the sector's check must still refuse ----
+ * Test 74 takes a sector on its blocks' CRC16 where it can and keeps the EDC
+ * for the rest. Here the card sends blocks that are wrong in ways a real
+ * stream needs a miscount or a CRC16 collision for, each with exactly one
+ * byte lost on purpose so that the block arrives rebuilt or unchecked, and
+ * placed so that only the rule under test stands between the wrong byte and
+ * the game. In every build the game must get the image, after one sector
+ * was refused and read again. */
+static uint32_t raw_block(uint32_t lba, uint32_t at, unsigned *offset) {
+    const struct kui_retail_track *track = &manifest.slots[2].track;
+    const struct kui_retail_extent *extent = &manifest.slots[track->first_extent].extent;
+    const uint32_t byte = (lba - track->start_lba) * KUI_GAME_RAW_BYTES + at;
+    *offset = byte % 512u;
+    return extent->card_lba + byte / 512u;
+}
+/* The CRC16 remainder of one changed byte of a block. */
+static uint16_t crc_of_change(unsigned index, uint8_t change) {
+    uint8_t zero[512] = {0};
+    zero[index] = change;
+    return crc16(zero, sizeof(zero));
+}
+enum { WRONG_REBUILD, WRONG_AHEAD, WRONG_BEHIND, WRONG_UNCHECKED, WRONG_ADDRESS, WRONG_KINDS };
+static bool wrong_block(unsigned kind, unsigned shift) {
+    open_movie(2000u, false, true);
+    const struct kui_toy_wire_report *w = report();
+    uint32_t lba = FIRST;
+    read_request(lba, REQUEST, 3u);
+    lba += REQUEST;
+    /* Well ahead of what the stream has read. */
+    const uint32_t sector = FIRST + 150u + shift;
+    unsigned offset;
+    uint32_t block = raw_block(sector + 1u, 0u, &offset);
+    /* `offset` bytes of that block end `sector`, the rest begin the next. */
+    switch(kind) {
+    case WRONG_REBUILD:
+        /* A block whole inside the sector, sent with the CRC16 of a block
+         * that differs in the one byte then lost: the stream rebuilds that
+         * byte wrong, in good faith. Its P code word must not confirm it. */
+        block -= 2u;
+        cut_index = 200u;
+        card.crc_lba = block; card.crc_count = 1u; card.crc_xor = crc_of_change(cut_index, 0x5au);
+        break;
+    case WRONG_AHEAD:
+        /* The block across the two sectors, stored wrong in a byte of the
+         * first one's user data with a CRC16 that fits, and one byte lost in
+         * the second: rebuilt right there, which says nothing for the first
+         * sector, complete before that byte's code word can be asked. */
+        if(offset < 300u || offset > 480u) return false;
+        card.corrupt_custom = true; card.corrupt_index = 0u; card.corrupt_fits = true;
+        card.corrupt_lba = block; card.corrupt_count = 1u;
+        cut_index = offset + 20u;
+        break;
+    case WRONG_BEHIND:
+        /* The same block stored wrong in a byte of the second sector, and
+         * the byte lost in the first one's Q parity, which no P code word
+         * covers: the second sector must not take the block as checked. */
+        if(offset < 60u || offset > 470u) return false;
+        card.corrupt_custom = true; card.corrupt_index = offset + 30u; card.corrupt_fits = true;
+        card.corrupt_lba = block; card.corrupt_count = 1u;
+        cut_index = offset - 50u;
+        break;
+    case WRONG_UNCHECKED:
+        /* A block damaged on the wire whose first CRC byte is lost: its
+         * CRC16 cannot be taken, and nothing but the EDC can refuse it. */
+        block -= 2u;
+        card.corrupt_lba = block; card.corrupt_count = 1u;
+        cut_index = 512u;
+        break;
+    default:
+        /* A sector that carries another address than its place, in blocks
+         * whose CRC16 fits and with no byte lost: the stream finds nothing
+         * wrong with it. Whichever way the sector is taken, its address is
+         * looked at. */
+        block = raw_block(sector, 14u, &offset);
+        card.corrupt_custom = true; card.corrupt_index = offset; card.corrupt_fits = true;
+        card.corrupt_lba = block; card.corrupt_count = 1u;
+        block = 0u;
+        break;
+    }
+    cut_lba = block;
+    while(lba <= sector + 2u * REQUEST) {read_request(lba, REQUEST, 3u); lba += REQUEST;}
+    CHECK(!cut_lba && !card.corrupt_count && !card.crc_count);
+    /* A run's own end in the same block leaves it with two lost bytes: the
+     * parity then fills both and nothing wrong ever arrives. Not this case. */
+    if(w->n.holed > (kind == WRONG_UNCHECKED ? 1u : 0u)) return false;
+    CHECK(w->check_bad == 1u && w->stops[KUI_TOY_WIRE_STOP_SECTOR] == 1u && !w->refused && !w->n.bad_crc);
+    if(getenv("WIRE_VERBOSE")) fprintf(stderr, "wrong block kind %u shift %u: holed %u unchecked %u rebuilt %u unsolved %u bad %u\n",
+        kind, shift, (unsigned)w->n.holed, (unsigned)w->n.unchecked, (unsigned)w->n.rebuilt, (unsigned)w->n.unsolved,
+        (unsigned)w->check_bad);
+    /* The damaged block is the one handed on unchecked (or, where a run
+     * also ended in it, with a data byte for the parity as well). */
+    CHECK(kind == WRONG_UNCHECKED ? w->n.holed == 1u && w->n.unchecked <= 1u : kind == WRONG_ADDRESS || w->n.rebuilt >= 1u);
+    card.corrupt_custom = card.corrupt_fits = false;
+    return true;
+}
+static void wrong_blocks(void) {
+    static const char *const names[WRONG_KINDS] = {
+        "a lost byte rebuilt wrong from a CRC16 that fits other data",
+        "a rebuilt block's wrong byte in the sector before its lost byte",
+        "a rebuilt block's wrong byte in the sector behind its lost byte, lost where no P code word reaches",
+        "a damaged block whose CRC16 was lost",
+        "a sector with another address than its place, its blocks' CRC16 fitting"};
+    for(unsigned kind = 0; kind < WRONG_KINDS; ++kind) {
+        unsigned tried = 0;
+        for(unsigned shift = 0; shift < 12u; ++shift) if(wrong_block(kind, shift)) ++tried;
+        CHECK(tried >= 3u);
+        printf("  %s: refused by the sector's check in %u placements, the sector read again, data exact\n", names[kind], tried);
+    }
+}
 
 /* A whole block arrives damaged without a lost byte: its CRC16 stops the
  * stream, the low reader seeks again and the game still gets the image. */
@@ -980,6 +1164,154 @@ static void ended_in_interrupt(void) {
     printf("  movie ended under a waiting request: stream stopped in the interrupt visit, CMD12 later, read exact\n");
 }
 
+#if KUI_TOY_WIRE_IDLE
+/* A call of the game's that carries no request, or an interrupt visit
+ * without one, finds the window's reason gone: the movie over, the last
+ * request not completed, a command that is not a read, the bus lost, the low
+ * reader mid-resume, the region lent out, or the stream beyond repair. The
+ * window is given up, or left alone, exactly as Test 73 does it: each case is
+ * one term of the condition under which Test 74's short way through the
+ * dispatcher may be taken, and must not be. The line printed for each case
+ * is the same in both builds. */
+enum { GONE_ENDED, GONE_ENDED_INTERRUPT, GONE_FAILED, GONE_COMMAND, GONE_FAULT, GONE_CLOSED, GONE_RELEASED,
+    GONE_RESUME, GONE_MARKED, GONE_LOAN, GONE_ERROR, GONE_CASES };
+static void window_gone(unsigned what) {
+    static const char *const names[GONE_CASES] = {"movie over, a call", "movie over, an interrupt",
+        "last request failed", "a command that is not a read", "bus fault", "reader closed", "bus released",
+        "low reader mid-resume", "window marked in error",
+        "region lent out", "stream beyond repair"};
+    open_movie(2000u, false, true);
+    stall_mean = 900u; /* interrupts keep coming */
+    const struct kui_toy_wire_report *w = report();
+    const uint32_t *trace = kui_native_readahead_aux_context.diagnostics.stage_result[KUI_NATIVE_RA_STAGE_NONE];
+    const struct kui_native_readahead_aux_context *c = &kui_native_readahead_aux_context;
+    read_request(FIRST, REQUEST, 3u);
+    read_request(FIRST + REQUEST, REQUEST, 3u);
+    CHECK(stream_on() && c->movie_ahead.variant && !R.shared.service.pending && !c->stats.abandoned);
+    for(unsigned i = 0; i < KUI_TOY_WIRE_DROPS; ++i) CHECK(!w->drops[i]);
+    const unsigned cmd12 = card.cmd12;
+    uint32_t pumps = trace[4] + trace[5], next = FIRST + 2u * REQUEST;
+    bool pumped = true;
+    switch(what) {
+    case GONE_ENDED:
+        fixture_movie_started(KUI_TOY_MOVIE_EXIT_STARTED | KUI_TOY_MOVIE_EXIT_TERMINAL, 0x07dbu);
+        game_poll();
+        CHECK(!stream_on() && !c->movie_ahead.variant && w->drops[KUI_TOY_WIRE_DROP_ENDED] == 1u);
+        break;
+    case GONE_ENDED_INTERRUPT: {
+        /* A run in flight, whose end will bring the interrupt. */
+        m.delay = 100000u;
+        for(unsigned n = 0u; n < 100000u && !m.rx; ++n) if(!hardware()) game_poll();
+        CHECK(m.rx && stream_on() && c->movie_ahead.variant);
+        pumps = trace[4] + trace[5];
+        fixture_movie_started(KUI_TOY_MOVIE_EXIT_STARTED | KUI_TOY_MOVIE_EXIT_TERMINAL, 0x07dbu);
+        const unsigned long before = eris;
+        for(unsigned n = 0u; n < 100000u && eris == before; ++n) CHECK(hardware());
+        m.delay = 0u;
+        /* Stopped there and then; the card command waits for the foreground. */
+        CHECK(!stream_on() && card.cmd12 == cmd12 && w->drops[KUI_TOY_WIRE_DROP_ENDED] == 1u);
+        game_poll();
+        CHECK(!c->movie_ahead.variant);
+        break;
+    }
+    case GONE_FAILED:
+        R.shared.service.status = KUI_GD_FAILED;
+        game_poll();
+        CHECK(!stream_on() && !c->movie_ahead.variant && w->drops[KUI_TOY_WIRE_DROP_IDLE] == 1u);
+        break;
+    case GONE_COMMAND:
+        R.shared.service.command = KUI_GD_GETTOC2;
+        game_poll();
+        CHECK(!stream_on() && !c->movie_ahead.variant && w->drops[KUI_TOY_WIRE_DROP_COMMAND] == 1u);
+        R.shared.service.command = 0u;
+        break;
+    case GONE_FAULT:
+        R.shared.port.fault = true;
+        CHECK(sdk_poll(KUI_GD_EXEC, 0u, movie_async_poll) == 0);
+        R.shared.port.fault = false;
+        CHECK(!stream_on());
+        break;
+    case GONE_CLOSED:
+        R.engine.opened = 0u;
+        CHECK(sdk_poll(KUI_GD_EXEC, 0u, movie_async_poll) == 0);
+        R.engine.opened = 1u;
+        CHECK(!stream_on());
+        break;
+    case GONE_RELEASED:
+        R.shared.port.acquired = false;
+        CHECK(sdk_poll(KUI_GD_EXEC, 0u, movie_async_poll) == 0);
+        R.shared.port.acquired = true;
+        CHECK(!stream_on());
+        break;
+    case GONE_RESUME:
+        R.shared.stream.state = 4u;
+        CHECK(sdk_poll(KUI_GD_EXEC, 0u, movie_async_poll) == 0);
+        CHECK(!stream_on() && w->drops[KUI_TOY_WIRE_DROP_ERROR] == 1u);
+        break;
+    case GONE_MARKED:
+        /* As an interrupt visit leaves it that could not send the card
+         * command to end with: the next call of the game's ends it. */
+        kui_native_readahead_aux_context.movie_ahead.error = true;
+        game_poll();
+        CHECK(!stream_on() && !c->movie_ahead.variant && w->drops[KUI_TOY_WIRE_DROP_ERROR] == 1u);
+        break;
+    case GONE_LOAN:
+        /* The resident makes no visit while the region is lent out; one
+         * that came all the same must not touch the window. */
+        R.engine.native_loan_state = KUI_VMU_NATIVE_ASYNC_LOAN_STOPPING;
+        CHECK(kui_native_readahead_aux_visit(KUI_NATIVE_RA_DELIVER, 0u, &R, 0u) == 1u);
+        R.engine.native_loan_state = KUI_VMU_NATIVE_ASYNC_LOAN_IDLE;
+        CHECK(trace[4] + trace[5] == pumps && stream_on() && c->movie_ahead.variant);
+        pumped = false;
+        break;
+    default: {
+        /* A block ahead that neither the stream nor the low reader can
+         * read: every try ends at its CRC16, and after eight in a row with
+         * nothing gained the window is given up on a visit that carries no
+         * request. */
+        /* Behind the next two requests, which make room for the stream to
+         * read on into it while nothing is asked, and beyond what the card
+         * has already sent into the ring. */
+        const uint32_t unreadable = next + 2u * REQUEST + 12u;
+        CHECK(c->movie_ahead.verified + 16u < unreadable);
+        unsigned offset;
+        card.corrupt_lba = raw_block(unreadable, 100u, &offset);
+        card.corrupt_count = 100000u;
+        /* A byte of the sector's user data, changed by more than the low
+         * reader can put right from the CRC16. */
+        card.corrupt_custom = true; card.corrupt_index = offset; card.corrupt_mask = 0xffu;
+        for(unsigned i = 0; i < 2u; ++i, next += REQUEST) read_request(next, REQUEST, 3u);
+        CHECK(!R.shared.service.pending && c->movie_ahead.variant);
+        for(unsigned n = 0u; n < 200000u && c->movie_ahead.variant; ++n) if(!hardware()) game_poll();
+        if(getenv("WIRE_VERBOSE")) fprintf(stderr, "beyond repair: variant %u on %d abandoned %u drops %u %u %u %u %u %u stops %u %u %u %u %u left %u verified %u first %u\n",
+            (unsigned)c->movie_ahead.variant, stream_on(), (unsigned)c->stats.abandoned, (unsigned)w->drops[0], (unsigned)w->drops[1],
+            (unsigned)w->drops[2], (unsigned)w->drops[3], (unsigned)w->drops[4], (unsigned)w->drops[5], (unsigned)w->stops[0],
+            (unsigned)w->stops[1], (unsigned)w->stops[2], (unsigned)w->stops[3], (unsigned)w->stops[4], (unsigned)card.corrupt_count,
+            (unsigned)c->movie_ahead.verified, (unsigned)c->movie_ahead.first);
+        CHECK(!c->movie_ahead.variant && !stream_on() && c->stats.abandoned == 1u);
+        card.corrupt_count = 0u;
+        card.corrupt_mask = 0u; card.corrupt_custom = false;
+        break;
+    }
+    }
+    /* How many streams were tried before the last case gave up depends on
+     * where sectors happened to complete: at least the eight in a row. */
+    if(what == GONE_ERROR) CHECK(card.cmd12 - cmd12 >= 8u);
+    printf("  the window's reason gone (%s): stream %s, window %s, given up as error/over/idle/command/waiting/other "
+           "%u/%u/%u/%u/%u/%u and on a pump's error %u, CMD12 %s, %s\n", names[what], stream_on() ? "on" : "off",
+        c->movie_ahead.variant ? "kept" : "gone", (unsigned)w->drops[0], (unsigned)w->drops[1], (unsigned)w->drops[2],
+        (unsigned)w->drops[3], (unsigned)w->drops[4], (unsigned)w->drops[5], (unsigned)c->stats.abandoned,
+        what == GONE_ERROR ? "at least 8" : card.cmd12 == cmd12 ? "none" : card.cmd12 == cmd12 + 1u ? "once" : "more than once",
+        pumped && trace[4] + trace[5] == pumps ? "no pump" : pumped ? "pumped" : "not pumped");
+    if(what == GONE_LOAN) return;
+    /* The movie's reads go on, by whichever way. */
+    fixture_movie_started(KUI_TOY_MOVIE_EXIT_STARTED, 0x07dbu);
+    R.shared.service.status = KUI_GD_COMPLETED;
+    read_request(next, REQUEST, 3u);
+    read_request(next + REQUEST, REQUEST, 3u);
+}
+#endif
+
 /* No free timer, no interrupt route, no free channel. */
 static void degraded(void) {
     open_movie(2000u, false, true);
@@ -1043,7 +1375,7 @@ int main(void) {
     }
     /* Test 66's own chunk classification is untouched by the switch. */
     movie_chunk_classification();
-    printf("Test %u reader, real low reader + auxiliary + stream on the card model:\n", KUI_TOY_WIRE_TICK ? 69u : KUI_TOY_WIRE_IDLE ? 73u : KUI_TOY_WIRE_PACE ? 72u : KUI_TOY_WIRE_WORDS ? 71u : KUI_TOY_WIRE_CACHED ? 70u : 68u);
+    printf("Test %u reader, real low reader + auxiliary + stream on the card model:\n", KUI_TOY_WIRE_TICK ? 69u : KUI_TOY_WIRE_LEAN ? 74u : KUI_TOY_WIRE_IDLE ? 73u : KUI_TOY_WIRE_PACE ? 72u : KUI_TOY_WIRE_WORDS ? 71u : KUI_TOY_WIRE_CACHED ? 70u : 68u);
     steady(2000u, false, 0u, 0u, 3u);
     steady(2000u, false, 0u, 0u, 0u);
     steady(2000u, false, 6000u, 0u, 3u);
@@ -1089,10 +1421,14 @@ int main(void) {
     player_measured();
 #endif
     damaged_block();
+    wrong_blocks();
     no_parity();
     other_read();
     ended_in_interrupt();
+#if KUI_TOY_WIRE_IDLE
+    for(unsigned what = 0; what < GONE_CASES; ++what) window_gone(what);
+#endif
     degraded();
-    printf("PASS Test %u reader integration: %u checks\n", KUI_TOY_WIRE_TICK ? 69u : KUI_TOY_WIRE_IDLE ? 73u : KUI_TOY_WIRE_PACE ? 72u : KUI_TOY_WIRE_WORDS ? 71u : KUI_TOY_WIRE_CACHED ? 70u : 68u, checks);
+    printf("PASS Test %u reader integration: %u checks\n", KUI_TOY_WIRE_TICK ? 69u : KUI_TOY_WIRE_LEAN ? 74u : KUI_TOY_WIRE_IDLE ? 73u : KUI_TOY_WIRE_PACE ? 72u : KUI_TOY_WIRE_WORDS ? 71u : KUI_TOY_WIRE_CACHED ? 70u : 68u, checks);
     return 0;
 }

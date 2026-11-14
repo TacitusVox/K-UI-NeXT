@@ -109,6 +109,9 @@ struct kui_wire_stream {
     uint16_t *crc2;        /* 256: two bytes' worth of CRC16 steps for the first of them */
     uint32_t held[KUI_WIRE_HOLES / 32u]; /* per log entry: the byte before it came from the register */
 #endif
+#if KUI_TOY_WIRE_LEAN
+    uint32_t began;        /* how the running run began: 1 at once behind a cut, 2 after a wait, else 0 */
+#endif
     uint32_t hole[KUI_WIRE_HOLES];
     uint16_t lost[KUI_WIRE_BLOCK_LOST];
     _Alignas(4) uint8_t block[512];
