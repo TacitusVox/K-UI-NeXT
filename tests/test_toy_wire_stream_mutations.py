@@ -447,6 +447,21 @@ QUIT_MUTATIONS = [
   "        wr32(CHCR1, rd32(CHCR1) & ~UINT32_C(1));\n#endif\n        for(uint32_t n = 0; n < 200000u && !(rd8(SSR) & ORER); ++n) {}",
   "        wr32(CHCR1, rd32(CHCR1) & ~UINT32_C(1));\n#endif"),
 ]
+# COPY: a block goes into the window by the hand-written copy. The routine
+# itself is SH-4 code no host test runs: tests/test_toy_wire_linked_copy.py
+# runs it as linked. Here: when it is used. (That the source and the length
+# are multiples of four have no mutations of their own. A raw sector and a
+# block both are whole words, and the blocks the reader is handed begin on
+# one: a piece whose source or length is not comes only with a destination
+# or a length that is not, which the mutation below takes away with them.)
+COPY_MUTATIONS = [
+ (AHEAD, "a place that is not a multiple of four given to the word copy",
+  "    if(((uintptr_t)out|(uintptr_t)in|bytes)&3u)memcpy(out,in,bytes);", "    if(false)memcpy(out,in,bytes);"),
+ (AHEAD, "the window's copy left to the library",
+  "    if(((uintptr_t)out|(uintptr_t)in|bytes)&3u)memcpy(out,in,bytes);", "    if(true)memcpy(out,in,bytes);"),
+ (AHEAD, "a piece copied to the sector's start",
+  "    toy_wire_copy(raw+part,data,bytes);", "    toy_wire_copy(raw,data,bytes);"),
+]
 # What Test 76 samples again of what Test 74 gave up: the buffer, not the lag
 # and not the update calls' time.
 FLUID_BACK = {"the buffer's free space not the most", "a buffer without capacity taken",
@@ -510,7 +525,7 @@ if FLUID == "1":
     # HOT changes which address the linked module uses for the window's
     # state and nothing a host build can see: tests/test_toy_wire_linked_hot.py
     # reads the linked module for it, and fails either way round.
-    for part, mutations in (("QUIT", QUIT_MUTATIONS), ("HOT", [])):
+    for part, mutations in (("QUIT", QUIT_MUTATIONS), ("HOT", []), ("COPY", COPY_MUTATIONS)):
         if os.environ.get(f"TOY_WIRE_{part}", "1") == "1":
             MUTATIONS += mutations
             if part == "QUIT":

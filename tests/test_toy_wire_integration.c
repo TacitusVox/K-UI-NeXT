@@ -267,11 +267,16 @@ static void parity(const uint8_t *src, unsigned major_count, unsigned minor_coun
     }
 }
 static uint8_t bcd_field(uint32_t n) { return (uint8_t)((n / 10u) * 16u + n % 10u); }
+/* Where the movie's track begins in its file's first block: nought, but
+ * for the one fixture that wants a track no piece of which lies on a
+ * multiple of four. */
+static uint32_t track_file_offset;
 static void install_raw_sector(uint32_t lba, bool with_parity) {
     uint8_t raw[KUI_GAME_RAW_BYTES];
     const struct kui_retail_track *track = &manifest.slots[2].track;
-    const uint32_t first = (lba - track->start_lba) * KUI_GAME_RAW_BYTES;
+    uint32_t first = (lba - track->start_lba) * KUI_GAME_RAW_BYTES;
     for(unsigned i = 0u; i < sizeof(raw); ++i) raw[i] = source(2u, first + i);
+    first += track_file_offset;
     const uint32_t fad = lba + 150u;
     raw[12] = bcd_field(fad / 4500u);
     raw[13] = bcd_field((fad / 75u) % 60u);
@@ -288,7 +293,7 @@ static void install_raw_sector(uint32_t lba, bool with_parity) {
         const uint32_t file_block = (first + i) / 512u;
         const struct kui_retail_extent *extent = NULL;
         for(unsigned e = 0; e < track->extent_count; ++e) {
-            const struct kui_retail_extent *x = &manifest.slots[track->first_extent + e].extent;
+            const struct kui_retail_extent *x = &manifest.slots[kui_retail_track_first_extent(track) + e].extent;
             if(file_block >= x->file_block && file_block - x->file_block < x->blocks) extent = x;
         }
         CHECK(extent);
@@ -320,8 +325,12 @@ static void player_update(void) { player_update_for(0u); }
 static unsigned sdir_answer;
 static void open_movie(unsigned extent_blocks, bool scattered, bool with_parity) {
     setup_movie_card_extents(1u, extent_blocks, scattered);
-    for(uint32_t lba = manifest.slots[2].track.start_lba; lba < manifest.slots[2].track.end_lba; ++lba)
+    /* A track that begins inside its file's first block ends inside one
+     * more than the fixture mapped: its last sector is left out. */
+    manifest.slots[2].track.first_extent |= (uint16_t)(track_file_offset << 8u);
+    for(uint32_t lba = manifest.slots[2].track.start_lba; lba < manifest.slots[2].track.end_lba - !!track_file_offset; ++lba)
         install_raw_sector(lba, with_parity);
+    /* (The fixture's reference reader follows the same map.) */
     struct kui_native_ra_config config = movie_configuration();
     config.movie_ranges[3] = (struct kui_toy_movie_range){FIRST - 386u, WINDOW_END - (FIRST - 386u)};
     bind_movie_configuration(&config);
@@ -453,6 +462,20 @@ static void idle(unsigned moments) {
 #if KUI_TOY_WIRE_FLUID
 /* Wait ticks the report placed in a piece of the course, over all runs. */
 static uint64_t pause_seen;
+#endif
+#if KUI_TOY_WIRE_COPY
+/* Test 76's copy into the window. The hand-written routine is SH-4 code,
+ * which tests/test_toy_wire_linked_copy.py runs as linked. Here its place
+ * is taken by one that holds the caller to that routine's terms: whole
+ * words at places that are multiples of four, inside the window. */
+static unsigned long copies, copied;
+void kui_wire_test_copy(uint8_t *out, const uint8_t *in, uint32_t bytes) {
+    CHECK(!(((uintptr_t)out | (uintptr_t)in | bytes) & 3u) && bytes && bytes <= 512u);
+    CHECK(out >= arena && out + bytes <= arena + 62u * KUI_GAME_RAW_BYTES);
+    memcpy(out, in, bytes);
+    ++copies;
+    copied += bytes;
+}
 #endif
 #if KUI_TOY_WIRE_MEASURE
 /* The report's account of the reader's visits agrees with the console's side. */
@@ -1238,6 +1261,24 @@ static void buffer_seen(void) {
     printf("  the player's buffer: its emptiest in each piece, looked at when the player took a frame\n");
 }
 
+#if KUI_TOY_WIRE_COPY
+/* A movie whose track begins two bytes into its file's first block: no
+ * piece of a block then lies at a multiple of four in both the block and
+ * its sector. The hand-written copy would stop the processor on such a
+ * piece; every one of them is copied as before, and served right. */
+static void misaligned(void) {
+    track_file_offset = 2u;
+    open_movie(2000u, false, true);
+    track_file_offset = 0u;
+    const unsigned long before = copies;
+    uint32_t lba = FIRST;
+    for(unsigned i = 0; i < 6u; ++i, lba += REQUEST) read_request(lba, REQUEST, 3u);
+    CHECK(kui_native_readahead_aux_context.stats.hit_requests == 6u && copies == before);
+    invariants();
+    printf("  a track that begins two bytes into its block: six requests served from the window, "
+           "none of their pieces given to the word copy\n");
+}
+#endif
 /* How long the wire stood still for the stream's timer waits, by piece of
  * the second movie's course: what the stream's own count gains while that
  * movie plays, to the tick, and nothing of what it gains otherwise. */
@@ -2385,6 +2426,9 @@ int main(void) {
     buffer_seen();
     pause_placed();
 #endif
+#if KUI_TOY_WIRE_COPY
+    misaligned();
+#endif
 #endif
     damaged_block();
     wrong_blocks();
@@ -2408,6 +2452,12 @@ int main(void) {
 #if KUI_TOY_WIRE_RING
     CHECK(ring_drops > 100000u);
     printf("  the ring read through the cache in all of the above: %lu lines dropped and fetched afresh\n", ring_drops);
+#endif
+#if KUI_TOY_WIRE_COPY
+    /* Everywhere else every piece went through it. */
+    CHECK(copies > 100000u);
+    printf("  blocks copied into the window by the word copy's stand-in in all of the above: %lu pieces, %lu bytes\n",
+        copies, copied);
 #endif
 #if KUI_TOY_WIRE_FLUID
     /* The wire's standstill was placed in the course wherever a run had waits. */

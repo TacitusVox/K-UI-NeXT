@@ -152,19 +152,25 @@
  *          feed works on, is reached through the cache: it lay at the
  *          auxiliary context's uncached address, a bus cycle for each of
  *          some fifty reads and writes a block
- *          (native_readahead_aux_internal.h). */
+ *          (native_readahead_aux_internal.h);
+ *   COPY   a block goes into the window a cache line at a time, each line
+ *          claimed in the cache without being fetched first
+ *          (toy_wire_copy.inc). */
 #ifndef KUI_TOY_WIRE_QUIT
 #define KUI_TOY_WIRE_QUIT KUI_TOY_WIRE_FLUID
 #endif
 #ifndef KUI_TOY_WIRE_HOT
 #define KUI_TOY_WIRE_HOT KUI_TOY_WIRE_FLUID
 #endif
-#if (KUI_TOY_WIRE_QUIT || KUI_TOY_WIRE_HOT) && !KUI_TOY_WIRE_FLUID
-#error "QUIT and HOT are parts of Test 76: use KUI_TOY_WIRE_FLUID"
+#ifndef KUI_TOY_WIRE_COPY
+#define KUI_TOY_WIRE_COPY KUI_TOY_WIRE_FLUID
+#endif
+#if (KUI_TOY_WIRE_QUIT || KUI_TOY_WIRE_HOT || KUI_TOY_WIRE_COPY) && !KUI_TOY_WIRE_FLUID
+#error "QUIT, HOT and COPY are parts of Test 76: use KUI_TOY_WIRE_FLUID"
 #endif
 /* The parts a build has, as the report's PT value names them. */
 #define KUI_TOY_WIRE_PARTS (KUI_TOY_WIRE_STAY | KUI_TOY_WIRE_LATER << 1 | KUI_TOY_WIRE_RING << 2 | \
-    KUI_TOY_WIRE_QUIT << 3 | KUI_TOY_WIRE_HOT << 4)
+    KUI_TOY_WIRE_QUIT << 3 | KUI_TOY_WIRE_HOT << 4 | KUI_TOY_WIRE_COPY << 5)
 /* The second movie in pieces of 2^22 ticks, 5.4 s: twelve cover it. */
 #define KUI_TOY_WIRE_BUCKETS 12u
 #define KUI_TOY_WIRE_BUCKET_SHIFT 22u

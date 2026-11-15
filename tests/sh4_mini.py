@@ -51,6 +51,9 @@ class Machine:
         self.loads = self.stores = 0
         self.touched = set()  # physical addresses of every data access
         self.cache_ops = []  # (mnemonic, address)
+        # Bytes of cache lines MOVCA.L has claimed that nothing has stored
+        # yet (physical addresses): to read one is a fault.
+        self.undefined = set()
 
     # ---- memory ----
     @staticmethod
@@ -81,6 +84,8 @@ class Machine:
         store, at = self._find(address, width)
         self.loads += 1
         self.touched.add(self.physical(address))
+        if self.undefined and any(self.physical(address) + i in self.undefined for i in range(width)):
+            raise Fault(f"read at {address:#x} of a byte MOVCA.L left undefined (pc {self.pc:#x})")
         return int.from_bytes(store[at:at + width], "little")
 
     def write(self, address, value, width):
@@ -93,6 +98,8 @@ class Machine:
         store, at = self._find(address, width)
         self.stores += 1
         self.touched.add(self.physical(address))
+        if self.undefined:
+            self.undefined.difference_update(self.physical(address) + i for i in range(width))
         store[at:at + width] = (value & ((1 << 8 * width) - 1)).to_bytes(width, "little")
 
     def bytes_at(self, address, count):
@@ -378,6 +385,23 @@ class Machine:
             c("sts pr"); r[n] = self.pr
         elif top == 0x4 and op & 0xFF == 0x2A:
             c("lds pr"); self.pr = r[n]
+        elif top == 0x0 and op & 0xFF == 0xC3:
+            # MOVCA.L R0,@Rn: the store claims its cache line without
+            # fetching it. Taken at its worst here, as if the line were
+            # never in the cache: the line's other 28 bytes are no longer
+            # what memory held, and are undefined until they are stored.
+            c("movca.l")
+            address = r[n]
+            if address & 3:
+                raise Fault(f"movca.l to {address:#x}, not a multiple of four (pc {pc:#x})")
+            self.cache_ops.append(("movca.l", address))
+            line = address & ~31 & M32
+            store, at = self._find(line, 32)
+            for i in range(32):
+                if not address <= line + i < address + 4:
+                    store[at + i] = 0xEE
+                    self.undefined.add(self.physical(line + i))
+            self.write(address, r[0], 4)
         elif top == 0x0 and op & 0xFF in (0x83, 0x93, 0xA3, 0xB3):
             name = {0x83: "pref", 0x93: "ocbi", 0xA3: "ocbp", 0xB3: "ocbwb"}[op & 0xFF]
             c(name); self.cache_ops.append((name, r[n]))

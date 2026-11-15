@@ -49,6 +49,26 @@ static uint8_t *toy_ahead_sector(uint32_t lba) {
 #include "toy_wire_ahead.inc"
 #endif
 
+#if KUI_TOY_WIRE_STREAM && KUI_TOY_WIRE_COPY
+/* Test 76: a piece of a block into its sector's place, by the hand-written
+ * copy (toy_wire_copy.inc) when everything about it is a multiple of four.
+ * That routine loads and stores whole words wherever it is told to: a
+ * place or a length that is not one would stop the processor, and inside a
+ * visit that is a reset. The blocks of a raw image that begins on a
+ * multiple of four in its file always qualify; anything else is copied as
+ * before. */
+#ifdef KUI_NATIVE_READAHEAD_AUX_HOST_TEST
+extern void kui_wire_test_copy(uint8_t *out,const uint8_t *in,uint32_t bytes);
+#define kui_wire_copy kui_wire_test_copy
+#else
+extern void kui_wire_copy(uint8_t *out,const uint8_t *in,uint32_t bytes);
+#endif
+static void toy_wire_copy(uint8_t *out,const uint8_t *in,uint32_t bytes) {
+    if(((uintptr_t)out|(uintptr_t)in|bytes)&3u)memcpy(out,in,bytes);
+    else kui_wire_copy(out,in,bytes);
+}
+#endif
+
 static void toy_ahead_write(void *unused,uint32_t offset,const uint8_t *data,uint32_t bytes) {
 #if AHEAD_LOW_PIPE
     struct kui_retail_async *e=unused;
@@ -74,7 +94,11 @@ static void toy_ahead_write(void *unused,uint32_t offset,const uint8_t *data,uin
         return;
     }
     uint8_t *raw=toy_ahead_sector(lba);
+#if KUI_TOY_WIRE_STREAM && KUI_TOY_WIRE_COPY
+    toy_wire_copy(raw+part,data,bytes);
+#else
     memcpy(raw+part,data,bytes);
+#endif
 #if KUI_TOY_WIRE_STREAM
     toy_wire_note(k,part,data,bytes);
     if(k->lost_count>KUI_MODE1_ERASURE_MAX) {

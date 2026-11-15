@@ -207,6 +207,12 @@ C_SYMBOL(kui_native_readahead_aux_visit):
 #include "toy_wire_words.inc"
     .section .text.native_ra_entry,"ax"
 #endif
+/* Test 76's copy into the window: on with the test unless a build leaves
+ * it out (include/kui/toy_wire_report.h has the same default). */
+#if defined(KUI_TOY_WIRE_FLUID) && KUI_TOY_WIRE_FLUID && (!defined(KUI_TOY_WIRE_COPY) || KUI_TOY_WIRE_COPY)
+#include "toy_wire_copy.inc"
+    .section .text.native_ra_entry,"ax"
+#endif
 #if KUI_TOY_SUITE_MODE >= 39 && KUI_TOY_SUITE_MODE <= 66
 #include "toy_movie_exit_hook.inc"
 #endif
