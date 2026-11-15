@@ -371,12 +371,14 @@ int main(int argc, char **argv) {
     assert(last);
     const size_t needed = (size_t)(last - text) + strlen("W FILL REF BAD\n1500 4 2\n");
     assert(needed + 30u <= KUI_TOY_REPORT_FILE_BYTES - 12u);
-    /* The last value names the build's parts. */
+    /* The last value names the build's parts: Test 75's three, without
+     * LATER, and each of Test 76's own that the build has. */
     {
         char parts[64];
-        snprintf(parts, sizeof(parts), "PIPE B I CALLS IRQ STAY PT\n2 3 9000 BE00 35 %X\n",
-            (unsigned)(KUI_TOY_WIRE_STAY | KUI_TOY_WIRE_LATER << 1 | KUI_TOY_WIRE_RING << 2));
-        assert(strstr(text, parts));
+        const unsigned have = KUI_TOY_WIRE_STAY | KUI_TOY_WIRE_LATER << 1 | KUI_TOY_WIRE_RING << 2 |
+            KUI_TOY_WIRE_QUIT << 3;
+        snprintf(parts, sizeof(parts), "PIPE B I CALLS IRQ STAY PT\n2 3 9000 BE00 35 %X\n", have);
+        assert(strstr(text, parts) && have == KUI_TOY_WIRE_PARTS);
     }
     assert(strstr(text, "AHEAD B I HIT EDC STOP\n1100 6600 900 7700 2\n"));
     assert(strstr(text, "I SUBMIT CADENCE MAX AT\n7B0 7AE 92345 124\n"));

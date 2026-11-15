@@ -435,6 +435,18 @@ FLUID_MUTATIONS = [
   "    const bool frame=k->seen_start==toy_present.start_tick && out!=k->seen_out;"),
  (GLUE, "the first movie's buffer placed in the course", "    if(piece<0 || !frame)return;", "    if(!frame)return;"),
 ]
+# QUIT: a stream given up while it receives is ended at once.
+# (Clearing the channel's end flag with its enable bit has no mutation: a
+# stop asks only for the count, and the flag matters to a run that is
+# accounted, which a stopped one is not.)
+QUIT_MUTATIONS = [
+ (STREAM, "a stream that receives is waited out", "        wr32(CHCR1, rd32(CHCR1) & ~UINT32_C(1));\n#endif", "#endif"),
+ (STREAM, "the receiver switched off in mid byte",
+  "        wr32(CHCR1, rd32(CHCR1) & ~UINT32_C(1));\n#endif", "        wr8(SCR, 0);\n#endif"),
+ (STREAM, "the channel taken off and the byte not waited for",
+  "        wr32(CHCR1, rd32(CHCR1) & ~UINT32_C(1));\n#endif\n        for(uint32_t n = 0; n < 200000u && !(rd8(SSR) & ORER); ++n) {}",
+  "        wr32(CHCR1, rd32(CHCR1) & ~UINT32_C(1));\n#endif"),
+]
 # What Test 76 samples again of what Test 74 gave up: the buffer, not the lag
 # and not the update calls' time.
 FLUID_BACK = {"the buffer's free space not the most", "a buffer without capacity taken",
@@ -495,6 +507,15 @@ if STEADY == "1":
             DEFINES.append(f"-DKUI_TOY_WIRE_{part}=0")
 if FLUID == "1":
     MUTATIONS = [m for m in MUTATIONS if m[1] not in FLUID_GONE] + FLUID_MUTATIONS
+    for part, mutations in (("QUIT", QUIT_MUTATIONS),):
+        if os.environ.get(f"TOY_WIRE_{part}", "1") == "1":
+            MUTATIONS += mutations
+            if part == "QUIT":
+                # With the channel taken off, the old wait's own mutation is this part's last.
+                MUTATIONS = [m for m in MUTATIONS if m[1] != "stop does not wait for a whole byte"]
+        else:
+            SWITCHES.append(f"TOY_WIRE_{part}=0")
+            DEFINES.append(f"-DKUI_TOY_WIRE_{part}=0")
 if os.environ.get("TOY_WIRE_ONLY"):
     # A named part of the list, for running it in pieces: "from:to" of the list's positions.
     low, high = (int(v) for v in os.environ["TOY_WIRE_ONLY"].split(":"))

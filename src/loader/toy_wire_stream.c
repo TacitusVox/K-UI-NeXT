@@ -579,6 +579,17 @@ bool kui_wire_stop(struct kui_wire_stream *w) {
          * one only at its next overrun: a cut or the run's end, at most one
          * segment of wire time away (5 ms). What the run leaves behind is
          * not needed: whoever takes the card next ends this CMD18. */
+#if KUI_TOY_WIRE_QUIT
+        /* Test 76. That wait was made with interrupts held off, some 480
+         * times in Test 75's console run. The overrun is brought about
+         * instead: with the channel no longer taking bytes, the next byte
+         * stays in the receiver's register and the one after it overruns,
+         * two byte times from here. The receiver stops on that byte's last
+         * bit exactly as at any cut, and the channel's address and count
+         * stand as its last whole transfer left them, which is all
+         * wire_capture asks of them. */
+        wr32(CHCR1, rd32(CHCR1) & ~UINT32_C(1));
+#endif
         for(uint32_t n = 0; n < 200000u && !(rd8(SSR) & ORER); ++n) {}
         uint32_t count, status;
         uint8_t tail;

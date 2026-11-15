@@ -184,6 +184,26 @@ void kui_wire_test_drop(const uint8_t *line) {
 
 static struct kui_wire_stream w;
 static struct kui_wire_counters n;
+/* A stream is given up. How long the card is clocked on if it was
+ * receiving: up to Test 75 until the run's own next overrun, which is up
+ * to a segment away; with Test 76's QUIT the byte the receiver then holds
+ * and the one that overruns it. */
+static unsigned long stops_receiving, stop_bytes, stop_most;
+static bool stream_stop(void) {
+    const uint64_t before = clocked;
+    const bool ran = w.state == KUI_WIRE_RUN;
+    const bool usable = kui_wire_stop(&w);
+    const unsigned long waited = (unsigned long)(clocked - before);
+    if(ran) {
+        ++stops_receiving;
+        stop_bytes += waited;
+        if(waited > stop_most) stop_most = waited;
+#if KUI_TOY_WIRE_QUIT
+        assert(waited <= 2u);
+#endif
+    } else assert(!waited);
+    return usable;
+}
 static void command_framing(void) { hw.scr = 0x30; hw.smr = 0x80; hw.brr = 0; hw.scmr = 0; hw.ssr = 0x84; hw.sptr = 0x05; hw.pdtr |= 0x80; hw.chcr = 0; stale = false; }
 static bool timer_armed(void) { return w.mode && (hw.tstr & (1u << w.mode)) && (hw.tcr[w.mode] & 0x20); }
 
@@ -283,7 +303,7 @@ int main(int argc, char **argv) {
                     else
 #endif
                     ++rewinds[-(int)p];
-                    assert(kui_wire_stop(&w));
+                    assert(stream_stop());
                     assert(hw.scr == 0x30 && hw.smr == 0x80 && !hw.scmr && (hw.pdtr & 0x80) && hw.sar == 0x11 && hw.dar == 0x22 && hw.count == 0x33 && !(hw.chcr & 1u));
                     card_block = expect; card_at = 0; ++restarts; dense_left = 0;
                     command_framing(); hw.sar = 0x11; hw.dar = 0x22; hw.count = 0x33;
@@ -326,7 +346,7 @@ int main(int argc, char **argv) {
                      * bytes in the block and a lost byte in the gap before it. */
                     assert(b.lost_count && n.gap_idle + n.gap_token != last_gaps);
                     ++wrong;
-                    assert(kui_wire_stop(&w));
+                    assert(stream_stop());
                     card_block = expect; card_at = 0; ++restarts; dense_left = 0;
                     command_framing(); hw.sar = 0x11; hw.dar = 0x22; hw.count = 0x33;
                     assert(kui_wire_start(&w, &n, ring, tables, 0x05, 0x8c421234u));
@@ -336,7 +356,7 @@ int main(int argc, char **argv) {
             }
             if(++idle > 5000u) { fprintf(stderr, "stuck: state %u head %u tail %u floor %u phase %u holes %u run %u\n", w.state, w.head, w.tail, w.floor, w.phase, w.hole_put - w.hole_get, run); return 1; }
         }
-        assert(kui_wire_stop(&w));
+        assert(stream_stop());
 #if KUI_TOY_WIRE_LEAN && !KUI_TOY_WIRE_STEADY
         /* Runs cut again soon after they began: each was a cut short of a
          * good run, which is what a wait answers; the rest of the waits
@@ -422,7 +442,7 @@ int main(int argc, char **argv) {
         assert((n.frame_bit[bit >> 2] >> 8u * (bit & 3u) & 0xffu) == 1u &&
             n.frame_bit[0] + n.frame_bit[1] == 1u << 8u * (bit & 3u));
         assert(n.frame_kind == 1u << 8u * (note->blocks >> 28));
-        assert(kui_wire_stop(&w));
+        assert(stream_stop());
     }
     stray_block = 0;
     printf("  a byte between blocks that is neither idle nor the token: stream stopped, bytes around it kept\n");
@@ -462,7 +482,7 @@ int main(int argc, char **argv) {
          * lost byte the CRC16 could not explain. */
         assert(!(note->gap & 0xffffu) && note->blocks >> 28 == 3u && n.unsolved == 1u);
         assert(note->since_lost && note->since_lost < 514u);
-        assert(kui_wire_stop(&w));
+        assert(stream_stop());
     }
     printf("  a held byte stored twice: found as an unexpected byte directly behind its block, and counted as such\n");
 #endif
@@ -482,6 +502,10 @@ int main(int argc, char **argv) {
     printf("  the ring read through the cache: %lu lines dropped and fetched afresh for %lu blocks\n", drops, total);
     assert(drops >= 16u * (total / 2u) && drops <= 18u * total + 18u * overruns);
 #endif
+    printf("  streams given up while they received: %lu, the card clocked on for %lu bytes in all, %lu at most\n",
+        stops_receiving, stop_bytes, stop_most);
+    /* Without QUIT the model shows the wait Test 76 removes. */
+    assert(stops_receiving > 100u && (KUI_TOY_WIRE_QUIT ? stop_most <= 2u : stop_most > 1000u));
     printf("PASS Test %u card stream: %lu blocks checked against the card over %lu overruns; %lu streams restarted "
            "(clean block failing CRC16 %lu, too many lost bytes %lu); %lu uncheckable blocks handed on wrong, "
            "each with lost bytes behind a lost gap byte, left to the sector check\n",
