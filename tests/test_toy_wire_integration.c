@@ -450,6 +450,10 @@ static void read_request(uint32_t lba, uint32_t count, unsigned poll_every) {
 static void idle(unsigned moments) {
     for(unsigned n = 0u; n < moments; ++n) if(!hardware()) break;
 }
+#if KUI_TOY_WIRE_FLUID
+/* Wait ticks the report placed in a piece of the course, over all runs. */
+static uint64_t pause_seen;
+#endif
 #if KUI_TOY_WIRE_MEASURE
 /* The report's account of the reader's visits agrees with the console's side. */
 static void visits_accounted(void) {
@@ -458,14 +462,18 @@ static void visits_accounted(void) {
     CHECK(w->visit_calls[KUI_TOY_WIRE_VISIT_SCI] == trace[5] && w->visit_calls[KUI_TOY_WIRE_VISIT_GAME] == trace[4]);
     CHECK(w->visit_calls[KUI_TOY_WIRE_VISIT_TIMER] == timers);
     for(unsigned i = 0; i < KUI_TOY_WIRE_VISITS; ++i) {
+#if !KUI_TOY_WIRE_FLUID
         CHECK(w->visit_max[i] <= w->visit_ticks[i]);
+#endif
         CHECK(!w->visit_calls[i] == !w->visit_ticks[i]);
     }
     /* A timer call was asked for only by a visit that ran out of time, and
      * only Test 69 asks. */
     CHECK(w->n.ticks <= w->budget_ends && (KUI_TOY_WIRE_TICK || !w->n.ticks));
+#if !KUI_TOY_WIRE_FLUID
     for(unsigned i = 0; i < 2u; ++i) CHECK(w->wait_max[i] <= w->wait_ticks[i] && !w->wait_calls[i] == !w->wait_ticks[i]);
     CHECK(!w->wait_calls[0]);
+#endif
     const uint32_t restarts = w->stops[KUI_TOY_WIRE_STOP_SECTOR] + w->stops[KUI_TOY_WIRE_STOP_FRAME] +
         w->stops[KUI_TOY_WIRE_STOP_FAULT];
 #if KUI_TOY_WIRE_STEADY
@@ -499,7 +507,16 @@ static void visits_accounted(void) {
             w->visit_ticks[KUI_TOY_WIRE_VISIT_TIMER]);
     }
 #endif
-#if KUI_TOY_WIRE_IDLE
+#if KUI_TOY_WIRE_FLUID
+    /* Test 76 times the ending of streams: each one is the one look the
+     * stop itself is in this fixture, whatever the stream stood at. */
+    {
+        uint32_t ended = 0;
+        for(unsigned i = 0; i < KUI_TOY_WIRE_STOPS; ++i) ended += w->stops[i];
+        CHECK(w->halt_ticks == PHASE_LOOK * ended);
+    }
+    (void)restarts;
+#elif KUI_TOY_WIRE_IDLE
     /* Test 73 does not time restarts or place them in the course. */
     CHECK(!w->restart_ticks && !w->restart_max);
 #else
@@ -511,10 +528,24 @@ static void visits_accounted(void) {
     uint32_t wait = 0, interrupt = 0, game = 0, sectors = 0, stops = 0;
     for(unsigned i = 0; i < KUI_TOY_WIRE_BUCKETS; ++i) {
         wait += w->course_wait[i]; interrupt += w->course_interrupt[i]; game += w->course_game[i];
-        sectors += w->course_sectors[i]; stops += w->course_stops[i];
+        sectors += w->course_sectors[i];
+#if !KUI_TOY_WIRE_FLUID
+        stops += w->course_stops[i];
+#endif
     }
+#if KUI_TOY_WIRE_FLUID
+    (void)wait;
+    CHECK(game == w->visit_ticks[KUI_TOY_WIRE_VISIT_GAME]);
+    /* The wire's standstill by piece is the stream's own count, less what
+     * no visit has come by to take since. */
+    uint32_t pause = 0;
+    for(unsigned i = 0; i < KUI_TOY_WIRE_BUCKETS; ++i) pause += w->course_pause[i];
+    CHECK(pause <= w->n.wait_ticks && (!w->n.waits || w->n.wait_ticks));
+    pause_seen += pause;
+#else
     /* Test 74 keeps the waits by piece only. */
     CHECK((KUI_TOY_WIRE_LEAN ? !w->wait_ticks[1] : wait == w->wait_ticks[1]) && game == w->visit_ticks[KUI_TOY_WIRE_VISIT_GAME]);
+#endif
     CHECK(interrupt == w->visit_ticks[KUI_TOY_WIRE_VISIT_SCI] + w->visit_ticks[KUI_TOY_WIRE_VISIT_TIMER]);
     CHECK(sectors == trace[1] && stops == (KUI_TOY_WIRE_IDLE ? 0u : restarts));
 #endif
@@ -908,7 +939,7 @@ static void polling(uint32_t mean, unsigned dense) {
     CHECK(w->deliver_calls >= idle + requests && w->deliver_ticks);
     CHECK(w->deliver_calls <= polls + 4u * (requests + 1u));
 #endif
-#if KUI_TOY_WIRE_LEAN
+#if KUI_TOY_WIRE_LEAN && !KUI_TOY_WIRE_FLUID
     /* Each of the game's EXEC calls behind the first movie request is
      * timed whole, from the resident's entry visit to its exit visit. */
     CHECK(w->gd_calls >= idle && w->gd_calls <= polls + 4u * (requests + 1u) && w->gd_ticks >= w->gd_calls);
@@ -973,7 +1004,10 @@ static void waiting(void) {
  * own memory as the hook finds them when an update call has returned. */
 /* The player's buffer and lag as Test 73 samples them; Test 74 has given
  * that sampling up for room and must leave its fields alone. */
-#if KUI_TOY_WIRE_LEAN
+#if KUI_TOY_WIRE_FLUID
+/* Test 76 samples the buffer again, by a rule of its own: buffer_seen(). */
+#define SAMPLED(x) (void)0
+#elif KUI_TOY_WIRE_LEAN
 #define SAMPLED(x) CHECK(!w->update_ticks && !w->buffer_capacity && !w->course_free[0] && !w->course_lag[0])
 #else
 #define SAMPLED(x) CHECK(x)
@@ -1049,7 +1083,9 @@ static void player_measured(void) {
     SAMPLED(w->course_free[0] == 0xc0000u && w->course_lag[0] == 9u);
     /* A buffer that cannot be one is left out: no capacity, more in it
      * than it holds, a pointer outside the game's memory. */
+#if !KUI_TOY_WIRE_FLUID
     const uint32_t ticks = w->update_ticks;
+#endif
     player.capacity = 0u; player.filled = player.released;
     player_update_for(10u);
     player.capacity = 0x100000u; player.filled = player.released + 0x100001u;
@@ -1075,7 +1111,9 @@ static void player_measured(void) {
     kui_native_readahead_aux_context.movie_exit[0].start_status = 0x07dbu;
     kui_toy_movie_present_boundary(PLAYER,
         (uintptr_t)&kui_native_readahead_aux_context.movie_exit[0], KUI_TOY_MOVIE_EXIT_STARTED);
+#if !KUI_TOY_WIRE_FLUID
     const uint32_t all = w->update_ticks;
+#endif
     player.filled = player.released; player.lag = 50u;
     ++player.out;
     player_update_for(900u); /* its first call: the counters as they stand */
@@ -1089,9 +1127,13 @@ static void player_measured(void) {
     /* The first movie's skips are not the second's. */
     CHECK(w->skip_first == 42u);
 #endif
+#if KUI_TOY_WIRE_FLUID
+    CHECK(intro->out == 2u && intro->skip == 1u);
+#else
     CHECK(intro->out == 2u && intro->skip == 1u && w->update_ticks == all);
     for(unsigned i = 0; i < KUI_TOY_WIRE_BUCKETS; ++i) SAMPLED(w->course_free[i] <= 0xc0000u && w->course_lag[i] <= 9u);
     (void)ticks;
+#endif
     reader_pace(0u);
     m.delay = 0u;
     printf("  the player itself: frames put out and skipped with their update's time, the reader's interrupt time "
@@ -1127,6 +1169,109 @@ static void first_skip_apart(void) {
     player_update_for(100u);
     CHECK(w->skip_first == 31u && w->player[1].skip == 1u && w->player[0].skip == 1u);
     printf("  the second movie's first skip: its own frame, not a skip of the first movie's\n");
+}
+#endif
+#if KUI_TOY_WIRE_FLUID
+/* Test 76: what the player's own buffer held, by piece of the second
+ * movie's course. The most of it that was free is kept, and it is looked
+ * at only in a call in which the player took a frame: shown or skipped. */
+static void buffer_seen(void) {
+    open_movie(2000u, false, true);
+    const struct kui_toy_wire_report *w = report();
+    struct kui_toy_movie_exit_witness *exits = kui_native_readahead_aux_context.movie_exit;
+    read_request(FIRST, REQUEST, 3u);
+    /* The fixture's player begins with a quarter of its megabyte free,
+     * and its counters stand somewhere: a movie's first call only takes
+     * them as they are, and looks at nothing. */
+    player.out = 5u; player.skip = 1u;
+    player_update_for(100u);
+    CHECK(!w->buffer_capacity && !w->course_free[0]);
+    /* A call that took no frame looks at nothing, however empty the buffer. */
+    player.filled -= 0x80000u;
+    player_update_for(100u);
+    CHECK(!w->buffer_capacity && !w->course_free[0]);
+    player.filled += 0x80000u;
+    /* A frame shown: a quarter free. */
+    ++player.out;
+    player_update_for(100u);
+    CHECK(w->buffer_capacity == 0x100000u && w->course_free[0] == 0x40000u);
+    /* A frame skipped with the buffer emptier: three quarters free. */
+    player.filled -= 0x80000u;
+    ++player.skip;
+    player_update_for(100u);
+    CHECK(w->course_free[0] == 0xc0000u);
+    /* A fuller buffer afterwards changes nothing: the piece keeps its emptiest. */
+    player.filled += 0xa0000u;
+    ++player.out;
+    player_update_for(100u);
+    CHECK(w->course_free[0] == 0xc0000u);
+    /* A buffer that cannot be one is left out: no capacity, more in it
+     * than it holds, a pointer outside the game's memory. */
+    player.capacity = 0u; player.filled = player.released;
+    ++player.out;
+    player_update_for(100u);
+    player.capacity = 0x100000u; player.filled = player.released + 0x100001u;
+    ++player.out;
+    player_update_for(100u);
+    player.filled = player.released; player.stream = UINT32_C(0x8c000004);
+    ++player.out;
+    player_update_for(100u);
+    CHECK(w->course_free[0] == 0xc0000u && w->buffer_capacity == 0x100000u);
+    /* Later pieces of the course are their own. */
+    player.stream = PLAYER_STREAM; player.filled = player.released + 0xf0000u;
+    clock_counter -= UINT32_C(3) << KUI_TOY_WIRE_BUCKET_SHIFT;
+    ++player.out;
+    player_update_for(100u);
+    CHECK(w->course_free[3] == 0x10000u && !w->course_free[1] && !w->course_free[2] && w->course_free[0] == 0xc0000u);
+    /* The first movie has no course: its player's buffer, of another
+     * size here, is not looked at. */
+    kui_toy_movie_present_boundary(PLAYER, (uintptr_t)&exits[1], KUI_TOY_MOVIE_EXIT_TERMINAL);
+    exits[0].start_status = 0x07dbu;
+    kui_toy_movie_present_boundary(PLAYER, (uintptr_t)&exits[0], KUI_TOY_MOVIE_EXIT_STARTED);
+    player.capacity = 0x80000u; player.filled = player.released;
+    player_update_for(100u);
+    ++player.out;
+    player_update_for(100u);
+    CHECK(w->buffer_capacity == 0x100000u);
+    for(unsigned i = 0; i < KUI_TOY_WIRE_BUCKETS; ++i) CHECK(w->course_free[i] <= 0xc0000u);
+    invariants();
+    printf("  the player's buffer: its emptiest in each piece, looked at when the player took a frame\n");
+}
+
+/* How long the wire stood still for the stream's timer waits, by piece of
+ * the second movie's course: what the stream's own count gains while that
+ * movie plays, to the tick, and nothing of what it gains otherwise. */
+static uint32_t pause_placed_sum(const struct kui_toy_wire_report *w) {
+    uint32_t sum = 0;
+    for(unsigned i = 0; i < KUI_TOY_WIRE_BUCKETS; ++i) sum += w->course_pause[i];
+    return sum;
+}
+static void pause_placed(void) {
+    open_movie(2000u, false, true);
+    const struct kui_toy_wire_report *w = report();
+    struct kui_toy_movie_exit_witness *exits = kui_native_readahead_aux_context.movie_exit;
+    /* A busy bus: runs cut short and answered with timer waits. */
+    stall_mean = 150u; stall_dense = 80u;
+    uint32_t lba = FIRST;
+    for(unsigned i = 0; i < 3u; ++i, lba += REQUEST) read_request(lba, REQUEST, 3u);
+    CHECK(w->n.waits && w->n.wait_ticks && pause_placed_sum(w) == w->n.wait_ticks);
+    /* The second movie's presentation is over for a while (the window
+     * lives by the movie's own witness and goes on): what the wire waits
+     * now is in no piece. */
+    kui_toy_movie_present_boundary(PLAYER, (uintptr_t)&exits[1], KUI_TOY_MOVIE_EXIT_TERMINAL);
+    const uint32_t placed = pause_placed_sum(w), before = w->n.wait_ticks;
+    for(unsigned i = 0; i < 3u; ++i, lba += REQUEST) read_request(lba, REQUEST, 3u);
+    const uint32_t outside = w->n.wait_ticks - before;
+    CHECK(outside && pause_placed_sum(w) == placed);
+    /* It plays again: the course counts from here, without what was
+     * waited in between. */
+    kui_toy_movie_present_boundary(PLAYER, (uintptr_t)&exits[1], KUI_TOY_MOVIE_EXIT_STARTED);
+    for(unsigned i = 0; i < 3u; ++i, lba += REQUEST) read_request(lba, REQUEST, 3u);
+    CHECK(w->n.wait_ticks > before + outside && pause_placed_sum(w) == w->n.wait_ticks - outside);
+    stall_mean = 0u; stall_dense = 0u;
+    invariants();
+    printf("  the wire's standstill by piece: %u ticks placed while the second movie played, %u outside it left out\n",
+        (unsigned)pause_placed_sum(w), (unsigned)outside);
 }
 #endif
 #endif
@@ -2169,7 +2314,7 @@ int main(void) {
     /* Test 66's own chunk classification is untouched by the switch. */
     movie_chunk_classification();
 #endif
-    printf("Test %u reader, real low reader + auxiliary + stream on the card model:\n", KUI_TOY_WIRE_TICK ? 69u : KUI_TOY_WIRE_STEADY ? 75u : KUI_TOY_WIRE_LEAN ? 74u : KUI_TOY_WIRE_IDLE ? 73u : KUI_TOY_WIRE_PACE ? 72u : KUI_TOY_WIRE_WORDS ? 71u : KUI_TOY_WIRE_CACHED ? 70u : 68u);
+    printf("Test %u reader, real low reader + auxiliary + stream on the card model:\n", KUI_TOY_WIRE_TICK ? 69u : KUI_TOY_WIRE_FLUID ? 76u : KUI_TOY_WIRE_STEADY ? 75u : KUI_TOY_WIRE_LEAN ? 74u : KUI_TOY_WIRE_IDLE ? 73u : KUI_TOY_WIRE_PACE ? 72u : KUI_TOY_WIRE_WORDS ? 71u : KUI_TOY_WIRE_CACHED ? 70u : 68u);
 #if KUI_TOY_WIRE_MSB
     /* Everything twice: with a receiver that ignores the bit order asked
      * of it, and with one that delivers bytes MSB first. */
@@ -2236,6 +2381,10 @@ int main(void) {
 #if KUI_TOY_WIRE_STEADY
     first_skip_apart();
 #endif
+#if KUI_TOY_WIRE_FLUID
+    buffer_seen();
+    pause_placed();
+#endif
 #endif
     damaged_block();
     wrong_blocks();
@@ -2260,6 +2409,12 @@ int main(void) {
     CHECK(ring_drops > 100000u);
     printf("  the ring read through the cache in all of the above: %lu lines dropped and fetched afresh\n", ring_drops);
 #endif
-    printf("PASS Test %u reader integration: %u checks\n", KUI_TOY_WIRE_TICK ? 69u : KUI_TOY_WIRE_STEADY ? 75u : KUI_TOY_WIRE_LEAN ? 74u : KUI_TOY_WIRE_IDLE ? 73u : KUI_TOY_WIRE_PACE ? 72u : KUI_TOY_WIRE_WORDS ? 71u : KUI_TOY_WIRE_CACHED ? 70u : 68u, checks);
+#if KUI_TOY_WIRE_FLUID
+    /* The wire's standstill was placed in the course wherever a run had waits. */
+    CHECK(pause_seen > 100000u);
+    printf("  the wire's standstill for timer waits, placed in the course's pieces in all of the above: %llu ticks\n",
+        (unsigned long long)pause_seen);
+#endif
+    printf("PASS Test %u reader integration: %u checks\n", KUI_TOY_WIRE_TICK ? 69u : KUI_TOY_WIRE_FLUID ? 76u : KUI_TOY_WIRE_STEADY ? 75u : KUI_TOY_WIRE_LEAN ? 74u : KUI_TOY_WIRE_IDLE ? 73u : KUI_TOY_WIRE_PACE ? 72u : KUI_TOY_WIRE_WORDS ? 71u : KUI_TOY_WIRE_CACHED ? 70u : 68u, checks);
     return 0;
 }

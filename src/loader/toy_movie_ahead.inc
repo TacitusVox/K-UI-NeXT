@@ -473,7 +473,9 @@ static bool toy_movie_ahead(kui_retail_async_region_type *r,unsigned variant,boo
        (demand && (!selected || variant!=A.variant || s->lba!=A.first)))) {
         if(demand)A.failed_token=s->token;
 #if KUI_TOY_WIRE_STREAM
-        /* Why the window is given up, for the report: the first that holds. */
+        /* Why the window is given up, for the report: the first that holds.
+         * (Test 76 prints other things in that row's room; the counts are
+         * kept, and the host fixtures read them.) */
         ++toy_wire_keep()->report.drops[A.error?KUI_TOY_WIRE_DROP_ERROR:
             !toy_ahead_live()?KUI_TOY_WIRE_DROP_ENDED:
             !demand && s->status!=KUI_GD_COMPLETED?KUI_TOY_WIRE_DROP_IDLE:

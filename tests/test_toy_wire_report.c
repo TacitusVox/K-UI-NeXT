@@ -45,7 +45,25 @@ static struct kui_toy_wire_report wire;
 static const struct kui_toy_wire_report *toy_wire_report_block(void) { return &wire; }
 #include "toy_suite_report_save.inc"
 
-#if KUI_TOY_WIRE_STEADY
+#if KUI_TOY_WIRE_FLUID
+#define TEST_NUMBER "76"
+/* Test 76's rows: Test 75's without the two that have served, the
+ * reader's time by piece in one row, and three things new: the ticks
+ * spent ending streams, the player's buffer and the wire's standstill by
+ * piece. */
+static const char *const labels[] = {
+    "PIPE B I CALLS IRQ STAY PT", "AHEAD B I HIT EDC STOP",
+    "I SUBMIT CADENCE MAX AT", "I FIRST LAST SKIP EXIT SF", "B SUBMIT CADENCE MAX AT",
+    "IP ON OT OC OI SN ST", "BP ON OT OC OI SN ST",
+    "K LIGHT EDC MEND MB LB ORD",
+    "V SCI TMR GAME N TICKS", "P RING FEED CHK OUT SVC HALT", "D N T SEEK",
+    "TF", "TD", "TW", "TB", "TP",
+    "W START SEG CUT WAIT FULL", "W BYTES WTICK TMR ERR DET", "W BLK FIX UNFIX HOLED NOCRC SEEK",
+    "S C S F LF AM BC", "W FILL REF BAD",
+    "TR",
+};
+enum { LABELS = sizeof(labels) / sizeof(labels[0]), ESSENTIAL = 21 };
+#elif KUI_TOY_WIRE_STEADY
 #define TEST_NUMBER "75"
 /* Test 75's rows: what the game showed, what its player did, how sectors
  * were checked, the reader's time by caller and by what it was doing, the
@@ -221,7 +239,7 @@ int main(int argc, char **argv) {
     wire.refused = 4; wire.check_bad = 2; wire.parity = 1; wire.timer_mode = 1;
     wire.first_error = 0x11; wire.first_detail = 0x00a45005; wire.declined = 0;
 #if KUI_TOY_WIRE_MEASURE
-#if KUI_TOY_WIRE_CACHED
+#if KUI_TOY_WIRE_CACHED && !KUI_TOY_WIRE_FLUID
     wire.ccr = 0x105; wire.mmucr = 0;
 #endif
 #if KUI_TOY_WIRE_WORDS
@@ -231,7 +249,9 @@ int main(int argc, char **argv) {
         const bool plays = i < 2u || i == 11u;
         wire.course_frames[i] = plays ? 161u : 9u + i;
         wire.course_sectors[i] = plays ? 2112u : 2600u + 16u * i;
+#if !KUI_TOY_WIRE_FLUID
         wire.course_stops[i] = (uint16_t)(3u * i);
+#endif
         wire.course_wait[i] = plays ? 0x3000u * i : 0x180000u + 0x4000u * i;
         wire.course_interrupt[i] = 0x90000u + 0x4000u * i;
         wire.course_game[i] = plays ? 0x30000u : 0x500000u;
@@ -250,12 +270,20 @@ int main(int argc, char **argv) {
     wire.deliver_calls = 0x1e000; wire.deliver_ticks = 0x2a0000;
     wire.player[1] = (struct kui_toy_wire_player){0x290, 0x16e3600, 0x1a00000, 0x1c0000, 0x520, 0x9000};
     wire.player[0] = (struct kui_toy_wire_player){0x14b, 0x4f0000, 0x7e0000, 0x30000, 0, 0};
-    wire.update_ticks = 0x1900000; wire.buffer_capacity = 0x100000;
+    wire.buffer_capacity = 0x100000;
     for(unsigned i = 0; i < KUI_TOY_WIRE_BUCKETS; ++i) {
         const bool plays = i < 2u || i == 11u;
         wire.course_free[i] = plays ? 0x8000u + 0x2000u * i : 0xf0000u + 0x1000u * i;
+#if KUI_TOY_WIRE_FLUID
+        /* The wire standing still most where the movie plays worst. */
+        wire.course_pause[i] = plays ? 0x9000u * i : 0x80000u + 0x8000u * i;
+#else
         wire.course_lag[i] = plays ? i : 40u + i;
+#endif
     }
+#if !KUI_TOY_WIRE_FLUID
+    wire.update_ticks = 0x1900000;
+#endif
 #endif
 #if KUI_TOY_WIRE_LEAN
     /* Two thirds of the sectors taken on their blocks' CRC16, a tenth of a
@@ -264,7 +292,9 @@ int main(int argc, char **argv) {
      * runs cut again soon after they began. */
     wire.light = 0x4c00; wire.edc = 0x25e7; wire.mends = 0x1a90; wire.mend_bad = 3; wire.light_bad = 0;
     wire.n.order = KUI_WIRE_ORDER_MSB; wire.n.undecided = 1;
+#if !KUI_TOY_WIRE_FLUID
     wire.gd_calls = 0x1d700; wire.gd_ticks = 0x6a0000;
+#endif
     wire.n.again[0][0] = 0x1500; wire.n.again[0][1] = 0x600; wire.n.again[0][2] = 0x380;
     wire.n.again[1][0] = 0x900; wire.n.again[1][1] = 0x410; wire.n.again[1][2] = 0x2a0;
 #endif
@@ -281,6 +311,10 @@ int main(int argc, char **argv) {
      * stream's own service. */
     wire.check_ticks = 0x60000; wire.service_ticks = 0x5f000;
 #endif
+#if KUI_TOY_WIRE_FLUID
+    /* Streams ended in a tenth of a second all told. */
+    wire.halt_ticks = 0x13000;
+#endif
     /* Both movies with the reader at Test 68's measured cost, most of its
      * interrupt time now behind the timer; the console's count of streams
      * that could not be followed, and two of them noted. */
@@ -290,10 +324,13 @@ int main(int argc, char **argv) {
     wire.n.frame_note[1] = (struct kui_wire_frame_note){0xffffffff, 0x3fa0e6c4, 0x04100001, 0xffffffff, 0x1000fa37};
     wire.visit_calls[0] = 0xc67c; wire.visit_calls[1] = 0xd000; wire.visit_calls[2] = 0x26265;
     wire.visit_ticks[0] = 0x3a0000; wire.visit_ticks[1] = 0x4e0000; wire.visit_ticks[2] = 0x5b0000;
+    wire.budget_ends = 0xa000;
+#if !KUI_TOY_WIRE_FLUID
     wire.visit_max[0] = 0x1023; wire.visit_max[1] = 0x1a0; wire.visit_max[2] = 0x7ff;
-    wire.budget_ends = 0xa000; wire.restart_ticks = 0x1d0000; wire.restart_max = 0xc350;
+    wire.restart_ticks = 0x1d0000; wire.restart_max = 0xc350;
     wire.wait_calls[0] = 3; wire.wait_ticks[0] = 0x2ee0; wire.wait_max[0] = 0x1770;
     wire.wait_calls[1] = 0x4a; wire.wait_ticks[1] = 0x1e8480; wire.wait_max[1] = 0xea60;
+#endif
 #else
     wire.handler_calls = 0xbe00; wire.handler_ticks = 0x1e8480; wire.handler_max = 0x1a0;
 #endif
@@ -327,7 +364,47 @@ int main(int argc, char **argv) {
     ra.wait[0] = (struct kui_toy_movie_wait_trace){0x69263, 0x10, 0xc, 0x235678, 0x1345, 0x1ce1};
     ra.wait[1] = (struct kui_toy_movie_wait_trace){0x6e450, 0x11, 0x3, 0x2e4567, UINT32_MAX, UINT32_MAX};
     body = format(&ra, &region, text, &rows);
-#if KUI_TOY_WIRE_STEADY
+#if KUI_TOY_WIRE_FLUID
+    /* Everything fits at a full run's values. */
+    assert(essential_rows == ESSENTIAL && rows == LABELS);
+    const char *last = strstr(text, "W FILL REF BAD\n1500 4 2\n");
+    assert(last);
+    const size_t needed = (size_t)(last - text) + strlen("W FILL REF BAD\n1500 4 2\n");
+    assert(needed + 30u <= KUI_TOY_REPORT_FILE_BYTES - 12u);
+    /* The last value names the build's parts. */
+    {
+        char parts[64];
+        snprintf(parts, sizeof(parts), "PIPE B I CALLS IRQ STAY PT\n2 3 9000 BE00 35 %X\n",
+            (unsigned)(KUI_TOY_WIRE_STAY | KUI_TOY_WIRE_LATER << 1 | KUI_TOY_WIRE_RING << 2));
+        assert(strstr(text, parts));
+    }
+    assert(strstr(text, "AHEAD B I HIT EDC STOP\n1100 6600 900 7700 2\n"));
+    assert(strstr(text, "I SUBMIT CADENCE MAX AT\n7B0 7AE 92345 124\n"));
+    assert(strstr(text, "I FIRST LAST SKIP EXIT SF\n23576 7B0 2 FFFFF843 1B\n"));
+    assert(strstr(text, "B SUBMIT CADENCE MAX AT\n14B 14A 12ABC F6\n"));
+    assert(strstr(text, "IP ON OT OC OI SN ST\n290 16E3600 1A00000 1C0000 520 9000\n"));
+    assert(strstr(text, "BP ON OT OC OI SN ST\n14B 4F0000 7E0000 30000 0 0\n"));
+    assert(strstr(text, "K LIGHT EDC MEND MB LB ORD\n4C00 25E7 1A90 3 0 3\n"));
+    assert(strstr(text, "V SCI TMR GAME N TICKS\nC67C D000 26265 3A0000 4E0000 5B0000\n"));
+    /* The reader's ticks by what it was doing, and those spent ending streams. */
+    assert(strstr(text, "P RING FEED CHK OUT SVC HALT\n4A0000 1C0000 60000 D0000 5F000 13000\n"));
+    assert(strstr(text, "D N T SEEK\n1E000 2A0000 B0000\n"));
+    assert(strstr(text, "TF\nA1A10B0C D0E0F10 111213A1\n"));
+    assert(strstr(text, "TD\n8484A4A5 A6A7A8A9 AAABAC84\n"));
+    assert(strstr(text, "TW\n6263 64656667 68696A08\n"));
+    /* The player's buffer, the most that was free in 4 KiB units: nearly
+     * all of its megabyte in the pieces that skip. The wire's standstill. */
+    assert(strstr(text, "TB\n80AF2F3 F4F5F6F7 F8F9FA1E\n"));
+    assert(strstr(text, "TP\n22426 282A2C2E 30323418\n"));
+    assert(strstr(text, "W START SEG CUT WAIT FULL\n1F 2800 83D7 6622 300\n"));
+    assert(strstr(text, "W BLK FIX UNFIX HOLED NOCRC SEEK\n24C00 6100 5 1C00 90 2F\n"));
+    assert(strstr(text, "S C S F LF AM BC\n3 5 12C 4A 2 3\n"));
+    /* The reader's pumps by piece: Test 75's two rows added. */
+    assert(strstr(text, "TR\n3031FFFF FFFFFFFF FFFFFF3B\n"));
+    /* Test 75's rows of the GD calls and of the windows given up are gone,
+     * and its two rows of the reader's time by caller. */
+    assert(!strstr(text, "G N T") && !strstr(text, "X E N") && !strstr(text, "TI\n") && !strstr(text, "TG\n"));
+#elif KUI_TOY_WIRE_STEADY
     /* Everything fits at a full run's values. */
     assert(essential_rows == ESSENTIAL && rows == LABELS);
     const char *last = strstr(text, "X E N I C W O\n1 2 3 4 35 6\n");

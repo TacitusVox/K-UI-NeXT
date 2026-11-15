@@ -116,8 +116,27 @@
 #ifndef KUI_TOY_WIRE_STAY
 #define KUI_TOY_WIRE_STAY KUI_TOY_WIRE_STEADY
 #endif
+/* Test 76: Test 75 with what its console run showed. RING was the gain.
+ * LATER was not one: half the interrupt visits left the reading, the
+ * reader's time in the player's frame calls did not fall, and the stream's
+ * losses came closer together, because a visit that leaves gives the
+ * processor back to the code that stalls the bus (the document has the
+ * counts). So LATER is off unless a build asks for it, and Test 75's own
+ * recipe with LATER left out is the comparison. The clock put a block at 86
+ * microseconds, and an independent reading of that account found a wait no
+ * timer covered. Its parts come each under a switch of its own, below.
+ * The report gives up the rows that have served (the game's GD calls
+ * timed whole, the reasons windows were given up) for what Test 75's
+ * could not say about its two worst places: what the player's own buffer
+ * held, and how long the wire stood still, by piece of the course. */
+#ifndef KUI_TOY_WIRE_FLUID
+#define KUI_TOY_WIRE_FLUID 0
+#endif
+#if KUI_TOY_WIRE_FLUID && !KUI_TOY_WIRE_STEADY
+#error "Test 76 builds on Test 75"
+#endif
 #ifndef KUI_TOY_WIRE_LATER
-#define KUI_TOY_WIRE_LATER KUI_TOY_WIRE_STEADY
+#define KUI_TOY_WIRE_LATER (KUI_TOY_WIRE_STEADY && !KUI_TOY_WIRE_FLUID)
 #endif
 #ifndef KUI_TOY_WIRE_RING
 #define KUI_TOY_WIRE_RING KUI_TOY_WIRE_STEADY
@@ -125,6 +144,7 @@
 #if (KUI_TOY_WIRE_STAY || KUI_TOY_WIRE_LATER || KUI_TOY_WIRE_RING) && !KUI_TOY_WIRE_STEADY
 #error "STAY, LATER and RING are parts of Test 75: use KUI_TOY_WIRE_STEADY"
 #endif
+/* Test 76's parts (the switch itself is above, with LATER's default). */
 /* The second movie in pieces of 2^22 ticks, 5.4 s: twelve cover it. */
 #define KUI_TOY_WIRE_BUCKETS 12u
 #define KUI_TOY_WIRE_BUCKET_SHIFT 22u
@@ -235,8 +255,12 @@ struct kui_toy_wire_report {
 #if KUI_TOY_WIRE_MEASURE
     /* The reader's own time, by who called: visits, their ticks, the longest. */
     uint32_t visit_calls[KUI_TOY_WIRE_VISITS], visit_ticks[KUI_TOY_WIRE_VISITS];
+#if !KUI_TOY_WIRE_FLUID
+    /* Test 76 leaves out what no build since Test 73 has written. */
     uint32_t visit_max[KUI_TOY_WIRE_VISITS];
+#endif
     uint32_t budget_ends;         /* visits that stopped reading for time with blocks left to read */
+#if !KUI_TOY_WIRE_FLUID
     uint32_t restart_ticks, restart_max; /* from a stream given up to its successor receiving */
     /* Requests the window could not serve when first asked, per movie:
      * how many, their ticks until served, the longest. */
@@ -247,13 +271,16 @@ struct kui_toy_wire_report {
      * kept in the cache. */
     uint32_t ccr, mmucr;
 #endif
+#endif
 #if KUI_TOY_WIRE_WORDS
     /* The second movie's course, a piece of 5.4 s each from its start:
      * frames submitted, sectors served, streams given up; and ticks the
      * requests waited, ticks in interrupt visits (SCI and timer) and in the
      * game's calls. */
     uint16_t course_frames[KUI_TOY_WIRE_BUCKETS], course_sectors[KUI_TOY_WIRE_BUCKETS];
+#if !KUI_TOY_WIRE_FLUID
     uint16_t course_stops[KUI_TOY_WIRE_BUCKETS];
+#endif
     uint32_t course_wait[KUI_TOY_WIRE_BUCKETS], course_interrupt[KUI_TOY_WIRE_BUCKETS];
     uint32_t course_game[KUI_TOY_WIRE_BUCKETS];
 #endif
@@ -281,9 +308,15 @@ struct kui_toy_wire_report {
     /* The second movie: ticks inside all its update calls; the capacity of
      * the player's own buffer; and for each piece of the course the most
      * of that buffer that was free and the most the player's lag counter
-     * showed. */
+     * showed. Test 76 keeps the buffer's two and has, in the lag's place,
+     * the ticks the wire stood still for the stream's timer waits. */
+#if KUI_TOY_WIRE_FLUID
+    uint32_t buffer_capacity;
+    uint32_t course_free[KUI_TOY_WIRE_BUCKETS], course_pause[KUI_TOY_WIRE_BUCKETS];
+#else
     uint32_t update_ticks, buffer_capacity;
     uint32_t course_free[KUI_TOY_WIRE_BUCKETS], course_lag[KUI_TOY_WIRE_BUCKETS];
+#endif
 #endif
 #if KUI_TOY_WIRE_LEAN
     /* Sectors accepted without their EDC because every block of theirs was
@@ -293,10 +326,13 @@ struct kui_toy_wire_report {
      * that the EDC, taken as a sample, refused: this must stay zero, and one
      * such sector switches the lighter check off. */
     uint32_t light, edc, mends, mend_bad, light_bad;
+#if !KUI_TOY_WIRE_FLUID
     /* The game's EXEC and CHECK calls while a movie request is the last
      * one, each timed whole from the resident's entry visit to its exit
-     * visit: how many and their ticks. */
+     * visit: how many and their ticks. Tests 74 and 75 measured them (30
+     * microseconds a call); Test 76 no longer does. */
     uint32_t gd_calls, gd_ticks;
+#endif
 #endif
 #if KUI_TOY_WIRE_STEADY
     /* The reader's time by what it was doing, in ticks: taking blocks out
@@ -316,6 +352,11 @@ struct kui_toy_wire_report {
     /* Requests the game waited for in a loop of its own that kept their
      * window (STAY). */
     uint32_t stays;
+#endif
+#if KUI_TOY_WIRE_FLUID
+    /* Ticks spent ending streams (kui_wire_stop): with a stream that
+     * receives, up to Test 75, the wait for its run's next overrun. */
+    uint32_t halt_ticks;
 #endif
 #else
     uint32_t handler_ticks, handler_calls, handler_max; /* SCI interrupt visits while streaming */

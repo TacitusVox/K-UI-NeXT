@@ -855,7 +855,8 @@ static bool __attribute__((__unused__)) toy_chunk_pending(const struct kui_toy_m
 #if KUI_TOY_SUITE_MOVIE_TIMING
 /* Test 74 without the hold reads none of the player's buffer objects. */
 #define TOY_CHUNK_OBJECTS (!(KUI_TOY_WIRE_STREAM && KUI_TOY_WIRE_LEAN && KUI_TOY_WIRE_OPEN))
-#if TOY_CHUNK_OBJECTS
+/* Test 76 reads the buffer's fill again, and nothing else of them. */
+#if TOY_CHUNK_OBJECTS || (KUI_TOY_WIRE_STREAM && KUI_TOY_WIRE_FLUID)
 /* Follow only the exact owner's foreground AVI/stream objects in main RAM.
  * P1 and P2 are the two legitimate aliases for these objects. */
 static bool toy_chunk_ram(uint32_t address,uint32_t bytes) {
@@ -863,6 +864,8 @@ static bool toy_chunk_ram(uint32_t address,uint32_t bytes) {
     return (address&UINT32_C(0xdf000003))==UINT32_C(0x8c000000) &&
         physical>=UINT32_C(0x0c010000) && physical<=UINT32_C(0x0d000000)-bytes;
 }
+#endif
+#if TOY_CHUNK_OBJECTS
 
 static bool toy_chunk_buffer(uint32_t ctx,uint32_t *ring_used,uint32_t *missing) {
     const uint32_t unknown=UINT32_MAX;
@@ -1373,11 +1376,12 @@ uint32_t kui_native_readahead_aux_dispatch(uint32_t event,uint32_t arg,
 #if KUI_TOY_SUITE_MODE < 62
         (void)toy_demand_gd_trace(event,arg,r,poll);
 #endif
-#if KUI_TOY_WIRE_STREAM && KUI_TOY_WIRE_LEAN
+#if KUI_TOY_WIRE_STREAM && KUI_TOY_WIRE_LEAN && !KUI_TOY_WIRE_FLUID
         /* Test 74: the resident brackets each of the game's EXEC and CHECK
          * calls with these two visits while a movie request is the last
          * one. The clock between them is the whole call: the resident's
-         * own work, the delivery visit and whatever that did. */
+         * own work, the delivery visit and whatever that did. Test 76 has
+         * the answer (30 microseconds) and no longer asks. */
         toy_wire_gd_time(event==KUI_NATIVE_RA_DEMAND_GD_ENTER);
 #endif
         /* The gateway can return 1 on a guard fault. Only 2 and 3 admit. */

@@ -94,8 +94,11 @@ struct toy_wire_keep {
      * and the clock. */
     uint32_t seen_start, seen_out, seen_skip, seen_interrupt, seen_tick;
 #endif
-#if KUI_TOY_WIRE_LEAN
+#if KUI_TOY_WIRE_LEAN && !KUI_TOY_WIRE_FLUID
     uint32_t gd_open, gd_entered;       /* one of the game's GD calls is under way since this clock value */
+#endif
+#if KUI_TOY_WIRE_FLUID
+    uint32_t seen_pause;                /* the stream's wait ticks as the visit before left them */
 #endif
 #if KUI_TOY_WIRE_STAY
     /* A request the game waits for keeps the window: its token, and the
@@ -162,6 +165,10 @@ static void toy_wire_reset(bool all) {
     struct toy_wire_keep *k=toy_wire_keep();
     memset(k,0,all?sizeof(*k):sizeof(k->report));
     k->report.magic=KUI_TOY_WIRE_REPORT_MAGIC;
+#if KUI_TOY_WIRE_FLUID
+    /* The stream's counters start again with the report. */
+    k->seen_pause=0u;
+#endif
 }
 
 /* Stop the stream wherever it stands. No card command is sent, so this is
@@ -173,7 +180,15 @@ static void toy_wire_halt(kui_retail_async_region_type *r,unsigned why) {
     struct kui_wire_stream *w=toy_wire_stream();
     struct kui_sci_stream_state *stream=&r->shared.stream;
     if(!k->report.first_error && w->error) {k->report.first_error=w->error;k->report.first_detail=w->detail;}
+#if KUI_TOY_WIRE_FLUID
+    /* Test 76 times the stop: a stream that receives was waited out. */
+    const uint32_t halt_tick=toy_wire_phase();
+    const bool stopped=kui_wire_stop(w);
+    k->report.halt_ticks+=halt_tick-toy_wire_phase();
+    if(!stopped) {
+#else
     if(!kui_wire_stop(w)) {
+#endif
         /* The SCI did not return to command framing. Only a new
          * acquisition clears this; no further card byte is attempted. */
         if(!k->report.first_error) {k->report.first_error=KUI_WIRE_E_HANDOFF;k->report.first_detail=0u;}
@@ -215,6 +230,12 @@ static void toy_wire_visit_time(struct toy_wire_keep *k,unsigned who,struct ra_c
 #if KUI_TOY_WIRE_WORDS
     const int piece=toy_wire_course(now.counter);
     if(piece>=0)(who==KUI_TOY_WIRE_VISIT_GAME?k->report.course_game:k->report.course_interrupt)[piece]+=spent;
+#endif
+#if KUI_TOY_WIRE_FLUID
+    /* How long the wire stood still for the stream's timer waits, by piece:
+     * what the stream's own count has gained since the visit before. */
+    if(piece>=0)k->report.course_pause[piece]+=k->report.n.wait_ticks-k->seen_pause;
+    k->seen_pause=k->report.n.wait_ticks;
 #endif
 }
 
@@ -674,7 +695,7 @@ static bool toy_wire_idle_due(void) {return toy_wire_foreground_due(true);}
 enum { TOY_PLAYER_OUT=0xacu, TOY_PLAYER_SKIP=0x90u };
 #define TOY_PLAYER_LAG UINT32_C(0x8c1138c4)
 static uint32_t toy_chunk_word(uint32_t address);
-#if !KUI_TOY_WIRE_LEAN
+#if !KUI_TOY_WIRE_LEAN || KUI_TOY_WIRE_FLUID
 static bool toy_chunk_ram(uint32_t address,uint32_t bytes);
 #endif
 static void toy_wire_update_seen(uint32_t ctx,uint32_t entered) {
@@ -702,17 +723,26 @@ static void toy_wire_update_seen(uint32_t ctx,uint32_t entered) {
             p->skip_ticks+=spent;
         }
     }
+#if KUI_TOY_WIRE_FLUID
+    /* Test 76: the player's buffer again, as Test 73 read it, but only in
+     * a call in which the player took a frame, shown or skipped. */
+    const bool frame=k->seen_start==toy_present.start_tick && (out!=k->seen_out || skip!=k->seen_skip);
+#endif
     k->seen_start=toy_present.start_tick;
     k->seen_out=out;
     k->seen_skip=skip;
     k->seen_interrupt=interrupt;
     k->seen_tick=now.counter;
-#if !KUI_TOY_WIRE_LEAN
+#if !KUI_TOY_WIRE_LEAN || KUI_TOY_WIRE_FLUID
     const int piece=toy_wire_course(now.counter);
+#if KUI_TOY_WIRE_FLUID
+    if(piece<0 || !frame)return;
+#else
     if(piece<0)return;
     w->update_ticks+=spent;
     const uint32_t lag=toy_chunk_word(TOY_PLAYER_LAG);
     if(lag<=INT32_MAX && lag>w->course_lag[piece])w->course_lag[piece]=lag;
+#endif
     /* The player's buffer, found as toy_chunk_buffer finds it. */
     const uint32_t stream=toy_chunk_word(ctx+8u);
     if(!toy_chunk_ram(stream,20u))return;
@@ -749,7 +779,7 @@ static bool toy_wire_update_due(void) {
 #endif
 #endif
 
-#if KUI_TOY_WIRE_LEAN
+#if KUI_TOY_WIRE_LEAN && !KUI_TOY_WIRE_FLUID
 /* One of the game's GD calls begins or ends (the resident's two trace
  * visits). A call's ticks are counted when both ends were seen. */
 static void toy_wire_gd_time(bool enter) {

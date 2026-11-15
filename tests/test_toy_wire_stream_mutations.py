@@ -36,12 +36,14 @@ PACE = os.environ.get("TOY_WIRE_PACE", WORDS)
 IDLE = os.environ.get("TOY_WIRE_IDLE", PACE)
 LEAN = os.environ.get("TOY_WIRE_LEAN", IDLE)
 STEADY = os.environ.get("TOY_WIRE_STEADY", LEAN)
+FLUID = os.environ.get("TOY_WIRE_FLUID", STEADY)
 AUX = "src/loader/native_readahead_aux.c"
 SWITCHES = [f"TOY_WIRE_TICK={TICK}", f"TOY_WIRE_CACHED={CACHED}", f"TOY_WIRE_WORDS={WORDS}", f"TOY_WIRE_PACE={PACE}",
-            f"TOY_WIRE_IDLE={IDLE}", f"TOY_WIRE_LEAN={LEAN}", f"TOY_WIRE_STEADY={STEADY}"]
+            f"TOY_WIRE_IDLE={IDLE}", f"TOY_WIRE_LEAN={LEAN}", f"TOY_WIRE_STEADY={STEADY}",
+            f"TOY_WIRE_FLUID={FLUID}"]
 DEFINES = [f"-DKUI_TOY_WIRE_TICK={TICK}", f"-DKUI_TOY_WIRE_CACHED={CACHED}", f"-DKUI_TOY_WIRE_WORDS={WORDS}",
            f"-DKUI_TOY_WIRE_PACE={PACE}", f"-DKUI_TOY_WIRE_IDLE={IDLE}", f"-DKUI_TOY_WIRE_LEAN={LEAN}",
-           f"-DKUI_TOY_WIRE_STEADY={STEADY}"]
+           f"-DKUI_TOY_WIRE_STEADY={STEADY}", f"-DKUI_TOY_WIRE_FLUID={FLUID}"]
 MUTATIONS = [
  (STREAM, "resume one byte early", "    w->head = lost + 1u;\n", "    w->head = lost;\n"),
  (STREAM, "resume one byte late", "    w->head = lost + 1u;\n", "    w->head = lost + 2u;\n"),
@@ -411,6 +413,34 @@ RING_MUTATIONS = [
  (STREAM, "the cache's view taken a line further on",
   "    const uint8_t *const view = wire_view(ring) + (p - ring), ", "    const uint8_t *const view = wire_view(ring) + (p - ring) + 32, "),
 ]
+# Test 76. What every build of it has: the ending of streams timed, the
+# wire's standstill placed in the course, and the player's buffer looked at
+# again, in the calls in which the player took a frame.
+FLUID_MUTATIONS = [
+ (GLUE, "the ending of a stream not timed", "    k->report.halt_ticks+=halt_tick-toy_wire_phase();", "    (void)halt_tick;"),
+ (GLUE, "the ending of a stream timed backwards", "    k->report.halt_ticks+=halt_tick-toy_wire_phase();",
+  "    k->report.halt_ticks+=toy_wire_phase()-halt_tick;"),
+ (GLUE, "the wire's standstill placed in no piece",
+  "    if(piece>=0)k->report.course_pause[piece]+=k->report.n.wait_ticks-k->seen_pause;\n", ""),
+ (GLUE, "the wire's standstill counted again at every visit", "    k->seen_pause=k->report.n.wait_ticks;\n#endif\n}", "#endif\n}"),
+ (GLUE, "the wire's standstill before the movie placed in its first piece",
+  "    if(piece>=0)k->report.course_pause[piece]+=k->report.n.wait_ticks-k->seen_pause;\n    k->seen_pause=k->report.n.wait_ticks;",
+  "    if(piece>=0) {k->report.course_pause[piece]+=k->report.n.wait_ticks-k->seen_pause;\n    k->seen_pause=k->report.n.wait_ticks;}"),
+ (GLUE, "the buffer looked at in a call that took no frame", "    if(piece<0 || !frame)return;", "    if(piece<0)return;"),
+ (GLUE, "the buffer looked at in a movie's first call",
+  "    const bool frame=k->seen_start==toy_present.start_tick && (out!=k->seen_out || skip!=k->seen_skip);",
+  "    const bool frame=out!=k->seen_out || skip!=k->seen_skip;"),
+ (GLUE, "the buffer not looked at for a frame skipped",
+  "    const bool frame=k->seen_start==toy_present.start_tick && (out!=k->seen_out || skip!=k->seen_skip);",
+  "    const bool frame=k->seen_start==toy_present.start_tick && out!=k->seen_out;"),
+ (GLUE, "the first movie's buffer placed in the course", "    if(piece<0 || !frame)return;", "    if(!frame)return;"),
+]
+# What Test 76 samples again of what Test 74 gave up: the buffer, not the lag
+# and not the update calls' time.
+FLUID_BACK = {"the buffer's free space not the most", "a buffer without capacity taken",
+              "more in the buffer than it holds taken", "a pointer outside the game's memory followed"}
+# What Test 76 no longer times: the game's GD calls, whole.
+FLUID_GONE = {"a call's time counted without its start", "the game's calls not counted", "the game's calls not timed"}
 # With LATER the pump's call of the reading is another line: the same
 # mutation is made there instead.
 LATER_GONE = {"visits out of time not counted"}
@@ -441,7 +471,7 @@ if PACE == "1":
 if IDLE == "1":
     MUTATIONS = [m for m in MUTATIONS if m[1] not in RESTARTS]
 if LEAN == "1":
-    MUTATIONS = [m for m in MUTATIONS if m[1] not in LEAN_GONE] + LEAN_MUTATIONS
+    MUTATIONS = [m for m in MUTATIONS if m[1] not in LEAN_GONE - (FLUID_BACK if FLUID == "1" else set())] + LEAN_MUTATIONS
     for part, mutations in (("OPEN", OPEN_MUTATIONS), ("CLEAN", CLEAN_MUTATIONS), ("MSB", MSB_MUTATIONS),
                             ("QUICK", QUICK_MUTATIONS)):
         # A part left out of the build under test is left out here too.
@@ -455,13 +485,16 @@ if LEAN == "1":
 if STEADY == "1":
     MUTATIONS = [m for m in MUTATIONS if m[1] not in STEADY_GONE] + STEADY_MUTATIONS
     for part, mutations in (("STAY", STAY_MUTATIONS), ("LATER", LATER_MUTATIONS), ("RING", RING_MUTATIONS)):
-        if os.environ.get(f"TOY_WIRE_{part}", "1") == "1":
+        # Test 76 leaves LATER out unless a build asks for it.
+        if os.environ.get(f"TOY_WIRE_{part}", "0" if part == "LATER" and FLUID == "1" else "1") == "1":
             MUTATIONS += mutations
             if part == "LATER":
                 MUTATIONS = [m for m in MUTATIONS if m[1] not in LATER_GONE]
         else:
             SWITCHES.append(f"TOY_WIRE_{part}=0")
             DEFINES.append(f"-DKUI_TOY_WIRE_{part}=0")
+if FLUID == "1":
+    MUTATIONS = [m for m in MUTATIONS if m[1] not in FLUID_GONE] + FLUID_MUTATIONS
 if os.environ.get("TOY_WIRE_ONLY"):
     # A named part of the list, for running it in pieces: "from:to" of the list's positions.
     low, high = (int(v) for v in os.environ["TOY_WIRE_ONLY"].split(":"))
