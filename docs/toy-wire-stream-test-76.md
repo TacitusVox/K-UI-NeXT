@@ -651,8 +651,26 @@ What this run adds:
 
 1. GAP is not behind the streams begun again. Without it 656 were
    begun, 628 of them on a stray byte between blocks: the same within
-   two in a hundred. That question is open again; what is left to
-   suspect is timing at an overrun, which is not examined.
+   two in a hundred. An independent investigation made before this run
+   (`restarts-investigation.md` in the evidence) had found no path in
+   the code by which GAP or any other part of Test 76 raises the count,
+   and had named this outcome as the one that clears GAP. What it adds:
+   - The cases are the old kind, by the reports' own count of single
+     losses the CRC16 could not explain (48 and 52 in these two runs, 22
+     in Test 75): a block with one position too many, one of whose
+     listed lost positions was never lost (Test 71, finding 5). The
+     hardware cause has been open since then.
+   - Their rate has followed what the game is doing more than the
+     reader's code. Where a movie played unstarved in Tests 71 and 72
+     (the first movie, the second movie's light part), there were 26 to
+     33 for every thousand sectors; in the starved dense part 4 to 5.
+     Tests 76 and this one have 22 overall, and are the first runs in
+     which the second movie plays like the first.
+   - The remedy named since Test 71 is to follow the stream past such a
+     position instead of beginning it again. Most of these blocks have
+     several listed positions, so the sector's parity and EDC would have
+     to say which one to drop. A build that counts the cases by kind and
+     by piece of the course would come first. Neither is built.
 2. GAP gains nothing. The ring loop takes 33.7 microseconds for a block
    with it and without it, and a block 65.4 against 65.5 in all. It is
    left out of what follows, which frees 56 bytes of the auxiliary's
