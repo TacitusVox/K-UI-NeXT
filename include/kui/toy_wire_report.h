@@ -100,7 +100,10 @@
  * ring, feeding the window, opening a stream, copying a request out), and
  * the reasons streams and windows were given up printed again. The parts:
  *   STAY   a request the game waits for in a loop of its own no longer
- *          costs the window: the stream serves it (toy_wire_ahead.inc). */
+ *          costs the window: the stream serves it (toy_wire_ahead.inc);
+ *   LATER  an interrupt visit answers the stream and leaves the reading to
+ *          the game's own calls, unless a request waits for it or the ring
+ *          is filling up (toy_wire_ahead.inc). */
 #ifndef KUI_TOY_WIRE_STEADY
 #define KUI_TOY_WIRE_STEADY 0
 #endif
@@ -110,8 +113,11 @@
 #ifndef KUI_TOY_WIRE_STAY
 #define KUI_TOY_WIRE_STAY KUI_TOY_WIRE_STEADY
 #endif
-#if KUI_TOY_WIRE_STAY && !KUI_TOY_WIRE_STEADY
-#error "STAY is a part of Test 75: use KUI_TOY_WIRE_STEADY"
+#ifndef KUI_TOY_WIRE_LATER
+#define KUI_TOY_WIRE_LATER KUI_TOY_WIRE_STEADY
+#endif
+#if (KUI_TOY_WIRE_STAY || KUI_TOY_WIRE_LATER) && !KUI_TOY_WIRE_STEADY
+#error "STAY and LATER are parts of Test 75: use KUI_TOY_WIRE_STEADY"
 #endif
 /* The second movie in pieces of 2^22 ticks, 5.4 s: twelve cover it. */
 #define KUI_TOY_WIRE_BUCKETS 12u

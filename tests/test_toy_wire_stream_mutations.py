@@ -347,6 +347,41 @@ STAY_MUTATIONS = [
  (GLUE, "a wait kept without a clock", "    if(!now.valid)return false;\n    if(k->stay_token!=token) {",
   "    if(k->stay_token!=token) {"),
 ]
+# LATER: an interrupt visit answers the stream and leaves the reading.
+LATER_MUTATIONS = [
+ (GLUE, "an interrupt visit never leaves the reading",
+  "    return (w->state==KUI_WIRE_RUN || w->state==KUI_WIRE_WAIT) &&\n        w->head-w->tail<TOY_WIRE_LATER_BYTES && w->hole_put-w->hole_get<TOY_WIRE_LATER_HOLES;",
+  "    return false;"),
+ (GLUE, "the reading left with the ring half unread",
+  "        w->head-w->tail<TOY_WIRE_LATER_BYTES && w->hole_put-w->hole_get<TOY_WIRE_LATER_HOLES;",
+  "        w->hole_put-w->hole_get<TOY_WIRE_LATER_HOLES;"),
+ (GLUE, "the reading left with the log of lost positions half full",
+  "        w->head-w->tail<TOY_WIRE_LATER_BYTES && w->hole_put-w->hole_get<TOY_WIRE_LATER_HOLES;",
+  "        w->head-w->tail<TOY_WIRE_LATER_BYTES;"),
+ (GLUE, "the reading left with the stream standing still",
+  "    return (w->state==KUI_WIRE_RUN || w->state==KUI_WIRE_WAIT) &&\n        w->head-w->tail",
+  "    return w->state!=KUI_WIRE_OFF &&\n        w->head-w->tail"),
+ (GLUE, "the ring's mark at three quarters",
+  "enum { TOY_WIRE_LATER_BYTES=KUI_WIRE_RING_BYTES/2u, TOY_WIRE_LATER_HOLES=KUI_WIRE_HOLES/2u };",
+  "enum { TOY_WIRE_LATER_BYTES=3u*KUI_WIRE_RING_BYTES/4u, TOY_WIRE_LATER_HOLES=KUI_WIRE_HOLES/2u };"),
+ (GLUE, "the log's mark one entry late",
+  "enum { TOY_WIRE_LATER_BYTES=KUI_WIRE_RING_BYTES/2u, TOY_WIRE_LATER_HOLES=KUI_WIRE_HOLES/2u };",
+  "enum { TOY_WIRE_LATER_BYTES=KUI_WIRE_RING_BYTES/2u, TOY_WIRE_LATER_HOLES=KUI_WIRE_HOLES/2u+1u };"),
+ (GLUE, "the stream not served by a visit that leaves",
+  "    toy_wire_serve(k,w);\n    return (w->state==KUI_WIRE_RUN", "    return (w->state==KUI_WIRE_RUN"),
+ (GLUE, "the reading left while a request waits",
+  "        if(interrupt && !waiting && toy_wire_later(k,w))++k->report.later;",
+  "        if(interrupt && toy_wire_later(k,w))++k->report.later;"),
+ (GLUE, "a call of the game's leaves the reading too",
+  "        if(interrupt && !waiting && toy_wire_later(k,w))++k->report.later;",
+  "        if(!waiting && toy_wire_later(k,w))++k->report.later;"),
+ (GLUE, "visits that left not counted",
+  "        if(interrupt && !waiting && toy_wire_later(k,w))++k->report.later;",
+  "        if(interrupt && !waiting && toy_wire_later(k,w)) {}"),
+ (GLUE, "an interrupt visit that reads keeps to the short time",
+  "        else if(toy_wire_drain(r,TOY_WIRE_TICKS_FOREGROUND) && k->on)++k->report.budget_ends;",
+  "        else if(toy_wire_drain(r,interrupt && !waiting?TOY_WIRE_TICKS_INTERRUPT:TOY_WIRE_TICKS_FOREGROUND) && k->on)++k->report.budget_ends;"),
+]
 # What Test 75 no longer counts: the runs cut again soon after they began.
 STEADY_GONE = {"runs cut again not counted", "a run behind a wait counted as one behind a cut"}
 # SWIFT, the hand-written block loops, is SH-4 code no host test runs:
@@ -387,7 +422,7 @@ if LEAN == "1":
             DEFINES.append(f"-DKUI_TOY_WIRE_{part}=0")
 if STEADY == "1":
     MUTATIONS = [m for m in MUTATIONS if m[1] not in STEADY_GONE] + STEADY_MUTATIONS
-    for part, mutations in (("STAY", STAY_MUTATIONS),):
+    for part, mutations in (("STAY", STAY_MUTATIONS), ("LATER", LATER_MUTATIONS)):
         if os.environ.get(f"TOY_WIRE_{part}", "1") == "1":
             MUTATIONS += mutations
         else:

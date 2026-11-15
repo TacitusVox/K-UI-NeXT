@@ -793,6 +793,33 @@ static bool toy_wire_stay(uint32_t token) {
 }
 #endif
 
+#if KUI_TOY_WIRE_LATER
+/* Test 75. Up to Test 74 every interrupt visit read what the stream had
+ * brought: on the console about three blocks a visit, some four hundred
+ * visits a second, each one running the whole of the reader's code and
+ * data through caches the player had filled a moment before, and the
+ * player's back through them afterwards. What an interrupt has to do is
+ * answer the stream: account the run that ended and begin the next, so
+ * that the wire goes on. The reading itself is in no hurry while no
+ * request waits for it. The game's own calls come every few milliseconds
+ * and take it in larger pieces, with the interrupted code's caches left
+ * alone in between.
+ *
+ * So an interrupt visit with no request waiting serves the stream and
+ * leaves, as long as the stream then receives (or waits out a busy bus)
+ * and neither the ring nor the stream's log of lost positions is half
+ * taken up by what has not been read. A stream standing still for room, a
+ * ring or a log half full, a fault: those are read at once as before, and
+ * for as long as a call of the game's may read. True if the reading was
+ * left. */
+enum { TOY_WIRE_LATER_BYTES=KUI_WIRE_RING_BYTES/2u, TOY_WIRE_LATER_HOLES=KUI_WIRE_HOLES/2u };
+static bool toy_wire_later(struct toy_wire_keep *k,struct kui_wire_stream *w) {
+    toy_wire_serve(k,w);
+    return (w->state==KUI_WIRE_RUN || w->state==KUI_WIRE_WAIT) &&
+        w->head-w->tail<TOY_WIRE_LATER_BYTES && w->hole_put-w->hole_get<TOY_WIRE_LATER_HOLES;
+}
+#endif
+
 static void toy_ahead_pump(kui_retail_async_region_type *r,bool demand) {
     struct kui_sci_stream_state *stream=&r->shared.stream;
     struct toy_wire_keep *k=toy_wire_keep();
@@ -821,6 +848,9 @@ static void toy_ahead_pump(kui_retail_async_region_type *r,bool demand) {
          * the interrupt visit may then work as long as a foreground one. */
 #if KUI_TOY_WIRE_TICK
         toy_wire_read(r,interrupt && !waiting?TOY_WIRE_TICKS_INTERRUPT:TOY_WIRE_TICKS_FOREGROUND);
+#elif KUI_TOY_WIRE_LATER
+        if(interrupt && !waiting && toy_wire_later(k,w))++k->report.later;
+        else if(toy_wire_drain(r,TOY_WIRE_TICKS_FOREGROUND) && k->on)++k->report.budget_ends;
 #elif KUI_TOY_WIRE_MEASURE
         if(toy_wire_drain(r,interrupt && !waiting?TOY_WIRE_TICKS_INTERRUPT:TOY_WIRE_TICKS_FOREGROUND) &&
            k->on)++k->report.budget_ends;

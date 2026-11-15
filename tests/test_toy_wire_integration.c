@@ -91,6 +91,12 @@ uint32_t kui_toy_wire_test_phase(void) {
 static const struct kui_toy_wire_report *report(void) {
     return (const void *)(arena + KUI_TOY_WIRE_REPORT_OFFSET);
 }
+#if KUI_TOY_WIRE_LATER
+/* The stream's own state: behind the window's slots in the arena. */
+static const struct kui_wire_stream *wire_state(void) {
+    return (const void *)(arena + 62u * 2352u);
+}
+#endif
 /* The first word behind the report is the stream's "on" flag. */
 static bool stream_on(void) {
     uint32_t on;
@@ -679,7 +685,16 @@ static unsigned playing(uint32_t mean, unsigned dense, uint32_t pace) {
      * comes in full runs, an interrupt visit reads a third of each, and
      * the stream stands still for room until the game's next call: no
      * frame finds its data ready. */
+#if !KUI_TOY_WIRE_LATER
     if(!mean && pace >= 70u) CHECK(ready * 2u < requests && w->n.fulls >= requests);
+#else
+    /* Test 75: an interrupt visit that reads at all reads as long as a
+     * call of the game's may. With no call between the requests it is
+     * interrupt visits that read here, every one of them because the ring
+     * was half unread or the stream stood still, and every frame but the
+     * first few finds its data ready. */
+    if(!mean && pace >= 70u) CHECK(ready + 2u >= requests && w->later);
+#endif
     printf("  playing, stall every ~%u bytes, %u%% busy phases, %u ticks a block, without the timer's help: data "
            "ready for %u of %u frames when asked; fulls %u, SCI visits %lu, timer visits %lu\n", (unsigned)mean, dense,
         (unsigned)pace, ready, requests, (unsigned)w->n.fulls, eris, timers);
@@ -1254,6 +1269,156 @@ static void waited_elsewhere(bool clock) {
     m.delay = 0u;
     printf("  a request waited for %s: its window given up at once\n",
         clock ? "that is not the window's next" : "without the clock that bounds the wait");
+}
+#endif
+
+#if KUI_TOY_WIRE_LATER
+/* Test 75: an interrupt visit with no request waiting answers the stream
+ * and leaves the reading for later, while the stream goes on and less than
+ * half the ring is unread. Visit by visit: one that left read nothing and
+ * left the stream receiving below that mark; one that read did so because
+ * the mark was reached or the stream stood still. With a request waiting
+ * no visit leaves. */
+static void later_visits(void) {
+    open_movie(2000u, false, true);
+    const struct kui_toy_wire_report *w = report();
+    const struct kui_wire_stream *ws = wire_state();
+    const struct kui_native_readahead_aux_context *c = &kui_native_readahead_aux_context;
+    /* A bus that cuts a run every two kilobytes or so, as the console's
+     * does: several interrupts to a ring half full. */
+    stall_mean = 2000u;
+    reader_pace(70u);
+    m.delay = 100000u;
+    run_owed = 0u;
+    read_request(FIRST, REQUEST, 0u);
+    CHECK(stream_on() && ws->ring && ws->state != KUI_WIRE_OFF);
+    unsigned left = 0u, read = 0u, most = 0u;
+    for(unsigned n = 0u; n < 2000u; ++n) {
+        const uint32_t blocks = w->n.blocks, later = w->later, visits = w->visit_calls[KUI_TOY_WIRE_VISIT_SCI];
+        const uint32_t verified = c->movie_ahead.verified, service = w->service_ticks;
+        const unsigned long before = eris;
+        if(!hardware_at(2048u)) break;
+        if(eris == before) continue; /* the wire ran on, or the stream's timer called */
+        CHECK(w->visit_calls[KUI_TOY_WIRE_VISIT_SCI] == visits + 1u);
+        const uint32_t unread = ws->head - ws->tail;
+        if(w->later != later) {
+            /* Left: served once, nothing read, the stream receiving. */
+            CHECK(w->later == later + 1u && w->n.blocks == blocks && c->movie_ahead.verified == verified);
+            CHECK(ws->state == KUI_WIRE_RUN || ws->state == KUI_WIRE_WAIT);
+            CHECK(unread < KUI_WIRE_RING_BYTES / 2u && w->service_ticks == service + PHASE_LOOK);
+            if(unread > most) most = unread;
+            if(++left == 2u) {
+                /* What the interrupts left, a call of the game's reads:
+                 * the next one that is due, four milliseconds on. */
+                clock_counter -= 3200u;
+                const uint32_t pumps = w->visit_calls[KUI_TOY_WIRE_VISIT_GAME];
+                game_poll();
+                CHECK(w->visit_calls[KUI_TOY_WIRE_VISIT_GAME] == pumps + 1u && w->n.blocks > blocks);
+                CHECK(ws->head - ws->tail < unread && w->later == later + 1u);
+            }
+        } else {
+            /* Read: blocks were taken, unless the window had no room. */
+            CHECK(w->n.blocks > blocks || c->movie_ahead.verified - c->movie_ahead.first >= 61u);
+            ++read;
+        }
+    }
+    /* Both happened, and the ring came near its mark before a visit read. */
+    CHECK(left >= 3u && read >= 1u && most >= KUI_WIRE_RING_BYTES / 4u && w->later == left);
+    /* The window is full now and the stream stands still. The game takes
+     * what the window holds; then a request waits, and while it does no
+     * interrupt visit leaves the reading. */
+    uint32_t lba = FIRST + REQUEST;
+    unsigned waited = 0u;
+    for(unsigned n = 0u; n < 12u && lba + REQUEST <= WINDOW_END; ++n, lba += REQUEST) {
+        const bool ready = c->movie_ahead.first == lba && c->movie_ahead.verified - lba >= REQUEST;
+        const uint32_t later = w->later;
+        const unsigned long before = eris;
+        memset(ram + (OUTPUT - BEGIN), 0xa5, 64u * 2352u + 16u);
+        const uint32_t token = (uint32_t)request(lba, REQUEST, OUTPUT);
+        for(unsigned moment = 0u; R.shared.service.pending; ++moment) {
+            CHECK(moment < 200000u && !R.engine.failed && !ready);
+            /* Only interrupts: the game does not call while it decodes. */
+            if(!hardware_at(2048u)) game_poll();
+        }
+        CHECK(sdk_poll(KUI_GD_CHECK, token, movie_async_poll) == KUI_GD_COMPLETED);
+        compare(lba, REQUEST, OUTPUT);
+        if(!ready && eris != before) {
+            CHECK(w->later == later);
+            ++waited;
+        }
+    }
+    CHECK(waited >= 1u);
+    visits_accounted();
+    reader_pace(0u);
+    m.delay = 0u;
+    printf("  interrupt visits with no request waiting: %u answered the stream and left the reading (the ring "
+           "up to %u bytes unread), %u read; %u requests waited and no visit left meanwhile\n", left, most, read, waited);
+}
+/* A bus so busy that runs end after a few dozen bytes: the stream's log of
+ * lost positions is half full long before half the ring is unread. The
+ * interrupt visit that finds it so reads at once, and the stream never
+ * stands still for a reader that was not coming. */
+static void later_standstill(void) {
+    open_movie(2000u, false, true);
+    const struct kui_toy_wire_report *w = report();
+    const struct kui_wire_stream *ws = wire_state();
+    stall_mean = 40u; stall_dense = 100u;
+    reader_pace(70u);
+    m.delay = 100000u;
+    run_owed = 0u;
+    read_request(FIRST, REQUEST, 0u);
+    unsigned left = 0u, pressed = 0u, most = 0u;
+    for(unsigned n = 0u; n < 20000u && !pressed; ++n) {
+        const uint32_t blocks = w->n.blocks, later = w->later, unread = ws->head - ws->tail;
+        const unsigned long before = eris;
+        if(!hardware_at(2048u)) break;
+        if(eris == before) continue;
+        const uint32_t logged = ws->hole_put - ws->hole_get;
+        if(w->later != later) {
+            CHECK(ws->state == KUI_WIRE_RUN || ws->state == KUI_WIRE_WAIT);
+            CHECK(logged < KUI_WIRE_HOLES / 2u && ws->head - ws->tail < KUI_WIRE_RING_BYTES / 2u);
+            if(logged > most) most = logged;
+            ++left;
+        } else if(w->n.blocks > blocks && unread + KUI_WIRE_SEGMENT_MAX + 2u < KUI_WIRE_RING_BYTES / 2u) {
+            /* Read with the ring far from its mark: for the log. */
+            ++pressed;
+        }
+    }
+    /* Up to the mark every visit left the reading; the one at the mark
+     * read. (So busy a bus leaves few sectors whole: what becomes of the
+     * stream afterwards is the other fixtures' matter.) */
+    CHECK(left == KUI_WIRE_HOLES / 2u - 1u && pressed == 1u && most == KUI_WIRE_HOLES / 2u - 1u);
+    CHECK(!w->n.fulls && !w->first_error);
+    reader_pace(0u);
+    m.delay = 0u;
+    printf("  a bus that cuts every run after a few bytes: %u interrupt visits left the reading, and the one that "
+           "found the log of lost positions half full read, the ring far from half unread; the stream never "
+           "stood still\n", left);
+}
+/* A stream that is no longer in order is not left for later either: the
+ * interrupt visit that finds the channel taken from it ends it there and
+ * then, as every visit did before. */
+static void later_fault(void) {
+    open_movie(2000u, false, true);
+    const struct kui_toy_wire_report *w = report();
+    const struct kui_wire_stream *ws = wire_state();
+    m.delay = 100000u;
+    run_owed = 0u;
+    read_request(FIRST, REQUEST, 0u);
+    for(unsigned n = 0u; n < 100000u && !m.rx; ++n) if(!hardware()) game_poll();
+    CHECK(m.rx && stream_on() && ws->state == KUI_WIRE_RUN && ws->head - ws->tail < KUI_WIRE_RING_BYTES / 2u);
+    /* The run lands; before its interrupt is taken the channel's source
+     * is no longer the receiver. */
+    wire_unheard();
+    CHECK((m.ssr & ORER) && m.scr == 0x50u);
+    const uint32_t later = w->later, source = m.sar;
+    m.sar = UINT32_C(0x11111111);
+    CHECK(kui_retail_sdk_sci_dispatch(0x4e0u) == 0u);
+    CHECK(w->later == later && w->stops[KUI_TOY_WIRE_STOP_FAULT] == 1u && !stream_on());
+    CHECK(w->first_error == KUI_WIRE_E_FOREIGN);
+    m.sar = source;
+    m.delay = 0u;
+    printf("  a stream whose channel was taken from it: ended by the interrupt visit that found it so\n");
 }
 #endif
 
@@ -1919,6 +2084,11 @@ int main(void) {
     polling(6000u, 0u);
     polling(1500u, 20u);
     overdue();
+#if KUI_TOY_WIRE_LATER
+    later_visits();
+    later_standstill();
+    later_fault();
+#endif
     waited_for();
 #if KUI_TOY_WIRE_STAY
     waited_in_vain();
