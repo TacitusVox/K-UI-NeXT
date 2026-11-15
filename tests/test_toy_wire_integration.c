@@ -1084,6 +1084,167 @@ static void first_skip_apart(void) {
 #endif
 #endif
 
+/* The wire runs on while the game holds interrupts off: a run lands, a
+ * timer runs out, and nobody is told. */
+static void wire_unheard(void) {
+    unsigned channel;
+    if(!stream_on()) return;
+    if(m.rx) {
+        elapse();
+        (void)kui_sci_stream_test_read(SSR, 1u);
+    } else if(timer_running(&channel)) wx.tcr[channel] |= 0x0100u;
+}
+/* One request waited for as the game's own loop does it (its caller at
+ * 0x8c09712a): EXEC and CHECK in turn with interrupts held off, nothing
+ * else of the game running, until the request is complete. The rounds. */
+static unsigned waited_request(uint32_t lba, uint32_t count, bool wire) {
+    memset(ram + (OUTPUT - BEGIN), 0xa5, 64u * 2352u + 16u);
+    const uint32_t token = (uint32_t)request(lba, count, OUTPUT);
+    invariants();
+    unsigned rounds = 0u;
+    for(;; ++rounds) {
+        CHECK(rounds < 200000u && !R.engine.failed);
+        if(wire) wire_unheard();
+        CHECK(sdk_poll(KUI_GD_EXEC, 0u, movie_blocking_poll) == 0);
+        invariants();
+        if(!R.shared.service.pending) break;
+    }
+    CHECK(sdk_poll(KUI_GD_CHECK, token, movie_blocking_poll) == KUI_GD_COMPLETED);
+    CHECK(get(STATUS + 8u) == count * KUI_GAME_DATA_BYTES && !get(STATUS + 4u));
+    compare(lba, count, OUTPUT);
+    invariants();
+    return rounds;
+}
+/* Requests the game waits for in a loop of its own. Up to Test 74 the
+ * first such call gives the window up and the low reader reads the
+ * request; Test 75 keeps the window and the stream serves it, with no
+ * interrupt getting through at any time. */
+static void waited_for(void) {
+    open_movie(2000u, false, true);
+    const struct kui_toy_wire_report *w = report();
+    const struct kui_native_readahead_aux_context *c = &kui_native_readahead_aux_context;
+    const uint32_t *trace = c->diagnostics.stage_result[KUI_NATIVE_RA_STAGE_NONE];
+    /* A run lands when the wire has brought it, not when a call looks. */
+    m.delay = 100000u;
+    enum { WAITED = 8u };
+    uint32_t lba = FIRST;
+    unsigned rounds = 0u;
+    for(unsigned i = 0u; i < WAITED; ++i, lba += REQUEST) rounds += waited_request(lba, REQUEST, true);
+    const unsigned long heard = eris + timers;
+    CHECK(!heard);
+#if KUI_TOY_WIRE_STAY
+    /* One window, one stream, one card command for all of them. The first
+     * request opens the window and waits for the stream to begin; later
+     * ones find theirs read ahead or wait for the wire, never for the low
+     * reader. */
+    CHECK(stream_on() && c->movie_ahead.variant && trace[3] == 1u && card.cmd18 == 1u && !card.cmd12);
+    CHECK(c->stats.hit_requests == WAITED && !c->stats.abandoned);
+    for(unsigned i = 0u; i < KUI_TOY_WIRE_DROPS; ++i) CHECK(!w->drops[i]);
+    CHECK(w->stays >= 1u && w->stays <= WAITED);
+    printf("  %u requests the game waited for with interrupts held off: one window, one stream, %u of them kept "
+           "waiting for the wire, %u rounds of the game's loop\n", (unsigned)WAITED, (unsigned)w->stays, rounds);
+#else
+    /* Every request opens a window with its first call and gives it up
+     * with its second; the low reader reads them all. */
+    CHECK(w->drops[KUI_TOY_WIRE_DROP_WAITING] == WAITED && trace[3] == WAITED && !c->stats.hit_requests);
+    CHECK(!c->movie_ahead.variant && !stream_on());
+    printf("  %u requests the game waited for with interrupts held off: %u windows opened and given up, the low "
+           "reader read them all, %u rounds of the game's loop\n", (unsigned)WAITED,
+        (unsigned)w->drops[KUI_TOY_WIRE_DROP_WAITING], rounds);
+#endif
+    m.delay = 0u;
+}
+#if KUI_TOY_WIRE_STAY
+/* A wait the stream does not end: the wire brings nothing more. After a
+ * quarter of a second the window is given up as it always was, and the low
+ * reader reads the request. */
+static void waited_in_vain(void) {
+    open_movie(2000u, false, true);
+    const struct kui_toy_wire_report *w = report();
+    const struct kui_native_readahead_aux_context *c = &kui_native_readahead_aux_context;
+    m.delay = 100000u;
+    (void)waited_request(FIRST, REQUEST, true);
+    CHECK(stream_on() && c->movie_ahead.variant && c->stats.hit_requests == 1u);
+    /* The window serves what it already holds; then a request waits, and
+     * the run in flight never lands. */
+    uint32_t next = FIRST + REQUEST;
+    while(c->movie_ahead.verified - c->movie_ahead.first >= REQUEST) {
+        (void)waited_request(next, REQUEST, false);
+        next += REQUEST;
+    }
+    memset(ram + (OUTPUT - BEGIN), 0xa5, 64u * 2352u + 16u);
+    const uint32_t token = (uint32_t)request(next, REQUEST, OUTPUT);
+    const uint32_t stays = w->stays;
+    CHECK(sdk_poll(KUI_GD_EXEC, 0u, movie_blocking_poll) == 0); /* its first call */
+    for(unsigned n = 0u; n < 50u; ++n) {
+        CHECK(sdk_poll(KUI_GD_EXEC, 0u, movie_blocking_poll) == 0);
+        CHECK(R.shared.service.pending && stream_on() && c->movie_ahead.variant);
+    }
+    CHECK(w->stays == stays + 1u && !w->drops[KUI_TOY_WIRE_DROP_WAITING]);
+    /* Just short of the limit it is still kept; with the limit passed, the
+     * very next call gives the window up. All the calls so far have not
+     * taken a tenth of it. */
+    clock_counter -= 195312u - 19000u;
+    CHECK(sdk_poll(KUI_GD_EXEC, 0u, movie_blocking_poll) == 0);
+    CHECK(R.shared.service.pending && stream_on() && !w->drops[KUI_TOY_WIRE_DROP_WAITING]);
+    clock_counter -= 19000u;
+    CHECK(sdk_poll(KUI_GD_EXEC, 0u, movie_blocking_poll) == 0);
+    CHECK(w->drops[KUI_TOY_WIRE_DROP_WAITING] == 1u && !stream_on() && !c->movie_ahead.variant);
+    unsigned rounds = 0u;
+    for(; R.shared.service.pending; ++rounds) {
+        CHECK(rounds < 200000u && !R.engine.failed);
+        CHECK(sdk_poll(KUI_GD_EXEC, 0u, movie_blocking_poll) == 0);
+        invariants();
+    }
+    CHECK(w->drops[KUI_TOY_WIRE_DROP_WAITING] == 1u && w->stays == stays + 1u);
+    CHECK(sdk_poll(KUI_GD_CHECK, token, movie_blocking_poll) == KUI_GD_COMPLETED);
+    CHECK(get(STATUS + 8u) == REQUEST * KUI_GAME_DATA_BYTES && !get(STATUS + 4u));
+    compare(next, REQUEST, OUTPUT);
+    invariants();
+    m.delay = 0u;
+    printf("  a request waited for in vain: kept for a quarter of a second, then the window given up and the "
+           "low reader read it\n");
+}
+/* What a wait must not keep: a window that does not stand at the request's
+ * first sector, and any window while the clock that bounds the wait is not
+ * the expected one. Both are given up as they always were. */
+static void waited_elsewhere(bool clock) {
+    open_movie(2000u, false, true);
+    const struct kui_toy_wire_report *w = report();
+    const struct kui_native_readahead_aux_context *c = &kui_native_readahead_aux_context;
+    m.delay = 100000u;
+    (void)waited_request(FIRST, REQUEST, true);
+    CHECK(stream_on() && c->movie_ahead.variant && c->stats.hit_requests == 1u);
+    uint32_t next = FIRST + REQUEST;
+    while(c->movie_ahead.verified - c->movie_ahead.first >= REQUEST) {
+        (void)waited_request(next, REQUEST, false);
+        next += REQUEST;
+    }
+    const uint32_t stays = w->stays, hits = c->stats.hit_requests;
+    if(clock) next += REQUEST; /* the game skips a request's worth */
+    else refill_clock_valid = false;
+    memset(ram + (OUTPUT - BEGIN), 0xa5, 64u * 2352u + 16u);
+    const uint32_t token = (uint32_t)request(next, REQUEST, OUTPUT);
+    unsigned rounds = 0u;
+    for(; R.shared.service.pending; ++rounds) {
+        CHECK(rounds < 200000u && !R.engine.failed);
+        CHECK(sdk_poll(KUI_GD_EXEC, 0u, movie_blocking_poll) == 0);
+        invariants();
+    }
+    refill_clock_valid = true;
+    CHECK(sdk_poll(KUI_GD_CHECK, token, movie_blocking_poll) == KUI_GD_COMPLETED);
+    compare(next, REQUEST, OUTPUT);
+    /* Not kept, not counted as kept, and read by the low reader. */
+    CHECK(w->stays == stays && c->stats.hit_requests == hits);
+    CHECK(w->drops[clock ? KUI_TOY_WIRE_DROP_OTHER : KUI_TOY_WIRE_DROP_WAITING] == 1u);
+    CHECK(w->drops[clock ? KUI_TOY_WIRE_DROP_WAITING : KUI_TOY_WIRE_DROP_OTHER] == 0u);
+    invariants();
+    m.delay = 0u;
+    printf("  a request waited for %s: its window given up at once\n",
+        clock ? "that is not the window's next" : "without the clock that bounds the wait");
+}
+#endif
+
 /* An overrun whose interrupt does not come (held off by the game, or its
  * level taken by the SDK) is answered by the next update call, whatever
  * the spacing says. */
@@ -1746,6 +1907,12 @@ int main(void) {
     polling(6000u, 0u);
     polling(1500u, 20u);
     overdue();
+    waited_for();
+#if KUI_TOY_WIRE_STAY
+    waited_in_vain();
+    waited_elsewhere(true);
+    waited_elsewhere(false);
+#endif
 #endif
 #if KUI_TOY_WIRE_IDLE
     waiting();

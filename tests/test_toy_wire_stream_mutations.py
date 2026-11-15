@@ -324,6 +324,23 @@ STEADY_MUTATIONS = [
  (GLUE, "a frame put out taken for a skip",
   "        if(movie && skip!=k->seen_skip && !w->skip_first)", "        if(movie && out!=k->seen_out && !w->skip_first)"),
 ]
+# STAY: a request the game waits for in a loop of its own keeps its window.
+# (That the window must stand at the request's first sector has no mutation:
+# a request's first visit is never a waiting one, and that visit already
+# gives up a window standing elsewhere. The fixture checks the outcome.)
+STAY_MUTATIONS = [
+ (AHEAD, "a waited request gives the window up all the same",
+  "         (A.variant==variant && s->lba==A.first && !A.error && toy_wire_stay(s->token)))", "         false)"),
+ (GLUE, "a wait in vain never ends", "    return k->stay_tick-now.counter<TOY_WIRE_STAY_TICKS;", "    return true;"),
+ (GLUE, "a wait given up at once", "    return k->stay_tick-now.counter<TOY_WIRE_STAY_TICKS;", "    return false;"),
+ (GLUE, "a wait in vain ends a tenth too late", "enum { TOY_WIRE_STAY_TICKS=195312u };", "enum { TOY_WIRE_STAY_TICKS=215312u };"),
+ (GLUE, "a wait given up a tenth too early", "enum { TOY_WIRE_STAY_TICKS=195312u };", "enum { TOY_WIRE_STAY_TICKS=175000u };"),
+ (GLUE, "every call of a wait takes its time afresh",
+  "    if(k->stay_token!=token) {\n        k->stay_token=token;", "    if(k->stay_token!=token || true) {\n        k->stay_token=token;"),
+ (GLUE, "waits kept not counted", "        ++k->report.stays;\n", ""),
+ (GLUE, "a wait kept without a clock", "    if(!now.valid)return false;\n    if(k->stay_token!=token) {",
+  "    if(k->stay_token!=token) {"),
+]
 # What Test 75 no longer counts: the runs cut again soon after they began.
 STEADY_GONE = {"runs cut again not counted", "a run behind a wait counted as one behind a cut"}
 # SWIFT, the hand-written block loops, is SH-4 code no host test runs:
@@ -364,6 +381,12 @@ if LEAN == "1":
             DEFINES.append(f"-DKUI_TOY_WIRE_{part}=0")
 if STEADY == "1":
     MUTATIONS = [m for m in MUTATIONS if m[1] not in STEADY_GONE] + STEADY_MUTATIONS
+    for part, mutations in (("STAY", STAY_MUTATIONS),):
+        if os.environ.get(f"TOY_WIRE_{part}", "1") == "1":
+            MUTATIONS += mutations
+        else:
+            SWITCHES.append(f"TOY_WIRE_{part}=0")
+            DEFINES.append(f"-DKUI_TOY_WIRE_{part}=0")
 if os.environ.get("TOY_WIRE_ONLY"):
     # A named part of the list, for running it in pieces: "from:to" of the list's positions.
     low, high = (int(v) for v in os.environ["TOY_WIRE_ONLY"].split(":"))

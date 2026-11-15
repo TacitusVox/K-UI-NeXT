@@ -434,7 +434,14 @@ static bool toy_movie_ahead(kui_retail_async_region_type *r,unsigned variant,boo
         e->cursor.manifest==e->manifest && e->cursor.lba==s->lba && e->cursor.count==s->count &&
         !e->cursor.done && !e->cursor.offset && e->cursor.write &&
         s->count<=AHEAD_REQUEST_MAX &&
+#if KUI_TOY_WIRE_STREAM && KUI_TOY_WIRE_STAY
+        /* Test 75: a request the game waits for keeps the window that
+         * stands at its first sector (toy_wire_stay). */
+        (!wait || kick || warm ||
+         (A.variant==variant && s->lba==A.first && !A.error && toy_wire_stay(s->token)))
+#else
         (!wait || kick || warm)
+#endif
 #if !(KUI_TOY_WIRE_STREAM && KUI_TOY_WIRE_OPEN)
         /* Test 57's hold on the second movie's refills at its start: the
          * window serves that movie only once the hold is over. Test 74

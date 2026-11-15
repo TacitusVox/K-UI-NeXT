@@ -16,6 +16,7 @@ TOY_WIRE_MSB ?= $(TOY_WIRE_LEAN)
 TOY_WIRE_QUICK ?= $(TOY_WIRE_LEAN)
 TOY_WIRE_SWIFT ?= $(TOY_WIRE_LEAN)
 TOY_WIRE_STEADY ?= 0
+TOY_WIRE_STAY ?= $(TOY_WIRE_STEADY)
 ifneq ($(words $(TOY_SUITE_MODE)),1)
 $(error TOY_SUITE_MODE must be a single test number)
 endif
@@ -204,12 +205,21 @@ ifneq ($(TOY_WIRE_LEAN),1)
 $(error TOY_WIRE_STEADY builds on Test 74: use TOY_WIRE_LEAN=1 on Test 73's switches)
 endif
 TOY_WIRE_STEADY_FLAGS := -DKUI_TOY_WIRE_STEADY=1
+# A part left out is said so; the plain Test 75 build carries the one switch.
+ifneq ($(filter-out 0 1,$(TOY_WIRE_STAY)),)
+$(error TOY_WIRE_STAY must be 0 or 1)
+endif
+ifeq ($(TOY_WIRE_STAY),0)
+TOY_WIRE_STEADY_FLAGS += -DKUI_TOY_WIRE_STAY=0
+endif
 FLAGS += $(TOY_WIRE_STEADY_FLAGS)
 NATIVE_FLAGS += $(TOY_WIRE_STEADY_FLAGS)
 TOY_MOVIE_TEST_FLAGS += $(TOY_WIRE_STEADY_FLAGS)
 TOY_WIRE_TICK_FLAG += $(TOY_WIRE_STEADY_FLAGS)
 else ifneq ($(TOY_WIRE_STEADY),0)
 $(error TOY_WIRE_STEADY must be 0 or 1)
+else ifneq ($(TOY_WIRE_STAY),0)
+$(error TOY_WIRE_STAY is a part of Test 75: use TOY_WIRE_STEADY=1)
 endif
 RA_AUX_LINK_FLAGS := -Wl,--defsym=__native_ra_extra_code=0x3000
 RA_AUX_SPAN := 0x7000
@@ -242,7 +252,7 @@ $(BUILD)/native-worker.elf: $(NATIVE_OBJ)
 
 $(BUILD)/toy-suite-config: force-mode-config
 	@mkdir -p $(BUILD)
-	@printf '%s\n' 'TOY_SUITE_MODE=$(TOY_SUITE_MODE)' 'TOY_FMV_COMPARE=$(TOY_FMV_COMPARE)' 'TOY_WIRE_STREAM=$(TOY_WIRE_STREAM)' $(if $(filter 1,$(TOY_WIRE_TICK)),'TOY_WIRE_TICK=1') $(if $(filter 1,$(TOY_WIRE_CACHED)),'TOY_WIRE_CACHED=1') $(if $(filter 1,$(TOY_WIRE_WORDS)),'TOY_WIRE_WORDS=1') $(if $(filter 1,$(TOY_WIRE_PACE)),'TOY_WIRE_PACE=1') $(if $(filter 1,$(TOY_WIRE_IDLE)),'TOY_WIRE_IDLE=1') $(if $(filter 1,$(TOY_WIRE_LEAN)),'TOY_WIRE_LEAN=1 OPEN=$(TOY_WIRE_OPEN) CLEAN=$(TOY_WIRE_CLEAN) MSB=$(TOY_WIRE_MSB) QUICK=$(TOY_WIRE_QUICK) SWIFT=$(TOY_WIRE_SWIFT)') $(if $(filter 1,$(TOY_WIRE_STEADY)),'TOY_WIRE_STEADY=1') > $@.tmp
+	@printf '%s\n' 'TOY_SUITE_MODE=$(TOY_SUITE_MODE)' 'TOY_FMV_COMPARE=$(TOY_FMV_COMPARE)' 'TOY_WIRE_STREAM=$(TOY_WIRE_STREAM)' $(if $(filter 1,$(TOY_WIRE_TICK)),'TOY_WIRE_TICK=1') $(if $(filter 1,$(TOY_WIRE_CACHED)),'TOY_WIRE_CACHED=1') $(if $(filter 1,$(TOY_WIRE_WORDS)),'TOY_WIRE_WORDS=1') $(if $(filter 1,$(TOY_WIRE_PACE)),'TOY_WIRE_PACE=1') $(if $(filter 1,$(TOY_WIRE_IDLE)),'TOY_WIRE_IDLE=1') $(if $(filter 1,$(TOY_WIRE_LEAN)),'TOY_WIRE_LEAN=1 OPEN=$(TOY_WIRE_OPEN) CLEAN=$(TOY_WIRE_CLEAN) MSB=$(TOY_WIRE_MSB) QUICK=$(TOY_WIRE_QUICK) SWIFT=$(TOY_WIRE_SWIFT)') $(if $(filter 1,$(TOY_WIRE_STEADY)),'TOY_WIRE_STEADY=1 STAY=$(TOY_WIRE_STAY)') > $@.tmp
 	@cmp -s $@.tmp $@ || cp $@.tmp $@
 	@rm -f $@.tmp
 

@@ -79,8 +79,8 @@ static void toy_report_wire(char **at,const char *end,const struct kui_native_ra
      * were checked; where the reader's time went, by caller and by what it
      * was doing; the second movie's course; the stream, and why streams
      * and windows were given up. */
-    toy_report_short(at,end,"PIPE B I CALLS IRQ",
-        (uint32_t[]){ahead[2],ahead[3],ahead[4],ahead[5]},4u);
+    toy_report_short(at,end,"PIPE B I CALLS IRQ STAY",
+        (uint32_t[]){ahead[2],ahead[3],ahead[4],ahead[5],w->stays},5u);
     toy_report_short(at,end,"AHEAD B I HIT EDC STOP",
         (uint32_t[]){ahead[0],ahead[1],ra->stats.hit_requests,
             ra->stats.producer_blocks,ra->stats.abandoned},5u);

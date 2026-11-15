@@ -98,12 +98,20 @@
  * own. What they share is here: the report's layout, with the reader's
  * time taken apart by the clock where Test 74 estimated it (reading the
  * ring, feeding the window, opening a stream, copying a request out), and
- * the reasons streams and windows were given up printed again. */
+ * the reasons streams and windows were given up printed again. The parts:
+ *   STAY   a request the game waits for in a loop of its own no longer
+ *          costs the window: the stream serves it (toy_wire_ahead.inc). */
 #ifndef KUI_TOY_WIRE_STEADY
 #define KUI_TOY_WIRE_STEADY 0
 #endif
 #if KUI_TOY_WIRE_STEADY && !KUI_TOY_WIRE_LEAN
 #error "Test 75 builds on Test 74"
+#endif
+#ifndef KUI_TOY_WIRE_STAY
+#define KUI_TOY_WIRE_STAY KUI_TOY_WIRE_STEADY
+#endif
+#if KUI_TOY_WIRE_STAY && !KUI_TOY_WIRE_STEADY
+#error "STAY is a part of Test 75: use KUI_TOY_WIRE_STEADY"
 #endif
 /* The second movie in pieces of 2^22 ticks, 5.4 s: twelve cover it. */
 #define KUI_TOY_WIRE_BUCKETS 12u
@@ -289,6 +297,9 @@ struct kui_toy_wire_report {
     uint32_t later;
     /* The second movie's frame at the player's first skip. */
     uint32_t skip_first;
+    /* Requests the game waited for in a loop of its own that kept their
+     * window (STAY). */
+    uint32_t stays;
 #endif
 #else
     uint32_t handler_ticks, handler_calls, handler_max; /* SCI interrupt visits while streaming */

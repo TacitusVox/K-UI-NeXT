@@ -52,7 +52,7 @@ static const struct kui_toy_wire_report *toy_wire_report_block(void) { return &w
  * second movie's course; then the stream and why streams and windows were
  * given up. */
 static const char *const labels[] = {
-    "PIPE B I CALLS IRQ", "AHEAD B I HIT EDC STOP",
+    "PIPE B I CALLS IRQ STAY", "AHEAD B I HIT EDC STOP",
     "I SUBMIT CADENCE MAX AT", "I FIRST LAST SKIP EXIT SF", "B SUBMIT CADENCE MAX AT",
     "IP ON OT OC OI SN ST", "BP ON OT OC OI SN ST",
     "K LIGHT EDC MEND MB LB ORD",
@@ -272,9 +272,11 @@ int main(int argc, char **argv) {
     /* The reader's seconds by what it did: six in the ring, two feeding
      * the window, one opening streams, one copying requests out; a third
      * of the interrupt visits leaving the reading; the first skip at frame
-     * 27. */
+     * 27; and the requests the game waited for with their window kept, as
+     * many as Test 74's run gave windows up for. */
     wire.parse_ticks = 0x4a0000; wire.feed_ticks = 0x1c0000; wire.seek_ticks = 0xb0000;
     wire.publish_ticks = 0xd0000; wire.later = 0x5200; wire.skip_first = 0x1b;
+    wire.stays = 0x35;
 #endif
     /* Both movies with the reader at Test 68's measured cost, most of its
      * interrupt time now behind the timer; the console's count of streams
@@ -329,7 +331,7 @@ int main(int argc, char **argv) {
     assert(last);
     const size_t needed = (size_t)(last - text) + strlen("X E N I C W O\n1 2 3 4 35 6\n");
     assert(needed + 60u <= KUI_TOY_REPORT_FILE_BYTES - 12u);
-    assert(strstr(text, "PIPE B I CALLS IRQ\n2 3 9000 BE00\n"));
+    assert(strstr(text, "PIPE B I CALLS IRQ STAY\n2 3 9000 BE00 35\n"));
     assert(strstr(text, "AHEAD B I HIT EDC STOP\n1100 6600 900 7700 2\n"));
     assert(strstr(text, "I SUBMIT CADENCE MAX AT\n7B0 7AE 92345 124\n"));
     /* The first skipped frame comes from the player's own counters now. */

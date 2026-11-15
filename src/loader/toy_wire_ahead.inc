@@ -94,6 +94,9 @@ struct toy_wire_keep {
 #if KUI_TOY_WIRE_LEAN
     uint32_t gd_open, gd_entered;       /* one of the game's GD calls is under way since this clock value */
 #endif
+#if KUI_TOY_WIRE_STAY
+    uint32_t stay_token, stay_tick;     /* a request the game waits for keeps the window since this clock value */
+#endif
 };
 #define TOY_WIRE_STATE_OFFSET (AHEAD_SLOTS*KUI_GAME_RAW_BYTES)
 #define TOY_WIRE_KEEP_OFFSET (KUI_RETAIL_IMAGE_MAX_SECTORS*KUI_GAME_RAW_BYTES)
@@ -740,6 +743,40 @@ static void toy_wire_gd_time(bool enter) {
     }
     k->gd_open=enter;
     k->gd_entered=now;
+}
+#endif
+
+#if KUI_TOY_WIRE_STAY
+/* Test 75. Some requests the game waits for in a loop of its own: EXEC and
+ * CHECK again and again, with nothing else of the game running, until the
+ * data is there. Such a call says so to the low reader, which then reads
+ * for it at once; and up to Test 74 the window was given up at the first
+ * of them, because only the low reader could make progress without an
+ * interrupt. The stream can: every one of those calls reads what the wire
+ * has brought and answers a run that has ended. So the window is kept and
+ * the request is served from it like any other, usually on arrival.
+ *
+ * Test 74's console run shows what giving up cost. It no longer holds the
+ * second movie's refills back at its start, the player waits for each of
+ * its first refills this way, and the run opened 45 windows for that movie
+ * where Test 73's opened one: a stream begun and ended, and the card
+ * brought to the place again, for nearly every request while the movie got
+ * under way.
+ *
+ * A wait the stream does not end is not left to it for good: after a
+ * quarter of a second the window is given up as before. */
+enum { TOY_WIRE_STAY_TICKS=195312u };
+static bool toy_wire_stay(uint32_t token) {
+    struct toy_wire_keep *k=toy_wire_keep();
+    const struct ra_clock now=clock_read();
+    if(!now.valid)return false;
+    if(k->stay_token!=token) {
+        k->stay_token=token;
+        k->stay_tick=now.counter;
+        ++k->report.stays;
+        return true;
+    }
+    return k->stay_tick-now.counter<TOY_WIRE_STAY_TICKS;
 }
 #endif
 
