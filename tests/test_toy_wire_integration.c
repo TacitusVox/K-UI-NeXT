@@ -1821,6 +1821,8 @@ static uint16_t crc_of_change(unsigned index, uint8_t change) {
     return crc16(zero, sizeof(zero));
 }
 enum { WRONG_REBUILD, WRONG_AHEAD, WRONG_BEHIND, WRONG_UNCHECKED, WRONG_ADDRESS, WRONG_KINDS };
+/* Placements of WRONG_UNCHECKED in which the damaged block lost nothing but its CRC16 byte. */
+static unsigned wrong_unchecked_alone;
 static bool wrong_block(unsigned kind, unsigned shift) {
     open_movie(2000u, false, true);
     const struct kui_toy_wire_report *w = report();
@@ -1891,6 +1893,7 @@ static bool wrong_block(unsigned kind, unsigned shift) {
     /* The damaged block is the one handed on unchecked (or, where a run
      * also ended in it, with a data byte for the parity as well). */
     CHECK(kind == WRONG_UNCHECKED ? w->n.holed == 1u && w->n.unchecked <= 1u : kind == WRONG_ADDRESS || w->n.rebuilt >= 1u);
+    if(kind == WRONG_UNCHECKED && w->n.unchecked == 1u) ++wrong_unchecked_alone;
 #if KUI_TOY_WIRE_CLEAN
     CHECK(w->mend_bad == (kind == WRONG_REBUILD ? 1u : 0u) && !w->light_bad && w->light > w->edc);
 #endif
@@ -1904,10 +1907,13 @@ static void wrong_blocks(void) {
         "a rebuilt block's wrong byte in the sector behind its lost byte, lost where no P code word reaches",
         "a damaged block whose CRC16 was lost",
         "a sector with another address than its place, its blocks' CRC16 fitting"};
+    wrong_unchecked_alone = 0u;
     for(unsigned kind = 0; kind < WRONG_KINDS; ++kind) {
         unsigned tried = 0;
         for(unsigned shift = 0; shift < 12u; ++shift) if(wrong_block(kind, shift)) ++tried;
         CHECK(tried >= 3u);
+        /* The case as its name says it, nothing of the block lost but its CRC16 byte, is among them. */
+        if(kind == WRONG_UNCHECKED) CHECK(wrong_unchecked_alone >= 3u);
         printf("  %s: refused by the sector's check in %u placements, the sector read again, data exact\n", names[kind], tried);
     }
 }

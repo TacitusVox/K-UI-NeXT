@@ -436,6 +436,22 @@ FLUID_MUTATIONS = [
   "    const bool frame=k->seen_start==toy_present.start_tick && out!=k->seen_out;"),
  (GLUE, "the first movie's buffer placed in the course", "    if(piece<0 || !frame)return;", "    if(!frame)return;"),
 ]
+# The corner the stream leaves to its caller, as tests/test_toy_wire_stream.c
+# makes it by construction since Test 76: two readings of a block's
+# beginning open, and what decides between them.
+CORNER_MUTATIONS = [
+ (STREAM, "a reading that cannot be checked taken without the look behind it",
+  "        } else if(w->alternative) accept = wire_gap_like(w, end);", "        } else if(w->alternative) accept = true;"),
+ (STREAM, "the choice between two readings not held for the byte behind",
+  "        const uint32_t need = w->alternative ? end + 1u : end;", "        const uint32_t need = end;"),
+ (STREAM, "a first reading whose lost byte the CRC16 cannot explain handed on",
+  "            } else if(w->alternative) accept = false;\n            else ++w->n->unsolved;", "            } else ++w->n->unsolved;"),
+ (STREAM, "a block whose CRC16 lost a byte called clean",
+  "        out->kind = rebuilt ? KUI_WIRE_REBUILT : lost_data || lost_crc ? KUI_WIRE_LOOSE : KUI_WIRE_CLEAN;",
+  "        out->kind = rebuilt ? KUI_WIRE_REBUILT : lost_data ? KUI_WIRE_LOOSE : KUI_WIRE_CLEAN;"),
+ (STREAM, "the rebuilt byte's place reported one off",
+  "        out->rebuilt_at = w->lost[0];", "        out->rebuilt_at = w->lost[0] ^ 1u;"),
+]
 # QUIT: a stream given up while it receives is ended at once.
 # (Clearing the channel's end flag with its enable bit has no mutation: a
 # stop asks only for the count, and the flag matters to a run that is
@@ -568,6 +584,8 @@ if STEADY == "1":
             DEFINES.append(f"-DKUI_TOY_WIRE_{part}=0")
 if FLUID == "1":
     MUTATIONS = [m for m in MUTATIONS if m[1] not in FLUID_GONE] + FLUID_MUTATIONS
+    # The two about a block's kind need a build that names kinds.
+    MUTATIONS += [m for m in CORNER_MUTATIONS if os.environ.get("TOY_WIRE_CLEAN", "1") == "1" or "KUI_WIRE_" not in m[2] and "rebuilt_at" not in m[2]]
     # HOT changes which address the linked module uses for the window's
     # state and nothing a host build can see: tests/test_toy_wire_linked_hot.py
     # reads the linked module for it, and fails either way round.

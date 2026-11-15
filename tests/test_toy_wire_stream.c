@@ -15,23 +15,33 @@
  *
  * Checked on every block, over stall patterns from none to far denser than
  * Test 67 measured, card gaps of 0 to 37 bytes, and data full of idle- and
- * token-looking bytes: blocks come in card order, none skipped or repeated;
- * every byte not listed as lost equals the card's; a block handed on with
- * no lost byte after a clean CRC16 is never wrong. A wrong block is handed
- * on only in the one corner the design leaves to the caller's sector
- * check: behind a byte lost between blocks, where the block's beginning
- * was read wrong, and then only a block its CRC16 could not refuse. That
- * is one with lost bytes listed, one whose CRC16 itself lost a byte, or
- * one whose single lost byte the CRC16 seemed to explain, which the
- * remainder of wrong bytes does once in 256 times (toy_wire_stream.h; it
- * is why the caller confirms every rebuilt byte from its sector's parity).
- * The test counts each kind and makes the last two by construction.
+ * token-looking bytes: blocks come in card order, none skipped or repeated.
+ * A block is judged by where the stream took it from: from its own place
+ * every byte not listed as lost equals the card's, and a block handed on
+ * with no lost byte after a whole CRC16 is never from another. A wrong
+ * block, one read from beside its place, is handed on only in the one
+ * corner the design leaves to the caller's sector check: behind a byte
+ * lost between blocks, and only when its CRC16 was not taken whole. That
+ * is one with lost bytes listed (a single one where the CRC16 could not
+ * place it and no other reading was open), one whose CRC16 itself lost a
+ * byte, or one whose single lost byte the CRC16 seemed to explain, which
+ * the remainder of wrong bytes does once in 256 times at large
+ * (toy_wire_stream.h; it is why the caller confirms a rebuilt byte from
+ * its sector's P parity, or else passes the sector through its EDC).
+ * The test counts each kind and makes the last two by construction. Under
+ * the model's token-only answer to the bit order question, blocks with
+ * lost bytes go on with every byte the other way round until a whole
+ * block exposes the answer: those are counted apart.
  *
  * Up to Test 75 the model clocked a byte with every look at the receiver's
- * status, and its course met the first kind only; the test then said that
- * no other was possible, which it never was entitled to. Test 76's review
- * made the clock a byte for every fourth look, the course changed, and the
- * other two kinds came up. The stream is as it was: toy_wire_stream.h has
+ * status, and its twelve courses met the first kind only; the test then
+ * said that no other was possible, which it never was entitled to. Test
+ * 76's review made the clock a byte for every fourth look, and the courses
+ * changed. The second kind came up in the twelve courses of every build
+ * that paces its visits and does not end a stream at once (Tests 72 to
+ * 75). The third came up in the same test built without the sanitizers,
+ * where the stall draw then took its two numbers in another order, and
+ * comes up in longer runs. The stream is as it was: toy_wire_stream.h has
  * said since Test 74 what a rebuilt block is worth, and the window has
  * checked accordingly.
  *
@@ -113,7 +123,7 @@ static unsigned looks;      /* at the receiver's status */
 /* Card bytes to lose, each a block and a place in its frame of gap, token,
  * data and CRC16: the byte before it stalls, so that it is the one that
  * overruns. */
-static struct { uint32_t block, at; } lose[2];
+static struct { uint32_t block, at; } lose[32];
 static unsigned lose_count;
 static void shift_one(void) {
     const uint32_t now_block = card_block, now_at = card_at;
@@ -239,13 +249,55 @@ static bool stream_stop(void) {
 static void command_framing(void) { hw.scr = 0x30; hw.smr = 0x80; hw.brr = 0; hw.scmr = 0; hw.ssr = 0x84; hw.sptr = 0x05; hw.pdtr |= 0x80; hw.chcr = 0; stale = false; }
 static bool timer_armed(void) { return w.mode && (hw.tstr & (1u << w.mode)) && (hw.tcr[w.mode] & 0x20); }
 
+/* By construction: the card from block `first` on with the listed bytes
+ * lost and no other stall, no timer free (a wait ends at the next call),
+ * the receiver's answer to the bit order question as given. */
+static void construct_start(uint32_t first, unsigned answer, bool counters) {
+    seed = 31u;
+    memset(&hw, 0, sizeof hw); hw.dmaor = 0x8201u; hw.tstr = 6u;
+    for(unsigned i = 0; i < 64; ++i) hw.slots[i] = 0x8c0be408u;
+    stall_every = 0; until_stall = 100u; dense_left = 0;
+    sdir_answer = answer;
+    card_block = first; card_at = 0;
+    memset(&w, 0, sizeof w);
+    if(counters) memset(&n, 0, sizeof n);
+    command_framing();
+    memset(ring, 0xa5, sizeof ring);
+    assert(kui_wire_start(&w, &n, ring, tables, 0x05, 0x8c421234u));
+}
+/* Blocks, until `want` have come or the stream says something else. */
+static enum kui_wire_parse construct_take(unsigned want, struct kui_wire_block *b, unsigned *came) {
+    enum kui_wire_parse p = KUI_WIRE_NEED;
+    for(unsigned turn = 0; turn < 100000u && p >= KUI_WIRE_NEED && *came < want; ++turn) {
+        pump(1u + rnd() % 3000u);
+        kui_wire_service(&w);
+        while(*came < want && (p = kui_wire_next(&w, b)) == KUI_WIRE_BLOCK) ++*came;
+    }
+    return p;
+}
+static void lose_byte(uint32_t block, uint32_t at) {
+    /* The byte before it stalls: it has to be one the card sends in the same block. */
+    assert(at && lose_count < sizeof lose / sizeof lose[0]);
+    lose[lose_count].block = block; lose[lose_count++].at = at;
+}
+
 int main(int argc, char **argv) {
-    unsigned long total = 0, restarts = 0, wrong[3] = {0}, rewinds[4] = {0};
+    /* What the statements below rest on besides the CRC16 is the card's:
+     * no block of idle-looking bytes has a CRC16 byte that looks idle too.
+     * Such a block, its token lost, could be passed over whole as a gap. */
+    for(uint32_t block = 1; block <= BLOCKS / 4u + 2u; ++block) {
+        if(block % 13u != 6u) continue;
+        uint8_t data[512];
+        for(unsigned i = 0; i < 512u; ++i) data[i] = data_byte(block, i);
+        const uint16_t crc = crc16(data, 512u);
+        assert(crc >> 8 != 0xffu && (crc & 0xffu) != 0xffu);
+    }
+    unsigned long total = 0, restarts = 0, wrong[3] = {0}, wrong_same = 0, rewinds[4] = {0};
 #if KUI_TOY_WIRE_CLEAN
     unsigned long kinds[3] = {0};
 #endif
 #if KUI_TOY_WIRE_MSB
-    unsigned long orders[3] = {0}, unsettled = 0;
+    unsigned long orders[3] = {0}, unsettled = 0, backs = 0;
 #endif
     printf("Test %u card stream on the wire model:\n", KUI_TOY_WIRE_TICK ? 69u : KUI_TOY_WIRE_FLUID ? 76u : KUI_TOY_WIRE_STEADY ? 75u : KUI_TOY_WIRE_LEAN ? 74u : KUI_TOY_WIRE_IDLE ? 73u : KUI_TOY_WIRE_PACE ? 72u : KUI_TOY_WIRE_WORDS ? 71u : KUI_TOY_WIRE_CACHED ? 70u : 68u);
     for(unsigned run = 0; run < (argc > 1 ? (unsigned)atoi(argv[1]) : 12u); ++run) {
@@ -258,8 +310,13 @@ int main(int argc, char **argv) {
         stall_percent_dense = run % 4u == 0 ? 0u : 10u * (run % 7u);
         until_stall = 100u; dense_left = 0;
         uint32_t expect = 1; card_block = 1; card_at = 0;
+        /* Where in the stream the wanted block's data begins. A stream
+         * begins with the wanted block's gap, and every byte the card
+         * sends has a position, lost or not. */
+        uint32_t place = gap_of(expect) + 1u;
 #if KUI_TOY_WIRE_MSB
         unsigned undecided = 0;
+        bool backed = false;    /* an honoured order given up */
         sdir_answer = run % 3u;
 #endif
         const unsigned long overruns_before = overruns;
@@ -325,23 +382,44 @@ int main(int argc, char **argv) {
             for(unsigned k = 0; k < 1u + rnd() % 40u; ++k) {
                 struct kui_wire_block b;
                 const uint32_t unchecked_before = n.unchecked, rebuilt_before = n.rebuilt;
+#if KUI_TOY_WIRE_MSB
+                const uint32_t order_before = n.order;
+#endif
                 const enum kui_wire_parse p = kui_wire_next(&w, &b);
                 if(p == KUI_WIRE_NEED) break;
                 if(p != KUI_WIRE_BLOCK) {
                     /* the caller's rewind: stop, the low reader seeks to the block still wanted */
 #if KUI_TOY_WIRE_MSB
                     /* A lost byte ahead of the very first token leaves the
-                     * bit order undecided: that stream is given up. */
+                     * bit order undecided: that stream is given up. (No
+                     * course here loses one: a run's first stall comes a
+                     * hundred bytes in, behind its first token. The case
+                     * is made by construction below.) */
                     if(p == KUI_WIRE_LOST_FRAME && n.order == KUI_WIRE_ORDER_TRY) ++undecided;
                     else
 #endif
                     ++rewinds[-(int)p];
+#if KUI_TOY_WIRE_MSB
+                    /* An honoured order is given up in one case: before a
+                     * whole block has settled it, a reading with no lost
+                     * byte fails its CRC16 with no other open. The stream
+                     * cannot tell a wrong order from a wrong place there,
+                     * and reads the old way from then on, which is right
+                     * either way. */
+                    if(sdir_answer == 1u && n.order == KUI_WIRE_ORDER_BACK && !backed) {
+                        assert(p == KUI_WIRE_BAD_CRC && order_before == KUI_WIRE_ORDER_SEEN);
+                        backed = true;
+                    }
+#endif
                     assert(stream_stop());
                     assert(hw.scr == 0x30 && hw.smr == 0x80 && !hw.scmr && (hw.pdtr & 0x80) && hw.sar == 0x11 && hw.dar == 0x22 && hw.count == 0x33 && !(hw.chcr & 1u));
                     card_block = expect; card_at = 0; ++restarts; dense_left = 0;
                     command_framing(); hw.sar = 0x11; hw.dar = 0x22; hw.count = 0x33;
                     memset(ring, 0xa5, sizeof ring);
                     assert(kui_wire_start(&w, &n, ring, tables, 0x05, 0x8c421234u));
+                    /* What the stream given up read of its gaps is not the next one's. */
+                    last_gaps = n.gap_idle + n.gap_token;
+                    place = gap_of(expect) + 1u;
                     break;
                 }
                 unsigned li = 0; bool bad = false;
@@ -350,6 +428,11 @@ int main(int argc, char **argv) {
                     if(b.data[i] != data_byte(expect, i)) bad = true;
                 }
                 assert(li == b.lost_count);
+                /* A block is judged by its place before its bytes: where
+                 * the stream took it from against where the card has it.
+                 * Its bytes alone do not say: the card has blocks of FF
+                 * that read the same from three bytes beside. */
+                const bool misplaced = w.tail - 514u != place;
 #if KUI_TOY_WIRE_APART
                 {
                     /* Test 76 (APART): the block lies in one of the two
@@ -374,14 +457,15 @@ int main(int argc, char **argv) {
 #endif
 #if KUI_TOY_WIRE_CLEAN
                 /* What the caller may build on: a block called clean has
-                 * every byte, and every byte right. One called rebuilt has
+                 * every byte, every byte right, and is the block wanted.
+                 * One called rebuilt has
                  * every byte; that the bytes are right is for the caller to
                  * confirm (toy_wire_stream.h, and the corner below). The
                  * kinds are exactly what the counters say: rebuilt, or left
                  * with lost bytes or with a CRC16 that lost one. */
                 assert(b.kind == KUI_WIRE_CLEAN || b.kind == KUI_WIRE_REBUILT || b.kind == KUI_WIRE_LOOSE);
                 if(b.kind != KUI_WIRE_LOOSE) assert(!b.lost_count);
-                if(b.kind == KUI_WIRE_CLEAN) assert(!bad);
+                if(b.kind == KUI_WIRE_CLEAN) assert(!bad && !misplaced);
                 if(b.kind == KUI_WIRE_REBUILT) { assert(b.rebuilt_at < 512u); ++kinds[2]; }
                 else ++kinds[b.kind == KUI_WIRE_CLEAN];
                 assert((b.kind == KUI_WIRE_REBUILT) == (n.rebuilt != rebuilt_before));
@@ -392,46 +476,55 @@ int main(int argc, char **argv) {
                  * Before one has, a block is handed on only for the
                  * sector's check, with lost bytes listed or a CRC16 that
                  * lost one: never as clean or rebuilt. With the token-only
-                 * answer such a block has every byte the other way round,
-                 * and the sector's check is what refuses it. One that is
-                 * not that either was read from the wrong place besides:
-                 * the corner below. */
+                 * answer such a block, taken from its own place, has every
+                 * byte the other way round, and the sector's check is what
+                 * refuses it. One taken from beside its place is the corner
+                 * below, whatever the answer. */
                 if(n.order == KUI_WIRE_ORDER_SEEN) {
                     assert(sdir_answer && (b.lost_count || n.unchecked != unchecked_before));
 #if KUI_TOY_WIRE_CLEAN
                     assert(b.kind == KUI_WIRE_LOOSE);
 #endif
-                    if(sdir_answer == 2u) {
-                        bool placed = true;
+                    if(sdir_answer == 2u && !misplaced) {
                         for(unsigned i = 0, l = 0; i < 512u; ++i) {
                             if(l < b.lost_count && b.lost[l] == i) { ++l; continue; }
-                            if(b.data[i] != rev8(data_byte(expect, i))) placed = false;
+                            assert(b.data[i] == rev8(data_byte(expect, i)));
                         }
-                        if(placed) { ++unsettled; ++expect; last_gaps = n.gap_idle + n.gap_token; continue; }
-                        bad = true;
+                        ++unsettled; ++expect; place += 515u + gap_of(expect);
+                        last_gaps = n.gap_idle + n.gap_token;
+                        continue;
                     }
-                } else assert((n.order == KUI_WIRE_ORDER_MSB) == (sdir_answer == 1u) &&
+                } else if(sdir_answer == 1u && backed) assert(n.order == KUI_WIRE_ORDER_BACK);
+                else assert((n.order == KUI_WIRE_ORDER_MSB) == (sdir_answer == 1u) &&
                     (n.order == KUI_WIRE_ORDER_LSB) == (sdir_answer == 0u));
 #endif
-                if(bad) {
+                /* From its own place every byte not listed as lost is the card's. */
+                if(!misplaced) assert(!bad);
+                else {
                     /* Only the corner the caller's sector check covers: a
-                     * byte lost in the gap before the block, so that its
-                     * beginning was read wrong, and a block its CRC16 could
-                     * not refuse: lost bytes listed, a lost byte in the
-                     * CRC16 itself, or one lost byte that the remainder of
-                     * the wrong bytes seemed to explain. Never a block that
-                     * passed its CRC16 whole. */
+                     * byte lost in the gap before the block (since the
+                     * block before it, or since this stream began), so that
+                     * its beginning was read wrong, and a block whose CRC16
+                     * was not taken whole: lost bytes listed, a lost byte
+                     * in the CRC16 itself, or one lost byte that the
+                     * remainder of the wrong bytes seemed to explain. Never
+                     * a block that passed its CRC16 whole. */
                     assert(n.gap_idle + n.gap_token != last_gaps);
                     const unsigned how = b.lost_count ? 0u : n.unchecked != unchecked_before ? 1u : 2u;
                     if(how == 2u) assert(n.rebuilt != rebuilt_before);
                     ++wrong[how];
+                    /* Its bytes may be the card's all the same. */
+                    if(!bad) ++wrong_same;
                     assert(stream_stop());
                     card_block = expect; card_at = 0; ++restarts; dense_left = 0;
                     command_framing(); hw.sar = 0x11; hw.dar = 0x22; hw.count = 0x33;
                     assert(kui_wire_start(&w, &n, ring, tables, 0x05, 0x8c421234u));
+                    last_gaps = n.gap_idle + n.gap_token;
+                    place = gap_of(expect) + 1u;
                     break;
                 }
                 ++expect; ++total; idle = 0; last_gaps = n.gap_idle + n.gap_token;
+                place += 515u + gap_of(expect);
             }
             if(++idle > 5000u) { fprintf(stderr, "stuck: state %u head %u tail %u floor %u phase %u holes %u run %u\n", w.state, w.head, w.tail, w.floor, w.phase, w.hole_put - w.hole_get, run); return 1; }
         }
@@ -452,7 +545,8 @@ int main(int argc, char **argv) {
 #if KUI_TOY_WIRE_MSB
         /* The console's answer was read right: ignored, honoured, or the
          * token alone, which the first block's CRC16 exposed once. */
-        assert(n.order == (sdir_answer == 0u ? KUI_WIRE_ORDER_LSB : sdir_answer == 1u ? KUI_WIRE_ORDER_MSB : KUI_WIRE_ORDER_BACK));
+        assert(n.order == (sdir_answer == 0u ? KUI_WIRE_ORDER_LSB : sdir_answer == 1u && !backed ? KUI_WIRE_ORDER_MSB : KUI_WIRE_ORDER_BACK));
+        backs += backed;
         assert(!hw.scmr && n.lost_frame == undecided && n.undecided == undecided && undecided < 4u);
         ++orders[sdir_answer];
 #endif
@@ -465,7 +559,7 @@ int main(int argc, char **argv) {
         /* Set aside what settling the order cost: the streams given up
          * undecided, and for the token-only answer the one block that
          * exposed it. The counts below are then as without the question. */
-        if(sdir_answer == 2u) { assert(n.bad_crc >= 1u && n.starts >= 2u); --n.bad_crc; --n.starts; }
+        if(sdir_answer == 2u || backed) { assert(n.bad_crc >= 1u && n.starts >= 2u); --n.bad_crc; --n.starts; }
         n.lost_frame = 0; n.starts -= undecided;
 #endif
         assert(n.blocks >= 15000u - 1u && n.lost_frame == 0u);
@@ -567,91 +661,247 @@ int main(int argc, char **argv) {
 #endif
     /* The corner by construction. A block whose data begins like two idle
      * bytes and a token, and whose own token is lost: the reader first
-     * takes the token-looking byte for the token, three bytes late. With
-     * nothing else lost that reading fails its CRC16 and the other is
-     * taken. It is handed on, wrong, when the CRC16 cannot refuse it:
-     * (0) one of the two bytes it takes for its CRC16 is lost as well, or
-     * (1) one of its data bytes is lost and the remainder of the rest is
-     * one that a single byte there can leave. The second is looked for
-     * over the place of the lost byte until one is found; the design
-     * reckons with one such reading in 256. */
+     * takes the token-looking byte for the token and reads three bytes
+     * late. With nothing else lost that reading fails its CRC16 and the
+     * other is taken. What the CRC16 cannot refuse:
+     * (0) the second of the two bytes the late reading takes for its CRC16
+     *     is lost as well, and the byte behind it looks like the space
+     *     between blocks: handed on, wrong, unchecked;
+     * (1) the same with a data byte behind it: the look behind refuses the
+     *     late reading, and the block is handed on right and clean;
+     * (2) one data byte is lost, and the late reading's remainder is one a
+     *     single byte at that place can leave: handed on rebuilt, wrong. A
+     *     block with its CRC16 has remainder zero, so the late reading's
+     *     remainder comes from the three bytes it drops and the three it
+     *     takes in alone, and with it the places where a lost byte fits:
+     *     the same few for every such block, whatever its data. (The
+     *     design reckons with one reading in 256 fitting for wrong data at
+     *     large; this shape has its own share.) Every place from 8 to 499
+     *     is tried on two blocks.
+     * In each try the bytes the stream logs as lost are exactly the two
+     * listed. The streams given up here, their overruns and the lines
+     * they read are not the courses': the counts of those are put back
+     * behind this. */
     {
+        const unsigned long stops_before = stops_receiving, bytes_before = stop_bytes, most_before = stop_most;
+        const unsigned long overruns_kept = overruns;
+#if KUI_TOY_WIRE_RING
+        const unsigned long drops_before = drops;
+#endif
         unsigned long tries = 0, right = 0;
-        for(unsigned which = 0; which < 2u; ++which) {
-            bool found = false;
-            for(uint32_t block = 10u; block < 2000u && !found; block += 7u) {
-                if(block % 13u == 6u || block % 11u == 5u || !gap_of(block) || gap_of(block + 1u) < 5u) continue;
-                for(unsigned k = 8u; k < (which ? 500u : 9u) && !found; ++k) {
-                    seed = 31u + k;
-                    memset(&hw, 0, sizeof hw); hw.dmaor = 0x8201u; hw.tstr = 6u; /* no timer: a wait ends at the next call */
-                    for(unsigned i = 0; i < 64; ++i) hw.slots[i] = 0x8c0be408u;
-                    stall_every = 0; until_stall = 100u; dense_left = 0;
+        unsigned made[3] = {0, 0, 0}, fits[2] = {0, 0}, place[2][8];
+        for(uint32_t block = 10u; block < 2000u && (!made[0] || !made[1] || made[2] < 2u); block += 7u) {
+            /* Every block here is 3 of 7: its data begins FF FF FE. */
+            if(!gap_of(block)) continue;
+            /* The late reading ends on the next gap's third byte. (0) and
+             * (2) want idle bytes there and behind; (1) wants the next
+             * block's token there and a byte of its data behind, neither
+             * idle nor token. */
+            const unsigned which = gap_of(block + 1u) >= 5u ? (made[0] ? 2u : 0u) :
+                gap_of(block + 1u) == 2u && data_byte(block + 1u, 0) < 0xfeu ? 1u : 3u;
+            if(which == 3u || made[which] >= (which == 2u ? 2u : 1u)) continue;
+            /* Where the block's token lies in a stream begun two blocks ahead of it. */
+            const uint32_t token = gap_of(block - 2u) + 515u + gap_of(block - 1u) + 515u + gap_of(block);
+            for(unsigned k = 8u; k < (which == 2u ? 500u : 9u); ++k) {
+                seed = 31u + k;
+                memset(&hw, 0, sizeof hw); hw.dmaor = 0x8201u; hw.tstr = 6u; /* no timer: a wait ends at the next call */
+                for(unsigned i = 0; i < 64; ++i) hw.slots[i] = 0x8c0be408u;
+                stall_every = 0; until_stall = 100u; dense_left = 0;
 #if KUI_TOY_WIRE_MSB
-                    sdir_answer = 0;
+                sdir_answer = 0;
 #endif
-                    lose[0].block = block; lose[0].at = gap_of(block);            /* its token */
-                    if(which) { lose[1].block = block; lose[1].at = gap_of(block) + 1u + k; }
-                    else { lose[1].block = block + 1u; lose[1].at = 2u; }           /* the late reading's second CRC16 byte */
-                    lose_count = 2u;
-                    card_block = block - 2u; card_at = 0;
-                    memset(&w, 0, sizeof w); memset(&n, 0, sizeof n);
-                    command_framing();
-                    memset(ring, 0xa5, sizeof ring);
-                    assert(kui_wire_start(&w, &n, ring, tables, 0x05, 0x8c421234u));
-                    uint32_t next = block - 2u;
-                    struct kui_wire_block b;
-                    enum kui_wire_parse p = KUI_WIRE_NEED;
-                    bool bad = false;
-                    for(unsigned turn = 0; turn < 100000u && p >= KUI_WIRE_NEED && next <= block; ++turn) {
-                        pump(1u + rnd() % 3000u);
-                        kui_wire_service(&w);
-                        while(next <= block && (p = kui_wire_next(&w, &b)) == KUI_WIRE_BLOCK) {
-                            bad = false;
-                            for(unsigned i = 0, li = 0; i < 512u; ++i) {
-                                if(li < b.lost_count && b.lost[li] == i) { ++li; continue; }
-                                if(b.data[i] != data_byte(next, i)) bad = true;
-                            }
-                            /* The two blocks before it are whole and right. */
-                            if(next < block) assert(!bad && !b.lost_count);
-                            ++next;
+                lose[0].block = block; lose[0].at = gap_of(block);
+                if(which == 2u) { lose[1].block = block; lose[1].at = gap_of(block) + 1u + k; }
+                else { lose[1].block = block + 1u; lose[1].at = 2u; }
+                lose_count = 2u;
+                card_block = block - 2u; card_at = 0;
+                memset(&w, 0, sizeof w); memset(&n, 0, sizeof n);
+                command_framing();
+                memset(ring, 0xa5, sizeof ring);
+                assert(kui_wire_start(&w, &n, ring, tables, 0x05, 0x8c421234u));
+                uint32_t next = block - 2u;
+                struct kui_wire_block b;
+                enum kui_wire_parse p = KUI_WIRE_NEED;
+                bool bad = false;
+                for(unsigned turn = 0; turn < 100000u && p >= KUI_WIRE_NEED && next <= block; ++turn) {
+                    pump(1u + rnd() % 3000u);
+                    kui_wire_service(&w);
+                    while(next <= block && (p = kui_wire_next(&w, &b)) == KUI_WIRE_BLOCK) {
+                        bad = false;
+                        for(unsigned i = 0, li = 0; i < 512u; ++i) {
+                            if(li < b.lost_count && b.lost[li] == i) { ++li; continue; }
+                            if(b.data[i] != data_byte(next, i)) bad = true;
                         }
+                        /* The two blocks before it are whole and right. */
+                        if(next < block) assert(!bad && !b.lost_count);
+                        ++next;
                     }
-                    /* Handed on either way, never refused: a stream is not given up for it. */
-                    assert(p == KUI_WIRE_BLOCK && next == block + 1u && !b.lost_count && n.blocks == 3u);
-                    ++tries;
-                    if(!which) {
-                        /* The late reading, with nothing to check it by. */
-                        assert(bad && n.unchecked == 1u && !n.rebuilt && n.gap_idle == 1u && !n.gap_token);
-#if KUI_TOY_WIRE_CLEAN
-                        assert(b.kind == KUI_WIRE_LOOSE);
-#endif
-                        found = true;
-                    } else if(bad) {
-                        /* The late reading, its lost byte three places earlier in it. */
-                        assert(n.rebuilt == 1u && !n.unchecked && n.gap_idle == 1u && !n.gap_token);
-#if KUI_TOY_WIRE_CLEAN
-                        assert(b.kind == KUI_WIRE_REBUILT && b.rebuilt_at == k - 3u);
-#endif
-                        found = true;
-                    } else {
-                        /* The late reading refused and the other taken: the byte rebuilt right. */
-                        assert(n.rebuilt == 1u && !n.unchecked && n.gap_token == 1u && !n.gap_idle);
-#if KUI_TOY_WIRE_CLEAN
-                        assert(b.kind == KUI_WIRE_REBUILT && b.rebuilt_at == k);
-#endif
-                        ++right;
-                    }
-                    assert(stream_stop());
                 }
+                /* Handed on either way, never refused: a stream is not given up for it. */
+                assert(p == KUI_WIRE_BLOCK && next == block + 1u && !b.lost_count && n.blocks == 3u);
+                /* The stream lost what the list says, and nothing else. */
+                assert(w.hole_put == 2u && w.hole[0] == token && w.hole[1] == token + (which == 2u ? 1u + k : 517u));
+                ++tries;
+                if(which == 0u) {
+                    /* The late reading, with nothing to check it by. */
+                    assert(bad && n.unchecked == 1u && !n.rebuilt && n.gap_idle == 1u && !n.gap_token);
+#if KUI_TOY_WIRE_CLEAN
+                    assert(b.kind == KUI_WIRE_LOOSE);
+#endif
+                } else if(which == 1u) {
+                    /* The late reading refused for what lies behind it; the other is whole. */
+                    assert(!bad && !n.unchecked && !n.rebuilt && n.gap_token == 1u && !n.gap_idle);
+#if KUI_TOY_WIRE_CLEAN
+                    assert(b.kind == KUI_WIRE_CLEAN);
+#endif
+                } else if(bad) {
+                    /* The late reading, its lost byte three places earlier in it. */
+                    assert(n.rebuilt == 1u && !n.unchecked && n.gap_idle == 1u && !n.gap_token);
+#if KUI_TOY_WIRE_CLEAN
+                    assert(b.kind == KUI_WIRE_REBUILT && b.rebuilt_at == k - 3u);
+#endif
+                    assert(fits[made[2]] < 8u);
+                    place[made[2]][fits[made[2]]++] = k;
+                } else {
+                    /* The late reading refused and the other taken: the byte rebuilt right. */
+                    assert(n.rebuilt == 1u && !n.unchecked && n.gap_token == 1u && !n.gap_idle);
+#if KUI_TOY_WIRE_CLEAN
+                    assert(b.kind == KUI_WIRE_REBUILT && b.rebuilt_at == k);
+#endif
+                    ++right;
+                }
+                assert(stream_stop());
             }
-            assert(found);
+            ++made[which];
         }
         lose_count = 0;
-        printf("  the corner by construction, a block read three bytes late behind its lost token: handed on unchecked when "
-               "that reading's CRC16 lost a byte; handed on rebuilt, and wrong, in 1 of %lu readings with one data byte "
-               "lost (the other %lu refused, the block rebuilt right)\n", tries - 1u, right);
-        /* Not the first that comes: most such readings are refused. */
-        assert(right >= 8u);
+        assert(made[0] == 1u && made[1] == 1u && made[2] == 2u);
+        /* Some places fit and most do not, and they are the same for both blocks. */
+        assert(fits[0] && fits[0] == fits[1] && right == 2u * (492u - fits[0]));
+        for(unsigned i = 0; i < fits[0]; ++i) assert(place[0][i] == place[1][i]);
+        printf("  the corner by construction, a block read three bytes late behind its lost token: with a byte of that "
+               "reading's CRC16 lost it is handed on unchecked where the byte behind looks like a gap, and refused for the "
+               "right reading where it does not; with one data byte lost it is handed on rebuilt, and wrong, for %u of 492 "
+               "places of that byte (", fits[0]);
+        for(unsigned i = 0; i < fits[0]; ++i) printf("%s%u", i ? ", " : "", place[0][i]);
+        printf("; the same on a second block) and rebuilt right for the others; %lu streams, the bytes lost in each "
+               "exactly the two listed\n", tries);
+        stops_receiving = stops_before; stop_bytes = bytes_before; stop_most = most_before;
+        overruns = overruns_kept;
+#if KUI_TOY_WIRE_RING
+        drops = drops_before;
+#endif
+    }
+    /* A block from beside its place that equals the card all the same. The
+     * card has blocks of FF behind FF FF FE. With a gap byte lost three
+     * ahead of the token, the reading from the token on is the right one;
+     * with more lost bytes in it than a block is handed on with, the stream
+     * takes the other reading, three bytes early, without a check: two gap
+     * bytes and the token stand where FF FF FE belong, and the block's own
+     * third byte, the FE, is among the lost. Every byte not listed is the
+     * card's. The stream is three bytes out behind it, meets the block's
+     * last byte and its CRC16 where a gap should be, and says so. */
+    {
+        const unsigned long stops_before = stops_receiving, bytes_before = stop_bytes, most_before = stop_most;
+        const unsigned long overruns_kept = overruns;
+#if KUI_TOY_WIRE_RING
+        const unsigned long drops_before = drops;
+#endif
+        uint32_t block = 45u;
+        while(gap_of(block) < 4u) block += 91u;
+        assert(block % 7u == 3u && block % 13u == 6u);
+        const uint32_t token = gap_of(block);
+        lose_count = 0;
+        lose_byte(block, token - 3u);
+        lose_byte(block, token + 1u + 2u);
+        for(unsigned k = 10u; k <= 230u; k += 10u) lose_byte(block, token + 1u + k);
+        lose_byte(block, token + 1u + 510u);
+        assert(lose_count == KUI_WIRE_BLOCK_LOST + 2u);
+        construct_start(block - 2u, 0u, true);
+        struct kui_wire_block b;
+        unsigned came = 0;
+        enum kui_wire_parse p = construct_take(3u, &b, &came);
+        const uint32_t place = gap_of(block - 2u) + 515u + gap_of(block - 1u) + 515u + token + 1u;
+        assert(p == KUI_WIRE_BLOCK && came == 3u && n.blocks == 3u && w.tail - 514u == place - 3u);
+        assert(b.lost_count == KUI_WIRE_BLOCK_LOST && n.gap_token == 1u && !n.gap_idle && !n.rebuilt && !n.unchecked);
+#if KUI_TOY_WIRE_CLEAN
+        assert(b.kind == KUI_WIRE_LOOSE);
+#endif
+        for(unsigned i = 0, l = 0; i < 512u; ++i) {
+            if(l < b.lost_count && b.lost[l] == i) { ++l; continue; }
+            assert(b.data[i] == data_byte(block, i));
+        }
+        came = 0;
+        p = construct_take(1u, &b, &came);
+        assert(p == KUI_WIRE_LOST_FRAME && !came && n.lost_frame == 1u);
+        assert(stream_stop());
+        lose_count = 0;
+        printf("  a block of FF read three bytes early, behind a lost gap byte and with more lost bytes than the right "
+               "reading may have: handed on unchecked with %u lost bytes listed, every other byte the card's; the stream "
+               "then finds itself beside the blocks and stops\n", (unsigned)KUI_WIRE_BLOCK_LOST);
+#if KUI_TOY_WIRE_MSB
+        /* The bit order left undecided. A stream that asks and loses a
+         * byte ahead of its first token is given up; after four of them
+         * the asking ends, and the next stream reads the old way without
+         * asking, whatever the receiver would have answered. */
+        for(unsigned ask = 1u; ask <= 4u; ++ask) {
+            lose_count = 0;
+            lose_byte(1u, gap_of(1u));
+            construct_start(1u, 1u, ask == 1u);
+            assert(hw.scmr == 8u);
+            came = 0;
+            p = construct_take(1u, &b, &came);
+            assert(p == KUI_WIRE_LOST_FRAME && !came && n.undecided == ask && n.lost_frame == ask);
+            assert(n.order == (ask < 4u ? KUI_WIRE_ORDER_TRY : KUI_WIRE_ORDER_LSB));
+            assert(stream_stop());
+        }
+        lose_count = 0;
+        construct_start(1u, 1u, false);
+        assert(!hw.scmr);
+        came = 0;
+        p = construct_take(2u, &b, &came);
+        assert(p == KUI_WIRE_BLOCK && came == 2u && n.order == KUI_WIRE_ORDER_LSB && !b.lost_count);
+        for(unsigned i = 0; i < 512u; ++i) assert(b.data[i] == data_byte(2u, i));
+        assert(stream_stop());
+        /* An honoured order given up. Before a whole block has settled
+         * the order, a block that begins FF FF FE loses its token and its
+         * second byte: both readings left are from beside its place and
+         * whole, both fail their CRC16, and the stream, which cannot tell
+         * a wrong order from a wrong place, stops asking. The next stream
+         * reads the old way, and right. */
+        assert(3u % 7u == 3u && gap_of(3u));
+        lose_count = 0;
+        lose_byte(1u, gap_of(1u) + 1u + 89u);
+        lose_byte(2u, gap_of(2u) + 1u + 411u);
+        lose_byte(2u, gap_of(2u) + 1u + 441u);
+        lose_byte(2u, gap_of(2u) + 1u + 491u);
+        lose_byte(3u, gap_of(3u));
+        lose_byte(3u, gap_of(3u) + 1u + 1u);
+        construct_start(1u, 1u, true);
+        came = 0;
+        p = construct_take(3u, &b, &came);
+        assert(p == KUI_WIRE_BAD_CRC && came == 2u && n.order == KUI_WIRE_ORDER_BACK && n.bad_crc == 1u && n.holed == 2u);
+        assert(stream_stop());
+        lose_count = 0;
+        construct_start(3u, 1u, false);
+        assert(!hw.scmr);
+        came = 0;
+        p = construct_take(1u, &b, &came);
+        assert(p == KUI_WIRE_BLOCK && came == 1u && n.order == KUI_WIRE_ORDER_BACK && !b.lost_count);
+        for(unsigned i = 0; i < 512u; ++i) assert(b.data[i] == data_byte(3u, i));
+#if KUI_TOY_WIRE_CLEAN
+        assert(b.kind == KUI_WIRE_CLEAN);
+#endif
+        assert(stream_stop());
+        printf("  the bit order by construction: four streams that lose a byte ahead of their first token end the asking; "
+               "an honoured order is given up when a whole reading from beside its place fails its CRC16 before a block "
+               "has settled it; either way the next stream reads the old way, and right\n");
+#endif
+        stops_receiving = stops_before; stop_bytes = bytes_before; stop_most = most_before;
+        overruns = overruns_kept;
+#if KUI_TOY_WIRE_RING
+        drops = drops_before;
+#endif
     }
 #if KUI_TOY_WIRE_CLEAN
     printf("  blocks handed on as clean %lu, rebuilt %lu, left to the sector check %lu: none of the first two kinds had a "
@@ -659,9 +909,10 @@ int main(int argc, char **argv) {
     assert(kinds[1] && kinds[2] && kinds[0]);
 #endif
 #if KUI_TOY_WIRE_MSB
-    printf("  bit order asked of the receiver: ignored in %lu runs, honoured in %lu, token only in %lu; each read right "
+    printf("  bit order asked of the receiver: ignored in %lu runs, honoured in %lu, token only in %lu; each read right, "
+           "but for %lu honoured ones given up before a whole block had settled the order "
            "(%lu blocks with lost bytes went to the sector check before a whole block had exposed the token-only answer)\n",
-        orders[0], orders[1], orders[2], unsettled);
+        orders[0], orders[1], orders[2], backs, unsettled);
     assert(orders[0] && orders[1] && orders[2]);
 #endif
 #if KUI_TOY_WIRE_RING
@@ -680,10 +931,11 @@ int main(int argc, char **argv) {
     /* Without QUIT the model shows the wait Test 76 removes. */
     assert(stops_receiving > 100u && (KUI_TOY_WIRE_QUIT ? stop_most <= 2u : stop_most > 1000u));
     printf("PASS Test %u card stream: %lu blocks checked against the card over %lu overruns; %lu streams restarted "
-           "(clean block failing CRC16 %lu, too many lost bytes %lu); %lu blocks handed on wrong, each behind a "
-           "byte lost between blocks and none after a whole CRC16: %lu with lost bytes listed, %lu with a byte of "
-           "the CRC16 lost, %lu rebuilt from a CRC16 that fitted; all left to the sector check\n",
+           "(clean block failing CRC16 %lu, too many lost bytes %lu); %lu blocks handed on from beside their place, "
+           "each behind a byte lost between blocks and none after a whole CRC16: %lu with lost bytes listed, %lu with "
+           "a byte of the CRC16 lost, %lu rebuilt from a CRC16 that fitted (%lu of them equal to the card in every byte "
+           "not listed all the same); all left to the sector check\n",
         KUI_TOY_WIRE_TICK ? 69u : KUI_TOY_WIRE_FLUID ? 76u : KUI_TOY_WIRE_STEADY ? 75u : KUI_TOY_WIRE_LEAN ? 74u : KUI_TOY_WIRE_IDLE ? 73u : KUI_TOY_WIRE_PACE ? 72u : KUI_TOY_WIRE_WORDS ? 71u : KUI_TOY_WIRE_CACHED ? 70u : 68u, total, overruns, restarts, rewinds[2], rewinds[3],
-        wrong[0] + wrong[1] + wrong[2], wrong[0], wrong[1], wrong[2]);
+        wrong[0] + wrong[1] + wrong[2], wrong[0], wrong[1], wrong[2], wrong_same);
     return 0;
 }
