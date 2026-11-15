@@ -115,6 +115,19 @@ _Static_assert(TOY_WIRE_RING_OFFSET%32u==0u && TOY_WIRE_KEEP_OFFSET%32u==0u &&
 static struct toy_wire_keep *toy_wire_keep(void) {
     return (void *)(toy_resume_data()+TOY_WIRE_KEEP_OFFSET);
 }
+#if KUI_TOY_WIRE_STEADY
+/* Test 75 takes the reader's time apart by the clock and looks at it where
+ * the reader did not look before. On the console that is the same timer
+ * register. A host fixture's clock moves with every look, so there these
+ * looks are told apart: what they cost is the fixture's to say, and the
+ * reader's own pace in it stays the one its other checks were written for. */
+#ifdef KUI_NATIVE_READAHEAD_AUX_HOST_TEST
+extern uint32_t kui_toy_wire_test_phase(void);
+#define toy_wire_phase() kui_toy_wire_test_phase()
+#else
+#define toy_wire_phase() read_hw(UINT32_C(0xffd8000c),4u)
+#endif
+#endif
 static struct kui_wire_stream *toy_wire_stream(void) {
     return (void *)(toy_resume_data()+TOY_WIRE_STATE_OFFSET);
 }
@@ -493,7 +506,15 @@ static bool toy_wire_drain(kui_retail_async_region_type *r,uint32_t ticks) {
             } else if(start.counter-clock_read().counter>=ticks) {more=true;break;}
         }
         struct kui_wire_block block;
+#if KUI_TOY_WIRE_STEADY
+        /* Test 75: what a block costs, taken apart by the clock. */
+        const uint32_t parse_tick=toy_wire_phase();
+#endif
         const enum kui_wire_parse parse=kui_wire_next(w,&block);
+#if KUI_TOY_WIRE_STEADY
+        const uint32_t feed_tick=toy_wire_phase();
+        k->report.parse_ticks+=parse_tick-feed_tick;
+#endif
         if(parse==KUI_WIRE_NEED)break;
         if(parse!=KUI_WIRE_BLOCK) {
             toy_wire_rewind(r,KUI_TOY_WIRE_STOP_FRAME);
@@ -509,6 +530,9 @@ static bool toy_wire_drain(kui_retail_async_region_type *r,uint32_t ticks) {
         k->block_open=block.kind==KUI_WIRE_REBUILT;
 #endif
         const enum kui_game_result fed=C.config.ops->feed(&A.cursor,block.data);
+#if KUI_TOY_WIRE_STEADY
+        k->report.feed_ticks+=feed_tick-toy_wire_phase();
+#endif
         k->block_lost_count=0u;
         if(k->bad) {
             toy_wire_rewind(r,KUI_TOY_WIRE_STOP_SECTOR);
@@ -643,6 +667,10 @@ static void toy_wire_update_seen(uint32_t ctx,uint32_t entered) {
     const uint32_t out=toy_chunk_word(ctx+TOY_PLAYER_OUT),skip=toy_chunk_word(ctx+TOY_PLAYER_SKIP);
     const uint32_t interrupt=w->visit_ticks[KUI_TOY_WIRE_VISIT_SCI]+w->visit_ticks[KUI_TOY_WIRE_VISIT_TIMER];
     if(k->seen_start==toy_present.start_tick) {
+#if KUI_TOY_WIRE_STEADY
+        /* The frame at which the second movie's player first skipped. */
+        if(movie && skip!=k->seen_skip && !w->skip_first)w->skip_first=toy_chunk_word(ctx+0x1c0u)+1u;
+#endif
         if(out!=k->seen_out) {
             ++p->out;
             p->out_ticks+=spent;
@@ -756,7 +784,15 @@ static void toy_ahead_pump(kui_retail_async_region_type *r,bool demand) {
         }
 #endif
     }
+#if KUI_TOY_WIRE_STEADY
+    if(!k->on && !A.error && toy_wire_room()) {
+        const uint32_t seek_tick=toy_wire_phase();
+        toy_wire_seek(r);
+        k->report.seek_ticks+=seek_tick-toy_wire_phase();
+    }
+#else
     if(!k->on && !A.error && toy_wire_room())toy_wire_seek(r);
+#endif
     C.stats.producer_blocks+=A.verified-verified;
     A.receiving=k->on || C.config.ops->busy() || stream->state>RA_PAUSED;
     if(!A.receiving)A.receive_token=0u;

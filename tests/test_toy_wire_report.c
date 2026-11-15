@@ -45,7 +45,25 @@ static struct kui_toy_wire_report wire;
 static const struct kui_toy_wire_report *toy_wire_report_block(void) { return &wire; }
 #include "toy_suite_report_save.inc"
 
-#if KUI_TOY_WIRE_LEAN
+#if KUI_TOY_WIRE_STEADY
+#define TEST_NUMBER "75"
+/* Test 75's rows: what the game showed, what its player did, how sectors
+ * were checked, the reader's time by caller and by what it was doing, the
+ * second movie's course; then the stream and why streams and windows were
+ * given up. */
+static const char *const labels[] = {
+    "PIPE B I CALLS IRQ", "AHEAD B I HIT EDC STOP",
+    "I SUBMIT CADENCE MAX AT", "I FIRST LAST SKIP EXIT SF", "B SUBMIT CADENCE MAX AT",
+    "IP ON OT OC OI SN ST", "BP ON OT OC OI SN ST",
+    "K LIGHT EDC MEND MB LB ORD",
+    "V SCI TMR GAME N TICKS", "P RING FEED SEEK OUT LATER", "D N T G N T",
+    "TF", "TD", "TW",
+    "W START SEG CUT WAIT FULL", "W BYTES WTICK TMR ERR DET", "W BLK FIX UNFIX HOLED NOCRC SEEK",
+    "S C S F LF AM BC", "X E N I C W O", "W FILL BYTES MOST REF BAD",
+    "TI", "TG",
+};
+enum { LABELS = sizeof(labels) / sizeof(labels[0]), ESSENTIAL = 19 };
+#elif KUI_TOY_WIRE_LEAN
 #define TEST_NUMBER "74"
 /* Test 74's rows: what the game showed, what its player did, how sectors
  * were checked and the bit order, the reader's time, the second movie's
@@ -250,6 +268,14 @@ int main(int argc, char **argv) {
     wire.n.again[0][0] = 0x1500; wire.n.again[0][1] = 0x600; wire.n.again[0][2] = 0x380;
     wire.n.again[1][0] = 0x900; wire.n.again[1][1] = 0x410; wire.n.again[1][2] = 0x2a0;
 #endif
+#if KUI_TOY_WIRE_STEADY
+    /* The reader's seconds by what it did: six in the ring, two feeding
+     * the window, one opening streams, one copying requests out; a third
+     * of the interrupt visits leaving the reading; the first skip at frame
+     * 27. */
+    wire.parse_ticks = 0x4a0000; wire.feed_ticks = 0x1c0000; wire.seek_ticks = 0xb0000;
+    wire.publish_ticks = 0xd0000; wire.later = 0x5200; wire.skip_first = 0x1b;
+#endif
     /* Both movies with the reader at Test 68's measured cost, most of its
      * interrupt time now behind the timer; the console's count of streams
      * that could not be followed, and two of them noted. */
@@ -268,6 +294,11 @@ int main(int argc, char **argv) {
 #endif
     for(unsigned i = 0; i < KUI_TOY_WIRE_STOPS; ++i) wire.stops[i] = 3u + i;
     for(unsigned i = 0; i < KUI_TOY_WIRE_DROPS; ++i) wire.drops[i] = 1u + i;
+#if KUI_TOY_WIRE_STEADY
+    /* As many streams not followed as the console has shown, and a movie's
+     * start of windows given up for a read that was waited for. */
+    wire.stops[KUI_TOY_WIRE_STOP_FRAME] = 0x12c; wire.drops[KUI_TOY_WIRE_DROP_WAITING] = 0x35;
+#endif
     uint32_t *trace = ra.diagnostics.stage_result[KUI_NATIVE_RA_STAGE_NONE];
     trace[0] = 0x1100; trace[1] = 0x6600; trace[2] = 2; trace[3] = 3; trace[4] = 0x9000; trace[5] = 0xbe00;
     ra.stats.hit_requests = 0x900; ra.stats.producer_blocks = 0x7700; ra.stats.abandoned = 2;
@@ -291,7 +322,40 @@ int main(int argc, char **argv) {
     ra.wait[0] = (struct kui_toy_movie_wait_trace){0x69263, 0x10, 0xc, 0x235678, 0x1345, 0x1ce1};
     ra.wait[1] = (struct kui_toy_movie_wait_trace){0x6e450, 0x11, 0x3, 0x2e4567, UINT32_MAX, UINT32_MAX};
     body = format(&ra, &region, text, &rows);
-#if KUI_TOY_WIRE_LEAN
+#if KUI_TOY_WIRE_STEADY
+    /* Everything fits at a full run's values. */
+    assert(essential_rows == ESSENTIAL && rows == LABELS);
+    const char *last = strstr(text, "X E N I C W O\n1 2 3 4 35 6\n");
+    assert(last);
+    const size_t needed = (size_t)(last - text) + strlen("X E N I C W O\n1 2 3 4 35 6\n");
+    assert(needed + 60u <= KUI_TOY_REPORT_FILE_BYTES - 12u);
+    assert(strstr(text, "PIPE B I CALLS IRQ\n2 3 9000 BE00\n"));
+    assert(strstr(text, "AHEAD B I HIT EDC STOP\n1100 6600 900 7700 2\n"));
+    assert(strstr(text, "I SUBMIT CADENCE MAX AT\n7B0 7AE 92345 124\n"));
+    /* The first skipped frame comes from the player's own counters now. */
+    assert(strstr(text, "I FIRST LAST SKIP EXIT SF\n23576 7B0 2 FFFFF843 1B\n"));
+    assert(strstr(text, "B SUBMIT CADENCE MAX AT\n14B 14A 12ABC F6\n"));
+    assert(strstr(text, "IP ON OT OC OI SN ST\n290 16E3600 1A00000 1C0000 520 9000\n"));
+    assert(strstr(text, "BP ON OT OC OI SN ST\n14B 4F0000 7E0000 30000 0 0\n"));
+    assert(strstr(text, "K LIGHT EDC MEND MB LB ORD\n4C00 25E7 1A90 3 0 3\n"));
+    assert(strstr(text, "V SCI TMR GAME N TICKS\nC67C D000 26265 3A0000 4E0000 5B0000\n"));
+    /* The reader's ticks by what it was doing, and the visits that left
+     * the reading for later. */
+    assert(strstr(text, "P RING FEED SEEK OUT LATER\n4A0000 1C0000 B0000 D0000 5200\n"));
+    assert(strstr(text, "D N T G N T\n1E000 2A0000 1D700 6A0000\n"));
+    assert(strstr(text, "TF\nA1A10B0C D0E0F10 111213A1\n"));
+    assert(strstr(text, "TD\n8484A4A5 A6A7A8A9 AAABAC84\n"));
+    assert(strstr(text, "TW\n6263 64656667 68696A08\n"));
+    assert(strstr(text, "W START SEG CUT WAIT FULL\n1F 2800 83D7 6622 300\n"));
+    assert(strstr(text, "W BLK FIX UNFIX HOLED NOCRC SEEK\n24C00 6100 5 1C00 90 2F\n"));
+    /* Why streams ended, and what could not be followed about them. */
+    assert(strstr(text, "S C S F LF AM BC\n3 5 12C 4A 2 3\n"));
+    assert(strstr(text, "W FILL BYTES MOST REF BAD\n1500 6A00 1D 4 2\n"));
+    assert(strstr(text, "TI\n24252627 28292A2B 2C2D2E2F\n"));
+    assert(strstr(text, "TG\nC0CFFFF FFFFFFFF FFFFFF0C\n"));
+    /* Test 74's rows of the chunks, the idle calls and the runs cut again are gone. */
+    assert(!strstr(text, "IC RDY") && !strstr(text, "U S W D") && !strstr(text, "R C8"));
+#elif KUI_TOY_WIRE_LEAN
     /* Everything fits at a full run's values. */
     assert(essential_rows == ESSENTIAL && rows == LABELS);
     const char *last = strstr(text, "W BLK FIX UNFIX HOLED NOCRC SEEK\n24C00 6100 5 1C00 90 2F\n");

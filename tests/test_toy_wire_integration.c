@@ -32,7 +32,7 @@ static unsigned long gate_visits;
 void kui_toy_movie_ahead_update(uint32_t ctx, uint32_t entered);
 /* The player's memory as Test 73's hook reads it: its output and skip
  * counters, its lag counter, and its buffer behind three pointers. */
-static struct { uint32_t out, skip, lag, capacity, released, filled, stream; } player;
+static struct { uint32_t out, skip, lag, capacity, released, filled, stream, frame; } player;
 #define PLAYER_STREAM UINT32_C(0x8c200000)
 #define PLAYER_CHANNEL UINT32_C(0x8c200100)
 #define PLAYER_AVI UINT32_C(0x8c200200)
@@ -41,6 +41,7 @@ static bool player_word(uint32_t address, uint32_t *value) {
     switch(address) {
     case PLAYER + 0xacu: *value = player.out; return true;
     case PLAYER + 0x90u: *value = player.skip; return true;
+    case PLAYER + 0x1c0u: *value = player.frame; return true;
     case PLAYER_LAG: *value = player.lag; return true;
     case PLAYER + 8u: *value = player.stream; return true;
     case PLAYER_STREAM + 4u: *value = PLAYER_CHANNEL; return true;
@@ -70,6 +71,23 @@ static void reader_pace(uint32_t ticks) {
     refill_clock_extra_ticks = ticks;
     clock_step = ticks ? ticks : 5u;
 }
+#if KUI_TOY_WIRE_STEADY
+/* Test 75's phase timers look at the clock where the reader did not look
+ * before. In this fixture a look moves the clock, and the reader's pace in
+ * it is what the other checks were written for. So these looks are told
+ * apart: each sees the clock as it stands, less three ticks for every one
+ * of them so far. A span between two of them is then three ticks and
+ * whatever the reader's own looks in between cost, and the reader's pace is
+ * Test 74's to the tick. */
+enum { PHASE_LOOK = 3u };
+static uint32_t phase_spent;
+static unsigned long phase_looks;
+uint32_t kui_toy_wire_test_phase(void) {
+    ++phase_looks;
+    phase_spent += PHASE_LOOK;
+    return clock_counter - phase_spent;
+}
+#endif
 static const struct kui_toy_wire_report *report(void) {
     return (const void *)(arena + KUI_TOY_WIRE_REPORT_OFFSET);
 }
@@ -424,6 +442,25 @@ static void visits_accounted(void) {
     CHECK(!w->wait_calls[0]);
     const uint32_t restarts = w->stops[KUI_TOY_WIRE_STOP_SECTOR] + w->stops[KUI_TOY_WIRE_STOP_FRAME] +
         w->stops[KUI_TOY_WIRE_STOP_FAULT];
+#if KUI_TOY_WIRE_STEADY
+    /* Test 75 takes the reader's time apart by the clock. Nothing looks at
+     * this fixture's clock while a block is taken out of the ring, while
+     * one is fed to the window, or while a request is copied out, so each
+     * of those spans is one phase look: the counts are exact. A reopening
+     * runs the low reader, which looks at the clock itself. And the parts
+     * lie inside the visits they were taken in. */
+    {
+        const uint32_t look = PHASE_LOOK;
+        CHECK(w->feed_ticks == look * w->n.blocks);
+        CHECK(w->parse_ticks >= w->feed_ticks && (w->parse_ticks - w->feed_ticks) % look == 0u);
+        CHECK(w->publish_ticks == look * kui_native_readahead_aux_context.stats.hit_requests);
+        CHECK(!w->seek_blocks == !w->seek_ticks || (w->seek_ticks && w->declined));
+        CHECK(w->seek_ticks < UINT32_C(0x40000000) && w->parse_ticks < UINT32_C(0x40000000));
+        CHECK(w->parse_ticks + w->feed_ticks <=
+            w->visit_ticks[KUI_TOY_WIRE_VISIT_SCI] + w->visit_ticks[KUI_TOY_WIRE_VISIT_GAME] +
+            w->visit_ticks[KUI_TOY_WIRE_VISIT_TIMER]);
+    }
+#endif
 #if KUI_TOY_WIRE_IDLE
     /* Test 73 does not time restarts or place them in the course. */
     CHECK(!w->restart_ticks && !w->restart_max);
@@ -514,7 +551,8 @@ static void steady(unsigned extent_blocks, bool scattered, uint32_t mean, unsign
      * low reader's first, and those a rebuilt block reaches whose byte
      * could not be confirmed inside them. A change to those rules shows
      * here, also one that only makes the reader check more than it must. */
-    if(!mean && !scattered && !refill_clock_extra_ticks) CHECK(w->light == 274u && w->edc == 16u && w->mends == 81u);
+    if(!mean && !scattered && !refill_clock_extra_ticks)
+        CHECK(w->light == 274u && w->edc == 16u && w->mends == 81u);
     if(!mean && !scattered) CHECK(w->light > 4u * w->edc && w->mends);
     else if(!mean || mean >= 6000u) CHECK(w->light > (scattered ? 1u : 2u) * w->edc && w->mends);
 #endif
@@ -924,10 +962,20 @@ static void player_measured(void) {
     CHECK(intro->out == 1u && intro->out_ticks == 20000u + step && !intro->skip);
     CHECK(intro->out_cycle > intro->out_ticks + between && intro->out_interrupt == between);
     const uint32_t cycle = intro->out_cycle;
+#if KUI_TOY_WIRE_STEADY
+    /* No skip yet, whatever frame the player stands at. */
+    CHECK(!w->skip_first);
+    player.frame = 41u;
+#endif
     /* A frame skipped in a short one. */
     ++player.skip;
     player_update_for(300u);
     CHECK(intro->skip == 1u && intro->skip_ticks == 300u + step && intro->out == 1u);
+#if KUI_TOY_WIRE_STEADY
+    /* The second movie's first skip, by the player's own frame count. */
+    CHECK(w->skip_first == 42u);
+    player.frame = 77u;
+#endif
     /* Neither: a call that only waited. */
     player_update_for(50u);
     CHECK(intro->out == 1u && intro->skip == 1u);
@@ -936,6 +984,10 @@ static void player_measured(void) {
     player_update_for(700u);
     CHECK(intro->out == 2u && intro->out_ticks == 20700u + 2u * step && intro->skip == 1u);
     CHECK(intro->out_interrupt == between && intro->skip_ticks == 300u + step);
+#if KUI_TOY_WIRE_STEADY
+    /* A later skip is not the first. */
+    CHECK(w->skip_first == 42u);
+#endif
     /* From the call before: its own 700 ticks and the few looks at the
      * clock since. */
     CHECK(intro->out_cycle - cycle >= 700u && intro->out_cycle - cycle < 900u);
@@ -986,6 +1038,10 @@ static void player_measured(void) {
     ++player.skip;
     player_update_for(40u);
     CHECK(bumper->out == 1u && bumper->out_ticks == 15000u + step && bumper->skip == 1u && bumper->skip_ticks == 40u + step);
+#if KUI_TOY_WIRE_STEADY
+    /* The first movie's skips are not the second's. */
+    CHECK(w->skip_first == 42u);
+#endif
     CHECK(intro->out == 2u && intro->skip == 1u && w->update_ticks == all);
     for(unsigned i = 0; i < KUI_TOY_WIRE_BUCKETS; ++i) SAMPLED(w->course_free[i] <= 0xc0000u && w->course_lag[i] <= 9u);
     (void)ticks;
@@ -995,6 +1051,37 @@ static void player_measured(void) {
            "around them%s; each movie apart\n", KUI_TOY_WIRE_LEAN ? "" : ", its buffer's emptiest and its lag's highest in each piece");
 }
 #undef SAMPLED
+#if KUI_TOY_WIRE_STEADY
+/* The first movie's player skips before the second movie's ever has: its
+ * skips never stand for the second movie's first one. */
+static void first_skip_apart(void) {
+    open_movie(2000u, false, true);
+    const struct kui_toy_wire_report *w = report();
+    struct kui_toy_movie_exit_witness *exits = kui_native_readahead_aux_context.movie_exit;
+    read_request(FIRST, REQUEST, 3u);
+    kui_toy_movie_present_boundary(PLAYER, (uintptr_t)&exits[1], KUI_TOY_MOVIE_EXIT_TERMINAL);
+    exits[0].start_status = 0x07dbu;
+    kui_toy_movie_present_boundary(PLAYER, (uintptr_t)&exits[0], KUI_TOY_MOVIE_EXIT_STARTED);
+    player.frame = 9u;
+    player_update_for(100u); /* a movie's first call only takes the counters */
+    ++player.skip;
+    player_update_for(100u);
+    CHECK(w->player[0].skip == 1u && !w->player[1].skip && !w->skip_first);
+    /* The second movie begins. Its first call counts nothing, and its
+     * first skip is told by its own frame count. */
+    kui_toy_movie_present_boundary(PLAYER, (uintptr_t)&exits[0], KUI_TOY_MOVIE_EXIT_TERMINAL);
+    exits[1].start_status = 0x07dbu;
+    kui_toy_movie_present_boundary(PLAYER, (uintptr_t)&exits[1], KUI_TOY_MOVIE_EXIT_STARTED);
+    player.frame = 30u;
+    ++player.skip;
+    player_update_for(100u);
+    CHECK(!w->skip_first && !w->player[1].skip);
+    ++player.skip;
+    player_update_for(100u);
+    CHECK(w->skip_first == 31u && w->player[1].skip == 1u && w->player[0].skip == 1u);
+    printf("  the second movie's first skip: its own frame, not a skip of the first movie's\n");
+}
+#endif
 #endif
 
 /* An overrun whose interrupt does not come (held off by the game, or its
@@ -1593,9 +1680,27 @@ int main(void) {
         ecc_f[i] = (uint8_t)j;
         ecc_b[i ^ j] = (uint8_t)i;
     }
+#if KUI_TOY_WIRE_STEADY
+    /* Test 75 prints nothing of the chunk observer and has it do nothing:
+     * no read of the game's memory, no count, whatever the hook hands it. */
+    {
+        setup_movie_card(1u, 48u);
+        struct kui_native_ra_config configuration = movie_configuration();
+        configuration.toy_poll_owner = 1u;
+        bind_movie_configuration(&configuration);
+        chunk_name("60hz_Intro_LRTF.avi");
+        chunk_word_reads = 0u;
+        kui_toy_movie_chunk_observe(PLAYER, 0);
+        kui_toy_movie_chunk_observe(PLAYER, -2);
+        (void)movie_chunk_classification; /* Test 66's own check of what the observer no longer does */
+        const struct kui_toy_movie_chunk_trace *trace = kui_native_readahead_aux_context.movie_chunk;
+        CHECK(!chunk_word_reads && !trace[1].ready && !trace[1].wait_gd && !trace[1].wait_no_gd && !trace[1].other);
+    }
+#else
     /* Test 66's own chunk classification is untouched by the switch. */
     movie_chunk_classification();
-    printf("Test %u reader, real low reader + auxiliary + stream on the card model:\n", KUI_TOY_WIRE_TICK ? 69u : KUI_TOY_WIRE_LEAN ? 74u : KUI_TOY_WIRE_IDLE ? 73u : KUI_TOY_WIRE_PACE ? 72u : KUI_TOY_WIRE_WORDS ? 71u : KUI_TOY_WIRE_CACHED ? 70u : 68u);
+#endif
+    printf("Test %u reader, real low reader + auxiliary + stream on the card model:\n", KUI_TOY_WIRE_TICK ? 69u : KUI_TOY_WIRE_STEADY ? 75u : KUI_TOY_WIRE_LEAN ? 74u : KUI_TOY_WIRE_IDLE ? 73u : KUI_TOY_WIRE_PACE ? 72u : KUI_TOY_WIRE_WORDS ? 71u : KUI_TOY_WIRE_CACHED ? 70u : 68u);
 #if KUI_TOY_WIRE_MSB
     /* Everything twice: with a receiver that ignores the bit order asked
      * of it, and with one that delivers bytes MSB first. */
@@ -1645,6 +1750,9 @@ int main(void) {
 #if KUI_TOY_WIRE_IDLE
     waiting();
     player_measured();
+#if KUI_TOY_WIRE_STEADY
+    first_skip_apart();
+#endif
 #endif
     damaged_block();
     wrong_blocks();
@@ -1665,6 +1773,6 @@ int main(void) {
 #if KUI_TOY_WIRE_MSB
     }
 #endif
-    printf("PASS Test %u reader integration: %u checks\n", KUI_TOY_WIRE_TICK ? 69u : KUI_TOY_WIRE_LEAN ? 74u : KUI_TOY_WIRE_IDLE ? 73u : KUI_TOY_WIRE_PACE ? 72u : KUI_TOY_WIRE_WORDS ? 71u : KUI_TOY_WIRE_CACHED ? 70u : 68u, checks);
+    printf("PASS Test %u reader integration: %u checks\n", KUI_TOY_WIRE_TICK ? 69u : KUI_TOY_WIRE_STEADY ? 75u : KUI_TOY_WIRE_LEAN ? 74u : KUI_TOY_WIRE_IDLE ? 73u : KUI_TOY_WIRE_PACE ? 72u : KUI_TOY_WIRE_WORDS ? 71u : KUI_TOY_WIRE_CACHED ? 70u : 68u, checks);
     return 0;
 }

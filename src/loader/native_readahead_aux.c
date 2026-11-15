@@ -820,7 +820,7 @@ static uint32_t toy_chunk_word(uint32_t address) {
 
 #define TOY_NAME_WORD(a,b,c,d) ((uint32_t)(a) | (uint32_t)(b)<<8 | (uint32_t)(c)<<16 | (uint32_t)(d)<<24)
 /* Same exact game context and filenames as the movie exit witness. */
-static unsigned toy_chunk_variant(uint32_t name) {
+static unsigned __attribute__((__unused__)) toy_chunk_variant(uint32_t name) {
     unsigned rate;
     switch(toy_chunk_word(name)) {
     case TOY_NAME_WORD('5','0','h','z'): rate=1u;break;
@@ -842,7 +842,7 @@ static unsigned toy_chunk_variant(uint32_t name) {
 }
 #undef TOY_NAME_WORD
 
-static bool toy_chunk_pending(const struct kui_toy_movie_range *range) {
+static bool __attribute__((__unused__)) toy_chunk_pending(const struct kui_toy_movie_range *range) {
     const volatile struct kui_retail_gd *s=&C.config.region->shared.service;
     if(!s->pending)return false;
     const uint32_t token=s->token,command=s->command,lba=s->lba,count=s->count;
@@ -1041,7 +1041,7 @@ uint32_t kui_toy_movie_refill_length(uint32_t avi,uint32_t file,uint32_t bytes,
 #endif
 #endif
 
-static void toy_chunk_onset(uint32_t ctx,unsigned movie,bool pending) {
+static void __attribute__((__unused__)) toy_chunk_onset(uint32_t ctx,unsigned movie,bool pending) {
     const volatile struct kui_toy_movie_exit_witness *w=&C.movie_exit[movie];
     if((w->flags&(KUI_TOY_MOVIE_EXIT_STARTED|KUI_TOY_MOVIE_EXIT_TERMINAL))!=KUI_TOY_MOVIE_EXIT_STARTED ||
        w->start_status!=0x07dbu)return;
@@ -1127,6 +1127,12 @@ static void toy_chunk_onset(uint32_t ctx,unsigned movie,bool pending) {
 
 /* Foreground game-stack observer. Service metadata is sampled read-only. */
 void kui_toy_movie_chunk_observe(uint32_t ctx,int32_t result) {
+#if KUI_TOY_WIRE_STREAM && KUI_TOY_WIRE_STEADY
+    /* Test 75 prints neither the chunk counts nor the first wait: the
+     * player's own calls say more (toy_wire_update_seen), and the room
+     * goes to the reader. The game's hook still calls. */
+    (void)ctx;(void)result;
+#else
     if(!C.initialized || !C.config.toy_poll_owner ||
        (ctx&UINT32_C(0xdf000003))!=UINT32_C(0x8c000000))return;
     const uint32_t physical=ctx&UINT32_C(0x1fffffff);
@@ -1148,6 +1154,7 @@ void kui_toy_movie_chunk_observe(uint32_t ctx,int32_t result) {
     else ++trace->wait_no_gd;
 #if KUI_TOY_SUITE_MOVIE_TIMING
     toy_chunk_onset(ctx,movie,pending);
+#endif
 #endif
 }
 #endif

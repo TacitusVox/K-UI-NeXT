@@ -91,6 +91,20 @@
     !KUI_TOY_WIRE_LEAN
 #error "OPEN, CLEAN, MSB, QUICK and SWIFT are parts of Test 74: use KUI_TOY_WIRE_LEAN"
 #endif
+/* Test 75: Test 74 with what its console run showed. Nearly twice the
+ * frames, and the reader's time down by a seventh where the instruction
+ * counts had promised a third: most of what a block costs is not in the
+ * loops that were counted. Its changes come each under a switch of its
+ * own. What they share is here: the report's layout, with the reader's
+ * time taken apart by the clock where Test 74 estimated it (reading the
+ * ring, feeding the window, opening a stream, copying a request out), and
+ * the reasons streams and windows were given up printed again. */
+#ifndef KUI_TOY_WIRE_STEADY
+#define KUI_TOY_WIRE_STEADY 0
+#endif
+#if KUI_TOY_WIRE_STEADY && !KUI_TOY_WIRE_LEAN
+#error "Test 75 builds on Test 74"
+#endif
 /* The second movie in pieces of 2^22 ticks, 5.4 s: twelve cover it. */
 #define KUI_TOY_WIRE_BUCKETS 12u
 #define KUI_TOY_WIRE_BUCKET_SHIFT 22u
@@ -263,6 +277,18 @@ struct kui_toy_wire_report {
      * one, each timed whole from the resident's entry visit to its exit
      * visit: how many and their ticks. */
     uint32_t gd_calls, gd_ticks;
+#endif
+#if KUI_TOY_WIRE_STEADY
+    /* The reader's time by what it was doing, in ticks: taking blocks out
+     * of the ring (token, CRC16, bytes), feeding them to the window (the
+     * copy and the sector's check), the low reader bringing the card to a
+     * stream's first block, and copying requests out to the game. */
+    uint32_t parse_ticks, feed_ticks, seek_ticks, publish_ticks;
+    /* Interrupt visits that answered the stream and left the reading for
+     * later. */
+    uint32_t later;
+    /* The second movie's frame at the player's first skip. */
+    uint32_t skip_first;
 #endif
 #else
     uint32_t handler_ticks, handler_calls, handler_max; /* SCI interrupt visits while streaming */

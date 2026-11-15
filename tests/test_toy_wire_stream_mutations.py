@@ -35,11 +35,13 @@ WORDS = os.environ.get("TOY_WIRE_WORDS", CACHED)
 PACE = os.environ.get("TOY_WIRE_PACE", WORDS)
 IDLE = os.environ.get("TOY_WIRE_IDLE", PACE)
 LEAN = os.environ.get("TOY_WIRE_LEAN", IDLE)
+STEADY = os.environ.get("TOY_WIRE_STEADY", LEAN)
 AUX = "src/loader/native_readahead_aux.c"
 SWITCHES = [f"TOY_WIRE_TICK={TICK}", f"TOY_WIRE_CACHED={CACHED}", f"TOY_WIRE_WORDS={WORDS}", f"TOY_WIRE_PACE={PACE}",
-            f"TOY_WIRE_IDLE={IDLE}", f"TOY_WIRE_LEAN={LEAN}"]
+            f"TOY_WIRE_IDLE={IDLE}", f"TOY_WIRE_LEAN={LEAN}", f"TOY_WIRE_STEADY={STEADY}"]
 DEFINES = [f"-DKUI_TOY_WIRE_TICK={TICK}", f"-DKUI_TOY_WIRE_CACHED={CACHED}", f"-DKUI_TOY_WIRE_WORDS={WORDS}",
-           f"-DKUI_TOY_WIRE_PACE={PACE}", f"-DKUI_TOY_WIRE_IDLE={IDLE}", f"-DKUI_TOY_WIRE_LEAN={LEAN}"]
+           f"-DKUI_TOY_WIRE_PACE={PACE}", f"-DKUI_TOY_WIRE_IDLE={IDLE}", f"-DKUI_TOY_WIRE_LEAN={LEAN}",
+           f"-DKUI_TOY_WIRE_STEADY={STEADY}"]
 MUTATIONS = [
  (STREAM, "resume one byte early", "    w->head = lost + 1u;\n", "    w->head = lost;\n"),
  (STREAM, "resume one byte late", "    w->head = lost + 1u;\n", "    w->head = lost + 2u;\n"),
@@ -299,6 +301,31 @@ QUICK_MUTATIONS = [
  (AUX, "a window given up on the short way not counted", "        if(!C.movie_ahead.error)return 1u;\n        ++C.stats.abandoned;",
   "        if(!C.movie_ahead.error)return 1u;"),
 ]
+# Test 75. What every build of it has: the reader's time taken apart by the
+# clock, and the frame at which the second movie's player first skipped.
+STEADY_MUTATIONS = [
+ (GLUE, "a block's time in the ring taken backwards", "        k->report.parse_ticks+=parse_tick-feed_tick;",
+  "        k->report.parse_ticks+=feed_tick-parse_tick;"),
+ (GLUE, "a block's feeding added to its time in the ring",
+  "        k->report.feed_ticks+=feed_tick-toy_wire_phase();", "        k->report.parse_ticks+=feed_tick-toy_wire_phase();"),
+ (GLUE, "the feeding timed from the block before", "        const uint32_t feed_tick=toy_wire_phase();\n        k->report.parse_ticks+=parse_tick-feed_tick;",
+  "        const uint32_t feed_tick=parse_tick;toy_wire_phase();\n        k->report.parse_ticks+=parse_tick-feed_tick;"),
+ (GLUE, "a reopening's time not kept", "        k->report.seek_ticks+=seek_tick-toy_wire_phase();", "        (void)seek_tick;"),
+ (AHEAD, "the copying out not timed", "    toy_wire_keep()->report.publish_ticks+=publish_tick-toy_wire_phase();", "    (void)publish_tick;"),
+ (AHEAD, "the copying out timed twice over",
+  "    toy_wire_keep()->report.publish_ticks+=publish_tick-toy_wire_phase();",
+  "    toy_wire_keep()->report.publish_ticks+=2u*(publish_tick-toy_wire_phase());"),
+ (GLUE, "the first movie's skip taken for the second's",
+  "        if(movie && skip!=k->seen_skip && !w->skip_first)", "        if(skip!=k->seen_skip && !w->skip_first)"),
+ (GLUE, "a later skip takes the first one's place",
+  "        if(movie && skip!=k->seen_skip && !w->skip_first)", "        if(movie && skip!=k->seen_skip)"),
+ (GLUE, "the first skip's frame counted from nought",
+  "w->skip_first=toy_chunk_word(ctx+0x1c0u)+1u;", "w->skip_first=toy_chunk_word(ctx+0x1c0u);"),
+ (GLUE, "a frame put out taken for a skip",
+  "        if(movie && skip!=k->seen_skip && !w->skip_first)", "        if(movie && out!=k->seen_out && !w->skip_first)"),
+]
+# What Test 75 no longer counts: the runs cut again soon after they began.
+STEADY_GONE = {"runs cut again not counted", "a run behind a wait counted as one behind a cut"}
 # SWIFT, the hand-written block loops, is SH-4 code no host test runs:
 # tests/test_toy_wire_linked_loops.py runs them as linked.
 # What Test 74 no longer samples or times.
@@ -335,6 +362,8 @@ if LEAN == "1":
         else:
             SWITCHES.append(f"TOY_WIRE_{part}=0")
             DEFINES.append(f"-DKUI_TOY_WIRE_{part}=0")
+if STEADY == "1":
+    MUTATIONS = [m for m in MUTATIONS if m[1] not in STEADY_GONE] + STEADY_MUTATIONS
 if os.environ.get("TOY_WIRE_ONLY"):
     # A named part of the list, for running it in pieces: "from:to" of the list's positions.
     low, high = (int(v) for v in os.environ["TOY_WIRE_ONLY"].split(":"))

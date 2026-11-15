@@ -354,9 +354,15 @@ static bool toy_ahead_publish(kui_retail_async_region_type *r) {
     const struct kui_retail_gd *s=&r->shared.service;
     /* The caller has admitted the whole unchanged native request. */
     if(s->count>A.verified-A.first)return false;
+#if KUI_TOY_WIRE_STREAM && KUI_TOY_WIRE_STEADY
+    const uint32_t publish_tick=toy_wire_phase();
+#endif
     for(uint32_t i=0u;i<s->count && !e->failed;i++)
         e->cursor.write(e->cursor.context,i*KUI_GAME_DATA_BYTES,
             toy_ahead_sector(A.first+i)+16u,KUI_GAME_DATA_BYTES);
+#if KUI_TOY_WIRE_STREAM && KUI_TOY_WIRE_STEADY
+    toy_wire_keep()->report.publish_ticks+=publish_tick-toy_wire_phase();
+#endif
     if(!e->failed) {
         A.first+=s->count;
         A.head+=s->count;

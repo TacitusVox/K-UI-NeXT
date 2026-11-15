@@ -349,7 +349,7 @@ static void wire_stopped(struct kui_wire_stream *w) {
     const uint32_t run = w->head - 1u - w->run_begin;
     if(!cut) ++w->n->segments;
     else ++w->n->cuts;
-#if KUI_TOY_WIRE_LEAN
+#if KUI_TOY_WIRE_LEAN && !KUI_TOY_WIRE_STEADY
     if(cut && w->began && run < KUI_WIRE_GOOD_RUN)
         ++w->n->again[w->began - 1u][run < 8u ? 0u : run < 32u ? 1u : 2u];
     w->began = cut ? 1u : 0u;
@@ -370,7 +370,7 @@ static void wire_stopped(struct kui_wire_stream *w) {
 
 static void wire_resume(struct kui_wire_stream *w) {
     w->n->wait_ticks += w->wait_tick - rd32(TCNT0);
-#if KUI_TOY_WIRE_LEAN
+#if KUI_TOY_WIRE_LEAN && !KUI_TOY_WIRE_STEADY
     w->began = 2u;
 #endif
     wire_arm(w);
@@ -417,7 +417,7 @@ void kui_wire_service(struct kui_wire_stream *w) {
             wr16(IPRA, rd16(IPRA) | 1u << w->timer_shift);
         break;
     case KUI_WIRE_FULL:
-#if KUI_TOY_WIRE_LEAN
+#if KUI_TOY_WIRE_LEAN && !KUI_TOY_WIRE_STEADY
         w->began = 0u;
 #endif
         wire_arm(w);
