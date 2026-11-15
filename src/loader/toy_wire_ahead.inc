@@ -109,14 +109,38 @@ struct toy_wire_keep {
 #define TOY_WIRE_STATE_OFFSET (AHEAD_SLOTS*KUI_GAME_RAW_BYTES)
 #define TOY_WIRE_KEEP_OFFSET (KUI_RETAIL_IMAGE_MAX_SECTORS*KUI_GAME_RAW_BYTES)
 #define TOY_WIRE_RING_OFFSET (KUI_NATIVE_RA_DATA_BYTES-KUI_WIRE_RING_BYTES)
+#if KUI_TOY_WIRE_APART
+/* Test 76 (APART, toy_wire_stream.h): where the stream's two block buffers
+ * and its tables lie decides which lines of the console's 16 KiB operand
+ * cache they use, and the reader's private stack is the 4 KiB just below
+ * this arena (kui/native_readahead_layout.h), wherever the lease is: its
+ * lines are the arena's last quarter of every 16 KiB. So the three are put,
+ * a buffer, the tables, the other buffer, from the first multiple of
+ * 16 KiB behind the stream's state on: the lines just above the stack's
+ * and none of them. Up to Test 75 the one buffer lay in the state, most of
+ * it on the stack's lines; an independent review of APART's first layout
+ * found the tables for the other bit order moved there instead. */
+#define TOY_WIRE_BLOCK_OFFSET ((TOY_WIRE_STATE_OFFSET+(uint32_t)sizeof(struct kui_wire_stream)+16383u)&~UINT32_C(16383))
+#define TOY_WIRE_TABLE_OFFSET (TOY_WIRE_BLOCK_OFFSET+KUI_WIRE_BLOCK_BYTES)
+#define TOY_WIRE_TABLE_END (TOY_WIRE_TABLE_OFFSET+KUI_WIRE_TABLE_BYTES+KUI_WIRE_BLOCK_BYTES)
+_Static_assert(KUI_NATIVE_RA_STACK_END==KUI_NATIVE_RA_DATA_OFFSET &&
+    KUI_NATIVE_RA_STACK_END-KUI_NATIVE_RA_STACK_OFFSET==4096u,
+    "The private stack is the 4 KiB below the arena: that is what its cache lines are told by");
+_Static_assert(TOY_WIRE_TABLE_END-TOY_WIRE_BLOCK_OFFSET<=16384u-4096u,
+    "Block buffers and tables use none of the stack's cache lines");
+_Static_assert((KUI_WIRE_BLOCK_BYTES+KUI_WIRE_TABLE_BYTES)/32u>=18u+16u,
+    "The second block buffer is further from the first than a block's bytes in the ring reach");
+#else
 #define TOY_WIRE_TABLE_OFFSET (TOY_WIRE_STATE_OFFSET+((sizeof(struct kui_wire_stream)+31u)&~31u))
+#define TOY_WIRE_TABLE_END (TOY_WIRE_TABLE_OFFSET+KUI_WIRE_TABLE_BYTES)
+#endif
 /* The staging of a request the window does not serve uses the arena from its
  * start, up to 64 raw sectors. It may run over the stream's working state,
  * which every start sets up afresh, but never over what is kept or over the
  * ring the channel writes. */
 _Static_assert(TOY_WIRE_KEEP_OFFSET==KUI_TOY_WIRE_REPORT_OFFSET,
     "The worker reads the kept counters at their published offset");
-_Static_assert(TOY_WIRE_TABLE_OFFSET+KUI_WIRE_TABLE_BYTES+KUI_WIRE_BLOCK_ROOM<=TOY_WIRE_KEEP_OFFSET,
+_Static_assert(TOY_WIRE_TABLE_END<=TOY_WIRE_KEEP_OFFSET && TOY_WIRE_TABLE_OFFSET%32u==0u,
     "Stream state, tables and block buffers fit below the kept counters");
 _Static_assert(TOY_WIRE_KEEP_OFFSET+sizeof(struct toy_wire_keep)<=TOY_WIRE_RING_OFFSET,
     "Kept counters end before the ring");

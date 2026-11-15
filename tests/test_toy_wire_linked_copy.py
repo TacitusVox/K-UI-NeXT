@@ -26,7 +26,8 @@ of whole words from none to more than a block, it checks that
 - every word of a line is loaded before the line's first store, so that a
   source sharing the destination's place in the cache costs one exchange a
   line and not one a word;
-- callee-saved registers and the stack pointer come back as they were.
+- callee-saved registers, each given a value of its own before every
+  call, and the stack pointer come back as they were.
 
 It checks the code as linked. It does not check the Dreamcast: that
 MOVCA.L claims a line without reading memory, and what a line costs there,
@@ -56,6 +57,10 @@ def run(machine, entry, out_at, in_at, count, rng):
     machine.touched.clear()
     machine.undefined.clear()
     machine.trace = []
+    # The caller's registers hold something, each its own: one put back in
+    # another's place is seen.
+    for register in range(8, 15):
+        machine.r[register] = rng.getrandbits(32)
     where = f"out +{out_at} in +{in_at} bytes {count}"
     try:
         machine.call(entry, out, source, count, stack=STACK + 0x1000)

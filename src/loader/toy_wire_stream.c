@@ -542,7 +542,7 @@ bool kui_wire_start(struct kui_wire_stream *w, struct kui_wire_counters *counter
     }
     wire_tables(w, tables);
 #if KUI_TOY_WIRE_APART
-    w->block = w->blocks = tables + KUI_WIRE_TABLE_BYTES;
+    w->block = w->blocks = tables - KUI_WIRE_BLOCK_BYTES;
 #endif
     purge(ring, KUI_WIRE_RING_BYTES);
     for(unsigned i = 0; i < 4u; ++i) w->saved_dma[i] = rd32(SAR1 + 4u * i);
@@ -590,8 +590,14 @@ bool kui_wire_stop(struct kui_wire_stream *w) {
          * two byte times from here. The receiver stops on that byte's last
          * bit exactly as at any cut, and the channel's address and count
          * stand as its last whole transfer left them, which is all
-         * wire_capture asks of them. */
-        wr32(CHCR1, rd32(CHCR1) & ~UINT32_C(1));
+         * wire_capture asks of them. A channel that is no longer this
+         * stream's is left alone, as everywhere else: the run is then
+         * waited out as before, and wire_capture reports whose it is. */
+        {
+            const uint32_t start = w->ring_physical + (w->seg_begin & MASK), address = rd32(DAR1);
+            if(rd32(SAR1) == RDR_PHYSICAL && address >= start && address <= start + w->seg_len)
+                wr32(CHCR1, rd32(CHCR1) & ~UINT32_C(1));
+        }
 #endif
         for(uint32_t n = 0; n < 200000u && !(rd8(SSR) & ORER); ++n) {}
         uint32_t count, status;
@@ -830,7 +836,7 @@ static int wire_solve(const struct kui_wire_stream *w, uint32_t crc, uint32_t af
 static uint8_t *wire_apart(const struct kui_wire_stream *w, uint32_t first) {
 #if KUI_TOY_WIRE_RING
     const uintptr_t run = (uintptr_t)(wire_view(w->ring) + (first & MASK)) >> 5, own = (uintptr_t)w->blocks >> 5;
-    if(((run - own + 17u) & 511u) < 17u + 16u) return w->blocks + KUI_WIRE_APART_LINES * 32u;
+    if(((run - own + 17u) & 511u) < 17u + 16u) return w->blocks + KUI_WIRE_BLOCK_BYTES + KUI_WIRE_TABLE_BYTES;
 #else
     (void)first;
 #endif

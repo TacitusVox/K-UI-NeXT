@@ -141,6 +141,11 @@ class Machine:
             self.r[4 + i] = a & M32
         if stack is not None:
             self.r[15] = stack
+        # A callee-saved register the caller left at zero gets a value of its
+        # own: one restored into another's place is then seen below.
+        for i in range(8, 15):
+            if not self.r[i]:
+                self.r[i] = 0xC0DE0000 | i << 8 | i
         saved = [self.r[i] for i in range(8, 16)]
         self.pr = self.RETURN
         self.pc = address

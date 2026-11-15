@@ -109,13 +109,17 @@ static void toy_report_wire(char **at,const char *end,const struct kui_native_ra
     toy_report_short(at,end,"P RING FEED CHK OUT SVC HALT",
         (uint32_t[]){w->parse_ticks,w->feed_ticks,w->check_ticks,w->publish_ticks,w->service_ticks,
             w->halt_ticks},6u);
-    toy_report_short(at,end,"D N T SEEK",
-        (uint32_t[]){w->deliver_calls,w->deliver_ticks,w->seek_ticks},3u);
+    /* CAP: the capacity of the player's own buffer as TB's sampling found
+     * it, in bytes (Test 73's console run: C9120). Zero: it was never
+     * found, and TB says nothing. */
+    toy_report_short(at,end,"D N T SEEK CAP",
+        (uint32_t[]){w->deliver_calls,w->deliver_ticks,w->seek_ticks,w->buffer_capacity},4u);
     toy_report_course(at,end,"TF",w->course_frames,NULL,0u);
     toy_report_course(at,end,"TD",w->course_sectors,NULL,4u);
     toy_report_course(at,end,"TW",NULL,w->course_wait,14u);
     /* The player's buffer: the most of it that was free, in units of
-     * 4 KiB (its megabyte is 100). The wire standing still, as TW. */
+     * 4 KiB (all of the C9120 bytes Test 73 found is C9). The wire
+     * standing still, as TW. */
     toy_report_course(at,end,"TB",NULL,w->course_free,12u);
     toy_report_course(at,end,"TP",NULL,w->course_pause,14u);
     toy_report_short(at,end,"W START SEG CUT WAIT FULL",

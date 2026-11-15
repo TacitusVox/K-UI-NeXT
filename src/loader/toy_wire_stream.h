@@ -48,20 +48,21 @@
  * since Test 75, lie at the buffer's own places, so that each word read
  * and each word stored threw the other's line out.
  *
- * The buffer is now one of two that the caller provides behind the
- * tables, clear of the stack's places, of the tables in use and of what
- * the reader keeps. The second begins 33 lines behind the first, further
- * than a block's bytes in the ring reach (514 bytes touch 18 lines at
- * most), and is used for exactly the blocks whose bytes in the ring share
- * a place with the first. Which buffer holds a block changes nothing else. */
-#define KUI_WIRE_APART_LINES 33u
-#define KUI_WIRE_BLOCK_ROOM (KUI_WIRE_APART_LINES * 32u + 512u)
+ * The buffer is now one of two that the caller provides, one just before
+ * the tables and one just behind them, and the caller puts all three clear
+ * of the stack's places and of what the reader keeps (toy_wire_ahead.inc
+ * says where, and asserts it). The second buffer begins 64 lines behind
+ * the first, further than a block's bytes in the ring reach (514 bytes
+ * touch 18 lines at most), and is used for exactly the blocks whose bytes
+ * in the ring share a place with the first. Which buffer holds a block
+ * changes nothing else. */
+#define KUI_WIRE_BLOCK_BYTES 512u
 #else
-#define KUI_WIRE_BLOCK_ROOM 0u
+#define KUI_WIRE_BLOCK_BYTES 0u
 #endif
 /* Room the caller provides for the tables: bit reversal, the reflected
- * CRC16 step and its inverse. Each start fills them again. With APART the
- * block buffers' room follows it, at a multiple of 32. */
+ * CRC16 step and its inverse. Each start fills them again. With APART a
+ * block buffer's room lies before them and another behind them. */
 #if KUI_TOY_WIRE_WORDS
 /* And the CRC16 step for two bytes at once. */
 #define KUI_WIRE_TABLE_BYTES 1536u
@@ -138,7 +139,7 @@ struct kui_wire_stream {
     uint32_t ring_physical;
     uint8_t *ring;         /* uncached view of KUI_WIRE_RING_BYTES, 32-byte aligned */
 #if KUI_TOY_WIRE_APART
-    uint8_t *blocks;       /* KUI_WIRE_BLOCK_ROOM behind the tables: the two block buffers */
+    uint8_t *blocks;       /* the first block buffer, before the tables; the second is behind them */
     uint8_t *block;        /* the one the block being taken lies in */
 #endif
     uint8_t *reverse;      /* 256 */
@@ -176,8 +177,8 @@ struct kui_wire_stream {
  * framing with sptr its pin register value. The stream's memory is set up
  * afresh; only *counters is added to. ring is the uncached view of
  * KUI_WIRE_RING_BYTES that nothing else touches, 32-byte aligned; tables
- * is KUI_WIRE_TABLE_BYTES and behind them KUI_WIRE_BLOCK_ROOM, 32-byte
- * aligned too;
+ * is KUI_WIRE_TABLE_BYTES with KUI_WIRE_BLOCK_BYTES before it and as many
+ * behind it, 32-byte aligned too;
  * timer_callback is entered by the SDK's interrupt table for the chosen
  * timer and must lead to kui_wire_timer. False: no register was changed and
  * the stream is off; see error. */

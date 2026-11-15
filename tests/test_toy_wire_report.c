@@ -56,7 +56,7 @@ static const char *const labels[] = {
     "I SUBMIT CADENCE MAX AT", "I FIRST LAST SKIP EXIT SF", "B SUBMIT CADENCE MAX AT",
     "IP ON OT OC OI SN ST", "BP ON OT OC OI SN ST",
     "K LIGHT EDC MEND MB LB ORD",
-    "V SCI TMR GAME N TICKS", "P RING FEED CHK OUT SVC HALT", "D N T SEEK",
+    "V SCI TMR GAME N TICKS", "P RING FEED CHK OUT SVC HALT", "D N T SEEK CAP",
     "TF", "TD", "TW", "TB", "TP",
     "W START SEG CUT WAIT FULL", "W BYTES WTICK TMR ERR DET", "W BLK FIX UNFIX HOLED NOCRC SEEK",
     "S C S F LF AM BC", "W FILL REF BAD",
@@ -391,7 +391,8 @@ int main(int argc, char **argv) {
     assert(strstr(text, "V SCI TMR GAME N TICKS\nC67C D000 26265 3A0000 4E0000 5B0000\n"));
     /* The reader's ticks by what it was doing, and those spent ending streams. */
     assert(strstr(text, "P RING FEED CHK OUT SVC HALT\n4A0000 1C0000 60000 D0000 5F000 13000\n"));
-    assert(strstr(text, "D N T SEEK\n1E000 2A0000 B0000\n"));
+    /* The player's buffer's capacity stands beside the rows read by it. */
+    assert(strstr(text, "D N T SEEK CAP\n1E000 2A0000 B0000 100000\n"));
     assert(strstr(text, "TF\nA1A10B0C D0E0F10 111213A1\n"));
     assert(strstr(text, "TD\n8484A4A5 A6A7A8A9 AAABAC84\n"));
     assert(strstr(text, "TW\n6263 64656667 68696A08\n"));

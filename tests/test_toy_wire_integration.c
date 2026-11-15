@@ -91,7 +91,7 @@ uint32_t kui_toy_wire_test_phase(void) {
 static const struct kui_toy_wire_report *report(void) {
     return (const void *)(arena + KUI_TOY_WIRE_REPORT_OFFSET);
 }
-#if KUI_TOY_WIRE_LATER
+#if KUI_TOY_WIRE_LATER || KUI_TOY_WIRE_QUIT
 /* The stream's own state: behind the window's slots in the arena. */
 static const struct kui_wire_stream *wire_state(void) {
     return (const void *)(arena + 62u * 2352u);
@@ -1261,6 +1261,38 @@ static void buffer_seen(void) {
     printf("  the player's buffer: its emptiest in each piece, looked at when the player took a frame\n");
 }
 
+#if KUI_TOY_WIRE_QUIT
+/* Test 76 (QUIT) ends a stream that receives by taking the channel off the
+ * receiver. A channel that is no longer the stream's is not its to take
+ * off: the stop finds it so, touches nothing of it, and says whose it is.
+ * Twice: the channel's source changed, and its source the receiver still
+ * but its destination outside the run. */
+static void quit_foreign(bool elsewhere) {
+    open_movie(2000u, false, true);
+    const struct kui_toy_wire_report *w = report();
+    const struct kui_wire_stream *ws = wire_state();
+    /* A run in flight. */
+    m.delay = 100000u;
+    read_request(FIRST, REQUEST, 0u);
+    for(unsigned n = 0u; n < 100000u && !m.rx; ++n) if(!hardware()) game_poll();
+    CHECK(m.rx && stream_on() && ws->state == KUI_WIRE_RUN && (m.chcr & 1u));
+    const uint32_t source = m.sar, destination = m.dar;
+    if(elsewhere) m.dar = RING_PHYSICAL + ((ws->seg_begin + ws->seg_len + 4096u) & (RING_BYTES - 1u));
+    else m.sar = UINT32_C(0x11111111);
+    const uint32_t control = m.chcr;
+    /* The movie is over: the window is given up and its stream stopped. */
+    fixture_movie_started(KUI_TOY_MOVIE_EXIT_STARTED | KUI_TOY_MOVIE_EXIT_TERMINAL, 0x07dbu);
+    CHECK(sdk_poll(KUI_GD_EXEC, 0u, movie_async_poll) == 0);
+    CHECK(!stream_on() && w->first_error && R.shared.port.fault);
+    /* The channel is as its owner had it: enabled, and its end flag its own. */
+    CHECK((m.chcr & ~2u) == (control & ~2u) && (m.chcr & 1u));
+    m.sar = source; m.dar = destination;
+    m.delay = 0u;
+    R.shared.port.fault = false;
+    printf("  a stream stopped with its channel %s: the channel left as it was, the fault reported\n",
+        elsewhere ? "pointed outside the run" : "taken by another source");
+}
+#endif
 #if KUI_TOY_WIRE_COPY
 /* A movie whose track begins two bytes into its file's first block: no
  * piece of a block then lies at a multiple of four in both the block and
@@ -2428,6 +2460,10 @@ int main(void) {
 #endif
 #if KUI_TOY_WIRE_COPY
     misaligned();
+#endif
+#if KUI_TOY_WIRE_QUIT
+    quit_foreign(false);
+    quit_foreign(true);
 #endif
 #endif
     damaged_block();

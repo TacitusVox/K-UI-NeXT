@@ -36,7 +36,10 @@ static struct {
     uint32_t tcor[3], tcnt[3], sar, dar, count, chcr, dmaor, slots[64], tcnt0;
 } hw;
 static _Alignas(32) uint8_t ring[KUI_WIRE_RING_BYTES];
-static _Alignas(32) uint8_t tables[KUI_WIRE_TABLE_BYTES + KUI_WIRE_BLOCK_ROOM];
+/* The tables, and with Test 76's APART a block buffer's room before them
+ * and another behind them. */
+static _Alignas(32) uint8_t table_room[KUI_WIRE_BLOCK_BYTES + KUI_WIRE_TABLE_BYTES + KUI_WIRE_BLOCK_BYTES];
+#define tables (table_room + KUI_WIRE_BLOCK_BYTES)
 static uint32_t seed = 1;
 static uint32_t rnd(void) { seed = seed * 1664525u + 1013904223u; return seed >> 8; }
 static uint8_t rev8(uint8_t x) { uint8_t r = 0; for(int i = 0; i < 8; ++i) if(x & 1 << i) r |= 0x80 >> i; return r; }
@@ -92,6 +95,7 @@ static bool twice_now;
  * delivers only the token that way and the rest as before (2), which no
  * hardware is known to do and the stream must still not be fooled by. */
 static unsigned sdir_answer;
+static unsigned looks;      /* at the receiver's status */
 static void shift_one(void) {
     const uint8_t sent = card_byte();
     uint8_t wire = (hw.scmr & 8u) && (sdir_answer == 1u || (sdir_answer == 2u && card_token)) ? sent : rev8(sent);
@@ -117,7 +121,9 @@ uint32_t kui_wire_test_read(uint32_t a, unsigned width) {
     (void)width;
     switch(a) {
     case 0xffe00000u: return hw.smr; case 0xffe00004u: return hw.brr; case 0xffe00008u: return hw.scr;
-    case 0xffe00010u: if(receiving()) shift_one(); return hw.ssr; /* time passes with every poll */
+    /* Time passes with every poll: a byte for every fourth, since a look
+     * at the status is far shorter than a byte on the wire. */
+    case 0xffe00010u: if(receiving() && !(++looks & 3u)) shift_one(); return hw.ssr;
     case 0xffe00014u: return hw.rdr; case 0xffe00018u: return hw.scmr; case 0xffe0001cu: return hw.sptr;
     case 0xffc00004u: return hw.stbcr; case 0xff800030u: return hw.pdtr;
     case 0xffa00010u: return hw.sar; case 0xffa00014u: return hw.dar; case 0xffa00018u: return hw.count; case 0xffa0001cu: return hw.chcr;
@@ -151,7 +157,9 @@ void kui_wire_test_write(uint32_t a, uint32_t v, unsigned width) {
     /* The module reset is not relied on to clear SDIR: it is zero already. */
     case 0xffc00004u: if(!(hw.stbcr & 1u) && (v & 1u)) { assert(!hw.scmr); hw.scr = 0; hw.smr = 0; hw.brr = 0xff; hw.ssr = 0x84; hw.rdr = 0; stale = false; } hw.stbcr = (uint8_t)v; return;
     case 0xff800030u: hw.pdtr = (uint16_t)v; return;
-    case 0xffa00010u: hw.sar = v; return; case 0xffa00014u: hw.dar = v; return; case 0xffa00018u: hw.count = v; return; case 0xffa0001cu: hw.chcr = v; return;
+    case 0xffa00010u: hw.sar = v; return; case 0xffa00014u: hw.dar = v; return; case 0xffa00018u: hw.count = v; return;
+    /* The channel's end flag is cleared by writing it as zero, never set by writing it. */
+    case 0xffa0001cu: hw.chcr = (v & ~2u) | (hw.chcr & v & 2u); return;
     case 0xffd00004u: hw.ipra = (uint16_t)v; return; case 0xffd80004u: hw.tstr = (uint8_t)v; return;
     default: break;
     }
@@ -328,8 +336,8 @@ int main(int argc, char **argv) {
                      * line its bytes were read from in the ring through
                      * the cache. A block that runs over the ring's end is
                      * placed by where it begins. */
-                    const uint8_t *const first = tables + KUI_WIRE_TABLE_BYTES;
-                    assert(b.data == first || b.data == first + KUI_WIRE_APART_LINES * 32u);
+                    const uint8_t *const first = table_room;
+                    assert(b.data == first || b.data == tables + KUI_WIRE_TABLE_BYTES);
                     ++apart[b.data != first];
 #if KUI_TOY_WIRE_RING
                     const uint32_t from = (w.tail - 514u) & (KUI_WIRE_RING_BYTES - 1u);

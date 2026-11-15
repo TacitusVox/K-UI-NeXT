@@ -441,12 +441,24 @@ FLUID_MUTATIONS = [
 # stop asks only for the count, and the flag matters to a run that is
 # accounted, which a stopped one is not.)
 QUIT_MUTATIONS = [
- (STREAM, "a stream that receives is waited out", "        wr32(CHCR1, rd32(CHCR1) & ~UINT32_C(1));\n#endif", "#endif"),
+ (STREAM, "a stream that receives is waited out",
+  "                wr32(CHCR1, rd32(CHCR1) & ~UINT32_C(1));\n        }\n#endif", "                (void)address;\n        }\n#endif"),
  (STREAM, "the receiver switched off in mid byte",
-  "        wr32(CHCR1, rd32(CHCR1) & ~UINT32_C(1));\n#endif", "        wr8(SCR, 0);\n#endif"),
+  "                wr32(CHCR1, rd32(CHCR1) & ~UINT32_C(1));\n        }\n#endif", "                wr8(SCR, 0);\n        }\n#endif"),
  (STREAM, "the channel taken off and the byte not waited for",
-  "        wr32(CHCR1, rd32(CHCR1) & ~UINT32_C(1));\n#endif\n        for(uint32_t n = 0; n < 200000u && !(rd8(SSR) & ORER); ++n) {}",
-  "        wr32(CHCR1, rd32(CHCR1) & ~UINT32_C(1));\n#endif"),
+  "                wr32(CHCR1, rd32(CHCR1) & ~UINT32_C(1));\n        }\n#endif\n        for(uint32_t n = 0; n < 200000u && !(rd8(SSR) & ORER); ++n) {}",
+  "                wr32(CHCR1, rd32(CHCR1) & ~UINT32_C(1));\n        }\n#endif"),
+ (STREAM, "the byte waited for two looks long",
+  "                wr32(CHCR1, rd32(CHCR1) & ~UINT32_C(1));\n        }\n#endif\n        for(uint32_t n = 0; n < 200000u && !(rd8(SSR) & ORER); ++n) {}",
+  "                wr32(CHCR1, rd32(CHCR1) & ~UINT32_C(1));\n        }\n#endif\n        for(uint32_t n = 0; n < 2u && !(rd8(SSR) & ORER); ++n) {}"),
+ (STREAM, "the channel's end flag written where its enable bit should go",
+  "                wr32(CHCR1, rd32(CHCR1) & ~UINT32_C(1));\n        }\n#endif", "                wr32(CHCR1, rd32(CHCR1) | UINT32_C(2));\n        }\n#endif"),
+ (STREAM, "a channel that is no longer the stream's switched off",
+  "            if(rd32(SAR1) == RDR_PHYSICAL && address >= start && address <= start + w->seg_len)\n                wr32(CHCR1, rd32(CHCR1) & ~UINT32_C(1));",
+  "            (void)start; (void)address;\n                wr32(CHCR1, rd32(CHCR1) & ~UINT32_C(1));"),
+ (STREAM, "a channel pointed elsewhere switched off",
+  "            if(rd32(SAR1) == RDR_PHYSICAL && address >= start && address <= start + w->seg_len)\n                wr32(CHCR1, rd32(CHCR1) & ~UINT32_C(1));",
+  "            if(rd32(SAR1) == RDR_PHYSICAL)\n                wr32(CHCR1, rd32(CHCR1) & ~UINT32_C(1));"),
 ]
 # COPY: a block goes into the window by the hand-written copy. The routine
 # itself is SH-4 code no host test runs: tests/test_toy_wire_linked_copy.py
@@ -482,15 +494,16 @@ GAP_MUTATIONS = [
 # with its bytes in the ring.
 APART_MUTATIONS = [
  (STREAM, "a block always taken into the first buffer",
-  "    if(((run - own + 17u) & 511u) < 17u + 16u) return w->blocks + KUI_WIRE_APART_LINES * 32u;", "    (void)run; (void)own;"),
+  "    if(((run - own + 17u) & 511u) < 17u + 16u) return w->blocks + KUI_WIRE_BLOCK_BYTES + KUI_WIRE_TABLE_BYTES;",
+  "    (void)run; (void)own;"),
  (STREAM, "the second buffer used for the wrong blocks",
   "    if(((run - own + 17u) & 511u) < 17u + 16u) return", "    if(((run - own + 17u) & 511u) >= 17u + 16u) return"),
  (STREAM, "a block's last line in the ring left out",
   "    if(((run - own + 17u) & 511u) < 17u + 16u) return", "    if(((run - own + 16u) & 511u) < 16u + 16u) return"),
  (STREAM, "the buffer's last line left out",
   "    if(((run - own + 17u) & 511u) < 17u + 16u) return", "    if(((run - own + 17u) & 511u) < 17u + 15u) return"),
- (STREAM_H, "the second buffer within a block's reach of the first",
-  "#define KUI_WIRE_APART_LINES 33u", "#define KUI_WIRE_APART_LINES 24u"),
+ (STREAM, "the first buffer taken for the second's room",
+  "    w->block = w->blocks = tables - KUI_WIRE_BLOCK_BYTES;", "    w->block = w->blocks = tables + KUI_WIRE_TABLE_BYTES;"),
  (STREAM, "the block's place taken from where the ring was read before",
   "    const uintptr_t run = (uintptr_t)(wire_view(w->ring) + (first & MASK)) >> 5,",
   "    const uintptr_t run = (uintptr_t)(wire_view(w->ring) + (w->tail & MASK)) >> 5,"),
