@@ -3,7 +3,8 @@
 Status: delivered 2026-11-14 (build `e82b31657f69`). Ran on the owner's
 console on 2026-11-14, both modules (see Console result). Not accepted:
 the second movie plays nearly twice the frames of Test 73 and still
-pauses throughout.
+pauses throughout. Kept as the baseline of Test 75
+(`docs/toy-wire-stream-test-75.md`).
 
 Test 74 is not one change. The owner asked, after Test 73, for one build
 that carries everything likely to help: "Put a lot of thought into this

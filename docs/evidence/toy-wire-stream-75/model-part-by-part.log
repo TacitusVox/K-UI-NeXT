@@ -1,0 +1,50 @@
+Lines of tests/test_toy_wire_integration.c's output that the parts of Test 75 change, from the matrix runs (first pass of each).
+
+Requests the game waits for (waited_for), Test 74:
+  8 requests the game waited for with interrupts held off: 8 windows opened and given up, the low reader read them all, 30 rounds of the game's loop
+Test 75 without STAY:
+  8 requests the game waited for with interrupts held off: 8 windows opened and given up, the low reader read them all, 30 rounds of the game's loop
+Test 75:
+  8 requests the game waited for with interrupts held off: one window, one stream, 8 of them kept waiting for the wire, 31 rounds of the game's loop
+  a request waited for in vain: kept for a quarter of a second, then the window given up and the low reader read it
+  a request waited for while the wire brings a run now and then: kept through three quarter seconds, given up a quarter second after the last sector
+  a request waited for that is not the window's next: its window given up at once
+
+Interrupts only at the console's pace (playing), Test 74:
+  playing, stall every ~0 bytes, 0% busy phases, 70 ticks a block, without the timer's help: data ready for 0 of 21 frames when asked; fulls 30, SCI visits 86, timer visits 0
+  playing, stall every ~6000 bytes, 0% busy phases, 70 ticks a block, without the timer's help: data ready for 19 of 21 frames when asked; fulls 19, SCI visits 168, timer visits 2
+  playing, stall every ~1500 bytes, 20% busy phases, 70 ticks a block, without the timer's help: data ready for 0 of 21 frames when asked; fulls 0, SCI visits 3209, timer visits 2757
+  playing, stall every ~0 bytes, 0% busy phases, 35 ticks a block, without the timer's help: data ready for 20 of 21 frames when asked; fulls 25, SCI visits 87, timer visits 0
+  playing, stall every ~0 bytes, 0% busy phases, 23 ticks a block, without the timer's help: data ready for 21 of 21 frames when asked; fulls 11, SCI visits 86, timer visits 0
+Test 75 without LATER:
+  playing, stall every ~0 bytes, 0% busy phases, 70 ticks a block, without the timer's help: data ready for 0 of 21 frames when asked; fulls 30, SCI visits 86, timer visits 0
+  playing, stall every ~6000 bytes, 0% busy phases, 70 ticks a block, without the timer's help: data ready for 19 of 21 frames when asked; fulls 19, SCI visits 168, timer visits 2
+  playing, stall every ~1500 bytes, 20% busy phases, 70 ticks a block, without the timer's help: data ready for 0 of 21 frames when asked; fulls 0, SCI visits 3209, timer visits 2757
+  playing, stall every ~0 bytes, 0% busy phases, 35 ticks a block, without the timer's help: data ready for 20 of 21 frames when asked; fulls 25, SCI visits 87, timer visits 0
+  playing, stall every ~0 bytes, 0% busy phases, 23 ticks a block, without the timer's help: data ready for 21 of 21 frames when asked; fulls 11, SCI visits 86, timer visits 0
+Test 75:
+  playing, stall every ~0 bytes, 0% busy phases, 70 ticks a block, without the timer's help: data ready for 21 of 21 frames when asked; fulls 23, SCI visits 88, timer visits 0
+  playing, stall every ~6000 bytes, 0% busy phases, 70 ticks a block, without the timer's help: data ready for 20 of 21 frames when asked; fulls 1, SCI visits 169, timer visits 2
+  playing, stall every ~1500 bytes, 20% busy phases, 70 ticks a block, without the timer's help: data ready for 0 of 21 frames when asked; fulls 0, SCI visits 3209, timer visits 2757
+  playing, stall every ~0 bytes, 0% busy phases, 35 ticks a block, without the timer's help: data ready for 21 of 21 frames when asked; fulls 10, SCI visits 86, timer visits 0
+  playing, stall every ~0 bytes, 0% busy phases, 23 ticks a block, without the timer's help: data ready for 21 of 21 frames when asked; fulls 7, SCI visits 86, timer visits 0
+
+LATER's own fixtures, Test 75:
+  interrupt visits with no request waiting: 58 answered the stream and left the reading (the ring up to 16303 bytes unread), 27 read; 7 requests waited and no visit left meanwhile
+  a bus that cuts every run after a few bytes: 127 interrupt visits left the reading, and the one that found the log of lost positions half full read, the ring far from half unread; the stream never stood still
+  a wait begun by a visit that leaves the reading, the timer's level taken away: the visit gives the level back and the timer ends the wait
+  a wait begun by a visit that leaves the reading, no timer: ended by that visit
+  a stream whose channel was taken from it: ended by the interrupt visit that found it so
+
+Requests served on arrival (steady), Test 74:
+  contiguous extents, stall every ~0 bytes, 0% busy phases, poll every 3: 22 requests, 21 served on arrival; streams 1, cuts 0, waits 0, fulls 84, blocks 1332 (rebuilt 84, holed 0), sectors filled 0 (most lost 0), re-read 0+0, stream ends close/jump/sector/frame 1/0/0/0, CMD18 1, CMD12 0, ERI 1, timer 0
+  contiguous extents, stall every ~0 bytes, 0% busy phases, poll every 0: 22 requests, 21 served on arrival; streams 1, cuts 0, waits 0, fulls 84, blocks 1332 (rebuilt 84, holed 0), sectors filled 0 (most lost 0), re-read 0+0, stream ends close/jump/sector/frame 1/0/0/0, CMD18 1, CMD12 0, ERI 1, timer 0
+  contiguous extents, stall every ~6000 bytes, 0% busy phases, poll every 3: 22 requests, 21 served on arrival; streams 2, cuts 116, waits 2, fulls 140, blocks 1332 (rebuilt 154, holed 4), sectors filled 5 (most lost 2), re-read 0+0, stream ends close/jump/sector/frame 1/0/0/1, CMD18 2, CMD12 1, ERI 5, timer 2
+Test 75:
+  contiguous extents, stall every ~0 bytes, 0% busy phases, poll every 3: 22 requests, 21 served on arrival; streams 1, cuts 0, waits 0, fulls 84, blocks 1332 (rebuilt 84, holed 0), sectors filled 0 (most lost 0), re-read 0+0, stream ends close/jump/sector/frame 1/0/0/0, CMD18 1, CMD12 0, ERI 1, timer 0
+  contiguous extents, stall every ~0 bytes, 0% busy phases, poll every 0: 22 requests, 21 served on arrival; streams 1, cuts 0, waits 0, fulls 84, blocks 1332 (rebuilt 84, holed 0), sectors filled 0 (most lost 0), re-read 0+0, stream ends close/jump/sector/frame 1/0/0/0, CMD18 1, CMD12 0, ERI 1, timer 0
+  contiguous extents, stall every ~6000 bytes, 0% busy phases, poll every 3: 22 requests, 21 served on arrival; streams 2, cuts 116, waits 2, fulls 141, blocks 1332 (rebuilt 154, holed 4), sectors filled 5 (most lost 2), re-read 0+0, stream ends close/jump/sector/frame 1/0/0/1, CMD18 2, CMD12 1, ERI 5, timer 2
+
+The ring through the cache, Test 75:
+  the ring read through the cache in all of the above: 5056066 lines dropped and fetched afresh
+  the ring read through the cache: 3042510 lines dropped and fetched afresh for 179992 blocks
