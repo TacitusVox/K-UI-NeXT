@@ -445,17 +445,29 @@ static void visits_accounted(void) {
 #if KUI_TOY_WIRE_STEADY
     /* Test 75 takes the reader's time apart by the clock. Nothing looks at
      * this fixture's clock while a block is taken out of the ring, while
-     * one is fed to the window, or while a request is copied out, so each
-     * of those spans is one phase look: the counts are exact. A reopening
-     * runs the low reader, which looks at the clock itself. And the parts
-     * lie inside the visits they were taken in. */
+     * the stream is served, while a sector is checked or while a request
+     * is copied out, so each of those spans is one phase look and the
+     * counts are exact. A block's feeding is one look and two more for a
+     * sector it completes, the check's own. A reopening runs the low
+     * reader, which looks at the clock itself. And the parts lie inside
+     * the visits they were taken in. */
     {
-        const uint32_t look = PHASE_LOOK;
-        CHECK(w->feed_ticks == look * w->n.blocks);
-        CHECK(w->parse_ticks >= w->feed_ticks && (w->parse_ticks - w->feed_ticks) % look == 0u);
+        const uint32_t look = PHASE_LOOK, fed = look * w->n.blocks;
+        CHECK(w->feed_ticks >= fed && (w->feed_ticks - fed) % (2u * look) == 0u);
+        CHECK(w->feed_ticks - fed <= 2u * w->check_ticks);
+        CHECK(w->check_ticks % look == 0u);
+#if KUI_TOY_WIRE_CLEAN
+        /* Every sector taken was checked once; so was every one refused. */
+        CHECK(w->check_ticks / look >= w->light + w->edc);
+        CHECK(w->check_ticks / look <= w->light + w->edc + w->check_bad);
+#endif
+        CHECK(w->parse_ticks >= fed && w->parse_ticks % look == 0u);
+        /* The stream is served before every block asked of it. */
+        CHECK(w->service_ticks >= w->parse_ticks && w->service_ticks % look == 0u);
         CHECK(w->publish_ticks == look * kui_native_readahead_aux_context.stats.hit_requests);
         CHECK(!w->seek_blocks == !w->seek_ticks || (w->seek_ticks && w->declined));
         CHECK(w->seek_ticks < UINT32_C(0x40000000) && w->parse_ticks < UINT32_C(0x40000000));
+        CHECK(w->service_ticks < UINT32_C(0x40000000) && w->check_ticks < UINT32_C(0x40000000));
         CHECK(w->parse_ticks + w->feed_ticks <=
             w->visit_ticks[KUI_TOY_WIRE_VISIT_SCI] + w->visit_ticks[KUI_TOY_WIRE_VISIT_GAME] +
             w->visit_ticks[KUI_TOY_WIRE_VISIT_TIMER]);

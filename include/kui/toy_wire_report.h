@@ -292,6 +292,10 @@ struct kui_toy_wire_report {
      * copy and the sector's check), the low reader bringing the card to a
      * stream's first block, and copying requests out to the game. */
     uint32_t parse_ticks, feed_ticks, seek_ticks, publish_ticks;
+    /* And two parts of those: the stream's own service (a run that ended
+     * answered, the next one begun), wherever it was called from, and the
+     * sectors' checks inside the feeding. */
+    uint32_t service_ticks, check_ticks;
     /* Interrupt visits that answered the stream and left the reading for
      * later. */
     uint32_t later;

@@ -56,10 +56,10 @@ static const char *const labels[] = {
     "I SUBMIT CADENCE MAX AT", "I FIRST LAST SKIP EXIT SF", "B SUBMIT CADENCE MAX AT",
     "IP ON OT OC OI SN ST", "BP ON OT OC OI SN ST",
     "K LIGHT EDC MEND MB LB ORD",
-    "V SCI TMR GAME N TICKS", "P RING FEED SEEK OUT LATER", "D N T G N T",
+    "V SCI TMR GAME N TICKS", "P RING FEED CHK OUT SVC LATER", "D N T G N T SEEK",
     "TF", "TD", "TW",
     "W START SEG CUT WAIT FULL", "W BYTES WTICK TMR ERR DET", "W BLK FIX UNFIX HOLED NOCRC SEEK",
-    "S C S F LF AM BC", "X E N I C W O", "W FILL BYTES MOST REF BAD",
+    "S C S F LF AM BC", "X E N I C W O", "W FILL REF BAD",
     "TI", "TG",
 };
 enum { LABELS = sizeof(labels) / sizeof(labels[0]), ESSENTIAL = 19 };
@@ -277,6 +277,9 @@ int main(int argc, char **argv) {
     wire.parse_ticks = 0x4a0000; wire.feed_ticks = 0x1c0000; wire.seek_ticks = 0xb0000;
     wire.publish_ticks = 0xd0000; wire.later = 0x5200; wire.skip_first = 0x1b;
     wire.stays = 0x35;
+    /* Of those, half a second in the sectors' checks and as much in the
+     * stream's own service. */
+    wire.check_ticks = 0x60000; wire.service_ticks = 0x5f000;
 #endif
     /* Both movies with the reader at Test 68's measured cost, most of its
      * interrupt time now behind the timer; the console's count of streams
@@ -343,8 +346,8 @@ int main(int argc, char **argv) {
     assert(strstr(text, "V SCI TMR GAME N TICKS\nC67C D000 26265 3A0000 4E0000 5B0000\n"));
     /* The reader's ticks by what it was doing, and the visits that left
      * the reading for later. */
-    assert(strstr(text, "P RING FEED SEEK OUT LATER\n4A0000 1C0000 B0000 D0000 5200\n"));
-    assert(strstr(text, "D N T G N T\n1E000 2A0000 1D700 6A0000\n"));
+    assert(strstr(text, "P RING FEED CHK OUT SVC LATER\n4A0000 1C0000 60000 D0000 5F000 5200\n"));
+    assert(strstr(text, "D N T G N T SEEK\n1E000 2A0000 1D700 6A0000 B0000\n"));
     assert(strstr(text, "TF\nA1A10B0C D0E0F10 111213A1\n"));
     assert(strstr(text, "TD\n8484A4A5 A6A7A8A9 AAABAC84\n"));
     assert(strstr(text, "TW\n6263 64656667 68696A08\n"));
@@ -352,7 +355,7 @@ int main(int argc, char **argv) {
     assert(strstr(text, "W BLK FIX UNFIX HOLED NOCRC SEEK\n24C00 6100 5 1C00 90 2F\n"));
     /* Why streams ended, and what could not be followed about them. */
     assert(strstr(text, "S C S F LF AM BC\n3 5 12C 4A 2 3\n"));
-    assert(strstr(text, "W FILL BYTES MOST REF BAD\n1500 6A00 1D 4 2\n"));
+    assert(strstr(text, "W FILL REF BAD\n1500 4 2\n"));
     assert(strstr(text, "TI\n24252627 28292A2B 2C2D2E2F\n"));
     assert(strstr(text, "TG\nC0CFFFF FFFFFFFF FFFFFF0C\n"));
     /* Test 74's rows of the chunks, the idle calls and the runs cut again are gone. */

@@ -134,6 +134,19 @@ extern uint32_t kui_toy_wire_test_phase(void);
 static struct kui_wire_stream *toy_wire_stream(void) {
     return (void *)(toy_resume_data()+TOY_WIRE_STATE_OFFSET);
 }
+/* The stream's own service: a run that has ended is answered and the next
+ * one begun, a wait that is over ended, a stream that stood still for room
+ * started again. Test 75 times it. */
+static void toy_wire_serve(struct toy_wire_keep *k,struct kui_wire_stream *w) {
+#if KUI_TOY_WIRE_STEADY
+    const uint32_t tick=toy_wire_phase();
+    kui_wire_service(w);
+    k->report.service_ticks+=tick-toy_wire_phase();
+#else
+    (void)k;
+    kui_wire_service(w);
+#endif
+}
 static void toy_ahead_write(void *,uint32_t,const uint8_t *,uint32_t);
 void kui_toy_wire_timer_callback(uint32_t event);
 extern uint32_t kui_native_readahead_aux_visit(uint32_t,uint32_t,
@@ -497,7 +510,7 @@ static bool toy_wire_drain(kui_retail_async_region_type *r,uint32_t ticks) {
     for(unsigned blocks=0u;;blocks++) {
         /* Between blocks: an overrun that came meanwhile is answered here,
          * since no interrupt gets through during a visit. */
-        kui_wire_service(w);
+        toy_wire_serve(k,w);
         if(w->state==KUI_WIRE_FAULT) {
             toy_wire_rewind(r,KUI_TOY_WIRE_STOP_FAULT);
             return false;
@@ -556,7 +569,7 @@ static bool toy_wire_drain(kui_retail_async_region_type *r,uint32_t ticks) {
         }
     }
     /* Room made above lets a stream that stood still for it start again. */
-    kui_wire_service(w);
+    toy_wire_serve(k,w);
     return more;
 }
 

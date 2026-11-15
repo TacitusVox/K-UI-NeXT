@@ -87,7 +87,14 @@ static void toy_ahead_write(void *unused,uint32_t offset,const uint8_t *data,uin
     }
     if(part+bytes!=KUI_GAME_RAW_BYTES)return;
     /* A sector that fails here is read again; nothing of it is served. */
-    if(toy_wire_sector(k,raw,lba))++A.verified;
+#if KUI_TOY_WIRE_STEADY
+    const uint32_t check_tick=toy_wire_phase();
+#endif
+    const bool good=toy_wire_sector(k,raw,lba);
+#if KUI_TOY_WIRE_STEADY
+    k->report.check_ticks+=check_tick-toy_wire_phase();
+#endif
+    if(good)++A.verified;
     else k->bad=1u;
 #else
     if(part+bytes!=KUI_GAME_RAW_BYTES)return;

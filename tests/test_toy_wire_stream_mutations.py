@@ -71,7 +71,7 @@ MUTATIONS = [
  (GLUE, "stream state not handed back", "    stream->state=RA_LOST;\n    stream->ready[0]", "    stream->state=RA_PAUSED;\n    stream->ready[0]"),
  (GLUE, "resident not told the stream receives", "    stream->state=RA_DMA;\n    k->on=1u;", "    k->on=1u;"),
  (GLUE, "rewind keeps the old cursor", "       kui_retail_cursor_begin(&A.cursor,A.cursor.manifest,A.verified,end-A.verified,\n           KUI_GAME_SECTOR_RAW,toy_ahead_write,NULL)!=KUI_GAME_OK)A.error=true;", "       false)A.error=true;"),
- (AHEAD, "sector served without its check", "    if(toy_wire_sector(k,raw,lba))++A.verified;\n    else k->bad=1u;", "    (void)toy_wire_sector;++A.verified;"),
+ (AHEAD, "sector served without its check", "    const bool good=toy_wire_sector(k,raw,lba);", "    const bool good=true;(void)toy_wire_sector;"),
  (AHEAD, "stream left running when the window closes", "    toy_wire_halt(r,KUI_TOY_WIRE_STOP_CLOSE);\n#endif\n    if(A.receiving) {", "#endif\n    if(A.receiving) {"),
 ]
 # What Tests 69 and 70 share: the report's account of the reader's time.
@@ -315,6 +315,12 @@ STEADY_MUTATIONS = [
  (AHEAD, "the copying out timed twice over",
   "    toy_wire_keep()->report.publish_ticks+=publish_tick-toy_wire_phase();",
   "    toy_wire_keep()->report.publish_ticks+=2u*(publish_tick-toy_wire_phase());"),
+ (GLUE, "the stream's service not timed", "    k->report.service_ticks+=tick-toy_wire_phase();", "    (void)tick;"),
+ (GLUE, "the stream's service timed backwards", "    k->report.service_ticks+=tick-toy_wire_phase();",
+  "    k->report.service_ticks+=toy_wire_phase()-tick;"),
+ (AHEAD, "the sectors' checks not timed", "    k->report.check_ticks+=check_tick-toy_wire_phase();", "    (void)check_tick;"),
+ (AHEAD, "the sectors' checks added to the copying out",
+  "    k->report.check_ticks+=check_tick-toy_wire_phase();", "    k->report.publish_ticks+=check_tick-toy_wire_phase();"),
  (GLUE, "the first movie's skip taken for the second's",
   "        if(movie && skip!=k->seen_skip && !w->skip_first)", "        if(skip!=k->seen_skip && !w->skip_first)"),
  (GLUE, "a later skip takes the first one's place",

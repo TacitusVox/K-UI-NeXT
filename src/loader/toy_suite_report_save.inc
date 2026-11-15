@@ -105,10 +105,11 @@ static void toy_report_wire(char **at,const char *end,const struct kui_native_ra
     /* The reader's ticks by what it was doing: blocks out of the ring,
      * blocks into the window, streams opened by the low reader, requests
      * copied out; and the interrupt visits that left the reading. */
-    toy_report_short(at,end,"P RING FEED SEEK OUT LATER",
-        (uint32_t[]){w->parse_ticks,w->feed_ticks,w->seek_ticks,w->publish_ticks,w->later},5u);
-    toy_report_short(at,end,"D N T G N T",
-        (uint32_t[]){w->deliver_calls,w->deliver_ticks,w->gd_calls,w->gd_ticks},4u);
+    toy_report_short(at,end,"P RING FEED CHK OUT SVC LATER",
+        (uint32_t[]){w->parse_ticks,w->feed_ticks,w->check_ticks,w->publish_ticks,w->service_ticks,
+            w->later},6u);
+    toy_report_short(at,end,"D N T G N T SEEK",
+        (uint32_t[]){w->deliver_calls,w->deliver_ticks,w->gd_calls,w->gd_ticks,w->seek_ticks},5u);
     toy_report_course(at,end,"TF",w->course_frames,NULL,0u);
     toy_report_course(at,end,"TD",w->course_sectors,NULL,4u);
     toy_report_course(at,end,"TW",NULL,w->course_wait,14u);
@@ -130,8 +131,8 @@ static void toy_report_wire(char **at,const char *end,const struct kui_native_ra
      * other. */
     toy_report_short(at,end,"X E N I C W O",
         (uint32_t[]){w->drops[0],w->drops[1],w->drops[2],w->drops[3],w->drops[4],w->drops[5]},6u);
-    toy_report_short(at,end,"W FILL BYTES MOST REF BAD",
-        (uint32_t[]){w->filled,w->filled_bytes,w->most_lost,w->refused,w->check_bad},5u);
+    toy_report_short(at,end,"W FILL REF BAD",
+        (uint32_t[]){w->filled,w->refused,w->check_bad},3u);
     toy_report_course(at,end,"TI",NULL,w->course_interrupt,14u);
     toy_report_course(at,end,"TG",NULL,w->course_game,14u);
     (void)sd;
