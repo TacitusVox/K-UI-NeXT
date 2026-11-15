@@ -2,8 +2,8 @@
 
 Status: delivered 15 November 2026 (build `7fe7e83c2082`) and run on
 the owner's console the same day: 1,942 of the second movie's 1,968
-frames, the first movie whole (Console result). A test module for one
-title, not an accepted component.
+frames, the first movie whole; 1,953 with GAP left out (Console result).
+A test module for one title, not an accepted component.
 
 Test 76 is not one change. After Test 75's console run the owner wrote:
 "SO CLOSE! [...] I think the next build will be the winner", and after a
@@ -611,6 +611,70 @@ decoded in `console-report-decoded.txt` beside it. What the result means
 for other games, and in what order, is proposed in
 `docs/fmv-stream-reader-plan.md`.
 
+### The variant without GAP on the console
+
+Owner's run of the variant (Package, below) the same day, same
+procedure. Saved report, 1,024 bytes, headed `TEST 76`,
+`BUILD 7fe7e83c2082`, `PT` `BD`:
+`docs/evidence/toy-wire-stream-76/console-report-66-11-no-gap.txt`,
+SHA-256 `b13e2979...3182`.
+
+Owner's observation: "With that build it might have lost less than 20
+frames the entire time. I had to pay really close attention."
+
+| | Without GAP | Test 76 |
+|---|---|---|
+| First movie: frames submitted / on time | 331 / 330 | 331 / 330 |
+| Second movie: frames submitted of 1,968 | 1,953 | 1,942 |
+| Of those on time and in sequence | 1,947 | 1,934 |
+| Frames skipped, first at the player's frame | 15, 1,089 | 26, 1,162 |
+| Longest gap between frames | 0.29 s after 1,130 | 0.47 s after 1,147 |
+| Calls that put a frame out, each | 1,952, 30.2 ms | 1,941, 30.5 ms |
+| All pumps | 8.88 s | 8.88 s |
+| Card blocks, pump time for each | 135,696, 65.4 us | 135,712, 65.5 us |
+| Of that, taking the block out of the ring | 33.7 | 33.7 |
+| Streams begun | 656 | 658 |
+| Ended on a byte between blocks neither idle nor token | 628 | 640 |
+| The same for every hundred overruns in a run | 3.17 | 3.21 |
+| Blocks handed on with lost bytes / sectors completed from parity | 2,843 / 1,867 | 2,885 / 1,887 |
+| Rebuilt bytes not confirmed / sectors failing the EDC watch | 0 / 0 | 0 / 0 |
+
+| Piece | 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| Frames submitted | 136 | 164 | 161 | 162 | 161 | 162 | 153 | 154 | 162 | 162 | 161 | 215 |
+| Test 76 | 136 | 163 | 162 | 161 | 162 | 162 | 160 | 137 | 161 | 162 | 161 | 215 |
+| Requests waited, s | 0.08 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0.59 | 0 | 0.06 |
+| Player's buffer at its emptiest, KiB of 804 | 256 | 32 | 88 | 108 | 72 | 44 | 32 | 28 | 32 | 28 | 764 | 524 |
+| Reader, s | 0.50 | 0.67 | 0.65 | 0.63 | 0.61 | 0.67 | 0.61 | 0.71 | 0.82 | 0.75 | 0.29 | 0.52 |
+
+What this run adds:
+
+1. GAP is not behind the streams begun again. Without it 656 were
+   begun, 628 of them on a stray byte between blocks: the same within
+   two in a hundred. That question is open again; what is left to
+   suspect is timing at an overrun, which is not examined.
+2. GAP gains nothing. The ring loop takes 33.7 microseconds for a block
+   with it and without it, and a block 65.4 against 65.5 in all. It is
+   left out of what follows, which frees 56 bytes of the auxiliary's
+   text.
+3. The loss comes back in the same stretch of the movie in another
+   shape: 15 frames over pieces 6 and 7 (32.2 to 42.9 s), the longest
+   gap 0.29 s, where Test 76 lost 26 in piece 7 with a gap of 0.47 s.
+   In neither run did a request wait between the 5th and the 43rd
+   second. So the loss belongs to that part of the movie, and its size
+   is the run's.
+4. Piece 9 again had requests waiting, 0.59 s, and the player's buffer
+   at its floor, and again lost no frame.
+5. By 3 and 4, and by pieces 6 and 7 having been the worst of the course
+   in Tests 74 and 75, the reading that the player is short of processor
+   time in that scene gains over the reading that its buffer runs dry.
+   It is still a reading: no row has the player's time by piece.
+
+The owner's decision on it: "I don't suppose you have any ideas as to
+what the remaining cause could be? Otherwise it's probably safe to adapt
+this loader to all other games". The variant without GAP is the baseline
+for what follows (`docs/fmv-stream-reader-plan.md`).
+
 ## Verification
 
 Host and linked checks only; none is a console result.
@@ -833,7 +897,7 @@ Its report is headed `TEST 76` with the same build label; `PIPE`'s last
 value is `BD`. Its checks are in `variant-without-gap.log`: package
 admission, the linked checks and both host targets passed; auxiliary
 text 20,388 bytes, image 24,512; low residents identical to the main
-module's. It has not run on a console.
+module's. Its console run is in Console result.
 
 Rebuild: the first command above with `TOY_WIRE_GAP=0` and another
 `BUILD` directory.

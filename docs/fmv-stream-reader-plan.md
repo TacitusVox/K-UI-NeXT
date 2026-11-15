@@ -1,7 +1,8 @@
 # The card stream reader beyond Toy Commander: a proposal
 
-Status: proposal of 15 November 2026. Nothing here is built, and no
-step is approved. It answers the owner's remark after Test 76's console
+Status: proposal of 15 November 2026. Step 2 is begun at the owner's
+word of the same day (decision 1); nothing else here is built or
+approved. It answers the owner's remark after Test 76's console
 run, "then we can probably package this for every game's FMVs", with
 what that takes and in what order. The decisions at the end are the
 owner's.
@@ -21,8 +22,11 @@ report 66-10. Toy Commander's second opening movie shows 1,942 of 1,968
 frames from the SCI card, the first all 331. One hiccup of 24 to 26
 frames near the 39th second is left; its cause is open between the
 player's processor time and its own buffer, and one measurement would
-decide it. A variant with one part switched off (GAP) is with the owner
-for a comparison run.
+decide it. The variant with GAP switched off ran on the console as well
+(report 66-11): 1,953 frames, 15 lost in the same stretch of the movie,
+the reader's cost and its restarts unchanged. GAP is left out from here
+on, and that variant (module `7ce3c839...1c67`, payload CRC32
+`C50A20B9`) is the baseline of step 2.
 
 The module is a test module. It is installed where Card Tools looks for
 Test 66 and replaces no installed reader, which is why none of this has
@@ -130,8 +134,10 @@ forbids; they fit only as measurement inside a test module.
 ## The owner's decisions
 
 1. **The hiccup.** Accept Test 76 as the reference with the hiccup's
-   cause left open, or have it explained first (step 1). The comparison
-   run that is out now may settle part of it.
+   cause left open, or have it explained first (step 1). Answered by
+   the owner after the comparison run of 15 November: "Otherwise it's
+   probably safe to adapt this loader to all other games". Step 1 is
+   not taken; step 2 is begun on the variant without GAP.
 2. **Order.** FMV streaming is fourth of the roadmap's five sections
    and fifth in its current sequence
    (`docs/universal-loader-roadmap.md`), and the measurement checkpoint
