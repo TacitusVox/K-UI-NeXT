@@ -1,0 +1,39 @@
+{
+  "schema": 1,
+  "test": 76,
+  "variant": "TOY_WIRE_GAP=0",
+  "prepared": "2026-11-15 09:45 CST (America/Chicago)",
+  "source_commit": "7fe7e83c2082939275a5519c740f1b358a60e2d4",
+  "archive": {
+    "name": "KUI-Toy-Wire-Stream-Test-76-No-GAP-15NOV2026-0945-CST-7fe7e83.zip",
+    "bytes": 1800145,
+    "sha256": "cdb1ed8b1027ef213f7ab54b30fcd68ef1238e16edfe901702f7eeca9078343b"
+  },
+  "files": [
+    {
+      "path": "KUI/apps/games/retail-toy-test-66.kui",
+      "status": "changed: Test 76 with GAP left out, replaces the Test 76 module",
+      "sha256": "7ce3c839e6ec014e799ae4598800f24bd3bbbfdfaaa1b508e0015970f6991c67",
+      "module": {
+        "format": 1,
+        "build": "7fe7e83c2082",
+        "payload_bytes": 299524,
+        "memory_bytes": 299524,
+        "crc32": "c50a20b9"
+      }
+    },
+    {
+      "path": "KUI/tools.kui",
+      "status": "unchanged, identical to the Test 66 package",
+      "sha256": "04b8657aa6a1530b1bdbb002b481853eef656ef0f4da44cd910faab6eab3c800",
+      "module": {
+        "format": 1,
+        "build": "09c9a4b686d4",
+        "payload_bytes": 3131416,
+        "memory_bytes": 7428496,
+        "crc32": "8111e794"
+      }
+    }
+  ],
+  "readme_sha256": "e3a103eda3618ddb8ad684f65843b5b22dd922952a27afa6ff2f32ce84348858"
+}

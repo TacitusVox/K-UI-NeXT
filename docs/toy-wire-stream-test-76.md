@@ -656,7 +656,8 @@ What the verification itself found and changed:
   begun while the copy routine's deliberate defects were being built in
   the same worktree, took one of them in. Its linked check failed on
   it. The variant was built again on the restored source and has the
-  bytes of the build made before. It has not been delivered.
+  bytes of the build made before. It was delivered after that for a
+  one-switch comparison (Package).
 - The auxiliary's image is at its limit, and two single switches no
   longer link: see Module roles.
 
@@ -802,3 +803,31 @@ Options, Advanced, Tests, "66 SCI movie playback" (the entry now starts
 Test 76), CD Music and virtual VMU Off. Confirm `TEST 76` and
 `BUILD 7fe7e83c2082` in the saved `/reports/toy/66-N.txt`, and `PIPE`'s
 last value.
+
+### The variant without GAP
+
+After the console run a second package went out for a comparison of one
+switch against the measured Test 76: the same source and build label
+with `TOY_WIRE_GAP=0` and nothing else changed. Baseline: Test 76 as run
+(report 66-10). Changed behaviour: the search for a block's token reads
+the ring at its uncached address again, as in Test 75. The question the
+run answers: whether GAP is behind the rise of streams begun again (658,
+640 on a byte between blocks that is neither idle nor a token), and
+whether the hiccup returns in the same piece of the course.
+
+`KUI-Toy-Wire-Stream-Test-76-No-GAP-15NOV2026-0945-CST-7fe7e83.zip`, 1,800,145 bytes, SHA-256
+`cdb1ed8b1027ef213f7ab54b30fcd68ef1238e16edfe901702f7eeca9078343b`, prepared 2026-11-15 09:45 CST (America/Chicago).
+
+| Path | Build | Payload CRC32 | SHA-256 | Status |
+|---|---|---|---|---|
+| `KUI/apps/games/retail-toy-test-66.kui` | `7fe7e83c2082` | `C50A20B9` | `7ce3c839...1c67` | Changed: Test 76 without GAP, replaces the Test 76 module at the path Card Tools loads |
+| `KUI/tools.kui` | `09c9a4b686d4` | `8111E794` | `04b8657a...c800` | Unchanged copy from the Test 66 package |
+
+Its report is headed `TEST 76` with the same build label; `PIPE`'s last
+value is `BD`. Its checks are in `variant-without-gap.log`: package
+admission, the linked checks and both host targets passed; auxiliary
+text 20,388 bytes, image 24,512; low residents identical to the main
+module's. It has not run on a console.
+
+Rebuild: the first command above with `TOY_WIRE_GAP=0` and another
+`BUILD` directory.

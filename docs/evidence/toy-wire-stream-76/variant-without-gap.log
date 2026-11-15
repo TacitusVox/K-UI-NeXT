@@ -1,6 +1,7 @@
 Test 76 with GAP left out and nothing else changed (TOY_WIRE_GAP=0, BUILD_ID 7fe7e83c2082), built on a clean worktree of 61e24e9db5ad,
-with its own package admission, linked check and both host targets. Built for a one-switch comparison on the
-console; not delivered unless the owner asks for it.
+with its own package admission, linked check and both host targets. Delivered on 2026-11-15 as
+KUI-Toy-Wire-Stream-Test-76-No-GAP-15NOV2026-0945-CST-7fe7e83.zip (SHA-256 cdb1ed8b1027ef213f7ab54b30fcd68ef1238e16edfe901702f7eeca9078343b)
+for a one-switch comparison on the console, after the owner's run of Test 76 (report 66-10).
 build exit 0
 package test exit 0
 linked check exit 0
