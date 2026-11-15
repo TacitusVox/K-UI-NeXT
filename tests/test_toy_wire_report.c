@@ -376,7 +376,8 @@ int main(int argc, char **argv) {
     {
         char parts[64];
         const unsigned have = KUI_TOY_WIRE_STAY | KUI_TOY_WIRE_LATER << 1 | KUI_TOY_WIRE_RING << 2 |
-            KUI_TOY_WIRE_QUIT << 3 | KUI_TOY_WIRE_HOT << 4 | KUI_TOY_WIRE_COPY << 5 | KUI_TOY_WIRE_GAP << 6;
+            KUI_TOY_WIRE_QUIT << 3 | KUI_TOY_WIRE_HOT << 4 | KUI_TOY_WIRE_COPY << 5 | KUI_TOY_WIRE_GAP << 6 |
+            KUI_TOY_WIRE_APART << 7;
         snprintf(parts, sizeof(parts), "PIPE B I CALLS IRQ STAY PT\n2 3 9000 BE00 35 %X\n", have);
         assert(strstr(text, parts) && have == KUI_TOY_WIRE_PARTS);
     }

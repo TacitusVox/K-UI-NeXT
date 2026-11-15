@@ -116,8 +116,8 @@ struct toy_wire_keep {
  * ring the channel writes. */
 _Static_assert(TOY_WIRE_KEEP_OFFSET==KUI_TOY_WIRE_REPORT_OFFSET,
     "The worker reads the kept counters at their published offset");
-_Static_assert(TOY_WIRE_TABLE_OFFSET+KUI_WIRE_TABLE_BYTES<=TOY_WIRE_KEEP_OFFSET,
-    "Stream state and tables fit below the kept counters");
+_Static_assert(TOY_WIRE_TABLE_OFFSET+KUI_WIRE_TABLE_BYTES+KUI_WIRE_BLOCK_ROOM<=TOY_WIRE_KEEP_OFFSET,
+    "Stream state, tables and block buffers fit below the kept counters");
 _Static_assert(TOY_WIRE_KEEP_OFFSET+sizeof(struct toy_wire_keep)<=TOY_WIRE_RING_OFFSET,
     "Kept counters end before the ring");
 _Static_assert(TOY_WIRE_RING_OFFSET%32u==0u && TOY_WIRE_KEEP_OFFSET%32u==0u &&

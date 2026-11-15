@@ -541,6 +541,9 @@ bool kui_wire_start(struct kui_wire_stream *w, struct kui_wire_counters *counter
         return false;
     }
     wire_tables(w, tables);
+#if KUI_TOY_WIRE_APART
+    w->block = w->blocks = tables + KUI_WIRE_TABLE_BYTES;
+#endif
     purge(ring, KUI_WIRE_RING_BYTES);
     for(unsigned i = 0; i < 4u; ++i) w->saved_dma[i] = rd32(SAR1 + 4u * i);
     timer_select(w, timer_callback);
@@ -816,6 +819,25 @@ static int wire_solve(const struct kui_wire_stream *w, uint32_t crc, uint32_t af
     return w->crc[value] == crc ? (int)value : -1;
 }
 
+#if KUI_TOY_WIRE_APART
+/* Test 76 (toy_wire_stream.h): which of the two buffers the block whose
+ * bytes begin at `first` is taken into. The first, unless those bytes, as
+ * the block loop reads them through the cache, share a place in the cache
+ * with it: then the second, which they cannot reach. A place is address
+ * bits 5 to 13; the block's bytes touch 18 lines at most and a buffer is
+ * 16. A build that reads the ring at its uncached address has no such
+ * bytes in the cache. */
+static uint8_t *wire_apart(const struct kui_wire_stream *w, uint32_t first) {
+#if KUI_TOY_WIRE_RING
+    const uintptr_t run = (uintptr_t)(wire_view(w->ring) + (first & MASK)) >> 5, own = (uintptr_t)w->blocks >> 5;
+    if(((run - own + 17u) & 511u) < 17u + 16u) return w->blocks + KUI_WIRE_APART_LINES * 32u;
+#else
+    (void)first;
+#endif
+    return w->blocks;
+}
+#endif
+
 /* Take the block whose data begins at `first` out of the ring. The lost
  * data bytes stand as zero and are listed; *lost_crc counts lost CRC bytes.
  * The remainder over data and CRC as received, or NONE if a block has more
@@ -824,6 +846,9 @@ static uint32_t wire_block(struct kui_wire_stream *w, uint32_t first, uint32_t *
     uint32_t crc = 0, at = first, hole = wire_hole(w, first);
     const uint32_t end = first + FRAME;
     *lost_data = *lost_crc = 0;
+#if KUI_TOY_WIRE_APART
+    w->block = wire_apart(w, first);
+#endif
     while(at < end) {
         if(at == hole) {
             if(at - first < 512u) {

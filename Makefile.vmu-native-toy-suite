@@ -27,7 +27,8 @@ TOY_WIRE_HOT ?= $(TOY_WIRE_FLUID)
 TOY_WIRE_COPY ?= $(TOY_WIRE_FLUID)
 # GAP reads the ring as RING does: without RING it is out too.
 TOY_WIRE_GAP ?= $(if $(filter 1,$(TOY_WIRE_RING)),$(TOY_WIRE_FLUID),0)
-TOY_WIRE_FLUID_PARTS = $(TOY_WIRE_QUIT) $(TOY_WIRE_HOT) $(TOY_WIRE_COPY) $(TOY_WIRE_GAP)
+TOY_WIRE_APART ?= $(TOY_WIRE_FLUID)
+TOY_WIRE_FLUID_PARTS = $(TOY_WIRE_QUIT) $(TOY_WIRE_HOT) $(TOY_WIRE_COPY) $(TOY_WIRE_GAP) $(TOY_WIRE_APART)
 ifneq ($(words $(TOY_SUITE_MODE)),1)
 $(error TOY_SUITE_MODE must be a single test number)
 endif
@@ -252,7 +253,7 @@ TOY_WIRE_FLUID_FLAGS += -DKUI_TOY_WIRE_LATER=1
 endif
 # A part left out is said so; the plain Test 76 build carries the one switch.
 ifneq ($(filter-out 0 1,$(TOY_WIRE_FLUID_PARTS)),)
-$(error TOY_WIRE_QUIT, TOY_WIRE_HOT, TOY_WIRE_COPY and TOY_WIRE_GAP must be 0 or 1)
+$(error TOY_WIRE_QUIT, TOY_WIRE_HOT, TOY_WIRE_COPY, TOY_WIRE_GAP and TOY_WIRE_APART must be 0 or 1)
 endif
 ifeq ($(TOY_WIRE_QUIT),0)
 TOY_WIRE_FLUID_FLAGS += -DKUI_TOY_WIRE_QUIT=0
@@ -270,6 +271,9 @@ TOY_WIRE_FLUID_FLAGS += -DKUI_TOY_WIRE_GAP=0
 else ifneq ($(TOY_WIRE_RING),1)
 $(error TOY_WIRE_GAP reads the ring as RING does: it needs TOY_WIRE_RING=1)
 endif
+ifeq ($(TOY_WIRE_APART),0)
+TOY_WIRE_FLUID_FLAGS += -DKUI_TOY_WIRE_APART=0
+endif
 FLAGS += $(TOY_WIRE_FLUID_FLAGS)
 NATIVE_FLAGS += $(TOY_WIRE_FLUID_FLAGS)
 TOY_MOVIE_TEST_FLAGS += $(TOY_WIRE_FLUID_FLAGS)
@@ -277,7 +281,7 @@ TOY_WIRE_TICK_FLAG += $(TOY_WIRE_FLUID_FLAGS)
 else ifneq ($(TOY_WIRE_FLUID),0)
 $(error TOY_WIRE_FLUID must be 0 or 1)
 else ifneq ($(filter-out 0,$(TOY_WIRE_FLUID_PARTS)),)
-$(error TOY_WIRE_QUIT, TOY_WIRE_HOT, TOY_WIRE_COPY and TOY_WIRE_GAP are parts of Test 76: use TOY_WIRE_FLUID=1)
+$(error TOY_WIRE_QUIT, TOY_WIRE_HOT, TOY_WIRE_COPY, TOY_WIRE_GAP and TOY_WIRE_APART are parts of Test 76: use TOY_WIRE_FLUID=1)
 endif
 RA_AUX_LINK_FLAGS := -Wl,--defsym=__native_ra_extra_code=0x3000
 RA_AUX_SPAN := 0x7000
@@ -310,7 +314,7 @@ $(BUILD)/native-worker.elf: $(NATIVE_OBJ)
 
 $(BUILD)/toy-suite-config: force-mode-config
 	@mkdir -p $(BUILD)
-	@printf '%s\n' 'TOY_SUITE_MODE=$(TOY_SUITE_MODE)' 'TOY_FMV_COMPARE=$(TOY_FMV_COMPARE)' 'TOY_WIRE_STREAM=$(TOY_WIRE_STREAM)' $(if $(filter 1,$(TOY_WIRE_TICK)),'TOY_WIRE_TICK=1') $(if $(filter 1,$(TOY_WIRE_CACHED)),'TOY_WIRE_CACHED=1') $(if $(filter 1,$(TOY_WIRE_WORDS)),'TOY_WIRE_WORDS=1') $(if $(filter 1,$(TOY_WIRE_PACE)),'TOY_WIRE_PACE=1') $(if $(filter 1,$(TOY_WIRE_IDLE)),'TOY_WIRE_IDLE=1') $(if $(filter 1,$(TOY_WIRE_LEAN)),'TOY_WIRE_LEAN=1 OPEN=$(TOY_WIRE_OPEN) CLEAN=$(TOY_WIRE_CLEAN) MSB=$(TOY_WIRE_MSB) QUICK=$(TOY_WIRE_QUICK) SWIFT=$(TOY_WIRE_SWIFT)') $(if $(filter 1,$(TOY_WIRE_STEADY)),'TOY_WIRE_STEADY=1 STAY=$(TOY_WIRE_STAY) LATER=$(TOY_WIRE_LATER) RING=$(TOY_WIRE_RING)') $(if $(filter 1,$(TOY_WIRE_FLUID)),'TOY_WIRE_FLUID=1 QUIT=$(TOY_WIRE_QUIT) HOT=$(TOY_WIRE_HOT) COPY=$(TOY_WIRE_COPY) GAP=$(TOY_WIRE_GAP)') > $@.tmp
+	@printf '%s\n' 'TOY_SUITE_MODE=$(TOY_SUITE_MODE)' 'TOY_FMV_COMPARE=$(TOY_FMV_COMPARE)' 'TOY_WIRE_STREAM=$(TOY_WIRE_STREAM)' $(if $(filter 1,$(TOY_WIRE_TICK)),'TOY_WIRE_TICK=1') $(if $(filter 1,$(TOY_WIRE_CACHED)),'TOY_WIRE_CACHED=1') $(if $(filter 1,$(TOY_WIRE_WORDS)),'TOY_WIRE_WORDS=1') $(if $(filter 1,$(TOY_WIRE_PACE)),'TOY_WIRE_PACE=1') $(if $(filter 1,$(TOY_WIRE_IDLE)),'TOY_WIRE_IDLE=1') $(if $(filter 1,$(TOY_WIRE_LEAN)),'TOY_WIRE_LEAN=1 OPEN=$(TOY_WIRE_OPEN) CLEAN=$(TOY_WIRE_CLEAN) MSB=$(TOY_WIRE_MSB) QUICK=$(TOY_WIRE_QUICK) SWIFT=$(TOY_WIRE_SWIFT)') $(if $(filter 1,$(TOY_WIRE_STEADY)),'TOY_WIRE_STEADY=1 STAY=$(TOY_WIRE_STAY) LATER=$(TOY_WIRE_LATER) RING=$(TOY_WIRE_RING)') $(if $(filter 1,$(TOY_WIRE_FLUID)),'TOY_WIRE_FLUID=1 QUIT=$(TOY_WIRE_QUIT) HOT=$(TOY_WIRE_HOT) COPY=$(TOY_WIRE_COPY) GAP=$(TOY_WIRE_GAP) APART=$(TOY_WIRE_APART)') > $@.tmp
 	@cmp -s $@.tmp $@ || cp $@.tmp $@
 	@rm -f $@.tmp
 

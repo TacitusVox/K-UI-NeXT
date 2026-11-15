@@ -27,6 +27,7 @@ from tempfile import TemporaryDirectory
 
 ROOT = Path(__file__).resolve().parents[1]
 STREAM = "src/loader/toy_wire_stream.c"
+STREAM_H = "src/loader/toy_wire_stream.h"
 GLUE = "src/loader/toy_wire_ahead.inc"
 AHEAD = "src/loader/toy_movie_ahead.inc"
 TICK = os.environ.get("TOY_WIRE_TICK", "0")
@@ -477,6 +478,23 @@ GAP_MUTATIONS = [
   "        uint32_t fresh = NONE;\n#endif\n        for(; at < landed; ++at) {",
   "        static uint32_t fresh = NONE;\n#endif\n        for(; at < landed; ++at) {"),
 ]
+# APART: a block is taken into a buffer that shares no place in the cache
+# with its bytes in the ring.
+APART_MUTATIONS = [
+ (STREAM, "a block always taken into the first buffer",
+  "    if(((run - own + 17u) & 511u) < 17u + 16u) return w->blocks + KUI_WIRE_APART_LINES * 32u;", "    (void)run; (void)own;"),
+ (STREAM, "the second buffer used for the wrong blocks",
+  "    if(((run - own + 17u) & 511u) < 17u + 16u) return", "    if(((run - own + 17u) & 511u) >= 17u + 16u) return"),
+ (STREAM, "a block's last line in the ring left out",
+  "    if(((run - own + 17u) & 511u) < 17u + 16u) return", "    if(((run - own + 16u) & 511u) < 16u + 16u) return"),
+ (STREAM, "the buffer's last line left out",
+  "    if(((run - own + 17u) & 511u) < 17u + 16u) return", "    if(((run - own + 17u) & 511u) < 17u + 15u) return"),
+ (STREAM_H, "the second buffer within a block's reach of the first",
+  "#define KUI_WIRE_APART_LINES 33u", "#define KUI_WIRE_APART_LINES 24u"),
+ (STREAM, "the block's place taken from where the ring was read before",
+  "    const uintptr_t run = (uintptr_t)(wire_view(w->ring) + (first & MASK)) >> 5,",
+  "    const uintptr_t run = (uintptr_t)(wire_view(w->ring) + (w->tail & MASK)) >> 5,"),
+]
 # What Test 76 samples again of what Test 74 gave up: the buffer, not the lag
 # and not the update calls' time.
 FLUID_BACK = {"the buffer's free space not the most", "a buffer without capacity taken",
@@ -540,7 +558,8 @@ if FLUID == "1":
     # HOT changes which address the linked module uses for the window's
     # state and nothing a host build can see: tests/test_toy_wire_linked_hot.py
     # reads the linked module for it, and fails either way round.
-    for part, mutations in (("QUIT", QUIT_MUTATIONS), ("HOT", []), ("COPY", COPY_MUTATIONS), ("GAP", GAP_MUTATIONS)):
+    for part, mutations in (("QUIT", QUIT_MUTATIONS), ("HOT", []), ("COPY", COPY_MUTATIONS), ("GAP", GAP_MUTATIONS),
+                            ("APART", APART_MUTATIONS)):
         # GAP reads as RING reads: a build without RING has no GAP either.
         if os.environ.get(f"TOY_WIRE_{part}", os.environ.get("TOY_WIRE_RING", "1") if part == "GAP" else "1") == "1":
             MUTATIONS += mutations
@@ -581,11 +600,11 @@ def main():
                 survived.append(name)
                 continue
             (tree / path).write_text(original.replace(old, new))
-            if path == STREAM:
+            if path in (STREAM, STREAM_H):
                 binary = Path(tmp) / "stream"
                 code = run([cc, "-std=c11", "-O1", "-g", "-w", "-fsanitize=address,undefined",
                             "-DKUI_WIRE_STREAM_TEST=1", *DEFINES, "-Iinclude", "-Isrc/loader",
-                            "tests/test_toy_wire_stream.c", path, "-o", str(binary)], tree, 120)
+                            "tests/test_toy_wire_stream.c", STREAM, "-o", str(binary)], tree, 120)
                 if code == 0:
                     code = run([str(binary), "8"], tree, 300)
                 if code == 0:  # the stream mutant may still be caught end to end

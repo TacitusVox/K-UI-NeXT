@@ -36,8 +36,32 @@
 /* TMU ticks at 781250 Hz: 82 us doubling to 1.3 ms. */
 #define KUI_WIRE_BACKOFF_MIN 64u
 #define KUI_WIRE_BACKOFF_MAX 1024u
+#if KUI_TOY_WIRE_APART
+/* Test 76 (APART). A block is taken out of the ring into a buffer of 512
+ * bytes and copied on from there. That buffer lay in the stream's own
+ * state, which with this reader's arena puts its first 348 bytes at the
+ * very places in the cache (address bits 5 to 13 pick one of 512 lines)
+ * where the reader's private stack has its frames, and a line holds one of
+ * the two at a time: every look at a local between filling the buffer and
+ * emptying it threw a line of the block out and brought it back. And for
+ * one block in sixteen the bytes it is filled from, read through the cache
+ * since Test 75, lie at the buffer's own places, so that each word read
+ * and each word stored threw the other's line out.
+ *
+ * The buffer is now one of two that the caller provides behind the
+ * tables, clear of the stack's places, of the tables in use and of what
+ * the reader keeps. The second begins 33 lines behind the first, further
+ * than a block's bytes in the ring reach (514 bytes touch 18 lines at
+ * most), and is used for exactly the blocks whose bytes in the ring share
+ * a place with the first. Which buffer holds a block changes nothing else. */
+#define KUI_WIRE_APART_LINES 33u
+#define KUI_WIRE_BLOCK_ROOM (KUI_WIRE_APART_LINES * 32u + 512u)
+#else
+#define KUI_WIRE_BLOCK_ROOM 0u
+#endif
 /* Room the caller provides for the tables: bit reversal, the reflected
- * CRC16 step and its inverse. Each start fills them again. */
+ * CRC16 step and its inverse. Each start fills them again. With APART the
+ * block buffers' room follows it, at a multiple of 32. */
 #if KUI_TOY_WIRE_WORDS
 /* And the CRC16 step for two bytes at once. */
 #define KUI_WIRE_TABLE_BYTES 1536u
@@ -113,6 +137,10 @@ struct kui_wire_stream {
     uint32_t timer_reg, timer_bit, timer_event, timer_slot, timer_shift, timer_callback;
     uint32_t ring_physical;
     uint8_t *ring;         /* uncached view of KUI_WIRE_RING_BYTES, 32-byte aligned */
+#if KUI_TOY_WIRE_APART
+    uint8_t *blocks;       /* KUI_WIRE_BLOCK_ROOM behind the tables: the two block buffers */
+    uint8_t *block;        /* the one the block being taken lies in */
+#endif
     uint8_t *reverse;      /* 256 */
     uint16_t *crc;         /* 256 */
     uint8_t *inverse;      /* 256 */
@@ -138,14 +166,18 @@ struct kui_wire_stream {
 #endif
     uint32_t hole[KUI_WIRE_HOLES];
     uint16_t lost[KUI_WIRE_BLOCK_LOST];
+#if !KUI_TOY_WIRE_APART
     _Alignas(4) uint8_t block[512];
+#endif
 };
 
 /* Begin receiving. The card is in an open CMD18, stopped behind a block's
  * second CRC byte, deselected, and the SCI is in the bus's fast command
  * framing with sptr its pin register value. The stream's memory is set up
  * afresh; only *counters is added to. ring is the uncached view of
- * KUI_WIRE_RING_BYTES that nothing else touches, 32-byte aligned;
+ * KUI_WIRE_RING_BYTES that nothing else touches, 32-byte aligned; tables
+ * is KUI_WIRE_TABLE_BYTES and behind them KUI_WIRE_BLOCK_ROOM, 32-byte
+ * aligned too;
  * timer_callback is entered by the SDK's interrupt table for the chosen
  * timer and must lead to kui_wire_timer. False: no register was changed and
  * the stream is off; see error. */

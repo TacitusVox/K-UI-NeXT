@@ -36,7 +36,7 @@ static struct {
     uint32_t tcor[3], tcnt[3], sar, dar, count, chcr, dmaor, slots[64], tcnt0;
 } hw;
 static _Alignas(32) uint8_t ring[KUI_WIRE_RING_BYTES];
-static uint8_t tables[KUI_WIRE_TABLE_BYTES];
+static _Alignas(32) uint8_t tables[KUI_WIRE_TABLE_BYTES + KUI_WIRE_BLOCK_ROOM];
 static uint32_t seed = 1;
 static uint32_t rnd(void) { seed = seed * 1664525u + 1013904223u; return seed >> 8; }
 static uint8_t rev8(uint8_t x) { uint8_t r = 0; for(int i = 0; i < 8; ++i) if(x & 1 << i) r |= 0x80 >> i; return r; }
@@ -189,6 +189,9 @@ static struct kui_wire_counters n;
  * to a segment away; with Test 76's QUIT the byte the receiver then holds
  * and the one that overruns it. */
 static unsigned long stops_receiving, stop_bytes, stop_most;
+#if KUI_TOY_WIRE_APART
+static unsigned long apart[2];      /* blocks taken into the first buffer and into the second */
+#endif
 static bool stream_stop(void) {
     const uint64_t before = clocked;
     const bool ran = w.state == KUI_WIRE_RUN;
@@ -317,6 +320,28 @@ int main(int argc, char **argv) {
                     if(b.data[i] != data_byte(expect, i)) bad = true;
                 }
                 assert(li == b.lost_count);
+#if KUI_TOY_WIRE_APART
+                {
+                    /* Test 76 (APART): the block lies in one of the two
+                     * buffers behind the tables, and no cache line of that
+                     * buffer has the place (address bits 5 to 13) of a
+                     * line its bytes were read from in the ring through
+                     * the cache. A block that runs over the ring's end is
+                     * placed by where it begins. */
+                    const uint8_t *const first = tables + KUI_WIRE_TABLE_BYTES;
+                    assert(b.data == first || b.data == first + KUI_WIRE_APART_LINES * 32u);
+                    ++apart[b.data != first];
+#if KUI_TOY_WIRE_RING
+                    const uint32_t from = (w.tail - 514u) & (KUI_WIRE_RING_BYTES - 1u);
+                    if(from + 514u <= KUI_WIRE_RING_BYTES)
+                        for(uintptr_t line = (uintptr_t)(seen + from) >> 5; line <= (uintptr_t)(seen + from + 513u) >> 5; ++line)
+                            assert(((line - ((uintptr_t)b.data >> 5)) & 511u) >= 16u);
+                    /* The second is used for nothing else. */
+                    if(b.data != first)
+                        assert(((((uintptr_t)(seen + from) >> 5) - ((uintptr_t)first >> 5) + 17u) & 511u) < 33u);
+#endif
+                }
+#endif
 #if KUI_TOY_WIRE_CLEAN
                 /* What the caller may build on: a block called clean or
                  * rebuilt has every byte, and every byte right. */
@@ -504,6 +529,12 @@ int main(int argc, char **argv) {
 #endif
     printf("  streams given up while they received: %lu, the card clocked on for %lu bytes in all, %lu at most\n",
         stops_receiving, stop_bytes, stop_most);
+#if KUI_TOY_WIRE_APART
+    printf("  block buffers: %lu blocks taken into the first, %lu into the second; none shared a place in the cache "
+           "with its bytes in the ring\n", apart[0], apart[1]);
+    /* The ring's 32 KiB pass the first buffer's places twice a lap: about one block in sixteen. */
+    assert(KUI_TOY_WIRE_RING ? apart[1] > total / 32u && apart[1] < total / 8u : !apart[1]);
+#endif
     /* Without QUIT the model shows the wait Test 76 removes. */
     assert(stops_receiving > 100u && (KUI_TOY_WIRE_QUIT ? stop_most <= 2u : stop_most > 1000u));
     printf("PASS Test %u card stream: %lu blocks checked against the card over %lu overruns; %lu streams restarted "
