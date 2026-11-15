@@ -1,7 +1,11 @@
 # Toy Commander Test 75: a clean start, and the reader out of the player's way
 
-Status: delivered 2026-11-14 (build `bf6f1c703add`), host and linked checks
-only. It has not run on a console. Not accepted.
+Status: delivered 2026-11-14 (build `bf6f1c703add`). Ran on the owner's
+console on 2026-11-14, both modules (see Console result). Not accepted:
+the second movie shows more frames than it skips for the first time
+(1,407 of 1,968) and still stutters every few seconds, with one pause of
+nearly two seconds. Kept as the baseline of Test 76
+(`docs/toy-wire-stream-test-76.md`).
 
 Test 75 is not one change either. After Test 74's console run the owner
 wrote: "I think maybe 2-3 more refinements is all we need, if you can
@@ -300,6 +304,200 @@ chunk observer behind `IC` and `WF` does nothing in this build.
 - `S`: `F` against `W START` less `PIPE`'s windows is the share of
   streams begun again because one could not be followed; `LF`, `AM`,
   `BC` say what was met.
+
+## Console result
+
+Owner's runs of both modules, reports received 2026-11-14. The owner
+reported no deviation from the package's procedure (cold CD boot, Card
+Tools 09c9a4b686d4, raw Toy Commander GDI, "66 SCI movie playback", CD
+Music and virtual VMU off). Saved reports, each 1,024 bytes and headed
+`TEST 75`, `BUILD bf6f1c703add`:
+
+- main module: `docs/evidence/toy-wire-stream-75/console-report-66-9.txt`,
+  SHA-256 `410e5168...a764`, `PT` 7;
+- second module (no RING):
+  `docs/evidence/toy-wire-stream-75/console-report-66-9-alternate.txt`,
+  SHA-256 `e7f67d65...6e8d`, `PT` 3.
+
+Owner's observation: "SO CLOSE! There are more fluid frames than there are
+missed frames. [...] The alternate wasn't as good, of course, but still
+better than last run. The first seconds of the second movie started
+stuttering a couple seconds in, was fluid, then every few seconds it
+would stutter again. It's honestly really good compared to where we
+started."
+
+| | Main | Second (no RING) | Test 74 |
+|---|---|---|---|
+| First movie: frames submitted / on time | 331 / 330 | 329 / 326 | 331 / 330 |
+| Second movie: frames submitted of 1,968 | 1,407 | 874 | 967 |
+| Of those on time and in sequence | 1,283 | 764 | 856 |
+| Frames skipped, first at frame | 561, 37 | 1,094, 43 | 1,001, 10 |
+| First frame after | 0.802 s | 0.808 s | 1.105 s |
+| Longest gap between frames | 1.91 s after 1,441 | 1.98 s after 1,441 | 1.95 s after 1,441 |
+| Windows opened, first / second movie | 2 / 2 | 2 / 2 | 10 / 45 |
+| Waited requests that kept their window | 52 | 53 | |
+| Sectors served from the window | 3,423 / 25,827 | 3,421 / 25,827 | 3,403 / 25,770 |
+
+The player's own update calls:
+
+| | Main | Second | Test 74 |
+|---|---|---|---|
+| Second movie: calls that put a frame out | 1,395 | 863 | 956 |
+| Time inside them, each | 56.49 s, 40.5 ms | 44.32 s, 51.4 ms | 43.99 s, 46.0 ms |
+| Reader's interrupt pumps in that span, each | 2.67 ms | 4.47 ms | 4.42 ms |
+| Calls that skipped and put nothing out | 34, 3.55 s, 0.104 s each | 39, 15.82 s, 0.406 s each | 36, 16.01 s, 0.445 s each |
+| First movie: calls that put a frame out, each | 330, 25.8 ms | 328, 26.8 ms | 330, 25.5 ms |
+
+The reader:
+
+| | Main | Second | Test 74 |
+|---|---|---|---|
+| Visits from the SCI interrupt | 29,617, 4.52 s | 29,928, 6.02 s | 28,610, 6.80 s |
+| Of those, left the reading | 15,135 | 14,176 | |
+| Pumps from the game's calls | 14,147, 7.13 s | 14,116, 7.57 s | 12,854, 6.03 s |
+| Timer visits | 8,834, 0.04 s | 8,916, 0.04 s | 5,600, 0.03 s |
+| All pumps | 11.69 s | 13.63 s | 12.86 s |
+| Card blocks, pump time for each | 135,381, 86.3 us | 135,388, 100.7 us | 134,740, 95.5 us |
+| Sectors accepted on CRC16 and address / through the EDC | 22,657 / 6,643 | 22,703 / 6,594 | 23,788 / 5,428 |
+| Rebuilt bytes their P code word confirmed / did not | 8,895 / 0 | 9,447 / 0 | 13,051 / 0 |
+| Sectors that passed the lighter check and failed the EDC watch | 0 | 0 | 0 |
+| Delivery visits on the whole path | 8,024, 10.62 s | 7,991, 9.88 s | 9,197, 10.15 s |
+| The game's EXEC and CHECK calls, entry to exit | 139,815, 4.19 s, 30.0 us each | 130,828, 4.57 s, 34.9 us each | 144,733, 4.26 s, 29.4 us each |
+
+The reader's pump time by what it was doing, microseconds for each card
+block (the timers this test added):
+
+| | Main | Second |
+|---|---|---|
+| Taking the block out of the ring: token, CRC16, bytes | 33.1 | 49.4 |
+| Feeding it to the window, without the sectors' checks | 17.9 | 18.5 |
+| The sectors' checks | 7.1 | 7.0 |
+| The stream's service | 3.6 | 3.6 |
+| The low reader bringing the card to a stream's first block | 7.1 | 6.6 |
+| The rest of the pumps | 17.6 | 15.5 |
+| All | 86.3 | 100.7 |
+
+Outside the pumps: copying requests out to the game took 1.23 s (1.25 s),
+42 microseconds for each 2,048-byte sector. A sector's check took 33
+microseconds on average over all sectors. Reopening took 0.96 s (0.89 s),
+2.0 ms for each stream begun.
+
+The second movie's course in the main module's run, twelve pieces of
+5.4 s from its start:
+
+| Piece | 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| Frames submitted (161 is all) | 121 | 109 | 146 | 109 | 120 | 119 | 54 | 93 | 120 | 40 | 161 | 215 |
+| Second module | 68 | 84 | 86 | 46 | 50 | 29 | 14 | 61 | 42 | 34 | 161 | 199 |
+| Test 74 | 49 | 93 | 91 | 47 | 54 | 46 | 25 | 59 | 92 | 26 | 161 | 224 |
+| Sectors served | 1,936 | 2,400 | 2,304 | 2,416 | 2,400 | 2,320 | 2,448 | 2,384 | 2,464 | 2,400 | 608 | 1,680 |
+| Requests waited, s | 0.08 | 0.04 | 0.00 | 0.08 | 0.04 | 0.02 | 0.04 | 0.00 | 1.26 | 0.52 | 0 | 0 |
+| Second module | 0.06 | 0.10 | 0.02 | 0.10 | 0.06 | 0.06 | 0.15 | 0.08 | 1.43 | 0.61 | 0 | 0 |
+| Reader in interrupt visits, s | 0.27 | 0.34 | 0.34 | 0.36 | 0.34 | 0.34 | 0.31 | 0.36 | 0.50 | 0.38 | 0.08 | 0.29 |
+| Reader in the game's calls, s | 0.34 | 0.48 | 0.42 | 0.52 | 0.46 | 0.48 | 0.48 | 0.50 | 0.50 | 0.55 | 0.29 | 0.48 |
+
+Stream, main module (second module, Test 74's main module): 478 begun
+(454, 365), 7,069 full runs (7,028, 6,569), 23,825 overruns in a run
+(24,394, 23,226), 10,930 timer waits of 4.27 s (10,265 of 4.01 s, 6,556
+of 3.36 s), 1,515 stops for room (1,481, 1,631), 75,825,683 wire bytes
+(76,277,502, 73,303,443), TMU1, no fault. Blocks 135,381: 11,194 rebuilt
+from CRC16 (12,000, 16,838), 22 single losses not explained (18, 25),
+6,667 handed on with lost bytes (6,687, 4,270), 52 with only a CRC byte
+lost (50, 66); 527 read by the low reader to open or reopen (490, 384).
+Streams ended because the window closed 4, a sector failed its check 12,
+the stream could not be followed 462: a byte between blocks neither idle
+nor token 460, a block without lost bytes failing its CRC16 2 (second
+module 4, 9, 441: 438 and 3). Windows given up: two because the movie was
+over, two as not serving the request (one at each movie's start), none
+for a waited request. Sectors completed from their parity 3,918 (3,784,
+1,925); 4 refused (0, 1), 8 failed their check and were read again (9,
+4). No game read failed.
+
+What the runs establish:
+
+1. The second movie shows more frames than it skips: 1,407 of 1,968,
+   against 967. The pauses are a quarter as long: 34 calls of the
+   player's that show nothing, 0.10 s each, against 36 of 0.45 s. What
+   remains is the stutter the owner describes, a pause of 1.9 s near the
+   49th second, and two pieces of the course that are far worse than the
+   rest (6 and 9, with 54 and 40 frames of 161).
+2. STAY did what it was for. Two windows for each movie where Test 74
+   opened 10 and 45, no window given up for a waited request, the second
+   movie's first frame after 0.80 s again and its first skip at frame 37
+   instead of 10.
+3. RING is where the gain is. The two modules differ in nothing else:
+   33.1 against 49.4 microseconds for a block out of the ring, 86.3
+   against 100.7 for a block in all, 1,407 frames against 874. Nothing
+   suggests a stale read through the cache: two blocks in 135,000 failed
+   their CRC16 whole and eight sectors their check, against three and
+   nine in the module that reads the ring as before. The estimate was 6
+   to 13 microseconds a block; it is 16.
+4. LATER did not do what it was for, and it cost the stream. Half the
+   interrupt visits left the reading (15,135 of 29,617), yet the
+   reader's interrupt time for each frame call is where Test 74 had it
+   in the module without RING (4.47 ms against 4.42): the visits that
+   read now read for longer. That module's pumps took 13.63 s against
+   Test 74's 12.86 s and it showed fewer frames (874 against 967). The
+   stream lost no more bytes than before (23,825 and 24,394 overruns
+   against 23,226 and 24,253), but the losses came closer together:
+   overruns behind a run of under 128 bytes rose from 28 and 30 percent
+   to 46 and 42, blocks handed on with lost bytes by a half, sectors
+   completed from parity twofold, sectors through the EDC by a fifth,
+   streams begun again beyond the windows' own from 310 and 282 to 474
+   and 450, wire bytes by 3 to 5 percent. Test 74's own report says why
+   that follows from a visit that leaves: a run begun by a visit that
+   stayed to read was cut again within 128 bytes 18 times in 100 (2,980
+   of 16,670), one begun by a timer visit, which leaves at once, 52
+   times (3,378 of 6,556). While the reader holds the processor the
+   game's code that stalls the bus does not run. This is an inference:
+   no run has LATER off with STAY on, and Test 75's report no longer has
+   that row. Test 76 leaves LATER out, and its second module is this
+   test's with nothing else changed, which is that comparison.
+5. Where a block's 86 microseconds are, by the clock: 33 in the ring
+   loop, 18 feeding the window, 7 in the sectors' checks, 4 in the
+   stream's service, 7 reopening streams, 18 in the rest. The rest is
+   not bookkeeping alone. It holds what each of 52,598 visits costs
+   before and after its blocks, and a wait no timer covers: a stream
+   that is given up while it receives is stopped by waiting, with
+   interrupts held off, for its run's next overrun, which is up to one
+   segment away (8,192 bytes, 5.2 ms). The run gave up 478 streams. By
+   estimate from the counts, not measured: half a second to a second.
+   With the 0.96 s of reopening, giving streams up and beginning them
+   again costs 1.5 to 2 s of the reader's 11.7 s.
+6. Copying requests out to the game is 1.23 s, 42 microseconds a sector,
+   one and a half percent of the processor. Test 75's document put the
+   two copies together at under one percent and left a faster copy out
+   for that reason. That estimate was wrong.
+7. The two bad places are not alike. In piece 8 (43 to 48 s) requests
+   waited 1.26 s and 1.43 s, and 1.2 to 1.6 s in every run since Test 71
+   whatever the reader's speed and however many frames that piece
+   showed (120 here, 42 in the second module, 14 in Test 73). The
+   longest gap follows it directly: frame 1,441 is due 48.8 s into the
+   movie, in piece 9. There the reader does not bring the data fast
+   enough, and a faster reader has not changed that in five tests. Test
+   67 found that the movie's densest second needs more than the wire
+   carries (1.57 MB/s of raw image against 1.56); where in the movie
+   that second lies was not recorded. In piece 6 (32 to 38 s,
+   around frame 1,021, where Tests 70 to 73 had their longest gap) 54
+   frames of 161 were shown with 0.04 s of waiting: there the player is
+   short of processor time, not of data. What the player's own buffer
+   holds at either place this report does not say; Test 76's does.
+8. How much is missing. The time inside the player's update calls is
+   the same in every run (60.0 s of the movie's 65.6 s; Test 73 60.1 s):
+   the player takes all there is and processes every frame, shown or
+   not. Between the two modules 1.69 to 1.94 s less reader time went
+   with 533 fewer skipped frames, 3.2 to 3.6 ms a frame; counting the
+   0.58 s less that requests waited, up to 4.7 ms. At that rate the 561
+   frames still skipped stand for 1.8 to 2.6 s of the reader's time in
+   the movie's first 54 s, where the pumps take 8.3 s and the copy out
+   about 1.0 s. Fitted on these two runs the same line misses Tests 73
+   and 74 by up to 120 frames. And about 280 of the 561 are in pieces 6,
+   8 and 9, where a frame may not come back at that price.
+9. Beyond RING the two modules' stream counts are alike. The second
+   module's first movie lost frames (329 submitted, 326 on time, one
+   call that skipped), the first time since Test 70. The owner found
+   that module better than Test 74's run; by frames shown it is not (874
+   against 967), by the length of its pauses about the same.
 
 ## Verification
 
