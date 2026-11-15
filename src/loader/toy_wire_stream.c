@@ -924,6 +924,18 @@ enum kui_wire_parse kui_wire_next(struct kui_wire_stream *w, struct kui_wire_blo
     while(w->hole_get != w->hole_put && w->hole[w->hole_get & HOLE_MASK] < w->floor) ++w->hole_get;
     if(w->phase == SEEK) {
         uint32_t at = w->tail, hole = wire_hole(w, at);
+#if KUI_TOY_WIRE_GAP
+        /* Test 76. The bytes between two blocks were read one bus cycle
+         * each, and there are a few dozen of them to a block. They are
+         * read through the cache as the block's own words are (RING,
+         * above), by the same rule: a line is dropped from the cache
+         * before this call first reads it, so that what it reads of the
+         * line is what memory holds now. Every byte read here has landed.
+         * Bytes of the same line that land later are read by a later
+         * call, or by the block loop, each of which drops the line again. */
+        const uint8_t *const view = wire_view(w->ring);
+        uint32_t fresh = NONE;
+#endif
         for(; at < landed; ++at) {
             if(at == hole) {
                 /* A byte lost between blocks was an idle byte or the token.
@@ -938,7 +950,16 @@ enum kui_wire_parse kui_wire_next(struct kui_wire_stream *w, struct kui_wire_blo
                 hole = wire_hole(w, at + 1u);
                 continue;
             }
+#if KUI_TOY_WIRE_GAP
+            const uint32_t index = at & MASK;
+            if(index >> 5 != fresh) {
+                fresh = index >> 5;
+                wire_drop(view + (index & ~UINT32_C(31)));
+            }
+            const uint8_t value = view[index];
+#else
             const uint8_t value = w->ring[at & MASK];
+#endif
             if(value == IDLE_WIRE) {
                 /* A full block of idle bytes cannot be data with its CRC. */
                 if(w->gap_hole && at - w->gap_hole >= FRAME) {

@@ -462,6 +462,21 @@ COPY_MUTATIONS = [
  (AHEAD, "a piece copied to the sector's start",
   "    toy_wire_copy(raw+part,data,bytes);", "    toy_wire_copy(raw,data,bytes);"),
 ]
+# GAP: the search for a block's token reads the ring through the cache,
+# each line dropped before the call's first read of it.
+GAP_MUTATIONS = [
+ (STREAM, "a gap's line read as the cache has it",
+  "                fresh = index >> 5;\n                wire_drop(view + (index & ~UINT32_C(31)));", "                fresh = index >> 5;"),
+ (STREAM, "only the search's first line dropped",
+  "            if(index >> 5 != fresh) {\n                fresh = index >> 5;", "            if(fresh == NONE) {\n                fresh = index >> 5;"),
+ (STREAM, "the line behind the gap's dropped",
+  "                wire_drop(view + (index & ~UINT32_C(31)));", "                wire_drop(view + ((index + 32u & MASK) & ~UINT32_C(31)));"),
+ (STREAM, "a gap's byte read a line further on",
+  "            const uint8_t value = view[index];", "            const uint8_t value = view[(index + 32u) & MASK];"),
+ (STREAM, "a line taken as dropped from the call before",
+  "        uint32_t fresh = NONE;\n#endif\n        for(; at < landed; ++at) {",
+  "        static uint32_t fresh = NONE;\n#endif\n        for(; at < landed; ++at) {"),
+]
 # What Test 76 samples again of what Test 74 gave up: the buffer, not the lag
 # and not the update calls' time.
 FLUID_BACK = {"the buffer's free space not the most", "a buffer without capacity taken",
@@ -525,8 +540,9 @@ if FLUID == "1":
     # HOT changes which address the linked module uses for the window's
     # state and nothing a host build can see: tests/test_toy_wire_linked_hot.py
     # reads the linked module for it, and fails either way round.
-    for part, mutations in (("QUIT", QUIT_MUTATIONS), ("HOT", []), ("COPY", COPY_MUTATIONS)):
-        if os.environ.get(f"TOY_WIRE_{part}", "1") == "1":
+    for part, mutations in (("QUIT", QUIT_MUTATIONS), ("HOT", []), ("COPY", COPY_MUTATIONS), ("GAP", GAP_MUTATIONS)):
+        # GAP reads as RING reads: a build without RING has no GAP either.
+        if os.environ.get(f"TOY_WIRE_{part}", os.environ.get("TOY_WIRE_RING", "1") if part == "GAP" else "1") == "1":
             MUTATIONS += mutations
             if part == "QUIT":
                 # With the channel taken off, the old wait's own mutation is this part's last.

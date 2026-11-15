@@ -155,7 +155,10 @@
  *          (native_readahead_aux_internal.h);
  *   COPY   a block goes into the window a cache line at a time, each line
  *          claimed in the cache without being fetched first
- *          (toy_wire_copy.inc). */
+ *          (toy_wire_copy.inc);
+ *   GAP    the search for a block's token reads the ring through the
+ *          cache, as the block loop has since Test 75: it took a bus read
+ *          for every byte between two blocks (toy_wire_stream.c). */
 #ifndef KUI_TOY_WIRE_QUIT
 #define KUI_TOY_WIRE_QUIT KUI_TOY_WIRE_FLUID
 #endif
@@ -165,12 +168,19 @@
 #ifndef KUI_TOY_WIRE_COPY
 #define KUI_TOY_WIRE_COPY KUI_TOY_WIRE_FLUID
 #endif
-#if (KUI_TOY_WIRE_QUIT || KUI_TOY_WIRE_HOT || KUI_TOY_WIRE_COPY) && !KUI_TOY_WIRE_FLUID
-#error "QUIT, HOT and COPY are parts of Test 76: use KUI_TOY_WIRE_FLUID"
+#ifndef KUI_TOY_WIRE_GAP
+/* It reads as RING reads: a build without RING has no GAP either. */
+#define KUI_TOY_WIRE_GAP (KUI_TOY_WIRE_FLUID && KUI_TOY_WIRE_RING)
+#endif
+#if (KUI_TOY_WIRE_QUIT || KUI_TOY_WIRE_HOT || KUI_TOY_WIRE_COPY || KUI_TOY_WIRE_GAP) && !KUI_TOY_WIRE_FLUID
+#error "QUIT, HOT, COPY and GAP are parts of Test 76: use KUI_TOY_WIRE_FLUID"
+#endif
+#if KUI_TOY_WIRE_GAP && !KUI_TOY_WIRE_RING
+#error "GAP reads the ring through the cache as RING does: it needs KUI_TOY_WIRE_RING"
 #endif
 /* The parts a build has, as the report's PT value names them. */
 #define KUI_TOY_WIRE_PARTS (KUI_TOY_WIRE_STAY | KUI_TOY_WIRE_LATER << 1 | KUI_TOY_WIRE_RING << 2 | \
-    KUI_TOY_WIRE_QUIT << 3 | KUI_TOY_WIRE_HOT << 4 | KUI_TOY_WIRE_COPY << 5)
+    KUI_TOY_WIRE_QUIT << 3 | KUI_TOY_WIRE_HOT << 4 | KUI_TOY_WIRE_COPY << 5 | KUI_TOY_WIRE_GAP << 6)
 /* The second movie in pieces of 2^22 ticks, 5.4 s: twelve cover it. */
 #define KUI_TOY_WIRE_BUCKETS 12u
 #define KUI_TOY_WIRE_BUCKET_SHIFT 22u
