@@ -35,7 +35,8 @@ static struct {
     uint16_t pdtr, ipra, tcr[3];
     uint32_t tcor[3], tcnt[3], sar, dar, count, chcr, dmaor, slots[64], tcnt0;
 } hw;
-static uint8_t ring[KUI_WIRE_RING_BYTES], tables[KUI_WIRE_TABLE_BYTES];
+static _Alignas(32) uint8_t ring[KUI_WIRE_RING_BYTES];
+static uint8_t tables[KUI_WIRE_TABLE_BYTES];
 static uint32_t seed = 1;
 static uint32_t rnd(void) { seed = seed * 1664525u + 1013904223u; return seed >> 8; }
 static uint8_t rev8(uint8_t x) { uint8_t r = 0; for(int i = 0; i < 8; ++i) if(x & 1 << i) r |= 0x80 >> i; return r; }
@@ -163,6 +164,23 @@ void kui_wire_test_fence(void) {}
 uint32_t kui_wire_test_physical(const void *p) { assert(p == ring); return PHYS; }
 uint32_t kui_wire_test_vbr(void) { return 0x8c00f400u; }
 void kui_wire_test_purge(const void *p, unsigned n) { assert(p == ring && n == KUI_WIRE_RING_BYTES); }
+#if KUI_TOY_WIRE_RING
+/* Test 75 reads the ring through the cache. This is the ring as a cache
+ * that never lets go of a line would show it: each line holds what memory
+ * held when the reader last dropped it, and until its first drop nothing
+ * the card ever sent. A line read without being dropped first gives the
+ * reader old bytes, which the checks on every word run then meet. */
+static _Alignas(32) uint8_t seen[KUI_WIRE_RING_BYTES];
+static unsigned long drops;
+const uint8_t *kui_wire_test_view(const uint8_t *area) { assert(area == ring); return seen; }
+void kui_wire_test_drop(const uint8_t *line) {
+    /* Any address inside the line names it, as for the instruction. */
+    assert(line >= seen && line < seen + sizeof(seen));
+    const size_t at = (size_t)(line - seen) & ~(size_t)31u;
+    memcpy(seen + at, ring + at, 32u);
+    ++drops;
+}
+#endif
 
 static struct kui_wire_stream w;
 static struct kui_wire_counters n;
@@ -458,6 +476,11 @@ int main(int argc, char **argv) {
            "(%lu blocks with lost bytes went to the sector check before a whole block had exposed the token-only answer)\n",
         orders[0], orders[1], orders[2], unsettled);
     assert(orders[0] && orders[1] && orders[2]);
+#endif
+#if KUI_TOY_WIRE_RING
+    /* A whole block's data is sixteen lines and a part of one or two more. */
+    printf("  the ring read through the cache: %lu lines dropped and fetched afresh for %lu blocks\n", drops, total);
+    assert(drops >= 16u * (total / 2u) && drops <= 18u * total + 18u * overruns);
 #endif
     printf("PASS Test %u card stream: %lu blocks checked against the card over %lu overruns; %lu streams restarted "
            "(clean block failing CRC16 %lu, too many lost bytes %lu); %lu uncheckable blocks handed on wrong, "

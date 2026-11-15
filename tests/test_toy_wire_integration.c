@@ -152,6 +152,26 @@ uint32_t kui_wire_test_vbr(void) { return KUI_NATIVE_SDK_SCI_OWNER_VBR; }
 void kui_wire_test_purge(const void *area, unsigned bytes) {
     CHECK(area == arena + sizeof(arena) - RING_BYTES && bytes == RING_BYTES);
 }
+#if KUI_TOY_WIRE_RING
+/* Test 75 reads the ring through the cache. This is the ring as a cache
+ * that never lets go of a line would show it: each line holds what memory
+ * held when the reader last dropped it. A line read without being dropped
+ * first gives the reader old bytes, and what it then hands on is not the
+ * image's. */
+static _Alignas(32) uint8_t ring_seen[RING_BYTES];
+static unsigned long ring_drops;
+const uint8_t *kui_wire_test_view(const uint8_t *area) {
+    CHECK(area == arena + sizeof(arena) - RING_BYTES && !((uintptr_t)area & 31u));
+    return ring_seen;
+}
+void kui_wire_test_drop(const uint8_t *line) {
+    /* Any address inside the line names it, as for the instruction. */
+    CHECK(line >= ring_seen && line < ring_seen + sizeof(ring_seen));
+    const size_t at = (size_t)(line - ring_seen) & ~(size_t)31u;
+    memcpy(ring_seen + at, arena + sizeof(arena) - RING_BYTES + at, 32u);
+    ++ring_drops;
+}
+#endif
 /* The auxiliary's gate: masked for the whole visit and never re-entered. */
 uint32_t kui_native_readahead_aux_visit(uint32_t event, uint32_t arg,
     kui_retail_async_region_type *r, uint32_t reserved) {
@@ -2121,6 +2141,10 @@ int main(void) {
     degraded();
 #if KUI_TOY_WIRE_MSB
     }
+#endif
+#if KUI_TOY_WIRE_RING
+    CHECK(ring_drops > 100000u);
+    printf("  the ring read through the cache in all of the above: %lu lines dropped and fetched afresh\n", ring_drops);
 #endif
     printf("PASS Test %u reader integration: %u checks\n", KUI_TOY_WIRE_TICK ? 69u : KUI_TOY_WIRE_STEADY ? 75u : KUI_TOY_WIRE_LEAN ? 74u : KUI_TOY_WIRE_IDLE ? 73u : KUI_TOY_WIRE_PACE ? 72u : KUI_TOY_WIRE_WORDS ? 71u : KUI_TOY_WIRE_CACHED ? 70u : 68u, checks);
     return 0;

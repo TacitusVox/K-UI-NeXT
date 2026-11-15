@@ -18,6 +18,7 @@ TOY_WIRE_SWIFT ?= $(TOY_WIRE_LEAN)
 TOY_WIRE_STEADY ?= 0
 TOY_WIRE_STAY ?= $(TOY_WIRE_STEADY)
 TOY_WIRE_LATER ?= $(TOY_WIRE_STEADY)
+TOY_WIRE_RING ?= $(TOY_WIRE_STEADY)
 ifneq ($(words $(TOY_SUITE_MODE)),1)
 $(error TOY_SUITE_MODE must be a single test number)
 endif
@@ -207,8 +208,8 @@ $(error TOY_WIRE_STEADY builds on Test 74: use TOY_WIRE_LEAN=1 on Test 73's swit
 endif
 TOY_WIRE_STEADY_FLAGS := -DKUI_TOY_WIRE_STEADY=1
 # A part left out is said so; the plain Test 75 build carries the one switch.
-ifneq ($(filter-out 0 1,$(TOY_WIRE_STAY) $(TOY_WIRE_LATER)),)
-$(error TOY_WIRE_STAY and TOY_WIRE_LATER must be 0 or 1)
+ifneq ($(filter-out 0 1,$(TOY_WIRE_STAY) $(TOY_WIRE_LATER) $(TOY_WIRE_RING)),)
+$(error TOY_WIRE_STAY, TOY_WIRE_LATER and TOY_WIRE_RING must be 0 or 1)
 endif
 ifeq ($(TOY_WIRE_STAY),0)
 TOY_WIRE_STEADY_FLAGS += -DKUI_TOY_WIRE_STAY=0
@@ -216,14 +217,17 @@ endif
 ifeq ($(TOY_WIRE_LATER),0)
 TOY_WIRE_STEADY_FLAGS += -DKUI_TOY_WIRE_LATER=0
 endif
+ifeq ($(TOY_WIRE_RING),0)
+TOY_WIRE_STEADY_FLAGS += -DKUI_TOY_WIRE_RING=0
+endif
 FLAGS += $(TOY_WIRE_STEADY_FLAGS)
 NATIVE_FLAGS += $(TOY_WIRE_STEADY_FLAGS)
 TOY_MOVIE_TEST_FLAGS += $(TOY_WIRE_STEADY_FLAGS)
 TOY_WIRE_TICK_FLAG += $(TOY_WIRE_STEADY_FLAGS)
 else ifneq ($(TOY_WIRE_STEADY),0)
 $(error TOY_WIRE_STEADY must be 0 or 1)
-else ifneq ($(TOY_WIRE_STAY)$(TOY_WIRE_LATER),00)
-$(error TOY_WIRE_STAY and TOY_WIRE_LATER are parts of Test 75: use TOY_WIRE_STEADY=1)
+else ifneq ($(TOY_WIRE_STAY)$(TOY_WIRE_LATER)$(TOY_WIRE_RING),000)
+$(error TOY_WIRE_STAY, TOY_WIRE_LATER and TOY_WIRE_RING are parts of Test 75: use TOY_WIRE_STEADY=1)
 endif
 RA_AUX_LINK_FLAGS := -Wl,--defsym=__native_ra_extra_code=0x3000
 RA_AUX_SPAN := 0x7000
@@ -256,7 +260,7 @@ $(BUILD)/native-worker.elf: $(NATIVE_OBJ)
 
 $(BUILD)/toy-suite-config: force-mode-config
 	@mkdir -p $(BUILD)
-	@printf '%s\n' 'TOY_SUITE_MODE=$(TOY_SUITE_MODE)' 'TOY_FMV_COMPARE=$(TOY_FMV_COMPARE)' 'TOY_WIRE_STREAM=$(TOY_WIRE_STREAM)' $(if $(filter 1,$(TOY_WIRE_TICK)),'TOY_WIRE_TICK=1') $(if $(filter 1,$(TOY_WIRE_CACHED)),'TOY_WIRE_CACHED=1') $(if $(filter 1,$(TOY_WIRE_WORDS)),'TOY_WIRE_WORDS=1') $(if $(filter 1,$(TOY_WIRE_PACE)),'TOY_WIRE_PACE=1') $(if $(filter 1,$(TOY_WIRE_IDLE)),'TOY_WIRE_IDLE=1') $(if $(filter 1,$(TOY_WIRE_LEAN)),'TOY_WIRE_LEAN=1 OPEN=$(TOY_WIRE_OPEN) CLEAN=$(TOY_WIRE_CLEAN) MSB=$(TOY_WIRE_MSB) QUICK=$(TOY_WIRE_QUICK) SWIFT=$(TOY_WIRE_SWIFT)') $(if $(filter 1,$(TOY_WIRE_STEADY)),'TOY_WIRE_STEADY=1 STAY=$(TOY_WIRE_STAY) LATER=$(TOY_WIRE_LATER)') > $@.tmp
+	@printf '%s\n' 'TOY_SUITE_MODE=$(TOY_SUITE_MODE)' 'TOY_FMV_COMPARE=$(TOY_FMV_COMPARE)' 'TOY_WIRE_STREAM=$(TOY_WIRE_STREAM)' $(if $(filter 1,$(TOY_WIRE_TICK)),'TOY_WIRE_TICK=1') $(if $(filter 1,$(TOY_WIRE_CACHED)),'TOY_WIRE_CACHED=1') $(if $(filter 1,$(TOY_WIRE_WORDS)),'TOY_WIRE_WORDS=1') $(if $(filter 1,$(TOY_WIRE_PACE)),'TOY_WIRE_PACE=1') $(if $(filter 1,$(TOY_WIRE_IDLE)),'TOY_WIRE_IDLE=1') $(if $(filter 1,$(TOY_WIRE_LEAN)),'TOY_WIRE_LEAN=1 OPEN=$(TOY_WIRE_OPEN) CLEAN=$(TOY_WIRE_CLEAN) MSB=$(TOY_WIRE_MSB) QUICK=$(TOY_WIRE_QUICK) SWIFT=$(TOY_WIRE_SWIFT)') $(if $(filter 1,$(TOY_WIRE_STEADY)),'TOY_WIRE_STEADY=1 STAY=$(TOY_WIRE_STAY) LATER=$(TOY_WIRE_LATER) RING=$(TOY_WIRE_RING)') > $@.tmp
 	@cmp -s $@.tmp $@ || cp $@.tmp $@
 	@rm -f $@.tmp
 
@@ -337,6 +341,9 @@ ifeq ($(TOY_WIRE_SWIFT),1)
 	python3 tests/test_toy_wire_linked_loops.py $(if $(filter 0,$(TOY_WIRE_MSB)),--no-as-sent) $(BUILD)/native-ra-aux.elf $(TOY_WIRE_LOOP_REFERENCE)
 else ifeq ($(TOY_WIRE_WORDS),1)
 	python3 tests/test_toy_wire_word_loop.py $(BUILD)/native-ra-aux.elf
+endif
+ifeq ($(TOY_WIRE_RING),1)
+	python3 tests/test_toy_wire_linked_ring.py $(BUILD)/native-ra-aux.elf
 endif
 toy-wire-host-tests:
 	@mkdir -p $(BUILD)

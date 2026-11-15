@@ -103,7 +103,10 @@
  *          costs the window: the stream serves it (toy_wire_ahead.inc);
  *   LATER  an interrupt visit answers the stream and leaves the reading to
  *          the game's own calls, unless a request waits for it or the ring
- *          is filling up (toy_wire_ahead.inc). */
+ *          is filling up (toy_wire_ahead.inc);
+ *   RING   the block loop reads the ring through the cache, a line at a
+ *          time and each line fetched afresh, where it took a bus read
+ *          for every word (toy_wire_stream.c). */
 #ifndef KUI_TOY_WIRE_STEADY
 #define KUI_TOY_WIRE_STEADY 0
 #endif
@@ -116,8 +119,11 @@
 #ifndef KUI_TOY_WIRE_LATER
 #define KUI_TOY_WIRE_LATER KUI_TOY_WIRE_STEADY
 #endif
-#if (KUI_TOY_WIRE_STAY || KUI_TOY_WIRE_LATER) && !KUI_TOY_WIRE_STEADY
-#error "STAY and LATER are parts of Test 75: use KUI_TOY_WIRE_STEADY"
+#ifndef KUI_TOY_WIRE_RING
+#define KUI_TOY_WIRE_RING KUI_TOY_WIRE_STEADY
+#endif
+#if (KUI_TOY_WIRE_STAY || KUI_TOY_WIRE_LATER || KUI_TOY_WIRE_RING) && !KUI_TOY_WIRE_STEADY
+#error "STAY, LATER and RING are parts of Test 75: use KUI_TOY_WIRE_STEADY"
 #endif
 /* The second movie in pieces of 2^22 ticks, 5.4 s: twelve cover it. */
 #define KUI_TOY_WIRE_BUCKETS 12u

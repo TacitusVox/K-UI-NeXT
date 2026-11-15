@@ -382,6 +382,23 @@ LATER_MUTATIONS = [
   "        else if(toy_wire_drain(r,TOY_WIRE_TICKS_FOREGROUND) && k->on)++k->report.budget_ends;",
   "        else if(toy_wire_drain(r,interrupt && !waiting?TOY_WIRE_TICKS_INTERRUPT:TOY_WIRE_TICKS_FOREGROUND) && k->on)++k->report.budget_ends;"),
 ]
+# RING: the block loop reads the ring through the cache, every line of a
+# run dropped from it first. The fixtures' view of the ring keeps what
+# memory held at a line's last drop.
+RING_MUTATIONS = [
+ (STREAM, "a run's last line read without being dropped",
+  "line < end; line += 32) wire_drop(line);", "line + 32 < end; line += 32) wire_drop(line);"),
+ (STREAM, "lines dropped from the run's own address on",
+  "    for(const uint8_t *line = view - ((uintptr_t)view & 31u); line < end;", "    for(const uint8_t *line = view; line < end;"),
+ (STREAM, "every other line dropped", "line < end; line += 32) wire_drop(line);", "line < end; line += 64) wire_drop(line);"),
+ (STREAM, "no line dropped", "line < end; line += 32) wire_drop(line);", "line < end; line += 32) (void)line;"),
+ (STREAM, "lines dropped up to a run's first word only",
+  "*const end = view + 4u * words;", "*const end = view + 4u;"),
+ (STREAM, "a short run read through the cache as it stands",
+  "    if(words < WIRE_FRESH_WORDS) return p;", "    if(words < WIRE_FRESH_WORDS) return wire_view(ring) + (p - ring);"),
+ (STREAM, "the cache's view taken a line further on",
+  "    const uint8_t *const view = wire_view(ring) + (p - ring), ", "    const uint8_t *const view = wire_view(ring) + (p - ring) + 32, "),
+]
 # What Test 75 no longer counts: the runs cut again soon after they began.
 STEADY_GONE = {"runs cut again not counted", "a run behind a wait counted as one behind a cut"}
 # SWIFT, the hand-written block loops, is SH-4 code no host test runs:
@@ -422,7 +439,7 @@ if LEAN == "1":
             DEFINES.append(f"-DKUI_TOY_WIRE_{part}=0")
 if STEADY == "1":
     MUTATIONS = [m for m in MUTATIONS if m[1] not in STEADY_GONE] + STEADY_MUTATIONS
-    for part, mutations in (("STAY", STAY_MUTATIONS), ("LATER", LATER_MUTATIONS)):
+    for part, mutations in (("STAY", STAY_MUTATIONS), ("LATER", LATER_MUTATIONS), ("RING", RING_MUTATIONS)):
         if os.environ.get(f"TOY_WIRE_{part}", "1") == "1":
             MUTATIONS += mutations
         else:

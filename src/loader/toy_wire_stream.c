@@ -107,6 +107,15 @@ extern void kui_wire_test_purge(const void *area, unsigned bytes);
 #define purge kui_wire_test_purge
 #define word_read(a) kui_wire_test_read(a, 4)
 #define word_publish(a,v) kui_wire_test_write(a, v, 4)
+#if KUI_TOY_WIRE_RING
+/* The ring as the cache shows it, and one of its lines dropped from the
+ * cache: the fixture's view keeps what memory held when a line was last
+ * dropped, as a cache that never lets go of a line would. */
+extern const uint8_t *kui_wire_test_view(const uint8_t *ring);
+extern void kui_wire_test_drop(const uint8_t *line);
+#define wire_view kui_wire_test_view
+#define wire_drop kui_wire_test_drop
+#endif
 #else
 #define rd8(a) (*(volatile uint8_t *)(uintptr_t)(a))
 #define rd16(a) (*(volatile uint16_t *)(uintptr_t)(a))
@@ -145,6 +154,16 @@ INLINE void word_publish(uint32_t address, uint32_t value) {
     *(volatile uint32_t *)(uintptr_t)address = value;
     __asm__ __volatile__("ocbp @%0" : : "r"(address & ~31u) : "memory");
 }
+#if KUI_TOY_WIRE_RING
+/* The ring's bytes at their cached address (P1), and one line of them
+ * dropped from the cache without being written back. */
+INLINE const uint8_t *wire_view(const uint8_t *ring) {
+    return (const uint8_t *)(((uintptr_t)ring & UINT32_C(0x1fffffff)) | UINT32_C(0x80000000));
+}
+INLINE void wire_drop(const uint8_t *line) {
+    __asm__ __volatile__("ocbi @%0" : : "r"(line) : "memory");
+}
+#endif
 #endif
 typedef uint32_t alias_word __attribute__((__may_alias__));
 
@@ -679,6 +698,32 @@ wire_words_true(const struct kui_wire_stream *w, const alias_word *p, uint32_t w
 #define WIRE_WORDS 0
 #endif
 
+#if KUI_TOY_WIRE_RING
+/* Test 75. The channel writes the ring behind the cache's back, so the
+ * reader has looked at it through its uncached address: one bus read for
+ * every word, 129 to a block. Through the cache thirty-two bytes come in
+ * one burst. What the cache holds of the ring is never trusted. Every line
+ * a word run is about to read is dropped from the cache first and so comes
+ * afresh from memory, where all the run's bytes have landed
+ * (kui_wire_next asks before it takes a block). Bytes of the same line
+ * that land later are read by a later run, which drops the line again.
+ * Nothing is ever written through this view, so a drop loses nothing. The
+ * CRC16 is taken over the bytes as read, as it always was.
+ *
+ * `p` is the run's word-aligned uncached address in `ring`. A run shorter
+ * than a line stays there. A function of its own, so that the linked
+ * module's code can be run by itself: tests/test_toy_wire_linked_ring.py
+ * checks which lines it drops and what it returns. */
+enum { WIRE_FRESH_WORDS = 8u };
+const void *kui_wire_fresh(const uint8_t *ring, const uint8_t *p, uint32_t words);
+const void * __attribute__((__noinline__)) kui_wire_fresh(const uint8_t *ring, const uint8_t *p, uint32_t words) {
+    if(words < WIRE_FRESH_WORDS) return p;
+    const uint8_t *const view = wire_view(ring) + (p - ring), *const end = view + 4u * words;
+    for(const uint8_t *line = view - ((uintptr_t)view & 31u); line < end; line += 32) wire_drop(line);
+    return view;
+}
+#endif
+
 /* `count` received bytes from position `from` on: the CRC advanced over
  * them as they came off the wire, and their true values written to out. */
 static uint32_t wire_run(const struct kui_wire_stream *w, uint32_t from, uint32_t count,
@@ -703,11 +748,19 @@ static uint32_t wire_run(const struct kui_wire_stream *w, uint32_t from, uint32_
 #ifdef KUI_WIRE_STREAM_TEST
             const uint32_t before = crc;
 #endif
-#if KUI_TOY_WIRE_MSB
-            crc = w->msb ? wire_words_true(w, (const alias_word *)(const void *)p, words, out, crc) :
-                wire_words(w, (const alias_word *)(const void *)p, words, out, crc);
+#if KUI_TOY_WIRE_RING
+            const alias_word *const fresh = kui_wire_fresh(w->ring, p, words);
 #else
-            crc = wire_words(w, (const alias_word *)(const void *)p, words, out, crc);
+#define fresh ((const alias_word *)(const void *)p)
+#endif
+#if KUI_TOY_WIRE_MSB
+            crc = w->msb ? wire_words_true(w, fresh, words, out, crc) :
+                wire_words(w, fresh, words, out, crc);
+#else
+            crc = wire_words(w, fresh, words, out, crc);
+#endif
+#if !KUI_TOY_WIRE_RING
+#undef fresh
 #endif
 #ifdef KUI_WIRE_STREAM_TEST
             /* Host tests hold every word run against the byte steps. */

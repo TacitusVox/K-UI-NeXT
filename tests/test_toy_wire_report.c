@@ -52,7 +52,7 @@ static const struct kui_toy_wire_report *toy_wire_report_block(void) { return &w
  * second movie's course; then the stream and why streams and windows were
  * given up. */
 static const char *const labels[] = {
-    "PIPE B I CALLS IRQ STAY", "AHEAD B I HIT EDC STOP",
+    "PIPE B I CALLS IRQ STAY PT", "AHEAD B I HIT EDC STOP",
     "I SUBMIT CADENCE MAX AT", "I FIRST LAST SKIP EXIT SF", "B SUBMIT CADENCE MAX AT",
     "IP ON OT OC OI SN ST", "BP ON OT OC OI SN ST",
     "K LIGHT EDC MEND MB LB ORD",
@@ -334,7 +334,13 @@ int main(int argc, char **argv) {
     assert(last);
     const size_t needed = (size_t)(last - text) + strlen("X E N I C W O\n1 2 3 4 35 6\n");
     assert(needed + 60u <= KUI_TOY_REPORT_FILE_BYTES - 12u);
-    assert(strstr(text, "PIPE B I CALLS IRQ STAY\n2 3 9000 BE00 35\n"));
+    /* The last value names the build's parts: all three here unless one was left out. */
+    {
+        char parts[64];
+        snprintf(parts, sizeof(parts), "PIPE B I CALLS IRQ STAY PT\n2 3 9000 BE00 35 %X\n",
+            (unsigned)(KUI_TOY_WIRE_STAY | KUI_TOY_WIRE_LATER << 1 | KUI_TOY_WIRE_RING << 2));
+        assert(strstr(text, parts));
+    }
     assert(strstr(text, "AHEAD B I HIT EDC STOP\n1100 6600 900 7700 2\n"));
     assert(strstr(text, "I SUBMIT CADENCE MAX AT\n7B0 7AE 92345 124\n"));
     /* The first skipped frame comes from the player's own counters now. */
