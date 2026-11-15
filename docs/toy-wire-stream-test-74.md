@@ -1,7 +1,9 @@
 # Toy Commander Test 74: the reader's own work cut down
 
-Status: delivered 2026-11-14 (build `e82b31657f69`), host and linked
-checks only. It has not run on a console. Not accepted.
+Status: delivered 2026-11-14 (build `e82b31657f69`). Ran on the owner's
+console on 2026-11-14, both modules (see Console result). Not accepted:
+the second movie plays nearly twice the frames of Test 73 and still
+pauses throughout.
 
 Test 74 is not one change. The owner asked, after Test 73, for one build
 that carries everything likely to help: "Put a lot of thought into this
@@ -298,6 +300,133 @@ Gone to make room: `IB`, `TB`, `TL`, `IC`'s `OTH`, and `D`'s old form.
   once is not worth what it costs.
 - `IP` against `BP` as in Test 73: `OT / ON` in the second movie against
   a frame's 26,042 ticks.
+
+## Console result
+
+Owner's runs of both modules, reports received 2026-11-14. The owner
+reported no deviation from the package's procedure (cold CD boot, Card
+Tools 09c9a4b686d4, raw Toy Commander GDI, "66 SCI movie playback", CD
+Music and virtual VMU off). Saved reports, each 1,024 bytes and headed
+`TEST 74`, `BUILD e82b31657f69`:
+
+- main module: `docs/evidence/toy-wire-stream-74/console-report-66-8.txt`,
+  SHA-256 `0c9e89bb...b4ab`, `ORD` 3;
+- alternate (no bit order request):
+  `docs/evidence/toy-wire-stream-74/console-report-66-8-alternate.txt`,
+  SHA-256 `7c256eef...3e76`, `ORD` 0.
+
+Owner's observation: "Both were substantial improvements, however it
+seemed the alternate was slightly better. Neither of them were
+slideshows, but they did pause for a split second, play some more, pause
+again, the entire second video. [...] this was MUCH better than the
+prior build." And: "after about 2 seconds in the second movie is when
+the stuttering started. I was initially disappointed, but much of the
+second video actually played with the aforementioned stuttering/pausing
+& resuming."
+
+| | Main | Alternate | Test 73 |
+|---|---|---|---|
+| First movie: frames submitted / on time | 331 / 330 | 331 / 328 | 331 / 330 |
+| Second movie: frames submitted of 1,968 | 967 | 931 | 513 |
+| Of those on time and in sequence | 856 | 817 | 469 |
+| Frames skipped, first at frame | 1,001, 10 | 1,037, 11 | 1,455, 27 |
+| First frame after | 1.105 s | 1.103 s | 0.823 s |
+| Longest gap between frames | 1.95 s after 1,441 | 1.99 s after 1,441 | 2.10 s after 1,021 |
+| Windows opened, first / second movie | 10 / 45 | 10 / 45 | 10 / 1 |
+| Sectors served from the window | 3,403 / 25,770 | 3,403 / 25,770 | 3,403 / 25,756 |
+
+The player's own update calls:
+
+| | Main | Alternate | Test 73 |
+|---|---|---|---|
+| Second movie: calls that put a frame out | 956 | 919 | 488 |
+| Time inside them, each | 43.99 s, 46.0 ms | 44.10 s, 48.0 ms | 41.75 s, 85.6 ms |
+| Reader's interrupt pumps in that span, each | 4.42 ms | 4.62 ms | 9.62 ms |
+| Calls that skipped and put nothing out | 36, 16.01 s, 0.445 s each | 36, 15.84 s, 0.440 s each | 19, 18.32 s, 0.96 s each |
+| First movie: calls that put a frame out, each | 330, 25.5 ms | 330, 26.0 ms | 330, 26.6 ms |
+| Chunk fetches: ready / waiting with a read under way / with none | 1,968 / 3,007 / 277 | 1,968 / 3,538 / 281 | 1,968 / 7,275 / 410 |
+
+The reader:
+
+| | Main | Alternate | Test 73 |
+|---|---|---|---|
+| Pumps from the SCI interrupt | 28,610, 6.80 s | 29,529, 6.85 s | 35,892, 7.94 s |
+| Pumps from the game's calls | 12,854, 6.03 s | 13,449, 6.22 s | 17,109, 7.15 s |
+| Timer visits | 5,600, 0.03 s | 5,918, 0.03 s | 7,425, 0.03 s |
+| All pumps | 12.86 s | 13.10 s | 15.12 s |
+| Card blocks, pump time for each | 134,740, 95.5 us | 134,696, 97.3 us | 134,563, 112.3 us |
+| Sectors accepted on CRC16 and address / through the EDC | 23,788 / 5,428 | 23,590 / 5,627 | 0 / all |
+| Rebuilt bytes their P code word confirmed / did not | 13,051 / 0 | 12,849 / 1 | |
+| Sectors that passed the lighter check and failed the EDC watch | 0 | 0 | |
+| Idle GD calls seen, pumped for work, as due | 142,570, 512, 5,485 | 141,644, 728, 5,458 | 105,841, 638, 5,331 |
+| Update calls seen, passed on for work, as due | 123,277, 28, 1,151 | 122,454, 18, 996 | 91,373, 10, 908 |
+| Delivery visits on the whole path | 9,197, 10.15 s | 9,298, 10.17 s | |
+| The game's EXEC and CHECK calls, entry to exit | 144,733, 4.26 s, 29.4 us each | 145,047, 4.21 s, 29.0 us each | |
+
+The second movie's course in the main module's run, twelve pieces of
+5.4 s from its start (the alternate's differs by a few counts in each):
+
+| Piece | 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| Frames submitted (161 is all) | 49 | 93 | 91 | 47 | 54 | 46 | 25 | 59 | 92 | 26 | 161 | 224 |
+| Test 73 | 44 | 2 | 14 | 14 | 14 | 6 | 6 | 3 | 14 | 19 | 162 | 215 |
+| Sectors served | 1,744 | 2,384 | 2,304 | 2,432 | 2,320 | 2,400 | 2,432 | 2,352 | 2,480 | 2,512 | 608 | 1,712 |
+| Requests waited, s | 0.04 | 0.04 | 0.02 | 0.04 | 0.00 | 0.10 | 0.08 | 0.04 | 1.20 | 0.61 | 0 | 0 |
+| Test 73 | 0.19 | 0.48 | 0.10 | 0.15 | 0.06 | 0.19 | 0.34 | 0.67 | 1.61 | 1.13 | 0 | 0 |
+| Reader in interrupt visits, s | 0.40 | 0.52 | 0.50 | 0.52 | 0.55 | 0.50 | 0.48 | 0.50 | 0.65 | 0.61 | 0.10 | 0.38 |
+| Reader in the game's calls, s | 0.34 | 0.42 | 0.38 | 0.48 | 0.36 | 0.44 | 0.46 | 0.42 | 0.48 | 0.52 | 0.27 | 0.34 |
+
+Stream, main module: 365 begun (alternate 337, Test 73 260), 6,569 full
+runs, 23,226 overruns in a run, 6,556 timer waits (3.36 s), 1,631 stops
+for room, 73,303,443 wire bytes, TMU1, no fault. Blocks 134,740: 16,838
+rebuilt from CRC16, 25 single losses not explained, 4,270 handed on with
+lost bytes, 66 with only a CRC byte lost; 384 read by the low reader to
+open or reopen. Runs begun at once behind a cut and cut again within 8,
+32 and 128 bytes: 38, 952, 1,990; begun after a timer wait: 147, 1,702,
+1,529. Sectors completed from their parity 1,925; 1 refused, 4 failed
+their check and were read again. No game read failed.
+
+What the runs establish:
+
+1. The second movie shows nearly twice the frames of Test 73 and is no
+   longer a slideshow: 967 and 931 of 1,968 against 513. The first movie
+   is unchanged. The longest gap is about what it was. What the owner
+   sees as a pause is a call of the player's that skips and shows
+   nothing: 36 of them, 0.44 s each, 16 s of the movie's 65.
+2. The reader's time fell by a seventh, not by the quarter to a third
+   the instruction counts had promised: 12.86 s in pumps against 15.12 s,
+   95.5 microseconds for each card block against 112.3. Most of what a
+   block costs is therefore not in the loops whose instructions were
+   counted. Where it is, this report cannot say: it times visits, not
+   what a visit does.
+3. The console's SCI honours the bit order request in this mode: `ORD` 3
+   in the main module's run, confirmed by a block's CRC16 taken in that
+   order. It is worth 1.8 microseconds a block (95.5 against 97.3), two
+   percent of the reader's time, far less than seven instructions fewer
+   in 41 suggested.
+4. The lighter sector check held. Four sectors in five were taken on
+   their blocks' CRC16 and address; of 13,051 rebuilt bytes every one was
+   confirmed by its P code word (one of 12,850 in the alternate's run was
+   not, and the EDC decided for its sector); the one-in-sixteen EDC watch
+   never disagreed.
+5. Taking the hold off the second movie's start cost its start. The
+   window was opened 45 times for that movie where Test 73 opened it
+   once, the first frame came 0.28 s later and the first skip at frame 10
+   instead of 27. The report does not print why windows were given up.
+   The host model shows one way it happens (Test 75, STAY): a request the
+   game waits for in a loop of its own opens a window with its first call
+   and gives it up with its second, and the low reader reads it. Test 75
+   prints the reasons.
+6. In pieces 0 to 7 requests hardly waited (0.36 s in 43 s; Test 73:
+   2.18 s) and the player still fell behind: there it is short of
+   processor time, not of data. A call that shows a frame takes 46.0 ms
+   where the first movie's takes 25.5 ms and a frame has 33.3 ms. In
+   pieces 8 and 9 requests waited 1.8 s (Test 73: 2.7 s); those are the
+   two pieces where they have waited longest in every run.
+7. Main against alternate: beyond `ORD` the two runs differ by less than
+   two runs of one module have differed before. The owner found the
+   alternate slightly better to watch; the counts do not show it (931
+   frames against 967).
 
 ## Verification
 
