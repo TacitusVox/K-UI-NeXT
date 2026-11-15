@@ -201,6 +201,11 @@ the remaining coverage honestly.
 
 ## 4. Coordinated FMV and CDDA streaming
 
+A proposal for bringing the Toy Commander card stream reader (Test 76,
+`docs/toy-wire-stream-test-76.md`) to the compact Background family is in
+`docs/fmv-stream-reader-plan.md`. It is not approved and changes nothing
+in this sequence.
+
 Investigate a safely reserved sequential streaming ring, with optional full
 movie preload when the asset fits. Reuse the shared stream and verification
 primitives; native Toy/MDK2 and CE still require their own scheduling and

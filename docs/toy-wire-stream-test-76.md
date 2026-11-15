@@ -605,6 +605,12 @@ What the run establishes:
    bit order was confirmed (`ORD` 3), and the sampling found the
    player's buffer at Test 73's capacity (`CAP` `C9120`).
 
+The independent check of this reading is in
+`docs/evidence/toy-wire-stream-76/console-report-check.md`, the report
+decoded in `console-report-decoded.txt` beside it. What the result means
+for other games, and in what order, is proposed in
+`docs/fmv-stream-reader-plan.md`.
+
 ## Verification
 
 Host and linked checks only; none is a console result.
