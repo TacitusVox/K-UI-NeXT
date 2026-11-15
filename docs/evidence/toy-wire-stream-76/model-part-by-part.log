@@ -1,0 +1,63 @@
+Lines of the host tests' output that the parts of Test 76 change, from the matrix runs (first pass of each).
+
+Streams given up while they received (tests/test_toy_wire_stream.c), Test 76:
+  streams given up while they received: 1111, the card clocked on for 2220 bytes in all, 2 at most
+Test 76 without QUIT:
+  streams given up while they received: 1162, the card clocked on for 395634 bytes in all, 8193 at most
+Test 75:
+  streams given up while they received: 1162, the card clocked on for 395634 bytes in all, 8193 at most
+
+The ring through the cache, Test 75:
+  the ring read through the cache: 3043295 lines dropped and fetched afresh for 179998 blocks
+Test 76 without GAP:
+  the ring read through the cache: 3041699 lines dropped and fetched afresh for 180000 blocks
+Test 76:
+  the ring read through the cache: 3349007 lines dropped and fetched afresh for 180000 blocks
+
+Block buffers, Test 76:
+  block buffers: 166590 blocks taken into the first, 13764 into the second; none shared a place in the cache with its bytes in the ring
+Test 76 without RING (the ring is not in the cache: one buffer):
+  block buffers: 180354 blocks taken into the first, 0 into the second; none shared a place in the cache with its bytes in the ring
+
+The copy into the window (tests/test_toy_wire_integration.c), Test 76:
+  a track that begins two bytes into its block: six requests served from the window, none of their pieces given to the word copy
+  blocks copied into the window by the word copy's stand-in in all of the above: 383772 pieces, 162169184 bytes
+
+The report's new measurements, Test 76:
+  the player's buffer: its emptiest in each piece, looked at when the player took a frame
+  the wire's standstill by piece: 24195 ticks placed while the second movie played, 11535 outside it left out
+  the wire's standstill for timer waits, placed in the course's pieces in all of the above: 4359610 ticks
+
+Interrupts only at the console's pace (playing), Test 74:
+  playing, stall every ~0 bytes, 0% busy phases, 70 ticks a block, without the timer's help: data ready for 0 of 21 frames when asked; fulls 30, SCI visits 86, timer visits 0
+  playing, stall every ~6000 bytes, 0% busy phases, 70 ticks a block, without the timer's help: data ready for 19 of 21 frames when asked; fulls 19, SCI visits 168, timer visits 2
+  playing, stall every ~1500 bytes, 20% busy phases, 70 ticks a block, without the timer's help: data ready for 0 of 21 frames when asked; fulls 0, SCI visits 3209, timer visits 2757
+  playing, stall every ~0 bytes, 0% busy phases, 35 ticks a block, without the timer's help: data ready for 20 of 21 frames when asked; fulls 25, SCI visits 87, timer visits 0
+  playing, stall every ~0 bytes, 0% busy phases, 23 ticks a block, without the timer's help: data ready for 21 of 21 frames when asked; fulls 11, SCI visits 86, timer visits 0
+Test 75 (LATER):
+  playing, stall every ~0 bytes, 0% busy phases, 70 ticks a block, without the timer's help: data ready for 21 of 21 frames when asked; fulls 23, SCI visits 88, timer visits 0
+  playing, stall every ~6000 bytes, 0% busy phases, 70 ticks a block, without the timer's help: data ready for 20 of 21 frames when asked; fulls 1, SCI visits 169, timer visits 2
+  playing, stall every ~1500 bytes, 20% busy phases, 70 ticks a block, without the timer's help: data ready for 0 of 21 frames when asked; fulls 0, SCI visits 3209, timer visits 2757
+  playing, stall every ~0 bytes, 0% busy phases, 35 ticks a block, without the timer's help: data ready for 21 of 21 frames when asked; fulls 10, SCI visits 86, timer visits 0
+  playing, stall every ~0 bytes, 0% busy phases, 23 ticks a block, without the timer's help: data ready for 21 of 21 frames when asked; fulls 7, SCI visits 86, timer visits 0
+Test 75 without LATER (the second module's recipe):
+  playing, stall every ~0 bytes, 0% busy phases, 70 ticks a block, without the timer's help: data ready for 0 of 21 frames when asked; fulls 30, SCI visits 86, timer visits 0
+  playing, stall every ~6000 bytes, 0% busy phases, 70 ticks a block, without the timer's help: data ready for 19 of 21 frames when asked; fulls 19, SCI visits 168, timer visits 2
+  playing, stall every ~1500 bytes, 20% busy phases, 70 ticks a block, without the timer's help: data ready for 0 of 21 frames when asked; fulls 0, SCI visits 3209, timer visits 2757
+  playing, stall every ~0 bytes, 0% busy phases, 35 ticks a block, without the timer's help: data ready for 20 of 21 frames when asked; fulls 25, SCI visits 87, timer visits 0
+  playing, stall every ~0 bytes, 0% busy phases, 23 ticks a block, without the timer's help: data ready for 21 of 21 frames when asked; fulls 11, SCI visits 86, timer visits 0
+Test 76:
+  playing, stall every ~0 bytes, 0% busy phases, 70 ticks a block, without the timer's help: data ready for 0 of 21 frames when asked; fulls 30, SCI visits 86, timer visits 0
+  playing, stall every ~6000 bytes, 0% busy phases, 70 ticks a block, without the timer's help: data ready for 18 of 21 frames when asked; fulls 16, SCI visits 166, timer visits 2
+  playing, stall every ~1500 bytes, 20% busy phases, 70 ticks a block, without the timer's help: data ready for 0 of 21 frames when asked; fulls 0, SCI visits 3159, timer visits 2702
+  playing, stall every ~0 bytes, 0% busy phases, 35 ticks a block, without the timer's help: data ready for 20 of 21 frames when asked; fulls 25, SCI visits 87, timer visits 0
+  playing, stall every ~0 bytes, 0% busy phases, 23 ticks a block, without the timer's help: data ready for 21 of 21 frames when asked; fulls 11, SCI visits 86, timer visits 0
+
+Requests served on arrival (steady), Test 75:
+  contiguous extents, stall every ~0 bytes, 0% busy phases, poll every 3: 22 requests, 21 served on arrival; streams 1, cuts 0, waits 0, fulls 84, blocks 1332 (rebuilt 84, holed 0), sectors filled 0 (most lost 0), re-read 0+0, stream ends close/jump/sector/frame 1/0/0/0, CMD18 1, CMD12 0, ERI 1, timer 0
+  contiguous extents, stall every ~0 bytes, 0% busy phases, poll every 0: 22 requests, 21 served on arrival; streams 1, cuts 0, waits 0, fulls 84, blocks 1332 (rebuilt 84, holed 0), sectors filled 0 (most lost 0), re-read 0+0, stream ends close/jump/sector/frame 1/0/0/0, CMD18 1, CMD12 0, ERI 1, timer 0
+  contiguous extents, stall every ~6000 bytes, 0% busy phases, poll every 3: 22 requests, 21 served on arrival; streams 2, cuts 116, waits 2, fulls 141, blocks 1332 (rebuilt 154, holed 4), sectors filled 5 (most lost 2), re-read 0+0, stream ends close/jump/sector/frame 1/0/0/1, CMD18 2, CMD12 1, ERI 5, timer 2
+Test 76:
+  contiguous extents, stall every ~0 bytes, 0% busy phases, poll every 3: 22 requests, 21 served on arrival; streams 1, cuts 0, waits 0, fulls 84, blocks 1332 (rebuilt 84, holed 0), sectors filled 0 (most lost 0), re-read 0+0, stream ends close/jump/sector/frame 1/0/0/0, CMD18 1, CMD12 0, ERI 1, timer 0
+  contiguous extents, stall every ~0 bytes, 0% busy phases, poll every 0: 22 requests, 21 served on arrival; streams 1, cuts 0, waits 0, fulls 84, blocks 1332 (rebuilt 84, holed 0), sectors filled 0 (most lost 0), re-read 0+0, stream ends close/jump/sector/frame 1/0/0/0, CMD18 1, CMD12 0, ERI 1, timer 0
+  contiguous extents, stall every ~6000 bytes, 0% busy phases, poll every 3: 22 requests, 21 served on arrival; streams 2, cuts 116, waits 2, fulls 140, blocks 1332 (rebuilt 154, holed 4), sectors filled 5 (most lost 2), re-read 0+0, stream ends close/jump/sector/frame 1/0/0/1, CMD18 2, CMD12 1, ERI 5, timer 2

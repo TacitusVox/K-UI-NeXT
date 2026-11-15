@@ -1,0 +1,22 @@
+Test 76 with GAP left out and nothing else changed (TOY_WIRE_GAP=0, BUILD_ID 7fe7e83c2082), built on a clean worktree of 61e24e9db5ad,
+with its own package admission, linked check and both host targets. Built for a one-switch comparison on the
+console; not delivered unless the owner asks for it.
+build exit 0
+package test exit 0
+linked check exit 0
+host tests exit 0
+integration exit 0
+7ce3c839e6ec014e799ae4598800f24bd3bbbfdfaaa1b508e0015970f6991c67  build/toy-suite-76-nogap/retail-toy-test-76.kui
+7ce3c839e6ec014e799ae4598800f24bd3bbbfdfaaa1b508e0015970f6991c67  build/size-nogap/retail-toy-test-76.kui
+text 00004fa4
+build/toy-suite-76-nogap/native-ra-aux.bin 24512
+main and no-GAP module: resident-sci.bin identical
+main and no-GAP module: resident-legacy.bin identical
+main and no-GAP module: native-worker.bin differ
+PASS cached gate at 0x8c426a30: with the MMU off the stack is used at 0x0c427fe0 and the guards read at 0x0c427000 and 0x0c427ff0; with it on at 0xac427fe0, 0xac427000 and 0xac427ff0 as before
+PASS kui_wire_words_lsb as linked: 400 runs equal to the byte steps, a block's CRC16 taken to zero and a damaged block's not; 41 instructions, 9 loads and 4 stores for four bytes; registers, stack and
+PASS kui_wire_words_true as linked: 400 runs equal to the byte steps, a block's CRC16 taken to zero and a damaged block's not; 34 instructions, 5 loads and 4 stores for four bytes; registers, stack an
+PASS the compiler's wire_words of build/repro73/native-ra-aux.elf on the same data: the interpreter agrees with it (49 instructions, 9 loads and 4 stores for four bytes)
+PASS linked cache view: 6096 runs, every line of a run dropped once and nothing else (242409 lines); short runs left uncached; no memory but the stack touched
+PASS the window's state, the context's last three cache lines at 0xac421700, is used at its cached address 0x8c421700 only: 22 constants in the linked code, none at the uncached address
+PASS kui_wire_copy as linked: 3302 copies exact, destinations and sources at every word of a line, nothing outside the destination written; 18797 lines claimed by MOVCA.L, each wholly inside its desti

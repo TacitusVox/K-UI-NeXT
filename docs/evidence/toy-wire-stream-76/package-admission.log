@@ -1,0 +1,27 @@
+Main module:
+envelope: OK build=7fe7e83c2082 payload=299588 memory=299588 crc=8d0d12da
+payload CRC32: ok
+layout_codec: ok
+dual descriptor: 1 at 0x34360 lease=0x47000
+session descriptor: 0
+background_module_matches(ASYNC): ok
+toggle capability: 1 at 0x34340
+emulation Off: ok, mode slot at 0x20260 (GUI writes 7 at +16)
+native cache seed: blank slot at 0x328c0
+toy report seed: blank slot at 0x20280
+handoff staging limit 0x112000: ok
+RESULT: admitted by Card Tools' module checks, report seed bound
+
+Second module (Test 75's switches and TOY_WIRE_LATER=0):
+envelope: OK build=7fe7e83c2082 payload=299364 memory=299364 crc=c3176b73
+payload CRC32: ok
+layout_codec: ok
+dual descriptor: 1 at 0x34280 lease=0x47000
+session descriptor: 0
+background_module_matches(ASYNC): ok
+toggle capability: 1 at 0x34260
+emulation Off: ok, mode slot at 0x20260 (GUI writes 7 at +16)
+native cache seed: blank slot at 0x327e0
+toy report seed: blank slot at 0x20280
+handoff staging limit 0x112000: ok
+RESULT: admitted by Card Tools' module checks, report seed bound

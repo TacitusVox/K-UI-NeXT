@@ -1,0 +1,30 @@
+Where the reader's fixed working memory falls in the SH7091's operand cache (16 KiB, direct mapped:
+512 lines of 32 bytes, the line picked by address bits 5 to 13), from the structures' sizes as the SH-4
+compiler lays them out. Addresses are those of this title's installation: lease 0x8c40e000, auxiliary at
++0x13000, arena at +0x1a000 (0x8c428000). An offset below is address & 0x3fff.
+Test 75 (and Tests 68 to 74: the block buffer has not moved since Test 68)
+  private stack                 0x0c427fe0 downward        offset 0x3fe0 downward
+  stream state                  0x8c44b9a0                 offset 0x39a0 to 0x3a74
+  its log of lost positions     0x8c44ba74                 offset 0x3a74 to 0x3e74
+  tables: bit reversal, inverse 0x8c44c0c0                 offset 0x00c0 to 0x02c0
+  tables: the two CRC16 steps   0x8c44c2c0                 offset 0x02c0 to 0x06c0
+  block buffer                  0x8c44bea4                 offset 0x3ea4 to 0x3fff and 0x0000 to 0x00a4
+    of its 512 bytes, 348 lie at or above offset 0x3ea4: the stack's frames
+  kept counters                 0x8c44cc00                 offset 0x0c00 to 0x1000
+  window state (context)        0x8c421700                 offset 0x1700 to 0x1760
+  ring, 32 KiB                  0x8c44d000                 every offset, twice a lap
+  window, 62 sectors            0x8c428000                 every offset, about nine times
+
+Test 76 (APART)
+  private stack                 0x0c427fe0 downward        offset 0x3fe0 downward
+  stream state                  0x8c44b9a0                 offset 0x39a0 to 0x3a7c
+  its log of lost positions     0x8c44ba7c                 offset 0x3a7c to 0x3e7c
+  tables: bit reversal, inverse 0x8c44c200                 offset 0x0200 to 0x0400
+  tables: the two CRC16 steps   0x8c44c400                 offset 0x0400 to 0x0800
+  first block buffer            0x8c44c000                 offset 0x0000 to 0x0200
+  second block buffer           0x8c44c800                 offset 0x0800 to 0x0a00
+    room ends at 0x8c44ca00, the kept counters begin at 0x8c44cc00
+  kept counters                 0x8c44cc00                 offset 0x0c00 to 0x1000
+  window state (context)        0x8c421700                 offset 0x1700 to 0x1760
+  ring, 32 KiB                  0x8c44d000                 every offset, twice a lap
+  window, 62 sectors            0x8c428000                 every offset, about nine times

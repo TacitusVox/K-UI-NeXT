@@ -1,0 +1,18 @@
+Both host targets in every configuration on a clean worktree of commit 7fe7e83c2082, before the test was corrected:
+42 of 58 jobs passed. The others:
+  t72 toy-wire-host-tests: tests/test_toy_wire_stream.c:380: main: Assertion `b.lost_count && n.gap_idle + n.gap_token != last_gaps' failed.
+  t73 toy-wire-host-tests: tests/test_toy_wire_stream.c:380: main: Assertion `b.lost_count && n.gap_idle + n.gap_token != last_gaps' failed.
+  t74 toy-wire-host-tests: tests/test_toy_wire_stream.c:380: main: Assertion `b.lost_count && n.gap_idle + n.gap_token != last_gaps' failed.
+  t74noclean toy-wire-host-tests: tests/test_toy_wire_stream.c:380: main: Assertion `b.lost_count && n.gap_idle + n.gap_token != last_gaps' failed.
+  t74nomsb toy-wire-host-tests: tests/test_toy_wire_stream.c:380: main: Assertion `b.lost_count && n.gap_idle + n.gap_token != last_gaps' failed.
+  t74noopen toy-wire-host-tests: tests/test_toy_wire_stream.c:380: main: Assertion `b.lost_count && n.gap_idle + n.gap_token != last_gaps' failed.
+  t74noquick toy-wire-host-tests: tests/test_toy_wire_stream.c:380: main: Assertion `b.lost_count && n.gap_idle + n.gap_token != last_gaps' failed.
+  t74noswift toy-wire-host-tests: tests/test_toy_wire_stream.c:380: main: Assertion `b.lost_count && n.gap_idle + n.gap_token != last_gaps' failed.
+  t75 toy-wire-host-tests: tests/test_toy_wire_stream.c:380: main: Assertion `b.lost_count && n.gap_idle + n.gap_token != last_gaps' failed.
+  t75bare toy-wire-host-tests: tests/test_toy_wire_stream.c:380: main: Assertion `b.lost_count && n.gap_idle + n.gap_token != last_gaps' failed.
+  t75nolater toy-wire-host-tests: tests/test_toy_wire_stream.c:380: main: Assertion `b.lost_count && n.gap_idle + n.gap_token != last_gaps' failed.
+  t75nomsb toy-wire-host-tests: tests/test_toy_wire_stream.c:380: main: Assertion `b.lost_count && n.gap_idle + n.gap_token != last_gaps' failed.
+  t75noring toy-wire-host-tests: tests/test_toy_wire_stream.c:380: main: Assertion `b.lost_count && n.gap_idle + n.gap_token != last_gaps' failed.
+  t75nostay toy-wire-host-tests: tests/test_toy_wire_stream.c:380: main: Assertion `b.lost_count && n.gap_idle + n.gap_token != last_gaps' failed.
+  t76bare toy-wire-host-tests: tests/test_toy_wire_stream.c:380: main: Assertion `b.lost_count && n.gap_idle + n.gap_token != last_gaps' failed.
+  t76noquit toy-wire-host-tests: tests/test_toy_wire_stream.c:380: main: Assertion `b.lost_count && n.gap_idle + n.gap_token != last_gaps' failed.
