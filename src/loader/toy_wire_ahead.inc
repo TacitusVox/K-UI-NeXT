@@ -78,7 +78,10 @@ struct toy_wire_keep {
     uint16_t mend[TOY_WIRE_MENDS];
 #endif
 #if KUI_TOY_WIRE_MEASURE
+#if !KUI_TOY_WIRE_STEADY
+    /* Not timed since Test 73; Test 75 gives the room to STAY. */
     uint32_t restarting, restart_start; /* a stream was given up at this clock value */
+#endif
     uint32_t wait_token, wait_start;    /* a request waits for the window since then */
 #endif
 #if KUI_TOY_WIRE_PACE
@@ -95,7 +98,9 @@ struct toy_wire_keep {
     uint32_t gd_open, gd_entered;       /* one of the game's GD calls is under way since this clock value */
 #endif
 #if KUI_TOY_WIRE_STAY
-    uint32_t stay_token, stay_tick;     /* a request the game waits for keeps the window since this clock value */
+    /* A request the game waits for keeps the window: its token, and the
+     * window's end and the clock when that end last moved. */
+    uint32_t stay_token, stay_verified, stay_tick;
 #endif
 };
 #define TOY_WIRE_STATE_OFFSET (AHEAD_SLOTS*KUI_GAME_RAW_BYTES)
@@ -776,8 +781,10 @@ static void toy_wire_gd_time(bool enter) {
  * brought to the place again, for nearly every request while the movie got
  * under way.
  *
- * A wait the stream does not end is not left to it for good: after a
- * quarter of a second the window is given up as before. */
+ * A wait the stream does not end is not left to it for good: once the
+ * window has not grown for a quarter of a second it is given up as before.
+ * While sectors keep coming, however slowly, what has been read is not
+ * thrown away. */
 enum { TOY_WIRE_STAY_TICKS=195312u };
 static bool toy_wire_stay(uint32_t token) {
     struct toy_wire_keep *k=toy_wire_keep();
@@ -785,11 +792,13 @@ static bool toy_wire_stay(uint32_t token) {
     if(!now.valid)return false;
     if(k->stay_token!=token) {
         k->stay_token=token;
-        k->stay_tick=now.counter;
         ++k->report.stays;
-        return true;
-    }
-    return k->stay_tick-now.counter<TOY_WIRE_STAY_TICKS;
+    } else if(k->stay_verified==A.verified)return k->stay_tick-now.counter<TOY_WIRE_STAY_TICKS;
+    /* A new wait, or one the window has grown under since the game's
+     * call before: the quarter of a second runs from here. */
+    k->stay_verified=A.verified;
+    k->stay_tick=now.counter;
+    return true;
 }
 #endif
 
@@ -815,6 +824,11 @@ static bool toy_wire_stay(uint32_t token) {
 enum { TOY_WIRE_LATER_BYTES=KUI_WIRE_RING_BYTES/2u, TOY_WIRE_LATER_HOLES=KUI_WIRE_HOLES/2u };
 static bool toy_wire_later(struct toy_wire_keep *k,struct kui_wire_stream *w) {
     toy_wire_serve(k,w);
+    /* A wait that has just begun is looked at once more, as the reading
+     * always did between blocks: without a timer that look ends it, and
+     * with one it sees to the timer's interrupt level, which the SDK may
+     * have taken away. */
+    if(w->state==KUI_WIRE_WAIT)toy_wire_serve(k,w);
     return (w->state==KUI_WIRE_RUN || w->state==KUI_WIRE_WAIT) &&
         w->head-w->tail<TOY_WIRE_LATER_BYTES && w->hole_put-w->hole_get<TOY_WIRE_LATER_HOLES;
 }

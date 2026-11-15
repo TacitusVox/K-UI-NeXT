@@ -1203,8 +1203,8 @@ static void waited_for(void) {
 }
 #if KUI_TOY_WIRE_STAY
 /* A wait the stream does not end: the wire brings nothing more. After a
- * quarter of a second the window is given up as it always was, and the low
- * reader reads the request. */
+ * quarter of a second without a sector the window is given up as it always
+ * was, and the low reader reads the request. */
 static void waited_in_vain(void) {
     open_movie(2000u, false, true);
     const struct kui_toy_wire_report *w = report();
@@ -1251,6 +1251,65 @@ static void waited_in_vain(void) {
     m.delay = 0u;
     printf("  a request waited for in vain: kept for a quarter of a second, then the window given up and the "
            "low reader read it\n");
+}
+/* A wait the stream is slow to end, but under which the window grows: it
+ * is kept for as long as sectors come, and what has been read is not
+ * thrown away. Only a quarter of a second without one gives it up. */
+static void waited_slowly(void) {
+    open_movie(2000u, false, true);
+    const struct kui_toy_wire_report *w = report();
+    const struct kui_native_readahead_aux_context *c = &kui_native_readahead_aux_context;
+    m.delay = 100000u;
+    (void)waited_request(FIRST, REQUEST, true);
+    uint32_t next = FIRST + REQUEST;
+    while(c->movie_ahead.verified - c->movie_ahead.first >= REQUEST) {
+        (void)waited_request(next, REQUEST, false);
+        next += REQUEST;
+    }
+    /* A request of two frames' sectors: several runs of the wire. */
+    enum { LARGE = 2u * REQUEST };
+    memset(ram + (OUTPUT - BEGIN), 0xa5, 64u * 2352u + 16u);
+    const uint32_t token = (uint32_t)request(next, LARGE, OUTPUT);
+    const uint32_t stays = w->stays;
+    CHECK(sdk_poll(KUI_GD_EXEC, 0u, movie_blocking_poll) == 0); /* its first call */
+    CHECK(sdk_poll(KUI_GD_EXEC, 0u, movie_blocking_poll) == 0); /* the wait begins */
+    CHECK(R.shared.service.pending && w->stays == stays + 1u);
+    for(unsigned round = 0u; round < 3u; ++round) {
+        /* Nearly a quarter of a second with nothing new: still kept. */
+        clock_counter -= 180000u;
+        CHECK(sdk_poll(KUI_GD_EXEC, 0u, movie_blocking_poll) == 0);
+        CHECK(R.shared.service.pending && stream_on() && c->movie_ahead.variant);
+        /* Then the wire brings a run: the window grows, the request is
+         * not complete, and the quarter second begins again. */
+        const uint32_t verified = c->movie_ahead.verified;
+        wire_unheard();
+        CHECK(sdk_poll(KUI_GD_EXEC, 0u, movie_blocking_poll) == 0);
+        CHECK(c->movie_ahead.verified > verified && R.shared.service.pending);
+    }
+    CHECK(w->stays == stays + 1u && !w->drops[KUI_TOY_WIRE_DROP_WAITING]);
+    /* More than half a second in all by now. With nothing more coming,
+     * the limit counts from the game's first call that finds the window
+     * grown: the next one of its loop, here at once. */
+    CHECK(sdk_poll(KUI_GD_EXEC, 0u, movie_blocking_poll) == 0);
+    CHECK(R.shared.service.pending);
+    clock_counter -= 195312u - 19000u;
+    CHECK(sdk_poll(KUI_GD_EXEC, 0u, movie_blocking_poll) == 0);
+    CHECK(R.shared.service.pending && stream_on() && !w->drops[KUI_TOY_WIRE_DROP_WAITING]);
+    clock_counter -= 19000u;
+    CHECK(sdk_poll(KUI_GD_EXEC, 0u, movie_blocking_poll) == 0);
+    CHECK(w->drops[KUI_TOY_WIRE_DROP_WAITING] == 1u && !stream_on() && !c->movie_ahead.variant);
+    for(unsigned rounds = 0u; R.shared.service.pending; ++rounds) {
+        CHECK(rounds < 200000u && !R.engine.failed);
+        CHECK(sdk_poll(KUI_GD_EXEC, 0u, movie_blocking_poll) == 0);
+        invariants();
+    }
+    CHECK(sdk_poll(KUI_GD_CHECK, token, movie_blocking_poll) == KUI_GD_COMPLETED);
+    CHECK(get(STATUS + 8u) == LARGE * KUI_GAME_DATA_BYTES && !get(STATUS + 4u));
+    compare(next, LARGE, OUTPUT);
+    invariants();
+    m.delay = 0u;
+    printf("  a request waited for while the wire brings a run now and then: kept through three quarter seconds, "
+           "given up a quarter second after the last sector\n");
 }
 /* What a wait must not keep: a window that does not stand at the request's
  * first sector, and any window while the clock that bounds the wait is not
@@ -1315,17 +1374,20 @@ static void later_visits(void) {
     unsigned left = 0u, read = 0u, most = 0u;
     for(unsigned n = 0u; n < 2000u; ++n) {
         const uint32_t blocks = w->n.blocks, later = w->later, visits = w->visit_calls[KUI_TOY_WIRE_VISIT_SCI];
-        const uint32_t verified = c->movie_ahead.verified, service = w->service_ticks;
+        const uint32_t verified = c->movie_ahead.verified, service = w->service_ticks, waits = w->n.waits;
         const unsigned long before = eris;
         if(!hardware_at(2048u)) break;
         if(eris == before) continue; /* the wire ran on, or the stream's timer called */
         CHECK(w->visit_calls[KUI_TOY_WIRE_VISIT_SCI] == visits + 1u);
         const uint32_t unread = ws->head - ws->tail;
         if(w->later != later) {
-            /* Left: served once, nothing read, the stream receiving. */
+            /* Left: the stream served, nothing read, the stream receiving.
+             * Served once, and once more if that began a wait. */
             CHECK(w->later == later + 1u && w->n.blocks == blocks && c->movie_ahead.verified == verified);
             CHECK(ws->state == KUI_WIRE_RUN || ws->state == KUI_WIRE_WAIT);
-            CHECK(unread < KUI_WIRE_RING_BYTES / 2u && w->service_ticks == service + PHASE_LOOK);
+            CHECK(unread < KUI_WIRE_RING_BYTES / 2u);
+            CHECK(w->service_ticks == service + (w->n.waits != waits ? 2u : 1u) * PHASE_LOOK);
+            CHECK((w->n.waits != waits) == (ws->state == KUI_WIRE_WAIT));
             if(unread > most) most = unread;
             if(++left == 2u) {
                 /* What the interrupts left, a call of the game's reads:
@@ -1414,6 +1476,47 @@ static void later_standstill(void) {
     printf("  a bus that cuts every run after a few bytes: %u interrupt visits left the reading, and the one that "
            "found the log of lost positions half full read, the ring far from half unread; the stream never "
            "stood still\n", left);
+}
+/* A wait that begins in a visit which then leaves must not be left to
+ * itself. Without a timer nothing else would end it: the visit ends it.
+ * With one, the SDK may have taken the timer's interrupt level away since
+ * the stream began: the visit gives it back, or the wait's end would never
+ * be told. Interrupts only, no call of the game's, as while it decodes. */
+static void later_waits(bool timer) {
+    open_movie(2000u, false, true);
+    const struct kui_toy_wire_report *w = report();
+    const struct kui_wire_stream *ws = wire_state();
+    /* Short runs: every cut is answered with a wait. */
+    stall_mean = 40u; stall_dense = 100u;
+    if(!timer) wx.tstr = 6u; /* both spare timers run for the game */
+    reader_pace(70u);
+    m.delay = 100000u;
+    run_owed = 0u;
+    read_request(FIRST, REQUEST, 0u);
+    CHECK(stream_on() && (timer ? ws->mode != 0u : ws->mode == 0u));
+    unsigned left = 0u, levels = 0u;
+    for(unsigned n = 0u; n < 4000u && left < 40u; ++n) {
+        const uint32_t later = w->later, waits = w->n.waits;
+        const unsigned long before = eris;
+        if(timer && m.rx) {
+            /* The SDK rewrites the priority register for its own devices
+             * while a run is in flight. */
+            wx.ipra &= (uint16_t)~(15u << ws->timer_shift);
+            ++levels;
+        }
+        if(!hardware_at(2048u)) break;
+        if(eris == before || w->later == later) continue;
+        ++left;
+        if(w->n.waits == waits) continue;
+        /* This visit began a wait and left the reading. */
+        if(!timer) CHECK(ws->state == KUI_WIRE_RUN);
+        else CHECK(ws->state == KUI_WIRE_WAIT && ((wx.ipra >> ws->timer_shift) & 15u));
+    }
+    CHECK(left == 40u && w->n.waits >= 20u && !w->first_error && (timer ? levels && timers : !timers));
+    reader_pace(0u);
+    m.delay = 0u;
+    printf("  a wait begun by a visit that leaves the reading, %s: %s\n", timer ? "the timer's level taken away" :
+        "no timer", timer ? "the visit gives the level back and the timer ends the wait" : "ended by that visit");
 }
 /* A stream that is no longer in order is not left for later either: the
  * interrupt visit that finds the channel taken from it ends it there and
@@ -1995,8 +2098,16 @@ static void degraded(void) {
         bool seen = false;
         for(unsigned n = 0u; n < 12u && !seen; ++n, lba += REQUEST) {
             read_request(lba, REQUEST, 2u); /* room in the window */
-            for(unsigned k = 0u; k < 4000u && !seen && hardware(); ++k) {
-                if(!stream_on() || s->state != KUI_WIRE_WAIT) continue;
+            /* A wait is left standing by a visit whose last look at the
+             * stream began it: one of the request's own calls, or an
+             * interrupt visit that read. (With Test 75's LATER an
+             * interrupt visit that leaves the reading ends the wait it
+             * began: later_waits().) */
+            for(unsigned k = 0u; k < 4000u && !seen; ++k) {
+                if(!stream_on() || s->state != KUI_WIRE_WAIT) {
+                    if(!hardware()) break;
+                    continue;
+                }
                 CHECK(!s->mode && kui_wire_overdue(s));
                 const unsigned long gate = gate_visits;
                 const uint32_t work = w->update_work, due = w->update_due;
@@ -2107,11 +2218,14 @@ int main(void) {
 #if KUI_TOY_WIRE_LATER
     later_visits();
     later_standstill();
+    later_waits(true);
+    later_waits(false);
     later_fault();
 #endif
     waited_for();
 #if KUI_TOY_WIRE_STAY
     waited_in_vain();
+    waited_slowly();
     waited_elsewhere(true);
     waited_elsewhere(false);
 #endif

@@ -337,11 +337,17 @@ STEADY_MUTATIONS = [
 STAY_MUTATIONS = [
  (AHEAD, "a waited request gives the window up all the same",
   "         (A.variant==variant && s->lba==A.first && !A.error && toy_wire_stay(s->token)))", "         false)"),
- (GLUE, "a wait in vain never ends", "    return k->stay_tick-now.counter<TOY_WIRE_STAY_TICKS;", "    return true;"),
- (GLUE, "a wait given up at once", "    return k->stay_tick-now.counter<TOY_WIRE_STAY_TICKS;", "    return false;"),
+ (GLUE, "a wait in vain never ends", "return k->stay_tick-now.counter<TOY_WIRE_STAY_TICKS;", "return true;"),
+ (GLUE, "a wait given up at once", "return k->stay_tick-now.counter<TOY_WIRE_STAY_TICKS;", "return false;"),
+ (GLUE, "a wait the window grows under is given up all the same",
+  "    } else if(k->stay_verified==A.verified)return", "    } else return"),
+ (GLUE, "a wait renewed although the window has not grown",
+  "    } else if(k->stay_verified==A.verified)return", "    } else if(false)return"),
+ (GLUE, "the window's end at a wait's start not kept",
+  "    k->stay_verified=A.verified;\n    k->stay_tick=now.counter;\n    return true;", "    k->stay_tick=now.counter;\n    return true;"),
  (GLUE, "a wait in vain ends a tenth too late", "enum { TOY_WIRE_STAY_TICKS=195312u };", "enum { TOY_WIRE_STAY_TICKS=215312u };"),
  (GLUE, "a wait given up a tenth too early", "enum { TOY_WIRE_STAY_TICKS=195312u };", "enum { TOY_WIRE_STAY_TICKS=175000u };"),
- (GLUE, "every call of a wait takes its time afresh",
+ (GLUE, "a request's waiting calls each counted as a request",
   "    if(k->stay_token!=token) {\n        k->stay_token=token;", "    if(k->stay_token!=token || true) {\n        k->stay_token=token;"),
  (GLUE, "waits kept not counted", "        ++k->report.stays;\n", ""),
  (GLUE, "a wait kept without a clock", "    if(!now.valid)return false;\n    if(k->stay_token!=token) {",
@@ -367,8 +373,11 @@ LATER_MUTATIONS = [
  (GLUE, "the log's mark one entry late",
   "enum { TOY_WIRE_LATER_BYTES=KUI_WIRE_RING_BYTES/2u, TOY_WIRE_LATER_HOLES=KUI_WIRE_HOLES/2u };",
   "enum { TOY_WIRE_LATER_BYTES=KUI_WIRE_RING_BYTES/2u, TOY_WIRE_LATER_HOLES=KUI_WIRE_HOLES/2u+1u };"),
+ (GLUE, "a wait just begun not looked at again by a visit that leaves",
+  "    if(w->state==KUI_WIRE_WAIT)toy_wire_serve(k,w);\n", ""),
  (GLUE, "the stream not served by a visit that leaves",
-  "    toy_wire_serve(k,w);\n    return (w->state==KUI_WIRE_RUN", "    return (w->state==KUI_WIRE_RUN"),
+  "static bool toy_wire_later(struct toy_wire_keep *k,struct kui_wire_stream *w) {\n    toy_wire_serve(k,w);\n",
+  "static bool toy_wire_later(struct toy_wire_keep *k,struct kui_wire_stream *w) {\n"),
  (GLUE, "the reading left while a request waits",
   "        if(interrupt && !waiting && toy_wire_later(k,w))++k->report.later;",
   "        if(interrupt && toy_wire_later(k,w))++k->report.later;"),
@@ -378,6 +387,9 @@ LATER_MUTATIONS = [
  (GLUE, "visits that left not counted",
   "        if(interrupt && !waiting && toy_wire_later(k,w))++k->report.later;",
   "        if(interrupt && !waiting && toy_wire_later(k,w)) {}"),
+ (GLUE, "visits out of time not counted where interrupt visits may leave",
+  "        else if(toy_wire_drain(r,TOY_WIRE_TICKS_FOREGROUND) && k->on)++k->report.budget_ends;",
+  "        else if(toy_wire_drain(r,TOY_WIRE_TICKS_FOREGROUND) && k->on) {}"),
  (GLUE, "an interrupt visit that reads keeps to the short time",
   "        else if(toy_wire_drain(r,TOY_WIRE_TICKS_FOREGROUND) && k->on)++k->report.budget_ends;",
   "        else if(toy_wire_drain(r,interrupt && !waiting?TOY_WIRE_TICKS_INTERRUPT:TOY_WIRE_TICKS_FOREGROUND) && k->on)++k->report.budget_ends;"),
@@ -399,6 +411,9 @@ RING_MUTATIONS = [
  (STREAM, "the cache's view taken a line further on",
   "    const uint8_t *const view = wire_view(ring) + (p - ring), ", "    const uint8_t *const view = wire_view(ring) + (p - ring) + 32, "),
 ]
+# With LATER the pump's call of the reading is another line: the same
+# mutation is made there instead.
+LATER_GONE = {"visits out of time not counted"}
 # What Test 75 no longer counts: the runs cut again soon after they began.
 STEADY_GONE = {"runs cut again not counted", "a run behind a wait counted as one behind a cut"}
 # SWIFT, the hand-written block loops, is SH-4 code no host test runs:
@@ -442,6 +457,8 @@ if STEADY == "1":
     for part, mutations in (("STAY", STAY_MUTATIONS), ("LATER", LATER_MUTATIONS), ("RING", RING_MUTATIONS)):
         if os.environ.get(f"TOY_WIRE_{part}", "1") == "1":
             MUTATIONS += mutations
+            if part == "LATER":
+                MUTATIONS = [m for m in MUTATIONS if m[1] not in LATER_GONE]
         else:
             SWITCHES.append(f"TOY_WIRE_{part}=0")
             DEFINES.append(f"-DKUI_TOY_WIRE_{part}=0")
