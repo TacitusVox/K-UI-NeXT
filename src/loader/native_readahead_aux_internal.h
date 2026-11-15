@@ -4,6 +4,10 @@
 #include "kui/native_readahead.h"
 #include "kui/native_readahead_cache.h"
 #include <stddef.h>
+#if defined(KUI_TOY_WIRE_STREAM) && KUI_TOY_WIRE_STREAM
+/* Which parts of the wire-stream tests a build has. */
+#include "kui/toy_wire_report.h"
+#endif
 
 /* The SH entry owns busy. The public report prefix is deliberately small
  * and stable; all policy state is private to this separately owned module. */
@@ -110,6 +114,28 @@ struct kui_native_readahead_aux_context {
     uint32_t wait_token[2];
 #endif
 #if KUI_TOY_SUITE_MODE >= 62
+    /* The verified movie window's own state (toy_movie_ahead.inc).
+     *
+     * Test 76 (HOT) reaches it through the cache. The context is linked at
+     * its uncached address, and the reader's work on each card block went
+     * through this struct some fifty times, the low reader's feed on the
+     * cursor among them: a bus cycle each. Nothing but the auxiliary's own
+     * C ever touches this member (the gate, the hooks and the worker know
+     * the context's first members only), so all of it can use the cached
+     * address of the same memory instead: KUI_TOY_AHEAD below, which is
+     * the member's linked address less the distance between the two
+     * views, a constant the linker computes. For that the member owns
+     * whole cache lines, so that a line written back from the cache never
+     * carries a neighbour's stale bytes with it; and in the linked module
+     * it goes by another name, so that no use of the uncached address can
+     * be compiled by mistake. The context is zeroed through its uncached
+     * address at init, into lines the cold bind has purged. */
+#if defined(KUI_TOY_WIRE_STREAM) && KUI_TOY_WIRE_STREAM && KUI_TOY_WIRE_HOT
+#define KUI_TOY_AHEAD_HOT 1
+    _Alignas(32)
+#else
+#define KUI_TOY_AHEAD_HOT 0
+#endif
     struct {
         struct kui_retail_cursor cursor;
         uint32_t first, head, verified, failed_token, receive_token;
@@ -118,9 +144,32 @@ struct kui_native_readahead_aux_context {
 #if KUI_TOY_SUITE_MODE >= 65
         uint8_t retry;
 #endif
-    } movie_ahead;
+    }
+#if KUI_TOY_AHEAD_HOT && !defined(KUI_NATIVE_READAHEAD_AUX_HOST_TEST)
+    movie_ahead_uncached;
+#define KUI_TOY_AHEAD (*(__typeof__(kui_native_readahead_aux_context.movie_ahead_uncached) *) \
+    ((uintptr_t)&kui_native_readahead_aux_context.movie_ahead_uncached-UINT32_C(0x20000000)))
+#else
+    movie_ahead;
+#define KUI_TOY_AHEAD kui_native_readahead_aux_context.movie_ahead
+#endif
 #endif
 };
+#if KUI_TOY_SUITE_MODE >= 62 && KUI_TOY_AHEAD_HOT
+#ifdef KUI_NATIVE_READAHEAD_AUX_HOST_TEST
+_Static_assert(offsetof(struct kui_native_readahead_aux_context,movie_ahead)%32u==0u &&
+#else
+_Static_assert(offsetof(struct kui_native_readahead_aux_context,movie_ahead_uncached)%32u==0u &&
+#endif
+    sizeof(struct kui_native_readahead_aux_context)%32u==0u,
+    "The window's state owns whole cache lines, to the context's end");
+#ifndef KUI_NATIVE_READAHEAD_AUX_HOST_TEST
+/* tests/test_toy_wire_linked_hot.py finds it in the linked module so. */
+_Static_assert(sizeof(struct kui_native_readahead_aux_context)-
+    offsetof(struct kui_native_readahead_aux_context,movie_ahead_uncached)==96u,
+    "The window's state is the context's last three cache lines");
+#endif
+#endif
 _Static_assert(offsetof(struct kui_native_readahead_aux_context,busy)==0u,
     "auxiliary assembly busy word");
 _Static_assert(offsetof(struct kui_native_readahead_aux_context,stats)==4u,

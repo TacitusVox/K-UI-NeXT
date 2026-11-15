@@ -3,7 +3,7 @@
 /* This private cursor reads forward from an accepted movie request. A raw
  * sector becomes eligible only after its FAD and EDC pass. The game keeps
  * its original one-command queue, cursor, destination and completion. */
-#define A C.movie_ahead
+#define A KUI_TOY_AHEAD
 #ifndef KUI_TOY_WIRE_STREAM
 #define KUI_TOY_WIRE_STREAM 0
 #endif

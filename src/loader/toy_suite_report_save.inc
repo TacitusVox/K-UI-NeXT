@@ -80,7 +80,7 @@ static void toy_report_wire(char **at,const char *end,const struct kui_native_ra
      * report could not say: the ticks spent ending streams, and by piece
      * of the second movie's course the most of the player's own buffer
      * that was free and how long the wire stood still for timer waits. */
-    /* PT: the parts this build has (1 STAY, 2 LATER, 4 RING, 8 QUIT). */
+    /* PT: the parts this build has (1 STAY, 2 LATER, 4 RING, 8 QUIT, 10 HOT). */
     toy_report_short(at,end,"PIPE B I CALLS IRQ STAY PT",
         (uint32_t[]){ahead[2],ahead[3],ahead[4],ahead[5],w->stays,(uint32_t)KUI_TOY_WIRE_PARTS},6u);
     toy_report_short(at,end,"AHEAD B I HIT EDC STOP",

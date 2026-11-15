@@ -298,10 +298,10 @@ QUICK_MUTATIONS = [
  (AUX, "an idle call always pumps on the short way", "        if(!r->engine.in_irq && !toy_wire_idle_due())return 1u;\n", ""),
  (AUX, "an interrupt held to the idle rule on the short way",
   "        if(!r->engine.in_irq && !toy_wire_idle_due())return 1u;", "        if(!toy_wire_idle_due())return 1u;"),
- (AUX, "a pump's error on the short way leaves the window", "        if(!C.movie_ahead.error)return 1u;\n        ++C.stats.abandoned;",
+ (AUX, "a pump's error on the short way leaves the window", "        if(!KUI_TOY_AHEAD.error)return 1u;\n        ++C.stats.abandoned;",
   "        return 1u;\n        ++C.stats.abandoned;"),
- (AUX, "a window given up on the short way not counted", "        if(!C.movie_ahead.error)return 1u;\n        ++C.stats.abandoned;",
-  "        if(!C.movie_ahead.error)return 1u;"),
+ (AUX, "a window given up on the short way not counted", "        if(!KUI_TOY_AHEAD.error)return 1u;\n        ++C.stats.abandoned;",
+  "        if(!KUI_TOY_AHEAD.error)return 1u;"),
 ]
 # Test 75. What every build of it has: the reader's time taken apart by the
 # clock, and the frame at which the second movie's player first skipped.
@@ -507,7 +507,10 @@ if STEADY == "1":
             DEFINES.append(f"-DKUI_TOY_WIRE_{part}=0")
 if FLUID == "1":
     MUTATIONS = [m for m in MUTATIONS if m[1] not in FLUID_GONE] + FLUID_MUTATIONS
-    for part, mutations in (("QUIT", QUIT_MUTATIONS),):
+    # HOT changes which address the linked module uses for the window's
+    # state and nothing a host build can see: tests/test_toy_wire_linked_hot.py
+    # reads the linked module for it, and fails either way round.
+    for part, mutations in (("QUIT", QUIT_MUTATIONS), ("HOT", [])):
         if os.environ.get(f"TOY_WIRE_{part}", "1") == "1":
             MUTATIONS += mutations
             if part == "QUIT":

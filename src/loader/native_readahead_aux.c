@@ -1099,9 +1099,9 @@ static void __attribute__((__unused__)) toy_chunk_onset(uint32_t ctx,unsigned mo
         if(C.resume.state==TOY_RESUME_STAGE && C.resume.token==token)
             reading->verified=C.resume.checked;
 #if KUI_TOY_SUITE_MODE >= 62
-        if(C.movie_ahead.variant && !C.movie_ahead.error && C.movie_ahead.first==reading->lba &&
-           C.movie_ahead.verified-C.movie_ahead.first<reading->sectors)
-            reading->verified=C.movie_ahead.verified-C.movie_ahead.first;
+        if(KUI_TOY_AHEAD.variant && !KUI_TOY_AHEAD.error && KUI_TOY_AHEAD.first==reading->lba &&
+           KUI_TOY_AHEAD.verified-KUI_TOY_AHEAD.first<reading->sectors)
+            reading->verified=KUI_TOY_AHEAD.verified-KUI_TOY_AHEAD.first;
 #endif
         reading->elapsed=UINT32_MAX;
         if(toy_present.owner==ctx && toy_present.start_valid) {
@@ -1418,9 +1418,9 @@ uint32_t kui_native_readahead_aux_dispatch(uint32_t event,uint32_t arg,
 #if KUI_NATIVE_TOY_MOVIE_CAPTURE
     if(event==KUI_NATIVE_RA_MOVIE_COMPLETE && !arg) {
 #if KUI_TOY_SUITE_MODE >= 62
-        if(C.movie_ahead.variant && (r->shared.service.error==KUI_GD_ERROR_CANCELLED ||
+        if(KUI_TOY_AHEAD.variant && (r->shared.service.error==KUI_GD_ERROR_CANCELLED ||
            r->shared.service.status==KUI_GD_NOT_FOUND)) {
-            C.movie_ahead.error=true;
+            KUI_TOY_AHEAD.error=true;
             (void)toy_ahead_clear(r);
         }
 #endif
@@ -1444,7 +1444,7 @@ uint32_t kui_native_readahead_aux_dispatch(uint32_t event,uint32_t arg,
     if(event==KUI_NATIVE_RA_MOVIE_AHEAD) {
         /* The game UPDATE owns the foreground. It may resume an idle
          * sequential token search without pretending a GD request exists. */
-        if(arg==toy_present.owner && C.movie_ahead.variant &&
+        if(arg==toy_present.owner && KUI_TOY_AHEAD.variant &&
            r->engine.native_loan_state==KUI_VMU_NATIVE_ASYNC_LOAN_IDLE &&
            !r->engine.active && !r->shared.service.pending && !r->shared.service.executing &&
            !r->engine.in_irq && !C.quiesced) {
@@ -1482,7 +1482,7 @@ uint32_t kui_native_readahead_aux_dispatch(uint32_t event,uint32_t arg,
          * hands it over. */
         if(!r->engine.in_irq && !toy_wire_idle_due())return 1u;
         toy_ahead_pump(r,false);
-        if(!C.movie_ahead.error)return 1u;
+        if(!KUI_TOY_AHEAD.error)return 1u;
         ++C.stats.abandoned;
         if(toy_ahead_fallback(r))return 1u;
     }
