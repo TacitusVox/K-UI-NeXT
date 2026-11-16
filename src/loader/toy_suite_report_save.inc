@@ -81,7 +81,7 @@ static void toy_report_wire(char **at,const char *end,const struct kui_native_ra
      * of the second movie's course the most of the player's own buffer
      * that was free and how long the wire stood still for timer waits. */
     /* PT: the parts this build has (1 STAY, 2 LATER, 4 RING, 8 QUIT, 10 HOT, 20 COPY, 40 GAP, 80 APART,
-     * 100 SEQ, 200 ANY, 400 TITLES). */
+     * 100 SEQ, 200 ANY, 400 TITLES, 800 QUERY). */
     toy_report_short(at,end,"PIPE B I CALLS IRQ STAY PT",
         (uint32_t[]){ahead[2],ahead[3],ahead[4],ahead[5],w->stays,(uint32_t)KUI_TOY_WIRE_PARTS},6u);
 #if KUI_TOY_WIRE_SEQ
@@ -122,6 +122,14 @@ static void toy_report_wire(char **at,const char *end,const struct kui_native_ra
      * or the bus or the channel not free). */
     toy_report_short(at,end,"SD BLK PIO OVR CRC DECL",
         (uint32_t[]){sd->blocks,sd->polled,sd->overruns,sd->crc_errors,w->declined},5u);
+#if KUI_TOY_WIRE_QUERY
+    /* Test 80: the commands that are no reads which a window stood
+     * through, each counted once, and every such command a window met,
+     * a bit to a command number: LO for 0 to 31, HI for 32 to 63. (C of
+     * the row X counts the windows given up for one.) */
+    toy_report_short(at,end,"XC KEPT LO HI",
+        (uint32_t[]){w->queries,w->command_seen[0],w->command_seen[1]},3u);
+#endif
 #else
     toy_report_short(at,end,"BIG N S BACK",
         (uint32_t[]){w->large_requests,w->large_sectors,w->large_returned},3u);
@@ -580,7 +588,7 @@ static void toy_report_format(char *text,const struct kui_native_ra_public *ra,
     toy_report_string(&at,"K-UI TOY COMMANDER REPORT\nTEST ");
 #if KUI_TOY_WIRE_STREAM
     /* Card Tools starts this reader from its Test 66 entry. */
-    test=KUI_TOY_WIRE_TICK?69u:KUI_TOY_WIRE_TITLES?79u:KUI_TOY_WIRE_ANY?78u:KUI_TOY_WIRE_SEQ?77u:KUI_TOY_WIRE_FLUID?76u:KUI_TOY_WIRE_STEADY?75u:KUI_TOY_WIRE_LEAN?74u:KUI_TOY_WIRE_IDLE?73u:KUI_TOY_WIRE_PACE?72u:KUI_TOY_WIRE_WORDS?71u:KUI_TOY_WIRE_CACHED?70u:68u;
+    test=KUI_TOY_WIRE_TICK?69u:KUI_TOY_WIRE_QUERY?80u:KUI_TOY_WIRE_TITLES?79u:KUI_TOY_WIRE_ANY?78u:KUI_TOY_WIRE_SEQ?77u:KUI_TOY_WIRE_FLUID?76u:KUI_TOY_WIRE_STEADY?75u:KUI_TOY_WIRE_LEAN?74u:KUI_TOY_WIRE_IDLE?73u:KUI_TOY_WIRE_PACE?72u:KUI_TOY_WIRE_WORDS?71u:KUI_TOY_WIRE_CACHED?70u:68u;
 #endif
     if(test>=10u)*at++=(char)('0'+test/10u);
     *at++=(char)('0'+test%10u);

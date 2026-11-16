@@ -43,6 +43,7 @@ FLUID = os.environ.get("TOY_WIRE_FLUID", STEADY)
 SEQ = os.environ.get("TOY_WIRE_SEQ", "0")
 ANY = os.environ.get("TOY_WIRE_ANY", "0")
 TITLES = os.environ.get("TOY_WIRE_TITLES", "0")
+QUERY = os.environ.get("TOY_WIRE_QUERY", "0")
 AUX = "src/loader/native_readahead_aux.c"
 # The cold stage's scan: its mutants are run by tests/test_toy_titles_stage.c.
 SCAN = "src/loader/toy_movie_iso_stage.inc"
@@ -786,6 +787,78 @@ TITLES_MUTATIONS = [
 # Test 78: mutations on lines the build with TOY_WIRE_ANY no longer compiles
 # go (ANY_GONE), and the same defects are made in the lines that take their
 # place; then the defects of the change itself.
+# Test 80: the same for TOY_WIRE_QUERY.
+# Why a window was given up for a command is said by another line there.
+QUERY_GONE = {"a window given up for a command counted as given up for a read"}
+QUERY_MUTATIONS = [
+ (AHEAD, "a command that stops the drive leaves the window",
+  "    if(!(asks[command>>5]&bit))return true;", "    if(!(asks[command>>5]&bit))return false;"),
+ (AHEAD, "a command that only asks gives the window up",
+  "    if(!(asks[command>>5]&bit))return true;", "    return true;"),
+ (AHEAD, "a number no command has leaves the window",
+  "    if(command>=64u)return true;", "    if(command>=64u)return false;"),
+ (AHEAD, "the subcode is not among the commands that ask",
+  "        UINT32_C(1)<<(KUI_RETAIL_GD_GETSCD-32u)|UINT32_C(1)<<(KUI_RETAIL_GD_REQ_STAT-32u)|",
+  "        UINT32_C(1)<<(KUI_RETAIL_GD_REQ_STAT-32u)|"),
+ (AHEAD, "the drive's status is not among the commands that ask",
+  "        UINT32_C(1)<<(KUI_RETAIL_GD_GETSCD-32u)|UINT32_C(1)<<(KUI_RETAIL_GD_REQ_STAT-32u)|",
+  "        UINT32_C(1)<<(KUI_RETAIL_GD_GETSCD-32u)|"),
+ (AHEAD, "the drive's version is not among the commands that ask",
+  "            UINT32_C(1)<<(KUI_RETAIL_GD_GET_VERS-32u)};", "            0u};"),
+ (AHEAD, "the first table of contents is not among the commands that ask",
+  "        UINT32_C(1)<<KUI_RETAIL_GD_GETTOC|UINT32_C(1)<<KUI_GD_GETTOC2|UINT32_C(1)<<KUI_GD_NOP|",
+  "        UINT32_C(1)<<KUI_GD_GETTOC2|UINT32_C(1)<<KUI_GD_NOP|"),
+ (AHEAD, "the second table of contents is not among the commands that ask",
+  "        UINT32_C(1)<<KUI_RETAIL_GD_GETTOC|UINT32_C(1)<<KUI_GD_GETTOC2|UINT32_C(1)<<KUI_GD_NOP|",
+  "        UINT32_C(1)<<KUI_RETAIL_GD_GETTOC|UINT32_C(1)<<KUI_GD_NOP|"),
+ (AHEAD, "the command that does nothing is not among the commands that ask",
+  "        UINT32_C(1)<<KUI_RETAIL_GD_GETTOC|UINT32_C(1)<<KUI_GD_GETTOC2|UINT32_C(1)<<KUI_GD_NOP|",
+  "        UINT32_C(1)<<KUI_RETAIL_GD_GETTOC|UINT32_C(1)<<KUI_GD_GETTOC2|"),
+ (AHEAD, "the drive's mode is not among the commands that ask",
+  "            UINT32_C(1)<<KUI_RETAIL_GD_REQ_MODE,", "            0u,"),
+ (AHEAD, "the command that stops the drive is among those that ask",
+  "            UINT32_C(1)<<(KUI_RETAIL_GD_GET_VERS-32u)};",
+  "            UINT32_C(1)<<(KUI_RETAIL_GD_GET_VERS-32u)|UINT32_C(1)<<(KUI_GD_STOP-32u)};"),
+ (AHEAD, "a seek is among the commands that ask",
+  "            UINT32_C(1)<<KUI_RETAIL_GD_REQ_MODE,",
+  "            UINT32_C(1)<<KUI_RETAIL_GD_REQ_MODE|UINT32_C(1)<<KUI_RETAIL_GD_SEEK,"),
+ (AHEAD, "a command the window stood through counted with every visit",
+  "    if(k->query_token!=s->token) {", "    if(true) {"),
+ (AHEAD, "commands the window stood through not counted",
+  "        ++k->report.queries;\n", ""),
+ (AHEAD, "the token of a command the window stood through not kept",
+  "        k->query_token=s->token;\n", ""),
+ (AHEAD, "commands a window met not noted",
+  "    k->report.command_seen[command>>5]|=bit;\n", ""),
+ (AHEAD, "a command noted under another number's bit",
+  "    const uint32_t bit=UINT32_C(1)<<(command&31u);", "    const uint32_t bit=UINT32_C(1)<<(command&15u);"),
+ (AHEAD, "a command from 32 on noted in the first word",
+  "    k->report.command_seen[command>>5]|=bit;", "    k->report.command_seen[0]|=bit;"),
+ (AHEAD, "the rule for commands that ask not applied",
+  "    if(A.variant && (A.error || idle || foreign ||",
+  "    if(A.variant && (A.error || idle || (s->command && s->command!=KUI_GD_PIOREAD && s->command!=KUI_GD_DMAREAD) ||"),
+ (AHEAD, "no command gives a window up",
+  "    if(A.variant && (A.error || idle || foreign ||", "    if(A.variant && (A.error || idle ||"),
+ (AHEAD, "a window given up for a command counted as for a read elsewhere",
+  "            foreign?KUI_TOY_WIRE_DROP_COMMAND:", "            foreign?KUI_TOY_WIRE_DROP_OTHER:"),
+ (AHEAD, "a command met without a window counted",
+  "    const bool foreign=A.variant && s->command && s->command!=KUI_GD_PIOREAD &&",
+  "    const bool foreign=s->command && s->command!=KUI_GD_PIOREAD &&"),
+ (AHEAD, "a read by programmed transfer taken for a command",
+  "    const bool foreign=A.variant && s->command && s->command!=KUI_GD_PIOREAD &&",
+  "    const bool foreign=A.variant && s->command &&"),
+ (AHEAD, "a read by DMA taken for a command",
+  "        s->command!=KUI_GD_DMAREAD && toy_ahead_foreign(s);", "        toy_ahead_foreign(s);"),
+ # The worker's report.
+ (REPORT, "the commands the window stood through and those it met exchanged",
+  "        (uint32_t[]){w->queries,w->command_seen[0],w->command_seen[1]},3u);",
+  "        (uint32_t[]){w->command_seen[0],w->queries,w->command_seen[1]},3u);"),
+ (REPORT, "the commands from 32 on left out of the row",
+  "        (uint32_t[]){w->queries,w->command_seen[0],w->command_seen[1]},3u);",
+  "        (uint32_t[]){w->queries,w->command_seen[0],w->command_seen[1]},2u);"),
+ (REPORT, "the report names Test 79",
+  "KUI_TOY_WIRE_QUERY?80u:KUI_TOY_WIRE_TITLES?79u:", "KUI_TOY_WIRE_TITLES?79u:"),
+]
 ANY_GONE = {"course pieces not counted from the movie's start", "course not held to its last piece",
             "the copying out not timed", "the copying out timed twice over",
             "a waited request gives the window up all the same",
@@ -970,6 +1043,10 @@ if TITLES == "1":
     SWITCHES.append("TOY_WIRE_TITLES=1")
     DEFINES.append("-DKUI_TOY_WIRE_TITLES=1")
     MUTATIONS = [m for m in MUTATIONS if m[1] not in TITLES_GONE] + TITLES_MUTATIONS
+if QUERY == "1":
+    SWITCHES.append("TOY_WIRE_QUERY=1")
+    DEFINES.append("-DKUI_TOY_WIRE_QUERY=1")
+    MUTATIONS = [m for m in MUTATIONS if m[1] not in QUERY_GONE] + QUERY_MUTATIONS
 if os.environ.get("TOY_WIRE_ONLY"):
     # A named part of the list, for running it in pieces: "from:to" of the list's positions.
     low, high = (int(v) for v in os.environ["TOY_WIRE_ONLY"].split(":"))

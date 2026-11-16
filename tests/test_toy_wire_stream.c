@@ -302,7 +302,7 @@ int main(int argc, char **argv) {
 #if KUI_TOY_WIRE_MSB
     unsigned long orders[3] = {0}, unsettled = 0, backs = 0;
 #endif
-    printf("Test %u card stream on the wire model:\n", KUI_TOY_WIRE_TICK ? 69u : KUI_TOY_WIRE_TITLES ? 79u : KUI_TOY_WIRE_ANY ? 78u : KUI_TOY_WIRE_SEQ ? 77u : KUI_TOY_WIRE_FLUID ? 76u : KUI_TOY_WIRE_STEADY ? 75u : KUI_TOY_WIRE_LEAN ? 74u : KUI_TOY_WIRE_IDLE ? 73u : KUI_TOY_WIRE_PACE ? 72u : KUI_TOY_WIRE_WORDS ? 71u : KUI_TOY_WIRE_CACHED ? 70u : 68u);
+    printf("Test %u card stream on the wire model:\n", KUI_TOY_WIRE_TICK ? 69u : KUI_TOY_WIRE_QUERY ? 80u : KUI_TOY_WIRE_TITLES ? 79u : KUI_TOY_WIRE_ANY ? 78u : KUI_TOY_WIRE_SEQ ? 77u : KUI_TOY_WIRE_FLUID ? 76u : KUI_TOY_WIRE_STEADY ? 75u : KUI_TOY_WIRE_LEAN ? 74u : KUI_TOY_WIRE_IDLE ? 73u : KUI_TOY_WIRE_PACE ? 72u : KUI_TOY_WIRE_WORDS ? 71u : KUI_TOY_WIRE_CACHED ? 70u : 68u);
     const unsigned runs = argc > 1 ? (unsigned)atoi(argv[1]) : 12u;
     for(unsigned run = 0; run < runs; ++run) {
         seed = 77u + run * 1000u;
@@ -968,7 +968,7 @@ int main(int argc, char **argv) {
            "each behind a byte lost between blocks and none after a whole CRC16: %lu with lost bytes listed, %lu with "
            "a byte of the CRC16 lost, %lu rebuilt from a CRC16 that fitted (%lu of them equal to the card in every byte "
            "not listed all the same); all left to the sector check\n",
-        KUI_TOY_WIRE_TICK ? 69u : KUI_TOY_WIRE_TITLES ? 79u : KUI_TOY_WIRE_ANY ? 78u : KUI_TOY_WIRE_SEQ ? 77u : KUI_TOY_WIRE_FLUID ? 76u : KUI_TOY_WIRE_STEADY ? 75u : KUI_TOY_WIRE_LEAN ? 74u : KUI_TOY_WIRE_IDLE ? 73u : KUI_TOY_WIRE_PACE ? 72u : KUI_TOY_WIRE_WORDS ? 71u : KUI_TOY_WIRE_CACHED ? 70u : 68u, total, overruns, restarts, rewinds[2], rewinds[3],
+        KUI_TOY_WIRE_TICK ? 69u : KUI_TOY_WIRE_QUERY ? 80u : KUI_TOY_WIRE_TITLES ? 79u : KUI_TOY_WIRE_ANY ? 78u : KUI_TOY_WIRE_SEQ ? 77u : KUI_TOY_WIRE_FLUID ? 76u : KUI_TOY_WIRE_STEADY ? 75u : KUI_TOY_WIRE_LEAN ? 74u : KUI_TOY_WIRE_IDLE ? 73u : KUI_TOY_WIRE_PACE ? 72u : KUI_TOY_WIRE_WORDS ? 71u : KUI_TOY_WIRE_CACHED ? 70u : 68u, total, overruns, restarts, rewinds[2], rewinds[3],
         wrong[0] + wrong[1] + wrong[2], wrong[0], wrong[1], wrong[2], wrong_same);
     return 0;
 }

@@ -105,6 +105,9 @@ struct toy_wire_keep {
      * window's end and the clock when that end last moved. */
     uint32_t stay_token, stay_verified, stay_tick;
 #endif
+#if KUI_TOY_WIRE_QUERY
+    uint32_t query_token;               /* the last command the window stood through */
+#endif
 };
 #define TOY_WIRE_STATE_OFFSET (AHEAD_SLOTS*KUI_GAME_RAW_BYTES)
 #define TOY_WIRE_KEEP_OFFSET (KUI_RETAIL_IMAGE_MAX_SECTORS*KUI_GAME_RAW_BYTES)

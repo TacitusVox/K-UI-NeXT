@@ -16,6 +16,13 @@
 
 #define KUI_TOY_SDK_LIVENESS_MAIN toy_retained_sdk_tests
 #include "test_toy_sdk_liveness.c"
+/* A command of the game's that gives a window up, where a scenario only
+ * needs one: since Test 80 a command that only asks does not. */
+#define GONE_BY_COMMAND (KUI_TOY_WIRE_QUERY ? (uint32_t)KUI_GD_STOP : (uint32_t)KUI_GD_GETTOC2)
+/* And a number no command has, beyond those the report can name by a bit:
+ * whatever stands in the service's place for a command gives the window
+ * up unless it is one that only asks. */
+#define GONE_BY_UNKNOWN (KUI_TOY_WIRE_QUERY ? UINT32_C(95) : (uint32_t)KUI_GD_GETTOC2)
 
 #if !KUI_TOY_WIRE_STREAM
 #error "This fixture is the Test 68 reader's"
@@ -1356,7 +1363,7 @@ static void quit_foreign(bool elsewhere) {
 #if KUI_TOY_WIRE_SEQ
     /* A command that is not a read: the window is given up and its stream
      * stopped. (Test 77's window does not end with the movie.) */
-    R.shared.service.command = KUI_GD_GETTOC2;
+    R.shared.service.command = GONE_BY_COMMAND;
     CHECK(sdk_poll(KUI_GD_EXEC, 0u, movie_async_poll) == 0);
     R.shared.service.command = 0u;
 #else
@@ -2577,6 +2584,35 @@ static void plain_command(uint32_t command, uint32_t word) {
     CHECK(gd(KUI_GD_CHECK, (uint32_t)token, STATUS) == KUI_GD_COMPLETED);
     invariants();
 }
+#if KUI_TOY_WIRE_QUERY
+/* A command of the game's with four words of its own, to its
+ * acknowledgment, with whatever interrupt is due before each call. */
+static void asked_command(uint32_t command, uint32_t a, uint32_t b, uint32_t c, uint32_t d) {
+    put(PARAM, a); put(PARAM + 4u, b); put(PARAM + 8u, c); put(PARAM + 12u, d);
+    (void)hardware();
+    const int32_t token = gd(KUI_GD_REQUEST, command, PARAM);
+    CHECK(token > 0);
+    (void)hardware();
+    CHECK(gd(KUI_GD_EXEC, 0, 0) == 0);
+    (void)hardware();
+    CHECK(gd(KUI_GD_CHECK, (uint32_t)token, STATUS) == KUI_GD_COMPLETED && !get(STATUS + 4u));
+    invariants();
+}
+/* Each of the seven commands that only ask, by its number's bit. */
+#define ASKED_LOW (UINT32_C(1) << KUI_RETAIL_GD_GETTOC | UINT32_C(1) << KUI_GD_GETTOC2 | UINT32_C(1) << KUI_GD_NOP | \
+    UINT32_C(1) << KUI_RETAIL_GD_REQ_MODE)
+#define ASKED_HIGH (UINT32_C(1) << (KUI_RETAIL_GD_GETSCD - 32u) | UINT32_C(1) << (KUI_RETAIL_GD_REQ_STAT - 32u) | \
+    UINT32_C(1) << (KUI_RETAIL_GD_GET_VERS - 32u))
+static void asked_all(void) {
+    asked_command(KUI_GD_NOP, 0u, 0u, 0u, 0u);
+    asked_command(KUI_RETAIL_GD_GETSCD, 1u, 14u, STATUS + 32u, 0u);
+    asked_command(KUI_RETAIL_GD_REQ_STAT, STATUS + 32u, STATUS + 36u, STATUS + 40u, STATUS + 44u);
+    asked_command(KUI_RETAIL_GD_REQ_MODE, STATUS + 32u, 0u, 0u, 0u);
+    asked_command(KUI_RETAIL_GD_GET_VERS, STATUS + 32u, 0u, 0u, 0u);
+    asked_command(KUI_RETAIL_GD_GETTOC, 0u, OUTPUT, 0u, 0u);
+    asked_command(KUI_GD_GETTOC2, 0u, OUTPUT, 0u, 0u);
+}
+#endif
 /* Commands between consecutive reads. One that is not a read gives the
  * window up; the drive has not moved, and the next read has a window
  * again. A seek moves the drive: the read that would have been consecutive
@@ -2590,7 +2626,26 @@ static void sequence_commands(void) {
     plain_read(45010u, 5u);
     plain_read(45015u, 5u);
     CHECK(c->movie_ahead.variant == OTHER_WINDOW && stream_on() && card.cmd18 == 1u && !card.cmd12);
+#if KUI_TOY_WIRE_QUERY
+    /* Test 80: a command that only asks the drive something, or does
+     * nothing, leaves the window, whichever of the seven it is; each is
+     * counted once and named by its number's bit. The window has moved no
+     * sector for them. One that stops the drive gives the window up, as
+     * every command that is not a read did. */
+    {
+        const uint32_t first = c->movie_ahead.first;
+        asked_all();
+        CHECK(c->movie_ahead.variant == OTHER_WINDOW && stream_on() && card.cmd18 == 1u && !card.cmd12);
+        CHECK(c->movie_ahead.first == first && R.shared.service.position_lba == first - 1u);
+        no_drops(w);
+        CHECK(w->queries == 7u && w->command_seen[0] == ASKED_LOW && w->command_seen[1] == ASKED_HIGH);
+        plain_command(KUI_GD_STOP, 0u);
+        CHECK(w->queries == 7u && w->command_seen[0] == ASKED_LOW &&
+            w->command_seen[1] == (ASKED_HIGH | UINT32_C(1) << (KUI_GD_STOP - 32u)));
+    }
+#else
     plain_command(KUI_GD_NOP, 0u);
+#endif
     CHECK(!c->movie_ahead.variant && !stream_on() && w->drops[KUI_TOY_WIRE_DROP_COMMAND] == 1u && card.cmd12 == 1u);
     closed();
     plain_read(45020u, 5u);
@@ -3300,6 +3355,98 @@ static void titles_other(bool source, uint32_t mean, unsigned dense) {
 #endif
 #endif
 
+#if KUI_TOY_WIRE_QUERY && KUI_TOY_WIRE_STAY
+/* A read by programmed transfer is a read as one by DMA is: the window is
+ * opened by it and serves it, stands through it, and counts no command.
+ * (The fixture's reads are by DMA everywhere else.) */
+static void sequence_programmed(void) {
+    open_card(2000u, false, true, file_amid, false);
+    const struct kui_toy_wire_report *w = report();
+    const struct kui_native_readahead_aux_context *c = &kui_native_readahead_aux_context;
+    plain_read(45010u, 5u);
+    for(unsigned i = 0u; i < 3u; ++i) {
+        const uint32_t lba = 45015u + 5u * i;
+        memset(ram + (OUTPUT - BEGIN), 0xa5, 64u * 2352u + 16u);
+        put(PARAM, lba + 150u); put(PARAM + 4u, 5u); put(PARAM + 8u, OUTPUT); put(PARAM + 12u, 0u);
+        const int32_t token = gd(KUI_GD_REQUEST, KUI_GD_PIOREAD, PARAM);
+        CHECK(token > 0 && R.shared.service.command == KUI_GD_PIOREAD);
+        plain_finish(token, lba, 5u);
+        CHECK(c->movie_ahead.variant == OTHER_WINDOW && stream_on() && w->other_windows == 1u &&
+            c->stats.hit_requests == i + 1u);
+    }
+    no_drops(w);
+    CHECK(card.cmd18 == 1u && !card.cmd12 && !w->queries && !w->command_seen[0] && !w->command_seen[1]);
+    printf("  reads by programmed transfer: a window opened by one and three served from it, no command "
+           "counted\n");
+}
+
+/* Test 80. Another title's reads with a command behind each, as Evolution
+ * 2 has them on the console: its refills of 73 and 50 sectors, each
+ * beginning where the last ended, and the drive asked for its subcode in
+ * between. Asked, the window stands: every request behind the first comes
+ * from the one window, the card has one command, and nothing is given up.
+ * Told to stop instead, the window goes with every command, as Test 79's
+ * did for either: a window to a request. On a quiet bus and on one that
+ * cuts runs short. */
+static void titles_asked(bool asks, uint32_t mean, unsigned dense) {
+    open_card(2000u, false, true, file_amid, false);
+    for(unsigned i = 0; i < 64u; ++i) wx.slots[i] = OTHER_DEFAULT;
+    stall_mean = mean; stall_dense = dense;
+    wire_clock_shared = true;
+    struct kui_native_ra_config config = movie_configuration();
+    memset(config.movie_ranges, 0, sizeof(config.movie_ranges));
+    config.toy_poll_owner = 0u;
+    bind_movie_configuration(&config);
+    const struct kui_toy_wire_report *w = report();
+    const struct kui_native_readahead_aux_context *c = &kui_native_readahead_aux_context;
+    CHECK(!c->demand.owner_verified);
+    uint32_t lba = 45002u;
+    static const uint32_t sizes[5] = {73u, 50u, 73u, 50u, 52u};
+    for(unsigned i = 0u; i < 5u; lba += sizes[i++]) {
+        any_read(lba, sizes[i], false);
+        CHECK(R.shared.service.position_lba == lba + sizes[i] - 1u);
+        if(asks) asked_command(KUI_RETAIL_GD_GETSCD, 1u, 14u, STATUS + 32u, 0u);
+        else plain_command(KUI_GD_STOP, 0u);
+        /* The drive is where the read left it either way. */
+        CHECK(R.shared.service.position_lba == lba + sizes[i] - 1u);
+        /* The game plays on for a few of its frames before it reads again. */
+        for(unsigned n = 0u; n < 12u; ++n) if(!hardware()) CHECK(gd(KUI_GD_EXEC, 0, 0) == 0);
+    }
+    CHECK(lba == 45300u && !w->first_error && !c->stats.abandoned && !w->large_returned);
+    /* (On a bus that cuts runs short a read may wait longer than a window
+     * is kept for it: that window is given up for the wait, as in any
+     * build.) */
+    CHECK(!w->drops[KUI_TOY_WIRE_DROP_ERROR] && !w->drops[KUI_TOY_WIRE_DROP_IDLE]);
+    if(asks) {
+        /* The first read is the low reader's; the first command finds no
+         * window, and is none of the window's to count. (Nor is one that
+         * comes when a window has been given up for a wait.) */
+        CHECK(w->queries && w->queries <= 4u && !w->command_seen[0] &&
+            w->command_seen[1] == UINT32_C(1) << (KUI_RETAIL_GD_GETSCD - 32u));
+        CHECK(!w->drops[KUI_TOY_WIRE_DROP_COMMAND]);
+        if(!mean) {
+            no_drops(w);
+            CHECK(w->queries == 4u);
+            CHECK(c->movie_ahead.variant == OTHER_WINDOW && w->other_windows == 1u && c->stats.hit_requests == 4u);
+            CHECK(w->other_sectors == 50u + 73u + 50u + 52u && card.cmd18 == 1u && !card.cmd12 && w->n.starts == 1u);
+        } else CHECK(w->other_windows && c->stats.hit_requests);
+        printf("  another title that asks the drive for its subcode behind every read, stalls %u/%u: %u commands "
+               "a window stood through, none given up for one; %u requests of five from %u windows, CMD18 %u, "
+               "CMD12 %u; data exact\n", (unsigned)mean, dense, (unsigned)w->queries,
+            (unsigned)c->stats.hit_requests, (unsigned)w->other_windows, card.cmd18, card.cmd12);
+    } else {
+        /* A window opened by each read behind the first, and each given
+         * up for the command behind it. */
+        CHECK(!w->queries && !w->command_seen[0] && w->command_seen[1] == UINT32_C(1) << (KUI_GD_STOP - 32u));
+        CHECK(w->drops[KUI_TOY_WIRE_DROP_COMMAND] == 4u && w->other_windows == 4u && !c->movie_ahead.variant &&
+            !stream_on());
+        CHECK(c->stats.hit_requests == 4u && card.cmd12 == 4u);
+        printf("  the same with the drive told to stop behind every read: %u windows, each given up for the "
+               "command, CMD18 %u, CMD12 %u\n", (unsigned)w->other_windows, card.cmd18, card.cmd12);
+    }
+}
+#endif
+
 /* The movie ends while a request waits on a running stream. The next SCI
  * interrupt visit stops the stream there and then, without a card command;
  * the CMD12 waits for the foreground, and the waiting request is then
@@ -3444,9 +3591,12 @@ static void window_gone(unsigned what) {
         CHECK(!stream_on() && !c->movie_ahead.variant && w->drops[KUI_TOY_WIRE_DROP_IDLE] == 1u);
         break;
     case GONE_COMMAND:
-        R.shared.service.command = KUI_GD_GETTOC2;
+        R.shared.service.command = GONE_BY_UNKNOWN;
         game_poll();
         CHECK(!stream_on() && !c->movie_ahead.variant && w->drops[KUI_TOY_WIRE_DROP_COMMAND] == 1u);
+#if KUI_TOY_WIRE_QUERY
+        CHECK(!w->queries && !w->command_seen[0] && !w->command_seen[1]);
+#endif
         R.shared.service.command = 0u;
         break;
     case GONE_FAULT:
@@ -3703,7 +3853,7 @@ int main(void) {
     /* Test 66's own chunk classification is untouched by the switch. */
     movie_chunk_classification();
 #endif
-    printf("Test %u reader, real low reader + auxiliary + stream on the card model:\n", KUI_TOY_WIRE_TICK ? 69u : KUI_TOY_WIRE_TITLES ? 79u : KUI_TOY_WIRE_ANY ? 78u : KUI_TOY_WIRE_SEQ ? 77u : KUI_TOY_WIRE_FLUID ? 76u : KUI_TOY_WIRE_STEADY ? 75u : KUI_TOY_WIRE_LEAN ? 74u : KUI_TOY_WIRE_IDLE ? 73u : KUI_TOY_WIRE_PACE ? 72u : KUI_TOY_WIRE_WORDS ? 71u : KUI_TOY_WIRE_CACHED ? 70u : 68u);
+    printf("Test %u reader, real low reader + auxiliary + stream on the card model:\n", KUI_TOY_WIRE_TICK ? 69u : KUI_TOY_WIRE_QUERY ? 80u : KUI_TOY_WIRE_TITLES ? 79u : KUI_TOY_WIRE_ANY ? 78u : KUI_TOY_WIRE_SEQ ? 77u : KUI_TOY_WIRE_FLUID ? 76u : KUI_TOY_WIRE_STEADY ? 75u : KUI_TOY_WIRE_LEAN ? 74u : KUI_TOY_WIRE_IDLE ? 73u : KUI_TOY_WIRE_PACE ? 72u : KUI_TOY_WIRE_WORDS ? 71u : KUI_TOY_WIRE_CACHED ? 70u : 68u);
 #if KUI_TOY_WIRE_MSB
     /* Everything twice: with a receiver that ignores the bit order asked
      * of it, and with one that delivers bytes MSB first. */
@@ -3833,6 +3983,13 @@ int main(void) {
     titles_other(true, 150u, 80u);
     titles_other(false, 0u, 0u);
 #endif
+#if KUI_TOY_WIRE_QUERY && KUI_TOY_WIRE_STAY
+    sequence_programmed();
+    titles_asked(true, 0u, 0u);
+    titles_asked(true, 1500u, 20u);
+    titles_asked(true, 150u, 80u);
+    titles_asked(false, 0u, 0u);
+#endif
 #endif
     ended_in_interrupt();
 #if KUI_TOY_WIRE_IDLE
@@ -3862,6 +4019,6 @@ int main(void) {
     printf("  the wire's standstill for timer waits, placed in the course's pieces in all of the above: %llu ticks\n",
         (unsigned long long)pause_seen);
 #endif
-    printf("PASS Test %u reader integration: %u checks\n", KUI_TOY_WIRE_TICK ? 69u : KUI_TOY_WIRE_TITLES ? 79u : KUI_TOY_WIRE_ANY ? 78u : KUI_TOY_WIRE_SEQ ? 77u : KUI_TOY_WIRE_FLUID ? 76u : KUI_TOY_WIRE_STEADY ? 75u : KUI_TOY_WIRE_LEAN ? 74u : KUI_TOY_WIRE_IDLE ? 73u : KUI_TOY_WIRE_PACE ? 72u : KUI_TOY_WIRE_WORDS ? 71u : KUI_TOY_WIRE_CACHED ? 70u : 68u, checks);
+    printf("PASS Test %u reader integration: %u checks\n", KUI_TOY_WIRE_TICK ? 69u : KUI_TOY_WIRE_QUERY ? 80u : KUI_TOY_WIRE_TITLES ? 79u : KUI_TOY_WIRE_ANY ? 78u : KUI_TOY_WIRE_SEQ ? 77u : KUI_TOY_WIRE_FLUID ? 76u : KUI_TOY_WIRE_STEADY ? 75u : KUI_TOY_WIRE_LEAN ? 74u : KUI_TOY_WIRE_IDLE ? 73u : KUI_TOY_WIRE_PACE ? 72u : KUI_TOY_WIRE_WORDS ? 71u : KUI_TOY_WIRE_CACHED ? 70u : 68u, checks);
     return 0;
 }

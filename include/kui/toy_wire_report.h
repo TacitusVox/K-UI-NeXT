@@ -223,6 +223,29 @@
 #if KUI_TOY_WIRE_TITLES && !KUI_TOY_WIRE_ANY
 #error "Test 79 builds on Test 78"
 #endif
+/* Test 80: Test 79 with one change. A window was given up for every
+ * command of the game's that is not a read. Evolution 2 sends such a
+ * command between its reads: Test 79's run on the console opened 972
+ * windows there and gave 969 of them up for one, 1.3 requests served to a
+ * window, a fifth of the sectors read ahead thrown away.
+ *
+ * A command that only asks the drive something (its subcode, its status,
+ * its mode, its version, a table of contents) or does nothing is answered
+ * by the service from what it holds. It needs no card, and it leaves the
+ * drive where it was. The window stands through those now. A command that
+ * moves or stops the drive, sets its mode, plays audio or starts the drive
+ * anew gives the window up as before, and so does every command the
+ * service does not list.
+ *
+ * The report says which commands that are no reads were met while a
+ * window stood, a bit to a command number, and how many the window stood
+ * through: a game that sends another kind is named by the same run. */
+#ifndef KUI_TOY_WIRE_QUERY
+#define KUI_TOY_WIRE_QUERY 0
+#endif
+#if KUI_TOY_WIRE_QUERY && !KUI_TOY_WIRE_TITLES
+#error "Test 80 builds on Test 79"
+#endif
 /* Test 76's parts (the switch itself is above, with LATER's default):
  *   QUIT   a stream given up while it receives is ended at once, where it
  *          was waited out, with interrupts held off, until its run's next
@@ -271,7 +294,7 @@
 #define KUI_TOY_WIRE_PARTS (KUI_TOY_WIRE_STAY | KUI_TOY_WIRE_LATER << 1 | KUI_TOY_WIRE_RING << 2 | \
     KUI_TOY_WIRE_QUIT << 3 | KUI_TOY_WIRE_HOT << 4 | KUI_TOY_WIRE_COPY << 5 | KUI_TOY_WIRE_GAP << 6 | \
     KUI_TOY_WIRE_APART << 7 | KUI_TOY_WIRE_SEQ << 8 | KUI_TOY_WIRE_ANY << 9 | \
-    KUI_TOY_WIRE_TITLES << 10)
+    KUI_TOY_WIRE_TITLES << 10 | KUI_TOY_WIRE_QUERY << 11)
 /* The second movie in pieces of 2^22 ticks, 5.4 s: twelve cover it. */
 #define KUI_TOY_WIRE_BUCKETS 12u
 #define KUI_TOY_WIRE_BUCKET_SHIFT 22u
@@ -495,6 +518,12 @@ struct kui_toy_wire_report {
      * their sectors, and requests a window had begun to serve that went
      * back to the low reader. */
     uint32_t large_requests, large_sectors, large_returned;
+#endif
+#if KUI_TOY_WIRE_QUERY
+    /* Commands that are no reads met while a window stood: bit n of the
+     * first word for command n below 32, of the second for n from 32 on.
+     * And how many of them the window stood through. */
+    uint32_t command_seen[2], queries;
 #endif
 #else
     uint32_t handler_ticks, handler_calls, handler_max; /* SCI interrupt visits while streaming */

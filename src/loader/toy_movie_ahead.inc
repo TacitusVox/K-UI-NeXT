@@ -34,6 +34,12 @@ enum { AHEAD_OTHER=5u };
 #endif
 /* Test 78: a window serves a request of any size (toy_ahead_publish). */
 #define AHEAD_ANY (AHEAD_SEQ && KUI_TOY_WIRE_ANY)
+#ifndef KUI_TOY_WIRE_QUERY
+#define KUI_TOY_WIRE_QUERY 0
+#endif
+/* Test 80: a window stands through a command that only asks
+ * (toy_ahead_foreign). */
+#define AHEAD_QUERY (AHEAD_ANY && KUI_TOY_WIRE_QUERY)
 #if AHEAD_ANY
 /* The most sectors one publication of a large request hands over. A visit
  * publishes twice at most, and an interrupt visit keeps other interrupts
@@ -589,6 +595,38 @@ static bool toy_ahead_plain(const kui_retail_async_region_type *r) {
 }
 #endif
 
+#if AHEAD_QUERY
+/* Test 80. Whether the game's command, which is no read, gives the window
+ * up. One that only asks the drive something, or does nothing, does not:
+ * the service answers it from what it holds (src/core/retail_gd.c), without the
+ * card, and the drive's position, which says whether the next read follows
+ * on, is as it was. GETTOC 18, GETTOC2 19, NOP 29, REQ_MODE 30, GETSCD 34,
+ * REQ_STAT 36, GET_VERS 40. Any other does: SEEK and STOP move the drive,
+ * SET_MODE and INIT set what a sector is, PLAY, PAUSE and RELEASE are the
+ * audio's, and what the service does not list it has refused.
+ *
+ * The report keeps which such commands a window met, a bit to a number,
+ * and counts those it stood through, each once. */
+static bool toy_ahead_foreign(const struct kui_retail_gd *s) {
+    static const uint32_t asks[2]={
+        UINT32_C(1)<<KUI_RETAIL_GD_GETTOC|UINT32_C(1)<<KUI_GD_GETTOC2|UINT32_C(1)<<KUI_GD_NOP|
+            UINT32_C(1)<<KUI_RETAIL_GD_REQ_MODE,
+        UINT32_C(1)<<(KUI_RETAIL_GD_GETSCD-32u)|UINT32_C(1)<<(KUI_RETAIL_GD_REQ_STAT-32u)|
+            UINT32_C(1)<<(KUI_RETAIL_GD_GET_VERS-32u)};
+    struct toy_wire_keep *k=toy_wire_keep();
+    const uint32_t command=s->command;
+    if(command>=64u)return true;
+    const uint32_t bit=UINT32_C(1)<<(command&31u);
+    k->report.command_seen[command>>5]|=bit;
+    if(!(asks[command>>5]&bit))return true;
+    if(k->query_token!=s->token) {
+        k->query_token=s->token;
+        ++k->report.queries;
+    }
+    return false;
+}
+#endif
+
 static bool toy_movie_ahead(kui_retail_async_region_type *r,unsigned variant,bool selected,
     uint32_t wait) {
     struct kui_retail_async *e=&r->engine;
@@ -673,8 +711,16 @@ static bool toy_movie_ahead(kui_retail_async_region_type *r,unsigned variant,boo
     /* Test 78: by what is still owed of the request, from its next
      * sector. */
     const bool beyond=left>A.cursor.lba+A.cursor.count-A.first;
+#if AHEAD_QUERY
+    /* Test 80: of the commands that are no reads, those that only ask
+     * leave the window. */
+    const bool foreign=A.variant && s->command && s->command!=KUI_GD_PIOREAD &&
+        s->command!=KUI_GD_DMAREAD && toy_ahead_foreign(s);
+    if(A.variant && (A.error || idle || foreign ||
+#else
     if(A.variant && (A.error || idle ||
        (s->command && s->command!=KUI_GD_PIOREAD && s->command!=KUI_GD_DMAREAD) ||
+#endif
        (demand && (!selected || at!=A.first || beyond)))) {
 #else
     if(A.variant && (A.error || idle ||
@@ -693,8 +739,12 @@ static bool toy_movie_ahead(kui_retail_async_region_type *r,unsigned variant,boo
 #if AHEAD_ANY
         const unsigned why=
             A.error?KUI_TOY_WIRE_DROP_ERROR:idle?KUI_TOY_WIRE_DROP_IDLE:
+#if AHEAD_QUERY
+            foreign?KUI_TOY_WIRE_DROP_COMMAND:
+#else
             s->command && s->command!=KUI_GD_PIOREAD &&
                 s->command!=KUI_GD_DMAREAD?KUI_TOY_WIRE_DROP_COMMAND:
+#endif
             wait && !kick && !warm && !beyond?KUI_TOY_WIRE_DROP_WAITING:
             KUI_TOY_WIRE_DROP_OTHER;
 #else

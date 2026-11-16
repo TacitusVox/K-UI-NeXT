@@ -78,7 +78,9 @@ static const struct kui_toy_wire_report *toy_wire_report_block(void) { return &w
 #include "toy_suite_report_save.inc"
 
 #if KUI_TOY_WIRE_ANY
-#if KUI_TOY_WIRE_TITLES
+#if KUI_TOY_WIRE_QUERY
+#define TEST_NUMBER "80"
+#elif KUI_TOY_WIRE_TITLES
 #define TEST_NUMBER "79"
 #else
 #define TEST_NUMBER "78"
@@ -92,6 +94,11 @@ static const char *const labels[] = {
 #if KUI_TOY_WIRE_TITLES
     /* Test 79: whose disc it is, and the low reader's own totals. */
     "BIG N S BACK TOY", "SD BLK PIO OVR CRC DECL",
+#if KUI_TOY_WIRE_QUERY
+    /* Test 80: the commands that are no reads a window stood through, and
+     * which such commands a window met. */
+    "XC KEPT LO HI",
+#endif
 #else
     "BIG N S BACK",
 #endif
@@ -103,7 +110,8 @@ static const char *const labels[] = {
     "S C S F LF AM BC", "W FILL REF BAD",
     "BP ON OT OC OI SN ST",
 };
-enum { LABELS = sizeof(labels) / sizeof(labels[0]), ESSENTIAL = KUI_TOY_WIRE_TITLES ? 18 : 17 };
+enum { LABELS = sizeof(labels) / sizeof(labels[0]),
+    ESSENTIAL = KUI_TOY_WIRE_QUERY ? 19 : KUI_TOY_WIRE_TITLES ? 18 : 17 };
 #elif KUI_TOY_WIRE_SEQ
 #define TEST_NUMBER "77"
 /* Test 77's rows: Test 76's with the sectors served from windows outside
@@ -399,6 +407,9 @@ int main(int argc, char **argv) {
 #if KUI_TOY_WIRE_TITLES
     /* A title that is not the verified Toy Commander says so. */
     assert(strstr(text, "BIG N S BACK TOY\n0 0 0 0\nSD BLK PIO OVR CRC DECL\n0 0 0 0 0\n"));
+#if KUI_TOY_WIRE_QUERY
+    assert(strstr(text, "SD BLK PIO OVR CRC DECL\n0 0 0 0 0\nXC KEPT LO HI\n0 0 0\nI SUBMIT"));
+#endif
     /* On the screen: four lines of heading and two for each row, none cut. */
     assert(screen(text, body) == 4u + 2u * rows && !screen_cut);
     screen_lines();
@@ -534,6 +545,12 @@ int main(int argc, char **argv) {
      * a million sectors, and three that went back to the low reader. */
     wire.large_requests = 0x1c00; wire.large_sectors = 0x7b000; wire.large_returned = 3;
 #endif
+#if KUI_TOY_WIRE_QUERY
+    /* A game that asks for the subcode behind every read, a command to a
+     * window; and the commands its windows met: GETTOC2, SEEK and NOP,
+     * STOP, GETSCD and REQ_STAT. */
+    wire.queries = 0x2e02; wire.command_seen[0] = UINT32_C(0x28080000); wire.command_seen[1] = 0x16;
+#endif
     uint32_t *trace = ra.diagnostics.stage_result[KUI_NATIVE_RA_STAGE_NONE];
     trace[0] = 0x1100; trace[1] = 0x6600; trace[2] = 2; trace[3] = 3; trace[4] = 0x9000; trace[5] = 0xbe00;
     ra.stats.hit_requests = 0x900; ra.stats.producer_blocks = 0x7700; ra.stats.abandoned = 2;
@@ -602,7 +619,8 @@ int main(int argc, char **argv) {
         char parts[64];
         const unsigned have = KUI_TOY_WIRE_STAY | KUI_TOY_WIRE_LATER << 1 | KUI_TOY_WIRE_RING << 2 |
             KUI_TOY_WIRE_QUIT << 3 | KUI_TOY_WIRE_HOT << 4 | KUI_TOY_WIRE_COPY << 5 | KUI_TOY_WIRE_GAP << 6 |
-            KUI_TOY_WIRE_APART << 7 | KUI_TOY_WIRE_SEQ << 8 | KUI_TOY_WIRE_ANY << 9 | KUI_TOY_WIRE_TITLES << 10;
+            KUI_TOY_WIRE_APART << 7 | KUI_TOY_WIRE_SEQ << 8 | KUI_TOY_WIRE_ANY << 9 | KUI_TOY_WIRE_TITLES << 10 |
+            KUI_TOY_WIRE_QUERY << 11;
         snprintf(parts, sizeof(parts), "PIPE B I CALLS IRQ STAY PT\n2 3 9000 BE00 35 %X\n", have);
         assert(strstr(text, parts) && have == KUI_TOY_WIRE_PARTS);
     }
@@ -620,6 +638,11 @@ int main(int argc, char **argv) {
     /* And whose disc it is: the verified Toy Commander here. Behind it the
      * low reader's own totals and the stream's refused take-overs. */
     assert(strstr(text, "BIG N S BACK TOY\n1C00 7B000 3 1\nSD BLK PIO OVR CRC DECL\n40 2F 11 0 6\n"));
+#if KUI_TOY_WIRE_QUERY
+    /* The commands a window stood through, and the commands windows met
+     * by their numbers' bits: 19, 27 and 29; 33, 34 and 36. */
+    assert(strstr(text, "SD BLK PIO OVR CRC DECL\n40 2F 11 0 6\nXC KEPT LO HI\n2E02 28080000 16\nI SUBMIT"));
+#endif
 #else
     assert(strstr(text, "BIG N S BACK\n1C00 7B000 3\n") && !strstr(text, "BACK TOY"));
 #endif
@@ -916,7 +939,7 @@ int main(int argc, char **argv) {
     state.armed = true;
     assert(!toy_suite_save_report(&ra, &region) && leases == 1u);
     /* The text is in the worker's buffer for the pages all the same. */
-    assert(!memcmp(issued_chain, "K-UI TOY COMMANDER REPORT\nTEST 79\n", 34u));
+    assert(!memcmp(issued_chain, "K-UI TOY COMMANDER REPORT\nTEST " TEST_NUMBER "\n", 34u));
     state.pending = true;
     assert(!toy_suite_save_report(&ra, &region) && leases == 1u);
     state.pending = false; state.armed = false;
