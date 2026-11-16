@@ -1,4 +1,5 @@
 /* SPDX-License-Identifier: GPL-3.0-only */
+#include "kui/toy_test_build.h"
 /* Cold installation only. Retain owned low operations and auxiliary lease
  * pointers by value; no pointer into this temporary stage survives. */
 #include "kui/native_readahead.h"
@@ -159,7 +160,11 @@ static void __attribute__((noipa)) native_readahead_bind(uint32_t payload) {
     for(unsigned i=1u;i<6u;i++)if(e->reserved[i])native_report(11u,9u);
 #endif
 #else
+#if KUI_TOY_TEST_BUILD
     for(unsigned i=0u;i<6u;i++)if(e->reserved[i])native_report(11u,9u);
+#else
+    for(unsigned i=0;i<6u;i++)if(e->reserved[i])native_report(11u,9u);
+#endif
 #endif
     for(unsigned i=0;i<4u;i++) {
         ((volatile uint32_t *)(uintptr_t)e->stack_bottom)[i]=UINT32_C(0x4b524147);
@@ -169,6 +174,7 @@ static void __attribute__((noipa)) native_readahead_bind(uint32_t payload) {
     struct kui_native_ra_config cfg={KUI_NATIVE_RA_VERSION,sizeof(cfg),r,
         (const void *)(uintptr_t)descriptor,
         (void *)(uintptr_t)(lease+UINT32_C(0x20000000)+KUI_NATIVE_RA_DATA_OFFSET),
+#if KUI_TOY_TEST_BUILD
         KUI_NATIVE_RA_DATA_BYTES,lease&UINT32_C(0x1fffffff),KUI_NATIVE_RA_LEASE_BYTES
 #if KUI_NATIVE_TOY_MOVIE_CAPTURE
         ,{{0}}
@@ -180,6 +186,9 @@ static void __attribute__((noipa)) native_readahead_bind(uint32_t payload) {
         ,0u
 #endif
     };
+#else
+        KUI_NATIVE_RA_DATA_BYTES,lease&UINT32_C(0x1fffffff),KUI_NATIVE_RA_LEASE_BYTES};
+#endif
 #if KUI_NATIVE_TOY_MOVIE_CAPTURE
     memcpy(cfg.movie_ranges,toy_movie_ranges,sizeof(cfg.movie_ranges));
 #endif

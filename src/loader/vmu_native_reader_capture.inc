@@ -1,4 +1,5 @@
 /* SPDX-License-Identifier: GPL-3.0-only */
+#include "kui/toy_test_build.h"
 /* Only the diagnostic Background worker uses this private capture. It shares
  * the reader's P1 alias under the existing IMASK15 Maple hook serialization.
  * No register setup, guest buffer writes or additional allocation occurs. */
@@ -220,6 +221,7 @@ static bool __attribute__((noipa)) reader_streaming(void) {
     reader_stream.sum+=delta-reader_stream.blocks[reader_stream.at];
     reader_stream.blocks[reader_stream.at]=(uint8_t)delta;
     reader_stream.at=(uint8_t)((reader_stream.at+1u)&(READER_STREAM_FRAMES-1u));
+#if KUI_TOY_TEST_BUILD
     bool streaming=reader_stream.sum>READER_STREAM_BLOCKS;
 #if KUI_NATIVE_TOY_CACHE_CAPTURE
     bool capture=config.diagnostics==KUI_VMU_NATIVE_DIAGNOSTICS_READER_ONLY;
@@ -246,6 +248,9 @@ static bool __attribute__((noipa)) reader_streaming(void) {
     }
 #endif
     return streaming;
+#else
+    return reader_stream.sum>READER_STREAM_BLOCKS;
+#endif
 }
 #endif
 static void __attribute__((noipa)) reader_cooperative_service(void) {
@@ -434,11 +439,16 @@ static void reader_capture_poll(const struct kui_vmu_native_profile_sample *cloc
 #endif
         .call_blocks=a->stats.call_blocks,.polled=s->polled,
         .crc=s->crc_errors,.token_errors=s->token_errors,.foreign=s->foreign,
+#if KUI_TOY_TEST_BUILD
         .overruns=s->overruns,
 #if !KUI_TOY_SUITE_SLOW_RETRY
         .repaired=s->repaired,.deferred=s->deferred,
 #endif
         .function=g->diag.last_function,.command=g->command,.token=g->token,
+#else
+        .repaired=s->repaired,.overruns=s->overruns,.deferred=s->deferred,
+        .function=g->diag.last_function,.command=g->command,.token=g->token,
+#endif
         .block=a->cursor.block,.done=a->cursor.done,.pending=g->pending};
 #if KUI_NATIVE_REQUEST_TIMING
     if(sample.valid && sample.call_max<=KUI_VMU_NATIVE_PROFILE_MAX_INTERVAL &&

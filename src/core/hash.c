@@ -2,6 +2,7 @@
  * Independent implementation of the SHA-256 algorithm in FIPS 180-4.
  * https://doi.org/10.6028/NIST.FIPS.180-4
  */
+#include "kui/toy_test_build.h"
 #include "kui/hash.h"
 #include <string.h>
 static uint32_t rotate(uint32_t n, unsigned r) { return n >> r | n << (32-r); }
@@ -162,7 +163,13 @@ bool kui_sector_edc_valid(const uint8_t raw[KUI_RAW_BYTES]) {
     unsigned begin=offset==16?0:16;
     return stored==kui_cd_edc(raw+begin,end-begin);
 }
+#if KUI_TOY_TEST_BUILD
 static bool mode1_fad_valid(const uint8_t *raw,uint32_t fad) {
+#else
+bool kui_sector_edc_valid_at(const uint8_t raw[KUI_RAW_BYTES],uint32_t fad) {
+    if(!kui_sector_edc_valid(raw))return false;
+    if(raw[15]!=1u)return true;
+#endif
     /* GD-ROM extends the minute byte beyond 99 (for example 122 -> 0xc2).
      * Refuse an expected address that would wrap this representation. */
     if(fad<150u || fad>719999u)return false;
@@ -171,10 +178,12 @@ static bool mode1_fad_valid(const uint8_t *raw,uint32_t fad) {
         if(raw[12u+i]!=(uint8_t)((fields[i]/10u)*16u+fields[i]%10u))return false;
     return true;
 }
+#if KUI_TOY_TEST_BUILD
 bool kui_sector_edc_valid_at(const uint8_t raw[KUI_RAW_BYTES],uint32_t fad) {
     return kui_sector_edc_valid(raw) && (raw[15]!=1u || mode1_fad_valid(raw,fad));
 }
 
+#endif
 #if KUI_TOY_SUITE_MODE == 52
 void kui_cd_edc_table_init(struct kui_cd_edc_table *table) {
     for(unsigned i=0;i<256u;++i) {

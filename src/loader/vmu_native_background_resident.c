@@ -1,4 +1,5 @@
 /* SPDX-License-Identifier: GPL-3.0-only */
+#include "kui/toy_test_build.h"
 /* Opt-in native Background SCI reader with the prepared native VMU lease.
  * Standard builds retain their independently linked synchronous resident. */
 #if !KUI_VMU_NATIVE_BACKGROUND || !KUI_VMU_NATIVE_PERSISTENT_PROBE || !KUI_RETAIL_ASYNC || defined(KUI_RETAIL_CE) || !KUI_RETAIL_LOW_RESIDENT || !KUI_GENERAL_SCI_RESUME_FIX || !KUI_RETAIL_NATIVE_DRIVE_STATE || !KUI_RETAIL_NATIVE_DISC_CHECK
@@ -110,8 +111,14 @@ static bool native_resident_transaction(const volatile struct kui_vmu_observe_bo
         UINT32_C(0xa0000000);
 #endif
     return native_resident_terminal(c) && (
+#if KUI_TOY_TEST_BUILD
 #if KUI_TOY_SUITE_ASYNC_DEMAND || (KUI_NATIVE_COOP_PUMP && !KUI_NATIVE_PACED_CHECK && !KUI_NATIVE_IRQ_REARM)
         !target ||
+#endif
+#else
+#if KUI_NATIVE_COOP_PUMP && !KUI_NATIVE_PACED_CHECK && !KUI_NATIVE_IRQ_REARM
+        !target ||
+#endif
 #endif
         (target==c->sd_transaction && !(target&1u) &&
         (uint32_t)target-worker-NATIVE_RESIDENT_HEADER_BYTES<NATIVE_RESIDENT_WORKER_BYTES-NATIVE_RESIDENT_HEADER_BYTES));
@@ -159,6 +166,7 @@ int __attribute__((noipa,section(".vmu_sd_lease"))) kui_vmu_observe_sd_lease(
     uint32_t sr;__asm__ volatile("stc sr,%0":"=r"(sr)::"memory");
     if((sr&UINT32_C(0xf0))!=UINT32_C(0xf0) ||
        !native_resident_transaction(c,(uintptr_t)callback)) return KUI_VMU_SD_LEASE_FAULT;
+#if KUI_TOY_TEST_BUILD
 #if KUI_TOY_SUITE_ASYNC_DEMAND || (KUI_NATIVE_COOP_PUMP && !KUI_NATIVE_PACED_CHECK && !KUI_NATIVE_IRQ_REARM)
     /* Explicit non-storage command on the existing typed worker gateway.
      * Serialized on the worker's stack after its physical controller proof;
@@ -175,6 +183,21 @@ int __attribute__((noipa,section(".vmu_sd_lease"))) kui_vmu_observe_sd_lease(
         return KUI_VMU_SD_LEASE_OK;
 #endif
     }
+#endif
+#else
+#if KUI_NATIVE_COOP_PUMP && !KUI_NATIVE_PACED_CHECK && !KUI_NATIVE_IRQ_REARM
+    /* Explicit non-storage command on the existing typed worker gateway.
+     * Serialized on the worker's stack after its physical controller proof;
+     * no loan, virtual reply, bus acquisition or game interrupt setup occurs. */
+    if(!callback) {
+        if((uintptr_t)context!=KUI_RETAIL_NATIVE_PUMP_COOKIE) return KUI_VMU_SD_LEASE_FAULT;
+        if(kui_retail_hook_active || kui_retail_async_region.engine.native_loan_state)
+            return KUI_VMU_SD_LEASE_BUSY;
+        kui_retail_async_region.engine.in_irq=2u;
+        (void)kui_retail_async_irq();
+        return KUI_VMU_SD_LEASE_OK;
+    }
+#endif
 #endif
     struct kui_loader_sd loan;
     int result=kui_retail_native_async_loan_begin(&loan);

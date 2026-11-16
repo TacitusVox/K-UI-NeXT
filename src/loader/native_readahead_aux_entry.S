@@ -1,4 +1,5 @@
 /* SPDX-License-Identifier: GPL-3.0-only */
+#include "kui/toy_test_build.h"
 #define C_SYMBOL(x) _##x
     .section .native_ra_exports,"a"
     .balign 32
@@ -200,6 +201,7 @@ C_SYMBOL(kui_native_readahead_aux_visit):
 #endif
 .Ldispatch: .long C_SYMBOL(kui_native_readahead_aux_dispatch)
     .size C_SYMBOL(kui_native_readahead_aux_visit),.-C_SYMBOL(kui_native_readahead_aux_visit)
+#if KUI_TOY_TEST_BUILD
 
 /* Test 74's hand-written block loops: on with the test unless a build
  * leaves them out (include/kui/toy_wire_report.h has the same default). */
@@ -209,6 +211,7 @@ C_SYMBOL(kui_native_readahead_aux_visit):
 #endif
 /* Test 76's copy into the window: on with the test unless a build leaves
  * it out (include/kui/toy_wire_report.h has the same default). */
+#endif
 #if defined(KUI_TOY_WIRE_FLUID) && KUI_TOY_WIRE_FLUID && (!defined(KUI_TOY_WIRE_COPY) || KUI_TOY_WIRE_COPY)
 #include "toy_wire_copy.inc"
     .section .text.native_ra_entry,"ax"

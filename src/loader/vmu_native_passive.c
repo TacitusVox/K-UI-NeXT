@@ -1,8 +1,10 @@
 /* SPDX-License-Identifier: GPL-3.0-only */
+#include "kui/toy_test_build.h"
 /* Passive one-pair proof, or a separately enabled bounded read-only bridge. */
 #include "kui/vmu_native_passive.h"
 #include "kui/vmu_native_background.h"
 #include "kui/native_session.h"
+#if KUI_TOY_TEST_BUILD
 #if KUI_NATIVE_SESSION_CONTROLS
 #include "kui/native_return.h"
 #include "kui/native_disc_set.h"
@@ -11,6 +13,15 @@
 #endif
 #if KUI_NATIVE_SESSION_CONTROLS || KUI_TOY_SUITE_MODE
 #include "native_return_hardware.h"
+#endif
+#else
+#if KUI_NATIVE_SESSION_CONTROLS
+#include "kui/native_return.h"
+#include "kui/native_disc_set.h"
+#include "kui/native_session_binding.h"
+#include "kui/native_readahead.h"
+#include "native_return_hardware.h"
+#endif
 #endif
 #if KUI_NATIVE_BACKGROUND_COMPACT && \
     (!KUI_NATIVE_READAHEAD || !KUI_NATIVE_SPLIT_CONTROLLER_ISOLATION || \
@@ -2300,11 +2311,15 @@ static bool controller_complete(const struct kui_vmu_native_passive_frame *f) {
 #if KUI_NATIVE_SESSION_CONTROLS
             if(command==9u) {
 #else
+#if KUI_TOY_TEST_BUILD
             if((kui_vmu_native_early_server(NATIVE_HOT_CONFIG.driver.family)
 #if KUI_NATIVE_TOY_CACHE_CAPTURE || KUI_NATIVE_TOY_MOVIE_CAPTURE
                 || reader_only()
 #endif
                ) && command==9u) {
+#else
+            if(kui_vmu_native_early_server(NATIVE_HOT_CONFIG.driver.family) && command==9u) {
+#endif
 #endif
                 uint32_t controls;
                 if(!read_value(NULL,address+8u,4u,&controls))

@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: GPL-3.0-only */
 #ifndef KUI_SCI_STREAM_H
 #define KUI_SCI_STREAM_H
+#include "kui/toy_test_build.h"
 #include "sd_reader.h"
 #define KUI_TOY_SUITE_WIDE_EDC (KUI_TOY_SUITE_MODE == 52)
 #define KUI_TOY_SUITE_FRAME_TIMING (KUI_TOY_SUITE_MODE >= 60 && KUI_TOY_SUITE_MODE <= 66)
@@ -30,7 +31,9 @@
 #define KUI_TOY_SUITE_DIRECT_PIO (KUI_TOY_SUITE_MODE == 43)
 #define KUI_TOY_SUITE_PIPELINED_PIO (KUI_TOY_SUITE_MODE == 41 || (KUI_TOY_SUITE_MOVIE_CHUNK && !KUI_TOY_SUITE_VERIFIED_RESUME) || KUI_TOY_SUITE_DIRECT_PIO)
 #define KUI_TOY_SUITE_PIO_WINDOW (KUI_TOY_SUITE_MODE == 40 || KUI_TOY_SUITE_PIPELINED_PIO)
+#if KUI_TOY_TEST_BUILD
 #define KUI_TOY_SCI_PIO_WINDOW_FIRST 253u
+#endif
 #define KUI_TOY_SUITE_MOVIE_EXIT (KUI_TOY_SUITE_MODE == 39 || KUI_TOY_SUITE_PIO_WINDOW || KUI_TOY_SUITE_VERIFIED_RESUME)
 #define KUI_TOY_SUITE_REFILL_SLICE (KUI_TOY_SUITE_MODE == 38 || KUI_TOY_SUITE_MOVIE_EXIT)
 #define KUI_TOY_SUITE_SLOW_RETRY (KUI_TOY_SUITE_MODE == 37 || (KUI_TOY_SUITE_REFILL_SLICE && !KUI_TOY_SUITE_VERIFIED_RESUME))
@@ -68,7 +71,9 @@
  * kui_sci_stream_stop and kui_sci_stream_wait. All card waits are bounded by
  * byte counts. The bus must be acquired and the card ready at fast speed. */
 #define KUI_SCI_STREAM_AREA_BYTES 544u /* 513 DMA bytes in whole cache lines */
+#if KUI_TOY_TEST_BUILD
 #define KUI_SCI_STREAM_DMA_STATE 2u
+#endif
 enum kui_sci_stream_result {
     KUI_SCI_STREAM_OK, KUI_SCI_STREAM_PENDING,
     KUI_SCI_STREAM_BUSY,     /* channel 1 or the SCI was taken over: not ours */
@@ -98,10 +103,14 @@ struct kui_sci_stream_stats {
     uint32_t toy_pio_window_blocks, toy_pio_window_ok;
 #endif
 #else
+#if KUI_TOY_TEST_BUILD
     union {
         uint32_t repaired; /* Overruns resumed in place before an ordinary CRC-checked reread. */
         uint32_t toy_resumed_blocks; /* Provisional blocks passed only to RAW staging. */
     };
+#else
+    uint32_t repaired; /* overruns resumed in place, the lost byte rebuilt from the CRC */
+#endif
     /* ahead: repaired blocks whose last byte was the card's gap or next
      * token: the resumed reception ran a byte ahead (fetched again). */
     uint32_t ahead;

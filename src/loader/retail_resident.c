@@ -1,4 +1,5 @@
 /* SPDX-License-Identifier: GPL-3.0-only */
+#include "kui/toy_test_build.h"
 #include "kui/retail_resident.h"
 #if KUI_SMASH_MENU_LOADER
 #include "kui/smash_menu_loader.h"
@@ -1716,11 +1717,15 @@ int32_t kui_retail_resident_dispatch(uint32_t r4, uint32_t r5,
 #if KUI_NATIVE_LOADER_TIMELINE && !KUI_NATIVE_STANDALONE_READER
     kui_retail_async_trace(1u,r7);
 #endif
+#if KUI_TOY_TEST_BUILD
     if(service.error == KUI_GD_ERROR_IO
 #if KUI_TOY_SUITE_ASYNC_DEMAND
        && !kui_retail_async_region.shared.stream.toy_suite_active
 #endif
       )
+#else
+    if(service.error == KUI_GD_ERROR_IO)
+#endif
         report_fault("IMAGE READ FAILED", r7, r5);
     if(r7 == KUI_GD_REQUEST && !service.command && result == 0)
 #if KUI_RETAIL_OBSERVE

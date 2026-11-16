@@ -1,4 +1,5 @@
 /* SPDX-License-Identifier: GPL-3.0-only */
+#include "kui/toy_test_build.h"
 #include "retail_display.h"
 #include "kui/version.h"
 #include <stddef.h>
@@ -160,6 +161,7 @@ void retail_display_line(const char *text) {
      * Keep the stage and every live/scrolling renderer on the original path. */
     while(*text && x<612) {
         unsigned char c=(unsigned char)*text++;
+#if KUI_TOY_TEST_BUILD
 #if (KUI_NATIVE_GD_VRAM_DMA && defined(KUI_RETAIL_ASYNC)) || KUI_TOY_LOW_TERMINAL
         /* This terminal's fixed labels and hex rows contain only ASCII
          * letters, digits and spaces; no title or external string is drawn. */
@@ -194,6 +196,43 @@ void retail_display_line(const char *text) {
                 for(unsigned dy=0;dy<2;dy++)
                     for(unsigned dx=0;dx<2;dx++)
                         frame[(row+y*2+dy)*stride+x+a*2+dx]=0xffff;
+#endif
+#else
+#if KUI_NATIVE_GD_VRAM_DMA && defined(KUI_RETAIL_ASYNC)
+        /* This terminal's fixed labels and hex rows contain only ASCII
+         * letters, digits and spaces; no title or external string is drawn. */
+        if(c>='a')c-=32;
+        int n=c>='A'?c-'A':c>='0'?c-'0'+26:-1;
+#else
+        if(c>='a' && c<='z') c-=32;
+        int n=c>='A'&&c<='Z'?c-'A':c>='0'&&c<='9'?c-'0'+26:-1;
+#endif
+        for(unsigned y=0;y<7;y++) {
+            unsigned bits=n>=0?glyph_row((unsigned)n,y):
+#if KUI_NATIVE_GD_VRAM_DMA && defined(KUI_RETAIL_ASYNC)
+                /* This stopped profile prints only letters, digits and
+                 * spaces. Keep its fixed diagnostic pixels unchanged. */
+                0;
+#else
+                c=='-'&&y==3?14:
+                c==':'&&(y==2||y==5)?4:c=='.'&&y==6?4:
+                c=='/'?1u<<(y<5?y:4):0;
+#endif
+            for(unsigned a=0;a<5;a++) if(bits&(16u>>a))
+#if KUI_NATIVE_GD_DMA_STREAM && defined(KUI_RETAIL_ASYNC)
+            {
+                /* x starts at20 and advances12; every doubled glyph column
+                 * is a naturally aligned pair of RGB565 pixels. Preserve
+                 * the same four pixels using two volatile word stores. */
+                volatile uint32_t *pair=(volatile uint32_t *)
+                    (frame+(row+y*2u)*stride+x+a*2u);
+                pair[0]=UINT32_MAX;pair[stride/2u]=UINT32_MAX;
+            }
+#else
+                for(unsigned dy=0;dy<2;dy++)
+                    for(unsigned dx=0;dx<2;dx++)
+                        frame[(row+y*2+dy)*stride+x+a*2+dx]=0xffff;
+#endif
 #endif
         }
         x+=12;

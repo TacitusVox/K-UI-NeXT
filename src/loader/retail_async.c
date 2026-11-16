@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: GPL-3.0-only
  * Original K-UI background game reader (see retail_async.h). The stream
  * sequence is the one the SCI async probe proved on the console. */
+#include "kui/toy_test_build.h"
 #include "kui/native_readahead.h"
 #include "retail_async.h"
 #include "kui/native_standalone_foreground.h"
@@ -809,6 +810,7 @@ deliver_work(uint32_t wait) {
 #if KUI_ARMADA_CE_STREAM
            && stream_event(KUI_ARMADA_CE_STREAM_BUS_DATA_PREFETCH,0)
 #endif
+#if KUI_TOY_TEST_BUILD
           ) {
 #if KUI_TOY_SUITE_MODE == 7
             if(R.shared.stream.toy_suite_active) ++R.shared.stream.toy_suite_events;
@@ -816,6 +818,10 @@ deliver_work(uint32_t wait) {
 #endif
             (void)kui_sci_stream_fetch(lba + 1u, TOKEN_LIMIT, false);
         }
+#else
+          )
+            (void)kui_sci_stream_fetch(lba + 1u, TOKEN_LIMIT, false);
+#endif
 #if KUI_ARMADA_CE_STREAM
         struct kui_armada_ce_stream_data_take held={lba,KUI_SCI_STREAM_PENDING,0,NULL};
         (void)stream_event(KUI_ARMADA_CE_STREAM_BUS_DATA_TAKE,(uintptr_t)&held);
@@ -879,6 +885,7 @@ static uint32_t native_readahead_visit(uint32_t event,uint32_t arg) {
     kui_native_ra_visit visit=(kui_native_ra_visit)(uintptr_t)
         R.vector600[KUI_NATIVE_RA_ENTRY_INDEX];
     /* An unbound auxiliary has no speculative receiver to quiesce. */
+#if KUI_TOY_TEST_BUILD
     uint32_t frame=0u;
 #if KUI_TOY_SUITE_MOVIE_POLL
     if(event==KUI_NATIVE_RA_DEMAND_GD_ENTER)frame=kui_toy_poll_frame;
@@ -904,6 +911,12 @@ static void deliver(uint32_t wait) {
     if(R.shared.stream.state>=KUI_TOY_SCI_BURST_TOKEN)return;
 #endif
     deliver_work(wait);
+#else
+    return visit?visit(event,arg,&R,0u):event==KUI_NATIVE_RA_QUIESCE;
+}
+static void deliver(uint32_t wait) {
+    if(!native_readahead_visit(KUI_NATIVE_RA_DELIVER,wait))deliver_work(wait);
+#endif
 }
 /* The stage proves every complete entry and the retained region pointer
  * against this immutable, separately gated low-resident descriptor. */
@@ -911,6 +924,7 @@ const struct kui_native_ra_low_ops kui_native_ra_reader_ops
     __attribute__((section(".rodata.native_readahead")))={
     KUI_NATIVE_RA_OPS_MAGIC,KUI_NATIVE_RA_VERSION,sizeof(struct kui_native_ra_low_ops),
     &kui_retail_async_region_storage,deliver_work,hook,unhook,
+#if KUI_TOY_TEST_BUILD
     kui_sci_stream_fetch,
 #if KUI_TOY_SUITE_MODE == 27 || KUI_TOY_SUITE_MODE == 28
     cold_burst_bus,
@@ -918,6 +932,9 @@ const struct kui_native_ra_low_ops kui_native_ra_reader_ops
     kui_sci_stream_poll,
 #endif
     kui_sci_stream_take,
+#else
+    kui_sci_stream_fetch,kui_sci_stream_poll,kui_sci_stream_take,
+#endif
     kui_sci_stream_stop,kui_sci_stream_busy,kui_retail_cursor_feed
 };
 #elif defined(KUI_RETAIL_CE)
@@ -1393,11 +1410,15 @@ void kui_retail_async_call(uint32_t function) {
         /* An EXEC or CHECK waits for the blocks nothing delivered since the
          * previous one, up to the target: the data a game waits for keeps
          * coming while the interrupt is held off. */
+#if KUI_TOY_TEST_BUILD
         if(
 #if KUI_TOY_SUITE_MOVIE_POLL
            !R.shared.stream.toy_suite_poll &&
 #endif
            tops_up(function) && e.since < e.target) {
+#else
+        if(tops_up(function) && e.since < e.target) {
+#endif
             wait = e.target - e.since;
 #if !KUI_NATIVE_GD_MMU_BUFFERS && !KUI_TOY_SUITE_MOVIE_POLL
             ++e.stats.waits;

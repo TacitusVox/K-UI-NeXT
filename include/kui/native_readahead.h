@@ -1,7 +1,10 @@
 /* SPDX-License-Identifier: GPL-3.0-only */
 #ifndef KUI_NATIVE_READAHEAD_H
 #define KUI_NATIVE_READAHEAD_H
+#include "kui/toy_test_build.h"
+#if KUI_TOY_TEST_BUILD
 #include <stddef.h>
+#endif
 #include <stdint.h>
 #include <stdbool.h>
 #include "kui/retail_cursor.h"
@@ -26,7 +29,11 @@ enum kui_native_ra_event {
     KUI_NATIVE_RA_QUIESCE=3u,
     KUI_NATIVE_RA_RESUME=4u,
     KUI_NATIVE_RA_RESET=5u,
+#if KUI_TOY_TEST_BUILD
     KUI_NATIVE_RA_CAPTURE_START=6u,
+#else
+    KUI_NATIVE_RA_CAPTURE_START=6u
+#endif
 #if KUI_NATIVE_TOY_MOVIE_CAPTURE
     KUI_NATIVE_RA_MOVIE_COMPLETE=7u,
 #endif
@@ -288,6 +295,7 @@ struct kui_native_ra_public {
 };
 _Static_assert(sizeof(struct kui_native_ra_hw_snapshot)==32u,"read-ahead hardware snapshot ABI");
 _Static_assert(sizeof(struct kui_native_ra_failure_snapshot)==148u,"read-ahead failure snapshot ABI");
+#if KUI_TOY_TEST_BUILD
 _Static_assert(offsetof(struct kui_native_ra_public,diagnostics)==76u,"read-ahead diagnostic prefix ABI");
 #if KUI_TOY_SUITE_MOVIE_EXIT
 _Static_assert(offsetof(struct kui_native_ra_public,movie_exit)==KUI_TOY_MOVIE_EXIT_OFFSET,
@@ -306,6 +314,14 @@ _Static_assert(sizeof(struct kui_native_ra_config)==84u,"Toy suite configuration
 #elif KUI_NATIVE_TOY_MOVIE_CAPTURE
 _Static_assert(sizeof(struct kui_native_ra_config)==64u,"movie trace configuration ABI");
 #else
+_Static_assert(sizeof(struct kui_native_ra_config)==32u,"read-ahead configuration ABI");
+#endif
+#endif
+#else
+_Static_assert(sizeof(struct kui_native_ra_public)==656u,"read-ahead diagnostic prefix ABI");
+#if UINTPTR_MAX == UINT32_MAX
+_Static_assert(sizeof(struct kui_native_ra_low_ops)==52u,"read-ahead low operations ABI");
+_Static_assert(sizeof(struct kui_native_ra_exports)==64u,"read-ahead auxiliary exports ABI");
 _Static_assert(sizeof(struct kui_native_ra_config)==32u,"read-ahead configuration ABI");
 #endif
 #endif

@@ -1,4 +1,5 @@
 /* SPDX-License-Identifier: GPL-3.0-only */
+#include "kui/toy_test_build.h"
 #include "native_return_hardware.h"
 #include <stddef.h>
 
@@ -45,6 +46,7 @@ static bool dma_buffer(uint32_t address,size_t bytes) {
     return !(address&31u) && address>=UINT32_C(0x0c010000) &&
         address<=UINT32_C(0x0d000000)-bytes;
 }
+#if KUI_TOY_TEST_BUILD
 static int controller_visit(volatile uint32_t *tx_words,volatile uint32_t *rx_words,uint32_t *buttons) {
     if(buttons)*buttons=0u;
     if(!buttons || controller_fault || !irq_masked() || (read_hw(MAPLE_STATE)&1u))return -1;
@@ -55,6 +57,18 @@ static int controller_visit(volatile uint32_t *tx_words,volatile uint32_t *rx_wo
     for(unsigned i=0;i<256u;++i)rx_words[i]=UINT32_MAX;
     tx_words[0]=UINT32_C(0x80000001);tx_words[1]=rx;
     tx_words[2]=UINT32_C(0x01002009);tx_words[3]=UINT32_C(0x01000000);
+#else
+int kui_native_return_controller(uint32_t *buttons) {
+    if(buttons)*buttons=0u;
+    if(!buttons || controller_fault || !irq_masked() || (read_hw(MAPLE_STATE)&1u))return -1;
+    uint32_t tx=physical((const void *)(uintptr_t)controller_tx);
+    uint32_t rx=physical((const void *)(uintptr_t)controller_rx);
+    if(!dma_buffer(tx,sizeof(controller_tx)) || !dma_buffer(rx,sizeof(controller_rx)))return -1;
+    uint32_t old_addr=read_hw(MAPLE_ADDR),old_protect=read_hw(MAPLE_PROTECT);
+    for(unsigned i=0;i<256u;++i)controller_rx[i]=UINT32_MAX;
+    controller_tx[0]=UINT32_C(0x80000001);controller_tx[1]=rx;
+    controller_tx[2]=UINT32_C(0x01002009);controller_tx[3]=UINT32_C(0x01000000);
+#endif
     /* This terminal path owns the bus; a software trigger cannot resurrect
      * the game's VBlank chain. Full16MiB protection includes both buffers. */
     write_hw(MAPLE_ENABLE,0u);write_hw(MAPLE_SELECT,0u);
@@ -72,6 +86,7 @@ static int controller_visit(volatile uint32_t *tx_words,volatile uint32_t *rx_wo
     write_hw(MAPLE_ADDR,old_addr);write_hw(MAPLE_SELECT,0u);
     write_hw(MAPLE_PROTECT,old_protect);write_hw(MAPLE_ENABLE,0u);
     if(!complete)return 0;
+#if KUI_TOY_TEST_BUILD
     uint32_t header=rx_words[0];
     if((header&UINT32_C(0xff00ffff))!=UINT32_C(0x03000008) ||
        (header&UINT32_C(0x00e00000))!=UINT32_C(0x00200000) ||
@@ -88,6 +103,13 @@ int kui_native_return_controller_in(struct kui_native_return_controller_workspac
         return -1;
     }
     return controller_visit(buffers->tx,buffers->rx,buttons);
+#else
+    uint32_t header=controller_rx[0];
+    if((header&UINT32_C(0xff00ffff))!=UINT32_C(0x03000008) ||
+       (header&UINT32_C(0x00e00000))!=UINT32_C(0x00200000) ||
+       controller_rx[1]!=UINT32_C(0x01000000))return 0;
+    *buttons=(~controller_rx[2])&UINT32_C(0xffff);return 1;
+#endif
 }
 bool kui_native_return_quiesce(void) {
     if(!irq_masked() || controller_fault || !wait_clear(MAPLE_STATE,1u) ||
