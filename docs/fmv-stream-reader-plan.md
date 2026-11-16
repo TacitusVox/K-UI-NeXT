@@ -1,12 +1,14 @@
 # The card stream reader beyond Toy Commander: a proposal
 
 Status: proposal of 15 November 2026. Step 2 was begun at the owner's
-word of the same day (decision 1) and is delivered as Test 77
-(`docs/toy-wire-stream-test-77.md`), with host and linked checks only:
-its console test is pending. Nothing else here is built or approved. It
-answers the owner's remark after Test 76's console run, "then we can
-probably package this for every game's FMVs", with what that takes and
-in what order. The decisions at the end are the owner's.
+word of the same day (decision 1), is delivered as Test 77
+(`docs/toy-wire-stream-test-77.md`) and has its console result: two
+runs that evening, the second movie at 1,959 and 1,965 of 1,968 frames
+against the baseline's 1,953, the game played on into a level, no error
+in either report. Step 3 has its baseline. Nothing else here is built
+or approved. It answers the owner's remark after Test 76's console run,
+"then we can probably package this for every game's FMVs", with what
+that takes and in what order. The decisions at the end are the owner's.
 
 It rests on an independent map of the code and documents
 (`docs/evidence/toy-wire-stream-76/generalization-map.md`, as returned).

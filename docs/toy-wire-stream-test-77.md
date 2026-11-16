@@ -1,8 +1,10 @@
 # Toy Commander Test 77: the window opened by consecutive reads
 
-Status: delivered 15 November 2026 (build `ded3083ecdf8`), host and
-linked checks only. It has not run on a console. A test module for one
-title, not an accepted component.
+Status: delivered 15 November 2026 (build `ded3083ecdf8`) and run twice
+on the owner's console the same evening (Console result, below): the
+movies as the baseline or better, the game played on into a level, no
+error in either report. A test module for one title, not an accepted
+component.
 
 This is step 2 of `docs/fmv-stream-reader-plan.md`. After the comparison
 run of Test 76 the owner wrote: "Otherwise it's probably safe to adapt
@@ -182,6 +184,125 @@ Reading them:
 
 The owner's observation of loading times in Run 2 is part of the
 result: nothing in the report times a load.
+
+## Console result
+
+The owner's two runs of 15 November 2026, by the package's README, with
+CD Music and virtual VMU off. Two saved reports of 1,024 bytes, both
+headed `TEST 77`, `BUILD ded3083ecdf8`, `PT` `1BD`:
+
+| Run | File | SHA-256 |
+|---|---|---|
+| 1, the movies | `docs/evidence/toy-wire-stream-77/console-report-66-run-1.txt` | `cbae8cef...6c3d` |
+| 2, into a level | `docs/evidence/toy-wire-stream-77/console-report-66-run-2.txt` | `5dfd7e60...638a` |
+
+Decoded by `decode_report.py` in the same folder
+(`console-report-decoded.txt`), which reads the baseline's report too.
+
+Owner's observation: "First run lost 9 frames. I don't think the second
+run even missed any frames so it might be random chance." The message
+names no fault in the menus or in the level and says nothing of loading
+times.
+
+| | 66-11, the baseline | Run 1 | Run 2 |
+|---|---|---|---|
+| First movie: frames submitted / on time | 331 / 330 | 331 / 330 | 331 / 330 |
+| Second movie: frames submitted of 1,968 | 1,953 | 1,959 | 1,965 |
+| Of those on time and in sequence | 1,947 | 1,953 | 1,960 |
+| Frames skipped, first at the player's frame | 15, 1,089 | 9, 1,080 | 3, 1,180 |
+| Longest gap between frames | 0.288 s after 1,130 | 0.100 s after 1,133 | 0.065 s after 1,177 |
+| Second movie's first frame | 0.801 s | 0.806 s | 0.809 s |
+| Calls that put a frame out, each | 1,952, 30.2 ms | 1,958, 30.2 ms | 1,964, 30.2 ms |
+| Windows opened, first movie / second | 2 / 2 | 3 / 3 | 3 / 3 |
+| Sectors served from them | 3,421 / 25,824 | 3,421 / 25,824 | 3,421 / 25,824 |
+| Windows opened by other reads, sectors served from them | none can be | 21, 106 | 28, 133 |
+| Requests served from a window | 2,416 | 2,450 | 2,457 |
+| Requests the game waited for that kept their window | 53 | 81 | 90 |
+| Windows given up: for a read elsewhere / for a command | | 23 / 4 | 29 / 5 |
+| Given up on an error / on the request's state / on a wait | | 0 / 0 / 0 | 0 / 0 / 0 |
+| Sectors verified into windows / served | 29,288 / 29,245 | 29,914 / 29,351 | 30,149 / 29,378 |
+| Delivery visits from the game's disc calls | 6,823 | 10,772 | 46,531 |
+| All pumps | 8.88 s | 9.17 s | 9.20 s |
+| Card blocks, pump time for each | 135,696, 65.4 us | 138,695, 66.1 us | 139,684, 65.9 us |
+| Streams begun | 656 | 700 | 685 |
+| Ended on a byte between blocks neither idle nor token | 628 | 655 | 627 |
+| The same for every hundred overruns in a run | 3.17 | 3.22 | 3.10 |
+| Blocks handed on with lost bytes / sectors completed from parity | 2,843 / 1,867 | 2,786 / 1,775 | 2,704 / 1,716 |
+| Rebuilt bytes not confirmed / sectors failing the EDC watch | 0 / 0 | 0 / 0 | 0 / 0 |
+| Stream errors | 0 | 0 | 0 |
+
+The second movie by piece of its course (5.4 s each):
+
+| Piece | 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| Frames submitted, 66-11 | 136 | 164 | 161 | 162 | 161 | 162 | 153 | 154 | 162 | 162 | 161 | 215 |
+| Run 1 | 136 | 163 | 162 | 161 | 162 | 161 | 157 | 157 | 161 | 163 | 161 | 215 |
+| Run 2 | 136 | 163 | 162 | 161 | 162 | 161 | 162 | 158 | 161 | 163 | 161 | 215 |
+| Requests waited, s, Run 1 | 0.06 | 0 | 0 | 0 | 0 | 0 | 0.04 | 0 | 0.02 | 0.48 | 0 | 0.10 |
+| Run 2 | 0.06 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0.15 | 0.57 | 0 | 0.04 |
+| Player's buffer at its emptiest, KiB of 804, Run 1 | 256 | 32 | 144 | 68 | 40 | 36 | 32 | 28 | 100 | 68 | 736 | 496 |
+| Run 2 | 256 | 32 | 144 | 124 | 208 | 208 | 32 | 28 | 152 | 56 | 740 | 508 |
+| Reader, s, Run 1 | 0.52 | 0.65 | 0.67 | 0.65 | 0.63 | 0.65 | 0.65 | 0.71 | 0.82 | 0.71 | 0.29 | 0.59 |
+| Run 2 | 0.52 | 0.65 | 0.65 | 0.65 | 0.61 | 0.65 | 0.59 | 0.71 | 0.84 | 0.75 | 0.29 | 0.59 |
+
+What the runs say, by the outcomes above:
+
+1. **The trigger keeps the movies.** Both movies get the same sectors
+   from windows as in the baseline, 3,421 and 25,824, with nothing in
+   the reader that knows a movie's file or asks the player whether one
+   is playing. The second movie begins at the same time (0.81 s against
+   0.80), a frame costs the player's call the same 30.2 ms, and a card
+   block costs the reader 66 microseconds against 65.4. No window was
+   given up on an error, on a wait or on the request's state in either
+   run. That is the first row of the outcomes: step 3 has its baseline.
+2. **The frames lost are fewer, and that is not claimed as a gain.** 9
+   and 3 against the baseline's 15 and Test 76's 26. All of them lie
+   where they lay before, in pieces 6 and 7 of the course (32 to 43 s,
+   the player's frames 1,080 to 1,180), and the reader does nothing
+   differently while a movie plays. Four runs of what is one reader
+   there have now lost 26, 15, 9 and 3 frames in that scene: its size
+   is the run's, as the owner says. Run 1 has requests waiting in piece
+   6 for 0.04 s in all; Run 2 lost its three with no request waiting
+   between the 5th and the 43rd second, as both earlier runs did. The
+   longest gap is three frame periods in Run 1 and two in Run 2.
+3. **Each movie has three windows where it had two.** The sectors
+   served are the same, so one window more was opened by a read inside
+   each file and given up again. Where in the movie is not in the
+   report. The second movie's first frame is not later for it.
+4. **Ordinary loading went through windows and came to no harm.** 21
+   windows were opened by reads outside the movies in Run 1 and 28 in
+   Run 2, every one given up for a read elsewhere or for a command that
+   is not a read, none for an error. No sector failed its check (`LB`
+   0), no rebuilt byte went unconfirmed (`MB` 0), the stream reported
+   no error, and the level was reached and played. That is the fourth
+   row of the outcomes, with the limit of point 5.
+5. **Toy Commander's loading hardly reads that way.** Run 2 has 35,759
+   more delivery visits from the game's disc calls than Run 1 and seven
+   more windows, which served 27 more sectors in seven more requests. A
+   window outside the movies serves five sectors on average, in fewer
+   than two requests, before the game reads elsewhere. So this game
+   says that such windows do no harm; it cannot say what they gain or
+   cost a game that loads in many small consecutive reads. That
+   question goes to the games of step 4.
+6. **What the windows cost here.** Every window given up is a stream
+   ended and a CMD12 (Known limits 2): 27 and 34 of the 700 and 685
+   streams begun ended that way, against 4 of the baseline's 656. More
+   sectors were read ahead than served: 563 and 771 against the
+   baseline's 43, about 1.3 and 1.8 MB of card reading over the whole
+   run that nobody asked for, checked in interrupt time like the rest.
+   Part of it is the movies' own windows, which now read on behind
+   their file's end. No frame count and no row by piece shows a price
+   for it.
+7. **A loan with a window open has not run on the console.** In both
+   runs the windows given up equal the windows opened (27 and 34), so
+   none was open when the card was lent for the report's save. That
+   path has its host scenario (`sequence_lent()`) and no console run.
+   The same holds for a stream standing under a filled window for a
+   long time (Known limits 1): the report cannot say how long one stood.
+
+Not answered by these runs: loading times in the menus and the level
+(nothing in the report times a load, and the owner's message does not
+speak of them), and anything about another title.
 
 ## Known limits, not changed here
 
