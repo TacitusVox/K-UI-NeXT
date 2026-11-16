@@ -317,6 +317,11 @@ static void install_raw_sector(uint32_t lba, bool with_parity) {
 
 /* ---- the console's side ---- */
 static unsigned long eris, timers, polls;
+#if KUI_TOY_WIRE_TIMER
+/* Test 81: whether the other title's scenario under way has that title
+ * using both spare timers, and whether the next one shall. */
+static bool other_timers_used, other_title_busy;
+#endif
 #if KUI_TOY_WIRE_CLEAN
 static uint32_t light_bad_expected;
 #endif
@@ -396,6 +401,14 @@ static void open_card(unsigned extent_blocks, bool scattered, bool with_parity,
     for(unsigned i = 0; i < 64u; ++i) wx.slots[i] = UINT32_C(0x8c0be408);
     wx.tcnt0 = UINT32_C(0x60000000);
     wx.tstr = 1u; /* the game's clock, TMU0, runs */
+#if KUI_TOY_WIRE_TIMER
+    /* Test 81: the stream takes its timer by what the low resident holds
+     * of the title's table. The table modelled here is Toy Commander's:
+     * so is the default the resident admitted. (The base fixture has
+     * another title's word there, which no one read before.) */
+    R.vector600[KUI_NATIVE_SDK_SCI_DEFAULT_INDEX] = UINT32_C(0x8c0be408);
+    other_timers_used = false;
+#endif
     wire_clock_shared = false;
     m.extra = arena + sizeof(arena) - RING_BYTES;
     m.extra_base = RING_PHYSICAL;
@@ -3295,9 +3308,45 @@ static void any_owed(void) {
  * of the game's begins it again. On a quiet bus, and on two that cut
  * runs short. */
 #define OTHER_DEFAULT UINT32_C(0x8c1add0c)
+/* Test 81: the entries of the two spare timers in another title's table,
+ * and a handler of the title's own for them. */
+enum { OTHER_TMU1 = 17, OTHER_TMU2 = 18 };
+#define OTHER_HANDLER UINT32_C(0x8c123456)
+#if KUI_TOY_WIRE_TIMER
+/* That title with its table as the low resident admitted it: the stream
+ * has a timer there, unless the title uses both spare timers itself. */
+static void other_table(bool used) {
+    for(unsigned i = 0; i < 64u; ++i) wx.slots[i] = OTHER_DEFAULT;
+    R.vector600[KUI_NATIVE_SDK_SCI_DEFAULT_INDEX] = OTHER_DEFAULT;
+    if(used) wx.slots[OTHER_TMU1] = wx.slots[OTHER_TMU2] = OTHER_HANDLER;
+    other_timers_used = used;
+}
+#define OTHER_TIMER (!other_timers_used)
+#else
+#define OTHER_TIMER false
+#endif
+/* The title's table as the stream may leave it: every entry the title's
+ * own word, but for the timer's while a stream that took one runs. */
+static void other_table_kept(const struct kui_toy_wire_report *w) {
+    for(unsigned i = 0; i < 64u; ++i) {
+        uint32_t word = OTHER_DEFAULT;
+#if KUI_TOY_WIRE_TIMER
+        if(other_timers_used && (i == OTHER_TMU1 || i == OTHER_TMU2)) word = OTHER_HANDLER;
+        if(w->timer_mode && stream_on() && i == OTHER_TMU1 - 1u + w->timer_mode)
+            word = (uint32_t)(uintptr_t)kui_toy_wire_timer_callback;
+#else
+        (void)w;
+#endif
+        CHECK(wx.slots[i] == word);
+    }
+}
 static void titles_other(bool source, uint32_t mean, unsigned dense) {
     open_card(2000u, false, true, file_amid, false);
+#if KUI_TOY_WIRE_TIMER
+    other_table(other_title_busy);
+#else
     for(unsigned i = 0; i < 64u; ++i) wx.slots[i] = OTHER_DEFAULT;
+#endif
     stall_mean = mean; stall_dense = dense;
     wire_clock_shared = true;
     struct kui_native_ra_config config = movie_configuration();
@@ -3317,10 +3366,24 @@ static void titles_other(bool source, uint32_t mean, unsigned dense) {
         CHECK(!trace[0] && !trace[1] && !trace[2] && !trace[3]);
     }
     CHECK(lba == 45300u && !w->first_error && !c->stats.abandoned);
-    /* No timer was taken and none ever ran for the stream; the title's
-     * table is as it was. */
-    CHECK(!w->timer_mode && !timers);
-    for(unsigned i = 0; i < 64u; ++i) CHECK(wx.slots[i] == OTHER_DEFAULT);
+    if(OTHER_TIMER && source) {
+        /* Test 81: the stream took the title's second spare timer by the
+         * title's own table, and its waits were ended by it. */
+        CHECK(w->timer_mode == 2u && (!mean || timers > 8u));
+    } else {
+        /* No timer was taken and none ever ran for the stream. */
+        CHECK(!w->timer_mode && !timers);
+    }
+    /* The title's table is as it was, but for a running stream's timer. */
+    other_table_kept(w);
+    if(source && mean && OTHER_TIMER) {
+        CHECK(w->n.waits > 8u && w->other_windows && c->stats.hit_requests && !w->drops[KUI_TOY_WIRE_DROP_ERROR]);
+        printf("  another title, the stream's timer by the title's own table, stalls %u/%u: %u waits, %lu answers "
+               "of the timer; %u requests of five from %u windows, %u streams begun; data exact\n",
+            (unsigned)mean, dense, (unsigned)w->n.waits, timers, (unsigned)c->stats.hit_requests,
+            (unsigned)w->other_windows, (unsigned)w->n.starts);
+        return;
+    }
     if(source && mean) {
         /* A bus that cuts runs short. Every wait but one that may still
          * stand lasted its time at least: none was ended by the look
@@ -3342,9 +3405,10 @@ static void titles_other(bool source, uint32_t mean, unsigned dense) {
         CHECK(c->movie_ahead.variant == OTHER_WINDOW && w->other_windows == 1u && c->stats.hit_requests == 4u);
         CHECK(w->other_sectors == 50u + 73u + 50u + 52u && w->large_requests == 1u && !w->large_returned);
         CHECK(card.cmd18 == 1u && !card.cmd12 && w->n.starts == 1u);
-        printf("  another title on a disc with a raw track, no timer for the stream: Evolution 2's refills served "
+        printf("  another title on a disc with a raw track, %s: Evolution 2's refills served "
                "from one window, four requests of five, nothing counted as a movie's, the movie policy never on; "
-               "CMD18 %u, CMD12 %u\n", card.cmd18, card.cmd12);
+               "CMD18 %u, CMD12 %u\n", OTHER_TIMER ? "the stream's timer taken by the title's own table" :
+            "no timer for the stream", card.cmd18, card.cmd12);
     } else {
         CHECK(!c->movie_ahead.variant && !stream_on() && !w->other_windows && !c->stats.hit_requests);
         CHECK(!w->n.starts && !w->large_requests && card.cmd18 == 1u && !card.cmd12);
@@ -3390,7 +3454,11 @@ static void sequence_programmed(void) {
  * cuts runs short. */
 static void titles_asked(bool asks, uint32_t mean, unsigned dense) {
     open_card(2000u, false, true, file_amid, false);
+#if KUI_TOY_WIRE_TIMER
+    other_table(false);
+#else
     for(unsigned i = 0; i < 64u; ++i) wx.slots[i] = OTHER_DEFAULT;
+#endif
     stall_mean = mean; stall_dense = dense;
     wire_clock_shared = true;
     struct kui_native_ra_config config = movie_configuration();
@@ -3421,13 +3489,15 @@ static void titles_asked(bool asks, uint32_t mean, unsigned dense) {
     }
     CHECK(lba == 45300u && !w->first_error && !c->stats.abandoned && !w->large_returned);
     /* The longest single pump of each caller is one of its pumps: no more
-     * than their sum and no less than their mean. This title's stream has
-     * no timer. The longest delivery visit likewise, of the game's disc
-     * calls. */
+     * than their sum and no less than their mean. Up to Test 80 this
+     * title's stream has no timer, and no pump of one. The longest
+     * delivery visit likewise, of the game's disc calls. */
     for(unsigned who = 0u; who < KUI_TOY_WIRE_VISITS; ++who) {
         CHECK(w->visit_longest[who] <= w->visit_ticks[who] &&
             (uint64_t)w->visit_longest[who] * w->visit_calls[who] >= w->visit_ticks[who]);
-        CHECK(!w->visit_longest[who] == (who == KUI_TOY_WIRE_VISIT_TIMER));
+        if(who != KUI_TOY_WIRE_VISIT_TIMER) CHECK(w->visit_longest[who]);
+        else if(!KUI_TOY_WIRE_TIMER) CHECK(!w->visit_longest[who] && !w->visit_calls[who]);
+        else CHECK(!w->visit_longest[who] == !w->visit_ticks[who] && (!mean || w->visit_calls[who]));
     }
     CHECK(w->deliver_longest && w->deliver_longest <= w->deliver_ticks &&
         (uint64_t)w->deliver_longest * w->deliver_calls >= w->deliver_ticks);
@@ -3873,7 +3943,7 @@ int main(void) {
     /* Test 66's own chunk classification is untouched by the switch. */
     movie_chunk_classification();
 #endif
-    printf("Test %u reader, real low reader + auxiliary + stream on the card model:\n", KUI_TOY_WIRE_TICK ? 69u : KUI_TOY_WIRE_QUERY ? 80u : KUI_TOY_WIRE_TITLES ? 79u : KUI_TOY_WIRE_ANY ? 78u : KUI_TOY_WIRE_SEQ ? 77u : KUI_TOY_WIRE_FLUID ? 76u : KUI_TOY_WIRE_STEADY ? 75u : KUI_TOY_WIRE_LEAN ? 74u : KUI_TOY_WIRE_IDLE ? 73u : KUI_TOY_WIRE_PACE ? 72u : KUI_TOY_WIRE_WORDS ? 71u : KUI_TOY_WIRE_CACHED ? 70u : 68u);
+    printf("Test %u reader, real low reader + auxiliary + stream on the card model:\n", KUI_TOY_WIRE_TICK ? 69u : KUI_TOY_WIRE_TIMER ? 81u : KUI_TOY_WIRE_QUERY ? 80u : KUI_TOY_WIRE_TITLES ? 79u : KUI_TOY_WIRE_ANY ? 78u : KUI_TOY_WIRE_SEQ ? 77u : KUI_TOY_WIRE_FLUID ? 76u : KUI_TOY_WIRE_STEADY ? 75u : KUI_TOY_WIRE_LEAN ? 74u : KUI_TOY_WIRE_IDLE ? 73u : KUI_TOY_WIRE_PACE ? 72u : KUI_TOY_WIRE_WORDS ? 71u : KUI_TOY_WIRE_CACHED ? 70u : 68u);
 #if KUI_TOY_WIRE_MSB
     /* Everything twice: with a receiver that ignores the bit order asked
      * of it, and with one that delivers bytes MSB first. */
@@ -4002,6 +4072,16 @@ int main(void) {
     titles_other(true, 1500u, 20u);
     titles_other(true, 150u, 80u);
     titles_other(false, 0u, 0u);
+#if KUI_TOY_WIRE_TIMER
+    /* Test 81: the same title using both spare timers itself. The stream
+     * has none there, and what Test 79 says of a stream without a timer
+     * holds again. */
+    other_title_busy = true;
+    titles_other(true, 0u, 0u);
+    titles_other(true, 1500u, 20u);
+    titles_other(true, 150u, 80u);
+    other_title_busy = false;
+#endif
 #endif
 #if KUI_TOY_WIRE_QUERY && KUI_TOY_WIRE_STAY
     sequence_programmed();
@@ -4039,6 +4119,6 @@ int main(void) {
     printf("  the wire's standstill for timer waits, placed in the course's pieces in all of the above: %llu ticks\n",
         (unsigned long long)pause_seen);
 #endif
-    printf("PASS Test %u reader integration: %u checks\n", KUI_TOY_WIRE_TICK ? 69u : KUI_TOY_WIRE_QUERY ? 80u : KUI_TOY_WIRE_TITLES ? 79u : KUI_TOY_WIRE_ANY ? 78u : KUI_TOY_WIRE_SEQ ? 77u : KUI_TOY_WIRE_FLUID ? 76u : KUI_TOY_WIRE_STEADY ? 75u : KUI_TOY_WIRE_LEAN ? 74u : KUI_TOY_WIRE_IDLE ? 73u : KUI_TOY_WIRE_PACE ? 72u : KUI_TOY_WIRE_WORDS ? 71u : KUI_TOY_WIRE_CACHED ? 70u : 68u, checks);
+    printf("PASS Test %u reader integration: %u checks\n", KUI_TOY_WIRE_TICK ? 69u : KUI_TOY_WIRE_TIMER ? 81u : KUI_TOY_WIRE_QUERY ? 80u : KUI_TOY_WIRE_TITLES ? 79u : KUI_TOY_WIRE_ANY ? 78u : KUI_TOY_WIRE_SEQ ? 77u : KUI_TOY_WIRE_FLUID ? 76u : KUI_TOY_WIRE_STEADY ? 75u : KUI_TOY_WIRE_LEAN ? 74u : KUI_TOY_WIRE_IDLE ? 73u : KUI_TOY_WIRE_PACE ? 72u : KUI_TOY_WIRE_WORDS ? 71u : KUI_TOY_WIRE_CACHED ? 70u : 68u, checks);
     return 0;
 }

@@ -44,6 +44,7 @@ SEQ = os.environ.get("TOY_WIRE_SEQ", "0")
 ANY = os.environ.get("TOY_WIRE_ANY", "0")
 TITLES = os.environ.get("TOY_WIRE_TITLES", "0")
 QUERY = os.environ.get("TOY_WIRE_QUERY", "0")
+TIMER = os.environ.get("TOY_WIRE_TIMER", "0")
 AUX = "src/loader/native_readahead_aux.c"
 # The cold stage's scan: its mutants are run by tests/test_toy_titles_stage.c.
 SCAN = "src/loader/toy_movie_iso_stage.inc"
@@ -787,6 +788,60 @@ TITLES_MUTATIONS = [
 # Test 78: mutations on lines the build with TOY_WIRE_ANY no longer compiles
 # go (ANY_GONE), and the same defects are made in the lines that take their
 # place; then the defects of the change itself.
+# Test 81: the same for TOY_WIRE_TIMER.
+TIMER_GONE = set()
+TIMER_MUTATIONS = [
+ (STREAM, "a timer taken with no table admitted",
+  "    if(!callback || !vbr || vector_base() != vbr) return;", "    if(!callback || vector_base() != vbr) return;"),
+ (STREAM, "a timer taken at a vector base that is not the admitted one",
+  "    if(!callback || !vbr || vector_base() != vbr) return;", "    if(!callback || !vbr) return;"),
+ (STREAM, "a timer taken without a callback for it",
+  "    if(!callback || !vbr || vector_base() != vbr) return;", "    if(!vbr || vector_base() != vbr) return;"),
+ (STREAM, "the timer's entry looked for in Toy Commander's table",
+  "        const uint32_t slot = vbr + (slot_of(event) - SDK_VBR);", "        const uint32_t slot = slot_of(event);"),
+ (STREAM, "the timer's entry looked for a word off",
+  "        const uint32_t slot = vbr + (slot_of(event) - SDK_VBR);",
+  "        const uint32_t slot = vbr + (slot_of(event) - SDK_VBR) + 4u;"),
+ (STREAM, "a timer taken behind the title's own handler",
+  "           word_read(slot) != fallback) continue;", "           false) continue;"),
+ (STREAM, "Toy Commander's default asked of every title's table",
+  "           word_read(slot) != fallback) continue;", "           word_read(slot) != SDK_DEFAULT) continue;"),
+ (STREAM, "the title's default not kept for giving the entry back",
+  "        w->timer_default = fallback;\n", ""),
+ (STREAM, "the timer's entry given back Toy Commander's default",
+  "        word_publish(w->timer_slot, w->timer_default);", "        word_publish(w->timer_slot, SDK_DEFAULT);"),
+ (STREAM, "the timer's entry not given back",
+  "        word_publish(w->timer_slot, w->timer_default);\n", ""),
+ (STREAM, "the timer's priority left behind",
+  "    if(w->mode && word_read(w->timer_slot) == w->timer_callback) {\n        timer_cancel(w);\n        wr16(IPRA, rd16(IPRA) & ~(15u << w->timer_shift));\n",
+  "    if(w->mode && word_read(w->timer_slot) == w->timer_callback) {\n        timer_cancel(w);\n"),
+ # A title that takes the timer while the stream has it.
+ (STREAM, "a timer, its priority and its entry put back that are the title's by now",
+  "    if(w->mode && word_read(w->timer_slot) == w->timer_callback) {\n        timer_cancel(w);",
+  "    if(w->mode) {\n        timer_cancel(w);"),
+ (STREAM, "a timer armed that the title has taken for itself",
+  "    if(w->mode && (word_read(w->timer_slot) != w->timer_callback || (rd8(TSTR) & w->timer_bit))) w->mode = 0;\n", ""),
+ (STREAM, "a timer armed behind the title's own handler",
+  "    if(w->mode && (word_read(w->timer_slot) != w->timer_callback || (rd8(TSTR) & w->timer_bit))) w->mode = 0;",
+  "    if(w->mode && (rd8(TSTR) & w->timer_bit)) w->mode = 0;"),
+ (STREAM, "a timer armed that the title has started",
+  "    if(w->mode && (word_read(w->timer_slot) != w->timer_callback || (rd8(TSTR) & w->timer_bit))) w->mode = 0;",
+  "    if(w->mode && word_read(w->timer_slot) != w->timer_callback) w->mode = 0;"),
+ (STREAM, "a wait's timer answered that the title took under it",
+  "        else if(word_read(w->timer_slot) != w->timer_callback) w->mode = 0;\n", ""),
+ (STREAM, "the title's table not asked of the stream at its start",
+  "    timer_select(w, timer_callback, timer_vbr, timer_default);", "    timer_select(w, timer_callback, 0u, timer_default);"),
+ (GLUE, "the vector base and the default handed over exchanged",
+  "           r->vector600[KUI_NATIVE_SDK_SCI_VBR_INDEX],\n           r->vector600[KUI_NATIVE_SDK_SCI_DEFAULT_INDEX])) {",
+  "           r->vector600[KUI_NATIVE_SDK_SCI_DEFAULT_INDEX],\n           r->vector600[KUI_NATIVE_SDK_SCI_VBR_INDEX])) {"),
+ (GLUE, "no vector base handed to the stream",
+  "           r->vector600[KUI_NATIVE_SDK_SCI_VBR_INDEX],\n", "           0u,\n"),
+ (GLUE, "the resident's callback handed over for the title's default",
+  "           r->vector600[KUI_NATIVE_SDK_SCI_DEFAULT_INDEX])) {",
+  "           r->vector600[KUI_NATIVE_SDK_SCI_COOKIE_INDEX])) {"),
+ (REPORT, "the report names Test 80",
+  "KUI_TOY_WIRE_TIMER?81u:KUI_TOY_WIRE_QUERY?80u:", "KUI_TOY_WIRE_QUERY?80u:"),
+]
 # Test 80: the same for TOY_WIRE_QUERY.
 # Why a window was given up for a command is said by another line there.
 QUERY_GONE = {"a window given up for a command counted as given up for a read"}
@@ -1076,6 +1131,10 @@ if QUERY == "1":
     SWITCHES.append("TOY_WIRE_QUERY=1")
     DEFINES.append("-DKUI_TOY_WIRE_QUERY=1")
     MUTATIONS = [m for m in MUTATIONS if m[1] not in QUERY_GONE] + QUERY_MUTATIONS
+if TIMER == "1":
+    SWITCHES.append("TOY_WIRE_TIMER=1")
+    DEFINES.append("-DKUI_TOY_WIRE_TIMER=1")
+    MUTATIONS = [m for m in MUTATIONS if m[1] not in TIMER_GONE] + TIMER_MUTATIONS
 if os.environ.get("TOY_WIRE_ONLY"):
     # A named part of the list, for running it in pieces: "from:to" of the list's positions.
     low, high = (int(v) for v in os.environ["TOY_WIRE_ONLY"].split(":"))

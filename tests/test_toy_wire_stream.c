@@ -125,6 +125,21 @@ static unsigned looks;      /* at the receiver's status */
  * overruns. */
 static struct { uint32_t block, at; } lose[32];
 static unsigned lose_count;
+#if KUI_TOY_WIRE_TIMER
+/* Test 81: the title whose SDK table the stream is given, as the low
+ * resident holds it: its vector base and the callback its unused entries
+ * hold. The table lies 0x200 behind the vector base that is live, here
+ * as in every title the cold stage admits. Toy Commander's by default. */
+static uint32_t title_vbr = 0x8c00f400u, title_default = 0x8c0be408u, live_vbr = 0x8c00f400u;
+#define LIVE_VBR live_vbr
+#define TABLE (live_vbr + 0x200u)
+#define wire_begin(w, n, ring, tables, sptr, callback) \
+    kui_wire_start(w, n, ring, tables, sptr, callback, title_vbr, title_default)
+#else
+#define LIVE_VBR 0x8c00f400u
+#define TABLE 0x8c00f600u
+#define wire_begin kui_wire_start
+#endif
 static void shift_one(void) {
     const uint32_t now_block = card_block, now_at = card_at;
     const uint8_t sent = card_byte();
@@ -163,7 +178,7 @@ uint32_t kui_wire_test_read(uint32_t a, unsigned width) {
     default: break;
     }
     if(a >= 0xffd80008u && a < 0xffd8002cu) { unsigned k = (a - 0xffd80008u) / 12u, f = (a - 0xffd80008u) % 12u; return f == 0 ? hw.tcor[k] : f == 4 ? hw.tcnt[k] : hw.tcr[k]; }
-    if(a >= 0x8c00f600u && a < 0x8c00f700u) return hw.slots[(a - 0x8c00f600u) / 4u];
+    if(a >= TABLE && a < TABLE + 0x100u) return hw.slots[(a - TABLE) / 4u];
     fprintf(stderr, "read %08x\n", a); abort();
 }
 static bool stale;
@@ -195,13 +210,13 @@ void kui_wire_test_write(uint32_t a, uint32_t v, unsigned width) {
     default: break;
     }
     if(a >= 0xffd80014u && a < 0xffd8002cu) { unsigned k = (a - 0xffd80008u) / 12u, f = (a - 0xffd80008u) % 12u; if(f == 0) hw.tcor[k] = v; else if(f == 4) hw.tcnt[k] = v; else hw.tcr[k] = (uint16_t)v; return; }
-    if(a >= 0x8c00f600u && a < 0x8c00f700u) { hw.slots[(a - 0x8c00f600u) / 4u] = v; return; }
+    if(a >= TABLE && a < TABLE + 0x100u) { hw.slots[(a - TABLE) / 4u] = v; return; }
     fprintf(stderr, "write %08x\n", a); abort();
 }
 void kui_wire_test_settle(unsigned n) { (void)n; }
 void kui_wire_test_fence(void) {}
 uint32_t kui_wire_test_physical(const void *p) { assert(p == ring); return PHYS; }
-uint32_t kui_wire_test_vbr(void) { return 0x8c00f400u; }
+uint32_t kui_wire_test_vbr(void) { return LIVE_VBR; }
 void kui_wire_test_purge(const void *p, unsigned n) { assert(p == ring && n == KUI_WIRE_RING_BYTES); }
 #if KUI_TOY_WIRE_RING
 /* Test 75 reads the ring through the cache. This is the ring as a cache
@@ -263,7 +278,7 @@ static void construct_start(uint32_t first, unsigned answer, bool counters) {
     if(counters) memset(&n, 0, sizeof n);
     command_framing();
     memset(ring, 0xa5, sizeof ring);
-    assert(kui_wire_start(&w, &n, ring, tables, 0x05, 0x8c421234u));
+    assert(wire_begin(&w, &n, ring, tables, 0x05, 0x8c421234u));
 }
 /* Blocks, until `want` have come or the stream says something else. */
 static enum kui_wire_parse construct_take(unsigned want, struct kui_wire_block *b, unsigned *came) {
@@ -281,6 +296,146 @@ static void lose_byte(uint32_t block, uint32_t at) {
     lose[lose_count].block = block; lose[lose_count++].at = at;
 }
 
+#if KUI_TOY_WIRE_TIMER
+/* Test 81. What keeps the stream from a timer, each by itself, in a title
+ * that is not Toy Commander: with everything in place it takes TMU2. */
+static unsigned timer_of(bool claimed, uint32_t callback) {
+    memset(&w, 0, sizeof w); memset(&n, 0, sizeof n);
+    command_framing();
+    memset(ring, 0xa5, sizeof ring);
+    assert(wire_begin(&w, &n, ring, tables, 0x05, callback));
+    const unsigned mode = w.mode;
+    /* Whatever it took its entry holds the stream's callback, and the
+     * title's own word again once the stream is stopped. */
+    const uint32_t before = mode ? hw.slots[16u + mode] : 0u;
+    assert(!mode || before == 0x8c421234u);
+    for(unsigned k = 0; k < 400u && !(hw.ssr & 0x20); ++k) shift_one();
+    /* A title that puts a handler of its own there meanwhile keeps it,
+     * and the priority it runs at is no longer the stream's to take
+     * away. */
+    if(claimed) { assert(mode); hw.slots[16u + mode] = 0x8c123456u; }
+    assert(kui_wire_stop(&w) && w.mode == 0u);
+    if(mode) assert(hw.slots[16u + mode] == (claimed ? 0x8c123456u : title_default) &&
+        ((hw.ipra >> (12u - 4u * mode)) & 15u) == (claimed ? 1u : 0u));
+    return mode;
+}
+/* A title that takes the stream's timer for itself while the stream runs
+ * on a bus that cuts runs short: by a handler of its own in the timer's
+ * entry, by starting the timer, or by its handler while a wait of the
+ * stream's stands armed. From then on the stream neither arms nor stops
+ * nor answers that timer, leaves the entry alone, and its waits end as
+ * without a timer; the blocks keep coming whole. */
+static void timer_claimed(unsigned how) {
+    seed = 131u + how;
+    /* (The title's other spare timer runs: the stream has TMU2 or none.) */
+    memset(&hw, 0, sizeof hw); hw.dmaor = 0x8201u; hw.tstr = 3u;
+    title_vbr = live_vbr = 0x8c1ad400u; title_default = 0x8c1add0cu;
+    for(unsigned i = 0; i < 64; ++i) hw.slots[i] = title_default;
+    stall_every = 600u; stall_percent_dense = 10u; until_stall = 100u; dense_left = 0; sdir_answer = 0;
+    card_block = 1; card_at = 0;
+    memset(&w, 0, sizeof w); memset(&n, 0, sizeof n);
+    command_framing();
+    memset(ring, 0xa5, sizeof ring);
+    assert(wire_begin(&w, &n, ring, tables, 0x05, 0x8c421234u) && w.mode == 2u);
+    uint32_t expect = 1u, waits_at_claim = 0u, blocks_at_claim = 0u, tcnt = 0u;
+    uint16_t tcr = 0u;
+    bool taken = false;
+    for(unsigned step = 0; step < 4000000u &&
+        (!taken || n.waits < waits_at_claim + 40u || expect < blocks_at_claim + 200u); ++step) {
+        pump(1u + rnd() % 2000u);
+        if(!taken && n.waits >= 20u && (how == 2u ? w.state == KUI_WIRE_WAIT && timer_armed() : w.state != KUI_WIRE_WAIT)) {
+            /* The title takes it. */
+            if(how != 1u) hw.slots[18] = 0x8c123456u;
+            if(how == 1u) { hw.tcor[2] = hw.tcnt[2] = 0x12345u; hw.tcr[2] = 0x0004u; hw.tstr |= 4u; }
+            taken = true; waits_at_claim = n.waits; blocks_at_claim = expect; tcnt = hw.tcnt[2]; tcr = hw.tcr[2];
+        }
+        if(taken) {
+            /* Nothing of the timer is the stream's to write any more. */
+            assert(hw.tcnt[2] == tcnt && hw.tcr[2] == tcr && hw.slots[18] == (how == 1u ? 0x8c421234u : 0x8c123456u));
+            assert(!!(hw.tstr & 4u) == (how != 0u));
+        } else if(w.state == KUI_WIRE_WAIT && timer_armed() && (rnd() & 1u)) {
+            hw.tcr[2] |= 0x0100u;
+            kui_wire_timer(&w);
+        }
+        kui_wire_service(&w);
+        for(;;) {
+            struct kui_wire_block b;
+            const enum kui_wire_parse p = kui_wire_next(&w, &b);
+            if(p == KUI_WIRE_NEED) break;
+            if(p != KUI_WIRE_BLOCK) {
+                /* The caller's rewind, as in the courses: the stream is
+                 * stopped and begun again at the block still wanted. A
+                 * stream begun after the title took the timer has none. */
+                assert(kui_wire_stop(&w));
+                card_block = expect; card_at = 0; dense_left = 0;
+                command_framing();
+                memset(ring, 0xa5, sizeof ring);
+                assert(wire_begin(&w, &n, ring, tables, 0x05, 0x8c421234u) && w.mode == (taken ? 0u : 2u));
+                break;
+            }
+            ++expect;
+        }
+    }
+    /* Waits behind the title's taking, and blocks all the same. */
+    assert(taken && n.waits >= waits_at_claim + 40u && expect >= blocks_at_claim + 200u);
+    assert(w.mode == 0u);
+    assert(kui_wire_stop(&w));
+    assert(hw.tcnt[2] == tcnt && hw.tcr[2] == tcr && hw.slots[18] == (how == 1u ? 0x8c421234u : 0x8c123456u));
+    assert(!!(hw.tstr & 4u) == (how != 0u) && (hw.tstr & 3u) == 3u && hw.slots[17] == title_default);
+    title_vbr = live_vbr = 0x8c00f400u; title_default = 0x8c0be408u;
+}
+static void timer_titles(void) {
+    static const struct { const char *what; unsigned mode; } cases[] = {
+        {"another title's table, both timers free", 2u},
+        {"no table admitted for the title", 0u},
+        {"the title's vector base no longer the admitted one", 0u},
+        {"TMU2's entry the title's own handler", 1u},
+        {"both entries the title's own handlers", 0u},
+        {"the entries hold Toy Commander's default, not this title's", 0u},
+        {"TMU2 running", 1u},
+        {"TMU2 with its underflow interrupt on", 1u},
+        {"TMU2 with a priority", 1u},
+        {"TMU1 and TMU2 running", 0u},
+        {"no table admitted, and the vector base zero as a reset leaves it", 0u},
+        {"both timers free, and the title takes the entry for itself while the stream runs", 2u},
+        {"no callback for a timer", 0u},
+    };
+    for(unsigned c = 0; c < sizeof(cases) / sizeof(cases[0]); ++c) {
+        seed = 91u + c;
+        memset(&hw, 0, sizeof hw); hw.dmaor = 0x8201u; hw.tstr = 1u;
+        stall_every = 0; until_stall = 100u; dense_left = 0; sdir_answer = 0;
+        card_block = 1; card_at = 0;
+        title_vbr = live_vbr = 0x8c1ad400u; title_default = 0x8c1add0cu;
+        for(unsigned i = 0; i < 64; ++i) hw.slots[i] = title_default;
+        switch(c) {
+        case 1: title_vbr = 0u; break;
+        case 2: live_vbr = 0x8c1ae400u; break;
+        case 3: hw.slots[18] = 0x8c123456u; break;
+        case 4: hw.slots[17] = hw.slots[18] = 0x8c123456u; break;
+        case 5: for(unsigned i = 0; i < 64; ++i) hw.slots[i] = 0x8c0be408u; break;
+        case 6: hw.tstr = 5u; break;
+        case 7: hw.tcr[2] = 0x0020u; break;
+        case 8: hw.ipra = 0x0030u; break;
+        case 9: hw.tstr = 7u; break;
+        case 10: title_vbr = live_vbr = 0u; break;
+        default: break;
+        }
+        const uint32_t held[2] = {hw.slots[17], hw.slots[18]};
+        const uint8_t running = hw.tstr;
+        const uint16_t levels = hw.ipra, control = hw.tcr[2];
+        const unsigned mode = timer_of(c == 11u, c == 12u ? 0u : 0x8c421234u);
+        if(mode != cases[c].mode) { fprintf(stderr, "%s: timer %u\n", cases[c].what, mode); abort(); }
+        /* What the title had is what it has: its entries, its timers. */
+        assert(hw.slots[17] == held[0] && hw.slots[18] == (c == 11u ? 0x8c123456u : held[1]) && hw.tstr == running);
+        assert(hw.ipra == (c == 11u ? 0x0010u : levels) && (hw.tcr[2] & 0x0020u) == (control & 0x0020u));
+    }
+    title_vbr = live_vbr = 0x8c00f400u; title_default = 0x8c0be408u;
+    printf("  the stream's timer by the title's own table: taken in another title with both free, the second "
+           "where the first is the title's, none without an admitted table, at another vector base, behind the "
+           "title's own handlers, behind another default, or with both in use; the title's entries, timers and "
+           "priorities as they were after each, and an entry the title took meanwhile left to it\n");
+}
+#endif
 int main(int argc, char **argv) {
     /* What the statements below rest on besides the CRC16 is the card's:
      * no block of idle-looking bytes has a CRC16 byte that looks idle too.
@@ -302,12 +457,23 @@ int main(int argc, char **argv) {
 #if KUI_TOY_WIRE_MSB
     unsigned long orders[3] = {0}, unsettled = 0, backs = 0;
 #endif
-    printf("Test %u card stream on the wire model:\n", KUI_TOY_WIRE_TICK ? 69u : KUI_TOY_WIRE_QUERY ? 80u : KUI_TOY_WIRE_TITLES ? 79u : KUI_TOY_WIRE_ANY ? 78u : KUI_TOY_WIRE_SEQ ? 77u : KUI_TOY_WIRE_FLUID ? 76u : KUI_TOY_WIRE_STEADY ? 75u : KUI_TOY_WIRE_LEAN ? 74u : KUI_TOY_WIRE_IDLE ? 73u : KUI_TOY_WIRE_PACE ? 72u : KUI_TOY_WIRE_WORDS ? 71u : KUI_TOY_WIRE_CACHED ? 70u : 68u);
+#if KUI_TOY_WIRE_TIMER
+    unsigned long timed[2] = {0};   /* courses with a timer: Toy Commander's, another title's */
+#endif
+    printf("Test %u card stream on the wire model:\n", KUI_TOY_WIRE_TICK ? 69u : KUI_TOY_WIRE_TIMER ? 81u : KUI_TOY_WIRE_QUERY ? 80u : KUI_TOY_WIRE_TITLES ? 79u : KUI_TOY_WIRE_ANY ? 78u : KUI_TOY_WIRE_SEQ ? 77u : KUI_TOY_WIRE_FLUID ? 76u : KUI_TOY_WIRE_STEADY ? 75u : KUI_TOY_WIRE_LEAN ? 74u : KUI_TOY_WIRE_IDLE ? 73u : KUI_TOY_WIRE_PACE ? 72u : KUI_TOY_WIRE_WORDS ? 71u : KUI_TOY_WIRE_CACHED ? 70u : 68u);
     const unsigned runs = argc > 1 ? (unsigned)atoi(argv[1]) : 12u;
     for(unsigned run = 0; run < runs; ++run) {
         seed = 77u + run * 1000u;
         memset(&hw, 0, sizeof hw); hw.dmaor = 0x8201u; hw.sar = 0x11; hw.dar = 0x22; hw.count = 0x33;
         for(unsigned i = 0; i < 64; ++i) hw.slots[i] = 0x8c0be408u;
+#if KUI_TOY_WIRE_TIMER
+        /* Test 81: every third course is another title's, its table at
+         * another vector base and another callback in its unused entries.
+         * The stream takes its timer there as in Toy Commander. */
+        title_vbr = live_vbr = run % 3u == 1u ? 0x8c1ad400u : 0x8c00f400u;
+        title_default = run % 3u == 1u ? 0x8c1add0cu : 0x8c0be408u;
+        for(unsigned i = 0; i < 64; ++i) hw.slots[i] = title_default;
+#endif
         hw.tstr = 1u;                            /* the game's clock, TMU0, runs */
         if(run % 5u == 4u) hw.tstr = 7u;        /* no free timer */
         else if(run % 2u) hw.tstr = 5u;          /* TMU2 busy: TMU1 */
@@ -332,7 +498,13 @@ int main(int argc, char **argv) {
         memset(&w, 0, sizeof w); memset(&n, 0, sizeof n);
         command_framing();
         memset(ring, 0xa5, sizeof ring);
-        assert(kui_wire_start(&w, &n, ring, tables, 0x05, 0x8c421234u));
+        assert(wire_begin(&w, &n, ring, tables, 0x05, 0x8c421234u));
+#if KUI_TOY_WIRE_TIMER
+        /* The timer the title leaves free, in either title, and its entry
+         * in that title's table the stream's own while it runs. */
+        assert(w.mode == (run % 5u == 4u ? 0u : run % 2u ? 1u : 2u));
+        for(unsigned i = 0; i < 64; ++i) assert(hw.slots[i] == (w.mode && i == 16u + w.mode ? 0x8c421234u : title_default));
+#endif
         unsigned idle = 0; uint32_t last_gaps = 0;
         while(expect < BLOCKS / 4u) {
             pump(1u + rnd() % 3000u);
@@ -441,7 +613,7 @@ int main(int argc, char **argv) {
                     card_block = expect; card_at = 0; ++restarts; dense_left = 0;
                     command_framing(); hw.sar = 0x11; hw.dar = 0x22; hw.count = 0x33;
                     memset(ring, 0xa5, sizeof ring);
-                    assert(kui_wire_start(&w, &n, ring, tables, 0x05, 0x8c421234u));
+                    assert(wire_begin(&w, &n, ring, tables, 0x05, 0x8c421234u));
                     /* What the stream given up read of its gaps is not the next one's. */
                     last_gaps = n.gap_idle + n.gap_token;
                     place = gap_of(expect) + 1u;
@@ -543,7 +715,7 @@ int main(int argc, char **argv) {
                     assert(stream_stop());
                     card_block = expect; card_at = 0; ++restarts; dense_left = 0;
                     command_framing(); hw.sar = 0x11; hw.dar = 0x22; hw.count = 0x33;
-                    assert(kui_wire_start(&w, &n, ring, tables, 0x05, 0x8c421234u));
+                    assert(wire_begin(&w, &n, ring, tables, 0x05, 0x8c421234u));
                     last_gaps = n.gap_idle + n.gap_token;
                     place = gap_of(expect) + 1u;
                     break;
@@ -577,6 +749,12 @@ int main(int argc, char **argv) {
 #endif
         /* Both spare timers are as the game left them. */
         assert(hw.tstr == timers_before && !(hw.tcr[1] & 0x20u) && !(hw.tcr[2] & 0x20u));
+#if KUI_TOY_WIRE_TIMER
+        /* And so is the title's table: every entry its own default again,
+         * whichever title it is. */
+        for(unsigned i = 0; i < 64; ++i) assert(hw.slots[i] == title_default);
+        if(run % 5u != 4u) ++timed[run % 3u == 1u];
+#endif
         /* Every overrun the model produced was accounted as a cut or a run's end
          * (the last run of each stream is stopped without being counted). */
         assert(n.cuts + n.segments <= overruns - overruns_before && overruns - overruns_before <= n.cuts + n.segments + n.starts);
@@ -596,6 +774,18 @@ int main(int argc, char **argv) {
             run, run % 5u == 4u ? 0u : run % 2u ? 1u : 2u, stall_every, stall_percent_dense, n.blocks, n.rebuilt, n.unsolved, n.holed, n.cuts, n.segments, n.waits, n.fulls, n.gap_idle, n.gap_token, n.bad_crc, n.ambiguous);
     }
     assert(!rewinds[1]);
+#if KUI_TOY_WIRE_TIMER
+    /* The courses had a timer in both titles (the shorter run of the
+     * mutation list has two of another title's). */
+    assert(timed[0] && timed[1]);
+    printf("  courses with the stream's timer: %lu in Toy Commander, %lu in another title at its own table\n",
+        timed[0], timed[1]);
+    timer_titles();
+    for(unsigned how = 0; how < 3u; ++how) timer_claimed(how);
+    printf("  a title that takes the stream's timer while the stream runs, by its entry, by starting it, or under "
+           "a wait that stands armed: never armed, stopped or answered by the stream again, the entry left to "
+           "the title, the waits ended as without a timer\n");
+#endif
 #if KUI_TOY_WIRE_MEASURE && !KUI_TOY_WIRE_PACE
     /* A byte between blocks that is neither idle nor the token: the stream
      * cannot be followed, and the report keeps what lay around the byte. */
@@ -611,7 +801,7 @@ int main(int argc, char **argv) {
         memset(&w, 0, sizeof w); memset(&n, 0, sizeof n);
         command_framing();
         memset(ring, 0xa5, sizeof ring);
-        assert(kui_wire_start(&w, &n, ring, tables, 0x05, 0x8c421234u));
+        assert(wire_begin(&w, &n, ring, tables, 0x05, 0x8c421234u));
         uint32_t handed = 0;
         enum kui_wire_parse p = KUI_WIRE_NEED;
         for(unsigned turn = 0; turn < 100000u && p >= KUI_WIRE_NEED; ++turn) {
@@ -658,7 +848,7 @@ int main(int argc, char **argv) {
         memset(&w, 0, sizeof w); memset(&n, 0, sizeof n);
         command_framing();
         memset(ring, 0xa5, sizeof ring);
-        assert(kui_wire_start(&w, &n, ring, tables, 0x05, 0x8c421234u));
+        assert(wire_begin(&w, &n, ring, tables, 0x05, 0x8c421234u));
         /* Well inside a block some thousand bytes on, away from a run's end. */
         twice_in = 20000u + 3000u * trial;
         uint32_t handed = 0;
@@ -743,7 +933,7 @@ int main(int argc, char **argv) {
                 memset(&w, 0, sizeof w); memset(&n, 0, sizeof n);
                 command_framing();
                 memset(ring, 0xa5, sizeof ring);
-                assert(kui_wire_start(&w, &n, ring, tables, 0x05, 0x8c421234u));
+                assert(wire_begin(&w, &n, ring, tables, 0x05, 0x8c421234u));
                 uint32_t next = block - 2u;
                 struct kui_wire_block b;
                 enum kui_wire_parse p = KUI_WIRE_NEED;
@@ -968,7 +1158,7 @@ int main(int argc, char **argv) {
            "each behind a byte lost between blocks and none after a whole CRC16: %lu with lost bytes listed, %lu with "
            "a byte of the CRC16 lost, %lu rebuilt from a CRC16 that fitted (%lu of them equal to the card in every byte "
            "not listed all the same); all left to the sector check\n",
-        KUI_TOY_WIRE_TICK ? 69u : KUI_TOY_WIRE_QUERY ? 80u : KUI_TOY_WIRE_TITLES ? 79u : KUI_TOY_WIRE_ANY ? 78u : KUI_TOY_WIRE_SEQ ? 77u : KUI_TOY_WIRE_FLUID ? 76u : KUI_TOY_WIRE_STEADY ? 75u : KUI_TOY_WIRE_LEAN ? 74u : KUI_TOY_WIRE_IDLE ? 73u : KUI_TOY_WIRE_PACE ? 72u : KUI_TOY_WIRE_WORDS ? 71u : KUI_TOY_WIRE_CACHED ? 70u : 68u, total, overruns, restarts, rewinds[2], rewinds[3],
+        KUI_TOY_WIRE_TICK ? 69u : KUI_TOY_WIRE_TIMER ? 81u : KUI_TOY_WIRE_QUERY ? 80u : KUI_TOY_WIRE_TITLES ? 79u : KUI_TOY_WIRE_ANY ? 78u : KUI_TOY_WIRE_SEQ ? 77u : KUI_TOY_WIRE_FLUID ? 76u : KUI_TOY_WIRE_STEADY ? 75u : KUI_TOY_WIRE_LEAN ? 74u : KUI_TOY_WIRE_IDLE ? 73u : KUI_TOY_WIRE_PACE ? 72u : KUI_TOY_WIRE_WORDS ? 71u : KUI_TOY_WIRE_CACHED ? 70u : 68u, total, overruns, restarts, rewinds[2], rewinds[3],
         wrong[0] + wrong[1] + wrong[2], wrong[0], wrong[1], wrong[2], wrong_same);
     return 0;
 }

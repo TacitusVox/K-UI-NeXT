@@ -78,7 +78,9 @@ static const struct kui_toy_wire_report *toy_wire_report_block(void) { return &w
 #include "toy_suite_report_save.inc"
 
 #if KUI_TOY_WIRE_ANY
-#if KUI_TOY_WIRE_QUERY
+#if KUI_TOY_WIRE_TIMER
+#define TEST_NUMBER "81"
+#elif KUI_TOY_WIRE_QUERY
 #define TEST_NUMBER "80"
 #elif KUI_TOY_WIRE_TITLES
 #define TEST_NUMBER "79"
@@ -646,7 +648,7 @@ int main(int argc, char **argv) {
         const unsigned have = KUI_TOY_WIRE_STAY | KUI_TOY_WIRE_LATER << 1 | KUI_TOY_WIRE_RING << 2 |
             KUI_TOY_WIRE_QUIT << 3 | KUI_TOY_WIRE_HOT << 4 | KUI_TOY_WIRE_COPY << 5 | KUI_TOY_WIRE_GAP << 6 |
             KUI_TOY_WIRE_APART << 7 | KUI_TOY_WIRE_SEQ << 8 | KUI_TOY_WIRE_ANY << 9 | KUI_TOY_WIRE_TITLES << 10 |
-            KUI_TOY_WIRE_QUERY << 11;
+            KUI_TOY_WIRE_QUERY << 11 | KUI_TOY_WIRE_TIMER << 12;
         snprintf(parts, sizeof(parts), "PIPE B I CALLS IRQ STAY PT\n2 3 9000 BE00 35 %X\n", have);
         assert(strstr(text, parts) && have == KUI_TOY_WIRE_PARTS);
     }

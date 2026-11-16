@@ -383,6 +383,13 @@ static void wire_stopped(struct kui_wire_stream *w) {
     w->wait_tick = rd32(TCNT0);
     w->wait_ticks = w->backoff;
     ++w->n->waits;
+#if KUI_TOY_WIRE_TIMER
+    /* Test 81: any title's timer, not one verified title's. A title that
+     * has since put a handler of its own into the timer's entry, or has
+     * started the timer, has it: the stream leaves it alone from here on,
+     * and its waits end as they do without one. */
+    if(w->mode && (word_read(w->timer_slot) != w->timer_callback || (rd8(TSTR) & w->timer_bit))) w->mode = 0;
+#endif
     if(w->mode) timer_arm(w, w->backoff);
     if(w->backoff < KUI_WIRE_BACKOFF_MAX) w->backoff <<= 1;
 }
@@ -455,6 +462,11 @@ void kui_wire_service(struct kui_wire_stream *w) {
 #else
         if(!w->mode) wire_resume(w);
 #endif
+#if KUI_TOY_WIRE_TIMER
+        /* The title's own since the wait began: not the stream's to
+         * answer or to stop. The wait ends by the clock, at a later look. */
+        else if(word_read(w->timer_slot) != w->timer_callback) w->mode = 0;
+#endif
         else if(rd16(w->timer_reg + 8u) & 0x0100u) kui_wire_timer(w);
         else if(!((rd16(IPRA) >> w->timer_shift) & 15u))
             /* The SDK may rewrite the priority register for its own devices. */
@@ -471,6 +483,32 @@ void kui_wire_service(struct kui_wire_stream *w) {
     }
 }
 
+#if KUI_TOY_WIRE_TIMER
+/* Test 81: by the title's own table and its own default callback, as the
+ * low resident admitted them for the SCI (kui_wire_start). The table's
+ * entries lie where Toy Commander's lie from its vector base: the cold
+ * stage admits no title whose SDK has them elsewhere. A timer is taken
+ * only while the title's vector base is the admitted one, and only one
+ * that is stopped, has no underflow interrupt, no priority, and whose
+ * entry holds that default: one the title has not touched. */
+static void timer_select(struct kui_wire_stream *w, uint32_t callback, uint32_t vbr, uint32_t fallback) {
+    w->mode = 0;
+    if(!callback || !vbr || vector_base() != vbr) return;
+    const uint32_t running = rd8(TSTR), levels = rd16(IPRA);
+    for(unsigned k = 2u; k; --k) {
+        const uint32_t reg = TCOR0 + 12u * k, event = 0x400u + 0x20u * k, shift = 12u - 4u * k;
+        const uint32_t slot = vbr + (slot_of(event) - SDK_VBR);
+        if((running & (1u << k)) || (rd16(reg + 8u) & 0x0020u) || ((levels >> shift) & 15u) ||
+           word_read(slot) != fallback) continue;
+        w->timer_reg = reg; w->timer_bit = 1u << k; w->timer_event = event;
+        w->timer_slot = slot; w->timer_shift = shift;
+        w->timer_callback = callback;
+        w->timer_default = fallback;
+        w->mode = k;
+        return;
+    }
+}
+#else
 static void timer_select(struct kui_wire_stream *w, uint32_t callback) {
     w->mode = 0;
     if(!callback || vector_base() != SDK_VBR) return;
@@ -486,6 +524,7 @@ static void timer_select(struct kui_wire_stream *w, uint32_t callback) {
         return;
     }
 }
+#endif
 
 static void wire_tables(struct kui_wire_stream *w, uint8_t *tables) {
     w->reverse = tables;
@@ -539,7 +578,11 @@ static void wire_tables(struct kui_wire_stream *w, uint8_t *tables) {
 }
 
 bool kui_wire_start(struct kui_wire_stream *w, struct kui_wire_counters *counters,
-    uint8_t *ring, uint8_t *tables, uint8_t sptr, uint32_t timer_callback) {
+    uint8_t *ring, uint8_t *tables, uint8_t sptr, uint32_t timer_callback
+#if KUI_TOY_WIRE_TIMER
+    , uint32_t timer_vbr, uint32_t timer_default
+#endif
+    ) {
     /* Everything but the block buffer and the logs, whose live parts are
      * written before they are read. */
     memset(w, 0, offsetof(struct kui_wire_stream, hole));
@@ -571,7 +614,11 @@ bool kui_wire_start(struct kui_wire_stream *w, struct kui_wire_counters *counter
 #endif
     purge(ring, KUI_WIRE_RING_BYTES);
     for(unsigned i = 0; i < 4u; ++i) w->saved_dma[i] = rd32(SAR1 + 4u * i);
+#if KUI_TOY_WIRE_TIMER
+    timer_select(w, timer_callback, timer_vbr, timer_default);
+#else
     timer_select(w, timer_callback);
+#endif
     wire_select();
     if(!wire_start_dma(w, 0u, KUI_WIRE_SEGMENT_MAX)) {
         w->error = KUI_WIRE_E_START; w->detail = rd8(SPTR);
@@ -596,12 +643,23 @@ bool kui_wire_stop(struct kui_wire_stream *w) {
     const uint32_t state = w->state;
     if(state == KUI_WIRE_OFF) return true;
     bool usable = true;
+#if KUI_TOY_WIRE_TIMER
+    /* Test 81: the timer, its priority and its entry are put back as they
+     * were found only while the entry is still the stream's. */
+    if(w->mode && word_read(w->timer_slot) == w->timer_callback) {
+        timer_cancel(w);
+        wr16(IPRA, rd16(IPRA) & ~(15u << w->timer_shift));
+        word_publish(w->timer_slot, w->timer_default);
+    }
+    w->mode = 0;
+#else
     if(w->mode) {
         timer_cancel(w);
         wr16(IPRA, rd16(IPRA) & ~(15u << w->timer_shift));
         if(word_read(w->timer_slot) == w->timer_callback) word_publish(w->timer_slot, SDK_DEFAULT);
         w->mode = 0;
     }
+#endif
     if(state == KUI_WIRE_RUN) {
         /* The card must be left on a whole byte, and the receiver ends on
          * one only at its next overrun: a cut or the run's end, at most one

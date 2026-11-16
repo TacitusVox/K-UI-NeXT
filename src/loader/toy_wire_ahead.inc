@@ -12,6 +12,10 @@
  * hands the card back the same way and the low reader seeks again to the
  * first sector not yet verified. */
 #include "toy_wire_stream.h"
+#if KUI_TOY_WIRE_TIMER
+/* Test 81: the words the low resident keeps of the title's SDK table. */
+#include "kui/native_sdk_sci_runtime.h"
+#endif
 #include "kui/mode1_erasure.h"
 #if KUI_TOY_WIRE_CLEAN
 #include "toy_wire_msf.h"
@@ -479,10 +483,21 @@ static bool toy_wire_take_over(kui_retail_async_region_type *r) {
      * admitted callback, at its level. Without it a cut would never be
      * answered: stay with the low reader. */
     C.config.ops->hook();
+    /* Test 81: the stream's timer by the title's own table. The resident
+     * holds what the cold stage admitted for the SCI's interrupt: the
+     * vector base and the default callback. Its callback is armed only
+     * while its cookie is there and the live vector base is that word,
+     * and the stream is begun only with it armed. */
     if(!r->engine.hooked || r->engine.release.armed!=0x10u ||
        !kui_wire_start(w,&k->report.n,(uint8_t *)C.config.data+TOY_WIRE_RING_OFFSET,
            toy_resume_data()+TOY_WIRE_TABLE_OFFSET,stream->sptr,
+#if KUI_TOY_WIRE_TIMER
+           (uint32_t)(uintptr_t)kui_toy_wire_timer_callback,
+           r->vector600[KUI_NATIVE_SDK_SCI_VBR_INDEX],
+           r->vector600[KUI_NATIVE_SDK_SCI_DEFAULT_INDEX])) {
+#else
            (uint32_t)(uintptr_t)kui_toy_wire_timer_callback)) {
+#endif
         if(!k->report.first_error && r->engine.hooked && r->engine.release.armed==0x10u) {
             k->report.first_error=w->error;
             k->report.first_detail=w->detail;

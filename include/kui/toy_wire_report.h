@@ -255,6 +255,34 @@
 #if KUI_TOY_WIRE_QUERY && !KUI_TOY_WIRE_TITLES
 #error "Test 80 builds on Test 79"
 #endif
+/* Test 81: Test 80 with one change. A run of the stream that a busy bus
+ * cuts short within its first bytes is not begun again at once: the
+ * stream waits, 82 microseconds doubling to 1.3 ms, on a timer of the
+ * game's that the game does not use. It took that timer only in Toy
+ * Commander, whose vector base and SDK default callback it carried as
+ * constants. In any other title it had none, and a wait ended with the
+ * game's next disc call: Test 79's runs on the console show 10 ms to a
+ * wait in both Evolution games, 34.6 s of standing in one of them, where
+ * Toy Commander's stream waits 0.58 ms.
+ *
+ * The low resident reaches the SCI's interrupt in every title of this
+ * family through the SDK's own table, which the cold stage admits by the
+ * title's code, and keeps what it admitted: the vector base the table
+ * hangs on, and the default callback its unused entries hold
+ * (kui/native_sdk_sci_runtime.h). The stream now takes its timer by those
+ * two words. Every other condition is as it was, and is asked again with
+ * every stream begun: the vector base is still the admitted one, the
+ * timer is stopped, its underflow interrupt is off, its priority is zero,
+ * and its entry in the table holds that default. A title that uses both
+ * spare timers leaves the stream without one, as before.
+ *
+ * For Toy Commander the two words are the constants: nothing changes. */
+#ifndef KUI_TOY_WIRE_TIMER
+#define KUI_TOY_WIRE_TIMER 0
+#endif
+#if KUI_TOY_WIRE_TIMER && !KUI_TOY_WIRE_QUERY
+#error "Test 81 builds on Test 80"
+#endif
 /* Test 76's parts (the switch itself is above, with LATER's default):
  *   QUIT   a stream given up while it receives is ended at once, where it
  *          was waited out, with interrupts held off, until its run's next
@@ -303,7 +331,7 @@
 #define KUI_TOY_WIRE_PARTS (KUI_TOY_WIRE_STAY | KUI_TOY_WIRE_LATER << 1 | KUI_TOY_WIRE_RING << 2 | \
     KUI_TOY_WIRE_QUIT << 3 | KUI_TOY_WIRE_HOT << 4 | KUI_TOY_WIRE_COPY << 5 | KUI_TOY_WIRE_GAP << 6 | \
     KUI_TOY_WIRE_APART << 7 | KUI_TOY_WIRE_SEQ << 8 | KUI_TOY_WIRE_ANY << 9 | \
-    KUI_TOY_WIRE_TITLES << 10 | KUI_TOY_WIRE_QUERY << 11)
+    KUI_TOY_WIRE_TITLES << 10 | KUI_TOY_WIRE_QUERY << 11 | KUI_TOY_WIRE_TIMER << 12)
 /* The second movie in pieces of 2^22 ticks, 5.4 s: twelve cover it. */
 #define KUI_TOY_WIRE_BUCKETS 12u
 #define KUI_TOY_WIRE_BUCKET_SHIFT 22u

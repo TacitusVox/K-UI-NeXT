@@ -136,6 +136,9 @@ struct kui_wire_stream {
     uint32_t phase, data_at, gap_hole, alternative;
     uint32_t sptr, saved_dma[4];
     uint32_t timer_reg, timer_bit, timer_event, timer_slot, timer_shift, timer_callback;
+#if KUI_TOY_WIRE_TIMER
+    uint32_t timer_default; /* what the timer's entry in the title's table held, and gets back */
+#endif
     uint32_t ring_physical;
     uint8_t *ring;         /* uncached view of KUI_WIRE_RING_BYTES, 32-byte aligned */
 #if KUI_TOY_WIRE_APART
@@ -182,8 +185,18 @@ struct kui_wire_stream {
  * timer_callback is entered by the SDK's interrupt table for the chosen
  * timer and must lead to kui_wire_timer. False: no register was changed and
  * the stream is off; see error. */
+#if KUI_TOY_WIRE_TIMER
+/* Test 81: timer_vbr and timer_default are the title's own, as the low
+ * resident holds them for the SCI's interrupt: the vector base its SDK
+ * table hangs on and the callback that table's unused entries hold. Zero
+ * for the vector base: no timer is asked for. */
+bool kui_wire_start(struct kui_wire_stream *, struct kui_wire_counters *counters,
+    uint8_t *ring, uint8_t *tables, uint8_t sptr, uint32_t timer_callback,
+    uint32_t timer_vbr, uint32_t timer_default);
+#else
 bool kui_wire_start(struct kui_wire_stream *, struct kui_wire_counters *counters,
     uint8_t *ring, uint8_t *tables, uint8_t sptr, uint32_t timer_callback);
+#endif
 /* Serve the receiver: account a run an overrun ended and receive on, wait,
  * or hold for room; start again once there is room. From the SCI's error
  * interrupt and from any other call that passes by. */
