@@ -583,10 +583,16 @@ static void suite_demand(uint32_t wait,kui_retail_async_region_type *r) {
 #endif
 #if KUI_TOY_SUITE_VERIFIED_RESUME
 #if KUI_TOY_WIRE_STREAM && KUI_TOY_WIRE_SEQ
+#if KUI_TOY_WIRE_TITLES
+    /* Test 79: the window is every such request's, in any title: the
+     * stage calls a disc a source for it by its raw track alone. */
+    if(toy_movie_ahead(r,variant,raw,wait))return;
+#else
     /* Test 77: the window is every such request's, in the verified title.
      * Whether one is opened for it is toy_movie_ahead's to say; the low
      * reader's movie path below keeps its own rule. */
     if(toy_movie_ahead(r,variant,raw && C.config.toy_poll_owner,wait))return;
+#endif
 #elif KUI_TOY_SUITE_MODE >= 62
     if(toy_movie_ahead(r,variant,in_play,wait))return;
 #endif

@@ -3044,6 +3044,51 @@ static void any_waited(void) {
            "%u rounds of the game's loop\n", rounds);
 }
 #endif
+
+#if KUI_TOY_WIRE_TITLES && KUI_TOY_WIRE_STAY
+/* ---- Test 79: the window for every title ---- */
+/* Another title. The stage found no Toy Commander: no file is known, no
+ * hook is in, no call of the game's is classified, and the worker says so
+ * in the report. Its disc has a raw track on the SCI card, which is all
+ * the stage asked for. Evolution 2's refills, 73 and 50 sectors by turns:
+ * the first the low reader's, the rest from one window. Nothing is counted
+ * as a movie's, and the low reader's movie policy is never on. And the
+ * same title on a disc the stage did not call a source: no window. */
+static void titles_other(bool source) {
+    open_card(2000u, false, true, file_amid, false);
+    struct kui_native_ra_config config = movie_configuration();
+    memset(config.movie_ranges, 0, sizeof(config.movie_ranges));
+    config.toy_poll_owner = 0u;
+    if(!source) config.suite_source = 0u;
+    bind_movie_configuration(&config);
+    const struct kui_toy_wire_report *w = report();
+    const struct kui_native_readahead_aux_context *c = &kui_native_readahead_aux_context;
+    const uint32_t *trace = c->diagnostics.stage_result[KUI_NATIVE_RA_STAGE_NONE];
+    CHECK(!c->demand.owner_verified);
+    uint32_t lba = 45002u;
+    static const uint32_t sizes[5] = {73u, 50u, 73u, 50u, 52u};
+    for(unsigned i = 0u; i < 5u; lba += sizes[i++]) {
+        any_read(lba, sizes[i], source && i);
+        CHECK(!R.shared.stream.toy_suite_active && !R.shared.stream.toy_suite_poll);
+        CHECK(!trace[0] && !trace[1] && !trace[2] && !trace[3]);
+    }
+    CHECK(lba == 45300u && !w->first_error && !c->stats.abandoned);
+    no_drops(w);
+    if(source) {
+        CHECK(c->movie_ahead.variant == OTHER_WINDOW && w->other_windows == 1u && c->stats.hit_requests == 4u);
+        CHECK(w->other_sectors == 50u + 73u + 50u + 52u && w->large_requests == 1u && !w->large_returned);
+        CHECK(card.cmd18 == 1u && !card.cmd12 && w->n.starts == 1u);
+        printf("  another title on a disc with a raw track: Evolution 2's refills served from one window, four "
+               "requests of five, nothing counted as a movie's, the movie policy never on; CMD18 %u, CMD12 %u\n",
+            card.cmd18, card.cmd12);
+    } else {
+        CHECK(!c->movie_ahead.variant && !stream_on() && !w->other_windows && !c->stats.hit_requests);
+        CHECK(!w->n.starts && !w->large_requests && card.cmd18 == 1u && !card.cmd12);
+        printf("  another title on a disc the stage did not call a source: no window, the low reader read all "
+               "five requests in one card command\n");
+    }
+}
+#endif
 #endif
 
 /* The movie ends while a request waits on a running stream. The next SCI
@@ -3428,7 +3473,7 @@ int main(void) {
     /* Test 66's own chunk classification is untouched by the switch. */
     movie_chunk_classification();
 #endif
-    printf("Test %u reader, real low reader + auxiliary + stream on the card model:\n", KUI_TOY_WIRE_TICK ? 69u : KUI_TOY_WIRE_ANY ? 78u : KUI_TOY_WIRE_SEQ ? 77u : KUI_TOY_WIRE_FLUID ? 76u : KUI_TOY_WIRE_STEADY ? 75u : KUI_TOY_WIRE_LEAN ? 74u : KUI_TOY_WIRE_IDLE ? 73u : KUI_TOY_WIRE_PACE ? 72u : KUI_TOY_WIRE_WORDS ? 71u : KUI_TOY_WIRE_CACHED ? 70u : 68u);
+    printf("Test %u reader, real low reader + auxiliary + stream on the card model:\n", KUI_TOY_WIRE_TICK ? 69u : KUI_TOY_WIRE_TITLES ? 79u : KUI_TOY_WIRE_ANY ? 78u : KUI_TOY_WIRE_SEQ ? 77u : KUI_TOY_WIRE_FLUID ? 76u : KUI_TOY_WIRE_STEADY ? 75u : KUI_TOY_WIRE_LEAN ? 74u : KUI_TOY_WIRE_IDLE ? 73u : KUI_TOY_WIRE_PACE ? 72u : KUI_TOY_WIRE_WORDS ? 71u : KUI_TOY_WIRE_CACHED ? 70u : 68u);
 #if KUI_TOY_WIRE_MSB
     /* Everything twice: with a receiver that ignores the bit order asked
      * of it, and with one that delivers bytes MSB first. */
@@ -3535,7 +3580,8 @@ int main(void) {
     sequence_stop_failed();
     sequence_track_end(true);
 #endif
-    for(unsigned what = 0u; what < 4u; ++what) sequence_nowhere(what);
+    /* (Test 79 has a window in another title: titles_other() below.) */
+    for(unsigned what = 0u; what < 4u; ++what) if(!KUI_TOY_WIRE_TITLES || what != 1u) sequence_nowhere(what);
     sequence_movie();
 #if KUI_TOY_WIRE_ANY && KUI_TOY_WIRE_STAY
     any_evolution();
@@ -3545,6 +3591,10 @@ int main(void) {
     any_returned(false);
     any_returned(true);
     any_waited();
+#endif
+#if KUI_TOY_WIRE_TITLES && KUI_TOY_WIRE_STAY
+    titles_other(true);
+    titles_other(false);
 #endif
 #endif
     ended_in_interrupt();
@@ -3575,6 +3625,6 @@ int main(void) {
     printf("  the wire's standstill for timer waits, placed in the course's pieces in all of the above: %llu ticks\n",
         (unsigned long long)pause_seen);
 #endif
-    printf("PASS Test %u reader integration: %u checks\n", KUI_TOY_WIRE_TICK ? 69u : KUI_TOY_WIRE_ANY ? 78u : KUI_TOY_WIRE_SEQ ? 77u : KUI_TOY_WIRE_FLUID ? 76u : KUI_TOY_WIRE_STEADY ? 75u : KUI_TOY_WIRE_LEAN ? 74u : KUI_TOY_WIRE_IDLE ? 73u : KUI_TOY_WIRE_PACE ? 72u : KUI_TOY_WIRE_WORDS ? 71u : KUI_TOY_WIRE_CACHED ? 70u : 68u, checks);
+    printf("PASS Test %u reader integration: %u checks\n", KUI_TOY_WIRE_TICK ? 69u : KUI_TOY_WIRE_TITLES ? 79u : KUI_TOY_WIRE_ANY ? 78u : KUI_TOY_WIRE_SEQ ? 77u : KUI_TOY_WIRE_FLUID ? 76u : KUI_TOY_WIRE_STEADY ? 75u : KUI_TOY_WIRE_LEAN ? 74u : KUI_TOY_WIRE_IDLE ? 73u : KUI_TOY_WIRE_PACE ? 72u : KUI_TOY_WIRE_WORDS ? 71u : KUI_TOY_WIRE_CACHED ? 70u : 68u, checks);
     return 0;
 }

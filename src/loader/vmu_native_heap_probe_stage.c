@@ -211,6 +211,15 @@ __asm__(".global __kui_native_cold_progress_stage\n"
 static uint32_t native_runtime_mode(void) {
     int mode=kui_vmu_native_mode_decode(native_runtime_mode_wire,KUI_VMU_NATIVE_MODE_BYTES);
     if(mode<0) stopped("NATIVE VMU RUNTIME MODE REFUSED",(uint32_t)mode);
+#if defined(KUI_TOY_WIRE_TITLES) && KUI_TOY_WIRE_TITLES
+    /* Test 79: this module's worker has no virtual VMU, and a launch that
+     * passes the owner's setting on can now reach it. With the setting on
+     * the stage stops here, at its first look at the mode: before the card
+     * is opened for the virtual card's files and before the game's memory
+     * is asked for anything. */
+    if(mode!=KUI_VMU_NATIVE_MODE_READER_ONLY)
+        stopped("THIS TEST BUILD NEEDS VIRTUAL VMU OFF",(uint32_t)mode);
+#endif
 #if !KUI_NATIVE_SPLIT_CONTROLLER_GENERAL || !KUI_NATIVE_GENERAL_LEAN_LAYOUT || !KUI_NATIVE_READAHEAD
     if(mode==KUI_VMU_NATIVE_MODE_READER_ONLY)
         stopped("VMU OFF NEEDS MATCHING GENERAL READER",(uint32_t)mode);

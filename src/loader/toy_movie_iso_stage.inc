@@ -112,7 +112,35 @@ static bool movie_iso_ranges(void) {
     return true;
 }
 
+#if defined(KUI_TOY_WIRE_TITLES) && KUI_TOY_WIRE_TITLES
+/* Test 79: a disc with a raw Mode 1 data track, whatever the title. (An
+ * audio track has sectors of the same size and no header to tell it by:
+ * its control field says what it is.) */
+static bool toy_suite_raw_track(void) {
+    for(uint32_t i=0u;i<manifest.track_count;i++) {
+        const struct kui_retail_track *track=&manifest.slots[i].track;
+        if(kui_retail_track_control(track) &&
+           kui_retail_track_sector_bytes(track)==KUI_GAME_RAW_BYTES &&
+           kui_retail_track_header_bytes(track)==16u)return true;
+    }
+    return false;
+}
+#endif
+
 static void toy_movie_scan(void) {
+#if defined(KUI_TOY_WIRE_TITLES) && KUI_TOY_WIRE_TITLES
+    /* Test 79: another title is a source for the window by its raw track
+     * on the SCI card, with the reader and the mode as for Toy Commander.
+     * Nothing of it is read here and no file of it is looked for. Toy
+     * Commander takes the path below as before. */
+    if(manifest.reader==KUI_RETAIL_READER_ASYNC &&
+       native_runtime_mode()==KUI_VMU_NATIVE_MODE_READER_ONLY &&
+       (manifest.ip_crc32!=KUI_VMU_LAUNCH_TOY_IP_CRC || boot_crc!=KUI_VMU_LAUNCH_TOY_EXEC_CRC ||
+        exec_bytes!=KUI_VMU_LAUNCH_TOY_EXEC_BYTES)) {
+        if(manifest.storage_transport==KUI_STORAGE_SCI && toy_suite_raw_track())toy_suite_source=1u;
+        return;
+    }
+#endif
     if(manifest.reader!=KUI_RETAIL_READER_ASYNC ||
        native_runtime_mode()!=KUI_VMU_NATIVE_MODE_READER_ONLY ||
        manifest.ip_crc32!=KUI_VMU_LAUNCH_TOY_IP_CRC ||

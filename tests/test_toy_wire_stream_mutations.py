@@ -42,7 +42,10 @@ FLUID = os.environ.get("TOY_WIRE_FLUID", STEADY)
 # checking what they checked.
 SEQ = os.environ.get("TOY_WIRE_SEQ", "0")
 ANY = os.environ.get("TOY_WIRE_ANY", "0")
+TITLES = os.environ.get("TOY_WIRE_TITLES", "0")
 AUX = "src/loader/native_readahead_aux.c"
+# The cold stage's scan: its mutants are run by tests/test_toy_titles_stage.c.
+SCAN = "src/loader/toy_movie_iso_stage.inc"
 SWITCHES = [f"TOY_WIRE_TICK={TICK}", f"TOY_WIRE_CACHED={CACHED}", f"TOY_WIRE_WORDS={WORDS}", f"TOY_WIRE_PACE={PACE}",
             f"TOY_WIRE_IDLE={IDLE}", f"TOY_WIRE_LEAN={LEAN}", f"TOY_WIRE_STEADY={STEADY}",
             f"TOY_WIRE_FLUID={FLUID}"]
@@ -670,6 +673,42 @@ LEAN_GONE = {"update time counted outside the second movie", "the buffer's free 
 QUICK_GONE = {"the game's idle calls always pump", "an interrupt visit held to the spacing"}
 # Test 73 does not time restarts or place them in the course.
 RESTARTS = {"restart time not kept", "restarts missing from the course"}
+# Test 79: the same for TOY_WIRE_TITLES.
+TITLES_GONE = {"a window in another title", "the movie's rule for the window after all"}
+TITLES_MUTATIONS = [
+ (AUX, "the window for the verified title alone",
+  "    if(toy_movie_ahead(r,variant,raw,wait))return;",
+  "    if(toy_movie_ahead(r,variant,raw && C.config.toy_poll_owner,wait))return;"),
+ (AUX, "the movie's rule for the window after all",
+  "    if(toy_movie_ahead(r,variant,raw,wait))return;",
+  "    if(toy_movie_ahead(r,variant,in_play,wait))return;"),
+ # The stage: which disc is a source for the window.
+ (SCAN, "an audio track taken for a raw data track",
+  "        if(kui_retail_track_control(track) &&\n", "        if(\n"),
+ (SCAN, "a track with its subcode taken for a raw one",
+  "        if(kui_retail_track_control(track) &&\n           kui_retail_track_sector_bytes(track)==KUI_GAME_RAW_BYTES &&\n",
+  "        if(kui_retail_track_control(track) &&\n"),
+ (SCAN, "a Mode 2 track taken for Mode 1",
+  "           kui_retail_track_header_bytes(track)==16u)return true;", "           true)return true;"),
+ (SCAN, "a source on another card adapter",
+  "        if(manifest.storage_transport==KUI_STORAGE_SCI && toy_suite_raw_track())toy_suite_source=1u;",
+  "        if(toy_suite_raw_track())toy_suite_source=1u;"),
+ (SCAN, "a source with no raw track",
+  "        if(manifest.storage_transport==KUI_STORAGE_SCI && toy_suite_raw_track())toy_suite_source=1u;",
+  "        if(manifest.storage_transport==KUI_STORAGE_SCI)toy_suite_source=1u;"),
+ (SCAN, "another title never a source",
+  "        if(manifest.storage_transport==KUI_STORAGE_SCI && toy_suite_raw_track())toy_suite_source=1u;",
+  "        if(manifest.storage_transport==KUI_STORAGE_SCI && toy_suite_raw_track())toy_suite_source=0u;"),
+ (SCAN, "a source with the virtual VMU on",
+  "       native_runtime_mode()==KUI_VMU_NATIVE_MODE_READER_ONLY &&\n       (manifest.ip_crc32!=",
+  "       (manifest.ip_crc32!="),
+ (SCAN, "a source for another reader",
+  "    if(manifest.reader==KUI_RETAIL_READER_ASYNC &&\n       native_runtime_mode()==KUI_VMU_NATIVE_MODE_READER_ONLY &&\n       (manifest.ip_crc32!=",
+  "    if(native_runtime_mode()==KUI_VMU_NATIVE_MODE_READER_ONLY &&\n       (manifest.ip_crc32!="),
+ (SCAN, "Toy Commander taken for another title",
+  "       (manifest.ip_crc32!=KUI_VMU_LAUNCH_TOY_IP_CRC || boot_crc!=KUI_VMU_LAUNCH_TOY_EXEC_CRC ||\n        exec_bytes!=KUI_VMU_LAUNCH_TOY_EXEC_BYTES)) {",
+  "       (true)) {"),
+]
 # Test 78: mutations on lines the build with TOY_WIRE_ANY no longer compiles
 # go (ANY_GONE), and the same defects are made in the lines that take their
 # place; then the defects of the change itself.
@@ -840,6 +879,10 @@ if ANY == "1":
     SWITCHES.append("TOY_WIRE_ANY=1")
     DEFINES.append("-DKUI_TOY_WIRE_ANY=1")
     MUTATIONS = [m for m in MUTATIONS if m[1] not in ANY_GONE] + ANY_MUTATIONS
+if TITLES == "1":
+    SWITCHES.append("TOY_WIRE_TITLES=1")
+    DEFINES.append("-DKUI_TOY_WIRE_TITLES=1")
+    MUTATIONS = [m for m in MUTATIONS if m[1] not in TITLES_GONE] + TITLES_MUTATIONS
 if os.environ.get("TOY_WIRE_ONLY"):
     # A named part of the list, for running it in pieces: "from:to" of the list's positions.
     low, high = (int(v) for v in os.environ["TOY_WIRE_ONLY"].split(":"))
@@ -888,6 +931,19 @@ def main():
                 survived.append(name)
                 continue
             (tree / path).write_text(original.replace(old, new))
+            if path == SCAN:
+                binary = Path(tmp) / "scan"
+                code = run([cc, "-std=c11", "-O1", "-g", "-w", "-fsanitize=address,undefined",
+                            *[d for d in DEFINES if d.startswith("-DKUI_TOY_WIRE_TITLES")], "-Iinclude", "-Isrc/loader",
+                            "tests/test_toy_titles_stage.c", "-o", str(binary)], tree, 120)
+                if code == 0:
+                    code = run([str(binary)], tree, 60)
+                code = code or 0
+                (tree / path).write_text(original)
+                print(("caught  " if code else "MISSED  ") + name, flush=True)
+                if not code:
+                    survived.append(name)
+                continue
             if path in (STREAM, STREAM_H):
                 binary = Path(tmp) / "stream"
                 code = run([cc, "-std=c11", "-O1", "-g", "-w", "-fsanitize=address,undefined",

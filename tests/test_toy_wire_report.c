@@ -46,13 +46,23 @@ static const struct kui_toy_wire_report *toy_wire_report_block(void) { return &w
 #include "toy_suite_report_save.inc"
 
 #if KUI_TOY_WIRE_ANY
+#if KUI_TOY_WIRE_TITLES
+#define TEST_NUMBER "79"
+#else
 #define TEST_NUMBER "78"
+#endif
 /* Test 78's rows: Test 77's with the large requests a window served,
  * their sectors and the requests that went back to the low reader; and
  * without the five rows by piece of the second movie's course, which this
  * build does not keep. The first movie's player is still last. */
 static const char *const labels[] = {
-    "PIPE B I CALLS IRQ STAY PT", "AHEAD B I HIT EDC STOP OS", "X OW E I C W O", "BIG N S BACK",
+    "PIPE B I CALLS IRQ STAY PT", "AHEAD B I HIT EDC STOP OS", "X OW E I C W O",
+#if KUI_TOY_WIRE_TITLES
+    /* Test 79: whose disc it is, and the low reader's own totals. */
+    "BIG N S BACK TOY", "SD BLK PIO OVR CRC DECL",
+#else
+    "BIG N S BACK",
+#endif
     "I SUBMIT CADENCE MAX AT", "I FIRST LAST SKIP EXIT SF", "B SUBMIT CADENCE MAX AT",
     "IP ON OT OC OI SN ST",
     "K LIGHT EDC MEND MB LB ORD",
@@ -61,7 +71,7 @@ static const char *const labels[] = {
     "S C S F LF AM BC", "W FILL REF BAD",
     "BP ON OT OC OI SN ST",
 };
-enum { LABELS = sizeof(labels) / sizeof(labels[0]), ESSENTIAL = 17 };
+enum { LABELS = sizeof(labels) / sizeof(labels[0]), ESSENTIAL = KUI_TOY_WIRE_TITLES ? 18 : 17 };
 #elif KUI_TOY_WIRE_SEQ
 #define TEST_NUMBER "77"
 /* Test 77's rows: Test 76's with the sectors served from windows outside
@@ -254,6 +264,31 @@ static size_t format(const struct kui_native_ra_public *ra, const kui_retail_asy
     return (size_t)(end - out);
 }
 
+#if KUI_TOY_WIRE_TITLES
+/* Test 79: a report's text as lines for the screen. Every character of the
+ * body is shown once and in order; no line is wider than the screen, none
+ * is empty and none begins or ends with a space; and the lines end where
+ * the body does. Returns how many lines, and how many of them were cut. */
+static unsigned screen_cut;
+static unsigned screen(const char *text, size_t body) {
+    const char *at = text, *const end = text + KUI_TOY_REPORT_FILE_BYTES - 12u;
+    static char shown[KUI_TOY_REPORT_FILE_BYTES], wanted[KUI_TOY_REPORT_FILE_BYTES];
+    char row[TOY_PAGE_PLACES + 1u];
+    size_t shown_n = 0, wanted_n = 0;
+    unsigned lines = 0;
+    screen_cut = 0;
+    for(const char *line = at; toy_report_screen_line(&at, end, row); line = at, ++lines) {
+        const size_t n = strlen(row);
+        assert(n && n <= TOY_PAGE_PLACES && row[0] != ' ' && row[n - 1u] != ' ' && !memcmp(line, row, n));
+        if(line[n] != '\n') ++screen_cut;
+        for(size_t i = 0; i < n; ++i) if(row[i] != ' ') shown[shown_n++] = row[i];
+    }
+    for(const char *p = text; p < text + body; ++p) if(*p != ' ' && *p != '\n') wanted[wanted_n++] = *p;
+    assert(shown_n == wanted_n && !memcmp(shown, wanted, wanted_n) && at == text + body);
+    return lines;
+}
+#endif
+
 int main(int argc, char **argv) {
     static kui_retail_async_region_type region;
     static struct kui_native_ra_public ra;
@@ -264,6 +299,10 @@ int main(int argc, char **argv) {
     size_t body = format(&ra, &region, text, &rows);
     assert(rows == LABELS && strstr(text, "W START SEG CUT WAIT FULL\n0 0 0 0 0\n"));
     const size_t empty = body;
+#if KUI_TOY_WIRE_TITLES
+    /* On the screen: four lines of heading and two for each row, none cut. */
+    assert(screen(text, body) == 4u + 2u * rows && !screen_cut);
+#endif
 
     /* A full run of both movies as Test 67 measured the wire: the largest
      * values each counter can plausibly reach. */
@@ -400,8 +439,14 @@ int main(int argc, char **argv) {
 #if KUI_TOY_WIRE_SEQ
     ra.stats.hit_requests = 0x5900; /* with the other windows' requests */
 #endif
+#if KUI_TOY_WIRE_TITLES
+    ra.demand.owner_verified = 1u;
+#endif
     region.shared.stream.stats.blocks = 0x40; region.shared.stream.stats.polled = 0x2f;
     region.shared.stream.stats.starts = 0x1f; region.shared.stream.stats.crc_errors = 0;
+#if KUI_TOY_WIRE_TITLES
+    region.shared.stream.stats.overruns = 0x11; wire.declined = 6;
+#endif
     ra.present[0] = (struct kui_toy_movie_present_trace){.submitted = 0x14b, .on_time = 0x14a,
         .max_gap = 0x12abc, .max_gap_frame = 0xf6, .first_gap = 0x19807, .last_frame = 0x14b,
         .render_entries = 0x14b, .scene_hits = 0x14b};
@@ -456,7 +501,7 @@ int main(int argc, char **argv) {
         char parts[64];
         const unsigned have = KUI_TOY_WIRE_STAY | KUI_TOY_WIRE_LATER << 1 | KUI_TOY_WIRE_RING << 2 |
             KUI_TOY_WIRE_QUIT << 3 | KUI_TOY_WIRE_HOT << 4 | KUI_TOY_WIRE_COPY << 5 | KUI_TOY_WIRE_GAP << 6 |
-            KUI_TOY_WIRE_APART << 7 | KUI_TOY_WIRE_SEQ << 8 | KUI_TOY_WIRE_ANY << 9;
+            KUI_TOY_WIRE_APART << 7 | KUI_TOY_WIRE_SEQ << 8 | KUI_TOY_WIRE_ANY << 9 | KUI_TOY_WIRE_TITLES << 10;
         snprintf(parts, sizeof(parts), "PIPE B I CALLS IRQ STAY PT\n2 3 9000 BE00 35 %X\n", have);
         assert(strstr(text, parts) && have == KUI_TOY_WIRE_PARTS);
     }
@@ -470,7 +515,13 @@ int main(int argc, char **argv) {
 #if KUI_TOY_WIRE_ANY
     /* The large requests a window served, their sectors, and those that
      * went back to the low reader. */
-    assert(strstr(text, "BIG N S BACK\n1C00 7B000 3\n"));
+#if KUI_TOY_WIRE_TITLES
+    /* And whose disc it is: the verified Toy Commander here. Behind it the
+     * low reader's own totals and the stream's refused take-overs. */
+    assert(strstr(text, "BIG N S BACK TOY\n1C00 7B000 3 1\nSD BLK PIO OVR CRC DECL\n40 2F 11 0 6\n"));
+#else
+    assert(strstr(text, "BIG N S BACK\n1C00 7B000 3\n") && !strstr(text, "BACK TOY"));
+#endif
 #else
     assert(!strstr(text, "BIG N S BACK"));
 #endif
@@ -741,12 +792,22 @@ int main(int argc, char **argv) {
     body = format(&ra, &region, text, &rows);
     assert(essential_rows >= 12u && rows < LABELS && body <= KUI_TOY_REPORT_FILE_BYTES - 12u);
     const unsigned widest = essential_rows;
+#if KUI_TOY_WIRE_TITLES
+    /* At full width a row of six values has 53 places: cut at its last
+     * space, the sixth value on a line of its own. */
+    const unsigned widest_lines = screen(text, body), widest_cut = screen_cut;
+    assert(widest_cut && widest_lines == 4u + 2u * rows + widest_cut);
+#endif
 
     /* A block that is not the stream's (never written) reads as zeros. */
     wire.magic = 0;
     (void)format(&ra, &region, text, &rows);
     assert(strstr(text, "W START SEG CUT WAIT FULL\n0 0 0 0 0\n"));
     assert(!toy_suite_save_report(&ra, &region));
+#if KUI_TOY_WIRE_TITLES
+    printf("  the report as lines for the screen: every character once and in order, no line over %u places; "
+           "%u lines at full width, %u of them cut at a space\n", (unsigned)TOY_PAGE_PLACES, widest_lines, widest_cut);
+#endif
     printf("PASS Test " TEST_NUMBER " report: %zu body bytes with nothing counted, %zu with a full run's values "
            "(essential rows end at %zu of 1012); at full width %u of the %u essential rows are written "
            "and no row is ever cut\n", empty, full, needed, widest, (unsigned)ESSENTIAL);

@@ -196,6 +196,33 @@
 #if KUI_TOY_WIRE_ANY && !KUI_TOY_WIRE_SEQ
 #error "Test 78 builds on Test 77"
 #endif
+/* Test 79: Test 78 with one change. The window was offered to one title:
+ * the stage looked for Toy Commander's executable and its four movie
+ * files before it called a disc a source for the window, and the
+ * auxiliary asked for that verified title with every request. Now every
+ * title this launch family admits is offered the window, on an image with
+ * a raw Mode 1 track on the SCI card, with the virtual VMU off.
+ *
+ * What stays Toy Commander's alone, by the same verification as before:
+ * the hooks in its movie player, its movie files' ranges and the low
+ * reader's policy for requests inside them, and the classification of its
+ * disc calls by their return addresses. Another title has none of them:
+ * its reads are a caller's the reader knows nothing of, as Toy
+ * Commander's ordinary loading has been since Test 77.
+ *
+ * The module can be reached by a launch that passes the owner's VMU
+ * setting on. Its worker has no virtual VMU: with the setting on, the
+ * stage stops at once with a plain message, before any card step. And a
+ * launch that brings no report file has the report on the screen, a page
+ * at a time, where it could not be saved. Its text has the low reader's
+ * own totals too (the two fixed pages are not shown then), and a card
+ * stream still running is ended first, as a save ends it. */
+#ifndef KUI_TOY_WIRE_TITLES
+#define KUI_TOY_WIRE_TITLES 0
+#endif
+#if KUI_TOY_WIRE_TITLES && !KUI_TOY_WIRE_ANY
+#error "Test 79 builds on Test 78"
+#endif
 /* Test 76's parts (the switch itself is above, with LATER's default):
  *   QUIT   a stream given up while it receives is ended at once, where it
  *          was waited out, with interrupts held off, until its run's next
@@ -243,7 +270,8 @@
 /* The parts a build has, as the report's PT value names them. */
 #define KUI_TOY_WIRE_PARTS (KUI_TOY_WIRE_STAY | KUI_TOY_WIRE_LATER << 1 | KUI_TOY_WIRE_RING << 2 | \
     KUI_TOY_WIRE_QUIT << 3 | KUI_TOY_WIRE_HOT << 4 | KUI_TOY_WIRE_COPY << 5 | KUI_TOY_WIRE_GAP << 6 | \
-    KUI_TOY_WIRE_APART << 7 | KUI_TOY_WIRE_SEQ << 8 | KUI_TOY_WIRE_ANY << 9)
+    KUI_TOY_WIRE_APART << 7 | KUI_TOY_WIRE_SEQ << 8 | KUI_TOY_WIRE_ANY << 9 | \
+    KUI_TOY_WIRE_TITLES << 10)
 /* The second movie in pieces of 2^22 ticks, 5.4 s: twelve cover it. */
 #define KUI_TOY_WIRE_BUCKETS 12u
 #define KUI_TOY_WIRE_BUCKET_SHIFT 22u

@@ -19,6 +19,7 @@ TOY_WIRE_STEADY ?= 0
 TOY_WIRE_FLUID ?= 0
 TOY_WIRE_SEQ ?= 0
 TOY_WIRE_ANY ?= 0
+TOY_WIRE_TITLES ?= 0
 TOY_WIRE_STAY ?= $(TOY_WIRE_STEADY)
 # Test 76 leaves LATER out unless a build asks for it.
 TOY_WIRE_LATER ?= $(if $(filter 1,$(TOY_WIRE_FLUID)),0,$(TOY_WIRE_STEADY))
@@ -41,6 +42,8 @@ endif
 ifeq ($(TOY_WIRE_STREAM),1)
 ifeq ($(TOY_WIRE_TICK),1)
 TOY_WIRE_TEST := 69
+else ifeq ($(TOY_WIRE_CACHED)$(TOY_WIRE_WORDS)$(TOY_WIRE_PACE)$(TOY_WIRE_IDLE)$(TOY_WIRE_LEAN)$(TOY_WIRE_STEADY)$(TOY_WIRE_FLUID)$(TOY_WIRE_SEQ)$(TOY_WIRE_ANY)$(TOY_WIRE_TITLES),1111111111)
+TOY_WIRE_TEST := 79
 else ifeq ($(TOY_WIRE_CACHED)$(TOY_WIRE_WORDS)$(TOY_WIRE_PACE)$(TOY_WIRE_IDLE)$(TOY_WIRE_LEAN)$(TOY_WIRE_STEADY)$(TOY_WIRE_FLUID)$(TOY_WIRE_SEQ)$(TOY_WIRE_ANY),111111111)
 TOY_WIRE_TEST := 78
 else ifeq ($(TOY_WIRE_CACHED)$(TOY_WIRE_WORDS)$(TOY_WIRE_PACE)$(TOY_WIRE_IDLE)$(TOY_WIRE_LEAN)$(TOY_WIRE_STEADY)$(TOY_WIRE_FLUID)$(TOY_WIRE_SEQ),11111111)
@@ -69,6 +72,8 @@ else ifneq ($(TOY_WIRE_SEQ),0)
 $(error TOY_WIRE_SEQ extends the Test 68 reader: use TOY_WIRE_STREAM=1 and Test 76's switches)
 else ifneq ($(TOY_WIRE_ANY),0)
 $(error TOY_WIRE_ANY extends the Test 68 reader: use TOY_WIRE_STREAM=1 and Test 77's switches)
+else ifneq ($(TOY_WIRE_TITLES),0)
+$(error TOY_WIRE_TITLES extends the Test 68 reader: use TOY_WIRE_STREAM=1 and Test 78's switches)
 endif
 BUILD ?= build/toy-suite-$(TOY_SUITE_MODE)
 include Makefile.vmu-native-toy-playback
@@ -327,6 +332,20 @@ TOY_WIRE_TICK_FLAG += $(TOY_WIRE_ANY_FLAGS)
 else ifneq ($(TOY_WIRE_ANY),0)
 $(error TOY_WIRE_ANY must be 0 or 1)
 endif
+ifeq ($(TOY_WIRE_TITLES),1)
+# Test 79: Test 78 with the window offered to every title of the family
+# (include/kui/toy_wire_report.h).
+ifneq ($(TOY_WIRE_ANY),1)
+$(error TOY_WIRE_TITLES builds on Test 78: use TOY_WIRE_ANY=1 on Test 77's switches)
+endif
+TOY_WIRE_TITLES_FLAGS := -DKUI_TOY_WIRE_TITLES=1
+FLAGS += $(TOY_WIRE_TITLES_FLAGS)
+NATIVE_FLAGS += $(TOY_WIRE_TITLES_FLAGS)
+TOY_MOVIE_TEST_FLAGS += $(TOY_WIRE_TITLES_FLAGS)
+TOY_WIRE_TICK_FLAG += $(TOY_WIRE_TITLES_FLAGS)
+else ifneq ($(TOY_WIRE_TITLES),0)
+$(error TOY_WIRE_TITLES must be 0 or 1)
+endif
 RA_AUX_LINK_FLAGS := -Wl,--defsym=__native_ra_extra_code=0x3000
 RA_AUX_SPAN := 0x7000
 RA_SRC += src/loader/toy_wire_stream.c src/core/mode1_erasure.c
@@ -358,7 +377,7 @@ $(BUILD)/native-worker.elf: $(NATIVE_OBJ)
 
 $(BUILD)/toy-suite-config: force-mode-config
 	@mkdir -p $(BUILD)
-	@printf '%s\n' 'TOY_SUITE_MODE=$(TOY_SUITE_MODE)' 'TOY_FMV_COMPARE=$(TOY_FMV_COMPARE)' 'TOY_WIRE_STREAM=$(TOY_WIRE_STREAM)' $(if $(filter 1,$(TOY_WIRE_TICK)),'TOY_WIRE_TICK=1') $(if $(filter 1,$(TOY_WIRE_CACHED)),'TOY_WIRE_CACHED=1') $(if $(filter 1,$(TOY_WIRE_WORDS)),'TOY_WIRE_WORDS=1') $(if $(filter 1,$(TOY_WIRE_PACE)),'TOY_WIRE_PACE=1') $(if $(filter 1,$(TOY_WIRE_IDLE)),'TOY_WIRE_IDLE=1') $(if $(filter 1,$(TOY_WIRE_LEAN)),'TOY_WIRE_LEAN=1 OPEN=$(TOY_WIRE_OPEN) CLEAN=$(TOY_WIRE_CLEAN) MSB=$(TOY_WIRE_MSB) QUICK=$(TOY_WIRE_QUICK) SWIFT=$(TOY_WIRE_SWIFT)') $(if $(filter 1,$(TOY_WIRE_STEADY)),'TOY_WIRE_STEADY=1 STAY=$(TOY_WIRE_STAY) LATER=$(TOY_WIRE_LATER) RING=$(TOY_WIRE_RING)') $(if $(filter 1,$(TOY_WIRE_FLUID)),'TOY_WIRE_FLUID=1 QUIT=$(TOY_WIRE_QUIT) HOT=$(TOY_WIRE_HOT) COPY=$(TOY_WIRE_COPY) GAP=$(TOY_WIRE_GAP) APART=$(TOY_WIRE_APART)') $(if $(filter 1,$(TOY_WIRE_SEQ)),'TOY_WIRE_SEQ=1') $(if $(filter 1,$(TOY_WIRE_ANY)),'TOY_WIRE_ANY=1') > $@.tmp
+	@printf '%s\n' 'TOY_SUITE_MODE=$(TOY_SUITE_MODE)' 'TOY_FMV_COMPARE=$(TOY_FMV_COMPARE)' 'TOY_WIRE_STREAM=$(TOY_WIRE_STREAM)' $(if $(filter 1,$(TOY_WIRE_TICK)),'TOY_WIRE_TICK=1') $(if $(filter 1,$(TOY_WIRE_CACHED)),'TOY_WIRE_CACHED=1') $(if $(filter 1,$(TOY_WIRE_WORDS)),'TOY_WIRE_WORDS=1') $(if $(filter 1,$(TOY_WIRE_PACE)),'TOY_WIRE_PACE=1') $(if $(filter 1,$(TOY_WIRE_IDLE)),'TOY_WIRE_IDLE=1') $(if $(filter 1,$(TOY_WIRE_LEAN)),'TOY_WIRE_LEAN=1 OPEN=$(TOY_WIRE_OPEN) CLEAN=$(TOY_WIRE_CLEAN) MSB=$(TOY_WIRE_MSB) QUICK=$(TOY_WIRE_QUICK) SWIFT=$(TOY_WIRE_SWIFT)') $(if $(filter 1,$(TOY_WIRE_STEADY)),'TOY_WIRE_STEADY=1 STAY=$(TOY_WIRE_STAY) LATER=$(TOY_WIRE_LATER) RING=$(TOY_WIRE_RING)') $(if $(filter 1,$(TOY_WIRE_FLUID)),'TOY_WIRE_FLUID=1 QUIT=$(TOY_WIRE_QUIT) HOT=$(TOY_WIRE_HOT) COPY=$(TOY_WIRE_COPY) GAP=$(TOY_WIRE_GAP) APART=$(TOY_WIRE_APART)') $(if $(filter 1,$(TOY_WIRE_SEQ)),'TOY_WIRE_SEQ=1') $(if $(filter 1,$(TOY_WIRE_ANY)),'TOY_WIRE_ANY=1') $(if $(filter 1,$(TOY_WIRE_TITLES)),'TOY_WIRE_TITLES=1') > $@.tmp
 	@cmp -s $@.tmp $@ || cp $@.tmp $@
 	@rm -f $@.tmp
 
@@ -460,6 +479,13 @@ toy-wire-host-tests:
 	$(HOST_CC) $(filter-out -Wpedantic,$(TOY_WIRE_HOST_FLAGS)) $(TOY_WIRE_TICK_FLAG) tests/test_toy_wire_report.c \
 	 -o $(BUILD)/test-toy-wire-report
 	ASAN_OPTIONS=detect_leaks=0 $(BUILD)/test-toy-wire-report
+ifeq ($(TOY_WIRE_ANY),1)
+# The cold stage's choice of a source for the window, on the stage's own text
+# (Tests 78 and 79: the second offers the window to every title).
+	$(HOST_CC) $(TOY_WIRE_HOST_FLAGS) $(TOY_WIRE_TITLES_FLAGS) tests/test_toy_titles_stage.c \
+	 -o $(BUILD)/test-toy-titles-stage
+	ASAN_OPTIONS=detect_leaks=0 $(BUILD)/test-toy-titles-stage
+endif
 ifeq ($(TOY_WIRE_CLEAN),1)
 	$(HOST_CC) $(TOY_WIRE_HOST_FLAGS) tests/test_toy_wire_msf.c -o $(BUILD)/test-toy-wire-msf
 	ASAN_OPTIONS=detect_leaks=0 $(BUILD)/test-toy-wire-msf

@@ -301,6 +301,10 @@ static void __attribute__((noipa)) native_readahead_bind(uint32_t payload) {
     retail_display_line(cfg.toy_poll_owner?"SCI ROUND-ROBIN DMA READY":"SCI DMA OWNER UNVERIFIED");
 #elif KUI_TOY_SUITE_WIDE_EDC
     retail_display_line(cfg.toy_poll_owner?"SCI FASTER EDC READY":"SCI RESUME OWNER UNVERIFIED");
+#elif defined(KUI_TOY_WIRE_TITLES) && KUI_TOY_WIRE_TITLES
+    /* Test 79: any title on a raw SCI image has the stream's read-ahead. */
+    retail_display_line(cfg.toy_poll_owner?"SCI MOVIE READ AHEAD READY":
+        cfg.suite_source==1u?"SCI STREAM READ AHEAD READY":"NO RAW SCI IMAGE / PLAIN READER");
 #elif KUI_TOY_SUITE_MODE >= 62
     retail_display_line(cfg.toy_poll_owner?"SCI MOVIE READ AHEAD READY":"SCI RESUME OWNER UNVERIFIED");
 #elif KUI_TOY_SUITE_MODE == 61

@@ -1005,7 +1005,14 @@ static void toy_suite_finish_gesture(bool held) {
      * command before entering the terminal SD loan. Keep the screen report
      * reachable even if the command never retires. */
     const kui_retail_async_region_type *r=reader_capture_region();
+#if defined(KUI_TOY_WIRE_TITLES) && KUI_TOY_WIRE_TITLES
+    /* Test 79: a launch that brought no report file waits the same way.
+     * Its report asks for the same loan, which is what ends a card stream
+     * still running (toy_suite_save_report). */
+    if(!r ||
+#else
     if(!config.toy_report.test || !r ||
+#endif
        (!r->shared.service.pending && !r->shared.service.executing && !r->engine.active) ||
        ++held_report>=HELD_REPORT_FRAMES+60u)fail(0x4fu);
 }
@@ -1026,6 +1033,8 @@ static void toy_suite_finish_gesture(bool held) {
 /* Card Tools starts this reader from its Test 66 entry. */
 #if defined(KUI_TOY_WIRE_TICK) && KUI_TOY_WIRE_TICK
 #define KUI_TOY_TEST_TITLE "TOY TEST 69"
+#elif defined(KUI_TOY_WIRE_TITLES) && KUI_TOY_WIRE_TITLES
+#define KUI_TOY_TEST_TITLE "TOY TEST 79"
 #elif defined(KUI_TOY_WIRE_ANY) && KUI_TOY_WIRE_ANY
 #define KUI_TOY_TEST_TITLE "TOY TEST 78"
 #elif defined(KUI_TOY_WIRE_SEQ) && KUI_TOY_WIRE_SEQ
@@ -1371,6 +1380,28 @@ static void toy_report_pause(unsigned frames,bool *start_released,bool *reboot_r
     }
 }
 #include "toy_suite_report_save.inc"
+#if defined(KUI_TOY_WIRE_TITLES) && KUI_TOY_WIRE_TITLES && !defined(KUI_VMU_NATIVE_PASSIVE_HOST_TEST)
+/* Test 79: the report on the screen, for a launch that brought no file to
+ * save it in. The text is the one a save writes, twelve of its lines to a
+ * page (toy_report_screen_line), a page at a time for as long as the
+ * console is on. Start restarts the console as it does behind a save. */
+static void toy_report_pages(const char *text,const struct retail_display_state *display,unsigned frames) {
+    bool start_released=false,reboot_refused=false;
+    const char *const end=text+KUI_TOY_REPORT_FILE_BYTES-12u;
+    for(;;) {
+        const char *at=text;
+        while(at<end && *at!=' ') {
+            char row[TOY_PAGE_PLACES+1u];
+            retail_display_line("REPORT NOT SAVED / FILM EVERY PAGE");
+            for(unsigned line=0u;line<TOY_PAGE_LINES && toy_report_screen_line(&at,end,row);line++)
+                retail_display_line(row);
+            retail_display_line(reboot_refused?"RESTART BUSY / TRY START AGAIN":"START / REBOOT TO K-UI CD");
+            toy_report_pause(frames,&start_released,&reboot_refused);
+            retail_display_restore(display);
+        }
+    }
+}
+#endif
 #endif
 #elif KUI_NATIVE_TOY_HEADER_REPLAY
 static void toy_storage_page(const struct kui_native_ra_public *ra,
@@ -1427,6 +1458,14 @@ static void report(void) {
 #if KUI_TOY_SUITE_MODE && !defined(KUI_VMU_NATIVE_PASSIVE_HOST_TEST)
         bool saved=toy_suite_save_report(ra,movie_region);
         bool start_released=false,reboot_refused=false;
+#if defined(KUI_TOY_WIRE_TITLES) && KUI_TOY_WIRE_TITLES
+        if(!saved) {
+            /* Test 79: not saved, for want of a report file or because
+             * the card could not be had. The same text on the screen. */
+            toy_report_format((char *)issued_chain,ra,&movie_region->shared.stream.stats,KUI_TOY_SUITE_MODE);
+            toy_report_pages((const char *)issued_chain,&display,frames);
+        }
+#endif
 #endif
         for(unsigned page=0u;;page^=1u) {
             if(page)toy_storage_page(ra,movie_region);

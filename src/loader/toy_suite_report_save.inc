@@ -81,7 +81,7 @@ static void toy_report_wire(char **at,const char *end,const struct kui_native_ra
      * of the second movie's course the most of the player's own buffer
      * that was free and how long the wire stood still for timer waits. */
     /* PT: the parts this build has (1 STAY, 2 LATER, 4 RING, 8 QUIT, 10 HOT, 20 COPY, 40 GAP, 80 APART,
-     * 100 SEQ, 200 ANY). */
+     * 100 SEQ, 200 ANY, 400 TITLES). */
     toy_report_short(at,end,"PIPE B I CALLS IRQ STAY PT",
         (uint32_t[]){ahead[2],ahead[3],ahead[4],ahead[5],w->stays,(uint32_t)KUI_TOY_WIRE_PARTS},6u);
 #if KUI_TOY_WIRE_SEQ
@@ -108,8 +108,24 @@ static void toy_report_wire(char **at,const char *end,const struct kui_native_ra
      * their end, their sectors, and requests a window had begun to serve
      * that went back to the low reader. AHEAD's sectors and HIT include
      * them. */
+#if KUI_TOY_WIRE_TITLES
+    /* Test 79 adds whose disc it is: 1 the verified Toy Commander, with
+     * its hooks and its movie policy; 0 any other title. */
+    toy_report_short(at,end,"BIG N S BACK TOY",
+        (uint32_t[]){w->large_requests,w->large_sectors,w->large_returned,ra->demand.owner_verified},4u);
+    /* And the low reader's own totals, which the two fixed pages show and
+     * a report on the screen alone would not: the blocks it read, those
+     * of them by programmed transfers, its receive overruns and its CRC16
+     * failures. Whatever no window serves is its to read, and in another
+     * title that may be most of the game's reading. DECL: the times the
+     * stream was not let take the card over from it (no interrupt route,
+     * or the bus or the channel not free). */
+    toy_report_short(at,end,"SD BLK PIO OVR CRC DECL",
+        (uint32_t[]){sd->blocks,sd->polled,sd->overruns,sd->crc_errors,w->declined},5u);
+#else
     toy_report_short(at,end,"BIG N S BACK",
         (uint32_t[]){w->large_requests,w->large_sectors,w->large_returned},3u);
+#endif
 #endif
 #else
     toy_report_short(at,end,"AHEAD B I HIT EDC STOP",
@@ -564,7 +580,7 @@ static void toy_report_format(char *text,const struct kui_native_ra_public *ra,
     toy_report_string(&at,"K-UI TOY COMMANDER REPORT\nTEST ");
 #if KUI_TOY_WIRE_STREAM
     /* Card Tools starts this reader from its Test 66 entry. */
-    test=KUI_TOY_WIRE_TICK?69u:KUI_TOY_WIRE_ANY?78u:KUI_TOY_WIRE_SEQ?77u:KUI_TOY_WIRE_FLUID?76u:KUI_TOY_WIRE_STEADY?75u:KUI_TOY_WIRE_LEAN?74u:KUI_TOY_WIRE_IDLE?73u:KUI_TOY_WIRE_PACE?72u:KUI_TOY_WIRE_WORDS?71u:KUI_TOY_WIRE_CACHED?70u:68u;
+    test=KUI_TOY_WIRE_TICK?69u:KUI_TOY_WIRE_TITLES?79u:KUI_TOY_WIRE_ANY?78u:KUI_TOY_WIRE_SEQ?77u:KUI_TOY_WIRE_FLUID?76u:KUI_TOY_WIRE_STEADY?75u:KUI_TOY_WIRE_LEAN?74u:KUI_TOY_WIRE_IDLE?73u:KUI_TOY_WIRE_PACE?72u:KUI_TOY_WIRE_WORDS?71u:KUI_TOY_WIRE_CACHED?70u:68u;
 #endif
     if(test>=10u)*at++=(char)('0'+test/10u);
     *at++=(char)('0'+test%10u);
@@ -846,9 +862,45 @@ static void toy_report_format(char *text,const struct kui_native_ra_public *ra,
 }
 #endif
 
+#if defined(KUI_TOY_WIRE_TITLES) && KUI_TOY_WIRE_TITLES
+/* Test 79: the report's text as lines for the screen, which has fifty
+ * places and room for twelve of them beside a page's own two. The next
+ * line: a line of the text, or as much of one as fits, cut at its last
+ * space and gone on with in the line after. False at the text's end,
+ * which is its padding. */
+enum { TOY_PAGE_LINES=12u, TOY_PAGE_PLACES=50u };
+static bool toy_report_screen_line(const char **text,const char *end,char row[TOY_PAGE_PLACES+1u]) {
+    const char *at=*text;
+    if(at>=end || *at==' ')return false;
+    unsigned n=0u,space=0u;
+    while(at+n<end && at[n]!='\n' && n<TOY_PAGE_PLACES) {
+        if(at[n]==' ')space=n;
+        row[n]=at[n];
+        n++;
+    }
+    if(at+n<end && at[n]!='\n' && space)n=space;
+    row[n]=0;
+    at+=n;
+    if(at<end && (*at=='\n' || *at==' '))at++;
+    *text=at;
+    return true;
+}
+#endif
+
 static bool toy_suite_save_report(const struct kui_native_ra_public *ra,
     const kui_retail_async_region_type *r) {
+#if defined(KUI_TOY_WIRE_TITLES) && KUI_TOY_WIRE_TITLES
+    /* Test 79: a launch that brought no report file asks for the card all
+     * the same. The resident's loan is what ends a card stream still
+     * running, with its CMD12 and its channel off; left running, Start
+     * could not restart the console from the pages (kui_native_return_
+     * quiesce refuses while channel 1 is on). The write refuses for want
+     * of a file before it touches the card (toy_suite_report_write), and
+     * nothing counts as saved. */
+    if(!state.armed || state.pending ||
+#else
     if(!config.toy_report.test || !state.armed || state.pending ||
+#endif
        state.submitted!=state.completed || !reader_only() ||
        (current_sr()&0xf0u)!=0xf0u || !lease_valid() || !stack_valid())return false;
     _Static_assert(sizeof(issued_chain)>=3u*KUI_TOY_REPORT_SECTOR_BYTES,"terminal report workspace");
