@@ -11,8 +11,11 @@ the owner the same day: Test 78 (`docs/toy-wire-stream-test-78.md`,
 `1d0e5bab78ba`) in Toy Commander and Test 79
 (`docs/toy-wire-stream-test-79.md`, `9f183a7f72f5`) in the two
 Evolution games. Their results, and the two tests that follow from
-Test 79's, are under The order from here. Nothing else here is built
-or approved. It answers the
+Test 79's, are under The order from here: Test 80
+(`docs/toy-wire-stream-test-80.md`, `e58dd2e6b641`) and Test 81
+(`docs/toy-wire-stream-test-81.md`, `684f485644e5`), built and delivered
+together on 16 November and not yet run on a console. Nothing else
+here is built or approved. It answers the
 owner's remark after Test 76's console run,
 "then we can probably package this for every game's FMVs", with what
 that takes and in what order. The decisions at the end are the owner's.
@@ -353,6 +356,17 @@ them. No run compared the games with the installed module on the same
 day: whether the window is smoother than the installed prefetch there
 is still open.
 
+Tests 80 and 81 were built as the table says, on 16 November, and
+delivered as two archives: Test 80 for Evolution 2, Test 81 for both
+games, each with three pages of report to photograph, and a last look
+at the same places under the installed module. Neither has run on a
+console. Each had a reader of its own before it went out. Test 80's
+found no fault in the change and two holes in its tests, which are
+closed. Test 81's found the hand-back of a title's timer wanting, as
+the author's own reading had begun to: the timer now goes back as it
+was found, and only what is still the stream's is written. What that
+review left owed is in the list below.
+
 Test 79 is
 the change with three corrections its review asked for before any
 module of it went out: Toy Commander's executable on another boot
@@ -385,6 +399,26 @@ What the reviews add to the work behind them, none of it built:
   visits; a call of the game's could hand over all the window holds, as
   it does for a request of up to sixty. Worth it if Test 79's console
   result shows the calls to matter.
+
+- **Whose the timer is, by its registers.** Test 81 takes a title's
+  spare timer by the SDK's table and the timer's registers at a
+  stream's start and gives it back as found. It cannot see a title that
+  drives the same timer by its registers alone and leaves it stopped
+  between uses, or takes it under a wait that stands armed; and a wait
+  with a timer has no clock behind it. No title is known to do either.
+  The check (the registers compared with what the stream last left, or
+  with what the title had at its first disc call) and the clock are
+  owed before the reader is anyone's default
+  (`docs/toy-wire-stream-test-81.md`, Known limits 2 to 4).
+- **Room in the auxiliary.** Test 81's image is full: 32 bytes are
+  left. The virtual VMU beside the stream needs code there (the loan
+  with a window open), and gets its room from the Toy report's
+  counting, which a module without the report's pages does not need.
+- **The report with a command pending.** A window that stands through
+  a command that only asks also stands when the report is asked for
+  with one pending; Start then cannot restart the console
+  (`docs/toy-wire-stream-test-80.md`, Known limit 6). The report's path
+  could end the stream where the card's loan is refused.
 
 Behind those, in the order the roadmap gives them: the rule that ends a
 standing stream after a time (this plan's Known limits of Test 77, owed

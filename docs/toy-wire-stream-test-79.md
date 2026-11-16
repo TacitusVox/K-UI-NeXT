@@ -372,9 +372,11 @@ What the runs say, by the outcomes above:
 What follows from it, each one change with its own console run:
 
 - Test 80: a window stands through a command that only asks the drive
-  something. Its report names the commands a window meets.
-- Then the stream's timer in every title, by the SDK values the reader
-  already admits for the title.
+  something. Its report names the commands a window meets
+  (`docs/toy-wire-stream-test-80.md`, built and delivered).
+- Test 81: the stream's timer in every title, by the SDK values the
+  reader already admits for the title
+  (`docs/toy-wire-stream-test-81.md`, built and delivered).
 - The virtual VMU beside the stream, the third of the owner's three
   changes, behind those two.
 

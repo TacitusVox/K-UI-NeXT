@@ -100,6 +100,14 @@ timer. Those two are the next tests, each one change, before the virtual VMU
 beside the stream. The games were not compared with the installed module on
 the same day.
 
+Built and delivered for that on 16 November, not yet run on a console: Test 80
+(`toy-wire-stream-test-80.md`, build `e58dd2e6b641`, a window stands through a
+command that only asks the drive something) and Test 81
+(`toy-wire-stream-test-81.md`, build `684f485644e5`, the stream's timer in every
+title by the title's own admitted SDK table). Both are test modules for the
+installed New reader's place, virtual VMU off; the delivered `f8807cb16561`
+candidate is not changed.
+
 ## 1. Shared correctness and reproducible deployment — active
 
 Shared GUI preparation is also an immediate integration requirement. The

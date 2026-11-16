@@ -1,0 +1,16 @@
+file /tmp/claude-0/-home-user-K-UI-NeXT/ee210574-157a-5108-ac4d-f27767e180ce/scratchpad/clean81/build/toy-suite-81/retail-toy-test-81.kui: 300096 bytes
+envelope: OK build=684f485644e5 payload=300032 memory=300032 crc=b40b9423
+payload CRC32 (kui_runtime_read): ok
+  header: resident=0x8c004000 limit=0x8c007800 stage_bytes=0x47400
+layout_codec(ce=0,zso=0): ok
+kui_native_dual_descriptor_find: 1 at 0x3451c lease=0x47000
+kui_native_session_descriptor_find: 0
+kui_native_background_module_matches: X(ASYNC)=1 Y(ASYNC_EAGER)=1
+kui_vmu_native_toggle_find: 1 at 0x344fc
+kui_vmu_native_cache_seed_find: blank slot at 0x32a60
+kui_vmu_game_card_profile_slot (VMU On only): slot at 0x20360 decode=0 template_cid=1
+other capabilities: standalone=0 foreground=0 physical=0 standard_module=0
+typed RAM patch seeds: 0 (used only when RAM patches are On; native_dual refuses patches)
+games_card_emulation_mode(enabled=0): ok, mode record at 0x20300, word +16: 0 -> 7, bytes changed=1, decode=7
+games_card_emulation_mode(enabled=1): ok, mode record at 0x20300, word +16: 0 -> 0, bytes changed=0, decode=0
+handoff: probe_handoff_refusal limit 0x112000: ok; layout limit 0x102000
