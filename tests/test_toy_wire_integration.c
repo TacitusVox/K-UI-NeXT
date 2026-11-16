@@ -93,7 +93,7 @@ uint32_t kui_toy_wire_test_phase(void) {
 static const struct kui_toy_wire_report *report(void) {
     return (const void *)(arena + KUI_TOY_WIRE_REPORT_OFFSET);
 }
-#if KUI_TOY_WIRE_LATER || KUI_TOY_WIRE_QUIT
+#if KUI_TOY_WIRE_LATER || KUI_TOY_WIRE_QUIT || KUI_TOY_WIRE_ANY
 /* The stream's own state: behind the window's slots in the arena. */
 static const struct kui_wire_stream *wire_state(void) {
     return (const void *)(arena + 62u * 2352u);
@@ -1795,6 +1795,32 @@ static void later_waits(bool timer) {
     run_owed = 0u;
     read_request(FIRST, REQUEST, 0u);
     CHECK(stream_on() && (timer ? ws->mode != 0u : ws->mode == 0u));
+#if KUI_TOY_WIRE_TITLES
+    if(!timer) {
+        /* Test 79: without a timer the visit that begins a wait does not
+         * end it, and with interrupts alone nothing does: the stream
+         * stands, with no interrupt of its own, until a call of the
+         * game's comes after the wait's time. */
+        bool waited = false;
+        for(unsigned n = 0u; n < 4000u && !waited; ++n) {
+            const uint32_t waits = w->n.waits;
+            if(!hardware_at(2048u)) break;
+            waited = w->n.waits != waits && ws->state == KUI_WIRE_WAIT;
+        }
+        CHECK(waited && stream_on());
+        const unsigned long heard = eris;
+        for(unsigned n = 0u; n < 200u; ++n) (void)hardware_at(2048u);
+        CHECK(ws->state == KUI_WIRE_WAIT && eris == heard && !timers);
+        wx.tcnt0 -= 2u * KUI_WIRE_BACKOFF_MAX;
+        game_poll();
+        CHECK(ws->state != KUI_WIRE_WAIT && !w->first_error);
+        reader_pace(0u);
+        m.delay = 0u;
+        printf("  a wait begun by a visit that leaves the reading, no timer: left standing by that visit and by "
+               "every interrupt, ended by the game's next call after its time\n");
+        return;
+    }
+#endif
     unsigned left = 0u, levels = 0u;
     for(unsigned n = 0u; n < 4000u && left < 40u; ++n) {
         const uint32_t later = w->later, waits = w->n.waits;
