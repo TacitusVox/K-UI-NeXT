@@ -41,6 +41,7 @@ FLUID = os.environ.get("TOY_WIRE_FLUID", STEADY)
 # Test 77 is asked for by name: the commands recorded for earlier tests keep
 # checking what they checked.
 SEQ = os.environ.get("TOY_WIRE_SEQ", "0")
+ANY = os.environ.get("TOY_WIRE_ANY", "0")
 AUX = "src/loader/native_readahead_aux.c"
 SWITCHES = [f"TOY_WIRE_TICK={TICK}", f"TOY_WIRE_CACHED={CACHED}", f"TOY_WIRE_WORDS={WORDS}", f"TOY_WIRE_PACE={PACE}",
             f"TOY_WIRE_IDLE={IDLE}", f"TOY_WIRE_LEAN={LEAN}", f"TOY_WIRE_STEADY={STEADY}",
@@ -669,6 +670,103 @@ LEAN_GONE = {"update time counted outside the second movie", "the buffer's free 
 QUICK_GONE = {"the game's idle calls always pump", "an interrupt visit held to the spacing"}
 # Test 73 does not time restarts or place them in the course.
 RESTARTS = {"restart time not kept", "restarts missing from the course"}
+# Test 78: mutations on lines the build with TOY_WIRE_ANY no longer compiles
+# go (ANY_GONE), and the same defects are made in the lines that take their
+# place; then the defects of the change itself.
+ANY_GONE = {"course pieces not counted from the movie's start", "course not held to its last piece",
+            "the copying out not timed", "the copying out timed twice over",
+            "a waited request gives the window up all the same",
+            "a read over the track's end counted as one the game waited for",
+            "the other windows' sectors counted as a movie's", "a movie's sectors counted with the other windows'",
+            "a read elsewhere served from the window", "a read the window may not serve keeps the window",
+            "a read beyond the window's end waits for it", "a read to the window's last sector given up for",
+            "a window given up for a command counted as given up for a read",
+            "a window in error counted as one whose request did not complete",
+            "a window whose request did not complete counted as given up for a read",
+            "a window given up for a waited request counted as given up for another read",
+            "a window given up for a read counted as given up for a waited request"}
+ANY_MUTATIONS = [
+ # The same defects as the entries of ANY_GONE, in the lines Test 78 compiles.
+ # (The course by piece has none: it is not kept.)
+ (AHEAD, "the copying out not timed",
+  "    w->publish_ticks+=publish_tick-toy_wire_phase();", "    (void)publish_tick;"),
+ (AHEAD, "the copying out timed twice over",
+  "    w->publish_ticks+=publish_tick-toy_wire_phase();", "    w->publish_ticks+=2u*(publish_tick-toy_wire_phase());"),
+ (AHEAD, "a waited request gives the window up all the same",
+  "         (A.variant && at==A.first && !A.error && toy_wire_stay(s->token)))", "         false)"),
+ (AHEAD, "a read over the track's end counted as one the game waited for",
+  "            wait && !kick && !warm && !beyond?KUI_TOY_WIRE_DROP_WAITING:",
+  "            wait && !kick && !warm?KUI_TOY_WIRE_DROP_WAITING:"),
+ (AHEAD, "a window in error counted as one whose request did not complete",
+  "            A.error?KUI_TOY_WIRE_DROP_ERROR:idle?", "            A.error?KUI_TOY_WIRE_DROP_IDLE:idle?"),
+ (AHEAD, "a window whose request did not complete counted as given up for a read",
+  "ERROR:idle?KUI_TOY_WIRE_DROP_IDLE:", "ERROR:idle?KUI_TOY_WIRE_DROP_OTHER:"),
+ (AHEAD, "a window given up for a waited request counted as given up for another read",
+  "!beyond?KUI_TOY_WIRE_DROP_WAITING:", "!beyond?KUI_TOY_WIRE_DROP_OTHER:"),
+ (AHEAD, "a window given up for a read counted as given up for a waited request",
+  "            KUI_TOY_WIRE_DROP_OTHER;", "            KUI_TOY_WIRE_DROP_WAITING;"),
+ (AHEAD, "the other windows' sectors counted as a movie's",
+  "        if(A.variant==AHEAD_OTHER)w->other_sectors+=give;", "        if(false)w->other_sectors+=give;"),
+ (AHEAD, "a movie's sectors counted with the other windows'",
+  "        if(A.variant==AHEAD_OTHER)w->other_sectors+=give;", "        if(true)w->other_sectors+=give;"),
+ (AHEAD, "a read elsewhere served from the window",
+  "       (demand && (!selected || at!=A.first || beyond)))) {", "       (demand && (!selected || beyond)))) {"),
+ (AHEAD, "a read the window may not serve keeps the window",
+  "       (demand && (!selected || at!=A.first || beyond)))) {", "       (demand && (at!=A.first || beyond)))) {"),
+ (AHEAD, "a read beyond the window's end waits for it",
+  "    const bool beyond=left>A.cursor.lba+A.cursor.count-A.first;", "    const bool beyond=false;"),
+ (AHEAD, "a read to the window's last sector given up for",
+  "    const bool beyond=left>A.cursor.lba+A.cursor.count-A.first;",
+  "    const bool beyond=left>=A.cursor.lba+A.cursor.count-A.first;"),
+ (AHEAD, "a window given up for a command counted as given up for a read",
+  "                s->command!=KUI_GD_DMAREAD?KUI_TOY_WIRE_DROP_COMMAND:",
+  "                s->command!=KUI_GD_DMAREAD?KUI_TOY_WIRE_DROP_OTHER:"),
+ # The change itself.
+ (AHEAD, "a large request waits for all of itself in the window",
+  "        if(!large)return false;\n        give=have;", "        return false;"),
+ (AHEAD, "a small request handed over in pieces",
+  "        if(!large)return false;\n        give=have;", "        give=have;"),
+ (AHEAD, "a slice of any length",
+  "    if(large && give>AHEAD_SLICE)give=AHEAD_SLICE;", "    (void)large;"),
+ (AHEAD, "every slice written at the request's start",
+  "        e->cursor.write(e->cursor.context,(had+i)*KUI_GAME_DATA_BYTES,",
+  "        e->cursor.write(e->cursor.context,i*KUI_GAME_DATA_BYTES,"),
+ (AHEAD, "a slice not counted in the request's cursor",
+  "        e->cursor.done=had+give;", "        e->cursor.done=give;"),
+ (AHEAD, "a request complete with its first slice",
+  "        if(e->cursor.done<s->count)return false;\n", ""),
+ (AHEAD, "a large request not counted",
+  "            ++w->large_requests;\n", ""),
+ (AHEAD, "a large request's last slice counted for its sectors",
+  "            w->large_sectors+=s->count;", "            w->large_sectors+=give;"),
+ (AHEAD, "a request of sixty sectors counted as large",
+  "    const bool large=s->count>AHEAD_REQUEST_MAX;", "    const bool large=s->count>=AHEAD_REQUEST_MAX;"),
+ (AHEAD, "a returned request not counted",
+  "    ++toy_wire_keep()->report.large_returned;\n", ""),
+ (AHEAD, "a returned request read one sector short",
+  "    if(kui_retail_cursor_begin(&e->cursor,e->manifest,s->lba,s->count,\n           KUI_GAME_SECTOR_MODE1,write,context)",
+  "    if(kui_retail_cursor_begin(&e->cursor,e->manifest,s->lba,s->count-1u,\n           KUI_GAME_SECTOR_MODE1,write,context)"),
+ (AHEAD, "a returned request read on from where the window stopped",
+  "    if(kui_retail_cursor_begin(&e->cursor,e->manifest,s->lba,s->count,\n           KUI_GAME_SECTOR_MODE1,write,context)",
+  "    if(kui_retail_cursor_begin(&e->cursor,e->manifest,s->lba+e->cursor.done,s->count-e->cursor.done,\n           KUI_GAME_SECTOR_MODE1,write,context)"),
+ (AHEAD, "a request the window began goes back with its cursor as it stood",
+  "    if(toy_ahead_clear(r)) {\n        if(begun)toy_ahead_restart(r);\n        return false;\n    }",
+  "    if(toy_ahead_clear(r)) {\n        (void)begun;\n        return false;\n    }"),
+ (AHEAD, "the same where the stop command had failed",
+  "#if AHEAD_ANY\n            if(begun)toy_ahead_restart(r);\n#endif\n            return false;",
+  "            return false;"),
+ (AHEAD, "a request with nothing delivered begun again all the same",
+  "    const bool begun=A.variant && e->active && e->cursor.done &&\n",
+  "    const bool begun=A.variant && e->active &&\n"),
+ (AHEAD, "the game told of a slice takes the request from the window",
+  "        s->completed_bytes<=had*KUI_GAME_DATA_BYTES &&", "        !s->completed_bytes &&"),
+ (AHEAD, "a request the window has begun is no longer its own",
+  "        (!had || (left && s->count>AHEAD_REQUEST_MAX && A.variant && at==A.first)) &&", "        !had &&"),
+ (AHEAD, "the window's place taken by the request's first sector",
+  "    const uint32_t at=s->lba+had,left=s->count-had;", "    const uint32_t at=s->lba,left=s->count-had;"),
+ (AHEAD, "what is owed taken for the whole request",
+  "    const uint32_t at=s->lba+had,left=s->count-had;", "    const uint32_t at=s->lba+had,left=s->count;"),
+]
 if WORDS == "1":
     MUTATIONS += WORDS_MUTATIONS
 if TICK == "1" or CACHED == "1":
@@ -738,6 +836,10 @@ if SEQ == "1":
         m for m in SEQ_MUTATIONS
         if not (m[1].startswith("the short way") and os.environ.get("TOY_WIRE_QUICK", "1") != "1")
         and not (m[1].startswith("a waited request") and os.environ.get("TOY_WIRE_STAY", "1") != "1")]
+if ANY == "1":
+    SWITCHES.append("TOY_WIRE_ANY=1")
+    DEFINES.append("-DKUI_TOY_WIRE_ANY=1")
+    MUTATIONS = [m for m in MUTATIONS if m[1] not in ANY_GONE] + ANY_MUTATIONS
 if os.environ.get("TOY_WIRE_ONLY"):
     # A named part of the list, for running it in pieces: "from:to" of the list's positions.
     low, high = (int(v) for v in os.environ["TOY_WIRE_ONLY"].split(":"))

@@ -167,6 +167,35 @@
 #if KUI_TOY_WIRE_SEQ && !KUI_TOY_WIRE_FLUID
 #error "Test 77 builds on Test 76"
 #endif
+/* Test 78: Test 77 with one change. A window served whole requests only,
+ * of at most sixty sectors: one had to fit beside the sector still being
+ * received. A larger read was the low reader's, and a window that stood
+ * at its first sector was given up for it with all it had read ahead. A
+ * game that refills in larger pieces (Evolution 2 reads 73 and 50 sectors
+ * by turns, each where the last ended) would have lost its window at
+ * every second request.
+ *
+ * Now a read of more than sixty sectors that begins at a window's first
+ * sector is served through the window as the stream delivers it, at most
+ * sixteen sectors a publication and two publications a visit; and such a
+ * read, where it begins behind the read before it, opens a window like a
+ * smaller one. The request's own cursor counts the sectors it has had. A
+ * request of up to sixty sectors is served whole as before.
+ *
+ * A request the window has begun to serve and cannot finish (an error, a
+ * wait that outlasts the stream) goes back to the low reader whole: its
+ * cursor is begun again at its first sector, and the low reader delivers
+ * every sector of it, over what the window wrote.
+ *
+ * Room: the auxiliary's image had 32 bytes free. The report's rows by
+ * piece of the second movie's course (TF, TD, TW, TB, TR) are not kept in
+ * this build; the owner has put that movie's remaining loss to rest. */
+#ifndef KUI_TOY_WIRE_ANY
+#define KUI_TOY_WIRE_ANY 0
+#endif
+#if KUI_TOY_WIRE_ANY && !KUI_TOY_WIRE_SEQ
+#error "Test 78 builds on Test 77"
+#endif
 /* Test 76's parts (the switch itself is above, with LATER's default):
  *   QUIT   a stream given up while it receives is ended at once, where it
  *          was waited out, with interrupts held off, until its run's next
@@ -214,7 +243,7 @@
 /* The parts a build has, as the report's PT value names them. */
 #define KUI_TOY_WIRE_PARTS (KUI_TOY_WIRE_STAY | KUI_TOY_WIRE_LATER << 1 | KUI_TOY_WIRE_RING << 2 | \
     KUI_TOY_WIRE_QUIT << 3 | KUI_TOY_WIRE_HOT << 4 | KUI_TOY_WIRE_COPY << 5 | KUI_TOY_WIRE_GAP << 6 | \
-    KUI_TOY_WIRE_APART << 7 | KUI_TOY_WIRE_SEQ << 8)
+    KUI_TOY_WIRE_APART << 7 | KUI_TOY_WIRE_SEQ << 8 | KUI_TOY_WIRE_ANY << 9)
 /* The second movie in pieces of 2^22 ticks, 5.4 s: twelve cover it. */
 #define KUI_TOY_WIRE_BUCKETS 12u
 #define KUI_TOY_WIRE_BUCKET_SHIFT 22u
@@ -432,6 +461,12 @@ struct kui_toy_wire_report {
     /* Windows opened by a read outside the four movie files, and the
      * sectors served from such windows. */
     uint32_t other_windows, other_sectors;
+#endif
+#if KUI_TOY_WIRE_ANY
+    /* Requests of more than sixty sectors a window served to their end,
+     * their sectors, and requests a window had begun to serve that went
+     * back to the low reader. */
+    uint32_t large_requests, large_sectors, large_returned;
 #endif
 #else
     uint32_t handler_ticks, handler_calls, handler_max; /* SCI interrupt visits while streaming */

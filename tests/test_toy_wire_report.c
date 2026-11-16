@@ -45,7 +45,24 @@ static struct kui_toy_wire_report wire;
 static const struct kui_toy_wire_report *toy_wire_report_block(void) { return &wire; }
 #include "toy_suite_report_save.inc"
 
-#if KUI_TOY_WIRE_SEQ
+#if KUI_TOY_WIRE_ANY
+#define TEST_NUMBER "78"
+/* Test 78's rows: Test 77's with the large requests a window served,
+ * their sectors and the requests that went back to the low reader; and
+ * without the five rows by piece of the second movie's course, which this
+ * build does not keep. The first movie's player is still last. */
+static const char *const labels[] = {
+    "PIPE B I CALLS IRQ STAY PT", "AHEAD B I HIT EDC STOP OS", "X OW E I C W O", "BIG N S BACK",
+    "I SUBMIT CADENCE MAX AT", "I FIRST LAST SKIP EXIT SF", "B SUBMIT CADENCE MAX AT",
+    "IP ON OT OC OI SN ST",
+    "K LIGHT EDC MEND MB LB ORD",
+    "V SCI TMR GAME N TICKS", "P RING FEED CHK OUT SVC HALT", "D N T SEEK",
+    "W START SEG CUT WAIT FULL", "W BYTES WTICK TMR ERR DET", "W BLK FIX UNFIX HOLED NOCRC SEEK",
+    "S C S F LF AM BC", "W FILL REF BAD",
+    "BP ON OT OC OI SN ST",
+};
+enum { LABELS = sizeof(labels) / sizeof(labels[0]), ESSENTIAL = 17 };
+#elif KUI_TOY_WIRE_SEQ
 #define TEST_NUMBER "77"
 /* Test 77's rows: Test 76's with the sectors served from windows outside
  * the movie files, how many such windows were opened, and why windows
@@ -372,6 +389,11 @@ int main(int argc, char **argv) {
     wire.drops[KUI_TOY_WIRE_DROP_OTHER] = 0x2e00; wire.drops[KUI_TOY_WIRE_DROP_COMMAND] = 0xfe;
     wire.stops[KUI_TOY_WIRE_STOP_CLOSE] = 0x2f03; wire.n.starts = 0x318f; wire.seek_blocks = 0x31c0;
 #endif
+#if KUI_TOY_WIRE_ANY
+    /* Large requests through those windows: seven thousand of them, half
+     * a million sectors, and three that went back to the low reader. */
+    wire.large_requests = 0x1c00; wire.large_sectors = 0x7b000; wire.large_returned = 3;
+#endif
     uint32_t *trace = ra.diagnostics.stage_result[KUI_NATIVE_RA_STAGE_NONE];
     trace[0] = 0x1100; trace[1] = 0x6600; trace[2] = 2; trace[3] = 3; trace[4] = 0x9000; trace[5] = 0xbe00;
     ra.stats.hit_requests = 0x900; ra.stats.producer_blocks = 0x7700; ra.stats.abandoned = 2;
@@ -404,10 +426,19 @@ int main(int argc, char **argv) {
      * piece is written. The first movie's player behind it is the one row
      * that may be left out. (With no window but the movies' everything
      * fits: below.) */
+#if KUI_TOY_WIRE_ANY
+    /* Test 78 has no row by piece: everything fits, the first movie's
+     * player too. */
+    assert(essential_rows == ESSENTIAL && rows == LABELS);
+    const char *last = strstr(text, "W FILL REF BAD\n1500 4 2\n");
+    assert(last && strstr(text, "BP ON") > last);
+    const size_t needed = (size_t)(last - text) + strlen("W FILL REF BAD\n1500 4 2\n");
+#else
     assert(essential_rows == ESSENTIAL && rows >= LABELS - 1u);
     const char *last = strstr(text, "TR\n3031FFFF FFFFFFFF FFFFFF3B\n");
     assert(last && (rows == LABELS) == (strstr(text, "BP ON") != NULL));
     const size_t needed = (size_t)(last - text) + strlen("TR\n3031FFFF FFFFFFFF FFFFFF3B\n");
+#endif
     assert(needed <= KUI_TOY_REPORT_FILE_BYTES - 12u);
     const bool bumper_fits = rows == LABELS;
 #elif KUI_TOY_WIRE_FLUID
@@ -425,7 +456,7 @@ int main(int argc, char **argv) {
         char parts[64];
         const unsigned have = KUI_TOY_WIRE_STAY | KUI_TOY_WIRE_LATER << 1 | KUI_TOY_WIRE_RING << 2 |
             KUI_TOY_WIRE_QUIT << 3 | KUI_TOY_WIRE_HOT << 4 | KUI_TOY_WIRE_COPY << 5 | KUI_TOY_WIRE_GAP << 6 |
-            KUI_TOY_WIRE_APART << 7 | KUI_TOY_WIRE_SEQ << 8;
+            KUI_TOY_WIRE_APART << 7 | KUI_TOY_WIRE_SEQ << 8 | KUI_TOY_WIRE_ANY << 9;
         snprintf(parts, sizeof(parts), "PIPE B I CALLS IRQ STAY PT\n2 3 9000 BE00 35 %X\n", have);
         assert(strstr(text, parts) && have == KUI_TOY_WIRE_PARTS);
     }
@@ -436,6 +467,13 @@ int main(int argc, char **argv) {
      * the window does not serve. The movie's end is no reason any more. */
     assert(strstr(text, "AHEAD B I HIT EDC STOP OS\n1100 6600 5900 7700 2 8A000\n"));
     assert(strstr(text, "X OW E I C W O\n2F00 1 3 FE 35 2E00\n"));
+#if KUI_TOY_WIRE_ANY
+    /* The large requests a window served, their sectors, and those that
+     * went back to the low reader. */
+    assert(strstr(text, "BIG N S BACK\n1C00 7B000 3\n"));
+#else
+    assert(!strstr(text, "BIG N S BACK"));
+#endif
 #else
     assert(strstr(text, "AHEAD B I HIT EDC STOP\n1100 6600 900 7700 2\n"));
 #endif
@@ -456,12 +494,18 @@ int main(int argc, char **argv) {
     /* The player's buffer's capacity stands beside the rows read by it. */
     assert(strstr(text, "D N T SEEK CAP\n1E000 2A0000 B0000 100000\n"));
 #endif
+#if KUI_TOY_WIRE_ANY
+    /* Nothing by piece of the course. */
+    assert(!strstr(text, "TF\n") && !strstr(text, "TD\n") && !strstr(text, "TW\n") && !strstr(text, "TB\n") &&
+        !strstr(text, "TR\n"));
+#else
     assert(strstr(text, "TF\nA1A10B0C D0E0F10 111213A1\n"));
     assert(strstr(text, "TD\n8484A4A5 A6A7A8A9 AAABAC84\n"));
     assert(strstr(text, "TW\n6263 64656667 68696A08\n"));
     /* The player's buffer, the most that was free in 4 KiB units: nearly
      * all of its megabyte in the pieces that skip. The wire's standstill. */
     assert(strstr(text, "TB\n80AF2F3 F4F5F6F7 F8F9FA1E\n"));
+#endif
 #if KUI_TOY_WIRE_SEQ
     assert(!strstr(text, "TP\n"));
 #else
@@ -477,8 +521,10 @@ int main(int argc, char **argv) {
     assert(strstr(text, "W BLK FIX UNFIX HOLED NOCRC SEEK\n24C00 6100 5 1C00 90 2F\n"));
     assert(strstr(text, "S C S F LF AM BC\n3 5 12C 4A 2 3\n"));
 #endif
+#if !KUI_TOY_WIRE_ANY
     /* The reader's pumps by piece: Test 75's two rows added. */
     assert(strstr(text, "TR\n3031FFFF FFFFFFFF FFFFFF3B\n"));
+#endif
 #if KUI_TOY_WIRE_SEQ
     /* The same run with the movies' four windows and no other, as every
      * console run up to Test 76 was: every row, the first movie's player
@@ -495,7 +541,7 @@ int main(int argc, char **argv) {
         movies_alone = movie_body;
         assert(essential_rows == ESSENTIAL && movie_rows == LABELS && movie_body <= KUI_TOY_REPORT_FILE_BYTES - 12u);
         const char *bumper = strstr(movies, "BP ON OT OC OI SN ST\n14B 4F0000 7E0000 30000 0 0\n");
-        assert(bumper && bumper > strstr(movies, "TR\n"));
+        assert(bumper && bumper > strstr(movies, KUI_TOY_WIRE_ANY ? "W FILL REF BAD\n" : "TR\n"));
         assert(strstr(movies, "X OW E I C W O\n0 1 3 0 35 2\n"));
         essential_rows = ESSENTIAL;
     }

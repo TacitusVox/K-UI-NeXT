@@ -29,6 +29,18 @@ enum { AHEAD_REQUEST_MAX=AHEAD_SLOTS-2u<KUI_RETAIL_IMAGE_MAX_SECTORS?
  * the files' own are 1 to 4 and still name the report's two movies. */
 enum { AHEAD_OTHER=5u };
 #endif
+#ifndef KUI_TOY_WIRE_ANY
+#define KUI_TOY_WIRE_ANY 0
+#endif
+/* Test 78: a window serves a request of any size (toy_ahead_publish). */
+#define AHEAD_ANY (AHEAD_SEQ && KUI_TOY_WIRE_ANY)
+#if AHEAD_ANY
+/* The most sectors one publication of a large request hands over. A visit
+ * publishes twice at most, and an interrupt visit keeps other interrupts
+ * waiting for as long as its copy takes: 41 microseconds a sector on the
+ * console. */
+enum { AHEAD_SLICE=16u };
+#endif
 _Static_assert(AHEAD_SLOTS*KUI_GAME_RAW_BYTES<=KUI_NATIVE_RA_DATA_BYTES,
     "Verified movie window must fit the private reader arena");
 #if KUI_TOY_SUITE_MODE == 65
@@ -408,6 +420,73 @@ restore:
 
 #endif
 
+#if AHEAD_ANY
+/* Test 78. A request of up to sixty sectors is handed over whole, as
+ * before. A larger one a slice at a time, from where its own cursor says
+ * it has got to: what the window has of it, sixteen sectors at most. True
+ * once the request is complete, or has failed in the game's memory. */
+static bool toy_ahead_publish(kui_retail_async_region_type *r) {
+    struct kui_retail_async *e=&r->engine;
+    const struct kui_retail_gd *s=&r->shared.service;
+    struct kui_toy_wire_report *w=&toy_wire_keep()->report;
+    const bool large=s->count>AHEAD_REQUEST_MAX;
+    const uint32_t had=e->cursor.done,have=A.verified-A.first;
+    uint32_t give=s->count-had;
+    if(give>have) {
+        if(!large)return false;
+        give=have;
+    }
+    if(large && give>AHEAD_SLICE)give=AHEAD_SLICE;
+    if(!give)return false;
+#if KUI_TOY_WIRE_STEADY
+    const uint32_t publish_tick=toy_wire_phase();
+#endif
+    for(uint32_t i=0u;i<give && !e->failed;i++)
+        e->cursor.write(e->cursor.context,(had+i)*KUI_GAME_DATA_BYTES,
+            toy_ahead_sector(A.first+i)+16u,KUI_GAME_DATA_BYTES);
+#if KUI_TOY_WIRE_STEADY
+    w->publish_ticks+=publish_tick-toy_wire_phase();
+#endif
+    if(!e->failed) {
+        A.first+=give;
+        A.head+=give;
+        if(A.head>=AHEAD_SLOTS)A.head-=AHEAD_SLOTS;
+        e->cursor.done=had+give;
+        if(A.variant==AHEAD_OTHER)w->other_sectors+=give;
+        else C.diagnostics.stage_result[KUI_NATIVE_RA_STAGE_NONE][(A.variant-1u)/2u]+=give;
+        /* More of it is owed: the request stays the window's. */
+        if(e->cursor.done<s->count)return false;
+        e->since=e->target;
+        ++C.stats.hit_requests;
+        if(large) {
+            ++w->large_requests;
+            w->large_sectors+=s->count;
+        }
+    }
+    e->active=0u;
+    return true;
+}
+
+/* A request the window had begun to serve goes back to the low reader
+ * whole. Its cursor counts the sectors the window delivered, and for the
+ * card it still stands where the request began: the low reader, which
+ * reads by that cursor, would put the request's first blocks where its
+ * later sectors belong. Begun again, the cursor has the low reader
+ * deliver every sector from the first, over what the window wrote, which
+ * is the same bytes. */
+static void toy_ahead_restart(kui_retail_async_region_type *r) {
+    struct kui_retail_async *e=&r->engine;
+    const struct kui_retail_gd *s=&r->shared.service;
+    const kui_retail_cursor_write write=e->cursor.write;
+    void *const context=e->cursor.context;
+    ++toy_wire_keep()->report.large_returned;
+    if(kui_retail_cursor_begin(&e->cursor,e->manifest,s->lba,s->count,
+           KUI_GAME_SECTOR_MODE1,write,context)!=KUI_GAME_OK) {
+        e->failed=KUI_GD_ERROR_IO;
+        e->active=0u;
+    }
+}
+#else
 static bool toy_ahead_publish(kui_retail_async_region_type *r) {
     struct kui_retail_async *e=&r->engine;
     const struct kui_retail_gd *s=&r->shared.service;
@@ -441,10 +520,22 @@ static bool toy_ahead_publish(kui_retail_async_region_type *r) {
     e->active=0u;
     return true;
 }
+#endif
 
 static bool toy_ahead_fallback(kui_retail_async_region_type *r) {
     struct kui_retail_async *e=&r->engine;
+#if AHEAD_ANY
+    /* Test 78: whether the window has handed this request sectors. Only
+     * a window that stands right behind them has. */
+    const bool begun=A.variant && e->active && e->cursor.done &&
+        r->shared.service.lba+e->cursor.done==A.first;
+    if(toy_ahead_clear(r)) {
+        if(begun)toy_ahead_restart(r);
+        return false;
+    }
+#else
     if(toy_ahead_clear(r))return false;
+#endif
     if(e->in_irq) {
         if(C.config.ops->busy())(void)C.config.ops->poll(true);
     } else if(e->active) {
@@ -460,6 +551,9 @@ static bool toy_ahead_fallback(kui_retail_async_region_type *r) {
             A.variant=0u;
             A.receiving=false;
             A.receive_token=0u;
+#if AHEAD_ANY
+            if(begun)toy_ahead_restart(r);
+#endif
             return false;
         }
 #endif
@@ -503,7 +597,16 @@ static bool toy_movie_ahead(kui_retail_async_region_type *r,unsigned variant,boo
     if(demand && e->failed)return toy_ahead_fallback(r);
     if(A.variant && !demand && r->shared.stream.state==RA_RESUME &&
        A.receive_token!=e->token)A.error=true;
+#if AHEAD_ANY
+    /* Test 78: where the request has got to. A window that serves a large
+     * request in slices stands at its next sector, and the request's own
+     * cursor counts the sectors it has had. */
+    const uint32_t had=demand?e->cursor.done:0u;
+    const uint32_t at=s->lba+had,left=s->count-had;
+    const bool warm=A.variant && at==A.first && left<=A.verified-A.first;
+#else
     const bool warm=A.variant && s->lba==A.first && s->count<=A.verified-A.first;
+#endif
 #if KUI_TOY_SUITE_MODE >= 64
     /* Katana's aligned GDFS submit immediately calls EXEC at 0x8c0b2b4a
      * before restoring its mask. The resident already keeps this one
@@ -512,15 +615,27 @@ static bool toy_movie_ahead(kui_retail_async_region_type *r,unsigned variant,boo
 #else
     const bool kick=false;
 #endif
+#if AHEAD_ANY
+    /* A request is the window's untouched, of any size, or as far as a
+     * window standing at its next sector has served it: a large one. */
+    selected=selected && s->token && !s->executing &&
+        s->completed_bytes<=had*KUI_GAME_DATA_BYTES &&
+        e->cursor.manifest==e->manifest && e->cursor.lba==s->lba && e->cursor.count==s->count &&
+        (!had || (left && s->count>AHEAD_REQUEST_MAX && A.variant && at==A.first)) &&
+        !e->cursor.offset && e->cursor.write &&
+#else
     selected=selected && s->token && !s->executing && !s->completed_bytes &&
         e->cursor.manifest==e->manifest && e->cursor.lba==s->lba && e->cursor.count==s->count &&
         !e->cursor.done && !e->cursor.offset && e->cursor.write &&
         s->count<=AHEAD_REQUEST_MAX &&
+#endif
 #if KUI_TOY_WIRE_STREAM && KUI_TOY_WIRE_STAY
         /* Test 75: a request the game waits for keeps the window that
          * stands at its first sector (toy_wire_stay). */
         (!wait || kick || warm ||
-#if AHEAD_SEQ
+#if AHEAD_ANY
+         (A.variant && at==A.first && !A.error && toy_wire_stay(s->token)))
+#elif AHEAD_SEQ
          (A.variant && s->lba==A.first && !A.error && toy_wire_stay(s->token)))
 #else
          (A.variant==variant && s->lba==A.first && !A.error && toy_wire_stay(s->token)))
@@ -554,10 +669,19 @@ static bool toy_movie_ahead(kui_retail_async_region_type *r,unsigned variant,boo
      * movie files or in a file's first 386 sectors, the resident reports
      * only from the game's next call. */
     const bool idle=!demand && !s->pending && s->status!=KUI_GD_COMPLETED;
+#if AHEAD_ANY
+    /* Test 78: by what is still owed of the request, from its next
+     * sector. */
+    const bool beyond=left>A.cursor.lba+A.cursor.count-A.first;
+    if(A.variant && (A.error || idle ||
+       (s->command && s->command!=KUI_GD_PIOREAD && s->command!=KUI_GD_DMAREAD) ||
+       (demand && (!selected || at!=A.first || beyond)))) {
+#else
     if(A.variant && (A.error || idle ||
        (s->command && s->command!=KUI_GD_PIOREAD && s->command!=KUI_GD_DMAREAD) ||
        (demand && (!selected || s->lba!=A.first ||
            s->count>A.cursor.lba+A.cursor.count-A.first)))) {
+#endif
         if(demand)A.failed_token=s->token;
         /* Why, for the report: the first that holds. A read the game
          * waits for counts as waited only where the window had the sectors
@@ -566,11 +690,20 @@ static bool toy_movie_ahead(kui_retail_async_region_type *r,unsigned variant,boo
          * A window is counted when it is gone: an interrupt visit cannot
          * end the card's command, and leaves the window to the game's
          * next call. */
+#if AHEAD_ANY
+        const unsigned why=
+            A.error?KUI_TOY_WIRE_DROP_ERROR:idle?KUI_TOY_WIRE_DROP_IDLE:
+            s->command && s->command!=KUI_GD_PIOREAD &&
+                s->command!=KUI_GD_DMAREAD?KUI_TOY_WIRE_DROP_COMMAND:
+            wait && !kick && !warm && !beyond?KUI_TOY_WIRE_DROP_WAITING:
+            KUI_TOY_WIRE_DROP_OTHER;
+#else
         const unsigned why=A.error?KUI_TOY_WIRE_DROP_ERROR:
             idle?KUI_TOY_WIRE_DROP_IDLE:
             s->command && s->command!=KUI_GD_PIOREAD && s->command!=KUI_GD_DMAREAD?KUI_TOY_WIRE_DROP_COMMAND:
             wait && !kick && !warm && s->count<=A.cursor.lba+A.cursor.count-A.first?
             KUI_TOY_WIRE_DROP_WAITING:KUI_TOY_WIRE_DROP_OTHER;
+#endif
         if(toy_ahead_fallback(r))return true;
         ++toy_wire_keep()->report.drops[why];
     }
@@ -626,10 +759,10 @@ static bool toy_movie_ahead(kui_retail_async_region_type *r,unsigned variant,boo
 #endif
     }
     if(selected && !A.error && toy_ahead_publish(r)) {
-#if KUI_TOY_WIRE_STREAM && KUI_TOY_WIRE_MEASURE
+#if KUI_TOY_WIRE_STREAM && KUI_TOY_WIRE_MEASURE && !KUI_TOY_WIRE_ANY
         toy_wire_wait_end(s->token);
 #endif
-#if KUI_TOY_WIRE_STREAM && KUI_TOY_WIRE_WORDS
+#if KUI_TOY_WIRE_STREAM && KUI_TOY_WIRE_WORDS && !KUI_TOY_WIRE_ANY
         if(!e->failed)toy_wire_course_served(s->count);
 #endif
         if(!e->failed) {
@@ -642,7 +775,7 @@ static bool toy_movie_ahead(kui_retail_async_region_type *r,unsigned variant,boo
         }
         return true;
     }
-#if KUI_TOY_WIRE_STREAM && KUI_TOY_WIRE_MEASURE
+#if KUI_TOY_WIRE_STREAM && KUI_TOY_WIRE_MEASURE && !KUI_TOY_WIRE_ANY
     if(demand && selected)toy_wire_wait_begin(s->token);
 #endif
 #if KUI_TOY_WIRE_STREAM && KUI_TOY_WIRE_IDLE
@@ -659,10 +792,10 @@ static bool toy_movie_ahead(kui_retail_async_region_type *r,unsigned variant,boo
         return toy_ahead_fallback(r);
     }
     if(selected && toy_ahead_publish(r)) {
-#if KUI_TOY_WIRE_STREAM && KUI_TOY_WIRE_MEASURE
+#if KUI_TOY_WIRE_STREAM && KUI_TOY_WIRE_MEASURE && !KUI_TOY_WIRE_ANY
         toy_wire_wait_end(s->token);
 #endif
-#if KUI_TOY_WIRE_STREAM && KUI_TOY_WIRE_WORDS
+#if KUI_TOY_WIRE_STREAM && KUI_TOY_WIRE_WORDS && !KUI_TOY_WIRE_ANY
         if(!e->failed)toy_wire_course_served(s->count);
 #endif
 #if KUI_TOY_SUITE_MODE == 65
@@ -674,5 +807,6 @@ static bool toy_movie_ahead(kui_retail_async_region_type *r,unsigned variant,boo
 #if KUI_TOY_SUITE_MODE == 65
 #undef AHEAD_TRACE
 #endif
+#undef AHEAD_ANY
 #undef AHEAD_SEQ
 #undef A

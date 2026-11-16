@@ -507,7 +507,9 @@ static void idle(unsigned moments) {
 }
 #if KUI_TOY_WIRE_FLUID
 /* Wait ticks the report placed in a piece of the course, over all runs. */
+#if !KUI_TOY_WIRE_ANY
 static uint64_t pause_seen;
+#endif
 #endif
 #if KUI_TOY_WIRE_COPY
 /* Test 76's copy into the window. The hand-written routine is SH-4 code,
@@ -591,7 +593,13 @@ static void visits_accounted(void) {
 #else
     CHECK(w->restart_max <= w->restart_ticks && (restarts || !w->restart_ticks));
 #endif
-#if KUI_TOY_WIRE_WORDS
+#if KUI_TOY_WIRE_ANY
+    /* Test 78 keeps nothing by piece of the course. */
+    for(unsigned i = 0; i < KUI_TOY_WIRE_BUCKETS; ++i)
+        CHECK(!w->course_frames[i] && !w->course_sectors[i] && !w->course_wait[i] && !w->course_interrupt[i] &&
+              !w->course_game[i] && !w->course_free[i] && !w->course_pause[i]);
+    CHECK(!w->buffer_capacity);
+#elif KUI_TOY_WIRE_WORDS
     /* The second movie's course adds up to the same totals: everything in
      * these runs happens while it plays. */
     uint32_t wait = 0, interrupt = 0, game = 0, sectors = 0, stops = 0;
@@ -831,7 +839,7 @@ static unsigned playing(uint32_t mean, unsigned dense, uint32_t pace) {
     return ready;
 }
 
-#if KUI_TOY_WIRE_WORDS
+#if KUI_TOY_WIRE_WORDS && !KUI_TOY_WIRE_ANY
 /* The course's pieces are 2^22 ticks of the movie's own clock, and what
  * comes after the twelfth is kept in it. */
 static void course_pieces(void) {
@@ -1249,6 +1257,7 @@ static void first_skip_apart(void) {
 }
 #endif
 #if KUI_TOY_WIRE_FLUID
+#if !KUI_TOY_WIRE_ANY
 /* Test 76: what the player's own buffer held, by piece of the second
  * movie's course. The most of it that was free is kept, and it is looked
  * at only in a call in which the player took a frame: shown or skipped. */
@@ -1314,6 +1323,7 @@ static void buffer_seen(void) {
     invariants();
     printf("  the player's buffer: its emptiest in each piece, looked at when the player took a frame\n");
 }
+#endif
 
 #if KUI_TOY_WIRE_QUIT
 /* Test 76 (QUIT) ends a stream that receives by taking the channel off the
@@ -1373,6 +1383,7 @@ static void misaligned(void) {
            "none of their pieces given to the word copy\n");
 }
 #endif
+#if !KUI_TOY_WIRE_ANY
 /* How long the wire stood still for the stream's timer waits, by piece of
  * the second movie's course: what the stream's own count gains while that
  * movie plays, to the tick, and nothing of what it gains otherwise. */
@@ -1408,6 +1419,7 @@ static void pause_placed(void) {
     printf("  the wire's standstill by piece: %u ticks placed while the second movie played, %u outside it left out\n",
         (unsigned)pause_placed_sum(w), (unsigned)outside);
 }
+#endif
 #endif
 #endif
 
@@ -2226,6 +2238,22 @@ static void sequence_plain(void) {
     plain_read(45213u, 4u);
     CHECK(c->movie_ahead.variant == OTHER_WINDOW && w->other_windows == 2u && c->stats.hit_requests == 4u);
     CHECK(card.cmd12 == 1u && card.cmd18 == 2u);
+#if KUI_TOY_WIRE_ANY
+    /* Test 78: one sector more than a window used to take, at the
+     * window's first sector. The window serves it, a slice at a time,
+     * and stays. */
+    plain_read(45217u, 61u);
+    CHECK(c->movie_ahead.variant == OTHER_WINDOW && w->drops[KUI_TOY_WIRE_DROP_OTHER] == 1u &&
+        c->stats.hit_requests == 5u && w->large_requests == 1u && w->large_sectors == 61u && !w->large_returned);
+    CHECK(card.cmd12 == 1u && card.cmd18 == 2u && w->other_windows == 2u);
+    /* To the track's last sector, from the same window. */
+    plain_read(45278u, 10u);
+    CHECK(c->movie_ahead.variant == OTHER_WINDOW && w->other_windows == 2u);
+    plain_read(45288u, 12u);
+    CHECK(c->stats.hit_requests == 7u && c->movie_ahead.variant == OTHER_WINDOW &&
+        c->movie_ahead.first == 45300u && c->movie_ahead.verified == 45300u);
+    CHECK(w->other_sectors == 80u + 4u + 61u + 10u + 12u && !w->first_error);
+#else
     /* One sector more than the window takes, at the window's first
      * sector: the low reader's, and the window is given up for it. */
     plain_read(45217u, 61u);
@@ -2237,17 +2265,20 @@ static void sequence_plain(void) {
     CHECK(c->stats.hit_requests == 6u && c->movie_ahead.variant == OTHER_WINDOW &&
         c->movie_ahead.first == 45300u && c->movie_ahead.verified == 45300u);
     CHECK(w->other_sectors == 80u + 4u + 10u + 12u && !w->first_error);
+#endif
     /* The window has served its track's every sector and stands at the
      * next track's first. A read there is not its to serve, though it
      * begins at the window's first sector: it would wait for ever. The
      * window is given up for it by the request's own call, not by a later
      * one in which a game that waits has waited long enough. */
     memset(ram + (OUTPUT - BEGIN), 0xa5, 64u * 2352u + 16u);
+    /* (Test 78 had one window less to give up, and served one request more.) */
+    const unsigned gone = KUI_TOY_WIRE_ANY ? 2u : 3u, hits = KUI_TOY_WIRE_ANY ? 7u : 6u;
     const int32_t over = request(45300u, 2u, OUTPUT);
-    CHECK(!c->movie_ahead.variant && !stream_on() && w->drops[KUI_TOY_WIRE_DROP_OTHER] == 3u);
+    CHECK(!c->movie_ahead.variant && !stream_on() && w->drops[KUI_TOY_WIRE_DROP_OTHER] == gone);
     plain_finish(over, 45300u, 2u);
-    CHECK(!c->movie_ahead.variant && !stream_on() && w->drops[KUI_TOY_WIRE_DROP_OTHER] == 3u);
-    CHECK(c->stats.hit_requests == 6u && !c->stats.abandoned);
+    CHECK(!c->movie_ahead.variant && !stream_on() && w->drops[KUI_TOY_WIRE_DROP_OTHER] == gone);
+    CHECK(c->stats.hit_requests == hits && !c->stats.abandoned);
     CHECK(!w->drops[KUI_TOY_WIRE_DROP_ERROR] && !w->drops[KUI_TOY_WIRE_DROP_IDLE] &&
         !w->drops[KUI_TOY_WIRE_DROP_COMMAND] && !w->drops[KUI_TOY_WIRE_DROP_WAITING]);
     CHECK(!trace[0] && !trace[1] && !trace[2] && !trace[3]);
@@ -2276,14 +2307,33 @@ static void sequence_track_end(bool check_first) {
     CHECK(c->stats.hit_requests == 1u && w->other_windows == 1u);
     plain_read(45200u, 5u);
     plain_read(45205u, 61u);
+#if KUI_TOY_WIRE_ANY
+    /* Test 78: the consecutive read of 61 sectors has a window, and is
+     * served from it. */
+    CHECK(c->movie_ahead.variant == OTHER_WINDOW && w->other_windows == 2u && w->large_requests == 1u &&
+        R.shared.service.position_lba == 45265u);
+#else
     CHECK(!c->movie_ahead.variant && w->other_windows == 1u && R.shared.service.position_lba == 45265u);
+#endif
     plain_read(45266u, 36u);
     if(getenv("WIRE_VERBOSE")) fprintf(stderr, "track end: variant %u on %d windows %u drops %u %u %u %u %u %u hits %u abandoned %u\n",
         (unsigned)c->movie_ahead.variant, stream_on(), (unsigned)w->other_windows, (unsigned)w->drops[0], (unsigned)w->drops[1],
         (unsigned)w->drops[2], (unsigned)w->drops[3], (unsigned)w->drops[4], (unsigned)w->drops[5],
         (unsigned)c->stats.hit_requests, (unsigned)c->stats.abandoned);
     CHECK(!c->movie_ahead.variant && !stream_on() && w->other_windows == 2u &&
-        w->drops[KUI_TOY_WIRE_DROP_OTHER] == 2u && c->stats.hit_requests == 1u);
+        w->drops[KUI_TOY_WIRE_DROP_OTHER] == 2u && c->stats.hit_requests == (KUI_TOY_WIRE_ANY ? 2u : 1u));
+#if KUI_TOY_WIRE_ANY
+    /* Test 78: the read of 61 sectors above had a window, so the one over
+     * the track's end met an open window. Here one that opens a window
+     * for itself: behind a read elsewhere, with no window open, 45255 to
+     * 45301. Its next visit gives the window up, as one the window does
+     * not serve. */
+    plain_read(45250u, 5u);
+    CHECK(!c->movie_ahead.variant && w->other_windows == 2u);
+    plain_read(45255u, 47u);
+    CHECK(!c->movie_ahead.variant && !stream_on() && w->other_windows == 3u &&
+        w->drops[KUI_TOY_WIRE_DROP_OTHER] == 3u && c->stats.hit_requests == 2u && !w->large_returned);
+#endif
     /* Neither window is counted as given up for a read the game waited
      * for, whichever of the game's calls found it: the window had not the
      * sectors to give. */
@@ -2308,18 +2358,37 @@ static void sequence_pending(unsigned polls) {
     open_card(2000u, false, true, (struct kui_toy_movie_range){FIRST - 386u, WINDOW_END - (FIRST - 386u)}, false);
     const struct kui_toy_wire_report *w = report();
     const struct kui_native_readahead_aux_context *c = &kui_native_readahead_aux_context;
+#if KUI_TOY_WIRE_ANY
+    /* Test 78: no read is too large for a window, and a read behind the
+     * last one has a window. It is the low reader's all the same where a
+     * window is refused it: where one was given up for this very request,
+     * or could not be begun for it. The reader remembers such a request
+     * by its token, and the fixture says so for the one to come. */
+    enum { PENDING_AT = 45032u };
+    const unsigned before = 0u;
+    plain_read(45020u, 12u);
+    CHECK(!c->movie_ahead.variant && R.shared.service.position_lba == 45031u);
+    kui_native_readahead_aux_context.movie_ahead.failed_token = R.shared.service.token + 1u;
+    card.gap = 400u; /* the next block's token comes late */
+    const int32_t first = request(45032u, 61u, OUTPUT);
+    CHECK((uint32_t)first == kui_native_readahead_aux_context.movie_ahead.failed_token);
+    CHECK(R.shared.stream.toy_suite_active && R.shared.service.pending && !c->movie_ahead.variant);
+#else
+    enum { PENDING_AT = 45032u };
+    const unsigned before = 0u;
     plain_read(45020u, 12u);
     CHECK(!c->movie_ahead.variant && R.shared.service.position_lba == 45031u);
     card.gap = 400u; /* the next block's token comes late */
     /* Too large for a window: the low reader's, on its movie path. */
     const int32_t first = request(45032u, 61u, OUTPUT);
     CHECK(R.shared.stream.toy_suite_active && R.shared.service.pending && !c->movie_ahead.variant);
+#endif
     CHECK(gd(KUI_GD_ABORT, (uint32_t)first, 0) == 0);
     CHECK(gd(KUI_GD_CHECK, (uint32_t)first, STATUS) == KUI_GD_FAILED);
     /* The search stands, and the drive has not moved. */
-    CHECK(R.shared.stream.state == 5u && R.shared.service.position_lba == 45031u);
+    CHECK(R.shared.stream.state == 5u && R.shared.service.position_lba == PENDING_AT - 1u);
     memset(ram + (OUTPUT - BEGIN), 0xa5, 64u * 2352u + 16u);
-    const int32_t token = request(45032u, REQUEST, OUTPUT);
+    const int32_t token = request(PENDING_AT, REQUEST, OUTPUT);
     CHECK(!c->movie_ahead.variant && !stream_on());
     unsigned rounds = 0u;
     for(; R.shared.service.pending; ++rounds) {
@@ -2338,12 +2407,13 @@ static void sequence_pending(unsigned polls) {
     card.gap = 0u;
     CHECK(gd(KUI_GD_CHECK, (uint32_t)token, STATUS) == KUI_GD_COMPLETED);
     CHECK(get(STATUS + 8u) == REQUEST * KUI_GAME_DATA_BYTES && !get(STATUS + 4u));
-    compare(45032u, REQUEST, OUTPUT);
-    CHECK(!c->movie_ahead.variant && !c->stats.hit_requests && !w->n.starts);
-    no_drops(w);
+    compare(PENDING_AT, REQUEST, OUTPUT);
+    CHECK(!c->movie_ahead.variant && c->stats.hit_requests == before && w->n.starts == (before ? 1u : 0u));
+    for(unsigned i = 0; i < KUI_TOY_WIRE_DROPS; ++i)
+        CHECK(w->drops[i] == (i == KUI_TOY_WIRE_DROP_ERROR && before ? 1u : 0u));
     /* The read behind it is consecutive and finds the low reader at rest. */
-    read_request(45032u + REQUEST, REQUEST, 3u);
-    CHECK(c->movie_ahead.variant == 4u && c->stats.hit_requests == 1u);
+    read_request(PENDING_AT + REQUEST, REQUEST, 3u);
+    CHECK(c->movie_ahead.variant == 4u && c->stats.hit_requests == before + 1u);
     printf("  a token search left standing by a read the game ended, the game then asking again with %s: no window "
            "on top of it, the low reader's read in %u rounds, the next read's window as ever\n", names[polls], rounds);
 }
@@ -2743,11 +2813,22 @@ static void sequence_movie(void) {
     const uint32_t *trace = c->diagnostics.stage_result[KUI_NATIVE_RA_STAGE_NONE];
     /* 61 sectors up to it, by a caller that waits. */
     read_and_compare(REFILLS - 61u, 61u, 0u, 1u);
+#if KUI_TOY_WIRE_ANY
+    /* Test 78: the large read begins behind the drive's position and has
+     * the window itself; the refills are served from the same one. (In the
+     * game the two sectors of the file's start come before it, and are
+     * the low reader's.) */
+    enum { LARGE = 61u, OPENING = 1u };
+    CHECK(c->movie_ahead.variant == 4u && trace[3] == 1u && card.cmd18 == 1u && !card.cmd12 &&
+        w->large_requests == 1u && w->large_sectors == LARGE && c->stats.hit_requests == 1u);
+#else
+    enum { LARGE = 0u, OPENING = 0u };
     CHECK(!c->movie_ahead.variant && !stream_on() && !trace[3] && card.cmd18 == 1u && !card.cmd12);
+#endif
     uint32_t lba = REFILLS;
     for(unsigned i = 0u; i < 6u; ++i, lba += REQUEST) read_request(lba, REQUEST, 3u);
-    CHECK(c->movie_ahead.variant == 4u && trace[3] == 1u && trace[1] == 6u * REQUEST && !w->other_windows);
-    CHECK(c->stats.hit_requests == 6u && card.cmd18 == 1u && !card.cmd12 && w->n.starts == 1u);
+    CHECK(c->movie_ahead.variant == 4u && trace[3] == 1u && trace[1] == LARGE + 6u * REQUEST && !w->other_windows);
+    CHECK(c->stats.hit_requests == OPENING + 6u && card.cmd18 == 1u && !card.cmd12 && w->n.starts == 1u);
     no_drops(w);
     /* The movie is over. Its window stays until something else is read. */
     fixture_movie_started(KUI_TOY_MOVIE_EXIT_STARTED | KUI_TOY_MOVIE_EXIT_TERMINAL, 0x07dbu);
@@ -2762,12 +2843,207 @@ static void sequence_movie(void) {
     CHECK(!c->movie_ahead.variant && w->drops[KUI_TOY_WIRE_DROP_OTHER] == 1u && card.cmd12 == 1u && card.cmd18 == 2u);
     lba = REFILLS;
     for(unsigned i = 0u; i < 6u; ++i, lba += REQUEST) read_request(lba, REQUEST, 3u);
-    CHECK(c->movie_ahead.variant == 4u && trace[3] == 2u && trace[1] == 12u * REQUEST && !w->other_windows);
-    CHECK(c->stats.hit_requests == 12u && card.cmd18 == 2u && card.cmd12 == 1u);
+    CHECK(c->movie_ahead.variant == 4u && trace[3] == 2u && trace[1] == LARGE + 12u * REQUEST && !w->other_windows);
+    CHECK(c->stats.hit_requests == OPENING + 12u && card.cmd18 == 2u && card.cmd12 == 1u);
     printf("  a movie's start as the game reads it: a read of 61 sectors by the low reader, the first refill a "
            "window with no card command; played again after its end, a second window; %u refills served\n",
         (unsigned)c->stats.hit_requests);
 }
+
+#if KUI_TOY_WIRE_ANY && KUI_TOY_WIRE_STAY
+/* ---- Test 78: a window serves a request of any size ---- */
+#define ANY_OUTPUT (BEGIN + 0x100000u)
+enum { ANY_SLICE = 16u };
+/* What a request delivered, against the image, as much of it at a time as
+ * the fixture's comparison buffer holds; and the byte behind it. */
+static void any_compare(uint32_t lba, uint32_t count) {
+    for(uint32_t done = 0u; done < count;) {
+        const uint32_t n = count - done > 64u ? 64u : count - done;
+        CHECK(kui_retail_image_read(&reference, lba + done, n, KUI_GAME_SECTOR_MODE1, expected,
+            sizeof(expected)) == KUI_GAME_OK);
+        CHECK(!memcmp(ram + (ANY_OUTPUT - BEGIN) + (size_t)done * 2048u, expected, (size_t)n * 2048u));
+        done += n;
+    }
+    CHECK(ram[ANY_OUTPUT - BEGIN + (size_t)count * 2048u] == 0xa5);
+}
+static int32_t any_begin(uint32_t lba, uint32_t count) {
+    memset(ram + (ANY_OUTPUT - BEGIN), 0xa5, (size_t)count * 2048u + 16u);
+    return request(lba, count, ANY_OUTPUT);
+}
+/* The request's own count of sectors, looked at after every event. While
+ * a window serves it the count never goes back, and no event hands over
+ * more than two slices of a large request; one of up to sixty sectors
+ * comes whole. */
+static unsigned any_events;
+static void any_step(uint32_t *seen, bool sliced) {
+    const uint32_t now = R.engine.cursor.done;
+    if(sliced) CHECK(now >= *seen && (R.shared.service.count <= 60u || now - *seen <= 2u * ANY_SLICE));
+    if(now != *seen) ++any_events;
+    *seen = now;
+    invariants();
+}
+/* A read of any size by a caller the reader does not know: CHECK in a
+ * loop with an EXEC every third round and whatever interrupt is due in
+ * between, as plain_finish. What the game is told of the request's
+ * progress never goes back, whoever serves it. */
+static void any_finish(int32_t token, uint32_t lba, uint32_t count, bool sliced) {
+    int32_t status = KUI_GD_PROCESSING;
+    uint32_t seen = R.engine.cursor.done, told = 0u;
+    for(unsigned n = 0u; status == KUI_GD_PROCESSING; ++n) {
+        CHECK(n < 400000u);
+        (void)hardware();
+        any_step(&seen, sliced);
+        if(n % 3u == 0u) {
+            CHECK(gd(KUI_GD_EXEC, 0, 0) == 0);
+            any_step(&seen, sliced);
+        }
+        status = gd(KUI_GD_CHECK, (uint32_t)token, STATUS);
+        any_step(&seen, sliced);
+        CHECK(get(STATUS + 8u) >= told);
+        told = get(STATUS + 8u);
+    }
+    CHECK(status == KUI_GD_COMPLETED);
+    CHECK(get(STATUS + 8u) == count * KUI_GAME_DATA_BYTES && !get(STATUS + 4u));
+    any_compare(lba, count);
+}
+static void any_read(uint32_t lba, uint32_t count, bool sliced) {
+    any_finish(any_begin(lba, count), lba, count, sliced);
+}
+
+/* Evolution 2's refills as its console capture of 25 October 2026 has
+ * them: 73 and 50 sectors by turns, each beginning where the last ended.
+ * The first is the low reader's. The second opens a window, and from
+ * there every request is served from that one window, the large ones in
+ * slices, with no card command and nothing given up. */
+static void any_evolution(void) {
+    open_card(2000u, false, true, file_amid, false);
+    const struct kui_toy_wire_report *w = report();
+    const struct kui_native_readahead_aux_context *c = &kui_native_readahead_aux_context;
+    uint32_t lba = 45002u;
+    any_read(lba, 73u, false); lba += 73u;
+    CHECK(!c->movie_ahead.variant && !c->stats.hit_requests && card.cmd18 == 1u && !card.cmd12 &&
+        !w->large_requests && !w->other_windows);
+    any_read(lba, 50u, true); lba += 50u;
+    CHECK(c->movie_ahead.variant == OTHER_WINDOW && w->other_windows == 1u && c->stats.hit_requests == 1u &&
+        w->other_sectors == 50u && !w->large_requests && w->n.starts == 1u);
+    /* The game plays on, and the window fills behind the request. */
+    for(unsigned n = 0u; n < 100000u && c->movie_ahead.verified - c->movie_ahead.first < 60u; ++n)
+        if(!hardware()) CHECK(gd(KUI_GD_EXEC, 0, 0) == 0);
+    CHECK(c->movie_ahead.first == lba && c->movie_ahead.verified - c->movie_ahead.first >= 60u);
+    /* 73 sectors: more than the window holds. What it holds, in slices,
+     * and the rest as the stream brings it. */
+    any_events = 0u;
+    const uint32_t delivered = w->deliver_calls;
+    const int32_t large = any_begin(lba, 73u);
+    /* The request's own visit has handed over two slices of a full
+     * window, and no more. */
+    CHECK(w->deliver_calls - delivered == 1u && R.engine.cursor.done == 2u * ANY_SLICE &&
+        R.shared.service.pending);
+    any_finish(large, lba, 73u, true); lba += 73u;
+    const unsigned events = any_events;
+    CHECK(c->movie_ahead.variant == OTHER_WINDOW && c->movie_ahead.first == lba && w->other_windows == 1u);
+    CHECK(c->stats.hit_requests == 2u && w->large_requests == 1u && w->large_sectors == 73u && !w->large_returned);
+    any_read(lba, 50u, true); lba += 50u;
+    /* The track's last 52. */
+    any_read(lba, 52u, true); lba += 52u;
+    CHECK(lba == 45300u && c->stats.hit_requests == 4u && w->other_sectors == 50u + 73u + 50u + 52u);
+    CHECK(card.cmd18 == 1u && !card.cmd12 && w->n.starts == 1u && w->other_windows == 1u && !c->stats.abandoned);
+    CHECK(w->large_requests == 1u && !w->large_returned && !w->first_error);
+    no_drops(w);
+    printf("  Evolution 2's refills, 73 and 50 sectors by turns: the first the low reader's, the second opens a "
+           "window, four requests served from it, the one of 73 sectors in slices (%u events after its request); "
+           "CMD18 %u, CMD12 %u\n", events, card.cmd18, card.cmd12);
+}
+
+/* One request of two hundred sectors behind a small one: more than three
+ * windows' worth, through the one window as the stream brings it. On a
+ * quiet bus and on two busy ones. */
+static void any_long(uint32_t mean, unsigned dense) {
+    open_card(2000u, false, true, file_amid, false);
+    const struct kui_toy_wire_report *w = report();
+    const struct kui_native_readahead_aux_context *c = &kui_native_readahead_aux_context;
+    stall_mean = mean; stall_dense = dense;
+    plain_read(45010u, 5u);
+    CHECK(!c->movie_ahead.variant && card.cmd18 == 1u);
+    any_events = 0u;
+    any_read(45015u, 200u, true);
+    CHECK(c->movie_ahead.variant == OTHER_WINDOW && w->other_windows == 1u && c->stats.hit_requests == 1u);
+    CHECK(w->large_requests == 1u && w->large_sectors == 200u && !w->large_returned && w->other_sectors == 200u);
+    /* Two hundred sectors, two slices an event at most. */
+    CHECK(any_events >= (200u - 4u * ANY_SLICE) / (2u * ANY_SLICE));
+    const unsigned events = any_events;
+    plain_read(45215u, 12u);
+    CHECK(c->movie_ahead.variant == OTHER_WINDOW && w->other_windows == 1u && c->stats.hit_requests == 2u);
+    CHECK(!w->first_error && !c->stats.abandoned);
+    no_drops(w);
+    if(!mean) CHECK(card.cmd18 == 1u && !card.cmd12 && w->n.starts == 1u);
+    stall_mean = 0u; stall_dense = 0u;
+    printf("  a request of 200 sectors behind a small one, stalls %u/%u: opened a window and came through it in %u "
+           "events, the read behind it from the same window; streams begun %u, CMD18 %u, CMD12 %u\n",
+        (unsigned)mean, dense, events, (unsigned)w->n.starts, card.cmd18, card.cmd12);
+}
+
+/* A large request the window has begun to serve and cannot finish: the
+ * window is marked in error under it. The request goes back to the low
+ * reader whole, and the low reader delivers every sector of it. What the
+ * game was told of its progress never goes back. The read behind it has a
+ * window again. And the same where the card's stop command fails once as
+ * the window is given up: the low reader sends it again. */
+static void any_returned(bool stop_fails) {
+    open_card(2000u, false, true, file_amid, false);
+    const struct kui_toy_wire_report *w = report();
+    const struct kui_native_readahead_aux_context *c = &kui_native_readahead_aux_context;
+    plain_read(45010u, 5u);
+    const int32_t token = any_begin(45015u, 150u);
+    for(unsigned n = 0u; n < 100000u && R.engine.cursor.done < 40u; ++n)
+        if(!hardware()) CHECK(gd(KUI_GD_EXEC, 0, 0) == 0);
+    const uint32_t had = R.engine.cursor.done;
+    CHECK(had >= 40u && had < 150u && R.shared.service.pending && c->movie_ahead.variant == OTHER_WINDOW &&
+        c->movie_ahead.first == 45015u + had && R.shared.service.position_lba == 45015u + had - 1u);
+    CHECK(card.cmd18 == 1u && !card.cmd12);
+    if(stop_fails) {
+        R.shared.card.device.sd.bus.transfer = bad_stop_transfer;
+        bad_stop = card.cmd12 + 1u; bad_stop_done = false;
+    }
+    kui_native_readahead_aux_context.movie_ahead.error = true;
+    any_finish(token, 45015u, 150u, false);
+    R.shared.card.device.sd.bus.transfer = bus_transfer;
+    CHECK(bad_stop_done == stop_fails || !stop_fails);
+    CHECK(w->large_returned == 1u && !w->large_requests && w->drops[KUI_TOY_WIRE_DROP_ERROR] == 1u);
+    CHECK(!c->movie_ahead.variant && !c->stats.hit_requests && card.cmd12 == (stop_fails ? 2u : 1u) &&
+        card.cmd18 == 2u);
+    CHECK(w->other_sectors == had && R.shared.service.position_lba == 45164u);
+    plain_read(45165u, 12u);
+    /* (45165 lies in the fixture's movie file: the window is that file's.) */
+    CHECK(c->movie_ahead.variant == 4u && w->other_windows == 1u && c->stats.hit_requests == 1u &&
+        c->movie_ahead.first == 45177u);
+    printf("  a request of 150 sectors whose window failed after %u of them%s: back to the low reader whole, read "
+           "again from its first sector, data exact; the read behind it has a window\n", (unsigned)had,
+        stop_fails ? ", the card's stop command failing once" : "");
+}
+
+/* A request of 61 sectors the game waits for in a loop of its own, with no
+ * interrupt getting through: opened by its request, kept while the
+ * window grows, and served to its end. */
+static void any_waited(void) {
+    open_card(2000u, false, true, file_amid, false);
+    const struct kui_toy_wire_report *w = report();
+    const struct kui_native_readahead_aux_context *c = &kui_native_readahead_aux_context;
+    m.delay = 100000u;
+    unsigned rounds = waited_request(45010u, REQUEST, true);
+    CHECK(!c->movie_ahead.variant && card.cmd18 == 1u);
+    /* (The fixture's own comparison takes 64 sectors at most.) */
+    rounds += waited_request(45010u + REQUEST, 61u, true);
+    CHECK(!eris && !timers);
+    CHECK(stream_on() && c->movie_ahead.variant == OTHER_WINDOW && w->other_windows == 1u);
+    CHECK(c->stats.hit_requests == 1u && w->large_requests == 1u && w->large_sectors == 61u && !w->large_returned);
+    CHECK(card.cmd18 == 1u && !card.cmd12 && !c->stats.abandoned && w->stays == 1u);
+    no_drops(w);
+    m.delay = 0u;
+    printf("  a request of 61 sectors the game waited for with interrupts held off: one window, kept while it grew, "
+           "%u rounds of the game's loop\n", rounds);
+}
+#endif
 #endif
 
 /* The movie ends while a request waits on a running stream. The next SCI
@@ -3152,7 +3428,7 @@ int main(void) {
     /* Test 66's own chunk classification is untouched by the switch. */
     movie_chunk_classification();
 #endif
-    printf("Test %u reader, real low reader + auxiliary + stream on the card model:\n", KUI_TOY_WIRE_TICK ? 69u : KUI_TOY_WIRE_SEQ ? 77u : KUI_TOY_WIRE_FLUID ? 76u : KUI_TOY_WIRE_STEADY ? 75u : KUI_TOY_WIRE_LEAN ? 74u : KUI_TOY_WIRE_IDLE ? 73u : KUI_TOY_WIRE_PACE ? 72u : KUI_TOY_WIRE_WORDS ? 71u : KUI_TOY_WIRE_CACHED ? 70u : 68u);
+    printf("Test %u reader, real low reader + auxiliary + stream on the card model:\n", KUI_TOY_WIRE_TICK ? 69u : KUI_TOY_WIRE_ANY ? 78u : KUI_TOY_WIRE_SEQ ? 77u : KUI_TOY_WIRE_FLUID ? 76u : KUI_TOY_WIRE_STEADY ? 75u : KUI_TOY_WIRE_LEAN ? 74u : KUI_TOY_WIRE_IDLE ? 73u : KUI_TOY_WIRE_PACE ? 72u : KUI_TOY_WIRE_WORDS ? 71u : KUI_TOY_WIRE_CACHED ? 70u : 68u);
 #if KUI_TOY_WIRE_MSB
     /* Everything twice: with a receiver that ignores the bit order asked
      * of it, and with one that delivers bytes MSB first. */
@@ -3187,7 +3463,7 @@ int main(void) {
 #else
     (void)at_cost;
 #endif
-#if KUI_TOY_WIRE_WORDS
+#if KUI_TOY_WIRE_WORDS && !KUI_TOY_WIRE_ANY
     course_pieces();
 #endif
     updating(0u, 0u);
@@ -3219,7 +3495,7 @@ int main(void) {
 #if KUI_TOY_WIRE_STEADY
     first_skip_apart();
 #endif
-#if KUI_TOY_WIRE_FLUID
+#if KUI_TOY_WIRE_FLUID && !KUI_TOY_WIRE_ANY
     buffer_seen();
     pause_placed();
 #endif
@@ -3261,6 +3537,15 @@ int main(void) {
 #endif
     for(unsigned what = 0u; what < 4u; ++what) sequence_nowhere(what);
     sequence_movie();
+#if KUI_TOY_WIRE_ANY && KUI_TOY_WIRE_STAY
+    any_evolution();
+    any_long(0u, 0u);
+    any_long(1500u, 20u);
+    any_long(150u, 80u);
+    any_returned(false);
+    any_returned(true);
+    any_waited();
+#endif
 #endif
     ended_in_interrupt();
 #if KUI_TOY_WIRE_IDLE
@@ -3284,12 +3569,12 @@ int main(void) {
     printf("  blocks copied into the window by the word copy's stand-in in all of the above: %lu pieces, %lu bytes\n",
         copies, copied);
 #endif
-#if KUI_TOY_WIRE_FLUID
+#if KUI_TOY_WIRE_FLUID && !KUI_TOY_WIRE_ANY
     /* The wire's standstill was placed in the course wherever a run had waits. */
     CHECK(pause_seen > 100000u);
     printf("  the wire's standstill for timer waits, placed in the course's pieces in all of the above: %llu ticks\n",
         (unsigned long long)pause_seen);
 #endif
-    printf("PASS Test %u reader integration: %u checks\n", KUI_TOY_WIRE_TICK ? 69u : KUI_TOY_WIRE_SEQ ? 77u : KUI_TOY_WIRE_FLUID ? 76u : KUI_TOY_WIRE_STEADY ? 75u : KUI_TOY_WIRE_LEAN ? 74u : KUI_TOY_WIRE_IDLE ? 73u : KUI_TOY_WIRE_PACE ? 72u : KUI_TOY_WIRE_WORDS ? 71u : KUI_TOY_WIRE_CACHED ? 70u : 68u, checks);
+    printf("PASS Test %u reader integration: %u checks\n", KUI_TOY_WIRE_TICK ? 69u : KUI_TOY_WIRE_ANY ? 78u : KUI_TOY_WIRE_SEQ ? 77u : KUI_TOY_WIRE_FLUID ? 76u : KUI_TOY_WIRE_STEADY ? 75u : KUI_TOY_WIRE_LEAN ? 74u : KUI_TOY_WIRE_IDLE ? 73u : KUI_TOY_WIRE_PACE ? 72u : KUI_TOY_WIRE_WORDS ? 71u : KUI_TOY_WIRE_CACHED ? 70u : 68u, checks);
     return 0;
 }

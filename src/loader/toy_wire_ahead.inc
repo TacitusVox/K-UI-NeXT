@@ -227,7 +227,15 @@ static void toy_wire_halt(kui_retail_async_region_type *r,unsigned why) {
     ++k->report.stops[why];
 }
 
-#if KUI_TOY_WIRE_WORDS
+#if KUI_TOY_WIRE_WORDS && defined(KUI_TOY_WIRE_ANY) && KUI_TOY_WIRE_ANY
+/* Test 78 keeps no course by piece: the auxiliary's room goes to serving
+ * large requests. Every clock value falls in none, and what was kept by
+ * piece is not compiled. */
+static inline int toy_wire_course(uint32_t now) {
+    (void)now;
+    return -1;
+}
+#elif KUI_TOY_WIRE_WORDS
 /* Which piece of the second movie's course a clock value falls in, counted
  * from the movie's start; or none while that movie is not the one playing. */
 static int toy_wire_course(uint32_t now) {
@@ -235,6 +243,8 @@ static int toy_wire_course(uint32_t now) {
     const uint32_t piece=(toy_present.start_tick-now)>>KUI_TOY_WIRE_BUCKET_SHIFT;
     return piece<KUI_TOY_WIRE_BUCKETS?(int)piece:(int)KUI_TOY_WIRE_BUCKETS-1;
 }
+#endif
+#if KUI_TOY_WIRE_WORDS
 static void toy_wire_course_frame(uint32_t now) {
     const int piece=toy_wire_course(now);
     if(piece>=0)++toy_wire_keep()->report.course_frames[piece];
@@ -263,6 +273,7 @@ static void toy_wire_visit_time(struct toy_wire_keep *k,unsigned who,struct ra_c
 #endif
 }
 
+#if !(defined(KUI_TOY_WIRE_ANY) && KUI_TOY_WIRE_ANY)
 /* A request the window cannot serve yet, and the moment it is served. */
 static void toy_wire_wait_begin(uint32_t token) {
     struct toy_wire_keep *k=toy_wire_keep();
@@ -298,6 +309,7 @@ static void toy_wire_course_served(uint32_t sectors) {
     const int piece=now.valid?toy_wire_course(now.counter):-1;
     if(piece>=0)toy_wire_keep()->report.course_sectors[piece]+=(uint16_t)sectors;
 }
+#endif
 #endif
 #endif
 
@@ -907,8 +919,16 @@ static void toy_ahead_pump(kui_retail_async_region_type *r,bool demand) {
          * soon as the bytes it lacks are in. */
         const struct kui_retail_gd *s=&r->shared.service;
         const uint32_t have=A.verified-A.first;
+#if defined(KUI_TOY_WIRE_ANY) && KUI_TOY_WIRE_ANY
+        /* Test 78: by what is still owed of the request. A large one
+         * that the window serves in slices has had part of it. */
+        const uint32_t owed=demand?s->count-r->engine.cursor.done:0u;
+        const bool waiting=owed>have;
+        w->want=waiting?w->tail+(owed-have)*(KUI_GAME_RAW_BYTES+KUI_GAME_RAW_BYTES/16u):0u;
+#else
         const bool waiting=demand && s->count>have;
         w->want=waiting?w->tail+(s->count-have)*(KUI_GAME_RAW_BYTES+KUI_GAME_RAW_BYTES/16u):0u;
+#endif
         if(!w->want && waiting)w->want=1u;
         /* The SDK may rewrite the priority register for its own devices. */
         if(!interrupt)C.config.ops->hook();
