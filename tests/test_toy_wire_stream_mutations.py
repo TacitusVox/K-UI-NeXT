@@ -789,7 +789,11 @@ TITLES_MUTATIONS = [
 # go (ANY_GONE), and the same defects are made in the lines that take their
 # place; then the defects of the change itself.
 # Test 81: the same for TOY_WIRE_TIMER.
-TIMER_GONE = set()
+# With the timer's switch on, the report's number is the timer's. The arm
+# below it in that expression, which the entry of Test 80's list takes out,
+# decides nothing: the compiled code is the same with and without it, and
+# no test could tell them apart.
+TIMER_GONE = {"the report names Test 79"}
 TIMER_MUTATIONS = [
  (STREAM, "a timer taken with no table admitted",
   "    if(!callback || !vbr || vector_base() != vbr) return;", "    if(!callback || vector_base() != vbr) return;"),
