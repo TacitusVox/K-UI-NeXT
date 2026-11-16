@@ -6,10 +6,13 @@ word of the same day (decision 1), is delivered as Test 77
 runs that evening, the second movie at 1,959 and 1,965 of 1,968 frames
 against the baseline's 1,953, the game played on into a level, no error
 in either report. Step 3 has its baseline. After the owner's direction
-of 16 November (below) two more tests are built and delivered, neither
-run on a console yet: Test 78 (`docs/toy-wire-stream-test-78.md`,
-`1d0e5bab78ba`) and Test 79 (`docs/toy-wire-stream-test-79.md`,
-`9f183a7f72f5`). Nothing else here is built or approved. It answers the
+of 16 November (below) two more tests were built, delivered and run by
+the owner the same day: Test 78 (`docs/toy-wire-stream-test-78.md`,
+`1d0e5bab78ba`) in Toy Commander and Test 79
+(`docs/toy-wire-stream-test-79.md`, `9f183a7f72f5`) in the two
+Evolution games. Their results, and the two tests that follow from
+Test 79's, are under The order from here. Nothing else here is built
+or approved. It answers the
 owner's remark after Test 76's console run,
 "then we can probably package this for every game's FMVs", with what
 that takes and in what order. The decisions at the end are the owner's.
@@ -329,10 +332,28 @@ together as two modules, so that one console session answers both:
 |---|---|---|---|
 | 78 | Test 77 | A window serves a request of any size, in slices, and a consecutive read of any size opens one. Room is made first: the auxiliary's image has 32 bytes free | Toy Commander as Test 77: the movies, then a level |
 | 79 | Test 78 | The window is offered to every title of the family on a raw SCI image. Toy's hooks and its movie policy stay Toy's. The module can be put at the Background reader's path for a normal launch with the virtual VMU off; with it on it stops at once, before any card step | Evolution 1 and 2 with the virtual VMU off, against the installed module with it off: play where the lag was, and the intro movies |
-| Next | Test 79 and the installed module | The virtual VMU on: the installed worker with the stream's auxiliary and low residents that carry the stream's glue; the card loan with a window open; `quiesced` cleared | Evolution with the virtual VMU on, against the installed module: play, a movie, a save, power off, reload |
+| 80 | Test 79 as run on the console | A window stands through a command that only asks the drive something (Evolution 2 gave up 969 of 972 windows for such a command). The report names the commands a window meets | Evolution 2: `C` near zero, requests to a window far above 1.3 |
+| 81 | Test 80 | The stream's timer in every title, by the SDK values the reader already admits for it (both games: no timer, 10 ms a wait) | Both games: `TMR` 1 or 2, a wait under 1.3 ms |
+| Behind them | Test 81 and the installed module | The virtual VMU on: the installed worker with the stream's auxiliary and low residents that carry the stream's glue; the card loan with a window open; `quiesced` cleared | Evolution with the virtual VMU on, against the installed module: play, a movie, a save, power off, reload |
 
-Tests 78 and 79 are built as the table says, on 16 November, and
-delivered as two archives; neither has run on a console. Test 79 is
+Tests 78 and 79 were built as the table says, on 16 November, delivered
+as two archives and run by the owner the same day. Test 78: Toy
+Commander's large loads came through windows, six requests of 2,135
+sectors, none back; the movies as before, and no frame lost in that
+run. Test 79: both Evolution games ran on it from the Games menu, their
+movies without fault, with a slight stutter at times while the card was
+read that the owner is not sure the installed reader is free of. Its
+reports show the window doing the prefetch's work in Evolution (445
+sectors to a window) and never getting to in Evolution 2, where a
+command that is not a read gave up 969 of 972 windows; and in both a
+stream without a timer, standing 10 ms at each wait. Both were named as
+limits of the test before it ran. They are Tests 80 and 81 in the
+table, each one change with its own run; the virtual VMU comes behind
+them. No run compared the games with the installed module on the same
+day: whether the window is smoother than the installed prefetch there
+is still open.
+
+Test 79 is
 the change with three corrections its review asked for before any
 module of it went out: Toy Commander's executable on another boot
 sector no longer passes for another title that then gets Toy
@@ -350,7 +371,10 @@ What the reviews add to the work behind them, none of it built:
   base and its default callback), by which the stream could take a
   spare timer as it does in Toy Commander; or the controller's
   heartbeat could move it. Which, and whether either is needed, is for
-  Test 79's console result to say (`WAIT`, `WTICK`, `TMR`).
+  Test 79's console result to say (`WAIT`, `WTICK`, `TMR`). It has said
+  it: a wait lasted 10 ms in both games, the spacing of the games' own
+  disc calls, which a heartbeat once a frame would not shorten. The
+  timer is Test 81.
 - **Images without a valid EDC.** The window checks each sector's EDC
   and the installed reader does not. On a raw image without it every
   read behind another opens a window that fails first. A rule that

@@ -1,8 +1,8 @@
 # Toy Commander Test 78: a window serves a request of any size
 
-Status: built 16 November 2026 (build `1d0e5bab78ba`), host and linked checks only.
-It has not run on a console. A test module for one title, not an accepted
-component. Delivered together with Test 79
+Status: delivered 16 November 2026 (build `1d0e5bab78ba`) and run once
+on the console by the owner the same day (Console result). A test module
+for one title, not an accepted component. Delivered together with Test 79
 (`docs/toy-wire-stream-test-79.md`), which is this build with one change
 more.
 
@@ -148,6 +148,81 @@ then the report.
 | The level loads and plays normally; `BIG` counts grow there | Large ordinary loads went through windows |
 | Loading visibly slower than before | The window costs a large load more than the low reader does. Next: large reads open no window by themselves, and only an open one serves them |
 | An error screen, a hang, wrong picture or sound | The change does not hold. The report's rows say where |
+
+## Console result
+
+The owner's run of 16 November 2026 through Card Tools, by the package's
+README, with CD Music and virtual VMU off. One saved report of 1,024
+bytes, `/reports/toy/66-12.txt`, headed `TEST 78`, `BUILD 1d0e5bab78ba`,
+`PT` `3BD`:
+
+| File | SHA-256 |
+|---|---|
+| `docs/evidence/toy-wire-stream-78/console-report-66-12.txt` | `da85eb66...6b49` |
+
+Decoded by `docs/evidence/toy-wire-stream-79/decode_report.py`
+(`console-report-decoded.txt` here), which reads this test's rows and
+Test 79's; Test 77's two runs are as its own decoder has them.
+
+Owner's observation: "66-12 is build 78, where no issues were noted. I
+did not even notice any frame skips so maybe we silently fixed those
+last 9 frames along the way."
+
+| | Test 77, run 1 | Test 77, run 2 | Test 78 |
+|---|---|---|---|
+| First movie: frames submitted / on time | 331 / 330 | 331 / 330 | 331 / 330 |
+| Second movie: frames submitted of 1,968 | 1,959 | 1,965 | 1,968 |
+| Of those on time and in sequence | 1,953 | 1,960 | 1,966 |
+| Frames skipped | 9 | 3 | 0 |
+| Longest gap between frames | 0.100 s after 1,133 | 0.065 s after 1,177 | 0.060 s after 1,796 |
+| Second movie's first frame | 0.806 s | 0.809 s | 0.803 s |
+| Calls that put a frame out, each | 1,958, 30.2 ms | 1,964, 30.2 ms | 1,967, 30.0 ms |
+| Windows opened, first movie / second | 3 / 3 | 3 / 3 | 3 / 3 |
+| Sectors served from them | 3,421 / 25,824 | 3,421 / 25,824 | 3,421 / 25,828 |
+| Windows opened by other reads, sectors served from them | 21, 106 | 28, 133 | 21, 2,241 |
+| Requests of more than sixty sectors served through a window, their sectors | none can be | none can be | 6, 2,135 |
+| Of those, back to the low reader | | | 0 |
+| Requests served from a window | 2,450 | 2,457 | 2,476 |
+| Windows given up: for a read elsewhere / for a command | 23 / 4 | 29 / 5 | 23 / 4 |
+| Given up on an error / on the request's state / on a wait | 0 / 0 / 0 | 0 / 0 / 0 | 0 / 0 / 0 |
+| Sectors verified into windows / served | 29,914 / 29,351 | 30,149 / 29,378 | 32,047 / 31,490 |
+| Delivery visits from the game's disc calls | 10,772 | 46,531 | 79,274 |
+| All pumps | 9.17 s | 9.20 s | 10.06 s |
+| Card blocks, pump time for each | 138,695, 66.1 us | 139,684, 65.9 us | 148,685, 67.6 us |
+| Streams begun | 700 | 685 | 794 |
+| Ended on a byte between blocks neither idle nor token | 655 | 627 | 744 |
+| The same for every hundred overruns in a run | 3.22 | 3.10 | 3.55 |
+| Blocks handed on with lost bytes / sectors completed from parity | 2,786 / 1,775 | 2,704 / 1,716 | 3,086 / 2,001 |
+| Sectors with more lost bytes than the parity fills (read again) | 0 | 0 | 1 |
+| Rebuilt bytes not confirmed / sectors failing the EDC watch | 0 / 0 | 0 / 0 | 0 / 0 |
+| Stream errors | 0 | 0 | 0 |
+
+What the run says, by the outcomes above:
+
+1. **Large requests come through the window.** Six requests of more
+   than sixty sectors, 2,135 sectors between them, were served from
+   windows to their end, and none went back to the low reader. The
+   sectors served from windows that are no movie's are 2,241 against
+   106 and 133. No window was given up on an error, on a wait or on the
+   request's state. That is the first and the fourth row of the
+   outcomes.
+2. **The movies are as they were.** The same sectors from the movies'
+   windows (four more in the second movie's), the second movie's first
+   frame at 0.80 s, a frame's call 30.0 ms against 30.2, a card block
+   67.6 microseconds against 66.
+3. **No frame was lost, and that is not claimed as this change's.** The
+   second movie put out all 1,968 frames, 1,966 of them on time, where
+   Test 77's two runs lost 9 and 3. Nothing in this change is on a
+   movie's path: its requests are of sixty sectors at most, and a
+   window served those whole before. Five runs of what is one reader in
+   that scene have now lost 26, 15, 9, 3 and 0 frames. The spread is
+   the scene's, as Test 77's result said; this run is its good end.
+4. **One sector had more lost bytes than its parity fills.** It was
+   read again (`W FILL` `REF` 1, the first in a console run). Nothing
+   that failed a check was served.
+
+The module stays a test module. Its change is carried by Test 79 and
+what follows it.
 
 ## Known limits, not changed here
 

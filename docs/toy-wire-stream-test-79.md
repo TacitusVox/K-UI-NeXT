@@ -1,9 +1,10 @@
 # Toy Commander Test 79: the window for every title of the family
 
-Status: built 16 November 2026 (build `9f183a7f72f5`), host and linked checks only.
-It has not run on a console. A test module, not an accepted component,
-and not a replacement for the installed New reader: it has no virtual
-VMU and no block prefetch. Delivered together with Test 78
+Status: delivered 16 November 2026 (build `9f183a7f72f5`) and run on
+the console by the owner the same day, in Evolution and in Evolution 2
+(Console result). A test module, not an accepted component, and not a
+replacement for the installed New reader: it has no virtual VMU and no
+block prefetch. Delivered together with Test 78
 (`docs/toy-wire-stream-test-78.md`), its baseline.
 
 The module is built from `9f183a7f72f5`: the change as first committed
@@ -255,6 +256,127 @@ Toy Commander needs no run of this build: Test 78's run through Card
 Tools covers what the two builds share. Started from the Games menu with
 New (X), CD Music off and the virtual VMU off, this build runs it with
 its hooks as before, and shows the report on the screen.
+
+## Console result
+
+The owner's runs of 16 November 2026: Evolution, then Evolution 2, each
+from the Games menu with this module in the installed module's place. A
+Games launch brings no report file: the pages were photographed, four
+to a game, and sent as two archives.
+
+Owner's observation: "Build 79 seemed to be okay with regards to
+Evolution and Evolution 2 FMVs - no noticed issues there. There seemed
+to be an almost imperceptible stuttering, maybe a few frames out of the
+30, once in a while when I could see the LED lit up for accessing the
+microsd card. This may have been a problem with the last reader and I
+simply did not catch it."
+
+Not reported: a run with the installed module on the same day (step 1
+of Console test); the stage's line; `launch-timing.txt`. The owner kept
+no copy of the installed module's file ("definitely didn't back up that
+file"): it goes back from the candidate's own archive,
+`KUI-Shared-Game-Launch-06NOV2026-2210-UTC-f8807cb.zip`.
+
+| Game | Report as read | SHA-256 |
+|---|---|---|
+| Evolution | `docs/evidence/toy-wire-stream-79/console-report-evolution.txt` | `a323036e...eaea4` |
+| Evolution 2 | `docs/evidence/toy-wire-stream-79/console-report-evolution-2.txt` | `d36abc8a...e9c9` |
+
+The photographs are not in the repository. Their names, sizes and
+hashes, how the pages were read (twice, the second time by readers
+given the photographs alone; the two readings equal in every character)
+and the checks the reports make of themselves are in
+`console-report-photographs.txt`. Decoded by `decode_report.py` in the
+same folder (`console-report-decoded.txt`). Both reports are headed
+`TEST 79`, `BUILD 9F183A7F72F5`, with `PT` `7BD` and `TOY` 0: this
+module, a title that is not Toy Commander, none of its hooks.
+
+| | Evolution | Evolution 2 |
+|---|---|---|
+| Windows opened | 75 | 972 |
+| Given up for a read elsewhere / for a command that is no read | 74 / 0 | 3 / 969 |
+| Given up on an error / on the request's state / on a wait | 0 / 0 / 0 | 0 / 0 / 0 |
+| Requests served from windows | 2,743 | 1,244 |
+| To a window: requests, sectors | 36.6, 445 | 1.28, 12.6 |
+| Sectors served from windows | 33,378 | 12,238 |
+| Sectors verified into windows, and of them never served | 36,552, 3,174 (8.7%) | 15,342, 3,104 (20.2%) |
+| Requests of more than sixty sectors through a window, their sectors, back to the low reader | 81, 8,295, 0 | 16, 1,479, 0 |
+| Requests the game waited for that kept their window | 94 | 308 |
+| Stops of the stream for a full window | 2,225 | 1 |
+| The low reader: blocks by DMA / by programmed transfers | 38,281 / 523 | 25,615 / 1,083 |
+| Its receive overruns, each a block read again / its CRC16 failures | 859 / 0 | 598 / 0 |
+| The windows' share of the sectors read | about 80% | about 69% |
+| Streams begun | 388 | 1,066 |
+| Runs to their end / cut by an overrun | 10,708 / 9,813 | 5,511 / 3,783 |
+| Waits, the time the stream stood for them, each | 3,421, 34.6 s, 10.1 ms | 606, 5.9 s, 9.8 ms |
+| The stream's timer | none | none |
+| Card blocks by the stream, pump time for each | 168,499, 59.1 us | 72,686, 83.6 us |
+| Blocks rebuilt from their CRC16 / handed on with lost bytes / sectors completed from parity | 14,915 / 1,262 / 629 | 6,084 / 922 / 837 |
+| Sectors the parity could not complete / that failed a check, all read again | 27 / 12 | 0 / 4 |
+| Rebuilt bytes not confirmed / sectors failing the EDC watch | 0 / 0 | 0 / 0 |
+| Streams ended on a byte between blocks neither idle nor token | 273 | 90 |
+| Visits from the SCI's interrupt / from the game's calls | 18,887, 4.15 s / 37,020, 5.81 s | 7,783, 3.29 s / 9,049, 2.79 s |
+| Delivery visits from the game's disc calls, their time, each | 16,287, 11.9 s, 0.73 ms | 32,512, 8.3 s, 0.26 ms |
+| Take-overs refused / stream errors | 0 / 0 | 0 / 0 |
+
+What the runs say, by the outcomes above:
+
+1. **The reader held in both games.** Each ran from the Games menu on
+   this module, through its opening movie and into play, with no stop
+   screen. No window was given up on an error, no take-over of the card
+   was refused, the low reader had no CRC16 failure, and every sector
+   that failed a check or could not be completed was read again (39 in
+   Evolution, 4 in Evolution 2). Large requests came through windows,
+   81 and 16 of them, and none went back.
+2. **In Evolution the window does the prefetch's work.** 75 windows
+   served 2,743 requests: 37 requests and 445 sectors to a window. A
+   window was given up only when the game read somewhere else. Four
+   sectors of five came from windows, and the stream stopped 2,225
+   times because its window was full: it was ahead of the game.
+3. **In Evolution 2 it never gets to.** 969 of 972 windows were given
+   up for a command that is not a read, after 1.3 requests and 13
+   sectors each. A fifth of what was read ahead was thrown away, 1,066
+   streams were begun, and the window was full once. This is the row
+   `OW` large with `C` near it, and limit 5 below. The report counts
+   such commands and does not name them; the one this game is known to
+   send is the request for the subcode, GETSCD
+   (`docs/evolution2-getscd-test.md`), which the service answers from
+   what it holds, without the card. The game's reads were served all
+   the same, most of them from a window opened anew for the request, at
+   the card's pace: nothing was ready ahead of them.
+4. **The stream stood still for want of a timer.** No timer in either
+   game, as The change says for another title. A wait lasted 10 ms on
+   average, which is what the games' own disc calls give, one to a
+   frame. Toy Commander's stream, which has its timer, waits 0.58 ms
+   (Test 78's run). In Evolution that is 34.6 s of standing in 3,421
+   waits. This is the row `WAIT` and `WTICK` large with `TMR` 0, and
+   limit 3.
+5. **The low reader had a fifth to a third of the sectors**, the first
+   read at each new place among them, and 2.2 to 2.3 of every hundred
+   of its blocks overran and were read again from a fresh command. That
+   is this module's low reader (Test 66's); the installed reader repairs
+   such a block from its CRC16.
+6. **The stutter is not placed by these reports.** They hold totals, no
+   times of single requests or visits. Three things in them can each
+   hold a read back by a frame or more while the card is busy: a read
+   that finds no window ready (3), a wait that lasts until the game's
+   next call (4), a block read again (5). And a stream that runs costs
+   the processor 59 to 84 microseconds a block. Which of them the eye
+   saw, or whether it is the game's own, the reports do not say.
+7. **Not compared.** The reference with the installed module was not
+   reported, and the owner is not sure it is free of the stutter. So
+   the result is that the window works in these two games and where it
+   falls short of its design, not that play is smoother or less smooth
+   than under the installed prefetch.
+
+What follows from it, each one change with its own console run:
+
+- Test 80: a window stands through a command that only asks the drive
+  something. Its report names the commands a window meets.
+- Then the stream's timer in every title, by the SDK values the reader
+  already admits for the title.
+- The virtual VMU beside the stream, the third of the owner's three
+  changes, behind those two.
 
 ## Known limits, not changed here
 

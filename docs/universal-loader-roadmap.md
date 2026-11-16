@@ -88,12 +88,17 @@ reader is a candidate for the read-ahead of the third goal, to be compared
 with the installed prefetch in the two Evolution games first. It has run with
 CD music and virtual VMU off only. See `fmv-stream-reader-plan.md`.
 
-Built for that comparison on the same day, console runs pending: Test 78
+Built for that comparison and run by the owner on the same day: Test 78
 (`toy-wire-stream-test-78.md`, a window serves a request of any size) and
 Test 79 (`toy-wire-stream-test-79.md`, build `9f183a7f72f5`, the window for every
 title of the family on a raw SCI image, virtual VMU off). Test 79 is a test
 module put in the installed New reader's place for the runs and taken out
-again; the delivered `f8807cb16561` candidate is not changed.
+again; the delivered `f8807cb16561` candidate is not changed. Both Evolution
+games ran on it. The window read ahead for Evolution; in Evolution 2 a command
+that is not a read gave up nearly every window, and in both the stream had no
+timer. Those two are the next tests, each one change, before the virtual VMU
+beside the stream. The games were not compared with the installed module on
+the same day.
 
 ## 1. Shared correctness and reproducible deployment — active
 
