@@ -2306,6 +2306,19 @@ static void sequence_track_end(bool check_first) {
     CHECK(!c->movie_ahead.variant && !stream_on() && w->drops[KUI_TOY_WIRE_DROP_OTHER] == 1u);
     CHECK(c->stats.hit_requests == 1u && w->other_windows == 1u);
     plain_read(45200u, 5u);
+#if KUI_TOY_WIRE_ANY && !KUI_TOY_WIRE_STAY
+    /* Test 78 without STAY: a read of more than sixty sectors is never all
+     * in the window at once, and a read the game waits for keeps no window
+     * without STAY. The rest of this scenario needs such a read served:
+     * here it is the low reader's again, exact, and the scenario ends. */
+    plain_read(45205u, 61u);
+    CHECK(R.shared.service.position_lba == 45265u && !w->first_error && !c->stats.abandoned);
+    plain_check_first = false;
+    printf("  reads that reach over the track's end, the game's %s call first, without STAY: the read at an open "
+           "window's first sector given up for and read by the low reader, exact; a read of 61 sectors the game "
+           "waits for is the low reader's too\n", check_first ? "CHECK" : "EXEC");
+    return;
+#endif
     plain_read(45205u, 61u);
 #if KUI_TOY_WIRE_ANY
     /* Test 78: the consecutive read of 61 sectors has a window, and is
@@ -2813,6 +2826,17 @@ static void sequence_movie(void) {
     const uint32_t *trace = c->diagnostics.stage_result[KUI_NATIVE_RA_STAGE_NONE];
     /* 61 sectors up to it, by a caller that waits. */
     read_and_compare(REFILLS - 61u, 61u, 0u, 1u);
+#if KUI_TOY_WIRE_ANY && !KUI_TOY_WIRE_STAY
+    /* Test 78 without STAY: the large read is given a window and, waited
+     * for, loses it again; the low reader reads it, exact (compared
+     * above). What follows needs that read served from its window, and
+     * is not checked in this variant. */
+    CHECK(!w->first_error && !c->stats.abandoned && !w->large_requests);
+    printf("  a movie's start as the game reads it, without STAY: the read of 61 sectors the game waits for is the "
+           "low reader's, exact\n");
+    (void)trace;
+    return;
+#endif
 #if KUI_TOY_WIRE_ANY
     /* Test 78: the large read begins behind the drive's position and has
      * the window itself; the refills are served from the same one. (In the
@@ -2936,8 +2960,10 @@ static void any_evolution(void) {
     const uint32_t delivered = w->deliver_calls;
     const int32_t large = any_begin(lba, 73u);
     /* The request's own visit has handed over two slices of a full
-     * window, and no more. */
-    CHECK(w->deliver_calls - delivered == 1u && R.engine.cursor.done == 2u * ANY_SLICE &&
+     * window, and no more. (Without QUICK the call that brings the
+     * request makes a whole visit of its own first, with nothing to hand
+     * over yet: two visits are counted.) */
+    CHECK(w->deliver_calls - delivered == (KUI_TOY_WIRE_QUICK ? 1u : 2u) && R.engine.cursor.done == 2u * ANY_SLICE &&
         R.shared.service.pending);
     any_finish(large, lba, 73u, true); lba += 73u;
     const unsigned events = any_events;

@@ -723,7 +723,17 @@ ANY_GONE = {"course pieces not counted from the movie's start", "course not held
             "a window in error counted as one whose request did not complete",
             "a window whose request did not complete counted as given up for a read",
             "a window given up for a waited request counted as given up for another read",
-            "a window given up for a read counted as given up for a waited request"}
+            "a window given up for a read counted as given up for a waited request",
+            # The course by piece and the player's buffer behind it. Test 78 still compiles
+            # these lines, but every one of them lies behind toy_wire_course(), which in
+            # Test 78 names no piece: nothing they compute is kept, printed or checked.
+            # (Found by the list's first whole run under Test 79: ten entries not caught.)
+            "interrupt and game time swapped in the course",
+            "the buffer's free space not the most", "a buffer without capacity taken",
+            "more in the buffer than it holds taken", "a pointer outside the game's memory followed",
+            "the wire's standstill placed in no piece", "the wire's standstill counted again at every visit",
+            "the wire's standstill before the movie placed in its first piece",
+            "the buffer looked at in a movie's first call", "the buffer not looked at for a frame skipped"}
 ANY_MUTATIONS = [
  # The same defects as the entries of ANY_GONE, in the lines Test 78 compiles.
  # (The course by piece has none: it is not kept.)
