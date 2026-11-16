@@ -64,6 +64,8 @@ static struct {
 } wx;
 /* What one look at the clock costs the stream's own timing. */
 static uint32_t clock_step = 5u;
+/* The stream's clock is the reader's (kui_wire_test_read). */
+static bool wire_clock_shared;
 /* The reader looks at its clock once for every block it reads. With no
  * extra cost a visit reads all there is; 70 ticks a look is the console's
  * measured pace of about six blocks to an interrupt visit's 390 ticks. */
@@ -106,7 +108,12 @@ static bool stream_on(void) {
 uint32_t kui_wire_test_read(uint32_t address, unsigned width) {
     if(address == 0xffd00004u) return wx.ipra;
     if(address == 0xffd80004u) return wx.tstr;
-    if(address == 0xffd8000cu) return wx.tcnt0 -= clock_step;
+    /* The stream reckons its waits' length by the game's clock, and here
+     * on a count of its own, which its looks alone move: the scenarios
+     * that account for every tick of the reader's clock rest on that.
+     * Test 79 has the stream wait by that clock where it has no timer; a
+     * scenario of that asks for the one clock the console has. */
+    if(address == 0xffd8000cu) return wire_clock_shared ? (clock_counter -= clock_step) : (wx.tcnt0 -= clock_step);
     if(address >= 0xffd80008u && address < 0xffd8002cu) {
         const unsigned k = (address - 0xffd80008u) / 12u, field = (address - 0xffd80008u) % 12u;
         return field == 0u ? wx.tcor[k] : field == 4u ? wx.tcnt[k] : wx.tcr[k];
@@ -381,6 +388,8 @@ static void open_card(unsigned extent_blocks, bool scattered, bool with_parity,
     memset(&wx, 0, sizeof(wx));
     for(unsigned i = 0; i < 64u; ++i) wx.slots[i] = UINT32_C(0x8c0be408);
     wx.tcnt0 = UINT32_C(0x60000000);
+    wx.tstr = 1u; /* the game's clock, TMU0, runs */
+    wire_clock_shared = false;
     m.extra = arena + sizeof(arena) - RING_BYTES;
     m.extra_base = RING_PHYSICAL;
     m.extra_bytes = RING_BYTES;
@@ -1780,7 +1789,7 @@ static void later_waits(bool timer) {
     const struct kui_wire_stream *ws = wire_state();
     /* Short runs: every cut is answered with a wait. */
     stall_mean = 40u; stall_dense = 100u;
-    if(!timer) wx.tstr = 6u; /* both spare timers run for the game */
+    if(!timer) wx.tstr = 7u; /* both spare timers run for the game */
     reader_pace(70u);
     m.delay = 100000u;
     run_owed = 0u;
@@ -3196,9 +3205,20 @@ static void any_owed(void) {
  * the stage asked for. Evolution 2's refills, 73 and 50 sectors by turns:
  * the first the low reader's, the rest from one window. Nothing is counted
  * as a movie's, and the low reader's movie policy is never on. And the
- * same title on a disc the stage did not call a source: no window. */
-static void titles_other(bool source) {
+ * same title on a disc the stage did not call a source: no window.
+ *
+ * Another title's SDK is not Toy Commander's: the table words of the two
+ * spare timers hold that title's own default callback (Evolution 2's
+ * here), so the stream takes no timer, writes nothing into that table,
+ * and a run cut short waits its time by the game's clock before a call
+ * of the game's begins it again. On a quiet bus, and on two that cut
+ * runs short. */
+#define OTHER_DEFAULT UINT32_C(0x8c1add0c)
+static void titles_other(bool source, uint32_t mean, unsigned dense) {
     open_card(2000u, false, true, file_amid, false);
+    for(unsigned i = 0; i < 64u; ++i) wx.slots[i] = OTHER_DEFAULT;
+    stall_mean = mean; stall_dense = dense;
+    wire_clock_shared = true;
     struct kui_native_ra_config config = movie_configuration();
     memset(config.movie_ranges, 0, sizeof(config.movie_ranges));
     config.toy_poll_owner = 0u;
@@ -3216,14 +3236,34 @@ static void titles_other(bool source) {
         CHECK(!trace[0] && !trace[1] && !trace[2] && !trace[3]);
     }
     CHECK(lba == 45300u && !w->first_error && !c->stats.abandoned);
+    /* No timer was taken and none ever ran for the stream; the title's
+     * table is as it was. */
+    CHECK(!w->timer_mode && !timers);
+    for(unsigned i = 0; i < 64u; ++i) CHECK(wx.slots[i] == OTHER_DEFAULT);
+    if(source && mean) {
+        /* A bus that cuts runs short. Every wait but one that may still
+         * stand lasted its time at least: none was ended by the look
+         * that followed its beginning. */
+        CHECK(w->n.waits > 8u && w->n.wait_ticks >= (w->n.waits - 1u) * KUI_WIRE_BACKOFF_MIN);
+        if(getenv("WIRE_VERBOSE")) fprintf(stderr, "other title stalls %u/%u: windows %u hits %u drops %u %u %u %u %u %u waits %u wticks %u starts %u back %u big %u\n",
+            (unsigned)mean, dense, (unsigned)w->other_windows, (unsigned)c->stats.hit_requests, (unsigned)w->drops[0], (unsigned)w->drops[1],
+            (unsigned)w->drops[2], (unsigned)w->drops[3], (unsigned)w->drops[4], (unsigned)w->drops[5], (unsigned)w->n.waits,
+            (unsigned)w->n.wait_ticks, (unsigned)w->n.starts, (unsigned)w->large_returned, (unsigned)w->large_requests);
+        CHECK(w->other_windows && c->stats.hit_requests && !w->drops[KUI_TOY_WIRE_DROP_ERROR]);
+        printf("  another title, no timer, stalls %u/%u: %u waits of %u ticks in all, none shorter than its time; "
+               "%u requests of five from %u windows, %u streams begun; data exact\n", (unsigned)mean, dense,
+            (unsigned)w->n.waits, (unsigned)w->n.wait_ticks, (unsigned)c->stats.hit_requests,
+            (unsigned)w->other_windows, (unsigned)w->n.starts);
+        return;
+    }
     no_drops(w);
     if(source) {
         CHECK(c->movie_ahead.variant == OTHER_WINDOW && w->other_windows == 1u && c->stats.hit_requests == 4u);
         CHECK(w->other_sectors == 50u + 73u + 50u + 52u && w->large_requests == 1u && !w->large_returned);
         CHECK(card.cmd18 == 1u && !card.cmd12 && w->n.starts == 1u);
-        printf("  another title on a disc with a raw track: Evolution 2's refills served from one window, four "
-               "requests of five, nothing counted as a movie's, the movie policy never on; CMD18 %u, CMD12 %u\n",
-            card.cmd18, card.cmd12);
+        printf("  another title on a disc with a raw track, no timer for the stream: Evolution 2's refills served "
+               "from one window, four requests of five, nothing counted as a movie's, the movie policy never on; "
+               "CMD18 %u, CMD12 %u\n", card.cmd18, card.cmd12);
     } else {
         CHECK(!c->movie_ahead.variant && !stream_on() && !w->other_windows && !c->stats.hit_requests);
         CHECK(!w->n.starts && !w->large_requests && card.cmd18 == 1u && !card.cmd12);
@@ -3531,7 +3571,7 @@ static void order_unconfirmed(void) {
 static void degraded(void) {
     open_movie(2000u, false, true);
     stall_mean = 400u; stall_dense = 40u;
-    wx.tstr = 6u; /* both spare timers run for the game */
+    wx.tstr = 7u; /* both spare timers run for the game */
     uint32_t lba = FIRST;
     for(unsigned i = 0; i < 6u; ++i, lba += REQUEST) read_request(lba, REQUEST, 2u);
     const struct kui_toy_wire_report *w = report();
@@ -3543,6 +3583,9 @@ static void degraded(void) {
         /* The stream's state lies behind the window's 62 raw sectors. */
         const struct kui_wire_stream *s = (const void *)(arena + 62u * 2352u);
         bool seen = false;
+#if KUI_TOY_WIRE_TITLES
+        bool held = false;
+#endif
         for(unsigned n = 0u; n < 12u && !seen; ++n, lba += REQUEST) {
             read_request(lba, REQUEST, 2u); /* room in the window */
             /* A wait is left standing by a visit whose last look at the
@@ -3555,7 +3598,21 @@ static void degraded(void) {
                     if(!hardware()) break;
                     continue;
                 }
+#if KUI_TOY_WIRE_TITLES
+                /* Test 79: the wait lasts its time by the game's clock. A
+                 * look before that leaves it standing; after it the wait
+                 * is due, and the next call ends it as before. */
+                CHECK(!s->mode);
+                if(!kui_wire_overdue(s)) {
+                    kui_wire_service((struct kui_wire_stream *)(uintptr_t)s);
+                    CHECK(s->state == KUI_WIRE_WAIT && stream_on());
+                    held = true;
+                    wx.tcnt0 -= 2u * KUI_WIRE_BACKOFF_MAX;
+                }
+                CHECK(kui_wire_overdue(s));
+#else
                 CHECK(!s->mode && kui_wire_overdue(s));
+#endif
                 const unsigned long gate = gate_visits;
                 const uint32_t work = w->update_work, due = w->update_due;
                 /* The run the visit starts stays in flight, so that the
@@ -3570,6 +3627,9 @@ static void degraded(void) {
             }
         }
         CHECK(seen && !w->timer_mode && !timers && !w->first_error);
+#if KUI_TOY_WIRE_TITLES
+        CHECK(held);
+#endif
     }
 #endif
 
@@ -3581,8 +3641,9 @@ static void degraded(void) {
     CHECK(w->declined && !w->n.starts && w->first_error == KUI_WIRE_E_CHANNEL && m.chcr == 1u);
     CHECK(w->seek_blocks >= 3u * REQUEST * 4u && !timers);
 #if KUI_TOY_WIRE_PACE
-    printf("  no free timer: waits end at the next visit, and an update call that finds one is passed on; "
-           "channel 1 taken: programmed reads only; data exact\n");
+    printf("  no free timer: waits end at the next visit%s, and an update call that finds one is passed on; "
+           "channel 1 taken: programmed reads only; data exact\n",
+        KUI_TOY_WIRE_TITLES ? " after their time, and a look before it leaves one standing" : "");
 #else
     printf("  no free timer: waits end at the next visit; channel 1 taken: programmed reads only; data exact\n");
 #endif
@@ -3741,8 +3802,10 @@ int main(void) {
     any_owed();
 #endif
 #if KUI_TOY_WIRE_TITLES && KUI_TOY_WIRE_STAY
-    titles_other(true);
-    titles_other(false);
+    titles_other(true, 0u, 0u);
+    titles_other(true, 1500u, 20u);
+    titles_other(true, 150u, 80u);
+    titles_other(false, 0u, 0u);
 #endif
 #endif
     ended_in_interrupt();

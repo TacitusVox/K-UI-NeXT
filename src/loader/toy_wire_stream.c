@@ -395,6 +395,20 @@ static void wire_resume(struct kui_wire_stream *w) {
     wire_arm(w);
 }
 
+#if KUI_TOY_WIRE_TITLES
+/* Test 79: any title but Toy Commander has no timer for the stream
+ * (timer_select). Its waits still last their time, by the game's own
+ * clock: the first call that passes by after it ends the wait. (Ended by
+ * whatever looked next, a wait was over within the visit that began it,
+ * microseconds after the cut: on a bus held for a while the run was begun
+ * again and cut again, an interrupt and a lost byte each time, with
+ * nothing left of the waits' ladder.) A clock that is not running holds
+ * nothing up. */
+static bool wire_waited(const struct kui_wire_stream *w) {
+    return !(rd8(TSTR) & 1u) || w->wait_tick - rd32(TCNT0) >= w->wait_ticks;
+}
+#endif
+
 void kui_wire_timer(struct kui_wire_stream *w) {
     if(w->state == KUI_WIRE_OFF || w->state == KUI_WIRE_FAULT || !w->mode) return;
     timer_cancel(w);
@@ -415,7 +429,11 @@ bool kui_wire_tick(struct kui_wire_stream *w, uint32_t ticks) {
 #if KUI_TOY_WIRE_PACE
 bool kui_wire_overdue(const struct kui_wire_stream *w) {
     if(w->state == KUI_WIRE_RUN) return (rd8(SSR) & ORER) != 0u;
+#if KUI_TOY_WIRE_TITLES
+    if(w->state == KUI_WIRE_WAIT) return w->mode ? (rd16(w->timer_reg + 8u) & 0x0100u) != 0u : wire_waited(w);
+#else
     if(w->state == KUI_WIRE_WAIT) return !w->mode || (rd16(w->timer_reg + 8u) & 0x0100u) != 0u;
+#endif
     return false;
 }
 #endif
@@ -426,10 +444,17 @@ void kui_wire_service(struct kui_wire_stream *w) {
         if((rd8(SSR) & ORER) || (rd32(CHCR1) & 2u)) wire_stopped(w);
         break;
     case KUI_WIRE_WAIT:
-        /* Without a timer the next call that passes by ends the wait. With
-         * one, a timer that ran out while interrupts were masked is
-         * answered here; its interrupt request goes with its flag. */
+        /* Without a timer the next call that passes by ends the wait
+         * (Test 79: the next after the wait's time). With one, a timer
+         * that ran out while interrupts were masked is answered here; its
+         * interrupt request goes with its flag. */
+#if KUI_TOY_WIRE_TITLES
+        if(!w->mode) {
+            if(wire_waited(w)) wire_resume(w);
+        }
+#else
         if(!w->mode) wire_resume(w);
+#endif
         else if(rd16(w->timer_reg + 8u) & 0x0100u) kui_wire_timer(w);
         else if(!((rd16(IPRA) >> w->timer_shift) & 15u))
             /* The SDK may rewrite the priority register for its own devices. */

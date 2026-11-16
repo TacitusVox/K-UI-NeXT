@@ -293,6 +293,9 @@ int main(int argc, char **argv) {
         assert(crc >> 8 != 0xffu && (crc & 0xffu) != 0xffu);
     }
     unsigned long total = 0, restarts = 0, wrong[3] = {0}, wrong_same = 0, rewinds[4] = {0};
+#if KUI_TOY_WIRE_TITLES
+    unsigned long waits_held = 0, waits_ended = 0;
+#endif
 #if KUI_TOY_WIRE_CLEAN
     unsigned long kinds[3] = {0};
 #endif
@@ -304,8 +307,9 @@ int main(int argc, char **argv) {
         seed = 77u + run * 1000u;
         memset(&hw, 0, sizeof hw); hw.dmaor = 0x8201u; hw.sar = 0x11; hw.dar = 0x22; hw.count = 0x33;
         for(unsigned i = 0; i < 64; ++i) hw.slots[i] = 0x8c0be408u;
-        if(run % 5u == 4u) hw.tstr = 6u;        /* no free timer */
-        else if(run % 2u) hw.tstr = 4u;          /* TMU2 busy: TMU1 */
+        hw.tstr = 1u;                            /* the game's clock, TMU0, runs */
+        if(run % 5u == 4u) hw.tstr = 7u;        /* no free timer */
+        else if(run % 2u) hw.tstr = 5u;          /* TMU2 busy: TMU1 */
         stall_every = run % 4u == 0 ? 0u : 600u << (run % 3u);
         stall_percent_dense = run % 4u == 0 ? 0u : 10u * (run % 7u);
         until_stall = 100u; dense_left = 0;
@@ -331,6 +335,20 @@ int main(int argc, char **argv) {
         unsigned idle = 0; uint32_t last_gaps = 0;
         while(expect < BLOCKS / 4u) {
             pump(1u + rnd() % 3000u);
+#if KUI_TOY_WIRE_TITLES
+            /* Test 79: a wait without a timer lasts its time by the game's
+             * clock. A look before that leaves it standing, however often
+             * it comes; the first look after it ends it. (Each look reads
+             * the clock, which moves it on by three ticks here; between
+             * the game's calls it moves on by up to half a millisecond.) */
+            if(w.state == KUI_WIRE_WAIT && !w.mode) {
+                const bool due = w.wait_tick - (hw.tcnt0 - 3u) >= w.wait_ticks;
+                kui_wire_service(&w);
+                assert((w.state != KUI_WIRE_WAIT) == due);
+                ++*(due ? &waits_ended : &waits_held);
+            }
+            hw.tcnt0 -= rnd() % 400u;
+#endif
             if(rnd() % 3u || (hw.ssr & 0x20)) kui_wire_service(&w);
 #if KUI_TOY_WIRE_PACE
             /* Overdue is exactly: an overrun not yet answered, a wait whose
@@ -339,7 +357,13 @@ int main(int argc, char **argv) {
                 const bool was = (hw.ssr & 0x20u) != 0u, overdue = kui_wire_overdue(&w);
                 assert((!was || overdue) && (!overdue || (hw.ssr & 0x20u)));
             } else if(w.state == KUI_WIRE_WAIT) {
+#if KUI_TOY_WIRE_TITLES
+                /* (Test 79: without a timer, a wait whose time has passed.) */
+                const bool due = w.mode ? (hw.tcr[w.mode] & 0x100u) != 0u : w.wait_tick - (hw.tcnt0 - 3u) >= w.wait_ticks;
+                assert(kui_wire_overdue(&w) == due);
+#else
                 assert(kui_wire_overdue(&w) == (!w.mode || (hw.tcr[w.mode] & 0x100u)));
+#endif
             } else assert(!kui_wire_overdue(&w));
 #endif
             if(w.state == KUI_WIRE_WAIT && timer_armed() && !(rnd() % 3u)) {
@@ -704,7 +728,7 @@ int main(int argc, char **argv) {
             const uint32_t token = gap_of(block - 2u) + 515u + gap_of(block - 1u) + 515u + gap_of(block);
             for(unsigned k = 8u; k < (which == 2u ? 500u : 9u); ++k) {
                 seed = 31u + k;
-                memset(&hw, 0, sizeof hw); hw.dmaor = 0x8201u; hw.tstr = 6u; /* no timer: a wait ends at the next call */
+                memset(&hw, 0, sizeof hw); hw.dmaor = 0x8201u; hw.tstr = 7u; /* no timer: a wait ends at the next call after its time */
                 for(unsigned i = 0; i < 64; ++i) hw.slots[i] = 0x8c0be408u;
                 stall_every = 0; until_stall = 100u; dense_left = 0;
 #if KUI_TOY_WIRE_MSB
@@ -930,6 +954,12 @@ int main(int argc, char **argv) {
 #endif
     /* Without QUIT the model shows the wait Test 76 removes. */
     assert(stops_receiving > 100u && (KUI_TOY_WIRE_QUIT ? stop_most <= 2u : stop_most > 1000u));
+#if KUI_TOY_WIRE_TITLES
+    /* Both were met often, in the courses that have no timer free. */
+    assert(waits_held > 100u && waits_ended > 100u);
+    printf("  waits without a timer: %lu looks before a wait's time left it standing, %lu after it ended it\n",
+        waits_held, waits_ended);
+#endif
     printf("PASS Test %u card stream: %lu blocks checked against the card over %lu overruns; %lu streams restarted "
            "(clean block failing CRC16 %lu, too many lost bytes %lu); %lu blocks handed on from beside their place, "
            "each behind a byte lost between blocks and none after a whole CRC16: %lu with lost bytes listed, %lu with "
