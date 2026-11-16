@@ -2,8 +2,9 @@
 # SPDX-License-Identifier: GPL-3.0-only
 """Verify the shared CE CRC16 table factoring without removing block checks.
 
-With both CE reader switches resolved off, the exact old production fragment
-reconstructs the complete historical source with a pinned SHA. Pure
+With both CE reader switches and the Toy test-module switches resolved off
+(tests/toy_test_switches.py), the exact old production fragment reconstructs
+the complete historical source with a pinned SHA. Pure
 old/current updates execute exhaustively on host and bounded emitted SH
 updates execute with authored table/code memory. Physical SD, DMA timing and
 elapsed console performance are outside this test.
@@ -22,6 +23,8 @@ import tempfile
 ROOT=Path(__file__).resolve().parents[1]
 sys.path.insert(0,str(ROOT/'tools'))
 from check_vmu_native_worker_gateway import read_elf,symbol_bytes
+sys.path.insert(0,str(ROOT/'tests'))
+from toy_test_switches import resolve_toy_switches
 
 BASELINE_SHA='3d849d7d4ba389c025eb5a8d2a141a7888ae3b4ce202d8b995c583fe1a8d9afe'
 FRAGMENT_SHA='b70333c356d5b8f835f1587d25ff6129afdc4a5d4a12ba41b418fed5b1362efc'
@@ -97,7 +100,7 @@ def without_reader_switches(source):
 def fragments():
     source=(ROOT/SOURCE).read_text();old=(ROOT/FIXTURE).read_text()
     if sha(old.encode())!=FRAGMENT_SHA:raise AssertionError('Historical production CRC fragment changed')
-    plain=without_reader_switches(source)
+    plain=without_reader_switches(resolve_toy_switches(source))
     start=plain.index('#ifdef KUI_RETAIL_CE\n/* The byte update is linear:')
     end=plain.index('#else\nstatic inline uint16_t crc16',start)
     baseline=plain[:start]+old+plain[end:]

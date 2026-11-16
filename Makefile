@@ -106,6 +106,12 @@ test-vmu-stage-snapshot:
 
 test: test-ce-virtual-vram-copy test-ce-crc16-factoring
 
+# Shared reader sources keep their production text with the Toy test switches off.
+.PHONY: test-toy-test-switches
+test-toy-test-switches:
+	python3 tests/test_toy_test_switches.py
+test: test-toy-test-switches
+
 .PHONY: test-updater
 test-updater: test-runtime-module-bundle-make
 test-updater: build/test-update build/test-update-v2 build/test-update-handoff build/update-image build/update-boot

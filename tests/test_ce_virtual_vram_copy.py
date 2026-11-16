@@ -21,6 +21,7 @@ import tempfile
 ROOT=Path(__file__).resolve().parents[1]
 sys.path.insert(0,str(ROOT/'tests'))
 from test_native_virtual_vram_copy import COPY_HARNESS
+from toy_test_switches import resolve_toy_switches
 sys.path.insert(0,str(ROOT/'tools'))
 from check_ce_virtual_vram_width import audit_code
 from check_vmu_native_worker_gateway import read_elf,symbol_bytes
@@ -168,7 +169,8 @@ def old_source(source):
     Future unrelated changes need a reviewed new baseline hash/control rather
     than silently executing a guessed old source.
     """
-    body=(ROOT/source).read_text()
+    # The Toy test modules' switches are off in this control's builds.
+    body=resolve_toy_switches((ROOT/source).read_text())
     for new,old in LATER_HUNKS.get(source,()):
         if body.count(new)!=1:raise AssertionError('Later reviewed hunk changed: '+source)
         body=body.replace(new,old,1)

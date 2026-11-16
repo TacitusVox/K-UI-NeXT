@@ -1,0 +1,122 @@
+{
+  "schema": "kui.toy-switch-production-text.v1",
+  "source": "Main 776c9259 (origin/main on 16 Nov 2026), the production text before the Toy test sources were merged",
+  "files": {
+    "include/kui/hash.h": {
+      "mode": "code",
+      "sha256": "b1a953ffb8ebed804c6637636f0b25200365f584e219c5ee713f418d144ac51d"
+    },
+    "include/kui/native_readahead.h": {
+      "mode": "code",
+      "sha256": "f7a8fc09099e6adbab66aec4bbc7f38d8cbb00a0b433eeca01b09b3ebf615987"
+    },
+    "include/kui/native_readahead_cache.h": {
+      "mode": "code",
+      "sha256": "577d07425a197ec876c393ff3976611f2c765bfa69926645d80f3f10a68c4e22"
+    },
+    "include/kui/native_readahead_layout.h": {
+      "mode": "code",
+      "sha256": "e07866da3257439f42d221599c86f9aa37b71a84d7372109fc405e2426b8c95c"
+    },
+    "include/kui/retail_loader_layout.h": {
+      "mode": "code",
+      "sha256": "78fc0fa3f6fe64102581df1bdd47e7fcaa8e29396719dbfd434ce0b96f5dc4cc"
+    },
+    "include/kui/vmu_native_passive.h": {
+      "mode": "code",
+      "sha256": "8b7d107044787eb4501f28809df90032a7e2cea6fcc5cebaace22f34c369d10e"
+    },
+    "src/core/hash.c": {
+      "mode": "code",
+      "sha256": "c0188422405b60cab0dbaf7382f6985ea470a2ba7aed6075b7777379ac03625e"
+    },
+    "src/loader/disc_stage.c": {
+      "mode": "code",
+      "sha256": "6f4250ed062cb48885b5959b0d93e042d24eda9800cd5b7605651d76575b25f8"
+    },
+    "src/loader/native_readahead_aux.c": {
+      "mode": "code",
+      "sha256": "6955abd5d1e84ed2e362c009354143f481bcf58b4a688dc9ec7efc77dc5d52b3"
+    },
+    "src/loader/native_readahead_aux_entry.S": {
+      "mode": "code",
+      "sha256": "3dd3bc4eb55c76a33f0e7f315adbbc3f0fbca9ca9021f32e897bc809af9c433a"
+    },
+    "src/loader/native_readahead_aux_internal.h": {
+      "mode": "code",
+      "sha256": "003283ffe7e1e531d933dee6297a80564e42d1d37649bf392e3105a5bf3113c1"
+    },
+    "src/loader/native_return_hardware.c": {
+      "mode": "code",
+      "sha256": "438ad6fa163e8dff7336fee3ee60789e1608195a501005d7b954fe3b912fbaae"
+    },
+    "src/loader/native_return_hardware.h": {
+      "mode": "code",
+      "sha256": "9d2647f1d412e2228c066989edd89b20baed7fc6eff80c778bc4a5e1b15bd4ab"
+    },
+    "src/loader/retail_async.c": {
+      "mode": "exact",
+      "sha256": "e9c5d2c40e2ef715756159bf9b0c013811571bd4e7d1f6d8a9cce40bb83fb673"
+    },
+    "src/loader/retail_async.h": {
+      "mode": "code",
+      "sha256": "ed939de9277f7d847aa6b6d6bff27d299f769a19cced6cb9102dcf2451472cb5"
+    },
+    "src/loader/retail_display.c": {
+      "mode": "code",
+      "sha256": "94bdc347a1857587fb3f1799439bb1418d38764d27e693fc08ef84cd56393b2a"
+    },
+    "src/loader/retail_resident.S": {
+      "mode": "code",
+      "sha256": "90843a59e18831d610c58595b04f2847a8db2e78c2f039c0317803ba43631bcd"
+    },
+    "src/loader/retail_resident.c": {
+      "mode": "code",
+      "sha256": "3f612def85f53d267384a4eeafad75498efbaafab25a50b3a8f8776b82d75c43"
+    },
+    "src/loader/retail_stage.c": {
+      "mode": "code",
+      "sha256": "97f53bd0b362b0416fae6ba48fae71cbf8bf366536228133700fbd87033e7c66"
+    },
+    "src/loader/sci_sd_bus.c": {
+      "mode": "code",
+      "sha256": "041062f9ad53237bf52677bf77074e5d1a3aa7c84ca314d9c7e30775ddb0399f"
+    },
+    "src/loader/sci_sd_bus.h": {
+      "mode": "code",
+      "sha256": "bbf2670be23133998a0a31385c41c96a924d3e3d355bc4a19fc08247588d5e1d"
+    },
+    "src/loader/sci_stream.c": {
+      "mode": "exact",
+      "sha256": "38cf0d3241a76bc5d3e598d470bad914e8aca10eb6df1592458f46d178b0c3ff"
+    },
+    "src/loader/sci_stream.h": {
+      "mode": "code",
+      "sha256": "50b7feb216205dcf1aa06aae8826b6546dc14d8bb40d5ee1973c65330578eb10"
+    },
+    "src/loader/vmu_native_background_resident.c": {
+      "mode": "code",
+      "sha256": "b845189dc5eace2cd98ebd8d6d4a552e1390d5d3314127f9530c585ceb8d271b"
+    },
+    "src/loader/vmu_native_heap_probe_stage.c": {
+      "mode": "code",
+      "sha256": "bb4d4ac512de22d4041b6c244b91fdca41136e9d263f7a25f6166062a8edfed9"
+    },
+    "src/loader/vmu_native_passive.c": {
+      "mode": "code",
+      "sha256": "c5ffc1ba5d3d4bcf37cb48b51b06d9e7c8d6a8261eed248e88b71bc94b24150f"
+    },
+    "src/loader/vmu_native_passive_stage.inc": {
+      "mode": "code",
+      "sha256": "40bbd2f1f067b939189f22e9034c306b305ff5f7850087d466af3e3ac65bf2c9"
+    },
+    "src/loader/vmu_native_readahead_stage.inc": {
+      "mode": "code",
+      "sha256": "6fc016929927baa0de471c8d7ff2badba8f0266f202298f4ff5cdd04ef33b8c6"
+    },
+    "src/loader/vmu_native_reader_capture.inc": {
+      "mode": "code",
+      "sha256": "72e72b85c06adab966c4dccceeb85c637943bab710013c327ae7c6eeb7bb24e0"
+    }
+  }
+}
