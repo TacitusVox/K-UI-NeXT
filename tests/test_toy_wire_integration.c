@@ -3611,6 +3611,114 @@ static void sequence_programmed(void) {
            "counted\n");
 }
 
+#if KUI_TOY_WIRE_TIMER
+/* Test 82: the virtual VMU beside the stream. Its worker asks the reader
+ * for the card for every block the game reads from the virtual card and
+ * for every block it writes, one loan to a transaction, from the game's
+ * Maple completion with interrupts held off. Here another title reads as
+ * Evolution 2 does and the card is asked for behind every read: with a
+ * window open and its stream receiving, standing, or waiting on a cut
+ * bus. Each loan finds the stream stopped at once, the card's command
+ * ended, and the title's table and timers the title's own; nothing is
+ * counted as given up, since it was no reason of the game's. Given back,
+ * the game's next read opens a window again. A loan asked for while a
+ * command of the game's is pending is refused and changes nothing; asked
+ * again behind the command's acknowledgment it is granted. */
+static unsigned lent_refused;
+static bool lend_card(const struct kui_toy_wire_report *w) {
+    const struct kui_native_readahead_aux_context *c = &kui_native_readahead_aux_context;
+    const uint32_t sr = hw.sr;
+    const unsigned cmd12 = card.cmd12;
+    const bool streaming = stream_on();
+    uint32_t drops[KUI_TOY_WIRE_DROPS];
+    memcpy(drops, w->drops, sizeof(drops));
+    hw.sr = 0xf0u; /* the lender calls with interrupts held off */
+    struct kui_loader_sd copied;
+    const enum kui_vmu_native_async_loan_result asked = kui_retail_native_async_loan_begin(&copied);
+    if(asked == KUI_VMU_NATIVE_ASYNC_LOAN_BUSY) {
+        hw.sr = sr;
+        ++lent_refused;
+        CHECK(stream_on() == streaming && card.cmd12 == cmd12 && !memcmp(drops, w->drops, sizeof(drops)));
+        return false;
+    }
+    CHECK(asked == KUI_VMU_NATIVE_ASYNC_LOAN_OK);
+    /* (A card command that stands open is ended once: the stream's, or
+     * the low reader's own where no window had been opened yet.) */
+    CHECK(!c->movie_ahead.variant && !stream_on() && card.cmd12 - cmd12 <= 1u && (!streaming || card.cmd12 == cmd12 + 1u));
+    CHECK(!R.engine.hooked && !R.engine.opened && !R.shared.port.acquired && !R.shared.stream.state &&
+        R.engine.native_loan_state == KUI_VMU_NATIVE_ASYNC_LOAN_WRITER);
+    /* Nothing of the stream's is left on the channel, the title's timers
+     * or its table. */
+    unsigned channel;
+    CHECK(!(m.chcr & 1u) && !timer_running(&channel) && !(wx.ipra & 0x0ff0u));
+    other_table_kept(w);
+    CHECK(!memcmp(drops, w->drops, sizeof(drops)));
+    CHECK(kui_retail_native_async_loan_end(true) == KUI_VMU_NATIVE_ASYNC_LOAN_OK);
+    hw.sr = sr;
+    CHECK(R.engine.native_loan_state == KUI_VMU_NATIVE_ASYNC_LOAN_IDLE && !kui_retail_hook_active);
+    return true;
+}
+static void titles_lent(uint32_t mean, unsigned dense) {
+    open_card(2000u, false, true, file_amid, false);
+    other_table(false);
+    stall_mean = mean; stall_dense = dense;
+    wire_clock_shared = true;
+    struct kui_native_ra_config config = movie_configuration();
+    config.toy_poll_owner = 0u;
+    bind_movie_configuration(&config);
+    const struct kui_toy_wire_report *w = report();
+    const struct kui_native_readahead_aux_context *c = &kui_native_readahead_aux_context;
+    CHECK(!c->demand.owner_verified);
+    lent_refused = 0u;
+    unsigned lent = 0u, refused_pending = 0u;
+    uint32_t lba = 45002u;
+    static const uint32_t sizes[5] = {73u, 50u, 73u, 50u, 52u};
+    for(unsigned i = 0u; i < 5u; lba += sizes[i++]) {
+        any_read(lba, sizes[i], false);
+        if(i == 3u) {
+            /* The subcode asked for and not yet executed: the loan is
+             * refused, the window and its stream stand; behind the
+             * acknowledgment it is granted. */
+            const bool window = c->movie_ahead.variant == OTHER_WINDOW && stream_on();
+            put(PARAM, 1u); put(PARAM + 4u, 14u); put(PARAM + 8u, STATUS + 32u); put(PARAM + 12u, 0u);
+            const int32_t token = gd(KUI_GD_REQUEST, KUI_RETAIL_GD_GETSCD, PARAM);
+            CHECK(token > 0);
+            CHECK(!lend_card(w));
+            ++refused_pending;
+            CHECK((c->movie_ahead.variant == OTHER_WINDOW && stream_on()) == window);
+            CHECK(gd(KUI_GD_EXEC, 0, 0) == 0);
+            CHECK(gd(KUI_GD_CHECK, (uint32_t)token, STATUS) == KUI_GD_COMPLETED);
+        }
+        /* Let the stream get as far as the bus lets it before the loan:
+         * receiving on one read, standing on the next. */
+        for(unsigned n = 0u; n < (i & 1u ? 400u : 3u); ++n) if(!hardware()) CHECK(gd(KUI_GD_EXEC, 0, 0) == 0);
+        for(unsigned turn = 0u; turn < 100u && !lend_card(w); ++turn) CHECK(gd(KUI_GD_EXEC, 0, 0) == 0);
+        ++lent;
+        CHECK(R.engine.native_loan_state == KUI_VMU_NATIVE_ASYNC_LOAN_IDLE && !stream_on());
+        if(i == 1u) {
+            /* A second transaction at once, as a save has them one behind
+             * the other: nothing of the reader's stands open, and no card
+             * command is sent for it. */
+            const unsigned cmd12 = card.cmd12;
+            CHECK(lend_card(w) && card.cmd12 == cmd12);
+            ++lent;
+        }
+    }
+    CHECK(lba == 45300u && lent == 6u && refused_pending == 1u && lent_refused >= 1u);
+    CHECK(!w->first_error && !c->stats.abandoned && !R.shared.port.fault);
+    CHECK(!w->drops[KUI_TOY_WIRE_DROP_ERROR] && !w->drops[KUI_TOY_WIRE_DROP_IDLE] && !w->drops[KUI_TOY_WIRE_DROP_COMMAND]);
+    other_table_kept(w);
+    /* The first read is the low reader's; each of the four behind it
+     * opens a window, the loan before it having ended the last. */
+    CHECK(w->other_windows == 4u && c->stats.hit_requests == 4u && lent_refused == 1u);
+    no_drops(w);
+    printf("  another title with the card lent behind every read, stalls %u/%u: %u loans granted, %u refused "
+           "while a command was pending or the reader busy, each with the stream stopped and the title's table and "
+           "timers its own; %u requests of five from %u windows, %u streams begun, CMD12 %u; data exact\n",
+        (unsigned)mean, dense, lent, lent_refused, (unsigned)c->stats.hit_requests, (unsigned)w->other_windows,
+        (unsigned)w->n.starts, card.cmd12);
+}
+#endif
 /* Test 80. Another title's reads with a command behind each, as Evolution
  * 2 has them on the console: its refills of 73 and 50 sectors, each
  * beginning where the last ended, and the drive asked for its subcode in
@@ -4265,6 +4373,11 @@ int main(void) {
     titles_asked(true, 1500u, 20u);
     titles_asked(true, 150u, 80u);
     titles_asked(false, 0u, 0u);
+#if KUI_TOY_WIRE_TIMER
+    titles_lent(0u, 0u);
+    titles_lent(1500u, 20u);
+    titles_lent(150u, 80u);
+#endif
 #endif
 #endif
     ended_in_interrupt();

@@ -127,6 +127,18 @@ static bool toy_suite_raw_track(void) {
 }
 #endif
 
+/* The owner's VMU setting, for another title. Up to Test 81 another title
+ * was a source with the virtual VMU off only: the module's worker had no
+ * virtual VMU. Test 82's worker is the installed one, and another title is
+ * a source with the virtual VMU on or off. Toy Commander is one with it off
+ * only, as before: its movies' hooks do not yet outlast a loan of the
+ * card. */
+#if defined(KUI_TOY_WIRE_VMU) && KUI_TOY_WIRE_VMU
+#define toy_other_mode() true
+#else
+#define toy_other_mode() (native_runtime_mode()==KUI_VMU_NATIVE_MODE_READER_ONLY)
+#endif
+
 static void toy_movie_scan(void) {
 #if defined(KUI_TOY_WIRE_TITLES) && KUI_TOY_WIRE_TITLES
     /* Test 79: another title is a source for the window by its raw track
@@ -141,7 +153,7 @@ static void toy_movie_scan(void) {
      * title here, and the bind, which knows the title by its executable,
      * gave it Toy Commander's hooks with no movie file known.) */
     if(manifest.reader==KUI_RETAIL_READER_ASYNC &&
-       native_runtime_mode()==KUI_VMU_NATIVE_MODE_READER_ONLY &&
+       toy_other_mode() &&
        (boot_crc!=KUI_VMU_LAUNCH_TOY_EXEC_CRC || exec_bytes!=KUI_VMU_LAUNCH_TOY_EXEC_BYTES)) {
         if(manifest.storage_transport==KUI_STORAGE_SCI && toy_suite_raw_track())toy_suite_source=1u;
         return;

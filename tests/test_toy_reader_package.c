@@ -83,7 +83,13 @@ static size_t report_slot(const uint8_t *payload,size_t bytes){
     return found;
 }
 int main(int argc,char **argv){
-    if(argc!=2)return 2;
+    /* Test 82's module has the installed worker, which has no Toy report:
+     * with "no-report" the module must carry no report seed. It is then
+     * no module for Card Tools' test entry, which would start it with the
+     * virtual VMU off and nothing to read it by; the Games menu starts
+     * it. Everything else is asked of it as of any other. */
+    const int no_report=argc==3 && !strcmp(argv[2],"no-report");
+    if(argc!=2 && !no_report)return 2;
     FILE *f=fopen(argv[1],"rb");if(!f)return 2;
     fseek(f,0,SEEK_END);long size=ftell(f);fseek(f,0,SEEK_SET);
     uint8_t *file=malloc((size_t)size);if(fread(file,1,(size_t)size,f)!=(size_t)size)return 2;fclose(f);
@@ -106,8 +112,11 @@ int main(int argc,char **argv){
     if(seed==SIZE_MAX)printf("native cache seed: absent/ambiguous (optional; GUI CRCs the boot file itself)\n");else printf("native cache seed: blank slot at 0x%zx\n",seed);
     size_t report=report_slot(image.data,n);
     if(report==SIZE_MAX)printf("toy report seed: MISSING/ambiguous (the launch would continue without an SD report)\n");else printf("toy report seed: blank slot at 0x%zx\n",report);
-    fail|=report==SIZE_MAX; /* the test is read by its saved report */
+    if(no_report)fail|=report!=SIZE_MAX; /* the installed worker would not know what to do with one */
+    else fail|=report==SIZE_MAX; /* the test is read by its saved report */
     printf("handoff staging limit 0x112000: %s\n",n<=0x112000u?"ok":"REFUSED");fail|=n>0x112000u;
-    printf(fail?"RESULT: REFUSED\n":"RESULT: admitted by Card Tools' module checks, report seed bound\n");
+    if(no_report)printf(fail?"RESULT: REFUSED\n":"RESULT: the module's checks pass, and it has no report seed: a module "
+        "for the Games menu, not for Card Tools' test entry\n");
+    else printf(fail?"RESULT: REFUSED\n":"RESULT: admitted by Card Tools' module checks, report seed bound\n");
     return fail;
 }

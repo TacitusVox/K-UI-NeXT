@@ -5,7 +5,11 @@
 #include "kui/vmu_native_runtime.h"
 #include "kui/vmu_native_layout.h"
 #include "kui/native_session.h"
-#if KUI_TOY_SUITE_MODE
+/* The worker of a Toy test shows the test's report, and its configuration
+ * carries the report's place on the card. Test 82 has the installed worker
+ * in that worker's place (KUI_TOY_WIRE_VMU): no report, and the installed
+ * configuration. */
+#if KUI_TOY_SUITE_MODE && !KUI_TOY_WIRE_VMU
 #include "kui/toy_suite_report_wire.h"
 #endif
 #if KUI_VMU_NATIVE_PERSISTENT_PROBE
@@ -84,7 +88,7 @@ struct kui_vmu_native_passive_config {
     uint32_t sd_lease,low_terminal,low_heap_hook;
     struct kui_vmu_native_exit exits;
     uint32_t diagnostics;
-#if KUI_TOY_SUITE_MODE
+#if KUI_TOY_SUITE_MODE && !KUI_TOY_WIRE_VMU
     struct kui_toy_report_wire toy_report;
 #endif
 #if KUI_NATIVE_SESSION_CONTROLS
@@ -97,7 +101,7 @@ struct kui_vmu_native_passive_config {
 #if KUI_VMU_NATIVE_PERSISTENT_PROBE && UINTPTR_MAX==UINT32_MAX
 #if KUI_NATIVE_SESSION_CONTROLS
 _Static_assert(sizeof(struct kui_vmu_native_passive_config)==2316u,"Session worker config ABI");
-#elif KUI_TOY_SUITE_MODE
+#elif KUI_TOY_SUITE_MODE && !KUI_TOY_WIRE_VMU
 _Static_assert(sizeof(struct kui_vmu_native_passive_config)==2368u,"Toy report worker config ABI");
 #else
 _Static_assert(sizeof(struct kui_vmu_native_passive_config)==2304u,"Persistent worker config ABI v4");

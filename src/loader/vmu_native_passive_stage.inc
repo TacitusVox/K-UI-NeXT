@@ -406,7 +406,7 @@ static void native_passive_run(struct kui_vmu_native_heap_lease *lease) {
 #endif
     cfg.exits=native_exits;
     cfg.diagnostics=native_runtime_diagnostics();
-#if KUI_TOY_SUITE_MODE
+#if KUI_TOY_SUITE_MODE && !KUI_TOY_WIRE_VMU
     toy_suite_report_prepare(&cfg.toy_report);
 #endif
 #if KUI_NATIVE_SESSION_CONTROLS

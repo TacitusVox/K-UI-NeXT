@@ -22,6 +22,9 @@
 #define KUI_NATIVE_SPLIT_CONTROLLER_GENERAL 1
 #define KUI_NATIVE_READAHEAD 1
 #define KUI_TOY_WIRE_STREAM 1
+#ifndef KUI_TOY_WIRE_VMU
+#define KUI_TOY_WIRE_VMU 0
+#endif
 #ifndef KUI_TOY_WIRE_TITLES
 #define KUI_TOY_WIRE_TITLES 0
 #endif
@@ -119,10 +122,26 @@ int main(void) {
     assert(!toy_suite_source && !acquired);
     disc(KUI_RETAIL_READER_ASYNC_EAGER, KUI_STORAGE_SCI, off, false, raw, 3u);
     assert(!toy_suite_source && !acquired);
-    /* The virtual VMU on: no source. (The stage's own look at the mode
-     * stops such a launch of this module before it comes here.) */
+    /* The virtual VMU on: no source up to Test 81. (The stage's own look
+     * at the mode stops such a launch of those modules before it comes
+     * here.) Test 82's worker is the installed one, with the virtual
+     * VMU, and another title is a source with it on as with it off: by
+     * the same track, on the same card, with the same reader, and with
+     * nothing of the disc read. */
     disc(KUI_RETAIL_READER_ASYNC, KUI_STORAGE_SCI, on, false, raw, 3u);
+    assert(toy_suite_source == (KUI_TOY_WIRE_VMU ? 1u : 0u) && !acquired && !read_sectors);
+    disc(KUI_RETAIL_READER_ASYNC, KUI_STORAGE_SCI, on, false, mixed, 4u);
+    assert(toy_suite_source == (KUI_TOY_WIRE_VMU ? 1u : 0u) && !acquired);
+    disc(KUI_RETAIL_READER_ASYNC, KUI_STORAGE_SCI, on, false, cooked, 3u);
     assert(!toy_suite_source && !acquired);
+    disc(KUI_RETAIL_READER_ASYNC, KUI_STORAGE_SCI, on, false, audio, 2u);
+    assert(!toy_suite_source && !acquired);
+    disc(KUI_RETAIL_READER_ASYNC, KUI_STORAGE_SCIF, on, false, raw, 3u);
+    assert(!toy_suite_source && !acquired);
+    disc(KUI_RETAIL_READER_ASYNC_EAGER, KUI_STORAGE_SCI, on, false, raw, 3u);
+    assert(!toy_suite_source && !acquired);
+    /* (Toy Commander with the virtual VMU on is no source in any build,
+     * below: its files are not even looked for.) */
     /* Toy Commander takes the path it always took: its files are looked
      * for on the card. Here the card cannot be had, and it is no source. */
     disc(KUI_RETAIL_READER_ASYNC, KUI_STORAGE_SCI, off, true, raw, 3u);
@@ -146,8 +165,9 @@ int main(void) {
     assert(toy_suite_source == (KUI_TOY_WIRE_TITLES ? 1u : 0u) && !acquired);
     /* None of them has a movie file known: the hooks' other condition. */
     for(unsigned i = 0; i < 4u; ++i) assert(!toy_movie_ranges[i].count);
-    printf("PASS the stage's source for the window%s: another title on the New reader with the virtual VMU off, by a "
-           "raw Mode 1 track on the SCI card and nothing else; Toy Commander by its own files as before\n",
-        KUI_TOY_WIRE_TITLES ? "" : " (up to Test 78: Toy Commander alone)");
+    printf("PASS the stage's source for the window%s: another title on the New reader with the virtual VMU %s, by a "
+           "raw Mode 1 track on the SCI card and nothing else; Toy Commander by its own files as before, with the "
+           "virtual VMU off only\n",
+        KUI_TOY_WIRE_TITLES ? "" : " (up to Test 78: Toy Commander alone)", KUI_TOY_WIRE_VMU ? "off or on" : "off");
     return 0;
 }

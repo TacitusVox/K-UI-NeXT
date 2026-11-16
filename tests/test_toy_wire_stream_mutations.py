@@ -45,6 +45,7 @@ ANY = os.environ.get("TOY_WIRE_ANY", "0")
 TITLES = os.environ.get("TOY_WIRE_TITLES", "0")
 QUERY = os.environ.get("TOY_WIRE_QUERY", "0")
 TIMER = os.environ.get("TOY_WIRE_TIMER", "0")
+VMU = os.environ.get("TOY_WIRE_VMU", "0")
 AUX = "src/loader/native_readahead_aux.c"
 # The cold stage's scan: its mutants are run by tests/test_toy_titles_stage.c.
 SCAN = "src/loader/toy_movie_iso_stage.inc"
@@ -706,11 +707,11 @@ TITLES_MUTATIONS = [
   "        if(manifest.storage_transport==KUI_STORAGE_SCI && toy_suite_raw_track())toy_suite_source=1u;",
   "        if(manifest.storage_transport==KUI_STORAGE_SCI && toy_suite_raw_track())toy_suite_source=0u;"),
  (SCAN, "a source with the virtual VMU on",
-  "       native_runtime_mode()==KUI_VMU_NATIVE_MODE_READER_ONLY &&\n       (boot_crc!=",
+  "       toy_other_mode() &&\n       (boot_crc!=",
   "       (boot_crc!="),
  (SCAN, "a source for another reader",
-  "    if(manifest.reader==KUI_RETAIL_READER_ASYNC &&\n       native_runtime_mode()==KUI_VMU_NATIVE_MODE_READER_ONLY &&\n       (boot_crc!=",
-  "    if(native_runtime_mode()==KUI_VMU_NATIVE_MODE_READER_ONLY &&\n       (boot_crc!="),
+  "    if(manifest.reader==KUI_RETAIL_READER_ASYNC &&\n       toy_other_mode() &&\n       (boot_crc!=",
+  "    if(toy_other_mode() &&\n       (boot_crc!="),
  (SCAN, "Toy Commander taken for another title",
   "       (boot_crc!=KUI_VMU_LAUNCH_TOY_EXEC_CRC || exec_bytes!=KUI_VMU_LAUNCH_TOY_EXEC_BYTES)) {",
   "       (true)) {"),
@@ -912,6 +913,21 @@ TIMER_MUTATIONS = [
 ]
 # Test 80: the same for TOY_WIRE_QUERY.
 # Why a window was given up for a command is said by another line there.
+# Test 82: the installed worker, with the virtual VMU, in the Toy worker's
+# place. The low residents and the auxiliary are Test 81's, and so is every
+# entry above for them. Of the compiled code the list reaches, the change is
+# in the cold stage's scan: another title is a source with the virtual VMU on
+# or off, so the entry that made it one with the VMU on changes nothing there.
+VMU_GONE = {"a source with the virtual VMU on"}
+VMU_MUTATIONS = [
+ (SCAN, "another title is a source with the virtual VMU off only",
+  "#define toy_other_mode() true", "#define toy_other_mode() (native_runtime_mode()==KUI_VMU_NATIVE_MODE_READER_ONLY)"),
+ (SCAN, "another title is a source with the virtual VMU on only",
+  "#define toy_other_mode() true", "#define toy_other_mode() (native_runtime_mode()!=KUI_VMU_NATIVE_MODE_READER_ONLY)"),
+ (SCAN, "Toy Commander's files looked for with the virtual VMU on",
+  "       native_runtime_mode()!=KUI_VMU_NATIVE_MODE_READER_ONLY ||\n       manifest.ip_crc32!=KUI_VMU_LAUNCH_TOY_IP_CRC ||",
+  "       manifest.ip_crc32!=KUI_VMU_LAUNCH_TOY_IP_CRC ||"),
+]
 QUERY_GONE = {"a window given up for a command counted as given up for a read"}
 QUERY_MUTATIONS = [
  (AHEAD, "a command that stops the drive leaves the window",
@@ -1226,6 +1242,10 @@ if TIMER == "1":
     SWITCHES.append("TOY_WIRE_TIMER=1")
     DEFINES.append("-DKUI_TOY_WIRE_TIMER=1")
     MUTATIONS = [m for m in MUTATIONS if m[1] not in TIMER_GONE] + TIMER_MUTATIONS
+if VMU == "1":
+    SWITCHES.append("TOY_WIRE_VMU=1")
+    DEFINES.append("-DKUI_TOY_WIRE_VMU=1")
+    MUTATIONS = [m for m in MUTATIONS if m[1] not in VMU_GONE] + VMU_MUTATIONS
 if os.environ.get("TOY_WIRE_ONLY"):
     # A named part of the list, for running it in pieces: "from:to" of the list's positions.
     low, high = (int(v) for v in os.environ["TOY_WIRE_ONLY"].split(":"))
@@ -1283,7 +1303,7 @@ def main():
             if path == SCAN:
                 binary = Path(tmp) / "scan"
                 code = run([cc, "-std=c11", "-O1", "-g", "-w", "-fsanitize=address,undefined",
-                            *[d for d in DEFINES if d.startswith("-DKUI_TOY_WIRE_TITLES")], "-Iinclude", "-Isrc/loader",
+                            *[d for d in DEFINES if d.startswith(("-DKUI_TOY_WIRE_TITLES", "-DKUI_TOY_WIRE_VMU"))], "-Iinclude", "-Isrc/loader",
                             "tests/test_toy_titles_stage.c", "-o", str(binary)], tree, 120)
                 if code == 0:
                     code = run([str(binary)], tree, 60)
