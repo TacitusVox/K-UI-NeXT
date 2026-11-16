@@ -138,6 +138,7 @@ struct kui_wire_stream {
     uint32_t timer_reg, timer_bit, timer_event, timer_slot, timer_shift, timer_callback;
 #if KUI_TOY_WIRE_TIMER
     uint32_t timer_default; /* what the timer's entry in the title's table held, and gets back */
+    uint32_t timer_saved[3]; /* the timer's reload, count and control as the title left them */
 #endif
     uint32_t ring_physical;
     uint8_t *ring;         /* uncached view of KUI_WIRE_RING_BYTES, 32-byte aligned */

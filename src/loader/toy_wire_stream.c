@@ -186,9 +186,43 @@ INLINE void timer_arm(const struct kui_wire_stream *w, uint32_t ticks) {
     wr8(TSTR, rd8(TSTR) | w->timer_bit);
 }
 
+#if KUI_TOY_WIRE_TIMER
+/* Test 81. The timer goes back to the title, and the stream writes
+ * nothing of it afterwards. What is still the stream's of it is put back
+ * as it was found: its entry in the table while that holds the stream's
+ * callback; with it the priority, while that is the stream's own; and
+ * the timer's reload, count and control if the stream was the last to
+ * start or to stop it, which it was under a wait of its own (`armed`) or
+ * with the timer stopped. A timer that runs outside such a wait the
+ * title has started, and an entry that holds a handler the title has
+ * taken it with: neither is written. An entry that holds the title's
+ * default again is no handler: the title has set its table up anew, and
+ * the timer is the stream's to stop as before. */
+static void timer_release(struct kui_wire_stream *w, bool armed) {
+    const uint32_t entry = word_read(w->timer_slot);
+    if(entry == w->timer_callback || entry == w->timer_default) {
+        if(armed || !(rd8(TSTR) & w->timer_bit)) {
+            timer_cancel(w);
+            wr32(w->timer_reg, w->timer_saved[0]);
+            wr32(w->timer_reg + 4u, w->timer_saved[1]);
+            wr16(w->timer_reg + 8u, w->timer_saved[2]);
+        }
+        if(((rd16(IPRA) >> w->timer_shift) & 15u) == 1u) wr16(IPRA, rd16(IPRA) & ~(1u << w->timer_shift));
+        word_publish(w->timer_slot, w->timer_default);
+    }
+    w->mode = 0;
+}
+#endif
+
 static void wire_fault(struct kui_wire_stream *w, uint32_t error, uint32_t detail) {
     wr8(SCR, 0);
+#if KUI_TOY_WIRE_TIMER
+    /* Test 81: no write to a timer the title may have taken since the
+     * stream last looked. It goes back by the one rule. */
+    if(w->mode) timer_release(w, w->state == KUI_WIRE_WAIT);
+#else
     if(w->mode) timer_cancel(w);
+#endif
     w->state = KUI_WIRE_FAULT;
     if(!w->error) {w->error = error; w->detail = detail;}
 }
@@ -386,9 +420,11 @@ static void wire_stopped(struct kui_wire_stream *w) {
 #if KUI_TOY_WIRE_TIMER
     /* Test 81: any title's timer, not one verified title's. A title that
      * has since put a handler of its own into the timer's entry, or has
-     * started the timer, has it: the stream leaves it alone from here on,
-     * and its waits end as they do without one. */
-    if(w->mode && (word_read(w->timer_slot) != w->timer_callback || (rd8(TSTR) & w->timer_bit))) w->mode = 0;
+     * started the timer, has it: the stream writes nothing of the timer
+     * from here on, gives back the entry if it still holds it, and its
+     * waits end as they do without one. */
+    if(w->mode && (word_read(w->timer_slot) != w->timer_callback || (rd8(TSTR) & w->timer_bit)))
+        timer_release(w, false);
 #endif
     if(w->mode) timer_arm(w, w->backoff);
     if(w->backoff < KUI_WIRE_BACKOFF_MAX) w->backoff <<= 1;
@@ -418,6 +454,16 @@ static bool wire_waited(const struct kui_wire_stream *w) {
 
 void kui_wire_timer(struct kui_wire_stream *w) {
     if(w->state == KUI_WIRE_OFF || w->state == KUI_WIRE_FAULT || !w->mode) return;
+#if KUI_TOY_WIRE_TIMER
+    /* Test 81: the stream arms the timer for a wait and for nothing else.
+     * An underflow outside one is of a timer the title has started under
+     * the stream's entry: not the stream's to stop. The entry goes back,
+     * and the underflow is the title's to answer. */
+    if(w->state != KUI_WIRE_WAIT) {
+        timer_release(w, false);
+        return;
+    }
+#endif
     timer_cancel(w);
     if(w->state == KUI_WIRE_WAIT) wire_resume(w);
 }
@@ -463,9 +509,12 @@ void kui_wire_service(struct kui_wire_stream *w) {
         if(!w->mode) wire_resume(w);
 #endif
 #if KUI_TOY_WIRE_TIMER
-        /* The title's own since the wait began: not the stream's to
-         * answer or to stop. The wait ends by the clock, at a later look. */
-        else if(word_read(w->timer_slot) != w->timer_callback) w->mode = 0;
+        /* The entry is no longer the stream's. With a handler of the
+         * title's in it the timer is the title's since the wait began:
+         * not the stream's to answer or to stop. With the title's default
+         * in it, it is stopped and goes back. The wait ends by the clock,
+         * at a later look. */
+        else if(word_read(w->timer_slot) != w->timer_callback) timer_release(w, true);
 #endif
         else if(rd16(w->timer_reg + 8u) & 0x0100u) kui_wire_timer(w);
         else if(!((rd16(IPRA) >> w->timer_shift) & 15u))
@@ -629,6 +678,12 @@ bool kui_wire_start(struct kui_wire_stream *w, struct kui_wire_counters *counter
         return false;
     }
     if(w->mode) {
+#if KUI_TOY_WIRE_TIMER
+        /* The title's timer as it is found: put back when it is let go. */
+        w->timer_saved[0] = rd32(w->timer_reg);
+        w->timer_saved[1] = rd32(w->timer_reg + 4u);
+        w->timer_saved[2] = rd16(w->timer_reg + 8u);
+#endif
         word_publish(w->timer_slot, w->timer_callback);
         timer_cancel(w);
         wr16(IPRA, rd16(IPRA) | 1u << w->timer_shift);
@@ -644,14 +699,9 @@ bool kui_wire_stop(struct kui_wire_stream *w) {
     if(state == KUI_WIRE_OFF) return true;
     bool usable = true;
 #if KUI_TOY_WIRE_TIMER
-    /* Test 81: the timer, its priority and its entry are put back as they
-     * were found only while the entry is still the stream's. */
-    if(w->mode && word_read(w->timer_slot) == w->timer_callback) {
-        timer_cancel(w);
-        wr16(IPRA, rd16(IPRA) & ~(15u << w->timer_shift));
-        word_publish(w->timer_slot, w->timer_default);
-    }
-    w->mode = 0;
+    /* Test 81: the timer goes back to the title, as it was found where
+     * it is still the stream's. */
+    if(w->mode) timer_release(w, state == KUI_WIRE_WAIT);
 #else
     if(w->mode) {
         timer_cancel(w);

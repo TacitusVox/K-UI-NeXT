@@ -14,6 +14,16 @@
 #include "kui/toy_wire_report.h"
 #include "toy_wire_stream.h"
 
+#include "kui/native_sdk_sci_runtime.h"
+/* The shared fixture derives the title's vector base, and with it the
+ * place of the title's SDK table, from this owner. Test 81 gives another
+ * title a base of its own. The production sources are compiled apart,
+ * with the real header. */
+#define WIRE_TOY_VBR UINT32_C(0x8c00f400)
+_Static_assert(WIRE_TOY_VBR == KUI_NATIVE_SDK_SCI_OWNER_VBR, "Toy Commander's vector base");
+static uint32_t wire_vbr = WIRE_TOY_VBR;
+#undef KUI_NATIVE_SDK_SCI_OWNER_VBR
+#define KUI_NATIVE_SDK_SCI_OWNER_VBR wire_vbr
 #define KUI_TOY_SDK_LIVENESS_MAIN toy_retained_sdk_tests
 #include "test_toy_sdk_liveness.c"
 /* A command of the game's that gives a window up, where a scenario only
@@ -112,6 +122,10 @@ static bool stream_on(void) {
     memcpy(&on, arena + KUI_TOY_WIRE_REPORT_OFFSET + sizeof(struct kui_toy_wire_report), sizeof(on));
     return on != 0u;
 }
+/* The title's SDK table hangs on the title's vector base: Toy Commander's,
+ * or another title's own (Test 81). The stream is told that base by the
+ * low resident's word and asks the processor for the live one. */
+#define WIRE_TABLE (wire_vbr + 0x200u)
 uint32_t kui_wire_test_read(uint32_t address, unsigned width) {
     if(address == 0xffd00004u) return wx.ipra;
     if(address == 0xffd80004u) return wx.tstr;
@@ -125,7 +139,7 @@ uint32_t kui_wire_test_read(uint32_t address, unsigned width) {
         const unsigned k = (address - 0xffd80008u) / 12u, field = (address - 0xffd80008u) % 12u;
         return field == 0u ? wx.tcor[k] : field == 4u ? wx.tcnt[k] : wx.tcr[k];
     }
-    if(address >= 0x8c00f600u && address < 0x8c00f700u) return wx.slots[(address - 0x8c00f600u) / 4u];
+    if(address >= WIRE_TABLE && address < WIRE_TABLE + 0x100u) return wx.slots[(address - WIRE_TABLE) / 4u];
     return kui_sci_stream_test_read(address, width);
 }
 static unsigned long sdir_writes; /* times MSB first was asked of the receiver */
@@ -153,7 +167,7 @@ void kui_wire_test_write(uint32_t address, uint32_t value, unsigned width) {
         else wx.tcr[k] = (uint16_t)value;
         return;
     }
-    if(address >= 0x8c00f600u && address < 0x8c00f700u) {wx.slots[(address - 0x8c00f600u) / 4u] = value; return;}
+    if(address >= WIRE_TABLE && address < WIRE_TABLE + 0x100u) {wx.slots[(address - WIRE_TABLE) / 4u] = value; return;}
     kui_sci_stream_test_write(address, value, width);
 }
 void kui_wire_test_settle(unsigned count) { kui_sci_stream_test_settle(count); }
@@ -162,7 +176,7 @@ uint32_t kui_wire_test_physical(const void *area) {
     CHECK(area == arena + sizeof(arena) - RING_BYTES);
     return RING_PHYSICAL;
 }
-uint32_t kui_wire_test_vbr(void) { return KUI_NATIVE_SDK_SCI_OWNER_VBR; }
+uint32_t kui_wire_test_vbr(void) { return wire_vbr; }
 void kui_wire_test_purge(const void *area, unsigned bytes) {
     CHECK(area == arena + sizeof(arena) - RING_BYTES && bytes == RING_BYTES);
 }
@@ -351,6 +365,7 @@ static bool card_cooked;
 #endif
 static void open_card(unsigned extent_blocks, bool scattered, bool with_parity,
     struct kui_toy_movie_range file, bool playing) {
+    wire_vbr = WIRE_TOY_VBR;
     setup_movie_card_extents(1u, extent_blocks, scattered);
 #if KUI_TOY_WIRE_SEQ
     if(card_cooked) {
@@ -3312,14 +3327,27 @@ static void any_owed(void) {
  * and a handler of the title's own for them. */
 enum { OTHER_TMU1 = 17, OTHER_TMU2 = 18 };
 #define OTHER_HANDLER UINT32_C(0x8c123456)
+#define OTHER_VBR UINT32_C(0x8c1ad400)
+#define OTHER_RELOAD UINT32_C(0x33330000)
+#define OTHER_COUNT UINT32_C(0x00004444)
+#define OTHER_CONTROL 0x0001u
 #if KUI_TOY_WIRE_TIMER
 /* That title with its table as the low resident admitted it: the stream
  * has a timer there, unless the title uses both spare timers itself. */
 static void other_table(bool used) {
     for(unsigned i = 0; i < 64u; ++i) wx.slots[i] = OTHER_DEFAULT;
     R.vector600[KUI_NATIVE_SDK_SCI_DEFAULT_INDEX] = OTHER_DEFAULT;
+    /* Its table lies at its own vector base, which is the live one and
+     * the one the low resident admitted. */
+    wire_vbr = OTHER_VBR;
+    hw.vbr = OTHER_VBR;
+    R.vector600[KUI_NATIVE_SDK_SCI_VBR_INDEX] = OTHER_VBR;
     if(used) wx.slots[OTHER_TMU1] = wx.slots[OTHER_TMU2] = OTHER_HANDLER;
     other_timers_used = used;
+    /* What the title has in its spare timers, stopped. */
+    for(unsigned k = 1u; k < 3u; ++k) {
+        wx.tcor[k] = OTHER_RELOAD + k; wx.tcnt[k] = OTHER_COUNT + k; wx.tcr[k] = (uint16_t)(OTHER_CONTROL + k);
+    }
 }
 #define OTHER_TIMER (!other_timers_used)
 #else
@@ -3339,6 +3367,13 @@ static void other_table_kept(const struct kui_toy_wire_report *w) {
 #endif
         CHECK(wx.slots[i] == word);
     }
+#if KUI_TOY_WIRE_TIMER
+    /* And its spare timers' reload, count and control, but for the one a
+     * running stream has. */
+    for(unsigned k = 1u; k < 3u; ++k)
+        if(!(stream_on() && w->timer_mode == k))
+            CHECK(wx.tcor[k] == OTHER_RELOAD + k && wx.tcnt[k] == OTHER_COUNT + k && wx.tcr[k] == OTHER_CONTROL + k);
+#endif
 }
 static void titles_other(bool source, uint32_t mean, unsigned dense) {
     open_card(2000u, false, true, file_amid, false);

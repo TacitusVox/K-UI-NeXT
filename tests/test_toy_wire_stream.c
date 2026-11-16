@@ -299,10 +299,14 @@ static void lose_byte(uint32_t block, uint32_t at) {
 #if KUI_TOY_WIRE_TIMER
 /* Test 81. What keeps the stream from a timer, each by itself, in a title
  * that is not Toy Commander: with everything in place it takes TMU2. */
-static unsigned timer_of(bool claimed, uint32_t callback) {
+static unsigned timer_of(unsigned title_does, uint32_t callback) {
+    const bool claimed = title_does == 1u;
     memset(&w, 0, sizeof w); memset(&n, 0, sizeof n);
     command_framing();
     memset(ring, 0xa5, sizeof ring);
+    /* (5 to 7: the stream's first run is cut after a few bytes.) */
+    lose_count = 0;
+    if(title_does >= 5u) lose_byte(1u, 20u);
     assert(wire_begin(&w, &n, ring, tables, 0x05, callback));
     const unsigned mode = w.mode;
     /* Whatever it took its entry holds the stream's callback, and the
@@ -310,14 +314,134 @@ static unsigned timer_of(bool claimed, uint32_t callback) {
     const uint32_t before = mode ? hw.slots[16u + mode] : 0u;
     assert(!mode || before == 0x8c421234u);
     for(unsigned k = 0; k < 400u && !(hw.ssr & 0x20); ++k) shift_one();
+    lose_count = 0;
+    /* The stream stopped under a wait of its own that stands armed: the
+     * timer is the stream's to stop there, and goes back as found. */
+    if(title_does >= 5u) {
+        assert(mode && (hw.ssr & 0x20));
+        kui_wire_service(&w);
+        assert(w.state == KUI_WIRE_WAIT && timer_armed() && n.waits == 1u);
+    }
+    /* The title's table set up anew under that wait: every entry holds
+     * the title's default again, the stream's callback is gone, and no
+     * handler of the title's has come in its place. The timer still
+     * runs as the stream armed it, and nothing would answer it: it is
+     * the stream's to stop, at its end (6) or at its next look (7), and
+     * goes back as found. */
+    if(title_does >= 6u) hw.slots[16u + mode] = title_default;
+    if(title_does == 7u) {
+        kui_wire_service(&w);
+        assert(w.mode == 0u && w.state == KUI_WIRE_WAIT && !(hw.tstr & (1u << mode)) &&
+            !(hw.tcr[mode] & 0x0020u) && !((hw.ipra >> (12u - 4u * mode)) & 15u));
+    }
+    /* A title that starts the timer under the stream's entry, set up as
+     * it wants it, has a running timer: the stream's end does not stop it
+     * or write it, and gives the entry and its own priority back. */
+    if(title_does == 4u) {
+        assert(mode);
+        hw.tcor[mode] = 0x00054321u; hw.tcnt[mode] = 0x00012345u; hw.tcr[mode] = 0x0004u;
+        hw.tstr |= (uint8_t)(1u << mode);
+    }
     /* A title that puts a handler of its own there meanwhile keeps it,
      * and the priority it runs at is no longer the stream's to take
      * away. */
     if(claimed) { assert(mode); hw.slots[16u + mode] = 0x8c123456u; }
+    /* A priority the title has given the timer meanwhile, the entry still
+     * the stream's, is the title's too: the stream takes away only its
+     * own. And one the title's SDK has cleared for it stays cleared. */
+    if(title_does == 2u) { assert(mode); hw.ipra = (uint16_t)((hw.ipra & ~(15u << (12u - 4u * mode))) | 5u << (12u - 4u * mode)); }
+    if(title_does == 3u) { assert(mode); hw.ipra = 0u; }
     assert(kui_wire_stop(&w) && w.mode == 0u);
     if(mode) assert(hw.slots[16u + mode] == (claimed ? 0x8c123456u : title_default) &&
-        ((hw.ipra >> (12u - 4u * mode)) & 15u) == (claimed ? 1u : 0u));
+        ((hw.ipra >> (12u - 4u * mode)) & 15u) == (claimed ? 1u : title_does == 2u ? 5u : 0u));
+    if(title_does == 4u) assert((hw.tstr & (1u << mode)) && hw.tcor[mode] == 0x00054321u &&
+        hw.tcnt[mode] == 0x00012345u && hw.tcr[mode] == 0x0004u);
     return mode;
+}
+/* A title that starts the timer under the stream's entry with its
+ * underflow interrupt on, and has no handler of its own in the table
+ * yet: the underflow reaches the stream's callback outside any wait of
+ * the stream's. It is not the stream's to answer: the timer runs on as
+ * the title set it, its flag standing, and the entry and the stream's
+ * priority go back, so that the underflow waits for whoever the title
+ * gives the timer to. The stream goes on without a timer. */
+static void timer_underflow(void) {
+    seed = 171u;
+    memset(&hw, 0, sizeof hw); hw.dmaor = 0x8201u; hw.tstr = 3u;
+    title_vbr = live_vbr = 0x8c1ad400u; title_default = 0x8c1add0cu;
+    for(unsigned i = 0; i < 64; ++i) hw.slots[i] = title_default;
+    stall_every = 0; until_stall = 100u; dense_left = 0; sdir_answer = 0;
+    card_block = 1; card_at = 0;
+    memset(&w, 0, sizeof w); memset(&n, 0, sizeof n);
+    command_framing();
+    memset(ring, 0xa5, sizeof ring);
+    assert(wire_begin(&w, &n, ring, tables, 0x05, 0x8c421234u) && w.mode == 2u);
+    for(unsigned k = 0; k < 400u && !(hw.ssr & 0x20); ++k) shift_one();
+    assert(w.state == KUI_WIRE_RUN && !(hw.ssr & 0x20));
+    hw.tcor[2] = 0x00054321u; hw.tcnt[2] = 0x00012345u; hw.tcr[2] = 0x0124u; hw.tstr |= 4u;
+    kui_wire_timer(&w);
+    assert(w.mode == 0u && w.state == KUI_WIRE_RUN);
+    assert(hw.tstr == 7u && hw.tcor[2] == 0x00054321u && hw.tcnt[2] == 0x00012345u && hw.tcr[2] == 0x0124u);
+    assert(hw.slots[18] == title_default && hw.slots[17] == title_default && !hw.ipra);
+    /* And the stream reads on. */
+    unsigned came = 0;
+    for(unsigned turn = 0; turn < 2000u && came < 20u; ++turn) {
+        struct kui_wire_block b;
+        pump(1u + rnd() % 2000u);
+        kui_wire_service(&w);
+        while(kui_wire_next(&w, &b) == KUI_WIRE_BLOCK) ++came;
+    }
+    assert(came >= 20u && w.state != KUI_WIRE_FAULT);
+    assert(kui_wire_stop(&w));
+    assert(hw.tstr == 7u && hw.tcor[2] == 0x00054321u && hw.tcnt[2] == 0x00012345u && hw.tcr[2] == 0x0124u);
+    assert(hw.slots[18] == title_default && !hw.ipra);
+    title_vbr = live_vbr = 0x8c00f400u; title_default = 0x8c0be408u;
+}
+/* A stream that ends in a fault, its channel taken from it: the timer
+ * goes back there and then, by the rule of every other end. Still the
+ * stream's (0): whole, as it was found. The title's by now, with a
+ * handler of its own, a priority and running (1): not a bit of it is
+ * written. Started by the title under the stream's entry (2): the entry
+ * and the stream's priority go back, the timer runs on as the title set
+ * it. */
+static void timer_fault(unsigned how) {
+    seed = 151u + how;
+    memset(&hw, 0, sizeof hw); hw.dmaor = 0x8201u; hw.tstr = 3u;
+    title_vbr = live_vbr = 0x8c1ad400u; title_default = 0x8c1add0cu;
+    for(unsigned i = 0; i < 64; ++i) hw.slots[i] = title_default;
+    stall_every = 0; until_stall = 100u; dense_left = 0; sdir_answer = 0;
+    card_block = 1; card_at = 0;
+    hw.tcor[2] = 0x22220000u; hw.tcnt[2] = 0x00002222u; hw.tcr[2] = 0x0003u;
+    memset(&w, 0, sizeof w); memset(&n, 0, sizeof n);
+    command_framing();
+    memset(ring, 0xa5, sizeof ring);
+    assert(wire_begin(&w, &n, ring, tables, 0x05, 0x8c421234u) && w.mode == 2u);
+    assert(hw.slots[18] == 0x8c421234u && ((hw.ipra >> 4) & 15u) == 1u);
+    for(unsigned k = 0; k < 400u && !(hw.ssr & 0x20); ++k) shift_one();
+    assert(w.state == KUI_WIRE_RUN && !(hw.ssr & 0x20));
+    if(how == 1u) { hw.slots[18] = 0x8c123456u; hw.ipra = 0x0050u; }
+    if(how) { hw.tcor[2] = 0x00054321u; hw.tcnt[2] = 0x00012345u; hw.tcr[2] = how == 1u ? 0x0024u : 0x0004u; hw.tstr |= 4u; }
+    /* The channel's source is no longer the receiver; the run ends in an
+     * overrun and the visit that answers it finds the channel so. */
+    hw.sar = 0x11111111u;
+    for(unsigned k = 0; k < 8u && !(hw.ssr & 0x20); ++k) shift_one();
+    assert(hw.ssr & 0x20);
+    kui_wire_service(&w);
+    if(w.state != KUI_WIRE_FAULT || w.error != KUI_WIRE_E_FOREIGN) { fprintf(stderr, "fault scenario %u: state %u error %u\n", how, (unsigned)w.state, (unsigned)w.error); abort(); }
+    for(unsigned pass = 0; pass < 2u; ++pass) {
+        assert(w.mode == 0u && (hw.tstr & 3u) == 3u && hw.slots[17] == title_default);
+        if(how == 0u) {
+            assert(hw.slots[18] == title_default && !hw.ipra && !(hw.tstr & 4u));
+            assert(hw.tcor[2] == 0x22220000u && hw.tcnt[2] == 0x00002222u && hw.tcr[2] == 0x0003u);
+        } else {
+            assert(hw.slots[18] == (how == 1u ? 0x8c123456u : title_default) && hw.ipra == (how == 1u ? 0x0050u : 0u));
+            assert((hw.tstr & 4u) && hw.tcor[2] == 0x00054321u && hw.tcnt[2] == 0x00012345u &&
+                hw.tcr[2] == (how == 1u ? 0x0024u : 0x0004u));
+        }
+        /* And the stop that follows the fault changes none of it. */
+        (void)kui_wire_stop(&w);
+    }
+    title_vbr = live_vbr = 0x8c00f400u; title_default = 0x8c0be408u;
 }
 /* A title that takes the stream's timer for itself while the stream runs
  * on a bus that cuts runs short: by a handler of its own in the timer's
@@ -350,9 +474,16 @@ static void timer_claimed(unsigned how) {
             taken = true; waits_at_claim = n.waits; blocks_at_claim = expect; tcnt = hw.tcnt[2]; tcr = hw.tcr[2];
         }
         if(taken) {
-            /* Nothing of the timer is the stream's to write any more. */
-            assert(hw.tcnt[2] == tcnt && hw.tcr[2] == tcr && hw.slots[18] == (how == 1u ? 0x8c421234u : 0x8c123456u));
+            /* Nothing of the timer is the stream's to write any more. A
+             * timer the title has started is left as the title set it,
+             * and the entry the stream still held there is the title's
+             * default again from the stream's next wait on, its priority
+             * gone with it. */
+            assert(hw.tcnt[2] == tcnt && hw.tcr[2] == tcr);
             assert(!!(hw.tstr & 4u) == (how != 0u));
+            if(how != 1u) assert(hw.slots[18] == 0x8c123456u);
+            else if(n.waits > waits_at_claim) assert(hw.slots[18] == title_default && !((hw.ipra >> 4) & 15u));
+            else assert(hw.slots[18] == 0x8c421234u || hw.slots[18] == title_default);
         } else if(w.state == KUI_WIRE_WAIT && timer_armed() && (rnd() & 1u)) {
             hw.tcr[2] |= 0x0100u;
             kui_wire_timer(&w);
@@ -380,8 +511,9 @@ static void timer_claimed(unsigned how) {
     assert(taken && n.waits >= waits_at_claim + 40u && expect >= blocks_at_claim + 200u);
     assert(w.mode == 0u);
     assert(kui_wire_stop(&w));
-    assert(hw.tcnt[2] == tcnt && hw.tcr[2] == tcr && hw.slots[18] == (how == 1u ? 0x8c421234u : 0x8c123456u));
+    assert(hw.tcnt[2] == tcnt && hw.tcr[2] == tcr && hw.slots[18] == (how == 1u ? title_default : 0x8c123456u));
     assert(!!(hw.tstr & 4u) == (how != 0u) && (hw.tstr & 3u) == 3u && hw.slots[17] == title_default);
+    if(how == 1u) assert(hw.tcor[2] == 0x12345u && !((hw.ipra >> 4) & 15u));
     title_vbr = live_vbr = 0x8c00f400u; title_default = 0x8c0be408u;
 }
 static void timer_titles(void) {
@@ -399,6 +531,12 @@ static void timer_titles(void) {
         {"no table admitted, and the vector base zero as a reset leaves it", 0u},
         {"both timers free, and the title takes the entry for itself while the stream runs", 2u},
         {"no callback for a timer", 0u},
+        {"both timers free, and the title gives the timer a priority of its own while the stream runs", 2u},
+        {"both timers free, and the title's SDK clears the priorities while the stream runs", 2u},
+        {"both timers free, and the title starts the timer under the stream's entry", 2u},
+        {"both timers free, and the stream stopped under a wait that stands armed", 2u},
+        {"both timers free, the title's table set up anew under an armed wait, the stream stopped", 2u},
+        {"both timers free, the title's table set up anew under an armed wait, the stream's next look", 2u},
     };
     for(unsigned c = 0; c < sizeof(cases) / sizeof(cases[0]); ++c) {
         seed = 91u + c;
@@ -420,20 +558,35 @@ static void timer_titles(void) {
         case 10: title_vbr = live_vbr = 0u; break;
         default: break;
         }
+        /* What the title left in its timers, stopped or not. */
+        hw.tcor[1] = 0x11110000u; hw.tcnt[1] = 0x00001111u; hw.tcr[1] = (uint16_t)(hw.tcr[1] | 0x0004u);
+        hw.tcor[2] = 0x22220000u; hw.tcnt[2] = 0x00002222u; hw.tcr[2] = (uint16_t)(hw.tcr[2] | 0x0003u);
         const uint32_t held[2] = {hw.slots[17], hw.slots[18]};
         const uint8_t running = hw.tstr;
         const uint16_t levels = hw.ipra, control = hw.tcr[2];
-        const unsigned mode = timer_of(c == 11u, c == 12u ? 0u : 0x8c421234u);
+        const uint16_t controls[2] = {hw.tcr[1], hw.tcr[2]};
+        const unsigned mode = timer_of(c == 11u ? 1u : c >= 13u ? c - 11u : 0u, c == 12u ? 0u : 0x8c421234u);
         if(mode != cases[c].mode) { fprintf(stderr, "%s: timer %u\n", cases[c].what, mode); abort(); }
         /* What the title had is what it has: its entries, its timers. */
-        assert(hw.slots[17] == held[0] && hw.slots[18] == (c == 11u ? 0x8c123456u : held[1]) && hw.tstr == running);
-        assert(hw.ipra == (c == 11u ? 0x0010u : levels) && (hw.tcr[2] & 0x0020u) == (control & 0x0020u));
+        assert(hw.slots[17] == held[0] && hw.slots[18] == (c == 11u ? 0x8c123456u : held[1]));
+        assert(hw.tstr == (c == 15u ? running | 4u : running));
+        assert(hw.ipra == (c == 11u ? 0x0010u : c == 13u ? 0x0050u : levels));
+        if(c != 15u) assert((hw.tcr[2] & 0x0020u) == (control & 0x0020u));
+        /* And its timers' reload, count and control, to the bit: a title
+         * that set a timer up once and starts it later finds it as set.
+         * (But where the title took the entry while the stream ran, that
+         * timer is the title's to set, and the stream leaves it as its
+         * own last stop of it left it; and one the title started is as
+         * the title set it.) */
+        assert(hw.tcor[1] == 0x11110000u && hw.tcnt[1] == 0x00001111u && hw.tcr[1] == controls[0]);
+        if(c != 11u && c != 15u) assert(hw.tcor[2] == 0x22220000u && hw.tcnt[2] == 0x00002222u && hw.tcr[2] == controls[1]);
     }
     title_vbr = live_vbr = 0x8c00f400u; title_default = 0x8c0be408u;
     printf("  the stream's timer by the title's own table: taken in another title with both free, the second "
            "where the first is the title's, none without an admitted table, at another vector base, behind the "
-           "title's own handlers, behind another default, or with both in use; the title's entries, timers and "
-           "priorities as they were after each, and an entry the title took meanwhile left to it\n");
+           "title's own handlers, behind another default, or with both in use; the title's entries, priorities "
+           "and its timers' reload, count and control as they were after each, and an entry or a priority the "
+           "title took meanwhile left to it\n");
 }
 #endif
 int main(int argc, char **argv) {
@@ -473,6 +626,8 @@ int main(int argc, char **argv) {
         title_vbr = live_vbr = run % 3u == 1u ? 0x8c1ad400u : 0x8c00f400u;
         title_default = run % 3u == 1u ? 0x8c1add0cu : 0x8c0be408u;
         for(unsigned i = 0; i < 64; ++i) hw.slots[i] = title_default;
+        /* What the title has in its spare timers' registers. */
+        for(unsigned k = 1; k < 3u; ++k) { hw.tcor[k] = 0x33330000u + k; hw.tcnt[k] = 0x00004444u + k; hw.tcr[k] = (uint16_t)(0x0001u + k); }
 #endif
         hw.tstr = 1u;                            /* the game's clock, TMU0, runs */
         if(run % 5u == 4u) hw.tstr = 7u;        /* no free timer */
@@ -753,6 +908,7 @@ int main(int argc, char **argv) {
         /* And so is the title's table: every entry its own default again,
          * whichever title it is. */
         for(unsigned i = 0; i < 64; ++i) assert(hw.slots[i] == title_default);
+        for(unsigned k = 1; k < 3u; ++k) assert(hw.tcor[k] == 0x33330000u + k && hw.tcnt[k] == 0x00004444u + k && hw.tcr[k] == 0x0001u + k);
         if(run % 5u != 4u) ++timed[run % 3u == 1u];
 #endif
         /* Every overrun the model produced was accounted as a cut or a run's end
@@ -784,7 +940,13 @@ int main(int argc, char **argv) {
     for(unsigned how = 0; how < 3u; ++how) timer_claimed(how);
     printf("  a title that takes the stream's timer while the stream runs, by its entry, by starting it, or under "
            "a wait that stands armed: never armed, stopped or answered by the stream again, the entry left to "
-           "the title, the waits ended as without a timer\n");
+           "the title or given back to it, the waits ended as without a timer\n");
+    timer_underflow();
+    printf("  an underflow of a timer the title started under the stream's entry: not answered and not stopped "
+           "by the stream, the entry given back\n");
+    for(unsigned how = 0; how < 3u; ++how) timer_fault(how);
+    printf("  a stream ended by a fault: its timer back as it was found, and a timer the title has taken or "
+           "started meanwhile not written\n");
 #endif
 #if KUI_TOY_WIRE_MEASURE && !KUI_TOY_WIRE_PACE
     /* A byte between blocks that is neither idle nor the token: the stream
