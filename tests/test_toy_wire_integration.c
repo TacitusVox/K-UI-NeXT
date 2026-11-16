@@ -334,7 +334,10 @@ static unsigned long eris, timers, polls;
 #if KUI_TOY_WIRE_TIMER
 /* Test 81: whether the other title's scenario under way has that title
  * using both spare timers, and whether the next one shall. */
-static bool other_timers_used, other_title_busy;
+static bool other_timers_used;
+/* (Asked by the other title's scenarios alone, which a build without STAY
+ * does not have.) */
+static bool other_title_busy __attribute__((unused));
 #endif
 #if KUI_TOY_WIRE_CLEAN
 static uint32_t light_bad_expected;
