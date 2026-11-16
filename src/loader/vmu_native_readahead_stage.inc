@@ -192,6 +192,12 @@ static void __attribute__((noipa)) native_readahead_bind(uint32_t payload) {
         0xee,0x68,0xa3,0x26,0xda,0x96,0x4f,0xec,0x58,0x92,0xb7,0x22,0x63,0x11,0xf2,0x29,
         0x3f,0xd3,0xa0,0xbb,0xf5,0xba,0xc4,0x96,0xec,0x82,0x99,0x19,0x64,0xd4,0x9b,0xbd};
     cfg.toy_poll_owner=cfg.suite_source==1u && exec_bytes==748444u &&
+#if defined(KUI_TOY_WIRE_TITLES) && KUI_TOY_WIRE_TITLES
+        /* Test 79: a disc can be a source without being Toy Commander's.
+         * The hooks need what only the scan of that title's own files
+         * leaves: its movies' places. */
+        toy_movie_ranges[0].count &&
+#endif
         !memcmp(native_driver.image_sha256,toy_poll_digest,sizeof(toy_poll_digest));
 #if (KUI_TOY_SUITE_MODE == 36 || KUI_TOY_SUITE_SLOW_RETRY) && KUI_TOY_SUITE_MODE < 42
     if(cfg.toy_poll_owner && !toy_dma_priority_install())native_report(11u,0x36u);
@@ -302,9 +308,11 @@ static void __attribute__((noipa)) native_readahead_bind(uint32_t payload) {
 #elif KUI_TOY_SUITE_WIDE_EDC
     retail_display_line(cfg.toy_poll_owner?"SCI FASTER EDC READY":"SCI RESUME OWNER UNVERIFIED");
 #elif defined(KUI_TOY_WIRE_TITLES) && KUI_TOY_WIRE_TITLES
-    /* Test 79: any title on a raw SCI image has the stream's read-ahead. */
+    /* Test 79: any title on a raw SCI image has the stream's read-ahead.
+     * Where there is none the line gives no reason: the image, the card
+     * adapter, the reader, or Toy Commander's own files not found. */
     retail_display_line(cfg.toy_poll_owner?"SCI MOVIE READ AHEAD READY":
-        cfg.suite_source==1u?"SCI STREAM READ AHEAD READY":"NO RAW SCI IMAGE / PLAIN READER");
+        cfg.suite_source==1u?"SCI STREAM READ AHEAD READY":"NO STREAM READ AHEAD / PLAIN READER");
 #elif KUI_TOY_SUITE_MODE >= 62
     retail_display_line(cfg.toy_poll_owner?"SCI MOVIE READ AHEAD READY":"SCI RESUME OWNER UNVERIFIED");
 #elif KUI_TOY_SUITE_MODE == 61

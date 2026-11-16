@@ -61,15 +61,18 @@ enum kui_game_result kui_retail_image_check_validated(const struct kui_retail_ma
 
 enum { RAW_DATA = 4u, COOKED_DATA = 4u | KUI_RETAIL_TRACK_COOKED, MODE2_DATA = 4u | KUI_RETAIL_TRACK_MODE2,
     SUBCODE_DATA = 4u | KUI_RETAIL_TRACK_2448, SHORT_DATA = 4u | KUI_RETAIL_TRACK_2336, AUDIO = 0u };
-static void disc(uint32_t reader, uint32_t transport, uint32_t runtime, bool toy, const uint8_t *controls,
+/* What of Toy Commander a disc has: its boot sector, its executable's
+ * checksum, its executable's size. */
+enum { TOY_IP = 1u, TOY_CRC = 2u, TOY_SIZE = 4u, TOY_EXE = TOY_CRC | TOY_SIZE, TOY_ALL = TOY_IP | TOY_EXE };
+static void disc_of(uint32_t reader, uint32_t transport, uint32_t runtime, unsigned toy, const uint8_t *controls,
     unsigned tracks) {
     memset(&manifest, 0, sizeof(manifest));
     manifest.reader = reader;
     manifest.storage_transport = transport;
     manifest.session_lba = 45000u;
-    manifest.ip_crc32 = toy ? KUI_VMU_LAUNCH_TOY_IP_CRC : UINT32_C(0x12345678);
-    boot_crc = toy ? KUI_VMU_LAUNCH_TOY_EXEC_CRC : UINT32_C(0x9abcdef0);
-    exec_bytes = toy ? KUI_VMU_LAUNCH_TOY_EXEC_BYTES : 4057056u;
+    manifest.ip_crc32 = toy & TOY_IP ? KUI_VMU_LAUNCH_TOY_IP_CRC : UINT32_C(0x12345678);
+    boot_crc = toy & TOY_CRC ? KUI_VMU_LAUNCH_TOY_EXEC_CRC : UINT32_C(0x9abcdef0);
+    exec_bytes = toy & TOY_SIZE ? KUI_VMU_LAUNCH_TOY_EXEC_BYTES : 4057056u;
     manifest.track_count = tracks;
     for(unsigned i = 0; i < tracks; ++i)
         manifest.slots[i].track = (struct kui_retail_track){45000u + 1000u * i, 46000u + 1000u * i, 0u, 0u, controls[i]};
@@ -77,6 +80,10 @@ static void disc(uint32_t reader, uint32_t transport, uint32_t runtime, bool toy
     toy_suite_source = 0u;
     acquired = read_sectors = 0u;
     toy_movie_scan();
+}
+static void disc(uint32_t reader, uint32_t transport, uint32_t runtime, bool toy, const uint8_t *controls,
+    unsigned tracks) {
+    disc_of(reader, transport, runtime, toy ? TOY_ALL : 0u, controls, tracks);
 }
 
 int main(void) {
@@ -122,6 +129,23 @@ int main(void) {
     assert(!toy_suite_source && acquired == 1u);
     disc(KUI_RETAIL_READER_ASYNC, KUI_STORAGE_SCI, on, true, raw, 3u);
     assert(!toy_suite_source && !acquired);
+    /* Which title it is, is the executable's to say. Toy Commander's
+     * executable on another boot sector takes Toy Commander's path, which
+     * refuses it before the card is asked for: no source, as before Test
+     * 79. (The bind knows the title by its executable and would give this
+     * disc the hooks, were it a source.) */
+    disc_of(KUI_RETAIL_READER_ASYNC, KUI_STORAGE_SCI, off, TOY_EXE, raw, 3u);
+    assert(!toy_suite_source && !acquired && !read_sectors);
+    /* Another executable is another title, whatever its boot sector, its
+     * size or its checksum has of Toy Commander's. */
+    disc_of(KUI_RETAIL_READER_ASYNC, KUI_STORAGE_SCI, off, TOY_IP, raw, 3u);
+    assert(toy_suite_source == (KUI_TOY_WIRE_TITLES ? 1u : 0u) && !acquired);
+    disc_of(KUI_RETAIL_READER_ASYNC, KUI_STORAGE_SCI, off, TOY_IP | TOY_SIZE, raw, 3u);
+    assert(toy_suite_source == (KUI_TOY_WIRE_TITLES ? 1u : 0u) && !acquired);
+    disc_of(KUI_RETAIL_READER_ASYNC, KUI_STORAGE_SCI, off, TOY_IP | TOY_CRC, raw, 3u);
+    assert(toy_suite_source == (KUI_TOY_WIRE_TITLES ? 1u : 0u) && !acquired);
+    /* None of them has a movie file known: the hooks' other condition. */
+    for(unsigned i = 0; i < 4u; ++i) assert(!toy_movie_ranges[i].count);
     printf("PASS the stage's source for the window%s: another title on the New reader with the virtual VMU off, by a "
            "raw Mode 1 track on the SCI card and nothing else; Toy Commander by its own files as before\n",
         KUI_TOY_WIRE_TITLES ? "" : " (up to Test 78: Toy Commander alone)");

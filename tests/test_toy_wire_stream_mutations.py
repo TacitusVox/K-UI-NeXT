@@ -700,14 +700,25 @@ TITLES_MUTATIONS = [
   "        if(manifest.storage_transport==KUI_STORAGE_SCI && toy_suite_raw_track())toy_suite_source=1u;",
   "        if(manifest.storage_transport==KUI_STORAGE_SCI && toy_suite_raw_track())toy_suite_source=0u;"),
  (SCAN, "a source with the virtual VMU on",
-  "       native_runtime_mode()==KUI_VMU_NATIVE_MODE_READER_ONLY &&\n       (manifest.ip_crc32!=",
-  "       (manifest.ip_crc32!="),
+  "       native_runtime_mode()==KUI_VMU_NATIVE_MODE_READER_ONLY &&\n       (boot_crc!=",
+  "       (boot_crc!="),
  (SCAN, "a source for another reader",
-  "    if(manifest.reader==KUI_RETAIL_READER_ASYNC &&\n       native_runtime_mode()==KUI_VMU_NATIVE_MODE_READER_ONLY &&\n       (manifest.ip_crc32!=",
-  "    if(native_runtime_mode()==KUI_VMU_NATIVE_MODE_READER_ONLY &&\n       (manifest.ip_crc32!="),
+  "    if(manifest.reader==KUI_RETAIL_READER_ASYNC &&\n       native_runtime_mode()==KUI_VMU_NATIVE_MODE_READER_ONLY &&\n       (boot_crc!=",
+  "    if(native_runtime_mode()==KUI_VMU_NATIVE_MODE_READER_ONLY &&\n       (boot_crc!="),
  (SCAN, "Toy Commander taken for another title",
-  "       (manifest.ip_crc32!=KUI_VMU_LAUNCH_TOY_IP_CRC || boot_crc!=KUI_VMU_LAUNCH_TOY_EXEC_CRC ||\n        exec_bytes!=KUI_VMU_LAUNCH_TOY_EXEC_BYTES)) {",
+  "       (boot_crc!=KUI_VMU_LAUNCH_TOY_EXEC_CRC || exec_bytes!=KUI_VMU_LAUNCH_TOY_EXEC_BYTES)) {",
   "       (true)) {"),
+ # After the review: which title it is, is the executable's to say.
+ (SCAN, "Toy Commander's executable on another boot sector taken for another title",
+  "       (boot_crc!=KUI_VMU_LAUNCH_TOY_EXEC_CRC || exec_bytes!=KUI_VMU_LAUNCH_TOY_EXEC_BYTES)) {",
+  "       (manifest.ip_crc32!=KUI_VMU_LAUNCH_TOY_IP_CRC || boot_crc!=KUI_VMU_LAUNCH_TOY_EXEC_CRC ||\n"
+  "        exec_bytes!=KUI_VMU_LAUNCH_TOY_EXEC_BYTES)) {"),
+ (SCAN, "an executable of Toy Commander's size taken for Toy Commander's",
+  "       (boot_crc!=KUI_VMU_LAUNCH_TOY_EXEC_CRC || exec_bytes!=KUI_VMU_LAUNCH_TOY_EXEC_BYTES)) {",
+  "       (exec_bytes!=KUI_VMU_LAUNCH_TOY_EXEC_BYTES)) {"),
+ (SCAN, "an executable with Toy Commander's checksum taken for Toy Commander's",
+  "       (boot_crc!=KUI_VMU_LAUNCH_TOY_EXEC_CRC || exec_bytes!=KUI_VMU_LAUNCH_TOY_EXEC_BYTES)) {",
+  "       (boot_crc!=KUI_VMU_LAUNCH_TOY_EXEC_CRC)) {"),
 ]
 # Test 78: mutations on lines the build with TOY_WIRE_ANY no longer compiles
 # go (ANY_GONE), and the same defects are made in the lines that take their

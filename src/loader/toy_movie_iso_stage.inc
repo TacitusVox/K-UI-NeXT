@@ -131,12 +131,18 @@ static void toy_movie_scan(void) {
 #if defined(KUI_TOY_WIRE_TITLES) && KUI_TOY_WIRE_TITLES
     /* Test 79: another title is a source for the window by its raw track
      * on the SCI card, with the reader and the mode as for Toy Commander.
-     * Nothing of it is read here and no file of it is looked for. Toy
-     * Commander takes the path below as before. */
+     * Nothing of it is read here and no file of it is looked for.
+     *
+     * Another title is another executable. Toy Commander's executable
+     * takes the path below whatever boot sector comes with it, and is a
+     * source by that path's rules alone, as before: with its own boot
+     * sector and its four movie files found. (Asked by the boot sector
+     * too, that executable on a patched boot sector was called another
+     * title here, and the bind, which knows the title by its executable,
+     * gave it Toy Commander's hooks with no movie file known.) */
     if(manifest.reader==KUI_RETAIL_READER_ASYNC &&
        native_runtime_mode()==KUI_VMU_NATIVE_MODE_READER_ONLY &&
-       (manifest.ip_crc32!=KUI_VMU_LAUNCH_TOY_IP_CRC || boot_crc!=KUI_VMU_LAUNCH_TOY_EXEC_CRC ||
-        exec_bytes!=KUI_VMU_LAUNCH_TOY_EXEC_BYTES)) {
+       (boot_crc!=KUI_VMU_LAUNCH_TOY_EXEC_CRC || exec_bytes!=KUI_VMU_LAUNCH_TOY_EXEC_BYTES)) {
         if(manifest.storage_transport==KUI_STORAGE_SCI && toy_suite_raw_track())toy_suite_source=1u;
         return;
     }
