@@ -3455,6 +3455,138 @@ static void titles_other(bool source, uint32_t mean, unsigned dense) {
 #endif
 
 #if KUI_TOY_WIRE_QUERY && KUI_TOY_WIRE_STAY
+#if KUI_TOY_WIRE_QUERY
+/* A command of the game's by its number alone, with words that suit it:
+ * asked for, and taken to its acknowledgment whatever that says. */
+static int32_t every_request(uint32_t command) {
+    uint32_t p[4] = {0u, 0u, 0u, 0u};
+    switch(command) {
+    case KUI_RETAIL_GD_GETTOC: case KUI_GD_GETTOC2: p[1] = OUTPUT; break;
+    case KUI_RETAIL_GD_PLAY: case KUI_RETAIL_GD_PLAY2: p[0] = 1u; p[1] = 1u; break;
+    case KUI_RETAIL_GD_SEEK: p[0] = 45100u + 150u; break;
+    case KUI_RETAIL_GD_REQ_MODE: case KUI_RETAIL_GD_GET_VERS: p[0] = STATUS + 32u; break;
+    case KUI_RETAIL_GD_SET_MODE: p[1] = 0x2000u; p[2] = 2048u; break;
+    case KUI_RETAIL_GD_GETSCD: p[0] = 1u; p[1] = 14u; p[2] = STATUS + 32u; break;
+    case KUI_RETAIL_GD_REQ_STAT:
+        p[0] = STATUS + 32u; p[1] = STATUS + 36u; p[2] = STATUS + 40u; p[3] = STATUS + 44u; break;
+    default: break;
+    }
+    for(unsigned i = 0u; i < 4u; ++i) put(PARAM + 4u * i, p[i]);
+    const int32_t token = gd(KUI_GD_REQUEST, command, PARAM);
+    CHECK(token > 0);
+    return token;
+}
+static void every_command(uint32_t command) {
+    const int32_t token = every_request(command);
+    CHECK(gd(KUI_GD_EXEC, 0, 0) == 0);
+    (void)gd(KUI_GD_CHECK, (uint32_t)token, STATUS);
+}
+/* Test 80 as the console has it. The stream's SCI interrupt comes every
+ * few milliseconds while a window fills, so a command of the game's is
+ * met by an interrupt visit as often as by a call of the game's: pending,
+ * and completed but not yet acknowledged. One that only asks leaves the
+ * window and the stream to those visits as it does to a call, and is
+ * counted once however many visits meet it. One that stops the drive
+ * ends the stream in the interrupt visit that meets it; the window goes,
+ * counted once, with the game's next call. */
+static void sequence_interrupted(uint32_t command) {
+    open_card(2000u, false, true, file_amid, false);
+    const struct kui_toy_wire_report *w = report();
+    const struct kui_native_readahead_aux_context *c = &kui_native_readahead_aux_context;
+    const bool asks = command != KUI_GD_STOP;
+    plain_read(45010u, 5u);
+    plain_read(45015u, 5u);
+    CHECK(c->movie_ahead.variant == OTHER_WINDOW && stream_on());
+    /* Room in the window, and a run in flight behind it. */
+    m.delay = 100000u;
+    plain_read(45020u, 40u);
+    for(unsigned n = 0u; n < 100000u && !m.rx; ++n) if(!hardware()) CHECK(gd(KUI_GD_EXEC, 0, 0) == 0);
+    CHECK(m.rx && stream_on() && c->movie_ahead.variant == OTHER_WINDOW);
+    const uint32_t first = c->movie_ahead.first, starts = w->n.starts, hits = c->stats.hit_requests;
+    const unsigned cmd12 = card.cmd12, cmd18 = card.cmd18;
+    const int32_t token = every_request(command);
+    unsigned long met[2];
+    for(unsigned phase = 0u; phase < 2u; ++phase) {
+        /* Pending, then completed and not yet acknowledged. */
+        const unsigned long before = eris;
+        for(unsigned n = 0u; n < 1000u && eris < before + 3u && (asks || stream_on()); ++n) (void)hardware();
+        met[phase] = eris - before;
+        if(asks) {
+            CHECK(met[phase] == 3u && stream_on() && c->movie_ahead.variant == OTHER_WINDOW);
+            CHECK(card.cmd12 == cmd12 && card.cmd18 == cmd18 && w->n.starts == starts && c->movie_ahead.first == first);
+            CHECK(w->queries == 1u);
+            no_drops(w);
+        } else CHECK(!stream_on() && card.cmd18 == cmd18);
+        if(!phase) CHECK(gd(KUI_GD_EXEC, 0, 0) == 0);
+        if(!asks) CHECK(!c->movie_ahead.variant && w->drops[KUI_TOY_WIRE_DROP_COMMAND] == 1u && !w->queries);
+    }
+    CHECK(gd(KUI_GD_CHECK, (uint32_t)token, STATUS) == KUI_GD_COMPLETED);
+    m.delay = 0u;
+    if(asks) {
+        /* The reads that follow are the window's, from the same stream. */
+        plain_read(first, 10u);
+        plain_read(first + 10u, 10u);
+        CHECK(c->stats.hit_requests == hits + 2u && c->movie_ahead.variant == OTHER_WINDOW && w->n.starts == starts);
+        CHECK(card.cmd12 == cmd12 && card.cmd18 == cmd18 && w->queries == 1u);
+        no_drops(w);
+    } else {
+        CHECK(met[0] >= 1u && w->drops[KUI_TOY_WIRE_DROP_COMMAND] == 1u);
+        closed();
+    }
+    invariants();
+}
+/* Every command the service accepts that is no read, with a window open:
+ * which leave it and which give it up, each named by its number's bit;
+ * and the two numbers at the table's end, which no title can send. */
+static void sequence_every_command(void) {
+    static const struct { uint8_t command; bool asks; } all[] = {
+        {KUI_RETAIL_GD_GETTOC, true}, {KUI_GD_GETTOC2, true}, {KUI_RETAIL_GD_PLAY, false},
+        {KUI_RETAIL_GD_PLAY2, false}, {KUI_RETAIL_GD_PAUSE, false}, {KUI_RETAIL_GD_RELEASE, false},
+        {KUI_GD_COMMAND_INIT, false}, {KUI_RETAIL_GD_SEEK, false}, {KUI_GD_NOP, true},
+        {KUI_RETAIL_GD_REQ_MODE, true}, {KUI_RETAIL_GD_SET_MODE, false}, {KUI_GD_STOP, false},
+        {KUI_RETAIL_GD_GETSCD, true}, {KUI_RETAIL_GD_REQ_STAT, true}, {KUI_RETAIL_GD_GET_VERS, true},
+    };
+    unsigned kept = 0u, gone = 0u;
+    for(unsigned i = 0u; i < sizeof(all) / sizeof(all[0]); ++i) {
+        open_card(2000u, false, true, file_amid, false);
+        const struct kui_toy_wire_report *w = report();
+        const struct kui_native_readahead_aux_context *c = &kui_native_readahead_aux_context;
+        const uint32_t command = all[i].command;
+        plain_read(45010u, 5u);
+        plain_read(45015u, 5u);
+        CHECK(c->movie_ahead.variant == OTHER_WINDOW && stream_on() && !w->queries);
+        every_command(command);
+        CHECK(w->command_seen[command >> 5] == UINT32_C(1) << (command & 31u) && !w->command_seen[!(command >> 5)]);
+        if(all[i].asks) {
+            CHECK(c->movie_ahead.variant == OTHER_WINDOW && stream_on() && w->queries == 1u && !card.cmd12);
+            no_drops(w);
+            ++kept;
+        } else {
+            CHECK(!c->movie_ahead.variant && !stream_on() && !w->queries && card.cmd12 == 1u);
+            CHECK(w->drops[KUI_TOY_WIRE_DROP_COMMAND] == 1u);
+            ++gone;
+        }
+    }
+    CHECK(kept == 7u && gone == 8u);
+    /* 63 is the table's last place and 64 the first number behind it:
+     * neither is a command, and both give the window up. */
+    for(uint32_t number = 63u; number < 65u; ++number) {
+        open_card(2000u, false, true, file_amid, false);
+        const struct kui_toy_wire_report *w = report();
+        const struct kui_native_readahead_aux_context *c = &kui_native_readahead_aux_context;
+        plain_read(45010u, 5u);
+        plain_read(45015u, 5u);
+        CHECK(c->movie_ahead.variant == OTHER_WINDOW && stream_on());
+        R.shared.service.command = number;
+        CHECK(gd(KUI_GD_EXEC, 0, 0) == 0);
+        R.shared.service.command = 0u;
+        CHECK(!c->movie_ahead.variant && !stream_on() && !w->queries && w->drops[KUI_TOY_WIRE_DROP_COMMAND] == 1u);
+        CHECK(w->command_seen[0] == 0u && w->command_seen[1] == (number == 63u ? UINT32_C(1) << 31 : 0u));
+    }
+    printf("  every command that is no read, with a window open: %u leave it, %u give it up, each named in the "
+           "report; and the numbers 63 and 64, which give it up\n", kept, gone);
+}
+#endif
 /* A read by programmed transfer is a read as one by DMA is: the window is
  * opened by it and serves it, stands through it, and counts no command.
  * (The fixture's reads are by DMA everywhere else.) */
@@ -4120,6 +4252,15 @@ int main(void) {
 #endif
 #if KUI_TOY_WIRE_QUERY && KUI_TOY_WIRE_STAY
     sequence_programmed();
+#if KUI_TOY_WIRE_QUERY
+    sequence_interrupted(KUI_RETAIL_GD_GETSCD);
+    sequence_interrupted(KUI_RETAIL_GD_REQ_STAT);
+    sequence_interrupted(KUI_GD_STOP);
+    printf("  a command met by interrupt visits while a run is in flight: one that only asks leaves window and "
+           "stream to them, pending and unacknowledged, counted once; one that stops the drive ends the stream "
+           "in the visit that meets it\n");
+    sequence_every_command();
+#endif
     titles_asked(true, 0u, 0u);
     titles_asked(true, 1500u, 20u);
     titles_asked(true, 150u, 80u);

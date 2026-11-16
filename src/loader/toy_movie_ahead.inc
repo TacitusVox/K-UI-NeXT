@@ -602,8 +602,10 @@ static bool toy_ahead_plain(const kui_retail_async_region_type *r) {
  * card, and the drive's position, which says whether the next read follows
  * on, is as it was. GETTOC 18, GETTOC2 19, NOP 29, REQ_MODE 30, GETSCD 34,
  * REQ_STAT 36, GET_VERS 40. Any other does: SEEK and STOP move the drive,
- * SET_MODE and INIT set what a sector is, PLAY, PAUSE and RELEASE are the
- * audio's, and what the service does not list it has refused.
+ * INIT sets what a sector is, SET_MODE changes the drive's mode words (and
+ * nothing a window rests on: it is given up for out of caution), PLAY,
+ * PAUSE and RELEASE are the audio's, and what the service does not list it
+ * has refused.
  *
  * The report keeps which such commands a window met, a bit to a number,
  * and counts those it stood through, each once. */
@@ -859,4 +861,5 @@ static bool toy_movie_ahead(kui_retail_async_region_type *r,unsigned variant,boo
 #endif
 #undef AHEAD_ANY
 #undef AHEAD_SEQ
+#undef AHEAD_QUERY
 #undef A
