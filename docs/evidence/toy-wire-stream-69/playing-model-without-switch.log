@@ -1,0 +1,7 @@
+The same reader integration test built WITHOUT the timer switch (the Test 68 recipe), same source commit.
+Shown for the playing scenario: reader at the console's pace, wire at its own, one game call a frame.
+
+  playing, stall every ~0 bytes, 0% busy phases, without the timer's help: data ready for 0 of 21 frames when asked; fulls 30, SCI visits 86, timer visits 0
+  playing, stall every ~6000 bytes, 0% busy phases, without the timer's help: data ready for 18 of 21 frames when asked; fulls 11, SCI visits 167, timer visits 3
+  playing, stall every ~1500 bytes, 20% busy phases, without the timer's help: data ready for 0 of 21 frames when asked; fulls 0, SCI visits 3207, timer visits 2758
+PASS Test 68 reader integration: 19553897 checks

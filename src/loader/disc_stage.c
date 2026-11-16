@@ -33,10 +33,16 @@ static bool firmware_target(uint32_t pointer) {
         ((physical>=UINT32_C(0x100) && physical<UINT32_C(0x200000)) ||
          (physical>=UINT32_C(0x0c000100) && physical<UINT32_C(0x0c008000)));
 }
+#if KUI_DISC_TOY_TRACE
+#include "disc_toy_trace_stage.inc"
+#endif
 void kui_disc_stage_main(void) {
     retail_display_capture(&display);retail_display_restore(&display);
     retail_display_line("PHYSICAL DISC BOOT TEST");
     retail_display_line("ORIGINAL DRIVE / NATIVE GD / NO VMU");
+#if KUI_DISC_TOY_TRACE
+    retail_display_line("TOY COMMANDER PHYSICAL GD TRACE");
+#endif
     const uint8_t *payload=(const uint8_t *)(uintptr_t)KUI_DISC_LAUNCH_LOAD_ADDRESS;
     const uint8_t *packet=payload+KUI_DISC_LAUNCH_CONFIG_OFFSET;
     if(!kui_disc_launch_decode(packet,&plan) || plan.flags!=KUI_DISC_LAUNCH_FLAGS)
@@ -64,6 +70,9 @@ void kui_disc_stage_main(void) {
     /* Existing K-UI native bootstrap handoff clears this one RAM boot flag.
      * Disc bytes and the checked source fingerprints remain unchanged. */
     ((uint8_t *)(uintptr_t)KUI_DISC_LAUNCH_IP_ADDRESS)[0xfcu]&=(uint8_t)~0x20u;
+#if KUI_DISC_TOY_TRACE
+    toy_trace_prepare(gd);
+#endif
     retail_display_line("IP AND EXECUTABLE HASHES PASSED");
     retail_display_hex("BOOT BYTES",executable_bytes);
     retail_display_hex("ORIGINAL GD VECTOR",gd);

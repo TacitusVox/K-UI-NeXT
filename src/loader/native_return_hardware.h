@@ -3,11 +3,18 @@
 #define KUI_NATIVE_RETURN_HARDWARE_H
 #include <stdbool.h>
 #include <stdint.h>
+struct kui_native_return_controller_workspace {
+    _Alignas(32) volatile uint32_t tx[8];
+    _Alignas(32) volatile uint32_t rx[256];
+};
 /* Terminal native-session menu only, with privileged IMASK15 and the SDK
  * stopped. One physical A-controller request, using worker-owned buffers.
  * Returns 1 for a complete typed response, 0 unavailable, -1 unsafe hardware.
  * Button bits use the controller's active-high low-16-bit layout (Start=8). */
 int kui_native_return_controller(uint32_t *buttons);
+/* Alternate workspace in a retired, aligned P2 worker buffer. */
+int kui_native_return_controller_in(struct kui_native_return_controller_workspace *workspace,
+    uint32_t *buttons);
 /* Call after the low reader has relinquished streams and SD DMA. Retires
  * other game DMA/audio, then publishes the old stack and disables caches
  * BEFORE any P2 payload write, preventing stale game cache writebacks. */

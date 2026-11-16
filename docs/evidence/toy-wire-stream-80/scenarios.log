@@ -1,0 +1,18 @@
+The scenarios of Test 80's change, as tests/test_toy_wire_integration.c printed them (first of its two passes):
+  commands between consecutive reads: a window given up for a command that is not a read (3), ended by INIT, RESET and an abort, never opened across a seek, and reopened by the next consecutive read: 8 windows
+  reads by programmed transfer: a window opened by one and three served from it, no command counted
+  another title that asks the drive for its subcode behind every read, stalls 0/0: 4 commands a window stood through, none given up for one; 4 requests of five from 1 windows, CMD18 1, CMD12 0; data exact
+  another title that asks the drive for its subcode behind every read, stalls 1500/20: 4 commands a window stood through, none given up for one; 4 requests of five from 1 windows, CMD18 39, CMD12 38; data exact
+  another title that asks the drive for its subcode behind every read, stalls 150/80: 2 commands a window stood through, none given up for one; 2 requests of five from 3 windows, CMD18 265, CMD12 264; data exact
+  the same with the drive told to stop behind every read: 4 windows, each given up for the command, CMD18 4, CMD12 4
+
+From tests/test_toy_wire_report.c:
+PASS Test 80 report: 581 body bytes with nothing counted, 1009 with a full run's values (essential rows end at 960 of 1012); at full width 14 of the 20 essential rows are written and no row is ever cut
+  the report as lines for the screen: every character once and in order, no line over 50 places; 37 lines at full width, 5 of them cut at a space
+  the page loop: heading, at most 12 lines and the line for Start to a page, every line of the text in order, round after round; the busy line once Start was refused; without a report file the card is asked for once and nothing counts as saved
+
+Added after the change's review (commit 684f485), run with Test 80's switches on that source, where the module
+builds to this module's bytes (first of the test's two passes):
+  a command met by interrupt visits while a run is in flight: one that only asks leaves window and stream to them, pending and unacknowledged, counted once; one that stops the drive ends the stream in the visit that meets it
+  every command that is no read, with a window open: 7 leave it, 8 give it up, each named in the report; and the numbers 63 and 64, which give it up
+PASS Test 80 reader integration: 346526504 checks

@@ -1,0 +1,25 @@
+Both host targets in every configuration, on source commit e82b31657f69.
+t68 toy-wire-host-tests: 3 PASS lines; last: PASS Test 68 report: 883 body bytes with nothing counted, 1001 with a full run's values (essential rows end at
+t68 toy-wire-integration-host-test: 1 PASS lines; last: PASS Test 68 reader integration: 65975561 checks
+t69 toy-wire-host-tests: 3 PASS lines; last: PASS Test 69 report: 738 body bytes with nothing counted, 997 with a full run's values (essential rows end at 
+t69 toy-wire-integration-host-test: 1 PASS lines; last: PASS Test 69 reader integration: 64116523 checks
+t70 toy-wire-host-tests: 3 PASS lines; last: PASS Test 70 report: 743 body bytes with nothing counted, 1001 with a full run's values (essential rows end at
+t70 toy-wire-integration-host-test: 1 PASS lines; last: PASS Test 70 reader integration: 65975842 checks
+t71 toy-wire-host-tests: 3 PASS lines; last: PASS Test 71 report: 697 body bytes with nothing counted, 988 with a full run's values (essential rows end at 
+t71 toy-wire-integration-host-test: 1 PASS lines; last: PASS Test 71 reader integration: 66682642 checks
+t72 toy-wire-host-tests: 3 PASS lines; last: PASS Test 72 report: 696 body bytes with nothing counted, 994 with a full run's values (essential rows end at 
+t72 toy-wire-integration-host-test: 1 PASS lines; last: PASS Test 72 reader integration: 69718853 checks
+t73 toy-wire-host-tests: 3 PASS lines; last: PASS Test 73 report: 624 body bytes with nothing counted, 976 with a full run's values (essential rows end at 
+t73 toy-wire-integration-host-test: 1 PASS lines; last: PASS Test 73 reader integration: 78922115 checks
+t74 toy-wire-host-tests: 4 PASS lines; last: PASS sector address successor: 719849 addresses, 9597 second carries, 159 minute carries, one past 99 minutes
+t74 toy-wire-integration-host-test: 1 PASS lines; last: PASS Test 74 reader integration: 219240759 checks
+t74noopen toy-wire-host-tests: 4 PASS lines; last: PASS sector address successor: 719849 addresses, 9597 second carries, 159 minute carries, one past 99 minutes
+t74noopen toy-wire-integration-host-test: 1 PASS lines; last: PASS Test 74 reader integration: 219240465 checks
+t74noclean toy-wire-host-tests: 3 PASS lines; last: PASS Test 74 report: 676 body bytes with nothing counted, 1005 with a full run's values (essential rows end at
+t74noclean toy-wire-integration-host-test: 1 PASS lines; last: PASS Test 74 reader integration: 160812020 checks
+t74nomsb toy-wire-host-tests: 4 PASS lines; last: PASS sector address successor: 719849 addresses, 9597 second carries, 159 minute carries, one past 99 minutes
+t74nomsb toy-wire-integration-host-test: 1 PASS lines; last: PASS Test 74 reader integration: 108128307 checks
+t74noquick toy-wire-host-tests: 4 PASS lines; last: PASS sector address successor: 719849 addresses, 9597 second carries, 159 minute carries, one past 99 minutes
+t74noquick toy-wire-integration-host-test: 1 PASS lines; last: PASS Test 74 reader integration: 219240752 checks
+t74noswift toy-wire-host-tests: 4 PASS lines; last: PASS sector address successor: 719849 addresses, 9597 second carries, 159 minute carries, one past 99 minutes
+t74noswift toy-wire-integration-host-test: 1 PASS lines; last: PASS Test 74 reader integration: 219240759 checks

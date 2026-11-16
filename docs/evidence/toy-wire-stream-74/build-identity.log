@@ -1,0 +1,49 @@
+Source commit e82b31657f694c68a549ce5f269e08b6e823071a, BUILD_ID e82b31657f69
+Switch: TOY_SUITE_MODE=66 TOY_WIRE_STREAM=1 TOY_WIRE_CACHED=1 TOY_WIRE_WORDS=1 TOY_WIRE_PACE=1 TOY_WIRE_IDLE=1 TOY_WIRE_LEAN=1
+Second module: the same and TOY_WIRE_MSB=0
+
+Modules, built in a clean worktree of the commit:
+9e3bb2b261c81ffdec948c92f3c9aad8480e54d08e01c97dbf057e56e7e1d4e4  build/toy-suite-74/retail-toy-test-74.kui
+582e2d7aacd69703d15e65264a58dc37e436f8a4e5d6b91b5ebb6de5ce4dd86c  build/toy-suite-74-nomsb/retail-toy-test-74.kui
+
+Clean worktree provenance record (entry.compile.json):
+{
+  "commit": "e82b31657f694c68a549ce5f269e08b6e823071a",
+  "source_dirty": false,
+  "elf_sha256": "66bf552f362dc26215630fb5ab93a73f16b2cdad90d1939477edb4d12740e82d"
+}
+
+== low residents: Test 74 built with Test 66's label against Test 66's
+resident-sci.bin identical (5dd571f30c9d8cc72bda4d61fa882a0613e4603dffe52ef4f9a5326976878f66)
+resident-legacy.bin identical (d4041dd912b04eb4ff2d1ef5446fc57bfbcfb204cd2348e826e8fdc8183aa42e)
+== low residents of the delivered build against Test 66's
+resident-sci.bin: 11 bytes differ at offsets 15491-15502
+resident-legacy.bin: 11 bytes differ at offsets 14659-14670
+main and alternate: resident-sci.bin identical
+main and alternate: resident-legacy.bin identical
+main and alternate: native-worker.bin identical
+
+Unchanged recipes on this source:
+  Test 73 (TOY_SUITE_MODE=66 TOY_WIRE_STREAM=1 TOY_WIRE_CACHED=1 TOY_WIRE_WORDS=1 TOY_WIRE_PACE=1 TOY_WIRE_IDLE=1 BUILD_ID=e623c2a697d5): 7f28c744e501bbbe7dc38c2a77bd255b8e146dd2c0accb5741262b455d967124
+  Test 72 (TOY_SUITE_MODE=66 TOY_WIRE_STREAM=1 TOY_WIRE_CACHED=1 TOY_WIRE_WORDS=1 TOY_WIRE_PACE=1 BUILD_ID=8c00ede90b9a): 04c6b439ebb4ebb28f9f6b64de1cd00cb2ab148d3256411f74a5ef34cc5dfe9b
+  Test 71 (TOY_SUITE_MODE=66 TOY_WIRE_STREAM=1 TOY_WIRE_CACHED=1 TOY_WIRE_WORDS=1 BUILD_ID=4ee37937a022): 73e8f9ed271278a10e02d9dec5b114b896b3866b48309cdc08bbb7860eb3a26f
+  Test 70 (TOY_SUITE_MODE=66 TOY_WIRE_STREAM=1 TOY_WIRE_CACHED=1 BUILD_ID=b492f00a5478): 7802a1d75e132f61837c7f8062974e297abd727a1233832313c38ab91316d7dd
+  Test 69 (TOY_SUITE_MODE=66 TOY_WIRE_STREAM=1 TOY_WIRE_TICK=1 BUILD_ID=fb625c09dde6): c6baf0104b347cea3252526302ae2e7dde3265081379e75c1ac591ecb0228beb
+  Test 68 (TOY_SUITE_MODE=66 TOY_WIRE_STREAM=1 BUILD_ID=806015566fc7): ae72c817dbd5606d4e7a7a43814621bbfb8d648642b642be1d21dad41eb5c17a
+  Test 66 (TOY_SUITE_MODE=66 BUILD_ID=3124522ea906): 06f347789a76d1b9df274e946033270c5d7eb404bde323aec7187fee6e68f8d2
+  Test 67 (Makefile.disc-native TOY_TRACE=1 TOY_WIRE_PROBE=1 BUILD_ID=e5fa67e75f73): 7533fb8b0e483567c9b015542f1c6897d5e8fffebd028ab7f84a83201edaf4e5
+
+Auxiliary image:
+== toy-suite-74
+  20384	   1800	   6176	  28360	   6ec8	build/toy-suite-74/native-ra-aux.elf
+.text 00004f4c 8c422000
+.rodata 00000004 8c426f4c
+.image_align 00000010 8c426f50
+build/toy-suite-74/native-ra-aux.bin 24416
+== toy-suite-74-nomsb
+  19872	   1800	   6176	  27848	   6cc8	build/toy-suite-74-nomsb/native-ra-aux.elf
+.text 00004d4c 8c422000
+.rodata 00000004 8c426d4c
+.image_align 00000010 8c426d50
+build/toy-suite-74-nomsb/native-ra-aux.bin 23904
+  main module: native-ra-aux.bin 24416 bytes of 24576 (0x6000): 160 bytes are left for later changes

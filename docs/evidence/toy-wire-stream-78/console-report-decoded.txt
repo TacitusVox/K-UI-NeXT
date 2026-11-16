@@ -1,0 +1,20 @@
+== docs/evidence/toy-wire-stream-78/console-report-66-12.txt
+test 78, build 1d0e5bab78ba
+title: the verified Toy Commander
+I: submitted 1968, on time 1966, longest gap 0.060 s after frame 1796; first frame 0.803 s, last 1968, skipped 0, exit 2012, first skip at 0
+B: submitted 331, on time 330, longest gap 47.8 ms after 285
+IP: frame calls 1967, 59.03 s, 30.0 ms each; reader interrupt in span 3.22 s, 1.64 ms each; skip calls 0
+BP: frame calls 330, 22.7 ms each; skip calls 0
+V: SCI 27013 visits 4.03 s; timer 6767, 0.034 s; game 84121, 6.00 s; all 10.06 s; stream blocks 148685; 67.6 us a block
+P us/block: ring 33.6, feed less checks 7.4, checks 5.9, service 4.2, seek 10.4, rest 6.2; out 1.31 s (41.7 us a sector of 31490); ending streams 0.008 s
+seek 1.54 s, 1.94 ms for each stream begun
+D: delivery visits 79274, 7.85 s, 0.10 ms each
+W: begun 794, full runs 7791, runs cut 20945, waits 9381 of 5.46 s (0.58 ms each), stops for room 1366; bytes 79725380 (536.2 a block); timer 1; errors 0, detail 0
+BLK: 148685, rebuilt 15335, unexplained 50, holed 3086, crc only 46; brought by the low reader for a window 859
+S: closed 27, sector 20, could not follow 747: lost frame 744, ambiguous 0, bad crc 3
+FILL: 2001, refused 1, bad 19;  K: light 26480, edc 5586, mend 11975, MB 0, LB 0, ORD 3
+  check: light + edc - bad = 32047 against sectors into the window 32047 (the difference is sectors refused for too many lost bytes once whole)
+AHEAD: sectors served from the movies' windows 29249, from other windows 2241, all 31490; requests served 2476 (12.7 sectors each); sectors into the window 32047, of which not served 557 (1.7%); stop 0
+PIPE: movie windows 6; game's calls 84121, interrupt visits 27013, stay 87, PT 3BD
+X: other windows 21; opened in all 27 (1166.3 sectors, 91.70 requests each); given up: error 0, request state 0, command 4, waited 0, other read 23, together 27
+BIG: requests of more than sixty sectors 6, 2135 sectors (355.8 each), back to the low reader 0

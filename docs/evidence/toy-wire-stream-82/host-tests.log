@@ -1,0 +1,273 @@
+PASS Mode 1 lost-byte fill: 27329 patterns filled exactly, 11 refused; 1 of 8000 clustered patterns knotted
+Test 81 card stream on the wire model:
+  run  0 (timer 2, stall every ~0, 0% busy): blocks 15000, rebuilt 931, unsolved 0, holed 5, cuts 0, runs 978, waits 0, fulls 0, gap idle/token 40/1, stops crc/ambiguous 0/0
+  run  1 (timer 1, stall every ~1200, 10% busy): blocks 15005, rebuilt 4480, unsolved 0, holed 1529, cuts 18724, runs 224, waits 12800, fulls 0, gap idle/token 722/52, stops crc/ambiguous 4/29
+  run  2 (timer 2, stall every ~2400, 20% busy): blocks 15005, rebuilt 2420, unsolved 0, holed 1239, cuts 16649, runs 999, waits 13641, fulls 0, gap idle/token 634/42, stops crc/ambiguous 2/33
+  run  3 (timer 1, stall every ~600, 30% busy): blocks 15036, rebuilt 4610, unsolved 3, holed 6190, cuts 86487, runs 121, waits 77350, fulls 0, gap idle/token 3028/227, stops crc/ambiguous 1/273
+  run  4 (timer 0, stall every ~0, 0% busy): blocks 15001, rebuilt 931, unsolved 0, holed 5, cuts 0, runs 977, waits 0, fulls 0, gap idle/token 40/1, stops crc/ambiguous 0/0
+  run  5 (timer 1, stall every ~2400, 50% busy): blocks 15035, rebuilt 1576, unsolved 1, holed 3316, cuts 54010, runs 1803, waits 51212, fulls 0, gap idle/token 1974/229, stops crc/ambiguous 3/272
+  run  6 (timer 2, stall every ~600, 60% busy): blocks 15163, rebuilt 2078, unsolved 1, holed 10000, cuts 189622, runs 6, waits 183077, fulls 0, gap idle/token 6460/886, stops crc/ambiguous 9/1172
+  run  7 (timer 1, stall every ~1200, 0% busy): blocks 15001, rebuilt 5108, unsolved 0, holed 596, cuts 6332, runs 244, waits 207, fulls 0, gap idle/token 251/9, stops crc/ambiguous 0/0
+  run  8 (timer 2, stall every ~0, 0% busy): blocks 15002, rebuilt 931, unsolved 0, holed 5, cuts 0, runs 977, waits 0, fulls 0, gap idle/token 40/1, stops crc/ambiguous 0/0
+  run  9 (timer 0, stall every ~600, 20% busy): blocks 15035, rebuilt 5678, unsolved 0, holed 4741, cuts 58218, runs 170, waits 48287, fulls 0, gap idle/token 2188/136, stops crc/ambiguous 5/125
+  run 10 (timer 2, stall every ~1200, 30% busy): blocks 15030, rebuilt 3420, unsolved 0, holed 3351, cuts 48851, runs 167, waits 43335, fulls 0, gap idle/token 1737/131, stops crc/ambiguous 2/157
+  run 11 (timer 1, stall every ~2400, 40% busy): blocks 15029, rebuilt 1838, unsolved 0, holed 2485, cuts 37466, runs 1572, waits 34594, fulls 0, gap idle/token 1319/135, stops crc/ambiguous 1/165
+  courses with the stream's timer: 7 in Toy Commander, 3 in another title at its own table
+  the stream's timer by the title's own table: taken in another title with both free, the second where the first is the title's, none without an admitted table, at another vector base, behind the title's own handlers, behind another default, or with both in use; the title's entries, priorities and its timers' reload, count and control as they were after each, and an entry or a priority the title took meanwhile left to it
+  a title that takes the stream's timer while the stream runs, by its entry, by starting it, or under a wait that stands armed: never armed, stopped or answered by the stream again, the entry left to the title or given back to it, the waits ended as without a timer
+  an underflow of a timer the title started under the stream's entry: not answered and not stopped by the stream, the entry given back
+  a stream ended by a fault: its timer back as it was found, and a timer the title has taken or started meanwhile not written
+  the corner by construction, a block read three bytes late behind its lost token: with a byte of that reading's CRC16 lost it is handed on unchecked where the byte behind looks like a gap, and refused for the right reading where it does not; with one data byte lost it is handed on rebuilt, and wrong, for 3 of 492 places of that byte (35, 353, 418; the same on a second block) and rebuilt right for the others; 986 streams, the bytes lost in each exactly the two listed
+  a block of FF read three bytes early, behind a lost gap byte and with more lost bytes than the right reading may have: handed on unchecked with 24 lost bytes listed, every other byte the card's; the stream then finds itself beside the blocks and stops
+  the bit order by construction: four streams that lose a byte ahead of their first token end the asking; an honoured order is given up when a whole reading from beside its place fails its CRC16 before a block has settled it; either way the next stream reads the old way, and right
+  blocks handed on as clean 112879, rebuilt 34001, left to the sector check 33462: none of the first two kinds had a missing byte, none called clean a wrong one
+  bit order asked of the receiver: ignored in 4 runs, honoured in 4, token only in 4; each read right, but for 0 honoured ones given up before a whole block had settled the order (7 blocks with lost bytes went to the sector check before a whole block had exposed the token-only answer)
+  the ring read through the cache: 3054493 lines dropped and fetched afresh for 179994 blocks
+  streams given up while they received: 1088, the card clocked on for 2174 bytes in all, 2 at most
+  block buffers: 166545 blocks taken into the first, 13797 into the second; none shared a place in the cache with its bytes in the ring
+  waits without a timer: 234299 looks before a wait's time left it standing, 16619 after it ended it
+PASS Test 81 card stream: 179994 blocks checked against the card over 527204 overruns; 2598 streams restarted (clean block failing CRC16 31, too many lost bytes 2226); 341 blocks handed on from beside their place, each behind a byte lost between blocks and none after a whole CRC16: 341 with lost bytes listed, 0 with a byte of the CRC16 lost, 0 rebuilt from a CRC16 that fitted (0 of them equal to the card in every byte not listed all the same); all left to the sector check
+  the report as lines for the screen: every character once and in order, no line over 50 places; 37 lines at full width, 5 of them cut at a space
+  the page loop: heading, at most 12 lines and the line for Start to a page, every line of the text in order, round after round; the busy line once Start was refused; without a report file the card is asked for once and nothing counts as saved
+PASS Test 81 report: 582 body bytes with nothing counted, 1010 with a full run's values (essential rows end at 961 of 1012); at full width 14 of the 20 essential rows are written and no row is ever cut
+  with twelve thousand windows opened by ordinary reads beside the movies' the first movie's player, the last row, still fits; with the movies' windows alone every row fits (993 bytes)
+PASS the stage's source for the window: another title on the New reader with the virtual VMU off or on, by a raw Mode 1 track on the SCI card and nothing else; Toy Commander never, its files not looked for
+PASS sector address successor: 719849 addresses, 9597 second carries, 159 minute carries, one past 99 minutes
+Test 81 reader, real low reader + auxiliary + stream on the card model:
+ the receiver ignores SCSCMR1.SDIR:
+  contiguous extents, stall every ~0 bytes, 0% busy phases, poll every 3: 22 requests, 21 served on arrival; streams 1, cuts 0, waits 0, fulls 87, blocks 1374 (rebuilt 87, holed 0), sectors filled 0 (most lost 0), re-read 0+0, stream ends close/jump/sector/frame 1/0/0/0, CMD18 1, CMD12 0, ERI 1, timer 0
+  contiguous extents, stall every ~0 bytes, 0% busy phases, poll every 0: 22 requests, 21 served on arrival; streams 1, cuts 0, waits 0, fulls 87, blocks 1374 (rebuilt 87, holed 0), sectors filled 0 (most lost 0), re-read 0+0, stream ends close/jump/sector/frame 1/0/0/0, CMD18 1, CMD12 0, ERI 1, timer 0
+  contiguous extents, stall every ~6000 bytes, 0% busy phases, poll every 3: 22 requests, 21 served on arrival; streams 2, cuts 119, waits 2, fulls 144, blocks 1374 (rebuilt 158, holed 5), sectors filled 5 (most lost 2), re-read 0+0, stream ends close/jump/sector/frame 1/0/0/1, CMD18 2, CMD12 1, ERI 5, timer 2
+  contiguous extents, stall every ~1500 bytes, 20% busy phases, poll every 2: 22 requests, 0 served on arrival; streams 42, cuts 3182, waits 2783, fulls 0, blocks 1288 (rebuilt 304, holed 193), sectors filled 90 (most lost 54), re-read 27+0, stream ends close/jump/sector/frame 0/0/27/14, CMD18 42, CMD12 41, ERI 2725, timer 2753
+  contiguous extents, stall every ~500 bytes, 50% busy phases, poll every 1: 22 requests, 0 served on arrival; streams 290, cuts 13458, waits 13005, fulls 0, blocks 979 (rebuilt 164, holed 677), sectors filled 63 (most lost 52), re-read 213+0, stream ends close/jump/sector/frame 0/0/213/76, CMD18 290, CMD12 289, ERI 309, timer 12772
+sector checks: light 0 edc 286 mends 0 mend_bad 0 light_bad 0 check_bad 0 starts 430 took 286
+  contiguous extents, stall every ~150 bytes, 80% busy phases, poll every 4: 22 requests, 0 served on arrival; streams 430, cuts 18046, waits 17927, fulls 0, blocks 689 (rebuilt 0, holed 689), sectors filled 0 (most lost 56), re-read 286+0, stream ends close/jump/sector/frame 0/0/286/143, CMD18 430, CMD12 429, ERI 17716, timer 17517
+  scattered extents, stall every ~0 bytes, 0% busy phases, poll every 3: 22 requests, 18 served on arrival; streams 49, cuts 0, waits 0, fulls 108, blocks 1292 (rebuilt 56, holed 0), sectors filled 0 (most lost 0), re-read 0+0, stream ends close/jump/sector/frame 0/48/0/0, CMD18 49, CMD12 48, ERI 27, timer 0
+  scattered extents, stall every ~6000 bytes, 5% busy phases, poll every 2: 22 requests, 5 served on arrival; streams 56, cuts 657, waits 373, fulls 116, blocks 1295 (rebuilt 123, holed 26), sectors filled 20 (most lost 33), re-read 2+0, stream ends close/jump/sector/frame 0/49/2/4, CMD18 57, CMD12 56, ERI 382, timer 361
+  contiguous extents, stall every ~0 bytes, 0% busy phases, poll every 3: 22 requests, 0 served on arrival; streams 1, cuts 0, waits 0, fulls 83, blocks 1316 (rebuilt 83, holed 0), sectors filled 0 (most lost 0), re-read 0+0, stream ends close/jump/sector/frame 0/0/0/0, CMD18 1, CMD12 0, ERI 1, timer 0
+  contiguous extents, stall every ~1500 bytes, 20% busy phases, poll every 2: 22 requests, 0 served on arrival; streams 42, cuts 3182, waits 2783, fulls 1, blocks 1286 (rebuilt 304, holed 193), sectors filled 90 (most lost 54), re-read 27+0, stream ends close/jump/sector/frame 0/0/27/14, CMD18 42, CMD12 41, ERI 2725, timer 2753
+sector checks: light 0 edc 286 mends 0 mend_bad 0 light_bad 0 check_bad 0 starts 430 took 286
+  contiguous extents, stall every ~150 bytes, 80% busy phases, poll every 4: 22 requests, 0 served on arrival; streams 430, cuts 18046, waits 17927, fulls 0, blocks 689 (rebuilt 0, holed 689), sectors filled 0 (most lost 56), re-read 286+0, stream ends close/jump/sector/frame 0/0/286/143, CMD18 430, CMD12 429, ERI 17716, timer 17517
+  scattered extents, stall every ~6000 bytes, 5% busy phases, poll every 2: 22 requests, 0 served on arrival; streams 56, cuts 673, waits 382, fulls 121, blocks 1295 (rebuilt 125, holed 26), sectors filled 20 (most lost 33), re-read 2+0, stream ends close/jump/sector/frame 0/49/2/4, CMD18 57, CMD12 56, ERI 392, timer 372
+  playing, stall every ~0 bytes, 0% busy phases, 70 ticks a block, without the timer's help: data ready for 0 of 21 frames when asked; fulls 30, SCI visits 86, timer visits 0
+  playing, stall every ~6000 bytes, 0% busy phases, 70 ticks a block, without the timer's help: data ready for 18 of 21 frames when asked; fulls 16, SCI visits 168, timer visits 2
+  playing, stall every ~1500 bytes, 20% busy phases, 70 ticks a block, without the timer's help: data ready for 0 of 21 frames when asked; fulls 0, SCI visits 3159, timer visits 2702
+  playing, stall every ~0 bytes, 0% busy phases, 35 ticks a block, without the timer's help: data ready for 20 of 21 frames when asked; fulls 26, SCI visits 88, timer visits 0
+  playing, stall every ~0 bytes, 0% busy phases, 23 ticks a block, without the timer's help: data ready for 21 of 21 frames when asked; fulls 13, SCI visits 89, timer visits 0
+  update calls, stall every ~0 bytes, 0% busy phases: 1625 calls, 1 passed on for work and 122 as due; all visits 123; data ready for 21 of 21 frames when asked; fulls 8, streams 1
+  update calls, stall every ~6000 bytes, 0% busy phases: 1625 calls, 0 passed on for work and 128 as due; all visits 129; data ready for 21 of 21 frames when asked; fulls 4, streams 2
+  update calls, stall every ~1500 bytes, 20% busy phases: 1625 calls, 0 passed on for work and 145 as due; all visits 2666; data ready for 0 of 21 frames when asked; fulls 0, streams 52
+  the game's idle GD calls, stall every ~0 bytes, 0% busy phases: 1050 calls, 8 pumped for work and 59 as due; all foreground pumps 88; data ready for 21 of 21 frames when asked; fulls 23, streams 1
+  the game's idle GD calls, stall every ~6000 bytes, 0% busy phases: 1050 calls, 0 pumped for work and 70 as due; all foreground pumps 91; data ready for 21 of 21 frames when asked; fulls 4, streams 2
+  the game's idle GD calls, stall every ~1500 bytes, 20% busy phases: 1050 calls, 0 pumped for work and 84 as due; all foreground pumps 152; data ready for 0 of 21 frames when asked; fulls 0, streams 52
+  an overrun whose interrupt does not come: answered by the next update call
+  8 requests the game waited for with interrupts held off: one window, one stream, 8 of them kept waiting for the wire, 31 rounds of the game's loop
+  a request waited for in vain: kept for a quarter of a second, then the window given up and the low reader read it
+  a request waited for while the wire brings a run now and then: kept through three quarter seconds, given up a quarter second after the last sector
+  a request waited for that is not the window's next: its window given up at once
+  a request waited for without the clock that bounds the wait: its window given up at once
+  a request the window cannot serve yet: every call that waits for it pumps
+  the player itself: frames put out and skipped with their update's time, the reader's interrupt time around them; each movie apart
+  the second movie's first skip: its own frame, not a skip of the first movie's
+  a track that begins two bytes into its block: six requests served from the window, none of their pieces given to the word copy
+  a stream stopped with its channel taken by another source: the channel left as it was, the fault reported
+  a stream stopped with its channel pointed outside the run: the channel left as it was, the fault reported
+  a block damaged on the wire: CRC16 refused it, one CMD12 and CMD18, data exact
+  a lost byte rebuilt wrong from a CRC16 that fits other data: refused by the sector's check in 12 placements, the sector read again, data exact
+  a rebuilt block's wrong byte in the sector before its lost byte: refused by the sector's check in 5 placements, the sector read again, data exact
+  a rebuilt block's wrong byte in the sector behind its lost byte, lost where no P code word reaches: refused by the sector's check in 10 placements, the sector read again, data exact
+  a damaged block whose CRC16 was lost: refused by the sector's check in 12 placements, the sector read again, data exact
+  a sector with another address than its place, its blocks' CRC16 fitting: refused by the sector's check in 12 placements, the sector read again, data exact
+  a block stored wrong with a fitting CRC16, in 40 places: served as stored 34 times, found by the one-in-sixteen EDC sample 3 times, which then switched the lighter check off
+  image without parity: 102 sectors re-read by programmed transfers, data exact
+  image without parity, rare stalls: 109 rebuilt bytes no code word confirmed, each passed by the EDC
+  another read in the middle of the movie: stream stopped, CMD12 from the foreground, read exact
+  ordinary reads one behind the other: the second opens a window with no card command; 7 requests of 9 served from 2 windows, 167 sectors; the read of 61 sectors served from its window in slices; a window given up for a read elsewhere and one at the track's end; CMD18 3, CMD12 2
+  reads that reach over the track's end, the game's EXEC call first: never the window's, one at an open window's first sector and one that opened a window for itself; both read by the low reader, exact
+  8 ordinary reads the game waited for with interrupts held off: the first the low reader's, then one window and one stream, 7 kept waiting for the wire, 29 rounds of the game's loop
+  a token search left standing by a read the game ended, the game then asking again with the player's polls: no window on top of it, the low reader's read in 70 rounds, the next read's window as ever
+  a token search left standing by a read the game ended, the game then asking again with EXEC and CHECK: no window on top of it, the low reader's read in 70 rounds, the next read's window as ever
+  a token search left standing by a read the game ended, the game then asking again with no call at all: no window on top of it, the low reader's read in 63 rounds, the next read's window as ever
+  the same over scattered extents, stall every ~0 bytes, 0% busy phases: 27 requests, 26 from the window; streams 48, ends close/jump/sector/frame 1/47/0/0, windows 1, CMD18 50, CMD12 49
+  the same over scattered extents, stall every ~1500 bytes, 20% busy phases: 27 requests, 26 from the window; streams 101, ends close/jump/sector/frame 1/45/43/12, windows 1, CMD18 117, CMD12 116
+  the same over scattered extents, stall every ~150 bytes, 80% busy phases: 27 requests, 26 from the window; streams 451, ends close/jump/sector/frame 0/18/286/147, windows 1, CMD18 515, CMD12 514
+  a window and the movie's file: one opened ahead of the file served 30 sectors into it, one opened inside it 71 sectors to behind its end, counted as that movie's; one opened by a read over the file's end counted with the others
+  commands between consecutive reads: a window given up for a command that is not a read (3), ended by INIT, RESET and an abort, never opened across a seek, and reopened by the next consecutive read: 8 windows
+  ordinary reads served in an interrupt visit and reported by the game's next call: 3, the window kept through each
+  the card asked of the reader with a window open, its stream standing still: window given up, stream stopped, CMD12, the card handed over; given back, the game reads on and has a window again
+  the card asked of the reader with a window open, its stream receiving: window given up, stream stopped, CMD12, the card handed over; given back, the game reads on and has a window again
+  the card's stop command failing once as a window is given up for a read elsewhere: the window closed, the command sent again by the low reader, the read exact; CMD12 2
+  reads that reach over the track's end, the game's CHECK call first: never the window's, one at an open window's first sector and one that opened a window for itself; both read by the low reader, exact
+  no window with the SCI route not selected: ten consecutive reads, all the low reader's, one CMD18
+  no window with a source the stage did not find raw: ten consecutive reads, all the low reader's, one CMD18
+  no window with a track of 2,048-byte sectors on a disc whose movie track is raw: ten consecutive reads, all the low reader's, one CMD18
+  a movie's start as the game reads it: the read of 61 sectors opens the window and comes through it, the refills from the same window; played again after its end, that read gives the window up and the first refill opens a second; 12 refills and the one large read served
+  Evolution 2's refills, 73 and 50 sectors by turns: the first the low reader's, the second opens a window, four requests served from it, the one of 73 sectors in slices (2 events after its request); CMD18 1, CMD12 0
+  a request of 200 sectors behind a small one, stalls 0/0: opened a window and came through it in 15 events, the read behind it from the same window; streams begun 1, CMD18 1, CMD12 0
+  a request of 200 sectors behind a small one, stalls 1500/20: opened a window and came through it in 81 events, the read behind it from the same window; streams begun 30, CMD18 30, CMD12 29
+  a request of 200 sectors behind a small one, stalls 150/80: opened a window and came through it in 200 events, the read behind it from the same window; streams begun 327, CMD18 327, CMD12 326
+  a request of 200 sectors behind a small one, stalls 0/0, at the console's pace: opened a window and came through it in 66 events, the read behind it from the same window; streams begun 1, CMD18 1, CMD12 0
+  a request of 200 sectors behind a small one, stalls 1500/20, at the console's pace: opened a window and came through it in 107 events, the read behind it from the same window; streams begun 30, CMD18 30, CMD12 29
+  a request of 150 sectors whose window failed after 40 of them: back to the low reader whole, read again from its first sector, data exact; the read behind it has a window
+  a request of 150 sectors whose window failed after 40 of them, the card's stop command failing once: back to the low reader whole, read again from its first sector, data exact; the read behind it has a window
+  a request of 61 sectors the game waited for with interrupts held off: one window, kept while it grew, 20 rounds of the game's loop
+  a large request the game waited for in vain after 74 of 150 sectors: the window given up after a quarter second, back to the low reader whole, data exact
+  a read of 117 sectors over the track's end that opened a window for itself and had 13 sectors of it: the window given up at its next visit, back to the low reader whole, data exact
+  a request of 61 sectors at a window that holds them: two slices by its own visit, nothing asked of the wire, the rest by 1 CHECK call alone
+  another title on a disc with a raw track, the stream's timer taken by the title's own table: Evolution 2's refills served from one window, four requests of five, nothing counted as a movie's, the movie policy never on; CMD18 1, CMD12 0
+  another title, the stream's timer by the title's own table, stalls 1500/20: 2391 waits, 2367 answers of the timer; 4 requests of five from 1 windows, 36 streams begun; data exact
+  another title, the stream's timer by the title's own table, stalls 150/80: 14557 waits, 14229 answers of the timer; 4 requests of five from 1 windows, 346 streams begun; data exact
+  another title on a disc the stage did not call a source: no window, the low reader read all five requests in one card command
+  another title on a disc with a raw track, no timer for the stream: Evolution 2's refills served from one window, four requests of five, nothing counted as a movie's, the movie policy never on; CMD18 1, CMD12 0
+  another title, no timer, stalls 1500/20: 2223 waits of 2207156 ticks in all, none shorter than its time; 4 requests of five from 1 windows, 39 streams begun; data exact
+  another title, no timer, stalls 150/80: 10793 waits of 11078997 ticks in all, none shorter than its time; 2 requests of five from 3 windows, 264 streams begun; data exact
+  reads by programmed transfer: a window opened by one and three served from it, no command counted
+  a command met by interrupt visits while a run is in flight: one that only asks leaves window and stream to them, pending and unacknowledged, counted once; one that stops the drive ends the stream in the visit that meets it
+  every command that is no read, with a window open: 7 leave it, 8 give it up, each named in the report; and the numbers 63 and 64, which give it up
+  another title that asks the drive for its subcode behind every read, stalls 0/0: 4 commands a window stood through, none given up for one; 4 requests of five from 1 windows, CMD18 1, CMD12 0; data exact
+  another title that asks the drive for its subcode behind every read, stalls 1500/20: 4 commands a window stood through, none given up for one; 4 requests of five from 1 windows, CMD18 36, CMD12 35; data exact
+  another title that asks the drive for its subcode behind every read, stalls 150/80: 4 commands a window stood through, none given up for one; 4 requests of five from 1 windows, CMD18 347, CMD12 346; data exact
+  the same with the drive told to stop behind every read: 4 windows, each given up for the command, CMD18 4, CMD12 4
+  another title with the card lent behind every read, stalls 0/0: 6 loans granted, 1 refused while a command was pending, each with the stream stopped and the title's table and timers its own, and a block of the card read by the borrower through the card's port in each; 4 requests of five from 4 windows, 4 streams begun, CMD12 11; data exact
+  another title with the card lent behind every read, stalls 1500/20: 6 loans granted, 1 refused while a command was pending, each with the stream stopped and the title's table and timers its own, and a block of the card read by the borrower through the card's port in each; 4 requests of five from 4 windows, 46 streams begun, CMD12 53; data exact
+  another title with the card lent behind every read, stalls 150/80: 6 loans granted, 1 refused while a command was pending, each with the stream stopped and the title's table and timers its own, and a block of the card read by the borrower through the card's port in each; 4 requests of five from 4 windows, 348 streams begun, CMD12 356; data exact
+  movie ended under a waiting request: the window served it and stayed, no card command
+  window in error under a waiting request: stream stopped in the interrupt visit, CMD12 later, read exact
+  the window's reason gone (movie over, a call): stream on, window kept, given up as error/over/idle/command/waiting/other 0/0/0/0/0/0 and on a pump's error 0, CMD12 none, pumped
+  the window's reason gone (movie over, an interrupt): stream on, window kept, given up as error/over/idle/command/waiting/other 0/0/0/0/0/0 and on a pump's error 0, CMD12 none, pumped
+  the window's reason gone (last request failed): stream off, window gone, given up as error/over/idle/command/waiting/other 0/0/1/0/0/0 and on a pump's error 0, CMD12 once, no pump
+  the window's reason gone (a command that is not a read): stream off, window gone, given up as error/over/idle/command/waiting/other 0/0/0/1/0/0 and on a pump's error 0, CMD12 once, no pump
+  the window's reason gone (bus fault): stream off, window gone, given up as error/over/idle/command/waiting/other 0/0/0/0/0/0 and on a pump's error 0, CMD12 once, no pump
+  the window's reason gone (reader closed): stream off, window gone, given up as error/over/idle/command/waiting/other 0/0/0/0/0/0 and on a pump's error 0, CMD12 once, no pump
+  the window's reason gone (bus released): stream off, window gone, given up as error/over/idle/command/waiting/other 0/0/0/0/0/0 and on a pump's error 0, CMD12 once, no pump
+  the window's reason gone (low reader mid-resume): stream off, window gone, given up as error/over/idle/command/waiting/other 1/0/0/0/0/0 and on a pump's error 0, CMD12 once, no pump
+  the window's reason gone (window marked in error): stream off, window gone, given up as error/over/idle/command/waiting/other 1/0/0/0/0/0 and on a pump's error 0, CMD12 once, no pump
+  the window's reason gone (region lent out): stream on, window kept, given up as error/over/idle/command/waiting/other 0/0/0/0/0/0 and on a pump's error 0, CMD12 none, not pumped
+  the window's reason gone (stream beyond repair): stream off, window gone, given up as error/over/idle/command/waiting/other 0/0/0/0/0/0 and on a pump's error 1, CMD12 at least 8, pumped
+  four streams in a row that lose a byte ahead of their first token: the bit order is no longer asked, data exact
+  a byte lost in the first stream's first block: rebuilt, the bit order known from the token
+  no free timer: waits end at the next visit after their time, and a look before it leaves one standing, and an update call that finds one is passed on; channel 1 taken: programmed reads only; data exact
+ the receiver honours SCSCMR1.SDIR:
+  contiguous extents, stall every ~0 bytes, 0% busy phases, poll every 3: 22 requests, 21 served on arrival; streams 1, cuts 0, waits 0, fulls 87, blocks 1374 (rebuilt 87, holed 0), sectors filled 0 (most lost 0), re-read 0+0, stream ends close/jump/sector/frame 1/0/0/0, CMD18 1, CMD12 0, ERI 1, timer 0
+  contiguous extents, stall every ~0 bytes, 0% busy phases, poll every 0: 22 requests, 21 served on arrival; streams 1, cuts 0, waits 0, fulls 87, blocks 1374 (rebuilt 87, holed 0), sectors filled 0 (most lost 0), re-read 0+0, stream ends close/jump/sector/frame 1/0/0/0, CMD18 1, CMD12 0, ERI 1, timer 0
+  contiguous extents, stall every ~6000 bytes, 0% busy phases, poll every 3: 22 requests, 21 served on arrival; streams 2, cuts 119, waits 2, fulls 144, blocks 1374 (rebuilt 158, holed 5), sectors filled 5 (most lost 2), re-read 0+0, stream ends close/jump/sector/frame 1/0/0/1, CMD18 2, CMD12 1, ERI 5, timer 2
+  contiguous extents, stall every ~1500 bytes, 20% busy phases, poll every 2: 22 requests, 0 served on arrival; streams 42, cuts 3182, waits 2783, fulls 0, blocks 1288 (rebuilt 304, holed 193), sectors filled 90 (most lost 54), re-read 27+0, stream ends close/jump/sector/frame 0/0/27/14, CMD18 42, CMD12 41, ERI 2725, timer 2753
+  contiguous extents, stall every ~500 bytes, 50% busy phases, poll every 1: 22 requests, 0 served on arrival; streams 290, cuts 13458, waits 13005, fulls 0, blocks 979 (rebuilt 164, holed 677), sectors filled 63 (most lost 52), re-read 213+0, stream ends close/jump/sector/frame 0/0/213/76, CMD18 290, CMD12 289, ERI 309, timer 12772
+sector checks: light 0 edc 286 mends 0 mend_bad 0 light_bad 0 check_bad 0 starts 430 took 286
+  contiguous extents, stall every ~150 bytes, 80% busy phases, poll every 4: 22 requests, 0 served on arrival; streams 430, cuts 18046, waits 17927, fulls 0, blocks 689 (rebuilt 0, holed 689), sectors filled 0 (most lost 56), re-read 286+0, stream ends close/jump/sector/frame 0/0/286/143, CMD18 430, CMD12 429, ERI 17716, timer 17517
+  scattered extents, stall every ~0 bytes, 0% busy phases, poll every 3: 22 requests, 18 served on arrival; streams 49, cuts 0, waits 0, fulls 108, blocks 1292 (rebuilt 56, holed 0), sectors filled 0 (most lost 0), re-read 0+0, stream ends close/jump/sector/frame 0/48/0/0, CMD18 49, CMD12 48, ERI 27, timer 0
+  scattered extents, stall every ~6000 bytes, 5% busy phases, poll every 2: 22 requests, 5 served on arrival; streams 56, cuts 657, waits 373, fulls 116, blocks 1295 (rebuilt 123, holed 26), sectors filled 20 (most lost 33), re-read 2+0, stream ends close/jump/sector/frame 0/49/2/4, CMD18 57, CMD12 56, ERI 382, timer 361
+  contiguous extents, stall every ~0 bytes, 0% busy phases, poll every 3: 22 requests, 0 served on arrival; streams 1, cuts 0, waits 0, fulls 83, blocks 1316 (rebuilt 83, holed 0), sectors filled 0 (most lost 0), re-read 0+0, stream ends close/jump/sector/frame 0/0/0/0, CMD18 1, CMD12 0, ERI 1, timer 0
+  contiguous extents, stall every ~1500 bytes, 20% busy phases, poll every 2: 22 requests, 0 served on arrival; streams 42, cuts 3182, waits 2783, fulls 1, blocks 1286 (rebuilt 304, holed 193), sectors filled 90 (most lost 54), re-read 27+0, stream ends close/jump/sector/frame 0/0/27/14, CMD18 42, CMD12 41, ERI 2725, timer 2753
+sector checks: light 0 edc 286 mends 0 mend_bad 0 light_bad 0 check_bad 0 starts 430 took 286
+  contiguous extents, stall every ~150 bytes, 80% busy phases, poll every 4: 22 requests, 0 served on arrival; streams 430, cuts 18046, waits 17927, fulls 0, blocks 689 (rebuilt 0, holed 689), sectors filled 0 (most lost 56), re-read 286+0, stream ends close/jump/sector/frame 0/0/286/143, CMD18 430, CMD12 429, ERI 17716, timer 17517
+  scattered extents, stall every ~6000 bytes, 5% busy phases, poll every 2: 22 requests, 0 served on arrival; streams 56, cuts 673, waits 382, fulls 121, blocks 1295 (rebuilt 125, holed 26), sectors filled 20 (most lost 33), re-read 2+0, stream ends close/jump/sector/frame 0/49/2/4, CMD18 57, CMD12 56, ERI 392, timer 372
+  playing, stall every ~0 bytes, 0% busy phases, 70 ticks a block, without the timer's help: data ready for 0 of 21 frames when asked; fulls 30, SCI visits 86, timer visits 0
+  playing, stall every ~6000 bytes, 0% busy phases, 70 ticks a block, without the timer's help: data ready for 18 of 21 frames when asked; fulls 16, SCI visits 168, timer visits 2
+  playing, stall every ~1500 bytes, 20% busy phases, 70 ticks a block, without the timer's help: data ready for 0 of 21 frames when asked; fulls 0, SCI visits 3159, timer visits 2702
+  playing, stall every ~0 bytes, 0% busy phases, 35 ticks a block, without the timer's help: data ready for 20 of 21 frames when asked; fulls 26, SCI visits 88, timer visits 0
+  playing, stall every ~0 bytes, 0% busy phases, 23 ticks a block, without the timer's help: data ready for 21 of 21 frames when asked; fulls 13, SCI visits 89, timer visits 0
+  update calls, stall every ~0 bytes, 0% busy phases: 1625 calls, 1 passed on for work and 122 as due; all visits 123; data ready for 21 of 21 frames when asked; fulls 8, streams 1
+  update calls, stall every ~6000 bytes, 0% busy phases: 1625 calls, 0 passed on for work and 128 as due; all visits 129; data ready for 21 of 21 frames when asked; fulls 4, streams 2
+  update calls, stall every ~1500 bytes, 20% busy phases: 1625 calls, 0 passed on for work and 145 as due; all visits 2666; data ready for 0 of 21 frames when asked; fulls 0, streams 52
+  the game's idle GD calls, stall every ~0 bytes, 0% busy phases: 1050 calls, 8 pumped for work and 59 as due; all foreground pumps 88; data ready for 21 of 21 frames when asked; fulls 23, streams 1
+  the game's idle GD calls, stall every ~6000 bytes, 0% busy phases: 1050 calls, 0 pumped for work and 70 as due; all foreground pumps 91; data ready for 21 of 21 frames when asked; fulls 4, streams 2
+  the game's idle GD calls, stall every ~1500 bytes, 20% busy phases: 1050 calls, 0 pumped for work and 84 as due; all foreground pumps 152; data ready for 0 of 21 frames when asked; fulls 0, streams 52
+  an overrun whose interrupt does not come: answered by the next update call
+  8 requests the game waited for with interrupts held off: one window, one stream, 8 of them kept waiting for the wire, 31 rounds of the game's loop
+  a request waited for in vain: kept for a quarter of a second, then the window given up and the low reader read it
+  a request waited for while the wire brings a run now and then: kept through three quarter seconds, given up a quarter second after the last sector
+  a request waited for that is not the window's next: its window given up at once
+  a request waited for without the clock that bounds the wait: its window given up at once
+  a request the window cannot serve yet: every call that waits for it pumps
+  the player itself: frames put out and skipped with their update's time, the reader's interrupt time around them; each movie apart
+  the second movie's first skip: its own frame, not a skip of the first movie's
+  a track that begins two bytes into its block: six requests served from the window, none of their pieces given to the word copy
+  a stream stopped with its channel taken by another source: the channel left as it was, the fault reported
+  a stream stopped with its channel pointed outside the run: the channel left as it was, the fault reported
+  a block damaged on the wire: CRC16 refused it, one CMD12 and CMD18, data exact
+  a lost byte rebuilt wrong from a CRC16 that fits other data: refused by the sector's check in 12 placements, the sector read again, data exact
+  a rebuilt block's wrong byte in the sector before its lost byte: refused by the sector's check in 5 placements, the sector read again, data exact
+  a rebuilt block's wrong byte in the sector behind its lost byte, lost where no P code word reaches: refused by the sector's check in 10 placements, the sector read again, data exact
+  a damaged block whose CRC16 was lost: refused by the sector's check in 12 placements, the sector read again, data exact
+  a sector with another address than its place, its blocks' CRC16 fitting: refused by the sector's check in 12 placements, the sector read again, data exact
+  a block stored wrong with a fitting CRC16, in 40 places: served as stored 34 times, found by the one-in-sixteen EDC sample 3 times, which then switched the lighter check off
+  image without parity: 102 sectors re-read by programmed transfers, data exact
+  image without parity, rare stalls: 109 rebuilt bytes no code word confirmed, each passed by the EDC
+  another read in the middle of the movie: stream stopped, CMD12 from the foreground, read exact
+  ordinary reads one behind the other: the second opens a window with no card command; 7 requests of 9 served from 2 windows, 167 sectors; the read of 61 sectors served from its window in slices; a window given up for a read elsewhere and one at the track's end; CMD18 3, CMD12 2
+  reads that reach over the track's end, the game's EXEC call first: never the window's, one at an open window's first sector and one that opened a window for itself; both read by the low reader, exact
+  8 ordinary reads the game waited for with interrupts held off: the first the low reader's, then one window and one stream, 7 kept waiting for the wire, 29 rounds of the game's loop
+  a token search left standing by a read the game ended, the game then asking again with the player's polls: no window on top of it, the low reader's read in 70 rounds, the next read's window as ever
+  a token search left standing by a read the game ended, the game then asking again with EXEC and CHECK: no window on top of it, the low reader's read in 70 rounds, the next read's window as ever
+  a token search left standing by a read the game ended, the game then asking again with no call at all: no window on top of it, the low reader's read in 63 rounds, the next read's window as ever
+  the same over scattered extents, stall every ~0 bytes, 0% busy phases: 27 requests, 26 from the window; streams 48, ends close/jump/sector/frame 1/47/0/0, windows 1, CMD18 50, CMD12 49
+  the same over scattered extents, stall every ~1500 bytes, 20% busy phases: 27 requests, 26 from the window; streams 101, ends close/jump/sector/frame 1/45/43/12, windows 1, CMD18 117, CMD12 116
+  the same over scattered extents, stall every ~150 bytes, 80% busy phases: 27 requests, 26 from the window; streams 451, ends close/jump/sector/frame 0/18/286/147, windows 1, CMD18 515, CMD12 514
+  a window and the movie's file: one opened ahead of the file served 30 sectors into it, one opened inside it 71 sectors to behind its end, counted as that movie's; one opened by a read over the file's end counted with the others
+  commands between consecutive reads: a window given up for a command that is not a read (3), ended by INIT, RESET and an abort, never opened across a seek, and reopened by the next consecutive read: 8 windows
+  ordinary reads served in an interrupt visit and reported by the game's next call: 3, the window kept through each
+  the card asked of the reader with a window open, its stream standing still: window given up, stream stopped, CMD12, the card handed over; given back, the game reads on and has a window again
+  the card asked of the reader with a window open, its stream receiving: window given up, stream stopped, CMD12, the card handed over; given back, the game reads on and has a window again
+  the card's stop command failing once as a window is given up for a read elsewhere: the window closed, the command sent again by the low reader, the read exact; CMD12 2
+  reads that reach over the track's end, the game's CHECK call first: never the window's, one at an open window's first sector and one that opened a window for itself; both read by the low reader, exact
+  no window with the SCI route not selected: ten consecutive reads, all the low reader's, one CMD18
+  no window with a source the stage did not find raw: ten consecutive reads, all the low reader's, one CMD18
+  no window with a track of 2,048-byte sectors on a disc whose movie track is raw: ten consecutive reads, all the low reader's, one CMD18
+  a movie's start as the game reads it: the read of 61 sectors opens the window and comes through it, the refills from the same window; played again after its end, that read gives the window up and the first refill opens a second; 12 refills and the one large read served
+  Evolution 2's refills, 73 and 50 sectors by turns: the first the low reader's, the second opens a window, four requests served from it, the one of 73 sectors in slices (2 events after its request); CMD18 1, CMD12 0
+  a request of 200 sectors behind a small one, stalls 0/0: opened a window and came through it in 15 events, the read behind it from the same window; streams begun 1, CMD18 1, CMD12 0
+  a request of 200 sectors behind a small one, stalls 1500/20: opened a window and came through it in 81 events, the read behind it from the same window; streams begun 30, CMD18 30, CMD12 29
+  a request of 200 sectors behind a small one, stalls 150/80: opened a window and came through it in 200 events, the read behind it from the same window; streams begun 327, CMD18 327, CMD12 326
+  a request of 200 sectors behind a small one, stalls 0/0, at the console's pace: opened a window and came through it in 66 events, the read behind it from the same window; streams begun 1, CMD18 1, CMD12 0
+  a request of 200 sectors behind a small one, stalls 1500/20, at the console's pace: opened a window and came through it in 107 events, the read behind it from the same window; streams begun 30, CMD18 30, CMD12 29
+  a request of 150 sectors whose window failed after 40 of them: back to the low reader whole, read again from its first sector, data exact; the read behind it has a window
+  a request of 150 sectors whose window failed after 40 of them, the card's stop command failing once: back to the low reader whole, read again from its first sector, data exact; the read behind it has a window
+  a request of 61 sectors the game waited for with interrupts held off: one window, kept while it grew, 20 rounds of the game's loop
+  a large request the game waited for in vain after 74 of 150 sectors: the window given up after a quarter second, back to the low reader whole, data exact
+  a read of 117 sectors over the track's end that opened a window for itself and had 13 sectors of it: the window given up at its next visit, back to the low reader whole, data exact
+  a request of 61 sectors at a window that holds them: two slices by its own visit, nothing asked of the wire, the rest by 1 CHECK call alone
+  another title on a disc with a raw track, the stream's timer taken by the title's own table: Evolution 2's refills served from one window, four requests of five, nothing counted as a movie's, the movie policy never on; CMD18 1, CMD12 0
+  another title, the stream's timer by the title's own table, stalls 1500/20: 2391 waits, 2367 answers of the timer; 4 requests of five from 1 windows, 36 streams begun; data exact
+  another title, the stream's timer by the title's own table, stalls 150/80: 14557 waits, 14229 answers of the timer; 4 requests of five from 1 windows, 346 streams begun; data exact
+  another title on a disc the stage did not call a source: no window, the low reader read all five requests in one card command
+  another title on a disc with a raw track, no timer for the stream: Evolution 2's refills served from one window, four requests of five, nothing counted as a movie's, the movie policy never on; CMD18 1, CMD12 0
+  another title, no timer, stalls 1500/20: 2223 waits of 2207156 ticks in all, none shorter than its time; 4 requests of five from 1 windows, 39 streams begun; data exact
+  another title, no timer, stalls 150/80: 10793 waits of 11078997 ticks in all, none shorter than its time; 2 requests of five from 3 windows, 264 streams begun; data exact
+  reads by programmed transfer: a window opened by one and three served from it, no command counted
+  a command met by interrupt visits while a run is in flight: one that only asks leaves window and stream to them, pending and unacknowledged, counted once; one that stops the drive ends the stream in the visit that meets it
+  every command that is no read, with a window open: 7 leave it, 8 give it up, each named in the report; and the numbers 63 and 64, which give it up
+  another title that asks the drive for its subcode behind every read, stalls 0/0: 4 commands a window stood through, none given up for one; 4 requests of five from 1 windows, CMD18 1, CMD12 0; data exact
+  another title that asks the drive for its subcode behind every read, stalls 1500/20: 4 commands a window stood through, none given up for one; 4 requests of five from 1 windows, CMD18 36, CMD12 35; data exact
+  another title that asks the drive for its subcode behind every read, stalls 150/80: 4 commands a window stood through, none given up for one; 4 requests of five from 1 windows, CMD18 347, CMD12 346; data exact
+  the same with the drive told to stop behind every read: 4 windows, each given up for the command, CMD18 4, CMD12 4
+  another title with the card lent behind every read, stalls 0/0: 6 loans granted, 1 refused while a command was pending, each with the stream stopped and the title's table and timers its own, and a block of the card read by the borrower through the card's port in each; 4 requests of five from 4 windows, 4 streams begun, CMD12 11; data exact
+  another title with the card lent behind every read, stalls 1500/20: 6 loans granted, 1 refused while a command was pending, each with the stream stopped and the title's table and timers its own, and a block of the card read by the borrower through the card's port in each; 4 requests of five from 4 windows, 46 streams begun, CMD12 53; data exact
+  another title with the card lent behind every read, stalls 150/80: 6 loans granted, 1 refused while a command was pending, each with the stream stopped and the title's table and timers its own, and a block of the card read by the borrower through the card's port in each; 4 requests of five from 4 windows, 348 streams begun, CMD12 356; data exact
+  movie ended under a waiting request: the window served it and stayed, no card command
+  window in error under a waiting request: stream stopped in the interrupt visit, CMD12 later, read exact
+  the window's reason gone (movie over, a call): stream on, window kept, given up as error/over/idle/command/waiting/other 0/0/0/0/0/0 and on a pump's error 0, CMD12 none, pumped
+  the window's reason gone (movie over, an interrupt): stream on, window kept, given up as error/over/idle/command/waiting/other 0/0/0/0/0/0 and on a pump's error 0, CMD12 none, pumped
+  the window's reason gone (last request failed): stream off, window gone, given up as error/over/idle/command/waiting/other 0/0/1/0/0/0 and on a pump's error 0, CMD12 once, no pump
+  the window's reason gone (a command that is not a read): stream off, window gone, given up as error/over/idle/command/waiting/other 0/0/0/1/0/0 and on a pump's error 0, CMD12 once, no pump
+  the window's reason gone (bus fault): stream off, window gone, given up as error/over/idle/command/waiting/other 0/0/0/0/0/0 and on a pump's error 0, CMD12 once, no pump
+  the window's reason gone (reader closed): stream off, window gone, given up as error/over/idle/command/waiting/other 0/0/0/0/0/0 and on a pump's error 0, CMD12 once, no pump
+  the window's reason gone (bus released): stream off, window gone, given up as error/over/idle/command/waiting/other 0/0/0/0/0/0 and on a pump's error 0, CMD12 once, no pump
+  the window's reason gone (low reader mid-resume): stream off, window gone, given up as error/over/idle/command/waiting/other 1/0/0/0/0/0 and on a pump's error 0, CMD12 once, no pump
+  the window's reason gone (window marked in error): stream off, window gone, given up as error/over/idle/command/waiting/other 1/0/0/0/0/0 and on a pump's error 0, CMD12 once, no pump
+  the window's reason gone (region lent out): stream on, window kept, given up as error/over/idle/command/waiting/other 0/0/0/0/0/0 and on a pump's error 0, CMD12 none, not pumped
+  the window's reason gone (stream beyond repair): stream off, window gone, given up as error/over/idle/command/waiting/other 0/0/0/0/0/0 and on a pump's error 1, CMD12 at least 8, pumped
+  four streams in a row that lose a byte ahead of their first token: the bit order is no longer asked, data exact
+  a byte lost in the first stream's first block: not rebuilt while the bit order was unconfirmed, filled from the sector's parity, data exact
+  no free timer: waits end at the next visit after their time, and a look before it leaves one standing, and an update call that finds one is passed on; channel 1 taken: programmed reads only; data exact
+  the ring read through the cache in all of the above: 6342360 lines dropped and fetched afresh
+  blocks copied into the window by the word copy's stand-in in all of the above: 497978 pieces, 210335808 bytes
+PASS Test 81 reader integration: 359191981 checks
+
+Test 81's recipe on this source:
+PASS Mode 1 lost-byte fill: 27329 patterns filled exactly, 11 refused; 1 of 8000 clustered patterns knotted
+PASS Test 81 card stream: 179994 blocks checked against the card over 527204 overruns; 2598 streams restarted (clean block failing CRC16 31, too many lost bytes 2226); 341 blocks handed on from beside their place, each behind a byte lost between blocks and none after a whole CRC16: 341 with lost bytes listed, 0 with a byte of the CRC16 lost, 0 rebuilt from a CRC16 that fitted (0 of them equal to the card in every byte not listed all the same); all left to the sector check
+PASS Test 81 report: 582 body bytes with nothing counted, 1010 with a full run's values (essential rows end at 961 of 1012); at full width 14 of the 20 essential rows are written and no row is ever cut
+PASS the stage's source for the window: another title on the New reader with the virtual VMU off, by a raw Mode 1 track on the SCI card and nothing else; Toy Commander by its own files as before, with the virtual VMU off only
+PASS sector address successor: 719849 addresses, 9597 second carries, 159 minute carries, one past 99 minutes
+PASS Test 81 reader integration: 359191981 checks

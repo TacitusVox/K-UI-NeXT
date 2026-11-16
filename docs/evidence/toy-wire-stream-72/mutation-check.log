@@ -1,0 +1,65 @@
+caught  resume one byte early
+caught  resume one byte late
+caught  held byte not stored
+caught  held byte taken for the lost one
+caught  lost position not logged
+caught  no module reset
+caught  run started without room for it
+caught  short run for a waiting caller overshoots the ring
+caught  ring index ignores the wrap
+caught  channel not restored at stop
+caught  stop does not wait for a whole byte
+caught  wrong CRC polynomial
+caught  clean block not checked
+caught  rebuild counts one byte too few behind
+caught  rebuilt byte not reversed
+caught  lost data byte not listed
+caught  lost index off by one
+caught  lost gap byte never the token
+caught  second reading of the gap dropped
+caught  reader runs past what has landed
+caught  data token taken as received
+caught  block one byte short
+caught  lost bytes not mapped into the sector
+caught  failed sector not read again
+caught  extent jump ignored
+caught  stream state not handed back
+caught  resident not told the stream receives
+caught  rewind keeps the old cursor
+caught  sector served without its check
+caught  stream left running when the window closes
+caught  two-byte CRC table built from the wrong byte
+caught  second pair of a word not shifted down
+caught  table halves swapped
+caught  third byte of a word reversed from the second
+caught  last byte of a word not written
+caught  sign bits of the table left in the CRC
+caught  bytes behind a word run dropped
+caught  course pieces not counted from the movie's start
+caught  course not held to its last piece
+caught  interrupt and game time swapped in the course
+caught  restarts missing from the course
+caught  a visit out of time is not told apart
+caught  waiting requests not counted
+caught  restart time not kept
+caught  visits not counted by caller
+caught  timer visit not accounted
+caught  visits out of time not counted
+caught  update calls never held back
+caught  update calls visit without a window
+caught  a ring that stands full does not call for the foreground
+caught  the clock is never taken as good
+caught  an overrun left unanswered does not call for the foreground
+caught  an unanswered overrun is not overdue
+caught  a wait whose timer ran out is not overdue
+MISSED  a wait without a timer is not overdue
+caught  update calls not counted
+caught  due calls not counted
+56 of 57 mutations caught
+
+The one missed at the source commit, with the test added in 056814484021 (tests only), and the three beside it:
+caught  an overrun left unanswered does not call for the foreground
+caught  an unanswered overrun is not overdue
+caught  a wait whose timer ran out is not overdue
+caught  a wait without a timer is not overdue
+4 of 4 mutations caught

@@ -1,0 +1,13 @@
+The update-call scenario of tests/test_toy_wire_integration.c in the Test 71 configuration
+(TOY_WIRE_CACHED=1 TOY_WIRE_WORDS=1, same source commit) and in Test 72's:
+
+Test 71:
+  update calls, stall every ~0 bytes, 0% busy phases: 1625 calls, each one a visit; all visits 1575; data ready for 21 of 21 frames when asked; fulls 6, streams 1
+  update calls, stall every ~6000 bytes, 0% busy phases: 1625 calls, each one a visit; all visits 1577; data ready for 21 of 21 frames when asked; fulls 2, streams 1
+  update calls, stall every ~1500 bytes, 20% busy phases: 1625 calls, each one a visit; all visits 4150; data ready for 0 of 21 frames when asked; fulls 0, streams 45
+
+Test 72:
+  update calls, stall every ~0 bytes, 0% busy phases: 1625 calls, 8 passed on for work and 74 as due; all visits 82; data ready for 21 of 21 frames when asked; fulls 20, streams 1
+  update calls, stall every ~6000 bytes, 0% busy phases: 1625 calls, 0 passed on for work and 90 as due; all visits 92; data ready for 21 of 21 frames when asked; fulls 3, streams 1
+  update calls, stall every ~1500 bytes, 20% busy phases: 1625 calls, 0 passed on for work and 107 as due; all visits 2682; data ready for 0 of 21 frames when asked; fulls 0, streams 45
+  an overrun whose interrupt does not come: answered by the next update call

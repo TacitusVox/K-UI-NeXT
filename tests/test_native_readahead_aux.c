@@ -162,7 +162,14 @@ static const struct kui_native_ra_low_ops ops={
 };
 static struct kui_native_ra_config configuration(void) {
     return (struct kui_native_ra_config){KUI_NATIVE_RA_VERSION,sizeof(struct kui_native_ra_config),
-        &region,&ops,arena,sizeof(arena),UINT32_C(0x0c400000),KUI_NATIVE_RA_LEASE_BYTES};
+        &region,&ops,arena,sizeof(arena),UINT32_C(0x0c400000),KUI_NATIVE_RA_LEASE_BYTES
+#if KUI_NATIVE_TOY_MOVIE_CAPTURE
+        ,{{0}}
+#endif
+#if defined(KUI_TOY_SUITE_MODE)
+        ,{{0},{0}},0u
+#endif
+    };
 }
 static void setup(bool raw_sectors) {
     memset(&C,0,sizeof(C));memset(&region,0,sizeof(region));memset(&other,0,sizeof(other));
@@ -855,7 +862,13 @@ static void real_pair_second_failures(void) {
 static void tick_budget_arguments(void) {
     static const uint32_t invalid[][2]={
         {KUI_NATIVE_RA_TICK,2u},{KUI_NATIVE_RA_TICK,20u},{KUI_NATIVE_RA_TICK,UINT32_MAX},
-        {0u,0u},{KUI_NATIVE_RA_CAPTURE_START+1u,0u},{UINT32_MAX,0u},
+        {0u,0u},
+#if KUI_NATIVE_TOY_MOVIE_CAPTURE
+        {KUI_NATIVE_RA_MOVIE_COMPLETE,1u},{KUI_NATIVE_RA_MOVIE_COMPLETE+1u,0u},
+#else
+        {KUI_NATIVE_RA_CAPTURE_START+1u,0u},
+#endif
+        {UINT32_MAX,0u},
         {KUI_NATIVE_RA_QUIESCE,1u},{KUI_NATIVE_RA_RESUME,1u},
         {KUI_NATIVE_RA_RESET,1u},{KUI_NATIVE_RA_CAPTURE_START,1u}};
     setup_real();begin(DISC_BASE,4u);complete(DISC_BASE,4u);clock_step=19u;
@@ -951,7 +964,243 @@ static void maximum_visit_context(void) {
     CHECK(visit_arg(KUI_NATIVE_RA_TICK,KUI_NATIVE_RA_TICK_ONE_BLOCK)==1u &&
         C.stats.max_visit_ticks==100u && *context==UINT32_C(0x00000102));
 }
+#if KUI_NATIVE_TOY_MOVIE_CAPTURE && !KUI_NATIVE_TOY_HEADER_REPLAY && !defined(KUI_TOY_SUITE_MODE)
+static void movie_completion_observation(void) {
+    setup(false);
+    memset(&C,0,sizeof(C));
+    struct kui_native_ra_config cfg=configuration();
+    cfg.movie_ranges[1]=(struct kui_toy_movie_range){DISC_BASE+10u,30u};
+    cfg.movie_ranges[3]=(struct kui_toy_movie_range){DISC_BASE+50u,60u};
+    CHECK(kui_native_readahead_aux_init(&cfg)==0 && C.movie_mask==0xau);
+    struct kui_retail_gd *s=&region.shared.service;
+    s->command=KUI_GD_DMAREAD;s->lba=DISC_BASE+9u;s->count=2u;s->completed_bytes=4096u;
+    s->status=KUI_GD_PROCESSING;
+    CHECK(visit_arg(KUI_NATIVE_RA_MOVIE_COMPLETE,0u)==1u && !C.movies[0].completed);
+    s->status=KUI_GD_COMPLETED;
+    region.engine.stats.hooks=clock_counter;
+    CHECK(visit_arg(KUI_NATIVE_RA_MOVIE_COMPLETE,0u)==1u && C.movie_mask==0x2au &&
+        C.movies[0].completed==1u && C.movies[0].sectors==2u && C.movies[0].longest==300u);
+    clock_counter-=2000u;s->lba+=3u;
+    region.engine.stats.hooks=clock_counter+400u;
+    CHECK(visit_arg(KUI_NATIVE_RA_MOVIE_COMPLETE,0u)==1u && C.movies[0].gap==2300u &&
+        C.movies[0].gap_lba==s->lba && C.movies[0].longest==700u &&
+        C.movies[0].longest_lba==s->lba && C.movies[0].longest_count==2u);
+    s->lba=DISC_BASE+50u;s->status=KUI_GD_FAILED;s->error=KUI_GD_ERROR_IO;s->completed_bytes=2048u;
+    CHECK(visit_arg(KUI_NATIVE_RA_MOVIE_COMPLETE,0u)==1u && C.movies[1].failed==1u &&
+        C.movies[1].first_error==KUI_GD_ERROR_IO && C.movies[1].first_error_lba==s->lba &&
+        C.movies[1].first_error_bytes==2048u && C.movie_mask==0xaau);
+    ++s->lba;s->error=KUI_GD_ERROR_CANCELLED;s->completed_bytes=0u;
+    CHECK(visit_arg(KUI_NATIVE_RA_MOVIE_COMPLETE,0u)==1u && C.movies[1].failed==2u &&
+        C.movies[1].first_error==KUI_GD_ERROR_IO && C.movies[1].first_error_lba==DISC_BASE+50u);
+    s->status=KUI_GD_COMPLETED;bad_clock=true;
+    CHECK(visit_arg(KUI_NATIVE_RA_MOVIE_COMPLETE,0u)==1u && C.movies[1].bad_clock==1u &&
+        !C.movies[1].longest && !C.movies[1].gap && !C.last_movie);
+}
+#endif
+#if KUI_NATIVE_TOY_PLAYBACK_CAPTURE
+static void movie_playback_observation(void) {
+    setup(true);
+    manifest.slots[0].track.start_lba+=380u;
+    manifest.slots[0].track.end_lba+=380u;
+    memset(&C,0,sizeof(C));
+    struct kui_native_ra_config cfg=configuration();
+    cfg.movie_ranges[3]=(struct kui_toy_movie_range){DISC_BASE,508u};
+    CHECK(kui_native_readahead_aux_init(&cfg)==0 && C.movie_mask==8u);
+    struct kui_retail_gd *s=&region.shared.service;
+    struct kui_retail_async *e=&region.engine;
+    struct kui_toy_playback_stats *p=&C.playback[1];
+    s->command=KUI_GD_DMAREAD;
+    begin(DISC_BASE+385u,1u);
+    e->stats.hooks=clock_counter;
+    CHECK(visit_arg(KUI_NATIVE_RA_DELIVER,5u)==1u);
+    report();
+    CHECK(visit_arg(KUI_NATIVE_RA_MOVIE_COMPLETE,0u)==1u && C.movie_mask==0x88u &&
+        !p->sectors && !p->foreground && !p->foreground_blocks && !p->sci_irq_blocks);
+
+    begin(DISC_BASE+386u,2u);
+    e->target=2u;e->stats.hooks=clock_counter;
+    uint32_t fg=e->stats.call_blocks,irq=e->stats.irq_blocks;
+    unsigned samples=clock_samples;
+    CHECK(visit_arg(KUI_NATIVE_RA_DELIVER,2u)==1u && clock_samples==samples+2u);
+    CHECK(p->foreground==300u && p->foreground_wait==300u && p->foreground_max==300u &&
+        p->foreground_blocks && p->foreground_blocks==e->stats.call_blocks-fg);
+    CHECK(e->active && !p->sci_irq && !p->sci_irq_blocks);
+    e->in_irq=1u;clock_step=55u;
+    unsigned visits=0u;
+    while(e->active && visits++<16u)CHECK(visit_arg(KUI_NATIVE_RA_DELIVER,0u)==1u);
+    CHECK(!e->active && p->sci_irq==55u*visits && p->sci_irq_max==55u &&
+        p->sci_irq_blocks && p->sci_irq_blocks==e->stats.irq_blocks-irq);
+    e->in_irq=0u;report();
+    CHECK(visit_arg(KUI_NATIVE_RA_MOVIE_COMPLETE,0u)==1u && p->sectors==2u &&
+        p->end_lba==DISC_BASE+388u && p->span && !p->gap);
+#if !KUI_NATIVE_TOY_HEADER_REPLAY
+    CHECK(p->span==p->longest);
+#endif
+    uint32_t first_span=p->span;
+    clock_counter-=2000u;
+    begin(DISC_BASE+388u,1u);
+    e->target=20u;e->stats.hooks=clock_counter;
+    unsigned foreground_visits=0u;
+    while(e->active && foreground_visits++<16u)CHECK(visit_arg(KUI_NATIVE_RA_DELIVER,0u)==1u);
+    CHECK(!e->active && foreground_visits<16u);
+    report();
+    CHECK(visit_arg(KUI_NATIVE_RA_MOVIE_COMPLETE,0u)==1u && p->sectors==3u &&
+        p->gap==2000u+(2u*foreground_visits+1u)*55u && p->span==first_span+p->gap &&
+        p->gap_lba==DISC_BASE+388u && p->end_lba==DISC_BASE+389u &&
+        p->foreground==300u+foreground_visits*55u && p->foreground_wait==300u);
+
+    begin(DISC_BASE+389u,1u);
+    e->stats.hooks=clock_counter;bad_clock=true;
+    visits=0u;
+    while(e->active && visits++<16u)CHECK(visit_arg(KUI_NATIVE_RA_DELIVER,0u)==1u);
+    CHECK(!e->active && visits<16u && p->bad_clock==visits &&
+        p->foreground==300u+foreground_visits*55u);
+    report();
+    CHECK(visit_arg(KUI_NATIVE_RA_MOVIE_COMPLETE,0u)==1u && p->bad_clock==visits+1u &&
+        p->sectors==4u && p->end_lba==DISC_BASE+390u && p->span==first_span+p->gap);
+    s->status=KUI_GD_FAILED;s->error=KUI_GD_ERROR_IO;
+    CHECK(visit_arg(KUI_NATIVE_RA_MOVIE_COMPLETE,0u)==1u && p->failed==1u &&
+        !C.last_play_variant && !C.playback[0].failed);
+    s->lba=DISC_BASE+600u;
+    CHECK(visit_arg(KUI_NATIVE_RA_MOVIE_COMPLETE,0u)==1u && p->failed==1u && !C.playback[0].failed);
+}
+#endif
+#if KUI_NATIVE_TOY_HEADER_REPLAY
+static const uint32_t header_status_address=UINT32_C(0x8c010000);
+static uint8_t header_status[16];
+static uint8_t *map_header_status(void *unused,uint32_t address,uint32_t bytes,int writing) {
+    (void)unused;
+    return address==header_status_address && bytes==sizeof(header_status) && writing?header_status:NULL;
+}
+static void setup_header_replay(void) {
+    setup_real();memset(&C,0,sizeof(C));
+    struct kui_native_ra_config cfg=configuration();cfg.ops=&real_ops;
+    cfg.movie_ranges[3]=(struct kui_toy_movie_range){DISC_BASE,128u};
+    CHECK(kui_native_readahead_aux_init(&cfg)==0);
+    struct kui_retail_gd *s=&region.shared.service;
+    s->guest_begin=header_status_address;
+    s->guest_end=header_status_address+sizeof(header_status);
+    s->ops.map=map_header_status;
+    CHECK(kui_retail_gd_dispatch(s,0u,0u,0u,KUI_GD_INIT)==0);
+    s->command=KUI_GD_DMAREAD;
+}
+static void finish_header_read(uint32_t lba,uint32_t count) {
+    begin(lba,count);complete(lba,count);
+    CHECK(visit_arg(KUI_NATIVE_RA_MOVIE_COMPLETE,0u)==1u);
+}
+static void acknowledge_header(void) {
+    struct kui_retail_gd *s=&region.shared.service;
+    CHECK(visit(KUI_NATIVE_RA_DELIVER)==1u); /* Before CHECK dispatch. */
+    CHECK(kui_retail_gd_dispatch(s,s->token,header_status_address,0u,KUI_GD_CHECK)==
+        KUI_GD_COMPLETED && !s->command && s->status==KUI_GD_COMPLETED);
+    CHECK(visit(KUI_NATIVE_RA_DELIVER)==1u && C.header.valid); /* Before next REQUEST. */
+}
+static void header_replay_integration(void) {
+    setup_header_replay();
+    for(unsigned n=0u;n<12u;n++) {
+        uint32_t lba=DISC_BASE+n*10u;
+        finish_header_read(lba,1u);
+        CHECK(C.header.valid);
+        acknowledge_header();
+        region.shared.service.command=KUI_GD_DMAREAD;
+        unsigned dma=m.dma_starts,starts=card.cmd18,stops_at=card.cmd12;
+        finish_header_read(lba,1u);
+        CHECK(m.dma_starts==dma && card.cmd18==starts && card.cmd12==stops_at &&
+            C.playback[1].replayed==n+1u);
+        finish_header_read(lba+1u,9u);
+        CHECK(!C.header.valid);
+    }
+    CHECK(card.cmd18==1u && !card.cmd12 && m.dma_starts==551u);
+    printf("Raw 1,1,9 replay: %u repeats, %u CMD18, %u CMD12, %u card blocks\n",
+        C.playback[1].replayed,card.cmd18,card.cmd12,m.dma_starts);
+
+    setup_header_replay();
+    for(unsigned n=0u;n<32u;n++) {
+        uint32_t lba=DISC_BASE+n;
+        region.shared.service.command=KUI_GD_PIOREAD;
+        finish_header_read(lba,1u);
+        unsigned dma=m.dma_starts;
+        region.shared.service.command=KUI_GD_DMAREAD;
+        finish_header_read(lba,1u);
+        CHECK(m.dma_starts==dma && C.playback[1].replayed==n+1u);
+    }
+}
+static void reject_header_replay(void) {
+    for(unsigned n=0u;n<7u;n++) {
+        setup_header_replay();
+        struct kui_retail_gd *s=&region.shared.service;
+        begin(DISC_BASE,1u);complete(DISC_BASE,1u);
+        if(n!=0u)CHECK(visit_arg(KUI_NATIVE_RA_MOVIE_COMPLETE,0u)==1u);
+        switch(n) {
+        case 0u:break; /* No terminal publication. */
+        case 1u:++token;break; /* A different accepted GD command. */
+        case 2u:CHECK(visit(KUI_NATIVE_RA_QUIESCE)==1u);break;
+        case 3u:case 6u:
+            CHECK(visit(KUI_NATIVE_RA_DELIVER)==1u);
+            CHECK(kui_retail_gd_dispatch(s,0u,0u,0u,n==3u?KUI_GD_RESET:KUI_GD_INIT)==0 &&
+                !s->command && s->status==KUI_GD_NOT_FOUND && !s->completed_bytes);
+            CHECK(visit(KUI_NATIVE_RA_DELIVER)==1u && !C.header.valid);
+            s->command=KUI_GD_DMAREAD;break;
+        case 4u:s->sector_part^=1u;break;
+        case 5u:
+            s->status=KUI_GD_FAILED;s->error=KUI_GD_ERROR_IO;
+            CHECK(visit_arg(KUI_NATIVE_RA_MOVIE_COMPLETE,0u)==1u);break;
+        }
+        unsigned dma=m.dma_starts;
+        finish_header_read(DISC_BASE,1u);
+        CHECK(!C.playback[1].replayed && m.dma_starts>dma && card.cmd12==1u && card.cmd18==2u);
+    }
+}
+#endif
+#if KUI_TOY_SUITE_MODE == 2 || KUI_TOY_SUITE_MODE == 6
+static void ram_window(void) {
+    setup_real();
+    const uint32_t center=KUI_TOY_SUITE_MODE==2?469080u:468128u;
+    const uint32_t start=center-48u;
+    manifest.slots[0].track.start_lba=start;
+    manifest.slots[0].track.end_lba=start+128u;
+    struct kui_native_ra_config cfg=configuration();
+    cfg.ops=&real_ops;cfg.suite_source=1u;
+    cfg.movie_ranges[3]=(struct kui_toy_movie_range){start,128u};
+    uint32_t begin_block=8u*2352u/512u,end_block=(88u*2352u+511u)/512u;
+    cfg.suite_seed=(struct kui_toy_suite_seed){{CARD_BASE+begin_block,0u},{end_block-begin_block,0u}};
+    memcpy(arena,disk[begin_block],cfg.suite_seed.count[0]*512u);
+    memset(&C,0,sizeof(C));
+    CHECK(kui_native_readahead_aux_init(&cfg)==0 && C.suite[0]==cfg.suite_seed.count[0]);
+    struct kui_retail_gd *s=&region.shared.service;
+    s->command=KUI_GD_DMAREAD;
+    begin(center-1u,2u);
+    CHECK(visit(KUI_NATIVE_RA_DELIVER)==1u && !region.engine.active);
+    report();
+    CHECK(!s->pending && s->status==KUI_GD_COMPLETED && !card.cmd18 && !m.dma_starts);
+    CHECK(C.suite[1] && C.suite[2]==center-1u && C.suite[3]==center && !C.suite[4]);
+    for(unsigned sector=0u;sector<2u;sector++)for(unsigned byte=0u;byte<2048u;byte++)
+        CHECK(output[sector*2048u+byte]==content((47u+sector)*2352u+16u+byte));
+
+    unsigned old_hits=C.suite[1],old_fetches=fetches;
+    CHECK(visit(KUI_NATIVE_RA_TICK)==1u && fetches==old_fetches);
+    begin(center-1u,2u);CHECK(visit(KUI_NATIVE_RA_DELIVER)==1u && !region.engine.active);
+    report();
+    CHECK(C.suite[1]==old_hits*2u && !card.cmd18 && !m.dma_starts);
+    CHECK(visit(KUI_NATIVE_RA_RESET)==1u && !C.config.suite_seed.count[0]);
+    begin(center-1u,2u);CHECK(visit(KUI_NATIVE_RA_DELIVER)==1u && !region.engine.active);
+    report();
+    CHECK(card.cmd18==1u && m.dma_starts && C.suite[1]==old_hits*2u);
+}
+#endif
 int main(void) {
+#if KUI_NATIVE_TOY_MOVIE_CAPTURE && !KUI_NATIVE_TOY_HEADER_REPLAY && !defined(KUI_TOY_SUITE_MODE)
+    movie_completion_observation();
+#endif
+#if KUI_NATIVE_TOY_PLAYBACK_CAPTURE
+    movie_playback_observation();
+#endif
+#if KUI_NATIVE_TOY_HEADER_REPLAY
+    header_replay_integration();reject_header_replay();
+#endif
+#if KUI_TOY_SUITE_MODE == 2 || KUI_TOY_SUITE_MODE == 6
+    ram_window();
+#endif
     init_guards();sequential();shared_raw_boundary();partial_hit_cap();seek_and_errors();
     repair_and_dma_owner();loan_and_pending();bounded_window();capture_preserves_cache();
     real_stream_integration();real_full_refill();diagnostic_failures();diagnostic_real_handoff();

@@ -1,0 +1,31 @@
+{
+  "schema": 2,
+  "prepared": "2026-11-16 15:09 CST (America/Chicago)",
+  "packages": [
+    {
+      "test": 81,
+      "source_commit": "684f485644e576c7096cbf6add977595391dd2ba",
+      "archive": {
+        "name": "KUI-Stream-Reader-Test-81-16NOV2026-1509-CST-684f485.zip",
+        "bytes": 176496,
+        "sha256": "fc99e6ec3b61a611bf7b48dde790a71e9b7dff6253386f9713b9b61b6a4f98d9"
+      },
+      "files": [
+        {
+          "path": "KUI/apps/games/retail-native-dual.kui",
+          "status": "changed for the test only: Test 81 in the place of the installed New reader module (build f8807cb16561), which goes back from the owner's 06 NOV package afterwards",
+          "sha256": "5ee3273b75dceb2a02ac73cbe5ccdcf972ded0164f15a822a192949048072db4",
+          "bytes": 300096,
+          "module": {
+            "format": 1,
+            "build": "684f485644e5",
+            "payload_bytes": 300032,
+            "memory_bytes": 300032,
+            "crc32": "b40b9423"
+          }
+        }
+      ],
+      "readme_sha256": "aafc7568a3429bbd3b12c21e90ab0c94ea89a95afdb230b0bcbf1c12a7c7c3f7"
+    }
+  ]
+}

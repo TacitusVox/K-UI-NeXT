@@ -1,0 +1,62 @@
+{
+  "schema": 1,
+  "test": 76,
+  "prepared": "2026-11-15 05:22 CST (America/Chicago)",
+  "source_commit": "7fe7e83c2082939275a5519c740f1b358a60e2d4",
+  "archive": {
+    "name": "KUI-Toy-Wire-Stream-Test-76-15NOV2026-0522-CST-7fe7e83.zip",
+    "bytes": 1979821,
+    "sha256": "3f47f70e3724b5a885da2167d87a81c5adab63c91ed5b0a829617e0c35c2a27c",
+    "entries": [
+      "ALTERNATE/KUI/apps/games/retail-toy-test-66.kui",
+      "KUI/apps/games/retail-toy-test-66.kui",
+      "KUI/tools.kui",
+      "README.txt",
+      "SHA256SUMS.txt"
+    ]
+  },
+  "files": [
+    {
+      "path": "KUI/apps/games/retail-toy-test-66.kui",
+      "status": "changed: Test 76 reader, replaces the Test 75 module bf6f1c703add at the path Card Tools loads",
+      "switches": "TOY_SUITE_MODE=66 TOY_WIRE_STREAM=1 TOY_WIRE_CACHED=1 TOY_WIRE_WORDS=1 TOY_WIRE_PACE=1 TOY_WIRE_IDLE=1 TOY_WIRE_LEAN=1 TOY_WIRE_STEADY=1 TOY_WIRE_FLUID=1",
+      "bytes": 299652,
+      "sha256": "6540c38df4143222db3d75cd4dcaf6503b9daa39421ec456f0bb4d1fad21a881",
+      "module": {
+        "format": 1,
+        "build": "7fe7e83c2082",
+        "payload_bytes": 299588,
+        "memory_bytes": 299588,
+        "crc32": "8d0d12da"
+      }
+    },
+    {
+      "path": "KUI/tools.kui",
+      "status": "unchanged, identical to the Test 66 package",
+      "bytes": 3131480,
+      "sha256": "04b8657aa6a1530b1bdbb002b481853eef656ef0f4da44cd910faab6eab3c800",
+      "module": {
+        "format": 1,
+        "build": "09c9a4b686d4",
+        "payload_bytes": 3131416,
+        "memory_bytes": 7428496,
+        "crc32": "8111e794"
+      }
+    },
+    {
+      "path": "ALTERNATE/KUI/apps/games/retail-toy-test-66.kui",
+      "status": "outside the KUI tree: Test 75's reader with LATER left out and nothing else changed, as a fallback and as the comparison for that one switch",
+      "switches": "TOY_SUITE_MODE=66 TOY_WIRE_STREAM=1 TOY_WIRE_CACHED=1 TOY_WIRE_WORDS=1 TOY_WIRE_PACE=1 TOY_WIRE_IDLE=1 TOY_WIRE_LEAN=1 TOY_WIRE_STEADY=1 TOY_WIRE_LATER=0",
+      "bytes": 299428,
+      "sha256": "a742b4a7f68c3c9744ddca5e8c2935dff035ac2ebb7323d30c0a539921b6ee51",
+      "module": {
+        "format": 1,
+        "build": "7fe7e83c2082",
+        "payload_bytes": 299364,
+        "memory_bytes": 299364,
+        "crc32": "c3176b73"
+      }
+    }
+  ],
+  "readme_sha256": "9735c694e168fb7342e3fb058f16d926760eb8b37ba0123bc827c3d4b1d31c1c"
+}

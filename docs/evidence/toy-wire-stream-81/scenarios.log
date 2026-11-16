@@ -1,0 +1,20 @@
+The scenarios of Test 81's change, as tests/test_toy_wire_stream.c printed them:
+  courses with the stream's timer: 7 in Toy Commander, 3 in another title at its own table
+  the stream's timer by the title's own table: taken in another title with both free, the second where the first is the title's, none without an admitted table, at another vector base, behind the title's own handlers, behind another default, or with both in use; the title's entries, priorities and its timers' reload, count and control as they were after each, and an entry or a priority the title took meanwhile left to it
+  a title that takes the stream's timer while the stream runs, by its entry, by starting it, or under a wait that stands armed: never armed, stopped or answered by the stream again, the entry left to the title or given back to it, the waits ended as without a timer
+
+And tests/test_toy_wire_integration.c (first of its two passes):
+  another title on a disc with a raw track, the stream's timer taken by the title's own table: Evolution 2's refills served from one window, four requests of five, nothing counted as a movie's, the movie policy never on; CMD18 1, CMD12 0
+  another title, the stream's timer by the title's own table, stalls 1500/20: 2391 waits, 2367 answers of the timer; 4 requests of five from 1 windows, 36 streams begun; data exact
+  another title, the stream's timer by the title's own table, stalls 150/80: 14557 waits, 14229 answers of the timer; 4 requests of five from 1 windows, 346 streams begun; data exact
+  another title on a disc with a raw track, no timer for the stream: Evolution 2's refills served from one window, four requests of five, nothing counted as a movie's, the movie policy never on; CMD18 1, CMD12 0
+  another title, no timer, stalls 1500/20: 2223 waits of 2207156 ticks in all, none shorter than its time; 4 requests of five from 1 windows, 39 streams begun; data exact
+  another title, no timer, stalls 150/80: 10793 waits of 11078997 ticks in all, none shorter than its time; 2 requests of five from 3 windows, 264 streams begun; data exact
+  another title that asks the drive for its subcode behind every read, stalls 0/0: 4 commands a window stood through, none given up for one; 4 requests of five from 1 windows, CMD18 1, CMD12 0; data exact
+  another title that asks the drive for its subcode behind every read, stalls 1500/20: 4 commands a window stood through, none given up for one; 4 requests of five from 1 windows, CMD18 36, CMD12 35; data exact
+  another title that asks the drive for its subcode behind every read, stalls 150/80: 4 commands a window stood through, none given up for one; 4 requests of five from 1 windows, CMD18 347, CMD12 346; data exact
+  no free timer: waits end at the next visit after their time, and a look before it leaves one standing, and an update call that finds one is passed on; channel 1 taken: programmed reads only; data exact
+
+Added after the change's review, from tests/test_toy_wire_stream.c:
+  an underflow of a timer the title started under the stream's entry: not answered and not stopped by the stream, the entry given back
+  a stream ended by a fault: its timer back as it was found, and a timer the title has taken or started meanwhile not written

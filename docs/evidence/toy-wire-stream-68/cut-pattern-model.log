@@ -1,0 +1,5 @@
+stay 60%: cuts 66692 (60% short) over 40000 sectors: clean 24996, CRC16 alone 3708, parity fill 11294, knot 1, over 32 lost 1 => 0.01% of sectors need a re-read
+stay 73%: cuts 99669 (73% short) over 40000 sectors: clean 24619, CRC16 alone 2427, parity fill 12908, knot 11, over 32 lost 35 => 0.12% of sectors need a re-read
+stay 85%: cuts 172889 (85% short) over 40000 sectors: clean 24217, CRC16 alone 1392, parity fill 13795, knot 31, over 32 lost 565 => 1.49% of sectors need a re-read
+stay 92%: cuts 316572 (92% short) over 40000 sectors: clean 23005, CRC16 alone 842, parity fill 13160, knot 62, over 32 lost 2931 => 7.48% of sectors need a re-read
+stay 96%: cuts 573246 (96% short) over 40000 sectors: clean 21190, CRC16 alone 471, parity fill 10763, knot 52, over 32 lost 7524 => 18.94% of sectors need a re-read

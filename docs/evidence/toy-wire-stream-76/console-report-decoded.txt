@@ -1,0 +1,62 @@
+decode_report.py on the report of Test 76 without GAP (66-11), of Test 76 (66-10) and of Test 75 (it reads the rows of Tests 75 and 76 only):
+== docs/evidence/toy-wire-stream-76/console-report-66-11-no-gap.txt
+I: submitted 1953, on time 1947, longest gap 0.288 s after frame 1130; first frame 0.801 s, last 1968, skipped 15, first skip at 1089
+B: submitted 331, on time 330, longest gap 47.9 ms after 285
+IP: frame calls 1952, 58.91 s, 30.2 ms each; turn 58.95 s; reader interrupt in span 3.34 s, 1.71 ms each; skip calls 2, 0.247 s
+BP: frame calls 330, 22.8 ms each; skip calls 0
+V: SCI 25560 visits 4.07 s; timer 6459, 0.033 s; game 13031, 4.78 s; all 8.88 s; blocks 135696; 65.4 us a block
+P us/block: ring 33.7, feed less checks 8.3, checks 6.0, service 3.4, seek 9.8, rest 4.3; out 1.21 s (41.5 us a sector of 29245); last P value 5701 ticks (11.1 us for each of 656 streams)
+seek 1.32 s, 2.02 ms for each stream begun
+D: delivery visits 6823, 9.53 s [6823, 7447588, 1034830, 823584]
+W: begun 656, full runs 6938, overruns in a run 19824, timer waits 8301 of 4.87 s, stops for room 1441; bytes 72287396; timer 1
+BLK: 135696, rebuilt 14810, unexplained 52, holed 2843, crc only 51, low reader 732
+S: closed 4, sector 19, could not follow 633: lost frame 628, ambiguous 0, bad crc 5; lost frame per overrun 3.17%
+FILL: 1867, refused 2, bad 17;  K: light 24041, edc 5266, mend 11584, MB 0, LB 0, ORD 3
+AHEAD: served 3421 / 25824, requests 2416 (12.1 sectors each), into window 29288, stop 0; PIPE windows 2 / 2, calls 13031, irq 25560, stay 53, PT BD
+TF 136 | 164 | 161 | 162 | 161 | 162 | 153 | 154 | 162 | 162 | 161 | 215
+TD 1968 | 2416 | 2352 | 2416 | 2352 | 2352 | 2352 | 2432 | 2576 | 2224 | 608 | 1680
+TW 0.08 | 0.00 | 0.00 | 0.00 | 0.00 | 0.00 | 0.00 | 0.00 | 0.00 | 0.59 | 0.00 | 0.06
+TB 548 | 772 | 716 | 696 | 732 | 760 | 772 | 776 | 772 | 776 | 40 | 280
+TP 0.00 | 0.04 | 0.06 | 0.02 | 0.02 | 0.06 | 0.02 | 0.08 | 0.10 | 0.50 | 1.87 | 0.63
+TR 0.50 | 0.67 | 0.65 | 0.63 | 0.61 | 0.67 | 0.61 | 0.71 | 0.82 | 0.75 | 0.29 | 0.52
+CAP 823584
+== docs/evidence/toy-wire-stream-76/console-report-66-10.txt
+I: submitted 1942, on time 1934, longest gap 0.466 s after frame 1147; first frame 0.800 s, last 1968, skipped 26, first skip at 1162
+B: submitted 331, on time 330, longest gap 47.8 ms after 285
+IP: frame calls 1941, 59.18 s, 30.5 ms each; turn 59.22 s; reader interrupt in span 3.39 s, 1.75 ms each; skip calls 2, 0.008 s
+BP: frame calls 330, 22.7 ms each; skip calls 0
+V: SCI 25594 visits 4.11 s; timer 5861, 0.031 s; game 13280, 4.74 s; all 8.88 s; blocks 135712; 65.5 us a block
+P us/block: ring 33.7, feed less checks 8.4, checks 6.1, service 3.4, seek 9.6, rest 4.3; out 1.21 s (41.4 us a sector of 29245); last P value 5648 ticks (11.0 us for each of 658 streams)
+seek 1.30 s, 1.97 ms for each stream begun
+D: delivery visits 6586, 9.44 s [6586, 7375270, 1012991, 823584]
+W: begun 658, full runs 6922, overruns in a run 19913, timer waits 8368 of 5.07 s, stops for room 1465; bytes 72113942; timer 1
+BLK: 135712, rebuilt 14821, unexplained 48, holed 2885, crc only 46, low reader 711
+S: closed 4, sector 13, could not follow 641: lost frame 640, ambiguous 0, bad crc 1; lost frame per overrun 3.21%
+FILL: 1887, refused 1, bad 12;  K: light 23912, edc 5389, mend 11630, MB 0, LB 0, ORD 3
+AHEAD: served 3421 / 25824, requests 2415 (12.1 sectors each), into window 29288, stop 0; PIPE windows 2 / 2, calls 13280, irq 25594, stay 53, PT FD
+TF 136 | 163 | 162 | 161 | 162 | 162 | 160 | 137 | 161 | 162 | 161 | 215
+TD 1968 | 2448 | 2352 | 2384 | 2368 | 2368 | 2352 | 2400 | 2576 | 2224 | 608 | 1680
+TW 0.06 | 0.00 | 0.00 | 0.00 | 0.00 | 0.00 | 0.00 | 0.00 | 0.02 | 0.44 | 0.00 | 0.06
+TB 548 | 772 | 716 | 696 | 652 | 656 | 772 | 776 | 772 | 776 | 68 | 280
+TP 0.00 | 0.04 | 0.06 | 0.04 | 0.02 | 0.04 | 0.02 | 0.08 | 0.10 | 0.52 | 1.87 | 0.80
+TR 0.50 | 0.67 | 0.65 | 0.65 | 0.61 | 0.65 | 0.59 | 0.73 | 0.82 | 0.75 | 0.25 | 0.57
+CAP 823584
+== docs/evidence/toy-wire-stream-75/console-report-66-9.txt
+I: submitted 1407, on time 1283, longest gap 1.905 s after frame 1441; first frame 0.802 s, last 1968, skipped 561, first skip at 37
+B: submitted 331, on time 330, longest gap 49.9 ms after 225
+IP: frame calls 1395, 56.49 s, 40.5 ms each; turn 56.52 s; reader interrupt in span 3.72 s, 2.67 ms each; skip calls 34, 3.551 s
+BP: frame calls 330, 25.8 ms each; skip calls 0
+V: SCI 29617 visits 4.52 s; timer 8834, 0.041 s; game 14147, 7.13 s; all 11.69 s; blocks 135381; 86.3 us a block
+P us/block: ring 33.1, feed less checks 17.9, checks 7.1, service 3.6, seek 7.1, rest 17.6; out 1.23 s (42.2 us a sector of 29250); last P value 15135 ticks (40.5 us for each of 478 streams)
+seek 0.96 s, 2.00 ms for each stream begun
+D: delivery visits 8024, 10.62 s [8024, 8293286, 139815, 3272027, 748400]
+W: begun 478, full runs 7069, overruns in a run 23825, timer waits 10930 of 4.27 s, stops for room 1515; bytes 75825683; timer 1
+BLK: 135381, rebuilt 11194, unexplained 22, holed 6667, crc only 52, low reader 527
+S: closed 4, sector 12, could not follow 462: lost frame 460, ambiguous 0, bad crc 2; lost frame per overrun 1.93%
+FILL: 3918, refused 4, bad 8;  K: light 22657, edc 6643, mend 8895, MB 0, LB 0, ORD 3
+AHEAD: served 3423 / 25827, requests 2358 (12.4 sectors each), into window 29288, stop 0; PIPE windows 2 / 2, calls 14147, irq 29617, stay 52, PT 7
+TF 121 | 109 | 146 | 109 | 120 | 119 | 54 | 93 | 120 | 40 | 161 | 215
+TD 1936 | 2400 | 2304 | 2416 | 2400 | 2320 | 2448 | 2384 | 2464 | 2400 | 608 | 1680
+TW 0.08 | 0.04 | 0.00 | 0.08 | 0.04 | 0.02 | 0.04 | 0.00 | 1.26 | 0.52 | 0.00 | 0.00
+TI 0.27 | 0.34 | 0.34 | 0.36 | 0.34 | 0.34 | 0.31 | 0.36 | 0.50 | 0.38 | 0.08 | 0.29
+TG 0.34 | 0.48 | 0.42 | 0.52 | 0.46 | 0.48 | 0.48 | 0.50 | 0.50 | 0.55 | 0.29 | 0.48

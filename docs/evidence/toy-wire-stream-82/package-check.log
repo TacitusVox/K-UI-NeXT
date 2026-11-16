@@ -1,0 +1,16 @@
+ no-report
+envelope: OK build=af5ebae4f0a5 payload=309872 memory=309872 crc=4962db2d
+payload CRC32: ok
+layout_codec: ok
+dual descriptor: 1 at 0x36b8c lease=0x47000
+session descriptor: 0
+background_module_matches(ASYNC): ok
+toggle capability: 1 at 0x36b5c
+emulation Off: ok, mode slot at 0x1fd80 (GUI writes 7 at +16)
+native cache seed: blank slot at 0x35100
+toy report seed: MISSING/ambiguous (the launch would continue without an SD report)
+card profile slot: at 0x1fda0
+emulation On: ok (the GUI writes 0 at +16 of the same record)
+stop for the virtual VMU setting: none
+handoff staging limit 0x112000: ok
+RESULT: the module's checks pass, and it has no report seed: a module for the Games menu, not for Card Tools' test entry

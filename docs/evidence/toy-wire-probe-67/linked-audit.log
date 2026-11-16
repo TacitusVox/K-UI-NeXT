@@ -1,0 +1,6 @@
+  "status": "PASS",
+  "old_unconditional_hold_refused": true,
+  "wrong_linked_policy_refused": true,
+PASS physical-disc linked handoff: bootstrap2=AC00E000 SP/VBR=8C00F400 SR/SSR=700000F0; controlling literals, cache publication, FPSCR, return handler and register setup verified
+PASS physical-disc linked handoff mutations: 22 corruptions refused; actual resolved jumps, SP/VBR, SR/SSR, cache, GBR, FPSCR and delay slots
+Physical-disc linked instructions: 10023

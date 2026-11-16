@@ -18,4 +18,11 @@ bool kui_sector_edc_valid(const uint8_t raw[KUI_RAW_BYTES]);
  * and for Mode 1 also require the requested absolute sector address. This
  * does not compute P/Q parity; full parity remains an opt-in strict check. */
 bool kui_sector_edc_valid_at(const uint8_t raw[KUI_RAW_BYTES],uint32_t fad);
+#if KUI_TOY_SUITE_MODE == 52
+struct kui_cd_edc_table { uint32_t entry[4][256]; };
+void kui_cd_edc_table_init(struct kui_cd_edc_table *table);
+/* Raw staged Mode 1 sectors start on four-byte boundaries. */
+bool kui_mode1_edc_table_valid_at(const uint8_t raw[KUI_RAW_BYTES],uint32_t fad,
+    const struct kui_cd_edc_table *table);
+#endif
 #endif

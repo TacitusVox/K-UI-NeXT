@@ -75,6 +75,16 @@ def generate(path, prefix=""):
     background_name="_kui_vmu_native_background_manifest_bind"
     background=background_name in _linked_symbols(data,{background_name})
     low_limit=0x8C007BA0 if background else 0x8C007800
+    retry_bottom="__kui_toy_slow_retry_stack_bottom"
+    retry_top="__kui_toy_slow_retry_stack_top"
+    retry_bounds=_linked_symbols(data,{retry_bottom,retry_top})
+    if retry_bounds:
+        expected=({retry_bottom:(0x8C007CE0,0,0,None),retry_top:(0x8C007E40,0,0,None)},
+                  {retry_bottom:(0x8C007D60,0,0,None),retry_top:(0x8C007EC0,0,0,None)},
+                  {retry_bottom:(0x8C007E80,0,0,None),retry_top:(0x8C007FE0,0,0,None)})
+        if not background or retry_bounds not in expected:
+            raise ValueError("Toy slow retry requires its exact low stack bounds")
+        low_limit=retry_bounds[retry_bottom][0]
     from smash_native_menu_resident import MARKER,inspect as inspect_native_menu
     if MARKER in _linked_symbols(data,{MARKER}):
         if background:

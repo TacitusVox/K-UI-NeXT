@@ -1,0 +1,61 @@
+Test 79 on the console, 16 November 2026: the report's pages as photographed
+
+A launch from the Games menu brings no report file, so the worker shows the
+report on the screen, twelve lines to a page (docs/toy-wire-stream-test-79.md,
+The report). The owner photographed the pages of both runs with a telephone,
+3000 x 4000 pixels each, and sent them as two archives. The photographs are
+the owner's and are not in this repository; what identifies them is below.
+
+Evolution (Evolution.zip)
+  page  file                      bytes    SHA-256
+  1     20261116_104247101.jpg    2394892  e5320808100cf5b0b67bc6a2679b21fdb7206fd031a3dce99c95cb619e4cfbfc
+  2     20261116_104251480.jpg    2359000  47aec9c15e51fff1e5e94bfc64d5a58e322e399ac7dbaba719211a8d833d9a77
+  3     20261116_104256762.jpg    2477355  722e486e9d66c0072fdafa54f9fa275094b9eae6612308d596ef13fc4a01fdee
+  4     20261116_104301461.jpg    2135809  509b221c83e57d77d6f30f153ac4947d9530ad6196173dc5677bf66327340249
+
+Evolution 2 (Evolution_2.zip)
+  page  file                      bytes    SHA-256
+  2     20261116_104724175.jpg    2315210  fedc5b8b65eee0bd8c5f96e7d0cae6ce2619bbe4b462916b7e7484329cdbe1d4
+  3     20261116_104726534.JPG    2470798  5392791ef59a271a04d57ad7978250c69dda7c6b11751361d37f9104f044b7f3
+  4     20261116_104731422.jpg    2065783  431c4a5d01c83476f71c3230dc2463e6057ec1613ef696068d59e8b95d66f22c
+  1     20261116_104736796.jpg    2343995  56c66a643bf4f448bd73b3f863c7488af52229a75438888faeab23339ab01259
+
+The file names carry the time of each photograph (America/Chicago): Evolution's
+pages at 10:42:47 to 10:43:01, Evolution 2's at 10:47:24 to 10:47:36. The
+pages go round; Evolution 2's were photographed from the second on.
+
+Every page shows, above the report's lines, the worker's own three lines
+(HYBRID, BUILD 9F183A7F72F5, NATIVE), the heading REPORT NOT SAVED / FILM
+EVERY PAGE and, below them, START / REBOOT TO K-UI CD. Pages 1 to 3 hold
+twelve lines of the report each, page 4 the last six: 42 lines a report.
+
+console-report-evolution.txt and console-report-evolution-2.txt are those 42
+lines in the report's order, as the screen shows them. (The screen's letters
+are capitals only: a saved report has the build as 9f183a7f72f5.)
+
+How they were read
+  1. By the author, from crops of the photographs at their full resolution.
+  2. A second time by two readers that were given the photographs and
+     nothing of the first reading, one reader a game. Each compared every
+     8 and B, 0 and D, 5 and 6, 3 and 9, C and E, E and F against glyphs of
+     the same photograph whose identity the words give (BUILD, HYBRID, the
+     labels, 781250). Neither listed a character in doubt.
+  3. The two readings were compared by a program: equal in every character,
+     42 lines of 42 for each game.
+
+Checks the reports make of themselves
+  PIPE's CALLS and IRQ are the row V's GAME and SCI: 909C and 49C7 on pages
+  1 and 3 of Evolution, 2359 and 1E67 on pages 1 and 3 of Evolution 2.
+  X's OW, the windows opened, is S's first value, the streams closed with
+  their windows: 4B and 4B, 3CC and 3CC.
+  K's LIGHT and EDC, less W FILL's BAD, are the sectors verified into
+  windows (AHEAD's EDC), but for sectors refused once whole: Evolution 2
+  12,707 + 2,639 - 4 = 15,342 = 3BEE exactly; Evolution 32,622 + 3,946 - 12
+  = 36,556 against 8EC8 = 36,552, with 27 sectors refused (REF 1B).
+  Evolution 2's bytes to a block, 2526B44 / 11BEE = 535.9, are those of the
+  Toy Commander runs (535.5 to 536.2). Evolution's are 548.0: twelve bytes
+  more of the card's own pauses to a block. The digit this rests on, the 8 of
+  581095C, was looked at again by the author for that reason, cell by cell
+  against the 6 and the B of the same line: it has the stroke at the upper
+  right that a 6 lacks, and the cut corners and waist at the left that a B
+  does not have. Both readings have it as 8.

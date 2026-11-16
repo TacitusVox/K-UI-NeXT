@@ -1,0 +1,12 @@
+envelope: OK build=fb625c09dde6 payload=298372 memory=298372 crc=adb4aa80
+payload CRC32: ok
+layout_codec: ok
+dual descriptor: 1 at 0x33ea0 lease=0x47000
+session descriptor: 0
+background_module_matches(ASYNC): ok
+toggle capability: 1 at 0x33e80
+emulation Off: ok, mode slot at 0x20260 (GUI writes 7 at +16)
+native cache seed: blank slot at 0x32400
+toy report seed: blank slot at 0x20280
+handoff staging limit 0x112000: ok
+RESULT: admitted by Card Tools' module checks, report seed bound

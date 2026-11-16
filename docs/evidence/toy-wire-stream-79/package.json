@@ -1,0 +1,69 @@
+{
+  "schema": 2,
+  "prepared": "2026-11-16 10:04 CST (America/Chicago)",
+  "packages": [
+    {
+      "test": 78,
+      "source_commit": "1d0e5bab78ba3530c0cfe382ecdaa4f6a491f013",
+      "archive": {
+        "name": "KUI-Toy-Wire-Stream-Test-78-16NOV2026-1004-CST-1d0e5ba.zip",
+        "bytes": 1799612,
+        "sha256": "a6fedccad6b0497c6e316cc055c41ebab039db44855359fdaf7a5c5ac077d445"
+      },
+      "files": [
+        {
+          "path": "KUI/apps/games/retail-toy-test-66.kui",
+          "status": "changed: Test 78, replaces the Test 77 module at the path Card Tools loads",
+          "sha256": "dbff892578510f742e0b8b99c74fb456a2870ab6bcacccd0db1b91a8863092de",
+          "bytes": 298788,
+          "module": {
+            "format": 1,
+            "build": "1d0e5bab78ba",
+            "payload_bytes": 298724,
+            "memory_bytes": 298724,
+            "crc32": "cac19221"
+          }
+        },
+        {
+          "path": "KUI/tools.kui",
+          "status": "unchanged, identical to the Test 66 package",
+          "sha256": "04b8657aa6a1530b1bdbb002b481853eef656ef0f4da44cd910faab6eab3c800",
+          "bytes": 3131480,
+          "module": {
+            "format": 1,
+            "build": "09c9a4b686d4",
+            "payload_bytes": 3131416,
+            "memory_bytes": 7428496,
+            "crc32": "8111e794"
+          }
+        }
+      ],
+      "readme_sha256": "eba5c715696399e2d53eaa99baefd1ff06225a6604945c779bdf2777fdb06b4d"
+    },
+    {
+      "test": 79,
+      "source_commit": "9f183a7f72f5c7474d0ec9fab48f7929425782ed",
+      "archive": {
+        "name": "KUI-Stream-Reader-Test-79-16NOV2026-1004-CST-9f183a7.zip",
+        "bytes": 176512,
+        "sha256": "786447b57259d38461ab6ad9467265b656e70f5b6bc2dbcfd9e7073f6f27bfcb"
+      },
+      "files": [
+        {
+          "path": "KUI/apps/games/retail-native-dual.kui",
+          "status": "changed for the test only: Test 79 in the place of the installed New reader module (build f8807cb16561), which the owner keeps and puts back",
+          "sha256": "557822ecfcd9761f2617d146e69b0a5918ae745cdb16247a607466242f4147be",
+          "bytes": 299488,
+          "module": {
+            "format": 1,
+            "build": "9f183a7f72f5",
+            "payload_bytes": 299424,
+            "memory_bytes": 299424,
+            "crc32": "44c11c5b"
+          }
+        }
+      ],
+      "readme_sha256": "7edab3c34b53cfafebc53a924c672d6460d4f3c4a96b51b46e63c4262b486ec4"
+    }
+  ]
+}

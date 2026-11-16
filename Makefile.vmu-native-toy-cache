@@ -1,0 +1,5 @@
+# SPDX-License-Identifier: GPL-3.0-only
+# Manual Toy Commander read-ahead report on the production compact X route.
+BUILD ?= build/native-toy-cache
+include Makefile.vmu-native-background-compact
+NATIVE_FLAGS += -DKUI_NATIVE_TOY_CACHE_CAPTURE=1

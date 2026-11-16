@@ -1,0 +1,231 @@
+passes  the tests without a mutation
+caught  resume one byte early
+caught  resume one byte late
+caught  held byte not stored
+caught  held byte taken for the lost one
+caught  lost position not logged
+caught  no module reset
+caught  run started without room for it
+caught  short run for a waiting caller overshoots the ring
+caught  ring index ignores the wrap
+caught  channel not restored at stop
+caught  wrong CRC polynomial
+caught  clean block not checked
+caught  rebuild counts one byte too few behind
+caught  rebuilt byte not reversed
+caught  lost data byte not listed
+caught  lost index off by one
+caught  lost gap byte never the token
+caught  second reading of the gap dropped
+caught  reader runs past what has landed
+caught  data token taken as received
+caught  block one byte short
+caught  lost bytes not mapped into the sector
+caught  failed sector not read again
+caught  extent jump ignored
+caught  stream state not handed back
+caught  resident not told the stream receives
+caught  rewind keeps the old cursor
+caught  sector served without its check
+caught  stream left running when the window closes
+caught  two-byte CRC table built from the wrong byte
+caught  second pair of a word not shifted down
+caught  table halves swapped
+caught  third byte of a word reversed from the second
+caught  last byte of a word not written
+caught  sign bits of the table left in the CRC
+caught  bytes behind a word run dropped
+caught  a visit out of time is not told apart
+caught  visits not counted by caller
+caught  timer visit not accounted
+caught  visits out of time not counted
+caught  the clock is never taken as good
+caught  an unanswered overrun is not overdue
+caught  a wait whose timer ran out is not overdue
+caught  a wait without a timer is not overdue
+caught  calls never held back
+caught  update calls visit without a window
+caught  a ring that stands full does not call for the foreground
+caught  an overrun left unanswered does not call for the foreground
+caught  calls not counted
+caught  due calls not counted
+caught  idle calls counted with the update calls
+caught  idle work counted with the update calls'
+caught  idle due calls counted with the update calls'
+caught  a waiting request held to the spacing
+caught  an update call passed on is held again
+caught  an update visit not told from a delivery
+caught  an interrupt's delivery visit counted with the game's
+caught  delivery visits not counted
+caught  the output counter read at the skip counter's place
+caught  a movie's first call taken for a frame
+caught  a call that did both counted as a skip
+caught  skipped frames not counted
+caught  a skip's time counted with the frames put out
+caught  interrupt time not taken from the call before
+caught  the cycle not counted from the call before
+caught  the first movie counted with the second
+caught  the second movie held back all the same
+caught  the player's refills held back
+caught  a rebuilt block called clean
+caught  a block with lost bytes called clean
+caught  the rebuilt byte's place given wrong
+caught  a rebuilt byte taken without its code word
+caught  the code word summed one byte off
+caught  the code word summed short of its last byte
+caught  a byte no code word reaches taken as covered
+caught  a block never confirmed taken as checked in the next sector
+caught  a block confirmed by a sector that was not asked
+caught  a block the stream could not check taken on trust
+caught  the low reader's blocks taken as the stream's
+caught  the lighter check without the address
+caught  the address not carried on to the next sector
+caught  the sample never taken
+caught  a failed sample leaves the lighter check on
+caught  a failed sample's sector taken all the same
+caught  the lighter check not switched off
+caught  the bit order left changed for the module reset
+caught  MSB first asked again after the receiver's answer
+caught  the bit not written for a run
+caught  wrong polynomial for bytes as sent
+caught  the remainder for bytes as sent not byte-swapped
+caught  bytes as sent stored reversed all the same
+caught  the order settled with a lost byte ahead of the token
+caught  the question never given up
+caught  a token the old way round not believed
+caught  the old tables not rebuilt for a token the old way round
+caught  a byte rebuilt before the order is confirmed
+caught  a first block's failed check does not end the asking
+caught  the order confirmed by a block with lost bytes
+caught  bytes as sent: second pair of a word not shifted down
+caught  bytes as sent: table halves swapped
+caught  bytes as sent: third byte of a word stored from the second
+caught  bytes as sent: last byte of a word not written
+caught  bytes as sent: sign bits of the table left in the CRC
+caught  the short way while the region is lent out
+caught  the short way with the low reader mid-resume
+caught  the short way under a command that is not a read
+caught  the short way with the reader closed
+caught  the short way on a faulted bus
+caught  the short way on a released bus
+caught  an idle call always pumps on the short way
+caught  an interrupt held to the idle rule on the short way
+caught  a pump's error on the short way leaves the window
+caught  a window given up on the short way not counted
+caught  a block's time in the ring taken backwards
+caught  a block's feeding added to its time in the ring
+caught  the feeding timed from the block before
+caught  a reopening's time not kept
+caught  the stream's service not timed
+caught  the stream's service timed backwards
+caught  the sectors' checks not timed
+caught  the sectors' checks added to the copying out
+caught  the first movie's skip taken for the second's
+caught  a later skip takes the first one's place
+caught  the first skip's frame counted from nought
+caught  a frame put out taken for a skip
+caught  a wait in vain never ends
+caught  a wait given up at once
+caught  a wait the window grows under is given up all the same
+caught  a wait renewed although the window has not grown
+caught  the window's end at a wait's start not kept
+caught  a wait in vain ends a tenth too late
+caught  a wait given up a tenth too early
+caught  a request's waiting calls each counted as a request
+caught  waits kept not counted
+caught  a wait kept without a clock
+caught  a run's last line read without being dropped
+caught  lines dropped from the run's own address on
+caught  every other line dropped
+caught  no line dropped
+caught  lines dropped up to a run's first word only
+caught  a short run read through the cache as it stands
+caught  the cache's view taken a line further on
+caught  the ending of a stream not timed
+caught  the ending of a stream timed backwards
+caught  the buffer looked at in a call that took no frame
+caught  the first movie's buffer placed in the course
+caught  a reading that cannot be checked taken without the look behind it
+caught  the choice between two readings not held for the byte behind
+caught  a first reading whose lost byte the CRC16 cannot explain handed on
+caught  a block whose CRC16 lost a byte called clean
+caught  the rebuilt byte's place reported one off
+caught  a stream that receives is waited out
+caught  the receiver switched off in mid byte
+caught  the channel taken off and the byte not waited for
+caught  the byte waited for two looks long
+caught  the channel's end flag written where its enable bit should go
+caught  a channel that is no longer the stream's switched off
+caught  a channel pointed elsewhere switched off
+caught  a place that is not a multiple of four given to the word copy
+caught  the window's copy left to the library
+caught  a piece copied to the sector's start
+caught  a block always taken into the first buffer
+caught  the second buffer used for the wrong blocks
+caught  a block's last line in the ring left out
+caught  the buffer's last line left out
+caught  the first buffer taken for the second's room
+caught  the block's place taken from where the ring was read before
+caught  the short way after a request that did not complete
+caught  the short way for a window in error
+caught  a window for any read, consecutive or not
+caught  consecutive counted from the last sector read, not from behind it
+caught  a window where the stream cannot take the card over
+caught  a window on top of a token search the low reader left standing
+caught  a stop command that failed once fails the game's read
+caught  a window left marked open when its stop command failed
+caught  a window on a track that is not raw
+caught  the window ends a sector before its track's end
+caught  the window reaches a sector into the next track
+caught  a window outside the movie files left unmarked
+caught  the other windows not counted
+caught  a movie's window counted with the others
+caught  a request served in an interrupt visit taken for a failed one
+caught  a request served in an interrupt visit taken for a failed one by the interrupt visits behind it
+caught  a request that did not complete keeps its window
+caught  a window counted as given up before it is gone
+caught  windows given up not counted
+caught  a window in another title
+caught  a window on a source the stage did not find raw
+caught  the movie's rule for the window after all
+caught  a file's variant for a read that reaches beyond its end
+caught  no file's variant for a read inside the file
+caught  a request in slices asks the wire for the whole of itself
+caught  the copying out not timed
+caught  the copying out timed twice over
+caught  a waited request gives the window up all the same
+caught  a read over the track's end counted as one the game waited for
+caught  a window in error counted as one whose request did not complete
+caught  a window whose request did not complete counted as given up for a read
+caught  a window given up for a waited request counted as given up for another read
+caught  a window given up for a read counted as given up for a waited request
+caught  the other windows' sectors counted as a movie's
+caught  a movie's sectors counted with the other windows'
+caught  a read elsewhere served from the window
+caught  a read the window may not serve keeps the window
+caught  a read beyond the window's end waits for it
+caught  a read to the window's last sector given up for
+caught  a window given up for a command counted as given up for a read
+caught  a large request waits for all of itself in the window
+caught  a small request handed over in pieces
+caught  a slice of any length
+caught  every slice written at the request's start
+caught  a slice not counted in the request's cursor
+caught  a request complete with its first slice
+caught  a large request not counted
+caught  a large request's last slice counted for its sectors
+caught  a request of sixty sectors counted as large
+caught  a returned request not counted
+caught  a returned request read one sector short
+caught  a returned request read on from where the window stopped
+caught  a request the window began goes back with its cursor as it stood
+caught  the same where the stop command had failed
+caught  a request with nothing delivered begun again all the same
+caught  the game told of a slice takes the request from the window
+caught  a request the window has begun is no longer its own
+caught  the window's place taken by the request's first sector
+caught  what is owed taken for the whole request
+226 of 226 mutations caught (the list run in four pieces on commit 9f183a7f72f5; the tests without a mutation run by the first)
+
+Which of the list's entries change the code the configuration compiles (the preprocessed sources compared):
+226 of 226 mutations change the code this configuration compiles

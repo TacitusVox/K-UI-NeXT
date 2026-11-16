@@ -1,0 +1,19 @@
+Bytes of the auxiliary's text and of its image (limit 24576), built on a clean worktree of 4be776b5ed05 with BUILD_ID 7fe7e83c2082.
+again76 and again75nl are the two delivered recipes built again from nothing; the others leave one part out
+(later: LATER put back; bare: no part).
+noapart exit 0 text 20400 image 24512 module b3dcbdca97edf282652f0cb75316213ee6ecaaa23721696accd39c2c014d881e
+again75nl exit 0 text 20036 image 24160 module a742b4a7f68c3c9744ddca5e8c2935dff035ac2ebb7323d30c0a539921b6ee51
+again76 exit 0 text 20444 image 24576 module 6540c38df4143222db3d75cd4dcaf6503b9daa39421ec456f0bb4d1fad21a881
+later exit 2 text 0 image  module 
+noquit exit 0 text 20388 image 24512 module f052bda1bd1f55733e9a82ef803b09660cd2f1307c2c36eea53a6433d577cf0d
+nocopy exit 0 text 20332 image 24448 module 1f371d8de591d95780d7f1e3359a9afc78d26ed170c3cad4b584605da39badae
+bare exit 0 text 20240 image 24352 module 8141e9f9bfdb2972038e869950fea3c73aa67045df01e0c155249b0f719f4a02
+nohot exit 2 text 0 image  module 
+nogap exit 0 text 20388 image 24512 module 7ce3c839e6ec014e799ae4598800f24bd3bbbfdfaaa1b508e0015970f6991c67
+repro75 text 20144 image 24256
+toy-suite-75-nolater text 20036 image 24160
+toy-suite-76 text 20444 image 24576
+Two parts left out, or LATER put back with COPY left out:
+nohot-nogap exit 0 text 20452 image 24576
+later-nocopy exit 0 text 20440 image 24544
+nohot-nocopy exit 0 text 20400 image 24512

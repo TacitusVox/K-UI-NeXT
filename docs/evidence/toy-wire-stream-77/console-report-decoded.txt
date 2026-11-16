@@ -1,0 +1,69 @@
+== docs/evidence/toy-wire-stream-76/console-report-66-11-no-gap.txt
+test 76, build 7fe7e83c2082
+I: submitted 1953, on time 1947, longest gap 0.288 s after frame 1130; first frame 0.801 s, last 1968, skipped 15, exit 2012, first skip at 1089
+B: submitted 331, on time 330, longest gap 47.9 ms after 285
+IP: frame calls 1952, 58.91 s, 30.2 ms each; turn 58.95 s; reader interrupt in span 3.34 s, 1.71 ms each; skip calls 2, 0.247 s
+BP: frame calls 330, 22.8 ms each; skip calls 0
+V: SCI 25560 visits 4.07 s; timer 6459, 0.033 s; game 13031, 4.78 s; all 8.88 s; blocks 135696; 65.4 us a block
+P us/block: ring 33.7, feed less checks 8.3, checks 6.0, service 3.4, seek 9.8, rest 4.3; out 1.21 s (41.5 us a sector of 29245)
+seek 1.32 s, 2.02 ms for each stream begun
+D: delivery visits 6823, 9.53 s
+W: begun 656, full runs 6938, overruns in a run 19824, timer waits 8301 of 4.87 s, stops for room 1441; bytes 72287396; timer 1; errors 0, detail 0
+BLK: 135696, rebuilt 14810, unexplained 52, holed 2843, crc only 51, low reader 732
+S: closed 4, sector 19, could not follow 633: lost frame 628, ambiguous 0, bad crc 5; lost frame per hundred overruns 3.17
+FILL: 1867, refused 2, bad 17;  K: light 24041, edc 5266, mend 11584, MB 0, LB 0, ORD 3
+AHEAD: sectors served B 3421, I 25824, other windows 0, all 29245; requests served 2416 (12.1 sectors each); sectors into the window 29288; stop 0
+PIPE: windows B 2, I 2; game's calls 13031, interrupt visits 25560, stay 53, PT BD
+TF 136 | 164 | 161 | 162 | 161 | 162 | 153 | 154 | 162 | 162 | 161 | 215
+TD 1968 | 2416 | 2352 | 2416 | 2352 | 2352 | 2352 | 2432 | 2576 | 2224 | 608 | 1680
+TW 0.08 | 0.00 | 0.00 | 0.00 | 0.00 | 0.00 | 0.00 | 0.00 | 0.00 | 0.59 | 0.00 | 0.06
+TB 548 | 772 | 716 | 696 | 732 | 760 | 772 | 776 | 772 | 776 | 40 | 280
+TP 0.00 | 0.04 | 0.06 | 0.02 | 0.02 | 0.06 | 0.02 | 0.08 | 0.10 | 0.50 | 1.87 | 0.63
+TR 0.50 | 0.67 | 0.65 | 0.63 | 0.61 | 0.67 | 0.61 | 0.71 | 0.82 | 0.75 | 0.29 | 0.52
+TF sum 1953
+== docs/evidence/toy-wire-stream-77/console-report-66-run-1.txt
+test 77, build ded3083ecdf8
+I: submitted 1959, on time 1953, longest gap 0.100 s after frame 1133; first frame 0.806 s, last 1968, skipped 9, exit 2012, first skip at 1080
+B: submitted 331, on time 330, longest gap 47.5 ms after 315
+IP: frame calls 1958, 59.15 s, 30.2 ms each; turn 59.19 s; reader interrupt in span 3.44 s, 1.75 ms each; skip calls 4, 0.064 s
+BP: frame calls 330, 22.7 ms each; skip calls 0
+V: SCI 26275 visits 4.25 s; timer 6882, 0.034 s; game 16163, 4.89 s; all 9.17 s; blocks 138695; 66.1 us a block
+P us/block: ring 34.1, feed less checks 8.7, checks 5.9, service 3.4, seek 9.7, rest 4.5; out 1.22 s (41.4 us a sector of 29351)
+seek 1.34 s, 1.92 ms for each stream begun
+D: delivery visits 10772, 9.43 s
+W: begun 700, full runs 7162, overruns in a run 20331, timer waits 8564 of 5.31 s, stops for room 1466; bytes 74277330; timer 1; errors 0, detail 0
+BLK: 138695, rebuilt 15266, unexplained 56, holed 2786, crc only 62, low reader 749
+S: closed 27, sector 16, could not follow 657: lost frame 655, ambiguous 0, bad crc 2; lost frame per hundred overruns 3.22
+FILL: 1775, refused 0, bad 16;  K: light 24658, edc 5272, mend 12001, MB 0, LB 0, ORD 3
+AHEAD: sectors served B 3421, I 25824, other windows 106, all 29351; requests served 2450 (12.0 sectors each); sectors into the window 29914; stop 0
+PIPE: windows B 3, I 3; game's calls 16163, interrupt visits 26275, stay 81, PT 1BD
+X: other windows 21; windows opened in all 27; given up: error 0, idle 0, command 4, waited 0, other read 23, together 27
+TF 136 | 163 | 162 | 161 | 162 | 161 | 157 | 157 | 161 | 163 | 161 | 215
+TD 1968 | 2432 | 2368 | 2352 | 2352 | 2384 | 2368 | 2464 | 2592 | 2176 | 608 | 1680
+TW 0.06 | 0.00 | 0.00 | 0.00 | 0.00 | 0.00 | 0.04 | 0.00 | 0.02 | 0.48 | 0.00 | 0.10
+TB 548 | 772 | 660 | 736 | 764 | 768 | 772 | 776 | 704 | 736 | 68 | 308
+TR 0.52 | 0.65 | 0.67 | 0.65 | 0.63 | 0.65 | 0.65 | 0.71 | 0.82 | 0.71 | 0.29 | 0.59
+TF sum 1959
+== docs/evidence/toy-wire-stream-77/console-report-66-run-2.txt
+test 77, build ded3083ecdf8
+I: submitted 1965, on time 1960, longest gap 0.065 s after frame 1177; first frame 0.809 s, last 1968, skipped 3, exit 2012, first skip at 1180
+B: submitted 331, on time 330, longest gap 47.7 ms after 315
+IP: frame calls 1964, 59.22 s, 30.2 ms each; turn 59.26 s; reader interrupt in span 3.43 s, 1.74 ms each; skip calls 2, 0.007 s
+BP: frame calls 330, 22.6 ms each; skip calls 0
+V: SCI 26140 visits 4.23 s; timer 6865, 0.034 s; game 16966, 4.93 s; all 9.20 s; blocks 139684; 65.9 us a block
+P us/block: ring 34.0, feed less checks 8.7, checks 5.9, service 3.3, seek 9.6, rest 4.5; out 1.21 s (41.3 us a sector of 29378)
+seek 1.34 s, 1.95 ms for each stream begun
+D: delivery visits 46531, 11.31 s
+W: begun 685, full runs 7214, overruns in a run 20195, timer waits 8519 of 5.29 s, stops for room 1493; bytes 74883571; timer 1; errors 0, detail 0
+BLK: 139684, rebuilt 15327, unexplained 52, holed 2704, crc only 55, low reader 763
+S: closed 34, sector 24, could not follow 627: lost frame 627, ambiguous 0, bad crc 0; lost frame per hundred overruns 3.10
+FILL: 1716, refused 0, bad 24;  K: light 24932, edc 5241, mend 12104, MB 0, LB 0, ORD 3
+AHEAD: sectors served B 3421, I 25824, other windows 133, all 29378; requests served 2457 (12.0 sectors each); sectors into the window 30149; stop 0
+PIPE: windows B 3, I 3; game's calls 16966, interrupt visits 26140, stay 90, PT 1BD
+X: other windows 28; windows opened in all 34; given up: error 0, idle 0, command 5, waited 0, other read 29, together 34
+TF 136 | 163 | 162 | 161 | 162 | 161 | 162 | 158 | 161 | 163 | 161 | 215
+TD 1968 | 2448 | 2352 | 2400 | 2384 | 2400 | 2304 | 2496 | 2528 | 2176 | 608 | 1680
+TW 0.06 | 0.00 | 0.00 | 0.00 | 0.00 | 0.00 | 0.00 | 0.00 | 0.15 | 0.57 | 0.00 | 0.04
+TB 548 | 772 | 660 | 680 | 596 | 596 | 772 | 776 | 652 | 748 | 64 | 296
+TR 0.52 | 0.65 | 0.65 | 0.65 | 0.61 | 0.65 | 0.59 | 0.71 | 0.84 | 0.75 | 0.29 | 0.59
+TF sum 1965

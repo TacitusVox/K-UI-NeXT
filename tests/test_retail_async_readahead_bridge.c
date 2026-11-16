@@ -6,10 +6,19 @@
 #include <assert.h>
 extern const struct kui_native_ra_low_ops kui_native_ra_reader_ops;
 static uint32_t clock_counter=UINT32_C(0x70000000),eri_slot,rxi_slot;
+#if KUI_TOY_SUITE_MODE == 4
+static uint32_t clock_step=19u;
+#endif
 void kui_retail_sdk_sci_entry(void) {}
 uint32_t kui_retail_async_test_read32(uint32_t address) {
     if(address==UINT32_C(0xffd8000c)) {
-        uint32_t result=clock_counter;clock_counter-=19u;return result;
+        uint32_t result=clock_counter;
+#if KUI_TOY_SUITE_MODE == 4
+        clock_counter-=clock_step;
+#else
+        clock_counter-=19u;
+#endif
+        return result;
     }
     if(address==KUI_NATIVE_SDK_SCI_OWNER_VBR+KUI_NATIVE_SDK_SCI_ERI_SLOT_OFFSET)return eri_slot;
     assert(address==KUI_NATIVE_SDK_SCI_OWNER_VBR+KUI_NATIVE_SDK_SCI_RXI_SLOT_OFFSET);
@@ -18,7 +27,21 @@ uint32_t kui_retail_async_test_read32(uint32_t address) {
 volatile uint32_t kui_retail_hook_active,kui_retail_hook_fault;
 #define main original_async_main
 #define kui_sci_sd_acquire fixture_sci_sd_acquire
+#if KUI_TOY_SUITE_MODE == 3
+#define kui_sci_stream_test_read fixture_sci_stream_test_read
+#endif
 #include "test_retail_async.c"
+#if KUI_TOY_SUITE_MODE == 3
+#undef kui_sci_stream_test_read
+static uint32_t chcr2,holly_c2_start;
+uint32_t kui_sci_stream_test_read(uint32_t address,unsigned width) {
+    if(address==UINT32_C(0xffa0002c) || address==UINT32_C(0xa05f6808)) {
+        assert(width==4u);
+        return address==UINT32_C(0xffa0002c)?chcr2:holly_c2_start;
+    }
+    return fixture_sci_stream_test_read(address,width);
+}
+#endif
 #undef kui_sci_sd_acquire
 #undef main
 
@@ -35,14 +58,15 @@ void kui_sci_sd_release(void) {
     R.shared.port.acquired=false;
 }
 
-static void setup_sdk(unsigned how,bool ready) {
-    cooked_fixture=true;setup(KUI_NATIVE_SDK_SCI_OWNER_VBR,how,48u,false);mode(2048u);
+static void setup_sdk_fixture(unsigned how,bool ready,bool cooked) {
+    cooked_fixture=cooked;setup(KUI_NATIVE_SDK_SCI_OWNER_VBR,how,48u,false);mode(2048u);
     kui_retail_hook_active=kui_retail_hook_fault=0u;
     R.vector600[KUI_NATIVE_SDK_SCI_DEFAULT_INDEX]=UINT32_C(0x8c1add0c);
     R.vector600[KUI_NATIVE_SDK_SCI_VBR_INDEX]=KUI_NATIVE_SDK_SCI_OWNER_VBR;
     eri_slot=rxi_slot=(uint32_t)(uintptr_t)kui_retail_sdk_sci_entry;
     if(ready)R.vector600[KUI_NATIVE_SDK_SCI_COOKIE_INDEX]=KUI_NATIVE_SDK_SCI_COOKIE;
 }
+static void setup_sdk(unsigned how,bool ready) {setup_sdk_fixture(how,ready,true);}
 static void complete(int32_t token) {
     CHECK(finish(token,0u,1u)==KUI_GD_COMPLETED);
     compare(45001u,64u,OUTPUT);
@@ -59,6 +83,9 @@ static uint32_t auxiliary(uint32_t event,uint32_t arg,
         ++deliveries;delivered_wait=arg;
         return handled;
     }
+#if KUI_NATIVE_TOY_MOVIE_CAPTURE
+    if(event==KUI_NATIVE_RA_MOVIE_COMPLETE) {CHECK(!arg);return 1u;}
+#endif
     CHECK(event==KUI_NATIVE_RA_QUIESCE && !arg);
     CHECK(kui_retail_hook_active==1u && !R.shared.service.pending &&
         !R.shared.service.executing && !R.engine.active && !R.engine.in_irq);
@@ -147,12 +174,99 @@ static void pre_quiesce_guards(void) {
             !memcmp(&before,&R,sizeof(R)) && !memcmp(&copied,&unchanged,sizeof(copied)));
     }
 }
+#if KUI_TOY_SUITE_LOW_DEMAND
+static bool arm_suite;
+static uint32_t suite_demand(uint32_t event,uint32_t wait,
+    kui_retail_async_region_type *region,uint32_t reserved) {
+    CHECK(region==&R && !reserved);
+    if(event==KUI_NATIVE_RA_MOVIE_COMPLETE) {CHECK(!wait);return 1u;}
+    CHECK(event==KUI_NATIVE_RA_DELIVER);
+    region->shared.stream.toy_suite_active=arm_suite && region->engine.active;
+    kui_native_ra_reader_ops.deliver(wait);
+    region->shared.stream.toy_suite_active=0;
+    return 1u;
+}
+static void setup_suite(bool arm) {
+    setup_sdk_fixture(X,true,false);
+    R.vector600[KUI_NATIVE_RA_ENTRY_INDEX]=(uint32_t)(uintptr_t)suite_demand;
+    arm_suite=arm;
+}
+static void finish_suite(int32_t token,uint32_t sectors) {
+    CHECK(finish(token,0u,1u)==KUI_GD_COMPLETED);
+    compare(45001u,sectors,OUTPUT);
+    CHECK(!R.engine.retries && !R.shared.stream.toy_suite_active && !R.shared.service.error);
+}
+#if KUI_TOY_SUITE_MODE == 3
+static void test_toy_demand_mode(void) {
+    for(unsigned source=0u;source<2u;++source) {
+        setup_suite(true);
+        chcr2=source?0u:1u;holly_c2_start=source;
+        int32_t token=request(45001u,3u,OUTPUT);
+        CHECK(R.shared.stream.toy_suite_events==1u && !m.dma_starts && !hw.writes);
+        CHECK(kui_sci_stream_stats()->polled==1u && card.cmd18==1u && !card.cmd12);
+        CHECK(m.sar==0x11111111u && m.dar==0x22222222u && m.tcr==0x33u && !m.chcr);
+        chcr2=holly_c2_start=0u;
+        finish_suite(token,3u);
+        CHECK(m.dma_starts && R.shared.stream.toy_suite_events==1u && card.cmd18==1u);
+    }
+    setup_suite(true);chcr2=3u;
+    int32_t token=request(45001u,3u,OUTPUT);
+    finish_suite(token,3u);
+    CHECK(!R.shared.stream.toy_suite_events && m.dma_starts && !kui_sci_stream_stats()->polled);
+
+    setup_suite(false);chcr2=1u;holly_c2_start=1u;
+    token=request(45001u,3u,OUTPUT);
+    finish_suite(token,3u);
+    CHECK(!R.shared.stream.toy_suite_events && m.dma_starts && !kui_sci_stream_stats()->polled);
+    chcr2=holly_c2_start=0u;
+
+    setup_suite(true);
+    token=request(45001u,3u,OUTPUT);
+    unsigned starts=m.dma_starts;
+    chcr2=1u;elapse();
+    CHECK(kui_retail_sdk_sci_dispatch(0x4e0u)==0u && m.dma_starts>starts);
+    CHECK(!R.shared.stream.toy_suite_events && !kui_sci_stream_stats()->polled);
+    chcr2=0u;
+    finish_suite(token,3u);
+}
+#elif KUI_TOY_SUITE_MODE == 4
+static void test_toy_demand_mode(void) {
+    for(unsigned enabled=0u;enabled<2u;++enabled) {
+        setup_suite(enabled!=0u);clock_counter=1999u;clock_step=1250u;
+        int32_t token=request(45001u,8u,OUTPUT);
+        const uint32_t before=R.engine.stats.call_blocks;
+        CHECK(gd(KUI_GD_EXEC,0u,0u)==0);
+        uint32_t worked=R.engine.stats.call_blocks-before;
+        CHECK(enabled?(worked>0u && worked<20u):worked==20u);
+        CHECK(R.shared.stream.toy_suite_events==enabled);
+        finish_suite(token,8u);
+        CHECK(!kui_sci_stream_stats()->polled && card.cmd18==1u);
+    }
+    clock_step=19u;
+}
+#elif KUI_TOY_SUITE_MODE == 7
+static void test_toy_demand_mode(void) {
+    for(unsigned enabled=0u;enabled<2u;++enabled) {
+        setup_suite(enabled!=0u);early_starts=0u;m.on_dma_start=count_early_start;
+        int32_t token=request(45001u,8u,OUTPUT);
+        finish_suite(token,8u);
+        CHECK(m.dma_starts && !kui_sci_stream_stats()->polled && card.cmd18==1u);
+        CHECK(enabled?(!early_starts && R.shared.stream.toy_suite_events):
+                      (early_starts && !R.shared.stream.toy_suite_events));
+    }
+}
+#endif
+#endif
 int main(void) {
     for(unsigned how=X;how<=Y;how++) {
         setup_sdk(how,true);int32_t token=request(45001u,64u,OUTPUT);complete(token);
     }
     descriptor();deliver_handoff();
     speculative_irq_and_loan();real_demand_and_refused_quiesce();pre_quiesce_guards();
+#if KUI_TOY_SUITE_LOW_DEMAND
+    test_toy_demand_mode();
+    printf("Toy movie demand mode %u and stock control passed\n",KUI_TOY_SUITE_MODE);
+#endif
     printf("native read-ahead low bridge: %u checks; null/fallback, handled delivery, inactive speculative IRQ, quiesce and demand/loan exclusion passed\n",checks);
     return 0;
 }

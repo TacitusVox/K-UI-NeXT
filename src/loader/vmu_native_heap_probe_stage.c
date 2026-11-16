@@ -71,9 +71,18 @@ static uint32_t native_runtime_mode(void) {return KUI_VMU_NATIVE_MODE_NORMAL;}
 static enum kui_loader_sd_result native_persist_storage_init(struct kui_retail_storage *,uint32_t) __attribute__((noipa));
 #define kui_retail_storage_init native_persist_storage_init
 #endif
+#if KUI_NATIVE_TOY_MOVIE_CAPTURE
+static void toy_movie_scan(void);
+#endif
 #define kui_retail_stage_relay kui_native_heap_base_relay
 #include "retail_stage.c"
 #undef kui_retail_stage_relay
+#if KUI_NATIVE_TOY_MOVIE_CAPTURE
+#include "toy_movie_iso_stage.inc"
+#endif
+#if KUI_TOY_SUITE_MODE && !KUI_TOY_WIRE_VMU
+#include "toy_suite_report_stage.inc"
+#endif
 #if KUI_NATIVE_VMU_ONLY
 __asm__(".global __kui_native_vmu_sci_rx_policy_stage\n"
         ".set __kui_native_vmu_sci_rx_policy_stage," KUI_NATIVE_VMU_SCI_RX_POLICY_TEXT "\n");
@@ -202,6 +211,15 @@ __asm__(".global __kui_native_cold_progress_stage\n"
 static uint32_t native_runtime_mode(void) {
     int mode=kui_vmu_native_mode_decode(native_runtime_mode_wire,KUI_VMU_NATIVE_MODE_BYTES);
     if(mode<0) stopped("NATIVE VMU RUNTIME MODE REFUSED",(uint32_t)mode);
+#if defined(KUI_TOY_WIRE_TITLES) && KUI_TOY_WIRE_TITLES && !KUI_TOY_WIRE_VMU
+    /* Test 79: this module's worker has no virtual VMU, and a launch that
+     * passes the owner's setting on can now reach it. With the setting on
+     * the stage stops here, at its first look at the mode: before the card
+     * is opened for the virtual card's files and before the game's memory
+     * is asked for anything. */
+    if(mode!=KUI_VMU_NATIVE_MODE_READER_ONLY)
+        stopped("THIS TEST BUILD NEEDS VIRTUAL VMU OFF",(uint32_t)mode);
+#endif
 #if !KUI_NATIVE_SPLIT_CONTROLLER_GENERAL || !KUI_NATIVE_GENERAL_LEAN_LAYOUT || !KUI_NATIVE_READAHEAD
     if(mode==KUI_VMU_NATIVE_MODE_READER_ONLY)
         stopped("VMU OFF NEEDS MATCHING GENERAL READER",(uint32_t)mode);

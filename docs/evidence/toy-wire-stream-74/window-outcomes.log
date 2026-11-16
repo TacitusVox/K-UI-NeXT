@@ -1,0 +1,40 @@
+window_gone() of tests/test_toy_wire_integration.c in the Test 73 configuration and in Test 74's (first pass, receiver ignoring the bit order).
+
+Test 73:
+  the window's reason gone (movie over, a call): stream off, window gone, given up as error/over/idle/command/waiting/other 0/1/0/0/0/0 and on a pump's error 0, CMD12 once, no pump
+  the window's reason gone (movie over, an interrupt): stream off, window gone, given up as error/over/idle/command/waiting/other 0/2/0/0/0/0 and on a pump's error 0, CMD12 once, no pump
+  the window's reason gone (last request failed): stream off, window gone, given up as error/over/idle/command/waiting/other 0/0/1/0/0/0 and on a pump's error 0, CMD12 once, no pump
+  the window's reason gone (a command that is not a read): stream off, window gone, given up as error/over/idle/command/waiting/other 0/0/0/1/0/0 and on a pump's error 0, CMD12 once, no pump
+  the window's reason gone (bus fault): stream off, window gone, given up as error/over/idle/command/waiting/other 0/0/0/0/0/0 and on a pump's error 0, CMD12 once, no pump
+  the window's reason gone (reader closed): stream off, window gone, given up as error/over/idle/command/waiting/other 0/0/0/0/0/0 and on a pump's error 0, CMD12 once, no pump
+  the window's reason gone (bus released): stream off, window gone, given up as error/over/idle/command/waiting/other 0/0/0/0/0/0 and on a pump's error 0, CMD12 once, no pump
+  the window's reason gone (low reader mid-resume): stream off, window gone, given up as error/over/idle/command/waiting/other 1/0/0/0/0/0 and on a pump's error 0, CMD12 once, no pump
+  the window's reason gone (window marked in error): stream off, window gone, given up as error/over/idle/command/waiting/other 1/0/0/0/0/0 and on a pump's error 0, CMD12 once, no pump
+  the window's reason gone (region lent out): stream on, window kept, given up as error/over/idle/command/waiting/other 0/0/0/0/0/0 and on a pump's error 0, CMD12 none, not pumped
+  the window's reason gone (stream beyond repair): stream off, window gone, given up as error/over/idle/command/waiting/other 0/0/0/0/0/0 and on a pump's error 1, CMD12 at least 8, pumped
+
+Test 74:
+  the window's reason gone (movie over, a call): stream off, window gone, given up as error/over/idle/command/waiting/other 0/1/0/0/0/0 and on a pump's error 0, CMD12 once, no pump
+  the window's reason gone (movie over, an interrupt): stream off, window gone, given up as error/over/idle/command/waiting/other 0/2/0/0/0/0 and on a pump's error 0, CMD12 once, no pump
+  the window's reason gone (last request failed): stream off, window gone, given up as error/over/idle/command/waiting/other 0/0/1/0/0/0 and on a pump's error 0, CMD12 once, no pump
+  the window's reason gone (a command that is not a read): stream off, window gone, given up as error/over/idle/command/waiting/other 0/0/0/1/0/0 and on a pump's error 0, CMD12 once, no pump
+  the window's reason gone (bus fault): stream off, window gone, given up as error/over/idle/command/waiting/other 0/0/0/0/0/0 and on a pump's error 0, CMD12 once, no pump
+  the window's reason gone (reader closed): stream off, window gone, given up as error/over/idle/command/waiting/other 0/0/0/0/0/0 and on a pump's error 0, CMD12 once, no pump
+  the window's reason gone (bus released): stream off, window gone, given up as error/over/idle/command/waiting/other 0/0/0/0/0/0 and on a pump's error 0, CMD12 once, no pump
+  the window's reason gone (low reader mid-resume): stream off, window gone, given up as error/over/idle/command/waiting/other 1/0/0/0/0/0 and on a pump's error 0, CMD12 once, no pump
+  the window's reason gone (window marked in error): stream off, window gone, given up as error/over/idle/command/waiting/other 1/0/0/0/0/0 and on a pump's error 0, CMD12 once, no pump
+  the window's reason gone (region lent out): stream on, window kept, given up as error/over/idle/command/waiting/other 0/0/0/0/0/0 and on a pump's error 0, CMD12 none, not pumped
+  the window's reason gone (stream beyond repair): stream off, window gone, given up as error/over/idle/command/waiting/other 0/0/0/0/0/0 and on a pump's error 1, CMD12 at least 8, pumped
+
+Test 74, receiver honouring the bit order:
+  the window's reason gone (movie over, a call): stream off, window gone, given up as error/over/idle/command/waiting/other 0/1/0/0/0/0 and on a pump's error 0, CMD12 once, no pump
+  the window's reason gone (movie over, an interrupt): stream off, window gone, given up as error/over/idle/command/waiting/other 0/2/0/0/0/0 and on a pump's error 0, CMD12 once, no pump
+  the window's reason gone (last request failed): stream off, window gone, given up as error/over/idle/command/waiting/other 0/0/1/0/0/0 and on a pump's error 0, CMD12 once, no pump
+  the window's reason gone (a command that is not a read): stream off, window gone, given up as error/over/idle/command/waiting/other 0/0/0/1/0/0 and on a pump's error 0, CMD12 once, no pump
+  the window's reason gone (bus fault): stream off, window gone, given up as error/over/idle/command/waiting/other 0/0/0/0/0/0 and on a pump's error 0, CMD12 once, no pump
+  the window's reason gone (reader closed): stream off, window gone, given up as error/over/idle/command/waiting/other 0/0/0/0/0/0 and on a pump's error 0, CMD12 once, no pump
+  the window's reason gone (bus released): stream off, window gone, given up as error/over/idle/command/waiting/other 0/0/0/0/0/0 and on a pump's error 0, CMD12 once, no pump
+  the window's reason gone (low reader mid-resume): stream off, window gone, given up as error/over/idle/command/waiting/other 1/0/0/0/0/0 and on a pump's error 0, CMD12 once, no pump
+  the window's reason gone (window marked in error): stream off, window gone, given up as error/over/idle/command/waiting/other 1/0/0/0/0/0 and on a pump's error 0, CMD12 once, no pump
+  the window's reason gone (region lent out): stream on, window kept, given up as error/over/idle/command/waiting/other 0/0/0/0/0/0 and on a pump's error 0, CMD12 none, not pumped
+  the window's reason gone (stream beyond repair): stream off, window gone, given up as error/over/idle/command/waiting/other 0/0/0/0/0/0 and on a pump's error 1, CMD12 at least 8, pumped

@@ -26,6 +26,17 @@ Capture GUI/module identity and both launch phases with usual matching options;
 retain the automatically generated launch record. Existing operation-count
 improvements must not be presented as measured console speed-ups.
 
+Recipe note of 16 November 2026: the delivered module is reproduced by
+`Makefile.vmu-native-background-compact` with this label at the candidate's own
+source (public commit `e79da8ce`) alone. On the source that carries the Toy
+test sources (imported by `f216fac` and `e1104f4`) the same recipe gives the
+candidate's worker, and low residents and a block-cache auxiliary that are not
+the candidate's (same sizes; 390, 6 and 3,074 bytes differ). The cold stage
+differs already by Main's own work between the candidate and those imports. Do
+not build the New reader from that source for delivery before this is resolved.
+The trace is in `evidence/toy-wire-stream-82/installed-recipe-on-this-source.log`
+and the item in the owed list of `fmv-stream-reader-plan.md`.
+
 The subsequent [read-only review](review-06nov2026.md) confirms that all four
 delivered CE/CDDA modules already contain the VRAM-copy and folded-CRC changes;
 ordinary `ce-probe.kui` remains omitted. It also confirms that menu Restart

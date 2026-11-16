@@ -4,6 +4,10 @@
 #include "kui/native_readahead.h"
 #include "kui/native_readahead_cache.h"
 #include <stddef.h>
+#if defined(KUI_TOY_WIRE_STREAM) && KUI_TOY_WIRE_STREAM
+/* Which parts of the wire-stream tests a build has. */
+#include "kui/toy_wire_report.h"
+#endif
 
 /* The SH entry owns busy. The public report prefix is deliberately small
  * and stable; all policy state is private to this separately owned module. */
@@ -11,6 +15,44 @@ struct kui_native_readahead_aux_context {
     uint32_t busy;
     struct kui_native_ra_stats stats;
     struct kui_native_ra_diagnostics diagnostics;
+#if KUI_TOY_SUITE_MOVIE_EXIT
+    struct kui_toy_movie_exit_witness movie_exit[2];
+#endif
+#if KUI_TOY_SUITE_MOVIE_CHUNK
+    struct kui_toy_movie_chunk_trace movie_chunk[2];
+#endif
+#if KUI_NATIVE_TOY_MOVIE_CAPTURE
+#if KUI_TOY_SUITE_MOVIE_TIMING
+    struct kui_toy_movie_onset_trace onset[2];
+#else
+    struct kui_toy_movie_stats movies[2];
+#endif
+    uint32_t movie_mask;
+#endif
+#if KUI_NATIVE_TOY_PLAYBACK_CAPTURE
+    struct kui_toy_playback_stats playback[2];
+#endif
+#if defined(KUI_TOY_SUITE_MODE)
+    uint32_t suite[5], suite_source;
+#endif
+#if KUI_TOY_SUITE_ASYNC_DEMAND
+    struct kui_toy_demand_trace demand;
+#endif
+#if KUI_TOY_SUITE_FRAME_TIMING
+    struct kui_toy_movie_present_trace present[2];
+    struct kui_toy_movie_wait_trace wait[2];
+#endif
+#if KUI_TOY_SUITE_MODE == 27 || KUI_TOY_SUITE_MODE == 28
+    uint32_t burst_quiet_status,burst_quiet_lba,burst_quiet_end;
+    uint32_t burst_quiet_late_lba,burst_quiet_late_end;
+    struct kui_toy_burst_metrics burst_quiet,burst_live,burst_match;
+#endif
+#if KUI_TOY_SUITE_MODE == 28
+    struct kui_toy_burst_rate burst_fast,burst_slow;
+#endif
+#if KUI_TOY_FMV_COMPARE
+    struct kui_toy_fmv_trace fmv_trace;
+#endif
     struct kui_native_ra_config config;
     struct kui_native_ra_cache cache;
     uint32_t initialized,quiesced,abandoned,have_seed;
@@ -20,13 +62,159 @@ struct kui_native_readahead_aux_context {
      * growing the private stack for every transport operation. */
     struct kui_native_ra_failure_snapshot observation;
     uint32_t current_event;
+#if KUI_TOY_SUITE_VERIFIED_RESUME
+    struct {
+        struct kui_retail_cursor cursor;
+        uint32_t token,written,checked,resumed_start;
+        uint8_t state,variant;
+    } resume;
+#endif
+#if KUI_TOY_SUITE_MODE == 26 || KUI_TOY_SUITE_MODE == 27 || KUI_TOY_SUITE_MODE == 28
+    struct {
+        uint32_t variant, frontier, lba, frames, bytes, offset, parsed;
+        uint32_t token, fallback_token, empty, started, polls;
+        bool owned, pending, have_token, fallback;
+#if KUI_TOY_SUITE_MODE == 27 || KUI_TOY_SUITE_MODE == 28
+        uint32_t wanted;
+        bool calibration, matched;
+#endif
+#if KUI_TOY_SUITE_MODE == 28
+        uint8_t rate_variant, slow_attempts;
+        bool slow_rx, slow_tried;
+#endif
+    } burst;
+#endif
+#if KUI_NATIVE_TOY_MOVIE_CAPTURE && !KUI_NATIVE_TOY_HEADER_REPLAY && !defined(KUI_TOY_SUITE_MODE)
+    uint32_t last_movie,last_movie_tick;
+#endif
+#if KUI_NATIVE_TOY_PLAYBACK_CAPTURE
+    uint32_t playback_started[2], playback_valid;
+    uint32_t playback_token, playback_variant;
+#if KUI_TOY_SUITE_MODE == 35
+    uint32_t window_token;
+#endif
+    uint32_t last_play_variant, last_play_tick;
+#endif
+#if KUI_NATIVE_TOY_HEADER_REPLAY
+    struct {
+        const struct kui_retail_manifest *manifest;
+        kui_retail_cursor_write write;
+        void *context;
+        uint32_t token,lba,last_block,stream_position;
+        uint32_t sector_part,track_type;
+#if KUI_NATIVE_SESSION_CONTROLS
+        uint32_t disc_generation;
+#endif
+        uint16_t written,first_chunk;
+        bool valid;
+        _Alignas(4) uint8_t data[KUI_GAME_DATA_BYTES];
+    } header;
+#endif
+#if KUI_TOY_SUITE_MODE >= 61
+    uint32_t wait_token[2];
+#endif
+#if KUI_TOY_SUITE_MODE >= 62
+    /* The verified movie window's own state (toy_movie_ahead.inc).
+     *
+     * Test 76 (HOT) reaches it through the cache. The context is linked at
+     * its uncached address, and the reader's work on each card block went
+     * through this struct some fifty times, the low reader's feed on the
+     * cursor among them: a bus cycle each. Nothing but the auxiliary's own
+     * C ever touches this member (the gate, the hooks and the worker know
+     * the context's first members only), so all of it can use the cached
+     * address of the same memory instead: KUI_TOY_AHEAD below, which is
+     * the member's linked address less the distance between the two
+     * views, a constant the linker computes. For that the member owns
+     * whole cache lines, so that a line written back from the cache never
+     * carries a neighbour's stale bytes with it; and in the linked module
+     * it goes by another name, so that no use of the uncached address can
+     * be compiled by mistake. The context is zeroed through its uncached
+     * address at init, into lines the cold bind has purged. */
+#if defined(KUI_TOY_WIRE_STREAM) && KUI_TOY_WIRE_STREAM && KUI_TOY_WIRE_HOT
+#define KUI_TOY_AHEAD_HOT 1
+    _Alignas(32)
+#else
+#define KUI_TOY_AHEAD_HOT 0
+#endif
+    struct {
+        struct kui_retail_cursor cursor;
+        uint32_t first, head, verified, failed_token, receive_token;
+        uint8_t variant;
+        bool error, receiving;
+#if KUI_TOY_SUITE_MODE >= 65
+        uint8_t retry;
+#endif
+    }
+#if KUI_TOY_AHEAD_HOT && !defined(KUI_NATIVE_READAHEAD_AUX_HOST_TEST)
+    movie_ahead_uncached;
+#define KUI_TOY_AHEAD (*(__typeof__(kui_native_readahead_aux_context.movie_ahead_uncached) *) \
+    ((uintptr_t)&kui_native_readahead_aux_context.movie_ahead_uncached-UINT32_C(0x20000000)))
+#else
+    movie_ahead;
+#define KUI_TOY_AHEAD kui_native_readahead_aux_context.movie_ahead
+#endif
+#endif
 };
+#if KUI_TOY_SUITE_MODE >= 62 && KUI_TOY_AHEAD_HOT
+#ifdef KUI_NATIVE_READAHEAD_AUX_HOST_TEST
+_Static_assert(offsetof(struct kui_native_readahead_aux_context,movie_ahead)%32u==0u &&
+#else
+_Static_assert(offsetof(struct kui_native_readahead_aux_context,movie_ahead_uncached)%32u==0u &&
+#endif
+    sizeof(struct kui_native_readahead_aux_context)%32u==0u,
+    "The window's state owns whole cache lines, to the context's end");
+#ifndef KUI_NATIVE_READAHEAD_AUX_HOST_TEST
+/* tests/test_toy_wire_linked_hot.py finds it in the linked module so. */
+_Static_assert(sizeof(struct kui_native_readahead_aux_context)-
+    offsetof(struct kui_native_readahead_aux_context,movie_ahead_uncached)==96u,
+    "The window's state is the context's last three cache lines");
+#endif
+#endif
 _Static_assert(offsetof(struct kui_native_readahead_aux_context,busy)==0u,
     "auxiliary assembly busy word");
 _Static_assert(offsetof(struct kui_native_readahead_aux_context,stats)==4u,
     "auxiliary public statistics prefix");
 _Static_assert(offsetof(struct kui_native_readahead_aux_context,diagnostics)==76u,
     "auxiliary appended diagnostic prefix");
+#if KUI_TOY_SUITE_MOVIE_EXIT
+_Static_assert(offsetof(struct kui_native_readahead_aux_context,movie_exit)==KUI_TOY_MOVIE_EXIT_OFFSET,
+    "Toy movie exit witness assembly offset");
+#endif
+#if KUI_TOY_SUITE_MOVIE_CHUNK
+_Static_assert(offsetof(struct kui_native_readahead_aux_context,movie_chunk)==
+    offsetof(struct kui_native_ra_public,movie_chunk),"Toy movie chunk report prefix");
+void kui_toy_movie_chunk_observe(uint32_t ctx,int32_t result);
+#endif
+#if KUI_NATIVE_TOY_PLAYBACK_CAPTURE
+_Static_assert(offsetof(struct kui_native_readahead_aux_context,playback)==
+    offsetof(struct kui_native_ra_public,playback),"playback report prefix");
+#endif
+#if defined(KUI_TOY_SUITE_MODE)
+_Static_assert(offsetof(struct kui_native_readahead_aux_context,suite)==
+    offsetof(struct kui_native_ra_public,suite),"Toy suite report prefix");
+#endif
+#if KUI_TOY_SUITE_MODE == 27 || KUI_TOY_SUITE_MODE == 28
+_Static_assert(offsetof(struct kui_native_readahead_aux_context,burst_match)==
+    offsetof(struct kui_native_ra_public,burst_match),"Toy burst measurement prefix");
+#endif
+#if KUI_TOY_SUITE_MODE == 28
+_Static_assert(offsetof(struct kui_native_readahead_aux_context,burst_slow)==
+    offsetof(struct kui_native_ra_public,burst_slow),"Toy burst rate prefix");
+#endif
+#if KUI_TOY_FMV_COMPARE
+_Static_assert(offsetof(struct kui_native_readahead_aux_context,fmv_trace)==
+    offsetof(struct kui_native_ra_public,fmv_trace),"Toy FMV compare report prefix");
+#endif
+#if KUI_TOY_SUITE_ASYNC_DEMAND
+_Static_assert(offsetof(struct kui_native_readahead_aux_context,demand)==
+    offsetof(struct kui_native_ra_public,demand),"Toy demand report prefix");
+#endif
+#if KUI_TOY_SUITE_FRAME_TIMING
+_Static_assert(offsetof(struct kui_native_readahead_aux_context,present)==
+    offsetof(struct kui_native_ra_public,present),"Toy frame timing report prefix");
+_Static_assert(offsetof(struct kui_native_readahead_aux_context,wait)==
+    offsetof(struct kui_native_ra_public,wait),"Toy movie wait report prefix");
+#endif
 _Static_assert(offsetof(struct kui_native_readahead_aux_context,stats)+
     offsetof(struct kui_native_ra_stats,guard_faults)==64u,
     "auxiliary assembly guard fault counter");

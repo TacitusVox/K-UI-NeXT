@@ -1,0 +1,19 @@
+# SPDX-License-Identifier: GPL-3.0-only
+# Toy movie terminal read report on the production compact X route.
+BUILD ?= build/native-toy-movie
+include Makefile.vmu-native-background-compact
+FLAGS += -DKUI_NATIVE_TOY_MOVIE_CAPTURE=1
+NATIVE_FLAGS += -DKUI_NATIVE_TOY_MOVIE_CAPTURE=1
+
+.PHONY: toy-movie-host-tests
+toy-movie-host-tests:
+	@mkdir -p $(BUILD)
+	$(HOST_CC) $(PASSIVE_HOST_FLAGS) -O2 $(STALL_READER_FLAGS) -Itests \
+	 -DKUI_NATIVE_READAHEAD=1 -DKUI_VMU_NATIVE_BACKGROUND=1 -DKUI_NATIVE_REQUEST_TIMING=1 \
+	 -DKUI_NATIVE_READAHEAD_AUX_HOST_TEST=1 -DKUI_NATIVE_TOY_MOVIE_CAPTURE=1 $(TOY_MOVIE_TEST_FLAGS) \
+	 tests/test_native_readahead_aux.c src/loader/native_readahead_aux.c \
+	 src/core/native_readahead_cache.c src/core/retail_cursor.c src/core/retail_image.c src/core/retail_gd.c \
+	 src/loader/sci_stream.c -Wl,--gc-sections -o $(BUILD)/test-movie-aux
+	ASAN_OPTIONS=detect_leaks=0 $(BUILD)/test-movie-aux
+	$(HOST_CC) $(PASSIVE_HOST_FLAGS) tests/test_toy_movie_iso_stage.c -o $(BUILD)/test-movie-iso
+	ASAN_OPTIONS=detect_leaks=0 $(BUILD)/test-movie-iso

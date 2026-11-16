@@ -1,0 +1,20 @@
+The idle-call scenario of tests/test_toy_wire_integration.c in the Test 72 configuration
+(TOY_WIRE_CACHED=1 TOY_WIRE_WORDS=1 TOY_WIRE_PACE=1, same source commit) and in Test 73's:
+
+Test 72:
+  update calls, stall every ~0 bytes, 0% busy phases: 1625 calls, 8 passed on for work and 74 as due; all visits 82; data ready for 21 of 21 frames when asked; fulls 20, streams 1
+  update calls, stall every ~6000 bytes, 0% busy phases: 1625 calls, 0 passed on for work and 90 as due; all visits 92; data ready for 21 of 21 frames when asked; fulls 3, streams 1
+  update calls, stall every ~1500 bytes, 20% busy phases: 1625 calls, 0 passed on for work and 107 as due; all visits 2682; data ready for 0 of 21 frames when asked; fulls 0, streams 45
+  the game's idle GD calls, stall every ~0 bytes, 0% busy phases: 1050 calls, each one a pump; all foreground pumps 1092; data ready for 21 of 21 frames when asked; fulls 6, streams 1
+  the game's idle GD calls, stall every ~6000 bytes, 0% busy phases: 1050 calls, each one a pump; all foreground pumps 1092; data ready for 21 of 21 frames when asked; fulls 2, streams 1
+  the game's idle GD calls, stall every ~1500 bytes, 20% busy phases: 1050 calls, each one a pump; all foreground pumps 1134; data ready for 0 of 21 frames when asked; fulls 0, streams 45
+
+Test 73:
+  update calls, stall every ~0 bytes, 0% busy phases: 1625 calls, 1 passed on for work and 127 as due; all visits 128; data ready for 21 of 21 frames when asked; fulls 7, streams 1
+  update calls, stall every ~6000 bytes, 0% busy phases: 1625 calls, 0 passed on for work and 134 as due; all visits 136; data ready for 21 of 21 frames when asked; fulls 2, streams 1
+  update calls, stall every ~1500 bytes, 20% busy phases: 1625 calls, 0 passed on for work and 150 as due; all visits 2725; data ready for 0 of 21 frames when asked; fulls 0, streams 45
+  the game's idle GD calls, stall every ~0 bytes, 0% busy phases: 1050 calls, 1 pumped for work and 126 as due; all foreground pumps 148; data ready for 21 of 21 frames when asked; fulls 7, streams 1
+  the game's idle GD calls, stall every ~6000 bytes, 0% busy phases: 1050 calls, 0 pumped for work and 136 as due; all foreground pumps 157; data ready for 21 of 21 frames when asked; fulls 3, streams 1
+  the game's idle GD calls, stall every ~1500 bytes, 20% busy phases: 1050 calls, 0 pumped for work and 150 as due; all foreground pumps 213; data ready for 0 of 21 frames when asked; fulls 0, streams 45
+  a request the window cannot serve yet: every call that waits for it pumps
+  the player itself: frames put out and skipped with their update's time, the reader's interrupt time around them, its buffer's emptiest and its lag's highest in each piece; each movie apart

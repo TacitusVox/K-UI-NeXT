@@ -1,0 +1,28 @@
+Test 82's list: 351 entries; the scan's and the change's: 14
+passes  the tests without a mutation
+caught  an audio track taken for a raw data track
+caught  a track with its subcode taken for a raw one
+caught  an executable with Toy Commander's checksum taken for Toy Commander's
+caught  another title is a source with the virtual VMU off only
+caught  another title is a source with the virtual VMU on only
+caught  Toy Commander a source in the module that has the installed worker
+caught  a Mode 2 track taken for Mode 1
+caught  a source on another card adapter
+caught  a source with no raw track
+caught  another title never a source
+caught  a source for another reader
+caught  Toy Commander taken for another title
+caught  Toy Commander's executable on another boot sector taken for another title
+caught  an executable of Toy Commander's size taken for Toy Commander's
+14 of 14 caught (each entry of the cold stage's scan and of this change, in Test 82's configuration, on commit af5ebae4f0a5)
+
+The list's other entries are Test 81's: of the low residents, the auxiliary, the stream and their tests, which are the
+same compiled code in Test 82's configuration (the parts byte for byte; the tests' preprocessed sources, below). They
+were run on Test 81's commit (docs/evidence/toy-wire-stream-81/mutation-check.log) and are not run again here.
+== the tests' sources with and without the VMU define (Test 81's switches)
+stream: the same preprocessed source with and without the VMU define (c25c8fc22214dd57)
+report: the same preprocessed source with and without the VMU define (a9334cb6a6f87f8d)
+whole reader, t82: 16173 preprocessed lines, 4a2e80be454c5f30
+whole reader, t81: 16173 preprocessed lines, 4a2e80be454c5f30
+Which of the list's entries change the code the configuration compiles (the preprocessed sources compared):
+351 of 351 mutations change the code this configuration compiles

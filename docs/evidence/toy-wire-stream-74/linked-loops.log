@@ -1,0 +1,15 @@
+Main module (build/toy-suite-74), reference: the Test 73 auxiliary rebuilt from this source (module 7f28c744...7124)
+python3 tests/test_toy_wire_cached_stack.py build/toy-suite-74/native-ra-aux.elf cached
+PASS cached gate at 0x8c426a30: with the MMU off the stack is used at 0x0c427fe0 and the guards read at 0x0c427000 and 0x0c427ff0; with it on at 0xac427fe0, 0xac427000 and 0xac427ff0 as before
+python3 tests/test_toy_wire_linked_loops.py  build/toy-suite-74/native-ra-aux.elf the Test 73 native-ra-aux.elf
+PASS kui_wire_words_lsb as linked: 400 runs equal to the byte steps, a block's CRC16 taken to zero and a damaged block's not; 41 instructions, 9 loads and 4 stores for four bytes; registers, stack and everything around the destination left alone
+PASS kui_wire_words_true as linked: 400 runs equal to the byte steps, a block's CRC16 taken to zero and a damaged block's not; 34 instructions, 5 loads and 4 stores for four bytes; registers, stack and everything around the destination left alone
+PASS the compiler's wire_words of the Test 73 native-ra-aux.elf on the same data: the interpreter agrees with it (49 instructions, 9 loads and 4 stores for four bytes)
+
+Second module (build/toy-suite-74-nomsb, TOY_WIRE_MSB=0)
+python3 tests/test_toy_wire_cached_stack.py build/toy-suite-74-nomsb/native-ra-aux.elf cached
+PASS cached gate at 0x8c426894: with the MMU off the stack is used at 0x0c427fe0 and the guards read at 0x0c427000 and 0x0c427ff0; with it on at 0xac427fe0, 0xac427000 and 0xac427ff0 as before
+python3 tests/test_toy_wire_linked_loops.py --no-as-sent build/toy-suite-74-nomsb/native-ra-aux.elf the Test 73 native-ra-aux.elf
+PASS kui_wire_words_lsb as linked: 400 runs equal to the byte steps, a block's CRC16 taken to zero and a damaged block's not; 41 instructions, 9 loads and 4 stores for four bytes; registers, stack and everything around the destination left alone
+kui_wire_words_true is not linked: this build does not ask for bytes as sent
+PASS the compiler's wire_words of the Test 73 native-ra-aux.elf on the same data: the interpreter agrees with it (49 instructions, 9 loads and 4 stores for four bytes)

@@ -67,6 +67,62 @@ The canonical repository is `TacitusVox/K-UI-NeXT`. The account name is
 TacitusVox; older TacitusVoxt and TPMJB links are migration work, not alternate
 current publishing destinations.
 
+## Owner's direction, November 16, 2026
+
+After the console result of the Toy Commander card stream reader
+(`toy-wire-stream-test-77.md`) the owner restated the goals:
+
+> So the eventual goal is
+> - Universal VMU
+> - Universal reader (or at least a few for the different classes of games -
+>   CDDA, WinCE + CDDA, WinCE, and regular DC)
+> - Run-ahead or prefetch where possible/needed. Goal is smooth FMVs and very
+>   smooth gameplay.
+>
+> Since the FMV is basically a non-issue at this point, I want those other
+> three goals ironed out.
+
+The remaining frame loss in Toy Commander's second movie is accepted as it is
+("I don't know that chasing down those 9 frames is value-added"). The stream
+reader is a candidate for the read-ahead of the third goal, to be compared
+with the installed prefetch in the two Evolution games first. It has run with
+CD music and virtual VMU off only. See `fmv-stream-reader-plan.md`.
+
+Built for that comparison and run by the owner on the same day: Test 78
+(`toy-wire-stream-test-78.md`, a window serves a request of any size) and
+Test 79 (`toy-wire-stream-test-79.md`, build `9f183a7f72f5`, the window for every
+title of the family on a raw SCI image, virtual VMU off). Test 79 is a test
+module put in the installed New reader's place for the runs and taken out
+again; the delivered `f8807cb16561` candidate is not changed. Both Evolution
+games ran on it. The window read ahead for Evolution; in Evolution 2 a command
+that is not a read gave up nearly every window, and in both the stream had no
+timer. Those two are the next tests, each one change, before the virtual VMU
+beside the stream. The games were not compared with the installed module on
+the same day.
+
+Built and delivered for that on 16 November, not yet run on a console: Test 80
+(`toy-wire-stream-test-80.md`, build `e58dd2e6b641`, a window stands through a
+command that only asks the drive something) and Test 81
+(`toy-wire-stream-test-81.md`, build `684f485644e5`, the stream's timer in every
+title by the title's own admitted SDK table). Both are test modules for the
+installed New reader's place, virtual VMU off; the delivered `f8807cb16561`
+candidate is not changed.
+
+Behind them, the same day and not yet run on a console either: Test 82
+(`toy-wire-stream-test-82.md`, build `af5ebae4f0a5`), the virtual VMU beside the
+stream reader. It is the installed New reader's worker, byte for byte with that
+module's label, in the test module's place of a worker, with Test 81's low
+residents and auxiliary unchanged; for every title but Toy Commander, virtual
+card in slot A2, no report pages.
+
+Found beside it, for this roadmap: built from the source that carries the Toy
+test sources (imported by `f216fac` and `e1104f4`), the installed New reader's
+own recipe gives the candidate's worker and not the candidate's low residents
+and block-cache auxiliary. The delivered candidate stays what is installed, and its recipe
+reproduces it at the candidate's own source alone, until that is resolved
+(`fmv-stream-reader-plan.md`, owed list;
+`evidence/toy-wire-stream-82/installed-recipe-on-this-source.log`).
+
 ## 1. Shared correctness and reproducible deployment — active
 
 Shared GUI preparation is also an immediate integration requirement. The
@@ -200,6 +256,12 @@ Use one representative runtime to establish a shared mechanism, then record
 the remaining coverage honestly.
 
 ## 4. Coordinated FMV and CDDA streaming
+
+A proposal for bringing the Toy Commander card stream reader (Test 76,
+`docs/toy-wire-stream-test-76.md`) to the compact Background family is in
+`docs/fmv-stream-reader-plan.md`. It is not approved and changes nothing
+in this sequence. Its second step, still inside the Toy test module, is
+Test 77 (`docs/toy-wire-stream-test-77.md`).
 
 Investigate a safely reserved sequential streaming ring, with optional full
 movie preload when the asset fits. Reuse the shared stream and verification

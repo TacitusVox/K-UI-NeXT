@@ -44,6 +44,13 @@ struct kui_sci_sd_port {
 };
 const struct kui_loader_sd_bus *kui_sci_sd_bus(void);
 bool kui_sci_sd_healthy(void);
+#if KUI_TOY_SUITE_MODE == 41 || KUI_TOY_SUITE_MODE == 42 || KUI_TOY_SUITE_MODE == 43 || KUI_TOY_SUITE_MODE == 44 || KUI_TOY_SUITE_MODE == 45 || KUI_TOY_SUITE_MODE == 46 || KUI_TOY_SUITE_MODE == 47
+#define KUI_SCI_SD_PIO_PAYLOAD_BYTES 514u
+/* Read a selected card's payload and two CRC bytes into owned storage.
+ * The caller holds the SCI lease and serializes access. The token was
+ * consumed at fast speed. Failure can leave a partial buffer, never ready data. */
+bool kui_sci_sd_pio_payload(uint8_t *area);
+#endif
 #if KUI_VMU_READONLY_PROOF >= 2 || KUI_VMU_PERSIST_PROOF || KUI_VMU_PERSIST_IMPORT || KUI_ARMADA_CE_VMU_WRITE_RUNTIME || KUI_VMU_NATIVE_PERSISTENT_PROBE || KUI_VC2_VMU_PERSIST || KUI_SMASH_CARD_SESSION
 /* Isolated shared-reader gateway: unlike healthy(), this fault latch remains
  * meaningful AFTER release. Read it before acquisition can clear old faults

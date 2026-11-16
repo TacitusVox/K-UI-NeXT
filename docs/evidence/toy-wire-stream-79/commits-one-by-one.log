@@ -1,0 +1,23 @@
+Each commit behind the first one of Test 79, exported by itself: both host targets with Test 79's and Test 78's
+switches, and each list's entries against that commit's source.
+ab5b4fe Test 79 host tests exit 0 (5 PASS)
+ab5b4fe Test 78 host tests exit 0 (5 PASS)
+ab5b4fe PASS Test 78 reader integration: 282768539 checks
+ab5b4fe PASS Test 79 reader integration: 284235801 checks
+ab5b4fe list TOY_WIRE_ANY=1 TOY_WIRE_TITLES=1 237 entries, 0 stale []
+ab5b4fe list TOY_WIRE_ANY=1 225 entries, 0 stale []
+ab5b4fe list Test 77 218 entries, 0 stale []
+e4844b3 Test 79 host tests exit 0 (5 PASS)
+e4844b3 Test 78 host tests exit 0 (5 PASS)
+e4844b3 PASS Test 78 reader integration: 282768539 checks
+e4844b3 PASS Test 79 reader integration: 284235801 checks
+e4844b3 list TOY_WIRE_ANY=1 TOY_WIRE_TITLES=1 251 entries, 0 stale []
+e4844b3 list TOY_WIRE_ANY=1 225 entries, 0 stale []
+e4844b3 list Test 77 218 entries, 0 stale []
+63abdc5 Test 79 host tests exit 0 (5 PASS)
+63abdc5 Test 78 host tests exit 0 (5 PASS)
+63abdc5 PASS Test 79 reader integration: 292281361 checks
+63abdc5 PASS Test 78 reader integration: 290814099 checks
+63abdc5 list TOY_WIRE_ANY=1 TOY_WIRE_TITLES=1 252 entries, 0 stale []
+63abdc5 list TOY_WIRE_ANY=1 226 entries, 0 stale []
+63abdc5 list Test 77 218 entries, 0 stale []

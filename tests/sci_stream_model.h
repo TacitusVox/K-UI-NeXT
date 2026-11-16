@@ -57,7 +57,25 @@ static struct {
     unsigned cmd_len, qhead, qlen;
     uint32_t corrupt_lba, corrupt_count, bad_token_lba, bad_token_count;
     unsigned cmd18, cmd12, idle_cmd12, clocks;
+    /* For the Toy wire stream's sector checks; all unused unless a test
+     * sets them. corrupt_index: which data byte of a corrupt block is
+     * changed, instead of byte 77. corrupt_span: that many blocks from
+     * corrupt_lba on are corrupt, instead of one. corrupt_fits: a corrupt
+     * block is sent with the CRC16 of the bytes it is sent with, as a block
+     * stored wrong would be. crc_xor: the CRC16 of block crc_lba is sent
+     * changed by this, crc_count times: with the remainder of one changed
+     * byte, the card sends a block whose CRC16 fits other data than it sent. */
+    bool corrupt_custom, corrupt_fits;
+    /* corrupt_mask: the bits changed, instead of one (which a reader may
+     * be able to put right from the CRC16). */
+    uint8_t corrupt_mask;
+    unsigned corrupt_index;
+    uint32_t corrupt_span, crc_lba, crc_count;
+    uint16_t crc_xor;
 } card;
+static bool card_corrupt(void) {
+    return card.corrupt_count && card.lba - card.corrupt_lba < (card.corrupt_span ? card.corrupt_span : 1u);
+}
 static void enqueue(uint8_t value) { assert(card.qlen < sizeof(card.queue)); card.queue[(card.qhead + card.qlen++) % sizeof(card.queue)] = value; }
 static uint8_t stream_byte(void) {
     uint32_t f = card.frame++;
@@ -68,15 +86,19 @@ static uint8_t stream_byte(void) {
         if(card.bad_token_count && card.lba == card.bad_token_lba) {--card.bad_token_count; value = 0xfc;}
     } else if(f <= card.gap + 512u) {
         value = card_content(card.lba, f - card.gap - 1u);
-        if(card.corrupt_count && card.lba == card.corrupt_lba && f - card.gap - 1u == 77u)
-            value ^= 0x10u;
+        if(card_corrupt() && f - card.gap - 1u == (card.corrupt_custom ? card.corrupt_index : 77u))
+            value ^= card.corrupt_mask ? card.corrupt_mask : 0x10u;
     } else {
         uint8_t block[512];
         for(unsigned i = 0; i < 512; ++i) block[i] = card_content(card.lba, i);
+        if(card.corrupt_fits && card_corrupt())
+            block[card.corrupt_custom ? card.corrupt_index : 77u] ^= card.corrupt_mask ? card.corrupt_mask : 0x10u;
         uint16_t crc = crc16(block, 512);
+        if(card.crc_count && card.lba == card.crc_lba) crc ^= card.crc_xor;
         value = f == card.gap + 513u ? (uint8_t)(crc >> 8) : (uint8_t)crc;
         if(f == card.gap + 514u) {
-            if(card.corrupt_count && card.lba == card.corrupt_lba) --card.corrupt_count;
+            if(card.crc_count && card.lba == card.crc_lba) --card.crc_count;
+            if(card_corrupt()) --card.corrupt_count;
             ++card.lba; card.frame = 0; card.gap = card.nac;
         }
     }
@@ -157,12 +179,24 @@ static struct {
     unsigned purges, module_resets, dma_starts, irq_starts, settles, fences;
     uint32_t armed_chcr;
     void (*on_dma_start)(void); /* a test's look at the engine as a DMA starts */
+    /* For a second owner of the channel (the Toy wire stream): one more
+     * DMA destination, a stall decided per byte, and a look at every
+     * programmed bus byte. All unused unless a test sets them. */
+    uint8_t *extra;
+    uint32_t extra_base, extra_bytes;
+    bool (*stall_hook)(void);
+    void (*bus_check)(void);
+    /* SCSCMR1.SDIR: 0, the receiver ignores it; 1, it delivers bytes MSB
+     * first while the bit is set. Which the console does is not known. */
+    unsigned sdir_answer;
 } m;
 static uint8_t *memory(uint32_t address) {
     for(unsigned i = 0; i < 2; ++i) {
         uint32_t base = AREA_BASE + i * 0x1000u;
         if(address >= base && address < base + KUI_SCI_STREAM_AREA_BYTES) return m.areas[i] + (address - base);
     }
+    if(m.extra && address >= m.extra_base && address - m.extra_base < m.extra_bytes)
+        return m.extra + (address - m.extra_base);
     assert(!"DMA outside the receive areas");
     return NULL;
 }
@@ -171,10 +205,12 @@ static void receive(void) {
     m.rx = false;
     if(m.foreign_during_rx) {m.sar = 0x0c200000u; m.foreign_during_rx = false;}
     for(;;) {
-        uint8_t wire = rev8(card_clock(0xff));
+        const uint8_t sent = card_clock(0xff);
+        uint8_t wire = (m.scmr & 8u) && m.sdir_answer == 1u ? sent : rev8(sent);
         ++m.received;
         unsigned at = m.overrun_every ? m.overrun_every : m.overrun_after;
         bool stalled = at && 513u - m.tcr == at && !(m.overrun_fast_only && m.rx_brr);
+        if(m.stall_hook && m.stall_hook()) stalled = true;
         bool dma = (m.chcr & 1u) && m.tcr && m.sar == (RDR & 0x1fffffffu) && (m.dmaor & 7u) == 1u &&
             !stalled;
         if(dma) {
@@ -294,6 +330,7 @@ static uint8_t bus_transfer(void *ctx, uint8_t data, bool slow) {
     if(!m.healthy) return 0xff; /* a latched bus fault */
     assert(!slow && !(m.stbcr & 1u));
     assert(m.brr == 0 && m.smr == 0x80u && !m.rx);
+    if(m.bus_check) m.bus_check();
     m.scr = 0x30u;
     ++bus_bytes;
     return m.cs_high ? 0xffu : card_clock(data);

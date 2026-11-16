@@ -268,6 +268,8 @@ extern void kui_retail_gd_10f0_hook(void);
  * entries. Assembly publishes this only after acquiring the resident lock. */
 #if KUI_NATIVE_GD_DMA_STREAM
 extern volatile uint32_t kui_retail_hook_source, kui_retail_hook_sr;
+#elif KUI_TOY_SUITE_MOVIE_POLL
+volatile uint32_t kui_retail_hook_source, kui_toy_poll_frame;
 #else
 volatile uint32_t kui_retail_hook_source, kui_retail_hook_sr;
 #endif
@@ -812,6 +814,7 @@ static void __attribute__((noinline)) ram_map_report(void) {
 #if KUI_VC2_VMU_WATCH
 #include "vc2_ce_vmu_watch_report.inc"
 #endif
+#if !KUI_TOY_SUITE_ASYNC_DEMAND
 static void __attribute__((noinline)) native_reader_report(const char *label
 #if KUI_NATIVE_OCRAM_BOOTSTRAP
     ,uint32_t caller,uint32_t caller_sp
@@ -837,8 +840,15 @@ static void __attribute__((noinline)) native_reader_report(const char *label
 #endif
 #endif
 }
+#endif
 static void report_fault(uint32_t function) {
     (void)function;
+#if KUI_TOY_SUITE_ASYNC_DEMAND
+    /* Use the admitted high worker's terminal. Keep the low reservation
+     * for transport and retain its full guarded stack. */
+    extern void kui_vmu_observe_low_failure(void) __attribute__((noreturn));
+    kui_vmu_observe_low_failure();
+#else
     native_reader_report(
 #if KUI_NATIVE_SDK_SCI_STRUCTURAL
         "GD STOP"
@@ -849,6 +859,7 @@ static void report_fault(uint32_t function) {
         ,0u,0u
 #endif
     );
+#endif
     for(;;) __asm__ volatile("nop");
 }
 #elif KUI_RETAIL_OBSERVE
@@ -1042,6 +1053,7 @@ void kui_retail_menu_return(uint32_t command,uint32_t caller,uint32_t stack
     (void)caller; (void)stack;
 #endif
 #if KUI_VMU_NATIVE_BACKGROUND || KUI_NATIVE_STANDALONE_READER
+#if !KUI_TOY_SUITE_ASYNC_DEMAND
     native_reader_report(
 #if KUI_NATIVE_SDK_SCI_STRUCTURAL
         "RET"
@@ -1054,11 +1066,14 @@ void kui_retail_menu_return(uint32_t command,uint32_t caller,uint32_t stack
         ,caller,stack
 #endif
     );
+#endif
 #if KUI_NATIVE_STANDALONE_FOREGROUND
     /* The opt-in control keeps a terminal return visible for diagnosis. */
     for(;;) __asm__ volatile("nop");
 #else
+#if !KUI_TOY_SUITE_ASYNC_DEMAND
     retail_display_pause(900u);
+#endif
     ((void (*)(void))(uintptr_t)0xa0000000u)();
     for(;;) __asm__ volatile("nop");
 #endif
@@ -1681,6 +1696,9 @@ int32_t kui_retail_resident_dispatch(uint32_t r4, uint32_t r5,
 #if KUI_ARMADA_CE_AUDIO_OBSERVE
     armada_ce_audio_record(r7, r4, result);
 #endif
+#if KUI_TOY_FMV_COMPARE
+    kui_retail_fmv_compare(r7,r4,result);
+#endif
     kui_retail_async_after(r7, result);
 #if KUI_NATIVE_GD_DMA_STREAM
     /* Native stream pieces finish within FN6, so every completion is drained
@@ -1698,7 +1716,11 @@ int32_t kui_retail_resident_dispatch(uint32_t r4, uint32_t r5,
 #if KUI_NATIVE_LOADER_TIMELINE && !KUI_NATIVE_STANDALONE_READER
     kui_retail_async_trace(1u,r7);
 #endif
-    if(service.error == KUI_GD_ERROR_IO)
+    if(service.error == KUI_GD_ERROR_IO
+#if KUI_TOY_SUITE_ASYNC_DEMAND
+       && !kui_retail_async_region.shared.stream.toy_suite_active
+#endif
+      )
         report_fault("IMAGE READ FAILED", r7, r5);
     if(r7 == KUI_GD_REQUEST && !service.command && result == 0)
 #if KUI_RETAIL_OBSERVE
