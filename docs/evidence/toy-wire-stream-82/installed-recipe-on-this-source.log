@@ -1,0 +1,78 @@
+The installed New reader's recipe (make -f Makefile.vmu-native-background-compact BUILD_ID=f8807cb16561 ...), built twice:
+  at the delivered candidate's own source: public commit e79da8cee44d95cda518721df7a97a83965ee2c3, whose tree
+  a0e4108e38d8013ee5c5e600a9835b46cb7d1f1c is the tree the candidate's record names for f8807cb16561
+  (docs/evidence/native-shared-f8807cb/delivery.json);
+  and at this source, commit af5ebae4f0a50e2f115aa185e3b73b114b4f4391.
+
+module at the candidate's source: 09c1480c6c470166b3e584f54218d98679ef4a34a8765d47bde4d2187889481a
+  recorded for the delivered module:  09c1480c6c470166b3e584f54218d98679ef4a34a8765d47bde4d2187889481a
+module at this source:            6523b781fc6b5f6edaecf6e900cf36c02a96b6d1c8485e739b186c3366643f4a
+
+native-worker.bin: the same bytes (49,920; 2279920728e94c48...)
+worker.bin: the same bytes (5,316; 5af51f11805f5418...)
+resident-sci.bin: DIFFERS: 15,076 bytes at the candidate's source, 15,076 here; 390 bytes differ in 19 places
+resident-legacy.bin: DIFFERS: 15,120 bytes at the candidate's source, 15,120 here; 6 bytes differ in 1 places
+native-ra-aux.bin: DIFFERS: 10,400 bytes at the candidate's source, 10,400 here; 3,074 bytes differ in 14 places
+stage.bin: DIFFERS: 281,848 bytes at the candidate's source, 281,848 here; 72,616 bytes differ in 152 places (it holds the parts above)
+
+Traced along this branch's history: the same recipe with the same label at four commits between, each in a worktree of
+its own, the parts compared with the candidate's (cmp), and the 23 C sources of the two low residents and the auxiliary
+preprocessed as the recipe compiles them at each commit and compared as text.
+
+commit   what it is                                                        module    worker  residents (sci, legacy)  auxiliary  stage
+e79da8ce the candidate's own source                                        09c1480c  -       -                        -          -
+776c925  this branch before the Toy tests' sources (Main's later work)     5e4ca7dd  same    same, same               same       differs (67,853 bytes)
+f216fac  import: the physical GD-ROM Toy trace source that built Test 63   e8caf640  same    same, same               differs    differs
+e5fa67e  three commits on                                                  e8caf640  same    same, same               differs    differs
+e1104f4  import: the SD reader source that built Test 66                   6523b781  same    differ (390, 6 bytes)    differs    differs
+af5ebae  this source (Test 82), 76 commits on                              6523b781  same    differ (390, 6 bytes)    differs    differs
+
+modules in full:
+  776c925 5e4ca7dd4b591fec2af3056e71299b1c5737eae586a5c886288f282e5ed4b36c
+  f216fac e8caf640376aa44cfb601ddb48d882412c19696d5cfb5c332e8a8136fa05bc8c
+  e5fa67e e8caf640376aa44cfb601ddb48d882412c19696d5cfb5c332e8a8136fa05bc8c
+  e1104f4 6523b781fc6b5f6edaecf6e900cf36c02a96b6d1c8485e739b186c3366643f4a
+  af5ebae 6523b781fc6b5f6edaecf6e900cf36c02a96b6d1c8485e739b186c3366643f4a
+
+The sources as compiled (resident = resident-sci.bin's, legacy = resident-legacy.bin's, ra = the auxiliary's), from one
+commit to the next: which of the 23 preprocessed texts differ, with their line counts.
+  the candidate's source e79da8ce -> 776c925: none of the 23
+  776c925 -> f216fac: 5 of the 23
+      legacy: src/loader/retail_async.c  1366 -> 1368 lines
+      legacy: src/loader/sci_stream.c  1269 -> 1271 lines
+      ra: src/loader/native_readahead_aux.c  1569 -> 1579 lines
+      resident: src/loader/retail_async.c  1412 -> 1417 lines
+      resident: src/loader/sci_stream.c  1271 -> 1273 lines
+  f216fac -> e1104f4: 9 of the 23
+      legacy: src/loader/retail_async.c  1368 -> 1372 lines
+      legacy: src/loader/sci_sd_bus.c  1032 -> 1035 lines
+      legacy: src/loader/sci_stream.c  1271 -> 1283 lines
+      legacy: src/loader/vmu_native_background_resident.c  1431 -> 1435 lines
+      ra: src/loader/native_readahead_aux.c  1579 -> 1585 lines
+      resident: src/loader/retail_async.c  1417 -> 1422 lines
+      resident: src/loader/sci_sd_bus.c  1034 -> 1037 lines
+      resident: src/loader/sci_stream.c  1273 -> 1285 lines
+      resident: src/loader/vmu_native_background_resident.c  1444 -> 1448 lines
+  e1104f4 -> this source af5ebae: none of the 23
+
+So: the worker is the candidate's bytes at every commit. Main's own work between the candidate and this branch changed
+the cold stage and nothing of the other parts, in text or in bytes. The first import changed the text of retail_async.c,
+sci_stream.c and native_readahead_aux.c as this recipe compiles them, and the auxiliary's bytes with it (the low
+residents' bytes stayed). The second changed those and sci_sd_bus.c and vmu_native_background_resident.c, and the bytes
+of both low residents and the auxiliary. Nothing since has changed any of the 23 texts: the stream reader's Tests 68 to
+82 are behind switches this recipe does not set, and it builds the same module at e1104f4 and at this source.
+
+What the two imports changed in those texts (diff of the preprocessed sources, candidate against this source): a counter
+of the stream's shared record given a second name in a union; statements split over lines; in sci_stream.c the framing
+path's three returns turned into jumps to one exit, and the enumerator DMA written with its value; in retail_async.c a
+local for the visit's fourth argument, the delivery's test turned round, the read-ahead record's size assert split in
+two; in native_readahead_aux.c a wrapper round the demand delivery, the block cache's size as the constant 384 * 512
+where the candidate passes the configured size, the guard's operands in another order. By the text these are the Toy
+suite's hooks folded into shared sources with nothing in them for this recipe. Whether the compiled differences change
+what the parts do has not been examined, and no console has run them.
+
+Test 82 takes the worker from this recipe and nothing else of it. Its low residents and its auxiliary are the Toy
+tests' (Test 81's), built with the Toy switches from the same sources. Owed before the installed recipe is built from
+this source for anything: either the recipe's own configuration is brought back to the candidate's bytes, or what
+differs is reviewed and run on a console as a change of its own. Until then the installed New reader is the delivered
+candidate's file, and its recipe reproduces it at the candidate's source alone.

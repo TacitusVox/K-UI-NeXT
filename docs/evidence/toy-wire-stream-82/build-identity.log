@@ -1,0 +1,50 @@
+Module: source commit af5ebae4f0a50e2f115aa185e3b73b114b4f4391, BUILD_ID af5ebae4f0a5, built on a clean worktree of it (source_dirty false).
+Switch: Test 81's switches and TOY_WIRE_VMU=1
+
+t82 build exit 0 9f8faeaca27521708130a1dae8fe3de7df67e465d2f2124a08f3396c23083a42
+t82again build exit 0 9f8faeaca27521708130a1dae8fe3de7df67e465d2f2124a08f3396c23083a42
+label81 build exit 0 577e65833461d4f3de34158cc94a5b8ff1513e8b84cb9b0ec78ff30e62fdceb1
+installed-label build exit 0 1e1bb61dddaf57d7dee46e67fa19e37ee51b477f71a183237d218cbef467d3af
+t82-f88 build exit 0 1275da7bc4b8ad54c4b773d87fa7909a43b33d489d4bebfa516157d707126383
+Test 82 built twice: the same bytes
+resident-sci.bin: Test 81's recipe with this label, byte for byte (ef32a09c02ef2ca876d76360aca5430336ed83aa677606f6d3159aad929640c7, 15848 bytes)
+resident-legacy.bin: Test 81's recipe with this label, byte for byte (003b03e7395d7741d8f174bcf915237e75776f839b3e392837e08577731bd8b0, 15120 bytes)
+native-ra-aux.bin: Test 81's recipe with this label, byte for byte (45dfb95f72c93b1e1478416dcb4edb5cfbaa2863d88a0fdfa3d6c4a84e943356, 24576 bytes)
+native-ra-aux.bin: the delivered Test 81 module's auxiliary, byte for byte
+native-worker.bin: the installed recipe with this label, byte for byte (9e3b9f3669d0a5cee3bc00471b263af73f041a35fa4b51a0ecf7f6330ff0fd92, 49920 bytes)
+worker.bin: the installed recipe with this label, byte for byte (7ae1592d465e0367c26b6619d707ba244a26f36b7418a30bed0b1310ae3289cd, 5316 bytes)
+the delivered candidate's module rebuilt at its own source (tree a0e4108e...): 09c1480c6c470166b3e584f54218d98679ef4a34a8765d47bde4d2187889481a
+native-worker.bin with the label f8807cb16561: the delivered candidate's worker, byte for byte (2279920728e94c48821035bb4a6bbbfac87258aa8084a8747dad6f8227d8a693)
+stage.bin: its own, 301680 bytes (Test 81's with this label: 291840)
+9f8faeaca27521708130a1dae8fe3de7df67e465d2f2124a08f3396c23083a42  build/toy-suite-82/retail-toy-test-82.kui
+309936 bytes
+  20544	   1824	   6176	  28544	   6f80	build/toy-suite-82/native-ra-aux.elf
+  49892	     12	  23424	  73328	  11e70	build/toy-suite-82/native-worker.elf
+ 301660	      0	 498696	 800356	  c3664	build/toy-suite-82/stage.elf
+{
+  "commit": "af5ebae4f0a50e2f115aa185e3b73b114b4f4391",
+  "source_dirty": false,
+  "elf_sha256": "607910db046e8d69b9bfd0e01440732461dd6c403ae4abf37a41f8b1bb8034b5"
+}
+
+Unchanged recipes on this source (each against the hash recorded when it was delivered):
+  repro66 build exit 0 06f347789a76d1b9df274e946033270c5d7eb404bde323aec7187fee6e68f8d2 as recorded
+  repro67 build exit 0 7533fb8b0e483567c9b015542f1c6897d5e8fffebd028ab7f84a83201edaf4e5 as recorded
+  repro68 build exit 0 ae72c817dbd5606d4e7a7a43814621bbfb8d648642b642be1d21dad41eb5c17a as recorded
+  repro69 build exit 0 c6baf0104b347cea3252526302ae2e7dde3265081379e75c1ac591ecb0228beb as recorded
+  repro70 build exit 0 7802a1d75e132f61837c7f8062974e297abd727a1233832313c38ab91316d7dd as recorded
+  repro71 build exit 0 73e8f9ed271278a10e02d9dec5b114b896b3866b48309cdc08bbb7860eb3a26f as recorded
+  repro72 build exit 0 04c6b439ebb4ebb28f9f6b64de1cd00cb2ab148d3256411f74a5ef34cc5dfe9b as recorded
+  repro73 build exit 0 7f28c744e501bbbe7dc38c2a77bd255b8e146dd2c0accb5741262b455d967124 as recorded
+  repro74 build exit 0 9e3bb2b261c81ffdec948c92f3c9aad8480e54d08e01c97dbf057e56e7e1d4e4 as recorded
+  repro74alt build exit 0 582e2d7aacd69703d15e65264a58dc37e436f8a4e5d6b91b5ebb6de5ce4dd86c as recorded
+  repro75 build exit 0 9ef4c29b30385acbc0a3b96973895455d4f5840107e4c58c254f1cbfbba9eb08 as recorded
+  repro75alt build exit 0 52423cf26778573e5bbd7c031f1bd403c120122ea835d31714c7fe622bccda1f as recorded
+  repro76 build exit 0 6540c38df4143222db3d75cd4dcaf6503b9daa39421ec456f0bb4d1fad21a881 as recorded
+  repro76alt build exit 0 a742b4a7f68c3c9744ddca5e8c2935dff035ac2ebb7323d30c0a539921b6ee51 as recorded
+  repro76nogap build exit 0 7ce3c839e6ec014e799ae4598800f24bd3bbbfdfaaa1b508e0015970f6991c67 as recorded
+  repro77 build exit 0 1c1e54f3fc5ebad7232dd3bb2d158e6e6521eebfd1a25d1f7ed7b9723dc37323 as recorded
+  repro78 build exit 0 dbff892578510f742e0b8b99c74fb456a2870ab6bcacccd0db1b91a8863092de as recorded
+  repro79 build exit 0 557822ecfcd9761f2617d146e69b0a5918ae745cdb16247a607466242f4147be as recorded
+  repro80 build exit 0 c1b58a9761b29299d542727a66a420ee185d3e30ef30629256f4e715c5f0a3dc as recorded
+  repro81 build exit 0 5ee3273b75dceb2a02ac73cbe5ccdcf972ded0164f15a822a192949048072db4 as recorded

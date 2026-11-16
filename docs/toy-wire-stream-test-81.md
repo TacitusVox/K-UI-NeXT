@@ -14,7 +14,8 @@ It follows from Test 79's run on the console
 (`docs/toy-wire-stream-test-79.md`, Console result), and is the second
 of the two things that run showed the stream to lack in another title.
 The third of the owner's three changes of 16 November, the virtual VMU
-beside the stream, comes behind it.
+beside the stream, comes behind it: Test 82
+(`docs/toy-wire-stream-test-82.md`).
 
 ## Baseline
 

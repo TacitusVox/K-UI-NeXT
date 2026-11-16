@@ -108,6 +108,21 @@ title by the title's own admitted SDK table). Both are test modules for the
 installed New reader's place, virtual VMU off; the delivered `f8807cb16561`
 candidate is not changed.
 
+Behind them, the same day and not yet run on a console either: Test 82
+(`toy-wire-stream-test-82.md`, build `af5ebae4f0a5`), the virtual VMU beside the
+stream reader. It is the installed New reader's worker, byte for byte with that
+module's label, in the test module's place of a worker, with Test 81's low
+residents and auxiliary unchanged; for every title but Toy Commander, virtual
+card in slot A2, no report pages.
+
+Found beside it, for this roadmap: built from the source that carries the Toy
+test sources (imported by `f216fac` and `e1104f4`), the installed New reader's
+own recipe gives the candidate's worker and not the candidate's low residents
+and block-cache auxiliary. The delivered candidate stays what is installed, and its recipe
+reproduces it at the candidate's own source alone, until that is resolved
+(`fmv-stream-reader-plan.md`, owed list;
+`evidence/toy-wire-stream-82/installed-recipe-on-this-source.log`).
+
 ## 1. Shared correctness and reproducible deployment — active
 
 Shared GUI preparation is also an immediate integration requirement. The

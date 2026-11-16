@@ -1,0 +1,176 @@
+The stage's main source (src/loader/vmu_native_heap_probe_stage.c with everything it includes), preprocessed as each
+recipe compiles it, with the build's own directory names made equal:
+t82: 4387 lines
+t81: 4427 lines
+installed: 4079 lines
+Test 81 -> Test 82: 44 lines only in Test 81's, 4 only in Test 82's, in 8 places
+installed -> Test 82: 34 lines only in the installed stage, 342 only in Test 82's, in 37 places
+
+---- Test 81's stage against Test 82's (diff: < Test 81, > Test 82)
+1429c1429
+<        (native_runtime_mode()==KUI_VMU_NATIVE_MODE_READER_ONLY) &&
+---
+>        1 &&
+1435c1435
+<        !1 ||
+---
+>        !0 ||
+1459,1495d1458
+< struct kui_toy_report_wire {
+<     uint32_t magic[2],version,bytes,test,lba[2],placeholder_crc[2];
+<     uint8_t cid[16];
+<     uint32_t high_capacity,reserved,crc32;
+< };
+< _Static_assert(sizeof(struct kui_toy_report_wire)==64,"Toy report wire size");
+< _Static_assert(__builtin_offsetof (struct kui_toy_report_wire, test)==16,"Toy report test offset");
+< _Static_assert(__builtin_offsetof (struct kui_toy_report_wire, lba)==20,"Toy report LBA offset");
+< _Static_assert(__builtin_offsetof (struct kui_toy_report_wire, placeholder_crc)==28,
+<     "Toy report placeholder CRC offset");
+< _Static_assert(__builtin_offsetof (struct kui_toy_report_wire, cid)==36,"Toy report CID offset");
+< _Static_assert(__builtin_offsetof (struct kui_toy_report_wire, high_capacity)==52,"Toy report HC offset");
+< _Static_assert(__builtin_offsetof (struct kui_toy_report_wire, reserved)==56,"Toy report reserved offset");
+< _Static_assert(__builtin_offsetof (struct kui_toy_report_wire, crc32)==60,"Toy report CRC offset");
+< __asm__(".section .rodata.toy_report_seed,\"a\"\n.balign 4\n"
+<         ".global __toy_suite_report_seed\n.type __toy_suite_report_seed,@object\n"
+<         "__toy_suite_report_seed:\n.ascii \"KUITRS01\"\n.long 1,64\n.zero 48\n"
+<         ".size __toy_suite_report_seed,64\n.previous\n");
+< extern const struct kui_toy_report_wire toy_report_seed __asm__("__toy_suite_report_seed");
+< static void toy_suite_report_prepare(struct kui_toy_report_wire *out) {
+<     const struct kui_toy_report_wire *seed=&toy_report_seed;
+<     unsigned test=toy_suite_source==2u && 66==1 ? 5u : 66;
+<     if(!toy_suite_source || card.transport!=KUI_STORAGE_SCI || seed->test!=test ||
+<        seed->magic[0]!=0x5449554b || seed->magic[1]!=0x31305352 ||
+<        seed->version!=1 || seed->bytes!=sizeof(*seed) || seed->reserved ||
+<        seed->high_capacity>1u || seed->lba[0]==seed->lba[1] ||
+<        kui_stage_crc32(0,seed,60)!=seed->crc32)return;
+<     for(unsigned i=0;i<2u;i++) {
+<         uint32_t lba=seed->lba[i];
+<         if(!lba || lba<manifest.partition_start || lba>=manifest.partition_end || lba>=manifest.card_sectors)return;
+<         for(unsigned j=0;j<manifest.extent_count;j++) {
+<             const struct kui_retail_extent *e=&manifest.slots[manifest.track_count+j].extent;
+<             if(lba>=e->card_lba && lba-e->card_lba<e->blocks)return;
+<         }
+<     }
+<     *out=*seed;
+< }
+1524,1525d1486
+<     if(mode!=KUI_VMU_NATIVE_MODE_READER_ONLY)
+<         stopped("THIS TEST BUILD NEEDS VIRTUAL VMU OFF",(uint32_t)mode);
+2730d2690
+<     struct kui_toy_report_wire toy_report;
+2732c2692
+< _Static_assert(sizeof(struct kui_vmu_native_passive_config)==2368u,"Toy report worker config ABI");
+---
+> _Static_assert(sizeof(struct kui_vmu_native_passive_config)==2304u,"Persistent worker config ABI v4");
+3994d3953
+<     toy_suite_report_prepare(&cfg.toy_report);
+4098a4058
+>     retail_display_line("TEST 82 / STREAM READER / INSTALLED VMU");
+
+---- The installed stage against Test 82's: the lines of the installed stage that are replaced or gone, by place
+48c48 (-1 +1)
+    < _Static_assert(0x13000UL +0x3000UL==0x16000UL,
+    > _Static_assert(0x13000UL +0x6000UL==0x19000UL,
+50,51c50,51 (-2 +2)
+    < _Static_assert(0x13000UL +0x4000UL==0x17000UL &&
+    <     0x17000UL==0x17000UL,
+    > _Static_assert(0x13000UL +0x7000UL==0x1a000UL &&
+    >     0x1a000UL==0x1a000UL,
+53c53 (-1 +1)
+    < _Static_assert(0x17000UL +0x30000UL==0x47000UL,
+    > _Static_assert(0x1a000UL +0x2d000UL==0x47000UL,
+322,323c322,323 (-2 +2)
+    < _Static_assert(0x13000UL +0x4000UL==0x17000UL &&
+    <     0x16000UL +0x1000UL==0x17000UL,
+    > _Static_assert(0x13000UL +0x7000UL==0x1a000UL &&
+    >     0x19000UL +0x1000UL==0x1a000UL,
+325,327c325,327 (-3 +3)
+    < _Static_assert(0x17000UL<=0x17000UL &&
+    <     0x17000UL +0x30000UL==0x47000UL &&
+    <     0x30000UL==384u*512u,
+    > _Static_assert(0x1a000UL<=0x1a000UL &&
+    >     0x1a000UL +0x2d000UL==0x47000UL &&
+    >     0x2d000UL==360u*512u,
+382c382 (-1 +1)
+    <     (0x8c007d00&0x1fffffffUL)+32u,
+    >     (0x8c007fe0&0x1fffffffUL)+32u,
+1045c1046 (-1 +1)
+    <     resident_limit=0x8c007ba0;
+    >     resident_limit=0x8c007e80;
+2268,2270c2440,2442 (-3 +3)
+    <     {0x8c007520u,0x8c007630u,
+    <      0x8c007b20u,0x8c007b60u,
+    <      0x8c00764cu,0x8c005bfcu},
+    >     {0x8c0073e8u,0x8c0074f8u,
+    >      0x8c007e20u,0x8c007e60u,
+    >      0x8c007514u,0x8c005830u},
+2753,2754c2925,2930 (-2 +6)
+    <     uint16_t lost[2];
+    <     uint8_t ready[2], wire[2], rdr[2], held[2], hold[2], kept, sptr, unrepaired;
+    >     union { uint16_t lost[2]; uint32_t token_used; };
+    >     uint8_t ready[2],wire[2],rdr[2];
+    >     uint8_t token_bounded,token_polled,token_budget,stop_failed;
+    >     uint8_t kept,sptr;
+    > ... (2 more lines of Test 82's)
+2875c3054 (-1 +1)
+    <     uint32_t low_end=0x8c007d00&0x1fffffffUL;
+    >     uint32_t low_end=0x8c007fe0&0x1fffffffUL;
+2900c3079 (-1 +1)
+    <        resident_limit!=0x8c007ba0 ||
+    >        resident_limit!=0x8c007e80 ||
+3061c3300,3301 (-1 +2)
+    < _Static_assert(sizeof(struct kui_native_ra_public)==656u,"read-ahead diagnostic prefix size");
+    > _Static_assert(__builtin_offsetof (struct kui_native_ra_public, movie_exit)==656,
+    >     "Toy movie exit witness assembly offset");
+3064c3304 (-1 +1)
+    < _Static_assert(sizeof(struct kui_native_ra_config)==32u,"read-ahead configuration ABI");
+    > _Static_assert(sizeof(struct kui_native_ra_config)==88u,"Toy movie poll configuration ABI");
+3100c3350 (-1 +1)
+    <        resident_limit!=0x8c007ba0 || storage>resident_limit-4u ||
+    >        resident_limit!=0x8c007e80 || storage>resident_limit-4u ||
+3130c3380 (-1 +1)
+    <     if(bytes<0x1002UL || bytes>0x3000UL ||
+    >     if(bytes<0x1002UL || bytes>0x6000UL ||
+3132c3382 (-1 +1)
+    <        reloc[5]!=0x4000UL || reloc[6]!=0x8c421000UL)
+    >        reloc[5]!=0x7000UL || reloc[6]!=0x8c421000UL)
+3135c3385 (-1 +1)
+    <     for(uint32_t at=load;at<load+0x4000UL;at+=32u)
+    >     for(uint32_t at=load;at<load+0x7000UL;at+=32u)
+3137,3138c3387,3388 (-2 +2)
+    <     for(uint32_t at=lease+0x17000UL;
+    <         at<lease+0x17000UL +0x30000UL;at+=32u)
+    >     for(uint32_t at=lease+0x1a000UL;
+    >         at<lease+0x1a000UL +0x2d000UL;at+=32u)
+3142c3392 (-1 +1)
+    <         0x4000UL,load);
+    >         0x7000UL,load);
+3144c3394 (-1 +1)
+    <     memset((void *)(uintptr_t)(dest+bytes),0,0x4000UL -bytes);
+    >     memset((void *)(uintptr_t)(dest+bytes),0,0x7000UL -bytes);
+3153,3154c3403,3404 (-2 +2)
+    <        e->stack_bottom!=lease+0x20000000UL +0x16000UL ||
+    <        e->stack_top!=lease+0x20000000UL +0x17000UL ||
+    >        e->stack_bottom!=lease+0x20000000UL +0x19000UL ||
+    >        e->stack_top!=lease+0x20000000UL +0x1a000UL ||
+3156c3406,3433 (-1 +28)
+    <     for(unsigned i=0u;i<6u;i++)if(e->reserved[i])native_report(11u,9u);
+    >     const uint32_t movie_exit=e->reserved[0];
+    >     if(!native_ra_code(movie_exit,load,bytes) ||
+    >        movie_exit==(uint32_t)(uintptr_t)e->visit || movie_exit==(uint32_t)(uintptr_t)e->init)
+    > ... (25 more lines of Test 82's)
+3164,3165c3441,3445 (-2 +5)
+    <         (void *)(uintptr_t)(lease+0x20000000UL +0x17000UL),
+    <         0x30000UL,lease&0x1fffffffUL,0x47000UL
+    >         (void *)(uintptr_t)(lease+0x20000000UL +0x1a000UL),
+    >         0x2d000UL,lease&0x1fffffffUL,0x47000UL
+    >         ,{{0}}
+    >         ,{{0},{0}},0u
+    > ... (1 more lines of Test 82's)
+3184c3473,3491 (-1 +19)
+    <     retail_display_line("BOUNDED READ AHEAD READY / 192 KIB CACHE");
+    >     if(cfg.toy_poll_owner && native_word(0xac08d950UL)!=0x8c08edbcUL)
+    >         native_report(11u,0x42u);
+    >     if(cfg.toy_poll_owner && native_word(0xac098a88UL)!=0x8c097186UL)
+    > ... (16 more lines of Test 82's)
+24 places where a line of the installed stage is replaced or gone; 13 places with lines added only

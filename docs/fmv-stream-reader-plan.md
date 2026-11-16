@@ -14,8 +14,10 @@ Evolution games. Their results, and the two tests that follow from
 Test 79's, are under The order from here: Test 80
 (`docs/toy-wire-stream-test-80.md`, `e58dd2e6b641`) and Test 81
 (`docs/toy-wire-stream-test-81.md`, `684f485644e5`), built and delivered
-together on 16 November and not yet run on a console. Nothing else
-here is built or approved. It answers the
+together on 16 November and not yet run on a console; and Test 82
+(`docs/toy-wire-stream-test-82.md`, `af5ebae4f0a5`), the virtual VMU beside
+the stream, delivered behind them the same day. Nothing else here is
+built or approved. It answers the
 owner's remark after Test 76's console run,
 "then we can probably package this for every game's FMVs", with what
 that takes and in what order. The decisions at the end are the owner's.
@@ -337,7 +339,7 @@ together as two modules, so that one console session answers both:
 | 79 | Test 78 | The window is offered to every title of the family on a raw SCI image. Toy's hooks and its movie policy stay Toy's. The module can be put at the Background reader's path for a normal launch with the virtual VMU off; with it on it stops at once, before any card step | Evolution 1 and 2 with the virtual VMU off, against the installed module with it off: play where the lag was, and the intro movies |
 | 80 | Test 79 as run on the console | A window stands through a command that only asks the drive something (Evolution 2 gave up 969 of 972 windows for such a command). The report names the commands a window meets | Evolution 2: `C` near zero, requests to a window far above 1.3 |
 | 81 | Test 80 | The stream's timer in every title, by the SDK values the reader already admits for it (both games: no timer, 10 ms a wait) | Both games: `TMR` 1 or 2, a wait under 1.3 ms |
-| Behind them | Test 81 and the installed module | The virtual VMU on: the installed worker with the stream's auxiliary and low residents that carry the stream's glue; the card loan with a window open; `quiesced` cleared | Evolution with the virtual VMU on, against the installed module: play, a movie, a save, power off, reload |
+| 82 | Test 81 for the reader, the installed module for the virtual VMU | The installed worker, which has the virtual VMU and no report, in the Toy worker's place. The low residents and the auxiliary are Test 81's; the stage is new. For every title but Toy Commander | Evolution 2 and Evolution with the virtual VMU on: the card found, an old save loaded, play, a movie, a save, power off, reload |
 
 Tests 78 and 79 were built as the table says, on 16 November, delivered
 as two archives and run by the owner the same day. Test 78: Toy
@@ -366,6 +368,20 @@ closed. Test 81's found the hand-back of a title's timer wanting, as
 the author's own reading had begun to: the timer now goes back as it
 was found, and only what is still the stream's is written. What that
 review left owed is in the list below.
+
+Test 82 was built behind them the same day and delivered as a third
+archive, to be run after the two. It is a composition and not a change
+to the reader: the installed New reader's worker, byte for byte with
+that module's label, beside Test 81's low residents and auxiliary,
+byte for byte, with a cold stage that binds them. The loan of the card
+that the virtual VMU's worker asks for had its host scenario since
+Test 77; it now has one in another title, with the borrower's own card
+traffic in it, and two readers went over the composition and the run
+time before it went out. It has no report pages, it leaves Toy
+Commander on the plain reader, and it does not clear the auxiliary's
+flag that a loan sets, which the first plan for this step named: the
+flag is asked by Toy Commander's hook path alone. What it leaves owed
+is in the list below.
 
 Test 79 is
 the change with three corrections its review asked for before any
@@ -419,6 +435,42 @@ What the reviews add to the work behind them, none of it built:
   with one pending; Start then cannot restart the console
   (`docs/toy-wire-stream-test-80.md`, Known limit 6). The report's path
   could end the stream where the card's loan is refused.
+- **The reader's counts without the Toy worker.** Beside the installed
+  worker the stream has no report: that worker has no page for it and
+  cannot read the stream's auxiliary (it was compiled for the installed
+  one and refuses the larger image). A run with the virtual VMU on is
+  read by what the owner sees. A way to show or save the auxiliary's
+  counts that does not go through a worker's pages is owed before the
+  loan's cost can be measured (`docs/toy-wire-stream-test-82.md`, Known
+  limits 1 and 6).
+- **Toy Commander beside the installed worker.** Its movies' path leans
+  on the Toy tests' worker for a wake at the controller's completions,
+  and on a flag in the auxiliary that a loan sets and nothing clears.
+  Both need a pump that does not depend on the worker, in the low
+  residents or the auxiliary, and the auxiliary is full
+  (`docs/toy-wire-stream-test-82.md`, Known limit 3).
+- **A stop page and a fault report of the reader's own.** With the
+  installed worker a stop of the reader is shown on the worker's last
+  page, which a game's exit also shows; and a stream that cannot be
+  stopped leaves every later loan refused instead of reported
+  (`docs/toy-wire-stream-test-82.md`, Known limits 2 and 7).
+- **The installed recipe on this source.** Rebuilt on this source with
+  the candidate's label, the installed New reader's recipe gives the
+  candidate's worker, and low residents and a block-cache auxiliary
+  that are not the delivered candidate's (the same sizes; 390, 6 and
+  3,074 bytes differ). They changed with the two imports of the Toy
+  tests' sources that came before Test 68 (`f216fac`, `e1104f4`),
+  which folded the suite's hooks into shared sources. No line that
+  recipe compiles for those parts has changed in Tests 68 to 82, and
+  at the candidate's own source the recipe reproduces the delivered
+  module. By the text the differences are restructurings with nothing
+  in them for that recipe; that they change nothing has not been
+  examined, and no console has run them. Test 82 uses the worker
+  alone. Owed before that recipe is built from this source for
+  anything: its own configuration brought back to the candidate's
+  bytes, or what differs reviewed and run on a console as a change of
+  its own
+  (`docs/evidence/toy-wire-stream-82/installed-recipe-on-this-source.log`).
 
 Behind those, in the order the roadmap gives them: the rule that ends a
 standing stream after a time (this plan's Known limits of Test 77, owed
