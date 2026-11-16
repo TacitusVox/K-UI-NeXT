@@ -200,9 +200,9 @@ Decoded by `decode_report.py` in the same folder
 (`console-report-decoded.txt`), which reads the baseline's report too.
 
 Owner's observation: "First run lost 9 frames. I don't think the second
-run even missed any frames so it might be random chance." The message
-names no fault in the menus or in the level and says nothing of loading
-times.
+run even missed any frames so it might be random chance." And, asked
+about the second run: "Nothing looked wrong in the level or the
+loading."
 
 | | 66-11, the baseline | Run 1 | Run 2 |
 |---|---|---|---|
@@ -274,8 +274,9 @@ What the runs say, by the outcomes above:
    Run 2, every one given up for a read elsewhere or for a command that
    is not a read, none for an error. No sector failed its check (`LB`
    0), no rebuilt byte went unconfirmed (`MB` 0), the stream reported
-   no error, and the level was reached and played. That is the fourth
-   row of the outcomes, with the limit of point 5.
+   no error, and the owner saw nothing wrong in the level or in the
+   loading. That is the fourth row of the outcomes, with the limit of
+   point 5.
 5. **Toy Commander's loading hardly reads that way.** Run 2 has 35,759
    more delivery visits from the game's disc calls than Run 1 and seven
    more windows, which served 27 more sectors in seven more requests. A
@@ -301,8 +302,9 @@ What the runs say, by the outcomes above:
    long time (Known limits 1): the report cannot say how long one stood.
 
 Not answered by these runs: loading times in the menus and the level
-(nothing in the report times a load, and the owner's message does not
-speak of them), and anything about another title.
+as a measurement (nothing in the report times a load; the owner saw
+nothing wrong in the loading), and anything about another title, about
+CD music or about the virtual VMU, both of which were off.
 
 ## Known limits, not changed here
 
