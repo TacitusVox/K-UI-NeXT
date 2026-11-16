@@ -676,7 +676,9 @@ QUICK_GONE = {"the game's idle calls always pump", "an interrupt visit held to t
 # Test 73 does not time restarts or place them in the course.
 RESTARTS = {"restart time not kept", "restarts missing from the course"}
 # Test 79: the same for TOY_WIRE_TITLES.
-TITLES_GONE = {"a window in another title", "the movie's rule for the window after all"}
+TITLES_GONE = {"a window in another title", "the movie's rule for the window after all",
+               # The line that says when a wait is due for a call is another in Test 79.
+               "a wait whose timer ran out is not overdue", "a wait without a timer is not overdue"}
 TITLES_MUTATIONS = [
  (AUX, "the window for the verified title alone",
   "    if(toy_movie_ahead(r,variant,raw,wait))return;",
@@ -732,6 +734,13 @@ TITLES_MUTATIONS = [
   "    return !(rd8(TSTR) & 1u) || rd32(TCNT0) - w->wait_tick >= w->wait_ticks;"),
  (STREAM, "the visit's own look ends a wait without a timer",
   "            if(wire_waited(w)) wire_resume(w);", "            wire_resume(w);"),
+ # The same two defects as TITLES_GONE's, in the line Test 79 compiles.
+ (STREAM, "a wait whose timer ran out is not overdue",
+  "    if(w->state == KUI_WIRE_WAIT) return w->mode ? (rd16(w->timer_reg + 8u) & 0x0100u) != 0u : wire_waited(w);",
+  "    if(w->state == KUI_WIRE_WAIT) return w->mode ? false : wire_waited(w);"),
+ (STREAM, "a wait without a timer is not overdue",
+  "    if(w->state == KUI_WIRE_WAIT) return w->mode ? (rd16(w->timer_reg + 8u) & 0x0100u) != 0u : wire_waited(w);",
+  "    if(w->state == KUI_WIRE_WAIT) return w->mode ? (rd16(w->timer_reg + 8u) & 0x0100u) != 0u : false;"),
  (STREAM, "a wait without a timer always due for a call",
   "    if(w->state == KUI_WIRE_WAIT) return w->mode ? (rd16(w->timer_reg + 8u) & 0x0100u) != 0u : wire_waited(w);",
   "    if(w->state == KUI_WIRE_WAIT) return w->mode ? (rd16(w->timer_reg + 8u) & 0x0100u) != 0u : true;"),
@@ -967,6 +976,12 @@ if os.environ.get("TOY_WIRE_ONLY"):
     MUTATIONS = MUTATIONS[low:high]
 
 
+# How many courses of the stream test the list runs. Eight was enough up to
+# Test 78. Test 79's wait without a timer is first met in the tenth, the
+# first course with no timer free whose bus cuts runs.
+COURSES = "10" if TITLES == "1" else "8"
+
+
 def run(cmd, cwd, timeout):
     try:
         return subprocess.run(cmd, cwd=cwd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
@@ -993,7 +1008,7 @@ def main():
                         "-DKUI_WIRE_STREAM_TEST=1", *DEFINES, "-Iinclude", "-Isrc/loader",
                         "tests/test_toy_wire_stream.c", STREAM, "-o", str(binary)], tree, 120)
             if code == 0:
-                code = run([str(binary), "8"], tree, 300)
+                code = run([str(binary), COURSES], tree, 300)
             if code == 0:
                 code = run(["make", "-f", "Makefile.vmu-native-toy-suite", "TOY_SUITE_MODE=66",
                             "TOY_WIRE_STREAM=1", *SWITCHES, f"BUILD={tmp}/build",
@@ -1039,7 +1054,7 @@ def main():
                             "-DKUI_WIRE_STREAM_TEST=1", *DEFINES, "-Iinclude", "-Isrc/loader",
                             "tests/test_toy_wire_stream.c", STREAM, "-o", str(binary)], tree, 120)
                 if code == 0:
-                    code = run([str(binary), "8"], tree, 300)
+                    code = run([str(binary), COURSES], tree, 300)
                 if code == 0:  # the stream mutant may still be caught end to end
                     code = run(["make", "-f", "Makefile.vmu-native-toy-suite", "TOY_SUITE_MODE=66",
                                 "TOY_WIRE_STREAM=1", *SWITCHES, f"BUILD={tmp}/build",

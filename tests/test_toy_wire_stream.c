@@ -303,7 +303,8 @@ int main(int argc, char **argv) {
     unsigned long orders[3] = {0}, unsettled = 0, backs = 0;
 #endif
     printf("Test %u card stream on the wire model:\n", KUI_TOY_WIRE_TICK ? 69u : KUI_TOY_WIRE_TITLES ? 79u : KUI_TOY_WIRE_ANY ? 78u : KUI_TOY_WIRE_SEQ ? 77u : KUI_TOY_WIRE_FLUID ? 76u : KUI_TOY_WIRE_STEADY ? 75u : KUI_TOY_WIRE_LEAN ? 74u : KUI_TOY_WIRE_IDLE ? 73u : KUI_TOY_WIRE_PACE ? 72u : KUI_TOY_WIRE_WORDS ? 71u : KUI_TOY_WIRE_CACHED ? 70u : 68u);
-    for(unsigned run = 0; run < (argc > 1 ? (unsigned)atoi(argv[1]) : 12u); ++run) {
+    const unsigned runs = argc > 1 ? (unsigned)atoi(argv[1]) : 12u;
+    for(unsigned run = 0; run < runs; ++run) {
         seed = 77u + run * 1000u;
         memset(&hw, 0, sizeof hw); hw.dmaor = 0x8201u; hw.sar = 0x11; hw.dar = 0x22; hw.count = 0x33;
         for(unsigned i = 0; i < 64; ++i) hw.slots[i] = 0x8c0be408u;
@@ -955,8 +956,10 @@ int main(int argc, char **argv) {
     /* Without QUIT the model shows the wait Test 76 removes. */
     assert(stops_receiving > 100u && (KUI_TOY_WIRE_QUIT ? stop_most <= 2u : stop_most > 1000u));
 #if KUI_TOY_WIRE_TITLES
-    /* Both were met often, in the courses that have no timer free. */
-    assert(waits_held > 100u && waits_ended > 100u);
+    /* Both were met often, in the courses that have no timer free. The
+     * first of those with a bus that cuts runs is the tenth course: a
+     * shorter run of this test has no wait without a timer at all. */
+    assert(runs < 10u ? !waits_held && !waits_ended : waits_held > 100u && waits_ended > 100u);
     printf("  waits without a timer: %lu looks before a wait's time left it standing, %lu after it ended it\n",
         waits_held, waits_ended);
 #endif
