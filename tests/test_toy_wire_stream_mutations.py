@@ -783,6 +783,9 @@ ANY_GONE = {"course pieces not counted from the movie's start", "course not held
             "the wire's standstill before the movie placed in its first piece",
             "the buffer looked at in a movie's first call", "the buffer not looked at for a frame skipped"}
 ANY_MUTATIONS = [
+ # After the review: what a waiting request asks of the wire.
+ (GLUE, "a request in slices asks the wire for the whole of itself",
+  "    const uint32_t owed=demand?s->count-r->engine.cursor.done:0u;", "    const uint32_t owed=demand?s->count:0u;"),
  # The same defects as the entries of ANY_GONE, in the lines Test 78 compiles.
  # (The course by piece has none: it is not kept.)
  (AHEAD, "the copying out not timed",
