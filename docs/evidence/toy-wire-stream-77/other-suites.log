@@ -1,0 +1,27 @@
+== earlier lists on the final source
+TOY_WIRE_LEAN=1 TOY_WIRE_STEADY=1 TOY_WIRE_FLUID=1 TOY_WIRE_SEQ=1: 218 mutations; 0 stale []
+TOY_WIRE_LEAN=1 TOY_WIRE_STEADY=1 TOY_WIRE_FLUID=1: 190 mutations; 0 stale []
+TOY_WIRE_LEAN=1 TOY_WIRE_STEADY=1 TOY_WIRE_FLUID=0: 167 mutations; 0 stale []
+TOY_WIRE_LEAN=1 TOY_WIRE_STEADY=0: 125 mutations; 0 stale []
+TOY_WIRE_LEAN=0: 79 mutations; 0 stale []
+== the Test 66 family's own fixture in every suite mode
+toy-suite-sdk-liveness-host-test exit 0: 84 lines passed
+== other suites that include tests/sci_stream_model.h
+test-sci-stream exit 0: sci stream: ok
+test-sci-stream-ce exit 0: sci stream: ok
+test-sci-stream-ce-slow exit 0: sci stream: ok
+test-sci-stream-ce-fast exit 0: sci stream: ok
+test-retail-async exit 0: retail async reader: 221287 checks passed
+test-retail-async-native-resume exit 0: retail async reader: 221287 checks passed
+test-retail-async-native-bounds exit 0: native background bounded fallback: 10388 checks passed
+test-retail-async-native-hybrid exit 0: native DMA ceiling: 23130 checks passed; original 20/25 catch-up retained
+test-retail-async-ce exit 0: retail async reader (Windows CE): 163659 checks passed
+test-retail-async-ce-slow exit 0: retail async reader (Windows CE): 164229 checks passed
+test-retail-async-ce-fast exit 0: retail async reader (Windows CE): 164229 checks passed
+test-armada-ce-stream-boot exit 0: Armada stream bootstrap/relay handoff: 50248 checks passed
+readahead-aux-host-tests exit 0: native read-ahead auxiliary: 2531408 checks; real cursor bytes, strict visit caps, fresh-PAUSED heartbeat-only
+toy-movie-host-tests exit 0: ASAN_OPTIONS=detect_leaks=0 build/movie-host/test-movie-iso
+test-ce-gd-completion-lifecycle exit 0
+test-sci-stream-quarantine exit 2
+test_smash_native_raw_protocol exit 0
+test_smash_menu_raw_batch exit 0

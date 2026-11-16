@@ -1,11 +1,12 @@
 # The card stream reader beyond Toy Commander: a proposal
 
-Status: proposal of 15 November 2026. Step 2 is begun at the owner's
-word of the same day (decision 1); nothing else here is built or
-approved. It answers the owner's remark after Test 76's console
-run, "then we can probably package this for every game's FMVs", with
-what that takes and in what order. The decisions at the end are the
-owner's.
+Status: proposal of 15 November 2026. Step 2 was begun at the owner's
+word of the same day (decision 1) and is delivered as Test 77
+(`docs/toy-wire-stream-test-77.md`), with host and linked checks only:
+its console test is pending. Nothing else here is built or approved. It
+answers the owner's remark after Test 76's console run, "then we can
+probably package this for every game's FMVs", with what that takes and
+in what order. The decisions at the end are the owner's.
 
 It rests on an independent map of the code and documents
 (`docs/evidence/toy-wire-stream-76/generalization-map.md`, as returned).
@@ -124,6 +125,16 @@ If step 3 loses frames against step 2, the next single change is
 another general source of foreground calls: the extra timer call Test 69
 had, or the controller heartbeat the installed read-ahead already
 receives.
+
+Step 2 as built (Test 77) adds one thing to this order. With the window
+no longer ended by a movie, a filled window's stream stands until the
+game reads elsewhere, and with it the card inside its read command, DMA
+channel 1's addresses, a timer channel's level and the SCI level
+(`docs/toy-wire-stream-test-77.md`, Known limits 1, from that test's
+review). Before step 4 puts this reader under a game other than Toy
+Commander, a standing stream has to be ended after a time, its sectors
+kept: one change of its own, with its own console comparison. Where it
+goes between steps 2 and 4 is the owner's to say with decision 2.
 
 Per-title hooks are the alternative to step 2 and 3: for every game the
 exact executable, hook addresses and context offsets, found by analysis.

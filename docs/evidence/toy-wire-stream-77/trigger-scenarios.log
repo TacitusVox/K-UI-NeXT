@@ -1,0 +1,28 @@
+The scenarios of Test 77's change, as tests/test_toy_wire_integration.c printed them (first of its two passes):
+  ordinary reads one behind the other: the second opens a window with no card command; 6 requests of 9 served from 3 windows, 106 sectors; given up for a read elsewhere, for one of 61 sectors and at the track's end; CMD18 4, CMD12 3
+  reads that reach over the track's end, the game's EXEC call first: never the window's, one at an open window's first sector and one that opened a window for itself; both read by the low reader, exact
+  reads that reach over the track's end, the game's CHECK call first: never the window's, one at an open window's first sector and one that opened a window for itself; both read by the low reader, exact
+  the same over scattered extents, stall every ~0 bytes, 0% busy phases: 27 requests, 26 from the window; streams 48, ends close/jump/sector/frame 1/47/0/0, windows 1, CMD18 50, CMD12 49
+  the same over scattered extents, stall every ~1500 bytes, 20% busy phases: 27 requests, 26 from the window; streams 101, ends close/jump/sector/frame 1/45/43/12, windows 1, CMD18 117, CMD12 116
+  the same over scattered extents, stall every ~150 bytes, 80% busy phases: 27 requests, 26 from the window; streams 451, ends close/jump/sector/frame 0/18/286/147, windows 1, CMD18 515, CMD12 514
+  a window and the movie's file: one opened ahead of the file served 30 sectors into it, one opened inside it 71 sectors to behind its end, counted as that movie's; one opened by a read over the file's end counted with the others
+  commands between consecutive reads: a window given up for a command that is not a read (3), ended by INIT, RESET and an abort, never opened across a seek, and reopened by the next consecutive read: 8 windows
+  8 ordinary reads the game waited for with interrupts held off: the first the low reader's, then one window and one stream, 7 kept waiting for the wire, 29 rounds of the game's loop
+  a token search left standing by a read the game ended, the game then asking again with the player's polls: no window on top of it, the low reader's read in 70 rounds, the next read's window as ever
+  a token search left standing by a read the game ended, the game then asking again with EXEC and CHECK: no window on top of it, the low reader's read in 70 rounds, the next read's window as ever
+  a token search left standing by a read the game ended, the game then asking again with no call at all: no window on top of it, the low reader's read in 63 rounds, the next read's window as ever
+  ordinary reads served in an interrupt visit and reported by the game's next call: 3, the window kept through each
+  the card asked of the reader with a window open, its stream standing still: window given up, stream stopped, CMD12, the card handed over; given back, the game reads on and has a window again
+  the card asked of the reader with a window open, its stream receiving: window given up, stream stopped, CMD12, the card handed over; given back, the game reads on and has a window again
+  the card's stop command failing once as a window is given up for a read elsewhere: the window closed, the command sent again by the low reader, the read exact; CMD12 2
+  no window with the SCI route not selected: ten consecutive reads, all the low reader's, one CMD18
+  no window with another title: ten consecutive reads, all the low reader's, one CMD18
+  no window with a source the stage did not find raw: ten consecutive reads, all the low reader's, one CMD18
+  no window with a track of 2,048-byte sectors on a disc whose movie track is raw: ten consecutive reads, all the low reader's, one CMD18
+  a movie's start as the game reads it: a read of 61 sectors by the low reader, the first refill a window with no card command; played again after its end, a second window; 12 refills served
+  movie ended under a waiting request: the window served it and stayed, no card command
+  window in error under a waiting request: stream stopped in the interrupt visit, CMD12 later, read exact
+  another read in the middle of the movie: stream stopped, CMD12 from the foreground, read exact
+
+The same build without STAY (matrix job t77nostay):
+  8 ordinary reads the game waited for with interrupts held off: 7 windows opened and given up, the low reader read them all, 25 rounds of the game's loop

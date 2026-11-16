@@ -204,7 +204,8 @@ the remaining coverage honestly.
 A proposal for bringing the Toy Commander card stream reader (Test 76,
 `docs/toy-wire-stream-test-76.md`) to the compact Background family is in
 `docs/fmv-stream-reader-plan.md`. It is not approved and changes nothing
-in this sequence.
+in this sequence. Its second step, still inside the Toy test module, is
+Test 77 (`docs/toy-wire-stream-test-77.md`).
 
 Investigate a safely reserved sequential streaming ring, with optional full
 movie preload when the asset fits. Reuse the shared stream and verification
