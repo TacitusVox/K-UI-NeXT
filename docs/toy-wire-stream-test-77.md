@@ -306,6 +306,14 @@ as a measurement (nothing in the report times a load; the owner saw
 nothing wrong in the loading), and anything about another title, about
 CD music or about the virtual VMU, both of which were off.
 
+The owner's decision on it, 16 November: "Since the FMV is basically a
+non-issue at this point, I want those other three goals ironed out. I
+don't know that chasing down those 9 frames is value-added. People can
+deal with an almost imperceivable fmv issue." The frames lost in pieces
+6 and 7 are left as they are. What follows is in
+`docs/fmv-stream-reader-plan.md`, The owner's direction of 16 November
+2026.
+
 ## Known limits, not changed here
 
 1. **A window's stream stands until the next read.** After the last

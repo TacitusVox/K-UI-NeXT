@@ -144,13 +144,46 @@ They give an exact start and end and the player's own calls as a pump.
 As a way to deliver they are a title-specific opt-in, which `AGENTS.md`
 forbids; they fit only as measurement inside a test module.
 
+## The owner's direction of 16 November 2026
+
+After Test 77's console result the owner wrote:
+
+> So the eventual goal is
+> - Universal VMU
+> - Universal reader (or at least a few for the different classes of
+>   games - CDDA, WinCE + CDDA, WinCE, and regular DC)
+> - Run-ahead or prefetch where possible/needed. Goal is smooth FMVs and
+>   very smooth gameplay.
+>
+> Since the FMV is basically a non-issue at this point, I want those
+> other three goals ironed out. I don't know that chasing down those 9
+> frames is value-added. People can deal with an almost imperceivable
+> fmv issue.
+>
+> Evolution/Evolution 2 had no CD music. They just were my first proving
+> grounds for the prefetch. They got rid of the lag. Wondering if this
+> new loader would be better.
+
+These are the goals of `docs/universal-loader-roadmap.md`. For this
+plan they mean: the movie work on Toy Commander is at rest where Test 77
+left it; the stream reader is from here on judged as read-ahead for the
+third goal, against the installed prefetch and first in the two
+Evolution games; and it counts for the first two goals only where it
+runs beside the virtual VMU and, for a CD music game, beside the music.
+
 ## The owner's decisions
 
 1. **The hiccup.** Accept Test 76 as the reference with the hiccup's
    cause left open, or have it explained first (step 1). Answered by
    the owner after the comparison run of 15 November: "Otherwise it's
    probably safe to adapt this loader to all other games". Step 1 is
-   not taken; step 2 is begun on the variant without GAP.
+   not taken; step 2 is begun on the variant without GAP. And after
+   Test 77's console result, on 16 November: "Since the FMV is
+   basically a non-issue at this point, I want those other three goals
+   ironed out. I don't know that chasing down those 9 frames is
+   value-added. People can deal with an almost imperceivable fmv
+   issue." The frames still lost in Toy Commander's second movie are
+   accepted as they are; no test is made for them.
 2. **Order.** FMV streaming is fourth of the roadmap's five sections
    and fifth in its current sequence
    (`docs/universal-loader-roadmap.md`), and the measurement checkpoint
@@ -162,9 +195,21 @@ forbids; they fit only as measurement inside a test module.
    and 5 wait for that checkpoint, is the owner's to say.
 3. **What "every game" is to mean first.** Compact Background New on
    raw SCI GDI images with VMU and CD music off, as above, or something
-   else.
+   else. The owner, 16 November: "remember this is a CDDA game so I
+   need that to be universal as well", and the goals quoted under The
+   owner's direction below: the virtual VMU and CD music belong to what
+   "every game" is to mean in the end. They were off in every run of
+   this reader so far.
 4. **Which games to qualify on** in step 4: two or three with FMVs that
    the owner has as raw GDI and that are admitted to that family today.
+   The owner, 16 November: "Chat thought the first/second Evolution
+   games would be good testing grounds, since we had to do the prefetch
+   on those games to eliminate lag", and: "Evolution/Evolution 2 had no
+   CD music. They just were my first proving grounds for the prefetch.
+   They got rid of the lag. Wondering if this new loader would be
+   better." So the two Evolution games, and the question put to them is
+   the stream window against the installed prefetch, in play as well as
+   in movies.
 5. **Memory.** Keep the 284 KiB lease and give the 192 KiB block cache
    over to the window and the ring, which changes ordinary loads for
    every game on that reader; or enlarge the lease to keep both, which

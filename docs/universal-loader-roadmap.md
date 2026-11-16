@@ -67,6 +67,27 @@ The canonical repository is `TacitusVox/K-UI-NeXT`. The account name is
 TacitusVox; older TacitusVoxt and TPMJB links are migration work, not alternate
 current publishing destinations.
 
+## Owner's direction, November 16, 2026
+
+After the console result of the Toy Commander card stream reader
+(`toy-wire-stream-test-77.md`) the owner restated the goals:
+
+> So the eventual goal is
+> - Universal VMU
+> - Universal reader (or at least a few for the different classes of games -
+>   CDDA, WinCE + CDDA, WinCE, and regular DC)
+> - Run-ahead or prefetch where possible/needed. Goal is smooth FMVs and very
+>   smooth gameplay.
+>
+> Since the FMV is basically a non-issue at this point, I want those other
+> three goals ironed out.
+
+The remaining frame loss in Toy Commander's second movie is accepted as it is
+("I don't know that chasing down those 9 frames is value-added"). The stream
+reader is a candidate for the read-ahead of the third goal, to be compared
+with the installed prefetch in the two Evolution games first. It has run with
+CD music and virtual VMU off only. See `fmv-stream-reader-plan.md`.
+
 ## 1. Shared correctness and reproducible deployment — active
 
 Shared GUI preparation is also an immediate integration requirement. The
