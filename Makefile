@@ -112,6 +112,11 @@ test-toy-test-switches:
 	python3 tests/test_toy_test_switches.py
 test: test-toy-test-switches
 
+.PHONY: test-wince-family7-profiles
+test-wince-family7-profiles:
+	python3 tests/test_wince_family7_profiles.py
+test: test-wince-family7-profiles
+
 .PHONY: test-updater
 test-updater: test-runtime-module-bundle-make
 test-updater: build/test-update build/test-update-v2 build/test-update-handoff build/update-image build/update-boot

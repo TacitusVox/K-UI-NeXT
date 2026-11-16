@@ -1,0 +1,58 @@
+{
+  "schema": "kui.wince.family7-profiles.v1",
+  "reference": "ARMADA",
+  "kernels": {
+    "ARMADA": {
+      "data_shift": 0,
+      "nk_words_differing": 0,
+      "nk_words_moved": 0,
+      "maple_base": 31260672,
+      "maple_toc": 2350126612,
+      "mapledev_base": 30539776,
+      "mapledev_toc": 2350126836,
+      "maple_span": 40960,
+      "mapledev_span": 65536,
+      "ram_end": 2365390848,
+      "kernel_sha256": "a7628c78090fce2c93012d5e4db6142096e138dceb7ebbf555142e902ca03c1f"
+    },
+    "WILD_METAL": {
+      "data_shift": 2097152,
+      "nk_words_differing": 1028,
+      "nk_words_moved": 1023,
+      "maple_base": 28573696,
+      "maple_toc": 2352226044,
+      "mapledev_base": 27852800,
+      "mapledev_toc": 2352226268,
+      "maple_span": 40960,
+      "mapledev_span": 65536,
+      "ram_end": 2365390848,
+      "kernel_sha256": "4b01a13620c9882b7d8653223c7a5aae9d5fa9079b14fb3f163694568bc127dd"
+    },
+    "BIOHAZARD2_VALUE_PLUS": {
+      "data_shift": -65536,
+      "nk_words_differing": 1028,
+      "nk_words_moved": 1023,
+      "maple_base": 31391744,
+      "maple_toc": 2350058900,
+      "mapledev_base": 30801920,
+      "mapledev_toc": 2350059060,
+      "maple_span": 40960,
+      "mapledev_span": 65536,
+      "ram_end": 2365390848,
+      "kernel_sha256": "27f83ff9c9cf6b8ddb28dfeaa6704ab6b8a3c9d42d59410198f2ac2aa1057c11"
+    },
+    "HELLO_KITTY_LOVELY_FRUIT_PARK": {
+      "data_shift": 0,
+      "nk_words_differing": 5,
+      "nk_words_moved": 0,
+      "maple_base": 31195136,
+      "maple_toc": 2350134824,
+      "mapledev_base": 30474240,
+      "mapledev_toc": 2350135048,
+      "maple_span": 40960,
+      "mapledev_span": 65536,
+      "ram_end": 2365390848,
+      "kernel_sha256": "e10fc4a684424b6fec8eb33f3dba24e7747a3b0799994b684bd12328e8c7bf38"
+    }
+  }
+}

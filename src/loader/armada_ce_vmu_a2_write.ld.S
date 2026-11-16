@@ -3,6 +3,7 @@ OUTPUT_FORMAT("elf32-shl")
 OUTPUT_ARCH(sh)
 ENTRY(_kui_armada_ce_maple_hook)
 #include "kui/armada_ce_vmu_layout.h"
+#include "kui/ce_maple_family7.h"
 #if !KUI_ARMADA_CE_MAPLE_WRITE_LAYOUT
 #error "Experimental WRITE linker requires the explicit 48 KiB profile"
 #endif
@@ -15,12 +16,14 @@ __kui_maple_write_layout = 1;
 #if KUI_ARMADA_CE_VMU_WRITE_RUNTIME
 __kui_maple_write_runtime = 1;
 #endif
-__kui_maple_set_kmode = 0x01dd6374;
-__kui_maple_resume = 0x01dd5b10;
+/* maple.dll's SetKMode stub, its resume point and the bridge in its text tail,
+ * at the selected family 7 kernel's base (kui/ce_maple_family7.h). */
+__kui_maple_set_kmode = KUI_CE_FAMILY7_MAPLE_BASE + 0x6374;
+__kui_maple_resume = KUI_CE_FAMILY7_MAPLE_BASE + 0x5b10;
 SECTIONS {
-    . = 0x01dd67a4;
+    . = KUI_CE_FAMILY7_MAPLE_BASE + 0x67a4;
     .bridge : { KEEP(*(.bridge)) } :bridge
-    ASSERT(__kui_maple_bridge_end == 0x01dd6800, "Traffic bridge exceeds admitted tail")
+    ASSERT(__kui_maple_bridge_end == KUI_CE_FAMILY7_MAPLE_BASE + 0x6800, "Traffic bridge exceeds admitted tail")
     . = KUI_ARMADA_CE_VMU_HOOK_P2;
     .uncached : AT(KUI_ARMADA_CE_VMU_RESERVE_BEGIN) {
         KEEP(*(.hook.entry))

@@ -2,20 +2,24 @@
 #ifndef KUI_ARMADA_CE_MAPLE_OBSERVE_H
 #define KUI_ARMADA_CE_MAPLE_OBSERVE_H
 #include "kui/armada_ce_ram_bind.h"
+#include "kui/ce_maple_family7.h"
 
 /* Independently reconstructed metadata from the exact Armada US kernel.
  * ROM identities and geometry are observations, never ownership, executable
- * leases or permission to call/patch a driver. No module section is followed. */
-#define KUI_ARMADA_CE_MAPLE_MODULE_HEAD UINT32_C(0x8c145b24)
-#define KUI_ARMADA_CE_MAPLE_PROCESS_BASE UINT32_C(0x8c14e6e0)
+ * leases or permission to call/patch a driver. No module section is followed.
+ * Another kernel of maple.dll family 7 (kui/ce_maple_family7.h) has the same
+ * nk.exe with its data block moved: the kernel addresses below move with it,
+ * and the drivers' ROM table entries and nominal bases are its own. */
+#define KUI_ARMADA_CE_MAPLE_MODULE_HEAD ((uint32_t)(UINT32_C(0x8c145b24)+KUI_CE_FAMILY7_DATA_SHIFT))
+#define KUI_ARMADA_CE_MAPLE_PROCESS_BASE ((uint32_t)(UINT32_C(0x8c14e6e0)+KUI_CE_FAMILY7_DATA_SHIFT))
 #define KUI_ARMADA_CE_MAPLE_PROCESS_STRIDE UINT32_C(0x9c)
-#define KUI_ARMADA_CE_MAPLE_CURRENT_PROCESS UINT32_C(0x8c145890)
-#define KUI_ARMADA_CE_MAPLE_HEAP_LOW UINT32_C(0x8c14d430)
-#define KUI_ARMADA_CE_MAPLE_HEAP_HIGH UINT32_C(0x8c14d434)
-#define KUI_ARMADA_CE_MAPLE_ROM_TOC UINT32_C(0x8c141614)
-#define KUI_ARMADA_CE_MAPLEDEV_ROM_TOC UINT32_C(0x8c1416f4)
-#define KUI_ARMADA_CE_MAPLE_NOMINAL UINT32_C(0x01dd0000)
-#define KUI_ARMADA_CE_MAPLEDEV_NOMINAL UINT32_C(0x01d20000)
+#define KUI_ARMADA_CE_MAPLE_CURRENT_PROCESS ((uint32_t)(UINT32_C(0x8c145890)+KUI_CE_FAMILY7_DATA_SHIFT))
+#define KUI_ARMADA_CE_MAPLE_HEAP_LOW ((uint32_t)(UINT32_C(0x8c14d430)+KUI_CE_FAMILY7_DATA_SHIFT))
+#define KUI_ARMADA_CE_MAPLE_HEAP_HIGH ((uint32_t)(UINT32_C(0x8c14d434)+KUI_CE_FAMILY7_DATA_SHIFT))
+#define KUI_ARMADA_CE_MAPLE_ROM_TOC ((uint32_t)KUI_CE_FAMILY7_MAPLE_TOC)
+#define KUI_ARMADA_CE_MAPLEDEV_ROM_TOC ((uint32_t)KUI_CE_FAMILY7_MAPLEDEV_TOC)
+#define KUI_ARMADA_CE_MAPLE_NOMINAL ((uint32_t)KUI_CE_FAMILY7_MAPLE_BASE)
+#define KUI_ARMADA_CE_MAPLEDEV_NOMINAL ((uint32_t)KUI_CE_FAMILY7_MAPLEDEV_BASE)
 #define KUI_ARMADA_CE_MAPLE_SPAN UINT32_C(0xa000)
 #define KUI_ARMADA_CE_MAPLEDEV_SPAN UINT32_C(0x10000)
 #define KUI_ARMADA_CE_MAPLE_MAX_NODES 64u
