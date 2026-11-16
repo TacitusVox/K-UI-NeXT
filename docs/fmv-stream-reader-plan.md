@@ -171,6 +171,171 @@ third goal, against the installed prefetch and first in the two
 Evolution games; and it counts for the first two goals only where it
 runs beside the virtual VMU and, for a CD music game, beside the music.
 
+## What the reading of 16 November found
+
+Five independent readers were each given one part of the owner's
+question: what a launch with the virtual VMU on does, how the VMU uses
+the card, memory, the written record, and native CD music in the code.
+Their answers are in
+`docs/evidence/universal-reader-reading-2026-11-16/`, as returned. A
+sceptical check of their claims was to follow and was cut off by the
+session's usage limit, as were four more readers (the reader's own side
+of a card loan, the map of classes, the CD music record and the record
+on the Evolution games). The author checked these himself: the two lines
+in Card Tools named below, the Games app's checks of the Background
+module, the sizes of Test 77's worker and auxiliary, and every figure
+taken from the Evolution 2 capture. The rest is the readers'.
+
+### The virtual VMU
+
+- **Switching it on changes nothing in a Toy test.** Card Tools' test
+  entry sets the virtual VMU off for every Toy test launch whatever the
+  saved setting says (`if(toy_test)emulation_enabled=false;`, Card Tools
+  source `09c9a4b686d4`, `src/apps/games_retail.c` line 950), and
+  refuses a title that is not Toy Commander (line 1621). The test
+  module's worker is built without the virtual card's code
+  (`reader_only()` is the constant true under `KUI_TOY_SUITE_MODE`) and
+  does not arm in any other mode. The stream reader has never run
+  beside the virtual VMU.
+- **The installed reader is one file for both settings**:
+  `KUI/apps/games/retail-native-dual.kui`. VMU On gives a virtual card
+  in A2; VMU Off passes the physical cards through. Both keep the whole
+  284 KiB lease and the 192 KiB block cache.
+- **How the VMU uses the card.** Nothing of the card's 128 KiB is in
+  RAM, only a checksum a block. Every block the game reads is fetched
+  from the SD card and every finished block write is committed at once,
+  one card transaction each, inside the game's Maple completion with
+  interrupts masked. The worker borrows the card from the disc reader
+  for it. While the game has a read outstanding the loan is refused and
+  the game is told to ask again; otherwise the reader's open command is
+  ended with CMD12, the port changes hands, and the reader stays closed
+  until the game's next read.
+- **In the stream reader that loan halts the stream and drops the
+  window**, and sets a flag (`quiesced`) that nothing in this build
+  clears. The path has its host scenario (`sequence_lent()`) and no
+  console run.
+- **How often.** Toy Commander was seen to read 15 to 25 blocks once,
+  when it finds the card, and to write nothing outside a save; The House
+  of the Dead 2 read 23 blocks in a session. A movie with no save in
+  progress sees no loan at all.
+- **How long a loan lasts with interrupts masked has never been
+  measured on the console.**
+- **Memory.** The lease is the same in every mode. The virtual VMU lives
+  wholly in its first 0x12000 bytes, the worker; the stream from 0x13000
+  up, and the room the stream's code needed came out of the block cache,
+  not out of the worker. Nothing is left over on either side: the
+  installed worker with the VMU has 384 bytes free, Test 77's auxiliary
+  32. Test 77's worker made room for its report and screen pages by
+  compiling the VMU out; with the VMU put back it is 4,832 bytes too
+  large. So the virtual VMU beside the stream is the installed worker,
+  as it is, with the stream's auxiliary in place of the block cache's,
+  and without the Toy report. It is not a switch on the test module.
+- **The record.** Background New with the virtual VMU on has console
+  results on earlier builds (Evolution 2, Rayman 2, Lodoss, Code
+  Veronica, The House of the Dead 2 and others). No console record
+  exists of a card loan arriving while read-ahead is in flight. The
+  House of the Dead 2 has lag and one freeze recorded with the card on
+  and none with it off, cause open.
+
+### CD music
+
+- **One launch loads one loader file, and CD music, the virtual VMU and
+  prefetch are in different files.** With CD Music On the Games app
+  forces the Standard reader and loads a CD music file of its own
+  (`cdda-toy-raw.kui` for the raw Toy Commander image). That file has no
+  virtual VMU and no prefetch, and reads the movies the old way.
+- **Two programs are admitted**, Toy Commander and MDK2, each by the
+  SHA-256 of the program and of its sound driver and about twenty fixed
+  addresses: the adapter plays through the game's own sound driver.
+- **It reads one audio sector a card command**, 75 a second, each a
+  whole CMD18 and CMD12 with interrupts masked, gives way to the game's
+  data reads, and keeps about 0.74 s of music buffered.
+- **The Background family has no CD music code**: the game's music
+  commands are answered and nothing plays, as in every Toy test.
+- **What stands between the three for a game like Toy Commander**: no CD
+  music adapter on the Background reader, and no prefetch or VMU in the
+  CD music files; each service takes the game's first heap block for
+  itself; no rule lets an audio reader with a deadline share the card
+  with a stream that stays inside one open read and with a VMU writer;
+  the launcher's one-file routing; and, for "universal", sound adapters
+  for more than two programs.
+
+### The two Evolution games
+
+The record has how Evolution 2 reads in play: the console capture of 25
+October on the prefetch build `d0aac421584c`
+(`docs/evidence/native-read-ahead-pio-pair-observed-2026-10-25.json`),
+of which the owner said "I think we fixed it! I noticed a single
+hiccup." Evolution 1 has the owner's word of 27 October on `b116d540b382`:
+"That lag seems to be gone now."
+
+| | In that capture |
+|---|---|
+| The game's last eight requests | 73, 50, 73, 50, 73, 50, 73, 50 sectors, each beginning where the one before ended (sectors 321,500 to 321,991) |
+| The image | Raw: the eight requests' 492 sectors took 2,264 card blocks, 4.6 a sector |
+| Prefetch | 2,230 blocks in 1,200 controller frames, two a frame by programmed transfer. The cache was full 55 times and fed all eight requests |
+| Its cost | One block at most 1.44 ms, one visit at most 2.87 ms, inside the Maple completion with interrupts masked |
+| A request, fed from the cache | 83 ms over 17 of the game's calls for 73 sectors, 52 ms over 12 for 50 |
+| With one block a frame, the build before | 251 visits found nothing cached; a request waited up to 114 ms |
+
+So prefetch there is a producer that just keeps pace with the game (it
+made 2,230 blocks where the game took 2,264), for up to 2.9 ms of every
+frame with interrupts off. The stream reader gets a card block for 66
+microseconds of pump time (Test 77, console) and has about twenty times
+the rate. That is the case for it in the owner's question, "Wondering if
+this new loader would be better."
+
+As built it cannot serve this game. A window takes a request of at most
+60 sectors and holds 62. Every 73-sector request would go back to the
+low reader and the window with its read-ahead would be given up, twice
+in every pair of requests. The lag prefetch removed would be back. Three
+things come first:
+
+1. A window serves a request of any size, as the stream delivers it.
+2. The window is offered to every title of the family, not to Toy
+   Commander alone.
+3. The virtual VMU on beside it, which is how these games are played.
+
+Not known: how Evolution 1 reads, how either game reads a movie, and
+how often either makes disc calls while one plays.
+
+### The classes
+
+From `docs/universal-library-coverage.md` (6 November) and the readers.
+Where no reader returned, the cell says so.
+
+| Class | Loader | Virtual VMU | Prefetch | The stream reader |
+|---|---|---|---|---|
+| Native, compact Background New and Legacy | `retail-native-dual.kui` and its A1 variant | Yes, by structure: 16 of the 21 checked originals resolve | The 192 KiB block cache, two blocks a controller frame, paused while the game streams | Lives here, in a test module for one title |
+| Native, Standard | The Standard reader with its 72 KiB VMU service | Yes | None | No lease and no interrupt route for it |
+| Native, standalone New | `retail-native-standalone.kui` | No: DOA2, Crazy Taxi and Zombie Revenge wait for a proved arena | None: it has neither the lease nor the heartbeat | Not without a lease |
+| Native with CD music | `cdda-toy-raw.kui`, `cdda-toy-cooked.kui`, `retail-cdda-mdk2.kui` on the Standard reader | None | None | Needs the adapter beside it and a rule for the card |
+| Windows CE | The generic module (`ce-boot.kui`; older installations have `ce-probe.kui`) | Armada only, by its own adapter | Not read | Another reader core; not read |
+| Windows CE with CD music | Four adapters; Armada's VMU-on module accepted 9 November | Armada | Not read | Not read |
+| Sega Smash Pack | Its accepted set, kept as it is | Its own | | Not touched |
+
+## The order from here
+
+The owner, 16 November, on the three things named above: "Go ahead and
+work on those changes." Each is one behavior change against a named
+baseline. The first two stay in the test module and are delivered
+together as two modules, so that one console session answers both:
+
+| Test | Baseline | The one change | Console |
+|---|---|---|---|
+| 78 | Test 77 | A window serves a request of any size, in slices, and a consecutive read of any size opens one. Room is made first: the auxiliary's image has 32 bytes free | Toy Commander as Test 77: the movies, then a level |
+| 79 | Test 78 | The window is offered to every title of the family on a raw SCI image. Toy's hooks and its movie policy stay Toy's. The module can be put at the Background reader's path for a normal launch with the virtual VMU off; with it on it stops at once, before any card step | Evolution 1 and 2 with the virtual VMU off, against the installed module with it off: play where the lag was, and the intro movies |
+| Next | Test 79 and the installed module | The virtual VMU on: the installed worker with the stream's auxiliary and low residents that carry the stream's glue; the card loan with a window open; `quiesced` cleared | Evolution with the virtual VMU on, against the installed module: play, a movie, a save, power off, reload |
+
+Behind those, in the order the roadmap gives them: the rule that ends a
+standing stream after a time (this plan's Known limits of Test 77, owed
+before the reader is anyone's default); the reader as the family's
+default; cooked images, which have no parity for the window's repair;
+and CD music beside it, which is the roadmap's item 5 and needs the
+adapter and the card rule named above. Steps 3 to 8 of the table under
+Steps are superseded by this order where they differ: the hook's pump
+(step 3) is answered by a title that has no hook.
+
 ## The owner's decisions
 
 1. **The hiccup.** Accept Test 76 as the reference with the hiccup's
