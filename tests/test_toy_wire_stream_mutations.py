@@ -46,6 +46,8 @@ TITLES = os.environ.get("TOY_WIRE_TITLES", "0")
 AUX = "src/loader/native_readahead_aux.c"
 # The cold stage's scan: its mutants are run by tests/test_toy_titles_stage.c.
 SCAN = "src/loader/toy_movie_iso_stage.inc"
+# The worker's report text, its lines for the screen and its pages: run by tests/test_toy_wire_report.c.
+REPORT = "src/loader/toy_suite_report_save.inc"
 SWITCHES = [f"TOY_WIRE_TICK={TICK}", f"TOY_WIRE_CACHED={CACHED}", f"TOY_WIRE_WORDS={WORDS}", f"TOY_WIRE_PACE={PACE}",
             f"TOY_WIRE_IDLE={IDLE}", f"TOY_WIRE_LEAN={LEAN}", f"TOY_WIRE_STEADY={STEADY}",
             f"TOY_WIRE_FLUID={FLUID}"]
@@ -719,6 +721,41 @@ TITLES_MUTATIONS = [
  (SCAN, "an executable with Toy Commander's checksum taken for Toy Commander's",
   "       (boot_crc!=KUI_VMU_LAUNCH_TOY_EXEC_CRC || exec_bytes!=KUI_VMU_LAUNCH_TOY_EXEC_BYTES)) {",
   "       (boot_crc!=KUI_VMU_LAUNCH_TOY_EXEC_CRC)) {"),
+ # The report on the screen.
+ (REPORT, "a line for the screen cut in the middle of a value",
+  "    if(at+n<end && at[n]!='\\n' && space)n=space;\n", ""),
+ (REPORT, "a line for the screen of fifty-one places",
+  "    while(at+n<end && at[n]!='\\n' && n<TOY_PAGE_PLACES) {", "    while(at+n<end && at[n]!='\\n' && n<=TOY_PAGE_PLACES) {"),
+ (REPORT, "the space behind a cut shown on the next line",
+  "    if(at<end && (*at=='\\n' || *at==' '))at++;", "    if(at<end && *at=='\\n')at++;"),
+ (REPORT, "the text's padding shown as lines",
+  "    if(at>=end || *at==' ')return false;", "    if(at>=end)return false;"),
+ (REPORT, "thirteen lines of the text to a page",
+  "            for(unsigned line=0u;line<TOY_PAGE_LINES && toy_report_screen_line(&at,end,row);line++)",
+  "            for(unsigned line=0u;line<=TOY_PAGE_LINES && toy_report_screen_line(&at,end,row);line++)"),
+ (REPORT, "the screen not put back behind a page",
+  "            toy_report_pause(frames,&start_released,&reboot_refused);\n            retail_display_restore(display);",
+  "            toy_report_pause(frames,&start_released,&reboot_refused);"),
+ (REPORT, "a page without its heading",
+  "            retail_display_line(\"REPORT NOT SAVED / FILM EVERY PAGE\");\n", ""),
+ (REPORT, "the page never says that Start was refused",
+  "            retail_display_line(reboot_refused?\"RESTART BUSY / TRY AGAIN OR POWER OFF\":\"START / REBOOT TO K-UI CD\");",
+  "            retail_display_line(\"START / REBOOT TO K-UI CD\");"),
+ (REPORT, "the pages shown once and no more",
+  "    for(;;) {\n        const char *at=text;\n        while(at<end && *at!=' ') {\n            char row[TOY_PAGE_PLACES+1u];",
+  "    {\n        const char *at=text;\n        while(at<end && *at!=' ') {\n            char row[TOY_PAGE_PLACES+1u];"),
+ (REPORT, "no card asked for where there is no report file",
+  "    if(!state.armed || state.pending ||\n#else", "    if(!config.toy_report.test || !state.armed || state.pending ||\n#else"),
+ (REPORT, "the card asked for by an unarmed worker",
+  "    if(!state.armed || state.pending ||\n#else", "    if(state.pending ||\n#else"),
+ (REPORT, "the low reader's overruns and its programmed blocks changed places",
+  "        (uint32_t[]){sd->blocks,sd->polled,sd->overruns,sd->crc_errors,w->declined},5u);",
+  "        (uint32_t[]){sd->blocks,sd->overruns,sd->polled,sd->crc_errors,w->declined},5u);"),
+ (REPORT, "the stream's refused take-overs left out of the report",
+  "        (uint32_t[]){sd->blocks,sd->polled,sd->overruns,sd->crc_errors,w->declined},5u);",
+  "        (uint32_t[]){sd->blocks,sd->polled,sd->overruns,sd->crc_errors,0u},5u);"),
+ (REPORT, "every title reported as Toy Commander",
+  "w->large_returned,ra->demand.owner_verified},4u);", "w->large_returned,1u},4u);"),
 ]
 # Test 78: mutations on lines the build with TOY_WIRE_ANY no longer compiles
 # go (ANY_GONE), and the same defects are made in the lines that take their
@@ -960,6 +997,17 @@ def main():
                 if code == 0:
                     code = run([str(binary)], tree, 60)
                 code = code or 0
+                (tree / path).write_text(original)
+                print(("caught  " if code else "MISSED  ") + name, flush=True)
+                if not code:
+                    survived.append(name)
+                continue
+            if path == REPORT:
+                binary = Path(tmp) / "report"
+                code = run([cc, "-std=c11", "-O1", "-g", "-w", "-fsanitize=address,undefined", *DEFINES,
+                            "-Iinclude", "-Isrc/loader", "tests/test_toy_wire_report.c", "-o", str(binary)], tree, 120)
+                if code == 0:
+                    code = run([str(binary)], tree, 60)
                 (tree / path).write_text(original)
                 print(("caught  " if code else "MISSED  ") + name, flush=True)
                 if not code:

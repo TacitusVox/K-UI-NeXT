@@ -885,6 +885,29 @@ static bool toy_report_screen_line(const char **text,const char *end,char row[TO
     *text=at;
     return true;
 }
+
+/* The report on the screen, for a launch that brought no file to save it
+ * in. The text is the one a save writes, twelve of its lines to a page, a
+ * page at a time for as long as the console is on. Start restarts the
+ * console as it does behind a save. Where it cannot, the page says so and
+ * what else to do: a card stream that could not be ended (the game was
+ * reading when the report was asked for) keeps Start from ever working. */
+static void toy_report_pages(const char *text,const struct retail_display_state *display,unsigned frames) {
+    bool start_released=false,reboot_refused=false;
+    const char *const end=text+KUI_TOY_REPORT_FILE_BYTES-12u;
+    for(;;) {
+        const char *at=text;
+        while(at<end && *at!=' ') {
+            char row[TOY_PAGE_PLACES+1u];
+            retail_display_line("REPORT NOT SAVED / FILM EVERY PAGE");
+            for(unsigned line=0u;line<TOY_PAGE_LINES && toy_report_screen_line(&at,end,row);line++)
+                retail_display_line(row);
+            retail_display_line(reboot_refused?"RESTART BUSY / TRY AGAIN OR POWER OFF":"START / REBOOT TO K-UI CD");
+            toy_report_pause(frames,&start_released,&reboot_refused);
+            retail_display_restore(display);
+        }
+    }
+}
 #endif
 
 static bool toy_suite_save_report(const struct kui_native_ra_public *ra,

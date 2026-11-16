@@ -5,6 +5,7 @@
  * it can be. The formatter is the production source, included as the worker
  * includes it. */
 #include <assert.h>
+#include <setjmp.h>
 #include <stdio.h>
 #include <string.h>
 
@@ -41,6 +42,37 @@ static int kui_vmu_native_persistent_sd_transaction(void *c, struct kui_loader_s
     assert(!"report must be disarmed in this formatter test");
     return 0;
 }
+#if KUI_TOY_WIRE_TITLES
+/* Test 79: the worker's screen and its pause between pages, as the page
+ * loop uses them. Every line shown is kept; a pause ends a page; the
+ * loop, which never returns, is left by a jump once enough was seen. */
+enum { SHOWN_LINES = 400u };
+static char shown_line[SHOWN_LINES][64];
+static unsigned shown_lines, shown_pages, page_first[64], pages_wanted, busy_from, restores;
+static const struct retail_display_state *restored;
+static jmp_buf pages_done;
+void retail_display_line(const char *text) {
+    assert(shown_lines < SHOWN_LINES && strlen(text) < sizeof(shown_line[0]));
+    strcpy(shown_line[shown_lines++], text);
+}
+void retail_display_restore(const struct retail_display_state *display) { restored = display; ++restores; }
+static void toy_report_pause(unsigned frames, bool *start_released, bool *reboot_refused) {
+    assert(frames == 300u && start_released && reboot_refused);
+    /* The page is complete when its pause begins, and the screen was put
+     * back behind every page before it. */
+    assert(restores == shown_pages);
+    if(++shown_pages >= busy_from) *reboot_refused = true;
+    if(shown_pages == pages_wanted) longjmp(pages_done, 1);
+    page_first[shown_pages] = shown_lines;
+}
+/* The resident's lease as the report asks for it. */
+static unsigned leases;
+static int lease_stub(kui_vmu_sd_transaction transaction, void *context) {
+    assert(transaction == kui_vmu_native_persistent_sd_transaction && context == &config.toy_report);
+    ++leases;
+    return KUI_VMU_SD_LEASE_FAULT;
+}
+#endif
 static struct kui_toy_wire_report wire;
 static const struct kui_toy_wire_report *toy_wire_report_block(void) { return &wire; }
 #include "toy_suite_report_save.inc"
@@ -280,12 +312,77 @@ static unsigned screen(const char *text, size_t body) {
     for(const char *line = at; toy_report_screen_line(&at, end, row); line = at, ++lines) {
         const size_t n = strlen(row);
         assert(n && n <= TOY_PAGE_PLACES && row[0] != ' ' && row[n - 1u] != ' ' && !memcmp(line, row, n));
-        if(line[n] != '\n') ++screen_cut;
+        /* A line that is cut is cut at a space, which is not shown. (A
+         * row's label and its values have no word of fifty places.) */
+        if(line[n] != '\n') { ++screen_cut; assert(line[n] == ' ' && at == line + n + 1u); }
         for(size_t i = 0; i < n; ++i) if(row[i] != ' ') shown[shown_n++] = row[i];
     }
     for(const char *p = text; p < text + body; ++p) if(*p != ' ' && *p != '\n') wanted[wanted_n++] = *p;
     assert(shown_n == wanted_n && !memcmp(shown, wanted, wanted_n) && at == text + body);
     return lines;
+}
+
+/* The splitter by itself, on lines no report has: one of exactly fifty
+ * places, one of fifty-one with no space in it, one of two words of
+ * thirty, and a short last one. (Every line of the text ends with a
+ * newline; its padding follows the last.) Never more than fifty places to
+ * a row, the row closed behind them, nothing lost and nothing twice. */
+static void screen_lines(void) {
+    char text[KUI_TOY_REPORT_FILE_BYTES + 1u];
+    memset(text, ' ', sizeof(text));
+    size_t n = 0;
+    memset(text + n, 'A', 50u); n += 50u; text[n++] = '\n';
+    memset(text + n, 'B', 51u); n += 51u; text[n++] = '\n';
+    memset(text + n, 'C', 30u); n += 30u; text[n++] = ' '; memset(text + n, 'D', 30u); n += 30u; text[n++] = '\n';
+    memset(text + n, 'E', 7u); n += 7u; text[n++] = '\n';
+    const char *at = text, *const end = text + KUI_TOY_REPORT_FILE_BYTES - 12u;
+    char row[TOY_PAGE_PLACES + 1u];
+    static const struct { char letter; unsigned places; } want[] = {{'A', 50u}, {'B', 50u}, {'B', 1u}, {'C', 30u}, {'D', 30u}, {'E', 7u}};
+    for(unsigned i = 0; i < sizeof(want) / sizeof(want[0]); ++i) {
+        memset(row, '!', sizeof(row));
+        assert(toy_report_screen_line(&at, end, row));
+        assert(strlen(row) == want[i].places && row[0] == want[i].letter && row[want[i].places - 1u] == want[i].letter);
+    }
+    assert(!toy_report_screen_line(&at, end, row) && at == text + n);
+    /* A text that fills its room to the last place before the end mark. */
+    memset(text, 'F', KUI_TOY_REPORT_FILE_BYTES - 12u);
+    at = text;
+    unsigned rows = 0;
+    while(toy_report_screen_line(&at, end, row)) { assert(strlen(row) <= TOY_PAGE_PLACES); ++rows; }
+    assert(at == end && rows == (KUI_TOY_REPORT_FILE_BYTES - 12u + TOY_PAGE_PLACES - 1u) / TOY_PAGE_PLACES);
+}
+
+/* The page loop on a report's text: what the worker shows where the
+ * report could not be saved. Each page is the heading, at most twelve of
+ * the text's lines and the line for Start; the pages together are the
+ * text's lines, all of them and in order; behind the last the first comes
+ * again; the screen is put back behind every page. From the page on which
+ * Start could not restart the console, the last line says so. */
+static void pages(const char *text, size_t body, unsigned lines) {
+    static const struct retail_display_state display;
+    const unsigned per_round = (lines + TOY_PAGE_LINES - 1u) / TOY_PAGE_LINES;
+    shown_lines = shown_pages = restores = 0u; page_first[0] = 0u; restored = NULL;
+    pages_wanted = 2u * per_round + 1u; busy_from = per_round + 1u;
+    if(!setjmp(pages_done)) toy_report_pages(text, &display, 300u);
+    assert(shown_pages == pages_wanted && restores == pages_wanted - 1u && restored == &display);
+    const char *at = text, *const end = text + KUI_TOY_REPORT_FILE_BYTES - 12u;
+    char row[TOY_PAGE_PLACES + 1u];
+    unsigned seen = 0;
+    for(unsigned page = 0; page < pages_wanted; ++page) {
+        const unsigned first = page_first[page], count = (page + 1u < pages_wanted ? page_first[page + 1u] : shown_lines) - first;
+        if(page % per_round == 0u) { at = text; seen = 0u; } /* a new round */
+        /* The screen has sixteen rows; a page has its own two and the text's. */
+        assert(count >= 3u && count <= TOY_PAGE_LINES + 2u);
+        assert(!strcmp(shown_line[first], "REPORT NOT SAVED / FILM EVERY PAGE"));
+        assert(!strcmp(shown_line[first + count - 1u],
+            page + 1u >= busy_from + 1u ? "RESTART BUSY / TRY AGAIN OR POWER OFF" : "START / REBOOT TO K-UI CD"));
+        for(unsigned i = 1u; i + 1u < count; ++i, ++seen) {
+            assert(toy_report_screen_line(&at, end, row) && !strcmp(shown_line[first + i], row));
+        }
+        /* Only a round's last page may be short of twelve lines. */
+        assert(count == TOY_PAGE_LINES + 2u || page % per_round == per_round - 1u);
+        if(page % per_round == per_round - 1u) assert(seen == lines && at == text + body);
+    }
 }
 #endif
 
@@ -300,8 +397,12 @@ int main(int argc, char **argv) {
     assert(rows == LABELS && strstr(text, "W START SEG CUT WAIT FULL\n0 0 0 0 0\n"));
     const size_t empty = body;
 #if KUI_TOY_WIRE_TITLES
+    /* A title that is not the verified Toy Commander says so. */
+    assert(strstr(text, "BIG N S BACK TOY\n0 0 0 0\nSD BLK PIO OVR CRC DECL\n0 0 0 0 0\n"));
     /* On the screen: four lines of heading and two for each row, none cut. */
     assert(screen(text, body) == 4u + 2u * rows && !screen_cut);
+    screen_lines();
+    pages(text, body, 4u + 2u * rows);
 #endif
 
     /* A full run of both movies as Test 67 measured the wire: the largest
@@ -797,6 +898,7 @@ int main(int argc, char **argv) {
      * space, the sixth value on a line of its own. */
     const unsigned widest_lines = screen(text, body), widest_cut = screen_cut;
     assert(widest_cut && widest_lines == 4u + 2u * rows + widest_cut);
+    pages(text, body, widest_lines);
 #endif
 
     /* A block that is not the stream's (never written) reads as zeros. */
@@ -805,8 +907,26 @@ int main(int argc, char **argv) {
     assert(strstr(text, "W START SEG CUT WAIT FULL\n0 0 0 0 0\n"));
     assert(!toy_suite_save_report(&ra, &region));
 #if KUI_TOY_WIRE_TITLES
+    /* Test 79: with no report file the armed worker still asks the
+     * resident for the card, once, with the report's own transaction: the
+     * loan is what ends a card stream still running. Nothing counts as
+     * saved. (Unarmed, above, it asks for nothing.) */
+    assert(!leases && !config.toy_report.test);
+    config.sd_lease = (uintptr_t)lease_stub;
+    state.armed = true;
+    assert(!toy_suite_save_report(&ra, &region) && leases == 1u);
+    /* The text is in the worker's buffer for the pages all the same. */
+    assert(!memcmp(issued_chain, "K-UI TOY COMMANDER REPORT\nTEST 79\n", 34u));
+    state.pending = true;
+    assert(!toy_suite_save_report(&ra, &region) && leases == 1u);
+    state.pending = false; state.armed = false;
+#endif
+#if KUI_TOY_WIRE_TITLES
     printf("  the report as lines for the screen: every character once and in order, no line over %u places; "
            "%u lines at full width, %u of them cut at a space\n", (unsigned)TOY_PAGE_PLACES, widest_lines, widest_cut);
+    printf("  the page loop: heading, at most %u lines and the line for Start to a page, every line of the text in "
+           "order, round after round; the busy line once Start was refused; without a report file the card is "
+           "asked for once and nothing counts as saved\n", (unsigned)TOY_PAGE_LINES);
 #endif
     printf("PASS Test " TEST_NUMBER " report: %zu body bytes with nothing counted, %zu with a full run's values "
            "(essential rows end at %zu of 1012); at full width %u of the %u essential rows are written "

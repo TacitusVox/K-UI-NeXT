@@ -1380,28 +1380,6 @@ static void toy_report_pause(unsigned frames,bool *start_released,bool *reboot_r
     }
 }
 #include "toy_suite_report_save.inc"
-#if defined(KUI_TOY_WIRE_TITLES) && KUI_TOY_WIRE_TITLES && !defined(KUI_VMU_NATIVE_PASSIVE_HOST_TEST)
-/* Test 79: the report on the screen, for a launch that brought no file to
- * save it in. The text is the one a save writes, twelve of its lines to a
- * page (toy_report_screen_line), a page at a time for as long as the
- * console is on. Start restarts the console as it does behind a save. */
-static void toy_report_pages(const char *text,const struct retail_display_state *display,unsigned frames) {
-    bool start_released=false,reboot_refused=false;
-    const char *const end=text+KUI_TOY_REPORT_FILE_BYTES-12u;
-    for(;;) {
-        const char *at=text;
-        while(at<end && *at!=' ') {
-            char row[TOY_PAGE_PLACES+1u];
-            retail_display_line("REPORT NOT SAVED / FILM EVERY PAGE");
-            for(unsigned line=0u;line<TOY_PAGE_LINES && toy_report_screen_line(&at,end,row);line++)
-                retail_display_line(row);
-            retail_display_line(reboot_refused?"RESTART BUSY / TRY START AGAIN":"START / REBOOT TO K-UI CD");
-            toy_report_pause(frames,&start_released,&reboot_refused);
-            retail_display_restore(display);
-        }
-    }
-}
-#endif
 #endif
 #elif KUI_NATIVE_TOY_HEADER_REPLAY
 static void toy_storage_page(const struct kui_native_ra_public *ra,
