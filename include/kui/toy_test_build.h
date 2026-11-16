@@ -11,6 +11,10 @@
  * compiles the reviewed text byte for byte, and each delivered test module
  * still builds from the text it was built from. tests/test_toy_test_switches.py
  * holds both to that. */
+/* A test module's Makefile also sets it for the parts it builds without its
+ * own switches (the legacy resident, whose flags drop them), so that the
+ * module keeps the text it was built from. */
+#ifndef KUI_TOY_TEST_BUILD
 #if defined(KUI_TOY_SUITE_MODE) || KUI_DISC_TOY_TRACE || KUI_TOY_WIRE_PROBE || \
     KUI_TOY_WIRE_STREAM || KUI_CD_EDC_CACHED_PAIR || KUI_NATIVE_TOY_CACHE_CAPTURE || \
     KUI_NATIVE_TOY_HEADER_REPLAY || KUI_NATIVE_TOY_MOVIE_CAPTURE || \
@@ -20,5 +24,6 @@
 #define KUI_TOY_TEST_BUILD 1
 #else
 #define KUI_TOY_TEST_BUILD 0
+#endif
 #endif
 #endif
