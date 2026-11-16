@@ -3627,7 +3627,39 @@ static void sequence_programmed(void) {
  * the game's next read opens a window again. A loan asked for while a
  * command of the game's is pending is refused and changes nothing; asked
  * again behind the command's acknowledgment it is granted. */
-static unsigned lent_refused;
+static unsigned lent_refused, lent_blocks;
+/* One block of the card read by whoever holds the loan, as the worker reads
+ * a block of the virtual card: through the card's own port, with commands
+ * that are not the reader's. The model's bus asks on every byte that the
+ * SCI stands in command framing with nothing receiving, and on the
+ * deselect that no error of the stream's is left standing. */
+static void lent_block(uint32_t block) {
+    uint8_t got[512], answer = 0xffu;
+    const unsigned cmd18 = card.cmd18, cmd12 = card.cmd12;
+    CHECK(kui_sci_sd_acquire() == KUI_LOADER_SD_OK && R.shared.port.acquired);
+    bus_select(NULL, true);
+    const uint8_t read[6] = {0x40u | 18u, (uint8_t)(block >> 24), (uint8_t)(block >> 16), (uint8_t)(block >> 8),
+        (uint8_t)block, 0xffu};
+    for(unsigned i = 0u; i < 6u; ++i) (void)bus_transfer(NULL, read[i], false);
+    for(unsigned n = 0u; n < 16u && (answer & 0x80u); ++n) answer = bus_transfer(NULL, 0xffu, false);
+    CHECK(answer == 0x00u);
+    for(unsigned n = 0u; n < 4096u && answer != 0xfeu; ++n) answer = bus_transfer(NULL, 0xffu, false);
+    CHECK(answer == 0xfeu);
+    for(unsigned i = 0u; i < 512u; ++i) got[i] = bus_transfer(NULL, 0xffu, false);
+    (void)bus_transfer(NULL, 0xffu, false);
+    (void)bus_transfer(NULL, 0xffu, false);
+    const uint8_t stop[6] = {0x40u | 12u, 0u, 0u, 0u, 0u, 0xffu};
+    for(unsigned i = 0u; i < 6u; ++i) (void)bus_transfer(NULL, stop[i], false);
+    /* The stuff byte, the answer, the card's busy time, then idle. */
+    unsigned idle = 0u;
+    for(unsigned n = 0u; n < 4096u && idle < 2u; ++n) idle = bus_transfer(NULL, 0xffu, false) == 0xffu ? idle + 1u : 0u;
+    CHECK(idle == 2u);
+    bus_select(NULL, false);
+    kui_sci_sd_release();
+    CHECK(!R.shared.port.acquired && card.cmd18 == cmd18 + 1u && card.cmd12 == cmd12 + 1u);
+    for(unsigned i = 0u; i < 512u; ++i) CHECK(got[i] == card_content(block, i));
+    ++lent_blocks;
+}
 static bool lend_card(const struct kui_toy_wire_report *w) {
     const struct kui_native_readahead_aux_context *c = &kui_native_readahead_aux_context;
     const uint32_t sr = hw.sr;
@@ -3656,6 +3688,8 @@ static bool lend_card(const struct kui_toy_wire_report *w) {
     CHECK(!(m.chcr & 1u) && !timer_running(&channel) && !(wx.ipra & 0x0ff0u));
     other_table_kept(w);
     CHECK(!memcmp(drops, w->drops, sizeof(drops)));
+    /* The borrower's own transaction on the card. */
+    lent_block(1900u + lent_blocks);
     CHECK(kui_retail_native_async_loan_end(true) == KUI_VMU_NATIVE_ASYNC_LOAN_OK);
     hw.sr = sr;
     CHECK(R.engine.native_loan_state == KUI_VMU_NATIVE_ASYNC_LOAN_IDLE && !kui_retail_hook_active);
@@ -3672,7 +3706,7 @@ static void titles_lent(uint32_t mean, unsigned dense) {
     const struct kui_toy_wire_report *w = report();
     const struct kui_native_readahead_aux_context *c = &kui_native_readahead_aux_context;
     CHECK(!c->demand.owner_verified);
-    lent_refused = 0u;
+    lent_refused = lent_blocks = 0u;
     unsigned lent = 0u, refused_pending = 0u;
     uint32_t lba = 45002u;
     static const uint32_t sizes[5] = {73u, 50u, 73u, 50u, 52u};
@@ -3700,10 +3734,11 @@ static void titles_lent(uint32_t mean, unsigned dense) {
         CHECK(R.engine.native_loan_state == KUI_VMU_NATIVE_ASYNC_LOAN_IDLE && !stream_on());
         if(i == 1u) {
             /* A second transaction at once, as a save has them one behind
-             * the other: nothing of the reader's stands open, and no card
-             * command is sent for it. */
-            const unsigned cmd12 = card.cmd12;
-            CHECK(lend_card(w) && card.cmd12 == cmd12);
+             * the other: nothing of the reader's stands open, and the
+             * reader sends no card command for it. (The one read and its
+             * end are the borrower's own.) */
+            const unsigned cmd12 = card.cmd12, cmd18 = card.cmd18;
+            CHECK(lend_card(w) && card.cmd12 == cmd12 + 1u && card.cmd18 == cmd18 + 1u);
             ++lent;
         }
     }
@@ -3713,11 +3748,12 @@ static void titles_lent(uint32_t mean, unsigned dense) {
     other_table_kept(w);
     /* The first read is the low reader's; each of the four behind it
      * opens a window, the loan before it having ended the last. */
-    CHECK(w->other_windows == 4u && c->stats.hit_requests == 4u && lent_refused == 1u);
+    CHECK(w->other_windows == 4u && c->stats.hit_requests == 4u && lent_refused == 1u && lent_blocks == 6u);
     no_drops(w);
     printf("  another title with the card lent behind every read, stalls %u/%u: %u loans granted, %u refused "
-           "while a command was pending or the reader busy, each with the stream stopped and the title's table and "
-           "timers its own; %u requests of five from %u windows, %u streams begun, CMD12 %u; data exact\n",
+           "while a command was pending, each with the stream stopped and the title's table and timers its own, "
+           "and a block of the card read by the borrower through the card's port in each; %u requests of five "
+           "from %u windows, %u streams begun, CMD12 %u; data exact\n",
         (unsigned)mean, dense, lent, lent_refused, (unsigned)c->stats.hit_requests, (unsigned)w->other_windows,
         (unsigned)w->n.starts, card.cmd12);
 }

@@ -11,6 +11,7 @@
  * its report file bound. This is a host check of bytes, not a console
  * launch. */
 #include "kui/runtime.h"
+#include "kui/vmu_game_card.h"
 #include "kui/retail_loader_layout.h"
 #include "kui/mdk2_cdda_layout.h"
 #include "kui/retail_image.h"
@@ -24,8 +25,7 @@
 #include <stdlib.h>
 #include <string.h>
 static uint32_t le32(const uint8_t *p){return (uint32_t)p[0]|(uint32_t)p[1]<<8|(uint32_t)p[2]<<16|(uint32_t)p[3]<<24;}
-/* stubs for link */
-uint32_t kui_crc32(uint32_t crc,const void *data,size_t n){const uint8_t *p=data;crc=~crc;while(n--){crc^=*p++;for(int i=0;i<8;i++)crc=(crc>>1)^((0u-(crc&1u))&0xedb88320u);}return ~crc;}
+/* stubs for link (kui_crc32 is the library's own since Test 82: src/core/hash.c) */
 bool kui_vmu_native_resolution_cache_record_digest(const void *w,size_t n,uint8_t d[32]){(void)w;(void)n;(void)d;return false;}
 /* COPY games_retail.c:126 layout_codec(ce=false,zso=false) */
 static bool layout(const struct kui_runtime_image *image){
@@ -112,8 +112,25 @@ int main(int argc,char **argv){
     if(seed==SIZE_MAX)printf("native cache seed: absent/ambiguous (optional; GUI CRCs the boot file itself)\n");else printf("native cache seed: blank slot at 0x%zx\n",seed);
     size_t report=report_slot(image.data,n);
     if(report==SIZE_MAX)printf("toy report seed: MISSING/ambiguous (the launch would continue without an SD report)\n");else printf("toy report seed: blank slot at 0x%zx\n",report);
-    if(no_report)fail|=report!=SIZE_MAX; /* the installed worker would not know what to do with one */
-    else fail|=report==SIZE_MAX; /* the test is read by its saved report */
+    if(no_report) {
+        fail|=report!=SIZE_MAX; /* the installed worker would not know what to do with one */
+        /* What a launch with the virtual VMU on asks of the module beside
+         * the above: the mapping's seed slot, one card profile slot, the
+         * mode record written to On; and no stop for that setting. */
+        fail|=seed==SIZE_MAX;
+        /* (The Games app's own search: exactly one record that decodes.) */
+        const size_t profile=kui_vmu_game_card_profile_slot(image.data,n);
+        if(profile==SIZE_MAX)printf("card profile slot: MISSING/ambiguous\n");else printf("card profile slot: at 0x%zx\n",profile);
+        fail|=profile==SIZE_MAX;
+        const uint8_t *slot=(const uint8_t *)image.data+mode;
+        const int writable=!why && le32(slot+16u)<=KUI_VMU_NATIVE_MODE_READER_ONLY;
+        printf("emulation On: %s (the GUI writes 0 at +16 of the same record)\n",writable?"ok":"REFUSED");fail|=!writable;
+        static const char stop[]="THIS TEST BUILD NEEDS VIRTUAL VMU OFF";
+        int stops=0;
+        for(size_t at=0;n>=sizeof(stop)-1u && at<=n-(sizeof(stop)-1u);at++)
+            stops|=!memcmp((const uint8_t *)image.data+at,stop,sizeof(stop)-1u);
+        printf("stop for the virtual VMU setting: %s\n",stops?"PRESENT":"none");fail|=stops;
+    } else fail|=report==SIZE_MAX; /* the test is read by its saved report */
     printf("handoff staging limit 0x112000: %s\n",n<=0x112000u?"ok":"REFUSED");fail|=n>0x112000u;
     if(no_report)printf(fail?"RESULT: REFUSED\n":"RESULT: the module's checks pass, and it has no report seed: a module "
         "for the Games menu, not for Card Tools' test entry\n");

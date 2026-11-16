@@ -666,6 +666,12 @@ static void native_passive_run(struct kui_vmu_native_heap_lease *lease) {
 #if KUI_NATIVE_BACKGROUND_COMPACT
     retail_display_line("72 KIB VMU / 284 KIB BACKGROUND");
 #endif
+#if defined(KUI_TOY_WIRE_VMU) && KUI_TOY_WIRE_VMU
+    /* Test 82 has no report, and its worker's pages are the installed
+     * worker's: the launch is the one place that can say which build
+     * this is. */
+    retail_display_line("TEST 82 / STREAM READER / INSTALLED VMU");
+#endif
     retail_display_line(native_runtime_mode()==KUI_VMU_NATIVE_MODE_READER_ONLY?
         "NEW READER / VIRTUAL " KUI_VMU_NATIVE_VIRTUAL_NAME " OFF":
         "NEW READER / VIRTUAL " KUI_VMU_NATIVE_VIRTUAL_NAME " ON");

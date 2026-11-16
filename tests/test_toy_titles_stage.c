@@ -141,11 +141,16 @@ int main(void) {
     disc(KUI_RETAIL_READER_ASYNC_EAGER, KUI_STORAGE_SCI, on, false, raw, 3u);
     assert(!toy_suite_source && !acquired);
     /* (Toy Commander with the virtual VMU on is no source in any build,
-     * below: its files are not even looked for.) */
+     * below: its files are not even looked for. In Test 82's it is none
+     * with the virtual VMU off either.) */
     /* Toy Commander takes the path it always took: its files are looked
      * for on the card. Here the card cannot be had, and it is no source. */
     disc(KUI_RETAIL_READER_ASYNC, KUI_STORAGE_SCI, off, true, raw, 3u);
-    assert(!toy_suite_source && acquired == 1u);
+    /* (Test 82's module, which has the installed worker in the Toy
+     * worker's place, does not look for them at all: Toy Commander is no
+     * source there with the virtual VMU off either, and the card is not
+     * asked for.) */
+    assert(!toy_suite_source && acquired == (KUI_TOY_WIRE_VMU ? 0u : 1u));
     disc(KUI_RETAIL_READER_ASYNC, KUI_STORAGE_SCI, on, true, raw, 3u);
     assert(!toy_suite_source && !acquired);
     /* Which title it is, is the executable's to say. Toy Commander's
@@ -166,8 +171,9 @@ int main(void) {
     /* None of them has a movie file known: the hooks' other condition. */
     for(unsigned i = 0; i < 4u; ++i) assert(!toy_movie_ranges[i].count);
     printf("PASS the stage's source for the window%s: another title on the New reader with the virtual VMU %s, by a "
-           "raw Mode 1 track on the SCI card and nothing else; Toy Commander by its own files as before, with the "
-           "virtual VMU off only\n",
-        KUI_TOY_WIRE_TITLES ? "" : " (up to Test 78: Toy Commander alone)", KUI_TOY_WIRE_VMU ? "off or on" : "off");
+           "raw Mode 1 track on the SCI card and nothing else; Toy Commander %s\n",
+        KUI_TOY_WIRE_TITLES ? "" : " (up to Test 78: Toy Commander alone)", KUI_TOY_WIRE_VMU ? "off or on" : "off",
+        KUI_TOY_WIRE_VMU ? "never, its files not looked for" :
+            "by its own files as before, with the virtual VMU off only");
     return 0;
 }

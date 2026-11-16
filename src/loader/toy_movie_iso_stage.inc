@@ -130,13 +130,22 @@ static bool toy_suite_raw_track(void) {
 /* The owner's VMU setting, for another title. Up to Test 81 another title
  * was a source with the virtual VMU off only: the module's worker had no
  * virtual VMU. Test 82's worker is the installed one, and another title is
- * a source with the virtual VMU on or off. Toy Commander is one with it off
- * only, as before: its movies' hooks do not yet outlast a loan of the
- * card. */
+ * a source with the virtual VMU on or off.
+ *
+ * Toy Commander is no source in Test 82's module, with the virtual VMU on
+ * or off. Its movies are fed from hooks in its player, and that path leans
+ * on the Toy tests' worker in two places the installed worker does not
+ * serve: the worker's wake of a movie read at every controller completion,
+ * without which a read the game only asks the status of is never moved;
+ * and, with the virtual VMU on, a flag every loan of the card sets and
+ * nothing clears. Without its files looked for it has no hooks either, and
+ * runs on the plain reader. */
 #if defined(KUI_TOY_WIRE_VMU) && KUI_TOY_WIRE_VMU
 #define toy_other_mode() true
+#define toy_own_source() false
 #else
 #define toy_other_mode() (native_runtime_mode()==KUI_VMU_NATIVE_MODE_READER_ONLY)
+#define toy_own_source() true
 #endif
 
 static void toy_movie_scan(void) {
@@ -160,6 +169,7 @@ static void toy_movie_scan(void) {
     }
 #endif
     if(manifest.reader!=KUI_RETAIL_READER_ASYNC ||
+       !toy_own_source() ||
        native_runtime_mode()!=KUI_VMU_NATIVE_MODE_READER_ONLY ||
        manifest.ip_crc32!=KUI_VMU_LAUNCH_TOY_IP_CRC ||
        boot_crc!=KUI_VMU_LAUNCH_TOY_EXEC_CRC ||

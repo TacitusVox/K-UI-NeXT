@@ -924,9 +924,8 @@ VMU_MUTATIONS = [
   "#define toy_other_mode() true", "#define toy_other_mode() (native_runtime_mode()==KUI_VMU_NATIVE_MODE_READER_ONLY)"),
  (SCAN, "another title is a source with the virtual VMU on only",
   "#define toy_other_mode() true", "#define toy_other_mode() (native_runtime_mode()!=KUI_VMU_NATIVE_MODE_READER_ONLY)"),
- (SCAN, "Toy Commander's files looked for with the virtual VMU on",
-  "       native_runtime_mode()!=KUI_VMU_NATIVE_MODE_READER_ONLY ||\n       manifest.ip_crc32!=KUI_VMU_LAUNCH_TOY_IP_CRC ||",
-  "       manifest.ip_crc32!=KUI_VMU_LAUNCH_TOY_IP_CRC ||"),
+ (SCAN, "Toy Commander a source in the module that has the installed worker",
+  "#define toy_own_source() false", "#define toy_own_source() true"),
 ]
 QUERY_GONE = {"a window given up for a command counted as given up for a read"}
 QUERY_MUTATIONS = [

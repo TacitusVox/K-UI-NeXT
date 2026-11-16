@@ -87,6 +87,8 @@ else ifneq ($(TOY_WIRE_QUERY),0)
 $(error TOY_WIRE_QUERY extends the Test 68 reader: use TOY_WIRE_STREAM=1 and Test 79's switches)
 else ifneq ($(TOY_WIRE_TIMER),0)
 $(error TOY_WIRE_TIMER extends the Test 68 reader: use TOY_WIRE_STREAM=1 and Test 80's switches)
+else ifneq ($(TOY_WIRE_VMU),0)
+$(error TOY_WIRE_VMU extends the Test 68 reader: use TOY_WIRE_STREAM=1 and Test 81's switches)
 endif
 BUILD ?= build/toy-suite-$(TOY_SUITE_MODE)
 include Makefile.vmu-native-toy-playback
@@ -419,8 +421,9 @@ $(BUILD)/ra/src/core/hash.o: private RA_FLAGS += -DKUI_CD_EDC_CACHED_PAIR=1
 endif
 ifeq ($(TOY_WIRE_VMU),1)
 # The stage is told: the worker's configuration has no report in it, and
-# the owner's VMU setting is the worker's to honour. The low residents are
-# compiled with the same flags and do not ask.
+# the owner's VMU setting is the worker's to honour. (The low residents'
+# flags were fixed further up, before this switch: it does not reach them,
+# and they are Test 81's.)
 FLAGS += -DKUI_TOY_WIRE_VMU=1
 TOY_MOVIE_TEST_FLAGS += -DKUI_TOY_WIRE_VMU=1
 # The auxiliary keeps every Toy switch: its flags are fixed here, before
@@ -580,9 +583,29 @@ toy-wire-integration-host-test:
 toy-wire-package-test: $(BUILD)/retail-toy-test-$(TOY_WIRE_TEST).kui
 	$(HOST_CC) $(filter-out -Wpedantic,$(TOY_WIRE_HOST_FLAGS)) -Ifatfs/source tests/test_toy_reader_package.c \
 	 src/core/runtime_image.c src/core/native_session.c src/core/vmu_native_cache_seed.c \
+	 src/core/vmu_game_card.c src/core/vmu_persist_profile.c src/core/retail_image.c src/core/hash.c src/core/data.c \
 	 -o $(BUILD)/test-toy-reader-package
 	ASAN_OPTIONS=detect_leaks=0 $(BUILD)/test-toy-reader-package $(BUILD)/retail-toy-test-$(TOY_WIRE_TEST).kui \
 	 $(if $(filter 1,$(TOY_WIRE_VMU)),no-report)
+
+# Test 82 is a composition, and nothing but a comparison of bytes holds it:
+# its worker must be the installed recipe's, and its low residents and its
+# auxiliary Test 81's, each with one build label. A Toy flag that slips
+# through to the worker, or one the auxiliary loses, still builds a module
+# and passes every other check.
+TOY_WIRE_EVERY_SWITCH = TOY_SUITE_MODE=$(TOY_SUITE_MODE) TOY_FMV_COMPARE=$(TOY_FMV_COMPARE) \
+ $(foreach s,STREAM TICK CACHED WORDS PACE IDLE LEAN OPEN CLEAN MSB QUICK SWIFT STEADY FLUID SEQ ANY TITLES QUERY TIMER \
+ STAY LATER RING QUIT HOT COPY GAP APART,TOY_WIRE_$(s)=$(TOY_WIRE_$(s)))
+.PHONY: toy-wire-vmu-parts-check
+toy-wire-vmu-parts-check: $(BUILD)/retail-toy-test-$(TOY_WIRE_TEST).kui
+ifneq ($(TOY_WIRE_VMU),1)
+	$(error toy-wire-vmu-parts-check is Test 82's: use TOY_WIRE_VMU=1 on Test 81's switches)
+endif
+	env -u MAKEFLAGS -u MFLAGS $(MAKE) -f Makefile.vmu-native-toy-suite $(TOY_WIRE_EVERY_SWITCH) TOY_WIRE_VMU=0 \
+	 BUILD_ID=$(BUILD_ID) BUILD=$(BUILD)/parts-reader $(BUILD)/parts-reader/retail-native-dual.kui
+	env -u MAKEFLAGS -u MFLAGS $(MAKE) -f Makefile.vmu-native-background-compact \
+	 BUILD_ID=$(BUILD_ID) BUILD=$(BUILD)/parts-installed $(BUILD)/parts-installed/retail-native-dual.kui
+	python3 tests/test_toy_wire_vmu_parts.py $(BUILD) $(BUILD)/parts-reader $(BUILD)/parts-installed
 
 .PHONY: toy-suite-cached-edc-host-test
 toy-suite-cached-edc-host-test:
