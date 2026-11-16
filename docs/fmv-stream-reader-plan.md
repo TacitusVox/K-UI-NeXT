@@ -5,8 +5,12 @@ word of the same day (decision 1), is delivered as Test 77
 (`docs/toy-wire-stream-test-77.md`) and has its console result: two
 runs that evening, the second movie at 1,959 and 1,965 of 1,968 frames
 against the baseline's 1,953, the game played on into a level, no error
-in either report. Step 3 has its baseline. Nothing else here is built
-or approved. It answers the owner's remark after Test 76's console run,
+in either report. Step 3 has its baseline. After the owner's direction
+of 16 November (below) two more tests are built and delivered, neither
+run on a console yet: Test 78 (`docs/toy-wire-stream-test-78.md`,
+`1d0e5bab78ba`) and Test 79 (`docs/toy-wire-stream-test-79.md`,
+`9f183a7f72f5`). Nothing else here is built or approved. It answers the
+owner's remark after Test 76's console run,
 "then we can probably package this for every game's FMVs", with what
 that takes and in what order. The decisions at the end are the owner's.
 
@@ -326,6 +330,37 @@ together as two modules, so that one console session answers both:
 | 78 | Test 77 | A window serves a request of any size, in slices, and a consecutive read of any size opens one. Room is made first: the auxiliary's image has 32 bytes free | Toy Commander as Test 77: the movies, then a level |
 | 79 | Test 78 | The window is offered to every title of the family on a raw SCI image. Toy's hooks and its movie policy stay Toy's. The module can be put at the Background reader's path for a normal launch with the virtual VMU off; with it on it stops at once, before any card step | Evolution 1 and 2 with the virtual VMU off, against the installed module with it off: play where the lag was, and the intro movies |
 | Next | Test 79 and the installed module | The virtual VMU on: the installed worker with the stream's auxiliary and low residents that carry the stream's glue; the card loan with a window open; `quiesced` cleared | Evolution with the virtual VMU on, against the installed module: play, a movie, a save, power off, reload |
+
+Tests 78 and 79 are built as the table says, on 16 November, and
+delivered as two archives; neither has run on a console. Test 79 is
+the change with three corrections its review asked for before any
+module of it went out: Toy Commander's executable on another boot
+sector no longer passes for another title that then gets Toy
+Commander's hooks; a stream that has no timer, which is the stream of
+every title but Toy Commander, waits its time before it begins a cut
+run again; and the report's page says what to do when Start cannot
+restart the console. The two tests' documents have their reviews in
+full.
+
+What the reviews add to the work behind them, none of it built:
+
+- **A timer or a heartbeat for the stream in every title.** In another
+  title only the game's own disc calls move a stream that waits. The
+  resident already holds the title's admitted SDK values (its vector
+  base and its default callback), by which the stream could take a
+  spare timer as it does in Toy Commander; or the controller's
+  heartbeat could move it. Which, and whether either is needed, is for
+  Test 79's console result to say (`WAIT`, `WTICK`, `TMR`).
+- **Images without a valid EDC.** The window checks each sector's EDC
+  and the installed reader does not. On a raw image without it every
+  read behind another opens a window that fails first. A rule that
+  stops opening windows after a few in a row have failed is owed with
+  the standing-stream rule, before the reader is anyone's default.
+- **A large request in one visit.** A call of the game's hands over 32
+  sectors of a large request at most. The bound is for interrupt
+  visits; a call of the game's could hand over all the window holds, as
+  it does for a request of up to sixty. Worth it if Test 79's console
+  result shows the calls to matter.
 
 Behind those, in the order the roadmap gives them: the rule that ends a
 standing stream after a time (this plan's Known limits of Test 77, owed

@@ -88,6 +88,13 @@ reader is a candidate for the read-ahead of the third goal, to be compared
 with the installed prefetch in the two Evolution games first. It has run with
 CD music and virtual VMU off only. See `fmv-stream-reader-plan.md`.
 
+Built for that comparison on the same day, console runs pending: Test 78
+(`toy-wire-stream-test-78.md`, a window serves a request of any size) and
+Test 79 (`toy-wire-stream-test-79.md`, build `9f183a7f72f5`, the window for every
+title of the family on a raw SCI image, virtual VMU off). Test 79 is a test
+module put in the installed New reader's place for the runs and taken out
+again; the delivered `f8807cb16561` candidate is not changed.
+
 ## 1. Shared correctness and reproducible deployment — active
 
 Shared GUI preparation is also an immediate integration requirement. The

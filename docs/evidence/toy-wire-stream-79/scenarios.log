@@ -1,0 +1,12 @@
+The scenarios of Test 79's change, as tests/test_toy_wire_integration.c printed them (first of its two passes):
+  another title on a disc with a raw track, no timer for the stream: Evolution 2's refills served from one window, four requests of five, nothing counted as a movie's, the movie policy never on; CMD18 1, CMD12 0
+  another title, no timer, stalls 1500/20: 2223 waits of 2207156 ticks in all, none shorter than its time; 4 requests of five from 1 windows, 39 streams begun; data exact
+  another title, no timer, stalls 150/80: 10793 waits of 11078997 ticks in all, none shorter than its time; 2 requests of five from 3 windows, 264 streams begun; data exact
+  another title on a disc the stage did not call a source: no window, the low reader read all five requests in one card command
+  no free timer: waits end at the next visit after their time, and a look before it leaves one standing, and an update call that finds one is passed on; channel 1 taken: programmed reads only; data exact
+
+From tests/test_toy_wire_stream.c, tests/test_toy_wire_report.c and tests/test_toy_titles_stage.c:
+  waits without a timer: 234299 looks before a wait's time left it standing, 16619 after it ended it
+  the report as lines for the screen: every character once and in order, no line over 50 places; 38 lines at full width, 6 of them cut at a space
+  the page loop: heading, at most 12 lines and the line for Start to a page, every line of the text in order, round after round; the busy line once Start was refused; without a report file the card is asked for once and nothing counts as saved
+PASS the stage's source for the window: another title on the New reader with the virtual VMU off, by a raw Mode 1 track on the SCI card and nothing else; Toy Commander by its own files as before

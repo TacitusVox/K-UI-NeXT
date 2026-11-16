@@ -1,0 +1,21 @@
+The scenarios of Test 78's change, as tests/test_toy_wire_integration.c printed them (first of its two passes),
+on the source as it stands with Test 79:
+  Evolution 2's refills, 73 and 50 sectors by turns: the first the low reader's, the second opens a window, four requests served from it, the one of 73 sectors in slices (2 events after its request); CMD18 1, CMD12 0
+  a request of 200 sectors behind a small one, stalls 0/0: opened a window and came through it in 15 events, the read behind it from the same window; streams begun 1, CMD18 1, CMD12 0
+  a request of 200 sectors behind a small one, stalls 1500/20: opened a window and came through it in 81 events, the read behind it from the same window; streams begun 30, CMD18 30, CMD12 29
+  a request of 200 sectors behind a small one, stalls 150/80: opened a window and came through it in 200 events, the read behind it from the same window; streams begun 327, CMD18 327, CMD12 326
+  a request of 200 sectors behind a small one, stalls 0/0, at the console's pace: opened a window and came through it in 66 events, the read behind it from the same window; streams begun 1, CMD18 1, CMD12 0
+  a request of 200 sectors behind a small one, stalls 1500/20, at the console's pace: opened a window and came through it in 107 events, the read behind it from the same window; streams begun 30, CMD18 30, CMD12 29
+  a request of 150 sectors whose window failed after 40 of them: back to the low reader whole, read again from its first sector, data exact; the read behind it has a window
+  a request of 150 sectors whose window failed after 40 of them, the card's stop command failing once: back to the low reader whole, read again from its first sector, data exact; the read behind it has a window
+  a request of 61 sectors the game waited for with interrupts held off: one window, kept while it grew, 20 rounds of the game's loop
+  a large request the game waited for in vain after 74 of 150 sectors: the window given up after a quarter second, back to the low reader whole, data exact
+  a read of 117 sectors over the track's end that opened a window for itself and had 13 sectors of it: the window given up at its next visit, back to the low reader whole, data exact
+  a request of 61 sectors at a window that holds them: two slices by its own visit, nothing asked of the wire, the rest by 1 CHECK call alone
+  ordinary reads one behind the other: the second opens a window with no card command; 7 requests of 9 served from 2 windows, 167 sectors; the read of 61 sectors served from its window in slices; a window given up for a read elsewhere and one at the track's end; CMD18 3, CMD12 2
+  reads that reach over the track's end, the game's EXEC call first: never the window's, one at an open window's first sector and one that opened a window for itself; both read by the low reader, exact
+  reads that reach over the track's end, the game's CHECK call first: never the window's, one at an open window's first sector and one that opened a window for itself; both read by the low reader, exact
+  a movie's start as the game reads it: the read of 61 sectors opens the window and comes through it, the refills from the same window; played again after its end, that read gives the window up and the first refill opens a second; 12 refills and the one large read served
+  a token search left standing by a read the game ended, the game then asking again with the player's polls: no window on top of it, the low reader's read in 70 rounds, the next read's window as ever
+  a token search left standing by a read the game ended, the game then asking again with EXEC and CHECK: no window on top of it, the low reader's read in 70 rounds, the next read's window as ever
+  a token search left standing by a read the game ended, the game then asking again with no call at all: no window on top of it, the low reader's read in 63 rounds, the next read's window as ever
