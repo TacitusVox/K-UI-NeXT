@@ -442,6 +442,33 @@ static void demand_complete(kui_retail_async_region_type *r) {
     KUI_TOY_SUITE_MODE == 6 || KUI_TOY_SUITE_MODE == 7 || KUI_TOY_SUITE_MODE == 26 || \
     KUI_TOY_SUITE_MODE == 27 || KUI_TOY_SUITE_MODE == 28 || KUI_TOY_SUITE_MODE == 31 || KUI_TOY_SUITE_ASYNC_DEMAND
 static unsigned movie_variant(const struct kui_retail_gd *s);
+#if KUI_TOY_WIRE_STREAM && KUI_TOY_WIRE_SEQ
+/* Test 77: suite_movie in two parts. What the reader sees of the request
+ * by itself: a read of 2,048-byte sectors that the low reader has begun
+ * (it begins nothing but reads), on a raw Mode 1 track (the service admits
+ * such a read on data tracks only). These are suite_movie's own tests,
+ * less the movie files. */
+static bool suite_raw(const kui_retail_async_region_type *r) {
+    const struct kui_retail_async *e=&r->engine;
+    const struct kui_retail_gd *s=&r->shared.service;
+    if(C.suite_source!=1u || !e->active || e->failed || !s->pending || e->token!=s->token ||
+       s->sector_bytes!=KUI_GAME_DATA_BYTES || !s->count ||
+       !e->cursor.manifest || e->cursor.track>=e->cursor.manifest->track_count ||
+       e->cursor.track>=KUI_RETAIL_MANIFEST_SLOTS || e->cursor.raw)return false;
+    const struct kui_retail_track *track=&e->cursor.manifest->slots[e->cursor.track].track;
+    return kui_retail_track_sector_bytes(track)==KUI_GAME_RAW_BYTES &&
+        kui_retail_track_header_bytes(track)==16u;
+}
+/* And which of the four movie files holds all of it, if one does: that
+ * still chooses the low reader's movie path and the report's rows. */
+static unsigned suite_file(const struct kui_retail_gd *s) {
+    const unsigned variant=movie_variant(s);
+    if(!variant)return 0u;
+    const struct kui_toy_movie_range *movie=&C.config.movie_ranges[variant-1u];
+    return s->lba<movie->lba || s->lba-movie->lba>=movie->count ||
+        s->count>movie->count-(s->lba-movie->lba)?0u:variant;
+}
+#else
 static unsigned suite_movie(const kui_retail_async_region_type *r) {
     const struct kui_retail_async *e=&r->engine;
     const struct kui_retail_gd *s=&r->shared.service;
@@ -461,6 +488,7 @@ static unsigned suite_movie(const kui_retail_async_region_type *r) {
        kui_retail_track_header_bytes(track)!=16u)return 0u;
     return variant;
 }
+#endif
 #endif
 #if KUI_TOY_SUITE_ASYNC_DEMAND
 #if KUI_TOY_SUITE_REFILL_SLICE
@@ -519,7 +547,12 @@ static bool toy_sequential_pio_step(kui_retail_async_region_type *r,bool selecte
 }
 #endif
 static void suite_demand(uint32_t wait,kui_retail_async_region_type *r) {
+#if KUI_TOY_WIRE_STREAM && KUI_TOY_WIRE_SEQ
+    const bool raw=suite_raw(r);
+    unsigned variant=raw?suite_file(&r->shared.service):0u;
+#else
     unsigned variant=suite_movie(r);
+#endif
 #if KUI_TOY_SUITE_MODE == 35
     const bool first_visit=!r->shared.stream.toy_suite_active;
 #endif
@@ -549,7 +582,12 @@ static void suite_demand(uint32_t wait,kui_retail_async_region_type *r) {
     }
 #endif
 #if KUI_TOY_SUITE_VERIFIED_RESUME
-#if KUI_TOY_SUITE_MODE >= 62
+#if KUI_TOY_WIRE_STREAM && KUI_TOY_WIRE_SEQ
+    /* Test 77: the window is every such request's, in the verified title.
+     * Whether one is opened for it is toy_movie_ahead's to say; the low
+     * reader's movie path below keeps its own rule. */
+    if(toy_movie_ahead(r,variant,raw && C.config.toy_poll_owner,wait))return;
+#elif KUI_TOY_SUITE_MODE >= 62
     if(toy_movie_ahead(r,variant,in_play,wait))return;
 #endif
     if(toy_resume_deliver(wait,r,variant,in_play))return;

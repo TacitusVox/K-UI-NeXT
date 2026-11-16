@@ -38,6 +38,9 @@ IDLE = os.environ.get("TOY_WIRE_IDLE", PACE)
 LEAN = os.environ.get("TOY_WIRE_LEAN", IDLE)
 STEADY = os.environ.get("TOY_WIRE_STEADY", LEAN)
 FLUID = os.environ.get("TOY_WIRE_FLUID", STEADY)
+# Test 77 is asked for by name: the commands recorded for earlier tests keep
+# checking what they checked.
+SEQ = os.environ.get("TOY_WIRE_SEQ", "0")
 AUX = "src/loader/native_readahead_aux.c"
 SWITCHES = [f"TOY_WIRE_TICK={TICK}", f"TOY_WIRE_CACHED={CACHED}", f"TOY_WIRE_WORDS={WORDS}", f"TOY_WIRE_PACE={PACE}",
             f"TOY_WIRE_IDLE={IDLE}", f"TOY_WIRE_LEAN={LEAN}", f"TOY_WIRE_STEADY={STEADY}",
@@ -524,6 +527,126 @@ APART_MUTATIONS = [
   "    const uintptr_t run = (uintptr_t)(wire_view(w->ring) + (first & MASK)) >> 5,",
   "    const uintptr_t run = (uintptr_t)(wire_view(w->ring) + (w->tail & MASK)) >> 5,"),
 ]
+# Test 77 (SEQ): the window is opened by a read that begins where the read
+# before it ended and is given up for a read elsewhere, not with the movie.
+# The lines of the movie's rule are not compiled in it and their mutations
+# go with them (SEQ_GONE); the same defects are made in the lines that take
+# their place. One has no successor: the short way after the movie, whose
+# end is no reason any more.
+# Without a mutation, because no test can fail on them:
+# - suite_raw's two tests of the track each by itself. The fixture's other
+#   kind of track fails both, its sector size and its header, so a build
+#   that asks only one of them still refuses it: the mutation takes both.
+# - that the low reader is not still receiving when a stop command has
+#   failed: the stop itself waits a reception out.
+# - that a read counted as waited begins at the window's first sector and
+#   is no larger than a window takes: one that is not is given up for by
+#   the request's first call, which the game never waits in.
+# - that a request is not for whole 2,352-byte sectors. suite_raw asks it
+#   twice, of the service's sector size and of the cursor's format, as
+#   suite_movie did, and either says it alone. The fixture asks for such
+#   sectors at an open window's first sector, which both together refuse.
+# - that a file's variant is not given to a read that begins ahead of the
+#   file: the test that follows it, in unsigned arithmetic, refuses the
+#   same reads.
+SEQ_GONE = {"the short way after the movie", "the short way after a request that did not complete",
+            "the short way for a window in error", "a waited request gives the window up all the same"}
+SEQ_MUTATIONS = [
+ (AHEAD, "the short way after a request that did not complete",
+  "        !A.error && s->status==KUI_GD_COMPLETED &&\n#else", "        !A.error &&\n#else"),
+ (AHEAD, "the short way for a window in error",
+  "        !A.error && s->status==KUI_GD_COMPLETED &&\n#else", "        s->status==KUI_GD_COMPLETED &&\n#else"),
+ (AHEAD, "a waited request gives the window up all the same",
+  "         (A.variant && s->lba==A.first && !A.error && toy_wire_stay(s->token)))", "         false)"),
+ (AHEAD, "a window for any read, consecutive or not",
+  "        if(s->lba!=s->position_lba+1u || !e->release.armed || r->shared.stream.state>RA_RESUME)return false;",
+  "        if(!e->release.armed || r->shared.stream.state>RA_RESUME)return false;"),
+ (AHEAD, "consecutive counted from the last sector read, not from behind it",
+  "        if(s->lba!=s->position_lba+1u || !e->release.armed || r->shared.stream.state>RA_RESUME)return false;",
+  "        if(s->lba!=s->position_lba || !e->release.armed || r->shared.stream.state>RA_RESUME)return false;"),
+ (AHEAD, "a window where the stream cannot take the card over",
+  "        if(s->lba!=s->position_lba+1u || !e->release.armed || r->shared.stream.state>RA_RESUME)return false;",
+  "        if(s->lba!=s->position_lba+1u || r->shared.stream.state>RA_RESUME)return false;"),
+ (AHEAD, "a window on top of a token search the low reader left standing",
+  "        if(s->lba!=s->position_lba+1u || !e->release.armed || r->shared.stream.state>RA_RESUME)return false;",
+  "        if(s->lba!=s->position_lba+1u || !e->release.armed)return false;"),
+ (AHEAD, "a stop command that failed once fails the game's read",
+  "        if(!C.config.ops->busy()) {\n            A.variant=0u;", "        if(false) {\n            A.variant=0u;"),
+ (AHEAD, "a window left marked open when its stop command failed",
+  "        if(!C.config.ops->busy()) {\n            A.variant=0u;\n", "        if(!C.config.ops->busy()) {\n"),
+ (AHEAD, "a read over the track's end counted as one the game waited for",
+  "            wait && !kick && !warm && s->count<=A.cursor.lba+A.cursor.count-A.first?",
+  "            wait && !kick && !warm?"),
+ (AUX, "a window on a track that is not raw",
+  "    return kui_retail_track_sector_bytes(track)==KUI_GAME_RAW_BYTES &&\n        kui_retail_track_header_bytes(track)==16u;\n}\n/* And which",
+  "    (void)track;return true;\n}\n/* And which"),
+ (AHEAD, "the window ends a sector before its track's end",
+  "    const uint32_t end=e->manifest->slots[e->cursor.track].track.end_lba;",
+  "    const uint32_t end=e->manifest->slots[e->cursor.track].track.end_lba-1u;"),
+ (AHEAD, "the window reaches a sector into the next track",
+  "    const uint32_t end=e->manifest->slots[e->cursor.track].track.end_lba;",
+  "    const uint32_t end=e->manifest->slots[e->cursor.track].track.end_lba+1u;"),
+ (AHEAD, "a window outside the movie files left unmarked",
+  "    A.variant=(uint8_t)(variant?variant:AHEAD_OTHER);", "    A.variant=(uint8_t)variant;"),
+ (AHEAD, "the other windows' sectors counted as a movie's",
+  "        if(A.variant==AHEAD_OTHER)toy_wire_keep()->report.other_sectors+=s->count;",
+  "        if(false)toy_wire_keep()->report.other_sectors+=s->count;"),
+ (AHEAD, "a movie's sectors counted with the other windows'",
+  "        if(A.variant==AHEAD_OTHER)toy_wire_keep()->report.other_sectors+=s->count;",
+  "        if(true)toy_wire_keep()->report.other_sectors+=s->count;"),
+ (AHEAD, "the other windows not counted", "        else ++toy_wire_keep()->report.other_windows;", "        else (void)0;"),
+ (AHEAD, "a movie's window counted with the others",
+  "        if(variant)++C.diagnostics.stage_result[KUI_NATIVE_RA_STAGE_NONE][2u+(variant-1u)/2u];\n        else",
+  "        if(false)++C.diagnostics.stage_result[KUI_NATIVE_RA_STAGE_NONE][2u+(variant-1u)/2u];\n        else"),
+ (AHEAD, "a request served in an interrupt visit taken for a failed one",
+  "    const bool idle=!demand && !s->pending && s->status!=KUI_GD_COMPLETED;",
+  "    const bool idle=!demand && s->status!=KUI_GD_COMPLETED;"),
+ (AHEAD, "a request served in an interrupt visit taken for a failed one by the interrupt visits behind it",
+  "    const bool idle=!demand && !s->pending && s->status!=KUI_GD_COMPLETED;",
+  "    const bool idle=!demand && (!s->pending || e->in_irq) && s->status!=KUI_GD_COMPLETED;"),
+ (AHEAD, "a request that did not complete keeps its window",
+  "    const bool idle=!demand && !s->pending && s->status!=KUI_GD_COMPLETED;", "    const bool idle=false;"),
+ (AHEAD, "a read elsewhere served from the window",
+  "       (demand && (!selected || s->lba!=A.first ||\n", "       (demand && (!selected ||\n"),
+ (AHEAD, "a read the window may not serve keeps the window",
+  "       (demand && (!selected || s->lba!=A.first ||\n", "       (demand && (s->lba!=A.first ||\n"),
+ (AHEAD, "a read beyond the window's end waits for it",
+  "           s->count>A.cursor.lba+A.cursor.count-A.first)))) {", "           false)))) {"),
+ (AHEAD, "a read to the window's last sector given up for",
+  "           s->count>A.cursor.lba+A.cursor.count-A.first)))) {",
+  "           s->count>=A.cursor.lba+A.cursor.count-A.first)))) {"),
+ (AHEAD, "a window counted as given up before it is gone",
+  "        if(toy_ahead_fallback(r))return true;\n        ++toy_wire_keep()->report.drops[why];",
+  "        ++toy_wire_keep()->report.drops[why];\n        if(toy_ahead_fallback(r))return true;"),
+ (AHEAD, "windows given up not counted", "        ++toy_wire_keep()->report.drops[why];\n", ""),
+ (AHEAD, "a window in error counted as one whose request did not complete",
+  "        const unsigned why=A.error?KUI_TOY_WIRE_DROP_ERROR:", "        const unsigned why=A.error?KUI_TOY_WIRE_DROP_IDLE:"),
+ (AHEAD, "a window whose request did not complete counted as given up for a read",
+  "            idle?KUI_TOY_WIRE_DROP_IDLE:", "            idle?KUI_TOY_WIRE_DROP_OTHER:"),
+ (AHEAD, "a window given up for a command counted as given up for a read",
+  "s->command!=KUI_GD_DMAREAD?KUI_TOY_WIRE_DROP_COMMAND:\n            wait && !kick && !warm && s->count",
+  "s->command!=KUI_GD_DMAREAD?KUI_TOY_WIRE_DROP_OTHER:\n            wait && !kick && !warm && s->count"),
+ (AHEAD, "a window given up for a waited request counted as given up for another read",
+  "            KUI_TOY_WIRE_DROP_WAITING:KUI_TOY_WIRE_DROP_OTHER;", "            KUI_TOY_WIRE_DROP_OTHER:KUI_TOY_WIRE_DROP_OTHER;"),
+ (AHEAD, "a window given up for a read counted as given up for a waited request",
+  "            KUI_TOY_WIRE_DROP_WAITING:KUI_TOY_WIRE_DROP_OTHER;", "            KUI_TOY_WIRE_DROP_WAITING:KUI_TOY_WIRE_DROP_WAITING;"),
+ (AUX, "a window in another title",
+  "    if(toy_movie_ahead(r,variant,raw && C.config.toy_poll_owner,wait))return;",
+  "    if(toy_movie_ahead(r,variant,raw,wait))return;"),
+ (AUX, "a window on a source the stage did not find raw",
+  "    if(C.suite_source!=1u || !e->active || e->failed || !s->pending || e->token!=s->token ||\n"
+  "       s->sector_bytes!=KUI_GAME_DATA_BYTES || !s->count ||\n       !e->cursor.manifest",
+  "    if(!e->active || e->failed || !s->pending || e->token!=s->token ||\n"
+  "       s->sector_bytes!=KUI_GAME_DATA_BYTES || !s->count ||\n       !e->cursor.manifest"),
+ (AUX, "the movie's rule for the window after all",
+  "    if(toy_movie_ahead(r,variant,raw && C.config.toy_poll_owner,wait))return;",
+  "    if(toy_movie_ahead(r,variant,in_play,wait))return;"),
+ (AUX, "a file's variant for a read that reaches beyond its end",
+  "    return s->lba<movie->lba || s->lba-movie->lba>=movie->count ||\n        s->count>movie->count-(s->lba-movie->lba)?0u:variant;",
+  "    return s->lba<movie->lba || s->lba-movie->lba>=movie->count?0u:variant;"),
+ (AUX, "no file's variant for a read inside the file",
+  "    unsigned variant=raw?suite_file(&r->shared.service):0u;", "    unsigned variant=0u;(void)suite_file;"),
+]
 # What Test 76 samples again of what Test 74 gave up: the buffer, not the lag
 # and not the update calls' time.
 FLUID_BACK = {"the buffer's free space not the most", "a buffer without capacity taken",
@@ -592,7 +715,9 @@ if FLUID == "1":
     for part, mutations in (("QUIT", QUIT_MUTATIONS), ("HOT", []), ("COPY", COPY_MUTATIONS), ("GAP", GAP_MUTATIONS),
                             ("APART", APART_MUTATIONS)):
         # GAP reads as RING reads: a build without RING has no GAP either.
-        if os.environ.get(f"TOY_WIRE_{part}", os.environ.get("TOY_WIRE_RING", "1") if part == "GAP" else "1") == "1":
+        # Test 77 leaves it out unless it is asked for.
+        if os.environ.get(f"TOY_WIRE_{part}", ("0" if SEQ == "1" else os.environ.get("TOY_WIRE_RING", "1"))
+                          if part == "GAP" else "1") == "1":
             MUTATIONS += mutations
             if part == "QUIT":
                 # With the channel taken off, the old wait's own mutation is this part's last.
@@ -600,6 +725,19 @@ if FLUID == "1":
         else:
             SWITCHES.append(f"TOY_WIRE_{part}=0")
             DEFINES.append(f"-DKUI_TOY_WIRE_{part}=0")
+if SEQ == "1" and os.environ.get("TOY_WIRE_GAP", "0") == "1":
+    # A Test 77 build that asks for GAP has to say so: it is out by default there.
+    SWITCHES.append("TOY_WIRE_GAP=1")
+    DEFINES.append("-DKUI_TOY_WIRE_GAP=1")
+if SEQ == "1":
+    SWITCHES.append("TOY_WIRE_SEQ=1")
+    DEFINES.append("-DKUI_TOY_WIRE_SEQ=1")
+    # Those of its mutations that take the place of STAY's and QUICK's go
+    # with those parts.
+    MUTATIONS = [m for m in MUTATIONS if m[1] not in SEQ_GONE] + [
+        m for m in SEQ_MUTATIONS
+        if not (m[1].startswith("the short way") and os.environ.get("TOY_WIRE_QUICK", "1") != "1")
+        and not (m[1].startswith("a waited request") and os.environ.get("TOY_WIRE_STAY", "1") != "1")]
 if os.environ.get("TOY_WIRE_ONLY"):
     # A named part of the list, for running it in pieces: "from:to" of the list's positions.
     low, high = (int(v) for v in os.environ["TOY_WIRE_ONLY"].split(":"))
@@ -624,6 +762,23 @@ def main():
             shutil.copytree(ROOT / part, tree / part, symlinks=True)
         for makefile in ROOT.glob("Makefile*"):
             shutil.copy(makefile, tree / makefile.name)
+        if os.environ.get("TOY_WIRE_BASELINE", "1") == "1":
+            # The tests have to pass as they stand: where they fail without
+            # a mutation, every mutation would count as caught.
+            binary = Path(tmp) / "stream"
+            code = run([cc, "-std=c11", "-O1", "-g", "-w", "-fsanitize=address,undefined",
+                        "-DKUI_WIRE_STREAM_TEST=1", *DEFINES, "-Iinclude", "-Isrc/loader",
+                        "tests/test_toy_wire_stream.c", STREAM, "-o", str(binary)], tree, 120)
+            if code == 0:
+                code = run([str(binary), "8"], tree, 300)
+            if code == 0:
+                code = run(["make", "-f", "Makefile.vmu-native-toy-suite", "TOY_SUITE_MODE=66",
+                            "TOY_WIRE_STREAM=1", *SWITCHES, f"BUILD={tmp}/build",
+                            "toy-wire-integration-host-test"], tree, 900)
+            if code:
+                print("FAILS   the tests without a mutation: nothing can be said of the list", flush=True)
+                return 2
+            print("passes  the tests without a mutation", flush=True)
         for path, name, old, new in MUTATIONS:
             original = (ROOT / path).read_text()
             if original.count(old) != 1:

@@ -19,6 +19,16 @@ enum { AHEAD_SLOTS=80u, AHEAD_TOKEN_WAIT=5u, AHEAD_TOKEN_LIMIT=65536u };
  * still being received. */
 enum { AHEAD_REQUEST_MAX=AHEAD_SLOTS-2u<KUI_RETAIL_IMAGE_MAX_SECTORS?
     AHEAD_SLOTS-2u:KUI_RETAIL_IMAGE_MAX_SECTORS };
+#ifndef KUI_TOY_WIRE_SEQ
+#define KUI_TOY_WIRE_SEQ 0
+#endif
+/* Test 77: the window is opened by consecutive reads (toy_movie_ahead). */
+#define AHEAD_SEQ (KUI_TOY_WIRE_STREAM && KUI_TOY_WIRE_SEQ)
+#if AHEAD_SEQ
+/* What a window opened outside the four movie files has for its variant:
+ * the files' own are 1 to 4 and still name the report's two movies. */
+enum { AHEAD_OTHER=5u };
+#endif
 _Static_assert(AHEAD_SLOTS*KUI_GAME_RAW_BYTES<=KUI_NATIVE_RA_DATA_BYTES,
     "Verified movie window must fit the private reader arena");
 #if KUI_TOY_SUITE_MODE == 65
@@ -131,12 +141,15 @@ static void toy_ahead_write(void *unused,uint32_t offset,const uint8_t *data,uin
 #endif
 }
 
+#if !AHEAD_SEQ
+/* Up to Test 76 a window lives as long as its movie plays. */
 static bool toy_ahead_live(void) {
     if(!A.variant)return false;
     const volatile struct kui_toy_movie_exit_witness *w=&C.movie_exit[(A.variant-1u)/2u];
     return (w->flags&(KUI_TOY_MOVIE_EXIT_STARTED|KUI_TOY_MOVIE_EXIT_TERMINAL))==
         KUI_TOY_MOVIE_EXIT_STARTED && w->start_status==0x07dbu;
 }
+#endif
 
 static bool toy_ahead_clear(kui_retail_async_region_type *r) {
 #if KUI_TOY_WIRE_STREAM
@@ -156,10 +169,17 @@ static bool toy_ahead_clear(kui_retail_async_region_type *r) {
 }
 
 static bool toy_ahead_begin(const struct kui_retail_async *e,unsigned variant) {
+#if AHEAD_SEQ
+    /* Test 77: to the end of the track the request begins on, where the
+     * low reader's cursor stands before its first sector is delivered. */
+    const uint32_t end=e->manifest->slots[e->cursor.track].track.end_lba;
+    if(e->cursor.done || e->cursor.offset || !e->cursor.write ||
+#else
     const struct kui_toy_movie_range *range=&C.config.movie_ranges[variant-1u];
     const struct kui_retail_track *track=&e->manifest->slots[e->cursor.track].track;
     const uint32_t end=range->lba+range->count;
     if(end>track->end_lba || e->cursor.done || e->cursor.offset || !e->cursor.write ||
+#endif
        kui_retail_cursor_begin(&A.cursor,e->manifest,e->cursor.lba,end-e->cursor.lba,
            KUI_GAME_SECTOR_RAW,toy_ahead_write,
 #if AHEAD_LOW_PIPE
@@ -186,7 +206,11 @@ static bool toy_ahead_begin(const struct kui_retail_async *e,unsigned variant) {
     k->report.mmucr=read_hw(UINT32_C(0xff000010),4u);
 #endif
 #endif
+#if AHEAD_SEQ
+    A.variant=(uint8_t)(variant?variant:AHEAD_OTHER);
+#else
     A.variant=(uint8_t)variant;
+#endif
     A.first=A.verified=e->cursor.lba;
     A.head=0u;
     A.error=false;
@@ -404,7 +428,11 @@ static bool toy_ahead_publish(kui_retail_async_region_type *r) {
         if(A.head>=AHEAD_SLOTS)A.head-=AHEAD_SLOTS;
         e->cursor.done=s->count;
         e->since=e->target;
-#if KUI_TOY_SUITE_MODE == 66
+#if AHEAD_SEQ
+        if(A.variant==AHEAD_OTHER)toy_wire_keep()->report.other_sectors+=s->count;
+        else C.diagnostics.stage_result[KUI_NATIVE_RA_STAGE_NONE][(A.variant-1u)/2u]+=s->count;
+        ++C.stats.hit_requests;
+#elif KUI_TOY_SUITE_MODE == 66
         uint32_t *trace=C.diagnostics.stage_result[KUI_NATIVE_RA_STAGE_NONE];
         trace[(A.variant-1u)/2u]+=s->count;
         ++C.stats.hit_requests;
@@ -420,6 +448,21 @@ static bool toy_ahead_fallback(kui_retail_async_region_type *r) {
     if(e->in_irq) {
         if(C.config.ops->busy())(void)C.config.ops->poll(true);
     } else if(e->active) {
+#if AHEAD_SEQ
+        /* Test 77: a window is given up at the end of every run of
+         * consecutive reads, where up to Test 76 that was twice a console
+         * run. A stop command that failed once is not the request's
+         * failure. The stream is halted, and the card's command is the low
+         * reader's to end before its own read, where it tries again as it
+         * does for any read. Only a reception still under way is not its
+         * to take over. */
+        if(!C.config.ops->busy()) {
+            A.variant=0u;
+            A.receiving=false;
+            A.receive_token=0u;
+            return false;
+        }
+#endif
         /* The bounded CMD12 failed. Preserve the original cursor and report
          * an I/O failure rather than leaving the request pending forever. */
         e->failed=KUI_GD_ERROR_IO;
@@ -442,7 +485,11 @@ static bool toy_ahead_plain(const kui_retail_async_region_type *r) {
     return A.variant && !e->active &&
         e->native_loan_state==KUI_VMU_NATIVE_ASYNC_LOAN_IDLE &&
         r->shared.stream.state!=RA_RESUME &&
+#if AHEAD_SEQ
+        !A.error && s->status==KUI_GD_COMPLETED &&
+#else
         !A.error && toy_ahead_live() && s->status==KUI_GD_COMPLETED &&
+#endif
         (!s->command || s->command==KUI_GD_PIOREAD || s->command==KUI_GD_DMAREAD) &&
         e->opened && !r->shared.port.fault && r->shared.port.acquired;
 }
@@ -473,7 +520,11 @@ static bool toy_movie_ahead(kui_retail_async_region_type *r,unsigned variant,boo
         /* Test 75: a request the game waits for keeps the window that
          * stands at its first sector (toy_wire_stay). */
         (!wait || kick || warm ||
+#if AHEAD_SEQ
+         (A.variant && s->lba==A.first && !A.error && toy_wire_stay(s->token)))
+#else
          (A.variant==variant && s->lba==A.first && !A.error && toy_wire_stay(s->token)))
+#endif
 #else
         (!wait || kick || warm)
 #endif
@@ -491,6 +542,39 @@ static bool toy_movie_ahead(kui_retail_async_region_type *r,unsigned variant,boo
         if(!kick)++trace[5];
     }
 #endif
+#if AHEAD_SEQ
+    /* Test 77: a window ends for a read elsewhere, not with a movie. That
+     * is a read that does not begin at the window's first sector, and one
+     * that reaches beyond the window's end, the end of its track: such a
+     * read would wait for sectors this window never receives. (A window
+     * that has served its track's last sector stands at the first sector
+     * of the next track.) And a request the window has served in an
+     * interrupt visit, which the resident has yet to report as complete,
+     * is no failed one: off its movie path, which is a read outside the
+     * movie files or in a file's first 386 sectors, the resident reports
+     * only from the game's next call. */
+    const bool idle=!demand && !s->pending && s->status!=KUI_GD_COMPLETED;
+    if(A.variant && (A.error || idle ||
+       (s->command && s->command!=KUI_GD_PIOREAD && s->command!=KUI_GD_DMAREAD) ||
+       (demand && (!selected || s->lba!=A.first ||
+           s->count>A.cursor.lba+A.cursor.count-A.first)))) {
+        if(demand)A.failed_token=s->token;
+        /* Why, for the report: the first that holds. A read the game
+         * waits for counts as waited only where the window had the sectors
+         * to give it: off the low reader's movie path every later call of
+         * a request is one the game waits in, whatever the window lacks.
+         * A window is counted when it is gone: an interrupt visit cannot
+         * end the card's command, and leaves the window to the game's
+         * next call. */
+        const unsigned why=A.error?KUI_TOY_WIRE_DROP_ERROR:
+            idle?KUI_TOY_WIRE_DROP_IDLE:
+            s->command && s->command!=KUI_GD_PIOREAD && s->command!=KUI_GD_DMAREAD?KUI_TOY_WIRE_DROP_COMMAND:
+            wait && !kick && !warm && s->count<=A.cursor.lba+A.cursor.count-A.first?
+            KUI_TOY_WIRE_DROP_WAITING:KUI_TOY_WIRE_DROP_OTHER;
+        if(toy_ahead_fallback(r))return true;
+        ++toy_wire_keep()->report.drops[why];
+    }
+#else
     if(A.variant && (A.error || !toy_ahead_live() ||
        (!demand && s->status!=KUI_GD_COMPLETED) ||
        (s->command && s->command!=KUI_GD_PIOREAD && s->command!=KUI_GD_DMAREAD) ||
@@ -508,18 +592,34 @@ static bool toy_movie_ahead(kui_retail_async_region_type *r,unsigned variant,boo
 #endif
         if(toy_ahead_fallback(r))return true;
     }
+#endif
     if(!e->opened || r->shared.port.fault || !r->shared.port.acquired) {
         return toy_ahead_fallback(r);
     }
     if(!A.variant) {
         if(!selected || !demand || s->token==A.failed_token ||
            (C.resume.token==s->token && C.resume.state!=TOY_RESUME_IDLE))return false;
+#if AHEAD_SEQ
+        /* Test 77: a window is opened for a read that begins where the
+         * read before it ended, by the service's own drive position (the
+         * last sector a read delivered), and where the stream can take the
+         * card over: with the resident's SCI route selected, and the low
+         * reader not in the middle of a wait of its own. (A read the game
+         * ended while the low reader looked for its block's token leaves
+         * that search standing. The window's seek would carry it on as
+         * the low reader's own reception, which nothing then ends.) Any
+         * other read is the low reader's as it always was. */
+        if(s->lba!=s->position_lba+1u || !e->release.armed || r->shared.stream.state>RA_RESUME)return false;
+#endif
         if(C.config.ops->busy() || !toy_ahead_begin(e,variant)) {
             A.failed_token=s->token;
             return false;
         }
         toy_resume_invalidate();
-#if KUI_TOY_SUITE_MODE == 64
+#if AHEAD_SEQ
+        if(variant)++C.diagnostics.stage_result[KUI_NATIVE_RA_STAGE_NONE][2u+(variant-1u)/2u];
+        else ++toy_wire_keep()->report.other_windows;
+#elif KUI_TOY_SUITE_MODE == 64
         ++trace[2u+(variant-1u)/2u];
 #elif KUI_TOY_SUITE_MODE == 66
         ++C.diagnostics.stage_result[KUI_NATIVE_RA_STAGE_NONE][2u+(variant-1u)/2u];
@@ -574,4 +674,5 @@ static bool toy_movie_ahead(kui_retail_async_region_type *r,unsigned variant,boo
 #if KUI_TOY_SUITE_MODE == 65
 #undef AHEAD_TRACE
 #endif
+#undef AHEAD_SEQ
 #undef A

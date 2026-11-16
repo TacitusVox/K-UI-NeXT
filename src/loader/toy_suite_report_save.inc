@@ -80,12 +80,34 @@ static void toy_report_wire(char **at,const char *end,const struct kui_native_ra
      * report could not say: the ticks spent ending streams, and by piece
      * of the second movie's course the most of the player's own buffer
      * that was free and how long the wire stood still for timer waits. */
-    /* PT: the parts this build has (1 STAY, 2 LATER, 4 RING, 8 QUIT, 10 HOT, 20 COPY, 40 GAP, 80 APART). */
+    /* PT: the parts this build has (1 STAY, 2 LATER, 4 RING, 8 QUIT, 10 HOT, 20 COPY, 40 GAP, 80 APART,
+     * 100 SEQ). */
     toy_report_short(at,end,"PIPE B I CALLS IRQ STAY PT",
         (uint32_t[]){ahead[2],ahead[3],ahead[4],ahead[5],w->stays,(uint32_t)KUI_TOY_WIRE_PARTS},6u);
+#if KUI_TOY_WIRE_SEQ
+    /* Test 77: PIPE's and AHEAD's B and I are the windows opened by a read
+     * inside a movie's file and the sectors served from them, as before.
+     * OS: the sectors served from windows opened by any other read. X: how
+     * many such windows were opened (OW), and why windows were given up,
+     * by the first reason that held: error, request state no longer a
+     * finished read, a command that is not a read, a read the game waited
+     * for where the window stood and had the sectors left for it (STAY
+     * ran out, or there was no clock), any other read the window does not
+     * serve. In their room the wire's standstill
+     * by piece and the capacity of the player's buffer are left out: both
+     * have served. */
+    toy_report_short(at,end,"AHEAD B I HIT EDC STOP OS",
+        (uint32_t[]){ahead[0],ahead[1],ra->stats.hit_requests,
+            ra->stats.producer_blocks,ra->stats.abandoned,w->other_sectors},6u);
+    toy_report_short(at,end,"X OW E I C W O",
+        (uint32_t[]){w->other_windows,w->drops[KUI_TOY_WIRE_DROP_ERROR],w->drops[KUI_TOY_WIRE_DROP_IDLE],
+            w->drops[KUI_TOY_WIRE_DROP_COMMAND],w->drops[KUI_TOY_WIRE_DROP_WAITING],
+            w->drops[KUI_TOY_WIRE_DROP_OTHER]},6u);
+#else
     toy_report_short(at,end,"AHEAD B I HIT EDC STOP",
         (uint32_t[]){ahead[0],ahead[1],ra->stats.hit_requests,
             ra->stats.producer_blocks,ra->stats.abandoned},5u);
+#endif
     const struct kui_toy_movie_present_trace *intro=&ra->present[1],*bumper=&ra->present[0];
     toy_report_short(at,end,"I SUBMIT CADENCE MAX AT",
         (uint32_t[]){intro->submitted,intro->on_time,intro->max_gap,intro->max_gap_frame},4u);
@@ -94,7 +116,9 @@ static void toy_report_wire(char **at,const char *end,const struct kui_native_ra
             ra->movie_exit[1].status,w->skip_first},5u);
     toy_report_short(at,end,"B SUBMIT CADENCE MAX AT",
         (uint32_t[]){bumper->submitted,bumper->on_time,bumper->max_gap,bumper->max_gap_frame},4u);
-    for(unsigned n=0;n<2u;n++) {
+    /* Test 77 writes the first movie's player behind every other row:
+     * see the end. */
+    for(unsigned n=0;n<(KUI_TOY_WIRE_SEQ?1u:2u);n++) {
         const struct kui_toy_wire_player *p=&w->player[1u-n];
         toy_report_short(at,end,n?"BP ON OT OC OI SN ST":"IP ON OT OC OI SN ST",
             (uint32_t[]){p->out,p->out_ticks,p->out_cycle,p->out_interrupt,p->skip,p->skip_ticks},6u);
@@ -112,8 +136,13 @@ static void toy_report_wire(char **at,const char *end,const struct kui_native_ra
     /* CAP: the capacity of the player's own buffer as TB's sampling found
      * it, in bytes (Test 73's console run: C9120). Zero: it was never
      * found, and TB says nothing. */
+#if KUI_TOY_WIRE_SEQ
+    toy_report_short(at,end,"D N T SEEK",
+        (uint32_t[]){w->deliver_calls,w->deliver_ticks,w->seek_ticks},3u);
+#else
     toy_report_short(at,end,"D N T SEEK CAP",
         (uint32_t[]){w->deliver_calls,w->deliver_ticks,w->seek_ticks,w->buffer_capacity},4u);
+#endif
     toy_report_course(at,end,"TF",w->course_frames,NULL,0u);
     toy_report_course(at,end,"TD",w->course_sectors,NULL,4u);
     toy_report_course(at,end,"TW",NULL,w->course_wait,14u);
@@ -121,7 +150,9 @@ static void toy_report_wire(char **at,const char *end,const struct kui_native_ra
      * 4 KiB (all of the C9120 bytes Test 73 found is C9). The wire
      * standing still, as TW. */
     toy_report_course(at,end,"TB",NULL,w->course_free,12u);
+#if !KUI_TOY_WIRE_SEQ
     toy_report_course(at,end,"TP",NULL,w->course_pause,14u);
+#endif
     toy_report_short(at,end,"W START SEG CUT WAIT FULL",
         (uint32_t[]){w->n.starts,w->n.segments,w->n.cuts,w->n.waits,w->n.fulls},5u);
     toy_report_short(at,end,"W BYTES WTICK TMR ERR DET",
@@ -139,6 +170,15 @@ static void toy_report_wire(char **at,const char *end,const struct kui_native_ra
     uint32_t reader[KUI_TOY_WIRE_BUCKETS];
     for(unsigned i=0;i<KUI_TOY_WIRE_BUCKETS;i++)reader[i]=w->course_interrupt[i]+w->course_game[i];
     toy_report_course(at,end,"TR",NULL,reader,14u);
+#if KUI_TOY_WIRE_SEQ
+    /* Test 77: the first movie's player last. A run in which ordinary
+     * reads open thousands of windows widens the counts above, and of all
+     * rows this one says least about what the test asks: it is the one to
+     * go for room. */
+    toy_report_short(at,end,"BP ON OT OC OI SN ST",
+        (uint32_t[]){w->player[0].out,w->player[0].out_ticks,w->player[0].out_cycle,
+            w->player[0].out_interrupt,w->player[0].skip,w->player[0].skip_ticks},6u);
+#endif
     (void)sd;
 }
 #elif KUI_TOY_WIRE_STEADY
@@ -511,7 +551,7 @@ static void toy_report_format(char *text,const struct kui_native_ra_public *ra,
     toy_report_string(&at,"K-UI TOY COMMANDER REPORT\nTEST ");
 #if KUI_TOY_WIRE_STREAM
     /* Card Tools starts this reader from its Test 66 entry. */
-    test=KUI_TOY_WIRE_TICK?69u:KUI_TOY_WIRE_FLUID?76u:KUI_TOY_WIRE_STEADY?75u:KUI_TOY_WIRE_LEAN?74u:KUI_TOY_WIRE_IDLE?73u:KUI_TOY_WIRE_PACE?72u:KUI_TOY_WIRE_WORDS?71u:KUI_TOY_WIRE_CACHED?70u:68u;
+    test=KUI_TOY_WIRE_TICK?69u:KUI_TOY_WIRE_SEQ?77u:KUI_TOY_WIRE_FLUID?76u:KUI_TOY_WIRE_STEADY?75u:KUI_TOY_WIRE_LEAN?74u:KUI_TOY_WIRE_IDLE?73u:KUI_TOY_WIRE_PACE?72u:KUI_TOY_WIRE_WORDS?71u:KUI_TOY_WIRE_CACHED?70u:68u;
 #endif
     if(test>=10u)*at++=(char)('0'+test/10u);
     *at++=(char)('0'+test%10u);

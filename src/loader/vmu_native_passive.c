@@ -1026,6 +1026,10 @@ static void toy_suite_finish_gesture(bool held) {
 /* Card Tools starts this reader from its Test 66 entry. */
 #if defined(KUI_TOY_WIRE_TICK) && KUI_TOY_WIRE_TICK
 #define KUI_TOY_TEST_TITLE "TOY TEST 69"
+#elif defined(KUI_TOY_WIRE_SEQ) && KUI_TOY_WIRE_SEQ
+/* (Tests 75 and 76 share the title below: Test 76's worker was delivered
+ * so, and is left as delivered.) */
+#define KUI_TOY_TEST_TITLE "TOY TEST 77"
 #elif defined(KUI_TOY_WIRE_STEADY) && KUI_TOY_WIRE_STEADY
 #define KUI_TOY_TEST_TITLE "TOY TEST 75"
 #elif defined(KUI_TOY_WIRE_LEAN) && KUI_TOY_WIRE_LEAN

@@ -144,6 +144,29 @@
 #if (KUI_TOY_WIRE_STAY || KUI_TOY_WIRE_LATER || KUI_TOY_WIRE_RING) && !KUI_TOY_WIRE_STEADY
 #error "STAY, LATER and RING are parts of Test 75: use KUI_TOY_WIRE_STEADY"
 #endif
+/* Test 77 (SEQ): Test 76 as its second console run had it, without GAP,
+ * and with one change. Up to here a request used the window only inside
+ * one of Toy Commander's four movie files, 386 sectors in, while the
+ * game's player said that movie was playing. Now the reader decides by
+ * what it sees itself: a read of 2,048-byte sectors on a raw data track
+ * that begins where the read before it ended opens the window, which
+ * reaches to that track's end, and a read elsewhere gives it up. The
+ * files and the player's word no longer decide whether a request has a
+ * window. They still say which reads take the low reader's movie path
+ * (the residents are Test 66's), and with it whether a waiting request's
+ * calls reach the window as calls the game waits in; they name the
+ * report's rows; the player's update call still pumps the reader while a
+ * movie plays; and a build without OPEN still holds the window back from
+ * the second movie's file at that movie's start. A window that an
+ * ordinary sequential load opens serves that load as well, which is the
+ * point of asking the console: the report counts such windows and their
+ * sectors apart, and why windows were given up. */
+#ifndef KUI_TOY_WIRE_SEQ
+#define KUI_TOY_WIRE_SEQ 0
+#endif
+#if KUI_TOY_WIRE_SEQ && !KUI_TOY_WIRE_FLUID
+#error "Test 77 builds on Test 76"
+#endif
 /* Test 76's parts (the switch itself is above, with LATER's default):
  *   QUIT   a stream given up while it receives is ended at once, where it
  *          was waited out, with interrupts held off, until its run's next
@@ -173,8 +196,10 @@
 #define KUI_TOY_WIRE_COPY KUI_TOY_WIRE_FLUID
 #endif
 #ifndef KUI_TOY_WIRE_GAP
-/* It reads as RING reads: a build without RING has no GAP either. */
-#define KUI_TOY_WIRE_GAP (KUI_TOY_WIRE_FLUID && KUI_TOY_WIRE_RING)
+/* It reads as RING reads: a build without RING has no GAP either. Test 77
+ * leaves it out unless a build asks for it: with and without it the
+ * console's two runs of Test 76 cost the reader the same. */
+#define KUI_TOY_WIRE_GAP (KUI_TOY_WIRE_FLUID && KUI_TOY_WIRE_RING && !KUI_TOY_WIRE_SEQ)
 #endif
 #ifndef KUI_TOY_WIRE_APART
 #define KUI_TOY_WIRE_APART KUI_TOY_WIRE_FLUID
@@ -189,7 +214,7 @@
 /* The parts a build has, as the report's PT value names them. */
 #define KUI_TOY_WIRE_PARTS (KUI_TOY_WIRE_STAY | KUI_TOY_WIRE_LATER << 1 | KUI_TOY_WIRE_RING << 2 | \
     KUI_TOY_WIRE_QUIT << 3 | KUI_TOY_WIRE_HOT << 4 | KUI_TOY_WIRE_COPY << 5 | KUI_TOY_WIRE_GAP << 6 | \
-    KUI_TOY_WIRE_APART << 7)
+    KUI_TOY_WIRE_APART << 7 | KUI_TOY_WIRE_SEQ << 8)
 /* The second movie in pieces of 2^22 ticks, 5.4 s: twelve cover it. */
 #define KUI_TOY_WIRE_BUCKETS 12u
 #define KUI_TOY_WIRE_BUCKET_SHIFT 22u
@@ -203,7 +228,7 @@ enum {
 };
 enum {
     KUI_TOY_WIRE_DROP_ERROR,   /* producer error */
-    KUI_TOY_WIRE_DROP_ENDED,   /* the movie is no longer playing */
+    KUI_TOY_WIRE_DROP_ENDED,   /* the movie is no longer playing (not from Test 77 on) */
     KUI_TOY_WIRE_DROP_IDLE,    /* no request, and the last one did not complete */
     KUI_TOY_WIRE_DROP_COMMAND, /* a command that is not a read */
     KUI_TOY_WIRE_DROP_WAITING, /* a read the game waits for with interrupts held off */
@@ -402,6 +427,11 @@ struct kui_toy_wire_report {
     /* Ticks spent ending streams (kui_wire_stop): with a stream that
      * receives, up to Test 75, the wait for its run's next overrun. */
     uint32_t halt_ticks;
+#endif
+#if KUI_TOY_WIRE_SEQ
+    /* Windows opened by a read outside the four movie files, and the
+     * sectors served from such windows. */
+    uint32_t other_windows, other_sectors;
 #endif
 #else
     uint32_t handler_ticks, handler_calls, handler_max; /* SCI interrupt visits while streaming */

@@ -45,7 +45,27 @@ static struct kui_toy_wire_report wire;
 static const struct kui_toy_wire_report *toy_wire_report_block(void) { return &wire; }
 #include "toy_suite_report_save.inc"
 
-#if KUI_TOY_WIRE_FLUID
+#if KUI_TOY_WIRE_SEQ
+#define TEST_NUMBER "77"
+/* Test 77's rows: Test 76's with the sectors served from windows outside
+ * the movie files, how many such windows were opened, and why windows
+ * were given up; without the wire's standstill by piece and the capacity
+ * of the player's buffer, which have served; and the first movie's player
+ * last, the row to go when ordinary reads have widened the others. */
+static const char *const labels[] = {
+    "PIPE B I CALLS IRQ STAY PT", "AHEAD B I HIT EDC STOP OS", "X OW E I C W O",
+    "I SUBMIT CADENCE MAX AT", "I FIRST LAST SKIP EXIT SF", "B SUBMIT CADENCE MAX AT",
+    "IP ON OT OC OI SN ST",
+    "K LIGHT EDC MEND MB LB ORD",
+    "V SCI TMR GAME N TICKS", "P RING FEED CHK OUT SVC HALT", "D N T SEEK",
+    "TF", "TD", "TW", "TB",
+    "W START SEG CUT WAIT FULL", "W BYTES WTICK TMR ERR DET", "W BLK FIX UNFIX HOLED NOCRC SEEK",
+    "S C S F LF AM BC", "W FILL REF BAD",
+    "TR",
+    "BP ON OT OC OI SN ST",
+};
+enum { LABELS = sizeof(labels) / sizeof(labels[0]), ESSENTIAL = 21 };
+#elif KUI_TOY_WIRE_FLUID
 #define TEST_NUMBER "76"
 /* Test 76's rows: Test 75's without the two that have served, the
  * reader's time by piece in one row, and three things new: the ticks
@@ -341,9 +361,23 @@ int main(int argc, char **argv) {
      * start of windows given up for a read that was waited for. */
     wire.stops[KUI_TOY_WIRE_STOP_FRAME] = 0x12c; wire.drops[KUI_TOY_WIRE_DROP_WAITING] = 0x35;
 #endif
+#if KUI_TOY_WIRE_SEQ
+    /* The game's ordinary loading through windows of its own, twelve
+     * thousand of them: more than a whole disc read sixty sectors at a
+     * time would open. The counts that go with that many windows are as
+     * large. Each is a stream begun behind a block of the low reader's,
+     * is given up for a read elsewhere or for a command, and has its
+     * stream stopped; each serves a request or two. */
+    wire.other_windows = 0x2f00; wire.other_sectors = 0x8a000;
+    wire.drops[KUI_TOY_WIRE_DROP_OTHER] = 0x2e00; wire.drops[KUI_TOY_WIRE_DROP_COMMAND] = 0xfe;
+    wire.stops[KUI_TOY_WIRE_STOP_CLOSE] = 0x2f03; wire.n.starts = 0x318f; wire.seek_blocks = 0x31c0;
+#endif
     uint32_t *trace = ra.diagnostics.stage_result[KUI_NATIVE_RA_STAGE_NONE];
     trace[0] = 0x1100; trace[1] = 0x6600; trace[2] = 2; trace[3] = 3; trace[4] = 0x9000; trace[5] = 0xbe00;
     ra.stats.hit_requests = 0x900; ra.stats.producer_blocks = 0x7700; ra.stats.abandoned = 2;
+#if KUI_TOY_WIRE_SEQ
+    ra.stats.hit_requests = 0x5900; /* with the other windows' requests */
+#endif
     region.shared.stream.stats.blocks = 0x40; region.shared.stream.stats.polled = 0x2f;
     region.shared.stream.stats.starts = 0x1f; region.shared.stream.stats.crc_errors = 0;
     ra.present[0] = (struct kui_toy_movie_present_trace){.submitted = 0x14b, .on_time = 0x14a,
@@ -364,47 +398,108 @@ int main(int argc, char **argv) {
     ra.wait[0] = (struct kui_toy_movie_wait_trace){0x69263, 0x10, 0xc, 0x235678, 0x1345, 0x1ce1};
     ra.wait[1] = (struct kui_toy_movie_wait_trace){0x6e450, 0x11, 0x3, 0x2e4567, UINT32_MAX, UINT32_MAX};
     body = format(&ra, &region, text, &rows);
-#if KUI_TOY_WIRE_FLUID
+#if KUI_TOY_WIRE_SEQ
+    /* Every row but the last fits at a full run's values with the game's
+     * ordinary loading as wide as above: the row of the reader's time by
+     * piece is written. The first movie's player behind it is the one row
+     * that may be left out. (With no window but the movies' everything
+     * fits: below.) */
+    assert(essential_rows == ESSENTIAL && rows >= LABELS - 1u);
+    const char *last = strstr(text, "TR\n3031FFFF FFFFFFFF FFFFFF3B\n");
+    assert(last && (rows == LABELS) == (strstr(text, "BP ON") != NULL));
+    const size_t needed = (size_t)(last - text) + strlen("TR\n3031FFFF FFFFFFFF FFFFFF3B\n");
+    assert(needed <= KUI_TOY_REPORT_FILE_BYTES - 12u);
+    const bool bumper_fits = rows == LABELS;
+#elif KUI_TOY_WIRE_FLUID
     /* Everything fits at a full run's values. */
     assert(essential_rows == ESSENTIAL && rows == LABELS);
     const char *last = strstr(text, "W FILL REF BAD\n1500 4 2\n");
     assert(last);
     const size_t needed = (size_t)(last - text) + strlen("W FILL REF BAD\n1500 4 2\n");
     assert(needed + 30u <= KUI_TOY_REPORT_FILE_BYTES - 12u);
+#endif
+#if KUI_TOY_WIRE_FLUID
     /* The last value names the build's parts: Test 75's three, without
      * LATER, and each of Test 76's own that the build has. */
     {
         char parts[64];
         const unsigned have = KUI_TOY_WIRE_STAY | KUI_TOY_WIRE_LATER << 1 | KUI_TOY_WIRE_RING << 2 |
             KUI_TOY_WIRE_QUIT << 3 | KUI_TOY_WIRE_HOT << 4 | KUI_TOY_WIRE_COPY << 5 | KUI_TOY_WIRE_GAP << 6 |
-            KUI_TOY_WIRE_APART << 7;
+            KUI_TOY_WIRE_APART << 7 | KUI_TOY_WIRE_SEQ << 8;
         snprintf(parts, sizeof(parts), "PIPE B I CALLS IRQ STAY PT\n2 3 9000 BE00 35 %X\n", have);
         assert(strstr(text, parts) && have == KUI_TOY_WIRE_PARTS);
     }
+#if KUI_TOY_WIRE_SEQ
+    /* The movies' windows and sectors as before; the sectors of the other
+     * windows; how many of those were opened, and why windows were given
+     * up: error, the request state, a command, a waited request, a read
+     * the window does not serve. The movie's end is no reason any more. */
+    assert(strstr(text, "AHEAD B I HIT EDC STOP OS\n1100 6600 5900 7700 2 8A000\n"));
+    assert(strstr(text, "X OW E I C W O\n2F00 1 3 FE 35 2E00\n"));
+#else
     assert(strstr(text, "AHEAD B I HIT EDC STOP\n1100 6600 900 7700 2\n"));
+#endif
     assert(strstr(text, "I SUBMIT CADENCE MAX AT\n7B0 7AE 92345 124\n"));
     assert(strstr(text, "I FIRST LAST SKIP EXIT SF\n23576 7B0 2 FFFFF843 1B\n"));
     assert(strstr(text, "B SUBMIT CADENCE MAX AT\n14B 14A 12ABC F6\n"));
     assert(strstr(text, "IP ON OT OC OI SN ST\n290 16E3600 1A00000 1C0000 520 9000\n"));
+#if !KUI_TOY_WIRE_SEQ
     assert(strstr(text, "BP ON OT OC OI SN ST\n14B 4F0000 7E0000 30000 0 0\n"));
+#endif
     assert(strstr(text, "K LIGHT EDC MEND MB LB ORD\n4C00 25E7 1A90 3 0 3\n"));
     assert(strstr(text, "V SCI TMR GAME N TICKS\nC67C D000 26265 3A0000 4E0000 5B0000\n"));
     /* The reader's ticks by what it was doing, and those spent ending streams. */
     assert(strstr(text, "P RING FEED CHK OUT SVC HALT\n4A0000 1C0000 60000 D0000 5F000 13000\n"));
+#if KUI_TOY_WIRE_SEQ
+    assert(strstr(text, "D N T SEEK\n1E000 2A0000 B0000\n") && !strstr(text, "CAP"));
+#else
     /* The player's buffer's capacity stands beside the rows read by it. */
     assert(strstr(text, "D N T SEEK CAP\n1E000 2A0000 B0000 100000\n"));
+#endif
     assert(strstr(text, "TF\nA1A10B0C D0E0F10 111213A1\n"));
     assert(strstr(text, "TD\n8484A4A5 A6A7A8A9 AAABAC84\n"));
     assert(strstr(text, "TW\n6263 64656667 68696A08\n"));
     /* The player's buffer, the most that was free in 4 KiB units: nearly
      * all of its megabyte in the pieces that skip. The wire's standstill. */
     assert(strstr(text, "TB\n80AF2F3 F4F5F6F7 F8F9FA1E\n"));
+#if KUI_TOY_WIRE_SEQ
+    assert(!strstr(text, "TP\n"));
+#else
     assert(strstr(text, "TP\n22426 282A2C2E 30323418\n"));
+#endif
+#if KUI_TOY_WIRE_SEQ
+    assert(strstr(text, "W START SEG CUT WAIT FULL\n318F 2800 83D7 6622 300\n"));
+    assert(strstr(text, "W BLK FIX UNFIX HOLED NOCRC SEEK\n24C00 6100 5 1C00 90 31C0\n"));
+    assert(strstr(text, "S C S F LF AM BC\n2F03 5 12C 4A 2 3\n"));
+    assert(strstr(text, "W FILL REF BAD\n1500 4 2\n"));
+#else
     assert(strstr(text, "W START SEG CUT WAIT FULL\n1F 2800 83D7 6622 300\n"));
     assert(strstr(text, "W BLK FIX UNFIX HOLED NOCRC SEEK\n24C00 6100 5 1C00 90 2F\n"));
     assert(strstr(text, "S C S F LF AM BC\n3 5 12C 4A 2 3\n"));
+#endif
     /* The reader's pumps by piece: Test 75's two rows added. */
     assert(strstr(text, "TR\n3031FFFF FFFFFFFF FFFFFF3B\n"));
+#if KUI_TOY_WIRE_SEQ
+    /* The same run with the movies' four windows and no other, as every
+     * console run up to Test 76 was: every row, the first movie's player
+     * at the end. */
+    size_t movies_alone;
+    {
+        wire.other_windows = wire.other_sectors = 0u;
+        wire.drops[KUI_TOY_WIRE_DROP_OTHER] = 2u; wire.drops[KUI_TOY_WIRE_DROP_COMMAND] = 0u;
+        wire.stops[KUI_TOY_WIRE_STOP_CLOSE] = 4u; wire.n.starts = 0x290; wire.seek_blocks = 0x2c7;
+        ra.stats.hit_requests = 0x900;
+        char movies[KUI_TOY_REPORT_FILE_BYTES + 1u];
+        unsigned movie_rows;
+        const size_t movie_body = format(&ra, &region, movies, &movie_rows);
+        movies_alone = movie_body;
+        assert(essential_rows == ESSENTIAL && movie_rows == LABELS && movie_body <= KUI_TOY_REPORT_FILE_BYTES - 12u);
+        const char *bumper = strstr(movies, "BP ON OT OC OI SN ST\n14B 4F0000 7E0000 30000 0 0\n");
+        assert(bumper && bumper > strstr(movies, "TR\n"));
+        assert(strstr(movies, "X OW E I C W O\n0 1 3 0 35 2\n"));
+        essential_rows = ESSENTIAL;
+    }
+#endif
     /* Test 75's rows of the GD calls and of the windows given up are gone,
      * and its two rows of the reader's time by caller. */
     assert(!strstr(text, "G N T") && !strstr(text, "X E N") && !strstr(text, "TI\n") && !strstr(text, "TG\n"));
@@ -609,5 +704,10 @@ int main(int argc, char **argv) {
     printf("PASS Test " TEST_NUMBER " report: %zu body bytes with nothing counted, %zu with a full run's values "
            "(essential rows end at %zu of 1012); at full width %u of the %u essential rows are written "
            "and no row is ever cut\n", empty, full, needed, widest, (unsigned)ESSENTIAL);
+#if KUI_TOY_WIRE_SEQ
+    printf("  with twelve thousand windows opened by ordinary reads beside the movies' the first movie's player, "
+           "the last row, %s; with the movies' windows alone every row fits (%zu bytes)\n",
+        bumper_fits ? "still fits" : "is the one row left out", movies_alone);
+#endif
     return 0;
 }
