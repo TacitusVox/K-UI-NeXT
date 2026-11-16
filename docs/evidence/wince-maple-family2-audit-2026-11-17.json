@@ -1,0 +1,550 @@
+{
+ "schema": "kui.wince.maple-family2-audit.v1",
+ "date": "2026-11-17",
+ "method": "maple.dll text of the Worms World Party kernel disassembled beside Armada's (family 7) and matched to each reviewed Armada window; every family 2 kernel's maple.dll and mapledev.dll text tails read from its ROM. RVAs are maple.dll RVAs; the survey found family 2 code identical apart from relocation, so they hold in every family 2 kernel at its own base.",
+ "windows": {
+  "create_thread_import_stub": {
+   "family7": "0x6344",
+   "family2": "0x7f1c",
+   "iat_family2": "0x9034",
+   "coredll_ordinal": 492
+  },
+  "set_kernel_mode_import_stub": {
+   "family7": "0x6374",
+   "family2": "0x7f4c",
+   "iat_family2": "0x9044",
+   "coredll_ordinal": 630
+  },
+  "wait_import_stub": {
+   "family7": "0x6314",
+   "family2": "0x7eec",
+   "iat_family2": "0x9024",
+   "coredll_ordinal": 497
+  },
+  "regular_thread_creation": {
+   "family7": "0x1b80..0x1bb4",
+   "family2": "0x1d68..0x1d9c",
+   "note": "two CreateThread calls; handles at GBR+376/+380 in family 7, +384/+388 in family 2"
+  },
+  "thread_start_wrappers": {
+   "family7": [
+    "0x183c",
+    "0x1854"
+   ],
+   "family2": [
+    "0x1a00",
+    "0x1a18"
+   ]
+  },
+  "worker": {
+   "family7": "0x5d4c",
+   "family2": "0x7910",
+   "note": "family 7 waits 60 ms (WaitForSingleObject), family 2 waits INFINITE and keeps a flag of whether the last pass completed"
+  },
+  "worker_completion_call": {
+   "family7": "0x5daa..0x5db4",
+   "family2": "0x797a..0x7986",
+   "note": "after status bit 0x1000 at sp+16, with the extension pointer"
+  },
+  "completion_entry": {
+   "family7": "0x5b0c",
+   "family2": "0x7664",
+   "note": "pushes r8..r13 and PR; extension field 0x158 (family 7), 0x15c (family 2); T dead at entry, consumer TST at 0x5b24 / 0x767c",
+   "resume_after_two_pushes": {
+    "family7": "0x5b10",
+    "family2": "0x7668"
+   }
+  },
+  "initialization_kernel_mode": {
+   "family7": [
+    "0x1ef4",
+    "0x214a"
+   ],
+   "family2": [
+    "0x20f8",
+    "0x234e"
+   ],
+   "also": {
+    "family7": [
+     "0x3938",
+     "0x3948"
+    ],
+    "family2": [
+     "0x3edc",
+     "0x3eec"
+    ]
+   }
+  }
+ },
+ "bridge_reach": {
+  "note": "Family 7 reaches its 92-byte maple.dll text-tail bridge at 0x67a4 from the completion entry (0xc98 away) and the SetKMode stub (0x430) with short branches. In family 2 the tail starts at 0x8374: 0xd10 from the completion entry and 0x428 from the SetKMode stub, also within the 4 KiB reach of BRA/BSR. Where the tail is free, the same bridge shape applies at family 2 RVAs."
+ },
+ "kernels": [
+  {
+   "kernel_sha256": "76e49e9f4cb78c7e1bee46a2990a4ca9bcbff8e19012f2b00b29845c956c89c3",
+   "titles": [
+    "4X4 EVOLUTION"
+   ],
+   "maple_base": "0x1cd0000",
+   "mapledev_base": "0x1c00000",
+   "ram_end": "0x8cfd0000",
+   "maple_text_tail": {
+    "code_end_rva": "0x8372",
+    "stored_end_rva": "0x8400",
+    "tail_bytes": 140,
+    "tail_zero": false
+   },
+   "mapledev_text_tail": {
+    "code_end_rva": "0xdc6b",
+    "stored_end_rva": "0xde00",
+    "tail_bytes": 404,
+    "tail_zero": true
+   }
+  },
+  {
+   "kernel_sha256": "3408e1ee7e3f6cc02a5210fabfec76e126583455898002d02adac67583efaa20",
+   "titles": [
+    "ATARI ANNIVERSARY EDITION"
+   ],
+   "maple_base": "0x1d90000",
+   "mapledev_base": "0x1cc0000",
+   "ram_end": "0x8cfd0000",
+   "maple_text_tail": {
+    "code_end_rva": "0x8372",
+    "stored_end_rva": "0x8400",
+    "tail_bytes": 140,
+    "tail_zero": true
+   },
+   "mapledev_text_tail": {
+    "code_end_rva": "0xdc6b",
+    "stored_end_rva": "0xde00",
+    "tail_bytes": 404,
+    "tail_zero": true
+   }
+  },
+  {
+   "kernel_sha256": "28ed98cbb3b9edfc2de6072b536c1cb0e6e266f0384677ea21bde66556bab294",
+   "titles": [
+    "CHAMPIONSHIP SURFER"
+   ],
+   "maple_base": "0x1cc0000",
+   "mapledev_base": "0x1bf0000",
+   "ram_end": "0x8cfd0000",
+   "maple_text_tail": {
+    "code_end_rva": "0x8372",
+    "stored_end_rva": "0x8400",
+    "tail_bytes": 140,
+    "tail_zero": true
+   },
+   "mapledev_text_tail": {
+    "code_end_rva": "0xdc6b",
+    "stored_end_rva": "0xde00",
+    "tail_bytes": 404,
+    "tail_zero": true
+   }
+  },
+  {
+   "kernel_sha256": "41b0fe340c3a50471b27b655025baf7bcff4b66a0484e4aa2df5ed7106876b97",
+   "titles": [
+    "DUCATI WORLD"
+   ],
+   "maple_base": "0x1da0000",
+   "mapledev_base": "0x1cd0000",
+   "ram_end": "0x8cfd0000",
+   "maple_text_tail": {
+    "code_end_rva": "0x8372",
+    "stored_end_rva": "0x8400",
+    "tail_bytes": 140,
+    "tail_zero": true
+   },
+   "mapledev_text_tail": {
+    "code_end_rva": "0xdc6b",
+    "stored_end_rva": "0xde00",
+    "tail_bytes": 404,
+    "tail_zero": true
+   }
+  },
+  {
+   "kernel_sha256": "45fcc348ae710f4af9b0bbcd5c4825b943819052ffe6c5531c2212f4923a4d98",
+   "titles": [
+    "HAPPY LESSON -FIRST LESSON-"
+   ],
+   "maple_base": "0x1d90000",
+   "mapledev_base": "0x1cc0000",
+   "ram_end": "0x8cfd0000",
+   "maple_text_tail": {
+    "code_end_rva": "0x8372",
+    "stored_end_rva": "0x8400",
+    "tail_bytes": 140,
+    "tail_zero": true
+   },
+   "mapledev_text_tail": {
+    "code_end_rva": "0xdc6b",
+    "stored_end_rva": "0xde00",
+    "tail_bytes": 404,
+    "tail_zero": true
+   }
+  },
+  {
+   "kernel_sha256": "5a02ed6b8ad7dde5965630b983f3081dd4b1f2438c7ed3386027e15f02e0ca83",
+   "titles": [
+    "HIDDEN AND DANGEROUS"
+   ],
+   "maple_base": "0x1da0000",
+   "mapledev_base": "0x1cd0000",
+   "ram_end": "0x8cfd0000",
+   "maple_text_tail": {
+    "code_end_rva": "0x8372",
+    "stored_end_rva": "0x8400",
+    "tail_bytes": 140,
+    "tail_zero": true
+   },
+   "mapledev_text_tail": {
+    "code_end_rva": "0xdc6b",
+    "stored_end_rva": "0xde00",
+    "tail_bytes": 404,
+    "tail_zero": true
+   }
+  },
+  {
+   "kernel_sha256": "3b2dd28facb60c2a6446dbbbbc5cfa6a7b3e243246592f739d57fdac0c893b29",
+   "titles": [
+    "HIDDEN AND DANGEROUS"
+   ],
+   "maple_base": "0x1da0000",
+   "mapledev_base": "0x1cd0000",
+   "ram_end": "0x8cfd0000",
+   "maple_text_tail": {
+    "code_end_rva": "0x8372",
+    "stored_end_rva": "0x8400",
+    "tail_bytes": 140,
+    "tail_zero": true
+   },
+   "mapledev_text_tail": {
+    "code_end_rva": "0xdc6b",
+    "stored_end_rva": "0xde00",
+    "tail_bytes": 404,
+    "tail_zero": true
+   }
+  },
+  {
+   "kernel_sha256": "774e2e17009614966f80f5e2025007c1cfb22a93587531d843f4315bada9a5bb",
+   "titles": [
+    "HOYLE CASINO"
+   ],
+   "maple_base": "0x1da0000",
+   "mapledev_base": "0x1cf0000",
+   "ram_end": "0x8cfd0000",
+   "maple_text_tail": {
+    "code_end_rva": "0x8372",
+    "stored_end_rva": "0x8400",
+    "tail_bytes": 140,
+    "tail_zero": true
+   },
+   "mapledev_text_tail": {
+    "code_end_rva": "0xdc6b",
+    "stored_end_rva": "0xde00",
+    "tail_bytes": 404,
+    "tail_zero": true
+   }
+  },
+  {
+   "kernel_sha256": "b15c6fac7ad832cbb92ddb89394b42bed9826b8ca4a9fa4524941e237c07cbbb",
+   "titles": [
+    "HUNDRED SWORDS"
+   ],
+   "maple_base": "0x1b20000",
+   "mapledev_base": "0x1a60000",
+   "ram_end": "0x8cfd0000",
+   "maple_text_tail": {
+    "code_end_rva": "0x8372",
+    "stored_end_rva": "0x8400",
+    "tail_bytes": 140,
+    "tail_zero": false
+   },
+   "mapledev_text_tail": {
+    "code_end_rva": "0xdc6b",
+    "stored_end_rva": "0xde00",
+    "tail_bytes": 404,
+    "tail_zero": false
+   }
+  },
+  {
+   "kernel_sha256": "7a97c174199db75f7dfb4dfa01d7e92df022eb70032d69eb48d4cb18e83acfd2",
+   "titles": [
+    "HUNDRED SWORDS KEY VERSION"
+   ],
+   "maple_base": "0x1b20000",
+   "mapledev_base": "0x1a60000",
+   "ram_end": "0x8cfd0000",
+   "maple_text_tail": {
+    "code_end_rva": "0x8372",
+    "stored_end_rva": "0x8400",
+    "tail_bytes": 140,
+    "tail_zero": false
+   },
+   "mapledev_text_tail": {
+    "code_end_rva": "0xdc6b",
+    "stored_end_rva": "0xde00",
+    "tail_bytes": 404,
+    "tail_zero": false
+   }
+  },
+  {
+   "kernel_sha256": "6f6a72907071088aff4be2db799c5f3ce06a36d2dd1e077780426f9637d4cc8c",
+   "titles": [
+    "NET DE PARA"
+   ],
+   "maple_base": "0x1bd0000",
+   "mapledev_base": "0x1aa0000",
+   "ram_end": "0x8cfd0000",
+   "maple_text_tail": {
+    "code_end_rva": "0x8372",
+    "stored_end_rva": "0x8400",
+    "tail_bytes": 140,
+    "tail_zero": false
+   },
+   "mapledev_text_tail": {
+    "code_end_rva": "0xdc6b",
+    "stored_end_rva": "0xde00",
+    "tail_bytes": 404,
+    "tail_zero": true
+   }
+  },
+  {
+   "kernel_sha256": "a98f6514c38cffc39124a2f433e2f0373c21dde91d9fa5ca85726bb1adf01e5a",
+   "titles": [
+    "NISHIKAZE"
+   ],
+   "maple_base": "0x1da0000",
+   "mapledev_base": "0x1cd0000",
+   "ram_end": "0x8cfd0000",
+   "maple_text_tail": {
+    "code_end_rva": "0x8372",
+    "stored_end_rva": "0x8400",
+    "tail_bytes": 140,
+    "tail_zero": true
+   },
+   "mapledev_text_tail": {
+    "code_end_rva": "0xdc6b",
+    "stored_end_rva": "0xde00",
+    "tail_bytes": 404,
+    "tail_zero": true
+   }
+  },
+  {
+   "kernel_sha256": "46d1ef5e8559a9713f510909e2ef6cd38499cd69c67197e9a2df1fe769eea8a2",
+   "titles": [
+    "QBERT"
+   ],
+   "maple_base": "0x1da0000",
+   "mapledev_base": "0x1cd0000",
+   "ram_end": "0x8cad0000",
+   "maple_text_tail": {
+    "code_end_rva": "0x8372",
+    "stored_end_rva": "0x8400",
+    "tail_bytes": 140,
+    "tail_zero": true
+   },
+   "mapledev_text_tail": {
+    "code_end_rva": "0xdc6b",
+    "stored_end_rva": "0xde00",
+    "tail_bytes": 404,
+    "tail_zero": true
+   }
+  },
+  {
+   "kernel_sha256": "0974f36c0dfeeb933c43a58982233ac968c3a911b265eba5484d09e53f72d462",
+   "titles": [
+    "RAILROAD TYCOON II DREAMCAST EDITION"
+   ],
+   "maple_base": "0x1dc0000",
+   "mapledev_base": "0x1cf0000",
+   "ram_end": "0x8cfd0000",
+   "maple_text_tail": {
+    "code_end_rva": "0x8372",
+    "stored_end_rva": "0x8400",
+    "tail_bytes": 140,
+    "tail_zero": true
+   },
+   "mapledev_text_tail": {
+    "code_end_rva": "0xdc6b",
+    "stored_end_rva": "0xde00",
+    "tail_bytes": 404,
+    "tail_zero": true
+   }
+  },
+  {
+   "kernel_sha256": "b68a732a30ce51452873455cd546d7fdb978ab2f1e09f88542a97e039d4dd5a7",
+   "titles": [
+    "SNO-CROSS"
+   ],
+   "maple_base": "0x1dc0000",
+   "mapledev_base": "0x1ce0000",
+   "ram_end": "0x8cfd0000",
+   "maple_text_tail": {
+    "code_end_rva": "0x8372",
+    "stored_end_rva": "0x8400",
+    "tail_bytes": 140,
+    "tail_zero": true
+   },
+   "mapledev_text_tail": {
+    "code_end_rva": "0x1e59b",
+    "stored_end_rva": "0x1e600",
+    "tail_bytes": 100,
+    "tail_zero": true
+   }
+  },
+  {
+   "kernel_sha256": "93db3411b4c0284dc422d62d574045c240ed88fa09f80968ab86119a45fb6ebf",
+   "titles": [
+    "SNO-CROSS"
+   ],
+   "maple_base": "0x1dc0000",
+   "mapledev_base": "0x1ce0000",
+   "ram_end": "0x8cfd0000",
+   "maple_text_tail": {
+    "code_end_rva": "0x8372",
+    "stored_end_rva": "0x8400",
+    "tail_bytes": 140,
+    "tail_zero": true
+   },
+   "mapledev_text_tail": {
+    "code_end_rva": "0x1e59b",
+    "stored_end_rva": "0x1e600",
+    "tail_bytes": 100,
+    "tail_zero": true
+   }
+  },
+  {
+   "kernel_sha256": "3c7b808ed10545bf6e85842c246ce75f17ea063ab26039f8ce000562bb0701f2",
+   "titles": [
+    "STARLANCER"
+   ],
+   "maple_base": "0x1c80000",
+   "mapledev_base": "0x1b60000",
+   "ram_end": "0x8cfd0000",
+   "maple_text_tail": {
+    "code_end_rva": "0x8372",
+    "stored_end_rva": "0x8400",
+    "tail_bytes": 140,
+    "tail_zero": false
+   },
+   "mapledev_text_tail": {
+    "code_end_rva": "0xdc8b",
+    "stored_end_rva": "0xde00",
+    "tail_bytes": 372,
+    "tail_zero": true
+   }
+  },
+  {
+   "kernel_sha256": "4a6246a5f39bf991846050d87804b85909a79253423f02ed0a6a3222400ede09",
+   "titles": [
+    "THE NEXT TETRIS ONLINE EDITION"
+   ],
+   "maple_base": "0x1cc0000",
+   "mapledev_base": "0x1bf0000",
+   "ram_end": "0x8cfd0000",
+   "maple_text_tail": {
+    "code_end_rva": "0x8372",
+    "stored_end_rva": "0x8400",
+    "tail_bytes": 140,
+    "tail_zero": true
+   },
+   "mapledev_text_tail": {
+    "code_end_rva": "0xdc6b",
+    "stored_end_rva": "0xde00",
+    "tail_bytes": 404,
+    "tail_zero": true
+   }
+  },
+  {
+   "kernel_sha256": "1ba37ed87b44e2b7d731dc24466f39e0301f10a391206f4cafd4fd146e5d30e9",
+   "titles": [
+    "TOM CLANCYS RAINBOW SIX"
+   ],
+   "maple_base": "0x1d80000",
+   "mapledev_base": "0x1cb0000",
+   "ram_end": "0x8c500000",
+   "maple_text_tail": {
+    "code_end_rva": "0x8372",
+    "stored_end_rva": "0x8400",
+    "tail_bytes": 140,
+    "tail_zero": true
+   },
+   "mapledev_text_tail": {
+    "code_end_rva": "0xdc6b",
+    "stored_end_rva": "0xde00",
+    "tail_bytes": 404,
+    "tail_zero": true
+   }
+  },
+  {
+   "kernel_sha256": "e4a5f96869ad890c8f59f1fe198970982d340d63c903ea05d7f61f3937a90c40",
+   "titles": [
+    "TOMB RAIDER CHRONICLES"
+   ],
+   "maple_base": "0x1db0000",
+   "mapledev_base": "0x1ce0000",
+   "ram_end": "0x8cdd0000",
+   "maple_text_tail": {
+    "code_end_rva": "0x8372",
+    "stored_end_rva": "0x8400",
+    "tail_bytes": 140,
+    "tail_zero": true
+   },
+   "mapledev_text_tail": {
+    "code_end_rva": "0xdc6b",
+    "stored_end_rva": "0xde00",
+    "tail_bytes": 404,
+    "tail_zero": true
+   }
+  },
+  {
+   "kernel_sha256": "24b52a5953d26206d6fea8dc23e4d19b9f4b5b5b329f1d105fb33033b0077cb4",
+   "titles": [
+    "WHO WANTS TO BEAT UP A MILLIONAIRE"
+   ],
+   "maple_base": "0x1da0000",
+   "mapledev_base": "0x1cd0000",
+   "ram_end": "0x8cfd0000",
+   "maple_text_tail": {
+    "code_end_rva": "0x8372",
+    "stored_end_rva": "0x8400",
+    "tail_bytes": 140,
+    "tail_zero": true
+   },
+   "mapledev_text_tail": {
+    "code_end_rva": "0xdc6b",
+    "stored_end_rva": "0xde00",
+    "tail_bytes": 404,
+    "tail_zero": true
+   }
+  },
+  {
+   "kernel_sha256": "189719d8d3763284f74c5e66704710b9f9968118cb58aeb0a0844bd121a629ab",
+   "titles": [
+    "WORMS WORLD PARTY"
+   ],
+   "maple_base": "0x1ce0000",
+   "mapledev_base": "0x1c10000",
+   "ram_end": "0x8cfd0000",
+   "maple_text_tail": {
+    "code_end_rva": "0x8372",
+    "stored_end_rva": "0x8400",
+    "tail_bytes": 140,
+    "tail_zero": false
+   },
+   "mapledev_text_tail": {
+    "code_end_rva": "0xdc6b",
+    "stored_end_rva": "0xde00",
+    "tail_bytes": 404,
+    "tail_zero": true
+   }
+  }
+ ],
+ "limits": [
+  "Static disassembly and ROM inspection only; no console run.",
+  "In six kernels (Worms World Party among them) the bytes after maple.dll's code hold other ROM records, so no text-tail bridge fits there; mapledev.dll's free tail is a candidate only if it runs in the same process as maple.dll, which is not established."
+ ]
+}

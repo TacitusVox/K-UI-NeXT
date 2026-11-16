@@ -132,3 +132,84 @@ The PAL Nightmare Creatures II and Taxi 2 kernels join the Urban Chaos family
 rather than the US NC2 family. A hook built per family therefore covers PAL
 releases too, but the family must be looked up per kernel, not per title.
 Record: [worldwide survey](evidence/wince-controller-driver-survey-world-2026-11-11.json).
+
+## Family 7 placements (17 Nov 2026)
+
+Armada, Wild Metal, Biohazard 2 Value Plus and Hello Kitty Lovely Fruit Park
+carry the same `nk.exe` build, not only the same drivers. They differ in
+placement alone. `tools/wince_family7_profiles.py` derives it from each kernel;
+the record is [family 7 profiles](evidence/wince-family7-profiles-2026-11-17.json).
+
+| Kernel | Kernel data shift | `maple.dll` base / ROM entry | `mapledev.dll` base / ROM entry |
+| --- | ---: | --- | --- |
+| Armada | 0 | `0x01dd0000` / `0x8c141614` | `0x01d20000` / `0x8c1416f4` |
+| Wild Metal | `+0x200000` | `0x01b40000` / `0x8c341efc` | `0x01a90000` / `0x8c341fdc` |
+| Biohazard 2 Value Plus | `-0x10000` | `0x01df0000` / `0x8c130d94` | `0x01d60000` / `0x8c130e34` |
+| Hello Kitty Lovely Fruit Park | 0 | `0x01dc0000` / `0x8c143628` | `0x01d10000` / `0x8c143708` |
+
+- In `nk.exe`, 1,023 of the 1,028 words that differ from Armada's move by
+  exactly the data shift. The other five are the ROM header pointer and four
+  values that follow where RAM starts.
+- The drivers' code equals Armada's apart from addresses that move with a
+  module's base. Their compressed data sections have equal stored sizes.
+- RAM ends at `0x8cfd0000` in all four.
+
+`include/kui/ce_maple_family7.h` records these, with Armada as the default. The
+helper's kernel addresses and the write layout's bridge follow it, and
+`CE_FAMILY7_KERNEL=1` builds the Armada VMU helper for Wild Metal. That build
+links the bridge at `0x01b467a4`.
+
+With Armada selected, all six delivered WinCE modules of build `7b216f2e1136`
+rebuild byte for byte. The stage's kernel admission and the GUI route are
+still Armada's ([GUI routing](wince-gui-routing.md)), so no other title is
+enabled yet.
+
+## Family 2 audit: World Party (17 Nov 2026)
+
+World Party's `maple.dll` was disassembled beside Armada's and matched against
+each reviewed Armada window. The survey found family 2 identical apart from
+relocation, so these RVAs hold in all 22 family 2 kernels, each at its own
+base. Record: [family 2 audit](evidence/wince-maple-family2-audit-2026-11-17.json).
+
+| Window | Armada (family 7) | World Party (family 2) |
+| --- | --- | --- |
+| `CreateThread` import stub (COREDLL 492) | `0x6344` | `0x7f1c` |
+| `SetKMode` import stub (COREDLL 630) | `0x6374` | `0x7f4c` |
+| `WaitForSingleObject` import stub (COREDLL 497) | `0x6314` | `0x7eec` |
+| Worker thread creation (two `CreateThread` calls) | `0x1b80`-`0x1bb4` | `0x1d68`-`0x1d9c` |
+| Thread start wrappers | `0x183c`, `0x1854` | `0x1a00`, `0x1a18` |
+| Worker | `0x5d4c` | `0x7910` |
+| Worker's completion call (status bit `0x1000`) | `0x5daa`-`0x5db4` | `0x797a`-`0x7986` |
+| Completion entry / resume after two pushes | `0x5b0c` / `0x5b10` | `0x7664` / `0x7668` |
+| Initialization kernel mode | `0x1ef4`, `0x214a` | `0x20f8`, `0x234e` |
+
+Two differences matter for the hook:
+
+- **The worker waits forever.** Family 7's worker waits 60 ms at a time;
+  family 2's waits until signalled. It also keeps a flag of whether the last
+  pass completed, which gates two calls on the next pass.
+- **The extension's fields are moved.** The completion reads field `0x15c`
+  (Armada `0x158`), and the worker's thread handles are at `+384`/`+388`
+  (Armada `+376`/`+380`).
+
+Otherwise the completion entry is Armada's: the same seven register saves,
+and `T` unused until the test at `0x767c`.
+
+The bridge's room differs by kernel:
+
+- **16 of the 22 kernels** have 140 zero bytes after `maple.dll`'s code, at
+  `0x8374`. That is room for Armada's 92-byte bridge, within short-branch reach
+  of the completion entry and the `SetKMode` stub.
+- **Six kernels have none:** World Party, 4x4 Evolution, both Hundred Swords,
+  Net de Para and Starlancer. There, the bytes after the code hold other ROM
+  records. `mapledev.dll`'s free tail is a candidate if it runs in the same
+  process, which is not established.
+- **RAM end:** Q\*bert, Rainbow Six and Tomb Raider Chronicles end RAM below
+  `0x8cfd0000` and need the reservation moved.
+
+### Next for family 2
+
+1. A family 2 hook profile: Armada's hook at the RVAs above, adjusted for the
+   indefinite wait and the moved fields.
+2. Place the bridge for the six kernels without a tail.
+3. The GUI route of [GUI routing](wince-gui-routing.md).
