@@ -239,7 +239,16 @@
  *
  * The report says which commands that are no reads were met while a
  * window stood, a bit to a command number, and how many the window stood
- * through: a game that sends another kind is named by the same run. */
+ * through: a game that sends another kind is named by the same run.
+ *
+ * Two things more in the report, neither of them the reader's behaviour.
+ * It has the longest single visit by who called, where Test 79's had
+ * totals alone: the owner saw a slight stutter in the Evolution games at
+ * times while the card was read, and totals cannot say whether one visit
+ * ever held the processor for a frame. And for a title that is not Toy
+ * Commander the five rows of that game's movie player are left out: they
+ * were zeros, and the report then fits three pages on the screen where
+ * the owner photographed four. */
 #ifndef KUI_TOY_WIRE_QUERY
 #define KUI_TOY_WIRE_QUERY 0
 #endif
@@ -524,6 +533,11 @@ struct kui_toy_wire_report {
      * first word for command n below 32, of the second for n from 32 on.
      * And how many of them the window stood through. */
     uint32_t command_seen[2], queries;
+    /* The longest single pump by who called, and the longest whole
+     * delivery visit from one of the game's disc calls, in the clock's
+     * ticks: what the reader held the processor for in one go. (The
+     * totals beside them are visit_ticks and deliver_ticks.) */
+    uint32_t visit_longest[KUI_TOY_WIRE_VISITS], deliver_longest;
 #endif
 #else
     uint32_t handler_ticks, handler_calls, handler_max; /* SCI interrupt visits while streaming */

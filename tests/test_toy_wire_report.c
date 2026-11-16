@@ -105,13 +105,22 @@ static const char *const labels[] = {
     "I SUBMIT CADENCE MAX AT", "I FIRST LAST SKIP EXIT SF", "B SUBMIT CADENCE MAX AT",
     "IP ON OT OC OI SN ST",
     "K LIGHT EDC MEND MB LB ORD",
-    "V SCI TMR GAME N TICKS", "P RING FEED CHK OUT SVC HALT", "D N T SEEK",
+    "V SCI TMR GAME N TICKS",
+#if KUI_TOY_WIRE_QUERY
+    /* Test 80: the longest single visits. */
+    "VMAX SCI TMR GAME D",
+#endif
+    "P RING FEED CHK OUT SVC HALT", "D N T SEEK",
     "W START SEG CUT WAIT FULL", "W BYTES WTICK TMR ERR DET", "W BLK FIX UNFIX HOLED NOCRC SEEK",
     "S C S F LF AM BC", "W FILL REF BAD",
     "BP ON OT OC OI SN ST",
 };
 enum { LABELS = sizeof(labels) / sizeof(labels[0]),
-    ESSENTIAL = KUI_TOY_WIRE_QUERY ? 19 : KUI_TOY_WIRE_TITLES ? 18 : 17 };
+    ESSENTIAL = KUI_TOY_WIRE_QUERY ? 20 : KUI_TOY_WIRE_TITLES ? 18 : 17,
+    /* Test 80 leaves the movie player's rows out for a title that is not
+     * Toy Commander: the second movie's two, the first movie's, and the
+     * two players'. */
+    MOVIE_ROWS = KUI_TOY_WIRE_QUERY ? 5 : 0 };
 #elif KUI_TOY_WIRE_SEQ
 #define TEST_NUMBER "77"
 /* Test 77's rows: Test 76's with the sectors served from windows outside
@@ -402,13 +411,25 @@ int main(int argc, char **argv) {
 
     /* Nothing counted, no stream block yet: zeros, every row present. */
     size_t body = format(&ra, &region, text, &rows);
+#if KUI_TOY_WIRE_ANY
+    /* (Since Test 80 a title that is not Toy Commander, as a report of
+     * zeros is, has no movie rows.) */
+    assert(rows == LABELS - MOVIE_ROWS && strstr(text, "W START SEG CUT WAIT FULL\n0 0 0 0 0\n"));
+#else
     assert(rows == LABELS && strstr(text, "W START SEG CUT WAIT FULL\n0 0 0 0 0\n"));
+#endif
     const size_t empty = body;
 #if KUI_TOY_WIRE_TITLES
     /* A title that is not the verified Toy Commander says so. */
     assert(strstr(text, "BIG N S BACK TOY\n0 0 0 0\nSD BLK PIO OVR CRC DECL\n0 0 0 0 0\n"));
 #if KUI_TOY_WIRE_QUERY
-    assert(strstr(text, "SD BLK PIO OVR CRC DECL\n0 0 0 0 0\nXC KEPT LO HI\n0 0 0\nI SUBMIT"));
+    /* Test 80: no row of Toy Commander's movie player for it, and the
+     * longest visits behind the visits. Sixteen rows: three pages on the
+     * screen, where Test 79's report took four. */
+    assert(strstr(text, "SD BLK PIO OVR CRC DECL\n0 0 0 0 0\nXC KEPT LO HI\n0 0 0\nK LIGHT EDC MEND MB LB ORD\n"));
+    assert(!strstr(text, "SUBMIT") && !strstr(text, "I FIRST") && !strstr(text, "IP ON") && !strstr(text, "BP ON"));
+    assert(strstr(text, "V SCI TMR GAME N TICKS\n0 0 0 0 0 0\nVMAX SCI TMR GAME D\n0 0 0 0\nP RING"));
+    assert(rows == 16u && 4u + 2u * rows == 3u * TOY_PAGE_LINES);
 #endif
     /* On the screen: four lines of heading and two for each row, none cut. */
     assert(screen(text, body) == 4u + 2u * rows && !screen_cut);
@@ -550,6 +571,11 @@ int main(int argc, char **argv) {
      * window; and the commands its windows met: GETTOC2, SEEK and NOP,
      * STOP, GETSCD and REQ_STAT. */
     wire.queries = 0x2e02; wire.command_seen[0] = UINT32_C(0x28080000); wire.command_seen[1] = 0x16;
+    /* The longest pumps: an interrupt visit at its budget, a timer's
+     * answer, a call of the game's over a large request; and a delivery
+     * visit of a frame and a half. */
+    wire.visit_longest[0] = 0x494; wire.visit_longest[1] = 0x2c; wire.visit_longest[2] = 0x1d4c;
+    wire.deliver_longest = 0x4c4b;
 #endif
     uint32_t *trace = ra.diagnostics.stage_result[KUI_NATIVE_RA_STAGE_NONE];
     trace[0] = 0x1100; trace[1] = 0x6600; trace[2] = 2; trace[3] = 3; trace[4] = 0x9000; trace[5] = 0xbe00;
@@ -642,6 +668,7 @@ int main(int argc, char **argv) {
     /* The commands a window stood through, and the commands windows met
      * by their numbers' bits: 19, 27 and 29; 33, 34 and 36. */
     assert(strstr(text, "SD BLK PIO OVR CRC DECL\n40 2F 11 0 6\nXC KEPT LO HI\n2E02 28080000 16\nI SUBMIT"));
+    assert(strstr(text, "\nVMAX SCI TMR GAME D\n494 2C 1D4C 4C4B\nP RING"));
 #endif
 #else
     assert(strstr(text, "BIG N S BACK\n1C00 7B000 3\n") && !strstr(text, "BACK TOY"));

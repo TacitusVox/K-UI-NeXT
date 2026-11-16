@@ -3402,6 +3402,7 @@ static void titles_asked(bool asks, uint32_t mean, unsigned dense) {
     CHECK(!c->demand.owner_verified);
     uint32_t lba = 45002u;
     static const uint32_t sizes[5] = {73u, 50u, 73u, 50u, 52u};
+    uint32_t longest[KUI_TOY_WIRE_VISITS + 1u] = {0u};
     for(unsigned i = 0u; i < 5u; lba += sizes[i++]) {
         any_read(lba, sizes[i], false);
         CHECK(R.shared.service.position_lba == lba + sizes[i] - 1u);
@@ -3411,8 +3412,27 @@ static void titles_asked(bool asks, uint32_t mean, unsigned dense) {
         CHECK(R.shared.service.position_lba == lba + sizes[i] - 1u);
         /* The game plays on for a few of its frames before it reads again. */
         for(unsigned n = 0u; n < 12u; ++n) if(!hardware()) CHECK(gd(KUI_GD_EXEC, 0, 0) == 0);
+        /* What is kept as the longest visit never grows shorter. */
+        for(unsigned who = 0u; who <= KUI_TOY_WIRE_VISITS; ++who) {
+            const uint32_t now = who < KUI_TOY_WIRE_VISITS ? w->visit_longest[who] : w->deliver_longest;
+            CHECK(now >= longest[who]);
+            longest[who] = now;
+        }
     }
     CHECK(lba == 45300u && !w->first_error && !c->stats.abandoned && !w->large_returned);
+    /* The longest single pump of each caller is one of its pumps: no more
+     * than their sum and no less than their mean. This title's stream has
+     * no timer. The longest delivery visit likewise, of the game's disc
+     * calls. */
+    for(unsigned who = 0u; who < KUI_TOY_WIRE_VISITS; ++who) {
+        CHECK(w->visit_longest[who] <= w->visit_ticks[who] &&
+            (uint64_t)w->visit_longest[who] * w->visit_calls[who] >= w->visit_ticks[who]);
+        CHECK(!w->visit_longest[who] == (who == KUI_TOY_WIRE_VISIT_TIMER));
+    }
+    CHECK(w->deliver_longest && w->deliver_longest <= w->deliver_ticks &&
+        (uint64_t)w->deliver_longest * w->deliver_calls >= w->deliver_ticks);
+    CHECK(w->deliver_longest < w->deliver_ticks && w->visit_longest[KUI_TOY_WIRE_VISIT_GAME] <
+        w->visit_ticks[KUI_TOY_WIRE_VISIT_GAME]);
     /* (On a bus that cuts runs short a read may wait longer than a window
      * is kept for it: that window is given up for the wait, as in any
      * build.) */

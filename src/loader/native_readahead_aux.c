@@ -1675,6 +1675,9 @@ uint32_t kui_native_readahead_aux_dispatch(uint32_t event,uint32_t arg,
         struct kui_toy_wire_report *w=&toy_wire_keep()->report;
         ++w->deliver_calls;
         w->deliver_ticks+=elapsed;
+#if KUI_TOY_WIRE_QUERY
+        if(elapsed>w->deliver_longest)w->deliver_longest=elapsed;
+#endif
     }
 #endif
 #if KUI_TOY_SUITE_ASYNC_DEMAND && KUI_TOY_SUITE_MODE < 62

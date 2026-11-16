@@ -141,6 +141,14 @@ static void toy_report_wire(char **at,const char *end,const struct kui_native_ra
             ra->stats.producer_blocks,ra->stats.abandoned},5u);
 #endif
     const struct kui_toy_movie_present_trace *intro=&ra->present[1],*bumper=&ra->present[0];
+#if KUI_TOY_WIRE_QUERY
+    /* Test 80: a title that is not the verified Toy Commander has no
+     * movie player the reader knows. Its five rows were zeros in Test
+     * 79's reports; they are left out, and the report is three pages on
+     * the screen. */
+    const bool movies=ra->demand.owner_verified!=0u;
+    if(movies) {
+#endif
     toy_report_short(at,end,"I SUBMIT CADENCE MAX AT",
         (uint32_t[]){intro->submitted,intro->on_time,intro->max_gap,intro->max_gap_frame},4u);
     toy_report_short(at,end,"I FIRST LAST SKIP EXIT SF",
@@ -155,11 +163,22 @@ static void toy_report_wire(char **at,const char *end,const struct kui_native_ra
         toy_report_short(at,end,n?"BP ON OT OC OI SN ST":"IP ON OT OC OI SN ST",
             (uint32_t[]){p->out,p->out_ticks,p->out_cycle,p->out_interrupt,p->skip,p->skip_ticks},6u);
     }
+#if KUI_TOY_WIRE_QUERY
+    }
+#endif
     toy_report_short(at,end,"K LIGHT EDC MEND MB LB ORD",
         (uint32_t[]){w->light,w->edc,w->mends,w->mend_bad,w->light_bad,w->n.order},6u);
     toy_report_short(at,end,"V SCI TMR GAME N TICKS",
         (uint32_t[]){w->visit_calls[0],w->visit_calls[1],w->visit_calls[2],
             w->visit_ticks[0],w->visit_ticks[1],w->visit_ticks[2]},6u);
+#if KUI_TOY_WIRE_QUERY
+    /* The longest single pump from the SCI's interrupt, from the stream's
+     * timer and from one of the game's calls, and the longest whole
+     * delivery visit from one of the game's disc calls (D's N and T are
+     * their count and their sum). A frame of the display is 32DD ticks. */
+    toy_report_short(at,end,"VMAX SCI TMR GAME D",
+        (uint32_t[]){w->visit_longest[0],w->visit_longest[1],w->visit_longest[2],w->deliver_longest},4u);
+#endif
     /* The reader's ticks by what it was doing, as Test 75; then the ticks
      * spent ending streams. */
     toy_report_short(at,end,"P RING FEED CHK OUT SVC HALT",
@@ -212,6 +231,9 @@ static void toy_report_wire(char **at,const char *end,const struct kui_native_ra
      * reads open thousands of windows widens the counts above, and of all
      * rows this one says least about what the test asks: it is the one to
      * go for room. */
+#if KUI_TOY_WIRE_QUERY
+    if(movies)
+#endif
     toy_report_short(at,end,"BP ON OT OC OI SN ST",
         (uint32_t[]){w->player[0].out,w->player[0].out_ticks,w->player[0].out_cycle,
             w->player[0].out_interrupt,w->player[0].skip,w->player[0].skip_ticks},6u);

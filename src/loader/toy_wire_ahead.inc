@@ -264,6 +264,9 @@ static void toy_wire_visit_time(struct toy_wire_keep *k,unsigned who,struct ra_c
 #if !KUI_TOY_WIRE_LEAN
     if(spent>k->report.visit_max[who])k->report.visit_max[who]=spent;
 #endif
+#if KUI_TOY_WIRE_QUERY
+    if(spent>k->report.visit_longest[who])k->report.visit_longest[who]=spent;
+#endif
 #if KUI_TOY_WIRE_WORDS
     const int piece=toy_wire_course(now.counter);
     if(piece>=0)(who==KUI_TOY_WIRE_VISIT_GAME?k->report.course_game:k->report.course_interrupt)[piece]+=spent;
