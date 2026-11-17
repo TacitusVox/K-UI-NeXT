@@ -5,6 +5,8 @@
 #include "kui/retail_image.h"
 #include "kui/storage.h"
 #include "shell_art.inc"
+#include "kui/splash.h"
+#include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
 
@@ -87,9 +89,24 @@ static void panel(struct paint *p, unsigned x, unsigned y,
     box(p,x+1,y+h-5,w-2,2,color); box(p,x+2,y+h-3,w-4,2,color);
     box(p,x+4,y+h-1,w-8,1,color);
 }
+/* The launcher artwork ships deflate-compressed (tools/generate_shell_art.py)
+ * and is inflated into RAM once, by the first frame that draws it, after the
+ * startup splash. Without RAM for it the artwork is not drawn. */
+static const uint16_t *art_pack(size_t offset) {
+    static uint16_t *pixels;
+    static bool tried;
+    if(!pixels && !tried) {
+        tried=true;
+        pixels=malloc(KUI_ART_PACK_PIXELS*sizeof(*pixels));
+        if(pixels && !kui_art_inflate(kui_art_pack,sizeof(kui_art_pack),pixels,KUI_ART_PACK_PIXELS*sizeof(*pixels))) {
+            free(pixels);pixels=NULL;
+        }
+    }
+    return pixels?pixels+offset:NULL;
+}
 static void art(struct paint *p, unsigned x, unsigned y,
         unsigned w, unsigned h, const uint16_t *pixels) {
-    if(x>=640 || y>=480) return;
+    if(!pixels || x>=640 || y>=480) return;
     unsigned rows=h<480-y?h:480-y, cols=w<640-x?w:640-x;
     for(unsigned row=0;row<rows;row++) for(unsigned col=0;col<cols;col++) {
         uint16_t color=pixels[row*w+col];
@@ -102,7 +119,7 @@ static const char *state(const struct kui_shell_view *v) {
     return "READY";
 }
 static void heading(struct paint *p, const struct kui_shell *s,const struct kui_shell_view *v) {
-    art(p,32,20,128,64,kui_art_brand);
+    art(p,32,20,128,64,art_pack(KUI_ART_BRAND_OFFSET));
     words(p,176,26,396,WHITE,KUI_RELEASE_SHORT,true);
     const char *credit=v->busy || v->saving?state(v):"by TacitusVox / READY";
     words(p,176,52,396,MUTED,credit,false);
@@ -316,7 +333,7 @@ static void home(struct paint *p, const struct kui_shell *s,const struct kui_she
             panel(p,32,y,208,26,SELECTED);
             box(p,32,y+4,3,18,PINK);
         }
-        art(p,44,y+1,24,24,kui_art_small_icons[app->art]);
+        art(p,44,y+1,24,24,art_pack(KUI_ART_SMALL_ICONS_OFFSET+(size_t)app->art*24u*24u));
         words(p,80,y+4,230,selected==i?WHITE:MUTED,app->name,false);
     }
     if(s->system_saved.show_memory && v->memory_valid) {
@@ -336,7 +353,7 @@ static void home(struct paint *p, const struct kui_shell *s,const struct kui_she
         label(p,264,144,CYAN,inserted);
     } else label(p,264,144,CYAN,chosen->category);
     panel(p,264,172,344,140,PANEL);
-    art(p,372,178,128,128,kui_art_icons[chosen->art]);
+    art(p,372,178,128,128,art_pack(KUI_ART_ICONS_OFFSET+(size_t)chosen->art*128u*128u));
     for(unsigned i=0;i<3;i++) label(p,264,326+i*19,MUTED,chosen->details[i]);
     panel(p,264,382,344,28,CYAN);
     label(p,382,388,NAVY,"A  Open app");
