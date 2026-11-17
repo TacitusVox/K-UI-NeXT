@@ -16,7 +16,7 @@ enum { GD_SEND = 0, GD_CHECK = 1, GD_EXEC = 2, GD_INIT = 3, GD_DRIVE = 4, GD_ABO
 enum { CMD_PIOREAD = 16, CMD_INIT = 24 };
 enum { CMD_FAILED = -1, CMD_NOT_FOUND = 0, CMD_PROCESSING = 1, CMD_COMPLETED = 2, CMD_STREAMING = 3,
        CMD_BUSY = 4 };
-enum { READ_SYS = -1, READ_DISC_CHANGED = -6, READ_TIMEOUT = -9 };
+enum { READ_SYS = -1, READ_NOT_READY = -2, READ_DISC_CHANGED = -6, READ_TIMEOUT = -9 };
 /* KOS waits 10 s for CMD_INIT. A damaged area makes the drive retry, but a
  * 16-sector read that has not finished in 10 s is abandoned for the next copy. */
 #define COMMAND_SECONDS 10u
@@ -85,14 +85,23 @@ static int exec_cmd(int32_t cmd, void *param) {
         }
     }
     if(response == CMD_COMPLETED || response == CMD_STREAMING) return 0;
+    if(status[0] == 2) return READ_NOT_READY;
     return status[0] == 6 ? READ_DISC_CHANGED : READ_SYS;
 }
 
 /* KOS cdrom_init and cdrom_reinit: initialise the GD functions and the drive,
- * then select 2048-byte user data, CD-ROM XA mode 2 when the drive says so. */
+ * then select 2048-byte user data, CD-ROM XA mode 2 when the drive says so.
+ * Like cdrom_reinit, keep asking for up to 10 s while the drive reports a
+ * disc change; here also while it is not ready, since this disc just booted
+ * and is certainly in the drive. */
 static void drive_init(void) {
     (void)gd(0, 0, GD_INIT);
-    for(unsigned tries = 0; tries < 8u && exec_cmd(CMD_INIT, 0) == READ_DISC_CHANGED; ++tries) {}
+    const uint32_t start = rtc_seconds();
+    for(;;) {
+        const int result = exec_cmd(CMD_INIT, 0);
+        if(result != READ_DISC_CHANGED && result != READ_NOT_READY) break;
+        if(rtc_seconds() - start >= COMMAND_SECONDS) break;
+    }
     int32_t drive[2] = {0, 0};
     (void)gd((uint32_t)(uintptr_t)drive, 0, GD_DRIVE);
     int32_t mode[4] = {0, 0x2000, drive[1] == 0x20 ? 2048 : 1024, 2048};
@@ -100,11 +109,15 @@ static void drive_init(void) {
     drive_ready = true;
 }
 
+/* After "not ready" or "disc changed" the drive is set up again before the
+ * next read, as KOS's iso9660 driver does after ERR_NO_DISC/ERR_DISC_CHG. */
 static int read_sectors(void *ctx, uint32_t fad, uint32_t count, void *buffer) {
     (void)ctx;
     if(!drive_ready) drive_init();
     struct { uint32_t start, count; void *buffer; uint32_t is_test; } params = {fad, count, buffer, 0};
-    return exec_cmd(CMD_PIOREAD, &params);
+    const int result = exec_cmd(CMD_PIOREAD, &params);
+    if(result == READ_NOT_READY || result == READ_DISC_CHANGED) drive_ready = false;
+    return result;
 }
 
 /* Called by stage1_entry.S on the relocated copy. Returns 0 when the

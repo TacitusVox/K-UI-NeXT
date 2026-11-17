@@ -20,6 +20,9 @@ static uint8_t image[IMAGE_BYTES];
 static uint8_t disc[DISC_SECTORS * SECTOR];
 static uint8_t loaded[16u * 32768u];
 static bool unreadable[DISC_SECTORS];
+/* Transient failures: bit N set fails the Nth attempt to read that sector. */
+static uint32_t fail_attempt[DISC_SECTORS];
+static unsigned attempts[DISC_SECTORS];
 static unsigned reads, sector_reads, copy_reads[3], seeks;
 static int last_copy;
 
@@ -40,7 +43,11 @@ static int fake_read(void *ctx, uint32_t fad, uint32_t count, void *buffer) {
     if(last_copy >= 0 && copy != last_copy) ++seeks;
     last_copy = copy;
     assert(fad >= 150u && fad - 150u + count <= DISC_SECTORS);
-    for(uint32_t s = 0; s < count; ++s) if(unreadable[fad - 150u + s]) return -1;
+    /* Like the drive, stop at the first sector that fails. */
+    for(uint32_t s = 0; s < count; ++s) {
+        const uint32_t at = fad - 150u + s, attempt = attempts[at]++;
+        if(unreadable[at] || (attempt < 32u && (fail_attempt[at] >> attempt & 1u))) return -1;
+    }
     memcpy(buffer, disc + (size_t)(fad - 150u) * SECTOR, (size_t)count * SECTOR);
     return 0;
 }
@@ -75,6 +82,8 @@ static void make_table(void) {
 static void reset_disc(void) {
     memset(disc, 0x5a, sizeof(disc));
     memset(unreadable, 0, sizeof(unreadable));
+    memset(fail_attempt, 0, sizeof(fail_attempt));
+    memset(attempts, 0, sizeof(attempts));
     for(int c = 0; c < 3; ++c) memcpy(disc + (size_t)(fads[c] - 150u) * SECTOR, image, IMAGE_BYTES);
     memset(loaded, 0xee, sizeof(loaded));
     reads = sector_reads = seeks = 0;
@@ -178,9 +187,31 @@ int main(int argc, char **argv) {
     reset_disc(); unreadable[lba(0, 2, 3)] = true; damage(1, 2, 3);
     damage(1, 2, 9); damage(2, 2, 9);
     assert(run() == KUI_STAGE1_CORRUPT);
-    /* The same sector unreadable on every copy cannot be recovered. */
+    /* The same sector unreadable on every copy cannot be recovered: one
+     * whole-chunk attempt per copy, then four rounds over all three copies. */
     reset_disc(); for(int c = 0; c < 3; ++c) unreadable[lba(c, 11, 4)] = true;
     assert(run() == KUI_STAGE1_UNREADABLE);
+    for(int c = 0; c < 3; ++c) assert(attempts[lba(c, 11, 4)] == 1u + 4u);
+    /* A sector that fails its first two attempts on every copy (the console
+     * evidence: two failures, then a good read) is read in the second round. */
+    reset_disc(); for(int c = 0; c < 3; ++c) fail_attempt[lba(c, 5, 3)] = 3u;
+    assert(run() == KUI_STAGE1_OK && loaded_ok());
+    assert(attempts[lba(0, 5, 3)] == 3u && attempts[lba(1, 5, 3)] == 2u && attempts[lba(2, 5, 3)] == 2u);
+    /* ... one that fails its first four attempts on every copy is read in
+     * the last round, and one that fails five is given up on. */
+    reset_disc(); for(int c = 0; c < 3; ++c) fail_attempt[lba(c, 5, 3)] = 0xfu;
+    assert(run() == KUI_STAGE1_OK && loaded_ok() && attempts[lba(0, 5, 3)] == 5u);
+    reset_disc(); for(int c = 0; c < 3; ++c) fail_attempt[lba(c, 5, 3)] = 0x1fu;
+    assert(run() == KUI_STAGE1_UNREADABLE && attempts[lba(2, 5, 3)] == 5u);
+    /* Silent damage forces the vote, and the vote's re-read of an undamaged
+     * sector fails on every copy: the reading already in place is kept and
+     * the chunk CRC confirms it. */
+    reset_disc(); damage(0, 6, 0); damage(1, 6, 5); damage(2, 6, 15);
+    fail_attempt[lba(0, 6, 8)] = 1u << 2;   /* whole read, rebuild read, then the vote fails */
+    fail_attempt[lba(1, 6, 8)] = 1u << 1;   /* whole read, then the vote fails */
+    fail_attempt[lba(2, 6, 8)] = 1u << 1;
+    assert(run() == KUI_STAGE1_OK && loaded_ok());
+    assert(attempts[lba(0, 6, 8)] == 3u && attempts[lba(1, 6, 8)] == 2u && attempts[lba(2, 6, 8)] == 2u);
     /* Two of three copies damaged identically in one sector: refused by CRC. */
     reset_disc(); damage(0, 9, 2); damage(1, 9, 2); unreadable[lba(2, 9, 0)] = true;
     assert(run() == KUI_STAGE1_CORRUPT);
@@ -201,7 +232,7 @@ int main(int argc, char **argv) {
     REJECT(image_bytes, 256u * 32768u + 1u);
     assert(kui_boot_copies_valid(&table) && kui_stage1_load(&table, NULL, fake_read, NULL) == KUI_STAGE1_BAD_TABLE);
     puts("PASS boot stage 1: chunk reads from the nearest good copy that stay on it, rebuild one copy "
-         "at a time, majority vote for silent damage, unrecoverable sectors and silent identical damage "
-         "refused, table checks");
+         "at a time with four rounds for transient failures, majority vote for silent damage, "
+         "unrecoverable sectors and silent identical damage refused, table checks");
     return 0;
 }

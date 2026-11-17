@@ -4,6 +4,11 @@
 #include "kui/boot_copies.h"
 
 #define CHUNK_BYTES (KUI_BOOT_COPIES_CHUNK_SECTORS * KUI_BOOT_COPIES_SECTOR_BYTES)
+/* Rounds over every copy for the sectors still missing from a damaged chunk.
+ * On a console a scratched sector has failed twice and then read on the
+ * third attempt (docs/evidence/scratched-omikron-retry-2026-09-20.txt), and a
+ * drive that briefly reports "not ready" fails every read for a moment. */
+#define REBUILD_PASSES 4u
 
 static const uint32_t nibble[16] = {
     0x00000000u, 0x1db71064u, 0x3b6e20c8u, 0x26d930acu, 0x76dc4190u, 0x6b6b51f4u,
@@ -75,7 +80,7 @@ static void copy_sector(uint8_t *to, const uint8_t *from) {
     for(uint32_t k = 0; k < KUI_BOOT_COPIES_SECTOR_BYTES / 4u; ++k) x[k] = y[k];
 }
 
-static bool merge_sector(const struct kui_boot_copies *t, uint32_t sector, uint8_t *target,
+static void merge_sector(const struct kui_boot_copies *t, uint32_t sector, uint8_t *target,
                          kui_stage1_read_fn read, void *ctx) {
     bool readable[KUI_BOOT_COPIES_MAX_COPIES];
     int first = -1;
@@ -83,15 +88,16 @@ static bool merge_sector(const struct kui_boot_copies *t, uint32_t sector, uint8
         readable[c] = read(ctx, t->copy_fad[c] + sector, 1, sector_copy[c]) == 0;
         if(readable[c] && first < 0) first = (int)c;
     }
-    if(first < 0) return false;
+    /* Nothing read this time: keep the reading already in place from the
+     * rebuild; the chunk CRC decides. */
+    if(first < 0) return;
     for(uint32_t a = 0; a < t->copy_count; ++a)
         for(uint32_t b = a + 1u; b < t->copy_count; ++b)
             if(readable[a] && readable[b] && same_sector(sector_copy[a], sector_copy[b])) {
                 copy_sector(target, sector_copy[a]);
-                return true;
+                return;
             }
     copy_sector(target, sector_copy[first]);
-    return true;
 }
 
 /* Copy order for one chunk: first the copy that delivered the previous chunk
@@ -139,19 +145,20 @@ enum kui_stage1_result kui_stage1_load(const struct kui_boot_copies *t,
          * the copies in turn: each supplies, in disc order, the sectors still
          * missing. The drive does not seek between copies for every sector,
          * and a damaged sector fails its own EDC check, so it reads as an
-         * error rather than as wrong data. */
+         * error rather than as wrong data. A sector no copy reads is tried
+         * again in up to REBUILD_PASSES rounds before stage 1 gives up. */
         const uint32_t all = (1u << sectors) - 1u;
         uint32_t have = 0;
-        for(uint32_t k = 0; k < t->copy_count && have != all; ++k)
-            have = fill_from_copy(t, copy_at(k, preferred), first, sectors, chunk, have, read, ctx);
+        for(uint32_t pass = 0; pass < REBUILD_PASSES && have != all; ++pass)
+            for(uint32_t k = 0; k < t->copy_count && have != all; ++k)
+                have = fill_from_copy(t, copy_at(k, preferred), first, sectors, chunk, have, read, ctx);
         if(have != all) return KUI_STAGE1_UNREADABLE;
         if(chunk_good(t, i, chunk, bytes)) continue;
         /* Every sector read, but the chunk is still wrong: some copy holds
          * silently damaged data. Take each sector's version two copies agree
-         * on, else the only one that could be read. */
+         * on, else the first that could be read. */
         for(uint32_t s = 0; s < sectors; ++s)
-            if(!merge_sector(t, first + s, chunk + s * KUI_BOOT_COPIES_SECTOR_BYTES, read, ctx))
-                return KUI_STAGE1_UNREADABLE;
+            merge_sector(t, first + s, chunk + s * KUI_BOOT_COPIES_SECTOR_BYTES, read, ctx);
         if(!chunk_good(t, i, chunk, bytes)) return KUI_STAGE1_CORRUPT;
     }
     return kui_stage1_crc32(0, dest, t->image_bytes) == t->image_crc32 ?

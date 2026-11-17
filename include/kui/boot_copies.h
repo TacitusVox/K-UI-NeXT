@@ -35,7 +35,7 @@ struct kui_boot_copies {
 enum kui_stage1_result {
     KUI_STAGE1_OK = 0,
     KUI_STAGE1_BAD_TABLE = 1,  /* not filled in by boot_disc.py, or damaged */
-    KUI_STAGE1_UNREADABLE = 2, /* a sector could not be read from any copy */
+    KUI_STAGE1_UNREADABLE = 2, /* a sector could not be read from any copy, after retries */
     KUI_STAGE1_CORRUPT = 3,    /* read without errors but failed its CRC */
 };
 
@@ -47,8 +47,8 @@ bool kui_boot_copies_valid(const struct kui_boot_copies *table);
 /* Fill DEST with the verified bootstrap. Each chunk is read whole, from the
  * copy that delivered the previous chunk first, until one passes its CRC. A
  * chunk that no copy delivers intact is rebuilt from the copies in turn, each
- * supplying the sectors still missing; if the result fails its CRC, each
- * sector takes the version two copies agree on. */
+ * supplying the sectors still missing, in up to four rounds; if the result
+ * fails its CRC, each sector takes the version two copies agree on. */
 enum kui_stage1_result kui_stage1_load(const struct kui_boot_copies *table,
     uint8_t *dest, kui_stage1_read_fn read, void *ctx);
 #endif
