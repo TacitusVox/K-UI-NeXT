@@ -16,6 +16,11 @@ release: it loads whatever compatible `KUI/boot.kui` or `KUI/runtime.kui` the ca
 | Cheaper loading repaints | `887e5147` | The dimmed backdrop is built once, panels are filled two pixels per store, and busy repaints no longer idle for vertical blank. Simulated cost per repaint fell from 6.70M to 3.18M cycles. |
 | No fixed pause before handing over | `c0e2a67f` | The validated image starts at once instead of after 250 ms. |
 | Redundant layout (stage 1 + three checked copies) | `0da95cfc` | See below. |
+| Stage 1 runs with the caches on | `ca47ca3e` | IP.BIN turns both caches off before it starts 1ST_READ.BIN; stage 1 now turns them on (write-through) so its code and CRC checks do not run uncached. |
+| Each GD-ROM command bounded to 10 s | `cfc15175` | A read that never finishes is aborted and the next copy is tried, instead of hanging. |
+| Builder refuses discs that verify but cannot boot or protect | `8942d7c4` | ELF inputs, unapplied sort files, adjacent copies and mkdcdisc warnings stop the build. |
+| Damaged chunks recovered one copy at a time | `9431bbd6` | A damaged copy costs one failed read, not one per chunk; rebuilds no longer seek between copies for every sector. |
+| Missing sectors retried; drive set up again after "not ready" | `7535903a` | A sector that fails transiently on every copy is read on a later round instead of sending the console to the BIOS menu. |
 
 The GUI itself loads faster from this disc's point of view because runtime.kui is
 smaller: the compressed splash (−472,172 bytes) and launcher artwork (−326,524
@@ -30,7 +35,7 @@ is an estimate from that measurement, not a new console timing; Diagnostics →
 A scratch or smudge over the 490 KB 1ST_READ.BIN used to make the disc
 unbootable. Now:
 
-- **IP.BIN and a 2.5 KB stage 1** are all the BIOS reads (1ST_READ.BIN). They
+- **IP.BIN and a 3 KB stage 1** are all the BIOS reads (1ST_READ.BIN). They
   remain single copies, like the volume descriptor and root directory the BIOS
   also needs, so the area that must be readable shrinks from about 245 sectors to
   two.
@@ -42,10 +47,29 @@ unbootable. Now:
 - **Stage 1** ([src/bootstage](../src/bootstage)) relocates itself to 0x8cf80000 and
   reads the bootstrap 32 KiB at a time through the BIOS GD-ROM functions. It
   calls them the same way, and in the same order, as KOS's cdrom driver does at every program
-  start. Each chunk comes from the nearest copy whose CRC-32 matches the table
-  that [tools/boot_disc.py](../tools/boot_disc.py) wrote into stage 1. A chunk no
-  copy delivers intact is rebuilt sector by sector, using the version two copies
-  agree on, else the one copy that reads. The whole image is then checked again.
+  start. Each chunk is read whole and checked against the CRC-32 table that
+  [tools/boot_disc.py](../tools/boot_disc.py) wrote into stage 1. Reading starts
+  at the nearest copy and stays on whichever copy last delivered a good chunk,
+  so a damaged copy costs one failed read and one seek.
+- **Rebuild.** A chunk no copy delivers intact is rebuilt from the copies in
+  turn: each supplies, in disc order, the sectors still missing. A damaged
+  sector fails the drive's own EDC check and reads as an error, so a sector
+  that reads is normally right. Missing sectors get up to four rounds over all
+  copies (five attempts per copy). Only if the rebuilt chunk still fails its
+  CRC (silent damage) does each sector take the version two copies agree on.
+  The whole image is then checked again.
+- **Caches.** IP.BIN's bootstrap turns both caches off (CCR=0x808) just before it
+  starts 1ST_READ.BIN. Stage 1 turns them back on with the value IP.BIN itself
+  writes first (0x090b: invalidated, write-through), so no line is ever dirty.
+  The bootstrap is written and checked only through its uncached alias.
+- **No hang on a stuck read.** Each GD-ROM command gets 10 s, timed with the
+  real-time clock. On expiry stage 1 aborts it as KOS's `cdrom_abort_cmd` does;
+  if the BIOS does not release it within 2 s, stage 1 resets the GD functions
+  and sets the drive up again. The read counts as failed, so the next copy is
+  tried.
+- **Drive errors.** After "not ready" or "disc changed" the drive is set up
+  again before the next read, as KOS's iso9660 driver does. Setup keeps asking
+  for up to 10 s while the drive reports either.
 - **Handoff** follows KOS's own `arch_exec` contract. Operand-cache lines are
   written back and invalidated, caches are invalidated and disabled (KOS
   enables them again at startup), the BIOS's stack pointer and return address
@@ -58,27 +82,45 @@ unbootable. Now:
 placement). It reads the copies' positions from the real CDI, writes the table
 and builds again with an identical layout. It then reads the final CDI back:
 copy positions and bytes, the descrambled 1ST_READ.BIN against the patched stage 1,
-and the boot badge. The 156 MB image is almost all zero padding; zipped, it is
+and the boot badge. It refuses:
+
+- ELF or empty inputs, and a stage 1 over its 32 KiB limit;
+- any mkdcdisc warning or error (an unmatched sort-file entry leaves the copies
+  side by side);
+- a first copy that does not directly follow 1ST_READ.BIN;
+- copies out of order, or closer than their own length plus the spacer;
+- spacers under 1 MiB. The 156 MB image is almost all zero padding; zipped, it is
 about 1.7 MB. The previous single-file layout remains buildable with mkdcdisc as before.
 
 ## Verification
 
 - `tests/test_boot_stage1.c` (in `make test`): the real stage-1 C code against
-  a three-copy disc model, with injected read errors and silent damage. It covers
-  nearest-copy chunk reads, fallback, sector-by-sector rebuild with majority vote,
-  unrecoverable and identically damaged sectors, and every table check.
-- `tests/test_boot_disc.py`: tables built in Python drive the C loader, MIL-CD
-  scrambling round-trips, and the placeholder patch is exact. It also builds a real
-  CDI with the pinned mkdcdisc and loads it from its own data track.
+  a three-copy disc model, with injected read errors, transient failures and
+  silent damage. It counts reads and seeks between copies. It covers:
+  - nearest-copy reads, fallback, and staying on the copy that works;
+  - a ring scratch over one copy (one failed read in total) and damage through
+    all three copies of every chunk (311 reads and 79 seeks, previously 766 and
+    about 765);
+  - sectors that fail two, four or five times on every copy;
+  - the majority vote, including a re-read that fails everywhere;
+  - unrecoverable and identically damaged sectors, and every table check.
+- `tests/test_boot_disc.py` (`make test-boot-disc`, part of `make test`): tables
+  built in Python drive the C loader, MIL-CD scrambling round-trips, the
+  placeholder patch is exact, and every builder refusal above is exercised. When
+  the pinned mkdcdisc and stage 1 are built, it also builds a real CDI and loads
+  it from its own data track.
 - Flycast 2.7 with its HLE BIOS (no BIOS files), using `dc-boot-shot`:
   - The redundant disc boots to the Bootloader v3 screen.
   - It also boots with one copy damaged, with damage spread across all copies,
-    and with three copies damaged at different sectors of the same chunk.
+    with three copies damaged at different sectors of the same chunk, and with
+    every chunk of every copy damaged (a radial scratch).
   - With the same sector damaged in every copy, it returns to the BIOS.
   - The standard single-file disc and the GUI (booted directly) show the new
     art correctly.
 - Limits:
   - The emulator does not model SH-4 caches or real BIOS timing.
-  - It cannot produce read errors, only silent data changes.
+  - It cannot produce read errors, drive errors or a hung command, only silent
+    data changes, so the retry, re-init and timeout paths are tested only in the
+    host model (retries) or not at all (re-init, timeout).
   - Console behaviour, including the time stage 1 adds, is not yet tested.
   - The test ZIP also carries the single-file disc as a fallback.
