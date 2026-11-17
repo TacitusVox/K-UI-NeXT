@@ -94,31 +94,64 @@ static bool merge_sector(const struct kui_boot_copies *t, uint32_t sector, uint8
     return true;
 }
 
+/* Copy order for one chunk: first the copy that delivered the previous chunk
+ * (the nearest copy on an intact disc), then the others, nearest first. A
+ * damaged copy then costs one failed read, not one per remaining chunk and a
+ * seek back and forth each time. */
+static uint32_t copy_at(uint32_t k, uint32_t preferred) {
+    return k == 0u ? preferred : (k - 1u < preferred ? k - 1u : k);
+}
+
+/* Read the chunk's sectors still missing from copy C, one at a time in disc
+ * order, straight into place. Returns the updated set of sectors held. */
+static uint32_t fill_from_copy(const struct kui_boot_copies *t, uint32_t c, uint32_t first,
+                               uint32_t sectors, uint8_t *chunk, uint32_t have,
+                               kui_stage1_read_fn read, void *ctx) {
+    for(uint32_t s = 0; s < sectors; ++s)
+        if(!(have & 1u << s) &&
+           read(ctx, t->copy_fad[c] + first + s, 1, chunk + s * KUI_BOOT_COPIES_SECTOR_BYTES) == 0)
+            have |= 1u << s;
+    return have;
+}
+
 enum kui_stage1_result kui_stage1_load(const struct kui_boot_copies *t,
     uint8_t *dest, kui_stage1_read_fn read, void *ctx) {
     if(!kui_boot_copies_valid(t) || !dest || !read) return KUI_STAGE1_BAD_TABLE;
+    uint32_t preferred = 0;
     for(uint32_t i = 0; i < t->chunk_count; ++i) {
         const uint32_t offset = i * CHUNK_BYTES;
         const uint32_t bytes = t->image_bytes - offset < CHUNK_BYTES ?
             t->image_bytes - offset : CHUNK_BYTES;
         const uint32_t sectors = (bytes + KUI_BOOT_COPIES_SECTOR_BYTES - 1u) /
             KUI_BOOT_COPIES_SECTOR_BYTES;
+        const uint32_t first = i * KUI_BOOT_COPIES_CHUNK_SECTORS;
         uint8_t *chunk = dest + offset;
         bool ok = false;
-        /* Normal path: one read of the whole chunk, nearest copy first. */
-        for(uint32_t c = 0; c < t->copy_count && !ok; ++c)
-            ok = read(ctx, t->copy_fad[c] + i * KUI_BOOT_COPIES_CHUNK_SECTORS, sectors, chunk) == 0 &&
-                 chunk_good(t, i, chunk, bytes);
+        /* Normal path: one read of the whole chunk. */
+        for(uint32_t k = 0; k < t->copy_count && !ok; ++k) {
+            const uint32_t c = copy_at(k, preferred);
+            ok = read(ctx, t->copy_fad[c] + first, sectors, chunk) == 0 && chunk_good(t, i, chunk, bytes);
+            if(ok) preferred = c;
+        }
         if(ok) continue;
         /* Every copy failed somewhere in this chunk. Damage at different radii
-         * rarely hits the same sector of every copy, so rebuild the chunk one
-         * sector at a time: read the sector from each copy and take the
-         * version two copies agree on, else the only one that could be read. */
-        for(uint32_t s = 0; s < sectors; ++s) {
-            uint8_t *target = chunk + s * KUI_BOOT_COPIES_SECTOR_BYTES;
-            if(!merge_sector(t, i * KUI_BOOT_COPIES_CHUNK_SECTORS + s, target, read, ctx))
+         * rarely hits the same sector of every copy, so rebuild the chunk from
+         * the copies in turn: each supplies, in disc order, the sectors still
+         * missing. The drive does not seek between copies for every sector,
+         * and a damaged sector fails its own EDC check, so it reads as an
+         * error rather than as wrong data. */
+        const uint32_t all = (1u << sectors) - 1u;
+        uint32_t have = 0;
+        for(uint32_t k = 0; k < t->copy_count && have != all; ++k)
+            have = fill_from_copy(t, copy_at(k, preferred), first, sectors, chunk, have, read, ctx);
+        if(have != all) return KUI_STAGE1_UNREADABLE;
+        if(chunk_good(t, i, chunk, bytes)) continue;
+        /* Every sector read, but the chunk is still wrong: some copy holds
+         * silently damaged data. Take each sector's version two copies agree
+         * on, else the only one that could be read. */
+        for(uint32_t s = 0; s < sectors; ++s)
+            if(!merge_sector(t, first + s, chunk + s * KUI_BOOT_COPIES_SECTOR_BYTES, read, ctx))
                 return KUI_STAGE1_UNREADABLE;
-        }
         if(!chunk_good(t, i, chunk, bytes)) return KUI_STAGE1_CORRUPT;
     }
     return kui_stage1_crc32(0, dest, t->image_bytes) == t->image_crc32 ?

@@ -20,12 +20,25 @@ static uint8_t image[IMAGE_BYTES];
 static uint8_t disc[DISC_SECTORS * SECTOR];
 static uint8_t loaded[16u * 32768u];
 static bool unreadable[DISC_SECTORS];
-static unsigned reads, sector_reads;
+static unsigned reads, sector_reads, copy_reads[3], seeks;
+static int last_copy;
+
+/* Which copy a read lands in; a change from the previous read is a seek
+ * between radii on a real disc. */
+static int copy_of(uint32_t fad) {
+    for(int c = 0; c < 3; ++c) if(fad >= fads[c] && fad < fads[c] + 16u * 16u) return c;
+    return -1;
+}
 
 static int fake_read(void *ctx, uint32_t fad, uint32_t count, void *buffer) {
     (void)ctx;
     ++reads;
     if(count == 1) ++sector_reads;
+    const int copy = copy_of(fad);
+    assert(copy >= 0);
+    ++copy_reads[copy];
+    if(last_copy >= 0 && copy != last_copy) ++seeks;
+    last_copy = copy;
     assert(fad >= 150u && fad - 150u + count <= DISC_SECTORS);
     for(uint32_t s = 0; s < count; ++s) if(unreadable[fad - 150u + s]) return -1;
     memcpy(buffer, disc + (size_t)(fad - 150u) * SECTOR, (size_t)count * SECTOR);
@@ -64,7 +77,9 @@ static void reset_disc(void) {
     memset(unreadable, 0, sizeof(unreadable));
     for(int c = 0; c < 3; ++c) memcpy(disc + (size_t)(fads[c] - 150u) * SECTOR, image, IMAGE_BYTES);
     memset(loaded, 0xee, sizeof(loaded));
-    reads = sector_reads = 0;
+    reads = sector_reads = seeks = 0;
+    memset(copy_reads, 0, sizeof(copy_reads));
+    last_copy = -1;
 }
 static uint32_t lba(int copy, uint32_t chunk, uint32_t sector) {
     return fads[copy] - 150u + chunk * 16u + sector;
@@ -119,17 +134,36 @@ int main(int argc, char **argv) {
 
     /* Intact disc: 16 whole-chunk reads from the nearest copy only. */
     reset_disc();
-    assert(run() == KUI_STAGE1_OK && loaded_ok() && reads == 16 && !sector_reads);
-    /* A read error and silent damage in copy 1: those chunks come from copy 2. */
-    reset_disc(); unreadable[lba(0, 3, 9)] = true; damage(0, 8, 1);
+    assert(run() == KUI_STAGE1_OK && loaded_ok() && reads == 16 && !sector_reads && !seeks);
+    /* A read error in copy 1 at chunk 3: that chunk and the rest come from
+     * copy 2, after one failed read and one seek, not one each per chunk. */
+    reset_disc(); unreadable[lba(0, 3, 9)] = true;
+    assert(run() == KUI_STAGE1_OK && loaded_ok() && reads == 17 && !sector_reads);
+    assert(copy_reads[0] == 4 && copy_reads[1] == 13 && seeks == 1);
+    /* Then silent damage in copy 2 at chunk 8: back to copy 1 from there. */
+    reset_disc(); unreadable[lba(0, 3, 9)] = true; damage(1, 8, 1);
     assert(run() == KUI_STAGE1_OK && loaded_ok() && reads == 18 && !sector_reads);
+    assert(copy_reads[0] == 4 + 8 && copy_reads[1] == 6 && seeks == 2);
+    /* A ring scratch over all of copy 1 costs one failed read in total. */
+    reset_disc(); for(uint32_t i = 0; i < 16; ++i) unreadable[lba(0, i, i % 16u)] = true;
+    assert(run() == KUI_STAGE1_OK && loaded_ok() && reads == 17 && seeks == 1);
     /* Copies 1 and 2 both bad in the final, partial chunk: copy 3 serves it. */
     reset_disc(); damage(0, 15, 0); unreadable[lba(1, 15, 2)] = true;
     assert(run() == KUI_STAGE1_OK && loaded_ok());
     /* All three copies unreadable in chunk 4, at different sectors: rebuilt
-     * sector by sector from whichever copy reads. */
+     * from copy 1 in disc order, with copy 2 supplying its one missing
+     * sector. Two seeks for the whole-chunk attempts, two for the rebuild,
+     * one back for chunk 5. */
     reset_disc(); unreadable[lba(0, 4, 1)] = unreadable[lba(1, 4, 7)] = unreadable[lba(2, 4, 12)] = true;
-    assert(run() == KUI_STAGE1_OK && loaded_ok() && sector_reads == 16u * 3u);
+    assert(run() == KUI_STAGE1_OK && loaded_ok() && sector_reads == 16u + 1u && seeks == 5);
+    /* Damage through all three copies in every chunk (a scratch from the
+     * centre outwards): each chunk is still rebuilt with a few seeks. */
+    reset_disc();
+    for(uint32_t i = 0; i < 16; ++i)
+        for(int c = 0; c < 3; ++c) unreadable[lba(c, i, (i + 5u * (uint32_t)c) % (i == 15 ? 7u : 16u))] = true;
+    /* 17 single-sector reads per full chunk, 8 for the 7-sector last one;
+     * 4 seeks for chunk 0 and 5 for each later chunk. */
+    assert(run() == KUI_STAGE1_OK && loaded_ok() && sector_reads == 15u * 17u + 8u && seeks == 4u + 15u * 5u);
     /* All three copies silently damaged in chunk 6 at different sectors:
      * the two undamaged copies of each sector outvote the damaged one. */
     reset_disc(); damage(0, 6, 0); damage(1, 6, 5); damage(2, 6, 15);
@@ -166,7 +200,8 @@ int main(int argc, char **argv) {
     REJECT(copy_count, 5u); REJECT(image_bytes, 0u); REJECT(copy_fad[1], 149u);
     REJECT(image_bytes, 256u * 32768u + 1u);
     assert(kui_boot_copies_valid(&table) && kui_stage1_load(&table, NULL, fake_read, NULL) == KUI_STAGE1_BAD_TABLE);
-    puts("PASS boot stage 1: chunk reads from the nearest good copy, per-sector rebuild with "
-         "majority vote, unrecoverable sectors and silent identical damage refused, table checks");
+    puts("PASS boot stage 1: chunk reads from the nearest good copy that stay on it, rebuild one copy "
+         "at a time, majority vote for silent damage, unrecoverable sectors and silent identical damage "
+         "refused, table checks");
     return 0;
 }

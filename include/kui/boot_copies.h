@@ -44,9 +44,11 @@ typedef int (*kui_stage1_read_fn)(void *ctx, uint32_t fad, uint32_t count, void 
 
 uint32_t kui_stage1_crc32(uint32_t previous, const void *data, size_t bytes);
 bool kui_boot_copies_valid(const struct kui_boot_copies *table);
-/* Fill DEST with the verified bootstrap. Each chunk is read whole from the
- * first copy that passes its CRC; a chunk that no copy delivers intact is
- * rebuilt sector by sector from whichever copies can read each sector. */
+/* Fill DEST with the verified bootstrap. Each chunk is read whole, from the
+ * copy that delivered the previous chunk first, until one passes its CRC. A
+ * chunk that no copy delivers intact is rebuilt from the copies in turn, each
+ * supplying the sectors still missing; if the result fails its CRC, each
+ * sector takes the version two copies agree on. */
 enum kui_stage1_result kui_stage1_load(const struct kui_boot_copies *table,
     uint8_t *dest, kui_stage1_read_fn read, void *ctx);
 #endif
