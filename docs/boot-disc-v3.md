@@ -97,6 +97,12 @@ about 1.7 MB. The previous single-file layout remains buildable with mkdcdisc as
 
 ## Verification
 
+- **Console, November 17, 2026:** the burned `bb3a7e1` redundant disc stayed on
+  the SEGA screen. Stage 1 called the BIOS GD functions without KOS's G1 bus
+  reactivation; `0e4ab5a5` adds it. The owner then reported of the `0e4ab5a`
+  disc: "It worked that time." This build also has the owner's pixel-art splash
+  (`122578e`) and the slim countdown bar (`bb3a7e1`).
+
 - `tests/test_boot_stage1.c` (in `make test`): the real stage-1 C code against
   a three-copy disc model, with injected read errors, transient failures and
   silent damage. It counts reads and seeks between copies. It covers:
