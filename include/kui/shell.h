@@ -338,6 +338,9 @@ struct kui_shell {
      * absolute row games_jump_from; zero uses the explicit games_jump letter. */
     int games_jump_step;
     unsigned games_jump_from;
+    /* Opening a game from the list continues to its launch screen once a
+     * launch-ready inspection is accepted; other inspections stay on details. */
+    bool games_launch_on_inspect,games_detail_accepted;
     struct kui_games_library_edit games_edit;
     char games_edit_root[KUI_DEST_ROOT_CAP],games_edit_path[KUI_GAMES_FILE_CAP],games_edit_group[33];
     char games_edit_notice[128];
@@ -567,6 +570,12 @@ bool kui_shell_set_games_titles(struct kui_shell *,const struct kui_games_page *
 bool kui_shell_set_games_rows(struct kui_shell *,const struct kui_games_page *,
     unsigned generation,unsigned offset,unsigned requested_view);
 void kui_shell_set_games_detail(struct kui_shell *shell, const struct kui_games_detail *detail);
+/* Main calls this after installing a detail and its saved launch settings.
+ * For an inspection started from the Games list or version chooser whose
+ * detail was accepted and is launch-ready, it performs exactly the details
+ * page's A step (launch screen plus its virtual-card lookup) and returns
+ * that action; otherwise KUI_SHELL_NONE. */
+enum kui_shell_action kui_shell_games_detail_arrived(struct kui_shell *shell);
 bool kui_shell_games_zso_selected(const struct kui_shell *);
 bool kui_shell_games_image_ready(const struct kui_shell *shell);
 /* Only fresh inspection of the selected exact Smash Pack release exposes

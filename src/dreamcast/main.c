@@ -5497,6 +5497,9 @@ int main(void) {
             kui_shell_set_games_detail(&shell,&games_detail);
             kui_shell_set_game_launch_settings(&shell,games_detail.path,
                 games_detail_launch_found?&games_detail_launch_settings:NULL,games_detail_launch_loaded);
+            /* Opened from the list and launch-ready: continue to the launch
+             * screen exactly as the details page's A does. */
+            if(kui_shell_games_detail_arrived(&shell)==KUI_SHELL_VMU_GAME_INFO && !busy) vmu_game_info_request_start();
             seen_games_detail=games_detail_generation;
             games_ui_changed=true;
         }

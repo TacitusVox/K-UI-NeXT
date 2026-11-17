@@ -3005,8 +3005,9 @@ static void games_background_titles(void) {
     assert(s.games_selected==2 && s.games_listing.count==4 && !s.games_loading);
     assert(!kui_shell_set_games_titles(&s,&found,0));                 /* Nothing new. */
 }
-/* List pages continue into each other, and L/R step between letter groups
- * from the absolute row on screen. */
+/* List pages continue into each other, L/R step between letter groups from
+ * the absolute row on screen, and A on a row continues to the launch screen
+ * once a launch-ready inspection arrives. */
 static void games_navigation_steps(void) {
     reset(KUI_SHELL_HOME);
     s.home_selected=home_index(KUI_SHELL_GAMES);assert(press(KUI_SHELL_A,false)==KUI_SHELL_GAMES_LIST);
@@ -3041,6 +3042,50 @@ static void games_navigation_steps(void) {
     s.games_view=KUI_GAMES_VIEW_FLOW;s.games_flow_selected=42;
     assert(press(KUI_SHELL_R,false)==KUI_SHELL_GAMES_JUMP && s.games_jump_from==42 && s.games_jump_step==1);
 
+    /* A on a row: the launch screen follows an accepted, launch-ready inspection. */
+    reset(KUI_SHELL_HOME);
+    s.home_selected=home_index(KUI_SHELL_GAMES);assert(press(KUI_SHELL_A,false)==KUI_SHELL_GAMES_LIST);
+    games_page(2,false,KUI_GAMES_VIEW_LIST);s.games_selected=1;
+    struct kui_games_detail detail=launch_detail(false,false);
+    strcpy(detail.path,s.games_listing.entries[1].path);
+    assert(press(KUI_SHELL_A,false)==KUI_SHELL_GAMES_INSPECT && s.page==KUI_SHELL_GAMES_DETAIL);
+    assert(kui_shell_games_detail_arrived(&s)==KUI_SHELL_NONE && s.page==KUI_SHELL_GAMES_DETAIL);
+    struct kui_games_detail other=detail;strcpy(other.path,s.games_listing.entries[0].path);
+    kui_shell_set_games_detail(&s,&other);                              /* Another image: rejected. */
+    assert(kui_shell_games_detail_arrived(&s)==KUI_SHELL_NONE && s.page==KUI_SHELL_GAMES_DETAIL);
+    kui_shell_set_games_detail(&s,&detail);assert(kui_shell_games_launch_ready(&s));
+    enum kui_shell_action arrived=kui_shell_games_detail_arrived(&s);
+    assert(s.page==KUI_SHELL_GAMES_RETAIL_CONFIRM);
+    /* Exactly the details page's A: same page and same card lookup. */
+    assert(press(KUI_SHELL_B,false)==KUI_SHELL_NONE && s.page==KUI_SHELL_GAMES_DETAIL);
+    assert(press(KUI_SHELL_A,false)==arrived && s.page==KUI_SHELL_GAMES_RETAIL_CONFIRM);
+    assert(press(KUI_SHELL_B,false)==KUI_SHELL_NONE && s.page==KUI_SHELL_GAMES_DETAIL);
+    /* Once only, and not for a re-inspection from the details page. */
+    kui_shell_set_games_detail(&s,&detail);
+    assert(kui_shell_games_detail_arrived(&s)==KUI_SHELL_NONE && s.page==KUI_SHELL_GAMES_DETAIL);
+    assert(press(KUI_SHELL_X,false)==KUI_SHELL_GAMES_INSPECT && s.page==KUI_SHELL_GAMES_DETAIL);
+    kui_shell_set_games_detail(&s,&detail);
+    assert(kui_shell_games_detail_arrived(&s)==KUI_SHELL_NONE && s.page==KUI_SHELL_GAMES_DETAIL);
+    /* Leaving before the result arrives cancels the continuation. */
+    assert(press(KUI_SHELL_B,false)==KUI_SHELL_NONE && s.page==KUI_SHELL_GAMES);
+    assert(press(KUI_SHELL_A,false)==KUI_SHELL_GAMES_INSPECT && press(KUI_SHELL_B,false)==KUI_SHELL_NONE);
+    kui_shell_set_games_detail(&s,&detail);
+    assert(kui_shell_games_detail_arrived(&s)==KUI_SHELL_NONE && s.page==KUI_SHELL_GAMES);
+    /* An image that is not launch-ready stays on its details. */
+    struct kui_games_detail blocked=detail;blocked.boot_bytes=0;
+    assert(press(KUI_SHELL_A,false)==KUI_SHELL_GAMES_INSPECT);
+    kui_shell_set_games_detail(&s,&blocked);assert(!kui_shell_games_launch_ready(&s));
+    assert(kui_shell_games_detail_arrived(&s)==KUI_SHELL_NONE && s.page==KUI_SHELL_GAMES_DETAIL);
+    /* A Windows CE image opens its launch screen without a card lookup. */
+    struct kui_games_detail ce=launch_detail(true,false);strcpy(ce.path,detail.path);
+    assert(press(KUI_SHELL_B,false)==KUI_SHELL_NONE && press(KUI_SHELL_A,false)==KUI_SHELL_GAMES_INSPECT);
+    kui_shell_set_games_detail(&s,&ce);
+    assert(kui_shell_games_detail_arrived(&s)==KUI_SHELL_NONE && s.page==KUI_SHELL_GAMES_RETAIL_CONFIRM);
+    /* The version chooser continues the same way. */
+    open_paired_games();inspect_paired_choice(0,false);
+    if(kui_shell_games_launch_ready(&s)) {
+        (void)kui_shell_games_detail_arrived(&s);assert(s.page==KUI_SHELL_GAMES_RETAIL_CONFIRM);
+    }
 }
 static void games_views(void) {
     reset(KUI_SHELL_HOME);
