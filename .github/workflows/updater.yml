@@ -143,11 +143,14 @@ jobs:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      # KOS's host utilities (vqenc, kmgenc, dcbumpgen, makeip) include png.h
+      # and jpeglib.h, as in the diagnostic workflow's prerequisites.
       - name: Install pinned-toolchain build prerequisites
         run: |
           sudo apt-get update
           sudo apt-get install -y build-essential git curl wget patch python3 \
-            bison flex texinfo gettext libgmp-dev libmpfr-dev libmpc-dev libisl-dev
+            bison flex texinfo gettext libgmp-dev libmpfr-dev libmpc-dev libisl-dev \
+            libpng-dev libjpeg-dev
       - name: Restore pinned FatFs downloads
         uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
         with:
@@ -164,10 +167,12 @@ jobs:
           restore-keys: sh-elf-ubuntu24-v1-
       - name: Prepare pinned compiler and KOS
         run: bash tools/setup_kos.sh
-      # Save immediately: an application compile failure must not discard an
-      # otherwise completed compiler and force the next run to rebuild it.
+      # Save immediately: a KOS library or application compile failure must not
+      # discard an otherwise completed compiler and force the next run to
+      # rebuild it. setup_kos.sh writes the marker only after the compiler build
+      # finishes, so a partial compiler is never saved.
       - name: Save completed compiler cache
-        if: steps.compiler-cache.outputs.cache-hit != 'true'
+        if: always() && steps.compiler-cache.outputs.cache-hit != 'true' && hashFiles('.deps/sh-elf/.kui-toolchain-complete') != ''
         uses: actions/cache/save@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
         with:
           path: |
