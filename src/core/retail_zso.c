@@ -96,24 +96,34 @@ enum kui_game_result kui_retail_zso_image_init(struct kui_retail_zso_image *imag
 static enum kui_zso_result file_read(void *context,uint32_t offset,void *output,size_t bytes) {
     struct kui_retail_zso_image *image=context;const struct kui_retail_zso_manifest *map=image->map;
     if(offset>map->zso.file_bytes || bytes>map->zso.file_bytes-offset)return KUI_ZSO_RANGE;
+    /* Armed by image_read, the first read is the decoder's 8-byte index pair. */
+    if(bytes!=8u && image->span_end==1u)image->span_end=0;
     uint8_t *out=output;
     while(bytes) {
-        uint32_t block=offset/512u,inside=offset%512u;const struct kui_retail_extent *e=NULL;
-        for(uint32_t i=1;i<=map->manifest.extent_count;i++) {const struct kui_retail_extent *candidate=&map->manifest.slots[i].extent;
-            if(block>=candidate->file_block && block-candidate->file_block<candidate->blocks){e=candidate;break;}}
-        if(!e)return KUI_ZSO_RANGE;
-        uint32_t lba=e->card_lba+block-e->file_block;
-        if(!image->cache_valid || image->cached_lba!=lba) {
+        uint32_t block=offset/512u,inside=offset%512u;
+        if(!image->cache_valid || image->cached_block!=block) {
+            const struct kui_retail_extent *e=NULL;
+            for(uint32_t i=1;i<=map->manifest.extent_count;i++) {const struct kui_retail_extent *candidate=&map->manifest.slots[i].extent;
+                if(block>=candidate->file_block && block-candidate->file_block<candidate->blocks){e=candidate;break;}}
+            if(!e)return KUI_ZSO_RANGE;
             image->cache_valid=0;
-            uint32_t available=(uint32_t)((bytes+inside+511u)/512u),left=e->blocks-(block-e->file_block);
+            /* A run hint ends with this read or, once the selected block's
+             * pair is known, with that block's compressed span: its one- to
+             * three-byte decoder takes then share one stream instead of one
+             * per physical block. Extent and transport limits still bound it. */
+            uint32_t end=offset+(uint32_t)bytes;if(end<image->span_end)end=image->span_end;
+            uint32_t available=(end-1u)/512u-block+1u,left=e->blocks-(block-e->file_block),lba=e->card_lba+block-e->file_block;
             if(available>left)available=left;
             int failed=image->read_run?image->read_run(image->context,lba,available,image->block):image->read_block(image->context,lba,image->block);
             if(failed)return KUI_ZSO_IO;
-            image->cached_lba=lba;image->cache_valid=1;image->blocks_read++;
+            image->cached_block=block;image->cache_valid=1;image->blocks_read++;
         }
         size_t take=512u-inside;if(take>bytes)take=bytes;
         memcpy(out,image->block+inside,take);out+=take;offset+=(uint32_t)take;bytes-=take;
     }
+    /* The pair's second entry ends the span. read_block rejects either entry
+     * before reading any span byte unless this equals its own checked end. */
+    if(image->span_end==1u)image->span_end=(word((const uint8_t *)output+4)&UINT32_C(0x7fffffff))<<map->zso.shift;
     return KUI_ZSO_OK;
 }
 enum kui_game_result kui_retail_zso_verify_source(struct kui_retail_zso_image *image) {
@@ -133,8 +143,10 @@ enum kui_game_result kui_retail_zso_image_read(struct kui_retail_zso_image *imag
     if(capacity<(size_t)count*2048u)return KUI_GAME_RANGE;
     uint8_t *p=out;uint32_t first=lba-image->map->manifest.slots[0].track.start_lba;
     for(uint32_t i=0;i<count;i++) {
+        image->span_end=1u; /* Arm: the decoder first reads this block's index pair. */
         enum kui_zso_result z=kui_zso_read_block(&image->map->zso,first+i,file_read,image,p+i*2048u);
-        if(z!=KUI_ZSO_OK){image->cache_valid=0;return z==KUI_ZSO_IO?KUI_GAME_IO:KUI_GAME_INVALID;}
+        if(z!=KUI_ZSO_OK){image->cache_valid=image->span_end=0;return z==KUI_ZSO_IO?KUI_GAME_IO:KUI_GAME_INVALID;}
     }
+    image->span_end=0;
     return KUI_GAME_OK;
 }

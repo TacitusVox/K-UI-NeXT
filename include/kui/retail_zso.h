@@ -40,10 +40,16 @@ struct kui_retail_zso_image {
     kui_retail_read_block read_block;
     kui_retail_read_run read_run;
     void *context;
-    uint32_t blocks_read,cached_lba,cache_valid;
+    /* cached_block is the physical FILE block (not card LBA) held in block,
+     * so a cache hit needs no extent lookup. span_end only sizes read_run
+     * hints: 0 when idle, 1 while image_read awaits the selected block's
+     * index pair, then the file offset ending that block's compressed span. */
+    uint32_t blocks_read,cached_block,cache_valid,span_end;
     _Alignas(32) uint8_t block[512];
 };
 _Static_assert(offsetof(struct kui_retail_zso_image,block)%32u==0,"ZSO physical cache alignment");
+_Static_assert(sizeof(void *)!=4u || offsetof(struct kui_retail_zso_image,block)==32u,
+               "span state occupies the existing SH-4 alignment gap; resident BSS is unchanged");
 /* Init validates geometry/map only and performs no I/O. Highstage then
  * verifies the actual header and entire index before using logical reads.
  * Resident receives the same immutable validated prefix and keeps no pointer
