@@ -461,6 +461,22 @@ def upload_ownership(client1, port, password, fat32):
     assert sorted(client1.nlst()) == ["KUI-ftp-2.kui-part", "café.bin"]
     client1.delete("KUI-ftp-2.kui-part")
     client1.delete("café.bin")
+    if fat32:
+        # A short filename chosen for an upload can also be the alias
+        # FatFs assigns to that upload's own temporary file.
+        upload(client1, "KUI-FT~1.KUI", b"short name")
+        assert client1.nlst() == ["KUI-FT~1.KUI"]
+        assert download(client1, "KUI-FT~1.KUI") == b"short name"
+        client1.delete("KUI-FT~1.KUI")
+        # A second completed upload can acquire a previously absent alias.
+        # The first STOR must not replace this newly appeared directory entry.
+        with client1.transfercmd("STOR ANOTHE~1.TXT") as pending:
+            pending.sendall(b"first transfer")
+            upload(client2, "another long file.txt", b"completed transfer")
+        expect("451", client1.voidresp)
+        assert client2.nlst() == ["another long file.txt"]
+        assert download(client2, "another long file.txt") == b"completed transfer"
+        client2.delete("another long file.txt")
     client1.cwd("/")
     client2.quit()
     client1.rmd("Concurrent uploads")

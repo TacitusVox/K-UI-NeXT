@@ -93,7 +93,7 @@ struct session {
     FIL file;
     DIR dir;
     FILINFO info;
-    bool file_open, dir_open, single, source_done;
+    bool file_open, dir_open, single, source_done, replacing;
     char path[KUI_FILES_PATH_CAP], part[KUI_FILES_PATH_CAP];
     char pattern[KUI_FILES_NAME_CAP]; /* LIST/NLST: only names matching it */
     uint8_t *buffer;
@@ -645,7 +645,10 @@ static void finish_upload(struct server *sv, struct session *s, uint64_t now) {
     else {
         FILINFO old;
         FRESULT seen = stat_path(s->path, &old);
-        replacing = seen == FR_OK;
+        /* A FAT32 short alias can appear while another file is created.
+         * Only move aside a destination that existed at STOR. Otherwise
+         * f_rename must claim a free name (or rename our own staging entry). */
+        replacing = s->replacing && seen == FR_OK;
         if(replacing && (old.fattrib & AM_DIR)) problem = "553 A folder now has that name";
         /* Read-only files are not replaced, as when uploads deleted them. */
         else if(replacing && (old.fattrib & AM_RDO)) problem = "451 Cannot replace the old file";
@@ -1144,6 +1147,7 @@ static void start_stor(struct server *sv, struct session *s, const char *argumen
         return;
     }
     s->file_open = true;
+    s->replacing = r == FR_OK;
     begin_transfer(sv, s, T_STOR, path, now);
     if(s->kind == T_STOR) reply(s, "150 Ready to receive %s", path);
 }
