@@ -1,0 +1,16 @@
+{
+  "schema": "kui.native.standard-binding-record.v1",
+  "build": "9e3295bcfaec",
+  "module": "KUI/apps/games/retail-boot.kui",
+  "module_sha256": "13791d32f34d65978f489ffd1fdb16a40fb9f6df8da52a2dc8d1f0ba3b1465a8",
+  "module_bytes": 237816,
+  "payload_bytes": 237752,
+  "payload_crc32": "c3ca9562",
+  "profile_payload_offset": 118752,
+  "profile_bytes": 4096,
+  "normalized_payload_sha256": "783f762203666038c8254e607982384cea581e707d46c218745520f700ec7246",
+  "source": "KUI-Armada-VMU-Off-Fix-07NOV2026-1325-CST-4d893b3.zip (delivered package; its source commit is not in this repository)",
+  "gui": "00d8ed67d9ad",
+  "gui_runtime_sha256": "dbb88cdbd512f1ce6f2eacfb15917352a35100c44e05988575f6e35cbb341a03",
+  "evidence": "The installed GUI's Standard recognizer folds exactly this normalized digest (eight words at 0x8c0b45e4) and compares the build string 9e3295bcfaec; this record reproduces that binding for GUIs built for the owner's installation. The repository default (preserved-standard-manifest.h, f8807cb16561) is unchanged."
+}
