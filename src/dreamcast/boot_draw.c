@@ -132,11 +132,11 @@ void kui_boot_ui_draw(uint16_t *frame,const struct kui_boot_ui *ui,
     kui_boot_splash_draw_dimmed(frame);
     box(frame,32,24,576,76,PANEL);
     box(frame,32,24,5,76,ORANGE);
-    text(frame,48,34,366,WHITE,"K-UI Boot",true);
+    text(frame,48,34,366,WHITE,"K-UI Bootloader " KUI_BOOTLOADER_VERSION,true);
     line(frame,48,65,366,view->from_card?"Card boot / recovery":"CD boot / recovery");
-    text(frame,392,36,594,HIGHLIGHT,KUI_RELEASE_SHORT,false);
+    /* The disc is version-agnostic: no K-UI release name, only its build. */
     char build[40];snprintf(build,sizeof(build),"Build %.12s",view->build?view->build:"local");
-    line(frame,392,65,594,build);
+    text(frame,392,36,594,HIGHLIGHT,build,false);
     if(ui->page==KUI_BOOT_HOME || ui->page==KUI_BOOT_DIAGNOSTICS) {
         menu(frame,ui,view);
         box(frame,32,346,576,34,PANEL);
