@@ -51,7 +51,6 @@
 #define HOLD_MS 2000u       /* after a wrong password */
 #define PUBLISH_MS 250u
 #define RENEW_LIMIT_MS 3000u
-#define RENEW_RETRY_MS 60000u
 #define DRAIN_MS 10000u     /* for a closing data connection to finish */
 #define CLOSING_MS 250u     /* bound the observed W5500 CLOSING ACK/RST storm */
 #define STOP_MS 1000u
@@ -149,7 +148,7 @@ struct server {
     int control_owner[CONTROL_SOCKETS];
     uint64_t control_since[CONTROL_SOCKETS];
     char password[KUI_FTP_PASSWORD_CAP];
-    uint64_t published_ms, link_ms, renew_after_ms;
+    uint64_t published_ms, link_ms;
     uint32_t passes; /* over the sockets, by the main loop */
     bool changed, connected, mounted;
     const char *stop_reason;
@@ -1541,7 +1540,7 @@ static bool controls(struct server *sv, uint64_t now) {
 /* The W5500's DHCP lease; the Wi-Fi board keeps its own. */
 static void lease(struct server *sv, uint64_t now) {
     if(kui_w5500_session_expires_in(&sv->w5500, now) == 0) { sv->stop_reason = "The network address lease ran out"; return; }
-    if(kui_w5500_session_renew_in(&sv->w5500, now) || now < sv->renew_after_ms) return;
+    if(kui_w5500_session_renew_in(&sv->w5500, now)) return;
     /* The last free data socket, leaving 0 (the largest) for transfers. */
     int j = -1;
     for(unsigned k = DATA_SOCKETS; k-- > 0 && j < 0;)
@@ -1551,10 +1550,7 @@ static void lease(struct server *sv, uint64_t now) {
     bool refused = false;
     if(kui_w5500_session_renew(&sv->w5500, (unsigned)j, RENEW_LIMIT_MS, &refused, sv->cancel)) event(sv, "Address lease renewed");
     else if(refused) sv->stop_reason = "The network refused to renew K-UI's address";
-    else {
-        event(sv, "Lease renewal: %.60s; trying again in a minute", sv->w5500.problem);
-        sv->renew_after_ms = now + RENEW_RETRY_MS;
-    }
+    else event(sv, "Lease renewal: %.60s", sv->w5500.problem);
     sv->data_owner[j] = FREE;
 }
 static void publish(struct server *sv, uint64_t now, bool force) {

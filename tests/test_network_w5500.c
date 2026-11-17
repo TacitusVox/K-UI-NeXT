@@ -142,7 +142,8 @@ static void lease(void) {
     /* The chip now answers for the leased address. */
     uint8_t ip[4];
     assert(kui_w5500_read(&s.chip, KUI_W5500_COMMON, KUI_W5500_SIPR, ip, 4) && !memcmp(ip, w5500_model_lease, 4));
-    uint64_t t = now_ms(NULL);
+    uint64_t t = s.leased_ms;
+    assert(now_ms(NULL) - t >= 3000); /* conflict detection used part of the lease */
     assert(kui_w5500_session_renew_in(&s, t) == 1800 && kui_w5500_session_expires_in(&s, t) == 3600);
     assert(kui_w5500_session_renew_in(&s, t + 1801000u) == 0 && kui_w5500_session_expires_in(&s, t + 3601000u) == 0);
 
@@ -151,7 +152,8 @@ static void lease(void) {
     assert(kui_w5500_session_renew_in(&s, now_ms(NULL)) == 0);
     bool refused = true;
     assert(kui_w5500_session_renew(&s, 3, 3000, &refused, never) && !refused);
-    assert(kui_w5500_session_renew_in(&s, now_ms(NULL)) == 1800 && w5500_model_counts.udp_requests >= 1);
+    assert(kui_w5500_session_renew_in(&s, s.leased_ms) == 1800 && w5500_model_counts.renewal_unicasts == 1);
+    assert(s.rebind_seconds == 3150 && !w5500_model_counts.rebind_broadcasts);
     uint8_t state;
     assert(kui_w5500_status(&s.chip, 3, &state) && state == KUI_W5500_CLOSED);
 
@@ -171,11 +173,39 @@ static void lease(void) {
     puts("PASS W5500 lease: DHCP for the server, renewal over UDP, refused and silent renewals");
 }
 
+static void rebinding(void) {
+    struct w5500_model_options options = {.custom_lease_timers = true};
+    begin(&options, 0);
+    struct kui_w5500_session s;
+    assert(kui_w5500_session_find(&s, &port, NULL));
+    assert(kui_w5500_session_dhcp(&s, true, NULL, NULL, never, NULL));
+    assert(kui_w5500_session_renew_in(&s, s.leased_ms) == 60 && s.rebind_seconds == 120);
+    w5500_model_advance(60000);
+    w5500_model_live()->backup_dhcp_server = true;
+    bool refused = true;
+    assert(!kui_w5500_session_renew(&s, 3, 2000, &refused, never) && !refused);
+    assert(!w5500_model_counts.rebind_broadcasts);
+    assert(kui_w5500_session_renew_in(&s, s.leased_ms + 119000) == 1);
+    assert(!kui_w5500_session_renew_in(&s, s.leased_ms + 120000));
+    w5500_model_advance(60000);
+    assert(kui_w5500_session_renew(&s, 3, 2000, &refused, never));
+    assert(w5500_model_counts.rebind_broadcasts == 1 && s.server[3] == 9);
+    assert(kui_w5500_session_renew(&s, 3, 2000, &refused, never) && w5500_model_counts.renewal_unicasts == 1);
+    w5500_model_advance(3600000);
+    unsigned packets = w5500_model_counts.udp_requests;
+    assert(!kui_w5500_session_renew(&s, 3, 2000, &refused, never));
+    assert(strstr(s.problem, "expired") && w5500_model_counts.udp_requests == packets);
+    kui_w5500_session_end(&s);
+    w5500_model_stop();
+    puts("PASS W5500 lease timers, unicast renewal, broadcast rebinding, new DHCP server and expiry");
+}
+
 int main(void) {
     setvbuf(stdout, NULL, _IONBF, 0);
     inspection();
     connection_test();
     lease();
+    rebinding();
     puts("PASS W5500 network");
     return 0;
 }

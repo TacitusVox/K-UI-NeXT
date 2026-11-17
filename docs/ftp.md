@@ -254,9 +254,11 @@ files can be added to those folders. Update K-UI itself on a computer.
 - A client that goes quiet for ten minutes, or does not log in within a
   minute, is disconnected. A transfer with no progress for a minute is
   stopped.
-- The W5500's address lease is renewed at half its time. If the router
-  refuses, or the lease runs out, the server stops and says why. The Wi-Fi
-  board keeps its own lease; if its Wi-Fi drops, the server keeps running,
+- The W5500 asks its DHCP server to renew at the advertised renewal time
+  (half the lease by default). If the server stays silent, K-UI broadcasts
+  at the rebinding time (seven-eighths by default) so another server can
+  extend the lease. If a server refuses or the lease expires, FTP stops
+  and reports why. The Wi-Fi board keeps its own lease. If Wi-Fi drops, FTP keeps running,
   says so, and shows a new address if the router gives it one.
 
 ## Network app

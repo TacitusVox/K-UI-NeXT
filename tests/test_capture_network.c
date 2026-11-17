@@ -36,13 +36,13 @@ bool kui_w5500_buffers(struct kui_w5500 *w,const uint8_t rx[8],const uint8_t tx[
 bool kui_w5500_session_link(struct kui_w5500_session *s,kui_cancel_fn cancel_fn){(void)cancel_fn;if(link_fail)strcpy(s->problem,"cable missing");return !link_fail;}
 bool kui_w5500_session_dhcp(struct kui_w5500_session *s,bool lease_only,struct kui_network_probe *probe,kui_log_fn log,kui_cancel_fn cancel_fn,void(*stage_fn)(enum kui_network_stage)){
     (void)probe;(void)log;(void)cancel_fn;(void)stage_fn;assert(lease_only);
-    if(dhcp_fail){strcpy(s->problem,"DHCP failed");return false;}s->leased=true;s->lease_seconds=3600;s->leased_ms=m.now;s->config.ip[0]=10;s->config.ip[3]=2;return true;
+    if(dhcp_fail){strcpy(s->problem,"DHCP failed");return false;}s->leased=true;s->lease_seconds=3600;s->renew_seconds=1800;s->leased_ms=m.now;s->config.ip[0]=10;s->config.ip[3]=2;return true;
 }
 uint32_t kui_w5500_session_expires_in(const struct kui_w5500_session *s,uint64_t t){uint64_t used=(t-s->leased_ms)/1000;return used>=s->lease_seconds?0:s->lease_seconds-(uint32_t)used;}
-uint32_t kui_w5500_session_renew_in(const struct kui_w5500_session *s,uint64_t t){uint64_t used=(t-s->leased_ms)/1000;return used>=s->lease_seconds/2?0:s->lease_seconds/2-(uint32_t)used;}
+uint32_t kui_w5500_session_renew_in(const struct kui_w5500_session *s,uint64_t t){uint64_t used=(t-s->leased_ms)/1000;return used>=s->renew_seconds?0:s->renew_seconds-(uint32_t)used;}
 bool kui_w5500_session_renew(struct kui_w5500_session *s,unsigned udp,unsigned limit,bool *refused,kui_cancel_fn cancel_fn){
     (void)cancel_fn;assert(udp==1&&limit==2000);++renews;*refused=renew_mode==1;
-    if(renew_mode==1||renew_mode==2)return false;
+    if(renew_mode==1||renew_mode==2){s->renew_seconds=(uint32_t)((m.now-s->leased_ms)/1000)+60;return false;}
     s->leased_ms=m.now;if(renew_mode==3)s->config.ip[3]^=1;return true;
 }
 void kui_w5500_session_sockets(struct kui_w5500_session *s,struct kui_net_sockets *out){(void)s;*out=net;}

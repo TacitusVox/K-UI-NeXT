@@ -36,8 +36,8 @@ struct kui_w5500_session {
     /* The lease: address, netmask, gateway and DNS, and the server. */
     struct kui_network_config config;
     uint8_t server[4];
-    uint32_t lease_seconds;
-    uint64_t leased_ms;  /* when the lease was granted or last renewed */
+    uint32_t lease_seconds, renew_seconds, rebind_seconds; /* renew_seconds includes retry backoff */
+    uint64_t leased_ms;  /* when the acknowledged REQUEST was sent */
     bool open, found, leased;
     char problem[96];
 };
@@ -64,7 +64,7 @@ void kui_w5500_session_end(struct kui_w5500_session *s);
 /* The chip's sockets for the FTP server. `sent` means the peer has
  * acknowledged everything: the socket's transmit buffer is empty again. */
 void kui_w5500_session_sockets(struct kui_w5500_session *s, struct kui_net_sockets *out);
-/* Seconds until the lease should be renewed (half of it) and until it
+/* Seconds until the lease should be renewed (T1) and until it
  * runs out, from `now_ms`; zero when already due. */
 uint32_t kui_w5500_session_renew_in(const struct kui_w5500_session *s, uint64_t now_ms);
 uint32_t kui_w5500_session_expires_in(const struct kui_w5500_session *s, uint64_t now_ms);

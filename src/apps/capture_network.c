@@ -16,7 +16,6 @@ struct kui_capture_network {
     kui_cancel_fn cancel;
     kui_log_fn log;
     void (*stage)(const char *);
-    uint64_t renew_after;
     uint8_t ip[4];
     char problem[128];
 };
@@ -55,13 +54,12 @@ static bool poll_network(void *ctx) {
     }
     uint64_t now=timer_ms_gettime64();
     if(!kui_w5500_session_expires_in(&s->wired,now))return problem(s,"The network address lease expired; resume explicitly");
-    if(kui_w5500_session_renew_in(&s->wired,now)||now<s->renew_after)return true;
+    if(kui_w5500_session_renew_in(&s->wired,now))return true;
     bool refused=false;
     if(kui_w5500_session_renew(&s->wired,1,2000,&refused,s->cancel)){
         if(memcmp(s->ip,s->wired.config.ip,4))return problem(s,"The network address changed; resume explicitly");
         if(s->log)s->log("PC destination: network address lease renewed");
     }else if(refused)return problem(s,"The network refused address renewal; resume explicitly");
-    else s->renew_after=timer_ms_gettime64()+60000u;
     if(!kui_w5500_session_expires_in(&s->wired,timer_ms_gettime64()))return problem(s,"The network address lease expired; resume explicitly");
     return true;
 }
