@@ -132,13 +132,14 @@ void kui_boot_ui_draw(uint16_t *frame,const struct kui_boot_ui *ui,
         const struct kui_boot_view *view) {
     if(!frame || !ui || !view) return;
     if(view->countdown && !view->busy && ui->page==KUI_BOOT_HOME) {
+        /* A slim bar in the empty sky above the art's title, so the artwork
+         * itself stays in view during the countdown. */
         kui_boot_splash_draw(frame);
-        box(frame,32,360,576,96,PANEL);
-        box(frame,32,360,5,96,ORANGE);
+        box(frame,32,16,576,64,PANEL);
+        box(frame,32,16,4,64,ORANGE);
         char countdown[64];snprintf(countdown,sizeof(countdown),"Starting K-UI in %u...",view->countdown);
-        text(frame,48,373,592,WHITE,countdown,true);
-        line(frame,48,407,592,"A Start now   B Boot menu   X Recovery");
-        line(frame,48,432,592,"Any other button pauses automatic startup.");
+        text(frame,46,22,592,WHITE,countdown,true);
+        line(frame,46,52,592,"A Start now   B Boot menu   X Recovery   Other: pause");
         return;
     }
     /* The boot art is a quiet backdrop. Opaque panels keep the controls
