@@ -34,13 +34,45 @@ struct kui_zso_info {
     uint32_t file_bytes, total_bytes, block_count, index_bytes;
     uint8_t shift, codec;
 };
-/* Read exactly size physical bytes or return an error. A successful short
- * read is forbidden. No call exceeds the admitted file range. The callback
- * owns cancellation and may split/cache physical 512-byte blocks. No source
- * pointer/context is retained by any API. Sources stay immutable after index
- * validation. There is no heap, complete-index or compressed-input buffer. */
-typedef enum kui_zso_result (*kui_zso_read_fn)(void *context, uint32_t offset,
-                                            void *out, size_t size);
+/* Zero-copy physical input shared by every reader and decoder. view() makes
+ * the byte at offset readable and returns a pointer to it with the number of
+ * contiguous readable bytes there: at least 1 and at most wanted. Callers pass
+ * wanted >= 1 and never exceed the admitted file range. The bytes stay valid
+ * until the next call through the same context. The callback owns caching,
+ * card streams and cancellation. No API uses a source pointer or context
+ * after it returns; console resident builds (KUI_RETAIL_ZSO) keep their one
+ * transient cursor in static storage, which every call sets up afresh.
+ * Sources stay immutable after index validation. There is no heap,
+ * complete-index or compressed-input buffer. */
+typedef enum kui_zso_result (*kui_zso_view_fn)(void *context, uint32_t offset,
+    uint32_t wanted, const uint8_t **data, uint32_t *available);
+/* Copy exactly size physical bytes through view(). Any error is returned
+ * unchanged; out may then hold a prefix. size may be zero. */
+enum kui_zso_result kui_zso_copy(kui_zso_view_fn view, void *context,
+    uint32_t offset, void *out, uint32_t size);
+/* Sequential reader over the views of one file range. p..e are the unread
+ * bytes of the current view and at is the file offset just past e, so the
+ * next unread byte is at at-(e-p); end bounds every view. Decoders read bytes
+ * in place, calling kui_zso_cursor_fill only when p == e. */
+struct kui_zso_cursor {
+    kui_zso_view_fn view;
+    void *context;
+    const uint8_t *p, *e;
+    uint32_t at, end;
+    uint32_t got; /* The last view's byte count. */
+};
+/* Unread bytes of the current view. An empty cursor may hold p = e = NULL,
+ * so this subtracts addresses as integers rather than as pointers. */
+static inline uint32_t kui_zso_cursor_buffered(const struct kui_zso_cursor *cursor) {
+    return (uint32_t)((uintptr_t)cursor->e - (uintptr_t)cursor->p);
+}
+/* Replace an exhausted view with the next one. KUI_ZSO_INVALID at the bound
+ * (a stream running past its range), KUI_ZSO_RANGE for a view of zero or more
+ * than end-at bytes; a source error is returned unchanged. */
+enum kui_zso_result kui_zso_cursor_fill(struct kui_zso_cursor *cursor);
+/* Copy size bytes from the cursor into out, refilling as needed. */
+enum kui_zso_result kui_zso_cursor_take(struct kui_zso_cursor *cursor,
+    void *out, uint32_t size);
 /* Validate only the fixed header and declared geometry; info unchanged on
  * error. Separately validate the entire index before publishing an image. */
 enum kui_zso_result kui_zso_header_parse(const uint8_t header[KUI_ZSO_HEADER_BYTES],
@@ -55,14 +87,14 @@ enum kui_zso_result kui_zso_header_parse_codec(const uint8_t header[KUI_ZSO_HEAD
 /* Bounded-page scan checks every offset, index exclusion and terminal/tail
  * bounds. Does not decompress payload blocks. */
 enum kui_zso_result kui_zso_validate_index(const struct kui_zso_info *info,
-                                          kui_zso_read_fn read, void *context);
+                                          kui_zso_view_fn view, void *context);
 /* Read two index entries, recheck their bounds/span, then decode exactly one
  * whole block directly into out. Raw blocks use the same bounded reader.
  * Alignment padding is permitted only below 1<<shift bytes. LZ4 validates
  * match/literal lengths and canonical end conditions. On error out may be
  * partially changed; it must never be used as valid decoded data then. */
 enum kui_zso_result kui_zso_read_block(const struct kui_zso_info *info,
-                                     uint32_t block, kui_zso_read_fn read,
+                                     uint32_t block, kui_zso_view_fn view,
                                      void *context, uint8_t out[KUI_ZSO_BLOCK_BYTES]);
 const char *kui_zso_result_name(enum kui_zso_result result);
 #endif

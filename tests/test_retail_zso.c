@@ -278,4 +278,49 @@ static void failure_and_reset(void) {
     assert(kui_retail_zso_image_read(&image,45001,1,KUI_GAME_SECTOR_MODE1,out,2048)==KUI_GAME_OK && !memcmp(out,expected[1],2048));
     puts("PASS ZSO retail faults: every physical read failure, poisoned-cache invalidation, late source changes and clean reset/retry");
 }
-int main(void){wire_and_maps();readers();failure_and_reset();return 0;}
+/* The card stream rules of kui_retail_sd_read_run: a stream continues only
+ * at next_lba when at least the remaining count is requested, holds at most
+ * 64 blocks and ends after its final block. */
+struct stream_model {uint32_t next,remaining,starts,blocks;bool active;};
+static struct stream_model model;
+static int streamed_run(void *context,uint32_t lba,uint32_t available,uint8_t out[512]) {
+    if(model.active && (model.next!=lba || available<model.remaining))model.active=false;
+    if(!model.active){model.active=true;model.remaining=available>64u?64u:available;model.next=lba;model.starts++;}
+    model.blocks++;model.next++;if(!--model.remaining)model.active=false;
+    return read_run(context,lba,available,out);
+}
+static void stream_accounting(void) {
+    for(unsigned run=0;run<2;run++) for(unsigned step=1;step<=8;step*=2) {
+        fixture(45000,run!=0,1);struct kui_retail_zso_image image;
+        assert(kui_retail_zso_image_init(&image,&map,read_card,&storage)==KUI_GAME_OK);
+        image.read_run=streamed_run;memset(&model,0,sizeof(model));
+        static uint8_t out[8u*2048u];
+        for(uint32_t s=0;s<LOGICAL_BLOCKS;s+=step) {
+            uint32_t n=LOGICAL_BLOCKS-s<step?LOGICAL_BLOCKS-s:step;
+            assert(kui_retail_zso_image_read(&image,45000+s,n,KUI_GAME_SECTOR_MODE1,out,sizeof(out))==KUI_GAME_OK);
+            assert(!memcmp(out,expected[s],(size_t)n*2048u));
+            model.active=false; /* read_sectors() stops the stream after every step. */
+        }
+        uint32_t file_blocks=(file_bytes+511u)/512u;
+#if KUI_RETAIL_ZSO_INDEX_BYTES
+        /* Each physical block is read about once: index lookups no longer
+         * evict payload blocks, and only window refills (one per 35 sectors)
+         * re-read a block or restart a stream. */
+        uint32_t refills=LOGICAL_BLOCKS/32u+1u;
+        assert(model.blocks<=file_blocks+3u*refills);
+        assert(model.starts<=(LOGICAL_BLOCKS+step-1u)/step+2u*refills);
+#else
+        /* Without the window each sector's entry pair shares the payload
+         * cache: at most an index block, a re-read boundary block and a fresh
+         * stream for each, besides every payload block once. */
+        assert(model.blocks<=file_blocks+2u*LOGICAL_BLOCKS);
+        assert(model.starts<=3u*LOGICAL_BLOCKS);
+#endif
+    }
+#if KUI_RETAIL_ZSO_INDEX_BYTES
+    puts("PASS ZSO retail streams: each physical block read about once and one card stream per request plus index refills");
+#else
+    puts("PASS ZSO retail streams (no index window): bounded per-sector index and boundary re-reads");
+#endif
+}
+int main(void){wire_and_maps();readers();failure_and_reset();stream_accounting();return 0;}

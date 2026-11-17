@@ -101,19 +101,41 @@ graph and initialization-before-owner-boot call sites establish that domain.
 Every shared helper remains charged to the resident service stack; neither
 stack limit is enlarged. There is no audit-skip mode for this profile.
 
-Both decoders stream through the existing 512-byte physical-sector cache
-directly into the caller's 2048-byte output; there is no compressed-input
-buffer, heap or borrowed game RAM. LZO validates every literal/match length,
-lookbehind and the canonical `11 00 00` hexadecimal end marker. The bundled
-public miniLZO compressor/safe decoder is a host test oracle, never linked
-into the detached resident.
+Both decoders read compressed bytes in place from the existing 512-byte
+physical-sector cache and write straight into the caller's 2048-byte output;
+there is no compressed-input buffer, heap or borrowed game RAM. A separate
+144-byte index window holds the entry pairs of up to 35 consecutive sectors,
+so reading an entry neither re-reads the index for every sector nor evicts
+the payload sector that the next request shares. A request's blocks are
+stored back to back, so the reader sizes each SD multi-block stream to reach
+the request's last block (from the window's terminal entry): one stream
+carries a whole request instead of one per sector. That terminal entry only
+sizes streams; each block's own index pair is still checked before it
+decodes. Literal runs, raw sectors and repeated-byte or word-distance matches
+use aligned word stores into the game's uncached buffer.
 
-At the pinned SH-4 toolchain, the first LZO reader ends at `0x8c007688`, leaving
-376 bytes in the existing reservation. Its conservative runtime stack sum is
-1216 of 1232 bytes; LZ4 remains 1208. These are build measurements, not console
-speed results. Compression reduces card bytes but adds decoding and index
-reads; compare the same image/card against uncompressed ISO to measure the
-net loading or gameplay-stall cost. No SH-4 throughput promise is made.
+LZ4 validates every token, literal/match length and lookbehind, and the
+format's end conditions: a final run of at least five literals, with the last
+match starting at least 12 bytes before the block end. LZO validates every
+literal/match length, lookbehind and the canonical `11 00 00` hexadecimal end
+marker. The bundled public miniLZO compressor/safe decoder is a host test
+oracle, never linked into the detached resident.
+
+At the pinned KOS-patched GCC 15.2.0 toolchain, the LZ4 reader ends at
+`0x8c0076a8`, leaving 344 bytes of the existing reservation, and the LZO reader
+at `0x8c007768`, leaving 152. Their conservative runtime stack sums are 1168
+and 1220 of 1232 bytes. These are build measurements, not console speed
+results.
+
+Host models of the same reader code give a first estimate only. Under QEMU,
+the SH-4 build executes 2.0 to 3.5 times fewer instructions per LZ4 sector
+than the previous reader on generated code, text and texture data (1.3 to 2.6
+times for LZO). An emulated card following the SD stream rules, read in
+8-sector steps, starts about 0.16 card streams per sector and reads each
+physical block about once. Neither models bus timing or the uncached game
+buffer. Compression reduces card bytes but adds decoding; compare the same
+image and card against the uncompressed ISO to measure the net loading or
+gameplay-stall cost. No SH-4 throughput promise is made.
 
 Generated host fixtures and mutation tests exercise these package and audit
 gates. They do not supply retail images or establish console acceptance.

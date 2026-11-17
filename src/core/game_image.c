@@ -284,14 +284,33 @@ struct zso_context {
     const struct kui_game_image *image;
     const char *name;
     enum kui_game_result failure;
+    uint32_t at, size; /* File range currently held in buffer. */
+    _Alignas(4) uint8_t buffer[KUI_ZSO_BLOCK_BYTES];
 };
-static enum kui_zso_result zso_read(void *opaque, uint32_t offset, void *out, size_t size) {
+/* kui_zso_view_fn over the physical file: refill with what the caller wants
+ * (at least 64 bytes, at most one block's worth), never past the file end. */
+static enum kui_zso_result zso_view(void *opaque, uint32_t offset, uint32_t wanted,
+    const uint8_t **data, uint32_t *available) {
     struct zso_context *context = opaque;
-    enum kui_game_result result = context->image->files.read(context->image->files.ctx,
-        context->name, offset, out, size);
-    if(result != KUI_GAME_OK) context->failure = result;
-    return result == KUI_GAME_OK ? KUI_ZSO_OK :
-        result == KUI_GAME_CANCELLED ? KUI_ZSO_CANCELLED : KUI_ZSO_IO;
+    if(offset - context->at >= context->size) {
+        uint32_t file_bytes = context->image->zso.file_bytes;
+        if(offset >= file_bytes) return KUI_ZSO_RANGE;
+        uint32_t size = wanted < 64u ? 64u : wanted;
+        if(size > sizeof(context->buffer)) size = sizeof(context->buffer);
+        if(size > file_bytes - offset) size = file_bytes - offset;
+        context->size = 0;
+        enum kui_game_result result = context->image->files.read(context->image->files.ctx,
+            context->name, offset, context->buffer, size);
+        if(result != KUI_GAME_OK) {
+            context->failure = result;
+            return result == KUI_GAME_CANCELLED ? KUI_ZSO_CANCELLED : KUI_ZSO_IO;
+        }
+        context->at = offset; context->size = size;
+    }
+    uint32_t left = context->size - (offset - context->at);
+    *data = context->buffer + (offset - context->at);
+    *available = left < wanted ? left : wanted;
+    return KUI_ZSO_OK;
 }
 static enum kui_game_result zso_result(enum kui_zso_result result,
     const struct zso_context *context) {
@@ -313,7 +332,7 @@ static enum kui_game_result logical_read(const struct kui_game_image *image,
         return image->files.read(image->files.ctx, name, offset, out, size);
     if(!out || offset > image->zso.total_bytes || size > image->zso.total_bytes - offset)
         return KUI_GAME_RANGE;
-    struct zso_context context = {image, name, KUI_GAME_OK};
+    struct zso_context context = {.image = image, .name = name, .failure = KUI_GAME_OK};
     uint8_t scratch[KUI_ZSO_BLOCK_BYTES], *destination = out;
     while(size) {
         uint32_t block = (uint32_t)(offset / KUI_ZSO_BLOCK_BYTES);
@@ -321,7 +340,7 @@ static enum kui_game_result logical_read(const struct kui_game_image *image,
         size_t take = KUI_ZSO_BLOCK_BYTES - inside;
         if(take > size) take = size;
         uint8_t *decoded = inside || take != KUI_ZSO_BLOCK_BYTES ? scratch : destination;
-        enum kui_zso_result result = kui_zso_read_block(&image->zso, block, zso_read, &context, decoded);
+        enum kui_zso_result result = kui_zso_read_block(&image->zso, block, zso_view, &context, decoded);
         if(result != KUI_ZSO_OK) return zso_result(result, &context);
         if(decoded == scratch) memcpy(destination, scratch + inside, take);
         destination += take; offset += take; size -= take;
@@ -959,11 +978,11 @@ enum kui_game_result kui_game_image_open_named_codec(const char *name,
         if(bytes < sizeof(header)) return KUI_GAME_FILE_SIZE;
         result = files->read(files->ctx, name, 0, header, sizeof(header));
         if(result != KUI_GAME_OK) return result;
-        struct zso_context context = {&image, name, KUI_GAME_OK};
+        struct zso_context context = {.image = &image, .name = name, .failure = KUI_GAME_OK};
         result = zso_result(kui_zso_header_parse_codec(header, bytes, extension(name, ".cso") ? KUI_ZSO_DEFLATE : codec, &image.zso), &context);
         if(result != KUI_GAME_OK) return result;
         if(image.zso.block_count > KUI_GAME_LBA_LIMIT) return KUI_GAME_RANGE;
-        result = zso_result(kui_zso_validate_index(&image.zso, zso_read, &context), &context);
+        result = zso_result(kui_zso_validate_index(&image.zso, zso_view, &context), &context);
         if(result != KUI_GAME_OK) return result;
         image.compressed = true;
         result = single_parse(name, image.zso.total_bytes, false, &image);

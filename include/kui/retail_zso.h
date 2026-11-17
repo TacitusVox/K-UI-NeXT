@@ -37,12 +37,30 @@ enum kui_game_result kui_retail_zso_manifest_validate(const struct kui_retail_zs
 enum kui_game_result kui_retail_zso_manifest_encode(const struct kui_retail_zso_manifest *,uint8_t[4096]);
 enum kui_game_result kui_retail_zso_manifest_decode(const uint8_t[4096],struct kui_retail_zso_manifest *);
 
+/* Index entries held apart from the payload cache: 35 blocks and their
+ * terminal entry. Sequential requests then neither re-read the index nor
+ * evict the payload block they share with the next request, and one card
+ * stream can carry a whole request. A build may set this to 0 for the older
+ * per-block pattern (the index shares the payload cache, streams are sized
+ * per view): the low CSO resident has no room for the window, and its time
+ * goes to decoding. */
+#ifndef KUI_RETAIL_ZSO_INDEX_BYTES
+#define KUI_RETAIL_ZSO_INDEX_BYTES 144u
+#endif
+_Static_assert(KUI_RETAIL_ZSO_INDEX_BYTES%4u==0u,"ZSO index window holds whole entries");
 struct kui_retail_zso_image {
     const struct kui_retail_zso_manifest *map;
     kui_retail_read_block read_block;
     kui_retail_read_run read_run;
     void *context;
     uint32_t blocks_read,cached_lba,cache_valid;
+#if KUI_RETAIL_ZSO_INDEX_BYTES
+    /* While a request decodes, card streams are sized to reach this file
+     * offset (its last block's end); zero sizes them per view. */
+    uint32_t limit;
+    uint32_t index_at,index_size; /* Window file range; size zero is empty. */
+    _Alignas(4) uint8_t index[KUI_RETAIL_ZSO_INDEX_BYTES];
+#endif
     _Alignas(32) uint8_t block[512];
 };
 _Static_assert(offsetof(struct kui_retail_zso_image,block)%32u==0,"ZSO physical cache alignment");

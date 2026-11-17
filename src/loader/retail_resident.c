@@ -798,16 +798,16 @@ int kui_retail_resident_init(const struct kui_retail_manifest *prepared,
     /* Each compressed high stage fully validates its typed map, source index
      * and owner CRCs before calling this entry. Retain no temporary pointer. */
     const struct kui_retail_zso_manifest *compressed=(const struct kui_retail_zso_manifest *)(const void *)prepared;
-#if KUI_ZSO_CODECS == 4
-    /* Like the ordinary resident above, the CSO resident receives an already
-     * validated immutable map. Keep admission here bounded to its exact
-     * runtime profile; full string/extents/boot checks belong to high stage. */
-    if(prepared->track_count!=1u || prepared->extent_count>KUI_RETAIL_ZSO_EXTENTS ||
+    /* Like the ordinary resident above, each compressed resident receives an
+     * already validated immutable map: its high stage decoded and validated the
+     * wire, verified the source header and whole index, and CRC-checked the
+     * owner IP/executable. Keep admission here bounded to this build's exact
+     * runtime profile; full string/extent/boot checks belong to the stage. The
+     * reader rechecks container geometry and every block's index pair. */
+    if(prepared->track_count!=1u || !prepared->extent_count || prepared->extent_count>KUI_RETAIL_ZSO_EXTENTS ||
        prepared->storage_transport!=KUI_STORAGE_SCI || prepared->reader!=KUI_RETAIL_READER_STANDARD ||
-       compressed->zso.codec!=KUI_ZSO_DEFLATE)return KUI_RETAIL_RESIDENT_MAP;
-#else
-    if(kui_retail_zso_manifest_validate(compressed)!=KUI_GAME_OK)return KUI_RETAIL_RESIDENT_MAP;
-#endif
+       compressed->zso.codec!=(KUI_ZSO_CODECS==1?KUI_ZSO_LZ4:KUI_ZSO_CODECS==2?KUI_ZSO_LZO1X:KUI_ZSO_DEFLATE))
+        return KUI_RETAIL_RESIDENT_MAP;
     zso_manifest=*compressed;
 #else
     manifest = *prepared;

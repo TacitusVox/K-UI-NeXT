@@ -19,6 +19,22 @@ CAPTURE = $(DESTINATION) src/core/hash.c src/core/capture_plan.c src/core/captur
 FATFS = .deps/fatfs/source/ff.c .deps/fatfs/source/ffunicode.c
 
 include config/lwext4.mk
+include config/libchdr.mk
+LIBCHDR_OBJECTS := $(patsubst %.c,build/host-chd/%.o,$(LIBCHDR_SOURCES))
+# Upstream codec warning policy is separate from K-UI's strict application
+# builds. Its forced configuration also isolates miniz public symbols.
+build/host-chd/%.o: %.c $(LIBCHDR_HEADERS)
+	@mkdir -p $(@D)
+	$(CC) -std=c11 -O1 -g -Wall -Wextra $(SANITIZERS) $(LIBCHDR_CPPFLAGS) -c $< -o $@
+CHD_GAMES = src/apps/games_chd.c src/core/chd_lib.c src/core/chd_cache.c src/core/destination_file.c $(LIBCHDR_OBJECTS)
+.PHONY: test-chd
+test-chd:
+	python3 tests/test_chd_dependencies.py
+	ASAN_OPTIONS=detect_leaks=0 python3 tests/test_chd_reader.py
+	ASAN_OPTIONS=detect_leaks=0 python3 tests/test_chd_cache.py
+	ASAN_OPTIONS=detect_leaks=0 python3 tests/test_chd_modern.py
+	$(MAKE) build/games-chd-image
+	ASAN_OPTIONS=detect_leaks=0 python3 tests/test_games_chd.py
 LWEXT4_HOST_OBJECTS := $(patsubst %.c,build/host/%.o,$(LWEXT4_SOURCES))
 
 .PHONY: test test-recovery test-images deps diagnostic clean
@@ -135,7 +151,7 @@ build/test-armada-ce-excerpt: tests/test_armada_ce_excerpt.c src/loader/armada_c
 	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) -fno-pie -no-pie $< -o $@
 test: build/test-vmu-lcd build/test-vmu-save-format
 test: build/test-recovery-manifest build/scan-fixtures/.stamp build/test-music-ogg-seek build/music-asset-check
-test: build/test-games-selection build/test-deflate build/test-cso build/test-zso build/test-lzo1x build/test-retail-zso build/test-retail-lzo build/test-retail-cso build/test-game-launch-settings build/test-game-launch-settings-file build/test-game-ram-patches build/test-game-launch-report build/test-retail-relay-patches
+test: build/test-games-selection build/test-deflate build/test-deflate-v1 build/test-cso build/test-zso build/test-lzo1x build/test-retail-zso build/test-retail-lzo build/test-retail-cso build/test-game-launch-settings build/test-game-launch-settings-file build/test-game-ram-patches build/test-game-launch-report build/test-retail-relay-patches
 test: test-armada-ce-stream test-worms-ce-stream test-wince-cooked-admission test-armada-ce-excerpt
 test: build/test-capture-export
 test: build/test-game-image build/test-game-metadata build/test-loader-probe build/test-loader-sd build/loader-probe.dat
@@ -246,6 +262,7 @@ test: build/test-storage-errors build/test-cd-audio build/test-network-probe bui
 	./build/test-destination
 	./build/test-settings
 	./build/test-deflate
+	./build/test-deflate-v1
 	./build/test-cso
 	./build/test-zso
 	./build/test-lzo1x
@@ -864,14 +881,19 @@ build/test-cover-image: tests/test_cover_image.c src/apps/cover_image.c include/
 	@mkdir -p $(@D)
 	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) -Itests src/apps/cover_image.c tests/test_cover_image.c -o $@
 
-GAMES = src/apps/games.c src/core/game_image.c src/core/zso.c src/core/deflate.c src/core/lzo1x.c src/core/game_metadata.c src/core/destination.c src/core/storage_probe.c src/core/hash.c
+GAMES = src/apps/games.c src/core/game_image.c src/core/zso.c src/core/deflate.c src/core/lzo1x.c src/core/game_metadata.c src/core/destination.c src/core/storage_probe.c src/core/hash.c $(CHD_GAMES)
 GAMES_COVERS = $(GAMES) src/core/game_launch_settings.c src/core/game_ram_patches.c src/apps/game_launch_settings_file.c src/apps/games_covers.c src/apps/cover_image.c src/core/game_cover.c src/core/pvr_texture.c src/core/retail_image.c
 
 GAMES_COVERS_WRAP = -Wl,--wrap=f_open,--wrap=f_close,--wrap=f_opendir,--wrap=f_closedir,--wrap=f_write
 GAMES_WRAP = -Wl,--wrap=f_open,--wrap=f_read,--wrap=f_lseek,--wrap=f_close,--wrap=f_write,--wrap=f_mkdir,--wrap=f_unlink,--wrap=f_rename,--wrap=f_opendir,--wrap=f_readdir,--wrap=f_closedir,--wrap=f_stat
 build/games-image: tests/games_image.c $(GAMES) $(CORE) $(FATFS) include/kui/games.h include/kui/game_image.h include/kui/game_metadata.h
 	@mkdir -p $(@D)
-	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) -Isrc/dreamcast $(GAMES) $(CORE) $(FATFS) tests/games_image.c $(GAMES_WRAP) -o $@
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) -Ithird_party/libchdr/include -Isrc/dreamcast $(GAMES) $(CORE) $(FATFS) tests/games_image.c $(GAMES_WRAP) -lm -o $@
+
+GAMES_CHD_WRAP = -Wl,--wrap=f_open,--wrap=f_read,--wrap=f_write,--wrap=f_lseek,--wrap=f_sync,--wrap=f_close,--wrap=f_opendir,--wrap=f_closedir,--wrap=f_mkdir,--wrap=f_unlink,--wrap=f_rename,--wrap=f_getfree
+build/games-chd-image: tests/games_chd_image.c $(GAMES) $(CORE) $(FATFS) include/kui/games_chd.h include/kui/chd_cache.h include/kui/chd_lib.h
+	@mkdir -p $(@D)
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) -Ithird_party/libchdr/include -Isrc/dreamcast $(GAMES) $(CORE) $(FATFS) tests/games_chd_image.c $(GAMES_CHD_WRAP) -lm -o $@
 
 FILES = src/apps/files.c src/apps/files_picture.c src/core/files_path.c src/core/destination.c src/core/storage_probe.c \
         src/apps/cover_image.c src/core/game_cover.c src/core/pvr_texture.c
@@ -914,7 +936,7 @@ build/ftp-image: tests/ftp_image.c $(FTP) $(CORE) $(FATFS) $(W5500_MODEL) $(WIFI
 	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) -Isrc/dreamcast -Ifirmware/kui-wifi/main -Itests $(FTP) $(CORE) $(FATFS) tests/w5500_model.c $(WIFI_MODEL) tests/ftp_image.c $(FTP_WRAP) -o $@
 build/games-covers-image: tests/games_covers_image.c $(GAMES_COVERS) $(CORE) $(FATFS) include/kui/games_covers.h include/kui/games.h include/kui/game_cover.h include/kui/pvr_texture.h include/kui/cover_image.h third_party/stb/stb_image.h
 	@mkdir -p $(@D)
-	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) -Isrc/dreamcast $(GAMES_COVERS) $(CORE) $(FATFS) tests/games_covers_image.c $(GAMES_COVERS_WRAP) -lm -o $@
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) -Ithird_party/libchdr/include -Isrc/dreamcast $(GAMES_COVERS) $(CORE) $(FATFS) tests/games_covers_image.c $(GAMES_COVERS_WRAP) -lm -o $@
 
 # Read-only ext4 bootstrap: upstream warnings remain visible, as for FatFs.
 build/host/third_party/lwext4/src/%.o: third_party/lwext4/src/%.c $(LWEXT4_HEADERS)
@@ -977,17 +999,17 @@ build/test-zso: tests/test_zso.c src/core/zso.c src/core/deflate.c src/core/lzo1
 # Detached SCI physical extents, ZSO wire validation and logical-sector reads.
 build/test-retail-zso: tests/test_retail_zso.c src/core/retail_zso.c src/core/zso.c src/core/deflate.c src/core/lzo1x.c src/core/retail_image.c include/kui/retail_zso.h include/kui/zso.h include/kui/retail_image.h
 	@mkdir -p $(@D)
-	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) -DKUI_RETAIL_MANIFEST_SLOTS=32 src/core/retail_image.c src/core/retail_zso.c src/core/zso.c src/core/deflate.c src/core/lzo1x.c tests/test_retail_zso.c -o $@
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) -DKUI_RETAIL_MANIFEST_SLOTS=32 -DKUI_RETAIL_ZSO=1 -DKUI_ZSO_CODECS=1 src/core/retail_image.c src/core/retail_zso.c src/core/zso.c src/core/deflate.c src/core/lzo1x.c tests/test_retail_zso.c -o $@
 build/test-retail-lzo: tests/test_retail_zso.c src/core/retail_zso.c src/core/zso.c src/core/deflate.c src/core/lzo1x.c src/core/retail_image.c include/kui/retail_zso.h include/kui/zso.h include/kui/lzo1x.h
 	@mkdir -p $(@D)
-	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) -DKUI_RETAIL_MANIFEST_SLOTS=32 -DKUI_ZSO_CODECS=2 -DKUI_TEST_LZO=1 src/core/retail_image.c src/core/retail_zso.c src/core/zso.c src/core/deflate.c src/core/lzo1x.c tests/test_retail_zso.c -o $@
-build/test-lzo1x: tests/test_lzo1x.c src/core/lzo1x.c include/kui/lzo1x.h include/kui/zso.h third_party/minilzo/minilzo.c
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) -DKUI_RETAIL_MANIFEST_SLOTS=32 -DKUI_RETAIL_ZSO=1 -DKUI_ZSO_CODECS=2 -DKUI_TEST_LZO=1 src/core/retail_image.c src/core/retail_zso.c src/core/zso.c src/core/deflate.c src/core/lzo1x.c tests/test_retail_zso.c -o $@
+build/test-lzo1x: tests/test_lzo1x.c src/core/lzo1x.c src/core/zso.c include/kui/lzo1x.h include/kui/zso.h third_party/minilzo/minilzo.c
 	@mkdir -p $(@D)
-	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) -Ithird_party/minilzo -DLZO_CFG_NO_UNALIGNED=1 src/core/lzo1x.c third_party/minilzo/minilzo.c tests/test_lzo1x.c -o $@
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) -Ithird_party/minilzo -DLZO_CFG_NO_UNALIGNED=1 -DKUI_ZSO_CODECS=2 src/core/lzo1x.c src/core/zso.c third_party/minilzo/minilzo.c tests/test_lzo1x.c -o $@
 
 build/test-retail-cso: tests/test_retail_zso.c src/core/retail_zso.c src/core/zso.c src/core/deflate.c src/core/lzo1x.c src/core/retail_image.c include/kui/retail_zso.h include/kui/zso.h include/kui/lzo1x.h
 	@mkdir -p $(@D)
-	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) -DKUI_RETAIL_MANIFEST_SLOTS=32 -DKUI_ZSO_CODECS=4 -DKUI_TEST_CSO=1 src/core/retail_image.c src/core/retail_zso.c src/core/zso.c src/core/deflate.c src/core/lzo1x.c tests/test_retail_zso.c -o $@
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) -DKUI_RETAIL_MANIFEST_SLOTS=32 -DKUI_RETAIL_ZSO=1 -DKUI_ZSO_CODECS=4 -DKUI_TEST_CSO=1 $(CSO_FIT_FLAGS) src/core/retail_image.c src/core/retail_zso.c src/core/zso.c src/core/deflate.c src/core/lzo1x.c tests/test_retail_zso.c -o $@
 
 
 build/test-games-selection: tests/test_games_selection.c src/core/games_selection.c src/apps/games_selection.c include/kui/games_selection.h src/core/destination.c src/core/data.c .deps/fatfs/source/ff.h
@@ -1100,9 +1122,14 @@ build/test-vmu-lcd: tests/test_vmu_lcd.c src/core/vmu_lcd.c src/dreamcast/vmu_lc
 	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) -Itests/vmu_stubs src/core/vmu_lcd.c src/dreamcast/vmu_lcd.c tests/test_vmu_lcd.c -o $@
 
 # Independent raw-DEFLATE oracle and strict CSO container admission.
-build/test-deflate: tests/test_deflate.c src/core/deflate.c include/kui/deflate.h include/kui/zso.h
+build/test-deflate: tests/test_deflate.c src/core/deflate.c src/core/zso.c include/kui/deflate.h include/kui/zso.h
 	@mkdir -p $(@D)
-	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) src/core/deflate.c tests/test_deflate.c -lz -o $@
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) -DKUI_ZSO_CODECS=4 src/core/deflate.c src/core/zso.c tests/test_deflate.c -lz -o $@
+# The low CSO resident's smaller forms (Makefile.dc CSO_FIT_FLAGS).
+CSO_FIT_FLAGS := -DKUI_DEFLATE_BUCKETS=0 -DKUI_RETAIL_ZSO_INDEX_BYTES=0 -DKUI_ZSO_WORD_COPY=0
+build/test-deflate-v1: tests/test_deflate.c src/core/deflate.c src/core/zso.c include/kui/deflate.h include/kui/zso.h
+	@mkdir -p $(@D)
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) -DKUI_ZSO_CODECS=4 $(CSO_FIT_FLAGS) src/core/deflate.c src/core/zso.c tests/test_deflate.c -lz -o $@
 build/test-cso: tests/test_cso.c src/core/zso.c src/core/deflate.c src/core/lzo1x.c include/kui/zso.h include/kui/deflate.h
 	@mkdir -p $(@D)
 	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) src/core/zso.c src/core/deflate.c src/core/lzo1x.c tests/test_cso.c -o $@

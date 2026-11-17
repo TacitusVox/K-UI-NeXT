@@ -5,23 +5,16 @@
  * The public miniLZO distribution is used as a format reference and test
  * oracle only. Explicit counts and distances avoid forming an invalid
  * pointer before validating a match. */
-struct input {
-    kui_zso_read_fn read;
-    void *context;
-    uint32_t at, end;
-};
-static enum kui_zso_result take(struct input *in, void *out, uint32_t count) {
-    if(count > in->end - in->at) return KUI_ZSO_INVALID;
-    if(!count) return KUI_ZSO_OK;
-    enum kui_zso_result result = in->read(in->context, in->at, out, count);
-    if(result == KUI_ZSO_OK) in->at += count;
-    return result;
-}
-static enum kui_zso_result extended(struct input *in, uint32_t base, uint32_t *count) {
-    uint8_t extra;
+/* Read one byte in place; the cursor refills only when its view is empty. */
+#define NEXT(value) do { \
+        if(in->p == in->e && (result = kui_zso_cursor_fill(in)) != KUI_ZSO_OK) return result; \
+        (value) = *in->p++; \
+    } while(0)
+__attribute__((always_inline)) static inline enum kui_zso_result extended(struct kui_zso_cursor *in, uint32_t base, uint32_t *count) {
+    enum kui_zso_result result;
+    uint32_t extra;
     do {
-        enum kui_zso_result result = take(in, &extra, 1);
-        if(result != KUI_ZSO_OK) return result;
+        NEXT(extra);
         uint32_t add = extra ? extra : 255u;
         if(add > KUI_ZSO_BLOCK_BYTES - base) return KUI_ZSO_INVALID;
         base += add;
@@ -29,19 +22,18 @@ static enum kui_zso_result extended(struct input *in, uint32_t base, uint32_t *c
     *count = base;
     return KUI_ZSO_OK;
 }
-enum kui_zso_result kui_lzo1x_decode(kui_zso_read_fn read, void *context,
-    uint32_t start, uint32_t end, uint8_t out[KUI_ZSO_BLOCK_BYTES],
-    uint32_t *consumed) {
-    if(!read || !out || !consumed || start >= end) return KUI_ZSO_INVALID;
-    struct input in = {read, context, start, end};
-    uint32_t done = 0, count = 0;
+enum kui_zso_result kui_lzo1x_decode(struct kui_zso_cursor *in,
+    uint8_t out[KUI_ZSO_BLOCK_BYTES], uint32_t *consumed) {
+    if(!in || !out || !consumed) return KUI_ZSO_INVALID;
+    /* File offset of the first unread byte. */
+    const uint32_t start = in->at - kui_zso_cursor_buffered(in);
+    uint32_t done = 0, count = 0, token, low, high;
     /* A zero state admits a literal run; one follows a long literal run
      * (whose short token has the special 2049+ distance); two admits only
      * a match after the preceding match's attached one-to-three literals. */
     unsigned state = 0;
-    uint8_t token, low, high;
-    enum kui_zso_result result = take(&in, &token, 1);
-    if(result != KUI_ZSO_OK) return result;
+    enum kui_zso_result result;
+    NEXT(token);
     if(token > 17u) {
         count = token - 17u;
         state = count < 4u ? 2u : 1u;
@@ -51,7 +43,7 @@ enum kui_zso_result kui_lzo1x_decode(kui_zso_read_fn read, void *context,
         if(!state && token < 16u) {
             count = token;
             if(!count) {
-                result = extended(&in, 15u, &count);
+                result = extended(in, 15u, &count);
                 if(result != KUI_ZSO_OK) return result;
             }
             count += 3u;
@@ -60,37 +52,33 @@ enum kui_zso_result kui_lzo1x_decode(kui_zso_read_fn read, void *context,
         }
         uint32_t distance, trailing;
         if(token < 16u) {
-            result = take(&in, &low, 1);
-            if(result != KUI_ZSO_OK) return result;
-            distance = 1u + (token >> 2) + ((uint32_t)low << 2);
+            NEXT(low);
+            distance = 1u + (token >> 2) + (low << 2);
             count = 2;
             if(state == 1u) { distance += 2048u; count = 3; }
             trailing = token & 3u;
         } else if(token >= 64u) {
-            result = take(&in, &low, 1);
-            if(result != KUI_ZSO_OK) return result;
-            distance = 1u + ((token >> 2) & 7u) + ((uint32_t)low << 3);
+            NEXT(low);
+            distance = 1u + ((token >> 2) & 7u) + (low << 3);
             count = (token >> 5) + 1u;
             trailing = token & 3u;
         } else {
             count = token & (token >= 32u ? 31u : 7u);
             if(!count) {
-                result = extended(&in, token >= 32u ? 31u : 7u, &count);
+                result = extended(in, token >= 32u ? 31u : 7u, &count);
                 if(result != KUI_ZSO_OK) return result;
             }
-            result = take(&in, &low, 1);
-            if(result != KUI_ZSO_OK) return result;
-            result = take(&in, &high, 1);
-            if(result != KUI_ZSO_OK) return result;
-            distance = (low >> 2) + ((uint32_t)high << 6);
+            NEXT(low);
+            NEXT(high);
+            distance = (low >> 2) + (high << 6);
             trailing = low & 3u;
             if(token >= 32u) ++distance;
             else {
-                distance += (uint32_t)(token & 8u) << 11;
+                distance += (token & 8u) << 11;
                 if(!distance) {
                     if(token != 17u || low || done != KUI_ZSO_BLOCK_BYTES)
                         return KUI_ZSO_INVALID;
-                    *consumed = in.at - start;
+                    *consumed = in->at - kui_zso_cursor_buffered(in) - start;
                     return KUI_ZSO_OK;
                 }
                 distance += 16384u;
@@ -105,10 +93,9 @@ enum kui_zso_result kui_lzo1x_decode(kui_zso_read_fn read, void *context,
         state = count ? 2u : 0u;
 literals:
         if(count > KUI_ZSO_BLOCK_BYTES - done) return KUI_ZSO_INVALID;
-        result = take(&in, out + done, count);
+        result = kui_zso_cursor_take(in, out + done, count);
         if(result != KUI_ZSO_OK) return result;
         done += count;
-        result = take(&in, &token, 1);
-        if(result != KUI_ZSO_OK) return result;
+        NEXT(token);
     }
 }
