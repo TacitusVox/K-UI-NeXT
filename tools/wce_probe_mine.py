@@ -226,13 +226,31 @@ def memory(ram, kd, cls, stage, page_list):
     pages = set(page_list)
     info["dumped_pages"] = len(pages)
     if stage:
-        zb, ze = int(stage["zero_begin"], 16), int(stage["zero_end"], 16)
-        if ze > zb:
+        # The stage cleared these ranges before Windows CE started: a non-zero
+        # page there was written by CE or the game. Other dumped pages of CE's
+        # RAM may still hold launcher bytes (the stage image, its stack area).
+        cleared, total, used = [], 0, 0
+        for b_key, e_key in (("zero_begin", "zero_end"), ("zero_high_begin", "zero_high_end")):
+            zb, ze = int(stage.get(b_key, "0x0"), 16), int(stage.get(e_key, "0x0"), 16)
+            if ze <= zb:
+                continue
             first, last = (zb - wd.RAM_BEGIN) // wd.PAGE, (ze - wd.RAM_BEGIN) // wd.PAGE
-            used = sum(1 for p in range(first, last) if p in pages)
-            info["cleared_range"] = {"begin": stage["zero_begin"], "end": stage["zero_end"],
-                                     "pages": last - first, "written_by_game": used,
-                                     "untouched_kib": (last - first - used) * 4}
+            n = sum(1 for p in range(first, last) if p in pages)
+            cleared.append({"begin": f"{zb:#010x}", "end": f"{ze:#010x}", "pages": last - first,
+                            "written_by_game": n})
+            total += last - first
+            used += n
+        if cleared:
+            inside = set()
+            for c in cleared:
+                f0 = (int(c["begin"], 16) - wd.RAM_BEGIN) // wd.PAGE
+                inside.update(range(f0, f0 + c["pages"]))
+            body_end = 0x8c010000 + (int(stage.get("kernel_bytes", 0)) + 0xfff) // 0x1000 * 0x1000
+            first_ce = (body_end - wd.RAM_BEGIN) // wd.PAGE
+            info["cleared_ranges"] = cleared
+            info["cleared_written_kib"] = used * 4
+            info["cleared_untouched_kib"] = (total - used) * 4
+            info["not_cleared_dumped_kib"] = sum(4 for p in pages if p >= first_ce and p not in inside)
     if pages:
         info["highest_page"] = f"{wd.RAM_BEGIN + max(pages) * wd.PAGE:#010x}"
     return info

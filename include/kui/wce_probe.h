@@ -140,7 +140,8 @@ struct kui_wce_probe_stage {
     uint32_t slot,slot_runs,sequence,flags;
     uint8_t ip[256];             /* IP.BIN's first 256 bytes */
     uint8_t rom_header_bytes[84];
-    uint32_t reserved[13];
+    uint32_t zero_high_begin,zero_high_end; /* the second cleared range, above the stage */
+    uint32_t reserved[11];
 };
 _Static_assert(sizeof(struct kui_wce_probe_stage)<=KUI_WCE_PROBE_STAGE_SECTORS*KUI_WCE_PROBE_SECTOR,
     "WCE probe stage report");
@@ -151,7 +152,8 @@ _Static_assert(sizeof(struct kui_wce_probe_stage)<=KUI_WCE_PROBE_STAGE_SECTORS*K
 struct kui_wce_probe_terminal {
     char magic[8];               /* "KUIWCETR" */
     /* Menu: the BIOS menu command, caller and stack. Fault: the GD function,
-     * and in caller the address of the reason string (in the dump). */
+     * and in caller the fault message's length + 1 (it names the message:
+     * src/loader/retail_resident.c, tools/wce_probe_data.py FAULT_REASONS). */
     uint32_t version,bytes,reason,menu_command,caller,stack;
     uint32_t rtc,hook_fault,pages,dump_sectors;
     /* SR (in the hook: BL and IMASK forced), VBR, CCR MMUCR PTEH TTB, Maple

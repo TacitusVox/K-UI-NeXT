@@ -193,8 +193,9 @@ def decode_stage(raw):
              "sequence", "flags"]
     out = {"version": v[1], "build": cstr(v[3])}
     out.update({n: v[4 + i] for i, n in enumerate(names)})
+    out["zero_high_begin"], out["zero_high_end"] = v[30], v[31]
     for n in ("kernel_crc32", "kernel_head_crc32", "rom_header", "ram_start", "ram_free", "ram_end",
-              "zero_begin", "zero_end"):
+              "zero_begin", "zero_end", "zero_high_begin", "zero_high_end"):
         out[n] = f"{out[n]:#010x}"
     out["ip"] = ip_fields(v[28])
     out["rom_header_bytes"] = v[29].hex()

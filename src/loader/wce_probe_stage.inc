@@ -10,9 +10,10 @@
  * claimed slot: its header, read back as this file's EMPTY header for that
  * slot, and runs whose first sectors were read back blank. Any failure leaves
  * the launch unchanged, with no probe armed.
- * KUI_WCE_PROBE_ZERO (default on) also clears the RAM the launcher left
- * between the loaded kernel and this stage, so the end-of-game dump holds only
- * what the game's session wrote. */
+ * KUI_WCE_PROBE_ZERO (default on) also clears the RAM the launcher left from
+ * the end of the loaded kernel up to this stage's prefix, and from this
+ * stage's BSS up to its stack reservation, so in those ranges the end-of-game
+ * dump holds only what Windows CE and the game wrote. */
 #include "kui/wce_probe.h"
 #include "../core/wce_probe_fat.c"
 #include "../dreamcast/sci_sd_storage.c"
@@ -21,8 +22,10 @@ __asm__(".global __kui_wce_probe_stage\n.set __kui_wce_probe_stage,1\n");
 #ifndef KUI_WCE_PROBE_ZERO
 #define KUI_WCE_PROBE_ZERO 1
 #endif
-#define WCE_PROBE_ZERO_FLOOR 0x8c400000u
-#define WCE_PROBE_ZERO_CEILING 0x8ce00000u
+#define WCE_PROBE_ZERO_CEILING 0x8ce00000u /* this stage's prefix and image follow */
+/* The stage's BSS end (retail_stage_ce.ld); its 64 KiB stack reservation
+ * starts at KUI_RETAIL_STAGE_MEMORY_END. */
+extern const uint8_t probe_stage_bss_end[] __asm__("__retail_stage_bss_end");
 
 static struct kui_wce_probe_seed probe_seed;
 static bool probe_armed;
@@ -127,12 +130,16 @@ static void probe_stage_prepare(const uint8_t *ip) {
     r->flags=manifest.reader!=KUI_RETAIL_READER_STANDARD?1u:0u;
     memcpy(r->ip,ip,sizeof(r->ip));
 #if KUI_WCE_PROBE_ZERO
+    /* Nothing the launch still needs lives here: firmware, IP.BIN and the
+     * resident are below the body (0x8c010000), the prefix copy and this stage
+     * (BSS, then the stack reservation) above 0x8ce00000. */
     uint32_t zero_begin=(probe_body+probe_body_bytes+0xfffu)&~0xfffu;
-    if(zero_begin<WCE_PROBE_ZERO_FLOOR) zero_begin=WCE_PROBE_ZERO_FLOOR;
     uint32_t zero_end=WCE_PROBE_ZERO_CEILING;
     if(probe_prefix_bytes && probe_prefix<zero_end && probe_prefix+probe_prefix_bytes>zero_begin)
         zero_end=probe_prefix&~0xfffu;
-    if(zero_end>zero_begin) {r->zero_begin=zero_begin;r->zero_end=zero_end;}
+    if(probe_body>=KUI_RETAIL_EXEC_ADDRESS && zero_end>zero_begin) {r->zero_begin=zero_begin;r->zero_end=zero_end;}
+    uint32_t high=((uint32_t)(uintptr_t)probe_stage_bss_end+0xfffu)&~0xfffu;
+    if(high<KUI_RETAIL_STAGE_MEMORY_END) {r->zero_high_begin=high;r->zero_high_end=KUI_RETAIL_STAGE_MEMORY_END;}
 #endif
     /* The CLAIMED header first: an interrupted claim leaves a used slot, which
      * later launches skip, never an EMPTY slot over written sectors. Then the
@@ -148,11 +155,13 @@ static void probe_stage_prepare(const uint8_t *ip) {
     }
     kui_wce_probe_seed_build(c,r->rtc,r->flags,&probe_seed);
 #if KUI_WCE_PROBE_ZERO
-    /* Word stores: the freestanding memset stores bytes (up to 10 MiB here).
-     * Both bounds are 4 KiB aligned. */
-    for(uint32_t *w=(uint32_t *)(uintptr_t)r->zero_begin;(uintptr_t)w<r->zero_end;w+=4) {
-        w[0]=0u;w[1]=0u;w[2]=0u;w[3]=0u;
-    }
+    /* Word stores: the freestanding memset stores bytes (up to 14 MiB here).
+     * Every bound is 4 KiB aligned. */
+    const uint32_t ranges[2][2]={{r->zero_begin,r->zero_end},{r->zero_high_begin,r->zero_high_end}};
+    for(unsigned k=0;k<2u;k++)
+        for(uint32_t *w=(uint32_t *)(uintptr_t)ranges[k][0];(uintptr_t)w<ranges[k][1];w+=4) {
+            w[0]=0u;w[1]=0u;w[2]=0u;w[3]=0u;
+        }
 #endif
     probe_armed=manifest.reader!=KUI_RETAIL_READER_STANDARD;
     retail_display_hex(probe_armed?"WCE DATA ON SLOT":"WCE DATA STAGE ONLY SLOT",c->slot);

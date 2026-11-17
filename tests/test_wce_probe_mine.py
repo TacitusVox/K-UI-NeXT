@@ -112,8 +112,8 @@ def main():
     mem = out["memory"]
     check(mem["kernel_pages"]["free_kib"] == 2000 and mem["kernel_pages"]["lowest_free_kib"] == 480 and
           mem["kernel_pages"]["total_kib"] == 12000, f"page counters {mem}")
-    check(mem["cleared_range"]["written_by_game"] == 4 and mem["kernel_heap"]["low"] == "0x8c200000",
-          f"cleared range and heap {mem}")
+    check(mem["cleared_ranges"][0]["written_by_game"] == 4 and mem["cleared_written_kib"] == 16 and
+          mem["kernel_heap"]["low"] == "0x8c200000", f"cleared range and heap {mem}")
     print("PASS miner: KData, CE3 processes, module list with ROM and disc DLLs, page walk, users, memory counters")
 
     image, ttb = build(cycle=True)
