@@ -3678,6 +3678,25 @@ static void games_selected_art_rendering(void) {
     s.games_view=s.games_listing.view=KUI_GAMES_VIEW_LIST;
     s.games_listing.entries[1].cover=false;s.games_art_loading=true;render(&v);
     assert(strstr(drawn,"Loading box art...") && !strstr(drawn,"B Stop safely"));
+    /* Compact and Gallery draw every published tile; List and Flow keep the
+     * single selected cover. A missing tile keeps its placeholder. */
+    static uint16_t tile[KUI_COVER_MEDIUM*KUI_COVER_MEDIUM];
+    for(unsigned i=0;i<KUI_COVER_MEDIUM*KUI_COVER_MEDIUM;i++) tile[i]=0x2468;
+    struct kui_shell_view tiles=v;tiles.game_tile_covers[0]=tile;
+    s.games_art_loading=false;
+    for(unsigned view=0;view<KUI_GAMES_VIEW_COUNT;view++) {
+        s.games_view=view;games_page(2,false,view);s.games_selected=1;render(&tiles);
+        unsigned x=view==KUI_GAMES_VIEW_COMPACT?41:57,y=view==KUI_GAMES_VIEW_COMPACT?164:165;
+        bool tiled=view==KUI_GAMES_VIEW_COMPACT || view==KUI_GAMES_VIEW_GALLERY;
+        if(tiled) assert(pixels[1+y*640+x]==0x2468);
+        else for(unsigned i=0;i<640*480;i++) assert(pixels[1+i]!=0x2468);
+        tiles.game_tile_covers[0]=NULL;render(&tiles);
+        if(tiled) assert(pixels[1+y*640+x]!=0x2468 && pixels[1+y*640+x]!=0x5678);
+        tiles.game_tile_covers[0]=tile;
+        /* A listing of another view never borrows this view's tiles. */
+        s.games_listing.view=(view+1u)%KUI_GAMES_VIEW_COUNT;render(&tiles);
+        if(tiled) assert(pixels[1+y*640+x]!=0x2468);
+    }
 }
 static void ripper_export_rendering(void) {
     struct kui_shell_view v={0};reset(KUI_SHELL_RIPPER_SETTINGS);s.setting_selected=2;

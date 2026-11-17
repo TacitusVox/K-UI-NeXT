@@ -48,6 +48,9 @@ static void tracked_free(void *pointer) {
     if(!pointer)return;
     assert(live && pointer==pool);live=false;++releases;
 }
+/* Games Compact/Gallery tiles are released with the frame before handoff. */
+static unsigned tile_frees;
+static void games_tiles_free_locked(void) {++tile_frees;}
 #define aligned_alloc tracked_allocate
 #define free tracked_free
 '''+function("shell_frame_prepare")+"\n"+function("shell_frame_release_for_action")+r'''
@@ -62,7 +65,7 @@ int main(void) {
     assert(shell_frame_prepare(true)==frame && attempts==1u);
     shell_frame_ready=true;
     shell_frame_release_for_action(58u);
-    assert(!shell_frame && !shell_frame_ready && !live && releases==1u);
+    assert(!shell_frame && !shell_frame_ready && !live && releases==1u && tile_frees==1u);
     /* No cache allocation competes with game preloading after dispatch. */
     assert(!shell_frame_prepare(true) && attempts==1u);
     /* A failed launch returns to idle; the cache may be recreated then. */
@@ -77,15 +80,16 @@ int main(void) {
         assert(shell_frame_prepare(false) && live);
         shell_frame_ready=true;
         bool large=action==19u || (action>=56u && action<=58u) || action==62u || action==79u || action==104u;
-        unsigned before=releases;
+        unsigned before=releases,tiles_before=tile_frees;
         shell_frame_release_for_action(action);
         assert((shell_frame==NULL)==large && live==!large);
         assert(shell_frame_ready==!large);
         assert(releases==before+(large?1u:0u));
+        assert(tile_frees==tiles_before+(large?1u:0u));
         shell_frame_release_for_action(58u);
         assert(!shell_frame && !live);
     }
-    puts("PASS menu frame cache: actual helper C, aligned600KiB optional cache, allocation failure fallback, no allocation during preload, released before dispatch, failed-launch reuse, all action boundaries");
+    puts("PASS menu frame cache: actual helper C, aligned600KiB optional cache, allocation failure fallback, no allocation during preload, released before dispatch with Games tiles, failed-launch reuse, all action boundaries");
     return 0;
 }
 '''

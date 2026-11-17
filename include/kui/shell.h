@@ -691,6 +691,11 @@ struct kui_shell_view {
     const uint16_t (*game_covers)[KUI_COVER_PIXELS];
     /* Runtime keeps one selected cover; host previews may still supply rows. */
     const uint16_t *game_selected_cover;
+    /* Compact and Gallery tiles: each row's cover at the listing's view size
+     * (KUI_COVER_SMALL/MEDIUM square), or NULL for its placeholder. Main sets
+     * a pointer only for the exact entry and view on screen and never changes
+     * a published buffer while frames can draw it. */
+    const uint16_t *game_tile_covers[KUI_GAMES_ROWS];
     const uint16_t *game_detail_cover;
     /* The File Manager's picture, KUI_FILES_PICTURE_EDGE square; drawn only
      * while shell->files_picture says it loaded. */

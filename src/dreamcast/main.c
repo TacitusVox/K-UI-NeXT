@@ -143,9 +143,11 @@ static uint16_t *shell_frame_prepare(bool working) {
     if(!shell_frame && !working) shell_frame=aligned_alloc(32u,640u*480u*sizeof(*shell_frame));
     return shell_frame;
 }
+static void games_tiles_free_locked(void);
 static void shell_frame_release_for_action(unsigned action) {
     if(action==19u || (action>=56u && action<=58u) || action==62u || action==79u || action==104u || action==126u) {
         free(shell_frame);shell_frame=NULL;shell_frame_ready=false;
+        games_tiles_free_locked();
     }
 }
 static struct kui_settings settings_current, settings_pending;
@@ -369,6 +371,35 @@ static struct kui_app_status games_scan_status;
  * cover. A ready result owns staging until main accepts/discards it, so neither
  * an older visible page nor drawing can race the next artwork read. */
 static uint16_t games_cover_pixels[KUI_COVER_PIXELS],games_cover_staging[KUI_COVER_PIXELS];
+/* Compact and Gallery tiles, guarded by lock. The worker writes a slot only
+ * while it is unpublished, then publishes it. Only main unpublishes (when the
+ * slot no longer matches the row and view on screen, or after the worker asks)
+ * and frees, so frames may draw published buffers without the lock. */
+#define GAMES_TILE_BYTES (KUI_COVER_MEDIUM*KUI_COVER_MEDIUM*sizeof(uint16_t))
+static uint16_t *games_tiles[KUI_GAMES_ROWS];
+static struct {char path[KUI_GAMES_FILE_CAP],name[KUI_DEST_NAME_CAP];unsigned view;bool published;}
+    games_tile_info[KUI_GAMES_ROWS];
+static bool games_tiles_changed,games_tiles_invalid;
+/* Main only, lock held. Frames never draw a freed or unpublished tile. */
+static void games_tiles_free_locked(void) {
+    for(unsigned row=0;row<KUI_GAMES_ROWS;row++) {
+        free(games_tiles[row]);games_tiles[row]=NULL;games_tile_info[row].published=false;
+    }
+}
+static void games_tiles_snapshot_locked(struct kui_shell_view *view) {
+    const struct kui_games_page *l=&shell.games_listing;
+    unsigned shown=kui_shell_games_view(&shell);
+    for(unsigned row=0;row<KUI_GAMES_ROWS;row++) {
+        view->game_tile_covers[row]=NULL;
+        if(!games_tile_info[row].published) continue;
+        bool match=!games_tiles_invalid && games_tiles[row] && row<l->count && l->view==shown &&
+            games_tile_info[row].view==shown && !strcmp(games_tile_info[row].path,l->entries[row].path) &&
+            !strcmp(games_tile_info[row].name,l->entries[row].name);
+        if(match) view->game_tile_covers[row]=games_tiles[row];
+        else games_tile_info[row].published=false;
+    }
+    games_tiles_invalid=false;
+}
 static uint16_t games_detail_cover[KUI_COVER_PIXELS];
 /* File Manager: requests copied from the shell when a job is queued, and
  * results the main loop installs by generation. files_status is the live
@@ -2569,7 +2600,7 @@ static void games_cache_invalidate(void) {
     kui_games_cache_clear();kui_games_library_clear();kui_games_covers_cache_clear();games_warm_done=false;
     games_prefetch_reset();
     mutex_lock(&lock);
-    games_art_done_valid=false;games_art_result_ready=false;
+    games_art_done_valid=false;games_art_result_ready=false;games_tiles_invalid=true;
     mutex_unlock(&lock);
 }
 static void games_storage_observe(void) {
@@ -3178,6 +3209,30 @@ static bool games_prefetch_rows(unsigned offset,struct kui_games_page *rows) {
     if(!games_prefetch_cancelled()) games_prefetch.step=GAMES_PREFETCH_DONE;
     return false;
 }
+/* Worker only. True when the row's tile is published or not needed. */
+static bool games_tile_publish(unsigned row,const struct kui_games_entry *entry,unsigned view,enum kui_cover_size size) {
+    if(row>=KUI_GAMES_ROWS || (view!=KUI_GAMES_VIEW_COMPACT && view!=KUI_GAMES_VIEW_GALLERY) ||
+       size!=kui_games_view_size(view)) return true;
+    unsigned edge=kui_cover_edge(size);
+    bool done=false;
+    mutex_lock(&lock);
+    if(!games_prefetch_current() || games_tiles_invalid) done=true; /* Nothing to show now. */
+    else if(games_tile_info[row].published) {
+        done=games_tile_info[row].view==view && !strcmp(games_tile_info[row].path,entry->path) &&
+            !strcmp(games_tile_info[row].name,entry->name);
+    } else {
+        if(!games_tiles[row]) games_tiles[row]=malloc(GAMES_TILE_BYTES);
+        if(games_tiles[row]) {
+            memcpy(games_tiles[row],games_prefetch_pixels,(size_t)edge*edge*sizeof(uint16_t));
+            snprintf(games_tile_info[row].path,sizeof(games_tile_info[row].path),"%s",entry->path);
+            snprintf(games_tile_info[row].name,sizeof(games_tile_info[row].name),"%s",entry->name);
+            games_tile_info[row].view=view;games_tile_info[row].published=true;games_tiles_changed=true;
+        }
+        done=true; /* Allocation failure leaves the placeholder. */
+    }
+    mutex_unlock(&lock);
+    return done;
+}
 static bool games_prefetch_idle_work(void) {
     if(kui_cd_audio_owns_drive() || games_idle_cancelled()) return false;
     mutex_lock(&lock);
@@ -3202,15 +3257,21 @@ static bool games_prefetch_idle_work(void) {
     const unsigned page=games_prefetch.page,view=games_prefetch.view,offset=page*KUI_GAMES_ROWS;
     struct kui_games_page *rows=&games_idle_rows;
     if(games_prefetch.step<GAMES_PREFETCH_ART) games_prefetch.step=GAMES_PREFETCH_ART;
-    /* Box art of every row on screen, so moving the selection shows it. */
+    /* Box art of every row on screen, so moving the selection shows it, and
+     * Compact/Gallery tiles for every row. A slot still holding the previous
+     * page's tile is retried on a later pass, served from the cover cache. */
     if(!games_prefetch_rows(offset,rows)) return true;
+    bool tiles_done=true;
     for(unsigned row=0;row<rows->count;row++) {
         struct kui_games_cover_result result;
         (void)kui_games_selected_cover(&rows->entries[row],kui_games_view_size(view),
             games_prefetch_pixels,&result,kui_log,games_prefetch_cancelled);
         if(games_prefetch_cancelled()) return true;
+        if(result.cover && !result.stopped && !games_tile_publish(row,&rows->entries[row],view,result.size))
+            tiles_done=false;
     }
-    games_prefetch.step=GAMES_PREFETCH_DONE;return true;
+    if(tiles_done) games_prefetch.step=GAMES_PREFETCH_DONE;
+    return true;
 }
 static void games_warm_idle_work(void) {
     if(games_warm_done || kui_cd_audio_owns_drive() || games_warm_cancelled()) return;
@@ -4605,6 +4666,8 @@ static uint32_t shell_view_fingerprint(const struct kui_shell_view *v,const char
     fingerprint_pixels(&f,v->game_selected_cover,KUI_COVER_PIXELS);
     fingerprint_pixels(&f,v->game_detail_cover,KUI_COVER_PIXELS);
     fingerprint_pixels(&f,v->files_picture,(size_t)KUI_FILES_PICTURE_EDGE*KUI_FILES_PICTURE_EDGE);
+    for(unsigned row=0;row<KUI_GAMES_ROWS;row++)
+        fingerprint_pixels(&f,v->game_tile_covers[row],(size_t)KUI_COVER_SMALL*KUI_COVER_SMALL);
     uint32_t inset_word=inset;kui_ui_fingerprint_words(&f,&inset_word,1);
     return kui_ui_fingerprint_value(&f);
 }
@@ -4728,6 +4791,7 @@ static bool draw_shell_frame(bool force) {
     view.done = capture_status.done; view.total = capture_status.total;
     view.committed = capture_status.committed; view.elapsed_ms = capture_status.elapsed_ms;
     if(shell.page==KUI_SHELL_FTP && ftp_seen) {ftp_view=ftp_status;view.ftp=&ftp_view;}
+    games_tiles_snapshot_locked(&view);
     unsigned screen_inset=system_current.screen_inset*16u;
     char capture_notice[sizeof(screenshot_notice)]={0};
     if(now<screenshot_notice_until)snprintf(capture_notice,sizeof(capture_notice),"%s",screenshot_notice);
@@ -5331,6 +5395,7 @@ int main(void) {
             kui_shell_set_games_selection(&shell,&games_selection_loaded);
             seen_games_selection=games_selection_generation;
         }
+        if(games_tiles_changed) {games_tiles_changed=false;games_ui_changed=true;}
         if(games_art_result_ready) {
             if(kui_shell_set_games_art(&shell,&games_art_published,&games_art_result)) {
                 if(games_art_result.cover) memcpy(games_cover_pixels,games_cover_staging,sizeof(games_cover_pixels));

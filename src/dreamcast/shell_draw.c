@@ -2417,8 +2417,12 @@ static const char *entry_text(const struct kui_games_entry *e) {
 }
 static const uint16_t *entry_cover(const struct kui_shell *s,const struct kui_shell_view *v,unsigned i) {
     const struct kui_games_page *l=&s->games_listing;
-    if(i!=shown_selected(s) || i>=l->count || !l->entries[i].cover || l->view!=kui_shell_games_view(s)) return NULL;
-    return v->game_selected_cover?v->game_selected_cover:v->game_covers?v->game_covers[i]:NULL;
+    if(i>=l->count || i>=KUI_GAMES_ROWS || l->view!=kui_shell_games_view(s)) return NULL;
+    if(i==shown_selected(s) && l->entries[i].cover)
+        return v->game_selected_cover?v->game_selected_cover:v->game_covers?v->game_covers[i]:NULL;
+    /* Every Compact and Gallery tile shows its own published cover. */
+    if(l->view==KUI_GAMES_VIEW_COMPACT || l->view==KUI_GAMES_VIEW_GALLERY) return v->game_tile_covers[i];
+    return NULL;
 }
 static void entry_art(struct paint *p,const struct kui_shell *s,const struct kui_shell_view *v,
         unsigned i,unsigned x,unsigned y,unsigned edge) {

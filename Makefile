@@ -1418,6 +1418,7 @@ test-v3-medium: build/test-shell build/test-shell-font build/test-ui-rate build/
 	python3 tests/test_games_layout_dispatch.py
 	python3 tests/test_menu_lookup_dispatch.py
 	python3 tests/test_menu_frame_cache.py
+	python3 tests/test_games_tiles_dispatch.py
 	python3 tests/test_browser_images.py
 	python3 tests/test_games_library_images.py
 	python3 tests/test_games_identity_images.py
@@ -1686,6 +1687,7 @@ test-vmu-menu: build/test-shell build/test-ui-rate build/test-vmu-app build/test
 	ASAN_OPTIONS=detect_leaks=0 python3 tests/test_vmu_game_info.py
 	ASAN_OPTIONS=detect_leaks=0 python3 tests/test_menu_lookup_dispatch.py
 	ASAN_OPTIONS=detect_leaks=0 python3 tests/test_menu_frame_cache.py
+	ASAN_OPTIONS=detect_leaks=0 python3 tests/test_games_tiles_dispatch.py
 	ASAN_OPTIONS=detect_leaks=0 python3 tests/test_menu_audio_dispatch.py
 	python3 tests/test_vmu_menu_installer.py
 build/test-games-vmu-card: tests/test_games_vmu_card.c src/apps/games_vmu_card.inc $(VMU_GAME_CARD_SOURCES) include/kui/vmu_game_card_service.h include/kui/vmu_game_card.h
