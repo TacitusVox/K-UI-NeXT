@@ -21,6 +21,7 @@ CDI is then read back: file positions, every copy's bytes, the descrambled
 import argparse
 import hashlib
 import json
+import os
 from pathlib import Path
 import re
 import struct
@@ -176,8 +177,11 @@ def mkdcdisc(tool, stage1, files, sort, output, args):
         command += ["-i", str(args.badge)]
     for path in files:
         command += ["-f", str(path)]
-    run = subprocess.run(command, capture_output=True, text=True)
-    if run.returncode or re.search(r"\b(Warning|Error):", run.stdout + run.stderr):
+    # NO_COLOR overrides CLICOLOR_FORCE in mkdcdisc; colour codes are also
+    # removed before matching, since "\x1b[1;33mWarning:" has no word boundary.
+    run = subprocess.run(command, capture_output=True, text=True, env=dict(os.environ, NO_COLOR="1"))
+    text = re.sub(r"\x1b\[[0-9;]*m", "", run.stdout + run.stderr)
+    if run.returncode or re.search(r"\b(Warning|Error):", text):
         raise SystemExit("mkdcdisc did not build the disc cleanly; refusing it:\n" + run.stderr + run.stdout)
     return output
 

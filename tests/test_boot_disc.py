@@ -125,7 +125,8 @@ class BootDisc(unittest.TestCase):
             disc.check_layout(good, copy_bytes, 2)
 
     def test_mkdcdisc_warning_refuses_disc(self):
-        """A warning from mkdcdisc (an unmatched sort entry, say) fails the build."""
+        """A warning from mkdcdisc (an unmatched sort entry, say) fails the build,
+        also when coloured; mkdcdisc runs with NO_COLOR set."""
         with tempfile.TemporaryDirectory(prefix="kui-boot-disc-") as work:
             work = Path(work)
             tool = work / "fake-mkdcdisc"
@@ -133,8 +134,10 @@ class BootDisc(unittest.TestCase):
             class Args:
                 badge, title, author, release = None, "T", "A", "20260916"
             for text, refused in (("Wrote x.cdi", False), ("Warning: the sort file gives a weight to /X", True),
-                                  ("Error: nothing", True)):
-                tool.write_text("#!/bin/sh\necho '%s' >&2\n" % text)
+                                  ("Error: nothing", True),
+                                  ("\\033[1;33mWarning: \\033[0mcoloured, as under CLICOLOR_FORCE", True),
+                                  ("Wrote x.cdi' >&2; [ -n \"$NO_COLOR\" ] || echo 'Error: colour not disabled", False)):
+                tool.write_text("#!/bin/sh\nprintf '%s\\n' >&2\n" % text)
                 tool.chmod(0o755)
                 call = lambda: disc.mkdcdisc(tool, work / "s.bin", [], work / "sort.txt", work / "x.cdi", Args)
                 if refused:
