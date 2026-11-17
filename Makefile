@@ -365,7 +365,7 @@ test: build/test-retail-cursor build/test-sci-stream build/test-sci-stream-ce bu
 test: build/test-retail-async-native-bounds build/test-retail-async-native-hybrid
 test: build/test-boot-volume build/ext4-boot build/boot-recovery build/test-boot-ui
 test: build/test-ata build/test-storage-policy build/test-sci-sd-bus build/test-retail-storage build/test-sci-sd-storage build/test-sci-async-probe build/test-sci-async-heartbeat build/test-sci-async-runtime build/test-sci-video-quiet
-test: build/test-storage-errors build/test-cd-audio build/test-network-probe build/test-network-connect build/test-menu-sound build/test-music-ogg build/test-capture-display build/test-viewport build/test-clock build/test-clock-platform build/test-music-thread build/test-recovery-checks build/test-wav-stream build/test-music-player build/test-startup-sound build/test-splash build/test-gd-play build/test-network-app build/test-system-settings build/test-disc-identity build/test-wav build/test-music build/test-memory-app build/test-core build/test-capture-core build/test-timing build/test-disc build/test-options build/test-ui-rate build/test-known-dumps build/test-crc16 build/test-settings build/test-shell build/test-shell-font build/test-capture-adapter build/test-destination
+test: build/test-storage-errors build/test-cd-audio build/test-network-probe build/test-network-connect build/test-menu-sound build/test-music-ogg build/test-capture-display build/test-viewport build/test-clock build/test-clock-platform build/test-music-thread build/test-recovery-checks build/test-wav-stream build/test-music-player build/test-startup-sound build/test-splash build/test-boot-stage1 build/test-gd-play build/test-network-app build/test-system-settings build/test-disc-identity build/test-wav build/test-music build/test-memory-app build/test-core build/test-capture-core build/test-timing build/test-disc build/test-options build/test-ui-rate build/test-known-dumps build/test-crc16 build/test-settings build/test-shell build/test-shell-font build/test-capture-adapter build/test-destination
 	./build/test-vmu-lcd
 	./build/test-vmu-save-format
 	./build/test-storage-errors
@@ -458,6 +458,7 @@ test: build/test-storage-errors build/test-cd-audio build/test-network-probe bui
 	./build/test-music-player
 	./build/test-startup-sound
 	./build/test-splash
+	ASAN_OPTIONS=detect_leaks=0 ./build/test-boot-stage1
 	./build/test-gd-play
 	./build/test-network-app
 	./build/test-system-settings
@@ -1127,6 +1128,10 @@ build/splash_art.inc build/boot_splash_art.inc build/startup_ogg.inc &: tools/bu
 build/test-splash: tests/test_splash.c src/apps/splash.c src/apps/boot_splash.c src/apps/splash_art.c include/kui/splash.h build/splash_art.inc build/boot_splash_art.inc $(EXPORT_CODECS)
 	@mkdir -p $(@D)
 	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) $(EXPORT_CODEC_FLAGS) src/apps/splash.c src/apps/boot_splash.c src/apps/splash_art.c third_party/miniz/miniz.c tests/test_splash.c -o $@
+
+build/test-boot-stage1: tests/test_boot_stage1.c src/bootstage/stage1_load.c include/kui/boot_copies.h
+	@mkdir -p $(@D)
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) src/bootstage/stage1_load.c tests/test_boot_stage1.c -o $@
 
 build/test-gd-play: tests/test_gd_play.c src/apps/gd_play.c include/kui/gd_play.h tests/gd_play_stubs/arch/arch.h
 	@mkdir -p $(@D)

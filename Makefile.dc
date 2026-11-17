@@ -793,3 +793,22 @@ $(RETAIL_PHYSICAL_DIR)/retail-physical.kui: $(RETAIL_PHYSICAL_DIR)/entry.elf too
 
 # Fixed collection inputs participate in launcher incremental rebuilds.
 build/dc/src/apps/games_retail.o: src/apps/smash_menu_collection_files.inc
+
+# Boot-disc stage 1 (1ST_READ.BIN of the redundant boot disc). Freestanding,
+# libgcc only, no FPU registers; tools/boot_disc.py writes its copy table.
+STAGE1_FLAGS = -std=c11 -Os -Wall -Wextra -Werror $(RETAIL_CPU) -ffreestanding -fno-builtin \
+    -fno-stack-protector -fno-pic -ffunction-sections -fdata-sections -Iinclude
+STAGE1_OBJECTS := build/stage1/stage1_entry.o build/stage1/stage1.o build/stage1/stage1_load.o
+build/stage1/%.o: src/bootstage/%.c include/kui/boot_copies.h
+	@mkdir -p $(@D)
+	sh-elf-gcc $(STAGE1_FLAGS) -c $< -o $@
+build/stage1/stage1_entry.o: src/bootstage/stage1_entry.S
+	@mkdir -p $(@D)
+	sh-elf-gcc $(RETAIL_CPU) -c $< -o $@
+build/stage1/stage1.elf: $(STAGE1_OBJECTS) src/bootstage/stage1.ld
+	sh-elf-gcc $(RETAIL_CPU) -nostdlib -Wl,--gc-sections -Wl,--build-id=none -Wl,--no-warn-rwx-segments \
+	    -T src/bootstage/stage1.ld -Wl,-Map,build/stage1/stage1.map $(STAGE1_OBJECTS) -lgcc -o $@
+build/stage1/stage1.bin: build/stage1/stage1.elf
+	sh-elf-objcopy -O binary $< $@
+.PHONY: stage1
+stage1: build/stage1/stage1.bin
