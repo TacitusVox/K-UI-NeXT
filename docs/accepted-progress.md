@@ -44,6 +44,27 @@ may select a stale bank, while cold ROOT boot bypasses selectors. The physical
 card is unavailable, so existing banks are not assumed present or absent.
 Claude's original-backed SA1 result is recorded as an external report only.
 
+## Pending console test: branch build f094fa8f40f3, 2026-11-17
+
+`KUI-Branch-Test-17NOV2026-0743-CST-f094fa8.zip`
+(SHA256 `52326c0fd1e90d98c9843cbe93c226b6bb0731af76a530bd0ecab1f2fc9ae3a8`) tests
+branch `claude/cool-pasteur-kxjg6b` at `f094fa8f40f38754eb96cbf4f77f4ecc75fb35e5`:
+menu redraw/vblank, Games paging/letter steps/tiles/catalogue/cover lookups,
+single-pass launch hash, music session sharing and nonblocking song steps,
+ZSO/LZO span streaming, the boot RAM canvas and the GitHub-link header credit.
+It contains only `KUI/runtime.kui` and `KUI/boot.kui` (identical, build
+`f094fa8f40f3`, payload CRC `41595CFA`, `KUI_SMASH_LAUNCH_TIMING=1`, no embedded
+module bundle), `zso-boot.kui` (`5B99D20D`) and `lzo-boot.kui` (`C87D6A7C`), plus
+an optional bootstrap CDI and `tools.kui` (`BAD48C5D`). Everything else on the
+card is retained untouched. `e79da8ce`, Main `d69b7b01` and `e2761a9a` each rebuild
+the delivered ZSO/LZO loaders byte for byte with build `f8807cb16561`, so the
+loaders' only change is `7775e61`.
+
+The GUI is test-only. It lacks the Windows CE routes of the installed
+`00d8ed67d9ad` ([routing record](wince-gui-routing.md)): the test excludes Windows
+CE games and the owner restores the previous GUI afterwards. This does not
+replace or re-baseline the `f8807cb16561` timing candidate.
+
 ## WinCE Armada: Virtual VMU On accepted, cb07c6454454, 2026-11-09
 
 The setup was the owner's US raw Armada GDI with CD Music On, GUI
