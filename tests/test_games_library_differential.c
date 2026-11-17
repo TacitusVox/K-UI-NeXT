@@ -15,9 +15,10 @@ static void *test_calloc(size_t count,size_t bytes);
 #define calloc(count,bytes) test_calloc(count,bytes)
 #include "../src/apps/games_library.c"
 
-/* Frozen copy of games_library.c before the header-first cold load and
- * precomputed display keys: decode, validation, grouping, sort and load.
- * Only the names changed. Its unchanged helpers are shared. */
+/* Frozen copy of games_library.c at 40ac038, before the header-first cold
+ * load, precomputed display keys and grouping changes: decode, validation,
+ * grouping, sort and load. Only the names changed. Unchanged helpers are
+ * shared. */
 static const struct library *old_sorting;
 static bool old_decode_record(const struct library *lib,unsigned index,struct kui_games_entry *entry) {
     if(index>=lib->count)return false;
@@ -303,7 +304,9 @@ struct record {
     struct kui_games_group_evidence evidence;
 };
 static struct record records[LIBRARY_ROWS];
-enum mode {MIXED,SHORT_NAMES,GROUP_HEAVY};
+/* SCATTERED: group-heavy rows in shuffled order, so set members and their
+ * duplicates lie far from the row that created the set. */
+enum mode {MIXED,SHORT_NAMES,GROUP_HEAVY,SCATTERED};
 static uint32_t seed_state;
 static unsigned roll(unsigned range) {seed_state=seed_state*1664525u+1013904223u;return (seed_state>>8)%range;}
 static const char *const words[]={"Sonic","Adventure","Skies","of","Arcadia","Crazy","Taxi","Jet","Set","Radio",
@@ -416,7 +419,8 @@ static unsigned generate(enum mode mode,unsigned limit,uint32_t seed) {
             else single(&count);
             continue;
         }
-        unsigned sets=mode==GROUP_HEAVY?35u:5u,families=sets+(mode==GROUP_HEAVY?30u:4u),releases=families+(mode==GROUP_HEAVY?8u:1u);
+        bool heavy=mode==GROUP_HEAVY || mode==SCATTERED;
+        unsigned sets=heavy?35u:5u,families=sets+(heavy?30u:4u),releases=families+(heavy?8u:1u);
         if(pick<sets)disc_set(&count,limit);
         else if(pick<families)capture_family(&count,limit);
         else if(pick<releases)two_releases(&count,limit,false);
@@ -433,6 +437,9 @@ static unsigned generate(enum mode mode,unsigned limit,uint32_t seed) {
             if(roll(2))as_file(r,name);else snprintf(r->name,sizeof(r->name),"%s",name);
             r->disabled=true;
         } else single(&count);
+    }
+    for(unsigned i=count;mode==SCATTERED && i>1u;i--) {
+        unsigned j=roll(i);struct record swap=records[i-1u];records[i-1u]=records[j];records[j]=swap;
     }
     return count;
 }
@@ -540,7 +547,7 @@ static void catalogue_check(enum mode mode,unsigned limit,uint32_t seed) {
     old_sorting=&previous;qsort(previous.display,previous.display_count,sizeof(*previous.display),old_display_order);old_sorting=NULL;
     same_library(&previous,&saved);
     printf("PASS order %s %u records: %u rows, %u valid groups (%u proven, %u set-labelled), %u record and %u group aliases, re-sort after edits\n",
-        mode==MIXED?"mixed":mode==SHORT_NAMES?"short-names":"group-heavy",count,saved.display_count,valid,metadata,labelled,
+        mode==MIXED?"mixed":mode==SHORT_NAMES?"short-names":mode==GROUP_HEAVY?"group-heavy":"scattered",count,saved.display_count,valid,metadata,labelled,
         record_aliases,edits->count-record_aliases);
     library_free(&previous);library_free(&saved);free(wire);
 }
@@ -680,7 +687,8 @@ int main(void) {
     static const struct {enum mode mode;unsigned count;uint32_t seed;} catalogues[]={
         {MIXED,0,1},{MIXED,1,2},{MIXED,2,3},{MIXED,3,4},{MIXED,7,5},{MIXED,41,6},{MIXED,300,7},{MIXED,300,8},
         {MIXED,1000,9},{MIXED,LIBRARY_ROWS,10},{SHORT_NAMES,64,21},{SHORT_NAMES,300,22},{SHORT_NAMES,LIBRARY_ROWS,23},
-        {GROUP_HEAVY,40,31},{GROUP_HEAVY,300,32},{GROUP_HEAVY,LIBRARY_ROWS,33}};
+        {GROUP_HEAVY,40,31},{GROUP_HEAVY,300,32},{GROUP_HEAVY,LIBRARY_ROWS,33},
+        {SCATTERED,40,41},{SCATTERED,300,42},{SCATTERED,300,43},{SCATTERED,LIBRARY_ROWS,44}};
     for(unsigned i=0;i<sizeof(catalogues)/sizeof(catalogues[0]);i++)catalogue_check(catalogues[i].mode,catalogues[i].count,catalogues[i].seed);
     load_checks();
     free(edits);edits=NULL;

@@ -482,17 +482,21 @@ static bool library_groups(struct library *lib) {
             strcpy(lib->groups[g].key,key);strcpy(lib->groups[g].name,base);lib->groups[g].representative=i;lib->groups[g].valid=true;++lib->group_count;
             for(unsigned j=0;j<g;j++)if(!strcmp(lib->groups[j].key,key))lib->groups[g].valid=lib->groups[j].valid=false;
         }
-        for(unsigned j=0;j<i;j++)if(lib->members[j].group==g+1 && lib->members[j].disc==disc)lib->groups[g].valid=false;
+        /* Every member of a group follows the record that created it. */
+        for(unsigned j=lib->groups[g].representative;j<i;j++)if(lib->members[j].group==g+1 && lib->members[j].disc==disc)lib->groups[g].valid=false;
         lib->members[i]=(struct library_member){g+1,disc};++lib->groups[g].count;
     }
     for(unsigned i=0;i<lib->count;i++) {
         unsigned previous_group=lib->members[i].group;
         if(previous_group && (lib->groups[previous_group-1u].metadata ||
            lib->groups[previous_group-1u].count!=1u))continue;
-        struct kui_games_entry entry;struct kui_games_group_evidence evidence;
-        if(!decode_record(lib,i,&entry) || !record_evidence(lib,i,&evidence))return false;
+        /* Only rows with IP evidence can join a proven set; every row of a
+         * validated catalogue decodes, so the others need no decode here. */
+        struct kui_games_group_evidence evidence;if(!record_evidence(lib,i,&evidence))return false;
+        if(!evidence.disc)continue;
+        struct kui_games_entry entry;if(!decode_record(lib,i,&entry))return false;
         char base[KUI_DEST_NAME_CAP],key[33];unsigned named_disc;
-        if(entry.directory || entry.disabled || !evidence.disc ||
+        if(entry.directory || entry.disabled ||
            !group_candidate_base(entry.name,base,&named_disc) ||
            (named_disc && named_disc!=evidence.disc))continue;
         if(previous_group) {
@@ -517,26 +521,26 @@ static bool library_groups(struct library *lib) {
             for(unsigned j=0;j<lib->group_count;j++)if(j!=g && lib->groups[j].count &&
                 !strcmp(lib->groups[j].key,key))lib->groups[g].valid=lib->groups[j].valid=false;
         }
-        for(unsigned j=0;j<i;j++)if(lib->members[j].group==g+1 && lib->members[j].disc==evidence.disc)lib->groups[g].valid=false;
+        /* A created or reused slot starts here; a proven set's members follow it. */
+        for(unsigned j=lib->groups[g].representative;j<i;j++)if(lib->members[j].group==g+1 && lib->members[j].disc==evidence.disc)lib->groups[g].valid=false;
         lib->members[i]=(struct library_member){g+1,evidence.disc};++lib->groups[g].count;
     }
     for(unsigned i=0;i<lib->group_count;i++)if(lib->groups[i].count<2)lib->groups[i].valid=false;
     /* Distinct proven releases may share a capture title. Give each actual
-     * set a release qualifier; unknown/conflicting singleton rows stay real. */
-    for(unsigned i=0;i<lib->group_count;i++)if(lib->groups[i].valid && lib->groups[i].metadata) {
-        struct kui_games_entry representative;char base[KUI_DEST_NAME_CAP];bool qualify=false;unsigned named_disc;
-        if(!decode_record(lib,lib->groups[i].representative,&representative) ||
-           !group_candidate_base(representative.name,base,&named_disc))return false;
-        for(unsigned j=0;j<lib->group_count && !qualify;j++)if(j!=i && lib->groups[j].valid && lib->groups[j].metadata) {
-            struct kui_games_entry other;char other_base[KUI_DEST_NAME_CAP];
-            if(!decode_record(lib,lib->groups[j].representative,&other))return false;
-            qualify=group_candidate_base(other.name,other_base,&named_disc) && group_family_equal(base,other_base);
+     * set a release qualifier; unknown/conflicting singleton rows stay real.
+     * Until a label is applied, a proven group's name is its representative's
+     * capture base, so decide every qualifier before changing any name. */
+    uint8_t qualified[LIBRARY_ROWS/8u]={0};
+    for(unsigned i=0;i<lib->group_count;i++)if(lib->groups[i].valid && lib->groups[i].metadata)
+        for(unsigned j=i+1u;j<lib->group_count;j++)if(lib->groups[j].valid && lib->groups[j].metadata &&
+            group_family_equal(lib->groups[i].name,lib->groups[j].name)) {
+            qualified[i/8u]|=(uint8_t)(1u<<i%8u);qualified[j/8u]|=(uint8_t)(1u<<j%8u);
         }
-        if(qualify) {
-            struct kui_games_group_evidence e;if(!record_evidence(lib,lib->groups[i].representative,&e))return false;
-            char suffix[80];snprintf(suffix,sizeof(suffix)," [%s %s %s %u discs]",e.region,e.version,e.product,e.total);
-            group_label(lib->groups[i].name,base,suffix);
-        }
+    for(unsigned i=0;i<lib->group_count;i++)if(qualified[i/8u]&(1u<<i%8u)) {
+        struct kui_games_group_evidence e;if(!record_evidence(lib,lib->groups[i].representative,&e))return false;
+        char base[KUI_DEST_NAME_CAP],suffix[80];strcpy(base,lib->groups[i].name);
+        snprintf(suffix,sizeof(suffix)," [%s %s %s %u discs]",e.region,e.version,e.product,e.total);
+        group_label(lib->groups[i].name,base,suffix);
     }
     /* Equal visible fields, truncated titles and explicit-name groups can
      * still collide. Rank by stable key before changing any labels. */
