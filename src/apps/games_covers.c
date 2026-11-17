@@ -146,18 +146,42 @@ static bool view_save(unsigned view, kui_log_fn log) {
 }
 
 /* ---- Reading records ---- */
-/* Opens a record only when it is intact and belongs to exactly this GDI;
- * the file stays open for pixel reads. */
-static bool record_open(const char *key, const char *gdi_path, FIL *file, struct kui_cover_record *record) {
-    char path[PATH_CAP];
-    if(!record_path(key, ".kcv", path) || f_open(file, path, FA_READ) != FR_OK) return false;
+/* Keep I/O errors distinct from a header that was invalidated during replacement. */
+static FRESULT record_read_at(const char *path, FIL *file, struct kui_cover_record *record, bool *invalid) {
+    *invalid = false;
+    FRESULT r = f_open(file, path, FA_READ);
+    if(r != FR_OK) return r;
     uint8_t header[KUI_COVER_HEADER_BYTES];
     UINT got = 0;
-    bool ok = f_read(file, header, sizeof(header), &got) == FR_OK && got == sizeof(header) &&
-        kui_cover_header_decode(record, header) && !strcmp(record->gdi_path, gdi_path) &&
-        f_size(file) == (record->source == KUI_COVER_SOURCE_NONE ? KUI_COVER_HEADER_BYTES : KUI_COVER_FILE_BYTES);
-    if(!ok) f_close(file);
-    return ok;
+    r = f_read(file, header, sizeof(header), &got);
+    if(r == FR_OK && (got != sizeof(header) || !kui_cover_header_decode(record, header) ||
+       f_size(file) != (record->source == KUI_COVER_SOURCE_NONE ? KUI_COVER_HEADER_BYTES : KUI_COVER_FILE_BYTES))) {
+        *invalid = true;
+        r = FR_INVALID_OBJECT;
+    }
+    if(r != FR_OK && f_close(file) != FR_OK) {
+        *invalid = false;
+        return FR_DISK_ERR;
+    }
+    return r;
+}
+static FRESULT record_read(const char *key, FIL *file, struct kui_cover_record *record) {
+    char path[PATH_CAP];
+    if(!record_path(key, ".kcv", path)) return FR_INVALID_NAME;
+    bool invalid;
+    FRESULT r = record_read_at(path, file, record, &invalid);
+    if(!invalid) return r;
+    /* Replacement keeps the canonical name present with an invalid header until
+     * its body is complete. Ordinary cache hits and misses take one lookup. */
+    if(!record_path(key, ".kcb", path)) return FR_INVALID_NAME;
+    r = record_read_at(path, file, record, &invalid);
+    return r == FR_NO_FILE ? FR_INVALID_OBJECT : r;
+}
+static bool record_open(const char *key, const char *gdi_path, FIL *file, struct kui_cover_record *record) {
+    if(record_read(key, file, record) != FR_OK) return false;
+    if(!strcmp(record->gdi_path, gdi_path)) return true;
+    f_close(file);
+    return false;
 }
 static bool record_pixels(FIL *file, enum kui_cover_size size, uint16_t *out) {
     unsigned edge = kui_cover_edge(size);
@@ -296,8 +320,8 @@ bool kui_games_selected_cover(const struct kui_games_entry *entry,enum kui_cover
         return true;
     }
     if(entry->cover_path[0])return assigned_cover(entry,size,pixels,out,log,cancel);
-    char key[KUI_COVER_PATH_CAP],path[PATH_CAP];
-    if(!kui_cover_key(entry->name,key) || !record_path(key,".kcv",path)) return false;
+    char key[KUI_COVER_PATH_CAP];
+    if(!kui_cover_key(entry->name,key)) return false;
     bool mounted=false,opened=false,ok=false,observed=false,exists=false;
     FIL file;
     const char *problem="SD card unavailable";
@@ -312,15 +336,13 @@ bool kui_games_selected_cover(const struct kui_games_entry *entry,enum kui_cover
         observed=r==FR_OK || r==FR_NO_FILE || r==FR_NO_PATH;
         exists=r==FR_OK && (info.fattrib&AM_DIR);
     }
-    FRESULT r=f_open(&file,path,FA_READ);
+    struct kui_cover_record record;
+    FRESULT r=record_read(key,&file,&record);
     if(r==FR_NO_FILE || r==FR_NO_PATH) {ok=true;goto done;}
     problem="Cannot read selected box art";
     if(r!=FR_OK) goto done;
     opened=true;
-    uint8_t header[KUI_COVER_HEADER_BYTES];UINT got=0;struct kui_cover_record record;
-    if(stopped(cancel) || f_read(&file,header,sizeof(header),&got)!=FR_OK || got!=sizeof(header) ||
-       !kui_cover_header_decode(&record,header) ||
-       f_size(&file)!=(record.source==KUI_COVER_SOURCE_NONE?KUI_COVER_HEADER_BYTES:KUI_COVER_FILE_BYTES)) goto done;
+    if(stopped(cancel)) goto done;
     /* A same-name record for a different image is a definite missing cover. */
     if(strcmp(record.gdi_path,entry->path)) {ok=true;goto done;}
     if(!entry->custom_title)kui_cover_display_title(record.title,entry->name,out->title);
@@ -354,22 +376,20 @@ bool kui_games_prefetch_titles(const struct kui_games_page *page,kui_log_fn log,
            !memchr(entry->path,0,sizeof(entry->path)) || title_find(entry)) continue;
         bool cached=false;
         for(unsigned i=0;i<COVER_CACHE_SLOTS && !cached;i++) cached=same_cover(&covers[i],entry);
-        char key[KUI_COVER_PATH_CAP],path[PATH_CAP];
-        if(cached || !kui_cover_key(entry->name,key) || !record_path(key,".kcv",path)) continue;
+        char key[KUI_COVER_PATH_CAP];
+        if(cached || !kui_cover_key(entry->name,key)) continue;
         if(stopped(cancel)) break;
         if(!opened) {
             if(kui_games_storage_open(log)!=KUI_GAMES_STORAGE_OK) return worked;
             opened=true;kui_games_storage_lookup_begin();
         }
         char title[KUI_COVER_TITLE_CAP],region[9]={0};kui_cover_display_title(NULL,entry->name,title);
-        FIL file;FRESULT r=f_open(&file,path,FA_READ);
+        FIL file;struct kui_cover_record record;FRESULT r=record_read(key,&file,&record);
         bool ok=r==FR_NO_FILE || r==FR_NO_PATH;
         if(r==FR_OK) {
-            uint8_t header[KUI_COVER_HEADER_BYTES];UINT got=0;struct kui_cover_record record;
-            ok=f_read(&file,header,sizeof(header),&got)==FR_OK && got==sizeof(header) &&
-               kui_cover_header_decode(&record,header);
+            ok=true;
             /* A same-name record for a different image keeps the row's own name. */
-            if(ok && !strcmp(record.gdi_path,entry->path)) {
+            if(!strcmp(record.gdi_path,entry->path)) {
                 kui_cover_display_title(record.title,entry->name,title);strcpy(region,record.region);
             }
             if(f_close(&file)!=FR_OK) ok=false;
@@ -666,25 +686,74 @@ static bool disc_art(struct scan *s, const char *key, const struct kui_game_imag
     free(rgba);
     return ok;
 }
-static bool record_write(struct scan *s, const char *key, const struct kui_cover_record *record) {
-    char final[PATH_CAP], temp[PATH_CAP];
-    if(!record_path(key, ".kcv", final) || !record_path(key, ".new", temp) ||
-       !kui_cover_header_encode(s->record, record)) return false;
-    UINT size = record->source == KUI_COVER_SOURCE_NONE ? KUI_COVER_HEADER_BYTES : KUI_COVER_FILE_BYTES, wrote = 0;
+static FRESULT write_exact(FIL *file, const void *data, UINT bytes) {
+    UINT wrote = 0;
+    FRESULT r = f_write(file, data, bytes, &wrote);
+    return r == FR_OK && wrote != bytes ? FR_DISK_ERR : r;
+}
+static FRESULT close_record(FIL *file, FRESULT r) {
+    FRESULT closed = f_close(file);
+    return r == FR_OK ? closed : r;
+}
+/* The source is a complete, validated primary. Before editing it, copy its
+ * bytes to independent clusters. A failed backup leaves the primary intact. */
+static FRESULT backup_record(FIL *source, const char *backup, uint8_t *scratch) {
+    FIL out;
+    FRESULT r = f_lseek(source, 0);
+    if(r != FR_OK) return r;
+    r = f_open(&out, backup, FA_CREATE_ALWAYS | FA_WRITE);
+    if(r != FR_OK) return r;
+    while(r == FR_OK && f_tell(source) < f_size(source)) {
+        FSIZE_t left = f_size(source) - f_tell(source);
+        UINT chunk = left < 16u * KUI_GAME_RAW_BYTES ? (UINT)left : 16u * KUI_GAME_RAW_BYTES;
+        UINT got = 0;
+        r = f_read(source, scratch, chunk, &got);
+        if(r == FR_OK) r = got == chunk ? write_exact(&out, scratch, chunk) : FR_DISK_ERR;
+    }
+    return close_record(&out, r);
+}
+static FRESULT replace_record(const char *path, const uint8_t *data, UINT bytes) {
+    static const uint8_t pending[KUI_COVER_HEADER_BYTES] = {0};
     FIL file;
-    FRESULT r = f_open(&file, temp, FA_WRITE | FA_CREATE_ALWAYS);
-    if(r == FR_OK) {
-        r = f_write(&file, s->record, size, &wrote);
-        FRESULT closed = f_close(&file);
-        if(r == FR_OK) r = closed;
-        if(r == FR_OK && wrote != size) r = FR_DISK_ERR;
-        /* The finished file replaces the old one only once it is complete. */
+    FRESULT r = f_open(&file, path, FA_OPEN_EXISTING | FA_WRITE);
+    if(r != FR_OK) return r;
+    r = write_exact(&file, pending, sizeof(pending));
+    if(r == FR_OK) r = f_sync(&file); /* readers must see fallback before any pixel changes */
+    if(r == FR_OK && bytes > sizeof(pending))
+        r = write_exact(&file, data + sizeof(pending), bytes - sizeof(pending));
+    if(r == FR_OK && f_size(&file) != bytes) r = f_truncate(&file);
+    if(r == FR_OK) r = f_sync(&file);
+    if(r == FR_OK) r = f_lseek(&file, 0);
+    if(r == FR_OK) r = write_exact(&file, data, sizeof(pending));
+    return close_record(&file, r);
+}
+static bool record_write(struct scan *s, const char *key, const struct kui_cover_record *record) {
+    char final[PATH_CAP], backup[PATH_CAP];
+    if(!record_path(key, ".kcv", final) || !record_path(key, ".kcb", backup) ||
+       !kui_cover_header_encode(s->record, record)) return false;
+    UINT size = record->source == KUI_COVER_SOURCE_NONE ? KUI_COVER_HEADER_BYTES : KUI_COVER_FILE_BYTES;
+    FIL file;
+    struct kui_cover_record old;
+    bool invalid;
+    FRESULT r = record_read_at(final, &file, &old, &invalid);
+    if(r == FR_NO_FILE) {
+        /* First publication has no earlier copy to protect. */
+        char temp[PATH_CAP];
+        if(!record_path(key, ".new", temp)) return false;
+        r = f_open(&file, temp, FA_WRITE | FA_CREATE_ALWAYS);
         if(r == FR_OK) {
-            r = f_unlink(final);
-            if(r == FR_NO_FILE) r = FR_OK;
+            r = close_record(&file, write_exact(&file, s->record, size));
+            if(r == FR_OK) r = f_rename(temp, final);
+            if(r != FR_OK) f_unlink(temp);
         }
-        if(r == FR_OK) r = f_rename(temp, final);
-        if(r != FR_OK) f_unlink(temp);
+    } else {
+        if(r == FR_OK) r = close_record(&file, backup_record(&file, backup, s->raw));
+        else if(invalid) r = FR_OK; /* retain any backup from an interrupted replacement */
+        if(r == FR_OK) r = replace_record(final, s->record, size);
+        if(r == FR_OK) {
+            FILINFO info;
+            if(f_stat(backup, &info) == FR_OK && !(info.fattrib & AM_DIR)) (void)f_unlink(backup);
+        }
     }
     if(r != FR_OK && s->log) s->log("Box art: %s: cannot save cover: FatFs=%u", key, (unsigned)r);
     return r == FR_OK;
@@ -720,14 +789,18 @@ static enum outcome build(struct scan *s, const char *key, const char *gdi_path)
     {
         FIL file;
         struct kui_cover_record old;
-        if(record_open(key, gdi_path, &file, &old)) {
-            f_close(&file);
+        bool invalid;
+        if(!record_path(key, ".kcv", path)) return OUT_FAILED;
+        FRESULT r = record_read_at(path, &file, &old, &invalid);
+        if(r == FR_OK) {
+            if(f_close(&file) != FR_OK) return OUT_FAILED;
             /* Old records do not carry a codec. Recheck ZSO during explicit
              * scans so a changed preference never reuses another decoder's
              * result; selected-art RAM/disk caches remain unchanged. Records
              * without a parsed title also need a retry. */
-            if(!zso && old.title[0] && same_stamp(&old.gdi, &record.gdi) && same_stamp(&old.user, &record.user)) return OUT_UNCHANGED;
-        }
+            if(!zso && old.title[0] && !strcmp(old.gdi_path, gdi_path) &&
+               same_stamp(&old.gdi, &record.gdi) && same_stamp(&old.user, &record.user)) return OUT_UNCHANGED;
+        } else if(!invalid && r != FR_NO_FILE) return OUT_FAILED;
     }
     /* Bounded image metadata, then IP and the root directory for title/art. */
     struct image_files files = {.cancel = s->cancel};
