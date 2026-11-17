@@ -30,7 +30,9 @@ analysis inputs. Console playback and save tests remain separate.
 
 Windows CE coverage for rows 1, 4 and 5, by `maple.dll` family, sound group
 and CD-driver line, with one test game per unit:
-[WinCE scope](wince-universal-scope.md).
+[WinCE scope](wince-universal-scope.md). Its work in dependency order, and
+the bulk data session that feeds it: [WinCE roadmap](wince-roadmap.md),
+[data probe](wince-data-probe.md).
 
 Each source change answers one compatibility or performance question. A small
 regression set covers the affected runtime family and its memory contract.

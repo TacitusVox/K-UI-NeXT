@@ -42,7 +42,7 @@ Wild Metal (US T42101N and PAL T40501D-50, one kernel `4b01a13620c9`) has Armada
   - The helper would fail its checks and publish no card.
 - The VMU-only build with the steady poll does not link: it overlaps the handoff by 768 bytes. Only the CD music + steady layout gets the larger image (`include/kui/armada_ce_vmu_layout.h:17-31`). Without the steady poll, the 14% hook cost that made Armada's intro a slideshow returns.
 - The VMU-only recipe compiles its reader without the two console-proven reader fixes. They are set only in the CD music branch (`Makefile.armada-vmu-a2:94-111`).
-- With CD music Off, the GUI reads no VMU setting for WinCE (`src/apps/games_retail.c:960-966`). It also writes no launch record carrying the module's CRC.
+- With CD music Off, the GUI reads no VMU setting for WinCE (`src/apps/games_retail.c:960-966`), and it saves no launch timing. Its `last-launch-a/b.txt` does carry the module path, build and CRC, for the last two launches (corrected 17 Nov 2026).
 - `docs/wince-vmu-driver-families.md`, the comment in `Makefile.armada-vmu-a2` and the Wild Metal plan in `docs/handoff-2026-11-10.md` overstated the family 7 change. They are corrected with this record.
 
 **No further input is needed for the analysis.** All 94 kernels were available (0 missing). Only a few disc DLLs are absent from the startup bundles: `DSOUND.DLL` for Next Tetris Online US, The Next Tetris PAL and Kitae White Illumination, plus 15 `SNDCORE.DLL` copies.
@@ -169,7 +169,7 @@ Two of the 8 new groups, NC2-PAL and Sno-Cross, look like constant-level variant
 1. **GUI:**
    - a VMU-only route;
    - per-game cards (Armada uses the dedicated test card `KUIARMCD`);
-   - a launch record giving the module path, build and CRC for CD-music-Off launches;
+   - launch timing for CD-music-Off launches (`last-launch-a/b.txt` already gives the module path, build and CRC);
    - a complete extent map for card preparation (`src/apps/games_vmu_card.inc:161-176`).
 2. **VMU-only layout:** a steady-poll layout that fits, and the reader fixes in the VMU-only recipe.
 3. **Placement records:** a record per kernel instead of compile-time Armada constants. It covers stage ROM placements, the helper's owner profile and the interrupt words.
