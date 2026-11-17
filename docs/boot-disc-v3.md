@@ -21,6 +21,7 @@ release: it loads whatever compatible `KUI/boot.kui` or `KUI/runtime.kui` the ca
 | Builder refuses discs that verify but cannot boot or protect | `8942d7c4` | ELF inputs, unapplied sort files, adjacent copies and mkdcdisc warnings stop the build. |
 | Damaged chunks recovered one copy at a time | `9431bbd6` | A damaged copy costs one failed read, not one per chunk; rebuilds no longer seek between copies for every sector. |
 | Missing sectors retried; drive set up again after "not ready" | `7535903a` | A sector that fails transiently on every copy is read on a later round instead of sending the console to the BIOS menu. |
+| BIOS GD functions initialised once | `5eece4b7` | Setting the drive up again repeats only what KOS's `cdrom_reinit` does. |
 
 The GUI itself loads faster from this disc's point of view because runtime.kui is
 smaller: the compressed splash (−472,172 bytes) and launcher artwork (−326,524
@@ -68,8 +69,9 @@ unbootable. Now:
   and sets the drive up again. The read counts as failed, so the next copy is
   tried.
 - **Drive errors.** After "not ready" or "disc changed" the drive is set up
-  again before the next read, as KOS's iso9660 driver does. Setup keeps asking
-  for up to 10 s while the drive reports either.
+  again before the next read, as KOS's iso9660 driver does: CMD_INIT, the
+  drive check and the sector mode, without initialising the BIOS GD functions
+  again. Setup keeps asking for up to 10 s while the drive reports either.
 - **Handoff** follows KOS's own `arch_exec` contract. Operand-cache lines are
   written back and invalidated, caches are invalidated and disabled (KOS
   enables them again at startup), the BIOS's stack pointer and return address

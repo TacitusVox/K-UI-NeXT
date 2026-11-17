@@ -44,6 +44,37 @@ may select a stale bank, while cold ROOT boot bypasses selectors. The physical
 card is unavailable, so existing banks are not assumed present or absent.
 Claude's original-backed SA1 result is recorded as an external report only.
 
+## Pending console test: branch build 5eece4b72a35, 2026-11-17
+
+`KUI-Branch-Test2-17NOV2026-1105-CST-5eece4b.zip`
+(SHA256 `b67abd8e37c00a67cb227b5a53e47d91a62e9cf36164fe51fa922991f62db24b`) tests
+branch `claude/cool-pasteur-kxjg6b` at `5eece4b72a3521d24ea86eb3d5338c403d2e7869`.
+Since test 1 (`f094fa8f40f3`) it changes only three things:
+
+- the startup splash art, stored compressed and inflated once;
+- the launcher artwork, stored compressed and inflated on first use;
+- the boot disc, now [K-UI Bootloader v3](boot-disc-v3.md).
+
+`git diff f094fa8..5eece4b7` touches no Games, reader, admission, manifest or
+updater source.
+
+It contains only:
+
+- `KUI/runtime.kui` and `KUI/boot.kui`: identical, 2,350,288 bytes (test 1:
+  3,149,564), build `5eece4b72a35`, payload CRC `501F990A`,
+  `KUI_SMASH_LAUNCH_TIMING=1`, no embedded module bundle;
+- the test-1 `zso-boot.kui` (`5B99D20D`) and `lzo-boot.kui` (`C87D6A7C`), byte for byte.
+
+Optional: the Bootloader v3 CD in the redundant layout (copies at FAD
+11881/44891/77901, SHA256 `c58ead09…`), the same bootstrap in the single-file
+layout (`79aafb87…`), and `tools.kui` (`F16A3520`). Everything else on the
+card is retained. Test 1's exclusions still apply: no Windows CE games and no
+Smash Pack with this GUI.
+
+Evidence is host and emulator only. Flycast boots both CDIs and the GUI;
+the stage-1 damage cases are in [the boot disc record](boot-disc-v3.md). This
+does not replace or re-baseline the `f8807cb16561` timing candidate.
+
 ## Pending console test: branch build f094fa8f40f3, 2026-11-17
 
 `KUI-Branch-Test-17NOV2026-0743-CST-f094fa8.zip`
