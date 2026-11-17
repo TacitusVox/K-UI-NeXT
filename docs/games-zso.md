@@ -121,12 +121,21 @@ literal/match length, lookbehind and the canonical `11 00 00` hexadecimal end
 marker. The bundled public miniLZO compressor/safe decoder is a host test
 oracle, never linked into the detached resident.
 
-At the pinned SH-4 toolchain, the first LZO reader ends at `0x8c007688`, leaving
-376 bytes in the existing reservation. Its conservative runtime stack sum is
-1216 of 1232 bytes; LZ4 remains 1208. These are build measurements, not console
-speed results. Compression reduces card bytes but adds decoding and index
-reads; compare the same image/card against uncompressed ISO to measure the
-net loading or gameplay-stall cost. No SH-4 throughput promise is made.
+At the pinned KOS-patched GCC 15.2.0 toolchain, the LZ4 reader ends at
+`0x8c0076a8`, leaving 344 bytes of the existing reservation, and the LZO reader
+at `0x8c007768`, leaving 152. Their conservative runtime stack sums are 1168
+and 1220 of 1232 bytes. These are build measurements, not console speed
+results.
+
+Host models of the same reader code give a first estimate only. Under QEMU,
+the SH-4 build executes 2.0 to 3.5 times fewer instructions per LZ4 sector
+than the previous reader on generated code, text and texture data (1.3 to 2.6
+times for LZO). An emulated card following the SD stream rules, read in
+8-sector steps, starts about 0.16 card streams per sector and reads each
+physical block about once. Neither models bus timing or the uncached game
+buffer. Compression reduces card bytes but adds decoding; compare the same
+image and card against the uncompressed ISO to measure the net loading or
+gameplay-stall cost. No SH-4 throughput promise is made.
 
 Generated host fixtures and mutation tests exercise these package and audit
 gates. They do not supply retail images or establish console acceptance.

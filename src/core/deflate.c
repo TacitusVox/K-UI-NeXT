@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: GPL-3.0-only */
 #include "kui/deflate.h"
+#include <string.h>
 
 /* Independently implemented from RFC 1951 sections 3.2.1--3.2.7 and general
  * canonical-Huffman decoding, not from another decoder's source.
@@ -20,7 +21,6 @@
  * stream bound up to four virtual zero bytes may be buffered; a stream that
  * consumes any of their bits is rejected, as reading past the bound is. */
 #define BAD 0x7fffu
-typedef uint32_t deflate_word __attribute__((__may_alias__));
 
 /* Buffer at least 25 bits, then take n <= 16 of them. */
 static unsigned bits(struct kui_deflate_workspace *w, unsigned n) {
@@ -44,33 +44,31 @@ static unsigned bits(struct kui_deflate_workspace *w, unsigned n) {
     w->bits -= n;
     return value;
 }
-__attribute__((optimize("no-tree-loop-distribute-patterns")))
-static void zero_words(void *target, unsigned words) {
-    deflate_word *word = target;
-    do *word++ = 0; while(--words);
-}
 static unsigned width(const uint32_t *widths, unsigned index) {
     return ((const uint8_t *)widths)[index >> 1] >> ((index & 1u) << 2) & 15u;
 }
-/* Validate per-length counts and turn them into the largest code of each
- * length (limit[0] = -1). Kind 0 is the code-length code, which must be
- * complete; 1 and 2 are literal/length and distance trees, which may hold a
- * single one-bit code; a distance tree may also be empty. */
-static int canonical(int16_t *limit, unsigned maximum, unsigned kind) {
-    unsigned left = 1u, total = 0u, code = 0u, single = (uint16_t)limit[1];
+/* Turn per-length counts into the largest code of each length (limit[0] =
+ * -1) and classify the tree: 0 complete, 1 a single one-bit code, 2 empty,
+ * 3 oversubscribed or otherwise incomplete. The code-length code must be
+ * complete; a literal/length tree may also be a single one-bit code, and a
+ * distance tree may also be empty. Callers compare against their limit. */
+static unsigned canonical(int16_t *limit, unsigned maximum) {
+    unsigned left = 1u, total = 0u, code = 0u;
     limit[0] = -1;
     for(unsigned length = 1u; length <= maximum; ++length) {
         unsigned count = (uint16_t)limit[length];
         left <<= 1;
-        if(count > left) return 0; /* Oversubscribed. */
+        if(count > left) return 3u; /* Oversubscribed. */
         left -= count;
         total += count;
         code += count;
         limit[length] = (int16_t)(code - 1u);
         code <<= 1;
     }
-    if(!total) return kind == 2u;
-    return !left || (kind && total == 1u && single == 1u);
+    if(!total) return 2u;
+    if(!left) return 0u;
+    /* limit[1] is now the one-bit count minus one: zero for a single code. */
+    return total == 1u && !limit[1] ? 1u : 3u;
 }
 /* One symbol from at least 15 buffered bits: canonical walk, then rank to
  * symbol by scanning packed widths (widths == NULL selects the fixed codes,
@@ -126,22 +124,21 @@ found:
 /* decode() needs 15 buffered bits; refill only below that. */
 #define NEED15(w) do { if((w)->bits < 15u) bits((w), 0u); } while(0)
 
-enum kui_zso_result kui_deflate_decode(const struct kui_zso_cursor *in,
-    uint8_t out[KUI_ZSO_BLOCK_BYTES], struct kui_deflate_workspace *w, uint32_t *consumed) {
+enum kui_zso_result kui_deflate_decode(struct kui_deflate_workspace *w,
+    uint8_t out[KUI_ZSO_BLOCK_BYTES], uint32_t *consumed) {
     static const uint8_t order[19] = {16,17,18,0,8,7,9,6,10,5,11,4,12,3,13,2,14,1,15};
+    if(!w || !out || !consumed) return KUI_ZSO_INVALID;
+    w->over = 0; w->error = KUI_ZSO_OK; w->hold = 0; w->bits = 0;
     /* The remaining range must hold 1..KUI_ZSO_MAX_SPAN bytes. */
-    if(!in || !out || !w || !consumed || in->at > in->end ||
-       in->end - in->at + (uint32_t)(in->e - in->p) - 1u >= KUI_ZSO_MAX_SPAN) return KUI_ZSO_INVALID;
-    if(in != &w->in) w->in = *in;
+    if(w->in.at > w->in.end ||
+       w->in.end - w->in.at + kui_zso_cursor_buffered(&w->in) - 1u >= KUI_ZSO_MAX_SPAN) goto invalid;
     /* File offset of the first unread byte, kept in the workspace rather
      * than a register held across every call. */
-    w->start = w->in.at - (uint32_t)(w->in.e - w->in.p);
-    w->over = 0; w->error = KUI_ZSO_OK; w->hold = 0; w->bits = 0;
+    w->start = w->in.at - kui_zso_cursor_buffered(&w->in);
     uint8_t *o = out, *const stop = out + KUI_ZSO_BLOCK_BYTES;
-    unsigned final;
     do {
         unsigned header = bits(w, 3u), type = header >> 1;
-        final = header & 1u;
+        w->final = header & 1u;
         if(!type) {
             /* Stored blocks begin on a byte boundary: at most 29 bits remain
              * buffered after the header, so this drops 0-7 of them. */
@@ -151,33 +148,34 @@ enum kui_zso_result kui_deflate_decode(const struct kui_zso_cursor *in,
              * bytes that are not virtual. */
             if(bits(w, 16u) != (count ^ 0xffffu) || count > (uint32_t)(stop - o) ||
                w->over * 8u > w->bits ||
-               count > w->in.end - w->in.at + (uint32_t)(w->in.e - w->in.p) + w->bits / 8u - w->over)
+               count > w->in.end - w->in.at + kui_zso_cursor_buffered(&w->in) + w->bits / 8u - w->over)
                 goto invalid;
             while(count--) *o++ = (uint8_t)bits(w, 8u);
             continue;
         }
         if(type == 3u) goto invalid;
-        /* Packed widths of a dynamic block (literal/length, then distance at
-         * +36 words); NULL selects the fixed codes. */
-        const uint32_t *widths = NULL;
-        zero_words(w->limit, sizeof(w->limit) / 4u);
+        w->tree = NULL;
+        memset(w->limit, 0, sizeof(w->limit));
         if(type == 1u) {
             w->limit[0][7] = 24; w->limit[0][8] = 152; w->limit[0][9] = 112; w->limit[1][5] = 32;
         } else {
             unsigned literals = bits(w, 5u) + 257u, distances = bits(w, 5u) + 1u,
                      codes = bits(w, 4u) + 4u;
+            /* RFC 1951 lets HDIST describe all 32 distance codes, though 30
+             * and 31 never occur (a decoded one is refused below). zlib also
+             * refuses the header; admitting it costs no check here. */
             if(literals > 286u) goto invalid;
             uint32_t *code_widths = w->lengths.widths;
-            zero_words(&w->lengths, sizeof(w->lengths) / 4u);
+            memset(&w->lengths, 0, sizeof(w->lengths));
             for(unsigned i = 0; i < codes; ++i) {
                 unsigned n = order[i];
                 ((uint8_t *)code_widths)[n >> 1] |= (uint8_t)(bits(w, 3u) << ((n & 1u) << 2));
             }
             for(unsigned n = 0; n < 19u; ++n) ++w->lengths.limit[width(code_widths, n)];
-            if(!canonical(w->lengths.limit, 7u, 0u)) goto invalid;
-            zero_words(w->widths, sizeof(w->widths) / 4u);
+            if(canonical(w->lengths.limit, 7u)) goto invalid;
+            memset(w->widths, 0, sizeof(w->widths));
 #if KUI_DEFLATE_BUCKETS
-            zero_words(w->bucket, sizeof(w->bucket) / 4u);
+            memset(w->bucket, 0, sizeof(w->bucket));
 #endif
             unsigned at = 0, size = literals + distances, previous = 0;
             while(at < size) {
@@ -214,15 +212,15 @@ enum kui_zso_result kui_deflate_decode(const struct kui_zso_cursor *in,
                 }
             }
             if(!width(w->widths, 256u)) goto invalid; /* End-of-block needs a code. */
-            widths = w->widths;
+            w->tree = w->widths;
         }
-        if(!canonical(w->limit[0], 15u, 1u) || !canonical(w->limit[1], 15u, 2u)) goto invalid;
+        if(canonical(w->limit[0], 15u) > 1u || canonical(w->limit[1], 15u) > 2u) goto invalid;
         for(;;) {
             NEED15(w);
 #if KUI_DEFLATE_BUCKETS
-            unsigned symbol = decode(w, w->limit[0], widths, widths ? &w->bucket[0][0] : NULL);
+            unsigned symbol = decode(w, w->limit[0], w->tree, w->tree ? &w->bucket[0][0] : NULL);
 #else
-            unsigned symbol = decode(w, w->limit[0], widths, NULL);
+            unsigned symbol = decode(w, w->limit[0], w->tree, NULL);
 #endif
             if(symbol < 256u) {
                 if(o == stop) goto invalid;
@@ -239,7 +237,7 @@ enum kui_zso_result kui_deflate_decode(const struct kui_zso_cursor *in,
             }
             if(count > (unsigned)(stop - o)) goto invalid;
             NEED15(w);
-            symbol = decode(w, w->limit[1], widths ? widths + 36 : NULL, NULL);
+            symbol = decode(w, w->limit[1], w->tree ? w->tree + 36 : NULL, NULL);
             if(symbol > 29u) goto invalid;
             unsigned distance = symbol + 1u;
             if(symbol >= 4u) {
@@ -251,9 +249,9 @@ enum kui_zso_result kui_deflate_decode(const struct kui_zso_cursor *in,
             uint8_t *last = o + count;
             do *o = o[-(long)distance]; while(++o != last);
         }
-    } while(!final);
+    } while(!w->final);
     if(o != stop || w->over * 8u > w->bits || w->error != KUI_ZSO_OK) goto invalid;
-    *consumed = w->in.at - (uint32_t)(w->in.e - w->in.p) - w->start - (w->bits / 8u - w->over);
+    *consumed = w->in.at - kui_zso_cursor_buffered(&w->in) - w->start - (w->bits / 8u - w->over);
     w->in.view = NULL; w->in.context = NULL;
     return KUI_ZSO_OK;
 invalid:

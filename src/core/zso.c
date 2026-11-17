@@ -258,7 +258,7 @@ enum kui_zso_result kui_zso_read_block(const struct kui_zso_info *info,
 #if KUI_ZSO_CODECS & 4
     if(info->codec == KUI_ZSO_DEFLATE) {
         uint32_t consumed;
-        result = kui_deflate_decode(in, out, workspace, &consumed);
+        result = kui_deflate_decode(workspace, out, &consumed); /* in is workspace->in. */
         if(result != KUI_ZSO_OK) return result;
         return end - start - consumed < (1u << info->shift) ? KUI_ZSO_OK : KUI_ZSO_INVALID;
     }
@@ -285,7 +285,7 @@ enum kui_zso_result kui_zso_read_block(const struct kui_zso_info *info,
         if(done == KUI_ZSO_BLOCK_BYTES) {
             /* Unread input is the view's rest and the range after it. */
             if(literals < 5u || (last_match != UINT32_MAX && last_match > KUI_ZSO_BLOCK_BYTES - 12u) ||
-               in->end - in->at + (uint32_t)(in->e - in->p) >= (1u << info->shift)) return KUI_ZSO_INVALID;
+               in->end - in->at + kui_zso_cursor_buffered(in) >= (1u << info->shift)) return KUI_ZSO_INVALID;
             return KUI_ZSO_OK;
         }
         uint32_t low, high, count;

@@ -39,8 +39,10 @@ struct kui_zso_info {
  * contiguous readable bytes there: at least 1 and at most wanted. Callers pass
  * wanted >= 1 and never exceed the admitted file range. The bytes stay valid
  * until the next call through the same context. The callback owns caching,
- * card streams and cancellation. No source pointer/context is retained by any
- * API. Sources stay immutable after index validation. There is no heap,
+ * card streams and cancellation. No API uses a source pointer or context
+ * after it returns; console resident builds (KUI_RETAIL_ZSO) keep their one
+ * transient cursor in static storage, which every call sets up afresh.
+ * Sources stay immutable after index validation. There is no heap,
  * complete-index or compressed-input buffer. */
 typedef enum kui_zso_result (*kui_zso_view_fn)(void *context, uint32_t offset,
     uint32_t wanted, const uint8_t **data, uint32_t *available);
@@ -59,6 +61,11 @@ struct kui_zso_cursor {
     uint32_t at, end;
     uint32_t got; /* The last view's byte count. */
 };
+/* Unread bytes of the current view. An empty cursor may hold p = e = NULL,
+ * so this subtracts addresses as integers rather than as pointers. */
+static inline uint32_t kui_zso_cursor_buffered(const struct kui_zso_cursor *cursor) {
+    return (uint32_t)((uintptr_t)cursor->e - (uintptr_t)cursor->p);
+}
 /* Replace an exhausted view with the next one. KUI_ZSO_INVALID at the bound
  * (a stream running past its range), KUI_ZSO_RANGE for a view of zero or more
  * than end-at bytes; a source error is returned unchanged. */

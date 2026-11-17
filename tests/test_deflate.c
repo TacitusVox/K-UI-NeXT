@@ -51,9 +51,9 @@ static enum kui_zso_result decode(uint32_t bytes, uint32_t *consumed) {
     memset(&output, 0xa6, sizeof(output)); memset(&work, 0xa6, sizeof(work));
     /* A preloaded cursor already holds the stream's first bytes in its view. */
     uint32_t k = source.preload < bytes ? source.preload : 0;
-    struct kui_zso_cursor in = {view_source, &source, k ? source.data : NULL,
+    work.data.in = (struct kui_zso_cursor){view_source, &source, k ? source.data : NULL,
         k ? source.data + k : NULL, source.base + k, source.limit, 0};
-    enum kui_zso_result result = kui_deflate_decode(&in, output.data, &work.data, consumed);
+    enum kui_zso_result result = kui_deflate_decode(&work.data, output.data, consumed);
     if(bytes && bytes <= KUI_ZSO_MAX_SPAN) {
         assert(work.data.in.view == NULL && work.data.in.context == NULL);
     }
@@ -258,12 +258,16 @@ static void malformed(void) {
     source.calls = 0;
     const struct kui_zso_cursor reversed = {view_source, NULL, NULL, NULL, 1, 0, 0},
         empty = {view_source, NULL, NULL, NULL, 1, 1, 0}, one = {view_source, NULL, NULL, NULL, 0, 1, 0};
-    assert(kui_deflate_decode(NULL, output.data, &work.data, &consumed) == KUI_ZSO_INVALID);
-    assert(kui_deflate_decode(&reversed, output.data, &work.data, &consumed) == KUI_ZSO_INVALID);
-    assert(kui_deflate_decode(&empty, output.data, &work.data, &consumed) == KUI_ZSO_INVALID);
-    assert(kui_deflate_decode(&one, NULL, &work.data, &consumed) == KUI_ZSO_INVALID);
-    assert(kui_deflate_decode(&one, output.data, NULL, &consumed) == KUI_ZSO_INVALID);
-    assert(kui_deflate_decode(&one, output.data, &work.data, NULL) == KUI_ZSO_INVALID);
+    work.data.in = reversed;
+    assert(kui_deflate_decode(&work.data, output.data, &consumed) == KUI_ZSO_INVALID);
+    assert(work.data.in.view == NULL && work.data.in.context == NULL);
+    work.data.in = empty;
+    assert(kui_deflate_decode(&work.data, output.data, &consumed) == KUI_ZSO_INVALID);
+    assert(work.data.in.view == NULL && work.data.in.context == NULL);
+    work.data.in = one;
+    assert(kui_deflate_decode(NULL, output.data, &consumed) == KUI_ZSO_INVALID);
+    assert(kui_deflate_decode(&work.data, NULL, &consumed) == KUI_ZSO_INVALID);
+    assert(kui_deflate_decode(&work.data, output.data, NULL) == KUI_ZSO_INVALID);
     assert(!source.calls);
     puts("PASS DEFLATE bounds: every stored truncation, padding/UINT32 boundary, reserved symbols, invalid trees, runs, lookbehind and output overflow");
 }

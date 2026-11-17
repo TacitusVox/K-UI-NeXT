@@ -43,10 +43,13 @@ stalls against the same title's uncompressed image; no console throughput or
 game-compatibility claim follows from host tests.
 
 At the pinned KOS-patched GCC 15.2.0 toolchain, the linked resident ends at
-`0x8c007708`, 248 bytes below the existing `0x8c007800` limit. Its conservative
-service-stack sum is 1216 of 1232 bytes. The linked integer-instruction,
+`0x8c0077c8`, 56 bytes below the existing `0x8c007800` limit. Its conservative
+service-stack sum is 1220 of 1232 bytes. The linked integer-instruction,
 relocation, embedded-byte and stack audits pass. These are build measurements,
-not console performance results.
+not console performance results. Under QEMU, its SH-4 build executes about 5 to
+6 times fewer instructions per sector than the previous decoder on generated
+code, text and texture data (8.7 to 11.5 times with the rank buckets); sectors
+still cost several times the instructions of an LZ4 ZSO sector.
 
 ## Isolation and evidence
 

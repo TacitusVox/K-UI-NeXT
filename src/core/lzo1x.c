@@ -26,7 +26,7 @@ enum kui_zso_result kui_lzo1x_decode(struct kui_zso_cursor *in,
     uint8_t out[KUI_ZSO_BLOCK_BYTES], uint32_t *consumed) {
     if(!in || !out || !consumed) return KUI_ZSO_INVALID;
     /* File offset of the first unread byte. */
-    const uint32_t start = in->at - (uint32_t)(in->e - in->p);
+    const uint32_t start = in->at - kui_zso_cursor_buffered(in);
     uint32_t done = 0, count = 0, token, low, high;
     /* A zero state admits a literal run; one follows a long literal run
      * (whose short token has the special 2049+ distance); two admits only
@@ -78,7 +78,7 @@ enum kui_zso_result kui_lzo1x_decode(struct kui_zso_cursor *in,
                 if(!distance) {
                     if(token != 17u || low || done != KUI_ZSO_BLOCK_BYTES)
                         return KUI_ZSO_INVALID;
-                    *consumed = in->at - (uint32_t)(in->e - in->p) - start;
+                    *consumed = in->at - kui_zso_cursor_buffered(in) - start;
                     return KUI_ZSO_OK;
                 }
                 distance += 16384u;

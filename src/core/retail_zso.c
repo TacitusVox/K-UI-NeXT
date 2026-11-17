@@ -161,10 +161,11 @@ enum kui_game_result kui_retail_zso_image_read(struct kui_retail_zso_image *imag
     enum kui_zso_result z=KUI_ZSO_OK;
 #if KUI_RETAIL_ZSO_INDEX_BYTES
     /* The window must hold this request's count+1 entries, or start at its
-     * first one. A refill copies through the payload cache with the window
-     * emptied; it stays empty unless every byte arrived. */
+     * first one (a request longer than the window). A refill copies through
+     * the payload cache with the window emptied; it stays empty unless every
+     * byte arrived. */
     uint32_t at=KUI_ZSO_HEADER_BYTES+first*4u,need=(count+1u)*4u,rel=at-image->index_at;
-    if(rel>=image->index_size || image->index_size-rel<need) {
+    if(rel>=image->index_size || (rel && image->index_size-rel<need)) {
         uint32_t size=KUI_ZSO_HEADER_BYTES+info->index_bytes-at;
         if(size>KUI_RETAIL_ZSO_INDEX_BYTES)size=KUI_RETAIL_ZSO_INDEX_BYTES;
         image->index_size=0;image->limit=0;
