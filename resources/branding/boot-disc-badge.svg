@@ -1,5 +1,5 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="320" height="90" viewBox="0 0 320 90">
-<title>K-UI Tyrfing by TPMJB — github.com/TPMJB</title>
+<title>K-UI Tyrfing by TacitusVox — github.com/TacitusVox</title>
 <desc>Native-size vector boot badge: an orange rune-etched Tyrfing sword and the original large K-UI wordmark.</desc>
 <rect width="320" height="90" fill="#c0c0c0"/>
 <rect x="2" y="2" width="316" height="86" fill="#080f23"/>
@@ -19,5 +19,5 @@
   <path d="M187 14 H201 V43 Q201 47 206 47 H230 Q235 47 235 43 V14 H249 V44 Q249 58 233 58 H203 Q187 58 187 44 Z"/>
   <path d="M258 14 H272 V58 H258 Z"/>
 </g>
-<text x="98" y="78" font-family="DejaVu Sans Mono, monospace" font-weight="bold" font-size="17" fill="#ffc56a">github.com/TPMJB</text>
+<text x="98" y="78" font-family="DejaVu Sans Mono, monospace" font-weight="bold" font-size="16" fill="#ffc56a">github.com/TacitusVox</text>
 </svg>

@@ -15,7 +15,7 @@ import struct
 
 ROOT = Path(__file__).resolve().parents[1]
 BADGE = ROOT / "resources/branding/boot-disc-badge.mr"
-BADGE_SHA256 = "42de4efd6e9401fbd1df17a42e1240a3e0a5b200ed5b7bc573ba29d0d1c77bac"
+BADGE_SHA256 = "946193357fe2692412259364b9b319a7f0a33c77397f5c384ab544fd9a889de2"
 MR_OFFSET = 0x3820
 MR_LIMIT = 8192
 BOOT_BYTES = 32768
@@ -118,8 +118,9 @@ def rebuild_branding():
                         "--export-filename=" + str(rendered)], check=True)
         image = Image.open(rendered).convert("RGB").quantize(
             colors=32, method=Image.Quantize.MEDIANCUT, dither=Image.Dither.NONE)
-        if image.size != (320, 90) or len(image.getcolors()) != 32:
-            raise ValueError("Expected a 320x90 badge with 32 colors")
+        # The MR always carries a 32-entry palette; a render may use fewer.
+        if image.size != (320, 90) or len(image.getcolors()) > 32:
+            raise ValueError("Expected a 320x90 badge with at most 32 colors")
         image.save(branding / "boot-disc-badge.png", optimize=False)
 
         # Preserve the original K-UI wordmark paths at a readable header size.
@@ -128,7 +129,7 @@ def rebuild_branding():
         ET.register_namespace("", namespace[1:-1])
         header = ET.Element(namespace + "svg", {
             "width": "256", "height": "128", "viewBox": "0 0 256 128"})
-        ET.SubElement(header, namespace + "title").text = "K-UI Tyrfing by TPMJB"
+        ET.SubElement(header, namespace + "title").text = "K-UI Tyrfing by TacitusVox"
         ET.SubElement(header, namespace + "rect", {
             "width": "256", "height": "128", "fill": "#080f23"})
         for item in ET.parse(source).getroot():
@@ -140,7 +141,7 @@ def rebuild_branding():
         ET.SubElement(header, namespace + "text", {
             "x": "91", "y": "91", "font-family": "DejaVu Sans Mono, monospace",
             "font-size": "12", "font-weight": "bold", "letter-spacing": "2",
-            "fill": "#ffc56a"}).text = "by TPMJB"
+            "fill": "#ffc56a"}).text = "by TacitusVox"
         header_source = temp / "launcher.svg"
         ET.ElementTree(header).write(header_source, encoding="unicode")
         header_png = temp / "launcher.png"

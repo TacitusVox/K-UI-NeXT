@@ -104,11 +104,11 @@ static const char *state(const struct kui_shell_view *v) {
 static void heading(struct paint *p, const struct kui_shell *s,const struct kui_shell_view *v) {
     art(p,32,20,128,64,kui_art_brand);
     words(p,176,26,396,WHITE,KUI_RELEASE_SHORT,true);
-    const char *credit=v->busy || v->saving?state(v):"by TacitusVoxt / READY";
+    const char *credit=v->busy || v->saving?state(v):"by TacitusVox / READY";
     words(p,176,52,396,MUTED,credit,false);
     /* Keep the project link beneath the brand, with normal letter spacing.
      * It has the whole left header width rather than a cramped middle column. */
-    words(p,32,78,396,CYAN,"github.com/TacitusVoxt/K-UI-NeXT",false);
+    words(p,32,78,396,CYAN,"github.com/TacitusVox/K-UI-NeXT",false);
     char music[48];
     const char *prefix=s->page==KUI_SHELL_HOME&&!v->busy?"Y Music":"Music";
     if(v->music_change_pending) snprintf(music,sizeof(music),"Music change queued");
@@ -767,7 +767,7 @@ static void updates_page(struct paint *p,const struct kui_shell *s,const struct 
         u->restore?"Restore this version?":"Install this package?":"Offline updates");
     char line[192];snprintf(line,sizeof(line),"Running %.12s / selected %s",u->running[0]?u->running:"current",
         !u->selection_known?"unchecked":u->selected[0]?u->selected:"original baseline");label(p,40,138,CYAN,line);
-    label(p,40,160,MUTED,"Source: TacitusVoxt/K-UI-NeXT Releases");
+    label(p,40,160,MUTED,"Source: TacitusVox/K-UI-NeXT Releases");
     if(s->update_loading) {
         panel(p,32,192,576,192,PANEL);
         label(p,48,208,WHITE,s->update_stopping?"Stop requested; finishing a safe boundary.":"Keep the console powered on while writing.");

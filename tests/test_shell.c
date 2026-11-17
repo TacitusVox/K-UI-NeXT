@@ -1246,7 +1246,7 @@ static void observe(void *ctx,unsigned x,unsigned y,uint16_t color,const char *v
         for(unsigned i=0;i<KUI_SHELL_RIPPER_TOOL_COUNT;i++)
             if(!strcmp(value,ripper_tool_names[i])) ripper_tool_colors[i]=color;
     if(x==32 && y==78) {
-        assert(!large && !strcmp(value,"github.com/TacitusVoxt/K-UI-NeXT"));
+        assert(!large && !strcmp(value,"github.com/TacitusVox/K-UI-NeXT"));
         assert(kui_shell_font_width(value,false)<=396u-x);
         header_link_seen=true;header_link_color=color;
     }
@@ -1268,7 +1268,7 @@ static void render(struct kui_shell_view *v) {
     assert(header_link_seen);
     unsigned link_ink=0;
     for(unsigned y=78;y<78+KUI_SHELL_FONT_SMALL_HEIGHT;y++)
-        for(unsigned x=32;x<32+kui_shell_font_width("github.com/TacitusVoxt/K-UI-NeXT",false);x++)
+        for(unsigned x=32;x<32+kui_shell_font_width("github.com/TacitusVox/K-UI-NeXT",false);x++)
             link_ink+=pixels[1+y*640+x]==header_link_color;
     assert(link_ink>0); /* The unclipped link stays below the brand on every page. */
     assert(pixels[0]==0x1234 && pixels[640*480+1]==0xabcd);
@@ -1601,7 +1601,7 @@ static void update_controls(void) {
     --list.generation;kui_shell_set_update(&s,&list);assert(s.update_loading);
     ++list.generation;kui_shell_set_update(&s,&list);assert(!s.update_loading && s.update.count==8u);
     struct kui_shell_view view={0};render(&view);
-    assert(strstr(drawn,"Offline updates") && strstr(drawn,"TacitusVoxt/K-UI-NeXT Releases") && strstr(drawn,"A Open/check"));
+    assert(strstr(drawn,"Offline updates") && strstr(drawn,"TacitusVox/K-UI-NeXT Releases") && strstr(drawn,"A Open/check"));
     assert(strstr(drawn,"release-7.kup") && strstr(drawn,"Restore previous") && strstr(drawn,"Original baseline"));
     assert(press(KUI_SHELL_RIGHT,false)==KUI_SHELL_UPDATE_RUN && s.update_request.page==1u);
     list.generation=s.update_generation;list.page=1u;list.count=2u;kui_shell_set_update(&s,&list);
