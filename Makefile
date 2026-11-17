@@ -117,6 +117,14 @@ test-wince-family7-profiles:
 	python3 tests/test_wince_family7_profiles.py
 test: test-wince-family7-profiles
 
+# test_vmu_image_subset_tool.py and test_prepare_toy_card.py run the offline
+# host adapter (build/vmu-subset-tool/vmu-image-subset). Build it before the
+# Python discovery; Makefile.vmu-subset-tool stays its only recipe.
+.PHONY: vmu-subset-tool
+vmu-subset-tool:
+	$(MAKE) -f Makefile.vmu-subset-tool
+test: vmu-subset-tool
+
 .PHONY: test-updater
 test-updater: test-runtime-module-bundle-make
 test-updater: build/test-update build/test-update-v2 build/test-update-handoff build/update-image build/update-boot
