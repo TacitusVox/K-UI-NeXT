@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: GPL-3.0-only */
 #include "kui/games_covers.h"
+#include "kui/games_media_storage.h"
 #include "kui/cover_image.h"
 #include "kui/game_image.h"
 #include "kui/game_launch_settings.h"
@@ -779,11 +780,22 @@ static enum outcome build(struct scan *s, const char *key, const char *gdi_path)
     if(strlen(gdi_path) >= sizeof(record.gdi_path) || f_stat(path, &info) != FR_OK) return OUT_FAILED;
     strcpy(record.gdi_path, gdi_path);
     stamp_of(&info, &record.gdi);
-    for(unsigned i = 0; i < sizeof(user_images) / sizeof(user_images[0]); ++i) {
-        if(record_path(key, user_images[i], user) && f_stat(user, &info) == FR_OK && !(info.fattrib & AM_DIR)) {
+    /* Explicit owner images take priority over a companion download. All
+     * images feed the same thumbnail cache, including on later rescans. */
+    unsigned owner_count = sizeof(user_images) / sizeof(user_images[0]);
+    for(unsigned i = 0; i <= owner_count; ++i) {
+        if(i < owner_count) {
+            if(!record_path(key, user_images[i], user)) return OUT_FAILED;
+        } else if(!kui_games_media_path(gdi_path, KUI_DOWNLOADED_COVERS, "png", user, sizeof(user))) {
+            user[0] = 0;
+            break; /* Offline cover scans also accept some legacy image paths. */
+        }
+        FRESULT art_stat = f_stat(user, &info);
+        if(art_stat == FR_OK && !(info.fattrib & AM_DIR)) {
             stamp_of(&info, &record.user);
             break;
         }
+        if(art_stat != FR_OK && art_stat != FR_NO_FILE && art_stat != FR_NO_PATH) return OUT_FAILED;
         user[0] = 0;
     }
     {
@@ -850,6 +862,96 @@ static enum outcome build(struct scan *s, const char *key, const char *gdi_path)
     if(io || stopped(s->cancel)) return OUT_FAILED;
     if(!record_write(s, key, &record)) return OUT_FAILED;
     return record.source == KUI_COVER_SOURCE_USER ? OUT_USER : record.source == KUI_COVER_SOURCE_DISC ? OUT_DISC : OUT_NONE;
+}
+bool kui_games_prepare_media_cover(const struct kui_games_entry *entry, bool *present,
+        kui_log_fn log, kui_cancel_fn cancel) {
+    *present = entry->cover_path[0] != 0;
+    if(*present) return true;
+    char key[KUI_COVER_PATH_CAP], path[PATH_CAP];
+    if(!kui_cover_key(entry->name, key) || stopped(cancel)) return false;
+    static const char *const folders[] = {"0:/KUI", KUI_GAMES_COVERS_FOLDER};
+    if(!make_folders(folders, 2, log)) return false;
+    FIL file;
+    struct kui_cover_record old;
+    FRESULT r = record_read(key, &file, &old);
+    if(r == FR_OK) {
+        if(f_close(&file) != FR_OK) return false;
+        if(strcmp(old.gdi_path, entry->path)) {
+            if(log) log("Media: cover name %s belongs to another game", key);
+            *present = true;
+            return true;
+        }
+        if(old.source != KUI_COVER_SOURCE_NONE) {
+            *present = true;
+            return true;
+        }
+    } else if(r != FR_NO_FILE && r != FR_INVALID_OBJECT) return false;
+    /* Build an unscanned game before deciding it needs a download. Also
+     * finishes a previously downloaded PNG whose scan was interrupted. */
+    struct scan scan = {.log = log, .cancel = cancel};
+    scan.record = malloc(KUI_COVER_FILE_BYTES);
+    scan.raw = malloc(16u * KUI_GAME_RAW_BYTES);
+    scan.scaled = malloc(KUI_COVER_PIXELS * sizeof(*scan.scaled));
+    enum outcome result = OUT_FAILED;
+    if(scan.record && scan.raw && scan.scaled) result = build(&scan, key, entry->path);
+    free(scan.record);
+    free(scan.raw);
+    free(scan.scaled);
+    if(result == OUT_FAILED || stopped(cancel)) return false;
+    if(result != OUT_UNCHANGED) {
+        kui_games_covers_content_clear();
+        artwork_known = false;
+    }
+    *present = result == OUT_USER || result == OUT_DISC;
+    if(*present) return true;
+    /* Even an unscannable image belongs to the owner. Never replace it. */
+    for(unsigned i = 0; i < sizeof(user_images) / sizeof(user_images[0]); ++i) {
+        FILINFO info;
+        if(!record_path(key, user_images[i], path)) return false;
+        r = f_stat(path, &info);
+        if(r == FR_OK) { *present = true; return true; }
+        if(r != FR_NO_FILE) return false;
+    }
+    return true;
+}
+
+enum kui_games_identity_result kui_games_media_identity(const char *path,
+        struct kui_games_disc_identity *out, kui_log_fn log, kui_cancel_fn cancel) {
+    memset(out, 0, sizeof(*out));
+    const char *slash = strrchr(path, '/');
+    if(!slash || (size_t)(slash-path) >= KUI_GAMES_FILE_CAP ||
+       !kui_game_image_name_supported(slash+1)) return KUI_GAMES_IDENTITY_UNKNOWN;
+    struct image_files files = {.cancel = cancel};
+    if(slash == path) strcpy(files.root, "/");
+    else memcpy(files.root, path, (size_t)(slash-path));
+    struct kui_game_launch_settings choice;
+    kui_game_launch_settings_default(&choice);
+    size_t len = strlen(slash+1);
+    if(len >= 4 && same_name(slash+1+len-4, ".zso") &&
+       !kui_game_launch_settings_load(path, &choice, log)) return KUI_GAMES_IDENTITY_ERROR;
+    struct kui_game_image *image = malloc(sizeof(*image));
+    uint8_t *sector = malloc(2048);
+    struct kui_game_file_ops ops = {&files, image_stat, image_read};
+    enum kui_game_result result = KUI_GAME_IO;
+    enum kui_games_identity_result found = KUI_GAMES_IDENTITY_UNKNOWN;
+    if(image && sector) {
+        result = kui_game_image_open_named_codec(slash+1, &ops, (enum kui_zso_codec)choice.codec, image);
+        if(result == KUI_GAME_OK)
+            result = kui_game_image_read(image, image->data_lba, 1, KUI_GAME_SECTOR_MODE1, sector, 2048);
+        struct kui_game_metadata meta;
+        if(result == KUI_GAME_OK && kui_game_metadata_ip(sector, &meta) && (meta.native_gd || meta.native_cd || meta.windows_ce) &&
+           meta.title[0] && meta.product[0] && meta.region[0]) {
+            snprintf(out->title, sizeof(out->title), "%s", meta.title);
+            snprintf(out->product, sizeof(out->product), "%s", meta.product);
+            snprintf(out->region, sizeof(out->region), "%s", meta.region);
+            found = KUI_GAMES_IDENTITY_FOUND;
+        }
+    }
+    free(sector);
+    free(image);
+    if(!image_close(&files) || stopped(cancel) || result == KUI_GAME_IO ||
+       result == KUI_GAME_NOT_FOUND || result == KUI_GAME_CANCELLED) return KUI_GAMES_IDENTITY_ERROR;
+    return found;
 }
 static void summary(struct kui_app_status *status, const struct kui_games_scan_counts *c) {
     status->line_count = 0;

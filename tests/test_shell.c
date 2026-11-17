@@ -1055,8 +1055,8 @@ static void games_controls(void) {
 
     /* The accepted synthetic probe remains available independently of a game. */
     reset(KUI_SHELL_GAMES_ADVANCED);
-    press(KUI_SHELL_UP,false);assert(s.games_advanced_selected==9);
-    for(unsigned selected=8;selected>=3;selected--) {press(KUI_SHELL_UP,false);assert(s.games_advanced_selected==selected);}
+    press(KUI_SHELL_UP,false);assert(s.games_advanced_selected==10);
+    for(unsigned selected=9;selected>=3;selected--) {press(KUI_SHELL_UP,false);assert(s.games_advanced_selected==selected);}
     assert(press(KUI_SHELL_A,true)==KUI_SHELL_NONE && s.page==KUI_SHELL_GAMES_ADVANCED);
     assert(press(KUI_SHELL_A,false)==KUI_SHELL_NONE && s.page==KUI_SHELL_GAMES_TESTS);
     assert(s.game_tests_selected==1 && !s.games_tests_from_options);
@@ -1074,7 +1074,7 @@ static void games_controls(void) {
     press(KUI_SHELL_DOWN,false);assert(s.games_advanced_selected==4);
     press(KUI_SHELL_DOWN,false);assert(s.games_advanced_selected==5);
     press(KUI_SHELL_DOWN,false);assert(s.games_advanced_selected==6);
-    for(unsigned selected=7;selected<10;selected++) {press(KUI_SHELL_DOWN,false);assert(s.games_advanced_selected==selected);}
+    for(unsigned selected=7;selected<11;selected++) {press(KUI_SHELL_DOWN,false);assert(s.games_advanced_selected==selected);}
     press(KUI_SHELL_DOWN,false);assert(s.games_advanced_selected==0);
     assert(press(KUI_SHELL_A,false)==KUI_SHELL_GAMES_LIST && !strcmp(s.games_path,"/Games"));
 
@@ -3164,6 +3164,39 @@ static void games_views(void) {
     assert(press(KUI_SHELL_B|KUI_SHELL_A,true)==KUI_SHELL_STOP && s.games_scanning && s.page==KUI_SHELL_GAMES);
     games_page(8,true,KUI_GAMES_VIEW_GALLERY);assert(!s.games_scanning && s.games_listing.count==8);
 }
+static void games_media_controls(void) {
+    reset(KUI_SHELL_GAMES);
+    games_page(2,false,KUI_GAMES_VIEW_LIST);
+    assert(press(KUI_SHELL_START,false)==KUI_SHELL_NONE);
+    s.games_advanced_selected=10;
+    assert(press(KUI_SHELL_A,false)==KUI_SHELL_MEDIA_ADDRESS_LOAD);
+    assert(s.page==KUI_SHELL_GAMES_MEDIA && s.games_media_kinds==KUI_GAMES_MEDIA_ART);
+    s.games_media_row=5;
+    assert(press(KUI_SHELL_A,false)==KUI_SHELL_NONE && !s.games_media_row);
+    assert(press(KUI_SHELL_A,false)==KUI_SHELL_NONE && s.games_media_editing);
+    assert(press(KUI_SHELL_RIGHT,false)==KUI_SHELL_NONE && s.games_media_octet==1);
+    assert(press(KUI_SHELL_L,false)==KUI_SHELL_NONE && s.games_media_draft[1]==158);
+    assert(press(KUI_SHELL_B,false)==KUI_SHELL_NONE && !s.games_media_editing && !s.games_media_ip[0]);
+    press(KUI_SHELL_A,false);assert(press(KUI_SHELL_A,false)==KUI_SHELL_MEDIA_ADDRESS_SAVE);
+    assert(s.games_media_ip[0]==192 && s.games_media_ip[1]==168);
+    s.games_media_row=2;press(KUI_SHELL_A,false);assert(!s.games_media_kinds);
+    s.games_media_row=5;assert(press(KUI_SHELL_A,false)==KUI_SHELL_NONE && s.games_media_row==2);
+    s.games_media_row=3;press(KUI_SHELL_A,false);
+    s.games_media_row=4;press(KUI_SHELL_A,false);
+    assert(s.games_media_kinds==(KUI_GAMES_MEDIA_MANUAL|KUI_GAMES_MEDIA_PREVIEW));
+    s.games_media_row=1;press(KUI_SHELL_A,false);assert(s.games_media_all);
+    s.games_media_row=5;assert(press(KUI_SHELL_A,false)==KUI_SHELL_MEDIA_DOWNLOAD);
+    assert(s.games_media_report && s.games_rows_stale);
+    assert(press(KUI_SHELL_B,true)==KUI_SHELL_STOP && s.games_media_report);
+    assert(press(KUI_SHELL_B,false)==KUI_SHELL_NONE && !s.games_media_report);
+    s.games_media_row=6;assert(press(KUI_SHELL_A,false)==KUI_SHELL_MEDIA_OPEN_MANUAL);
+    s.games_media_row=7;assert(press(KUI_SHELL_A,false)==KUI_SHELL_MEDIA_PLAY_PREVIEW);
+    s.games_listing.entries[0].directory=true;
+    assert(press(KUI_SHELL_A,false)==KUI_SHELL_NONE && s.games_media_notice[0]);
+    assert(press(KUI_SHELL_B,false)==KUI_SHELL_NONE && s.page==KUI_SHELL_GAMES_ADVANCED);
+    assert(press(KUI_SHELL_A,false)==KUI_SHELL_NONE && s.page==KUI_SHELL_GAMES_MEDIA);
+    assert(s.games_media_ip[0]==192);
+}
 static void games_disc_group_controls(void) {
     static const char key[]="0123456789abcdef0123456789abcdef";
     struct kui_games_page parent={.count=5,.total=24,.has_more=true,.view=KUI_GAMES_VIEW_LIST};
@@ -4149,7 +4182,7 @@ static void ftp_rendering(void) {
     memset(&f,0,sizeof(f));
     snprintf(f.message,sizeof(f.message),"Asking the router for an address (DHCP)");
     v.ftp=&f;render(&v);
-    assert(strstr(drawn,"Asking the router for an address") && strstr(drawn,"SD card stays on SCIF"));
+    assert(strstr(drawn,"Asking the router for an address") && strstr(drawn,"Broadband Adapter"));
     f.state=KUI_FTP_READY;f.link=true;f.port=KUI_FTP_PORT;
     f.ip[0]=192;f.ip[1]=168;f.ip[2]=1;f.ip[3]=50;
     snprintf(f.password,sizeof(f.password),"48217365");
@@ -6513,7 +6546,7 @@ int main(int argc,char **argv) {
     vmu_continuous_scrolling();vmu_catalog_scrolling();vmu_scroll_rendering();small_tools_controls();small_tools_rendering();
     vmu_copy_all_controls();vmu_import_controls();vmu_bulk_import_rendering();
     vmu_collection_copy_controls();vmu_collection_controls();vmu_collection_rendering();
-    games_remembered_selection(); games_disc_group_controls(); games_activity_controls(); games_controls(); games_background_titles(); games_views(); games_navigation_steps(); games_async_publication(); games_retail_controls(); games_armada_ce_music_controls(); games_bam4_ce_music_controls(); games_cdda_compatibility_status(); games_launch_options_controls(); games_cd_controls(); games_saved_launch_controls(); games_patch_controls(); games_image_defaults_controls(); games_zso_controls(); games_codec_controls(); games_check_baseline_controls(); games_variant_controls();
+    games_remembered_selection(); games_disc_group_controls(); games_activity_controls(); games_controls(); games_background_titles(); games_views(); games_media_controls(); games_navigation_steps(); games_async_publication(); games_retail_controls(); games_armada_ce_music_controls(); games_bam4_ce_music_controls(); games_cdda_compatibility_status(); games_launch_options_controls(); games_cd_controls(); games_saved_launch_controls(); games_patch_controls(); games_image_defaults_controls(); games_zso_controls(); games_codec_controls(); games_check_baseline_controls(); games_variant_controls();
     if(argc==2 && !strcmp(argv[1],"--games-controls")) { puts("PASS Games navigation and launch controls"); return 0; }
     games_rendering(); games_native_reader_choices(); games_new_reader_defaults(); games_patch_rendering(); games_zso_rendering(); games_selected_art_rendering(); games_variant_rendering();
     if(argc==2 && !strcmp(argv[1],"--games")) { puts("PASS Games navigation, launch eligibility and rendering"); return 0; }

@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: GPL-3.0-only */
 #include "kui/capture_network.h"
+#include "kui/network_bba.h"
 #include "kui/network_w5500.h"
 #include "kui/network_wifi.h"
 #include "ff.h"
@@ -20,13 +21,28 @@ static char last_log[256];
 static const char closed[]=
     "4b4e5231010601003412000000000000030000000000000000000000000000000000000000000000d7867f2700000000"
     "ead1ebf1d7b7bff8ed26b3d600a01320009b69f5f8081d8d217c3bee33f60840";
+static int bba_found;
+static bool bba_link;
+static unsigned bba_opens,bba_ends;
+static int bba_open(struct kui_bba_session *s,kui_log_fn log,kui_cancel_fn cancel){
+    (void)log;(void)cancel;++bba_opens;
+    if(bba_found<0)strcpy(s->problem,"Expansion adapter refused startup");
+    if(bba_found>0){strcpy(s->name,"BBA fixture");s->net=net;}
+    return bba_found;
+}
+static bool bba_poll(struct kui_bba_session *s){
+    if(!bba_link)strcpy(s->problem,"Expansion adapter lost carrier");
+    return bba_link;
+}
+static void bba_end(struct kui_bba_session *s){(void)s;assert(!registered.blocks);++bba_ends;}
+static const struct kui_bba_port bba_port={.open=bba_open,.poll=bba_poll,.end=bba_end};
 static const struct kui_w5500_port wired_port={0};
 static const struct kui_wifi_port wifi_port={0};
 uint64_t timer_ms_gettime64(void){return m.now;}
 void thd_sleep(unsigned ms){m.now+=ms?ms:1;}
 void kui_media_set(const struct kui_media_ops *ops){registered=ops?*ops:(struct kui_media_ops){0};}
 bool kui_w5500_session_find(struct kui_w5500_session *s,const struct kui_w5500_port *port,kui_log_fn log){
-    (void)log;s->port=port;s->version=wiring_fault?KUI_W5500_VERSION:0;
+    (void)log;assert(bba_found==0);s->port=port;s->version=wiring_fault?KUI_W5500_VERSION:0;
     if(absent||wiring_fault||wifi_only){strcpy(s->problem,"W5500 unavailable");return false;}
     s->open=s->found=true;s->version=KUI_W5500_VERSION;return true;
 }
@@ -62,13 +78,13 @@ FRESULT f_close(FIL *f){(void)f;return file_close_fail?FR_DISK_ERR:FR_OK;}
 static bool stop_fn(void){return m.stop;}
 static void record_log(const char *format,...){va_list args;va_start(args,format);vsnprintf(last_log,sizeof(last_log),format,args);va_end(args);}
 static void reset(void){
-    clear_model();registered=(struct kui_media_ops){0};wired_end=wifi_end=renews=wifi_steps=0;
+    clear_model();bba_found=0;bba_link=true;bba_opens=bba_ends=0;registered=(struct kui_media_ops){0};wired_end=wifi_end=renews=wifi_steps=0;
     last_log[0]=0;
     absent=wiring_fault=buffers_fail=wifi_only=link_fail=dhcp_fail=wifi_fail=wifi_offline=wifi_address_change=false;renew_mode=0;
     append(challenge);append(authenticated);append(synced);
 }
 static struct kui_capture_network *start_session(void){
-    struct kui_net_ports ports={&wired_port,&wifi_port};struct kui_network_rip_config cfg=config();char why[128];
+    struct kui_net_ports ports={.w5500=&wired_port,.wifi=&wifi_port,.bba=&bba_port};struct kui_network_rip_config cfg=config();char why[128];
     struct kui_capture_network *s=kui_capture_network_start(&ports,&cfg,record_log,stop_fn,NULL,why);assert(s&&!why[0]&&registered.blocks&&registered.blocks(registered.ctx)==1000);return s;
 }
 static void finish(struct kui_capture_network *s){m.stop=true;assert(!kui_capture_network_end(s));assert(!registered.blocks&&!registered.ctx);}
@@ -99,7 +115,21 @@ static void file_configuration(void){
     file_length=KUI_NETWORK_RIP_CONFIG_CAP+1;assert(!kui_capture_network_config_load(&parsed,why)&&!memcmp(&parsed,&before,sizeof(parsed)));
     file_text=NULL;assert(!kui_capture_network_config_load(&parsed,why)&&strstr(why,"local card"));
 }
+static void expansion_sessions(void){
+    reset();bba_found=1;append(closed);
+    struct kui_capture_network *s=start_session();
+    assert(kui_capture_network_end(s)&&bba_opens==1&&bba_ends==1&&!wifi_steps&&!wired_end);
+    reset();bba_found=1;s=start_session();bba_link=false;
+    assert(registered.sync(registered.ctx)&&strstr(kui_capture_network_problem(s),"carrier"));
+    finish(s);assert(bba_ends==1);
+    reset();bba_found=-1;
+    struct kui_net_ports ports={.w5500=&wired_port,.wifi=&wifi_port,.bba=&bba_port};
+    struct kui_network_rip_config cfg=config();char why[128];
+    assert(!kui_capture_network_start(&ports,&cfg,NULL,stop_fn,NULL,why)&&strstr(why,"refused startup"));
+    assert(bba_opens==1&&!bba_ends&&!registered.blocks);
+}
 int main(void){
+    expansion_sessions();
     file_configuration();
     final_close();
     reset();struct kui_capture_network *s=start_session();assert(!wifi_steps);m.now=1800000;assert(!registered.sync(registered.ctx)&&renews==1);finish(s);assert(wired_end==1&&!wifi_end);
@@ -113,7 +143,7 @@ int main(void){
     reset();wifi_only=true;s=start_session();wifi_address_change=true;assert(registered.sync(registered.ctx));finish(s);
     for(unsigned mode=0;mode<5;mode++){
         reset();if(mode==0)wiring_fault=true;if(mode==1)buffers_fail=true;if(mode==2)link_fail=true;if(mode==3)dhcp_fail=true;if(mode==4){wifi_only=true;wifi_fail=true;}
-        struct kui_net_ports ports={&wired_port,&wifi_port};struct kui_network_rip_config cfg=config();char why[128];
+        struct kui_net_ports ports={.w5500=&wired_port,.wifi=&wifi_port,.bba=&bba_port};struct kui_network_rip_config cfg=config();char why[128];
         assert(!kui_capture_network_start(&ports,&cfg,NULL,stop_fn,NULL,why)&&why[0]&&!registered.blocks);
     }
     puts("PASS native PC session media ownership, bounded config read, adapters, renewal, expiry and Wi-Fi loss cleanup");return 0;

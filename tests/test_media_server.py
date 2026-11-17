@@ -150,6 +150,19 @@ class TestCompanion(unittest.TestCase):
             item = m.exact_ss_game(m.screenscraper_xml(XML.replace("https://media.screenscraper.fr/video", old_url).encode()), GAME.title)
             self.assertEqual(m.select_media(item, GAME, "preview"), expected)
 
+    def test_known_minute_quota_paces_instead_of_aborting_bulk(self):
+        provider = m.ScreenScraper({})
+        provider.minute_limit = 1
+        clock = [100.0]
+        def delay(seconds):
+            clock[0] += seconds
+        with patch.object(m.time, "monotonic", side_effect=lambda: clock[0]), \
+             patch.object(m.time, "sleep", side_effect=delay), patch.object(m, "fetch") as upstream:
+            self.assertTrue(provider.request(m.SS_URL, 1024, io.BytesIO()))
+            self.assertTrue(provider.request(m.SS_URL, 1024, io.BytesIO()))
+        self.assertEqual(clock[0], 160)
+        self.assertEqual(upstream.call_count, 2)
+
     def test_quota_stops_requests(self):
         for code in (429, 430, 431, 403):
             provider = m.ScreenScraper({})

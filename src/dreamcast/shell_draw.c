@@ -277,6 +277,8 @@ static void footer(struct paint *p, const struct kui_shell *s,
         s->page==KUI_SHELL_SCI_ASYNC_PROBE ? "A Quick   X 60s stress   Y With screen   R Speed   B Back" :
         s->page==KUI_SHELL_STORAGE_TEST_HISTORY ? "A View   Y Baseline   X Refresh   B Back" :
         s->page==KUI_SHELL_WIFI ? (s->wifi.found?"A Join   X Scan   Y Forget   START Update   B Network":"X Look again   B Network") :
+        s->page==KUI_SHELL_GAMES_MEDIA ? (v->busy?"B Stop":s->games_media_editing?
+            "A Save   B Cancel":s->games_media_report?"A or B Back":"D-pad Select   A Choose   B Options") :
         s->page==KUI_SHELL_GAMES_ADVANCED ? (s->games_advanced_selected==6u?
             "LEFT/RIGHT Layout   A Next and open   B Games":"D-pad Select   A Open   B Games") :
         s->page==KUI_SHELL_GAMES_PROBE_CONFIRM ? "A Start test   B Tests" :
@@ -2741,20 +2743,21 @@ static void profile_page(struct paint *p,const struct kui_shell *s) {
 }
 
 static void games_advanced(struct paint *p,const struct kui_shell *s) {
-    title(p,40,108,"Games / Library options");label(p,508,112,MUTED,"10 options");
+    title(p,40,108,"Games / Library options");label(p,508,112,MUTED,"11 options");
     const struct kui_games_entry *entry=s->games_selected<s->games_listing.count?&s->games_listing.entries[s->games_selected]:NULL;
     words(p,40,138,608,CYAN,entry?entry_text(entry):"Source: SD card",false);
     const char *names[]={"Game library","Browse SD folders","Scan box art","Developer tests",
-        "Scan for changes","Rebuild library","Change layout","Search and filters","Edit display choices","Verify stable identity"};
+        "Scan for changes","Rebuild library","Change layout","Search and filters","Edit display choices","Verify stable identity","Download game media"};
     const char *details[]={"Open every game in /Games","Find a disc image elsewhere on the card",
         "Covers and titles for every game in /Games","Image and loader read tests",
         "Find added, moved or removed games","Build a fresh saved list; keep game settings",
         "LEFT/RIGHT changes layout here; keeps this tab and selection",
         "Search titles, filter region/disc, or jump to a letter",
         "Set a display name and cover without renaming files",
-        "Read the complete image to verify its content identity"};
+        "Read the complete image to verify its content identity",
+        "Download missing artwork, manuals and previews over the BBA"};
     unsigned first=s->games_advanced_selected>=7u?s->games_advanced_selected-6u:0u;
-    for(unsigned i=first;i<first+7u && i<10u;i++) {
+    for(unsigned i=first;i<first+7u && i<11u;i++) {
         unsigned y=164+(i-first)*31;
         panel(p,32,y,576,28,s->games_advanced_selected==i?SELECTED:PANEL);
         label(p,48,y+5,WHITE,names[i]);
@@ -2762,8 +2765,66 @@ static void games_advanced(struct paint *p,const struct kui_shell *s) {
             kui_shell_games_view(s)==KUI_GAMES_VIEW_GALLERY?"< Gallery >":kui_shell_games_view(s)==KUI_GAMES_VIEW_FLOW?"< Flow >":"< List >",false);
     }
     const char *notice=s->games_advanced_selected==6u && s->games_layout_notice[0]?s->games_layout_notice:
-        s->games_activity_notice[0]?s->games_activity_notice:details[s->games_advanced_selected<10?s->games_advanced_selected:0];
+        s->games_activity_notice[0]?s->games_activity_notice:details[s->games_advanced_selected<11?s->games_advanced_selected:0];
     words(p,40,396,608,MUTED,notice,false);
+}
+static void games_media(struct paint *p,const struct kui_shell *s,const struct kui_shell_view *v) {
+    title(p,40,108,"Games / Download game media");
+    const struct kui_app_status *st=v->app_status;
+    if(s->games_media_report) {
+        panel(p,32,152,576,236,PANEL);
+        label(p,48,170,WHITE,v->busy?"Downloading missing media":"Download results");
+        if(st) {
+            words(p,48,210,592,st->errors?AMBER:CYAN,st->message,false);
+            if(v->busy && st->total) {
+                char bytes[64];
+                unsigned width=st->done>=st->total?544u:(unsigned)(544u*st->done/st->total);
+                box(p,48,242,544,8,EDGE);
+                if(width)box(p,48,242,width,8,CYAN);
+                snprintf(bytes,sizeof(bytes),"%llu / %llu KiB",(unsigned long long)(st->done/1024u),
+                    (unsigned long long)((st->total+1023u)/1024u));
+                label(p,48,262,CYAN,bytes);
+            }
+            for(unsigned i=0;i<st->line_count && i<3;i++)
+                words(p,48,296+24*i,592,MUTED,st->lines[i],false);
+        }
+        return;
+    }
+    if(s->games_media_editing) {
+        label(p,40,156,MUTED,"IPv4 address of the PC or NAS running the media companion");
+        for(unsigned i=0;i<4;i++) {
+            char octet[5];
+            snprintf(octet,sizeof(octet),"%u",s->games_media_draft[i]);
+            unsigned x=60u+110u*i;
+            panel(p,x,202,88,40,s->games_media_octet==i?SELECTED:PANEL);
+            label(p,x+22,213,WHITE,octet);
+            if(i<3)label(p,x+95,213,MUTED,".");
+        }
+        label(p,40,272,MUTED,"LEFT/RIGHT select a number. UP/DOWN change it by 1.");
+        label(p,40,300,MUTED,"L/R change it by 10. The companion uses TCP port 8732.");
+        words(p,40,350,602,AMBER,s->games_media_notice,false);
+        return;
+    }
+    const struct kui_games_entry *e=s->games_selected<s->games_listing.count?&s->games_listing.entries[s->games_selected]:NULL;
+    words(p,40,137,606,CYAN,e && !e->directory && !e->disabled?entry_text(e):"No game selected",false);
+    const char *labels[]={"Companion IPv4","Download for","Artwork","Manuals","Previews",
+        "Download missing media","Open selected game's manual","Play selected game's preview"};
+    for(unsigned i=0;i<8;i++) {
+        unsigned y=164+i*26;
+        panel(p,32,y,576,24,s->games_media_row==i?SELECTED:PANEL);
+        label(p,46,y+3,WHITE,labels[i]);
+        char ip[32];
+        const char *value="";
+        if(i==0 && s->games_media_ip[0]) {
+            snprintf(ip,sizeof(ip),"%u.%u.%u.%u",s->games_media_ip[0],s->games_media_ip[1],s->games_media_ip[2],s->games_media_ip[3]);
+            value=ip;
+        } else if(i==0)value="Set address";
+        else if(i==1)value=s->games_media_all?"All of /Games":"Selected game";
+        else if(i<=4)value=(s->games_media_kinds&(1u<<(i-2u)))?"On":"Off";
+        label(p,400,y+3,CYAN,value);
+    }
+    words(p,40,383,603,s->games_media_notice[0]?AMBER:MUTED,
+        s->games_media_notice[0]?s->games_media_notice:"Run the K-UI media companion on your PC or NAS.",false);
 }
 static void games_probe_confirmation(struct paint *p,const struct kui_shell_view *v) {
     title(p,40,108,"Games / Loader read test");
@@ -3368,8 +3429,8 @@ static void ftp_page(struct paint *p,const struct kui_shell_view *v) {
     if(!f || f->state==KUI_FTP_STARTING) {
         panel(p,32,140,576,112,PANEL);
         label(p,48,152,CYAN,f && f->message[0]?f->message:"Starting");
-        label(p,48,180,MUTED,"It needs the Wi-Fi board, or a W5500 and a cable to your router,");
-        label(p,48,200,MUTED,"on the SCI port. The SD card stays on SCIF. B stops it at any time.");
+        label(p,48,180,MUTED,"Connect the Broadband Adapter to your router, or use a W5500");
+        label(p,48,200,MUTED,"or Wi-Fi board on SCI. B stops the server.");
         return;
     }
     bool ready=f->state==KUI_FTP_READY;
@@ -3541,6 +3602,7 @@ void kui_shell_draw_content(uint16_t *frame, const struct kui_shell *s,
     case KUI_SHELL_GAMES_DETAIL: game_detail(&p,s,v); break;
     case KUI_SHELL_GAMES_VARIANTS: games_variants(&p,s); break;
     case KUI_SHELL_GAMES_ADVANCED: games_advanced(&p,s); break;
+    case KUI_SHELL_GAMES_MEDIA: games_media(&p,s,v); break;
     case KUI_SHELL_GAMES_QUERY: games_query_page(&p,s); break;
     case KUI_SHELL_GAMES_EDIT: games_edit_page(&p,s); break;
     case KUI_SHELL_VMU_HISTORY: history_page(&p,s); break;

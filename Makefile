@@ -1403,7 +1403,7 @@ build/test-wifi-update: tests/test_wifi_update.c src/apps/wifi_update.c include/
 # The FTP server: protocol pieces alone, then end to end on the W5500 model
 # and the Wi-Fi board model with real FatFs, driven by Python's ftplib
 # (tests/test_ftp_images.py).
-FTP = src/apps/ftp_server.c src/apps/browser_companion.c src/core/http_protocol.c src/core/ftp_protocol.c src/core/files_path.c src/core/destination.c src/core/storage_probe.c \
+FTP = src/core/bba_sockets.c src/apps/ftp_server.c src/apps/browser_companion.c src/core/http_protocol.c src/core/ftp_protocol.c src/core/files_path.c src/core/destination.c src/core/storage_probe.c \
       src/core/w5500.c src/apps/network_w5500.c src/apps/network_probe.c src/apps/network_wifi.c src/core/wifi_text.c $(WIFI_LINK)
 FTP_WRAP = -Wl,--wrap=f_open,--wrap=f_close,--wrap=f_opendir,--wrap=f_closedir,--wrap=f_rename,--wrap=f_write
 build/test-ftp: tests/test_ftp.c src/core/ftp_protocol.c src/core/files_path.c src/core/destination.c src/core/data.c include/kui/ftp.h include/kui/files.h .deps/fatfs/source/ff.h
@@ -1412,11 +1412,11 @@ build/test-ftp: tests/test_ftp.c src/core/ftp_protocol.c src/core/files_path.c s
 build/test-ftp-cleanup: tests/test_ftp_cleanup.c src/apps/ftp_server.c include/kui/ftp.h include/kui/w5500.h .deps/fatfs/source/ff.h
 	@mkdir -p $(@D)
 	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) -Isrc/dreamcast -ffunction-sections -fdata-sections tests/test_ftp_cleanup.c -Wl,--gc-sections -o $@
-build/ftp-image: tests/ftp_image.c $(FTP) $(CORE) $(FATFS) $(W5500_MODEL) $(WIFI_MODEL) $(WIFI_HEADERS) include/kui/ftp.h include/kui/w5500.h include/kui/network_w5500.h include/kui/files.h config/ffconf.h
+build/ftp-image: tests/ftp_image.c $(FTP) $(CORE) $(FATFS) $(W5500_MODEL) $(WIFI_MODEL) $(WIFI_HEADERS) include/kui/network_bba.h include/kui/bba_sockets.h include/kui/ftp.h include/kui/w5500.h include/kui/network_w5500.h include/kui/files.h config/ffconf.h
 	@mkdir -p $(@D)
 	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) -Isrc/dreamcast -Ifirmware/kui-wifi/main -Itests $(FTP) $(CORE) $(FATFS) tests/w5500_model.c $(WIFI_MODEL) tests/ftp_image.c $(FTP_WRAP) -o $@
 
-build/browser-image: tests/browser_image.c tests/ftp_image.c $(FTP) $(CORE) $(FATFS) $(W5500_MODEL) $(WIFI_MODEL) $(WIFI_HEADERS) include/kui/browser.h include/kui/browser_service.h config/ffconf.h
+build/browser-image: tests/browser_image.c tests/ftp_image.c $(FTP) $(CORE) $(FATFS) $(W5500_MODEL) $(WIFI_MODEL) $(WIFI_HEADERS) include/kui/network_bba.h include/kui/bba_sockets.h include/kui/browser.h include/kui/browser_service.h config/ffconf.h
 	@mkdir -p $(@D)
 	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) -Isrc/dreamcast -Ifirmware/kui-wifi/main -Itests $(FTP) $(CORE) $(FATFS) tests/w5500_model.c $(WIFI_MODEL) tests/browser_image.c $(FTP_WRAP) -o $@
 
@@ -1475,6 +1475,45 @@ test-v3-medium: build/test-shell build/test-shell-font build/test-ui-rate build/
 	python3 tests/test_vmu_history.py
 	python3 tests/test_problem_report_images.py
 	python3 tests/test_games_scan_log_images.py
+# The actual Games worker, socket adapter, local media companion and card formats.
+MEDIA_DOWNLOAD = src/apps/media_download.c src/apps/media_container.c src/core/bba_sockets.c
+MEDIA_LIBRARY = $(GAMES_COVERS) $(GAMES_ACTIVITY) $(GAMES_LIBRARY_EXTRA) src/apps/games_library.c src/core/games_group.c
+MEDIA_HOST = $(MEDIA_DOWNLOAD) $(MEDIA_LIBRARY) src/apps/games_media.c src/apps/network_probe.c $(CORE) $(FATFS)
+build/bba-media-integration: tests/bba_media_integration.c $(MEDIA_HOST) include/kui/media_download.h include/kui/media_container.h include/kui/games_media.h
+	@mkdir -p $(@D)
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) -Isrc/dreamcast $(MEDIA_HOST) $< -lm -o $@
+
+build/test-games-media-batch: tests/test_games_media_batch.c src/apps/games_media.c include/kui/games_media.h include/kui/media_download.h
+	@mkdir -p $(@D)
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) -ffunction-sections -fdata-sections $< src/apps/games_media.c -Wl,--gc-sections -o $@
+
+MEDIA_CLIENT_TEST = src/apps/media_download.c src/apps/media_container.c src/apps/cover_image.c src/core/hash.c src/core/destination.c src/core/game_cover.c src/core/game_launch_settings.c
+build/test-media-download: tests/test_media_download.c $(MEDIA_CLIENT_TEST) include/kui/media_download.h include/kui/media_container.h
+	@mkdir -p $(@D)
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) -ffunction-sections -fdata-sections $(INCLUDES) $(MEDIA_CLIENT_TEST) $< -Wl,--gc-sections -lm -o $@
+
+BBA_SESSION = src/apps/network_probe.c src/apps/network_ethernet.c src/dreamcast/network_bba.c src/core/bba_sockets.c
+build/test-bba-session: tests/test_bba_session.c $(BBA_SESSION) include/kui/network_bba.h $(wildcard tests/apps_stubs/kos/*.h)
+	@mkdir -p $(@D)
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) -Itests/apps_stubs $< $(BBA_SESSION) -o $@
+
+build/test-media-container: tests/test_media_container.c src/apps/media_container.c include/kui/media_container.h
+	@mkdir -p $(@D)
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) src/apps/media_container.c $< -o $@
+
+.PHONY: test-bba-media
+test-bba-media: export ASAN_OPTIONS=detect_leaks=0
+test-bba-media: build/bba-media-integration build/games-covers-image build/test-media-container build/test-bba-session build/test-games-media-batch build/test-media-download
+	./build/test-media-download
+	python3 tests/test_kos_bba_driver.py
+	./build/test-games-media-batch
+	./build/test-bba-session
+	python3 tests/test_kos_tcp_media.py
+	./build/test-media-container
+	python3 tests/test_media_formats.py
+	python3 tests/test_media_server.py
+	python3 tests/test_bba_media_integration.py
+
 build/games-covers-image: tests/games_covers_image.c $(GAMES_COVERS) $(CORE) $(FATFS) include/kui/games_covers.h include/kui/games.h include/kui/game_cover.h include/kui/pvr_texture.h include/kui/cover_image.h third_party/stb/stb_image.h
 	@mkdir -p $(@D)
 	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) -Isrc/dreamcast $(GAMES_COVERS) $(CORE) $(FATFS) tests/games_covers_image.c $(GAMES_COVERS_WRAP) -lm -o $@

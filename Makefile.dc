@@ -80,7 +80,22 @@ RUNTIME_OBJECTS += build/dc/src/core/storage_test_model.o build/dc/src/core/stor
 RUNTIME_OBJECTS += build/dc/src/dreamcast/capture.o
 RUNTIME_OBJECTS += build/dc/src/dreamcast/memory.o
 RUNTIME_OBJECTS += build/dc/src/core/recovery_manifest.o build/dc/src/core/recovery_scan.o build/dc/src/core/repair_copy.o build/dc/src/core/legacy_import.o build/dc/src/core/raw_cue.o build/dc/src/core/saved_identity.o build/dc/src/core/recovery_guard.o build/dc/src/core/salvage_completion.o
-RUNTIME_OBJECTS += build/dc/src/core/network_rip.o
+RUNTIME_OBJECTS += build/dc/src/core/network_rip.o build/dc/src/core/bba_sockets.o
+RUNTIME_OBJECTS += build/dc/src/dreamcast/network_bba.o build/dc/src/dreamcast/media_view.o build/dc/kos-bba.o build/dc/kos-tcp.o
+# The pinned KOS BBA driver starts and stops repeatedly while the shell is live.
+# Compile its session-lifetime fixes for this GUI without modifying the toolchain.
+build/dc/kos-bba.c: $(KOS_BASE)/kernel/arch/dreamcast/hardware/network/broadband_adapter.c tools/patches/bba-session.patch
+	@mkdir -p $(@D)
+	patch --batch --fuzz=0 -o $@.tmp $< tools/patches/bba-session.patch && mv $@.tmp $@
+build/dc/kos-bba.o: build/dc/kos-bba.c
+	kos-cc -std=gnu11 -MMD -MP -c $< -o $@
+# Release payload buffers when a closed TCP stream reaches TIME_WAIT. The
+# remaining sequence state still handles duplicate final packets.
+build/dc/kos-tcp.c: $(KOS_BASE)/kernel/net/net_tcp.c tools/patches/kos-tcp-media.patch
+	@mkdir -p $(@D)
+	patch --batch --fuzz=0 -o $@.tmp $< tools/patches/kos-tcp-media.patch && mv $@.tmp $@
+build/dc/kos-tcp.o: build/dc/kos-tcp.c
+	kos-cc -std=gnu11 -I$(KOS_BASE)/kernel/net -MMD -MP -c $< -o $@
 RUNTIME_OBJECTS += build/dc/src/core/drive_speed_probe.o
 RUNTIME_OBJECTS += build/dc/src/core/saved_read_probe.o build/dc/src/core/g1_mode_probe.o build/dc/src/dreamcast/g1_mode_probe.o
 RUNTIME_OBJECTS += build/dc/src/core/salvage_revalidate.o

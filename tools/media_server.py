@@ -30,6 +30,7 @@ import urllib.request
 import xml.etree.ElementTree as ET
 from dataclasses import dataclass
 from pathlib import Path
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from PIL import Image, ImageOps
 
@@ -342,11 +343,14 @@ class ScreenScraper:
         self.blocked_until = 0
         self.daily_remaining = None
         self.day = None
+        try:
+            self.provider_zone = ZoneInfo("Europe/Paris")
+        except ZoneInfoNotFoundError:
+            # UTC rolls over after Paris when OS timezone data is absent.
+            self.provider_zone = datetime.timezone.utc
 
     def request(self, url, limit, fp):
-        # Use the provider's France reporting date when timezone data is available.
-        from zoneinfo import ZoneInfo
-        today = datetime.datetime.now(ZoneInfo("Europe/Paris")).date()
+        today = datetime.datetime.now(self.provider_zone).date()
         if today != self.day:
             self.daily_remaining = None
             self.day = today
@@ -355,10 +359,15 @@ class ScreenScraper:
             raise MediaError(429, "ScreenScraper daily quota reached")
         if now < self.blocked_until:
             raise MediaError(429, "ScreenScraper is rate limited")
-        while self.next_requests and self.next_requests[0] + 60 <= now:
-            self.next_requests.popleft()
-        if len(self.next_requests) >= self.minute_limit:
-            raise MediaError(429, "ScreenScraper minute quota reached")
+        # Pace a healthy bulk job through the known minute quota. An actual
+        # upstream rate-limit response still stops scraping and honors cooldown.
+        while True:
+            while self.next_requests and self.next_requests[0] + 60 <= now:
+                self.next_requests.popleft()
+            if len(self.next_requests) < self.minute_limit:
+                break
+            time.sleep(self.next_requests[0] + 60 - now)
+            now = time.monotonic()
         self.next_requests.append(now)
         if self.daily_remaining is not None:
             self.daily_remaining -= 1
@@ -444,6 +453,10 @@ class Catalogue:
         if source.stat().st_size > SOURCE_LIMIT[kind]:
             raise MediaError(413, "Source media too large")
         target = directory / "prepared"
+        programs = {"cover": (), "manual": ("pdfinfo", "pdftoppm"), "preview": ("ffmpeg",)}
+        for program in programs[kind]:
+            if shutil.which(program) is None:
+                raise MediaError(503, f"Install {program} on the media companion")
         try:
             {"cover": convert_cover, "manual": convert_manual, "preview": convert_preview}[kind](source, target)
         except (OSError, ValueError, Image.DecompressionBombError) as error:

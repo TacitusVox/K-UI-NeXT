@@ -47,6 +47,8 @@ static volatile uint8_t kui_update_ram_handoff[KUI_UPDATE_HANDOFF_BYTES]
 #include "kui/games.h"
 #include "kui/game_launch_settings.h"
 #include "kui/games_selection.h"
+#include "kui/media_download.h"
+#include "kui/media_view.h"
 #include "kui/games_probe.h"
 #include "kui/games_image_probe.h"
 #include "kui/games_retail.h"
@@ -81,6 +83,7 @@ static volatile uint8_t kui_update_ram_handoff[KUI_UPDATE_HANDOFF_BYTES]
 #include "kui/salvage_display.h"
 #include "kui/viewport.h"
 #include "kui/network_probe.h"
+#include "kui/network_bba.h"
 #include "kui/ftp.h"
 #include "kui/browser.h"
 #include "kui/problem_report.h"
@@ -368,7 +371,16 @@ static struct {
 } games_flow_request;
 static struct kui_games_entry games_art_entry,games_art_running_entry;
 static struct kui_games_cover_result games_art_result;
-static struct kui_app_status games_scan_status;
+static struct kui_app_status games_scan_status, games_media_status;
+static struct kui_games_media_job games_media_pending;
+static bool games_media_save, games_media_manual;
+static bool games_media_address_ready, games_media_address_ok;
+static char games_media_view_path[KUI_GAMES_FILE_CAP];
+/* Set only after the sole storage worker has finished outstanding SD work.
+ * Main owns the screen and temporarily borrows the idle SD session. */
+static bool games_media_view_ready,games_media_view_active,games_media_notice_ready;
+enum { MEDIA_DOWNLOAD_JOB=127, MEDIA_ADDRESS_JOB, MEDIA_VIEW_JOB };
+
 /* The worker fills staging pixels; only main publishes them to the selected
  * cover. A ready result owns staging until main accepts/discards it, so neither
  * an older visible page nor drawing can race the next artwork read. */
@@ -2466,6 +2478,29 @@ static void publish_cd_audio(void) {
 static void games_scan_progress(const struct kui_app_status *status) {
     mutex_lock(&lock);games_scan_status=*status;mutex_unlock(&lock);
 }
+static void games_media_progress(const struct kui_app_status *status) {
+    mutex_lock(&lock);
+    games_media_status=*status;
+    mutex_unlock(&lock);
+}
+static void games_media_queue_viewer(void) {
+    bool ok=kui_media_file_path(&games_media_pending.selected,
+        games_media_manual?KUI_MEDIA_MANUAL:KUI_MEDIA_PREVIEW,games_media_view_path) &&
+        kui_games_storage_release();
+    mutex_lock(&lock);
+    if(!ok) {
+        snprintf(games_media_status.message,sizeof(games_media_status.message),"Cannot open this game's media path.");
+        games_media_notice_ready=true;
+    }
+    games_media_view_ready=ok && !cancel_requested;
+    /* A pending stop can cancel before main accepts the session. Once the
+     * viewer is running its own B handling releases the worker on exit. */
+    while(games_media_view_ready || games_media_view_active) {
+        if(cancel_requested && !games_media_view_active) {games_media_view_ready=false;break;}
+        mutex_unlock(&lock);thd_sleep(16);mutex_lock(&lock);
+    }
+    mutex_unlock(&lock);
+}
 static void ftp_publish(const struct kui_ftp_status *status) {
     mutex_lock(&lock);ftp_status=*status;ftp_seen=true;mutex_unlock(&lock);
 }
@@ -2595,7 +2630,7 @@ static bool needs_cd_handoff(unsigned action) {
         action==24 || action==25 || action==56 || action==57 || action==58 || action==121 || action==122 || action==65 || action==79 || action==81 || action==96 || action==97 || action==103 || action==104 || action==105 || action==119 || action==120 || action==126 || (action>=68 && action<=71) || (action>=46 && action<=48);
 }
 static bool games_page(enum kui_shell_page page) {
-    return page==KUI_SHELL_GAMES || page==KUI_SHELL_GAMES_ADVANCED ||
+    return page==KUI_SHELL_GAMES || page==KUI_SHELL_GAMES_ADVANCED || page==KUI_SHELL_GAMES_MEDIA ||
         page==KUI_SHELL_GAMES_DETAIL || page==KUI_SHELL_GAMES_VARIANTS ||
         page==KUI_SHELL_GAMES_PROBE_CONFIRM || page==KUI_SHELL_GAMES_IMAGE_PROBE_CONFIRM ||
         page==KUI_SHELL_GAMES_RETAIL_CONFIRM || page==KUI_SHELL_GAMES_LAUNCH_OPTIONS ||
@@ -3617,6 +3652,11 @@ static void *worker(void *unused) {
                 mutex_unlock(&lock);
             }
             mutex_lock(&lock);
+            if(action==MEDIA_ADDRESS_JOB || action==MEDIA_DOWNLOAD_JOB || action==MEDIA_VIEW_JOB) {
+                games_media_status=(struct kui_app_status){.complete=true,.stopped=true};
+                snprintf(games_media_status.message,sizeof(games_media_status.message),"Stopped before starting.");
+                games_media_notice_ready=action!=MEDIA_DOWNLOAD_JOB;
+            }
             if(action==126) {update_failure(update_restart_generation,true,
                 "Restart K-UI stopped before starting.");update_snapshot.restart_required=true;}
             if(action==111u) {
@@ -4043,6 +4083,24 @@ static void *worker(void *unused) {
                 games_result_epoch=games_epoch_pending;games_result_view=games_view_pending;
                 ++games_listing_generation;mutex_unlock(&lock);
             }
+            if(action==MEDIA_DOWNLOAD_JOB) {
+                struct kui_app_status result;
+                kui_sd_set_params(KUI_STORAGE_AUTO,true);
+                kui_games_media_run(&games_media_pending,&result,kui_log,kui_cancelled,games_media_progress);
+                games_cache_invalidate();
+                games_media_progress(&result);
+            }
+            if(action==MEDIA_ADDRESS_JOB) {
+                kui_sd_set_params(KUI_STORAGE_AUTO,true);
+                bool ok=kui_games_media_address(games_media_pending.ip,games_media_save,kui_log);
+                mutex_lock(&lock);
+                games_media_address_ready=true;games_media_address_ok=ok;
+                mutex_unlock(&lock);
+            }
+            if(action==MEDIA_VIEW_JOB) {
+                kui_sd_set_params(KUI_STORAGE_AUTO,true);
+                games_media_queue_viewer();
+            }
             if(action==59) {
                 kui_sd_set_params(KUI_STORAGE_AUTO,true);
                 struct kui_app_status status;struct kui_games_scan_counts counts;
@@ -4093,12 +4151,12 @@ static void *worker(void *unused) {
                 mutex_lock(&lock);files_picture_result=picture;++files_picture_generation;mutex_unlock(&lock);
             }
             if(action==64) {
-                /* The card stays on SCIF; the network adapter (a W5500 or the
-                 * Wi-Fi board) has the SCI port. */
+                /* An expansion-port adapter can share the boot-selected SCI card. */
                 kui_sd_set_params(KUI_STORAGE_AUTO,true);
                 struct kui_ftp_options options={0};
                 options.seed=(uint32_t)timer_us_gettime64();
-                const struct kui_net_ports ports={kui_w5500_console_port(),kui_wifi_console_port()};
+                const struct kui_net_ports ports={.w5500=kui_w5500_console_port(),
+                    .wifi=kui_wifi_console_port(),.bba=kui_bba_console_port()};
                 struct kui_ftp_status result;
                 /* KOS's SD writes wait out the card's busy time after each
                  * write by polling it at the scheduler's ticks, 10 ms apart
@@ -4114,7 +4172,8 @@ static void *worker(void *unused) {
                 /* Identical adapter/storage ownership to FTP: the SCI port
                  * reservation is enforced by the existing console backend. */
                 kui_sd_set_params(KUI_STORAGE_AUTO,true);
-                const struct kui_net_ports ports={kui_w5500_console_port(),kui_wifi_console_port()};
+                const struct kui_net_ports ports={.w5500=kui_w5500_console_port(),
+                    .wifi=kui_wifi_console_port(),.bba=kui_bba_console_port()};
                 struct kui_browser_status result;
                 kui_browser_run(&ports,&browser_options_pending,&result,kui_log,kui_cancelled,browser_publish);
                 browser_publish(&result);
@@ -4849,6 +4908,7 @@ static bool draw_shell_frame(bool force) {
     app_status=shell.page==KUI_SHELL_SCI_ASYNC_PROBE?sci_async_status:
         files_page?files_status:
         shell.page==KUI_SHELL_GAMES?games_scan_status:
+        shell.page==KUI_SHELL_GAMES_MEDIA?games_media_status:
         shell.page==KUI_SHELL_MEMORY?memory_test_status:
         (shell.page==KUI_SHELL_GAMES_PROBE_CONFIRM || shell.page==KUI_SHELL_GAMES_IMAGE_PROBE_CONFIRM ||
          shell.page==KUI_SHELL_GAMES_RETAIL_CONFIRM || shell.page==KUI_SHELL_GAMES_LAUNCH_OPTIONS ||
@@ -4994,6 +5054,11 @@ static unsigned worker_action(enum kui_shell_action action) {
         case KUI_SHELL_GAMES_SMASH_PHANTASY_STAR_II: return 121;
         case KUI_SHELL_GAMES_SMASH_SHINING_FORCE: return 122;
         case KUI_SHELL_GAMES_SCAN: return 59;
+        case KUI_SHELL_MEDIA_DOWNLOAD:return MEDIA_DOWNLOAD_JOB;
+        case KUI_SHELL_MEDIA_ADDRESS_LOAD:
+        case KUI_SHELL_MEDIA_ADDRESS_SAVE:return MEDIA_ADDRESS_JOB;
+        case KUI_SHELL_MEDIA_OPEN_MANUAL:
+        case KUI_SHELL_MEDIA_PLAY_PREVIEW:return MEDIA_VIEW_JOB;
         case KUI_SHELL_FILES_LIST: return 60;
         case KUI_SHELL_FILES_CHECK: return 61;
         case KUI_SHELL_FILES_RUN: return 62;
@@ -5526,6 +5591,24 @@ int main(void) {
             kui_shell_set_vmu_history(&shell,vmu_history_result_id,&vmu_history_result_request,&vmu_history_result);
             seen_vmu_history_generation=vmu_history_result_generation;
         }
+        if(games_media_notice_ready) {
+            games_media_notice_ready=false;
+            snprintf(shell.games_media_notice,sizeof(shell.games_media_notice),"%.99s",games_media_status.message);
+            games_ui_changed=true;
+        }
+        if(games_media_address_ready) {
+            games_media_address_ready=false;
+            if(!games_media_save && games_media_address_ok) {
+                memcpy(shell.games_media_ip,games_media_pending.ip,4);
+                shell.games_media_row=shell.games_media_ip[0]?5u:0u;
+            }
+            if(games_media_save || !games_media_address_ok)
+                snprintf(shell.games_media_notice,sizeof(shell.games_media_notice),"%s",games_media_address_ok?
+                    "Companion address saved.":games_media_save?
+                    "Address active for this boot. Could not confirm SD save.":
+                    "Could not read companion address. Set it here.");
+            games_ui_changed=true;
+        }
         if(seen_games_edit_generation!=games_edit_result_generation) {
             kui_shell_set_games_edit(&shell,games_edit_result_request,games_edit_result_path,
                 &games_edit_result,games_edit_result_ok,games_edit_result_notice);
@@ -5737,6 +5820,17 @@ int main(void) {
             /* Main is the sole frame owner. Free before exposing pending to
              * the worker; drawing cannot reallocate it while this job is busy. */
             shell_frame_release_for_action(action);
+            if(action==MEDIA_ADDRESS_JOB || action==MEDIA_DOWNLOAD_JOB || action==MEDIA_VIEW_JOB) {
+                games_media_pending=(struct kui_games_media_job){.all=shell.games_media_all,.kinds=shell.games_media_kinds};
+                memcpy(games_media_pending.ip,shell.games_media_ip,4);
+                if(shell.games_selected<shell.games_listing.count)
+                    games_media_pending.selected=shell.games_listing.entries[shell.games_selected];
+                games_media_save=requested==KUI_SHELL_MEDIA_ADDRESS_SAVE;
+                games_media_manual=requested==KUI_SHELL_MEDIA_OPEN_MANUAL;
+                games_media_status=(struct kui_app_status){0};
+                snprintf(games_media_status.message,sizeof(games_media_status.message),"%s",
+                    action==MEDIA_DOWNLOAD_JOB?"Starting download...":action==MEDIA_VIEW_JOB?"Opening media...":"Checking address...");
+            }
             if(action==126u) {
                 update_restart_generation=shell.update_request.generation;update_restart_ready=false;
                 update_snapshot.generation=update_restart_generation;update_snapshot.stage=KUI_SHELL_UPDATE_RESULT;
@@ -6063,7 +6157,21 @@ int main(void) {
         games_art_request_valid=art_wanted;
         bool flow_motion=kui_shell_games_flow_animating(&shell);
         bool is_busy = busy, cd_owned=cd_drive_owned;
+        if(games_media_view_ready && shell.page!=KUI_SHELL_GAMES_MEDIA)cancel_requested=true;
+        bool open_media=games_media_view_ready && !cancel_requested && shell.page==KUI_SHELL_GAMES_MEDIA;
+        if(open_media) {games_media_view_ready=false;games_media_view_active=true;}
         mutex_unlock(&lock);
+        if(open_media) {
+            char notice[sizeof(shell.games_media_notice)]={0};
+            (void)kui_media_view(games_media_view_path,games_media_manual,kui_log,notice,sizeof(notice),shell_frame_prepare(false));
+            mutex_lock(&lock);
+            games_media_view_active=false;
+            snprintf(shell.games_media_notice,sizeof(shell.games_media_notice),"%s",notice);
+            mutex_unlock(&lock);
+            shell_frame_ready=shell_frame_fingerprint_valid=false;
+            previous=controller_buttons();held_navigation=0;last_draw=0;
+            continue;
+        }
         if(requested==KUI_SHELL_MUSIC_NEXT && !cd_owned) music_step(1);
         if(requested==KUI_SHELL_MUSIC_PREVIOUS && !cd_owned) music_step(-1);
         if(requested==KUI_SHELL_MUSIC_STOP) {

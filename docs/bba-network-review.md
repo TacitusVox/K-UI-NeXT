@@ -1,5 +1,7 @@
 # Broadband Adapter readiness
 
+This is the original audit of main. The branch subsequently implemented BBA sockets and the Games media downloader. See [current setup, service coverage and console tests](game-media.md).
+
 Reviewed against main `c6a07a130791` and the KallistiOS revision in `dependencies.json`, `fcfa7d869471`. The Dreamcast expansion-port adapters and the serial-port adapters take different paths through K-UI.
 
 | K-UI operation | Broadband Adapter / LAN Adapter | W5500 on SCI | ESP32-C5 on SCI |

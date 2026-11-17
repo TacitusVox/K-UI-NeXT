@@ -14,6 +14,7 @@
 #include "kui/games_selection.h"
 #include "kui/games_activity.h"
 #include "kui/games_covers.h"
+#include "kui/games_media.h"
 #include "kui/files.h"
 #include "kui/ftp.h"
 #include "kui/browser.h"
@@ -115,7 +116,7 @@ enum kui_shell_page { KUI_SHELL_HOME, KUI_SHELL_RIPPER,
     KUI_SHELL_VMU_COLLECTION, KUI_SHELL_VMU_TOOLS, KUI_SHELL_VMU_WIZARD,
     KUI_SHELL_DISC_TOOLS, KUI_SHELL_VMU_CARD, KUI_SHELL_SALVAGE_DRIVE,
     KUI_SHELL_SALVAGE_OPTIONS, KUI_SHELL_GAMES_VMU_CARD, KUI_SHELL_GD_OPTIONS, KUI_SHELL_CONTROLS, KUI_SHELL_BROWSER, KUI_SHELL_VMU_HISTORY, KUI_SHELL_GAMES_QUERY, KUI_SHELL_GAMES_EDIT, KUI_SHELL_REPORT, KUI_SHELL_GAME_PROFILE,
-    KUI_SHELL_DISC_CARDS,KUI_SHELL_UPDATES };
+    KUI_SHELL_DISC_CARDS,KUI_SHELL_UPDATES,KUI_SHELL_GAMES_MEDIA };
 enum kui_shell_recovery_row {
     KUI_SHELL_RECOVERY_CONTINUE, KUI_SHELL_RECOVERY_NEW, KUI_SHELL_RECOVERY_OPTIONS,
     KUI_SHELL_RECOVERY_DIAGNOSTICS, KUI_SHELL_RECOVERY_COUNT
@@ -224,7 +225,9 @@ enum kui_shell_action {
     KUI_SHELL_VMU_VIRTUAL_DELETE_PREVIEW, KUI_SHELL_VMU_VIRTUAL_DELETE_COMMIT,
     KUI_SHELL_VMU_CARD_LOAD,
     KUI_SHELL_GAMES_SMASH_PHANTASY_STAR_II, KUI_SHELL_GAMES_SMASH_SHINING_FORCE,
-    KUI_SHELL_UPDATE_RUN, KUI_SHELL_RESTART_KUI
+    KUI_SHELL_UPDATE_RUN, KUI_SHELL_RESTART_KUI,
+    KUI_SHELL_MEDIA_ADDRESS_LOAD, KUI_SHELL_MEDIA_ADDRESS_SAVE, KUI_SHELL_MEDIA_DOWNLOAD,
+    KUI_SHELL_MEDIA_OPEN_MANUAL, KUI_SHELL_MEDIA_PLAY_PREVIEW
 };
 enum kui_shell_outcome { KUI_SHELL_OUTCOME_NONE, KUI_SHELL_OUTCOME_COMPLETE,
     KUI_SHELL_OUTCOME_STOPPED, KUI_SHELL_OUTCOME_FAILED };
@@ -323,6 +326,10 @@ struct kui_shell {
     char games_original_path[KUI_GAMES_FILE_CAP], games_2048_path[KUI_GAMES_FILE_CAP];
     unsigned games_variant_selected;
     unsigned games_page, games_selected, games_advanced_selected;
+    uint8_t games_media_ip[4],games_media_draft[4];
+    unsigned games_media_row,games_media_octet,games_media_kinds;
+    bool games_media_editing,games_media_all,games_media_report;
+    char games_media_notice[100];
     /* KUI_GAMES_VIEW_SAVED until a listing reports the card's saved view. */
     unsigned games_view,games_filter;
     /* Left/right layout changes use the current rows. Only the worker saves

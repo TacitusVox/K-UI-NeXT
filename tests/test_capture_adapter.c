@@ -96,6 +96,7 @@ bool kui_mount(FATFS *fs,kui_log_fn log) {(void)fs;(void)log;note('M');return fa
 FRESULT f_mount(FATFS *fs,const TCHAR *drive,BYTE now) {
     assert(!fs && !strcmp(drive,"0:") && !now);note('u');return FR_OK;
 }
+const struct kui_bba_port *kui_bba_console_port(void) {return NULL;}
 const struct kui_w5500_port *kui_w5500_console_port(void) {return NULL;}
 const struct kui_wifi_port *kui_wifi_console_port(void) {return NULL;}
 bool kui_capture_network_config_load(struct kui_network_rip_config *out,char problem[128]) {
