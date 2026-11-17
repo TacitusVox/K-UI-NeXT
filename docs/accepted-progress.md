@@ -62,7 +62,13 @@ loaders' only change is `7775e61`.
 
 The GUI is test-only. It lacks the Windows CE routes of the installed
 `00d8ed67d9ad` ([routing record](wince-gui-routing.md)): the test excludes Windows
-CE games and the owner restores the previous GUI afterwards. This does not
+CE games and the owner restores the previous GUI afterwards. It also omits the
+embedded same-commit Smash stage bundle (`retail-smash-menu`, `-native-menu`,
+`-vc2`, `-swirl`): built identically, Main `d69b7b01` gives a 3,141,340-byte
+`runtime.kui`, this GUI 3,149,564 (the branch adds 8,224 bytes) and the delivered
+`f8807cb16561` GUI 3,554,464, so the 405 KB difference is the bundle. Smash Pack
+would read the card's stages instead, the unestablished-cohort case that earlier
+gave slow collection startup and VC2 stops, so the test excludes Smash Pack too. This does not
 replace or re-baseline the `f8807cb16561` timing candidate.
 
 ## WinCE Armada: Virtual VMU On accepted, cb07c6454454, 2026-11-09
