@@ -1,3 +1,15 @@
+# Boot disc art (boot-red.png)
+
+**Current art (November 17, 2026): supplied by the owner.** Pixel-art "K-UI V3 /
+by TacitusVox / github.com/TacitusVox/K-UI-NeXT" over a night sky with hills
+and a setting sun. The owner's 1448x1086 image (4:3) was reduced to 640x480 by
+area averaging (Pillow BOX), with no other change. The countdown screen shows it full-screen
+under the "Starting K-UI" panel; the menu pages use a dimmed copy.
+`tools/build_splash.py` pins this file by its git blob hash.
+
+The earlier generated v3 art (resources/branding/boot-v3.py) is no longer used
+for this file. Its notes follow for history.
+
 # K-UI Bootloader v3 boot artwork
 
 The maintainer asked on November 17, 2026 for a boot-disc splash that is

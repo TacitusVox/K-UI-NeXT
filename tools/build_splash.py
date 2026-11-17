@@ -15,7 +15,7 @@ ROOT = Path(__file__).resolve().parents[1]
 # Git blob ids of the committed art: the startup splash and the separate,
 # version-agnostic boot-disc art (historical boot-red.png name).
 PNG_BLOB = "19c4fb03197b14eebdae77f1c217a0691ee99cab"
-BOOT_PNG_BLOB = "d150653181034f95cc416062f120beedffb51015"
+BOOT_PNG_BLOB = "d4a3ba2793cf194e906926a53e09bf501fb7ca46"
 STARTUP_RATE = 44100
 STARTUP_FRAMES = STARTUP_RATE * 265 // 100
 # The runtime embeds this Ogg Vorbis encoding of startup_samples() instead of
