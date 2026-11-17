@@ -1088,9 +1088,9 @@ build/test-memory-app: tests/test_memory_app.c src/apps/memory_pattern.c include
 	@mkdir -p $(@D)
 	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) src/apps/memory_pattern.c tests/test_memory_app.c -o $@
 
-build/test-network-app: tests/test_network_app.c src/apps/network_test.c src/apps/network_status.c include/kui/network_test.h include/kui/network_w5500.h include/kui/w5500.h $(wildcard tests/apps_stubs/kos/*.h tests/apps_stubs/dc/*.h tests/apps_stubs/dc/net/*.h)
+build/test-network-app: tests/test_network_app.c src/apps/network_test.c src/apps/network_ethernet.c src/apps/network_ethernet.h src/apps/network_status.c include/kui/network_test.h include/kui/network_w5500.h include/kui/w5500.h $(wildcard tests/apps_stubs/kos/*.h tests/apps_stubs/dc/*.h tests/apps_stubs/dc/net/*.h)
 	@mkdir -p $(@D)
-	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) -Itests/apps_stubs src/apps/network_test.c src/apps/network_status.c tests/test_network_app.c -o $@
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) -Itests/apps_stubs src/apps/network_test.c src/apps/network_ethernet.c src/apps/network_status.c tests/test_network_app.c -o $@
 
 build/test-vmu-app: tests/test_vmu_app.c $(CORE) $(DESTINATION) src/core/storage_probe.c $(FATFS) $(VMU_MANAGEMENT) src/core/hash.c src/apps/vmu.c src/apps/vmu_collection.inc include/kui/apps.h include/kui/vmu_read_bounded.h $(wildcard tests/vmu_stubs/dc/*.h tests/vmu_stubs/dc/maple/*.h)
 	@mkdir -p $(@D)
@@ -1203,9 +1203,9 @@ build/test-network-probe: tests/test_network_probe.c src/apps/network_probe.c in
 	@mkdir -p $(@D)
 	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) src/apps/network_probe.c tests/test_network_probe.c -o $@
 
-build/test-network-connect: tests/test_network_connect.c src/apps/network_probe.c src/apps/network_connect.c include/kui/network_probe.h include/kui/network_w5500.h include/kui/w5500.h
+build/test-network-connect: tests/test_network_connect.c src/apps/network_probe.c src/apps/network_connect.c src/apps/network_ethernet.c src/apps/network_ethernet.h include/kui/network_probe.h include/kui/network_w5500.h include/kui/w5500.h $(wildcard tests/apps_stubs/kos/*.h tests/apps_stubs/dc/net/*.h)
 	@mkdir -p $(@D)
-	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) -Itests/apps_stubs src/apps/network_probe.c src/apps/network_connect.c tests/test_network_connect.c -o $@
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) -Itests/apps_stubs src/apps/network_probe.c src/apps/network_connect.c src/apps/network_ethernet.c tests/test_network_connect.c -o $@
 
 # The W5500 driver and bring-up against tests/w5500_model.c, a W5500 whose
 # TCP sockets are real localhost sockets.

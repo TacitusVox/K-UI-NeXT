@@ -41,6 +41,12 @@ uint16_t g2_read_16(uint32_t address) {
     return fake.phy_reads==1?0:fake.phy; /* first read may contain a latched loss */
 }
 static bool cancel(void) {return fake.cancel_after && ++fake.cancel_calls>=fake.cancel_after;}
+static int redetect_lan(netif_t *n) {
+    assert(n==&lan && !(n->flags & (NETIF_INITIALIZED|NETIF_RUNNING)));
+    if(!fake.lan_present) return -1;
+    n->flags|=NETIF_DETECTED;
+    return 0;
+}
 /* The W5500 and the Wi-Fi board have their own tests (test_network_w5500.c,
  * test_network_wifi.c); here both are absent. */
 static unsigned w5500_inspections,wifi_inspections;
@@ -114,6 +120,13 @@ int main(void) {
     struct kui_network_snapshot noneth={.present=true,.ethernet=false,.link=KUI_NETWORK_LINK_UP};
     strcpy(noneth.name,"ppp");kui_network_describe(&out,&noneth);
     assert(!out.passed && line(&out,"not an Ethernet interface"));
+    /* KOS LAN clears DETECTED on shutdown, even on a borrowed registration. */
+    reset();register_if(&lan);lan.flags&=~NETIF_DETECTED;lan.if_detect=redetect_lan;
+    fake.lan_present=true;kui_network_app_run(&out,NULL,cancel);
+    assert(line(&out,"HIT-0300")&&!fake.lan_init&&!fake.unreg&&LIST_FIRST(&interfaces)==&lan);
+    fake.lan_present=false;lan.flags&=~NETIF_DETECTED;
+    w5500_inspections=wifi_inspections=0;kui_network_app_run(&out,NULL,cancel);
+    assert(w5500_inspections==1&&wifi_inspections==1&&!fake.lan_init&&!fake.unreg);
     puts("PASS network app: bounded detection, truthful link/config results, cancellation, registration ownership");
     return 0;
 }
