@@ -22,6 +22,7 @@ import argparse
 import hashlib
 import json
 from pathlib import Path
+import re
 import struct
 import subprocess
 import sys
@@ -43,6 +44,7 @@ TABLE_FORMAT = "<16s5I4II%dII" % MAX_CHUNKS
 TABLE_BYTES = struct.calcsize(TABLE_FORMAT)
 COPY_NAMES = ("KUIBOOT1.BIN", "KUIBOOT2.BIN", "KUIBOOT3.BIN")
 SPACER_NAMES = ("KUIPAD1.BIN", "KUIPAD2.BIN")
+STAGE1_LIMIT = 0x8000      # src/bootstage/stage1.ld
 
 
 def build_table(image, fads):
@@ -165,14 +167,46 @@ class CdiDataTrack:
 
 
 def mkdcdisc(tool, stage1, files, sort, output, args):
-    command = [str(tool), "-b", str(stage1), "-N", "-S", str(sort), "--allow-overwrite", "-q",
+    """Run mkdcdisc at its normal verbosity. A warning means the disc is not
+    the one asked for (a sort-file entry that matched nothing, say, leaves
+    the copies side by side), so any warning or error refuses the disc."""
+    command = [str(tool), "-b", str(stage1), "-N", "-S", str(sort), "--allow-overwrite", "-v", "1",
                "-n", args.title, "-a", args.author, "-r", args.release, "-o", str(output)]
     if args.badge:
         command += ["-i", str(args.badge)]
     for path in files:
         command += ["-f", str(path)]
-    subprocess.run(command, check=True)
+    run = subprocess.run(command, capture_output=True, text=True)
+    if run.returncode or re.search(r"\b(Warning|Error):", run.stdout + run.stderr):
+        raise SystemExit("mkdcdisc did not build the disc cleanly; refusing it:\n" + run.stderr + run.stdout)
     return output
+
+
+def flat_input(path, what):
+    """The BIOS and stage 1 both start a program at its first byte, so an ELF
+    file here would build a disc that verifies but cannot boot."""
+    data = Path(path).read_bytes()
+    if data[:4] == b"\x7fELF":
+        raise SystemExit("%s %s is an ELF file; give the flat binary (sh-elf-objcopy -O binary)" % (what, path))
+    if not data:
+        raise SystemExit("%s %s is empty" % (what, path))
+    return data
+
+
+def check_layout(layout, copy_bytes, spacer_mib):
+    """Stage 1 must be followed directly by the first copy (a normal boot does
+    not seek), and the copies must lie in order with a full spacer between
+    them. Anything else means the sort file was not applied as intended."""
+    lba, size = layout["1ST_READ.BIN"]
+    copies = [layout[name][0] for name in COPY_NAMES]
+    if lba + -(-size // SECTOR) != copies[0]:
+        raise SystemExit("%s does not follow 1ST_READ.BIN (LBA %d, %d bytes) but is at LBA %d"
+                         % (COPY_NAMES[0], lba, size, copies[0]))
+    need = -(-copy_bytes // SECTOR) + spacer_mib * 1024 * 1024 // SECTOR
+    for (a, b) in zip(copies, copies[1:]):
+        if b - a < need:
+            raise SystemExit("the copies at LBA %s are not spread apart: each must start at least %d "
+                             "sectors after the previous one" % (copies, need))
 
 
 def start_lba(tool):
@@ -181,8 +215,12 @@ def start_lba(tool):
 
 
 def build(args):
-    stage1 = Path(args.stage1).read_bytes()
-    image = Path(args.bootstrap).read_bytes()
+    if args.spacer_mib < 1:
+        raise SystemExit("--spacer-mib must be at least 1: the copies would otherwise sit side by side")
+    stage1 = flat_input(args.stage1, "stage 1")
+    if len(stage1) > STAGE1_LIMIT:
+        raise SystemExit("stage 1 is %d bytes; it must fit in %d" % (len(stage1), STAGE1_LIMIT))
+    image = flat_input(args.bootstrap, "bootstrap")
     padded = image + b"\0" * (-len(image) % SECTOR)
     tool = Path(args.mkdcdisc)
     with tempfile.TemporaryDirectory(prefix="kui-boot-disc-") as work:
@@ -206,6 +244,7 @@ def build(args):
         base = start_lba(tool)
         pass1 = mkdcdisc(tool, first, files, sort, work / "pass1.cdi", args)
         layout = CdiDataTrack(pass1.read_bytes(), base).files()
+        check_layout(layout, len(padded), args.spacer_mib)
         fads = [layout[name][0] + 150 for name in COPY_NAMES]
         patched = patch_stage1(stage1, build_table(image, fads))
         second = work / "stage1.bin"

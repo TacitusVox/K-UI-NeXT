@@ -50,6 +50,13 @@ test-smash-ce-gin:
 test-updater-source-preservation:
 	python3 -c "import sys; sys.path.insert(0,'tools'); import update_addon as a; r=a.check_sources(a.source_state()); print('PASS updater-only main source preservation:',len(r['checked_paths']),'protected paths')"
 
+# Boot-disc builder: copy table, scrambling, input/layout guards, and a real
+# CDI read back through the stage-1 loader when mkdcdisc and stage 1 are built.
+.PHONY: test-boot-disc
+test-boot-disc:
+	CC="$(CC)" python3 -B tests/test_boot_disc.py
+test: test-boot-disc
+
 .PHONY: test-runtime-module-bundle-make test-ce-gd-completion-lifecycle
 test-runtime-module-bundle-make:
 	@mkdir -p build/shared-loader-audit

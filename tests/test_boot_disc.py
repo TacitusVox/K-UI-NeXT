@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: GPL-3.0-only
 """tools/boot_disc.py: the copy table matches stage 1's C layout and loader,
-MIL-CD scrambling round-trips, the placeholder patch is exact, and (when the
-pinned mkdcdisc and stage 1 are built) a real CDI is laid out, read back and
-loaded by the actual stage-1 C code from its own data track."""
+MIL-CD scrambling round-trips, the placeholder patch is exact, the builder
+refuses inputs and layouts that would verify but not protect or boot, and
+(when the pinned mkdcdisc and stage 1 are built) a real CDI is laid out, read
+back and loaded by the actual stage-1 C code from its own data track."""
 import importlib.util
 import os
 from pathlib import Path
@@ -87,6 +88,60 @@ class BootDisc(unittest.TestCase):
         for bad in (blob + empty, b"\x11" * 66 + empty):
             with self.assertRaises(ValueError):
                 disc.patch_stage1(bad, table)
+
+    def test_refuses_unbootable_inputs(self):
+        """ELF files, an empty bootstrap and spacers under 1 MiB are refused
+        before mkdcdisc runs."""
+        with tempfile.TemporaryDirectory(prefix="kui-boot-disc-") as work:
+            work = Path(work)
+            elf, flat, empty = work / "a.elf", work / "a.bin", work / "empty.bin"
+            elf.write_bytes(b"\x7fELF" + bytes(60))
+            flat.write_bytes(b"\x00\x09" * 1024)
+            empty.write_bytes(b"")
+
+            class Args:
+                output, mkdcdisc, badge = str(work / "x.cdi"), str(work / "no-such-tool"), None
+                title, author, release, spacer_mib = "T", "A", "20260916", 1
+            for stage1, bootstrap, spacer in ((elf, flat, 1), (flat, elf, 1), (flat, empty, 1), (flat, flat, 0)):
+                Args.stage1, Args.bootstrap, Args.spacer_mib = str(stage1), str(bootstrap), spacer
+                with self.assertRaises(SystemExit):
+                    disc.build(Args)
+
+    def test_layout_checks(self):
+        """Copies must follow stage 1, lie in order and be a spacer apart."""
+        copy_bytes, spacer = 300 * 2048, 1
+        step = 300 + 512
+        good = {"1ST_READ.BIN": (11729, 2896), "KUIBOOT1.BIN": (11731, 0),
+                "KUIBOOT2.BIN": (11731 + step, 0), "KUIBOOT3.BIN": (11731 + 2 * step, 0)}
+        disc.check_layout(good, copy_bytes, spacer)
+        bad = [dict(good, **{"KUIBOOT1.BIN": (11740, 0)}),                    # a gap after stage 1
+               dict(good, **{"KUIBOOT2.BIN": (11731 + 300, 0)}),              # no spacer
+               dict(good, **{"KUIBOOT3.BIN": (11731 + step - 1, 0)}),         # out of order
+               dict(good, **{"KUIBOOT2.BIN": (11731, 0), "KUIBOOT3.BIN": (11731, 0)})]  # one extent
+        for layout in bad:
+            with self.assertRaises(SystemExit):
+                disc.check_layout(layout, copy_bytes, spacer)
+        with self.assertRaises(SystemExit):
+            disc.check_layout(good, copy_bytes, 2)
+
+    def test_mkdcdisc_warning_refuses_disc(self):
+        """A warning from mkdcdisc (an unmatched sort entry, say) fails the build."""
+        with tempfile.TemporaryDirectory(prefix="kui-boot-disc-") as work:
+            work = Path(work)
+            tool = work / "fake-mkdcdisc"
+
+            class Args:
+                badge, title, author, release = None, "T", "A", "20260916"
+            for text, refused in (("Wrote x.cdi", False), ("Warning: the sort file gives a weight to /X", True),
+                                  ("Error: nothing", True)):
+                tool.write_text("#!/bin/sh\necho '%s' >&2\n" % text)
+                tool.chmod(0o755)
+                call = lambda: disc.mkdcdisc(tool, work / "s.bin", [], work / "sort.txt", work / "x.cdi", Args)
+                if refused:
+                    with self.assertRaises(SystemExit):
+                        call()
+                else:
+                    self.assertEqual(call(), work / "x.cdi")
 
     @unittest.skipUnless(MKDCDISC.exists() and STAGE1.exists(), "needs the pinned mkdcdisc and make -f Makefile.dc stage1")
     def test_real_cdi(self):
