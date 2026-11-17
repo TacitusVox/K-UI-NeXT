@@ -21,7 +21,7 @@ this repository's GPL-3.0-only terms; no DreamShell rendering code is imported.
 | `boot-disc-badge.svg` | `1632303224ac4bf993a25119ddc8e9e7f6b07dc0e3da902cea7e383986804015` |
 | `boot-disc-badge.png` | `c4ff37f326060177233db852662b5c931be3b091f23edb6a1fbefd6bda2ce140` |
 | `boot-disc-badge.mr` | `946193357fe2692412259364b9b319a7f0a33c77397f5c384ab544fd9a889de2` |
-| `launcher-brand.png` | `389d87c4e0af403d395ba51bdba73cdd9caad3d4060a31219b4bed897914ba55` |
+| `launcher-brand.png` | `26110492a9b4116e2a205ddd149240346a7976cb86b958aae6408e814f029301` |
 
 The badge PNG is the actual 320×90 MR preview: a 32-entry palette, of which
 the current render uses 31 colors. The two-pixel `#c0c0c0` border is the
@@ -33,8 +33,12 @@ rejects a missing or substituted badge before publishing the bootstrap artifact.
 
 The same editable SVG supplies the 256×128 launcher header: the sword group
 uses `translate(7 21) scale(.95)` and the original wordmark group uses
-`translate(12 29) scale(.79)`, plus the amber `by TacitusVox` credit. The runtime
-displays that header at its existing 128×64 size. App icon assets and embedded
+`translate(12 29) scale(.79)`, plus the amber credit. Since November 17, 2026 the
+credit is the maintainer's GitHub link, `github.com/TacitusVox` (previously
+`by TacitusVox`), set at x=86 with no letter spacing so it stays inside the
+header. The runtime displays that header at its existing 128×64 size. The IP.BIN
+author field is `TacitusVox` (previously `K-UI Team`), as the field holds at most 16
+characters. App icon assets and embedded
 array dimensions are unchanged.
 
 Rebuild the preview, header and MR with Inkscape and Pillow, then regenerate

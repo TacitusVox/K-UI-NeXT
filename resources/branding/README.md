@@ -10,13 +10,13 @@ not inherited DreamShell code or other assets in the legacy repository.
 
 The maintainer requested orange retro-futuristic branding for K-UI 2.0 Tyrfing.
 `launcher-brand.png` now combines an original rune-etched sword with the
-existing K-UI wordmark paths and the `by TacitusVox` credit (`by TPMJB`
-until 2026-11-17). Its editable source is shared
+existing K-UI wordmark paths and the maintainer's `github.com/TacitusVox` credit
+(`by TPMJB` until 2026-11-17, briefly `by TacitusVox`). Its editable source is shared
 with the matching [boot-disc badge](boot-disc-badge.md); that record documents
 the exact render transforms, palette, source hashes and regeneration command.
 The 256×128 RGB source retains the existing 128×64 runtime dimensions, navy
 background and fixed RGB565 encoding. Its SHA-256 is
-`389d87c4e0af403d395ba51bdba73cdd9caad3d4060a31219b4bed897914ba55`.
+`26110492a9b4116e2a205ddd149240346a7976cb86b958aae6408e814f029301`.
 The icon sources and runtime UI palette are unchanged.
 
 Source repository: `TacitusVox/K-UI_DS` (formerly `TPMJB/K-UI_DS`, earlier `DreamShell_NeXT`), revision
