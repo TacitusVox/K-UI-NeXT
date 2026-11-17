@@ -105,7 +105,8 @@ class ZsoLinkedLoader(unittest.TestCase):
                     f" {base + 100:08x}: 0b 4a jsr @r10\n {base + 102:08x}: 09 00 nop\n"
                     f" {base + 104:08x}: 06 d1 mov.l literal,r1\n {base + 106:08x}: 0b 41 jsr @r1\n"
                     f" {base + 108:08x}: 09 00 nop\n{base + 144:08x} <__retail_boot_fpscr_init>:\n"
-                    f" {base + 144:08x}: 6a 40 lds r0,fpscr\n {base + 146:08x}: 0b 00 rts\n")
+                    f" {base + 144:08x}: 6a 40 lds r0,fpscr\n {base + 146:08x}: 0b 00 rts\n"
+                    f" {base + 148:08x}: 09 00 nop\n")
         return f" {base:08x}: 0b 00 rts\n {base + 2:08x}: 09 00 nop\n"
 
     def check(self):
@@ -119,7 +120,7 @@ class ZsoLinkedLoader(unittest.TestCase):
         result = self.check()
         self.assertEqual(result["contract"]["manifest_slots"], 32)
         self.assertEqual(result["resident_stack"]["conservative_bytes"], 416)
-        self.assertEqual(result["instruction_audit"]["instructions"], 13)
+        self.assertEqual(result["instruction_audit"]["instructions"], 14)
         for name in audit.IMAGES:
             self.assertTrue((self.directory / (name + ".dis")).exists())
 
