@@ -70,8 +70,13 @@ static int probe_write(uint32_t lba,uint32_t count,const uint8_t *data) {
     sd.bus.transfer_block=NULL;
     enum kui_loader_sd_result result=kui_sci_sd_write(&sd,lba,count,data);
     /* A failed write must not stop a launch the installed module would boot:
-     * keep the card while it still answers CMD13 (status). */
-    if(result!=KUI_LOADER_SD_OK) {sd.ready=true;(void)kui_sci_sd_sync(&sd);}
+     * keep the card while it still answers CMD13 (status). A write-error
+     * token leaves its cause for the first CMD13, which reads and clears it,
+     * so a second CMD13 decides. */
+    if(result!=KUI_LOADER_SD_OK) {
+        sd.ready=true;
+        if(kui_sci_sd_sync(&sd)!=KUI_LOADER_SD_OK) {sd.ready=true;(void)kui_sci_sd_sync(&sd);}
+    }
     card.device.sd.ready=sd.ready;
     card.device.sd.last_command=sd.last_command;card.device.sd.last_response=sd.last_response;
     kui_retail_storage_release(&card);

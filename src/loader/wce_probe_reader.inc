@@ -7,8 +7,9 @@
  * audio commands are logged, and each call reads the Maple DMA command list
  * that MDSTAR names, to count which port and slot each command addresses.
  * Sampling only sees lists present during GD calls: a frame counted is
- * evidence, a frame not counted is not evidence of absence. These are reads only: bounded P1 views of main RAM, MDSTAR,
- * and the AICA clock at a few marked moments.
+ * evidence, a frame not counted is not evidence of absence. These are reads
+ * only: the Maple list through P2 (uncached), MDSTAR, and the AICA clock at a
+ * few marked moments.
  *
  * At the end (the game's BIOS menu call on A+B+X+Y+Start, or a reader fault
  * that stops it): with interrupts masked and the game no longer running, the
