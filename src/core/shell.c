@@ -1639,6 +1639,10 @@ static bool games_grid(struct kui_shell *s,unsigned buttons,enum kui_shell_actio
             if(column) s->games_selected=at-4u; else *action=turn_games_page(s,false,row+4u);
         } else if(horizontal==KUI_SHELL_RIGHT) {
             if(!column && at+4u<count) s->games_selected=at+4u; else *action=turn_games_page(s,true,row);
+        } else if(vertical==KUI_SHELL_DOWN && at+1u>=count && s->games_listing.has_more) {
+            *action=turn_games_page(s,true,0u);
+        } else if(vertical==KUI_SHELL_UP && !at && s->games_page) {
+            *action=turn_games_page(s,false,KUI_GAMES_ROWS-1u);
         } else s->games_selected=move_count(at,buttons,count);
         return true;
     }
@@ -1648,7 +1652,14 @@ static bool games_grid(struct kui_shell *s,unsigned buttons,enum kui_shell_actio
     } else if(horizontal==KUI_SHELL_RIGHT) {
         if(column<3u && at+1u<count) s->games_selected=at+1u; else *action=turn_games_page(s,true,row*4u);
     } else if(vertical==KUI_SHELL_UP || vertical==KUI_SHELL_DOWN) {
-        if(row) s->games_selected=at-4u; else if(at+4u<count) s->games_selected=at+4u;
+        bool down=vertical==KUI_SHELL_DOWN;
+        if(down && !row && at+4u<count) s->games_selected=at+4u;
+        else if(!down && row) s->games_selected=at-4u;
+        else if(down && s->games_listing.has_more) *action=turn_games_page(s,true,column);
+        else if(!down && s->games_page) *action=turn_games_page(s,false,4u+column);
+        /* First/last page: the two rows still swap, as before. */
+        else if(row) s->games_selected=at-4u;
+        else if(at+4u<count) s->games_selected=at+4u;
     }
     return true;
 }
@@ -3112,6 +3123,13 @@ enum kui_shell_action kui_shell_input(struct kui_shell *s,
                    s->games_listing.has_more && s->games_page<UINT_MAX/KUI_GAMES_ROWS) {
                     games_turn_from(s);++s->games_page;return list_games(s,false);
                 }
+                /* The list continues across pages; the first and last pages wrap. */
+                unsigned vertical=buttons&(KUI_SHELL_UP|KUI_SHELL_DOWN);
+                if(vertical==KUI_SHELL_DOWN && s->games_listing.count &&
+                   s->games_selected+1u>=s->games_listing.count && s->games_listing.has_more)
+                    return turn_games_page(s,true,0u);
+                if(vertical==KUI_SHELL_UP && !s->games_selected && s->games_page)
+                    return turn_games_page(s,false,KUI_GAMES_ROWS-1u);
                 s->games_selected=move_count(s->games_selected,buttons,s->games_listing.count);
             }
             if(previous!=s->games_selected) {

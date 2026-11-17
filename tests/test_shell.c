@@ -3005,6 +3005,22 @@ static void games_background_titles(void) {
     assert(s.games_selected==2 && s.games_listing.count==4 && !s.games_loading);
     assert(!kui_shell_set_games_titles(&s,&found,0));                 /* Nothing new. */
 }
+/* List pages continue into each other; the first and last pages wrap. */
+static void games_navigation_steps(void) {
+    reset(KUI_SHELL_HOME);
+    s.home_selected=home_index(KUI_SHELL_GAMES);assert(press(KUI_SHELL_A,false)==KUI_SHELL_GAMES_LIST);
+    games_page(8,true,KUI_GAMES_VIEW_LIST);
+    s.games_selected=7;
+    assert(press(KUI_SHELL_DOWN,false)==KUI_SHELL_GAMES_LIST && s.games_page==1 && !s.games_selected);
+    assert(s.games_turning && !s.games_shown_page && s.games_shown_selected==7);
+    games_page(3,false,KUI_GAMES_VIEW_LIST);assert(!s.games_selected && !s.games_turning);
+    /* The last page still wraps within itself. */
+    s.games_selected=2;assert(press(KUI_SHELL_DOWN,false)==KUI_SHELL_NONE && s.games_page==1 && !s.games_selected);
+    assert(press(KUI_SHELL_UP,false)==KUI_SHELL_GAMES_LIST && !s.games_page && s.games_selected==7);
+    games_page(8,true,KUI_GAMES_VIEW_LIST);assert(s.games_selected==7);
+    /* So does the first page. */
+    s.games_selected=0;assert(press(KUI_SHELL_UP,false)==KUI_SHELL_NONE && !s.games_page && s.games_selected==7);
+}
 static void games_views(void) {
     reset(KUI_SHELL_HOME);
     assert(s.games_view==KUI_GAMES_VIEW_SAVED && kui_shell_games_view(&s)==KUI_GAMES_VIEW_LIST);
@@ -3042,8 +3058,15 @@ static void games_views(void) {
     s.games_selected=5;
     assert(press(KUI_SHELL_LEFT,false)==KUI_SHELL_NONE && s.games_selected==4);
     assert(press(KUI_SHELL_UP,false)==KUI_SHELL_NONE && s.games_selected==0);
-    assert(press(KUI_SHELL_UP,false)==KUI_SHELL_NONE && s.games_selected==4);
-    assert(press(KUI_SHELL_DOWN,false)==KUI_SHELL_NONE && s.games_selected==0);
+    assert(press(KUI_SHELL_UP,false)==KUI_SHELL_NONE && s.games_selected==4); /* First page: rows swap. */
+    /* Down from the bottom row continues on the next page in the same column;
+     * Up from the top row returns to the previous page's bottom row. */
+    s.games_selected=5;
+    assert(press(KUI_SHELL_DOWN,false)==KUI_SHELL_GAMES_LIST && s.games_page==1 && s.games_selected==1 && s.games_turning);
+    games_page(8,true,KUI_GAMES_VIEW_GALLERY);assert(s.games_selected==1 && !s.games_turning);
+    assert(press(KUI_SHELL_UP,false)==KUI_SHELL_GAMES_LIST && !s.games_page && s.games_selected==5);
+    games_page(8,true,KUI_GAMES_VIEW_GALLERY);assert(s.games_selected==5);
+    s.games_selected=0;
     assert(press(KUI_SHELL_LEFT,false)==KUI_SHELL_NONE && s.games_selected==0);
     s.games_selected=7;
     assert(press(KUI_SHELL_RIGHT,false)==KUI_SHELL_GAMES_LIST && s.games_page==1 && s.games_selected==4);
@@ -6424,7 +6447,7 @@ int main(int argc,char **argv) {
     vmu_continuous_scrolling();vmu_catalog_scrolling();vmu_scroll_rendering();small_tools_controls();small_tools_rendering();
     vmu_copy_all_controls();vmu_import_controls();vmu_bulk_import_rendering();
     vmu_collection_copy_controls();vmu_collection_controls();vmu_collection_rendering();
-    games_remembered_selection(); games_disc_group_controls(); games_activity_controls(); games_controls(); games_background_titles(); games_views(); games_async_publication(); games_retail_controls(); games_armada_ce_music_controls(); games_bam4_ce_music_controls(); games_cdda_compatibility_status(); games_launch_options_controls(); games_cd_controls(); games_saved_launch_controls(); games_patch_controls(); games_image_defaults_controls(); games_zso_controls(); games_codec_controls(); games_check_baseline_controls(); games_variant_controls();
+    games_remembered_selection(); games_disc_group_controls(); games_activity_controls(); games_controls(); games_background_titles(); games_views(); games_navigation_steps(); games_async_publication(); games_retail_controls(); games_armada_ce_music_controls(); games_bam4_ce_music_controls(); games_cdda_compatibility_status(); games_launch_options_controls(); games_cd_controls(); games_saved_launch_controls(); games_patch_controls(); games_image_defaults_controls(); games_zso_controls(); games_codec_controls(); games_check_baseline_controls(); games_variant_controls();
     if(argc==2 && !strcmp(argv[1],"--games-controls")) { puts("PASS Games navigation and launch controls"); return 0; }
     games_rendering(); games_native_reader_choices(); games_new_reader_defaults(); games_patch_rendering(); games_zso_rendering(); games_selected_art_rendering(); games_variant_rendering();
     if(argc==2 && !strcmp(argv[1],"--games")) { puts("PASS Games navigation, launch eligibility and rendering"); return 0; }
