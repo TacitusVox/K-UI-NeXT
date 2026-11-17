@@ -1,168 +1,186 @@
 /* SPDX-License-Identifier: GPL-3.0-only */
-/* Fault-injection for the production download worker. Real-card and TCP
- * integration runs separately in test_bba_media_integration.py. */
+/* The real install worker sees interrupted HTTP responses and FatFs failures.
+ * Media payloads are synthetic. The FAT/exFAT integration suite covers the
+ * actual card implementation. */
 #include "kui/media_download.h"
+#include "kui/internet_cover.h"
+#include "kui/internet_extra.h"
+#include "kui/media_container.h"
 #include "kui/games_media_storage.h"
 #include "kui/games_storage.h"
 #include "fixtures/cover_images.h"
 #include <assert.h>
 #include <stdio.h>
 #include <string.h>
-
+#define TEMP "0:/KUI/media/fetch.tmp"
+#define VIDEO "0:/KUI/media/video.tmp"
 static struct {
-    uint8_t response[20000], file[20000];
-    char request[1024], final[KUI_GAMES_FILE_CAP];
-    size_t response_size, response_at, request_size, file_size, fragment;
-    uint64_t now;
-    unsigned opens, closes, commits, polls, cut_after;
-    bool connected, mounted, temporary, published, selected, connected_wait, stall, short_write, rename_race, sync_fail;
-    enum kui_games_identity_result identity;
+    unsigned gets, pages, commits, limit_page, fail_page;
+    bool mounted, owner_cover, temp, video, saved, short_write, race, dirty, stop, corrupt_png, corrupt_pdf, bad_pages;
+    bool has_url, convert, cancel_conversion, fail_identity;
+    enum kui_http_result response;
+    unsigned char buffer[65000], clip[200], saved_file[65000];
+    size_t length, clip_length, saved_length;
+    char dest[KUI_GAMES_FILE_CAP];
+    FIL *clip_handle;
 } test;
 static const struct kui_games_entry game = {.name="Example",.path="/Games/Example/disc.gdi"};
+static const uint8_t pdf[] = "%PDF-1.5\n1 0 obj\nwhatever\nendobj\n%%EOF\r\n";
+static bool cancel(void) { return test.stop; }
 static void reset(void) {
     memset(&test,0,sizeof(test));
-    test.fragment=13;
-    test.identity=KUI_GAMES_IDENTITY_FOUND;
+    test.has_url=true; test.convert=true;
 }
-static void reply(const char *headers,const void *data,size_t size) {
-    size_t n=strlen(headers);
-    assert(n+size<=sizeof(test.response));
-    memcpy(test.response,headers,n);
-    if(size) memcpy(test.response+n,data,size);
-    test.response_size=n+size;
+bool kui_internet_cover_url(const struct kui_games_disc_identity *id,char *url,size_t cap) {
+    assert(!strcmp(id->product,"T-1"));snprintf(url,cap,"cover");return test.has_url;
 }
-static void png_response(const uint8_t *png,size_t length) {
-    char headers[160];
-    snprintf(headers,sizeof(headers),"HTTP/1.0 200 OK\r\nContent-Length: %zu\r\nContent-Type: image/png\r\n\r\n",length);
-    reply(headers,png,length);
+bool kui_internet_extra_url(const struct kui_games_disc_identity *id,enum kui_media_kind kind,char *url,size_t cap) {
+    assert(!strcmp(id->product,"T-1"));
+    snprintf(url,cap,"%s",kind==KUI_MEDIA_MANUAL?"manual":"preview");return test.has_url;
 }
-static bool cancel(void) { return test.cut_after && test.response_at>=test.cut_after; }
-static bool dial(void *ctx,unsigned slot,uint16_t local,const uint8_t ip[4],uint16_t port) {
-    (void)ctx;assert(!slot && !local && ip[0]==192 && port==8732);
-    assert(!test.connected);test.connected=true;++test.opens;return true;
+unsigned kui_internet_manual_pages(const struct kui_games_disc_identity *id) {(void)id;return test.pages;}
+bool kui_internet_manual_page_url(const struct kui_games_disc_identity *id,unsigned i,char *url,size_t cap) {
+    (void)id;snprintf(url,cap,"page%u",i+1);return true;
 }
-static bool sock_close(void *ctx,unsigned slot) {
-    (void)ctx;assert(!slot && test.connected);test.connected=false;++test.closes;return true;
+enum kui_http_result kui_internet_get(struct kui_internet *s,const char *url,uint32_t max,
+        kui_http_write_fn sink,void *ctx,kui_http_progress_fn progress,void *progress_ctx) {
+    (void)s;(void)progress;(void)progress_ctx;
+    ++test.gets;
+    const uint8_t *data;
+    size_t n;
+    if(!strcmp(url,"cover")) {data=cover_png_rgb;n=sizeof(cover_png_rgb)-(test.corrupt_png?1:0);}
+    else if(!strcmp(url,"manual")) {data=pdf;n=sizeof(pdf)-1-(test.corrupt_pdf?6:0);}
+    else if(!strcmp(url,"preview")) {data=(const uint8_t *)"OggS";n=4;}
+    else {
+        unsigned page;assert(sscanf(url,"page%u",&page)==1);
+        if(test.fail_page==page)return KUI_HTTP_MISSING;
+        if(test.limit_page==page)return KUI_HTTP_LIMITED;
+        data=cover_jpeg;n=sizeof(cover_jpeg)-(test.bad_pages?3:0);
+    }
+    assert(n<max);
+    for(size_t pos=0;pos<n;) {
+        size_t size=n-pos > 31 ? 31 : n-pos;
+        if(!sink(ctx,data+pos,size))return KUI_HTTP_ERROR;
+        pos+=size;
+        if(test.response!=KUI_HTTP_OK) {
+            test.stop=test.response==KUI_HTTP_STOPPED;
+            return test.response;
+        }
+    }
+    return KUI_HTTP_OK;
 }
-static bool state(void *ctx,unsigned slot,uint8_t *v) {
-    (void)ctx;assert(!slot && test.connected);
-    *v=test.connected_wait?KUI_NET_CONNECTING:
-        test.response_at<test.response_size || test.stall?KUI_NET_ESTABLISHED:KUI_NET_PEER_CLOSED;
-    return true;
+enum kui_http_result kui_internet_get_prefix(struct kui_internet *s,const char *url,uint32_t max,
+        kui_http_write_fn sink,void *ctx,kui_http_progress_fn progress,void *progress_ctx,bool (*complete)(void *)) {
+    assert(!strcmp(url,"preview"));
+    enum kui_http_result r = kui_internet_get(s,url,max,sink,ctx,progress,progress_ctx);
+    assert(!complete(ctx)); /* The mock origin supplies a short whole-file response. */
+    return r;
 }
-static bool room(void *ctx,unsigned slot,size_t *n) { (void)ctx;(void)slot;*n=50;return true; }
-static bool send_data(void *ctx,unsigned slot,const void *data,size_t n) {
-    (void)ctx;(void)slot;
-    assert(test.request_size+n<sizeof(test.request));
-    memcpy(test.request+test.request_size,data,n);test.request_size+=n;return true;
+bool kui_internet_preview_convert(FIL *src,FIL *dest,kui_cancel_fn stop,kui_log_fn log) {
+    (void)log;assert(f_tell(src)==0 && f_size(src)==4 && !stop());
+    if(test.cancel_conversion) {test.stop=true;return false;}
+    if(!test.convert)return false;
+    uint8_t h[16]={ 'K','P','V','1',160,0,120,0,10,0,0,0,1,0,0,0 };
+    static const uint8_t pixels[KUI_PREVIEW_FRAME_BYTES]={0};
+    UINT out=0;
+    return f_write(dest,h,sizeof(h),&out)==FR_OK && out==sizeof(h) &&
+        f_write(dest,pixels,sizeof(pixels),&out)==FR_OK && out==sizeof(pixels);
 }
-static bool available(void *ctx,unsigned slot,size_t *n) {
-    (void)ctx;(void)slot;*n=test.response_size-test.response_at;
-    if(*n>test.fragment)*n=test.fragment;
-    return true;
-}
-static bool receive(void *ctx,unsigned slot,void *data,size_t n) {
-    (void)ctx;(void)slot;assert(test.response_at+n<=test.response_size);
-    memcpy(data,test.response+test.response_at,n);test.response_at+=n;return true;
-}
-static bool poll_net(struct kui_bba_session *s) { (void)s;++test.polls;return true; }
-static uint64_t clock_ms(void) { return test.now; }
-static void advance(unsigned ms) { assert(ms);test.now+=1000; }
-static enum kui_media_result fetch(enum kui_media_kind kind) {
-    struct kui_bba_session bba={.net={.count=1,.connect=dial,.close=sock_close,.room=room,.send=send_data,
-        .state=state,.received=available,.receive=receive}};
-    const struct kui_bba_port port={.poll=poll_net,.now_ms=clock_ms,.pause=advance};
-    enum kui_media_result result=kui_media_fetch(&port,&bba,(uint8_t[]){192,168,1,2},8732,&game,kind,NULL,cancel);
-    assert(!test.connected && !test.mounted && !test.temporary && test.opens==test.closes);
-    return result;
-}
-
 enum kui_games_storage_result kui_games_storage_open(kui_log_fn log) {
     (void)log;assert(!test.mounted);test.mounted=true;return KUI_GAMES_STORAGE_OK;
 }
-bool kui_games_storage_done(bool keep) { (void)keep;assert(test.mounted);test.mounted=false;return true; }
+bool kui_games_storage_done(bool keep) {(void)keep;assert(test.mounted);test.mounted=false;return true;}
 bool kui_games_prepare_media_cover(const struct kui_games_entry *entry,bool *present,kui_log_fn log,kui_cancel_fn c) {
-    assert(entry==&game && test.mounted);(void)log;(void)c;*present=test.selected||test.published;return true;
+    assert(entry==&game && test.mounted);(void)log;(void)c;*present=test.owner_cover||test.saved;return true;
 }
 enum kui_games_identity_result kui_games_media_identity(const char *path,struct kui_games_disc_identity *out,
         kui_log_fn log,kui_cancel_fn c) {
     (void)log;(void)c;assert(!strcmp(path,game.path));memset(out,0,sizeof(*out));
-    strcpy(out->product,"T-1 A");strcpy(out->region,"JUE");strcpy(out->title,"A & B?%");return test.identity;
+    strcpy(out->product,"T-1");return test.fail_identity?KUI_GAMES_IDENTITY_UNKNOWN:KUI_GAMES_IDENTITY_FOUND;
 }
-bool kui_game_image_name_supported(const char *name) { return !strcmp(name,"disc.gdi"); }
+bool kui_game_image_name_supported(const char *name) {return !strcmp(name,"disc.gdi");}
 FRESULT f_stat(const TCHAR *path,FILINFO *info) {
-    assert(!strcmp(path,"0:/KUI") || !strcmp(path,"0:/KUI/media") || !strcmp(path,KUI_DOWNLOADED_COVERS));info->fattrib=AM_DIR;return FR_OK;
+    assert(!strcmp(path,"0:/KUI") || !strcmp(path,"0:/KUI/media") || !strcmp(path,KUI_DOWNLOADED_COVERS));
+    info->fattrib=AM_DIR;return FR_OK;
 }
 FRESULT f_mkdir(const TCHAR *path) { (void)path;assert(0);return FR_DENIED; }
-FRESULT f_open(FIL *fp,const TCHAR *path,BYTE mode) {
-    memset(fp,0,sizeof(*fp));
-    if(!strcmp(path,"0:/KUI/media/fetch.tmp")) {
-        assert(mode & FA_CREATE_ALWAYS);test.temporary=true;test.file_size=0;return FR_OK;
+FRESULT f_open(FIL *f,const TCHAR *path,BYTE mode) {
+    memset(f,0,sizeof(*f));
+    if(!strcmp(path,TEMP)) {
+        assert(mode&FA_CREATE_ALWAYS);test.temp=true;test.length=0;return FR_OK;
     }
-    if(!test.published || strcmp(path,test.final))return FR_NO_FILE;
-    assert(mode==FA_READ);fp->obj.objsize=test.file_size;return FR_OK;
+    if(!strcmp(path,VIDEO)) {
+        assert(mode&FA_CREATE_ALWAYS);test.video=true;test.clip_handle=f;test.clip_length=0;return FR_OK;
+    }
+    if(!test.saved || strcmp(path,test.dest)) return FR_NO_FILE;
+    assert(mode==FA_READ);memcpy(test.buffer,test.saved_file,test.saved_length);
+    test.length=test.saved_length;f->obj.objsize=test.saved_length;return FR_OK;
 }
-FRESULT f_read(FIL *fp,void *out,UINT n,UINT *got) {
-    assert(fp->fptr<=test.file_size);
-    if(n>test.file_size-fp->fptr)n=(UINT)(test.file_size-fp->fptr);
-    memcpy(out,test.file+fp->fptr,n);fp->fptr+=n;*got=n;return FR_OK;
+FRESULT f_read(FIL *f,void *out,UINT n,UINT *got) {
+    bool clip=f==test.clip_handle;
+    size_t size=clip?test.clip_length:test.length;
+    assert(f->fptr<=size);
+    if(n>size-f->fptr)n=(UINT)(size-f->fptr);
+    memcpy(out,(clip?test.clip:test.buffer)+f->fptr,n);f->fptr+=n;*got=n;return FR_OK;
 }
-FRESULT f_write(FIL *fp,const void *data,UINT n,UINT *wrote) {
-    if(test.short_write && n)n--;
-    assert(test.temporary && test.file_size+n<=sizeof(test.file));
-    memcpy(test.file+test.file_size,data,n);test.file_size+=n;
-    fp->fptr=fp->obj.objsize=test.file_size;*wrote=n;return FR_OK;
+FRESULT f_write(FIL *f,const void *data,UINT n,UINT *wrote) {
+    bool clip=f==test.clip_handle;
+    assert(test.temp && f->fptr+n<=(clip?sizeof(test.clip):sizeof(test.buffer)));
+    if(test.short_write && n) --n;
+    memcpy((clip?test.clip:test.buffer)+f->fptr,data,n);
+    f->fptr+=n;
+    if(f->obj.objsize<f->fptr)f->obj.objsize=f->fptr;
+    if(clip)test.clip_length=f->obj.objsize;else test.length=f->obj.objsize;
+    *wrote=n;return FR_OK;
 }
-FRESULT f_lseek(FIL *fp,FSIZE_t at) { assert(at<=test.file_size);fp->fptr=at;return FR_OK; }
-FRESULT f_sync(FIL *fp) { (void)fp;return test.sync_fail?FR_DISK_ERR:FR_OK; }
-FRESULT f_close(FIL *fp) { (void)fp;return FR_OK; }
+FRESULT f_lseek(FIL *f,FSIZE_t at) {assert(at<=f_size(f));f->fptr=at;return FR_OK;}
+FRESULT f_sync(FIL *f) {(void)f;return test.dirty?FR_DISK_ERR:FR_OK;}
+FRESULT f_close(FIL *f) {if(f==test.clip_handle)test.clip_handle=NULL;return FR_OK;}
 FRESULT f_rename(const TCHAR *from,const TCHAR *to) {
-    assert(test.temporary && !strcmp(from,"0:/KUI/media/fetch.tmp"));
-    if(test.rename_race)return FR_EXIST;
-    assert(!test.published && strlen(to)<sizeof(test.final));
-    strcpy(test.final,to);test.published=true;test.temporary=false;++test.commits;return FR_OK;
+    assert(test.temp && !strcmp(from,TEMP));if(test.race)return FR_EXIST;
+    assert(!test.saved && strlen(to)<sizeof(test.dest));
+    strcpy(test.dest,to);memcpy(test.saved_file,test.buffer,test.length);test.saved_length=test.length;
+    ++test.commits;test.saved=true;test.temp=false;return FR_OK;
 }
 FRESULT f_unlink(const TCHAR *path) {
-    assert(!strcmp(path,"0:/KUI/media/fetch.tmp") && test.temporary);test.temporary=false;return FR_OK;
+    if(!strcmp(path,TEMP)) {assert(test.temp);test.temp=false;}
+    else {assert(!strcmp(path,VIDEO) && test.video);test.video=false;}
+    return FR_OK;
 }
-static void expect_response(const char *response,enum kui_media_result result) {
-    reset();reply(response,NULL,0);assert(fetch(KUI_MEDIA_COVER)==result && !test.commits);
+static enum kui_media_result fetch(enum kui_media_kind kind) {
+    int dummy;
+    enum kui_media_result r=kui_media_fetch_internet((struct kui_internet *)&dummy,&game,kind,NULL,cancel,NULL,NULL);
+    assert(!test.temp && !test.video && !test.mounted);
+    return r;
 }
 int main(void) {
-    reset();png_response(cover_png_rgb,sizeof(cover_png_rgb));assert(fetch(KUI_MEDIA_COVER)==KUI_MEDIA_INSTALLED);
     char path[KUI_GAMES_FILE_CAP];
-    assert(kui_media_file_path(&game,KUI_MEDIA_COVER,path));
-    assert(test.commits==1 && !strcmp(test.final,path) && !strncmp(path,KUI_DOWNLOADED_COVERS "/",strlen(KUI_DOWNLOADED_COVERS)+1));
-    assert(strstr(test.request,"product=T-1%20A&region=JUE&title=A%20%26%20B%3F%25 HTTP/1.0\r\n"));
-    assert(fetch(KUI_MEDIA_COVER)==KUI_MEDIA_EXISTING && test.opens==1);
-    reset();test.selected=true;assert(fetch(KUI_MEDIA_COVER)==KUI_MEDIA_EXISTING && !test.opens);
-    reset();test.identity=KUI_GAMES_IDENTITY_UNKNOWN;assert(fetch(KUI_MEDIA_MANUAL)==KUI_MEDIA_UNIDENTIFIED && !test.opens);
-    expect_response("HTTP/1.0 404 missing\r\n\r\n",KUI_MEDIA_MISSING);
-    expect_response("HTTP/1.0 413 too large\r\n\r\n",KUI_MEDIA_MISSING);
-    expect_response("HTTP/1.0 415 unsupported\r\n\r\n",KUI_MEDIA_MISSING);
-    expect_response("HTTP/1.0 422 cannot convert\r\n\r\n",KUI_MEDIA_MISSING);
-    expect_response("HTTP/1.0 429 quota\r\n\r\n",KUI_MEDIA_LIMITED);
-    expect_response("HTTP/1.0 503 waiting\r\n\r\n",KUI_MEDIA_ERROR);
-    expect_response("HTTP/1.1 302 found\r\nLocation: /v2\r\n\r\n",KUI_MEDIA_ERROR);
-    expect_response("HTTP/1.1 200 OK\r\nContent-Type: image/png\r\n\r\n",KUI_MEDIA_ERROR);
-    expect_response("HTTP/1.1 200 OK\r\nContent-Length: 262145\r\nContent-Type: image/png\r\n\r\n",KUI_MEDIA_ERROR);
-    expect_response("HTTP/1.1 200 OK\r\nContent-Length: 9\r\nContent-Length: 9\r\nContent-Type: image/png\r\n\r\n",KUI_MEDIA_ERROR);
-    expect_response("HTTP/1.1 200 OK\r\nContent-Length: 9\r\nTransfer-Encoding: chunked\r\nContent-Type: image/png\r\n\r\n",KUI_MEDIA_ERROR);
-    expect_response("HTTP/1.1 200 OK\r\nContent-Length: 9\r\nContent-Type: text/html\r\n\r\n<html>",KUI_MEDIA_ERROR);
-    expect_response("HTTP/1.1 200 OK\r\nContent-Length: 9\r\nContent-Type: image/png\r\n\r\nshort",KUI_MEDIA_ERROR);
-    reset();memset(test.response,'x',5000);test.response_size=5000;assert(fetch(KUI_MEDIA_COVER)==KUI_MEDIA_ERROR);
-    reset();png_response(cover_png_rgb,sizeof(cover_png_rgb)-8);assert(fetch(KUI_MEDIA_COVER)==KUI_MEDIA_ERROR && !test.commits);
-    reset();png_response(cover_png_rgb,sizeof(cover_png_rgb));test.cut_after=150;
-    assert(fetch(KUI_MEDIA_COVER)==KUI_MEDIA_STOPPED && !test.commits);
-    reset();png_response(cover_png_rgb,sizeof(cover_png_rgb));test.short_write=true;
-    assert(fetch(KUI_MEDIA_COVER)==KUI_MEDIA_ERROR && !test.commits);
-    reset();png_response(cover_png_rgb,sizeof(cover_png_rgb));test.rename_race=true;
-    assert(fetch(KUI_MEDIA_COVER)==KUI_MEDIA_ERROR && !test.commits);
-    reset();png_response(cover_png_rgb,sizeof(cover_png_rgb));test.sync_fail=true;
-    assert(fetch(KUI_MEDIA_COVER)==KUI_MEDIA_ERROR && !test.commits);
-    reset();test.connected_wait=true;assert(fetch(KUI_MEDIA_COVER)==KUI_MEDIA_ERROR && test.now==10000u);
-    reset();test.stall=true;assert(fetch(KUI_MEDIA_COVER)==KUI_MEDIA_ERROR && test.now==600000u);
-    reset();test.stall=true;reply("HTTP/1.0 200 OK\r\nContent-Length: 100\r\nContent-Type: image/png\r\n\r\nx",NULL,0);
-    assert(fetch(KUI_MEDIA_COVER)==KUI_MEDIA_ERROR && test.now==20000u);
-    puts("PASS bounded media HTTP, local preservation, cancellation, deadlines and SD publication");
+    reset();assert(fetch(KUI_MEDIA_COVER)==KUI_MEDIA_INSTALLED && test.commits==1);
+    assert(kui_media_file_path(&game,KUI_MEDIA_COVER,path) && !strcmp(path,test.dest));
+    assert(fetch(KUI_MEDIA_COVER)==KUI_MEDIA_EXISTING && test.gets==1);
+    reset();test.owner_cover=true;assert(fetch(KUI_MEDIA_COVER)==KUI_MEDIA_EXISTING && !test.gets);
+    reset();test.fail_identity=true;assert(fetch(KUI_MEDIA_MANUAL)==KUI_MEDIA_UNIDENTIFIED && !test.gets);
+    reset();test.has_url=false;assert(fetch(KUI_MEDIA_COVER)==KUI_MEDIA_MISSING && !test.gets);
+    reset();test.corrupt_png=true;assert(fetch(KUI_MEDIA_COVER)==KUI_MEDIA_MISSING && !test.saved);
+    reset();test.response=KUI_HTTP_STOPPED;assert(fetch(KUI_MEDIA_COVER)==KUI_MEDIA_STOPPED && !test.saved);
+    reset();test.short_write=true;assert(fetch(KUI_MEDIA_COVER)==KUI_MEDIA_ERROR && !test.saved);
+    reset();test.race=true;assert(fetch(KUI_MEDIA_COVER)==KUI_MEDIA_ERROR && !test.saved);
+    reset();test.dirty=true;assert(fetch(KUI_MEDIA_COVER)==KUI_MEDIA_ERROR && !test.saved);
+    reset();test.corrupt_pdf=true;assert(fetch(KUI_MEDIA_MANUAL)==KUI_MEDIA_MISSING && !test.saved);
+    reset();assert(fetch(KUI_MEDIA_MANUAL)==KUI_MEDIA_ORIGINAL && test.saved);
+    assert(kui_media_original_path(&game,KUI_MEDIA_MANUAL,path) && !strcmp(path,test.dest));
+    assert(fetch(KUI_MEDIA_MANUAL)==KUI_MEDIA_EXISTING && test.gets==1);
+    reset();test.pages=3;test.has_url=false;
+    assert(fetch(KUI_MEDIA_MANUAL)==KUI_MEDIA_INSTALLED && test.gets==3 && !memcmp(test.saved_file,"KDM1\3\0",6));
+    assert(kui_media_file_path(&game,KUI_MEDIA_MANUAL,path) && !strcmp(path,test.dest));
+    assert(fetch(KUI_MEDIA_MANUAL)==KUI_MEDIA_EXISTING && test.gets==3);
+    reset();test.pages=3;test.fail_page=2;assert(fetch(KUI_MEDIA_MANUAL)==KUI_MEDIA_ORIGINAL && test.gets==3);
+    reset();test.pages=2;test.bad_pages=true;assert(fetch(KUI_MEDIA_MANUAL)==KUI_MEDIA_ORIGINAL && test.gets==3);
+    reset();test.pages=3;test.limit_page=2;assert(fetch(KUI_MEDIA_MANUAL)==KUI_MEDIA_LIMITED && !test.saved);
+    reset();test.pages=3;test.response=KUI_HTTP_STOPPED;assert(fetch(KUI_MEDIA_MANUAL)==KUI_MEDIA_STOPPED && !test.saved);
+    reset();assert(fetch(KUI_MEDIA_PREVIEW)==KUI_MEDIA_INSTALLED && !memcmp(test.saved_file,"KPV1",4));
+    assert(fetch(KUI_MEDIA_PREVIEW)==KUI_MEDIA_EXISTING && test.gets==1);
+    reset();test.convert=false;assert(fetch(KUI_MEDIA_PREVIEW)==KUI_MEDIA_ERROR && !test.saved);
+    reset();test.cancel_conversion=true;assert(fetch(KUI_MEDIA_PREVIEW)==KUI_MEDIA_STOPPED && !test.saved);
+    puts("PASS direct media install, indexed page assembly, PDF fallback, preview conversion, cancellation and SD failures");
 }

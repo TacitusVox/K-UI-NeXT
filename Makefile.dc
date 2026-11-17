@@ -80,8 +80,16 @@ RUNTIME_OBJECTS += build/dc/src/core/storage_test_model.o build/dc/src/core/stor
 RUNTIME_OBJECTS += build/dc/src/dreamcast/capture.o
 RUNTIME_OBJECTS += build/dc/src/dreamcast/memory.o
 RUNTIME_OBJECTS += build/dc/src/core/recovery_manifest.o build/dc/src/core/recovery_scan.o build/dc/src/core/repair_copy.o build/dc/src/core/legacy_import.o build/dc/src/core/raw_cue.o build/dc/src/core/saved_identity.o build/dc/src/core/recovery_guard.o build/dc/src/core/salvage_completion.o
+include config/media-tls.mk
+RUNTIME_OBJECTS += build/dc/src/core/media_tls.o
+build/dc/src/core/media_tls.o: $(MEDIA_TLS_ROOTS)
+build/dc/src/core/media_tls.o: CPPFLAGS += -I.deps/bearssl/inc -Ibuild/bearssl
 RUNTIME_OBJECTS += build/dc/src/core/network_rip.o build/dc/src/core/bba_sockets.o
 RUNTIME_OBJECTS += build/dc/src/dreamcast/network_bba.o build/dc/src/dreamcast/media_view.o build/dc/kos-bba.o build/dc/kos-tcp.o
+include config/dreampi.mk
+include config/media-xiph.mk
+RUNTIME_OBJECTS += $(XIPH_DC_OBJS)
+RUNTIME_OBJECTS += build/dc/src/core/internet_http.o build/dc/src/core/internet_dns.o build/dc/src/dreamcast/internet.o
 # The pinned KOS BBA driver starts and stops repeatedly while the shell is live.
 # Compile its session-lifetime fixes for this GUI without modifying the toolchain.
 build/dc/kos-bba.c: $(KOS_BASE)/kernel/arch/dreamcast/hardware/network/broadband_adapter.c tools/patches/bba-session.patch
@@ -264,8 +272,8 @@ build/dc/ffunicode.o: .deps/fatfs/source/ffunicode.c .deps/fatfs/source/ffconf.h
 $(TARGET): $(OBJECTS) $(LOADER_OBJECTS)
 	kos-cc -o $@ $(OBJECTS) $(LOADER_OBJECTS) -Wl,-Map,build/kui-diagnostic.map
 	python3 tools/record_build.py $@
-$(RUNTIME): $(RUNTIME_OBJECTS)
-	kos-cc -o $@ $(RUNTIME_OBJECTS) -lm -Wl,--wrap=f_open,--wrap=f_stat -Wl,-Map,build/kui-runtime.map
+$(RUNTIME): $(RUNTIME_OBJECTS) $(MEDIA_TLS_DC_LIB)
+	kos-cc -o $@ $(RUNTIME_OBJECTS) $(MEDIA_TLS_DC_LIB) -lm -Wl,--wrap=f_open,--wrap=f_stat -Wl,-Map,build/kui-runtime.map
 	python3 tools/record_build.py $@
 
 # Separate compiler-report objects; never alter the runtime's linked objects.

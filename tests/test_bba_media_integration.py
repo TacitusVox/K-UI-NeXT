@@ -1,14 +1,15 @@
 # SPDX-License-Identifier: GPL-3.0-only
-"""From a synthetic Dreamcast disc through the real LAN companion back to a card."""
+"""Resolve a synthetic disc and install native internet media on FAT32 and exFAT."""
+import argparse
+from hashlib import sha256
 import os
 from pathlib import Path
 import subprocess
-import sys
 import tempfile
 
 from PIL import Image
 from games_fixture import make_fixture
-from test_games_covers_images import write_manifest
+from test_games_covers_images import pvr, write_manifest
 from test_games_library_images import private_formatter
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -19,44 +20,52 @@ def run(*args):
 
 
 def main():
-    with tempfile.TemporaryDirectory(prefix="kui-bba-media-") as tmp:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--public-cover", type=Path, help="Use the pinned public Crazy Taxi cover PNG")
+    args = parser.parse_args()
+    with tempfile.TemporaryDirectory(prefix="kui-internet-media-") as tmp:
         folder = Path(tmp)
-        make_fixture(folder / "Games" / "Local Game", b"SYNTHETIC RACING GAME")
-        (folder / "KUI" / "covers").mkdir(parents=True)
-        write_manifest(folder)
-        # Real media files made for this test, looked up using the disc IP data.
-        Image.new("RGB", (64, 64), "#ff0000").save(folder / "box.png")
-        pages = [Image.new("RGB", (80, 120), color) for color in ("blue", "yellow")]
-        pages[0].save(folder / "manual.pdf", save_all=True, append_images=pages[1:])
-        run("ffmpeg", "-v", "error", "-f", "lavfi", "-i", "color=c=red:s=64x48:r=10",
-            "-t", "1", "-threads", "1", "-c:v", "mpeg4", str(folder / "clip.mp4"))
-        gamelist = folder / "gamelist.xml"
-        gamelist.write_text("<gameList><game><name>Synthetic Racing Game</name>"
-                            "<serial>KUI-TEST</serial><image>box.png</image>"
-                            "<manual>manual.pdf</manual><video>clip.mp4</video></game></gameList>")
+        source = folder / "card"
+        game = source / "Games" / "Local Game"
+        disc_art = pvr(1, 9, 64, 32, b"\x1f\x00" * (64 * 32))
+        make_fixture(game, b"CRAZY TAXI", art=disc_art)
+        # Only the product/region describe a real release; all sectors and
+        # artwork, manual pages and video frames are locally authored fixtures.
+        track = game / "track03.bin"
+        with track.open("r+b") as data:
+            data.seek(16 + 48)
+            data.write(b"U       ")
+            data.seek(16 + 64)
+            data.write(b"MK-51035  ")
+        (source / "KUI" / "covers").mkdir(parents=True)
+        write_manifest(source)
+        if args.public_cover:
+            data = args.public_cover.read_bytes()
+            assert sha256(data).hexdigest() == "8e07bc902b28445319bd5630e6df4aab0e8ca2c232dae559f6e1379b4c8f5eac"
+            (folder / "box.png").write_bytes(data)
+        else:
+            Image.new("RGB", (64, 64), "#ff0000").save(folder / "box.png")
+        Image.new("RGB", (160, 120), "blue").save(folder / "page.jpg")
+        run("ffmpeg", "-v", "error", "-f", "lavfi", "-i", "testsrc2=s=160x120:r=10",
+            "-t", "24", "-threads", "1", "-c:v", "libtheora", "-an", str(folder / "clip.ogv"))
         formatter = private_formatter(folder)
-        proc = subprocess.Popen([sys.executable, str(ROOT / "tools/media_server.py"), "--offline",
-                                 "--gamelist", str(gamelist), "--port", "0"], stdout=subprocess.PIPE,
-                                text=True)
-        try:
-            address = proc.stdout.readline()
-            assert address.startswith("K-UI media companion at 127.0.0.1:"), address
-            port = str(int(address.split(":")[-1]))
-            for kind in ("fat32", "exfat"):
-                if kind == "exfat":
-                    # IP.BIN uses the first peripheral bit to identify Windows CE.
-                    track = folder / "Games/Local Game/track03.bin"
-                    with track.open("r+b") as data:
-                        data.seek(16 + 56)
-                        data.write(b"0000001 ")
-                card = folder / (kind + ".img")
-                run(formatter, kind, card)
-                run(ROOT / "build/games-covers-image", card, folder, "seed", "network-media")
-                run(ROOT / "build/bba-media-integration", card, port)
-        finally:
-            proc.terminate()
-            proc.wait(timeout=10)
-            proc.stdout.close()
+        for kind in ("fat32", "exfat"):
+            if kind == "exfat":
+                # IP.BIN uses the first peripheral bit to identify Windows CE.
+                with track.open("r+b") as data:
+                    data.seek(16 + 56)
+                    data.write(b"0000001 ")
+            card = folder / (kind + ".img")
+            run(formatter, kind, card)
+            run(ROOT / "build/games-covers-image", card, source, "seed", "network-media")
+            thumbs = folder / (kind + "-thumbs.rgb565")
+            run(ROOT / "build/bba-media-integration", card, folder, *([thumbs] if args.public_cover else []))
+            if args.public_cover:
+                # Independently calculated from the public RGBA pixels using integer area
+                # resampling, alpha blending and RGB565 quantization at 160/104/56 square.
+                digest = sha256(thumbs.read_bytes()).hexdigest()
+                assert digest == "984b5b4f853beff0b24be1dd0258a8854a08ed7e47fc85c03bd7315ade99096b", digest
+                print(f"{kind}: all three retrieved public cover thumbnails match {digest}")
 
 
 if __name__ == "__main__":

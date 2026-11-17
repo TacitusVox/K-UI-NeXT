@@ -59,11 +59,10 @@ and shows a reboot-required message when the drive reports that state.
    written only after the requested files pass exact reread and CRC checks.
    This version never writes, restores, formats or deletes anything on the VMU.
    A failed/stopped backup can leave a clearly incomplete new SD folder.
-7. **Network:** run once with your current hardware. No adapter should be a
-   clear result, not a hang or an Internet failure. BBA/LAN detection reports
-   configuration and the limits of what was checked. This build does not start
-   DHCP or send a reachability probe; do not treat adapter detection as a link
-   or Internet pass. Modem dial-up is not implemented.
+7. **Network**. Inspect the adapter, then run Test network for a DHCP and
+   gateway check. For an internet transfer, use the Games scan. It supports
+   the BBA, W5500, configured Wi-Fi board and explicit DreamPi dial-up.
+   [Game media setup](game-media.md)
 8. **Music:** enable/save, adjust volume/save and use X on a music setting to
    choose the next loop. Current builds keep cached music playing during tests
    and menu actions. L/R also select songs on Home and Ripper; uncached selections

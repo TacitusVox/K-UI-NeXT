@@ -148,7 +148,9 @@ static uint16_t *shell_frame_prepare(bool working) {
 }
 static void games_tiles_free_locked(void);
 static void shell_frame_release_for_action(unsigned action) {
-    if(action==19u || (action>=56u && action<=58u) || action==62u || action==79u || action==104u || action==126u) {
+    /* Media decoding also needs the heap occupied by the optional frame and tiles. */
+    if(action==19u || (action>=56u && action<=58u) || action==62u || action==79u || action==104u ||
+       action==126u || action==127u) {
         free(shell_frame);shell_frame=NULL;shell_frame_ready=false;
         games_tiles_free_locked();
     }
@@ -373,13 +375,12 @@ static struct kui_games_entry games_art_entry,games_art_running_entry;
 static struct kui_games_cover_result games_art_result;
 static struct kui_app_status games_scan_status, games_media_status;
 static struct kui_games_media_job games_media_pending;
-static bool games_media_save, games_media_manual;
-static bool games_media_address_ready, games_media_address_ok;
+static bool games_media_manual;
 static char games_media_view_path[KUI_GAMES_FILE_CAP];
 /* Set only after the sole storage worker has finished outstanding SD work.
  * Main owns the screen and temporarily borrows the idle SD session. */
 static bool games_media_view_ready,games_media_view_active,games_media_notice_ready;
-enum { MEDIA_DOWNLOAD_JOB=127, MEDIA_ADDRESS_JOB, MEDIA_VIEW_JOB };
+enum { MEDIA_DOWNLOAD_JOB=127, MEDIA_VIEW_JOB };
 
 /* The worker fills staging pixels; only main publishes them to the selected
  * cover. A ready result owns staging until main accepts/discards it, so neither
@@ -3652,7 +3653,7 @@ static void *worker(void *unused) {
                 mutex_unlock(&lock);
             }
             mutex_lock(&lock);
-            if(action==MEDIA_ADDRESS_JOB || action==MEDIA_DOWNLOAD_JOB || action==MEDIA_VIEW_JOB) {
+            if(action==MEDIA_DOWNLOAD_JOB || action==MEDIA_VIEW_JOB) {
                 games_media_status=(struct kui_app_status){.complete=true,.stopped=true};
                 snprintf(games_media_status.message,sizeof(games_media_status.message),"Stopped before starting.");
                 games_media_notice_ready=action!=MEDIA_DOWNLOAD_JOB;
@@ -4089,13 +4090,6 @@ static void *worker(void *unused) {
                 kui_games_media_run(&games_media_pending,&result,kui_log,kui_cancelled,games_media_progress);
                 games_cache_invalidate();
                 games_media_progress(&result);
-            }
-            if(action==MEDIA_ADDRESS_JOB) {
-                kui_sd_set_params(KUI_STORAGE_AUTO,true);
-                bool ok=kui_games_media_address(games_media_pending.ip,games_media_save,kui_log);
-                mutex_lock(&lock);
-                games_media_address_ready=true;games_media_address_ok=ok;
-                mutex_unlock(&lock);
             }
             if(action==MEDIA_VIEW_JOB) {
                 kui_sd_set_params(KUI_STORAGE_AUTO,true);
@@ -5055,8 +5049,6 @@ static unsigned worker_action(enum kui_shell_action action) {
         case KUI_SHELL_GAMES_SMASH_SHINING_FORCE: return 122;
         case KUI_SHELL_GAMES_SCAN: return 59;
         case KUI_SHELL_MEDIA_DOWNLOAD:return MEDIA_DOWNLOAD_JOB;
-        case KUI_SHELL_MEDIA_ADDRESS_LOAD:
-        case KUI_SHELL_MEDIA_ADDRESS_SAVE:return MEDIA_ADDRESS_JOB;
         case KUI_SHELL_MEDIA_OPEN_MANUAL:
         case KUI_SHELL_MEDIA_PLAY_PREVIEW:return MEDIA_VIEW_JOB;
         case KUI_SHELL_FILES_LIST: return 60;
@@ -5596,19 +5588,6 @@ int main(void) {
             snprintf(shell.games_media_notice,sizeof(shell.games_media_notice),"%.99s",games_media_status.message);
             games_ui_changed=true;
         }
-        if(games_media_address_ready) {
-            games_media_address_ready=false;
-            if(!games_media_save && games_media_address_ok) {
-                memcpy(shell.games_media_ip,games_media_pending.ip,4);
-                shell.games_media_row=shell.games_media_ip[0]?5u:0u;
-            }
-            if(games_media_save || !games_media_address_ok)
-                snprintf(shell.games_media_notice,sizeof(shell.games_media_notice),"%s",games_media_address_ok?
-                    "Companion address saved.":games_media_save?
-                    "Address active for this boot. Could not confirm SD save.":
-                    "Could not read companion address. Set it here.");
-            games_ui_changed=true;
-        }
         if(seen_games_edit_generation!=games_edit_result_generation) {
             kui_shell_set_games_edit(&shell,games_edit_result_request,games_edit_result_path,
                 &games_edit_result,games_edit_result_ok,games_edit_result_notice);
@@ -5820,16 +5799,15 @@ int main(void) {
             /* Main is the sole frame owner. Free before exposing pending to
              * the worker; drawing cannot reallocate it while this job is busy. */
             shell_frame_release_for_action(action);
-            if(action==MEDIA_ADDRESS_JOB || action==MEDIA_DOWNLOAD_JOB || action==MEDIA_VIEW_JOB) {
-                games_media_pending=(struct kui_games_media_job){.all=shell.games_media_all,.kinds=shell.games_media_kinds};
-                memcpy(games_media_pending.ip,shell.games_media_ip,4);
+            if(action==MEDIA_DOWNLOAD_JOB || action==MEDIA_VIEW_JOB) {
+                games_media_pending=(struct kui_games_media_job){.all=shell.games_media_all,
+                    .kinds=shell.games_media_kinds,.route=shell.games_media_route};
                 if(shell.games_selected<shell.games_listing.count)
                     games_media_pending.selected=shell.games_listing.entries[shell.games_selected];
-                games_media_save=requested==KUI_SHELL_MEDIA_ADDRESS_SAVE;
                 games_media_manual=requested==KUI_SHELL_MEDIA_OPEN_MANUAL;
                 games_media_status=(struct kui_app_status){0};
                 snprintf(games_media_status.message,sizeof(games_media_status.message),"%s",
-                    action==MEDIA_DOWNLOAD_JOB?"Starting download...":action==MEDIA_VIEW_JOB?"Opening media...":"Checking address...");
+                    action==MEDIA_DOWNLOAD_JOB?"Starting internet scan...":"Opening media...");
             }
             if(action==126u) {
                 update_restart_generation=shell.update_request.generation;update_restart_ready=false;

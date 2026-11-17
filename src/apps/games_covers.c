@@ -780,7 +780,7 @@ static enum outcome build(struct scan *s, const char *key, const char *gdi_path)
     if(strlen(gdi_path) >= sizeof(record.gdi_path) || f_stat(path, &info) != FR_OK) return OUT_FAILED;
     strcpy(record.gdi_path, gdi_path);
     stamp_of(&info, &record.gdi);
-    /* Explicit owner images take priority over a companion download. All
+    /* Explicit owner images take priority over internet box art. All
      * images feed the same thumbnail cache, including on later rescans. */
     unsigned owner_count = sizeof(user_images) / sizeof(user_images[0]);
     for(unsigned i = 0; i <= owner_count; ++i) {
@@ -810,7 +810,9 @@ static enum outcome build(struct scan *s, const char *key, const char *gdi_path)
              * scans so a changed preference never reuses another decoder's
              * result; selected-art RAM/disk caches remain unchanged. Records
              * without a parsed title also need a retry. */
-            if(!zso && old.title[0] && !strcmp(old.gdi_path, gdi_path) &&
+            bool pending_download = !strncmp(user, KUI_DOWNLOADED_COVERS "/", sizeof(KUI_DOWNLOADED_COVERS)) &&
+                old.source != KUI_COVER_SOURCE_USER;
+            if(!zso && !pending_download && old.title[0] && !strcmp(old.gdi_path, gdi_path) &&
                same_stamp(&old.gdi, &record.gdi) && same_stamp(&old.user, &record.user)) return OUT_UNCHANGED;
         } else if(!invalid && r != FR_NO_FILE) return OUT_FAILED;
     }
@@ -881,7 +883,7 @@ bool kui_games_prepare_media_cover(const struct kui_games_entry *entry, bool *pr
             *present = true;
             return true;
         }
-        if(old.source != KUI_COVER_SOURCE_NONE) {
+        if(old.source == KUI_COVER_SOURCE_USER) {
             *present = true;
             return true;
         }
@@ -902,7 +904,9 @@ bool kui_games_prepare_media_cover(const struct kui_games_entry *entry, bool *pr
         kui_games_covers_content_clear();
         artwork_known = false;
     }
-    *present = result == OUT_USER || result == OUT_DISC;
+    /* A disc texture is the offline fallback. Scanning for box art can
+     * upgrade it without replacing an owner image or an existing download. */
+    *present = result == OUT_USER;
     if(*present) return true;
     /* Even an unscannable image belongs to the owner. Never replace it. */
     for(unsigned i = 0; i < sizeof(user_images) / sizeof(user_images[0]); ++i) {
@@ -912,7 +916,14 @@ bool kui_games_prepare_media_cover(const struct kui_games_entry *entry, bool *pr
         if(r == FR_OK) { *present = true; return true; }
         if(r != FR_NO_FILE) return false;
     }
-    return true;
+    if(!kui_games_media_path(entry->path, KUI_DOWNLOADED_COVERS, "png", path, sizeof(path))) return false;
+    FILINFO info;
+    r = f_stat(path, &info);
+    if(r == FR_OK) {
+        if(log) log("Media: saved PNG could not be added to the box art cache: %s", path + 2);
+        return false;
+    }
+    return r == FR_NO_FILE || r == FR_NO_PATH;
 }
 
 enum kui_games_identity_result kui_games_media_identity(const char *path,

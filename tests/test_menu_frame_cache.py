@@ -76,10 +76,10 @@ int main(void) {
     assert(!shell_frame_prepare(true) && !live);
     assert(shell_frame_prepare(false)==frame && live);
     shell_frame_release_for_action(58u);
-    for(unsigned action=0;action<=109u;action++) {
+    for(unsigned action=0;action<=128u;action++) {
         assert(shell_frame_prepare(false) && live);
         shell_frame_ready=true;
-        bool large=action==19u || (action>=56u && action<=58u) || action==62u || action==79u || action==104u;
+        bool large=action==19u || (action>=56u && action<=58u) || action==62u || action==79u || action==104u || action==126u || action==127u;
         unsigned before=releases,tiles_before=tile_frees;
         shell_frame_release_for_action(action);
         assert((shell_frame==NULL)==large && live==!large);

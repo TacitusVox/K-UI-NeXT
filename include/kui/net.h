@@ -8,6 +8,7 @@
 /* Numbered TCP slots for native BBA sockets, the W5500 and the Wi-Fi board.
  * The state values follow the W5500 and the Wi-Fi board's protocol. */
 #define KUI_NET_CLOSED 0x00u
+#define KUI_NET_INIT 0x13u       /* W5500 opened, ARP/connect still starting */
 #define KUI_NET_LISTEN 0x14u
 #define KUI_NET_CONNECTING 0x15u
 #define KUI_NET_ESTABLISHED 0x17u

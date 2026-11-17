@@ -4,75 +4,21 @@
 #include "kui/games_library.h"
 #include "kui/games_storage.h"
 #include "kui/media_download.h"
-#include "kui/network_probe.h"
-#include "ff.h"
+#include "kui/internet.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
-#define ADDRESS "0:/KUI/media-relay.txt"
-#define PREVIOUS "0:/KUI/media-relay.bak"
-#define PENDING "0:/KUI/media-relay.tmp"
-
-static bool usable(const uint8_t ip[4]) {
-    return ip[0]!=0 && ip[0]!=127 && ip[0]<224;
-}
-
-static bool load_address(uint8_t ip[4]) {
-    FIL f;
-    FRESULT r=f_open(&f,ADDRESS,FA_READ);
-    if(r==FR_NO_FILE || r==FR_NO_PATH)r=f_open(&f,PREVIOUS,FA_READ);
-    if(r==FR_NO_FILE || r==FR_NO_PATH) {
-        memset(ip,0,4);
-        return true;
-    }
-    if(r!=FR_OK)return false;
-    char buf[20]={0};
-    FSIZE_t n=f_size(&f);
-    UINT got=0;
-    bool ok=n>0 && n<sizeof(buf) && f_read(&f,buf,(UINT)n,&got)==FR_OK && got==n;
-    if(f_close(&f)!=FR_OK || !ok)return false;
-    while(n && (buf[n-1]=='\r' || buf[n-1]=='\n'))buf[--n]=0;
-    return strlen(buf)==n && kui_network_parse_ipv4(buf,ip) && usable(ip);
-}
-
-static bool save_address(const uint8_t ip[4]) {
-    if(!usable(ip))return false;
-    FRESULT r=f_mkdir("0:/KUI");
-    if(r!=FR_OK && r!=FR_EXIST)return false;
-    char buf[20];
-    unsigned n=(unsigned)snprintf(buf,sizeof(buf),"%u.%u.%u.%u\n",ip[0],ip[1],ip[2],ip[3]);
-    FIL f;
-    UINT bytes=0;
-    if(f_open(&f,PENDING,FA_CREATE_ALWAYS|FA_WRITE)!=FR_OK)return false;
-    bool ok=f_write(&f,buf,n,&bytes)==FR_OK && bytes==n && f_sync(&f)==FR_OK;
-    if(f_close(&f)!=FR_OK || !ok)return false;
-    FILINFO stat;
-    r=f_stat(ADDRESS,&stat);
-    if(r==FR_OK) {
-        r=f_unlink(PREVIOUS);
-        if((r!=FR_OK && r!=FR_NO_FILE) || f_rename(ADDRESS,PREVIOUS)!=FR_OK)return false;
-    } else if(r!=FR_NO_FILE)return false;
-    if(f_rename(PENDING,ADDRESS)!=FR_OK)return false;
-    uint8_t verified[4]={0};
-    return load_address(verified) && !memcmp(ip,verified,4);
-}
-
-bool kui_games_media_address(uint8_t ip[4],bool save,kui_log_fn log) {
-    if(!ip || kui_games_storage_open(log)!=KUI_GAMES_STORAGE_OK)return false;
-    bool ok=save?save_address(ip):load_address(ip);
-    return kui_games_storage_release() && ok;
-}
-
 struct batch {
     const struct kui_games_media_job *job;
-    struct kui_bba_session session;
-    const struct kui_bba_port *port;
+    struct kui_internet *session;
+    const struct kui_games_entry *current;
+    char adapter[40];
     struct kui_app_status *out;
     kui_log_fn log;
     kui_cancel_fn cancel;
     kui_app_progress_fn progress;
-    unsigned games,installed,existing,missing,unknown,folders_skipped,visited;
+    unsigned games,installed,existing,missing,unknown,pdfs,folders_skipped,visited;
 };
 static bool stopped(const struct batch *b) {return b->cancel && b->cancel();}
 static void counts(struct batch *b) {
@@ -81,14 +27,21 @@ static void counts(struct batch *b) {
         b->games,b->installed,b->existing);
     snprintf(s->lines[1],sizeof(s->lines[1]),"Unavailable assets: %u   Unmatched games: %u",b->missing,b->unknown);
     s->line_count=2;
-    if(b->folders_skipped) {
-        snprintf(s->lines[2],sizeof(s->lines[2]),"Folders below the scan depth: %u",b->folders_skipped);
+    if(b->pdfs || b->folders_skipped) {
+        snprintf(s->lines[2],sizeof(s->lines[2]),"PDF-only manuals: %u   Folders below scan depth: %u",b->pdfs,b->folders_skipped);
         s->line_count=3;
     }
+    if(b->adapter[0])
+        snprintf(s->lines[s->line_count++],KUI_APP_LINE_CAP,"Connection: %s",b->adapter);
 }
-static void transfer_progress(void *ctx,uint32_t received,uint32_t total) {
+static void transfer_progress(void *ctx,enum kui_media_phase phase,uint32_t done,uint32_t total) {
     struct batch *b=ctx;
-    b->out->done=received;b->out->total=total;
+    if(phase==KUI_MEDIA_CONVERTING)
+        snprintf(b->out->message,sizeof(b->out->message),"Preparing preview: %.100s",b->current->name);
+    else if(phase==KUI_MEDIA_MANUAL_PAGE)
+        snprintf(b->out->message,sizeof(b->out->message),"Manual page %u of %u: %.85s",(unsigned)done,(unsigned)total,b->current->name);
+    b->out->done=phase==KUI_MEDIA_RECEIVE?done:0;
+    b->out->total=phase==KUI_MEDIA_RECEIVE?total:0;
     if(b->progress)b->progress(b->out);
 }
 static bool fetch_game(struct batch *b,const struct kui_games_entry *entry) {
@@ -99,6 +52,7 @@ static bool fetch_game(struct batch *b,const struct kui_games_entry *entry) {
         return false;
     }
     b->games++;
+    b->current=entry;
     for(unsigned i=0;i<3;i++) {
         if(!(b->job->kinds & (1u<<i)))continue;
         if(stopped(b))return false;
@@ -106,10 +60,10 @@ static bool fetch_game(struct batch *b,const struct kui_games_entry *entry) {
         b->out->done=b->out->total=0;
         counts(b);
         if(b->progress)b->progress(b->out);
-        enum kui_media_result r=kui_media_fetch_progress(b->port,&b->session,b->job->ip,
-            KUI_MEDIA_DEFAULT_PORT,entry,kind[i],b->log,b->cancel,transfer_progress,b);
+        enum kui_media_result r=kui_media_fetch_internet(b->session,entry,kind[i],b->log,b->cancel,transfer_progress,b);
         switch(r) {
         case KUI_MEDIA_INSTALLED: b->installed++;break;
+        case KUI_MEDIA_ORIGINAL: b->installed++;b->pdfs++;break;
         case KUI_MEDIA_EXISTING: b->existing++;break;
         case KUI_MEDIA_MISSING: b->missing++;break;
         case KUI_MEDIA_UNIDENTIFIED: b->unknown++;return true;
@@ -118,7 +72,9 @@ static bool fetch_game(struct batch *b,const struct kui_games_entry *entry) {
             snprintf(b->out->message,sizeof(b->out->message),"Provider limit reached. Retry later to continue.");
             return false;
         default:
-            snprintf(b->out->message,sizeof(b->out->message),"%s failed for %.75s. Check diagnostics.",name[i],entry->name);
+            if(kui_internet_problem(b->session)[0])
+                snprintf(b->out->message,sizeof(b->out->message),"%.127s",kui_internet_problem(b->session));
+            else snprintf(b->out->message,sizeof(b->out->message),"%s failed for %.75s. Check diagnostics.",name[i],entry->name);
             return false;
         }
     }
@@ -170,20 +126,24 @@ static bool walk(struct batch *b,const char *root,const char *group,unsigned dep
 void kui_games_media_run(const struct kui_games_media_job *job,struct kui_app_status *out,
         kui_log_fn log,kui_cancel_fn cancel,kui_app_progress_fn progress) {
     memset(out,0,sizeof(*out));
-    struct batch b={.job=job,.out=out,.log=log,.cancel=cancel,.progress=progress,.port=kui_bba_console_port()};
+    struct batch b={.job=job,.out=out,.log=log,.cancel=cancel,.progress=progress};
     bool ok=false;
-    if(!job || !usable(job->ip) || !job->kinds || (job->kinds & ~7u) || (!job->all &&
+    if(!job || !job->kinds || (unsigned)job->route>=KUI_INTERNET_ROUTE_COUNT || (job->kinds & ~7u) || (!job->all &&
        (!job->selected.path[0] || job->selected.directory || job->selected.disabled))) {
-        snprintf(out->message,sizeof(out->message),"Select a game, media type and companion address.");
-    } else {
-        snprintf(out->message,sizeof(out->message),"Connecting the Dreamcast Broadband Adapter...");
+        snprintf(out->message,sizeof(out->message),"Select a game and choose a media type.");
+    } else if(!stopped(&b) && kui_games_storage_open(log)!=KUI_GAMES_STORAGE_OK) {
+        snprintf(out->message,sizeof(out->message),"Cannot open the SD card to store game media.");
+    } else if(!stopped(&b)) {
+        snprintf(out->message,sizeof(out->message),"%s",job->route==KUI_INTERNET_DREAMPI?
+            "Connecting through the DreamPi modem...":"Connecting to the internet...");
         if(progress)progress(out);
-        int online=b.port?b.port->open(&b.session,log,cancel):0;
-        if(online==1) {
+        char problem[128]={0};
+        b.session=kui_internet_open(job->route,log,cancel,problem);
+        if(b.session) {
+            snprintf(b.adapter,sizeof(b.adapter),"%s",kui_internet_adapter(b.session));
             ok=job->all?walk(&b,KUI_GAMES_SCAN_ROOT,"",0,NULL):fetch_game(&b,&job->selected);
-            b.port->end(&b.session);
-        } else snprintf(out->message,sizeof(out->message),"%.110s",b.session.problem[0]?b.session.problem:
-            "Broadband Adapter unavailable. Check the adapter and cable.");
+            kui_internet_close(b.session);
+        } else snprintf(out->message,sizeof(out->message),"%.127s",problem[0]?problem:"Could not connect to the internet.");
     }
     if(!kui_games_storage_release()) {
         ok=false;snprintf(out->message,sizeof(out->message),"Could not release SD storage. Check diagnostics.");

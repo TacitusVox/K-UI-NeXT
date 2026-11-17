@@ -277,8 +277,7 @@ static void footer(struct paint *p, const struct kui_shell *s,
         s->page==KUI_SHELL_SCI_ASYNC_PROBE ? "A Quick   X 60s stress   Y With screen   R Speed   B Back" :
         s->page==KUI_SHELL_STORAGE_TEST_HISTORY ? "A View   Y Baseline   X Refresh   B Back" :
         s->page==KUI_SHELL_WIFI ? (s->wifi.found?"A Join   X Scan   Y Forget   START Update   B Network":"X Look again   B Network") :
-        s->page==KUI_SHELL_GAMES_MEDIA ? (v->busy?"B Stop":s->games_media_editing?
-            "A Save   B Cancel":s->games_media_report?"A or B Back":"D-pad Select   A Choose   B Options") :
+        s->page==KUI_SHELL_GAMES_MEDIA ? (v->busy?"B Stop":s->games_media_report?"A or B Back":"D-pad Select   A Choose   B Options") :
         s->page==KUI_SHELL_GAMES_ADVANCED ? (s->games_advanced_selected==6u?
             "LEFT/RIGHT Layout   A Next and open   B Games":"D-pad Select   A Open   B Games") :
         s->page==KUI_SHELL_GAMES_PROBE_CONFIRM ? "A Start test   B Tests" :
@@ -2747,7 +2746,7 @@ static void games_advanced(struct paint *p,const struct kui_shell *s) {
     const struct kui_games_entry *entry=s->games_selected<s->games_listing.count?&s->games_listing.entries[s->games_selected]:NULL;
     words(p,40,138,608,CYAN,entry?entry_text(entry):"Source: SD card",false);
     const char *names[]={"Game library","Browse SD folders","Scan box art","Developer tests",
-        "Scan for changes","Rebuild library","Change layout","Search and filters","Edit display choices","Verify stable identity","Download game media"};
+        "Scan for changes","Rebuild library","Change layout","Search and filters","Edit display choices","Verify stable identity","Scan from internet"};
     const char *details[]={"Open every game in /Games","Find a disc image elsewhere on the card",
         "Covers and titles for every game in /Games","Image and loader read tests",
         "Find added, moved or removed games","Build a fresh saved list; keep game settings",
@@ -2755,7 +2754,7 @@ static void games_advanced(struct paint *p,const struct kui_shell *s) {
         "Search titles, filter region/disc, or jump to a letter",
         "Set a display name and cover without renaming files",
         "Read the complete image to verify its content identity",
-        "Download missing artwork, manuals and previews over the BBA"};
+        "Find missing artwork, manuals and previews online"};
     unsigned first=s->games_advanced_selected>=7u?s->games_advanced_selected-6u:0u;
     for(unsigned i=first;i<first+7u && i<11u;i++) {
         unsigned y=164+(i-first)*31;
@@ -2769,62 +2768,57 @@ static void games_advanced(struct paint *p,const struct kui_shell *s) {
     words(p,40,396,608,MUTED,notice,false);
 }
 static void games_media(struct paint *p,const struct kui_shell *s,const struct kui_shell_view *v) {
-    title(p,40,108,"Games / Download game media");
+    title(p,40,108,"Games / Scan from internet");
     const struct kui_app_status *st=v->app_status;
     if(s->games_media_report) {
         panel(p,32,152,576,236,PANEL);
-        label(p,48,170,WHITE,v->busy?"Downloading missing media":"Download results");
+        label(p,48,170,WHITE,v->busy?"Scanning from internet":"Scan results");
         if(st) {
             words(p,48,210,592,st->errors?AMBER:CYAN,st->message,false);
-            if(v->busy && st->total) {
+            if(v->busy && (st->done || st->total)) {
                 char bytes[64];
-                unsigned width=st->done>=st->total?544u:(unsigned)(544u*st->done/st->total);
-                box(p,48,242,544,8,EDGE);
-                if(width)box(p,48,242,width,8,CYAN);
-                snprintf(bytes,sizeof(bytes),"%llu / %llu KiB",(unsigned long long)(st->done/1024u),
-                    (unsigned long long)((st->total+1023u)/1024u));
+                if(st->total) {
+                    unsigned width=st->done>=st->total?544u:(unsigned)(544u*st->done/st->total);
+                    box(p,48,242,544,8,EDGE);
+                    if(width)box(p,48,242,width,8,CYAN);
+                    snprintf(bytes,sizeof(bytes),"%llu / %llu KiB",(unsigned long long)(st->done/1024u),
+                        (unsigned long long)((st->total+1023u)/1024u));
+                } else snprintf(bytes,sizeof(bytes),"%llu KiB received",(unsigned long long)(st->done/1024u));
                 label(p,48,262,CYAN,bytes);
             }
-            for(unsigned i=0;i<st->line_count && i<3;i++)
+            for(unsigned i=0;i<st->line_count && i<4;i++)
                 words(p,48,296+24*i,592,MUTED,st->lines[i],false);
         }
         return;
     }
-    if(s->games_media_editing) {
-        label(p,40,156,MUTED,"IPv4 address of the PC or NAS running the media companion");
-        for(unsigned i=0;i<4;i++) {
-            char octet[5];
-            snprintf(octet,sizeof(octet),"%u",s->games_media_draft[i]);
-            unsigned x=60u+110u*i;
-            panel(p,x,202,88,40,s->games_media_octet==i?SELECTED:PANEL);
-            label(p,x+22,213,WHITE,octet);
-            if(i<3)label(p,x+95,213,MUTED,".");
-        }
-        label(p,40,272,MUTED,"LEFT/RIGHT select a number. UP/DOWN change it by 1.");
-        label(p,40,300,MUTED,"L/R change it by 10. The companion uses TCP port 8732.");
-        words(p,40,350,602,AMBER,s->games_media_notice,false);
-        return;
-    }
     const struct kui_games_entry *e=s->games_selected<s->games_listing.count?&s->games_listing.entries[s->games_selected]:NULL;
     words(p,40,137,606,CYAN,e && !e->directory && !e->disabled?entry_text(e):"No game selected",false);
-    const char *labels[]={"Companion IPv4","Download for","Artwork","Manuals","Previews",
-        "Download missing media","Open selected game's manual","Play selected game's preview"};
+    const char *labels[]={"Start scan","Scan for","Box art","Manuals","Previews","Connection",
+        "Open selected game's manual","Play selected game's preview"};
     for(unsigned i=0;i<8;i++) {
         unsigned y=164+i*26;
         panel(p,32,y,576,24,s->games_media_row==i?SELECTED:PANEL);
         label(p,46,y+3,WHITE,labels[i]);
-        char ip[32];
         const char *value="";
-        if(i==0 && s->games_media_ip[0]) {
-            snprintf(ip,sizeof(ip),"%u.%u.%u.%u",s->games_media_ip[0],s->games_media_ip[1],s->games_media_ip[2],s->games_media_ip[3]);
-            value=ip;
-        } else if(i==0)value="Set address";
-        else if(i==1)value=s->games_media_all?"All of /Games":"Selected game";
-        else if(i<=4)value=(s->games_media_kinds&(1u<<(i-2u)))?"On":"Off";
+        if(i==1)value=s->games_media_all?"All of /Games":"Selected game";
+        else if(i>=2 && i<=4)value=(s->games_media_kinds&(1u<<(i-2u)))?"On":"Off";
+        else if(i==5) {
+            static const char *const routes[KUI_INTERNET_ROUTE_COUNT]={
+                [KUI_INTERNET_AUTO]="Automatic",[KUI_INTERNET_BBA]="Broadband Adapter",
+                [KUI_INTERNET_W5500]="W5500",[KUI_INTERNET_WIFI]="Wi-Fi",
+                [KUI_INTERNET_DREAMPI]="Dial DreamPi"
+            };
+            value=routes[(unsigned)s->games_media_route<KUI_INTERNET_ROUTE_COUNT?s->games_media_route:KUI_INTERNET_AUTO];
+        }
         label(p,400,y+3,CYAN,value);
     }
+    const char *hint="Downloads missing files to the SD card.";
+    if(s->games_media_route==KUI_INTERNET_DREAMPI)hint="Start scan dials the modem. Connect it to your DreamPi.";
+    if(s->games_media_row==2)hint="Find matching covers in Libretro's Dreamcast collection.";
+    if(s->games_media_row==3)hint="Find scanned pages on Internet Archive or a PDF from Digital Press.";
+    if(s->games_media_row==4)hint="Save up to ten seconds of gameplay from an Internet Archive video.";
     words(p,40,383,603,s->games_media_notice[0]?AMBER:MUTED,
-        s->games_media_notice[0]?s->games_media_notice:"Run the K-UI media companion on your PC or NAS.",false);
+        s->games_media_notice[0]?s->games_media_notice:hint,false);
 }
 static void games_probe_confirmation(struct paint *p,const struct kui_shell_view *v) {
     title(p,40,108,"Games / Loader read test");

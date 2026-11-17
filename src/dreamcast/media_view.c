@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: GPL-3.0-only */
 #include "kui/media_view.h"
 #include "kui/media_container.h"
+#include "kui/games.h"
 #include "kui/cover_image.h"
 #include "kui/shell_font.h"
 #include "platform.h"
@@ -208,7 +209,25 @@ bool kui_media_view(const char *path, bool manual, kui_log_fn log, char *message
         else {
             FIL file;
             FRESULT r = f_open(&file, path, FA_READ);
-            if(r==FR_NO_FILE || r==FR_NO_PATH) problem = manual ? "Download this manual first" : "Download this preview first";
+            if(r==FR_NO_FILE || r==FR_NO_PATH) {
+                problem = manual ? "Download this manual first" : "Download this preview first";
+                if(manual) {
+                    /* A provider may only offer an original PDF. Keep its status
+                     * distinct from a missing or damaged page-format manual. */
+                    size_t n = strlen(path);
+                    char original[KUI_GAMES_FILE_CAP];
+                    if(n > 4 && n < sizeof(original) && !strcmp(path+n-4,".kdm")) {
+                        memcpy(original,path,n-4);
+                        memcpy(original+n-4,".pdf",5);
+                        FILINFO info;
+                        r = f_stat(original,&info);
+                        if(r == FR_OK && !(info.fattrib & AM_DIR)) {
+                            problem = "Original PDF saved in KUI/media. Page images unavailable.";
+                            log("Game media: saved original %s",original);
+                        } else if(r != FR_NO_FILE && r != FR_NO_PATH) problem = "Cannot check saved manual";
+                    }
+                }
+            }
             else if(r!=FR_OK) problem = "Cannot open game media file";
             else {
                 struct kui_media_index index;

@@ -109,11 +109,17 @@ def fetch_fatfs():
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--fatfs-only", action="store_true")
+    scope = parser.add_mutually_exclusive_group()
+    scope.add_argument("--fatfs-only", action="store_true")
+    scope.add_argument("--bearssl-only", action="store_true")
     args = parser.parse_args()
     DEPS.mkdir(exist_ok=True)
+    if args.bearssl_only:
+        fetch_git("bearssl")
+        return
     fetch_fatfs()
     if not args.fatfs_only:
+        fetch_git("bearssl")
         fetch_git("kos")
         fetch_git("mkdcdisc")
 

@@ -1475,20 +1475,44 @@ test-v3-medium: build/test-shell build/test-shell-font build/test-ui-rate build/
 	python3 tests/test_vmu_history.py
 	python3 tests/test_problem_report_images.py
 	python3 tests/test_games_scan_log_images.py
-# The actual Games worker, socket adapter, local media companion and card formats.
-MEDIA_DOWNLOAD = src/apps/media_download.c src/apps/media_container.c src/core/bba_sockets.c
-MEDIA_LIBRARY = $(GAMES_COVERS) $(GAMES_ACTIVITY) $(GAMES_LIBRARY_EXTRA) src/apps/games_library.c src/core/games_group.c
-MEDIA_HOST = $(MEDIA_DOWNLOAD) $(MEDIA_LIBRARY) src/apps/games_media.c src/apps/network_probe.c $(CORE) $(FATFS)
-build/bba-media-integration: tests/bba_media_integration.c $(MEDIA_HOST) include/kui/media_download.h include/kui/media_container.h include/kui/games_media.h
+build/test-preview-prefix: tests/test_preview_prefix.c src/apps/preview_prefix.c include/kui/preview_prefix.h
 	@mkdir -p $(@D)
-	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) -Isrc/dreamcast $(MEDIA_HOST) $< -lm -o $@
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) $(filter %.c,$^) -o $@
 
-build/test-games-media-batch: tests/test_games_media_batch.c src/apps/games_media.c include/kui/games_media.h include/kui/media_download.h
+build/test-internet-adapters: src/dreamcast/internet.c src/core/internet_dns.c tests/test_internet_adapters.c src/core/internet_internal.h include/kui/internet.h
+	@mkdir -p $(@D)
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) -Itests/apps_stubs -Isrc/dreamcast $(filter %.c,$^) -o $@
+
+build/test-internet-cover: tests/test_internet_cover.c src/apps/internet_cover.c src/apps/internet_cover_catalog.inc include/kui/internet_cover.h
+	@mkdir -p $(@D)
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) $(filter %.c,$^) -o $@
+
+build/test-internet-dns: tests/test_internet_dns.c src/core/internet_dns.c src/core/internet_internal.h
+	@mkdir -p $(@D)
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) $(filter %.c,$^) -o $@
+
+build/test-dreampi: tests/test_dreampi.c src/dreamcast/dreampi.c include/kui/dreampi.h $(wildcard tests/dreampi_stubs/*/*.h tests/dreampi_stubs/*/*/*.h)
+	@mkdir -p $(@D)
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) -Itests/dreampi_stubs -Itests/apps_stubs $(filter %.c,$^) -o $@
+
+# Run the console downloader, provider catalogue, Theora decoder and FatFs
+# against a synthetic origin. The transport has separate protocol tests.
+include config/media-xiph.mk
+MEDIA_DOWNLOAD = src/apps/media_download.c src/apps/media_container.c src/apps/preview_prefix.c src/apps/internet_cover.c src/apps/internet_extra.c src/apps/internet_preview.c
+MEDIA_HEADERS = include/kui/preview_prefix.h include/kui/internet.h include/kui/internet_cover.h include/kui/internet_extra.h include/kui/internet_preview.h include/kui/media_download.h include/kui/media_container.h include/kui/games_media.h
+MEDIA_CATALOGS = src/apps/internet_cover_catalog.inc src/apps/internet_extra_data.inc
+MEDIA_LIBRARY = $(GAMES_COVERS) $(GAMES_ACTIVITY) $(GAMES_LIBRARY_EXTRA) src/apps/games_library.c src/core/games_group.c
+MEDIA_HOST = $(MEDIA_DOWNLOAD) $(MEDIA_LIBRARY) src/apps/games_media.c $(CORE) $(FATFS)
+build/bba-media-integration: tests/bba_media_integration.c $(MEDIA_HOST) $(MEDIA_HEADERS) $(MEDIA_CATALOGS) $(XIPH_HOST_OBJS)
+	@mkdir -p $(@D)
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) $(XIPH_FLAGS) -Isrc/dreamcast $(MEDIA_HOST) $< $(XIPH_HOST_OBJS) -lm -o $@
+
+build/test-games-media-batch: tests/test_games_media_batch.c src/apps/games_media.c include/kui/games_media.h include/kui/media_download.h include/kui/internet.h
 	@mkdir -p $(@D)
 	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) -ffunction-sections -fdata-sections $< src/apps/games_media.c -Wl,--gc-sections -o $@
 
-MEDIA_CLIENT_TEST = src/apps/media_download.c src/apps/media_container.c src/apps/cover_image.c src/core/hash.c src/core/destination.c src/core/game_cover.c src/core/game_launch_settings.c
-build/test-media-download: tests/test_media_download.c $(MEDIA_CLIENT_TEST) include/kui/media_download.h include/kui/media_container.h
+MEDIA_CLIENT_TEST = src/apps/media_download.c src/apps/media_container.c src/apps/preview_prefix.c src/apps/cover_image.c src/core/hash.c src/core/destination.c src/core/game_cover.c src/core/game_launch_settings.c
+build/test-media-download: tests/test_media_download.c $(MEDIA_CLIENT_TEST) $(MEDIA_HEADERS)
 	@mkdir -p $(@D)
 	$(CC) $(HOST_FLAGS) $(SANITIZERS) -ffunction-sections -fdata-sections $(INCLUDES) $(MEDIA_CLIENT_TEST) $< -Wl,--gc-sections -lm -o $@
 
@@ -1503,7 +1527,14 @@ build/test-media-container: tests/test_media_container.c src/apps/media_containe
 
 .PHONY: test-bba-media
 test-bba-media: export ASAN_OPTIONS=detect_leaks=0
-test-bba-media: build/bba-media-integration build/games-covers-image build/test-media-container build/test-bba-session build/test-games-media-batch build/test-media-download
+test-bba-media: test-internet-preview test-internet-extra build/test-preview-prefix build/test-internet-adapters build/test-internet-cover build/test-internet-dns build/test-dreampi build/bba-media-integration build/games-covers-image build/test-media-container build/test-bba-session build/test-games-media-batch build/test-media-download
+	./build/test-preview-prefix
+	./build/test-internet-adapters
+	./build/test-internet-cover
+	./build/test-internet-dns
+	./build/test-dreampi
+	python3 tests/test_media_tls.py
+	python3 tests/test_internet_http.py
 	./build/test-media-download
 	python3 tests/test_kos_bba_driver.py
 	./build/test-games-media-batch

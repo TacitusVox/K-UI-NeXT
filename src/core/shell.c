@@ -2309,49 +2309,24 @@ static enum kui_shell_action games_media_input(struct kui_shell *s,unsigned butt
         if(buttons & KUI_SHELL_A)s->games_media_report=false;
         return KUI_SHELL_NONE;
     }
-    if(s->games_media_editing) {
-        unsigned *pos=&s->games_media_octet;
-        uint8_t *part=&s->games_media_draft[*pos];
-        if(buttons==KUI_SHELL_LEFT)*pos=(*pos+3u)%4u;
-        if(buttons==KUI_SHELL_RIGHT)*pos=(*pos+1u)%4u;
-        if(buttons==KUI_SHELL_UP || buttons==KUI_SHELL_R)
-            *part=(uint8_t)(*part+(buttons==KUI_SHELL_R?10u:1u));
-        if(buttons==KUI_SHELL_DOWN || buttons==KUI_SHELL_L)
-            *part=(uint8_t)(*part-(buttons==KUI_SHELL_L?10u:1u));
-        if(buttons==KUI_SHELL_A) {
-            const uint8_t first=s->games_media_draft[0];
-            if(!first || first==127 || first>=224) {
-                snprintf(s->games_media_notice,sizeof(s->games_media_notice),"Use the companion computer's LAN address.");
-                return KUI_SHELL_NONE;
-            }
-            memcpy(s->games_media_ip,s->games_media_draft,4);
-            s->games_media_editing=false;
-            return KUI_SHELL_MEDIA_ADDRESS_SAVE;
-        }
-        return KUI_SHELL_NONE;
-    }
     s->games_media_row=move_count(s->games_media_row,buttons,8);
     if(!(buttons & (KUI_SHELL_A|KUI_SHELL_LEFT|KUI_SHELL_RIGHT)))return KUI_SHELL_NONE;
     unsigned row=s->games_media_row;
     s->games_media_notice[0]=0;
-    if(row==0 && buttons==KUI_SHELL_A) {
-        const uint8_t initial[]={192,168,1,10};
-        memcpy(s->games_media_draft,s->games_media_ip[0]?s->games_media_ip:initial,4);
-        s->games_media_octet=0;s->games_media_editing=true;
-    }
     if(row==1)s->games_media_all=!s->games_media_all;
     if(row>=2 && row<=4)s->games_media_kinds^=1u<<(row-2u);
-    if(row>=5 && buttons==KUI_SHELL_A) {
+    if(row==5) {
+        unsigned step=buttons==KUI_SHELL_LEFT?KUI_INTERNET_ROUTE_COUNT-1u:1u;
+        s->games_media_route=(enum kui_internet_route)((s->games_media_route+step)%KUI_INTERNET_ROUTE_COUNT);
+    }
+    if((row==0 || row>=6) && buttons==KUI_SHELL_A) {
         const struct kui_games_entry *entry=s->games_selected<s->games_listing.count?
             &s->games_listing.entries[s->games_selected]:NULL;
-        if((row>5 || !s->games_media_all) && (!entry || entry->directory || entry->disabled)) {
+        if((row>=6 || !s->games_media_all) && (!entry || !entry->path[0] || entry->directory || entry->disabled)) {
             snprintf(s->games_media_notice,sizeof(s->games_media_notice),"Highlight a game in the Games list first.");
         } else if(row==6)return KUI_SHELL_MEDIA_OPEN_MANUAL;
         else if(row==7)return KUI_SHELL_MEDIA_PLAY_PREVIEW;
-        else if(!s->games_media_ip[0]) {
-            s->games_media_row=0;
-            snprintf(s->games_media_notice,sizeof(s->games_media_notice),"Set the companion computer's LAN address first.");
-        } else if(!s->games_media_kinds) {
+        else if(!s->games_media_kinds) {
             s->games_media_row=2;
             snprintf(s->games_media_notice,sizeof(s->games_media_notice),"Choose artwork, manuals or previews.");
         } else {
@@ -2663,8 +2638,7 @@ enum kui_shell_action kui_shell_input(struct kui_shell *s,
             return KUI_SHELL_NONE;
         }
         if(s->page==KUI_SHELL_GAMES_MEDIA) {
-            if(s->games_media_editing)s->games_media_editing=false;
-            else if(s->games_media_report)s->games_media_report=false;
+            if(s->games_media_report)s->games_media_report=false;
             else s->page=KUI_SHELL_GAMES_ADVANCED;
             s->games_media_notice[0]=0;
             return KUI_SHELL_NONE;
@@ -3321,9 +3295,9 @@ enum kui_shell_action kui_shell_input(struct kui_shell *s,
         if(buttons&KUI_SHELL_A) {
             if(s->games_advanced_selected==10u) {
                 s->page=KUI_SHELL_GAMES_MEDIA;
-                s->games_media_notice[0]=0;s->games_media_editing=s->games_media_report=false;
-                s->games_media_row=s->games_media_ip[0]?5u:0u;
-                return s->games_media_ip[0]?KUI_SHELL_NONE:KUI_SHELL_MEDIA_ADDRESS_LOAD;
+                s->games_media_notice[0]=0;s->games_media_report=false;
+                s->games_media_row=0;
+                return KUI_SHELL_NONE;
             }
             if(s->games_advanced_selected==7u) {s->games_query_draft=s->games_query;s->page=KUI_SHELL_GAMES_QUERY;s->games_query_selected=0;return KUI_SHELL_NONE;}
             if(s->games_advanced_selected>=8u) {

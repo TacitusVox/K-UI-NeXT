@@ -3169,23 +3169,37 @@ static void games_media_controls(void) {
     games_page(2,false,KUI_GAMES_VIEW_LIST);
     assert(press(KUI_SHELL_START,false)==KUI_SHELL_NONE);
     s.games_advanced_selected=10;
-    assert(press(KUI_SHELL_A,false)==KUI_SHELL_MEDIA_ADDRESS_LOAD);
+    assert(press(KUI_SHELL_A,false)==KUI_SHELL_NONE);
     assert(s.page==KUI_SHELL_GAMES_MEDIA && s.games_media_kinds==KUI_GAMES_MEDIA_ART);
+    assert(s.games_media_route==KUI_INTERNET_AUTO && !s.games_media_row && !s.games_media_all);
+    struct kui_shell_view view={0};
+    render(&view);
+    assert(strstr(drawn,"Scan from internet") && strstr(drawn,"Start scan") && strstr(drawn,"Automatic"));
+    /* A selected-game cover scan starts immediately with default settings. */
+    assert(press(KUI_SHELL_A,false)==KUI_SHELL_MEDIA_DOWNLOAD);
+    assert(press(KUI_SHELL_A,false)==KUI_SHELL_NONE && !s.games_media_report);
     s.games_media_row=5;
-    assert(press(KUI_SHELL_A,false)==KUI_SHELL_NONE && !s.games_media_row);
-    assert(press(KUI_SHELL_A,false)==KUI_SHELL_NONE && s.games_media_editing);
-    assert(press(KUI_SHELL_RIGHT,false)==KUI_SHELL_NONE && s.games_media_octet==1);
-    assert(press(KUI_SHELL_L,false)==KUI_SHELL_NONE && s.games_media_draft[1]==158);
-    assert(press(KUI_SHELL_B,false)==KUI_SHELL_NONE && !s.games_media_editing && !s.games_media_ip[0]);
-    press(KUI_SHELL_A,false);assert(press(KUI_SHELL_A,false)==KUI_SHELL_MEDIA_ADDRESS_SAVE);
-    assert(s.games_media_ip[0]==192 && s.games_media_ip[1]==168);
+    press(KUI_SHELL_LEFT,false);assert(s.games_media_route==KUI_INTERNET_DREAMPI);
+    press(KUI_SHELL_RIGHT,false);assert(s.games_media_route==KUI_INTERNET_AUTO);
+    press(KUI_SHELL_A,false);assert(s.games_media_route==KUI_INTERNET_BBA);
+    press(KUI_SHELL_A,false);assert(s.games_media_route==KUI_INTERNET_W5500);
+    press(KUI_SHELL_A,false);assert(s.games_media_route==KUI_INTERNET_WIFI);
+    press(KUI_SHELL_A,false);assert(s.games_media_route==KUI_INTERNET_DREAMPI);
     s.games_media_row=2;press(KUI_SHELL_A,false);assert(!s.games_media_kinds);
-    s.games_media_row=5;assert(press(KUI_SHELL_A,false)==KUI_SHELL_NONE && s.games_media_row==2);
+    s.games_media_row=0;assert(press(KUI_SHELL_A,false)==KUI_SHELL_NONE && s.games_media_row==2);
     s.games_media_row=3;press(KUI_SHELL_A,false);
     s.games_media_row=4;press(KUI_SHELL_A,false);
     assert(s.games_media_kinds==(KUI_GAMES_MEDIA_MANUAL|KUI_GAMES_MEDIA_PREVIEW));
     s.games_media_row=1;press(KUI_SHELL_A,false);assert(s.games_media_all);
-    s.games_media_row=5;assert(press(KUI_SHELL_A,false)==KUI_SHELL_MEDIA_DOWNLOAD);
+    s.games_media_row=0;
+    render(&view);assert(strstr(drawn,"Dial DreamPi") && strstr(drawn,"Start scan dials"));
+    assert(press(KUI_SHELL_A,false)==KUI_SHELL_MEDIA_DOWNLOAD);
+    view.busy=true;
+    struct kui_app_status transfer={.done=3072};
+    view.app_status=&transfer;
+    render(&view);assert(strstr(drawn,"3 KiB received"));
+    transfer.total=8192;
+    render(&view);assert(strstr(drawn,"3 / 8 KiB"));
     assert(s.games_media_report && s.games_rows_stale);
     assert(press(KUI_SHELL_B,true)==KUI_SHELL_STOP && s.games_media_report);
     assert(press(KUI_SHELL_B,false)==KUI_SHELL_NONE && !s.games_media_report);
@@ -3195,7 +3209,7 @@ static void games_media_controls(void) {
     assert(press(KUI_SHELL_A,false)==KUI_SHELL_NONE && s.games_media_notice[0]);
     assert(press(KUI_SHELL_B,false)==KUI_SHELL_NONE && s.page==KUI_SHELL_GAMES_ADVANCED);
     assert(press(KUI_SHELL_A,false)==KUI_SHELL_NONE && s.page==KUI_SHELL_GAMES_MEDIA);
-    assert(s.games_media_ip[0]==192);
+    assert(s.games_media_row==0 && s.games_media_all && s.games_media_route==KUI_INTERNET_DREAMPI);
 }
 static void games_disc_group_controls(void) {
     static const char key[]="0123456789abcdef0123456789abcdef";
