@@ -3,6 +3,7 @@
 #define KUI_UI_RATE_H
 #include "kui/options.h"
 #include <stdbool.h>
+#include <stddef.h>
 #include <stdint.h>
 
 /* Should the UI thread redraw on this loop iteration? Pure, so the PC can test
@@ -77,5 +78,47 @@ static inline bool kui_ui_games_redraw_due(bool games, bool busy, bool was_busy,
 }
 static inline unsigned kui_ui_poll_delay(bool games, bool busy) {
     return games && !busy ? 8u : 33u;
+}
+/* Idle menus check for changes at the cadence above, but only repaint when
+ * the state the renderer reads has changed. The fingerprint is a cheap
+ * position-sensitive checksum (not cryptographic): a pair of running sums
+ * over aligned 32-bit words, then over any trailing bytes. A missed change
+ * is still painted by the periodic refresh below. */
+#define KUI_UI_IDLE_REFRESH_MS 1000u
+struct kui_ui_fingerprint { uint32_t a,b; };
+static inline void kui_ui_fingerprint_init(struct kui_ui_fingerprint *f) {
+    f->a=UINT32_C(0x9e3779b9);f->b=UINT32_C(0x85ebca6b);
+}
+static inline void kui_ui_fingerprint_words(struct kui_ui_fingerprint *f,const uint32_t *words,size_t count) {
+    uint32_t a=f->a,b=f->b;
+    for(size_t i=0;i<count;i++) {a+=words[i];b+=a;}
+    f->a=a;f->b=b;
+}
+static inline void kui_ui_fingerprint_bytes(struct kui_ui_fingerprint *f,const void *data,size_t bytes) {
+    const unsigned char *p=(const unsigned char *)data;
+    uint32_t a=f->a,b=f->b;
+    for(size_t i=0;i<bytes;i++) {a+=p[i]+1u;b+=a;}
+    f->a=a;f->b=b+(uint32_t)bytes;
+}
+/* NULL and "" are distinct; the terminator separates adjacent strings. */
+static inline void kui_ui_fingerprint_text(struct kui_ui_fingerprint *f,const char *text) {
+    uint32_t a=f->a,b=f->b;
+    if(!text) {a+=UINT32_C(0x51ed27);b+=a;}
+    else {
+        for(const unsigned char *p=(const unsigned char *)text;*p;p++) {a+=*p+1u;b+=a;}
+        a+=UINT32_C(0x2f);b+=a;
+    }
+    f->a=a;f->b=b;
+}
+static inline uint32_t kui_ui_fingerprint_value(const struct kui_ui_fingerprint *f) {
+    return f->a^(f->b*UINT32_C(2654435761));
+}
+/* Skip a repaint only when a complete cached frame shows the same state and
+ * the periodic refresh is not yet due. Input, published results, busy edges
+ * and motion force a repaint through `force`. */
+static inline bool kui_ui_frame_unchanged(bool force,bool frame_ready,bool have_previous,
+        uint32_t previous,uint32_t current,uint64_t now_ms,uint64_t drawn_ms) {
+    return !force && frame_ready && have_previous && previous==current &&
+        now_ms>=drawn_ms && now_ms-drawn_ms<KUI_UI_IDLE_REFRESH_MS;
 }
 #endif

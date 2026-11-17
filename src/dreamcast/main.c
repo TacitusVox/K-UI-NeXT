@@ -4511,6 +4511,33 @@ static void *worker(void *unused) {
     return NULL;
 }
 
+/* vid_waitvbl() busy-waits on the PVR status register for up to a whole
+ * frame, taking that CPU from the I/O worker on this one-CPU machine. The
+ * vertical-blank interrupt wakes the drawing thread instead; if no handler
+ * could be registered, or no interrupt arrives in time, the original wait
+ * is used. Only the drawing thread waits here. */
+static volatile unsigned vblank_seen;
+static int vblank_handle=-1;
+static void vblank_wake(uint32_t code,void *data) {
+    (void)code;(void)data;
+    ++vblank_seen;genwait_wake_all((const void *)&vblank_seen);
+}
+static void vblank_wait_start(void) {
+    if(vblank_handle<0) vblank_handle=vblank_handler_add(vblank_wake,NULL);
+}
+static void wait_vblank(void) {
+    if(vblank_handle<0) {vid_waitvbl();return;}
+    irq_mask_t irq=irq_disable();
+    unsigned start=vblank_seen;
+    bool woken=true;
+    /* Interrupts stay masked from the check until this thread sleeps, so a
+     * vertical blank cannot slip between them. genwait restores them while
+     * blocked. 34 ms covers one 50 Hz frame plus scheduling slack. */
+    while(vblank_seen==start && woken) woken=genwait_wait((void *)&vblank_seen,"kui-vblank",34)==0;
+    irq_restore(irq);
+    if(!woken) vid_waitvbl();
+}
+
 #ifndef KUI_SD_RUNTIME
 static void draw_boot(void) {
     /* Keep the displayed frame until something visible changes. In particular,
@@ -4565,18 +4592,64 @@ static void draw_boot(void) {
 #endif
 
 #ifdef KUI_SD_RUNTIME
-static void draw_shell(void) {
+/* Idle frames repaint only when what they show changes (see ui_rate.h). The
+ * fingerprint covers the reducer state, every value copied into the view and
+ * a sparse sample of the published pixel buffers, whose contents change
+ * together with the reducer state that selects them. */
+typedef uint32_t __attribute__((may_alias)) shell_word;
+static uint32_t shell_frame_fingerprint;
+static bool shell_frame_fingerprint_valid;
+static uint64_t shell_frame_drawn_at;
+static void fingerprint_pixels(struct kui_ui_fingerprint *f,const uint16_t *pixels,size_t count) {
+    if(!pixels) {kui_ui_fingerprint_text(f,NULL);return;}
+    for(size_t i=0;i<count;i+=97u) {uint32_t value=pixels[i];kui_ui_fingerprint_words(f,&value,1);}
+}
+static uint32_t shell_view_fingerprint(const struct kui_shell_view *v,const char *notice,unsigned inset) {
+    struct kui_ui_fingerprint f;kui_ui_fingerprint_init(&f);
+    kui_ui_fingerprint_words(&f,(const shell_word *)(const void *)&shell,sizeof(shell)/sizeof(shell_word));
+    kui_ui_fingerprint_bytes(&f,(const unsigned char *)&shell+sizeof(shell)/sizeof(shell_word)*sizeof(shell_word),
+        sizeof(shell)%sizeof(shell_word));
+    struct kui_shell_view scalars=*v;
+    scalars.build=scalars.job_dir=scalars.message=scalars.settings_notice=NULL;
+    scalars.disc_title=scalars.inserted_title=scalars.gdi_name=NULL;
+    scalars.music_title=scalars.music_notice=scalars.storage_test_target=NULL;
+    scalars.app_status=NULL;scalars.log_lines=NULL;scalars.game_covers=NULL;
+    scalars.game_selected_cover=scalars.game_detail_cover=scalars.files_picture=NULL;
+    scalars.ftp=NULL;scalars.storage_test_progress=NULL;
+    /* Elapsed-time fields advance every millisecond; only whole seconds can
+     * change what is drawn. */
+    scalars.phase_elapsed_ms/=1000u;scalars.progress_age_ms/=1000u;
+    kui_ui_fingerprint_bytes(&f,&scalars,sizeof(scalars));
+    const char *const texts[]={v->build,v->job_dir,v->message,v->settings_notice,v->disc_title,
+        v->inserted_title,v->gdi_name,v->music_title,v->music_notice,v->storage_test_target,notice};
+    for(unsigned i=0;i<sizeof(texts)/sizeof(texts[0]);i++) kui_ui_fingerprint_text(&f,texts[i]);
+    for(unsigned i=0;v->log_lines && i<v->log_count;i++) kui_ui_fingerprint_text(&f,v->log_lines[i]);
+    if(v->app_status) kui_ui_fingerprint_bytes(&f,v->app_status,sizeof(*v->app_status));
+    if(v->ftp) kui_ui_fingerprint_bytes(&f,v->ftp,sizeof(*v->ftp));
+    if(v->storage_test_progress) kui_ui_fingerprint_bytes(&f,v->storage_test_progress,sizeof(*v->storage_test_progress));
+    fingerprint_pixels(&f,v->game_selected_cover,KUI_COVER_PIXELS);
+    fingerprint_pixels(&f,v->game_detail_cover,KUI_COVER_PIXELS);
+    fingerprint_pixels(&f,v->files_picture,(size_t)KUI_FILES_PICTURE_EDGE*KUI_FILES_PICTURE_EDGE);
+    uint32_t inset_word=inset;kui_ui_fingerprint_words(&f,&inset_word,1);
+    return kui_ui_fingerprint_value(&f);
+}
+/* Returns whether a frame was painted. `force` repaints regardless: input,
+ * published results, busy edges and motion. Busy screens keep their existing
+ * redraw caps unchanged; only idle frames can be skipped. */
+static bool draw_shell(bool force) {
     mutex_lock(&lock);
-    if(!kui_sci_video_quiet_draw_begin(&sci_video_quiet)) {mutex_unlock(&lock);return;}
+    if(!kui_sci_video_quiet_draw_begin(&sci_video_quiet)) {mutex_unlock(&lock);return false;}
     bool startup=splash_active;
     bool working=busy || boot_ready || probe_launch_ready || update_restart_ready;
+    if(sci_video_quiet.requested && !sci_video_quiet.acknowledged) force=true;
     mutex_unlock(&lock);
     uint16_t *frame=shell_frame_prepare(working);
     if(startup) {
+        /* The original startup splash lifecycle is unchanged. */
         kui_splash_draw(frame?frame:vram_s);
         if(frame) {sq_cpy(vram_s,frame,640u*480u*sizeof(*frame));sq_wait();}
-        shell_frame_ready=frame!=NULL;
-        vid_waitvbl();vid_flip(-1);return;
+        shell_frame_ready=frame!=NULL;shell_frame_fingerprint_valid=false;
+        vid_waitvbl();vid_flip(-1);return true;
     }
     char visible[KUI_SHELL_LOG_ROWS][LINE_BYTES] = {{0}};
     const char *log_rows[KUI_SHELL_LOG_ROWS];
@@ -4686,11 +4759,23 @@ static void draw_shell(void) {
     mutex_unlock(&lock);
     view.memory_valid = memory_valid; view.memory_used = memory_status.used;
     view.memory_physical = memory_status.physical; view.memory_peak = memory_status.sampled_peak;
+    uint32_t fingerprint=0;
+    if(!working && frame) {
+        fingerprint=shell_view_fingerprint(&view,capture_notice,screen_inset);
+        if(kui_ui_frame_unchanged(force,shell_frame_ready,shell_frame_fingerprint_valid,
+           shell_frame_fingerprint,fingerprint,now,shell_frame_drawn_at)) {
+            /* The displayed buffer already shows this state; nothing is flipped. */
+            mutex_lock(&lock);kui_sci_video_quiet_draw_skipped(&sci_video_quiet);mutex_unlock(&lock);
+            return false;
+        }
+    }
     /* DM_MULTIBUFFER/vid_flip leave vram_s on the next offscreen buffer.
      * Complete the cached frame before its one sequential store-queue upload;
      * sq_wait drains the upload before the buffer can become visible. */
     if(frame) {
-        for(unsigned i=0;i<640u*480u;i++) frame[i]=UINT16_C(0x0864);
+        /* Two pixels per store; the canvas is 32-byte aligned. */
+        shell_word *words=(shell_word *)(void *)frame;
+        for(unsigned i=0;i<640u*480u/2u;i++) words[i]=UINT32_C(0x08640864);
     } else vid_clear(8,15,35); /* Busy handoff or allocation failure: old path. */
     kui_shell_draw_content(frame?frame:vram_s, &shell, &view, NULL, NULL);
     kui_viewport_inset(frame?frame:vram_s,640,480,screen_inset,0x0864);
@@ -4703,7 +4788,10 @@ static void draw_shell(void) {
             for(unsigned x=32u+screen_inset;x<608u-screen_inset;++x)vram_s[y*640u+x]=0x0864;
         kui_shell_font_draw(vram_s,40+(int)screen_inset,410,0xffff,capture_notice,false);
     }
-    vid_waitvbl(); vid_flip(-1);
+    shell_frame_fingerprint=fingerprint;shell_frame_fingerprint_valid=!working && frame;
+    shell_frame_drawn_at=now;
+    wait_vblank(); vid_flip(-1);
+    return true;
 }
 static unsigned shell_buttons(unsigned buttons) {
     unsigned mapped = 0;
@@ -5047,6 +5135,7 @@ int main(void) {
 #endif
     ui_thread = thd_get_current();
     vid_set_mode(DM_640x480 | DM_MULTIBUFFER, PM_RGB565);
+    vblank_wait_start();
     kui_log("Running " KUI_RELEASE_SHORT " " KUI_ROLE " build " KUI_BUILD_ID);
     kui_clock_start(kui_log);
     kui_log("Video: %ux%u %s %s, buffered",
@@ -5119,7 +5208,7 @@ int main(void) {
      * the bounded STOP; no worker or app can own the drive at this point. Do
      * not read the boot disc merely to populate the optional idle title. */
 #ifdef KUI_SD_RUNTIME
-    draw_shell();
+    (void)draw_shell(true);
 #else
     draw_boot();
 #endif
@@ -5140,7 +5229,7 @@ int main(void) {
     if(!io_worker) {
 #ifdef KUI_SD_RUNTIME
         kui_log("Unable to start I/O worker; reset console");
-        for(;;) {draw_shell();thd_sleep(100);}
+        for(;;) {(void)draw_shell(true);thd_sleep(100);}
 #else
         kui_log("Diagnostic worker unavailable; boot, recovery, tools and log viewing remain available.");
         snprintf(boot_notice,sizeof(boot_notice),"Diagnostics unavailable; boot and recovery still work.");
@@ -5993,6 +6082,9 @@ int main(void) {
         bool menu_drew=false;
         bool due = kui_ui_menu_flow_redraw_due(flow_motion,is_busy,was_busy,hz,
             pressed || games_ui_changed,t,last_draw);
+        /* An unchanged idle screen is checked at this cadence but repainted
+         * only for these events, a changed view or the 1 s refresh. */
+        bool force_draw = pressed || games_ui_changed || flow_motion || is_busy!=was_busy;
 #else
         bool due = kui_ui_redraw_due(is_busy,was_busy,hz,t,last_draw);
 #endif
@@ -6006,8 +6098,7 @@ int main(void) {
 #endif
         if(due) {
 #ifdef KUI_SD_RUNTIME
-            draw_shell();
-            menu_drew=true;
+            menu_drew=draw_shell(force_draw);
             if(quiet_pending) {
                 /* This is the sole drawing thread. Complete every store queue
                  * write from this and prior frames before releasing the worker.
