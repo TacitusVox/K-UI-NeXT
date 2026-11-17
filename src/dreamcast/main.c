@@ -4545,6 +4545,7 @@ static void *worker(void *unused) {
     return NULL;
 }
 
+#ifdef KUI_SD_RUNTIME
 /* vid_waitvbl() busy-waits on the PVR status register for up to a whole
  * frame, taking that CPU from the I/O worker on this one-CPU machine. The
  * vertical-blank interrupt wakes the drawing thread instead; if no handler
@@ -4573,6 +4574,7 @@ static void wait_vblank(void) {
     irq_restore(irq);
     if(!woken) vid_waitvbl();
 }
+#endif
 
 #ifndef KUI_SD_RUNTIME
 static void draw_boot(void) {
