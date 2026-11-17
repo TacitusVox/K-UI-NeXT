@@ -170,35 +170,35 @@ int main(void){
     }
     reset();cd_owned=true;assert(!games_flow_idle_work() && !reads);
     reset();needed=false;assert(!games_flow_idle_work() && !reads);
+    /* Catalogue rows already carry their titles: one bounded read per window
+     * and no title-record reads. */
     reset();idle_scheduler(true);
-    assert(reads==2u && title_reads==1u && games_flow_ready && !sets && !art_reads && !other_idle);
-    assert(games_flow_result_page==4u && games_flow_result_epoch==17u && !strcmp(games_flow_rows.entries[0].title,"read-2"));
+    assert(reads==1u && !title_reads && games_flow_ready && !sets && !art_reads && !other_idle);
+    assert(games_flow_result_page==4u && games_flow_result_epoch==17u && !strcmp(games_flow_rows.entries[0].title,"read-1"));
     struct kui_games_page frozen=games_flow_rows;
-    assert(!games_flow_idle_work() && reads==2u && !memcmp(&frozen,&games_flow_rows,sizeof(frozen)));
+    assert(!games_flow_idle_work() && reads==1u && !memcmp(&frozen,&games_flow_rows,sizeof(frozen)));
     /* Even a new viewport must wait for main to consume the existing buffer. */
-    ++shell.games_flow_epoch;assert(!games_flow_idle_work() && reads==2u);
+    ++shell.games_flow_epoch;assert(!games_flow_idle_work() && reads==1u);
     publish();assert(sets==1u && !games_flow_ready && !games_ui_changed);
     reset();assert(games_flow_idle_work());publish();
     assert(sets==1u && games_ui_changed && !games_flow_ready && !needed && !memcmp(&consumed,&games_flow_rows,sizeof(consumed)));
-    assert(!games_flow_idle_work() && reads==2u);
+    assert(!games_flow_idle_work() && reads==1u);
     for(unsigned change=PAGE;change<CHANGE_COUNT;change++){
         reset();change_on_read=(enum change)change;mutate_at=1u;
-        assert(games_flow_idle_work() && reads==1u && !games_flow_ready && !sets);
-        reset();change_on_read=(enum change)change;mutate_at=2u;
-        assert(games_flow_idle_work() && reads==2u && title_reads==1u && !games_flow_ready && !sets);
+        assert(games_flow_idle_work() && reads==1u && !title_reads && !games_flow_ready && !sets);
     }
     reset();read_ok=false;assert(games_flow_idle_work() && reads==1u && games_flow_request.failed);
     assert(!games_flow_idle_work() && reads==1u); /* no I/O retry storm */
     ++shell.games_page;assert(games_flow_idle_work() && reads==2u && games_flow_request.failed);
     assert(!games_flow_idle_work() && reads==2u);
-    ++shell.games_flow_epoch;read_ok=true;assert(games_flow_idle_work() && reads==4u && games_flow_ready);
+    ++shell.games_flow_epoch;read_ok=true;assert(games_flow_idle_work() && reads==3u && games_flow_ready);
     reset();read_ok=false;assert(games_flow_idle_work());strcpy(shell.games_query.text,"another");
     assert(games_flow_idle_work() && reads==2u); /* changed query is a new attempt */
     reset();needed_page=UINT_MAX/KUI_GAMES_ROWS+1u;
     assert(games_flow_idle_work() && !reads && games_flow_request.failed && !games_flow_ready);
     assert(!games_flow_idle_work() && !reads);
-    reset();prefetch_ok=false;assert(games_flow_idle_work() && reads==2u && games_flow_ready);
-    /* Missing optional titles remains a valid bounded catalogue result. */
+    reset();prefetch_ok=false;assert(games_flow_idle_work() && reads==1u && !title_reads && games_flow_ready);
+    /* Title records are never consulted for catalogue rows. */
     reset();needed=false;idle_scheduler(true);assert(!reads && art_reads==1u && other_idle==4u);
     reset();idle_scheduler(false);assert(!reads && !art_reads && !other_idle);
     puts("PASS Flow dispatch: actual worker context/cancel fences, row priority, immutable ready buffer, main-only publication, bounded failure retry and page overflow");
