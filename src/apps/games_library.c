@@ -281,7 +281,9 @@ static bool record_evidence(const struct library *lib,unsigned index,struct kui_
     }
     return kui_games_group_evidence_equal(out,out);
 }
-static bool decode_record(const struct library *lib,unsigned index,struct kui_games_entry *entry) {
+/* found, when given, receives the edit applied to a decoded record. */
+static bool decode_record_edit(const struct library *lib,unsigned index,struct kui_games_entry *entry,
+    const struct kui_games_metadata_entry **found) {
     if(index>=lib->count)return false;
     unsigned fields=record_fields(lib),header=record_header(lib),flags=fields*2u;
     size_t at=lib->offsets[index];if(at>lib->bytes || lib->bytes-at<header)return false;
@@ -307,6 +309,7 @@ static bool decode_record(const struct library *lib,unsigned index,struct kui_ga
     struct kui_games_group_evidence evidence;if(!record_evidence(lib,index,&evidence))return false;
     if(evidence.disc) {entry->disc=evidence.disc;if(!entry->region[0])strcpy(entry->region,evidence.region);}
     const struct kui_games_metadata_entry *edit=edits?kui_games_metadata_find(edits,entry->path,""):NULL;
+    if(found)*found=edit;
     if(edit) {
         if(edit->edit.alias[0]) {strcpy(entry->title,edit->edit.alias);entry->custom_title=true;}
         strcpy(entry->cover_path,edit->edit.cover_path);
@@ -314,6 +317,9 @@ static bool decode_record(const struct library *lib,unsigned index,struct kui_ga
         if(edit->disc)entry->disc=edit->disc;
     }
     return true;
+}
+static bool decode_record(const struct library *lib,unsigned index,struct kui_games_entry *entry) {
+    return decode_record_edit(lib,index,entry,NULL);
 }
 /* Every check that needs only the fixed header of a file of this size.
  * library_validate starts with the same checks, so a refused header is
@@ -366,6 +372,51 @@ static int display_order(const void *left,const void *right) {
     while(*x && *y) {unsigned p=*x++,q=*y++;if(p>='A'&&p<='Z')p+='a'-'A';if(q>='A'&&q<='Z')q+='a'-'A';if(p!=q)return p<q?-1:1;}
     if(*x!=*y)return *x?1:-1;
     int cmp=strcmp(an,bn);return cmp?cmp:a<b?-1:a>b?1:0;
+}
+/* The string display_order derives for a row on every comparison, found
+ * once per sort: a valid group's title, else the row's alias, else its name.
+ * Titles stay in the group and edit tables and names in the checked wire,
+ * which no sort changes. text is NULL for a row that does not decode;
+ * display_order calls any pair with such a row equal. */
+struct display_key {const char *text;size_t length;};
+static const struct display_key *display_keys;
+static int display_key_order(const void *left,const void *right) {
+    unsigned a=*(const uint32_t *)left,b=*(const uint32_t *)right;
+    const struct display_key *x=&display_keys[a],*y=&display_keys[b];
+    if(!x->text || !y->text)return 0;
+    size_t n=x->length<y->length?x->length:y->length;
+    for(size_t i=0;i<n;i++) {
+        unsigned p=(unsigned char)x->text[i],q=(unsigned char)y->text[i];
+        if(p>='A'&&p<='Z')p+='a'-'A';
+        if(q>='A'&&q<='Z')q+='a'-'A';
+        if(p!=q)return p<q?-1:1;
+    }
+    if(x->length!=y->length)return x->length>y->length?1:-1;
+    int cmp=memcmp(x->text,y->text,n);return cmp?cmp:a<b?-1:a>b?1:0;
+}
+/* Out of line: the scratch record is released before qsort runs. */
+static __attribute__((noinline)) void display_keys_fill(const struct library *lib,struct display_key *keys) {
+    for(unsigned at=0;at<lib->display_count;at++) {
+        unsigned index=lib->display[at],group=lib->members[index].group;struct display_key *key=&keys[index];
+        struct kui_games_entry entry;const struct kui_games_metadata_entry *edit=NULL;
+        if(!decode_record_edit(lib,index,&entry,&edit)) {key->text=NULL;key->length=0;continue;}
+        if(group && lib->groups[group-1u].valid)key->text=group_title(lib,group);
+        else if(entry.custom_title)key->text=edit->edit.alias;
+        else {
+            /* The first record field: what decode_record copied to entry.name. */
+            const uint8_t *p=lib->wire+lib->offsets[index];
+            key->text=(const char *)p+record_header(lib);key->length=get16(p);continue;
+        }
+        key->length=strlen(key->text);
+    }
+}
+/* Without the key table every comparison decodes both rows, in the same order. */
+static void display_sort(struct library *lib) {
+    struct display_key *keys=lib->display_count>1u?malloc(lib->count*sizeof(*keys)):NULL;
+    if(!keys) {sorting=lib;qsort(lib->display,lib->display_count,sizeof(*lib->display),display_order);sorting=NULL;return;}
+    display_keys_fill(lib,keys);
+    display_keys=keys;qsort(lib->display,lib->display_count,sizeof(*lib->display),display_key_order);display_keys=NULL;
+    free(keys);
 }
 static int member_order(const void *left,const void *right) {
     unsigned a=*(const uint32_t *)left,b=*(const uint32_t *)right;
@@ -515,8 +566,8 @@ static bool library_groups(struct library *lib) {
         }
         lib->display[lib->display_count++]=i;
     }
-    sorting=lib;qsort(lib->display,lib->display_count,sizeof(*lib->display),display_order);
-    qsort(lib->group_display,member_count,sizeof(*lib->group_display),member_order);sorting=NULL;
+    display_sort(lib);
+    sorting=lib;qsort(lib->group_display,member_count,sizeof(*lib->group_display),member_order);sorting=NULL;
     for(unsigned i=0;i<member_count;i++) {
         unsigned g=lib->members[lib->group_display[i]].group;
         if(!i || lib->members[lib->group_display[i-1]].group!=g)lib->groups[g-1].first=i;
@@ -1053,7 +1104,7 @@ bool kui_games_library_get_edit(const char *root,const char *group,const char *p
 }
 static void edits_changed(void) {
     saved.filtered_ready=false;saved.query_ready=false;
-    if(saved.display) {sorting=&saved;qsort(saved.display,saved.display_count,sizeof(*saved.display),display_order);sorting=NULL;}
+    if(saved.display)display_sort(&saved);
     kui_games_covers_content_clear();
 }
 static bool checked_cover(const char *path,kui_cancel_fn cancel) {

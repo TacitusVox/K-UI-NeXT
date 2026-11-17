@@ -520,6 +520,9 @@ static void catalogue_check(enum mode mode,unsigned limit,uint32_t seed) {
     unsigned record_aliases=edits->count;alias_groups(&previous,count);
     library_free(&previous);library_free(&current);
     admit(&previous,wire,bytes,true);admit(&current,wire,bytes,false);same_library(&previous,&current);
+    /* Without the key table the sort decodes rows on every comparison. */
+    struct library fallback;refuse('m',1,count*sizeof(struct display_key),1);admit(&fallback,wire,bytes,false);
+    require(fault.hit || current.display_count<2u);refuse(0,0,0,0);same_library(&previous,&fallback);library_free(&fallback);
     unsigned valid=0,metadata=0,labelled=0;
     for(unsigned g=0;g<current.group_count;g++)if(current.groups[g].valid) {
         ++valid;metadata+=current.groups[g].metadata;labelled+=current.groups[g].label_set!=0;
@@ -531,7 +534,9 @@ static void catalogue_check(enum mode mode,unsigned limit,uint32_t seed) {
         if(!pick)edits->entries[i].edit.alias[0]=0;
         else if(pick==1)alias_text(edits->entries[i].edit.alias,count);
     }
+    if(seed&1u)refuse('m',1,count*sizeof(struct display_key),1);
     edits_changed();
+    require(!(seed&1u) || fault.hit || saved.display_count<2u);refuse(0,0,0,0);
     old_sorting=&previous;qsort(previous.display,previous.display_count,sizeof(*previous.display),old_display_order);old_sorting=NULL;
     same_library(&previous,&saved);
     printf("PASS order %s %u records: %u rows, %u valid groups (%u proven, %u set-labelled), %u record and %u group aliases, re-sort after edits\n",
