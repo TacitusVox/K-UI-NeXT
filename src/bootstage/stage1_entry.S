@@ -44,7 +44,34 @@ stage1_run:
     sts     pr,r1
     mov.l   r1,@(4,r0)
     mov.l   .Lstack,r15
-    mov.l   .Lmain,r0
+    /* IP.BIN's bootstrap disables both caches (CCR=0x808) before it starts
+     * 1ST_READ.BIN. Enable them, invalidated and with P1 write-through
+     * (0x090b, the value IP.BIN itself writes first), so the stage and its
+     * CRCs do not run uncached. Write-through leaves no dirty lines; the
+     * handoff below returns CCR to 0x808 as IP.BIN would. CCR is written from
+     * the P2 alias, then execution continues cached. */
+    mova    7f,r0
+    mov.l   .Lp2,r1
+    or      r1,r0
+    jmp     @r0
+    nop
+    .align  2
+7:  mov.l   .Lccr,r0
+    mov.l   .Lccr_on,r1
+    mov.l   r1,@r0
+    nop
+    nop
+    nop
+    nop
+    nop
+    nop
+    nop
+    nop
+    mov.l   .Lcached,r0
+    jmp     @r0
+    nop
+    .align  2
+8:  mov.l   .Lmain,r0
     jsr     @r0
     nop
     tst     r0,r0
@@ -106,6 +133,8 @@ stage1_run:
 .Loc_lines: .long 512
 .Lccr:      .long 0xff00001c
 .Lccr_exec: .long 0x00000808
+.Lccr_on:   .long 0x0000090b
+.Lcached:   .long 8b
 .Lentry:    .long 0x8c010000
 .Lsystem:   .long 0x8c0000e0
 

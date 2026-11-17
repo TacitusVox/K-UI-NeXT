@@ -11,14 +11,29 @@ static const uint32_t nibble[16] = {
     0x9b64c2b0u, 0x86d3d2d4u, 0xa00ae278u, 0xbdbdf21cu,
 };
 
+static uint32_t crc_byte(uint32_t crc, uint8_t byte) {
+    crc ^= byte;
+    crc = (crc >> 4) ^ nibble[crc & 15u];
+    return (crc >> 4) ^ nibble[crc & 15u];
+}
+
+/* Aligned data is read a 32-bit word at a time (little-endian SH-4/host):
+ * the bootstrap is checked through its uncached alias, so this costs one
+ * uncached access per four bytes instead of one per byte. */
 uint32_t kui_stage1_crc32(uint32_t previous, const void *data, size_t bytes) {
     const uint8_t *p = data;
     uint32_t crc = ~previous;
-    while(bytes--) {
-        crc ^= *p++;
-        crc = (crc >> 4) ^ nibble[crc & 15u];
-        crc = (crc >> 4) ^ nibble[crc & 15u];
+    while(bytes && ((uintptr_t)p & 3u)) {crc = crc_byte(crc, *p++); --bytes;}
+    const uint32_t *w = (const uint32_t *)(const void *)p;
+    for(; bytes >= 4u; bytes -= 4u) {
+        const uint32_t v = *w++;
+        crc = crc_byte(crc, (uint8_t)v);
+        crc = crc_byte(crc, (uint8_t)(v >> 8));
+        crc = crc_byte(crc, (uint8_t)(v >> 16));
+        crc = crc_byte(crc, (uint8_t)(v >> 24));
     }
+    p = (const uint8_t *)w;
+    while(bytes--) crc = crc_byte(crc, *p++);
     return ~crc;
 }
 
