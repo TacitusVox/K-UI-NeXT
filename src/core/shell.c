@@ -2865,7 +2865,7 @@ enum kui_shell_action kui_shell_input(struct kui_shell *s,
     }
     if(!song_page && s->page!=KUI_SHELL_VMU_WIZARD && s->page!=KUI_SHELL_DISC_CARDS && s->page!=KUI_SHELL_UPDATES && (buttons & KUI_SHELL_L) &&
        (busy || (s->page!=KUI_SHELL_VMU && s->page!=KUI_SHELL_MUSIC &&
-                 s->page!=KUI_SHELL_DIAGNOSTICS)) && !confirming) return KUI_SHELL_MSTATS;
+                 s->page!=KUI_SHELL_DIAGNOSTICS && s->page!=KUI_SHELL_GAMES)) && !confirming) return KUI_SHELL_MSTATS;
     if(busy) {
         if(s->page==KUI_SHELL_SALVAGE && !s->salvage_trial_result && !confirming && buttons==KUI_SHELL_Y) {
             s->salvage_details=!s->salvage_details;return KUI_SHELL_NONE;
@@ -3107,6 +3107,19 @@ enum kui_shell_action kui_shell_input(struct kui_shell *s,
             snprintf(s->games_path,sizeof(s->games_path),"/Games");
             return list_games(s,true);
         }
+        unsigned trigger=buttons&(KUI_SHELL_L|KUI_SHELL_R);
+        if((trigger==KUI_SHELL_L || trigger==KUI_SHELL_R) && !s->games_loading && s->games_listing.count &&
+           s->games_page<=UINT_MAX/KUI_GAMES_ROWS-1u) {
+            /* Previous/next first-letter group, in list order. The page on
+             * screen stays until the destination rows arrive. */
+            bool flow=kui_shell_games_view(s)==KUI_GAMES_VIEW_FLOW;
+            s->games_jump_from=flow?s->games_flow_selected:
+                s->games_page*KUI_GAMES_ROWS+(s->games_selected<s->games_listing.count?s->games_selected:0u);
+            s->games_jump_step=trigger==KUI_SHELL_R?1:-1;
+            games_turn_from(s);(void)list_games(s,false);
+            s->games_seek=true;s->games_seek_name[0]=0;
+            return KUI_SHELL_GAMES_JUMP;
+        }
         if(kui_shell_games_view(s)==KUI_GAMES_VIEW_FLOW) {
             enum kui_shell_action action=games_flow_input(s,buttons);
             if(action!=KUI_SHELL_NONE)return action;
@@ -3287,7 +3300,7 @@ enum kui_shell_action kui_shell_input(struct kui_shell *s,
                 s->page=KUI_SHELL_GAMES;s->games_group[0]=0;s->games_seek=false;
                 enum kui_shell_action action=list_games(s,true);
                 if(s->games_query_selected==4u) {
-                    s->games_seek=true;s->games_seek_name[0]=0;
+                    s->games_seek=true;s->games_seek_name[0]=0;s->games_jump_step=0;
                     return KUI_SHELL_GAMES_JUMP;
                 }
                 return action;

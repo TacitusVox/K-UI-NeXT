@@ -334,6 +334,10 @@ struct kui_shell {
     struct kui_games_query games_query,games_query_draft;
     unsigned games_query_selected,games_keyboard;
     char games_jump;
+    /* L/R step to the previous/next first-letter group in list order from
+     * absolute row games_jump_from; zero uses the explicit games_jump letter. */
+    int games_jump_step;
+    unsigned games_jump_from;
     struct kui_games_library_edit games_edit;
     char games_edit_root[KUI_DEST_ROOT_CAP],games_edit_path[KUI_GAMES_FILE_CAP],games_edit_group[33];
     char games_edit_notice[128];

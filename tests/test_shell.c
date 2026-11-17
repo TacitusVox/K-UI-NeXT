@@ -3005,7 +3005,8 @@ static void games_background_titles(void) {
     assert(s.games_selected==2 && s.games_listing.count==4 && !s.games_loading);
     assert(!kui_shell_set_games_titles(&s,&found,0));                 /* Nothing new. */
 }
-/* List pages continue into each other; the first and last pages wrap. */
+/* List pages continue into each other, and L/R step between letter groups
+ * from the absolute row on screen. */
 static void games_navigation_steps(void) {
     reset(KUI_SHELL_HOME);
     s.home_selected=home_index(KUI_SHELL_GAMES);assert(press(KUI_SHELL_A,false)==KUI_SHELL_GAMES_LIST);
@@ -3020,6 +3021,26 @@ static void games_navigation_steps(void) {
     games_page(8,true,KUI_GAMES_VIEW_LIST);assert(s.games_selected==7);
     /* So does the first page. */
     s.games_selected=0;assert(press(KUI_SHELL_UP,false)==KUI_SHELL_NONE && !s.games_page && s.games_selected==7);
+    /* R: next group from this row; the page stays on screen until rows arrive. */
+    s.games_page=2;s.games_selected=3;
+    assert(press(KUI_SHELL_R,false)==KUI_SHELL_GAMES_JUMP && s.games_jump_step==1 && s.games_jump_from==19);
+    assert(s.games_seek && s.games_loading && s.games_turning && s.games_shown_page==2 && s.games_shown_selected==3);
+    /* Triggers do nothing while that listing loads; busy L keeps memory stats. */
+    assert(press(KUI_SHELL_L,false)==KUI_SHELL_NONE && press(KUI_SHELL_R,false)==KUI_SHELL_NONE);
+    assert(press(KUI_SHELL_L,true)==KUI_SHELL_MSTATS && s.games_jump_step==1);
+    struct kui_games_page found=s.games_listing;found.count=8;found.has_more=true;found.view=s.games_view;
+    strcpy(found.root,s.games_path);found.group[0]=0;
+    assert(kui_shell_set_games_found_rows(&s,&found,s.games_generation,32,s.games_view,5));
+    assert(s.games_page==4 && s.games_selected==5 && !s.games_loading && !s.games_turning && !s.games_seek);
+    assert(press(KUI_SHELL_L,false)==KUI_SHELL_GAMES_JUMP && s.games_jump_step==-1 && s.games_jump_from==37);
+    assert(kui_shell_set_games_found_rows(&s,&found,s.games_generation,32,s.games_view,0));
+    /* Both triggers together, or an empty page, are not a step. */
+    assert(press(KUI_SHELL_L|KUI_SHELL_R,false)!=KUI_SHELL_GAMES_JUMP);
+    s.games_listing.count=0;assert(press(KUI_SHELL_R,false)!=KUI_SHELL_GAMES_JUMP);s.games_listing.count=8;
+    /* Flow steps from its own absolute selection. */
+    s.games_view=KUI_GAMES_VIEW_FLOW;s.games_flow_selected=42;
+    assert(press(KUI_SHELL_R,false)==KUI_SHELL_GAMES_JUMP && s.games_jump_from==42 && s.games_jump_step==1);
+
 }
 static void games_views(void) {
     reset(KUI_SHELL_HOME);

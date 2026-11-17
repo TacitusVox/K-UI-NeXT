@@ -58,6 +58,8 @@ static struct kui_shell shell;
 static struct kui_games_query games_query_pending;
 static unsigned games_view_pending,games_epoch_pending,games_filter_pending;
 static char games_jump_pending;
+static int games_jump_step_pending;
+static unsigned games_jump_from_pending;
 static struct {char root[KUI_DEST_ROOT_CAP],group[33];unsigned page,view,filter,step;
     struct kui_games_query query;bool valid;} games_prefetch;
 static bool games_art_request_valid,games_art_done_valid;
@@ -112,6 +114,11 @@ int main(void){
     assert(!strcmp(games_query_pending.text,"Skies") && games_query_pending.disc==2 && games_epoch_pending==19);
     snapshot_query(112);assert(!strcmp(games_query_pending.text,"Skies"));
     snapshot_query(114);assert(!strcmp(games_query_pending.text,"Grandia") && games_query_pending.disc==1 && games_epoch_pending==20);
+    /* An L/R letter step snapshots its direction and absolute origin row. */
+    assert(!games_jump_step_pending && !games_jump_from_pending);
+    shell.games_jump_step=-1;shell.games_jump_from=37;snapshot_query(114);
+    assert(games_jump_step_pending==-1 && games_jump_from_pending==37);
+    shell.games_jump_step=0;snapshot_query(114);assert(!games_jump_step_pending);
     shell.page=KUI_SHELL_GAMES;shell.games_page=2;strcpy(shell.games_path,"/Games");strcpy(shell.games_listing.root,"/Games");
     memset(&games_prefetch,0,sizeof(games_prefetch));games_prefetch.valid=true;games_prefetch.page=2;
     games_prefetch.view=KUI_GAMES_VIEW_LIST;games_prefetch.filter=1;games_prefetch.query=shell.games_query;

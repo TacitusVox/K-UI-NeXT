@@ -330,6 +330,8 @@ static unsigned games_view_pending;
 static unsigned games_filter_pending;
 static struct kui_games_query games_query_pending;
 static char games_jump_pending;
+static int games_jump_step_pending;
+static unsigned games_jump_from_pending;
 static struct kui_games_library_edit games_edit_pending,games_edit_result;
 static char games_edit_root_pending[KUI_DEST_ROOT_CAP],games_edit_path_pending[KUI_GAMES_FILE_CAP],games_edit_group_pending[33];
 static char games_edit_result_path[KUI_GAMES_FILE_CAP],games_edit_result_notice[128];
@@ -3373,6 +3375,44 @@ static void update_restart_operation(void) {
     mutex_unlock(&lock);publish_music();
 }
 #endif
+#ifdef KUI_SD_RUNTIME
+/* Letter group of a row: the same '#'/A-Z bucket as the letter jump picker. */
+static unsigned games_letter_group(const struct kui_games_entry *e) {
+    char c=kui_games_query_letter(e->title,e->name);
+    return c>='A' && c<='Z'?(unsigned)(c-'A')+1u:0u;
+}
+/* Worker only, over the in-RAM catalogue. Forward: the first row after
+ * `from` in another letter group. Backward: the start of from's group, or of
+ * the previous group when `from` already starts one. False at either end. */
+static bool games_letter_step(const char *root,const char *group,const struct kui_games_query *query,
+    unsigned from,bool forward,unsigned *out,kui_cancel_fn cancel) {
+    struct kui_games_page *page=malloc(sizeof(*page));
+    if(!page) return false;
+    bool found=false,have_from=false;
+    unsigned from_group=0u,run_start=0u,previous_start=0u,run_group=0u;bool have_run=false,have_previous=false;
+    /* Forward needs no earlier rows; backward may need the previous group. */
+    for(unsigned at=forward?from/KUI_GAMES_ROWS*KUI_GAMES_ROWS:0u;at<=UINT_MAX-KUI_GAMES_ROWS && !found;at+=KUI_GAMES_ROWS) {
+        if(!kui_games_library_rows_query(root,group,at,KUI_GAMES_VIEW_SAVED,query,page,kui_log,cancel)) break;
+        for(unsigned i=0;i<page->count && !found;i++) {
+            unsigned index=at+i,g=games_letter_group(&page->entries[i]);
+            if(!have_run || g!=run_group) {
+                if(have_run) {previous_start=run_start;have_previous=true;}
+                run_start=index;run_group=g;have_run=true;
+            }
+            if(index==from) {have_from=true;from_group=g;
+                if(!forward) {
+                    if(run_start!=from) {*out=run_start;found=true;}
+                    else if(have_previous) {*out=previous_start;found=true;}
+                    else break;
+                }
+            } else if(forward && have_from && index>from && g!=from_group) {*out=index;found=true;}
+        }
+        if(!found && (!page->has_more || (!forward && have_from))) break;
+    }
+    free(page);
+    return found;
+}
+#endif
 static void *worker(void *unused) {
     (void)unused;
 #ifdef KUI_SD_RUNTIME
@@ -3930,8 +3970,14 @@ static void *worker(void *unused) {
                 kui_cancel_fn list_cancel=stopped_scan && kui_games_library_ready(games_path_pending)?NULL:kui_cancelled;
                 if(action==114u) {
                     unsigned found=0u;restore=true;offset=selected=0u;
-                    if(kui_games_library_jump_query(games_path_pending,games_group_pending,games_jump_pending,
-                       &games_query_pending,&found,kui_log,list_cancel)) {
+                    bool hit=games_jump_step_pending?
+                        games_letter_step(games_path_pending,games_group_pending,&games_query_pending,
+                            games_jump_from_pending,games_jump_step_pending>0,&found,list_cancel):
+                        kui_games_library_jump_query(games_path_pending,games_group_pending,games_jump_pending,
+                            &games_query_pending,&found,kui_log,list_cancel);
+                    /* A step past the first or last group keeps the row on screen. */
+                    if(!hit && games_jump_step_pending) found=games_jump_from_pending;
+                    if(hit || games_jump_step_pending) {
                         offset=found/KUI_GAMES_ROWS*KUI_GAMES_ROWS;selected=found%KUI_GAMES_ROWS;
                     }
                 }
@@ -5855,6 +5901,7 @@ int main(void) {
                 games_filter_pending=shell.games_filter;
                 games_query_pending=shell.games_query;games_query_pending.activity=shell.games_filter;
                 games_jump_pending=shell.games_jump;
+                games_jump_step_pending=shell.games_jump_step;games_jump_from_pending=shell.games_jump_from;
             }
             if(action==54 || action==109 || action==114) {
                 games_refresh_pending=shell.games_refresh;games_rebuild_pending=shell.games_rebuild;
