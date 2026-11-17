@@ -74,7 +74,7 @@ class Fixture:
         for name in line.group(1).split():
             p = directory / name; p.parent.mkdir(parents=True, exist_ok=True)
             p.write_bytes(b'UNRELATED-OBJECT\0')
-        for name in ('splash_pixels.inc', 'boot_splash_pixels.inc', 'startup_ogg.inc'):
+        for name in ('splash_art.inc', 'boot_splash_art.inc', 'startup_ogg.inc'):
             p = directory / 'build' / name; p.write_text('')
         self.write_bundle('a', b'COMPONENT-A')
         self.write_bundle('b', b'COMPONENT-B')

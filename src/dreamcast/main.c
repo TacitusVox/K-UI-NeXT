@@ -4770,6 +4770,7 @@ static bool draw_shell_frame(bool force) {
         shell_frame_ready=frame!=NULL;shell_frame_fingerprint_valid=false;
         vid_waitvbl();vid_flip(-1);return true;
     }
+    kui_splash_release(); /* The splash has ended: free its inflated copy (no-op later). */
     char visible[KUI_SHELL_LOG_ROWS][LINE_BYTES] = {{0}};
     const char *log_rows[KUI_SHELL_LOG_ROWS];
     char path[KUI_DEST_JOB_CAP], notice[128], title[129], gdi[KUI_DEST_TITLE_CAP+5u];

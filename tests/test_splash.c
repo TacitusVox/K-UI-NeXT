@@ -3,31 +3,71 @@
 #include <assert.h>
 #include <stdint.h>
 #include <stdio.h>
-/* The full-frame Muramasa art fades to black in its vignetted corners. */
-#define BACKGROUND 0x0000u
+#include <string.h>
+/* The same generated streams the firmware embeds, with the CRC-32 of the
+ * exact RGB565 pixels tools/build_splash.py compressed. */
+#include "../build/splash_art.inc"
+#include "../build/boot_splash_art.inc"
+
 static uint16_t guarded[640u*480u+2u];
-static uint16_t expected_dimmed[640u*480u];
+static uint16_t first[640u*480u],expected_dimmed[640u*480u];
+static uint8_t damaged[sizeof(kui_splash_art)+1u];
+
+static uint32_t crc32(const void *data,size_t bytes) {
+    const uint8_t *p=data;uint32_t crc=0xffffffffu;
+    while(bytes--) {
+        crc^=*p++;
+        for(unsigned bit=0;bit<8;bit++) crc=(crc>>1)^(0xedb88320u&(0u-(crc&1u)));
+    }
+    return ~crc;
+}
+static void fill(uint16_t value) {for(unsigned i=1;i<=640u*480u;i++) guarded[i]=value;}
+
 int main(void) {
     guarded[0]=0x1234;guarded[640u*480u+1u]=0xabcd;
-    kui_splash_draw(guarded+1);
+    /* Runtime splash: every pixel, within bounds, identical on repeat draws. */
+    fill(0x5555);kui_splash_draw(guarded+1);
     assert(guarded[0]==0x1234 && guarded[640u*480u+1u]==0xabcd);
-    assert(guarded[1]==BACKGROUND);
-    unsigned different=0;
-    for(unsigned i=1;i<=640u*480u;i++) if(guarded[i]!=BACKGROUND) ++different;
-    assert(different>100000);
+    assert(crc32(guarded+1,KUI_SPLASH_FRAME_BYTES)==KUI_SPLASH_ART_PIXELS_CRC32);
+    memcpy(first,guarded+1,sizeof(first));
+    fill(0xffff);kui_splash_draw(guarded+1);
+    assert(!memcmp(first,guarded+1,sizeof(first)));
+    /* Released after the splash; a later draw inflates again. */
+    kui_splash_release();kui_splash_release();
+    fill(0);kui_splash_draw(guarded+1);
+    assert(!memcmp(first,guarded+1,sizeof(first)));
+    kui_splash_release();
     kui_splash_draw(NULL);
 
-    kui_boot_splash_draw(guarded+1);
+    /* Boot backdrop: exact pixels; dimming reads RAM, not the old frame. */
+    fill(0x5555);kui_boot_splash_draw(guarded+1);
     assert(guarded[0]==0x1234 && guarded[640u*480u+1u]==0xabcd);
+    assert(crc32(guarded+1,KUI_SPLASH_FRAME_BYTES)==KUI_BOOT_SPLASH_ART_PIXELS_CRC32);
     for(unsigned i=0;i<640u*480u;i++) {
         expected_dimmed[i]=(uint16_t)((guarded[i+1]&0xe79cu)>>2);
-        guarded[i+1]=0xffff; /* The dimmed copy must ignore old framebuffer data. */
+        guarded[i+1]=0xffff;
     }
     kui_boot_splash_draw_dimmed(guarded+1);
     assert(guarded[0]==0x1234 && guarded[640u*480u+1u]==0xabcd);
-    for(unsigned i=0;i<640u*480u;i++) assert(guarded[i+1]==expected_dimmed[i]);
+    assert(!memcmp(expected_dimmed,guarded+1,sizeof(expected_dimmed)));
     kui_boot_splash_draw(NULL);
     kui_boot_splash_draw_dimmed(NULL);
-    puts("PASS runtime splash and pixel-equivalent boot backdrop without framebuffer reads");
+
+    /* The decoder accepts only a complete, undamaged stream. */
+    static uint16_t frame[640u*480u];
+    assert(kui_splash_art_inflate(kui_splash_art,sizeof(kui_splash_art),frame));
+    assert(!memcmp(first,frame,sizeof(frame)));
+    memcpy(damaged,kui_splash_art,sizeof(kui_splash_art));
+    damaged[sizeof(kui_splash_art)/2u]^=0x10u;
+    assert(!kui_splash_art_inflate(damaged,sizeof(kui_splash_art),frame));
+    memcpy(damaged,kui_splash_art,sizeof(kui_splash_art));
+    assert(!kui_splash_art_inflate(damaged,sizeof(kui_splash_art)-1u,frame));      /* truncated */
+    damaged[sizeof(kui_splash_art)]=0;
+    assert(!kui_splash_art_inflate(damaged,sizeof(kui_splash_art)+1u,frame));      /* trailing byte */
+    assert(!kui_splash_art_inflate(kui_boot_splash_art,sizeof(kui_boot_splash_art),NULL));
+    assert(!kui_splash_art_inflate(NULL,10u,frame) && !kui_splash_art_decode(damaged,0u));
+    printf("PASS compressed splash and boot art: %zu and %zu bytes inflate to the exact RGB565 pixels; "
+        "repeat/release draws, RAM-only dimming and damaged streams checked\n",
+        sizeof(kui_splash_art),sizeof(kui_boot_splash_art));
     return 0;
 }
