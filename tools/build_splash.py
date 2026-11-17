@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Encode the Muramasa splash and embed the original startup notes as Ogg."""
+"""Encode the Muramasa splash, the Bootloader v3 boot art and the startup Ogg."""
 # SPDX-License-Identifier: GPL-3.0-only
 import argparse
 import hashlib
@@ -12,8 +12,10 @@ import wave
 import zlib
 
 ROOT = Path(__file__).resolve().parents[1]
-PNG_BLOB = "2119ff70b524754a3c851b70f955752e6a090b9d"
-BOOT_PNG_BLOB = "2119ff70b524754a3c851b70f955752e6a090b9d"
+# Git blob ids of the committed art: the startup splash and the separate,
+# version-agnostic boot-disc art (historical boot-red.png name).
+PNG_BLOB = "19c4fb03197b14eebdae77f1c217a0691ee99cab"
+BOOT_PNG_BLOB = "d150653181034f95cc416062f120beedffb51015"
 STARTUP_RATE = 44100
 STARTUP_FRAMES = STARTUP_RATE * 265 // 100
 # The runtime embeds this Ogg Vorbis encoding of startup_samples() instead of
@@ -146,7 +148,7 @@ def main():
     array_file(args.directory/"splash_pixels.inc","kui_splash_pixels","uint16_t",decode_png(data))
     boot=(ROOT/"resources/branding/boot-red.png").read_bytes()
     if hashlib.sha1(b"blob "+str(len(boot)).encode()+b"\0"+boot).hexdigest()!=BOOT_PNG_BLOB:
-        raise SystemExit("Boot artwork differs from the pinned Muramasa asset")
+        raise SystemExit("Boot artwork differs from the pinned Bootloader v3 asset")
     array_file(args.directory/"boot_splash_pixels.inc","kui_boot_splash_pixels","uint16_t",decode_png(boot))
     chime=CHIME.read_bytes()
     if hashlib.sha256(chime).hexdigest()!=CHIME_SHA256:

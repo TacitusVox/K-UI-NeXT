@@ -3,8 +3,8 @@
 #include <assert.h>
 #include <stdint.h>
 #include <stdio.h>
-/* RGB565 of the #090102 frame around the 576x324 Tyrfing artwork. */
-#define BACKGROUND 0x0800u
+/* The full-frame Muramasa art fades to black in its vignetted corners. */
+#define BACKGROUND 0x0000u
 static uint16_t guarded[640u*480u+2u];
 static uint16_t expected_dimmed[640u*480u];
 int main(void) {
