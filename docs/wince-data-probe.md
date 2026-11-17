@@ -1,8 +1,9 @@
 # WinCE data probe (test build of `ce-boot.kui`, 17 Nov 2026)
 
 **Status: host-tested, not console-tested.** Delivered as
-`KUI-WinCE-Data-Session-17NOV2026-0041-CST-c25e9f5.zip`: build `c25e9f5e203b`,
-92,368 bytes, payload CRC `FFD43455`, SHA-256 `029a2877153718f3...`. This is a measurement build for one
+`KUI-WinCE-Data-Session-17NOV2026-0150-CST-19ff02f.zip`: build `19ff02faaec4`,
+92,456 bytes, payload CRC `E74008FC`, SHA-256 `5c1d82902426c82f...`. Each stage
+report carries its module's build ID, so the data names the build that ran. This is a measurement build for one
 owner data session, not a candidate for acceptance. The owner swaps it in for
 the installed `KUI/apps/games/ce-boot.kui` (`7b216f2e1136`, payload CRC
 `04D83892`, delivered 9 Nov, console report pending) and restores that file
@@ -28,8 +29,12 @@ needs before any feature build:
   list is read during GD calls, so a frame counted is evidence and a frame not
   counted is not proof of absence.
 - **The game's memory.** The console's 16 MiB of RAM at the end of the game, as
-  non-zero 4 KiB pages. The stage clears the RAM the launcher left behind, so the
-  dump holds only what the kernel and game wrote. Offline tools read the kernel's
+  non-zero 4 KiB pages. Before Windows CE starts, the stage clears the RAM the
+  launcher left from the end of the loaded kernel up to its own prefix
+  (0x8ce00000), and from its BSS up to its stack reservation (0x8cfe0000). In
+  those ranges the dump holds only what the kernel and game wrote; the stage
+  report names them, and the miner keeps other dumped pages (the stage image
+  and stack area, about 330 KiB) apart. Offline tools read the kernel's
   process, module, heap and DirectSound state from it.
 
 It answers roadmap questions; it changes no behaviour the games depend on.
@@ -47,6 +52,9 @@ message's length, which differs for each; `tools/wce_probe_data.py` maps it
 back). Unlike the installed module, the probe build does not stop on the fault
 page: it saves the fault, or shows red or yellow, and restarts.
 
+Boot cold from the K-UI CD for the session: Restart K-UI can start a saved
+bank that does not use the copied files (`AGENTS.md`).
+
 The probe arms only on the background reader. The GUI routes every WinCE launch
 with CD music Off to `ce-boot.kui` with that reader (`src/core/shell.c`
 `games_launch_choice`). With CD music On the GUI uses a `ce-cdda-*` module, and
@@ -60,7 +68,7 @@ launches are not probed.
 | Blue | Saving. Do not power off. A full 16 MiB dump takes up to about two minutes. |
 | Green (3 s) | Saved. The console restarts into K-UI. |
 | Red (10 s) | The save failed part-way. The slot keeps its stage report and the pages written; the decoder flags the dump as cut off. If K-UI does not start after a red screen, switch the console off and on. |
-| Yellow (10 s) | Nothing to save: no data file or free slot at launch, the launch was not probed, or the game never read the disc. |
+| Yellow (10 s) | Nothing to save: no data file or free slot at launch, the launch was not probed, or the game stopped before its first disc read (a fault that early is not recorded). |
 
 If A+B+X+Y+Start does nothing within about 10 seconds, the game does not reach
 the BIOS menu call. Power off. The slot keeps its stage report and is labelled

@@ -57,7 +57,7 @@ Delivered: `KUI-WinCE-GUI-Routes-16NOV2026-1928-CST-069d612.zip`, GUI build
 `retail-boot.kui` `9e3295bcfaec`, as `00d8ed67d9ad` does. `00d8ed67d9ad`
 remains the reference until the owner reports the package's four tests.
 
-## WinCE data session probe: data pending, c25e9f5e203b, 2026-11-17
+## WinCE data session probe: data pending, 19ff02faaec4, 2026-11-17
 
 A measurement build, not a candidate: the generic `ce-boot.kui` with
 `KUI_WCE_PROBE=1` ([data probe](wince-data-probe.md)). The owner swaps it in
@@ -65,11 +65,19 @@ for one bulk session and puts the installed `7b216f2e1136` back before the
 GUI `069d612cadea` tests. No GUI change; both GUIs admit it as they admit
 `ce-boot.kui`.
 
-Delivered: `KUI-WinCE-Data-Session-17NOV2026-0041-CST-c25e9f5.zip` (SHA256
-`cf03119e73ae3819148f515d20cde9aa76035d64dd15717b683c611278a3aad8`): the probe
-module (payload CRC `FFD43455`), a blank 64-slot `KUI/WCEDATA/WCEDATA.BIN`, and
-the installed `7b216f2e1136` in `IF-NEEDED/`. The first package
-(`a257f13ec7d1`) was superseded by the review fixes before delivery.
+Delivered: `KUI-WinCE-Data-Session-17NOV2026-0150-CST-19ff02f.zip` (SHA256
+`ed1a5598010d1209ce9f6a1f3ea9cd2a53d8cf7d864c192afb43a0d17601df40`): the probe
+module (92,456 bytes, payload CRC `E74008FC`, SHA-256
+`5c1d82902426c82fb110880fac651e9111726760ffb39d97cb6ea356ad1d72f3`), a blank
+64-slot `KUI/WCEDATA/WCEDATA.BIN`, and the installed `7b216f2e1136` in
+`IF-NEEDED/`.
+
+Superseded the same night: `KUI-WinCE-Data-Session-17NOV2026-0041-CST-c25e9f5.zip`
+(SHA256 `cf03119e73ae3819148f515d20cde9aa76035d64dd15717b683c611278a3aad8`,
+module `c25e9f5e203b`, CRC `FFD43455`) was sent before the review finished; it
+lacks the second status read after a failed stage write and the full RAM
+clear. The first build (`a257f13ec7d1`) was never sent. Console results belong
+to whichever module the session's stage reports name (their build field).
 
 Host evidence: the FAT32/exFAT lookup and its refusals, the end-to-end
 claim/session/dump on FatFs cards (contiguous and fragmented, red, yellow,
