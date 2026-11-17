@@ -28,6 +28,10 @@ analysis inputs. Console playback and save tests remain separate.
 | 5 | Extend native CD music beyond Toy/MDK2 and improve native/WinCE streaming. Use supplied audio drivers and CE applications to identify shared runtime contracts. | Continuous music, concurrent loading, track changes and the same FMV scene improve on console, with responsive play and durable saves. Each admitted runtime family gets an explicit result. |
 | 6 | Close the 42-game coverage ledger, including multi-disc transitions and repeated launches. Then broaden the relevant physical-disc, compressed-format and transport combinations. | Every complete inventoried game has a recorded launch, actual play, loading and available save outcome on its chosen image and reader. Multi-disc games cross a real requested disc boundary with the correct card. |
 
+Windows CE coverage for rows 1, 4 and 5, by `maple.dll` family, sound group
+and CD-driver line, with one test game per unit:
+[WinCE scope](wince-universal-scope.md).
+
 Each source change answers one compatibility or performance question. A small
 regression set covers the affected runtime family and its memory contract.
 The full library ledger accumulates results as games are played. Record the

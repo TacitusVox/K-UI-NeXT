@@ -154,10 +154,21 @@ the record is [family 7 profiles](evidence/wince-family7-profiles-2026-11-17.jso
   module's base. Their compressed data sections have equal stored sizes.
 - RAM ends at `0x8cfd0000` in all four.
 
-`include/kui/ce_maple_family7.h` records these, with Armada as the default. The
-helper's kernel addresses and the write layout's bridge follow it, and
-`CE_FAMILY7_KERNEL=1` builds the Armada VMU helper for Wild Metal. That build
-links the bridge at `0x01b467a4`.
+`include/kui/ce_maple_family7.h` records these, with Armada as the default.
+Only `include/kui/armada_ce_maple_observe.h` and the write layout's bridge
+follow it: with `CE_FAMILY7_KERNEL=1` the bridge links at `0x01b467a4`.
+
+That is not yet a Wild Metal helper (corrected 17 Nov 2026,
+[WinCE scope](wince-universal-scope.md)):
+
+- The helper's owner profile, `include/kui/ce_maple_owner_profile.h`, still
+  holds Armada's current process and thread (`0x8c145890`, `0x8c145894`), its
+  process table (`0x8c14e6e0`), its bridge return (`0x01dd67c6`) and its Wait
+  thunk (`0x01dd6314`). A scratch helper built with `CE_FAMILY7_KERNEL=1`
+  contains those words and none of Wild Metal's (`0x8c345890`, `0x8c345894`,
+  `0x01b467c6`). Its checks would refuse Wild Metal and publish no card.
+- The stage's ROM placements and kernel admission
+  (`include/kui/armada_ce_maple_reservation.h`) are still Armada's.
 
 With Armada selected, all six delivered WinCE modules of build `7b216f2e1136`
 rebuild byte for byte. The stage's kernel admission and the GUI route are
