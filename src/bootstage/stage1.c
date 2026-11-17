@@ -21,7 +21,7 @@ enum { READ_SYS = -1, READ_NOT_READY = -2, READ_DISC_CHANGED = -6, READ_TIMEOUT 
  * 16-sector read that has not finished in 10 s is abandoned for the next copy. */
 #define COMMAND_SECONDS 10u
 #define ABORT_SECONDS 2u
-static bool drive_ready;
+static bool gd_system_ready, drive_ready;
 
 typedef int (*gd_function)(uint32_t, uint32_t, int32_t, int32_t);
 
@@ -89,13 +89,17 @@ static int exec_cmd(int32_t cmd, void *param) {
     return status[0] == 6 ? READ_DISC_CHANGED : READ_SYS;
 }
 
-/* KOS cdrom_init and cdrom_reinit: initialise the GD functions and the drive,
- * then select 2048-byte user data, CD-ROM XA mode 2 when the drive says so.
- * Like cdrom_reinit, keep asking for up to 10 s while the drive reports a
- * disc change; here also while it is not ready, since this disc just booted
- * and is certainly in the drive. */
+/* KOS cdrom_init (the GD functions, once) and cdrom_reinit (the drive, again
+ * after "not ready", "disc changed" or a reset): then select 2048-byte user
+ * data, CD-ROM XA mode 2 when the drive says so. Like cdrom_reinit, keep
+ * asking for up to 10 s while the drive reports a disc change; here also
+ * while it is not ready, since this disc just booted and is certainly in the
+ * drive. */
 static void drive_init(void) {
-    (void)gd(0, 0, GD_INIT);
+    if(!gd_system_ready) {
+        (void)gd(0, 0, GD_INIT);
+        gd_system_ready = true;
+    }
     const uint32_t start = rtc_seconds();
     for(;;) {
         const int result = exec_cmd(CMD_INIT, 0);
