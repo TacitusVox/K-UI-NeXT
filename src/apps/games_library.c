@@ -71,7 +71,7 @@ static void scan_checkpoint(const char *phase,const char *image,unsigned index,u
     if(!terminal)scan_trace.last_work=phase;
     scan_trace.index=index;scan_trace.count=count;scan_trace.offset=offset;
     uintptr_t sp=0;
-#if defined(__sh__)
+#if defined(KUI_SH_COMPILER)
     __asm__ __volatile__("mov r15,%0":"=r"(sp));
 #endif
     int length=snprintf(scan_trace.text,sizeof(scan_trace.text),

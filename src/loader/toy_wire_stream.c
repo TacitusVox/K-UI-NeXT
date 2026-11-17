@@ -10,6 +10,7 @@
  * read, so a run's last two bytes are kept track of exactly (the one the
  * receiver still held is stored, the one that overran is recorded as lost),
  * and a run is sized to the room the reader has left. */
+#include "kui/target.h"
 #include "toy_wire_stream.h"
 #include <stddef.h>
 #include <string.h>
@@ -776,7 +777,7 @@ static uint32_t wire_hole(const struct kui_wire_stream *w, uint32_t from) {
     return NONE;
 }
 
-#if KUI_TOY_WIRE_WORDS && KUI_TOY_WIRE_SWIFT && defined(__sh__) && !defined(KUI_WIRE_STREAM_TEST)
+#if KUI_TOY_WIRE_WORDS && KUI_TOY_WIRE_SWIFT && defined(KUI_SH_COMPILER) && !defined(KUI_WIRE_STREAM_TEST)
 /* Test 74: the loops below written by hand for the SH-4, 41 instructions
  * for four bytes instead of 49, and 34 instead of 45 where no byte is
  * reversed (toy_wire_words.inc). They take the table block itself: bit

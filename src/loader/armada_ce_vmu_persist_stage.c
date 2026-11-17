@@ -1,4 +1,5 @@
 /* SPDX-License-Identifier: GPL-3.0-only */
+#include "kui/target.h"
 #include "kui/armada_ce_vmu_persist_stage.h"
 #include "kui/armada_ce_vmu_sd_loan.h"
 #include "kui/retail_loader_layout.h"
@@ -6,7 +7,7 @@
 
 _Static_assert(sizeof(struct kui_armada_ce_vmu_persist_stage_workspace)<=98304u,
     "CE persistent high-stage scratch bound");
-#if defined(__sh__)
+#if defined(KUI_SH_COMPILER)
 /* This separate freestanding stage needs the scanner's dot-name comparison;
  * readonly images do not link this unit or gain a new minic implementation. */
 int strcmp(const char *left,const char *right) {

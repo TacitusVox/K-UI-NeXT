@@ -1,4 +1,5 @@
 /* SPDX-License-Identifier: GPL-3.0-only */
+#include "kui/target.h"
 #include "kui/vmu_persist_stage.h"
 #if KUI_SMASH_PHASE_DIAGNOSTIC
 #include "kui/smash_phase_trace.h"
@@ -21,7 +22,7 @@ static bool vmu_persist_stage_snapshot_policy(const struct kui_vmu_persist_stage
 
 /* Only this isolated native stage needs the scanner's dot-entry comparison.
  * Ordinary minic and every existing release/observer mode remain unchanged. */
-#if defined(__sh__) && (KUI_VMU_READONLY_PROOF == 4 || KUI_VMU_NATIVE_PERSISTENT_PROBE || KUI_VC2_VMU_PERSIST || KUI_SMASH_CARD_SESSION)
+#if defined(KUI_SH_COMPILER) && (KUI_VMU_READONLY_PROOF == 4 || KUI_VMU_NATIVE_PERSISTENT_PROBE || KUI_VC2_VMU_PERSIST || KUI_SMASH_CARD_SESSION)
 int strcmp(const char *left,const char *right) {
     const unsigned char *a=(const unsigned char *)left,*b=(const unsigned char *)right;
     while(*a && *a==*b) {++a;++b;}

@@ -11,4 +11,11 @@
 #define KUI_ON_CONSOLE 1
 #endif
 
+/* The compiler emits SH code, in every SH-4 mode: SH inline assembly and
+ * SH-specific code generation. Unlike KUI_ON_CONSOLE, a host build never
+ * defines it, including one that simulates the console. */
+#if defined(__sh__)
+#define KUI_SH_COMPILER 1
+#endif
+
 #endif

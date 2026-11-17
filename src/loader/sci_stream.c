@@ -3,6 +3,9 @@
  * async probe proved on the console (513-byte DMA, RDR tail byte, MSTP0 reset
  * between blocks; docs/evidence/sci-async-cmd18-stream-2026-10-02.md). */
 #include "kui/toy_test_build.h"
+#if KUI_TOY_TEST_BUILD
+#include "kui/target.h"
+#endif
 #include "sci_stream.h"
 #include "sci_sd_bus.h"
 #include "kui/general_sci_options.h"
@@ -237,7 +240,7 @@ static inline uint16_t crc16(uint16_t crc, uint8_t data) {
 #if KUI_CE_SCI_FAST_TAKE && !defined(KUI_RETAIL_CE)
 #error "The fast block check is the CE stream reader's"
 #endif
-#if KUI_TOY_SUITE_FAST_CRC16 && !KUI_TOY_SUITE_TABLE_CRC16 && defined(__sh__)
+#if KUI_TOY_SUITE_FAST_CRC16 && !KUI_TOY_SUITE_TABLE_CRC16 && defined(KUI_SH_COMPILER)
 /* The low 16 bits carry the full CRC16 state. swap.b selects its high
  * byte, so discarded upper bits can accumulate until the end of the block. */
 static inline __attribute__((always_inline)) uint32_t toy_crc16_word(uint32_t crc, uint32_t word) {
@@ -993,7 +996,7 @@ enum kui_sci_stream_result kui_sci_stream_wait(void) {
  * remains is one byte's own step, t ^ t << 5 ^ t << 12 with t = x ^ x >> 4:
  * its low byte gives t, t gives x, and the whole step must match. */
 #if (!STRICT_REREAD || KUI_TOY_SUITE_VERIFIED_RESUME) && \
-    !(KUI_TOY_SUITE_TABLE_CRC16 && defined(__sh__))
+    !(KUI_TOY_SUITE_TABLE_CRC16 && defined(KUI_SH_COMPILER))
 static int rebuild(uint32_t syndrome, uint32_t after) {
 #if KUI_TOY_SUITE_VERIFIED_RESUME
     /* Four inverse bit steps at once. The four low-bit basis vectors
@@ -1041,7 +1044,7 @@ const uint8_t *kui_sci_stream_take(uint32_t lba, enum kui_sci_stream_result *res
             area[lost - 1u] = 0;
         }
 #endif
-#if !(KUI_TOY_SUITE_TABLE_CRC16 && defined(__sh__))
+#if !(KUI_TOY_SUITE_TABLE_CRC16 && defined(KUI_SH_COMPILER))
         uint8_t high = area[512], low = s.rdr[i];
 #endif
 #if KUI_TOY_SUITE_PIO_WINDOW || KUI_TOY_SUITE_VERIFIED_RESUME
@@ -1049,7 +1052,7 @@ const uint8_t *kui_sci_stream_take(uint32_t lba, enum kui_sci_stream_result *res
 #else
         bool wire = s.wire[i];
 #endif
-#if KUI_TOY_SUITE_TABLE_CRC16 && defined(__sh__)
+#if KUI_TOY_SUITE_TABLE_CRC16 && defined(KUI_SH_COMPILER)
         const kui_toy_sd_crc16_check_fn check=(kui_toy_sd_crc16_check_fn)(uintptr_t)
             kui_retail_async_region.vector600[KUI_TOY_SD_CRC16_SLOT];
         if(check) {
@@ -1084,7 +1087,7 @@ recovered:
 intact:
 #else
 #if KUI_TOY_TEST_BUILD
-#if defined(KUI_RETAIL_CE) || (KUI_TOY_SUITE_FAST_CRC16 && defined(__sh__))
+#if defined(KUI_RETAIL_CE) || (KUI_TOY_SUITE_FAST_CRC16 && defined(KUI_SH_COMPILER))
         uint32_t crc = 0;
 #else
         uint16_t crc = 0;
@@ -1106,7 +1109,7 @@ intact:
 #else
             if(wire) ((alias_word *)area)[w] = word = reverse(word);
 #endif
-#if KUI_TOY_SUITE_FAST_CRC16 && defined(__sh__) && __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
+#if KUI_TOY_SUITE_FAST_CRC16 && defined(KUI_SH_COMPILER) && __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
             crc = toy_crc16_word(crc, word);
 #else
             for(unsigned b = 0; b < 4u; ++b) {
@@ -1119,7 +1122,7 @@ intact:
 #endif
         }
 #endif
-#if KUI_TOY_SUITE_FAST_CRC16 && defined(__sh__)
+#if KUI_TOY_SUITE_FAST_CRC16 && defined(KUI_SH_COMPILER)
         crc = (uint16_t)crc;
 #endif
         if(wire) {high = (uint8_t)reverse(high); low = (uint8_t)reverse(low);}

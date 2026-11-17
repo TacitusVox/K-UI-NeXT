@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: GPL-3.0-only */
 /* Compile with the native foreground reader ABI, never KUI_RETAIL_CE. The
  * accepted helper is not relinked with this independent terminal predicate. */
+#include "kui/target.h"
 #include "kui/smash_ce_return_view.h"
 #include "kui/armada_ce_vmu_write.h"
 #include "kui/armada_ce_vmu_sd.h"
@@ -32,7 +33,7 @@ struct smash_ce_loan_view {
 struct smash_ce_fence_view {
     uint32_t pending,active,extension,source,saved_enable,trigger,previous_mode;
 };
-#ifdef __sh__
+#ifdef KUI_SH_COMPILER
 _Static_assert(sizeof(struct smash_ce_runtime_view)==0x2240u,"Frozen CE runtime view size");
 _Static_assert(sizeof(struct smash_ce_loan_view)==56u,"Frozen CE loan view size");
 _Static_assert(sizeof(struct smash_ce_fence_view)==28u,"Frozen CE fence view size");

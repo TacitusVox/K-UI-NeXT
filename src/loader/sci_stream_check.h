@@ -15,6 +15,7 @@
  * the SH-4 emulator test (tests/sh4/test_check_words.c). */
 #ifndef KUI_SCI_STREAM_CHECK_H
 #define KUI_SCI_STREAM_CHECK_H
+#include "kui/target.h"
 #include <stdbool.h>
 #include <stdint.h>
 
@@ -41,7 +42,7 @@ typedef uint32_t kui_sci_check_word __attribute__((__may_alias__));
 /* One byte's CRC update; the byte is word's low 8 bits. */
 static inline __attribute__((__always_inline__)) uint32_t kui_sci_check_step(
     uint32_t crc, uint32_t word, const uint16_t *table, uint32_t poly) {
-#if defined(__sh__) && !defined(KUI_SCI_CHECK_PORTABLE)
+#if defined(KUI_SH_COMPILER) && !defined(KUI_SCI_CHECK_PORTABLE)
     uint32_t index, value;
     __asm__("mov   %[crc],%[index]\n\t"
             "shlr8 %[index]\n\t"
