@@ -17,6 +17,12 @@ from swirl_ce_vmu_owner_audit import audit,SwirlSourceROM
 from swirl_ce_vmu_geometry_audit import audit as geometry
 
 class Source(unittest.TestCase):
+    kernel=vc2=None  # set by main() from --kernel/--vc2
+    @classmethod
+    def setUpClass(cls):
+        if cls.kernel is None:
+            raise unittest.SkipTest('Needs the private Swirl owner kernel; run directly: '
+                                    'python3 tests/test_swirl_ce_vmu_source.py --kernel FILE [--vc2 FILE]')
     def test_original_and_geometry(self):
         report=audit(self.kernel);g=geometry(self.kernel)
         self.assertEqual(report['status'],'PASS')

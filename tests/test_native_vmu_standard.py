@@ -7,6 +7,12 @@ import shlex
 import subprocess
 import sys
 import tempfile
+import unittest
+if __name__!='__main__':
+    # Imported by unittest discovery: the accepted delivered modules are not
+    # in a host checkout, and discovery's own arguments are not module paths.
+    raise unittest.SkipTest('Needs the accepted delivered d6 and 173 native VMU Lite paced modules; run directly: '
+                            'python3 tests/test_native_vmu_standard.py [D6.kui 173.kui]')
 ROOT=Path(__file__).resolve().parents[1]
 paths=sys.argv[1:] or ['build/skies-read-paced/retail-native-vmu-lite-paced.kui',
                       'build/background72-standalone/retail-native-vmu-lite-paced.kui']

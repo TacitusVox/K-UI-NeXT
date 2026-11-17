@@ -7,7 +7,11 @@ boundaries; the return body, parser/setters, cold entry and copied stage
 prefix execute actual supplied ELF instructions. No hardware success claimed.
 """
 from pathlib import Path
-import argparse,sys,struct,zlib,json,types,hashlib
+import argparse,sys,struct,zlib,json,types,hashlib,unittest
+if __name__!='__main__':
+    # Imported by unittest discovery: the original MDE bytes are private.
+    raise unittest.SkipTest('Needs the private original MDE executable and linked return/outer stage ELFs; run directly: '
+                            'python3 tests/test_smash_return_outer_prefix.py --native DIR --outer DIR --mde FILE --report FILE')
 R=Path(__file__).resolve().parents[1];sys.path[:0]=[str(R/'tests'),str(R/'tools')]
 from check_vmu_native_worker_gateway import read_elf
 from runtime_package import flatten_elf

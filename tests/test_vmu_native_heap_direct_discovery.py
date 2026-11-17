@@ -7,7 +7,13 @@ import shlex
 import subprocess
 import sys
 import tempfile
+import unittest
 
+if __name__!='__main__':
+    # Imported by unittest discovery: the original startups are private, and
+    # discovery's own arguments are not startup paths.
+    raise unittest.SkipTest('Needs one or more owner-supplied original startup files; run directly: '
+                            'python3 tests/test_vmu_native_heap_direct_discovery.py STARTUP...')
 ROOT=Path(__file__).resolve().parents[1]
 if len(sys.argv)<2:
     raise SystemExit('Supply one or more owner-provided original startup files')
