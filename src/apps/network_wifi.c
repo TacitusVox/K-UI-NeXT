@@ -513,8 +513,8 @@ bool kui_wifi_network_inspect(struct kui_app_status *out, kui_log_fn log, kui_ca
     const uint8_t *mac = s->host.hello.mac;
     snprintf(out->lines[5], KUI_APP_LINE_CAP, "DNS: %u.%u.%u.%u   MAC: %02X:%02X:%02X:%02X:%02X:%02X", w->dns[0], w->dns[1],
         w->dns[2], w->dns[3], mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
-    snprintf(out->lines[6], KUI_APP_LINE_CAP, "%s", out->passed ? "The FTP server (Y) can use this connection" :
-        "Choose a network on the Wi-Fi page (START)");
+    snprintf(out->lines[6], KUI_APP_LINE_CAP, "%s", out->passed ? "Press B, then choose FTP server in Network" :
+        "Press B, then choose Wi-Fi in Network");
     snprintf(out->lines[7], KUI_APP_LINE_CAP, "No settings were changed");
     if(s->port->bus->gap_us) {
         unsigned gap = s->port->bus->gap_us(s->port->bus->ctx);
