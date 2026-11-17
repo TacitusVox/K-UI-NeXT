@@ -22,7 +22,7 @@ struct account {
     bool wall,cycle,nominal;
 };
 static struct {
-    bool running,selected,finished,prepared,report_allowed,native,virtual_vmu;
+    bool running,selected,finished,prepared,report_allowed,native,wince,virtual_vmu;
     unsigned phase;
     char image[512],build[13];
     char product[12],mode[64];
@@ -110,6 +110,18 @@ void kui_smash_launch_timing_native(const char *image,const char *build,const ch
     kui_smash_launch_timing_metric(KUI_SMASH_UI_MODULE_CRC32,module_crc32);
     kui_smash_launch_timing_metric(KUI_SMASH_UI_MODULE_BYTES,module_bytes);
 }
+void kui_smash_launch_timing_wince(const char *image,const char *build,const char *product,
+    bool virtual_vmu,uint32_t module_crc32,uint32_t module_bytes) {
+    if(!timing.running)return;
+    if(image && build && product) {
+        kui_smash_launch_timing_activate(image,build);timing.native=true;timing.virtual_vmu=virtual_vmu;
+        snprintf(timing.product,sizeof(timing.product),"%.11s",product);
+        snprintf(timing.mode,sizeof(timing.mode),"%s","Background SCI + CD music");
+        kui_smash_launch_timing_metric(KUI_SMASH_UI_MODULE_CRC32,module_crc32);
+        kui_smash_launch_timing_metric(KUI_SMASH_UI_MODULE_BYTES,module_bytes);
+    }
+    if(timing.selected)timing.wince=true;
+}
 void kui_smash_launch_timing_source_module(const char *path,const char *build,
     uint32_t payload_crc32,uint32_t payload_bytes) {
     if(!timing.running || !timing.selected || !path || !build || !payload_bytes)return;
@@ -175,10 +187,10 @@ void kui_smash_launch_timing_freeze(bool prepared,kui_log_fn log) {
     if(!timing.selected || !log)return;
     if(!timing.total.wall) {log("Launch UI timing: monotonic clock unavailable");return;}
     log("%s UI action-to-ready: %" PRIu64 " ms (%s); diagnostic I/O excluded",
-        timing.native?"Native":"Smash",timing.total.ms,prepared?"prepared":"failed");
+        timing.wince?"WinCE":timing.native?"Native":"Smash",timing.total.ms,prepared?"prepared":"failed");
     log("UI early ms: setup=%" PRIu64 " meta=%" PRIu64 " menu=%" PRIu64 " map=%" PRIu64,
         ms(KUI_SMASH_UI_REQUEST_SETUP),ms(KUI_SMASH_UI_METADATA),ms(KUI_SMASH_UI_MENU_PROOF),ms(KUI_SMASH_UI_TRACK_MAP));
-    log("UI native ms: module=%" PRIu64 " read/hash=%" PRIu64 " extent=%" PRIu64 " proof=%" PRIu64,
+    log("UI loader ms: module=%" PRIu64 " read/hash=%" PRIu64 " extent=%" PRIu64 " proof=%" PRIu64,
         ms(KUI_SMASH_UI_CHILD_MODULE),ms(KUI_SMASH_UI_MDE_READ_HASH),ms(KUI_SMASH_UI_MDE_EXTENT),ms(KUI_SMASH_UI_MDE_PROOF));
     log("UI tail ms: card=%" PRIu64 " caps=%" PRIu64 " report=%" PRIu64 " activity=%" PRIu64 " audio=%" PRIu64,
         ms(KUI_SMASH_UI_CARD),ms(KUI_SMASH_UI_CAPSULES),ms(KUI_SMASH_UI_REPORT_CLEANUP),ms(KUI_SMASH_UI_ACTIVITY),ms(KUI_SMASH_UI_AUDIO));
@@ -199,7 +211,8 @@ static void row(struct builder *b,const char *kind,const char *name,const struct
 size_t kui_smash_launch_timing_format(char *out,size_t capacity) {
     if(!out || !capacity || !timing.finished || !timing.selected)return 0u;
     struct builder b={out,0u,capacity,true};
-    append(&b,"KUI %s UI launch timing v1\nbuild: %s\nimage: %s\nstate: %s\n",timing.native?"native":"Smash",timing.build,timing.image,
+    append(&b,"KUI %s UI launch timing v1\nbuild: %s\nimage: %s\nstate: %s\n",
+        timing.wince?"WinCE":timing.native?"native":"Smash",timing.build,timing.image,
         timing.prepared?"prepared before handoff; game start unconfirmed":"preparation failed");
     if(timing.native)append(&b,"product: %s\nreader: %s\nvirtual_vmu: %s\n",
         timing.product,timing.mode,timing.virtual_vmu?"On":"Off");
@@ -217,7 +230,8 @@ size_t kui_smash_launch_timing_format(char *out,size_t capacity) {
     append(&b,"report_io: excluded from all measured intervals\nprfc: observation starts at request publication; nominal CPU ms are not calibrated wall time\n");
     if(timing.native)append(&b,"counter_scope: source callbacks/bytes/seeks are attempted file I/O; history calls are read attempts and bytes are delivered; executable SHA bytes count GUI source/prefix hashes\n");
     row(&b,"total","action_to_ready",&timing.total);
-    for(unsigned i=0u;i<KUI_SMASH_UI_PHASES;++i)row(&b,"phase",phases[i],&timing.phases[i]);
+    for(unsigned i=0u;i<KUI_SMASH_UI_PHASES;++i)row(&b,"phase",
+        timing.wince && i==KUI_SMASH_UI_MDE_READ_HASH?"kernel_read_hash":phases[i],&timing.phases[i]);
     append(&b,"details: nested intervals; do not add to flat phases\n");
     for(unsigned i=0u;i<KUI_SMASH_UI_DETAILS;++i)if(timing.details[i].calls)row(&b,"detail",details[i],&timing.details[i]);
     for(unsigned i=0u;i<KUI_SMASH_UI_METRICS;++i)if(timing.metric_present[i]) {

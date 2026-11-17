@@ -165,13 +165,22 @@ static bool shared_boundary(const struct kui_retail_manifest *m,uint32_t ei,uint
         e->file_block+(uint32_t)(first-e->card_lba)==(end-1u)/512u &&
         q->file_block+(uint32_t)(first-q->card_lba)==0;
 }
+#if KUI_RETAIL_MANIFEST_CAPACITY
+/* The GUI encodes the generic Windows CE module's map with that module's
+ * capacity (64 or 96 background slots). Without this switch, as in every
+ * loader, the source is exactly the fixed-capacity validator. */
+static enum kui_game_result validate_capacity(const struct kui_retail_manifest *m, uint32_t async_slots) {
+#define KUI_RETAIL_VALIDATE_ASYNC_SLOTS async_slots
+#else
 enum kui_game_result kui_retail_manifest_validate(const struct kui_retail_manifest *m) {
+#define KUI_RETAIL_VALIDATE_ASYNC_SLOTS KUI_RETAIL_ASYNC_SLOTS
+#endif
     if(!tracks_valid(m) || m->storage_transport > KUI_STORAGE_IDE || !m->card_sectors || m->card_sectors > UINT64_C(0x100000000) ||
        (m->flags & ~(KUI_RETAIL_IMAGE_CD | KUI_RETAIL_IMAGE_SCRAMBLED | KUI_RETAIL_IMAGE_BOOT_CRC)) ||
        ((m->flags & KUI_RETAIL_IMAGE_SCRAMBLED) && !(m->flags & KUI_RETAIL_IMAGE_CD)) ||
        m->reader > KUI_RETAIL_READER_ASYNC_EAGER || (m->reader != KUI_RETAIL_READER_STANDARD &&
-           (m->storage_transport != KUI_STORAGE_SCI || m->track_count > KUI_RETAIL_ASYNC_SLOTS ||
-            m->extent_count > KUI_RETAIL_ASYNC_SLOTS - m->track_count)) ||
+           (m->storage_transport != KUI_STORAGE_SCI || m->track_count > KUI_RETAIL_VALIDATE_ASYNC_SLOTS ||
+            m->extent_count > KUI_RETAIL_VALIDATE_ASYNC_SLOTS - m->track_count)) ||
        m->partition_start >= m->partition_end || m->partition_end > m->card_sectors ||
        !m->extent_count || m->extent_count > KUI_RETAIL_MANIFEST_SLOTS - m->track_count ||
        !text_valid(m->title, sizeof(m->title), true) ||
@@ -220,10 +229,22 @@ enum kui_game_result kui_retail_manifest_validate(const struct kui_retail_manife
     }
     return KUI_GAME_OK;
 }
+#undef KUI_RETAIL_VALIDATE_ASYNC_SLOTS
+#if KUI_RETAIL_MANIFEST_CAPACITY
+enum kui_game_result kui_retail_manifest_validate(const struct kui_retail_manifest *m) {
+    return validate_capacity(m, KUI_RETAIL_ASYNC_SLOTS);
+}
+enum kui_game_result kui_retail_manifest_encode_capacity(const struct kui_retail_manifest *m,
+    uint8_t out[KUI_RETAIL_IMAGE_WIRE_BYTES], uint32_t async_slots) {
+    if(!out || (async_slots != KUI_RETAIL_ASYNC_SLOTS && async_slots != KUI_RETAIL_CE_MAP_SLOTS))
+        return KUI_GAME_INVALID;
+    enum kui_game_result r = validate_capacity(m, async_slots);
+#else
 enum kui_game_result kui_retail_manifest_encode(const struct kui_retail_manifest *m,
     uint8_t out[KUI_RETAIL_IMAGE_WIRE_BYTES]) {
     if(!out) return KUI_GAME_INVALID;
     enum kui_game_result r = kui_retail_manifest_validate(m);
+#endif
     if(r != KUI_GAME_OK) return r;
     memset(out, 0, KUI_RETAIL_IMAGE_WIRE_BYTES);
     memcpy(out, "KUIRTI03", 8);
@@ -255,6 +276,12 @@ enum kui_game_result kui_retail_manifest_encode(const struct kui_retail_manifest
     put32(out + 16, wire_crc(out));
     return KUI_GAME_OK;
 }
+#if KUI_RETAIL_MANIFEST_CAPACITY
+enum kui_game_result kui_retail_manifest_encode(const struct kui_retail_manifest *m,
+    uint8_t out[KUI_RETAIL_IMAGE_WIRE_BYTES]) {
+    return kui_retail_manifest_encode_capacity(m, out, KUI_RETAIL_ASYNC_SLOTS);
+}
+#endif
 enum kui_game_result kui_retail_manifest_decode(
     const uint8_t wire[KUI_RETAIL_IMAGE_WIRE_BYTES], struct kui_retail_manifest *m) {
     if(!m) return KUI_GAME_INVALID;

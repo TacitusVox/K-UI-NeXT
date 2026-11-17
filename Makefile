@@ -327,7 +327,7 @@ build/test-armada-ce-excerpt-prepare: tests/test_armada_ce_excerpt_prepare.c src
 build/test-armada-ce-excerpt-prepare: src/apps/games_native_cache.inc
 
 	@mkdir -p $(@D)
-	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) -Isrc/dreamcast -ffunction-sections -fdata-sections tests/test_armada_ce_excerpt_prepare.c $(ARMADA_PREPARE_TEST_SOURCES) -Wl,--gc-sections -o $@
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) -Isrc/dreamcast -DKUI_RETAIL_MANIFEST_CAPACITY=1 -ffunction-sections -fdata-sections tests/test_armada_ce_excerpt_prepare.c $(ARMADA_PREPARE_TEST_SOURCES) -Wl,--gc-sections -o $@
 build/test-armada-ce-excerpt-entry: tests/test_armada_ce_excerpt_entry.c src/loader/armada_ce_excerpt_entry.c include/kui/armada_ce_excerpt_entry.h src/loader/armada_ce_audio_observe.inc
 	@mkdir -p $(@D)
 	$(CC) $(HOST_FLAGS) -fsanitize=undefined -fno-omit-frame-pointer $(INCLUDES) $< -o $@
@@ -857,7 +857,7 @@ build/test-retail-gd-disc-async: tests/test_retail_gd_disc.c src/core/retail_gd.
 build/games-retail: tests/games_retail.c $(GAMES_RETAIL) $(CORE) $(FATFS) include/kui/games_retail.h include/kui/ce_load_plan.h include/kui/retail_image.h include/kui/retail_loader_layout.h include/kui/game_image.h include/kui/game_metadata.h include/kui/runtime.h include/kui/destination.h include/kui/media.h src/dreamcast/platform.h config/ffconf.h .deps/fatfs/source/ff.h include/kui/game_ram_patches.h include/kui/game_launch_settings.h include/kui/game_launch_report.h include/kui/retail_zso.h include/kui/zso.h
 build/games-retail: src/apps/games_native_cache.inc include/kui/native_standalone_capability.h include/kui/native_sdk_sci_family.h
 	@mkdir -p $(@D)
-	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) -Isrc/dreamcast tests/games_retail.c $(GAMES_RETAIL) $(CORE) $(FATFS) $(GAMES_IMAGE_PROBE_WRAP) -Wl,--wrap=kui_native_sdk_sci_family_find -o $@
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) -Isrc/dreamcast -DKUI_RETAIL_MANIFEST_CAPACITY=1 tests/games_retail.c $(GAMES_RETAIL) $(CORE) $(FATFS) $(GAMES_IMAGE_PROBE_WRAP) -Wl,--wrap=kui_native_sdk_sci_family_find -o $@
 
 build/test-core: tests/test_core.c $(CORE) include/kui/core.h include/kui/media.h config/ffconf.h .deps/fatfs/source/ff.h
 	@mkdir -p build
@@ -1593,7 +1593,7 @@ test-check-relaxed-calls:
 build/test-wince-packaged-prepare: tests/test_wince_packaged_prepare.c tests/test_armada_ce_excerpt_prepare.c src/apps/games_retail.c $(ARMADA_PREPARE_TEST_SOURCES) include/kui/wince_cdda_profiles.h include/kui/armada_ce_stream_seed.h include/kui/games_retail.h include/kui/wince_cdda_wwp_kernel.h
 build/test-wince-packaged-prepare: src/apps/games_native_cache.inc
 	@mkdir -p $(@D)
-	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) -Isrc/dreamcast -ffunction-sections -fdata-sections tests/test_wince_packaged_prepare.c $(ARMADA_PREPARE_TEST_SOURCES) -Wl,--gc-sections -o $@
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) -Isrc/dreamcast -DKUI_RETAIL_MANIFEST_CAPACITY=1 -ffunction-sections -fdata-sections tests/test_wince_packaged_prepare.c $(ARMADA_PREPARE_TEST_SOURCES) -Wl,--gc-sections -o $@
 
 test-retail-map-diagnostic: build/test-retail-map-diagnostic build/test-retail-map-diagnostic-extended build/test-retail-map-stage-native build/test-retail-map-stage-ce build/test-retail-map-stage-worms
 	ASAN_OPTIONS=detect_leaks=0 ./build/test-retail-map-diagnostic

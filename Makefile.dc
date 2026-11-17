@@ -151,6 +151,9 @@ BUILD_ID ?= $(shell git rev-parse --short=12 HEAD 2>/dev/null || echo local)
 all: $(TARGET) $(RUNTIME) build/loader/entry.elf build/loader/image_entry.elf build/retail/entry.elf build/retail-bench/entry.elf build/retail-ce/entry.elf wince-cdda
 all: native-zso native-lzo native-cdda
 $(RUNTIME_OBJECTS): CPPFLAGS += -DKUI_SMASH_LAUNCH_TIMING=$(KUI_SMASH_LAUNCH_TIMING)
+# The GUI encodes each background map with its reader's capacity, including
+# the generic Windows CE module's 96 slots (include/kui/retail_image.h).
+$(RUNTIME_OBJECTS): CPPFLAGS += -DKUI_RETAIL_MANIFEST_CAPACITY=1
 $(RUNTIME_OBJECTS): build/dc/smash-launch-timing.config
 .PHONY: force-smash-launch-timing-config
 force-smash-launch-timing-config:
