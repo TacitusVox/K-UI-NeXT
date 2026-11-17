@@ -1,0 +1,53 @@
+{
+  "schema": "kui.gui.reconstruction-evidence.v1",
+  "date": "2026-11-17",
+  "installed_gui": {
+    "build": "00d8ed67d9ad",
+    "runtime_sha256": "dbb88cdbd512f1ce6f2eacfb15917352a35100c44e05988575f6e35cbb341a03",
+    "package": "KUI-Armada-VMU-Off-Fix-07NOV2026-1325-CST-4d893b3.zip",
+    "source_commit": "00d8ed67d9ad1a3de57690918912c83cb58706ad (not in any repository)"
+  },
+  "base": {
+    "commit": "e20eae43",
+    "note": "a build of e20eae43 with BUILD_ID=00d8ed67d9ad, KUI_SMASH_LAUNCH_TIMING=1 and the bundle matches all but the changed functions; its first 1,610 functions sit at identical addresses"
+  },
+  "bundle_members_sha256": {
+    "retail-smash-menu.kui": "e6d0bef744f007a6cae87a10f9e83b7084801fedbdbc15b93b974ab3a3ee9117",
+    "retail-smash-native-menu.kui": "b2d633f5254e5db852382f6e1263f283d6dd00434c7841ed852ca9f15e67de2e",
+    "retail-smash-swirl.kui": "5b8f7f1c36983ad4d08ef63f928375201b289e4825635bc7eea1727217a3881b",
+    "retail-smash-vc2.kui": "a36421a22e4e3d1da10b82d996816c427f311da90bd5ed633dac7af01e5deca5"
+  },
+  "standard_binding": "resources/updater-bindings/installed-standard-9e3295bcfaec.json",
+  "reconstruction": {
+    "commit": "069d612c",
+    "comparison_build_id": "00d8ed67d9ad",
+    "functions": 3412,
+    "matched": 3408,
+    "unmatched": [
+      "main (embeds the image size)",
+      "installed_module_stat (two functions here, one tail call there)",
+      "prepare_launch (21,936 bytes against 21,900)",
+      "kui_smash_launch_timing_wince (184 against 176)"
+    ],
+    "strings": "every Windows CE route string of 00d8ed67d9ad is present"
+  },
+  "delivery": {
+    "build": "069d612cadea",
+    "runtime_sha256": "97b4e4e27a900fc1d7f29e295d01b15b4524102c8cd95db2b8361e98c0acb740",
+    "payload_crc32": "178a6a7b",
+    "payload_bytes": 3563184,
+    "functions_matched_vs_00d8ed67d9ad": "3406 of 3412 (update_failure and update_work.constprop.0 also differ: they embed the build ID text)",
+    "bundle": "the embedded bundle's four modules equal the installed files",
+    "zip": "KUI-WinCE-GUI-Routes-16NOV2026-1928-CST-069d612.zip",
+    "zip_sha256": "99b90abbe7a8668a7a4cb605a59caad7872c63d38a4ef74bf05c48d83993492a"
+  },
+  "host_tests": [
+    "tests/test_games_retail.py: CE cases including ce-probe-record-96 and ce-probe-record-bad; --rc/--formats/--checksums/--zso/--native-standard/--native-dual/--compact-background subsets pass; the full run stops at launch-check, as on Main",
+    "test-armada-ce-excerpt-prepare: 382016 checks",
+    "test-wince-packaged-prepare against the delivered 7b216f2e1136 ce-cdda-worms, ce-cdda-wwp and (with the owner's Armada kernel) ce-cdda-armada modules",
+    "test-retail-image",
+    "tests/test_smash_launch_timing.py"
+  ],
+  "not_covered_on_host": "the all-on card preparation (KUI_VMU_GAME_CARDS builds only): compared against 00d8ed67d9ad's code; the console test checks it",
+  "console_status": "pending"
+}

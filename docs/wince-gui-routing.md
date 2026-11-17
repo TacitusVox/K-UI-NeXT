@@ -12,74 +12,105 @@ Addresses below are the GUI's own.
 
 ## Routes
 
-| Launch | Installed GUI `00d8ed67d9ad` | GUI built from this repository |
-| --- | --- | --- |
-| Windows CE, CD music Off | `ce-boot.kui`, with the map descriptor rule below | `ce-probe.kui`, 64 map slots |
-| Armada, CD music On, VMU Off | `ce-cdda-armada.kui` | the same |
-| Armada, CD music On, VMU On | `ce-armada-all-on.kui`, with the checks below | no route |
-| Armada, legacy virtual VMU | `ce-probe.kui`, which it calls the "Armada legacy virtual VMU module" and inspects first (`0x8c15c040`) | `ce-probe.kui` is the generic module for every Windows CE game |
-| BAM4, Worms Armageddon, Worms World Party, CD music On | their own modules | the same |
+| Launch | Installed GUI `00d8ed67d9ad` and the repository GUI since 17 Nov 2026 |
+| --- | --- |
+| Windows CE, CD music Off | `ce-boot.kui`, with the map record rule below |
+| Armada, CD music Off, `ce-probe.kui` installed | `ce-probe.kui`, Armada's legacy virtual VMU module |
+| Armada, CD music On, VMU Off | `ce-cdda-armada.kui` |
+| Armada, CD music On, VMU On, `ce-armada-all-on.kui` installed | `ce-armada-all-on.kui`, with its own test card |
+| BAM4, Worms Armageddon, Worms World Party, CD music On | their own modules |
 
-The exact condition that selects the legacy module was not decoded.
+### How the routes were recovered (17 Nov 2026)
 
-### Generic module: map descriptor at payload `0x140`
+`00d8ed67d9ad` is Main `e20eae43` plus one change to the launcher. Its other
+3,397 functions are byte-identical (absolute addresses and branches out of a
+function masked) to a build of `e20eae43` with:
 
-At `0x8c1593e2` the GUI compares the launch path with `ce-boot.kui`. For that
-module it reads the 16 bytes at payload offset `0x140`:
+- `BUILD_ID=00d8ed67d9ad` and `KUI_SMASH_LAUNCH_TIMING=1`;
+- the embedded bundle of the four Smash Pack modules (`cc81e63ca4d2`,
+  identical to the delivered files);
+- the Standard binding of the owner's `retail-boot.kui` `9e3295bcfaec`
+  (`resources/updater-bindings/installed-standard-9e3295bcfaec.json`).
 
-- all of them equal to a blank record: the map has 64 slots;
-- `KUICEM01`, version 1 (`0x148`) and 96 slots (`0x14c`): the map has 96 slots;
-- anything else: the launch stops with "unsupported ordinary Windows CE map
-  descriptor".
+The changed functions were decoded and rewritten in this repository. Built the
+same way, 3,408 of the reconstruction's 3,412 functions match `00d8ed67d9ad`
+exactly, including the map encoder and validator, the launch-timing writer and
+the Standard recognizer. The other four:
 
-The repository's generic module writes exactly that record when built with
-`KUI_RETAIL_CE_MAP_RECORD=1` (`src/loader/retail_entry.S`), as the delivered
-`ce-boot.kui` of build `7b216f2e1136` is.
+- `main`, which embeds the image size;
+- the installed-module check, written as two functions;
+- `prepare_launch`, 21,936 bytes against 21,900;
+- the WinCE timing record, 184 bytes against 176.
+
+Every string of the Windows CE routes is in both images.
+
+### Generic module: `ce-boot.kui`
+
+The module is read after the IP check. If its path is `ce-boot.kui`, the 16
+bytes at payload `0x140` decide its map capacity:
+
+- all zero: 64 slots;
+- `KUICEM01`, version 1, 96: 96 slots (`kui_retail_manifest_encode_capacity`);
+- anything else: "unsupported ordinary Windows CE map descriptor".
+
+A capacity not above the track count is refused ("Windows CE background map
+has %u slots for %u tracks and their data extents"); a full map names the
+fragmented track or the capacity.
+
+### Armada's legacy module: `ce-probe.kui`
+
+CD music Off, the background reader, Armada's IP.BIN (CRC32 `0x684f8040`),
+Armada's disc layout and Armada's kernel SHA: if `ce-probe.kui` is installed
+(present, or in the GUI's bundle), it is the launch module. Absent, the
+generic module is used. Any other state ("cannot inspect installed Armada
+legacy virtual VMU module") refuses: a directory, an unresolvable path, or a
+file missing from a selected bank. The VMU setting is not consulted.
 
 ### Armada with CD music and virtual VMU: `ce-armada-all-on.kui`
 
-- The disc header's CRC32 is compared with `0x684f8040` first (`0x8c15c6ec`):
-  Armada's `IP.BIN`, the value `src/core/game_profile.c` records for it. The
-  route admits Armada's exact disc only.
-- The 16 bytes at payload `0x150` must be `KUIAVM01`, version 1, and `0x1000`
-  (`0x8c15c5d0`); otherwise "Armada all-on module capability is missing or
-  invalid".
-- The module needs a card profile slot ("no card profile slot") and a complete
-  CD music seed ("Armada all-on module has no complete CD music seed").
-- The launch is logged as "Armada all-on: CD music and dedicated virtual A2
-  test card".
+- CD music On, Armada's runtime profile, IP.BIN and disc layout, and the
+  module installed: the saved VMU setting is read. On selects the module; Off
+  keeps `ce-cdda-armada.kui`. An unreadable setting refuses.
+- The 16 bytes at payload `0x150` must be `KUIAVM01`, version 1, `0x1000`.
+- The complete CE audio map fills its `CEX2` stream seed ("Armada all-on module
+  has no complete CD music seed" without one).
+- The virtual card is the per-game card of product `KUIARMCD`, a dedicated test
+  card: the complete map's copy carries that product, the launch map keeps
+  Armada's. Every image file is excluded from the card's placement.
+- The report's CD music profile is "Armada CD music + virtual A2"; the log says
+  "Armada all-on: CD music and dedicated virtual A2 test card".
 
-Both GUIs share the card profile records (`KUIVMUI1`, `KUIVMUA1`, `KUIVMUC2`)
-of the native virtual VMU. How the GUI composes the 4,096-byte profile it
-writes into the slot was not decoded.
+### Launch timing
 
-### Also in this GUI
-
-- `launch-timing.txt` and `smash-launch-timing.txt`: the repository's launch
-  timing, which a GUI build enables with `KUI_SMASH_LAUNCH_TIMING=1`.
-
-## Consequence
-
-A GUI built from this repository today would load `ce-probe.kui` for every
-Windows CE game. In the owner's installation that file is Armada's legacy
-virtual VMU module (build `33298cc0bdb8`; `accepted-progress.md` records the
-path collision as a deployment gap). Armada with VMU On would have no route at
-all. No repository GUI goes to the owner until it reproduces these routes and
-Armada behaves on the console as it does under `00d8ed67d9ad`.
+A Windows CE CD music launch writes `launch-timing.txt` as a native launch,
+reader "Background SCI + CD music", labelled WinCE, with its kernel identity
+read and hash as phase `kernel_read_hash`. The log's native line reads
+"UI loader ms".
 
 ## What a repository GUI needs for virtual VMU in more Windows CE games
 
-1. `ce-boot.kui` as the generic module, with the descriptor rule above.
-   `ce-probe.kui` stays Armada's legacy module, or is retired by name.
-2. The Armada routes as above, first, checked against `00d8ed67d9ad` on the
-   console.
-3. A virtual VMU route chosen by the kernel's `maple.dll` family
+1. The routes above, checked against `00d8ed67d9ad` on the console: done in
+   source; the console check is pending.
+2. A virtual VMU route chosen by the kernel's `maple.dll` family
    ([driver families](wince-vmu-driver-families.md)), not by title. Each family
-   module carries an admission record such as `KUIAVM01` (capability and
-   profile slot), and the GUI fills its card profile and, with CD music, its
-   seed.
-4. `KUI_SMASH_LAUNCH_TIMING=1`, so the launch report stays.
+   module carries an admission record such as `KUIAVM01`, and the GUI fills its
+   card profile and, with CD music, its seed.
+3. `KUI_SMASH_LAUNCH_TIMING=1`, so the launch report stays.
 
-Open: how the profile written into the slot is composed. It can be read from
-the same disassembly, or settled by reproducing the GUI's checks against its
-own accepted modules.
+## Delivery and open items (17 Nov 2026)
+
+- **Console test pending:** `KUI-WinCE-GUI-Routes-16NOV2026-1928-CST-069d612.zip`,
+  GUI build `069d612cadea` (payload CRC32 `178a6a7b`), identical `boot.kui` and
+  `runtime.kui`, no module changes. It is built with launch timing, the Smash
+  bundle and the owner's Standard binding. Record:
+  [reconstruction evidence](evidence/gui-00d8ed67d9ad-reconstruction-2026-11-17.json).
+  Until the owner confirms Armada (all-on and CD music with VMU Off), a CD
+  music Off Windows CE game and one Standard virtual VMU game, `00d8ed67d9ad`
+  stays the reference.
+- **Packagers:** `tools/package.py` and `tools/global_loader_rollout.py` still
+  stage the generic module as `ce-probe.kui`, this repository's layout before
+  this change. A full package for this GUI must stage it as `ce-boot.kui`. The
+  owner's installation already has `ce-boot.kui`.
+- **Not covered on host:** the all-on card preparation is compiled only with
+  `KUI_VMU_GAME_CARDS`, which no host test builds. It was compared with
+  `00d8ed67d9ad`'s code; the console test checks it.

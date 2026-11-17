@@ -44,6 +44,19 @@ may select a stale bank, while cold ROOT boot bypasses selectors. The physical
 card is unavailable, so existing banks are not assumed present or absent.
 Claude's original-backed SA1 result is recorded as an external report only.
 
+## Repository GUI with the installed WinCE routes: console test pending, 069d612cadea, 2026-11-17
+
+The owner's GUI `00d8ed67d9ad` was built from source in no repository. Its
+Windows CE routes are now in this repository ([routing record](wince-gui-routing.md)):
+the generic `ce-boot.kui` with its map record, Armada's legacy `ce-probe.kui`
+and the all-on route with its dedicated card. Built as `00d8ed67d9ad` is,
+3,408 of 3,412 functions are byte-identical to it.
+
+Delivered: `KUI-WinCE-GUI-Routes-16NOV2026-1928-CST-069d612.zip`, GUI build
+`069d612cadea`, GUI only. It binds the owner's Standard module
+`retail-boot.kui` `9e3295bcfaec`, as `00d8ed67d9ad` does. `00d8ed67d9ad`
+remains the reference until the owner reports the package's four tests.
+
 ## WinCE Armada: Virtual VMU On accepted, cb07c6454454, 2026-11-09
 
 The setup was the owner's US raw Armada GDI with CD Music On, GUI
