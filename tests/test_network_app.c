@@ -61,6 +61,7 @@ int main(void) {
 
     reset();fake.bba_present=true;kui_network_app_run(&out,NULL,cancel);
     assert(out.complete && !out.passed && !out.errors && !out.stopped);
+    assert(out.line_count<=8 && line(&out,"HIT-0400"));
     assert(fake.bba_init==1 && fake.bba_end==1 && !fake.lan_init && fake.unreg==1 && !fake.phy_reads);
     assert(LIST_EMPTY(&interfaces));
     assert(line(&out,"192.168.1.42") && line(&out,"255.255.255.0") && line(&out,"Gateway: 192.168.1.1"));
