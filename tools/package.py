@@ -188,7 +188,7 @@ def resolve_bundle_links(bundle, commit):
         if not source.is_file():
             source = (ROOT / "docs" / path.lower()).resolve()
         if source.is_relative_to(ROOT) and source.is_file():
-            url = f"https://github.com/TPMJB/K-UI-NeXT/blob/{commit}/{source.relative_to(ROOT)}"
+            url = f"https://github.com/TacitusVox/K-UI-NeXT/blob/{commit}/{source.relative_to(ROOT)}"
             return "(" + url + (separator + anchor if separator else "") + ")"
         return match.group(0)
 
@@ -409,7 +409,7 @@ def write_release_bundle(dist, sd, cdi, music_manifest, record, boot_record, can
         f"{release['name']} ({release['version']}) — {status}\n"
         + (development_notice(release) if experimental else candidate_notice() if candidate else "") +
         f"K-UI NeXT source commit: {commit}\n"
-        f"https://github.com/TPMJB/K-UI-NeXT/tree/{commit}\n\n"
+        f"https://github.com/TacitusVox/K-UI-NeXT/tree/{commit}\n\n"
         f"The accompanying {release['artifact_prefix']}-source.zip contains exact K-UI, KOS,\n"
         "FatFs, lwext4 and compiler runtime source records under source/. Dependency pins and\n"
         "original notices are also included in build.json and LICENSES/.\n"
@@ -747,7 +747,7 @@ def main():
     (update / "SOURCE.txt").write_text(
         (development_notice(release) if development_test(release) else candidate_notice() if candidate else "") +
         f"K-UI NeXT source commit: {commit}\n"
-        f"https://github.com/TPMJB/K-UI-NeXT/tree/{commit}\n\n"
+        f"https://github.com/TacitusVox/K-UI-NeXT/tree/{commit}\n\n"
         "The diagnostic artifact from this same workflow run contains exact K-UI, KOS,\n"
         "FatFs, lwext4 and compiler runtime source records under source/. Dependency pins and\n"
         "original notices are also included in build.json and LICENSES/.\n\n"
@@ -812,7 +812,7 @@ def main():
     shutil.copytree(dist / "LICENSES", benchmark / "LICENSES")
     (benchmark / "SOURCE.txt").write_text(
         f"K-UI NeXT source commit: {commit}\n"
-        f"https://github.com/TPMJB/K-UI-NeXT/tree/{commit}\n\n"
+        f"https://github.com/TacitusVox/K-UI-NeXT/tree/{commit}\n\n"
         "The diagnostic artifact from this same workflow run contains exact K-UI, KOS,\n"
         "FatFs, lwext4 and compiler runtime source records under source/. Dependency pins and\n"
         "original notices are also included in build.json and LICENSES/.\n"
@@ -865,7 +865,7 @@ def main():
     (boot / "build.json").write_text(json.dumps(boot_record, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
     (boot / "SOURCE.txt").write_text(
         f"K-UI NeXT source commit: {commit}\n"
-        f"https://github.com/TPMJB/K-UI-NeXT/tree/{commit}\n\n"
+        f"https://github.com/TacitusVox/K-UI-NeXT/tree/{commit}\n\n"
         "The diagnostic artifact from this same workflow run contains exact K-UI, KOS,\n"
         "FatFs, lwext4 and compiler runtime source records under source/. Dependency pins and\n"
         "original notices are also included in build.json and LICENSES/.\n\n"

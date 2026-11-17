@@ -11,7 +11,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "tools"))
 import publish_release
 
-REPOSITORY = "TPMJB/K-UI-NeXT"
+REPOSITORY = "TacitusVox/K-UI-NeXT"
 COMMIT = "1234567890ab" + "c" * 28
 RELEASE = {"version": "1.8.5", "name": 'K-UI V1.8.5 "Dáinsleif"',
            "short_name": "K-UI V1.8.5", "artifact_prefix": "kui-1.8.5-dainsleif"}
@@ -134,7 +134,7 @@ class ExplicitReleaseSelection(unittest.TestCase):
             (root / "docs/release-v2.0-notes.md").write_text(
                 "Tyrfing final notes.\n\n![Image](../resources/press.png)\n"
                 "[Install](release-v2.0.md)\n")
-            run = {"id": 42, "html_url": "https://github.com/TPMJB/K-UI-NeXT/actions/runs/42"}
+            run = {"id": 42, "html_url": "https://github.com/TacitusVox/K-UI-NeXT/actions/runs/42"}
             uploaded_notes = []
             def fake_gh(*args):
                 if args[:2] == ("release", "create"):
