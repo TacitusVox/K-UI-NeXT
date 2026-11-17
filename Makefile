@@ -124,6 +124,9 @@ test: test-wince-family7-profiles
 vmu-subset-tool:
 	$(MAKE) -f Makefile.vmu-subset-tool
 test: vmu-subset-tool
+# test_vmu_read_recovery.py runs build/test-vmu-app when the discovery imports
+# it; "make test" alone, or before test-images, must build it too.
+test: build/test-vmu-app
 
 .PHONY: test-updater
 test-updater: test-runtime-module-bundle-make
