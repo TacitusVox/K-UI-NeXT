@@ -26,6 +26,10 @@ SOURCES = (
 
 
 class VmuLibrary(unittest.TestCase):
+    # A subclass (test_vmu_delete.VmuDeletion) builds its own driver by
+    # overriding this, never by rebinding the module's SOURCES.
+    sources = SOURCES
+
     @classmethod
     def setUpClass(cls):
         cls.work = tempfile.TemporaryDirectory(prefix='kui-vmu-library-')
@@ -44,7 +48,7 @@ class VmuLibrary(unittest.TestCase):
             '-Wl,--gc-sections', '-I', str(ROOT/'include'),
             '-I', str(ROOT/'.deps/fatfs/source'),
             '-include', str(header),
-            *[str(ROOT/name) for name in SOURCES], '-o', str(cls.binary),
+            *[str(ROOT/name) for name in cls.sources], '-o', str(cls.binary),
         ], check=True)
 
     @classmethod

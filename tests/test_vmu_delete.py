@@ -8,10 +8,9 @@ import struct
 import subprocess
 import test_vmu_library as fixture
 
-fixture.SOURCES = ('tests/test_vmu_delete.c', *fixture.SOURCES[1:])
-
 class VmuDeletion(fixture.VmuLibrary):
     __unittest_skip__ = False
+    sources = ('tests/test_vmu_delete.c', *fixture.SOURCES[1:])
 
     def check_volume(self, kind, cluster=None):
         # Use a private FatFs formatter config; no external mkfs installation
