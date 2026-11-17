@@ -294,7 +294,12 @@ jobs:
           python3 tests/test_vmu_import_images.py
       - name: Run portable and real filesystem checks
         if: steps.scope.outputs.console_only != 'true' && steps.scope.outputs.games_formats != 'true'
-        run: make test test-images
+        # Build and run independent targets on every runner CPU, keeping each
+        # recipe's output together. Any failing recipe still fails the step,
+        # and the image checks still start only after the portable suite passes.
+        run: |
+          make -j"$(nproc)" --output-sync=target test
+          make -j"$(nproc)" --output-sync=target test-images
       - name: Run Games format checks
         if: steps.scope.outputs.games_formats == 'true'
         env:
