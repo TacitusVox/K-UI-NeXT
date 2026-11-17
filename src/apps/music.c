@@ -248,16 +248,17 @@ static bool is_ogg_path(const char *path) {
         (path[n-3]=='o'||path[n-3]=='O') && (path[n-2]=='g'||path[n-2]=='G') &&
         (path[n-1]=='g'||path[n-1]=='G');
 }
-/* legacy, if any, is tried only when path itself is missing. */
+/* legacy, if any, is tried only when path itself is missing. mounted: the
+ * caller owns a mounted "0:" and keeps it afterwards. */
 static bool cache_path(unsigned index,const char *path,const char *legacy,const char *title,
-    size_t limit,kui_cancel_fn cancel) {
+    size_t limit,bool mounted,kui_cancel_fn cancel) {
     if(stopped(cancel)) {report("Load cancelled; previous song retained");return false;}
-    if(!kui_sd_connect()) {report("SD card unavailable; previous song retained");return false;}
+    if(!mounted && !kui_sd_connect()) {report("SD card unavailable; previous song retained");return false;}
     FATFS fs;FIL file;bool opened=false,ok=false;
     const char *problem="Cannot mount SD card; previous song retained";
     uint8_t *loaded=NULL,*staging=NULL;size_t file_size=0;struct kui_wav wav={0};
     bool compressed=is_ogg_path(path),missing=false;
-    if(!kui_mount(&fs,music.log)) goto out;
+    if(!mounted && !kui_mount(&fs,music.log)) goto out;
     if(stopped(cancel)) {problem="Load cancelled; previous song retained";goto out;}
     FRESULT r=f_open(&file,path,FA_READ);
     if(r==FR_NO_FILE && legacy) {r=f_open(&file,legacy,FA_READ);compressed=is_ogg_path(legacy);}
@@ -302,8 +303,10 @@ static bool cache_path(unsigned index,const char *path,const char *legacy,const 
     ok=true;
 out:
     if(opened && f_close(&file)!=FR_OK) {ok=false;problem="Cannot close track; previous song retained";}
-    if(f_mount(NULL,"0:",0)!=FR_OK) {ok=false;problem="Cannot release SD filesystem; previous song retained";}
-    kui_sd_disconnect();
+    if(!mounted) {
+        if(f_mount(NULL,"0:",0)!=FR_OK) {ok=false;problem="Cannot release SD filesystem; previous song retained";}
+        kui_sd_disconnect();
+    }
     if(!ok) {
         lock_audio();release_file_locked(loaded);release_file_locked(staging);music.status.loading_bytes=0;
         if(missing && index<KUI_MUSIC_TRACKS) music.status.missing_mask|=1u<<index;
@@ -327,15 +330,17 @@ out:
     if(selected || index==KUI_MUSIC_CUSTOM_INDEX) (void)select_locked(index);
     unlock_audio();return true;
 }
-bool kui_music_cache_menu(unsigned index,kui_cancel_fn cancel) {
+static bool cache_menu(unsigned index,bool mounted,kui_cancel_fn cancel) {
     if(index>=KUI_MUSIC_TRACKS) {report("Unknown track");return false;}
     lock_audio();bool cached=music.tracks[index].file!=NULL;unlock_audio();
     if(cached) return true;
     char path[96],legacy[96]="";
     snprintf(path,sizeof(path),"0:/KUI/apps/music/%s",files[index]);
     if(legacy_files[index]) snprintf(legacy,sizeof(legacy),"0:/KUI/apps/music/%s",legacy_files[index]);
-    return cache_path(index,path,legacy_files[index]?legacy:NULL,titles[index],KUI_MUSIC_FILE_MAX,cancel);
+    return cache_path(index,path,legacy_files[index]?legacy:NULL,titles[index],KUI_MUSIC_FILE_MAX,mounted,cancel);
 }
+bool kui_music_cache_menu(unsigned index,kui_cancel_fn cancel) {return cache_menu(index,false,cancel);}
+bool kui_music_cache_menu_mounted(unsigned index,kui_cancel_fn cancel) {return cache_menu(index,true,cancel);}
 static bool select_locked(unsigned index) {
     if(index>=MUSIC_SLOTS || !music.tracks[index].file) return false;
     music.playback_failed=false;
@@ -414,5 +419,5 @@ bool kui_music_load_path(const char *path,const char *title,kui_cancel_fn cancel
         if(same_card_path(path,bundled) || (legacy[0] && same_card_path(path,legacy))) return kui_music_load(i,cancel);
     }
     char qualified[131];snprintf(qualified,sizeof(qualified),"0:%s",path);
-    return cache_path(KUI_MUSIC_CUSTOM_INDEX,qualified,NULL,title,KUI_MUSIC_CUSTOM_MAX,cancel);
+    return cache_path(KUI_MUSIC_CUSTOM_INDEX,qualified,NULL,title,KUI_MUSIC_CUSTOM_MAX,false,cancel);
 }

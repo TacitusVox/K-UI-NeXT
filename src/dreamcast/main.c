@@ -820,6 +820,23 @@ static int next_after_missing(unsigned wanted) {
     unsigned next=kui_music_next_index(wanted,1);
     return next<KUI_MUSIC_TRACKS && !(status.missing_mask>>next&1u)?(int)next:-1;
 }
+/* Read a song through the Games storage session when it is open, so a
+ * preload does not unmount the card under Games browsing; otherwise the music
+ * service connects, mounts and releases the card itself, as before. */
+static bool music_cache(unsigned index) {
+    if(kui_games_storage_active() && kui_games_storage_open(kui_log)==KUI_GAMES_STORAGE_OK) {
+        bool ok=kui_music_cache_menu_mounted(index,music_preload_cancelled);
+        if(!ok && !music_preload_cancelled()) {
+            /* Only a missing file is explained; after any other failure the
+             * next Games job starts from a fresh connection. */
+            struct kui_music_status status;kui_music_status_copy(&status);
+            if(!(status.missing_mask>>index&1u)) (void)kui_games_storage_release();
+        }
+        return ok;
+    }
+    (void)kui_games_storage_release();
+    return kui_music_cache_menu(index,music_preload_cancelled);
+}
 static void music_idle_work(void) {
     if(kui_cd_audio_owns_drive() || music_preload_cancelled()) return;
     struct kui_music_status status;
@@ -829,8 +846,7 @@ static void music_idle_work(void) {
     unsigned generation=music_request_generation;
     mutex_unlock(&lock);
     if(wanted>=0) {
-        (void)kui_games_storage_release();
-        bool ok=kui_music_cache_menu((unsigned)wanted,music_preload_cancelled);
+        bool ok=music_cache((unsigned)wanted);
         if(!music_preload_cancelled()) {
             mutex_lock(&lock);
             bool current=generation==music_request_generation;
@@ -847,8 +863,7 @@ static void music_idle_work(void) {
         for(unsigned index=0;index<KUI_MUSIC_TRACKS;index++) {
             unsigned bit=1u<<index;
             if((status.cached_mask|music_cache_attempted)&bit) continue;
-            (void)kui_games_storage_release();
-            bool ok=kui_music_cache_menu(index,music_preload_cancelled);
+            bool ok=music_cache(index);
             if(ok || !music_preload_cancelled()) music_cache_attempted|=bit;
             break;
         }

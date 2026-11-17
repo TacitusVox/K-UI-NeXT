@@ -483,6 +483,24 @@ static void ui_status_during_refill(void) {
     assert(fake.reads==reads && fake.connects==connects && state().file_allocations==allocations);
     kui_music_shutdown();
 }
+/* A worker that already holds the card mounted preloads through it. */
+static void shared_mount_preload(void) {
+    reset(1);kui_music_init(log_line);kui_music_set_config(true,20);
+    assert(kui_music_load(0,cancel));
+    unsigned connects=fake.connects,disconnects=fake.disconnects,unmounts=fake.unmounts,opens=fake.opens,closes=fake.closes;
+    for(unsigned i=1;i<LEGACY_TRACKS;i++) assert(kui_music_cache_menu_mounted(i,cancel));
+    assert(fake.connects==connects && fake.disconnects==disconnects && fake.unmounts==unmounts);
+    assert(fake.opens==opens+2u*(LEGACY_TRACKS-1u) && fake.closes==closes+LEGACY_TRACKS-1u); /* Ogg absent, WAV read. */
+    assert(state().cached_mask==31u && state().current_index==0 && state().playing);
+    /* A missing song is recorded and the caller's mount stays untouched. */
+    assert(!kui_music_cache_menu_mounted(HARBOR,cancel) && state().missing_mask==1u<<HARBOR);
+    assert(fake.connects==connects && fake.disconnects==disconnects && fake.unmounts==unmounts);
+    /* Cached: no file access at all; an unknown index is refused. */
+    opens=fake.opens;assert(kui_music_cache_menu_mounted(2,cancel) && fake.opens==opens);
+    assert(!kui_music_cache_menu_mounted(KUI_MUSIC_TRACKS,cancel));
+    fake.cancel=true;assert(!kui_music_cache_menu_mounted(HARBOR,cancel) && fake.opens==opens);fake.cancel=false;
+    kui_music_shutdown();
+}
 int main(void) {
     for(unsigned channels=1;channels<=2;channels++) {
         reset(channels);kui_music_init(log_line);assert(!fake.connects && !fake.init);
@@ -568,6 +586,6 @@ int main(void) {
     assert(!fake.init && !thread_live);kui_music_shutdown();thread_fail=false;
 #endif
     cache_churn();compressed_music();bundled_ogg();missing_songs();
-    replacement_interleave();ui_status_during_refill();
-    puts("PASS background music: independent polling, no playback I/O, preserved replacements, 1000 cached switches, 300 replacements/failures, exact 8MiB staging budget, allocation cleanup, replacement/resume interleaving, bundled Oggs sharing one decoder arena, 1.5 WAV fallback, missing songs skipped");return 0;
+    replacement_interleave();ui_status_during_refill();shared_mount_preload();
+    puts("PASS background music: independent polling, no playback I/O, preserved replacements, 1000 cached switches, 300 replacements/failures, exact 8MiB staging budget, allocation cleanup, replacement/resume interleaving, bundled Oggs sharing one decoder arena, 1.5 WAV fallback, missing songs skipped, shared-mount preload");return 0;
 }

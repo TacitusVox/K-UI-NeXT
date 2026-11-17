@@ -44,6 +44,9 @@ void kui_music_set_config(bool enabled,unsigned volume_percent);
  * The cache budget includes the temporary new allocation, at most 8 MiB total.
  * Bundled songs are Ogg; a card with only the original WAV still loads it. */
 bool kui_music_cache_menu(unsigned index,kui_cancel_fn cancel);
+/* The same preload through a volume "0:" the calling worker has already
+ * mounted and keeps: no SD connect, mount, unmount or disconnect. */
+bool kui_music_cache_menu_mounted(unsigned index,kui_cancel_fn cancel);
 bool kui_music_load(unsigned index,kui_cancel_fn cancel);
 /* Normalize/validate the caller's card path before passing it here. PCM16 WAV or Ogg Vorbis,
  * up to 6 MiB including headers. Ogg compressed bytes stay cached; all I/O finishes before selecting the cache.

@@ -1695,6 +1695,7 @@ test-vmu-menu: build/test-shell build/test-ui-rate build/test-vmu-app build/test
 	ASAN_OPTIONS=detect_leaks=0 python3 tests/test_games_tiles_dispatch.py
 	ASAN_OPTIONS=detect_leaks=0 python3 tests/test_games_letter_step.py
 	ASAN_OPTIONS=detect_leaks=0 python3 tests/test_menu_audio_dispatch.py
+	ASAN_OPTIONS=detect_leaks=0 python3 tests/test_music_dispatch.py
 	python3 tests/test_vmu_menu_installer.py
 build/test-games-vmu-card: tests/test_games_vmu_card.c src/apps/games_vmu_card.inc $(VMU_GAME_CARD_SOURCES) include/kui/vmu_game_card_service.h include/kui/vmu_game_card.h
 	@mkdir -p $(@D)
