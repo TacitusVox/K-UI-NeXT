@@ -239,6 +239,17 @@ void retail_display_line(const char *text) {
     }
     row+=RETAIL_LINE_PITCH;
 }
+#if KUI_WCE_PROBE && defined(KUI_RETAIL_CE) && defined(KUI_RETAIL_ASYNC)
+/* The WinCE data probe's terminal: K-UI's saved 640x480 RGB565 mode, one
+ * solid color. */
+void retail_display_color(const struct retail_display_state *s,uint16_t color) {
+    *reg(0)=s->regs[0]&~1u;
+    for(unsigned i=1;i<14;i++) *reg(i)=s->regs[i];
+    *reg(0)=s->regs[0];
+    volatile uint16_t *frame=(volatile uint16_t *)(uintptr_t)0xa5000000u;
+    for(unsigned i=0;i<640u*480u;i++) frame[i]=color;
+}
+#endif
 void retail_display_restore(const struct retail_display_state *s) {
     DISPLAY_ADOPTION_QUIET();
     *reg(0)=s->regs[0]&~1u;

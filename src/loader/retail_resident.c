@@ -1,4 +1,5 @@
 /* SPDX-License-Identifier: GPL-3.0-only */
+#include "kui/wce_probe.h"
 #include "kui/toy_test_build.h"
 #include "kui/retail_resident.h"
 #if KUI_SMASH_MENU_LOADER
@@ -879,6 +880,10 @@ static void report_fault(const char *reason, uint32_t function, uint32_t current
 #else
 static void report_fault(const char *reason, uint32_t function) {
 #endif
+#if KUI_WCE_PROBE && defined(KUI_RETAIL_CE) && defined(KUI_RETAIL_ASYNC)
+    (void)reason;
+    kui_wce_probe_terminal(&display,KUI_WCE_PROBE_FAULT,function,0u,0u);
+#endif
     retail_display_restore(&display);
 #if !defined(KUI_RETAIL_CE) && !defined(KUI_RETAIL_ASYNC)
 #if KUI_NATIVE_VMU_ONLY
@@ -1049,6 +1054,10 @@ void kui_retail_menu_return(uint32_t command,uint32_t caller,uint32_t stack
                            ,uint32_t entry_sr
 #endif
                            ) {
+#if KUI_WCE_PROBE && defined(KUI_RETAIL_CE) && defined(KUI_RETAIL_ASYNC)
+    /* The data probe saves its report and RAM to the card, then restarts. */
+    kui_wce_probe_terminal(&display,KUI_WCE_PROBE_MENU,command,caller,stack);
+#endif
 #if !KUI_RETAIL_RETURN_TRACE
     (void)command; /* Terminal menu return, plus reset3 in the late VC2 test. */
     (void)caller; (void)stack;
@@ -1693,6 +1702,9 @@ int32_t kui_retail_resident_dispatch(uint32_t r4, uint32_t r5,
     int32_t result = kui_retail_gd_dispatch(&service, r4, r5, 0, r7);
 #if KUI_WINCE_CDDA_WWP && KUI_ARMADA_CE_STREAM && KUI_ARMADA_CE_AUDIO_OBSERVE
     if(r7==KUI_GD_DRIVE) service.drive_status=drive_status;
+#endif
+#if KUI_WCE_PROBE && defined(KUI_RETAIL_CE)
+    kui_wce_probe_record(r7, r4, result);
 #endif
 #if KUI_ARMADA_CE_AUDIO_OBSERVE
     armada_ce_audio_record(r7, r4, result);

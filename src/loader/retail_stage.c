@@ -1046,6 +1046,9 @@ static void armada_excerpt_relay_check(void) {
 #endif
 }
 #endif
+#if KUI_WCE_PROBE
+#include "wce_probe_stage.inc"
+#endif
 static uint32_t ce_literal(uint32_t at) {
     uint16_t code=*(const uint16_t *)(uintptr_t)at;
     return word((const uint8_t *)(uintptr_t)(((at&~3u)+4u)+(code&0xffu)*4u));
@@ -1096,6 +1099,10 @@ static uint32_t ce_load(const uint8_t *ip) {
     load_sectors(manifest.boot_lba+1u,plan.body.sector_count,plan.body.bytes,body);
     uint8_t *prefix=(uint8_t *)(uintptr_t)plan.prefix.address;
     memcpy(prefix,ce_prefix,sizeof(ce_prefix));
+#if KUI_WCE_PROBE
+    probe_body=plan.body.address;probe_body_bytes=plan.body.bytes;
+    probe_prefix=plan.prefix.address;probe_prefix_bytes=plan.prefix.bytes;
+#endif
     uint32_t prefix_crc=kui_retail_crc32(0,prefix,plan.prefix.bytes);
     uint32_t body_crc=kui_retail_crc32(0,body,plan.body.bytes);
 #if KUI_ARMADA_CE_AUDIO_STAGE
@@ -1297,6 +1304,10 @@ static void install_resident(void) {
     int initialized=init(&manifest,&card,firmware,&display);
 #endif
     if(initialized) stopped("RETAIL RESIDENT INIT FAILED",(uint32_t)initialized);
+#if KUI_WCE_PROBE && defined(KUI_RETAIL_CE)
+    probe_stage_install(bytes);
+    kui_retail_stage_sync();
+#endif
 }
 #if !KUI_RETAIL_ZSO
 /* Failure-only report for the KUIRTI03 wire form. The separate ZSO map
@@ -1563,6 +1574,9 @@ void kui_retail_stage_main(const uint8_t *wire) {
     smash_outer_return_mark(UINT32_C(0x114));
 #endif
     boot_crc=kui_retail_crc32(0,boot,exec_bytes);
+#if KUI_WCE_PROBE && defined(KUI_RETAIL_CE)
+    probe_stage_prepare(ip);
+#endif
 #if KUI_NATIVE_TOY_MOVIE_CAPTURE
     toy_movie_scan();
 #endif

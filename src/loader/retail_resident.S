@@ -96,6 +96,14 @@ _start:
  * kernel; zero if they were not found. */
     .global C_SYMBOL(kui_retail_ce_kernel)
 C_SYMBOL(kui_retail_ce_kernel): .long 0,0,0,0
+#if KUI_WCE_PROBE && defined(KUI_RETAIL_ASYNC) && !KUI_ARMADA_CE_STREAM
+/* The WinCE data probe (test ce-boot.kui only): where the stage writes the
+ * slot it claimed, at KUI_RETAIL_CE_PROBE_SEED_ENTRY, before init. */
+    .global C_SYMBOL(kui_wce_probe_seed_entry)
+C_SYMBOL(kui_wce_probe_seed_entry): .long C_SYMBOL(kui_wce_probe_seed)
+    .global __kui_wce_probe_resident
+    .set __kui_wce_probe_resident,1
+#endif
 #if KUI_ARMADA_CE_STREAM
 /* Stage verifies the complete immutable resident before following this word.
  * High stream state remains dormant throughout owner bootstrap 2. */

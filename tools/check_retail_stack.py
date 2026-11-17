@@ -34,13 +34,23 @@ INDIRECT = {
 CE_INDIRECT = dict(INDIRECT, **{
     "retail_gd.c": ("map_guest", "check_sectors", "kui_retail_async_read_part"),  # + read_part
 })
-REBOOT = ("kui_retail_menu_return", "retail_resident.c")
+# Jumps to the boot ROM that never return: the menu return and, in the WinCE
+# data probe's test reader, its end-of-game writer.
+REBOOT = {("kui_retail_menu_return", "retail_resident.c"),
+          ("kui_wce_probe_terminal", "wce_probe_reader.inc")}
+# The probe's card writes call the reader's own SCI bus (select, transfer and
+# the byte-work clock it adds for them); its block callback is never linked.
+PROBE_INDIRECT = {"sci_sd_storage.c": ("select_card", "transfer", "loan_ticks")}
 # Covers the compiler's library calls, which the call graph does not list:
 # the resident links only __udivsi3, which pushes PR (4 bytes).
 MARGIN = 64
 
 NODE = re.compile(r'node: \{ title: "([^"]+)" label: "([^"]*)"')
 EDGE = re.compile(r'edge: \{ sourcename: "([^"]+)" targetname: "([^"]+)" label: "([^"]*)"')
+# GCC writes calls into IPA-split clones (e.g. f.part.0) without a label.
+# Only the WinCE data probe's gate counts them (load(bare=True)); every other
+# gate keeps its recorded behaviour.
+EDGE_BARE = re.compile(r'edge: \{ sourcename: "([^"]+)" targetname: "([^"]+)" \}')
 
 
 def name(title):
@@ -51,7 +61,7 @@ def base(function):
     return name(function).split(".", 1)[0]
 
 
-def load(reports, *, qualified=False, scope=None):
+def load(reports, *, qualified=False, scope=None, bare=False):
     frames, calls = {}, {}
     # The isolated excerpt links separate non-LTO C units. Keep GCC's
     # source-qualified local names there instead of merging equal locals
@@ -75,6 +85,9 @@ def load(reports, *, qualified=False, scope=None):
             frames[function] = max(frames.get(function, 0), int(found.group(1)))
         for source, target, label in EDGE.findall(text):
             calls.setdefault(graph_name(source), []).append((graph_name(target), label.rsplit("/", 1)[-1]))
+        if bare:
+            for source, target in EDGE_BARE.findall(text):
+                calls.setdefault(graph_name(source), []).append((graph_name(target), None))
     return frames, calls
 
 
@@ -138,6 +151,8 @@ def worst(frames, calls, ce=False, armada_bind=False, armada_excerpt=False,
     if armada_maple_proof and not (ce and armada_bind and armada_maple):
         raise ValueError("CE Maple mapping proof requires its isolated metadata controller")
     roots, indirect = (CE_ROOTS, CE_INDIRECT) if ce else (ROOTS, INDIRECT)
+    if ce and any(base(f) == "kui_wce_probe_terminal" for f in frames):
+        indirect = dict(indirect, **PROBE_INDIRECT)
     if roots_override is not None:
         roots = roots_override
     by_function = {}
@@ -224,9 +239,13 @@ def worst(frames, calls, ce=False, armada_bind=False, armada_excerpt=False,
             return max(depth(twin, path) for twin in twins)
         best = (0, [])
         for target, label in calls.get(function, []):
-            if target == "__indirect_call":
+            if label is None:
+                if target == "__indirect_call":
+                    raise ValueError(f"Unlabelled indirect call in {function}")
+                targets = [target]
+            elif target == "__indirect_call":
                 source_file = label.split(":", 1)[0]
-                if (base(function), source_file) == REBOOT:
+                if (base(function), source_file) in REBOOT:
                     continue
                 selected = by_function.get((base(function), source_file))
                 if (armada_stream and function.startswith("excerpt:") and
@@ -266,7 +285,9 @@ def check(directory, available, ce=False):
     armada_stream = (Path(directory).parent / "stream-native.ci").is_file()
     if armada_excerpt and not ce:
         raise ValueError("Armada excerpt controller requires CE")
-    frames, calls = load(reports, qualified=armada_excerpt)
+    # The WinCE data probe's resident: count label-less calls too.
+    probe = ce and any("kui_wce_probe_terminal" in r.read_text() for r in reports)
+    frames, calls = load(reports, qualified=armada_excerpt, bare=probe)
     armada_bind = "kui_armada_ce_bind_probe" in {
         base(target) for edges in calls.values() for target, _ in edges}
     if armada_bind:

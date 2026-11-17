@@ -672,7 +672,9 @@ static bool transfer_block(void *ctx, const uint8_t *tx, uint8_t *rx,
  * transfer or end-of-use release is linked. The separately gated native
  * VMU borrower also needs the existing byte-work clock for bounded identity,
  * PIO read/write and sync waits; this adds no timer or new port state. */
-#if KUI_VMU_NATIVE_BACKGROUND
+#if KUI_VMU_NATIVE_BACKGROUND || (KUI_WCE_PROBE && defined(KUI_RETAIL_CE))
+/* The WinCE data probe's end-of-game writer waits on the same byte-work
+ * clock (src/loader/wce_probe_reader.inc). */
 static uint32_t loan_ticks(void *ctx) { (void)ctx; return port.work; }
 #define SCI_LOAN_TICKS loan_ticks
 #else

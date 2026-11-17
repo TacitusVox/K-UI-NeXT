@@ -40,6 +40,8 @@ TRANSPORTS = ("scif", "sci", "ide")
 ASYNC = "scia"
 RESIDENTS = TRANSPORTS + (ASYNC,)
 CE_VMU_RUNTIME_STACK_BOTTOM=0x8c00dc00
+# The WinCE data probe's test reader (include/kui/wce_probe.h).
+CE_PROBE_STACK_BOTTOM=0x8c00dd80
 
 
 def exact_profile_marker(data,name):
@@ -65,8 +67,9 @@ def exact_profile_marker(data,name):
     return bool(found)
 
 
-def resident_limit(transport, ce=False, low=False, runtime=False):
+def resident_limit(transport, ce=False, low=False, runtime=False, probe=False):
     if runtime and ce and transport==ASYNC:return CE_VMU_RUNTIME_STACK_BOTTOM
+    if probe and ce and transport==ASYNC:return CE_PROBE_STACK_BOTTOM
     if ce and transport == "sci":
         return layout.CE_RESIDENT_LIMIT
     if ce and transport == ASYNC:
@@ -76,8 +79,8 @@ def resident_limit(transport, ce=False, low=False, runtime=False):
     return layout.ASYNC_RESIDENT_LIMIT if transport == ASYNC else layout.RESIDENT_LIMIT
 
 
-def stack_bottom(transport, ce=False, low=False, runtime=False):
-    return resident_limit(transport, ce, low, runtime)
+def stack_bottom(transport, ce=False, low=False, runtime=False, probe=False):
+    return resident_limit(transport, ce, low, runtime, probe)
 
 
 def stack_top(transport, ce=False, low=False):
@@ -89,8 +92,8 @@ def stack_top(transport, ce=False, low=False):
     return layout.LOW_HOOK_STACK if low else layout.HOOK_STACK
 
 
-def check_async_stack(directory, ce=False, low=False, runtime=False):
-    available = (stack_top(ASYNC, ce, low) - stack_bottom(ASYNC, ce, low, runtime) -
+def check_async_stack(directory, ce=False, low=False, runtime=False, probe=False):
+    available = (stack_top(ASYNC, ce, low) - stack_bottom(ASYNC, ce, low, runtime, probe) -
                  STACK_GUARD_BYTES - STACK_ALIGNMENT_GAP)
     result = check_retail_stack.check(Path(directory), available, ce)
     return {"worst_bytes": result["worst_bytes"], "available_bytes": available,
@@ -181,6 +184,8 @@ def check_directory(directory, ce=False):
     stage_data=(directory/'stage.elf').read_bytes()
     runtime=exact_profile_marker(stage_data,'__kui_maple_write_runtime_stage')
     if runtime and (not ce or low):raise ValueError('Writable VMU runtime requires the exact CE placement')
+    probe=exact_profile_marker(stage_data,'__kui_wce_probe_stage')
+    if probe and (not ce or low or runtime):raise ValueError('The WinCE data probe requires the ordinary CE placement')
     images = {
         "stage": inspect_elf(stage_data,
                              stage_address, layout.STAGE_MEMORY_END),
@@ -191,7 +196,9 @@ def check_directory(directory, ce=False):
         data=(directory / (name + ".elf")).read_bytes()
         marker=exact_profile_marker(data,'__kui_maple_write_runtime_resident')
         if marker!=(runtime and transport==ASYNC):raise ValueError('Mixed writable runtime stage/resident profiles')
-        images[name] = inspect_elf(data,resident_address,resident_limit(transport,ce,low,runtime))
+        if exact_profile_marker(data,'__kui_wce_probe_resident')!=(probe and transport==ASYNC):
+            raise ValueError('Mixed WinCE data probe stage/resident profiles')
+        images[name] = inspect_elf(data,resident_address,resident_limit(transport,ce,low,runtime,probe))
         if marker and images[name]['symbols'].get('__retail_resident_binary_end',0)>layout.CE_ASYNC_RESIDENT_LIMIT:
             raise ValueError('Runtime resident executable bytes leave the original service code range')
     for name, image in images.items():
@@ -240,7 +247,7 @@ def check_directory(directory, ce=False):
             code_symbol(resident, symbol, resident_address)
         rs = resident["symbols"]
         if (rs.get("__retail_hook_stack") != stack_top(transport, ce, low) or
-                rs.get("__retail_hook_stack_bottom") != stack_bottom(transport, ce, low, runtime)):
+                rs.get("__retail_hook_stack_bottom") != stack_bottom(transport, ce, low, runtime, probe)):
             raise ValueError(f"{name} hook stack is outside its resident reservation")
         for symbol in ("_kui_retail_hook_active", "_kui_retail_hook_fault"):
             if not resident_address <= rs.get(symbol, 0) < resident["memory_end"]:
@@ -257,7 +264,7 @@ def check_directory(directory, ce=False):
             if region_symbol % 32 or not (resident_address <= region_symbol and
                                           region_symbol + 0x440 <= resident["memory_end"]):
                 raise ValueError("Background reader's region is misplaced")
-            stacks[transport] = check_async_stack(directory / transport, ce, low, runtime)
+            stacks[transport] = check_async_stack(directory / transport, ce, low, runtime, probe)
         elif transport == ASYNC:
             region_symbol = rs.get("_kui_retail_async_region", 0)
             if region_symbol % 32 or not (resident_address + 0x100 <= region_symbol and
@@ -300,6 +307,7 @@ def check_directory(directory, ce=False):
                      "unresolved_symbols": 0} for name, image in images.items()}
     result["resident_stacks"] = stacks
     if runtime:result['write_runtime_profile']=True
+    if probe:result['wce_probe']=True
     return result
 
 

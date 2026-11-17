@@ -121,6 +121,12 @@
  * Retain a separately audited 1 KiB guarded stack below bootstrap2. Its
  * top never moves into the owner's bootstrap or retained boot VBR. */
 #define KUI_RETAIL_CE_ASYNC_LIMIT 0x8c00dc00
+#elif KUI_WCE_PROBE
+/* The WinCE data probe's test reader (include/kui/wce_probe.h) keeps a
+ * 640-byte guarded stack, against a call-graph worst case checked by
+ * tools/check_retail_loader_layout.py, and uses the rest for its counters
+ * and end-of-game writer. */
+#define KUI_RETAIL_CE_ASYNC_LIMIT 0x8c00dd80
 #else
 #define KUI_RETAIL_CE_ASYNC_LIMIT 0x8c00d800
 #endif
@@ -133,6 +139,9 @@
 /* STREAM only: immutable entry word naming the checked SCI bus descriptor.
  * The stage attaches it after bootstrap/controller/pool checks pass. */
 #define KUI_RETAIL_CE_STREAM_BUS 0x8c008334
+/* The WinCE data probe's resident (never a STREAM build) has, in the same
+ * place, the address of its seed (include/kui/wce_probe.h). */
+#define KUI_RETAIL_CE_PROBE_SEED_ENTRY 0x8c008334
 #if KUI_ARMADA_CE_CDDA_VMU
 #define KUI_ARMADA_CE_CDDA_VMU_SPILL_P1 0x8cfc0000
 #define KUI_ARMADA_CE_CDDA_VMU_SPILL_P2 0xacfc0000

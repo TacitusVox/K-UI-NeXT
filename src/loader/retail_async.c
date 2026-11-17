@@ -1747,3 +1747,7 @@ int kui_retail_async_read_part(void *unused, uint32_t lba, uint32_t sector_bytes
     return done ? 0 : -1;
 }
 #endif
+#if KUI_WCE_PROBE && defined(KUI_RETAIL_CE)
+/* The Windows CE data probe (test ce-boot.kui only). */
+#include "wce_probe_reader.inc"
+#endif
