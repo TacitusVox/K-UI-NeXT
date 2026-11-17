@@ -290,7 +290,10 @@ ARMADA_PREPARE_TEST_SOURCES += $(NATIVE_CACHE_SOURCES)
 # retain its real optional-session boundary even for ordinary CE packages.
 ARMADA_PREPARE_TEST_SOURCES += src/apps/native_session_prepare.c src/core/native_session.c \
     src/core/native_return.c src/core/storage_policy.c src/core/runtime_image.c
-build/test-games-native-cache: tests/test_games_native_cache.c tests/test_vmu_native_resolution_cache.c src/apps/games_native_cache.inc $(NATIVE_CACHE_SOURCES) src/core/hash.c src/core/data.c
+build/test-sha256-prefix: tests/test_sha256_prefix.c include/kui/sha256_prefix.h include/kui/hash.h src/core/hash.c src/core/data.c
+	@mkdir -p $(@D)
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) tests/test_sha256_prefix.c src/core/hash.c src/core/data.c -o $@
+build/test-games-native-cache: tests/test_games_native_cache.c tests/test_vmu_native_resolution_cache.c src/apps/games_native_cache.inc include/kui/sha256_prefix.h $(NATIVE_CACHE_SOURCES) src/core/hash.c src/core/data.c
 	@mkdir -p $(@D)
 	$(CC) $(HOST_FLAGS) $(SANITIZERS) -fno-pie -no-pie -Wl,--wrap=kui_sha256_update -Iinclude tests/test_games_native_cache.c $(NATIVE_CACHE_SOURCES) src/core/hash.c src/core/data.c -o $@
 build/test-games-native-cache-hint: tests/test_games_native_cache_hint.c tests/test_vmu_native_resolution_cache.c src/apps/games_native_cache_hint.inc src/apps/games_native_cache_alias.inc $(NATIVE_CACHE_SOURCES) src/core/hash.c src/core/data.c src/core/game_launch_settings.c src/core/game_ram_patches.c
@@ -318,7 +321,8 @@ build/test-smash-complete-source-owner: tests/test_smash_complete_source_owner.c
 test-smash-complete-source-owner: build/test-smash-complete-source-owner
 	ASAN_OPTIONS=detect_leaks=0 ./build/test-smash-complete-source-owner
 .PHONY: test-games-native-cache
-test-games-native-cache: build/test-games-native-cache
+test-games-native-cache: build/test-games-native-cache build/test-sha256-prefix
+	./build/test-sha256-prefix
 	ASAN_OPTIONS=detect_leaks=0 ./build/test-games-native-cache $(if $(STARTUP),'$(STARTUP)',) $(if $(EVOLUTION2_STARTUP),'$(EVOLUTION2_STARTUP)',) $(if $(HOTD2_STARTUP),'$(HOTD2_STARTUP)',)
 build/test-vmu-launch-package: tests/test_vmu_launch_package.c src/core/vmu_launch_package.c src/core/retail_image.c src/core/hash.c include/kui/vmu_launch_package.h
 	@mkdir -p $(@D)
