@@ -67,7 +67,7 @@ bool kui_vmu_native_heap_metadata_valid(const struct kui_vmu_native_heap *heap) 
 static bool allocation_safe(uint32_t begin,uint32_t bytes) {
     ++allocations;CHECK(begin==0x8c500000u && bytes==0x10000u);return allocation_ok && !(first_allocation_fails && allocations==1u);
 }
-static bool native_sdk_coherence_cached_admit(void) {++coherences;return coherence_ok;}
+static bool native_sdk_coherence_after_image_proof(void) {++coherences;return coherence_ok;}
 static void native_passive_capture_windows(void) {++captures;}
 static void retail_display_restore(const void *p) {CHECK(p==&display);}
 static void retail_display_line(const char *s) {CHECK(s && *s);}
