@@ -546,7 +546,7 @@ def main():
     badge = BADGE.read_bytes()
     inspect_badge(badge)
     run(str(mkdcdisc / "builddir/mkdcdisc"), "-b", str(binary),
-        "-n", "K-UI NeXT Bootstrap", "-a", "K-UI Team", "-r", "20260916",
+        "-n", "K-UI NeXT Bootstrap", "-a", "TacitusVox", "-r", "20260916",
         "-i", str(BADGE), "-N", "--allow-overwrite", "-o", "dist/kui-diagnostic.cdi")
     cdi = dist / "kui-diagnostic.cdi"
     badge_info = verify_cdi_badge(cdi.read_bytes(), badge)
