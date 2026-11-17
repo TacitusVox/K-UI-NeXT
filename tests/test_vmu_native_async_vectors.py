@@ -160,10 +160,21 @@ def run(command, **kwargs):
     return subprocess.check_output([str(x) for x in command], cwd=ROOT, **kwargs)
 
 
+# This check runs when imported. Under unittest discovery, name an input a
+# host checkout may lack instead of failing the import: the pinned SH
+# toolchain, or the baseline commit (absent from shallow CI clones).
+BASELINE = "df035a8cae47:src/loader/retail_resident.S"
+if __name__ != "__main__":
+    import unittest
+    if not GCC.exists():
+        raise unittest.SkipTest("Native SH toolchain unavailable (.deps/sh-elf)")
+    if subprocess.run(["git", "cat-file", "-e", BASELINE], cwd=ROOT, capture_output=True).returncode:
+        raise unittest.SkipTest(f"Baseline {BASELINE} is not in this checkout's history (shallow clone)")
+
 with tempfile.TemporaryDirectory(prefix="kui-native-async-vectors-") as tmp:
     directory = Path(tmp)
     old = directory / "old.S"
-    old.write_bytes(run(["git", "show", "df035a8cae47:src/loader/retail_resident.S"]))
+    old.write_bytes(run(["git", "show", BASELINE]))
     current_obj, old_obj = directory / "current-default.o", directory / "old-default.o"
     for source, output in ((old, old_obj), (ROOT / "src/loader/retail_resident.S", current_obj)):
         run([GCC, *FLAGS, "-c", source, "-o", output])
