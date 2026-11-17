@@ -1266,6 +1266,16 @@ test-game-image-workspace: build/test-game-image-workspace
 	ASAN_OPTIONS=detect_leaks=0 ./build/test-game-image-workspace
 test: test-game-image-workspace
 
+# GUI ZSO input staging against a frozen per-take decode path.
+build/test-game-image-zso-stage: tests/test_game_image_zso_stage.c src/core/game_image.c src/core/zso.c src/core/lzo1x.c include/kui/game_image.h include/kui/zso.h include/kui/lzo1x.h
+	@mkdir -p $(@D)
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) src/core/zso.c src/core/lzo1x.c tests/test_game_image_zso_stage.c -o $@
+
+.PHONY: test-game-image-zso-stage
+test-game-image-zso-stage: build/test-game-image-zso-stage
+	./build/test-game-image-zso-stage
+test: test-game-image-zso-stage
+
 .PHONY: test-game-image-fatfs-dma
 test-game-image-fatfs-dma:
 	python3 tests/test_game_image_fatfs_dma.py

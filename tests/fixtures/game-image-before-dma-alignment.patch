@@ -1,8 +1,131 @@
 diff --git a/src/core/game_image.c b/src/core/game_image.c
-index 00e8e3e..c65ee26 100644
+index 78a567d..c65ee26 100644
 --- a/src/core/game_image.c
 +++ b/src/core/game_image.c
-@@ -349,12 +349,7 @@ enum kui_game_result kui_game_image_read(const struct kui_game_image *image,
+@@ -314,85 +314,6 @@ static enum kui_game_result zso_result(enum kui_zso_result result,
+     default: return KUI_GAME_SYNTAX;
+     }
+ }
+-/* Compressed-input staging for one logical read. LZ4/LZO1X take one to three
+- * bytes per callback; through zso_read alone each take was another file
+- * callback (cancel checks, path, filesystem call) and every block sought
+- * back to its index pair. Here one bounded read stages the request's index
+- * entries and one read stages each compressed block's indexed span, which
+- * the decoder then takes from memory. Stored blocks keep their single read.
+- * Staged bytes come only from this request's zso_read calls, so data, the
+- * decoder's own checks and every result mapping are unchanged. A failed
+- * staging read returns its own result unretried; each block still makes a
+- * file call, so cancellation is seen at least per block. Without the heap
+- * stage the per-take path runs. Nothing is kept beyond the request. */
+-enum { ZSO_STAGE_INDEX_BYTES = 512u, ZSO_STAGE_ALIGNMENT = 32u };
+-struct zso_stage {
+-    struct zso_context *source;
+-    uint32_t index_limit, index_at, index_bytes;
+-    uint32_t span_at, span_end, data_at, data_bytes;
+-    const uint8_t *index, *data;
+-    /* Each fill starts at its file offset's residue modulo 32, so whole
+-     * sectors FatFs reads straight into it stay eligible for SCI DMA. */
+-    uint8_t index_storage[ZSO_STAGE_INDEX_BYTES + ZSO_STAGE_ALIGNMENT - 1u];
+-    uint8_t data_storage[KUI_ZSO_MAX_SPAN + ZSO_STAGE_ALIGNMENT - 1u];
+-};
+-static uint32_t little32(const unsigned char *p);
+-static uint8_t *stage_buffer(uint8_t *storage, uint32_t offset) {
+-    return storage + ((offset - (uintptr_t)storage) & (ZSO_STAGE_ALIGNMENT - 1u));
+-}
+-static bool staged(uint32_t at, uint32_t bytes, uint32_t offset, size_t size) {
+-    return offset >= at && offset - at <= bytes && size <= bytes - (offset - at);
+-}
+-/* The decoder's masked, shifted entry offset, bounded by the file. */
+-static bool stage_offset(const struct kui_zso_info *zso, uint32_t entry, uint32_t *out) {
+-    uint32_t value = entry & UINT32_C(0x7fffffff);
+-    if(value > zso->file_bytes >> zso->shift) return false;
+-    *out = value << zso->shift;
+-    return true;
+-}
+-static enum kui_zso_result staged_read(void *opaque, uint32_t offset, void *out, size_t size) {
+-    struct zso_stage *stage = opaque;
+-    const struct kui_zso_info *zso = &stage->source->image->zso;
+-    enum kui_zso_result result;
+-    if(size == 8u && offset < KUI_ZSO_HEADER_BYTES + zso->index_bytes &&
+-       offset <= stage->index_limit - 8u) {
+-        /* The decoder's two-entry index read for its selected block. */
+-        if(!staged(stage->index_at, stage->index_bytes, offset, size)) {
+-            uint32_t bytes = stage->index_limit - offset;
+-            if(bytes > ZSO_STAGE_INDEX_BYTES) bytes = ZSO_STAGE_INDEX_BYTES;
+-            uint8_t *index = stage_buffer(stage->index_storage, offset);
+-            stage->index_bytes = 0u;
+-            result = zso_read(stage->source, offset, index, bytes);
+-            if(result != KUI_ZSO_OK) return result;
+-            stage->index = index; stage->index_at = offset; stage->index_bytes = bytes;
+-        }
+-        const uint8_t *pair = stage->index + (offset - stage->index_at);
+-        uint32_t entry = little32(pair), start, end;
+-        memcpy(out, pair, 8u);
+-        /* Remember a compressed span; the decoder still checks this pair
+-         * before it reads any of it. */
+-        stage->span_end = 0u;
+-        if(!(entry & UINT32_C(0x80000000)) && stage_offset(zso, entry, &start) &&
+-           stage_offset(zso, little32(pair + 4u), &end) && start < end &&
+-           end - start <= KUI_ZSO_MAX_SPAN) {
+-            stage->span_at = start; stage->span_end = end;
+-        }
+-        return KUI_ZSO_OK;
+-    }
+-    if(!staged(stage->data_at, stage->data_bytes, offset, size)) {
+-        /* The span's first take reads the rest of that span once. */
+-        if(!stage->span_end || !staged(stage->span_at, stage->span_end - stage->span_at, offset, size))
+-            return zso_read(stage->source, offset, out, size);
+-        uint32_t bytes = stage->span_end - offset;
+-        uint8_t *data = stage_buffer(stage->data_storage, offset);
+-        stage->span_end = stage->data_bytes = 0u;
+-        result = zso_read(stage->source, offset, data, bytes);
+-        if(result != KUI_ZSO_OK) return result;
+-        stage->data = data; stage->data_at = offset; stage->data_bytes = bytes;
+-    }
+-    memcpy(out, stage->data + (offset - stage->data_at), size);
+-    return KUI_ZSO_OK;
+-}
+ /* Shell-only partial metadata reads use a transient decoded sector. Whole
+  * sectors decode directly into the caller. Physical file callbacks remain
+  * unchanged; no wrapper owns a pointer to a departed opener's stack. */
+@@ -403,19 +324,6 @@ static enum kui_game_result logical_read(const struct kui_game_image *image,
+     if(!out || offset > image->zso.total_bytes || size > image->zso.total_bytes - offset)
+         return KUI_GAME_RANGE;
+     struct zso_context context = {image, name, KUI_GAME_OK};
+-    struct zso_stage *stage = size ? malloc(sizeof(*stage)) : NULL;
+-    kui_zso_read_fn read = zso_read;
+-    void *source = &context;
+-    if(stage) {
+-        /* Entries through the second one of the request's last block. */
+-        stage->source = &context;
+-        stage->index_limit = KUI_ZSO_HEADER_BYTES +
+-            ((uint32_t)((offset + size - 1u) / KUI_ZSO_BLOCK_BYTES) + 2u) * 4u;
+-        stage->index_at = stage->index_bytes = 0u;
+-        stage->span_at = stage->span_end = stage->data_at = stage->data_bytes = 0u;
+-        read = staged_read; source = stage;
+-    }
+-    enum kui_game_result outcome = KUI_GAME_OK;
+     uint8_t scratch[KUI_ZSO_BLOCK_BYTES], *destination = out;
+     while(size) {
+         uint32_t block = (uint32_t)(offset / KUI_ZSO_BLOCK_BYTES);
+@@ -423,13 +331,12 @@ static enum kui_game_result logical_read(const struct kui_game_image *image,
+         size_t take = KUI_ZSO_BLOCK_BYTES - inside;
+         if(take > size) take = size;
+         uint8_t *decoded = inside || take != KUI_ZSO_BLOCK_BYTES ? scratch : destination;
+-        enum kui_zso_result result = kui_zso_read_block(&image->zso, block, read, source, decoded);
+-        if(result != KUI_ZSO_OK) { outcome = zso_result(result, &context); break; }
++        enum kui_zso_result result = kui_zso_read_block(&image->zso, block, zso_read, &context, decoded);
++        if(result != KUI_ZSO_OK) return zso_result(result, &context);
+         if(decoded == scratch) memcpy(destination, scratch + inside, take);
+         destination += take; offset += take; size -= take;
+     }
+-    free(stage);
+-    return outcome;
++    return KUI_GAME_OK;
+ }
+ 
+ enum kui_game_result kui_game_image_read(const struct kui_game_image *image,
+@@ -442,12 +349,7 @@ enum kui_game_result kui_game_image_read(const struct kui_game_image *image,
      if(!out || needed > size) return KUI_GAME_INVALID;
      unsigned char *destination = out;
      uint32_t cursor = lba, remaining = count;
@@ -16,7 +139,7 @@ index 00e8e3e..c65ee26 100644
      unsigned char *window = NULL;
      unsigned window_sectors = count < KUI_GAME_READ_WINDOW_SECTORS ? count : KUI_GAME_READ_WINDOW_SECTORS;
      bool allocation_tried = false;
-@@ -377,16 +372,12 @@ enum kui_game_result kui_game_image_read(const struct kui_game_image *image,
+@@ -470,16 +372,12 @@ enum kui_game_result kui_game_image_read(const struct kui_game_image *image,
               * is no speculative read-ahead or state shared across requests. */
              if(take > 1u && !allocation_tried) {
                  allocation_tried = true;
