@@ -395,6 +395,7 @@ test: build/test-storage-errors build/test-cd-audio build/test-network-probe bui
 	./build/test-sonic-stack
 	./build/test-boot-volume
 	./build/test-boot-ui
+	python3 tests/test_boot_canvas_dispatch.py
 	python3 tests/test_ext4_boot.py
 	python3 tests/test_boot_recovery.py
 	./build/test-ata

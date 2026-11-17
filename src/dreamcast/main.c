@@ -4645,6 +4645,13 @@ static void wait_vblank(void) {
 #endif
 
 #ifndef KUI_SD_RUNTIME
+/* Boot frames are painted in cached RAM and reach the back buffer in one
+ * store-queue copy. Painting VRAM pixel by pixel made every repaint several
+ * times slower, including those made from the loader's cancel callback while
+ * an image is read. Without the 600 KiB canvas, VRAM is painted directly as
+ * before. Frame order, flips and vertical-blank waits are unchanged. */
+static uint16_t *boot_canvas;
+static bool boot_canvas_tried;
 static void draw_boot(void) {
     /* Keep the displayed frame until something visible changes. In particular,
      * reading another 32 KiB must not copy/dim 600 KiB of VRAM and wait for
@@ -4684,7 +4691,11 @@ static void draw_boot(void) {
         !strcmp(status,last_status) && !memcmp(visible,last_lines,sizeof(visible));
     if(same) return;
     uint64_t started=timer_us_gettime64();
-    kui_boot_ui_draw(vram_s,&boot_ui,&view);
+    if(!boot_canvas_tried) {
+        boot_canvas_tried=true;boot_canvas=aligned_alloc(32u,640u*480u*sizeof(*boot_canvas));
+    }
+    kui_boot_ui_draw(boot_canvas?boot_canvas:vram_s,&boot_ui,&view);
+    if(boot_canvas) {sq_cpy(vram_s,boot_canvas,640u*480u*sizeof(*boot_canvas));sq_wait();}
     vid_waitvbl();vid_flip(-1);
     boot_draw_us+=timer_us_gettime64()-started;++boot_draw_count;
     boot_last_draw=timer_ms_gettime64();
