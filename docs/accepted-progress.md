@@ -57,7 +57,15 @@ Delivered: `KUI-WinCE-GUI-Routes-16NOV2026-1928-CST-069d612.zip`, GUI build
 `retail-boot.kui` `9e3295bcfaec`, as `00d8ed67d9ad` does. `00d8ed67d9ad`
 remains the reference until the owner reports the package's four tests.
 
-## WinCE data session probe: data pending, 19ff02faaec4, 2026-11-17
+## WinCE data session probe: data pending, e154b0b315a1, 2026-11-17
+
+Rebuilt on main `c6a07a13` (merge `e154b0b3`): `KUI-WinCE-Data-Session-17NOV2026-1311-CST-e154b0b.zip`
+(SHA256 `531d1e15e793d81e1cd390558649dda5a87533afd384cdbc1cc00c583e262953`),
+module 92,456 bytes, payload CRC `705B8B72`. Its payload equals `19ff02faaec4`'s
+except the build ID; probe-off still rebuilds `7b216f2e1136` byte for byte, and
+the GUI admission passes on the merged harness. This is the package to use.
+
+### Earlier build of the same probe: 19ff02faaec4
 
 A measurement build, not a candidate: the generic `ce-boot.kui` with
 `KUI_WCE_PROBE=1` ([data probe](wince-data-probe.md)). The owner swaps it in
