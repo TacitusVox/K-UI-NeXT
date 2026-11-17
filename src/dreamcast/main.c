@@ -4696,7 +4696,11 @@ static void draw_boot(void) {
     }
     kui_boot_ui_draw(boot_canvas?boot_canvas:vram_s,&boot_ui,&view);
     if(boot_canvas) {sq_cpy(vram_s,boot_canvas,640u*480u*sizeof(*boot_canvas));sq_wait();}
-    vid_waitvbl();vid_flip(-1);
+    /* A busy repaint runs on the loader's thread between reads. It changes
+     * only status/log text, so it flips without idling for vertical blank;
+     * at most a status line can tear for one refresh. Idle frames wait. */
+    if(!view.busy) vid_waitvbl();
+    vid_flip(-1);
     boot_draw_us+=timer_us_gettime64()-started;++boot_draw_count;
     boot_last_draw=timer_ms_gettime64();
     last_ui=boot_ui;

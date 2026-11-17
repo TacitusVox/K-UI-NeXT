@@ -100,8 +100,10 @@ int main(void) {
     add_line("Reading");target=vram_s;draw_boot();
     assert(!strcmp(events,"DQSVF") && allocations==1 && painted==boot_canvas);
     assert(!memcmp(target,boot_canvas,640u*480u*2u) && boot_draw_count==2);
-    /* A busy status change from the loader's cancel callback repaints too. */
-    reset_events();busy=true;draw_boot();assert(!strcmp(events,"DQSVF") && boot_draw_count==3);
+    /* A busy status change from the loader's cancel callback repaints too,
+     * flipping without idling for vertical blank between image reads. */
+    reset_events();busy=true;draw_boot();assert(!strcmp(events,"DQSF") && boot_draw_count==3);
+    reset_events();busy=false;draw_boot();assert(!strcmp(events,"DQSVF") && boot_draw_count==4);
     free(boot_canvas);boot_canvas=NULL;boot_canvas_tried=false;
     /* Without a canvas VRAM is painted directly, as before; no retry. */
     allocation_fails=true;reset_events();add_line("No canvas");target=vram_s;draw_boot();

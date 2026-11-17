@@ -10,9 +10,23 @@
 /* Ivory and orange accents stay legible over dark Tyrfing panels on RF/composite. */
 enum { WHITE=0xff9b, MUTED=0xcdd4, HIGHLIGHT=0xfe2d, ORANGE=0xfc44,
     PANEL=0x1061, SELECTED=0x5182, EDGE=0xa2a4, AMBER=0xfd6f };
+/* Panels are most of each frame's pixels: clip once and store two pixels
+ * per aligned 32-bit write. Halfword/word stores only, so this is also safe
+ * on the direct-VRAM fallback, which cannot take byte stores. */
+typedef uint32_t __attribute__((may_alias)) pixel_pair;
 static void box(uint16_t *frame,unsigned x,unsigned y,unsigned w,unsigned h,uint16_t c) {
-    for(unsigned row=y;row<y+h && row<480;row++)
-        for(unsigned col=x;col<x+w && col<640;col++) frame[row*640+col]=c;
+    if(x>=640u || y>=480u || !w || !h) return;
+    if(w>640u-x) w=640u-x;
+    if(h>480u-y) h=480u-y;
+    const uint32_t pair=(uint32_t)c<<16|c;
+    for(unsigned row=0;row<h;row++) {
+        uint16_t *p=frame+(y+row)*640u+x;
+        unsigned n=w;
+        if(((uintptr_t)p&2u)!=0) {*p++=c;--n;}
+        pixel_pair *q=(pixel_pair *)(void *)p;
+        for(;n>=2u;n-=2u) *q++=pair;
+        if(n) *(uint16_t *)(void *)q=c;
+    }
 }
 static void text(uint16_t *frame,unsigned x,unsigned y,unsigned right,uint16_t color,
         const char *s,bool large) {
