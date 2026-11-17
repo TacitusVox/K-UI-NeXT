@@ -69,6 +69,13 @@ static void *stack_pointer(const uint32_t args[8],uint32_t low) {
     uintptr_t high=(uintptr_t)args&~(uintptr_t)UINT32_MAX;
     return (void *)(high|low);
 }
+/* That reconstruction needs one contiguous native stack. ASan's default
+ * stack-use-after-return mode instead gives each frame a slot in a separate
+ * per-size-class fake-stack region; when those regions straddle a 4GiB
+ * boundary, the descriptor's rebuilt address is unrelated memory (SEGV
+ * reading it in CREATE). Keep this harness's frames on the real stack. */
+const char *__asan_default_options(void);
+const char *__asan_default_options(void) {return "detect_stack_use_after_return=0";}
 static int __attribute__((aligned(4))) revalidate(const struct kui_armada_ce_excerpt_binding *b) {
     ++model.validations;CHECK(b->device==DEV);
     if(model.change_owner) model.process=PROCESS+0x9cu;
