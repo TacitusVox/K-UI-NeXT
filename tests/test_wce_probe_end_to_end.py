@@ -15,6 +15,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "tools"))
 import wce_probe_data  # noqa: E402
+import wce_probe_mine  # noqa: E402
 
 
 def fatfs_source():
@@ -91,8 +92,17 @@ def main():
             pages = sum(1 for p in range(4096) if any(original[p * 4096:(p + 1) * 4096]))
             check(t["pages"] == pages == s0["dump_pages"], "page counts")
             check(s1["terminal"] is None or s1["terminal"]["reason"] in ("reader fault", "A+B+X+Y+Start"), "slot 1")
+            # The miner on the same file: launches, ends, ports and CD audio.
+            mined = {r["slot"]: r for r in wce_probe_mine.mine(data)["launches"]}
+            check(set(mined) == {0, 1, 2, 3, 4} and mined[0]["complete"] and mined[0]["end"] == "A+B+X+Y+Start",
+                  "miner: launches and the completed end")
+            check(mined[0]["ports"]["saved_to"] == ["A1"] and mined[0]["cd_audio"]["commands"] == {"PLAY": 7, "PAUSE": 7},
+                  "miner: saves and CD audio")
+            check("not in the dump" in mined[0]["dump"]["note"] and mined[0]["dump"]["memory"]["dumped_pages"] == pages,
+                  "miner: dump without CE structures")
+            check(mined[2]["end"].startswith("no end-of-game record"), "miner: stage-only launch")
             print(f"PASS decode {fs} fragment {fragment}: slot 0 complete with {pages} pages, slot 1 claimed "
-                  "after a failed dump, slot 2 claimed, slot 3 interrupted, slot 4 next")
+                  "after a failed dump, slot 2 claimed, slot 3 interrupted, slot 4 next; miner agrees")
     return 0
 
 

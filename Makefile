@@ -117,6 +117,16 @@ test-wince-family7-profiles:
 	python3 tests/test_wince_family7_profiles.py
 test: test-wince-family7-profiles
 
+# The WinCE data probe (docs/wince-data-probe.md): its FAT lookup, the stage,
+# reader and dump end to end on FatFs cards, and the miner. The GUI admission
+# of a built module is tests/test_wce_probe_admission.py MODULE.
+.PHONY: test-wce-probe
+test-wce-probe:
+	HOST_CC="$(CC)" python3 tests/test_wce_probe_fat.py
+	HOST_CC="$(CC)" python3 tests/test_wce_probe_end_to_end.py
+	python3 tests/test_wce_probe_mine.py
+test: test-wce-probe
+
 .PHONY: test-updater
 test-updater: test-runtime-module-bundle-make
 test-updater: build/test-update build/test-update-v2 build/test-update-handoff build/update-image build/update-boot
