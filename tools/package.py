@@ -847,7 +847,8 @@ def main():
     shutil.copytree(dist / "LICENSES", boot / "LICENSES")
     for name in ("boot-red.png", "boot-red-README.md", "boot-red-prompt.txt",
                  "startup-README.md", "startup-tyrfing-prompt.txt",
-                 "startup-tyrfing-pixel-prompt.txt"):
+                 "startup-tyrfing-pixel-prompt.txt", "startup-muramasa.py",
+                 "startup-muramasa-wordmark.svg", "startup-muramasa-wordmark.png"):
         shutil.copyfile(ROOT / "resources/branding" / name, boot / name)
     boot_record = {"kind": "bootstrap-cd", "commit": commit, "release": release,
                    "compiler": compiler, "dependencies": lock,

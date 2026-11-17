@@ -28,6 +28,6 @@ int main(void) {
     for(unsigned i=0;i<640u*480u;i++) assert(guarded[i+1]==expected_dimmed[i]);
     kui_boot_splash_draw(NULL);
     kui_boot_splash_draw_dimmed(NULL);
-    puts("PASS Tyrfing runtime splash and pixel-equivalent boot backdrop without framebuffer reads");
+    puts("PASS runtime splash and pixel-equivalent boot backdrop without framebuffer reads");
     return 0;
 }

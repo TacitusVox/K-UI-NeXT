@@ -18,12 +18,15 @@ class StartupAssets(unittest.TestCase):
         self.assertEqual(len(module.decode_png(data)),640*480)
         self.assertEqual(data,(ROOT/"resources/branding/startup.png").read_bytes())
         self.assertEqual(module.BOOT_PNG_BLOB,module.PNG_BLOB)
-    def test_tyrfing_asset_and_bounds(self):
+    def test_startup_asset_and_bounds(self):
         data=(ROOT/"resources/branding/startup.png").read_bytes()
         self.assertEqual(hashlib.sha1(b"blob "+str(len(data)).encode()+b"\0"+data).hexdigest(),module.PNG_BLOB)
         pixels=module.decode_png(data)
         self.assertEqual(len(pixels),640*480)
         self.assertTrue(all(0<=v<=65535 for v in pixels))
+        # The bootstrap countdown panel (y=360..456) sits over the dark canvas.
+        dark=((0x09>>3)<<11)|((0x01>>2)<<5)|(0x02>>3)
+        self.assertTrue(all(pixels[y*640+x]==dark for y in range(348,480) for x in range(640)))
         bad=bytearray(data);bad[len(bad)//2]^=1
         with self.assertRaises(ValueError):module.decode_png(bad)
         with self.assertRaises(ValueError):module.decode_png(data[:32])
