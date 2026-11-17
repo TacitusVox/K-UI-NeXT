@@ -89,7 +89,7 @@ static int exec_cmd(int32_t cmd, void *param) {
     return status[0] == 6 ? READ_DISC_CHANGED : READ_SYS;
 }
 
-/* KOS cdrom_init (the GD functions, once) and cdrom_reinit (the drive, again
+/* KOS cdrom_init (bus reactivation and the GD functions, once) and cdrom_reinit (the drive, again
  * after "not ready", "disc changed" or a reset): then select 2048-byte user
  * data, CD-ROM XA mode 2 when the drive says so. Like cdrom_reinit, keep
  * asking for up to 10 s while the drive reports a disc change; here also
@@ -97,6 +97,15 @@ static int exec_cmd(int32_t cmd, void *param) {
  * drive. */
 static void drive_init(void) {
     if(!gd_system_ready) {
+        /* KOS cdrom_init: unless the G1 bus protection check has passed, the
+         * drive is locked out and every GD command stalls. Reactivate it by
+         * sending the BIOS size and reading each word across the bus, so the
+         * controller can verify it (1 KiB for a custom 0xe6ff BIOS). */
+        if(*(volatile uint32_t *)0xa05f74ecu != 3u) {
+            const uint32_t bytes = *(volatile uint16_t *)0xa0000000u == 0xe6ffu ? 0x400u : 0x200000u;
+            *(volatile uint32_t *)0xa05f74e4u = bytes - 1u;
+            for(uint32_t p = 0; p < bytes / 4u; ++p) (void)((volatile uint32_t *)0xa0000000u)[p];
+        }
         (void)gd(0, 0, GD_INIT);
         gd_system_ready = true;
     }
