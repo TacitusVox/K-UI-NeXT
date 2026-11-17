@@ -4522,10 +4522,12 @@ static void vblank_wake(uint32_t code,void *data) {
     (void)code;(void)data;
     ++vblank_seen;genwait_wake_all((const void *)&vblank_seen);
 }
-static void vblank_wait_start(void) {
-    if(vblank_handle<0) vblank_handle=vblank_handler_add(vblank_wake,NULL);
-}
+static bool vblank_registration_tried;
 static void wait_vblank(void) {
+    /* Registered on first use, so startup order is unchanged. */
+    if(!vblank_registration_tried) {
+        vblank_registration_tried=true;vblank_handle=vblank_handler_add(vblank_wake,NULL);
+    }
     if(vblank_handle<0) {vid_waitvbl();return;}
     irq_mask_t irq=irq_disable();
     unsigned start=vblank_seen;
@@ -4636,7 +4638,7 @@ static uint32_t shell_view_fingerprint(const struct kui_shell_view *v,const char
 /* Returns whether a frame was painted. `force` repaints regardless: input,
  * published results, busy edges and motion. Busy screens keep their existing
  * redraw caps unchanged; only idle frames can be skipped. */
-static bool draw_shell(bool force) {
+static bool draw_shell_frame(bool force) {
     mutex_lock(&lock);
     if(!kui_sci_video_quiet_draw_begin(&sci_video_quiet)) {mutex_unlock(&lock);return false;}
     bool startup=splash_active;
@@ -4793,6 +4795,8 @@ static bool draw_shell(bool force) {
     wait_vblank(); vid_flip(-1);
     return true;
 }
+/* Startup and fatal paths always paint, exactly as before. */
+static void draw_shell(void) {(void)draw_shell_frame(true);}
 static unsigned shell_buttons(unsigned buttons) {
     unsigned mapped = 0;
     if(buttons & CONT_DPAD_UP) mapped |= KUI_SHELL_UP;
@@ -5135,7 +5139,6 @@ int main(void) {
 #endif
     ui_thread = thd_get_current();
     vid_set_mode(DM_640x480 | DM_MULTIBUFFER, PM_RGB565);
-    vblank_wait_start();
     kui_log("Running " KUI_RELEASE_SHORT " " KUI_ROLE " build " KUI_BUILD_ID);
     kui_clock_start(kui_log);
     kui_log("Video: %ux%u %s %s, buffered",
@@ -5208,7 +5211,7 @@ int main(void) {
      * the bounded STOP; no worker or app can own the drive at this point. Do
      * not read the boot disc merely to populate the optional idle title. */
 #ifdef KUI_SD_RUNTIME
-    (void)draw_shell(true);
+    draw_shell();
 #else
     draw_boot();
 #endif
@@ -5229,7 +5232,7 @@ int main(void) {
     if(!io_worker) {
 #ifdef KUI_SD_RUNTIME
         kui_log("Unable to start I/O worker; reset console");
-        for(;;) {(void)draw_shell(true);thd_sleep(100);}
+        for(;;) {draw_shell();thd_sleep(100);}
 #else
         kui_log("Diagnostic worker unavailable; boot, recovery, tools and log viewing remain available.");
         snprintf(boot_notice,sizeof(boot_notice),"Diagnostics unavailable; boot and recovery still work.");
@@ -6098,7 +6101,7 @@ int main(void) {
 #endif
         if(due) {
 #ifdef KUI_SD_RUNTIME
-            menu_drew=draw_shell(force_draw);
+            menu_drew=draw_shell_frame(force_draw);
             if(quiet_pending) {
                 /* This is the sole drawing thread. Complete every store queue
                  * write from this and prior frames before releasing the worker.
