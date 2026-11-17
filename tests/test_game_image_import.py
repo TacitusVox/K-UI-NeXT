@@ -43,6 +43,30 @@ def lz4_run(data):
     return b"\x1f" + data[:1] + b"\x01\x00" + extension + b"\x50" + data[-5:]
 
 
+def lz4_run_late(data):
+    """Another valid parse of a 2048-byte one-byte block: five literals, one
+    distance-1 match, five final literals. 22 bytes; the importer emits 18."""
+    assert len(data) == 2048 and data == data[:1] * 2048
+    return b"\x5f" + data[:5] + b"\x01\x00" + b"\xff" * 7 + bytes((2019 - 7 * 255,)) + b"\x50" + data[-5:]
+
+
+def lz4_literals(data):
+    """Valid LZ4 holding only literals: 2057 bytes for a 2048-byte block."""
+    extra = len(data) - 15
+    return b"\xf0" + b"\xff" * (extra // 255) + bytes((extra % 255,)) + data
+
+
+def boundary_blocks():
+    """Random blocks with one early repeat; the importer's encoder gives LZ4
+    forms of 2047, 2046, 2045 and 2044 bytes."""
+    rng, blocks = random.Random(10), []
+    for repeat in (14, 15, 16, 17):
+        block = bytearray(rng.randbytes(2048))
+        block[20:20 + repeat] = block[:repeat]
+        blocks.append(bytes(block))
+    return blocks
+
+
 def cso(payloads, methods, *, magic=b"CISO", version=1, shift=0, block_size=2048):
     align = 1 << shift
     start = 24 + 4 * (len(payloads) + 1)
@@ -721,7 +745,7 @@ print("synthetic chdman completed")
         fields, index = zso_layout(data)
         self.assertEqual(fields, (b"ZISO", 24, len(expected), 2048, 1, 2, b"\0\0"))
         self.assertEqual(len(index), len(expected) // 2048 + 1)
-        self.assertEqual(index[0] << 2, 24 + 4 * len(index))
+        self.assertEqual((index[0] & 0x7fffffff) << 2, 24 + 4 * len(index))
         self.assertEqual(index[-1] << 2, len(data))
         blocks, decoded = [], bytearray()
         for number in range(len(index) - 1):
@@ -732,7 +756,8 @@ print("synthetic chdman completed")
                 decoded += stored
             else:
                 block, used, literals, last_match = lz4_reference(stored)
-                self.assertLess(used, 2048)
+                # Compressed only when smaller than raw storage, padding included.
+                self.assertLess(len(stored), 2048)
                 self.assertEqual(len(stored), (used + 3) // 4 * 4)
                 self.assertGreaterEqual(literals, 5)
                 self.assertTrue(last_match is None or last_match <= 2048 - 12)
@@ -810,29 +835,60 @@ print("synthetic chdman completed")
                 blocks = self.assert_zso_matches(report, expected, output)
                 self.assertEqual(report["zso"]["raw_blocks"], sum(raw for raw, _ in blocks))
 
-    def test_zso_from_lz4_zso_reencodes_unless_already_console_ready(self):
+    def test_zso_from_lz4_zso_is_copied_or_repacked_at_shift_2_without_reencoding(self):
         expected = iso_image(MIXED * 2, seed=4)
         sectors = [expected[offset:offset + 2048] for offset in range(0, len(expected), 2048)]
-        methods = ["lz4" if len(set(sector)) == 1 else "raw" for sector in sectors]
+        runs = [len(set(sector)) == 1 for sector in sectors]
+        # The 22-byte parse differs from the encoder's 18 bytes, so the output
+        # shows whether the source's own LZ4 streams were kept.
+        methods = [lz4_run_late(sector) if run else "raw" for sector, run in zip(sectors, runs)]
         self.source = self.original / "Synthetic.zso"
-        # Shift 0 leaves blocks unaligned, so the image is decoded and encoded again.
-        self.source.write_bytes(cso(sectors, methods, magic=b"ZISO", shift=0))
-        report = importer.import_image(self.source, self.output, output_format="zso")
-        self.assertEqual((report["image"]["format"], report["zso"]["method"]), ("ZSO (LZ4)", "encoded"))
-        self.assert_zso_matches(report, expected)
-        shutil.rmtree(self.output)
-        # 2048-byte blocks at 4-byte alignment already meet every console rule:
-        # the file is copied unchanged, then decoded and compared like any output.
+        # 2048-byte blocks at shift 2, each LZ4 block under 2048 bytes: the
+        # file is copied unchanged, then decoded and compared like any output.
         ready = cso(sectors, methods, magic=b"ZISO", shift=2)
         self.source.write_bytes(ready)
         report = importer.import_image(self.source, self.output, output_format="zso")
-        self.assertEqual((report["zso"]["method"], report["zso"]["encoder"]), ("copied", None))
+        self.assertEqual((report["image"]["format"], report["zso"]["method"], report["zso"]["encoder"]),
+                         ("ZSO (LZ4)", "copied", None))
         self.assertEqual((self.output / "Synthetic.zso").read_bytes(), ready)
         self.assertEqual(report["zso"]["sha256"], report["source"]["sha256"])
-        self.assertEqual(report["zso"]["raw_blocks"], methods.count("raw"))
+        self.assertEqual(report["zso"]["raw_blocks"], runs.count(False))
         self.assertEqual(report["zso"]["logical_sha256"], hashlib.sha256(expected).hexdigest())
+        # Any other shift is rewritten at shift 2 from the same streams, with
+        # zero padding: a shift-9 source shrinks to the shift-2 layout.
+        repacked = zso_file([(stream, False) if run else (sector, True)
+                             for stream, sector, run in zip(methods, sectors, runs)])
+        self.assertEqual(len(repacked), len(ready))
+        count = len(sectors)
+        for shift in (0, 1, 3, 9):
+            with self.subTest(shift=shift):
+                source = cso(sectors, methods, magic=b"ZISO", shift=shift)
+                self.source.write_bytes(source)
+                output, lines = self.root / f"repacked-{shift}", []
+                report = importer.import_image(self.source, output, output_format="zso", progress=lines.append)
+                self.assertEqual((report["zso"]["method"], report["zso"]["encoder"], report["zso"]["shift"]),
+                                 ("repacked", None, 2))
+                self.assertEqual(report["image"]["alignment_bytes"], 1 << shift)
+                self.assertEqual(self.assert_zso_matches(report, expected, output),
+                                 [(False, 24) if run else (True, 2048) for run in runs])
+                self.assertEqual((output / "Synthetic.zso").read_bytes(), repacked)
+                self.assertEqual(report["zso"]["bytes"], len(repacked))
+                if shift == 9:
+                    self.assertLess(len(repacked), len(source))
+                self.assertEqual(lines, [f"Repacking ZSO (LZ4) at shift 2: 1/{count} blocks",
+                                         f"Repacking ZSO (LZ4) at shift 2: {count}/{count} blocks",
+                                         f"Verifying ZSO: 1/{count} blocks", f"Verifying ZSO: {count}/{count} blocks"])
+        # At shift 2, an LZ4 block that is not smaller than raw storage also
+        # rules out the copy: the file is repacked and that block stored raw.
+        wasteful = list(methods)
+        wasteful[20] = lz4_literals(sectors[20])
+        self.assertEqual(len(wasteful[20]), 2057)
+        self.source.write_bytes(cso(sectors, wasteful, magic=b"ZISO", shift=2))
+        report = importer.import_image(self.source, self.root / "wasteful", output_format="zso")
+        self.assertEqual(report["zso"]["method"], "repacked")
+        self.assertEqual((self.root / "wasteful" / "Synthetic.zso").read_bytes(), repacked)
         shutil.rmtree(self.output)
-        # 4096-byte blocks are split into 2048-byte blocks.
+        # 4096-byte blocks are split into 2048-byte blocks and encoded.
         pairs = [expected[offset:offset + 4096] for offset in range(0, len(expected), 4096)]
         self.source.write_bytes(cso(pairs, ["lz4" if len(set(pair)) == 1 else "raw" for pair in pairs],
                                     magic=b"ZISO", shift=2, block_size=4096))
@@ -918,13 +974,27 @@ print("synthetic chdman completed")
                 self.assertEqual(system(encoded, output, len(encoded), 2048), 2048)
                 self.assertEqual(output.raw, block)
 
+    def test_zso_block_is_raw_unless_its_padded_lz4_form_is_smaller(self):
+        extra = boundary_blocks()
+        self.assertEqual([len(importer.encode_lz4_block(block)) for block in extra], [2047, 2046, 2045, 2044])
+        expected = iso_image(MIXED) + b"".join(extra)
+        self.source = self.original / "Boundary.iso"
+        self.source.write_bytes(expected)
+        report = importer.import_image(self.source, self.output, output_format="zso")
+        # Padded to 4 bytes, 2045..2047 bytes take as much room as raw storage.
+        self.assertEqual(self.assert_zso_matches(report, expected)[-4:], [(True, 2048)] * 3 + [(False, 2044)])
+        self.assertEqual(report["zso"]["raw_blocks"], MIXED.count("random") + 3)
+
     def test_zso_shift_selection_and_launch_name(self):
         self.assertEqual(importer.zso_shift_for(24 + 8 + 2048), 2)
         self.assertEqual(importer.zso_shift_for(0x7FFFFFFF << 2), 2)
+        # The writer pads the end up to the alignment, so one byte more would
+        # make the terminal entry 0x80000000, the raw flag, at shift 2.
+        self.assertEqual(importer.zso_shift_for((0x7FFFFFFF << 2) + 1), 3)
         self.assertEqual(importer.zso_shift_for((0x7FFFFFFF << 2) + 4), 3)
         self.assertEqual(importer.zso_shift_for(0x7FFFFFFF << 9), 9)
         with self.assertRaisesRegex(ValueError, "shift 9"):
-            importer.zso_shift_for((0x7FFFFFFF << 9) + 512)
+            importer.zso_shift_for((0x7FFFFFFF << 9) + 1)
         # The largest admitted image stays at shift 2 even if every block is raw.
         largest = 24 + 4 * (importer.LBA_LIMIT + 1) + importer.LBA_LIMIT * 2048
         self.assertEqual(importer.zso_shift_for(largest), 2)
@@ -1047,18 +1117,24 @@ print("synthetic chdman completed")
 
     def test_zso_output_decodes_bit_exactly_through_repository_c_reader(self):
         executable = self.c_reader()
-        expected = self.write_iso(MIXED * 4)
-        report = importer.import_image(self.source, self.output, output_format="zso")
-        result, data = self.run_c_reader(executable, self.output / report["launch_file"])
-        self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertEqual(data, expected)
+        # Encoded from ISO and CSO (with LZ4 forms of 2044..2047 bytes at the
+        # end), and a shift-9 standard ZSO repacked at shift 2.
+        expected = iso_image(MIXED * 4) + b"".join(boundary_blocks())
         sectors = [expected[offset:offset + 2048] for offset in range(0, len(expected), 2048)]
-        self.source = self.original / "Synthetic.cso"
-        self.source.write_bytes(cso(sectors, ["deflate"] * len(sectors), shift=2))
-        report = importer.import_image(self.source, self.root / "from-cso", output_format="zso")
-        result, data = self.run_c_reader(executable, self.root / "from-cso" / report["launch_file"])
-        self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertEqual(data, expected)
+        streams = [lz4_run_late(sector) if len(set(sector)) == 1 else "raw" for sector in sectors]
+        sources = [("Synthetic Game.iso", expected, "encoded"),
+                   ("Synthetic.cso", cso(sectors, ["deflate"] * len(sectors), shift=2), "encoded"),
+                   ("Synthetic.zso", cso(sectors, streams, magic=b"ZISO", shift=9), "repacked")]
+        for number, (name, source, method) in enumerate(sources):
+            with self.subTest(source=name):
+                self.source = self.original / name
+                self.source.write_bytes(source)
+                output = self.root / f"converted-{number}"
+                report = importer.import_image(self.source, output, output_format="zso")
+                self.assertEqual((report["zso"]["method"], report["zso"]["shift"]), (method, 2))
+                result, data = self.run_c_reader(executable, output / report["launch_file"])
+                self.assertEqual(result.returncode, 0, result.stderr)
+                self.assertEqual(data, expected)
         # The importer's verifier and the C reader accept and reject the same
         # hand-built containers.
         zero = lz4_run(bytes(2048))
@@ -1117,8 +1193,9 @@ print("synthetic chdman completed")
         expected = self.source.read_bytes()
         with patch.dict(sys.modules, {"lz4": package, "lz4.block": block}):
             report = importer.import_image(self.source, self.output, output_format="zso", zso_encoder="lz4-hc")
-        self.assertEqual(set(calls), {("high_compression", 12, False)})
-        self.assertEqual(report["zso"]["encoder"], "lz4 package, lz4.block high compression level 12")
+        # LZ4 HC's default level 9: level 12 was much slower for no real gain.
+        self.assertEqual(set(calls), {("high_compression", 9, False)})
+        self.assertEqual(report["zso"]["encoder"], "lz4 package, lz4.block high compression level 9")
         blocks = self.assert_zso_matches(report, expected)
         self.assertEqual(report["zso"]["raw_blocks"], sum(raw for raw, _ in blocks))
 
@@ -1136,6 +1213,16 @@ print("synthetic chdman completed")
         result = subprocess.run(command, capture_output=True, text=True, check=False)
         self.assertEqual(result.returncode, 1)
         self.assertIn("Output already exists", result.stderr)
+        data = self.source.read_bytes()
+        sectors = [data[offset:offset + 2048] for offset in range(0, len(data), 2048)]
+        streams = [lz4_run_late(sector) if len(set(sector)) == 1 else "raw" for sector in sectors]
+        self.source = self.original / "Synthetic.zso"
+        self.source.write_bytes(cso(sectors, streams, magic=b"ZISO", shift=9))
+        command[2:4] = [str(self.source), str(self.root / "repacked")]
+        result = subprocess.run(command, capture_output=True, text=True, check=False)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("Repacked standard ZSO at shift 2:", result.stdout)
+        self.assertIn("Repacking ZSO (LZ4) at shift 2: 29/29 blocks", result.stderr)
 
 
 if __name__ == "__main__":

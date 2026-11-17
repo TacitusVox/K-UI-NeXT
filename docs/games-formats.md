@@ -162,6 +162,7 @@ Conversion does not establish game compatibility.
 ```sh
 python3 tools/game_image_import.py "Images/Game.cso" "Ready/Game" --output-format zso
 python3 tools/game_image_import.py "Images/Game.iso" "Ready/Game" --output-format zso
+python3 tools/game_image_import.py "Images/Game.zso" "Ready/Game" --output-format zso
 python3 tools/game_image_import.py "Images/Game.zso" "Ready/Game" --output-format zso --zso-codec lzo
 ```
 
@@ -178,23 +179,32 @@ refused in this mode; GD and multi-track CD images are out of scope for ZSO.
 
 The file uses a 24-byte header, 2048-byte blocks and index shift 2, so every
 block starts on a 4-byte boundary. A larger shift would be used only if block
-offsets did not fit the 31-bit index entries; the console admits up to 9.
-Blocks come from the importer's own LZ4 block encoder, and a block is stored
-raw when its LZ4 form is not smaller than 2048 bytes. A standard LZ4 ZSO that
-already uses 2048-byte blocks and 4- to 512-byte alignment is copied unchanged.
+offsets did not fit the 31-bit index entries; the console admits up to 9, and
+every file below its 4 GiB limit fits shift 2.
+Blocks come from the importer's own LZ4 block encoder. A block is stored raw
+unless its LZ4 form, padded to the 4-byte boundary, is smaller than 2048 bytes.
+A standard LZ4 ZSO with 2048-byte blocks is not re-encoded. It is copied
+unchanged when it already uses shift 2 and every LZ4 block is stored in fewer
+than 2048 bytes. Otherwise, for example at shift 0 or 9, its own LZ4 blocks are
+repacked at shift 2 under the same raw-storage rule, and its raw blocks stay raw.
 Before publication every block is decoded again under the console reader's
 rules (header, index spans, raw block sizes, canonical LZ4 block ends and
 padding), and the decoded image hash must equal the source's. The report adds
-the block and raw-block counts, shift, size ratio, source/output/image hashes
-and the elapsed time. When a C compiler is available, host tests also decode
-converted files with the repository's own C reader.
+the method (`encoded`, `repacked` or `copied`), the block and raw-block counts,
+shift, size ratio, source/output/image hashes and the elapsed time. When a C
+compiler is available, host tests also decode converted files with the
+repository's own C reader.
 
-The encoder is pure Python. On the development host it processed about
-4-7 MiB/s of compressible binary data, 20-30 MiB/s of incompressible data and
-several hundred MiB/s of zero-filled sectors, so a full disc takes minutes.
+The encoder is pure Python. On the development host a whole conversion,
+including the decoding and verification passes, measured about 3.5-5 MiB/s for
+binary and text data and about 9-10 MiB/s for a mixed image of 30% zero-filled,
+35% incompressible and 35% binary and text sectors, so a full disc takes
+minutes. The encoder alone measured about 5-6 MiB/s on binary and text data,
+28-30 MiB/s on incompressible data and over 1 GiB/s on zero-filled sectors.
+Repacking a standard LZ4 ZSO encodes nothing; it measured about 11 MiB/s.
 `--zso-encoder lz4-hc` uses the third-party `lz4` Python package's
-high-compression mode instead, when that package is installed; its blocks go
-through the same raw-storage rule and verification.
+high-compression mode at LZ4 HC's default level 9 instead, when that package is
+installed; its blocks go through the same raw-storage rule and verification.
 
 ## Batch 2048 conversion and skipped games
 

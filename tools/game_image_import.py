@@ -8,8 +8,9 @@ CHD CD/GD images require an installed MAME chdman: verify, then extractcd.
 GDI/CUE export preserves tracks and sessions but omits CHD subchannel data.
 --output-format zso instead writes one standard LZ4 ZSO (2048-byte blocks,
 4-byte aligned) from a CSO, ZSO or plain 2048-byte ISO data image, for K-UI's
-native ZSO reader. Every block is decoded back under the console's rules
-before publication. CHD and other multi-track images are refused in that mode.
+native ZSO reader; a standard LZ4 ZSO is copied or repacked, not re-encoded.
+Every block is decoded back under the console's rules before publication.
+CHD and other multi-track images are refused in that mode.
 The source is never edited. Conversion does not establish game compatibility.
 
 Independently implemented from the format descriptions:
@@ -59,6 +60,9 @@ ZSO_MAX_FILE_BYTES = 0xFFFFFFFF
 ZSO_RAW_FLAG = 0x80000000
 ZSO_HEADER = struct.Struct("<4sIQIBB2s")
 LZ4_SKIP_STRENGTH = 5  # Each 32 failed lookups lengthen the search step by one byte.
+# LZ4 HC's default level. On 2048-byte blocks of binaries and text, level 12
+# took about 2.5 times as long for an output under 0.1% smaller.
+LZ4_HC_LEVEL = 9
 CD_SYNC = b"\0" + b"\xff" * 10 + b"\0"
 MULTI_TRACK_SUFFIXES = (".gdi", ".cue", ".cdi", ".nrg", ".mds", ".ccd", ".m3u")
 
@@ -294,7 +298,7 @@ def encode_lz4_block(block):
 
 
 ZSO_ENCODERS = {"builtin": "built-in LZ4 block encoder",
-                "lz4-hc": "lz4 package, lz4.block high compression level 12"}
+                "lz4-hc": f"lz4 package, lz4.block high compression level {LZ4_HC_LEVEL}"}
 
 
 def zso_block_encoder(name):
@@ -316,7 +320,7 @@ def zso_block_encoder(name):
 
     def encode(block):
         try:
-            encoded = compress(block, mode="high_compression", compression=12, store_size=False)
+            encoded = compress(block, mode="high_compression", compression=LZ4_HC_LEVEL, store_size=False)
         except (TypeError, ValueError, RuntimeError) as error:
             raise ValueError(f"lz4 package could not encode a block: {error}") from error
         return bytes(encoded) if len(encoded) < len(block) else None
@@ -430,8 +434,12 @@ def read_compressed_layout(stream, source, max_bytes, zso_codec="lz4"):
             "block_count": block_count, "indices": indices, "file_bytes": file_bytes}
 
 
-def iter_compressed_blocks(stream, layout, zso_codec="lz4", lzo_library=None):
-    """Yield every decoded block in order after checking its span and padding."""
+def iter_compressed_blocks(stream, layout, zso_codec="lz4", lzo_library=None, lz4_streams=False):
+    """Yield every decoded block in order after checking its span and padding.
+
+    With lz4_streams, yield (block, stream) pairs instead: stream is the
+    block's stored LZ4 bytes without padding, or None if it is not LZ4.
+    """
     magic, kind, total = layout["magic"], layout["kind"], layout["total"]
     block_size, shift, alignment = layout["block_size"], layout["shift"], layout["alignment"]
     indices = layout["indices"]
@@ -446,6 +454,7 @@ def iter_compressed_blocks(stream, layout, zso_codec="lz4", lzo_library=None):
         stored = read_exact(stream, span, f"compressed block {number}")
         flagged = bool(indices[number] & 0x80000000)
         raw = span >= block_size if kind == "CSO v2" else flagged
+        lz4 = None
         if raw:
             require(span >= expected, f"Block {number}: short uncompressed block")
             require(span <= block_size + alignment - 1,
@@ -457,12 +466,14 @@ def iter_compressed_blocks(stream, layout, zso_codec="lz4", lzo_library=None):
                     result, consumed = decode_lzo(stored, expected, alignment - 1, lzo_library)
                 elif magic == b"ZISO" or (kind == "CSO v2" and flagged):
                     result, consumed = decode_lz4(stored, expected)
+                    if lz4_streams:
+                        lz4 = stored[:consumed]
                 else:
                     result, consumed = decode_deflate(stored, expected)
                 require(span - consumed < alignment, "Excess compressed-block padding")
             except ValueError as error:
                 raise ValueError(f"Block {number}: {error}") from error
-        yield result
+        yield (result, lz4) if lz4_streams else result
 
 
 def expand_cso(source, destination, max_bytes, progress=None, zso_codec="lz4", lzo_library=None):
@@ -834,14 +845,15 @@ def expand_chd(source, stage, max_bytes, chdman, parent, timeout, drop_subchanne
 
 
 def zso_shift_for(end_offset):
-    """Return the index shift for a ZSO whose last block ends at end_offset.
+    """Return the index shift for a ZSO whose blocks end by end_offset.
 
     Shift 2 starts every block on a 4-byte boundary. A larger shift is chosen
-    only when end_offset >> 2 would not fit a 31-bit index entry (bit 31 marks
-    raw blocks); the console admits at most 9.
+    only when the terminal entry, end_offset rounded up to the alignment as
+    the writer pads it, would not fit 31 bits (bit 31 marks raw blocks); the
+    console admits at most 9. Every file below its 4 GiB limit fits shift 2.
     """
     shift = ZSO_PREFERRED_SHIFT
-    while end_offset >> shift > 0x7FFFFFFF:
+    while (end_offset + (1 << shift) - 1) >> shift > 0x7FFFFFFF:
         shift += 1
     require(shift <= ZSO_MAX_SHIFT, "ZSO offsets do not fit 31-bit index entries at shift 9")
     return shift
@@ -898,24 +910,32 @@ def inspect_data_image(head, sectors):
 
 
 class LogicalImage:
-    """Split decoded chunks into 2048-byte blocks, hashing and checking them."""
+    """Hash the decoded image and check that it starts as one ISO9660 track."""
 
-    def __init__(self, chunks, sectors):
-        self.chunks, self.sectors = chunks, sectors
+    def __init__(self, sectors):
+        self.sectors, self.size, self.head = sectors, 0, bytearray()
         self.digest, self.data_image = hashlib.sha256(), None
 
-    def blocks(self):
-        head, wanted, count = bytearray(), min(self.sectors, 64) * ZSO_BLOCK_BYTES, 0
-        for chunk in self.chunks:
-            self.digest.update(chunk)
-            if self.data_image is None:
-                head += chunk[:wanted - len(head)]
-                if len(head) == wanted:
-                    self.data_image = inspect_data_image(bytes(head), self.sectors)
+    def add(self, chunk):
+        """Take the next decoded bytes and return them unchanged."""
+        self.digest.update(chunk)
+        self.size += len(chunk)
+        if self.data_image is None:
+            wanted = min(self.sectors, 64) * ZSO_BLOCK_BYTES
+            self.head += chunk[:wanted - len(self.head)]
+            if len(self.head) == wanted:
+                self.data_image = inspect_data_image(bytes(self.head), self.sectors)
+        return chunk
+
+    def blocks(self, chunks):
+        """Yield the 2048-byte blocks of decoded chunks."""
+        for chunk in chunks:
+            self.add(chunk)
             for offset in range(0, len(chunk), ZSO_BLOCK_BYTES):
-                count += 1
                 yield chunk[offset:offset + ZSO_BLOCK_BYTES]
-        require(count == self.sectors and self.data_image is not None,
+
+    def finish(self):
+        require(self.size == self.sectors * ZSO_BLOCK_BYTES and self.data_image is not None,
                 "Decoded image size differs from its header")
 
 
@@ -932,12 +952,18 @@ def progress_due(number, count):
     return number % 4096 == 0 or number + 1 == count
 
 
-def write_zso(blocks, destination, total, progress=None, label="Writing ZSO", encode=encode_lz4_block):
-    """Write header, index and LZ4/raw blocks; return the layout written."""
+def write_zso(pairs, destination, total, progress=None, label="Writing ZSO"):
+    """Write header, index and blocks; return the layout written.
+
+    pairs yields each 2048-byte block with an LZ4 stream for it, or None. The
+    block is stored raw unless that stream plus its alignment padding is
+    smaller than 2048 bytes, so the console never decodes LZ4 for no saving.
+    """
     block_count = total // ZSO_BLOCK_BYTES
     index_bytes = (block_count + 1) * 4
-    # Raw storage is the worst case: a smaller LZ4 block plus its padding
-    # never exceeds 2048 bytes, because the alignment divides 2048.
+    # All-raw storage is the worst case. The alignment divides 2048, so the
+    # blocks then end at the unpadded end rounded up to the alignment, which
+    # zso_shift_for allows for.
     shift = zso_shift_for(ZSO_HEADER.size + index_bytes + total)
     alignment = 1 << shift
     offset = (ZSO_HEADER.size + index_bytes + alignment - 1) // alignment * alignment
@@ -948,11 +974,11 @@ def write_zso(blocks, destination, total, progress=None, label="Writing ZSO", en
     raw_blocks, number = 0, -1
     with destination.open("xb") as output:
         output.write(bytes(offset))  # Header and index are written last.
-        for number, block in enumerate(blocks):
+        for number, (block, encoded) in enumerate(pairs):
             require(number < block_count and len(block) == ZSO_BLOCK_BYTES,
                     "Decoded image size differs from its header")
-            encoded = encode(block)
-            if encoded is None:
+            pad = 0 if encoded is None else -len(encoded) % alignment
+            if encoded is None or len(encoded) + pad >= ZSO_BLOCK_BYTES:
                 index[number] = offset >> shift | ZSO_RAW_FLAG
                 output.write(block)
                 offset += ZSO_BLOCK_BYTES
@@ -960,7 +986,6 @@ def write_zso(blocks, destination, total, progress=None, label="Writing ZSO", en
             else:
                 index[number] = offset >> shift
                 output.write(encoded)
-                pad = -len(encoded) % alignment
                 output.write(padding[pad])
                 offset += len(encoded) + pad
             if progress and progress_due(number, block_count):
@@ -1048,23 +1073,38 @@ def verify_zso(path, progress=None):
             "logical_sha256": logical.hexdigest(), "bytes": file_bytes, "sha256": contents.hexdigest()}
 
 
+def zso_copy_ready(layout):
+    """Whether a standard LZ4 ZSO already has the layout write_zso produces:
+    2048-byte blocks at shift 2, each LZ4 block stored in under 2048 bytes."""
+    indices = layout["indices"]
+    return (layout["kind"] == "ZSO (LZ4)" and layout["block_size"] == ZSO_BLOCK_BYTES
+            and layout["shift"] == ZSO_PREFERRED_SHIFT and layout["file_bytes"] <= ZSO_MAX_FILE_BYTES
+            and all(entry & ZSO_RAW_FLAG
+                    or ((after & 0x7FFFFFFF) - entry) << ZSO_PREFERRED_SHIFT < ZSO_BLOCK_BYTES
+                    for entry, after in zip(indices, indices[1:])))
+
+
 def convert_to_zso(source, destination, magic, max_bytes, zso_codec, lzo_library,
                    source_sha256, progress=None, encoder="builtin"):
     """Write one verified standard LZ4 ZSO from a CSO, ZSO or plain ISO image.
 
-    An LZ4 ZSO that already has 2048-byte blocks and 4..512-byte alignment is
-    copied unchanged; every other input is decoded and encoded. Either way the
+    A standard LZ4 ZSO with 2048-byte blocks is not re-encoded. It is copied
+    unchanged when zso_copy_ready; otherwise its own LZ4 blocks are repacked
+    at shift 2. Every other input is decoded and encoded. Either way the
     published file is decoded again under the console's rules and its image
     hash must equal the source's.
     """
     encode = zso_block_encoder(encoder)
     file_bytes = signature(source)[2]
     with source.open("rb") as stream:
-        layout = None
+        method = "encoded"
         if magic[:4] in (b"CISO", b"ZISO"):
             layout = read_compressed_layout(stream, source, max_bytes, zso_codec)
             kind, total = layout["kind"], layout["total"]
-            chunks = iter_compressed_blocks(stream, layout, zso_codec, lzo_library)
+            if kind == "ZSO (LZ4)" and layout["block_size"] == ZSO_BLOCK_BYTES:
+                method = "copied" if zso_copy_ready(layout) else "repacked"
+            chunks = iter_compressed_blocks(stream, layout, zso_codec, lzo_library,
+                                            lz4_streams=method == "repacked")
             details = {"format": kind, "block_bytes": layout["block_size"], "blocks": layout["block_count"],
                        "alignment_bytes": layout["alignment"], "uncompressed_bytes": total,
                        "zso_codec": zso_codec if magic[:4] == b"ZISO" else None}
@@ -1079,13 +1119,13 @@ def convert_to_zso(source, destination, magic, max_bytes, zso_codec, lzo_library
             details = {"format": kind, "uncompressed_bytes": total}
         sectors = total // ZSO_BLOCK_BYTES
         require(sectors <= LBA_LIMIT, f"Image has {sectors} sectors; the console admits at most {LBA_LIMIT}")
-        image = LogicalImage(chunks, sectors)
-        copy = (layout is not None and kind == "ZSO (LZ4)" and layout["block_size"] == ZSO_BLOCK_BYTES
-                and ZSO_PREFERRED_SHIFT <= layout["shift"] <= ZSO_MAX_SHIFT and file_bytes <= ZSO_MAX_FILE_BYTES)
-        if copy:
-            for number, _ in enumerate(image.blocks()):
+        image = LogicalImage(sectors)
+        if method == "copied":
+            for number, block in enumerate(chunks):
+                image.add(block)
                 if progress and progress_due(number, sectors):
                     progress(f"Checking {kind}: {number + 1}/{sectors} blocks")
+            image.finish()
             stream.seek(0)
             digest = hashlib.sha256()
             with destination.open("xb") as output:
@@ -1097,7 +1137,16 @@ def convert_to_zso(source, destination, magic, max_bytes, zso_codec, lzo_library
             require(digest.hexdigest() == source_sha256, "Source changed while copying")
             written = None
         else:
-            written = write_zso(image.blocks(), destination, total, progress, f"Converting {kind} to ZSO", encode)
+            if method == "repacked":
+                # The source's own LZ4 streams, verified as the console reads
+                # them; its raw blocks stay raw. Nothing is re-encoded.
+                pairs = ((image.add(block), lz4) for block, lz4 in chunks)
+                label = f"Repacking {kind} at shift {ZSO_PREFERRED_SHIFT}"
+            else:
+                pairs = ((block, encode(block)) for block in image.blocks(chunks))
+                label = f"Converting {kind} to ZSO"
+            written = write_zso(pairs, destination, total, progress, label)
+            image.finish()
     verified = verify_zso(destination, progress)
     require(verified["logical_bytes"] == total and verified["logical_sha256"] == image.digest.hexdigest(),
             "ZSO verification failed: the decoded image differs from the source")
@@ -1107,8 +1156,8 @@ def convert_to_zso(source, destination, magic, max_bytes, zso_codec, lzo_library
     else:
         require(verified["sha256"] == source_sha256, "ZSO verification failed: the copy differs from the source")
     details.update(logical_sha256=verified["logical_sha256"], data_image=image.data_image)
-    zso = {"codec": "lz4", "method": "copied" if copy else "encoded",
-           "encoder": None if copy else ZSO_ENCODERS[encoder],
+    zso = {"codec": "lz4", "method": method,
+           "encoder": ZSO_ENCODERS[encoder] if method == "encoded" else None,
            "block_bytes": ZSO_BLOCK_BYTES, "blocks": verified["blocks"], "raw_blocks": verified["raw_blocks"],
            "compressed_blocks": verified["blocks"] - verified["raw_blocks"], "shift": verified["shift"],
            "alignment_bytes": verified["alignment_bytes"], "logical_bytes": total,
@@ -1232,8 +1281,9 @@ def main(argv=None):
         return 1
     zso = report.get("zso")
     if zso:
-        action = ("Copied verified standard ZSO" if zso["method"] == "copied"
-                  else f"Converted {report['image']['format']} to ZSO")
+        action = {"copied": "Copied verified standard ZSO",
+                  "repacked": f"Repacked standard ZSO at shift {zso['shift']}"}.get(
+                      zso["method"], f"Converted {report['image']['format']} to ZSO")
         print(f"{action}: {args.output / report['launch_file']}")
         print(f"{zso['blocks']} blocks ({zso['raw_blocks']} stored raw), {zso['bytes']} bytes = "
               f"{zso['ratio']:.1%} of the image, shift {zso['shift']}; every block decoded and matched.")
