@@ -48,7 +48,7 @@ Claude's original-backed SA1 result is recorded as an external report only.
 
 `KUI-Branch-Test2-17NOV2026-1105-CST-5eece4b.zip`
 (SHA256 `b67abd8e37c00a67cb227b5a53e47d91a62e9cf36164fe51fa922991f62db24b`) tests
-branch `claude/cool-pasteur-kxjg6b` at `5eece4b72a3521d24ea86eb3d5338c403d2e7869`.
+branch `claude/cool-pasteur-kxjg6b` at `5eece4b72a35c1f3a8c028cc3cffdae2ff3cbfbc`.
 Since test 1 (`f094fa8f40f3`) it changes only three things:
 
 - the startup splash art, stored compressed and inflated once;
