@@ -15,7 +15,7 @@
    and freestanding loaders. The preprocessor runs over disc.c and the CE music loaders under
    EACH SH-4 macro set: every mode must select the same console branch.
 This does not prove anything compiles on the console toolchain; it stops these two known ways of
-failing there from coming back. REVIEWED_ASM lists the one exception, pinned to its exact text."""
+failing there from coming back. REVIEWED_ASM lists the reviewed exceptions, each pinned to its exact text."""
 import hashlib
 import pathlib
 import re
@@ -32,8 +32,20 @@ MAX_OPERANDS = 3   # the tree's asm has 0 to 1; KOS's failing helper had 9
 # operands). The pinned GCC 15.2.0 compiles it in every CE reader build, and
 # test-sh4-check-words runs it under qemu-sh4 against a bitwise reference. Any edit to the
 # statement drops the exception; every other asm keeps the limit.
+# Two more, in Toy Commander test modules only (never in an installed loader: with the test
+# switches off these sources keep Main's text, tests/test_toy_test_switches.py), register operands
+# only. The pinned GCC 15.2.0 compiles both, and their modules ran on the console:
+# - src/core/hash.c, Test 52's EDC table check: four "+r" table bases and an empty template, which
+#   only keeps GCC from rebuilding the row offsets;
+# - src/loader/sci_stream.c, the per-word CRC16 of Toy modes 53 to 66 (FAST_CRC16 without
+#   TABLE_CRC16), which Tests 76 to 82 carry: eight register operands. A wrong CRC fails every
+#   block, so each movie those tests played checked it.
 REVIEWED_ASM = {("src/loader/sci_stream_check.h",
-                 "676118afd27f1b67ca778a744f52c0f671bd396a0ff7f232e5b2488e11459708"): 6}
+                 "676118afd27f1b67ca778a744f52c0f671bd396a0ff7f232e5b2488e11459708"): 6,
+                ("src/core/hash.c",
+                 "fda08d4213db9ae77bfa2e023149beb546adcdf0a67936121023d3dfd5aaad02"): 4,
+                ("src/loader/sci_stream.c",
+                 "fbebb5afbffc22c78b1b2104e58e15a31109c1a9cde5ff9520bfb5017b895f23"): 8}
 TARGET_DETECTORS = {"include/kui/target.h"}
 RAW_TARGET_MACROS = re.compile(r"__SH4|__sh__|_arch_dreamcast|__DREAMCAST__")
 

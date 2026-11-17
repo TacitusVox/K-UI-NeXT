@@ -9,6 +9,7 @@ import unittest
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "tools"))
+sys.path.insert(0, str(ROOT / "tests"))
 import retail_package as layout
 from check_retail_loader_layout import check_directory, check_stack_usage, RESIDENTS, TRANSPORTS
 import check_retail_stack
@@ -59,7 +60,10 @@ class RetailPackage(unittest.TestCase):
             layout.inspect_retail(self.packaged(data), ce=True)
 
     def test_constants_match_native_contract(self):
-        source = (ROOT / "include/kui/retail_loader_layout.h").read_text()
+        # The Toy test modules' alternatives come first in the header; a
+        # production build sees them resolved off.
+        from toy_test_switches import resolve_toy_switches
+        source = resolve_toy_switches((ROOT / "include/kui/retail_loader_layout.h").read_text())
         names = {
             "PACKAGE_VERSION": layout.VERSION, "HEADER_OFFSET": layout.HEADER_OFFSET,
             "HEADER_BYTES": layout.HEADER_BYTES, "MAP_OFFSET": layout.MAP_OFFSET,
