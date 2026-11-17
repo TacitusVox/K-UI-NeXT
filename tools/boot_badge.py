@@ -129,7 +129,7 @@ def rebuild_branding():
         ET.register_namespace("", namespace[1:-1])
         header = ET.Element(namespace + "svg", {
             "width": "256", "height": "128", "viewBox": "0 0 256 128"})
-        ET.SubElement(header, namespace + "title").text = "K-UI Tyrfing by TacitusVox"
+        ET.SubElement(header, namespace + "title").text = "K-UI Tyrfing, github.com/TacitusVox"
         ET.SubElement(header, namespace + "rect", {
             "width": "256", "height": "128", "fill": "#080f23"})
         for item in ET.parse(source).getroot():
@@ -138,10 +138,12 @@ def rebuild_branding():
             if transform:
                 group = ET.SubElement(header, namespace + "g", {"transform": transform})
                 group.append(item)
+        # The credit is the maintainer's GitHub link, as on the badge; without
+        # letter spacing its 21 characters stay inside the 256-pixel header.
         ET.SubElement(header, namespace + "text", {
-            "x": "91", "y": "91", "font-family": "DejaVu Sans Mono, monospace",
-            "font-size": "12", "font-weight": "bold", "letter-spacing": "2",
-            "fill": "#ffc56a"}).text = "by TacitusVox"
+            "x": "86", "y": "91", "font-family": "DejaVu Sans Mono, monospace",
+            "font-size": "12", "font-weight": "bold", "letter-spacing": "0",
+            "fill": "#ffc56a"}).text = "github.com/TacitusVox"
         header_source = temp / "launcher.svg"
         ET.ElementTree(header).write(header_source, encoding="unicode")
         header_png = temp / "launcher.png"

@@ -18,7 +18,7 @@ ROOT = Path(__file__).resolve().parents[1]
 OUTPUT = ROOT / "src/dreamcast/shell_art.inc"
 TRANSPARENT = 0xF81F
 SOURCES = {
-    "resources/branding/launcher-brand.png": "389d87c4e0af403d395ba51bdba73cdd9caad3d4060a31219b4bed897914ba55",
+    "resources/branding/launcher-brand.png": "26110492a9b4116e2a205ddd149240346a7976cb86b958aae6408e814f029301",
     "resources/icons/disc-ripper.svg": "8263c8ef8efe9b779863303f90d921f90b9374c734255cb8f119463990eaa683",
     "resources/icons/disc-ripper.png": "1c3bb0ed7ffc95949a06339b16b87f8392de6ed443cd92e4913a4b8d70c1283b",
     "resources/icons/settings.svg": "772f5912638c1e0996edd51be50ec2c2d5c9bd6c4761f76b892da5a60cf13ccd",
