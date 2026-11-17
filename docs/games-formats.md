@@ -152,6 +152,50 @@ The importer writes `import-report.json` with source/output hashes, the launch
 file and its limitations. It validates all exports and publishes the new folder
 atomically without overwriting a destination. Originals remain unchanged.
 
+### ZSO output for the native reader
+
+`--output-format zso` writes one standard LZ4 ZSO instead of an expanded image,
+for the console's native ZSO reader, so the console no longer decodes CSO
+during play. The default remains `expanded`, which behaves as described above.
+Conversion does not establish game compatibility.
+
+```sh
+python3 tools/game_image_import.py "Images/Game.cso" "Ready/Game" --output-format zso
+python3 tools/game_image_import.py "Images/Game.iso" "Ready/Game" --output-format zso
+python3 tools/game_image_import.py "Images/Game.zso" "Ready/Game" --output-format zso --zso-codec lzo
+```
+
+The new folder holds `import-report.json` and one `.zso` named after the
+source file, or after the folder when the source name is not a console-safe
+printable ASCII name.
+Accepted inputs are CSO v1/v2, standard LZ4 ZSO, historical LZO ZSO
+(`--zso-codec lzo`, with liblzo2 as above) and a plain ISO of whole 2048-byte
+sectors. The decoded image must be a single 2048-byte ISO9660 data track that
+passes the console's standalone-ISO check: volume descriptors from sector 16,
+the root directory within the first 64 sectors, and at most 719850 sectors
+from its session address. CHD, GDI, CUE, CDI and raw 2352-byte images are
+refused in this mode; GD and multi-track CD images are out of scope for ZSO.
+
+The file uses a 24-byte header, 2048-byte blocks and index shift 2, so every
+block starts on a 4-byte boundary. A larger shift would be used only if block
+offsets did not fit the 31-bit index entries; the console admits up to 9.
+Blocks come from the importer's own LZ4 block encoder, and a block is stored
+raw when its LZ4 form is not smaller than 2048 bytes. A standard LZ4 ZSO that
+already uses 2048-byte blocks and 4- to 512-byte alignment is copied unchanged.
+Before publication every block is decoded again under the console reader's
+rules (header, index spans, raw block sizes, canonical LZ4 block ends and
+padding), and the decoded image hash must equal the source's. The report adds
+the block and raw-block counts, shift, size ratio, source/output/image hashes
+and the elapsed time. When a C compiler is available, host tests also decode
+converted files with the repository's own C reader.
+
+The encoder is pure Python. On the development host it processed about
+4-7 MiB/s of compressible binary data, 20-30 MiB/s of incompressible data and
+several hundred MiB/s of zero-filled sectors, so a full disc takes minutes.
+`--zso-encoder lz4-hc` uses the third-party `lz4` Python package's
+high-compression mode instead, when that package is installed; its blocks go
+through the same raw-storage rule and verification.
+
 ## Batch 2048 conversion and skipped games
 
 ```sh
