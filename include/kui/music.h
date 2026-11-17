@@ -18,6 +18,9 @@ struct kui_music_status {
      * an Ogg load stages a second arena while validating the new file.
      * Fixed callback buffers, thread stack and KOS streamer are separate. */
     uint32_t loading_bytes,peak_file_bytes,file_allocations,file_frees;
+    /* Number of the newest kui_music_request_select the audio service has
+     * applied; 0 before any. */
+    unsigned selected_request;
     char title[40],message[128];
 };
 /* One audio thread polls RAM-only callbacks. Public controls/status copies
@@ -61,6 +64,14 @@ bool kui_music_load_path(const char *path,const char *title,kui_cancel_fn cancel
 bool kui_music_select_cached(unsigned index);
 bool kui_music_step_cached(int direction,unsigned *wanted);
 unsigned kui_music_next_index(unsigned current,int direction);
+/* The same L/R cycle over a status snapshot, without the audio mutex. */
+unsigned kui_music_next_index_in(const struct kui_music_status *status,unsigned current,int direction);
+/* For one control thread: never waits for the audio mutex. The audio service
+ * selects cached song `index` at its next poll; a newer request replaces one
+ * not yet applied. `number` must be nonzero and change with each request;
+ * status.selected_request reports it once applied. An uncached song is not
+ * selected: preload it from the worker and select it there. */
+void kui_music_request_select(unsigned index,unsigned number);
 /* Call from the single I/O worker while no preload is active. RAM-only: Stop
  * first drains audio, then releases cached files. Enabled/volume are preserved. */
 void kui_music_clear_cache(void);

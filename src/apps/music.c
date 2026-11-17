@@ -63,6 +63,13 @@ static void unlock_audio(void) {mutex_unlock(&audio_lock);}
 static void lock_audio(void) {}
 static void unlock_audio(void) {}
 #endif
+/* Control-thread song requests. One writer, one reader (the audio service,
+ * under audio_lock); aligned word accesses only, so the control thread never
+ * waits for the audio mutex. The writer zeroes the number while it changes
+ * the index; the reader accepts an index only when the number it read before
+ * and after the index is the same nonzero value. */
+static volatile unsigned request_index,request_number;
+static unsigned request_seen;
 /* KOS requests the next callback before draining the preceding transfer. */
 static _Alignas(32) uint8_t callback_data[2][MUSIC_CALLBACK_BYTES];
 static void notice_locked(const char *text) {
@@ -151,8 +158,22 @@ static void resume_locked(void) {
     music.status.playing=true;music.status.paused=false;notice_locked("Playing from RAM");
 }
 void kui_music_resume(void) {lock_audio();resume_locked();unlock_audio();}
+void kui_music_request_select(unsigned index,unsigned number) {
+    if(!number) return;
+    request_number=0;request_index=index;request_number=number;
+}
+static bool select_locked(unsigned index);
+static void apply_request_locked(void) {
+    unsigned number=request_number;
+    if(!number || number==request_seen) return;
+    unsigned index=request_index;
+    if(request_number!=number) return;   /* Replaced while reading: next poll. */
+    request_seen=number;
+    if(select_locked(index)) music.status.selected_request=number;
+}
 void kui_music_service(void) {
     lock_audio();
+    apply_request_locked();
     if(music.status.playing && snd_stream_poll(music.stream)<0) {
         pause_locked();music.playback_failed=true;notice_locked("Audio stopped after a playback error; choose Music again");
     }
@@ -186,6 +207,8 @@ void kui_music_shutdown(void) {
 }
 void kui_music_init(kui_log_fn log) {
     kui_music_shutdown();lock_audio();music.log=log;music.next_buffer=0;
+    /* A request made before this service started is not replayed. */
+    request_seen=request_number;
     music.status.volume=30;music.thread_stop=false;unlock_audio();
 #ifdef KUI_ON_CONSOLE
     kthread_attr_t attrs={.stack_size=32u*1024u,.label="kui-audio"};
@@ -367,14 +390,21 @@ bool kui_music_select_cached(unsigned index) {
 }
 /* Bundled songs this card lacks drop out of the cycle. With nothing else
  * eligible, the current index is kept. */
-static unsigned next_index_locked(unsigned current,int direction) {
-    unsigned count=music.tracks[KUI_MUSIC_CUSTOM_INDEX].file?MUSIC_SLOTS:KUI_MUSIC_TRACKS;
+static unsigned next_index_for(bool custom,unsigned missing_mask,unsigned current,int direction) {
+    unsigned count=custom?MUSIC_SLOTS:KUI_MUSIC_TRACKS;
     if(current>=count) current=direction<0?0:count-1u;
     for(unsigned step=1,index=current;step<count;step++) {
         index=direction<0?(index+count-1u)%count:(index+1u)%count;
-        if(!(music.status.missing_mask>>index&1u)) return index;
+        if(!(missing_mask>>index&1u)) return index;
     }
     return current;
+}
+static unsigned next_index_locked(unsigned current,int direction) {
+    return next_index_for(music.tracks[KUI_MUSIC_CUSTOM_INDEX].file!=NULL,music.status.missing_mask,current,direction);
+}
+unsigned kui_music_next_index_in(const struct kui_music_status *status,unsigned current,int direction) {
+    if(!status) return current;
+    return next_index_for(status->cached_mask>>KUI_MUSIC_CUSTOM_INDEX&1u,status->missing_mask,current,direction);
 }
 unsigned kui_music_next_index(unsigned current,int direction) {
     lock_audio();unsigned index=next_index_locked(current,direction);unlock_audio();return index;

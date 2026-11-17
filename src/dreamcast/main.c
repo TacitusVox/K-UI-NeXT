@@ -754,10 +754,17 @@ static void game_launch_settings_save(void) {
     game_launch_settings_publish_save(path,game_launch_settings_write(path,&value));
 }
 /* Independent system preferences: capture choices stay in the ripper record. */
+/* Requires lock. A snapshot showing the newest song step applied by the
+ * audio service ends that request; anything else leaves it to the worker. */
+static void music_snapshot_store(const struct kui_music_status *status) {
+    music_snapshot=*status;
+    if(music_requested>=0 && status->selected_request==music_request_generation &&
+       status->current_index==(unsigned)music_requested) music_requested=-1;
+}
 static void publish_music(void) {
     struct kui_music_status status;
     kui_music_status_copy(&status);
-    mutex_lock(&lock); music_snapshot=status; mutex_unlock(&lock);
+    mutex_lock(&lock); music_snapshot_store(&status); mutex_unlock(&lock);
 }
 /* Routine UI publication must not wait for Ogg decoding or a G2 stream
  * transfer. Those run under audio_lock; controls still take fresh snapshots
@@ -765,7 +772,7 @@ static void publish_music(void) {
 static void publish_music_if_ready(void) {
     struct kui_music_status status;
     if(!kui_music_status_try_copy(&status)) return;
-    mutex_lock(&lock);music_snapshot=status;mutex_unlock(&lock);
+    mutex_lock(&lock);music_snapshot_store(&status);mutex_unlock(&lock);
 }
 static void disc_launch_release_menu_memory(void) {
     struct kui_music_status status;
@@ -870,21 +877,21 @@ static void music_idle_work(void) {
     }
     publish_music();
 }
-/* Trigger controls never touch the card. An uncached selection waits for idle
- * storage ownership; newer trigger presses replace that pending request. */
+/* Trigger controls never touch the card and never wait for the audio thread,
+ * which may be decoding. A cached song is selected by the audio service at its
+ * next poll; an uncached one waits for idle storage ownership. Steps continue
+ * from the newest request, which newer presses replace. */
 static void music_step(int direction) {
     mutex_lock(&lock);
     unsigned index=music_requested>=0?(unsigned)music_requested:music_snapshot.current_index;
-    unsigned wanted=kui_music_next_index(index,direction);
+    unsigned wanted=kui_music_next_index_in(&music_snapshot,index,direction);
     music_requested=(int)wanted;
     unsigned generation=++music_request_generation;
+    if(!generation) generation=++music_request_generation;
+    bool cached=music_snapshot.cached_mask>>wanted&1u;
     mutex_unlock(&lock);
-    if(kui_music_select_cached(wanted)) {
-        mutex_lock(&lock);
-        if(generation==music_request_generation) music_requested=-1;
-        mutex_unlock(&lock);
-    }
-    publish_music();
+    if(cached) kui_music_request_select(wanted,generation);
+    publish_music_if_ready();
 }
 static void system_operation(bool save) {
     static bool scan_log_shown;
