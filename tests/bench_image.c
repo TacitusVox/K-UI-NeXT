@@ -135,9 +135,13 @@ static void cpu_mark(void *p, struct kui_cpu_census *out) {
  * IP.BIN signature at FAD 45150 that identification insists on, so the REAL engine
  * (kui_capture_bench) runs unmodified against real FatFs. */
 static void put32(uint8_t *p, uint32_t n) { for(unsigned i = 0; i < 4; ++i) p[i] = (uint8_t)(n >> (i * 8)); }
+static uint8_t bcd(unsigned value) { return (uint8_t)((value / 10u) * 16u + value % 10u); }
+/* The header carries this sector's own address: capture checks it against the
+ * requested FAD (minute/second/frame in BCD, the minute extended past 99). */
 static void valid_sector(uint32_t fad, uint8_t *out) {
     kui_pattern(out, (uint64_t)fad * KUI_RAW_BYTES, KUI_RAW_BYTES);
-    out[0] = out[11] = 0; memset(out + 1, 255, 10); out[12] = 0x10; out[13] = out[14] = 0; out[15] = 1;
+    out[0] = out[11] = 0; memset(out + 1, 255, 10);
+    out[12] = bcd(fad / 4500u); out[13] = bcd((fad / 75u) % 60u); out[14] = bcd(fad % 75u); out[15] = 1;
     if(fad == 45150) {
         memcpy(out + 16, "SEGA SEGAKATANA", 14); memset(out + 16 + 128, ' ', 128);
         memcpy(out + 16 + 128, "KUI SYNTHETIC BENCH DISC", 24);
