@@ -21,3 +21,7 @@ void kui_splash_draw(uint16_t *frame) {
 void kui_splash_release(void) {
     free(splash);splash=NULL;splash_tried=false;
 }
+
+uint16_t *kui_splash_preview_decode(void) {
+    return kui_splash_art_decode(kui_splash_art,sizeof(kui_splash_art));
+}

@@ -1,0 +1,34 @@
+{
+  "version": 1,
+  "name": "Moonlit Muramasa",
+  "author": "TacitusVox",
+  "colors": {
+    "background": "#080F23",
+    "panel": "#101F35",
+    "selection": "#20455E",
+    "edge": "#395369",
+    "text": "#E7F1FF",
+    "muted": "#A5BBD1",
+    "accent": "#6EDDED",
+    "accent2": "#FF7F86",
+    "success": "#91DEC0",
+    "warning": "#FFD18A",
+    "selection_text": "#F6FAFF"
+  },
+  "assets": {
+    "splash": {
+      "source": "../sources/moonlit-muramasa.png",
+      "sha256": "d032f007afc952b337bb2dbf47fb19cbf9801832f5a8b5a1197844a249433c23",
+      "filter": "nearest",
+      "fit": "contain"
+    },
+    "header": {
+      "source": "../sources/moonlit-muramasa.png",
+      "sha256": "d032f007afc952b337bb2dbf47fb19cbf9801832f5a8b5a1197844a249433c23",
+      "crop": [0, 570, 1448, 796],
+      "filter": "nearest",
+      "fit": "cover",
+      "brightness": 0.18
+    }
+  }
+}

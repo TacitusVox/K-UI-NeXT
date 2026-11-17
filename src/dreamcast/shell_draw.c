@@ -13,10 +13,27 @@
 /* Original K-UI palette and split-pane launcher, drawn independently of the
  * legacy UI framework. Artwork and font masks are embedded: no device I/O,
  * decoding or allocation while the capture worker is active. */
-enum { NAVY=0x0864, PANEL=0x10c6, SELECTED=0x494b, EDGE=0x318a,
-    WHITE=0xf7bf, MUTED=0xadd9, CYAN=0x675e, PINK=0xf3fb,
-    GREEN=0x8ef6, AMBER=0xfda9 };
-struct paint { uint16_t *fb; kui_shell_text_fn text; void *ctx; bool crisp,clip; unsigned clip_top,clip_bottom; };
+struct paint { uint16_t *fb; kui_shell_text_fn text; void *ctx; bool crisp,clip;
+    unsigned clip_top,clip_bottom;uint16_t colors[KUI_THEME_COLOR_COUNT]; };
+/* Keep every drawing helper on the same published palette, without mutable
+ * global state or repeated color conversion at each text/panel operation. */
+#define NAVY (p->colors[KUI_THEME_BACKGROUND])
+#define PANEL (p->colors[KUI_THEME_PANEL])
+#define SELECTED (p->colors[KUI_THEME_SELECTION])
+#define EDGE (p->colors[KUI_THEME_EDGE])
+#define WHITE (p->colors[KUI_THEME_TEXT])
+#define MUTED (p->colors[KUI_THEME_MUTED])
+#define CYAN (p->colors[KUI_THEME_ACCENT])
+#define PINK (p->colors[KUI_THEME_ACCENT2])
+#define GREEN (p->colors[KUI_THEME_SUCCESS])
+#define AMBER (p->colors[KUI_THEME_WARNING])
+#define SELECTION_TEXT (p->colors[KUI_THEME_SELECTION_TEXT])
+static void paint_palette(struct paint *p,const struct kui_shell_view *v) {
+    struct kui_theme_palette fallback;
+    if(!v->theme_palette)kui_theme_palette_default(&fallback);
+    const struct kui_theme_palette *palette=v->theme_palette?v->theme_palette:&fallback;
+    for(unsigned i=0;i<KUI_THEME_COLOR_COUNT;i++)p->colors[i]=kui_theme_rgb565(palette->colors[i]);
+}
 static void path_words(struct paint *,unsigned,unsigned,unsigned,uint16_t,const char *);
 static unsigned word_width(const struct paint *p,const char *text,bool large) {
     return p->crisp?kui_shell_font_width_crisp(text,large):kui_shell_font_width(text,large);
@@ -119,7 +136,11 @@ static const char *state(const struct kui_shell_view *v) {
     return "READY";
 }
 static void heading(struct paint *p, const struct kui_shell *s,const struct kui_shell_view *v) {
-    art(p,32,20,128,64,art_pack(KUI_ART_BRAND_OFFSET));
+    const struct kui_theme_image *header=v->theme_images?&v->theme_images[KUI_THEME_HEADER]:NULL;
+    if(header && header->pixels && header->width==640u && header->height==100u)
+        memcpy(p->fb,header->pixels,640u*100u*sizeof(*p->fb));
+    if(!v->theme_asset_status || v->theme_asset_status[KUI_THEME_HEADER]!=KUI_THEME_ASSET_DISABLED)
+        art(p,32,20,128,64,art_pack(KUI_ART_BRAND_OFFSET));
     words(p,176,26,396,WHITE,KUI_RELEASE_SHORT,true);
     const char *credit=v->busy || v->saving?state(v):"by TacitusVox / READY";
     words(p,176,52,396,MUTED,credit,false);
@@ -144,6 +165,9 @@ static void footer(struct paint *p, const struct kui_shell *s,
     rule(p,416);
     bool song_page=s->page==KUI_SHELL_HOME || s->page==KUI_SHELL_RIPPER;
     const char *controls=v->video_trial ? "A Keep mode   B Revert" :
+        s->theme_loading ? "Loading appearance; please wait" :
+        s->page==KUI_SHELL_APPEARANCE ? "A Choose   X Rescan   Y Splash   START Apply   B Cancel" :
+        s->page==KUI_SHELL_THEME_COLORS ? "A Done   X Reset color   Y Theme colors   B Back" :
         v->busy ? (s->page==KUI_SHELL_SALVAGE && !s->salvage_trial_result?
             (s->salvage_details?"Y Overview   B Stop safely":"Y Details   B Stop safely"):
             s->page==KUI_SHELL_WIFI && s->wifi.firmware_committing?"Finishing update; keep the console powered on":
@@ -703,20 +727,20 @@ static void system_settings(struct paint *p,const struct kui_shell *s,const stru
     title(p,40,108,"System settings");
     label(p,40,136,MUTED,"UP/DOWN Choose   LEFT/RIGHT Change");
     const char *names[]={"Video mode","Home memory display","Background music","Music volume",
-        "Startup chime","Start in","Console clock","Restore defaults","Safe area","System tools","Menu sounds","Controls","Updates"};
+        "Startup chime","Start in","Console clock","Restore defaults","Safe area","System tools","Menu sounds","Controls","Updates","Appearance"};
     char volume[16];snprintf(volume,sizeof(volume),"%u%%",s->system_draft.music_volume);
     const char *values[]={kui_system_video_name(s->system_draft.video_mode),
         s->system_draft.show_memory?"ON":"OFF",s->system_draft.music_enabled?"ON":"OFF",volume,
         s->system_draft.startup_chime?"ON":"OFF",kui_system_startup_name(s->system_draft.startup_app),
         "A Edit local time","A Review",s->system_draft.screen_inset==2?"32 px sides":
-        s->system_draft.screen_inset==1?"16 px sides":"Full width","A Open",s->system_draft.menu_sounds?"ON":"OFF","A Open","A Open"};
+        s->system_draft.screen_inset==1?"16 px sides":"Full width","A Open",s->system_draft.menu_sounds?"ON":"OFF","A Open","A Open","A Open"};
     unsigned first=s->system_selected>=8?s->system_selected-6:0;
     for(unsigned i=first;i<first+8 && i<KUI_SHELL_SYSTEM_ROWS;i++) {
         unsigned y=158+(i-first)*25;
         panel(p,32,y,576,23,i==s->system_selected?SELECTED:PANEL);
         if(i==s->system_selected) box(p,32,y+3,3,17,PINK);
-        label(p,48,y+3,WHITE,names[i]);
-        words(p,400,y+3,596,i==s->system_selected?CYAN:MUTED,values[i],false);
+        label(p,48,y+3,i==s->system_selected?SELECTION_TEXT:WHITE,names[i]);
+        words(p,400,y+3,596,i==s->system_selected?SELECTION_TEXT:MUTED,values[i],false);
     }
     const char *detail=s->system_selected==0?"640x480 output. VGA follows the connected cable.":
         s->system_selected==1?"Ripper RAM and peak usage are always displayed.":
@@ -729,11 +753,84 @@ static void system_settings(struct paint *p,const struct kui_shell *s,const stru
         s->system_selected==9?"Inspect hardware, save verified backups, or restart K-UI.":
         s->system_selected==10?"Play a short sound for menu movement and selection.":
         s->system_selected==11?"Adjust menu repeat speed and the analog stick deadzone.":
-        "Check offline release packages, install or restore a version.";
+        s->system_selected==12?"Check offline release packages, install or restore a version.":
+        "Choose themes, individual images and colors. Preview before saving.";
     label(p,40,366,MUTED,detail);
     label(p,40,390,kui_shell_system_dirty(s)?AMBER:CYAN,kui_shell_system_dirty(s)?
         "Unsaved changes. A saves; B discards.":v->settings_notice&&v->settings_notice[0]?
         v->settings_notice:"A saves preferences; clock and tools open separately.");
+}
+static const char *theme_name(const struct kui_shell *s,const char *id) {
+    if(!id[0])return "Follow theme";
+    if(!strcmp(id,"none"))return "None";
+    if(!strcmp(id,"default"))return "K-UI original";
+    if(s->theme_catalog)for(unsigned i=0;i<s->theme_catalog->count && i<KUI_THEME_CATALOG_MAX;i++)
+        if(!strcmp(s->theme_catalog->themes[i].id,id))return s->theme_catalog->themes[i].name;
+    return id;
+}
+static void appearance_page(struct paint *p,const struct kui_shell *s) {
+    title(p,40,108,"Appearance");
+    label(p,40,136,MUTED,"UP/DOWN Choose   LEFT/RIGHT Change   Preview before Apply");
+    const char *names[]={"Theme","Splash","Header","Background","Colors","Preview","Apply","Restore defaults"};
+    const char *values[]={theme_name(s,s->theme_draft.theme_id),theme_name(s,s->theme_draft.splash_id),
+        theme_name(s,s->theme_draft.header_id),theme_name(s,s->theme_draft.background_id),
+        s->theme_draft.override_mask?"Custom colors":"Theme palette","Try without saving","Save to SD","Reset draft"};
+    for(unsigned i=0;i<8u;i++) {
+        unsigned y=158+i*25;bool selected=i==s->theme_selected;
+        panel(p,32,y,576,23,selected?SELECTED:PANEL);
+        if(selected)box(p,32,y+3,3,17,PINK);
+        words(p,48,y+3,276,selected?SELECTION_TEXT:WHITE,names[i],false);
+        words(p,284,y+3,596,selected?SELECTION_TEXT:MUTED,values[i],false);
+    }
+    const char *notice=s->theme_notice[0]?s->theme_notice:s->theme_preview_active?
+        (s->theme_preview_stale?"Draft changed. Preview again to see the new choices.":"Preview active. Apply saves; Cancel restores."):
+        kui_shell_theme_dirty(s)?"Unsaved draft. Preview tries it; Apply saves it.":"Saved appearance. All choices are reversible.";
+    label(p,40,366,s->theme_failed?AMBER:s->theme_loading?CYAN:MUTED,notice);
+    label(p,40,390,MUTED,s->theme_selected==0?"Choosing a theme resets image overrides and custom colors.":
+        s->theme_selected<4?"Follow theme, K-UI original, None, or an installed theme.":
+        s->theme_catalog && s->theme_catalog->truncated?"Theme list is full. Remove unused folders, then X Rescan.":
+        "Themes live in /KUI/themes. Y previews the startup splash.");
+}
+static void theme_colors_page(struct paint *p,const struct kui_shell *s) {
+    static const char *presets[]={"Theme","Neon","Ember","Mono","Custom"};
+    struct kui_theme_palette palette;kui_shell_theme_draft_palette(s,&palette);
+    unsigned role=s->theme_color_role<KUI_THEME_COLOR_COUNT?s->theme_color_role:0u;
+    uint32_t rgb=palette.colors[role];
+    title(p,40,108,"Appearance / colors");label(p,40,136,MUTED,"UP/DOWN Choose   LEFT/RIGHT Change");
+    const char *names[]={"Preset","Color","Red","Green","Blue"};
+    char red[8],green[8],blue[8];snprintf(red,sizeof(red),"%u",(unsigned)((rgb>>16)&255u));
+    snprintf(green,sizeof(green),"%u",(unsigned)((rgb>>8)&255u));snprintf(blue,sizeof(blue),"%u",(unsigned)(rgb&255u));
+    const char *values[]={presets[s->theme_color_preset<5u?s->theme_color_preset:4u],kui_theme_color_name(role),red,green,blue};
+    for(unsigned i=0;i<5u;i++) {
+        unsigned y=168+i*34;bool selected=i==s->theme_color_selected;
+        panel(p,32,y,310,30,selected?SELECTED:PANEL);
+        words(p,44,y+6,116,selected?SELECTION_TEXT:WHITE,names[i],false);
+        words(p,122,y+6,330,selected?SELECTION_TEXT:MUTED,values[i],false);
+    }
+    /* Only this sample uses the draft palette until Preview publishes it. */
+    box(p,360,168,248,166,kui_theme_rgb565(palette.colors[KUI_THEME_BACKGROUND]));
+    panel(p,372,180,224,58,kui_theme_rgb565(palette.colors[KUI_THEME_PANEL]));
+    words(p,384,190,584,kui_theme_rgb565(palette.colors[KUI_THEME_TEXT]),"Panel text",false);
+    words(p,384,212,584,kui_theme_rgb565(palette.colors[KUI_THEME_MUTED]),"Secondary text",false);
+    panel(p,372,250,224,32,kui_theme_rgb565(palette.colors[KUI_THEME_SELECTION]));
+    words(p,384,258,584,kui_theme_rgb565(palette.colors[KUI_THEME_SELECTION_TEXT]),"Selected item",false);
+    for(unsigned i=0;i<5u;i++)box(p,372+i*45,298,36,20,kui_theme_rgb565(palette.colors[KUI_THEME_ACCENT+i]));
+    char line[96];snprintf(line,sizeof(line),"#%06lX  /  %s",(unsigned long)rgb,
+        (s->theme_draft.override_mask&(1u<<role))?"Custom color":"Theme color");
+    label(p,40,354,CYAN,line);
+    label(p,40,378,MUTED,"RGB: 0-255. Hold a direction to repeat; sample updates here.");
+    label(p,40,398,MUTED,"Return to Appearance, then Preview or Apply your changes.");
+}
+static void theme_splash_page(struct paint *p,const struct kui_shell_view *v) {
+    const struct kui_theme_image *splash=v->theme_images?&v->theme_images[KUI_THEME_SPLASH]:NULL;
+    bool pixels=splash && splash->pixels && splash->width==640u && splash->height==480u;
+    if(pixels)memcpy(p->fb,splash->pixels,640u*480u*sizeof(*p->fb));
+    else {
+        box(p,0,0,640,480,NAVY);title(p,40,180,"Startup splash preview");
+        label(p,40,222,MUTED,v->theme_asset_status && v->theme_asset_status[KUI_THEME_SPLASH]==KUI_THEME_ASSET_DISABLED?
+            "Splash disabled. Startup goes straight to the launcher.":"Built-in splash preview is unavailable.");
+    }
+    panel(p,32,414,576,30,PANEL);label(p,48,420,WHITE,"Temporary splash preview   B Appearance   Apply there to save");
 }
 static void controls_page(struct paint *p,const struct kui_shell *s) {
     title(p,40,108,"Menu controls");label(p,40,140,MUTED,"UP/DOWN Choose   LEFT/RIGHT Change");
@@ -3500,12 +3597,17 @@ void kui_shell_draw_content(uint16_t *frame, const struct kui_shell *s,
         const struct kui_shell_view *v, kui_shell_text_fn text, void *ctx) {
     if(!frame || !s || !v) return;
     struct paint p={.fb=frame,.text=text,.ctx=ctx,.crisp=false};
+    paint_palette(&p,v);
+    if(s->page==KUI_SHELL_THEME_SPLASH_PREVIEW) {theme_splash_page(&p,v);return;}
     heading(&p,s,v);
     switch(s->page) {
     case KUI_SHELL_HOME: home(&p,s,v); break;
     case KUI_SHELL_DISC_TOOLS: disc_tools(&p,s,v); break;
     case KUI_SHELL_RIPPER: ripper(&p,s,v); break;
     case KUI_SHELL_SETTINGS: system_settings(&p,s,v); break;
+    case KUI_SHELL_APPEARANCE: appearance_page(&p,s);break;
+    case KUI_SHELL_THEME_COLORS: theme_colors_page(&p,s);break;
+    case KUI_SHELL_THEME_SPLASH_PREVIEW: break;
     case KUI_SHELL_CONTROLS: controls_page(&p,s); break;
     case KUI_SHELL_RIPPER_SETTINGS: ripper_settings(&p,s,v); break;
     case KUI_SHELL_DIAGNOSTICS: diagnostics(&p,s,v); break;
@@ -3578,10 +3680,31 @@ void kui_shell_draw_content(uint16_t *frame, const struct kui_shell *s,
     if(v->video_trial) video_trial(&p,v);
 }
 
+void kui_shell_draw_background(uint16_t *frame,const struct kui_shell *s,const struct kui_shell_view *v) {
+    if(!frame || !s || !v) return;
+    const struct kui_theme_image *background=v->theme_images?&v->theme_images[KUI_THEME_BACKDROP]:NULL;
+    if(background && background->pixels && background->width==640u && background->height==480u) {
+        memcpy(frame,background->pixels,640u*480u*sizeof(*frame));return;
+    }
+    uint16_t color=v->theme_palette?kui_theme_rgb565(v->theme_palette->colors[KUI_THEME_BACKGROUND]):0x0864;
+#if defined(__GNUC__)
+    /* The console uses GCC and an aligned framebuffer. may_alias permits
+     * packed stores into uint16_t pixels even under strict aliasing; direct
+     * stores also stay fast with the console's -fno-builtin compilation. */
+    typedef uint32_t frame_pair __attribute__((__may_alias__));
+    if(!((uintptr_t)frame&3u)) {
+        frame_pair *pairs=(frame_pair *)(void *)frame;
+        uint32_t pair=(uint32_t)color|((uint32_t)color<<16);
+        for(unsigned i=0;i<640u*480u/2u;i++)pairs[i]=pair;
+        return;
+    }
+#endif
+    /* Host tests intentionally exercise a two-byte-offset framebuffer. */
+    for(unsigned i=0;i<640u*480u;i++)frame[i]=color;
+}
 void kui_shell_draw(uint16_t *frame, const struct kui_shell *s,
         const struct kui_shell_view *v, kui_shell_text_fn text, void *ctx) {
     if(!frame || !s || !v) return;
-    struct paint p={.fb=frame,.text=text,.ctx=ctx,.crisp=false};
-    box(&p,0,0,640,480,NAVY);
+    kui_shell_draw_background(frame,s,v);
     kui_shell_draw_content(frame,s,v,text,ctx);
 }

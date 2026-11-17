@@ -1273,7 +1273,7 @@ static void render(struct kui_shell_view *v) {
     assert(link_ink>0); /* The unclipped link stays below the brand on every page. */
     assert(pixels[0]==0x1234 && pixels[640*480+1]==0xabcd);
     prepared[0]=0x1234; prepared[640*480+1]=0xabcd;
-    for(unsigned i=1;i<=640*480;i++) prepared[i]=0x0864;
+    kui_shell_draw_background(prepared+1,&s,v);
     kui_shell_draw_content(prepared+1,&s,v,NULL,NULL);
     assert(memcmp(pixels,prepared,sizeof(pixels))==0);
 
@@ -1575,13 +1575,107 @@ static void settings_without_screenshot_page(void) {
     reset(KUI_SHELL_SETTINGS);
     s.system_draft.music_volume=65u;
     const struct kui_system_settings draft=s.system_draft,saved=s.system_saved;
-    assert(press(KUI_SHELL_UP,false)==KUI_SHELL_NONE && s.system_selected==12u);
+    assert(press(KUI_SHELL_UP,false)==KUI_SHELL_NONE && s.system_selected==13u);
     struct kui_shell_view view={0};render(&view);
     assert(strstr(drawn,"Controls") && strstr(drawn,"Updates") && !strstr(drawn,"Screenshots") && !strstr(drawn,"Save a picture"));
     assert(press(KUI_SHELL_DOWN,false)==KUI_SHELL_NONE && s.system_selected==0u);
     assert(!memcmp(&draft,&s.system_draft,sizeof(draft)) && !memcmp(&saved,&s.system_saved,sizeof(saved)));
     assert(kui_shell_system_dirty(&s));
-    puts("PASS Settings: screenshot information page removed, thirteen rows wrap, draft preserved");
+    puts("PASS Settings: screenshot information page removed, fourteen rows wrap, draft preserved");
+}
+static void theme_controls(void) {
+    static struct kui_theme_catalog catalog;
+    memset(&catalog,0,sizeof(catalog));catalog.count=2;
+    kui_theme_definition_default(&catalog.themes[0]);kui_theme_definition_default(&catalog.themes[1]);
+    strcpy(catalog.themes[1].id,"moonlit");strcpy(catalog.themes[1].name,"Moonlit Muramasa");
+    catalog.themes[1].palette.colors[KUI_THEME_BACKGROUND]=0x102030;
+    reset(KUI_SHELL_SETTINGS);s.system_selected=13u;s.system_draft.music_volume=65;
+    assert(press(KUI_SHELL_A,false)==KUI_SHELL_THEME_SCAN && s.page==KUI_SHELL_APPEARANCE);
+    assert(s.theme_loading && !kui_shell_theme_dirty(&s));unsigned generation=s.theme_generation;
+    assert(press(KUI_SHELL_RIGHT,false)==KUI_SHELL_NONE && !strcmp(s.theme_draft.theme_id,"default"));
+    assert(press(KUI_SHELL_B,false)==KUI_SHELL_NONE && s.page==KUI_SHELL_APPEARANCE);
+    kui_shell_set_theme_catalog(&s,generation-1u,&catalog,true,NULL);assert(s.theme_loading);
+    kui_shell_theme_result(&s,generation,KUI_SHELL_THEME_APPLY,true,NULL);assert(s.theme_loading);
+    kui_shell_set_theme_catalog(&s,generation,&catalog,true,NULL);assert(!s.theme_loading);
+    assert(press(KUI_SHELL_RIGHT,false)==KUI_SHELL_NONE && !strcmp(s.theme_draft.theme_id,"moonlit"));
+    assert(kui_shell_theme_dirty(&s));s.theme_selected=1;
+    press(KUI_SHELL_RIGHT,false);assert(!strcmp(s.theme_draft.splash_id,"default"));
+    press(KUI_SHELL_RIGHT,false);assert(!strcmp(s.theme_draft.splash_id,"none"));
+    press(KUI_SHELL_RIGHT,false);assert(!strcmp(s.theme_draft.splash_id,"moonlit"));
+    press(KUI_SHELL_RIGHT,false);assert(!s.theme_draft.splash_id[0]);
+    s.theme_selected=4;press(KUI_SHELL_A,false);assert(s.page==KUI_SHELL_THEME_COLORS);
+    press(KUI_SHELL_RIGHT,false);assert(s.theme_color_preset==1u && s.theme_draft.override_mask);
+    press(KUI_SHELL_Y,false);assert(!s.theme_draft.override_mask);
+    s.theme_color_selected=2;s.theme_color_role=KUI_THEME_BACKGROUND;
+    press(KUI_SHELL_RIGHT,false);assert(s.theme_draft.palette.colors[KUI_THEME_BACKGROUND]==0x112030);
+    struct kui_theme_settings draft=s.theme_draft;
+    press(KUI_SHELL_LEFT,true);assert(!memcmp(&draft,&s.theme_draft,sizeof(draft)));
+    press(KUI_SHELL_X,false);assert(!s.theme_draft.override_mask);
+    s.theme_color_role=KUI_THEME_TEXT;s.theme_color_selected=2;
+    s.theme_draft.palette.colors[KUI_THEME_TEXT]=0xffffff;s.theme_draft.override_mask=1u<<KUI_THEME_TEXT;
+    press(KUI_SHELL_RIGHT,false);assert(s.theme_draft.palette.colors[KUI_THEME_TEXT]==0xffffff);
+    press(KUI_SHELL_B,false);assert(s.page==KUI_SHELL_APPEARANCE);
+    assert(press(KUI_SHELL_Y,false)==KUI_SHELL_THEME_PREVIEW && s.theme_show_splash);
+    generation=s.theme_generation;
+    kui_shell_theme_result(&s,generation,KUI_SHELL_THEME_PREVIEW,true,NULL);
+    assert(s.page==KUI_SHELL_THEME_SPLASH_PREVIEW && s.theme_preview_active && !s.theme_preview_stale);
+    press(KUI_SHELL_B,false);assert(s.page==KUI_SHELL_APPEARANCE);
+    assert(press(KUI_SHELL_B,false)==KUI_SHELL_THEME_CANCEL && s.theme_loading);
+    kui_shell_theme_result(&s,s.theme_generation,KUI_SHELL_THEME_CANCEL,false,"Retry cancel");
+    assert(s.page==KUI_SHELL_APPEARANCE && s.theme_preview_active && s.theme_failed);
+    assert(press(KUI_SHELL_B,false)==KUI_SHELL_THEME_CANCEL);
+    kui_shell_theme_result(&s,s.theme_generation,KUI_SHELL_THEME_CANCEL,true,NULL);
+    assert(s.page==KUI_SHELL_SETTINGS && !s.theme_preview_active && !kui_shell_theme_dirty(&s));
+    assert(s.system_draft.music_volume==65); /* Independent preference transaction. */
+    assert(press(KUI_SHELL_A,false)==KUI_SHELL_THEME_SCAN);
+    kui_shell_set_theme_catalog(&s,s.theme_generation,&catalog,true,NULL);
+    press(KUI_SHELL_RIGHT,false);assert(press(KUI_SHELL_START,false)==KUI_SHELL_THEME_APPLY);
+    generation=s.theme_generation;
+    kui_shell_theme_result(&s,generation,KUI_SHELL_THEME_APPLY,false,"SD is read-only");
+    assert(kui_shell_theme_dirty(&s) && !strcmp(s.theme_saved.theme_id,"default"));
+    assert(press(KUI_SHELL_START,false)==KUI_SHELL_THEME_APPLY);
+    kui_shell_theme_result(&s,generation,KUI_SHELL_THEME_APPLY,true,NULL);assert(s.theme_loading);
+    kui_shell_theme_result(&s,s.theme_generation,KUI_SHELL_THEME_APPLY,true,NULL);
+    assert(!kui_shell_theme_dirty(&s) && !strcmp(s.theme_saved.theme_id,"moonlit"));
+    s.theme_selected=7;press(KUI_SHELL_A,false);assert(!strcmp(s.theme_draft.theme_id,"default"));
+    assert(!strcmp(s.theme_saved.theme_id,"moonlit"));press(KUI_SHELL_B,false);
+    assert(s.page==KUI_SHELL_SETTINGS && !kui_shell_theme_dirty(&s));
+    puts("PASS Appearance: independent choices, presets/RGB, busy/stale guards, Preview/Apply/Cancel and defaults");
+}
+static void theme_rendering(void) {
+    static uint16_t header[640*100],backdrop[640*480],splash[640*480];
+    _Alignas(4) static uint16_t packed_frame[640*480];
+    for(unsigned i=0;i<640u*480u;i++) {backdrop[i]=0x1357;splash[i]=0x2468;}
+    for(unsigned i=0;i<640u*100u;i++)header[i]=0x7531;
+    struct kui_theme_image images[KUI_THEME_ASSET_COUNT]={{splash,640,480},{header,640,100},{backdrop,640,480}};
+    enum kui_theme_asset_status statuses[KUI_THEME_ASSET_COUNT]={KUI_THEME_ASSET_READY,KUI_THEME_ASSET_READY,KUI_THEME_ASSET_READY};
+    struct kui_theme_palette palette;kui_theme_palette_default(&palette);
+    palette.colors[KUI_THEME_ACCENT]=0x33cc88;palette.colors[KUI_THEME_BACKGROUND]=0x182838;
+    struct kui_shell_view view={.theme_palette=&palette,.theme_images=images,.theme_asset_status=statuses};
+    reset(KUI_SHELL_APPEARANCE);render(&view);
+    assert(pixels[1]==0x7531 && pixels[1+400*640+2]==0x1357);
+    assert(header_link_color==kui_theme_rgb565(0x33cc88));
+    assert(strstr(drawn,"Appearance") && strstr(drawn,"Restore defaults") && strstr(drawn,"START Apply"));
+    /* Draw paths consume immutable, preloaded pixels. Repeated content calls
+     * produce the same result without changing settings or asset storage. */
+    memcpy(prepared,pixels,sizeof(pixels));render(&view);assert(!memcmp(prepared,pixels,sizeof(pixels)));
+    s.page=KUI_SHELL_THEME_COLORS;render(&view);
+    assert(strstr(drawn,"Preset") && strstr(drawn,"Panel text") && strstr(drawn,"Selected item"));
+    images[KUI_THEME_HEADER].pixels=NULL;images[KUI_THEME_BACKDROP].pixels=NULL;
+    statuses[KUI_THEME_HEADER]=KUI_THEME_ASSET_DISABLED;
+    s.page=KUI_SHELL_APPEARANCE;render(&view);
+    assert(pixels[1]==kui_theme_rgb565(0x182838));
+    kui_shell_draw_background(packed_frame,&s,&view);
+    kui_shell_draw_background(pixels+1,&s,&view);
+    assert(!memcmp(packed_frame,pixels+1,sizeof(packed_frame)));
+    s.page=KUI_SHELL_THEME_SPLASH_PREVIEW;drawn_size=0;drawn[0]=0;
+    kui_shell_draw(pixels+1,&s,&view,observe,NULL);
+    assert(pixels[1]==0x2468 && pixels[1+300*640]==0x2468 && strstr(drawn,"Temporary splash preview"));
+    images[KUI_THEME_SPLASH].pixels=NULL;statuses[KUI_THEME_SPLASH]=KUI_THEME_ASSET_DISABLED;
+    drawn_size=0;drawn[0]=0;kui_shell_draw(pixels+1,&s,&view,observe,NULL);
+    assert(strstr(drawn,"Splash disabled"));
+    assert(pixels[0]==0x1234 && pixels[640*480+1]==0xabcd);
+    puts("PASS Appearance renderer: palette roles, opaque header/backdrop/splash, disabled art, stable pixels and safe bounds");
 }
 static void update_controls(void) {
     reset(KUI_SHELL_SETTINGS);s.system_selected=12u;s.system_draft.music_volume=65u;
@@ -6476,6 +6570,8 @@ static void smash_native_tests_controls(void) {
 }
 
 int main(int argc,char **argv) {
+    theme_controls();theme_rendering();
+    if(argc==2 && !strcmp(argv[1],"--themes"))return 0;
     smash_native_tests_controls();
     if(argc==2 && !strcmp(argv[1],"--smash-native"))return 0;
     update_controls();

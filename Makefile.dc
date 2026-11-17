@@ -138,6 +138,7 @@ RUNTIME_OBJECTS += build/dc/src/core/update_browser.o build/dc/src/core/update_z
 RUNTIME_OBJECTS += build/dc/src/core/update_software_file.o
 RUNTIME_OBJECTS += build/dc/src/core/resident_image.o
 RUNTIME_OBJECTS += build/dc/src/core/retail_image.o
+RUNTIME_OBJECTS += build/dc/src/core/theme.o
 RUNTIME_OBJECTS += build/dc/src/core/shell.o build/dc/src/dreamcast/shell_draw.o build/dc/src/dreamcast/shell_font.o
 RUNTIME_OBJECTS += build/dc/src/core/capture_display.o build/dc/src/core/viewport.o build/dc/src/core/salvage.o build/dc/src/core/salvage_display.o build/dc/src/core/recovery_crc.o
 APP_SOURCES := $(filter-out src/apps/boot_splash.c,$(wildcard src/apps/*.c))
@@ -234,7 +235,7 @@ build/dc/src/core/ext4_boot.o: CPPFLAGS += $(LWEXT4_CPPFLAGS)
 build/dc/third_party/lwext4/src/%.o: third_party/lwext4/src/%.c $(LWEXT4_HEADERS)
 	@mkdir -p $(@D)
 	kos-cc -std=c11 -Os -Wall -Wextra -ffunction-sections -fdata-sections -MMD -MP $(CPPFLAGS) $(LWEXT4_CPPFLAGS) -c $< -o $@
-build/dc/main-runtime.o: src/dreamcast/main.c
+build/dc/main-runtime.o: src/dreamcast/main.c src/dreamcast/theme_runtime.inc
 	@mkdir -p $(@D)
 	kos-cc -std=c11 -Wall -Wextra -Werror -MMD -MP $(CPPFLAGS) -DKUI_SD_RUNTIME=1 -c $< -o $@
 build/dc/sd-runtime.o: src/dreamcast/sd.c

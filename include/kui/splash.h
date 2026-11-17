@@ -9,6 +9,8 @@
 void kui_splash_draw(uint16_t *frame);
 /* Free the startup art's RAM copy once the splash has ended (UI thread). */
 void kui_splash_release(void);
+/* Independent owned preview; decode on the worker, free with free(). */
+uint16_t *kui_splash_preview_decode(void);
 /* The CD boot menu has separate artwork; dim in RAM before writing pixels. */
 void kui_boot_splash_draw(uint16_t *frame);
 void kui_boot_splash_draw_dimmed(uint16_t *frame);

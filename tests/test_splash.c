@@ -3,6 +3,7 @@
 #include <assert.h>
 #include <stdint.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 /* The same generated streams the firmware embeds, with the CRC-32 of the
  * exact RGB565 pixels tools/build_splash.py compressed. */
@@ -38,6 +39,16 @@ int main(void) {
     assert(!memcmp(first,guarded+1,sizeof(first)));
     kui_splash_release();
     kui_splash_draw(NULL);
+
+    /* A worker-owned preview has no shared lifetime with the startup cache. */
+    uint16_t *preview=kui_splash_preview_decode();
+    assert(preview && !memcmp(first,preview,sizeof(first)));
+    kui_splash_release();
+    assert(!memcmp(first,preview,sizeof(first)));
+    preview[0]^=0xffffu;
+    fill(0);kui_splash_draw(guarded+1);
+    assert(!memcmp(first,guarded+1,sizeof(first)));
+    kui_splash_release();free(preview);
 
     /* Boot backdrop: exact pixels; dimming reads RAM, not the old frame. */
     fill(0x5555);kui_boot_splash_draw(guarded+1);

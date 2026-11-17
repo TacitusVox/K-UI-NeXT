@@ -33,6 +33,7 @@ static volatile uint8_t kui_update_ram_handoff[KUI_UPDATE_HANDOFF_BYTES]
 #include "kui/recovery_guard.h"
 #include "kui/settings.h"
 #include "kui/system_settings.h"
+#include "kui/theme_runtime.h"
 #include "kui/disc_identity.h"
 #include "kui/disc_idle.h"
 #include "kui/music.h"
@@ -144,7 +145,9 @@ static uint16_t *shell_frame_prepare(bool working) {
     return shell_frame;
 }
 static void games_tiles_free_locked(void);
+static void theme_release_for_action(unsigned action);
 static void shell_frame_release_for_action(unsigned action) {
+    theme_release_for_action(action);
     if(action==19u || (action>=56u && action<=58u) || action==62u || action==79u || action==104u || action==126u) {
         free(shell_frame);shell_frame=NULL;shell_frame_ready=false;
         games_tiles_free_locked();
@@ -893,6 +896,8 @@ static void music_step(int direction) {
     if(cached) kui_music_request_select(wanted,generation);
     publish_music_if_ready();
 }
+#include "theme_runtime.inc"
+
 static void system_operation(bool save) {
     static bool scan_log_shown;
     struct kui_system_settings value;
@@ -909,6 +914,7 @@ static void system_operation(bool save) {
             }
             ok=!kui_cancelled() && (save?kui_system_settings_save(&value,kui_log):
                 kui_system_settings_load(&value,legacy_memory,kui_log));
+            if(!save && !theme_boot_attempted) theme_startup_load();
             f_mount(NULL,"0:",0);
         }
         kui_sd_disconnect();
@@ -3606,6 +3612,7 @@ static void *worker(void *unused) {
         if(kui_cancelled()
 #ifdef KUI_SD_RUNTIME
            && action!=27 && action!=53 && action!=44 && action!=108
+           && !(action>=THEME_SCAN_WORK && action<=THEME_RESTORE_WORK)
 #endif
         ) {
             kui_log("Operation stopped before starting.");
@@ -4291,6 +4298,7 @@ static void *worker(void *unused) {
                     if(action==104) disc_launch_failure_report("auto GD Play boot failure",&disc_result);
                 }
             }
+            if(action>=THEME_SCAN_WORK && action<=THEME_RESTORE_WORK) theme_operation(action);
             if(action==126)update_restart_operation();
             if(action==25 || action==44) {
                 /* Restart must remain usable after an optical recovery failure. */
@@ -4753,6 +4761,9 @@ static uint32_t shell_view_fingerprint(const struct kui_shell_view *v,const char
     fingerprint_pixels(&f,v->files_picture,(size_t)KUI_FILES_PICTURE_EDGE*KUI_FILES_PICTURE_EDGE);
     for(unsigned row=0;row<KUI_GAMES_ROWS;row++)
         fingerprint_pixels(&f,v->game_tile_covers[row],(size_t)KUI_COVER_SMALL*KUI_COVER_SMALL);
+    if(v->theme_palette) kui_ui_fingerprint_bytes(&f,v->theme_palette,sizeof(*v->theme_palette));
+    if(v->theme_asset_status) kui_ui_fingerprint_bytes(&f,v->theme_asset_status,
+        KUI_THEME_ASSET_COUNT*sizeof(*v->theme_asset_status));
     uint32_t inset_word=inset;kui_ui_fingerprint_words(&f,&inset_word,1);
     return kui_ui_fingerprint_value(&f);
 }
@@ -4768,13 +4779,23 @@ static bool draw_shell_frame(bool force) {
     mutex_unlock(&lock);
     uint16_t *frame=shell_frame_prepare(working);
     if(startup) {
-        /* The original startup splash lifecycle is unchanged. */
-        kui_splash_draw(frame?frame:vram_s);
+        /* Keep the immediate splash, B skip and existing deadline. Storage
+         * publishes a custom image only when it is ready; drawing never waits. */
+        uint16_t *target=frame?frame:vram_s;
+        const struct kui_theme_bundle *theme=theme_visible_bundle();
+        if(theme->status[KUI_THEME_SPLASH]==KUI_THEME_ASSET_DISABLED) {
+            uint16_t color=kui_theme_rgb565(theme->palette.colors[KUI_THEME_BACKGROUND]);
+            for(unsigned i=0;i<640u*480u;i++) target[i]=color;
+        } else if(theme->images[KUI_THEME_SPLASH].pixels)
+            memcpy(target,theme->images[KUI_THEME_SPLASH].pixels,KUI_SPLASH_FRAME_BYTES);
+        else kui_splash_draw(target);
         if(frame) {sq_cpy(vram_s,frame,640u*480u*sizeof(*frame));sq_wait();}
         shell_frame_ready=frame!=NULL;shell_frame_fingerprint_valid=false;
         vid_waitvbl();vid_flip(-1);return true;
     }
     kui_splash_release(); /* The splash has ended: free its inflated copy (no-op later). */
+    if(theme_saved_bundle.images[KUI_THEME_SPLASH].pixels)
+        kui_theme_bundle_release_asset(&theme_saved_bundle,KUI_THEME_SPLASH);
     char visible[KUI_SHELL_LOG_ROWS][LINE_BYTES] = {{0}};
     const char *log_rows[KUI_SHELL_LOG_ROWS];
     char path[KUI_DEST_JOB_CAP], notice[128], title[129], gdi[KUI_DEST_TITLE_CAP+5u];
@@ -4787,6 +4808,9 @@ static bool draw_shell_frame(bool force) {
         .inserted_title=inserted,.music_title=music_title,.music_notice=music_notice,.app_status=&app_status,
         .game_selected_cover=games_cover_pixels,.game_detail_cover=games_detail_cover,
         .files_picture=files_picture_pixels};
+    const struct kui_theme_bundle *theme=theme_visible_bundle();
+    view.theme_palette=&theme->palette;view.theme_images=theme->images;
+    view.theme_asset_status=theme->status;
     mutex_lock(&lock);
     unsigned max_scroll = line_count > KUI_SHELL_LOG_ROWS ? line_count - KUI_SHELL_LOG_ROWS : 0;
     if(shell.scroll > max_scroll) shell.scroll = max_scroll;
@@ -4897,21 +4921,19 @@ static bool draw_shell_frame(bool force) {
     /* DM_MULTIBUFFER/vid_flip leave vram_s on the next offscreen buffer.
      * Complete the cached frame before its one sequential store-queue upload;
      * sq_wait drains the upload before the buffer can become visible. */
-    if(frame) {
-        /* Two pixels per store; the canvas is 32-byte aligned. */
-        shell_word *words=(shell_word *)(void *)frame;
-        for(unsigned i=0;i<640u*480u/2u;i++) words[i]=UINT32_C(0x08640864);
-    } else vid_clear(8,15,35); /* Busy handoff or allocation failure: old path. */
+    kui_shell_draw_background(frame?frame:vram_s,&shell,&view);
+    uint16_t theme_background=kui_theme_rgb565(theme->palette.colors[KUI_THEME_BACKGROUND]);
     kui_shell_draw_content(frame?frame:vram_s, &shell, &view, NULL, NULL);
-    kui_viewport_inset(frame?frame:vram_s,640,480,screen_inset,0x0864);
+    kui_viewport_inset(frame?frame:vram_s,640,480,screen_inset,theme_background);
     if(frame) {sq_cpy(vram_s,frame,640u*480u*sizeof(*frame));sq_wait();}
     shell_frame_ready=frame!=NULL;
     /* Toasts are displayed after the captured RAM picture is complete. A
      * release screenshot therefore never contains its own save notification. */
     if(capture_notice[0]) {
         for(unsigned y=403u;y<435u;++y)
-            for(unsigned x=32u+screen_inset;x<608u-screen_inset;++x)vram_s[y*640u+x]=0x0864;
-        kui_shell_font_draw(vram_s,40+(int)screen_inset,410,0xffff,capture_notice,false);
+            for(unsigned x=32u+screen_inset;x<608u-screen_inset;++x)vram_s[y*640u+x]=theme_background;
+        kui_shell_font_draw(vram_s,40+(int)screen_inset,410,
+            kui_theme_rgb565(theme->palette.colors[KUI_THEME_TEXT]),capture_notice,false);
     }
     shell_frame_fingerprint=fingerprint;shell_frame_fingerprint_valid=!working && frame;
     shell_frame_drawn_at=now;
@@ -5055,6 +5077,10 @@ static unsigned worker_action(enum kui_shell_action action) {
         case KUI_SHELL_VMU_VIRTUAL_DELETE_COMMIT:return 124;
         case KUI_SHELL_VMU_CARD_LOAD:return 125;
         case KUI_SHELL_UPDATE_RUN:return 120;
+        case KUI_SHELL_THEME_SCAN:return THEME_SCAN_WORK;
+        case KUI_SHELL_THEME_PREVIEW:return THEME_PREVIEW_WORK;
+        case KUI_SHELL_THEME_APPLY:return THEME_APPLY_WORK;
+        case KUI_SHELL_THEME_CANCEL:return THEME_CANCEL_WORK;
         default: return 0;
     }
 }
@@ -5305,6 +5331,9 @@ int main(void) {
     kui_settings_default(&settings_current);
     settings_pending = settings_current;
     kui_shell_init(&shell, &settings_current);
+    theme_init();
+    kui_shell_set_theme_preferences(&shell,&theme_saved_bundle.settings);
+    shell.theme_catalog=&theme_catalog;
     kui_shell_set_system_preferences(&shell,&system_current);
     kui_destination_default(destination_current);
     snprintf(settings_note,sizeof(settings_note),"Loading preferences from storage...");
@@ -5414,6 +5443,7 @@ int main(void) {
         enum kui_shell_action vmu_virtual_refresh=KUI_SHELL_NONE;
         publish_music_if_ready();
         mutex_lock(&lock);
+        if(theme_accept_result()) {last_draw=0;games_ui_changed=true;}
         if(screenshot_pressed) {screenshot_request();last_draw=0;}
         if(repair_new_copy_created) {
             repair_new_copy_created=false;
@@ -5737,6 +5767,9 @@ int main(void) {
             /* Main is the sole frame owner. Free before exposing pending to
              * the worker; drawing cannot reallocate it while this job is busy. */
             shell_frame_release_for_action(action);
+            if(action>=THEME_SCAN_WORK && action<=THEME_CANCEL_WORK) {
+                theme_pending=shell.theme_draft;theme_request_pending=shell.theme_generation;
+            }
             if(action==126u) {
                 update_restart_generation=shell.update_request.generation;update_restart_ready=false;
                 update_snapshot.generation=update_restart_generation;update_snapshot.stage=KUI_SHELL_UPDATE_RESULT;
@@ -6050,6 +6083,12 @@ int main(void) {
                 rate_at = rate_bytes = 0; rate_kib = 0;
                 capture_message[0]=0;phase_started_ms=progress_updated_ms=input_at;
             }
+        }
+        if(theme_restore_needed && startup_finished && !busy && !pending &&
+           !boot_ready && !probe_launch_ready && !update_restart_ready) {
+            theme_pending=theme_saved_bundle.settings;theme_request_pending=0;
+            pending=THEME_RESTORE_WORK;busy=true;cancel_requested=false;
+            theme_restore_needed=false;ui_hz_busy=2;
         }
         struct kui_shell_games_art_key art_key;
         bool art_wanted=!busy && kui_shell_games_art_key(&shell,&art_key);

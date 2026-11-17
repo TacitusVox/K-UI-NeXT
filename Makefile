@@ -930,7 +930,7 @@ build/test-settings: tests/test_settings.c src/core/settings.c src/core/data.c i
 
 build/test-shell: $(DRIVE_CONTROLS) $(SALVAGE_DISPLAY) include/kui/games_selection.h include/kui/zso.h include/kui/game_launch_settings.h src/core/wifi_text.c include/kui/network_wifi.h $(STORAGE_TEST_MODEL) include/kui/storage_test.h include/kui/storage_error.h src/core/files_path.c include/kui/files.h include/kui/version.h src/core/clock.c src/apps/system_settings.c include/kui/system_settings.h src/core/destination.c include/kui/destination.h tests/test_shell.c src/core/games_selection.c src/core/game_launch_settings.c src/core/game_ram_patches.c src/core/shell.c src/dreamcast/shell_draw.c src/apps/splash_art.c third_party/miniz/miniz.c src/dreamcast/shell_font.c src/dreamcast/shell_font_data.inc src/dreamcast/shell_art.inc include/kui/shell_font.h src/core/settings.c src/core/data.c include/kui/shell.h include/kui/settings.h .deps/fatfs/source/ff.h include/kui/game_ram_patches.h src/apps/splash_art.c include/kui/splash.h src/dreamcast/shell_art.inc
 	@mkdir -p $(@D)
-	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) $(EXPORT_CODEC_FLAGS) $(STORAGE_TEST_MODEL) src/core/wifi_text.c src/core/destination.c src/core/files_path.c src/core/game_launch_settings.c src/core/game_ram_patches.c src/core/games_selection.c src/core/game_profile.c src/core/hash.c src/core/games_query.c src/core/shell.c src/core/clock.c src/dreamcast/shell_draw.c src/apps/splash_art.c third_party/miniz/miniz.c src/dreamcast/shell_font.c src/apps/system_settings.c src/core/settings.c src/core/data.c src/core/salvage_display.c src/core/drive_controls.c tests/test_shell.c -o $@
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) $(EXPORT_CODEC_FLAGS) $(STORAGE_TEST_MODEL) src/core/wifi_text.c src/core/destination.c src/core/files_path.c src/core/game_launch_settings.c src/core/game_ram_patches.c src/core/games_selection.c src/core/game_profile.c src/core/hash.c src/core/games_query.c src/core/theme.c src/core/shell.c src/core/clock.c src/dreamcast/shell_draw.c src/apps/splash_art.c third_party/miniz/miniz.c src/dreamcast/shell_font.c src/apps/system_settings.c src/core/settings.c src/core/data.c src/core/salvage_display.c src/core/drive_controls.c tests/test_shell.c -o $@
 
 build/test-shell-font: tests/test_shell_font.c src/dreamcast/shell_font.c src/dreamcast/shell_font_data.inc include/kui/shell_font.h
 	@mkdir -p $(@D)
@@ -938,7 +938,7 @@ build/test-shell-font: tests/test_shell_font.c src/dreamcast/shell_font.c src/dr
 
 build/render-shell: $(DRIVE_CONTROLS) $(SALVAGE_DISPLAY) include/kui/games_selection.h include/kui/zso.h include/kui/game_launch_settings.h src/core/wifi_text.c include/kui/network_wifi.h $(STORAGE_TEST_MODEL) include/kui/storage_test.h include/kui/storage_error.h src/core/files_path.c include/kui/files.h include/kui/version.h src/core/clock.c src/apps/system_settings.c include/kui/system_settings.h src/core/destination.c src/core/data.c include/kui/destination.h tests/render_shell.c src/core/games_selection.c src/core/game_launch_settings.c src/core/game_ram_patches.c src/core/shell.c src/dreamcast/shell_draw.c src/apps/splash_art.c third_party/miniz/miniz.c src/dreamcast/shell_font.c src/dreamcast/shell_art.inc src/dreamcast/shell_font_data.inc include/kui/shell.h include/kui/shell_font.h include/kui/game_ram_patches.h src/apps/splash_art.c include/kui/splash.h src/dreamcast/shell_art.inc
 	@mkdir -p $(@D)
-	$(CC) $(HOST_FLAGS) $(INCLUDES) $(EXPORT_CODEC_FLAGS) $(STORAGE_TEST_MODEL) src/core/wifi_text.c src/core/destination.c src/core/files_path.c src/core/data.c src/core/game_launch_settings.c src/core/game_ram_patches.c src/core/games_selection.c src/core/game_profile.c src/core/hash.c src/core/games_query.c src/core/shell.c src/core/clock.c src/dreamcast/shell_draw.c src/apps/splash_art.c third_party/miniz/miniz.c src/dreamcast/shell_font.c src/apps/system_settings.c src/core/salvage_display.c src/core/drive_controls.c tests/render_shell.c -o $@
+	$(CC) $(HOST_FLAGS) $(INCLUDES) $(EXPORT_CODEC_FLAGS) $(STORAGE_TEST_MODEL) src/core/wifi_text.c src/core/destination.c src/core/files_path.c src/core/data.c src/core/game_launch_settings.c src/core/game_ram_patches.c src/core/games_selection.c src/core/game_profile.c src/core/hash.c src/core/games_query.c src/core/theme.c src/core/shell.c src/core/clock.c src/dreamcast/shell_draw.c src/apps/splash_art.c third_party/miniz/miniz.c src/dreamcast/shell_font.c src/apps/system_settings.c src/core/salvage_display.c src/core/drive_controls.c tests/render_shell.c -o $@
 
 build/test-capture-adapter: src/core/destination.c src/core/data.c include/kui/destination.h tests/test_capture_adapter.c src/dreamcast/capture.c src/dreamcast/platform.h include/kui/capture.h .deps/fatfs/source/ff.h
 	@mkdir -p $(@D)
@@ -1968,3 +1968,32 @@ test-multidisc-capture: build/capture-image
 	ASAN_OPTIONS=detect_leaks=0 python3 tests/test_multidisc_capture_images.py
 
 test-images: test-multidisc-capture
+
+# Themes use the same reducer and renderer as the runtime.
+build/test-shell build/render-shell: src/core/theme.c include/kui/theme.h
+
+.PHONY: test-themes
+test: test-themes
+test-themes: build/test-theme build/test-theme-runtime build/theme-image build/test-shell
+	ASAN_OPTIONS=detect_leaks=0 ./build/test-theme
+	ASAN_OPTIONS=detect_leaks=0 ./build/test-theme-runtime
+	ASAN_OPTIONS=detect_leaks=0 ./build/test-shell --themes
+	ASAN_OPTIONS=detect_leaks=0 python3 tests/test_theme_images.py
+	python3 tests/test_pack_theme.py
+
+build/test-theme: tests/test_theme.c src/core/theme.c src/core/data.c include/kui/theme.h
+	@mkdir -p $(@D)
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) -fno-pie -no-pie $(INCLUDES) src/core/theme.c src/core/data.c tests/test_theme.c -o $@
+
+build/test-theme-runtime: tests/test_theme_runtime.c src/core/theme.c src/core/data.c src/apps/theme_runtime.c src/dreamcast/theme_runtime.inc include/kui/theme.h include/kui/theme_runtime.h include/kui/shell.h
+	@mkdir -p $(@D)
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) -fno-pie -no-pie $(INCLUDES) src/core/theme.c src/core/data.c src/apps/theme_runtime.c tests/test_theme_runtime.c -o $@
+
+build/theme-image: tests/theme_image.c $(CORE) $(FATFS) src/core/storage_probe.c src/core/theme.c src/apps/theme_file.c include/kui/theme.h
+	@mkdir -p $(@D)
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) -fno-pie -no-pie $(INCLUDES) $(CORE) $(FATFS) src/core/storage_probe.c src/core/theme.c src/apps/theme_file.c tests/theme_image.c -o $@
+
+THEME_RENDER_SOURCES = $(STORAGE_TEST_MODEL) src/core/wifi_text.c src/core/destination.c src/core/files_path.c src/core/data.c src/core/game_launch_settings.c src/core/game_ram_patches.c src/core/games_selection.c src/core/game_profile.c src/core/hash.c src/core/games_query.c src/core/theme.c src/core/shell.c src/core/clock.c src/dreamcast/shell_draw.c src/apps/splash_art.c third_party/miniz/miniz.c src/dreamcast/shell_font.c src/apps/system_settings.c src/core/salvage_display.c src/core/drive_controls.c src/apps/splash.c tests/render_theme.c
+build/render-theme: $(THEME_RENDER_SOURCES) include/kui/theme.h include/kui/shell.h build/splash_art.inc src/dreamcast/shell_art.inc src/dreamcast/shell_font_data.inc
+	@mkdir -p $(@D)
+	$(CC) $(HOST_FLAGS) $(INCLUDES) $(EXPORT_CODEC_FLAGS) $(THEME_RENDER_SOURCES) -o $@

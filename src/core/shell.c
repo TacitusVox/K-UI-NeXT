@@ -48,6 +48,8 @@ void kui_shell_init(struct kui_shell *s, const struct kui_settings *p) {
     kui_shell_set_preferences(s, p ? p : &initial);
     kui_system_settings_default(&s->system_saved);
     s->system_draft=s->system_saved;
+    kui_theme_settings_default(&s->theme_saved);
+    s->theme_draft=s->theme_saved;
     snprintf(s->music_path,sizeof(s->music_path),"/Music");
     snprintf(s->games_path,sizeof(s->games_path),"/Games");
     kui_games_selection_default(&s->games_last);
@@ -71,6 +73,66 @@ bool kui_shell_system_dirty(const struct kui_shell *s) {
         s->system_saved.menu_sounds!=s->system_draft.menu_sounds ||
         s->system_saved.menu_repeat!=s->system_draft.menu_repeat ||
         s->system_saved.stick_deadzone!=s->system_draft.stick_deadzone);
+}
+void kui_shell_set_theme_preferences(struct kui_shell *s,const struct kui_theme_settings *settings) {
+    if(!s || !settings || !kui_theme_settings_valid(settings))return;
+    s->theme_saved=s->theme_draft=*settings;
+    s->theme_preview_active=s->theme_preview_stale=s->theme_show_splash=false;
+    s->theme_color_preset=settings->override_mask?4u:0u;
+}
+bool kui_shell_theme_dirty(const struct kui_shell *s) {
+    if(!s)return false;
+    const struct kui_theme_settings *a=&s->theme_saved,*b=&s->theme_draft;
+    if(strcmp(a->theme_id,b->theme_id) || strcmp(a->splash_id,b->splash_id) ||
+       strcmp(a->header_id,b->header_id) || strcmp(a->background_id,b->background_id) ||
+       a->override_mask!=b->override_mask)return true;
+    for(unsigned i=0;i<KUI_THEME_COLOR_COUNT;i++)
+        if((a->override_mask&(1u<<i)) && a->palette.colors[i]!=b->palette.colors[i])return true;
+    return false;
+}
+void kui_shell_theme_draft_palette(const struct kui_shell *s,struct kui_theme_palette *out) {
+    if(!out)return;
+    const struct kui_theme_definition *definition=NULL;
+    if(s && s->theme_catalog)for(unsigned i=0;i<s->theme_catalog->count && i<KUI_THEME_CATALOG_MAX;i++)
+        if(!strcmp(s->theme_catalog->themes[i].id,s->theme_draft.theme_id)) {
+            definition=&s->theme_catalog->themes[i];break;
+        }
+    kui_theme_effective_palette(out,definition,s?&s->theme_draft:NULL);
+}
+static enum kui_shell_action theme_request(struct kui_shell *s,enum kui_shell_action action) {
+    if(!++s->theme_generation)++s->theme_generation;
+    s->theme_loading=true;s->theme_failed=false;s->theme_pending_action=action;
+    snprintf(s->theme_notice,sizeof(s->theme_notice),"%s",action==KUI_SHELL_THEME_SCAN?
+        "Reading themes from SD...":action==KUI_SHELL_THEME_APPLY?"Checking and saving appearance...":
+        action==KUI_SHELL_THEME_CANCEL?"Restoring saved appearance...":"Loading appearance preview...");
+    return action;
+}
+void kui_shell_set_theme_catalog(struct kui_shell *s,unsigned generation,
+        const struct kui_theme_catalog *catalog,bool ok,const char *notice) {
+    if(!s || generation!=s->theme_generation || !s->theme_loading ||
+       s->theme_pending_action!=KUI_SHELL_THEME_SCAN)return;
+    s->theme_loading=false;s->theme_pending_action=KUI_SHELL_NONE;s->theme_failed=!ok;
+    if(ok && catalog)s->theme_catalog=catalog;
+    snprintf(s->theme_notice,sizeof(s->theme_notice),"%s",notice?notice:ok?
+        "Choose a theme or mix individual images.":"Cannot read themes. Built-in appearance is available.");
+}
+void kui_shell_theme_result(struct kui_shell *s,unsigned generation,
+        enum kui_shell_action action,bool ok,const char *notice) {
+    if(!s || generation!=s->theme_generation || !s->theme_loading || action!=s->theme_pending_action)return;
+    s->theme_loading=false;s->theme_pending_action=KUI_SHELL_NONE;s->theme_failed=!ok;
+    if(ok && action==KUI_SHELL_THEME_PREVIEW) {
+        s->theme_preview_active=true;s->theme_preview_stale=false;
+        if(s->theme_show_splash)s->page=KUI_SHELL_THEME_SPLASH_PREVIEW;
+    } else if(ok && action==KUI_SHELL_THEME_APPLY) {
+        s->theme_saved=s->theme_draft;s->theme_preview_active=s->theme_preview_stale=false;
+    } else if(ok && action==KUI_SHELL_THEME_CANCEL) {
+        s->theme_draft=s->theme_saved;s->theme_preview_active=s->theme_preview_stale=false;
+        s->page=KUI_SHELL_SETTINGS;
+    }
+    s->theme_show_splash=false;
+    snprintf(s->theme_notice,sizeof(s->theme_notice),"%s",notice?notice:ok?
+        (action==KUI_SHELL_THEME_APPLY?"Appearance saved to SD.":"Preview active. Apply saves; Cancel restores."):
+        "Appearance could not be changed. Your saved choice is intact.");
 }
 static enum kui_shell_action emulation_request(struct kui_shell *s,bool save) {
     ++s->vmu_emulation_generation;
@@ -2430,6 +2492,95 @@ static unsigned move_count(unsigned selected, unsigned buttons,unsigned count) {
         return (selected + 1) % count;
     return selected;
 }
+static void theme_changed(struct kui_shell *s) {
+    s->theme_preview_stale=true;s->theme_failed=false;s->theme_notice[0]=0;
+}
+static void theme_cycle(struct kui_shell *s,unsigned row,bool previous) {
+    const char *choices[KUI_THEME_CATALOG_MAX+3u];unsigned count=0,at=0;
+    if(row)choices[count++]="";
+    choices[count++]="default";
+    if(row)choices[count++]="none";
+    if(s->theme_catalog)for(unsigned i=0;i<s->theme_catalog->count && i<KUI_THEME_CATALOG_MAX;i++) {
+        const char *id=s->theme_catalog->themes[i].id;
+        if(strcmp(id,"default") && strcmp(id,"none") && kui_theme_id_valid(id))choices[count++]=id;
+    }
+    char *id=row==0?s->theme_draft.theme_id:row==1?s->theme_draft.splash_id:
+        row==2?s->theme_draft.header_id:s->theme_draft.background_id;
+    for(unsigned i=0;i<count;i++)if(!strcmp(id,choices[i])) {at=i;break;}
+    at=(at+(previous?count-1u:1u))%count;
+    if(!strcmp(id,choices[at]))return;
+    if(!row) {
+        kui_theme_settings_default(&s->theme_draft);
+        s->theme_color_preset=0;
+    }
+    snprintf(id,KUI_THEME_ID_BYTES,"%s",choices[at]);theme_changed(s);
+}
+static void theme_preset(struct kui_shell *s,bool previous) {
+    /* RGB888 presets preserve bright text over dark panels. */
+    static const uint32_t palettes[][KUI_THEME_COLOR_COUNT]={
+        {0x090c20,0x141b33,0x273c62,0x35446a,0xf2f6ff,0xa5b5cf,0x69e4f5,0xff79be,0x91e6b0,0xffc66f,0xffffff},
+        {0x181010,0x2a1c1a,0x62392e,0x68483a,0xfff3df,0xc4aa91,0xffbd70,0xed806d,0xb9d28b,0xffdf88,0xffffff},
+        {0x0b0e12,0x20252b,0x47515d,0x65717d,0xf2f4f6,0xaeb8c2,0xdce5ef,0xc6d0dd,0xd7e3d9,0xebe0c9,0xffffff}
+    };
+    unsigned at=s->theme_color_preset<4u?s->theme_color_preset:0u;
+    s->theme_color_preset=(at+(previous?3u:1u))%4u;
+    s->theme_draft.override_mask=s->theme_color_preset?(1u<<KUI_THEME_COLOR_COUNT)-1u:0u;
+    if(s->theme_color_preset)memcpy(s->theme_draft.palette.colors,
+        palettes[s->theme_color_preset-1u],sizeof(s->theme_draft.palette.colors));
+    theme_changed(s);
+}
+static enum kui_shell_action theme_input(struct kui_shell *s,unsigned buttons,bool busy) {
+    /* Transactions publish atomically. Ignore navigation until main reports completion. */
+    if(busy || s->theme_loading)return KUI_SHELL_NONE;
+    if(buttons&KUI_SHELL_B) {
+        if(s->page!=KUI_SHELL_APPEARANCE) {s->page=KUI_SHELL_APPEARANCE;return KUI_SHELL_NONE;}
+        if(s->theme_preview_active)return theme_request(s,KUI_SHELL_THEME_CANCEL);
+        s->theme_draft=s->theme_saved;s->theme_preview_stale=false;s->page=KUI_SHELL_SETTINGS;
+        return KUI_SHELL_NONE;
+    }
+    if(s->page==KUI_SHELL_THEME_SPLASH_PREVIEW)return KUI_SHELL_NONE;
+    unsigned horizontal=buttons&(KUI_SHELL_LEFT|KUI_SHELL_RIGHT);
+    bool change=horizontal==KUI_SHELL_LEFT || horizontal==KUI_SHELL_RIGHT;
+    if(s->page==KUI_SHELL_THEME_COLORS) {
+        s->theme_color_selected=move_count(s->theme_color_selected,buttons,5u);
+        if(s->theme_color_role>=KUI_THEME_COLOR_COUNT)s->theme_color_role=0;
+        unsigned role=s->theme_color_role;
+        if(change && s->theme_color_selected==0)theme_preset(s,horizontal==KUI_SHELL_LEFT);
+        else if(change && s->theme_color_selected==1)
+            s->theme_color_role=(role+(horizontal==KUI_SHELL_LEFT?KUI_THEME_COLOR_COUNT-1u:1u))%KUI_THEME_COLOR_COUNT;
+        else if(change) {
+            struct kui_theme_palette palette;kui_shell_theme_draft_palette(s,&palette);
+            unsigned shift=(4u-s->theme_color_selected)*8u;
+            unsigned value=(palette.colors[role]>>shift)&255u;
+            value=horizontal==KUI_SHELL_LEFT?(value?value-1u:0u):(value<255u?value+1u:255u);
+            s->theme_draft.palette.colors[role]=(palette.colors[role]&~(255u<<shift))|(value<<shift);
+            s->theme_draft.override_mask|=1u<<role;s->theme_color_preset=4u;theme_changed(s);
+        }
+        if(buttons&KUI_SHELL_X) {
+            s->theme_draft.override_mask&=~(1u<<role);s->theme_color_preset=s->theme_draft.override_mask?4u:0u;theme_changed(s);
+        }
+        if(buttons&KUI_SHELL_Y) {s->theme_draft.override_mask=0;s->theme_color_preset=0;theme_changed(s);}
+        if(buttons&KUI_SHELL_A)s->page=KUI_SHELL_APPEARANCE;
+        return KUI_SHELL_NONE;
+    }
+    s->theme_selected=move_count(s->theme_selected,buttons,8u);
+    if(buttons&KUI_SHELL_X)return theme_request(s,KUI_SHELL_THEME_SCAN);
+    if(buttons&KUI_SHELL_START)return theme_request(s,KUI_SHELL_THEME_APPLY);
+    if(buttons&KUI_SHELL_Y) {
+        if(s->theme_preview_active && !s->theme_preview_stale)s->page=KUI_SHELL_THEME_SPLASH_PREVIEW;
+        else {s->theme_show_splash=true;return theme_request(s,KUI_SHELL_THEME_PREVIEW);}
+        return KUI_SHELL_NONE;
+    }
+    if((change || (buttons&KUI_SHELL_A)) && s->theme_selected<4u)
+        theme_cycle(s,s->theme_selected,horizontal==KUI_SHELL_LEFT);
+    else if(buttons&KUI_SHELL_A) {
+        if(s->theme_selected==4u) {s->page=KUI_SHELL_THEME_COLORS;s->theme_color_selected=0;}
+        else if(s->theme_selected==5u)return theme_request(s,KUI_SHELL_THEME_PREVIEW);
+        else if(s->theme_selected==6u)return theme_request(s,KUI_SHELL_THEME_APPLY);
+        else {kui_theme_settings_default(&s->theme_draft);s->theme_color_preset=0;theme_changed(s);}
+    }
+    return KUI_SHELL_NONE;
+}
 static void scroll(struct kui_shell *s, unsigned buttons) {
     if(buttons & KUI_SHELL_START) s->scroll = 0;
     else if((buttons & (KUI_SHELL_UP | KUI_SHELL_DOWN)) == KUI_SHELL_UP) {
@@ -2490,6 +2641,8 @@ enum kui_shell_action kui_shell_input(struct kui_shell *s,
         if(buttons&KUI_SHELL_A) return KUI_SHELL_CONFIRM_VIDEO;
         return KUI_SHELL_NONE;
     }
+    if(s->page==KUI_SHELL_APPEARANCE || s->page==KUI_SHELL_THEME_COLORS ||
+       s->page==KUI_SHELL_THEME_SPLASH_PREVIEW)return theme_input(s,buttons,busy);
     /* Stop/back wins even over a simultaneous confirmation or launch. */
     if(buttons & KUI_SHELL_B) {
         s->gd_auto_launch=false;
@@ -3045,6 +3198,9 @@ enum kui_shell_action kui_shell_input(struct kui_shell *s,
         return KUI_SHELL_NONE;
     }
     switch(s->page) {
+    case KUI_SHELL_APPEARANCE: case KUI_SHELL_THEME_COLORS: case KUI_SHELL_THEME_SPLASH_PREVIEW:
+        /* Dispatched before generic Stop/back and app shortcut handling. */
+        return KUI_SHELL_NONE;
     case KUI_SHELL_DISC_TOOLS:
         s->disc_tools_selected=move_count(s->disc_tools_selected,buttons,4);
         if(buttons==KUI_SHELL_A) {
@@ -3723,6 +3879,11 @@ enum kui_shell_action kui_shell_input(struct kui_shell *s,
             if(s->system_selected==4) s->system_draft.startup_chime=!s->system_draft.startup_chime;
             if(s->system_selected==5) s->system_draft.startup_app=(s->system_draft.startup_app+
                 (horizontal==KUI_SHELL_LEFT?KUI_STARTUP_APP_COUNT-1:1))%KUI_STARTUP_APP_COUNT;
+        }
+        if((buttons&KUI_SHELL_A) && s->system_selected==13u) {
+            s->page=KUI_SHELL_APPEARANCE;s->theme_draft=s->theme_saved;s->theme_selected=0;
+            s->theme_preview_stale=false;s->theme_color_preset=s->theme_draft.override_mask?4u:0u;
+            return theme_request(s,KUI_SHELL_THEME_SCAN);
         }
         if(buttons==KUI_SHELL_A && s->system_selected==12u) {
             s->page=KUI_SHELL_UPDATES;s->update_selected=0;
