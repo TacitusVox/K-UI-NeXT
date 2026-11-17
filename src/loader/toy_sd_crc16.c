@@ -1,4 +1,5 @@
 /* SPDX-License-Identifier: GPL-3.0-only */
+#include "kui/target.h"
 #include "kui/toy_sd_crc16.h"
 
 /* The XMODEM/SD CRC (0x1021, initial zero) is linear in the index.
@@ -42,7 +43,7 @@ bool kui_toy_sd_crc16_check(uint8_t *area,uint32_t tail,bool wire,uint32_t lost)
     typedef uint32_t alias_word __attribute__((__may_alias__));
     alias_word *words=(void *)area;
     const int16_t *first=table[0],*second=table[1];
-#ifdef __sh__
+#ifdef KUI_SH_COMPILER
     /* Keep both row bases resident for SH-4 indexed loads. */
     __asm__("" : "+r"(first),"+r"(second));
 #endif

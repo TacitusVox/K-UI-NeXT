@@ -12,18 +12,33 @@ module=importlib.util.module_from_spec(spec)
 spec.loader.exec_module(module)
 
 class StartupAssets(unittest.TestCase):
-    def test_matching_boot_and_runtime_art(self):
-        data=(ROOT/"resources/branding/boot-red.png").read_bytes()
-        self.assertEqual(hashlib.sha1(b"blob "+str(len(data)).encode()+b"\0"+data).hexdigest(),module.BOOT_PNG_BLOB)
-        self.assertEqual(len(module.decode_png(data)),640*480)
-        self.assertEqual(data,(ROOT/"resources/branding/startup.png").read_bytes())
-        self.assertEqual(module.BOOT_PNG_BLOB,module.PNG_BLOB)
-    def test_tyrfing_asset_and_bounds(self):
-        data=(ROOT/"resources/branding/startup.png").read_bytes()
-        self.assertEqual(hashlib.sha1(b"blob "+str(len(data)).encode()+b"\0"+data).hexdigest(),module.PNG_BLOB)
+    def blob(self,data):
+        return hashlib.sha1(b"blob "+str(len(data)).encode()+b"\0"+data).hexdigest()
+    def exact_rgb565(self,data):
+        """Every pixel is already an RGB565 value, so encoding loses nothing."""
+        from PIL import Image
+        import io
+        image=Image.open(io.BytesIO(data))
+        self.assertEqual((image.size,image.mode),((640,480),"RGB"))
         pixels=module.decode_png(data)
-        self.assertEqual(len(pixels),640*480)
-        self.assertTrue(all(0<=v<=65535 for v in pixels))
+        expanded=[(((v>>11)<<3)|((v>>11)>>2),(((v>>5)&63)<<2)|(((v>>5)&63)>>4),((v&31)<<3)|((v&31)>>2))
+            for v in pixels]
+        self.assertEqual(expanded,list(image.getdata()))
+        return pixels
+    def test_separate_boot_and_runtime_art(self):
+        """The runtime shows the Muramasa splash; the boot disc keeps its own,
+        version-agnostic Bootloader v3 art under the historical boot-red name."""
+        startup=(ROOT/"resources/branding/startup.png").read_bytes()
+        boot=(ROOT/"resources/branding/boot-red.png").read_bytes()
+        self.assertEqual(self.blob(startup),module.PNG_BLOB)
+        self.assertEqual(self.blob(boot),module.BOOT_PNG_BLOB)
+        self.assertNotEqual(startup,boot)
+        for data in (startup,boot):
+            pixels=self.exact_rgb565(data)
+            self.assertEqual(len(pixels),640*480)
+            self.assertGreater(len(set(pixels)),256)
+    def test_decoder_rejects_damage(self):
+        data=(ROOT/"resources/branding/startup.png").read_bytes()
         bad=bytearray(data);bad[len(bad)//2]^=1
         with self.assertRaises(ValueError):module.decode_png(bad)
         with self.assertRaises(ValueError):module.decode_png(data[:32])

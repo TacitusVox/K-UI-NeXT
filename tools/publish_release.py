@@ -340,7 +340,7 @@ def main():
     args = parser.parse_args()
     repository = os.environ["GITHUB_REPOSITORY"]
     commit = os.environ["GITHUB_SHA"]
-    require(repository == "TPMJB/K-UI-NeXT" and os.environ["GITHUB_REF"] == "refs/heads/main",
+    require(repository == "TacitusVox/K-UI-NeXT" and os.environ["GITHUB_REF"] == "refs/heads/main",
             "Release publication requires the upstream main branch")
     release = release_metadata()
     tag = release_tag(release)

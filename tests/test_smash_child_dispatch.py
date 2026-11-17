@@ -31,7 +31,9 @@ override=block(source.index('if(action==121 || action==122) {'))
 at=source.index('if(action==58 || action==121 || action==122)snprintf(games_activity_root_pending')
 activity=source[at:source.index(';',at)+1]
 at=source.index('bool prepared=action==121 || action==122?')
-prepare=source[at:source.index('\n                if(prepared',at)]
+# Exactly the dispatch statement. The launch-history and timing bookkeeping
+# that follows it has its own checks (test-gui-launch-preparation).
+prepare=source[at:source.index(';',at)+1]
 
 prefix=r'''
 #include "kui/shell.h"

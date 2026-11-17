@@ -31,7 +31,11 @@ NATIVE_WAIT_ADAPTER_FRAME = 24
 NATIVE_WAIT_CALLEE_FRAME = 28
 NATIVE_WAIT_ENTRY = 0x01E5877C
 NATIVE_WAIT_HANDLE = 0x00224401
-WAIT_TOTAL_FRAME = WAIT_FRAME + NATIVE_WAIT_ADAPTER_FRAME + NATIVE_WAIT_CALLEE_FRAME
+# The shim reserves the CE ABI's 16 caller-home bytes below every C/native
+# call it makes (proof run, worker service, CE wait). The accepted mapped
+# bridge's own 28-byte frame is unchanged.
+CALL_HOMES = 16
+WAIT_TOTAL_FRAME = CALL_HOMES + WAIT_FRAME + NATIVE_WAIT_ADAPTER_FRAME + NATIVE_WAIT_CALLEE_FRAME
 
 
 class ContinuationCPU(CounterCPU):
@@ -78,9 +82,9 @@ class ContinuationCPU(CounterCPU):
     def write(self, address, value):
         assert address % 4 == 0
         guest = self.start_sp - CE_FRAME <= address < self.start_sp
-        proof = PROOF_TOP - PROOF_FRAME <= address < PROOF_TOP
+        proof = PROOF_TOP - PROOF_FRAME - CALL_HOMES <= address < PROOF_TOP
         worker = WORKER_BOTTOM <= address < WORKER_TOP
-        wait = (self.in_wait and self.start_sp - CE_FRAME - WAIT_FRAME -
+        wait = (self.in_wait and self.start_sp - CE_FRAME - CALL_HOMES - WAIT_FRAME -
                 NATIVE_WAIT_ADAPTER_FRAME - NATIVE_WAIT_CALLEE_FRAME <= address
                 < self.start_sp - CE_FRAME)
         private = address == BRIDGE_RETURN
@@ -140,6 +144,11 @@ class ContinuationCPU(CounterCPU):
         if switch:
             self.stack_changes.append((old_sp, self.r[15], self.sr))
 
+    def c_homes(self):
+        """A callee may store its register arguments in the caller's homes."""
+        for i in range(4):
+            self.write(self.r[15]+4*i, 0xface0000+i+len(self.events))
+
     def api(self):
         assert self.r[15] == self.start_sp - CE_FRAME
         self.events.append(('mode', int(bool(self.r[4]))))
@@ -148,7 +157,8 @@ class ContinuationCPU(CounterCPU):
     def c_run(self):
         assert self.sr & 0x40000000
         assert self.sr & 0xF0 == 0xF0, 'Proof phase called unmasked'
-        assert self.r[15] == PROOF_TOP - PROOF_FRAME
+        assert self.r[15] == PROOF_TOP - PROOF_FRAME - CALL_HOMES
+        self.c_homes()
         assert self.r[4] == self.initial[0][8], 'Extension argument clobbered'
         assert self.r[6] == self.original_mode, 'Previous mode clobbered'
         phase = self.r[5]
@@ -193,8 +203,8 @@ class ContinuationCPU(CounterCPU):
         saved = (self.r.copy(), self.pr, self.mach, self.macl, self.gbr,
                  self.sr, self.mode, self.fpscr, self.fr.copy())
         if expected_sp is None:
-            expected_sp = (self.start_sp - CE_FRAME - WAIT_FRAME
-                           if self.in_wait else WORKER_TOP - 64)
+            expected_sp = (self.start_sp - CE_FRAME - CALL_HOMES - WAIT_FRAME
+                           if self.in_wait else WORKER_TOP - CALL_HOMES - 64)
         assert self.r[15] == expected_sp
         assert not self.sr & FORBIDDEN_SR
         self.preemptions.append((kind, self.r[15], self.sr))
@@ -209,7 +219,7 @@ class ContinuationCPU(CounterCPU):
     def service(self):
         assert self.sr & 0x40000000, 'Service outside kernel mode'
         assert not self.sr & FORBIDDEN_SR, 'Service called with IRQs blocked'
-        assert self.r[15] == WORKER_TOP, 'Service not on separate worker stack'
+        assert self.r[15] == WORKER_TOP - CALL_HOMES, 'Service not on separate worker stack'
         assert self.r[8] == PROOF_TOP - PROOF_FRAME, 'Proof frame pointer lost'
         assert self.r[4] == self.initial[0][8]
         assert not self.original_calls, 'Consumer ran before service completed'
@@ -219,6 +229,7 @@ class ContinuationCPU(CounterCPU):
         self.events.append(('service', result))
         return_pc = self.pr
         callee_saved = self.r[8:16]
+        self.c_homes()
         self.r[15] -= 64
         for index in range(16):
             self.write(self.r[15] + 4*index, 0xC0010000 + index)
@@ -313,7 +324,7 @@ class ContinuationCPU(CounterCPU):
     def wait(self):
         assert self.sr & 0x40000000, 'Wait outside kernel mode'
         assert not self.sr & FORBIDDEN_SR, 'Wait called with IRQs blocked'
-        assert self.r[15] == self.start_sp - CE_FRAME, 'CE wait on private stack'
+        assert self.r[15] == self.start_sp - CE_FRAME - CALL_HOMES, 'CE wait on private stack'
         assert self.sr == self.mem[PROOF_TOP - PROOF_FRAME + 8], 'Wait did not restore exact incoming SR'
         assert self.r[8] == PROOF_TOP - PROOF_FRAME
         assert self.r[4] == self.initial[0][8]
@@ -326,6 +337,7 @@ class ContinuationCPU(CounterCPU):
         return_pc = self.pr
         callee_saved = self.r[8:16]
         self.in_wait = True
+        self.c_homes()
         self.r[15] -= WAIT_FRAME
         for index in range(WAIT_FRAME // 4):
             self.write(self.r[15] + 4*index, 0xC0020000 + index)
@@ -508,7 +520,7 @@ SECTIONS {
         self.assertEqual(cpu.mode, cpu.original_mode)
         self.assertEqual(cpu.apis, [1, cpu.original_mode, 1, cpu.original_mode])
         self.assertEqual(cpu.guest_stack_min, r[15] - CE_FRAME)
-        self.assertEqual(cpu.proof_stack_min, PROOF_TOP - PROOF_FRAME)
+        self.assertEqual(cpu.proof_stack_min, PROOF_TOP - PROOF_FRAME - CALL_HOMES)
         self.assertEqual(len(cpu.original_calls), 1)
         self.assertFalse(cpu.actions or cpu.results or cpu.wait_results)
         self.assertEqual(cpu.bridge_returns,
@@ -527,7 +539,9 @@ SECTIONS {
         self.assertEqual(self.symbols['__kui_maple_stack_top'], PROOF_TOP)
         self.assertEqual(WORKER_TOP - WORKER_BOTTOM, 4096)
         self.assertEqual(PROOF_TOP - PROOF_BOTTOM, 1536)
-        self.assertEqual(self.symbols['__kui_maple_traffic_shim_end'] - HOOK, 184)
+        # 184 bytes plus four caller-home sites (add #-16 / add #16 around the
+        # proof run, resume run, worker service and CE wait calls).
+        self.assertEqual(self.symbols['__kui_maple_traffic_shim_end'] - HOOK, 184 + 4*4)
         # Only the literal helper address differs from the accepted mapped
         # bridge. Compile its source with the same A2/layout profile above.
         self.assertIn(struct.pack('<I', HOOK), self.bridge)
@@ -560,7 +574,7 @@ SECTIONS {
         cpu = self.cpu(29, actions=(1, 0), results=(0,))
         self.preserved(cpu)
         self.assertEqual(len(cpu.native_homes), 1)
-        caller_sp = cpu.start_sp-CE_FRAME-WAIT_FRAME
+        caller_sp = cpu.start_sp-CE_FRAME-CALL_HOMES-WAIT_FRAME
         native_sp = caller_sp-NATIVE_WAIT_ADAPTER_FRAME
         self.assertEqual(sorted(at for at, _ in cpu.native_homes[0]),
                          [native_sp+4*i for i in range(4)])
@@ -583,7 +597,7 @@ SECTIONS {
                             self.assertEqual([c[0] for c in cpu.c_calls], expected)
                             self.assertEqual(len(cpu.preemptions), 2*len(results))
                             self.assertEqual(cpu.worker_stack_min,
-                                             WORKER_TOP - (64 if results else 0))
+                                             WORKER_TOP - (CALL_HOMES + 64 if results else 0))
                             cases += 1
         self.assertEqual(cases, 384)
 
@@ -643,10 +657,10 @@ SECTIONS {
                          [(WORKER_TOP, cpu.c_calls[0][4])]*2)
         self.assertTrue(all(not sr & FORBIDDEN_SR for _, _, sr in cpu.preemptions))
         self.assertEqual([(kind, sp) for kind, sp, _ in cpu.preemptions],
-                         [('irq', WORKER_TOP-64), ('preempt', WORKER_TOP-64),
+                         [('irq', WORKER_TOP-CALL_HOMES-64), ('preempt', WORKER_TOP-CALL_HOMES-64),
                           ('wait_irq', cpu.start_sp-CE_FRAME-WAIT_TOTAL_FRAME),
                           ('wait_preempt', cpu.start_sp-CE_FRAME-WAIT_TOTAL_FRAME),
-                          ('irq', WORKER_TOP-64), ('preempt', WORKER_TOP-64)])
+                          ('irq', WORKER_TOP-CALL_HOMES-64), ('preempt', WORKER_TOP-CALL_HOMES-64)])
         phases = [event[0] for event in cpu.events]
         self.assertEqual(phases,
                          ['mode', 'phase', 'service', 'irq', 'preempt', 'wait',
@@ -670,7 +684,7 @@ SECTIONS {
                                        wait_results=(wait_result,))
                         self.preserved(cpu)
                         self.assertEqual(len(cpu.wait_calls), 1)
-                        self.assertEqual(cpu.wait_calls[0][1], cpu.start_sp-CE_FRAME)
+                        self.assertEqual(cpu.wait_calls[0][1], cpu.start_sp-CE_FRAME-CALL_HOMES)
                         self.assertEqual(cpu.wait_stack_min, cpu.start_sp-CE_FRAME-WAIT_TOTAL_FRAME)
                         self.assertEqual(cpu.c_calls[1][4], 0 if not wait_result else MASK-1)
         cpu = self.cpu(8, actions=(1, 2), results=(0,), wait_results=(MASK,))

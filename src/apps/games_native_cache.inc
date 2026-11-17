@@ -8,6 +8,7 @@
 #include "kui/vmu_native_program.h"
 #include "kui/native_sdk_sci_family.h"
 #include "kui/hash.h"
+#include "kui/sha256_prefix.h"
 #include "kui/core.h"
 #include "kui/smash_launch_timing.h"
 
@@ -135,7 +136,10 @@ static enum native_cache_result native_cache_prepare(const struct kui_game_image
     struct native_cache_workspace *work=malloc(sizeof(*work));
     if(!boot || !work) {free(work);free(boot);return NATIVE_CACHE_SKIPPED;}
     enum native_cache_result result=NATIVE_CACHE_SKIPPED;
-    struct kui_sha256 sha;uint8_t image_hash[32];kui_sha256_init(&sha);
+    /* One SHA-256 pass over the executable also keeps resumable 64 KiB
+     * states, so the proved program prefix needs at most 64 KiB more hashing
+     * instead of a second pass over the whole executable. */
+    uint8_t image_hash[32];struct kui_sha256_prefix image_marks={0};
     uint32_t source_crc=0u;
     if(log)log("Native VMU mapping: reading %u executable bytes",map->boot_bytes);
     KUI_SMASH_TIME_SPAN(source_read,KUI_SMASH_UI_EXEC_READ);
@@ -149,8 +153,7 @@ static enum native_cache_result native_cache_prepare(const struct kui_game_image
     if(native_cache_cancelled(cancel)) {result=NATIVE_CACHE_CANCELLED;goto finished;}
     kui_smash_launch_timing_metric(KUI_SMASH_UI_EXEC_SOURCE_BYTES,map->boot_bytes);
     KUI_SMASH_TIME_SPAN(source_sha,KUI_SMASH_UI_EXEC_SHA);
-    kui_sha256_update(&sha,boot,map->boot_bytes);
-    kui_sha256_digest(&sha,image_hash);
+    kui_sha256_prefix_hash(&image_marks,boot,map->boot_bytes,image_hash);
     KUI_SMASH_TIME_END(source_sha);
     kui_smash_launch_timing_add(KUI_SMASH_UI_EXEC_SHA_BYTES,map->boot_bytes);
     KUI_SMASH_TIME_SPAN(source_crc_time,KUI_SMASH_UI_EXEC_CRC);
@@ -187,13 +190,17 @@ static enum native_cache_result native_cache_prepare(const struct kui_game_image
         uint8_t prefix_hash[32];const uint8_t *program_hash=image_hash;
         if(program_bytes!=map->boot_bytes) {
             /* A reclaimed bootstrap suffix has a different identity. Hash
-             * exactly the proved prefix once; never reuse the full-source
-             * digest for that shorter program or copy a digest from wire. */
+             * exactly the proved prefix bytes; never reuse the full-source
+             * digest for that shorter program or copy a digest from wire.
+             * The pass resumes from the source pass's state at the nearest
+             * 64 KiB boundary below the prefix (the same bytes, unchanged). */
             KUI_SMASH_TIME_SPAN(prefix_sha,KUI_SMASH_UI_EXEC_SHA);
-            struct kui_sha256 prefix;kui_sha256_init(&prefix);
-            kui_sha256_update(&prefix,boot,program_bytes);kui_sha256_digest(&prefix,prefix_hash);
+            size_t rehashed=0u;
+            if(!kui_sha256_prefix_digest(&image_marks,boot,program_bytes,prefix_hash,&rehashed)) {
+                KUI_SMASH_TIME_END(prefix_sha);goto finished;
+            }
             KUI_SMASH_TIME_END(prefix_sha);
-            kui_smash_launch_timing_add(KUI_SMASH_UI_EXEC_SHA_BYTES,program_bytes);
+            kui_smash_launch_timing_add(KUI_SMASH_UI_EXEC_SHA_BYTES,rehashed);
             program_hash=prefix_hash;
         }
         hit=kui_vmu_native_resolution_cache_replay_hashed(boot,program_bytes,KUI_RETAIL_EXEC_ADDRESS,
@@ -244,5 +251,6 @@ static enum native_cache_result native_cache_prepare(const struct kui_game_image
             hit?"cached":"resolved");
     }
 finished:
+    kui_sha256_prefix_free(&image_marks);
     free(work);free(boot);return result;
 }

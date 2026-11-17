@@ -87,6 +87,63 @@ and the build gates (resident ends by its 0x8c00ddc0 limit; stack worst case
 392 of 528 bytes, calls into IPA-split clones counted).
 `KUI_WCE_PROBE=0` rebuilds `7b216f2e1136` byte for byte. Console behaviour is
 untested: the first session is the test.
+## Pending console test: branch build 5eece4b72a35, 2026-11-17
+
+`KUI-Branch-Test2-17NOV2026-1105-CST-5eece4b.zip`
+(SHA256 `b67abd8e37c00a67cb227b5a53e47d91a62e9cf36164fe51fa922991f62db24b`) tests
+branch `claude/cool-pasteur-kxjg6b` at `5eece4b72a35c1f3a8c028cc3cffdae2ff3cbfbc`.
+Since test 1 (`f094fa8f40f3`) it changes only three things:
+
+- the startup splash art, stored compressed and inflated once;
+- the launcher artwork, stored compressed and inflated on first use;
+- the boot disc, now [K-UI Bootloader v3](boot-disc-v3.md).
+
+`git diff f094fa8..5eece4b7` touches no Games, reader, admission, manifest or
+updater source.
+
+It contains only:
+
+- `KUI/runtime.kui` and `KUI/boot.kui`: identical, 2,350,288 bytes (test 1:
+  3,149,564), build `5eece4b72a35`, payload CRC `501F990A`,
+  `KUI_SMASH_LAUNCH_TIMING=1`, no embedded module bundle;
+- the test-1 `zso-boot.kui` (`5B99D20D`) and `lzo-boot.kui` (`C87D6A7C`), byte for byte.
+
+Optional: the Bootloader v3 CD in the redundant layout (copies at FAD
+11881/44891/77901, SHA256 `c58ead09…`), the same bootstrap in the single-file
+layout (`79aafb87…`), and `tools.kui` (`F16A3520`). Everything else on the
+card is retained. Test 1's exclusions still apply: no Windows CE games and no
+Smash Pack with this GUI.
+
+Evidence is host and emulator only. Flycast boots both CDIs and the GUI;
+the stage-1 damage cases are in [the boot disc record](boot-disc-v3.md). This
+does not replace or re-baseline the `f8807cb16561` timing candidate.
+
+## Pending console test: branch build f094fa8f40f3, 2026-11-17
+
+`KUI-Branch-Test-17NOV2026-0743-CST-f094fa8.zip`
+(SHA256 `52326c0fd1e90d98c9843cbe93c226b6bb0731af76a530bd0ecab1f2fc9ae3a8`) tests
+branch `claude/cool-pasteur-kxjg6b` at `f094fa8f40f38754eb96cbf4f77f4ecc75fb35e5`:
+menu redraw/vblank, Games paging/letter steps/tiles/catalogue/cover lookups,
+single-pass launch hash, music session sharing and nonblocking song steps,
+ZSO/LZO span streaming, the boot RAM canvas and the GitHub-link header credit.
+It contains only `KUI/runtime.kui` and `KUI/boot.kui` (identical, build
+`f094fa8f40f3`, payload CRC `41595CFA`, `KUI_SMASH_LAUNCH_TIMING=1`, no embedded
+module bundle), `zso-boot.kui` (`5B99D20D`) and `lzo-boot.kui` (`C87D6A7C`), plus
+an optional bootstrap CDI and `tools.kui` (`BAD48C5D`). Everything else on the
+card is retained untouched. `e79da8ce`, Main `d69b7b01` and `e2761a9a` each rebuild
+the delivered ZSO/LZO loaders byte for byte with build `f8807cb16561`, so the
+loaders' only change is `7775e61`.
+
+The GUI is test-only. It lacks the Windows CE routes of the installed
+`00d8ed67d9ad` ([routing record](wince-gui-routing.md)): the test excludes Windows
+CE games and the owner restores the previous GUI afterwards. It also omits the
+embedded same-commit Smash stage bundle (`retail-smash-menu`, `-native-menu`,
+`-vc2`, `-swirl`): built identically, Main `d69b7b01` gives a 3,141,340-byte
+`runtime.kui`, this GUI 3,149,564 (the branch adds 8,224 bytes) and the delivered
+`f8807cb16561` GUI 3,554,464, so the 405 KB difference is the bundle. Smash Pack
+would read the card's stages instead, the unestablished-cohort case that earlier
+gave slow collection startup and VC2 stops, so the test excludes Smash Pack too. This does not
+replace or re-baseline the `f8807cb16561` timing candidate.
 
 ## WinCE Armada: Virtual VMU On accepted, cb07c6454454, 2026-11-09
 

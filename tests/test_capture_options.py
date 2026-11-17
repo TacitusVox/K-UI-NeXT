@@ -176,7 +176,10 @@ def main():
             output = run(image, "new", opts="crc32,noend,sample=3")
             assert re.search(r"chunks re-read while capturing \(1 in 3\); saved data NOT fully re-read", output)
             sampled = stats(output)["sampled"]
-            assert 20 < sampled < 120, sampled
+            # Every third read chunk is re-read. This GD layout takes 217 reads of up to 32
+            # sectors, and the high-density area's last 150 sectors one at a time
+            # (capture_tail_start), so 367 chunks: 122 samples.
+            assert sampled == 367 // 3, sampled
             assert digests(export(image, base / f"{kind}-sample")) == baseline
             image = fresh()
             output = run(image, "new", opts="sample=2")   # a SHA-256 job also samples, and still re-reads all

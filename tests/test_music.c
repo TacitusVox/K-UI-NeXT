@@ -483,6 +483,56 @@ static void ui_status_during_refill(void) {
     assert(fake.reads==reads && fake.connects==connects && state().file_allocations==allocations);
     kui_music_shutdown();
 }
+/* A worker that already holds the card mounted preloads through it. */
+static void shared_mount_preload(void) {
+    reset(1);kui_music_init(log_line);kui_music_set_config(true,20);
+    assert(kui_music_load(0,cancel));
+    unsigned connects=fake.connects,disconnects=fake.disconnects,unmounts=fake.unmounts,opens=fake.opens,closes=fake.closes;
+    for(unsigned i=1;i<LEGACY_TRACKS;i++) assert(kui_music_cache_menu_mounted(i,cancel));
+    assert(fake.connects==connects && fake.disconnects==disconnects && fake.unmounts==unmounts);
+    assert(fake.opens==opens+2u*(LEGACY_TRACKS-1u) && fake.closes==closes+LEGACY_TRACKS-1u); /* Ogg absent, WAV read. */
+    assert(state().cached_mask==31u && state().current_index==0 && state().playing);
+    /* A missing song is recorded and the caller's mount stays untouched. */
+    assert(!kui_music_cache_menu_mounted(HARBOR,cancel) && state().missing_mask==1u<<HARBOR);
+    assert(fake.connects==connects && fake.disconnects==disconnects && fake.unmounts==unmounts);
+    /* Cached: no file access at all; an unknown index is refused. */
+    opens=fake.opens;assert(kui_music_cache_menu_mounted(2,cancel) && fake.opens==opens);
+    assert(!kui_music_cache_menu_mounted(KUI_MUSIC_TRACKS,cancel));
+    fake.cancel=true;assert(!kui_music_cache_menu_mounted(HARBOR,cancel) && fake.opens==opens);fake.cancel=false;
+    kui_music_shutdown();
+}
+/* The control thread requests cached songs without waiting for the audio mutex. */
+static void nonblocking_requests(void) {
+    reset(1);kui_music_init(log_line);kui_music_set_config(true,20);
+    for(unsigned i=0;i<LEGACY_TRACKS;i++) assert(kui_music_load(i,cancel));
+    assert(!kui_music_cache_menu(HARBOR,cancel) && kui_music_select_cached(0));
+    /* The snapshot cycle matches the locked one in every state. */
+    struct kui_music_status now=state();
+    for(unsigned i=0;i<=KUI_MUSIC_TRACKS+1u;i++) {
+        assert(kui_music_next_index_in(&now,i,1)==kui_music_next_index(i,1));
+        assert(kui_music_next_index_in(&now,i,-1)==kui_music_next_index(i,-1));
+    }
+    assert(kui_music_next_index_in(NULL,3,1)==3);
+    /* Requests apply at the next service poll; selection waits until then. */
+    unsigned reads=fake.reads,connects=fake.connects;
+    kui_music_request_select(3,7u);assert(state().current_index==0 && !state().selected_request);
+    kui_music_service();assert(state().current_index==3 && state().selected_request==7u && state().playing);
+    /* A newer request replaces one not yet applied; applied ones never replay. */
+    kui_music_request_select(1,8u);kui_music_request_select(4,9u);kui_music_service();
+    assert(state().current_index==4 && state().selected_request==9u);
+    assert(kui_music_select_cached(2));kui_music_service();assert(state().current_index==2 && state().selected_request==9u);
+    /* Number 0 is ignored; an uncached song is not selected or reported. */
+    kui_music_request_select(1,0u);kui_music_service();assert(state().current_index==2);
+    kui_music_request_select(HARBOR,10u);kui_music_service();
+    assert(state().current_index==2 && state().selected_request==9u && state().playing);
+    assert(fake.reads==reads && fake.connects==connects);
+    /* A request made before the service restarts is not replayed. */
+    kui_music_request_select(1,11u);kui_music_shutdown();reset(1);kui_music_init(log_line);kui_music_set_config(true,20);
+    assert(kui_music_load(0,cancel) && kui_music_cache_menu(1,cancel));kui_music_service();
+    assert(state().current_index==0 && !state().selected_request);
+    kui_music_request_select(1,12u);kui_music_service();assert(state().current_index==1 && state().selected_request==12u);
+    kui_music_shutdown();
+}
 int main(void) {
     for(unsigned channels=1;channels<=2;channels++) {
         reset(channels);kui_music_init(log_line);assert(!fake.connects && !fake.init);
@@ -568,6 +618,6 @@ int main(void) {
     assert(!fake.init && !thread_live);kui_music_shutdown();thread_fail=false;
 #endif
     cache_churn();compressed_music();bundled_ogg();missing_songs();
-    replacement_interleave();ui_status_during_refill();
-    puts("PASS background music: independent polling, no playback I/O, preserved replacements, 1000 cached switches, 300 replacements/failures, exact 8MiB staging budget, allocation cleanup, replacement/resume interleaving, bundled Oggs sharing one decoder arena, 1.5 WAV fallback, missing songs skipped");return 0;
+    replacement_interleave();ui_status_during_refill();shared_mount_preload();nonblocking_requests();
+    puts("PASS background music: independent polling, no playback I/O, preserved replacements, 1000 cached switches, 300 replacements/failures, exact 8MiB staging budget, allocation cleanup, replacement/resume interleaving, bundled Oggs sharing one decoder arena, 1.5 WAV fallback, missing songs skipped, shared-mount preload, nonblocking song requests");return 0;
 }

@@ -16,7 +16,7 @@ supported. Existing compatible independent K-UI boot CDs and game dumps remain
 usable. Follow the [installation guide](release-v2.0.md), and update the
 complete matching `KUI` folder together.
 
-[Release downloads](https://github.com/TPMJB/K-UI-NeXT/releases/tag/v2.0.0) ·
+[Release downloads](https://github.com/TacitusVox/K-UI-NeXT/releases/tag/v2.0.0) ·
 [Screenshots and posting images](release-v2.0-image-index.md) ·
 [Reddit/forum drafts](release-v2.0-announcements.md) ·
 [Optional development support](https://ko-fi.com/tpmjb)

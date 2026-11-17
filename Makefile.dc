@@ -57,7 +57,7 @@ BENCH_OBJECTS := build/dc/src/core/hash.o build/dc/src/core/capture_plan.o build
 LOADER_OBJECTS += $(BENCH_OBJECTS)
 LOADER_OBJECTS += build/dc/src/core/recovery_manifest.o build/dc/src/core/recovery_guard.o
 LOADER_OBJECTS += build/dc/src/core/boot_ui.o build/dc/src/dreamcast/boot_draw.o \
-    build/dc/src/dreamcast/shell_font.o build/dc/src/apps/boot_splash.o
+    build/dc/src/dreamcast/shell_font.o build/dc/src/apps/boot_splash.o build/dc/src/apps/splash_art.o
 RUNTIME_OBJECTS := $(filter-out build/dc/src/dreamcast/main.o build/dc/src/dreamcast/sd.o,$(OBJECTS)) build/dc/main-runtime.o build/dc/sd-runtime.o
 RUNTIME_MODULE_BUNDLE ?=
 # A different existing bundle can be older than the last compiled object.
@@ -264,11 +264,11 @@ check-games-scan-stack: $(RUNTIME)
 
 -include $(OBJECTS:.o=.d) $(LOADER_OBJECTS:.o=.d) $(RUNTIME_OBJECTS:.o=.d)
 
-build/splash_pixels.inc build/boot_splash_pixels.inc build/startup_ogg.inc &: tools/build_splash.py resources/branding/startup.png resources/branding/boot-red.png resources/branding/startup-chime.ogg
+build/splash_art.inc build/boot_splash_art.inc build/startup_ogg.inc &: tools/build_splash.py resources/branding/startup.png resources/branding/boot-red.png resources/branding/startup-chime.ogg
 	python3 tools/build_splash.py
 
-build/dc/src/apps/splash.o: build/splash_pixels.inc
-build/dc/src/apps/boot_splash.o: build/boot_splash_pixels.inc
+build/dc/src/apps/splash.o: build/splash_art.inc
+build/dc/src/apps/boot_splash.o: build/boot_splash_art.inc
 build/dc/src/apps/startup_sound.o: build/startup_ogg.inc
 
 # G3 contains no KOS/newlib runtime. The entry image packs a high resident
@@ -805,3 +805,22 @@ $(RETAIL_PHYSICAL_DIR)/retail-physical.kui: $(RETAIL_PHYSICAL_DIR)/entry.elf too
 
 # Fixed collection inputs participate in launcher incremental rebuilds.
 build/dc/src/apps/games_retail.o: src/apps/smash_menu_collection_files.inc
+
+# Boot-disc stage 1 (1ST_READ.BIN of the redundant boot disc). Freestanding,
+# libgcc only, no FPU registers; tools/boot_disc.py writes its copy table.
+STAGE1_FLAGS = -std=c11 -Os -Wall -Wextra -Werror $(RETAIL_CPU) -ffreestanding -fno-builtin \
+    -fno-stack-protector -fno-pic -ffunction-sections -fdata-sections -Iinclude
+STAGE1_OBJECTS := build/stage1/stage1_entry.o build/stage1/stage1.o build/stage1/stage1_load.o
+build/stage1/%.o: src/bootstage/%.c include/kui/boot_copies.h
+	@mkdir -p $(@D)
+	sh-elf-gcc $(STAGE1_FLAGS) -c $< -o $@
+build/stage1/stage1_entry.o: src/bootstage/stage1_entry.S
+	@mkdir -p $(@D)
+	sh-elf-gcc $(RETAIL_CPU) -c $< -o $@
+build/stage1/stage1.elf: $(STAGE1_OBJECTS) src/bootstage/stage1.ld
+	sh-elf-gcc $(RETAIL_CPU) -nostdlib -Wl,--gc-sections -Wl,--build-id=none -Wl,--no-warn-rwx-segments \
+	    -T src/bootstage/stage1.ld -Wl,-Map,build/stage1/stage1.map $(STAGE1_OBJECTS) -lgcc -o $@
+build/stage1/stage1.bin: build/stage1/stage1.elf
+	sh-elf-objcopy -O binary $< $@
+.PHONY: stage1
+stage1: build/stage1/stage1.bin

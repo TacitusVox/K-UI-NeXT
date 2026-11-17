@@ -6,4 +6,6 @@
 /* Keep the short console label separate from the full release name. */
 #define KUI_RELEASE_SHORT "K-UI V2.0.0"
 #define KUI_ARTIFACT_PREFIX "kui-2.0.0-tyrfing"
+/* The CD bootloader disc has its own version, independent of K-UI releases. */
+#define KUI_BOOTLOADER_VERSION "v3"
 #endif

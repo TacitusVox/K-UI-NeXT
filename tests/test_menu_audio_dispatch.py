@@ -52,6 +52,8 @@ static mutex_t gate=PTHREAD_MUTEX_INITIALIZER;
 static pthread_cond_t ready=PTHREAD_COND_INITIALIZER,release=PTHREAD_COND_INITIALIZER;
 static struct {struct kui_music_status status;} music;
 static struct kui_music_status music_snapshot;
+static int music_requested=-1;
+static unsigned music_request_generation;
 static bool refill_ready,refill_done;
 static unsigned ui_lock_calls;
 static int mutex_trylock(mutex_t *value) {
@@ -62,7 +64,8 @@ static void mutex_lock(mutex_t *value) {
 }
 static void mutex_unlock(mutex_t *value) {assert(!pthread_mutex_unlock(value));}
 static void unlock_audio(void) {assert(!pthread_mutex_unlock(&audio_lock));}
-''' + function(audio, "kui_music_status_try_copy") + "\n" + function(main, "publish_music_if_ready") + r'''
+''' + function(audio, "kui_music_status_try_copy") + "\n" + function(main, "music_snapshot_store") + "\n" + \
+    function(main, "publish_music_if_ready") + r'''
 static void *refill(void *unused) {
     (void)unused;
     assert(!pthread_mutex_lock(&audio_lock));
@@ -100,7 +103,16 @@ int main(void) {
     assert(!strcmp(music_snapshot.title,"New audio state"));
     assert(kui_music_status_try_copy(&retained));
     assert(!memcmp(&retained,&music_snapshot,sizeof(retained)));
-    puts("PASS menu audio dispatch: actual C, real competing refill thread, 20000 nonblocking reads, retained coherent status, fresh publication after refill; hardware latency unmeasured");
+    /* Publication ends a song step only once the audio service reports that
+     * newest request applied to the requested song. */
+    music_requested=3;music_request_generation=9u;
+    music.status.current_index=3u;music.status.selected_request=8u;
+    publish_music_if_ready();assert(music_requested==3);
+    music.status.current_index=2u;music.status.selected_request=9u;
+    publish_music_if_ready();assert(music_requested==3);
+    music.status.current_index=3u;publish_music_if_ready();assert(music_requested==-1);
+    music_requested=4;publish_music_if_ready();assert(music_requested==4);
+    puts("PASS menu audio dispatch: actual C, real competing refill thread, 20000 nonblocking reads, retained coherent status, fresh publication after refill, applied song steps end their request; hardware latency unmeasured");
     return 0;
 }
 '''

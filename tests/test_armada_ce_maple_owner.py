@@ -1,7 +1,12 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: GPL-3.0-only
-"""Check the private owner identity and independently derived probe profile."""
+"""Check the private owner identity and independently derived probe profile.
+
+Set KUI_ARMADA_STARTUP_DIR or pass --startup-dir; without the private owner
+files these cases are skipped.
+"""
 import argparse
+import os
 from pathlib import Path
 import re
 import shutil
@@ -16,8 +21,16 @@ from armada_ce_maple_audit import IDENTITIES, audit, check_probe_profile, check_
 from armada_ce_rom_audit import ROM
 from armada_pe_audio_audit import PE
 
+OWNER = Path(os.environ['KUI_ARMADA_STARTUP_DIR']) if os.environ.get('KUI_ARMADA_STARTUP_DIR') else None
+
 
 class OwnerTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        if OWNER is None:
+            raise unittest.SkipTest('Needs the private Armada startup files (0WINCEOS.BIN, WINCE/MAPLE.DLL); '
+                                    'set KUI_ARMADA_STARTUP_DIR or pass --startup-dir')
+
     def test_complete_rom_and_external_text_match(self):
         report = audit(OWNER)
         self.assertTrue(report['probe_profile']['matched'])
@@ -150,7 +163,8 @@ class OwnerTests(unittest.TestCase):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--startup-dir', required=True, type=Path)
+    parser.add_argument('--startup-dir', required=OWNER is None, type=Path)
     args, remaining = parser.parse_known_args()
-    OWNER = args.startup_dir
+    if args.startup_dir is not None:
+        OWNER = args.startup_dir
     unittest.main(argv=[sys.argv[0]] + remaining)

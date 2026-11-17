@@ -63,8 +63,8 @@
       "sha256": "7a238a1b16d9148ef578dd69dbb1dcc98cde5720969765b9e135ed96a0d26e4a"
     },
     "src/core/hash.c": {
-      "bytes": 5891,
-      "sha256": "1dda19d3dc6a645396d24484cd8842c72bba811dce38f317660a2eeda7dc0d67"
+      "bytes": 10539,
+      "sha256": "c37aa158f49a3b892162e25bab90bc3c25e43debfc5f67501d5029bf29b2e18e"
     },
     "src/core/game_launch_settings.c": {
       "bytes": 16470,

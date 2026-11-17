@@ -19,14 +19,36 @@ static struct {
     size_t capacity,count,next;
 } read_cache;
 
+#define READ_CACHE_MAX_SECTORS 512u
 void kui_media_read_cache_end(void) {memset(&read_cache,0,sizeof(read_cache));}
-bool kui_media_read_cache_begin(void *scratch,size_t bytes) {
-    if(read_cache.entries || !scratch || bytes<sizeof(struct read_cache_sector) ||
-       (uintptr_t)scratch%_Alignof(struct read_cache_sector))return false;
+static size_t read_cache_capacity(void *scratch,size_t bytes) {
+    if(!scratch || bytes<sizeof(struct read_cache_sector) ||
+       (uintptr_t)scratch%_Alignof(struct read_cache_sector))return 0u;
     size_t capacity=bytes/sizeof(struct read_cache_sector);
-    if(capacity>64u)capacity=64u;
+    return capacity>READ_CACHE_MAX_SECTORS?READ_CACHE_MAX_SECTORS:capacity;
+}
+bool kui_media_read_cache_begin(void *scratch,size_t bytes) {
+    size_t capacity=read_cache_capacity(scratch,bytes);
+    if(read_cache.entries || !capacity)return false;
     read_cache.entries=scratch;read_cache.capacity=capacity;
     read_cache.count=read_cache.next=0u;return true;
+}
+bool kui_media_read_cache_active(void) {return read_cache.entries!=NULL;}
+bool kui_media_read_cache_suspend(void *scratch,struct kui_media_read_cache_saved *out) {
+    if(!out)return false;
+    memset(out,0,sizeof(*out));
+    if(!scratch || (void *)read_cache.entries!=scratch)return false;
+    out->scratch=scratch;out->bytes=read_cache.capacity*sizeof(struct read_cache_sector);
+    out->count=read_cache.count;out->next=read_cache.next;out->epoch=mutation_epoch;
+    kui_media_read_cache_end();return true;
+}
+bool kui_media_read_cache_resume(const struct kui_media_read_cache_saved *saved) {
+    if(!saved || read_cache.entries || saved->epoch!=mutation_epoch)return false;
+    size_t capacity=read_cache_capacity(saved->scratch,saved->bytes);
+    if(!capacity || saved->count>capacity || saved->next>=capacity ||
+       (saved->count<capacity && saved->next!=saved->count))return false;
+    read_cache.entries=saved->scratch;read_cache.capacity=capacity;
+    read_cache.count=saved->count;read_cache.next=saved->next;return true;
 }
 
 DWORD get_fattime(void) { return (DWORD)kui_clock_fattime(); }

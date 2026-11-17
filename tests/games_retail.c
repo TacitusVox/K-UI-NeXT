@@ -943,7 +943,10 @@ static void check_launch(const char *directory) {
         if(fault("launch-check-cancel"))test.cancelled=true;
         bool result=kui_games_retail_check_launch(selected,reader,&patches,log_line,cancel);
         assert(result==launch_success());
-        if(result)assert(test.hash_reads[0]==16u && test.hash_reads[1]==2u && test.boot_read);
+        /* Shared checksum batching: the 16 IP sectors and the 2-sector boot
+         * are each one bounded read. */
+        if(result)assert(test.hash_reads[0]==1u && test.hash_reads[1]==1u &&
+            test.hash_max[0]==16u*2352u && test.hash_max[1]==2u*2352u && test.boot_read);
         else assert(!test.writes);
         export_launch_files(directory);
         puts("Executable check PASS: package released, no handoff image returned; only preparation report writes");
@@ -956,8 +959,8 @@ static void check_launch(const char *directory) {
         bool result=kui_games_retail_prepare_launch(path,reader,&patches,&image,log_line,cancel);
         assert(result==launch_success());
         if(result) {
-            assert(test.hash_reads[0]==16u*(run+1u) && test.hash_reads[1]==2u*(run+1u));
-            assert(test.hash_max[0]==2352u && test.hash_max[1]==2352u);
+            assert(test.hash_reads[0]==run+1u && test.hash_reads[1]==run+1u);
+            assert(test.hash_max[0]==16u*2352u && test.hash_max[1]==2u*2352u);
             assert(test.boot_read);check_mapping(directory,&image);
             host_write(directory,"launch-payload.bin",image.data,image.info.payload_bytes);
             const uint8_t *seed=(const uint8_t *)image.data+0x2010u;

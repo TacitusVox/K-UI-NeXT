@@ -1246,7 +1246,7 @@ static void observe(void *ctx,unsigned x,unsigned y,uint16_t color,const char *v
         for(unsigned i=0;i<KUI_SHELL_RIPPER_TOOL_COUNT;i++)
             if(!strcmp(value,ripper_tool_names[i])) ripper_tool_colors[i]=color;
     if(x==32 && y==78) {
-        assert(!large && !strcmp(value,"github.com/TacitusVoxt/K-UI-NeXT"));
+        assert(!large && !strcmp(value,"github.com/TacitusVox/K-UI-NeXT"));
         assert(kui_shell_font_width(value,false)<=396u-x);
         header_link_seen=true;header_link_color=color;
     }
@@ -1268,7 +1268,7 @@ static void render(struct kui_shell_view *v) {
     assert(header_link_seen);
     unsigned link_ink=0;
     for(unsigned y=78;y<78+KUI_SHELL_FONT_SMALL_HEIGHT;y++)
-        for(unsigned x=32;x<32+kui_shell_font_width("github.com/TacitusVoxt/K-UI-NeXT",false);x++)
+        for(unsigned x=32;x<32+kui_shell_font_width("github.com/TacitusVox/K-UI-NeXT",false);x++)
             link_ink+=pixels[1+y*640+x]==header_link_color;
     assert(link_ink>0); /* The unclipped link stays below the brand on every page. */
     assert(pixels[0]==0x1234 && pixels[640*480+1]==0xabcd);
@@ -1601,7 +1601,7 @@ static void update_controls(void) {
     --list.generation;kui_shell_set_update(&s,&list);assert(s.update_loading);
     ++list.generation;kui_shell_set_update(&s,&list);assert(!s.update_loading && s.update.count==8u);
     struct kui_shell_view view={0};render(&view);
-    assert(strstr(drawn,"Offline updates") && strstr(drawn,"TacitusVoxt/K-UI-NeXT Releases") && strstr(drawn,"A Open/check"));
+    assert(strstr(drawn,"Offline updates") && strstr(drawn,"TacitusVox/K-UI-NeXT Releases") && strstr(drawn,"A Open/check"));
     assert(strstr(drawn,"release-7.kup") && strstr(drawn,"Restore previous") && strstr(drawn,"Original baseline"));
     assert(press(KUI_SHELL_RIGHT,false)==KUI_SHELL_UPDATE_RUN && s.update_request.page==1u);
     list.generation=s.update_generation;list.page=1u;list.count=2u;kui_shell_set_update(&s,&list);
@@ -3005,6 +3005,88 @@ static void games_background_titles(void) {
     assert(s.games_selected==2 && s.games_listing.count==4 && !s.games_loading);
     assert(!kui_shell_set_games_titles(&s,&found,0));                 /* Nothing new. */
 }
+/* List pages continue into each other, L/R step between letter groups from
+ * the absolute row on screen, and A on a row continues to the launch screen
+ * once a launch-ready inspection arrives. */
+static void games_navigation_steps(void) {
+    reset(KUI_SHELL_HOME);
+    s.home_selected=home_index(KUI_SHELL_GAMES);assert(press(KUI_SHELL_A,false)==KUI_SHELL_GAMES_LIST);
+    games_page(8,true,KUI_GAMES_VIEW_LIST);
+    s.games_selected=7;
+    assert(press(KUI_SHELL_DOWN,false)==KUI_SHELL_GAMES_LIST && s.games_page==1 && !s.games_selected);
+    assert(s.games_turning && !s.games_shown_page && s.games_shown_selected==7);
+    games_page(3,false,KUI_GAMES_VIEW_LIST);assert(!s.games_selected && !s.games_turning);
+    /* The last page still wraps within itself. */
+    s.games_selected=2;assert(press(KUI_SHELL_DOWN,false)==KUI_SHELL_NONE && s.games_page==1 && !s.games_selected);
+    assert(press(KUI_SHELL_UP,false)==KUI_SHELL_GAMES_LIST && !s.games_page && s.games_selected==7);
+    games_page(8,true,KUI_GAMES_VIEW_LIST);assert(s.games_selected==7);
+    /* So does the first page. */
+    s.games_selected=0;assert(press(KUI_SHELL_UP,false)==KUI_SHELL_NONE && !s.games_page && s.games_selected==7);
+    /* R: next group from this row; the page stays on screen until rows arrive. */
+    s.games_page=2;s.games_selected=3;
+    assert(press(KUI_SHELL_R,false)==KUI_SHELL_GAMES_JUMP && s.games_jump_step==1 && s.games_jump_from==19);
+    assert(s.games_seek && s.games_loading && s.games_turning && s.games_shown_page==2 && s.games_shown_selected==3);
+    /* Triggers do nothing while that listing loads; busy L keeps memory stats. */
+    assert(press(KUI_SHELL_L,false)==KUI_SHELL_NONE && press(KUI_SHELL_R,false)==KUI_SHELL_NONE);
+    assert(press(KUI_SHELL_L,true)==KUI_SHELL_MSTATS && s.games_jump_step==1);
+    struct kui_games_page found=s.games_listing;found.count=8;found.has_more=true;found.view=s.games_view;
+    strcpy(found.root,s.games_path);found.group[0]=0;
+    assert(kui_shell_set_games_found_rows(&s,&found,s.games_generation,32,s.games_view,5));
+    assert(s.games_page==4 && s.games_selected==5 && !s.games_loading && !s.games_turning && !s.games_seek);
+    assert(press(KUI_SHELL_L,false)==KUI_SHELL_GAMES_JUMP && s.games_jump_step==-1 && s.games_jump_from==37);
+    assert(kui_shell_set_games_found_rows(&s,&found,s.games_generation,32,s.games_view,0));
+    /* Both triggers together, or an empty page, are not a step. */
+    assert(press(KUI_SHELL_L|KUI_SHELL_R,false)!=KUI_SHELL_GAMES_JUMP);
+    s.games_listing.count=0;assert(press(KUI_SHELL_R,false)!=KUI_SHELL_GAMES_JUMP);s.games_listing.count=8;
+    /* Flow steps from its own absolute selection. */
+    s.games_view=KUI_GAMES_VIEW_FLOW;s.games_flow_selected=42;
+    assert(press(KUI_SHELL_R,false)==KUI_SHELL_GAMES_JUMP && s.games_jump_from==42 && s.games_jump_step==1);
+
+    /* A on a row: the launch screen follows an accepted, launch-ready inspection. */
+    reset(KUI_SHELL_HOME);
+    s.home_selected=home_index(KUI_SHELL_GAMES);assert(press(KUI_SHELL_A,false)==KUI_SHELL_GAMES_LIST);
+    games_page(2,false,KUI_GAMES_VIEW_LIST);s.games_selected=1;
+    struct kui_games_detail detail=launch_detail(false,false);
+    strcpy(detail.path,s.games_listing.entries[1].path);
+    assert(press(KUI_SHELL_A,false)==KUI_SHELL_GAMES_INSPECT && s.page==KUI_SHELL_GAMES_DETAIL);
+    assert(kui_shell_games_detail_arrived(&s)==KUI_SHELL_NONE && s.page==KUI_SHELL_GAMES_DETAIL);
+    struct kui_games_detail other=detail;strcpy(other.path,s.games_listing.entries[0].path);
+    kui_shell_set_games_detail(&s,&other);                              /* Another image: rejected. */
+    assert(kui_shell_games_detail_arrived(&s)==KUI_SHELL_NONE && s.page==KUI_SHELL_GAMES_DETAIL);
+    kui_shell_set_games_detail(&s,&detail);assert(kui_shell_games_launch_ready(&s));
+    enum kui_shell_action arrived=kui_shell_games_detail_arrived(&s);
+    assert(s.page==KUI_SHELL_GAMES_RETAIL_CONFIRM);
+    /* Exactly the details page's A: same page and same card lookup. */
+    assert(press(KUI_SHELL_B,false)==KUI_SHELL_NONE && s.page==KUI_SHELL_GAMES_DETAIL);
+    assert(press(KUI_SHELL_A,false)==arrived && s.page==KUI_SHELL_GAMES_RETAIL_CONFIRM);
+    assert(press(KUI_SHELL_B,false)==KUI_SHELL_NONE && s.page==KUI_SHELL_GAMES_DETAIL);
+    /* Once only, and not for a re-inspection from the details page. */
+    kui_shell_set_games_detail(&s,&detail);
+    assert(kui_shell_games_detail_arrived(&s)==KUI_SHELL_NONE && s.page==KUI_SHELL_GAMES_DETAIL);
+    assert(press(KUI_SHELL_X,false)==KUI_SHELL_GAMES_INSPECT && s.page==KUI_SHELL_GAMES_DETAIL);
+    kui_shell_set_games_detail(&s,&detail);
+    assert(kui_shell_games_detail_arrived(&s)==KUI_SHELL_NONE && s.page==KUI_SHELL_GAMES_DETAIL);
+    /* Leaving before the result arrives cancels the continuation. */
+    assert(press(KUI_SHELL_B,false)==KUI_SHELL_NONE && s.page==KUI_SHELL_GAMES);
+    assert(press(KUI_SHELL_A,false)==KUI_SHELL_GAMES_INSPECT && press(KUI_SHELL_B,false)==KUI_SHELL_NONE);
+    kui_shell_set_games_detail(&s,&detail);
+    assert(kui_shell_games_detail_arrived(&s)==KUI_SHELL_NONE && s.page==KUI_SHELL_GAMES);
+    /* An image that is not launch-ready stays on its details. */
+    struct kui_games_detail blocked=detail;blocked.boot_bytes=0;
+    assert(press(KUI_SHELL_A,false)==KUI_SHELL_GAMES_INSPECT);
+    kui_shell_set_games_detail(&s,&blocked);assert(!kui_shell_games_launch_ready(&s));
+    assert(kui_shell_games_detail_arrived(&s)==KUI_SHELL_NONE && s.page==KUI_SHELL_GAMES_DETAIL);
+    /* A Windows CE image opens its launch screen without a card lookup. */
+    struct kui_games_detail ce=launch_detail(true,false);strcpy(ce.path,detail.path);
+    assert(press(KUI_SHELL_B,false)==KUI_SHELL_NONE && press(KUI_SHELL_A,false)==KUI_SHELL_GAMES_INSPECT);
+    kui_shell_set_games_detail(&s,&ce);
+    assert(kui_shell_games_detail_arrived(&s)==KUI_SHELL_NONE && s.page==KUI_SHELL_GAMES_RETAIL_CONFIRM);
+    /* The version chooser continues the same way. */
+    open_paired_games();inspect_paired_choice(0,false);
+    if(kui_shell_games_launch_ready(&s)) {
+        (void)kui_shell_games_detail_arrived(&s);assert(s.page==KUI_SHELL_GAMES_RETAIL_CONFIRM);
+    }
+}
 static void games_views(void) {
     reset(KUI_SHELL_HOME);
     assert(s.games_view==KUI_GAMES_VIEW_SAVED && kui_shell_games_view(&s)==KUI_GAMES_VIEW_LIST);
@@ -3042,8 +3124,15 @@ static void games_views(void) {
     s.games_selected=5;
     assert(press(KUI_SHELL_LEFT,false)==KUI_SHELL_NONE && s.games_selected==4);
     assert(press(KUI_SHELL_UP,false)==KUI_SHELL_NONE && s.games_selected==0);
-    assert(press(KUI_SHELL_UP,false)==KUI_SHELL_NONE && s.games_selected==4);
-    assert(press(KUI_SHELL_DOWN,false)==KUI_SHELL_NONE && s.games_selected==0);
+    assert(press(KUI_SHELL_UP,false)==KUI_SHELL_NONE && s.games_selected==4); /* First page: rows swap. */
+    /* Down from the bottom row continues on the next page in the same column;
+     * Up from the top row returns to the previous page's bottom row. */
+    s.games_selected=5;
+    assert(press(KUI_SHELL_DOWN,false)==KUI_SHELL_GAMES_LIST && s.games_page==1 && s.games_selected==1 && s.games_turning);
+    games_page(8,true,KUI_GAMES_VIEW_GALLERY);assert(s.games_selected==1 && !s.games_turning);
+    assert(press(KUI_SHELL_UP,false)==KUI_SHELL_GAMES_LIST && !s.games_page && s.games_selected==5);
+    games_page(8,true,KUI_GAMES_VIEW_GALLERY);assert(s.games_selected==5);
+    s.games_selected=0;
     assert(press(KUI_SHELL_LEFT,false)==KUI_SHELL_NONE && s.games_selected==0);
     s.games_selected=7;
     assert(press(KUI_SHELL_RIGHT,false)==KUI_SHELL_GAMES_LIST && s.games_page==1 && s.games_selected==4);
@@ -3678,6 +3767,25 @@ static void games_selected_art_rendering(void) {
     s.games_view=s.games_listing.view=KUI_GAMES_VIEW_LIST;
     s.games_listing.entries[1].cover=false;s.games_art_loading=true;render(&v);
     assert(strstr(drawn,"Loading box art...") && !strstr(drawn,"B Stop safely"));
+    /* Compact and Gallery draw every published tile; List and Flow keep the
+     * single selected cover. A missing tile keeps its placeholder. */
+    static uint16_t tile[KUI_COVER_MEDIUM*KUI_COVER_MEDIUM];
+    for(unsigned i=0;i<KUI_COVER_MEDIUM*KUI_COVER_MEDIUM;i++) tile[i]=0x2468;
+    struct kui_shell_view tiles=v;tiles.game_tile_covers[0]=tile;
+    s.games_art_loading=false;
+    for(unsigned view=0;view<KUI_GAMES_VIEW_COUNT;view++) {
+        s.games_view=view;games_page(2,false,view);s.games_selected=1;render(&tiles);
+        unsigned x=view==KUI_GAMES_VIEW_COMPACT?41:57,y=view==KUI_GAMES_VIEW_COMPACT?164:165;
+        bool tiled=view==KUI_GAMES_VIEW_COMPACT || view==KUI_GAMES_VIEW_GALLERY;
+        if(tiled) assert(pixels[1+y*640+x]==0x2468);
+        else for(unsigned i=0;i<640*480;i++) assert(pixels[1+i]!=0x2468);
+        tiles.game_tile_covers[0]=NULL;render(&tiles);
+        if(tiled) assert(pixels[1+y*640+x]!=0x2468 && pixels[1+y*640+x]!=0x5678);
+        tiles.game_tile_covers[0]=tile;
+        /* A listing of another view never borrows this view's tiles. */
+        s.games_listing.view=(view+1u)%KUI_GAMES_VIEW_COUNT;render(&tiles);
+        if(tiled) assert(pixels[1+y*640+x]!=0x2468);
+    }
 }
 static void ripper_export_rendering(void) {
     struct kui_shell_view v={0};reset(KUI_SHELL_RIPPER_SETTINGS);s.setting_selected=2;
@@ -6405,7 +6513,7 @@ int main(int argc,char **argv) {
     vmu_continuous_scrolling();vmu_catalog_scrolling();vmu_scroll_rendering();small_tools_controls();small_tools_rendering();
     vmu_copy_all_controls();vmu_import_controls();vmu_bulk_import_rendering();
     vmu_collection_copy_controls();vmu_collection_controls();vmu_collection_rendering();
-    games_remembered_selection(); games_disc_group_controls(); games_activity_controls(); games_controls(); games_background_titles(); games_views(); games_async_publication(); games_retail_controls(); games_armada_ce_music_controls(); games_bam4_ce_music_controls(); games_cdda_compatibility_status(); games_launch_options_controls(); games_cd_controls(); games_saved_launch_controls(); games_patch_controls(); games_image_defaults_controls(); games_zso_controls(); games_codec_controls(); games_check_baseline_controls(); games_variant_controls();
+    games_remembered_selection(); games_disc_group_controls(); games_activity_controls(); games_controls(); games_background_titles(); games_views(); games_navigation_steps(); games_async_publication(); games_retail_controls(); games_armada_ce_music_controls(); games_bam4_ce_music_controls(); games_cdda_compatibility_status(); games_launch_options_controls(); games_cd_controls(); games_saved_launch_controls(); games_patch_controls(); games_image_defaults_controls(); games_zso_controls(); games_codec_controls(); games_check_baseline_controls(); games_variant_controls();
     if(argc==2 && !strcmp(argv[1],"--games-controls")) { puts("PASS Games navigation and launch controls"); return 0; }
     games_rendering(); games_native_reader_choices(); games_new_reader_defaults(); games_patch_rendering(); games_zso_rendering(); games_selected_art_rendering(); games_variant_rendering();
     if(argc==2 && !strcmp(argv[1],"--games")) { puts("PASS Games navigation, launch eligibility and rendering"); return 0; }

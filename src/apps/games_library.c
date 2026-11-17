@@ -71,7 +71,7 @@ static void scan_checkpoint(const char *phase,const char *image,unsigned index,u
     if(!terminal)scan_trace.last_work=phase;
     scan_trace.index=index;scan_trace.count=count;scan_trace.offset=offset;
     uintptr_t sp=0;
-#if defined(__sh__)
+#if defined(KUI_SH_COMPILER)
     __asm__ __volatile__("mov r15,%0":"=r"(sp));
 #endif
     int length=snprintf(scan_trace.text,sizeof(scan_trace.text),
@@ -281,7 +281,9 @@ static bool record_evidence(const struct library *lib,unsigned index,struct kui_
     }
     return kui_games_group_evidence_equal(out,out);
 }
-static bool decode_record(const struct library *lib,unsigned index,struct kui_games_entry *entry) {
+/* found, when given, receives the edit applied to a decoded record. */
+static bool decode_record_edit(const struct library *lib,unsigned index,struct kui_games_entry *entry,
+    const struct kui_games_metadata_entry **found) {
     if(index>=lib->count)return false;
     unsigned fields=record_fields(lib),header=record_header(lib),flags=fields*2u;
     size_t at=lib->offsets[index];if(at>lib->bytes || lib->bytes-at<header)return false;
@@ -307,6 +309,7 @@ static bool decode_record(const struct library *lib,unsigned index,struct kui_ga
     struct kui_games_group_evidence evidence;if(!record_evidence(lib,index,&evidence))return false;
     if(evidence.disc) {entry->disc=evidence.disc;if(!entry->region[0])strcpy(entry->region,evidence.region);}
     const struct kui_games_metadata_entry *edit=edits?kui_games_metadata_find(edits,entry->path,""):NULL;
+    if(found)*found=edit;
     if(edit) {
         if(edit->edit.alias[0]) {strcpy(entry->title,edit->edit.alias);entry->custom_title=true;}
         strcpy(entry->cover_path,edit->edit.cover_path);
@@ -315,19 +318,29 @@ static bool decode_record(const struct library *lib,unsigned index,struct kui_ga
     }
     return true;
 }
+static bool decode_record(const struct library *lib,unsigned index,struct kui_games_entry *entry) {
+    return decode_record_edit(lib,index,entry,NULL);
+}
+/* Every check that needs only the fixed header of a file of this size.
+ * library_validate starts with the same checks, so a refused header is
+ * always a file the complete check would also refuse. */
+static bool library_header(const uint8_t *p,size_t bytes,const char *root,const uint8_t identity[32],uint64_t epoch) {
+    if(bytes<LIBRARY_HEADER)return false;
+    unsigned version=get32(p+8),root_bytes=get16(p+64);
+    if((version!=2 && version!=3 && version!=4) ||
+       memcmp(p,version==4?"KUIGLIB4":version==3?"KUIGLIB3":"KUIGLIB2",8) || get32(p+12)!=bytes ||
+       !get64(p+16) || get64(p+24)!=epoch || memcmp(p+32,identity,32) || get32(p+72)!=kui_crc32(0,p,72))return false;
+    for(unsigned i=76;i<LIBRARY_HEADER;i++)if(p[i])return false;
+    return root_bytes==strlen(root) && root_bytes<KUI_DEST_ROOT_CAP && get16(p+66)<=LIBRARY_ROWS &&
+        root_bytes<=bytes-LIBRARY_HEADER;
+}
 static bool library_validate(struct library *lib,const char *root,const uint8_t identity[32],uint64_t epoch) {
     const uint8_t *p=lib->wire;
-    if(lib->bytes<LIBRARY_HEADER)return false;
-    unsigned version=get32(p+8);
-    if((version!=2 && version!=3 && version!=4) ||
-       memcmp(p,version==4?"KUIGLIB4":version==3?"KUIGLIB3":"KUIGLIB2",8) || get32(p+12)!=lib->bytes ||
-       !get64(p+16) || get64(p+24)!=epoch || memcmp(p+32,identity,32) ||
-       get32(p+68)!=kui_crc32(0,p+LIBRARY_HEADER,lib->bytes-LIBRARY_HEADER) || get32(p+72)!=kui_crc32(0,p,72))return false;
-    for(unsigned i=76;i<LIBRARY_HEADER;i++)if(p[i])return false;
-    lib->version=version;
+    if(!library_header(p,lib->bytes,root,identity,epoch) ||
+       get32(p+68)!=kui_crc32(0,p+LIBRARY_HEADER,lib->bytes-LIBRARY_HEADER))return false;
+    lib->version=get32(p+8);
     unsigned root_bytes=get16(p+64);lib->count=get16(p+66);
-    if(root_bytes!=strlen(root) || root_bytes>=sizeof(lib->root) || lib->count>LIBRARY_ROWS ||
-       root_bytes>lib->bytes-LIBRARY_HEADER || memcmp(p+LIBRARY_HEADER,root,root_bytes))return false;
+    if(memcmp(p+LIBRARY_HEADER,root,root_bytes))return false;
     if(lib->root!=root)strcpy(lib->root,root);
     memmove(lib->identity,identity,32);lib->epoch=epoch;lib->sequence=get64(p+16);
     lib->offsets=calloc(lib->count?lib->count:1,sizeof(*lib->offsets));
@@ -359,6 +372,51 @@ static int display_order(const void *left,const void *right) {
     while(*x && *y) {unsigned p=*x++,q=*y++;if(p>='A'&&p<='Z')p+='a'-'A';if(q>='A'&&q<='Z')q+='a'-'A';if(p!=q)return p<q?-1:1;}
     if(*x!=*y)return *x?1:-1;
     int cmp=strcmp(an,bn);return cmp?cmp:a<b?-1:a>b?1:0;
+}
+/* The string display_order derives for a row on every comparison, found
+ * once per sort: a valid group's title, else the row's alias, else its name.
+ * Titles stay in the group and edit tables and names in the checked wire,
+ * which no sort changes. text is NULL for a row that does not decode;
+ * display_order calls any pair with such a row equal. */
+struct display_key {const char *text;size_t length;};
+static const struct display_key *display_keys;
+static int display_key_order(const void *left,const void *right) {
+    unsigned a=*(const uint32_t *)left,b=*(const uint32_t *)right;
+    const struct display_key *x=&display_keys[a],*y=&display_keys[b];
+    if(!x->text || !y->text)return 0;
+    size_t n=x->length<y->length?x->length:y->length;
+    for(size_t i=0;i<n;i++) {
+        unsigned p=(unsigned char)x->text[i],q=(unsigned char)y->text[i];
+        if(p>='A'&&p<='Z')p+='a'-'A';
+        if(q>='A'&&q<='Z')q+='a'-'A';
+        if(p!=q)return p<q?-1:1;
+    }
+    if(x->length!=y->length)return x->length>y->length?1:-1;
+    int cmp=memcmp(x->text,y->text,n);return cmp?cmp:a<b?-1:a>b?1:0;
+}
+/* Out of line: the scratch record is released before qsort runs. */
+static __attribute__((noinline)) void display_keys_fill(const struct library *lib,struct display_key *keys) {
+    for(unsigned at=0;at<lib->display_count;at++) {
+        unsigned index=lib->display[at],group=lib->members[index].group;struct display_key *key=&keys[index];
+        struct kui_games_entry entry;const struct kui_games_metadata_entry *edit=NULL;
+        if(!decode_record_edit(lib,index,&entry,&edit)) {key->text=NULL;key->length=0;continue;}
+        if(group && lib->groups[group-1u].valid)key->text=group_title(lib,group);
+        else if(entry.custom_title)key->text=edit->edit.alias;
+        else {
+            /* The first record field: what decode_record copied to entry.name. */
+            const uint8_t *p=lib->wire+lib->offsets[index];
+            key->text=(const char *)p+record_header(lib);key->length=get16(p);continue;
+        }
+        key->length=strlen(key->text);
+    }
+}
+/* Without the key table every comparison decodes both rows, in the same order. */
+static void display_sort(struct library *lib) {
+    struct display_key *keys=lib->display_count>1u?malloc(lib->count*sizeof(*keys)):NULL;
+    if(!keys) {sorting=lib;qsort(lib->display,lib->display_count,sizeof(*lib->display),display_order);sorting=NULL;return;}
+    display_keys_fill(lib,keys);
+    display_keys=keys;qsort(lib->display,lib->display_count,sizeof(*lib->display),display_key_order);display_keys=NULL;
+    free(keys);
 }
 static int member_order(const void *left,const void *right) {
     unsigned a=*(const uint32_t *)left,b=*(const uint32_t *)right;
@@ -424,17 +482,21 @@ static bool library_groups(struct library *lib) {
             strcpy(lib->groups[g].key,key);strcpy(lib->groups[g].name,base);lib->groups[g].representative=i;lib->groups[g].valid=true;++lib->group_count;
             for(unsigned j=0;j<g;j++)if(!strcmp(lib->groups[j].key,key))lib->groups[g].valid=lib->groups[j].valid=false;
         }
-        for(unsigned j=0;j<i;j++)if(lib->members[j].group==g+1 && lib->members[j].disc==disc)lib->groups[g].valid=false;
+        /* Every member of a group follows the record that created it. */
+        for(unsigned j=lib->groups[g].representative;j<i;j++)if(lib->members[j].group==g+1 && lib->members[j].disc==disc)lib->groups[g].valid=false;
         lib->members[i]=(struct library_member){g+1,disc};++lib->groups[g].count;
     }
     for(unsigned i=0;i<lib->count;i++) {
         unsigned previous_group=lib->members[i].group;
         if(previous_group && (lib->groups[previous_group-1u].metadata ||
            lib->groups[previous_group-1u].count!=1u))continue;
-        struct kui_games_entry entry;struct kui_games_group_evidence evidence;
-        if(!decode_record(lib,i,&entry) || !record_evidence(lib,i,&evidence))return false;
+        /* Only rows with IP evidence can join a proven set; every row of a
+         * validated catalogue decodes, so the others need no decode here. */
+        struct kui_games_group_evidence evidence;if(!record_evidence(lib,i,&evidence))return false;
+        if(!evidence.disc)continue;
+        struct kui_games_entry entry;if(!decode_record(lib,i,&entry))return false;
         char base[KUI_DEST_NAME_CAP],key[33];unsigned named_disc;
-        if(entry.directory || entry.disabled || !evidence.disc ||
+        if(entry.directory || entry.disabled ||
            !group_candidate_base(entry.name,base,&named_disc) ||
            (named_disc && named_disc!=evidence.disc))continue;
         if(previous_group) {
@@ -459,26 +521,26 @@ static bool library_groups(struct library *lib) {
             for(unsigned j=0;j<lib->group_count;j++)if(j!=g && lib->groups[j].count &&
                 !strcmp(lib->groups[j].key,key))lib->groups[g].valid=lib->groups[j].valid=false;
         }
-        for(unsigned j=0;j<i;j++)if(lib->members[j].group==g+1 && lib->members[j].disc==evidence.disc)lib->groups[g].valid=false;
+        /* A created or reused slot starts here; a proven set's members follow it. */
+        for(unsigned j=lib->groups[g].representative;j<i;j++)if(lib->members[j].group==g+1 && lib->members[j].disc==evidence.disc)lib->groups[g].valid=false;
         lib->members[i]=(struct library_member){g+1,evidence.disc};++lib->groups[g].count;
     }
     for(unsigned i=0;i<lib->group_count;i++)if(lib->groups[i].count<2)lib->groups[i].valid=false;
     /* Distinct proven releases may share a capture title. Give each actual
-     * set a release qualifier; unknown/conflicting singleton rows stay real. */
-    for(unsigned i=0;i<lib->group_count;i++)if(lib->groups[i].valid && lib->groups[i].metadata) {
-        struct kui_games_entry representative;char base[KUI_DEST_NAME_CAP];bool qualify=false;unsigned named_disc;
-        if(!decode_record(lib,lib->groups[i].representative,&representative) ||
-           !group_candidate_base(representative.name,base,&named_disc))return false;
-        for(unsigned j=0;j<lib->group_count && !qualify;j++)if(j!=i && lib->groups[j].valid && lib->groups[j].metadata) {
-            struct kui_games_entry other;char other_base[KUI_DEST_NAME_CAP];
-            if(!decode_record(lib,lib->groups[j].representative,&other))return false;
-            qualify=group_candidate_base(other.name,other_base,&named_disc) && group_family_equal(base,other_base);
+     * set a release qualifier; unknown/conflicting singleton rows stay real.
+     * Until a label is applied, a proven group's name is its representative's
+     * capture base, so decide every qualifier before changing any name. */
+    uint8_t qualified[LIBRARY_ROWS/8u]={0};
+    for(unsigned i=0;i<lib->group_count;i++)if(lib->groups[i].valid && lib->groups[i].metadata)
+        for(unsigned j=i+1u;j<lib->group_count;j++)if(lib->groups[j].valid && lib->groups[j].metadata &&
+            group_family_equal(lib->groups[i].name,lib->groups[j].name)) {
+            qualified[i/8u]|=(uint8_t)(1u<<i%8u);qualified[j/8u]|=(uint8_t)(1u<<j%8u);
         }
-        if(qualify) {
-            struct kui_games_group_evidence e;if(!record_evidence(lib,lib->groups[i].representative,&e))return false;
-            char suffix[80];snprintf(suffix,sizeof(suffix)," [%s %s %s %u discs]",e.region,e.version,e.product,e.total);
-            group_label(lib->groups[i].name,base,suffix);
-        }
+    for(unsigned i=0;i<lib->group_count;i++)if(qualified[i/8u]&(1u<<i%8u)) {
+        struct kui_games_group_evidence e;if(!record_evidence(lib,lib->groups[i].representative,&e))return false;
+        char base[KUI_DEST_NAME_CAP],suffix[80];strcpy(base,lib->groups[i].name);
+        snprintf(suffix,sizeof(suffix)," [%s %s %s %u discs]",e.region,e.version,e.product,e.total);
+        group_label(lib->groups[i].name,base,suffix);
     }
     /* Equal visible fields, truncated titles and explicit-name groups can
      * still collide. Rank by stable key before changing any labels. */
@@ -508,8 +570,8 @@ static bool library_groups(struct library *lib) {
         }
         lib->display[lib->display_count++]=i;
     }
-    sorting=lib;qsort(lib->display,lib->display_count,sizeof(*lib->display),display_order);
-    qsort(lib->group_display,member_count,sizeof(*lib->group_display),member_order);sorting=NULL;
+    display_sort(lib);
+    sorting=lib;qsort(lib->group_display,member_count,sizeof(*lib->group_display),member_order);sorting=NULL;
     for(unsigned i=0;i<member_count;i++) {
         unsigned g=lib->members[lib->group_display[i]].group;
         if(!i || lib->members[lib->group_display[i-1]].group!=g)lib->groups[g-1].first=i;
@@ -520,36 +582,66 @@ static bool library_groups(struct library *lib) {
  * errors are distinguished from malformed files to avoid publishing a fresh
  * scan over an uncertain filesystem. */
 enum load_result {LOAD_MISSING,LOAD_OK,LOAD_ERROR};
-static enum load_result library_load(struct library *out,const char *root,const uint8_t identity[32],uint64_t epoch,kui_cancel_fn cancel) {
-    enum load_result result=LOAD_MISSING;
-    for(unsigned slot=0;slot<2;slot++) {
-        if(stopped(cancel)) {library_free(out);return LOAD_ERROR;}
-        char path[96];library_path(path,root,slot);FIL file;FRESULT r=f_open(&file,path,FA_READ);
-        if(r==FR_NO_FILE || r==FR_NO_PATH)continue;
-        if(r!=FR_OK) {library_free(out);return LOAD_ERROR;}
-        struct library candidate={0};FSIZE_t bytes=f_size(&file);
-        bool ok=bytes>=LIBRARY_HEADER && bytes<=LIBRARY_MAX_BYTES;
-        bool memory_error=false;
-        if(ok) {candidate.bytes=(size_t)bytes;candidate.wire=malloc(candidate.bytes);ok=candidate.wire!=NULL;memory_error=!ok;}
-        bool io_error=false;
-        for(size_t at=0;ok && at<candidate.bytes;) {
-            if(stopped(cancel)) {ok=false;break;}
-            UINT got=0,count=(UINT)(candidate.bytes-at>4096?4096:candidate.bytes-at);
-            ok=f_read(&file,candidate.wire+at,count,&got)==FR_OK && got==count;
-            io_error=!ok;at+=got;
-        }
-        if(f_close(&file)!=FR_OK) {ok=false;io_error=true;}
-        if(stopped(cancel)) {library_free(&candidate);library_free(out);return LOAD_ERROR;}
-        if(io_error || memory_error) {library_free(&candidate);library_free(out);return LOAD_ERROR;}
-        if(!ok) {library_free(&candidate);continue;}
-        if(library_validate(&candidate,root,identity,epoch) &&
-           (!out->wire || candidate.sequence>out->sequence)) {
-            library_free(out);*out=candidate;memset(&candidate,0,sizeof(candidate));out->slot=slot;result=LOAD_OK;
-        }
-        bool resource_error=candidate.resource_error;library_free(&candidate);
-        if(resource_error) {library_free(out);return LOAD_ERROR;}
+#define LIBRARY_READ_CHUNK (64u*1024u)
+/* False for an open/read/close error or a stop. An absent, out-of-range or
+ * refused header leaves the slot unadmitted without reading further. */
+static __attribute__((noinline)) bool slot_header(const char *root,unsigned slot,const uint8_t identity[32],uint64_t epoch,
+    kui_cancel_fn cancel,bool *admitted,uint64_t *sequence) {
+    *admitted=false;
+    char path[96];library_path(path,root,slot);FIL file;FRESULT r=f_open(&file,path,FA_READ);
+    if(r==FR_NO_FILE || r==FR_NO_PATH)return true;
+    if(r!=FR_OK)return false;
+    FSIZE_t bytes=f_size(&file);bool ok=true;
+    if(bytes>=LIBRARY_HEADER && bytes<=LIBRARY_MAX_BYTES) {
+        uint8_t header[LIBRARY_HEADER];UINT got=0;
+        ok=f_read(&file,header,sizeof(header),&got)==FR_OK && got==sizeof(header);
+        *admitted=ok && library_header(header,(size_t)bytes,root,identity,epoch);
+        if(*admitted)*sequence=get64(header+16);
     }
-    if(result==LOAD_OK && !library_groups(out)) {library_free(out);return LOAD_ERROR;}
+    if(f_close(&file)!=FR_OK)ok=false;
+    return ok && !stopped(cancel);
+}
+/* Read and check one complete slot. LOAD_MISSING: readable but malformed. */
+static __attribute__((noinline)) enum load_result slot_load(struct library *out,const char *root,unsigned slot,
+    const uint8_t identity[32],uint64_t epoch,kui_cancel_fn cancel) {
+    char path[96];library_path(path,root,slot);FIL file;FRESULT r=f_open(&file,path,FA_READ);
+    if(r==FR_NO_FILE || r==FR_NO_PATH)return LOAD_MISSING;
+    if(r!=FR_OK)return LOAD_ERROR;
+    struct library candidate={0};FSIZE_t bytes=f_size(&file);
+    bool ok=bytes>=LIBRARY_HEADER && bytes<=LIBRARY_MAX_BYTES;
+    bool memory_error=false;
+    if(ok) {candidate.bytes=(size_t)bytes;candidate.wire=malloc(candidate.bytes);ok=candidate.wire!=NULL;memory_error=!ok;}
+    bool io_error=false;
+    for(size_t at=0;ok && at<candidate.bytes;) {
+        if(stopped(cancel)) {ok=false;break;}
+        UINT got=0,count=(UINT)(candidate.bytes-at>LIBRARY_READ_CHUNK?LIBRARY_READ_CHUNK:candidate.bytes-at);
+        ok=f_read(&file,candidate.wire+at,count,&got)==FR_OK && got==count;
+        io_error=!ok;at+=got;
+    }
+    if(f_close(&file)!=FR_OK) {ok=false;io_error=true;}
+    if(stopped(cancel) || io_error || memory_error) {library_free(&candidate);return LOAD_ERROR;}
+    if(ok && library_validate(&candidate,root,identity,epoch)) {*out=candidate;out->slot=slot;return LOAD_OK;}
+    enum load_result result=candidate.resource_error?LOAD_ERROR:LOAD_MISSING;
+    library_free(&candidate);return result;
+}
+/* Both fixed headers choose the order: the newest admitted slot is read and
+ * validated completely, and the other one only if that fails. Equal
+ * sequences keep slot a. Every byte read is still checked; an older slot
+ * behind a valid newer one is no longer read at all. */
+static enum load_result library_load(struct library *out,const char *root,const uint8_t identity[32],uint64_t epoch,kui_cancel_fn cancel) {
+    bool admitted[2]={false,false};uint64_t sequence[2]={0,0};
+    for(unsigned slot=0;slot<2;slot++)
+        if(stopped(cancel) || !slot_header(root,slot,identity,epoch,cancel,&admitted[slot],&sequence[slot])) {
+            library_free(out);return LOAD_ERROR;
+        }
+    unsigned newest=admitted[1] && (!admitted[0] || sequence[1]>sequence[0])?1u:0u;
+    enum load_result result=LOAD_MISSING;
+    for(unsigned attempt=0;attempt<2 && result==LOAD_MISSING;attempt++) {
+        unsigned slot=newest^attempt;
+        if(!admitted[slot])continue;
+        result=stopped(cancel)?LOAD_ERROR:slot_load(out,root,slot,identity,epoch,cancel);
+    }
+    if(result==LOAD_ERROR || (result==LOAD_OK && !library_groups(out))) {library_free(out);return LOAD_ERROR;}
     return result;
 }
 static bool append_record(struct library *lib,const struct kui_games_entry *entry) {
@@ -1016,7 +1108,7 @@ bool kui_games_library_get_edit(const char *root,const char *group,const char *p
 }
 static void edits_changed(void) {
     saved.filtered_ready=false;saved.query_ready=false;
-    if(saved.display) {sorting=&saved;qsort(saved.display,saved.display_count,sizeof(*saved.display),display_order);sorting=NULL;}
+    if(saved.display)display_sort(&saved);
     kui_games_covers_content_clear();
 }
 static bool checked_cover(const char *path,kui_cancel_fn cancel) {

@@ -10,9 +10,23 @@
 /* Ivory and orange accents stay legible over dark Tyrfing panels on RF/composite. */
 enum { WHITE=0xff9b, MUTED=0xcdd4, HIGHLIGHT=0xfe2d, ORANGE=0xfc44,
     PANEL=0x1061, SELECTED=0x5182, EDGE=0xa2a4, AMBER=0xfd6f };
+/* Panels are most of each frame's pixels: clip once and store two pixels
+ * per aligned 32-bit write. Halfword/word stores only, so this is also safe
+ * on the direct-VRAM fallback, which cannot take byte stores. */
+typedef uint32_t __attribute__((may_alias)) pixel_pair;
 static void box(uint16_t *frame,unsigned x,unsigned y,unsigned w,unsigned h,uint16_t c) {
-    for(unsigned row=y;row<y+h && row<480;row++)
-        for(unsigned col=x;col<x+w && col<640;col++) frame[row*640+col]=c;
+    if(x>=640u || y>=480u || !w || !h) return;
+    if(w>640u-x) w=640u-x;
+    if(h>480u-y) h=480u-y;
+    const uint32_t pair=(uint32_t)c<<16|c;
+    for(unsigned row=0;row<h;row++) {
+        uint16_t *p=frame+(y+row)*640u+x;
+        unsigned n=w;
+        if(((uintptr_t)p&2u)!=0) {*p++=c;--n;}
+        pixel_pair *q=(pixel_pair *)(void *)p;
+        for(;n>=2u;n-=2u) *q++=pair;
+        if(n) *(uint16_t *)(void *)q=c;
+    }
 }
 static void text(uint16_t *frame,unsigned x,unsigned y,unsigned right,uint16_t color,
         const char *s,bool large) {
@@ -118,13 +132,14 @@ void kui_boot_ui_draw(uint16_t *frame,const struct kui_boot_ui *ui,
         const struct kui_boot_view *view) {
     if(!frame || !ui || !view) return;
     if(view->countdown && !view->busy && ui->page==KUI_BOOT_HOME) {
+        /* A slim bar in the empty sky above the art's title, so the artwork
+         * itself stays in view during the countdown. */
         kui_boot_splash_draw(frame);
-        box(frame,32,360,576,96,PANEL);
-        box(frame,32,360,5,96,ORANGE);
+        box(frame,32,16,576,64,PANEL);
+        box(frame,32,16,4,64,ORANGE);
         char countdown[64];snprintf(countdown,sizeof(countdown),"Starting K-UI in %u...",view->countdown);
-        text(frame,48,373,592,WHITE,countdown,true);
-        line(frame,48,407,592,"A Start now   B Boot menu   X Recovery");
-        line(frame,48,432,592,"Any other button pauses automatic startup.");
+        text(frame,46,22,592,WHITE,countdown,true);
+        line(frame,46,52,592,"A Start now   B Boot menu   X Recovery   Other: pause");
         return;
     }
     /* The boot art is a quiet backdrop. Opaque panels keep the controls
@@ -132,11 +147,11 @@ void kui_boot_ui_draw(uint16_t *frame,const struct kui_boot_ui *ui,
     kui_boot_splash_draw_dimmed(frame);
     box(frame,32,24,576,76,PANEL);
     box(frame,32,24,5,76,ORANGE);
-    text(frame,48,34,366,WHITE,"K-UI Boot",true);
+    text(frame,48,34,366,WHITE,"K-UI Bootloader " KUI_BOOTLOADER_VERSION,true);
     line(frame,48,65,366,view->from_card?"Card boot / recovery":"CD boot / recovery");
-    text(frame,392,36,594,HIGHLIGHT,KUI_RELEASE_SHORT,false);
+    /* The disc is version-agnostic: no K-UI release name, only its build. */
     char build[40];snprintf(build,sizeof(build),"Build %.12s",view->build?view->build:"local");
-    line(frame,392,65,594,build);
+    text(frame,392,36,594,HIGHLIGHT,build,false);
     if(ui->page==KUI_BOOT_HOME || ui->page==KUI_BOOT_DIAGNOSTICS) {
         menu(frame,ui,view);
         box(frame,32,346,576,34,PANEL);

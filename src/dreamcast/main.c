@@ -143,9 +143,11 @@ static uint16_t *shell_frame_prepare(bool working) {
     if(!shell_frame && !working) shell_frame=aligned_alloc(32u,640u*480u*sizeof(*shell_frame));
     return shell_frame;
 }
+static void games_tiles_free_locked(void);
 static void shell_frame_release_for_action(unsigned action) {
     if(action==19u || (action>=56u && action<=58u) || action==62u || action==79u || action==104u || action==126u) {
         free(shell_frame);shell_frame=NULL;shell_frame_ready=false;
+        games_tiles_free_locked();
     }
 }
 static struct kui_settings settings_current, settings_pending;
@@ -328,6 +330,8 @@ static unsigned games_view_pending;
 static unsigned games_filter_pending;
 static struct kui_games_query games_query_pending;
 static char games_jump_pending;
+static int games_jump_step_pending;
+static unsigned games_jump_from_pending;
 static struct kui_games_library_edit games_edit_pending,games_edit_result;
 static char games_edit_root_pending[KUI_DEST_ROOT_CAP],games_edit_path_pending[KUI_GAMES_FILE_CAP],games_edit_group_pending[33];
 static char games_edit_result_path[KUI_GAMES_FILE_CAP],games_edit_result_notice[128];
@@ -344,14 +348,9 @@ static bool games_warm_done;
 static unsigned games_storage_observed=KUI_STORAGE_AUTO;
 static struct kui_shell_games_art_key games_art_requested,games_art_running,games_art_published,games_art_done;
 static bool games_art_request_valid,games_art_result_ready,games_art_done_valid;
-/* Background titles for the rows on screen, applied by the UI thread. */
-static struct kui_games_page games_titles_page;
 /* Only the storage worker uses this staging page. Warmup and prefetch run
- * serially; the drawing thread receives the separate games_titles_page copy.
- * Keep cold catalogue creation below the worker's fixed stack budget. */
+ * serially. Keep cold catalogue creation below the worker's fixed stack budget. */
 static struct kui_games_page games_idle_rows;
-static unsigned games_titles_offset;
-static bool games_titles_ready;
 /* Layout changes are coalesced hints, not foreground listing jobs. */
 static struct {unsigned generation,view;bool valid;} games_layout_request,games_layout_running;
 static unsigned games_layout_seen,games_layout_result_generation,games_layout_result_view;
@@ -374,6 +373,35 @@ static struct kui_app_status games_scan_status;
  * cover. A ready result owns staging until main accepts/discards it, so neither
  * an older visible page nor drawing can race the next artwork read. */
 static uint16_t games_cover_pixels[KUI_COVER_PIXELS],games_cover_staging[KUI_COVER_PIXELS];
+/* Compact and Gallery tiles, guarded by lock. The worker writes a slot only
+ * while it is unpublished, then publishes it. Only main unpublishes (when the
+ * slot no longer matches the row and view on screen, or after the worker asks)
+ * and frees, so frames may draw published buffers without the lock. */
+#define GAMES_TILE_BYTES (KUI_COVER_MEDIUM*KUI_COVER_MEDIUM*sizeof(uint16_t))
+static uint16_t *games_tiles[KUI_GAMES_ROWS];
+static struct {char path[KUI_GAMES_FILE_CAP],name[KUI_DEST_NAME_CAP];unsigned view;bool published;}
+    games_tile_info[KUI_GAMES_ROWS];
+static bool games_tiles_changed,games_tiles_invalid;
+/* Main only, lock held. Frames never draw a freed or unpublished tile. */
+static void games_tiles_free_locked(void) {
+    for(unsigned row=0;row<KUI_GAMES_ROWS;row++) {
+        free(games_tiles[row]);games_tiles[row]=NULL;games_tile_info[row].published=false;
+    }
+}
+static void games_tiles_snapshot_locked(struct kui_shell_view *view) {
+    const struct kui_games_page *l=&shell.games_listing;
+    unsigned shown=kui_shell_games_view(&shell);
+    for(unsigned row=0;row<KUI_GAMES_ROWS;row++) {
+        view->game_tile_covers[row]=NULL;
+        if(!games_tile_info[row].published) continue;
+        bool match=!games_tiles_invalid && games_tiles[row] && row<l->count && l->view==shown &&
+            games_tile_info[row].view==shown && !strcmp(games_tile_info[row].path,l->entries[row].path) &&
+            !strcmp(games_tile_info[row].name,l->entries[row].name);
+        if(match) view->game_tile_covers[row]=games_tiles[row];
+        else games_tile_info[row].published=false;
+    }
+    games_tiles_invalid=false;
+}
 static uint16_t games_detail_cover[KUI_COVER_PIXELS];
 /* File Manager: requests copied from the shell when a job is queued, and
  * results the main loop installs by generation. files_status is the live
@@ -726,10 +754,17 @@ static void game_launch_settings_save(void) {
     game_launch_settings_publish_save(path,game_launch_settings_write(path,&value));
 }
 /* Independent system preferences: capture choices stay in the ripper record. */
+/* Requires lock. A snapshot showing the newest song step applied by the
+ * audio service ends that request; anything else leaves it to the worker. */
+static void music_snapshot_store(const struct kui_music_status *status) {
+    music_snapshot=*status;
+    if(music_requested>=0 && status->selected_request==music_request_generation &&
+       status->current_index==(unsigned)music_requested) music_requested=-1;
+}
 static void publish_music(void) {
     struct kui_music_status status;
     kui_music_status_copy(&status);
-    mutex_lock(&lock); music_snapshot=status; mutex_unlock(&lock);
+    mutex_lock(&lock); music_snapshot_store(&status); mutex_unlock(&lock);
 }
 /* Routine UI publication must not wait for Ogg decoding or a G2 stream
  * transfer. Those run under audio_lock; controls still take fresh snapshots
@@ -737,7 +772,7 @@ static void publish_music(void) {
 static void publish_music_if_ready(void) {
     struct kui_music_status status;
     if(!kui_music_status_try_copy(&status)) return;
-    mutex_lock(&lock);music_snapshot=status;mutex_unlock(&lock);
+    mutex_lock(&lock);music_snapshot_store(&status);mutex_unlock(&lock);
 }
 static void disc_launch_release_menu_memory(void) {
     struct kui_music_status status;
@@ -792,6 +827,23 @@ static int next_after_missing(unsigned wanted) {
     unsigned next=kui_music_next_index(wanted,1);
     return next<KUI_MUSIC_TRACKS && !(status.missing_mask>>next&1u)?(int)next:-1;
 }
+/* Read a song through the Games storage session when it is open, so a
+ * preload does not unmount the card under Games browsing; otherwise the music
+ * service connects, mounts and releases the card itself, as before. */
+static bool music_cache(unsigned index) {
+    if(kui_games_storage_active() && kui_games_storage_open(kui_log)==KUI_GAMES_STORAGE_OK) {
+        bool ok=kui_music_cache_menu_mounted(index,music_preload_cancelled);
+        if(!ok && !music_preload_cancelled()) {
+            /* Only a missing file is explained; after any other failure the
+             * next Games job starts from a fresh connection. */
+            struct kui_music_status status;kui_music_status_copy(&status);
+            if(!(status.missing_mask>>index&1u)) (void)kui_games_storage_release();
+        }
+        return ok;
+    }
+    (void)kui_games_storage_release();
+    return kui_music_cache_menu(index,music_preload_cancelled);
+}
 static void music_idle_work(void) {
     if(kui_cd_audio_owns_drive() || music_preload_cancelled()) return;
     struct kui_music_status status;
@@ -801,8 +853,7 @@ static void music_idle_work(void) {
     unsigned generation=music_request_generation;
     mutex_unlock(&lock);
     if(wanted>=0) {
-        (void)kui_games_storage_release();
-        bool ok=kui_music_cache_menu((unsigned)wanted,music_preload_cancelled);
+        bool ok=music_cache((unsigned)wanted);
         if(!music_preload_cancelled()) {
             mutex_lock(&lock);
             bool current=generation==music_request_generation;
@@ -819,29 +870,28 @@ static void music_idle_work(void) {
         for(unsigned index=0;index<KUI_MUSIC_TRACKS;index++) {
             unsigned bit=1u<<index;
             if((status.cached_mask|music_cache_attempted)&bit) continue;
-            (void)kui_games_storage_release();
-            bool ok=kui_music_cache_menu(index,music_preload_cancelled);
+            bool ok=music_cache(index);
             if(ok || !music_preload_cancelled()) music_cache_attempted|=bit;
             break;
         }
     }
     publish_music();
 }
-/* Trigger controls never touch the card. An uncached selection waits for idle
- * storage ownership; newer trigger presses replace that pending request. */
+/* Trigger controls never touch the card and never wait for the audio thread,
+ * which may be decoding. A cached song is selected by the audio service at its
+ * next poll; an uncached one waits for idle storage ownership. Steps continue
+ * from the newest request, which newer presses replace. */
 static void music_step(int direction) {
     mutex_lock(&lock);
     unsigned index=music_requested>=0?(unsigned)music_requested:music_snapshot.current_index;
-    unsigned wanted=kui_music_next_index(index,direction);
+    unsigned wanted=kui_music_next_index_in(&music_snapshot,index,direction);
     music_requested=(int)wanted;
     unsigned generation=++music_request_generation;
+    if(!generation) generation=++music_request_generation;
+    bool cached=music_snapshot.cached_mask>>wanted&1u;
     mutex_unlock(&lock);
-    if(kui_music_select_cached(wanted)) {
-        mutex_lock(&lock);
-        if(generation==music_request_generation) music_requested=-1;
-        mutex_unlock(&lock);
-    }
-    publish_music();
+    if(cached) kui_music_request_select(wanted,generation);
+    publish_music_if_ready();
 }
 static void system_operation(bool save) {
     static bool scan_log_shown;
@@ -2554,11 +2604,14 @@ static bool games_page(enum kui_shell_page page) {
         page==KUI_SHELL_GAMES_VMU_CARD || page==KUI_SHELL_GAMES_QUERY ||
         page==KUI_SHELL_GAMES_EDIT || page==KUI_SHELL_GAME_PROFILE || page==KUI_SHELL_VMU_HISTORY;
 }
-/* Background preparation of the Games page on screen: its rows' titles, then
- * their box art at the view's size, then the folders and titles of the pages
- * either side, nearest first. One step per idle pass; input, an art request
- * or an action stops it, and it resumes at the same step. */
-#define GAMES_PREFETCH_DONE 6u
+/* Background preparation of the Games page on screen: the box art of its rows
+ * at the view's size. Rows come from the saved catalogue, which already holds
+ * every title and needs no folder resolution, so no title records are read
+ * here (the selected row still refreshes its title from its cover record).
+ * One step per idle pass; input, an art request or an action stops it, and it
+ * resumes at the same step. */
+#define GAMES_PREFETCH_ART 1u
+#define GAMES_PREFETCH_DONE 2u
 static bool games_query_same(const struct kui_games_query *a,const struct kui_games_query *b) {
     return a->activity==b->activity && a->region==b->region && a->disc==b->disc && !strcmp(a->text,b->text);
 }
@@ -2571,7 +2624,7 @@ static void games_cache_invalidate(void) {
     kui_games_cache_clear();kui_games_library_clear();kui_games_covers_cache_clear();games_warm_done=false;
     games_prefetch_reset();
     mutex_lock(&lock);
-    games_art_done_valid=false;games_art_result_ready=false;games_titles_ready=false;
+    games_art_done_valid=false;games_art_result_ready=false;games_tiles_invalid=true;
     mutex_unlock(&lock);
 }
 static void games_storage_observe(void) {
@@ -3138,14 +3191,10 @@ static bool games_flow_idle_work(void) {
     mutex_unlock(&lock);
     if(!wanted)return false;
     kui_sd_set_params(KUI_STORAGE_AUTO,true);
+    /* Catalogue rows already carry their titles; no title records are read. */
     bool ok=page<=UINT_MAX/KUI_GAMES_ROWS &&
         kui_games_library_rows_query(games_flow_request.root,games_flow_request.group,page*KUI_GAMES_ROWS,
             KUI_GAMES_VIEW_FLOW,&games_flow_request.query,&games_flow_rows,kui_log,games_flow_cancelled);
-    if(ok && !games_flow_cancelled()) {
-        (void)kui_games_prefetch_titles(&games_flow_rows,kui_log,games_flow_cancelled);
-        ok=kui_games_library_rows_query(games_flow_request.root,games_flow_request.group,page*KUI_GAMES_ROWS,
-            KUI_GAMES_VIEW_FLOW,&games_flow_request.query,&games_flow_rows,kui_log,games_flow_cancelled);
-    }
     mutex_lock(&lock);
     if(games_flow_current() && !busy && !pending && !cancel_requested && !games_cache_clear_pending &&
        !video_preview && !sci_video_quiet.requested && !boot_ready && !probe_launch_ready) {
@@ -3184,6 +3233,30 @@ static bool games_prefetch_rows(unsigned offset,struct kui_games_page *rows) {
     if(!games_prefetch_cancelled()) games_prefetch.step=GAMES_PREFETCH_DONE;
     return false;
 }
+/* Worker only. True when the row's tile is published or not needed. */
+static bool games_tile_publish(unsigned row,const struct kui_games_entry *entry,unsigned view,enum kui_cover_size size) {
+    if(row>=KUI_GAMES_ROWS || (view!=KUI_GAMES_VIEW_COMPACT && view!=KUI_GAMES_VIEW_GALLERY) ||
+       size!=kui_games_view_size(view)) return true;
+    unsigned edge=kui_cover_edge(size);
+    bool done=false;
+    mutex_lock(&lock);
+    if(!games_prefetch_current() || games_tiles_invalid) done=true; /* Nothing to show now. */
+    else if(games_tile_info[row].published) {
+        done=games_tile_info[row].view==view && !strcmp(games_tile_info[row].path,entry->path) &&
+            !strcmp(games_tile_info[row].name,entry->name);
+    } else {
+        if(!games_tiles[row]) games_tiles[row]=malloc(GAMES_TILE_BYTES);
+        if(games_tiles[row]) {
+            memcpy(games_tiles[row],games_prefetch_pixels,(size_t)edge*edge*sizeof(uint16_t));
+            snprintf(games_tile_info[row].path,sizeof(games_tile_info[row].path),"%s",entry->path);
+            snprintf(games_tile_info[row].name,sizeof(games_tile_info[row].name),"%s",entry->name);
+            games_tile_info[row].view=view;games_tile_info[row].published=true;games_tiles_changed=true;
+        }
+        done=true; /* Allocation failure leaves the placeholder. */
+    }
+    mutex_unlock(&lock);
+    return done;
+}
 static bool games_prefetch_idle_work(void) {
     if(kui_cd_audio_owns_drive() || games_idle_cancelled()) return false;
     mutex_lock(&lock);
@@ -3202,41 +3275,26 @@ static bool games_prefetch_idle_work(void) {
         games_prefetch.step=0;games_prefetch.valid=true;
     }
     bool wanted=showing && games_prefetch_current() && games_prefetch.step<GAMES_PREFETCH_DONE;
-    unsigned total=shell.games_listing.total;bool more=shell.games_listing.has_more;
     mutex_unlock(&lock);
     if(!wanted) return false;
     kui_sd_set_params(KUI_STORAGE_AUTO,true);
     const unsigned page=games_prefetch.page,view=games_prefetch.view,offset=page*KUI_GAMES_ROWS;
     struct kui_games_page *rows=&games_idle_rows;
-    if(games_prefetch.step==0) {
-        /* Titles of the rows on screen, from record headers alone. */
-        if(!games_prefetch_rows(offset,rows)) return true;
-        (void)kui_games_prefetch_titles(rows,kui_log,games_prefetch_cancelled);
-        if(games_prefetch_cancelled() || !games_prefetch_rows(offset,rows)) return true;
-        mutex_lock(&lock);
-        games_titles_page=*rows;games_titles_offset=offset;games_titles_ready=true;
-        mutex_unlock(&lock);
-        games_prefetch.step=1;return true;
+    if(games_prefetch.step<GAMES_PREFETCH_ART) games_prefetch.step=GAMES_PREFETCH_ART;
+    /* Box art of every row on screen, so moving the selection shows it, and
+     * Compact/Gallery tiles for every row. A slot still holding the previous
+     * page's tile is retried on a later pass, served from the cover cache. */
+    if(!games_prefetch_rows(offset,rows)) return true;
+    bool tiles_done=true;
+    for(unsigned row=0;row<rows->count;row++) {
+        struct kui_games_cover_result result;
+        (void)kui_games_selected_cover(&rows->entries[row],kui_games_view_size(view),
+            games_prefetch_pixels,&result,kui_log,games_prefetch_cancelled);
+        if(games_prefetch_cancelled()) return true;
+        if(result.cover && !result.stopped && !games_tile_publish(row,&rows->entries[row],view,result.size))
+            tiles_done=false;
     }
-    if(games_prefetch.step==1) {
-        /* Box art of every row on screen, so moving the selection shows it. */
-        if(!games_prefetch_rows(offset,rows)) return true;
-        for(unsigned row=0;row<rows->count;row++) {
-            struct kui_games_cover_result result;
-            (void)kui_games_selected_cover(&rows->entries[row],kui_games_view_size(view),
-                games_prefetch_pixels,&result,kui_log,games_prefetch_cancelled);
-            if(games_prefetch_cancelled()) return true;
-        }
-        games_prefetch.step=2;return true;
-    }
-    /* Pages either side, nearest first: resolve their folders, read titles. */
-    static const int near[4]={1,-1,2,-2};
-    int target=(int)page+near[games_prefetch.step-2u];
-    if(target<0 || (target>(int)page && !more) ||
-       (total && (unsigned)target*KUI_GAMES_ROWS>=total)) {++games_prefetch.step;return true;}
-    if(!games_prefetch_rows((unsigned)target*KUI_GAMES_ROWS,rows)) return true;
-    (void)kui_games_prefetch_titles(rows,kui_log,games_prefetch_cancelled);
-    if(!games_prefetch_cancelled()) ++games_prefetch.step;
+    if(tiles_done) games_prefetch.step=GAMES_PREFETCH_DONE;
     return true;
 }
 static void games_warm_idle_work(void) {
@@ -3337,6 +3395,44 @@ static void update_restart_operation(void) {
     mutex_lock(&lock);music_cache_attempted=0;
     (void)kui_menu_sound_init();kui_menu_sound_config(system_current.menu_sounds,system_current.music_volume);
     mutex_unlock(&lock);publish_music();
+}
+#endif
+#ifdef KUI_SD_RUNTIME
+/* Letter group of a row: the same '#'/A-Z bucket as the letter jump picker. */
+static unsigned games_letter_group(const struct kui_games_entry *e) {
+    char c=kui_games_query_letter(e->title,e->name);
+    return c>='A' && c<='Z'?(unsigned)(c-'A')+1u:0u;
+}
+/* Worker only, over the in-RAM catalogue. Forward: the first row after
+ * `from` in another letter group. Backward: the start of from's group, or of
+ * the previous group when `from` already starts one. False at either end. */
+static bool games_letter_step(const char *root,const char *group,const struct kui_games_query *query,
+    unsigned from,bool forward,unsigned *out,kui_cancel_fn cancel) {
+    struct kui_games_page *page=malloc(sizeof(*page));
+    if(!page) return false;
+    bool found=false,have_from=false;
+    unsigned from_group=0u,run_start=0u,previous_start=0u,run_group=0u;bool have_run=false,have_previous=false;
+    /* Forward needs no earlier rows; backward may need the previous group. */
+    for(unsigned at=forward?from/KUI_GAMES_ROWS*KUI_GAMES_ROWS:0u;at<=UINT_MAX-KUI_GAMES_ROWS && !found;at+=KUI_GAMES_ROWS) {
+        if(!kui_games_library_rows_query(root,group,at,KUI_GAMES_VIEW_SAVED,query,page,kui_log,cancel)) break;
+        for(unsigned i=0;i<page->count && !found;i++) {
+            unsigned index=at+i,g=games_letter_group(&page->entries[i]);
+            if(!have_run || g!=run_group) {
+                if(have_run) {previous_start=run_start;have_previous=true;}
+                run_start=index;run_group=g;have_run=true;
+            }
+            if(index==from) {have_from=true;from_group=g;
+                if(!forward) {
+                    if(run_start!=from) {*out=run_start;found=true;}
+                    else if(have_previous) {*out=previous_start;found=true;}
+                    else break;
+                }
+            } else if(forward && have_from && index>from && g!=from_group) {*out=index;found=true;}
+        }
+        if(!found && (!page->has_more || (!forward && have_from))) break;
+    }
+    free(page);
+    return found;
 }
 #endif
 static void *worker(void *unused) {
@@ -3896,8 +3992,14 @@ static void *worker(void *unused) {
                 kui_cancel_fn list_cancel=stopped_scan && kui_games_library_ready(games_path_pending)?NULL:kui_cancelled;
                 if(action==114u) {
                     unsigned found=0u;restore=true;offset=selected=0u;
-                    if(kui_games_library_jump_query(games_path_pending,games_group_pending,games_jump_pending,
-                       &games_query_pending,&found,kui_log,list_cancel)) {
+                    bool hit=games_jump_step_pending?
+                        games_letter_step(games_path_pending,games_group_pending,&games_query_pending,
+                            games_jump_from_pending,games_jump_step_pending>0,&found,list_cancel):
+                        kui_games_library_jump_query(games_path_pending,games_group_pending,games_jump_pending,
+                            &games_query_pending,&found,kui_log,list_cancel);
+                    /* A step past the first or last group keeps the row on screen. */
+                    if(!hit && games_jump_step_pending) found=games_jump_from_pending;
+                    if(hit || games_jump_step_pending) {
                         offset=found/KUI_GAMES_ROWS*KUI_GAMES_ROWS;selected=found%KUI_GAMES_ROWS;
                     }
                 }
@@ -4511,7 +4613,45 @@ static void *worker(void *unused) {
     return NULL;
 }
 
+#ifdef KUI_SD_RUNTIME
+/* vid_waitvbl() busy-waits on the PVR status register for up to a whole
+ * frame, taking that CPU from the I/O worker on this one-CPU machine. The
+ * vertical-blank interrupt wakes the drawing thread instead; if no handler
+ * could be registered, or no interrupt arrives in time, the original wait
+ * is used. Only the drawing thread waits here. */
+static volatile unsigned vblank_seen;
+static int vblank_handle=-1;
+static void vblank_wake(uint32_t code,void *data) {
+    (void)code;(void)data;
+    ++vblank_seen;genwait_wake_all((const void *)&vblank_seen);
+}
+static bool vblank_registration_tried;
+static void wait_vblank(void) {
+    /* Registered on first use, so startup order is unchanged. */
+    if(!vblank_registration_tried) {
+        vblank_registration_tried=true;vblank_handle=vblank_handler_add(vblank_wake,NULL);
+    }
+    if(vblank_handle<0) {vid_waitvbl();return;}
+    irq_mask_t irq=irq_disable();
+    unsigned start=vblank_seen;
+    bool woken=true;
+    /* Interrupts stay masked from the check until this thread sleeps, so a
+     * vertical blank cannot slip between them. genwait restores them while
+     * blocked. 34 ms covers one 50 Hz frame plus scheduling slack. */
+    while(vblank_seen==start && woken) woken=genwait_wait((void *)&vblank_seen,"kui-vblank",34)==0;
+    irq_restore(irq);
+    if(!woken) vid_waitvbl();
+}
+#endif
+
 #ifndef KUI_SD_RUNTIME
+/* Boot frames are painted in cached RAM and reach the back buffer in one
+ * store-queue copy. Painting VRAM pixel by pixel made every repaint several
+ * times slower, including those made from the loader's cancel callback while
+ * an image is read. Without the 600 KiB canvas, VRAM is painted directly as
+ * before. Frame order, flips and vertical-blank waits are unchanged. */
+static uint16_t *boot_canvas;
+static bool boot_canvas_tried;
 static void draw_boot(void) {
     /* Keep the displayed frame until something visible changes. In particular,
      * reading another 32 KiB must not copy/dim 600 KiB of VRAM and wait for
@@ -4551,8 +4691,16 @@ static void draw_boot(void) {
         !strcmp(status,last_status) && !memcmp(visible,last_lines,sizeof(visible));
     if(same) return;
     uint64_t started=timer_us_gettime64();
-    kui_boot_ui_draw(vram_s,&boot_ui,&view);
-    vid_waitvbl();vid_flip(-1);
+    if(!boot_canvas_tried) {
+        boot_canvas_tried=true;boot_canvas=aligned_alloc(32u,640u*480u*sizeof(*boot_canvas));
+    }
+    kui_boot_ui_draw(boot_canvas?boot_canvas:vram_s,&boot_ui,&view);
+    if(boot_canvas) {sq_cpy(vram_s,boot_canvas,640u*480u*sizeof(*boot_canvas));sq_wait();}
+    /* A busy repaint runs on the loader's thread between reads. It changes
+     * only status/log text, so it flips without idling for vertical blank;
+     * at most a status line can tear for one refresh. Idle frames wait. */
+    if(!view.busy) vid_waitvbl();
+    vid_flip(-1);
     boot_draw_us+=timer_us_gettime64()-started;++boot_draw_count;
     boot_last_draw=timer_ms_gettime64();
     last_ui=boot_ui;
@@ -4565,19 +4713,68 @@ static void draw_boot(void) {
 #endif
 
 #ifdef KUI_SD_RUNTIME
-static void draw_shell(void) {
+/* Idle frames repaint only when what they show changes (see ui_rate.h). The
+ * fingerprint covers the reducer state, every value copied into the view and
+ * a sparse sample of the published pixel buffers, whose contents change
+ * together with the reducer state that selects them. */
+typedef uint32_t __attribute__((may_alias)) shell_word;
+static uint32_t shell_frame_fingerprint;
+static bool shell_frame_fingerprint_valid;
+static uint64_t shell_frame_drawn_at;
+static void fingerprint_pixels(struct kui_ui_fingerprint *f,const uint16_t *pixels,size_t count) {
+    if(!pixels) {kui_ui_fingerprint_text(f,NULL);return;}
+    for(size_t i=0;i<count;i+=97u) {uint32_t value=pixels[i];kui_ui_fingerprint_words(f,&value,1);}
+}
+static uint32_t shell_view_fingerprint(const struct kui_shell_view *v,const char *notice,unsigned inset) {
+    struct kui_ui_fingerprint f;kui_ui_fingerprint_init(&f);
+    kui_ui_fingerprint_words(&f,(const shell_word *)(const void *)&shell,sizeof(shell)/sizeof(shell_word));
+    kui_ui_fingerprint_bytes(&f,(const unsigned char *)&shell+sizeof(shell)/sizeof(shell_word)*sizeof(shell_word),
+        sizeof(shell)%sizeof(shell_word));
+    struct kui_shell_view scalars=*v;
+    scalars.build=scalars.job_dir=scalars.message=scalars.settings_notice=NULL;
+    scalars.disc_title=scalars.inserted_title=scalars.gdi_name=NULL;
+    scalars.music_title=scalars.music_notice=scalars.storage_test_target=NULL;
+    scalars.app_status=NULL;scalars.log_lines=NULL;scalars.game_covers=NULL;
+    scalars.game_selected_cover=scalars.game_detail_cover=scalars.files_picture=NULL;
+    scalars.ftp=NULL;scalars.storage_test_progress=NULL;
+    /* Elapsed-time fields advance every millisecond; only whole seconds can
+     * change what is drawn. */
+    scalars.phase_elapsed_ms/=1000u;scalars.progress_age_ms/=1000u;
+    kui_ui_fingerprint_bytes(&f,&scalars,sizeof(scalars));
+    const char *const texts[]={v->build,v->job_dir,v->message,v->settings_notice,v->disc_title,
+        v->inserted_title,v->gdi_name,v->music_title,v->music_notice,v->storage_test_target,notice};
+    for(unsigned i=0;i<sizeof(texts)/sizeof(texts[0]);i++) kui_ui_fingerprint_text(&f,texts[i]);
+    for(unsigned i=0;v->log_lines && i<v->log_count;i++) kui_ui_fingerprint_text(&f,v->log_lines[i]);
+    if(v->app_status) kui_ui_fingerprint_bytes(&f,v->app_status,sizeof(*v->app_status));
+    if(v->ftp) kui_ui_fingerprint_bytes(&f,v->ftp,sizeof(*v->ftp));
+    if(v->storage_test_progress) kui_ui_fingerprint_bytes(&f,v->storage_test_progress,sizeof(*v->storage_test_progress));
+    fingerprint_pixels(&f,v->game_selected_cover,KUI_COVER_PIXELS);
+    fingerprint_pixels(&f,v->game_detail_cover,KUI_COVER_PIXELS);
+    fingerprint_pixels(&f,v->files_picture,(size_t)KUI_FILES_PICTURE_EDGE*KUI_FILES_PICTURE_EDGE);
+    for(unsigned row=0;row<KUI_GAMES_ROWS;row++)
+        fingerprint_pixels(&f,v->game_tile_covers[row],(size_t)KUI_COVER_SMALL*KUI_COVER_SMALL);
+    uint32_t inset_word=inset;kui_ui_fingerprint_words(&f,&inset_word,1);
+    return kui_ui_fingerprint_value(&f);
+}
+/* Returns whether a frame was painted. `force` repaints regardless: input,
+ * published results, busy edges and motion. Busy screens keep their existing
+ * redraw caps unchanged; only idle frames can be skipped. */
+static bool draw_shell_frame(bool force) {
     mutex_lock(&lock);
-    if(!kui_sci_video_quiet_draw_begin(&sci_video_quiet)) {mutex_unlock(&lock);return;}
+    if(!kui_sci_video_quiet_draw_begin(&sci_video_quiet)) {mutex_unlock(&lock);return false;}
     bool startup=splash_active;
     bool working=busy || boot_ready || probe_launch_ready || update_restart_ready;
+    if(sci_video_quiet.requested && !sci_video_quiet.acknowledged) force=true;
     mutex_unlock(&lock);
     uint16_t *frame=shell_frame_prepare(working);
     if(startup) {
+        /* The original startup splash lifecycle is unchanged. */
         kui_splash_draw(frame?frame:vram_s);
         if(frame) {sq_cpy(vram_s,frame,640u*480u*sizeof(*frame));sq_wait();}
-        shell_frame_ready=frame!=NULL;
-        vid_waitvbl();vid_flip(-1);return;
+        shell_frame_ready=frame!=NULL;shell_frame_fingerprint_valid=false;
+        vid_waitvbl();vid_flip(-1);return true;
     }
+    kui_splash_release(); /* The splash has ended: free its inflated copy (no-op later). */
     char visible[KUI_SHELL_LOG_ROWS][LINE_BYTES] = {{0}};
     const char *log_rows[KUI_SHELL_LOG_ROWS];
     char path[KUI_DEST_JOB_CAP], notice[128], title[129], gdi[KUI_DEST_TITLE_CAP+5u];
@@ -4680,17 +4877,30 @@ static void draw_shell(void) {
     view.done = capture_status.done; view.total = capture_status.total;
     view.committed = capture_status.committed; view.elapsed_ms = capture_status.elapsed_ms;
     if(shell.page==KUI_SHELL_FTP && ftp_seen) {ftp_view=ftp_status;view.ftp=&ftp_view;}
+    games_tiles_snapshot_locked(&view);
     unsigned screen_inset=system_current.screen_inset*16u;
     char capture_notice[sizeof(screenshot_notice)]={0};
     if(now<screenshot_notice_until)snprintf(capture_notice,sizeof(capture_notice),"%s",screenshot_notice);
     mutex_unlock(&lock);
     view.memory_valid = memory_valid; view.memory_used = memory_status.used;
     view.memory_physical = memory_status.physical; view.memory_peak = memory_status.sampled_peak;
+    uint32_t fingerprint=0;
+    if(!working && frame) {
+        fingerprint=shell_view_fingerprint(&view,capture_notice,screen_inset);
+        if(kui_ui_frame_unchanged(force,shell_frame_ready,shell_frame_fingerprint_valid,
+           shell_frame_fingerprint,fingerprint,now,shell_frame_drawn_at)) {
+            /* The displayed buffer already shows this state; nothing is flipped. */
+            mutex_lock(&lock);kui_sci_video_quiet_draw_skipped(&sci_video_quiet);mutex_unlock(&lock);
+            return false;
+        }
+    }
     /* DM_MULTIBUFFER/vid_flip leave vram_s on the next offscreen buffer.
      * Complete the cached frame before its one sequential store-queue upload;
      * sq_wait drains the upload before the buffer can become visible. */
     if(frame) {
-        for(unsigned i=0;i<640u*480u;i++) frame[i]=UINT16_C(0x0864);
+        /* Two pixels per store; the canvas is 32-byte aligned. */
+        shell_word *words=(shell_word *)(void *)frame;
+        for(unsigned i=0;i<640u*480u/2u;i++) words[i]=UINT32_C(0x08640864);
     } else vid_clear(8,15,35); /* Busy handoff or allocation failure: old path. */
     kui_shell_draw_content(frame?frame:vram_s, &shell, &view, NULL, NULL);
     kui_viewport_inset(frame?frame:vram_s,640,480,screen_inset,0x0864);
@@ -4703,8 +4913,13 @@ static void draw_shell(void) {
             for(unsigned x=32u+screen_inset;x<608u-screen_inset;++x)vram_s[y*640u+x]=0x0864;
         kui_shell_font_draw(vram_s,40+(int)screen_inset,410,0xffff,capture_notice,false);
     }
-    vid_waitvbl(); vid_flip(-1);
+    shell_frame_fingerprint=fingerprint;shell_frame_fingerprint_valid=!working && frame;
+    shell_frame_drawn_at=now;
+    wait_vblank(); vid_flip(-1);
+    return true;
 }
+/* Startup and fatal paths always paint, exactly as before. */
+static void draw_shell(void) {(void)draw_shell_frame(true);}
 static unsigned shell_buttons(unsigned buttons) {
     unsigned mapped = 0;
     if(buttons & CONT_DPAD_UP) mapped |= KUI_SHELL_UP;
@@ -5266,16 +5481,13 @@ int main(void) {
             kui_shell_set_games_selection(&shell,&games_selection_loaded);
             seen_games_selection=games_selection_generation;
         }
+        if(games_tiles_changed) {games_tiles_changed=false;games_ui_changed=true;}
         if(games_art_result_ready) {
             if(kui_shell_set_games_art(&shell,&games_art_published,&games_art_result)) {
                 if(games_art_result.cover) memcpy(games_cover_pixels,games_cover_staging,sizeof(games_cover_pixels));
                 games_ui_changed=true;
             }
             games_art_result_ready=false;
-        }
-        if(games_titles_ready) {
-            if(kui_shell_set_games_titles(&shell,&games_titles_page,games_titles_offset)) games_ui_changed=true;
-            games_titles_ready=false;
         }
         if(games_layout_result_ready) {
             if(kui_shell_set_games_layout_saved(&shell,games_layout_result_generation,games_layout_result_view,
@@ -5323,6 +5535,9 @@ int main(void) {
             kui_shell_set_games_detail(&shell,&games_detail);
             kui_shell_set_game_launch_settings(&shell,games_detail.path,
                 games_detail_launch_found?&games_detail_launch_settings:NULL,games_detail_launch_loaded);
+            /* Opened from the list and launch-ready: continue to the launch
+             * screen exactly as the details page's A does. */
+            if(kui_shell_games_detail_arrived(&shell)==KUI_SHELL_VMU_GAME_INFO && !busy) vmu_game_info_request_start();
             seen_games_detail=games_detail_generation;
             games_ui_changed=true;
         }
@@ -5727,6 +5942,7 @@ int main(void) {
                 games_filter_pending=shell.games_filter;
                 games_query_pending=shell.games_query;games_query_pending.activity=shell.games_filter;
                 games_jump_pending=shell.games_jump;
+                games_jump_step_pending=shell.games_jump_step;games_jump_from_pending=shell.games_jump_from;
             }
             if(action==54 || action==109 || action==114) {
                 games_refresh_pending=shell.games_refresh;games_rebuild_pending=shell.games_rebuild;
@@ -5993,6 +6209,9 @@ int main(void) {
         bool menu_drew=false;
         bool due = kui_ui_menu_flow_redraw_due(flow_motion,is_busy,was_busy,hz,
             pressed || games_ui_changed,t,last_draw);
+        /* An unchanged idle screen is checked at this cadence but repainted
+         * only for these events, a changed view or the 1 s refresh. */
+        bool force_draw = pressed || games_ui_changed || flow_motion || is_busy!=was_busy;
 #else
         bool due = kui_ui_redraw_due(is_busy,was_busy,hz,t,last_draw);
 #endif
@@ -6006,8 +6225,7 @@ int main(void) {
 #endif
         if(due) {
 #ifdef KUI_SD_RUNTIME
-            draw_shell();
-            menu_drew=true;
+            menu_drew=draw_shell_frame(force_draw);
             if(quiet_pending) {
                 /* This is the sole drawing thread. Complete every store queue
                  * write from this and prior frames before releasing the worker.

@@ -183,7 +183,8 @@ def record_fixture(slug='ps2'):
     values={8:1,12:1024,16:cache.DETECTOR_EPOCH,20:1,24:1024,28:0x8c010000,
         64:1,68:104,72:1,76:1024,80:0x8c010000,84:7,132:12,
         168:1,172:440,192:1,404:12,608:1,612:72,616:1,620:1,
-        624:1024,628:0x8c010000,700:2,704:52,708:1,712:0x8c010000,716:1024,720:3}
+        624:1024,628:0x8c010000,636:0x8c010100,
+        700:2,704:52,708:1,712:0x8c010000,716:1024,720:3}
     for offset,value in values.items():struct.pack_into('<I',wire,offset,value)
     wire[32:64]=hashlib.sha256(('synthetic '+slug).encode()).digest();wire[136:168]=wire[32:64]
     wire[992:]=hashlib.sha256(wire[:992]).digest()
@@ -366,7 +367,11 @@ class NativeRuntimeModePersonalizationTests(NativeCachePersonalizationTests):
         self.manifest.update(module_bytes=len(self.module),module_sha256=tool.sha(self.module),
             runtime_mode_module_offset=self.mode_offset,runtime_mode_bytes=mode.MODE_BYTES,
             runtime_mode_sha256=tool.sha(mode.template_mode()),
-            runtime_mode_choices={name:value for value,name in mode.MODE_NAMES.items()})
+            # The ordinary (non-Background) choice set that check_vmu_native_mode
+            # reports and package_vmu_native_persistent records: normal through
+            # evolution-trace. Reader-only (7) is a Background toggle variant.
+            runtime_mode_choices={name:value for value,name in mode.MODE_NAMES.items()
+                                  if value!=mode.READER_ONLY})
         self.save_package()
 
     def install(self,profile=None,game=None,**options):

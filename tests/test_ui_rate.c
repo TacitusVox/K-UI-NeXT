@@ -180,7 +180,50 @@ static void menu_navigation_edges(void) {
     assert(!kui_ui_navigation_repeat(0,0,&held,&repeat_at,9999));
 }
 
+/* Idle menus repaint only when what they show changes, plus a 1 s refresh. */
+static void idle_repaint_skips(void) {
+    struct kui_ui_fingerprint a,b;
+    uint32_t words[4]={1,2,3,4},swapped[4]={2,1,3,4};
+    kui_ui_fingerprint_init(&a);kui_ui_fingerprint_init(&b);
+    kui_ui_fingerprint_words(&a,words,4);kui_ui_fingerprint_words(&b,words,4);
+    assert(kui_ui_fingerprint_value(&a)==kui_ui_fingerprint_value(&b));
+    kui_ui_fingerprint_init(&b);kui_ui_fingerprint_words(&b,swapped,4);
+    assert(kui_ui_fingerprint_value(&a)!=kui_ui_fingerprint_value(&b));
+    kui_ui_fingerprint_init(&a);kui_ui_fingerprint_init(&b);
+    kui_ui_fingerprint_text(&a,NULL);kui_ui_fingerprint_text(&b,"");
+    assert(kui_ui_fingerprint_value(&a)!=kui_ui_fingerprint_value(&b));
+    kui_ui_fingerprint_init(&a);kui_ui_fingerprint_init(&b);
+    kui_ui_fingerprint_text(&a,"ab");kui_ui_fingerprint_text(&a,"c");
+    kui_ui_fingerprint_text(&b,"a");kui_ui_fingerprint_text(&b,"bc");
+    assert(kui_ui_fingerprint_value(&a)!=kui_ui_fingerprint_value(&b));
+    unsigned char bytes[64]={0};
+    kui_ui_fingerprint_init(&a);kui_ui_fingerprint_bytes(&a,bytes,sizeof(bytes));
+    for(unsigned i=0;i<sizeof(bytes);i++) {
+        bytes[i]=1;kui_ui_fingerprint_init(&b);kui_ui_fingerprint_bytes(&b,bytes,sizeof(bytes));
+        assert(kui_ui_fingerprint_value(&a)!=kui_ui_fingerprint_value(&b));bytes[i]=0;
+    }
+    /* Decision rule. */
+    assert(kui_ui_frame_unchanged(false,true,true,7,7,1500,1000));
+    assert(!kui_ui_frame_unchanged(true,true,true,7,7,1500,1000));    /* input/result */
+    assert(!kui_ui_frame_unchanged(false,false,true,7,7,1500,1000));  /* no cached frame */
+    assert(!kui_ui_frame_unchanged(false,true,false,7,7,1500,1000));  /* first frame */
+    assert(!kui_ui_frame_unchanged(false,true,true,7,8,1500,1000));   /* state changed */
+    assert(!kui_ui_frame_unchanged(false,true,true,7,7,2000,1000));   /* periodic refresh */
+    assert(!kui_ui_frame_unchanged(false,true,true,7,7,999,1000));    /* clock went back */
+    /* Ten idle seconds checked every 33 ms, state changing every 2 s: paint the
+     * changes and the 1 s refreshes, not every check. */
+    unsigned paints=0,checks=0;uint32_t shown=0;uint64_t drawn=0;bool have=false;
+    for(uint64_t t=1000;t<11000;t+=33,++checks) {
+        uint32_t state=(uint32_t)(t/2000);
+        if(!kui_ui_frame_unchanged(false,true,have,shown,state,t,drawn)) {
+            ++paints;shown=state;drawn=t;have=true;
+        }
+    }
+    assert(checks>=300 && paints>=10 && paints<=16);
+}
+
 int main(void) {
+    idle_repaint_skips();
     games_idle_cadence();
     all_menu_input_latency();
     flow_animation_cadence();
@@ -229,6 +272,6 @@ int main(void) {
     assert(draws_in(30, 40) == 0);                              /* 0 Hz: silent, by design */
     assert(draws_in(40, 50) == 250);                            /* restored to full */
 
-    puts("PASS ui rate: modeled all-menu input scheduling <8ms, Games input/redraw cadence, busy caps, idle/full/edges/zero, period, mid-operation rate change, bench sweep");
+    puts("PASS ui rate: idle repaint only on change or 1 s refresh, modeled all-menu input scheduling <8ms, Games input/redraw cadence, busy caps, idle/full/edges/zero, period, mid-operation rate change, bench sweep");
     return 0;
 }

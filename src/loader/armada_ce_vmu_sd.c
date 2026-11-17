@@ -1,4 +1,5 @@
 /* SPDX-License-Identifier: GPL-3.0-only */
+#include "kui/target.h"
 #include "kui/armada_ce_vmu_sd.h"
 #if KUI_ARMADA_CE_VMU_WRITE_RUNTIME || defined(KUI_ARMADA_CE_VMU_SD_TEST)
 #include "kui/retail_image.h"
@@ -13,7 +14,7 @@ static void armada_sd_inc(uint32_t *v) {if(*v!=UINT32_MAX) ++*v;}
 static bool armada_sd_span(const void *p,size_t n) {return p && n<=UINTPTR_MAX-(uintptr_t)p;}
 static bool armada_sd_private(const void *p,size_t n) {
     if(!armada_sd_span(p,n)) return false;
-#if defined(__sh__) && !defined(KUI_ARMADA_CE_VMU_SD_TEST)
+#if defined(KUI_SH_COMPILER) && !defined(KUI_ARMADA_CE_VMU_SD_TEST)
     uintptr_t at=(uintptr_t)p;
     return at>=UINT32_C(0xac010000) && at<=UINT32_C(0xad000000)-n;
 #else

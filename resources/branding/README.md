@@ -1,6 +1,6 @@
 # K-UI launcher assets
 
-These selected TPMJB-created K-UI assets are reused at the maintainer's request
+These selected K-UI assets, created by TacitusVox (formerly TPMJB), are reused at the maintainer's request
 under this repository's GPL-3.0-only terms. The original icon inputs are retained
 byte for byte. The Tyrfing header described below replaces the earlier visor
 header while preserving its K-UI wordmark. This record covers the listed artwork,
@@ -10,29 +10,30 @@ not inherited DreamShell code or other assets in the legacy repository.
 
 The maintainer requested orange retro-futuristic branding for K-UI 2.0 Tyrfing.
 `launcher-brand.png` now combines an original rune-etched sword with the
-existing K-UI wordmark paths and `by TPMJB` credit. Its editable source is shared
+existing K-UI wordmark paths and the maintainer's `github.com/TacitusVox` credit
+(`by TPMJB` until 2026-11-17, briefly `by TacitusVox`). Its editable source is shared
 with the matching [boot-disc badge](boot-disc-badge.md); that record documents
 the exact render transforms, palette, source hashes and regeneration command.
 The 256×128 RGB source retains the existing 128×64 runtime dimensions, navy
 background and fixed RGB565 encoding. Its SHA-256 is
-`e5ebcba15d3990aef7180e66c1850e24947acbf28e1cd1087954c50d16c88039`.
+`26110492a9b4116e2a205ddd149240346a7976cb86b958aae6408e814f029301`.
 The icon sources and runtime UI palette are unchanged.
 
-Source repository: `TPMJB/K-UI_DS` (formerly `DreamShell_NeXT`), revision
-[`2a5309298dde8fb100da1e2e4e10517695c9780f`](https://github.com/TPMJB/K-UI_DS/tree/2a5309298dde8fb100da1e2e4e10517695c9780f).
+Source repository: `TacitusVox/K-UI_DS` (formerly `TPMJB/K-UI_DS`, earlier `DreamShell_NeXT`), revision
+[`2a5309298dde8fb100da1e2e4e10517695c9780f`](https://github.com/TacitusVox/K-UI_DS/tree/2a5309298dde8fb100da1e2e4e10517695c9780f).
 
 ## Origins and exact inputs
 
 The badge was introduced with the original K-UI branding in
-[`7d5b4477a9d4f8ea406c6ec58d590f6eaafa770a`](https://github.com/TPMJB/K-UI_DS/commit/7d5b4477a9d4f8ea406c6ec58d590f6eaafa770a).
-Its [origin record](https://github.com/TPMJB/K-UI_DS/blob/2a5309298dde8fb100da1e2e4e10517695c9780f/resources/branding/README.md)
-identifies artwork created with image-generation assistance for TPMJB. The
+[`7d5b4477a9d4f8ea406c6ec58d590f6eaafa770a`](https://github.com/TacitusVox/K-UI_DS/commit/7d5b4477a9d4f8ea406c6ec58d590f6eaafa770a).
+Its [origin record](https://github.com/TacitusVox/K-UI_DS/blob/2a5309298dde8fb100da1e2e4e10517695c9780f/resources/branding/README.md)
+identifies artwork created with image-generation assistance for TPMJB (now TacitusVox). The
 originally imported `launcher-brand.png` was the 256x128 launcher texture,
 derived from that badge by the legacy `utils/build_kui_artwork.py` conversion
 step. That earlier visor asset remains in Git history.
 
 The original icon SVGs were introduced in
-[`f7fab643c3727a90a739a4d8249a6c184aee1c74`](https://github.com/TPMJB/K-UI_DS/commit/f7fab643c3727a90a739a4d8249a6c184aee1c74)
+[`f7fab643c3727a90a739a4d8249a6c184aee1c74`](https://github.com/TacitusVox/K-UI_DS/commit/f7fab643c3727a90a739a4d8249a6c184aee1c74)
 and recolored in `7d5b4477`. They contain geometric paths/shapes, with no embedded
 third-party artwork. Their original 64x64 PNG renderings are retained alongside
 the SVGs so regeneration needs Pillow only and preserves the original textures.

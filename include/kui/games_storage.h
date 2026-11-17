@@ -31,4 +31,12 @@ bool kui_games_storage_release(void);
 bool kui_games_storage_active(void);
 /* Jobs finished on an open session, so the worker can time an idle one out. */
 unsigned kui_games_storage_jobs(void);
+/* Cover and title lookups search the flat KUI/covers folder; FatFs rereads
+ * its directory sectors from the card on every open. Between these two calls
+ * the open session memoizes single-sector reads (kui_media_read_cache_*),
+ * keeping them across lookups only while the card is unchanged. Call only
+ * around those read-only lookups, never around image inspection or
+ * verification. Releasing the session discards and frees the sectors. */
+void kui_games_storage_lookup_begin(void);
+void kui_games_storage_lookup_end(void);
 #endif

@@ -4,7 +4,6 @@
 #include "kui/boot_image.h"
 #include "kui/media.h"
 #include <arch/exec.h>
-#include <kos/thread.h>
 #include <kos/timer.h>
 #include <inttypes.h>
 #include <stdlib.h>
@@ -87,8 +86,8 @@ static enum kui_runtime_result bootstrap_load(unsigned transport_filter,
         return KUI_RUNTIME_ADDRESS_ERROR;
     }
     kui_log("Image validated. Starting %s build %s",kui_storage_name(chosen_transport),image.info.build);
-    if(cancelled()) { kui_runtime_free(&image); return KUI_RUNTIME_CANCELLED; }
-    thd_sleep(250);
+    /* Hand over at once: the fixed 250 ms pause before this only delayed
+     * every launch. B still cancels until this last check. */
     if(cancelled()) { kui_runtime_free(&image); return KUI_RUNTIME_CANCELLED; }
     arch_exec(image.data, image.info.payload_bytes);
 }

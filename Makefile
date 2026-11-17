@@ -50,6 +50,13 @@ test-smash-ce-gin:
 test-updater-source-preservation:
 	python3 -c "import sys; sys.path.insert(0,'tools'); import update_addon as a; r=a.check_sources(a.source_state()); print('PASS updater-only main source preservation:',len(r['checked_paths']),'protected paths')"
 
+# Boot-disc builder: copy table, scrambling, input/layout guards, and a real
+# CDI read back through the stage-1 loader when mkdcdisc and stage 1 are built.
+.PHONY: test-boot-disc
+test-boot-disc:
+	CC="$(CC)" python3 -B tests/test_boot_disc.py
+test: test-boot-disc
+
 .PHONY: test-runtime-module-bundle-make test-ce-gd-completion-lifecycle
 test-runtime-module-bundle-make:
 	@mkdir -p build/shared-loader-audit
@@ -126,6 +133,16 @@ test-wce-probe:
 	HOST_CC="$(CC)" python3 tests/test_wce_probe_end_to_end.py
 	python3 tests/test_wce_probe_mine.py
 test: test-wce-probe
+# test_vmu_image_subset_tool.py and test_prepare_toy_card.py run the offline
+# host adapter (build/vmu-subset-tool/vmu-image-subset). Build it before the
+# Python discovery; Makefile.vmu-subset-tool stays its only recipe.
+.PHONY: vmu-subset-tool
+vmu-subset-tool:
+	$(MAKE) -f Makefile.vmu-subset-tool
+test: vmu-subset-tool
+# test_vmu_read_recovery.py runs build/test-vmu-app when the discovery imports
+# it; "make test" alone, or before test-images, must build it too.
+test: build/test-vmu-app
 
 .PHONY: test-updater
 test-updater: test-runtime-module-bundle-make
@@ -300,7 +317,10 @@ ARMADA_PREPARE_TEST_SOURCES += $(NATIVE_CACHE_SOURCES)
 # retain its real optional-session boundary even for ordinary CE packages.
 ARMADA_PREPARE_TEST_SOURCES += src/apps/native_session_prepare.c src/core/native_session.c \
     src/core/native_return.c src/core/storage_policy.c src/core/runtime_image.c
-build/test-games-native-cache: tests/test_games_native_cache.c tests/test_vmu_native_resolution_cache.c src/apps/games_native_cache.inc $(NATIVE_CACHE_SOURCES) src/core/hash.c src/core/data.c
+build/test-sha256-prefix: tests/test_sha256_prefix.c include/kui/sha256_prefix.h include/kui/hash.h src/core/hash.c src/core/data.c
+	@mkdir -p $(@D)
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) tests/test_sha256_prefix.c src/core/hash.c src/core/data.c -o $@
+build/test-games-native-cache: tests/test_games_native_cache.c tests/test_vmu_native_resolution_cache.c src/apps/games_native_cache.inc include/kui/sha256_prefix.h $(NATIVE_CACHE_SOURCES) src/core/hash.c src/core/data.c
 	@mkdir -p $(@D)
 	$(CC) $(HOST_FLAGS) $(SANITIZERS) -fno-pie -no-pie -Wl,--wrap=kui_sha256_update -Iinclude tests/test_games_native_cache.c $(NATIVE_CACHE_SOURCES) src/core/hash.c src/core/data.c -o $@
 build/test-games-native-cache-hint: tests/test_games_native_cache_hint.c tests/test_vmu_native_resolution_cache.c src/apps/games_native_cache_hint.inc src/apps/games_native_cache_alias.inc $(NATIVE_CACHE_SOURCES) src/core/hash.c src/core/data.c src/core/game_launch_settings.c src/core/game_ram_patches.c
@@ -328,7 +348,8 @@ build/test-smash-complete-source-owner: tests/test_smash_complete_source_owner.c
 test-smash-complete-source-owner: build/test-smash-complete-source-owner
 	ASAN_OPTIONS=detect_leaks=0 ./build/test-smash-complete-source-owner
 .PHONY: test-games-native-cache
-test-games-native-cache: build/test-games-native-cache
+test-games-native-cache: build/test-games-native-cache build/test-sha256-prefix
+	./build/test-sha256-prefix
 	ASAN_OPTIONS=detect_leaks=0 ./build/test-games-native-cache $(if $(STARTUP),'$(STARTUP)',) $(if $(EVOLUTION2_STARTUP),'$(EVOLUTION2_STARTUP)',) $(if $(HOTD2_STARTUP),'$(HOTD2_STARTUP)',)
 build/test-vmu-launch-package: tests/test_vmu_launch_package.c src/core/vmu_launch_package.c src/core/retail_image.c src/core/hash.c include/kui/vmu_launch_package.h
 	@mkdir -p $(@D)
@@ -360,7 +381,7 @@ test: build/test-retail-cursor build/test-sci-stream build/test-sci-stream-ce bu
 test: build/test-retail-async-native-bounds build/test-retail-async-native-hybrid
 test: build/test-boot-volume build/ext4-boot build/boot-recovery build/test-boot-ui
 test: build/test-ata build/test-storage-policy build/test-sci-sd-bus build/test-retail-storage build/test-sci-sd-storage build/test-sci-async-probe build/test-sci-async-heartbeat build/test-sci-async-runtime build/test-sci-video-quiet
-test: build/test-storage-errors build/test-cd-audio build/test-network-probe build/test-network-connect build/test-menu-sound build/test-music-ogg build/test-capture-display build/test-viewport build/test-clock build/test-clock-platform build/test-music-thread build/test-recovery-checks build/test-wav-stream build/test-music-player build/test-startup-sound build/test-splash build/test-gd-play build/test-network-app build/test-system-settings build/test-disc-identity build/test-wav build/test-music build/test-memory-app build/test-core build/test-capture-core build/test-timing build/test-disc build/test-options build/test-ui-rate build/test-known-dumps build/test-crc16 build/test-settings build/test-shell build/test-shell-font build/test-capture-adapter build/test-destination
+test: build/test-storage-errors build/test-cd-audio build/test-network-probe build/test-network-connect build/test-menu-sound build/test-music-ogg build/test-capture-display build/test-viewport build/test-clock build/test-clock-platform build/test-music-thread build/test-recovery-checks build/test-wav-stream build/test-music-player build/test-startup-sound build/test-splash build/test-boot-stage1 build/test-gd-play build/test-network-app build/test-system-settings build/test-disc-identity build/test-wav build/test-music build/test-memory-app build/test-core build/test-capture-core build/test-timing build/test-disc build/test-options build/test-ui-rate build/test-known-dumps build/test-crc16 build/test-settings build/test-shell build/test-shell-font build/test-capture-adapter build/test-destination
 	./build/test-vmu-lcd
 	./build/test-vmu-save-format
 	./build/test-storage-errors
@@ -401,6 +422,7 @@ test: build/test-storage-errors build/test-cd-audio build/test-network-probe bui
 	./build/test-sonic-stack
 	./build/test-boot-volume
 	./build/test-boot-ui
+	python3 tests/test_boot_canvas_dispatch.py
 	python3 tests/test_ext4_boot.py
 	python3 tests/test_boot_recovery.py
 	./build/test-ata
@@ -452,6 +474,7 @@ test: build/test-storage-errors build/test-cd-audio build/test-network-probe bui
 	./build/test-music-player
 	./build/test-startup-sound
 	./build/test-splash
+	ASAN_OPTIONS=detect_leaks=0 ./build/test-boot-stage1
 	./build/test-gd-play
 	./build/test-network-app
 	./build/test-system-settings
@@ -914,17 +937,17 @@ build/test-settings: tests/test_settings.c src/core/settings.c src/core/data.c i
 	@mkdir -p $(@D)
 	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) src/core/settings.c src/core/data.c tests/test_settings.c -o $@
 
-build/test-shell: $(DRIVE_CONTROLS) $(SALVAGE_DISPLAY) include/kui/games_selection.h include/kui/zso.h include/kui/game_launch_settings.h src/core/wifi_text.c include/kui/network_wifi.h $(STORAGE_TEST_MODEL) include/kui/storage_test.h include/kui/storage_error.h src/core/files_path.c include/kui/files.h include/kui/version.h src/core/clock.c src/apps/system_settings.c include/kui/system_settings.h src/core/destination.c include/kui/destination.h tests/test_shell.c src/core/games_selection.c src/core/game_launch_settings.c src/core/game_ram_patches.c src/core/shell.c src/dreamcast/shell_draw.c src/dreamcast/shell_font.c src/dreamcast/shell_font_data.inc src/dreamcast/shell_art.inc include/kui/shell_font.h src/core/settings.c src/core/data.c include/kui/shell.h include/kui/settings.h .deps/fatfs/source/ff.h include/kui/game_ram_patches.h
+build/test-shell: $(DRIVE_CONTROLS) $(SALVAGE_DISPLAY) include/kui/games_selection.h include/kui/zso.h include/kui/game_launch_settings.h src/core/wifi_text.c include/kui/network_wifi.h $(STORAGE_TEST_MODEL) include/kui/storage_test.h include/kui/storage_error.h src/core/files_path.c include/kui/files.h include/kui/version.h src/core/clock.c src/apps/system_settings.c include/kui/system_settings.h src/core/destination.c include/kui/destination.h tests/test_shell.c src/core/games_selection.c src/core/game_launch_settings.c src/core/game_ram_patches.c src/core/shell.c src/dreamcast/shell_draw.c src/apps/splash_art.c third_party/miniz/miniz.c src/dreamcast/shell_font.c src/dreamcast/shell_font_data.inc src/dreamcast/shell_art.inc include/kui/shell_font.h src/core/settings.c src/core/data.c include/kui/shell.h include/kui/settings.h .deps/fatfs/source/ff.h include/kui/game_ram_patches.h src/apps/splash_art.c include/kui/splash.h src/dreamcast/shell_art.inc
 	@mkdir -p $(@D)
-	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) $(STORAGE_TEST_MODEL) src/core/wifi_text.c src/core/destination.c src/core/files_path.c src/core/game_launch_settings.c src/core/game_ram_patches.c src/core/games_selection.c src/core/game_profile.c src/core/hash.c src/core/games_query.c src/core/shell.c src/core/clock.c src/dreamcast/shell_draw.c src/dreamcast/shell_font.c src/apps/system_settings.c src/core/settings.c src/core/data.c src/core/salvage_display.c src/core/drive_controls.c tests/test_shell.c -o $@
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) $(EXPORT_CODEC_FLAGS) $(STORAGE_TEST_MODEL) src/core/wifi_text.c src/core/destination.c src/core/files_path.c src/core/game_launch_settings.c src/core/game_ram_patches.c src/core/games_selection.c src/core/game_profile.c src/core/hash.c src/core/games_query.c src/core/shell.c src/core/clock.c src/dreamcast/shell_draw.c src/apps/splash_art.c third_party/miniz/miniz.c src/dreamcast/shell_font.c src/apps/system_settings.c src/core/settings.c src/core/data.c src/core/salvage_display.c src/core/drive_controls.c tests/test_shell.c -o $@
 
 build/test-shell-font: tests/test_shell_font.c src/dreamcast/shell_font.c src/dreamcast/shell_font_data.inc include/kui/shell_font.h
 	@mkdir -p $(@D)
 	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) src/dreamcast/shell_font.c tests/test_shell_font.c -o $@
 
-build/render-shell: $(DRIVE_CONTROLS) $(SALVAGE_DISPLAY) include/kui/games_selection.h include/kui/zso.h include/kui/game_launch_settings.h src/core/wifi_text.c include/kui/network_wifi.h $(STORAGE_TEST_MODEL) include/kui/storage_test.h include/kui/storage_error.h src/core/files_path.c include/kui/files.h include/kui/version.h src/core/clock.c src/apps/system_settings.c include/kui/system_settings.h src/core/destination.c src/core/data.c include/kui/destination.h tests/render_shell.c src/core/games_selection.c src/core/game_launch_settings.c src/core/game_ram_patches.c src/core/shell.c src/dreamcast/shell_draw.c src/dreamcast/shell_font.c src/dreamcast/shell_art.inc src/dreamcast/shell_font_data.inc include/kui/shell.h include/kui/shell_font.h include/kui/game_ram_patches.h
+build/render-shell: $(DRIVE_CONTROLS) $(SALVAGE_DISPLAY) include/kui/games_selection.h include/kui/zso.h include/kui/game_launch_settings.h src/core/wifi_text.c include/kui/network_wifi.h $(STORAGE_TEST_MODEL) include/kui/storage_test.h include/kui/storage_error.h src/core/files_path.c include/kui/files.h include/kui/version.h src/core/clock.c src/apps/system_settings.c include/kui/system_settings.h src/core/destination.c src/core/data.c include/kui/destination.h tests/render_shell.c src/core/games_selection.c src/core/game_launch_settings.c src/core/game_ram_patches.c src/core/shell.c src/dreamcast/shell_draw.c src/apps/splash_art.c third_party/miniz/miniz.c src/dreamcast/shell_font.c src/dreamcast/shell_art.inc src/dreamcast/shell_font_data.inc include/kui/shell.h include/kui/shell_font.h include/kui/game_ram_patches.h src/apps/splash_art.c include/kui/splash.h src/dreamcast/shell_art.inc
 	@mkdir -p $(@D)
-	$(CC) $(HOST_FLAGS) $(INCLUDES) $(STORAGE_TEST_MODEL) src/core/wifi_text.c src/core/destination.c src/core/files_path.c src/core/data.c src/core/game_launch_settings.c src/core/game_ram_patches.c src/core/games_selection.c src/core/game_profile.c src/core/hash.c src/core/games_query.c src/core/shell.c src/core/clock.c src/dreamcast/shell_draw.c src/dreamcast/shell_font.c src/apps/system_settings.c src/core/salvage_display.c src/core/drive_controls.c tests/render_shell.c -o $@
+	$(CC) $(HOST_FLAGS) $(INCLUDES) $(EXPORT_CODEC_FLAGS) $(STORAGE_TEST_MODEL) src/core/wifi_text.c src/core/destination.c src/core/files_path.c src/core/data.c src/core/game_launch_settings.c src/core/game_ram_patches.c src/core/games_selection.c src/core/game_profile.c src/core/hash.c src/core/games_query.c src/core/shell.c src/core/clock.c src/dreamcast/shell_draw.c src/apps/splash_art.c third_party/miniz/miniz.c src/dreamcast/shell_font.c src/apps/system_settings.c src/core/salvage_display.c src/core/drive_controls.c tests/render_shell.c -o $@
 
 build/test-capture-adapter: src/core/destination.c src/core/data.c include/kui/destination.h tests/test_capture_adapter.c src/dreamcast/capture.c src/dreamcast/platform.h include/kui/capture.h .deps/fatfs/source/ff.h
 	@mkdir -p $(@D)
@@ -1115,12 +1138,16 @@ build/vmu-import-image: tests/vmu_import_image.c $(CORE) $(DESTINATION) src/core
 	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) -Itests/vmu_stubs -Isrc/dreamcast $(CORE) $(DESTINATION) src/core/storage_probe.c src/core/files_path.c src/core/hash.c src/core/crc16.c $(FATFS) $(VMU_MANAGEMENT) src/core/vmu_save_format.c src/apps/vmu_import.c src/apps/vmu.c tests/vmu_import_image.c -o $@
 
 # Original startup assets are encoded on the host, never decoded during ripping.
-build/splash_pixels.inc build/boot_splash_pixels.inc build/startup_ogg.inc &: tools/build_splash.py resources/branding/startup.png resources/branding/boot-red.png resources/branding/startup-chime.ogg
+build/splash_art.inc build/boot_splash_art.inc build/startup_ogg.inc &: tools/build_splash.py resources/branding/startup.png resources/branding/boot-red.png resources/branding/startup-chime.ogg
 	python3 tools/build_splash.py
 
-build/test-splash: tests/test_splash.c src/apps/splash.c src/apps/boot_splash.c include/kui/splash.h build/splash_pixels.inc build/boot_splash_pixels.inc
+build/test-splash: tests/test_splash.c src/apps/splash.c src/apps/boot_splash.c src/apps/splash_art.c include/kui/splash.h build/splash_art.inc build/boot_splash_art.inc $(EXPORT_CODECS)
 	@mkdir -p $(@D)
-	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) src/apps/splash.c src/apps/boot_splash.c tests/test_splash.c -o $@
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) $(EXPORT_CODEC_FLAGS) src/apps/splash.c src/apps/boot_splash.c src/apps/splash_art.c third_party/miniz/miniz.c tests/test_splash.c -o $@
+
+build/test-boot-stage1: tests/test_boot_stage1.c src/bootstage/stage1_load.c include/kui/boot_copies.h
+	@mkdir -p $(@D)
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) src/bootstage/stage1_load.c tests/test_boot_stage1.c -o $@
 
 build/test-gd-play: tests/test_gd_play.c src/apps/gd_play.c include/kui/gd_play.h tests/gd_play_stubs/arch/arch.h
 	@mkdir -p $(@D)
@@ -1271,6 +1298,16 @@ test-game-image-workspace: build/test-game-image-workspace
 	ASAN_OPTIONS=detect_leaks=0 ./build/test-game-image-workspace
 test: test-game-image-workspace
 
+# GUI ZSO input staging against a frozen per-take decode path.
+build/test-game-image-zso-stage: tests/test_game_image_zso_stage.c src/core/game_image.c src/core/zso.c src/core/lzo1x.c include/kui/game_image.h include/kui/zso.h include/kui/lzo1x.h
+	@mkdir -p $(@D)
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) src/core/zso.c src/core/lzo1x.c tests/test_game_image_zso_stage.c -o $@
+
+.PHONY: test-game-image-zso-stage
+test-game-image-zso-stage: build/test-game-image-zso-stage
+	./build/test-game-image-zso-stage
+test: test-game-image-zso-stage
+
 .PHONY: test-game-image-fatfs-dma
 test-game-image-fatfs-dma:
 	python3 tests/test_game_image_fatfs_dma.py
@@ -1328,10 +1365,18 @@ build/games-library-image: tests/games_library_image.c $(GAMES_COVERS) $(GAMES_A
 	@mkdir -p $(@D)
 	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) -Isrc/dreamcast $(GAMES_COVERS) $(GAMES_ACTIVITY) $(GAMES_LIBRARY_EXTRA) src/apps/games_library.c src/core/games_group.c $(CORE) $(FATFS) tests/games_library_image.c $(GAMES_LIBRARY_WRAP) -lm -o $@
 
+# Cold load, grouping and display order against a frozen previous copy.
+GAMES_LIBRARY_DIFFERENTIAL = src/core/destination.c src/core/games_group.c src/core/games_metadata.c src/core/games_activity.c \
+    src/core/game_launch_settings.c src/core/game_ram_patches.c src/core/hash.c src/core/data.c
+build/test-games-library-differential: tests/test_games_library_differential.c src/apps/games_library.c $(GAMES_LIBRARY_DIFFERENTIAL) include/kui/games_library.h include/kui/games_group.h include/kui/games_metadata.h
+	@mkdir -p $(@D)
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) -Isrc/dreamcast -ffunction-sections -fdata-sections tests/test_games_library_differential.c $(GAMES_LIBRARY_DIFFERENTIAL) -Wl,--gc-sections -o $@
+
 .PHONY: test-games-library
-test-games-library: build/test-games-group build/games-library-image build/test-shell build/test-games-activity
+test-games-library: build/test-games-group build/games-library-image build/test-shell build/test-games-activity build/test-games-library-differential
 	ASAN_OPTIONS=detect_leaks=0 ./build/test-games-group
 	ASAN_OPTIONS=detect_leaks=0 ./build/test-games-activity
+	ASAN_OPTIONS=detect_leaks=0 ./build/test-games-library-differential
 	ASAN_OPTIONS=detect_leaks=0 ./build/test-shell --games
 	ASAN_OPTIONS=detect_leaks=0 python3 tests/test_games_library_images.py
 
@@ -1428,6 +1473,8 @@ test-v3-medium: build/test-shell build/test-shell-font build/test-ui-rate build/
 	python3 tests/test_games_layout_dispatch.py
 	python3 tests/test_menu_lookup_dispatch.py
 	python3 tests/test_menu_frame_cache.py
+	python3 tests/test_games_tiles_dispatch.py
+	python3 tests/test_games_letter_step.py
 	python3 tests/test_browser_images.py
 	python3 tests/test_games_library_images.py
 	python3 tests/test_games_identity_images.py
@@ -1454,9 +1501,9 @@ build/test-boot-ui: tests/test_boot_ui.c src/core/boot_ui.c include/kui/boot_ui.
 	@mkdir -p $(@D)
 	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) tests/test_boot_ui.c src/core/boot_ui.c -o $@
 
-build/render-boot: tests/render_boot.c src/core/boot_ui.c src/dreamcast/boot_draw.c src/dreamcast/shell_font.c src/dreamcast/shell_font_data.inc src/apps/boot_splash.c build/boot_splash_pixels.inc include/kui/boot_ui.h include/kui/version.h
+build/render-boot: tests/render_boot.c src/core/boot_ui.c src/dreamcast/boot_draw.c src/dreamcast/shell_font.c src/dreamcast/shell_font_data.inc src/apps/boot_splash.c src/apps/splash_art.c build/boot_splash_art.inc include/kui/boot_ui.h include/kui/version.h include/kui/splash.h
 	@mkdir -p $(@D)
-	$(CC) $(HOST_FLAGS) $(INCLUDES) tests/render_boot.c src/core/boot_ui.c src/dreamcast/boot_draw.c src/dreamcast/shell_font.c src/apps/boot_splash.c -o $@
+	$(CC) $(HOST_FLAGS) $(INCLUDES) $(EXPORT_CODEC_FLAGS) tests/render_boot.c src/core/boot_ui.c src/dreamcast/boot_draw.c src/dreamcast/shell_font.c src/apps/boot_splash.c src/apps/splash_art.c third_party/miniz/miniz.c -o $@
 
 build/ext4-boot: tests/ext4_boot.c src/core/ext4_boot.c src/core/boot_volume.c src/core/runtime_image.c src/core/data.c include/kui/ext4_boot.h include/kui/boot_volume.h include/kui/runtime.h $(LWEXT4_HOST_OBJECTS) $(LWEXT4_HEADERS)
 	@mkdir -p $(@D)
@@ -1696,7 +1743,10 @@ test-vmu-menu: build/test-shell build/test-ui-rate build/test-vmu-app build/test
 	ASAN_OPTIONS=detect_leaks=0 python3 tests/test_vmu_game_info.py
 	ASAN_OPTIONS=detect_leaks=0 python3 tests/test_menu_lookup_dispatch.py
 	ASAN_OPTIONS=detect_leaks=0 python3 tests/test_menu_frame_cache.py
+	ASAN_OPTIONS=detect_leaks=0 python3 tests/test_games_tiles_dispatch.py
+	ASAN_OPTIONS=detect_leaks=0 python3 tests/test_games_letter_step.py
 	ASAN_OPTIONS=detect_leaks=0 python3 tests/test_menu_audio_dispatch.py
+	ASAN_OPTIONS=detect_leaks=0 python3 tests/test_music_dispatch.py
 	python3 tests/test_vmu_menu_installer.py
 build/test-games-vmu-card: tests/test_games_vmu_card.c src/apps/games_vmu_card.inc $(VMU_GAME_CARD_SOURCES) include/kui/vmu_game_card_service.h include/kui/vmu_game_card.h
 	@mkdir -p $(@D)

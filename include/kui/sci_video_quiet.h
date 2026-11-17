@@ -27,6 +27,11 @@ static inline bool kui_sci_video_quiet_ack(struct kui_sci_video_quiet *q,uint32_
     q->first_frame=q->total_frames;q->acknowledged=true;
     return true;
 }
+/* An idle frame that begins but then finds nothing to repaint is not counted.
+ * The UI never skips while a request awaits its acknowledgement frame. */
+static inline void kui_sci_video_quiet_draw_skipped(struct kui_sci_video_quiet *q) {
+    if(q->total_frames) --q->total_frames;
+}
 static inline bool kui_sci_video_quiet_draw_begin(struct kui_sci_video_quiet *q) {
     if(q->requested && q->acknowledged) {++q->skipped;return false;}
     ++q->total_frames;return true;

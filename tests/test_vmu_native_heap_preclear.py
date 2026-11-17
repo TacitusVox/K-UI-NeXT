@@ -7,7 +7,12 @@ import shlex
 import subprocess
 import sys
 import tempfile
+import unittest
 
+if __name__!='__main__':
+    # Imported by unittest discovery: the original startups are private.
+    raise unittest.SkipTest('Needs the owner-supplied original Time Stalkers and EGG startup files; run directly: '
+                            'python3 tests/test_vmu_native_heap_preclear.py TIME_STALKERS EGG')
 ROOT=Path(__file__).resolve().parents[1]
 if len(sys.argv)!=3:
     raise SystemExit('Supply original Time Stalkers and EGG startup files')

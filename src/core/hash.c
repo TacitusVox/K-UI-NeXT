@@ -3,6 +3,9 @@
  * https://doi.org/10.6028/NIST.FIPS.180-4
  */
 #include "kui/toy_test_build.h"
+#if KUI_TOY_TEST_BUILD
+#include "kui/target.h"
+#endif
 #include "kui/hash.h"
 #include <string.h>
 static uint32_t rotate(uint32_t n, unsigned r) { return n >> r | n << (32-r); }
@@ -97,7 +100,7 @@ uint32_t kui_cd_edc(const uint8_t *data, size_t size) {
     _Alignas(32) static uint32_t table[2][256];
     static bool ready;
     const uint32_t (*lookup)[256];
-#if defined(__sh__) && !defined(KUI_NATIVE_READAHEAD_AUX_HOST_TEST)
+#if defined(KUI_SH_COMPILER) && !defined(KUI_NATIVE_READAHEAD_AUX_HOST_TEST)
     const uintptr_t cached=(uintptr_t)table&~(uintptr_t)UINT32_C(0x20000000);
     lookup=(const uint32_t (*)[256])cached;
 #else
@@ -113,7 +116,7 @@ uint32_t kui_cd_edc(const uint8_t *data, size_t size) {
             const uint32_t x=table[0][i];
             table[1][i]=(x>>8)^table[0][x&255u];
         }
-#if defined(__sh__) && !defined(KUI_NATIVE_READAHEAD_AUX_HOST_TEST)
+#if defined(KUI_SH_COMPILER) && !defined(KUI_NATIVE_READAHEAD_AUX_HOST_TEST)
         for(uintptr_t line=cached;line<cached+sizeof(table);line+=32u)
             __asm__ volatile("ocbi @%0"::"r"(line):"memory");
 #endif
@@ -205,7 +208,7 @@ bool kui_mode1_edc_table_valid_at(const uint8_t raw[KUI_RAW_BYTES],uint32_t fad,
     if(((uintptr_t)raw&3u) || raw[15]!=1u || kui_data_offset(raw)!=16)return false;
     const uint32_t *table0=table->entry[0],*table1=table->entry[1];
     const uint32_t *table2=table->entry[2],*table3=table->entry[3];
-#ifdef __sh__
+#ifdef KUI_SH_COMPILER
     /* SH-4 indexed loads can use each table base directly. Keep GCC
      * from rebuilding the row offsets on every lookup. */
     __asm__("" : "+r"(table0),"+r"(table1),"+r"(table2),"+r"(table3));

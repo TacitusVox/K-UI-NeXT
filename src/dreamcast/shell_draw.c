@@ -5,6 +5,8 @@
 #include "kui/retail_image.h"
 #include "kui/storage.h"
 #include "shell_art.inc"
+#include "kui/splash.h"
+#include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
 
@@ -87,9 +89,24 @@ static void panel(struct paint *p, unsigned x, unsigned y,
     box(p,x+1,y+h-5,w-2,2,color); box(p,x+2,y+h-3,w-4,2,color);
     box(p,x+4,y+h-1,w-8,1,color);
 }
+/* The launcher artwork ships deflate-compressed (tools/generate_shell_art.py)
+ * and is inflated into RAM once, by the first frame that draws it, after the
+ * startup splash. Without RAM for it the artwork is not drawn. */
+static const uint16_t *art_pack(size_t offset) {
+    static uint16_t *pixels;
+    static bool tried;
+    if(!pixels && !tried) {
+        tried=true;
+        pixels=malloc(KUI_ART_PACK_PIXELS*sizeof(*pixels));
+        if(pixels && !kui_art_inflate(kui_art_pack,sizeof(kui_art_pack),pixels,KUI_ART_PACK_PIXELS*sizeof(*pixels))) {
+            free(pixels);pixels=NULL;
+        }
+    }
+    return pixels?pixels+offset:NULL;
+}
 static void art(struct paint *p, unsigned x, unsigned y,
         unsigned w, unsigned h, const uint16_t *pixels) {
-    if(x>=640 || y>=480) return;
+    if(!pixels || x>=640 || y>=480) return;
     unsigned rows=h<480-y?h:480-y, cols=w<640-x?w:640-x;
     for(unsigned row=0;row<rows;row++) for(unsigned col=0;col<cols;col++) {
         uint16_t color=pixels[row*w+col];
@@ -102,13 +119,13 @@ static const char *state(const struct kui_shell_view *v) {
     return "READY";
 }
 static void heading(struct paint *p, const struct kui_shell *s,const struct kui_shell_view *v) {
-    art(p,32,20,128,64,kui_art_brand);
+    art(p,32,20,128,64,art_pack(KUI_ART_BRAND_OFFSET));
     words(p,176,26,396,WHITE,KUI_RELEASE_SHORT,true);
-    const char *credit=v->busy || v->saving?state(v):"by TacitusVoxt / READY";
+    const char *credit=v->busy || v->saving?state(v):"by TacitusVox / READY";
     words(p,176,52,396,MUTED,credit,false);
     /* Keep the project link beneath the brand, with normal letter spacing.
      * It has the whole left header width rather than a cramped middle column. */
-    words(p,32,78,396,CYAN,"github.com/TacitusVoxt/K-UI-NeXT",false);
+    words(p,32,78,396,CYAN,"github.com/TacitusVox/K-UI-NeXT",false);
     char music[48];
     const char *prefix=s->page==KUI_SHELL_HOME&&!v->busy?"Y Music":"Music";
     if(v->music_change_pending) snprintf(music,sizeof(music),"Music change queued");
@@ -230,8 +247,8 @@ static void footer(struct paint *p, const struct kui_shell *s,
         s->page==KUI_SHELL_VMU ? "A Open   X Actions   LEFT/RIGHT VMU   R Backups   B Tools" :
         s->page==KUI_SHELL_GAMES ? (s->games_selected<s->games_listing.count &&
             s->games_listing.entries[s->games_selected].favorite?
-            "A Open   X Unfavorite   Y Tabs   START Options   B Back":
-            "A Open   X Favorite   Y Tabs   START Options   B Back") :
+            "A Open   X Unfavorite   Y Tabs   L/R Letter   START Options   B Back":
+            "A Open   X Favorite   Y Tabs   L/R Letter   START Options   B Back") :
         s->page==KUI_SHELL_GAMES_VARIANTS ? "D-pad Select   A Inspect   B Games" :
         s->page==KUI_SHELL_GAMES_DETAIL ? (kui_shell_games_retail_ready(s)?
             (s->games_from_files?"A Launch   Y Options   B Files":kui_shell_games_variant_label(s)?
@@ -279,7 +296,7 @@ static void footer(struct paint *p, const struct kui_shell *s,
         s->page==KUI_SHELL_GAMES_CODEC ? "D-pad Select   A Save and inspect   B Details" :
         s->page==KUI_SHELL_CD_AUDIO ? "B SD music   START Home   R Refresh" :
         s->page==KUI_SHELL_MUSIC ? "B Parent   START Home   L Audio CD   LEFT/RIGHT Page" : "B Home";
-    words(p,40,430,song_page||s->page==KUI_SHELL_GD_PLAY||s->page==KUI_SHELL_DISC_CARDS||s->page==KUI_SHELL_UPDATES||s->page==KUI_SHELL_MUSIC||s->page==KUI_SHELL_CD_AUDIO||s->page==KUI_SHELL_VMU_RESTORE||s->page==KUI_SHELL_VMU_COLLECTION||s->page==KUI_SHELL_VMU_CARD||s->page==KUI_SHELL_VMU_IMAGE||s->page==KUI_SHELL_VMU_IMPORT||s->page==KUI_SHELL_VMU_WIZARD||s->page==KUI_SHELL_VMU_ACTIONS||s->page==KUI_SHELL_VMU||s->page==KUI_SHELL_GAMES_RETAIL_CONFIRM||s->page==KUI_SHELL_GAMES_LAUNCH_OPTIONS||s->page==KUI_SHELL_GAMES_EXTRA_OPTIONS||s->page==KUI_SHELL_GAMES_PATCHES||s->page==KUI_SHELL_GAMES_TESTS||s->page==KUI_SHELL_GAMES_INFO?608:500,MUTED,controls,false);
+    words(p,40,430,song_page||s->page==KUI_SHELL_GD_PLAY||s->page==KUI_SHELL_DISC_CARDS||s->page==KUI_SHELL_UPDATES||s->page==KUI_SHELL_MUSIC||s->page==KUI_SHELL_CD_AUDIO||s->page==KUI_SHELL_VMU_RESTORE||s->page==KUI_SHELL_VMU_COLLECTION||s->page==KUI_SHELL_VMU_CARD||s->page==KUI_SHELL_VMU_IMAGE||s->page==KUI_SHELL_VMU_IMPORT||s->page==KUI_SHELL_VMU_WIZARD||s->page==KUI_SHELL_VMU_ACTIONS||s->page==KUI_SHELL_VMU||s->page==KUI_SHELL_GAMES||s->page==KUI_SHELL_GAMES_RETAIL_CONFIRM||s->page==KUI_SHELL_GAMES_LAUNCH_OPTIONS||s->page==KUI_SHELL_GAMES_EXTRA_OPTIONS||s->page==KUI_SHELL_GAMES_PATCHES||s->page==KUI_SHELL_GAMES_TESTS||s->page==KUI_SHELL_GAMES_INFO?608:500,MUTED,controls,false);
 }
 /* Each Home app by page, so its row can move without touching this table.
  * All icons are embedded RGB565 assets with separate list-sized artwork. */
@@ -316,7 +333,7 @@ static void home(struct paint *p, const struct kui_shell *s,const struct kui_she
             panel(p,32,y,208,26,SELECTED);
             box(p,32,y+4,3,18,PINK);
         }
-        art(p,44,y+1,24,24,kui_art_small_icons[app->art]);
+        art(p,44,y+1,24,24,art_pack(KUI_ART_SMALL_ICONS_OFFSET+(size_t)app->art*24u*24u));
         words(p,80,y+4,230,selected==i?WHITE:MUTED,app->name,false);
     }
     if(s->system_saved.show_memory && v->memory_valid) {
@@ -336,7 +353,7 @@ static void home(struct paint *p, const struct kui_shell *s,const struct kui_she
         label(p,264,144,CYAN,inserted);
     } else label(p,264,144,CYAN,chosen->category);
     panel(p,264,172,344,140,PANEL);
-    art(p,372,178,128,128,kui_art_icons[chosen->art]);
+    art(p,372,178,128,128,art_pack(KUI_ART_ICONS_OFFSET+(size_t)chosen->art*128u*128u));
     for(unsigned i=0;i<3;i++) label(p,264,326+i*19,MUTED,chosen->details[i]);
     panel(p,264,382,344,28,CYAN);
     label(p,382,388,NAVY,"A  Open app");
@@ -767,7 +784,7 @@ static void updates_page(struct paint *p,const struct kui_shell *s,const struct 
         u->restore?"Restore this version?":"Install this package?":"Offline updates");
     char line[192];snprintf(line,sizeof(line),"Running %.12s / selected %s",u->running[0]?u->running:"current",
         !u->selection_known?"unchecked":u->selected[0]?u->selected:"original baseline");label(p,40,138,CYAN,line);
-    label(p,40,160,MUTED,"Source: TacitusVoxt/K-UI-NeXT Releases");
+    label(p,40,160,MUTED,"Source: TacitusVox/K-UI-NeXT Releases");
     if(s->update_loading) {
         panel(p,32,192,576,192,PANEL);
         label(p,48,208,WHITE,s->update_stopping?"Stop requested; finishing a safe boundary.":"Keep the console powered on while writing.");
@@ -2417,8 +2434,12 @@ static const char *entry_text(const struct kui_games_entry *e) {
 }
 static const uint16_t *entry_cover(const struct kui_shell *s,const struct kui_shell_view *v,unsigned i) {
     const struct kui_games_page *l=&s->games_listing;
-    if(i!=shown_selected(s) || i>=l->count || !l->entries[i].cover || l->view!=kui_shell_games_view(s)) return NULL;
-    return v->game_selected_cover?v->game_selected_cover:v->game_covers?v->game_covers[i]:NULL;
+    if(i>=l->count || i>=KUI_GAMES_ROWS || l->view!=kui_shell_games_view(s)) return NULL;
+    if(i==shown_selected(s) && l->entries[i].cover)
+        return v->game_selected_cover?v->game_selected_cover:v->game_covers?v->game_covers[i]:NULL;
+    /* Every Compact and Gallery tile shows its own published cover. */
+    if(l->view==KUI_GAMES_VIEW_COMPACT || l->view==KUI_GAMES_VIEW_GALLERY) return v->game_tile_covers[i];
+    return NULL;
 }
 static void entry_art(struct paint *p,const struct kui_shell *s,const struct kui_shell_view *v,
         unsigned i,unsigned x,unsigned y,unsigned edge) {

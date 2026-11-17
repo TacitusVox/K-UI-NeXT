@@ -259,6 +259,7 @@ static bool assigned_cover(const struct kui_games_entry *entry,enum kui_cover_si
        !kui_game_launch_settings_normalize(key,entry->cover_path) || strcmp(key,entry->cover_path) ||
        kui_games_storage_open(log)!=KUI_GAMES_STORAGE_OK)return false;
     snprintf(path,sizeof(path),"0:%s",entry->cover_path);FIL file;
+    kui_games_storage_lookup_begin();
     bool ok=!stopped(cancel) && f_open(&file,path,FA_READ)==FR_OK;uint8_t *data=NULL,*decoded=NULL;
     unsigned width=0,height=0,channels=0;
     if(ok) {
@@ -270,6 +271,7 @@ static bool assigned_cover(const struct kui_games_entry *entry,enum kui_cover_si
     }
     if(ok) {kui_cover_reduce(decoded,&width,&height,channels);ok=kui_cover_scale(decoded,width,height,channels,pixels,kui_cover_edge(size));}
     kui_cover_image_free(decoded);free(data);
+    kui_games_storage_lookup_end();
     if(!kui_games_storage_done(ok || stopped(cancel)))ok=false;
     if(stopped(cancel)) {out->stopped=true;ok=false;}
     out->cover=ok;
@@ -303,6 +305,7 @@ bool kui_games_selected_cover(const struct kui_games_entry *entry,enum kui_cover
     if(storage==KUI_GAMES_STORAGE_NO_CARD) goto done;
     problem="Cannot mount SD card";
     if(!(mounted=storage==KUI_GAMES_STORAGE_OK)) goto done;
+    kui_games_storage_lookup_begin();
     if(stopped(cancel)) goto done;
     if(!artwork_known) {
         FILINFO info;FRESULT r=f_stat(KUI_GAMES_COVERS_FOLDER,&info);
@@ -328,6 +331,7 @@ bool kui_games_selected_cover(const struct kui_games_entry *entry,enum kui_cover
     ok=true;
 done:
     if(opened && f_close(&file)!=FR_OK) ok=false;
+    if(mounted) kui_games_storage_lookup_end();
     if(mounted && !kui_games_storage_done(ok || stopped(cancel))) ok=false;
     if(stopped(cancel)) {ok=false;out->stopped=true;}
     if(ok) {
@@ -355,7 +359,7 @@ bool kui_games_prefetch_titles(const struct kui_games_page *page,kui_log_fn log,
         if(stopped(cancel)) break;
         if(!opened) {
             if(kui_games_storage_open(log)!=KUI_GAMES_STORAGE_OK) return worked;
-            opened=true;
+            opened=true;kui_games_storage_lookup_begin();
         }
         char title[KUI_COVER_TITLE_CAP],region[9]={0};kui_cover_display_title(NULL,entry->name,title);
         FIL file;FRESULT r=f_open(&file,path,FA_READ);
@@ -375,7 +379,7 @@ bool kui_games_prefetch_titles(const struct kui_games_page *page,kui_log_fn log,
             if(log) log("Games title %.72s: cannot read box art record",entry->name);
         } else {title_store(entry,title);struct cached_title *stored=title_find(entry);if(stored)strcpy(stored->region,region);worked=true;}
     }
-    if(opened) (void)kui_games_storage_done(!failed);
+    if(opened) {kui_games_storage_lookup_end();(void)kui_games_storage_done(!failed);}
     return worked;
 }
 

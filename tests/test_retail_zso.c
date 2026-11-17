@@ -11,9 +11,14 @@
 static uint8_t file[FILE_CAP],expected[LOGICAL_BLOCKS][2048],card[CARD_BLOCKS][512];
 static struct kui_retail_zso_manifest map,decoded;
 static uint32_t file_bytes;
-struct storage {unsigned calls,fail_on,max_hint;bool run;};
+/* read_run also models kui_retail_sd_read_run's stream rule: continue only at
+ * next_lba while the hint covers what remains, otherwise CMD12 and a new
+ * CMD18 for at most64 blocks. starts counts CMD18s; stops counts early CMD12s. */
+struct storage {unsigned calls,fail_on,max_hint;bool run;
+    bool active;uint32_t next_lba,remaining,starts,stops,limit_lba,start_lba,start_count;};
 static struct storage storage;
 static void put(uint8_t *p,uint32_t n) {for(unsigned i=0;i<4;i++)p[i]=(uint8_t)(n>>(8*i));}
+static uint32_t get(const uint8_t *p) {return (uint32_t)p[0]|(uint32_t)p[1]<<8|(uint32_t)p[2]<<16|(uint32_t)p[3]<<24;}
 static void wide(uint8_t *p,uint64_t n) {put(p,(uint32_t)n);put(p+4,(uint32_t)(n>>32));}
 static uint32_t crc(const uint8_t *p,size_t bytes) {
     uint32_t c=UINT32_MAX;
@@ -28,15 +33,46 @@ static size_t extension(uint8_t *out,unsigned n) {
     size_t used=0;while(n>=255){out[used++]=255;n-=255;}out[used++]=(uint8_t)n;return used;
 #endif
 }
-static void fixture(uint32_t session,bool all_raw,unsigned requested_extents) {
+/* A dense block is hundreds of one-byte takes spanning at least four
+ * physical blocks: four literals, then distance-4 copies each joined by one
+ * literal. Plain RLE blocks stay inside one or two physical blocks. */
+static size_t dense(uint8_t *out,uint8_t *expect,unsigned block) {
+    size_t at=0;unsigned done=0;
+#if KUI_TEST_LZO
+    out[at++]=17u+4u;
+    while(done<4u){uint8_t v=(uint8_t)(block*7u+done*29u+3u);out[at++]=v;expect[done++]=v;}
+    while(done<2048u) { /* M2: three bytes from distance4, then one literal. */
+        out[at++]=77u;out[at++]=0;
+        for(unsigned i=0;i<3u;i++,done++)expect[done]=expect[done-4u];
+        uint8_t v=(uint8_t)(block*5u+done*11u+1u);out[at++]=v;expect[done++]=v;
+    }
+    out[at++]=17u;out[at++]=0;out[at++]=0;
+#else
+    out[at++]=0x40;
+    while(done<4u){uint8_t v=(uint8_t)(block*7u+done*29u+3u);out[at++]=v;expect[done++]=v;}
+    out[at++]=4;out[at++]=0;for(unsigned i=0;i<4u;i++,done++)expect[done]=expect[done-4u];
+    while(done<2048u-15u) { /* One literal and a four-byte copy from distance4. */
+        uint8_t v=(uint8_t)(block*5u+done*11u+1u);out[at++]=0x10;out[at++]=v;expect[done++]=v;
+        out[at++]=4;out[at++]=0;for(unsigned i=0;i<4u;i++,done++)expect[done]=expect[done-4u];
+    }
+    out[at++]=0xf0;out[at++]=0;
+    while(done<2048u){uint8_t v=(uint8_t)(block+done);out[at++]=v;expect[done++]=v;}
+#endif
+    assert(done==2048u);return at;
+}
+enum layout {BASIC,DENSE};
+static void fixture_layout(uint32_t session,bool all_raw,unsigned requested_extents,enum layout layout,unsigned shift) {
     memset(&map,0,sizeof(map));memset(&storage,0,sizeof(storage));
     memset(card,0xe9,sizeof(card));memset(file,0,sizeof(file));
-    memcpy(file,"ZISO",4);put(file+4,24);put(file+8,LOGICAL_BLOCKS*2048u);put(file+16,2048);file[20]=1;
-    uint32_t at=24u+(LOGICAL_BLOCKS+1u)*4u;
+    memcpy(file,"ZISO",4);put(file+4,24);put(file+8,LOGICAL_BLOCKS*2048u);put(file+16,2048);file[20]=1;file[21]=(uint8_t)shift;
+    const uint32_t mask=(1u<<shift)-1u;
+    uint32_t at=(24u+(LOGICAL_BLOCKS+1u)*4u+mask)&~mask;
     for(unsigned block=0;block<LOGICAL_BLOCKS;block++) {
-        bool raw=all_raw || block==0;
-        put(file+24u+block*4u,at|(raw?UINT32_C(0x80000000):0));
-        if(raw || block==LOGICAL_BLOCKS-1u) {
+        bool raw=all_raw || block==0 || (layout==DENSE && block==64u);
+        put(file+24u+block*4u,(at>>shift)|(raw?UINT32_C(0x80000000):0));
+        if(layout==DENSE && !raw && block%4u && block!=LOGICAL_BLOCKS-1u) {
+            at+=(uint32_t)dense(file+at,expected[block],block);
+        } else if(raw || block==LOGICAL_BLOCKS-1u) {
             for(unsigned i=0;i<2048;i++)expected[block][i]=(uint8_t)(block*11u+i*37u+(i>>8)*19u);
             if(!raw){
 #if KUI_TEST_LZO
@@ -61,10 +97,11 @@ static void fixture(uint32_t session,bool all_raw,unsigned requested_extents) {
             file[at++]=0x50;memset(file+at,value,5);at+=5;
 #endif
         }
+        while(at&mask)file[at++]=0xad; /* Admitted nonzero alignment padding. */
     }
-    put(file+24u+LOGICAL_BLOCKS*4u,at);file_bytes=at;
+    put(file+24u+LOGICAL_BLOCKS*4u,at>>shift);file_bytes=at;
     map.zso=(struct kui_zso_info){.file_bytes=at,.total_bytes=LOGICAL_BLOCKS*2048u,
-        .block_count=LOGICAL_BLOCKS,.index_bytes=(LOGICAL_BLOCKS+1u)*4u,.shift=0};
+        .block_count=LOGICAL_BLOCKS,.index_bytes=(LOGICAL_BLOCKS+1u)*4u,.shift=(uint8_t)shift};
 #if KUI_TEST_LZO
     map.zso.codec=KUI_ZSO_LZO1X;
 #endif
@@ -91,6 +128,9 @@ static void fixture(uint32_t session,bool all_raw,unsigned requested_extents) {
         next+=e->blocks;
     }
     assert(kui_retail_zso_manifest_validate(&map)==KUI_GAME_OK);
+}
+static void fixture(uint32_t session,bool all_raw,unsigned requested_extents) {
+    fixture_layout(session,all_raw,requested_extents,BASIC,0);
 }
 static uint32_t physical(uint32_t file_offset) {
     uint32_t block=file_offset/512u;
@@ -119,8 +159,20 @@ static int read_run(void *context,uint32_t lba,uint32_t available,uint8_t out[51
         const struct kui_retail_extent *e=&map.manifest.slots[i].extent;
         if(lba>=e->card_lba && lba-e->card_lba<e->blocks && available<=e->blocks-(lba-e->card_lba))bounded=true;
     }
-    assert(bounded);return read_card(context,lba,out);
+    assert(bounded);
+    /* Not permission to prefetch: no hint passes the selected request's span. */
+    if(s->limit_lba)assert(lba+available-1u<=s->limit_lba);
+    if(s->active && (s->next_lba!=lba || available<s->remaining)){s->active=false;++s->stops;}
+    if(!s->active) {
+        s->active=true;s->next_lba=s->start_lba=lba;s->remaining=s->start_count=available<64u?available:64u;++s->starts;
+    }
+    ++s->next_lba;if(!--s->remaining)s->active=false;
+    int failed=read_card(context,lba,out);
+    if(failed)s->active=false; /* A failed stream is finished by the transport. */
+    return failed;
 }
+/* The resident and stage stop any remaining stream on every image return. */
+static void stream_stop(struct storage *s) {if(s->active){s->active=false;++s->stops;}}
 static void independent_wire(uint8_t wire[4096]) {
     const struct kui_retail_manifest *m=&map.manifest;
     memset(wire,0,4096);
@@ -263,4 +315,66 @@ static void failure_and_reset(void) {
     assert(kui_retail_zso_image_read(&image,45001,1,KUI_GAME_SECTOR_MODE1,out,2048)==KUI_GAME_OK && !memcmp(out,expected[1],2048));
     puts("PASS ZSO retail faults: every physical read failure, poisoned-cache invalidation, late source changes and clean reset/retry");
 }
-int main(void){wire_and_maps();readers();failure_and_reset();return 0;}
+/* Each selected block's compressed bytes arrive in one modeled CMD18 stream,
+ * from its first physical block through the block ending its indexed span. */
+static void streams(void) {
+    static uint8_t out[64u*2048u];
+    static const unsigned shifts[]={0,4,KUI_ZSO_MAX_SHIFT};
+    for(unsigned k=0;k<3u;k++)for(unsigned fragmented=0;fragmented<2u;fragmented++) {
+        const unsigned shift=shifts[k];
+        fixture_layout(45000,false,fragmented?31u:1u,DENSE,shift);
+        struct kui_retail_zso_image image;
+        assert(kui_retail_zso_image_init(&image,&map,read_card,&storage)==KUI_GAME_OK);
+        image.read_run=read_run;
+        assert(kui_retail_zso_verify_source(&image)==KUI_GAME_OK && !image.span_end);stream_stop(&storage);
+        unsigned starts=storage.starts,blocks=storage.calls,stops=storage.stops,dense_blocks=0,longest=0;
+        for(unsigned block=0;block<LOGICAL_BLOCKS;block++) {
+            uint32_t entry=get(file+24u+block*4u),start=(entry&UINT32_C(0x7fffffff))<<shift;
+            uint32_t end=(get(file+28u+block*4u)&UINT32_C(0x7fffffff))<<shift;
+            unsigned before=storage.starts;memset(out,0x5c,2048u);
+            if(!fragmented)storage.limit_lba=physical(end-1u);
+            assert(kui_retail_zso_image_read(&image,45000u+block,1,KUI_GAME_SECTOR_MODE1,out,2048u)==KUI_GAME_OK);
+            stream_stop(&storage);storage.limit_lba=0;
+            assert(!memcmp(out,expected[block],2048u) && !image.span_end);
+            if(fragmented)continue;
+            /* One stream for the index pair, one for every span byte. */
+            assert(storage.starts-before==2u && storage.start_lba==physical(start) &&
+                   storage.start_count==physical(end-1u)-physical(start)+1u);
+            if(storage.start_count>longest)longest=storage.start_count;
+            if(!(entry&UINT32_C(0x80000000)) && block%4u && block!=LOGICAL_BLOCKS-1u) {
+                ++dense_blocks;assert(storage.start_count>=4u);
+            }
+        }
+        starts=storage.starts-starts;blocks=storage.calls-blocks;stops=storage.stops-stops;
+        /* Valid padding is below2^shift and ends on an aligned offset, so it
+         * never reaches a physical block the decoder does not consume. */
+        assert(fragmented || !stops);
+        if(!fragmented) {
+            assert(dense_blocks==95u && starts==2u*LOGICAL_BLOCKS);
+            printf("ZSO retail streams: shift%u, %u single-sector reads use %u streams for %u physical blocks (%u early stops), longest %u\n",
+                   shift,LOGICAL_BLOCKS,starts,blocks,stops,longest);
+        }
+        for(unsigned first=0;first<LOGICAL_BLOCKS;first+=64u) {
+            unsigned before=storage.starts;memset(out,0x5c,sizeof(out));
+            assert(kui_retail_zso_image_read(&image,45000u+first,64,KUI_GAME_SECTOR_MODE1,out,sizeof(out))==KUI_GAME_OK);
+            stream_stop(&storage);
+            assert(!memcmp(out,expected[first],sizeof(out)) && !image.span_end);
+            assert(fragmented || storage.starts-before==2u*64u);
+        }
+        if(fragmented)continue;
+        /* A failure at any physical read, including inside a span stream,
+         * still returns IO, invalidates the cache and leaves no span hint. */
+        image.cache_valid=0;unsigned calls=storage.calls;
+        assert(kui_retail_zso_image_read(&image,45001u,2,KUI_GAME_SECTOR_MODE1,out,2u*2048u)==KUI_GAME_OK);
+        stream_stop(&storage);calls=storage.calls-calls;assert(calls>8u);
+        for(unsigned fault=1;fault<=calls;fault++) {
+            image.cache_valid=0;storage.calls=0;storage.fail_on=fault;
+            assert(kui_retail_zso_image_read(&image,45001u,2,KUI_GAME_SECTOR_MODE1,out,2u*2048u)==KUI_GAME_IO);
+            stream_stop(&storage);assert(!image.cache_valid && !image.span_end);storage.fail_on=0;
+            assert(kui_retail_zso_image_read(&image,45001u,2,KUI_GAME_SECTOR_MODE1,out,2u*2048u)==KUI_GAME_OK);
+            stream_stop(&storage);assert(!memcmp(out,expected[1],2u*2048u) && !image.span_end);
+        }
+    }
+    puts("PASS ZSO retail streams: dense/stored/literal spans in one bounded stream each, alignment padding, extent-bounded fragments and64-sector requests");
+}
+int main(void){wire_and_maps();readers();failure_and_reset();streams();return 0;}

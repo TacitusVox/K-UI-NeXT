@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: BSD-3-Clause */
 #ifndef KUI_ARMADA_CE_VMU_SD_PIO_H
 #define KUI_ARMADA_CE_VMU_SD_PIO_H
+#include "kui/target.h"
 #include "sd_reader.h"
 #include <stdint.h>
 
@@ -54,7 +55,7 @@ struct kui_armada_ce_vmu_sd_pio {
      * those cases retain a stage-only word. Cleanup never replaces it. */
     uint32_t detail;
 };
-#ifdef __sh__
+#ifdef KUI_SH_COMPILER
 _Static_assert(sizeof(struct kui_armada_ce_vmu_sd_pio)==36u,"CE PIO diagnostic ABI");
 #endif
 int kui_armada_ce_vmu_sd_pio_init(struct kui_armada_ce_vmu_sd_pio *);

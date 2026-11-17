@@ -1515,6 +1515,10 @@ int main(int argc,char **argv) {
         shell.games_listing.entries[shell.games_selected].cover=!shell.games_loading;
     }
     view.game_covers=(const uint16_t (*)[KUI_COVER_PIXELS])covers;view.game_detail_cover=detail_cover;
+    /* Like the console, Compact and Gallery receive every row's tile. */
+    if(shell.games_listing.view==KUI_GAMES_VIEW_COMPACT || shell.games_listing.view==KUI_GAMES_VIEW_GALLERY)
+        for(unsigned i=0;i<shell.games_listing.count && i<KUI_GAMES_ROWS;i++)
+            if(shell.games_listing.entries[i].cover) view.game_tile_covers[i]=covers[i];
     view.files_picture=picture;
     kui_shell_draw(frame,&shell,&view,NULL,NULL);
     FILE *out=fopen(argv[2],"wb"); if(!out) return 1;
