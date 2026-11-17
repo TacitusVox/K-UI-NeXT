@@ -57,7 +57,7 @@ Delivered: `KUI-WinCE-GUI-Routes-16NOV2026-1928-CST-069d612.zip`, GUI build
 `retail-boot.kui` `9e3295bcfaec`, as `00d8ed67d9ad` does. `00d8ed67d9ad`
 remains the reference until the owner reports the package's four tests.
 
-## WinCE data session probe: data pending, a257f13ec7d1, 2026-11-17
+## WinCE data session probe: data pending, c25e9f5e203b, 2026-11-17
 
 A measurement build, not a candidate: the generic `ce-boot.kui` with
 `KUI_WCE_PROBE=1` ([data probe](wince-data-probe.md)). The owner swaps it in
@@ -65,15 +65,18 @@ for one bulk session and puts the installed `7b216f2e1136` back before the
 GUI `069d612cadea` tests. No GUI change; both GUIs admit it as they admit
 `ce-boot.kui`.
 
-Delivered: `KUI-WinCE-Data-Session-17NOV2026-0021-CST-a257f13.zip` (SHA256 `a0547cfb7450af1436ace17826087eb6e05a60d3a72789476895a7f9d7cb4c67`): the probe module (payload CRC
-`6714546A`), a blank 64-slot `KUI/WCEDATA/WCEDATA.BIN`, and the installed
-`7b216f2e1136` in `IF-NEEDED/`.
+Delivered: `KUI-WinCE-Data-Session-17NOV2026-0041-CST-c25e9f5.zip` (SHA256
+`cf03119e73ae3819148f515d20cde9aa76035d64dd15717b683c611278a3aad8`): the probe
+module (payload CRC `FFD43455`), a blank 64-slot `KUI/WCEDATA/WCEDATA.BIN`, and
+the installed `7b216f2e1136` in `IF-NEEDED/`. The first package
+(`a257f13ec7d1`) was superseded by the review fixes before delivery.
 
 Host evidence: the FAT32/exFAT lookup and its refusals, the end-to-end
 claim/session/dump on FatFs cards (contiguous and fragmented, red, yellow,
-interrupted claim, damaged seed), the GUI's production admission of the exact
-module bytes, the miner, and the build gates (resident ends at its 0x8c00dd80
-limit; stack worst case 452 of 592 bytes, label-less calls counted).
+interrupted claim, damaged seeds, a reader fault, a cut-off dump, a retried
+write), the GUI's production admission of the exact module bytes, the miner,
+and the build gates (resident ends by its 0x8c00ddc0 limit; stack worst case
+392 of 528 bytes, calls into IPA-split clones counted).
 `KUI_WCE_PROBE=0` rebuilds `7b216f2e1136` byte for byte. Console behaviour is
 untested: the first session is the test.
 
