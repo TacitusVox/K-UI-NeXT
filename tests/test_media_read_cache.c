@@ -142,10 +142,71 @@ static void bounds_and_rebind(void) {
     assert(disk_read(0u,out,3u,1u)==RES_OK && reads==before+1u && out[0]==19u);
     kui_media_read_cache_end();
 }
+/* A paused lookup walk keeps its sectors only while the media is unchanged. */
+static _Alignas(32) uint8_t big_cache[400u*(512u+4u)];
+static void suspend_resume(void) {
+    uint8_t out[512],in[512];memset(in,0x5c,sizeof(in));fixture();
+    struct kui_media_read_cache_saved saved;
+    assert(!kui_media_read_cache_active());
+    assert(!kui_media_read_cache_suspend(cache,&saved) && !saved.scratch);
+    assert(kui_media_read_cache_begin(cache,sizeof(cache)) && kui_media_read_cache_active());
+    assert(disk_read(0u,out,3u,1u)==RES_OK && reads==1u);
+    /* Only the owning scratch may suspend the walk. */
+    assert(!kui_media_read_cache_suspend(nested_cache,&saved) && kui_media_read_cache_active());
+    assert(kui_media_read_cache_suspend(cache,&saved) && !kui_media_read_cache_active());
+    /* Paused: reads reach the device and are not memoized. */
+    assert(disk_read(0u,out,3u,1u)==RES_OK && reads==2u);
+    assert(disk_read(0u,out,5u,1u)==RES_OK && reads==3u);
+    assert(kui_media_read_cache_resume(&saved));
+    assert(disk_read(0u,out,3u,1u)==RES_OK && reads==3u && out[0]==7u);
+    assert(disk_read(0u,out,5u,1u)==RES_OK && reads==4u);
+    assert(!kui_media_read_cache_resume(&saved));            /* already active */
+    assert(kui_media_read_cache_suspend(cache,&saved));
+    /* Another walk may run while paused; it does not invalidate this one. */
+    assert(kui_media_read_cache_begin(nested_cache,sizeof(nested_cache)));
+    assert(disk_read(0u,out,9u,1u)==RES_OK);kui_media_read_cache_end();
+    assert(kui_media_read_cache_resume(&saved));
+    unsigned before=reads;
+    assert(disk_read(0u,out,5u,1u)==RES_OK && reads==before);
+    assert(kui_media_read_cache_suspend(cache,&saved));
+    /* Any write, failure or rebinding while paused discards the sectors. */
+    assert(disk_write(0u,in,3u,1u)==RES_OK);
+    assert(!kui_media_read_cache_resume(&saved));
+    assert(kui_media_read_cache_begin(cache,sizeof(cache)));
+    assert(disk_read(0u,out,3u,1u)==RES_OK && out[0]==0x5cu);
+    assert(kui_media_read_cache_suspend(cache,&saved));
+    kui_media_set(&ops);assert(disk_initialize(0u)==0u);
+    assert(!kui_media_read_cache_resume(&saved));
+    assert(kui_media_read_cache_begin(cache,sizeof(cache)));
+    assert(disk_read(0u,out,3u,1u)==RES_OK);
+    assert(kui_media_read_cache_suspend(cache,&saved));
+    assert(disk_read(1u,out,3u,1u)==RES_PARERR && !kui_media_read_cache_resume(&saved));
+    /* Corrupted saved state is refused. */
+    fixture();
+    assert(kui_media_read_cache_begin(cache,sizeof(cache)) && kui_media_read_cache_suspend(cache,&saved));
+    struct kui_media_read_cache_saved bad=saved;bad.count=65u;assert(!kui_media_read_cache_resume(&bad));
+    bad=saved;bad.next=64u;assert(!kui_media_read_cache_resume(&bad));
+    bad=saved;bad.next=1u;assert(!kui_media_read_cache_resume(&bad));
+    bad=saved;bad.scratch=NULL;assert(!kui_media_read_cache_resume(&bad));
+    /* A directory longer than the old 64-sector cap fits a larger scratch,
+     * and repeated scans of it are served from memory. */
+    fixture();
+    assert(kui_media_read_cache_begin(big_cache,sizeof(big_cache)));
+    for(unsigned pass=0u;pass<3u;pass++)
+        for(unsigned n=0u;n<100u;n++) {
+            assert(disk_read(0u,out,n,1u)==RES_OK && out[0]==n+PARTITION_FIRST);
+        }
+    assert(reads==100u);
+    assert(kui_media_read_cache_suspend(big_cache,&saved) && kui_media_read_cache_resume(&saved));
+    for(unsigned n=0u;n<100u;n++) assert(disk_read(0u,out,n,1u)==RES_OK);
+    assert(reads==100u);
+    kui_media_read_cache_end();
+}
 int main(void) {
     first_read_and_scope();bounded_storage();writes_disable_scope();
+    suspend_resume();
     for(unsigned i=0u;i<3u;i++)failure_invalidates(i);
     bounds_and_rebind();kui_media_read_cache_end();kui_media_set(NULL);
-    puts("Media read cache: first-read I/O, scope/nesting, direct multi-sector I/O, write/error/reset invalidation and bounds passed");
+    puts("Media read cache: first-read I/O, scope/nesting, direct multi-sector I/O, write/error/reset invalidation, suspend/resume and bounds passed");
     return 0;
 }

@@ -28,6 +28,16 @@ const char *kui_media_problem(void);
  * across operations: repeated verification passes must reach the device. */
 bool kui_media_read_cache_begin(void *scratch,size_t bytes);
 void kui_media_read_cache_end(void);
+bool kui_media_read_cache_active(void);
+/* A bounded lookup walk may pause between its own read-only lookups and keep
+ * its memoized sectors. Suspend ends the cache only when `scratch` owns it.
+ * Resume restores them only while no cache is active and the media mutation
+ * epoch is unchanged: any write, I/O error, invalid request or device/view
+ * reset since the suspension discards them. Never resume around image
+ * verification; resumed scopes follow the same rules as begin/end. */
+struct kui_media_read_cache_saved {void *scratch;size_t bytes,count,next;uint64_t epoch;};
+bool kui_media_read_cache_suspend(void *scratch,struct kui_media_read_cache_saved *out);
+bool kui_media_read_cache_resume(const struct kui_media_read_cache_saved *saved);
 /* Read-only proofs may be carried only inside one exclusive worker operation.
  * Every attempted write, device/view replacement and I/O/refusal error changes
  * this generation. It grants no storage/card identity or lifetime by itself. */
