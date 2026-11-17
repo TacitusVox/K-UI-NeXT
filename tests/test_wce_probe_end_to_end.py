@@ -28,7 +28,23 @@ def check(ok, what):
         raise SystemExit("FAIL " + what)
 
 
+def fault_reasons():
+    # The decoder's table is the reader's fault messages keyed by length + 1,
+    # and no two messages may share a length.
+    import re
+    text = (ROOT / "src/loader/retail_resident.c").read_text()
+    literals = sorted(set(re.findall(r'report_fault\("([^"]+)"', text)))
+    by_code = {}
+    for s in literals:
+        by_code.setdefault(len(s) + 1, []).append(s)
+    check(all(len(v) == 1 for v in by_code.values()), f"fault messages share a length: {by_code}")
+    check({k: v[0] for k, v in by_code.items()} == wce_probe_data.FAULT_REASONS,
+          "the decoder's fault table matches the reader's messages")
+    print(f"PASS {len(literals)} reader fault messages have distinct lengths and decode by length")
+
+
 def main():
+    fault_reasons()
     config = (ROOT / "config/ffconf.h").read_text()
     marker = "#define FF_USE_MKFS 0"
     assert config.count(marker) == 1
@@ -45,14 +61,14 @@ def main():
                         str(fatfs_source() / "ff.c"), str(fatfs_source() / "ffunicode.c"),
                         "-o", str(binary)], check=True)
         blank = base / "blank.bin"
-        wce_probe_data.blank(blank, 5, "host test")
+        wce_probe_data.blank(blank, 7, "host test")
         for fs, fragment in (("exfat", 0), ("fat32", 0), ("exfat", 3), ("fat32", 3)):
             data, ram, info = base / f"data-{fs}-{fragment}.bin", base / "ram.bin", base / "info.json"
             subprocess.run([str(binary), fs, str(fragment), str(blank), str(data), str(ram), str(info)], check=True)
             dumps = base / f"dumps-{fs}-{fragment}"
             result = wce_probe_data.read(data, None, dumps)
             sessions = {s["slot"]: s for s in result["sessions"] if "state" in s}
-            check(set(sessions) == {0, 1, 2, 3, 4}, f"five claimed slots, got {sorted(sessions)}")
+            check(set(sessions) == set(range(7)), f"seven claimed slots, got {sorted(sessions)}")
             s0, s1, s2 = sessions[0], sessions[1], sessions[2]
             check(sessions[3]["state"] == "claimed" and sessions[3]["stage"] is None,
                   "an interrupted claim: CLAIMED header, no stage report")
@@ -79,30 +95,42 @@ def main():
             check(log[0]["command"] == "PLAY" and log[1]["command"] == "PAUSE" and log[0]["repeat"] == 15,
                   "audio commands and parameters")
             m = c["maple"]
-            check(m["samples"] == c["calls"] // 4 and m["frames"] == 3 * m["samples"] and not m["bad_lists"],
-                  "Maple samples and frames")
+            check(m["samples"] == c["calls"] and m["frames"] == 4 * m["samples"] and not m["bad_lists"],
+                  "Maple sampled on every GD call: samples and frames")
             units = m["units"]
             check(units["A"]["condition"] == m["samples"] and units["A"]["functions"] == "0x01000000", "port A")
-            check(units["A1"]["block write"] == min(255, m["samples"]) and units["A1"]["functions"] == "0x02000000", "A1 writes")
+            check(units["A1"]["block write"] == min(255, m["samples"]) and units["A1"]["other"] == min(255, m["samples"])
+                  and units["A1"]["functions"] == "0x06000000", "A1: storage writes count, LCD writes do not")
             check(units["B2"]["media info"] == min(255, m["samples"]), "B2 media info")
             # The dump: every non-zero page, byte for byte.
             image = Path(s0["dump_file"]).read_bytes()
             original = ram.read_bytes()
             check(hashlib.sha256(image).digest() == hashlib.sha256(original).digest(), "dump reproduces RAM")
             pages = sum(1 for p in range(4096) if any(original[p * 4096:(p + 1) * 4096]))
-            check(t["pages"] == pages == s0["dump_pages"], "page counts")
+            check(t["pages"] == pages == s0["dump_pages"] and s0["dump_complete"], "page counts")
+            s5, s6 = sessions[5], sessions[6]
+            t5 = s5["terminal"]
+            check(s5["state"] == "complete" and t5["reason"] == "reader fault" and t5["function"] == "REQUEST"
+                  and t5["reason_text"] == "GD REQUEST REJECTED" and s5["dump_complete"], "a fault names its reason")
+            check(s6["state"] == "claimed" and s6["terminal"]["reason"] == "A+B+X+Y+Start"
+                  and not s6["dump_complete"] and s6["dump_missing_pages"] > 0
+                  and Path(s6["dump_file"]).name.endswith("-partial.ram"), "a cut-off dump is flagged")
             check(s1["terminal"] is None or s1["terminal"]["reason"] in ("reader fault", "A+B+X+Y+Start"), "slot 1")
             # The miner on the same file: launches, ends, ports and CD audio.
             mined = {r["slot"]: r for r in wce_probe_mine.mine(data)["launches"]}
-            check(set(mined) == {0, 1, 2, 3, 4} and mined[0]["complete"] and mined[0]["end"] == "A+B+X+Y+Start",
+            check(set(mined) == set(range(7)) and mined[0]["complete"] and mined[0]["end"] == "A+B+X+Y+Start",
                   "miner: launches and the completed end")
             check(mined[0]["ports"]["saved_to"] == ["A1"] and mined[0]["cd_audio"]["commands"] == {"PLAY": 7, "PAUSE": 7},
                   "miner: saves and CD audio")
             check("not in the dump" in mined[0]["dump"]["note"] and mined[0]["dump"]["memory"]["dumped_pages"] == pages,
                   "miner: dump without CE structures")
             check(mined[2]["end"].startswith("no end-of-game record"), "miner: stage-only launch")
+            check(mined[5]["end"] == "reader fault: GD REQUEST REJECTED in REQUEST" and mined[5]["complete"],
+                  "miner: the fault and its reason")
+            check(not mined[6]["complete"] and "pages missing" in mined[6]["dump"]["note"], "miner: a cut-off dump")
             print(f"PASS decode {fs} fragment {fragment}: slot 0 complete with {pages} pages, slot 1 claimed "
-                  "after a failed dump, slot 2 claimed, slot 3 interrupted, slot 4 next; miner agrees")
+                  "after a failed dump, slot 2 claimed, slot 3 interrupted, slot 4 next, slot 5 a fault, "
+                  "slot 6 cut off; miner agrees")
     return 0
 
 

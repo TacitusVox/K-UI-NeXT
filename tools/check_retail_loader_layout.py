@@ -41,7 +41,7 @@ ASYNC = "scia"
 RESIDENTS = TRANSPORTS + (ASYNC,)
 CE_VMU_RUNTIME_STACK_BOTTOM=0x8c00dc00
 # The WinCE data probe's test reader (include/kui/wce_probe.h).
-CE_PROBE_STACK_BOTTOM=0x8c00dd80
+CE_PROBE_STACK_BOTTOM=0x8c00ddc0
 
 
 def exact_profile_marker(data,name):

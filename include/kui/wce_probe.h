@@ -46,8 +46,8 @@
 
 enum kui_wce_probe_state {
     KUI_WCE_PROBE_EMPTY = 0u,
-    KUI_WCE_PROBE_CLAIMED = 1u,  /* stage report written; the game started */
-    KUI_WCE_PROBE_DUMPING = 2u,  /* terminal report written, dump under way */
+    KUI_WCE_PROBE_CLAIMED = 1u,  /* claimed by the stage (written before its report) */
+    KUI_WCE_PROBE_DUMPING = 2u,  /* unused: a cut-off dump stays CLAIMED */
     KUI_WCE_PROBE_COMPLETE = 3u  /* dump finished */
 };
 enum kui_wce_probe_reason {
@@ -73,7 +73,7 @@ struct kui_wce_probe_slot {
     char magic[8];               /* "KUIWCES1" */
     uint32_t version,header_bytes,slot,state,sequence,rtc;
     uint8_t file_id[16];
-    uint32_t pages,reason,reserved,crc32;
+    uint32_t pages,reason,reserved,crc32; /* pages, reason: always 0 (see the terminal report) */
 };
 _Static_assert(sizeof(struct kui_wce_probe_slot)==KUI_WCE_PROBE_HEADER_BYTES,"WCE probe slot header");
 
@@ -119,7 +119,8 @@ struct kui_wce_probe_counters {
     struct kui_wce_probe_audio audio_ring[KUI_WCE_PROBE_AUDIO_RING];
     /* Frames seen in the Maple DMA lists, by recipient and command (saturating
      * at 255): commands 1 device info, 9 condition, 10 media info, 11 block
-     * read, 12 block write, 13 write complete, 14 set condition, 0 any other. */
+     * read, 12 block write, 13 write complete (these three for storage,
+     * function 0x02000000, only), 14 set condition, 0 any other. */
     uint8_t maple[KUI_WCE_PROBE_MAPLE_UNITS][KUI_WCE_PROBE_MAPLE_COMMANDS];
     uint32_t maple_functions[KUI_WCE_PROBE_MAPLE_UNITS]; /* function codes seen, OR'd */
 };
@@ -146,14 +147,16 @@ _Static_assert(sizeof(struct kui_wce_probe_stage)<=KUI_WCE_PROBE_STAGE_SECTORS*K
 
 /* The terminal report, slot sectors +8..+15. */
 #define KUI_WCE_PROBE_REGISTERS 32u
+#define KUI_WCE_PROBE_REGISTERS_READ 16u /* the rest are zero */
 struct kui_wce_probe_terminal {
     char magic[8];               /* "KUIWCETR" */
+    /* Menu: the BIOS menu command, caller and stack. Fault: the GD function,
+     * and in caller the address of the reason string (in the dump). */
     uint32_t version,bytes,reason,menu_command,caller,stack;
     uint32_t rtc,hook_fault,pages,dump_sectors;
-    /* SR VBR CCR MMUCR PTEH TTB TEA EXPEVT INTEVT, Maple MDSTAR MDEN MDST,
-     * ASIC ISTNRM ISTEXT ISTERR, video SPG_CONTROL SPG_LOAD SPG_HBLANK
-     * SPG_VBLANK SPG_WIDTH VO_CONTROL VO_STARTX VO_STARTY FB_R_CTRL FB_R_SIZE
-     * FB_R_SOF1, PCTRA, Holly IML6NRM IML4NRM IML2NRM, TCNT0 TCOR0. Every one
+    /* SR (in the hook: BL and IMASK forced), VBR, CCR MMUCR PTEH TTB, Maple
+     * MDSTAR, ASIC ISTNRM, video SPG_CONTROL SPG_LOAD VO_CONTROL FB_R_CTRL
+     * FB_R_SOF1, Holly IML2NRM IML4NRM IML6NRM; then 16 zero words. Every one
      * is a 32-bit register read without side effects. */
     uint32_t registers[KUI_WCE_PROBE_REGISTERS];
     struct kui_wce_probe_seed seed;

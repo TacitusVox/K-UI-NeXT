@@ -266,7 +266,7 @@ enum kui_wce_probe_claim_result kui_wce_probe_claim_find(const struct kui_wce_pr
        file->header_bytes!=KUI_WCE_PROBE_HEADER_BYTES ||
        file->crc32!=kui_wce_probe_crc32(0u,file,offsetof(struct kui_wce_probe_file,crc32)) ||
        file->slot_sectors!=KUI_WCE_PROBE_SLOT_SECTORS || file->dump_sectors!=KUI_WCE_PROBE_DUMP_SECTORS ||
-       file->first_slot<1u || !file->slot_count || file->slot_count>256u ||
+       file->first_slot<1u || !file->slot_count || file->slot_count>255u || /* < 4 GiB */
        (uint64_t)file->first_slot+(uint64_t)file->slot_count*file->slot_sectors>layout->bytes/512u)
         return KUI_WCE_PROBE_CLAIM_NOT_FILE;
     for(uint32_t slot=0;slot<file->slot_count;slot++) {

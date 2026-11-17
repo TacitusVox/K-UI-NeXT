@@ -34,7 +34,7 @@ enum {KUI_RETAIL_GD_PLAY=20,KUI_RETAIL_GD_PLAY2=21,KUI_RETAIL_GD_PAUSE=22,KUI_RE
 #define KUI_RETAIL_ASYNC_SPILL_BYTES 2048u
 enum kui_sci_stream_result {KUI_SCI_STREAM_OK=0};
 #include "retail_display.h"
-#define BLOCKS_FOR_MAP (96u*1024u*1024u/512u)
+#define BLOCKS_FOR_MAP (128u*1024u*1024u/512u)
 static struct {
     uint8_t area0[544] __attribute__((aligned(32)));
     uint8_t area1[544] __attribute__((aligned(32)));
@@ -49,7 +49,7 @@ static const struct host_manifest host_map={BLOCKS_FOR_MAP,0u,BLOCKS_FOR_MAP};
 static struct {uint32_t opened;const struct host_manifest *manifest;} e;
 volatile uint32_t kui_retail_hook_fault;
 
-#define BLOCKS (96u*1024u*1024u/512u)
+#define BLOCKS (128u*1024u*1024u/512u)
 static uint8_t *disk;
 static uint8_t *ram;           /* the console's 16 MiB, physical 0x0c000000.. */
 static uint32_t mdstar,rtc_seconds=0x12345678u;
@@ -58,6 +58,9 @@ static uint16_t colors[8];static unsigned color_count;
 static uint32_t slot_first,slot_last;  /* the claimed slot's card sectors */
 static unsigned writes,stream_stops;
 static bool fail_writes,interrupt_claim;
+static unsigned fail_after;    /* fail every write after this many (0: never) */
+static unsigned fail_once;     /* fail only the write after this many (0: never) */
+static unsigned write_attempts;
 
 static void fail(const char *what) {fprintf(stderr,"FAIL %s\n",what);exit(1);}
 static void check(bool ok,const char *what) {if(!ok) fail(what);}
@@ -79,6 +82,8 @@ static const void *host_ram(uint32_t address) {
 #define WCE_PROBE_REG(address) host_reg(address)
 #define WCE_PROBE_RAM(address) host_ram(address)
 #define WCE_PROBE_REBOOT() longjmp(rebooted,1)
+static unsigned cache_purges;
+#define WCE_PROBE_CACHE_PURGE(ccr) ((void)(ccr),++cache_purges)
 
 enum kui_sci_stream_result kui_sci_stream_stop(void) {++stream_stops;return KUI_SCI_STREAM_OK;}
 void kui_sci_stream_discard(void) {}
@@ -88,7 +93,9 @@ void retail_display_color(const struct retail_display_state *s,uint16_t color) {
 void retail_display_pause(uint32_t frames) {(void)frames;}
 enum kui_loader_sd_result kui_sci_sd_write(struct kui_loader_sd *card,uint32_t lba,uint32_t count,const uint8_t *data) {
     check(card && card->ready && card->bus.transfer_block==NULL,"reader writes through the byte path");
-    if(fail_writes) return KUI_LOADER_SD_TIMEOUT;
+    ++write_attempts;
+    if(fail_writes || (fail_after && writes>=fail_after)) return KUI_LOADER_SD_TIMEOUT;
+    if(fail_once && writes==fail_once) {fail_once=0u;return KUI_LOADER_SD_CRC;}
     if(lba<slot_first || lba>=slot_last || count>slot_last-lba) fail("a reader write left the claimed slot");
     memcpy(disk+(size_t)lba*512u,data,(size_t)count*512u);
     ++writes;return KUI_LOADER_SD_OK;
@@ -220,23 +227,28 @@ int main(int argc,char **argv) {
         for(uint32_t i=0;i<1024u;i++) ((uint32_t *)(void *)ram)[page*1024u+i]=page*2654435761u^i;
     }
     uint32_t *list=(uint32_t *)(void *)(ram+0x100000u);
-    memset(list,0,64u);
+    memset(list,0,96u);
     list[0]=1u|0u<<16;list[1]=0x0c200000u;list[2]=9u|0x20u<<8|1u<<24;list[3]=0x01000000u;
     list[4]=2u|0u<<16;list[5]=0x0c200100u;list[6]=12u|0x01u<<8|2u<<24;list[7]=0x02000000u;list[8]=0;
-    list[9]=0x80000000u|1u|1u<<16;list[10]=0x0c200200u;list[11]=10u|(0x40u|0x02u)<<8|1u<<24;list[12]=0x02000000u;
+    /* The VMU's screen: a block write to A1's LCD is not a save. */
+    list[9]=2u|0u<<16;list[10]=0x0c200180u;list[11]=12u|0x01u<<8|2u<<24;list[12]=0x04000000u;list[13]=0;
+    list[14]=0x80000000u|1u|1u<<16;list[15]=0x0c200200u;list[16]=10u|(0x40u|0x02u)<<8|1u<<24;list[17]=0x02000000u;
     mdstar=0x0c100000u;
     R.shared.card.device.sd.ready=true;R.shared.card.device.sd.blocks=BLOCKS;
     R.shared.card.device.sd.high_capacity=true;
     R.shared.card.device.sd.bus.transfer_block=(bool (*)(void *,const uint8_t *,uint8_t *,size_t,bool,uint16_t *))1;
     e.opened=1u;e.manifest=&host_map;
 
-    /* Session 1: slot 0, A+B+X+Y+Start. */
+    /* Session 1: slot 0, A+B+X+Y+Start; one transient write error on the
+     * way is retried. */
+    fail_once=5u;
     stage(&kui_wce_probe_seed,0u,"T13004N");
     session();
     static const struct retail_display_state display;
     if(!setjmp(rebooted)) {kui_wce_probe_terminal(&display,KUI_WCE_PROBE_MENU,1u,0x8c123456u,0x8c0fff00u);fail("no restart");}
     check(color_count==2u && colors[0]==PROBE_BLUE && colors[1]==PROBE_GREEN,"blue then green");
-    check(stream_stops==1u && writes>4u,"stream stopped and the slot written");
+    check(stream_stops==1u && writes>4u && cache_purges==1u,"cache written back, stream stopped, slot written");
+    check(!fail_once && write_attempts==writes+1u,"a transient write error was retried once");
     uint32_t first_writes=writes;
     /* The dump's expected content, for the decode check. */
     write_file(argv[5],ram,0x01000000u);
@@ -276,6 +288,49 @@ int main(int argc,char **argv) {
      * used with no report, and the next launch claims slot 4. */
     interrupt_claim=true;stage(&third,3u,"T40301N");interrupt_claim=false;
     stage(&third,4u,"T12509N");
+    /* Session 6: slot 5 ends in a reader fault (a refused request), named as
+     * the probe's report_fault macro names it: by its message's length. */
+    memset(&probe,0,sizeof(probe));color_count=0u;writes=0u;
+    stage(&kui_wce_probe_seed,5u,"T40601N");
+    session();
+    if(!setjmp(rebooted)) {kui_wce_probe_terminal(&display,KUI_WCE_PROBE_FAULT,KUI_GD_REQUEST,
+        (uint32_t)sizeof("GD REQUEST REJECTED"),0u);fail("no restart");}
+    check(color_count==2u && colors[1]==PROBE_GREEN,"a fault's dump completes");
+    /* Session 7: slot 6; the card fails part-way through the pages: red,
+     * and the slot keeps its report and the pages written so far. */
+    memset(&probe,0,sizeof(probe));color_count=0u;writes=0u;fail_after=6u;
+    stage(&kui_wce_probe_seed,6u,"T44102N");
+    session();
+    if(!setjmp(rebooted)) {kui_wce_probe_terminal(&display,KUI_WCE_PROBE_MENU,1u,0u,0u);fail("no restart");}
+    check(color_count==2u && colors[1]==PROBE_RED && writes==6u,"red after a mid-dump failure");
+    fail_after=0u;
+    /* The claim's refusals on the filled file. */
+    {
+        static uint8_t work[512];
+        static struct kui_wce_probe_layout layout;
+        struct kui_wce_probe_volume v={0u,BLOCKS,card_read,NULL};
+        struct kui_wce_probe_claim c;
+        check(kui_wce_probe_fat_find(&v,&layout,work)==KUI_WCE_PROBE_FAT_OK,"lookup");
+        check(kui_wce_probe_claim_find(&v,&layout,work,&c)==KUI_WCE_PROBE_CLAIM_FULL,"every slot used: FULL");
+        uint8_t *head=disk+(size_t)kui_wce_probe_lba(&layout,0u)*512u;
+        head[0]^=1u;
+        check(kui_wce_probe_claim_find(&v,&layout,work,&c)==KUI_WCE_PROBE_CLAIM_NOT_FILE,"bad file header: NOT_FILE");
+        head[0]^=1u;
+        uint8_t *slot3=disk+(size_t)kui_wce_probe_lba(&layout,2048u+3u*KUI_WCE_PROBE_SLOT_SECTORS)*512u;
+        uint8_t keep[64];memcpy(keep,slot3,64u);
+        slot3[60]^=1u;
+        check(kui_wce_probe_claim_find(&v,&layout,work,&c)==KUI_WCE_PROBE_CLAIM_SLOT_HEADER,"damaged slot header");
+        /* An EMPTY header over written sectors (slot 3's report area is
+         * blank, so use slot 6's, which holds a report and pages). */
+        memcpy(slot3,keep,64u);
+        uint8_t *slot6=disk+(size_t)kui_wce_probe_lba(&layout,2048u+6u*KUI_WCE_PROBE_SLOT_SECTORS)*512u;
+        struct kui_wce_probe_slot empty;
+        kui_wce_probe_slot_header(&empty,6u,KUI_WCE_PROBE_EMPTY,0u,0u,((const struct kui_wce_probe_file *)(const void *)head)->file_id);
+        uint8_t keep6[64];memcpy(keep6,slot6,64u);memcpy(slot6,&empty,sizeof(empty));
+        check(kui_wce_probe_claim_find(&v,&layout,work,&c)==KUI_WCE_PROBE_CLAIM_NOT_BLANK,"EMPTY over written sectors: NOT_BLANK");
+        memcpy(slot6,keep6,64u);
+        check(kui_wce_probe_claim_find(&v,&layout,work,&c)==KUI_WCE_PROBE_CLAIM_FULL,"restored");
+    }
 
     /* Copy the file out for the decoder. */
     check(f_mount(&fs,"0:",1)==FR_OK,"mount");

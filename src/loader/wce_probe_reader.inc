@@ -4,9 +4,10 @@
  * as a test ce-boot.kui; the accepted generic module never compiles this.
  *
  * While the game runs: each GD call is counted by function and command, CD
- * audio commands are logged, and every fourth call reads the Maple DMA
- * command list that MDSTAR names, to count which port and slot each command
- * addresses. These are reads only: bounded P1 views of main RAM, MDSTAR,
+ * audio commands are logged, and each call reads the Maple DMA command list
+ * that MDSTAR names, to count which port and slot each command addresses.
+ * Sampling only sees lists present during GD calls: a frame counted is
+ * evidence, a frame not counted is not evidence of absence. These are reads only: bounded P1 views of main RAM, MDSTAR,
  * and the AICA clock at a few marked moments.
  *
  * At the end (the game's BIOS menu call on A+B+X+Y+Start, or a reader fault
@@ -24,6 +25,13 @@
  * model of the console's RAM and registers. */
 #ifndef WCE_PROBE_REG
 #define WCE_PROBE_REG(address) (*(volatile const uint32_t *)(uintptr_t)(address))
+#endif
+#ifndef WCE_PROBE_CACHE_PURGE
+#define WCE_PROBE_CACHE_PURGE(ccr) do { \
+    for(uint32_t entry=0;entry<512u;entry++) \
+        if(!((ccr)&0x20u) || !(entry&0x80u)) \
+            *(volatile uint32_t *)(uintptr_t)(UINT32_C(0xf4000000)|entry<<5)=0u; \
+} while(0)
 #endif
 #ifndef WCE_PROBE_RAM
 #define WCE_PROBE_RAM(address) ((const void *)(uintptr_t)(address))
@@ -79,8 +87,11 @@ static void probe_maple(void) {
         unsigned kind=command==1u?1u:command>=9u && command<=14u?command-7u:0u;
         if(unit<3u) {
             unsigned u=port*3u+unit;
-            if(p->maple[u][kind]!=UINT8_MAX) ++p->maple[u][kind];
             if(kind>=2u && length) p->maple_functions[u]|=w[3];
+            /* Block read, write and completion count for storage only: an LCD
+             * or clock block write is not a save. */
+            if(kind>=4u && kind<=6u && (!length || w[3]!=UINT32_C(0x02000000))) kind=0u;
+            if(p->maple[u][kind]!=UINT8_MAX) ++p->maple[u][kind];
         }
         probe_sat32(&p->maple_frames);
         if(instruction&UINT32_C(0x80000000)) return;
@@ -126,7 +137,7 @@ void kui_wce_probe_record(uint32_t function,uint32_t command,int32_t result) {
             probe_sat32(&p->audio_count);
         }
     }
-    if(!(p->calls&3u)) probe_maple();
+    probe_maple();
 }
 
 /* Sector `sector` counts from the slot's terminal report, where runs[0]
@@ -140,6 +151,9 @@ static enum kui_loader_sd_result probe_write(struct kui_loader_sd *sd,uint32_t s
         uint32_t take=r->sectors-sector;
         if(take>count) take=count;
         enum kui_loader_sd_result result=kui_sci_sd_write(sd,r->lba+sector,take,data);
+        /* One retry of the same sectors: a single transient error (a data CRC
+         * reject) does not end the dump. */
+        if(result!=KUI_LOADER_SD_OK) {sd->ready=true;result=kui_sci_sd_write(sd,r->lba+sector,take,data);}
         if(result!=KUI_LOADER_SD_OK) return result;
         data+=take*KUI_WCE_PROBE_SECTOR;count-=take;sector=0u;
     }
@@ -175,21 +189,20 @@ static bool probe_seed_ok(const struct kui_wce_probe_seed *s) {
 #define PROBE_YELLOW 0xffe0u
 void kui_wce_probe_terminal(const struct retail_display_state *display,uint32_t reason,
     uint32_t command,uint32_t caller,uint32_t stack) {
-    /* Registers first, before the display or the card changes any of them. */
-    static const uint32_t registers[KUI_WCE_PROBE_REGISTERS-2u]={
-        0xff00001cu,0xff000010u,0xff000000u,0xff000008u,0xff00000cu,0xff000024u,0xff000028u,
-        0xa05f6c04u,0xa05f6c14u,0xa05f6c18u,0xa05f6900u,0xa05f6904u,0xa05f6908u,
-        0xa05f80d0u,0xa05f80d8u,0xa05f80d4u,0xa05f80dcu,0xa05f80e0u,0xa05f80e8u,0xa05f80ecu,
-        0xa05f80f0u,0xa05f8044u,0xa05f805cu,0xa05f8050u,0xff80002cu,0xa05f6910u,0xa05f6920u,
-        0xa05f6930u,0xffd8000cu,0xffd80008u}; /* all 32-bit registers, read only */
-    uint32_t values[KUI_WCE_PROBE_REGISTERS];
+    /* Registers first, before the display or the card changes any of them.
+     * All 32-bit, read without side effects (include/kui/wce_probe.h). */
+    static const uint32_t registers[KUI_WCE_PROBE_REGISTERS_READ-2u]={
+        0xff00001cu,0xff000010u,0xff000000u,0xff000008u,0xa05f6c04u,0xa05f6900u,
+        0xa05f80d0u,0xa05f80d8u,0xa05f80e8u,0xa05f8044u,0xa05f8050u,
+        0xa05f6910u,0xa05f6920u,0xa05f6930u};
+    uint32_t values[KUI_WCE_PROBE_REGISTERS_READ];
 #ifdef KUI_WCE_PROBE_HOST_TEST
     values[0]=values[1]=0u;
 #else
     __asm__ __volatile__("stc sr,%0":"=r"(values[0]));
     __asm__ __volatile__("stc vbr,%0":"=r"(values[1]));
 #endif
-    for(unsigned i=0;i<KUI_WCE_PROBE_REGISTERS-2u;i++) values[i+2u]=WCE_PROBE_REG(registers[i]);
+    for(unsigned i=0;i<KUI_WCE_PROBE_REGISTERS_READ-2u;i++) values[i+2u]=WCE_PROBE_REG(registers[i]);
     const struct kui_wce_probe_seed *s=&kui_wce_probe_seed;
     uint16_t color=PROBE_YELLOW; /* no data file or free slot at launch, or no read yet */
     if(!probe_seed_ok(s) || !e.opened) goto done;
@@ -212,6 +225,12 @@ void kui_wce_probe_terminal(const struct retail_display_state *display,uint32_t 
     t->hook_fault=kui_retail_hook_fault;
     memcpy(t->registers,values,sizeof(values));
     t->seed=*s;t->counters=probe;t->counters.rtc_last=t->rtc;
+    /* CE runs the operand cache copy-back and maps the game's pages at other
+     * cache indexes than their P1 alias: write back every dirty line before
+     * reading RAM through P1. A non-associative write of 0 to each entry of
+     * the OC address array writes a dirty line back, then invalidates it.
+     * With CCR.ORA set, entries 128-255 and 384-511 are on-chip RAM. */
+    WCE_PROBE_CACHE_PURGE(values[2]);
     uint32_t pages=0u;
     for(uint32_t page=0;page<KUI_WCE_PROBE_PAGES;page++) {
         const uint32_t *w=(const uint32_t *)WCE_PROBE_RAM(KUI_WCE_PROBE_RAM_BEGIN+page*KUI_WCE_PROBE_PAGE_BYTES);

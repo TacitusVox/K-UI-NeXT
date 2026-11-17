@@ -123,10 +123,10 @@
 #define KUI_RETAIL_CE_ASYNC_LIMIT 0x8c00dc00
 #elif KUI_WCE_PROBE
 /* The WinCE data probe's test reader (include/kui/wce_probe.h) keeps a
- * 640-byte guarded stack, against a call-graph worst case checked by
+ * 576-byte guarded stack, against a call-graph worst case checked by
  * tools/check_retail_loader_layout.py, and uses the rest for its counters
  * and end-of-game writer. */
-#define KUI_RETAIL_CE_ASYNC_LIMIT 0x8c00dd80
+#define KUI_RETAIL_CE_ASYNC_LIMIT 0x8c00ddc0
 #else
 #define KUI_RETAIL_CE_ASYNC_LIMIT 0x8c00d800
 #endif

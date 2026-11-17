@@ -881,8 +881,8 @@ static void report_fault(const char *reason, uint32_t function, uint32_t current
 static void report_fault(const char *reason, uint32_t function) {
 #endif
 #if KUI_WCE_PROBE && defined(KUI_RETAIL_CE) && defined(KUI_RETAIL_ASYNC)
-    (void)reason;
-    kui_wce_probe_terminal(&display,KUI_WCE_PROBE_FAULT,function,0u,0u);
+    /* reason holds the message's length here (the report_fault macro). */
+    kui_wce_probe_terminal(&display,KUI_WCE_PROBE_FAULT,function,(uint32_t)(uintptr_t)reason,0u);
 #endif
     retail_display_restore(&display);
 #if !defined(KUI_RETAIL_CE) && !defined(KUI_RETAIL_ASYNC)
@@ -957,6 +957,12 @@ static void report_fault(const char *reason, uint32_t function) {
 #endif
 #if KUI_VMU_NATIVE_BACKGROUND || KUI_NATIVE_STANDALONE_READER
 #define report_fault(reason, function, current_param) report_fault((function))
+#elif KUI_WCE_PROBE && defined(KUI_RETAIL_CE) && defined(KUI_RETAIL_ASYNC)
+/* The WinCE data probe names a fault by its message's length, which differs
+ * for every message (tools/wce_probe_data.py maps it back), so the messages
+ * themselves are not kept in the resident. */
+#define report_fault(reason, function, current_param) \
+    report_fault((const char *)(uintptr_t)sizeof(reason), (function))
 #elif defined(KUI_RETAIL_CE) || defined(KUI_RETAIL_ASYNC)
 /* Current R5 is a standard-native terminal field. Keep the other readers'
  * original two-argument function and call ABI, including their stack budget. */

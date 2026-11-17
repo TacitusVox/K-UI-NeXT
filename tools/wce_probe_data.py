@@ -32,6 +32,12 @@ SLOT_SECTORS = DUMP_SECTOR + DUMP_SECTORS
 PAGE_MAP_OFFSET, PAGE_MAP_BYTES = 3584, PAGES // 8
 SLOT_RUNS = 8
 STATES = {0: "empty", 1: "claimed", 2: "dumping", 3: "complete"}
+# A reader fault names its message by length (src/loader/retail_resident.c,
+# the probe's report_fault macro: sizeof the literal, so length + 1).
+FAULT_REASONS = {12: "REQ REFUSED", 15: "GD UNSUPPORTED", 16: "CPU MAP REFUSED",
+                 18: "IMAGE READ FAILED", 19: "TRANSITION REACHED", 20: "GD REQUEST REJECTED",
+                 24: "GD FUNCTION UNSUPPORTED", 28: "VC2 VMU PREPARATION REFUSED",
+                 31: "CE KERNEL INTERRUPTS NOT FOUND"}
 REASONS = {0: "none", 1: "A+B+X+Y+Start", 2: "reader fault"}
 FUNCTIONS = ["REQUEST", "CHECK", "EXEC", "INIT", "DRIVE", "DMA_CALLBACK", "DMA_TRANSFER",
              "DMA_CHECK", "ABORT", "RESET", "DATATYPE", "PIO_CALLBACK", "PIO_TRANSFER",
@@ -44,11 +50,10 @@ COMMANDS = {16: "PIOREAD", 17: "DMAREAD", 18: "GETTOC", 19: "GETTOC2", 20: "PLAY
 MAPLE_UNITS = [f"{port}{unit}" for port in "ABCD" for unit in ("", "1", "2")]
 MAPLE_COMMANDS = ["other", "device info", "condition", "media info", "block read",
                   "block write", "write complete", "set condition"]
-REGISTERS = ["SR", "VBR", "CCR", "MMUCR", "PTEH", "TTB", "TEA", "EXPEVT", "INTEVT",
-             "MDSTAR", "MDEN", "MDST", "ISTNRM", "ISTEXT", "ISTERR", "SPG_CONTROL",
-             "SPG_LOAD", "SPG_HBLANK", "SPG_VBLANK", "SPG_WIDTH", "VO_CONTROL", "VO_STARTX",
-             "VO_STARTY", "FB_R_CTRL", "FB_R_SIZE", "FB_R_SOF1", "PCTRA", "IML6NRM", "IML4NRM",
-             "IML2NRM", "TCNT0", "TCOR0"]
+# SR is read inside the hook, after it forced BL and IMASK15.
+REGISTERS = ["SR (hook)", "VBR", "CCR", "MMUCR", "PTEH", "TTB", "MDSTAR", "ISTNRM",
+             "SPG_CONTROL", "SPG_LOAD", "VO_CONTROL", "FB_R_CTRL", "FB_R_SOF1",
+             "IML2NRM", "IML4NRM", "IML6NRM"]
 
 FILE = struct.Struct("<8s6I16s4I")
 SLOT = struct.Struct("<8s6I16s4I")
@@ -142,8 +147,10 @@ def decode_counters(raw):
     audio = []
     for i in range(AUDIO_FIRST + AUDIO_RING):
         c, r, call, first, last, repeat = AUDIO.unpack_from(raw, at + i * AUDIO.size)
+        # A refused command's slots hold the owning command's parameters.
         audio.append({"command": COMMANDS.get(c, c), "accepted": r == 1, "call": call,
-                      "first": first, "last": last, "repeat": repeat})
+                      "first": first if r == 1 else None, "last": last if r == 1 else None,
+                      "repeat": repeat if r == 1 else None})
     at += (AUDIO_FIRST + AUDIO_RING) * AUDIO.size
     maple = struct.unpack_from("<96B", raw, at)
     at += 96
@@ -154,10 +161,13 @@ def decode_counters(raw):
     later = max(0, audio_count - AUDIO_FIRST)
     order = ring[:later] if later <= AUDIO_RING else ring[later % AUDIO_RING:] + ring[:later % AUDIO_RING]
     mask = mask0 | mask1 << 32
+    def count16(n):
+        return "65535+" if n == 0xffff else n  # the 16-bit counters saturate
+
     return {"magic_ok": True, "calls": v[3],
             "rtc": {"first_call": v[4], "first_read": v[5], "first_audio": v[6], "last": v[7]},
-            "functions": {FUNCTIONS[i]: n for i, n in enumerate(functions) if n},
-            "commands": {COMMANDS.get(i + 16, str(i + 16)): n for i, n in enumerate(commands) if n},
+            "functions": {FUNCTIONS[i]: count16(n) for i, n in enumerate(functions) if n},
+            "commands": {COMMANDS.get(i + 16, str(i + 16)): count16(n) for i, n in enumerate(commands) if n},
             "refused": {"count": refused, "last": COMMANDS.get(refused_last, refused_last),
                         "commands": [COMMANDS.get(c, c) for c in range(64) if mask >> c & 1]},
             "reads": {"requests": read_requests, "sectors": read_sectors, "largest": largest_read},
@@ -198,10 +208,16 @@ def decode_terminal(raw):
     at = TERMINAL_HEAD.size
     seed = decode_seed(raw[at:at + SEED.size])
     counters = decode_counters(raw[at + SEED.size:PAGE_MAP_OFFSET])
-    return {"version": v[1], "reason": REASONS.get(v[3], v[3]), "menu_command": v[4],
-            "caller": f"{v[5]:#010x}", "stack": f"{v[6]:#010x}", "rtc": v[7], "hook_fault": v[8],
+    fault = v[3] == 2
+    out = {"version": v[1], "reason": REASONS.get(v[3], v[3])}
+    if fault:  # the GD function and the message, named by its length
+        out.update({"function": FUNCTIONS[v[4]] if v[4] < len(FUNCTIONS) else v[4],
+                    "reason_code": v[5], "reason_text": FAULT_REASONS.get(v[5], f"unknown ({v[5]})")})
+    else:
+        out.update({"menu_command": v[4], "caller": f"{v[5]:#010x}", "stack": f"{v[6]:#010x}"})
+    return {**out, "rtc": v[7], "hook_fault": v[8],
             "pages": v[9], "dump_sectors": v[10],
-            "registers": {REGISTERS[i]: f"{v[11 + i]:#010x}" for i in range(32)},
+            "registers": {REGISTERS[i]: f"{v[11 + i]:#010x}" for i in range(len(REGISTERS))},
             "seed": seed, "counters": counters}
 
 
@@ -224,34 +240,49 @@ def read(path, json_out=None, dumps=None):
             base = (first_slot + s * slot_sectors) * SECTOR
             f.seek(base)
             sh = f.read(SECTOR)
+            if len(sh) < 64:
+                result["sessions"].append({"slot": s, "error": "the file ends here (a truncated copy?)"})
+                result["file"]["truncated"] = True
+                break
             w = SLOT.unpack(sh[:64])
             if w[0] != b"KUIWCES1" or w[3] != s or w[7] != fid or crc(sh[:60]) != w[-1]:
                 result["sessions"].append({"slot": s, "error": "slot header unreadable"})
                 continue
             if w[4] == 0:
                 continue
-            session = {"slot": s, "state": STATES.get(w[4], w[4]), "sequence": w[5], "rtc": w[6],
-                       "pages": w[8], "reason": REASONS.get(w[9], w[9])}
+            # The slot header's pages and reason are always 0: the terminal
+            # report holds them.
+            session = {"slot": s, "state": STATES.get(w[4], w[4]), "sequence": w[5], "rtc": w[6]}
             f.seek(base + STAGE_SECTOR * SECTOR)
             session["stage"] = decode_stage(f.read(STAGE_SECTORS * SECTOR))
             f.seek(base + TERMINAL_SECTOR * SECTOR)
             terminal_raw = f.read(TERMINAL_SECTORS * SECTOR)
             session["terminal"] = decode_terminal(terminal_raw)
-            if session["terminal"] and dumps:
-                pages = page_map(terminal_raw)
-                written = min(len(pages), session["terminal"]["pages"])
+            terminal = session["terminal"]
+            if terminal:
+                pages = page_map(terminal_raw)[:terminal["pages"]]
                 image = bytearray(RAM_BYTES)
                 f.seek(base + DUMP_SECTOR * SECTOR)
-                for p in pages[:written]:
-                    image[p * PAGE:(p + 1) * PAGE] = f.read(PAGE)
-                product = (session["stage"] or {}).get("ip", {}).get("product", "") or ""
-                product = "".join(ch if ch.isalnum() or ch in "-_" else "_" for ch in product).strip("_")
-                out_dir = Path(dumps)
-                out_dir.mkdir(parents=True, exist_ok=True)
-                name = out_dir / f"slot{s:03d}-{product or 'unknown'}.ram"
-                name.write_bytes(bytes(image))
-                session["dump_file"] = str(name)
-                session["dump_pages"] = written
+                missing = 0
+                for p in pages:
+                    chunk = f.read(PAGE)
+                    # Every page the probe dumps is non-zero: an all-zero or
+                    # short page was never written (a cut-off dump).
+                    if len(chunk) < PAGE or not any(chunk):
+                        missing += 1
+                    image[p * PAGE:p * PAGE + len(chunk)] = chunk
+                complete = session["state"] == "complete" and not missing
+                session["dump_complete"] = complete
+                session["dump_pages"] = len(pages) - missing
+                session["dump_missing_pages"] = missing
+                if dumps:
+                    product = (session["stage"] or {}).get("ip", {}).get("product", "") or ""
+                    product = "".join(ch if ch.isalnum() or ch in "-_" else "_" for ch in product).strip("_")
+                    out_dir = Path(dumps)
+                    out_dir.mkdir(parents=True, exist_ok=True)
+                    name = out_dir / f"slot{s:03d}-{product or 'unknown'}{'' if complete else '-partial'}.ram"
+                    name.write_bytes(bytes(image))
+                    session["dump_file"] = str(name)
             result["sessions"].append(session)
     if json_out:
         Path(json_out).write_text(json.dumps(result, indent=1) + "\n")
@@ -268,9 +299,12 @@ def summary(result):
         ip = (s.get("stage") or {}).get("ip", {})
         t = s.get("terminal") or {}
         c = (t.get("counters") or {}) if t else {}
+        end = t.get("reason", "none") + (f" ({t.get('reason_text')})" if t.get("reason_text") else "")
+        dump = "" if not t else " dump complete" if s.get("dump_complete") else \
+            f" dump cut off ({s.get('dump_missing_pages', 0)} pages missing)"
         print(f"slot {s['slot']:3d} {s['state']:8s} {ip.get('product', '?'):10s} "
-              f"{ip.get('title', '?')[:32]:32s} end={t.get('reason', 'none'):14s} "
-              f"pages={t.get('pages', 0):5d} calls={c.get('calls', 0)} audio={c.get('audio_commands', 0)}")
+              f"{ip.get('title', '?')[:32]:32s} end={end:14s} "
+              f"pages={t.get('pages', 0):5d} calls={c.get('calls', 0)} audio={c.get('audio_commands', 0)}{dump}")
 
 
 def main():
@@ -286,8 +320,8 @@ def main():
     r.add_argument("--dumps")
     args = parser.parse_args()
     if args.command == "blank":
-        if not 1 <= args.slots <= 256:
-            raise SystemExit("slots must be 1..256")
+        if not 1 <= args.slots <= 255:  # the file must stay below 4 GiB
+            raise SystemExit("slots must be 1..255")
         print(json.dumps(blank(args.out, args.slots, args.id)))
     else:
         summary(read(args.data, args.json, args.dumps))

@@ -262,14 +262,17 @@ def ports(counters):
     saves = [u for u, r in out.items() if r["block_writes"]]
     reads = [u for u, r in out.items() if r["block_reads"]]
     polled = [u for u, r in out.items() if r["device_info"] and len(u) == 2]
-    return {"units": out, "saved_to": saves, "read_from": reads, "polled_slots": polled}
+    # Positive evidence only: the probe reads the Maple list during GD calls,
+    # so a frame it did not see may still have happened.
+    samples = (counters or {}).get("maple", {}).get("samples", 0)
+    return {"units": out, "saved_to": saves, "read_from": reads, "polled_slots": polled, "samples": samples}
 
 
 def audio(counters):
     if not counters or not counters.get("magic_ok"):
         return None
     cmd = counters.get("commands", {})
-    plays = [a for a in counters.get("audio_log", []) if a["command"] in ("PLAY", "PLAY2")]
+    plays = [a for a in counters.get("audio_log", []) if a["command"] in ("PLAY", "PLAY2") and a["accepted"]]
     tracks = sorted({(a["first"], a["last"]) for a in plays if a["command"] == "PLAY"})
     return {"commands": {k: cmd[k] for k in ("PLAY", "PLAY2", "PAUSE", "RELEASE", "STOP") if k in cmd},
             "status_polls": {k: cmd[k] for k in ("REQ_STAT", "GETSCD", "GETTOC", "GETTOC2", "GETSES") if k in cmd},
@@ -338,8 +341,9 @@ def mine(path, evidence_path=EVIDENCE, kernels_path=KERNELS):
                 rows.append(row)
                 continue
             counters = terminal.get("counters") or {}
-            row["end"] = terminal["reason"]
-            row["complete"] = session["state"] == "complete"
+            row["end"] = terminal["reason"] + (f": {terminal['reason_text']}" if terminal.get("reason_text") else "") + \
+                (f" in {terminal['function']}" if terminal.get("function") else "")
+            row["complete"] = bool(session.get("dump_complete"))
             row["disc"] = {"calls": counters.get("calls"), "reads": counters.get("reads"),
                            "commands": counters.get("commands"), "refused": counters.get("refused"),
                            "unknown_commands": counters.get("unknown_commands"),
@@ -350,14 +354,14 @@ def mine(path, evidence_path=EVIDENCE, kernels_path=KERNELS):
             base = (decoded["file"]["first_slot"] + session["slot"] * decoded["file"]["slot_sectors"]) * wd.SECTOR
             f.seek(base + wd.TERMINAL_SECTOR * wd.SECTOR)
             page_list = wd.page_map(f.read(wd.TERMINAL_SECTORS * wd.SECTOR))
-            written = min(len(page_list), terminal["pages"]) if session["state"] == "complete" else 0
+            written = min(len(page_list), terminal["pages"]) if session.get("dump_complete") else 0
             image = bytearray(wd.RAM_BYTES)
             f.seek(base + wd.DUMP_SECTOR * wd.SECTOR)
             for p in page_list[:written]:
                 image[p * wd.PAGE:(p + 1) * wd.PAGE] = f.read(wd.PAGE)
             ttb = int(terminal["registers"]["TTB"], 16)
             row["dump"] = analyse(image, ttb, stage, page_list[:written]) if written else \
-                {"note": "no complete dump in this slot"}
+                {"note": f"no complete dump in this slot ({session.get('dump_missing_pages', 0)} pages missing)"}
             rows.append(row)
     return {"file": decoded["file"], "launches": rows}
 
@@ -408,13 +412,15 @@ def rollup(launches):
         read = [r for r in rs if ((r.get("disc") or {}).get("reads") or {}).get("requests")]
         out.append(f"| {line} | {len(rs)} | {len(ended)} | {len(read)} | {', '.join(sorted({name(r) for r in rs}))} |")
     out += ["", "### Virtual VMU: slots and saves by maple.dll family (S1, S5-S9, S16)", "",
+            "Frames are sampled during GD calls: a slot listed is evidence; \"not seen\" is not proof of absence.", "",
             "| Family | Game | Polls | Reads from | Saves to |", "|---|---|---|---|---|"]
     for r in sorted(launches, key=lambda r: (str(r.get("maple_family", "?")), name(r))):
         p = r.get("ports") or {}
         if not p:
             continue
-        out.append(f"| {r.get('maple_family', '?')} | {name(r)} | {', '.join(p.get('polled_slots', [])) or '-'} | "
-                   f"{', '.join(p.get('read_from', [])) or '-'} | {', '.join(p.get('saved_to', [])) or '-'} |")
+        unseen = f"not seen ({p.get('samples', 0)} samples)"
+        out.append(f"| {r.get('maple_family', '?')} | {name(r)} | {', '.join(p.get('polled_slots', [])) or unseen} | "
+                   f"{', '.join(p.get('read_from', [])) or unseen} | {', '.join(p.get('saved_to', [])) or unseen} |")
     out += ["", "### DirectSound by sound group (S3, S11, S15, R1)", "",
             "| Sound group | Game | dsound.dll | sndcore.dll | CD audio commands |", "|---|---|---|---|---|"]
     for r in sorted(launches, key=lambda r: (str(r.get("sound_group", "?")), name(r))):
@@ -465,7 +471,7 @@ def text(result):
             r["slot"], f"{r.get('title') or '?'} ({r.get('product')} {r.get('version')} {r.get('area')})",
             (r.get("kernel") or {}).get("class", "?"), r.get("maple_family", "?"), r.get("cd_driver_line", "?"),
             r.get("sound_group", "?"), r.get("end") if r.get("complete", True) else f"{r.get('end')} (incomplete)",
-            ", ".join(ports_.get("saved_to", [])) or "-", ", ".join(ports_.get("polled_slots", [])) or "-",
+            ", ".join(ports_.get("saved_to", [])) or "not seen", ", ".join(ports_.get("polled_slots", [])) or "not seen",
             ", ".join(f"{k} {v}" for k, v in (cd.get("commands") or {}).items()) or "-",
             ", ".join(ds) if ds else ("not loaded" if dump.get("modules") else "?"),
             f"{mem['lowest_free_kib']} KiB" if "lowest_free_kib" in mem else "?"))
