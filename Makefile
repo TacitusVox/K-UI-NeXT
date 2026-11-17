@@ -1323,10 +1323,18 @@ build/games-library-image: tests/games_library_image.c $(GAMES_COVERS) $(GAMES_A
 	@mkdir -p $(@D)
 	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) -Isrc/dreamcast $(GAMES_COVERS) $(GAMES_ACTIVITY) $(GAMES_LIBRARY_EXTRA) src/apps/games_library.c src/core/games_group.c $(CORE) $(FATFS) tests/games_library_image.c $(GAMES_LIBRARY_WRAP) -lm -o $@
 
+# Cold load, grouping and display order against a frozen previous copy.
+GAMES_LIBRARY_DIFFERENTIAL = src/core/destination.c src/core/games_group.c src/core/games_metadata.c src/core/games_activity.c \
+    src/core/game_launch_settings.c src/core/game_ram_patches.c src/core/hash.c src/core/data.c
+build/test-games-library-differential: tests/test_games_library_differential.c src/apps/games_library.c $(GAMES_LIBRARY_DIFFERENTIAL) include/kui/games_library.h include/kui/games_group.h include/kui/games_metadata.h
+	@mkdir -p $(@D)
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) -Isrc/dreamcast -ffunction-sections -fdata-sections tests/test_games_library_differential.c $(GAMES_LIBRARY_DIFFERENTIAL) -Wl,--gc-sections -o $@
+
 .PHONY: test-games-library
-test-games-library: build/test-games-group build/games-library-image build/test-shell build/test-games-activity
+test-games-library: build/test-games-group build/games-library-image build/test-shell build/test-games-activity build/test-games-library-differential
 	ASAN_OPTIONS=detect_leaks=0 ./build/test-games-group
 	ASAN_OPTIONS=detect_leaks=0 ./build/test-games-activity
+	ASAN_OPTIONS=detect_leaks=0 ./build/test-games-library-differential
 	ASAN_OPTIONS=detect_leaks=0 ./build/test-shell --games
 	ASAN_OPTIONS=detect_leaks=0 python3 tests/test_games_library_images.py
 
