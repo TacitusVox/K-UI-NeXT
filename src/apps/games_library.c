@@ -315,19 +315,26 @@ static bool decode_record(const struct library *lib,unsigned index,struct kui_ga
     }
     return true;
 }
+/* Every check that needs only the fixed header of a file of this size.
+ * library_validate starts with the same checks, so a refused header is
+ * always a file the complete check would also refuse. */
+static bool library_header(const uint8_t *p,size_t bytes,const char *root,const uint8_t identity[32],uint64_t epoch) {
+    if(bytes<LIBRARY_HEADER)return false;
+    unsigned version=get32(p+8),root_bytes=get16(p+64);
+    if((version!=2 && version!=3 && version!=4) ||
+       memcmp(p,version==4?"KUIGLIB4":version==3?"KUIGLIB3":"KUIGLIB2",8) || get32(p+12)!=bytes ||
+       !get64(p+16) || get64(p+24)!=epoch || memcmp(p+32,identity,32) || get32(p+72)!=kui_crc32(0,p,72))return false;
+    for(unsigned i=76;i<LIBRARY_HEADER;i++)if(p[i])return false;
+    return root_bytes==strlen(root) && root_bytes<KUI_DEST_ROOT_CAP && get16(p+66)<=LIBRARY_ROWS &&
+        root_bytes<=bytes-LIBRARY_HEADER;
+}
 static bool library_validate(struct library *lib,const char *root,const uint8_t identity[32],uint64_t epoch) {
     const uint8_t *p=lib->wire;
-    if(lib->bytes<LIBRARY_HEADER)return false;
-    unsigned version=get32(p+8);
-    if((version!=2 && version!=3 && version!=4) ||
-       memcmp(p,version==4?"KUIGLIB4":version==3?"KUIGLIB3":"KUIGLIB2",8) || get32(p+12)!=lib->bytes ||
-       !get64(p+16) || get64(p+24)!=epoch || memcmp(p+32,identity,32) ||
-       get32(p+68)!=kui_crc32(0,p+LIBRARY_HEADER,lib->bytes-LIBRARY_HEADER) || get32(p+72)!=kui_crc32(0,p,72))return false;
-    for(unsigned i=76;i<LIBRARY_HEADER;i++)if(p[i])return false;
-    lib->version=version;
+    if(!library_header(p,lib->bytes,root,identity,epoch) ||
+       get32(p+68)!=kui_crc32(0,p+LIBRARY_HEADER,lib->bytes-LIBRARY_HEADER))return false;
+    lib->version=get32(p+8);
     unsigned root_bytes=get16(p+64);lib->count=get16(p+66);
-    if(root_bytes!=strlen(root) || root_bytes>=sizeof(lib->root) || lib->count>LIBRARY_ROWS ||
-       root_bytes>lib->bytes-LIBRARY_HEADER || memcmp(p+LIBRARY_HEADER,root,root_bytes))return false;
+    if(memcmp(p+LIBRARY_HEADER,root,root_bytes))return false;
     if(lib->root!=root)strcpy(lib->root,root);
     memmove(lib->identity,identity,32);lib->epoch=epoch;lib->sequence=get64(p+16);
     lib->offsets=calloc(lib->count?lib->count:1,sizeof(*lib->offsets));
@@ -520,36 +527,66 @@ static bool library_groups(struct library *lib) {
  * errors are distinguished from malformed files to avoid publishing a fresh
  * scan over an uncertain filesystem. */
 enum load_result {LOAD_MISSING,LOAD_OK,LOAD_ERROR};
-static enum load_result library_load(struct library *out,const char *root,const uint8_t identity[32],uint64_t epoch,kui_cancel_fn cancel) {
-    enum load_result result=LOAD_MISSING;
-    for(unsigned slot=0;slot<2;slot++) {
-        if(stopped(cancel)) {library_free(out);return LOAD_ERROR;}
-        char path[96];library_path(path,root,slot);FIL file;FRESULT r=f_open(&file,path,FA_READ);
-        if(r==FR_NO_FILE || r==FR_NO_PATH)continue;
-        if(r!=FR_OK) {library_free(out);return LOAD_ERROR;}
-        struct library candidate={0};FSIZE_t bytes=f_size(&file);
-        bool ok=bytes>=LIBRARY_HEADER && bytes<=LIBRARY_MAX_BYTES;
-        bool memory_error=false;
-        if(ok) {candidate.bytes=(size_t)bytes;candidate.wire=malloc(candidate.bytes);ok=candidate.wire!=NULL;memory_error=!ok;}
-        bool io_error=false;
-        for(size_t at=0;ok && at<candidate.bytes;) {
-            if(stopped(cancel)) {ok=false;break;}
-            UINT got=0,count=(UINT)(candidate.bytes-at>4096?4096:candidate.bytes-at);
-            ok=f_read(&file,candidate.wire+at,count,&got)==FR_OK && got==count;
-            io_error=!ok;at+=got;
-        }
-        if(f_close(&file)!=FR_OK) {ok=false;io_error=true;}
-        if(stopped(cancel)) {library_free(&candidate);library_free(out);return LOAD_ERROR;}
-        if(io_error || memory_error) {library_free(&candidate);library_free(out);return LOAD_ERROR;}
-        if(!ok) {library_free(&candidate);continue;}
-        if(library_validate(&candidate,root,identity,epoch) &&
-           (!out->wire || candidate.sequence>out->sequence)) {
-            library_free(out);*out=candidate;memset(&candidate,0,sizeof(candidate));out->slot=slot;result=LOAD_OK;
-        }
-        bool resource_error=candidate.resource_error;library_free(&candidate);
-        if(resource_error) {library_free(out);return LOAD_ERROR;}
+#define LIBRARY_READ_CHUNK (64u*1024u)
+/* False for an open/read/close error or a stop. An absent, out-of-range or
+ * refused header leaves the slot unadmitted without reading further. */
+static __attribute__((noinline)) bool slot_header(const char *root,unsigned slot,const uint8_t identity[32],uint64_t epoch,
+    kui_cancel_fn cancel,bool *admitted,uint64_t *sequence) {
+    *admitted=false;
+    char path[96];library_path(path,root,slot);FIL file;FRESULT r=f_open(&file,path,FA_READ);
+    if(r==FR_NO_FILE || r==FR_NO_PATH)return true;
+    if(r!=FR_OK)return false;
+    FSIZE_t bytes=f_size(&file);bool ok=true;
+    if(bytes>=LIBRARY_HEADER && bytes<=LIBRARY_MAX_BYTES) {
+        uint8_t header[LIBRARY_HEADER];UINT got=0;
+        ok=f_read(&file,header,sizeof(header),&got)==FR_OK && got==sizeof(header);
+        *admitted=ok && library_header(header,(size_t)bytes,root,identity,epoch);
+        if(*admitted)*sequence=get64(header+16);
     }
-    if(result==LOAD_OK && !library_groups(out)) {library_free(out);return LOAD_ERROR;}
+    if(f_close(&file)!=FR_OK)ok=false;
+    return ok && !stopped(cancel);
+}
+/* Read and check one complete slot. LOAD_MISSING: readable but malformed. */
+static __attribute__((noinline)) enum load_result slot_load(struct library *out,const char *root,unsigned slot,
+    const uint8_t identity[32],uint64_t epoch,kui_cancel_fn cancel) {
+    char path[96];library_path(path,root,slot);FIL file;FRESULT r=f_open(&file,path,FA_READ);
+    if(r==FR_NO_FILE || r==FR_NO_PATH)return LOAD_MISSING;
+    if(r!=FR_OK)return LOAD_ERROR;
+    struct library candidate={0};FSIZE_t bytes=f_size(&file);
+    bool ok=bytes>=LIBRARY_HEADER && bytes<=LIBRARY_MAX_BYTES;
+    bool memory_error=false;
+    if(ok) {candidate.bytes=(size_t)bytes;candidate.wire=malloc(candidate.bytes);ok=candidate.wire!=NULL;memory_error=!ok;}
+    bool io_error=false;
+    for(size_t at=0;ok && at<candidate.bytes;) {
+        if(stopped(cancel)) {ok=false;break;}
+        UINT got=0,count=(UINT)(candidate.bytes-at>LIBRARY_READ_CHUNK?LIBRARY_READ_CHUNK:candidate.bytes-at);
+        ok=f_read(&file,candidate.wire+at,count,&got)==FR_OK && got==count;
+        io_error=!ok;at+=got;
+    }
+    if(f_close(&file)!=FR_OK) {ok=false;io_error=true;}
+    if(stopped(cancel) || io_error || memory_error) {library_free(&candidate);return LOAD_ERROR;}
+    if(ok && library_validate(&candidate,root,identity,epoch)) {*out=candidate;out->slot=slot;return LOAD_OK;}
+    enum load_result result=candidate.resource_error?LOAD_ERROR:LOAD_MISSING;
+    library_free(&candidate);return result;
+}
+/* Both fixed headers choose the order: the newest admitted slot is read and
+ * validated completely, and the other one only if that fails. Equal
+ * sequences keep slot a. Every byte read is still checked; an older slot
+ * behind a valid newer one is no longer read at all. */
+static enum load_result library_load(struct library *out,const char *root,const uint8_t identity[32],uint64_t epoch,kui_cancel_fn cancel) {
+    bool admitted[2]={false,false};uint64_t sequence[2]={0,0};
+    for(unsigned slot=0;slot<2;slot++)
+        if(stopped(cancel) || !slot_header(root,slot,identity,epoch,cancel,&admitted[slot],&sequence[slot])) {
+            library_free(out);return LOAD_ERROR;
+        }
+    unsigned newest=admitted[1] && (!admitted[0] || sequence[1]>sequence[0])?1u:0u;
+    enum load_result result=LOAD_MISSING;
+    for(unsigned attempt=0;attempt<2 && result==LOAD_MISSING;attempt++) {
+        unsigned slot=newest^attempt;
+        if(!admitted[slot])continue;
+        result=stopped(cancel)?LOAD_ERROR:slot_load(out,root,slot,identity,epoch,cancel);
+    }
+    if(result==LOAD_ERROR || (result==LOAD_OK && !library_groups(out))) {library_free(out);return LOAD_ERROR;}
     return result;
 }
 static bool append_record(struct library *lib,const struct kui_games_entry *entry) {

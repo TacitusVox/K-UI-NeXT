@@ -610,6 +610,13 @@ static void load_case(const char *name,void (*setup)(void),enum load_result befo
     printf(" after %u opens/%u reads/%zu bytes\n",current.opens,current.reads,current.bytes);
     library_free(&previous.lib);library_free(&current.lib);
 }
+static void read_volume(const char *name,void (*setup)(void),size_t expected) {
+    struct outcome previous,current;run(setup,true,&previous);run(setup,false,&current);
+    require(previous.result==LOAD_OK && current.result==LOAD_OK && current.bytes==expected);
+    printf("EVIDENCE %s: previous load read %zu bytes in %u reads/%u opens; current %zu bytes in %u reads/%u opens\n",
+        name,previous.bytes,previous.reads,previous.opens,current.bytes,current.reads,current.opens);
+    library_free(&previous.lib);library_free(&current.lib);
+}
 static void load_checks(void) {
     static const uint32_t seeds[]={101,102,103};
     for(unsigned i=0;i<3;i++) {
@@ -643,14 +650,22 @@ static void load_checks(void) {
     load_case("newer-short-read",newer_short_read,LOAD_ERROR,LOAD_ERROR,0);
     load_case("close-error",close_error,LOAD_ERROR,LOAD_ERROR,0);
     load_case("fallback-read-error",fallback_read_error,LOAD_ERROR,LOAD_ERROR,0);
-    load_case("older-read-error",older_read_error,LOAD_ERROR,LOAD_ERROR,0);
-    load_case("damaged-read-error",damaged_read_error,LOAD_ERROR,LOAD_ERROR,0);
     load_case("cancel-before",cancel_before,LOAD_ERROR,LOAD_ERROR,0);
     load_case("cancel-during",cancel_during,LOAD_ERROR,LOAD_ERROR,0);
     load_case("newer-memory",newer_memory,LOAD_ERROR,LOAD_ERROR,0);
-    load_case("older-memory",older_memory,LOAD_ERROR,LOAD_ERROR,0);
     load_case("offsets-memory",offsets_memory,LOAD_ERROR,LOAD_ERROR,0);
     load_case("groups-memory",groups_memory,LOAD_ERROR,LOAD_ERROR,0);
+    /* Intended difference: the header-first load no longer reads an older
+     * slot behind a valid newer one, nor anything after a refused header,
+     * so faults confined to those bytes no longer fail the load. */
+    load_case("older-read-error",older_read_error,LOAD_ERROR,LOAD_OK,1);
+    load_case("damaged-read-error",damaged_read_error,LOAD_ERROR,LOAD_OK,1);
+    load_case("older-memory",older_memory,LOAD_ERROR,LOAD_OK,1);
+    /* Two fixed headers, then complete slots newest first. */
+    read_volume("b-newer",older_a_newer_b,2u*LIBRARY_HEADER+source_bytes[1]);
+    read_volume("a-newer",a_newer,2u*LIBRARY_HEADER+source_bytes[0]);
+    read_volume("newer-bad-magic",newer_magic,2u*LIBRARY_HEADER+source_bytes[0]);
+    read_volume("newer-body-crc",newer_body,2u*LIBRARY_HEADER+source_bytes[1]+source_bytes[0]);
     slot_clear(0);slot_clear(1);
     for(unsigned i=0;i<3;i++)free(sources[i]);
 }
