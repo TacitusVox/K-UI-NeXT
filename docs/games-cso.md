@@ -23,11 +23,24 @@ The original uncompressed image and PC importer remain available.
 
 The independent allocation-free decoder supports stored, fixed and dynamic
 Huffman streams, including multiple DEFLATE blocks. Exact output size,
-lookbehind, all input bounds and alignment padding are checked. A 304-byte
-workspace is private to the serialized CSO reader; no game RAM is borrowed.
-Dynamic Huffman symbol lookup trades CPU work for small memory use. Compare
-loading speed and stalls against the same title's uncompressed image; no
-console throughput or game-compatibility claim follows from host tests.
+lookbehind, all input bounds and alignment padding are checked. It reads
+compressed bytes in place from the physical-sector cache into a 32-bit bit
+buffer, finds each code with one comparison per code length rather than a
+call per bit, and maps the code to its symbol by scanning packed 4-bit code
+widths eight at a time; fixed codes map arithmetically. There are no lookup
+tables: a 304-byte workspace is private to the serialized CSO reader, and no
+game RAM is borrowed.
+
+Host and computer builds also keep per-length counts for 32-symbol rank
+buckets (128 more bytes), so a scan skips whole buckets. The low CSO resident
+has no room for them (`KUI_DEFLATE_BUCKETS=0` in `Makefile.dc`), nor for the
+ZSO readers' index window and word-store copy, so it keeps one index read
+per sector. Decoding dominates CSO either way: for faster loading, convert a
+CSO to standard LZ4 ZSO on a computer
+(`--output-format zso`; see [compressed image import](games-formats.md#compressed-image-import))
+and use the [native ZSO reader](games-zso.md). Compare loading speed and
+stalls against the same title's uncompressed image; no console throughput or
+game-compatibility claim follows from host tests.
 
 At the pinned KOS-patched GCC 15.2.0 toolchain, the linked resident ends at
 `0x8c007708`, 248 bytes below the existing `0x8c007800` limit. Its conservative

@@ -11,7 +11,7 @@
  * are included; compressed data need not be smaller than an output block. */
 #define CAP 16384u
 struct source {
-    uint8_t bytes[CAP];uint32_t size,calls,fail_on;
+    _Alignas(4) uint8_t bytes[CAP];uint32_t size,calls,fail_on,chunk;
     size_t max_read;enum kui_zso_result fault;
 };
 static struct source source;
@@ -27,13 +27,13 @@ static void header(uint8_t *out,uint32_t total,unsigned shift) {
     memset(out,0,24);memcpy(out,"ZISO",4);put32(out+4,24);put32(out+8,total);
     put32(out+16,2048);out[20]=1;out[21]=(uint8_t)shift;
 }
-static enum kui_zso_result read_source(void *context,uint32_t offset,void *out,size_t size) {
-    struct source *s=context;++s->calls;if(size>s->max_read) s->max_read=size;
-    assert(offset<=s->size && size<=s->size-offset); /* Codec must preflight every physical request. */
-    if(s->fail_on && s->calls==s->fail_on) {
-        memcpy(out,s->bytes+offset,size/2u);return s->fault;
-    }
-    memcpy(out,s->bytes+offset,size);return KUI_ZSO_OK;
+/* Views point into the aligned fixture. A nonzero chunk returns short views
+ * so every consumer's refill and split paths run. */
+static enum kui_zso_result view_source(void *context,uint32_t offset,uint32_t wanted,const uint8_t **data,uint32_t *available) {
+    struct source *s=context;++s->calls;if(wanted>s->max_read) s->max_read=wanted;
+    assert(wanted && offset<s->size && wanted<=s->size-offset); /* Codec must preflight every physical request. */
+    if(s->fail_on && s->calls==s->fail_on) return s->fault;
+    *data=s->bytes+offset;*available=s->chunk && wanted>s->chunk?s->chunk:wanted;return KUI_ZSO_OK;
 }
 static size_t extension(uint8_t *out,unsigned value) {
     size_t used=0;while(value>=255u) {out[used++]=255;value-=255u;}out[used++]=(uint8_t)value;return used;
@@ -104,46 +104,50 @@ static void headers(void) {
     puts("PASS ZSO headers: strict standard-LZ4 geometry, endian/size bounds and unchanged failure output");
 }
 static void mixed_reads_and_faults(void) {
-    const unsigned shifts[]={0,1,4,9};
-    for(unsigned sh=0;sh<sizeof(shifts)/sizeof(shifts[0]);sh++) {
-        struct kui_zso_info info=fixture(shifts[sh]);
-        assert(kui_zso_validate_index(&info,read_source,&source)==KUI_ZSO_OK);
+    const unsigned shifts[]={0,1,4,9},chunks[]={0,1,3,7,64};
+    for(unsigned sh=0;sh<sizeof(shifts)/sizeof(shifts[0]);sh++)
+    for(unsigned ch=0;ch<sizeof(chunks)/sizeof(chunks[0]);ch++) {
+        struct kui_zso_info info=fixture(shifts[sh]);source.chunk=chunks[ch];
+        assert(kui_zso_validate_index(&info,view_source,&source)==KUI_ZSO_OK);
         /* ZSO v1's terminal flag is ignored, matching its offset-only role. */
         uint32_t terminal=get32(source.bytes+36);put32(source.bytes+36,terminal|UINT32_C(0x80000000));
-        assert(kui_zso_validate_index(&info,read_source,&source)==KUI_ZSO_OK);
+        assert(kui_zso_validate_index(&info,view_source,&source)==KUI_ZSO_OK);
         for(unsigned block=0;block<3;block++) {
             struct {uint8_t before[17],data[2048],after[19];} out;
             memset(&out,0x6d,sizeof(out));source.calls=0;
-            assert(kui_zso_read_block(&info,block,read_source,&source,out.data)==KUI_ZSO_OK);
+            assert(kui_zso_read_block(&info,block,view_source,&source,out.data)==KUI_ZSO_OK);
             assert(!memcmp(out.data,expected[block],2048));unsigned calls=source.calls;
             for(unsigned i=0;i<17;i++) assert(out.before[i]==0x6d);
             for(unsigned i=0;i<19;i++) assert(out.after[i]==0x6d);
             for(unsigned error=0;error<2;error++) for(unsigned request=1;request<=calls;request++) {
                 source.calls=0;source.fail_on=request;source.fault=error?KUI_ZSO_CANCELLED:KUI_ZSO_IO;
-                assert(kui_zso_read_block(&info,block,read_source,&source,out.data)==source.fault);
+                assert(kui_zso_read_block(&info,block,view_source,&source,out.data)==source.fault);
                 for(unsigned i=0;i<17;i++) assert(out.before[i]==0x6d);
                 for(unsigned i=0;i<19;i++) assert(out.after[i]==0x6d);
             }
             source.fail_on=0;
         }
         unsigned calls=source.calls;source.calls=0;
-        assert(kui_zso_read_block(&info,3,read_source,&source,expected[0])==KUI_ZSO_RANGE && !source.calls);
-        assert(calls && source.max_read<=2048);
+        assert(kui_zso_read_block(&info,3,view_source,&source,expected[0])==KUI_ZSO_RANGE && !source.calls);
+        assert(calls && source.max_read<=KUI_ZSO_MAX_SPAN);
     }
     puts("PASS ZSO reads: independent raw/overlap/literal LZ4 fixtures, nonzero alignment padding and every callback IO/cancel boundary");
 }
-struct large_index {uint32_t blocks,start,size,calls,fail_on;size_t max_read;bool corrupt;enum kui_zso_result fault;};
-static enum kui_zso_result virtual_index(void *context,uint32_t offset,void *out,size_t size) {
-    struct large_index *s=context;++s->calls;if(size>s->max_read) s->max_read=size;
-    assert(offset>=24 && size%4u==0 && offset+size<=s->start);
+struct large_index {uint32_t blocks,start,size,calls,fail_on;size_t max_read;bool corrupt;enum kui_zso_result fault;_Alignas(4) uint8_t page[128];};
+/* Synthesized index entries served through one bounded 128-byte page. */
+static enum kui_zso_result virtual_index(void *context,uint32_t offset,uint32_t wanted,const uint8_t **data,uint32_t *available) {
+    struct large_index *s=context;++s->calls;
+    assert(offset>=24 && offset%4u==0 && wanted%4u==0 && wanted && offset+wanted<=s->start);
     if(s->fail_on && s->calls==s->fail_on)return s->fault;
-    uint8_t *bytes=out;
-    for(size_t i=0;i<size;i+=4) {
-        uint32_t entry=(offset-24u+(uint32_t)i)/4u;
+    uint32_t size=wanted<sizeof(s->page)?wanted:(uint32_t)sizeof(s->page);
+    if(size>s->max_read) s->max_read=size;
+    for(uint32_t i=0;i<size;i+=4) {
+        uint32_t entry=(offset-24u+i)/4u;
         uint32_t position=s->start+entry*2048u;
         if(s->corrupt && entry==s->blocks) position-=2048u;
-        put32(bytes+i,position|(entry<s->blocks?UINT32_C(0x80000000):0));
+        put32(s->page+i,position|(entry<s->blocks?UINT32_C(0x80000000):0));
     }
+    *data=s->page;*available=size;
     return KUI_ZSO_OK;
 }
 static void indices_and_changes(void) {
@@ -153,20 +157,20 @@ static void indices_and_changes(void) {
     const uint32_t values[]={28,40,39,2087,UINT32_C(0x7fffffff),UINT32_C(0x7fffffff)};
     for(unsigned i=0;i<sizeof(offsets)/sizeof(offsets[0]);i++) {
         memcpy(source.bytes,pristine,sizeof(pristine));put32(source.bytes+offsets[i],values[i]);source.calls=0;
-        assert(kui_zso_validate_index(&info,read_source,&source)!=KUI_ZSO_OK);
+        assert(kui_zso_validate_index(&info,view_source,&source)!=KUI_ZSO_OK);
     }
     memcpy(source.bytes,pristine,sizeof(pristine));source.size=++info.file_bytes;
-    assert(kui_zso_validate_index(&info,read_source,&source)!=KUI_ZSO_OK); /* tail1 is not legal at shift0 */
+    assert(kui_zso_validate_index(&info,view_source,&source)!=KUI_ZSO_OK); /* tail1 is not legal at shift0 */
     info.file_bytes=file_bytes;source.size=file_bytes;
-    assert(kui_zso_validate_index(&info,read_source,&source)==KUI_ZSO_OK);
+    assert(kui_zso_validate_index(&info,view_source,&source)==KUI_ZSO_OK);
     put32(source.bytes+28,40);uint8_t out[2048];
-    assert(kui_zso_read_block(&info,0,read_source,&source,out)!=KUI_ZSO_OK); /* changed index after admission */
+    assert(kui_zso_read_block(&info,0,view_source,&source,out)!=KUI_ZSO_OK); /* changed index after admission */
     info=fixture(9);put32(source.bytes+24,UINT32_C(0x7fffffff));
-    assert(kui_zso_validate_index(&info,read_source,&source)==KUI_ZSO_RANGE); /* shift in uint64, no wrap */
+    assert(kui_zso_validate_index(&info,view_source,&source)==KUI_ZSO_RANGE); /* shift in uint64, no wrap */
     info=fixture(9);source.size+=511;info.file_bytes+=511;
-    assert(kui_zso_validate_index(&info,read_source,&source)==KUI_ZSO_OK);
+    assert(kui_zso_validate_index(&info,view_source,&source)==KUI_ZSO_OK);
     source.size++;info.file_bytes++;
-    assert(kui_zso_validate_index(&info,read_source,&source)!=KUI_ZSO_OK);
+    assert(kui_zso_validate_index(&info,view_source,&source)!=KUI_ZSO_OK);
     struct large_index large={.blocks=1100,.start=24+1101*4,.size=24+1101*4+1100*2048};
     uint8_t raw_header[24];header(raw_header,large.blocks*2048u,0);
     assert(kui_zso_header_parse(raw_header,large.size,&info)==KUI_ZSO_OK);
@@ -184,7 +188,7 @@ static void indices_and_changes(void) {
 static void bad_payload(const uint8_t *payload,size_t bytes,unsigned shift,unsigned extra_units) {
     struct kui_zso_info info=single(payload,bytes,shift,extra_units);
     struct {uint8_t before[11],data[2048],after[13];} out;memset(&out,0x93,sizeof(out));
-    assert(kui_zso_read_block(&info,0,read_source,&source,out.data)!=KUI_ZSO_OK);
+    assert(kui_zso_read_block(&info,0,view_source,&source,out.data)!=KUI_ZSO_OK);
     for(unsigned i=0;i<11;i++) assert(out.before[i]==0x93);
     for(unsigned i=0;i<13;i++) assert(out.after[i]==0x93);
 }
@@ -211,4 +215,55 @@ static void lz4_rejections(void) {
     bad_payload(lzo,sizeof(lzo),0,0);
     puts("PASS ZSO LZ4: every truncation, illegal offsets/runs/end conditions/padding, bounded output and no LZO fallback");
 }
-int main(void) {headers();mixed_reads_and_faults();indices_and_changes();lz4_rejections();return 0;}
+/* Independent LZ4 sequence builder for the decoder's copy paths: it writes the
+ * block-format bytes and applies every copy to its own expected output one
+ * byte at a time. */
+struct builder {uint8_t data[4400];size_t size;uint8_t out[2048];uint32_t done;};
+static void emit(struct builder *b,const uint8_t *literals,uint32_t count,uint32_t distance,uint32_t match) {
+    uint32_t extra=match?match-4u:0u;
+    b->data[b->size++]=(uint8_t)((count<15u?count:15u)<<4|(extra<15u?extra:15u));
+    if(count>=15u) b->size+=extension(b->data+b->size,count-15u);
+    memcpy(b->data+b->size,literals,count);b->size+=count;
+    memcpy(b->out+b->done,literals,count);b->done+=count;
+    if(!match) return;
+    b->data[b->size++]=(uint8_t)distance;b->data[b->size++]=(uint8_t)(distance>>8);
+    if(extra>=15u) b->size+=extension(b->data+b->size,extra-15u);
+    for(uint32_t i=0;i<match;i++,b->done++) b->out[b->done]=b->out[b->done-distance];
+}
+static uint32_t lcg_state;
+static uint32_t lcg(uint32_t range) {lcg_state=lcg_state*1103515245u+12345u;return (lcg_state>>8)%range;}
+static void random_lz4_blocks(void) {
+    static const uint32_t distances[]={1,2,3,4,5,6,7,8,9,12,15,16,17,64,255,256,300,1024,2047};
+    uint8_t pool[2048];for(unsigned i=0;i<sizeof(pool);i++) pool[i]=(uint8_t)(i*131u^(i>>3)*7u);
+    lcg_state=20261117u;
+    for(unsigned trial=0;trial<3000;trial++) {
+        struct builder b;memset(&b,0,sizeof(b));
+        /* The first sequence needs literals for its match to refer back to. */
+        uint32_t first=1u+lcg(trial%7u==0?400u:24u);
+        while(b.done<2048u-40u) {
+            uint32_t literals=b.size?lcg(lcg(8u)==0?300u:9u):first;
+            if(b.done+literals>2048u-40u) literals=2048u-40u-b.done;
+            uint32_t room=2048u-28u-(b.done+literals);
+            uint32_t distance=distances[lcg(sizeof(distances)/sizeof(distances[0]))];
+            if(b.done+literals<distance) distance=b.done+literals;
+            if(!distance || room<4u) break;
+            uint32_t match=4u+lcg(lcg(6u)==0?400u:30u);if(match>room) match=room;
+            emit(&b,pool+lcg(1024u),literals,distance,match);
+        }
+        uint32_t tail=2048u-b.done;assert(tail>=12u);
+        emit(&b,pool+lcg(1024u),tail,0,0);assert(b.done==2048u && b.size<=4096u);
+        const unsigned chunks[]={0,1,5,512},shifts[]={0,2};
+        for(unsigned c=0;c<4;c++) for(unsigned sh=0;sh<2;sh++) {
+            struct kui_zso_info info=single(b.data,b.size,shifts[sh],0);source.chunk=chunks[c];
+            for(unsigned skew=0;skew<4;skew++) {
+                static _Alignas(4) uint8_t out[2048+8];memset(out,0x5c,sizeof(out));
+                assert(kui_zso_read_block(&info,0,view_source,&source,out+skew)==KUI_ZSO_OK);
+                assert(!memcmp(out+skew,b.out,2048));
+                for(unsigned i=0;i<skew;i++) assert(out[i]==0x5c);
+                for(unsigned i=skew+2048u;i<sizeof(out);i++) assert(out[i]==0x5c);
+            }
+        }
+    }
+    puts("PASS ZSO LZ4 copies: 3000 independent blocks, every distance class, short views and four output alignments");
+}
+int main(void) {headers();mixed_reads_and_faults();indices_and_changes();lz4_rejections();random_lz4_blocks();return 0;}

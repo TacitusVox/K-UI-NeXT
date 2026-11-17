@@ -7,15 +7,16 @@
 
 /* Independently authored CISO v1 fixture: raw sectors and RFC1951 stored
  * streams. No production compressor prepares the bytes being validated. */
-struct source {uint8_t bytes[16384];uint32_t size,calls,fail_on;enum kui_zso_result fault;};
+struct source {_Alignas(4) uint8_t bytes[16384];uint32_t size,calls,fail_on,chunk;enum kui_zso_result fault;};
 static struct source source;
 static uint8_t expected[3][2048];
 static void put(uint8_t *p,uint32_t n) {for(unsigned i=0;i<4;i++)p[i]=(uint8_t)(n>>(8u*i));}
 static uint32_t aligned(uint32_t n,unsigned shift) {uint32_t mask=(1u<<shift)-1u;return (n+mask)&~mask;}
-static enum kui_zso_result read_source(void *ctx,uint32_t offset,void *out,size_t bytes) {
-    struct source *s=ctx;assert(offset<=s->size && bytes<=s->size-offset);++s->calls;
+/* A nonzero chunk returns short views so refills split stored data/headers. */
+static enum kui_zso_result view_source(void *ctx,uint32_t offset,uint32_t wanted,const uint8_t **data,uint32_t *available) {
+    struct source *s=ctx;assert(wanted && offset<s->size && wanted<=s->size-offset);++s->calls;
     if(s->calls==s->fail_on)return s->fault;
-    memcpy(out,s->bytes+offset,bytes);return KUI_ZSO_OK;
+    *data=s->bytes+offset;*available=s->chunk && wanted>s->chunk?s->chunk:wanted;return KUI_ZSO_OK;
 }
 static uint32_t stored(uint8_t *p,const uint8_t *data,unsigned count,bool final) {
     p[0]=(uint8_t)final;p[1]=(uint8_t)count;p[2]=(uint8_t)(count>>8);
@@ -59,28 +60,29 @@ static void headers(void) {
     puts("PASS CSO header: CISO v1/header24/block2048/reserved-zero, codec separation, bounds and unchanged errors");
 }
 static void blocks(void) {
-    const unsigned shifts[]={0,1,4,9};
-    for(unsigned variant=0;variant<sizeof(shifts)/sizeof(shifts[0]);variant++) {
-        struct kui_zso_info info=fixture(shifts[variant]);
-        assert(info.codec==KUI_ZSO_DEFLATE && kui_zso_validate_index(&info,read_source,&source)==KUI_ZSO_OK);
+    const unsigned shifts[]={0,1,4,9},chunks[]={0,1,3,64};
+    for(unsigned variant=0;variant<sizeof(shifts)/sizeof(shifts[0]);variant++)
+    for(unsigned c=0;c<sizeof(chunks)/sizeof(chunks[0]);c++) {
+        struct kui_zso_info info=fixture(shifts[variant]);source.chunk=chunks[c];
+        assert(info.codec==KUI_ZSO_DEFLATE && kui_zso_validate_index(&info,view_source,&source)==KUI_ZSO_OK);
         for(unsigned block=0;block<3;block++) {
             struct {uint8_t before[19],data[2048],after[17];} out;memset(&out,0x6a,sizeof(out));source.calls=0;
-            assert(kui_zso_read_block(&info,block,read_source,&source,out.data)==KUI_ZSO_OK);
+            assert(kui_zso_read_block(&info,block,view_source,&source,out.data)==KUI_ZSO_OK);
             assert(!memcmp(out.data,expected[block],2048));unsigned calls=source.calls;
             for(unsigned fail=1;fail<=calls;fail++)for(unsigned cancel=0;cancel<2;cancel++) {
                 source.calls=0;source.fail_on=fail;source.fault=cancel?KUI_ZSO_CANCELLED:KUI_ZSO_IO;
-                assert(kui_zso_read_block(&info,block,read_source,&source,out.data)==source.fault);
+                assert(kui_zso_read_block(&info,block,view_source,&source,out.data)==source.fault);
                 for(unsigned i=0;i<sizeof(out.before);i++)assert(out.before[i]==0x6a);
                 for(unsigned i=0;i<sizeof(out.after);i++)assert(out.after[i]==0x6a);
             }
             source.fail_on=0;
         }
         uint8_t out[2048];source.calls=0;
-        assert(kui_zso_read_block(&info,3,read_source,&source,out)==KUI_ZSO_RANGE && !source.calls);
+        assert(kui_zso_read_block(&info,3,view_source,&source,out)==KUI_ZSO_RANGE && !source.calls);
         /* Revalidation rejects changed index locations and excess final tail. */
-        put(source.bytes+28,24);assert(kui_zso_validate_index(&info,read_source,&source)!=KUI_ZSO_OK);
-        info=fixture(shifts[variant]);source.size+=1u<<info.shift;info.file_bytes=source.size;
-        assert(kui_zso_validate_index(&info,read_source,&source)==KUI_ZSO_RANGE);
+        put(source.bytes+28,24);assert(kui_zso_validate_index(&info,view_source,&source)!=KUI_ZSO_OK);
+        info=fixture(shifts[variant]);source.chunk=chunks[c];source.size+=1u<<info.shift;info.file_bytes=source.size;
+        assert(kui_zso_validate_index(&info,view_source,&source)==KUI_ZSO_RANGE);
     }
     puts("PASS CSO blocks: raw/stored/multiblock streams, alignment0..9, guarded output, every IO/cancel boundary and index changes");
 }

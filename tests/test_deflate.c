@@ -11,8 +11,8 @@
  * The production decoder has no zlib dependency. */
 #define CAP 8192u
 static struct {
-    uint8_t data[CAP];
-    uint32_t size, base, limit, calls, fail_on;
+    _Alignas(4) uint8_t data[CAP];
+    uint32_t size, base, limit, calls, fail_on, chunk, preload;
     size_t largest;
     enum kui_zso_result fault;
 } source;
@@ -24,17 +24,20 @@ static uint32_t random_word(void) {
     random_state ^= random_state << 13; random_state ^= random_state >> 17;
     random_state ^= random_state << 5; return random_state;
 }
-static enum kui_zso_result read_source(void *context, uint32_t offset, void *out, size_t count) {
+/* Views point into the aligned stream; a nonzero chunk returns short views so
+ * fault injection reaches every byte boundary. */
+static enum kui_zso_result view_source(void *context, uint32_t offset, uint32_t wanted,
+    const uint8_t **data, uint32_t *available) {
     (void)context;
     ++source.calls;
     assert(source.calls < 16384u);
-    assert(offset >= source.base && offset <= source.limit && count <= source.limit - offset);
-    assert(offset - source.base <= source.size && count <= source.size - (offset - source.base));
-    if(count > source.largest) source.largest = count;
-    if(source.calls == source.fail_on) {
-        memcpy(out, source.data + offset - source.base, count / 2u); return source.fault;
-    }
-    memcpy(out, source.data + offset - source.base, count); return KUI_ZSO_OK;
+    assert(wanted && offset >= source.base && offset < source.limit && wanted <= source.limit - offset);
+    assert(offset - source.base < source.size && wanted <= source.size - (offset - source.base));
+    if(wanted > source.largest) source.largest = wanted;
+    if(source.calls == source.fail_on) return source.fault;
+    *data = source.data + (offset - source.base);
+    *available = source.chunk && wanted > source.chunk ? source.chunk : wanted;
+    return KUI_ZSO_OK;
 }
 static void canaries(void) {
     for(unsigned i = 0; i < sizeof(output.before); ++i) assert(output.before[i] == 0xa6);
@@ -46,10 +49,13 @@ static enum kui_zso_result decode(uint32_t bytes, uint32_t *consumed) {
     assert(bytes <= source.size && bytes <= UINT32_MAX - source.base);
     source.limit = source.base + bytes; source.calls = 0;
     memset(&output, 0xa6, sizeof(output)); memset(&work, 0xa6, sizeof(work));
-    enum kui_zso_result result = kui_deflate_decode(read_source, &source, source.base,
-        source.limit, output.data, &work.data, consumed);
+    /* A preloaded cursor already holds the stream's first bytes in its view. */
+    uint32_t k = source.preload < bytes ? source.preload : 0;
+    struct kui_zso_cursor in = {view_source, &source, k ? source.data : NULL,
+        k ? source.data + k : NULL, source.base + k, source.limit, 0};
+    enum kui_zso_result result = kui_deflate_decode(&in, output.data, &work.data, consumed);
     if(bytes && bytes <= KUI_ZSO_MAX_SPAN) {
-        assert(work.data.input.read == NULL && work.data.input.context == NULL);
+        assert(work.data.in.view == NULL && work.data.in.context == NULL);
     }
     canaries(); return result;
 }
@@ -106,10 +112,22 @@ static void oracle_check(const uint8_t *bytes, unsigned size, const uint8_t *wan
 }
 static void valid(bool faults) {
     oracle_check(source.data, source.size, expected);
-    uint32_t consumed = 0xdeadbeefu;
-    assert(decode(source.size, &consumed) == KUI_ZSO_OK && consumed == source.size);
-    assert(!memcmp(output.data, expected, sizeof(expected)));
-    uint32_t calls = source.calls;
+    static const uint32_t chunks[] = {0, 7, 1};
+    uint32_t consumed = 0xdeadbeefu, calls = 0;
+    for(unsigned c = 0; c < sizeof(chunks) / sizeof(chunks[0]); ++c) {
+        source.chunk = chunks[c]; consumed = 0xdeadbeefu;
+        assert(decode(source.size, &consumed) == KUI_ZSO_OK && consumed == source.size);
+        assert(!memcmp(output.data, expected, sizeof(expected)));
+        calls = source.calls;
+    }
+    /* Decoding starts at the cursor's position, inside a partly read view. */
+    for(uint32_t preload = 1; preload <= 5; preload += 4) {
+        source.preload = preload; source.chunk = preload; consumed = 0xdeadbeefu;
+        assert(decode(source.size, &consumed) == KUI_ZSO_OK && consumed == source.size);
+        assert(!memcmp(output.data, expected, sizeof(expected)));
+    }
+    source.preload = 0; source.chunk = 1;
+    /* One-byte views: a fault at every call reaches every byte boundary. */
     if(faults) for(unsigned error = 0; error < 2; ++error) {
         source.fault = error ? KUI_ZSO_CANCELLED : KUI_ZSO_IO;
         for(uint32_t call = 1; call <= calls; ++call) {
@@ -118,7 +136,7 @@ static void valid(bool faults) {
             assert(consumed == 0xdeadbeefu && source.calls == call);
         }
     }
-    source.fail_on = 0;
+    source.fail_on = 0; source.chunk = 0;
 }
 static void token_forms(void) {
     begin(); stored(2048, true);
@@ -238,12 +256,14 @@ static void malformed(void) {
     begin(); put(1, 1u); put(2, 2u); put(31, 5u); put(0, 5u); put(0, 4u); reject(); /* HLIT exceeds286. */
     begin(); memset(source.data, 0, 4097); source.size = 4097; reject();
     source.calls = 0;
-    assert(kui_deflate_decode(NULL, NULL, 0, 1, output.data, &work.data, &consumed) == KUI_ZSO_INVALID);
-    assert(kui_deflate_decode(read_source, NULL, 1, 0, output.data, &work.data, &consumed) == KUI_ZSO_INVALID);
-    assert(kui_deflate_decode(read_source, NULL, 1, 1, output.data, &work.data, &consumed) == KUI_ZSO_INVALID);
-    assert(kui_deflate_decode(read_source, NULL, 0, 1, NULL, &work.data, &consumed) == KUI_ZSO_INVALID);
-    assert(kui_deflate_decode(read_source, NULL, 0, 1, output.data, NULL, &consumed) == KUI_ZSO_INVALID);
-    assert(kui_deflate_decode(read_source, NULL, 0, 1, output.data, &work.data, NULL) == KUI_ZSO_INVALID);
+    const struct kui_zso_cursor reversed = {view_source, NULL, NULL, NULL, 1, 0, 0},
+        empty = {view_source, NULL, NULL, NULL, 1, 1, 0}, one = {view_source, NULL, NULL, NULL, 0, 1, 0};
+    assert(kui_deflate_decode(NULL, output.data, &work.data, &consumed) == KUI_ZSO_INVALID);
+    assert(kui_deflate_decode(&reversed, output.data, &work.data, &consumed) == KUI_ZSO_INVALID);
+    assert(kui_deflate_decode(&empty, output.data, &work.data, &consumed) == KUI_ZSO_INVALID);
+    assert(kui_deflate_decode(&one, NULL, &work.data, &consumed) == KUI_ZSO_INVALID);
+    assert(kui_deflate_decode(&one, output.data, NULL, &consumed) == KUI_ZSO_INVALID);
+    assert(kui_deflate_decode(&one, output.data, &work.data, NULL) == KUI_ZSO_INVALID);
     assert(!source.calls);
     puts("PASS DEFLATE bounds: every stored truncation, padding/UINT32 boundary, reserved symbols, invalid trees, runs, lookbehind and output overflow");
 }
@@ -257,14 +277,57 @@ static void mutations(void) {
         while(flips--) source.data[random_word() % bytes] = (uint8_t)random_word();
         if(sample & 1u) source.size = random_word() % (bytes + 1u);
         uint32_t consumed = 0xdeadbeefu;
+        source.chunk = sample % 3u == 0 ? 0u : sample % 3u == 1 ? 1u : 5u;
         enum kui_zso_result result = decode(source.size, &consumed);
+        source.chunk = 0;
         if(result == KUI_ZSO_OK) {
             assert(consumed <= source.size); oracle_check(source.data, consumed, output.data);
         } else assert(consumed == 0xdeadbeefu);
     }
     puts("PASS DEFLATE hostile streams: 30000 deterministic mutations/truncations, output/workspace canaries and zlib acceptance oracle");
 }
+/* Canonical codes from widths (RFC 1951 3.2.2), for hand-built trees. */
+static void canonical_codes(const uint8_t *widths, unsigned count, uint16_t *codes) {
+    unsigned counts[16] = {0}, next[16] = {0}, code = 0;
+    for(unsigned i = 0; i < count; ++i) if(widths[i]) ++counts[widths[i]];
+    for(unsigned bits = 1; bits < 16u; ++bits) {code = (code + counts[bits - 1u]) << 1; next[bits] = code;}
+    for(unsigned i = 0; i < count; ++i) if(widths[i]) codes[i] = (uint16_t)next[widths[i]]++;
+}
+/* A final dynamic block whose code-length code gives symbols 0..15 four bits
+ * each (complete), so every width is sent literally; data are literals only. */
+static void dynamic_literals(const uint8_t *literal_widths, unsigned literals,
+    const uint8_t *distance_widths, unsigned distances, const uint8_t *data, unsigned size) {
+    static const unsigned order[19] = {16,17,18,0,8,7,9,6,10,5,11,4,12,3,13,2,14,1,15};
+    uint16_t codes[288];
+    put(1, 1u); put(2, 2u); put(literals - 257u, 5u); put(distances - 1u, 5u); put(15, 4u);
+    for(unsigned i = 0; i < 19u; ++i) put(order[i] <= 15u ? 4u : 0u, 3u);
+    for(unsigned i = 0; i < literals; ++i) huffman(literal_widths[i], 4u);
+    for(unsigned i = 0; i < distances; ++i) huffman(distance_widths[i], 4u);
+    canonical_codes(literal_widths, literals, codes);
+    for(unsigned i = 0; i < size; ++i) huffman(codes[data[i]], literal_widths[data[i]]);
+    huffman(codes[256], literal_widths[256]);
+}
+static void extreme_trees(void) {
+    uint8_t literal_widths[257] = {0}, distance_widths[1] = {0};
+    /* All 256 literals at nine bits fill every rank bucket; EOB has one bit. */
+    for(unsigned i = 0; i < 256u; ++i) literal_widths[i] = 9;
+    literal_widths[256] = 1;
+    begin();
+    for(unsigned i = 0; i < 2048u; ++i) expected[i] = (uint8_t)(i * 7u + (i >> 8));
+    dynamic_literals(literal_widths, 257u, distance_widths, 1u, expected, 2048u);
+    valid(false);
+    /* Widths 1..14 on 'A'..'N', then 'O' and EOB at the 15-bit maximum. */
+    memset(literal_widths, 0, sizeof(literal_widths));
+    for(unsigned i = 0; i < 14u; ++i) literal_widths['A' + i] = (uint8_t)(i + 1u);
+    literal_widths['O'] = 15; literal_widths[256] = 15;
+    begin();
+    for(unsigned i = 0; i < 2048u; ++i) expected[i] = (uint8_t)('A' + (random_word() % 15u));
+    dynamic_literals(literal_widths, 257u, distance_widths, 1u, expected, 2048u);
+    assert(source.size <= KUI_ZSO_MAX_SPAN);
+    valid(false);
+    puts("PASS DEFLATE extreme trees: 256 nine-bit literals across all rank buckets and 1..15-bit codes against zlib");
+}
 int main(void) {
-    token_forms(); compressed_oracles(); malformed(); mutations();
+    token_forms(); compressed_oracles(); malformed(); mutations(); extreme_trees();
     puts("All DEFLATE tests passed"); return 0;
 }

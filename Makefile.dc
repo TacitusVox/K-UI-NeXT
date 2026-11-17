@@ -608,10 +608,15 @@ $(LZO_RESIDENT) $(LZO_STAGE) $(LZO_DIR)/retail_entry_asm.o: $(LZO_DIR)/layout-co
 -include $(LZO_RESIDENT:.o=.d) $(LZO_STAGE:.o=.d) $(LZO_DIR)/retail_entry_asm.d
 
 # Separate native CSO v1 raw-DEFLATE reader, with the same fixed memory gates.
+# Its reservation has no room for the DEFLATE rank buckets, the index window
+# or the word-store copy: CSO_FIT_FLAGS keeps the smaller forms (the host
+# test-retail-cso and test-deflate-v1 builds use the same flags).
 CSO_DIR := build/retail-cso
+CSO_FIT_FLAGS := -DKUI_DEFLATE_BUCKETS=0 -DKUI_RETAIL_ZSO_INDEX_BYTES=0 -DKUI_ZSO_WORD_COPY=0
 CSO_FLAGS := $(filter-out -DKUI_RETAIL_LOW_RESIDENT=% -DKUI_RETAIL_STARTUP_TRACE=% -DKUI_RETAIL_SONIC_STACK_TEST=%,$(RETAIL_FLAGS)) \
     -DKUI_RETAIL_LOW_RESIDENT=1 -DKUI_RETAIL_STARTUP_TRACE=0 -DKUI_RETAIL_SONIC_STACK_TEST=0 \
-    -DKUI_ZSO_CODECS=4 -DKUI_RETAIL_ZSO=1 -DKUI_RETAIL_TRANSPORT=1 -DKUI_RETAIL_MANIFEST_SLOTS=32 -DKUI_GAME_RAM_PATCHES_STAGE=0
+    -DKUI_ZSO_CODECS=4 -DKUI_RETAIL_ZSO=1 -DKUI_RETAIL_TRANSPORT=1 -DKUI_RETAIL_MANIFEST_SLOTS=32 -DKUI_GAME_RAM_PATCHES_STAGE=0 \
+    $(CSO_FIT_FLAGS)
 CSO_RESIDENT_SRC := $(filter-out src/core/retail_image.c,$(RETAIL_SCI_SRC)) src/core/retail_zso.c src/core/zso.c src/core/deflate.c
 CSO_RESIDENT := $(patsubst %.c,$(CSO_DIR)/resident/%.o,$(CSO_RESIDENT_SRC)) $(CSO_DIR)/resident/retail_resident_asm.o
 CSO_STAGE_SRC := src/loader/retail_stage.c src/loader/sd_reader.c src/loader/retail_sd.c \

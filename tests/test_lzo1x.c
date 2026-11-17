@@ -12,8 +12,8 @@
  * All large work areas are static, including the oracle's compression heap. */
 #define CAP 8192u
 static struct {
-    uint8_t data[CAP];
-    uint32_t size, base, limit, calls, fail_on;
+    _Alignas(4) uint8_t data[CAP];
+    uint32_t size, base, limit, calls, fail_on, chunk, preload;
     size_t largest;
     enum kui_zso_result fault;
 } source;
@@ -27,18 +27,19 @@ static uint32_t random_word(void) {
     random_state ^= random_state << 5;
     return random_state;
 }
-static enum kui_zso_result read_source(void *context, uint32_t offset, void *out, size_t count) {
+/* Views point into the aligned stream; a nonzero chunk splits literal runs
+ * across several views. */
+static enum kui_zso_result view_source(void *context, uint32_t offset, uint32_t wanted,
+    const uint8_t **data, uint32_t *available) {
     (void)context;
     ++source.calls;
     assert(source.calls < 16384u);
-    assert(offset >= source.base && offset <= source.limit && count <= source.limit - offset);
-    assert(offset - source.base <= source.size && count <= source.size - (offset - source.base));
-    if(count > source.largest) source.largest = count;
-    if(source.fail_on == source.calls) {
-        memcpy(out, source.data + offset - source.base, count / 2u);
-        return source.fault;
-    }
-    memcpy(out, source.data + offset - source.base, count);
+    assert(wanted && offset >= source.base && offset < source.limit && wanted <= source.limit - offset);
+    assert(offset - source.base < source.size && wanted <= source.size - (offset - source.base));
+    if(wanted > source.largest) source.largest = wanted;
+    if(source.fail_on == source.calls) return source.fault;
+    *data = source.data + (offset - source.base);
+    *available = source.chunk && wanted > source.chunk ? source.chunk : wanted;
     return KUI_ZSO_OK;
 }
 static void canaries(void) {
@@ -50,8 +51,11 @@ static enum kui_zso_result decode(uint32_t bytes, uint32_t *consumed) {
     source.limit = source.base + bytes;
     source.calls = 0;
     memset(&output, 0xa6, sizeof(output));
-    enum kui_zso_result result = kui_lzo1x_decode(read_source, NULL, source.base,
-                                                source.limit, output.data, consumed);
+    /* A preloaded cursor already holds the stream's first bytes in its view. */
+    uint32_t k = source.preload < bytes ? source.preload : 0;
+    struct kui_zso_cursor in = {view_source, NULL, k ? source.data : NULL,
+        k ? source.data + k : NULL, source.base + k, source.limit, 0};
+    enum kui_zso_result result = kui_lzo1x_decode(&in, output.data, consumed);
     canaries();
     return result;
 }
@@ -109,10 +113,21 @@ static void valid(bool faults) {
     lzo_uint oracle_size = sizeof(oracle);
     assert(lzo1x_decompress_safe(source.data, source.size, oracle, &oracle_size, NULL) == LZO_E_OK);
     assert(oracle_size == 2048u && !memcmp(oracle, expected, 2048));
-    uint32_t consumed = 0xdeadbeefu;
-    assert(decode(source.size, &consumed) == KUI_ZSO_OK && consumed == source.size);
-    assert(!memcmp(output.data, expected, 2048));
-    uint32_t calls = source.calls;
+    uint32_t consumed = 0xdeadbeefu, calls = 0;
+    static const uint32_t chunks[] = {0, 3, 1};
+    for(unsigned c = 0; c < sizeof(chunks) / sizeof(chunks[0]); ++c) {
+        source.chunk = chunks[c]; consumed = 0xdeadbeefu;
+        assert(decode(source.size, &consumed) == KUI_ZSO_OK && consumed == source.size);
+        assert(!memcmp(output.data, expected, 2048));
+        calls = source.calls;
+    }
+    /* Decoding starts at the cursor's position, inside a partly read view. */
+    for(uint32_t preload = 1; preload <= 5; preload += 4) {
+        source.preload = preload; source.chunk = preload; consumed = 0xdeadbeefu;
+        assert(decode(source.size, &consumed) == KUI_ZSO_OK && consumed == source.size);
+        assert(!memcmp(output.data, expected, sizeof(expected)));
+    }
+    source.preload = 0; source.chunk = 1;
     if(faults) for(unsigned error = 0; error < 2; ++error) {
         source.fault = error ? KUI_ZSO_CANCELLED : KUI_ZSO_IO;
         for(uint32_t at = 1; at <= calls; ++at) {
@@ -121,7 +136,7 @@ static void valid(bool faults) {
             assert(consumed == 0xdeadbeefu && source.calls == at);
         }
     }
-    source.fail_on = 0;
+    source.fail_on = 0; source.chunk = 0;
 }
 static void token_forms(void) {
     begin(); literals(2048, false); end(); valid(true);
@@ -225,11 +240,13 @@ static void malformed(void) {
         reject(); /* Bounded M3/M4 length extension. */
     }
     source.calls = 0;
-    assert(kui_lzo1x_decode(NULL, NULL, 0, 1, output.data, &consumed) == KUI_ZSO_INVALID);
-    assert(kui_lzo1x_decode(read_source, NULL, 1, 0, output.data, &consumed) == KUI_ZSO_INVALID);
-    assert(kui_lzo1x_decode(read_source, NULL, 1, 1, output.data, &consumed) == KUI_ZSO_INVALID);
-    assert(kui_lzo1x_decode(read_source, NULL, 0, 1, NULL, &consumed) == KUI_ZSO_INVALID);
-    assert(kui_lzo1x_decode(read_source, NULL, 0, 1, output.data, NULL) == KUI_ZSO_INVALID);
+    struct kui_zso_cursor reversed = {view_source, NULL, NULL, NULL, 1, 0, 0},
+        empty = {view_source, NULL, NULL, NULL, 1, 1, 0}, one = {view_source, NULL, NULL, NULL, 0, 1, 0};
+    assert(kui_lzo1x_decode(NULL, output.data, &consumed) == KUI_ZSO_INVALID);
+    assert(kui_lzo1x_decode(&reversed, output.data, &consumed) == KUI_ZSO_INVALID);
+    assert(kui_lzo1x_decode(&empty, output.data, &consumed) == KUI_ZSO_INVALID);
+    assert(kui_lzo1x_decode(&one, NULL, &consumed) == KUI_ZSO_INVALID);
+    assert(kui_lzo1x_decode(&one, output.data, NULL) == KUI_ZSO_INVALID);
     assert(!source.calls);
     puts("PASS LZO1X bounds: every truncation, marker/size rules, all match lookbehinds, overflow, padding and UINT32 boundary");
 }

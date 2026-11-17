@@ -151,7 +151,7 @@ build/test-armada-ce-excerpt: tests/test_armada_ce_excerpt.c src/loader/armada_c
 	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) -fno-pie -no-pie $< -o $@
 test: build/test-vmu-lcd build/test-vmu-save-format
 test: build/test-recovery-manifest build/scan-fixtures/.stamp build/test-music-ogg-seek build/music-asset-check
-test: build/test-games-selection build/test-deflate build/test-cso build/test-zso build/test-lzo1x build/test-retail-zso build/test-retail-lzo build/test-retail-cso build/test-game-launch-settings build/test-game-launch-settings-file build/test-game-ram-patches build/test-game-launch-report build/test-retail-relay-patches
+test: build/test-games-selection build/test-deflate build/test-deflate-v1 build/test-cso build/test-zso build/test-lzo1x build/test-retail-zso build/test-retail-lzo build/test-retail-cso build/test-game-launch-settings build/test-game-launch-settings-file build/test-game-ram-patches build/test-game-launch-report build/test-retail-relay-patches
 test: test-armada-ce-stream test-worms-ce-stream test-wince-cooked-admission test-armada-ce-excerpt
 test: build/test-capture-export
 test: build/test-game-image build/test-game-metadata build/test-loader-probe build/test-loader-sd build/loader-probe.dat
@@ -262,6 +262,7 @@ test: build/test-storage-errors build/test-cd-audio build/test-network-probe bui
 	./build/test-destination
 	./build/test-settings
 	./build/test-deflate
+	./build/test-deflate-v1
 	./build/test-cso
 	./build/test-zso
 	./build/test-lzo1x
@@ -1002,13 +1003,13 @@ build/test-retail-zso: tests/test_retail_zso.c src/core/retail_zso.c src/core/zs
 build/test-retail-lzo: tests/test_retail_zso.c src/core/retail_zso.c src/core/zso.c src/core/deflate.c src/core/lzo1x.c src/core/retail_image.c include/kui/retail_zso.h include/kui/zso.h include/kui/lzo1x.h
 	@mkdir -p $(@D)
 	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) -DKUI_RETAIL_MANIFEST_SLOTS=32 -DKUI_ZSO_CODECS=2 -DKUI_TEST_LZO=1 src/core/retail_image.c src/core/retail_zso.c src/core/zso.c src/core/deflate.c src/core/lzo1x.c tests/test_retail_zso.c -o $@
-build/test-lzo1x: tests/test_lzo1x.c src/core/lzo1x.c include/kui/lzo1x.h include/kui/zso.h third_party/minilzo/minilzo.c
+build/test-lzo1x: tests/test_lzo1x.c src/core/lzo1x.c src/core/zso.c include/kui/lzo1x.h include/kui/zso.h third_party/minilzo/minilzo.c
 	@mkdir -p $(@D)
-	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) -Ithird_party/minilzo -DLZO_CFG_NO_UNALIGNED=1 src/core/lzo1x.c third_party/minilzo/minilzo.c tests/test_lzo1x.c -o $@
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) -Ithird_party/minilzo -DLZO_CFG_NO_UNALIGNED=1 -DKUI_ZSO_CODECS=2 src/core/lzo1x.c src/core/zso.c third_party/minilzo/minilzo.c tests/test_lzo1x.c -o $@
 
 build/test-retail-cso: tests/test_retail_zso.c src/core/retail_zso.c src/core/zso.c src/core/deflate.c src/core/lzo1x.c src/core/retail_image.c include/kui/retail_zso.h include/kui/zso.h include/kui/lzo1x.h
 	@mkdir -p $(@D)
-	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) -DKUI_RETAIL_MANIFEST_SLOTS=32 -DKUI_ZSO_CODECS=4 -DKUI_TEST_CSO=1 src/core/retail_image.c src/core/retail_zso.c src/core/zso.c src/core/deflate.c src/core/lzo1x.c tests/test_retail_zso.c -o $@
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) -DKUI_RETAIL_MANIFEST_SLOTS=32 -DKUI_ZSO_CODECS=4 -DKUI_TEST_CSO=1 $(CSO_FIT_FLAGS) src/core/retail_image.c src/core/retail_zso.c src/core/zso.c src/core/deflate.c src/core/lzo1x.c tests/test_retail_zso.c -o $@
 
 
 build/test-games-selection: tests/test_games_selection.c src/core/games_selection.c src/apps/games_selection.c include/kui/games_selection.h src/core/destination.c src/core/data.c .deps/fatfs/source/ff.h
@@ -1121,9 +1122,14 @@ build/test-vmu-lcd: tests/test_vmu_lcd.c src/core/vmu_lcd.c src/dreamcast/vmu_lc
 	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) -Itests/vmu_stubs src/core/vmu_lcd.c src/dreamcast/vmu_lcd.c tests/test_vmu_lcd.c -o $@
 
 # Independent raw-DEFLATE oracle and strict CSO container admission.
-build/test-deflate: tests/test_deflate.c src/core/deflate.c include/kui/deflate.h include/kui/zso.h
+build/test-deflate: tests/test_deflate.c src/core/deflate.c src/core/zso.c include/kui/deflate.h include/kui/zso.h
 	@mkdir -p $(@D)
-	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) src/core/deflate.c tests/test_deflate.c -lz -o $@
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) -DKUI_ZSO_CODECS=4 src/core/deflate.c src/core/zso.c tests/test_deflate.c -lz -o $@
+# The low CSO resident's smaller forms (Makefile.dc CSO_FIT_FLAGS).
+CSO_FIT_FLAGS := -DKUI_DEFLATE_BUCKETS=0 -DKUI_RETAIL_ZSO_INDEX_BYTES=0 -DKUI_ZSO_WORD_COPY=0
+build/test-deflate-v1: tests/test_deflate.c src/core/deflate.c src/core/zso.c include/kui/deflate.h include/kui/zso.h
+	@mkdir -p $(@D)
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) -DKUI_ZSO_CODECS=4 $(CSO_FIT_FLAGS) src/core/deflate.c src/core/zso.c tests/test_deflate.c -lz -o $@
 build/test-cso: tests/test_cso.c src/core/zso.c src/core/deflate.c src/core/lzo1x.c include/kui/zso.h include/kui/deflate.h
 	@mkdir -p $(@D)
 	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) src/core/zso.c src/core/deflate.c src/core/lzo1x.c tests/test_cso.c -o $@

@@ -76,124 +76,236 @@ static enum kui_zso_result pair(const struct kui_zso_info *info,
         return KUI_ZSO_RANGE;
     return KUI_ZSO_OK;
 }
-enum kui_zso_result kui_zso_validate_index(const struct kui_zso_info *info,
-    kui_zso_read_fn read, void *context) {
-    if(!valid(info) || !read) return KUI_ZSO_INVALID;
-    /* Preparation/stage only. The detached reader needs only its chosen pair. */
-    uint8_t page[128];
-    uint32_t previous = 0, terminal = 0;
-    for(uint32_t first = 0; first <= info->block_count;) {
-        uint32_t count = info->block_count + 1u - first;
-        if(count > sizeof(page) / 4u) count = sizeof(page) / 4u;
-        enum kui_zso_result result = read(context, KUI_ZSO_HEADER_BYTES + first * 4u,
-                                         page, (size_t)count * 4u);
-        if(result != KUI_ZSO_OK) return result;
-        for(uint32_t i = 0; i < count; ++i) {
-            uint32_t entry = little32(page + i * 4u), start;
-            if(first || i) result = pair(info, previous, entry, &start, &terminal);
-            else result = position(info, entry, &terminal);
-            if(result != KUI_ZSO_OK) return result;
-            previous = entry;
+typedef uint32_t zso_word __attribute__((__may_alias__));
+/* A build may set KUI_ZSO_WORD_COPY to 0 to copy with memcpy instead (word
+ * stores only when source and destination share alignment): the low CSO
+ * resident, whose raw blocks are its only bulk copies, has no room for this. */
+#ifndef KUI_ZSO_WORD_COPY
+#define KUI_ZSO_WORD_COPY 1
+#endif
+#if KUI_ZSO_WORD_COPY
+/* Copy n bytes from a view into out with aligned word stores: the destination
+ * is usually the game's uncached buffer, where every store is a bus
+ * transaction. A misaligned source is assembled from its bytes, so no load
+ * leaves the view. Kept out of line: as a leaf it needs no saved registers,
+ * and its callers' frames stay small. */
+__attribute__((noinline))
+static void copy_out(uint8_t *out, const uint8_t *src, uint32_t n) {
+    for(; n && ((uintptr_t)out & 3u); --n) *out++ = *src++;
+    if(!((uintptr_t)src & 3u)) {
+        for(; n >= 4u; n -= 4u, out += 4, src += 4)
+            *(zso_word *)(void *)out = *(const zso_word *)(const void *)src;
+    } else {
+        for(; n >= 4u; n -= 4u, out += 4, src += 4) {
+            uint32_t v = src[3];
+            v = v << 8 | src[2];
+            v = v << 8 | src[1];
+            *(zso_word *)(void *)out = v << 8 | src[0];
         }
-        first += count;
+    }
+    for(; n; --n) *out++ = *src++;
+}
+#else
+#define copy_out memcpy
+#endif
+#if defined(KUI_RETAIL_ZSO) && KUI_RETAIL_ZSO
+/* Detached disc requests are serialized with interrupts guarded. Keep
+ * transient reader state in resident BSS to preserve the IRQ stack budget;
+ * these profiles are nonreentrant, like their physical sector cache. One
+ * cursor serves kui_zso_copy and kui_zso_read_block, which never nest. */
+#if KUI_ZSO_CODECS & 4
+static struct kui_deflate_workspace transient;
+#define TRANSIENT_CURSOR (&transient.in)
+#else
+static struct kui_zso_cursor transient;
+#define TRANSIENT_CURSOR (&transient)
+#endif
+#endif
+enum kui_zso_result kui_zso_cursor_fill(struct kui_zso_cursor *c) {
+    if(c->at >= c->end) return KUI_ZSO_INVALID; /* Stream runs past its range. */
+    enum kui_zso_result result = c->view(c->context, c->at, c->end - c->at, &c->p, &c->got);
+    /* Everything after the view is recomputed from c, so only c is held. */
+    if(result == KUI_ZSO_OK && (!c->got || c->got > c->end - c->at)) result = KUI_ZSO_RANGE;
+    if(result != KUI_ZSO_OK) { c->e = c->p = NULL; return result; }
+    c->e = c->p + c->got;
+    c->at += c->got;
+    return KUI_ZSO_OK;
+}
+enum kui_zso_result kui_zso_cursor_take(struct kui_zso_cursor *c, void *out, uint32_t size) {
+    uint8_t *to = out;
+    while(size) {
+        if(c->p == c->e) {
+            enum kui_zso_result result = kui_zso_cursor_fill(c);
+            if(result != KUI_ZSO_OK) return result;
+        }
+        /* Advance first, so only c, to and size live across the copy. */
+        const uint8_t *from = c->p;
+        uint32_t n = (uint32_t)(c->e - from);
+        if(n > size) n = size;
+        c->p = from + n; size -= n; to += n;
+        copy_out(to - n, from, n);
+    }
+    return KUI_ZSO_OK;
+}
+enum kui_zso_result kui_zso_copy(kui_zso_view_fn view, void *context,
+    uint32_t offset, void *out, uint32_t size) {
+    if(size > UINT32_MAX - offset) return KUI_ZSO_RANGE;
+#ifdef TRANSIENT_CURSOR
+    struct kui_zso_cursor *c = TRANSIENT_CURSOR;
+#else
+    struct kui_zso_cursor local, *c = &local;
+#endif
+    *c = (struct kui_zso_cursor){view, context, NULL, NULL, offset, offset + size, 0};
+    return kui_zso_cursor_take(c, out, size);
+}
+enum kui_zso_result kui_zso_validate_index(const struct kui_zso_info *info,
+    kui_zso_view_fn view, void *context) {
+    if(!valid(info) || !view) return KUI_ZSO_INVALID;
+    /* Preparation/stage only. The detached reader needs only its chosen pair.
+     * Entries are consumed in place; one split across two views is copied. */
+    uint32_t previous = 0, terminal = 0, available = 0;
+    uint32_t at = KUI_ZSO_HEADER_BYTES, end = at + info->index_bytes;
+    const uint8_t *data = NULL;
+    for(uint32_t i = 0; i <= info->block_count; ++i, at += 4u) {
+        enum kui_zso_result result;
+        if(available < 4u) {
+            result = view(context, at, end - at, &data, &available);
+            if(result != KUI_ZSO_OK) return result;
+            if(!available || available > end - at) return KUI_ZSO_RANGE;
+        }
+        uint8_t split[4];
+        const uint8_t *bytes = data;
+        if(available >= 4u) { data += 4; available -= 4u; }
+        else {
+            result = kui_zso_copy(view, context, at, split, 4u);
+            if(result != KUI_ZSO_OK) return result;
+            bytes = split; available = 0;
+        }
+        uint32_t entry = little32(bytes), start;
+        if(i) result = pair(info, previous, entry, &start, &terminal);
+        else result = position(info, entry, &terminal);
+        if(result != KUI_ZSO_OK) return result;
+        previous = entry;
     }
     return info->file_bytes - terminal < (1u << info->shift) ? KUI_ZSO_OK : KUI_ZSO_RANGE;
 }
 #if KUI_ZSO_CODECS & 1
-struct input {
-    kui_zso_read_fn read;
-    void *context;
-    uint32_t at, end;
-};
-static enum kui_zso_result take(struct input *input, void *out, uint32_t count) {
-    if(count > input->end - input->at) return KUI_ZSO_INVALID;
-    if(!count) return KUI_ZSO_OK;
-    enum kui_zso_result result = input->read(input->context, input->at, out, count);
-    if(result == KUI_ZSO_OK) input->at += count;
-    return result;
-}
-static enum kui_zso_result length(struct input *input, uint32_t base, uint32_t *out) {
-    uint32_t value = base;
-    if(base == 15u) {
-        uint8_t extra;
-        do {
-            enum kui_zso_result result = take(input, &extra, 1u);
-            if(result != KUI_ZSO_OK) return result;
-            if(extra > KUI_ZSO_BLOCK_BYTES - value) return KUI_ZSO_INVALID;
-            value += extra;
-        } while(extra == 255u);
+#define NEXT(value) do { \
+        if(in->p == in->e && (result = kui_zso_cursor_fill(in)) != KUI_ZSO_OK) return result; \
+        (value) = *in->p++; \
+    } while(0)
+/* Overlap-exact match copy (distance >= 1 already checked): distance one is a
+ * byte fill and multiples of four copy aligned words; anything else copies
+ * bytes in increasing order, which also implements overlap. */
+static void match_copy(uint8_t *out, uint32_t distance, uint32_t count) {
+    const uint8_t *from = out - distance;
+    if(distance == 1u) {
+        uint32_t value = *from;
+        for(; count && ((uintptr_t)out & 3u); --count) *out++ = (uint8_t)value;
+        zso_word *to = (zso_word *)(void *)out;
+        for(value *= UINT32_C(0x01010101); count >= 4u; count -= 4u) *to++ = value;
+        for(out = (uint8_t *)to; count; --count) *out++ = (uint8_t)value;
+        return;
     }
-    *out = value;
-    return KUI_ZSO_OK;
+    if(!(distance & 3u)) {
+        for(; count && ((uintptr_t)out & 3u); --count) *out++ = *from++;
+        zso_word *to = (zso_word *)(void *)out;
+        const zso_word *word = (const zso_word *)(const void *)from;
+        for(; count >= 4u; count -= 4u) *to++ = *word++;
+        out = (uint8_t *)to; from = (const uint8_t *)word;
+    }
+    for(; count >= 4u; count -= 4u, out += 4, from += 4) {
+        out[0] = from[0]; out[1] = from[1]; out[2] = from[2]; out[3] = from[3];
+    }
+    while(count--) *out++ = *from++;
 }
 #endif
 enum kui_zso_result kui_zso_read_block(const struct kui_zso_info *info,
-    uint32_t block, kui_zso_read_fn read, void *context, uint8_t out[KUI_ZSO_BLOCK_BYTES]) {
-    if(!valid(info) || !read || !out) return KUI_ZSO_INVALID;
+    uint32_t block, kui_zso_view_fn view, void *context, uint8_t out[KUI_ZSO_BLOCK_BYTES]) {
+    if(!valid(info) || !view || !out) return KUI_ZSO_INVALID;
     if(block >= info->block_count) return KUI_ZSO_RANGE;
-    uint8_t entries[8];
-    enum kui_zso_result result = read(context, KUI_ZSO_HEADER_BYTES + block * 4u,
-                                     entries, sizeof(entries));
+    /* One cursor reads the entry pair, then the block's own bytes. A DEFLATE
+     * build decodes from the workspace's own cursor. */
+#ifdef TRANSIENT_CURSOR
+    struct kui_zso_cursor *const in = TRANSIENT_CURSOR;
+#if KUI_ZSO_CODECS & 4
+    struct kui_deflate_workspace *const workspace = &transient;
+#endif
+#elif KUI_ZSO_CODECS & 4
+    struct kui_deflate_workspace local, *const workspace = &local;
+    struct kui_zso_cursor *const in = &local.in;
+#else
+    struct kui_zso_cursor local, *const in = &local;
+#endif
+    uint32_t at = KUI_ZSO_HEADER_BYTES + block * 4u;
+    *in = (struct kui_zso_cursor){view, context, NULL, NULL, at, at + 8u, 0};
+    /* The pair is staged in out, which the block then overwrites. */
+    enum kui_zso_result result = kui_zso_cursor_take(in, out, 8u);
     if(result != KUI_ZSO_OK) return result;
-    uint32_t entry = little32(entries), start, end;
-    result = pair(info, entry, little32(entries + 4), &start, &end);
+    uint32_t entry = little32(out), start, end;
+    result = pair(info, entry, little32(out + 4), &start, &end);
     if(result != KUI_ZSO_OK) return result;
-    if(entry & UINT32_C(0x80000000)) return read(context, start, out, KUI_ZSO_BLOCK_BYTES);
+    in->p = in->e = NULL; in->at = start; in->end = end;
+    if(entry & UINT32_C(0x80000000)) return kui_zso_cursor_take(in, out, KUI_ZSO_BLOCK_BYTES);
 #if KUI_ZSO_CODECS & 2
     if(info->codec == KUI_ZSO_LZO1X) {
         uint32_t consumed;
-        result = kui_lzo1x_decode(read, context, start, end, out, &consumed);
+        result = kui_lzo1x_decode(in, out, &consumed);
         if(result != KUI_ZSO_OK) return result;
         return end - start - consumed < (1u << info->shift) ? KUI_ZSO_OK : KUI_ZSO_INVALID;
     }
 #endif
 #if KUI_ZSO_CODECS & 4
     if(info->codec == KUI_ZSO_DEFLATE) {
-#if defined(KUI_RETAIL_ZSO) && KUI_RETAIL_ZSO && KUI_ZSO_CODECS == 4
-        /* Detached disc requests are serialized with interrupts guarded. Keep
-         * transient tables in resident BSS to preserve the IRQ stack budget;
-         * this profile is nonreentrant, like its physical sector cache. */
-        static struct kui_deflate_workspace workspace;
-#else
-        struct kui_deflate_workspace workspace;
-#endif
         uint32_t consumed;
-        result = kui_deflate_decode(read, context, start, end, out, &workspace, &consumed);
+        result = kui_deflate_decode(in, out, workspace, &consumed);
         if(result != KUI_ZSO_OK) return result;
         return end - start - consumed < (1u << info->shift) ? KUI_ZSO_OK : KUI_ZSO_INVALID;
     }
 #endif
 #if KUI_ZSO_CODECS & 1
-    struct input input = {read, context, start, end};
+    /* Tokens and lengths are read in place from the source's views; literal
+     * runs are copied straight from them. */
     uint32_t done = 0, last_match = UINT32_MAX;
     for(;;) {
-        uint8_t token;
-        result = take(&input, &token, 1u);
-        if(result != KUI_ZSO_OK) return result;
-        uint32_t literals;
-        result = length(&input, token >> 4, &literals);
-        if(result != KUI_ZSO_OK) return result;
+        uint32_t token, literals, extra;
+        NEXT(token);
+        literals = token >> 4;
+        if(literals == 15u) {
+            do {
+                NEXT(extra);
+                if(extra > KUI_ZSO_BLOCK_BYTES - literals) return KUI_ZSO_INVALID;
+                literals += extra;
+            } while(extra == 255u);
+        }
         if(literals > KUI_ZSO_BLOCK_BYTES - done) return KUI_ZSO_INVALID;
-        result = take(&input, out + done, literals);
+        result = kui_zso_cursor_take(in, out + done, literals);
         if(result != KUI_ZSO_OK) return result;
         done += literals;
         if(done == KUI_ZSO_BLOCK_BYTES) {
+            /* Unread input is the view's rest and the range after it. */
             if(literals < 5u || (last_match != UINT32_MAX && last_match > KUI_ZSO_BLOCK_BYTES - 12u) ||
-               input.end - input.at >= (1u << info->shift)) return KUI_ZSO_INVALID;
+               in->end - in->at + (uint32_t)(in->e - in->p) >= (1u << info->shift)) return KUI_ZSO_INVALID;
             return KUI_ZSO_OK;
         }
-        uint8_t distance_bytes[2];
-        result = take(&input, distance_bytes, 2u);
-        if(result != KUI_ZSO_OK) return result;
-        uint32_t distance = distance_bytes[0] | (uint32_t)distance_bytes[1] << 8, count;
+        uint32_t low, high, count;
+        NEXT(low);
+        NEXT(high);
+        uint32_t distance = low | high << 8;
         if(!distance || distance > done) return KUI_ZSO_INVALID;
-        result = length(&input, token & 15u, &count);
-        if(result != KUI_ZSO_OK) return result;
+        count = token & 15u;
+        if(count == 15u) {
+            do {
+                NEXT(extra);
+                if(extra > KUI_ZSO_BLOCK_BYTES - count) return KUI_ZSO_INVALID;
+                count += extra;
+            } while(extra == 255u);
+        }
         count += 4u;
         if(count > KUI_ZSO_BLOCK_BYTES - done) return KUI_ZSO_INVALID;
         last_match = done;
-        /* Byte order implements overlapping matches, including distance1. */
-        while(count--) { out[done] = out[done - distance]; ++done; }
+        match_copy(out + done, distance, count);
+        done += count;
     }
 #else
     return KUI_ZSO_UNSUPPORTED;

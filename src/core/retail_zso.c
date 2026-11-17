@@ -95,48 +95,96 @@ enum kui_game_result kui_retail_zso_image_init(struct kui_retail_zso_image *imag
     enum kui_game_result r=kui_retail_zso_manifest_validate(map);if(r!=KUI_GAME_OK)return r;
     image->map=map;image->read_block=read;image->context=context;return KUI_GAME_OK;
 }
-static enum kui_zso_result file_read(void *context,uint32_t offset,void *output,size_t bytes) {
+/* kui_zso_view_fn over the card: bytes inside the index window come from it,
+ * everything else from the 512-byte payload cache. A card stream that has to
+ * start is sized to reach image->limit while a request decodes (its last
+ * block's end), otherwise offset+wanted, within the block's extent; the
+ * following blocks then continue that stream. */
+static enum kui_zso_result file_view(void *context,uint32_t offset,uint32_t wanted,const uint8_t **data,uint32_t *available) {
     struct kui_retail_zso_image *image=context;const struct kui_retail_zso_manifest *map=image->map;
-    if(offset>map->zso.file_bytes || bytes>map->zso.file_bytes-offset)return KUI_ZSO_RANGE;
-    uint8_t *out=output;
-    while(bytes) {
-        uint32_t block=offset/512u,inside=offset%512u;const struct kui_retail_extent *e=NULL;
+    if(!wanted || offset>=map->zso.file_bytes || wanted>map->zso.file_bytes-offset)return KUI_ZSO_RANGE;
+    uint32_t left;
+#if KUI_RETAIL_ZSO_INDEX_BYTES
+    left=offset-image->index_at;
+    if(left<image->index_size) {
+        *data=image->index+left;left=image->index_size-left;
+    } else
+#endif
+    {
+        uint32_t block=offset/512u;const struct kui_retail_extent *e=NULL;
         for(uint32_t i=1;i<=map->manifest.extent_count;i++) {const struct kui_retail_extent *candidate=&map->manifest.slots[i].extent;
             if(block>=candidate->file_block && block-candidate->file_block<candidate->blocks){e=candidate;break;}}
         if(!e)return KUI_ZSO_RANGE;
         uint32_t lba=e->card_lba+block-e->file_block;
         if(!image->cache_valid || image->cached_lba!=lba) {
+#if KUI_RETAIL_ZSO_INDEX_BYTES
+            uint32_t bound=image->limit>offset?image->limit:offset+wanted;
+#else
+            uint32_t bound=offset+wanted;
+#endif
+            /* bound>offset, so the stream covers at least this block. */
+            uint32_t run=(bound-1u)/512u-block+1u,rest=e->blocks-(block-e->file_block);
+            if(run>rest)run=rest;
             image->cache_valid=0;
-            uint32_t available=(uint32_t)((bytes+inside+511u)/512u),left=e->blocks-(block-e->file_block);
-            if(available>left)available=left;
-            int failed=image->read_run?image->read_run(image->context,lba,available,image->block):image->read_block(image->context,lba,image->block);
-            if(failed)return KUI_ZSO_IO;
+            if(image->read_run?image->read_run(image->context,lba,run,image->block):image->read_block(image->context,lba,image->block))return KUI_ZSO_IO;
             image->cached_lba=lba;image->cache_valid=1;image->blocks_read++;
         }
-        size_t take=512u-inside;if(take>bytes)take=bytes;
-        memcpy(out,image->block+inside,take);out+=take;offset+=(uint32_t)take;bytes-=take;
+        *data=image->block+offset%512u;left=512u-offset%512u;
     }
+    *available=left<wanted?left:wanted;
     return KUI_ZSO_OK;
+}
+static void forget(struct kui_retail_zso_image *image) {
+    image->cache_valid=0;
+#if KUI_RETAIL_ZSO_INDEX_BYTES
+    image->index_size=0;image->limit=0;
+#endif
 }
 enum kui_game_result kui_retail_zso_verify_source(struct kui_retail_zso_image *image) {
     if(!image || !image->map || !image->read_block)return KUI_GAME_INVALID;
     uint8_t header[KUI_ZSO_HEADER_BYTES];struct kui_zso_info actual;
-    enum kui_zso_result z=file_read(image,0,header,sizeof(header));
+    forget(image);
+    enum kui_zso_result z=kui_zso_copy(file_view,image,0,header,sizeof(header));
     if(z==KUI_ZSO_OK)z=kui_zso_header_parse_codec(header,image->map->zso.file_bytes,(enum kui_zso_codec)image->map->zso.codec,&actual);
     const struct kui_zso_info *expected=&image->map->zso;
     if(z==KUI_ZSO_OK && (actual.file_bytes!=expected->file_bytes || actual.total_bytes!=expected->total_bytes || actual.block_count!=expected->block_count || actual.index_bytes!=expected->index_bytes || actual.shift!=expected->shift))z=KUI_ZSO_INVALID;
-    if(z==KUI_ZSO_OK)z=kui_zso_validate_index(expected,file_read,image);
-    if(z!=KUI_ZSO_OK)image->cache_valid=0;
+    if(z==KUI_ZSO_OK)z=kui_zso_validate_index(expected,file_view,image);
+    if(z!=KUI_ZSO_OK)forget(image);
     return z==KUI_ZSO_OK?KUI_GAME_OK:z==KUI_ZSO_IO?KUI_GAME_IO:KUI_GAME_INVALID;
 }
 enum kui_game_result kui_retail_zso_image_read(struct kui_retail_zso_image *image,uint32_t lba,uint32_t count,enum kui_game_sector_format format,void *out,size_t capacity) {
     if(!image || !image->map || !image->read_block || !out)return KUI_GAME_INVALID;
     enum kui_game_result r=kui_retail_zso_image_check(&image->map->manifest,lba,count,format);if(r!=KUI_GAME_OK)return r;
     if(capacity<(size_t)count*2048u)return KUI_GAME_RANGE;
+    const struct kui_zso_info *info=&image->map->zso;
     uint8_t *p=out;uint32_t first=lba-image->map->manifest.slots[0].track.start_lba;
-    for(uint32_t i=0;i<count;i++) {
-        enum kui_zso_result z=kui_zso_read_block(&image->map->zso,first+i,file_read,image,p+i*2048u);
-        if(z!=KUI_ZSO_OK){image->cache_valid=0;return z==KUI_ZSO_IO?KUI_GAME_IO:KUI_GAME_INVALID;}
+    enum kui_zso_result z=KUI_ZSO_OK;
+#if KUI_RETAIL_ZSO_INDEX_BYTES
+    /* The window must hold this request's count+1 entries, or start at its
+     * first one. A refill copies through the payload cache with the window
+     * emptied; it stays empty unless every byte arrived. */
+    uint32_t at=KUI_ZSO_HEADER_BYTES+first*4u,need=(count+1u)*4u,rel=at-image->index_at;
+    if(rel>=image->index_size || image->index_size-rel<need) {
+        uint32_t size=KUI_ZSO_HEADER_BYTES+info->index_bytes-at;
+        if(size>KUI_RETAIL_ZSO_INDEX_BYTES)size=KUI_RETAIL_ZSO_INDEX_BYTES;
+        image->index_size=0;image->limit=0;
+        z=kui_zso_copy(file_view,image,at,image->index,size);
+        if(z==KUI_ZSO_OK){image->index_at=at;image->index_size=size;rel=0;}
     }
+    /* Blocks are stored back to back, so one card stream can carry the whole
+     * request: streams are sized up to the last block's end. That terminal
+     * entry only bounds stream sizing; each block's own pair is still checked
+     * before it decodes. A request longer than the window sizes per view. */
+    if(z==KUI_ZSO_OK && image->index_size-rel>=need) {
+        uint32_t end=word(image->index+rel+count*4u)&UINT32_C(0x7fffffff);
+        image->limit=end>(info->file_bytes>>info->shift)?info->file_bytes:end<<info->shift;
+    }
+#endif
+    for(uint32_t i=0;z==KUI_ZSO_OK && i<count;i++)
+        z=kui_zso_read_block(info,first+i,file_view,image,p+i*2048u);
+    if(z!=KUI_ZSO_OK){forget(image);return z==KUI_ZSO_IO?KUI_GAME_IO:KUI_GAME_INVALID;}
+#if KUI_RETAIL_ZSO_INDEX_BYTES
+    image->limit=0;
+#endif
     return KUI_GAME_OK;
 }
