@@ -999,17 +999,17 @@ build/test-zso: tests/test_zso.c src/core/zso.c src/core/deflate.c src/core/lzo1
 # Detached SCI physical extents, ZSO wire validation and logical-sector reads.
 build/test-retail-zso: tests/test_retail_zso.c src/core/retail_zso.c src/core/zso.c src/core/deflate.c src/core/lzo1x.c src/core/retail_image.c include/kui/retail_zso.h include/kui/zso.h include/kui/retail_image.h
 	@mkdir -p $(@D)
-	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) -DKUI_RETAIL_MANIFEST_SLOTS=32 src/core/retail_image.c src/core/retail_zso.c src/core/zso.c src/core/deflate.c src/core/lzo1x.c tests/test_retail_zso.c -o $@
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) -DKUI_RETAIL_MANIFEST_SLOTS=32 -DKUI_RETAIL_ZSO=1 -DKUI_ZSO_CODECS=1 src/core/retail_image.c src/core/retail_zso.c src/core/zso.c src/core/deflate.c src/core/lzo1x.c tests/test_retail_zso.c -o $@
 build/test-retail-lzo: tests/test_retail_zso.c src/core/retail_zso.c src/core/zso.c src/core/deflate.c src/core/lzo1x.c src/core/retail_image.c include/kui/retail_zso.h include/kui/zso.h include/kui/lzo1x.h
 	@mkdir -p $(@D)
-	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) -DKUI_RETAIL_MANIFEST_SLOTS=32 -DKUI_ZSO_CODECS=2 -DKUI_TEST_LZO=1 src/core/retail_image.c src/core/retail_zso.c src/core/zso.c src/core/deflate.c src/core/lzo1x.c tests/test_retail_zso.c -o $@
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) -DKUI_RETAIL_MANIFEST_SLOTS=32 -DKUI_RETAIL_ZSO=1 -DKUI_ZSO_CODECS=2 -DKUI_TEST_LZO=1 src/core/retail_image.c src/core/retail_zso.c src/core/zso.c src/core/deflate.c src/core/lzo1x.c tests/test_retail_zso.c -o $@
 build/test-lzo1x: tests/test_lzo1x.c src/core/lzo1x.c src/core/zso.c include/kui/lzo1x.h include/kui/zso.h third_party/minilzo/minilzo.c
 	@mkdir -p $(@D)
 	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) -Ithird_party/minilzo -DLZO_CFG_NO_UNALIGNED=1 -DKUI_ZSO_CODECS=2 src/core/lzo1x.c src/core/zso.c third_party/minilzo/minilzo.c tests/test_lzo1x.c -o $@
 
 build/test-retail-cso: tests/test_retail_zso.c src/core/retail_zso.c src/core/zso.c src/core/deflate.c src/core/lzo1x.c src/core/retail_image.c include/kui/retail_zso.h include/kui/zso.h include/kui/lzo1x.h
 	@mkdir -p $(@D)
-	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) -DKUI_RETAIL_MANIFEST_SLOTS=32 -DKUI_ZSO_CODECS=4 -DKUI_TEST_CSO=1 $(CSO_FIT_FLAGS) src/core/retail_image.c src/core/retail_zso.c src/core/zso.c src/core/deflate.c src/core/lzo1x.c tests/test_retail_zso.c -o $@
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) -DKUI_RETAIL_MANIFEST_SLOTS=32 -DKUI_RETAIL_ZSO=1 -DKUI_ZSO_CODECS=4 -DKUI_TEST_CSO=1 $(CSO_FIT_FLAGS) src/core/retail_image.c src/core/retail_zso.c src/core/zso.c src/core/deflate.c src/core/lzo1x.c tests/test_retail_zso.c -o $@
 
 
 build/test-games-selection: tests/test_games_selection.c src/core/games_selection.c src/apps/games_selection.c include/kui/games_selection.h src/core/destination.c src/core/data.c .deps/fatfs/source/ff.h
