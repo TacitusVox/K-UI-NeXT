@@ -361,12 +361,34 @@ static bool moving_plainly(const struct server *sv) {
     }
     return false;
 }
-/* Another client's transfer is on `path`, inside it, or holds it. */
+/* Both inputs are validated UTF-8. FatFs folds each BMP character when it
+ * compares names. This also covers competing STORs whose destination does
+ * not exist yet and hence has no canonical directory entry. */
+static uint32_t path_letter(const char **text) {
+    const unsigned char *p = (const unsigned char *)*text;
+    uint32_t code = *p++;
+    if(code >= 0xc0u) {
+        code &= code < 0xe0u ? 0x1fu : code < 0xf0u ? 0x0fu : 0x07u;
+        while((*p & 0xc0u) == 0x80u) code = (code << 6) | (*p++ & 0x3fu);
+    }
+    *text = (const char *)p;
+    return code < 0x10000u ? ff_wtoupper(code) : code;
+}
+static bool path_within(const char *path, const char *folder) {
+    if(!folder[1]) return true;
+    while(*folder)
+        if(!*path || path_letter(&path) != path_letter(&folder)) return false;
+    return !*path || *path == '/';
+}
+/* Another client owns this file, its upload staging file, or a descendant. */
 static bool in_use(const struct server *sv, const struct session *self, const char *path) {
     for(unsigned i = 0; i < KUI_FTP_SESSIONS; ++i) {
         const struct session *o = &sv->sessions[i];
-        if(o == self || !o->active || (o->kind != T_RETR && o->kind != T_STOR)) continue;
-        if(kui_files_within(o->path, path) || kui_files_within(path, o->path)) return true;
+        if(o == self || !o->active) continue;
+        if(o->dir_open && path_within(o->path, path)) return true;
+        if(o->kind != T_RETR && o->kind != T_STOR) continue;
+        if(path_within(o->path, path) || path_within(path, o->path)) return true;
+        if(o->kind == T_STOR && o->part[0] && path_within(path, o->part)) return true;
     }
     return false;
 }
@@ -467,13 +489,14 @@ static void fail_transfer(struct server *sv, struct session *s, uint64_t now, co
     reply(s, "%s", text);
 }
 /* A KUI-ftp-<n><suffix> name nobody uses yet beside target. */
-static bool spare_path(char out[KUI_FILES_PATH_CAP], const char *target, const char *suffix) {
+static bool spare_path(struct server *sv, struct session *s, char out[KUI_FILES_PATH_CAP], const char *target, const char *suffix) {
     char parent[KUI_FILES_PATH_CAP], name[32];
     if(!kui_files_parent(parent, target)) return false;
     for(unsigned n = 1; n <= PART_LIMIT; ++n) {
         snprintf(name, sizeof(name), "KUI-ftp-%u%s", n, suffix);
         FILINFO info;
         if(!kui_files_join(out, parent, name)) return false;
+        if(path_within(out, target) || in_use(sv, s, out)) continue;
         if(stat_path(out, &info) == FR_NO_FILE) return true;
     }
     return false;
@@ -630,7 +653,7 @@ static void finish_upload(struct server *sv, struct session *s, uint64_t now) {
         else if(seen != FR_OK && seen != FR_NO_FILE) problem = "451 Cannot check the destination";
         /* The old file moves aside until the upload has its name, so a
          * failed rename can put it back. */
-        else if(replacing && (!spare_path(aside, s->path, OLD_SUFFIX) || !card(kept, aside) || f_rename(to, kept) != FR_OK))
+        else if(replacing && (!spare_path(sv, s, aside, s->path, OLD_SUFFIX) || !card(kept, aside) || f_rename(to, kept) != FR_OK))
             problem = "451 Cannot replace the old file";
         else if(f_rename(from, to) != FR_OK) {
             problem = "451 Cannot give the upload its name";
@@ -933,8 +956,56 @@ static bool need_login(struct session *s) {
     reply(s, "530 Log in with USER and PASS first");
     return true;
 }
+static bool same_name(const char *first, const char *second) {
+    while(*first && *second)
+        if(path_letter(&first) != path_letter(&second)) return false;
+    return !*first && !*second;
+}
+/* For a short-name lookup FatFs f_stat can report the spelling supplied
+ * by the caller. f_readdir returns the stored long and short names together. */
+static bool expand_short_name(const char *folder, const char *name, FILINFO *info) {
+    if(!info->altname[0] || !same_name(name, info->altname)) return true;
+    char parent[CARD_CAP];
+    DIR dir;
+    if(!card(parent, folder) || f_opendir(&dir, parent) != FR_OK) return false;
+    bool found = false;
+    while(f_readdir(&dir, info) == FR_OK && info->fname[0]) {
+        if(same_name(name, info->fname) || same_name(name, info->altname)) {
+            found = true;
+            break;
+        }
+    }
+    return f_closedir(&dir) == FR_OK && found;
+}
+/* Expand existing components to their directory names so FAT32 short names
+ * and alternate case are checked against the same protected/active paths.
+ * Preserve missing components for commands which create a new name. */
 static bool resolved(struct session *s, char out[KUI_FILES_PATH_CAP], const char *argument) {
-    if(kui_ftp_resolve(out, s->cwd, argument)) return true;
+    char requested[KUI_FILES_PATH_CAP];
+    if(!kui_ftp_resolve(requested, s->cwd, argument)) goto invalid;
+    strcpy(out, "/");
+    bool exists = true;
+    for(char *name = requested + 1; *name;) {
+        char *slash = strchr(name, '/');
+        if(slash) *slash = 0;
+        char next[KUI_FILES_PATH_CAP];
+        if(!kui_files_join(next, out, name)) goto invalid;
+        if(exists) {
+            FILINFO info;
+            FRESULT result = stat_path(next, &info);
+            if(missing(result)) exists = false;
+            else if(result != FR_OK || !expand_short_name(out, name, &info)) {
+                reply(s, "451 Cannot check %s", next);
+                return false;
+            }
+            else if(!kui_files_join(next, out, info.fname)) goto invalid;
+        }
+        strcpy(out, next);
+        if(!slash) break;
+        name = slash + 1;
+    }
+    return true;
+invalid:
     reply(s, "553 Invalid name or path (names are FAT-safe, under 128 bytes)");
     return false;
 }
@@ -1064,7 +1135,7 @@ static void start_stor(struct server *sv, struct session *s, const char *argumen
         return;
     }
     if(!data_prepared(s)) return;
-    if(!spare_path(s->part, path, KUI_FILES_PART_SUFFIX)) { reply(s, "451 Too many unfinished uploads in that folder"); return; }
+    if(!spare_path(sv, s, s->part, path, KUI_FILES_PART_SUFFIX)) { reply(s, "451 Too many unfinished uploads in that folder"); return; }
     if(!(s->buffer = malloc(BUFFER_BYTES))) { s->part[0] = 0; reply(s, "451 Insufficient memory"); return; }
     if(!card(c, s->part) || f_open(&s->file, c, FA_WRITE | FA_CREATE_NEW) != FR_OK) {
         free(s->buffer);
@@ -1130,7 +1201,12 @@ static void rename_to(struct server *sv, struct session *s, const char *argument
     bool same = r == FR_OK && kui_files_within(path, s->rename_from) && kui_files_within(s->rename_from, path);
     if(r == FR_OK && !same) { reply(s, "553 %s already exists", path); return; }
     if(r != FR_OK && r != FR_NO_FILE) { reply(s, missing(r) ? "553 The folder for %s does not exist" : "451 Cannot check %s", path); return; }
-    if(!card(from, s->rename_from) || !card(to, path)) { reply(s, "553 Invalid path"); return; }
+    /* A case-only rename must give FatFs the spelling the client requested. */
+    char requested[KUI_FILES_PATH_CAP];
+    if(!kui_ftp_resolve(requested, s->cwd, argument) || !card(from, s->rename_from) || !card(to, requested)) {
+        reply(s, "553 Invalid path");
+        return;
+    }
     r = f_rename(from, to);
     if(r != FR_OK) { reply(s, r == FR_EXIST ? "553 %s already exists" : "450 Cannot rename to %s", path); return; }
     event(sv, "Renamed %.34s to %.34s", kui_files_leaf(s->rename_from), kui_files_leaf(path));
@@ -1159,7 +1235,7 @@ static void command(struct server *sv, struct session *s, char *line, uint64_t n
     const char *arg;
     s->last_command = now;
     if(!kui_ftp_parse(line, verb, &arg)) { reply(s, "500 Unknown command"); return; }
-    if(strcmp(verb, "RNTO") && strcmp(verb, "RNFR")) s->rename_ready = false;
+    if(strcmp(verb, "RNTO")) s->rename_ready = false;
     if(!strcmp(verb, "USER")) {
         if(s->logged_in) { reply(s, "503 Already logged in"); return; }
         s->user = true;
@@ -1279,6 +1355,7 @@ static void command(struct server *sv, struct session *s, char *line, uint64_t n
         char c[CARD_CAP];
         if(!resolved(s, path, arg)) return;
         if(!path[1] || !card(c, path)) { reply(s, "550 The root already exists"); return; }
+        if(busy(sv, s, path)) return;
         FRESULT r = f_mkdir(c);
         if(r != FR_OK) { reply(s, r == FR_EXIST ? "550 %s already exists" : missing(r) ? "550 The folder for %s does not exist" :
             "450 Cannot create %s", path); return; }

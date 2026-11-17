@@ -434,6 +434,39 @@ def aborts(f, port, password, files):
     print("PASS FTP aborts: closed data connection, ABOR, reset upload discarded, files in use", flush=True)
 
 
+def upload_ownership(client1, port, password, fat32):
+    """Simultaneous transfers must leave the right bytes at each destination."""
+    client1.mkd("Concurrent uploads")
+    client1.cwd("Concurrent uploads")
+    client2 = client(port, password)
+    client2.cwd("Concurrent uploads")
+    first = client1.transfercmd("STOR café.bin")
+    try:
+        first.sendall(b"first ")
+        staged, = client2.nlst()
+        assert staged.endswith(".kui-part")
+        expect("450", lambda: client2.mkd("CAFÉ.BIN"))
+        expect("450", lambda: upload(client2, "CAFÉ.BIN", b"second"))
+        expect("450", lambda: client2.delete(staged))
+        if fat32:
+            # The physical FAT32 short name and the long name identify one file.
+            expect("450", lambda: client2.delete("KUI-FT~1.KUI"))
+        upload(client2, "KUI-ftp-2.kui-part", b"user file")
+        assert download(client2, "KUI-ftp-2.kui-part") == b"user file"
+        first.sendall(b"complete")
+    finally:
+        first.close()
+    assert client1.voidresp().startswith("226")
+    assert download(client1, "café.bin") == b"first complete"
+    assert sorted(client1.nlst()) == ["KUI-ftp-2.kui-part", "café.bin"]
+    client1.delete("KUI-ftp-2.kui-part")
+    client1.delete("café.bin")
+    client1.cwd("/")
+    client2.quit()
+    client1.rmd("Concurrent uploads")
+    print("PASS FTP concurrent uploads preserve staging files and final contents", flush=True)
+
+
 def limits(port, password, connected):
     """`connected` clients are already logged in."""
     clients = [client(port, password) for _ in range(3 - connected)]
@@ -608,6 +641,7 @@ def serve_image(binary, image, kind, port, passive, case_insensitive=True, env=N
     replacing(f, server)
     keeps_moving(f, server)
     protected(f)
+    upload_ownership(f, port, password, kind == "fat32")
     aborts(f, port, password, files)
     limits(port, password, 1)
     full_card(f)
