@@ -22,6 +22,7 @@ release: it loads whatever compatible `KUI/boot.kui` or `KUI/runtime.kui` the ca
 | Damaged chunks recovered one copy at a time | `9431bbd6` | A damaged copy costs one failed read, not one per chunk; rebuilds no longer seek between copies for every sector. |
 | Missing sectors retried; drive set up again after "not ready" | `7535903a` | A sector that fails transiently on every copy is read on a later round instead of sending the console to the BIOS menu. |
 | BIOS GD functions initialised once | `5eece4b7` | Setting the drive up again repeats only what KOS's `cdrom_reinit` does. |
+| Builder sees coloured mkdcdisc warnings | `7ee9ade0` | Builder only: mkdcdisc runs with `NO_COLOR`; disc images are unchanged. |
 
 The GUI itself loads faster from this disc's point of view because runtime.kui is
 smaller: the compressed splash (−472,172 bytes) and launcher artwork (−326,524
@@ -119,7 +120,34 @@ about 1.7 MB. The previous single-file layout remains buildable with mkdcdisc as
   - With the same sector damaged in every copy, it returns to the BIOS.
   - The standard single-file disc and the GUI (booted directly) show the new
     art correctly.
+- An independent review of stage 1 and the builder (five lenses: SH-4
+  assembly, BIOS GD-ROM calls, caches and handoff, builder, failure modes)
+  reported nine findings. All are fixed in the commits above, and two verifiers
+  per finding found none still present in `5eece4b7`. One verifier drove the
+  real `stage1.c` with a mock BIOS and clock in a scratch harness (not part of
+  the repository):
+
+  | Case | Result |
+  | --- | --- |
+  | Clean disc | boots in about 1 s |
+  | Read wedges, abort works | next copy, boots in about 10.5 s |
+  | Read wedges, abort fails | reset, drive set up again, boots in about 15.8 s |
+  | Frozen clock | boots, no false timeout |
+  | Clock crosses a 16-bit rollover | correct 10 s limit |
+  | One sector wedged on every copy | BIOS menu after about 151 s |
+  | Every command wedged | BIOS menu after about 78 min, instead of never |
+
+  The same review found that the builder missed coloured mkdcdisc warnings
+  (fixed in `7ee9ade0`).
 - Limits:
+  - A drive that never answers takes about 78 minutes to reach the BIOS menu;
+    such a drive cannot boot anything and needs a power cycle. A drive that
+    stays not ready (lid open) is asked again for up to 10 s before each read,
+    and loading continues once it is ready.
+  - If the drive-setup command itself wedges and its abort also fails, stage 1
+    resets but does not repeat that setup command. It may then reach the BIOS
+    menu instead of booting. This needs several faults at once, none observed on
+    hardware; KOS's `cdrom_reinit` has the same exposure.
   - The emulator does not model SH-4 caches or real BIOS timing.
   - It cannot produce read errors, drive errors or a hung command, only silent
     data changes, so the retry, re-init and timeout paths are tested only in the
