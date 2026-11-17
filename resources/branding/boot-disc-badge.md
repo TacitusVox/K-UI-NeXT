@@ -4,25 +4,28 @@ The orange Tyrfing badge replaces the earlier cyan visor for K-UI 2.0 at the
 maintainer's request on October 15, 2026. The new rune-etched sword consists of
 original editable vector paths in `boot-disc-badge.svg`. The large K-UI wordmark
 keeps the earlier badge's exact path geometry, position and size, and the
-`github.com/TPMJB` credit keeps its existing position, font and size. Orange
+credit keeps its existing position and font. On November 17, 2026 the credit
+became `github.com/TacitusVox` (previously `github.com/TPMJB`), at 16 px
+instead of 17 so the longer name ends 20 px inside the border. Orange
 `#ff8a22` and amber `#ffc56a` sit against the existing navy `#080f23` background.
 
-The earlier badge came from TPMJB's `K-UI_DS` revision
-[`2a5309298dde8fb100da1e2e4e10517695c9780f`](https://github.com/TPMJB/K-UI_DS/tree/2a5309298dde8fb100da1e2e4e10517695c9780f).
+The earlier badge came from TacitusVox's (then TPMJB's) `K-UI_DS` revision
+[`2a5309298dde8fb100da1e2e4e10517695c9780f`](https://github.com/TacitusVox/K-UI_DS/tree/2a5309298dde8fb100da1e2e4e10517695c9780f).
 Its origin and unchanged wordmark are documented in
-[the original branding record](https://github.com/TPMJB/K-UI_DS/blob/2a5309298dde8fb100da1e2e4e10517695c9780f/resources/branding/README.md).
+[the original branding record](https://github.com/TacitusVox/K-UI_DS/blob/2a5309298dde8fb100da1e2e4e10517695c9780f/resources/branding/README.md).
 The original badge remains in Git history. These project-created assets use
 this repository's GPL-3.0-only terms; no DreamShell rendering code is imported.
 
 | File | SHA-256 |
 | --- | --- |
-| `boot-disc-badge.svg` | `0a19b8992e5192d9a7cdebbc4f0bcfba2ac3876db8f59474a0077036cf45ea51` |
-| `boot-disc-badge.png` | `ff30c349c4e0e045ee358844e335015023922240516b6716999927155006eee8` |
-| `boot-disc-badge.mr` | `42de4efd6e9401fbd1df17a42e1240a3e0a5b200ed5b7bc573ba29d0d1c77bac` |
-| `launcher-brand.png` | `e5ebcba15d3990aef7180e66c1850e24947acbf28e1cd1087954c50d16c88039` |
+| `boot-disc-badge.svg` | `1632303224ac4bf993a25119ddc8e9e7f6b07dc0e3da902cea7e383986804015` |
+| `boot-disc-badge.png` | `c4ff37f326060177233db852662b5c931be3b091f23edb6a1fbefd6bda2ce140` |
+| `boot-disc-badge.mr` | `946193357fe2692412259364b9b319a7f0a33c77397f5c384ab544fd9a889de2` |
+| `launcher-brand.png` | `389d87c4e0af403d395ba51bdba73cdd9caad3d4060a31219b4bed897914ba55` |
 
-The badge PNG is the actual 320×90, 32-color MR preview. The two-pixel
-`#c0c0c0` border is the console's transparency color. The MR is 4,597 bytes,
+The badge PNG is the actual 320×90 MR preview: a 32-entry palette, of which
+the current render uses 31 colors. The two-pixel `#c0c0c0` border is the
+console's transparency color. The MR is 4,810 bytes,
 within the 8,192-byte reservation. Packaging passes it to mkdcdisc's `-i`
 option, which places it at bootstrap offset `0x3820`. Its decoded pixels were
 checked against the PNG. Packaging reads it back from the generated CDI and
@@ -30,7 +33,7 @@ rejects a missing or substituted badge before publishing the bootstrap artifact.
 
 The same editable SVG supplies the 256×128 launcher header: the sword group
 uses `translate(7 21) scale(.95)` and the original wordmark group uses
-`translate(12 29) scale(.79)`, plus the amber `by TPMJB` credit. The runtime
+`translate(12 29) scale(.79)`, plus the amber `by TacitusVox` credit. The runtime
 displays that header at its existing 128×64 size. App icon assets and embedded
 array dimensions are unchanged.
 
@@ -46,7 +49,7 @@ python3 tests/test_boot_badge.py
 ```
 
 The committed rendering used Inkscape 1.2.2 and Pillow 12.3.0, with the existing
-DejaVu Sans Mono font. The badge is quantized to 32 colors with median-cut and
+DejaVu Sans Mono font. The badge is quantized to at most 32 colors with median-cut and
 no dithering. The independent MR encoder uses indexed literals and runs of
 2–127 pixels. Ordinary builds and badge validation consume the pinned output
 without Inkscape, Pillow, image decoding or runtime allocation. If intentionally

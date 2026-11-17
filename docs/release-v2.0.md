@@ -5,7 +5,7 @@ This guide covers the final 2.0.0 package. Read the
 [cumulative release notes since 1.7.5](release-v2.0-notes.md) for changes,
 hardware evidence and experimental boundaries.
 
-[Downloads](https://github.com/TPMJB/K-UI-NeXT/releases/tag/v2.0.0) ·
+[Downloads](https://github.com/TacitusVox/K-UI-NeXT/releases/tag/v2.0.0) ·
 [Screenshots and posting images](release-v2.0-image-index.md) ·
 [Reddit/forum drafts](release-v2.0-announcements.md)
 

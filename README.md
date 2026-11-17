@@ -17,7 +17,7 @@ staged through the release build/publishing workflow; source preparation alone
 does not imply a public download is already published. Individual optional
 features retain their documented hardware-test limits.
 
-[2.0.0 downloads](https://github.com/TPMJB/K-UI-NeXT/releases/tag/v2.0.0) ·
+[2.0.0 downloads](https://github.com/TacitusVox/K-UI-NeXT/releases/tag/v2.0.0) ·
 [Installation](docs/release-v2.0.md) ·
 [Changelog since 1.7.5](docs/release-v2.0-notes.md) ·
 [Screenshots/press images](docs/release-v2.0-image-index.md) ·
