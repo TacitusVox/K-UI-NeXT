@@ -87,6 +87,7 @@ and the build gates (resident ends by its 0x8c00ddc0 limit; stack worst case
 392 of 528 bytes, calls into IPA-split clones counted).
 `KUI_WCE_PROBE=0` rebuilds `7b216f2e1136` byte for byte. Console behaviour is
 untested: the first session is the test.
+
 ## Pending console test: branch build 5eece4b72a35, 2026-11-17
 
 `KUI-Branch-Test2-17NOV2026-1105-CST-5eece4b.zip`
