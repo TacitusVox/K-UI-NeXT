@@ -1,4 +1,16 @@
-# K-UI V2.0 orange Tyrfing boot artwork
+# K-UI V3.0 Muramasa boot artwork
+
+`boot-red.png` now contains the 3.0 Muramasa artwork, identical to
+`startup.png`. The historical filename is retained to keep the existing
+bootstrap asset contract. See [startup-README.md](startup-README.md) for the
+generator, inputs, tool versions, Git/SHA-256 pins and shared startup sound.
+
+The countdown controls at y=360..456 sit over the dark lower canvas. Menu,
+recovery, diagnostics and help keep their existing dimmed background and
+opaque controls. No boot delay, buffer size, runtime decoder or input behavior
+changes accompany the artwork.
+
+## Previous: K-UI V2.0 orange Tyrfing boot artwork
 
 `boot-red.png` now contains the orange pixel-art Tyrfing artwork, identical to
 `startup.png`. The historical filename is retained to keep the existing
