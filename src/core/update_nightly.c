@@ -6,8 +6,18 @@
 #include <stdio.h>
 #include <string.h>
 
+#ifndef KUI_UPDATE_REVIEW_FEED
+#define KUI_UPDATE_REVIEW_FEED 0
+#endif
+#if KUI_UPDATE_REVIEW_FEED == 1
+#define MANIFEST_URL "https://raw.githubusercontent.com/TacitusVox/K-UI-NeXT/refs/heads/codex/updater-overhaul/evidence/updater-bba/nightly.txt"
+#define REVIEW_ASSET "https://github.com/TacitusVox/K-UI-NeXT/raw/refs/heads/codex/updater-overhaul/evidence/updater-bba/K-UI.kup"
+#elif KUI_UPDATE_REVIEW_FEED == 0
 #define MANIFEST_URL "https://raw.githubusercontent.com/TacitusVox/K-UI-NeXT/nightly-channel/nightly.txt"
 #define RELEASE_BASE "https://github.com/TacitusVox/K-UI-NeXT/releases/download/nightly-"
+#else
+#error "KUI_UPDATE_REVIEW_FEED must be 0 or 1"
+#endif
 #define FILE_LIMIT (KUI_UPDATE_MAX_PAYLOAD + KUI_UPDATE_RECEIPT_MAX)
 
 struct nightly {
@@ -152,8 +162,12 @@ static bool download(struct kui_internet *session, const struct nightly *asset,
         message(job, "Cannot open nightly download on storage");
         return false;
     }
+#if KUI_UPDATE_REVIEW_FEED
+    const char *url = REVIEW_ASSET;
+#else
     char url[sizeof(RELEASE_BASE) + 60];
     snprintf(url, sizeof(url), RELEASE_BASE "%s/K-UI.kup", asset->commit);
+#endif
     FSIZE_t length = f_size(&file);
     bool ok = f_lseek(&file, length <= asset->size ? length : 0) == FR_OK;
     if(ok && length > asset->size) ok = f_truncate(&file) == FR_OK;

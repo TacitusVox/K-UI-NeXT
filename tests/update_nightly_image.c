@@ -11,6 +11,13 @@
 
 #define COMMIT "1234567890abcdef1234567890abcdef12345678"
 #define BASE KUI_UPDATE_BROWSER_ROOT "/nightly-" COMMIT
+#if KUI_UPDATE_REVIEW_FEED
+#define EXPECT_MANIFEST "https://raw.githubusercontent.com/TacitusVox/K-UI-NeXT/refs/heads/codex/updater-overhaul/evidence/updater-bba/nightly.txt"
+#define EXPECT_ASSET "https://github.com/TacitusVox/K-UI-NeXT/raw/refs/heads/codex/updater-overhaul/evidence/updater-bba/K-UI.kup"
+#else
+#define EXPECT_MANIFEST "https://raw.githubusercontent.com/TacitusVox/K-UI-NeXT/nightly-channel/nightly.txt"
+#define EXPECT_ASSET "https://github.com/TacitusVox/K-UI-NeXT/releases/download/nightly-" COMMIT "/K-UI.kup"
+#endif
 static FILE *image;
 static uint8_t package[204800];
 static char manifest[200], path[KUI_UPDATE_BROWSER_PATH_BYTES];
@@ -47,7 +54,7 @@ void kui_internet_close(struct kui_internet *s) { assert(s == &session); ++close
 enum kui_http_result kui_internet_get(struct kui_internet *s, const char *url, uint32_t limit,
         kui_http_write_fn write, void *ctx, kui_http_progress_fn progress, void *progress_ctx) {
     (void)progress; (void)progress_ctx;
-    assert(s == &session && strstr(url, "raw.githubusercontent.com/TacitusVox/K-UI-NeXT/nightly-channel/nightly.txt"));
+    assert(s == &session && !strcmp(url, EXPECT_MANIFEST));
     size_t n = strlen(manifest);
     if(n > limit) return KUI_HTTP_TOO_LARGE;
     assert(write(ctx, manifest, n/2) && write(ctx, manifest + n/2, n - n/2));
@@ -55,7 +62,7 @@ enum kui_http_result kui_internet_get(struct kui_internet *s, const char *url, u
 }
 enum kui_http_result kui_internet_get_remainder(struct kui_internet *s, const char *url, uint32_t start,
         uint32_t total, kui_http_write_fn write, void *ctx, kui_http_progress_fn progress, void *progress_ctx) {
-    assert(s == &session && !strcmp(url, "https://github.com/TacitusVox/K-UI-NeXT/releases/download/nightly-" COMMIT "/K-UI.kup"));
+    assert(s == &session && !strcmp(url, EXPECT_ASSET));
     assert(total == sizeof(package));
     ++transfers;
     requested = start;
