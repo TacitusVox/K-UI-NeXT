@@ -1,0 +1,2102 @@
+# SPDX-License-Identifier: GPL-3.0-only
+CC ?= cc
+HOST_FLAGS = -std=c11 -O1 -g -Wall -Wextra -Werror -Wpedantic
+SANITIZERS ?= -fsanitize=address,undefined -fno-omit-frame-pointer
+# The Wi-Fi board's link library (firmware/kui-wifi/components/kwlink) is
+# shared with its firmware.
+KWLINK = firmware/kui-wifi/components/kwlink
+INCLUDES = -Iinclude -I.deps/fatfs/source -I$(KWLINK)/include
+DRIVE_CONTROLS = src/core/drive_controls.c include/kui/drive_controls.h
+SALVAGE_DISPLAY = src/core/salvage_display.c include/kui/salvage_display.h include/kui/salvage.h
+CORE = src/core/command.c src/core/data.c src/core/diskio.c src/core/clock.c
+STORAGE_TEST_MODEL = src/core/storage_test_model.c src/core/storage_error.c
+LOADER_PROBE = src/core/loader_probe.c
+RESIDENT_IMAGE = src/core/resident_image.c
+GD_SERVICE = src/core/gd_service.c
+DESTINATION = src/core/destination.c src/core/destination_file.c
+EXPORT_CODEC_FLAGS = -Ithird_party/miniz -Ithird_party/minilzo -DMINIZ_NO_ARCHIVE_APIS -DMINIZ_NO_STDIO -DMINIZ_NO_TIME -DMINIZ_NO_ZLIB_APIS -DMINIZ_NO_MALLOC -DLZO_CFG_NO_UNALIGNED=1
+EXPORT_CODECS = third_party/miniz/miniz.c third_party/minilzo/minilzo.c
+CAPTURE_EXPORT = src/core/capture_export.c src/core/capture_export_file.c src/core/capture_cooked.c src/core/capture_chd.c $(EXPORT_CODECS)
+CAPTURE = $(DESTINATION) src/core/hash.c src/core/capture_plan.c src/core/capture.c src/core/recovery_manifest.c src/core/recovery_guard.c src/core/recovery_sector.c src/core/known_dumps.c src/core/timing.c $(CAPTURE_EXPORT)
+FATFS = .deps/fatfs/source/ff.c .deps/fatfs/source/ffunicode.c
+VMU_MANAGEMENT = src/core/vmu_collection.c src/core/vmu_image.c src/core/vmu_image_subset.c src/core/vmu_save_snapshot.c src/core/vmu_image_pack.c src/core/vmu_image_merge.c src/core/vmu_description.c
+VMU_MANAGEMENT += src/core/vmu_library.c src/core/vmu_game_assign.c src/core/vmu_game_card.c src/core/vmu_persist_profile.c src/core/retail_image.c src/core/game_cover.c
+VMU_MANAGEMENT += src/core/vmu_game_candidates.c src/core/vmu_import_plan.c
+
+UPDATE_CODEC = src/core/update.c src/core/update_handoff.c src/core/runtime_image.c src/core/hash.c src/core/data.c
+UPDATE_FILES = $(UPDATE_CODEC) src/core/update_file.c
+UPDATE_TEST_FLAGS = $(HOST_FLAGS) $(SANITIZERS) -fno-pie -no-pie $(INCLUDES)
+KUI_UPDATE_STAGE ?= build/update-stage/KUI
+KUI_UPDATE_OUTPUT ?= build/test-update.kup
+.PHONY: update update-release
+# Every test/release uses the same current-source producer and C consumer.
+# Reader-only stages preserve the installed GUI and effective other modules.
+update:
+	python3 tools/make_update.py "$(KUI_UPDATE_STAGE)" "$(KUI_UPDATE_OUTPUT)" --channel testing
+update-release:
+	python3 tools/make_update.py "$(KUI_UPDATE_STAGE)" "$(KUI_UPDATE_OUTPUT)" --channel stable --full
+.PHONY: test-smash-ce-gin
+test-smash-ce-gin:
+	@mkdir -p build/smash-ce-gin-tests
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) -fno-pie -no-pie -ffunction-sections -fdata-sections -Wl,--gc-sections $(INCLUDES) \
+	 tests/test_smash_ce_gin.c src/core/smash_ce_gin.c src/core/retail_image.c -o build/smash-ce-gin-tests/seed
+	ASAN_OPTIONS=detect_leaks=0 build/smash-ce-gin-tests/seed
+	python3 tests/test_smash_ce_gin_display.py
+
+# Historical GUI-only add-on preservation profile: compare protected reader
+# sources with the recorded baseline. Explicit reader integrations run the
+# functional updater checks below without invoking this separate profile.
+.PHONY: test-updater-source-preservation
+test-updater-source-preservation:
+	python3 -c "import sys; sys.path.insert(0,'tools'); import update_addon as a; r=a.check_sources(a.source_state()); print('PASS updater-only main source preservation:',len(r['checked_paths']),'protected paths')"
+
+# Boot-disc builder: copy table, scrambling, input/layout guards, and a real
+# CDI read back through the stage-1 loader when mkdcdisc and stage 1 are built.
+.PHONY: test-boot-disc
+test-boot-disc:
+	CC="$(CC)" python3 -B tests/test_boot_disc.py
+test: test-boot-disc
+
+.PHONY: test-runtime-module-bundle-make test-ce-gd-completion-lifecycle
+test-runtime-module-bundle-make:
+	@mkdir -p build/shared-loader-audit
+	python3 tests/test_runtime_module_bundle_make.py --json build/shared-loader-audit/runtime-bundle-make.json
+test-ce-gd-completion-lifecycle:
+	@mkdir -p build/shared-loader-audit
+	python3 tests/test_ce_gd_completion_lifecycle.py --cc "$(CC)" --report build/shared-loader-audit/ce-gd-completion-lifecycle.json
+test: test-runtime-module-bundle-make test-ce-gd-completion-lifecycle
+
+.PHONY: test-sci-stream-quarantine
+test-sci-stream-quarantine:
+	@mkdir -p build/sci-stream-quarantine
+	python3 tests/test_sci_stream_repair_quarantine.py --cc "$(CC)" --report build/sci-stream-quarantine/report.json
+test: test-sci-stream-quarantine
+
+.PHONY: test-ce-virtual-vram-copy test-ce-crc16-factoring test-package-universal-loader test-universal-loader test-gui-launch-preparation
+test-ce-virtual-vram-copy:
+	@mkdir -p build/universal-loader-tests
+	HOST_CC="$(CC)" python3 tests/test_ce_virtual_vram_copy.py --output build/universal-loader-tests/ce-virtual-vram-copy.json
+
+test-ce-crc16-factoring:
+	@mkdir -p build/universal-loader-tests
+	HOST_CC="$(CC)" python3 tests/test_ce_crc16_factoring.py --output build/universal-loader-tests/ce-crc16-factoring.json
+
+test-package-universal-loader:
+	python3 tests/test_package_universal_loader_test.py
+
+test-gui-launch-preparation:
+	python3 tests/test_vmu_game_card_service.py
+	python3 tests/test_vmu_launch_history.py
+	python3 tests/test_frontend_job_fences.py
+	python3 tests/test_native_gui_fast_scan.py
+	python3 tests/test_smash_launch_timing.py
+
+.PHONY: test-shared-game-launch
+test-shared-game-launch: test-games-native-cache-hint
+	python3 tests/test_wince_kernel_read_reuse.py
+	python3 tests/test_game_reader_provenance.py
+	python3 tests/test_native_cold_discovery.py
+	python3 tests/test_native_sdk_coherence_reuse.py
+	python3 tests/test_cold_handoff_policy.py
+	python3 tests/test_disc_stage_launch_policy.py
+
+# The ordered integration has one focused entry point. Linked-module admission,
+# stack bounds and real-console acceptance remain separate delivery gates.
+test-universal-loader: test-sci-stream-quarantine test-ce-gd-completion-lifecycle test-runtime-module-bundle-make test-ce-virtual-vram-copy test-ce-crc16-factoring test-package-universal-loader test-gui-launch-preparation test-shared-game-launch test-vmu-stage-snapshot
+	python3 tests/test_global_loader_rollout.py
+	python3 tests/test_build_universal_loader.py
+	python3 tests/test_native_service_inventory.py
+
+.PHONY: test-vmu-stage-snapshot
+test-vmu-stage-snapshot:
+	$(MAKE) -f Makefile.vmu-stage-snapshot-tests vmu-stage-snapshot-tests
+
+test: test-ce-virtual-vram-copy test-ce-crc16-factoring
+
+# Shared reader sources keep their production text with the Toy test switches off.
+.PHONY: test-toy-test-switches
+test-toy-test-switches:
+	python3 tests/test_toy_test_switches.py
+test: test-toy-test-switches
+
+.PHONY: test-wince-family7-profiles
+test-wince-family7-profiles:
+	python3 tests/test_wince_family7_profiles.py
+test: test-wince-family7-profiles
+
+# test_vmu_image_subset_tool.py and test_prepare_toy_card.py run the offline
+# host adapter (build/vmu-subset-tool/vmu-image-subset). Build it before the
+# Python discovery; Makefile.vmu-subset-tool stays its only recipe.
+.PHONY: vmu-subset-tool
+vmu-subset-tool:
+	$(MAKE) -f Makefile.vmu-subset-tool
+test: vmu-subset-tool
+# test_vmu_read_recovery.py runs build/test-vmu-app when the discovery imports
+# it; "make test" alone, or before test-images, must build it too.
+test: build/test-vmu-app
+
+.PHONY: test-updater
+test-updater: test-runtime-module-bundle-make
+test-updater: build/test-update build/test-update-v2 build/test-update-handoff build/update-image build/update-boot
+	ASAN_OPTIONS=detect_leaks=0 ./build/test-update
+	ASAN_OPTIONS=detect_leaks=0 ./build/test-update-v2
+	ASAN_OPTIONS=detect_leaks=0 ./build/test-update-handoff
+	python3 tests/test_update_package.py
+	python3 tests/test_smash_update_delivery.py
+	python3 tests/test_smash_collection_update.py
+	python3 tests/test_runtime_module_bundle.py
+	python3 tests/test_vmu_maple_observe_package.py
+	python3 tests/test_update_package_v2.py
+	python3 tests/test_update_software_images.py
+	python3 tests/test_update_v2_images.py
+	python3 tests/test_package_update_payload.py
+	python3 tests/test_update_addon.py
+	python3 tests/test_update_repair.py
+	python3 tests/test_update_test_bundle.py
+	python3 tests/test_update_restart_gui.py
+	python3 tests/test_update_boot_timings.py
+	python3 tests/test_update_shared_paths.py
+	python3 tests/test_update_engine_revision.py
+	python3 tests/test_update_gui_flow.py
+	python3 tests/test_make_updater_repair.py
+	$(MAKE) test-runtime-provider
+	python3 tests/test_update_browser_images.py
+	python3 tests/test_update_zip_images.py
+	python3 tests/test_update_images.py --skip-codec --binary $(CURDIR)/build/update-image --boot-binary $(CURDIR)/build/update-boot
+
+build/test-update: tests/test_update.c tests/update_fixture.h $(UPDATE_CODEC) include/kui/update.h include/kui/update_catalog.inc include/kui/update_legacy.inc include/kui/update_handoff.h
+	@mkdir -p $(@D)
+	$(CC) $(UPDATE_TEST_FLAGS) tests/test_update.c $(UPDATE_CODEC) -o $@
+
+build/test-update-v2: tests/test_update_v2.c src/core/update.c src/core/hash.c src/core/data.c include/kui/update.h
+	@mkdir -p $(@D)
+	$(CC) $(UPDATE_TEST_FLAGS) tests/test_update_v2.c src/core/update.c src/core/hash.c src/core/data.c -o $@
+
+build/test-update-handoff: tests/test_update_handoff.c src/core/update_handoff.c src/core/data.c include/kui/update_handoff.h
+	@mkdir -p $(@D)
+	$(CC) $(UPDATE_TEST_FLAGS) tests/test_update_handoff.c src/core/update_handoff.c src/core/data.c -o $@
+
+build/update-image: tests/update_image.c tests/update_fixture.h $(UPDATE_FILES) src/core/diskio.c $(FATFS) include/kui/update.h include/kui/update_catalog.inc include/kui/update_legacy.inc include/kui/update_handoff.h
+	@mkdir -p $(@D)
+	$(CC) $(UPDATE_TEST_FLAGS) tests/update_image.c $(UPDATE_FILES) src/core/diskio.c $(FATFS) -Wl,--wrap=f_open -Wl,--wrap=f_close -Wl,--wrap=f_write -Wl,--wrap=f_getfree -o $@
+
+build/update-boot: tests/update_boot_image.c tests/update_fixture.h $(UPDATE_FILES) src/core/update_boot.c src/core/runtime_file.c src/core/storage_policy.c src/core/diskio.c $(FATFS) include/kui/update_boot.h include/kui/update_legacy.inc include/kui/update_handoff.h
+	@mkdir -p $(@D)
+	$(CC) $(UPDATE_TEST_FLAGS) tests/update_boot_image.c $(UPDATE_FILES) src/core/update_boot.c src/core/runtime_file.c src/core/storage_policy.c src/core/diskio.c $(FATFS) -Wl,--wrap=f_open -Wl,--wrap=f_read -Wl,--wrap=f_close -o $@
+
+.PHONY: test-runtime-provider
+test-runtime-provider:
+	python3 tests/test_runtime_provider_images.py
+
+UPDATE_ROLE_FILES = src/core/native_vmu_standard.c src/core/vmu_game_card.c src/core/vmu_persist_profile.c src/core/retail_image.c
+build/update-release-image: tests/update_release_image.c $(UPDATE_FILES) $(UPDATE_ROLE_FILES) src/core/update_boot.c src/core/runtime_file.c src/core/storage_policy.c src/core/diskio.c $(FATFS) include/kui/update_boot.h include/kui/update_legacy.inc include/kui/update_handoff.h
+	@mkdir -p $(@D)
+	$(CC) $(UPDATE_TEST_FLAGS) tests/update_release_image.c $(UPDATE_FILES) $(UPDATE_ROLE_FILES) src/core/update_boot.c src/core/runtime_file.c src/core/storage_policy.c src/core/diskio.c $(FATFS) -o $@
+
+
+
+include config/lwext4.mk
+LWEXT4_HOST_OBJECTS := $(patsubst %.c,build/host/%.o,$(LWEXT4_SOURCES))
+
+.PHONY: test test-recovery test-images deps diagnostic clean test-recovery-dashboard
+.PHONY: test-armada-ce-excerpt
+.PHONY: test-armada-ce-stream
+test-armada-ce-stream: build/test-armada-ce-stream-model build/test-armada-ce-stream-native build/test-armada-ce-stream-api build/test-armada-ce-stream-transport build/test-armada-ce-stream-boot build/test-armada-ce-stream-entry build/test-armada-ce-stream-player build/test-armada-ce-stream-owner-word build/test-armada-ce-stream-initial-word build/test-armada-ce-stream-discover-owner build/test-armada-ce-excerpt-prepare
+	ASAN_OPTIONS=detect_leaks=0 ./build/test-armada-ce-stream-model
+	ASAN_OPTIONS=detect_leaks=0 ./build/test-armada-ce-stream-native
+	ASAN_OPTIONS=detect_leaks=0 ./build/test-armada-ce-stream-api
+	ASAN_OPTIONS=detect_leaks=0 ./build/test-armada-ce-stream-transport
+	./build/test-armada-ce-stream-boot
+	./build/test-armada-ce-stream-entry
+	./build/test-armada-ce-stream-player
+	ASAN_OPTIONS=detect_leaks=0 ./build/test-armada-ce-stream-owner-word
+	ASAN_OPTIONS=detect_leaks=0 ./build/test-armada-ce-stream-initial-word
+	ASAN_OPTIONS=detect_leaks=0 ./build/test-armada-ce-stream-discover-owner
+	ASAN_OPTIONS=detect_leaks=0 ./build/test-armada-ce-excerpt-prepare
+.PHONY: test-armada-ce-stream-owner-word
+test-armada-ce-stream-owner-word: build/test-armada-ce-stream-owner-word
+	ASAN_OPTIONS=detect_leaks=0 ./build/test-armada-ce-stream-owner-word
+build/test-armada-ce-stream-owner-word: tests/test_armada_ce_stream_owner_word.c include/kui/armada_ce_stream_owner_word.h include/kui/armada_ce_ram_bind.h
+	@mkdir -p $(@D)
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) $< -o $@
+.PHONY: test-armada-ce-stream-rebind-word
+test-armada-ce-stream-rebind-word: build/test-armada-ce-stream-rebind-word
+	ASAN_OPTIONS=detect_leaks=0 ./build/test-armada-ce-stream-rebind-word
+build/test-armada-ce-stream-rebind-word: tests/test_armada_ce_stream_rebind_word.c include/kui/armada_ce_stream_rebind_word.h include/kui/armada_ce_stream_owner_word.h include/kui/armada_ce_live_sound.h include/kui/armada_ce_ram_bind.h
+	@mkdir -p $(@D)
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) $< -o $@
+.PHONY: test-armada-ce-stream-initial-word
+test-armada-ce-stream-initial-word: build/test-armada-ce-stream-initial-word
+	ASAN_OPTIONS=detect_leaks=0 ./build/test-armada-ce-stream-initial-word
+build/test-armada-ce-stream-initial-word: tests/test_armada_ce_stream_initial_word.c tests/test_armada_ce_live_sound.c include/kui/armada_ce_stream_initial_word.h include/kui/armada_ce_stream_rebind_word.h include/kui/armada_ce_live_sound.h
+	@mkdir -p $(@D)
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) $< -o $@
+.PHONY: test-armada-ce-stream-discover-owner
+test-armada-ce-stream-discover-owner: build/test-armada-ce-stream-discover-owner
+	ASAN_OPTIONS=detect_leaks=0 ./build/test-armada-ce-stream-discover-owner
+build/test-armada-ce-stream-discover-owner: tests/test_armada_ce_stream_discover_owner.c tests/test_armada_ce_live_sound.c include/kui/armada_ce_stream_initial_word.h include/kui/armada_ce_live_sound.h
+	@mkdir -p $(@D)
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) $< -o $@
+build/test-armada-ce-stream-model: tests/test_armada_ce_stream_model.c src/loader/armada_ce_stream_model.c include/kui/armada_ce_stream_model.h
+	@mkdir -p $(@D)
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) tests/test_armada_ce_stream_model.c src/loader/armada_ce_stream_model.c -o $@
+build/test-armada-ce-stream-native: tests/test_armada_ce_stream_native.c src/loader/armada_ce_stream_native.c include/kui/armada_ce_stream_native.h include/kui/armada_ce_live_sound.h
+	@mkdir -p $(@D)
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) -DKUI_RETAIL_CE=1 -DKUI_ARMADA_CE_STREAM=1 tests/test_armada_ce_stream_native.c src/loader/armada_ce_stream_native.c -o $@
+build/test-armada-ce-stream-api: tests/test_armada_ce_stream_api.c tests/test_armada_ce_live_sound.c include/kui/armada_ce_live_sound.h
+	@mkdir -p $(@D)
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) $< -o $@
+build/test-armada-ce-stream-transport: tests/test_armada_ce_stream_transport.c src/loader/armada_ce_stream_transport.c include/kui/armada_ce_stream_transport.h src/core/retail_cursor.c src/core/retail_image.c
+	@mkdir -p $(@D)
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) -Isrc/loader -DKUI_RETAIL_CE=1 -DKUI_RETAIL_ASYNC=1 -DKUI_ARMADA_CE_STREAM=1 -DKUI_ARMADA_CE_STREAM_TRANSPORT_TEST=1 tests/test_armada_ce_stream_transport.c src/loader/armada_ce_stream_transport.c src/core/retail_cursor.c src/core/retail_image.c -o $@
+build/test-armada-ce-stream-boot: tests/test_armada_ce_stream_boot.c tests/test_retail_async_ce.c tests/sci_stream_model.h src/loader/retail_async.c src/loader/retail_async.h src/loader/armada_ce_audio_observe.inc src/loader/armada_ce_excerpt_entry.c include/kui/armada_ce_stream_transport.h src/loader/armada_ce_stream_transport.c src/loader/sci_stream.c src/core/retail_cursor.c src/core/retail_image.c src/core/retail_gd.c
+	@mkdir -p $(@D)
+	$(CC) $(HOST_FLAGS) -fsanitize=undefined -fno-omit-frame-pointer -fno-pie -no-pie $(INCLUDES) -Isrc/loader -DKUI_RETAIL_ASYNC_TEST=1 -DKUI_SCI_STREAM_TEST=1 -DKUI_RETAIL_CE=1 -DKUI_RETAIL_ASYNC=1 -DKUI_RETAIL_GD_ASYNC=1 -DKUI_RETAIL_TRANSPORT=1 -DKUI_ARMADA_CE_EXCERPT=1 -DKUI_ARMADA_CE_STREAM=1 -DKUI_ARMADA_CE_STREAM_TRANSPORT_TEST=1 tests/test_armada_ce_stream_boot.c src/loader/retail_async.c src/loader/sci_stream.c src/loader/armada_ce_stream_trace.c src/core/retail_cursor.c src/core/retail_image.c src/core/retail_gd.c -o $@
+build/test-armada-ce-stream-entry: tests/test_armada_ce_stream_entry.c src/loader/armada_ce_excerpt_entry.c src/loader/armada_ce_audio_observe.inc src/loader/armada_ce_stream_trace.c include/kui/armada_ce_stream_transport.h include/kui/armada_ce_stream_initial_word.h include/kui/armada_ce_stream_rebind_word.h include/kui/armada_ce_live_sound.h
+	@mkdir -p $(@D)
+	$(CC) $(HOST_FLAGS) -fsanitize=undefined -fno-omit-frame-pointer $(INCLUDES) -Isrc/loader $< src/loader/armada_ce_stream_trace.c -o $@
+build/test-armada-ce-stream-player: tests/test_armada_ce_stream_player.c src/loader/armada_ce_stream_player.c src/loader/armada_ce_stream_model.c src/loader/armada_ce_stream_trace.c include/kui/armada_ce_stream_trace.h include/kui/armada_ce_stream_model.h include/kui/armada_ce_stream_native.h include/kui/armada_ce_stream_transport.h
+	@mkdir -p $(@D)
+	$(CC) $(HOST_FLAGS) -fsanitize=undefined -fno-omit-frame-pointer -fno-pie -no-pie $(INCLUDES) -Isrc/loader tests/test_armada_ce_stream_player.c src/loader/armada_ce_stream_model.c src/loader/armada_ce_stream_trace.c -o $@
+build/test-armada-ce-stream-trace: tests/test_armada_ce_stream_trace.c src/loader/armada_ce_stream_trace.c include/kui/armada_ce_stream_trace.h
+	@mkdir -p $(@D)
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) $< -o $@
+.PHONY: test-wince-cooked-admission
+test-wince-cooked-admission: build/test-wince-ce-cooked-armada build/test-wince-ce-cooked-bam4 build/test-wince-ce-cooked-worms
+	ASAN_OPTIONS=detect_leaks=0 ./build/test-wince-ce-cooked-armada
+	ASAN_OPTIONS=detect_leaks=0 ./build/test-wince-ce-cooked-bam4
+	ASAN_OPTIONS=detect_leaks=0 ./build/test-wince-ce-cooked-worms
+build/test-wince-ce-cooked-bam4: WINCE_COOKED_FLAGS := -DKUI_WINCE_CDDA_BAM4=1
+build/test-wince-ce-cooked-worms: WINCE_COOKED_FLAGS := -DKUI_WINCE_CDDA_WORMS=1
+build/test-wince-ce-cooked-armada build/test-wince-ce-cooked-bam4 build/test-wince-ce-cooked-worms: tests/test_wince_ce_cooked_admission.c include/kui/armada_ce_audio_admission.h include/kui/wince_cdda_profiles.h
+	@mkdir -p $(@D)
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) -DKUI_RETAIL_EXTENDED_MAP=1 $(WINCE_COOKED_FLAGS) $< -o $@
+
+.PHONY: test-worms-ce-stream
+test-worms-ce-stream: build/test-worms-ce-live-sound build/test-worms-ce-stream-native build/test-worms-ce-stream-copy
+	ASAN_OPTIONS=detect_leaks=0 ./build/test-worms-ce-live-sound
+	ASAN_OPTIONS=detect_leaks=0 ./build/test-worms-ce-stream-native
+	./build/test-worms-ce-stream-copy
+build/test-worms-ce-live-sound: tests/test_worms_ce_live_sound.c tests/test_armada_ce_live_sound.c include/kui/armada_ce_live_sound.h include/kui/armada_ce_stream_initial_word.h
+	@mkdir -p $(@D)
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) $< -o $@
+build/test-worms-ce-stream-native: tests/test_worms_ce_stream_native.c tests/test_armada_ce_stream_native.c src/loader/armada_ce_stream_native.c include/kui/armada_ce_stream_native.h include/kui/armada_ce_live_sound.h
+	@mkdir -p $(@D)
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) -DKUI_RETAIL_CE=1 -DKUI_ARMADA_CE_STREAM=1 -DKUI_WINCE_CDDA_WORMS=1 $< src/loader/armada_ce_stream_native.c -o $@
+build/test-worms-ce-stream-copy: tests/test_worms_ce_stream_copy.c tests/test_armada_ce_stream_player.c src/loader/armada_ce_stream_player.c src/loader/armada_ce_stream_model.c src/loader/armada_ce_stream_trace.c include/kui/armada_ce_stream_native.h
+	@mkdir -p $(@D)
+	$(CC) $(HOST_FLAGS) -fsanitize=undefined -fno-omit-frame-pointer -fno-pie -no-pie $(INCLUDES) -Isrc/loader $< src/loader/armada_ce_stream_model.c src/loader/armada_ce_stream_trace.c -o $@
+test-armada-ce-excerpt: build/test-armada-ce-excerpt-pool build/test-armada-ce-live-sound build/test-armada-ce-excerpt-prepare build/test-armada-ce-excerpt-entry build/test-armada-ce-excerpt
+	./build/test-armada-ce-excerpt-pool
+	./build/test-armada-ce-live-sound
+	./build/test-armada-ce-excerpt-prepare
+	./build/test-armada-ce-excerpt-entry
+	./build/test-armada-ce-excerpt
+
+build/test-armada-ce-excerpt-pool: tests/test_armada_ce_excerpt_pool.c include/kui/armada_ce_excerpt_pool.h src/core/data.c
+	@mkdir -p $(@D)
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) $< src/core/data.c -o $@
+build/test-armada-ce-live-sound: tests/test_armada_ce_live_sound.c include/kui/armada_ce_live_sound.h include/kui/armada_ce_ram_bind.h
+	@mkdir -p $(@D)
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) $< -o $@
+ARMADA_PREPARE_TEST_SOURCES := src/core/smash_native_child.c src/core/vmu_launch_package.c src/core/retail_zso.c src/core/game_launch_settings.c src/core/game_ram_patches.c src/core/game_image.c src/core/zso.c src/core/lzo1x.c src/core/hash.c src/core/data.c src/core/destination.c src/core/retail_image.c src/core/vmu_emulation_settings.c
+NATIVE_CACHE_SOURCES := src/core/vmu_native_program.c src/core/vmu_native_cache_seed.c src/core/vmu_native_resolution_cache.c \
+    src/core/vmu_native_discovery.c src/core/vmu_native_layout.c src/core/vmu_native_heap.c \
+    src/core/vmu_native_exit.c src/core/vmu_native_patch.c src/core/native_sdk_sci_family.c
+ARMADA_PREPARE_TEST_SOURCES += $(NATIVE_CACHE_SOURCES)
+# Both WinCE preparation fixtures include the production Games launcher;
+# retain its real optional-session boundary even for ordinary CE packages.
+ARMADA_PREPARE_TEST_SOURCES += src/apps/native_session_prepare.c src/core/native_session.c \
+    src/core/native_return.c src/core/storage_policy.c src/core/runtime_image.c
+build/test-sha256-prefix: tests/test_sha256_prefix.c include/kui/sha256_prefix.h include/kui/hash.h src/core/hash.c src/core/data.c
+	@mkdir -p $(@D)
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) tests/test_sha256_prefix.c src/core/hash.c src/core/data.c -o $@
+build/test-games-native-cache: tests/test_games_native_cache.c tests/test_vmu_native_resolution_cache.c src/apps/games_native_cache.inc include/kui/sha256_prefix.h $(NATIVE_CACHE_SOURCES) src/core/hash.c src/core/data.c
+	@mkdir -p $(@D)
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) -fno-pie -no-pie -Wl,--wrap=kui_sha256_update -Iinclude tests/test_games_native_cache.c $(NATIVE_CACHE_SOURCES) src/core/hash.c src/core/data.c -o $@
+build/test-games-native-cache-hint: tests/test_games_native_cache_hint.c tests/test_vmu_native_resolution_cache.c src/apps/games_native_cache_hint.inc src/apps/games_native_cache_alias.inc $(NATIVE_CACHE_SOURCES) src/core/hash.c src/core/data.c src/core/game_launch_settings.c src/core/game_ram_patches.c
+	@mkdir -p $(@D)
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) tests/test_games_native_cache_hint.c $(NATIVE_CACHE_SOURCES) src/core/hash.c src/core/data.c src/core/game_launch_settings.c src/core/game_ram_patches.c -o $@
+.PHONY: test-games-native-cache-hint
+test-games-native-cache-hint: build/test-games-native-cache-hint
+	ASAN_OPTIONS=detect_leaks=0 ./build/test-games-native-cache-hint $(if $(STARTUP),'$(STARTUP)',)
+build/test-games-native-owner-cache: tests/test_games_native_owner_cache.c tests/test_games_native_cache.c src/apps/games_native_owner_cache.inc $(NATIVE_CACHE_SOURCES) src/core/native_source_owner.c src/core/smash_native_child.c src/core/runtime_image.c src/core/retail_image.c src/core/hash.c src/core/data.c
+	@mkdir -p $(@D)
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) -fno-pie -no-pie -Wl,--wrap=kui_sha256_update -Iinclude -I.deps/fatfs/source tests/test_games_native_owner_cache.c $(NATIVE_CACHE_SOURCES) src/core/native_source_owner.c src/core/smash_native_child.c src/core/runtime_image.c src/core/retail_image.c src/core/hash.c src/core/data.c -o $@
+.PHONY: test-games-native-owner-cache
+test-games-native-owner-cache: build/test-games-native-owner-cache
+	ASAN_OPTIONS=detect_leaks=0 ./build/test-games-native-owner-cache $(if $(NATIVE_OWNER_MODULE),'$(NATIVE_OWNER_MODULE)',)
+.PHONY: test-cold-image
+build/test-cold-image: tests/test_cold_image.c src/core/cold_image.c include/kui/cold_image.h src/core/hash.c src/core/retail_image.c src/core/data.c
+	@mkdir -p $(@D)
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) -Iinclude tests/test_cold_image.c src/core/cold_image.c src/core/hash.c src/core/retail_image.c src/core/data.c -o $@
+test-cold-image: build/test-cold-image
+	ASAN_OPTIONS=detect_leaks=0 ./build/test-cold-image
+.PHONY: test-smash-complete-source-owner
+build/test-smash-complete-source-owner: tests/test_smash_complete_source_owner.c src/loader/smash_source_owner_stage.inc src/core/hash.c src/core/data.c
+	@mkdir -p $(@D)
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) -Iinclude -Wl,--wrap=kui_sha256_update tests/test_smash_complete_source_owner.c src/core/hash.c src/core/data.c -o $@
+test-smash-complete-source-owner: build/test-smash-complete-source-owner
+	ASAN_OPTIONS=detect_leaks=0 ./build/test-smash-complete-source-owner
+.PHONY: test-games-native-cache
+test-games-native-cache: build/test-games-native-cache build/test-sha256-prefix
+	./build/test-sha256-prefix
+	ASAN_OPTIONS=detect_leaks=0 ./build/test-games-native-cache $(if $(STARTUP),'$(STARTUP)',) $(if $(EVOLUTION2_STARTUP),'$(EVOLUTION2_STARTUP)',) $(if $(HOTD2_STARTUP),'$(HOTD2_STARTUP)',)
+build/test-vmu-launch-package: tests/test_vmu_launch_package.c src/core/vmu_launch_package.c src/core/retail_image.c src/core/hash.c include/kui/vmu_launch_package.h
+	@mkdir -p $(@D)
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) -ffunction-sections -fdata-sections tests/test_vmu_launch_package.c src/core/vmu_launch_package.c src/core/retail_image.c src/core/hash.c -Wl,--gc-sections -o $@
+build/test-armada-ce-excerpt-prepare: tests/test_armada_ce_excerpt_prepare.c src/apps/games_retail.c $(ARMADA_PREPARE_TEST_SOURCES) include/kui/armada_ce_excerpt_pool.h include/kui/game_ram_patches.h include/kui/retail_zso.h include/kui/zso.h include/kui/wince_cdda_profiles.h include/kui/armada_ce_stream_seed.h include/kui/games_retail.h include/kui/wince_cdda_wwp_kernel.h
+build/test-armada-ce-excerpt-prepare: src/apps/games_native_cache.inc
+
+	@mkdir -p $(@D)
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) -Isrc/dreamcast -ffunction-sections -fdata-sections tests/test_armada_ce_excerpt_prepare.c $(ARMADA_PREPARE_TEST_SOURCES) -Wl,--gc-sections -o $@
+build/test-armada-ce-excerpt-entry: tests/test_armada_ce_excerpt_entry.c src/loader/armada_ce_excerpt_entry.c include/kui/armada_ce_excerpt_entry.h src/loader/armada_ce_audio_observe.inc
+	@mkdir -p $(@D)
+	$(CC) $(HOST_FLAGS) -fsanitize=undefined -fno-omit-frame-pointer $(INCLUDES) $< -o $@
+build/test-armada-ce-excerpt: tests/test_armada_ce_excerpt.c src/loader/armada_ce_excerpt.c include/kui/armada_ce_excerpt.h
+	@mkdir -p $(@D)
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) -fno-pie -no-pie $< -o $@
+test: build/test-drive-controls build/test-drive-speed-probe build/test-g1-mode-probe build/test-g1-mode-probe-native build/test-salvage-display
+test: build/test-vmu-lcd build/test-vmu-save-format
+test: build/test-recovery-manifest build/scan-fixtures/.stamp build/test-music-ogg-seek build/music-asset-check
+test: build/test-games-selection build/test-zso build/test-lzo1x build/test-retail-zso build/test-retail-lzo build/test-game-launch-settings build/test-game-launch-settings-file build/test-game-ram-patches build/test-game-launch-report build/test-retail-relay-patches
+test: test-armada-ce-stream test-worms-ce-stream test-wince-cooked-admission test-armada-ce-excerpt
+test: build/test-capture-export
+test: build/test-game-image build/test-game-metadata build/test-loader-probe build/test-loader-sd build/loader-probe.dat
+test: build/test-pvr-texture build/test-game-cover build/test-cover-image build/test-files
+test: build/test-w5500 build/test-network-w5500 build/test-network-wifi build/test-wifi-pacing build/test-wifi-update build/test-ftp build/test-ftp-cleanup
+test: build/test-resident-image build/test-gd-service build/test-image-client
+test: build/test-retail-image build/test-retail-gd build/test-retail-gd-subcode build/test-retail-pace build/test-retail-sd build/test-ce-load-plan build/test-retail-boot
+test: build/test-retail-relay build/test-retail-relay-ce build/test-retail-startup-trace build/test-retail-gd-trace build/test-retail-mount-trace build/test-sonic-stack
+test: build/test-retail-cursor build/test-sci-stream build/test-sci-stream-ce build/test-retail-gd-async build/test-retail-gd-ce build/test-retail-async build/test-retail-async-native-resume build/test-retail-async-ce
+test: build/test-retail-async-native-bounds build/test-retail-async-native-hybrid
+test: build/test-boot-volume build/ext4-boot build/boot-recovery build/test-boot-ui
+test: build/test-ata build/test-storage-policy build/test-sci-sd-bus build/test-retail-storage build/test-sci-sd-storage build/test-sci-async-probe build/test-sci-async-heartbeat build/test-sci-async-runtime build/test-sci-video-quiet
+test: build/test-storage-errors build/test-cd-audio build/test-network-probe build/test-network-connect build/test-menu-sound build/test-music-ogg build/test-capture-display build/test-viewport build/test-clock build/test-clock-platform build/test-music-thread build/test-recovery-checks build/test-wav-stream build/test-music-player build/test-startup-sound build/test-splash build/test-boot-stage1 build/test-gd-play build/test-network-app build/test-system-settings build/test-disc-identity build/test-wav build/test-music build/test-memory-app build/test-core build/test-capture-core build/test-timing build/test-disc build/test-options build/test-ui-rate build/test-known-dumps build/test-crc16 build/test-settings build/test-shell build/test-shell-font build/test-capture-adapter build/test-destination
+	./build/test-vmu-lcd
+	./build/test-vmu-save-format
+	./build/test-storage-errors
+	./build/test-cd-audio
+	./build/test-game-image
+	./build/test-game-metadata
+	./build/test-pvr-texture
+	./build/test-game-cover
+	./build/test-cover-image
+	./build/test-files
+	./build/test-loader-probe build/loader-probe.dat
+	./build/test-loader-sd
+	./build/test-resident-image
+	./build/test-gd-service
+	./build/test-image-client
+	./build/test-retail-image
+	./build/test-retail-cursor
+	./build/test-sci-stream
+	./build/test-sci-stream-ce
+	./build/test-retail-async
+	./build/test-retail-async-native-resume
+	./build/test-retail-async-native-bounds
+	./build/test-retail-async-native-hybrid
+	./build/test-retail-async-ce
+	./build/test-retail-gd
+	./build/test-retail-gd-subcode
+	./build/test-retail-gd-async
+	./build/test-retail-gd-ce
+	./build/test-retail-pace
+	./build/test-retail-sd
+	./build/test-ce-load-plan
+	./build/test-retail-boot
+	./build/test-retail-relay
+	./build/test-retail-relay-ce
+	./build/test-retail-startup-trace
+	./build/test-retail-gd-trace
+	./build/test-retail-mount-trace
+	./build/test-sonic-stack
+	./build/test-boot-volume
+	./build/test-boot-ui
+	python3 tests/test_boot_canvas_dispatch.py
+	python3 tests/test_ext4_boot.py
+	python3 tests/test_boot_recovery.py
+	./build/test-ata
+	./build/test-storage-policy
+	./build/test-sci-sd-bus
+	./build/test-retail-storage
+	./build/test-sci-sd-storage
+	./build/test-sci-async-probe
+	./build/test-sci-async-heartbeat
+	./build/test-sci-video-quiet
+	./build/test-sci-async-runtime
+	./build/test-sci-async-runtime restore
+	./build/test-sci-async-runtime quarantine
+	./build/test-sci-async-runtime recovery
+	./build/test-sci-async-runtime reinit
+	./build/test-sci-async-runtime reacquire
+	./build/test-sci-async-runtime baseline
+	./build/test-sci-async-runtime baseline-mismatch
+	./build/test-sci-async-runtime stress-quarantine
+	./build/test-sci-async-runtime stress-recovery
+	./build/test-sci-async-runtime stress-baseline
+	./build/test-sci-async-runtime stress-baseline-mismatch
+	./build/test-cd-audio guard
+	./build/test-network-probe
+	./build/test-network-connect
+	./build/test-w5500
+	./build/test-network-w5500
+	./build/test-network-wifi
+	./build/test-wifi-pacing
+	./build/test-wifi-update --header
+	./build/test-ftp
+	./build/test-ftp-cleanup
+	./build/test-menu-sound
+	./build/test-music-ogg
+	./build/test-music-ogg-seek
+	./build/test-capture-display
+	./build/test-drive-controls
+	./build/test-drive-speed-probe
+	./build/test-g1-mode-probe
+	./build/test-g1-mode-probe-native
+	./build/test-salvage-display
+	./build/test-viewport
+	./build/test-clock
+	./build/test-clock-platform
+	./build/test-recovery-manifest build/scan-fixtures/clean/manifest.json
+	./build/test-music-thread
+	./build/test-recovery-checks
+	./build/test-wav-stream
+	./build/test-music-player
+	./build/test-startup-sound
+	./build/test-splash
+	ASAN_OPTIONS=detect_leaks=0 ./build/test-boot-stage1
+	./build/test-gd-play
+	./build/test-network-app
+	./build/test-system-settings
+	./build/test-disc-identity
+	./build/test-wav
+	./build/test-music
+	./build/test-memory-app
+	./build/test-core
+	./build/test-options docs/bench.cfg.example docs/bench-cfgs/*.cfg
+	./build/test-ui-rate
+	./build/test-known-dumps
+	./build/test-crc16
+	./build/test-destination
+	./build/test-settings
+	./build/test-zso
+	./build/test-lzo1x
+	./build/test-retail-zso
+	./build/test-retail-lzo
+	./build/test-game-ram-patches
+	./build/test-game-launch-report
+	./build/test-retail-relay-patches
+	./build/test-games-selection
+	./build/test-game-launch-settings
+	./build/test-game-launch-settings-file
+	./build/test-shell
+	./build/test-shell-font
+	./build/test-capture-adapter
+	./build/test-capture-core
+	./build/test-capture-export
+	./build/test-timing
+	./build/test-disc
+	./build/test-disc abort-fail
+	./build/test-disc stop-abort-fail
+	./build/test-disc media-change
+	./build/test-disc guard-failed
+	./build/test-disc guard-before
+	./build/test-disc dma
+	./build/test-disc dma-fail
+	./build/test-disc dma-timeout
+	./build/test-disc dma-guard
+	./build/test-disc dma-async-stop
+	./build/test-disc dma-async-change
+	./build/test-disc dma-async-fail
+	./build/test-disc dma-async-timeout
+	python3 -m unittest discover -s tests -p 'test_*.py' -v
+
+deps:
+	python3 tools/fetch_deps.py
+
+build/test-ata: tests/test_ata.c src/core/ata.c include/kui/ata.h
+	@mkdir -p $(@D)
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) -Iinclude src/core/ata.c tests/test_ata.c -o $@
+
+build/test-storage-policy: tests/test_storage_policy.c src/core/storage_policy.c include/kui/storage_policy.h include/kui/storage.h
+	@mkdir -p $(@D)
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) -Iinclude src/core/storage_policy.c tests/test_storage_policy.c -o $@
+
+build/test-sci-sd-bus: tests/test_sci_sd_bus.c src/loader/sci_sd_bus.c src/loader/sci_sd_bus.h src/loader/sd_reader.h
+	@mkdir -p $(@D)
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) -DKUI_SCI_SD_TEST -Iinclude -Isrc/loader src/loader/sci_sd_bus.c tests/test_sci_sd_bus.c -o $@
+
+.PHONY: test-sci-read-compare
+test-sci-read-compare: build/test-sci-read-pio build/test-sci-read-dma build/test-retail-observe-fault
+	./build/test-sci-read-pio
+	./build/test-sci-read-dma
+	./build/test-retail-observe-fault
+
+build/test-sci-read-pio: tests/test_sci_sd_read_compare.c tests/test_sci_sd_bus.c src/loader/sci_sd_bus.c src/loader/sci_sd_bus.h src/loader/sd_reader.h
+	@mkdir -p $(@D)
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) -DKUI_SCI_SD_TEST -DKUI_SCI_SD_PIO_ONLY=1 -Iinclude -Isrc/loader src/loader/sci_sd_bus.c tests/test_sci_sd_read_compare.c -o $@
+
+build/test-sci-read-dma: tests/test_sci_sd_read_compare.c tests/test_sci_sd_bus.c src/loader/sci_sd_bus.c src/loader/sci_sd_bus.h src/loader/sd_reader.h
+	@mkdir -p $(@D)
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) -DKUI_SCI_SD_TEST -DKUI_SCI_SD_PIO_ONLY=0 -Iinclude -Isrc/loader src/loader/sci_sd_bus.c tests/test_sci_sd_read_compare.c -o $@
+
+.PHONY: test-sci-fault
+test-sci-fault: build/test-sci-fault build/test-sci-dma-pacing-baseline build/test-sci-dma-pacing-paced build/test-sci-dma-pacing-reuse build/test-retail-sci-fault build/test-retail-sci-paced
+	./build/test-sci-fault
+	./build/test-sci-dma-pacing-baseline
+	./build/test-sci-dma-pacing-paced
+	./build/test-sci-dma-pacing-reuse
+	./build/test-retail-sci-fault
+	./build/test-retail-sci-paced
+
+build/test-sci-fault: tests/test_sci_sd_fault.c tests/test_sci_sd_bus.c src/loader/sci_sd_bus.c src/loader/sci_sd_bus.h src/loader/sd_reader.h
+	@mkdir -p $(@D)
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) -DKUI_SCI_SD_TEST=1 -DKUI_RETAIL_SCI_DIAGNOSTIC=1 -Iinclude -Isrc/loader src/loader/sci_sd_bus.c tests/test_sci_sd_fault.c -o $@
+
+build/test-sci-dma-pacing-baseline: tests/test_sci_sd_dma_pacing.c src/loader/sci_sd_bus.c src/loader/sci_sd_bus.h src/loader/sd_reader.h
+	@mkdir -p $(@D)
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) -DKUI_SCI_SD_TEST=1 -DKUI_RETAIL_TRANSPORT=1 -DKUI_RETAIL_SCI_DIAGNOSTIC=1 -DKUI_SCI_DMA_PACED=0 -Iinclude -Isrc/loader src/loader/sci_sd_bus.c tests/test_sci_sd_dma_pacing.c -o $@
+
+build/test-sci-dma-pacing-paced: tests/test_sci_sd_dma_pacing.c src/loader/sci_sd_bus.c src/loader/sci_sd_bus.h src/loader/sd_reader.h
+	@mkdir -p $(@D)
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) -DKUI_SCI_SD_TEST=1 -DKUI_RETAIL_TRANSPORT=1 -DKUI_RETAIL_SCI_DIAGNOSTIC=1 -DKUI_SCI_DMA_PACED=1 -Iinclude -Isrc/loader src/loader/sci_sd_bus.c tests/test_sci_sd_dma_pacing.c -o $@
+
+build/test-sci-dma-pacing-reuse: tests/test_sci_sd_dma_pacing.c src/loader/sci_sd_bus.c src/loader/sci_sd_bus.h src/loader/sd_reader.h
+	@mkdir -p $(@D)
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) -DKUI_SCI_SD_TEST=1 -DKUI_RETAIL_TRANSPORT=1 -DKUI_RETAIL_SCI_DIAGNOSTIC=1 -DKUI_SCI_DMA_PACED=1 -DKUI_SCI_DMA_REUSE_TDRE=1 -Iinclude -Isrc/loader src/loader/sci_sd_bus.c tests/test_sci_sd_dma_pacing.c -o $@
+
+build/test-retail-sci-fault: tests/test_retail_sci_fault.c src/loader/retail_sci_observe.inc src/loader/sci_sd_bus.h include/kui/retail_image.h include/kui/retail_gd.h include/kui/retail_loader_layout.h src/loader/retail_display.h src/loader/sd_reader.h
+	@mkdir -p $(@D)
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) -Iinclude -Isrc/loader tests/test_retail_sci_fault.c -o $@
+
+build/test-retail-sci-paced: tests/test_retail_sci_fault.c src/loader/retail_sci_observe.inc src/loader/sci_sd_bus.h include/kui/retail_image.h include/kui/retail_gd.h include/kui/retail_loader_layout.h src/loader/retail_display.h src/loader/sd_reader.h
+	@mkdir -p $(@D)
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) -DKUI_SCI_DMA_PACED=1 -Iinclude -Isrc/loader tests/test_retail_sci_fault.c -o $@
+
+build/test-retail-storage: tests/test_retail_storage.c src/loader/retail_storage.c src/loader/retail_storage.h src/loader/retail_storage_impl.h src/loader/sci_sd_bus.h include/kui/ata.h include/kui/storage.h
+	@mkdir -p $(@D)
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) -Iinclude -Isrc/loader src/loader/retail_storage.c tests/test_retail_storage.c -o $@
+
+build/test-sci-sd-storage: tests/test_sci_sd_storage.c src/dreamcast/sci_sd_storage.c src/dreamcast/sci_sd_storage.h src/loader/sd_reader.h
+	@mkdir -p $(@D)
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) -Iinclude -Isrc/loader -Isrc/dreamcast src/dreamcast/sci_sd_storage.c tests/test_sci_sd_storage.c -o $@
+
+build/test-sci-async-probe: tests/test_sci_async_probe.c tests/sci_async_probe_test_support.h src/dreamcast/sci_async_probe.c include/kui/sci_async_probe.h src/loader/sd_reader.h src/loader/sci_sd_bus.h
+	@mkdir -p $(@D)
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) -DKUI_SCI_ASYNC_PROBE_TEST=1 -Iinclude -Isrc/loader src/dreamcast/sci_async_probe.c tests/test_sci_async_probe.c -o $@
+
+build/test-sci-video-quiet: tests/test_sci_video_quiet.c include/kui/sci_video_quiet.h
+	@mkdir -p $(@D)
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) -Iinclude tests/test_sci_video_quiet.c -o $@
+
+build/test-sci-async-heartbeat: tests/test_sci_async_heartbeat.c tests/sci_async_heartbeat_test_support.h src/dreamcast/sci_async_heartbeat.c src/dreamcast/sci_async_heartbeat.h
+	@mkdir -p $(@D)
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) -DKUI_SCI_ASYNC_HEARTBEAT_TEST=1 -Iinclude -Isrc/dreamcast src/dreamcast/sci_async_heartbeat.c tests/test_sci_async_heartbeat.c -o $@
+
+build/test-sci-async-runtime: tests/test_sci_async_runtime.c src/dreamcast/sd.c src/dreamcast/sd.h src/dreamcast/sci_async_heartbeat.h include/kui/sci_async_probe.h src/core/storage_error.c src/core/storage_policy.c src/core/data.c include/kui/ata.h
+	@mkdir -p $(@D)
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) -DKUI_SCI_ASYNC_RUNTIME=1 -Itests/storage_stubs -Itests/stubs -Itests/apps_stubs $(INCLUDES) src/dreamcast/sd.c src/core/storage_error.c src/core/storage_policy.c src/core/data.c tests/test_sci_async_runtime.c -o $@
+
+build/test-loader-probe: tests/test_loader_probe.c $(LOADER_PROBE) src/loader/client.c include/kui/loader_probe.h
+	@mkdir -p $(@D)
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) $(LOADER_PROBE) src/loader/client.c tests/test_loader_probe.c -o $@
+
+build/loader-probe.dat: tools/make_loader_probe.py
+	python3 tools/make_loader_probe.py $@
+
+build/test-loader-sd: tests/test_loader_sd.c src/loader/sd_reader.c src/loader/sd_reader.h
+	@mkdir -p $(@D)
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) -Isrc/loader src/loader/sd_reader.c tests/test_loader_sd.c -o $@
+
+build/test-retail-sd: tests/test_retail_sd.c src/loader/retail_sd.c src/loader/retail_sd.h src/loader/sd_reader.h
+	@mkdir -p $(@D)
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) -DKUI_RETAIL_SD_TEST -Isrc/loader src/loader/retail_sd.c tests/test_retail_sd.c -o $@
+
+.PHONY: test-retail-fast-io
+test-retail-fast-io: build/test-retail-sd build/test-loader-sd-fast build/test-retail-minic
+	./build/test-retail-sd
+	./build/test-loader-sd-fast
+	./build/test-retail-minic
+
+build/test-loader-sd-fast: tests/test_loader_sd.c src/loader/sd_reader.c src/loader/sd_reader.h
+	@mkdir -p $(@D)
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) -DKUI_RETAIL_FAST_IO=1 -Isrc/loader src/loader/sd_reader.c tests/test_loader_sd.c -o $@
+
+.PHONY: test-retail-sd-bench
+test-retail-sd-bench: build/test-loader-sd-fast build/test-retail-sd-bench
+	./build/test-loader-sd-fast
+	./build/test-retail-sd-bench
+
+.PHONY: test-retail-streams
+test-retail-streams: build/test-loader-sd-fast build/test-retail-sd build/test-retail-image
+	./build/test-loader-sd-fast
+	./build/test-retail-sd
+	./build/test-retail-image
+
+build/test-retail-sd-bench: tests/test_retail_sd_bench.c src/loader/retail_sd_bench.c src/loader/retail_sd_bench.h src/core/retail_image.c
+	@mkdir -p $(@D)
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) -Iinclude -Isrc/loader src/loader/retail_sd_bench.c src/core/retail_image.c tests/test_retail_sd_bench.c -o $@
+
+build/retail-minic-test.o: src/loader/minic.c
+	@mkdir -p $(@D)
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) -fno-builtin -DKUI_RETAIL_FAST_IO=1 \
+		-Dmemcpy=kui_test_memcpy -Dmemset=kui_test_memset -Dmemmove=kui_test_memmove \
+		-Dmemcmp=kui_test_memcmp -Dstrlen=kui_test_strlen -c $< -o $@
+
+build/test-retail-minic: tests/test_retail_minic.c build/retail-minic-test.o
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) $^ -o $@
+
+build/test-retail-image: tests/test_retail_image.c src/core/retail_image.c include/kui/retail_image.h include/kui/game_image.h
+	@mkdir -p $(@D)
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) src/core/retail_image.c tests/test_retail_image.c -o $@
+
+build/test-retail-boot: tests/test_retail_boot.c src/loader/retail_boot.h src/core/retail_image.c include/kui/retail_image.h
+	@mkdir -p $(@D)
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) -Iinclude -Isrc/loader src/core/retail_image.c tests/test_retail_boot.c -o $@
+
+# The real relay uses fixed P1 RAM addresses within ASan's shadow mapping.
+# Keep UBSan and execute the production source rather than relocating its RAM.
+# Host tests execute the real CRC leaf; the privileged SH cache scope is
+# exercised separately by tests/test_native_stage_cached_crc.py.
+RETAIL_RELAY_FLAGS = -fsanitize=undefined -fno-omit-frame-pointer -ffunction-sections -fdata-sections \
+	-Dkui_native_stage_cached_crc32=kui_retail_stage_crc32_leaf
+RETAIL_RELAY_DEPS = src/core/game_ram_patches.c include/kui/game_ram_patches.h tests/test_retail_relay.c src/loader/retail_stage.c src/loader/retail_boot.h src/loader/retail_display.h src/loader/retail_storage.h include/kui/retail_loader_layout.h include/kui/retail_image.h src/core/retail_image.c
+RETAIL_RELAY_DEPS += src/loader/native_cold_cache_policy.h src/loader/stage_fast_crc32.h
+build/test-retail-relay: $(RETAIL_RELAY_DEPS)
+	@mkdir -p $(@D)
+	$(CC) $(HOST_FLAGS) $(RETAIL_RELAY_FLAGS) -Iinclude -Isrc/loader tests/test_retail_relay.c src/core/retail_image.c src/core/game_ram_patches.c -Wl,--gc-sections -o $@
+
+build/test-retail-relay-ce: $(RETAIL_RELAY_DEPS) include/kui/ce_load_plan.h
+	@mkdir -p $(@D)
+	$(CC) $(HOST_FLAGS) $(RETAIL_RELAY_FLAGS) -DKUI_RETAIL_CE=1 -Iinclude -Isrc/loader tests/test_retail_relay.c src/core/retail_image.c src/core/game_ram_patches.c -Wl,--gc-sections -o $@
+
+build/test-retail-startup-trace: tests/test_retail_startup_trace.c $(RETAIL_RELAY_DEPS)
+	@mkdir -p $(@D)
+	$(CC) $(HOST_FLAGS) $(RETAIL_RELAY_FLAGS) -DKUI_RETAIL_STARTUP_TRACE=1 -DKUI_RETAIL_STARTUP_TRACE_TEST=1 -Iinclude -Isrc/loader tests/test_retail_startup_trace.c src/core/retail_image.c -Wl,--gc-sections -o $@
+
+build/test-retail-gd-trace: tests/test_retail_gd_trace.c $(RETAIL_RELAY_DEPS) src/core/retail_gd.c include/kui/retail_gd.h
+	@mkdir -p $(@D)
+	$(CC) $(HOST_FLAGS) $(RETAIL_RELAY_FLAGS) -DKUI_RETAIL_STARTUP_TRACE=2 -DKUI_RETAIL_STARTUP_TRACE_TEST=1 -Iinclude -Isrc/loader tests/test_retail_gd_trace.c src/core/retail_image.c src/core/retail_gd.c -Wl,--gc-sections -o $@
+
+build/test-retail-mount-trace: tests/test_retail_gd_trace.c $(RETAIL_RELAY_DEPS) src/core/retail_gd.c include/kui/retail_gd.h
+	@mkdir -p $(@D)
+	$(CC) $(HOST_FLAGS) $(RETAIL_RELAY_FLAGS) -DKUI_RETAIL_STARTUP_TRACE=3 -DKUI_RETAIL_STARTUP_TRACE_TEST=1 -Iinclude -Isrc/loader tests/test_retail_gd_trace.c src/core/retail_image.c src/core/retail_gd.c -Wl,--gc-sections -o $@
+
+build/test-sonic-stack: tests/test_sonic_stack.c $(RETAIL_RELAY_DEPS)
+	@mkdir -p $(@D)
+	$(CC) $(HOST_FLAGS) $(RETAIL_RELAY_FLAGS) -DKUI_RETAIL_SONIC_STACK_TEST=1 -DKUI_RETAIL_SONIC_STACK_TEST_HOST=1 -Iinclude -Isrc/loader tests/test_sonic_stack.c src/core/retail_image.c -Wl,--gc-sections -o $@
+
+build/test-retail-cursor: tests/test_retail_cursor.c src/core/retail_cursor.c src/core/retail_image.c include/kui/retail_cursor.h include/kui/retail_image.h
+	@mkdir -p $(@D)
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) src/core/retail_cursor.c src/core/retail_image.c tests/test_retail_cursor.c -o $@
+
+build/test-sci-stream: tests/test_sci_stream.c tests/sci_stream_model.h src/loader/sci_stream.c src/loader/sci_stream.h src/loader/sd_reader.h src/loader/sci_sd_bus.h
+	@mkdir -p $(@D)
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) -DKUI_SCI_STREAM_TEST=1 -Iinclude -Isrc/loader src/loader/sci_stream.c tests/test_sci_stream.c -o $@
+
+build/test-sci-stream-ce: tests/test_sci_stream.c tests/sci_stream_model.h src/loader/sci_stream.c src/loader/sci_stream.h src/loader/sd_reader.h src/loader/sci_sd_bus.h
+	@mkdir -p $(@D)
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) -DKUI_SCI_STREAM_TEST=1 -DKUI_RETAIL_CE=1 -Iinclude -Isrc/loader src/loader/sci_stream.c tests/test_sci_stream.c -o $@
+# The Armada diagnostic's slower refetch after a DMA overrun (CE only).
+build/test-sci-stream-ce-slow: tests/test_sci_stream.c tests/sci_stream_model.h src/loader/sci_stream.c src/loader/sci_stream.h src/loader/sd_reader.h src/loader/sci_sd_bus.h
+	@mkdir -p $(@D)
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) -DKUI_SCI_STREAM_TEST=1 -DKUI_RETAIL_CE=1 -DKUI_CE_SCI_SLOW_AFTER_OVERRUN=1 -Iinclude -Isrc/loader src/loader/sci_stream.c tests/test_sci_stream.c -o $@
+
+build/test-retail-async: tests/test_retail_async.c tests/sci_stream_model.h src/loader/retail_async.c src/loader/retail_async.h src/loader/sci_stream.c src/loader/sci_stream.h src/core/retail_cursor.c src/core/retail_image.c src/core/retail_gd.c include/kui/retail_gd.h include/kui/retail_cursor.h include/kui/retail_image.h include/kui/ata.h
+	@mkdir -p $(@D)
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) -DKUI_RETAIL_ASYNC_TEST=1 -DKUI_SCI_STREAM_TEST=1 -DKUI_RETAIL_ASYNC=1 -DKUI_RETAIL_GD_ASYNC=1 -DKUI_RETAIL_TRANSPORT=1 -Iinclude -Isrc/loader src/loader/retail_async.c src/loader/sci_stream.c src/core/retail_cursor.c src/core/retail_image.c src/core/retail_gd.c tests/test_retail_async.c -o $@
+
+build/test-retail-async-native-resume: tests/test_retail_async.c tests/sci_stream_model.h src/loader/retail_async.c src/loader/retail_async.h src/loader/sci_stream.c src/loader/sci_stream.h src/core/retail_cursor.c src/core/retail_image.c src/core/retail_gd.c include/kui/retail_gd.h include/kui/retail_cursor.h include/kui/retail_image.h include/kui/ata.h
+	@mkdir -p $(@D)
+	$(CC) $(filter-out -O1,$(HOST_FLAGS)) -O2 $(SANITIZERS) -DKUI_SCI_SD_NO_BLOCK=1 -DKUI_GENERAL_SCI_RESUME_FIX=1 -DKUI_RETAIL_NATIVE_DISC_CHECK=1 -DKUI_RETAIL_NATIVE_DRIVE_STATE=1 -DKUI_RETAIL_ASYNC_TEST=1 -DKUI_SCI_STREAM_TEST=1 -DKUI_RETAIL_ASYNC=1 -DKUI_RETAIL_GD_ASYNC=1 -DKUI_RETAIL_TRANSPORT=1 -Iinclude -Isrc/loader src/loader/retail_async.c src/loader/sci_stream.c src/core/retail_cursor.c src/core/retail_image.c src/core/retail_gd.c tests/test_retail_async.c -o $@
+
+build/test-retail-async-native-bounds: tests/test_retail_async_native_bounds.c tests/test_retail_async.c tests/sci_stream_model.h src/loader/retail_async.c src/loader/retail_async.h src/loader/sci_stream.c src/loader/sci_stream.h src/core/retail_cursor.c src/core/retail_image.c src/core/retail_gd.c include/kui/retail_gd.h include/kui/retail_cursor.h include/kui/retail_image.h include/kui/ata.h
+	@mkdir -p $(@D)
+	$(CC) $(filter-out -O1,$(HOST_FLAGS)) -O2 $(SANITIZERS) -DKUI_SCI_SD_NO_BLOCK=1 -DKUI_GENERAL_SCI_RESUME_FIX=1 -DKUI_RETAIL_NATIVE_DISC_CHECK=1 -DKUI_RETAIL_NATIVE_DRIVE_STATE=1 -DKUI_RETAIL_ASYNC_TEST=1 -DKUI_SCI_STREAM_TEST=1 -DKUI_RETAIL_ASYNC=1 -DKUI_RETAIL_GD_ASYNC=1 -DKUI_RETAIL_TRANSPORT=1 -Iinclude -Isrc/loader src/loader/retail_async.c src/loader/sci_stream.c src/core/retail_cursor.c src/core/retail_image.c src/core/retail_gd.c tests/test_retail_async_native_bounds.c -o $@
+
+build/test-retail-async-native-hybrid: tests/test_retail_async_native_hybrid.c tests/test_retail_async.c tests/sci_stream_model.h src/loader/retail_async.c src/loader/retail_async.h src/loader/sci_stream.c src/loader/sci_stream.h src/core/retail_cursor.c src/core/retail_image.c src/core/retail_gd.c include/kui/retail_gd.h include/kui/retail_cursor.h include/kui/retail_image.h include/kui/ata.h
+	@mkdir -p $(@D)
+	$(CC) $(filter-out -O1,$(HOST_FLAGS)) -O2 $(SANITIZERS) -DKUI_RETAIL_NATIVE_HYBRID=1 -DKUI_SCI_SD_NO_BLOCK=1 -DKUI_GENERAL_SCI_RESUME_FIX=1 -DKUI_RETAIL_NATIVE_DISC_CHECK=1 -DKUI_RETAIL_NATIVE_DRIVE_STATE=1 -DKUI_RETAIL_ASYNC_TEST=1 -DKUI_SCI_STREAM_TEST=1 -DKUI_RETAIL_ASYNC=1 -DKUI_RETAIL_GD_ASYNC=1 -DKUI_RETAIL_TRANSPORT=1 -Iinclude -Isrc/loader src/loader/retail_async.c src/loader/sci_stream.c src/core/retail_cursor.c src/core/retail_image.c src/core/retail_gd.c tests/test_retail_async_native_hybrid.c -o $@
+
+build/test-retail-async-ce: tests/test_retail_async_ce.c tests/sci_stream_model.h src/loader/retail_async.c src/loader/retail_async.h src/loader/sci_stream.c src/loader/sci_stream.h src/core/retail_cursor.c src/core/retail_image.c src/core/retail_gd.c include/kui/retail_gd.h include/kui/retail_cursor.h include/kui/retail_image.h include/kui/retail_loader_layout.h include/kui/ata.h
+	@mkdir -p $(@D)
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) -DKUI_RETAIL_ASYNC_TEST=1 -DKUI_SCI_STREAM_TEST=1 -DKUI_RETAIL_ASYNC=1 -DKUI_RETAIL_GD_ASYNC=1 -DKUI_RETAIL_CE=1 -DKUI_RETAIL_TRANSPORT=1 -Iinclude -Isrc/loader src/loader/retail_async.c src/loader/sci_stream.c src/core/retail_cursor.c src/core/retail_image.c src/core/retail_gd.c tests/test_retail_async_ce.c -o $@
+build/test-retail-async-ce-slow: tests/test_retail_async_ce.c tests/sci_stream_model.h src/loader/retail_async.c src/loader/retail_async.h src/loader/sci_stream.c src/loader/sci_stream.h src/core/retail_cursor.c src/core/retail_image.c src/core/retail_gd.c include/kui/retail_gd.h include/kui/retail_cursor.h include/kui/retail_image.h include/kui/retail_loader_layout.h include/kui/ata.h
+	@mkdir -p $(@D)
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) -DKUI_RETAIL_ASYNC_TEST=1 -DKUI_SCI_STREAM_TEST=1 -DKUI_RETAIL_ASYNC=1 -DKUI_RETAIL_GD_ASYNC=1 -DKUI_RETAIL_CE=1 -DKUI_RETAIL_TRANSPORT=1 -DKUI_CE_SCI_SLOW_AFTER_OVERRUN=1 -Iinclude -Isrc/loader src/loader/retail_async.c src/loader/sci_stream.c src/core/retail_cursor.c src/core/retail_image.c src/core/retail_gd.c tests/test_retail_async_ce.c -o $@
+.PHONY: test-ce-slow-after-overrun
+test-ce-slow-after-overrun: build/test-sci-stream-ce-slow build/test-retail-async-ce-slow
+	./build/test-sci-stream-ce-slow
+	./build/test-retail-async-ce-slow
+# The same trial with the faster per-block check (identical bytes and CRC).
+build/test-sci-stream-ce-fast: tests/test_sci_stream.c tests/sci_stream_model.h src/loader/sci_stream.c src/loader/sci_stream.h src/loader/sci_stream_check.h src/loader/sd_reader.h src/loader/sci_sd_bus.h
+	@mkdir -p $(@D)
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) -DKUI_SCI_STREAM_TEST=1 -DKUI_RETAIL_CE=1 -DKUI_CE_SCI_SLOW_AFTER_OVERRUN=1 -DKUI_CE_SCI_FAST_TAKE=1 -Iinclude -Isrc/loader src/loader/sci_stream.c tests/test_sci_stream.c -o $@
+build/test-retail-async-ce-fast: tests/test_retail_async_ce.c tests/sci_stream_model.h src/loader/retail_async.c src/loader/retail_async.h src/loader/sci_stream.c src/loader/sci_stream.h src/loader/sci_stream_check.h src/core/retail_cursor.c src/core/retail_image.c src/core/retail_gd.c include/kui/retail_gd.h include/kui/retail_cursor.h include/kui/retail_image.h include/kui/retail_loader_layout.h include/kui/ata.h
+	@mkdir -p $(@D)
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) -DKUI_RETAIL_ASYNC_TEST=1 -DKUI_SCI_STREAM_TEST=1 -DKUI_RETAIL_ASYNC=1 -DKUI_RETAIL_GD_ASYNC=1 -DKUI_RETAIL_CE=1 -DKUI_RETAIL_TRANSPORT=1 -DKUI_CE_SCI_SLOW_AFTER_OVERRUN=1 -DKUI_CE_SCI_FAST_TAKE=1 -Iinclude -Isrc/loader src/loader/retail_async.c src/loader/sci_stream.c src/core/retail_cursor.c src/core/retail_image.c src/core/retail_gd.c tests/test_retail_async_ce.c -o $@
+.PHONY: test-ce-fast-take
+test-ce-fast-take: build/test-sci-stream-ce-fast build/test-retail-async-ce-fast
+	./build/test-sci-stream-ce-fast
+	./build/test-retail-async-ce-fast
+# Both switches are on by default in every CE reader build.
+test: test-ce-slow-after-overrun test-ce-fast-take
+# The same check's SH-4 assembly, built with the resident's CPU flags and
+# run under qemu-sh4 (Linux user mode) against a bitwise reference.
+SH4_TEST_FLAGS := -std=c11 -Os -Wall -Wextra -Werror -m4-single -ml -mdiv=call-div1 \
+    -mfixed-range=fr0-fr15,fpul-fpul -ffreestanding -nostdlib -static -fno-builtin \
+    -Wl,-Ttext=0x10000 -Wl,-e,__start -Wl,--build-id=none \
+    -Wl,-z,max-page-size=0x1000 -Wl,-z,common-page-size=0x1000
+build/sh4-tests/test-check-words: tests/sh4/test_check_words.c src/loader/sci_stream_check.h
+	@mkdir -p $(@D)
+	sh-elf-gcc $(SH4_TEST_FLAGS) -Isrc/loader $< -lgcc -o $@
+.PHONY: test-sh4-check-words
+test-sh4-check-words: build/sh4-tests/test-check-words
+	qemu-sh4 $<
+
+# Armada Virtual VMU On: the slow refetch patched into the delivered
+# 67b0df9469cc all-on reader (its source was not recovered).
+ALL_ON_SLOW_DIR := build/armada-all-on-slow
+$(ALL_ON_SLOW_DIR)/patch.elf: src/loader/armada_all_on_slow_refetch.S src/loader/armada_all_on_slow_refetch.ld
+	@mkdir -p $(@D)
+	sh-elf-gcc -m4-single -ml -c $< -o $(@D)/patch.o
+	sh-elf-gcc -m4-single -ml -nostdlib -Wl,--build-id=none -Tsrc/loader/armada_all_on_slow_refetch.ld -o $@ $(@D)/patch.o
+$(ALL_ON_SLOW_DIR)/patch-span.bin: $(ALL_ON_SLOW_DIR)/patch.elf
+	sh-elf-objcopy -O binary $< $@
+build/sh4-tests/test-all-on-slow-refetch: tests/sh4/test_all_on_slow_refetch.c $(ALL_ON_SLOW_DIR)/patch-span.bin
+	@mkdir -p $(@D)
+	sh-elf-gcc $(SH4_TEST_FLAGS) -DIMAGE_FILE='"$(ALL_ON_SLOW_DIR)/patch-span.bin"' $< -lgcc -o $@
+.PHONY: test-sh4-all-on-slow-refetch
+test-sh4-all-on-slow-refetch: build/sh4-tests/test-all-on-slow-refetch
+	qemu-sh4 $<
+# ALL_ON_ORIGINAL: the delivered ce-armada-all-on.kui (not in the repository).
+.PHONY: armada-all-on-slow-refetch
+armada-all-on-slow-refetch: $(ALL_ON_SLOW_DIR)/patch.elf
+	@test -n "$(ALL_ON_ORIGINAL)" || { echo "Set ALL_ON_ORIGINAL to the delivered 67b0df9469cc ce-armada-all-on.kui"; exit 1; }
+	python3 tools/patch_armada_all_on_slow_refetch.py '$(ALL_ON_ORIGINAL)' $< $(ALL_ON_SLOW_DIR)/ce-armada-all-on.kui --build-id $(BUILD_ID)
+
+build/test-ce-load-plan: tests/test_ce_load_plan.c src/core/ce_load_plan.c include/kui/ce_load_plan.h include/kui/retail_loader_layout.h
+	@mkdir -p $(@D)
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) -Iinclude src/core/ce_load_plan.c tests/test_ce_load_plan.c -o $@
+
+build/test-retail-gd: tests/test_retail_gd.c src/core/retail_gd.c include/kui/retail_gd.h include/kui/retail_image.h
+	@mkdir -p $(@D)
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) src/core/retail_gd.c tests/test_retail_gd.c -o $@
+
+build/test-retail-gd-subcode: tests/test_retail_gd_subcode.c src/core/retail_gd.c include/kui/retail_gd.h include/kui/retail_image.h
+	@mkdir -p $(@D)
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) $< -o $@
+
+.PHONY: test-retail-observe
+test-retail-observe: build/test-retail-observe build/test-retail-observe-fault
+	./build/test-retail-observe
+	./build/test-retail-observe-fault
+
+build/test-retail-observe: tests/test_retail_observe.c src/core/retail_observe.c include/kui/retail_observe.h include/kui/retail_image.h
+	@mkdir -p build
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) -Iinclude src/core/retail_observe.c tests/test_retail_observe.c -o $@
+
+build/test-retail-observe-fault: tests/test_retail_observe_fault.c src/loader/retail_observe.inc src/core/retail_observe.c include/kui/retail_observe.h include/kui/retail_image.h include/kui/retail_gd.h include/kui/retail_loader_layout.h src/loader/retail_display.h src/loader/sd_reader.h
+	@mkdir -p build
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) -Iinclude -Isrc/loader src/core/retail_observe.c tests/test_retail_observe_fault.c -o $@
+
+build/test-retail-gd-async: tests/test_retail_gd.c src/core/retail_gd.c include/kui/retail_gd.h include/kui/retail_image.h
+	@mkdir -p $(@D)
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) -DKUI_RETAIL_GD_ASYNC=1 src/core/retail_gd.c tests/test_retail_gd.c -o $@
+
+build/test-retail-gd-ce: tests/test_retail_gd.c src/core/retail_gd.c include/kui/retail_gd.h include/kui/retail_image.h
+	@mkdir -p $(@D)
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) -DKUI_RETAIL_CE=1 src/core/retail_gd.c tests/test_retail_gd.c -o $@
+
+build/test-retail-pace: tests/test_retail_pace.c src/core/retail_pace.c include/kui/retail_pace.h
+	@mkdir -p $(@D)
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) src/core/retail_pace.c tests/test_retail_pace.c -o $@
+
+build/loader-probe-image: tests/loader_probe_image.c src/apps/games_probe.c $(LOADER_PROBE) src/core/runtime_image.c src/core/runtime_file.c src/core/storage_probe.c $(CORE) $(FATFS) include/kui/games_probe.h include/kui/loader_probe.h
+	@mkdir -p $(@D)
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) -Isrc/dreamcast tests/loader_probe_image.c src/apps/games_probe.c $(LOADER_PROBE) src/core/runtime_image.c src/core/runtime_file.c src/core/storage_probe.c $(CORE) $(FATFS) -Wl,--wrap=f_open -Wl,--wrap=f_read -Wl,--wrap=f_lseek -Wl,--wrap=f_close -Wl,--wrap=f_mount -Wl,--wrap=f_write -Wl,--wrap=f_mkdir -Wl,--wrap=f_unlink -Wl,--wrap=f_rename -o $@
+
+build/test-resident-image: tests/test_resident_image.c $(RESIDENT_IMAGE) include/kui/resident_image.h include/kui/game_image.h
+	@mkdir -p $(@D)
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) $(RESIDENT_IMAGE) tests/test_resident_image.c -o $@
+
+build/test-gd-service: tests/test_gd_service.c $(GD_SERVICE) include/kui/gd_service.h
+	@mkdir -p $(@D)
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) $(GD_SERVICE) tests/test_gd_service.c -o $@
+
+build/test-image-client: tests/test_image_client.c src/loader/image_client.c $(GD_SERVICE) include/kui/image_client.h include/kui/gd_service.h
+	@mkdir -p $(@D)
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) src/loader/image_client.c $(GD_SERVICE) tests/test_image_client.c -o $@
+
+GAMES_IMAGE_PROBE = src/apps/games_image_probe.c $(RESIDENT_IMAGE) src/core/game_image.c src/core/zso.c src/core/lzo1x.c src/core/game_metadata.c $(DESTINATION) src/core/runtime_image.c src/core/runtime_file.c src/core/storage_probe.c
+GAMES_IMAGE_PROBE_WRAP = -Wl,--wrap=f_open,--wrap=f_read,--wrap=f_lseek,--wrap=f_close,--wrap=f_mount,--wrap=f_write,--wrap=f_mkdir,--wrap=f_unlink,--wrap=f_rename
+build/games-image-probe: tests/games_image_probe.c $(GAMES_IMAGE_PROBE) $(CORE) $(FATFS) include/kui/games_image_probe.h include/kui/resident_image.h include/kui/game_image.h include/kui/game_metadata.h include/kui/image_loader_layout.h include/kui/runtime.h include/kui/destination.h include/kui/media.h src/dreamcast/platform.h config/ffconf.h .deps/fatfs/source/ff.h
+	@mkdir -p $(@D)
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) -Isrc/dreamcast tests/games_image_probe.c $(GAMES_IMAGE_PROBE) $(CORE) $(FATFS) $(GAMES_IMAGE_PROBE_WRAP) -o $@
+
+GAMES_RETAIL = src/core/smash_native_child.c src/core/vmu_launch_package.c src/core/retail_zso.c src/apps/game_launch_report.c src/core/game_launch_settings.c src/core/game_ram_patches.c src/apps/games_retail.c src/core/hash.c src/core/retail_image.c src/core/retail_cursor.c src/core/game_image.c src/core/zso.c src/core/lzo1x.c src/core/game_metadata.c $(DESTINATION) src/core/runtime_image.c src/core/runtime_file.c src/core/storage_probe.c src/core/vmu_emulation_settings.c
+GAMES_RETAIL += $(NATIVE_CACHE_SOURCES)
+GAMES_RETAIL += src/core/smash_menu_collection.c src/core/smash_menu_loader.c src/core/smash_ce_child.c src/core/smash_ce_profile.c src/core/smash_ce_helper.c
+GAMES_RETAIL += src/apps/native_session_prepare.c src/core/native_session.c src/core/native_return.c src/core/storage_policy.c
+
+NATIVE_SESSION_CORE = src/core/native_session.c src/core/native_return.c src/core/storage_policy.c
+NATIVE_SESSION_PREP_TEST = tests/test_native_session_prepare.c src/apps/native_session_prepare.c $(NATIVE_SESSION_CORE) src/core/runtime_image.c src/core/retail_image.c src/core/game_launch_settings.c src/core/game_ram_patches.c src/core/data.c
+.PHONY: test-native-session-controls
+test-native-session-controls: build/test-native-return build/test-native-session-stage build/test-native-session-prepare build/test-native-disc-set build/test-native-return-hardware build/test-retail-gd-disc build/test-retail-gd-disc-async
+	ASAN_OPTIONS=detect_leaks=0 ./build/test-native-return
+	ASAN_OPTIONS=detect_leaks=0 ./build/test-native-session-stage
+	ASAN_OPTIONS=detect_leaks=0 ./build/test-native-session-prepare
+	python3 tests/test_native_session_return_batch.py build/return-runtime-batching.json
+	ASAN_OPTIONS=detect_leaks=0 ./build/test-native-disc-set
+	ASAN_OPTIONS=detect_leaks=0 ./build/test-native-return-hardware
+	ASAN_OPTIONS=detect_leaks=0 ./build/test-retail-gd-disc
+	ASAN_OPTIONS=detect_leaks=0 ./build/test-retail-gd-disc-async
+	python3 tests/test_native_session_worker.py
+	python3 tests/test_native_session_cold_bind.py
+	python3 tests/test_native_session_switch.py
+	python3 tests/test_retail_async_session.py
+	python3 tests/test_native_session_config.py
+build/test-native-return: tests/test_native_return.c src/core/native_return.c src/core/storage_policy.c src/core/data.c
+	@mkdir -p $(@D)
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) $^ -o $@
+build/test-native-session-stage: tests/test_native_session_stage.c $(NATIVE_SESSION_CORE) src/core/retail_image.c
+	@mkdir -p $(@D)
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) -Isrc/loader -DKUI_NATIVE_SESSION_CONTROLS=1 -DKUI_VMU_NATIVE_PERSISTENT_PROBE=1 $^ -o $@
+build/test-native-session-prepare: $(NATIVE_SESSION_PREP_TEST)
+	@mkdir -p $(@D)
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) $^ -o $@
+build/test-native-disc-set: tests/test_native_disc_set.c src/core/native_disc_set.c src/core/native_session.c src/core/retail_image.c
+	@mkdir -p $(@D)
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) -DKUI_NATIVE_SESSION_CONTROLS=1 -DKUI_RETAIL_MANIFEST_SLOTS=64 $^ -o $@
+build/test-native-return-hardware: tests/test_native_return_hardware.c src/loader/native_return_hardware.c
+	@mkdir -p $(@D)
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) -Isrc/loader -DKUI_NATIVE_RETURN_HARDWARE_HOST_TEST=1 $^ -o $@
+build/test-retail-gd-disc: tests/test_retail_gd_disc.c src/core/retail_gd.c src/core/retail_image.c
+	@mkdir -p $(@D)
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) -DKUI_NATIVE_SESSION_CONTROLS=1 $^ -o $@
+build/test-retail-gd-disc-async: tests/test_retail_gd_disc.c src/core/retail_gd.c src/core/retail_image.c
+	@mkdir -p $(@D)
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) -DKUI_NATIVE_SESSION_CONTROLS=1 -DKUI_RETAIL_GD_ASYNC=1 $^ -o $@
+build/games-retail: tests/games_retail.c $(GAMES_RETAIL) $(CORE) $(FATFS) include/kui/games_retail.h include/kui/ce_load_plan.h include/kui/retail_image.h include/kui/retail_loader_layout.h include/kui/game_image.h include/kui/game_metadata.h include/kui/runtime.h include/kui/destination.h include/kui/media.h src/dreamcast/platform.h config/ffconf.h .deps/fatfs/source/ff.h include/kui/game_ram_patches.h include/kui/game_launch_settings.h include/kui/game_launch_report.h include/kui/retail_zso.h include/kui/zso.h
+build/games-retail: src/apps/games_native_cache.inc include/kui/native_standalone_capability.h include/kui/native_sdk_sci_family.h
+	@mkdir -p $(@D)
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) -Isrc/dreamcast tests/games_retail.c $(GAMES_RETAIL) $(CORE) $(FATFS) $(GAMES_IMAGE_PROBE_WRAP) -Wl,--wrap=kui_native_sdk_sci_family_find -o $@
+
+build/test-core: tests/test_core.c $(CORE) include/kui/core.h include/kui/media.h config/ffconf.h .deps/fatfs/source/ff.h
+	@mkdir -p build
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) $(CORE) tests/test_core.c -o $@
+
+build/test-clock: tests/test_clock.c src/core/clock.c include/kui/clock.h
+	@mkdir -p $(@D)
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) src/core/clock.c tests/test_clock.c -o $@
+
+build/test-clock-platform: tests/test_clock_platform.c src/core/clock.c src/dreamcast/clock.c include/kui/clock.h include/kui/clock_platform.h tests/clock_stubs/arch/rtc.h tests/clock_stubs/dc/flashrom.h
+	@mkdir -p $(@D)
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) -Itests/clock_stubs src/core/clock.c src/dreamcast/clock.c tests/test_clock_platform.c -o $@
+
+build/scan-fixtures/.stamp: tools/make_scan_fixtures.py tests/make_recovery_vectors.py
+	python3 tools/make_scan_fixtures.py build/scan-fixtures
+	touch $@
+
+build/test-recovery-manifest: tests/test_recovery_manifest.c src/core/recovery_manifest.c src/core/capture_plan.c src/core/data.c include/kui/recovery_scan.h include/kui/recovery_checks.h
+	@mkdir -p $(@D)
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) src/core/recovery_manifest.c src/core/capture_plan.c src/core/data.c tests/test_recovery_manifest.c -o $@
+
+build/test-capture-core: tests/test_capture_core.c src/core/hash.c src/core/capture_plan.c src/core/data.c src/core/game_image.c src/core/zso.c src/core/lzo1x.c include/kui/game_image.h include/kui/hash.h include/kui/capture.h include/kui/zso.h
+	@mkdir -p build
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) src/core/data.c src/core/hash.c src/core/capture_plan.c src/core/game_image.c src/core/zso.c src/core/lzo1x.c tests/test_capture_core.c -o $@
+
+.PHONY: test-capture-cd
+test-capture-cd: build/test-capture-core build/test-recovery-manifest build/capture-image
+	ASAN_OPTIONS=detect_leaks=0 ./build/test-capture-core
+	ASAN_OPTIONS=detect_leaks=0 python3 tests/test_capture_cd_images.py
+
+build/test-capture-export: tests/test_capture_export.c src/core/capture_export.c src/core/capture_chd.c src/core/hash.c src/core/data.c $(EXPORT_CODECS) include/kui/capture_export.h src/core/capture_export_internal.h
+	@mkdir -p $(@D)
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) $(EXPORT_CODEC_FLAGS) src/core/data.c src/core/hash.c src/core/capture_export.c src/core/capture_chd.c $(EXPORT_CODECS) tests/test_capture_export.c -o $@
+
+build/test-options: tests/test_options.c src/core/options.c include/kui/options.h .deps/fatfs/source/ff.h
+	@mkdir -p build
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) src/core/options.c tests/test_options.c -o $@
+
+build/test-ui-rate: tests/test_ui_rate.c include/kui/ui_rate.h include/kui/options.h .deps/fatfs/source/ff.h
+	@mkdir -p build
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) tests/test_ui_rate.c -o $@
+
+build/test-settings: tests/test_settings.c src/core/settings.c src/core/data.c include/kui/settings.h .deps/fatfs/source/ff.h
+	@mkdir -p $(@D)
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) src/core/settings.c src/core/data.c tests/test_settings.c -o $@
+
+build/test-shell: $(DRIVE_CONTROLS) $(SALVAGE_DISPLAY) include/kui/games_selection.h include/kui/zso.h include/kui/game_launch_settings.h src/core/wifi_text.c include/kui/network_wifi.h $(STORAGE_TEST_MODEL) include/kui/storage_test.h include/kui/storage_error.h src/core/files_path.c include/kui/files.h include/kui/version.h src/core/clock.c src/apps/system_settings.c include/kui/system_settings.h src/core/destination.c include/kui/destination.h tests/test_shell.c src/core/games_selection.c src/core/game_launch_settings.c src/core/game_ram_patches.c src/core/shell.c src/dreamcast/shell_draw.c src/apps/splash_art.c third_party/miniz/miniz.c src/dreamcast/shell_font.c src/dreamcast/shell_font_data.inc src/dreamcast/shell_art.inc include/kui/shell_font.h src/core/settings.c src/core/data.c include/kui/shell.h include/kui/settings.h .deps/fatfs/source/ff.h include/kui/game_ram_patches.h src/apps/splash_art.c include/kui/splash.h src/dreamcast/shell_art.inc
+	@mkdir -p $(@D)
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) $(EXPORT_CODEC_FLAGS) $(STORAGE_TEST_MODEL) src/core/wifi_text.c src/core/destination.c src/core/files_path.c src/core/game_launch_settings.c src/core/game_ram_patches.c src/core/games_selection.c src/core/game_profile.c src/core/hash.c src/core/games_query.c src/core/theme.c src/core/shell.c src/core/clock.c src/dreamcast/shell_draw.c src/apps/splash_art.c third_party/miniz/miniz.c src/dreamcast/shell_font.c src/apps/system_settings.c src/core/settings.c src/core/data.c src/core/salvage_display.c src/core/drive_controls.c tests/test_shell.c -o $@
+
+build/test-shell-font: tests/test_shell_font.c src/dreamcast/shell_font.c src/dreamcast/shell_font_data.inc include/kui/shell_font.h
+	@mkdir -p $(@D)
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) src/dreamcast/shell_font.c tests/test_shell_font.c -o $@
+
+build/render-shell: $(DRIVE_CONTROLS) $(SALVAGE_DISPLAY) include/kui/games_selection.h include/kui/zso.h include/kui/game_launch_settings.h src/core/wifi_text.c include/kui/network_wifi.h $(STORAGE_TEST_MODEL) include/kui/storage_test.h include/kui/storage_error.h src/core/files_path.c include/kui/files.h include/kui/version.h src/core/clock.c src/apps/system_settings.c include/kui/system_settings.h src/core/destination.c src/core/data.c include/kui/destination.h tests/render_shell.c src/core/games_selection.c src/core/game_launch_settings.c src/core/game_ram_patches.c src/core/shell.c src/dreamcast/shell_draw.c src/apps/splash_art.c third_party/miniz/miniz.c src/dreamcast/shell_font.c src/dreamcast/shell_art.inc src/dreamcast/shell_font_data.inc include/kui/shell.h include/kui/shell_font.h include/kui/game_ram_patches.h src/apps/splash_art.c include/kui/splash.h src/dreamcast/shell_art.inc
+	@mkdir -p $(@D)
+	$(CC) $(HOST_FLAGS) $(INCLUDES) $(EXPORT_CODEC_FLAGS) $(STORAGE_TEST_MODEL) src/core/wifi_text.c src/core/destination.c src/core/files_path.c src/core/data.c src/core/game_launch_settings.c src/core/game_ram_patches.c src/core/games_selection.c src/core/game_profile.c src/core/hash.c src/core/games_query.c src/core/theme.c src/core/shell.c src/core/clock.c src/dreamcast/shell_draw.c src/apps/splash_art.c third_party/miniz/miniz.c src/dreamcast/shell_font.c src/apps/system_settings.c src/core/salvage_display.c src/core/drive_controls.c tests/render_shell.c -o $@
+
+build/test-capture-adapter: src/core/destination.c src/core/data.c include/kui/destination.h tests/test_capture_adapter.c src/dreamcast/capture.c src/dreamcast/platform.h include/kui/capture.h .deps/fatfs/source/ff.h
+	@mkdir -p $(@D)
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) src/core/destination.c src/core/data.c -Itests/stubs -Isrc/dreamcast src/dreamcast/capture.c tests/test_capture_adapter.c -o $@
+
+build/test-known-dumps: tests/test_known_dumps.c src/core/known_dumps.c include/kui/known_dumps.h $(CORE) $(FATFS)
+	@mkdir -p $(@D)
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) $(CORE) $(FATFS) src/core/known_dumps.c tests/test_known_dumps.c -o $@
+
+build/test-crc16: tests/test_crc16.c src/core/crc16.c include/kui/crc16.h
+	@mkdir -p $(@D)
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) src/core/crc16.c tests/test_crc16.c -o $@
+
+build/test-timing: tests/test_timing.c src/core/timing.c include/kui/timing.h
+	@mkdir -p build
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) src/core/timing.c tests/test_timing.c -o $@
+
+build/test-disc: $(DRIVE_CONTROLS) tests/test_disc.c src/dreamcast/disc.c src/dreamcast/platform.h src/core/command.c src/core/data.c src/core/capture_plan.c $(wildcard tests/stubs/dc/*.h tests/stubs/kos/*.h tests/stubs/arch/*.h) .deps/fatfs/source/ff.h
+	@mkdir -p build
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) -DKUI_EXPERIMENTAL_DMA=1 -Itests/stubs -Isrc/dreamcast src/dreamcast/disc.c src/core/command.c src/core/data.c src/core/capture_plan.c src/core/drive_controls.c tests/test_disc.c -o $@
+
+.PHONY: test-capture-tail
+test-capture-tail:
+	python3 tests/test_capture_tail_images.py
+
+build/capture-image: src/core/repair_baseline.inc tests/capture_image.c src/core/repair_resume.inc src/core/repair_identity.inc src/core/repair_saved_identity.inc src/core/repair_catalogue.inc src/core/repair_catalogue_report.inc src/core/repair_inplace.inc src/core/repair_holes.inc include/kui/saved_identity.h include/kui/raw_cue.h include/kui/legacy_import.h $(CORE) $(CAPTURE) $(filter-out $(CAPTURE) src/core/storage_probe.c,$(REPAIR_COPY)) src/core/storage_probe.c $(FATFS) include/kui/capture.h include/kui/timing.h
+	@mkdir -p build
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) $(EXPORT_CODEC_FLAGS) $(CORE) $(CAPTURE) $(filter-out $(CAPTURE) src/core/storage_probe.c,$(REPAIR_COPY)) src/core/storage_probe.c $(FATFS) tests/capture_image.c -o $@
+
+build/storage-image: tests/storage_image.c $(CORE) src/core/storage_probe.c $(FATFS) include/kui/probe.h
+	@mkdir -p build
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) $(CORE) src/core/storage_probe.c $(FATFS) tests/storage_image.c -o $@
+
+build/runtime-image: tests/runtime_image.c $(CORE) src/core/storage_probe.c src/core/runtime_image.c src/core/runtime_file.c $(FATFS) include/kui/runtime.h
+	@mkdir -p $(@D)
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) $(CORE) src/core/storage_probe.c src/core/runtime_image.c src/core/runtime_file.c $(FATFS) tests/runtime_image.c -o $@
+
+build/bench-image: tests/bench_image.c $(CORE) $(CAPTURE) src/core/crc16.c src/core/options.c src/core/bench.c src/core/storage_probe.c $(FATFS) include/kui/bench.h include/kui/options.h
+	@mkdir -p $(@D)
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) $(EXPORT_CODEC_FLAGS) $(CORE) $(CAPTURE) src/core/crc16.c src/core/options.c src/core/bench.c src/core/storage_probe.c $(FATFS) tests/bench_image.c -o $@
+
+build/report-image: tests/report_image.c $(CORE) src/core/storage_probe.c src/core/report.c $(FATFS) include/kui/report.h
+	@mkdir -p $(@D)
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) $(CORE) src/core/storage_probe.c src/core/report.c $(FATFS) tests/report_image.c -o $@
+
+build/settings-image: tests/settings_image.c $(CORE) $(FATFS) src/core/storage_probe.c src/core/settings.c src/core/settings_file.c src/core/options.c src/core/options_file.c include/kui/settings.h
+	@mkdir -p $(@D)
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) $(CORE) $(FATFS) src/core/storage_probe.c src/core/settings.c src/core/settings_file.c src/core/options.c src/core/options_file.c tests/settings_image.c -o $@
+
+STORAGE_TEST = $(STORAGE_TEST_MODEL) src/core/storage_test.c src/core/storage_test_store.c
+STORAGE_TEST_HEADERS = include/kui/storage_test.h include/kui/storage_error.h
+build/storage-test-image: tests/storage_test_image.c $(CORE) $(STORAGE_TEST) src/core/storage_probe.c $(FATFS) $(STORAGE_TEST_HEADERS)
+	@mkdir -p $(@D)
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) $(CORE) $(STORAGE_TEST) src/core/storage_probe.c $(FATFS) tests/storage_test_image.c -Wl,--wrap=f_open -Wl,--wrap=f_read -Wl,--wrap=f_write -Wl,--wrap=f_sync -Wl,--wrap=f_close -Wl,--wrap=f_mount -Wl,--wrap=f_unlink -Wl,--wrap=f_getfree -o $@
+
+build/storage-test-store-image: tests/storage_test_store_image.c $(CORE) $(STORAGE_TEST_MODEL) src/core/storage_test_store.c $(FATFS) $(STORAGE_TEST_HEADERS)
+	@mkdir -p $(@D)
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) $(CORE) $(STORAGE_TEST_MODEL) src/core/storage_test_store.c $(FATFS) tests/storage_test_store_image.c -o $@
+
+test-images: build/vmu-import-image build/test-wifi-update build/storage-test-image build/storage-test-store-image build/ftp-image build/files-image build/games-retail build/games-image-probe build/loader-probe-image build/games-image build/games-covers-image build/salvage-image build/salvage-session-image build/maintenance-image build/recovery-scan-image build/clock-image build/test-vmu-app build/system-settings-image build/destination-image build/storage-image build/runtime-image build/capture-image build/test-recovery-manifest build/report-image build/bench-image build/settings-image
+	python3 tests/test_wifi_update_images.py
+	python3 tests/test_storage_test_images.py
+	python3 tests/test_storage_test_store_images.py
+	python3 tests/test_games_retail.py
+	python3 tests/test_games_image_probe.py
+	python3 tests/test_loader_probe_images.py
+	python3 tests/test_games_images.py
+	python3 tests/test_games_covers_images.py
+	python3 tests/test_files_images.py
+	python3 tests/test_ftp_images.py
+	python3 tests/test_salvage_images.py
+	python3 tests/test_salvage_session_images.py
+	python3 tests/test_maintenance_images.py
+	python3 tests/test_recovery_scan_images.py
+	python3 tests/test_clock_images.py
+	python3 tests/test_vmu_images.py
+	python3 tests/test_vmu_import_images.py
+	python3 tests/test_system_settings_images.py
+	python3 tests/test_images.py
+	python3 tests/test_runtime_images.py
+	python3 tests/test_capture_images.py
+	python3 tests/test_capture_cd_images.py
+	python3 tests/test_capture_cue_images.py
+	python3 tests/test_capture_compressed_images.py
+	python3 tests/test_capture_cooked_images.py
+	python3 tests/test_capture_direct_images.py
+	python3 tests/test_capture_repaired_images.py
+	python3 tests/test_repair_copy_images.py
+	python3 tests/test_report_images.py
+	python3 tests/test_bench_images.py
+	python3 tests/test_known_images.py
+	python3 tests/test_capture_options.py
+	python3 tests/test_settings_images.py
+	python3 tests/test_destination_images.py
+	python3 tests/test_named_capture_images.py
+
+build/clock-image: tests/clock_image.c $(CORE) $(FATFS) include/kui/clock.h config/ffconf.h
+	@mkdir -p $(@D)
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) $(CORE) $(FATFS) tests/clock_image.c -o $@
+
+RECOVERY_SCAN = src/core/storage_probe.c src/core/destination.c src/core/hash.c src/core/capture_plan.c src/core/recovery_manifest.c src/core/recovery_scan.c src/core/recovery_guard.c src/core/recovery_sector.c src/core/known_dumps.c
+build/recovery-scan-image: tests/recovery_scan_image.c $(CORE) $(FATFS) $(RECOVERY_SCAN) include/kui/recovery_scan.h include/kui/recovery_checks.h
+	@mkdir -p $(@D)
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) $(CORE) $(FATFS) $(RECOVERY_SCAN) tests/recovery_scan_image.c -Wl,--wrap=f_rename -Wl,--wrap=f_close -Wl,--wrap=f_read -o $@
+
+diagnostic:
+	$(MAKE) -f Makefile.dc
+
+clean:
+	rm -rf build dist
+
+
+build/test-destination: tests/test_destination.c src/core/destination.c src/core/data.c include/kui/destination.h .deps/fatfs/source/ff.h
+	@mkdir -p $(@D)
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) src/core/destination.c src/core/data.c tests/test_destination.c -o $@
+
+build/destination-image: tests/destination_image.c $(CORE) $(DESTINATION) $(FATFS) src/core/storage_probe.c src/core/settings.c include/kui/destination.h
+	@mkdir -p $(@D)
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) $(CORE) $(DESTINATION) $(FATFS) src/core/storage_probe.c src/core/settings.c tests/destination_image.c -o $@
+
+# App modules are host-checkable independently of the frozen reader.
+build/test-system-settings: tests/test_system_settings.c src/apps/system_settings.c src/core/data.c include/kui/system_settings.h
+	@mkdir -p $(@D)
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) src/apps/system_settings.c src/core/data.c tests/test_system_settings.c -o $@
+
+build/system-settings-image: tests/system_settings_image.c $(CORE) $(FATFS) src/core/storage_probe.c src/apps/system_settings.c src/apps/system_settings_file.c include/kui/system_settings.h
+	@mkdir -p $(@D)
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) $(CORE) $(FATFS) src/core/storage_probe.c src/apps/system_settings.c src/apps/system_settings_file.c tests/system_settings_image.c -o $@
+
+build/test-disc-identity: tests/test_disc_identity.c src/apps/disc_identity.c src/core/data.c src/core/hash.c include/kui/disc_identity.h
+	@mkdir -p $(@D)
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) -DKUI_ON_CONSOLE=1 -Itests/identity_stubs -Isrc/dreamcast src/apps/disc_identity.c src/core/data.c src/core/hash.c tests/test_disc_identity.c -o $@
+
+build/test-wav: tests/test_wav.c src/apps/wav.c include/kui/wav.h
+	@mkdir -p $(@D)
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) src/apps/wav.c tests/test_wav.c -o $@
+
+build/test-music: tests/test_music.c src/apps/music.c src/apps/wav.c src/apps/music_ogg.c include/kui/music.h include/kui/wav.h
+	@mkdir -p $(@D)
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) -DKUI_MUSIC_ALLOC_TEST=1 -Itests/stubs -Isrc/dreamcast src/apps/music.c src/apps/wav.c src/apps/music_ogg.c tests/test_music.c -Wl,--wrap=malloc,--wrap=free -lm -o $@
+
+build/test-music-thread: tests/test_music.c src/apps/music.c src/apps/wav.c src/apps/music_ogg.c include/kui/music.h include/kui/wav.h tests/stubs/kos/mutex.h tests/stubs/kos/thread.h
+	@mkdir -p $(@D)
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) -DKUI_MUSIC_ALLOC_TEST=1 -DKUI_ON_CONSOLE=1 -Itests/stubs -Isrc/dreamcast src/apps/music.c src/apps/wav.c src/apps/music_ogg.c tests/test_music.c -Wl,--wrap=malloc,--wrap=free -lm -o $@
+
+build/test-memory-app: tests/test_memory_app.c src/apps/memory_pattern.c include/kui/memory_test.h
+	@mkdir -p $(@D)
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) src/apps/memory_pattern.c tests/test_memory_app.c -o $@
+
+build/test-network-app: tests/test_network_app.c src/apps/network_test.c src/apps/network_ethernet.c src/apps/network_ethernet.h src/apps/network_status.c include/kui/network_test.h include/kui/network_w5500.h include/kui/w5500.h $(wildcard tests/apps_stubs/kos/*.h tests/apps_stubs/dc/*.h tests/apps_stubs/dc/net/*.h)
+	@mkdir -p $(@D)
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) -Itests/apps_stubs src/apps/network_test.c src/apps/network_ethernet.c src/apps/network_status.c tests/test_network_app.c -o $@
+
+build/test-vmu-app: tests/test_vmu_app.c $(CORE) $(DESTINATION) src/core/storage_probe.c $(FATFS) $(VMU_MANAGEMENT) src/core/hash.c src/apps/vmu.c src/apps/vmu_collection.inc include/kui/apps.h include/kui/vmu_read_bounded.h $(wildcard tests/vmu_stubs/dc/*.h tests/vmu_stubs/dc/maple/*.h)
+	@mkdir -p $(@D)
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) -fno-pie -no-pie -DKUI_VMU_CAPTURE_TEST_WRAP_CRC=1 $(INCLUDES) -Itests/vmu_stubs -Isrc/dreamcast $(CORE) $(DESTINATION) src/core/storage_probe.c $(FATFS) $(VMU_MANAGEMENT) src/core/hash.c src/apps/vmu.c tests/test_vmu_app.c -Wl,--wrap=kui_crc32,--wrap=kui_vmu_image_pack -o $@
+
+build/test-vmu-menu-backup: tests/test_vmu_menu_backup.c tests/test_vmu_app.c $(CORE) $(DESTINATION) src/core/storage_probe.c $(FATFS) $(VMU_MANAGEMENT) src/core/hash.c src/apps/vmu.c src/apps/vmu_collection.inc include/kui/apps.h include/kui/vmu_read_bounded.h $(wildcard tests/vmu_stubs/dc/*.h tests/vmu_stubs/dc/maple/*.h)
+	@mkdir -p $(@D)
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) -fno-pie -no-pie -DKUI_VMU_CAPTURE_TEST_WRAP_CRC=1 $(INCLUDES) -Itests/vmu_stubs -Isrc/dreamcast $(CORE) $(DESTINATION) src/core/storage_probe.c $(FATFS) $(VMU_MANAGEMENT) src/core/hash.c src/apps/vmu.c tests/test_vmu_menu_backup.c -Wl,--wrap=kui_crc32,--wrap=kui_vmu_image_pack -o $@
+
+.PHONY: test-vmu-menu-backup
+test-vmu-menu-backup: build/test-vmu-menu-backup
+	python3 tests/test_vmu_menu_backup.py
+
+.PHONY: test-vmu-read-recovery
+test-vmu-read-recovery: build/test-vmu-app
+	python3 tests/test_vmu_read_recovery.py
+	python3 tests/test_vmu_capture_recover.py
+
+.PHONY: test-vmu-match-memory
+test-vmu-match-memory: build/test-vmu-match-memory
+	ASAN_OPTIONS=detect_leaks=0 python3 tests/test_vmu_match_memory.py
+build/test-vmu-match-memory: tests/test_vmu_match_memory.c src/apps/vmu_match_memory.c src/core/vmu_import_plan.c src/core/vmu_image_subset.c src/core/vmu_image.c src/core/hash.c src/core/data.c $(FATFS) include/kui/vmu_match_memory.h
+	@mkdir -p $(@D)
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) -fno-pie -no-pie $(INCLUDES) tests/test_vmu_match_memory.c src/apps/vmu_match_memory.c src/core/vmu_import_plan.c src/core/vmu_image_subset.c src/core/vmu_image.c src/core/hash.c src/core/data.c $(FATFS) -Wl,--wrap=f_open,--wrap=f_read,--wrap=f_write,--wrap=f_sync,--wrap=f_rename,--wrap=f_unlink -o $@
+
+build/test-vmu-save-format: tests/test_vmu_save_format.c src/core/vmu_save_format.c src/core/crc16.c include/kui/vmu_import.h include/kui/crc16.h
+	@mkdir -p $(@D)
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) tests/test_vmu_save_format.c src/core/vmu_save_format.c src/core/crc16.c -o $@
+
+build/test-vmu-description: tests/test_vmu_description.c src/core/vmu_description.c include/kui/vmu_description.h
+	@mkdir -p $(@D)
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) -fno-pie -no-pie $(INCLUDES) tests/test_vmu_description.c src/core/vmu_description.c -o $@
+
+build/vmu-import-image: tests/vmu_import_image.c $(CORE) $(DESTINATION) src/core/storage_probe.c src/core/files_path.c src/core/hash.c src/core/crc16.c $(FATFS) $(VMU_MANAGEMENT) src/core/vmu_save_format.c src/apps/vmu_import.c src/apps/vmu.c src/apps/vmu_collection.inc include/kui/vmu_import.h include/kui/apps.h include/kui/vmu_read_bounded.h $(wildcard tests/vmu_stubs/dc/*.h tests/vmu_stubs/dc/maple/*.h)
+	@mkdir -p $(@D)
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) -Itests/vmu_stubs -Isrc/dreamcast $(CORE) $(DESTINATION) src/core/storage_probe.c src/core/files_path.c src/core/hash.c src/core/crc16.c $(FATFS) $(VMU_MANAGEMENT) src/core/vmu_save_format.c src/apps/vmu_import.c src/apps/vmu.c tests/vmu_import_image.c -o $@
+
+# Original startup assets are encoded on the host, never decoded during ripping.
+build/splash_art.inc build/factory_splash_art.inc build/boot_splash_art.inc build/startup_ogg.inc &: tools/build_splash.py tools/pack_theme.py resources/themes/moonlit-muramasa/splash.kuiimg resources/branding/startup.png resources/branding/boot-red.png resources/branding/startup-chime.ogg
+	python3 tools/build_splash.py
+
+build/test-splash: tests/test_splash.c src/apps/splash.c src/apps/boot_splash.c src/apps/splash_art.c include/kui/splash.h build/splash_art.inc build/factory_splash_art.inc build/boot_splash_art.inc $(EXPORT_CODECS)
+	@mkdir -p $(@D)
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) $(EXPORT_CODEC_FLAGS) src/apps/splash.c src/apps/boot_splash.c src/apps/splash_art.c third_party/miniz/miniz.c tests/test_splash.c -o $@
+
+build/test-boot-stage1: tests/test_boot_stage1.c src/bootstage/stage1_load.c include/kui/boot_copies.h
+	@mkdir -p $(@D)
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) src/bootstage/stage1_load.c tests/test_boot_stage1.c -o $@
+
+build/test-gd-play: tests/test_gd_play.c src/apps/gd_play.c include/kui/gd_play.h tests/gd_play_stubs/arch/arch.h
+	@mkdir -p $(@D)
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) -Itests/gd_play_stubs src/apps/gd_play.c tests/test_gd_play.c -o $@
+
+
+build/test-wav-stream: tests/test_wav_stream.c src/apps/wav.c include/kui/wav.h
+	@mkdir -p $(@D)
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) src/apps/wav.c tests/test_wav_stream.c -o $@
+
+build/test-music-player: tests/test_music_player.c src/apps/music_player.c src/apps/wav.c src/core/destination.c src/core/data.c include/kui/music_player.h
+	@mkdir -p $(@D)
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) -Itests/stubs -Isrc/dreamcast src/apps/music_player.c src/apps/wav.c src/core/destination.c src/core/data.c tests/test_music_player.c -o $@
+
+build/test-startup-sound: tests/test_startup_sound.c src/apps/startup_sound.c src/apps/music_ogg.c include/kui/music.h include/kui/music_ogg.h build/startup_ogg.inc
+	@mkdir -p $(@D)
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) -Itests/stubs -Isrc/dreamcast src/apps/startup_sound.c src/apps/music_ogg.c tests/test_startup_sound.c -lm -o $@
+
+# Recovery checks: sector validation is used by Advanced CRC; CRC replacement stays host-only.
+build/recovery-vectors.inc: tests/make_recovery_vectors.py
+	@mkdir -p $(@D)
+	python3 $< > $@.tmp
+	mv $@.tmp $@
+
+build/test-recovery-checks: tests/test_recovery_checks.c tests/make_recovery_vectors.py build/recovery-vectors.inc src/core/recovery_crc.c src/core/recovery_sector.c src/core/data.c include/kui/recovery_checks.h include/kui/core.h
+	@mkdir -p $(@D)
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) -Iinclude -Ibuild src/core/recovery_crc.c src/core/recovery_sector.c src/core/data.c tests/test_recovery_checks.c -o $@
+
+test-recovery: build/test-recovery-checks
+	./build/test-recovery-checks
+
+build/test-capture-display: tests/test_capture_display.c src/core/capture_display.c include/kui/capture_display.h
+	@mkdir -p $(@D)
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) src/core/capture_display.c tests/test_capture_display.c -o $@
+
+build/test-salvage-display: tests/test_salvage_display.c $(SALVAGE_DISPLAY) src/dreamcast/shell_font.c include/kui/shell_font.h
+	@mkdir -p $(@D)
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) src/core/salvage_display.c src/dreamcast/shell_font.c tests/test_salvage_display.c -o $@
+
+build/test-viewport: tests/test_viewport.c src/core/viewport.c include/kui/viewport.h
+	@mkdir -p $(@D)
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) src/core/viewport.c tests/test_viewport.c -o $@
+
+build/test-music-ogg: tests/test_music_ogg.c src/apps/music_ogg.c include/kui/music_ogg.h third_party/stb/stb_vorbis.c tests/fixtures/music_vorbis.h
+	@mkdir -p $(@D)
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) -Itests/stubs -Isrc/dreamcast src/apps/music_ogg.c tests/test_music_ogg.c -lm -o $@
+
+build/test-music-ogg-seek: tests/test_music_ogg_seek.c src/apps/music_ogg.c include/kui/music_ogg.h third_party/stb/stb_vorbis.c
+	@mkdir -p $(@D)
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) -Itests/stubs -Isrc/dreamcast tests/test_music_ogg_seek.c -lm -o $@
+
+# Run by tests/test_music_assets.py against the committed menu Oggs.
+build/music-asset-check: tests/music_asset_check.c src/apps/music_ogg.c src/apps/wav.c include/kui/music_ogg.h include/kui/wav.h third_party/stb/stb_vorbis.c
+	@mkdir -p $(@D)
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) -Itests/stubs -Isrc/dreamcast src/apps/music_ogg.c src/apps/wav.c tests/music_asset_check.c -lm -o $@
+
+build/test-menu-sound: tests/test_menu_sound.c src/apps/menu_sound.c include/kui/menu_sound.h $(wildcard tests/menu_sound_stubs/dc/sound/*.h)
+	@mkdir -p $(@D)
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) -Itests/menu_sound_stubs src/apps/menu_sound.c tests/test_menu_sound.c -o $@
+
+build/test-network-probe: tests/test_network_probe.c src/apps/network_probe.c include/kui/network_probe.h
+	@mkdir -p $(@D)
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) src/apps/network_probe.c tests/test_network_probe.c -o $@
+
+build/test-network-connect: tests/test_network_connect.c src/apps/network_probe.c src/apps/network_connect.c src/apps/network_ethernet.c src/apps/network_ethernet.h include/kui/network_probe.h include/kui/network_w5500.h include/kui/w5500.h $(wildcard tests/apps_stubs/kos/*.h tests/apps_stubs/dc/net/*.h)
+	@mkdir -p $(@D)
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) -Itests/apps_stubs src/apps/network_probe.c src/apps/network_connect.c src/apps/network_ethernet.c tests/test_network_connect.c -o $@
+
+# The W5500 driver and bring-up against tests/w5500_model.c, a W5500 whose
+# TCP sockets are real localhost sockets.
+W5500_MODEL = tests/w5500_model.c tests/w5500_model.h
+build/test-w5500: tests/test_w5500.c src/core/w5500.c src/apps/network_probe.c include/kui/w5500.h include/kui/network_probe.h $(W5500_MODEL)
+	@mkdir -p $(@D)
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) -Itests src/core/w5500.c src/apps/network_probe.c tests/w5500_model.c tests/test_w5500.c -o $@
+
+build/test-network-w5500: tests/test_network_w5500.c src/core/w5500.c src/apps/network_probe.c src/apps/network_w5500.c include/kui/w5500.h include/kui/network_w5500.h include/kui/network_probe.h $(W5500_MODEL)
+	@mkdir -p $(@D)
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) -Itests src/core/w5500.c src/apps/network_probe.c src/apps/network_w5500.c tests/w5500_model.c tests/test_network_w5500.c -o $@
+
+build/maintenance-image: tests/maintenance_image.c $(CORE) $(FATFS) src/core/storage_probe.c src/core/destination.c src/core/files_path.c src/core/hash.c src/apps/maintenance.c include/kui/maintenance.h
+	@mkdir -p $(@D)
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) $(CORE) $(FATFS) src/core/storage_probe.c src/core/destination.c src/core/files_path.c src/core/hash.c src/apps/maintenance.c tests/maintenance_image.c -o $@
+
+build/salvage-image: tests/salvage_image.c tests/salvage_trial_fixture.inc src/core/salvage_control_trial.inc src/core/salvage_read_trial.inc tests/salvage_legacy_narrow.inc tests/salvage_defer_fixture.inc tests/salvage_partial_fixture.inc tests/salvage_burst_fixture.inc tests/salvage_legacy_index_fixture.inc $(CORE) $(FATFS) src/core/salvage.c src/core/salvage_files.inc src/core/recovery_guard.c src/core/destination.c src/core/recovery_crc.c src/core/recovery_sector.c src/core/hash.c src/core/storage_probe.c include/kui/salvage.h include/kui/capture.h
+	@mkdir -p $(@D)
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) $(CORE) $(FATFS) src/core/salvage.c src/core/recovery_guard.c src/core/destination.c src/core/recovery_crc.c src/core/recovery_sector.c src/core/hash.c src/core/storage_probe.c tests/salvage_image.c -Wl,--wrap=f_write,--wrap=f_sync,--wrap=f_read,--wrap=f_open,--wrap=f_rename,--wrap=f_stat,--wrap=f_opendir,--wrap=f_readdir,--wrap=f_closedir -o $@
+
+.PHONY: test-salvage-session
+build/salvage-session-image: tests/salvage_session_image.c src/core/salvage_read_trial.inc $(CORE) $(FATFS) src/core/salvage.c src/core/salvage_files.inc src/core/recovery_guard.c src/core/destination.c src/core/recovery_crc.c src/core/recovery_sector.c src/core/hash.c src/core/storage_probe.c include/kui/salvage.h
+	@mkdir -p $(@D)
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) $(CORE) $(FATFS) src/core/salvage.c src/core/recovery_guard.c src/core/destination.c src/core/recovery_crc.c src/core/recovery_sector.c src/core/hash.c src/core/storage_probe.c tests/salvage_session_image.c -Wl,--wrap=f_open,--wrap=f_close,--wrap=f_read,--wrap=f_write,--wrap=f_mount -o $@
+
+test-salvage-session: build/salvage-session-image test-salvage-session-policy
+	ASAN_OPTIONS=detect_leaks=0 python3 tests/test_salvage_session_images.py
+
+.PHONY: test-salvage-read-trial
+build/salvage-read-trial-image: tests/salvage_read_trial_image.c src/core/salvage_control_trial.inc src/core/salvage_read_trial.inc $(CORE) $(FATFS) src/core/salvage.c src/core/salvage_files.inc src/core/recovery_guard.c src/core/destination.c src/core/recovery_crc.c src/core/recovery_sector.c src/core/hash.c src/core/storage_probe.c include/kui/salvage.h
+	@mkdir -p $(@D)
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) $(CORE) $(FATFS) src/core/salvage.c src/core/recovery_guard.c src/core/destination.c src/core/recovery_crc.c src/core/recovery_sector.c src/core/hash.c src/core/storage_probe.c tests/salvage_read_trial_image.c -Wl,--wrap=f_open,--wrap=f_close,--wrap=f_write,--wrap=f_sync -o $@
+
+test-salvage-read-trial: build/salvage-read-trial-image
+	ASAN_OPTIONS=detect_leaks=0 python3 tests/test_salvage_read_trial_images.py
+
+.PHONY: test-salvage-session-policy
+test: test-salvage-session-policy
+build/test-salvage-session-policy: tests/test_salvage_session_policy.c include/kui/salvage_session_policy.h
+	@mkdir -p $(@D)
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) -Iinclude $< -o $@
+
+build/test-storage-card-identity: tests/test_storage_card_identity.c tests/test_storage_errors.c src/dreamcast/sd.c src/core/storage_error.c src/core/storage_policy.c include/kui/storage_error.h src/dreamcast/sci_sd_storage.h src/loader/sci_sd_bus.h tests/storage_stubs/dc/sd.h tests/storage_stubs/kos/sem.h include/kui/ata.h
+	@mkdir -p $(@D)
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) -DKUI_VMU_GAME_CARDS=1 -Itests/storage_stubs -Itests/stubs -Itests/apps_stubs $(INCLUDES) src/dreamcast/sd.c src/core/storage_error.c src/core/storage_policy.c tests/test_storage_card_identity.c -o $@
+
+test-salvage-session-policy: build/test-salvage-session-policy build/test-storage-card-identity
+	ASAN_OPTIONS=detect_leaks=0 ./build/test-salvage-session-policy
+	ASAN_OPTIONS=detect_leaks=0 ./build/test-storage-card-identity
+
+build/salvage-completion-image: tests/salvage_completion_image.c src/core/salvage_control_trial.inc src/core/salvage_read_trial.inc $(CORE) $(FATFS) src/core/salvage.c src/core/salvage_files.inc src/core/recovery_guard.c src/core/destination.c src/core/salvage_completion.c src/core/known_dumps.c src/core/recovery_crc.c src/core/recovery_sector.c src/core/hash.c src/core/storage_probe.c include/kui/salvage.h include/kui/salvage_completion.h
+	@mkdir -p $(@D)
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) $(CORE) $(FATFS) src/core/salvage.c src/core/recovery_guard.c src/core/destination.c src/core/salvage_completion.c src/core/known_dumps.c src/core/recovery_crc.c src/core/recovery_sector.c src/core/hash.c src/core/storage_probe.c tests/salvage_completion_image.c -Wl,--wrap=f_write,--wrap=f_sync,--wrap=f_rename,--wrap=f_read -o $@
+
+build/salvage-io-profile: tests/salvage_io_profile.c src/core/salvage_files.inc include/kui/capture.h include/kui/salvage.h $(FATFS) config/ffconf.h
+	@mkdir -p $(@D)
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) $(FATFS) tests/salvage_io_profile.c -o $@
+
+.PHONY: test-ripper-integrity test-salvage-completion
+test-images: test-ripper-integrity test-salvage-completion
+test-ripper-integrity: build/capture-image
+	ASAN_OPTIONS=detect_leaks=0 python3 tests/test_capture_integrity_images.py
+test-salvage-completion: build/salvage-completion-image
+	ASAN_OPTIONS=detect_leaks=0 python3 tests/test_salvage_completion_images.py
+
+build/test-cd-audio: tests/test_cd_audio.c src/apps/cd_audio.c src/core/command.c src/core/data.c include/kui/cd_audio.h
+	@mkdir -p $(@D)
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) -Itests/cdda_stubs -Itests/stubs -Isrc/dreamcast src/apps/cd_audio.c src/core/command.c src/core/data.c tests/test_cd_audio.c -o $@
+
+# Games uses a read-only image backend separate from the accepted optical reader.
+build/test-game-image: tests/test_game_image.c src/core/game_image.c src/core/zso.c src/core/lzo1x.c include/kui/game_image.h include/kui/zso.h
+	@mkdir -p $(@D)
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) src/core/game_image.c src/core/zso.c src/core/lzo1x.c tests/test_game_image.c -Wl,--wrap=calloc -o $@
+
+build/test-game-image-workspace: tests/test_game_image_workspace.c src/core/game_image.c src/core/zso.c src/core/lzo1x.c include/kui/game_image.h include/kui/zso.h
+	@mkdir -p $(@D)
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) src/core/zso.c src/core/lzo1x.c tests/test_game_image_workspace.c -o $@
+
+.PHONY: test-game-image-workspace
+test-game-image-workspace: build/test-game-image-workspace
+	ASAN_OPTIONS=detect_leaks=0 ./build/test-game-image-workspace
+test: test-game-image-workspace
+
+# GUI ZSO input staging against a frozen per-take decode path.
+build/test-game-image-zso-stage: tests/test_game_image_zso_stage.c src/core/game_image.c src/core/zso.c src/core/lzo1x.c include/kui/game_image.h include/kui/zso.h include/kui/lzo1x.h
+	@mkdir -p $(@D)
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) src/core/zso.c src/core/lzo1x.c tests/test_game_image_zso_stage.c -o $@
+
+.PHONY: test-game-image-zso-stage
+test-game-image-zso-stage: build/test-game-image-zso-stage
+	./build/test-game-image-zso-stage
+test: test-game-image-zso-stage
+
+.PHONY: test-game-image-fatfs-dma
+test-game-image-fatfs-dma:
+	python3 tests/test_game_image_fatfs_dma.py
+test: test-game-image-fatfs-dma
+
+build/test-game-metadata: tests/test_game_metadata.c src/core/game_metadata.c include/kui/game_metadata.h
+	@mkdir -p $(@D)
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) src/core/game_metadata.c tests/test_game_metadata.c -o $@
+
+build/test-pvr-texture: tests/test_pvr_texture.c src/core/pvr_texture.c include/kui/pvr_texture.h
+	@mkdir -p $(@D)
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) src/core/pvr_texture.c tests/test_pvr_texture.c -o $@
+
+build/test-game-cover: tests/test_game_cover.c src/core/game_cover.c src/core/data.c src/core/destination.c include/kui/game_cover.h
+	@mkdir -p $(@D)
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) src/core/game_cover.c src/core/data.c src/core/destination.c tests/test_game_cover.c -lm -o $@
+
+build/test-cover-image: tests/test_cover_image.c src/apps/cover_image.c include/kui/cover_image.h third_party/stb/stb_image.h tests/fixtures/cover_images.h
+	@mkdir -p $(@D)
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) -Itests src/apps/cover_image.c tests/test_cover_image.c -o $@
+
+GAMES = src/core/smash_native_child.c src/core/retail_image.c src/apps/games.c src/apps/games_storage.c src/core/game_image.c src/core/zso.c src/core/lzo1x.c src/core/game_metadata.c src/core/destination.c src/core/storage_probe.c src/core/hash.c src/core/game_profile.c src/apps/game_profile_file.c src/core/game_launch_settings.c src/core/game_ram_patches.c
+COVER_COMPACT = src/apps/compact_cover.c src/apps/cover_png_rows.c src/apps/cover_jpeg.c third_party/tjpgd/tjpgd.c build/cover-miniz.o
+build/cover-miniz.o: third_party/miniz/miniz.c third_party/miniz/miniz.h
+	@mkdir -p $(@D)
+	$(CC) -O2 -std=c11 $(SANITIZERS) $(EXPORT_CODEC_FLAGS) -c $< -o $@
+
+GAMES_COVERS = $(sort $(COVER_COMPACT) $(GAMES) src/apps/game_launch_settings_file.c src/apps/games_covers.c src/apps/cover_image.c src/core/game_cover.c src/core/pvr_texture.c src/core/retail_image.c)
+GAMES_ACTIVITY = src/core/games_activity.c src/apps/games_activity_file.c
+GAMES_LIBRARY_EXTRA = src/core/games_query.c src/core/games_metadata.c src/apps/games_metadata_file.c src/apps/games_identity.c src/apps/games_scan_log.c
+
+build/test-shell build/render-shell: src/core/game_profile.c src/core/hash.c src/core/games_query.c include/kui/game_profile.h include/kui/games_query.h
+
+.PHONY: test-screenshots
+test-screenshots: build/test-screenshot build/test-screenshot-file
+	ASAN_OPTIONS=detect_leaks=0 ./build/test-screenshot
+	ASAN_OPTIONS=detect_leaks=0 ./build/test-screenshot-file
+	python3 tests/test_screenshot_images.py
+build/test-screenshot: tests/test_screenshot.c src/core/screenshot.c include/kui/screenshot.h
+	@mkdir -p $(@D)
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) tests/test_screenshot.c src/core/screenshot.c -o $@
+build/test-screenshot-file: tests/test_screenshot_file.c src/core/screenshot.c src/apps/screenshot_file.c include/kui/screenshot.h
+	@mkdir -p $(@D)
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) tests/test_screenshot_file.c src/core/screenshot.c src/apps/screenshot_file.c -o $@
+
+.PHONY: test-games-activity
+test-games-activity: build/test-games-activity
+	ASAN_OPTIONS=detect_leaks=0 ./build/test-games-activity
+build/test-games-activity: tests/test_games_activity.c src/core/games_activity.c src/core/game_launch_settings.c src/core/game_ram_patches.c src/core/data.c
+	@mkdir -p $(@D)
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) $^ -o $@
+
+GAMES_COVERS_WRAP = -Wl,--wrap=f_open,--wrap=f_close,--wrap=f_opendir,--wrap=f_closedir,--wrap=f_write,--wrap=f_read,--wrap=f_sync
+build/test-games-group: tests/test_games_group.c src/core/games_group.c include/kui/games_group.h src/core/destination.c src/core/data.c
+	@mkdir -p $(@D)
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) src/core/games_group.c src/core/destination.c src/core/data.c tests/test_games_group.c -o $@
+
+GAMES_LIBRARY_WRAP = -Wl,--wrap=f_open,--wrap=f_close,--wrap=f_read,--wrap=f_write,--wrap=f_opendir,--wrap=f_closedir,--wrap=f_readdir,--wrap=f_stat,--wrap=f_mkdir,--wrap=f_unlink,--wrap=f_rename
+build/games-library-image: tests/games_library_image.c $(GAMES_COVERS) $(GAMES_ACTIVITY) $(GAMES_LIBRARY_EXTRA) src/apps/games_library.c src/core/games_group.c include/kui/games_library.h include/kui/games_group.h $(CORE) $(FATFS)
+	@mkdir -p $(@D)
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) -Isrc/dreamcast $(GAMES_COVERS) $(GAMES_ACTIVITY) $(GAMES_LIBRARY_EXTRA) src/apps/games_library.c src/core/games_group.c $(CORE) $(FATFS) tests/games_library_image.c $(GAMES_LIBRARY_WRAP) -lm -o $@
+
+# Cold load, grouping and display order against a frozen previous copy.
+GAMES_LIBRARY_DIFFERENTIAL = src/core/destination.c src/core/games_group.c src/core/games_metadata.c src/core/games_activity.c \
+    src/core/game_launch_settings.c src/core/game_ram_patches.c src/core/hash.c src/core/data.c
+build/test-games-library-differential: tests/test_games_library_differential.c src/apps/games_library.c $(GAMES_LIBRARY_DIFFERENTIAL) include/kui/games_library.h include/kui/games_group.h include/kui/games_metadata.h
+	@mkdir -p $(@D)
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) -Isrc/dreamcast -ffunction-sections -fdata-sections tests/test_games_library_differential.c $(GAMES_LIBRARY_DIFFERENTIAL) -Wl,--gc-sections -o $@
+
+.PHONY: test-games-library
+test-games-library: build/test-games-group build/games-library-image build/test-shell build/test-games-activity build/test-games-library-differential
+	ASAN_OPTIONS=detect_leaks=0 ./build/test-games-group
+	ASAN_OPTIONS=detect_leaks=0 ./build/test-games-activity
+	ASAN_OPTIONS=detect_leaks=0 ./build/test-games-library-differential
+	ASAN_OPTIONS=detect_leaks=0 ./build/test-shell --games
+	ASAN_OPTIONS=detect_leaks=0 python3 tests/test_games_library_images.py
+
+GAMES_WRAP = -Wl,--wrap=f_open,--wrap=f_read,--wrap=f_lseek,--wrap=f_close,--wrap=f_write,--wrap=f_mkdir,--wrap=f_unlink,--wrap=f_rename,--wrap=f_opendir,--wrap=f_readdir,--wrap=f_closedir,--wrap=f_stat
+build/games-image: tests/games_image.c $(GAMES) $(CORE) $(FATFS) include/kui/games.h include/kui/game_image.h include/kui/game_metadata.h
+	@mkdir -p $(@D)
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) -Isrc/dreamcast $(GAMES) $(CORE) $(FATFS) tests/games_image.c $(GAMES_WRAP) -o $@
+
+FILES = src/apps/files.c src/apps/files_picture.c src/core/files_path.c src/core/destination.c src/core/storage_probe.c \
+        src/apps/cover_image.c src/core/game_cover.c src/core/pvr_texture.c
+FILES_WRAP = -Wl,--wrap=f_open,--wrap=f_close,--wrap=f_opendir,--wrap=f_closedir,--wrap=f_write,--wrap=f_read
+build/test-files: tests/test_files.c src/core/files_path.c src/core/destination.c src/core/data.c include/kui/files.h .deps/fatfs/source/ff.h
+	@mkdir -p $(@D)
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) src/core/files_path.c src/core/destination.c src/core/data.c tests/test_files.c -o $@
+FILES_SHELL_MODEL = $(STORAGE_TEST_MODEL) src/core/game_launch_settings.c src/core/game_ram_patches.c \
+        src/core/games_selection.c src/core/game_profile.c src/core/hash.c src/core/games_query.c \
+        src/core/theme.c src/core/shell.c src/apps/system_settings.c src/core/settings.c
+build/files-image: tests/files_image.c $(FILES) $(CORE) $(FATFS) $(FILES_SHELL_MODEL) include/kui/shell.h include/kui/files.h include/kui/game_cover.h include/kui/cover_image.h include/kui/pvr_texture.h tests/fixtures/cover_images.h third_party/stb/stb_image.h config/ffconf.h
+	@mkdir -p $(@D)
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) -Isrc/dreamcast $(FILES) $(CORE) $(FATFS) $(FILES_SHELL_MODEL) tests/files_image.c $(FILES_WRAP) -lm -o $@
+# The Wi-Fi board's driver on a model of the board: the firmware's own
+# bridge core behind a simulated SPI bus, with real sockets on this machine.
+WIFI_LINK = $(KWLINK)/kwlink.c $(KWLINK)/kwhost.c
+WIFI_MODEL = tests/wifi_model.c firmware/kui-wifi/main/bridge.c src/core/hash.c
+WIFI_HEADERS = include/kui/network_wifi.h include/kui/wifi_pace.h include/kui/net.h tests/wifi_model.h $(wildcard $(KWLINK)/include/*.h) \
+               firmware/kui-wifi/main/bridge.h firmware/kui-wifi/main/bridge_platform.h
+build/test-network-wifi: tests/test_network_wifi.c src/apps/network_wifi.c src/core/data.c src/core/wifi_text.c src/core/clock.c $(WIFI_LINK) $(WIFI_MODEL) $(WIFI_HEADERS)
+	@mkdir -p $(@D)
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) -Ifirmware/kui-wifi/main -Itests src/apps/network_wifi.c src/core/data.c src/core/wifi_text.c src/core/clock.c $(WIFI_LINK) $(WIFI_MODEL) tests/test_network_wifi.c -o $@
+build/test-wifi-pacing: tests/test_wifi_pacing.c src/dreamcast/wifi_sci.c src/dreamcast/sci_port.h src/apps/network_wifi.c src/core/data.c src/core/wifi_text.c src/core/clock.c $(WIFI_LINK) $(WIFI_MODEL) $(WIFI_HEADERS) $(wildcard tests/wifi_platform/*/*.h)
+	@mkdir -p $(@D)
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) -Itests/wifi_platform -Ifirmware/kui-wifi/main -Itests src/apps/network_wifi.c src/core/data.c src/core/wifi_text.c src/core/clock.c $(WIFI_LINK) $(WIFI_MODEL) tests/test_wifi_pacing.c -o $@
+build/test-wifi-update: tests/test_wifi_update.c src/apps/wifi_update.c include/kui/wifi_update.h src/apps/network_wifi.c src/core/storage_probe.c src/core/wifi_text.c $(CORE) $(FATFS) $(WIFI_LINK) $(WIFI_MODEL) $(WIFI_HEADERS)
+	@mkdir -p $(@D)
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) -Isrc/dreamcast -Ifirmware/kui-wifi/main -Itests src/apps/wifi_update.c src/apps/network_wifi.c src/core/storage_probe.c src/core/wifi_text.c $(CORE) $(FATFS) $(WIFI_LINK) $(WIFI_MODEL) tests/test_wifi_update.c -o $@
+# The FTP server: protocol pieces alone, then end to end on the W5500 model
+# and the Wi-Fi board model with real FatFs, driven by Python's ftplib
+# (tests/test_ftp_images.py).
+FTP = src/core/bba_sockets.c src/apps/ftp_server.c src/apps/browser_companion.c src/core/http_protocol.c src/core/ftp_protocol.c src/core/files_path.c src/core/destination.c src/core/storage_probe.c \
+      src/core/w5500.c src/apps/network_w5500.c src/apps/network_probe.c src/apps/network_wifi.c src/core/wifi_text.c $(WIFI_LINK)
+FTP_WRAP = -Wl,--wrap=f_open,--wrap=f_close,--wrap=f_opendir,--wrap=f_closedir,--wrap=f_rename,--wrap=f_write
+build/test-ftp: tests/test_ftp.c src/core/ftp_protocol.c src/core/files_path.c src/core/destination.c src/core/data.c include/kui/ftp.h include/kui/files.h .deps/fatfs/source/ff.h
+	@mkdir -p $(@D)
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) src/core/ftp_protocol.c src/core/files_path.c src/core/destination.c src/core/data.c tests/test_ftp.c -o $@
+build/test-ftp-cleanup: tests/test_ftp_cleanup.c src/apps/ftp_server.c include/kui/ftp.h include/kui/w5500.h .deps/fatfs/source/ff.h
+	@mkdir -p $(@D)
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) -Isrc/dreamcast -ffunction-sections -fdata-sections tests/test_ftp_cleanup.c -Wl,--gc-sections -o $@
+build/ftp-image: tests/ftp_image.c $(FTP) $(CORE) $(FATFS) $(W5500_MODEL) $(WIFI_MODEL) $(WIFI_HEADERS) include/kui/network_bba.h include/kui/bba_sockets.h include/kui/ftp.h include/kui/w5500.h include/kui/network_w5500.h include/kui/files.h config/ffconf.h
+	@mkdir -p $(@D)
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) -Isrc/dreamcast -Ifirmware/kui-wifi/main -Itests $(FTP) $(CORE) $(FATFS) tests/w5500_model.c $(WIFI_MODEL) tests/ftp_image.c $(FTP_WRAP) -o $@
+
+build/browser-image: tests/browser_image.c tests/ftp_image.c $(FTP) $(CORE) $(FATFS) $(W5500_MODEL) $(WIFI_MODEL) $(WIFI_HEADERS) include/kui/network_bba.h include/kui/bba_sockets.h include/kui/browser.h include/kui/browser_service.h config/ffconf.h
+	@mkdir -p $(@D)
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) -Isrc/dreamcast -Ifirmware/kui-wifi/main -Itests $(FTP) $(CORE) $(FATFS) tests/w5500_model.c $(WIFI_MODEL) tests/browser_image.c $(FTP_WRAP) -o $@
+
+build/test-browser: tests/test_browser.c src/apps/browser_companion.c src/core/http_protocol.c src/core/files_path.c src/core/destination.c src/core/data.c include/kui/browser.h include/kui/browser_service.h
+	@mkdir -p $(@D)
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) tests/test_browser.c src/apps/browser_companion.c src/core/http_protocol.c src/core/files_path.c src/core/destination.c src/core/data.c -o $@
+
+build/test-game-profile: tests/test_game_profile.c src/core/game_profile.c src/apps/game_profile_file.c src/core/hash.c src/core/game_launch_settings.c src/core/game_ram_patches.c src/core/data.c
+	@mkdir -p $(@D)
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) $^ -o $@
+
+build/test-games-query: tests/test_games_query.c src/core/games_query.c include/kui/games_query.h
+	@mkdir -p $(@D)
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) tests/test_games_query.c src/core/games_query.c -o $@
+
+GAMES_METADATA_TEST = src/core/games_metadata.c src/core/games_activity.c src/core/game_launch_settings.c src/core/game_ram_patches.c src/core/data.c
+build/test-games-metadata: tests/test_games_metadata.c $(GAMES_METADATA_TEST) include/kui/games_metadata.h include/kui/games_activity.h
+	@mkdir -p $(@D)
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) tests/test_games_metadata.c $(GAMES_METADATA_TEST) -o $@
+
+.PHONY: test-v3-medium
+test-v3-medium: export ASAN_OPTIONS=detect_leaks=0
+test-v3-medium: build/test-shell build/test-shell-font build/test-ui-rate build/test-system-settings build/test-browser \
+    build/test-game-image build/test-game-image-workspace \
+    build/test-game-profile build/test-games-query build/test-games-group build/test-games-metadata build/test-cover-image \
+    build/test-games-vmu-card build/test-vmu-game-candidates build/vmu-template-profile.bin \
+    build/browser-image build/games-library-image build/games-covers-image build/system-settings-image build/files-image
+	ASAN_OPTIONS=detect_leaks=0 ./build/test-shell
+	ASAN_OPTIONS=detect_leaks=0 ./build/test-shell-font
+	ASAN_OPTIONS=detect_leaks=0 ./build/test-ui-rate
+	ASAN_OPTIONS=detect_leaks=0 ./build/test-game-image
+	ASAN_OPTIONS=detect_leaks=0 ./build/test-game-image-workspace
+	ASAN_OPTIONS=detect_leaks=0 ./build/test-system-settings
+	ASAN_OPTIONS=detect_leaks=0 ./build/test-browser
+	ASAN_OPTIONS=detect_leaks=0 ./build/test-game-profile
+	ASAN_OPTIONS=detect_leaks=0 ./build/test-games-query
+	ASAN_OPTIONS=detect_leaks=0 ./build/test-games-group
+	ASAN_OPTIONS=detect_leaks=0 ./build/test-games-metadata
+	ASAN_OPTIONS=detect_leaks=0 ./build/test-cover-image
+	ASAN_OPTIONS=detect_leaks=0 ./build/test-games-vmu-card build/vmu-template-profile.bin
+	ASAN_OPTIONS=detect_leaks=0 ./build/test-vmu-game-candidates
+	python3 tests/test_companion_dispatch.py
+	python3 tests/test_frontend_job_fences.py
+	python3 tests/test_games_flow_dispatch.py
+	python3 tests/test_games_layout_dispatch.py
+	python3 tests/test_menu_lookup_dispatch.py
+	python3 tests/test_menu_frame_cache.py
+	python3 tests/test_games_tiles_dispatch.py
+	python3 tests/test_games_letter_step.py
+	python3 tests/test_browser_images.py
+	python3 tests/test_games_library_images.py
+	python3 tests/test_games_identity_images.py
+	python3 tests/test_games_covers_images.py
+	python3 tests/test_system_settings_images.py
+	python3 tests/test_files_images.py
+	python3 tests/test_vmu_history.py
+	python3 tests/test_problem_report_images.py
+	python3 tests/test_games_scan_log_images.py
+build/test-hover-clip: tests/test_hover_clip.c src/apps/hover_clip.c src/apps/media_container.c include/kui/hover_clip.h include/kui/media_container.h
+	@mkdir -p $(@D)
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) $(filter %.c,$^) -o $@
+
+build/cover-rows-host: tests/cover_rows_host.c src/apps/cover_png_rows.c src/apps/cover_image.c src/core/game_cover.c src/core/hash.c build/cover-miniz.o include/kui/cover_png_rows.h include/kui/compact_cover.h
+	@mkdir -p $(@D)
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) -ffunction-sections -fdata-sections $(filter %.c %.o,$^) -Wl,--gc-sections,--wrap=malloc,--wrap=calloc,--wrap=free -lm -o $@
+
+build/test-preview-prefix: tests/test_preview_prefix.c src/apps/preview_prefix.c include/kui/preview_prefix.h
+	@mkdir -p $(@D)
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) $(filter %.c,$^) -o $@
+
+build/test-internet-adapters: src/dreamcast/internet.c src/core/internet_dns.c tests/test_internet_adapters.c src/core/internet_internal.h include/kui/internet.h
+	@mkdir -p $(@D)
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) -Itests/apps_stubs -Isrc/dreamcast $(filter %.c,$^) -o $@
+
+build/test-internet-cover: tests/test_internet_cover.c src/apps/internet_cover.c src/apps/internet_cover_catalog.inc src/apps/internet_cover_small.inc include/kui/internet_cover.h
+	@mkdir -p $(@D)
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) $(filter %.c,$^) -o $@
+
+build/test-internet-dns: tests/test_internet_dns.c src/core/internet_dns.c src/core/internet_internal.h
+	@mkdir -p $(@D)
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) $(filter %.c,$^) -o $@
+
+build/test-dreampi: tests/test_dreampi.c src/dreamcast/dreampi.c include/kui/dreampi.h $(wildcard tests/dreampi_stubs/*/*.h tests/dreampi_stubs/*/*/*.h)
+	@mkdir -p $(@D)
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) -Itests/dreampi_stubs -Itests/apps_stubs $(filter %.c,$^) -o $@
+
+# Run the console downloader, provider catalogue, Theora decoder and FatFs
+# against a synthetic origin. The transport has separate protocol tests.
+include config/media-xiph.mk
+MEDIA_DOWNLOAD = src/apps/media_download.c src/apps/media_container.c src/apps/preview_prefix.c src/apps/internet_cover.c src/apps/internet_extra.c src/apps/internet_preview.c
+MEDIA_HEADERS = include/kui/preview_prefix.h include/kui/internet.h include/kui/internet_cover.h include/kui/internet_extra.h include/kui/internet_preview.h include/kui/media_download.h include/kui/media_container.h include/kui/games_media.h
+MEDIA_CATALOGS = src/apps/internet_cover_catalog.inc src/apps/internet_cover_small.inc src/apps/internet_extra_data.inc
+MEDIA_LIBRARY = $(GAMES_COVERS) $(GAMES_ACTIVITY) $(GAMES_LIBRARY_EXTRA) src/apps/games_library.c src/core/games_group.c
+MEDIA_HOST = $(MEDIA_DOWNLOAD) $(MEDIA_LIBRARY) src/apps/hover_clip.c src/apps/games_media.c $(CORE) $(FATFS)
+build/bba-media-integration: tests/bba_media_integration.c tests/internet_scan_heap.c $(MEDIA_HOST) $(MEDIA_HEADERS) $(MEDIA_CATALOGS) $(XIPH_HOST_OBJS)
+	@mkdir -p $(@D)
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) $(XIPH_FLAGS) -Isrc/dreamcast $(MEDIA_HOST) $< tests/internet_scan_heap.c $(XIPH_HOST_OBJS) \
+	    -Wl,--wrap=kui_internet_cover_url,--wrap=malloc,--wrap=calloc,--wrap=realloc,--wrap=free -lm -o $@
+
+build/test-games-media-batch: tests/test_games_media_batch.c src/apps/games_media.c include/kui/games_media.h include/kui/media_download.h include/kui/internet.h
+	@mkdir -p $(@D)
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) -ffunction-sections -fdata-sections $< src/apps/games_media.c -Wl,--gc-sections -o $@
+
+MEDIA_CLIENT_TEST = $(COVER_COMPACT) src/apps/media_download.c src/apps/media_container.c src/apps/preview_prefix.c src/apps/cover_image.c src/core/hash.c src/core/destination.c src/core/game_cover.c src/core/game_launch_settings.c
+build/test-media-download: tests/test_media_download.c $(MEDIA_CLIENT_TEST) $(MEDIA_HEADERS)
+	@mkdir -p $(@D)
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) -ffunction-sections -fdata-sections $(INCLUDES) $(MEDIA_CLIENT_TEST) $< -Wl,--gc-sections -lm -o $@
+
+BBA_SESSION = src/apps/network_probe.c src/apps/network_ethernet.c src/dreamcast/network_bba.c src/core/bba_sockets.c
+build/test-bba-session: tests/test_bba_session.c $(BBA_SESSION) include/kui/network_bba.h $(wildcard tests/apps_stubs/kos/*.h)
+	@mkdir -p $(@D)
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) -Itests/apps_stubs $< $(BBA_SESSION) -o $@
+
+build/test-media-container: tests/test_media_container.c src/apps/media_container.c include/kui/media_container.h
+	@mkdir -p $(@D)
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) src/apps/media_container.c $< -o $@
+
+.PHONY: test-bba-media
+test-bba-media: export ASAN_OPTIONS=detect_leaks=0
+test-bba-media: build/test-hover-clip build/cover-rows-host test-internet-preview test-internet-extra build/test-preview-prefix build/test-internet-adapters build/test-internet-cover build/test-internet-dns build/test-dreampi build/bba-media-integration build/games-covers-image build/test-media-container build/test-bba-session build/test-games-media-batch build/test-media-download
+	./build/test-hover-clip
+	python3 tests/test_games_hover_dispatch.py
+	python3 tests/test_cover_png_rows.py
+	python3 tests/test_cover_jpeg.py
+	./build/test-preview-prefix
+	./build/test-internet-adapters
+	./build/test-internet-cover
+	./build/test-internet-dns
+	./build/test-dreampi
+	python3 tests/test_media_tls.py
+	python3 tests/test_internet_http.py
+	./build/test-media-download
+	python3 tests/test_kos_bba_driver.py
+	./build/test-games-media-batch
+	./build/test-bba-session
+	python3 tests/test_kos_tcp_media.py
+	./build/test-media-container
+	python3 tests/test_media_formats.py
+	python3 tests/test_media_server.py
+	python3 tests/test_bba_media_integration.py
+	python3 tests/test_large_internet_covers.py
+
+build/games-covers-image: tests/games_covers_image.c $(GAMES_COVERS) $(CORE) $(FATFS) include/kui/games_covers.h include/kui/games.h include/kui/game_cover.h include/kui/pvr_texture.h include/kui/cover_image.h third_party/stb/stb_image.h
+	@mkdir -p $(@D)
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) -Isrc/dreamcast $(GAMES_COVERS) $(CORE) $(FATFS) tests/games_covers_image.c $(GAMES_COVERS_WRAP) -lm -o $@
+
+# Read-only ext4 bootstrap: upstream warnings remain visible, as for FatFs.
+build/host/third_party/lwext4/src/%.o: third_party/lwext4/src/%.c $(LWEXT4_HEADERS)
+	@mkdir -p $(@D)
+	$(CC) -std=c11 -Os -g -Wall -Wextra $(SANITIZERS) $(LWEXT4_CPPFLAGS) -c $< -o $@
+
+build/test-boot-volume: tests/test_boot_volume.c src/core/boot_volume.c src/core/data.c include/kui/boot_volume.h include/kui/media.h
+	@mkdir -p $(@D)
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) tests/test_boot_volume.c src/core/boot_volume.c src/core/data.c -o $@
+
+build/test-boot-ui: tests/test_boot_ui.c src/core/boot_ui.c include/kui/boot_ui.h include/kui/storage.h
+	@mkdir -p $(@D)
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) tests/test_boot_ui.c src/core/boot_ui.c -o $@
+
+build/render-boot: tests/render_boot.c src/core/boot_ui.c src/dreamcast/boot_draw.c src/dreamcast/shell_font.c src/dreamcast/shell_font_data.inc src/apps/boot_splash.c src/apps/splash_art.c build/boot_splash_art.inc include/kui/boot_ui.h include/kui/version.h include/kui/splash.h
+	@mkdir -p $(@D)
+	$(CC) $(HOST_FLAGS) $(INCLUDES) $(EXPORT_CODEC_FLAGS) tests/render_boot.c src/core/boot_ui.c src/dreamcast/boot_draw.c src/dreamcast/shell_font.c src/apps/boot_splash.c src/apps/splash_art.c third_party/miniz/miniz.c -o $@
+
+build/ext4-boot: tests/ext4_boot.c src/core/ext4_boot.c src/core/boot_volume.c src/core/runtime_image.c src/core/data.c include/kui/ext4_boot.h include/kui/boot_volume.h include/kui/runtime.h $(LWEXT4_HOST_OBJECTS) $(LWEXT4_HEADERS)
+	@mkdir -p $(@D)
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) $(LWEXT4_CPPFLAGS) tests/ext4_boot.c src/core/ext4_boot.c src/core/boot_volume.c src/core/runtime_image.c src/core/data.c $(LWEXT4_HOST_OBJECTS) -o $@
+
+BOOT_RECOVERY_SOURCES := src/core/boot_image.c src/core/boot_volume.c src/core/ext4_boot.c src/core/runtime_image.c src/core/runtime_file.c src/core/storage_policy.c src/core/storage_probe.c
+build/boot-recovery: tests/boot_recovery.c $(CORE) $(BOOT_RECOVERY_SOURCES) $(FATFS) $(LWEXT4_HOST_OBJECTS) $(LWEXT4_HEADERS) include/kui/boot_image.h include/kui/boot_volume.h include/kui/ext4_boot.h include/kui/media.h
+	@mkdir -p $(@D)
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) $(LWEXT4_CPPFLAGS) tests/boot_recovery.c $(CORE) $(BOOT_RECOVERY_SOURCES) $(FATFS) $(LWEXT4_HOST_OBJECTS) -o $@
+
+# Runtime storage failure snapshots, with fake hardware below the real adapter.
+build/test-storage-errors: tests/test_storage_errors.c src/dreamcast/sd.c src/core/storage_error.c src/core/storage_policy.c include/kui/storage_error.h src/dreamcast/sci_sd_storage.h src/loader/sci_sd_bus.h tests/storage_stubs/dc/sd.h tests/storage_stubs/kos/sem.h include/kui/ata.h
+	@mkdir -p $(@D)
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) -Itests/storage_stubs -Itests/stubs -Itests/apps_stubs $(INCLUDES) src/dreamcast/sd.c src/core/storage_error.c src/core/storage_policy.c tests/test_storage_errors.c -o $@
+
+# Saved per-image launch choices and dual-slot write-failure recovery.
+build/test-game-launch-settings: tests/test_game_launch_settings.c src/core/game_launch_settings.c src/core/game_ram_patches.c include/kui/game_launch_settings.h src/core/data.c include/kui/game_ram_patches.h
+	@mkdir -p $(@D)
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) src/core/data.c src/core/game_launch_settings.c src/core/game_ram_patches.c tests/test_game_launch_settings.c -o $@
+
+build/test-game-launch-settings-file: tests/test_game_launch_settings_file.c src/apps/game_launch_settings_file.c src/core/game_launch_settings.c src/core/game_ram_patches.c src/core/data.c include/kui/game_launch_settings.h .deps/fatfs/source/ff.h include/kui/game_ram_patches.h
+	@mkdir -p $(@D)
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) src/core/data.c src/core/game_launch_settings.c src/core/game_ram_patches.c src/apps/game_launch_settings_file.c tests/test_game_launch_settings_file.c -o $@
+
+# One-time high-stage patch bounds and durable pre-handoff diagnostics.
+build/test-game-ram-patches: tests/test_game_ram_patches.c src/core/game_ram_patches.c include/kui/game_ram_patches.h
+	@mkdir -p $(@D)
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) src/core/game_ram_patches.c tests/test_game_ram_patches.c -o $@
+
+build/test-game-launch-report: tests/test_game_launch_report.c src/apps/game_launch_report.c include/kui/game_launch_report.h src/core/game_launch_settings.c src/core/game_ram_patches.c src/core/data.c include/kui/game_launch_settings.h include/kui/game_ram_patches.h
+	@mkdir -p $(@D)
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) src/core/data.c src/core/game_launch_settings.c src/core/game_ram_patches.c src/apps/game_launch_report.c tests/test_game_launch_report.c -o $@
+
+build/test-retail-relay-patches: $(RETAIL_RELAY_DEPS)
+	@mkdir -p $(@D)
+	$(CC) $(HOST_FLAGS) $(RETAIL_RELAY_FLAGS) -DKUI_GAME_RAM_PATCHES_STAGE=1 -Iinclude -Isrc/loader tests/test_retail_relay.c src/core/retail_image.c src/core/game_ram_patches.c -Wl,--gc-sections -o $@
+
+# Standard LZ4 ZSO container and bounded streaming decoder.
+build/test-zso: tests/test_zso.c src/core/zso.c src/core/lzo1x.c include/kui/zso.h
+	@mkdir -p $(@D)
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) src/core/zso.c src/core/lzo1x.c tests/test_zso.c -o $@
+
+# Detached SCI physical extents, ZSO wire validation and logical-sector reads.
+build/test-retail-zso: tests/test_retail_zso.c src/core/retail_zso.c src/core/zso.c src/core/lzo1x.c src/core/retail_image.c include/kui/retail_zso.h include/kui/zso.h include/kui/retail_image.h
+	@mkdir -p $(@D)
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) -DKUI_RETAIL_MANIFEST_SLOTS=32 src/core/retail_image.c src/core/retail_zso.c src/core/zso.c src/core/lzo1x.c tests/test_retail_zso.c -o $@
+build/test-retail-lzo: tests/test_retail_zso.c src/core/retail_zso.c src/core/zso.c src/core/lzo1x.c src/core/retail_image.c include/kui/retail_zso.h include/kui/zso.h include/kui/lzo1x.h
+	@mkdir -p $(@D)
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) -DKUI_RETAIL_MANIFEST_SLOTS=32 -DKUI_ZSO_CODECS=2 -DKUI_TEST_LZO=1 src/core/retail_image.c src/core/retail_zso.c src/core/zso.c src/core/lzo1x.c tests/test_retail_zso.c -o $@
+build/test-lzo1x: tests/test_lzo1x.c src/core/lzo1x.c include/kui/lzo1x.h include/kui/zso.h third_party/minilzo/minilzo.c
+	@mkdir -p $(@D)
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) -Ithird_party/minilzo -DLZO_CFG_NO_UNALIGNED=1 src/core/lzo1x.c third_party/minilzo/minilzo.c tests/test_lzo1x.c -o $@
+
+build/test-games-selection: tests/test_games_selection.c src/core/games_selection.c src/apps/games_selection.c include/kui/games_selection.h src/core/destination.c src/core/data.c .deps/fatfs/source/ff.h
+	@mkdir -p $(@D)
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) tests/test_games_selection.c src/core/games_selection.c src/apps/games_selection.c src/core/destination.c src/core/data.c -o $@
+
+REPAIR_COPY = src/core/saved_identity.c src/core/legacy_import.c src/core/raw_cue.c src/core/known_dumps.c src/core/repair_copy.c src/core/recovery_guard.c src/core/recovery_manifest.c src/core/capture_plan.c src/core/recovery_crc.c src/core/recovery_sector.c src/core/hash.c src/core/destination.c src/core/storage_probe.c
+.PHONY: test-repair-copy
+test-images: build/repair-copy-image
+test-repair-copy: build/repair-copy-image
+	python3 tests/test_repair_copy_images.py
+build/repair-copy-image: tests/repair_copy_image.c tests/repair_expansion_cases.inc tests/repair_transaction_cases.inc tests/repair_read_budget.inc src/core/repair_baseline.inc src/core/repair_resume.inc src/core/repair_identity.inc src/core/repair_saved_identity.inc src/core/repair_catalogue.inc src/core/repair_catalogue_report.inc src/core/repair_inplace.inc src/core/repair_holes.inc include/kui/saved_identity.h include/kui/raw_cue.h include/kui/legacy_import.h $(CORE) $(FATFS) $(REPAIR_COPY) include/kui/repair_copy.h
+	@mkdir -p $(@D)
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) $(CORE) $(FATFS) $(REPAIR_COPY) tests/repair_copy_image.c -Wl,--wrap=f_read,--wrap=f_write,--wrap=f_sync,--wrap=f_close,--wrap=f_rename -o $@
+
+# Runtime identity is independent of application identity and track inventory.
+.PHONY: test-native-cdda-compat test-games-cdda-identity-io
+test-games-cdda-identity-io: build/test-games-cdda-identity-io
+	ASAN_OPTIONS=detect_leaks=0 ./build/test-games-cdda-identity-io
+build/test-games-cdda-identity-io: tests/test_games_cdda_identity_io.c tests/test_games_cdda_status.c src/apps/games.c include/kui/games_cdda_status.h src/core/game_image.c src/core/zso.c src/core/lzo1x.c src/core/hash.c src/core/data.c src/core/destination.c src/core/game_profile.c src/apps/game_profile_file.c src/core/game_launch_settings.c src/core/game_ram_patches.c include/kui/game_profile.h
+	@mkdir -p $(@D)
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) -Isrc/dreamcast -ffunction-sections -fdata-sections tests/test_games_cdda_identity_io.c src/core/smash_native_child.c src/core/retail_image.c src/core/game_image.c src/core/zso.c src/core/lzo1x.c src/core/hash.c src/core/data.c src/core/destination.c src/core/game_profile.c src/apps/game_profile_file.c src/core/game_launch_settings.c src/core/game_ram_patches.c -Wl,--gc-sections -o $@
+
+test-native-cdda-compat: build/test-native-cdda-compat
+	ASAN_OPTIONS=detect_leaks=0 ./build/test-native-cdda-compat
+build/test-native-cdda-compat: tests/test_native_cdda_compat.c include/kui/native_cdda_compat.h src/core/games_cdda_profile.h src/core/retail_image.c src/core/hash.c src/core/data.c
+	@mkdir -p $(@D)
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) -DKUI_RETAIL_EXTENDED_MAP=1 tests/test_native_cdda_compat.c src/core/retail_image.c src/core/hash.c src/core/data.c -o $@
+
+.PHONY: test-wince-runtime-families
+test-wince-runtime-families: build/test-wince-runtime-armada build/test-wince-runtime-bam4 build/test-wince-runtime-worms build/test-wince-runtime-wwp build/test-armada-ce-generic-sound build/test-bam4-ce-generic-sound build/test-worms-ce-generic-sound
+	ASAN_OPTIONS=detect_leaks=0 ./build/test-wince-runtime-armada
+	ASAN_OPTIONS=detect_leaks=0 ./build/test-wince-runtime-bam4
+	ASAN_OPTIONS=detect_leaks=0 ./build/test-wince-runtime-worms
+	ASAN_OPTIONS=detect_leaks=0 ./build/test-wince-runtime-wwp
+	ASAN_OPTIONS=detect_leaks=0 ./build/test-armada-ce-generic-sound
+	ASAN_OPTIONS=detect_leaks=0 ./build/test-bam4-ce-generic-sound
+	ASAN_OPTIONS=detect_leaks=0 ./build/test-worms-ce-generic-sound
+build/test-wince-runtime-bam4: WINCE_RUNTIME_FLAGS := -DKUI_WINCE_CDDA_BAM4=1
+build/test-wince-runtime-worms: WINCE_RUNTIME_FLAGS := -DKUI_WINCE_CDDA_WORMS=1
+build/test-wince-runtime-wwp: WINCE_RUNTIME_FLAGS := -DKUI_WINCE_CDDA_WWP=1
+build/test-wince-runtime-armada build/test-wince-runtime-bam4 build/test-wince-runtime-worms build/test-wince-runtime-wwp: tests/test_wince_runtime_profiles.c src/core/retail_image.c include/kui/wince_cdda_profiles.h include/kui/armada_ce_audio_admission.h include/kui/armada_ce_stream_seed.h
+	@mkdir -p $(@D)
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) -DKUI_RETAIL_EXTENDED_MAP=1 $(WINCE_RUNTIME_FLAGS) tests/test_wince_runtime_profiles.c src/core/retail_image.c -o $@
+
+.PHONY: test-wwp-ce-stream
+build/test-wwp-ce-stream-status-publish: tests/test_wwp_ce_stream_status_publish.c src/loader/armada_ce_stream_player.c include/kui/armada_ce_excerpt_entry.h
+	@mkdir -p $(@D)
+	$(CC) $(HOST_FLAGS) -fsanitize=undefined -ffunction-sections -fdata-sections -fno-pie -no-pie $(INCLUDES) -Isrc/loader $< -Wl,--gc-sections -o $@
+test-wwp-ce-stream: build/test-wwp-ce-generic-sound build/test-wwp-ce-stream-native build/test-wwp-ce-stream-stop build/test-wwp-ce-stream-status build/test-wwp-ce-stream-status-publish
+	ASAN_OPTIONS=detect_leaks=0 ./build/test-wwp-ce-generic-sound
+	ASAN_OPTIONS=detect_leaks=0 ./build/test-wwp-ce-stream-native
+	./build/test-wwp-ce-stream-stop
+	ASAN_OPTIONS=detect_leaks=0 ./build/test-wwp-ce-stream-status
+	./build/test-wwp-ce-stream-status-publish
+build/test-wwp-ce-generic-sound: tests/test_armada_ce_generic_sound.c tests/test_armada_ce_live_sound.c include/kui/armada_ce_live_sound.h include/kui/wince_cdda_wwp_kernel.h
+	@mkdir -p $(@D)
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) -DKUI_WINCE_CDDA_WWP=1 $< -o $@
+build/test-wwp-ce-stream-native: tests/test_wwp_ce_stream_native.c tests/test_armada_ce_stream_native.c src/loader/armada_ce_stream_native.c include/kui/armada_ce_live_sound.h include/kui/wince_cdda_wwp_kernel.h
+	@mkdir -p $(@D)
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) -DKUI_WINCE_CDDA_WWP=1 -DKUI_ARMADA_CE_GENERIC_APPLICATION=1 -DKUI_RETAIL_CE=1 -DKUI_ARMADA_CE_STREAM=1 $< src/loader/armada_ce_stream_native.c -o $@
+build/test-wwp-ce-stream-stop: tests/test_wwp_ce_stream_stop.c src/loader/armada_ce_stream_player.c src/loader/armada_ce_stream_model.c include/kui/armada_ce_live_sound.h
+	@mkdir -p $(@D)
+	$(CC) $(HOST_FLAGS) -fsanitize=undefined -ffunction-sections -fdata-sections -fno-pie -no-pie $(INCLUDES) -Isrc/loader $< src/loader/armada_ce_stream_model.c -Wl,--gc-sections -o $@
+build/test-wwp-ce-stream-status: tests/test_wwp_ce_stream_status.c tests/test_retail_gd.c src/loader/wwp_ce_stream_status.inc src/core/retail_gd.c include/kui/retail_gd.h include/kui/armada_ce_excerpt_entry.h
+	@mkdir -p $(@D)
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) -DKUI_RETAIL_CE=1 $< src/core/retail_gd.c -o $@
+build/test-bam4-ce-generic-sound: WINCE_GENERIC_FLAGS := -DKUI_WINCE_CDDA_BAM4=1
+build/test-worms-ce-generic-sound: WINCE_GENERIC_FLAGS := -DKUI_WINCE_CDDA_WORMS=1
+build/test-armada-ce-generic-sound build/test-bam4-ce-generic-sound build/test-worms-ce-generic-sound: tests/test_armada_ce_generic_sound.c tests/test_armada_ce_live_sound.c include/kui/armada_ce_live_sound.h include/kui/armada_ce_stream_initial_word.h include/kui/armada_ce_stream_rebind_word.h
+	@mkdir -p $(@D)
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) $(WINCE_GENERIC_FLAGS) $< -o $@
+
+.PHONY: test-games-cdda-status
+test-games-cdda-status: build/test-games-cdda-status
+	ASAN_OPTIONS=detect_leaks=0 ./build/test-games-cdda-status
+build/test-games-cdda-status: tests/test_games_cdda_status.c include/kui/games_cdda_status.h include/kui/games.h include/kui/game_metadata.h include/kui/wince_cdda_profiles.h
+	@mkdir -p $(@D)
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) $< -o $@
+
+.PHONY: test-retail-map-diagnostic
+.PHONY: test-armada-ce-movie-timing
+test-armada-ce-movie-timing: build/test-armada-ce-movie-timing
+	./build/test-armada-ce-movie-timing
+build/test-armada-ce-movie-timing: tests/test_armada_ce_movie_timing.c include/kui/armada_ce_movie_timing.h
+	@mkdir -p $(@D)
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) tests/test_armada_ce_movie_timing.c -o $@
+# Needs sh-elf binutils: the gate that refuses relaxed calls entering a
+# function mid-way (tools/check_relaxed_calls.py).
+.PHONY: test-check-relaxed-calls
+test-check-relaxed-calls:
+	python3 tests/test_check_relaxed_calls.py
+build/test-wince-packaged-prepare: tests/test_wince_packaged_prepare.c tests/test_armada_ce_excerpt_prepare.c src/apps/games_retail.c $(ARMADA_PREPARE_TEST_SOURCES) include/kui/wince_cdda_profiles.h include/kui/armada_ce_stream_seed.h include/kui/games_retail.h include/kui/wince_cdda_wwp_kernel.h
+build/test-wince-packaged-prepare: src/apps/games_native_cache.inc
+	@mkdir -p $(@D)
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) -Isrc/dreamcast -ffunction-sections -fdata-sections tests/test_wince_packaged_prepare.c $(ARMADA_PREPARE_TEST_SOURCES) -Wl,--gc-sections -o $@
+
+test-retail-map-diagnostic: build/test-retail-map-diagnostic build/test-retail-map-diagnostic-extended build/test-retail-map-stage-native build/test-retail-map-stage-ce build/test-retail-map-stage-worms
+	ASAN_OPTIONS=detect_leaks=0 ./build/test-retail-map-diagnostic
+	ASAN_OPTIONS=detect_leaks=0 ./build/test-retail-map-diagnostic-extended
+	./build/test-retail-map-stage-native
+	./build/test-retail-map-stage-ce
+	./build/test-retail-map-stage-worms
+build/test-retail-map-diagnostic-extended: MAP_DIAG_FLAGS := -DKUI_RETAIL_EXTENDED_MAP=1
+build/test-retail-map-diagnostic build/test-retail-map-diagnostic-extended: tests/test_retail_map_diagnostic.c include/kui/retail_map_diagnostic.h src/core/retail_image.c
+	@mkdir -p $(@D)
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) $(MAP_DIAG_FLAGS) tests/test_retail_map_diagnostic.c src/core/retail_image.c -o $@
+build/test-retail-map-stage-ce: MAP_STAGE_FLAGS := -DKUI_RETAIL_CE=1
+build/test-retail-map-stage-worms: MAP_STAGE_FLAGS := -DKUI_RETAIL_CE=1 -DKUI_ARMADA_CE_AUDIO_STAGE=1 -DKUI_ARMADA_CE_RAM_BIND_STAGE=1 -DKUI_ARMADA_CE_EXCERPT_STAGE=1 -DKUI_ARMADA_CE_STREAM=1 -DKUI_RETAIL_EXTENDED_MAP=1 -DKUI_WINCE_CDDA_WORMS=1
+build/test-retail-map-stage-native build/test-retail-map-stage-ce build/test-retail-map-stage-worms: tests/test_retail_map_stage_diagnostic.c src/loader/retail_stage.c include/kui/retail_map_diagnostic.h src/core/retail_image.c
+	@mkdir -p $(@D)
+	$(CC) $(HOST_FLAGS) -fsanitize=undefined -fno-omit-frame-pointer $(INCLUDES) -Isrc/loader -ffunction-sections -fdata-sections -fno-pie -no-pie $(MAP_STAGE_FLAGS) tests/test_retail_map_stage_diagnostic.c src/core/retail_image.c -Wl,--gc-sections -o $@
+
+# Broader CD music admission and linked-reader regression coverage.
+test: test-games-cdda-status test-games-cdda-identity-io test-native-cdda-compat test-wince-runtime-families test-wwp-ce-stream test-retail-map-diagnostic
+
+.PHONY: test-vmu-lcd
+test-vmu-lcd: build/test-vmu-lcd
+	./build/test-vmu-lcd
+build/test-vmu-lcd: tests/test_vmu_lcd.c src/core/vmu_lcd.c src/dreamcast/vmu_lcd.c include/kui/vmu_lcd.h include/kui/version.h tests/vmu_stubs/dc/maple.h tests/vmu_stubs/dc/maple/vmu.h
+	@mkdir -p $(@D)
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) -Itests/vmu_stubs src/core/vmu_lcd.c src/dreamcast/vmu_lcd.c tests/test_vmu_lcd.c -o $@
+
+# Experimental VMU components are kept outside the ordinary retail resident.
+.PHONY: test-vmu-prototype
+test-vmu-prototype: build/test-vmu-emulation build/test-vmu-image build/test-vmu-store build/test-vmu-maple-dma build/test-vmu-backing build/test-vmu-backing-read-only build/test-vmu-integration build/test-vmu-service build/test-vmu-sci-bus build/test-sci-sd-storage build/test-vmu-game-card build/test-games-vmu-card build/vmu-template-profile.bin
+	ASAN_OPTIONS=detect_leaks=0 ./build/test-vmu-emulation
+	ASAN_OPTIONS=detect_leaks=0 ./build/test-vmu-game-card build/vmu-template-profile.bin
+	ASAN_OPTIONS=detect_leaks=0 ./build/test-games-vmu-card build/vmu-template-profile.bin
+	python3 tests/test_vmu_game_card_service.py
+	ASAN_OPTIONS=detect_leaks=0 ./build/test-vmu-image
+	ASAN_OPTIONS=detect_leaks=0 ./build/test-vmu-store
+	ASAN_OPTIONS=detect_leaks=0 ./build/test-vmu-maple-dma
+	ASAN_OPTIONS=detect_leaks=0 ./build/test-vmu-backing
+	ASAN_OPTIONS=detect_leaks=0 ./build/test-vmu-backing-read-only
+	ASAN_OPTIONS=detect_leaks=0 ./build/test-vmu-integration
+	ASAN_OPTIONS=detect_leaks=0 ./build/test-vmu-service
+	ASAN_OPTIONS=detect_leaks=0 ./build/test-vmu-sci-bus
+	ASAN_OPTIONS=detect_leaks=0 ./build/test-sci-sd-storage
+	python3 tests/test_vmu_retail_probe.py
+build/test-vmu-emulation: tests/test_vmu_emulation.c src/core/vmu_emulation.c include/kui/vmu_emulation.h
+	@mkdir -p $(@D)
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) -fno-pie -no-pie $(INCLUDES) tests/test_vmu_emulation.c src/core/vmu_emulation.c -o $@
+build/test-vmu-store: tests/test_vmu_store.c src/core/vmu_store.c src/core/retail_image.c include/kui/vmu_store.h
+	@mkdir -p $(@D)
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) -fno-pie -no-pie $(INCLUDES) tests/test_vmu_store.c src/core/vmu_store.c src/core/retail_image.c -o $@
+build/vmu-template-profile.bin: tools/vmu_persist_profile.py
+	@mkdir -p $(@D)
+	python3 tools/vmu_persist_profile.py --template $@ > /dev/null
+VMU_GAME_CARD_SOURCES = src/core/vmu_game_card.c src/core/vmu_persist_profile.c src/core/retail_image.c src/core/hash.c src/core/data.c
+build/test-vmu-game-card: tests/test_vmu_game_card.c $(VMU_GAME_CARD_SOURCES) include/kui/vmu_game_card.h include/kui/vmu_persist_profile.h
+	@mkdir -p $(@D)
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) -fno-pie -no-pie $(INCLUDES) tests/test_vmu_game_card.c $(VMU_GAME_CARD_SOURCES) -o $@
+build/test-vmu-game-assign: tests/test_vmu_game_assign.c src/core/vmu_game_assign.c $(VMU_GAME_CARD_SOURCES) include/kui/vmu_game_assign.h
+	@mkdir -p $(@D)
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) -fno-pie -no-pie $(INCLUDES) tests/test_vmu_game_assign.c src/core/vmu_game_assign.c $(VMU_GAME_CARD_SOURCES) -o $@
+.PHONY: test-vmu-wizard
+test-vmu-wizard: build/test-vmu-game-assign build/test-vmu-app build/test-shell build/test-games-vmu-card build/vmu-template-profile.bin
+	ASAN_OPTIONS=detect_leaks=0 ./build/test-vmu-game-assign
+	ASAN_OPTIONS=detect_leaks=0 ./build/test-games-vmu-card build/vmu-template-profile.bin
+	ASAN_OPTIONS=detect_leaks=0 ./build/test-shell
+	python3 tests/test_vmu_image_merge.py
+	python3 tests/test_vmu_game_card_service.py
+	python3 tests/test_vmu_wizard.py
+	python3 tests/test_vmu_wizard_installer.py
+	python3 tests/test_vmu_images.py
+.PHONY: test-vmu-toggle
+test-vmu-toggle: build/test-shell build/test-games-vmu-card build/vmu-template-profile.bin
+	ASAN_OPTIONS=detect_leaks=0 ./build/test-shell
+	ASAN_OPTIONS=detect_leaks=0 ./build/test-games-vmu-card build/vmu-template-profile.bin
+	python3 tests/test_vmu_emulation_settings.py
+	python3 tests/test_vmu_native_mode.py
+	python3 tests/test_vmu_native_toggle.py
+	python3 tests/test_vmu_toggle_installer.py
+
+.PHONY: test-vmu-menu
+test-vmu-menu: build/test-shell build/test-ui-rate build/test-vmu-app build/test-music-thread
+	ASAN_OPTIONS=detect_leaks=0 ./build/test-shell
+	ASAN_OPTIONS=detect_leaks=0 ./build/test-ui-rate
+	ASAN_OPTIONS=detect_leaks=0 ./build/test-music-thread
+	ASAN_OPTIONS=detect_leaks=0 python3 tests/test_vmu_images.py
+	ASAN_OPTIONS=detect_leaks=0 python3 tests/test_vmu_library.py
+	ASAN_OPTIONS=detect_leaks=0 python3 tests/test_vmu_delete.py
+	ASAN_OPTIONS=detect_leaks=0 python3 tests/test_vmu_delete_dispatch.py
+	ASAN_OPTIONS=detect_leaks=0 python3 tests/test_vmu_wizard.py
+	ASAN_OPTIONS=detect_leaks=0 python3 tests/test_vmu_game_info.py
+	ASAN_OPTIONS=detect_leaks=0 python3 tests/test_menu_lookup_dispatch.py
+	ASAN_OPTIONS=detect_leaks=0 python3 tests/test_menu_frame_cache.py
+	ASAN_OPTIONS=detect_leaks=0 python3 tests/test_games_tiles_dispatch.py
+	ASAN_OPTIONS=detect_leaks=0 python3 tests/test_games_letter_step.py
+	ASAN_OPTIONS=detect_leaks=0 python3 tests/test_menu_audio_dispatch.py
+	ASAN_OPTIONS=detect_leaks=0 python3 tests/test_music_dispatch.py
+	python3 tests/test_vmu_menu_installer.py
+build/test-games-vmu-card: tests/test_games_vmu_card.c src/apps/games_vmu_card.inc $(VMU_GAME_CARD_SOURCES) include/kui/vmu_game_card_service.h include/kui/vmu_game_card.h
+	@mkdir -p $(@D)
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) -fno-pie -no-pie $(INCLUDES) tests/test_games_vmu_card.c $(VMU_GAME_CARD_SOURCES) -o $@
+build/test-vmu-image: tests/test_vmu_image.c src/core/vmu_image.c include/kui/vmu_image.h
+	@mkdir -p $(@D)
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) -fno-pie -no-pie $(INCLUDES) tests/test_vmu_image.c src/core/vmu_image.c -o $@
+VMU_IMAGE_COMPAT_SOURCES = $(CORE) $(DESTINATION) src/core/storage_probe.c $(FATFS) $(VMU_MANAGEMENT) src/apps/vmu.c src/core/vmu_save_format.c src/core/crc16.c src/core/files_path.c src/core/hash.c src/apps/vmu_import.c
+build/test-vmu-image-compat: tests/test_vmu_image_compat.c tests/test_vmu_app.c $(VMU_IMAGE_COMPAT_SOURCES) src/apps/vmu_collection.inc include/kui/vmu_image.h include/kui/vmu_read_bounded.h
+	@mkdir -p $(@D)
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) -fno-pie -no-pie $(INCLUDES) -Itests/vmu_stubs -Isrc/dreamcast $(VMU_IMAGE_COMPAT_SOURCES) tests/test_vmu_image_compat.c -o $@
+build/test-vmu-maple-dma: tests/test_vmu_maple_dma.c src/loader/vmu_maple_dma.c include/kui/vmu_maple_dma.h
+	@mkdir -p $(@D)
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) -fno-pie -no-pie $(INCLUDES) tests/test_vmu_maple_dma.c src/loader/vmu_maple_dma.c -o $@
+build/test-vmu-backing-read-only: VMU_BACKING_FLAGS :=
+build/test-vmu-backing: VMU_BACKING_FLAGS := -DKUI_VMU_EXPERIMENTAL=1
+build/test-vmu-backing build/test-vmu-backing-read-only: tests/test_vmu_backing.c src/loader/vmu_backing.c include/kui/vmu_backing.h include/kui/vmu_store.h
+	@mkdir -p $(@D)
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) -fno-pie -no-pie $(INCLUDES) $(VMU_BACKING_FLAGS) tests/test_vmu_backing.c src/loader/vmu_backing.c -o $@
+build/test-vmu-integration: tests/test_vmu_integration.c tests/vmu_sd_model.h src/core/vmu_emulation.c src/core/vmu_store.c src/core/retail_image.c src/loader/vmu_backing.c src/loader/sd_reader.c src/dreamcast/sci_sd_storage.c
+	@mkdir -p $(@D)
+	$(CC) $(filter-out -O1,$(HOST_FLAGS)) -O2 $(SANITIZERS) -fno-pie -no-pie $(INCLUDES) -Isrc/loader -Isrc/dreamcast -DKUI_VMU_EXPERIMENTAL=1 $(filter %.c,$^) -o $@
+build/test-vmu-service: tests/test_vmu_service.c tests/vmu_sd_model.h include/kui/vmu_service.h include/kui/vmu_backing.h include/kui/vmu_store.h include/kui/vmu_emulation.h src/loader/vmu_service.c src/core/vmu_emulation.c src/core/vmu_store.c src/core/retail_image.c src/loader/vmu_backing.c src/loader/sd_reader.c src/dreamcast/sci_sd_storage.c
+	@mkdir -p $(@D)
+	$(CC) $(filter-out -O1,$(HOST_FLAGS)) -O2 $(SANITIZERS) -fno-pie -no-pie $(INCLUDES) -Isrc/loader -Isrc/dreamcast -DKUI_VMU_EXPERIMENTAL=1 $(filter %.c,$^) -o $@
+build/test-vmu-sci-bus: tests/test_vmu_sci_bus.c tests/test_sci_sd_bus.c src/loader/sci_sd_bus.c src/loader/sci_sd_bus.h src/loader/sd_reader.h
+	@mkdir -p $(@D)
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) -fno-pie -no-pie -ffunction-sections -fdata-sections -DKUI_SCI_SD_TEST=1 -DKUI_RETAIL_TRANSPORT=1 -DKUI_VMU_EXPERIMENTAL=1 -Iinclude -Isrc/loader tests/test_vmu_sci_bus.c src/loader/sci_sd_bus.c -Wl,--gc-sections -o $@
+
+.PHONY: test-vmu-native-phase
+.PHONY: test-vmu-native-heap-scan-work
+test-vmu-native-heap-scan-work:
+	python3 tests/test_vmu_native_heap_scan_work.py
+test: test-vmu-native-heap-scan-work
+
+test-vmu-native-phase: build/test-vmu-native-phase
+	ASAN_OPTIONS=detect_leaks=0 ./build/test-vmu-native-phase
+build/test-vmu-native-phase: tests/test_vmu_native_phase.c src/loader/vmu_native_phase.inc src/core/vmu_native_profile.c include/kui/vmu_native_profile.h
+	@mkdir -p $(@D)
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) -Iinclude tests/test_vmu_native_phase.c src/core/vmu_native_profile.c -o $@
+
+# Read-only admission of our legacy DS raw state and strict separate-file CUEs.
+LEGACY_IMPORT = src/core/legacy_import.c src/core/recovery_crc.c src/core/recovery_sector.c src/core/hash.c src/core/destination.c
+.PHONY: test-legacy-import
+test-legacy-import: build/test-legacy-import build/legacy-import-image
+	ASAN_OPTIONS=detect_leaks=0 ./build/test-legacy-import
+	ASAN_OPTIONS=detect_leaks=0 python3 tests/test_legacy_import_images.py
+build/test-legacy-import: tests/test_legacy_import.c include/kui/legacy_import.h include/kui/raw_cue.h $(CORE) $(FATFS) $(LEGACY_IMPORT) src/core/raw_cue.c
+	@mkdir -p $(@D)
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) $(CORE) $(FATFS) $(LEGACY_IMPORT) src/core/raw_cue.c tests/test_legacy_import.c -o $@
+build/legacy-import-image: tests/legacy_import_image.c include/kui/legacy_import.h $(CORE) $(FATFS) $(LEGACY_IMPORT) src/core/storage_probe.c
+	@mkdir -p $(@D)
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) $(CORE) $(FATFS) $(LEGACY_IMPORT) src/core/storage_probe.c tests/legacy_import_image.c -Wl,--wrap=f_read -o $@
+
+.PHONY: test-repair-identity
+test-repair-identity: build/test-repair-identity
+	ASAN_OPTIONS=detect_leaks=0 ./build/test-repair-identity
+build/test-repair-identity: tests/test_repair_identity.c src/core/repair_identity.inc src/core/repair_catalogue.inc src/core/repair_catalogue_report.inc src/core/hash.c src/core/data.c
+	@mkdir -p $(@D)
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) tests/test_repair_identity.c src/core/hash.c src/core/data.c -o $@
+
+test-images: test-saved-identity test-legacy-import test-repair-identity
+.PHONY: test-saved-identity
+test-saved-identity: build/saved-identity-image
+	ASAN_OPTIONS=detect_leaks=0 python3 tests/test_saved_identity_images.py
+build/saved-identity-image: tests/saved_identity_image.c include/kui/saved_identity.h $(CORE) $(FATFS) src/core/saved_identity.c src/core/capture_plan.c src/core/recovery_sector.c src/core/hash.c src/core/destination.c src/core/storage_probe.c
+	@mkdir -p $(@D)
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) $(CORE) $(FATFS) src/core/saved_identity.c src/core/capture_plan.c src/core/recovery_sector.c src/core/hash.c src/core/destination.c src/core/storage_probe.c tests/saved_identity_image.c -Wl,--wrap=f_read -o $@
+
+.PHONY: test-drive-controls
+build/test-drive-speed-probe: tests/test_drive_speed_probe.c src/core/drive_speed_probe.c include/kui/drive_speed_probe.h src/core/recovery_sector.c src/core/hash.c src/core/data.c
+	@mkdir -p $(@D)
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) tests/test_drive_speed_probe.c src/core/drive_speed_probe.c src/core/recovery_sector.c src/core/hash.c src/core/data.c -Wl,--wrap=malloc,--wrap=free -o $@
+
+.PHONY: test-drive-speed-probe
+test-drive-speed-probe: build/test-drive-speed-probe
+	ASAN_OPTIONS=detect_leaks=0 ./build/test-drive-speed-probe
+
+build/test-g1-mode-probe: tests/test_g1_mode_probe.c src/core/g1_mode_probe.c include/kui/g1_mode_probe.h
+	@mkdir -p $(@D)
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) tests/test_g1_mode_probe.c src/core/g1_mode_probe.c -o $@
+
+.PHONY: test-g1-mode-probe test-saved-read-probe
+test-g1-mode-probe: build/test-g1-mode-probe build/test-g1-mode-probe-native
+	ASAN_OPTIONS=detect_leaks=0 ./build/test-g1-mode-probe
+	ASAN_OPTIONS=detect_leaks=0 ./build/test-g1-mode-probe-native
+
+build/test-g1-mode-probe-native: tests/test_g1_mode_probe_native.c src/dreamcast/g1_mode_probe.c include/kui/g1_mode_probe.h src/dreamcast/platform.h $(wildcard tests/g1_stubs/dc/*.h tests/g1_stubs/kos/*.h tests/stubs/kos/*.h)
+	@mkdir -p $(@D)
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) -DKUI_G1_MODE_PROBE_NATIVE_TEST=1 -Itests/g1_stubs -Itests/stubs $(INCLUDES) -Isrc/dreamcast src/dreamcast/g1_mode_probe.c tests/test_g1_mode_probe_native.c -o $@
+
+build/saved-read-probe-image: tests/saved_read_probe_image.c src/core/saved_read_probe.c include/kui/saved_read_probe.h $(CORE) $(FATFS) src/core/hash.c src/core/destination.c src/core/recovery_sector.c src/core/storage_probe.c
+	@mkdir -p $(@D)
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) tests/saved_read_probe_image.c src/core/saved_read_probe.c $(CORE) $(FATFS) src/core/hash.c src/core/destination.c src/core/recovery_sector.c src/core/storage_probe.c -Wl,--wrap=f_read,--wrap=f_open,--wrap=f_close,--wrap=malloc,--wrap=calloc -o $@
+
+test-saved-read-probe: build/saved-read-probe-image
+	ASAN_OPTIONS=detect_leaks=0 python3 tests/test_saved_read_probe_images.py
+
+.PHONY: test-salvage-revalidate
+build/salvage-revalidate-image: tests/salvage_revalidate_image.c src/core/salvage_revalidate.c include/kui/salvage_revalidate.h $(CORE) $(FATFS) src/core/hash.c src/core/destination.c src/core/recovery_sector.c src/core/recovery_guard.c src/core/storage_probe.c
+	@mkdir -p $(@D)
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) tests/salvage_revalidate_image.c src/core/salvage_revalidate.c $(CORE) $(FATFS) src/core/hash.c src/core/destination.c src/core/recovery_sector.c src/core/recovery_guard.c src/core/storage_probe.c -Wl,--wrap=f_read,--wrap=f_write,--wrap=f_open,--wrap=f_close,--wrap=f_stat,--wrap=f_unlink,--wrap=f_mount -o $@
+
+test-salvage-revalidate: build/salvage-revalidate-image
+	ASAN_OPTIONS=detect_leaks=0 python3 tests/test_salvage_revalidate_images.py
+
+test-drive-controls: build/test-drive-controls build/test-disc
+	./build/test-drive-controls
+	./build/test-disc
+
+build/test-drive-controls: tests/test_drive_controls.c $(DRIVE_CONTROLS)
+	@mkdir -p $(@D)
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) src/core/drive_controls.c tests/test_drive_controls.c -o $@
+
+test: test-recovery-dashboard
+build/test-recovery-dashboard: tests/test_recovery_dashboard.c include/kui/recovery_dashboard.h include/kui/shell.h
+	@mkdir -p $(@D)
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) tests/test_recovery_dashboard.c -o $@
+test-recovery-dashboard: build/test-recovery-dashboard
+	ASAN_OPTIONS=detect_leaks=0 ./build/test-recovery-dashboard
+
+.PHONY: test-vmu-per-game
+test-vmu-per-game: build/test-shell build/test-vmu-game-candidates
+	ASAN_OPTIONS=detect_leaks=0 ./build/test-shell --vmu-wizard
+	ASAN_OPTIONS=detect_leaks=0 ./build/test-vmu-game-candidates
+	python3 tests/test_vmu_import_plan.py
+	python3 tests/test_vmu_import_match.py
+	python3 tests/test_vmu_import_match_adversarial.py
+	python3 tests/test_vmu_wizard.py
+	python3 tests/test_vmu_game_info.py
+	python3 tests/test_vmu_wizard_filesystems.py
+	python3 tests/test_vmu_wizard_installer.py
+
+build/test-vmu-game-candidates: tests/test_vmu_game_candidates.c src/core/vmu_game_candidates.c src/core/vmu_game_assign.c include/kui/vmu_game_candidates.h src/core/vmu_game_card.c src/core/retail_image.c src/core/hash.c
+	@mkdir -p build
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) -ffunction-sections -fdata-sections $(INCLUDES) tests/test_vmu_game_candidates.c src/core/vmu_game_card.c src/core/retail_image.c src/core/hash.c -Wl,--gc-sections -o $@
+
+DISC_BOOT_CORE = src/core/disc_boot.c src/core/game_metadata.c src/core/hash.c src/core/data.c
+DISC_LAUNCH_CORE = src/core/disc_launch.c src/core/hash.c src/core/data.c
+.PHONY: test-disc-native
+test-disc-native: build/test-disc-boot build/test-disc-launch build/test-disc-launch-adversarial build/test-disc-vmu-storage build/test-disc-launcher build/test-shell
+	ASAN_OPTIONS=detect_leaks=0 ./build/test-disc-boot
+	ASAN_OPTIONS=detect_leaks=0 ./build/test-disc-launch
+	ASAN_OPTIONS=detect_leaks=0 ./build/test-disc-launch-adversarial
+	ASAN_OPTIONS=detect_leaks=0 ./build/test-disc-vmu-storage
+	ASAN_OPTIONS=detect_leaks=0 ./build/test-disc-launcher
+	ASAN_OPTIONS=detect_leaks=0 ./build/test-shell
+	python3 tests/test_disc_handoff_gui.py
+	python3 tests/test_disc_read_recovery.py
+	python3 tests/test_gd_play_failure_reports.py
+build/test-disc-boot: tests/test_disc_boot.c $(DISC_BOOT_CORE) include/kui/disc_boot.h
+	@mkdir -p $(@D)
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) -fno-pie -no-pie $(INCLUDES) tests/test_disc_boot.c $(DISC_BOOT_CORE) -o $@
+build/test-disc-launch: tests/test_disc_launch.c $(DISC_LAUNCH_CORE) include/kui/disc_launch.h
+	@mkdir -p $(@D)
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) -fno-pie -no-pie $(INCLUDES) tests/test_disc_launch.c $(DISC_LAUNCH_CORE) -o $@
+build/test-disc-launch-adversarial: tests/test_disc_launch_adversarial.c $(DISC_LAUNCH_CORE) src/loader/minic.c include/kui/disc_launch.h
+	@mkdir -p $(@D)
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) -fno-pie -no-pie -fno-builtin $(INCLUDES) tests/test_disc_launch_adversarial.c $(DISC_LAUNCH_CORE) -o $@
+build/test-disc-vmu-storage: tests/test_disc_vmu_storage.c src/loader/disc_vmu_storage.c include/kui/disc_vmu_storage.h
+	@mkdir -p $(@D)
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) -fno-pie -no-pie $(INCLUDES) -Isrc/loader tests/test_disc_vmu_storage.c src/loader/disc_vmu_storage.c -o $@
+build/test-disc-launcher: tests/test_disc_launcher.c src/apps/disc_launcher.c $(DISC_BOOT_CORE) src/core/disc_launch.c include/kui/disc_launcher.h include/kui/disc_launch.h
+	@mkdir -p $(@D)
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) -fno-pie -no-pie $(INCLUDES) -Isrc/dreamcast tests/test_disc_launcher.c src/apps/disc_launcher.c $(DISC_BOOT_CORE) src/core/disc_launch.c -Wl,--wrap=realloc -o $@
+
+build/test-disc-launch build/test-disc-launch-adversarial build/test-disc-launch-vmu build/test-disc-launcher: include/kui/disc_launch_limits.h
+build/test-disc-boot build/test-disc-launcher: src/loader/stage_fast_crc32.h
+
+.PHONY: test-disc-preflight
+test-disc-preflight: test-disc-large
+	python3 tests/test_disc_vmu_cache_stage.py
+	python3 tests/test_disc_fast_crc.py
+
+.PHONY: test-disc-large
+test-disc-large: build/test-disc-launch build/test-disc-launch-adversarial build/test-disc-launch-vmu build/test-disc-launcher
+	ASAN_OPTIONS=detect_leaks=0 ./build/test-disc-launch
+	ASAN_OPTIONS=detect_leaks=0 ./build/test-disc-launch-adversarial
+	ASAN_OPTIONS=detect_leaks=0 ./build/test-disc-launch-vmu
+	ASAN_OPTIONS=detect_leaks=0 ./build/test-disc-launcher
+	python3 tests/test_disc_handoff_gui.py
+	python3 tests/test_disc_vmu_launcher.py
+
+.PHONY: test-disc-cards
+test-disc-cards: build/test-disc-launcher build/test-shell
+	ASAN_OPTIONS=detect_leaks=0 ./build/test-disc-launcher
+	ASAN_OPTIONS=detect_leaks=0 ./build/test-shell
+	python3 tests/test_disc_cards.py
+	python3 tests/test_disc_cards_dispatch.py
+	python3 tests/test_disc_idle.py
+build/test-shell build/render-shell: include/kui/disc_cards.h
+build/test-shell build/render-shell: include/kui/update_browser.h
+
+.PHONY: test-disc-vmu
+test-disc-vmu: test-disc-native test-disc-vmu-probe build/test-disc-launch-vmu
+	python3 tests/test_disc_idle.py
+	ASAN_OPTIONS=detect_leaks=0 ./build/test-disc-launch-vmu
+	python3 tests/test_disc_vmu_card.py
+	python3 tests/test_disc_vmu_launcher.py
+	python3 tests/test_disc_vmu_transport.py
+	python3 tests/test_disc_vmu_persist_stage.py
+	python3 tests/test_disc_vmu_support.py
+	python3 tests/test_disc_vmu_return_stage.py
+	python3 tests/test_disc_region.py
+	$(MAKE) -f Makefile.disc-vmu disc-vmu-entry-host-tests
+build/test-disc-launch-vmu: tests/test_disc_launch_vmu.c $(DISC_LAUNCH_CORE) include/kui/disc_launch.h
+	@mkdir -p $(@D)
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) -fno-pie -no-pie $(INCLUDES) tests/test_disc_launch_vmu.c $(DISC_LAUNCH_CORE) -o $@
+
+DISC_VMU_PROBE_CORE = src/core/disc_vmu_probe.c src/core/vmu_native_program.c src/core/vmu_native_discovery.c src/core/vmu_native_layout.c src/core/vmu_native_heap.c src/core/vmu_native_exit.c src/core/vmu_native_patch.c src/core/hash.c src/core/data.c
+DISC_VMU_PROBE_WRAPS = -Wl,--wrap=kui_vmu_native_program_extent,--wrap=kui_vmu_native_discover_layout,--wrap=kui_vmu_native_discover,--wrap=kui_vmu_native_heap_discover,--wrap=kui_vmu_native_heap_call_discover,--wrap=kui_vmu_native_heap_preclear_plan
+.PHONY: test-disc-vmu-probe
+test-disc-vmu-probe: build/test-disc-vmu-probe
+	ASAN_OPTIONS=detect_leaks=0 ./build/test-disc-vmu-probe $(if $(STARTUP),'$(STARTUP)',)
+build/test-disc-vmu-probe: tests/test_disc_vmu_probe.c $(DISC_VMU_PROBE_CORE) include/kui/disc_vmu_probe.h include/kui/vmu_native_program.h include/kui/vmu_native_discovery.h include/kui/vmu_native_layout.h include/kui/vmu_native_heap.h
+	@mkdir -p $(@D)
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) -fno-pie -no-pie $(INCLUDES) tests/test_disc_vmu_probe.c $(DISC_VMU_PROBE_CORE) $(DISC_VMU_PROBE_WRAPS) -o $@
+
+# Shared disc-number parsing and Games detail/storage headers affect these
+# host binaries even when their immediate C source timestamps are unchanged.
+build/capture-image build/test-game-metadata build/test-disc-identity: include/kui/disc_number.h
+build/capture-image build/test-disc-identity build/games-library-image: include/kui/game_metadata.h
+build/test-shell: include/kui/games.h
+build/games-library-image: include/kui/games_storage.h include/kui/disc_number.h include/kui/games.h include/kui/games_activity.h include/kui/native_session_prepare.h
+
+.PHONY: test-multidisc-capture
+test-multidisc-capture: build/capture-image
+	ASAN_OPTIONS=detect_leaks=0 python3 tests/test_multidisc_capture_images.py
+
+test-images: test-multidisc-capture
+
+# Themes use the same reducer and renderer as the runtime.
+build/test-shell build/render-shell: src/core/theme.c include/kui/theme.h
+
+.PHONY: test-themes
+test: test-themes
+test-themes: build/test-theme build/test-theme-runtime build/test-theme-picker-worker build/theme-image build/test-shell
+	ASAN_OPTIONS=detect_leaks=0 ./build/test-theme
+	ASAN_OPTIONS=detect_leaks=0 ./build/test-theme-runtime
+	ASAN_OPTIONS=detect_leaks=0 ./build/test-theme-picker-worker
+	ASAN_OPTIONS=detect_leaks=0 ./build/test-shell --themes
+	ASAN_OPTIONS=detect_leaks=0 python3 tests/test_theme_images.py
+	ASAN_OPTIONS=detect_leaks=0 python3 tests/test_theme_install.py
+	python3 tests/test_pack_theme.py
+
+build/test-theme: tests/test_theme.c src/core/theme.c src/core/data.c include/kui/theme.h
+	@mkdir -p $(@D)
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) -fno-pie -no-pie $(INCLUDES) src/core/theme.c src/core/data.c tests/test_theme.c -o $@
+
+build/test-theme-runtime: tests/test_theme_runtime.c src/core/theme.c src/core/data.c src/apps/theme_runtime.c src/dreamcast/theme_runtime.inc include/kui/theme.h include/kui/theme_runtime.h include/kui/shell.h
+	@mkdir -p $(@D)
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) -fno-pie -no-pie $(INCLUDES) src/core/theme.c src/core/data.c src/apps/theme_runtime.c tests/test_theme_runtime.c -o $@
+
+build/test-theme-picker-worker: tests/test_theme_picker_worker.c src/dreamcast/theme_picker_runtime.inc include/kui/theme.h include/kui/splash.h include/kui/shell.h
+	@mkdir -p $(@D)
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) -fno-pie -no-pie $(INCLUDES) tests/test_theme_picker_worker.c -o $@
+
+THEME_IMAGE_SOURCES = tests/theme_image.c tests/theme_install.c $(CORE) $(FATFS) src/core/storage_probe.c src/core/theme.c src/apps/theme_file.c src/apps/theme_runtime.c src/apps/splash.c src/apps/splash_art.c third_party/miniz/miniz.c
+build/theme-image: $(THEME_IMAGE_SOURCES) include/kui/theme.h include/kui/theme_runtime.h include/kui/splash.h src/dreamcast/theme_startup_draw.inc build/splash_art.inc build/factory_splash_art.inc
+	@mkdir -p $(@D)
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) -fno-pie -no-pie $(INCLUDES) $(EXPORT_CODEC_FLAGS) $(THEME_IMAGE_SOURCES) -o $@
+
+THEME_RENDER_SOURCES = $(STORAGE_TEST_MODEL) src/core/wifi_text.c src/core/destination.c src/core/files_path.c src/core/data.c src/core/game_launch_settings.c src/core/game_ram_patches.c src/core/games_selection.c src/core/game_profile.c src/core/hash.c src/core/games_query.c src/core/theme.c src/core/shell.c src/core/clock.c src/dreamcast/shell_draw.c src/apps/splash_art.c third_party/miniz/miniz.c src/dreamcast/shell_font.c src/apps/system_settings.c src/core/salvage_display.c src/core/drive_controls.c src/apps/splash.c tests/render_theme.c
+build/render-theme: $(THEME_RENDER_SOURCES) include/kui/theme.h include/kui/shell.h build/splash_art.inc build/factory_splash_art.inc src/dreamcast/shell_art.inc src/dreamcast/shell_font_data.inc
+	@mkdir -p $(@D)
+	$(CC) $(HOST_FLAGS) $(INCLUDES) $(EXPORT_CODEC_FLAGS) $(THEME_RENDER_SOURCES) -o $@
+
+build/test-splash build/theme-image: tests/theme_preview_reference.h
+build/test-splash build/theme-image build/render-theme: src/apps/theme_thumbnail.h include/kui/theme.h
+build/test-splash build/theme-image build/render-theme build/test-shell build/render-shell: include/kui/theme_filter.h

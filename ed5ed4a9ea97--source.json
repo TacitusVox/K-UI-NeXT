@@ -1,0 +1,40 @@
+{
+  "version": 1,
+  "name": "Zombie Turkey",
+  "author": "TacitusVox",
+  "colors": {
+    "text": "#F5F7FC",
+    "success": "#8AE2AE",
+    "warning": "#FFCF82",
+    "selection_text": "#FFFFFF",
+    "background": "#151726",
+    "panel": "#24253A",
+    "selection": "#363B51",
+    "edge": "#6A6D80",
+    "muted": "#C0C2D1",
+    "accent": "#EFBB70",
+    "accent2": "#B8E57D"
+  },
+  "assets": {
+    "splash": {
+      "source": "../sources/zombie-turkey.png",
+      "sha256": "a7367edcb233cef7077bbd6c5383f67c9d62d01bffc7537bada2807eb40bb2d6",
+      "filter": "lanczos",
+      "fit": "contain"
+    },
+    "header": {
+      "source": "../sources/zombie-turkey.png",
+      "sha256": "a7367edcb233cef7077bbd6c5383f67c9d62d01bffc7537bada2807eb40bb2d6",
+      "filter": "lanczos",
+      "fit": "header-left",
+      "crop": [
+        266,
+        257,
+        1448,
+        670
+      ],
+      "brightness": 0.94,
+      "dither": true
+    }
+  }
+}
