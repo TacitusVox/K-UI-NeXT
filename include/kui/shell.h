@@ -101,6 +101,13 @@ struct kui_shell_games_flow_page {
     unsigned page;
     bool valid;
 };
+/* One adjacent storage chunk lets the viewport slide across a read boundary. */
+struct kui_shell_files_scroll {
+    struct kui_files_page neighbor;
+    unsigned first;
+    bool using_neighbor;
+    int pending_step;
+};
 enum kui_shell_button {
     KUI_SHELL_UP = 1u << 0, KUI_SHELL_DOWN = 1u << 1,
     KUI_SHELL_LEFT = 1u << 2, KUI_SHELL_RIGHT = 1u << 3,
@@ -459,6 +466,7 @@ struct kui_shell {
     bool files_screenshots;
     char files_gallery_return[KUI_FILES_PATH_CAP];
     struct kui_files_page files_listing, files_pick;
+    struct kui_shell_files_scroll files_scroll, files_pick_scroll;
     struct kui_files_request files_request;
     struct kui_files_job files_job;
     struct kui_files_preview files_preview;
@@ -664,6 +672,8 @@ bool kui_shell_games_ce_probe_ready(const struct kui_shell *shell);
 /* File Manager results. A listing is kept only for the folder it was asked
  * for; a check only for the job and page that asked; a picture only while
  * its view is open. A run's status becomes the browser's notice. */
+const struct kui_files_page *kui_shell_files_page(const struct kui_shell *shell, bool picker);
+const struct kui_files_entry *kui_shell_files_row(const struct kui_shell *shell, bool picker, unsigned absolute);
 void kui_shell_set_files_listing(struct kui_shell *shell, const struct kui_files_page *page);
 void kui_shell_set_files_preview(struct kui_shell *shell, const struct kui_files_preview *preview);
 void kui_shell_set_files_status(struct kui_shell *shell, const struct kui_app_status *status);

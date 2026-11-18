@@ -1387,9 +1387,12 @@ FILES_WRAP = -Wl,--wrap=f_open,--wrap=f_close,--wrap=f_opendir,--wrap=f_closedir
 build/test-files: tests/test_files.c src/core/files_path.c src/core/destination.c src/core/data.c include/kui/files.h .deps/fatfs/source/ff.h
 	@mkdir -p $(@D)
 	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) src/core/files_path.c src/core/destination.c src/core/data.c tests/test_files.c -o $@
-build/files-image: tests/files_image.c $(FILES) $(CORE) $(FATFS) include/kui/files.h include/kui/game_cover.h include/kui/cover_image.h include/kui/pvr_texture.h tests/fixtures/cover_images.h third_party/stb/stb_image.h config/ffconf.h
+FILES_SHELL_MODEL = $(STORAGE_TEST_MODEL) src/core/game_launch_settings.c src/core/game_ram_patches.c \
+        src/core/games_selection.c src/core/game_profile.c src/core/hash.c src/core/games_query.c \
+        src/core/theme.c src/core/shell.c src/apps/system_settings.c src/core/settings.c
+build/files-image: tests/files_image.c $(FILES) $(CORE) $(FATFS) $(FILES_SHELL_MODEL) include/kui/shell.h include/kui/files.h include/kui/game_cover.h include/kui/cover_image.h include/kui/pvr_texture.h tests/fixtures/cover_images.h third_party/stb/stb_image.h config/ffconf.h
 	@mkdir -p $(@D)
-	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) -Isrc/dreamcast $(FILES) $(CORE) $(FATFS) tests/files_image.c $(FILES_WRAP) -lm -o $@
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) -Isrc/dreamcast $(FILES) $(CORE) $(FATFS) $(FILES_SHELL_MODEL) tests/files_image.c $(FILES_WRAP) -lm -o $@
 # The Wi-Fi board's driver on a model of the board: the firmware's own
 # bridge core behind a simulated SPI bus, with real sockets on this machine.
 WIFI_LINK = $(KWLINK)/kwlink.c $(KWLINK)/kwhost.c

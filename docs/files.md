@@ -15,10 +15,10 @@ none of it is used here (see [prior work](prior-work-reuse.md)).
 
 Open **File Manager** from Home. It starts at the card's root.
 
-- **D-pad** up and down selects; left and right turn the page. Eight items
-  are shown per page, folders first, then files, each in name order without
-  regard to capitals. The line under the list shows which items are on the
-  page, and the selected item's date and read-only or hidden marks.
+- Press **Up** or **Down** to select the next item. The list scrolls one row
+  at a time and the scrollbar shows your position in the folder. Eight
+  rows fit on screen. Folders come first, followed by files, both sorted by
+  name. The selected item's details appear below the list.
 - **A** opens the selected item:
   - a folder opens;
   - a `.gdi` opens its Games image details, where A launches it as usual;
@@ -35,8 +35,9 @@ Open **File Manager** from Home. It starts at the card's root.
 
 ### Copy and move
 
-Choose **Copy** or **Move**, then choose the destination folder: **A** opens a
-folder, **B** goes up, and **Y** chooses the folder shown (**START** cancels).
+Choose **Copy** or **Move** and browse the destination folders with **Up**
+and **Down**. **A** opens a folder, **B** goes up, **Y** chooses the current
+folder, and **START** cancels.
 The File Manager then checks the item, the destination and the free space, and
 shows what it will do before anything is written. **A** confirms.
 
@@ -133,8 +134,9 @@ box art.
 Merge this build's `sd-update` `KUI` folder onto the card and keep the boot
 CD. Use a card whose contents are backed up.
 
-1. Open File Manager, browse into a game folder and back out, and turn a page
-   in a large folder.
+1. Open a folder with more than eight items. Scroll past the eighth item
+   and back up. Check that the selection moves one row at a time and the
+   scrollbar reaches both ends of the folder.
 2. Open a `.gdi` (it should show Games image details), a song and a picture.
 3. Make a new folder, copy a small file into it, and check the copy on a PC.
 4. Rename the copy, move it back, then delete the folder.

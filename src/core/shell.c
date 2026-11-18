@@ -1856,8 +1856,25 @@ static void capture_label_keyboard(struct kui_shell *s) {
 }
 /* ---- File Manager ---- */
 #define FILES_ACTION_COUNT 8u
+const struct kui_files_page *kui_shell_files_page(const struct kui_shell *s,bool picker) {
+    const struct kui_shell_files_scroll *scroll=picker?&s->files_pick_scroll:&s->files_scroll;
+    return scroll->using_neighbor?&scroll->neighbor:picker?&s->files_pick:&s->files_listing;
+}
+static bool files_contains(const struct kui_files_page *page,unsigned absolute) {
+    return absolute>=page->before && absolute-page->before<page->count;
+}
+const struct kui_files_entry *kui_shell_files_row(const struct kui_shell *s,bool picker,unsigned absolute) {
+    const struct kui_files_page *page=kui_shell_files_page(s,picker);
+    if(!files_contains(page,absolute)) {
+        const struct kui_shell_files_scroll *scroll=picker?&s->files_pick_scroll:&s->files_scroll;
+        page=!scroll->using_neighbor?&scroll->neighbor:picker?&s->files_pick:&s->files_listing;
+        if(!files_contains(page,absolute))return NULL;
+    }
+    return &page->entries[absolute-page->before];
+}
 static const struct kui_files_entry *files_entry(const struct kui_shell *s) {
-    return s->files_selected<s->files_listing.count?&s->files_listing.entries[s->files_selected]:NULL;
+    const struct kui_files_page *page=kui_shell_files_page(s,false);
+    return s->files_selected<page->count?&page->entries[s->files_selected]:NULL;
 }
 /* The selected row's card path, unless the row cannot be used. */
 static bool files_entry_path(const struct kui_shell *s,char out[KUI_FILES_PATH_CAP]) {
@@ -1871,7 +1888,7 @@ static void files_say(struct kui_shell *s,bool error,const char *text) {
 static void files_quiet(struct kui_shell *s) {s->files_notice[0]=s->files_notice_detail[0]=0;s->files_notice_error=false;}
 /* Asks for a page of the browser's folder, or the picker's. The anchor is
  * copied before the page it may belong to is cleared. */
-static enum kui_shell_action list_files(struct kui_shell *s,bool picker,enum kui_files_seek seek,
+static void files_request(struct kui_shell *s,bool picker,enum kui_files_seek seek,
         const char *anchor,bool anchor_directory) {
     struct kui_files_request *r=&s->files_request;
     memset(r,0,sizeof(*r));
@@ -1883,6 +1900,14 @@ static enum kui_shell_action list_files(struct kui_shell *s,bool picker,enum kui
         memcpy(r->anchor,anchor,strlen(anchor)+1);
         r->anchor_directory=anchor_directory;r->seek=seek;
     }
+}
+
+static enum kui_shell_action list_files(struct kui_shell *s,bool picker,enum kui_files_seek seek,
+        const char *anchor,bool anchor_directory) {
+    files_request(s,picker,seek,anchor,anchor_directory);
+    const struct kui_files_request *r=&s->files_request;
+    struct kui_shell_files_scroll *scroll=picker?&s->files_pick_scroll:&s->files_scroll;
+    memset(scroll,0,sizeof(*scroll));
     struct kui_files_page *page=picker?&s->files_pick:&s->files_listing;
     memset(page,0,sizeof(*page));
     memcpy(page->path,r->path,sizeof(page->path));
@@ -1891,19 +1916,42 @@ static enum kui_shell_action list_files(struct kui_shell *s,bool picker,enum kui
     if(picker) s->files_pick_selected=0; else s->files_selected=0;
     return KUI_SHELL_FILES_LIST;
 }
-static enum kui_shell_action files_page_turn(struct kui_shell *s,bool picker,bool forward) {
-    const struct kui_files_page *l=picker?&s->files_pick:&s->files_listing;
-    if(forward) {
-        if(!l->count || l->before+l->count>=l->total) return KUI_SHELL_NONE;
-        return list_files(s,picker,KUI_FILES_SEEK_NEXT,l->last,l->last_directory);
+static void files_select_row(struct kui_shell *s,bool picker,unsigned absolute) {
+    struct kui_shell_files_scroll *scroll=picker?&s->files_pick_scroll:&s->files_scroll;
+    const struct kui_files_page *page=kui_shell_files_page(s,picker);
+    if(!files_contains(page,absolute)) {
+        scroll->using_neighbor=!scroll->using_neighbor;
+        page=kui_shell_files_page(s,picker);
     }
-    if(!l->before) return KUI_SHELL_NONE;
-    if(l->before<=KUI_FILES_ROWS || !l->count) return list_files(s,picker,KUI_FILES_SEEK_FIRST,NULL,false);
-    return list_files(s,picker,KUI_FILES_SEEK_PREVIOUS,l->first,l->first_directory);
+    unsigned *selected=picker?&s->files_pick_selected:&s->files_selected;
+    *selected=absolute-page->before;
+    if(absolute<scroll->first)scroll->first=absolute;
+    else if(absolute-scroll->first>=KUI_FILES_ROWS)scroll->first=absolute-(KUI_FILES_ROWS-1);
+}
+
+static enum kui_shell_action files_scroll_input(struct kui_shell *s,bool picker,unsigned buttons) {
+    unsigned direction=buttons&(KUI_SHELL_DOWN|KUI_SHELL_UP);
+    const struct kui_files_page *page=kui_shell_files_page(s,picker);
+    struct kui_shell_files_scroll *scroll=picker?&s->files_pick_scroll:&s->files_scroll;
+    if(!page->count || scroll->pending_step || (direction!=KUI_SHELL_DOWN && direction!=KUI_SHELL_UP))
+        return KUI_SHELL_NONE;
+    unsigned absolute=page->before+(picker?s->files_pick_selected:s->files_selected);
+    bool down=direction==KUI_SHELL_DOWN;
+    if(down?absolute>=page->total-1:!absolute)return KUI_SHELL_NONE;
+    unsigned next=down?absolute+1:absolute-1;
+    if(!picker)s->files_notice_detail[0]=0;
+    if(kui_shell_files_row(s,picker,next)) {
+        files_select_row(s,picker,next);
+        return KUI_SHELL_NONE;
+    }
+    scroll->pending_step=down?1:-1;
+    files_request(s,picker,down?KUI_FILES_SEEK_NEXT:KUI_FILES_SEEK_PREVIOUS,
+        down?page->last:page->first,down?page->last_directory:page->first_directory);
+    return KUI_SHELL_FILES_LIST;
 }
 /* Lists the browser's folder again from its current first row. */
 static enum kui_shell_action files_refresh(struct kui_shell *s) {
-    const struct kui_files_page *l=&s->files_listing;
+    const struct kui_files_page *l=kui_shell_files_page(s,false);
     return l->count?list_files(s,false,KUI_FILES_SEEK_AT,l->first,l->first_directory):
         list_files(s,false,KUI_FILES_SEEK_FIRST,NULL,false);
 }
@@ -2028,16 +2076,11 @@ static enum kui_shell_action files_action(struct kui_shell *s) {
     }
 }
 static enum kui_shell_action files_input(struct kui_shell *s,unsigned buttons) {
-    const struct kui_files_page *l=&s->files_listing;
-    unsigned horizontal=buttons&(KUI_SHELL_LEFT|KUI_SHELL_RIGHT);
     if(buttons&KUI_SHELL_START) {s->files_screenshots=false;s->page=KUI_SHELL_HOME;return KUI_SHELL_NONE;}
     if(buttons&KUI_SHELL_R) {files_quiet(s);return files_refresh(s);}
     if(buttons&KUI_SHELL_Y) return files_keyboard(s,KUI_FILES_OP_MKDIR);
-    if(horizontal==KUI_SHELL_LEFT || horizontal==KUI_SHELL_RIGHT)
-        return files_page_turn(s,false,horizontal==KUI_SHELL_RIGHT);
-    unsigned before=s->files_selected;
-    s->files_selected=move_count(s->files_selected,buttons,l->count);
-    if(s->files_selected!=before) s->files_notice_detail[0]=0;
+    enum kui_shell_action scroll=files_scroll_input(s,false,buttons);
+    if(scroll!=KUI_SHELL_NONE || s->files_scroll.pending_step)return scroll;
     if(buttons&KUI_SHELL_X) {
         s->files_action_selected=0;files_quiet(s);s->page=KUI_SHELL_FILES_ACTIONS;
         return KUI_SHELL_NONE;
@@ -2046,8 +2089,6 @@ static enum kui_shell_action files_input(struct kui_shell *s,unsigned buttons) {
     return KUI_SHELL_NONE;
 }
 static enum kui_shell_action files_pick_input(struct kui_shell *s,unsigned buttons) {
-    const struct kui_files_page *l=&s->files_pick;
-    unsigned horizontal=buttons&(KUI_SHELL_LEFT|KUI_SHELL_RIGHT);
     if(buttons&KUI_SHELL_START) {
         s->page=s->files_pick_compare?KUI_SHELL_SYSTEM_TOOLS:
             s->files_pick_import?KUI_SHELL_VMU_RESTORE:KUI_SHELL_FILES;
@@ -2057,26 +2098,26 @@ static enum kui_shell_action files_pick_input(struct kui_shell *s,unsigned butto
         memcpy(s->files_job.target,s->files_pick_path,sizeof(s->files_job.target));
         return files_check(s);
     }
-    if(horizontal==KUI_SHELL_LEFT || horizontal==KUI_SHELL_RIGHT)
-        return files_page_turn(s,true,horizontal==KUI_SHELL_RIGHT);
-    s->files_pick_selected=move_count(s->files_pick_selected,buttons,l->count);
+    enum kui_shell_action scroll=files_scroll_input(s,true,buttons);
+    if(scroll!=KUI_SHELL_NONE || s->files_pick_scroll.pending_step)return scroll;
+    struct kui_files_page *l=s->files_pick_scroll.using_neighbor?&s->files_pick_scroll.neighbor:&s->files_pick;
     if((buttons&KUI_SHELL_A) && s->files_pick_selected<l->count) {
         const struct kui_files_entry *e=&l->entries[s->files_pick_selected];
         char child[KUI_FILES_PATH_CAP];
         if(e->disabled || !kui_files_join(child,s->files_pick_path,e->name)) {
             if(s->files_pick_import) {
-                snprintf(s->files_pick.message,sizeof(s->files_pick.message),"%s",vmu_import_name(e->name)?
+                snprintf(l->message,sizeof(l->message),"%s",vmu_import_name(e->name)?
                     "This save name or path cannot be used.":"Choose a VMS, VMI or DCI save file.");
                 return KUI_SHELL_NONE;
             }
-            snprintf(s->files_pick.message,sizeof(s->files_pick.message),"%s",
+            snprintf(l->message,sizeof(l->message),"%s",
                 kui_files_join(child,s->files_pick_path,e->name) && !strcmp(child,s->files_job.source)?
                 "This is the folder being copied or moved.":"This folder cannot be opened.");
             return KUI_SHELL_NONE;
         }
         if(s->files_pick_import && !e->directory) {
             if(!vmu_import_name(e->name)) {
-                snprintf(s->files_pick.message,sizeof(s->files_pick.message),"Choose a VMS, VMI or DCI save file.");
+                snprintf(l->message,sizeof(l->message),"Choose a VMS, VMI or DCI save file.");
                 return KUI_SHELL_NONE;
             }
             memcpy(s->vmu_import_path,child,sizeof(s->vmu_import_path));
@@ -2086,7 +2127,7 @@ static enum kui_shell_action files_pick_input(struct kui_shell *s,unsigned butto
         if(s->files_pick_compare && !e->directory) {
             uint64_t expected=s->system_compare_bios?2097152u:131072u;
             if(e->bytes!=expected) {
-                snprintf(s->files_pick.message,sizeof(s->files_pick.message),"%s",
+                snprintf(l->message,sizeof(l->message),"%s",
                     s->system_compare_bios?"Choose an exact 2 MiB BIOS image.":"Choose an exact 128 KiB settings-flash image.");
                 return KUI_SHELL_NONE;
             }
@@ -2119,11 +2160,21 @@ void kui_shell_set_files_listing(struct kui_shell *s,const struct kui_files_page
     if(picker && page->folders_only != !file_picker) return;
     if(picker?(s->page!=KUI_SHELL_FILES_PICK || strcmp(page->path,s->files_pick_path)):
               strcmp(page->path,s->files_path)) return;
-    struct kui_files_page *l=picker?&s->files_pick:&s->files_listing;
+    struct kui_shell_files_scroll *scroll=picker?&s->files_pick_scroll:&s->files_scroll;
+    struct kui_files_page *primary=picker?&s->files_pick:&s->files_listing;
+    struct kui_files_page *current=scroll->using_neighbor?&scroll->neighbor:primary;
+    int step=scroll->pending_step;
+    scroll->pending_step=0;
+    if(step && !page->ok) {
+        snprintf(current->message,sizeof(current->message),"%.*s",(int)sizeof(page->message)-1,page->message);
+        return;
+    }
+    struct kui_files_page *l=step && !scroll->using_neighbor?&scroll->neighbor:primary;
     *l=*page;
     l->message[sizeof(l->message)-1]=0;
     if(l->count>KUI_FILES_ROWS) l->count=KUI_FILES_ROWS;
     if(l->before>l->total) l->before=l->total;
+    if(l->count>l->total-l->before) l->count=l->total-l->before;
     if(!l->count || !memchr(l->first,0,sizeof(l->first)) || !memchr(l->last,0,sizeof(l->last))) {
         l->first[0]=l->last[0]=0;
         if(l->count) l->count=0;
@@ -2141,7 +2192,28 @@ void kui_shell_set_files_listing(struct kui_shell *s,const struct kui_files_page
         if(picker && !file_picker && moving && !e->disabled && !strcmp(path,s->files_job.source)) e->disabled=true;
     }
     unsigned *selected=picker?&s->files_pick_selected:&s->files_selected;
-    if(*selected>=l->count) *selected=0;
+    if(step && l->count) {
+        current->message[0]=0;
+        unsigned target=current->before+*selected;
+        target=step>0?target+1:target-1;
+        bool contiguous=l->total==current->total && (step>0?
+            l->before==current->before+current->count:
+            files_contains(l,target) && l->before+l->count>=current->before);
+        if(!contiguous) {
+            /* The directory changed between reads. Start the view on the fresh rows. */
+            current->count=0;
+            scroll->first=l->before;
+            target=step>0?l->before:l->before+l->count-1;
+        }
+        scroll->using_neighbor=l==&scroll->neighbor;
+        files_select_row(s,picker,target);
+    } else {
+        if(step)current->count=0;
+        else scroll->neighbor.count=0;
+        scroll->using_neighbor=l==&scroll->neighbor;
+        scroll->first=l->before;
+        if(*selected>=l->count)*selected=0;
+    }
 }
 void kui_shell_set_files_preview(struct kui_shell *s,const struct kui_files_preview *preview) {
     if(!s || !preview) return;
@@ -3781,12 +3853,10 @@ enum kui_shell_action kui_shell_input(struct kui_shell *s,
         return files_pick_input(s,buttons);
     case KUI_SHELL_FILES_CONFIRM:
         if((buttons&KUI_SHELL_A) && kui_shell_files_ready(s)) {
-            const struct kui_files_page *l=&s->files_listing;
             enum kui_files_op op=s->files_job.op;
             s->page=KUI_SHELL_FILES;
             /* The browser's folder is listed again in place afterwards. */
-            if(l->count) list_files(s,false,KUI_FILES_SEEK_AT,l->first,l->first_directory);
-            else list_files(s,false,KUI_FILES_SEEK_FIRST,NULL,false);
+            files_refresh(s);
             files_say(s,false,op==KUI_FILES_OP_COPY?"Copying...":op==KUI_FILES_OP_MOVE?"Moving...":"Deleting...");
             s->files_running=true;
             return KUI_SHELL_FILES_RUN;

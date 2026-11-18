@@ -109,6 +109,7 @@ static void files_folder(struct kui_shell *shell,bool root) {
     snprintf(shell->files_path,sizeof(shell->files_path),"%s",root?"/":"/Games/Fighting/Dead or Alive 2");
     snprintf(l->path,sizeof(l->path),"%s",shell->files_path);
     l->count=8;l->before=root?0:8;l->total=root?8:19;
+    shell->files_scroll.first=l->before;
     for(unsigned i=0;i<8;i++) {
         struct kui_files_entry *e=&l->entries[i];
         snprintf(e->name,sizeof(e->name),"%s",root?top[i].name:game[i].name);

@@ -11,7 +11,7 @@ from test_games_library_images import private_formatter
 
 ROOT = Path(__file__).resolve().parents[1]
 BINARY = str(ROOT / "build/files-image")
-CASES = ("list", "copy", "cancel", "write-fail", "verify-fail", "full", "move", "delete", "rename",
+CASES = ("list", "scroll", "copy", "cancel", "write-fail", "verify-fail", "full", "move", "delete", "rename",
          "mkdir", "picture")
 
 

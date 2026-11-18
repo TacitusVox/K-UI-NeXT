@@ -1572,6 +1572,40 @@ static void music_and_boot_rendering(void) {
     assert(strstr(drawn,"B Parent") && strstr(drawn,"START Home") && !strstr(drawn,"CD playback"));
     assert(strstr(drawn,"Y Stop") && strstr(drawn,"Cached 0.0 MiB / 8 MiB"));
 }
+static void settings_scroll_rendering(void) {
+    struct kui_shell_view view={0};
+    const uint16_t track=0x318a,thumb=0x675e;
+    reset(KUI_SHELL_SETTINGS);render(&view);
+    assert(strstr(drawn,"1/14\n") && strstr(drawn,"Video mode\n") && !strstr(drawn,"Safe area\n"));
+    assert(pixels[1+158*640+602]==thumb && pixels[1+355*640+602]==track);
+    for(unsigned i=0;i<7;i++) press(KUI_SHELL_DOWN,false);
+    render(&view);
+    assert(strstr(drawn,"8/14\n") && strstr(drawn,"Video mode\n") && strstr(drawn,"Restore defaults\n"));
+    press(KUI_SHELL_DOWN,false);render(&view);
+    assert(strstr(drawn,"9/14\n") && !strstr(drawn,"Video mode\n"));
+    assert(strstr(drawn,"Home memory display\n") && strstr(drawn,"Safe area\n") && !strstr(drawn,"System tools\n"));
+    assert(pixels[1+158*640+602]==track && pixels[1+200*640+602]==thumb && pixels[1+355*640+602]==track);
+    for(unsigned i=9;i<KUI_SHELL_SYSTEM_ROWS;i++) press(KUI_SHELL_DOWN,false);
+    render(&view);
+    assert(strstr(drawn,"14/14\n") && strstr(drawn,"Console clock\n") && strstr(drawn,"Appearance\n"));
+    assert(pixels[1+158*640+602]==track && pixels[1+355*640+602]==thumb);
+    press(KUI_SHELL_DOWN,false);render(&view);
+    assert(strstr(drawn,"1/14\n") && pixels[1+158*640+602]==thumb);
+
+    reset(KUI_SHELL_GAMES_ADVANCED);render(&view);
+    assert(pixels[1+164*640+602]==thumb && pixels[1+377*640+602]==track);
+    press(KUI_SHELL_UP,false);render(&view);
+    assert(strstr(drawn,"Scan from internet\n") && pixels[1+377*640+602]==thumb);
+    reset(KUI_SHELL_GAMES_EXTRA_OPTIONS);render(&view);
+    assert(pixels[1+174*640+602]==thumb && pixels[1+347*640+602]==track);
+    press(KUI_SHELL_UP,false);render(&view);
+    assert(strstr(drawn,"Recommended setup\n") && pixels[1+347*640+602]==thumb);
+    reset(KUI_SHELL_ADVANCED);render(&view);
+    assert(pixels[1+156*640+602]==thumb && pixels[1+329*640+602]==track);
+    press(KUI_SHELL_UP,false);render(&view);
+    assert(strstr(drawn,"Start a new repair copy\n") && pixels[1+329*640+602]==thumb);
+    puts("PASS Settings scrollbars: full windows, intermediate position, final rows and controller wrap");
+}
 static void settings_without_screenshot_page(void) {
     reset(KUI_SHELL_SETTINGS);
     s.system_draft.music_volume=65u;
@@ -2108,7 +2142,7 @@ static void round_five_rendering(void) {
     s.confirm_vmu_delete=false;s.confirm_vmu_copy=true;render(&v);assert(strstr(drawn,"COPY THIS SAVE") && strstr(drawn,"Destination VMU A2"));
     reset(KUI_SHELL_MUSIC);s.confirm_music_clear=true;render(&v);
     assert(strstr(drawn,"CLEAR CACHED MUSIC?") && strstr(drawn,"files remain"));
-    reset(KUI_SHELL_SETTINGS);s.system_selected=8;render(&v);
+    reset(KUI_SHELL_SETTINGS);s.system_selected=9;render(&v);
     assert(strstr(drawn,"Safe area") && strstr(drawn,"System tools"));
     reset(KUI_SHELL_SYSTEM_TOOLS);render(&v);assert(strstr(drawn,"Inspect system hardware") && strstr(drawn,"Back up visible BIOS bank"));
     s.confirm_restart=true;render(&v);assert(strstr(drawn,"RESTART THE CONSOLE?"));
@@ -2117,6 +2151,22 @@ static void round_five_rendering(void) {
     s.cd_audio.tracks[1].number=4;s.cd_audio.tracks[1].seconds=61;
     s.cd_audio.playing=true;s.cd_audio.current=4;render(&v);
     assert(strstr(drawn,"Audio CD player") && strstr(drawn,"Track 04  <") && strstr(drawn,"3:05"));
+    const uint16_t cd_rail=0x318a,cd_thumb=0x675e;
+    assert(pixels[1+196*640+602]!=cd_thumb && pixels[1+363*640+602]!=cd_rail);
+    s.cd_audio.count=12;
+    for(unsigned i=0;i<s.cd_audio.count;i++)s.cd_audio.tracks[i].number=2*(i+1);
+    render(&v);
+    assert(strstr(drawn,"Track 02\n") && strstr(drawn,"Track 16\n") && !strstr(drawn,"Track 18\n"));
+    assert(pixels[1+307*640+602]==cd_thumb && pixels[1+308*640+602]==cd_rail);
+    for(unsigned i=0;i<8;i++)press(KUI_SHELL_DOWN,false);
+    render(&v);
+    assert(!strstr(drawn,"Track 02\n") && strstr(drawn,"Track 04  <") &&
+        strstr(drawn,"Track 18\n") && !strstr(drawn,"Track 20\n"));
+    assert(pixels[1+209*640+602]==cd_rail && pixels[1+210*640+602]==cd_thumb);
+    for(unsigned i=0;i<3;i++)press(KUI_SHELL_DOWN,false);
+    render(&v);
+    assert(!strstr(drawn,"Track 08\n") && strstr(drawn,"Track 10\n") && strstr(drawn,"Track 24\n"));
+    assert(pixels[1+251*640+602]==cd_rail && pixels[1+363*640+602]==cd_thumb);
     reset(KUI_SHELL_DISC_TOOLS);render(&v);
     assert(strstr(drawn,"Copy a disc") && strstr(drawn,"Recover a damaged disc"));
     assert(strstr(drawn,"Verify a saved dump") && strstr(drawn,"Play inserted disc"));
@@ -4143,19 +4193,38 @@ static void files_controls(void) {
     struct kui_files_page picked=files_result("/",true,1,0,1,root_names+1,root_directories+1);
     kui_shell_set_files_listing(&s,&picked);
     assert(!strcmp(s.files_listing.entries[0].name,"Games") && s.files_listing.count==8);
-    /* Pages turn from the neighbouring row. */
-    assert(press(KUI_SHELL_RIGHT,false)==KUI_SHELL_FILES_LIST && s.files_request.seek==KUI_FILES_SEEK_NEXT);
-    assert(!strcmp(s.files_request.anchor,"song.ogg") && !s.files_request.anchor_directory && !s.files_listing.count);
-    static const char *const more[]={"setup.log","video.bin","zeta.txt","~temp"};
+    /* Crossing a storage chunk scrolls by one; reversing uses the cached rows. */
+    assert(press(KUI_SHELL_RIGHT,false)==KUI_SHELL_NONE && press(KUI_SHELL_LEFT,false)==KUI_SHELL_NONE);
+    assert(press(KUI_SHELL_UP,false)==KUI_SHELL_NONE && s.files_selected==0);
+    for(unsigned i=1;i<8;i++)assert(press(KUI_SHELL_DOWN,false)==KUI_SHELL_NONE && s.files_selected==i);
+    assert(press(KUI_SHELL_DOWN,false)==KUI_SHELL_FILES_LIST && s.files_request.seek==KUI_FILES_SEEK_NEXT);
+    assert(!strcmp(s.files_request.anchor,"song.ogg") && !s.files_request.anchor_directory);
+    assert(s.files_listing.count==8 && s.files_scroll.first==0 && s.files_selected==7);
+    static const char *const more[]={"track01.raw","video.bin","zeta.txt","~temp"};
     static const bool files_only[]={false,false,false,false};
     struct kui_files_page page=files_result("/",false,4,8,12,more,files_only);
+    struct kui_files_page failed={.path="/",.message="Cannot read this folder"};
+    kui_shell_set_files_listing(&s,&failed);
+    assert(!s.files_scroll.pending_step && s.files_listing.count==8 && strstr(s.files_listing.message,"Cannot read"));
+    assert(press(KUI_SHELL_DOWN,false)==KUI_SHELL_FILES_LIST);
     kui_shell_set_files_listing(&s,&page);
-    assert(press(KUI_SHELL_RIGHT,false)==KUI_SHELL_NONE);
-    assert(press(KUI_SHELL_LEFT,false)==KUI_SHELL_FILES_LIST && s.files_request.seek==KUI_FILES_SEEK_FIRST);
-    page=files_result("/",false,4,16,30,more,files_only);
+    assert(s.files_selected==0 && s.files_scroll.first==1 && !strcmp(kui_shell_files_row(&s,false,1)->name,"KUI"));
+    assert(!strcmp(kui_shell_files_row(&s,false,8)->name,"track01.raw"));
+    assert(press(KUI_SHELL_UP,false)==KUI_SHELL_NONE && s.files_selected==7 && s.files_scroll.first==1);
+    for(unsigned i=8;i<12;i++) {
+        assert(press(KUI_SHELL_DOWN,false)==KUI_SHELL_NONE && s.files_selected==i-8 && s.files_scroll.first==i-7);
+    }
+    assert(press(KUI_SHELL_DOWN,false)==KUI_SHELL_NONE && s.files_selected==3);
+    assert(press(KUI_SHELL_A,false)==KUI_SHELL_FILES_CHECK && !strcmp(s.files_job.source,"/~temp"));
+    press(KUI_SHELL_B,false);
+    /* Returning to a directory at an anchor may start the list well past the first row. */
+    page=files_result("/",false,4,16,20,more,files_only);
+    kui_shell_set_files_listing(&s,&page);s.files_selected=0;
+    assert(press(KUI_SHELL_UP,false)==KUI_SHELL_FILES_LIST && s.files_request.seek==KUI_FILES_SEEK_PREVIOUS);
+    assert(!strcmp(s.files_request.anchor,"track01.raw"));
+    page=files_result("/",false,8,8,20,root_names,root_directories);
     kui_shell_set_files_listing(&s,&page);
-    assert(press(KUI_SHELL_LEFT,false)==KUI_SHELL_FILES_LIST && s.files_request.seek==KUI_FILES_SEEK_PREVIOUS);
-    assert(!strcmp(s.files_request.anchor,"setup.log"));
+    assert(s.files_scroll.first==15 && s.files_selected==7);
     files_root();
     assert(press(KUI_SHELL_R,false)==KUI_SHELL_FILES_LIST && s.files_request.seek==KUI_FILES_SEEK_AT);
     assert(!strcmp(s.files_request.anchor,"Games") && s.files_request.anchor_directory);
@@ -4300,7 +4369,7 @@ static void files_controls(void) {
     assert(press(KUI_SHELL_A,false)==KUI_SHELL_NONE && strstr(s.files_notice,"cannot use this name"));
     broken.last[sizeof(broken.last)-1]='x';memset(broken.last,'x',sizeof(broken.last));
     kui_shell_set_files_listing(&s,&broken);assert(!s.files_listing.count);
-    puts("PASS File Manager: navigation, paging anchors, open-with, protected items, copy/move/delete/rename/new folder flows");
+    puts("PASS File Manager: continuous scrolling and cached reversals, open-with, protected items, copy/move/delete/rename/new folder flows");
 }
 static void files_rendering(void) {
     struct kui_shell_view v={.build="a1b2c3d4e5f6"};
@@ -4310,6 +4379,26 @@ static void files_rendering(void) {
     assert(strstr(drawn,"Games") && strstr(drawn,"readme.txt") && strstr(drawn,"DIR") && strstr(drawn,"TXT"));
     assert(strstr(drawn,"Items 1-8 of 12") && strstr(drawn,"Modified 2026-09-26 14:03") && strstr(drawn,"14.0 KB"));
     assert(strstr(drawn,"A Open   X Actions   Y New folder   R Refresh") && strstr(drawn,"B Up   START Home"));
+    assert(strstr(drawn,"UP/DOWN Scroll") && !strstr(drawn,"LEFT/RIGHT Page"));
+    assert(pixels[1+196*640+593]==0x675e && pixels[1+363*640+593]==0x318a);
+    s.files_selected=7;assert(press(KUI_SHELL_DOWN,false)==KUI_SHELL_FILES_LIST);
+    static const char *const more[]={"track01.raw","video.bin","zeta.txt","~temp"};
+    static const bool files_only[]={false,false,false,false};
+    struct kui_files_page page=files_result("/",false,4,8,12,more,files_only);
+    kui_shell_set_files_listing(&s,&page);
+    for(unsigned i=1;i<4;i++)press(KUI_SHELL_DOWN,false);
+    render(&v);
+    assert(strstr(drawn,"Items 5-12 of 12") && strstr(drawn,"cover.png") && strstr(drawn,"~temp"));
+    assert(pixels[1+196*640+593]==0x318a && pixels[1+363*640+593]==0x675e);
+    s.page=KUI_SHELL_FILES_PICK;
+    page=files_result("/",true,8,0,12,root_names,root_directories);
+    strcpy(s.files_pick_path,"/");kui_shell_set_files_listing(&s,&page);s.files_pick_selected=7;
+    assert(press(KUI_SHELL_DOWN,false)==KUI_SHELL_FILES_LIST && s.files_request.folders_only);
+    page=files_result("/",true,4,8,12,more,files_only);kui_shell_set_files_listing(&s,&page);
+    render(&v);
+    assert(strstr(drawn,"KUI") && strstr(drawn,"track01.raw") && s.files_pick_scroll.first==1);
+    assert(pixels[1+174*640+593]==0x318a && pixels[1+200*640+593]==0x675e);
+    reset(KUI_SHELL_FILES);files_root();s.files_selected=6;
     s.files_listing.entries[6].attributes=0x03;render(&v);assert(strstr(drawn,"Read-only   Hidden"));
     struct kui_app_status status={.complete=true,.line_count=1};
     snprintf(status.message,sizeof(status.message),"The card is full");
@@ -4714,6 +4803,7 @@ static void wifi_rendering(void) {
     assert(strstr(drawn,"Bands: 2.4 and 5 GHz") && strstr(drawn,"LEFT/RIGHT"));
     assert(strstr(drawn,"Home 5G") && strstr(drawn,"5 GHz ch 36") && strstr(drawn,"WPA2") && strstr(drawn,"WPA3"));
     assert(strstr(drawn,"2.4 GHz ch 1") && strstr(drawn,"Open") && strstr(drawn,"Other network (type its name)"));
+    assert(pixels[1+188*640+602]!=0x675e && pixels[1+363*640+602]!=0x318a);
     assert(strstr(drawn,"3 networks in range") && strstr(drawn,"A Join   X Scan   Y Forget   START Update   B Network"));
     view.wifi.state=KWM_WIFI_ONLINE;strcpy(view.wifi.ssid,"Home 5G");view.wifi.band=5;view.wifi.rssi=-48;
     view.wifi.ip[0]=192;view.wifi.ip[1]=168;view.wifi.ip[2]=1;view.wifi.ip[3]=23;
@@ -4730,6 +4820,7 @@ static void wifi_rendering(void) {
     kui_shell_set_wifi(&s,&view);
     s.wifi_selected=kui_shell_wifi_rows(&s)-1;render(&v);
     assert(strstr(drawn,"Other network") && strstr(drawn,"Network 23") && !strstr(drawn,"Bands:") && strstr(drawn,"24 networks"));
+    assert(pixels[1+188*640+602]==0x318a && pixels[1+363*640+602]==0x675e);
     /* The password keyboard, with its symbols. */
     s.wifi_selected=1;assert(press(KUI_SHELL_A,false)==KUI_SHELL_NONE);
     s.keyboard_layer=KUI_SHELL_KEYS_SYMBOLS;strcpy(s.keyboard,"p@ss");render(&v);
@@ -6735,6 +6826,12 @@ static void smash_native_tests_controls(void) {
 }
 
 int main(int argc,char **argv) {
+    if(argc==2 && !strcmp(argv[1],"--files-scroll")) {
+        files_controls();files_rendering();return 0;
+    }
+    if(argc==2 && !strcmp(argv[1],"--settings-scroll")) {
+        settings_scroll_rendering();wifi_rendering();return 0;
+    }
     theme_controls();theme_rendering();
     if(argc==2 && !strcmp(argv[1],"--themes"))return 0;
     smash_native_tests_controls();
@@ -6780,7 +6877,7 @@ int main(int argc,char **argv) {
     if(argc==2 && !strcmp(argv[1],"--games")) { puts("PASS Games navigation, launch eligibility and rendering"); return 0; }
     storage_test_controls();storage_test_rendering();
     launcher_and_confirmation(); operation_lock_and_stop(); settings_transaction(); ripper_export_rendering();
-    system_transaction_and_video(); settings_without_screenshot_page(); app_navigation_and_vmu(); clock_and_defaults(); restore_and_scan_controls(); phase_eta();
+    system_transaction_and_video(); settings_scroll_rendering(); settings_without_screenshot_page(); app_navigation_and_vmu(); clock_and_defaults(); restore_and_scan_controls(); phase_eta();
     diagnostics(); destination_transaction(); keyboard_transaction(); advanced_navigation();ripper_parity_controls();
     ripper_saved_job_controls();ripper_folder_label_controls();ripper_label_keyboard_purpose_controls();
     ripper_saved_job_rendering();

@@ -2,6 +2,7 @@
 #define _DEFAULT_SOURCE
 #include "kui/files.h"
 #include "kui/media.h"
+#include "kui/shell.h"
 #include "fixtures/cover_images.h"
 #include <assert.h>
 #include <stdarg.h>
@@ -276,6 +277,117 @@ static void case_list(void) {
     test.cancelled = false;
     page("/", KUI_FILES_SEEK_FIRST, NULL, false, false, &p);
     assert(p.count >= 1 && !strcmp(p.entries[0].name, "List"));
+}
+/* Drive the real menu reducer and service each requested listing from the card.
+ * Insert in reverse order so a directory iterator alone cannot pass. */
+enum { SCROLL_DIRS = 19, SCROLL_FILES = 3 };
+static unsigned scroll_reads;
+
+static void scroll_read(struct kui_shell *s) {
+    struct kui_files_page listing;
+    assert(kui_files_list(&s->files_request, &listing, log_line, cancel));
+    kui_shell_set_files_listing(s, &listing);
+    ++scroll_reads;
+}
+static void scroll_name(unsigned index, char out[32]) {
+    if(index < SCROLL_DIRS) snprintf(out, 32, "Folder%02u", index);
+    else snprintf(out, 32, "item%02u.bin", index - SCROLL_DIRS);
+}
+static void scroll_seed(void) {
+    mounted(true);
+    folder("/Scroll");
+    for(unsigned i = SCROLL_DIRS + SCROLL_FILES; i-- > 0;) {
+        char name[32], path[64];
+        scroll_name(i, name);
+        snprintf(path, sizeof(path), "/Scroll/%s", name);
+        if(i < SCROLL_DIRS) folder(path);
+        else put(path, 192 + i, i);
+    }
+    mounted(false);
+}
+static void scroll_view(struct kui_shell *s, bool picker, unsigned absolute, unsigned first) {
+    const struct kui_files_page *p = kui_shell_files_page(s, picker);
+    const unsigned total = picker ? SCROLL_DIRS : SCROLL_DIRS + SCROLL_FILES;
+    assert(p->ok && p->total == total);
+    assert(p->before + (picker ? s->files_pick_selected : s->files_selected) == absolute);
+    assert((picker ? s->files_pick_scroll.first : s->files_scroll.first) == first);
+    for(unsigned i = first; i < first + KUI_FILES_ROWS && i < total; ++i) {
+        char name[32]; scroll_name(i, name);
+        const struct kui_files_entry *e = kui_shell_files_row(s, picker, i);
+        assert(e && !strcmp(e->name, name) && !e->disabled && e->directory == (i < SCROLL_DIRS));
+    }
+}
+static void scroll_key(struct kui_shell *s, bool picker, unsigned key, unsigned absolute) {
+    unsigned first = picker ? s->files_pick_scroll.first : s->files_scroll.first;
+    if(absolute < first) first = absolute;
+    if(absolute >= first + KUI_FILES_ROWS) first = absolute - KUI_FILES_ROWS + 1;
+    enum kui_shell_action action = kui_shell_input(s, key, false);
+    if(action == KUI_SHELL_FILES_LIST) scroll_read(s);
+    else assert(action == KUI_SHELL_NONE);
+    scroll_view(s, picker, absolute, first);
+}
+static void scroll_walk(struct kui_shell *s, bool picker, unsigned goal) {
+    const unsigned total = picker ? SCROLL_DIRS : SCROLL_DIRS + SCROLL_FILES;
+    scroll_view(s, picker, 0, 0);
+    unsigned reads = scroll_reads;
+    scroll_key(s, picker, KUI_SHELL_UP, 0);
+    for(unsigned i = 1; i < total; ++i) {
+        scroll_key(s, picker, KUI_SHELL_DOWN, i);
+        if(i == KUI_FILES_ROWS) {
+            unsigned boundary_reads = scroll_reads;
+            scroll_key(s, picker, KUI_SHELL_UP, i - 1);
+            scroll_key(s, picker, KUI_SHELL_DOWN, i);
+            assert(scroll_reads == boundary_reads);
+        }
+    }
+    scroll_key(s, picker, KUI_SHELL_DOWN, total - 1);
+    assert(scroll_reads - reads == (total - 1) / KUI_FILES_ROWS);
+    for(unsigned i = total - 1; i > 0; --i) scroll_key(s, picker, KUI_SHELL_UP, i - 1);
+    for(unsigned i = 1; i <= goal; ++i) scroll_key(s, picker, KUI_SHELL_DOWN, i);
+}
+static void scroll_transfer(enum kui_files_op op, unsigned folder_index) {
+    static struct kui_shell shell;
+    static const struct kui_settings settings = {0};
+    kui_shell_init(&shell, &settings);
+    shell.page = KUI_SHELL_FILES;
+    strcpy(shell.files_path, "/Scroll");
+    assert(kui_shell_input(&shell, KUI_SHELL_R, false) == KUI_SHELL_FILES_LIST);
+    scroll_read(&shell);
+    scroll_walk(&shell, false, SCROLL_DIRS);
+    assert(kui_shell_input(&shell, KUI_SHELL_X, false) == KUI_SHELL_NONE);
+    assert(shell.page == KUI_SHELL_FILES_ACTIONS);
+    assert(kui_shell_input(&shell, KUI_SHELL_DOWN, false) == KUI_SHELL_NONE);
+    if(op == KUI_FILES_OP_MOVE) assert(kui_shell_input(&shell, KUI_SHELL_DOWN, false) == KUI_SHELL_NONE);
+    assert(kui_shell_input(&shell, KUI_SHELL_A, false) == KUI_SHELL_FILES_LIST);
+    assert(shell.page == KUI_SHELL_FILES_PICK && shell.files_request.folders_only && shell.files_job.op == op);
+    assert(!strcmp(shell.files_job.source, "/Scroll/item00.bin"));
+    scroll_read(&shell);
+    scroll_walk(&shell, true, folder_index);
+    assert(kui_shell_input(&shell, KUI_SHELL_A, false) == KUI_SHELL_FILES_LIST);
+    char target[64], output[96];
+    snprintf(target, sizeof(target), "/Scroll/Folder%02u", folder_index);
+    snprintf(output, sizeof(output), "%s/item00.bin", target);
+    assert(!strcmp(shell.files_request.path, target));
+    scroll_read(&shell);
+    assert(!kui_shell_files_page(&shell, true)->count);
+    assert(kui_shell_input(&shell, KUI_SHELL_Y, false) == KUI_SHELL_FILES_CHECK);
+    assert(!strcmp(shell.files_job.target, target));
+    struct kui_files_preview preview;
+    assert(check(shell.files_job, &preview));
+    kui_shell_set_files_preview(&shell, &preview);
+    assert(kui_shell_input(&shell, KUI_SHELL_A, false) == KUI_SHELL_FILES_RUN);
+    struct kui_app_status status;
+    assert(run(shell.files_job, &preview, &status));
+    mounted(true);
+    assert(present(output));
+    if(op == KUI_FILES_OP_COPY) assert(same(shell.files_job.source, output));
+    else assert(!present(shell.files_job.source) && same("/Scroll/Folder18/item00.bin", output));
+    mounted(false);
+}
+static void case_scroll(void) {
+    scroll_seed();
+    scroll_transfer(KUI_FILES_OP_COPY, 18);
+    scroll_transfer(KUI_FILES_OP_MOVE, 16);
 }
 static void seed_tree(void) {
     folder("/Src"); folder("/Dst");
@@ -583,6 +695,7 @@ int main(int argc, char **argv) {
     test.fault = argv[2];
     const char *name = argv[2];
     if(!strcmp(name, "list")) { mounted(true); seed_list(); mounted(false); case_list(); }
+    else if(!strcmp(name, "scroll")) case_scroll();
     else if(!strcmp(name, "copy")) case_copy();
     else if(!strcmp(name, "cancel")) case_cancel();
     else if(!strcmp(name, "write-fail")) case_write_fail();

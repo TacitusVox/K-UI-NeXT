@@ -52,6 +52,18 @@ static void box(struct paint *p, unsigned x, unsigned y,
     for(unsigned row=y; row<y+h; ++row)
         for(unsigned col=x; col<x+w; ++col) p->fb[row*640+col] = color;
 }
+/* The thumb covers the visible fraction and reaches the bottom on the last page. */
+static void list_scrollbar(struct paint *p,unsigned x,unsigned y,unsigned height,
+        unsigned first,unsigned visible,unsigned total) {
+    if(!height || !visible || total<=visible) return;
+    unsigned thumb=(unsigned)((uint64_t)height*visible/total);
+    if(thumb<12u) thumb=height<12u?height:12u;
+    unsigned last=total-visible;
+    if(first>last) first=last;
+    unsigned offset=(unsigned)((uint64_t)first*(height-thumb)/last);
+    box(p,x,y,6,height,EDGE);
+    box(p,x,y+offset,6,thumb,CYAN);
+}
 static void words(struct paint *p, unsigned x, unsigned y,
         unsigned right, uint16_t color, const char *value, bool large) {
     if(!value || x<32 || x>=608 || y<24 || y>(large?424u:432u)) return;
@@ -78,10 +90,12 @@ static void words(struct paint *p, unsigned x, unsigned y,
         clipped[--n]='\0'; truncated=true;
     }
     if(truncated) {
+        unsigned ellipsis=word_width(p,"...",large);
+        unsigned spacing=p->crisp?0u:KUI_SHELL_FONT_LETTER_SPACING;
         while(n && (n+4>sizeof(clipped) ||
-                word_width(p,clipped,large)+word_width(p,"...",large)>right-x))
+                word_width(p,clipped,large)+spacing+ellipsis>right-x))
             clipped[--n]='\0';
-        if(n+4<=sizeof(clipped) && word_width(p,"...",large)<=right-x)
+        if(n+4<=sizeof(clipped) && ellipsis<=right-x)
             memcpy(clipped+n,"...",4);
     }
     if(p->crisp) kui_shell_font_draw_crisp(p->fb,(int)x,(int)y,color,clipped,large);
@@ -297,9 +311,9 @@ static void footer(struct paint *p, const struct kui_shell *s,
             kui_shell_games_zso_selected(s)?"Y ZSO codec   X Inspect again   B Back":
             s->games_from_files?"X Inspect again   B Files":kui_shell_games_variant_label(s)?
                 "X Inspect again   B Versions":"X Inspect again   B Games") :
-        s->page==KUI_SHELL_FILES ? (s->files_screenshots?"B Back   START Home   LEFT/RIGHT Page":"B Up   START Home   LEFT/RIGHT Page") :
+        s->page==KUI_SHELL_FILES ? (s->files_screenshots?"B Back   START Home   UP/DOWN Scroll":"B Up   START Home   UP/DOWN Scroll") :
         s->page==KUI_SHELL_FILES_ACTIONS ? "D-pad Select   A Choose   B Files" :
-        s->page==KUI_SHELL_FILES_PICK ? "B Up   START Cancel   LEFT/RIGHT Page" :
+        s->page==KUI_SHELL_FILES_PICK ? "B Up   START Cancel   UP/DOWN Scroll" :
         s->page==KUI_SHELL_FILES_CONFIRM ? (kui_shell_files_ready(s)?(s->files_job.op==KUI_FILES_OP_COPY?
             "A Copy   B Cancel":s->files_job.op==KUI_FILES_OP_MOVE?"A Move   B Cancel":"A Delete   B Cancel"):"B Back") :
         s->page==KUI_SHELL_FILES_INFO || s->page==KUI_SHELL_FILES_VIEW ? "B Files" :
@@ -667,6 +681,7 @@ static void advanced(struct paint *p,const struct kui_shell *s) {
         if(selected==i) box(p,32,y+3,3,14,PINK);
         label(p,48,y+2,selected==i?WHITE:MUTED,names[i]);
     }
+    list_scrollbar(p,600,156,174,first,8,KUI_SHELL_RIPPER_TOOL_COUNT);
     for(unsigned i=0;i<3;i++) label(p,40,344+i*18,MUTED,details[selected][i]);
     if(selected==KUI_SHELL_RIPPER_TOOL_JOB) {
         panel(p,32,397,576,22,PANEL);
@@ -747,7 +762,10 @@ static void system_settings(struct paint *p,const struct kui_shell *s,const stru
         s->system_draft.startup_chime?"ON":"OFF",kui_system_startup_name(s->system_draft.startup_app),
         "A Edit local time","A Review",s->system_draft.screen_inset==2?"32 px sides":
         s->system_draft.screen_inset==1?"16 px sides":"Full width","A Open",s->system_draft.menu_sounds?"ON":"OFF","A Open","A Open","A Open"};
-    unsigned first=s->system_selected>=8?s->system_selected-6:0;
+    char position[16];
+    snprintf(position,sizeof(position),"%u/%u",s->system_selected+1u,KUI_SHELL_SYSTEM_ROWS);
+    label(p,552,136,CYAN,position);
+    unsigned first=s->system_selected>=8u?s->system_selected-7u:0u;
     for(unsigned i=first;i<first+8 && i<KUI_SHELL_SYSTEM_ROWS;i++) {
         unsigned y=158+(i-first)*25;
         panel(p,32,y,576,23,i==s->system_selected?SELECTED:PANEL);
@@ -755,6 +773,7 @@ static void system_settings(struct paint *p,const struct kui_shell *s,const stru
         label(p,48,y+3,i==s->system_selected?SELECTION_TEXT:WHITE,names[i]);
         words(p,400,y+3,596,i==s->system_selected?SELECTION_TEXT:MUTED,values[i],false);
     }
+    list_scrollbar(p,600,158,198,first,8,KUI_SHELL_SYSTEM_ROWS);
     const char *detail=s->system_selected==0?"640x480 output. VGA follows the connected cable.":
         s->system_selected==1?"Ripper RAM and peak usage are always displayed.":
         s->system_selected<=3?"X Next song. Music continues when you leave this page.":
@@ -2479,9 +2498,11 @@ static void cd_audio(struct paint *p,const struct kui_shell *s,const struct kui_
     label(p,40,136,CYAN,line);
     label(p,40,160,v->busy?MUTED:WHITE,"A Play track   Y Pause / resume   X Stop");
     panel(p,32,190,576,178,PANEL);
-    unsigned count=cd->count<99?cd->count:99,first=s->cd_selected/8*8;
+    const unsigned visible=8;
+    unsigned count=cd->count<99?cd->count:99;
+    unsigned first=s->cd_selected>=visible?s->cd_selected-visible+1:0;
     if(!count) label(p,48,206,MUTED,v->busy?"Reading audio CD...":"Insert an audio CD, then press R Refresh.");
-    for(unsigned i=first;i<count && i<first+8;i++) {
+    for(unsigned i=first;i<count && i<first+visible;i++) {
         unsigned y=196+(i-first)*21;
         if(i==s->cd_selected) panel(p,40,y,560,21,SELECTED);
         snprintf(line,sizeof(line),"Track %02u%s",cd->tracks[i].number,
@@ -2490,6 +2511,7 @@ static void cd_audio(struct paint *p,const struct kui_shell *s,const struct kui_
         snprintf(line,sizeof(line),"%u:%02u",cd->tracks[i].seconds/60,cd->tracks[i].seconds%60);
         label(p,500,y+1,MUTED,line);
     }
+    list_scrollbar(p,600,196,visible*21,first,visible,count);
     label(p,40,378,cd->poisoned?AMBER:CYAN,cd->message);
     label(p,40,396,MUTED,"CD playback stops before a rip or another disc operation.");
 }
@@ -2910,6 +2932,7 @@ static void games_advanced(struct paint *p,const struct kui_shell *s) {
         if(i==6)words(p,440,y+5,596,CYAN,kui_shell_games_view(s)==KUI_GAMES_VIEW_COMPACT?"< Compact >":
             kui_shell_games_view(s)==KUI_GAMES_VIEW_GALLERY?"< Gallery >":kui_shell_games_view(s)==KUI_GAMES_VIEW_FLOW?"< Flow >":"< List >",false);
     }
+    list_scrollbar(p,600,164,214,first,7,11);
     const char *notice=s->games_advanced_selected==6u && s->games_layout_notice[0]?s->games_layout_notice:
         s->games_activity_notice[0]?s->games_activity_notice:details[s->games_advanced_selected<11?s->games_advanced_selected:0];
     words(p,40,396,608,MUTED,notice,false);
@@ -3165,6 +3188,7 @@ static void games_extra_options(struct paint *p,const struct kui_shell *s) {
         label(p,48,y+4,ready?WHITE:MUTED,names[i]);
         words(p,350,y+4,592,ready?CYAN:MUTED,values[i],false);
     }
+    list_scrollbar(p,600,174,174,first,8,KUI_SHELL_GAME_TOOL_COUNT);
     const char *hints[]={"Automatic uses the inspected CD boot encoding.",
         native_reader?"Choose New (X), Legacy (Y), or Off with A or left/right.":
             "Aggressive gives the background reader more work per step.",
@@ -3291,39 +3315,41 @@ static void files_progress(struct paint *p,const struct kui_shell *s,const struc
         op==KUI_FILES_OP_DELETE?"B stops; items already deleted stay deleted.":"B stops safely.");
 }
 static void files(struct paint *p,const struct kui_shell *s,const struct kui_shell_view *v) {
-    const struct kui_files_page *l=&s->files_listing;
-    unsigned count=l->count<KUI_FILES_ROWS?l->count:KUI_FILES_ROWS;
+    const struct kui_files_page *l=kui_shell_files_page(s,false);
+    unsigned first=s->files_scroll.first,count=0;
     title(p,40,108,s->files_screenshots?"Screenshot gallery":"File Manager");
     path_words(p,40,136,608,CYAN,s->files_path);
     label(p,40,160,v->busy?MUTED:WHITE,"A Open   X Actions   Y New folder   R Refresh");
     if(v->busy && s->files_running) {files_progress(p,s,v,190);return;}
     panel(p,32,190,576,178,PANEL);
-    if(!count) label(p,48,206,MUTED,v->busy?"Reading folder...":l->message[0]?l->message:"This folder is empty.");
-    for(unsigned i=0;i<count;i++) {
-        const struct kui_files_entry *e=&l->entries[i];
-        unsigned y=196+i*21;
-        bool chosen=i==s->files_selected;
-        if(chosen) panel(p,40,y,560,21,SELECTED);
+    if(!l->count) label(p,48,206,MUTED,v->busy?"Reading folder...":l->message[0]?l->message:"This folder is empty.");
+    for(;count<KUI_FILES_ROWS;count++) {
+        const struct kui_files_entry *e=kui_shell_files_row(s,false,first+count);
+        if(!e)break;
+        unsigned y=196+count*21;
+        bool chosen=first+count==l->before+s->files_selected;
+        if(chosen) panel(p,40,y,548,21,SELECTED);
         char tag[8],size[16];
         files_tag(tag,e);
         uint16_t ink=e->disabled?AMBER:chosen?WHITE:MUTED;
         label(p,50,y+1,e->disabled?AMBER:e->directory?CYAN:MUTED,tag);
-        words(p,100,y+1,e->directory?590:500,ink,e->name,false);
+        words(p,100,y+1,e->directory?584:500,ink,e->name,false);
         if(!e->directory) {
             kui_files_size_text(size,e->bytes);
             unsigned width=kui_shell_font_width(size,false);
-            words(p,590-width,y+1,592,chosen?WHITE:MUTED,size,false);
+            words(p,584-width,y+1,584,chosen?WHITE:MUTED,size,false);
         }
     }
+    list_scrollbar(p,592,196,168,first,count,l->total);
     const char *notice=s->files_notice[0]?s->files_notice:count?l->message:"";
     label(p,40,378,s->files_notice[0]&&s->files_notice_error?AMBER:CYAN,notice);
     char line[160];
     if(s->files_notice_detail[0]) snprintf(line,sizeof(line),"%s",s->files_notice_detail);
     else if(count) {
-        const struct kui_files_entry *e=s->files_selected<count?&l->entries[s->files_selected]:&l->entries[0];
+        const struct kui_files_entry *e=s->files_selected<l->count?&l->entries[s->files_selected]:&l->entries[0];
         char when[20];
         kui_files_date_text(when,e->date,e->time);
-        snprintf(line,sizeof(line),"Items %u-%u of %u   Modified %s%s%s",l->before+1,l->before+count,l->total,when,
+        snprintf(line,sizeof(line),"Items %u-%u of %u   Modified %s%s%s",first+1,first+count,l->total,when,
             e->attributes&AM_RDO?"   Read-only":"",e->attributes&AM_HID?"   Hidden":"");
     } else line[0]=0;
     label(p,40,396,MUTED,line);
@@ -3338,7 +3364,8 @@ static void files_actions(struct paint *p,const struct kui_shell *s) {
         "Review what will be deleted, then confirm.",
         "Size, date, and what a folder holds.",
         "Create a folder in this folder.","Browse saved K-UI captures and open their BMP images."};
-    const struct kui_files_entry *e=s->files_selected<s->files_listing.count?&s->files_listing.entries[s->files_selected]:NULL;
+    const struct kui_files_page *page=kui_shell_files_page(s,false);
+    const struct kui_files_entry *e=s->files_selected<page->count?&page->entries[s->files_selected]:NULL;
     char path[KUI_FILES_PATH_CAP];
     bool usable=e && !e->disabled && kui_files_join(path,s->files_path,e->name);
     bool locked=usable && kui_files_protected(path);
@@ -3358,28 +3385,31 @@ static void files_actions(struct paint *p,const struct kui_shell *s) {
         "K-UI cannot use this name; rename it on a computer.":"");
 }
 static void files_pick(struct paint *p,const struct kui_shell *s,const struct kui_shell_view *v) {
-    const struct kui_files_page *l=&s->files_pick;
+    const struct kui_files_page *l=kui_shell_files_page(s,true);
     bool copy=s->files_job.op==KUI_FILES_OP_COPY;
-    unsigned count=l->count<KUI_FILES_ROWS?l->count:KUI_FILES_ROWS;
+    unsigned first=s->files_pick_scroll.first,count=0;
     title(p,40,108,s->files_pick_import?"Choose an external save":
         s->files_pick_compare?(s->system_compare_bios?"Choose a BIOS image":"Choose a settings-flash image"):
         copy?"Copy to a folder":"Move to a folder");
     path_words(p,40,138,608,CYAN,s->files_pick_path);
     panel(p,32,166,576,204,PANEL);
-    if(!count) label(p,48,188,MUTED,v->busy?"Reading folder...":l->message[0]?l->message:(s->files_pick_compare || s->files_pick_import)?"No files here.":"No folders here.");
-    for(unsigned i=0;i<count;i++) {
-        const struct kui_files_entry *e=&l->entries[i];
-        unsigned y=174+i*23;
-        if(i==s->files_pick_selected) {panel(p,40,y,560,23,SELECTED);box(p,40,y+4,3,15,PINK);}
+    if(!l->count) label(p,48,188,MUTED,v->busy?"Reading folder...":l->message[0]?l->message:(s->files_pick_compare || s->files_pick_import)?"No files here.":"No folders here.");
+    for(;count<KUI_FILES_ROWS;count++) {
+        const struct kui_files_entry *e=kui_shell_files_row(s,true,first+count);
+        if(!e)break;
+        unsigned y=174+count*23;
+        bool chosen=first+count==l->before+s->files_pick_selected;
+        if(chosen) {panel(p,40,y,548,23,SELECTED);box(p,40,y+4,3,15,PINK);}
         bool wrong_size=s->files_pick_compare && !e->directory &&
             e->bytes!=(s->system_compare_bios?2097152u:131072u);
-        words(p,52,y+2,(s->files_pick_compare || s->files_pick_import)?492:608,e->disabled || wrong_size?AMBER:
-            i==s->files_pick_selected?WHITE:MUTED,e->name,false);
+        words(p,52,y+2,(s->files_pick_compare || s->files_pick_import)?492:584,e->disabled || wrong_size?AMBER:
+            chosen?WHITE:MUTED,e->name,false);
         if(s->files_pick_compare || s->files_pick_import) {
             char size[16];kui_files_size_text(size,e->bytes);
             label(p,504,y+2,MUTED,e->directory?"Folder":size);
         }
     }
+    list_scrollbar(p,592,174,184,first,count,l->total);
     label(p,40,376,v->busy?MUTED:WHITE,s->files_pick_import?"A Open folder / check save":
         s->files_pick_compare?"A Open folder / compare file":
         copy?"A Open folder   Y Copy here":"A Open folder   Y Move here");
@@ -3692,6 +3722,7 @@ static void wifi_page(struct paint *p,const struct kui_shell *s,const struct kui
             words(p,482,y+2,592,text,here?"Joined":kui_wifi_security_text(n->security),false);
         }
     }
+    list_scrollbar(p,600,188,22u*WIFI_ROWS,first,WIFI_ROWS,rows);
     if(!w->count) label(p,52,188+22,MUTED,v->busy?"Looking for networks...":"No networks listed yet: X scans.");
     label(p,40,380,w->failed?AMBER:v->busy?CYAN:MUTED,w->message);
     if(rows>WIFI_ROWS) {
