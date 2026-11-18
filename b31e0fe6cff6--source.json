@@ -1,0 +1,40 @@
+{
+  "version": 1,
+  "name": "Gravy Racer",
+  "author": "TacitusVox",
+  "colors": {
+    "text": "#F5F7FC",
+    "success": "#8AE2AE",
+    "warning": "#FFCF82",
+    "selection_text": "#FFFFFF",
+    "background": "#170E26",
+    "panel": "#2A1736",
+    "selection": "#4F2453",
+    "edge": "#81508B",
+    "muted": "#D3B9D6",
+    "accent": "#FFBE79",
+    "accent2": "#75E8F7"
+  },
+  "assets": {
+    "splash": {
+      "source": "../sources/gravy-racer.png",
+      "sha256": "0d437f76f596639293468493fda52f5b3bbddbb7ddf65553df3af5fa37f94bed",
+      "filter": "lanczos",
+      "fit": "contain"
+    },
+    "header": {
+      "source": "../sources/gravy-racer.png",
+      "sha256": "0d437f76f596639293468493fda52f5b3bbddbb7ddf65553df3af5fa37f94bed",
+      "filter": "lanczos",
+      "fit": "cover",
+      "crop": [
+        0,
+        661,
+        1448,
+        887
+      ],
+      "brightness": 0.39,
+      "dither": true
+    }
+  }
+}

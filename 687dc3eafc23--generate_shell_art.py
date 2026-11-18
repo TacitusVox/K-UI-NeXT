@@ -1,0 +1,182 @@
+#!/usr/bin/env python3
+# SPDX-License-Identifier: GPL-3.0-only
+"""Encode the approved launcher artwork as one deflate-compressed RGB565 pack.
+
+The brand, the ten 128x128 Home icons and the ten 24x24 icons are embedded
+as a zlib stream. The GUI inflates the pixels once
+on the first frame that draws them (shell_draw.c), so every boot reads about
+327 KB less of runtime.kui from the card.
+
+Requires Pillow only. The unmodified SVG sources and their original rendered
+PNGs remain in resources/icons. Use --check to verify the committed output: it
+compares the decoded pixels and the definitions, not the compressed bytes, so a
+different zlib version cannot fail it. Ordinary Dreamcast builds consume that
+output without Python image dependencies.
+"""
+from pathlib import Path
+import argparse
+import hashlib
+import json
+import re
+import struct
+import sys
+import zlib
+
+from PIL import Image, ImageDraw, ImageFont
+
+ROOT = Path(__file__).resolve().parents[1]
+OUTPUT = ROOT / "src/dreamcast/shell_art.inc"
+TRANSPARENT = 0xF81F
+BRAND_SIZE = (142, 58)
+SOURCES = {
+    "resources/branding/launcher-brand.png": "26110492a9b4116e2a205ddd149240346a7976cb86b958aae6408e814f029301",
+    "resources/fonts/DejaVuSans-Bold.ttf": "5c1247acef7f2b8522a31742c76d6adcb5569bacc0be7ceaa4dc39dd252ce895",
+    "resources/icons/disc-ripper.svg": "8263c8ef8efe9b779863303f90d921f90b9374c734255cb8f119463990eaa683",
+    "resources/icons/disc-ripper.png": "1c3bb0ed7ffc95949a06339b16b87f8392de6ed443cd92e4913a4b8d70c1283b",
+    "resources/icons/settings.svg": "772f5912638c1e0996edd51be50ec2c2d5c9bd6c4761f76b892da5a60cf13ccd",
+    "resources/icons/settings.png": "7d5577f04247961016fd04ab620ebef998ae14982967372af8a766b1bf61f74b",
+    "resources/icons/diagnostics.svg": "b23ed82505824f2c43ba3b05262533d27d358cc68ceeaf9496c61708e7ab662d",
+    "resources/icons/diagnostics.png": "8b1119e261aa24b8ac5aaef898f736f738fdee9efcb2a1f4622193682097b863",
+}
+ORIGINAL_ICONS = ("disc-ripper", "settings", "diagnostics")
+NEW_ICONS = ("games", "vmu-manager", "file-manager", "music-player",
+             "gd-play", "memory-test", "network")
+ICONS = ORIGINAL_ICONS + NEW_ICONS
+MANIFEST = ROOT / "resources/icons/home-icons.json"
+
+
+def brand():
+    # The disc badge shares these marks, but its small profile link cannot
+    # survive another reduction for the applied banner or its picker preview.
+    with Image.open(ROOT / "resources/branding/launcher-brand.png") as original:
+        sword = original.crop((23, 26, 75, 103))
+        wordmark = original.crop((89, 40, 227, 75))
+    badge = Image.new("RGBA", BRAND_SIZE, "#080f23")
+    badge.paste(sword.resize((30, 46), Image.Resampling.LANCZOS), (1, 5))
+    badge.paste(wordmark.resize((94, 24), Image.Resampling.LANCZOS), (38, 0))
+    font = ImageFont.truetype(str(ROOT / "resources/fonts/DejaVuSans-Bold.ttf"), 16,
+                              layout_engine=ImageFont.Layout.BASIC)
+    draw = ImageDraw.Draw(badge)
+    for line, y in (("github.com/", 25), ("TacitusVox", 43)):
+        left, top, right, bottom = font.getbbox(line)
+        if 35 + right - left > badge.width or y + bottom - top > badge.height:
+            raise ValueError("The Original banner cannot fit its GitHub credit")
+        draw.text((35 - left, y - top), line, font=font, fill="#ffc56a")
+    return badge
+
+
+def pixels(rgba, background, transparent=False):
+    combined = Image.new("RGBA", rgba.size, background)
+    combined.alpha_composite(rgba)
+    out = []
+    packed = combined.tobytes()
+    for i, alpha in enumerate(rgba.getchannel("A").tobytes()):
+        r, g, b = packed[i * 4:i * 4 + 3]
+        value = ((r >> 3) << 11) | ((g >> 2) << 5) | (b >> 3)
+        if transparent and alpha == 0:
+            value = TRANSPARENT
+        elif transparent and value == TRANSPARENT:
+            raise ValueError("Opaque pixel collides with the transparency key")
+        out.append(value)
+    assert len(out) == rgba.width * rgba.height
+    return out
+
+
+def rows(values):
+    return "\n".join("    " + ",".join(f"0x{x:04x}" for x in values[i:i + 16]) + ","
+                     for i in range(0, len(values), 16))
+
+
+def generate():
+    for path, expected in SOURCES.items():
+        if hashlib.sha256((ROOT / path).read_bytes()).hexdigest() != expected:
+            raise ValueError(f"Pinned source hash differs: {path}")
+    manifest = json.loads(MANIFEST.read_text())
+    expected_paths = {f"resources/icons/{name}{suffix}.{extension}"
+                      for name in NEW_ICONS for suffix in ("", "-small")
+                      for extension in ("svg", "png")}
+    if not isinstance(manifest, dict) or set(manifest) != expected_paths:
+        raise ValueError("Home icon manifest must pin all seven SVG/PNG pairs at both sizes")
+    for path, expected in manifest.items():
+        if hashlib.sha256((ROOT / path).read_bytes()).hexdigest() != expected:
+            raise ValueError(f"Home icon source hash differs: {path}")
+    text = ["/* SPDX-License-Identifier: GPL-3.0-only */",
+            "/* Generated by tools/generate_shell_art.py; do not edit pixels by hand.",
+            " * Original TacitusVox (formerly TPMJB) K-UI artwork: resources/branding/README.md.",
+            " * Additional Home artwork: resources/icons/home-icons.json.",
+            " * Icons use 0xf81f for fully transparent pixels; skip those on draw.",
+            " * Antialiased icon edges are precomposed against panel #121A31. */",
+            "#ifndef KUI_SHELL_ART_INC", "#define KUI_SHELL_ART_INC", "#include <stdint.h>",
+            "#define KUI_ART_TRANSPARENT 0xf81fu",
+            f"#define KUI_ART_BRAND_WIDTH {BRAND_SIZE[0]}u", f"#define KUI_ART_BRAND_HEIGHT {BRAND_SIZE[1]}u",
+            "#define KUI_ART_ICON_WIDTH 128u", "#define KUI_ART_ICON_HEIGHT 128u",
+            "#define KUI_ART_SMALL_ICON_WIDTH 24u", "#define KUI_ART_SMALL_ICON_HEIGHT 24u",
+            f"#define KUI_ART_ICON_COUNT {len(ICONS)}u"]
+    text.extend(f"#define KUI_ART_ICON_{name.upper().replace('-', '_')} {index}u"
+                for index, name in enumerate(ICONS))
+    pack = pixels(brand(), "#080F23")
+    for side in (128, 24):
+        for name in ICONS:
+            original = name in ORIGINAL_ICONS
+            suffix = "-small" if side == 24 and not original else ""
+            expected = (64, 64) if original else (side, side)
+            path = ROOT / f"resources/icons/{name}{suffix}.png"
+            with Image.open(path) as icon:
+                if icon.size != expected:
+                    raise ValueError(f"Unexpected source dimensions: {path}: {icon.size}")
+                rgba = icon.convert("RGBA").resize((side, side), Image.Resampling.BILINEAR)
+            pack += pixels(rgba, "#121A31", transparent=True)
+    raw = struct.pack(f"<{len(pack)}H", *pack)
+    packed = zlib.compress(raw, 9)
+    text.extend([
+        "/* Brand, Home icons and small icons, little-endian RGB565, one zlib stream;",
+        " * kui_art_inflate() restores KUI_ART_PACK_PIXELS pixels (CRC-32 below). */",
+        "#define KUI_ART_BRAND_OFFSET 0u",
+        "#define KUI_ART_ICONS_OFFSET (KUI_ART_BRAND_WIDTH * KUI_ART_BRAND_HEIGHT)",
+        "#define KUI_ART_SMALL_ICONS_OFFSET (KUI_ART_ICONS_OFFSET + KUI_ART_ICON_COUNT * 128u * 128u)",
+        "#define KUI_ART_PACK_PIXELS (KUI_ART_SMALL_ICONS_OFFSET + KUI_ART_ICON_COUNT * 24u * 24u)",
+        f"#define KUI_ART_PACK_CRC32 0x{zlib.crc32(raw):08x}u",
+        f"static const uint8_t kui_art_pack[{len(packed)}] = {{",
+        "\n".join("    " + ",".join(str(b) for b in packed[i:i + 24]) + ","
+                  for i in range(0, len(packed), 24)),
+        "};", "", "#endif"])
+    return "\n".join(text) + "\n", raw
+
+
+def committed_pixels(content):
+    """Decode the pack in a shell_art.inc text (for --check)."""
+    match = re.search(r"static const uint8_t kui_art_pack\[(\d+)\] = \{(.*?)\};", content, re.S)
+    if not match:
+        return None, content
+    data = bytes(int(v) for v in re.findall(r"\d+", match.group(2)))
+    if len(data) != int(match.group(1)):
+        return None, content
+    return zlib.decompress(data), content[:match.start()] + content[match.end():]
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--check", action="store_true", help="verify without rewriting")
+    args = parser.parse_args()
+    try:
+        content, raw = generate()
+        if args.check:
+            have = OUTPUT.read_text() if OUTPUT.exists() else ""
+            have_pixels, have_rest = committed_pixels(have)
+            want_pixels, want_rest = committed_pixels(content)
+            if have_pixels != want_pixels or have_rest != want_rest:
+                print("Shell art is stale; run tools/generate_shell_art.py", file=sys.stderr)
+                return 1
+            print("Shell art matches the pinned source assets.")
+        else:
+            OUTPUT.write_text(content)
+            packed = int(re.search(r"kui_art_pack\[(\d+)\]", content).group(1))
+            print(f"Wrote {OUTPUT.relative_to(ROOT)} ({len(raw)} bytes of RGB565 pixels, {packed} compressed)")
+        return 0
+    except (OSError, ValueError, zlib.error) as error:
+        print(error, file=sys.stderr)
+        return 1
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

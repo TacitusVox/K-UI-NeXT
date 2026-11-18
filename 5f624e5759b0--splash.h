@@ -1,0 +1,28 @@
+/* SPDX-License-Identifier: GPL-3.0-only */
+#ifndef KUI_SPLASH_H
+#define KUI_SPLASH_H
+#include <stdbool.h>
+#include <stddef.h>
+#include <stdint.h>
+#define KUI_SPLASH_FRAME_BYTES (640u*480u*2u)
+/* Copy the 640x480 RGB565 startup art to an off-screen framebuffer. */
+void kui_splash_draw(uint16_t *frame);
+/* Factory Moonlight art can be shown even when the card is unavailable. */
+void kui_splash_draw_factory(uint16_t *frame);
+/* Free the startup art's RAM copy once the splash has ended (UI thread). */
+void kui_splash_release(void);
+/* Independent owned preview; decode on the worker, free with free(). */
+uint16_t *kui_splash_preview_decode(void);
+uint16_t *kui_splash_preview_factory_decode(void);
+/* Owned 256x192 thumbnail of the corresponding embedded splash. */
+uint16_t *kui_splash_thumbnail_decode(bool factory);
+/* The CD boot menu has separate artwork; dim in RAM before writing pixels. */
+void kui_boot_splash_draw(uint16_t *frame);
+void kui_boot_splash_draw_dimmed(uint16_t *frame);
+/* Inflate a zlib stream that must fill OUT_BYTES of RAM exactly. */
+bool kui_art_inflate(const uint8_t *data, size_t bytes, void *out, size_t out_bytes);
+/* Inflate a tools/build_splash.py zlib stream into a 640x480 RAM frame. */
+bool kui_splash_art_inflate(const uint8_t *data, size_t bytes, uint16_t *frame);
+/* Allocate and inflate one; NULL without RAM or on any damage. */
+uint16_t *kui_splash_art_decode(const uint8_t *data, size_t bytes);
+#endif

@@ -1,0 +1,795 @@
+/* SPDX-License-Identifier: GPL-3.0-only */
+#ifndef KUI_SHELL_H
+#define KUI_SHELL_H
+#include "kui/settings.h"
+#include "kui/destination.h"
+#include "kui/known_dumps.h"
+#include "kui/system_settings.h"
+#include "kui/apps.h"
+#include "kui/music_player.h"
+#include "kui/clock.h"
+#include "kui/cd_audio.h"
+#include "kui/games.h"
+#include "kui/game_launch_settings.h"
+#include "kui/games_selection.h"
+#include "kui/games_activity.h"
+#include "kui/games_covers.h"
+#include "kui/games_media.h"
+#include "kui/files.h"
+#include "kui/ftp.h"
+#include "kui/browser.h"
+#include "kui/vmu_history.h"
+#include "kui/games_library.h"
+#include "kui/problem_report.h"
+#include "kui/storage_test.h"
+#include "kui/network_wifi.h"
+#include "kui/vmu_wizard.h"
+#include "kui/vmu_image.h"
+#include "kui/vmu_game_info.h"
+#include "kui/drive_controls.h"
+#include "kui/disc_cards.h"
+#include "kui/update.h"
+#include "kui/update_browser.h"
+#include "kui/theme.h"
+#include <stdbool.h>
+#include <stdint.h>
+
+#define KUI_SHELL_WIDTH 640u
+#define KUI_SHELL_HEIGHT 480u
+#define KUI_SHELL_LOG_ROWS 10u
+#define KUI_SHELL_SYSTEM_ROWS 14u
+#define KUI_SHELL_UPDATE_ROWS 8u
+#define KUI_SHELL_UPDATE_PATH_BYTES 192u
+enum kui_shell_update_op { KUI_SHELL_UPDATE_LIST, KUI_SHELL_UPDATE_CHECK,
+    KUI_SHELL_UPDATE_INSTALL, KUI_SHELL_UPDATE_PREVIOUS, KUI_SHELL_UPDATE_BASELINE,
+    KUI_SHELL_UPDATE_RESTORE };
+enum kui_shell_update_stage { KUI_SHELL_UPDATE_PACKAGES, KUI_SHELL_UPDATE_REVIEW,
+    KUI_SHELL_UPDATE_RESULT };
+struct kui_shell_update_storage {
+    unsigned transport;
+    uint32_t partition_first,partition_blocks;
+    uint8_t boot_sha256[32];
+};
+struct kui_shell_update_request {
+    enum kui_shell_update_op op;
+    unsigned generation,page;
+    uint64_t token;
+    char path[KUI_SHELL_UPDATE_PATH_BYTES],target[KUI_UPDATE_BUILD_BYTES];
+    char directory[KUI_SHELL_UPDATE_PATH_BYTES];
+    struct kui_update_pin package;
+    struct kui_update_activation activation;
+    struct kui_shell_update_storage storage;
+};
+struct kui_shell_update_row {
+    char name[96],path[KUI_SHELL_UPDATE_PATH_BYTES];
+    uint64_t bytes;
+    bool is_directory,is_zip;
+};
+struct kui_shell_update_view {
+    struct kui_app_status status;
+    enum kui_shell_update_stage stage;
+    unsigned generation,page,count,total;
+    char directory[KUI_SHELL_UPDATE_PATH_BYTES];
+    struct kui_shell_update_row rows[KUI_SHELL_UPDATE_ROWS];
+    struct kui_shell_update_request reviewed;
+    char running[KUI_UPDATE_BUILD_BYTES],selected[KUI_UPDATE_BUILD_BYTES],previous[KUI_UPDATE_BUILD_BYTES];
+    unsigned replacement_count,inherited_count,removed_count;
+    uint64_t free_bytes,required_bytes;
+    bool ready,restore,baseline,space_known,restart_required,selection_known;
+};
+/* A cover belongs to one published listing and selection. The worker must
+ * echo this key; main publishes pixels only after the same key is accepted. */
+struct kui_shell_games_art_key {
+    unsigned generation,page,view,row;
+    char root[KUI_DEST_ROOT_CAP],path[KUI_GAMES_FILE_CAP];
+};
+/* An idle selection earns one cache lookup, including a missing preview. */
+#define KUI_SHELL_PREVIEW_DWELL_MS 6000u
+struct kui_shell_preview_focus {
+    struct kui_shell_games_art_key key;
+    uint64_t since;
+    unsigned generation;
+    bool active,due;
+};
+void kui_shell_preview_focus_update(struct kui_shell_preview_focus *,
+    const struct kui_shell_games_art_key *, uint64_t now_ms);
+#define KUI_SHELL_GAMES_FLOW_NEIGHBORS 2u
+#define KUI_SHELL_GAMES_FLOW_ROW_HEIGHT 28u
+#define KUI_SHELL_GAMES_FLOW_DURATION_MS 60u
+struct kui_shell_games_flow_page {
+    struct kui_games_page rows;
+    unsigned page;
+    bool valid;
+};
+/* One adjacent storage chunk lets the viewport slide across a read boundary. */
+struct kui_shell_files_scroll {
+    struct kui_files_page neighbor;
+    unsigned first;
+    bool using_neighbor;
+    int pending_step;
+};
+enum kui_shell_button {
+    KUI_SHELL_UP = 1u << 0, KUI_SHELL_DOWN = 1u << 1,
+    KUI_SHELL_LEFT = 1u << 2, KUI_SHELL_RIGHT = 1u << 3,
+    KUI_SHELL_A = 1u << 4, KUI_SHELL_B = 1u << 5,
+    KUI_SHELL_X = 1u << 6, KUI_SHELL_Y = 1u << 7,
+    KUI_SHELL_START = 1u << 8, KUI_SHELL_L = 1u << 9,
+    KUI_SHELL_R = 1u << 10
+};
+enum kui_shell_page { KUI_SHELL_HOME, KUI_SHELL_RIPPER,
+    KUI_SHELL_SETTINGS, KUI_SHELL_DIAGNOSTICS,
+    KUI_SHELL_DESTINATION, KUI_SHELL_KEYBOARD, KUI_SHELL_ADVANCED,
+    KUI_SHELL_RIPPER_SETTINGS, KUI_SHELL_VMU, KUI_SHELL_MEMORY, KUI_SHELL_NETWORK,
+    KUI_SHELL_GD_PLAY, KUI_SHELL_MUSIC, KUI_SHELL_CLOCK,
+    KUI_SHELL_VMU_RESTORE, KUI_SHELL_CRC_SCAN, KUI_SHELL_VMU_ACTIONS, KUI_SHELL_SYSTEM_TOOLS, KUI_SHELL_SALVAGE, KUI_SHELL_CD_AUDIO,
+    KUI_SHELL_GAMES, KUI_SHELL_GAMES_DETAIL, KUI_SHELL_GAMES_ADVANCED,
+    KUI_SHELL_GAMES_PROBE_CONFIRM, KUI_SHELL_GAMES_IMAGE_PROBE_CONFIRM,
+    KUI_SHELL_GAMES_RETAIL_CONFIRM,
+    KUI_SHELL_FILES, KUI_SHELL_FILES_ACTIONS, KUI_SHELL_FILES_PICK,
+    KUI_SHELL_FILES_CONFIRM, KUI_SHELL_FILES_INFO, KUI_SHELL_FILES_VIEW,
+    KUI_SHELL_FTP, KUI_SHELL_STORAGE_TESTS, KUI_SHELL_STORAGE_TEST_HISTORY,
+    KUI_SHELL_SCI_ASYNC_PROBE, KUI_SHELL_GAMES_VARIANTS, KUI_SHELL_WIFI,
+    KUI_SHELL_GAMES_LAUNCH_OPTIONS, KUI_SHELL_GAMES_EXTRA_OPTIONS,
+    KUI_SHELL_GAMES_TESTS, KUI_SHELL_GAMES_INFO, KUI_SHELL_GAMES_PATCHES, KUI_SHELL_GAMES_CODEC, KUI_SHELL_GAMES_CHECK, KUI_SHELL_VMU_IMAGE, KUI_SHELL_VMU_IMPORT,
+    KUI_SHELL_VMU_COLLECTION, KUI_SHELL_VMU_TOOLS, KUI_SHELL_VMU_WIZARD,
+    KUI_SHELL_DISC_TOOLS, KUI_SHELL_VMU_CARD, KUI_SHELL_SALVAGE_DRIVE,
+    KUI_SHELL_SALVAGE_OPTIONS, KUI_SHELL_GAMES_VMU_CARD, KUI_SHELL_GD_OPTIONS, KUI_SHELL_CONTROLS, KUI_SHELL_BROWSER, KUI_SHELL_VMU_HISTORY, KUI_SHELL_GAMES_QUERY, KUI_SHELL_GAMES_EDIT, KUI_SHELL_REPORT, KUI_SHELL_GAME_PROFILE,
+    KUI_SHELL_DISC_CARDS,KUI_SHELL_UPDATES,KUI_SHELL_GAMES_MEDIA,
+    KUI_SHELL_APPEARANCE,KUI_SHELL_THEME_COLORS,KUI_SHELL_THEME_SPLASH_PREVIEW,KUI_SHELL_THEME_MENU_PREVIEW };
+enum kui_shell_recovery_row {
+    KUI_SHELL_RECOVERY_CONTINUE, KUI_SHELL_RECOVERY_NEW, KUI_SHELL_RECOVERY_OPTIONS,
+    KUI_SHELL_RECOVERY_DIAGNOSTICS, KUI_SHELL_RECOVERY_COUNT
+};
+enum kui_shell_recovery_option {
+    KUI_SHELL_RECOVERY_RETRIES, KUI_SHELL_RECOVERY_PASSES, KUI_SHELL_RECOVERY_VERIFY,
+    KUI_SHELL_RECOVERY_SPEED, KUI_SHELL_RECOVERY_DEFER, KUI_SHELL_RECOVERY_OPTIONS_RETURN,
+    KUI_SHELL_RECOVERY_OPTIONS_COUNT
+};
+enum kui_shell_recovery_diagnostic {
+    KUI_SHELL_RECOVERY_READ_TRIAL, KUI_SHELL_RECOVERY_REVALIDATE,
+    KUI_SHELL_RECOVERY_SAVED_READS, KUI_SHELL_RECOVERY_TRIAL,
+    KUI_SHELL_RECOVERY_SPEED_PROBE, KUI_SHELL_RECOVERY_G1_MODE,
+    KUI_SHELL_RECOVERY_DIAGNOSTICS_RETURN, KUI_SHELL_RECOVERY_DIAGNOSTICS_COUNT
+};
+/* Display cache only. Every action still performs normal disc/job admission. */
+struct kui_salvage_dashboard {
+    bool known, counts_known, blocked;
+    uint32_t targets, recovered, remaining;
+    char title[96], job[KUI_DEST_JOB_CAP];
+};
+/* Saved-data checks and drive diagnostics share the existing worker action,
+ * never its repair admission. Main consumes the one-shot request before work. */
+enum kui_salvage_diagnostic {
+    KUI_SALVAGE_DIAGNOSTIC_NONE,
+    KUI_SALVAGE_DIAGNOSTIC_SAVED_READS,
+    KUI_SALVAGE_DIAGNOSTIC_G1_MODE,
+    KUI_SALVAGE_DIAGNOSTIC_REVALIDATE
+};
+enum kui_shell_game_option {
+    KUI_SHELL_GAME_OPTION_READER, KUI_SHELL_GAME_OPTION_CDDA,
+    KUI_SHELL_GAME_OPTION_ADVANCED, KUI_SHELL_GAME_OPTION_VMU_CARD,
+    KUI_SHELL_GAME_OPTION_CODEC, KUI_SHELL_GAME_OPTION_COUNT
+};
+enum kui_shell_vmu_card_action {
+    KUI_SHELL_VMU_CARD_SAVES,KUI_SHELL_VMU_CARD_USERS,KUI_SHELL_VMU_CARD_RENAME,
+    KUI_SHELL_VMU_CARD_ASSIGN,KUI_SHELL_VMU_CARD_DETAILS,KUI_SHELL_VMU_CARD_DELETE,KUI_SHELL_VMU_CARD_ACTIONS
+};
+struct kui_shell_vmu_delete_request {
+    char path[KUI_VMU_BACKUP_PATH_CAP],save_name[16];
+    uint8_t identity[16];
+    bool whole_card;
+};
+enum kui_shell_game_tool {
+    KUI_SHELL_GAME_TOOL_ENCODING, KUI_SHELL_GAME_TOOL_SPEED,
+    KUI_SHELL_GAME_TOOL_INFO, KUI_SHELL_GAME_TOOL_TESTS,
+    KUI_SHELL_GAME_TOOL_PATCHES, KUI_SHELL_GAME_TOOL_DEFAULTS, KUI_SHELL_GAME_TOOL_CHECK, KUI_SHELL_GAME_TOOL_BASELINE,
+    KUI_SHELL_GAME_TOOL_VMU_SLOT, KUI_SHELL_GAME_TOOL_PROFILE, KUI_SHELL_GAME_TOOL_COUNT
+};
+enum kui_shell_ripper_tool {
+    KUI_SHELL_RIPPER_TOOL_VERIFY, KUI_SHELL_RIPPER_TOOL_RESUME,
+    KUI_SHELL_RIPPER_TOOL_SETTINGS, KUI_SHELL_RIPPER_TOOL_QUICK,
+    KUI_SHELL_RIPPER_TOOL_DESTINATION, KUI_SHELL_RIPPER_TOOL_SCAN,
+    KUI_SHELL_RIPPER_TOOL_SALVAGE, KUI_SHELL_RIPPER_TOOL_JOB,
+    KUI_SHELL_RIPPER_TOOL_LABEL, KUI_SHELL_RIPPER_TOOL_REPAIR,
+    KUI_SHELL_RIPPER_TOOL_FORENSIC, KUI_SHELL_RIPPER_TOOL_NETWORK,
+    KUI_SHELL_RIPPER_TOOL_CD_SOURCE, KUI_SHELL_RIPPER_TOOL_REPAIR_IN_PLACE,
+    KUI_SHELL_RIPPER_TOOL_REPAIR_NEW_COPY, KUI_SHELL_RIPPER_TOOL_COUNT
+};
+enum kui_shell_action {
+    KUI_SHELL_NONE, KUI_SHELL_STOP, KUI_SHELL_MSTATS,
+    KUI_SHELL_DISC_PROBE, KUI_SHELL_STORAGE_PROBE, KUI_SHELL_SAVE_LOG,
+    KUI_SHELL_NEW_DUMP, KUI_SHELL_RESUME, KUI_SHELL_VERIFY,
+    KUI_SHELL_BENCH, KUI_SHELL_LOAD_SETTINGS, KUI_SHELL_SAVE_SETTINGS,
+    KUI_SHELL_DISCARD_SETTINGS, KUI_SHELL_DEST_LIST, KUI_SHELL_DEST_SAVE,
+    KUI_SHELL_MEMORY_TEST, KUI_SHELL_NETWORK_TEST, KUI_SHELL_VMU_LIST,
+    KUI_SHELL_VMU_BACKUP, KUI_SHELL_VMU_BACKUP_ALL, KUI_SHELL_LOAD_SYSTEM,
+    KUI_SHELL_SAVE_SYSTEM, KUI_SHELL_DISCARD_SYSTEM, KUI_SHELL_PREVIEW_VIDEO,
+    KUI_SHELL_CONFIRM_VIDEO, KUI_SHELL_CANCEL_VIDEO, KUI_SHELL_MUSIC_NEXT,
+    KUI_SHELL_MUSIC_CYCLE, KUI_SHELL_RESUME_QUICK, KUI_SHELL_GD_BOOT,
+    KUI_SHELL_MUSIC_LIST, KUI_SHELL_MUSIC_PLAY,
+    KUI_SHELL_MUSIC_PREVIOUS, KUI_SHELL_MUSIC_STOP,
+    KUI_SHELL_CLOCK_READ, KUI_SHELL_CLOCK_WRITE, KUI_SHELL_VMU_BACKUPS_LIST,
+    KUI_SHELL_VMU_RESTORE_PREVIEW, KUI_SHELL_VMU_RESTORE_COMMIT, KUI_SHELL_ADVANCED_CRC,
+    KUI_SHELL_VMU_DELETE_PREVIEW, KUI_SHELL_VMU_DELETE_COMMIT,
+    KUI_SHELL_VMU_COPY_PREVIEW, KUI_SHELL_VMU_COPY_COMMIT, KUI_SHELL_MUSIC_CLEAR_CACHE,
+    KUI_SHELL_NETWORK_CONNECT, KUI_SHELL_SYSTEM_INSPECT, KUI_SHELL_FLASH_BACKUP,
+    KUI_SHELL_BIOS_BACKUP, KUI_SHELL_RESTART,
+    KUI_SHELL_SALVAGE_NEW, KUI_SHELL_SALVAGE_RESUME, KUI_SHELL_SALVAGE_RECOVER,
+    KUI_SHELL_CD_LIST, KUI_SHELL_CD_PLAY, KUI_SHELL_CD_PAUSE, KUI_SHELL_CD_RESUME, KUI_SHELL_CD_STOP,
+    KUI_SHELL_GAMES_LIST, KUI_SHELL_GAMES_INSPECT, KUI_SHELL_GAMES_PROBE,
+    KUI_SHELL_GAMES_IMAGE_PROBE, KUI_SHELL_GAMES_RETAIL, KUI_SHELL_GAMES_SCAN,
+    KUI_SHELL_FILES_LIST, KUI_SHELL_FILES_CHECK, KUI_SHELL_FILES_RUN, KUI_SHELL_FILES_PICTURE,
+    KUI_SHELL_FTP_START, KUI_SHELL_TEST_RUN, KUI_SHELL_TEST_HISTORY,
+    KUI_SHELL_TEST_BASELINE, KUI_SHELL_SCI_ASYNC_RUN, KUI_SHELL_SCI_ASYNC_STRESS,
+    KUI_SHELL_SCI_ASYNC_SCREEN, KUI_SHELL_SCI_ASYNC_SPEED,
+    KUI_SHELL_WIFI_REFRESH, KUI_SHELL_WIFI_JOIN, KUI_SHELL_WIFI_FORGET,
+    KUI_SHELL_WIFI_BAND, KUI_SHELL_SAVE_GAME_LAUNCH,
+    KUI_SHELL_WIFI_UPDATE_CHECK, KUI_SHELL_WIFI_UPDATE,
+    KUI_SHELL_REPAIR_COPY, KUI_SHELL_FORENSIC, KUI_SHELL_GAMES_CHECK_EXECUTABLE,
+    KUI_SHELL_VMU_BACKUP_CARD, KUI_SHELL_VMU_IMAGE_LIST,
+    KUI_SHELL_VMU_IMAGE_EXTRACT, KUI_SHELL_VMU_IMAGE_EXTRACT_ALL,
+    KUI_SHELL_FLASH_COMPARE, KUI_SHELL_BIOS_COMPARE,
+    KUI_SHELL_VMU_COPY_ALL_PREVIEW, KUI_SHELL_VMU_COPY_ALL_COMMIT,
+    KUI_SHELL_VMU_IMPORT_PREVIEW, KUI_SHELL_VMU_IMPORT_COMMIT,
+    KUI_SHELL_VMU_COLLECTION_LIST, KUI_SHELL_VMU_COLLECTION_COPY_PREVIEW,
+    KUI_SHELL_VMU_COLLECTION_COPY_COMMIT, KUI_SHELL_REPAIR_IN_PLACE, KUI_SHELL_REPAIR_NEW_COPY,
+    KUI_SHELL_SALVAGE_RESUME_DEFER, KUI_SHELL_VMU_WIZARD_RUN,
+    KUI_SHELL_VMU_EMULATION_LOAD, KUI_SHELL_VMU_EMULATION_SAVE,
+    KUI_SHELL_VMU_RENAME, KUI_SHELL_VMU_GAME_INFO, KUI_SHELL_VMU_GAME_CARD_DEFAULT,
+    KUI_SHELL_GD_CHECK, KUI_SHELL_GD_DIRECT_BOOT, KUI_SHELL_GD_VMU_INFO,
+    KUI_SHELL_GD_OPTIONS_LOAD, KUI_SHELL_GD_REGION_SAVE, KUI_SHELL_GAMES_FAVORITE, KUI_SHELL_BROWSER_START,
+    KUI_SHELL_VMU_HISTORY_RUN, KUI_SHELL_GAMES_EDIT_LOAD, KUI_SHELL_GAMES_EDIT_SAVE,
+    KUI_SHELL_GAMES_JUMP, KUI_SHELL_GAMES_IDENTITY_VERIFY, KUI_SHELL_PROBLEM_REPORT,
+    KUI_SHELL_GAMES_LAYOUT_SAVE, KUI_SHELL_VMU_BACKUP_SAVES, KUI_SHELL_DISC_CARDS_RUN,
+    KUI_SHELL_VMU_VIRTUAL_DELETE_PREVIEW, KUI_SHELL_VMU_VIRTUAL_DELETE_COMMIT,
+    KUI_SHELL_VMU_CARD_LOAD,
+    KUI_SHELL_GAMES_SMASH_PHANTASY_STAR_II, KUI_SHELL_GAMES_SMASH_SHINING_FORCE,
+    KUI_SHELL_UPDATE_RUN, KUI_SHELL_RESTART_KUI,
+    KUI_SHELL_MEDIA_DOWNLOAD,
+    KUI_SHELL_MEDIA_OPEN_MANUAL, KUI_SHELL_MEDIA_PLAY_PREVIEW,
+    KUI_SHELL_THEME_SCAN, KUI_SHELL_THEME_PREVIEW, KUI_SHELL_THEME_APPLY, KUI_SHELL_THEME_CANCEL
+};
+enum kui_shell_outcome { KUI_SHELL_OUTCOME_NONE, KUI_SHELL_OUTCOME_COMPLETE,
+    KUI_SHELL_OUTCOME_STOPPED, KUI_SHELL_OUTCOME_FAILED };
+struct kui_shell {
+    enum kui_shell_page page;
+    unsigned home_selected, setting_selected, scroll;
+    bool confirm_new, confirm_quick_resume, confirm_gd_boot, confirm_gd_direct;
+    struct kui_settings saved, draft;
+    struct kui_system_settings system_saved, system_draft;
+    unsigned system_selected, controls_selected;
+    struct kui_theme_settings theme_saved,theme_draft;
+    /* Catalog and renderer assets belong to main; never copied/loaded per frame. */
+    const struct kui_theme_catalog *theme_catalog;
+    unsigned theme_generation,theme_selected,theme_color_selected,theme_color_role,theme_color_preset;
+    enum kui_shell_action theme_pending_action;
+    enum kui_shell_page theme_preview_return;
+    bool theme_loading,theme_preview_active,theme_preview_stale,theme_failed;
+    char theme_notice[128];
+    unsigned update_generation,update_selected;
+    bool update_loading,update_stopping,update_restart;
+    struct kui_shell_update_request update_request,update_confirm_request;
+    struct kui_shell_update_view update;
+    bool video_trial, confirm_defaults, confirm_clock, confirm_vmu_restore;
+    bool confirm_vmu_delete, confirm_vmu_copy, confirm_music_clear, confirm_restart;
+    bool confirm_vmu_copy_all, confirm_vmu_import, vmu_import_staged;
+    struct kui_vmu_view vmu_copy_all, vmu_import;
+    char vmu_import_path[KUI_FILES_PATH_CAP];
+    unsigned vmu_import_generation;
+    unsigned tools_selected,disc_tools_selected;
+    unsigned vmu_tools_selected,vmu_wizard_generation,vmu_wizard_slot,vmu_wizard_selected;
+    unsigned vmu_wizard_details_return_selected;
+    bool vmu_wizard_loading,confirm_vmu_wizard_reset,vmu_wizard_select_last;
+    struct kui_vmu_wizard_request vmu_wizard_request;
+    struct kui_vmu_wizard_view vmu_wizard;
+    /* Confirmed SD preference, independent of reader selection and cards. */
+    bool vmu_emulation_enabled,vmu_emulation_known,vmu_emulation_loading,vmu_emulation_requested;
+    unsigned vmu_emulation_slot,vmu_emulation_slot_requested; /* Disc default; per-game image slots are separate. */
+    bool vmu_emulation_slot_change,vmu_emulation_background;
+    unsigned vmu_emulation_generation;
+    char vmu_emulation_notice[128];
+    bool confirm_salvage, confirm_salvage_defer, confirm_salvage_check, confirm_repair_in_place;
+    bool salvage_verify_files, salvage_details;
+    unsigned salvage_selected, salvage_passes, salvage_options_selected;
+    struct kui_salvage_dashboard salvage_dashboard;
+    enum kui_shell_page salvage_result_return, scan_return;
+    /* Salvage choices last for this boot only; they are never saved in jobs. */
+    struct kui_drive_options salvage_drive_options;
+    unsigned salvage_drive_selected;
+    /* One queued RECOVER action only; main copies and clears this request. */
+    bool salvage_trial_requested;
+    bool salvage_read_trial_requested;
+    bool salvage_speed_probe_requested;
+    enum kui_salvage_diagnostic salvage_diagnostic_requested;
+    bool salvage_trial_result; /* Keep trial results visible until dismissed. */
+    unsigned vmu_action_selected, vmu_copy_slot;
+    bool clock_valid;
+    unsigned clock_selected;
+    struct kui_datetime clock_draft;
+    char clock_notice[128];
+    unsigned vmu_slot, vmu_page, vmu_selected;
+    /* A previous-page scroll selects its final row only after that exact
+     * listing arrives; cleared rows cannot dispatch a stale save action. */
+    bool vmu_select_last, backup_select_last, vmu_collection_select_last, vmu_image_select_last;
+    struct kui_vmu_view vmu;
+    struct kui_vmu_backup_view backups;
+    unsigned backup_page, backup_selected;
+    struct kui_vmu_backup_view vmu_collection;
+    unsigned vmu_collection_page,vmu_collection_selected,vmu_collection_generation;
+    /* Card details pin one validated catalog row, independent of pagination. */
+    struct kui_vmu_backup_entry vmu_card;
+    unsigned vmu_card_selected,vmu_card_generation;
+    bool vmu_card_details,vmu_name_keyboard,vmu_card_loading;
+    enum kui_shell_page vmu_card_return;
+    struct kui_shell_vmu_delete_request vmu_virtual_delete_request;
+    unsigned vmu_virtual_delete_generation,vmu_virtual_delete_selected,vmu_virtual_delete_users;
+    bool confirm_vmu_virtual_delete,vmu_virtual_delete_loading,vmu_virtual_delete_committing;
+    struct kui_app_status vmu_virtual_delete_status;
+    enum kui_shell_page vmu_collection_return,vmu_backups_return,vmu_wizard_return;
+    char vmu_name_path[KUI_VMU_BACKUP_PATH_CAP],vmu_name_label[49];
+    uint8_t vmu_name_identity[16];
+    struct kui_vmu_view vmu_collection_copy;
+    unsigned vmu_collection_copy_generation;
+    bool vmu_collection_copy_all,vmu_collection_copy_stored;
+    /* Image browsing never borrows a physical VMU selection or restore target. */
+    char vmu_image_path[KUI_VMU_BACKUP_PATH_CAP];
+    unsigned vmu_image_page, vmu_image_selected;
+    struct kui_vmu_view vmu_image;
+    bool vmu_image_collection;
+    char restore_path[KUI_VMU_BACKUP_PATH_CAP], restore_name[16];
+    uint32_t restore_bytes;
+    char music_path[KUI_DEST_ROOT_CAP], music_selected_path[KUI_DEST_ROOT_CAP];
+    unsigned music_page, music_selected;
+    struct kui_music_player_page music_listing;
+    struct kui_cd_audio_status cd_audio;
+    unsigned cd_selected;
+    char games_path[KUI_DEST_ROOT_CAP], games_selected_path[KUI_GAMES_FILE_CAP];
+    char games_group[33];
+    unsigned games_parent_page,games_parent_selected;
+    struct kui_games_selection games_last;
+    char games_seek_name[KUI_DEST_NAME_CAP];
+    bool games_seek;
+    /* A paired game keeps both exact files while details/confirmation are
+     * open; the selected path is set only after the version is chosen. */
+    char games_original_path[KUI_GAMES_FILE_CAP], games_2048_path[KUI_GAMES_FILE_CAP];
+    unsigned games_variant_selected;
+    unsigned games_page, games_selected, games_advanced_selected;
+    unsigned games_media_row,games_media_kinds;
+    bool games_media_all,games_media_report,games_media_readable;
+    enum kui_internet_route games_media_route;
+    char games_media_notice[100];
+    /* KUI_GAMES_VIEW_SAVED until a listing reports the card's saved view. */
+    unsigned games_view,games_filter;
+    /* Left/right layout changes use the current rows. Only the worker saves
+     * the latest preference; its acknowledgement cannot change selection. */
+    unsigned games_layout_generation;
+    bool games_layout_saving;
+    char games_layout_notice[128];
+    char games_favorite_path[KUI_GAMES_FILE_CAP],games_favorite_group[33],games_activity_notice[128];
+    struct kui_games_query games_query,games_query_draft;
+    unsigned games_query_selected,games_keyboard;
+    char games_jump;
+    /* L/R step to the previous/next first-letter group in list order from
+     * absolute row games_jump_from; zero uses the explicit games_jump letter. */
+    int games_jump_step;
+    unsigned games_jump_from;
+    /* Opening a game from the list continues to its launch screen once a
+     * launch-ready inspection is accepted; other inspections stay on details. */
+    bool games_launch_on_inspect,games_detail_accepted;
+    struct kui_games_library_edit games_edit;
+    char games_edit_root[KUI_DEST_ROOT_CAP],games_edit_path[KUI_GAMES_FILE_CAP],games_edit_group[33];
+    char games_edit_notice[128];
+    unsigned games_edit_generation,games_edit_selected;
+    bool games_edit_loading,games_edit_known,games_edit_mutation,games_identity_pending,games_rows_stale,confirm_games_identity;
+    /* Flow retains the selected aligned page plus two adjacent row windows.
+     * The dataset epoch changes independently of selection/art generations. */
+    struct kui_shell_games_flow_page games_flow_pages[KUI_SHELL_GAMES_FLOW_NEIGHBORS];
+    unsigned games_flow_epoch,games_flow_primary_page,games_flow_selected;
+    bool games_flow_ready,games_flow_edge_pending,games_flow_motion;
+    uint64_t games_flow_now,games_flow_started;
+    int64_t games_flow_scroll,games_flow_from,games_flow_target;
+    int64_t games_flow_highlight,games_flow_highlight_from,games_flow_highlight_target;
+    unsigned games_generation;
+    bool games_loading,games_art_loading;
+    /* A page turn keeps drawing the page it left, with its page number and
+     * selection, until the new rows arrive; then everything changes at once. */
+    bool games_turning;
+    unsigned games_shown_page,games_shown_selected;
+    bool games_scanning; /* The box art scan runs; a listing ends it. */
+    /* Explicit refresh rebuilds worker-owned directory discovery; entering,
+     * page and view changes reuse its read-only snapshot. */
+    bool games_refresh;
+    bool games_rebuild;
+    /* Reader enum plus explicit launch options from games_retail.h.
+     * Each accepted launch replaces the preceding choice. */
+    unsigned games_retail_reader;
+    /* Saved choices belong to the exact inspected image. The dispatched
+     * flags above are built afresh when the owner explicitly launches. */
+    unsigned games_launch_reader, games_launch_selected;
+    unsigned games_launch_encoding, game_tools_selected, game_tests_selected;
+    bool games_tests_from_options;
+    unsigned games_launch_codec,games_codec_selected;
+    unsigned games_launch_vmu_slot; /* enum kui_game_vmu_slot */
+    bool games_codec_override;
+    bool games_baseline,games_settings_saved;
+    struct kui_game_launch_settings games_baseline_previous;
+    char games_launch_notice[128];
+    char games_vmu_label[64],games_vmu_notice[128],games_vmu_product[12];
+    unsigned games_vmu_generation;
+    bool games_vmu_loading;
+    /* Disc card selection has its own product source; it never borrows Games metadata. */
+    bool games_vmu_disc,gd_vmu_launch,gd_auto_launch;
+    unsigned gd_options_selected,gd_region_generation;
+    bool gd_region_loading,gd_region_known,gd_region_enabled,gd_region_requested;
+    char gd_region_notice[128];
+    struct kui_vmu_game_info games_vmu_info;
+    struct kui_vmu_game_selection games_vmu_selection;
+    unsigned games_vmu_card_selected;
+    struct kui_vmu_history_request vmu_history_request;
+    struct kui_vmu_history_view vmu_history;
+    unsigned vmu_history_generation,vmu_history_selected;
+    bool vmu_history_loading,confirm_vmu_history_restore;
+    bool games_vmu_default_clear,games_vmu_pick_pending_launch,games_vmu_default_saving,games_vmu_pick_check;
+    enum kui_shell_page games_vmu_pick_return;
+    bool games_launch_cdda, games_retail_scrambled;
+    struct kui_game_ram_patches games_launch_patches;
+    unsigned games_patch_selected, games_patch_digit;
+    bool games_patch_editing;
+    uint32_t games_patch_draft;
+    bool games_probe_from_options; /* Independent probe's return destination. */
+    struct kui_games_page games_listing;
+    struct kui_games_detail games_detail;
+    /* Destination is committed only by a successful worker load/save. Browsing
+     * and typing are drafts; neither changes where a new capture is written. */
+    char destination[KUI_DEST_ROOT_CAP], browse_path[KUI_DEST_ROOT_CAP];
+    char keyboard[KUI_FILES_PATH_CAP], keyboard_original[KUI_DEST_ROOT_CAP];
+    char destination_notice[128];
+    struct kui_destination_page listing;
+    unsigned browser_selected, browser_page, keyboard_selected;
+    unsigned advanced_selected;
+    enum kui_shell_page settings_return;
+    unsigned keyboard_layer; /* KUI_SHELL_KEYS_* */
+    bool browse_for_scan;
+    /* RAM-only choices: an empty job means automatic latest for Resume/Verify;
+     * an empty folder label means the disc title for NEW captures only. */
+    char capture_job[KUI_DEST_JOB_CAP], capture_folder_label[KUI_DEST_TITLE_CAP];
+    bool browse_for_capture_job, capture_label_keyboard;
+    unsigned recovery_operation; /* 0 scan, 1 resume copy, 2 reread evidence, 3 in-place, 4 new copy. */
+    bool capture_network;
+    bool capture_cd_toc; /* Explicitly declared single-session CD source. */
+    bool repair_saved_identity; /* Explicit opt-in recovery binding when fixed samples cannot be read. */
+    /* File Manager. files_request is the next listing main hands to the
+     * worker: the browser's folder, or the picker's (folders_only). A job
+     * is checked (FILES_CHECK) before it is confirmed and run (FILES_RUN);
+     * the run is followed by files_request, which lists the folder again. */
+    char files_path[KUI_FILES_PATH_CAP], files_pick_path[KUI_FILES_PATH_CAP];
+    bool files_screenshots;
+    char files_gallery_return[KUI_FILES_PATH_CAP];
+    struct kui_files_page files_listing, files_pick;
+    struct kui_shell_files_scroll files_scroll, files_pick_scroll;
+    struct kui_files_request files_request;
+    struct kui_files_job files_job;
+    struct kui_files_preview files_preview;
+    struct kui_files_picture files_picture;
+    unsigned files_selected, files_pick_selected, files_action_selected;
+    char files_notice[128], files_notice_detail[KUI_APP_LINE_CAP];
+    /* The keyboard types a File Manager name; Games details were opened
+     * from the File Manager, so B returns there. */
+    bool files_keyboard, files_notice_error, games_from_files;
+    /* A copy, move, delete, rename or new folder runs until its status is
+     * installed; the browser shows its progress meanwhile. */
+    bool files_running;
+    /* System tools uses the same safe listing as File Manager, with files
+     * visible. A regular copy/move picker still chooses folders only. */
+    bool files_pick_compare, files_pick_import, system_compare_bios;
+    char system_compare_path[KUI_FILES_PATH_CAP];
+    /* Diagnostics' storage tests use worker-published copies only. The last
+     * request stays independent of whichever historical result is displayed. */
+    struct kui_storage_test_request storage_test_request, storage_test_last_request;
+    struct kui_storage_test_result storage_test_result;
+    struct kui_storage_test_history storage_test_history;
+    unsigned storage_test_selected, storage_history_selected, storage_test_chunk;
+    uint32_t storage_test_baseline_id;
+    bool storage_test_last_valid, storage_test_show_result, storage_test_details;
+    bool storage_test_from_history, storage_test_keyboard, confirm_storage_test;
+    /* The Wi-Fi page: the board's latest view; rows are the band setting,
+     * the networks in range, then "Other network". wifi_request is the job
+     * main hands to the worker (JOIN, BAND); main wipes its password once
+     * taken. The keyboard types the password, or first the name of a
+     * network typed by hand (wifi_typing_name). */
+    struct kui_wifi_view wifi;
+    struct kui_problem_report_options problem_report_options;
+    struct kui_problem_report_view problem_report;
+    bool problem_report_visible;
+    unsigned network_selected;
+    struct kui_browser_options browser_options;
+    struct kui_browser_status browser;
+    unsigned wifi_selected;
+    struct kui_wifi_request wifi_request;
+    uint8_t wifi_security; /* of the network being joined; 0xff: not known */
+    bool wifi_keyboard, wifi_typing_name, confirm_wifi_forget, confirm_wifi_update;
+    /* Disc management has no launch state. Confirmations own exact review
+     * pins and source identities, never a pointer into a later listing. */
+    unsigned disc_cards_generation,disc_cards_selected;
+    bool disc_cards_loading,disc_cards_select_last,disc_cards_confirming;
+    struct kui_disc_cards_request disc_cards_request,disc_cards_confirm_request;
+    struct kui_disc_cards_row disc_cards_confirm_row;
+    struct kui_disc_cards_view disc_cards;
+};
+/* Home's apps, top to bottom: A on row home_selected opens
+ * kui_shell_home_pages[home_selected]. Drawing looks each app up by page. */
+#define KUI_SHELL_HOME_APPS 8u
+extern const enum kui_shell_page kui_shell_home_pages[KUI_SHELL_HOME_APPS];
+/* Persisted KUI_STARTUP_* values are independent of Home's visible rows. */
+enum kui_shell_page kui_shell_startup_page(unsigned startup);
+void kui_shell_init(struct kui_shell *shell, const struct kui_settings *settings);
+/* Main owns the reducer. Pass new button edges; a held B must also be included
+ * when another edge arrives, so Stop/cancel retains priority over a new action.
+ * Busy includes queued work and settings I/O, not background audio playback.
+ * It locks launch/navigation but permits Stop, song requests on Home/Ripper,
+ * memory snapshots and scrolling the diagnostics already open. Song requests
+ * do not grant the renderer/reducer access to the filesystem. */
+enum kui_shell_action kui_shell_input(struct kui_shell *shell,
+    unsigned pressed, bool busy);
+/* Install only a successfully loaded/saved settings snapshot. A failed save
+ * leaves draft values available for retry and the prior saved values intact. */
+void kui_shell_set_preferences(struct kui_shell *shell,
+    const struct kui_settings *settings);
+bool kui_shell_settings_dirty(const struct kui_shell *shell);
+void kui_shell_set_system_preferences(struct kui_shell *shell,
+    const struct kui_system_settings *settings);
+bool kui_shell_system_dirty(const struct kui_shell *shell);
+void kui_shell_set_theme_preferences(struct kui_shell *,const struct kui_theme_settings *);
+void kui_shell_set_theme_catalog(struct kui_shell *,unsigned generation,
+    const struct kui_theme_catalog *,bool ok,const char *notice);
+void kui_shell_theme_result(struct kui_shell *,unsigned generation,
+    enum kui_shell_action action,bool ok,const char *notice);
+bool kui_shell_theme_dirty(const struct kui_shell *);
+/* Draft palette includes the selected definition and per-color overrides. */
+void kui_shell_theme_draft_palette(const struct kui_shell *,struct kui_theme_palette *);
+/* Main controls video_trial only while its reversible platform preview is
+ * active. The reducer returns CONFIRM/CANCEL; it never commits a video mode. */
+void kui_shell_set_vmu(struct kui_shell *shell, const struct kui_vmu_view *view);
+/* Wizard publications belong to the current page and exact request generation. */
+void kui_shell_set_vmu_wizard(struct kui_shell *,const struct kui_vmu_wizard_view *);
+void kui_shell_set_game_vmu_cards(struct kui_shell *,unsigned generation,const struct kui_vmu_game_info *);
+void kui_shell_set_disc_vmu_cards(struct kui_shell *,unsigned generation,const struct kui_vmu_game_info *);
+void kui_shell_set_disc_cards(struct kui_shell *,const struct kui_disc_cards_view *);
+void kui_shell_set_update(struct kui_shell *,const struct kui_shell_update_view *);
+void kui_shell_set_disc_region(struct kui_shell *,unsigned generation,bool enabled,bool ok,const char *notice);
+void kui_shell_vmu_tools_enter(struct kui_shell *);
+/* Global preference results echo the exact outstanding request generation.
+ * Failed/uncertain saves preserve the last confirmed value and require reload. */
+void kui_shell_set_vmu_emulation(struct kui_shell *,unsigned generation,bool enabled,
+    bool ok,bool stopped,const char *message);
+void kui_shell_set_vmu_emulation_full(struct kui_shell *,unsigned generation,bool enabled,unsigned slot,
+    bool ok,bool stopped,const char *message);
+/* Read-only card-info results name the exact current request/product. */
+void kui_shell_set_game_vmu(struct kui_shell *,unsigned generation,const char *product,
+    const char *label,const char *notice);
+/* Worker publications are ignored unless their page/slot still matches. */
+/* A VMD result echoes its exact path and requested page; the returned page
+ * can fall back to zero if the image has fewer saves after refresh. */
+void kui_shell_set_vmu_image(struct kui_shell *,const char *path,unsigned requested_page,const struct kui_vmu_view *);
+void kui_shell_set_vmu_card(struct kui_shell *,unsigned generation,const struct kui_vmu_backup_entry *);
+enum kui_shell_action kui_shell_set_vmu_virtual_delete(struct kui_shell *,unsigned generation,
+    bool committed,bool ready,unsigned users,const struct kui_app_status *);
+void kui_shell_set_vmu_backups(struct kui_shell *shell, const struct kui_vmu_backup_view *view);
+/* Managed collection results echo the exact request generation. Copy results
+ * additionally echo every source selection and cannot authorize a fresh commit
+ * after a completed or cancelled attempt. */
+void kui_shell_set_vmu_collection(struct kui_shell *,unsigned generation,const struct kui_vmu_backup_view *);
+void kui_shell_set_vmu_collection_copy(struct kui_shell *,unsigned source,unsigned page,unsigned selected,
+    bool all,unsigned generation,bool committed,const struct kui_vmu_view *);
+void kui_shell_set_vmu_restore_preview(struct kui_shell *shell, const struct kui_vmu_view *view);
+/* A successful clock read or write replaces the editable snapshot. Failure
+ * preserves a valid draft or seeds an editable 1980-01-01 with an error notice. */
+void kui_shell_set_vmu_delete_preview(struct kui_shell *shell, const struct kui_vmu_view *view);
+void kui_shell_set_vmu_copy_preview(struct kui_shell *shell, const struct kui_vmu_view *view);
+/* Bulk previews belong to both exact slots; completed/partial results never
+ * grant another commit. Import publications echo the full source and request
+ * generation, and importing only stages a checked SD backup. */
+void kui_shell_set_vmu_copy_all(struct kui_shell *,unsigned source,unsigned destination,
+    bool committed,const struct kui_vmu_view *);
+void kui_shell_set_vmu_import(struct kui_shell *,const char *path,unsigned generation,
+    bool committed,const struct kui_vmu_view *);
+void kui_shell_set_clock(struct kui_shell *shell, const struct kui_datetime *value, const char *notice);
+/* MUSIC_LIST uses music_path and music_page * ROWS. MUSIC_PLAY uses the
+ * validated music_selected_path. Worker completion never changes directory. */
+void kui_shell_set_cd_audio(struct kui_shell *shell, const struct kui_cd_audio_status *status);
+void kui_shell_set_music_listing(struct kui_shell *shell,
+    const struct kui_music_player_page *page);
+/* Games results must still match their active page and requested root/path.
+ * Main also checks worker generation to reject stale same-folder pagination.
+ * LIST uses games_path + games_page * ROWS and games_view; INSPECT uses
+ * games_selected_path. SCAN covers /Games, then lists its first page. */
+void kui_shell_set_games_listing(struct kui_shell *shell, const struct kui_games_page *page);
+void kui_shell_set_games_selection(struct kui_shell *,const struct kui_games_selection *);
+bool kui_shell_games_selection(const struct kui_shell *,struct kui_games_selection *);
+bool kui_shell_set_games_found_rows(struct kui_shell *,const struct kui_games_page *,
+    unsigned generation,unsigned offset,unsigned view,unsigned selected);
+/* Worker publications must match the request that is still on screen. */
+/* Titles that background reads found for the rows on screen at `offset`.
+ * Only rows still showing the same image take one; nothing else changes. */
+bool kui_shell_set_games_titles(struct kui_shell *,const struct kui_games_page *,unsigned offset);
+bool kui_shell_set_games_rows(struct kui_shell *,const struct kui_games_page *,
+    unsigned generation,unsigned offset,unsigned requested_view);
+void kui_shell_set_games_detail(struct kui_shell *shell, const struct kui_games_detail *detail);
+/* Main calls this after installing a detail and its saved launch settings.
+ * For an inspection started from the Games list or version chooser whose
+ * detail was accepted and is launch-ready, it performs exactly the details
+ * page's A step (launch screen plus its virtual-card lookup) and returns
+ * that action; otherwise KUI_SHELL_NONE. */
+enum kui_shell_action kui_shell_games_detail_arrived(struct kui_shell *shell);
+bool kui_shell_games_zso_selected(const struct kui_shell *);
+bool kui_shell_games_image_ready(const struct kui_shell *shell);
+/* Only fresh inspection of the selected exact Smash Pack release exposes
+ * these explicit cold native-child VMU tests. No saved setting is changed. */
+bool kui_shell_games_smash_native_ready(const struct kui_shell *shell);
+/* The view to draw: the saved view once known, else the list. */
+unsigned kui_shell_games_view(const struct kui_shell *shell);
+bool kui_shell_set_games_layout_saved(struct kui_shell *,unsigned generation,unsigned view,
+    bool ok,const char *notice);
+/* Main-loop publications only. The worker snapshots context while locked and
+ * queues its rows; it never writes shell state while a frame is being drawn. */
+bool kui_shell_games_flow_needed(const struct kui_shell *,unsigned *page,unsigned *epoch);
+bool kui_shell_set_games_flow_rows(struct kui_shell *,const struct kui_games_page *,unsigned epoch,unsigned page);
+bool kui_shell_games_flow_tick(struct kui_shell *,uint64_t now_ms);
+bool kui_shell_games_flow_animating(const struct kui_shell *);
+const struct kui_games_entry *kui_shell_games_flow_entry(const struct kui_shell *,unsigned absolute_row);
+bool kui_shell_games_art_key(const struct kui_shell *,struct kui_shell_games_art_key *);
+bool kui_shell_games_art_same(const struct kui_shell_games_art_key *,const struct kui_shell_games_art_key *);
+bool kui_shell_set_games_art(struct kui_shell *,const struct kui_shell_games_art_key *,
+    const struct kui_games_cover_result *);
+/* Selected paired version, or NULL for an ordinary single image. */
+const char *kui_shell_games_variant_label(const struct kui_shell *shell);
+/* Media and boot eligibility; preparation revalidates files and metadata. */
+bool kui_shell_games_retail_ready(const struct kui_shell *shell);
+bool kui_shell_games_background_ready(const struct kui_shell *shell);
+bool kui_shell_games_encoding_ready(const struct kui_shell *shell);
+/* Represented playable audio allows an experimental opt-in. This does not
+ * establish runtime compatibility or successful playback. */
+bool kui_shell_games_cdda_ready(const struct kui_shell *shell);
+/* Inspection publishes a tested status only after checking exact content
+ * identity. Unknown, stale and out-of-range statuses never imply a test. */
+const char *kui_shell_games_cdda_status(const struct kui_shell *shell);
+bool kui_shell_games_launch_ready(const struct kui_shell *shell);
+bool kui_shell_games_patches_ready(const struct kui_shell *shell);
+/* The virtual card slot belongs to the native Background module, the only
+ * route here with a per-game virtual card. */
+bool kui_shell_games_vmu_slot_ready(const struct kui_shell *shell);
+bool kui_shell_game_launch_settings(const struct kui_shell *shell,
+                                    struct kui_game_launch_settings *out);
+/* loaded=true with settings=NULL means no exact-image preset exists. Keep
+ * the inspected default; a saved Standard/Off entry is always non-NULL. */
+void kui_shell_set_game_launch_settings(struct kui_shell *shell,const char *path,
+                                       const struct kui_game_launch_settings *settings,bool loaded);
+void kui_shell_game_launch_saved(struct kui_shell *shell,const char *path,bool ok);
+bool kui_shell_games_option_ready(const struct kui_shell *shell, unsigned row);
+const char *kui_shell_games_reader_label(const struct kui_shell *shell);
+/* A Windows CE image the CE boot test can take: it loads the CE kernel,
+ * starts it, and stops at the first disc request K-UI cannot serve. */
+bool kui_shell_games_ce_probe_ready(const struct kui_shell *shell);
+/* File Manager results. A listing is kept only for the folder it was asked
+ * for; a check only for the job and page that asked; a picture only while
+ * its view is open. A run's status becomes the browser's notice. */
+const struct kui_files_page *kui_shell_files_page(const struct kui_shell *shell, bool picker);
+const struct kui_files_entry *kui_shell_files_row(const struct kui_shell *shell, bool picker, unsigned absolute);
+void kui_shell_set_files_listing(struct kui_shell *shell, const struct kui_files_page *page);
+void kui_shell_set_files_preview(struct kui_shell *shell, const struct kui_files_preview *preview);
+void kui_shell_set_files_status(struct kui_shell *shell, const struct kui_app_status *status);
+void kui_shell_set_files_picture(struct kui_shell *shell, const struct kui_files_picture *picture);
+/* TEST_RUN consumes storage_test_request; TEST_BASELINE consumes the selected
+ * saved passing storage_test_baseline_id. Publications contain no borrowed
+ * pointers and are installed on main's reducer thread after worker completion. */
+void kui_shell_set_storage_test_result(struct kui_shell *shell,
+    const struct kui_storage_test_result *result);
+void kui_shell_set_storage_test_history(struct kui_shell *shell,
+    const struct kui_storage_test_history *history);
+/* The job may be confirmed: its check succeeded and still matches. */
+bool kui_shell_files_ready(const struct kui_shell *shell);
+/* DEST_LIST reads browse_path and browser_page (offset = page * PAGE_SIZE).
+ * DEST_SAVE reads browse_path. Main owns the generation check before installing
+ * worker results; these functions themselves perform no filesystem I/O. */
+void kui_shell_set_destination(struct kui_shell *shell, const char *path);
+void kui_shell_set_listing(struct kui_shell *shell,
+    const struct kui_destination_page *page);
+void kui_shell_destination_error(struct kui_shell *shell, const char *message);
+/* Keyboard has four QWERTY/digit rows of ten keys, then SPACE/BACK/DONE.
+ * Only directions may be repeated; A and the other action buttons are edges.
+ * Y cycles its layers: lowercase, uppercase, then symbols. */
+#define KUI_SHELL_KEY_COUNT 43u
+enum { KUI_SHELL_KEYS_LOWER, KUI_SHELL_KEYS_UPPER, KUI_SHELL_KEYS_SYMBOLS, KUI_SHELL_KEY_LAYERS };
+const char *kui_shell_key_label(unsigned key, unsigned layer);
+/* The Wi-Fi page's view from the worker. A view without a scan keeps the
+ * networks already listed. */
+void kui_shell_set_vmu_history(struct kui_shell *,unsigned generation,
+    const struct kui_vmu_history_request *,const struct kui_vmu_history_view *);
+void kui_shell_set_games_edit(struct kui_shell *,unsigned generation,const char *path,
+    const struct kui_games_library_edit *,bool ok,const char *notice);
+void kui_shell_problem_report_status(struct kui_shell *,const struct kui_problem_report_view *);
+void kui_shell_browser_status(struct kui_shell *,const struct kui_browser_status *);
+void kui_shell_set_wifi(struct kui_shell *shell, const struct kui_wifi_view *view);
+/* Rows on the Wi-Fi page: the band setting, each network, "Other network". */
+unsigned kui_shell_wifi_rows(const struct kui_shell *shell);
+
+/* Main copies shared worker state while locked, then draws outside the lock.
+ * Pointer fields remain valid for this draw. log_lines contains up to LOG_ROWS
+ * already-scrolled lines; total_log_lines is the count before windowing.
+ * phase uses the existing kui_capture_phase numeric values (0..4); phase 4 is
+ * completed, never an assertion that saved bytes were verified. */
+struct kui_shell_view {
+    const struct kui_theme_palette *theme_palette;
+    const struct kui_theme_image *theme_images; /* KUI_THEME_ASSET_COUNT images */
+    const enum kui_theme_asset_status *theme_asset_status; /* Same ordering. */
+    bool branded_banner;
+    bool sci_video_quiet;
+    const char *build, *job_dir, *message, *settings_notice;
+    const char *disc_title, *inserted_title, *gdi_name;
+    const char *music_title, *music_notice;
+    const struct kui_app_status *app_status;
+    bool busy, saving, cancel_requested, saved_verified, memory_valid;
+    bool salvage_control_trial; /* Busy salvage uses fixed trial profiles. */
+    bool salvage_read_trial; /* Bounded comparison of approaches to missing sectors. */
+    bool salvage_speed_probe; /* Read-only speed support test; no saved job admission. */
+    enum kui_salvage_diagnostic salvage_diagnostic;
+    bool log_truncated, reference_checked, video_trial, drive_reset_required;
+    bool dma_degraded;
+    bool music_enabled, music_playing, music_paused, music_change_pending;
+    unsigned music_volume;
+    uint32_t music_cache_bytes, music_loading_bytes, music_peak_file_bytes;
+    unsigned video_seconds;
+    struct kui_known_summary reference;
+    enum kui_shell_outcome outcome;
+    unsigned phase, track, tracks, rate_kib, retries;
+    unsigned retry_attempt, retry_limit;
+    uint32_t retry_fad;
+    uint64_t done, total, committed, elapsed_ms;
+    uint64_t phase_elapsed_ms, progress_age_ms;
+    uint32_t memory_used, memory_physical, memory_peak;
+    const char *const *log_lines;
+    unsigned log_count, total_log_lines;
+    /* Games rows' covers, in the listing's view size (games_listing.view),
+     * and image details' large cover. Valid only where the listing or
+     * detail says cover; NULL draws placeholders. */
+    const uint16_t (*game_covers)[KUI_COVER_PIXELS];
+    /* Runtime keeps one selected cover; host previews may still supply rows. */
+    const uint16_t *game_selected_cover;
+    /* Current selected game only, one 160 x 120 RGB565 preview frame. */
+    const uint16_t *game_preview_frame;
+    /* Compact and Gallery tiles: each row's cover at the listing's view size
+     * (KUI_COVER_SMALL/MEDIUM square), or NULL for its placeholder. Main sets
+     * a pointer only for the exact entry and view on screen and never changes
+     * a published buffer while frames can draw it. */
+    const uint16_t *game_tile_covers[KUI_GAMES_ROWS];
+    const uint16_t *game_detail_cover;
+    /* The File Manager's picture, KUI_FILES_PICTURE_EDGE square; drawn only
+     * while shell->files_picture says it loaded. */
+    const uint16_t *files_picture;
+    /* The FTP server's last published status, on its page; NULL before the
+     * first start. */
+    const struct kui_ftp_status *ftp;
+    const struct kui_storage_test_progress *storage_test_progress;
+    const char *storage_test_target;
+};
+/* Estimate only the current moving phase after a 2s warmup; do not imply the
+ * later verification duration. A stalled (>3s old) rate is not an estimate. */
+/* Tenths of a percent, clamped; zero for an unknown total. */
+unsigned kui_shell_progress_tenths(uint64_t done, uint64_t total);
+bool kui_shell_phase_eta(const struct kui_shell_view *view, uint64_t *seconds);
+/* The renderer draws its embedded font and original artwork directly. Text is
+ * clipped to safe margins. An optional observer receives rendered labels for
+ * accessibility/host checks; it must not draw a second font over them. No flip,
+ * wait, device access or allocation occurs here. */
+typedef void (*kui_shell_text_fn)(void *ctx, unsigned x, unsigned y,
+    uint16_t rgb565, const char *text, bool large);
+void kui_shell_draw(uint16_t *frame, const struct kui_shell *shell,
+    const struct kui_shell_view *view, kui_shell_text_fn text, void *ctx);
+/* Both paths use only published RGB565 pixels and colors. No theme file I/O,
+ * decode or allocation occurs in any draw function. */
+void kui_shell_draw_background(uint16_t *frame,const struct kui_shell *shell,
+    const struct kui_shell_view *view);
+/* Console path: draw_background first, followed by content. */
+void kui_shell_draw_content(uint16_t *frame, const struct kui_shell *shell,
+    const struct kui_shell_view *view, kui_shell_text_fn text, void *ctx);
+#endif

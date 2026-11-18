@@ -1,0 +1,22 @@
+{
+  "version": 1,
+  "type": "banner",
+  "name": "Midnight Forge",
+  "author": "TacitusVox",
+  "assets": {
+    "header": {
+      "source": "../sources/midnight-forge.png",
+      "sha256": "c2af48fccef4153a2412cca09217586df695465c51b6746d6a8032e4c0772495",
+      "filter": "lanczos",
+      "fit": "cover",
+      "matte": "#111528",
+      "crop": [
+        88,
+        54,
+        2148,
+        696
+      ],
+      "dither": true
+    }
+  }
+}
