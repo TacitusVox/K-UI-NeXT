@@ -1,34 +1,41 @@
 # Broadband Adapter updater test
 
-The review branch serves a GUI-only KUP for a Dreamcast hardware test before
-production nightlies go live. The package and the current manual test GUI
-were built from commit `bad8016cee9aca559d52a1bef51c2c8e695d2418`.
+This review feed serves a single GUI package for existing standalone K-UI
+installations. The manual test GUI and the installable GUI were both built
+from commit `8cf00aa5f2f1d7e3b76fd49959c8030c1149af5c`. The manual GUI
+downloads from this branch. The installed GUI uses the production channel.
 
-1. Back up `KUI/boot.kui` and `KUI/runtime.kui` on the card. Copy the
-   manual test ZIP's `KUI` folder over the existing installation, then cold
-   boot from your usual disc. If you already installed the earlier review
-   GUI `b8b1fc445da6`, you can run the download test from that GUI.
-2. Check the Dreamcast clock. Open **Settings → Updates**, press **L**, select
-   **Broadband Adapter** on **Connection**, then press **A**. To test resume,
-   press **B** during the transfer, let it stop, then start it again.
-3. The review should show GUI **bad8016cee9a**, package **ebff3330053f**,
-   channel **testing**. The download is 3,010,292 bytes. Press **A** to
-   install, then **START → Restart K-UI**. The old review GUI now shows the
-   new build ID. The current manual ZIP already shows that source ID, so
-   check the package ID at review and the selected bank after restart.
-4. On the new GUI, open **Settings → Updates → L** and move down to
-   **Downloads to keep**. Choose 1, 3, 5, 10, or Unlimited. Press **A** on
-   that row to save and apply the setting offline. Five is the default. A
-   single review package can exercise download, resume and installation.
-   Trimming multiple versions is exercised in the FAT32/exFAT tests.
+1. To exercise the new installation checks from the first download, back up
+   `KUI/boot.kui` and `KUI/runtime.kui`, copy the current manual test ZIP's
+   `KUI` folder onto the card, then cold boot your usual disc. Confirm GUI
+   **8cf00aa5f2f1**. Earlier review GUIs **bad8016cee9a** and **b8b1fc445da6**
+   can fetch this package too. Their first installation runs the older
+   installer. After restarting into the new GUI, you can select the cached
+   KUP in **Settings → Updates** to exercise its installation checks.
+2. Check the Dreamcast date and time. Connect the Broadband Adapter, open
+   **Settings → Updates**, press **L**, choose **Broadband Adapter** on
+   **Connection**, then press **A**. To test resume, press **B** during
+   the transfer, wait for it to stop, then start it again.
+3. Confirm GUI **8cf00aa5f2f1**, package **74d1da86d711**, channel
+   **testing** and a download of **3,010,292 bytes**. Press **A** to
+   install. The new installer finishes the bank writes, reopens the files
+   on the card, and verifies the replacements against their recorded size
+   and SHA-256 before selecting the bank. After writing the selection it
+   checks the files again and confirms that the expected selection still
+   wins. If this final file check fails, the installer restores the previous
+   selection only when it can verify the prior files and selection. An
+   uncertain result is reported as a failure.
+4. Choose **START → Restart K-UI** to run the selected bank. The current
+   manual and installed GUIs share a source ID, so check the package ID at
+   review and the selected bank after restart. A power cycle loads the
+   physical GUI from the card. **Restart K-UI** re-enters the selected bank.
 
-The physical test GUI uses the review feed. The installed GUI checks the
-production feed, available after the first successful nightly on `main`.
-Cold boot starts the physical GUI again. To restore your previous physical
-GUI, copy back your two backups and cold boot.
+The default download limit is five. Open **Settings → Updates → L →
+Downloads to keep**, pick a limit with left/right, then press **A** on
+that row to apply it offline.
 
-KUP SHA-256 is `4125d0918146692475f1a1be7ac24d5d6baeef864324a0e0dbeb6829dc51ed96`. The [source bundle](source.bundle)
-in this directory preserves the earlier review GUI sources. The new build
-uses the public commit above. See [software updates](../../docs/updater.md)
-for version compatibility and [GUI nightlies](../../docs/gui-nightlies.md)
-for production setup.
+KUP SHA-256 is `36dc2383a98d6ba2b6becae875539342ebf8854f93a50e66728e4b5313b8c4ea`.
+The nightly packages GUI software. See the [updater guide](../../docs/updater.md)
+for package and boot behavior and [GUI nightlies](../../docs/gui-nightlies.md)
+for production setup. The [source bundle](source.bundle) retains the original
+**b8b1fc445da6** review build.
