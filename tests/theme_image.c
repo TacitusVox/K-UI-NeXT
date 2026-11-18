@@ -152,7 +152,11 @@ static void check_assets(void) {
     const size_t full_bytes=640u*480u*2u+32u,header_bytes=640u*100u*2u+32u;
     uint8_t *data=calloc(1,full_bytes+1);assert(data);memcpy(data,"KUITEX01",8);put32(data+8,1);
     data[12]=0x80;data[13]=2;data[14]=0xe0;data[15]=1;put32(data+16,(uint32_t)full_bytes-32);
-    for(size_t i=32;i<full_bytes;i+=2){data[i]=0x34;data[i+1]=0x12;}
+    for(size_t i=32;i<full_bytes;i+=2){
+        unsigned sample=(unsigned)(i-32)/2u;
+        uint16_t color=(uint16_t)(0x1234u+sample*31u);
+        data[i]=(uint8_t)color;data[i+1]=(uint8_t)(color>>8);
+    }
     put32(data+20,kui_crc32(0,data+32,full_bytes-32));
     write_file(KUI_THEME_ROOT "/assets/full.kuiimg",data,full_bytes);
     data[14]=100;data[15]=0;put32(data+16,(uint32_t)header_bytes-32);
@@ -161,24 +165,40 @@ static void check_assets(void) {
     struct kui_theme_definition definition;assert(kui_theme_definition_load(&definition,"assets",log_line));
     struct kui_theme_image image={0};unsigned before=test.writes;
     assert(kui_theme_image_load(&image,&definition,KUI_THEME_SPLASH,log_line,NULL)==KUI_THEME_ASSET_READY);
-    assert(image.width==640 && image.height==480 && image.pixels[0]==0x1234 && image.pixels[640*480-1]==0x1234);
+    assert(image.width==640 && image.height==480 && image.pixels[0]==0x1234 &&
+        image.pixels[640*480-1]==(uint16_t)(0x1234u+(640u*480u-1u)*31u));
     kui_theme_image_release(&image);assert(!image.pixels && !image.width && !image.height);
     assert(kui_theme_image_load(&image,&definition,KUI_THEME_HEADER,log_line,NULL)==KUI_THEME_ASSET_READY);
-    assert(image.width==640 && image.height==100 && image.pixels[640*100-1]==0x1234);kui_theme_image_release(&image);
+    assert(image.width==640 && image.height==100 &&
+        image.pixels[640*100-1]==(uint16_t)(0x1234u+(640u*100u-1u)*31u));kui_theme_image_release(&image);
+    for(unsigned kind=KUI_THEME_SPLASH;kind<=KUI_THEME_HEADER;kind++) {
+        assert(kui_theme_thumbnail_load(&image,&definition,kind,log_line,NULL)==KUI_THEME_ASSET_READY);
+        assert(image.width==256 && image.height==(kind==KUI_THEME_HEADER?40u:192u));
+        for(unsigned y=0;y<image.height;y++)for(unsigned x=0;x<image.width;x++) {
+            unsigned source_index=y*5u/2u*640u+x*5u/2u;
+            assert(image.pixels[y*image.width+x]==(uint16_t)(0x1234u+source_index*31u));
+        }
+        kui_theme_image_release(&image);
+    }
     assert(kui_theme_image_load(&image,&definition,KUI_THEME_BACKDROP,log_line,NULL)==KUI_THEME_ASSET_DISABLED);
+    assert(kui_theme_thumbnail_load(&image,&definition,KUI_THEME_BACKDROP,log_line,NULL)==KUI_THEME_ASSET_DISABLED);
     definition.assets[2][0]=0;assert(kui_theme_image_load(&image,&definition,KUI_THEME_BACKDROP,log_line,NULL)==KUI_THEME_ASSET_DEFAULT);
+    assert(kui_theme_thumbnail_load(&image,&definition,KUI_THEME_BACKDROP,log_line,NULL)==KUI_THEME_ASSET_DEFAULT);
     cancel_calls=0;cancel_at=1;
     assert(kui_theme_image_load(&image,&definition,KUI_THEME_SPLASH,log_line,cancelled)==KUI_THEME_ASSET_CANCELLED);
     cancel_calls=0;cancel_at=4;
     assert(kui_theme_image_load(&image,&definition,KUI_THEME_SPLASH,log_line,cancelled)==KUI_THEME_ASSET_CANCELLED);
     assert(!image.pixels && test.writes==before);
+    cancel_calls=0;cancel_at=4;
+    assert(kui_theme_thumbnail_load(&image,&definition,KUI_THEME_SPLASH,log_line,cancelled)==KUI_THEME_ASSET_CANCELLED);
+    assert(!image.pixels && !image.width && !image.height && test.writes==before);
     strcpy(definition.assets[1],"../escape");assert(kui_theme_image_load(&image,&definition,KUI_THEME_HEADER,log_line,NULL)==KUI_THEME_ASSET_FAILED);
     memset(definition.assets[1],'x',sizeof(definition.assets[1]));
     assert(kui_theme_image_load(&image,&definition,KUI_THEME_HEADER,log_line,NULL)==KUI_THEME_ASSET_FAILED);
     strcpy(definition.assets[1],"absent.kuiimg");assert(kui_theme_image_load(&image,&definition,KUI_THEME_HEADER,log_line,NULL)==KUI_THEME_ASSET_FAILED);
     strcpy(definition.assets[1],"header.kuiimg");
     for(unsigned error=0;error<6;error++) {
-        data[8]=1;data[24]=0;data[12]=0x80;data[40]=0x34;
+        data[8]=1;data[24]=0;data[12]=0x80;data[40]=(uint8_t)(0x1234u+4u*31u);
         size_t bytes=header_bytes;
         if(error==0)data[40]^=1;
         if(error==1)bytes--;
@@ -188,6 +208,7 @@ static void check_assets(void) {
         if(error==5)data[12]=0x81;
         write_file(KUI_THEME_ROOT "/assets/header.kuiimg",data,bytes);remount();before=test.writes;
         assert(kui_theme_image_load(&image,&definition,KUI_THEME_HEADER,log_line,NULL)==KUI_THEME_ASSET_FAILED);
+        assert(kui_theme_thumbnail_load(&image,&definition,KUI_THEME_HEADER,log_line,NULL)==KUI_THEME_ASSET_FAILED);
         assert(!image.pixels && !image.width && !image.height && test.writes==before);
     }
     free(data);

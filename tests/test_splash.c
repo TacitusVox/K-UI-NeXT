@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: GPL-3.0-only */
 #include "kui/splash.h"
+#include "kui/theme.h"
 #include <assert.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -61,6 +62,17 @@ int main(void) {
     preview=kui_splash_preview_factory_decode();
     assert(preview && !memcmp(preview,expected_dimmed,sizeof(expected_dimmed)));
     free(preview);
+    /* Both picker thumbnails match the exact full preview, including rows
+     * which start in one inflater dictionary flush and finish in the next. */
+    for(unsigned factory=0;factory<2;factory++) {
+        const uint16_t *source=factory?expected_dimmed:first;
+        uint16_t *thumbnail=kui_splash_thumbnail_decode(factory!=0);
+        assert(thumbnail);
+        for(unsigned y=0;y<KUI_THEME_THUMB_HEIGHT;y++)
+            for(unsigned x=0;x<KUI_THEME_THUMB_WIDTH;x++)
+                assert(thumbnail[y*KUI_THEME_THUMB_WIDTH+x]==source[(y*5u/2u)*640u+x*5u/2u]);
+        free(thumbnail);
+    }
     kui_splash_draw(guarded+1);assert(!memcmp(first,guarded+1,sizeof(first)));
     kui_splash_draw_factory(guarded+1);assert(!memcmp(expected_dimmed,guarded+1,sizeof(expected_dimmed)));
     kui_splash_release();

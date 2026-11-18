@@ -2917,6 +2917,7 @@ static bool games_idle_blocked_locked(void) {
     return busy || pending || video_preview || cancel_requested || games_cache_clear_pending ||
         sci_video_quiet.requested || !startup_finished || splash_active || boot_ready || probe_launch_ready;
 }
+#include "theme_picker_runtime.inc"
 static bool games_idle_cancelled(void) {
     mutex_lock(&lock);
     bool stop=games_idle_blocked_locked();
@@ -3338,7 +3339,9 @@ static void games_storage_idle(void) {
     unsigned jobs=kui_games_storage_jobs();
     if(jobs!=seen || !last) {seen=jobs;last=now;}
     if(!kui_games_storage_active()) return;
-    mutex_lock(&lock);bool browsing=games_page(shell.page);mutex_unlock(&lock);
+    mutex_lock(&lock);
+    bool browsing=games_page(shell.page) || shell.page==KUI_SHELL_THEME_PICKER;
+    mutex_unlock(&lock);
     if(!browsing || now-last>=GAMES_STORAGE_IDLE_MS) (void)kui_games_storage_release();
 }
 /* A Flow neighbor is ordinary bounded catalogue work on the sole worker.
@@ -3721,6 +3724,7 @@ static void *worker(void *unused) {
                 /* Keep the just-validated job exclusive while paused. Audio
                  * keeps playing from RAM; unrelated preloads/cache writers
                  * resume after another foreground action revokes the receipt. */
+                if(theme_picker_idle_work()) {thd_sleep(12);continue;}
                 if(!salvage_session.parked) {
                     games_storage_idle();
                     if(idle && games_hover_idle_work()) {thd_sleep(1);continue;}
@@ -5004,6 +5008,9 @@ static bool draw_shell_frame(bool force) {
     const struct kui_theme_bundle *theme=theme_visible_bundle();
     view.theme_palette=&theme->palette;view.theme_images=theme->images;
     view.theme_asset_status=theme->status;view.branded_banner=theme->branded_banner;
+    if(shell.page==KUI_SHELL_THEME_PICKER) {
+        view.theme_picker_image=picker_visible;view.theme_picker_status=picker_status;
+    }
     mutex_lock(&lock);
     unsigned max_scroll = line_count > KUI_SHELL_LOG_ROWS ? line_count - KUI_SHELL_LOG_ROWS : 0;
     if(shell.scroll > max_scroll) shell.scroll = max_scroll;
@@ -6316,6 +6323,7 @@ int main(void) {
             pending=THEME_RESTORE_WORK;busy=true;cancel_requested=false;
             theme_restore_needed=false;ui_hz_busy=2;
         }
+        if(theme_picker_update_locked(input_at)) {last_draw=0;games_ui_changed=true;}
         struct kui_shell_games_art_key art_key;
         bool art_wanted=!busy && kui_shell_games_art_key(&shell,&art_key);
         if(art_wanted) {

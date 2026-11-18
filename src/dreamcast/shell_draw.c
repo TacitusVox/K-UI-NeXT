@@ -36,6 +36,7 @@ static void paint_palette(struct paint *p,const struct kui_shell_view *v) {
     for(unsigned i=0;i<KUI_THEME_COLOR_COUNT;i++)p->colors[i]=kui_theme_rgb565(palette->colors[i]);
 }
 static void path_words(struct paint *,unsigned,unsigned,unsigned,uint16_t,const char *);
+static void centred(struct paint *,unsigned,unsigned,unsigned,uint16_t,const char *);
 static unsigned word_width(const struct paint *p,const char *text,bool large) {
     return p->crisp?kui_shell_font_width_crisp(text,large):kui_shell_font_width(text,large);
 }
@@ -191,6 +192,8 @@ static void footer(struct paint *p, const struct kui_shell *s,
     const char *controls=v->video_trial ? "A Keep mode   B Revert" :
         s->theme_loading ? "Loading appearance; please wait" :
         s->page==KUI_SHELL_THEME_MENU_PREVIEW ? "Preview   B Back to edit   START Apply" :
+        s->page==KUI_SHELL_THEME_PICKER ? "UP/DOWN Browse   A Choose   B Cancel" :
+        s->page==KUI_SHELL_APPEARANCE && s->theme_selected<4u ? "A Browse   X Rescan   Y Preview   START Apply   B Cancel" :
         s->page==KUI_SHELL_APPEARANCE ? "A Choose   X Rescan   Y Preview   START Apply   B Cancel" :
         s->page==KUI_SHELL_THEME_COLORS ? "A Done   X Reset color   Y Preview   START Apply   B Back" :
         v->busy ? (s->page==KUI_SHELL_SALVAGE && !s->salvage_trial_result?
@@ -802,7 +805,7 @@ static const char *theme_name(const struct kui_shell *s,const char *id) {
 }
 static void appearance_page(struct paint *p,const struct kui_shell *s) {
     title(p,40,108,"Appearance");
-    label(p,40,136,MUTED,"UP/DOWN Choose   LEFT/RIGHT Change   Preview before Apply");
+    label(p,40,136,MUTED,s->theme_selected<4u?"UP/DOWN Select   LEFT/RIGHT Cycle":"UP/DOWN Select");
     const char *names[]={"Theme","Splash","Banner","Background","Colors","Preview","Apply","Restore defaults"};
     const char *values[]={theme_name(s,s->theme_draft.theme_id),theme_name(s,s->theme_draft.splash_id),
         theme_name(s,s->theme_draft.header_id),theme_name(s,s->theme_draft.background_id),
@@ -823,6 +826,76 @@ static void appearance_page(struct paint *p,const struct kui_shell *s) {
         s->theme_selected<4?"Follow theme, K-UI Original, None, or an installed theme.":
         s->theme_catalog && s->theme_catalog->truncated?"Theme list is full. Remove unused folders, then X Rescan.":
         "Themes live in /KUI/themes. X rescans the card.");
+}
+static void theme_picker_preview(struct paint *p,const struct kui_shell *s,const struct kui_shell_view *v) {
+    const bool banner=s->theme_selected==2u,background=s->theme_selected==3u;
+    const unsigned width=KUI_THEME_THUMB_WIDTH;
+    const unsigned height=banner?KUI_THEME_THUMB_HEADER_HEIGHT:KUI_THEME_THUMB_HEIGHT;
+    const unsigned x=332u+(276u-width)/2u,y=158u+(224u-height)/2u;
+    const struct kui_theme_image *image=v->theme_picker_image;
+    enum kui_theme_asset_status status=v->theme_picker_status;
+    panel(p,332,158,276,224,PANEL);
+    if(status==KUI_THEME_ASSET_READY && image && image->pixels &&
+       image->width==width && image->height==height) {
+        for(unsigned row=0;row<height;row++)
+            memcpy(p->fb+(y+row)*640+x,image->pixels+row*width,width*sizeof(*image->pixels));
+        return;
+    }
+    if((background && (status==KUI_THEME_ASSET_DISABLED || status==KUI_THEME_ASSET_DEFAULT)) ||
+       (banner && status==KUI_THEME_ASSET_DEFAULT)) {
+        struct kui_theme_palette palette;
+        kui_shell_theme_draft_palette(s,&palette);
+        box(p,x-1,y-1,width+2,height+2,EDGE);
+        box(p,x,y,width,height,kui_theme_rgb565(palette.colors[KUI_THEME_BACKGROUND]));
+        if(banner) {
+            /* The original banner puts a transparent 128x64 logo at (32,20). */
+            const uint16_t *logo=art_pack(KUI_ART_BRAND_OFFSET);
+            const unsigned left=(32u*width+KUI_THEME_WIDTH-1u)/KUI_THEME_WIDTH;
+            const unsigned top=(20u*height+KUI_THEME_HEADER_HEIGHT-1u)/KUI_THEME_HEADER_HEIGHT;
+            const unsigned right=((32u+KUI_ART_BRAND_WIDTH)*width+KUI_THEME_WIDTH-1u)/KUI_THEME_WIDTH;
+            const unsigned bottom=((20u+KUI_ART_BRAND_HEIGHT)*height+KUI_THEME_HEADER_HEIGHT-1u)/KUI_THEME_HEADER_HEIGHT;
+            if(logo)for(unsigned row=top;row<bottom;row++)for(unsigned col=left;col<right;col++) {
+                unsigned source_y=row*KUI_THEME_HEADER_HEIGHT/height-20u;
+                unsigned source_x=col*KUI_THEME_WIDTH/width-32u;
+                uint16_t color=logo[source_y*KUI_ART_BRAND_WIDTH+source_x];
+                if(color!=KUI_ART_TRANSPARENT)p->fb[(y+row)*640+x+col]=color;
+            }
+        } else {
+            centred(p,x,386,width,MUTED,status==KUI_THEME_ASSET_DISABLED?
+                "No background image":"Uses menu background color");
+        }
+        return;
+    }
+    const char *message=status==KUI_THEME_ASSET_CANCELLED?"Loading preview...":
+        status==KUI_THEME_ASSET_DISABLED?(banner?"No banner":background?"No background image":"No splash"):
+        "Preview unavailable";
+    centred(p,x,258,width,status==KUI_THEME_ASSET_FAILED?AMBER:MUTED,message);
+}
+static void theme_picker_page(struct paint *p,const struct kui_shell *s,const struct kui_shell_view *v) {
+    static const char *const titles[]={"Choose a theme","Choose a splash","Choose a banner","Choose a background"};
+    unsigned row=s->theme_selected<4u?s->theme_selected:0u;
+    const char *current=row==0u?s->theme_draft.theme_id:row==1u?s->theme_draft.splash_id:
+        row==2u?s->theme_draft.header_id:s->theme_draft.background_id;
+    unsigned count=kui_shell_theme_choice_count(s);
+    title(p,40,108,titles[row]);
+    char position[32];snprintf(position,sizeof(position),"%u of %u",count?s->theme_picker_index+1u:0u,count);
+    label(p,40,136,MUTED,position);
+    label(p,342,136,MUTED,"Preview");
+    panel(p,32,158,288,224,PANEL);
+    for(unsigned i=0;i<KUI_THEME_PICKER_ROWS && s->theme_picker_first+i<count;i++) {
+        unsigned index=s->theme_picker_first+i,y=158+i*28;
+        const char *id=kui_shell_theme_choice_id(s,index);
+        if(!id)continue;
+        bool focused=index==s->theme_picker_index,chosen=!strcmp(id,current);
+        if(focused) {
+            panel(p,32,y,278,26,SELECTED);
+            box(p,32,y+3,3,20,PINK);
+        }
+        words(p,46,y+4,chosen?246:304,focused?SELECTION_TEXT:WHITE,theme_name(s,id),false);
+        if(chosen)words(p,250,y+4,308,focused?SELECTION_TEXT:CYAN,"Chosen",false);
+    }
+    list_scrollbar(p,314,158,224,s->theme_picker_first,KUI_THEME_PICKER_ROWS,count);
+    theme_picker_preview(p,s,v);
 }
 static void theme_colors_page(struct paint *p,const struct kui_shell *s) {
     static const char *presets[]={"Theme","Neon","Ember","Mono","Custom"};
@@ -3743,6 +3816,7 @@ void kui_shell_draw_content(uint16_t *frame, const struct kui_shell *s,
     case KUI_SHELL_RIPPER: ripper(&p,s,v); break;
     case KUI_SHELL_SETTINGS: system_settings(&p,s,v); break;
     case KUI_SHELL_APPEARANCE: appearance_page(&p,s);break;
+    case KUI_SHELL_THEME_PICKER: theme_picker_page(&p,s,v);break;
     case KUI_SHELL_THEME_COLORS: theme_colors_page(&p,s);break;
     case KUI_SHELL_THEME_MENU_PREVIEW: theme_menu_preview(&p,s,v);break;
     case KUI_SHELL_THEME_SPLASH_PREVIEW: break;

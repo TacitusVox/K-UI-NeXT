@@ -2066,9 +2066,10 @@ build/test-shell build/render-shell: src/core/theme.c include/kui/theme.h
 
 .PHONY: test-themes
 test: test-themes
-test-themes: build/test-theme build/test-theme-runtime build/theme-image build/test-shell
+test-themes: build/test-theme build/test-theme-runtime build/test-theme-picker-worker build/theme-image build/test-shell
 	ASAN_OPTIONS=detect_leaks=0 ./build/test-theme
 	ASAN_OPTIONS=detect_leaks=0 ./build/test-theme-runtime
+	ASAN_OPTIONS=detect_leaks=0 ./build/test-theme-picker-worker
 	ASAN_OPTIONS=detect_leaks=0 ./build/test-shell --themes
 	ASAN_OPTIONS=detect_leaks=0 python3 tests/test_theme_images.py
 	ASAN_OPTIONS=detect_leaks=0 python3 tests/test_theme_install.py
@@ -2082,6 +2083,10 @@ build/test-theme-runtime: tests/test_theme_runtime.c src/core/theme.c src/core/d
 	@mkdir -p $(@D)
 	$(CC) $(HOST_FLAGS) $(SANITIZERS) -fno-pie -no-pie $(INCLUDES) src/core/theme.c src/core/data.c src/apps/theme_runtime.c tests/test_theme_runtime.c -o $@
 
+build/test-theme-picker-worker: tests/test_theme_picker_worker.c src/dreamcast/theme_picker_runtime.inc include/kui/theme.h include/kui/splash.h include/kui/shell.h
+	@mkdir -p $(@D)
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) -fno-pie -no-pie $(INCLUDES) tests/test_theme_picker_worker.c -o $@
+
 THEME_IMAGE_SOURCES = tests/theme_image.c tests/theme_install.c $(CORE) $(FATFS) src/core/storage_probe.c src/core/theme.c src/apps/theme_file.c src/apps/theme_runtime.c src/apps/splash.c src/apps/splash_art.c third_party/miniz/miniz.c
 build/theme-image: $(THEME_IMAGE_SOURCES) include/kui/theme.h include/kui/theme_runtime.h include/kui/splash.h src/dreamcast/theme_startup_draw.inc build/splash_art.inc build/factory_splash_art.inc
 	@mkdir -p $(@D)
@@ -2091,3 +2096,5 @@ THEME_RENDER_SOURCES = $(STORAGE_TEST_MODEL) src/core/wifi_text.c src/core/desti
 build/render-theme: $(THEME_RENDER_SOURCES) include/kui/theme.h include/kui/shell.h build/splash_art.inc build/factory_splash_art.inc src/dreamcast/shell_art.inc src/dreamcast/shell_font_data.inc
 	@mkdir -p $(@D)
 	$(CC) $(HOST_FLAGS) $(INCLUDES) $(EXPORT_CODEC_FLAGS) $(THEME_RENDER_SOURCES) -o $@
+
+build/test-splash build/theme-image build/render-theme: src/apps/theme_thumbnail.h include/kui/theme.h

@@ -2638,8 +2638,17 @@ static unsigned move_count(unsigned selected, unsigned buttons,unsigned count) {
 static void theme_changed(struct kui_shell *s) {
     s->theme_preview_stale=true;s->theme_failed=false;s->theme_notice[0]=0;
 }
-static void theme_cycle(struct kui_shell *s,unsigned row,bool previous) {
-    const char *choices[KUI_THEME_CATALOG_MAX+3u];unsigned count=0,at=0;
+static char *theme_row_choice(struct kui_shell *s) {
+    switch(s->theme_selected) {
+    case 0:return s->theme_draft.theme_id;
+    case 1:return s->theme_draft.splash_id;
+    case 2:return s->theme_draft.header_id;
+    default:return s->theme_draft.background_id;
+    }
+}
+static void theme_list_choices(struct kui_shell *s) {
+    unsigned row=s->theme_selected,count=0;
+    const char **choices=s->theme_picker_ids;
     if(row)choices[count++]="";
     choices[count++]="default";
     if(row)choices[count++]="none";
@@ -2648,16 +2657,51 @@ static void theme_cycle(struct kui_shell *s,unsigned row,bool previous) {
         const char *id=s->theme_catalog->themes[i].id;
         if(strcmp(id,"default") && strcmp(id,"none") && kui_theme_id_valid(id))choices[count++]=id;
     }
-    char *id=row==0?s->theme_draft.theme_id:row==1?s->theme_draft.splash_id:
-        row==2?s->theme_draft.header_id:s->theme_draft.background_id;
-    for(unsigned i=0;i<count;i++)if(!strcmp(id,choices[i])) {at=i;break;}
-    at=(at+(previous?count-1u:1u))%count;
-    if(!strcmp(id,choices[at]))return;
-    if(!row) {
+    const char *current=theme_row_choice(s);
+    unsigned index=0;
+    while(index<count && strcmp(choices[index],current))++index;
+    /* Keep the current draft visible even if its pack was removed from SD. */
+    if(index==count)choices[count++]=current;
+    s->theme_picker_count=count;
+    s->theme_picker_index=index;
+    s->theme_picker_first=index>=KUI_THEME_PICKER_ROWS?index+1u-KUI_THEME_PICKER_ROWS:0u;
+}
+unsigned kui_shell_theme_choice_count(const struct kui_shell *s) {
+    return s && s->page==KUI_SHELL_THEME_PICKER?s->theme_picker_count:0u;
+}
+const char *kui_shell_theme_choice_id(const struct kui_shell *s,unsigned index) {
+    return index<kui_shell_theme_choice_count(s)?s->theme_picker_ids[index]:NULL;
+}
+const char *kui_shell_theme_picker_asset_id(const struct kui_shell *s) {
+    const char *id=s?kui_shell_theme_choice_id(s,s->theme_picker_index):NULL;
+    return id && !id[0]?s->theme_draft.theme_id:id;
+}
+static void theme_choose(struct kui_shell *s,unsigned index) {
+    char *id=theme_row_choice(s);
+    const char *choice=s->theme_picker_ids[index];
+    if(!strcmp(id,choice))return;
+    if(!s->theme_selected) {
         kui_theme_settings_default(&s->theme_draft);
         s->theme_color_preset=0;
     }
-    snprintf(id,KUI_THEME_ID_BYTES,"%s",choices[at]);theme_changed(s);
+    snprintf(id,KUI_THEME_ID_BYTES,"%s",choice);theme_changed(s);
+}
+static void theme_picker_input(struct kui_shell *s,unsigned buttons) {
+    if(buttons&(KUI_SHELL_B|KUI_SHELL_A)) {
+        if(!(buttons&KUI_SHELL_B))theme_choose(s,s->theme_picker_index);
+        s->page=KUI_SHELL_APPEARANCE;
+        ++s->theme_picker_generation;
+        return;
+    }
+    unsigned vertical=buttons&(KUI_SHELL_UP|KUI_SHELL_DOWN);
+    unsigned index=s->theme_picker_index;
+    if(vertical==KUI_SHELL_UP && index)--index;
+    if(vertical==KUI_SHELL_DOWN && index+1u<s->theme_picker_count)++index;
+    if(index==s->theme_picker_index)return;
+    s->theme_picker_index=index;
+    if(index<s->theme_picker_first)s->theme_picker_first=index;
+    if(index>=s->theme_picker_first+KUI_THEME_PICKER_ROWS)s->theme_picker_first=index+1u-KUI_THEME_PICKER_ROWS;
+    ++s->theme_picker_generation;
 }
 static void theme_preset(struct kui_shell *s,bool previous) {
     /* RGB888 presets preserve bright text over dark panels. */
@@ -2674,6 +2718,10 @@ static void theme_preset(struct kui_shell *s,bool previous) {
     theme_changed(s);
 }
 static enum kui_shell_action theme_input(struct kui_shell *s,unsigned buttons,bool busy) {
+    if(s->page==KUI_SHELL_THEME_PICKER) {
+        theme_picker_input(s,buttons);
+        return KUI_SHELL_NONE;
+    }
     /* Transactions publish atomically. Ignore navigation until main reports completion. */
     if(busy || s->theme_loading)return KUI_SHELL_NONE;
     if(s->page==KUI_SHELL_THEME_MENU_PREVIEW || s->page==KUI_SHELL_THEME_SPLASH_PREVIEW) {
@@ -2714,9 +2762,17 @@ static enum kui_shell_action theme_input(struct kui_shell *s,unsigned buttons,bo
     }
     s->theme_selected=move_count(s->theme_selected,buttons,8u);
     if(buttons&KUI_SHELL_X)return theme_request(s,KUI_SHELL_THEME_SCAN);
-    if((change || (buttons&KUI_SHELL_A)) && s->theme_selected<4u)
-        theme_cycle(s,s->theme_selected,horizontal==KUI_SHELL_LEFT);
-    else if(buttons&KUI_SHELL_A) {
+    if(s->theme_selected<4u && (change || (buttons&KUI_SHELL_A))) {
+        theme_list_choices(s);
+        if(buttons&KUI_SHELL_A) {
+            s->page=KUI_SHELL_THEME_PICKER;
+            ++s->theme_picker_generation;
+        } else {
+            unsigned count=s->theme_picker_count;
+            unsigned step=horizontal==KUI_SHELL_LEFT?count-1u:1u;
+            theme_choose(s,(s->theme_picker_index+step)%count);
+        }
+    } else if(buttons&KUI_SHELL_A) {
         if(s->theme_selected==4u) {s->page=KUI_SHELL_THEME_COLORS;s->theme_color_selected=0;}
         else if(s->theme_selected==5u)return theme_request(s,KUI_SHELL_THEME_PREVIEW);
         else if(s->theme_selected==6u)return theme_request(s,KUI_SHELL_THEME_APPLY);
@@ -2784,7 +2840,7 @@ enum kui_shell_action kui_shell_input(struct kui_shell *s,
         if(buttons&KUI_SHELL_A) return KUI_SHELL_CONFIRM_VIDEO;
         return KUI_SHELL_NONE;
     }
-    if(s->page==KUI_SHELL_APPEARANCE || s->page==KUI_SHELL_THEME_COLORS ||
+    if(s->page==KUI_SHELL_APPEARANCE || s->page==KUI_SHELL_THEME_COLORS || s->page==KUI_SHELL_THEME_PICKER ||
        s->page==KUI_SHELL_THEME_MENU_PREVIEW || s->page==KUI_SHELL_THEME_SPLASH_PREVIEW)return theme_input(s,buttons,busy);
     /* Stop/back wins even over a simultaneous confirmation or launch. */
     if(buttons & KUI_SHELL_B) {
@@ -3352,7 +3408,8 @@ enum kui_shell_action kui_shell_input(struct kui_shell *s,
         return KUI_SHELL_NONE;
     }
     switch(s->page) {
-    case KUI_SHELL_APPEARANCE: case KUI_SHELL_THEME_COLORS: case KUI_SHELL_THEME_SPLASH_PREVIEW: case KUI_SHELL_THEME_MENU_PREVIEW:
+    case KUI_SHELL_APPEARANCE: case KUI_SHELL_THEME_COLORS: case KUI_SHELL_THEME_PICKER:
+    case KUI_SHELL_THEME_SPLASH_PREVIEW: case KUI_SHELL_THEME_MENU_PREVIEW:
         /* Dispatched before generic Stop/back and app shortcut handling. */
         return KUI_SHELL_NONE;
     case KUI_SHELL_DISC_TOOLS:

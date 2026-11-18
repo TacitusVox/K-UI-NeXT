@@ -1699,6 +1699,113 @@ static void theme_controls(void) {
     assert(s.page==KUI_SHELL_SETTINGS && !kui_shell_theme_dirty(&s));
     puts("PASS Appearance: independent choices, presets/RGB, busy/stale guards, Preview/Apply/Cancel and defaults");
 }
+static void theme_picker_controls(void) {
+    static struct kui_theme_catalog catalog;
+    memset(&catalog,0,sizeof(catalog));
+    for(unsigned i=0;i<10;i++) {
+        struct kui_theme_definition *pack=&catalog.themes[catalog.count++];
+        kui_theme_definition_default(pack);
+        snprintf(pack->id,sizeof(pack->id),"pack-%02u",i);
+        snprintf(pack->name,sizeof(pack->name),"Artwork %02u",i);
+        for(unsigned k=0;k<KUI_THEME_ASSET_COUNT;k++)strcpy(pack->assets[k],"art.kuiimg");
+    }
+    strcpy(catalog.themes[0].id,KUI_THEME_FACTORY_ID);
+    struct kui_theme_definition *banner=&catalog.themes[catalog.count++];
+    kui_theme_definition_default(banner);
+    strcpy(banner->id,"banner-only");strcpy(banner->name,"Wide banner");banner->banner_only=true;
+    strcpy(banner->assets[KUI_THEME_HEADER],"wide.kuiimg");
+
+    reset(KUI_SHELL_SETTINGS);s.system_selected=13;
+    assert(press(KUI_SHELL_A,false)==KUI_SHELL_THEME_SCAN);
+    kui_shell_set_theme_catalog(&s,s.theme_generation,&catalog,true,NULL);
+    strcpy(s.theme_draft.background_id,"pack-01");
+    s.theme_draft.override_mask=1u<<KUI_THEME_ACCENT;
+    s.theme_draft.palette.colors[KUI_THEME_ACCENT]=0x223344;
+    struct kui_theme_settings before=s.theme_draft,saved=s.theme_saved;
+
+    /* Each component opens on its current draft. Only Banner lists the wide asset. */
+    for(unsigned row=0;row<4;row++) {
+        s.theme_selected=row;press(KUI_SHELL_A,false);
+        assert(s.page==KUI_SHELL_THEME_PICKER && s.theme_selected==row);
+        const char *focus=kui_shell_theme_choice_id(&s,s.theme_picker_index);
+        assert(focus && !strcmp(focus,row==0?KUI_THEME_FACTORY_ID:row==3?"pack-01":""));
+        assert(!strcmp(kui_shell_theme_picker_asset_id(&s),row==3?"pack-01":KUI_THEME_FACTORY_ID));
+        unsigned count=kui_shell_theme_choice_count(&s);
+        assert(!kui_shell_theme_choice_id(&s,count));
+        bool found_banner=false;
+        for(unsigned i=0;i<count;i++)
+            found_banner|=!strcmp(kui_shell_theme_choice_id(&s,i),"banner-only");
+        assert(found_banner==(row==2));
+        press(KUI_SHELL_DOWN,false);press(KUI_SHELL_B,false);
+        assert(s.page==KUI_SHELL_APPEARANCE && s.theme_selected==row);
+        assert(!memcmp(&before,&s.theme_draft,sizeof(before)) && !memcmp(&saved,&s.theme_saved,sizeof(saved)));
+    }
+
+    s.theme_selected=2;press(KUI_SHELL_A,false);
+    unsigned count=kui_shell_theme_choice_count(&s);
+    for(unsigned i=0;i<count+2u;i++)press(KUI_SHELL_DOWN,false);
+    assert(s.theme_picker_index==count-1u && s.theme_picker_first==count-KUI_THEME_PICKER_ROWS);
+    struct kui_shell_view view={0};render(&view);
+    assert(strstr(drawn,"Wide banner") && !strstr(drawn,"Artwork 00"));
+    static uint16_t banner_pixels[256*40];
+    for(unsigned i=0;i<256*40;i++)banner_pixels[i]=(uint16_t)(0x4000u+i);
+    struct kui_theme_image thumbnail={banner_pixels,256,40};
+    view.theme_picker_image=&thumbnail;view.theme_picker_status=KUI_THEME_ASSET_READY;
+    render(&view);
+    for(unsigned y=0;y<40;y++)
+        assert(!memcmp(pixels+1+(250u+y)*640u+342u,banner_pixels+y*256u,256u*sizeof(*banner_pixels)));
+    view.theme_picker_status=KUI_THEME_ASSET_FAILED;
+    render(&view);
+    assert(strstr(drawn,"Preview unavailable") && pixels[1+250*640+342]!=banner_pixels[0]);
+    assert(!memcmp(&before,&s.theme_draft,sizeof(before)));
+    press(KUI_SHELL_A,false);
+    assert(s.page==KUI_SHELL_APPEARANCE && !strcmp(s.theme_draft.header_id,"banner-only"));
+    strcpy(before.header_id,"banner-only");
+    assert(!memcmp(&before,&s.theme_draft,sizeof(before)));
+    press(KUI_SHELL_A,false);
+    assert(s.page==KUI_SHELL_THEME_PICKER && s.theme_picker_index==count-1u);
+    for(unsigned i=0;i<count+2u;i++)press(KUI_SHELL_UP,false);
+    assert(!s.theme_picker_index && !s.theme_picker_first);
+    assert(!strcmp(kui_shell_theme_choice_id(&s,0),""));
+    press(KUI_SHELL_DOWN,false);
+    assert(!strcmp(kui_shell_theme_choice_id(&s,s.theme_picker_index),"default"));
+    press(KUI_SHELL_DOWN,false);
+    assert(!strcmp(kui_shell_theme_picker_asset_id(&s),"none"));
+    press(KUI_SHELL_A,false);
+    assert(!strcmp(s.theme_draft.header_id,"none"));
+    press(KUI_SHELL_LEFT,false);
+    assert(s.page==KUI_SHELL_APPEARANCE && !strcmp(s.theme_draft.header_id,"default"));
+
+    /* Reconfirming the same theme retains overrides. Choosing a new theme resets them. */
+    before=s.theme_draft;s.theme_selected=0;press(KUI_SHELL_A,false);press(KUI_SHELL_A,false);
+    assert(!memcmp(&before,&s.theme_draft,sizeof(before)));
+    press(KUI_SHELL_A,false);press(KUI_SHELL_DOWN,false);press(KUI_SHELL_A,false);
+    assert(s.page==KUI_SHELL_APPEARANCE && !strcmp(s.theme_draft.theme_id,"pack-01"));
+    assert(!s.theme_draft.header_id[0] && !s.theme_draft.background_id[0] && !s.theme_draft.override_mask);
+    assert(!memcmp(&saved,&s.theme_saved,sizeof(saved)) && kui_shell_theme_dirty(&s));
+    assert(press(KUI_SHELL_START,false)==KUI_SHELL_THEME_APPLY);
+    kui_shell_theme_result(&s,s.theme_generation,KUI_SHELL_THEME_APPLY,true,NULL);
+    assert(!kui_shell_theme_dirty(&s) && !strcmp(s.theme_saved.theme_id,"pack-01"));
+    /* An installed pack may go missing after its ID has been saved. Exercise
+     * the longest legal list and cancel while its thumbnail is pending. */
+    for(unsigned i=catalog.count;i<KUI_THEME_CATALOG_MAX;i++) {
+        struct kui_theme_definition *pack=&catalog.themes[catalog.count++];
+        kui_theme_definition_default(pack);
+        snprintf(pack->id,sizeof(pack->id),"pack-%02u",i);
+    }
+    s.page=KUI_SHELL_APPEARANCE;s.theme_selected=2;
+    strcpy(s.theme_draft.header_id,"removed-pack");
+    unsigned generation=s.theme_picker_generation;
+    press(KUI_SHELL_A,false);
+    assert(s.theme_picker_generation!=generation && kui_shell_theme_choice_count(&s)==KUI_THEME_CATALOG_MAX+4u);
+    assert(!strcmp(kui_shell_theme_picker_asset_id(&s),"removed-pack"));
+    generation=s.theme_picker_generation;press(KUI_SHELL_DOWN,true);
+    assert(s.theme_picker_generation==generation);
+    press(KUI_SHELL_UP,true);assert(s.theme_picker_generation!=generation);
+    press(KUI_SHELL_A|KUI_SHELL_B,true);
+    assert(s.page==KUI_SHELL_APPEARANCE && !strcmp(s.theme_draft.header_id,"removed-pack"));
+    puts("PASS Appearance picker: all four rows, banner filtering, current choice, scrolling, draft/Back/Apply");
+}
 static void theme_rendering(void) {
     static uint16_t header[640*100],backdrop[640*480],splash[640*480];
     _Alignas(4) static uint16_t packed_frame[640*480];
@@ -6862,7 +6969,7 @@ int main(int argc,char **argv) {
     if(argc==2 && !strcmp(argv[1],"--settings-scroll")) {
         settings_scroll_rendering();wifi_rendering();return 0;
     }
-    theme_controls();theme_rendering();
+    theme_controls();theme_picker_controls();theme_rendering();
     if(argc==2 && !strcmp(argv[1],"--themes"))return 0;
     smash_native_tests_controls();
     if(argc==2 && !strcmp(argv[1],"--smash-native"))return 0;

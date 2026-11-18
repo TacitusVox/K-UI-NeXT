@@ -258,7 +258,7 @@ build/dc/src/core/ext4_boot.o: CPPFLAGS += $(LWEXT4_CPPFLAGS)
 build/dc/third_party/lwext4/src/%.o: third_party/lwext4/src/%.c $(LWEXT4_HEADERS)
 	@mkdir -p $(@D)
 	kos-cc -std=c11 -Os -Wall -Wextra -ffunction-sections -fdata-sections -MMD -MP $(CPPFLAGS) $(LWEXT4_CPPFLAGS) -c $< -o $@
-build/dc/main-runtime.o: src/dreamcast/main.c src/dreamcast/theme_runtime.inc src/dreamcast/theme_startup_draw.inc
+build/dc/main-runtime.o: src/dreamcast/main.c src/dreamcast/theme_runtime.inc src/dreamcast/theme_picker_runtime.inc src/dreamcast/theme_startup_draw.inc
 	@mkdir -p $(@D)
 	kos-cc -std=c11 -Wall -Wextra -Werror -MMD -MP $(CPPFLAGS) -DKUI_SD_RUNTIME=1 -c $< -o $@
 build/dc/sd-runtime.o: src/dreamcast/sd.c

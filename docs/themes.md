@@ -20,6 +20,10 @@ Open **Settings → Appearance**. Choose the whole theme first, then change the 
 | --- | --- |
 | Highlight a setting | D-pad up or down |
 | Cycle a theme or image | D-pad left or right |
+| Open the list for Theme, Splash, Banner or Background | A on that row |
+| Browse names and preview the highlighted choice | D-pad up or down in the list |
+| Use the highlighted choice in your draft | A in the list |
+| Close the list and keep your previous choice | B in the list |
 | Preview the menu with the draft theme, colors, background or banner | Y in Appearance or Colors |
 | Preview a splash at full size | Highlight Splash and press Y |
 | Return from preview and keep editing the same draft | B |
@@ -28,7 +32,9 @@ Open **Settings → Appearance**. Choose the whole theme first, then change the 
 | Restore all theme colors | Select **Theme** on the **Preset** row in Colors |
 | Rescan installed packs | X on the Appearance screen |
 
-Choosing a whole theme clears the draft's individual image and color overrides. **Restore defaults** selects Moonlight Muramasa in the draft. Press **START** to save it. This also lets you switch an upgraded installation that explicitly saved the original look.
+Choosing a different whole theme clears the draft's individual image and color overrides. **Restore defaults** selects Moonlight Muramasa in the draft. Press **START** to save it. This also lets you switch an upgraded installation that explicitly saved the original look.
+
+The picker opens on the current choice. Its preview uses the splash for a whole theme and preserves the wide proportions of a banner. On the Background row, packs with backdrop artwork show the image. The bundled themes use the draft's background color there.
 
 K-UI alternates between two CRC-checked, 256-byte preference records.
 

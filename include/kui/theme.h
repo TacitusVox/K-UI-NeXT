@@ -17,6 +17,9 @@
 #define KUI_THEME_WIDTH 640u
 #define KUI_THEME_HEIGHT 480u
 #define KUI_THEME_HEADER_HEIGHT 100u
+#define KUI_THEME_THUMB_WIDTH 256u
+#define KUI_THEME_THUMB_HEIGHT 192u
+#define KUI_THEME_THUMB_HEADER_HEIGHT 40u
 
 enum kui_theme_color {
     KUI_THEME_BACKGROUND, KUI_THEME_PANEL, KUI_THEME_SELECTION,
@@ -89,6 +92,11 @@ bool kui_theme_catalog_scan(struct kui_theme_catalog *out,kui_log_fn log,kui_can
  * Missing manifest asset = built-in fallback; asset value "none" = disabled.
  * A custom asset's damage returns FAILED, never unchecked pixel data. */
 enum kui_theme_asset_status kui_theme_image_load(struct kui_theme_image *out,
+    const struct kui_theme_definition *definition,enum kui_theme_asset_kind kind,
+    kui_log_fn log,kui_cancel_fn cancelled);
+/* Verify the same complete image, retaining only a 2/5-size RGB565 preview.
+ * The caller owns an initially empty image and the mounted volume. */
+enum kui_theme_asset_status kui_theme_thumbnail_load(struct kui_theme_image *out,
     const struct kui_theme_definition *definition,enum kui_theme_asset_kind kind,
     kui_log_fn log,kui_cancel_fn cancelled);
 void kui_theme_image_release(struct kui_theme_image *image);

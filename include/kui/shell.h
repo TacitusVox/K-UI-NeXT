@@ -38,6 +38,7 @@
 #define KUI_SHELL_HEIGHT 480u
 #define KUI_SHELL_LOG_ROWS 10u
 #define KUI_SHELL_SYSTEM_ROWS 14u
+#define KUI_THEME_PICKER_ROWS 8u
 #define KUI_SHELL_UPDATE_ROWS 8u
 #define KUI_SHELL_UPDATE_PATH_BYTES 192u
 enum kui_shell_update_op { KUI_SHELL_UPDATE_LIST, KUI_SHELL_UPDATE_CHECK,
@@ -135,7 +136,8 @@ enum kui_shell_page { KUI_SHELL_HOME, KUI_SHELL_RIPPER,
     KUI_SHELL_DISC_TOOLS, KUI_SHELL_VMU_CARD, KUI_SHELL_SALVAGE_DRIVE,
     KUI_SHELL_SALVAGE_OPTIONS, KUI_SHELL_GAMES_VMU_CARD, KUI_SHELL_GD_OPTIONS, KUI_SHELL_CONTROLS, KUI_SHELL_BROWSER, KUI_SHELL_VMU_HISTORY, KUI_SHELL_GAMES_QUERY, KUI_SHELL_GAMES_EDIT, KUI_SHELL_REPORT, KUI_SHELL_GAME_PROFILE,
     KUI_SHELL_DISC_CARDS,KUI_SHELL_UPDATES,KUI_SHELL_GAMES_MEDIA,
-    KUI_SHELL_APPEARANCE,KUI_SHELL_THEME_COLORS,KUI_SHELL_THEME_SPLASH_PREVIEW,KUI_SHELL_THEME_MENU_PREVIEW };
+    KUI_SHELL_APPEARANCE,KUI_SHELL_THEME_COLORS,KUI_SHELL_THEME_SPLASH_PREVIEW,KUI_SHELL_THEME_MENU_PREVIEW,
+    KUI_SHELL_THEME_PICKER };
 enum kui_shell_recovery_row {
     KUI_SHELL_RECOVERY_CONTINUE, KUI_SHELL_RECOVERY_NEW, KUI_SHELL_RECOVERY_OPTIONS,
     KUI_SHELL_RECOVERY_DIAGNOSTICS, KUI_SHELL_RECOVERY_COUNT
@@ -262,6 +264,8 @@ struct kui_shell {
     /* Catalog and renderer assets belong to main; never copied/loaded per frame. */
     const struct kui_theme_catalog *theme_catalog;
     unsigned theme_generation,theme_selected,theme_color_selected,theme_color_role,theme_color_preset;
+    const char *theme_picker_ids[KUI_THEME_CATALOG_MAX+4u];
+    unsigned theme_picker_count,theme_picker_index,theme_picker_first,theme_picker_generation;
     enum kui_shell_action theme_pending_action;
     enum kui_shell_page theme_preview_return;
     bool theme_loading,theme_preview_active,theme_preview_stale,theme_failed;
@@ -545,6 +549,11 @@ void kui_shell_set_theme_catalog(struct kui_shell *,unsigned generation,
 void kui_shell_theme_result(struct kui_shell *,unsigned generation,
     enum kui_shell_action action,bool ok,const char *notice);
 bool kui_shell_theme_dirty(const struct kui_shell *);
+/* Choices are stable for the lifetime of the open picker. An empty choice
+ * inherits the draft theme. The asset ID resolves that inheritance. */
+unsigned kui_shell_theme_choice_count(const struct kui_shell *);
+const char *kui_shell_theme_choice_id(const struct kui_shell *,unsigned index);
+const char *kui_shell_theme_picker_asset_id(const struct kui_shell *);
 /* Draft palette includes the selected definition and per-color overrides. */
 void kui_shell_theme_draft_palette(const struct kui_shell *,struct kui_theme_palette *);
 /* Main controls video_trial only while its reversible platform preview is
@@ -722,6 +731,8 @@ struct kui_shell_view {
     const struct kui_theme_palette *theme_palette;
     const struct kui_theme_image *theme_images; /* KUI_THEME_ASSET_COUNT images */
     const enum kui_theme_asset_status *theme_asset_status; /* Same ordering. */
+    const struct kui_theme_image *theme_picker_image;
+    enum kui_theme_asset_status theme_picker_status;
     bool branded_banner;
     bool sci_video_quiet;
     const char *build, *job_dir, *message, *settings_notice;

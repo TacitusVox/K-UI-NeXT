@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: GPL-3.0-only */
 #include "kui/theme.h"
+#include "theme_thumbnail.h"
 #include <inttypes.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -145,9 +146,9 @@ void kui_theme_image_release(struct kui_theme_image *image) {
     if(!image)return;
     free(image->pixels);memset(image,0,sizeof(*image));
 }
-enum kui_theme_asset_status kui_theme_image_load(struct kui_theme_image *out,
+static enum kui_theme_asset_status load_image(struct kui_theme_image *out,
     const struct kui_theme_definition *definition,enum kui_theme_asset_kind kind,
-    kui_log_fn log,kui_cancel_fn cancelled) {
+    kui_log_fn log,kui_cancel_fn cancelled,bool thumbnail) {
     if(!out || out->pixels || !definition || (unsigned)kind>=KUI_THEME_ASSET_COUNT ||
        !kui_theme_id_valid(definition->id))return KUI_THEME_ASSET_FAILED;
     if(cancelled && cancelled())return KUI_THEME_ASSET_CANCELLED;
@@ -177,17 +178,24 @@ enum kui_theme_asset_status kui_theme_image_load(struct kui_theme_image *out,
         kui_theme_image_header(header,sizeof(header),kind,(size_t)file_bytes,&expected);
     unsigned height=kind==KUI_THEME_HEADER?KUI_THEME_HEADER_HEIGHT:KUI_THEME_HEIGHT;
     size_t bytes=KUI_THEME_WIDTH*height*2u;
-    uint16_t *pixels=ok?malloc(bytes):NULL;
-    if(!pixels)ok=false;
+    unsigned out_width=thumbnail?KUI_THEME_THUMB_WIDTH:KUI_THEME_WIDTH;
+    unsigned out_height=thumbnail?height*2u/5u:height;
+    uint16_t *pixels=ok?malloc(out_width*out_height*sizeof(*pixels)):NULL;
+    const unsigned chunk_size=16384u;
+    uint8_t *chunk=pixels && thumbnail?malloc(chunk_size):NULL;
+    struct theme_thumbnail thumb={.pixels=pixels,.height=out_height};
+    if(!pixels || (thumbnail && !chunk))ok=false;
     bool stopped=false;uint32_t actual=0;
     for(size_t offset=0;ok && offset<bytes;) {
         if(cancelled && cancelled()){stopped=true;ok=false;break;}
-        UINT count=(UINT)(bytes-offset<16384u?bytes-offset:16384u);
-        uint8_t *target=(uint8_t *)pixels+offset;
+        UINT count=(UINT)(bytes-offset<chunk_size?bytes-offset:chunk_size);
+        uint8_t *target=thumbnail?chunk:(uint8_t *)pixels+offset;
         r=f_read(&file,target,count,&got);
         if(r!=FR_OK || got!=count){ok=false;break;}
         actual=kui_crc32(actual,target,got);offset+=got;
+        if(thumbnail)theme_thumbnail_sample(&thumb,target,got);
     }
+    free(chunk);
     FRESULT closed=f_close(&file);
     if(!ok || closed!=FR_OK || actual!=expected) {
         free(pixels);
@@ -197,10 +205,22 @@ enum kui_theme_asset_status kui_theme_image_load(struct kui_theme_image *out,
     /* The file is LE on every host; SH-4 and the production host are LE.
      * Explicit conversion also permits a big-endian host validator. */
     const uint16_t endian=1;
-    if(!*(const uint8_t *)&endian)for(size_t i=0;i<bytes/2;i++) {
+    if(!thumbnail && !*(const uint8_t *)&endian)for(size_t i=0;i<bytes/2;i++) {
         const uint8_t *p=(const uint8_t *)pixels+i*2;
         pixels[i]=(uint16_t)(p[0]|(uint16_t)p[1]<<8);
     }
-    out->pixels=pixels;out->width=KUI_THEME_WIDTH;out->height=height;
+    out->pixels=pixels;out->width=out_width;out->height=out_height;
     return KUI_THEME_ASSET_READY;
+}
+
+enum kui_theme_asset_status kui_theme_image_load(struct kui_theme_image *out,
+    const struct kui_theme_definition *definition,enum kui_theme_asset_kind kind,
+    kui_log_fn log,kui_cancel_fn cancelled) {
+    return load_image(out,definition,kind,log,cancelled,false);
+}
+
+enum kui_theme_asset_status kui_theme_thumbnail_load(struct kui_theme_image *out,
+    const struct kui_theme_definition *definition,enum kui_theme_asset_kind kind,
+    kui_log_fn log,kui_cancel_fn cancelled) {
+    return load_image(out,definition,kind,log,cancelled,true);
 }
