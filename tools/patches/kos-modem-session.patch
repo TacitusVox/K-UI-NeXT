@@ -1,0 +1,35 @@
+--- a/kernel/arch/dreamcast/hardware/modem/mintr.c
++++ b/kernel/arch/dreamcast/hardware/modem/mintr.c
+@@ -592,20 +592,30 @@
+         modemInternalFlags |= MODEM_INTERNAL_FLAG_INT_INIT_ATEXIT;
+     }
+ 
++    /* Reserve the worker before enabling modem events. */
++    oneshot = oneshot_timer_create(NULL, NULL, 0);
++    if(!oneshot) return;
++
+     /* Set the default IRQ handler */
+     modemCallbackCode = NULL;
+     asic_evt_set_handler(ASIC_EVT_EXP_8BIT, modemCallback, NULL);
+     asic_evt_enable(ASIC_EVT_EXP_8BIT, ASIC_IRQB);
+ 
+-    /* Oneshot timer will be configured later. */
+-    oneshot = oneshot_timer_create(NULL, NULL, 0);
++}
++
++int kui_modem_irq_ready(void) {
++    return oneshot != NULL;
+ }
+ 
+ void modemIntShutdown(void) {
++    if(!oneshot) return; /* Also registered with atexit. */
+     asic_evt_disable(ASIC_EVT_EXP_8BIT, ASIC_IRQB);
+     asic_evt_remove_handler(ASIC_EVT_EXP_8BIT);
+ 
++    modemIntShutdownTimeoutTimer();
+     oneshot_timer_destroy(oneshot);
++    oneshot = NULL;
++    modemCallbackCode = NULL;
+ }
+ 
+ #define dspSetClear8(addr, mask, clear)\

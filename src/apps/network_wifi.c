@@ -513,8 +513,8 @@ bool kui_wifi_network_inspect(struct kui_app_status *out, kui_log_fn log, kui_ca
     const uint8_t *mac = s->host.hello.mac;
     snprintf(out->lines[5], KUI_APP_LINE_CAP, "DNS: %u.%u.%u.%u   MAC: %02X:%02X:%02X:%02X:%02X:%02X", w->dns[0], w->dns[1],
         w->dns[2], w->dns[3], mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
-    snprintf(out->lines[6], KUI_APP_LINE_CAP, "%s", out->passed ? "The FTP server (Y) can use this connection" :
-        "Choose a network on the Wi-Fi page (START)");
+    snprintf(out->lines[6], KUI_APP_LINE_CAP, "%s", out->passed ? "Press B, then choose FTP server in Network" :
+        "Press B, then choose Wi-Fi in Network");
     snprintf(out->lines[7], KUI_APP_LINE_CAP, "No settings were changed");
     if(s->port->bus->gap_us) {
         unsigned gap = s->port->bus->gap_us(s->port->bus->ctx);
@@ -558,19 +558,22 @@ bool kui_wifi_network_test(struct kui_app_status *out, kui_log_fn log, kui_cance
         named = kwh_dns(&s->host, 1, "pool.ntp.org") && wait_for(s, &s->host.counts.dns, before, 10000u, cancel) &&
             !s->host.dns_status;
         lookup_ms = now(s) - start;
-        before = s->host.counts.time;
-        timed = kwh_time(&s->host) && wait_for(s, &s->host.counts.time, before, ANSWER_MS, cancel) &&
-            !s->host.time_status;
+        if(!stopped(cancel)) {
+            test_stage(&stage, "Reading the Wi-Fi board's network time");
+            before = s->host.counts.time;
+            timed = !stopped(cancel) && kwh_time(&s->host) && wait_for(s, &s->host.counts.time, before, ANSWER_MS, cancel) &&
+                !s->host.time_status;
+        }
     }
     bool halted = stopped(cancel);
     const struct kwh_wifi *w = &s->host.wifi;
     out->complete = !halted;
     out->stopped = halted;
-    out->passed = online && named;
-    if(!out->passed) ++out->errors;
+    out->passed = !halted && online && named;
+    if(!halted && !out->passed) ++out->errors;
     snprintf(out->message, sizeof(out->message), "%s", halted ? "Network connection test stopped" :
-        !online ? s->problem : named ? "Online; a name was looked up on the Internet" :
-        "Online, but the name lookup failed: check the router's Internet connection");
+        !online ? s->problem : named ? "DNS resolved pool.ntp.org over Wi-Fi" :
+        "DNS lookup for pool.ntp.org failed over Wi-Fi");
     out->line_count = 8;
     snprintf(out->lines[0], KUI_APP_LINE_CAP, "Address: %u.%u.%u.%u (%s)", w->ip[0], w->ip[1], w->ip[2], w->ip[3],
         online ? "DHCP by the Wi-Fi board" : "none");
@@ -578,12 +581,12 @@ bool kui_wifi_network_test(struct kui_app_status *out, kui_log_fn log, kui_cance
     address(out->lines[2], "DNS", w->dns);
     if(named) snprintf(out->lines[3], KUI_APP_LINE_CAP, "pool.ntp.org: %u.%u.%u.%u (%lu ms)", s->host.dns_ip[0],
         s->host.dns_ip[1], s->host.dns_ip[2], s->host.dns_ip[3], (unsigned long)lookup_ms);
-    else snprintf(out->lines[3], KUI_APP_LINE_CAP, "Name lookup: %s", online ? "failed" : "not tried");
+    else snprintf(out->lines[3], KUI_APP_LINE_CAP, "Name lookup: %s", halted ? "incomplete" : online ? "failed" : "not tried");
     struct kui_datetime utc;
     if(timed && kui_clock_from_seconds((int64_t)(s->host.time_ms / 1000u), &utc))
         snprintf(out->lines[4], KUI_APP_LINE_CAP, "Network time: %04u-%02u-%02u %02u:%02u:%02u UTC", utc.year, utc.month,
             utc.day, utc.hour, utc.minute, utc.second);
-    else snprintf(out->lines[4], KUI_APP_LINE_CAP, "Network time: %s", online ? "not set yet" : "not tried");
+    else snprintf(out->lines[4], KUI_APP_LINE_CAP, "Network time: %s", halted ? "incomplete" : online ? "not set yet" : "not tried");
     describe(out->lines[5], KUI_APP_LINE_CAP, w);
     radio_line(out->lines[6], w);
     snprintf(out->lines[7], KUI_APP_LINE_CAP, "Saved settings and console flash are unchanged");

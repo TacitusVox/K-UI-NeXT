@@ -282,6 +282,10 @@ static void interrupted(void) {
     model.visible=4; step(s,0); tick+=15000; step(s,0); step(s,0);
     assert(model.closes && !model.output_size);
     kui_browser_service_destroy(s);
+    reset(); s=begin("GET /screenshots/a.bmp HTTP/1.0\r\n\r\n");
+    step(s,4); tick+=15000; step(s,512); step(s,0);
+    assert(model.closes && !model.opens && !status.requests);
+    kui_browser_service_destroy(s);
     reset(); model.pending_ack=true; model.room=1024;
     s=begin("GET /saves/Card.vmd HTTP/1.0\r\n\r\n");
     for(unsigned i=0;i<1000;++i) step(s,512);

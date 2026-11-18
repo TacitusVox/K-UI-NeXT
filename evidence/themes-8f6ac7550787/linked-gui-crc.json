@@ -1,0 +1,66 @@
+{
+  "schema": "kui.gui-launch-crc.v1",
+  "status": "PASS",
+  "source_commit": "8f6ac75507872362ebb2e6f05dc1458b8a514a2f",
+  "source_dirty": false,
+  "runtime_elf_sha256": "fdd076c82482087637774a83e2a0098b5df9f6294a4f972df7b63af213e24ce4",
+  "reports": {
+    "_kui_crc32": {
+      "schema": "kui.smash-native.fast-crc.v1",
+      "status": "PASS",
+      "elf_sha256": "fdd076c82482087637774a83e2a0098b5df9f6294a4f972df7b63af213e24ce4",
+      "helper": "0x8c010fe0",
+      "helper_bytes": 196,
+      "helper_sha256": "8ef516d9be26c80bcc9d51de5fdeeb3021de4e43f069863829808522a6c62d1b",
+      "byte_table": "0x8c213010",
+      "table_bytes": 1024,
+      "complete_readonly_table_candidates": 7,
+      "helper_bound_tables": 1,
+      "table_sha256": "12f3e0576d447eb37b36d82ba0c1c5481b8f0d12fdc70347ce4a076b229d4c86",
+      "actual_SH_cases": 128,
+      "instructions": 352856,
+      "one_table_read_per_byte": true,
+      "independent_oracle": "zlib.crc32",
+      "whole_image_relay_bound": false,
+      "observed_private_stack_bytes": 4,
+      "hardware_timing_verified": false
+    },
+    "_kui_retail_crc32": {
+      "schema": "kui.smash-native.fast-crc.v1",
+      "status": "PASS",
+      "elf_sha256": "fdd076c82482087637774a83e2a0098b5df9f6294a4f972df7b63af213e24ce4",
+      "helper": "0x8c0de438",
+      "helper_bytes": 12,
+      "helper_sha256": "7d7f968344575cb0c8dbe2115cc706afef0edd8e6cd6dbf9fd6535359ca8b1c0",
+      "byte_table": "0x8c2193ac",
+      "table_bytes": 1024,
+      "complete_readonly_table_candidates": 7,
+      "helper_bound_tables": 1,
+      "table_sha256": "12f3e0576d447eb37b36d82ba0c1c5481b8f0d12fdc70347ce4a076b229d4c86",
+      "actual_SH_cases": 128,
+      "instructions": 353240,
+      "one_table_read_per_byte": true,
+      "independent_oracle": "zlib.crc32",
+      "whole_image_relay_bound": false,
+      "observed_private_stack_bytes": 4,
+      "hardware_timing_verified": false
+    }
+  },
+  "tail_bindings": [
+    {
+      "public_body_sha256": "7d7f968344575cb0c8dbe2115cc706afef0edd8e6cd6dbf9fd6535359ca8b1c0",
+      "target": "0x8c0de1f8",
+      "leaf_sha256": "c06cb4e6cd194e44877325ec2394f4bbd714a12c40761d5f842de37f5ad9524b"
+    }
+  ],
+  "actual_SH_cases": 256,
+  "source_sha256": {
+    "tools/check_gui_launch_crc.py": "e4df463bd69caf77e2e5200d75092433d414b906e334a289fe5395ca5aa7fd6a",
+    "tests/test_smash_native_fast_crc.py": "a16f6e4e819b41706abb37b2bbc65032ed08e9fd9859b083ab8f827dce17db08",
+    "src/core/data.c": "2899e0f28ea7af1dd8cc0dc72a4f9dfed32a33f2e21908505c70e050b43941a5",
+    "src/core/retail_image.c": "632d19e0f78e474bed87249ad80a7a1b827c18cd98f07f9b9c21e81da1999986",
+    "src/loader/stage_fast_crc32.h": "58b3733ce3470ee868c3a8f901c3bd68090cd417f3d63a2915ce4f39b1f1e7c7",
+    "Makefile.dc": "1277cbd868c602f6000a8311fae480bd3fd63f5d1b9972597e47810202706508"
+  },
+  "applies_to": "GUI mounted verification only; installed worker and reader bytes are preserved"
+}

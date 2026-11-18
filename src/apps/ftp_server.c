@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-3.0-only */
 /* K-UI's FTP server, written for K-UI, over the TCP sockets of an adapter
- * on the SCI port: the W5500 or the Wi-Fi board (kui/net.h). One loop on
+ * on the expansion port or SCI (kui/net.h). One loop on
  * the storage worker serves up to three clients: their commands, their
  * data connections (passive or active) and the card through FatFs.
  *
@@ -18,6 +18,7 @@
  * is written (or read), each at its own speed, instead of the two taking
  * turns. */
 #include "kui/ftp.h"
+#include "kui/network_bba.h"
 #include "kui/browser_service.h"
 #include "kui/clock.h"
 #include "platform.h"
@@ -51,7 +52,6 @@
 #define HOLD_MS 2000u       /* after a wrong password */
 #define PUBLISH_MS 250u
 #define RENEW_LIMIT_MS 3000u
-#define RENEW_RETRY_MS 60000u
 #define DRAIN_MS 10000u     /* for a closing data connection to finish */
 #define CLOSING_MS 250u     /* bound the observed W5500 CLOSING ACK/RST storm */
 #define STOP_MS 1000u
@@ -94,7 +94,7 @@ struct session {
     FIL file;
     DIR dir;
     FILINFO info;
-    bool file_open, dir_open, single, source_done;
+    bool file_open, dir_open, single, source_done, replacing;
     char path[KUI_FILES_PATH_CAP], part[KUI_FILES_PATH_CAP];
     char pattern[KUI_FILES_NAME_CAP]; /* LIST/NLST: only names matching it */
     uint8_t *buffer;
@@ -125,9 +125,10 @@ struct session {
     uint32_t wifi_first_burst, wifi_first_frame;
 };
 struct server {
-    /* The adapter in use: the W5500 session, or the Wi-Fi board's (large,
-     * so allocated only when used), and its sockets. */
+    /* The Wi-Fi board needs a large link buffer, allocated only when used. */
     const struct kui_net_ports *ports;
+    struct kui_bba_session bba;
+    bool bba_online;
     struct kui_w5500_session w5500;
     struct kui_wifi_session *wifi;
     struct kui_net_sockets net;
@@ -149,7 +150,7 @@ struct server {
     int control_owner[CONTROL_SOCKETS];
     uint64_t control_since[CONTROL_SOCKETS];
     char password[KUI_FTP_PASSWORD_CAP];
-    uint64_t published_ms, link_ms, renew_after_ms;
+    uint64_t published_ms, link_ms;
     uint32_t passes; /* over the sockets, by the main loop */
     bool changed, connected, mounted;
     const char *stop_reason;
@@ -170,14 +171,22 @@ struct server {
  * starts before either can probe/reset the other service's adapter. */
 static bool gateway_running;
 
-/* The clock and pauses come from whichever adapter port was given. */
+static bool usable_ports(const struct kui_net_ports *p) {
+    if(!p) return false;
+    /* The clock is also needed while probing, before an adapter is selected. */
+    if(p->bba) return p->bba->open && p->bba->poll && p->bba->end && p->bba->now_ms && p->bba->pause;
+    if(p->w5500) return p->w5500->bus && p->w5500->bus->now_ms && p->w5500->bus->pause;
+    return p->wifi && p->wifi->bus && p->wifi->bus->now_ms && p->wifi->bus->pause;
+}
 static uint64_t now_ms(struct server *sv) {
     const struct kui_net_ports *p = sv->ports;
+    if(p->bba) return p->bba->now_ms();
     return p->w5500 ? p->w5500->bus->now_ms(p->w5500->bus->ctx) : p->wifi->bus->now_ms(p->wifi->bus->ctx);
 }
 static void pause_ms(struct server *sv, unsigned ms) {
     const struct kui_net_ports *p = sv->ports;
-    if(p->w5500) p->w5500->bus->pause(p->w5500->bus->ctx, ms);
+    if(p->bba) p->bba->pause(ms);
+    else if(p->w5500) p->w5500->bus->pause(p->w5500->bus->ctx, ms);
     else p->wifi->bus->pause(p->wifi->bus->ctx, ms);
 }
 /* The adapter's sockets. */
@@ -187,7 +196,9 @@ static bool net_disconnect(struct server *sv, unsigned s) { return sv->net.disco
 static bool net_peer(struct server *sv, unsigned s, uint8_t ip[4], uint16_t *port) {
     return sv->net.peer(sv->net.ctx, s, ip, port);
 }
-static bool net_keepalive(struct server *sv, unsigned s) { return sv->net.keepalive(sv->net.ctx, s, 60); }
+static void net_keepalive(struct server *sv, unsigned s) {
+    if(sv->net.keepalive) (void)sv->net.keepalive(sv->net.ctx, s, 60);
+}
 static bool net_received(struct server *sv, unsigned s, size_t *bytes) { return sv->net.received(sv->net.ctx, s, bytes); }
 static bool net_receive(struct server *sv, unsigned s, void *data, size_t bytes) {
     return sv->net.receive(sv->net.ctx, s, data, bytes);
@@ -200,7 +211,8 @@ static bool net_send(struct server *sv, unsigned s, const void *data, size_t byt
  * one, otherwise milliseconds. */
 static uint64_t now_us(struct server *sv) {
     const struct kui_net_ports *p = sv->ports;
-    if(p->w5500 && p->w5500->bus->now_us) return p->w5500->bus->now_us(p->w5500->bus->ctx);
+    if(!sv->bba_online && p->w5500 && p->w5500->bus && p->w5500->bus->now_us)
+        return p->w5500->bus->now_us(p->w5500->bus->ctx);
     return now_ms(sv) * 1000u;
 }
 static bool card(char out[CARD_CAP], const char *path) {
@@ -257,10 +269,9 @@ static bool flush(struct server *sv, struct session *s, uint64_t now) {
 
 /* ---- Data sockets ---- */
 static int data_take(struct server *sv, struct session *s, uint64_t now) {
-    /* W5500 sends have been acknowledged before retirement. The Wi-Fi
-     * board has only accepted them into its TCP stack, so retain its full
-     * close deadline even when another transfer needs a slot. */
-    uint64_t grace = sv->wifi ? DRAIN_MS : 1000u;
+    /* W5500 sends were acknowledged before retirement. The BBA and Wi-Fi
+     * stacks can still be delivering queued data and retain the full grace. */
+    uint64_t grace = sv->wifi || sv->bba_online ? DRAIN_MS : 1000u;
     for(unsigned pass = 0; pass < 2; ++pass)
         for(unsigned j = 0; j < DATA_SOCKETS; ++j) {
             if(sv->data_owner[j] != FREE) continue;
@@ -319,9 +330,9 @@ static void data_poll(struct server *sv, uint64_t now) {
          * Give CLOSING a bounded final-handshake grace period, measured from
          * entry to that state, then stop the storm. FIN_WAIT/LAST_ACK retain
          * the original deadline. TIME_WAIT can be reaped immediately. */
-        bool finished = !sv->wifi && state == KUI_W5500_TIME_WAIT;
+        bool finished = !sv->wifi && !sv->bba_online && state == KUI_W5500_TIME_WAIT;
         uint64_t state_elapsed = now - sv->data_close_since[j];
-        bool closing_stuck = !sv->wifi && state == KUI_W5500_CLOSING && state_elapsed >= CLOSING_MS;
+        bool closing_stuck = !sv->wifi && !sv->bba_online && state == KUI_W5500_CLOSING && state_elapsed >= CLOSING_MS;
         if((finished || closing_stuck || elapsed > DRAIN_MS) && net_close(sv, j)) {
             sv->data_draining[j] = false;
             if(sv->log) sv->log("FTP: data socket %u closed from %02X after %llu ms, state %llu ms (%s)",
@@ -361,12 +372,34 @@ static bool moving_plainly(const struct server *sv) {
     }
     return false;
 }
-/* Another client's transfer is on `path`, inside it, or holds it. */
+/* Both inputs are validated UTF-8. FatFs folds each BMP character when it
+ * compares names. This also covers competing STORs whose destination does
+ * not exist yet and hence has no canonical directory entry. */
+static uint32_t path_letter(const char **text) {
+    const unsigned char *p = (const unsigned char *)*text;
+    uint32_t code = *p++;
+    if(code >= 0xc0u) {
+        code &= code < 0xe0u ? 0x1fu : code < 0xf0u ? 0x0fu : 0x07u;
+        while((*p & 0xc0u) == 0x80u) code = (code << 6) | (*p++ & 0x3fu);
+    }
+    *text = (const char *)p;
+    return code < 0x10000u ? ff_wtoupper(code) : code;
+}
+static bool path_within(const char *path, const char *folder) {
+    if(!folder[1]) return true;
+    while(*folder)
+        if(!*path || path_letter(&path) != path_letter(&folder)) return false;
+    return !*path || *path == '/';
+}
+/* Another client owns this file, its upload staging file, or a descendant. */
 static bool in_use(const struct server *sv, const struct session *self, const char *path) {
     for(unsigned i = 0; i < KUI_FTP_SESSIONS; ++i) {
         const struct session *o = &sv->sessions[i];
-        if(o == self || !o->active || (o->kind != T_RETR && o->kind != T_STOR)) continue;
-        if(kui_files_within(o->path, path) || kui_files_within(path, o->path)) return true;
+        if(o == self || !o->active) continue;
+        if(o->dir_open && path_within(o->path, path)) return true;
+        if(o->kind != T_RETR && o->kind != T_STOR) continue;
+        if(path_within(o->path, path) || path_within(path, o->path)) return true;
+        if(o->kind == T_STOR && o->part[0] && path_within(path, o->part)) return true;
     }
     return false;
 }
@@ -467,13 +500,14 @@ static void fail_transfer(struct server *sv, struct session *s, uint64_t now, co
     reply(s, "%s", text);
 }
 /* A KUI-ftp-<n><suffix> name nobody uses yet beside target. */
-static bool spare_path(char out[KUI_FILES_PATH_CAP], const char *target, const char *suffix) {
+static bool spare_path(struct server *sv, struct session *s, char out[KUI_FILES_PATH_CAP], const char *target, const char *suffix) {
     char parent[KUI_FILES_PATH_CAP], name[32];
     if(!kui_files_parent(parent, target)) return false;
     for(unsigned n = 1; n <= PART_LIMIT; ++n) {
         snprintf(name, sizeof(name), "KUI-ftp-%u%s", n, suffix);
         FILINFO info;
         if(!kui_files_join(out, parent, name)) return false;
+        if(path_within(out, target) || in_use(sv, s, out)) continue;
         if(stat_path(out, &info) == FR_NO_FILE) return true;
     }
     return false;
@@ -523,7 +557,7 @@ static bool data_ready(struct server *sv, struct session *s, uint64_t now, bool 
             *failed = true;
             return false;
         }
-        (void)net_keepalive(sv, (unsigned)s->data);
+        net_keepalive(sv, (unsigned)s->data);
         return true;
     }
     if(state == KUI_NET_CLOSED || state == KUI_NET_PEER_CLOSED || now - s->phase_ms > CONNECT_MS) *failed = true;
@@ -623,14 +657,17 @@ static void finish_upload(struct server *sv, struct session *s, uint64_t now) {
     else {
         FILINFO old;
         FRESULT seen = stat_path(s->path, &old);
-        replacing = seen == FR_OK;
+        /* A FAT32 short alias can appear while another file is created.
+         * Only move aside a destination that existed at STOR. Otherwise
+         * f_rename must claim a free name (or rename our own staging entry). */
+        replacing = s->replacing && seen == FR_OK;
         if(replacing && (old.fattrib & AM_DIR)) problem = "553 A folder now has that name";
         /* Read-only files are not replaced, as when uploads deleted them. */
         else if(replacing && (old.fattrib & AM_RDO)) problem = "451 Cannot replace the old file";
         else if(seen != FR_OK && seen != FR_NO_FILE) problem = "451 Cannot check the destination";
         /* The old file moves aside until the upload has its name, so a
          * failed rename can put it back. */
-        else if(replacing && (!spare_path(aside, s->path, OLD_SUFFIX) || !card(kept, aside) || f_rename(to, kept) != FR_OK))
+        else if(replacing && (!spare_path(sv, s, aside, s->path, OLD_SUFFIX) || !card(kept, aside) || f_rename(to, kept) != FR_OK))
             problem = "451 Cannot replace the old file";
         else if(f_rename(from, to) != FR_OK) {
             problem = "451 Cannot give the upload its name";
@@ -783,6 +820,10 @@ static bool stream_card(struct server *sv) {
     return true;
 }
 static bool stream_begin(struct server *sv, struct session *s) {
+    if(sv->bba_online) {
+        s->no_stream = "KOS TCP";
+        return false;
+    }
     s->no_stream = sv->wifi ? "no overlap (Wi-Fi)" : !sv->w5500.chip.async ? "DMA off" : sv->streaming ? "DMA in use" :
         "no DMA";
     if(sv->wifi || sv->streaming || !sv->w5500.chip.async || (s->kind != T_RETR && s->kind != T_STOR)) return false;
@@ -933,8 +974,56 @@ static bool need_login(struct session *s) {
     reply(s, "530 Log in with USER and PASS first");
     return true;
 }
+static bool same_name(const char *first, const char *second) {
+    while(*first && *second)
+        if(path_letter(&first) != path_letter(&second)) return false;
+    return !*first && !*second;
+}
+/* For a short-name lookup FatFs f_stat can report the spelling supplied
+ * by the caller. f_readdir returns the stored long and short names together. */
+static bool expand_short_name(const char *folder, const char *name, FILINFO *info) {
+    if(!info->altname[0] || !same_name(name, info->altname)) return true;
+    char parent[CARD_CAP];
+    DIR dir;
+    if(!card(parent, folder) || f_opendir(&dir, parent) != FR_OK) return false;
+    bool found = false;
+    while(f_readdir(&dir, info) == FR_OK && info->fname[0]) {
+        if(same_name(name, info->fname) || same_name(name, info->altname)) {
+            found = true;
+            break;
+        }
+    }
+    return f_closedir(&dir) == FR_OK && found;
+}
+/* Expand existing components to their directory names so FAT32 short names
+ * and alternate case are checked against the same protected/active paths.
+ * Preserve missing components for commands which create a new name. */
 static bool resolved(struct session *s, char out[KUI_FILES_PATH_CAP], const char *argument) {
-    if(kui_ftp_resolve(out, s->cwd, argument)) return true;
+    char requested[KUI_FILES_PATH_CAP];
+    if(!kui_ftp_resolve(requested, s->cwd, argument)) goto invalid;
+    strcpy(out, "/");
+    bool exists = true;
+    for(char *name = requested + 1; *name;) {
+        char *slash = strchr(name, '/');
+        if(slash) *slash = 0;
+        char next[KUI_FILES_PATH_CAP];
+        if(!kui_files_join(next, out, name)) goto invalid;
+        if(exists) {
+            FILINFO info;
+            FRESULT result = stat_path(next, &info);
+            if(missing(result)) exists = false;
+            else if(result != FR_OK || !expand_short_name(out, name, &info)) {
+                reply(s, "451 Cannot check %s", next);
+                return false;
+            }
+            else if(!kui_files_join(next, out, info.fname)) goto invalid;
+        }
+        strcpy(out, next);
+        if(!slash) break;
+        name = slash + 1;
+    }
+    return true;
+invalid:
     reply(s, "553 Invalid name or path (names are FAT-safe, under 128 bytes)");
     return false;
 }
@@ -1064,7 +1153,7 @@ static void start_stor(struct server *sv, struct session *s, const char *argumen
         return;
     }
     if(!data_prepared(s)) return;
-    if(!spare_path(s->part, path, KUI_FILES_PART_SUFFIX)) { reply(s, "451 Too many unfinished uploads in that folder"); return; }
+    if(!spare_path(sv, s, s->part, path, KUI_FILES_PART_SUFFIX)) { reply(s, "451 Too many unfinished uploads in that folder"); return; }
     if(!(s->buffer = malloc(BUFFER_BYTES))) { s->part[0] = 0; reply(s, "451 Insufficient memory"); return; }
     if(!card(c, s->part) || f_open(&s->file, c, FA_WRITE | FA_CREATE_NEW) != FR_OK) {
         free(s->buffer);
@@ -1074,6 +1163,7 @@ static void start_stor(struct server *sv, struct session *s, const char *argumen
         return;
     }
     s->file_open = true;
+    s->replacing = r == FR_OK;
     begin_transfer(sv, s, T_STOR, path, now);
     if(s->kind == T_STOR) reply(s, "150 Ready to receive %s", path);
 }
@@ -1130,7 +1220,12 @@ static void rename_to(struct server *sv, struct session *s, const char *argument
     bool same = r == FR_OK && kui_files_within(path, s->rename_from) && kui_files_within(s->rename_from, path);
     if(r == FR_OK && !same) { reply(s, "553 %s already exists", path); return; }
     if(r != FR_OK && r != FR_NO_FILE) { reply(s, missing(r) ? "553 The folder for %s does not exist" : "451 Cannot check %s", path); return; }
-    if(!card(from, s->rename_from) || !card(to, path)) { reply(s, "553 Invalid path"); return; }
+    /* A case-only rename must give FatFs the spelling the client requested. */
+    char requested[KUI_FILES_PATH_CAP];
+    if(!kui_ftp_resolve(requested, s->cwd, argument) || !card(from, s->rename_from) || !card(to, requested)) {
+        reply(s, "553 Invalid path");
+        return;
+    }
     r = f_rename(from, to);
     if(r != FR_OK) { reply(s, r == FR_EXIST ? "553 %s already exists" : "450 Cannot rename to %s", path); return; }
     event(sv, "Renamed %.34s to %.34s", kui_files_leaf(s->rename_from), kui_files_leaf(path));
@@ -1159,7 +1254,7 @@ static void command(struct server *sv, struct session *s, char *line, uint64_t n
     const char *arg;
     s->last_command = now;
     if(!kui_ftp_parse(line, verb, &arg)) { reply(s, "500 Unknown command"); return; }
-    if(strcmp(verb, "RNTO") && strcmp(verb, "RNFR")) s->rename_ready = false;
+    if(strcmp(verb, "RNTO")) s->rename_ready = false;
     if(!strcmp(verb, "USER")) {
         if(s->logged_in) { reply(s, "503 Already logged in"); return; }
         s->user = true;
@@ -1279,6 +1374,7 @@ static void command(struct server *sv, struct session *s, char *line, uint64_t n
         char c[CARD_CAP];
         if(!resolved(s, path, arg)) return;
         if(!path[1] || !card(c, path)) { reply(s, "550 The root already exists"); return; }
+        if(busy(sv, s, path)) return;
         FRESULT r = f_mkdir(c);
         if(r != FR_OK) { reply(s, r == FR_EXIST ? "550 %s already exists" : missing(r) ? "550 The folder for %s does not exist" :
             "450 Cannot create %s", path); return; }
@@ -1353,7 +1449,7 @@ static void session_open(struct server *sv, struct session *s, unsigned control,
     strcpy(s->cwd, "/");
     uint16_t port;
     if(!net_peer(sv, control, s->peer, &port)) memset(s->peer, 0, 4);
-    (void)net_keepalive(sv, control);
+    net_keepalive(sv, control);
     ++sv->status->connections;
     event(sv, "%u.%u.%u.%u connected", s->peer[0], s->peer[1], s->peer[2], s->peer[3]);
     reply(s, "220 K-UI FTP server on a Dreamcast; log in with the password on its screen");
@@ -1464,7 +1560,7 @@ static bool controls(struct server *sv, uint64_t now) {
 /* The W5500's DHCP lease; the Wi-Fi board keeps its own. */
 static void lease(struct server *sv, uint64_t now) {
     if(kui_w5500_session_expires_in(&sv->w5500, now) == 0) { sv->stop_reason = "The network address lease ran out"; return; }
-    if(kui_w5500_session_renew_in(&sv->w5500, now) || now < sv->renew_after_ms) return;
+    if(kui_w5500_session_renew_in(&sv->w5500, now)) return;
     /* The last free data socket, leaving 0 (the largest) for transfers. */
     int j = -1;
     for(unsigned k = DATA_SOCKETS; k-- > 0 && j < 0;)
@@ -1474,10 +1570,7 @@ static void lease(struct server *sv, uint64_t now) {
     bool refused = false;
     if(kui_w5500_session_renew(&sv->w5500, (unsigned)j, RENEW_LIMIT_MS, &refused, sv->cancel)) event(sv, "Address lease renewed");
     else if(refused) sv->stop_reason = "The network refused to renew K-UI's address";
-    else {
-        event(sv, "Lease renewal: %.60s; trying again in a minute", sv->w5500.problem);
-        sv->renew_after_ms = now + RENEW_RETRY_MS;
-    }
+    else event(sv, "Lease renewal: %.60s", sv->w5500.problem);
     sv->data_owner[j] = FREE;
 }
 static void publish(struct server *sv, uint64_t now, bool force) {
@@ -1501,7 +1594,7 @@ static void publish(struct server *sv, uint64_t now, bool force) {
             c->rate = s->rate;
         }
     }
-    st->lease_left = sv->wifi ? UINT32_MAX : kui_w5500_session_expires_in(&sv->w5500, now);
+    st->lease_left = sv->wifi || sv->bba_online ? UINT32_MAX : kui_w5500_session_expires_in(&sv->w5500, now);
     if(sv->browser_status) {
         struct kui_browser_status *browser = sv->browser_status;
         switch(st->state) {
@@ -1616,10 +1709,27 @@ static void dhcp_stage(enum kui_network_stage s) {
         stage(dhcp_server, s == KUI_NET_CONFLICT ? "Checking that the address is free" : "Asking the router for an address (DHCP)");
 }
 /* ---- The adapter ---- */
-/* A W5500 first; failing that, the Wi-Fi board. A W5500 that answers but
- * fails its wiring check is reported rather than passed over. */
+/* The expansion adapter leaves SCI available for storage. An installed
+ * adapter's startup failure is reported; absence continues discovery. */
 static bool find_adapter(struct server *sv) {
     const struct kui_net_ports *ports = sv->ports;
+    if(ports->bba) {
+        stage(sv, "Starting Broadband Adapter and obtaining an address");
+        int found = ports->bba->open(&sv->bba, sv->log, sv->cancel);
+        if(found < 0) { fail(sv, sv->bba.problem); return false; }
+        if(found > 0) {
+            sv->bba_online = true;
+            sv->net = sv->bba.net;
+            /* Keep a single listening descriptor bound across accepted
+             * clients on this service port. PASV ports remain one-shot. */
+            if(sv->bba.reuse_listener) sv->bba.reuse_listener(sv->net.ctx, sv->control_port);
+            memcpy(sv->ip, sv->bba.ip, sizeof(sv->ip));
+            memcpy(sv->mac, sv->bba.mac, sizeof(sv->mac));
+            snprintf(sv->status->adapter, sizeof(sv->status->adapter), "%s (expansion port)", sv->bba.name);
+            return true;
+        }
+        if(!ports->w5500 && !ports->wifi) { fail(sv, "No Broadband Adapter found"); return false; }
+    }
     if(ports->w5500) {
         stage(sv, "Looking for a W5500 on the SCI port");
         if(kui_w5500_session_find(&sv->w5500, ports->w5500, sv->log)) {
@@ -1695,7 +1805,7 @@ static bool start_network(struct server *sv) {
         wifi_adapter(sv);
         memcpy(sv->ip, sv->wifi->host.wifi.ip, 4);
         sv->wifi_seen = sv->wifi->host.counts.wifi;
-    } else {
+    } else if(!sv->bba_online) {
         stage(sv, "Waiting for the network cable link");
         if(!kui_w5500_session_link(&sv->w5500, sv->cancel)) { fail(sv, sv->w5500.problem); return false; }
         w5500_adapter(sv);
@@ -1714,7 +1824,7 @@ static bool start_network(struct server *sv) {
         }
     } else for(unsigned c = 0; c < CONTROL_SOCKETS; ++c)
         if(!listen_control(sv, c)) {
-            fail(sv, sv->wifi ? "The Wi-Fi board could not listen for connections" : "The W5500 could not listen for connections");
+            fail(sv, "The network adapter could not listen for connections");
             return false;
         }
     return !sv->wifi || wifi_listeners_ready(sv);
@@ -1783,6 +1893,13 @@ static bool adapter_poll(struct server *sv) {
 /* Each second: the W5500's cable link and lease; the Wi-Fi board's status
  * (its answer is read by wifi_news). */
 static void adapter_tick(struct server *sv, uint64_t now) {
+    if(sv->bba_online) {
+        if(!sv->ports->bba->poll(&sv->bba)) {
+            sv->status->link = false;
+            sv->stop_reason = sv->bba.problem;
+        }
+        return;
+    }
     if(sv->wifi) {
         (void)kwh_wifi_query(&sv->wifi->host);
         return;
@@ -1819,6 +1936,14 @@ static void wifi_news(struct server *sv) {
     if(online) wifi_adapter(sv);
     sv->changed = true;
 }
+static void release_adapter(struct server *sv) {
+    if(sv->bba_online) sv->ports->bba->end(&sv->bba);
+    kui_w5500_session_end(&sv->w5500);
+    if(sv->wifi) kui_wifi_session_end(sv->wifi);
+    free(sv->wifi);
+    sv->wifi = NULL;
+}
+
 void kui_ftp_run(const struct kui_net_ports *ports, const struct kui_ftp_options *options,
                  struct kui_ftp_status *out, kui_log_fn log, kui_cancel_fn cancel, kui_ftp_publish_fn publish_fn) {
     if(!out) return;
@@ -1832,10 +1957,8 @@ void kui_ftp_run(const struct kui_net_ports *ports, const struct kui_ftp_options
     }
     gateway_running = true;
     struct server *sv = calloc(1, sizeof(*sv));
-    /* The clock comes from the first port given, so it must have a bus. */
-    bool usable = ports && (ports->w5500 ? ports->w5500->bus != NULL : ports->wifi && ports->wifi->bus);
-    if(!sv || !usable) {
-        snprintf(out->message, sizeof(out->message), "%s", sv ? "No SCI port for a network adapter" :
+    if(!sv || !usable_ports(ports)) {
+        snprintf(out->message, sizeof(out->message), "%s", sv ? "No network adapter port is available" :
             "Insufficient memory for the FTP server");
         out->state = KUI_FTP_FAILED;
         if(publish_fn) publish_fn(out);
@@ -1871,7 +1994,7 @@ void kui_ftp_run(const struct kui_net_ports *ports, const struct kui_ftp_options
         publish(sv, now_ms(sv), true);
         while(!sv->stop_reason) {
             if(cancel && cancel()) { sv->stop_reason = "The FTP server was stopped on the Dreamcast"; break; }
-            if(!sv->wifi && sv->w5500.chip.failed) { sv->stop_reason = "The W5500 stopped answering"; break; }
+            if(!sv->bba_online && !sv->wifi && sv->w5500.chip.failed) { sv->stop_reason = "The W5500 stopped answering"; break; }
             uint64_t now = now_ms(sv);
             bool work = false;
             /* While a transfer streams, the bus is lent to it between passes
@@ -1892,7 +2015,7 @@ void kui_ftp_run(const struct kui_net_ports *ports, const struct kui_ftp_options
                     sv->link_ms = now;
                     adapter_tick(sv, now);
                 }
-                if(!sv->wifi && async != sv->w5500.chip.async) w5500_adapter(sv);
+                if(!sv->bba_online && !sv->wifi && async != sv->w5500.chip.async) w5500_adapter(sv);
                 sv->poll_ms = now;
                 ++sv->passes;
                 if(sv->streaming) kui_w5500_stream_run(&sv->stream);
@@ -1910,12 +2033,13 @@ void kui_ftp_run(const struct kui_net_ports *ports, const struct kui_ftp_options
         out->state = asked ? KUI_FTP_STOPPED : KUI_FTP_FAILED;
         snprintf(out->message, sizeof(out->message), "%s", sv->stop_reason);
         if(log) log("FTP server: %s", sv->stop_reason);
+    } else if(cancel && cancel()) {
+        out->state = KUI_FTP_STOPPED;
+        snprintf(out->message, sizeof(out->message), "The FTP server was stopped on the Dreamcast");
     }
     for(unsigned i = 0; i < KUI_FTP_SESSIONS; ++i) free(sv->sessions[i].buffer);
     free(sv->ring);
-    kui_w5500_session_end(&sv->w5500);
-    if(sv->wifi) kui_wifi_session_end(sv->wifi);
-    free(sv->wifi);
+    release_adapter(sv);
     memset(out->clients, 0, sizeof(out->clients));
     out->link = false;
     if(sv->mounted && f_mount(NULL, "0:", 0) != FR_OK && out->state != KUI_FTP_FAILED) {
@@ -1944,10 +2068,9 @@ void kui_browser_run(const struct kui_net_ports *ports, const struct kui_browser
     struct server *sv = calloc(1, sizeof(*sv));
     struct kui_ftp_status gateway_status;
     memset(&gateway_status, 0, sizeof(gateway_status));
-    bool usable = ports && (ports->w5500 ? ports->w5500->bus != NULL : ports->wifi && ports->wifi->bus);
-    if(!sv || !usable) {
+    if(!sv || !usable_ports(ports)) {
         out->state = KUI_BROWSER_FAILED;
-        snprintf(out->message, sizeof(out->message), "%s", sv ? "No SCI port for a network adapter" : "Insufficient memory for sharing");
+        snprintf(out->message, sizeof(out->message), "%s", sv ? "No network adapter port is available" : "Insufficient memory for sharing");
         free(sv);
         gateway_running = false;
         if(publish_fn) publish_fn(out);
@@ -1978,7 +2101,7 @@ void kui_browser_run(const struct kui_net_ports *ports, const struct kui_browser
         publish(sv, now_ms(sv), true);
         while(!sv->stop_reason) {
             if(cancel && cancel()) { sv->stop_reason = "Sharing stopped on the Dreamcast"; break; }
-            if(!sv->wifi && sv->w5500.chip.failed) { sv->stop_reason = "The W5500 stopped answering"; break; }
+            if(!sv->bba_online && !sv->wifi && sv->w5500.chip.failed) { sv->stop_reason = "The W5500 stopped answering"; break; }
             uint64_t now = now_ms(sv);
             bool work = false;
             for(unsigned c = 0; c < BROWSER_SOCKETS; ++c) {
@@ -2003,9 +2126,7 @@ void kui_browser_run(const struct kui_net_ports *ports, const struct kui_browser
         gateway_status.state = KUI_FTP_STOPPED;
         snprintf(gateway_status.message, sizeof(gateway_status.message), "Sharing stopped on the Dreamcast");
     }
-    kui_w5500_session_end(&sv->w5500);
-    if(sv->wifi) kui_wifi_session_end(sv->wifi);
-    free(sv->wifi);
+    release_adapter(sv);
     gateway_status.link = false;
     if(sv->mounted && f_mount(NULL, "0:", 0) != FR_OK) fail(sv, "Cannot release SD filesystem");
     if(sv->connected) kui_sd_disconnect();

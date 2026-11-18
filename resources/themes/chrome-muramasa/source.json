@@ -1,0 +1,39 @@
+{
+  "version": 1,
+  "name": "Chrome Muramasa",
+  "author": "TacitusVox",
+  "colors": {
+    "text": "#F5F7FC",
+    "success": "#8AE2AE",
+    "warning": "#FFCF82",
+    "selection_text": "#FFFFFF",
+    "background": "#060E26",
+    "panel": "#111F40",
+    "selection": "#233F6A",
+    "edge": "#4C739A",
+    "muted": "#B7CDE0",
+    "accent": "#84E9ED",
+    "accent2": "#ADC1FF"
+  },
+  "assets": {
+    "splash": {
+      "source": "../sources/chrome-muramasa.png",
+      "sha256": "ba42e48317ca69f3fd5d7e5538c582c8f6854ddd272ddffec51d38e985c56cd4",
+      "filter": "lanczos",
+      "fit": "contain"
+    },
+    "header": {
+      "source": "../sources/chrome-muramasa.png",
+      "sha256": "ba42e48317ca69f3fd5d7e5538c582c8f6854ddd272ddffec51d38e985c56cd4",
+      "filter": "lanczos",
+      "fit": "cover",
+      "crop": [
+        0,
+        703,
+        1448,
+        929
+      ],
+      "brightness": 0.38
+    }
+  }
+}

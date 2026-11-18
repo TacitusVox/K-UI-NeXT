@@ -1,0 +1,99 @@
+--- a/addons/libppp/ppp.c
++++ b/addons/libppp/ppp.c
+@@ -37,6 +37,7 @@
+ static semaphore_t established_sem = SEM_INITIALIZER(0);
+ static kthread_t *waiting_thd = NULL;
+ static int conn_rv = 0;
++static int stopping;
+ 
+ /* Receive buffer. This should never be touched by anything but the PPP thread.
+    1504 bytes = 1500 byte MRU + 2 bytes for protocol + 2 bytes for FCS. */
+@@ -249,11 +250,18 @@
+     (void)arg;
+ 
+     /* Begin establishing a connection. */
+-    _ppp_enter_phase(PPP_PHASE_ESTABLISH);
++    mutex_lock(&mutex);
++    if(!stopping)
++        _ppp_enter_phase(PPP_PHASE_ESTABLISH);
++    mutex_unlock(&mutex);
+ 
+     /* Loop as long as the link is open. */
+-    while(ppp_state.phase != PPP_PHASE_DEAD) {
++    for(;;) {
+         mutex_lock(&mutex);
++        if(stopping || ppp_state.phase == PPP_PHASE_DEAD) {
++            mutex_unlock(&mutex);
++            break;
++        }
+ 
+         /* Check if there's any data waiting for us on the device. */
+         if(!(cur = data = ppp_state.device->rx(ppp_state.device, &data_len))) {
+@@ -537,7 +545,7 @@
+     return 0;
+ }
+ 
+-int ppp_connect(void) {
++int kui_ppp_connect_until(int (*stop_requested)(void)) {
+     mutex_lock(&mutex);
+ 
+     /* Make sure the library is initted to start with. */
+@@ -572,9 +580,25 @@
+     waiting_thd = thd_get_current();
+     conn_rv = 0;
+     mutex_unlock(&mutex);
+-    sem_wait(&established_sem);
+-
+-    return conn_rv;
++    for(;;) {
++        if(sem_wait_timed(&established_sem, 100) == 0)
++            return conn_rv;
++        if(stop_requested && stop_requested()) {
++            mutex_lock(&mutex);
++            if(waiting_thd) {
++                waiting_thd = NULL;
++            } else {
++                /* Negotiation signaled after this wait timed out. */
++                sem_trywait(&established_sem);
++            }
++            mutex_unlock(&mutex);
++            return -1;
++        }
++    }
++}
++
++int ppp_connect(void) {
++    return kui_ppp_connect_until(NULL);
+ }
+ 
+ static int ppp_if_dummy(netif_t *self) {
+@@ -652,6 +676,11 @@
+     }
+ 
+     memset(&ppp_state, 0, sizeof(ppp_state));
++    memset(ppp_if.ip_addr, 0, sizeof(ppp_if.ip_addr));
++    memset(ppp_if.dns, 0, sizeof(ppp_if.dns));
++    memset(ppp_if.gateway, 0, sizeof(ppp_if.gateway));
++    ppp_recvbuf_len = 0;
++    stopping = 0;
+ 
+     ppp_state.initted = 1;
+     ppp_state.state = PPP_STATE_INITIAL;
+@@ -697,6 +726,17 @@
+         return -1;
+     }
+ 
++    /* Stop RX before unregistering its protocol handlers and netif. */
++    stopping = 1;
++    kthread_t *rx = ppp_state.thd;
++    mutex_unlock(&mutex);
++    if(rx) thd_join(rx, NULL);
++    mutex_lock(&mutex);
++    ppp_state.thd = NULL;
++    free(ppp_state.username);
++    free(ppp_state.passwd);
++    ppp_state.username = ppp_state.passwd = NULL;
++
+     /* Shut down any protocols that are still up. */
+     i = TAILQ_FIRST(&protocols);
+     while(i) {

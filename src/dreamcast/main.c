@@ -33,6 +33,7 @@ static volatile uint8_t kui_update_ram_handoff[KUI_UPDATE_HANDOFF_BYTES]
 #include "kui/recovery_guard.h"
 #include "kui/settings.h"
 #include "kui/system_settings.h"
+#include "kui/theme_runtime.h"
 #include "kui/disc_identity.h"
 #include "kui/disc_idle.h"
 #include "kui/music.h"
@@ -47,6 +48,9 @@ static volatile uint8_t kui_update_ram_handoff[KUI_UPDATE_HANDOFF_BYTES]
 #include "kui/games.h"
 #include "kui/game_launch_settings.h"
 #include "kui/games_selection.h"
+#include "kui/media_download.h"
+#include "kui/hover_clip.h"
+#include "kui/media_view.h"
 #include "kui/games_probe.h"
 #include "kui/games_image_probe.h"
 #include "kui/games_retail.h"
@@ -81,6 +85,7 @@ static volatile uint8_t kui_update_ram_handoff[KUI_UPDATE_HANDOFF_BYTES]
 #include "kui/salvage_display.h"
 #include "kui/viewport.h"
 #include "kui/network_probe.h"
+#include "kui/network_bba.h"
 #include "kui/ftp.h"
 #include "kui/browser.h"
 #include "kui/problem_report.h"
@@ -144,8 +149,12 @@ static uint16_t *shell_frame_prepare(bool working) {
     return shell_frame;
 }
 static void games_tiles_free_locked(void);
+static void theme_release_for_action(unsigned action);
 static void shell_frame_release_for_action(unsigned action) {
-    if(action==19u || (action>=56u && action<=58u) || action==62u || action==79u || action==104u || action==126u) {
+    theme_release_for_action(action);
+    /* Media decoding also needs the heap occupied by the optional frame and tiles. */
+    if(action==19u || (action>=56u && action<=58u) || action==62u || action==79u || action==104u ||
+       action==126u || action==KUI_GAMES_MEDIA_DOWNLOAD_JOB) {
         free(shell_frame);shell_frame=NULL;shell_frame_ready=false;
         games_tiles_free_locked();
     }
@@ -368,7 +377,21 @@ static struct {
 } games_flow_request;
 static struct kui_games_entry games_art_entry,games_art_running_entry;
 static struct kui_games_cover_result games_art_result;
-static struct kui_app_status games_scan_status;
+static struct kui_app_status games_scan_status, games_media_status;
+static struct kui_games_media_job games_media_pending;
+static bool games_media_manual,games_media_readable;
+static char games_media_view_path[KUI_GAMES_FILE_CAP];
+/* Set only after the sole storage worker has finished outstanding SD work.
+ * Main owns the screen and temporarily borrows the idle SD session. */
+static bool games_media_view_ready,games_media_view_active,games_media_notice_ready;
+
+/* Main owns the visible frame through drawing. Only an unclaimed spare or
+ * a private worker buffer may be written. All pointer transfers use lock. */
+static struct kui_shell_preview_focus games_hover_focus;
+static unsigned games_hover_served;
+static bool games_hover_finished;
+static uint16_t *games_hover_visible,*games_hover_ready,*games_hover_spare;
+
 /* The worker fills staging pixels; only main publishes them to the selected
  * cover. A ready result owns staging until main accepts/discards it, so neither
  * an older visible page nor drawing can race the next artwork read. */
@@ -671,26 +694,29 @@ static void disc_launch_failure_report(const char *trigger,const struct kui_app_
 }
 #endif
 #ifdef KUI_SD_RUNTIME
-/* Settings share the same single I/O owner as capture and reports. No menu
- * callback mounts the card or competes with an active rip. */
-static void settings_operation(bool save) {
+static void draw_shell(void);
+static void theme_first_frame(bool mounted);
+/* Before the worker starts, the UI owns this initial mount. Paint the selected
+ * splash first, then finish the usual capture preferences on that same mount. */
+static void settings_operation(bool save,bool first_frame) {
     struct kui_settings value;
     mutex_lock(&lock); value = settings_pending; mutex_unlock(&lock);
     if(!save) kui_settings_default(&value);
     bool ok = false, destination_ok = false;
     char root[KUI_DEST_ROOT_CAP];
     kui_destination_default(root);
-    kui_sd_set_params(KUI_STORAGE_AUTO, true);
-    if(kui_sd_connect()) {
-        FATFS fs;
-        if(kui_mount(&fs, kui_log)) {
-            ok = !kui_cancelled() && (save ? kui_settings_save(&value, kui_log)
-                                        : kui_settings_load(&value, kui_log));
-            if(!save) destination_ok = !kui_cancelled() && kui_destination_load(root, kui_log);
-            f_mount(NULL, "0:", 0);
-        }
-        kui_sd_disconnect();
+    kui_sd_set_params(first_frame?kui_storage_selected():KUI_STORAGE_AUTO,true);
+    FATFS fs;
+    bool connected=kui_sd_connect();
+    bool mounted=connected && kui_mount(&fs,kui_log);
+    if(first_frame) theme_first_frame(mounted);
+    if(mounted) {
+        ok = !kui_cancelled() && (save ? kui_settings_save(&value, kui_log)
+                                      : kui_settings_load(&value, kui_log));
+        if(!save) destination_ok = !kui_cancelled() && kui_destination_load(root, kui_log);
+        f_mount(NULL,"0:",0);
     }
+    if(connected) kui_sd_disconnect();
     mutex_lock(&lock);
     if(ok) { settings_current = value; ++settings_generation; }
     if(!save) {
@@ -893,6 +919,9 @@ static void music_step(int direction) {
     if(cached) kui_music_request_select(wanted,generation);
     publish_music_if_ready();
 }
+#include "theme_runtime.inc"
+#include "theme_startup_draw.inc"
+
 static void system_operation(bool save) {
     static bool scan_log_shown;
     struct kui_system_settings value;
@@ -909,6 +938,7 @@ static void system_operation(bool save) {
             }
             ok=!kui_cancelled() && (save?kui_system_settings_save(&value,kui_log):
                 kui_system_settings_load(&value,legacy_memory,kui_log));
+            if(!save && !startup_finished) theme_startup_load();
             f_mount(NULL,"0:",0);
         }
         kui_sd_disconnect();
@@ -2466,6 +2496,29 @@ static void publish_cd_audio(void) {
 static void games_scan_progress(const struct kui_app_status *status) {
     mutex_lock(&lock);games_scan_status=*status;mutex_unlock(&lock);
 }
+static void games_media_progress(const struct kui_app_status *status) {
+    mutex_lock(&lock);
+    games_media_status=*status;
+    mutex_unlock(&lock);
+}
+static void games_media_queue_viewer(void) {
+    bool ok=kui_media_file_path(&games_media_pending.selected,
+        games_media_manual?KUI_MEDIA_MANUAL:KUI_MEDIA_PREVIEW,games_media_view_path) &&
+        kui_games_storage_release();
+    mutex_lock(&lock);
+    if(!ok) {
+        snprintf(games_media_status.message,sizeof(games_media_status.message),"Cannot open this game's media path.");
+        games_media_notice_ready=true;
+    }
+    games_media_view_ready=ok && !cancel_requested;
+    /* A pending stop can cancel before main accepts the session. Once the
+     * viewer is running its own B handling releases the worker on exit. */
+    while(games_media_view_ready || games_media_view_active) {
+        if(cancel_requested && !games_media_view_active) {games_media_view_ready=false;break;}
+        mutex_unlock(&lock);thd_sleep(16);mutex_lock(&lock);
+    }
+    mutex_unlock(&lock);
+}
 static void ftp_publish(const struct kui_ftp_status *status) {
     mutex_lock(&lock);ftp_status=*status;ftp_seen=true;mutex_unlock(&lock);
 }
@@ -2595,7 +2648,7 @@ static bool needs_cd_handoff(unsigned action) {
         action==24 || action==25 || action==56 || action==57 || action==58 || action==121 || action==122 || action==65 || action==79 || action==81 || action==96 || action==97 || action==103 || action==104 || action==105 || action==119 || action==120 || action==126 || (action>=68 && action<=71) || (action>=46 && action<=48);
 }
 static bool games_page(enum kui_shell_page page) {
-    return page==KUI_SHELL_GAMES || page==KUI_SHELL_GAMES_ADVANCED ||
+    return page==KUI_SHELL_GAMES || page==KUI_SHELL_GAMES_ADVANCED || page==KUI_SHELL_GAMES_MEDIA ||
         page==KUI_SHELL_GAMES_DETAIL || page==KUI_SHELL_GAMES_VARIANTS ||
         page==KUI_SHELL_GAMES_PROBE_CONFIRM || page==KUI_SHELL_GAMES_IMAGE_PROBE_CONFIRM ||
         page==KUI_SHELL_GAMES_RETAIL_CONFIRM || page==KUI_SHELL_GAMES_LAUNCH_OPTIONS ||
@@ -2855,12 +2908,93 @@ static bool games_action_changes_content(unsigned action) {
      * must retain its same-session resume receipt. */
     return action==4 || action==5 || action==22 || action==62 || action==64;
 }
+static bool games_idle_blocked_locked(void) {
+    return busy || pending || video_preview || cancel_requested || games_cache_clear_pending ||
+        sci_video_quiet.requested || !startup_finished || splash_active || boot_ready || probe_launch_ready;
+}
 static bool games_idle_cancelled(void) {
     mutex_lock(&lock);
-    bool stop=busy || pending || video_preview || cancel_requested || games_cache_clear_pending ||
-        sci_video_quiet.requested || !startup_finished || splash_active || boot_ready || probe_launch_ready;
+    bool stop=games_idle_blocked_locked();
     mutex_unlock(&lock);
     return stop;
+}
+/* Main only, between draws and with lock held. A held control, page change,
+ * or foreground request drops the displayed movie before drawing the new UI. */
+static bool games_hover_update_locked(const struct kui_shell_games_art_key *key,uint64_t now) {
+    unsigned previous=games_hover_focus.generation;
+    kui_shell_preview_focus_update(&games_hover_focus,key,now);
+    if(previous!=games_hover_focus.generation || games_hover_finished) {
+        bool painted=games_hover_visible!=NULL;
+        free(games_hover_visible);games_hover_visible=NULL;
+        free(games_hover_ready);games_hover_ready=NULL;
+        free(games_hover_spare);games_hover_spare=NULL;
+        games_hover_finished=false;
+        return painted;
+    }
+    if(!games_hover_ready) return false;
+    games_hover_spare=games_hover_visible;
+    games_hover_visible=games_hover_ready;
+    games_hover_ready=NULL;
+    return true;
+}
+static bool games_hover_current_locked(void) {
+    return games_hover_focus.due && games_hover_focus.generation==games_hover_served &&
+        !games_idle_blocked_locked() && !screenshot_frame_pending && !cd_drive_owned;
+}
+static bool games_hover_cancelled(void) {
+    mutex_lock(&lock);
+    bool stop=!games_hover_current_locked();
+    mutex_unlock(&lock);
+    return stop;
+}
+/* One optional job on the sole storage worker. The file closes before this
+ * returns or another action can take SD. Slow cards may skip movie frames. */
+static bool games_hover_idle_work(void) {
+    struct kui_games_entry entry;
+    mutex_lock(&lock);
+    bool wanted=games_hover_focus.due && games_hover_focus.generation!=games_hover_served &&
+        !games_idle_blocked_locked() && !cd_drive_owned && !screenshot_frame_pending;
+    if(wanted) {
+        games_hover_served=games_hover_focus.generation;
+        entry=shell.games_listing.entries[games_hover_focus.key.row];
+    }
+    mutex_unlock(&lock);
+    if(!wanted) return false;
+
+    struct kui_hover_clip clip={0};
+    uint16_t *pixels=NULL;
+    kui_sd_set_params(KUI_STORAGE_AUTO,true);
+    if(kui_hover_clip_open(&clip,&entry,kui_log,games_hover_cancelled)) {
+        uint64_t started=0;
+        unsigned next=0;
+        while(!games_hover_cancelled()) {
+            uint64_t now=timer_ms_gettime64();
+            unsigned elapsed=next?(unsigned)((now-started)/(1000u/KUI_PREVIEW_FPS)):0;
+            if(elapsed>=clip.frames) break;
+            if(elapsed<next) {thd_sleep(10);continue;}
+            mutex_lock(&lock);
+            bool can_read=games_hover_current_locked() && !games_hover_ready;
+            if(can_read) {pixels=games_hover_spare;games_hover_spare=NULL;}
+            mutex_unlock(&lock);
+            if(!can_read) {thd_sleep(10);continue;}
+            if(!pixels) pixels=malloc(KUI_PREVIEW_FRAME_BYTES);
+            if(!pixels || !kui_hover_clip_read(&clip,elapsed,pixels,games_hover_cancelled)) break;
+            mutex_lock(&lock);
+            if(games_hover_current_locked()) {
+                games_hover_ready=pixels;pixels=NULL;
+                if(!next) started=timer_ms_gettime64();
+                next=elapsed+1u;
+            }
+            mutex_unlock(&lock);
+            if(pixels) break;
+        }
+    }
+    kui_hover_clip_close(&clip);
+    free(pixels);
+    mutex_lock(&lock);
+    if(games_hover_focus.generation==games_hover_served) games_hover_finished=true;
+    mutex_unlock(&lock);
+    return true;
 }
 static void games_selection_startup(void) {
     struct kui_games_selection last;kui_games_selection_default(&last);
@@ -3136,8 +3270,9 @@ static void vmu_card_load_work(void) {
 static bool games_warm_cancelled(void) {
     if(games_idle_cancelled()) return true;
     mutex_lock(&lock);
-    bool stop=games_art_request_valid &&
-        (!games_art_done_valid || !kui_shell_games_art_same(&games_art_requested,&games_art_done));
+    bool stop=(games_hover_focus.due && games_hover_focus.generation!=games_hover_served) ||
+        (games_art_request_valid &&
+         (!games_art_done_valid || !kui_shell_games_art_same(&games_art_requested,&games_art_done)));
     mutex_unlock(&lock);
     return stop;
 }
@@ -3220,7 +3355,9 @@ static bool games_prefetch_current(void) {
 }
 static bool games_prefetch_cancelled(void) {
     if(games_idle_cancelled()) return true;
-    mutex_lock(&lock);bool stop=!games_prefetch_current();mutex_unlock(&lock);
+    mutex_lock(&lock);
+    bool stop=!games_prefetch_current() || (games_hover_focus.due && games_hover_focus.generation!=games_hover_served);
+    mutex_unlock(&lock);
     return stop;
 }
 /* List one page for background work. A stop resumes the step later; a
@@ -3538,6 +3675,7 @@ static void *worker(void *unused) {
                  * resume after another foreground action revokes the receipt. */
                 if(!salvage_session.parked) {
                     games_storage_idle();
+                    if(idle && games_hover_idle_work()) {thd_sleep(1);continue;}
                     if(idle && !games_layout_idle_work() && !games_flow_idle_work() && !games_art_idle_work() && !games_selection_store(false)) {
                         music_idle_work();games_warm_idle_work();(void)games_prefetch_idle_work();
                     }
@@ -3606,6 +3744,7 @@ static void *worker(void *unused) {
         if(kui_cancelled()
 #ifdef KUI_SD_RUNTIME
            && action!=27 && action!=53 && action!=44 && action!=108
+           && !(action>=THEME_SCAN_WORK && action<=THEME_RESTORE_WORK)
 #endif
         ) {
             kui_log("Operation stopped before starting.");
@@ -3617,6 +3756,11 @@ static void *worker(void *unused) {
                 mutex_unlock(&lock);
             }
             mutex_lock(&lock);
+            if(action==KUI_GAMES_MEDIA_DOWNLOAD_JOB || action==KUI_GAMES_MEDIA_VIEW_JOB) {
+                games_media_status=(struct kui_app_status){.complete=true,.stopped=true};
+                snprintf(games_media_status.message,sizeof(games_media_status.message),"Stopped before starting.");
+                games_media_notice_ready=action!=KUI_GAMES_MEDIA_DOWNLOAD_JOB;
+            }
             if(action==126) {update_failure(update_restart_generation,true,
                 "Restart K-UI stopped before starting.");update_snapshot.restart_required=true;}
             if(action==111u) {
@@ -3907,7 +4051,7 @@ static void *worker(void *unused) {
             if(action>=65 && action<=67) storage_test_operation(action);
             if(action>=68 && action<=71) sci_async_operation(action-68u);
             if(action == 8 || action == 9) {
-                settings_operation(action == 9);
+                settings_operation(action == 9,false);
                 if(!system_loaded) system_operation(false);
             }
             if(action==12) {
@@ -4043,6 +4187,20 @@ static void *worker(void *unused) {
                 games_result_epoch=games_epoch_pending;games_result_view=games_view_pending;
                 ++games_listing_generation;mutex_unlock(&lock);
             }
+            if(action==KUI_GAMES_MEDIA_DOWNLOAD_JOB) {
+                struct kui_app_status result;
+                kui_sd_set_params(KUI_STORAGE_AUTO,true);
+                bool readable=kui_games_media_run(&games_media_pending,&result,kui_log,kui_cancelled,games_media_progress);
+                games_cache_invalidate();
+                mutex_lock(&lock);
+                games_media_status=result;
+                games_media_readable=readable;
+                mutex_unlock(&lock);
+            }
+            if(action==KUI_GAMES_MEDIA_VIEW_JOB) {
+                kui_sd_set_params(KUI_STORAGE_AUTO,true);
+                games_media_queue_viewer();
+            }
             if(action==59) {
                 kui_sd_set_params(KUI_STORAGE_AUTO,true);
                 struct kui_app_status status;struct kui_games_scan_counts counts;
@@ -4093,12 +4251,12 @@ static void *worker(void *unused) {
                 mutex_lock(&lock);files_picture_result=picture;++files_picture_generation;mutex_unlock(&lock);
             }
             if(action==64) {
-                /* The card stays on SCIF; the network adapter (a W5500 or the
-                 * Wi-Fi board) has the SCI port. */
+                /* An expansion-port adapter can share the boot-selected SCI card. */
                 kui_sd_set_params(KUI_STORAGE_AUTO,true);
                 struct kui_ftp_options options={0};
                 options.seed=(uint32_t)timer_us_gettime64();
-                const struct kui_net_ports ports={kui_w5500_console_port(),kui_wifi_console_port()};
+                const struct kui_net_ports ports={.w5500=kui_w5500_console_port(),
+                    .wifi=kui_wifi_console_port(),.bba=kui_bba_console_port()};
                 struct kui_ftp_status result;
                 /* KOS's SD writes wait out the card's busy time after each
                  * write by polling it at the scheduler's ticks, 10 ms apart
@@ -4114,7 +4272,8 @@ static void *worker(void *unused) {
                 /* Identical adapter/storage ownership to FTP: the SCI port
                  * reservation is enforced by the existing console backend. */
                 kui_sd_set_params(KUI_STORAGE_AUTO,true);
-                const struct kui_net_ports ports={kui_w5500_console_port(),kui_wifi_console_port()};
+                const struct kui_net_ports ports={.w5500=kui_w5500_console_port(),
+                    .wifi=kui_wifi_console_port(),.bba=kui_bba_console_port()};
                 struct kui_browser_status result;
                 kui_browser_run(&ports,&browser_options_pending,&result,kui_log,kui_cancelled,browser_publish);
                 browser_publish(&result);
@@ -4291,6 +4450,7 @@ static void *worker(void *unused) {
                     if(action==104) disc_launch_failure_report("auto GD Play boot failure",&disc_result);
                 }
             }
+            if(action>=THEME_SCAN_WORK && action<=THEME_RESTORE_WORK) theme_operation(action);
             if(action==126)update_restart_operation();
             if(action==25 || action==44) {
                 /* Restart must remain usable after an optical recovery failure. */
@@ -4306,7 +4466,6 @@ static void *worker(void *unused) {
                 for(;;) thd_sleep(1000);
             }
             if(action==27) {
-                settings_operation(false);
                 system_operation(false);
                 games_selection_startup();
                 if(system_current.startup_chime && !startup_sound_cancelled())
@@ -4735,7 +4894,7 @@ static uint32_t shell_view_fingerprint(const struct kui_shell_view *v,const char
     scalars.disc_title=scalars.inserted_title=scalars.gdi_name=NULL;
     scalars.music_title=scalars.music_notice=scalars.storage_test_target=NULL;
     scalars.app_status=NULL;scalars.log_lines=NULL;scalars.game_covers=NULL;
-    scalars.game_selected_cover=scalars.game_detail_cover=scalars.files_picture=NULL;
+    scalars.game_preview_frame=scalars.game_selected_cover=scalars.game_detail_cover=scalars.files_picture=NULL;
     scalars.ftp=NULL;scalars.storage_test_progress=NULL;
     /* Elapsed-time fields advance every millisecond; only whole seconds can
      * change what is drawn. */
@@ -4753,6 +4912,9 @@ static uint32_t shell_view_fingerprint(const struct kui_shell_view *v,const char
     fingerprint_pixels(&f,v->files_picture,(size_t)KUI_FILES_PICTURE_EDGE*KUI_FILES_PICTURE_EDGE);
     for(unsigned row=0;row<KUI_GAMES_ROWS;row++)
         fingerprint_pixels(&f,v->game_tile_covers[row],(size_t)KUI_COVER_SMALL*KUI_COVER_SMALL);
+    if(v->theme_palette) kui_ui_fingerprint_bytes(&f,v->theme_palette,sizeof(*v->theme_palette));
+    if(v->theme_asset_status) kui_ui_fingerprint_bytes(&f,v->theme_asset_status,
+        KUI_THEME_ASSET_COUNT*sizeof(*v->theme_asset_status));
     uint32_t inset_word=inset;kui_ui_fingerprint_words(&f,&inset_word,1);
     return kui_ui_fingerprint_value(&f);
 }
@@ -4768,13 +4930,14 @@ static bool draw_shell_frame(bool force) {
     mutex_unlock(&lock);
     uint16_t *frame=shell_frame_prepare(working);
     if(startup) {
-        /* The original startup splash lifecycle is unchanged. */
-        kui_splash_draw(frame?frame:vram_s);
+        theme_draw_startup_splash(theme_visible_bundle(),frame?frame:vram_s);
         if(frame) {sq_cpy(vram_s,frame,640u*480u*sizeof(*frame));sq_wait();}
         shell_frame_ready=frame!=NULL;shell_frame_fingerprint_valid=false;
         vid_waitvbl();vid_flip(-1);return true;
     }
     kui_splash_release(); /* The splash has ended: free its inflated copy (no-op later). */
+    if(theme_saved_bundle.images[KUI_THEME_SPLASH].pixels)
+        kui_theme_bundle_release_asset(&theme_saved_bundle,KUI_THEME_SPLASH);
     char visible[KUI_SHELL_LOG_ROWS][LINE_BYTES] = {{0}};
     const char *log_rows[KUI_SHELL_LOG_ROWS];
     char path[KUI_DEST_JOB_CAP], notice[128], title[129], gdi[KUI_DEST_TITLE_CAP+5u];
@@ -4787,6 +4950,9 @@ static bool draw_shell_frame(bool force) {
         .inserted_title=inserted,.music_title=music_title,.music_notice=music_notice,.app_status=&app_status,
         .game_selected_cover=games_cover_pixels,.game_detail_cover=games_detail_cover,
         .files_picture=files_picture_pixels};
+    const struct kui_theme_bundle *theme=theme_visible_bundle();
+    view.theme_palette=&theme->palette;view.theme_images=theme->images;
+    view.theme_asset_status=theme->status;view.branded_banner=theme->branded_banner;
     mutex_lock(&lock);
     unsigned max_scroll = line_count > KUI_SHELL_LOG_ROWS ? line_count - KUI_SHELL_LOG_ROWS : 0;
     if(shell.scroll > max_scroll) shell.scroll = max_scroll;
@@ -4849,6 +5015,7 @@ static bool draw_shell_frame(bool force) {
     app_status=shell.page==KUI_SHELL_SCI_ASYNC_PROBE?sci_async_status:
         files_page?files_status:
         shell.page==KUI_SHELL_GAMES?games_scan_status:
+        shell.page==KUI_SHELL_GAMES_MEDIA?games_media_status:
         shell.page==KUI_SHELL_MEMORY?memory_test_status:
         (shell.page==KUI_SHELL_GAMES_PROBE_CONFIRM || shell.page==KUI_SHELL_GAMES_IMAGE_PROBE_CONFIRM ||
          shell.page==KUI_SHELL_GAMES_RETAIL_CONFIRM || shell.page==KUI_SHELL_GAMES_LAUNCH_OPTIONS ||
@@ -4877,6 +5044,7 @@ static bool draw_shell_frame(bool force) {
     view.done = capture_status.done; view.total = capture_status.total;
     view.committed = capture_status.committed; view.elapsed_ms = capture_status.elapsed_ms;
     if(shell.page==KUI_SHELL_FTP && ftp_seen) {ftp_view=ftp_status;view.ftp=&ftp_view;}
+    view.game_preview_frame=games_hover_visible;
     games_tiles_snapshot_locked(&view);
     unsigned screen_inset=system_current.screen_inset*16u;
     char capture_notice[sizeof(screenshot_notice)]={0};
@@ -4897,21 +5065,19 @@ static bool draw_shell_frame(bool force) {
     /* DM_MULTIBUFFER/vid_flip leave vram_s on the next offscreen buffer.
      * Complete the cached frame before its one sequential store-queue upload;
      * sq_wait drains the upload before the buffer can become visible. */
-    if(frame) {
-        /* Two pixels per store; the canvas is 32-byte aligned. */
-        shell_word *words=(shell_word *)(void *)frame;
-        for(unsigned i=0;i<640u*480u/2u;i++) words[i]=UINT32_C(0x08640864);
-    } else vid_clear(8,15,35); /* Busy handoff or allocation failure: old path. */
+    kui_shell_draw_background(frame?frame:vram_s,&shell,&view);
+    uint16_t theme_background=kui_theme_rgb565(theme->palette.colors[KUI_THEME_BACKGROUND]);
     kui_shell_draw_content(frame?frame:vram_s, &shell, &view, NULL, NULL);
-    kui_viewport_inset(frame?frame:vram_s,640,480,screen_inset,0x0864);
+    kui_viewport_inset(frame?frame:vram_s,640,480,screen_inset,theme_background);
     if(frame) {sq_cpy(vram_s,frame,640u*480u*sizeof(*frame));sq_wait();}
     shell_frame_ready=frame!=NULL;
     /* Toasts are displayed after the captured RAM picture is complete. A
      * release screenshot therefore never contains its own save notification. */
     if(capture_notice[0]) {
         for(unsigned y=403u;y<435u;++y)
-            for(unsigned x=32u+screen_inset;x<608u-screen_inset;++x)vram_s[y*640u+x]=0x0864;
-        kui_shell_font_draw(vram_s,40+(int)screen_inset,410,0xffff,capture_notice,false);
+            for(unsigned x=32u+screen_inset;x<608u-screen_inset;++x)vram_s[y*640u+x]=theme_background;
+        kui_shell_font_draw(vram_s,40+(int)screen_inset,410,
+            kui_theme_rgb565(theme->palette.colors[KUI_THEME_TEXT]),capture_notice,false);
     }
     shell_frame_fingerprint=fingerprint;shell_frame_fingerprint_valid=!working && frame;
     shell_frame_drawn_at=now;
@@ -4994,6 +5160,9 @@ static unsigned worker_action(enum kui_shell_action action) {
         case KUI_SHELL_GAMES_SMASH_PHANTASY_STAR_II: return 121;
         case KUI_SHELL_GAMES_SMASH_SHINING_FORCE: return 122;
         case KUI_SHELL_GAMES_SCAN: return 59;
+        case KUI_SHELL_MEDIA_DOWNLOAD:return KUI_GAMES_MEDIA_DOWNLOAD_JOB;
+        case KUI_SHELL_MEDIA_OPEN_MANUAL:
+        case KUI_SHELL_MEDIA_PLAY_PREVIEW:return KUI_GAMES_MEDIA_VIEW_JOB;
         case KUI_SHELL_FILES_LIST: return 60;
         case KUI_SHELL_FILES_CHECK: return 61;
         case KUI_SHELL_FILES_RUN: return 62;
@@ -5055,6 +5224,10 @@ static unsigned worker_action(enum kui_shell_action action) {
         case KUI_SHELL_VMU_VIRTUAL_DELETE_COMMIT:return 124;
         case KUI_SHELL_VMU_CARD_LOAD:return 125;
         case KUI_SHELL_UPDATE_RUN:return 120;
+        case KUI_SHELL_THEME_SCAN:return THEME_SCAN_WORK;
+        case KUI_SHELL_THEME_PREVIEW:return THEME_PREVIEW_WORK;
+        case KUI_SHELL_THEME_APPLY:return THEME_APPLY_WORK;
+        case KUI_SHELL_THEME_CANCEL:return THEME_CANCEL_WORK;
         default: return 0;
     }
 }
@@ -5305,13 +5478,15 @@ int main(void) {
     kui_settings_default(&settings_current);
     settings_pending = settings_current;
     kui_shell_init(&shell, &settings_current);
+    theme_init();
+    shell.theme_catalog=&theme_catalog;
     kui_shell_set_system_preferences(&shell,&system_current);
     kui_destination_default(destination_current);
     snprintf(settings_note,sizeof(settings_note),"Loading preferences from storage...");
     pending = 27; busy = true; splash_active=true;
     splash_deadline=timer_ms_gettime64()+3000;
     kui_log("K-UI launcher: Disc Ripper, VMU, Memory, Network, Settings, Diagnostics, GD Play and Music.");
-    kui_log("B skips the original startup splash/chime. Home Y cycles menu music volume/off.");
+    kui_log("B skips the startup splash/chime. Home Y cycles menu music volume/off.");
     kui_log("Ripper: A new dump (confirm), X resume latest matching disc, Y verify.");
     kui_log("B returns home while idle; during work it stops and checkpoints.");
     kui_log("New dumps use game-named folders in /Games; duplicates get a number.");
@@ -5334,7 +5509,7 @@ int main(void) {
      * the bounded STOP; no worker or app can own the drive at this point. Do
      * not read the boot disc merely to populate the optional idle title. */
 #ifdef KUI_SD_RUNTIME
-    draw_shell();
+    settings_operation(false,true);
 #else
     draw_boot();
 #endif
@@ -5414,6 +5589,7 @@ int main(void) {
         enum kui_shell_action vmu_virtual_refresh=KUI_SHELL_NONE;
         publish_music_if_ready();
         mutex_lock(&lock);
+        if(theme_accept_result()) {last_draw=0;games_ui_changed=true;}
         if(screenshot_pressed) {screenshot_request();last_draw=0;}
         if(repair_new_copy_created) {
             repair_new_copy_created=false;
@@ -5525,6 +5701,12 @@ int main(void) {
         if(seen_vmu_history_generation!=vmu_history_result_generation) {
             kui_shell_set_vmu_history(&shell,vmu_history_result_id,&vmu_history_result_request,&vmu_history_result);
             seen_vmu_history_generation=vmu_history_result_generation;
+        }
+        shell.games_media_readable=games_media_readable;
+        if(games_media_notice_ready) {
+            games_media_notice_ready=false;
+            snprintf(shell.games_media_notice,sizeof(shell.games_media_notice),"%.99s",games_media_status.message);
+            games_ui_changed=true;
         }
         if(seen_games_edit_generation!=games_edit_result_generation) {
             kui_shell_set_games_edit(&shell,games_edit_result_request,games_edit_result_path,
@@ -5737,6 +5919,19 @@ int main(void) {
             /* Main is the sole frame owner. Free before exposing pending to
              * the worker; drawing cannot reallocate it while this job is busy. */
             shell_frame_release_for_action(action);
+            if(action==KUI_GAMES_MEDIA_DOWNLOAD_JOB || action==KUI_GAMES_MEDIA_VIEW_JOB) {
+                games_media_pending=(struct kui_games_media_job){.all=shell.games_media_all,
+                    .kinds=shell.games_media_kinds,.route=shell.games_media_route};
+                if(shell.games_selected<shell.games_listing.count)
+                    games_media_pending.selected=shell.games_listing.entries[shell.games_selected];
+                games_media_manual=requested==KUI_SHELL_MEDIA_OPEN_MANUAL;
+                games_media_readable=false;
+                games_media_status=(struct kui_app_status){0};
+                snprintf(games_media_status.message,sizeof(games_media_status.message),"%s",
+                    action==KUI_GAMES_MEDIA_DOWNLOAD_JOB?"Starting internet scan...":"Opening media...");
+            } else if(action>=THEME_SCAN_WORK && action<=THEME_CANCEL_WORK) {
+                theme_pending=shell.theme_draft;theme_request_pending=shell.theme_generation;
+            }
             if(action==126u) {
                 update_restart_generation=shell.update_request.generation;update_restart_ready=false;
                 update_snapshot.generation=update_restart_generation;update_snapshot.stage=KUI_SHELL_UPDATE_RESULT;
@@ -6051,6 +6246,12 @@ int main(void) {
                 capture_message[0]=0;phase_started_ms=progress_updated_ms=input_at;
             }
         }
+        if(theme_restore_needed && startup_finished && !busy && !pending &&
+           !boot_ready && !probe_launch_ready && !update_restart_ready) {
+            theme_pending=theme_saved_bundle.settings;theme_request_pending=0;
+            pending=THEME_RESTORE_WORK;busy=true;cancel_requested=false;
+            theme_restore_needed=false;ui_hz_busy=2;
+        }
         struct kui_shell_games_art_key art_key;
         bool art_wanted=!busy && kui_shell_games_art_key(&shell,&art_key);
         if(art_wanted) {
@@ -6062,8 +6263,27 @@ int main(void) {
         } else shell.games_art_loading=false;
         games_art_request_valid=art_wanted;
         bool flow_motion=kui_shell_games_flow_animating(&shell);
+        bool hover_eligible=art_wanted && !buttons && !flow_motion && !shell.games_turning &&
+            !shell.games_scanning && !shell.games_rows_stale && !shell.games_flow_edge_pending &&
+            !shell.confirm_games_identity && !shell.confirm_restart && !games_idle_blocked_locked() &&
+            !cd_drive_owned && !screenshot_frame_pending;
+        if(games_hover_update_locked(hover_eligible?&art_key:NULL,input_at)) games_ui_changed=true;
         bool is_busy = busy, cd_owned=cd_drive_owned;
+        if(games_media_view_ready && shell.page!=KUI_SHELL_GAMES_MEDIA)cancel_requested=true;
+        bool open_media=games_media_view_ready && !cancel_requested && shell.page==KUI_SHELL_GAMES_MEDIA;
+        if(open_media) {games_media_view_ready=false;games_media_view_active=true;}
         mutex_unlock(&lock);
+        if(open_media) {
+            char notice[sizeof(shell.games_media_notice)]={0};
+            (void)kui_media_view(games_media_view_path,games_media_manual,kui_log,notice,sizeof(notice),shell_frame_prepare(false));
+            mutex_lock(&lock);
+            games_media_view_active=false;
+            snprintf(shell.games_media_notice,sizeof(shell.games_media_notice),"%s",notice);
+            mutex_unlock(&lock);
+            shell_frame_ready=shell_frame_fingerprint_valid=false;
+            previous=controller_buttons();held_navigation=0;last_draw=0;
+            continue;
+        }
         if(requested==KUI_SHELL_MUSIC_NEXT && !cd_owned) music_step(1);
         if(requested==KUI_SHELL_MUSIC_PREVIOUS && !cd_owned) music_step(-1);
         if(requested==KUI_SHELL_MUSIC_STOP) {

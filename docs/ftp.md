@@ -1,10 +1,10 @@
-# FTP server (W5500 or Wi-Fi board on the SCI port)
+# FTP server
 
 K-UI can share the SD card over your home network with FTP, so games,
 music and pictures can be copied to and from a computer without taking the
-card out. It needs a network adapter wired to the console's SCI port (a
-modification): a WIZnet W5500 Ethernet module, or K-UI's Wi-Fi board (see
-[Wi-Fi](wifi.md)). It is new since K-UI 1.5.1. On the owner's console,
+card out. FTP checks the Broadband Adapter first. It uses the expansion port
+and leaves SCI available for your SD card. If there is no Broadband Adapter,
+K-UI looks on SCI for a WIZnet W5500, then the [Wi-Fi board](wifi.md). On the owner's console,
 over the W5500, it uploads at about 520 KiB/s and downloads at about
 380 KiB/s in that historical build (2026-09-30). Earlier owner reports also
 confirm Wi-Fi FTP use; this merged 1.8.5 source has no new wireless throughput
@@ -16,7 +16,7 @@ bytes; it does not use KallistiOS's own W5500 network driver, which also
 probes the serial port the SD adapter uses. The Wi-Fi board runs K-UI's own
 firmware. No DreamShell code is involved.
 
-## The hardware
+## SCI adapter wiring
 
 The SD adapter stays where it is, on the serial port (SCIF). The W5500 goes
 on the SH-4's other serial interface, SCI, run as SPI:
@@ -51,7 +51,7 @@ says "DMA failed".
 With no W5500, the FTP server and the Network app look for the Wi-Fi board
 next (see [Wi-Fi](wifi.md)).
 
-Network probing is refused when the storage card reserves SCI, even if the
+SCI network probing is refused when the storage card reserves SCI, even if the
 adapter uses a different chip select. Use SCIF storage for the first Wi-Fi
 test; simultaneous SCI storage and networking is still a separate project.
 
@@ -91,9 +91,9 @@ sees one device).
 
 ## Using it
 
-1. Connect the W5500 to your router with a network cable, or set up the
+1. Connect the Broadband Adapter or W5500 to your router with a network cable, or set up the
    Wi-Fi board on the Wi-Fi page (Network, START).
-2. Open **Network** on Home and press **Y (FTP server)**.
+2. Open **Network → FTP server** on Home.
 3. K-UI finds the adapter, opens the SD card, and waits for the cable link
    and asks the router for an address (DHCP), or waits for the Wi-Fi board
    to be online (it keeps its own address). Then it shows:
@@ -254,16 +254,17 @@ files can be added to those folders. Update K-UI itself on a computer.
 - A client that goes quiet for ten minutes, or does not log in within a
   minute, is disconnected. A transfer with no progress for a minute is
   stopped.
-- The W5500's address lease is renewed at half its time. If the router
-  refuses, or the lease runs out, the server stops and says why. The Wi-Fi
-  board keeps its own lease; if its Wi-Fi drops, the server keeps running,
+- The W5500 asks its DHCP server to renew at the advertised renewal time
+  (half the lease by default). If the server stays silent, K-UI broadcasts
+  at the rebinding time (seven-eighths by default) so another server can
+  extend the lease. If a server refuses or the lease expires, FTP stops
+  and reports why. The Wi-Fi board keeps its own lease. If Wi-Fi drops, FTP keeps running,
   says so, and shows a new address if the router gives it one.
 
 ## Network app
 
-**A (Inspect adapter)** and **X (Test network)** also look for a W5500 on the
-SCI port when no Broadband or LAN adapter is found, then for the Wi-Fi board
-(see [Wi-Fi](wifi.md)). Inspection reports the chip, the SPI speed that
+On SCI, **A (Inspect adapter)** and **X (Test network)** check for a W5500
+and then the [Wi-Fi board](wifi.md). W5500 inspection reports the chip, the SPI speed that
 passed the wiring check, the cable link and the MAC address. The network
 test runs the same DHCP, address-conflict, gateway ARP and ping checks as
 with a BBA (see [the connection test](network-connection-test.md)), through

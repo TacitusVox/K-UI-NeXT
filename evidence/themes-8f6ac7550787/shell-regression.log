@@ -1,0 +1,69 @@
+PASS Appearance: independent choices, presets/RGB, busy/stale guards, Preview/Apply/Cancel and defaults
+PASS Appearance renderer: palette roles, opaque header/backdrop/splash, disabled art, stable pixels and safe bounds
+PASS Smash child tests UI: exact inspected candidate, explicit PSII/SF actions, unchanged defaults, busy/stale guards and bounded rendering
+PASS offline update UI: package paging, read-only check, exact confirmation, stale replies, safe Stop, restore/baseline, uncertain activation and restart
+PASS update folders: enter/back, ZIP dispatch, refresh/review/restore directory preservation, sibling-path rejection and stale-directory replies
+PASS in-place layouts: left/right cycling, preserved menu/tab/query/page/selection, worker-save generations and legacy A
+PASS Games Flow: immediate highlight, 60 ms camera, fast repeat, cached crossing, clipping, outgoing retention, cold failures and exact launch row
+PASS 3.0 medium UI: controls drafts, BMP gallery, browser/report jobs, query/edit flow, pinned history confirmation and explicit profile apply
+PASS VMU menu cleanup: direct destinations, Home groups, startup ABI, card identity/name requests, details, assignment route, Off browsing and unreadable-card guards
+PASS game saving-card information: canonical product, stale/duplicate result rejection, Off display and launch waits for the card-choice snapshot
+PASS virtual deletion: exact save/card requests, shared-card warning, default Cancel, busy/Stop, one-use confirmation, stale result rejection, refresh and immutable snapshots
+PASS matching-card deletion: exact chosen identity, checked metadata, shared card and refresh without launching or deleting the game
+PASS per-game card picker: multiple versions, cancel, identity-pinned one-time choice, saved default, Always ask, stale result/storage invalidation and all Off reader choices
+PASS disc VMU picker: optical product source, exact versions/default, physical-only comparison, Off without product, blank-card launch, in-place retry after failure, cancellation and stale results
+PASS disc save-card management: real release view, Off browsing, separate exact-source confirmations, share/copy explanation, pinned requests, read-only pages, refresh and cancelled/stale reply guards
+PASS per-game import picker: save ordinal identity, source switching, paging, explicit acceptance and blank/remove action
+PASS save details: three entry points, full metadata, companion paging, inert assignment buttons, stale guards and exact return selection
+PASS automatic import UI: only uncertain groups, narrowed game choices, stable answer IDs, per-game free space, missing-card consent and archive-only completion
+PASS shared disc virtual slot: A2 default, VMU Tools/GD Options sync, confirmed saves, stale/uncertain results, On/Off preserved and image choices independent
+PASS VMU Tools entry: no storage action before card/import/backup navigation, lazy preference reads, failure-before-write guard and cached status retained
+PASS VMU emulation preference: confirmed On/Off, stale and duplicate results, uncertain save reload, unchanged reader/cards, and wizard Off state
+PASS VMU wizard: tools/explorer routes, read-only source capture request, multiple card selection, product toggles, pagination, guarded confirmation, Stop lock and stale publication rejection
+PASS VMU wizard library scrolling: all 40 game rows in both directions and stable endpoints
+PASS VMU wizard publication lock: frozen choices and sources after publication starts, read-only review and exact retry remain available
+PASS VMU wizard rendering: source slots, card capacity, eight game rows, unavailable products, review, reset confirmation and published card IDs
+PASS continuous VMU scrolling: every save in both directions, endpoint clamp, final-page bounds, exact raw-name actions, stale results, busy guards and START shortcut
+PASS VMU catalogs scroll continuously with exact page/generation guards and no selectable rows while loading
+PASS VMU list rendering: descriptions, app-id/filename fallback, block counts, selected exact filename, ranges, scrollbar position/length, errors and safe text bounds
+PASS small tools: empty VMU card backup, VMD browse/extract separate from restore, safe file selection, exact size checks, stale guards and Stop ownership
+PASS small tools rendering: card image actions, eight image rows, progress, compare file sizes and outcome details fit safe margins
+PASS VMU bulk controls: empty cards, no selected row, both-slot stale guards, explicit confirmation and partial retry require fresh preview
+PASS VMU import controls: mixed-case VMS/VMI/DCI selection, folders, unsupported names, busy lock, exact path/generation guards, staged-only completion and cancellation
+PASS VMU bulk/import rendering: both slots, total/verified/remaining counts, uncertain destination, external picker, eight metadata lines and staged SD-only result
+PASS virtual VMU copy: selected/all dispatch, unreadable and empty sources, exact async keys, failed previews, cancellation, one-use confirmation and stored-only completion
+PASS managed virtual card browser: no physical source required, exact listing generation/page, invalid paths, read-only image extraction, return context and separate SD restore
+PASS virtual VMU rendering: ninth destination label, selected/all confirmation, assignment guidance, eight virtual card rows and read-only image return context
+PASS Games selection: cold folder/name restoration after sorting, exact page row, stale guards, parent anchor, refresh and missing-folder fallback
+PASS Games disc sets: real paths, exact disc/variant selection, remembered parent, stale publications, refresh and rebuild controls
+PASS Games tabs/direct favorite: busy guards, exact image/group keys, retained highlight, stale-filter rejection, layout action, tab wrapping and folder refusal
+PASS Armada CE music: saved On selects separate excerpt route, Off preserves CE route, unsupported metadata and stale paths refuse
+PASS WinCE CD music: BAM4/Worms and other CDDA candidates, saved opt-in On route and Off ordinary route
+PASS CD audio status: unknown versions remain experimental, tested audio comes from inspection, stale evidence is hidden
+PASS Games settings: save is not launch, reader/CDDA isolation, nested diagnostic returns, stale identity
+PASS Games saved settings: codec cold-boot hydration, separate variants, capabilities, stale publication and save feedback
+PASS Games RAM patches: two-slot controller editor, guards, exact file bounds, aliases, saved reload and native/CE/CD music isolation
+PASS Games defaults: current-image save only, detected native/CE/scrambled defaults, cleared patches and preserved unrelated presets
+PASS Games ZSO: explicit native SCI capability, inspection-only CE/other sources, Standard-only dispatch and saved-option sanitization
+PASS explicit ZSO codecs: chooser before valid inspection, cancel/no launch, saved hydration and typed LZO dispatch
+PASS Games Check/baseline: read-only preparation dispatch, Stop, unsaved edits/defaults, exact restore, CE and typed ZSO choices
+PASS native reader UI: New X/Legacy Y/Off choices, persisted fields and CE/CDDA/ZSO exclusions
+PASS New reader defaults: unsaved SCI/native GDI selects New, Advanced Off persists, explicit presets survive, other routes retain defaults
+PASS Games patch rendering: six advanced rows, both patch slots, exact range, controller hints and moving nibble underline
+PASS Games ZSO rendering: inspect-only explanation, Standard reader constraints and accurate format/unknown-audio information
+PASS storage tests controls: Diagnostics entry, presets, labels, confirmation, Stop, repeat, history and baseline guards
+PASS storage tests rendering: progress, rates, safe baseline comparison, metadata, errors and persistence warnings
+PASS Settings: screenshot information page removed, fourteen rows wrap, draft preserved
+PASS shell saved dump picker: exact paths, long children, paging, cancel, guards, separate browser purposes
+PASS shell new dump folder label: sanitized names, UTF-8, Auto, cancel, cap, keyboard purpose, session reset
+PASS shell capture label keyboard isolation: File Manager, card nickname and Wi-Fi retain their own actions
+PASS shell saved dump rendering: nine Advanced rows, selected job, Auto, label, confirmations, picker and keyboard bounds
+PASS File Manager: navigation, paging anchors, open-with, protected items, copy/move/delete/rename/new folder flows
+PASS File Manager rendering: Home entry, rows, notices, progress, actions, confirmations, details, picture, keyboard
+PASS shell FTP controls: start from Network, stop, restart, back
+PASS shell FTP rendering: starting, ready, clients and transfers, stopped, failed
+PASS shell Wi-Fi controls: open, bands, open and secured joins, keyboard symbols and limits, by name, forget
+PASS shell Wi-Fi rendering: looking, no board, networks, online, scrolling, password keyboard, forget, FTP over Wi-Fi
+PASS shell Wi-Fi update: check first, explicit pinned confirmation, cancel priority, commit lock, failed and stale guards
+PASS shell Wi-Fi update rendering: version, image, size, confirmation, transfer progress, finishing state
+PASS shell: Games browsing/inspection, stale result guards, Stop lock, system/ripper preferences, reversible video actions, VMU paging, phase ETA, destination keyboard, reference grades, safe rendering

@@ -4,6 +4,7 @@
 #include "kui/network_wifi.h"
 #include <kos/net.h>
 #include <kos/irq.h>
+#include <dc/net/broadband_adapter.h>
 #include <assert.h>
 #include <stdio.h>
 #include <string.h>
@@ -11,16 +12,45 @@ static struct netif_list list;static netif_t adapter,other;
 static uint64_t now;static bool present;static unsigned inits,starts,stops,ends,txs,unregs,cancel_at,callbacks,detects;static int fault;
 static int old_input(netif_t*n,const uint8_t*p,int s){(void)n;(void)p;(void)s;return 0;}
 static net_input_func input=old_input;
-static int init(netif_t*n){++inits;if(fault==1)return -1;n->flags|=NETIF_INITIALIZED;return 0;}
+static int init(netif_t*n){
+    ++inits;
+    assert(input!=old_input);
+    if(fault==1)return -1;
+    n->flags|=NETIF_INITIALIZED;
+    if(!strcmp(n->name,"la")){
+        /* A LAN frame can arrive during initialization. Make the unused
+         * tail of the shared frame buffer visibly nonzero. */
+        uint8_t packet[128];
+        memset(packet,0x5a,sizeof(packet));input(n,packet,sizeof(packet));
+    }
+    return 0;
+}
 static int start(netif_t*n){++starts;if(fault==2)return -1;n->flags|=NETIF_RUNNING;return 0;}
 static int stop(netif_t*n){++stops;n->flags&=~NETIF_RUNNING;return 0;}
-static int end(netif_t*n){++ends;n->flags&=~NETIF_INITIALIZED;return 0;}
-static int tx(netif_t*n,const uint8_t*p,int s,int blocking){(void)n;assert(p&&s>=60&&blocking==NETIF_NOBLOCK&&((uintptr_t)p%32)==0);++txs;return fault==3?-1:0;}
+static int end(netif_t*n){++ends;assert(input!=old_input);n->flags&=~NETIF_INITIALIZED;return 0;}
+static int tx(netif_t*n,const uint8_t*p,int s,int blocking){
+    assert(!strcmp(n->name,"la") && p && s==0x60 && blocking==NETIF_NOBLOCK);
+    for(unsigned i=60;i<0x60;++i)assert(!p[i]);
+    ++txs;return 0;
+}
+static uint8_t retry_frame[KUI_NETWORK_FRAME_MAX];
+static unsigned would_block;
+int bba_tx(const uint8_t *p,int s,int wait){
+    assert(!strcmp(adapter.name,"bba") && p && s>=60 && wait==BBA_TX_NOWAIT && ((uintptr_t)p%32)==0);
+    ++txs;
+    if(would_block){
+        if(txs==1)memcpy(retry_frame,p,(size_t)s);
+        else assert(!memcmp(retry_frame,p,(size_t)s));
+        --would_block;return BBA_TX_AGAIN;
+    }
+    if(txs==2 && fault==4)assert(!memcmp(retry_frame,p,(size_t)s));
+    return fault==3?-1:0;
+}
 static int poll(netif_t*n){(void)n;assert(!"RX polling races the driver worker/IRQ");return 0;}
-static int detect(netif_t*n){++detects;n->flags|=NETIF_DETECTED;return 0;}
-static void reset(void){memset(&adapter,0,sizeof(adapter));memset(&other,0,sizeof(other));LIST_INIT(&list);now=0;present=true;inits=starts=stops=ends=txs=unregs=cancel_at=callbacks=detects=0;fault=0;input=old_input;adapter.name="bba";adapter.flags=NETIF_DETECTED|NETIF_REGISTERED;adapter.if_detect=detect;adapter.if_init=init;adapter.if_start=start;adapter.if_stop=stop;adapter.if_shutdown=end;adapter.if_tx=tx;adapter.if_rx_poll=poll;adapter.mac_addr[0]=2;adapter.ip_addr[0]=192;adapter.ip_addr[3]=50;}
-int bba_init(void){if(!present)return -1;LIST_INSERT_HEAD(&list,&adapter,if_list);return 0;}
-int la_init(void){return -1;}
+static int detect(netif_t*n){++detects;if(!present)return -1;n->flags|=NETIF_DETECTED;return 0;}
+static void reset(void){memset(&adapter,0,sizeof(adapter));memset(&other,0,sizeof(other));LIST_INIT(&list);now=0;present=true;inits=starts=stops=ends=txs=unregs=cancel_at=callbacks=detects=would_block=0;fault=0;input=old_input;adapter.name="bba";adapter.flags=NETIF_DETECTED|NETIF_REGISTERED;adapter.if_detect=detect;adapter.if_init=init;adapter.if_start=start;adapter.if_stop=stop;adapter.if_shutdown=end;adapter.if_tx=tx;adapter.if_rx_poll=poll;adapter.mac_addr[0]=2;adapter.ip_addr[0]=192;adapter.ip_addr[3]=50;}
+int bba_init(void){if(!present||strcmp(adapter.name,"bba"))return -1;LIST_INSERT_HEAD(&list,&adapter,if_list);return 0;}
+int la_init(void){if(!present||strcmp(adapter.name,"la"))return -1;LIST_INSERT_HEAD(&list,&adapter,if_list);return 0;}
 int bba_shutdown(void){if(adapter.flags&NETIF_RUNNING)stop(&adapter);if(adapter.flags&NETIF_INITIALIZED)end(&adapter);return 0;}
 int la_shutdown(void){return 0;}
 struct netif_list *net_get_if_list(void){return &list;}
@@ -44,4 +74,15 @@ int main(void){struct kui_app_status out;struct kui_network_config c={{192,168,1
     reset();LIST_INSERT_HEAD(&list,&adapter,if_list);adapter.flags|=NETIF_INITIALIZED;kui_network_connect_run(&c,&out,NULL,cancel,NULL);assert(out.passed&&!inits&&!ends&&!unregs&&stops==1&&adapter.flags&NETIF_INITIALIZED);
     reset();other.flags=NETIF_RUNNING;LIST_INSERT_HEAD(&list,&other,if_list);kui_network_connect_run(NULL,&out,NULL,cancel,NULL);assert(out.errors==1&&!inits&&!starts&&!callbacks&&!unregs&&LIST_FIRST(&list)==&other);
     reset();LIST_INSERT_HEAD(&list,&adapter,if_list);adapter.flags&=~NETIF_DETECTED;kui_network_connect_run(&c,&out,NULL,cancel,NULL);assert(out.passed&&detects==1&&!unregs);
+    reset();LIST_INSERT_HEAD(&list,&adapter,if_list);adapter.flags&=~NETIF_DETECTED;present=false;
+    w5500_tests=wifi_tests=0;kui_network_connect_run(NULL,&out,NULL,cancel,NULL);
+    assert(detects==1&&w5500_tests==1&&wifi_tests==1&&!unregs&&LIST_FIRST(&list)==&adapter);
+    reset();would_block=1;fault=4;kui_network_connect_run(&c,&out,NULL,cancel,NULL);
+    assert(out.passed&&out.complete&&txs==4&&unregs==1&&input==old_input);
+    reset();would_block=1000;kui_network_connect_run(&c,&out,NULL,cancel,NULL);
+    assert(!out.passed&&out.errors==1&&strstr(out.message,"stayed busy")&&now>=500&&now<600&&unregs==1&&input==old_input);
+    reset();would_block=1000;cancel_at=30;kui_network_connect_run(&c,&out,NULL,cancel,NULL);
+    assert(out.stopped&&!out.passed&&!out.errors&&now==30&&unregs==1&&input==old_input);
+    reset();adapter.name="la";kui_network_connect_run(&c,&out,NULL,cancel,NULL);
+    assert(out.passed&&txs==3&&strstr(out.lines[4],"received 1")&&unregs==1&&input==old_input);
     puts("PASS network lifecycle: temporary session, no IP mutation, prior callback/driver restoration, timeout, stop, active-owner refusal");return 0;}

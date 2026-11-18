@@ -231,6 +231,7 @@ int main(void){
 setter = function(shell_source, 'kui_shell_set_games_layout_saved').replace(
     'bool kui_shell_set_games_layout_saved(', 'static bool actual_set_games_layout_saved(', 1)
 helpers = '\n\n'.join((
+    function(source, 'games_idle_blocked_locked'),
     function(source, 'games_idle_cancelled'),
     function(source, 'games_layout_request_update'),
     function(source, 'games_layout_current'),

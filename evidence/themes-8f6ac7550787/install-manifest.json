@@ -1,0 +1,42 @@
+{
+  "schema": "kui.themes-manual-install.v1",
+  "source_commit": "8f6ac75507872362ebb2e6f05dc1458b8a514a2f",
+  "base_main": "c6a07a130791f5b87facc72959ecd87c2c97ebce",
+  "build": "8f6ac7550787",
+  "runtime": {
+    "format": 1,
+    "build": "8f6ac7550787",
+    "payload_bytes": 2370076,
+    "memory_bytes": 6682416,
+    "crc32": "8ba7bfac"
+  },
+  "files": [
+    {
+      "path": "KUI/boot.kui",
+      "bytes": 2370140,
+      "sha256": "d532fff3b97731b31e5953af91c82d1af384c39cebcda18f4f1bd55026e8e999"
+    },
+    {
+      "path": "KUI/runtime.kui",
+      "bytes": 2370140,
+      "sha256": "d532fff3b97731b31e5953af91c82d1af384c39cebcda18f4f1bd55026e8e999"
+    },
+    {
+      "path": "KUI/themes/moonlit-muramasa/header.kuiimg",
+      "bytes": 128032,
+      "sha256": "4fc591aa3610d8dea5eb52113de51e32354edffa0edb21a8e71f5184092e7bdb"
+    },
+    {
+      "path": "KUI/themes/moonlit-muramasa/splash.kuiimg",
+      "bytes": 614432,
+      "sha256": "7a49803d0776882d9fc557c6055e508ed42e5585bbcec102b5a65063548e563c"
+    },
+    {
+      "path": "KUI/themes/moonlit-muramasa/theme.ini",
+      "bytes": 287,
+      "sha256": "37b86c90b38665a84f81cd7cff070f18d66db4cad142e059e0aca23a1d952067"
+    }
+  ],
+  "retained": "Every other existing on-card file; no bytes supplied or modified by this package",
+  "console_tested": false
+}

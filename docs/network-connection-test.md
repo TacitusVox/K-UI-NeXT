@@ -1,5 +1,8 @@
 # Ethernet connection test
 
+For the adapter-by-adapter service matrix, the console checks for the BBA and
+the work needed for online cover art, see the [BBA networking review](bba-network-review.md).
+
 Network retains its read-only adapter inspection and adds a temporary DHCP and
 local-gateway test. It runs on the existing I/O worker and does not overlap a rip,
 VMU write, storage test, or music-file load. It uses upstream KOS BBA/LAN drivers
@@ -32,8 +35,8 @@ The engine rejects truncated/fragmented packets, wrong transactions, mismatched
 hardware addresses, invalid IPv4/UDP/ICMP checksums, malformed DHCP options,
 invalid masks, off-subnet gateways and address conflicts. DHCP option overload is
 not implemented; such replies are ignored rather than interpreted incompletely.
-The receive callback copies a bounded frame into a four-entry queue and leaves
-all parsing to the worker. Queue drops are reported.
+The receive callback copies a bounded frame into a four-slot ring with room for
+three pending frames. The worker parses queued frames and reports drops.
 
 ## W5500 on the SCI port
 
@@ -50,9 +53,9 @@ address, so its test is different: it waits for the board to be online, then
 looks up `pool.ntp.org` through it and reads the time the board set from the
 internet; a successful lookup is the pass. See [Wi-Fi](wifi.md).
 
-SCI storage reserves that port and blocks both W5500 and Wi-Fi probing. Keep
-the storage card on SCIF for the first Wi-Fi test. The Wi-Fi hardware path has
-not yet been validated on a console.
+SCI storage reserves that port and blocks both W5500 and Wi-Fi probing. SCIF
+storage leaves SCI available. Physical C5 connection and FTP upload results
+are recorded in the [Wi-Fi performance test](wifi-performance-test.md).
 
 ## Host and console checks
 

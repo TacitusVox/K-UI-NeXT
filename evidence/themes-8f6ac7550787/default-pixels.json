@@ -1,0 +1,17 @@
+[
+  {
+    "mode": "home",
+    "equal": true,
+    "sha256": "1d8bc3b0141840315050cad19148b8f9cd9c311852f89e39ce92ab9043c920be"
+  },
+  {
+    "mode": "games",
+    "equal": true,
+    "sha256": "a789241b36eb8f8ff7b7f7931125a1bebf8b7ddad604410cb7f40e7f5de0baa5"
+  },
+  {
+    "mode": "games-gallery",
+    "equal": true,
+    "sha256": "85710f6125b5656cb5d01ec4b7c9e25d62d221f409ccc51e8fee9f35325ef5bc"
+  }
+]

@@ -238,6 +238,7 @@ bool kui_browser_service_step(struct kui_browser_service *s, uint64_t now) {
         abort_connection(s, now); return true;
     }
     if(s->phase == B_REQUEST) {
+        if(now - s->opened_ms >= REQUEST_MS) { abort_connection(s, now); return true; }
         size_t waiting = 0;
         if(!s->net.received(s->net.ctx, s->socket, &waiting)) { abort_connection(s, now); return true; }
         if(waiting) {
@@ -255,7 +256,7 @@ bool kui_browser_service_step(struct kui_browser_service *s, uint64_t now) {
             }
             return true;
         }
-        if(state == KUI_NET_PEER_CLOSED || now - s->opened_ms >= REQUEST_MS) abort_connection(s, now);
+        if(state == KUI_NET_PEER_CLOSED) abort_connection(s, now);
         return false;
     }
     if(now - s->progress_ms >= (s->phase == B_DRAIN ? DRAIN_MS : STALL_MS)) { abort_connection(s, now); return true; }

@@ -1,0 +1,15 @@
+{
+  "version": 1,
+  "type": "banner",
+  "name": "Vermilion Sun",
+  "author": "TacitusVox",
+  "assets": {
+    "header": {
+      "source": "../sources/vermilion-sun.png",
+      "sha256": "f49338d41e0f9bf22b6439b73af8f955a6724283fc4976cb6f54281a091b8f78",
+      "filter": "lanczos",
+      "fit": "contain",
+      "matte": "#03101A"
+    }
+  }
+}

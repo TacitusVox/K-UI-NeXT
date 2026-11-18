@@ -2,10 +2,10 @@
 #include "kui/network_test.h"
 #include "kui/network_w5500.h"
 #include "kui/network_wifi.h"
+#include "network_ethernet.h"
 #include <kos/net.h>
 #include <dc/g2bus.h>
 #include <dc/net/broadband_adapter.h>
-#include <dc/net/lan_adapter.h>
 #include <stdio.h>
 #include <string.h>
 
@@ -16,19 +16,6 @@
  * The PHY query below is read-only and is permitted only for an ALREADY active
  * BBA. Address/bit definitions follow KOS broadband_adapter.c and its header. */
 #define KUI_BBA_NIC_BASE UINT32_C(0xa1001700)
-static netif_t *named(const char *name) {
-    netif_t *n;
-    LIST_FOREACH(n,net_get_if_list(),if_list)
-        if(n->name && !strcmp(n->name,name)) return n;
-    return NULL;
-}
-static netif_t *existing(void) {
-    netif_t *n=named("bba");if(n) return n;
-    n=named("la");if(n) return n;
-    LIST_FOREACH(n,net_get_if_list(),if_list)
-        if((n->flags&NETIF_DETECTED) && !(n->flags&NETIF_NOETH)) return n;
-    return NULL;
-}
 static void snapshot(struct kui_network_snapshot *s,const netif_t *n) {
     memset(s,0,sizeof(*s));if(!n) return;
     snprintf(s->name,sizeof(s->name),"%s",n->name?n->name:"unknown");
@@ -48,18 +35,8 @@ void kui_network_app_run(struct kui_app_status *out,kui_log_fn log,kui_cancel_fn
     if(!out) return;
     memset(out,0,sizeof(*out));
     if(cancel && cancel()) goto stopped;
-    netif_t *interface=existing(),*owned=NULL;unsigned driver=0;
-    if(!interface) {
-        int result=bba_init();
-        if(result==0) {interface=named("bba");owned=interface;driver=1;}
-        else bba_shutdown(); /* bba_init creates its semaphore before detection. */
-        if(cancel && cancel()) goto cleanup;
-        if(!interface) {
-            result=la_init();
-            if(result==0) {interface=named("la");owned=interface;driver=2;}
-            else la_shutdown();
-        }
-    }
+    struct kui_ethernet_adapter adapter=kui_ethernet_find(true,cancel);
+    netif_t *interface=adapter.interface;
     if(!(cancel && cancel())) {
         /* No BBA or LAN adapter: a W5500 or the Wi-Fi board on the SCI
          * port reports itself. */
@@ -67,11 +44,7 @@ void kui_network_app_run(struct kui_app_status *out,kui_log_fn log,kui_cancel_fn
         struct kui_network_snapshot state;snapshot(&state,interface);
         kui_network_describe(out,&state);
     }
-cleanup:
-    if(owned) {
-        if(driver==1) bba_shutdown();else la_shutdown();
-        (void)net_unreg_device(owned);
-    }
+    kui_ethernet_release(&adapter);
     if(cancel && cancel()) goto stopped;
     if(log) {
         log("Network inspection: %s",out->message);

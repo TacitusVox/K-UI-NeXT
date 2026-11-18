@@ -1,8 +1,8 @@
 # Direct PC capture destination
 
 The GD-Ripper can write its destination filesystem directly to a PC through a
-native W5500 or Wi-Fi adapter. The PC stores a dedicated FAT32/exFAT **volume
-image**. Captured track data does not pass through a temporary local-card dump.
+Broadband Adapter, W5500 or Wi-Fi board, checked in that order. The PC
+stores a dedicated FAT32/exFAT **volume image**. Captured track data does not pass through a temporary local-card dump.
 The existing capture engine uses the remote volume for its files, journal,
 manifests, Resume, and Verify operations.
 

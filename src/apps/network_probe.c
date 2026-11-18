@@ -42,12 +42,23 @@ static void ip_header(uint8_t *ip,unsigned n,unsigned proto,const uint8_t src[4]
 static size_t dhcp_frame(struct kui_network_probe *p,uint8_t *f){
     static const uint8_t all[6]={255,255,255,255,255,255},zero[4]={0};
     memset(f,0,KUI_NETWORK_FRAME_MAX);ethernet(p,f,all,0x800);uint8_t *b=f+42;
-    b[0]=1;b[1]=1;b[2]=6;put32(b+4,p->transaction);put16(b+10,0x8000);memcpy(b+28,p->mac,6);put32(b+236,UINT32_C(0x63825363));
+    b[0]=1;b[1]=1;b[2]=6;put32(b+4,p->transaction);
+    if(p->renewing) memcpy(b+12, p->config.ip, 4); /* ciaddr */
+    else put16(b+10, 0x8000); /* broadcast reply before the chip has an address */
+    memcpy(b+28,p->mac,6);put32(b+236,UINT32_C(0x63825363));
     size_t k=240;b[k++]=53;b[k++]=1;b[k++]=(uint8_t)(p->stage==KUI_NET_DISCOVER?1:3);
     b[k++]=61;b[k++]=7;b[k++]=1;memcpy(b+k,p->mac,6);k+=6;
-    if(p->stage==KUI_NET_REQUEST){b[k++]=50;b[k++]=4;memcpy(b+k,p->config.ip,4);k+=4;b[k++]=54;b[k++]=4;memcpy(b+k,p->server,4);k+=4;}
-    b[k++]=55;b[k++]=4;b[k++]=1;b[k++]=3;b[k++]=6;b[k++]=51;b[k++]=255;if(k<300)k=300;
-    put16(f+34,68);put16(f+36,67);put16(f+38,(unsigned)k+8);ip_header(f+14,(unsigned)k+28,17,zero,all);return k+42;
+    if(p->stage == KUI_NET_REQUEST && !p->renewing) {
+        b[k++]=50;b[k++]=4;memcpy(b+k,p->config.ip,4);k+=4;
+        b[k++]=54;b[k++]=4;memcpy(b+k,p->server,4);k+=4;
+    }
+    static const uint8_t options[] = {55,6,1,3,6,51,58,59,255};
+    memcpy(b+k, options, sizeof(options));k+=sizeof(options);
+    if(k<300)k=300;
+    put16(f+34,68);put16(f+36,67);put16(f+38,(unsigned)k+8);
+    const uint8_t *dest = p->renewing && !p->rebinding ? p->server : all;
+    ip_header(f+14,(unsigned)k+28,17,p->renewing ? p->config.ip : zero,dest);
+    return k+42;
 }
 static size_t arp_frame(struct kui_network_probe *p,uint8_t *f,bool probe){
     static const uint8_t all[6]={255,255,255,255,255,255};memset(f,0,60);ethernet(p,f,all,0x806);put16(f+14,1);put16(f+16,0x800);f[18]=6;f[19]=4;put16(f+20,1);memcpy(f+22,p->mac,6);
@@ -66,6 +77,7 @@ size_t kui_network_probe_step(struct kui_network_probe *p,uint8_t f[KUI_NETWORK_
     if(age>=limit){failed(p,p->stage==KUI_NET_DISCOVER?"No DHCP offer within 15 seconds":p->stage==KUI_NET_REQUEST?"No DHCP ACK within 15 seconds":p->stage==KUI_NET_ARP?"Gateway did not answer ARP":"Gateway did not answer ICMP (may filter ping)");return 0;}
     uint64_t interval=p->stage==KUI_NET_DISCOVER||p->stage==KUI_NET_REQUEST?4000:1000;
     if(p->sends&&now-p->last_send_ms<interval)return 0;
+    if(p->stage==KUI_NET_REQUEST&&!p->sends)p->lease_start_ms=now;
     p->last_send_ms=now;++p->sends;
     if(p->stage==KUI_NET_DISCOVER||p->stage==KUI_NET_REQUEST)return dhcp_frame(p,f);
     if(p->stage==KUI_NET_CONFLICT||p->stage==KUI_NET_ARP)return arp_frame(p,f,p->stage==KUI_NET_CONFLICT);
@@ -74,9 +86,10 @@ size_t kui_network_probe_step(struct kui_network_probe *p,uint8_t f[KUI_NETWORK_
 /* Strict DHCP option bounds. Duplicate singleton options are rejected; valid
  * concatenated router/DNS lists use only the first address. Option overload is
  * deliberately unsupported and reported as no usable reply, never guessed. */
-static bool dhcp_options(const uint8_t *b,size_t n,struct kui_network_config *c,uint8_t server[4],unsigned *type,uint32_t *lease){
-    bool ended=false;unsigned seen=0;*type=0;*lease=0;memset(c,0,sizeof(*c));memcpy(c->ip,b+16,4);memset(server,0,4);
-    for(size_t k=240;k<n;){unsigned tag=b[k++];if(!tag)continue;if(tag==255){ended=true;break;}if(k>=n)return false;unsigned len=b[k++];if(len>n-k)return false;unsigned bit=tag==1?1:tag==3?2:tag==6?4:tag==51?8:tag==53?16:tag==54?32:0;
+struct lease_times { uint32_t duration,renew,rebind; };
+static bool dhcp_options(const uint8_t *b,size_t n,struct kui_network_config *c,uint8_t server[4],unsigned *type,struct lease_times *times){
+    bool ended=false;unsigned seen=0;*type=0;memset(times,0,sizeof(*times));memset(c,0,sizeof(*c));memcpy(c->ip,b+16,4);memset(server,0,4);
+    for(size_t k=240;k<n;){unsigned tag=b[k++];if(!tag)continue;if(tag==255){ended=true;break;}if(k>=n)return false;unsigned len=b[k++];if(len>n-k)return false;unsigned bit=tag==1?1:tag==3?2:tag==6?4:tag==51?8:tag==53?16:tag==54?32:tag==58?64:tag==59?128:0;
         if(tag==52)return false;
         if(bit&&(seen&bit))return false;
         seen|=bit;
@@ -84,7 +97,13 @@ static bool dhcp_options(const uint8_t *b,size_t n,struct kui_network_config *c,
         else if(tag==54){if(len!=4)return false;memcpy(server,b+k,4);}
         else if(tag==1){if(len!=4)return false;memcpy(c->mask,b+k,4);}
         else if(tag==3||tag==6){if(!len||len%4)return false;memcpy(tag==3?c->gateway:c->dns,b+k,4);}
-        else if(tag==51){if(len!=4)return false;*lease=u32(b+k);}
+        else if(tag==51||tag==58||tag==59){
+            if(len!=4)return false;
+            uint32_t seconds=u32(b+k);
+            if(tag==51) times->duration=seconds;
+            else if(tag==58) times->renew=seconds;
+            else times->rebind=seconds;
+        }
         k+=len;
     }
     return ended&&*type&&usable(server);
@@ -112,14 +131,29 @@ void kui_network_probe_receive(struct kui_network_probe *p,const uint8_t *f,size
         if(u16(u)!=67||u16(u+2)!=68||un!=len-ihl||un<248)goto ignore;
         if(u16(u+6)&&finish(sum(sum(0,ip+12,8)+17+(uint32_t)un,u,un)))goto ignore;
         const uint8_t *b=u+8;if(b[0]!=2||b[1]!=1||b[2]!=6||u32(b+4)!=p->transaction||memcmp(b+28,p->mac,6)||u32(b+236)!=UINT32_C(0x63825363))goto ignore;
-        struct kui_network_config c;uint8_t server[4];unsigned type;uint32_t lease;
-        if(!dhcp_options(b,un-8,&c,server,&type,&lease))goto ignore;
+        struct kui_network_config c;uint8_t server[4];unsigned type;struct lease_times times;
+        if(!dhcp_options(b,un-8,&c,server,&type,&times))goto ignore;
         if(!usable(ip+12)||(memcmp(ip+16,all,4)&&memcmp(ip+16,c.ip,4)))goto ignore;
-        if(p->stage==KUI_NET_REQUEST&&memcmp(server,p->server,4))goto ignore;
+        if(p->stage==KUI_NET_REQUEST&&!p->rebinding&&memcmp(server,p->server,4))goto ignore;
         if(type==6&&p->stage==KUI_NET_REQUEST){failed(p,"DHCP server rejected the requested address");return;}
-        if(!kui_network_config_valid(&c)||!lease)goto ignore;
+        if(!kui_network_config_valid(&c)||!times.duration)goto ignore;
         if(type==2&&p->stage==KUI_NET_DISCOVER){p->config=c;memcpy(p->server,server,4);stage(p,KUI_NET_REQUEST,now);return;}
-        if(type==5&&p->stage==KUI_NET_REQUEST&&!memcmp(c.ip,p->config.ip,4)){p->config=c;p->leased=true;p->lease_seconds=lease;stage(p,p->renewing?KUI_NET_DONE:KUI_NET_CONFLICT,now);return;}
+        if(type==5&&p->stage==KUI_NET_REQUEST&&p->sends&&!memcmp(c.ip,p->config.ip,4)){
+            uint32_t default_t1 = times.duration / 2u;
+            uint32_t default_t2 = (uint32_t)((uint64_t)times.duration * 7u / 8u);
+            p->renew_seconds = times.renew ? times.renew : default_t1;
+            p->rebind_seconds = times.rebind ? times.rebind : default_t2;
+            if(p->renew_seconds >= p->rebind_seconds || p->rebind_seconds >= times.duration) {
+                p->renew_seconds = default_t1;
+                p->rebind_seconds = default_t2;
+            }
+            p->config = c;
+            memcpy(p->server, server, 4);
+            p->leased = true;
+            p->lease_seconds = times.duration;
+            stage(p, p->renewing ? KUI_NET_DONE : KUI_NET_CONFLICT, now);
+            return;
+        }
     }else if(p->stage==KUI_NET_ECHO){
         if(ip[9]!=1||memcmp(ip+12,p->config.gateway,4)||memcmp(ip+16,p->config.ip,4)||len!=ihl+20)goto ignore;
         const uint8_t *e=ip+ihl;if(e[0]||e[1]||checksum(e,20)||u16(e+4)!=0x4b55||u16(e+6)!=1||memcmp(e+8,"KUI-TEST",8)||u32(e+16)!=p->transaction)goto ignore;

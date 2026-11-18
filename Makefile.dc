@@ -80,7 +80,30 @@ RUNTIME_OBJECTS += build/dc/src/core/storage_test_model.o build/dc/src/core/stor
 RUNTIME_OBJECTS += build/dc/src/dreamcast/capture.o
 RUNTIME_OBJECTS += build/dc/src/dreamcast/memory.o
 RUNTIME_OBJECTS += build/dc/src/core/recovery_manifest.o build/dc/src/core/recovery_scan.o build/dc/src/core/repair_copy.o build/dc/src/core/legacy_import.o build/dc/src/core/raw_cue.o build/dc/src/core/saved_identity.o build/dc/src/core/recovery_guard.o build/dc/src/core/salvage_completion.o
-RUNTIME_OBJECTS += build/dc/src/core/network_rip.o
+include config/media-tls.mk
+RUNTIME_OBJECTS += build/dc/src/core/media_tls.o
+build/dc/src/core/media_tls.o: $(MEDIA_TLS_ROOTS)
+build/dc/src/core/media_tls.o: CPPFLAGS += -I.deps/bearssl/inc -Ibuild/bearssl
+RUNTIME_OBJECTS += build/dc/src/core/network_rip.o build/dc/src/core/bba_sockets.o
+RUNTIME_OBJECTS += build/dc/src/dreamcast/network_bba.o build/dc/src/dreamcast/media_view.o build/dc/kos-bba.o build/dc/kos-tcp.o
+include config/dreampi.mk
+include config/media-xiph.mk
+RUNTIME_OBJECTS += $(XIPH_DC_OBJS) build/dc/third_party/tjpgd/tjpgd.o
+RUNTIME_OBJECTS += build/dc/src/core/internet_http.o build/dc/src/core/internet_dns.o build/dc/src/dreamcast/internet.o
+# The pinned KOS BBA driver starts and stops repeatedly while the shell is live.
+# Compile its session-lifetime fixes for this GUI without modifying the toolchain.
+build/dc/kos-bba.c: $(KOS_BASE)/kernel/arch/dreamcast/hardware/network/broadband_adapter.c tools/patches/bba-session.patch
+	@mkdir -p $(@D)
+	patch --batch --fuzz=0 -o $@.tmp $< tools/patches/bba-session.patch && mv $@.tmp $@
+build/dc/kos-bba.o: build/dc/kos-bba.c
+	kos-cc -std=gnu11 -MMD -MP -c $< -o $@
+# Release payload buffers when a closed TCP stream reaches TIME_WAIT. The
+# remaining sequence state still handles duplicate final packets.
+build/dc/kos-tcp.c: $(KOS_BASE)/kernel/net/net_tcp.c tools/patches/kos-tcp-media.patch
+	@mkdir -p $(@D)
+	patch --batch --fuzz=0 -o $@.tmp $< tools/patches/kos-tcp-media.patch && mv $@.tmp $@
+build/dc/kos-tcp.o: build/dc/kos-tcp.c
+	kos-cc -std=gnu11 -I$(KOS_BASE)/kernel/net -MMD -MP -c $< -o $@
 RUNTIME_OBJECTS += build/dc/src/core/drive_speed_probe.o
 RUNTIME_OBJECTS += build/dc/src/core/saved_read_probe.o build/dc/src/core/g1_mode_probe.o build/dc/src/dreamcast/g1_mode_probe.o
 RUNTIME_OBJECTS += build/dc/src/core/salvage_revalidate.o
@@ -138,6 +161,7 @@ RUNTIME_OBJECTS += build/dc/src/core/update_browser.o build/dc/src/core/update_z
 RUNTIME_OBJECTS += build/dc/src/core/update_software_file.o
 RUNTIME_OBJECTS += build/dc/src/core/resident_image.o
 RUNTIME_OBJECTS += build/dc/src/core/retail_image.o
+RUNTIME_OBJECTS += build/dc/src/core/theme.o
 RUNTIME_OBJECTS += build/dc/src/core/shell.o build/dc/src/dreamcast/shell_draw.o build/dc/src/dreamcast/shell_font.o
 RUNTIME_OBJECTS += build/dc/src/core/capture_display.o build/dc/src/core/viewport.o build/dc/src/core/salvage.o build/dc/src/core/salvage_display.o build/dc/src/core/recovery_crc.o
 APP_SOURCES := $(filter-out src/apps/boot_splash.c,$(wildcard src/apps/*.c))
@@ -234,7 +258,7 @@ build/dc/src/core/ext4_boot.o: CPPFLAGS += $(LWEXT4_CPPFLAGS)
 build/dc/third_party/lwext4/src/%.o: third_party/lwext4/src/%.c $(LWEXT4_HEADERS)
 	@mkdir -p $(@D)
 	kos-cc -std=c11 -Os -Wall -Wextra -ffunction-sections -fdata-sections -MMD -MP $(CPPFLAGS) $(LWEXT4_CPPFLAGS) -c $< -o $@
-build/dc/main-runtime.o: src/dreamcast/main.c
+build/dc/main-runtime.o: src/dreamcast/main.c src/dreamcast/theme_runtime.inc src/dreamcast/theme_startup_draw.inc
 	@mkdir -p $(@D)
 	kos-cc -std=c11 -Wall -Wextra -Werror -MMD -MP $(CPPFLAGS) -DKUI_SD_RUNTIME=1 -c $< -o $@
 build/dc/sd-runtime.o: src/dreamcast/sd.c
@@ -249,8 +273,8 @@ build/dc/ffunicode.o: .deps/fatfs/source/ffunicode.c .deps/fatfs/source/ffconf.h
 $(TARGET): $(OBJECTS) $(LOADER_OBJECTS)
 	kos-cc -o $@ $(OBJECTS) $(LOADER_OBJECTS) -Wl,-Map,build/kui-diagnostic.map
 	python3 tools/record_build.py $@
-$(RUNTIME): $(RUNTIME_OBJECTS)
-	kos-cc -o $@ $(RUNTIME_OBJECTS) -lm -Wl,--wrap=f_open,--wrap=f_stat -Wl,-Map,build/kui-runtime.map
+$(RUNTIME): $(RUNTIME_OBJECTS) $(MEDIA_TLS_DC_LIB)
+	kos-cc -o $@ $(RUNTIME_OBJECTS) $(MEDIA_TLS_DC_LIB) -lm -Wl,--wrap=f_open,--wrap=f_stat -Wl,-Map,build/kui-runtime.map
 	python3 tools/record_build.py $@
 
 # Separate compiler-report objects; never alter the runtime's linked objects.
@@ -261,10 +285,10 @@ check-games-scan-stack: $(RUNTIME)
 
 -include $(OBJECTS:.o=.d) $(LOADER_OBJECTS:.o=.d) $(RUNTIME_OBJECTS:.o=.d)
 
-build/splash_art.inc build/boot_splash_art.inc build/startup_ogg.inc &: tools/build_splash.py resources/branding/startup.png resources/branding/boot-red.png resources/branding/startup-chime.ogg
+build/splash_art.inc build/factory_splash_art.inc build/boot_splash_art.inc build/startup_ogg.inc &: tools/build_splash.py tools/pack_theme.py resources/themes/moonlit-muramasa/splash.kuiimg resources/branding/startup.png resources/branding/boot-red.png resources/branding/startup-chime.ogg
 	python3 tools/build_splash.py
 
-build/dc/src/apps/splash.o: build/splash_art.inc
+build/dc/src/apps/splash.o: build/splash_art.inc build/factory_splash_art.inc
 build/dc/src/apps/boot_splash.o: build/boot_splash_art.inc
 build/dc/src/apps/startup_sound.o: build/startup_ogg.inc
 

@@ -24,7 +24,8 @@
 #define KUI_COVER_BACKGROUND 0x0864u
 
 enum kui_cover_size { KUI_COVER_SIZE_LARGE, KUI_COVER_SIZE_MEDIUM, KUI_COVER_SIZE_SMALL };
-enum kui_cover_source { KUI_COVER_SOURCE_NONE, KUI_COVER_SOURCE_DISC, KUI_COVER_SOURCE_USER };
+enum kui_cover_source { KUI_COVER_SOURCE_NONE, KUI_COVER_SOURCE_DISC, KUI_COVER_SOURCE_USER,
+    KUI_COVER_SOURCE_DOWNLOAD };
 /* Size and FAT date/time of a file when the record was made; a change means
  * the record is out of date. A user stamp can be set with disc art or none:
  * the owner's image existed but could not be used. */
@@ -34,7 +35,7 @@ struct kui_cover_record {
     char gdi_path[KUI_COVER_PATH_CAP];
     char title[KUI_COVER_TITLE_CAP], product[11], version[7], region[9];
     struct kui_cover_stamp gdi, user;
-    enum kui_cover_source source; /* NONE: title only, no pixels follow. */
+    enum kui_cover_source source; /* NONE and DOWNLOAD store the header alone. */
 };
 
 unsigned kui_cover_edge(enum kui_cover_size size);
@@ -60,8 +61,15 @@ void kui_cover_display_title(const char *title, const char *fallback, char out[K
  * channels) or RGBA (4), row-major. */
 bool kui_cover_scale(const uint8_t *pixels, unsigned width, unsigned height, unsigned channels,
                      uint16_t *out, unsigned edge);
+/* Geometry and exact area filter shared by the PNG scanline reader. band
+ * starts at source row floor(dy*h/dh) and includes through ceil((dy+1)*h/dh)-1. */
+void kui_cover_fit(unsigned w, unsigned h, unsigned edge, unsigned *dw, unsigned *dh);
+void kui_cover_shrink_row(const uint8_t *band, unsigned w, unsigned h, unsigned ch,
+                          unsigned dw, unsigned dh, unsigned dy, uint16_t *out);
 /* Halves a very large image in place (2x2 averages) until it is at most
  * about four times the size the largest cover needs, so scaling stays quick. */
+bool kui_cover_can_halve(unsigned w, unsigned h);
+void kui_cover_half_row(const uint8_t *top, const uint8_t *bottom, unsigned w, unsigned ch, uint8_t *out);
 void kui_cover_reduce(uint8_t *pixels, unsigned *width, unsigned *height, unsigned channels);
 
 #endif

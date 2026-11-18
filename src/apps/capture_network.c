@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: GPL-3.0-only */
 #include "kui/capture_network.h"
+#include "kui/network_bba.h"
 #include "kui/network_w5500.h"
 #include "kui/network_wifi.h"
 #include "ff.h"
@@ -11,12 +12,13 @@
 
 struct kui_capture_network {
     struct kui_network_rip client;
+    const struct kui_bba_port *bba_port;
+    struct kui_bba_session bba;
     struct kui_w5500_session wired;
     struct kui_wifi_session *wifi;
     kui_cancel_fn cancel;
     kui_log_fn log;
     void (*stage)(const char *);
-    uint64_t renew_after;
     uint8_t ip[4];
     char problem[128];
 };
@@ -47,6 +49,10 @@ static bool problem(struct kui_capture_network *s,const char *text){snprintf(s->
 static void wifi_stage(void *ctx,const char *text){stage(ctx,text);}
 static bool poll_network(void *ctx) {
     struct kui_capture_network *s=ctx;
+    if(s->bba_port) {
+        if(!s->bba_port->poll(&s->bba)) return problem(s,s->bba.problem);
+        return true;
+    }
     if(s->wifi){
         if(!kui_wifi_session_step(s->wifi))return problem(s,s->wifi->problem);
         if(s->wifi->host.wifi.state!=KWM_WIFI_ONLINE||memcmp(s->ip,s->wifi->host.wifi.ip,4))
@@ -55,13 +61,12 @@ static bool poll_network(void *ctx) {
     }
     uint64_t now=timer_ms_gettime64();
     if(!kui_w5500_session_expires_in(&s->wired,now))return problem(s,"The network address lease expired; resume explicitly");
-    if(kui_w5500_session_renew_in(&s->wired,now)||now<s->renew_after)return true;
+    if(kui_w5500_session_renew_in(&s->wired,now))return true;
     bool refused=false;
     if(kui_w5500_session_renew(&s->wired,1,2000,&refused,s->cancel)){
         if(memcmp(s->ip,s->wired.config.ip,4))return problem(s,"The network address changed; resume explicitly");
         if(s->log)s->log("PC destination: network address lease renewed");
     }else if(refused)return problem(s,"The network refused address renewal; resume explicitly");
-    else s->renew_after=timer_ms_gettime64()+60000u;
     if(!kui_w5500_session_expires_in(&s->wired,timer_ms_gettime64()))return problem(s,"The network address lease expired; resume explicitly");
     return true;
 }
@@ -75,6 +80,7 @@ bool kui_capture_network_end(struct kui_capture_network *s) {
         const char *why=kui_capture_network_problem(s);
         s->log("PC destination: %s",why[0]?why:"Final PC volume sync and close were not acknowledged");
     }
+    if(s->bba_port)s->bba_port->end(&s->bba);
     if(s->wifi){kui_wifi_session_end(s->wifi);clear(s->wifi,sizeof(*s->wifi));free(s->wifi);}
     kui_w5500_session_end(&s->wired);
     clear(s,sizeof(*s));free(s);
@@ -85,8 +91,9 @@ struct kui_capture_network *kui_capture_network_start(const struct kui_net_ports
     void (*progress)(const char *),char out_problem[128]) {
     if(out_problem)out_problem[0]=0;
     kui_media_set(NULL);
-    if(!ports||(!ports->w5500&&!ports->wifi)||!kui_network_rip_config_valid(config)){
-        if(out_problem)snprintf(out_problem,128,"PC destination needs a configured W5500 or Wi-Fi board");
+    if(!ports||(!ports->bba&&!ports->w5500&&!ports->wifi)||
+       (ports->bba&&(!ports->bba->open||!ports->bba->poll||!ports->bba->end))||!kui_network_rip_config_valid(config)){
+        if(out_problem)snprintf(out_problem,128,"PC destination needs an adapter and a valid receiver configuration");
         return NULL;
     }
     struct kui_capture_network *s=calloc(1,sizeof(*s));
@@ -94,7 +101,18 @@ struct kui_capture_network *kui_capture_network_start(const struct kui_net_ports
     s->cancel=cancel;s->log=log;s->stage=progress;
     struct kui_net_sockets net={0};bool wired=false;
     if(cancelled(s)){problem(s,"PC capture stopped");goto failed;}
-    if(ports->w5500){
+    if(ports->bba) {
+        stage(s,"Starting Broadband Adapter and obtaining an address");
+        int found=ports->bba->open(&s->bba,log,cancel);
+        if(found<0){problem(s,s->bba.problem);goto failed;}
+        if(found>0) {
+            s->bba_port=ports->bba;
+            if(log)log("PC destination: using %s",s->bba.name);
+            net=s->bba.net;
+        }
+        if(!found&&!ports->w5500&&!ports->wifi){problem(s,"No Broadband Adapter found");goto failed;}
+    }
+    if(!s->bba_port&&ports->w5500){
         stage(s,"Looking for a W5500 on the SCI port");
         wired=kui_w5500_session_find(&s->wired,ports->w5500,log);
         if(!wired&&(s->wired.version==KUI_W5500_VERSION||!ports->wifi)){problem(s,s->wired.problem);goto failed;}
@@ -109,7 +127,7 @@ struct kui_capture_network *kui_capture_network_start(const struct kui_net_ports
             problem(s,s->wired.problem);goto failed;
         }
         memcpy(s->ip,s->wired.config.ip,4);kui_w5500_session_sockets(&s->wired,&net);
-    }else{
+    }else if(!s->bba_port){
         stage(s,"Looking for the Wi-Fi board on the SCI port");
         s->wifi=calloc(1,sizeof(*s->wifi));
         if(!s->wifi){problem(s,"Insufficient memory for the Wi-Fi board");goto failed;}

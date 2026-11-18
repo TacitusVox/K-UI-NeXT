@@ -3,6 +3,7 @@
 #include <assert.h>
 #include <stdint.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 /* The same generated streams the firmware embeds, with the CRC-32 of the
  * exact RGB565 pixels tools/build_splash.py compressed. */
@@ -39,6 +40,30 @@ int main(void) {
     kui_splash_release();
     kui_splash_draw(NULL);
 
+    /* A worker-owned preview has no shared lifetime with the startup cache. */
+    uint16_t *preview=kui_splash_preview_decode();
+    assert(preview && !memcmp(first,preview,sizeof(first)));
+    kui_splash_release();
+    assert(!memcmp(first,preview,sizeof(first)));
+    preview[0]^=0xffffu;
+    fill(0);kui_splash_draw(guarded+1);
+    assert(!memcmp(first,guarded+1,sizeof(first)));
+    kui_splash_release();free(preview);
+
+    /* Compare the factory fallback directly against the card pack's pixel payload. */
+    FILE *packed=fopen("resources/themes/moonlit-muramasa/splash.kuiimg","rb");
+    assert(packed && !fseek(packed,32,SEEK_SET));
+    assert(fread(expected_dimmed,1,KUI_SPLASH_FRAME_BYTES,packed)==KUI_SPLASH_FRAME_BYTES);
+    assert(fgetc(packed)==EOF && !ferror(packed) && !fclose(packed));
+    kui_splash_draw_factory(guarded+1);
+    assert(!memcmp(expected_dimmed,guarded+1,sizeof(expected_dimmed)));
+    assert(memcmp(first,guarded+1,sizeof(first)));
+    preview=kui_splash_preview_factory_decode();
+    assert(preview && !memcmp(preview,expected_dimmed,sizeof(expected_dimmed)));
+    free(preview);
+    kui_splash_draw(guarded+1);assert(!memcmp(first,guarded+1,sizeof(first)));
+    kui_splash_draw_factory(guarded+1);assert(!memcmp(expected_dimmed,guarded+1,sizeof(expected_dimmed)));
+    kui_splash_release();
     /* Boot backdrop: exact pixels; dimming reads RAM, not the old frame. */
     fill(0x5555);kui_boot_splash_draw(guarded+1);
     assert(guarded[0]==0x1234 && guarded[640u*480u+1u]==0xabcd);

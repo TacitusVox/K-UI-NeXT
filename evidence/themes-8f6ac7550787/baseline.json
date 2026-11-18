@@ -1,0 +1,44 @@
+{
+  "source_commit": "c6a07a130791f5b87facc72959ecd87c2c97ebce",
+  "source_archive_sha256": "ec33633bb5a1507bbae4295f7cd34b4bbdd0e70320c974b62bad22e616beb7a5",
+  "host_compiler": "cc (Debian 14.2.0-19) 14.2.0",
+  "host_test_results": {
+    "test-shell": "PASS",
+    "test-shell-font": "PASS",
+    "test-system-settings": "PASS",
+    "test-ui-rate": "PASS",
+    "test-viewport": "PASS",
+    "test-splash": "PASS"
+  },
+  "host_test_sanitizers": "address,undefined (ASAN_OPTIONS=detect_leaks=0)",
+  "warm_render_cpu_ms_per_frame": {
+    "home": 0.161155,
+    "settings": 0.157768,
+    "games": 0.159795,
+    "games-gallery": 0.140068
+  },
+  "warm_render_iterations": 400,
+  "measurement_scope": "Host process CPU with repository -O1 renderer configuration; not Dreamcast timing.",
+  "baseline_source_path": "/workspace/scratch/93d39df014fc/K-UI-NeXT/build/themes-baseline-source",
+  "limitations": [
+    "Current Main Windows CE/Smash routing gaps retained; no reader changes or boot disc rebuilt.",
+    "Console boot, input responsiveness, and actual startup latency are untested."
+  ],
+  "baseline_preview_sha256": {
+    "games-gallery": "85710f6125b5656cb5d01ec4b7c9e25d62d221f409ccc51e8fee9f35325ef5bc",
+    "games": "a789241b36eb8f8ff7b7f7931125a1bebf8b7ddad604410cb7f40e7f5de0baa5",
+    "home": "1d8bc3b0141840315050cad19148b8f9cd9c311852f89e39ce92ab9043c920be",
+    "settings": "e818dd525660bce18b8036b5168147818522dc2a17c2e488a90d8f4b16aae6e9"
+  },
+  "dreamcast_build": {
+    "source_commit": "c6a07a130791f5b87facc72959ecd87c2c97ebce",
+    "toolchain": "GCC 15.2.0 / Binutils 2.45.1 / newlib 4.6.0.20260123",
+    "kos_commit": "fcfa7d869471591ca1c777543261a7bfea7cb726",
+    "command": "source .deps/kos/environ.sh; make -j8 -f Makefile.dc build/kui-runtime.elf KUI_SMASH_LAUNCH_TIMING=1 BUILD_ID=c6a07a130791",
+    "runtime_bytes": 2350324,
+    "runtime_sha256": "bbdac751960a2ec6e721d7d10dfb24eb8fe2a748dcdc4cf36ba19e9c6f20ed75",
+    "elf_sha256": "4b0761834cb671ce7a616e8adbb2b60af0bb0b2b92869129f038e8083cd02ff3",
+    "result": "PASS",
+    "scope": "GUI only; no module bundle and no reader or boot-disc build"
+  }
+}

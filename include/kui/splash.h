@@ -7,8 +7,13 @@
 #define KUI_SPLASH_FRAME_BYTES (640u*480u*2u)
 /* Copy the 640x480 RGB565 startup art to an off-screen framebuffer. */
 void kui_splash_draw(uint16_t *frame);
+/* Factory Moonlight art can be shown even when the card is unavailable. */
+void kui_splash_draw_factory(uint16_t *frame);
 /* Free the startup art's RAM copy once the splash has ended (UI thread). */
 void kui_splash_release(void);
+/* Independent owned preview; decode on the worker, free with free(). */
+uint16_t *kui_splash_preview_decode(void);
+uint16_t *kui_splash_preview_factory_decode(void);
 /* The CD boot menu has separate artwork; dim in RAM before writing pixels. */
 void kui_boot_splash_draw(uint16_t *frame);
 void kui_boot_splash_draw_dimmed(uint16_t *frame);

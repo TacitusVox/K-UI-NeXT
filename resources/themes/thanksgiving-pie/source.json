@@ -1,0 +1,15 @@
+{
+  "version": 1,
+  "type": "banner",
+  "name": "Thanksgiving Pie",
+  "author": "TacitusVox",
+  "assets": {
+    "header": {
+      "source": "../sources/thanksgiving-pie.png",
+      "sha256": "287e5f74f9f25f4bea1828b2d9fc3170d0143b51f0a7195fb76f06928572f642",
+      "filter": "lanczos",
+      "fit": "contain",
+      "matte": "#301224"
+    }
+  }
+}

@@ -62,11 +62,11 @@ static bool zero(const uint8_t *p, size_t n) {
     return true;
 }
 static bool record_valid(const struct kui_cover_record *r) {
-    return r && r->source <= KUI_COVER_SOURCE_USER &&
+    return r && r->source <= KUI_COVER_SOURCE_DOWNLOAD &&
         printable(r->gdi_path, sizeof(r->gdi_path)) && r->gdi_path[0] == '/' &&
         printable(r->title, sizeof(r->title)) && printable(r->product, sizeof(r->product)) &&
         printable(r->version, sizeof(r->version)) && printable(r->region, sizeof(r->region)) &&
-        (r->source != KUI_COVER_SOURCE_USER || r->user.bytes != 0);
+        ((r->source != KUI_COVER_SOURCE_USER && r->source != KUI_COVER_SOURCE_DOWNLOAD) || r->user.bytes != 0);
 }
 
 bool kui_cover_header_encode(uint8_t out[KUI_COVER_HEADER_BYTES], const struct kui_cover_record *r) {
@@ -92,7 +92,7 @@ bool kui_cover_header_decode(struct kui_cover_record *r, const uint8_t in[KUI_CO
     struct kui_cover_record d;
     memset(&d, 0, sizeof(d));
     if(!in || memcmp(in, MAGIC, 8) || get32(in + 8) != VERSION ||
-       get32(in + AT_CRC) != kui_crc32(0, in, AT_CRC) || get32(in + AT_SOURCE) > KUI_COVER_SOURCE_USER ||
+       get32(in + AT_CRC) != kui_crc32(0, in, AT_CRC) || get32(in + AT_SOURCE) > KUI_COVER_SOURCE_DOWNLOAD ||
        get16(in + AT_EDGES) != KUI_COVER_LARGE || get16(in + AT_EDGES + 2) != KUI_COVER_MEDIUM ||
        get16(in + AT_EDGES + 4) != KUI_COVER_SMALL || !zero(in + AT_EDGES + 6, 2) ||
        !zero(in + 48, AT_TITLE - 48) || !zero(in + AT_TITLE + KUI_COVER_TITLE_CAP, AT_PRODUCT - AT_TITLE - KUI_COVER_TITLE_CAP) ||
@@ -168,7 +168,7 @@ static uint16_t finish(const struct sum *s) {
         b = blend(s->b, s->a, s->total, 33u);
     return (uint16_t)((r * 31u + 127u) / 255u << 11 | (g * 63u + 127u) / 255u << 5 | (b * 31u + 127u) / 255u);
 }
-static void fit(unsigned w, unsigned h, unsigned edge, unsigned *dw, unsigned *dh) {
+void kui_cover_fit(unsigned w, unsigned h, unsigned edge, unsigned *dw, unsigned *dh) {
     if(w >= h) {
         *dw = edge;
         *dh = (unsigned)(((uint64_t)edge * h + w / 2u) / w);
@@ -186,7 +186,7 @@ static uint64_t overlap(uint64_t i, uint64_t k, uint64_t s, uint64_t d) {
     return hi > lo ? hi - lo : 0;
 }
 static uint16_t shrink(const uint8_t *px, unsigned w, unsigned h, unsigned ch,
-                       unsigned dx, unsigned dy, unsigned dw, unsigned dh) {
+                       unsigned dx, unsigned dy, unsigned dw, unsigned dh, unsigned first_y) {
     struct sum s = {0};
     unsigned x0 = (unsigned)((uint64_t)dx * w / dw), x1 = (unsigned)(((uint64_t)dx + 1u) * w / dw);
     unsigned y0 = (unsigned)((uint64_t)dy * h / dh), y1 = (unsigned)(((uint64_t)dy + 1u) * h / dh);
@@ -197,10 +197,16 @@ static uint16_t shrink(const uint8_t *px, unsigned w, unsigned h, unsigned ch,
         if(!wy) continue;
         for(unsigned x = x0; x < x1; ++x) {
             uint64_t wx = overlap(x, dx, w, dw);
-            if(wx) add(&s, px + ((size_t)y * w + x) * ch, ch, wx * wy);
+            if(wx) add(&s, px + ((size_t)(y - first_y) * w + x) * ch, ch, wx * wy);
         }
     }
     return finish(&s);
+}
+void kui_cover_shrink_row(const uint8_t *band, unsigned w, unsigned h, unsigned ch,
+                          unsigned dw, unsigned dh, unsigned dy, uint16_t *out) {
+    unsigned first_y = dy * h / dh;
+    for(unsigned x = 0; x < dw; ++x)
+        out[x] = shrink(band, w, h, ch, x, dy, dw, dh, first_y);
 }
 /* Pixel centres map to pixel centres; edges clamp. 16-bit fractions. */
 static void place(unsigned k, unsigned src, unsigned dst, unsigned *i0, unsigned *i1, uint64_t *t) {
@@ -228,32 +234,37 @@ bool kui_cover_scale(const uint8_t *px, unsigned w, unsigned h, unsigned ch, uin
     if(!px || !out || !w || !h || (ch != 3 && ch != 4) || !edge || edge > KUI_COVER_SCALE_MAX ||
        w > 8192u || h > 8192u) return false;
     unsigned dw, dh;
-    fit(w, h, edge, &dw, &dh);
+    kui_cover_fit(w, h, edge, &dw, &dh);
     for(unsigned i = 0; i < edge * edge; ++i) out[i] = KUI_COVER_BACKGROUND;
     unsigned ox = (edge - dw) / 2u, oy = (edge - dh) / 2u;
     bool smaller = w >= dw && h >= dh;
     for(unsigned y = 0; y < dh; ++y)
         for(unsigned x = 0; x < dw; ++x)
-            out[(oy + y) * edge + ox + x] = smaller ? shrink(px, w, h, ch, x, y, dw, dh) :
+            out[(oy + y) * edge + ox + x] = smaller ? shrink(px, w, h, ch, x, y, dw, dh, 0) :
                 enlarge(px, w, h, ch, x, y, dw, dh);
     return true;
 }
+bool kui_cover_can_halve(unsigned w, unsigned h) {
+    if(w < 2 || h < 2) return false;
+    unsigned dw, dh;
+    kui_cover_fit(w,h,KUI_COVER_LARGE,&dw,&dh);
+    return w >= 4u*dw && h >= 4u*dh;
+}
+void kui_cover_half_row(const uint8_t *top, const uint8_t *bottom, unsigned w, unsigned ch, uint8_t *out) {
+    for(unsigned x=0; x<w/2u; ++x, top+=2*ch, bottom+=2*ch, out+=ch)
+        for(unsigned c=0; c<ch; ++c)
+            out[c]=(uint8_t)((top[c]+top[ch+c]+bottom[c]+bottom[ch+c]+2u)/4u);
+}
 void kui_cover_reduce(uint8_t *px, unsigned *width, unsigned *height, unsigned ch) {
-    if(!px || !width || !height || (ch != 3 && ch != 4)) return;
-    unsigned w = *width, h = *height, dw, dh;
-    for(;;) {
-        fit(w, h, KUI_COVER_LARGE, &dw, &dh);
-        if(w < 4u * dw || h < 4u * dh || w < 2u || h < 2u) break;
-        unsigned nw = w / 2u, nh = h / 2u;
-        /* Each output lies at or before the inputs still to be read. */
-        for(unsigned y = 0; y < nh; ++y)
-            for(unsigned x = 0; x < nw; ++x) {
-                const uint8_t *a = px + ((size_t)2u * y * w + 2u * x) * ch, *b = a + (size_t)w * ch;
-                uint8_t *o = px + ((size_t)y * nw + x) * ch;
-                for(unsigned c = 0; c < ch; ++c)
-                    o[c] = (uint8_t)((a[c] + a[ch + c] + b[c] + b[ch + c] + 2u) / 4u);
-            }
-        w = nw; h = nh;
+    if(!px || !width || !height || (ch != 3 && ch != 4) || !*width || !*height) return;
+    unsigned w = *width, h = *height;
+    while(kui_cover_can_halve(w,h)) {
+        size_t stride = (size_t)w * ch;
+        for(unsigned y=0; y<h/2u; ++y) {
+            const uint8_t *top=px+(size_t)(2*y)*stride;
+            kui_cover_half_row(top,top+stride,w,ch,px+(size_t)y*(w/2u)*ch);
+        }
+        w/=2; h/=2;
     }
     *width = w; *height = h;
 }
