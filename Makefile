@@ -162,6 +162,7 @@ test-updater: build/test-update build/test-update-v2 build/test-update-handoff b
 	$(MAKE) test-runtime-provider
 	python3 tests/test_update_browser_images.py
 	python3 tests/test_update_nightly_images.py
+	python3 tests/test_update_keep_file.py
 	python3 tests/test_update_zip_images.py
 	python3 tests/test_update_images.py --skip-codec --binary $(CURDIR)/build/update-image --boot-binary $(CURDIR)/build/update-boot
 

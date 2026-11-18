@@ -1974,6 +1974,13 @@ static void update_controls(void) {
     assert(!memcmp(&draft,&s.system_draft,sizeof(draft)));
     puts("PASS offline update UI: package paging, read-only check, exact confirmation, stale replies, safe Stop, restore/baseline, uncertain activation and restart");
 }
+static void open_nightly(unsigned keep) {
+    assert(press(KUI_SHELL_L,false)==KUI_SHELL_UPDATE_RUN && s.update_request.op==KUI_SHELL_UPDATE_OPTIONS);
+    struct kui_shell_update_view result={.generation=s.update_generation,.stage=KUI_SHELL_UPDATE_RESULT,
+        .keep_known=true,.keep=keep};
+    strcpy(result.directory,s.update_request.directory);result.status.complete=result.status.passed=true;
+    kui_shell_set_update(&s,&result);assert(s.update_online && !s.update_loading && s.update_keep==keep);
+}
 static void update_folders_controls(void) {
     struct kui_shell_view view={0};
     reset(KUI_SHELL_SETTINGS);s.system_selected=12u;
@@ -1986,14 +1993,33 @@ static void update_folders_controls(void) {
     strcpy(list.rows[0].name,"test");strcpy(list.rows[0].path,"0:/KUI/updates/test");list.rows[0].is_directory=true;
     strcpy(list.rows[1].name,"release.kup");strcpy(list.rows[1].path,"0:/KUI/updates/release.kup");
     kui_shell_set_update(&s,&list);render(&view);assert(strstr(drawn,"Folder >"));
-    assert(press(KUI_SHELL_L,false)==KUI_SHELL_NONE && s.update_online);
+    open_nightly(5);
     assert(press(KUI_SHELL_LEFT,false)==KUI_SHELL_NONE && s.update_route==KUI_INTERNET_DREAMPI);
-    struct kui_shell_view online_view={0};render(&online_view);assert(strstr(drawn,"Dial DreamPi"));
+    struct kui_shell_view online_view={0};render(&online_view);
+    assert(strstr(drawn,"Dial DreamPi") && strstr(drawn,"Downloads to keep") && s.update_keep==5);
+    assert(press(KUI_SHELL_DOWN,false)==KUI_SHELL_NONE);
+    const unsigned limits[]={10,0,1,3,5,10};
+    for(unsigned i=0;i<sizeof(limits)/sizeof(limits[0]);i++) {
+        assert(press(KUI_SHELL_RIGHT,false)==KUI_SHELL_NONE && s.update_keep==limits[i]);
+        if(s.update_keep==0) {render(&online_view);assert(strstr(drawn,"Unlimited") && strstr(drawn,"Save limit"));}
+    }
+    /* Back discards the choice without changing any existing preferences. */
     assert(press(KUI_SHELL_B,false)==KUI_SHELL_NONE && !s.update_online);
-    assert(press(KUI_SHELL_L,false)==KUI_SHELL_NONE && s.update_online);
+    open_nightly(5);
     assert(press(KUI_SHELL_A,false)==KUI_SHELL_UPDATE_RUN && !s.update_online &&
-        s.update_request.op==KUI_SHELL_UPDATE_NIGHTLY && s.update_request.route==KUI_INTERNET_DREAMPI);
-    list.generation=s.update_generation;kui_shell_set_update(&s,&list);
+        s.update_request.op==KUI_SHELL_UPDATE_NIGHTLY && s.update_request.route==KUI_INTERNET_DREAMPI &&
+        s.update_request.keep==5u && !s.update_request.change_keep);
+    struct kui_shell_update_view online_result={.generation=s.update_generation,.stage=KUI_SHELL_UPDATE_RESULT};
+    strcpy(online_result.directory,s.update_request.directory);online_result.status.complete=true;
+    kui_shell_set_update(&s,&online_result);
+    open_nightly(5);
+    assert(press(KUI_SHELL_UP,false)==KUI_SHELL_NONE && press(KUI_SHELL_LEFT,false)==KUI_SHELL_NONE && s.update_keep==3u);
+    assert(press(KUI_SHELL_A,false)==KUI_SHELL_UPDATE_RUN && s.update_request.op==KUI_SHELL_UPDATE_SAVE_LIMIT &&
+        s.update_request.keep==3u && s.update_request.change_keep);
+    s.system_draft.music_volume=25u;
+    list.generation=s.update_generation;list.keep_known=true;list.keep=3;
+    kui_shell_set_update(&s,&list);
+    assert(s.update_saved_keep==3u && s.system_draft.music_volume==25u);
     assert(!s.update.restart_required && press(KUI_SHELL_START,false)==KUI_SHELL_NONE && s.confirm_restart && s.update_restart);
     assert(press(KUI_SHELL_A,false)==KUI_SHELL_RESTART_KUI && s.update_loading);
     kui_shell_set_update(&s,&list);assert(!s.update_loading);

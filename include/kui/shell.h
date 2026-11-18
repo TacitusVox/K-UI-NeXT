@@ -43,7 +43,8 @@
 #define KUI_SHELL_UPDATE_PATH_BYTES 192u
 enum kui_shell_update_op { KUI_SHELL_UPDATE_LIST, KUI_SHELL_UPDATE_CHECK,
     KUI_SHELL_UPDATE_INSTALL, KUI_SHELL_UPDATE_PREVIOUS, KUI_SHELL_UPDATE_BASELINE,
-    KUI_SHELL_UPDATE_RESTORE, KUI_SHELL_UPDATE_NIGHTLY };
+    KUI_SHELL_UPDATE_RESTORE, KUI_SHELL_UPDATE_NIGHTLY,
+    KUI_SHELL_UPDATE_SAVE_LIMIT, KUI_SHELL_UPDATE_OPTIONS };
 enum kui_shell_update_stage { KUI_SHELL_UPDATE_PACKAGES, KUI_SHELL_UPDATE_REVIEW,
     KUI_SHELL_UPDATE_RESULT };
 struct kui_shell_update_storage {
@@ -54,6 +55,8 @@ struct kui_shell_update_storage {
 struct kui_shell_update_request {
     enum kui_shell_update_op op;
     enum kui_internet_route route;
+    unsigned keep;
+    bool change_keep;
     unsigned generation,page;
     uint64_t token;
     char path[KUI_SHELL_UPDATE_PATH_BYTES],target[KUI_UPDATE_BUILD_BYTES];
@@ -76,6 +79,8 @@ struct kui_shell_update_view {
     struct kui_shell_update_request reviewed;
     char running[KUI_UPDATE_BUILD_BYTES],selected[KUI_UPDATE_BUILD_BYTES],previous[KUI_UPDATE_BUILD_BYTES];
     char gui_build[KUI_UPDATE_BUILD_BYTES];
+    bool keep_known;
+    unsigned keep;
     unsigned replacement_count,inherited_count,removed_count;
     uint64_t free_bytes,required_bytes;
     bool ready,restore,baseline,space_known,restart_required,selection_known;
@@ -275,6 +280,7 @@ struct kui_shell {
     unsigned update_generation,update_selected;
     bool update_loading,update_stopping,update_restart,update_online;
     enum kui_internet_route update_route;
+    unsigned update_online_row,update_keep,update_saved_keep;
     struct kui_shell_update_request update_request,update_confirm_request;
     struct kui_shell_update_view update;
     bool video_trial, confirm_defaults, confirm_clock, confirm_vmu_restore;

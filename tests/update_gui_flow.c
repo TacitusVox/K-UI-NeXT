@@ -7,6 +7,7 @@
 #include "kui/update_software_file.h"
 #include "kui/update_zip.h"
 #include "kui/update_nightly.h"
+#include "kui/update_keep_file.h"
 #include "kui/games_storage.h"
 #include "kui/music.h"
 #include "kui/storage_policy.h"
@@ -22,6 +23,7 @@
 #define KUI_GITHUB_NIGHTLY 1 /* Exercise an official nightly contacting the feed. */
 #define UPDATES "0:/KUI/updates"
 #define FULL_PATH UPDATES "/full.kup"
+#define NIGHTLY_PATH KUI_NIGHTLY_DIRECTORY "/nightly-1111111111111111111111111111111111111111.kup"
 #define A_PATH UPDATES "/partial-a.kup"
 #define B_PATH UPDATES "/partial-b.kup"
 #define OLD_PACKAGE UPDATES "/legacy-gui2.kup"
@@ -74,15 +76,22 @@ bool kui_games_storage_release(void) {CHECK(mounted);mounted=false;return f_moun
 /* The downloader has its own storage and transport tests. Use a KUP on
  * the real mounted image here to exercise the handoff into the GUI worker. */
 static const char *download_result;
-bool kui_update_nightly_download(enum kui_internet_route route,const char *running_build,char path[KUI_UPDATE_BROWSER_PATH_BYTES],
+static bool trim_succeeds=true;
+static unsigned trimmed_keep,trim_calls;
+bool kui_nightly_trim(unsigned keep,const char *protected_commit,kui_cancel_fn cancel) {
+    CHECK(mounted && !protected_commit && cancel==kui_cancelled);
+    trimmed_keep=keep;++trim_calls;return trim_succeeds;
+}
+static unsigned expected_keep=KUI_UPDATE_KEEP_DEFAULT;
+bool kui_update_nightly_download(enum kui_internet_route route,const char *running_build,unsigned keep,char path[KUI_UPDATE_BROWSER_PATH_BYTES],
     struct kui_app_status *status,kui_log_fn log,kui_cancel_fn cancel,kui_app_progress_fn progress) {
-    CHECK(!strcmp(running_build,KUI_BUILD_ID));
+    CHECK(!strcmp(running_build,KUI_BUILD_ID) && keep==expected_keep);
     CHECK(mounted && paused && route==KUI_INTERNET_DREAMPI && log==kui_log && cancel==kui_cancelled && progress==app_progress);
     if(!download_result) {
         strcpy(status->message,"Nightly download interrupted");
         return false;
     }
-    if(!*download_result)strcpy(status->message,"Latest GUI already running");
+    strcpy(status->message,*download_result?"Nightly ready. Download cleanup incomplete. Retry the check.":"Latest GUI already running");
     strcpy(path,download_result);return true;
 }
 
@@ -173,8 +182,13 @@ static void browse_without_selection(void) {
 static void check_nightly_review(void) {
     struct kui_shell_update_request input=request(KUI_SHELL_UPDATE_NIGHTLY,NULL);
     input.route=KUI_INTERNET_DREAMPI;
+    strcpy(input.directory,KUI_NIGHTLY_DIRECTORY);input.keep=KUI_UPDATE_KEEP_DEFAULT;
     struct kui_shell_update_view view;
     unsigned before=writes;
+    struct kui_shell_update_request options=request(KUI_SHELL_UPDATE_OPTIONS,NULL);
+    options.change_keep=true;options.keep=1u; /* Opening options is always read-only. */
+    update_work(&options,&view);view_ok(&view);
+    CHECK(view.keep_known && view.keep==5u && !trim_calls && writes==before);
     download_result=NULL;
     update_work(&input,&view);
     CHECK(!view.ready && !view.status.passed && strstr(view.status.message,"download interrupted"));
@@ -185,11 +199,28 @@ static void check_nightly_review(void) {
     download_result="0:/KUI/runtime.kui";
     update_work(&input,&view);
     CHECK(!view.ready && !view.status.passed && strstr(view.status.message,"path"));
-    download_result=FULL_PATH;
+    download_result=NIGHTLY_PATH;
     update_work(&input,&view);view_ok(&view);
-    CHECK(view.ready && view.stage==KUI_SHELL_UPDATE_REVIEW && !view.restore);
-    CHECK(view.reviewed.op==KUI_SHELL_UPDATE_INSTALL && !strcmp(view.reviewed.path,FULL_PATH) && view.reviewed.token);
-    CHECK(writes==before);
+    CHECK(view.ready && view.stage==KUI_SHELL_UPDATE_REVIEW && !view.restore && strstr(view.status.message,"cleanup incomplete"));
+    CHECK(view.reviewed.op==KUI_SHELL_UPDATE_INSTALL && !strcmp(view.reviewed.path,NIGHTLY_PATH) && view.reviewed.token);
+    CHECK(writes==before && view.keep_known && view.keep==KUI_UPDATE_KEEP_DEFAULT);
+    /* Save and apply without going online. The next options request remounts
+     * the card and loads the saved value before showing it to the user. */
+    struct kui_shell_update_request save=request(KUI_SHELL_UPDATE_SAVE_LIMIT,NULL);
+    save.keep=3;update_work(&save,&view);view_ok(&view);CHECK(view.keep_known && view.keep==3u);
+    CHECK(trim_calls==1 && trimmed_keep==3);
+    update_work(&options,&view);view_ok(&view);CHECK(view.keep_known && view.keep==3);
+    trim_succeeds=false;update_work(&save,&view);
+    CHECK(!view.status.passed && view.keep_known && strstr(view.status.message,"Limit saved"));
+    trim_succeeds=true;update_work(&save,&view);view_ok(&view);CHECK(trimmed_keep==3);
+
+    before=writes;save.keep=99u;update_work(&save,&view);
+    CHECK(!view.status.passed && !view.keep_known && writes==before);
+    expected_keep=3;download_result="";update_work(&input,&view);view_ok(&view);CHECK(writes==before);
+    /* Apply an unsaved choice on download, even if the transfer then fails. */
+    input.keep=0;input.change_keep=true;expected_keep=0;download_result=NULL;
+    update_work(&input,&view);CHECK(!view.status.passed && view.keep_known && view.keep==0);
+    update_work(&options,&view);view_ok(&view);CHECK(view.keep_known && view.keep==0);
 }
 static void expect_helper(const char *expected) {
     FIL file;UINT got=0u;char data[64]={0};CHECK(f_open(&file,HELPER,FA_READ)==FR_OK);
@@ -352,13 +383,19 @@ int main(int argc,char **argv) {
     CHECK(kui_update_boot_read(KUI_BUILD_ID,KUI_STORAGE_SCI,&image,&update_boot_view,kui_log,kui_cancelled)==KUI_UPDATE_BOOT_BASELINE);
     CHECK(!image.data && writes==before);release_volume();
     struct kui_shell_update_view review=check_package(FULL_PATH);CHECK(writes==before);
+    mount_volume();copy_host(argv[4],NIGHTLY_PATH);release_volume();
     check_nightly_review();
     review=check_package(FULL_PATH);
     /* Change the real saved selection between review and confirmation. */
     mount_volume();struct kui_update_activation changed={.sequence=17u};activation_write(0u,&changed);release_volume();
     input=review.reviewed;input.generation=++generation;before=writes;update_work(&input,&view);
     CHECK(view.status.complete && !view.status.passed && !view.ready && strstr(view.status.message,"review changed") && writes==before);
-    mount_volume();corrupt_selection();release_volume();review=check_package(FULL_PATH);view=install_review(&review);
+    mount_volume();corrupt_selection();release_volume();
+    input=request(KUI_SHELL_UPDATE_NIGHTLY,NULL);strcpy(input.directory,KUI_NIGHTLY_DIRECTORY);
+    input.route=KUI_INTERNET_DREAMPI;input.keep=0;download_result=NIGHTLY_PATH;
+    update_work(&input,&review);view_ok(&review);
+    CHECK(review.ready && !strcmp(review.reviewed.path,NIGHTLY_PATH) && !strcmp(review.reviewed.directory,KUI_NIGHTLY_DIRECTORY));
+    view=install_review(&review);
     CHECK(strcmp(view.selected,review.reviewed.package.build));char full_bank[13];strcpy(full_bank,view.selected);
     mount_volume();CHECK(!strcmp(activation().selected,view.selected));release_volume();restart_selected();
     mount_volume();expect_helper("full helper");release_volume();shared_records(1u);
@@ -405,5 +442,5 @@ int main(int argc,char **argv) {
     CHECK(!lose_selectors_after_install && !view.status.passed && !view.selection_known &&
         strstr(view.status.message,"Activation could not be confirmed"));
     CHECK(!mounted && !paused && pauses==resumes);kui_update_boot_reset();free(disk);
-    printf("PASS actual GUI update flow: %u checks; unknown/BLOCK read-only listing, corrupt-selector LIST/CHECK/FULL install, stale review rejection, actual snapshot IDs, partial A/B, shared real presets/selection, restart/adoption, GUI2 CHECK/Restore admission, corrupt FULL repair and ZIP review cache verification\n",checks);return 0;
+    printf("PASS actual GUI update flow: %u checks; mounted download preference, offline trim retry, nested nightly review/install, unknown/BLOCK read-only listing, corrupt-selector LIST/CHECK/FULL install, stale review rejection, actual snapshot IDs, partial A/B, shared real presets/selection, restart/adoption, GUI2 CHECK/Restore admission, corrupt FULL repair and ZIP review cache verification\n",checks);return 0;
 }

@@ -119,7 +119,8 @@ def main():
             "src/core/runtime_file.c", "src/core/storage_policy.c", "src/core/hash.c", "src/core/data.c",
             "src/core/diskio.c", "src/core/game_launch_settings.c", "src/core/game_ram_patches.c",
             "src/apps/game_launch_settings_file.c", "src/core/games_selection.c",
-            "src/apps/games_selection.c", "src/core/destination.c", str(miniz),
+            "src/apps/games_selection.c", "src/core/update_keep_file.c",
+            "src/core/destination.c", str(miniz),
             str(source / "ff.c"), str(source / "ffunicode.c"),
             "-Wl,--wrap=f_open,--wrap=f_stat", "-o", str(binary))
         formatter = private_formatter(base)

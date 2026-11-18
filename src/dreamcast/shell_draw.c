@@ -227,7 +227,8 @@ static void footer(struct paint *p, const struct kui_shell *s,
         s->confirm_wifi_update ? "A Update firmware   B Cancel" :
         s->page==KUI_SHELL_GD_PLAY ? "A K-UI   X Stock retail   Y Options   START Cards   B Back" :
         s->page==KUI_SHELL_UPDATES ? (s->update_loading?"B Request safe stop":
-            s->update_online?"Left/right Connection   A Download   B Back":
+            s->update_online?(s->update_online_row?"Up/down Row   Left/right Change   A Save limit   B Back":
+                "Up/down Row   Left/right Change   A Download   B Back"):
             s->update.stage==KUI_SHELL_UPDATE_REVIEW?(s->update.ready?
                 s->update.restore?"A Restore this version   B Cancel":"A Install this package   B Cancel":"B Packages"):
             s->update.stage==KUI_SHELL_UPDATE_RESULT?
@@ -1013,12 +1014,23 @@ static void updates_page(struct paint *p,const struct kui_shell *s,const struct 
         !u->selection_known?"unchecked":u->selected[0]?u->selected:"original baseline");label(p,40,138,CYAN,line);
     if(s->update_online) {
         label(p,40,168,MUTED,"TacitusVox/K-UI-NeXT");
-        panel(p,32,202,576,42,SELECTED);
-        label(p,48,213,WHITE,"Connection");label(p,320,213,CYAN,internet_route_name(s->update_route));
-        words(p,40,270,604,WHITE,"Download the latest testing GUI to the SD card for review.",false);
-        words(p,40,313,604,MUTED,s->update_route==KUI_INTERNET_DREAMPI?
-            "A dials the modem through DreamPi. B stops the transfer.":
-            "Automatic checks Broadband Adapter, W5500 and configured Wi-Fi.",false);
+        panel(p,32,201,576,36,s->update_online_row==0?SELECTED:PANEL);
+        label(p,48,209,WHITE,"Connection");label(p,320,209,CYAN,internet_route_name(s->update_route));
+        panel(p,32,240,576,36,s->update_online_row==1?SELECTED:PANEL);
+        label(p,48,248,WHITE,"Downloads to keep");
+        if(s->update_keep)snprintf(line,sizeof(line),"%u",s->update_keep);
+        else strcpy(line,"Unlimited");
+        label(p,320,248,CYAN,line);
+        if(s->update_online_row) {
+            words(p,40,301,604,WHITE,s->update_keep?
+                "A saves this limit and removes older automatic downloads from this SD card. Manually copied packages stay.":
+                "A saves Unlimited. All automatic downloads stay on this SD card.",false);
+        } else {
+            words(p,40,294,604,WHITE,"Download the latest testing GUI to the SD card for review.",false);
+            words(p,40,340,604,MUTED,s->update_route==KUI_INTERNET_DREAMPI?
+                "A dials the modem through DreamPi. B stops the transfer.":
+                "Automatic checks Broadband Adapter, W5500 and configured Wi-Fi.",false);
+        }
         return;
     }
     if(!s->update_loading && u->stage!=KUI_SHELL_UPDATE_REVIEW)label(p,40,160,CYAN,"L GitHub nightly");

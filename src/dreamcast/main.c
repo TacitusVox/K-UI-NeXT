@@ -14,6 +14,7 @@
 #include "kui/update_handoff.h"
 #include "kui/update.h"
 #include "kui/update_nightly.h"
+#include "kui/update_keep_file.h"
 /* One retained marker admits this runtime to immutable update banks. A
  * volatile read in main keeps the capability in the linked payload. */
 static volatile const uint8_t kui_update_bank_capability[16] __attribute__((used))={
@@ -2782,8 +2783,13 @@ static void update_work(const struct kui_shell_update_request *request,struct ku
     out->stage=KUI_SHELL_UPDATE_RESULT;
     bool mutation=request->op==KUI_SHELL_UPDATE_INSTALL || request->op==KUI_SHELL_UPDATE_RESTORE;
     bool nightly=request->op==KUI_SHELL_UPDATE_NIGHTLY;
-    if((unsigned)request->op>KUI_SHELL_UPDATE_NIGHTLY || !kui_update_browser_path(request->directory) ||
-       (nightly && ((unsigned)request->route>=KUI_INTERNET_ROUTE_COUNT || strcmp(request->directory,KUI_UPDATE_BROWSER_ROOT))) ||
+    bool save_limit=request->op==KUI_SHELL_UPDATE_SAVE_LIMIT;
+    bool options=request->op==KUI_SHELL_UPDATE_OPTIONS;
+    bool preferences_only=options || save_limit;
+    if((unsigned)request->op>KUI_SHELL_UPDATE_OPTIONS || !kui_update_browser_path(request->directory) ||
+       ((nightly || save_limit) && !kui_update_keep_valid(request->keep)) ||
+       (save_limit && strcmp(request->directory,KUI_UPDATE_BROWSER_ROOT)) ||
+       (nightly && ((unsigned)request->route>=KUI_INTERNET_ROUTE_COUNT || strcmp(request->directory,KUI_NIGHTLY_DIRECTORY))) ||
        kui_cancelled()) {
         update_view_error(out,"Update operation stopped before starting.");return;
     }
@@ -2791,13 +2797,13 @@ static void update_work(const struct kui_shell_update_request *request,struct ku
     kui_sd_set_params(KUI_STORAGE_AUTO,true);
     bool opened=kui_games_storage_open(kui_log)==KUI_GAMES_STORAGE_OK;
     struct kui_update_activation activation={0};struct kui_shell_update_storage storage={0};
-    bool storage_ok=opened && update_storage_read(&storage);unsigned activation_slot=0u;
-    enum kui_update_result selection_result=storage_ok?
+    bool storage_ok=opened && (preferences_only || update_storage_read(&storage));unsigned activation_slot=0u;
+    enum kui_update_result selection_result=storage_ok && !preferences_only?
         kui_update_activation_for_update(&activation,&activation_slot,kui_cancelled):KUI_UPDATE_IO;
     bool selection_ok=selection_result==KUI_UPDATE_OK || selection_result==KUI_UPDATE_NOT_FOUND;
     /* Browsing is read-only and remains available even when saved selection
      * cannot be recovered safely. Only review/publication needs that pin. */
-    bool ok=storage_ok && (selection_ok || request->op==KUI_SHELL_UPDATE_LIST);
+    bool ok=storage_ok && (selection_ok || request->op==KUI_SHELL_UPDATE_LIST || preferences_only);
     if(!ok)update_view_error(out,!storage_ok?"Cannot verify the update SD card; refresh after checking storage.":
         selection_result==KUI_UPDATE_PROTECTED?"Saved bank selections conflict; use the bootstrap repair ZIP.":
         selection_result==KUI_UPDATE_ENGINE?"Root updater needs repair; use the bootstrap repair ZIP.":
@@ -2810,14 +2816,26 @@ static void update_work(const struct kui_shell_update_request *request,struct ku
     }
     bool up_to_date=false;
     char downloaded[KUI_SHELL_UPDATE_PATH_BYTES]={0};
+    char nightly_notice[sizeof(out->status.message)]={0};
     const char *review_path=request->path;
+    if(ok && (nightly || preferences_only)) {
+        /* Use the preference on the currently mounted card unless the user
+         * chose a new value. Failed downloads leave the saved choice intact. */
+        if(save_limit || (nightly && request->change_keep)) {
+            ok=!kui_cancelled() && kui_update_keep_save(request->keep);
+            if(ok)out->keep=request->keep;
+        } else ok=kui_update_keep_load(&out->keep);
+        out->keep_known=ok;
+        if(!ok)update_view_error(out,"Cannot read or save the download limit. Check the SD card.");
+    }
     if(ok && nightly) {
         update_reviewed.ready=false;
-        ok=kui_update_nightly_download(request->route,KUI_GITHUB_NIGHTLY ? KUI_BUILD_ID : NULL,downloaded,&out->status,kui_log,kui_cancelled,app_progress);
+        ok=kui_update_nightly_download(request->route,KUI_GITHUB_NIGHTLY ? KUI_BUILD_ID : NULL,out->keep,downloaded,&out->status,kui_log,kui_cancelled,app_progress);
         up_to_date=ok && !downloaded[0];
-        if(ok && !up_to_date && (!kui_update_browser_child(KUI_UPDATE_BROWSER_ROOT,downloaded) || !update_package_path(downloaded))) {
+        if(ok && !up_to_date && (!kui_update_browser_child(request->directory,downloaded) || !update_package_path(downloaded))) {
             update_view_error(out,"Downloaded package path could not be checked.");ok=false;
         }
+        if(ok && !up_to_date)memcpy(nightly_notice,out->status.message,sizeof(nightly_notice));
         review_path=downloaded;
     }
     struct kui_update_package *package=NULL;
@@ -2861,6 +2879,12 @@ static void update_work(const struct kui_shell_update_request *request,struct ku
             } else if(result==KUI_UPDATE_OK)snprintf(out->status.message,sizeof(out->status.message),
                 "%s selected. Press START for Restart K-UI.",request->op==KUI_SHELL_UPDATE_INSTALL?"Update":"Restore target");
             ok=result==KUI_UPDATE_OK;
+        }
+    } else if(ok && preferences_only) {
+        if(save_limit) {
+            ok=kui_nightly_trim(out->keep,NULL,kui_cancelled);
+            if(ok)snprintf(out->status.message,sizeof(out->status.message),"Download limit saved and applied. L opens GitHub nightly.");
+            else update_view_error(out,"Limit saved. Cleanup incomplete. Choose Save limit again to retry.");
         }
     } else if(ok && !up_to_date) {
         package=malloc(sizeof(*package));
@@ -2911,7 +2935,11 @@ static void update_work(const struct kui_shell_update_request *request,struct ku
                         out->restore?"Restore target checked. A confirms the selection.":"Package checked. A confirms installation.":
                         kui_cancelled()?"Update check stopped.":out->space_known?
                         "Not enough free space for the update and safety margin.":"Cannot confirm available SD space; installation is unavailable.");
-                if(out->ready)update_reviewed=*out;
+                if(out->ready) {
+                    /* Inspection replaces the transfer status. Keep cleanup or receipt warnings visible. */
+                    if(nightly_notice[0])memcpy(out->status.message,nightly_notice,sizeof(nightly_notice));
+                    update_reviewed=*out;
+                }
             }
         }
     }

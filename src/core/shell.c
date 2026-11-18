@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: GPL-3.0-only */
 #include "kui/shell.h"
+#include "kui/update_retention.h"
 #include "kui/retail_image.h"
 #include "kui/games_retail.h"
 #include <limits.h>
@@ -397,6 +398,15 @@ void kui_shell_set_update(struct kui_shell *s,const struct kui_shell_update_view
     if(!s || !view || s->page!=KUI_SHELL_UPDATES || !s->update_loading ||
        view->generation!=s->update_generation || view->generation!=s->update_request.generation ||
        !kui_update_browser_path(view->directory) || strcmp(view->directory,s->update_request.directory))return;
+    if(view->keep_known && kui_update_keep_valid(view->keep)) {
+        s->update_saved_keep=view->keep;
+        if(s->update_request.op==KUI_SHELL_UPDATE_OPTIONS && view->status.complete && view->status.passed) {
+            /* Keep the folder listing and cursor available when B closes options. */
+            s->update_online=true;s->update_online_row=0;s->update_keep=view->keep;
+            s->update_loading=s->update_stopping=false;
+            return;
+        }
+    }
     s->update=*view;struct kui_shell_update_view *v=&s->update;
     v->status.message[sizeof(v->status.message)-1u]=0;
     if(v->status.line_count>KUI_APP_LINES)v->status.line_count=KUI_APP_LINES;
@@ -4481,17 +4491,32 @@ enum kui_shell_action kui_shell_input(struct kui_shell *s,
         }
         if(s->update_online) {
             if(buttons==KUI_SHELL_LEFT || buttons==KUI_SHELL_RIGHT) {
-                unsigned step=buttons==KUI_SHELL_LEFT?KUI_INTERNET_ROUTE_COUNT-1u:1u;
-                s->update_route=(enum kui_internet_route)((s->update_route+step)%KUI_INTERNET_ROUTE_COUNT);
+                if(s->update_online_row==0) {
+                    unsigned step=buttons==KUI_SHELL_LEFT?KUI_INTERNET_ROUTE_COUNT-1u:1u;
+                    s->update_route=(enum kui_internet_route)((s->update_route+step)%KUI_INTERNET_ROUTE_COUNT);
+                } else {
+                    static const unsigned choices[]={1,3,KUI_UPDATE_KEEP_DEFAULT,10,0};
+                    unsigned count=sizeof(choices)/sizeof(choices[0]);
+                    for(unsigned i=0;i<count;i++) if(s->update_keep==choices[i]) {
+                        s->update_keep=choices[(i+(buttons==KUI_SHELL_LEFT?count-1u:1u))%count];
+                        break;
+                    }
+                }
+            } else if(buttons==KUI_SHELL_UP || buttons==KUI_SHELL_DOWN) {
+                s->update_online_row=1u-s->update_online_row;
             } else if(buttons==KUI_SHELL_A) {
-                struct kui_shell_update_request request={.op=KUI_SHELL_UPDATE_NIGHTLY,.route=s->update_route};
-                strcpy(request.directory,KUI_UPDATE_BROWSER_ROOT);
+                struct kui_shell_update_request request={
+                    .op=s->update_online_row?KUI_SHELL_UPDATE_SAVE_LIMIT:KUI_SHELL_UPDATE_NIGHTLY,
+                    .route=s->update_route,.keep=s->update_keep,
+                    .change_keep=s->update_keep!=s->update_saved_keep
+                };
+                strcpy(request.directory,s->update_online_row?KUI_UPDATE_BROWSER_ROOT:KUI_NIGHTLY_DIRECTORY);
                 s->update_online=false;
                 return updates_dispatch(s,&request);
             }
             break;
         }
-        if(buttons==KUI_SHELL_L) {s->update_online=true;break;}
+        if(buttons==KUI_SHELL_L)return updates_request(s,KUI_SHELL_UPDATE_OPTIONS,v->page);
         if(buttons==KUI_SHELL_START) {s->confirm_restart=s->update_restart=true;break;}
         if(buttons==KUI_SHELL_X) {s->update_selected=0;return updates_request(s,KUI_SHELL_UPDATE_LIST,0);}
         if(buttons==KUI_SHELL_Y)return updates_request(s,KUI_SHELL_UPDATE_PREVIOUS,0);
