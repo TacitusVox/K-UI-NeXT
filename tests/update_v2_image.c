@@ -14,6 +14,11 @@ static uint8_t *disk;static size_t disk_bytes;static FATFS fs;static bool mounte
 static unsigned checks,writes,syncs,root_opens;static int fail_write=-1,fail_sync=-1,cancel_after=-1;
 static int effective_mode;static char effective_bank[13];static uint8_t effective_hash[32];
 static unsigned boot_minimum;static bool activation_io,tear_activation;static char read_failure[160];
+static const char *damage_on_close,*damage_member;
+static FIL *damage_trigger;
+static char damage_path[160];
+static const uint8_t *stale_gui;
+static bool damage_injected;
 unsigned kui_update_boot_engine_minimum(void) {return boot_minimum;}
 int kui_update_effective_snapshot(char bank[13],uint8_t hash[32]) {
     if(effective_mode>0) {memcpy(bank,effective_bank,13u);memcpy(hash,effective_hash,32u);}
@@ -43,7 +48,42 @@ FRESULT __wrap_f_open(FIL *file,const TCHAR *path,BYTE flags) {
     if(active && (flags&FA_WRITE))CHECK(!strncmp(path,KUI_UPDATE_SYSTEM "/",sizeof(KUI_UPDATE_SYSTEM)));
     if(active && activation_io && (strstr(path,"/active0.bin") || strstr(path,"/active1.bin")))return FR_DISK_ERR;
     if(active && flags==FA_READ && read_failure[0] && !strcmp(path,read_failure))return FR_DISK_ERR;
-    return __real_f_open(file,path,flags);
+    FRESULT result=__real_f_open(file,path,flags);
+    if(result==FR_OK && active && damage_on_close && (flags&FA_WRITE)) {
+        const char *name=strrchr(path,'/')+1;
+        if(!strcmp(name,damage_member)) {
+            CHECK(strlen(path)<sizeof(damage_path));
+            strcpy(damage_path,path);
+        }
+        if(!strcmp(name,damage_on_close) || (!strcmp(damage_on_close,"selector") &&
+           (!strcmp(path,KUI_UPDATE_ACTIVE0) || !strcmp(path,KUI_UPDATE_ACTIVE1))))damage_trigger=file;
+    }
+    return result;
+}
+FRESULT __real_f_close(FIL *);
+FRESULT __wrap_f_close(FIL *file) {
+    FRESULT result=__real_f_close(file);
+    if(result==FR_OK && active && file==damage_trigger) {
+        damage_trigger=NULL;damage_on_close=NULL;
+        /* Every filesystem call succeeded, including the writer's sync and
+         * close. Change only bytes on the underlying media. FatFs resolves
+         * each logical sector so this also works for fragmented files. */
+        FIL probe;CHECK(damage_path[0] && __real_f_open(&probe,damage_path,FA_READ)==FR_OK);
+        unsigned bytes=(unsigned)f_size(&probe);
+        if(stale_gui)CHECK(bytes==64u+BODY);
+        unsigned offset=stale_gui?0u:!strcmp(damage_member,"package.bin")?197u:2057u;
+        do {
+            uint8_t before;UINT got=0;
+            CHECK(f_lseek(&probe,offset)==FR_OK && f_read(&probe,&before,1u,&got)==FR_OK && got==1u);
+            size_t at=(size_t)probe.sect*512u+offset%512u;
+            CHECK(probe.sect && at<disk_bytes && disk[at]==before);
+            if(!stale_gui) {disk[at]^=0x80u;break;}
+            unsigned n=bytes-offset<512u?bytes-offset:512u;
+            CHECK(at+n<=disk_bytes);memcpy(disk+at,stale_gui+offset,n);offset+=n;
+        } while(offset<bytes);
+        CHECK(__real_f_close(&probe)==FR_OK);damage_injected=true;
+    }
+    return result;
 }
 FRESULT __real_f_write(FIL *,const void *,UINT,UINT *);
 FRESULT __wrap_f_write(FIL *file,const void *data,UINT bytes,UINT *put) {
@@ -59,6 +99,7 @@ FRESULT __wrap_f_getfree(const TCHAR *path,DWORD *clusters,FATFS **volume) {
 }
 static void clear_faults(void) {
     active=low_space=activation_io=tear_activation=false;fail_write=fail_sync=cancel_after=-1;writes=syncs=root_opens=0u;effective_mode=0;read_failure[0]=0;
+    damage_on_close=damage_member=NULL;damage_trigger=NULL;damage_path[0]=0;damage_injected=false;stale_gui=NULL;
     memset(effective_bank,0,sizeof(effective_bank));memset(effective_hash,0,sizeof(effective_hash));
 }
 static void mount_volume(void) {kui_media_set(&media);CHECK(f_mount(&fs,"0:",1)==FR_OK);mounted=true;}
@@ -158,6 +199,33 @@ static void unchanged(const uint8_t *root,const uint8_t *root_module,const uint8
 }
 static void old_or_new(const char *old,const char *new_id) {
     struct kui_update_activation a=latest();CHECK(!strcmp(a.selected,old) || !strcmp(a.selected,new_id));verify(a.selected);
+}
+struct silent_fault {const char *trigger,*victim;const uint8_t *old_bytes;};
+static void silent_media_damage(const uint8_t *saved,const char *old_path,const struct kui_update_pin *old_pin,
+    const char *target_path,const struct kui_update_pin *target_pin,struct silent_fault fault) {
+    reset(saved);
+    struct kui_update_activation before={0};
+    if(old_path) {CHECK(install(old_path,old_pin)==KUI_UPDATE_OK);before=latest();}
+    damage_on_close=fault.trigger;damage_member=fault.victim;stale_gui=fault.old_bytes;
+    enum kui_update_result result=install(target_path,target_pin);
+    CHECK(damage_injected);
+    if(result==KUI_UPDATE_OK)fprintf(stderr,"Undetected corruption of %s after %s close, %s\n",
+        fault.victim,fault.trigger,target_path);
+    if(strcmp(fault.trigger,"selector"))CHECK(result==KUI_UPDATE_CHECKSUM);
+    else CHECK(result!=KUI_UPDATE_OK);
+    unmount_volume();mount_volume();
+    struct kui_update_activation after={0};unsigned slot=0u;
+    enum kui_update_result observed=kui_update_activation_latest(&after,&slot,cancel);
+    if(old_path || observed!=KUI_UPDATE_NOT_FOUND) {
+        CHECK(observed==KUI_UPDATE_OK);
+        CHECK(!strcmp(fault.trigger,"selector")?after.sequence>=before.sequence:after.sequence==before.sequence);
+        CHECK(!strcmp(before.selected,after.selected) && !strcmp(before.previous,after.previous) &&
+            !memcmp(before.manifest_sha256,after.manifest_sha256,32u));
+    }
+    if(before.selected[0])verify(before.selected);
+    CHECK(install(target_path,target_pin)==KUI_UPDATE_OK);
+    after=latest();CHECK(strcmp(after.selected,before.selected) && !strcmp(after.previous,before.selected));
+    verify(after.selected);
 }
 static void full_repair_cases(const uint8_t *saved,const struct fixture *full,const struct kui_update_pin *pin,
     const char *old,const uint8_t *root,const uint8_t *root_module,const uint8_t *user,size_t user_bytes,
@@ -428,6 +496,18 @@ int main(int argc,char **argv) {
     file_write(KUI_RUNTIME_PATH,root_old,64u+BODY);clear_faults();CHECK(install(FULL,&full_pin)==KUI_UPDATE_ENGINE && !writes);
     file_write(KUI_RUNTIME_PATH,root,64u+BODY);
     uint8_t *saved=malloc(disk_bytes);CHECK(saved);memcpy(saved,disk,disk_bytes);
+    struct silent_fault full_faults[]={
+        {"runtime.kui","runtime.kui",NULL},{"cdda.kui","runtime.kui",NULL},
+        {"package.bin","runtime.kui",NULL},{"package.bin","runtime.kui",gui_config},
+        {"selector","runtime.kui",NULL}
+    };
+    for(unsigned i=0;i<sizeof(full_faults)/sizeof(full_faults[0]);i++)
+        silent_media_damage(saved,READER,&delta_pin,FULL,&full_pin,full_faults[i]);
+    silent_media_damage(saved,FULL,&full_pin,READER,&delta_pin,(struct silent_fault){"package.bin","runtime.kui",NULL});
+    silent_media_damage(saved,FULL,&full_pin,READER,&delta_pin,(struct silent_fault){"selector","package.bin",NULL});
+    silent_media_damage(saved,NULL,NULL,FULL,&full_pin,(struct silent_fault){"selector","runtime.kui",NULL});
+    puts("PASS silent media corruption after GUI, later member, receipt and activation writes, including a same-build stale GUI: FULL and partial refused, prior selection restored after remount, clean retries verified");
+    reset(saved);
     /* The first reader-only delivery also works with no prior bank: materialize
      * the capable root GUI, retain omitted root roles, and preserve absence. */
     clear_faults();active=true;

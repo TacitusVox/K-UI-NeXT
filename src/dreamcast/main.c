@@ -2718,22 +2718,17 @@ static bool update_storage_same(const struct kui_shell_update_storage *a,
     return a->transport==b->transport && a->partition_first==b->partition_first &&
         a->partition_blocks==b->partition_blocks && !memcmp(a->boot_sha256,b->boot_sha256,32u);
 }
-static bool update_activation_current(const struct kui_shell_update_request *review,struct kui_update_activation *out) {
-    unsigned slot=0;
-    /* Recovery may synthesize ROOT for a future install. After publication
-     * report only an actual selection (or a pristine no-op ROOT restore).
-     * Finish this readback even if Stop arrived during the activation. */
-    enum kui_update_result r=kui_update_activation_latest(out,&slot,NULL);
-    bool restore_root=review->op==KUI_SHELL_UPDATE_RESTORE && !review->target[0];
-    if(r==KUI_UPDATE_NOT_FOUND)return restore_root && !review->activation.sequence;
-    if(r!=KUI_UPDATE_OK || out->sequence<review->activation.sequence)return false;
-    if(review->op==KUI_SHELL_UPDATE_INSTALL)return out->selected[0]!=0;
-    return !strcmp(out->selected,review->target) &&
-        (restore_root || !memcmp(out->manifest_sha256,review->package.manifest_sha256,32u));
-}
 static bool update_activation_same(const struct kui_update_activation *a,const struct kui_update_activation *b) {
     return a->sequence==b->sequence && !memcmp(a->selected,b->selected,sizeof(a->selected)) &&
         !memcmp(a->previous,b->previous,sizeof(a->previous)) && !memcmp(a->manifest_sha256,b->manifest_sha256,32u);
+}
+static bool update_activation_current(const struct kui_update_activation *expected) {
+    struct kui_update_activation actual;unsigned slot;
+    /* Finish this read even if Stop arrived during publication. An absent
+     * selector is valid only for a pristine, already-selected ROOT. */
+    enum kui_update_result r=kui_update_activation_latest(&actual,&slot,NULL);
+    if(r!=KUI_UPDATE_OK && !(r==KUI_UPDATE_NOT_FOUND && !expected->sequence))return false;
+    return update_activation_same(expected,&actual);
 }
 static void update_view_error(struct kui_shell_update_view *out,const char *message) {
     out->ready=false;out->stage=KUI_SHELL_UPDATE_RESULT;
@@ -2855,16 +2850,16 @@ static void update_work(const struct kui_shell_update_request *request,struct ku
              * bytes and review pin before writing to a bank. */
             const char *source=kui_update_browser_suffix(review->path,".zip")?
                 KUI_UPDATE_ZIP_STAGE_PATH:review->path;
+            struct kui_update_activation installed;
             enum kui_update_result result=request->op==KUI_SHELL_UPDATE_INSTALL?
-                kui_update_install(source,&review->package,&out->status,kui_log,kui_cancelled,app_progress):
-                kui_update_select(review->target,review->target[0]?review->package.manifest_sha256:NULL,
-                    &out->status,kui_log,kui_cancelled,app_progress);
+                kui_update_install_verified(source,&review->package,&installed,&out->status,kui_log,kui_cancelled,app_progress):
+                kui_update_select_verified(review->target,review->target[0]?review->package.manifest_sha256:NULL,
+                    &installed,&out->status,kui_log,kui_cancelled,app_progress);
             out->restart_required=result==KUI_UPDATE_OK || result==KUI_UPDATE_IO;
             if(result==KUI_UPDATE_OK) {
                 /* A v2 package is applied to the effective installation. Its
                  * resulting snapshot identity can differ from the input ID. */
-                struct kui_update_activation installed;
-                if(update_activation_current(review,&installed)) {
+                if(update_activation_current(&installed)) {
                     memcpy(out->previous,installed.previous,sizeof(out->previous));
                     memcpy(out->selected,installed.selected,sizeof(out->selected));
                 } else {
@@ -2877,7 +2872,7 @@ static void update_work(const struct kui_shell_update_request *request,struct ku
             if(result==KUI_UPDATE_IO && !strstr(out->status.message,"Activation")) {
                 snprintf(out->status.lines[0],KUI_APP_LINE_CAP,"Restart before retrying; check the selected version.");out->status.line_count=1u;
             } else if(result==KUI_UPDATE_OK)snprintf(out->status.message,sizeof(out->status.message),
-                "%s selected. Press START for Restart K-UI.",request->op==KUI_SHELL_UPDATE_INSTALL?"Update":"Restore target");
+                "%s verified and selected. Press START for Restart K-UI.",request->op==KUI_SHELL_UPDATE_INSTALL?"Update":"Restore target");
             ok=result==KUI_UPDATE_OK;
         }
     } else if(ok && preferences_only) {

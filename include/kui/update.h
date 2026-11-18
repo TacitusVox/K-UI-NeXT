@@ -141,8 +141,10 @@ const char *kui_update_result_name(enum kui_update_result result);
 /* FatFs caller owns one mounted volume/exclusive storage worker. These APIs
  * never connect devices, execute code, or write anything outside system/.
  * inspect verifies all payload SHA, runtime headers/build/CRC and GUI marker.
- * install re-inspects the exact pin, completes and rereads bank replacements,
- * writes/syncs/rereads package.bin LAST, then publishes an inactive activation.
+ * install re-inspects the incoming pin, writes the bank and its receipt, then
+ * reopens the receipt and all stored members before publishing the activation.
+ * After a selector write, it verifies the files and exact winning selection
+ * again before success. A no-op reinstall needs only the read-only bank check.
  * V2 installs materialize effective selected replacements and GUI, preserving
  * omitted/KEEP roles and explicit absence in the normalized snapshot receipt.
  * Existing complete same-build banks must match exactly; selected/previous
@@ -151,6 +153,10 @@ enum kui_update_result kui_update_inspect(const char *path,struct kui_update_pac
     struct kui_app_status *,kui_log_fn,kui_cancel_fn,kui_app_progress_fn);
 enum kui_update_result kui_update_install(const char *path,const struct kui_update_pin *expected,
     struct kui_app_status *,kui_log_fn,kui_cancel_fn,kui_app_progress_fn);
+/* On success, published receives the exact confirmed activation, including for
+ * a verified reinstall. A pristine ROOT selection has sequence zero. */
+enum kui_update_result kui_update_install_verified(const char *path,const struct kui_update_pin *expected,
+    struct kui_update_activation *published,struct kui_app_status *,kui_log_fn,kui_cancel_fn,kui_app_progress_fn);
 enum kui_update_result kui_update_activation_read(unsigned slot,struct kui_update_activation *,kui_cancel_fn);
 enum kui_update_result kui_update_activation_latest(struct kui_update_activation *,unsigned *slot,kui_cancel_fn);
 /* UI/installer recovery view. Only malformed activation metadata may normalize
@@ -176,5 +182,7 @@ enum kui_update_result kui_update_plan_space(const struct kui_update_package *,
  * only for baseline; rollback checks the previous bank's own receipt. */
 enum kui_update_result kui_update_select(const char *build,const uint8_t expected_manifest[32],
     struct kui_app_status *,kui_log_fn,kui_cancel_fn,kui_app_progress_fn);
+enum kui_update_result kui_update_select_verified(const char *build,const uint8_t expected_manifest[32],
+    struct kui_update_activation *published,struct kui_app_status *,kui_log_fn,kui_cancel_fn,kui_app_progress_fn);
 enum kui_update_result kui_update_rollback(struct kui_app_status *,kui_log_fn,kui_cancel_fn,kui_app_progress_fn);
 #endif

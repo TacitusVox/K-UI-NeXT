@@ -51,8 +51,15 @@ uint32_t kui_clock_fattime(void) {return ((2026u-1980u)<<25)|(11u<<21)|(5u<<16);
 static void kui_log(const char *format,...) {(void)format;}
 static bool kui_cancelled(void) {return false;}
 static bool lose_selectors_after_install;
+static bool lose_latest_after_install;
 static void app_progress(const struct kui_app_status *status) {
     CHECK(status && mounted);
+    if(lose_latest_after_install && status->passed && strstr(status->message,"Update installed")) {
+        lose_latest_after_install=false;
+        struct kui_update_activation newest;unsigned slot;
+        CHECK(kui_update_activation_latest(&newest,&slot,NULL)==KUI_UPDATE_OK);
+        CHECK(f_unlink(slot?KUI_UPDATE_ACTIVE1:KUI_UPDATE_ACTIVE0)==FR_OK);
+    }
     if(lose_selectors_after_install && status->passed && strstr(status->message,"Update installed")) {
         lose_selectors_after_install=false;
         CHECK(f_unlink(KUI_UPDATE_ACTIVE0)==FR_OK && f_unlink(KUI_UPDATE_ACTIVE1)==FR_OK);
@@ -401,6 +408,13 @@ int main(int argc,char **argv) {
     mount_volume();expect_helper("full helper");release_volume();shared_records(1u);
     review=check_package(A_PATH);view=install_review(&review);char a_bank[13];strcpy(a_bank,view.selected);
     CHECK(strcmp(a_bank,full_bank));restart_selected();mount_volume();expect_helper("test A helper");release_volume();shared_records(2u);
+    /* Lose only the new selector after the installer finishes. A still-valid
+     * older bank must not turn the GUI's final readback into a success. */
+    review=check_package(B_PATH);input=review.reviewed;lose_latest_after_install=true;
+    update_work(&input,&view);
+    CHECK(!lose_latest_after_install && !view.status.passed && view.status.errors &&
+        !view.selection_known && strstr(view.status.message,"Activation could not be confirmed"));
+    mount_volume();CHECK(!strcmp(activation().selected,a_bank));release_volume();
     review=check_package(B_PATH);view=install_review(&review);CHECK(strcmp(view.selected,a_bank));restart_selected();
     mount_volume();expect_helper("test B helper");release_volume();shared_records(3u);
     input=request(KUI_SHELL_UPDATE_PREVIOUS,NULL);update_work(&input,&review);view_ok(&review);

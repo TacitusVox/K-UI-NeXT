@@ -97,7 +97,7 @@ def main():
         build = verify_runtime(current)["build"]
         main_source = (ROOT / "src/dreamcast/main.c").read_text()
         helpers = ("update_package_path", "update_storage_read", "update_storage_same",
-                   "update_activation_current", "update_activation_same", "update_view_error",
+                   "update_activation_same", "update_activation_current", "update_view_error",
                    "update_packages_list", "update_space", "update_work")
         (base / "actual_gui_update_helpers.inc").write_text(
             "\n\n".join(actual_function(main_source, name) for name in helpers) + "\n")
