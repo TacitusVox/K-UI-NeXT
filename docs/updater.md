@@ -111,14 +111,29 @@ component build IDs. Settled readers are not rebuilt or retagged to share one
 cohort. Game ABI/admission remains checked; a reader experiment that needs new
 admission must ship a compatible current-updater GUI prepared by its developer.
 
-Installation verifies the package, prepares an unselected bank, rereads software,
-then publishes its checked receipt and activation. Partial inheritance uses the
-actual running checked root/bank, not a stale pending or rejected saved choice.
-A FULL replacement does not depend on broken prior payloads or receipts.
-A corrupt same-content complete bank is retained; FULL repair uses a separate
-verified bank instance and publishes only after it is complete. Existing or
-referenced banks are never rewritten in place. Space and repair targets are
-rechecked at installation, not assumed from the earlier preview.
+Installation reopens the approved package, checks its identity, and writes
+the resulting software files and receipt into an unselected bank. Once those
+writes finish, it reopens each materialized file and compares its length and
+SHA-256 with the expected manifest. It also checks executable headers and
+payload CRCs, and verifies that a path marked for removal is absent from the
+bank. A physical file inherited by reference has no replacement in the
+package.
+
+After writing a new selection, the installer rereads the selected receipt
+and verifies the files again. It then checks which of the two selection
+records wins. The GUI confirms the exact bank, sequence, rollback bank and
+manifest digest before it reports success. If selection-time verification
+detects damaged contents, the installer checks the prior selection before
+attempting recovery and verifies it again afterward. An inconclusive read
+produces an error. Reinstalling an already selected, verified bank leaves
+the selection in place.
+
+A partial update starts from the actual running version. After a cold boot,
+use **Restart K-UI** to re-enter a selected bank before stacking another
+partial update on it. When a matching bank is damaged, the installer can
+rebuild into a separate bank if the package and its retained files supply
+all the necessary bytes. It checks the destination and free space again at
+installation. It preserves existing complete banks for recovery.
 
 A positively checked running root can recover malformed activation records
 through normal reviewed installation or Restore Baseline. Listing stays
