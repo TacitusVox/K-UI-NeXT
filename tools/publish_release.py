@@ -102,6 +102,10 @@ def verify_update_asset(package, installation):
         with zipfile.ZipFile(installation) as archive:
             software = {name[4:]: name for name in archive.namelist()
                         if name.startswith("KUI/") and not name.endswith("/")}
+            if "boot.kui" in software:
+                require("runtime.kui" in software and
+                        archive.read(software.pop("boot.kui")) == archive.read(software["runtime.kui"]),
+                        "Physical boot.kui differs from the installation runtime.kui")
             require({row["path"] for row in report["members"]} == set(software),
                     "Release update software inventory differs from the installation ZIP")
             for row in report["members"]:

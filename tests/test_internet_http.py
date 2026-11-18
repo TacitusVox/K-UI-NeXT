@@ -16,7 +16,7 @@ ROOT = Path(__file__).resolve().parents[1]
 DATA = bytes(range(256)) * 39
 PREFIX = b"HTTP/1.1 200 OK\r\n"
 LENGTH = b"Content-Length: " + str(len(DATA)).encode() + b"\r\n\r\n"
-OK, MISSING, LIMITED, STOPPED, ERROR, LARGE = range(6)
+OK, MISSING, LIMITED, STOPPED, ERROR, LARGE, RANGE_IGNORED = range(7)
 
 
 class Origin(BaseHTTPRequestHandler):
@@ -57,7 +57,24 @@ class Origin(BaseHTTPRequestHandler):
             "/missing": b"HTTP/1.1 404 Missing\r\n\r\nlogin page",
             "/limit": b"HTTP/1.1 429 Too Many Requests\r\n\r\nretry after",
         }
-        if self.path.startswith("/temporary-"):
+        if self.path.startswith("/range"):
+            assert self.headers["Range"] == "bytes=1024-"
+            tail = DATA[1024:]
+            range_header = f"Content-Range: bytes 1024-{len(DATA)-1}/{len(DATA)}\r\n".encode()
+            partial = b"HTTP/1.1 206 Partial Content\r\n"
+            length = f"Content-Length: {len(tail)}\r\n\r\n".encode()
+            body = {
+                "/range": partial + range_header + length + tail,
+                "/range-go": b"HTTP/1.1 302 Found\r\nLocation: /range\r\n\r\n",
+                "/range-release": b"HTTP/1.1 302 Found\r\nLocation: /range?" + b"token=" + b"x"*2400 + b"\r\n\r\n",
+                "/range-ignored": responses["/ok"],
+                "/range-missing": partial + length + tail,
+                "/range-bad": partial + range_header.replace(b"1024-", b"1025-") + length + tail,
+                "/range-wrong-size": partial + range_header + LENGTH + tail,
+                "/range-duplicate": partial + range_header*2 + length + tail,
+                "/range-truncated": partial + range_header + length + tail[:100],
+            }[self.path.split("?", 1)[0]]
+        elif self.path.startswith("/temporary-"):
             code = self.path.split("-")[1]
             retry = b"Retry-After: 0" if self.path.endswith("-once") else b"Retry-After: 1"
             if self.path.endswith("-later"):
@@ -106,6 +123,11 @@ def test():
             thread = threading.Thread(target=server.serve_forever, daemon=True)
             thread.start()
             cases = [
+                ("range", OK, len(DATA), 0), ("range-go", OK, len(DATA), 0),
+                ("range-release", OK, len(DATA), 0),
+                ("range-ignored", RANGE_IGNORED, len(DATA), 0),
+                *[(name, ERROR, len(DATA), 0) for name in ("range-bad", "range-missing", "range-duplicate",
+                                                          "range-wrong-size", "range-truncated")],
                 ("ok", OK, len(DATA), 0), ("chunk", OK, len(DATA), 0), ("close", OK, len(DATA), 0),
                 ("go", OK, len(DATA), 0), ("relative", OK, len(DATA), 0),
                 ("ok", LARGE, 200, 0), ("chunk", LARGE, 2048, 0), ("close", LARGE, 2048, 0),
@@ -127,6 +149,8 @@ def test():
                 for path, expected, cap, cancel, prefix in cases:
                     output = work / "body"
                     env = os.environ.copy()
+                    if path.startswith("range"):
+                        env["KUI_TEST_RANGE"] = "1024"
                     if path.endswith("-cancel"):
                         env["KUI_TEST_CANCEL_BACKOFF"] = "1"
                     reply = subprocess.run([work / "client", f"https://{HOST}/{path}", output, str(cap),
@@ -136,9 +160,12 @@ def test():
                     assert int(actual[0]) == expected
                     data = output.read_bytes()
                     assert len(data) <= cap, (path, len(data))
-                    assert (b"ab" if path == "chunk-end" else DATA).startswith(data), path
+                    reference = DATA[1024:] if path.startswith("range") else DATA
+                    if path in ("range-ignored", "range-bad", "range-missing", "range-duplicate", "range-wrong-size"):
+                        assert not data, path
+                    assert (b"ab" if path == "chunk-end" else reference).startswith(data), path
                     if expected == OK:
-                        assert data == (DATA[:cap] if prefix else DATA), path
+                        assert data == (reference[:cap] if prefix else reference), path
                     if path.startswith("temporary-"):
                         attempts = 2 if path.endswith(("-once", "-persistent")) else 1
                         assert Origin.counts["/" + path] == attempts, path

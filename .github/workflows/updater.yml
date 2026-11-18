@@ -4,6 +4,20 @@ on:
   pull_request:
     paths:
       - '.github/workflows/updater.yml'
+      - '.github/workflows/nightly.yml'
+      - 'tools/nightly.py'
+      - 'tests/test_nightly.py'
+      - 'include/kui/internet.h'
+      - 'include/kui/media_tls.h'
+      - 'src/core/internet*'
+      - 'src/core/media_tls.c'
+      - 'src/core/bba_sockets.c'
+      - 'src/dreamcast/internet.c'
+      - 'src/dreamcast/dreampi.c'
+      - 'src/dreamcast/network_bba.c'
+      - 'tests/internet_fetch_host.c'
+      - 'tests/test_internet_http.py'
+      - 'tests/test_media_tls.py'
       - 'Makefile'
       - 'Makefile.dc'
       - 'dependencies.json'
@@ -50,6 +64,20 @@ on:
     branches: [main]
     paths:
       - '.github/workflows/updater.yml'
+      - '.github/workflows/nightly.yml'
+      - 'tools/nightly.py'
+      - 'tests/test_nightly.py'
+      - 'include/kui/internet.h'
+      - 'include/kui/media_tls.h'
+      - 'src/core/internet*'
+      - 'src/core/media_tls.c'
+      - 'src/core/bba_sockets.c'
+      - 'src/dreamcast/internet.c'
+      - 'src/dreamcast/dreampi.c'
+      - 'src/dreamcast/network_bba.c'
+      - 'tests/internet_fetch_host.c'
+      - 'tests/test_internet_http.py'
+      - 'tests/test_media_tls.py'
       - 'Makefile'
       - 'Makefile.dc'
       - 'dependencies.json'
@@ -125,6 +153,8 @@ jobs:
           {
             make -j2 test-updater build/test-shell
             ASAN_OPTIONS=detect_leaks=0 ./build/test-shell
+            python3 tests/test_internet_http.py
+            python3 tests/test_nightly.py
           } 2>&1 | tee "${RUNNER_TEMP}/updater-host.log"
       - name: Retain focused host evidence
         if: always()

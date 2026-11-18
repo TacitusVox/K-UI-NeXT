@@ -444,6 +444,12 @@ def inventory_v2(root):
                     relative.startswith("assets/") and software_path_v2(relative + "/x")):
                 raise ValueError("Non-software directory in stage: " + relative)
             continue
+        if relative == "boot.kui":
+            # The physical CD bootstrap alias is never a writable bank role.
+            # A manual-install tree may supply it alongside the exact same GUI.
+            if read_member(root, relative) != read_member(root, "runtime.kui"):
+                raise ValueError("Physical boot.kui must be byte-identical to runtime.kui")
+            continue
         if not stat.S_ISREG(info.st_mode) or not software_path_v2(relative):
             raise ValueError("Non-software file in stage: " + relative)
         paths.append(relative)

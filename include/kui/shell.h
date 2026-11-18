@@ -43,7 +43,7 @@
 #define KUI_SHELL_UPDATE_PATH_BYTES 192u
 enum kui_shell_update_op { KUI_SHELL_UPDATE_LIST, KUI_SHELL_UPDATE_CHECK,
     KUI_SHELL_UPDATE_INSTALL, KUI_SHELL_UPDATE_PREVIOUS, KUI_SHELL_UPDATE_BASELINE,
-    KUI_SHELL_UPDATE_RESTORE };
+    KUI_SHELL_UPDATE_RESTORE, KUI_SHELL_UPDATE_NIGHTLY };
 enum kui_shell_update_stage { KUI_SHELL_UPDATE_PACKAGES, KUI_SHELL_UPDATE_REVIEW,
     KUI_SHELL_UPDATE_RESULT };
 struct kui_shell_update_storage {
@@ -53,6 +53,7 @@ struct kui_shell_update_storage {
 };
 struct kui_shell_update_request {
     enum kui_shell_update_op op;
+    enum kui_internet_route route;
     unsigned generation,page;
     uint64_t token;
     char path[KUI_SHELL_UPDATE_PATH_BYTES],target[KUI_UPDATE_BUILD_BYTES];
@@ -74,6 +75,7 @@ struct kui_shell_update_view {
     struct kui_shell_update_row rows[KUI_SHELL_UPDATE_ROWS];
     struct kui_shell_update_request reviewed;
     char running[KUI_UPDATE_BUILD_BYTES],selected[KUI_UPDATE_BUILD_BYTES],previous[KUI_UPDATE_BUILD_BYTES];
+    char gui_build[KUI_UPDATE_BUILD_BYTES];
     unsigned replacement_count,inherited_count,removed_count;
     uint64_t free_bytes,required_bytes;
     bool ready,restore,baseline,space_known,restart_required,selection_known;
@@ -271,7 +273,8 @@ struct kui_shell {
     bool theme_loading,theme_preview_active,theme_preview_stale,theme_failed;
     char theme_notice[128];
     unsigned update_generation,update_selected;
-    bool update_loading,update_stopping,update_restart;
+    bool update_loading,update_stopping,update_restart,update_online;
+    enum kui_internet_route update_route;
     struct kui_shell_update_request update_request,update_confirm_request;
     struct kui_shell_update_view update;
     bool video_trial, confirm_defaults, confirm_clock, confirm_vmu_restore;

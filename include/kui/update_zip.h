@@ -7,7 +7,7 @@
 /* Mounted/exclusive FatFs operation. Extracts exactly one embedded .kup from
  * a canonical Updates ZIP into an owned private cache. Never installs code or
  * changes activation. Caller must inspect/install the returned package using
- * the normal reviewed pin. Re-run for INSTALL to detect changed ZIP contents.
+ * the normal reviewed pin. INSTALL revalidates these staged bytes on the same card.
  * Stored/deflate ZIP32 only; bounded directory, input and wrapping dictionary.
  * All failures leave out empty and try to remove this operation's partial. */
 enum kui_update_result kui_update_zip_prepare(const char *path,

@@ -1,0 +1,40 @@
+# K-UI updater audit
+
+Reviewed against `main` at `cdfc131b9ff3` on November 18, 2026. The review followed the same package through production, browsing, review, confirmation, installation, bank selection, restart and cold boot. It also covered the new download and release paths.
+
+## Findings and fixes
+
+| Finding | User-visible consequence | Change and evidence |
+| --- | --- | --- |
+| An older updater required exactly 26 manifest members. The bridge supplied 34, which a different historical decoder expected. A saved GUI bank could also run the old decoder again. | A valid delivery could stop at “Incomplete update cohort.” The evidence identifies one historical failure. It cannot identify the cause of every unlogged console run. | The current v2 producer already supports independent component builds. Both the producer and console now identify the failing manifest entry and reason where available. Use both physical GUI aliases and cold boot to migrate. Historical evidence is in `tools/package_update_repair.py`. |
+| The converter rejected the physical boot alias and could rebuild mixed-content ZIPs in a way that changed package semantics. | A valid manual GUI could fail conversion. A complete package could become a partial testing package and lose explicit file removals. | Identical boot/runtime aliases become one banked runtime. Mixed deliveries must agree with the embedded KUP, whose bytes are preserved. An explicitly requested channel must match. Producer and promotion tests cover these cases. |
+| ZIP review and confirmation each extracted the same KUP. | Wasted time on SCI. A second temporary copy could exhaust space after review passed. | Confirmation reopens the reviewed cache on the checked volume and verifies the KUP. FAT32 and exFAT tests replace or delete the cache and verify refusal before bank writes. Removing the original ZIP after review still installs the checked bytes. |
+| The card check included exFAT’s mutable percent-used byte. | Allocating clusters during ZIP staging or a download could make the same card appear different at confirmation. | The card check excludes that byte. The GUI test allocates enough space to change it on a real exFAT image, then changes the volume serial separately to verify that the card check still detects a different identity. |
+| Rollback recorded the saved selection even when a different installation was actually running. | After a fallback, “Restore previous” could point straight back to the rejected bank. | An install records the running ROOT or checked bank as its rollback target. FAT image tests cover both directions of disagreement between the running and saved versions. |
+| The post-install GUI used a recovery-aware selector read. | If the selection disappeared, synthesized ROOT could be reported as a successful installation. | Success now requires a readable bank selection for an install. Restore verifies the reviewed target. Fault injection removes the records between backend completion and GUI readback. |
+| The review said all other files were kept even for a FULL package. The running GUI and selected snapshot were displayed as if their identifiers were directly comparable. | The user could approve a larger software change than the screen described, or mistake a snapshot ID for a GUI build. | FULL review explains that unlisted software is excluded. When a package contains a GUI, review shows the embedded GUI build alongside the package ID. The result explains cold boot and Restart K-UI separately. |
+| Small reader-only updates repeatedly read the same physical ROOT GUI while planning. | A small KUP still spent significant time reading unrelated GUI bytes over SCI. | Planning now reads the ROOT GUI once and reuses its checked identity. The install still verifies copied software and rereads the destination. Host read counts establish the eliminated passes. Actual seconds depend on the console and card. |
+| The stable release recipe uses a fixed software inventory that does not represent every accepted reader, and themes are physical card files outside bank ownership. | Publishing a FULL nightly from that recipe could hide readers after restart. Bank installation also cannot deliver a physical theme directory. | The initial nightly is a testing overlay containing only the current GUI. It uses the existing reader-admission manifests. A reader or on-card theme release needs its own declared inventory and matching delivery. |
+| The updater umbrella test stopped at an outdated build fixture before exercising the updater. | A broken fixture prevented the full test target from giving an updater result. | Fixed the fixture prerequisites. The workflow now also exercises the downloader, HTTP ranges, and publisher when their inputs change. |
+
+## What happens on a slow connection
+
+**Settings → Updates → L GitHub nightly** fetches a short manifest. Automatic selection checks the BBA, W5500 and configured Wi-Fi. Selecting **Dial DreamPi** explicitly dials the modem. When the SCI port is occupied by an SD card, BBA and DreamPi are available independently of that port. Serial network adapters need a compatible storage arrangement.
+
+A matching official nightly finishes after the manifest check. Otherwise the client verifies an existing cached KUP or resumes the commit-specific partial download. A valid partial response must start at the saved offset. If the server ignores the range, the client starts the download over. Periodic SD syncs limit lost progress. K-UI rereads the completed file, checks the published size and SHA-256, and opens the ordinary installation review. Downloading alone never activates a bank.
+
+The Dreamcast validates HTTPS certificates and hostnames for the feed and release asset. Its clock must fall within the certificate validity dates. The digest comes from the repository over HTTPS. There is no separate offline release-signing key. A maintainer account or publication workflow with write access controls what the console is offered.
+
+## Remaining limits
+
+- **Cold boot.** With the current boot disc, a power cycle runs the physical ROOT GUI. The saved update remains on the card and **Restart K-UI** enters it. Delivering a persistent cold-boot update would require a deliberate change to that boot contract. The earlier synchronous check before the splash caused a measured user-visible regression.
+- **Recovery.** The updater needs a usable physical ROOT GUI. A missing or obsolete one is a manual-copy recovery. A crash after the updated GUI starts cannot trigger automatic rollback. Cold boot gives access to the physical copy.
+- **Storage growth.** Each distinct nightly can leave a downloaded KUP and an immutable bank. Small overlays can copy retained software owned by an older bank. The free-space estimate accounts for the proposed bank, but there is no automatic garbage collector. FULL repair also has a bounded set of alternative bank names when earlier candidates must be preserved.
+- **Release coverage.** The online channel serves GUI nightlies. Existing stable releases and their manual install ZIPs use the existing offline delivery path. Card-resident theme assets and standalone game modules are outside this nightly.
+- **Evidence boundary.** Faults and cancellations were injected against the production code on host-backed FAT32 and exFAT images. Local TLS servers exercised production HTTP/TLS with redirects and range handling. These checks do not measure console modem speed or certify a physical power cut. Publishing the first feed and downloading it on hardware are separate acceptance steps.
+
+## Reproduce the checks
+
+With the repository’s locked dependencies installed, run `make test-updater`, `python3 tests/test_internet_http.py`, `python3 tests/test_nightly.py` and the shell regression executable built by `make build/test-shell`. The GUI worker suite also accepts `--runtime` and `--package` for checking a real compiled artifact on both filesystems.
+
+The [nightly setup guide](gui-nightlies.md) covers the first publish, schedule and retry behavior. The [updater guide](updater.md) covers package creation and bank operation.

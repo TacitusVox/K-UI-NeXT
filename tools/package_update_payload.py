@@ -14,7 +14,7 @@ import tempfile
 from make_update import make_update
 
 
-def add_update_payload(files, filename, *, release=False, channel="testing"):
+def add_update_payload(files, filename, *, release=False, channel=None):
     """Append one .kup containing the exact KUI members in a file mapping."""
     if (not isinstance(filename, str) or PurePosixPath(filename).name != filename or
             not filename.endswith(".kup") or "\\" in filename):

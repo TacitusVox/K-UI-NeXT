@@ -9,14 +9,18 @@ other installed software; full releases stage their GUI and all intended files,
 and keep omitted old software absent rather than leaking a root fallback.
 """
 import argparse
+import hashlib
 import json
 import os
+import shutil
 from pathlib import Path, PurePosixPath
 import stat
 import tempfile
 import zipfile
 
-from update_package import build_package_v2, verify, current_consumer_check, software_path_v2, MAX_PAYLOAD, MAX_ENTRIES
+from update_package import (build_package_v2, verify, current_consumer_check, inventory_v2,
+                            software_path_v2, MAX_PAYLOAD, MAX_ENTRIES, MAX_MEMBER,
+                            V2_MAGIC, RAW_SOFTWARE, SELF_KUI)
 
 
 def _from_zip(source, output, *, release, full, remove, keep, channel):
@@ -28,7 +32,7 @@ def _from_zip(source, output, *, release, full, remove, keep, channel):
         with zipfile.ZipFile(source) as archive:
             if len(archive.infolist()) > 10000:
                 raise ValueError("Input ZIP has too many entries")
-            total = 0
+            total = count = 0
             for entry in archive.infolist():
                 name = entry.filename
                 path = PurePosixPath(name)
@@ -54,12 +58,17 @@ def _from_zip(source, output, *, release, full, remove, keep, channel):
                 if relative.startswith("updates/") and relative.lower().endswith(".kup"):
                     delivery.append(name)
                     continue
-                if not software_path_v2(relative):
+                if relative != "boot.kui" and not software_path_v2(relative):
                     raise ValueError("Input ZIP contains non-software KUI data: " + relative)
                 if mode and stat.S_IFMT(mode) not in (0, stat.S_IFREG):
                     raise ValueError("Input ZIP software is not a regular file: " + relative)
-                total += entry.file_size
-                if total > MAX_PAYLOAD or len(copied) >= MAX_ENTRIES:
+                if relative == "boot.kui":
+                    if entry.file_size > MAX_MEMBER:
+                        raise ValueError("Physical boot.kui exceeds the GUI size limit")
+                else:
+                    total += entry.file_size
+                    count += 1
+                if total > MAX_PAYLOAD or count > MAX_ENTRIES:
                     raise ValueError("Input ZIP software exceeds update bounds")
                 destination = stage / relative
                 destination.parent.mkdir(parents=True, exist_ok=True)
@@ -68,44 +77,63 @@ def _from_zip(source, output, *, release, full, remove, keep, channel):
                     raise ValueError("Input ZIP software size mismatch: " + relative)
                 destination.write_bytes(data)
                 copied.append(relative)
-            if copied:
+            if len(kup) > 1:
+                raise ValueError("Input ZIP contains multiple update packages; select a single .kup or stage the intended files")
+            current_embedded = False
+            if kup:
+                with archive.open(kup[0]) as member:
+                    current_embedded = member.read(len(V2_MAGIC)) == V2_MAGIC
+            if copied and not current_embedded:
                 report = make_update(stage, output, release=release, full=full, remove=remove, keep=keep, channel=channel)
                 report["input"] = "software-zip"
                 report["ignored_nonsoftware_archive_members"] = ignored
                 report["replaced_embedded_update_files"] = delivery
                 return report
-            if len(kup) != 1 or remove or keep:
+            if not kup:
                 raise ValueError("Input ZIP needs staged KUI software or exactly one existing v2 .kup")
+            if remove or keep:
+                raise ValueError("Stage the intended software separately to change embedded package directives")
             entry = kup[0]
             if entry.file_size > MAX_PAYLOAD + 128 + MAX_ENTRIES * 160:
                 raise ValueError("Embedded update package exceeds its limit")
             package = Path(temporary) / "checked.kup"
-            package.write_bytes(archive.read(entry))
+            with archive.open(entry) as member, package.open("xb") as checked:
+                shutil.copyfileobj(member, checked)
         report = verify(package)
         if report["format"] != 2:
             raise ValueError("Embedded legacy .kup must be rebuilt from staged software with the current Main producer")
+        if copied:
+            # Match the console's selected KUP. Rebuilding loose files could
+            # silently drop FULL, REMOVE, or KEEP even when every byte matches.
+            replacements = {row["path"]: row["sha256"] for row in report["members"]
+                            if row["policy"] in (SELF_KUI, RAW_SOFTWARE)}
+            staged = {}
+            for name in inventory_v2(stage):
+                with (stage / name).open("rb") as member:
+                    staged[name] = hashlib.file_digest(member, "sha256").hexdigest()
+            if replacements != staged:
+                raise ValueError("Loose KUI files differ from the embedded update; stage the intended software separately")
         if full and not report["full"]:
             raise ValueError("Embedded partial .kup must be rebuilt from its staged software for a full-version update")
-        if full and "runtime.kui" not in {e["path"] for e in report["members"] if e["policy"] == 3}:
-            raise ValueError("Full software release is missing its current-engine GUI")
+        if channel is not None and channel != report["channel"]:
+            raise ValueError("Embedded .kup channel is " + report["channel"] +
+                             "; rebuild from staged software for the " + channel + " channel")
         report["consumer"] = current_consumer_check(package)
         report["mode"] = "release" if release else "full" if report["full"] else "test"
         output = Path(output).absolute()
         output.parent.mkdir(parents=True, exist_ok=True)
-        with tempfile.NamedTemporaryFile(prefix=".kui-checked-", dir=output.parent, delete=False) as target:
-            ready = Path(target.name)
-            try:
+        with tempfile.TemporaryDirectory(prefix=".kui-checked-", dir=output.parent) as delivery:
+            ready = Path(delivery) / output.name
+            with ready.open("xb") as target:
                 if output.suffix.lower() == ".kup":
-                    target.write(package.read_bytes())
+                    with package.open("rb") as source_package:
+                        shutil.copyfileobj(source_package, target)
                 else:
                     with zipfile.ZipFile(target, "w", zipfile.ZIP_DEFLATED) as archive:
                         archive.write(package, output.stem + ".kup")
                 target.flush()
                 os.fsync(target.fileno())
-            except BaseException:
-                ready.unlink(missing_ok=True)
-                raise
-        ready.replace(output)
+            ready.replace(output)
         report["input"] = "verified-v2-zip"
         return report
 
@@ -114,13 +142,20 @@ def make_update(stage, output, *, release=False, full=False, remove=(), keep=(),
     output = Path(output).absolute()
     if output.suffix.lower() not in (".kup", ".zip"):
         raise ValueError("Choose a .kup output, or .zip containing exactly one .kup")
-    channel = channel or ("stable" if release else "testing")
+    if output.is_symlink() or any(parent.is_symlink() for parent in output.parents):
+        raise ValueError("The output must not use symlink paths")
+    if channel is None and release:
+        channel = "stable"
     full = full or release
     stage = Path(stage)
     if stage.is_file():
+        if output.exists() and stage.samefile(output):
+            raise ValueError("Choose a separate output to preserve the input ZIP")
         if not zipfile.is_zipfile(stage):
             raise ValueError("Input must be a staged KUI software directory or a ZIP")
         return _from_zip(stage, output, release=release, full=full, remove=remove, keep=keep, channel=channel)
+    if channel is None:
+        channel = "testing"
     if output.suffix.lower() == ".kup":
         return build_package_v2(stage, output, channel, release=release, full=full, remove=remove, keep=keep)
     output.parent.mkdir(parents=True, exist_ok=True)

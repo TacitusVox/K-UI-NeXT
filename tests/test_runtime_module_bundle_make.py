@@ -47,6 +47,8 @@ class Fixture:
         self.root = directory
         self.makefile = directory / 'Makefile.dc'
         self.makefile.write_bytes(makefile)
+        (directory / 'dependencies.json').symlink_to(ROOT / 'dependencies.json')
+        self.prebuilt = []
         for name in ('config', 'src', 'include', 'resources', 'third_party', 'firmware'):
             (directory / name).symlink_to(ROOT / name, target_is_directory=True)
         tools = directory / 'tools'; tools.mkdir()
@@ -74,6 +76,18 @@ class Fixture:
         for name in line.group(1).split():
             p = directory / name; p.parent.mkdir(parents=True, exist_ok=True)
             p.write_bytes(b'UNRELATED-OBJECT\0')
+            if name.startswith('build/dc/kos-'):
+                self.prebuilt.append(name)
+        # Network/media dependencies are acquired in the SH-4 build. Keep
+        # this offline Make graph test focused on the actual bundle edges.
+        for variable in ('MEDIA_TLS_ROOTS', 'MEDIA_TLS_DC_LIB', 'XIPH_DEP'):
+            match = re.search(r'^' + variable + r'\s*:=\s*(.+)$', database.stdout, re.M)
+            if match:
+                name = match.group(1).strip()
+                self.prebuilt.append(name)
+                path = directory / name
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.touch()
         for name in ('splash_art.inc', 'boot_splash_art.inc', 'startup_ogg.inc'):
             p = directory / 'build' / name; p.write_text('')
         self.write_bundle('a', b'COMPONENT-A')
@@ -83,7 +97,8 @@ class Fixture:
         selected = str(self.root / bundle) if bundle else ''
         return ['make', '--no-print-directory', '-s', '-f', str(self.makefile),
                 'build/kui-runtime.elf', 'BUILD_ID=0123456789ab',
-                'KUI_SMASH_LAUNCH_TIMING=1', 'RUNTIME_MODULE_BUNDLE='+selected, *extra]
+                'KUI_SMASH_LAUNCH_TIMING=1', 'RUNTIME_MODULE_BUNDLE='+selected,
+                *('--assume-old='+name for name in self.prebuilt), *extra]
 
     def write_bundle(self, name, body, *, older=False, assembly_suffix=''):
         directory = self.root / name; directory.mkdir(exist_ok=True)

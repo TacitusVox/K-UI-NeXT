@@ -6,6 +6,7 @@
 #include "kui/update_handoff.h"
 #include "kui/update_software_file.h"
 #include "kui/update_zip.h"
+#include "kui/update_nightly.h"
 #include "kui/games_storage.h"
 #include "kui/music.h"
 #include "kui/storage_policy.h"
@@ -18,6 +19,7 @@
 #ifndef KUI_BUILD_ID
 #define KUI_BUILD_ID "111111111111"
 #endif
+#define KUI_GITHUB_NIGHTLY 1 /* Exercise an official nightly contacting the feed. */
 #define UPDATES "0:/KUI/updates"
 #define FULL_PATH UPDATES "/full.kup"
 #define A_PATH UPDATES "/partial-a.kup"
@@ -46,7 +48,14 @@ static const struct kui_media_ops media={NULL,blocks,read_blocks,write_blocks,sy
 uint32_t kui_clock_fattime(void) {return ((2026u-1980u)<<25)|(11u<<21)|(5u<<16);}
 static void kui_log(const char *format,...) {(void)format;}
 static bool kui_cancelled(void) {return false;}
-static void app_progress(const struct kui_app_status *status) {CHECK(status && mounted);}
+static bool lose_selectors_after_install;
+static void app_progress(const struct kui_app_status *status) {
+    CHECK(status && mounted);
+    if(lose_selectors_after_install && status->passed && strstr(status->message,"Update installed")) {
+        lose_selectors_after_install=false;
+        CHECK(f_unlink(KUI_UPDATE_ACTIVE0)==FR_OK && f_unlink(KUI_UPDATE_ACTIVE1)==FR_OK);
+    }
+}
 static void publish_music(void) {}
 void kui_music_status_copy(struct kui_music_status *out) {
     *out=(struct kui_music_status){.enabled=true,.loaded=true,.paused=paused};
@@ -62,9 +71,47 @@ enum kui_games_storage_result kui_games_storage_open(kui_log_fn log) {
 }
 bool kui_games_storage_release(void) {CHECK(mounted);mounted=false;return f_mount(NULL,"0:",0)==FR_OK;}
 
+/* The downloader has its own storage and transport tests. Use a KUP on
+ * the real mounted image here to exercise the handoff into the GUI worker. */
+static const char *download_result;
+bool kui_update_nightly_download(enum kui_internet_route route,const char *running_build,char path[KUI_UPDATE_BROWSER_PATH_BYTES],
+    struct kui_app_status *status,kui_log_fn log,kui_cancel_fn cancel,kui_app_progress_fn progress) {
+    CHECK(!strcmp(running_build,KUI_BUILD_ID));
+    CHECK(mounted && paused && route==KUI_INTERNET_DREAMPI && log==kui_log && cancel==kui_cancelled && progress==app_progress);
+    if(!download_result) {
+        strcpy(status->message,"Nightly download interrupted");
+        return false;
+    }
+    if(!*download_result)strcpy(status->message,"Latest GUI already running");
+    strcpy(path,download_result);return true;
+}
+
 #include "actual_gui_update_helpers.inc"
 
 static void mount_volume(void) {CHECK(!mounted && f_mount(&fs,"0:",1)==FR_OK);mounted=true;}
+static void check_exfat_storage_pin(void) {
+    uint8_t sector[512];
+    CHECK(disk_read(0,sector,0,1)==RES_OK);
+    if(memcmp(sector+3,"EXFAT   ",8))return;
+    unsigned used=sector[112];
+    struct kui_shell_update_storage before,after;
+    CHECK(update_storage_read(&before));
+    FATFS *volume=NULL;DWORD free_clusters=0;
+    CHECK(f_getfree("0:",&free_clusters,&volume)==FR_OK && volume && free_clusters);
+    FIL file;UINT written=0;
+    CHECK(f_open(&file,"0:/review-space.tmp",FA_CREATE_ALWAYS|FA_WRITE)==FR_OK);
+    static const uint8_t chunk[16384]={0};
+    uint64_t amount=(uint64_t)volume->csize*512u*(volume->n_fatent-2u)/50u;
+    for(uint64_t done=0;done<amount;done+=sizeof(chunk))
+        CHECK(f_write(&file,chunk,sizeof(chunk),&written)==FR_OK && written==sizeof(chunk));
+    CHECK(f_close(&file)==FR_OK && disk_read(0,sector,0,1)==RES_OK && sector[112]!=used);
+    CHECK(update_storage_read(&after) && update_storage_same(&before,&after));
+    sector[100]^=1u; /* The volume serial must still invalidate confirmation. */
+    CHECK(disk_write(0,sector,0,1)==RES_OK);
+    CHECK(update_storage_read(&after) && !update_storage_same(&before,&after));
+    sector[100]^=1u;
+    CHECK(disk_write(0,sector,0,1)==RES_OK && f_unlink("0:/review-space.tmp")==FR_OK);
+}
 static void release_volume(void) {CHECK(mounted && f_mount(NULL,"0:",0)==FR_OK);mounted=false;}
 static void parents(const char *path) {
     char copy[192];CHECK(strlen(path)<sizeof(copy));strcpy(copy,path);
@@ -122,6 +169,27 @@ static void browse_without_selection(void) {
     input=request(KUI_SHELL_UPDATE_INSTALL,FULL_PATH);update_work(&input,&view);
     CHECK(view.status.complete && !view.status.passed && view.status.errors && !view.ready &&
         !view.selection_known && writes==before && !mounted && !paused && pauses==resumes);
+}
+static void check_nightly_review(void) {
+    struct kui_shell_update_request input=request(KUI_SHELL_UPDATE_NIGHTLY,NULL);
+    input.route=KUI_INTERNET_DREAMPI;
+    struct kui_shell_update_view view;
+    unsigned before=writes;
+    download_result=NULL;
+    update_work(&input,&view);
+    CHECK(!view.ready && !view.status.passed && strstr(view.status.message,"download interrupted"));
+    download_result="";
+    update_work(&input,&view);view_ok(&view);
+    CHECK(!view.ready && view.stage==KUI_SHELL_UPDATE_RESULT && !view.reviewed.token &&
+        strstr(view.status.message,"already running"));
+    download_result="0:/KUI/runtime.kui";
+    update_work(&input,&view);
+    CHECK(!view.ready && !view.status.passed && strstr(view.status.message,"path"));
+    download_result=FULL_PATH;
+    update_work(&input,&view);view_ok(&view);
+    CHECK(view.ready && view.stage==KUI_SHELL_UPDATE_REVIEW && !view.restore);
+    CHECK(view.reviewed.op==KUI_SHELL_UPDATE_INSTALL && !strcmp(view.reviewed.path,FULL_PATH) && view.reviewed.token);
+    CHECK(writes==before);
 }
 static void expect_helper(const char *expected) {
     FIL file;UINT got=0u;char data[64]={0};CHECK(f_open(&file,HELPER,FA_READ)==FR_OK);
@@ -259,10 +327,11 @@ static void real_artifact_flow(const char *runtime_path,const char *package_path
         checks,KUI_BUILD_ID,package->count,package->build);free(package);
 }
 int main(int argc,char **argv) {
-    bool real=argc==5 && !strcmp(argv[1],"--real");CHECK(real || argc==7);
+    bool real=argc==5 && !strcmp(argv[1],"--real");CHECK(real || argc==8);
     FILE *host=fopen(argv[real?2:1],"rb");CHECK(host && !fseek(host,0,SEEK_END));long size=ftell(host);
     CHECK(size>0 && !fseek(host,0,SEEK_SET));disk_bytes=(size_t)size;disk=malloc(disk_bytes);CHECK(disk);
     CHECK(fread(disk,1u,disk_bytes,host)==disk_bytes && !fclose(host));kui_media_set(&media);mount_volume();
+    check_exfat_storage_pin();
     if(real) {real_artifact_flow(argv[3],argv[4]);kui_update_boot_reset();free(disk);return 0;}
     copy_host(argv[2],KUI_RUNTIME_PATH);copy_host(argv[3],"0:/KUI/old-gui.kui");
     copy_host(argv[4],FULL_PATH);copy_host(argv[5],A_PATH);copy_host(argv[6],B_PATH);
@@ -283,6 +352,8 @@ int main(int argc,char **argv) {
     CHECK(kui_update_boot_read(KUI_BUILD_ID,KUI_STORAGE_SCI,&image,&update_boot_view,kui_log,kui_cancelled)==KUI_UPDATE_BOOT_BASELINE);
     CHECK(!image.data && writes==before);release_volume();
     struct kui_shell_update_view review=check_package(FULL_PATH);CHECK(writes==before);
+    check_nightly_review();
+    review=check_package(FULL_PATH);
     /* Change the real saved selection between review and confirmation. */
     mount_volume();struct kui_update_activation changed={.sequence=17u};activation_write(0u,&changed);release_volume();
     input=review.reviewed;input.generation=++generation;before=writes;update_work(&input,&view);
@@ -313,6 +384,26 @@ int main(int argc,char **argv) {
     mount_volume();char path[160];CHECK(kui_update_bank_path(full_bank,"apps/games/flow-helper.bin",path,sizeof(path)));
     file_write(path,"corrupt",7u);release_volume();review=check_package(FULL_PATH);view=install_review(&review);
     CHECK(strcmp(view.selected,full_bank));restart_selected();mount_volume();expect_helper("full helper");release_volume();shared_records(5u);
+    /* A confirmed ZIP installs the exact KUP shown in review, with one
+     * extraction. Reject a substituted or missing cache before any writes. */
+    const char *zip_path=UPDATES "/full.zip";
+    mount_volume();copy_host(argv[7],zip_path);release_volume();
+    review=check_package(zip_path);
+    mount_volume();copy_host(argv[5],KUI_UPDATE_ZIP_STAGE_PATH);release_volume();
+    input=review.reviewed;before=writes;update_work(&input,&view);
+    CHECK(!view.status.passed && view.status.errors && writes==before);
+    review=check_package(zip_path);
+    mount_volume();CHECK(f_unlink(KUI_UPDATE_ZIP_STAGE_PATH)==FR_OK);release_volume();
+    input=review.reviewed;before=writes;update_work(&input,&view);
+    CHECK(!view.status.passed && view.status.errors && writes==before);
+    review=check_package(zip_path);
+    mount_volume();CHECK(f_unlink(zip_path)==FR_OK);release_volume();
+    view=install_review(&review);restart_selected();
+    mount_volume();expect_helper("full helper");release_volume();
+    review=check_package(A_PATH);input=review.reviewed;lose_selectors_after_install=true;
+    update_work(&input,&view);
+    CHECK(!lose_selectors_after_install && !view.status.passed && !view.selection_known &&
+        strstr(view.status.message,"Activation could not be confirmed"));
     CHECK(!mounted && !paused && pauses==resumes);kui_update_boot_reset();free(disk);
-    printf("PASS actual GUI update flow: %u checks; unknown/BLOCK read-only listing, corrupt-selector LIST/CHECK/FULL install, stale review rejection, actual snapshot IDs, partial A/B, shared real presets/selection, restart/adoption, GUI2 CHECK/Restore admission and corrupt FULL repair\n",checks);return 0;
+    printf("PASS actual GUI update flow: %u checks; unknown/BLOCK read-only listing, corrupt-selector LIST/CHECK/FULL install, stale review rejection, actual snapshot IDs, partial A/B, shared real presets/selection, restart/adoption, GUI2 CHECK/Restore admission, corrupt FULL repair and ZIP review cache verification\n",checks);return 0;
 }

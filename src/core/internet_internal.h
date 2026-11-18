@@ -4,7 +4,7 @@
 #include "kui/internet.h"
 #include "kui/net.h"
 #define KUI_HTTP_HOST 254u
-#define KUI_HTTP_URL 1536u
+#define KUI_HTTP_URL 3072u /* GitHub release redirects carry signed URLs. */
 struct kui_internet {
     struct kui_net_sockets net;
     bool (*poll)(struct kui_internet *);

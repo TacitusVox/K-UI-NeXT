@@ -9,7 +9,8 @@ enum kui_internet_route {
     KUI_INTERNET_ROUTE_COUNT
 };
 enum kui_http_result {
-    KUI_HTTP_OK, KUI_HTTP_MISSING, KUI_HTTP_LIMITED, KUI_HTTP_STOPPED, KUI_HTTP_ERROR, KUI_HTTP_TOO_LARGE
+    KUI_HTTP_OK, KUI_HTTP_MISSING, KUI_HTTP_LIMITED, KUI_HTTP_STOPPED, KUI_HTTP_ERROR, KUI_HTTP_TOO_LARGE,
+    KUI_HTTP_RANGE_IGNORED
 };
 typedef bool (*kui_http_write_fn)(void *ctx, const void *data, size_t size);
 typedef void (*kui_http_progress_fn)(void *ctx, uint32_t received, uint32_t total);
@@ -27,6 +28,12 @@ const char *kui_internet_problem(const struct kui_internet *session);
  * may have staged part of the body; callers discard it before retrying. */
 enum kui_http_result kui_internet_get(struct kui_internet *session, const char *url, uint32_t limit,
     kui_http_write_fn write, void *write_ctx, kui_http_progress_fn progress, void *progress_ctx);
+/* Request the remainder of a known-size asset. For nonzero start, only a
+ * matching 206 Content-Range can reach write. A server ignoring Range
+ * returns KUI_HTTP_RANGE_IGNORED without delivering any response bytes. */
+enum kui_http_result kui_internet_get_remainder(struct kui_internet *session, const char *url,
+    uint32_t start, uint32_t size, kui_http_write_fn write, void *write_ctx,
+    kui_http_progress_fn progress, void *progress_ctx);
 /* Optional early stop for a caller that has verified a complete playable
  * prefix. After a successful write, complete(write_ctx) may finish the GET
  * without reading the rest of the origin asset. At most limit bytes reach

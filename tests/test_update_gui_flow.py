@@ -13,6 +13,7 @@ import shlex
 import struct
 import sys
 import tempfile
+import zipfile
 
 from test_games_library_images import fatfs_source, private_formatter
 from test_update_images import run
@@ -89,6 +90,10 @@ def main():
                 report = make_update(stage, package, full=full)
                 assert report["flags"] & update.REQUIRES_ENGINE3
                 packages.append(package)
+            archive = base / "full.zip"
+            with zipfile.ZipFile(archive, "w", zipfile.ZIP_DEFLATED) as bundle:
+                bundle.write(packages[0], "full.kup")
+            packages.append(archive)
         build = verify_runtime(current)["build"]
         main_source = (ROOT / "src/dreamcast/main.c").read_text()
         helpers = ("update_package_path", "update_storage_read", "update_storage_same",

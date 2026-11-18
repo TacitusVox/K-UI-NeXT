@@ -18,7 +18,7 @@ struct transfer {
     void *destination;
     kui_http_progress_fn progress;
     void *progress_ctx;
-    uint32_t limit, total, received;
+    uint32_t limit, total, received, start, asset_size;
     uint64_t active, last_progress;
     size_t at, end;
     uint8_t input[IO_BYTES];
@@ -254,11 +254,13 @@ static enum kui_http_result response(struct transfer *t,bool *again) {
     bool temporary=!t->retried && (code==408 || code==502 || code==503 || code==504);
     unsigned wait_ms=1000;
     bool retry_header=false;
-    if(code!=200 && !follow && !temporary) {
+    if(t->start && code==200) return KUI_HTTP_RANGE_IGNORED;
+    unsigned expected=t->start ? 206u : 200u;
+    if(code!=expected && !follow && !temporary) {
         snprintf(t->session->problem,sizeof(t->session->problem),"Website returned HTTP %u",code);
         return code==404 || code==410 ? KUI_HTTP_MISSING : code==429 ? KUI_HTTP_LIMITED : KUI_HTTP_ERROR;
     }
-    bool located=false,length=false,chunked=false;
+    bool located=false,length=false,chunked=false,range=false;
     while(line(t,&budget)) {
         if(!*t->line) {
             if(temporary) {
@@ -275,6 +277,10 @@ static enum kui_http_result response(struct transfer *t,bool *again) {
                 return KUI_HTTP_OK;
             }
             if(chunked && length) return KUI_HTTP_ERROR;
+            if((t->start && !range) || (t->asset_size && length && t->total!=t->limit)) {
+                fail(t->session,"Website returned the wrong download length or range");
+                return KUI_HTTP_ERROR;
+            }
             if(!t->complete && t->total>t->limit) return KUI_HTTP_TOO_LARGE;
             if(t->progress) t->progress(t->progress_ctx,0,t->total);
             return chunked ? chunks(t) : body(t,t->total,!length);
@@ -298,6 +304,13 @@ static enum kui_http_result response(struct transfer *t,bool *again) {
                 if(located || !redirect(t,value)) return KUI_HTTP_ERROR;
                 located=true;
             }
+        } else if(!strcasecmp(t->line,"Content-Range")) {
+            char expected_range[64];
+            if(!t->start || range) return KUI_HTTP_ERROR;
+            snprintf(expected_range,sizeof(expected_range),"bytes %lu-%lu/%lu",
+                (unsigned long)t->start,(unsigned long)t->asset_size-1u,(unsigned long)t->asset_size);
+            if(strcmp(value,expected_range)) return KUI_HTTP_ERROR;
+            range=true;
         } else if(!strcasecmp(t->line,"Content-Length")) {
             if(length || !number(value,10,&t->total)) return KUI_HTTP_ERROR;
             length=true;
@@ -318,9 +331,11 @@ static enum kui_http_result request(struct transfer *t,bool *again) {
     if(!connect_to(t,ip)) return KUI_HTTP_ERROR;
     t->tls=kui_media_tls_open(t->host);
     if(!t->tls) {fail(s,"TLS setup failed; check console date and free memory");return KUI_HTTP_ERROR;}
+    char range_header[48]="";
+    if(t->start) snprintf(range_header,sizeof(range_header),"Range: bytes=%lu-\r\n",(unsigned long)t->start);
     int n=snprintf(t->line,sizeof(t->line),
-        "GET %s HTTP/1.1\r\nHost: %s\r\nUser-Agent: K-UI-Dreamcast/1\r\nAccept: */*\r\nAccept-Encoding: identity\r\nConnection: close\r\n\r\n",
-        t->target,t->host);
+        "GET %s HTTP/1.1\r\nHost: %s\r\nUser-Agent: K-UI-Dreamcast/1\r\nAccept: */*\r\nAccept-Encoding: identity\r\n%sConnection: close\r\n\r\n",
+        t->target,t->host,range_header);
     if(n<=0 || (size_t)n>=sizeof(t->line)) return KUI_HTTP_ERROR;
     size_t sent=0;
     while(sent<(size_t)n) {
@@ -330,7 +345,7 @@ static enum kui_http_result request(struct transfer *t,bool *again) {
     }
     return response(t,again);
 }
-enum kui_http_result kui_internet_get_prefix(struct kui_internet *s,const char *url,uint32_t limit,
+static enum kui_http_result get(struct kui_internet *s,const char *url,uint32_t limit,uint32_t start,uint32_t asset_size,
         kui_http_write_fn write,void *dest,kui_http_progress_fn progress,void *progress_ctx,bool (*complete)(void *)) {
     if(!s) return KUI_HTTP_ERROR;
     s->problem[0]=0;
@@ -341,6 +356,7 @@ enum kui_http_result kui_internet_get_prefix(struct kui_internet *s,const char *
     }
     struct transfer *t=calloc(1,sizeof(*t));
     if(!t) {fail(s,"Insufficient memory for HTTPS");return KUI_HTTP_ERROR;}
+    t->start=start;t->asset_size=asset_size;
     t->session=s;t->write=write;t->destination=dest;t->limit=limit;t->complete=complete;
     t->progress=progress;t->progress_ctx=progress_ctx;
     strcpy(t->url,url);
@@ -369,6 +385,10 @@ enum kui_http_result kui_internet_get_prefix(struct kui_internet *s,const char *
         if(!again) break;
         if(++redirects>4) {fail(s,"Too many website redirects");result=KUI_HTTP_ERROR;break;}
     }
+    if(result==KUI_HTTP_OK && asset_size && t->received!=limit) {
+        fail(s,"Incomplete download");
+        result=KUI_HTTP_ERROR;
+    }
     if(stopped(s)) result=KUI_HTTP_STOPPED;
     if(result==KUI_HTTP_OK && progress) progress(progress_ctx,t->received,t->total);
     if(result==KUI_HTTP_TOO_LARGE) fail(s,"Website file exceeds the download size limit");
@@ -376,6 +396,15 @@ enum kui_http_result kui_internet_get_prefix(struct kui_internet *s,const char *
     if(s->problem[0] && s->log) s->log("Internet scan: %s: %s",t->host,s->problem);
     free(t);
     return result;
+}
+enum kui_http_result kui_internet_get_prefix(struct kui_internet *s,const char *url,uint32_t limit,
+        kui_http_write_fn write,void *dest,kui_http_progress_fn progress,void *progress_ctx,bool (*complete)(void *)) {
+    return get(s,url,limit,0,0,write,dest,progress,progress_ctx,complete);
+}
+enum kui_http_result kui_internet_get_remainder(struct kui_internet *s,const char *url,uint32_t start,uint32_t size,
+        kui_http_write_fn write,void *dest,kui_http_progress_fn progress,void *progress_ctx) {
+    if(start>=size) return KUI_HTTP_ERROR;
+    return get(s,url,size-start,start,size,write,dest,progress,progress_ctx,NULL);
 }
 enum kui_http_result kui_internet_get(struct kui_internet *s,const char *url,uint32_t limit,
         kui_http_write_fn write,void *dest,kui_http_progress_fn progress,void *progress_ctx) {

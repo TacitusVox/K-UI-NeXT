@@ -67,7 +67,9 @@ int main(int argc,char **argv) {
     original_state=s.net.state;s.net.state=fixture_state;
     FILE *f=fopen(argv[2],"wb");if(!f) return 2;
     uint32_t limit=argc>3 ? (uint32_t)strtoul(argv[3],NULL,10) : UINT32_C(33554432);
-    enum kui_http_result r=prefix ? kui_internet_get_prefix(&s,argv[1],limit,save,f,NULL,NULL,complete) :
+    const char *range=getenv("KUI_TEST_RANGE");
+    enum kui_http_result r=range ? kui_internet_get_remainder(&s,argv[1],(uint32_t)strtoul(range,NULL,10),limit,save,f,NULL,NULL) :
+        prefix ? kui_internet_get_prefix(&s,argv[1],limit,save,f,NULL,NULL,complete) :
         kui_internet_get(&s,argv[1],limit,save,f,NULL,NULL);
     if(fclose(f)) return 2;
     kui_bba_sockets_end(&s.net);

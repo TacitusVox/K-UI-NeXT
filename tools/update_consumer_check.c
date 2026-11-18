@@ -76,8 +76,13 @@ int main(int argc,char **argv) {
     if(result!=KUI_UPDATE_OK) {free(package);fclose(file);return failed(NULL,kui_update_result_name(result));}
     size_t bytes=package->count*kui_update_entry_bytes(package);uint8_t *manifest=malloc(bytes);
     if(!manifest || !exact(file,manifest,bytes)) {free(manifest);free(package);fclose(file);return failed(NULL,"cannot read package manifest");}
-    result=kui_update_manifest_decode(package,manifest,bytes);free(manifest);
-    if(result!=KUI_UPDATE_OK) {free(package);fclose(file);return failed(NULL,kui_update_result_name(result));}
+    struct kui_update_diagnostic issue;
+    result=kui_update_manifest_decode_detail(package,manifest,bytes,&issue);free(manifest);
+    if(result!=KUI_UPDATE_OK) {
+        free(package);fclose(file);
+        if(issue.member)fprintf(stderr,"Package entry %u: ",issue.member);
+        return failed(issue.path[0]?issue.path:NULL,issue.message?issue.message:kui_update_result_name(result));
+    }
     if(!legacy && (kui_update_package_version(package)!=2u ||
        !(package->flags&KUI_UPDATE_REQUIRES_ENGINE3))) {
         free(package);fclose(file);return failed(NULL,"new deliveries must require the current engine3");

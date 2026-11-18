@@ -1887,7 +1887,7 @@ static void update_controls(void) {
     --list.generation;kui_shell_set_update(&s,&list);assert(s.update_loading);
     ++list.generation;kui_shell_set_update(&s,&list);assert(!s.update_loading && s.update.count==8u);
     struct kui_shell_view view={0};render(&view);
-    assert(strstr(drawn,"Offline updates") && strstr(drawn,"TacitusVox/K-UI-NeXT Releases") && strstr(drawn,"A Open/check"));
+    assert(strstr(drawn,"K-UI updates") && strstr(drawn,"L GitHub nightly") && strstr(drawn,"A Open/check"));
     assert(strstr(drawn,"release-7.kup") && strstr(drawn,"Restore previous") && strstr(drawn,"Original baseline"));
     assert(press(KUI_SHELL_RIGHT,false)==KUI_SHELL_UPDATE_RUN && s.update_request.page==1u);
     list.generation=s.update_generation;list.page=1u;list.count=2u;kui_shell_set_update(&s,&list);
@@ -1898,6 +1898,7 @@ static void update_controls(void) {
         .ready=true,.space_known=true,.free_bytes=100u*1048576u,.required_bytes=10u*1048576u,.selection_known=true};
     strcpy(preview.directory,KUI_UPDATE_BROWSER_ROOT);strcpy(preview.reviewed.directory,KUI_UPDATE_BROWSER_ROOT);
     preview.status.complete=preview.status.passed=true;
+    strcpy(preview.gui_build,"403020100abc");
     strcpy(preview.running,"0123456789ab");strcpy(preview.reviewed.target,"fedcba987654");
     strcpy(preview.reviewed.package.build,"fedcba987654");preview.reviewed.package.channel=1u;
     preview.reviewed.op=KUI_SHELL_UPDATE_INSTALL;preview.reviewed.token=77u;
@@ -1906,13 +1907,17 @@ static void update_controls(void) {
     strcpy(preview.status.message,"Package checked. A confirms installation.");
     kui_shell_set_update(&s,&preview);assert(s.update.ready && !s.update_loading && s.update.page==1u);
     render(&view);assert(strstr(drawn,"Install this package?") && strstr(drawn,"testing") && strstr(drawn,"10.0 MiB needed / 100.0 MiB free"));
+    assert(strstr(drawn,"GUI 403020100abc / package fedcba987654"));
     assert(strstr(drawn,"A Install") && strstr(drawn,"Cards, saves and preferences"));
     s.update.replacement_count=1u;s.update.inherited_count=25u;
     render(&view);assert(strstr(drawn,"GUI update; keeps your installed game readers."));
     s.update.replacement_count=3u;s.update.inherited_count=23u;
     render(&view);assert(strstr(drawn,"Updates 3 files; retains 23 installed modules."));
     s.update.reviewed.package.version=2u;s.update.replacement_count=1u;s.update.removed_count=1u;
-    render(&view);assert(strstr(drawn,"Files to update: 1; remove: 1. Others kept."));
+    render(&view);assert(strstr(drawn,"Replace 1 / remove 1. Other software is retained."));
+    s.update.reviewed.package.flags=KUI_UPDATE_FULL;
+    render(&view);assert(strstr(drawn,"Unlisted software is excluded."));
+    s.update.reviewed.package.flags=0;
     s.update.reviewed.package.version=0u;s.update.removed_count=0u;
     /* Confirmation owns a deep copy; later display/caller edits cannot change
      * the package, target, activation or storage that the A action dispatches. */
@@ -1929,7 +1934,7 @@ static void update_controls(void) {
     result.status.complete=true;result.status.errors=1u;
     strcpy(result.status.message,"Activation not confirmed; restart/check selected version.");
     kui_shell_set_update(&s,&result);assert(!s.update_loading && !s.update_stopping && !s.update.ready);
-    render(&view);assert(strstr(drawn,"Activation not confirmed") && strstr(drawn,"not detected or rolled back") && strstr(drawn,"Hold B at startup"));
+    render(&view);assert(strstr(drawn,"Activation not confirmed") && strstr(drawn,"Restart K-UI loads the selected version") && strstr(drawn,"Cold CD boot loads"));
     assert(press(KUI_SHELL_START,false)==KUI_SHELL_NONE && s.confirm_restart);
     assert(press(KUI_SHELL_B,false)==KUI_SHELL_NONE && !s.confirm_restart && s.page==KUI_SHELL_UPDATES);
     assert(press(KUI_SHELL_START,false)==KUI_SHELL_NONE);
@@ -1951,7 +1956,7 @@ static void update_controls(void) {
     assert(press(KUI_SHELL_R,false)==KUI_SHELL_UPDATE_RUN && s.update_request.op==KUI_SHELL_UPDATE_BASELINE);
     preview.generation=s.update_generation;preview.baseline=true;preview.reviewed.target[0]=0;
     kui_shell_set_update(&s,&preview);render(&view);
-    assert(strstr(drawn,"Target: original baseline") && strstr(drawn,"checked again before selection"));
+    assert(strstr(drawn,"Restore target: original baseline") && strstr(drawn,"checked again before selection"));
     assert(press(KUI_SHELL_A,false)==KUI_SHELL_UPDATE_RUN && s.update_request.op==KUI_SHELL_UPDATE_RESTORE && !s.update_request.target[0]);
     result.generation=s.update_generation;result.status=(struct kui_app_status){.complete=true,.stopped=true};
     strcpy(result.status.message,"Stopped before activation.");kui_shell_set_update(&s,&result);
@@ -1981,6 +1986,14 @@ static void update_folders_controls(void) {
     strcpy(list.rows[0].name,"test");strcpy(list.rows[0].path,"0:/KUI/updates/test");list.rows[0].is_directory=true;
     strcpy(list.rows[1].name,"release.kup");strcpy(list.rows[1].path,"0:/KUI/updates/release.kup");
     kui_shell_set_update(&s,&list);render(&view);assert(strstr(drawn,"Folder >"));
+    assert(press(KUI_SHELL_L,false)==KUI_SHELL_NONE && s.update_online);
+    assert(press(KUI_SHELL_LEFT,false)==KUI_SHELL_NONE && s.update_route==KUI_INTERNET_DREAMPI);
+    struct kui_shell_view online_view={0};render(&online_view);assert(strstr(drawn,"Dial DreamPi"));
+    assert(press(KUI_SHELL_B,false)==KUI_SHELL_NONE && !s.update_online);
+    assert(press(KUI_SHELL_L,false)==KUI_SHELL_NONE && s.update_online);
+    assert(press(KUI_SHELL_A,false)==KUI_SHELL_UPDATE_RUN && !s.update_online &&
+        s.update_request.op==KUI_SHELL_UPDATE_NIGHTLY && s.update_request.route==KUI_INTERNET_DREAMPI);
+    list.generation=s.update_generation;kui_shell_set_update(&s,&list);
     assert(!s.update.restart_required && press(KUI_SHELL_START,false)==KUI_SHELL_NONE && s.confirm_restart && s.update_restart);
     assert(press(KUI_SHELL_A,false)==KUI_SHELL_RESTART_KUI && s.update_loading);
     kui_shell_set_update(&s,&list);assert(!s.update_loading);

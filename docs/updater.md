@@ -1,10 +1,20 @@
 # K-UI software updates
 
-Use the current Main producer and current updater implementation. The intended
-workflow is a prepared .kup in KUI/updates/test, select/check/install it in
-Settings -> Updates, then Restart K-UI. Folder browsing and a ZIP containing
-exactly one .kup are supported. The producer validates the exact output with
-its current C consumer before delivery; users should not edit manifests.
+Open **Settings → Updates**. Choose a local KUP or a ZIP containing one KUP
+from `KUI/updates` or a subfolder. **L → GitHub nightly** opens the connection
+picker. Choose the adapter with left/right, then press **A** to download and
+review the testing GUI. **Dial DreamPi** is an explicit choice. A verified
+download stays in `KUI/updates` for offline use. Press **A** on the review to
+install, then **START → Restart K-UI** to run the selected version.
+
+Cold CD boot on this installation starts the physical `KUI/boot.kui` or
+`KUI/runtime.kui`. After a power cycle, **Restart K-UI** re-enters the selected
+bank. To bring an older updater up to date, merge both physical GUI aliases
+from the manual-copy ZIP into the SD card and cold boot once. Keep a copy of
+the prior aliases if you want to reverse the manual update.
+
+The nightly is a GUI overlay for an existing installation. See
+[GUI nightlies](gui-nightlies.md) for activation and publication.
 
 ## Confirmed failures and revision3
 
@@ -91,6 +101,15 @@ Stage intended software only, never a whole live SD-card KUI directory.
     python3 tools/make_update.py stage/KUI test.kup
     make update KUI_UPDATE_STAGE=stage/KUI KUI_UPDATE_OUTPUT=test.kup
 
+A manual-copy ZIP containing the intended software can also supply the input.
+A physical `KUI/boot.kui` must match `KUI/runtime.kui` byte for byte. The
+package includes the runtime once. For a delivery with a current v2 KUP and
+loose software, the converter checks that both describe the same replacement
+files and preserves the embedded KUP, including its channel and any removal or
+inheritance directives. Choose a separate output path to keep the source ZIP.
+
+    python3 tools/make_update.py manual-test.zip test.kup
+
 For a complete software release, stage its actual release GUI and every intended
 software file. This does not invent a 2.8.5 release or version-label old binaries.
 
@@ -144,13 +163,10 @@ remains available for root/inherited reads; pinned bank replacements bypass it
 so embedded old modules cannot shadow an installed test. The supplied game and
 helper binaries remain byte-identical; Main receives no game-source merge.
 
-There is no separate version-selection status page. Selection still performs
-necessary storage and integrity work before the normal launcher splash. It
-reuses the pinned transport, avoids duplicate rejected GUI reads, uses equivalent
-fast updater CRC, and reuses a checked handoff-slot scan. Startup timing reports
-remain available. A valid current GUI handoff adopts through receipt/header/slot
-reads; it does not reread the complete GUI. Returning from a game remains a
-separate route-specific loader feature.
+Ordinary CD/root startup takes the original direct path. Explicit Restart K-UI
+validates its selected GUI. A valid handoff adopts the checked bank using its
+receipt, header and handoff slot. Returning from a game follows its own loader
+path. See [the cold-boot restoration](root-boot-restoration.md).
 
 ## Current reader integration scope
 

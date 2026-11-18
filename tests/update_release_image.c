@@ -202,8 +202,8 @@ int main(int argc,char **argv) {
     CHECK(package->count<=count && strcmp(baseline,package->build));
     struct kui_update_pin pin;kui_update_package_pin(package,&pin);
     if(changed_archive) {
-        /* Simulate the user replacing the reviewed source ZIP. INSTALL must
-         * re-extract it and reject its different valid package against D's pin. */
+        /* A different package in the private cache must fail the original
+         * review pin. Stage the alternate ZIP to simulate this replacement. */
         CHECK(f_unlink(ARCHIVE)==FR_OK);(void)copy_host(argv[5],ARCHIVE);
         CHECK(kui_update_zip_prepare(ARCHIVE,prepared,&status,logger,cancel,NULL)==KUI_UPDATE_OK && status.passed);
         CHECK(kui_update_install(prepared,&pin,&status,logger,cancel,NULL)==KUI_UPDATE_STALE && !status.passed);
@@ -212,11 +212,9 @@ int main(int argc,char **argv) {
         absent(KUI_UPDATE_ACTIVE0);absent(KUI_UPDATE_ACTIVE1);preserved(root,(unsigned)count);
         CHECK(f_unlink(ARCHIVE)==FR_OK);struct digest restored=copy_host(argv[4],ARCHIVE);
         CHECK(restored.bytes==archive_digest.bytes && !memcmp(restored.sha256,archive_digest.sha256,32u));
-    }
-    if(archive) {
         CHECK(kui_update_zip_prepare(ARCHIVE,prepared,&status,logger,cancel,NULL)==KUI_UPDATE_OK && status.passed);
-        same_digest(package_path,&expected_package);same_digest(ARCHIVE,&archive_digest);
     }
+    if(archive) {same_digest(package_path,&expected_package);same_digest(ARCHIVE,&archive_digest);}
     CHECK(kui_update_install(package_path,&pin,&status,logger,cancel,NULL)==KUI_UPDATE_OK && status.passed);
     preserved(root,(unsigned)count);
     CHECK(!strcmp(latest().selected,package->build) && !latest().previous[0]);
@@ -261,7 +259,7 @@ int main(int argc,char **argv) {
     before=writes;CHECK(kui_update_boot_read(baseline,KUI_STORAGE_SCI,&image,&view,logger,cancel)==KUI_UPDATE_BOOT_BASELINE);
     CHECK(!view.bank[0] && !image.data);modules(NULL,root);CHECK(writes==before);preserved(root,(unsigned)count);
     if(archive)same_digest(ARCHIVE,&archive_digest);
-    printf("PASS actual release updater: %u checks; %s -> %s, %u manifest entries/%zu known roles, %u present/%zu absent retained root files, %u legacy guards, %s%sfull same-build reload/abort, chained handoff/adoption, inherited module recognition/absence, held-B bypass, rollback and protected root/user data\n",checks,baseline,package->build,package->count,count,root_present,count-root_present,historical,archive?"ZIP check/install restaging, ":"",changed_archive?"changed-ZIP pin refusal, ":"");
+    printf("PASS actual release updater: %u checks; %s -> %s, %u manifest entries/%zu known roles, %u present/%zu absent retained root files, %u legacy guards, %s%sfull same-build reload/abort, chained handoff/adoption, inherited module recognition/absence, held-B bypass, rollback and protected root/user data\n",checks,baseline,package->build,package->count,count,root_present,count-root_present,historical,archive?"reviewed ZIP cache installation, ":"",changed_archive?"substituted ZIP cache refusal, ":"");
     kui_update_boot_reset();CHECK(f_mount(NULL,"0:",0)==FR_OK);kui_media_set(NULL);
     free(verified);free(package);free(root);free(disk);return 0;
 }

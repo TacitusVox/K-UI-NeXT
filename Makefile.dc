@@ -157,7 +157,7 @@ RUNTIME_OBJECTS += build/dc/src/core/runtime_image.o build/dc/src/core/runtime_f
 RUNTIME_OBJECTS += build/dc/src/core/update.o build/dc/src/core/update_file.o build/dc/src/core/update_boot.o
 RUNTIME_OBJECTS += build/dc/src/core/update_handoff.o
 RUNTIME_OBJECTS += build/dc/src/core/startup_report.o
-RUNTIME_OBJECTS += build/dc/src/core/update_browser.o build/dc/src/core/update_zip.o
+RUNTIME_OBJECTS += build/dc/src/core/update_browser.o build/dc/src/core/update_zip.o build/dc/src/core/update_nightly.o
 RUNTIME_OBJECTS += build/dc/src/core/update_software_file.o
 RUNTIME_OBJECTS += build/dc/src/core/resident_image.o
 RUNTIME_OBJECTS += build/dc/src/core/retail_image.o
@@ -170,6 +170,10 @@ ifeq ($(KUI_SMASH_LAUNCH_TIMING),1)
 RUNTIME_OBJECTS += build/dc/src/core/smash_phase_clock.o build/dc/src/core/smash_phase_trace.o build/dc/src/core/smash_phase_video.o
 endif
 BUILD_ID ?= $(shell git rev-parse --short=12 HEAD 2>/dev/null || echo local)
+# main-runtime.o already depends on force-build-id so switching between an
+# official nightly and a local build of the same revision recompiles this flag.
+KUI_GITHUB_NIGHTLY ?= 0
+build/dc/main-runtime.o: CPPFLAGS += -DKUI_GITHUB_NIGHTLY=$(KUI_GITHUB_NIGHTLY)
 
 .PHONY: all force-build-id wince-cdda native-cdda
 all: $(TARGET) $(RUNTIME) build/loader/entry.elf build/loader/image_entry.elf build/retail/entry.elf build/retail-bench/entry.elf build/retail-ce/entry.elf wince-cdda

@@ -13,6 +13,7 @@
 #ifdef KUI_SD_RUNTIME
 #include "kui/update_handoff.h"
 #include "kui/update.h"
+#include "kui/update_nightly.h"
 /* One retained marker admits this runtime to immutable update banks. A
  * volatile read in main keeps the capability in the linked payload. */
 static volatile const uint8_t kui_update_bank_capability[16] __attribute__((used))={
@@ -2702,6 +2703,10 @@ static bool update_package_path(const char *path) {
 static bool update_storage_read(struct kui_shell_update_storage *out) {
     const struct kui_volume *volume=kui_media_volume();uint8_t sector[512];
     if(!volume || !volume->count || disk_read(0,sector,0,1)!=RES_OK)return false;
+    /* FatFs updates exFAT PercentInUse when our own download or ZIP stage
+     * allocates clusters. The serial, geometry and other boot bytes still
+     * distinguish the volume when the checked package is confirmed. */
+    if(!memcmp(sector+3,"EXFAT   ",8))sector[112]=0;
     memset(out,0,sizeof(*out));out->transport=kui_storage_selected();
     out->partition_first=volume->start;out->partition_blocks=volume->count;
     struct kui_sha256 sha;kui_sha256_init(&sha);kui_sha256_update(&sha,sector,sizeof(sector));
@@ -2712,10 +2717,18 @@ static bool update_storage_same(const struct kui_shell_update_storage *a,
     return a->transport==b->transport && a->partition_first==b->partition_first &&
         a->partition_blocks==b->partition_blocks && !memcmp(a->boot_sha256,b->boot_sha256,32u);
 }
-static bool update_activation_current(struct kui_update_activation *out) {
-    memset(out,0,sizeof(*out));unsigned slot=0;
-    enum kui_update_result r=kui_update_activation_for_update(out,&slot,kui_cancelled);
-    return r==KUI_UPDATE_OK || r==KUI_UPDATE_NOT_FOUND;
+static bool update_activation_current(const struct kui_shell_update_request *review,struct kui_update_activation *out) {
+    unsigned slot=0;
+    /* Recovery may synthesize ROOT for a future install. After publication
+     * report only an actual selection (or a pristine no-op ROOT restore).
+     * Finish this readback even if Stop arrived during the activation. */
+    enum kui_update_result r=kui_update_activation_latest(out,&slot,NULL);
+    bool restore_root=review->op==KUI_SHELL_UPDATE_RESTORE && !review->target[0];
+    if(r==KUI_UPDATE_NOT_FOUND)return restore_root && !review->activation.sequence;
+    if(r!=KUI_UPDATE_OK || out->sequence<review->activation.sequence)return false;
+    if(review->op==KUI_SHELL_UPDATE_INSTALL)return out->selected[0]!=0;
+    return !strcmp(out->selected,review->target) &&
+        (restore_root || !memcmp(out->manifest_sha256,review->package.manifest_sha256,32u));
 }
 static bool update_activation_same(const struct kui_update_activation *a,const struct kui_update_activation *b) {
     return a->sequence==b->sequence && !memcmp(a->selected,b->selected,sizeof(a->selected)) &&
@@ -2768,7 +2781,10 @@ static void update_work(const struct kui_shell_update_request *request,struct ku
     snprintf(out->running,sizeof(out->running),"%s",KUI_BUILD_ID);
     out->stage=KUI_SHELL_UPDATE_RESULT;
     bool mutation=request->op==KUI_SHELL_UPDATE_INSTALL || request->op==KUI_SHELL_UPDATE_RESTORE;
-    if(request->op>KUI_SHELL_UPDATE_RESTORE || !kui_update_browser_path(request->directory) || kui_cancelled()) {
+    bool nightly=request->op==KUI_SHELL_UPDATE_NIGHTLY;
+    if((unsigned)request->op>KUI_SHELL_UPDATE_NIGHTLY || !kui_update_browser_path(request->directory) ||
+       (nightly && ((unsigned)request->route>=KUI_INTERNET_ROUTE_COUNT || strcmp(request->directory,KUI_UPDATE_BROWSER_ROOT))) ||
+       kui_cancelled()) {
         update_view_error(out,"Update operation stopped before starting.");return;
     }
     struct kui_music_status music;kui_music_status_copy(&music);kui_music_pause();publish_music();
@@ -2792,6 +2808,18 @@ static void update_work(const struct kui_shell_update_request *request,struct ku
         memcpy(out->previous,activation.previous,sizeof(out->previous));
         out->restart_required=strcmp(activation.selected,update_boot_view.bank)!=0;
     }
+    bool up_to_date=false;
+    char downloaded[KUI_SHELL_UPDATE_PATH_BYTES]={0};
+    const char *review_path=request->path;
+    if(ok && nightly) {
+        update_reviewed.ready=false;
+        ok=kui_update_nightly_download(request->route,KUI_GITHUB_NIGHTLY ? KUI_BUILD_ID : NULL,downloaded,&out->status,kui_log,kui_cancelled,app_progress);
+        up_to_date=ok && !downloaded[0];
+        if(ok && !up_to_date && (!kui_update_browser_child(KUI_UPDATE_BROWSER_ROOT,downloaded) || !update_package_path(downloaded))) {
+            update_view_error(out,"Downloaded package path could not be checked.");ok=false;
+        }
+        review_path=downloaded;
+    }
     struct kui_update_package *package=NULL;
     if(ok && request->op==KUI_SHELL_UPDATE_LIST) {
         update_reviewed.ready=false;ok=update_packages_list(request->directory,request->page,out);
@@ -2805,12 +2833,11 @@ static void update_work(const struct kui_shell_update_request *request,struct ku
             update_view_error(out,"Update review changed; check the package or restore target again.");ok=false;
         } else {
             update_reviewed.ready=false;
-            enum kui_update_result result=KUI_UPDATE_OK;char prepared[KUI_SHELL_UPDATE_PATH_BYTES];
-            const char *source=review->path;
-            if(request->op==KUI_SHELL_UPDATE_INSTALL && kui_update_browser_suffix(source,".zip")) {
-                result=kui_update_zip_prepare(source,prepared,&out->status,kui_log,kui_cancelled,app_progress);source=prepared;
-            }
-            if(result==KUI_UPDATE_OK)result=request->op==KUI_SHELL_UPDATE_INSTALL?
+            /* CHECK staged the ZIP on this card. Install rechecks the package
+             * bytes and review pin before writing to a bank. */
+            const char *source=kui_update_browser_suffix(review->path,".zip")?
+                KUI_UPDATE_ZIP_STAGE_PATH:review->path;
+            enum kui_update_result result=request->op==KUI_SHELL_UPDATE_INSTALL?
                 kui_update_install(source,&review->package,&out->status,kui_log,kui_cancelled,app_progress):
                 kui_update_select(review->target,review->target[0]?review->package.manifest_sha256:NULL,
                     &out->status,kui_log,kui_cancelled,app_progress);
@@ -2819,7 +2846,7 @@ static void update_work(const struct kui_shell_update_request *request,struct ku
                 /* A v2 package is applied to the effective installation. Its
                  * resulting snapshot identity can differ from the input ID. */
                 struct kui_update_activation installed;
-                if(update_activation_current(&installed)) {
+                if(update_activation_current(review,&installed)) {
                     memcpy(out->previous,installed.previous,sizeof(out->previous));
                     memcpy(out->selected,installed.selected,sizeof(out->selected));
                 } else {
@@ -2832,18 +2859,18 @@ static void update_work(const struct kui_shell_update_request *request,struct ku
             if(result==KUI_UPDATE_IO && !strstr(out->status.message,"Activation")) {
                 snprintf(out->status.lines[0],KUI_APP_LINE_CAP,"Restart before retrying; check the selected version.");out->status.line_count=1u;
             } else if(result==KUI_UPDATE_OK)snprintf(out->status.message,sizeof(out->status.message),
-                "%s selected. Restart to use it.",request->op==KUI_SHELL_UPDATE_INSTALL?"Update":"Restore target");
+                "%s selected. Press START for Restart K-UI.",request->op==KUI_SHELL_UPDATE_INSTALL?"Update":"Restore target");
             ok=result==KUI_UPDATE_OK;
         }
-    } else if(ok) {
+    } else if(ok && !up_to_date) {
         package=malloc(sizeof(*package));
         if(!package) {update_view_error(out,"Not enough RAM to check the update package.");ok=false;}
         else {
-            out->restore=request->op!=KUI_SHELL_UPDATE_CHECK;
+            out->restore=request->op==KUI_SHELL_UPDATE_PREVIOUS || request->op==KUI_SHELL_UPDATE_BASELINE;
             enum kui_update_result result=KUI_UPDATE_ARGUMENT;
-            if(request->op==KUI_SHELL_UPDATE_CHECK && update_package_path(request->path) &&
-               kui_update_browser_child(request->directory,request->path)) {
-                char prepared[KUI_SHELL_UPDATE_PATH_BYTES];const char *source=request->path;result=KUI_UPDATE_OK;
+            if((nightly || request->op==KUI_SHELL_UPDATE_CHECK) && update_package_path(review_path) &&
+               kui_update_browser_child(request->directory,review_path)) {
+                char prepared[KUI_SHELL_UPDATE_PATH_BYTES];const char *source=review_path;result=KUI_UPDATE_OK;
                 if(kui_update_browser_suffix(source,".zip")) {
                     result=kui_update_zip_prepare(source,prepared,&out->status,kui_log,kui_cancelled,app_progress);source=prepared;
                 }
@@ -2861,10 +2888,13 @@ static void update_work(const struct kui_shell_update_request *request,struct ku
             } else {
                 out->stage=KUI_SHELL_UPDATE_REVIEW;
                 out->reviewed.op=out->restore?KUI_SHELL_UPDATE_RESTORE:KUI_SHELL_UPDATE_INSTALL;
-                memcpy(out->reviewed.path,request->path,sizeof(out->reviewed.path));
+                if(!out->restore)snprintf(out->reviewed.path,sizeof(out->reviewed.path),"%s",review_path);
                 memcpy(out->reviewed.directory,request->directory,sizeof(out->reviewed.directory));
                 kui_update_package_pin(package,&out->reviewed.package);
                 for(uint32_t i=0;i<package->count;i++) {
+                    const struct kui_update_entry *entry=&package->entries[i];
+                    if(!strcmp(entry->path,"runtime.kui") && entry->bytes)
+                        snprintf(out->gui_build,sizeof(out->gui_build),"%.12s",entry->build[0]?entry->build:package->build);
                     if(package->entries[i].policy==KUI_UPDATE_INHERIT_ROOT)++out->inherited_count;
                     else if(package->entries[i].policy==KUI_UPDATE_REMOVE)++out->removed_count;
                     else ++out->replacement_count;

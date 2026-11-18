@@ -103,6 +103,7 @@ class PackageUpdatePayloadTests(unittest.TestCase):
         with zipfile.ZipFile(installation, "w") as archive:
             for name, data in files.items():
                 archive.writestr("KUI/" + name, data)
+            archive.writestr("KUI/boot.kui", files["runtime.kui"])
             archive.writestr("README.md", b"not installed software")
         verify_update_asset(self.root / "release.kup", installation)
         # Matching members in an overlay still leave omitted old root software
@@ -115,6 +116,14 @@ class PackageUpdatePayloadTests(unittest.TestCase):
                 archive.writestr("KUI/" + name, data + b"changed" if name == "redump.db" else data)
         with self.assertRaisesRegex(SystemExit, "software differs"):
             verify_update_asset(self.root / "release.kup", installation)
+
+    def test_embedded_release_uses_the_same_default_channel_as_standalone(self):
+        gui = module(gui=True)
+        files = {"KUI/runtime.kui": gui, "KUI/boot.kui": gui}
+        report = add_update_payload(files, "release.kup", release=True)
+        self.assertTrue(report["full"])
+        self.assertEqual(report["channel"], "stable")
+        self.assertEqual([row["path"] for row in report["members"]], ["runtime.kui"])
 
     def test_release_asset_delivery_contains_standalone_kup_and_checksum(self):
         bundle = self.root / "release"

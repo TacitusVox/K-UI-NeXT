@@ -255,6 +255,14 @@ static void full_release_flags(void) {
         {"apps/games/keep.kui",NULL,0u,KUI_UPDATE_KEEP}};
     bytes=wire_make(wire,2u,keep,2u);wire[45u]=KUI_UPDATE_FULL;put32(wire+124u,kui_crc32(0u,wire,124u));
     CHECK(decode(wire,bytes,&p)!=KUI_UPDATE_OK);
+    struct kui_update_diagnostic issue={0};
+    CHECK(kui_update_header_decode(wire,bytes,&p)==KUI_UPDATE_OK);
+    CHECK(kui_update_manifest_decode_detail(&p,wire+128u,2u*160u,&issue)==KUI_UPDATE_COHORT);
+    CHECK(issue.member==2u && !strcmp(issue.path,keep[1].path) && strstr(issue.message,"FULL"));
+    memcpy(wire+128u+160u,wire+128u,160u);reseal_wire(wire,2u*160u);
+    CHECK(kui_update_header_decode(wire,bytes,&p)==KUI_UPDATE_OK);
+    CHECK(kui_update_manifest_decode_detail(&p,wire+128u,2u*160u,&issue)==KUI_UPDATE_COHORT);
+    CHECK(issue.member==2u && !strcmp(issue.path,"runtime.kui") && strstr(issue.message,"twice"));
 }
 int main(void) {
     mixed_builds_and_sealing();reader_only_and_roles();malformed();v1_compatibility_and_engine();capacity();full_release_flags();

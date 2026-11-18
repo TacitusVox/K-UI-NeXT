@@ -2851,6 +2851,7 @@ enum kui_shell_action kui_shell_input(struct kui_shell *s,
                 if(s->update_stopping)return KUI_SHELL_NONE;
                 s->update_stopping=true;return KUI_SHELL_STOP;
             }
+            if(s->update_online) {s->update_online=false;return KUI_SHELL_NONE;}
             if(s->update.stage==KUI_SHELL_UPDATE_REVIEW)
                 return updates_request(s,KUI_SHELL_UPDATE_LIST,s->update.page);
             char parent[KUI_SHELL_UPDATE_PATH_BYTES];
@@ -4103,7 +4104,7 @@ enum kui_shell_action kui_shell_input(struct kui_shell *s,
             return theme_request(s,KUI_SHELL_THEME_SCAN);
         }
         if(buttons==KUI_SHELL_A && s->system_selected==12u) {
-            s->page=KUI_SHELL_UPDATES;s->update_selected=0;
+            s->page=KUI_SHELL_UPDATES;s->update_selected=0;s->update_online=false;
             memset(&s->update,0,sizeof(s->update));
             return updates_request(s,KUI_SHELL_UPDATE_LIST,0);
         }
@@ -4478,6 +4479,19 @@ enum kui_shell_action kui_shell_input(struct kui_shell *s,
                 return updates_dispatch(s,&s->update_confirm_request);
             break;
         }
+        if(s->update_online) {
+            if(buttons==KUI_SHELL_LEFT || buttons==KUI_SHELL_RIGHT) {
+                unsigned step=buttons==KUI_SHELL_LEFT?KUI_INTERNET_ROUTE_COUNT-1u:1u;
+                s->update_route=(enum kui_internet_route)((s->update_route+step)%KUI_INTERNET_ROUTE_COUNT);
+            } else if(buttons==KUI_SHELL_A) {
+                struct kui_shell_update_request request={.op=KUI_SHELL_UPDATE_NIGHTLY,.route=s->update_route};
+                strcpy(request.directory,KUI_UPDATE_BROWSER_ROOT);
+                s->update_online=false;
+                return updates_dispatch(s,&request);
+            }
+            break;
+        }
+        if(buttons==KUI_SHELL_L) {s->update_online=true;break;}
         if(buttons==KUI_SHELL_START) {s->confirm_restart=s->update_restart=true;break;}
         if(buttons==KUI_SHELL_X) {s->update_selected=0;return updates_request(s,KUI_SHELL_UPDATE_LIST,0);}
         if(buttons==KUI_SHELL_Y)return updates_request(s,KUI_SHELL_UPDATE_PREVIOUS,0);

@@ -11,7 +11,7 @@
 #define BAD "0:/KUI/updates/bad.kup"
 #define BODY 40064u
 static uint8_t *disk;static size_t disk_bytes;static FATFS fs;static bool mounted,active,low_space;
-static unsigned checks,writes,syncs;static int fail_write=-1,fail_sync=-1,cancel_after=-1;
+static unsigned checks,writes,syncs,root_opens;static int fail_write=-1,fail_sync=-1,cancel_after=-1;
 static int effective_mode;static char effective_bank[13];static uint8_t effective_hash[32];
 static unsigned boot_minimum;static bool activation_io,tear_activation;static char read_failure[160];
 unsigned kui_update_boot_engine_minimum(void) {return boot_minimum;}
@@ -39,6 +39,7 @@ static void logger(const char *format,...) {(void)format;}
 static bool cancel(void) {return cancel_after>=0 && writes>=(unsigned)cancel_after;}
 FRESULT __real_f_open(FIL *,const TCHAR *,BYTE);
 FRESULT __wrap_f_open(FIL *file,const TCHAR *path,BYTE flags) {
+    if(active && flags==FA_READ && !strcmp(path,KUI_RUNTIME_PATH))++root_opens;
     if(active && (flags&FA_WRITE))CHECK(!strncmp(path,KUI_UPDATE_SYSTEM "/",sizeof(KUI_UPDATE_SYSTEM)));
     if(active && activation_io && (strstr(path,"/active0.bin") || strstr(path,"/active1.bin")))return FR_DISK_ERR;
     if(active && flags==FA_READ && read_failure[0] && !strcmp(path,read_failure))return FR_DISK_ERR;
@@ -57,7 +58,7 @@ FRESULT __wrap_f_getfree(const TCHAR *path,DWORD *clusters,FATFS **volume) {
     FRESULT r=__real_f_getfree(path,clusters,volume);if(active && low_space && r==FR_OK)*clusters=0u;return r;
 }
 static void clear_faults(void) {
-    active=low_space=activation_io=tear_activation=false;fail_write=fail_sync=cancel_after=-1;writes=syncs=0u;effective_mode=0;read_failure[0]=0;
+    active=low_space=activation_io=tear_activation=false;fail_write=fail_sync=cancel_after=-1;writes=syncs=root_opens=0u;effective_mode=0;read_failure[0]=0;
     memset(effective_bank,0,sizeof(effective_bank));memset(effective_hash,0,sizeof(effective_hash));
 }
 static void mount_volume(void) {kui_media_set(&media);CHECK(f_mount(&fs,"0:",1)==FR_OK);mounted=true;}
@@ -415,7 +416,13 @@ int main(int argc,char **argv) {
     file_write(BAD,bad_gui.wire,bad_gui.bytes);clear_faults();CHECK(inspect(BAD,&package)==KUI_UPDATE_ENGINE && !writes);
     file_write(BAD,bad_component.wire,bad_component.bytes);CHECK(inspect(BAD,&package)==KUI_UPDATE_RUNTIME && !writes);
     size_t raw_at=(size_t)full.package.entries[3].payload_offset+500u;full.wire[raw_at]^=1u;
-    file_write(BAD,full.wire,full.bytes);CHECK(inspect(BAD,&package)==KUI_UPDATE_CHECKSUM && !writes);full.wire[raw_at]^=1u;
+    file_write(BAD,full.wire,full.bytes);
+    CHECK(kui_update_inspect(BAD,&package,&rejected_status,logger,cancel,NULL)==KUI_UPDATE_CHECKSUM && !writes);
+    CHECK(strstr(rejected_status.message,"Entry 4") && rejected_status.line_count==1u &&
+        !strcmp(rejected_status.lines[0],"apps/games/test-helper.bin"));
+    CHECK(kui_update_install(BAD,&full_pin,&rejected_status,logger,cancel,NULL)==KUI_UPDATE_CHECKSUM && !writes);
+    CHECK(strstr(rejected_status.message,"Entry 4") && !strcmp(rejected_status.lines[0],"apps/games/test-helper.bin"));
+    full.wire[raw_at]^=1u;
     file_write(BAD,legacy.wire,legacy.bytes);CHECK(inspect(BAD,&package)==KUI_UPDATE_OK);struct kui_update_pin legacy_pin;
     kui_update_package_pin(&package,&legacy_pin);clear_faults();CHECK(install(BAD,&legacy_pin)==KUI_UPDATE_ENGINE && !writes);
     file_write(KUI_RUNTIME_PATH,root_old,64u+BODY);clear_faults();CHECK(install(FULL,&full_pin)==KUI_UPDATE_ENGINE && !writes);
@@ -423,7 +430,11 @@ int main(int argc,char **argv) {
     uint8_t *saved=malloc(disk_bytes);CHECK(saved);memcpy(saved,disk,disk_bytes);
     /* The first reader-only delivery also works with no prior bank: materialize
      * the capable root GUI, retain omitted root roles, and preserve absence. */
-    clear_faults();CHECK(install(READER,&delta_pin)==KUI_UPDATE_OK);struct kui_update_activation first=latest();verify(first.selected);
+    clear_faults();active=true;
+    uint64_t root_needed=0u,root_free=0u;
+    CHECK(kui_update_plan_space(&delta.package,&root_needed,&root_free,cancel)==KUI_UPDATE_OK && root_opens==1u && !writes);
+    clear_faults();CHECK(install(READER,&delta_pin)==KUI_UPDATE_OK && root_opens==2u);
+    struct kui_update_activation first=latest();verify(first.selected);
     fallback_mode(first.selected,false);
     bank_equal(first.selected,"runtime.kui",root,64u+BODY);bank_equal(first.selected,"apps/games/cdda.kui",reader,64u+BODY);
     bank_absent(first.selected,"apps/games/test-helper.bin");unchanged(root,root_module,user,sizeof(user));reset(saved);
@@ -504,13 +515,16 @@ int main(int argc,char **argv) {
     bank_equal(latest().selected,"runtime.kui",root,64u+BODY);bank_equal(latest().selected,"apps/games/cdda.kui",reader,64u+BODY);
     bank_absent(latest().selected,"apps/music/player.kui");bank_absent(latest().selected,"apps/games/test-helper.bin");
     unchanged(root,root_module,user,sizeof(user));
+    CHECK(!latest().previous[0] && kui_update_rollback(&status,logger,cancel,NULL)==KUI_UPDATE_OK);
+    CHECK(!latest().selected[0]);
     /* A pending root selection likewise cannot discard the running bank's
      * software before restart; publish still guards the saved selection. */
     reset(saved);CHECK(kui_update_bank_receipt_read(full_bank,&package,cancel)==KUI_UPDATE_OK);
     CHECK(kui_update_select("",NULL,&status,logger,cancel,NULL)==KUI_UPDATE_OK);clear_faults();
     effective_mode=1;memcpy(effective_bank,full_bank,13u);memcpy(effective_hash,package.manifest_sha256,32u);
-    CHECK(install(READER,&delta_pin)==KUI_UPDATE_OK);CHECK(!strcmp(latest().selected,delta_bank) && !latest().previous[0]);
+    CHECK(install(READER,&delta_pin)==KUI_UPDATE_OK);CHECK(!strcmp(latest().selected,delta_bank) && !strcmp(latest().previous,full_bank));
     bank_equal(delta_bank,"runtime.kui",gui,64u+BODY);bank_equal(delta_bank,"apps/music/player.kui",music,64u+BODY);fallback_mode(delta_bank,true);
+    CHECK(kui_update_rollback(&status,logger,cancel,NULL)==KUI_UPDATE_OK && !strcmp(latest().selected,full_bank));
     full_repair_cases(saved,&full,&full_pin,full_bank,root,root_module,user,sizeof(user),raw,sizeof(raw));
     activation_recovery_cases(saved,&full,&full_pin,full_bank,root,root_module,user,sizeof(user));
     conflict_recovery_cases(saved,&full,&full_pin,full_bank);

@@ -215,7 +215,13 @@ static bool full_gui_valid(const struct kui_update_package *p) {
         return p->entries[i].policy==KUI_UPDATE_SELF_KUI;
     return false;
 }
-enum kui_update_result kui_update_manifest_decode(struct kui_update_package *package,const void *manifest,size_t bytes) {
+enum kui_update_result kui_update_manifest_decode_detail(struct kui_update_package *package,const void *manifest,
+    size_t bytes,struct kui_update_diagnostic *issue) {
+    if(issue) {
+        if(overlap(issue,sizeof(*issue),package,sizeof(*package)) ||
+           (manifest && overlap(issue,sizeof(*issue),manifest,bytes)))return KUI_UPDATE_ARGUMENT;
+        memset(issue,0,sizeof(*issue));
+    }
     if(!span(package,sizeof(*package)))return KUI_UPDATE_ARGUMENT;
     if(manifest && overlap(manifest,bytes,package,sizeof(*package)))return KUI_UPDATE_ARGUMENT;
     if(!span(manifest,bytes)) {memset(package,0,sizeof(*package));return KUI_UPDATE_ARGUMENT;}
@@ -230,9 +236,20 @@ enum kui_update_result kui_update_manifest_decode(struct kui_update_package *pac
     uint64_t offset=128u+(uint64_t)bytes,total=0u;
     for(uint32_t i=0;i<decoded->count;i++) {
         const uint8_t *wire=(const uint8_t *)manifest+(size_t)i*entry_bytes;
-        if(!canonical_path((const char *)wire,version) ||
-           (version==1u && !i && strcmp((const char *)wire,"runtime.kui"))) {result=KUI_UPDATE_COHORT;goto done;}
-        for(uint32_t j=0u;j<i;j++)if(!strcmp((const char *)wire,decoded->entries[j].path)) {result=KUI_UPDATE_COHORT;goto done;}
+        if(issue) {issue->member=i+1u;issue->path[0]=0;}
+        if(!canonical_path((const char *)wire,version)) {
+            if(issue)issue->message="Path is invalid or outside the supported software folders.";
+            result=KUI_UPDATE_COHORT;goto done;
+        }
+        if(issue)strcpy(issue->path,(const char *)wire);
+        if(version==1u && !i && strcmp((const char *)wire,"runtime.kui")) {
+            if(issue)issue->message="Legacy packages must start with runtime.kui.";
+            result=KUI_UPDATE_COHORT;goto done;
+        }
+        for(uint32_t j=0u;j<i;j++)if(!strcmp((const char *)wire,decoded->entries[j].path)) {
+            if(issue)issue->message="Software path appears twice in this package.";
+            result=KUI_UPDATE_COHORT;goto done;
+        }
         uint64_t size=get64(wire+80u);
         if(wire[120u]>(version==1u?KUI_UPDATE_INHERIT_ROOT:KUI_UPDATE_REMOVE) ||
            !zero(wire+121u,7u) || (version==2u && !zero(wire+140u,20u)) || size>KUI_UPDATE_MAX_PAYLOAD-total)goto done;
@@ -241,13 +258,32 @@ enum kui_update_result kui_update_manifest_decode(struct kui_update_package *pac
         memcpy(entry->sha256,wire+88u,32u);entry->payload_offset=offset;offset+=size;total+=size;
         entry->policy=wire[120u];
         if(version==2u)memcpy(entry->build,wire+128u,12u);
-        if(!entry_valid(decoded,entry)) {result=KUI_UPDATE_COHORT;goto done;}
+        if(!entry_valid(decoded,entry)) {
+            if(issue) {
+                if(version==1u)issue->message="Legacy member does not match its required build or inheritance policy.";
+                else if((decoded->flags&KUI_UPDATE_FULL) && entry->policy==KUI_UPDATE_KEEP)
+                    issue->message="A FULL package cannot inherit this file.";
+                else if(entry->policy==KUI_UPDATE_REMOVE && !strcmp(entry->path,"runtime.kui"))
+                    issue->message="A package cannot remove the K-UI runtime.";
+                else if(entry->policy==KUI_UPDATE_SELF_KUI && kui_update_build_withdrawn(entry->build) && !strcmp(entry->path,"runtime.kui"))
+                    issue->message="This runtime build was withdrawn.";
+                else issue->message="File type, build, size or hash conflicts with its update policy.";
+            }
+            result=KUI_UPDATE_COHORT;goto done;
+        }
     }
+    if(issue)memset(issue,0,sizeof(*issue));
     if(total!=decoded->payload_bytes || offset!=decoded->file_bytes)goto done;
-    if(!full_gui_valid(decoded)) {result=KUI_UPDATE_RUNTIME;goto done;}
+    if(!full_gui_valid(decoded)) {
+        if(issue)issue->message="A FULL package must supply runtime.kui.";
+        result=KUI_UPDATE_RUNTIME;goto done;
+    }
     memcpy(package,decoded,sizeof(*package));result=KUI_UPDATE_OK;
 done:
     free(decoded);return result;
+}
+enum kui_update_result kui_update_manifest_decode(struct kui_update_package *package,const void *manifest,size_t bytes) {
+    return kui_update_manifest_decode_detail(package,manifest,bytes,NULL);
 }
 static enum kui_update_result full_valid(const struct kui_update_package *p) {
     if(!scalar_valid(p))return KUI_UPDATE_FORMAT;

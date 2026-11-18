@@ -227,6 +227,7 @@ static void footer(struct paint *p, const struct kui_shell *s,
         s->confirm_wifi_update ? "A Update firmware   B Cancel" :
         s->page==KUI_SHELL_GD_PLAY ? "A K-UI   X Stock retail   Y Options   START Cards   B Back" :
         s->page==KUI_SHELL_UPDATES ? (s->update_loading?"B Request safe stop":
+            s->update_online?"Left/right Connection   A Download   B Back":
             s->update.stage==KUI_SHELL_UPDATE_REVIEW?(s->update.ready?
                 s->update.restore?"A Restore this version   B Cancel":"A Install this package   B Cancel":"B Packages"):
             s->update.stage==KUI_SHELL_UPDATE_RESULT?
@@ -995,14 +996,32 @@ static void app_status(struct paint *p,const struct kui_app_status *status,bool 
         if(width) box(p,40,y+24,width,8,busy?CYAN:color);
     }
 }
+static const char *internet_route_name(enum kui_internet_route route) {
+    static const char *const routes[KUI_INTERNET_ROUTE_COUNT]={
+        [KUI_INTERNET_AUTO]="Automatic",[KUI_INTERNET_BBA]="Broadband Adapter",
+        [KUI_INTERNET_W5500]="W5500",[KUI_INTERNET_WIFI]="Wi-Fi",
+        [KUI_INTERNET_DREAMPI]="Dial DreamPi"
+    };
+    return routes[(unsigned)route<KUI_INTERNET_ROUTE_COUNT?route:KUI_INTERNET_AUTO];
+}
 static void updates_page(struct paint *p,const struct kui_shell *s,const struct kui_shell_view *v) {
     const struct kui_shell_update_view *u=&s->update;
     const struct kui_app_status *status=s->update_loading && v->app_status?v->app_status:&u->status;
-    title(p,40,108,s->update_loading?"Updates / working":u->stage==KUI_SHELL_UPDATE_REVIEW?
-        u->restore?"Restore this version?":"Install this package?":"Offline updates");
-    char line[192];snprintf(line,sizeof(line),"Running %.12s / selected %s",u->running[0]?u->running:"current",
+    title(p,40,108,s->update_loading?"Updates / working":s->update_online?"GitHub nightly":u->stage==KUI_SHELL_UPDATE_REVIEW?
+        u->restore?"Restore this version?":"Install this package?":"K-UI updates");
+    char line[192];snprintf(line,sizeof(line),"Running GUI %.12s / restart bank %s",u->running[0]?u->running:"current",
         !u->selection_known?"unchecked":u->selected[0]?u->selected:"original baseline");label(p,40,138,CYAN,line);
-    label(p,40,160,MUTED,"Source: TacitusVox/K-UI-NeXT Releases");
+    if(s->update_online) {
+        label(p,40,168,MUTED,"TacitusVox/K-UI-NeXT");
+        panel(p,32,202,576,42,SELECTED);
+        label(p,48,213,WHITE,"Connection");label(p,320,213,CYAN,internet_route_name(s->update_route));
+        words(p,40,270,604,WHITE,"Download the latest testing GUI to the SD card for review.",false);
+        words(p,40,313,604,MUTED,s->update_route==KUI_INTERNET_DREAMPI?
+            "A dials the modem through DreamPi. B stops the transfer.":
+            "Automatic checks Broadband Adapter, W5500 and configured Wi-Fi.",false);
+        return;
+    }
+    if(!s->update_loading && u->stage!=KUI_SHELL_UPDATE_REVIEW)label(p,40,160,CYAN,"L GitHub nightly");
     if(s->update_loading) {
         panel(p,32,192,576,192,PANEL);
         label(p,48,208,WHITE,s->update_stopping?"Stop requested; finishing a safe boundary.":"Keep the console powered on while writing.");
@@ -1011,15 +1030,21 @@ static void updates_page(struct paint *p,const struct kui_shell *s,const struct 
             box(p,48,276,544,10,EDGE);unsigned width=status->done>=status->total?544u:
                 (unsigned)((double)status->done/(double)status->total*544u);
             if(width)box(p,48,276,width,10,CYAN);
-            snprintf(line,sizeof(line),"%llu / %llu KiB checked or written",
+            snprintf(line,sizeof(line),"%llu / %llu KiB",
                 (unsigned long long)(status->done/1024u),(unsigned long long)(status->total/1024u));
             label(p,48,300,MUTED,line);
         }
-        label(p,48,340,MUTED,"Activation finishes before Stop can return.");return;
+        if(s->update_request.op==KUI_SHELL_UPDATE_NIGHTLY)
+            words(p,48,340,592,MUTED,"After download, review the package before installing.",false);
+        else label(p,48,340,MUTED,"Activation finishes before Stop can return.");
+        return;
     }
     if(u->stage==KUI_SHELL_UPDATE_REVIEW) {
         panel(p,32,184,576,196,PANEL);
-        snprintf(line,sizeof(line),"Target: %s",u->baseline?"original baseline":u->reviewed.target);
+        if(!u->restore && u->gui_build[0])
+            snprintf(line,sizeof(line),"GUI %.12s / package %.12s",u->gui_build,u->reviewed.target);
+        else snprintf(line,sizeof(line),"%s: %s",u->restore?"Restore target":"Package",
+            u->baseline?"original baseline":u->reviewed.target);
         label(p,48,196,WHITE,line);
         snprintf(line,sizeof(line),"Channel: %s",u->baseline?"retained root installation":
             u->reviewed.package.channel==1u?"testing":"stable");label(p,48,220,CYAN,line);
@@ -1035,7 +1060,9 @@ static void updates_page(struct paint *p,const struct kui_shell *s,const struct 
             "Original root baseline; checked again before selection.":
             "The complete target version was checked before this review.");
         if(!u->restore && u->reviewed.package.version==2u) {
-            snprintf(line,sizeof(line),"Files to update: %u; remove: %u. Others kept.",
+            if(u->reviewed.package.flags & KUI_UPDATE_FULL)
+                snprintf(line,sizeof(line),"Full install, %u files. Unlisted software is excluded.",u->replacement_count);
+            else snprintf(line,sizeof(line),"Replace %u / remove %u. Other software is retained.",
                 u->replacement_count,u->removed_count);
             label(p,48,294,CYAN,line);
         } else if(!u->restore && u->inherited_count) {
@@ -1056,8 +1083,8 @@ static void updates_page(struct paint *p,const struct kui_shell *s,const struct 
         panel(p,32,188,576,146,PANEL);
         words(p,48,206,592,status->passed?CYAN:status->stopped?MUTED:AMBER,status->message,false);
         for(unsigned i=0;i<status->line_count && i<3u;i++)words(p,48,234+i*24u,592,MUTED,status->lines[i],false);
-        label(p,40,350,MUTED,"A hung application is not detected or rolled back automatically.");
-        label(p,40,376,MUTED,"Hold B at startup to use the original baseline.");
+        label(p,40,350,MUTED,"Restart K-UI loads the selected version.");
+        label(p,40,376,MUTED,"Cold CD boot loads the physical ROOT files on the card.");
         label(p,40,398,CYAN,"START reviews Restart K-UI. X returns to this folder.");return;
     }
     snprintf(line,sizeof(line),"Folder: %.180s",u->directory[0]?u->directory+2u:"/KUI/updates");
@@ -3047,14 +3074,7 @@ static void games_media(struct paint *p,const struct kui_shell *s,const struct k
         const char *value="";
         if(i==1)value=s->games_media_all?"All of /Games":"Selected game";
         else if(i>=2 && i<=4)value=(s->games_media_kinds&(1u<<(i-2u)))?"On":"Off";
-        else if(i==5) {
-            static const char *const routes[KUI_INTERNET_ROUTE_COUNT]={
-                [KUI_INTERNET_AUTO]="Automatic",[KUI_INTERNET_BBA]="Broadband Adapter",
-                [KUI_INTERNET_W5500]="W5500",[KUI_INTERNET_WIFI]="Wi-Fi",
-                [KUI_INTERNET_DREAMPI]="Dial DreamPi"
-            };
-            value=routes[(unsigned)s->games_media_route<KUI_INTERNET_ROUTE_COUNT?s->games_media_route:KUI_INTERNET_AUTO];
-        }
+        else if(i==5)value=internet_route_name(s->games_media_route);
         label(p,400,y+3,CYAN,value);
     }
     const char *hint="Downloads missing files to the SD card.";

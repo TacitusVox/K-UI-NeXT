@@ -108,6 +108,13 @@ bool kui_update_build_withdrawn(const char *build);
 bool kui_update_bank_path(const char *build,const char *relative,char *out,size_t bytes);
 enum kui_update_result kui_update_header_decode(const uint8_t header[128],
     uint64_t file_bytes,struct kui_update_package *out);
+struct kui_update_diagnostic {
+    const char *message;       /* static explanation, NULL for the ordinary result message */
+    unsigned member;          /* one-based manifest position, zero for a package-wide failure */
+    char path[KUI_UPDATE_PATH_BYTES];
+};
+enum kui_update_result kui_update_manifest_decode_detail(struct kui_update_package *package,
+    const void *manifest,size_t bytes,struct kui_update_diagnostic *issue);
 enum kui_update_result kui_update_manifest_decode(struct kui_update_package *package,
     const void *manifest,size_t bytes);
 enum kui_update_result kui_update_receipt_encode(const struct kui_update_package *package,

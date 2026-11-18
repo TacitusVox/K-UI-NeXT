@@ -303,6 +303,49 @@ class ProducerV2Tests(unittest.TestCase):
                          {"runtime.kui", "apps/games/test.kui", "apps/games/test-helper.bin"})
         self.assertEqual(report["replaced_embedded_update_files"], ["KUI/updates/stale.kup"])
 
+    def test_manual_gui_alias_is_verified_and_only_runtime_enters_the_bank(self):
+        gui = self.gui()
+        self.put("boot.kui", gui)
+        with self.assertRaisesRegex(ValueError, "runtime.kui"):
+            self.build()
+        self.put("runtime.kui", gui)
+        report = self.build()
+        self.assertEqual([row["path"] for row in report["members"]], ["runtime.kui"])
+        manual = self.base / "manual.zip"
+        for alias in (gui, self.gui("111111111111")):
+            with zipfile.ZipFile(manual, "w") as archive:
+                archive.writestr("KUI/runtime.kui", gui)
+                archive.writestr("KUI/boot.kui", alias)
+            if alias == gui:
+                self.assertEqual(make_update(manual, self.output)["build"], report["build"])
+            else:
+                before = self.output.read_bytes()
+                with self.assertRaisesRegex(ValueError, "byte-identical"):
+                    make_update(manual, self.output)
+                self.assertEqual(self.output.read_bytes(), before)
+
+    def test_embedded_channel_and_input_archive_are_preserved(self):
+        self.put("runtime.kui", self.gui())
+        self.build(full=True, channel="testing")
+        source = self.base / "manual.zip"
+        with zipfile.ZipFile(source, "w") as archive:
+            archive.write(self.output, "payload.kup")
+        target = self.base / "repacked.kup"
+        with self.assertRaisesRegex(ValueError, "channel"):
+            make_update(source, target, release=True)
+        self.assertFalse(target.exists())
+        before = source.read_bytes()
+        with self.assertRaisesRegex(ValueError, "preserve the input ZIP"):
+            make_update(source, source)
+        self.assertEqual(source.read_bytes(), before)
+        self.assertEqual(make_update(source, target)["channel"], "testing")
+        self.build(full=True, channel="stable")
+        with zipfile.ZipFile(source, "w") as archive:
+            archive.write(self.output, "payload.kup")
+        self.assertEqual(make_update(source, target)["channel"], "stable")
+        with self.assertRaisesRegex(ValueError, "channel"):
+            make_update(source, target, channel="testing")
+
     def test_zip_with_only_one_v2_package_is_checked_and_copied(self):
         self.reader()
         first = self.build()
@@ -325,6 +368,29 @@ class ProducerV2Tests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "rebuilt from its staged software"):
             make_update(source, target, full=True)
         self.assertFalse(target.exists())
+
+    def test_mixed_delivery_preserves_full_remove_channel_and_exact_payload(self):
+        gui = self.gui()
+        self.put("runtime.kui", gui)
+        original = self.build(full=True, channel="stable", remove=["assets/obsolete.dat"])
+        source = self.base / "delivery.zip"
+        with zipfile.ZipFile(source, "w") as archive:
+            archive.writestr("KUI/runtime.kui", gui)
+            archive.writestr("KUI/boot.kui", gui)
+            archive.write(self.output, "payload.kup")
+        target = self.base / "again.kup"
+        result = make_update(source, target)
+        self.assertEqual(result["build"], original["build"])
+        self.assertEqual(target.read_bytes(), self.output.read_bytes())
+        with zipfile.ZipFile(source, "a") as archive:
+            archive.writestr("KUI/assets/extra.dat", b"only in loose tree")
+        with self.assertRaisesRegex(ValueError, "Loose KUI files differ"):
+            make_update(source, target)
+        self.assertEqual(target.read_bytes(), self.output.read_bytes())
+        with zipfile.ZipFile(source, "a") as archive:
+            archive.write(self.output, "second.kup")
+        with self.assertRaisesRegex(ValueError, "multiple update packages"):
+            make_update(source, target)
 
     def test_zip_traversal_and_private_software_are_refused(self):
         for name in ("../KUI/runtime.kui", "KUI/apps/system/settings.bin"):
