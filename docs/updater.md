@@ -2,9 +2,10 @@
 
 Open **Settings → Updates**. Choose a local KUP or a ZIP containing one KUP
 from `KUI/updates` or a subfolder. **L → GitHub nightly** opens the connection
-picker. Choose the adapter with left/right, then press **A** to download and
-review the testing GUI. **Dial DreamPi** is an explicit choice. A verified
-download stays in `KUI/updates` for offline use. Press **A** on the review to
+picker. Choose the adapter with left/right, then press **A** on **Connection**
+to download and review the testing GUI. Choose **Dial DreamPi** for a modem
+connection. A verified download is available for offline use in the update
+browser. Press **A** on the review to
 install, then **START → Restart K-UI** to run the selected version.
 
 Cold CD boot on this installation starts the physical `KUI/boot.kui` or
@@ -15,6 +16,41 @@ the prior aliases if you want to reverse the manual update.
 
 The nightly is a GUI overlay for an existing installation. See
 [GUI nightlies](gui-nightlies.md) for activation and publication.
+
+## Which update to use first
+
+| What the console currently runs | First update |
+| --- | --- |
+| Standalone K-UI with the GitHub nightly option | Open **Settings → Updates → L** and select the connection. |
+| Standalone K-UI with the revision 3 updater, including the reviewed `cdfc131b` build of `main` | Install the current GUI KUP locally and choose **Restart K-UI**, or use the manual ZIP to update the physical boot files. |
+| Standalone K-UI with an earlier updater or no updater | Copy the manual ZIP's complete `KUI` folder over the existing installation, then cold boot. |
+| DreamShell-based K-UI 1.0.1 | Start with the standalone K-UI boot disc and a matching full SD installation. |
+
+The boot loaders in the v1.5.0, v1.5.1, v1.7, v1.8.5 and v2.0.0 tags
+accept the standalone manual GUI image format. These releases predate KUP
+installation. Use a disc that already supports the card's storage connection.
+An old SCIF-only disc still needs a compatible bootstrap to reach an SCI card.
+Each installed game reader must also pass the new GUI's reader checks.
+
+## Keep recent downloads on the card
+
+Open **Settings → Updates → L** and move down to **Downloads to keep**.
+Choose **1, 3, 5, 10, or Unlimited** with left/right. The default is **5**.
+Press **A** on that row to save the setting and trim older downloads, even
+while offline. Each card remembers its own limit. If both saved preference
+records are damaged, the updater keeps every download until you save a limit.
+
+The updater keeps completed GitHub downloads in `KUI/updates/GitHub`.
+It records completion order, so changing the Dreamcast clock does not change
+which download is oldest. Before removing a package, it checks its contents
+against the receipt recorded when it was downloaded. A manually copied KUP
+or ZIP, a download from before this setting existed, or a package you edited
+stays available. A file whose receipt was lost during a power cut stays
+available as well. Installed versions and saves live outside this cache.
+
+A partial transfer has its own resume slot. An interrupted download can
+resume while the feed still offers the same file. During a download the
+prior completed packages are retained until the incoming file verifies.
 
 ## Confirmed failures and revision3
 
