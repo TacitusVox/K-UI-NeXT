@@ -29,7 +29,7 @@ def function(name):
     return source[at:end]
 
 
-names = ("games_page", "games_idle_cancelled", "vmu_game_info_request_start",
+names = ("games_page", "games_idle_blocked_locked", "games_idle_cancelled", "vmu_game_info_request_start",
          "vmu_game_info_current", "vmu_game_info_cancelled", "vmu_game_info_idle_work",
          "worker_action")
 functions = "\n\n".join(function(name) for name in names)

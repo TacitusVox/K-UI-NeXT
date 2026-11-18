@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: GPL-3.0-only
-"""Real HTTP clients through W5500 and Wi-Fi firmware models, on real FatFs.
+"""Real HTTP clients using expansion Ethernet TCP or SCI adapter models, on FatFs.
 The sparse FAT32 fixture needs no system formatter. The gateway may only read:
 the entire seeded card must retain its exact SHA-256 after serving/stopping.
 """
@@ -179,7 +179,7 @@ def ftp_regression(image, mode):
     # The same binary retains the existing FTP harness entry point. After
     # browser cleanup, FTP must acquire its normal independent gateway, keep
     # its password/login, and transfer in both directions.
-    from test_ftp_images import Server as FtpServer, client
+    from test_ftp_images import Server as FtpServer, client, expect
     port, passive = free_port(), free_port()
     while passive > 64000:
         passive = free_port()
@@ -194,6 +194,26 @@ def ftp_regression(image, mode):
         received = bytearray()
         ftp.retrbinary("RETR /ftp-browser-regression.txt", received.extend)
         assert received == upload
+        if mode == "bba":
+            # Keep all three control slots active, with passive and outbound
+            # active-mode data connections using the real socket backend.
+            with client(port, service.password) as second, client(port, service.password, passive=False) as third:
+                second.voidcmd("NOOP")
+                payload = bytes(range(256)) * 2049
+                third.storbinary("STOR /active.bin", io.BytesIO(payload))
+                received = bytearray()
+                second.retrbinary("RETR /active.bin", received.extend)
+                assert received == payload
+                # A reset during replacement must discard its staging file
+                # and preserve the last completed transfer.
+                interrupted = third.transfercmd("STOR /active.bin")
+                interrupted.sendall(b"truncated")
+                interrupted.setsockopt(socket.SOL_SOCKET, socket.SO_LINGER, struct.pack("ii", 1, 0))
+                interrupted.close()
+                expect("426", third.voidresp)
+                received.clear()
+                second.retrbinary("RETR /active.bin", received.extend)
+                assert received == payload
         ftp.quit()
         code, output = service.stop()
         assert code == 0, output
@@ -211,8 +231,10 @@ def main():
         seed = subprocess.run([str(BINARY), str(image), "browser-seed"], env=ENV,
             text=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
         assert seed.returncode == 0, seed.stdout
+        trial(image, "bba")
         trial(image, "w5500")
         trial(image, "wifi")
+        ftp_regression(image, "bba")
         ftp_regression(image, "w5500")
         ftp_regression(image, "wifi")
 

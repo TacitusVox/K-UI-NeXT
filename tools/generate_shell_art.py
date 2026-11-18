@@ -2,8 +2,8 @@
 # SPDX-License-Identifier: GPL-3.0-only
 """Encode the approved launcher artwork as one deflate-compressed RGB565 pack.
 
-The brand, the ten 128x128 Home icons and the ten 24x24 icons are 355,584
-bytes of pixels; the GUI embeds them as a zlib stream and inflates them once
+The brand, the ten 128x128 Home icons and the ten 24x24 icons are embedded
+as a zlib stream. The GUI inflates the pixels once
 on the first frame that draws them (shell_draw.c), so every boot reads about
 327 KB less of runtime.kui from the card.
 
@@ -22,13 +22,15 @@ import struct
 import sys
 import zlib
 
-from PIL import Image
+from PIL import Image, ImageDraw, ImageFont
 
 ROOT = Path(__file__).resolve().parents[1]
 OUTPUT = ROOT / "src/dreamcast/shell_art.inc"
 TRANSPARENT = 0xF81F
+BRAND_SIZE = (142, 58)
 SOURCES = {
     "resources/branding/launcher-brand.png": "26110492a9b4116e2a205ddd149240346a7976cb86b958aae6408e814f029301",
+    "resources/fonts/DejaVuSans-Bold.ttf": "5c1247acef7f2b8522a31742c76d6adcb5569bacc0be7ceaa4dc39dd252ce895",
     "resources/icons/disc-ripper.svg": "8263c8ef8efe9b779863303f90d921f90b9374c734255cb8f119463990eaa683",
     "resources/icons/disc-ripper.png": "1c3bb0ed7ffc95949a06339b16b87f8392de6ed443cd92e4913a4b8d70c1283b",
     "resources/icons/settings.svg": "772f5912638c1e0996edd51be50ec2c2d5c9bd6c4761f76b892da5a60cf13ccd",
@@ -43,15 +45,28 @@ ICONS = ORIGINAL_ICONS + NEW_ICONS
 MANIFEST = ROOT / "resources/icons/home-icons.json"
 
 
-def pixels(path, dimensions, background, transparent=False, expected=None):
-    with Image.open(ROOT / path) as source:
-        if expected is None:
-            expected = (256, 128) if "launcher-brand" in path else (64, 64)
-        if source.size != expected:
-            raise ValueError(f"Unexpected source dimensions: {path}: {source.size}")
-        # Bilinear filtering follows the original launcher's scaled textures.
-        rgba = source.convert("RGBA").resize(dimensions, Image.Resampling.BILINEAR)
-    combined = Image.new("RGBA", dimensions, background)
+def brand():
+    # The disc badge shares these marks, but its small profile link cannot
+    # survive another reduction for the applied banner or its picker preview.
+    with Image.open(ROOT / "resources/branding/launcher-brand.png") as original:
+        sword = original.crop((23, 26, 75, 103))
+        wordmark = original.crop((89, 40, 227, 75))
+    badge = Image.new("RGBA", BRAND_SIZE, "#080f23")
+    badge.paste(sword.resize((30, 46), Image.Resampling.LANCZOS), (1, 5))
+    badge.paste(wordmark.resize((94, 24), Image.Resampling.LANCZOS), (38, 0))
+    font = ImageFont.truetype(str(ROOT / "resources/fonts/DejaVuSans-Bold.ttf"), 16,
+                              layout_engine=ImageFont.Layout.BASIC)
+    draw = ImageDraw.Draw(badge)
+    for line, y in (("github.com/", 25), ("TacitusVox", 43)):
+        left, top, right, bottom = font.getbbox(line)
+        if 35 + right - left > badge.width or y + bottom - top > badge.height:
+            raise ValueError("The Original banner cannot fit its GitHub credit")
+        draw.text((35 - left, y - top), line, font=font, fill="#ffc56a")
+    return badge
+
+
+def pixels(rgba, background, transparent=False):
+    combined = Image.new("RGBA", rgba.size, background)
     combined.alpha_composite(rgba)
     out = []
     packed = combined.tobytes()
@@ -61,9 +76,9 @@ def pixels(path, dimensions, background, transparent=False, expected=None):
         if transparent and alpha == 0:
             value = TRANSPARENT
         elif transparent and value == TRANSPARENT:
-            raise ValueError(f"Opaque pixel collides with the transparency key: {path}")
+            raise ValueError("Opaque pixel collides with the transparency key")
         out.append(value)
-    assert len(out) == dimensions[0] * dimensions[1]
+    assert len(out) == rgba.width * rgba.height
     return out
 
 
@@ -93,27 +108,31 @@ def generate():
             " * Antialiased icon edges are precomposed against panel #121A31. */",
             "#ifndef KUI_SHELL_ART_INC", "#define KUI_SHELL_ART_INC", "#include <stdint.h>",
             "#define KUI_ART_TRANSPARENT 0xf81fu",
-            "#define KUI_ART_BRAND_WIDTH 128u", "#define KUI_ART_BRAND_HEIGHT 64u",
+            f"#define KUI_ART_BRAND_WIDTH {BRAND_SIZE[0]}u", f"#define KUI_ART_BRAND_HEIGHT {BRAND_SIZE[1]}u",
             "#define KUI_ART_ICON_WIDTH 128u", "#define KUI_ART_ICON_HEIGHT 128u",
             "#define KUI_ART_SMALL_ICON_WIDTH 24u", "#define KUI_ART_SMALL_ICON_HEIGHT 24u",
             f"#define KUI_ART_ICON_COUNT {len(ICONS)}u"]
     text.extend(f"#define KUI_ART_ICON_{name.upper().replace('-', '_')} {index}u"
                 for index, name in enumerate(ICONS))
-    pack = pixels("resources/branding/launcher-brand.png", (128, 64), "#080F23")
+    pack = pixels(brand(), "#080F23")
     for side in (128, 24):
         for name in ICONS:
             original = name in ORIGINAL_ICONS
             suffix = "-small" if side == 24 and not original else ""
             expected = (64, 64) if original else (side, side)
-            pack += pixels(f"resources/icons/{name}{suffix}.png", (side, side), "#121A31",
-                           transparent=True, expected=expected)
+            path = ROOT / f"resources/icons/{name}{suffix}.png"
+            with Image.open(path) as icon:
+                if icon.size != expected:
+                    raise ValueError(f"Unexpected source dimensions: {path}: {icon.size}")
+                rgba = icon.convert("RGBA").resize((side, side), Image.Resampling.BILINEAR)
+            pack += pixels(rgba, "#121A31", transparent=True)
     raw = struct.pack(f"<{len(pack)}H", *pack)
     packed = zlib.compress(raw, 9)
     text.extend([
         "/* Brand, Home icons and small icons, little-endian RGB565, one zlib stream;",
         " * kui_art_inflate() restores KUI_ART_PACK_PIXELS pixels (CRC-32 below). */",
         "#define KUI_ART_BRAND_OFFSET 0u",
-        "#define KUI_ART_ICONS_OFFSET (128u * 64u)",
+        "#define KUI_ART_ICONS_OFFSET (KUI_ART_BRAND_WIDTH * KUI_ART_BRAND_HEIGHT)",
         "#define KUI_ART_SMALL_ICONS_OFFSET (KUI_ART_ICONS_OFFSET + KUI_ART_ICON_COUNT * 128u * 128u)",
         "#define KUI_ART_PACK_PIXELS (KUI_ART_SMALL_ICONS_OFFSET + KUI_ART_ICON_COUNT * 24u * 24u)",
         f"#define KUI_ART_PACK_CRC32 0x{zlib.crc32(raw):08x}u",

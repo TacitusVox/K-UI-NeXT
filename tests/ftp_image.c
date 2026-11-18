@@ -1,6 +1,8 @@
 /* SPDX-License-Identifier: GPL-3.0-only */
 #define _DEFAULT_SOURCE
 #include "kui/ftp.h"
+#include "kui/network_bba.h"
+#include "kui/bba_sockets.h"
 #include "kui/clock.h"
 #include "kui/media.h"
 #include "w5500_model.h"
@@ -150,6 +152,31 @@ static const struct kui_w5500_port port = {&bus, 1, open_level, close_port, spee
 const struct kui_w5500_port *kui_w5500_console_port(void) { return &port; }
 const struct kui_wifi_port *kui_wifi_console_port(void) { return &wifi_model_port; }
 
+/* Use the production expansion-port TCP backend on the host loopback.
+ * Only the Dreamcast interface/link and DHCP acquisition are substituted. */
+static struct kui_bba_session *active_bba;
+static int loopback_open(struct kui_bba_session *s, kui_log_fn log, kui_cancel_fn cancel_fn) {
+    (void)log; (void)cancel_fn;
+    assert(!active_bba && kui_bba_sockets_init(&s->net));
+    active_bba = s;
+    s->reuse_listener = kui_bba_sockets_reuse_listener;
+    memcpy(s->ip, (uint8_t[]){127,0,0,1}, 4);
+    mac(s->mac);
+    snprintf(s->name, sizeof(s->name), "BBA loopback");
+    return 1;
+}
+static bool loopback_poll(struct kui_bba_session *s) { return active_bba == s; }
+static void loopback_end(struct kui_bba_session *s) {
+    assert(active_bba == s);
+    kui_bba_sockets_end(&s->net);
+    active_bba = NULL;
+}
+static uint64_t loopback_now(void) { return now_ms(NULL); }
+static void loopback_pause(unsigned ms) { pause_ms(NULL, ms); }
+static const struct kui_bba_port loopback_port = {
+    .open=loopback_open, .poll=loopback_poll, .end=loopback_end, .now_ms=loopback_now, .pause=loopback_pause
+};
+
 static bool cancel(void) {
     struct pollfd in = {.fd = 0, .events = POLLIN};
     if(!test.stop && poll(&in, 1, 0) > 0) {
@@ -233,7 +260,7 @@ static void seed(bool bad_password) {
 int main(int argc, char **argv) {
     setvbuf(stdout, NULL, _IOLBF, 0);
     if(argc < 3) {
-        fprintf(stderr, "usage: ftp-image IMAGE seed|bad-password|serve PORT PASSIVE [absent|wifi|none|offline|sync]\n");
+        fprintf(stderr, "usage: ftp-image IMAGE seed|bad-password|serve PORT PASSIVE [absent|wifi|none|offline|sync|bba]\n");
         return 2;
     }
     test.image = fopen(argv[1], "r+b");
@@ -247,11 +274,11 @@ int main(int argc, char **argv) {
         seed(!strcmp(argv[2], "bad-password"));
         puts("SEEDED");
     } else if(!strcmp(argv[2], "serve") && (argc == 5 || argc == 6)) {
-        static const char *const modes[] = {"w5500", "absent", "wifi", "none", "offline", "sync"};
+        static const char *const modes[] = {"w5500", "absent", "wifi", "none", "offline", "sync", "bba"};
         const char *mode = argc == 6 ? argv[5] : modes[0];
         unsigned kind = 0;
-        while(kind < 6 && strcmp(mode, modes[kind])) ++kind;
-        if(kind == 6) { fprintf(stderr, "unknown adapter %s\n", mode); return 2; }
+        while(kind < 7 && strcmp(mode, modes[kind])) ++kind;
+        if(kind == 7) { fprintf(stderr, "unknown adapter %s\n", mode); return 2; }
         bool wifi = kind >= 2 && kind <= 4;
         test.wifi = wifi;
         struct kui_ftp_options options = {(uint16_t)atoi(argv[3]), (uint16_t)atoi(argv[4]), 40, 1234};
@@ -263,7 +290,8 @@ int main(int argc, char **argv) {
         struct wifi_model_options board = {!strcmp(mode, "none"), 1, 0, false,
             (uint8_t)(!strcmp(mode, "offline") ? KWM_WIFI_IDLE : KWM_WIFI_ONLINE)};
         if(wifi) wifi_model_start(&board);
-        const struct kui_net_ports ports = {&port, wifi ? &wifi_model_port : NULL};
+        const struct kui_net_ports ports = {.w5500=&port, .wifi=wifi ? &wifi_model_port : NULL,
+            .bba=kind == 6 ? &loopback_port : NULL};
         kui_ftp_run(&ports, &options, &status, log_line, cancel, publish);
         printf("STOPPED state=%d in=%u out=%u failures=%u connections=%u message=%s\n", status.state, status.files_in,
             status.files_out, status.failures, status.connections, status.message);
@@ -271,6 +299,6 @@ int main(int argc, char **argv) {
         w5500_model_stop();
         code = status.state == KUI_FTP_STOPPED ? 0 : 1;
     } else { fprintf(stderr, "unknown mode %s\n", argv[2]); return 2; }
-    assert(!test.connected && !fclose(test.image));
+    assert(!active_bba && !test.connected && !fclose(test.image));
     return code;
 }

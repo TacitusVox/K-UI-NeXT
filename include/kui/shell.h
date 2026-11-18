@@ -14,6 +14,7 @@
 #include "kui/games_selection.h"
 #include "kui/games_activity.h"
 #include "kui/games_covers.h"
+#include "kui/games_media.h"
 #include "kui/files.h"
 #include "kui/ftp.h"
 #include "kui/browser.h"
@@ -29,13 +30,15 @@
 #include "kui/disc_cards.h"
 #include "kui/update.h"
 #include "kui/update_browser.h"
+#include "kui/theme.h"
 #include <stdbool.h>
 #include <stdint.h>
 
 #define KUI_SHELL_WIDTH 640u
 #define KUI_SHELL_HEIGHT 480u
 #define KUI_SHELL_LOG_ROWS 10u
-#define KUI_SHELL_SYSTEM_ROWS 13u
+#define KUI_SHELL_SYSTEM_ROWS 14u
+#define KUI_THEME_PICKER_ROWS 8u
 #define KUI_SHELL_UPDATE_ROWS 8u
 #define KUI_SHELL_UPDATE_PATH_BYTES 192u
 enum kui_shell_update_op { KUI_SHELL_UPDATE_LIST, KUI_SHELL_UPDATE_CHECK,
@@ -81,6 +84,16 @@ struct kui_shell_games_art_key {
     unsigned generation,page,view,row;
     char root[KUI_DEST_ROOT_CAP],path[KUI_GAMES_FILE_CAP];
 };
+/* An idle selection earns one cache lookup, including a missing preview. */
+#define KUI_SHELL_PREVIEW_DWELL_MS 6000u
+struct kui_shell_preview_focus {
+    struct kui_shell_games_art_key key;
+    uint64_t since;
+    unsigned generation;
+    bool active,due;
+};
+void kui_shell_preview_focus_update(struct kui_shell_preview_focus *,
+    const struct kui_shell_games_art_key *, uint64_t now_ms);
 #define KUI_SHELL_GAMES_FLOW_NEIGHBORS 2u
 #define KUI_SHELL_GAMES_FLOW_ROW_HEIGHT 28u
 #define KUI_SHELL_GAMES_FLOW_DURATION_MS 60u
@@ -88,6 +101,13 @@ struct kui_shell_games_flow_page {
     struct kui_games_page rows;
     unsigned page;
     bool valid;
+};
+/* One adjacent storage chunk lets the viewport slide across a read boundary. */
+struct kui_shell_files_scroll {
+    struct kui_files_page neighbor;
+    unsigned first;
+    bool using_neighbor;
+    int pending_step;
 };
 enum kui_shell_button {
     KUI_SHELL_UP = 1u << 0, KUI_SHELL_DOWN = 1u << 1,
@@ -115,7 +135,9 @@ enum kui_shell_page { KUI_SHELL_HOME, KUI_SHELL_RIPPER,
     KUI_SHELL_VMU_COLLECTION, KUI_SHELL_VMU_TOOLS, KUI_SHELL_VMU_WIZARD,
     KUI_SHELL_DISC_TOOLS, KUI_SHELL_VMU_CARD, KUI_SHELL_SALVAGE_DRIVE,
     KUI_SHELL_SALVAGE_OPTIONS, KUI_SHELL_GAMES_VMU_CARD, KUI_SHELL_GD_OPTIONS, KUI_SHELL_CONTROLS, KUI_SHELL_BROWSER, KUI_SHELL_VMU_HISTORY, KUI_SHELL_GAMES_QUERY, KUI_SHELL_GAMES_EDIT, KUI_SHELL_REPORT, KUI_SHELL_GAME_PROFILE,
-    KUI_SHELL_DISC_CARDS,KUI_SHELL_UPDATES };
+    KUI_SHELL_DISC_CARDS,KUI_SHELL_UPDATES,KUI_SHELL_GAMES_MEDIA,
+    KUI_SHELL_APPEARANCE,KUI_SHELL_THEME_COLORS,KUI_SHELL_THEME_SPLASH_PREVIEW,KUI_SHELL_THEME_MENU_PREVIEW,
+    KUI_SHELL_THEME_PICKER };
 enum kui_shell_recovery_row {
     KUI_SHELL_RECOVERY_CONTINUE, KUI_SHELL_RECOVERY_NEW, KUI_SHELL_RECOVERY_OPTIONS,
     KUI_SHELL_RECOVERY_DIAGNOSTICS, KUI_SHELL_RECOVERY_COUNT
@@ -224,7 +246,10 @@ enum kui_shell_action {
     KUI_SHELL_VMU_VIRTUAL_DELETE_PREVIEW, KUI_SHELL_VMU_VIRTUAL_DELETE_COMMIT,
     KUI_SHELL_VMU_CARD_LOAD,
     KUI_SHELL_GAMES_SMASH_PHANTASY_STAR_II, KUI_SHELL_GAMES_SMASH_SHINING_FORCE,
-    KUI_SHELL_UPDATE_RUN, KUI_SHELL_RESTART_KUI
+    KUI_SHELL_UPDATE_RUN, KUI_SHELL_RESTART_KUI,
+    KUI_SHELL_MEDIA_DOWNLOAD,
+    KUI_SHELL_MEDIA_OPEN_MANUAL, KUI_SHELL_MEDIA_PLAY_PREVIEW,
+    KUI_SHELL_THEME_SCAN, KUI_SHELL_THEME_PREVIEW, KUI_SHELL_THEME_APPLY, KUI_SHELL_THEME_CANCEL
 };
 enum kui_shell_outcome { KUI_SHELL_OUTCOME_NONE, KUI_SHELL_OUTCOME_COMPLETE,
     KUI_SHELL_OUTCOME_STOPPED, KUI_SHELL_OUTCOME_FAILED };
@@ -235,6 +260,16 @@ struct kui_shell {
     struct kui_settings saved, draft;
     struct kui_system_settings system_saved, system_draft;
     unsigned system_selected, controls_selected;
+    struct kui_theme_settings theme_saved,theme_draft;
+    /* Catalog and renderer assets belong to main; never copied/loaded per frame. */
+    const struct kui_theme_catalog *theme_catalog;
+    unsigned theme_generation,theme_selected,theme_color_selected,theme_color_role,theme_color_preset;
+    const char *theme_picker_ids[KUI_THEME_CATALOG_MAX+4u];
+    unsigned theme_picker_count,theme_picker_index,theme_picker_first,theme_picker_generation;
+    enum kui_shell_action theme_pending_action;
+    enum kui_shell_page theme_preview_return;
+    bool theme_loading,theme_preview_active,theme_preview_stale,theme_failed;
+    char theme_notice[128];
     unsigned update_generation,update_selected;
     bool update_loading,update_stopping,update_restart;
     struct kui_shell_update_request update_request,update_confirm_request;
@@ -254,7 +289,7 @@ struct kui_shell {
     /* Confirmed SD preference, independent of reader selection and cards. */
     bool vmu_emulation_enabled,vmu_emulation_known,vmu_emulation_loading,vmu_emulation_requested;
     unsigned vmu_emulation_slot,vmu_emulation_slot_requested; /* Disc default; per-game image slots are separate. */
-    bool vmu_emulation_slot_change;
+    bool vmu_emulation_slot_change,vmu_emulation_background;
     unsigned vmu_emulation_generation;
     char vmu_emulation_notice[128];
     bool confirm_salvage, confirm_salvage_defer, confirm_salvage_check, confirm_repair_in_place;
@@ -323,6 +358,10 @@ struct kui_shell {
     char games_original_path[KUI_GAMES_FILE_CAP], games_2048_path[KUI_GAMES_FILE_CAP];
     unsigned games_variant_selected;
     unsigned games_page, games_selected, games_advanced_selected;
+    unsigned games_media_row,games_media_kinds;
+    bool games_media_all,games_media_report,games_media_readable;
+    enum kui_internet_route games_media_route;
+    char games_media_notice[100];
     /* KUI_GAMES_VIEW_SAVED until a listing reports the card's saved view. */
     unsigned games_view,games_filter;
     /* Left/right layout changes use the current rows. Only the worker saves
@@ -431,6 +470,7 @@ struct kui_shell {
     bool files_screenshots;
     char files_gallery_return[KUI_FILES_PATH_CAP];
     struct kui_files_page files_listing, files_pick;
+    struct kui_shell_files_scroll files_scroll, files_pick_scroll;
     struct kui_files_request files_request;
     struct kui_files_job files_job;
     struct kui_files_preview files_preview;
@@ -503,6 +543,19 @@ bool kui_shell_settings_dirty(const struct kui_shell *shell);
 void kui_shell_set_system_preferences(struct kui_shell *shell,
     const struct kui_system_settings *settings);
 bool kui_shell_system_dirty(const struct kui_shell *shell);
+void kui_shell_set_theme_preferences(struct kui_shell *,const struct kui_theme_settings *);
+void kui_shell_set_theme_catalog(struct kui_shell *,unsigned generation,
+    const struct kui_theme_catalog *,bool ok,const char *notice);
+void kui_shell_theme_result(struct kui_shell *,unsigned generation,
+    enum kui_shell_action action,bool ok,const char *notice);
+bool kui_shell_theme_dirty(const struct kui_shell *);
+/* Choices are stable for the lifetime of the open picker. An empty choice
+ * inherits the draft theme. The asset ID resolves that inheritance. */
+unsigned kui_shell_theme_choice_count(const struct kui_shell *);
+const char *kui_shell_theme_choice_id(const struct kui_shell *,unsigned index);
+const char *kui_shell_theme_picker_asset_id(const struct kui_shell *);
+/* Draft palette includes the selected definition and per-color overrides. */
+void kui_shell_theme_draft_palette(const struct kui_shell *,struct kui_theme_palette *);
 /* Main controls video_trial only while its reversible platform preview is
  * active. The reducer returns CONFIRM/CANCEL; it never commits a video mode. */
 void kui_shell_set_vmu(struct kui_shell *shell, const struct kui_vmu_view *view);
@@ -513,6 +566,7 @@ void kui_shell_set_disc_vmu_cards(struct kui_shell *,unsigned generation,const s
 void kui_shell_set_disc_cards(struct kui_shell *,const struct kui_disc_cards_view *);
 void kui_shell_set_update(struct kui_shell *,const struct kui_shell_update_view *);
 void kui_shell_set_disc_region(struct kui_shell *,unsigned generation,bool enabled,bool ok,const char *notice);
+void kui_shell_vmu_tools_enter(struct kui_shell *);
 /* Global preference results echo the exact outstanding request generation.
  * Failed/uncertain saves preserve the last confirmed value and require reload. */
 void kui_shell_set_vmu_emulation(struct kui_shell *,unsigned generation,bool enabled,
@@ -628,6 +682,8 @@ bool kui_shell_games_ce_probe_ready(const struct kui_shell *shell);
 /* File Manager results. A listing is kept only for the folder it was asked
  * for; a check only for the job and page that asked; a picture only while
  * its view is open. A run's status becomes the browser's notice. */
+const struct kui_files_page *kui_shell_files_page(const struct kui_shell *shell, bool picker);
+const struct kui_files_entry *kui_shell_files_row(const struct kui_shell *shell, bool picker, unsigned absolute);
 void kui_shell_set_files_listing(struct kui_shell *shell, const struct kui_files_page *page);
 void kui_shell_set_files_preview(struct kui_shell *shell, const struct kui_files_preview *preview);
 void kui_shell_set_files_status(struct kui_shell *shell, const struct kui_app_status *status);
@@ -672,6 +728,12 @@ unsigned kui_shell_wifi_rows(const struct kui_shell *shell);
  * phase uses the existing kui_capture_phase numeric values (0..4); phase 4 is
  * completed, never an assertion that saved bytes were verified. */
 struct kui_shell_view {
+    const struct kui_theme_palette *theme_palette;
+    const struct kui_theme_image *theme_images; /* KUI_THEME_ASSET_COUNT images */
+    const enum kui_theme_asset_status *theme_asset_status; /* Same ordering. */
+    const struct kui_theme_image *theme_picker_image;
+    enum kui_theme_asset_status theme_picker_status;
+    bool branded_banner;
     bool sci_video_quiet;
     const char *build, *job_dir, *message, *settings_notice;
     const char *disc_title, *inserted_title, *gdi_name;
@@ -704,6 +766,8 @@ struct kui_shell_view {
     const uint16_t (*game_covers)[KUI_COVER_PIXELS];
     /* Runtime keeps one selected cover; host previews may still supply rows. */
     const uint16_t *game_selected_cover;
+    /* Current selected game only, one 160 x 120 RGB565 preview frame. */
+    const uint16_t *game_preview_frame;
     /* Compact and Gallery tiles: each row's cover at the listing's view size
      * (KUI_COVER_SMALL/MEDIUM square), or NULL for its placeholder. Main sets
      * a pointer only for the exact entry and view on screen and never changes
@@ -732,9 +796,11 @@ typedef void (*kui_shell_text_fn)(void *ctx, unsigned x, unsigned y,
     uint16_t rgb565, const char *text, bool large);
 void kui_shell_draw(uint16_t *frame, const struct kui_shell *shell,
     const struct kui_shell_view *view, kui_shell_text_fn text, void *ctx);
-/* Console path: the caller first clears its offscreen framebuffer to RGB565
- * 0x0864 with KOS vid_clear(8,15,35). Keeping that optimized store-queue clear
- * outside the portable renderer avoids 307,200 ordinary CPU pixel stores. */
+/* Both paths use only published RGB565 pixels and colors. No theme file I/O,
+ * decode or allocation occurs in any draw function. */
+void kui_shell_draw_background(uint16_t *frame,const struct kui_shell *shell,
+    const struct kui_shell_view *view);
+/* Console path: draw_background first, followed by content. */
 void kui_shell_draw_content(uint16_t *frame, const struct kui_shell *shell,
     const struct kui_shell_view *view, kui_shell_text_fn text, void *ctx);
 #endif

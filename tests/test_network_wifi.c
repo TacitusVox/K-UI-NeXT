@@ -228,6 +228,11 @@ static void silence(void) {
     printf("PASS Wi-Fi board that stops answering is noticed after three seconds\n");
 }
 
+static bool halt_test;
+static bool halted(void) { return halt_test; }
+static void stop_after_dns(const struct kui_app_status *status) {
+    if(!strcmp(status->message, "Reading the Wi-Fi board's network time")) halt_test = true;
+}
 static void network_app(void) {
     struct kui_app_status out;
     start(0, 0, KWM_WIFI_ONLINE);
@@ -240,6 +245,11 @@ static void network_app(void) {
     assert(kui_wifi_network_test(&out, NULL, never, NULL));
     assert(out.complete && out.passed && line(&out, "pool.ntp.org: 127.0.0.1"));
     assert(line(&out, "Network time: 2026-09-21 ") && line(&out, "UTC"));
+    assert(!strcmp(out.message, "DNS resolved pool.ntp.org over Wi-Fi"));
+    halt_test = false;
+    assert(kui_wifi_network_test(&out, NULL, halted, stop_after_dns));
+    assert(out.stopped && !out.complete && !out.passed && !out.errors);
+    assert(line(&out, "pool.ntp.org: 127.0.0.1"));
     wifi_model_stop();
 
     start(0, 0, KWM_WIFI_IDLE);

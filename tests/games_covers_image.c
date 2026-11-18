@@ -22,7 +22,9 @@ static struct {
     unsigned block_reads,record_opens,opened;
     bool active, connected, cancelled,art_open_fail,art_close_fail,art_cancel_open;
     FIL *art_file;
-    FIL *view_file;
+    FIL *view_file, *replacing_cover, *backing_up_cover;
+    const char *cover_fault;
+    unsigned cover_syncs;
     const char *view_fault;
     bool view_read;
 } test;
@@ -71,6 +73,13 @@ FRESULT __wrap_f_open(FIL *file, const TCHAR *path, BYTE flags) {
     }
     FRESULT result = __real_f_open(file, path, flags);
     if(test.active && result == FR_OK) {++test.files;++test.opened;}
+    if(test.active && (flags & FA_WRITE) && result == FR_OK) {
+        if(!strcmp(path, KUI_GAMES_COVERS_FOLDER "/User Art.kcv")) {
+            test.replacing_cover = file;
+            test.cover_syncs = 0;
+        }
+        if(!strcmp(path, KUI_GAMES_COVERS_FOLDER "/User Art.kcb")) test.backing_up_cover = file;
+    }
     if(view && result==FR_OK) {test.view_file=file;test.view_read=flags==FA_READ;}
     if(test.active && flags==FA_READ && strstr(path,".kcv") && result==FR_OK) {
         test.art_file=file;
@@ -87,6 +96,8 @@ FRESULT __wrap_f_close(FIL *file) {
         test.art_file=NULL;
         if(test.art_close_fail) {test.art_close_fail=false;return FR_DISK_ERR;}
     }
+    if(file == test.replacing_cover) test.replacing_cover = NULL;
+    if(file == test.backing_up_cover) test.backing_up_cover = NULL;
     if(view) {
         test.view_file=NULL;
         if(!read && test.view_fault && !strcmp(test.view_fault,"close"))return FR_DISK_ERR;
@@ -104,6 +115,11 @@ FRESULT __wrap_f_read(FIL *file,void *data,UINT bytes,UINT *got) {
 FRESULT __real_f_sync(FIL *);
 FRESULT __wrap_f_sync(FIL *file) {
     if(file==test.view_file && test.view_fault && !strcmp(test.view_fault,"sync"))return FR_DISK_ERR;
+    if(file == test.replacing_cover) {
+        ++test.cover_syncs;
+        if(test.cover_fault && ((!strcmp(test.cover_fault, "header-sync") && test.cover_syncs == 1) ||
+           (!strcmp(test.cover_fault, "body-sync") && test.cover_syncs == 2))) return FR_DISK_ERR;
+    }
     return __real_f_sync(file);
 }
 FRESULT __real_f_opendir(DIR *dir, const TCHAR *path);
@@ -124,6 +140,10 @@ FRESULT __wrap_f_write(FIL *file, const void *data, UINT bytes, UINT *written) {
         if(!strcmp(test.view_fault,"write")) {*written=0;return FR_DISK_ERR;}
         if(!strcmp(test.view_fault,"short") && bytes)return __real_f_write(file,data,bytes-1u,written);
     }
+    if(test.cover_fault && ((file == test.backing_up_cover && !strcmp(test.cover_fault, "backup")) ||
+       (file == test.replacing_cover && test.cover_syncs == 1 && !strcmp(test.cover_fault, "body")) ||
+       (file == test.replacing_cover && test.cover_syncs == 2 && !strcmp(test.cover_fault, "commit"))))
+        return __real_f_write(file, data, bytes / 2, written);
     if(test.active && !strcmp(test.fault, "write-fail")) { *written = 0; return FR_DISK_ERR; }
     return __real_f_write(file, data, bytes, written);
 }
@@ -265,6 +285,56 @@ static void scan(struct kui_games_scan_counts *counts, bool expect_ok) {
     struct kui_app_status status;
     assert(kui_games_scan(&status, counts, progress, log_line, cancel) == expect_ok);
     assert(status.complete && status.message[0] && status.line_count >= 5);
+}
+static void check_replacement(const char *host) {
+    const char *png = KUI_GAMES_COVERS_FOLDER "/User Art.png";
+    const char *primary = KUI_GAMES_COVERS_FOLDER "/User Art.kcv";
+    const char *backup = KUI_GAMES_COVERS_FOLDER "/User Art.kcb";
+    struct kui_games_scan_counts counts;
+    scan(&counts, true);
+    assert(counts.user == 1 && !counts.failed);
+    static uint16_t original[KUI_COVER_PIXELS];
+    struct kui_games_page page;
+    list(KUI_GAMES_VIEW_SAVED, &page);
+    selected(&page, "User Art", KUI_COVER_SIZE_LARGE);
+    unsigned row;
+    assert(entry(&page, "User Art", &row)->cover);
+    memcpy(original, pixels[row], sizeof(original));
+    char path[1024];
+    snprintf(path, sizeof(path), "%s/extra/User Art.png", host);
+    size_t bytes;
+    uint8_t *data = host_file(path, &bytes);
+    mounted(true);
+    write_file(png, data, bytes);
+    free(data);
+    mounted(false);
+
+    const char *faults[] = {"backup", "header-sync", "body", "body-sync", "commit"};
+    for(size_t i = 0; i <= sizeof(faults) / sizeof(faults[0]); ++i) {
+        bool retry = i == sizeof(faults) / sizeof(faults[0]);
+        test.cover_fault = retry ? NULL : faults[i];
+        scan(&counts, true);
+        assert(counts.failed == !retry && counts.user == retry);
+        test.cover_fault = NULL;
+        /* Even an interrupted full-size replacement must display the entire
+         * previous image after caches are dropped and the card is remounted. */
+        kui_games_covers_cache_clear();
+        list(KUI_GAMES_VIEW_SAVED, &page);
+        selected(&page, "User Art", KUI_COVER_SIZE_LARGE);
+        const struct kui_games_entry *e = entry(&page, "User Art", &row);
+        assert(e->cover && !strcmp(e->title, "USER ART GAME"));
+        if(retry) {
+            for(size_t n = 0; n < KUI_COVER_PIXELS; ++n) assert(pixels[row][n] == rgb565(200, 60, 30));
+        } else assert(!memcmp(original, pixels[row], sizeof(original)));
+        FILINFO info;
+        mounted(true);
+        assert(f_stat(primary, &info) == FR_OK && info.fsize == KUI_COVER_FILE_BYTES);
+        if(retry) assert(f_stat(backup, &info) == FR_NO_FILE);
+        mounted(false);
+    }
+    test.writes = 0;
+    scan(&counts, true);
+    assert(!test.writes && counts.unchanged == counts.games);
 }
 static void check_scan(const char *host) {
     struct kui_games_scan_counts c;
@@ -554,6 +624,7 @@ static void check_layout_save(void) {
     puts("PASS layout-only persistence: exact cold readback, open/write/short/sync/close/read/substitution failures and no-write cancel");
 }
 static void check(const char *host) {
+    if(!strcmp(test.fault,"replace-fail")) {check_replacement(host);return;}
     if(!strcmp(test.fault,"layout-save")) {check_layout_save();return;}
     if(!strcmp(test.fault,"session")) {check_session();return;}
     if(!strcmp(test.fault,"titles")) {check_titles();return;}

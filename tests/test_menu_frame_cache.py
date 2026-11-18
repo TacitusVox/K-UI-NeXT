@@ -29,6 +29,7 @@ assert dispatch<release<publish
 assert "static uint16_t *shell_frame;" in source
 
 program=r'''
+#include "kui/media_theme_jobs.h"
 #include <assert.h>
 #include <stdbool.h>
 #include <stddef.h>
@@ -50,6 +51,7 @@ static void tracked_free(void *pointer) {
 }
 /* Games Compact/Gallery tiles are released with the frame before handoff. */
 static unsigned tile_frees;
+static void theme_release_for_action(unsigned action) {(void)action;}
 static void games_tiles_free_locked(void) {++tile_frees;}
 #define aligned_alloc tracked_allocate
 #define free tracked_free
@@ -76,10 +78,10 @@ int main(void) {
     assert(!shell_frame_prepare(true) && !live);
     assert(shell_frame_prepare(false)==frame && live);
     shell_frame_release_for_action(58u);
-    for(unsigned action=0;action<=109u;action++) {
+    for(unsigned action=0;action<=THEME_RESTORE_WORK;action++) {
         assert(shell_frame_prepare(false) && live);
         shell_frame_ready=true;
-        bool large=action==19u || (action>=56u && action<=58u) || action==62u || action==79u || action==104u;
+        bool large=action==19u || (action>=56u && action<=58u) || action==62u || action==79u || action==104u || action==126u || action==KUI_GAMES_MEDIA_DOWNLOAD_JOB;
         unsigned before=releases,tiles_before=tile_frees;
         shell_frame_release_for_action(action);
         assert((shell_frame==NULL)==large && live==!large);
@@ -97,6 +99,6 @@ with tempfile.TemporaryDirectory(prefix="kui-menu-frame-") as work:
     test=Path(work)/"frame.c";test.write_text(program)
     binary=Path(work)/"frame"
     subprocess.run([*shlex.split(os.environ.get("CC","cc")),"-std=c11","-O1","-g",
-                    "-Wall","-Wextra","-Werror","-Wpedantic","-fsanitize=address,undefined",
+                    "-I"+str(ROOT/"include"),"-Wall","-Wextra","-Werror","-Wpedantic","-fsanitize=address,undefined",
                     "-fno-omit-frame-pointer","-fno-pie","-no-pie",str(test),"-o",str(binary)],check=True)
     subprocess.run([str(binary)],check=True,env=dict(os.environ,ASAN_OPTIONS="detect_leaks=0"))

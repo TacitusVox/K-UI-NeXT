@@ -939,7 +939,7 @@ build/test-settings: tests/test_settings.c src/core/settings.c src/core/data.c i
 
 build/test-shell: $(DRIVE_CONTROLS) $(SALVAGE_DISPLAY) include/kui/games_selection.h include/kui/zso.h include/kui/game_launch_settings.h src/core/wifi_text.c include/kui/network_wifi.h $(STORAGE_TEST_MODEL) include/kui/storage_test.h include/kui/storage_error.h src/core/files_path.c include/kui/files.h include/kui/version.h src/core/clock.c src/apps/system_settings.c include/kui/system_settings.h src/core/destination.c include/kui/destination.h tests/test_shell.c src/core/games_selection.c src/core/game_launch_settings.c src/core/game_ram_patches.c src/core/shell.c src/dreamcast/shell_draw.c src/apps/splash_art.c third_party/miniz/miniz.c src/dreamcast/shell_font.c src/dreamcast/shell_font_data.inc src/dreamcast/shell_art.inc include/kui/shell_font.h src/core/settings.c src/core/data.c include/kui/shell.h include/kui/settings.h .deps/fatfs/source/ff.h include/kui/game_ram_patches.h src/apps/splash_art.c include/kui/splash.h src/dreamcast/shell_art.inc
 	@mkdir -p $(@D)
-	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) $(EXPORT_CODEC_FLAGS) $(STORAGE_TEST_MODEL) src/core/wifi_text.c src/core/destination.c src/core/files_path.c src/core/game_launch_settings.c src/core/game_ram_patches.c src/core/games_selection.c src/core/game_profile.c src/core/hash.c src/core/games_query.c src/core/shell.c src/core/clock.c src/dreamcast/shell_draw.c src/apps/splash_art.c third_party/miniz/miniz.c src/dreamcast/shell_font.c src/apps/system_settings.c src/core/settings.c src/core/data.c src/core/salvage_display.c src/core/drive_controls.c tests/test_shell.c -o $@
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) $(EXPORT_CODEC_FLAGS) $(STORAGE_TEST_MODEL) src/core/wifi_text.c src/core/destination.c src/core/files_path.c src/core/game_launch_settings.c src/core/game_ram_patches.c src/core/games_selection.c src/core/game_profile.c src/core/hash.c src/core/games_query.c src/core/theme.c src/core/shell.c src/core/clock.c src/dreamcast/shell_draw.c src/apps/splash_art.c third_party/miniz/miniz.c src/dreamcast/shell_font.c src/apps/system_settings.c src/core/settings.c src/core/data.c src/core/salvage_display.c src/core/drive_controls.c tests/test_shell.c -o $@
 
 build/test-shell-font: tests/test_shell_font.c src/dreamcast/shell_font.c src/dreamcast/shell_font_data.inc include/kui/shell_font.h
 	@mkdir -p $(@D)
@@ -947,7 +947,7 @@ build/test-shell-font: tests/test_shell_font.c src/dreamcast/shell_font.c src/dr
 
 build/render-shell: $(DRIVE_CONTROLS) $(SALVAGE_DISPLAY) include/kui/games_selection.h include/kui/zso.h include/kui/game_launch_settings.h src/core/wifi_text.c include/kui/network_wifi.h $(STORAGE_TEST_MODEL) include/kui/storage_test.h include/kui/storage_error.h src/core/files_path.c include/kui/files.h include/kui/version.h src/core/clock.c src/apps/system_settings.c include/kui/system_settings.h src/core/destination.c src/core/data.c include/kui/destination.h tests/render_shell.c src/core/games_selection.c src/core/game_launch_settings.c src/core/game_ram_patches.c src/core/shell.c src/dreamcast/shell_draw.c src/apps/splash_art.c third_party/miniz/miniz.c src/dreamcast/shell_font.c src/dreamcast/shell_art.inc src/dreamcast/shell_font_data.inc include/kui/shell.h include/kui/shell_font.h include/kui/game_ram_patches.h src/apps/splash_art.c include/kui/splash.h src/dreamcast/shell_art.inc
 	@mkdir -p $(@D)
-	$(CC) $(HOST_FLAGS) $(INCLUDES) $(EXPORT_CODEC_FLAGS) $(STORAGE_TEST_MODEL) src/core/wifi_text.c src/core/destination.c src/core/files_path.c src/core/data.c src/core/game_launch_settings.c src/core/game_ram_patches.c src/core/games_selection.c src/core/game_profile.c src/core/hash.c src/core/games_query.c src/core/shell.c src/core/clock.c src/dreamcast/shell_draw.c src/apps/splash_art.c third_party/miniz/miniz.c src/dreamcast/shell_font.c src/apps/system_settings.c src/core/salvage_display.c src/core/drive_controls.c tests/render_shell.c -o $@
+	$(CC) $(HOST_FLAGS) $(INCLUDES) $(EXPORT_CODEC_FLAGS) $(STORAGE_TEST_MODEL) src/core/wifi_text.c src/core/destination.c src/core/files_path.c src/core/data.c src/core/game_launch_settings.c src/core/game_ram_patches.c src/core/games_selection.c src/core/game_profile.c src/core/hash.c src/core/games_query.c src/core/theme.c src/core/shell.c src/core/clock.c src/dreamcast/shell_draw.c src/apps/splash_art.c third_party/miniz/miniz.c src/dreamcast/shell_font.c src/apps/system_settings.c src/core/salvage_display.c src/core/drive_controls.c tests/render_shell.c -o $@
 
 build/test-capture-adapter: src/core/destination.c src/core/data.c include/kui/destination.h tests/test_capture_adapter.c src/dreamcast/capture.c src/dreamcast/platform.h include/kui/capture.h .deps/fatfs/source/ff.h
 	@mkdir -p $(@D)
@@ -1097,9 +1097,9 @@ build/test-memory-app: tests/test_memory_app.c src/apps/memory_pattern.c include
 	@mkdir -p $(@D)
 	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) src/apps/memory_pattern.c tests/test_memory_app.c -o $@
 
-build/test-network-app: tests/test_network_app.c src/apps/network_test.c src/apps/network_status.c include/kui/network_test.h include/kui/network_w5500.h include/kui/w5500.h $(wildcard tests/apps_stubs/kos/*.h tests/apps_stubs/dc/*.h tests/apps_stubs/dc/net/*.h)
+build/test-network-app: tests/test_network_app.c src/apps/network_test.c src/apps/network_ethernet.c src/apps/network_ethernet.h src/apps/network_status.c include/kui/network_test.h include/kui/network_w5500.h include/kui/w5500.h $(wildcard tests/apps_stubs/kos/*.h tests/apps_stubs/dc/*.h tests/apps_stubs/dc/net/*.h)
 	@mkdir -p $(@D)
-	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) -Itests/apps_stubs src/apps/network_test.c src/apps/network_status.c tests/test_network_app.c -o $@
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) -Itests/apps_stubs src/apps/network_test.c src/apps/network_ethernet.c src/apps/network_status.c tests/test_network_app.c -o $@
 
 build/test-vmu-app: tests/test_vmu_app.c $(CORE) $(DESTINATION) src/core/storage_probe.c $(FATFS) $(VMU_MANAGEMENT) src/core/hash.c src/apps/vmu.c src/apps/vmu_collection.inc include/kui/apps.h include/kui/vmu_read_bounded.h $(wildcard tests/vmu_stubs/dc/*.h tests/vmu_stubs/dc/maple/*.h)
 	@mkdir -p $(@D)
@@ -1138,10 +1138,10 @@ build/vmu-import-image: tests/vmu_import_image.c $(CORE) $(DESTINATION) src/core
 	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) -Itests/vmu_stubs -Isrc/dreamcast $(CORE) $(DESTINATION) src/core/storage_probe.c src/core/files_path.c src/core/hash.c src/core/crc16.c $(FATFS) $(VMU_MANAGEMENT) src/core/vmu_save_format.c src/apps/vmu_import.c src/apps/vmu.c tests/vmu_import_image.c -o $@
 
 # Original startup assets are encoded on the host, never decoded during ripping.
-build/splash_art.inc build/boot_splash_art.inc build/startup_ogg.inc &: tools/build_splash.py resources/branding/startup.png resources/branding/boot-red.png resources/branding/startup-chime.ogg
+build/splash_art.inc build/factory_splash_art.inc build/boot_splash_art.inc build/startup_ogg.inc &: tools/build_splash.py tools/pack_theme.py resources/themes/moonlit-muramasa/splash.kuiimg resources/branding/startup.png resources/branding/boot-red.png resources/branding/startup-chime.ogg
 	python3 tools/build_splash.py
 
-build/test-splash: tests/test_splash.c src/apps/splash.c src/apps/boot_splash.c src/apps/splash_art.c include/kui/splash.h build/splash_art.inc build/boot_splash_art.inc $(EXPORT_CODECS)
+build/test-splash: tests/test_splash.c src/apps/splash.c src/apps/boot_splash.c src/apps/splash_art.c include/kui/splash.h build/splash_art.inc build/factory_splash_art.inc build/boot_splash_art.inc $(EXPORT_CODECS)
 	@mkdir -p $(@D)
 	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) $(EXPORT_CODEC_FLAGS) src/apps/splash.c src/apps/boot_splash.c src/apps/splash_art.c third_party/miniz/miniz.c tests/test_splash.c -o $@
 
@@ -1212,9 +1212,9 @@ build/test-network-probe: tests/test_network_probe.c src/apps/network_probe.c in
 	@mkdir -p $(@D)
 	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) src/apps/network_probe.c tests/test_network_probe.c -o $@
 
-build/test-network-connect: tests/test_network_connect.c src/apps/network_probe.c src/apps/network_connect.c include/kui/network_probe.h include/kui/network_w5500.h include/kui/w5500.h
+build/test-network-connect: tests/test_network_connect.c src/apps/network_probe.c src/apps/network_connect.c src/apps/network_ethernet.c src/apps/network_ethernet.h include/kui/network_probe.h include/kui/network_w5500.h include/kui/w5500.h $(wildcard tests/apps_stubs/kos/*.h tests/apps_stubs/dc/net/*.h)
 	@mkdir -p $(@D)
-	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) -Itests/apps_stubs src/apps/network_probe.c src/apps/network_connect.c tests/test_network_connect.c -o $@
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) -Itests/apps_stubs src/apps/network_probe.c src/apps/network_connect.c src/apps/network_ethernet.c tests/test_network_connect.c -o $@
 
 # The W5500 driver and bring-up against tests/w5500_model.c, a W5500 whose
 # TCP sockets are real localhost sockets.
@@ -1330,7 +1330,12 @@ build/test-cover-image: tests/test_cover_image.c src/apps/cover_image.c include/
 	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) -Itests src/apps/cover_image.c tests/test_cover_image.c -o $@
 
 GAMES = src/core/smash_native_child.c src/core/retail_image.c src/apps/games.c src/apps/games_storage.c src/core/game_image.c src/core/zso.c src/core/lzo1x.c src/core/game_metadata.c src/core/destination.c src/core/storage_probe.c src/core/hash.c src/core/game_profile.c src/apps/game_profile_file.c src/core/game_launch_settings.c src/core/game_ram_patches.c
-GAMES_COVERS = $(sort $(GAMES) src/apps/game_launch_settings_file.c src/apps/games_covers.c src/apps/cover_image.c src/core/game_cover.c src/core/pvr_texture.c src/core/retail_image.c)
+COVER_COMPACT = src/apps/compact_cover.c src/apps/cover_png_rows.c src/apps/cover_jpeg.c third_party/tjpgd/tjpgd.c build/cover-miniz.o
+build/cover-miniz.o: third_party/miniz/miniz.c third_party/miniz/miniz.h
+	@mkdir -p $(@D)
+	$(CC) -O2 -std=c11 $(SANITIZERS) $(EXPORT_CODEC_FLAGS) -c $< -o $@
+
+GAMES_COVERS = $(sort $(COVER_COMPACT) $(GAMES) src/apps/game_launch_settings_file.c src/apps/games_covers.c src/apps/cover_image.c src/core/game_cover.c src/core/pvr_texture.c src/core/retail_image.c)
 GAMES_ACTIVITY = src/core/games_activity.c src/apps/games_activity_file.c
 GAMES_LIBRARY_EXTRA = src/core/games_query.c src/core/games_metadata.c src/apps/games_metadata_file.c src/apps/games_identity.c src/apps/games_scan_log.c
 
@@ -1391,9 +1396,12 @@ FILES_WRAP = -Wl,--wrap=f_open,--wrap=f_close,--wrap=f_opendir,--wrap=f_closedir
 build/test-files: tests/test_files.c src/core/files_path.c src/core/destination.c src/core/data.c include/kui/files.h .deps/fatfs/source/ff.h
 	@mkdir -p $(@D)
 	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) src/core/files_path.c src/core/destination.c src/core/data.c tests/test_files.c -o $@
-build/files-image: tests/files_image.c $(FILES) $(CORE) $(FATFS) include/kui/files.h include/kui/game_cover.h include/kui/cover_image.h include/kui/pvr_texture.h tests/fixtures/cover_images.h third_party/stb/stb_image.h config/ffconf.h
+FILES_SHELL_MODEL = $(STORAGE_TEST_MODEL) src/core/game_launch_settings.c src/core/game_ram_patches.c \
+        src/core/games_selection.c src/core/game_profile.c src/core/hash.c src/core/games_query.c \
+        src/core/theme.c src/core/shell.c src/apps/system_settings.c src/core/settings.c
+build/files-image: tests/files_image.c $(FILES) $(CORE) $(FATFS) $(FILES_SHELL_MODEL) include/kui/shell.h include/kui/files.h include/kui/game_cover.h include/kui/cover_image.h include/kui/pvr_texture.h tests/fixtures/cover_images.h third_party/stb/stb_image.h config/ffconf.h
 	@mkdir -p $(@D)
-	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) -Isrc/dreamcast $(FILES) $(CORE) $(FATFS) tests/files_image.c $(FILES_WRAP) -lm -o $@
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) -Isrc/dreamcast $(FILES) $(CORE) $(FATFS) $(FILES_SHELL_MODEL) tests/files_image.c $(FILES_WRAP) -lm -o $@
 # The Wi-Fi board's driver on a model of the board: the firmware's own
 # bridge core behind a simulated SPI bus, with real sockets on this machine.
 WIFI_LINK = $(KWLINK)/kwlink.c $(KWLINK)/kwhost.c
@@ -1412,7 +1420,7 @@ build/test-wifi-update: tests/test_wifi_update.c src/apps/wifi_update.c include/
 # The FTP server: protocol pieces alone, then end to end on the W5500 model
 # and the Wi-Fi board model with real FatFs, driven by Python's ftplib
 # (tests/test_ftp_images.py).
-FTP = src/apps/ftp_server.c src/apps/browser_companion.c src/core/http_protocol.c src/core/ftp_protocol.c src/core/files_path.c src/core/destination.c src/core/storage_probe.c \
+FTP = src/core/bba_sockets.c src/apps/ftp_server.c src/apps/browser_companion.c src/core/http_protocol.c src/core/ftp_protocol.c src/core/files_path.c src/core/destination.c src/core/storage_probe.c \
       src/core/w5500.c src/apps/network_w5500.c src/apps/network_probe.c src/apps/network_wifi.c src/core/wifi_text.c $(WIFI_LINK)
 FTP_WRAP = -Wl,--wrap=f_open,--wrap=f_close,--wrap=f_opendir,--wrap=f_closedir,--wrap=f_rename,--wrap=f_write
 build/test-ftp: tests/test_ftp.c src/core/ftp_protocol.c src/core/files_path.c src/core/destination.c src/core/data.c include/kui/ftp.h include/kui/files.h .deps/fatfs/source/ff.h
@@ -1421,11 +1429,11 @@ build/test-ftp: tests/test_ftp.c src/core/ftp_protocol.c src/core/files_path.c s
 build/test-ftp-cleanup: tests/test_ftp_cleanup.c src/apps/ftp_server.c include/kui/ftp.h include/kui/w5500.h .deps/fatfs/source/ff.h
 	@mkdir -p $(@D)
 	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) -Isrc/dreamcast -ffunction-sections -fdata-sections tests/test_ftp_cleanup.c -Wl,--gc-sections -o $@
-build/ftp-image: tests/ftp_image.c $(FTP) $(CORE) $(FATFS) $(W5500_MODEL) $(WIFI_MODEL) $(WIFI_HEADERS) include/kui/ftp.h include/kui/w5500.h include/kui/network_w5500.h include/kui/files.h config/ffconf.h
+build/ftp-image: tests/ftp_image.c $(FTP) $(CORE) $(FATFS) $(W5500_MODEL) $(WIFI_MODEL) $(WIFI_HEADERS) include/kui/network_bba.h include/kui/bba_sockets.h include/kui/ftp.h include/kui/w5500.h include/kui/network_w5500.h include/kui/files.h config/ffconf.h
 	@mkdir -p $(@D)
 	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) -Isrc/dreamcast -Ifirmware/kui-wifi/main -Itests $(FTP) $(CORE) $(FATFS) tests/w5500_model.c $(WIFI_MODEL) tests/ftp_image.c $(FTP_WRAP) -o $@
 
-build/browser-image: tests/browser_image.c tests/ftp_image.c $(FTP) $(CORE) $(FATFS) $(W5500_MODEL) $(WIFI_MODEL) $(WIFI_HEADERS) include/kui/browser.h include/kui/browser_service.h config/ffconf.h
+build/browser-image: tests/browser_image.c tests/ftp_image.c $(FTP) $(CORE) $(FATFS) $(W5500_MODEL) $(WIFI_MODEL) $(WIFI_HEADERS) include/kui/network_bba.h include/kui/bba_sockets.h include/kui/browser.h include/kui/browser_service.h config/ffconf.h
 	@mkdir -p $(@D)
 	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) -Isrc/dreamcast -Ifirmware/kui-wifi/main -Itests $(FTP) $(CORE) $(FATFS) tests/w5500_model.c $(WIFI_MODEL) tests/browser_image.c $(FTP_WRAP) -o $@
 
@@ -1484,6 +1492,90 @@ test-v3-medium: build/test-shell build/test-shell-font build/test-ui-rate build/
 	python3 tests/test_vmu_history.py
 	python3 tests/test_problem_report_images.py
 	python3 tests/test_games_scan_log_images.py
+build/test-hover-clip: tests/test_hover_clip.c src/apps/hover_clip.c src/apps/media_container.c include/kui/hover_clip.h include/kui/media_container.h
+	@mkdir -p $(@D)
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) $(filter %.c,$^) -o $@
+
+build/cover-rows-host: tests/cover_rows_host.c src/apps/cover_png_rows.c src/apps/cover_image.c src/core/game_cover.c src/core/hash.c build/cover-miniz.o include/kui/cover_png_rows.h include/kui/compact_cover.h
+	@mkdir -p $(@D)
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) -ffunction-sections -fdata-sections $(filter %.c %.o,$^) -Wl,--gc-sections,--wrap=malloc,--wrap=calloc,--wrap=free -lm -o $@
+
+build/test-preview-prefix: tests/test_preview_prefix.c src/apps/preview_prefix.c include/kui/preview_prefix.h
+	@mkdir -p $(@D)
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) $(filter %.c,$^) -o $@
+
+build/test-internet-adapters: src/dreamcast/internet.c src/core/internet_dns.c tests/test_internet_adapters.c src/core/internet_internal.h include/kui/internet.h
+	@mkdir -p $(@D)
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) -Itests/apps_stubs -Isrc/dreamcast $(filter %.c,$^) -o $@
+
+build/test-internet-cover: tests/test_internet_cover.c src/apps/internet_cover.c src/apps/internet_cover_catalog.inc src/apps/internet_cover_small.inc include/kui/internet_cover.h
+	@mkdir -p $(@D)
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) $(filter %.c,$^) -o $@
+
+build/test-internet-dns: tests/test_internet_dns.c src/core/internet_dns.c src/core/internet_internal.h
+	@mkdir -p $(@D)
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) $(filter %.c,$^) -o $@
+
+build/test-dreampi: tests/test_dreampi.c src/dreamcast/dreampi.c include/kui/dreampi.h $(wildcard tests/dreampi_stubs/*/*.h tests/dreampi_stubs/*/*/*.h)
+	@mkdir -p $(@D)
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) -Itests/dreampi_stubs -Itests/apps_stubs $(filter %.c,$^) -o $@
+
+# Run the console downloader, provider catalogue, Theora decoder and FatFs
+# against a synthetic origin. The transport has separate protocol tests.
+include config/media-xiph.mk
+MEDIA_DOWNLOAD = src/apps/media_download.c src/apps/media_container.c src/apps/preview_prefix.c src/apps/internet_cover.c src/apps/internet_extra.c src/apps/internet_preview.c
+MEDIA_HEADERS = include/kui/preview_prefix.h include/kui/internet.h include/kui/internet_cover.h include/kui/internet_extra.h include/kui/internet_preview.h include/kui/media_download.h include/kui/media_container.h include/kui/games_media.h
+MEDIA_CATALOGS = src/apps/internet_cover_catalog.inc src/apps/internet_cover_small.inc src/apps/internet_extra_data.inc
+MEDIA_LIBRARY = $(GAMES_COVERS) $(GAMES_ACTIVITY) $(GAMES_LIBRARY_EXTRA) src/apps/games_library.c src/core/games_group.c
+MEDIA_HOST = $(MEDIA_DOWNLOAD) $(MEDIA_LIBRARY) src/apps/hover_clip.c src/apps/games_media.c $(CORE) $(FATFS)
+build/bba-media-integration: tests/bba_media_integration.c tests/internet_scan_heap.c $(MEDIA_HOST) $(MEDIA_HEADERS) $(MEDIA_CATALOGS) $(XIPH_HOST_OBJS)
+	@mkdir -p $(@D)
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) $(XIPH_FLAGS) -Isrc/dreamcast $(MEDIA_HOST) $< tests/internet_scan_heap.c $(XIPH_HOST_OBJS) \
+	    -Wl,--wrap=kui_internet_cover_url,--wrap=malloc,--wrap=calloc,--wrap=realloc,--wrap=free -lm -o $@
+
+build/test-games-media-batch: tests/test_games_media_batch.c src/apps/games_media.c include/kui/games_media.h include/kui/media_download.h include/kui/internet.h
+	@mkdir -p $(@D)
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) -ffunction-sections -fdata-sections $< src/apps/games_media.c -Wl,--gc-sections -o $@
+
+MEDIA_CLIENT_TEST = $(COVER_COMPACT) src/apps/media_download.c src/apps/media_container.c src/apps/preview_prefix.c src/apps/cover_image.c src/core/hash.c src/core/destination.c src/core/game_cover.c src/core/game_launch_settings.c
+build/test-media-download: tests/test_media_download.c $(MEDIA_CLIENT_TEST) $(MEDIA_HEADERS)
+	@mkdir -p $(@D)
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) -ffunction-sections -fdata-sections $(INCLUDES) $(MEDIA_CLIENT_TEST) $< -Wl,--gc-sections -lm -o $@
+
+BBA_SESSION = src/apps/network_probe.c src/apps/network_ethernet.c src/dreamcast/network_bba.c src/core/bba_sockets.c
+build/test-bba-session: tests/test_bba_session.c $(BBA_SESSION) include/kui/network_bba.h $(wildcard tests/apps_stubs/kos/*.h)
+	@mkdir -p $(@D)
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) -Itests/apps_stubs $< $(BBA_SESSION) -o $@
+
+build/test-media-container: tests/test_media_container.c src/apps/media_container.c include/kui/media_container.h
+	@mkdir -p $(@D)
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) src/apps/media_container.c $< -o $@
+
+.PHONY: test-bba-media
+test-bba-media: export ASAN_OPTIONS=detect_leaks=0
+test-bba-media: build/test-hover-clip build/cover-rows-host test-internet-preview test-internet-extra build/test-preview-prefix build/test-internet-adapters build/test-internet-cover build/test-internet-dns build/test-dreampi build/bba-media-integration build/games-covers-image build/test-media-container build/test-bba-session build/test-games-media-batch build/test-media-download
+	./build/test-hover-clip
+	python3 tests/test_games_hover_dispatch.py
+	python3 tests/test_cover_png_rows.py
+	python3 tests/test_cover_jpeg.py
+	./build/test-preview-prefix
+	./build/test-internet-adapters
+	./build/test-internet-cover
+	./build/test-internet-dns
+	./build/test-dreampi
+	python3 tests/test_media_tls.py
+	python3 tests/test_internet_http.py
+	./build/test-media-download
+	python3 tests/test_kos_bba_driver.py
+	./build/test-games-media-batch
+	./build/test-bba-session
+	python3 tests/test_kos_tcp_media.py
+	./build/test-media-container
+	python3 tests/test_media_formats.py
+	python3 tests/test_media_server.py
+	python3 tests/test_bba_media_integration.py
+	python3 tests/test_large_internet_covers.py
+
 build/games-covers-image: tests/games_covers_image.c $(GAMES_COVERS) $(CORE) $(FATFS) include/kui/games_covers.h include/kui/games.h include/kui/game_cover.h include/kui/pvr_texture.h include/kui/cover_image.h third_party/stb/stb_image.h
 	@mkdir -p $(@D)
 	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) -Isrc/dreamcast $(GAMES_COVERS) $(CORE) $(FATFS) tests/games_covers_image.c $(GAMES_COVERS_WRAP) -lm -o $@
@@ -1977,3 +2069,43 @@ test-multidisc-capture: build/capture-image
 	ASAN_OPTIONS=detect_leaks=0 python3 tests/test_multidisc_capture_images.py
 
 test-images: test-multidisc-capture
+
+# Themes use the same reducer and renderer as the runtime.
+build/test-shell build/render-shell: src/core/theme.c include/kui/theme.h
+
+.PHONY: test-themes
+test: test-themes
+test-themes: build/test-theme build/test-theme-runtime build/test-theme-picker-worker build/theme-image build/test-shell
+	ASAN_OPTIONS=detect_leaks=0 ./build/test-theme
+	ASAN_OPTIONS=detect_leaks=0 ./build/test-theme-runtime
+	ASAN_OPTIONS=detect_leaks=0 ./build/test-theme-picker-worker
+	ASAN_OPTIONS=detect_leaks=0 ./build/test-shell --themes
+	ASAN_OPTIONS=detect_leaks=0 python3 tests/test_theme_images.py
+	ASAN_OPTIONS=detect_leaks=0 python3 tests/test_theme_install.py
+	python3 tests/test_pack_theme.py
+
+build/test-theme: tests/test_theme.c src/core/theme.c src/core/data.c include/kui/theme.h
+	@mkdir -p $(@D)
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) -fno-pie -no-pie $(INCLUDES) src/core/theme.c src/core/data.c tests/test_theme.c -o $@
+
+build/test-theme-runtime: tests/test_theme_runtime.c src/core/theme.c src/core/data.c src/apps/theme_runtime.c src/dreamcast/theme_runtime.inc include/kui/theme.h include/kui/theme_runtime.h include/kui/shell.h
+	@mkdir -p $(@D)
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) -fno-pie -no-pie $(INCLUDES) src/core/theme.c src/core/data.c src/apps/theme_runtime.c tests/test_theme_runtime.c -o $@
+
+build/test-theme-picker-worker: tests/test_theme_picker_worker.c src/dreamcast/theme_picker_runtime.inc include/kui/theme.h include/kui/splash.h include/kui/shell.h
+	@mkdir -p $(@D)
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) -fno-pie -no-pie $(INCLUDES) tests/test_theme_picker_worker.c -o $@
+
+THEME_IMAGE_SOURCES = tests/theme_image.c tests/theme_install.c $(CORE) $(FATFS) src/core/storage_probe.c src/core/theme.c src/apps/theme_file.c src/apps/theme_runtime.c src/apps/splash.c src/apps/splash_art.c third_party/miniz/miniz.c
+build/theme-image: $(THEME_IMAGE_SOURCES) include/kui/theme.h include/kui/theme_runtime.h include/kui/splash.h src/dreamcast/theme_startup_draw.inc build/splash_art.inc build/factory_splash_art.inc
+	@mkdir -p $(@D)
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) -fno-pie -no-pie $(INCLUDES) $(EXPORT_CODEC_FLAGS) $(THEME_IMAGE_SOURCES) -o $@
+
+THEME_RENDER_SOURCES = $(STORAGE_TEST_MODEL) src/core/wifi_text.c src/core/destination.c src/core/files_path.c src/core/data.c src/core/game_launch_settings.c src/core/game_ram_patches.c src/core/games_selection.c src/core/game_profile.c src/core/hash.c src/core/games_query.c src/core/theme.c src/core/shell.c src/core/clock.c src/dreamcast/shell_draw.c src/apps/splash_art.c third_party/miniz/miniz.c src/dreamcast/shell_font.c src/apps/system_settings.c src/core/salvage_display.c src/core/drive_controls.c src/apps/splash.c tests/render_theme.c
+build/render-theme: $(THEME_RENDER_SOURCES) include/kui/theme.h include/kui/shell.h build/splash_art.inc build/factory_splash_art.inc src/dreamcast/shell_art.inc src/dreamcast/shell_font_data.inc
+	@mkdir -p $(@D)
+	$(CC) $(HOST_FLAGS) $(INCLUDES) $(EXPORT_CODEC_FLAGS) $(THEME_RENDER_SOURCES) -o $@
+
+build/test-splash build/theme-image: tests/theme_preview_reference.h
+build/test-splash build/theme-image build/render-theme: src/apps/theme_thumbnail.h include/kui/theme.h
+build/test-splash build/theme-image build/render-theme build/test-shell build/render-shell: include/kui/theme_filter.h

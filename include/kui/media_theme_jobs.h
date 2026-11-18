@@ -1,0 +1,12 @@
+/* SPDX-License-Identifier: GPL-3.0-only */
+#ifndef KUI_MEDIA_THEME_JOBS_H
+#define KUI_MEDIA_THEME_JOBS_H
+
+/* These jobs share the SD runtime's storage-worker dispatch. */
+enum {
+    KUI_GAMES_MEDIA_DOWNLOAD_JOB = 127, KUI_GAMES_MEDIA_VIEW_JOB,
+    THEME_SCAN_WORK, THEME_PREVIEW_WORK, THEME_APPLY_WORK,
+    THEME_CANCEL_WORK, THEME_RESTORE_WORK
+};
+
+#endif

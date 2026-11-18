@@ -1,0 +1,40 @@
+{
+  "version": 1,
+  "name": "Neon Eclipse",
+  "author": "TacitusVox",
+  "colors": {
+    "text": "#F5F7FC",
+    "success": "#8AE2AE",
+    "warning": "#FFCF82",
+    "selection_text": "#FFFFFF",
+    "background": "#180D22",
+    "panel": "#2C162C",
+    "selection": "#522540",
+    "edge": "#9F506A",
+    "muted": "#D6B1C5",
+    "accent": "#FFB46F",
+    "accent2": "#FF7BA0"
+  },
+  "assets": {
+    "splash": {
+      "source": "../sources/neon-eclipse.png",
+      "sha256": "1c520ad3b5f4210cb39261b9c33cad2c1ae42f7c957a92db76bb0d3ecb7e3561",
+      "filter": "lanczos",
+      "fit": "contain"
+    },
+    "header": {
+      "source": "../sources/neon-eclipse.png",
+      "sha256": "1c520ad3b5f4210cb39261b9c33cad2c1ae42f7c957a92db76bb0d3ecb7e3561",
+      "filter": "lanczos",
+      "fit": "header-left",
+      "crop": [
+        82,
+        262,
+        1398,
+        994
+      ],
+      "brightness": 1.0,
+      "dither": true
+    }
+  }
+}

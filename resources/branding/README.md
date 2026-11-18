@@ -14,10 +14,11 @@ existing K-UI wordmark paths and the maintainer's `github.com/TacitusVox` credit
 (`by TPMJB` until 2026-11-17, briefly `by TacitusVox`). Its editable source is shared
 with the matching [boot-disc badge](boot-disc-badge.md); that record documents
 the exact render transforms, palette, source hashes and regeneration command.
-The 256×128 RGB source retains the existing 128×64 runtime dimensions, navy
-background and fixed RGB565 encoding. Its SHA-256 is
+The 256×128 RGB source has SHA-256
 `26110492a9b4116e2a205ddd149240346a7976cb86b958aae6408e814f029301`.
-The icon sources and runtime UI palette are unchanged.
+The K-UI Original menu reuses the sword and wordmark on navy. Its 142×58
+badge sets the amber profile link in the bundled 16 px DejaVu Sans Bold,
+wrapping after the slash. The menu and banner picker draw this badge at 1:1.
 
 Source repository: `TacitusVox/K-UI_DS` (formerly `TPMJB/K-UI_DS`, earlier `DreamShell_NeXT`), revision
 [`2a5309298dde8fb100da1e2e4e10517695c9780f`](https://github.com/TacitusVox/K-UI_DS/tree/2a5309298dde8fb100da1e2e4e10517695c9780f).
@@ -63,18 +64,18 @@ python3 tools/generate_shell_art.py
 python3 tools/generate_shell_art.py --check
 ```
 
-Run from the repository root with Pillow installed. The generator validates the
-seven original hashes above, plus `resources/icons/home-icons.json`, and writes `src/dreamcast/shell_art.inc`. Ordinary Dreamcast
+Run from the repository root with Pillow installed. The badge glyphs were
+rasterized with FreeType 2.14.3. The generator validates the original source and
+font hashes and `resources/icons/home-icons.json`, then writes `src/dreamcast/shell_art.inc`. Ordinary Dreamcast
 builds use that committed include and do not need image conversion libraries.
 
-The opaque brand is 128x64 RGB565 pixels against the original navy background.
 Icons are emitted at 128x128 for the detail pane and 24x24 for the app list, in
 disc-ripper/settings/diagnostics order, followed by the seven new Home icons.
 The original three retain their bilinear texture scaling; the new icons use
 native 128x128 and separately simplified 24x24 sources. Fully transparent icon pixels use `0xf81f`, which the
-renderer skips; antialiased edges are precomposed against `#121A31`. The arrays
-contain 355,584 bytes of pixel data. They are fixed assets, with no runtime
-decoding, file access or allocation.
+renderer skips. Antialiased edges are precomposed against `#121A31`. The runtime
+inflates the embedded pack into one 355,672-byte RGB565 buffer the first time
+it draws the badge or a Home icon.
 
 
 ## Home icon completion — 2026-09-28

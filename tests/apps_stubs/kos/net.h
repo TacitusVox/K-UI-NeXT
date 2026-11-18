@@ -7,7 +7,7 @@ typedef struct knetif {
     LIST_ENTRY(knetif) if_list;
     const char *name,*descr;
     uint32_t flags;
-    uint8_t ip_addr[4],netmask[4],gateway[4],dns[4],mac_addr[6];
+    uint8_t ip_addr[4],broadcast[4],netmask[4],gateway[4],dns[4],mac_addr[6];
     int (*if_detect)(struct knetif *);
     int (*if_init)(struct knetif *),(*if_start)(struct knetif *),(*if_stop)(struct knetif *),(*if_shutdown)(struct knetif *),(*if_rx_poll)(struct knetif *);
     int (*if_tx)(struct knetif *,const uint8_t *,int,int);
@@ -24,5 +24,11 @@ int net_unreg_device(netif_t *interface);
 #define NETIF_TX_OK 0
 #define NETIF_TX_AGAIN -2
 typedef int (*net_input_func)(netif_t *,const uint8_t *,int);
+extern netif_t *net_default_dev;
+netif_t *net_set_default(netif_t *device);
+int net_init(uint32_t ip);
+void net_shutdown(void);
+int net_arp_lookup(netif_t *n, const uint8_t ip[4], uint8_t mac[6],
+                   const void *packet, const uint8_t *data, int bytes);
 net_input_func net_input_set_target(net_input_func target);
 #endif

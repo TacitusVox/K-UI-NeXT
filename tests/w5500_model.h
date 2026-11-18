@@ -17,6 +17,7 @@ struct w5500_model_options {
     bool dhcp_nak;        /* the DHCP server refuses REQUESTs */
     bool conflict;        /* someone answers ARP for the leased address */
     uint32_t lease_seconds;
+    bool custom_lease_timers, backup_dhcp_server;
     /* Real time, in microseconds, before a SEND's data leaves and before more
      * data from the peer arrives, as on a network. A server that sleeps while
      * it waits for either shows it here as it does on the console. */
@@ -37,6 +38,7 @@ extern const uint8_t w5500_model_lease[4];
 /* Counters for assertions. */
 struct w5500_model_counts {
     unsigned frames, commands, dhcp_discovers, dhcp_requests, udp_requests, arp_probes, pings;
+    unsigned renewal_unicasts, rebind_broadcasts;
     unsigned accepted, refused, resets, async_frames, async_cancels, idle_frames;
     uint64_t sent_bytes, received_bytes;
 };

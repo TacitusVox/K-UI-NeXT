@@ -2,12 +2,12 @@
 #include "kui/network_probe.h"
 #include "kui/network_w5500.h"
 #include "kui/network_wifi.h"
+#include "network_ethernet.h"
 #include <kos/net.h>
 #include <kos/thread.h>
 #include <kos/irq.h>
 #include <kos/timer.h>
 #include <dc/net/broadband_adapter.h>
-#include <dc/net/lan_adapter.h>
 #include <stdio.h>
 #include <string.h>
 /* Input ownership is exclusive while every other interface is stopped. Packet
@@ -22,27 +22,41 @@ static int receive(netif_t *n,const uint8_t *data,int bytes){
     if(next==tail)++dropped;else{memcpy(queue[head].bytes,data,(size_t)bytes);queue[head].length=(unsigned)bytes;head=next;}
     irq_restore(flags);return 0;
 }
-static netif_t *find(const char *name){netif_t *n;LIST_FOREACH(n,net_get_if_list(),if_list)if(n->name&&!strcmp(n->name,name))return n;return NULL;}
 static void emit(struct kui_app_status *out,kui_app_progress_fn progress,const char *message){snprintf(out->message,sizeof(out->message),"%s",message);if(progress)progress(out);}
+
+static int transmit(netif_t *n, uint8_t *frame, size_t bytes) {
+    /* Pinned KOS's BBA netif wrapper maps BBA_TX_AGAIN to a hard error.
+     * The public BBA entry point preserves nonblocking descriptor/link status. */
+    if(!strcmp(n->name, "bba"))
+        return bba_tx(frame, (int)bytes, BBA_TX_NOWAIT);
+
+    /* The LAN driver copies at least 0x60 bytes from the supplied buffer.
+     * The tail can still contain an earlier DHCP or incoming packet. */
+    if(bytes < 0x60) {
+        memset(frame + bytes, 0, 0x60 - bytes);
+        bytes = 0x60;
+    }
+    return n->if_tx(n, frame, (int)bytes, NETIF_NOBLOCK);
+}
 void kui_network_connect_run(const struct kui_network_config *config,struct kui_app_status *out,kui_log_fn log,kui_cancel_fn cancel,kui_app_progress_fn progress){
     if(!out)return;
-    memset(out,0,sizeof(*out));netif_t *n=NULL,*item;unsigned owned=0;bool initialized=false,started=false,target=false;net_input_func old=NULL;
+    memset(out,0,sizeof(*out));netif_t *n=NULL,*item;bool initialized=false,started=false,target=false;net_input_func old=NULL;
+    struct kui_ethernet_adapter adapter={0};
     struct kui_network_probe p;memset(&p,0,sizeof(p));p.stage=KUI_NET_FAILED;_Alignas(32) uint8_t frame[KUI_NETWORK_FRAME_MAX];
     if(config&&!kui_network_config_valid(config)){emit(out,progress,"Invalid static IPv4 configuration");++out->errors;goto done;}
     if(cancel&&cancel())goto stop;
     LIST_FOREACH(item,net_get_if_list(),if_list)if(item->flags&NETIF_RUNNING){emit(out,progress,"An interface is already running; connection test refused");++out->errors;goto done;}
-    n=find("bba");if(!n)n=find("la");
-    if(!n){if(bba_init()==0){n=find("bba");owned=1;}else bba_shutdown();}
+    adapter=kui_ethernet_find(false,cancel);
+    n=adapter.interface;
     if(cancel&&cancel())goto stop;
-    if(!n){if(la_init()==0){n=find("la");owned=2;}else la_shutdown();}
-    if(n&&!(n->flags&NETIF_DETECTED)&&n->if_detect)n->if_detect(n);
     /* No BBA or LAN adapter: a W5500 (DHCP only) or the Wi-Fi board on the SCI port, if one is fitted. */
     if(!n&&!config&&(kui_w5500_network_test(out,log,cancel,progress)||kui_wifi_network_test(out,log,cancel,progress)))return;
     if(!n||!(n->flags&NETIF_DETECTED)||(n->flags&NETIF_NOETH)||!n->if_init||!n->if_start||!n->if_stop||!n->if_shutdown||!n->if_tx){emit(out,progress,"No Broadband, LAN, W5500 or Wi-Fi adapter detected");++out->errors;goto done;}
     emit(out,progress,"Starting adapter (KOS link wait: up to 10 seconds)");
+    /* The LAN driver enables receive interrupts during if_init. */
+    head=tail=dropped=0;receiving=n;old=net_input_set_target(receive);target=true;
     if(!(n->flags&NETIF_INITIALIZED)){if(n->if_init(n)<0){emit(out,progress,"Adapter initialization failed");++out->errors;goto done;}initialized=true;}
     if(cancel&&cancel())goto stop;
-    head=tail=dropped=0;receiving=n;old=net_input_set_target(receive);target=true;
     if(n->if_start(n)<0){emit(out,progress,"Adapter link did not start");++out->errors;goto done;}started=true;
     uint64_t now=timer_ms_gettime64();kui_network_probe_begin(&p,n->mac_addr,(uint32_t)now^UINT32_C(0x4b554900),config,now);
     enum kui_network_stage last=KUI_NET_FAILED;
@@ -56,7 +70,21 @@ void kui_network_connect_run(const struct kui_network_config *config,struct kui_
             irq_restore(flags);if(!size)break;kui_network_probe_receive(&p,frame,size,timer_ms_gettime64());
         }
         now=timer_ms_gettime64();size_t bytes=kui_network_probe_step(&p,frame,now);
-        if(bytes){int result=n->if_tx(n,frame,(int)bytes,NETIF_NOBLOCK);if(result!=NETIF_TX_OK&&result!=NETIF_TX_AGAIN){snprintf(p.failure,sizeof(p.failure),"Adapter packet transmit failed");p.stage=KUI_NET_FAILED;}}
+        if(bytes) {
+            /* The probe clock advances when it builds a frame. Retain that
+             * exact frame until accepted, or fail before advancing the probe. */
+            int result=transmit(n,frame,bytes);
+            while(result==NETIF_TX_AGAIN && timer_ms_gettime64()-now<500) {
+                if(cancel&&cancel())goto stop;
+                thd_sleep(10);
+                result=transmit(n,frame,bytes);
+            }
+            if(result!=NETIF_TX_OK) {
+                snprintf(p.failure,sizeof(p.failure),"%s",result==NETIF_TX_AGAIN?
+                    "Adapter stayed busy; packet was not sent":"Adapter packet transmit failed");
+                p.stage=KUI_NET_FAILED;
+            }
+        }
         if(last!=p.stage){last=p.stage;emit(out,progress,kui_network_stage_text(p.stage));if(log)log("Network: %s",out->message);}
         thd_sleep(10);
     }
@@ -75,9 +103,9 @@ void kui_network_connect_run(const struct kui_network_config *config,struct kui_
 stop:out->stopped=true;out->passed=false;emit(out,progress,"Network connection test stopped");
 done:
     if(started&&n->if_stop(n)<0){++out->errors;out->passed=false;emit(out,progress,"Adapter stop failed; reboot before network use");}
-    if(target){receiving=NULL;net_input_set_target(old);}
     if(initialized&&n->if_shutdown(n)<0){++out->errors;out->passed=false;emit(out,progress,"Adapter shutdown failed; reboot before network use");}
-    if(owned){if(owned==1)bba_shutdown();else la_shutdown();if(n)net_unreg_device(n);}
+    kui_ethernet_release(&adapter);
+    if(target){receiving=NULL;net_input_set_target(old);}
     if(log){log("Network connection test: %s",out->message);for(unsigned i=0;i<out->line_count;i++)log("%s",out->lines[i]);}
     if(progress)progress(out);
 }

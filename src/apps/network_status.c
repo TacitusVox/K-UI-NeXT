@@ -25,17 +25,16 @@ void kui_network_describe(struct kui_app_status *out,const struct kui_network_sn
     /* 'passed' means confirmed carrier on a detected Ethernet interface only.
      * Keep it false when this bounded inspection cannot test the link. */
     out->passed=s->ethernet && s->link==KUI_NETWORK_LINK_UP;
-    out->line_count=11;
+    /* The Network result panel has eight rows. Keep the adapter and link
+     * visible alongside the saved configuration. */
+    out->line_count=8;
     snprintf(out->lines[0],KUI_APP_LINE_CAP,"Adapter: %.63s",s->description[0]?s->description:s->name);
     snprintf(out->lines[1],KUI_APP_LINE_CAP,"Interface %.23s: %s; %s",s->name,
         s->initialized?"initialized":"detected only",s->running?"driver started":"driver not started");
     snprintf(out->lines[2],KUI_APP_LINE_CAP,"Link: %s",!s->ethernet?"not an Ethernet interface":
         s->link==KUI_NETWORK_LINK_UP?"carrier present":
-        s->link==KUI_NETWORK_LINK_DOWN?"no carrier":"not checked (no active PHY query)");
-    address(out->lines[3],"IPv4",s->ip);address(out->lines[4],"Netmask",s->netmask);
+        s->link==KUI_NETWORK_LINK_DOWN?"no carrier":"not checked (choose Test network)");
+    address(out->lines[3],"Saved/current IPv4",s->ip);address(out->lines[4],"Netmask",s->netmask);
     address(out->lines[5],"Gateway",s->gateway);address(out->lines[6],"DNS",s->dns);
-    snprintf(out->lines[7],KUI_APP_LINE_CAP,"Addresses are KOS saved/current configuration");
-    snprintf(out->lines[8],KUI_APP_LINE_CAP,"No configuration files or flash settings were changed");
-    snprintf(out->lines[9],KUI_APP_LINE_CAP,"DHCP was not requested by this test");
-    snprintf(out->lines[10],KUI_APP_LINE_CAP,"Internet reachability was not tested");
+    snprintf(out->lines[7],KUI_APP_LINE_CAP,"DHCP was not requested. Internet reachability was not tested.");
 }

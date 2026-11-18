@@ -209,6 +209,7 @@ int main(void){
 helpers = '\n\n'.join((
     function(shell_source, 'kui_shell_games_view'),
     function(source, 'games_query_same'),
+    function(source, 'games_idle_blocked_locked'),
     function(source, 'games_idle_cancelled'),
     function(source, 'games_flow_current'),
     function(source, 'games_flow_cancelled'),

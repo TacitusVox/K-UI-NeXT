@@ -130,11 +130,11 @@ static void deliver_frame(const uint8_t *frame, size_t bytes) {
     put16(head, (unsigned)bytes + 2u);
     ring_frame(s, head, 2, frame, bytes);
 }
-static size_t dhcp_reply(const uint8_t *q, size_t n, uint8_t *r) {
+static size_t dhcp_reply(const uint8_t *q, size_t n, const uint8_t dest[4], const uint8_t server[4], uint8_t *r) {
     if(n < 240 || q[0] != 1 || q[1] != 1 || q[2] != 6 || get16(q + 236) != 0x6382 || get16(q + 238) != 0x5363)
         return 0;
     unsigned type = 0;
-    const uint8_t *requested = NULL;
+    const uint8_t *requested = NULL, *identified = NULL;
     for(size_t k = 240; k < n;) {
         unsigned tag = q[k++];
         if(!tag) continue;
@@ -143,10 +143,18 @@ static size_t dhcp_reply(const uint8_t *q, size_t n, uint8_t *r) {
         if(k + len > n) return 0;
         if(tag == 53 && len == 1) type = q[k];
         if(tag == 50 && len == 4) requested = q + k;
+        if(tag == 54 && len == 4) identified = q + k;
         k += len;
     }
     if(type == 1) ++w5500_model_counts.dhcp_discovers;
     if(type == 3) ++w5500_model_counts.dhcp_requests;
+    if(dest && type == 3) {
+        static const uint8_t broadcast[4] = {255, 255, 255, 255};
+        if(requested || identified || memcmp(q + 12, w5500_model_lease, 4) || get16(q + 10)) return 0;
+        if(!memcmp(dest, broadcast, 4)) ++w5500_model_counts.rebind_broadcasts;
+        else if(!memcmp(dest, server, 4)) ++w5500_model_counts.renewal_unicasts;
+        else return 0;
+    }
     if(m.options.dhcp_silent || (type != 1 && type != 3)) return 0;
     unsigned reply = type == 1 ? 2u : 5u;
     if(type == 3) {
@@ -162,12 +170,16 @@ static size_t dhcp_reply(const uint8_t *q, size_t n, uint8_t *r) {
     put16(r + 236, 0x6382); put16(r + 238, 0x5363);
     size_t k = 240;
     r[k++] = 53; r[k++] = 1; r[k++] = (uint8_t)reply;
-    r[k++] = 54; r[k++] = 4; memcpy(r + k, gateway_ip, 4); k += 4;
+    r[k++] = 54; r[k++] = 4; memcpy(r + k, server, 4); k += 4;
     if(reply != 6) {
         static const uint8_t mask[4] = {255, 255, 255, 0}, dns[4] = {10, 0, 0, 53};
         uint32_t lease = m.options.lease_seconds;
         r[k++] = 51; r[k++] = 4; r[k++] = (uint8_t)(lease >> 24); r[k++] = (uint8_t)(lease >> 16);
         r[k++] = (uint8_t)(lease >> 8); r[k++] = (uint8_t)lease;
+        if(m.options.custom_lease_timers) {
+            r[k++] = 58; r[k++] = 4; put16(r + k, 0); put16(r + k + 2, 60u); k += 4;
+            r[k++] = 59; r[k++] = 4; put16(r + k, 0); put16(r + k + 2, 120u); k += 4;
+        }
         r[k++] = 1; r[k++] = 4; memcpy(r + k, mask, 4); k += 4;
         r[k++] = 3; r[k++] = 4; memcpy(r + k, gateway_ip, 4); k += 4;
         r[k++] = 6; r[k++] = 4; memcpy(r + k, dns, 4); k += 4;
@@ -207,7 +219,7 @@ static void network(const uint8_t *f, size_t n) {
     if(n < 34 || get16(f + 12) != 0x0800 || (f[14] & 0x0f) != 5) return;
     const uint8_t *ip = f + 14;
     if(ip[9] == 17 && n >= 42 + 240 && get16(f + 36) == 67) {
-        size_t size = dhcp_reply(f + 42, n - 42, out + 42);
+        size_t size = dhcp_reply(f + 42, n - 42, NULL, gateway_ip, out + 42);
         if(!size) return;
         bool wide = get16(f + 42 + 10) & 0x8000;
         ethernet(out, wide ? all : f + 6, gateway_mac, 0x0800);
@@ -275,10 +287,12 @@ static void datagram(unsigned n) {
     if(protocol(s) == KUI_W5500_MACRAW) { network(q, bytes); return; }
     if(get16(s->regs + SN_DPORT) != 67) return;
     ++w5500_model_counts.udp_requests;
-    size_t reply = dhcp_reply(q, bytes, r);
+    static const uint8_t backup[4] = {10, 0, 0, 9};
+    const uint8_t *server = m.options.backup_dhcp_server ? backup : gateway_ip;
+    size_t reply = dhcp_reply(q, bytes, s->regs + SN_DIPR, server, r);
     if(!reply) return;
     uint8_t head[8];
-    memcpy(head, gateway_ip, 4); put16(head + 4, 67); put16(head + 6, (unsigned)reply);
+    memcpy(head, server, 4); put16(head + 4, 67); put16(head + 6, (unsigned)reply);
     ring_frame(s, head, 8, r, reply);
 }
 static void command(unsigned n, uint8_t code) {

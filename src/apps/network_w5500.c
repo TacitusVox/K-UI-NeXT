@@ -73,6 +73,25 @@ static uint32_t transaction(const struct kui_w5500_session *s) {
     for(unsigned i = 0; i < 6; ++i) xid = xid * 31u + s->mac[i];
     return xid ? xid : 1u;
 }
+static bool accept_lease(struct kui_w5500_session *s, const struct kui_network_probe *p) {
+    if(p->lease_seconds != UINT32_MAX && now(s) - p->lease_start_ms >= (uint64_t)p->lease_seconds * 1000u) {
+        problem(s, "The lease expired before it could be used");
+        return false;
+    }
+    if((!s->leased || memcmp(&s->config, &p->config, sizeof(s->config))) &&
+       !kui_w5500_set_ipv4(&s->chip, p->config.ip, p->config.mask, p->config.gateway)) {
+        problem(s, "The W5500 stopped answering");
+        return false;
+    }
+    s->config = p->config;
+    memcpy(s->server, p->server, sizeof(s->server));
+    s->lease_seconds = p->lease_seconds;
+    s->renew_seconds = p->renew_seconds;
+    s->rebind_seconds = p->rebind_seconds;
+    s->leased_ms = p->lease_start_ms;
+    s->leased = true;
+    return true;
+}
 bool kui_w5500_session_dhcp(struct kui_w5500_session *s, bool lease_only, struct kui_network_probe *probe,
                             kui_log_fn log, kui_cancel_fn cancel, void (*stage)(enum kui_network_stage stage)) {
     struct kui_network_probe local;
@@ -113,16 +132,7 @@ bool kui_w5500_session_dhcp(struct kui_w5500_session *s, bool lease_only, struct
     (void)kui_w5500_close(&s->chip, 0);
     if(failure) { problem(s, failure); return false; }
     if(p->stage != KUI_NET_DONE) { problem(s, p->failure[0] ? p->failure : "DHCP did not finish"); return false; }
-    s->config = p->config;
-    memcpy(s->server, p->server, 4);
-    s->lease_seconds = p->lease_seconds;
-    s->leased_ms = now(s);
-    s->leased = p->leased;
-    if(!kui_w5500_set_ipv4(&s->chip, s->config.ip, s->config.mask, s->config.gateway)) {
-        problem(s, "The W5500 stopped answering");
-        return false;
-    }
-    return true;
+    return accept_lease(s, p);
 }
 /* A DHCP reply that arrived over UDP, rebuilt as the Ethernet frame the
  * probe reads (it checks the same fields a raw frame would carry). */
@@ -149,16 +159,25 @@ bool kui_w5500_session_renew(struct kui_w5500_session *s, unsigned udp, unsigned
                              kui_cancel_fn cancel) {
     if(refused) *refused = false;
     if(!s || !s->found || !s->leased) return false;
+    uint64_t start = now(s);
+    uint32_t left = kui_w5500_session_expires_in(s, start);
+    if(!left) { problem(s, "The network address lease expired"); return false; }
+    /* A failed attempt retries in a minute or when rebinding begins,
+     * whichever is sooner. A successful ACK supplies the next lease's T1. */
+    uint32_t age = s->lease_seconds - left;
+    s->renew_seconds = left > 60u ? age + 60u : s->lease_seconds;
+    if(age < s->rebind_seconds && s->renew_seconds > s->rebind_seconds)
+        s->renew_seconds = s->rebind_seconds;
     if(!kui_w5500_open(&s->chip, udp, KUI_W5500_UDP, 68)) { problem(s, "The W5500 could not open a UDP socket"); return false; }
     struct kui_network_probe p;
     kui_network_probe_renew(&p, s->mac, transaction(s), &s->config, s->server, now(s));
-    static const uint8_t all[4] = {255, 255, 255, 255};
     uint8_t frame[KUI_NETWORK_FRAME_MAX], data[KUI_NETWORK_FRAME_MAX - 42u];
     const char *failure = NULL;
-    uint64_t start = now(s);
     while(p.stage < KUI_NET_DONE && !failure) {
         if(stopped(cancel)) { failure = "Stopped"; break; }
-        if(now(s) - start > limit_ms) { failure = "No answer from the DHCP server"; break; }
+        uint64_t t = now(s);
+        if(!kui_w5500_session_expires_in(s, t)) { failure = "The network address lease expired"; break; }
+        if(t - start > limit_ms) { failure = "No answer from the DHCP server"; break; }
         for(unsigned i = 0; i < 4; ++i) {
             uint8_t from[4];
             uint16_t port = 0;
@@ -172,8 +191,13 @@ bool kui_w5500_session_renew(struct kui_w5500_session *s, unsigned udp, unsigned
             if(bytes) kui_network_probe_receive(&p, frame, bytes, now(s));
         }
         if(failure) break;
-        size_t bytes = kui_network_probe_step(&p, frame, now(s));
-        if(bytes > 42u && !kui_w5500_datagram_send(&s->chip, udp, all, 67, frame + 42, (uint16_t)(bytes - 42u)))
+        t = now(s);
+        if(!kui_w5500_session_expires_in(s, t)) { failure = "The network address lease expired"; break; }
+        p.rebinding = t - s->leased_ms >= (uint64_t)s->rebind_seconds * 1000u;
+        size_t bytes = kui_network_probe_step(&p, frame, t);
+        /* The chip builds the IP and UDP headers. Use the destination chosen
+         * by the DHCP state machine (original server at T1, broadcast at T2). */
+        if(bytes > 42u && !kui_w5500_datagram_send(&s->chip, udp, frame + 30, 67, frame + 42, (uint16_t)(bytes - 42u)))
             failure = "The W5500 could not send the renewal";
         pause_ms(s, 10);
     }
@@ -184,16 +208,7 @@ bool kui_w5500_session_renew(struct kui_w5500_session *s, unsigned udp, unsigned
         if(refused) *refused = strstr(p.failure, "rejected") != NULL;
         return false;
     }
-    s->lease_seconds = p.lease_seconds;
-    s->leased_ms = now(s);
-    if(memcmp(&s->config, &p.config, sizeof(s->config))) {
-        s->config = p.config;
-        if(!kui_w5500_set_ipv4(&s->chip, s->config.ip, s->config.mask, s->config.gateway)) {
-            problem(s, "The W5500 stopped answering");
-            return false;
-        }
-    }
-    return true;
+    return accept_lease(s, &p);
 }
 void kui_w5500_session_end(struct kui_w5500_session *s) {
     if(!s || !s->port || !s->open) return;
@@ -250,8 +265,8 @@ static uint32_t elapsed(const struct kui_w5500_session *s, uint64_t now_ms) {
 uint32_t kui_w5500_session_renew_in(const struct kui_w5500_session *s, uint64_t now_ms) {
     /* An infinite lease (all ones) is never renewed. */
     if(!s || !s->leased || s->lease_seconds == UINT32_MAX) return UINT32_MAX;
-    uint32_t half = s->lease_seconds / 2u, gone = elapsed(s, now_ms);
-    return gone >= half ? 0 : half - gone;
+    uint32_t gone = elapsed(s, now_ms);
+    return gone >= s->renew_seconds ? 0 : s->renew_seconds - gone;
 }
 uint32_t kui_w5500_session_expires_in(const struct kui_w5500_session *s, uint64_t now_ms) {
     if(!s || !s->leased || s->lease_seconds == UINT32_MAX) return UINT32_MAX;

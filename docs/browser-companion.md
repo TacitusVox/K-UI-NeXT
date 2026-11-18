@@ -35,9 +35,9 @@ worker contract. The status includes `state`, `message`, `adapter`, `url`,
 The URL is valid while the status is READY. The browser and FTP are exclusive;
 both reject a nested start before touching the adapter or mounted media.
 
-The existing gateway discovers a W5500 or the Wi-Fi board, acquires/maintains
-its address, mounts the boot-selected card and clocks network work. The
-existing SCI pin reservation remains enforced. A storage card occupying SCI
+The gateway checks the Broadband Adapter first, followed by the W5500
+and the Wi-Fi board. The Broadband Adapter can serve the boot-selected
+volume even when that card uses SCI. A storage card occupying SCI
 prevents use of the SCI network adapter; SCIF storage can be used with it.
 There is no new network thread or filesystem owner. Starting browser sharing
 does not start FTP listeners or create/read an FTP password file.
@@ -66,14 +66,14 @@ connection releases every open file/directory before the gateway unmounts.
   listings; binary/empty downloads; cancellation; peer disconnect; input
   timeout; delayed acknowledgement; read errors; cleanup.
 - `tests/browser_image.c` and `tests/test_browser_images.py`: real TCP clients
-  through the existing W5500 model and Wi-Fi firmware bridge model, with real
+  through the portable BBA sockets, W5500 model and Wi-Fi firmware model, with real
   FatFs on a sparse FAT32 image. Ready follows acknowledged Wi-Fi listeners;
   every open handle is accounted for; nested FTP/browser starts are refused;
   the entire card SHA-256 must remain unchanged after sharing stops. Then the
   existing FTP gateway is started on each adapter and its normal login,
   upload and download behavior is checked.
 - Existing `test-ftp` and `test-ftp-cleanup` retain FTP protocol and socket
-  cleanup coverage. Physical console/Wi-Fi/W5500 acceptance remains necessary.
+  cleanup coverage. BBA driver startup, cable handling and throughput need console validation.
 
 Run host tests with `ASAN_OPTIONS=detect_leaks=0` as for the other runtime
 network tests.

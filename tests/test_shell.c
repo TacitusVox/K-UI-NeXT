@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: GPL-3.0-only */
 #include "kui/shell.h"
+#include "kui/media_container.h"
 #include "kui/salvage_display.h"
 #include "kui/version.h"
 #include "kui/games_retail.h"
@@ -1055,8 +1056,8 @@ static void games_controls(void) {
 
     /* The accepted synthetic probe remains available independently of a game. */
     reset(KUI_SHELL_GAMES_ADVANCED);
-    press(KUI_SHELL_UP,false);assert(s.games_advanced_selected==9);
-    for(unsigned selected=8;selected>=3;selected--) {press(KUI_SHELL_UP,false);assert(s.games_advanced_selected==selected);}
+    press(KUI_SHELL_UP,false);assert(s.games_advanced_selected==10);
+    for(unsigned selected=9;selected>=3;selected--) {press(KUI_SHELL_UP,false);assert(s.games_advanced_selected==selected);}
     assert(press(KUI_SHELL_A,true)==KUI_SHELL_NONE && s.page==KUI_SHELL_GAMES_ADVANCED);
     assert(press(KUI_SHELL_A,false)==KUI_SHELL_NONE && s.page==KUI_SHELL_GAMES_TESTS);
     assert(s.game_tests_selected==1 && !s.games_tests_from_options);
@@ -1074,7 +1075,7 @@ static void games_controls(void) {
     press(KUI_SHELL_DOWN,false);assert(s.games_advanced_selected==4);
     press(KUI_SHELL_DOWN,false);assert(s.games_advanced_selected==5);
     press(KUI_SHELL_DOWN,false);assert(s.games_advanced_selected==6);
-    for(unsigned selected=7;selected<10;selected++) {press(KUI_SHELL_DOWN,false);assert(s.games_advanced_selected==selected);}
+    for(unsigned selected=7;selected<11;selected++) {press(KUI_SHELL_DOWN,false);assert(s.games_advanced_selected==selected);}
     press(KUI_SHELL_DOWN,false);assert(s.games_advanced_selected==0);
     assert(press(KUI_SHELL_A,false)==KUI_SHELL_GAMES_LIST && !strcmp(s.games_path,"/Games"));
 
@@ -1245,9 +1246,9 @@ static void observe(void *ctx,unsigned x,unsigned y,uint16_t color,const char *v
     if(s.page==KUI_SHELL_ADVANCED && x==48)
         for(unsigned i=0;i<KUI_SHELL_RIPPER_TOOL_COUNT;i++)
             if(!strcmp(value,ripper_tool_names[i])) ripper_tool_colors[i]=color;
-    if(x==32 && y==78) {
+    if((x==32 || x==328) && y==78) {
         assert(!large && !strcmp(value,"github.com/TacitusVox/K-UI-NeXT"));
-        assert(kui_shell_font_width(value,false)<=396u-x);
+        assert(kui_shell_font_width(value,false)<=(x==32?396u:608u)-x);
         header_link_seen=true;header_link_color=color;
     }
     if(x+kui_shell_font_width(value,large)>608) fprintf(stderr,"Out-of-bounds text at %u,%u: %s\n",x,y,value);
@@ -1266,14 +1267,14 @@ static void render(struct kui_shell_view *v) {
     memset(ripper_tool_colors,0,sizeof(ripper_tool_colors));
     kui_shell_draw(pixels+1,&s,v,observe,NULL);
     assert(header_link_seen);
-    unsigned link_ink=0;
+    unsigned link_ink=0,link_x=v->branded_banner && v->theme_images && v->theme_images[KUI_THEME_HEADER].pixels?328u:32u;
     for(unsigned y=78;y<78+KUI_SHELL_FONT_SMALL_HEIGHT;y++)
-        for(unsigned x=32;x<32+kui_shell_font_width("github.com/TacitusVox/K-UI-NeXT",false);x++)
+        for(unsigned x=link_x;x<link_x+kui_shell_font_width("github.com/TacitusVox/K-UI-NeXT",false);x++)
             link_ink+=pixels[1+y*640+x]==header_link_color;
     assert(link_ink>0); /* The unclipped link stays below the brand on every page. */
     assert(pixels[0]==0x1234 && pixels[640*480+1]==0xabcd);
     prepared[0]=0x1234; prepared[640*480+1]=0xabcd;
-    for(unsigned i=1;i<=640*480;i++) prepared[i]=0x0864;
+    kui_shell_draw_background(prepared+1,&s,v);
     kui_shell_draw_content(prepared+1,&s,v,NULL,NULL);
     assert(memcmp(pixels,prepared,sizeof(pixels))==0);
 
@@ -1571,17 +1572,302 @@ static void music_and_boot_rendering(void) {
     assert(strstr(drawn,"B Parent") && strstr(drawn,"START Home") && !strstr(drawn,"CD playback"));
     assert(strstr(drawn,"Y Stop") && strstr(drawn,"Cached 0.0 MiB / 8 MiB"));
 }
+static void settings_scroll_rendering(void) {
+    struct kui_shell_view view={0};
+    const uint16_t track=0x318a,thumb=0x675e;
+    reset(KUI_SHELL_SETTINGS);render(&view);
+    assert(strstr(drawn,"1/14\n") && strstr(drawn,"Video mode\n") && !strstr(drawn,"Safe area\n"));
+    assert(pixels[1+158*640+602]==thumb && pixels[1+355*640+602]==track);
+    for(unsigned i=0;i<7;i++) press(KUI_SHELL_DOWN,false);
+    render(&view);
+    assert(strstr(drawn,"8/14\n") && strstr(drawn,"Video mode\n") && strstr(drawn,"Restore defaults\n"));
+    press(KUI_SHELL_DOWN,false);render(&view);
+    assert(strstr(drawn,"9/14\n") && !strstr(drawn,"Video mode\n"));
+    assert(strstr(drawn,"Home memory display\n") && strstr(drawn,"Safe area\n") && !strstr(drawn,"System tools\n"));
+    assert(pixels[1+158*640+602]==track && pixels[1+200*640+602]==thumb && pixels[1+355*640+602]==track);
+    for(unsigned i=9;i<KUI_SHELL_SYSTEM_ROWS;i++) press(KUI_SHELL_DOWN,false);
+    render(&view);
+    assert(strstr(drawn,"14/14\n") && strstr(drawn,"Console clock\n") && strstr(drawn,"Appearance\n"));
+    assert(pixels[1+158*640+602]==track && pixels[1+355*640+602]==thumb);
+    press(KUI_SHELL_DOWN,false);render(&view);
+    assert(strstr(drawn,"1/14\n") && pixels[1+158*640+602]==thumb);
+
+    reset(KUI_SHELL_GAMES_ADVANCED);render(&view);
+    assert(pixels[1+164*640+602]==thumb && pixels[1+377*640+602]==track);
+    press(KUI_SHELL_UP,false);render(&view);
+    assert(strstr(drawn,"Scan from internet\n") && pixels[1+377*640+602]==thumb);
+    reset(KUI_SHELL_GAMES_EXTRA_OPTIONS);render(&view);
+    assert(pixels[1+174*640+602]==thumb && pixels[1+347*640+602]==track);
+    press(KUI_SHELL_UP,false);render(&view);
+    assert(strstr(drawn,"Recommended setup\n") && pixels[1+347*640+602]==thumb);
+    reset(KUI_SHELL_ADVANCED);render(&view);
+    assert(pixels[1+156*640+602]==thumb && pixels[1+329*640+602]==track);
+    press(KUI_SHELL_UP,false);render(&view);
+    assert(strstr(drawn,"Start a new repair copy\n") && pixels[1+329*640+602]==thumb);
+    puts("PASS Settings scrollbars: full windows, intermediate position, final rows and controller wrap");
+}
 static void settings_without_screenshot_page(void) {
     reset(KUI_SHELL_SETTINGS);
     s.system_draft.music_volume=65u;
     const struct kui_system_settings draft=s.system_draft,saved=s.system_saved;
-    assert(press(KUI_SHELL_UP,false)==KUI_SHELL_NONE && s.system_selected==12u);
+    assert(press(KUI_SHELL_UP,false)==KUI_SHELL_NONE && s.system_selected==13u);
     struct kui_shell_view view={0};render(&view);
     assert(strstr(drawn,"Controls") && strstr(drawn,"Updates") && !strstr(drawn,"Screenshots") && !strstr(drawn,"Save a picture"));
     assert(press(KUI_SHELL_DOWN,false)==KUI_SHELL_NONE && s.system_selected==0u);
     assert(!memcmp(&draft,&s.system_draft,sizeof(draft)) && !memcmp(&saved,&s.system_saved,sizeof(saved)));
     assert(kui_shell_system_dirty(&s));
-    puts("PASS Settings: screenshot information page removed, thirteen rows wrap, draft preserved");
+    puts("PASS Settings: screenshot information page removed, fourteen rows wrap, draft preserved");
+}
+static void theme_controls(void) {
+    static struct kui_theme_catalog catalog;
+    memset(&catalog,0,sizeof(catalog));catalog.count=4;
+    kui_theme_definition_default(&catalog.themes[0]);kui_theme_definition_default(&catalog.themes[1]);
+    strcpy(catalog.themes[1].id,"ember");strcpy(catalog.themes[1].name,"Ember");
+    strcpy(catalog.themes[2].id,"midnight-forge");strcpy(catalog.themes[2].name,"Midnight Forge");
+    catalog.themes[2].banner_only=true;
+    strcpy(catalog.themes[3].id,KUI_THEME_FACTORY_ID);strcpy(catalog.themes[3].name,"Moonlight Muramasa");
+    catalog.themes[1].palette.colors[KUI_THEME_BACKGROUND]=0x102030;
+    reset(KUI_SHELL_SETTINGS);s.system_selected=13u;s.system_draft.music_volume=65;
+    assert(press(KUI_SHELL_A,false)==KUI_SHELL_THEME_SCAN && s.page==KUI_SHELL_APPEARANCE);
+    assert(s.theme_loading && !kui_shell_theme_dirty(&s));unsigned generation=s.theme_generation;
+    assert(press(KUI_SHELL_RIGHT,false)==KUI_SHELL_NONE && !strcmp(s.theme_draft.theme_id,KUI_THEME_FACTORY_ID));
+    assert(press(KUI_SHELL_B,false)==KUI_SHELL_NONE && s.page==KUI_SHELL_APPEARANCE);
+    kui_shell_set_theme_catalog(&s,generation-1u,&catalog,true,NULL);assert(s.theme_loading);
+    kui_shell_theme_result(&s,generation,KUI_SHELL_THEME_APPLY,true,NULL);assert(s.theme_loading);
+    kui_shell_set_theme_catalog(&s,generation,&catalog,true,NULL);assert(!s.theme_loading);
+    press(KUI_SHELL_LEFT,false);
+    assert(!strcmp(s.theme_draft.theme_id,"ember") && kui_shell_theme_dirty(&s));
+    s.theme_selected=1;
+    press(KUI_SHELL_RIGHT,false);assert(!strcmp(s.theme_draft.splash_id,"default"));
+    press(KUI_SHELL_RIGHT,false);assert(!strcmp(s.theme_draft.splash_id,"none"));
+    press(KUI_SHELL_RIGHT,false);assert(!strcmp(s.theme_draft.splash_id,"ember"));
+    press(KUI_SHELL_RIGHT,false);assert(!strcmp(s.theme_draft.splash_id,KUI_THEME_FACTORY_ID));
+    s.theme_selected=2;
+    press(KUI_SHELL_LEFT,false);press(KUI_SHELL_LEFT,false);
+    assert(!strcmp(s.theme_draft.header_id,"midnight-forge"));
+    assert(!strcmp(s.theme_draft.splash_id,KUI_THEME_FACTORY_ID) && !strcmp(s.theme_draft.theme_id,"ember"));
+    assert(press(KUI_SHELL_Y,false)==KUI_SHELL_THEME_PREVIEW);
+    kui_shell_theme_result(&s,s.theme_generation,KUI_SHELL_THEME_PREVIEW,true,NULL);
+    assert(s.page==KUI_SHELL_THEME_MENU_PREVIEW && !s.theme_saved.header_id[0]);
+    assert(press(KUI_SHELL_B,false)==KUI_SHELL_THEME_CANCEL);
+    kui_shell_theme_result(&s,s.theme_generation,KUI_SHELL_THEME_CANCEL,true,NULL);
+    assert(s.page==KUI_SHELL_APPEARANCE && !s.theme_preview_active && !strcmp(s.theme_draft.header_id,"midnight-forge"));
+    s.theme_selected=4;press(KUI_SHELL_A,false);assert(s.page==KUI_SHELL_THEME_COLORS);
+    press(KUI_SHELL_RIGHT,false);assert(s.theme_color_preset==1u && s.theme_draft.override_mask);
+    assert(press(KUI_SHELL_Y,false)==KUI_SHELL_THEME_PREVIEW);
+    kui_shell_theme_result(&s,s.theme_generation,KUI_SHELL_THEME_PREVIEW,true,NULL);
+    assert(s.page==KUI_SHELL_THEME_MENU_PREVIEW && s.theme_draft.override_mask);
+    assert(press(KUI_SHELL_B,false)==KUI_SHELL_THEME_CANCEL);
+    kui_shell_theme_result(&s,s.theme_generation,KUI_SHELL_THEME_CANCEL,true,NULL);
+    assert(s.page==KUI_SHELL_THEME_COLORS);
+    press(KUI_SHELL_LEFT,false);assert(!s.theme_draft.override_mask);
+    s.theme_color_selected=2;s.theme_color_role=KUI_THEME_BACKGROUND;
+    press(KUI_SHELL_RIGHT,false);assert(s.theme_draft.palette.colors[KUI_THEME_BACKGROUND]==0x112030);
+    struct kui_theme_settings draft=s.theme_draft;
+    press(KUI_SHELL_LEFT,true);assert(!memcmp(&draft,&s.theme_draft,sizeof(draft)));
+    press(KUI_SHELL_X,false);assert(!s.theme_draft.override_mask);
+    s.theme_color_role=KUI_THEME_TEXT;s.theme_color_selected=2;
+    s.theme_draft.palette.colors[KUI_THEME_TEXT]=0xffffff;s.theme_draft.override_mask=1u<<KUI_THEME_TEXT;
+    press(KUI_SHELL_RIGHT,false);assert(s.theme_draft.palette.colors[KUI_THEME_TEXT]==0xffffff);
+    press(KUI_SHELL_B,false);assert(s.page==KUI_SHELL_APPEARANCE);
+    s.theme_selected=1;assert(press(KUI_SHELL_Y,false)==KUI_SHELL_THEME_PREVIEW);
+    generation=s.theme_generation;
+    kui_shell_theme_result(&s,generation,KUI_SHELL_THEME_PREVIEW,true,NULL);
+    assert(s.page==KUI_SHELL_THEME_SPLASH_PREVIEW && s.theme_preview_active && !s.theme_preview_stale);
+    assert(press(KUI_SHELL_B,false)==KUI_SHELL_THEME_CANCEL && s.theme_loading);
+    kui_shell_theme_result(&s,s.theme_generation,KUI_SHELL_THEME_CANCEL,false,"Retry cancel");
+    assert(s.page==KUI_SHELL_THEME_SPLASH_PREVIEW && s.theme_preview_active && s.theme_failed);
+    assert(press(KUI_SHELL_B,false)==KUI_SHELL_THEME_CANCEL);
+    kui_shell_theme_result(&s,s.theme_generation,KUI_SHELL_THEME_CANCEL,true,NULL);
+    assert(s.page==KUI_SHELL_APPEARANCE && !s.theme_preview_active && kui_shell_theme_dirty(&s));
+    assert(s.system_draft.music_volume==65);
+    s.theme_selected=0;
+    assert(press(KUI_SHELL_Y,false)==KUI_SHELL_THEME_PREVIEW);
+    kui_shell_theme_result(&s,s.theme_generation,KUI_SHELL_THEME_PREVIEW,true,NULL);
+    assert(s.page==KUI_SHELL_THEME_MENU_PREVIEW);
+    assert(press(KUI_SHELL_START,false)==KUI_SHELL_THEME_APPLY);
+    generation=s.theme_generation;
+    kui_shell_theme_result(&s,generation,KUI_SHELL_THEME_APPLY,false,"SD is read-only");
+    assert(kui_shell_theme_dirty(&s) && !strcmp(s.theme_saved.theme_id,KUI_THEME_FACTORY_ID));
+    assert(press(KUI_SHELL_START,false)==KUI_SHELL_THEME_APPLY);
+    kui_shell_theme_result(&s,generation,KUI_SHELL_THEME_APPLY,true,NULL);assert(s.theme_loading);
+    kui_shell_theme_result(&s,s.theme_generation,KUI_SHELL_THEME_APPLY,true,NULL);
+    assert(s.page==KUI_SHELL_APPEARANCE && !kui_shell_theme_dirty(&s) && !strcmp(s.theme_saved.theme_id,"ember"));
+    assert(!strcmp(s.theme_saved.splash_id,KUI_THEME_FACTORY_ID) && !strcmp(s.theme_saved.header_id,"midnight-forge"));
+    s.theme_selected=7;press(KUI_SHELL_A,false);assert(!strcmp(s.theme_draft.theme_id,KUI_THEME_FACTORY_ID));
+    assert(!strcmp(s.theme_saved.theme_id,"ember"));press(KUI_SHELL_B,false);
+    assert(s.page==KUI_SHELL_SETTINGS && !kui_shell_theme_dirty(&s));
+    puts("PASS Appearance: independent choices, presets/RGB, busy/stale guards, Preview/Apply/Cancel and defaults");
+}
+static void theme_picker_controls(void) {
+    static struct kui_theme_catalog catalog;
+    memset(&catalog,0,sizeof(catalog));
+    for(unsigned i=0;i<10;i++) {
+        struct kui_theme_definition *pack=&catalog.themes[catalog.count++];
+        kui_theme_definition_default(pack);
+        snprintf(pack->id,sizeof(pack->id),"pack-%02u",i);
+        snprintf(pack->name,sizeof(pack->name),"Artwork %02u",i);
+        for(unsigned k=0;k<KUI_THEME_ASSET_COUNT;k++)strcpy(pack->assets[k],"art.kuiimg");
+    }
+    strcpy(catalog.themes[0].id,KUI_THEME_FACTORY_ID);
+    struct kui_theme_definition *banner=&catalog.themes[catalog.count++];
+    kui_theme_definition_default(banner);
+    strcpy(banner->id,"banner-only");strcpy(banner->name,"Wide banner");banner->banner_only=true;
+    strcpy(banner->assets[KUI_THEME_HEADER],"wide.kuiimg");
+
+    reset(KUI_SHELL_SETTINGS);s.system_selected=13;
+    assert(press(KUI_SHELL_A,false)==KUI_SHELL_THEME_SCAN);
+    kui_shell_set_theme_catalog(&s,s.theme_generation,&catalog,true,NULL);
+    strcpy(s.theme_draft.background_id,"pack-01");
+    s.theme_draft.override_mask=1u<<KUI_THEME_ACCENT;
+    s.theme_draft.palette.colors[KUI_THEME_ACCENT]=0x223344;
+    struct kui_theme_settings before=s.theme_draft,saved=s.theme_saved;
+
+    /* Each component opens on its current draft. Only Banner lists the wide asset. */
+    for(unsigned row=0;row<4;row++) {
+        s.theme_selected=row;press(KUI_SHELL_A,false);
+        assert(s.page==KUI_SHELL_THEME_PICKER && s.theme_selected==row);
+        const char *focus=kui_shell_theme_choice_id(&s,s.theme_picker_index);
+        assert(focus && !strcmp(focus,row==0?KUI_THEME_FACTORY_ID:row==3?"pack-01":""));
+        assert(!strcmp(kui_shell_theme_picker_asset_id(&s),row==3?"pack-01":KUI_THEME_FACTORY_ID));
+        unsigned count=kui_shell_theme_choice_count(&s);
+        assert(!kui_shell_theme_choice_id(&s,count));
+        bool found_banner=false;
+        for(unsigned i=0;i<count;i++)
+            found_banner|=!strcmp(kui_shell_theme_choice_id(&s,i),"banner-only");
+        assert(found_banner==(row==2));
+        press(KUI_SHELL_DOWN,false);press(KUI_SHELL_B,false);
+        assert(s.page==KUI_SHELL_APPEARANCE && s.theme_selected==row);
+        assert(!memcmp(&before,&s.theme_draft,sizeof(before)) && !memcmp(&saved,&s.theme_saved,sizeof(saved)));
+    }
+
+    s.theme_selected=2;press(KUI_SHELL_A,false);
+    unsigned count=kui_shell_theme_choice_count(&s);
+    for(unsigned i=0;i<count+2u;i++)press(KUI_SHELL_DOWN,false);
+    assert(s.theme_picker_index==count-1u && s.theme_picker_first==count-KUI_THEME_PICKER_ROWS);
+    struct kui_shell_view view={0};render(&view);
+    assert(strstr(drawn,"Wide banner") && !strstr(drawn,"Artwork 00"));
+    static uint16_t banner_pixels[KUI_THEME_THUMB_WIDTH*KUI_THEME_THUMB_BRANDED_HEIGHT];
+    for(unsigned i=0;i<KUI_THEME_THUMB_WIDTH*KUI_THEME_THUMB_BRANDED_HEIGHT;i++)banner_pixels[i]=(uint16_t)(0x4000u+i);
+    struct kui_theme_image thumbnail={banner_pixels,KUI_THEME_THUMB_WIDTH,KUI_THEME_THUMB_HEADER_HEIGHT};
+    view.theme_picker_image=&thumbnail;view.theme_picker_status=KUI_THEME_ASSET_READY;
+    render(&view);
+    for(unsigned y=0;y<50;y++)
+        assert(!memcmp(pixels+1+(253u+y)*640u+284u,banner_pixels+y*320u,320u*sizeof(*banner_pixels)));
+    thumbnail.height=KUI_THEME_THUMB_BRANDED_HEIGHT;
+    render(&view);
+    for(unsigned y=0;y<100;y++)
+        assert(!memcmp(pixels+1+(228u+y)*640u+284u,banner_pixels+y*320u,320u*sizeof(*banner_pixels)));
+    assert(pixels[1+227*640+284]!=banner_pixels[0] && pixels[1+328*640+284]!=banner_pixels[99*320]);
+    view.theme_picker_status=KUI_THEME_ASSET_FAILED;
+    render(&view);
+    assert(strstr(drawn,"Preview unavailable") && pixels[1+253*640+284]!=banner_pixels[0]);
+    assert(!memcmp(&before,&s.theme_draft,sizeof(before)));
+    press(KUI_SHELL_A,false);
+    assert(s.page==KUI_SHELL_APPEARANCE && !strcmp(s.theme_draft.header_id,"banner-only"));
+    strcpy(before.header_id,"banner-only");
+    assert(!memcmp(&before,&s.theme_draft,sizeof(before)));
+    press(KUI_SHELL_A,false);
+    assert(s.page==KUI_SHELL_THEME_PICKER && s.theme_picker_index==count-1u);
+    for(unsigned i=0;i<count+2u;i++)press(KUI_SHELL_UP,false);
+    assert(!s.theme_picker_index && !s.theme_picker_first);
+    assert(!strcmp(kui_shell_theme_choice_id(&s,0),""));
+    press(KUI_SHELL_DOWN,false);
+    assert(!strcmp(kui_shell_theme_choice_id(&s,s.theme_picker_index),"default"));
+    /* Both Original views use the same native-sized badge. Its wrapped profile
+     * link must have ink in both interlaced fields on each line. */
+    struct kui_theme_palette draft_palette;kui_shell_theme_draft_palette(&s,&draft_palette);
+    view.theme_palette=&draft_palette;view.theme_picker_status=KUI_THEME_ASSET_DEFAULT;
+    render(&view);
+    unsigned ink_rows[2][2]={{0}};
+    for(unsigned y=0;y<58;y++) {
+        const uint16_t *applied=pixels+1+(20+y)*640+32;
+        const uint16_t *preview=pixels+1+(249+y)*640+373;
+        assert(!memcmp(applied,preview,142u*sizeof(*preview)));
+        if(y<25)continue;
+        for(unsigned x=35;x<142;x++)if(applied[x]==kui_theme_rgb565(0xffc56a)) {
+            ink_rows[y>=43][y%2u]++;
+            break;
+        }
+    }
+    for(unsigned line=0;line<2;line++)
+        for(unsigned field=0;field<2;field++)assert(ink_rows[line][field]>=5);
+    press(KUI_SHELL_DOWN,false);
+    assert(!strcmp(kui_shell_theme_picker_asset_id(&s),"none"));
+    press(KUI_SHELL_A,false);
+    assert(!strcmp(s.theme_draft.header_id,"none"));
+    press(KUI_SHELL_LEFT,false);
+    assert(s.page==KUI_SHELL_APPEARANCE && !strcmp(s.theme_draft.header_id,"default"));
+
+    /* Reconfirming the same theme retains overrides. Choosing a new theme resets them. */
+    before=s.theme_draft;s.theme_selected=0;press(KUI_SHELL_A,false);press(KUI_SHELL_A,false);
+    assert(!memcmp(&before,&s.theme_draft,sizeof(before)));
+    press(KUI_SHELL_A,false);press(KUI_SHELL_DOWN,false);press(KUI_SHELL_A,false);
+    assert(s.page==KUI_SHELL_APPEARANCE && !strcmp(s.theme_draft.theme_id,"pack-01"));
+    assert(!s.theme_draft.header_id[0] && !s.theme_draft.background_id[0] && !s.theme_draft.override_mask);
+    assert(!memcmp(&saved,&s.theme_saved,sizeof(saved)) && kui_shell_theme_dirty(&s));
+    assert(press(KUI_SHELL_START,false)==KUI_SHELL_THEME_APPLY);
+    kui_shell_theme_result(&s,s.theme_generation,KUI_SHELL_THEME_APPLY,true,NULL);
+    assert(!kui_shell_theme_dirty(&s) && !strcmp(s.theme_saved.theme_id,"pack-01"));
+    /* An installed pack may go missing after its ID has been saved. Exercise
+     * the longest legal list and cancel while its thumbnail is pending. */
+    for(unsigned i=catalog.count;i<KUI_THEME_CATALOG_MAX;i++) {
+        struct kui_theme_definition *pack=&catalog.themes[catalog.count++];
+        kui_theme_definition_default(pack);
+        snprintf(pack->id,sizeof(pack->id),"pack-%02u",i);
+    }
+    s.page=KUI_SHELL_APPEARANCE;s.theme_selected=2;
+    strcpy(s.theme_draft.header_id,"removed-pack");
+    unsigned generation=s.theme_picker_generation;
+    press(KUI_SHELL_A,false);
+    assert(s.theme_picker_generation!=generation && kui_shell_theme_choice_count(&s)==KUI_THEME_CATALOG_MAX+4u);
+    assert(!strcmp(kui_shell_theme_picker_asset_id(&s),"removed-pack"));
+    generation=s.theme_picker_generation;press(KUI_SHELL_DOWN,true);
+    assert(s.theme_picker_generation==generation);
+    press(KUI_SHELL_UP,true);assert(s.theme_picker_generation!=generation);
+    press(KUI_SHELL_A|KUI_SHELL_B,true);
+    assert(s.page==KUI_SHELL_APPEARANCE && !strcmp(s.theme_draft.header_id,"removed-pack"));
+    puts("PASS Appearance picker: all four rows, banner filtering, current choice, scrolling, draft/Back/Apply");
+}
+static void theme_rendering(void) {
+    static uint16_t header[640*100],backdrop[640*480],splash[640*480];
+    _Alignas(4) static uint16_t packed_frame[640*480];
+    for(unsigned i=0;i<640u*480u;i++) {backdrop[i]=0x1357;splash[i]=0x2468;}
+    for(unsigned i=0;i<640u*100u;i++)header[i]=0x7531;
+    struct kui_theme_image images[KUI_THEME_ASSET_COUNT]={{splash,640,480},{header,640,100},{backdrop,640,480}};
+    enum kui_theme_asset_status statuses[KUI_THEME_ASSET_COUNT]={KUI_THEME_ASSET_READY,KUI_THEME_ASSET_READY,KUI_THEME_ASSET_READY};
+    struct kui_theme_palette palette;kui_theme_palette_default(&palette);
+    palette.colors[KUI_THEME_ACCENT]=0x33cc88;palette.colors[KUI_THEME_BACKGROUND]=0x182838;
+    struct kui_shell_view view={.theme_palette=&palette,.theme_images=images,.theme_asset_status=statuses};
+    reset(KUI_SHELL_APPEARANCE);render(&view);
+    assert(pixels[1]==0x7531 && pixels[1+400*640+2]==0x1357);
+    assert(header_link_color==kui_theme_rgb565(0x33cc88));
+    assert(strstr(drawn,"Appearance") && strstr(drawn,"Banner") && strstr(drawn,"Y Preview") && strstr(drawn,"START Apply"));
+    view.branded_banner=true;s.theme_selected=2;s.theme_preview_return=KUI_SHELL_APPEARANCE;
+    s.page=KUI_SHELL_THEME_MENU_PREVIEW;
+    render(&view);assert(strstr(drawn,"Banner preview"));
+    for(unsigned y=0;y<98;y++)for(unsigned x=0;x<320;x++)assert(pixels[1+y*640+x]==0x7531);
+    s.page=KUI_SHELL_APPEARANCE;view.branded_banner=false;render(&view);
+    /* Draw paths consume immutable, preloaded pixels. Repeated content calls
+     * produce the same result without changing settings or asset storage. */
+    memcpy(prepared,pixels,sizeof(pixels));render(&view);assert(!memcmp(prepared,pixels,sizeof(pixels)));
+    s.page=KUI_SHELL_THEME_COLORS;render(&view);
+    assert(strstr(drawn,"Preset") && strstr(drawn,"Panel text") && strstr(drawn,"Selected item"));
+    images[KUI_THEME_HEADER].pixels=NULL;images[KUI_THEME_BACKDROP].pixels=NULL;
+    statuses[KUI_THEME_HEADER]=KUI_THEME_ASSET_DISABLED;
+    s.page=KUI_SHELL_APPEARANCE;render(&view);
+    assert(pixels[1]==kui_theme_rgb565(0x182838));
+    kui_shell_draw_background(packed_frame,&s,&view);
+    kui_shell_draw_background(pixels+1,&s,&view);
+    assert(!memcmp(packed_frame,pixels+1,sizeof(packed_frame)));
+    s.page=KUI_SHELL_THEME_SPLASH_PREVIEW;drawn_size=0;drawn[0]=0;
+    kui_shell_draw(pixels+1,&s,&view,observe,NULL);
+    assert(pixels[1]==0x2468 && pixels[1+300*640]==0x2468 && strstr(drawn,"Temporary splash preview"));
+    images[KUI_THEME_SPLASH].pixels=NULL;statuses[KUI_THEME_SPLASH]=KUI_THEME_ASSET_DISABLED;
+    drawn_size=0;drawn[0]=0;kui_shell_draw(pixels+1,&s,&view,observe,NULL);
+    assert(strstr(drawn,"Splash disabled"));
+    assert(pixels[0]==0x1234 && pixels[640*480+1]==0xabcd);
+    puts("PASS Appearance renderer: palette roles, opaque header/backdrop/splash, disabled art, stable pixels and safe bounds");
 }
 static void update_controls(void) {
     reset(KUI_SHELL_SETTINGS);s.system_selected=12u;s.system_draft.music_volume=65u;
@@ -1986,7 +2272,7 @@ static void round_five_rendering(void) {
     s.confirm_vmu_delete=false;s.confirm_vmu_copy=true;render(&v);assert(strstr(drawn,"COPY THIS SAVE") && strstr(drawn,"Destination VMU A2"));
     reset(KUI_SHELL_MUSIC);s.confirm_music_clear=true;render(&v);
     assert(strstr(drawn,"CLEAR CACHED MUSIC?") && strstr(drawn,"files remain"));
-    reset(KUI_SHELL_SETTINGS);s.system_selected=8;render(&v);
+    reset(KUI_SHELL_SETTINGS);s.system_selected=9;render(&v);
     assert(strstr(drawn,"Safe area") && strstr(drawn,"System tools"));
     reset(KUI_SHELL_SYSTEM_TOOLS);render(&v);assert(strstr(drawn,"Inspect system hardware") && strstr(drawn,"Back up visible BIOS bank"));
     s.confirm_restart=true;render(&v);assert(strstr(drawn,"RESTART THE CONSOLE?"));
@@ -1995,6 +2281,22 @@ static void round_five_rendering(void) {
     s.cd_audio.tracks[1].number=4;s.cd_audio.tracks[1].seconds=61;
     s.cd_audio.playing=true;s.cd_audio.current=4;render(&v);
     assert(strstr(drawn,"Audio CD player") && strstr(drawn,"Track 04  <") && strstr(drawn,"3:05"));
+    const uint16_t cd_rail=0x318a,cd_thumb=0x675e;
+    assert(pixels[1+196*640+602]!=cd_thumb && pixels[1+363*640+602]!=cd_rail);
+    s.cd_audio.count=12;
+    for(unsigned i=0;i<s.cd_audio.count;i++)s.cd_audio.tracks[i].number=2*(i+1);
+    render(&v);
+    assert(strstr(drawn,"Track 02\n") && strstr(drawn,"Track 16\n") && !strstr(drawn,"Track 18\n"));
+    assert(pixels[1+307*640+602]==cd_thumb && pixels[1+308*640+602]==cd_rail);
+    for(unsigned i=0;i<8;i++)press(KUI_SHELL_DOWN,false);
+    render(&v);
+    assert(!strstr(drawn,"Track 02\n") && strstr(drawn,"Track 04  <") &&
+        strstr(drawn,"Track 18\n") && !strstr(drawn,"Track 20\n"));
+    assert(pixels[1+209*640+602]==cd_rail && pixels[1+210*640+602]==cd_thumb);
+    for(unsigned i=0;i<3;i++)press(KUI_SHELL_DOWN,false);
+    render(&v);
+    assert(!strstr(drawn,"Track 08\n") && strstr(drawn,"Track 10\n") && strstr(drawn,"Track 24\n"));
+    assert(pixels[1+251*640+602]==cd_rail && pixels[1+363*640+602]==cd_thumb);
     reset(KUI_SHELL_DISC_TOOLS);render(&v);
     assert(strstr(drawn,"Copy a disc") && strstr(drawn,"Recover a damaged disc"));
     assert(strstr(drawn,"Verify a saved dump") && strstr(drawn,"Play inserted disc"));
@@ -3164,6 +3466,60 @@ static void games_views(void) {
     assert(press(KUI_SHELL_B|KUI_SHELL_A,true)==KUI_SHELL_STOP && s.games_scanning && s.page==KUI_SHELL_GAMES);
     games_page(8,true,KUI_GAMES_VIEW_GALLERY);assert(!s.games_scanning && s.games_listing.count==8);
 }
+static void games_media_controls(void) {
+    reset(KUI_SHELL_GAMES);
+    games_page(2,false,KUI_GAMES_VIEW_LIST);
+    assert(press(KUI_SHELL_START,false)==KUI_SHELL_NONE);
+    s.games_advanced_selected=10;
+    assert(press(KUI_SHELL_A,false)==KUI_SHELL_NONE);
+    assert(s.page==KUI_SHELL_GAMES_MEDIA && s.games_media_kinds==(KUI_GAMES_MEDIA_ART|KUI_GAMES_MEDIA_MANUAL));
+    assert(s.games_media_route==KUI_INTERNET_AUTO && !s.games_media_row && !s.games_media_all);
+    struct kui_shell_view view={0};
+    render(&view);
+    assert(strstr(drawn,"Scan from internet") && strstr(drawn,"Start scan") && strstr(drawn,"Automatic"));
+    /* Covers and the readable manual are included on the first button press. */
+    assert(press(KUI_SHELL_A,false)==KUI_SHELL_MEDIA_DOWNLOAD);
+    assert(press(KUI_SHELL_X,false)==KUI_SHELL_NONE && s.games_media_report);
+    s.games_media_readable=true;
+    view.busy=true;render(&view);assert(!strstr(drawn,"X Read manual"));
+    assert(press(KUI_SHELL_X,true)==KUI_SHELL_NONE && s.games_media_report);
+    view.busy=false;render(&view);assert(strstr(drawn,"X Read manual"));
+    assert(press(KUI_SHELL_X,false)==KUI_SHELL_MEDIA_OPEN_MANUAL && !s.games_media_report);
+    assert(s.games_media_row==6);
+    s.games_media_row=5;
+    press(KUI_SHELL_LEFT,false);assert(s.games_media_route==KUI_INTERNET_DREAMPI);
+    press(KUI_SHELL_RIGHT,false);assert(s.games_media_route==KUI_INTERNET_AUTO);
+    press(KUI_SHELL_A,false);assert(s.games_media_route==KUI_INTERNET_BBA);
+    press(KUI_SHELL_A,false);assert(s.games_media_route==KUI_INTERNET_W5500);
+    press(KUI_SHELL_A,false);assert(s.games_media_route==KUI_INTERNET_WIFI);
+    press(KUI_SHELL_A,false);assert(s.games_media_route==KUI_INTERNET_DREAMPI);
+    s.games_media_row=3;press(KUI_SHELL_A,false);assert(s.games_media_kinds==KUI_GAMES_MEDIA_ART);
+    s.games_media_row=2;press(KUI_SHELL_A,false);assert(!s.games_media_kinds);
+    s.games_media_row=0;assert(press(KUI_SHELL_A,false)==KUI_SHELL_NONE && s.games_media_row==2);
+    s.games_media_row=3;press(KUI_SHELL_A,false);
+    s.games_media_row=4;press(KUI_SHELL_A,false);
+    assert(s.games_media_kinds==(KUI_GAMES_MEDIA_MANUAL|KUI_GAMES_MEDIA_PREVIEW));
+    s.games_media_row=1;press(KUI_SHELL_A,false);assert(s.games_media_all);
+    s.games_media_row=0;
+    render(&view);assert(strstr(drawn,"Dial DreamPi") && strstr(drawn,"Start scan dials"));
+    assert(press(KUI_SHELL_A,false)==KUI_SHELL_MEDIA_DOWNLOAD);
+    view.busy=true;
+    struct kui_app_status transfer={.done=3072};
+    view.app_status=&transfer;
+    render(&view);assert(strstr(drawn,"3 KiB received"));
+    transfer.total=8192;
+    render(&view);assert(strstr(drawn,"3 / 8 KiB"));
+    assert(s.games_media_report && s.games_rows_stale);
+    assert(press(KUI_SHELL_B,true)==KUI_SHELL_STOP && s.games_media_report);
+    assert(press(KUI_SHELL_B,false)==KUI_SHELL_NONE && !s.games_media_report);
+    s.games_media_row=6;assert(press(KUI_SHELL_A,false)==KUI_SHELL_MEDIA_OPEN_MANUAL);
+    s.games_media_row=7;assert(press(KUI_SHELL_A,false)==KUI_SHELL_MEDIA_PLAY_PREVIEW);
+    s.games_listing.entries[0].directory=true;
+    assert(press(KUI_SHELL_A,false)==KUI_SHELL_NONE && s.games_media_notice[0]);
+    assert(press(KUI_SHELL_B,false)==KUI_SHELL_NONE && s.page==KUI_SHELL_GAMES_ADVANCED);
+    assert(press(KUI_SHELL_A,false)==KUI_SHELL_NONE && s.page==KUI_SHELL_GAMES_MEDIA);
+    assert(s.games_media_row==0 && s.games_media_all && s.games_media_route==KUI_INTERNET_DREAMPI);
+}
 static void games_disc_group_controls(void) {
     static const char key[]="0123456789abcdef0123456789abcdef";
     struct kui_games_page parent={.count=5,.total=24,.has_more=true,.view=KUI_GAMES_VIEW_LIST};
@@ -3787,6 +4143,89 @@ static void games_selected_art_rendering(void) {
         if(tiled) assert(pixels[1+y*640+x]!=0x2468);
     }
 }
+static void games_hover_focus_navigation(void) {
+    struct kui_shell_preview_focus focus={0};
+    struct kui_shell_games_art_key first,key;
+    reset(KUI_SHELL_HOME);
+    s.home_selected=home_index(KUI_SHELL_GAMES);
+    assert(press(KUI_SHELL_A,false)==KUI_SHELL_GAMES_LIST);
+    games_page(2,false,KUI_GAMES_VIEW_LIST);
+    assert(kui_shell_games_art_key(&s,&first) && first.row==0);
+    kui_shell_preview_focus_update(&focus,&first,100);
+    unsigned generation=focus.generation;
+    kui_shell_preview_focus_update(&focus,&first,6099);
+    assert(focus.active && !focus.due && focus.generation==generation);
+    kui_shell_preview_focus_update(&focus,&first,6100);
+    assert(focus.due && focus.generation==generation);
+    assert(press(KUI_SHELL_DOWN,false)==KUI_SHELL_NONE);
+    assert(kui_shell_games_art_key(&s,&key) && key.row==1);
+    kui_shell_preview_focus_update(&focus,&key,6101);
+    assert(focus.active && !focus.due && focus.generation!=generation);
+    assert(press(KUI_SHELL_UP,false)==KUI_SHELL_NONE);
+    assert(kui_shell_games_art_key(&s,&key) && key.row==0 && !strcmp(first.path,key.path));
+    kui_shell_preview_focus_update(&focus,&key,6200);
+    kui_shell_preview_focus_update(&focus,&key,12199);
+    assert(!focus.due);
+    kui_shell_preview_focus_update(&focus,&key,12200);
+    assert(focus.due);
+    assert(games_layout(false)==KUI_SHELL_GAMES_LIST && !kui_shell_games_art_key(&s,&key));
+    kui_shell_preview_focus_update(&focus,NULL,12201);
+    assert(!focus.active && !focus.due);
+    games_page(2,false,KUI_GAMES_VIEW_COMPACT);
+    assert(kui_shell_games_art_key(&s,&key) && key.view==KUI_GAMES_VIEW_COMPACT && !strcmp(first.path,key.path));
+    kui_shell_preview_focus_update(&focus,&key,12202);
+    assert(focus.active && !focus.due);
+    kui_shell_preview_focus_update(&focus,&key,18202);
+    assert(focus.due);
+    assert(press(KUI_SHELL_A,false)==KUI_SHELL_GAMES_INSPECT && !kui_shell_games_art_key(&s,&key));
+    kui_shell_preview_focus_update(&focus,NULL,18203);
+    assert(!focus.active && !focus.due);
+    struct kui_games_detail detail=launch_detail(false,false);
+    strcpy(detail.path,first.path);
+    kui_shell_set_games_detail(&s,&detail);
+    (void)kui_shell_games_detail_arrived(&s);
+    assert(s.page==KUI_SHELL_GAMES_RETAIL_CONFIRM);
+    assert(press(KUI_SHELL_A,false)==KUI_SHELL_GAMES_RETAIL);
+    puts("PASS Games hover focus: six-second threshold, row reentry, layout change and launch during preview");
+}
+static void games_hover_preview_rendering(void) {
+    static uint16_t movie[KUI_PREVIEW_WIDTH*KUI_PREVIEW_HEIGHT];
+    static uint16_t cover[KUI_COVER_PIXELS],tile[KUI_COVER_MEDIUM*KUI_COVER_MEDIUM];
+    const uint16_t colors[]={0xa101,0xa202,0xa303,0xa404};
+    for(unsigned y=0;y<KUI_PREVIEW_HEIGHT;y++)
+        for(unsigned x=0;x<KUI_PREVIEW_WIDTH;x++)
+            movie[y*KUI_PREVIEW_WIDTH+x]=colors[(y>=KUI_PREVIEW_HEIGHT/2)*2+(x>=KUI_PREVIEW_WIDTH/2)];
+    for(unsigned i=0;i<KUI_COVER_PIXELS;i++)cover[i]=0x1234;
+    for(unsigned i=0;i<KUI_COVER_MEDIUM*KUI_COVER_MEDIUM;i++)tile[i]=0x2468;
+    struct kui_shell_view v={.game_selected_cover=cover};
+    v.game_tile_covers[0]=tile;
+    reset(KUI_SHELL_GAMES);
+    for(unsigned view=0;view<KUI_GAMES_VIEW_COUNT;view++) {
+        bool compact=view==KUI_GAMES_VIEW_COMPACT,gallery=view==KUI_GAMES_VIEW_GALLERY;
+        unsigned x=compact?36:gallery?196:436,y=compact?217:gallery?160:166;
+        unsigned edge=compact?KUI_COVER_SMALL:gallery?KUI_COVER_MEDIUM:KUI_COVER_LARGE;
+        unsigned height=edge*KUI_PREVIEW_HEIGHT/KUI_PREVIEW_WIDTH,top=y+(edge-height)/2;
+        s.games_view=view;games_page(2,false,view);s.games_selected=1;
+        s.games_listing.entries[1].cover=false;
+        v.game_preview_frame=movie;render(&v);
+        assert(pixels[1+(top-1)*640+x+3]==0 && pixels[1+(top+height)*640+x+3]==0);
+        assert(pixels[1+top*640+x]==colors[0] && pixels[1+top*640+x+edge-1]==colors[1]);
+        assert(pixels[1+(top+height-1)*640+x]==colors[2]);
+        assert(pixels[1+(top+height-1)*640+x+edge-1]==colors[3]);
+        if(gallery || compact)
+            assert(pixels[1+(compact?164:165)*640+(compact?41:57)]==0x2468);
+        s.games_listing.entries[1].cover=true;
+        v.game_preview_frame=NULL;render(&v);
+        assert(pixels[1+top*640+x+4]==0x1234);
+        v.game_preview_frame=movie;s.games_listing.entries[1].directory=true;render(&v);
+        assert(pixels[1+top*640+x+4]==0x1234);
+        s.games_listing.entries[1].directory=false;s.games_listing.entries[1].disabled=true;render(&v);
+        assert(pixels[1+top*640+x+4]==0x1234);
+        s.games_listing.entries[1].disabled=false;s.games_listing.view=(view+1)%KUI_GAMES_VIEW_COUNT;render(&v);
+        assert(pixels[1+top*640+x+4]!=colors[0]);
+    }
+    puts("PASS Games hover preview: letterboxed motion in four layouts, neighboring art and cover fallback");
+}
 static void ripper_export_rendering(void) {
     struct kui_shell_view v={0};reset(KUI_SHELL_RIPPER_SETTINGS);s.setting_selected=2;
     for(unsigned format=0;format<KUI_CAPTURE_FORMAT_COUNT;format++) {
@@ -3884,19 +4323,38 @@ static void files_controls(void) {
     struct kui_files_page picked=files_result("/",true,1,0,1,root_names+1,root_directories+1);
     kui_shell_set_files_listing(&s,&picked);
     assert(!strcmp(s.files_listing.entries[0].name,"Games") && s.files_listing.count==8);
-    /* Pages turn from the neighbouring row. */
-    assert(press(KUI_SHELL_RIGHT,false)==KUI_SHELL_FILES_LIST && s.files_request.seek==KUI_FILES_SEEK_NEXT);
-    assert(!strcmp(s.files_request.anchor,"song.ogg") && !s.files_request.anchor_directory && !s.files_listing.count);
-    static const char *const more[]={"setup.log","video.bin","zeta.txt","~temp"};
+    /* Crossing a storage chunk scrolls by one; reversing uses the cached rows. */
+    assert(press(KUI_SHELL_RIGHT,false)==KUI_SHELL_NONE && press(KUI_SHELL_LEFT,false)==KUI_SHELL_NONE);
+    assert(press(KUI_SHELL_UP,false)==KUI_SHELL_NONE && s.files_selected==0);
+    for(unsigned i=1;i<8;i++)assert(press(KUI_SHELL_DOWN,false)==KUI_SHELL_NONE && s.files_selected==i);
+    assert(press(KUI_SHELL_DOWN,false)==KUI_SHELL_FILES_LIST && s.files_request.seek==KUI_FILES_SEEK_NEXT);
+    assert(!strcmp(s.files_request.anchor,"song.ogg") && !s.files_request.anchor_directory);
+    assert(s.files_listing.count==8 && s.files_scroll.first==0 && s.files_selected==7);
+    static const char *const more[]={"track01.raw","video.bin","zeta.txt","~temp"};
     static const bool files_only[]={false,false,false,false};
     struct kui_files_page page=files_result("/",false,4,8,12,more,files_only);
+    struct kui_files_page failed={.path="/",.message="Cannot read this folder"};
+    kui_shell_set_files_listing(&s,&failed);
+    assert(!s.files_scroll.pending_step && s.files_listing.count==8 && strstr(s.files_listing.message,"Cannot read"));
+    assert(press(KUI_SHELL_DOWN,false)==KUI_SHELL_FILES_LIST);
     kui_shell_set_files_listing(&s,&page);
-    assert(press(KUI_SHELL_RIGHT,false)==KUI_SHELL_NONE);
-    assert(press(KUI_SHELL_LEFT,false)==KUI_SHELL_FILES_LIST && s.files_request.seek==KUI_FILES_SEEK_FIRST);
-    page=files_result("/",false,4,16,30,more,files_only);
+    assert(s.files_selected==0 && s.files_scroll.first==1 && !strcmp(kui_shell_files_row(&s,false,1)->name,"KUI"));
+    assert(!strcmp(kui_shell_files_row(&s,false,8)->name,"track01.raw"));
+    assert(press(KUI_SHELL_UP,false)==KUI_SHELL_NONE && s.files_selected==7 && s.files_scroll.first==1);
+    for(unsigned i=8;i<12;i++) {
+        assert(press(KUI_SHELL_DOWN,false)==KUI_SHELL_NONE && s.files_selected==i-8 && s.files_scroll.first==i-7);
+    }
+    assert(press(KUI_SHELL_DOWN,false)==KUI_SHELL_NONE && s.files_selected==3);
+    assert(press(KUI_SHELL_A,false)==KUI_SHELL_FILES_CHECK && !strcmp(s.files_job.source,"/~temp"));
+    press(KUI_SHELL_B,false);
+    /* Returning to a directory at an anchor may start the list well past the first row. */
+    page=files_result("/",false,4,16,20,more,files_only);
+    kui_shell_set_files_listing(&s,&page);s.files_selected=0;
+    assert(press(KUI_SHELL_UP,false)==KUI_SHELL_FILES_LIST && s.files_request.seek==KUI_FILES_SEEK_PREVIOUS);
+    assert(!strcmp(s.files_request.anchor,"track01.raw"));
+    page=files_result("/",false,8,8,20,root_names,root_directories);
     kui_shell_set_files_listing(&s,&page);
-    assert(press(KUI_SHELL_LEFT,false)==KUI_SHELL_FILES_LIST && s.files_request.seek==KUI_FILES_SEEK_PREVIOUS);
-    assert(!strcmp(s.files_request.anchor,"setup.log"));
+    assert(s.files_scroll.first==15 && s.files_selected==7);
     files_root();
     assert(press(KUI_SHELL_R,false)==KUI_SHELL_FILES_LIST && s.files_request.seek==KUI_FILES_SEEK_AT);
     assert(!strcmp(s.files_request.anchor,"Games") && s.files_request.anchor_directory);
@@ -4041,7 +4499,7 @@ static void files_controls(void) {
     assert(press(KUI_SHELL_A,false)==KUI_SHELL_NONE && strstr(s.files_notice,"cannot use this name"));
     broken.last[sizeof(broken.last)-1]='x';memset(broken.last,'x',sizeof(broken.last));
     kui_shell_set_files_listing(&s,&broken);assert(!s.files_listing.count);
-    puts("PASS File Manager: navigation, paging anchors, open-with, protected items, copy/move/delete/rename/new folder flows");
+    puts("PASS File Manager: continuous scrolling and cached reversals, open-with, protected items, copy/move/delete/rename/new folder flows");
 }
 static void files_rendering(void) {
     struct kui_shell_view v={.build="a1b2c3d4e5f6"};
@@ -4051,6 +4509,26 @@ static void files_rendering(void) {
     assert(strstr(drawn,"Games") && strstr(drawn,"readme.txt") && strstr(drawn,"DIR") && strstr(drawn,"TXT"));
     assert(strstr(drawn,"Items 1-8 of 12") && strstr(drawn,"Modified 2026-09-26 14:03") && strstr(drawn,"14.0 KB"));
     assert(strstr(drawn,"A Open   X Actions   Y New folder   R Refresh") && strstr(drawn,"B Up   START Home"));
+    assert(strstr(drawn,"UP/DOWN Scroll") && !strstr(drawn,"LEFT/RIGHT Page"));
+    assert(pixels[1+196*640+593]==0x675e && pixels[1+363*640+593]==0x318a);
+    s.files_selected=7;assert(press(KUI_SHELL_DOWN,false)==KUI_SHELL_FILES_LIST);
+    static const char *const more[]={"track01.raw","video.bin","zeta.txt","~temp"};
+    static const bool files_only[]={false,false,false,false};
+    struct kui_files_page page=files_result("/",false,4,8,12,more,files_only);
+    kui_shell_set_files_listing(&s,&page);
+    for(unsigned i=1;i<4;i++)press(KUI_SHELL_DOWN,false);
+    render(&v);
+    assert(strstr(drawn,"Items 5-12 of 12") && strstr(drawn,"cover.png") && strstr(drawn,"~temp"));
+    assert(pixels[1+196*640+593]==0x318a && pixels[1+363*640+593]==0x675e);
+    s.page=KUI_SHELL_FILES_PICK;
+    page=files_result("/",true,8,0,12,root_names,root_directories);
+    strcpy(s.files_pick_path,"/");kui_shell_set_files_listing(&s,&page);s.files_pick_selected=7;
+    assert(press(KUI_SHELL_DOWN,false)==KUI_SHELL_FILES_LIST && s.files_request.folders_only);
+    page=files_result("/",true,4,8,12,more,files_only);kui_shell_set_files_listing(&s,&page);
+    render(&v);
+    assert(strstr(drawn,"KUI") && strstr(drawn,"track01.raw") && s.files_pick_scroll.first==1);
+    assert(pixels[1+174*640+593]==0x318a && pixels[1+200*640+593]==0x675e);
+    reset(KUI_SHELL_FILES);files_root();s.files_selected=6;
     s.files_listing.entries[6].attributes=0x03;render(&v);assert(strstr(drawn,"Read-only   Hidden"));
     struct kui_app_status status={.complete=true,.line_count=1};
     snprintf(status.message,sizeof(status.message),"The card is full");
@@ -4149,7 +4627,7 @@ static void ftp_rendering(void) {
     memset(&f,0,sizeof(f));
     snprintf(f.message,sizeof(f.message),"Asking the router for an address (DHCP)");
     v.ftp=&f;render(&v);
-    assert(strstr(drawn,"Asking the router for an address") && strstr(drawn,"SD card stays on SCIF"));
+    assert(strstr(drawn,"Asking the router for an address") && strstr(drawn,"Broadband Adapter"));
     f.state=KUI_FTP_READY;f.link=true;f.port=KUI_FTP_PORT;
     f.ip[0]=192;f.ip[1]=168;f.ip[2]=1;f.ip[3]=50;
     snprintf(f.password,sizeof(f.password),"48217365");
@@ -4455,6 +4933,7 @@ static void wifi_rendering(void) {
     assert(strstr(drawn,"Bands: 2.4 and 5 GHz") && strstr(drawn,"LEFT/RIGHT"));
     assert(strstr(drawn,"Home 5G") && strstr(drawn,"5 GHz ch 36") && strstr(drawn,"WPA2") && strstr(drawn,"WPA3"));
     assert(strstr(drawn,"2.4 GHz ch 1") && strstr(drawn,"Open") && strstr(drawn,"Other network (type its name)"));
+    assert(pixels[1+188*640+602]!=0x675e && pixels[1+363*640+602]!=0x318a);
     assert(strstr(drawn,"3 networks in range") && strstr(drawn,"A Join   X Scan   Y Forget   START Update   B Network"));
     view.wifi.state=KWM_WIFI_ONLINE;strcpy(view.wifi.ssid,"Home 5G");view.wifi.band=5;view.wifi.rssi=-48;
     view.wifi.ip[0]=192;view.wifi.ip[1]=168;view.wifi.ip[2]=1;view.wifi.ip[3]=23;
@@ -4471,6 +4950,7 @@ static void wifi_rendering(void) {
     kui_shell_set_wifi(&s,&view);
     s.wifi_selected=kui_shell_wifi_rows(&s)-1;render(&v);
     assert(strstr(drawn,"Other network") && strstr(drawn,"Network 23") && !strstr(drawn,"Bands:") && strstr(drawn,"24 networks"));
+    assert(pixels[1+188*640+602]==0x318a && pixels[1+363*640+602]==0x675e);
     /* The password keyboard, with its symbols. */
     s.wifi_selected=1;assert(press(KUI_SHELL_A,false)==KUI_SHELL_NONE);
     s.keyboard_layer=KUI_SHELL_KEYS_SYMBOLS;strcpy(s.keyboard,"p@ss");render(&v);
@@ -5214,25 +5694,57 @@ static void disc_virtual_slot_controls(void) {
 static void vmu_tools_entry_without_storage(void) {
     const enum kui_shell_action actions[]={KUI_SHELL_VMU_COLLECTION_LIST,KUI_SHELL_VMU_LIST,
         KUI_SHELL_VMU_WIZARD_RUN,KUI_SHELL_VMU_BACKUPS_LIST};
+    struct kui_shell_view view={0};
+    reset(kui_shell_startup_page(KUI_STARTUP_VMU));kui_shell_vmu_tools_enter(&s);
+    assert(s.vmu_tools_selected==0 && s.vmu_emulation_background);
+    kui_shell_set_vmu_emulation_full(&s,s.vmu_emulation_generation,false,KUI_GAME_VMU_SLOT_A1,
+        true,false,NULL);
+    render(&view);
+    assert(strstr(drawn,"\nOff\n") && strstr(drawn,"\nA1\n") && !strstr(drawn,"Reading"));
+    assert(!s.vmu_emulation_background && !s.vmu_emulation_notice[0] && s.vmu_tools_selected==0);
     for(unsigned row=0u;row<4u;row++) {
         reset(KUI_SHELL_HOME);s.home_selected=home_index(KUI_SHELL_VMU_TOOLS);
         assert(press(KUI_SHELL_A,false)==KUI_SHELL_NONE && s.page==KUI_SHELL_VMU_TOOLS);
-        assert(!s.vmu_emulation_known && !s.vmu_emulation_loading && !s.vmu_emulation_generation);
-        struct kui_shell_view view={0};render(&view);
-        assert(strstr(drawn,"Not loaded") && !strstr(drawn,"Unavailable"));
+        assert(!s.vmu_emulation_known && s.vmu_emulation_loading && s.vmu_emulation_background);
+        unsigned generation=s.vmu_emulation_generation;assert(generation);
+        render(&view);
+        assert(strstr(drawn,"Reading...") && !strstr(drawn,"Not loaded"));
         for(unsigned i=0u;i<row;i++)assert(press(KUI_SHELL_DOWN,false)==KUI_SHELL_NONE);
         assert(press(KUI_SHELL_A,false)==actions[row]);
-        assert(!s.vmu_emulation_loading && !s.vmu_emulation_generation);
+        assert(s.vmu_emulation_generation==generation);
     }
     reset(KUI_SHELL_HOME);s.home_selected=home_index(KUI_SHELL_VMU_TOOLS);
     assert(press(KUI_SHELL_A,false)==KUI_SHELL_NONE);
+    unsigned original=s.vmu_emulation_generation;
     assert(press(KUI_SHELL_B,false)==KUI_SHELL_NONE && s.page==KUI_SHELL_HOME);
-    assert(!s.vmu_emulation_generation);
+    assert(!s.vmu_emulation_loading && !s.vmu_emulation_background);
+    kui_shell_set_vmu_emulation_full(&s,original,true,KUI_GAME_VMU_SLOT_A2,true,false,NULL);
+    assert(!s.vmu_emulation_known);
+    s.home_selected=home_index(KUI_SHELL_DISC_TOOLS);
+    assert(press(KUI_SHELL_A,false)==KUI_SHELL_NONE && s.page==KUI_SHELL_DISC_TOOLS);
+    s.disc_tools_selected=3u;
+    assert(press(KUI_SHELL_A,false)==KUI_SHELL_NONE && s.page==KUI_SHELL_GD_PLAY);
+    assert(press(KUI_SHELL_Y,false)==KUI_SHELL_GD_OPTIONS_LOAD);
+    kui_shell_set_vmu_emulation_full(&s,original,true,KUI_GAME_VMU_SLOT_A2,true,false,NULL);
+    assert(s.vmu_emulation_loading && !s.vmu_emulation_background && !s.vmu_emulation_known);
+    kui_shell_set_vmu_emulation_full(&s,s.vmu_emulation_generation,false,KUI_GAME_VMU_SLOT_A1,true,false,NULL);
+    kui_shell_set_disc_region(&s,s.gd_region_generation,true,true,NULL);
+    assert(press(KUI_SHELL_B,false)==KUI_SHELL_NONE && s.page==KUI_SHELL_GD_PLAY);
+    assert(!s.vmu_emulation_loading && s.vmu_emulation_known);
+    reset(KUI_SHELL_HOME);s.home_selected=home_index(KUI_SHELL_VMU_TOOLS);
     assert(press(KUI_SHELL_A,false)==KUI_SHELL_NONE);
-    /* The other inline preference also automatically reads first. Failure
-     * leaves it unknown; A must request another read, never a default write. */
-    assert(press(KUI_SHELL_UP,false)==KUI_SHELL_VMU_EMULATION_LOAD && s.vmu_tools_selected==5u);
+    original=s.vmu_emulation_generation;
+    assert(s.vmu_emulation_background);
+    assert(press(KUI_SHELL_UP,false)==KUI_SHELL_NONE && s.vmu_tools_selected==5u);
     assert(press(KUI_SHELL_A,false)==KUI_SHELL_NONE);
+    kui_shell_set_vmu_emulation_full(&s,s.vmu_emulation_generation,false,KUI_GAME_VMU_SLOT_A1,
+        false,false,"Read failed");
+    render(&view);assert(strstr(drawn,"Unavailable"));
+    assert(press(KUI_SHELL_B,false)==KUI_SHELL_NONE && s.page==KUI_SHELL_HOME);
+    assert(press(KUI_SHELL_A,false)==KUI_SHELL_NONE && s.vmu_emulation_background);
+    assert(s.vmu_emulation_generation!=original);
+    kui_shell_set_vmu_emulation_full(&s,original,false,KUI_GAME_VMU_SLOT_A1,true,false,NULL);
+    assert(!s.vmu_emulation_known && s.vmu_emulation_background);
     kui_shell_set_vmu_emulation_full(&s,s.vmu_emulation_generation,false,KUI_GAME_VMU_SLOT_A1,
         false,false,"Read failed");
     assert(!s.vmu_emulation_known && press(KUI_SHELL_A,false)==KUI_SHELL_VMU_EMULATION_LOAD);
@@ -5244,21 +5756,18 @@ static void vmu_tools_entry_without_storage(void) {
         !s.vmu_emulation_loading && s.vmu_emulation_generation==generation);
     assert(press(KUI_SHELL_A,false)==KUI_SHELL_VMU_EMULATION_SAVE && s.vmu_emulation_slot_change &&
         s.vmu_emulation_slot_requested==KUI_GAME_VMU_SLOT_A2 && !s.vmu_emulation_requested);
-    puts("PASS VMU Tools entry: no storage action before card/import/backup navigation, lazy preference reads, failure-before-write guard and cached status retained");
+    puts("PASS VMU Tools entry: read both settings in the background, immediate card navigation, retry after failure and reuse confirmed settings");
 }
 static void vmu_emulation_controls(void) {
     reset(KUI_SHELL_HOME);s.home_selected=home_index(KUI_SHELL_VMU_TOOLS);
     assert(s.vmu_emulation_enabled && !s.vmu_emulation_known);
     assert(press(KUI_SHELL_A,false)==KUI_SHELL_NONE);
-    assert(s.page==KUI_SHELL_VMU_TOOLS && !s.vmu_emulation_loading && !s.vmu_emulation_generation);
+    assert(s.page==KUI_SHELL_VMU_TOOLS && s.vmu_emulation_background && s.vmu_emulation_generation);
     for(unsigned i=0;i<3;i++)assert(press(KUI_SHELL_DOWN,false)==KUI_SHELL_NONE);
-    /* Read only when entering the first inline preference, before any toggle
-     * can use the unconfirmed On/A2 initialization defaults. */
-    assert(press(KUI_SHELL_DOWN,false)==KUI_SHELL_VMU_EMULATION_LOAD && s.vmu_tools_selected==4u);
+    assert(press(KUI_SHELL_DOWN,false)==KUI_SHELL_NONE && s.vmu_tools_selected==4u);
     assert(s.vmu_emulation_loading);
     unsigned generation=s.vmu_emulation_generation;
     assert(press(KUI_SHELL_A,false)==KUI_SHELL_NONE);
-    assert(press(KUI_SHELL_B,false)==KUI_SHELL_STOP);
     kui_shell_set_vmu_emulation(&s,generation+1,false,true,false,"Stale");
     assert(s.vmu_emulation_loading && s.vmu_emulation_enabled && !s.vmu_emulation_known);
     kui_shell_set_vmu_emulation(&s,generation,false,true,false,"Preference loaded");
@@ -5269,6 +5778,7 @@ static void vmu_emulation_controls(void) {
     assert(press(KUI_SHELL_A,false)==KUI_SHELL_VMU_EMULATION_SAVE);
     assert(s.vmu_emulation_requested && !s.vmu_emulation_enabled);
     assert(press(KUI_SHELL_A,false)==KUI_SHELL_NONE);
+    assert(press(KUI_SHELL_B,false)==KUI_SHELL_STOP);
     kui_shell_set_vmu_emulation(&s,s.vmu_emulation_generation,true,false,false,"Save uncertain; reload");
     assert(!s.vmu_emulation_enabled && !s.vmu_emulation_known);
     assert(strstr(s.vmu_emulation_notice,"uncertain"));
@@ -6476,6 +6986,14 @@ static void smash_native_tests_controls(void) {
 }
 
 int main(int argc,char **argv) {
+    if(argc==2 && !strcmp(argv[1],"--files-scroll")) {
+        files_controls();files_rendering();return 0;
+    }
+    if(argc==2 && !strcmp(argv[1],"--settings-scroll")) {
+        settings_scroll_rendering();wifi_rendering();return 0;
+    }
+    theme_controls();theme_picker_controls();theme_rendering();
+    if(argc==2 && !strcmp(argv[1],"--themes"))return 0;
     smash_native_tests_controls();
     if(argc==2 && !strcmp(argv[1],"--smash-native"))return 0;
     update_controls();
@@ -6513,13 +7031,13 @@ int main(int argc,char **argv) {
     vmu_continuous_scrolling();vmu_catalog_scrolling();vmu_scroll_rendering();small_tools_controls();small_tools_rendering();
     vmu_copy_all_controls();vmu_import_controls();vmu_bulk_import_rendering();
     vmu_collection_copy_controls();vmu_collection_controls();vmu_collection_rendering();
-    games_remembered_selection(); games_disc_group_controls(); games_activity_controls(); games_controls(); games_background_titles(); games_views(); games_navigation_steps(); games_async_publication(); games_retail_controls(); games_armada_ce_music_controls(); games_bam4_ce_music_controls(); games_cdda_compatibility_status(); games_launch_options_controls(); games_cd_controls(); games_saved_launch_controls(); games_patch_controls(); games_image_defaults_controls(); games_zso_controls(); games_codec_controls(); games_check_baseline_controls(); games_variant_controls();
+    games_remembered_selection(); games_disc_group_controls(); games_activity_controls(); games_controls(); games_background_titles(); games_views(); games_media_controls(); games_navigation_steps(); games_async_publication(); games_retail_controls(); games_armada_ce_music_controls(); games_bam4_ce_music_controls(); games_cdda_compatibility_status(); games_launch_options_controls(); games_cd_controls(); games_saved_launch_controls(); games_patch_controls(); games_image_defaults_controls(); games_zso_controls(); games_codec_controls(); games_check_baseline_controls(); games_variant_controls();
     if(argc==2 && !strcmp(argv[1],"--games-controls")) { puts("PASS Games navigation and launch controls"); return 0; }
-    games_rendering(); games_native_reader_choices(); games_new_reader_defaults(); games_patch_rendering(); games_zso_rendering(); games_selected_art_rendering(); games_variant_rendering();
+    games_rendering(); games_native_reader_choices(); games_new_reader_defaults(); games_patch_rendering(); games_zso_rendering(); games_selected_art_rendering(); games_hover_focus_navigation(); games_hover_preview_rendering(); games_variant_rendering();
     if(argc==2 && !strcmp(argv[1],"--games")) { puts("PASS Games navigation, launch eligibility and rendering"); return 0; }
     storage_test_controls();storage_test_rendering();
     launcher_and_confirmation(); operation_lock_and_stop(); settings_transaction(); ripper_export_rendering();
-    system_transaction_and_video(); settings_without_screenshot_page(); app_navigation_and_vmu(); clock_and_defaults(); restore_and_scan_controls(); phase_eta();
+    system_transaction_and_video(); settings_scroll_rendering(); settings_without_screenshot_page(); app_navigation_and_vmu(); clock_and_defaults(); restore_and_scan_controls(); phase_eta();
     diagnostics(); destination_transaction(); keyboard_transaction(); advanced_navigation();ripper_parity_controls();
     ripper_saved_job_controls();ripper_folder_label_controls();ripper_label_keyboard_purpose_controls();
     ripper_saved_job_rendering();

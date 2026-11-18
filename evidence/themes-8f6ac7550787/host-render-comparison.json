@@ -1,0 +1,136 @@
+{
+  "baseline_commit": "c6a07a130791f5b87facc72959ecd87c2c97ebce",
+  "current_commit": "8f6ac75507872362ebb2e6f05dc1458b8a514a2f",
+  "method": "Same baseline preview harness linked separately with baseline/current sources; 400 warmed draws per run; 5 interleaved runs per build and scenario; process CPU clock; existing -O1 flags.",
+  "scope": "Comparative host default-render cost only; not Dreamcast input, SD I/O, startup, or frame-time measurements.",
+  "scenarios": {
+    "home": {
+      "runs_ms_per_frame": {
+        "baseline": [
+          0.163988,
+          0.168328,
+          0.164698,
+          0.171585,
+          0.163583
+        ],
+        "current": [
+          0.128878,
+          0.129605,
+          0.12383,
+          0.125922,
+          0.1244
+        ]
+      },
+      "median_ms_per_frame": {
+        "baseline": 0.164698,
+        "current": 0.125922
+      },
+      "median_difference_ms_per_frame": -0.038776,
+      "median_difference_percent": -23.54,
+      "preview_sha256": {
+        "baseline": "1d8bc3b0141840315050cad19148b8f9cd9c311852f89e39ce92ab9043c920be",
+        "current": "1d8bc3b0141840315050cad19148b8f9cd9c311852f89e39ce92ab9043c920be"
+      },
+      "preview_byte_exact": true,
+      "expected_pixel_difference": null
+    },
+    "settings": {
+      "runs_ms_per_frame": {
+        "baseline": [
+          0.153177,
+          0.159467,
+          0.16563,
+          0.15574,
+          0.161855
+        ],
+        "current": [
+          0.11948,
+          0.116845,
+          0.134102,
+          0.123295,
+          0.11765
+        ]
+      },
+      "median_ms_per_frame": {
+        "baseline": 0.159467,
+        "current": 0.11948
+      },
+      "median_difference_ms_per_frame": -0.039987,
+      "median_difference_percent": -25.08,
+      "preview_sha256": {
+        "baseline": "e818dd525660bce18b8036b5168147818522dc2a17c2e488a90d8f4b16aae6e9",
+        "current": "83f595385c9e4854bed141c3077161bb51b7c27fe54e414e3825ec7d7e6003ea"
+      },
+      "preview_byte_exact": false,
+      "expected_pixel_difference": "Settings includes new Themes row."
+    },
+    "games": {
+      "runs_ms_per_frame": {
+        "baseline": [
+          0.14238,
+          0.145205,
+          0.15278,
+          0.140725,
+          0.151965
+        ],
+        "current": [
+          0.117685,
+          0.11617,
+          0.102,
+          0.150743,
+          0.10607
+        ]
+      },
+      "median_ms_per_frame": {
+        "baseline": 0.145205,
+        "current": 0.11617
+      },
+      "median_difference_ms_per_frame": -0.029035,
+      "median_difference_percent": -20.0,
+      "preview_sha256": {
+        "baseline": "a789241b36eb8f8ff7b7f7931125a1bebf8b7ddad604410cb7f40e7f5de0baa5",
+        "current": "a789241b36eb8f8ff7b7f7931125a1bebf8b7ddad604410cb7f40e7f5de0baa5"
+      },
+      "preview_byte_exact": true,
+      "expected_pixel_difference": null
+    },
+    "games-gallery": {
+      "runs_ms_per_frame": {
+        "baseline": [
+          0.160083,
+          0.13463,
+          0.14231,
+          0.14252,
+          0.132185
+        ],
+        "current": [
+          0.103315,
+          0.0946,
+          0.099515,
+          0.10175,
+          0.100935
+        ]
+      },
+      "median_ms_per_frame": {
+        "baseline": 0.14231,
+        "current": 0.100935
+      },
+      "median_difference_ms_per_frame": -0.041375,
+      "median_difference_percent": -29.07,
+      "preview_sha256": {
+        "baseline": "85710f6125b5656cb5d01ec4b7c9e25d62d221f409ccc51e8fee9f35325ef5bc",
+        "current": "85710f6125b5656cb5d01ec4b7c9e25d62d221f409ccc51e8fee9f35325ef5bc"
+      },
+      "preview_byte_exact": true,
+      "expected_pixel_difference": null
+    }
+  },
+  "boot_main_compile": {
+    "result": "PASS",
+    "object": "build/dc/src/dreamcast/main.o",
+    "object_bytes": 93388,
+    "KUI_SD_RUNTIME_defined": false,
+    "undefined_theme_runtime_symbols": [],
+    "scope": "Compile-only boot main.c guard check; no boot-disc image built or linked."
+  }
+}

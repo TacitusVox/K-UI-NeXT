@@ -1,0 +1,57 @@
+cc -std=c11 -O1 -g -Wall -Wextra -Werror -Wpedantic -fsanitize=address,undefined -fno-omit-frame-pointer -fno-pie -no-pie -Iinclude -I.deps/fatfs/source -Ifirmware/kui-wifi/components/kwlink/include src/core/theme.c src/core/data.c tests/test_theme.c -o build/test-theme
+cc -std=c11 -O1 -g -Wall -Wextra -Werror -Wpedantic -fsanitize=address,undefined -fno-omit-frame-pointer -fno-pie -no-pie -Iinclude -I.deps/fatfs/source -Ifirmware/kui-wifi/components/kwlink/include src/core/theme.c src/core/data.c src/apps/theme_runtime.c tests/test_theme_runtime.c -o build/test-theme-runtime
+cc -std=c11 -O1 -g -Wall -Wextra -Werror -Wpedantic -fsanitize=address,undefined -fno-omit-frame-pointer -fno-pie -no-pie -Iinclude -I.deps/fatfs/source -Ifirmware/kui-wifi/components/kwlink/include src/core/command.c src/core/data.c src/core/diskio.c src/core/clock.c .deps/fatfs/source/ff.c .deps/fatfs/source/ffunicode.c src/core/storage_probe.c src/core/theme.c src/apps/theme_file.c tests/theme_image.c -o build/theme-image
+cc -std=c11 -O1 -g -Wall -Wextra -Werror -Wpedantic -fsanitize=address,undefined -fno-omit-frame-pointer -Iinclude -I.deps/fatfs/source -Ifirmware/kui-wifi/components/kwlink/include -Ithird_party/miniz -Ithird_party/minilzo -DMINIZ_NO_ARCHIVE_APIS -DMINIZ_NO_STDIO -DMINIZ_NO_TIME -DMINIZ_NO_ZLIB_APIS -DMINIZ_NO_MALLOC -DLZO_CFG_NO_UNALIGNED=1 src/core/storage_test_model.c src/core/storage_error.c src/core/wifi_text.c src/core/destination.c src/core/files_path.c src/core/game_launch_settings.c src/core/game_ram_patches.c src/core/games_selection.c src/core/game_profile.c src/core/hash.c src/core/games_query.c src/core/theme.c src/core/shell.c src/core/clock.c src/dreamcast/shell_draw.c src/apps/splash_art.c third_party/miniz/miniz.c src/dreamcast/shell_font.c src/apps/system_settings.c src/core/settings.c src/core/data.c src/core/salvage_display.c src/core/drive_controls.c tests/test_shell.c -o build/test-shell
+ASAN_OPTIONS=detect_leaks=0 ./build/test-theme
+PASS themes: original palette, selectors, persistent record corruption, strict manifests and bounded image headers
+ASAN_OPTIONS=detect_leaks=0 ./build/test-theme-runtime
+theme runtime: bundles, exact worker publication, preview/restore race, rollback and memory release passed
+ASAN_OPTIONS=detect_leaks=0 ./build/test-shell --themes
+PASS Appearance: independent choices, presets/RGB, busy/stale guards, Preview/Apply/Cancel and defaults
+PASS Appearance renderer: palette roles, opaque header/backdrop/splash, disabled art, stable pixels and safe bounds
+ASAN_OPTIONS=detect_leaks=0 python3 tests/test_theme_images.py
+PASS fat32 themes: alternate, capture/system settings preserved
+PASS fat32 themes: corrupt, capture/system settings preserved
+PASS fat32 themes: truncated, capture/system settings preserved
+PASS fat32 themes: oversize, capture/system settings preserved
+PASS fat32 themes: version, capture/system settings preserved
+PASS fat32 themes: reserved, capture/system settings preserved
+PASS fat32 themes: unsafe-id, capture/system settings preserved
+PASS fat32 themes: both-invalid, capture/system settings preserved
+PASS fat32 themes: invalid-save, capture/system settings preserved
+PASS fat32 themes: overflow, capture/system settings preserved
+PASS fat32 themes: read-fail, capture/system settings preserved
+PASS fat32 themes: save-read-fail, capture/system settings preserved
+PASS fat32 themes: write-fail, capture/system settings preserved
+PASS fat32 themes: sync-fail, capture/system settings preserved
+PASS fat32 themes: readback-fail, capture/system settings preserved
+PASS fat32 themes: readback-corrupt, capture/system settings preserved
+PASS fat32 themes: readback-substitute, capture/system settings preserved
+PASS fat32 themes: catalog, capture/system settings preserved
+PASS fat32 themes: assets, capture/system settings preserved
+PASS exfat themes: alternate, capture/system settings preserved
+PASS exfat themes: corrupt, capture/system settings preserved
+PASS exfat themes: truncated, capture/system settings preserved
+PASS exfat themes: oversize, capture/system settings preserved
+PASS exfat themes: version, capture/system settings preserved
+PASS exfat themes: reserved, capture/system settings preserved
+PASS exfat themes: unsafe-id, capture/system settings preserved
+PASS exfat themes: both-invalid, capture/system settings preserved
+PASS exfat themes: invalid-save, capture/system settings preserved
+PASS exfat themes: overflow, capture/system settings preserved
+PASS exfat themes: read-fail, capture/system settings preserved
+PASS exfat themes: save-read-fail, capture/system settings preserved
+PASS exfat themes: write-fail, capture/system settings preserved
+PASS exfat themes: sync-fail, capture/system settings preserved
+PASS exfat themes: readback-fail, capture/system settings preserved
+PASS exfat themes: readback-corrupt, capture/system settings preserved
+PASS exfat themes: readback-substitute, capture/system settings preserved
+PASS exfat themes: catalog, capture/system settings preserved
+PASS exfat themes: assets, capture/system settings preserved
+Filesystem behavior passed on real FatFs images; external fsck unavailable and not claimed.
+python3 tests/test_pack_theme.py
+........
+----------------------------------------------------------------------
+Ran 8 tests in 0.559s
+
+OK

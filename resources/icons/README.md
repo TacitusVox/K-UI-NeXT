@@ -44,11 +44,10 @@ python3 tools/render_app_previews.py --home-only --output build/home-previews
 Only artwork editing requires Inkscape and Pillow. The committed renders were
 made with Inkscape 1.2.2; PNG metadata is stripped by Pillow. Rendering updates
 `home-icons.json`, which pins all 28 source and rendered files by SHA-256.
-Ordinary Dreamcast builds consume the committed `shell_art.inc` without SVG
-or PNG decoding, extra file reads, or image allocations on the console.
+Ordinary Dreamcast builds consume the committed `shell_art.inc`. The runtime
+inflates the packed RGB565 artwork once, on the first draw.
 
-The brand and ten icon pairs occupy 355,584 bytes of embedded RGB565 data,
-237,440 bytes more than the previous three-icon set. The artwork is part of the
+The brand and ten icon pairs occupy 355,672 bytes after inflation. The artwork is part of the
 SD runtime; a working existing boot CD can load it. Generated Home previews use
 the production renderer and are not a separate mockup.
 

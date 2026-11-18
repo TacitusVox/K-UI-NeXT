@@ -1,0 +1,40 @@
+{
+  "version": 1,
+  "name": "Indigo Waves",
+  "author": "TacitusVox",
+  "colors": {
+    "text": "#F5F7FC",
+    "success": "#8AE2AE",
+    "warning": "#FFCF82",
+    "selection_text": "#FFFFFF",
+    "background": "#0A1829",
+    "panel": "#11283C",
+    "selection": "#20465A",
+    "edge": "#536F82",
+    "muted": "#B9CDCE",
+    "accent": "#F4D29E",
+    "accent2": "#FF9078"
+  },
+  "assets": {
+    "splash": {
+      "source": "../sources/indigo-waves.png",
+      "sha256": "528195846f4bb97fe40a5afa12760ffb4d04dd6e2f9bd820d17cc6042066d6f0",
+      "filter": "lanczos",
+      "fit": "contain"
+    },
+    "header": {
+      "source": "../sources/indigo-waves.png",
+      "sha256": "528195846f4bb97fe40a5afa12760ffb4d04dd6e2f9bd820d17cc6042066d6f0",
+      "filter": "lanczos",
+      "fit": "cover",
+      "crop": [
+        0,
+        617,
+        1448,
+        843
+      ],
+      "brightness": 0.41,
+      "dither": true
+    }
+  }
+}

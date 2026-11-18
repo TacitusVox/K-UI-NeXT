@@ -76,7 +76,7 @@ class NetworkRipIntegration(unittest.TestCase):
                      "-fsanitize=address,undefined", "-fno-omit-frame-pointer", "-fno-pie", "-no-pie", "-Iinclude"]
         common = ["src/core/network_rip.c", "src/core/hash.c", "src/core/data.c"]
         run(*cls.flags, *common, "tests/test_network_rip.c", "-o", cls.build / "test-network-rip")
-        run(*cls.flags, *common, "tests/network_rip_loopback.c", "-o", cls.build / "network-rip-loopback")
+        run(*cls.flags, *common, "src/core/bba_sockets.c", "tests/network_rip_loopback.c", "-o", cls.build / "network-rip-loopback")
 
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory(prefix="kui-network-rip-integration-")
@@ -108,6 +108,7 @@ class NetworkRipIntegration(unittest.TestCase):
         with Receiver(image, identity, key) as receiver:
             binary = self.build / "network-rip-loopback"
             self.assertIn("PASS fragmented", run(binary, receiver.port, key.hex(), volume, "io"))
+            self.assertIn("PASS BBA", run(binary, receiver.port, key.hex(), volume, "bba"))
             wrong_key = bytes([key[0] ^ 1]) + key[1:]
             self.assertIn("PASS refused", run(binary, receiver.port, wrong_key.hex(), volume, "refused"))
             wrong_volume = bytes([bytes.fromhex(volume)[0] ^ 1]) + bytes.fromhex(volume)[1:]

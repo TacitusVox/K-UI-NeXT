@@ -16,8 +16,9 @@ struct kui_network_probe {
     /* lease_seconds: from the DHCP ACK. Set after begin: lease_only ends
      * once the address is leased and checked (no gateway ARP or ping);
      * renewing (see kui_network_probe_renew) ends at the ACK. */
-    uint32_t lease_seconds;
-    bool dhcp,leased,arp_reply,echo_reply,lease_only,renewing;
+    uint32_t lease_seconds,renew_seconds,rebind_seconds;
+    uint64_t lease_start_ms; /* first REQUEST, before ACK and conflict checks */
+    bool dhcp,leased,arp_reply,echo_reply,lease_only,renewing,rebinding;
     char failure[80];
 };
 bool kui_network_config_valid(const struct kui_network_config *config);

@@ -1,0 +1,342 @@
+--- net_tcp.c
++++ net_tcp.c
+@@ -182,6 +182,7 @@
+             uint32_t sndbuf_acked;
+             uint32_t sndbuf_tail;
+             uint64_t timer;
++            uint64_t orphan_deadline;
+             condvar_t send_cv;
+             condvar_t recv_cv;
+             struct tcp_ooo_seg ooo[TCP_OOO_MAX];
+@@ -269,7 +270,27 @@
+ static int tcp_send_syn(struct tcp_sock *sock, int ack);
+ static void tcp_send_ack(struct tcp_sock *sock);
+ static void tcp_send_data(struct tcp_sock *sock, int resend);
+-static void tcp_send_fin_ack(struct tcp_sock *sock);
++static void tcp_send_fin_ack(struct tcp_sock *sock, uint32_t seq);
++
++/* The fd is being closed and the payload has been acknowledged. Only control
++   traffic remains. Remember the original FIN sequence for retries. */
++static void tcp_begin_close(struct tcp_sock *sock) {
++    tcp_send_fin_ack(sock, sock->data.snd.nxt);
++    ++sock->data.snd.nxt;
++    sock->state = sock->state == TCP_STATE_CLOSE_WAIT ? TCP_STATE_LAST_ACK : TCP_STATE_FIN_WAIT_1;
++    sock->data.timer = timer_ms_gettime64();
++}
++
++static void tcp_enter_time_wait(struct tcp_sock *sock) {
++    /* Keep the tuple and sequence state for duplicate FINs. There is no
++       file descriptor and TIME_WAIT cannot deliver or retransmit payload. */
++    sock->state = TCP_STATE_TIME_WAIT;
++    sock->data.timer = timer_ms_gettime64();
++    free(sock->data.sndbuf);
++    free(sock->data.rcvbuf);
++    sock->data.sndbuf = sock->data.rcvbuf = NULL;
++    sock->data.sndbuf_cur_sz = sock->data.rcvbuf_cur_sz = 0;
++}
+
+ /* Sockets interface... */
+ static int net_tcp_socket(net_socket_t *hnd, int domain, int type, int proto) {
+@@ -411,33 +432,13 @@
+             goto ret_remove;
+
+         case TCP_STATE_ESTABLISHED:
+-
+-            /* See if all sends have finished... */
+-            if(sock->data.sndbuf_cur_sz) {
+-                goto ret_no_remove;
+-            }
+-
+-            /* Fall through... */
+-            __fallthrough;
++        case TCP_STATE_CLOSE_WAIT:
++            if(!sock->data.sndbuf_cur_sz)
++                tcp_begin_close(sock);
++            goto ret_no_remove;
+
+         case TCP_STATE_SYN_RECEIVED:
+-            /* Don't have to worry about queued packets, since we don't allow
+-               any queueing until after the connection is established. */
+-            tcp_send_fin_ack(sock);
+-            ++sock->data.snd.nxt;
+-            sock->state = TCP_STATE_FIN_WAIT_1;
+-            goto ret_no_remove;
+-
+-        case TCP_STATE_CLOSE_WAIT:
+-
+-            /* See if all sends have finished... */
+-            if(sock->data.sndbuf_cur_sz) {
+-                goto ret_no_remove;
+-            }
+-
+-            tcp_send_fin_ack(sock);
+-            ++sock->data.snd.nxt;
+-            sock->state = TCP_STATE_CLOSING;
++            /* accept() may return before the final handshake ACK. */
+             goto ret_no_remove;
+
+         case TCP_STATE_CLOSED | TCP_STATE_RESET:
+@@ -468,9 +469,13 @@
+     if(sock->state != TCP_STATE_LISTEN)
+         sock->intflags = TCP_IFLAG_CANBEDEL;
+
+-    if(sock->state == TCP_STATE_ESTABLISHED ||
+-            sock->state == TCP_STATE_CLOSE_WAIT)
++    if(sock->state == TCP_STATE_ESTABLISHED || sock->state == TCP_STATE_CLOSE_WAIT ||
++            sock->state == TCP_STATE_SYN_RECEIVED)
+         sock->intflags |= TCP_IFLAG_QUEUEDCLOSE;
++
++    /* A disconnected peer must not pin the console's socket buffers forever.
++       Allow two minutes without forward progress once the application closes. */
++    sock->data.orphan_deadline = timer_ms_gettime64() + 120000;
+
+     sock->sock = FILEHND_INVALID;
+
+@@ -1423,6 +1428,15 @@
+             size = -1;
+             goto out;
+
++        case TCP_STATE_SYN_RECEIVED:
++            /* Our SYN occupies sequence space but is not queued payload. */
++            if((sock->flags & FS_SOCKET_NONBLOCK) || (flags & MSG_DONTWAIT) || irq_inside_int()) {
++                errno = EWOULDBLOCK;
++                size = -1;
++                goto out;
++            }
++            break;
++
+         case TCP_STATE_CLOSED:
+         case TCP_STATE_LISTEN:
+         case TCP_STATE_SYN_SENT:
+@@ -1505,8 +1519,9 @@
+         sock->data.sndbuf_tail = size - tmp;
+     }
+
+-    /* Send some data! */
+-    tcp_send_data(sock, 0);
++    /* A blocking sender may have queued data immediately after accept(). */
++    if(sock->state != TCP_STATE_SYN_RECEIVED)
++        tcp_send_data(sock, 0);
+
+ out:
+     mutex_unlock(&sock->mutex);
+@@ -2054,6 +2069,8 @@
+             break;
+
+         case TCP_STATE_SYN_RECEIVED:
++            break;
++
+         case TCP_STATE_ESTABLISHED:
+             if(sock->data.sndbuf_cur_sz < sock->sndbuf_sz)
+                 rv |= POLLWRNORM | POLLWRBAND;
+@@ -2178,7 +2195,7 @@
+                          &sock->remote_addr.sin6_addr);
+ }
+
+-static void tcp_send_fin_ack(struct tcp_sock *sock) {
++static void tcp_send_fin_ack(struct tcp_sock *sock, uint32_t seq) {
+     uint8_t rawpkt[sizeof(tcp_hdr_t)];
+     tcp_hdr_t *hdr = (tcp_hdr_t *)rawpkt;
+     uint16_t cs;
+@@ -2186,7 +2203,7 @@
+     /* Fill in the base packet */
+     hdr->src_port = sock->local_addr.sin6_port;
+     hdr->dst_port = sock->remote_addr.sin6_port;
+-    hdr->seq = htonl(sock->data.snd.nxt);
++    hdr->seq = htonl(seq);
+     hdr->ack = htonl(sock->data.rcv.nxt);
+     hdr->off_flags = htons(TCP_FLAG_FIN | TCP_FLAG_ACK | TCP_OFFSET(5));
+     hdr->wnd = htons(sock->data.rcv.wnd);
+@@ -2689,6 +2706,15 @@
+         }
+     }
+
++    /* A duplicate final FIN has already consumed its sequence number. Keep
++       the tuple for two MSL from that retransmission, and acknowledge again. */
++    if(s->state == TCP_STATE_TIME_WAIT && (flags & TCP_FLAG_FIN) &&
++        !(flags & (TCP_FLAG_SYN | TCP_FLAG_RST)) && seq + (uint32_t)sz + 1 == s->data.rcv.nxt) {
++        s->data.timer = timer_ms_gettime64();
++        tcp_send_ack(s);
++        return 0;
++    }
++
+     /* If the sequence number isn't valid, check the RST bit. If its not set,
+        send the appropriate ACK. */
+     if(bad_pkt) {
+@@ -2740,7 +2766,7 @@
+
+     /* The state changes how we handle the rest... */
+     if(s->state == TCP_STATE_SYN_RECEIVED) {
+-        if(SEQ_LE(s->data.snd.una, ack) && SEQ_LE(ack, s->data.snd.nxt)) {
++        if(ack == s->data.snd.nxt) {
+             s->state = TCP_STATE_ESTABLISHED;
+             acksyn = 1;
+         }
+@@ -2752,8 +2778,15 @@
+
+     /* Check the ack number for validity */
+     if(SEQ_LT(s->data.snd.una, ack) && SEQ_LE(ack, s->data.snd.nxt)) {
+-        s->data.sndbuf_acked += (int32_t)(ack - s->data.snd.una - acksyn);
+-        s->data.sndbuf_cur_sz -= (int32_t)(ack - s->data.snd.una - acksyn);
++        /* SYN and FIN consume one sequence number each, not payload bytes. */
++        uint32_t data_acked = ack - s->data.snd.una - acksyn;
++        if((s->state == TCP_STATE_FIN_WAIT_1 || s->state == TCP_STATE_LAST_ACK ||
++            s->state == TCP_STATE_CLOSING) && ack == s->data.snd.nxt)
++            --data_acked;
++        s->data.sndbuf_acked += data_acked;
++        s->data.sndbuf_cur_sz -= data_acked;
++        if(s->intflags & TCP_IFLAG_CANBEDEL)
++            s->data.orphan_deadline = timer_ms_gettime64() + 120000;
+         s->data.snd.una = ack;
+         s->poll_pending |= (POLLWRNORM | POLLWRBAND);
+         cond_signal(&s->data.send_cv);
+@@ -2775,6 +2808,9 @@
+         return 0;
+     }
+
++    if(acksyn && s->data.sndbuf_cur_sz)
++        tcp_send_data(s, 0);
++
+     /* We need to do a bit more processing in certain states... */
+     switch(s->state) {
+         case TCP_STATE_FIN_WAIT_1:
+@@ -2790,9 +2826,8 @@
+
+             /* If the FIN has been acked, go to TIME-WAIT */
+             if(ack == s->data.snd.nxt) {
+-                s->state = TCP_STATE_TIME_WAIT;
+-                s->data.timer = timer_ms_gettime64();
+-                break;
++                tcp_enter_time_wait(s);
++                return 0;
+             }
+             else {
+                 return 0;
+@@ -2809,10 +2844,7 @@
+             break;
+
+         case TCP_STATE_TIME_WAIT:
+-            /* ACK the FIN again, and restart the timer */
+-            s->data.timer = timer_ms_gettime64();
+-            tcp_send_ack(s);
+-            break;
++            return 0;
+     }
+
+     /* Next, we handle the URG bit */
+@@ -2910,7 +2942,7 @@
+
+     /* Finally, check the FIN bit. We don't try to ack it if the packet had too
+        much data. */
+-    if(!bad_pkt && (flags & TCP_FLAG_FIN)) {
++    if(!bad_pkt && (flags & TCP_FLAG_FIN) && seq + (uint32_t)sz == s->data.rcv.nxt) {
+         /* ACK the FIN */
+         ++s->data.rcv.nxt;
+         tcp_send_ack(s);
+@@ -2926,15 +2958,14 @@
+
+             case TCP_STATE_FIN_WAIT_1:
+
+-                if(ack < s->data.snd.nxt) {
++                if(SEQ_LT(ack, s->data.snd.nxt)) {
+                     s->state = TCP_STATE_CLOSING;
+                 }
+
+                 break;
+
+             case TCP_STATE_FIN_WAIT_2:
+-                s->state = TCP_STATE_TIME_WAIT;
+-                s->data.timer = timer_ms_gettime64();
++                tcp_enter_time_wait(s);
+                 break;
+
+             case TCP_STATE_TIME_WAIT:
+@@ -2945,6 +2976,33 @@
+
+     /* And... We're done, finally. */
+     return 0;
++}
++
++/* Validate the complete header before any state machine reads sequence numbers,
++   computes payload size or walks the advertised options. */
++static int tcp_header_valid(const uint8_t *wire, size_t size) {
++    if(size < sizeof(tcp_hdr_t))
++        return 0;
++    const tcp_hdr_t *tcp = (const tcp_hdr_t *)wire;
++    size_t header = TCP_GET_OFFSET(ntohs(tcp->off_flags));
++    if(header < sizeof(*tcp) || header > size)
++        return 0;
++    for(size_t i = sizeof(*tcp); i < header;) {
++        uint8_t kind = wire[i++];
++        if(kind == TCP_OPT_EOL)
++            break;
++        if(kind == TCP_OPT_NOP)
++            continue;
++        if(i >= header)
++            return 0;
++        size_t length = wire[i];
++        if(length < 2 || length-1 > header-i)
++            return 0;
++        if(kind == TCP_OPT_MSS && (length != 4 || !(wire[i+1] | wire[i+2])))
++            return 0;
++        i += length-1;
++    }
++    return 1;
+ }
+
+ static int net_tcp_input(netif_t *src, int domain, const void *hdr,
+@@ -2982,6 +3040,8 @@
+             return -1;
+     }
+
++    if(!tcp_header_valid(data, size))
++        return 0;
+     tcp = (const tcp_hdr_t *)data;
+
+     /* Check the TCP checksum */
+@@ -3067,6 +3127,12 @@
+         mutex_lock_scoped(&i->mutex);
+         timer = timer_ms_gettime64();
+
++        if((i->intflags & TCP_IFLAG_CANBEDEL) && i->state != TCP_STATE_TIME_WAIT &&
++                i->data.orphan_deadline && timer >= i->data.orphan_deadline) {
++            i->state = TCP_STATE_CLOSED;
++            continue;
++        }
++
+         switch(i->state) {
+             case TCP_STATE_LISTEN:
+                 break;
+@@ -3095,6 +3161,15 @@
+
+                 break;
+
++            case TCP_STATE_FIN_WAIT_1:
++            case TCP_STATE_LAST_ACK:
++            case TCP_STATE_CLOSING:
++                if(i->data.timer + TCP_DEFAULT_RTTO <= timer) {
++                    tcp_send_fin_ack(i, i->data.snd.nxt - 1);
++                    i->data.timer = timer;
++                }
++                break;
++
+             case TCP_STATE_TIME_WAIT:
+
+                 /* If the TIME-WAIT timer has expired, then clean up the rest of
+@@ -3121,15 +3196,7 @@
+                 }
+                 else if(!i->data.sndbuf_cur_sz &&
+                         (i->intflags & TCP_IFLAG_QUEUEDCLOSE)) {
+-                    if(i->state == TCP_STATE_ESTABLISHED) {
+-                        i->state = TCP_STATE_FIN_WAIT_1;
+-                    }
+-                    else {
+-                        i->state = TCP_STATE_CLOSING;
+-                    }
+-
+-                    tcp_send_fin_ack(i);
+-                    ++i->data.snd.nxt;
++                    tcp_begin_close(i);
+                 }
+
+                 break;

@@ -4,8 +4,10 @@
 #include "kui/shell_font.h"
 #include "kui/retail_image.h"
 #include "kui/storage.h"
+#include "kui/media_container.h"
 #include "shell_art.inc"
 #include "kui/splash.h"
+#include "kui/theme_filter.h"
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
@@ -13,11 +15,29 @@
 /* Original K-UI palette and split-pane launcher, drawn independently of the
  * legacy UI framework. Artwork and font masks are embedded: no device I/O,
  * decoding or allocation while the capture worker is active. */
-enum { NAVY=0x0864, PANEL=0x10c6, SELECTED=0x494b, EDGE=0x318a,
-    WHITE=0xf7bf, MUTED=0xadd9, CYAN=0x675e, PINK=0xf3fb,
-    GREEN=0x8ef6, AMBER=0xfda9 };
-struct paint { uint16_t *fb; kui_shell_text_fn text; void *ctx; bool crisp,clip; unsigned clip_top,clip_bottom; };
+struct paint { uint16_t *fb; kui_shell_text_fn text; void *ctx; bool crisp,clip;
+    unsigned clip_top,clip_bottom;uint16_t colors[KUI_THEME_COLOR_COUNT]; };
+/* Keep every drawing helper on the same published palette, without mutable
+ * global state or repeated color conversion at each text/panel operation. */
+#define NAVY (p->colors[KUI_THEME_BACKGROUND])
+#define PANEL (p->colors[KUI_THEME_PANEL])
+#define SELECTED (p->colors[KUI_THEME_SELECTION])
+#define EDGE (p->colors[KUI_THEME_EDGE])
+#define WHITE (p->colors[KUI_THEME_TEXT])
+#define MUTED (p->colors[KUI_THEME_MUTED])
+#define CYAN (p->colors[KUI_THEME_ACCENT])
+#define PINK (p->colors[KUI_THEME_ACCENT2])
+#define GREEN (p->colors[KUI_THEME_SUCCESS])
+#define AMBER (p->colors[KUI_THEME_WARNING])
+#define SELECTION_TEXT (p->colors[KUI_THEME_SELECTION_TEXT])
+static void paint_palette(struct paint *p,const struct kui_shell_view *v) {
+    struct kui_theme_palette fallback;
+    if(!v->theme_palette)kui_theme_palette_default(&fallback);
+    const struct kui_theme_palette *palette=v->theme_palette?v->theme_palette:&fallback;
+    for(unsigned i=0;i<KUI_THEME_COLOR_COUNT;i++)p->colors[i]=kui_theme_rgb565(palette->colors[i]);
+}
 static void path_words(struct paint *,unsigned,unsigned,unsigned,uint16_t,const char *);
+static void centred(struct paint *,unsigned,unsigned,unsigned,uint16_t,const char *);
 static unsigned word_width(const struct paint *p,const char *text,bool large) {
     return p->crisp?kui_shell_font_width_crisp(text,large):kui_shell_font_width(text,large);
 }
@@ -33,6 +53,18 @@ static void box(struct paint *p, unsigned x, unsigned y,
     }
     for(unsigned row=y; row<y+h; ++row)
         for(unsigned col=x; col<x+w; ++col) p->fb[row*640+col] = color;
+}
+/* The thumb covers the visible fraction and reaches the bottom on the last page. */
+static void list_scrollbar(struct paint *p,unsigned x,unsigned y,unsigned height,
+        unsigned first,unsigned visible,unsigned total) {
+    if(!height || !visible || total<=visible) return;
+    unsigned thumb=(unsigned)((uint64_t)height*visible/total);
+    if(thumb<12u) thumb=height<12u?height:12u;
+    unsigned last=total-visible;
+    if(first>last) first=last;
+    unsigned offset=(unsigned)((uint64_t)first*(height-thumb)/last);
+    box(p,x,y,6,height,EDGE);
+    box(p,x,y+offset,6,thumb,CYAN);
 }
 static void words(struct paint *p, unsigned x, unsigned y,
         unsigned right, uint16_t color, const char *value, bool large) {
@@ -60,10 +92,12 @@ static void words(struct paint *p, unsigned x, unsigned y,
         clipped[--n]='\0'; truncated=true;
     }
     if(truncated) {
+        unsigned ellipsis=word_width(p,"...",large);
+        unsigned spacing=p->crisp?0u:KUI_SHELL_FONT_LETTER_SPACING;
         while(n && (n+4>sizeof(clipped) ||
-                word_width(p,clipped,large)+word_width(p,"...",large)>right-x))
+                word_width(p,clipped,large)+spacing+ellipsis>right-x))
             clipped[--n]='\0';
-        if(n+4<=sizeof(clipped) && word_width(p,"...",large)<=right-x)
+        if(n+4<=sizeof(clipped) && ellipsis<=right-x)
             memcpy(clipped+n,"...",4);
     }
     if(p->crisp) kui_shell_font_draw_crisp(p->fb,(int)x,(int)y,color,clipped,large);
@@ -113,30 +147,46 @@ static void art(struct paint *p, unsigned x, unsigned y,
         if(color!=KUI_ART_TRANSPARENT) p->fb[(y+row)*640+x+col]=color;
     }
 }
+static void original_brand(struct paint *p,unsigned x,unsigned y) {
+    art(p,x,y,KUI_ART_BRAND_WIDTH,KUI_ART_BRAND_HEIGHT,art_pack(KUI_ART_BRAND_OFFSET));
+}
 static const char *state(const struct kui_shell_view *v) {
     if(v->saving) return v->cancel_requested ? "CANCELLING SAVE" : "SAVING REPORT";
     if(v->busy) return v->cancel_requested ? "STOP REQUESTED" : "WORKING";
     return "READY";
 }
 static void heading(struct paint *p, const struct kui_shell *s,const struct kui_shell_view *v) {
-    art(p,32,20,128,64,art_pack(KUI_ART_BRAND_OFFSET));
-    words(p,176,26,396,WHITE,KUI_RELEASE_SHORT,true);
+    const struct kui_theme_image *header=v->theme_images?&v->theme_images[KUI_THEME_HEADER]:NULL;
+    if(header && header->pixels && header->width==640u && header->height==100u)
+        memcpy(p->fb,header->pixels,640u*100u*sizeof(*p->fb));
+    else if(!v->theme_asset_status || v->theme_asset_status[KUI_THEME_HEADER]!=KUI_THEME_ASSET_DISABLED)
+        original_brand(p,32,20);
     const char *credit=v->busy || v->saving?state(v):"by TacitusVox / READY";
-    words(p,176,52,396,MUTED,credit,false);
-    /* Keep the project link beneath the brand, with normal letter spacing.
-     * It has the whole left header width rather than a cramped middle column. */
-    words(p,32,78,396,CYAN,"github.com/TacitusVox/K-UI-NeXT",false);
     char music[48];
     const char *prefix=s->page==KUI_SHELL_HOME&&!v->busy?"Y Music":"Music";
     if(v->music_change_pending) snprintf(music,sizeof(music),"Music change queued");
     else if(!v->music_enabled) snprintf(music,sizeof(music),"%s off",prefix);
     else if(v->music_paused) snprintf(music,sizeof(music),"%s paused",prefix);
     else snprintf(music,sizeof(music),"%s %u%%",prefix,v->music_volume);
-    words(p,412,26,608,v->music_playing?CYAN:MUTED,music,false);
-    words(p,412,48,608,v->music_enabled?WHITE:MUTED,
-        v->music_title&&v->music_title[0]?v->music_title:"No song selected",false);
+    const char *song=v->music_title&&v->music_title[0]?v->music_title:"No song selected";
+    const char *url="github.com/TacitusVox/K-UI-NeXT";
     char build[40]; snprintf(build,sizeof(build),"Build %.12s",v->build?v->build:"local");
-    label(p,416,74,MUTED,build);
+    if(v->branded_banner && header && header->pixels) {
+        /* The converter keeps the original wide logo in the left 320 pixels. */
+        words(p,328,24,442,WHITE,KUI_RELEASE_SHORT,false);
+        words(p,446,24,608,MUTED,build,false);
+        words(p,328,42,495,MUTED,credit,false);
+        words(p,499,42,608,v->music_playing?CYAN:MUTED,music,false);
+        words(p,328,60,608,v->music_enabled?WHITE:MUTED,song,false);
+        words(p,328,78,608,CYAN,url,false);
+    } else {
+        words(p,176,26,396,WHITE,KUI_RELEASE_SHORT,true);
+        words(p,176,52,396,MUTED,credit,false);
+        words(p,32,78,396,CYAN,url,false);
+        words(p,412,26,608,v->music_playing?CYAN:MUTED,music,false);
+        words(p,412,48,608,v->music_enabled?WHITE:MUTED,song,false);
+        label(p,416,74,MUTED,build);
+    }
     rule(p,98);
 }
 static void footer(struct paint *p, const struct kui_shell *s,
@@ -144,6 +194,12 @@ static void footer(struct paint *p, const struct kui_shell *s,
     rule(p,416);
     bool song_page=s->page==KUI_SHELL_HOME || s->page==KUI_SHELL_RIPPER;
     const char *controls=v->video_trial ? "A Keep mode   B Revert" :
+        s->theme_loading ? "Loading appearance; please wait" :
+        s->page==KUI_SHELL_THEME_MENU_PREVIEW ? "Preview   B Back to edit   START Apply" :
+        s->page==KUI_SHELL_THEME_PICKER ? "UP/DOWN Browse   A Choose   B Cancel" :
+        s->page==KUI_SHELL_APPEARANCE && s->theme_selected<4u ? "A Browse   X Rescan   Y Preview   START Apply   B Cancel" :
+        s->page==KUI_SHELL_APPEARANCE ? "A Choose   X Rescan   Y Preview   START Apply   B Cancel" :
+        s->page==KUI_SHELL_THEME_COLORS ? "A Done   X Reset color   Y Preview   START Apply   B Back" :
         v->busy ? (s->page==KUI_SHELL_SALVAGE && !s->salvage_trial_result?
             (s->salvage_details?"Y Overview   B Stop safely":"Y Details   B Stop safely"):
             s->page==KUI_SHELL_WIFI && s->wifi.firmware_committing?"Finishing update; keep the console powered on":
@@ -262,9 +318,9 @@ static void footer(struct paint *p, const struct kui_shell *s,
             kui_shell_games_zso_selected(s)?"Y ZSO codec   X Inspect again   B Back":
             s->games_from_files?"X Inspect again   B Files":kui_shell_games_variant_label(s)?
                 "X Inspect again   B Versions":"X Inspect again   B Games") :
-        s->page==KUI_SHELL_FILES ? (s->files_screenshots?"B Back   START Home   LEFT/RIGHT Page":"B Up   START Home   LEFT/RIGHT Page") :
+        s->page==KUI_SHELL_FILES ? (s->files_screenshots?"B Back   START Home   UP/DOWN Scroll":"B Up   START Home   UP/DOWN Scroll") :
         s->page==KUI_SHELL_FILES_ACTIONS ? "D-pad Select   A Choose   B Files" :
-        s->page==KUI_SHELL_FILES_PICK ? "B Up   START Cancel   LEFT/RIGHT Page" :
+        s->page==KUI_SHELL_FILES_PICK ? "B Up   START Cancel   UP/DOWN Scroll" :
         s->page==KUI_SHELL_FILES_CONFIRM ? (kui_shell_files_ready(s)?(s->files_job.op==KUI_FILES_OP_COPY?
             "A Copy   B Cancel":s->files_job.op==KUI_FILES_OP_MOVE?"A Move   B Cancel":"A Delete   B Cancel"):"B Back") :
         s->page==KUI_SHELL_FILES_INFO || s->page==KUI_SHELL_FILES_VIEW ? "B Files" :
@@ -277,6 +333,8 @@ static void footer(struct paint *p, const struct kui_shell *s,
         s->page==KUI_SHELL_SCI_ASYNC_PROBE ? "A Quick   X 60s stress   Y With screen   R Speed   B Back" :
         s->page==KUI_SHELL_STORAGE_TEST_HISTORY ? "A View   Y Baseline   X Refresh   B Back" :
         s->page==KUI_SHELL_WIFI ? (s->wifi.found?"A Join   X Scan   Y Forget   START Update   B Network":"X Look again   B Network") :
+        s->page==KUI_SHELL_GAMES_MEDIA ? (v->busy?"B Stop":s->games_media_report?
+            (s->games_media_readable?"X Read manual   A or B Back":"A or B Back"):"D-pad Select   A Choose   B Options") :
         s->page==KUI_SHELL_GAMES_ADVANCED ? (s->games_advanced_selected==6u?
             "LEFT/RIGHT Layout   A Next and open   B Games":"D-pad Select   A Open   B Games") :
         s->page==KUI_SHELL_GAMES_PROBE_CONFIRM ? "A Start test   B Tests" :
@@ -630,6 +688,7 @@ static void advanced(struct paint *p,const struct kui_shell *s) {
         if(selected==i) box(p,32,y+3,3,14,PINK);
         label(p,48,y+2,selected==i?WHITE:MUTED,names[i]);
     }
+    list_scrollbar(p,600,156,174,first,8,KUI_SHELL_RIPPER_TOOL_COUNT);
     for(unsigned i=0;i<3;i++) label(p,40,344+i*18,MUTED,details[selected][i]);
     if(selected==KUI_SHELL_RIPPER_TOOL_JOB) {
         panel(p,32,397,576,22,PANEL);
@@ -703,21 +762,25 @@ static void system_settings(struct paint *p,const struct kui_shell *s,const stru
     title(p,40,108,"System settings");
     label(p,40,136,MUTED,"UP/DOWN Choose   LEFT/RIGHT Change");
     const char *names[]={"Video mode","Home memory display","Background music","Music volume",
-        "Startup chime","Start in","Console clock","Restore defaults","Safe area","System tools","Menu sounds","Controls","Updates"};
+        "Startup chime","Start in","Console clock","Restore defaults","Safe area","System tools","Menu sounds","Controls","Updates","Appearance"};
     char volume[16];snprintf(volume,sizeof(volume),"%u%%",s->system_draft.music_volume);
     const char *values[]={kui_system_video_name(s->system_draft.video_mode),
         s->system_draft.show_memory?"ON":"OFF",s->system_draft.music_enabled?"ON":"OFF",volume,
         s->system_draft.startup_chime?"ON":"OFF",kui_system_startup_name(s->system_draft.startup_app),
         "A Edit local time","A Review",s->system_draft.screen_inset==2?"32 px sides":
-        s->system_draft.screen_inset==1?"16 px sides":"Full width","A Open",s->system_draft.menu_sounds?"ON":"OFF","A Open","A Open"};
-    unsigned first=s->system_selected>=8?s->system_selected-6:0;
+        s->system_draft.screen_inset==1?"16 px sides":"Full width","A Open",s->system_draft.menu_sounds?"ON":"OFF","A Open","A Open","A Open"};
+    char position[16];
+    snprintf(position,sizeof(position),"%u/%u",s->system_selected+1u,KUI_SHELL_SYSTEM_ROWS);
+    label(p,552,136,CYAN,position);
+    unsigned first=s->system_selected>=8u?s->system_selected-7u:0u;
     for(unsigned i=first;i<first+8 && i<KUI_SHELL_SYSTEM_ROWS;i++) {
         unsigned y=158+(i-first)*25;
         panel(p,32,y,576,23,i==s->system_selected?SELECTED:PANEL);
         if(i==s->system_selected) box(p,32,y+3,3,17,PINK);
-        label(p,48,y+3,WHITE,names[i]);
-        words(p,400,y+3,596,i==s->system_selected?CYAN:MUTED,values[i],false);
+        label(p,48,y+3,i==s->system_selected?SELECTION_TEXT:WHITE,names[i]);
+        words(p,400,y+3,596,i==s->system_selected?SELECTION_TEXT:MUTED,values[i],false);
     }
+    list_scrollbar(p,600,158,198,first,8,KUI_SHELL_SYSTEM_ROWS);
     const char *detail=s->system_selected==0?"640x480 output. VGA follows the connected cable.":
         s->system_selected==1?"Ripper RAM and peak usage are always displayed.":
         s->system_selected<=3?"X Next song. Music continues when you leave this page.":
@@ -729,11 +792,166 @@ static void system_settings(struct paint *p,const struct kui_shell *s,const stru
         s->system_selected==9?"Inspect hardware, save verified backups, or restart K-UI.":
         s->system_selected==10?"Play a short sound for menu movement and selection.":
         s->system_selected==11?"Adjust menu repeat speed and the analog stick deadzone.":
-        "Check offline release packages, install or restore a version.";
+        s->system_selected==12?"Check offline release packages, install or restore a version.":
+        "Choose themes, individual images and colors. Preview before saving.";
     label(p,40,366,MUTED,detail);
     label(p,40,390,kui_shell_system_dirty(s)?AMBER:CYAN,kui_shell_system_dirty(s)?
         "Unsaved changes. A saves; B discards.":v->settings_notice&&v->settings_notice[0]?
         v->settings_notice:"A saves preferences; clock and tools open separately.");
+}
+static const char *theme_name(const struct kui_shell *s,const char *id) {
+    if(!id[0])return "Follow theme";
+    if(!strcmp(id,"none"))return "None";
+    if(!strcmp(id,"default"))return "K-UI Original";
+    if(s->theme_catalog)for(unsigned i=0;i<s->theme_catalog->count && i<KUI_THEME_CATALOG_MAX;i++)
+        if(!strcmp(s->theme_catalog->themes[i].id,id))return s->theme_catalog->themes[i].name;
+    return id;
+}
+static void appearance_page(struct paint *p,const struct kui_shell *s) {
+    title(p,40,108,"Appearance");
+    label(p,40,136,MUTED,s->theme_selected<4u?"UP/DOWN Select   LEFT/RIGHT Cycle":"UP/DOWN Select");
+    const char *names[]={"Theme","Splash","Banner","Background","Colors","Preview","Apply","Restore defaults"};
+    const char *values[]={theme_name(s,s->theme_draft.theme_id),theme_name(s,s->theme_draft.splash_id),
+        theme_name(s,s->theme_draft.header_id),theme_name(s,s->theme_draft.background_id),
+        s->theme_draft.override_mask?"Custom colors":"Theme palette","Try without saving","Save to SD","Reset draft"};
+    for(unsigned i=0;i<8u;i++) {
+        unsigned y=158+i*25;bool selected=i==s->theme_selected;
+        panel(p,32,y,576,23,selected?SELECTED:PANEL);
+        if(selected)box(p,32,y+3,3,17,PINK);
+        words(p,48,y+3,276,selected?SELECTION_TEXT:WHITE,names[i],false);
+        words(p,284,y+3,596,selected?SELECTION_TEXT:MUTED,values[i],false);
+    }
+    const char *notice=s->theme_notice[0]?s->theme_notice:s->theme_preview_active?
+        (s->theme_preview_stale?"Draft changed. Preview again to see the new choices.":"Preview active. Apply saves; Cancel restores."):
+        kui_shell_theme_dirty(s)?"Unsaved draft. Preview tries it; Apply saves it.":"Saved appearance. All choices are reversible.";
+    label(p,40,366,s->theme_failed?AMBER:s->theme_loading?CYAN:MUTED,notice);
+    label(p,40,390,MUTED,s->theme_selected==0?"Choosing a theme resets image overrides and custom colors.":
+        s->theme_selected==2?"Choose the banner across the top of menus. Y previews it.":
+        s->theme_selected<4?"Follow theme, K-UI Original, None, or an installed theme.":
+        s->theme_catalog && s->theme_catalog->truncated?"Theme list is full. Remove unused folders, then X Rescan.":
+        "Themes live in /KUI/themes. X rescans the card.");
+}
+static void theme_picker_preview(struct paint *p,const struct kui_shell *s,const struct kui_shell_view *v) {
+    const bool banner=s->theme_selected==2u,background=s->theme_selected==3u;
+    const unsigned width=KUI_THEME_THUMB_WIDTH;
+    const struct kui_theme_image *image=v->theme_picker_image;
+    enum kui_theme_asset_status status=v->theme_picker_status;
+    unsigned height=banner?KUI_THEME_THUMB_HEADER_HEIGHT:KUI_THEME_THUMB_HEIGHT;
+    /* Wide logo packs reserve half the console header for the HUD. The
+     * asset loader can supply their left artwork region at native size. */
+    if(banner && (status==KUI_THEME_ASSET_DEFAULT ||
+       (status==KUI_THEME_ASSET_READY && image && image->height==KUI_THEME_THUMB_BRANDED_HEIGHT)))
+        height=KUI_THEME_THUMB_BRANDED_HEIGHT;
+    const unsigned x=284u,y=158u+(KUI_THEME_THUMB_HEIGHT-height)/2u;
+    panel(p,x-4u,154u,width+8u,KUI_THEME_THUMB_HEIGHT+8u,PANEL);
+    if(status==KUI_THEME_ASSET_READY && image && image->pixels &&
+       image->width==width && image->height==height) {
+        for(unsigned row=0;row<height;row++)
+            memcpy(p->fb+(y+row)*640+x,image->pixels+row*width,width*sizeof(*image->pixels));
+        return;
+    }
+    if((background && (status==KUI_THEME_ASSET_DISABLED || status==KUI_THEME_ASSET_DEFAULT)) ||
+       (banner && status==KUI_THEME_ASSET_DEFAULT)) {
+        struct kui_theme_palette palette;
+        kui_shell_theme_draft_palette(s,&palette);
+        box(p,x-1,y-1,width+2,height+2,EDGE);
+        uint16_t fill=kui_theme_rgb565(palette.colors[KUI_THEME_BACKGROUND]);
+        box(p,x,y,width,height,fill);
+        if(banner)
+            original_brand(p,x+(width-KUI_ART_BRAND_WIDTH)/2u,y+(height-KUI_ART_BRAND_HEIGHT)/2u);
+        return;
+    }
+    const char *message=status==KUI_THEME_ASSET_CANCELLED?"Loading preview...":
+        status==KUI_THEME_ASSET_DISABLED?(banner?"No banner":background?"No background image":"No splash"):
+        "Preview unavailable";
+    centred(p,x,269,width,status==KUI_THEME_ASSET_FAILED?AMBER:MUTED,message);
+}
+static void theme_picker_page(struct paint *p,const struct kui_shell *s,const struct kui_shell_view *v) {
+    static const char *const titles[]={"Choose a theme","Choose a splash","Choose a banner","Choose a background"};
+    unsigned row=s->theme_selected<4u?s->theme_selected:0u;
+    const char *current=row==0u?s->theme_draft.theme_id:row==1u?s->theme_draft.splash_id:
+        row==2u?s->theme_draft.header_id:s->theme_draft.background_id;
+    unsigned count=kui_shell_theme_choice_count(s);
+    title(p,40,108,titles[row]);
+    char position[32];snprintf(position,sizeof(position),"%u of %u",count?s->theme_picker_index+1u:0u,count);
+    label(p,40,136,MUTED,position);
+    const char *preview_label="Preview";
+    if(row==3u && v->theme_picker_status==KUI_THEME_ASSET_DEFAULT)preview_label="Uses menu background color";
+    if(row==3u && v->theme_picker_status==KUI_THEME_ASSET_DISABLED)preview_label="No background image";
+    label(p,284,136,MUTED,preview_label);
+    panel(p,32,154,236,248,PANEL);
+    for(unsigned i=0;i<KUI_THEME_PICKER_ROWS && s->theme_picker_first+i<count;i++) {
+        unsigned index=s->theme_picker_first+i,y=154+i*31;
+        const char *id=kui_shell_theme_choice_id(s,index);
+        if(!id)continue;
+        bool focused=index==s->theme_picker_index,chosen=!strcmp(id,current);
+        if(focused) {
+            panel(p,32,y,226,29,SELECTED);
+            box(p,32,y+4,3,21,PINK);
+        }
+        if(chosen) {
+            uint16_t ink=focused?SELECTION_TEXT:CYAN;
+            for(unsigned j=0;j<4;j++)box(p,40+j,y+13+j,2,3,ink);
+            for(unsigned j=0;j<7;j++)box(p,44+j,y+16-j,2,3,ink);
+        }
+        words(p,56,y+5,255,focused?SELECTION_TEXT:WHITE,theme_name(s,id),false);
+    }
+    list_scrollbar(p,262,154,248,s->theme_picker_first,KUI_THEME_PICKER_ROWS,count);
+    theme_picker_preview(p,s,v);
+}
+static void theme_colors_page(struct paint *p,const struct kui_shell *s) {
+    static const char *presets[]={"Theme","Neon","Ember","Mono","Custom"};
+    struct kui_theme_palette palette;kui_shell_theme_draft_palette(s,&palette);
+    unsigned role=s->theme_color_role<KUI_THEME_COLOR_COUNT?s->theme_color_role:0u;
+    uint32_t rgb=palette.colors[role];
+    title(p,40,108,"Appearance / colors");label(p,40,136,MUTED,"UP/DOWN Choose   LEFT/RIGHT Change");
+    const char *names[]={"Preset","Color","Red","Green","Blue"};
+    char red[8],green[8],blue[8];snprintf(red,sizeof(red),"%u",(unsigned)((rgb>>16)&255u));
+    snprintf(green,sizeof(green),"%u",(unsigned)((rgb>>8)&255u));snprintf(blue,sizeof(blue),"%u",(unsigned)(rgb&255u));
+    const char *values[]={presets[s->theme_color_preset<5u?s->theme_color_preset:4u],kui_theme_color_name(role),red,green,blue};
+    for(unsigned i=0;i<5u;i++) {
+        unsigned y=168+i*34;bool selected=i==s->theme_color_selected;
+        panel(p,32,y,310,30,selected?SELECTED:PANEL);
+        words(p,44,y+6,116,selected?SELECTION_TEXT:WHITE,names[i],false);
+        words(p,122,y+6,330,selected?SELECTION_TEXT:MUTED,values[i],false);
+    }
+    /* Only this sample uses the draft palette until Preview publishes it. */
+    box(p,360,168,248,166,kui_theme_rgb565(palette.colors[KUI_THEME_BACKGROUND]));
+    panel(p,372,180,224,58,kui_theme_rgb565(palette.colors[KUI_THEME_PANEL]));
+    words(p,384,190,584,kui_theme_rgb565(palette.colors[KUI_THEME_TEXT]),"Panel text",false);
+    words(p,384,212,584,kui_theme_rgb565(palette.colors[KUI_THEME_MUTED]),"Secondary text",false);
+    panel(p,372,250,224,32,kui_theme_rgb565(palette.colors[KUI_THEME_SELECTION]));
+    words(p,384,258,584,kui_theme_rgb565(palette.colors[KUI_THEME_SELECTION_TEXT]),"Selected item",false);
+    for(unsigned i=0;i<5u;i++)box(p,372+i*45,298,36,20,kui_theme_rgb565(palette.colors[KUI_THEME_ACCENT+i]));
+    char line[96];snprintf(line,sizeof(line),"#%06lX  /  %s",(unsigned long)rgb,
+        (s->theme_draft.override_mask&(1u<<role))?"Custom color":"Theme color");
+    label(p,40,354,CYAN,line);
+    label(p,40,378,MUTED,"RGB: 0-255. Hold a direction to repeat; sample updates here.");
+    label(p,40,398,MUTED,"Y previews this palette on the menu. START saves.");
+}
+static void theme_menu_preview(struct paint *p,const struct kui_shell *s,const struct kui_shell_view *v) {
+    bool component=s->theme_preview_return==KUI_SHELL_APPEARANCE &&
+        (s->theme_selected==2u || s->theme_selected==3u);
+    if(!component)home(p,s,v);
+    if(component || s->theme_loading || s->theme_failed) {
+        panel(p,32,366,576,36,PANEL);
+        const char *text=s->theme_loading || s->theme_failed?s->theme_notice:
+            s->theme_selected==2u?"Banner preview":"Background preview";
+        label(p,48,374,s->theme_failed?AMBER:WHITE,text);
+    }
+}
+static void theme_splash_page(struct paint *p,const struct kui_shell *s,const struct kui_shell_view *v) {
+    const struct kui_theme_image *splash=v->theme_images?&v->theme_images[KUI_THEME_SPLASH]:NULL;
+    bool pixels=splash && splash->pixels && splash->width==640u && splash->height==480u;
+    if(pixels)memcpy(p->fb,splash->pixels,640u*480u*sizeof(*p->fb));
+    else {
+        box(p,0,0,640,480,NAVY);title(p,40,180,"Startup splash preview");
+        label(p,40,222,MUTED,v->theme_asset_status && v->theme_asset_status[KUI_THEME_SPLASH]==KUI_THEME_ASSET_DISABLED?
+            "Splash disabled. Startup goes straight to the launcher.":"Built-in splash preview is unavailable.");
+    }
+    panel(p,32,414,576,30,PANEL);
+    label(p,48,420,WHITE,s->theme_loading || s->theme_failed?s->theme_notice:
+        "Temporary splash preview   B Back to edit   START Apply");
 }
 static void controls_page(struct paint *p,const struct kui_shell *s) {
     title(p,40,108,"Menu controls");label(p,40,140,MUTED,"UP/DOWN Choose   LEFT/RIGHT Change");
@@ -2355,9 +2573,11 @@ static void cd_audio(struct paint *p,const struct kui_shell *s,const struct kui_
     label(p,40,136,CYAN,line);
     label(p,40,160,v->busy?MUTED:WHITE,"A Play track   Y Pause / resume   X Stop");
     panel(p,32,190,576,178,PANEL);
-    unsigned count=cd->count<99?cd->count:99,first=s->cd_selected/8*8;
+    const unsigned visible=8;
+    unsigned count=cd->count<99?cd->count:99;
+    unsigned first=s->cd_selected>=visible?s->cd_selected-visible+1:0;
     if(!count) label(p,48,206,MUTED,v->busy?"Reading audio CD...":"Insert an audio CD, then press R Refresh.");
-    for(unsigned i=first;i<count && i<first+8;i++) {
+    for(unsigned i=first;i<count && i<first+visible;i++) {
         unsigned y=196+(i-first)*21;
         if(i==s->cd_selected) panel(p,40,y,560,21,SELECTED);
         snprintf(line,sizeof(line),"Track %02u%s",cd->tracks[i].number,
@@ -2366,6 +2586,7 @@ static void cd_audio(struct paint *p,const struct kui_shell *s,const struct kui_
         snprintf(line,sizeof(line),"%u:%02u",cd->tracks[i].seconds/60,cd->tracks[i].seconds%60);
         label(p,500,y+1,MUTED,line);
     }
+    list_scrollbar(p,600,196,visible*21,first,visible,count);
     label(p,40,378,cd->poisoned?AMBER:CYAN,cd->message);
     label(p,40,396,MUTED,"CD playback stops before a rip or another disc operation.");
 }
@@ -2441,11 +2662,39 @@ static const uint16_t *entry_cover(const struct kui_shell *s,const struct kui_sh
     if(l->view==KUI_GAMES_VIEW_COMPACT || l->view==KUI_GAMES_VIEW_GALLERY) return v->game_tile_covers[i];
     return NULL;
 }
-static void entry_art(struct paint *p,const struct kui_shell *s,const struct kui_shell_view *v,
+/* Letterbox a local movie in the cover's square. The 160-pixel list and flow
+ * panels copy native rows. Smaller tiles reuse one nearest-neighbor column map. */
+static void preview_image(struct paint *p,unsigned x,unsigned y,unsigned edge,const uint16_t *frame) {
+    if(!edge || edge>KUI_COVER_LARGE || x>640-edge || y>480-edge)return;
+    unsigned height=edge*KUI_PREVIEW_HEIGHT/KUI_PREVIEW_WIDTH;
+    unsigned margin=(edge-height)/2;
+    box(p,x,y,edge,margin,0);
+    box(p,x,y+margin+height,edge,edge-margin-height,0);
+    uint16_t *dest=p->fb+(y+margin)*640+x;
+    if(edge==KUI_PREVIEW_WIDTH) {
+        for(unsigned row=0;row<height;row++,dest+=640)
+            memcpy(dest,frame+row*KUI_PREVIEW_WIDTH,KUI_PREVIEW_WIDTH*sizeof(*dest));
+        return;
+    }
+    unsigned columns[KUI_COVER_LARGE];
+    for(unsigned col=0;col<edge;col++)columns[col]=col*KUI_PREVIEW_WIDTH/edge;
+    for(unsigned row=0;row<height;row++,dest+=640) {
+        const uint16_t *source=frame+(row*KUI_PREVIEW_HEIGHT/height)*KUI_PREVIEW_WIDTH;
+        for(unsigned col=0;col<edge;col++)dest[col]=source[columns[col]];
+    }
+}
+static bool entry_art(struct paint *p,const struct kui_shell *s,const struct kui_shell_view *v,
         unsigned i,unsigned x,unsigned y,unsigned edge) {
+    const struct kui_games_entry *entry=&s->games_listing.entries[i];
+    if(v->game_preview_frame && !s->games_loading && !s->games_turning && i==s->games_selected &&
+       s->games_listing.view==kui_shell_games_view(s) && !entry->directory && !entry->disabled) {
+        preview_image(p,x,y,edge,v->game_preview_frame);
+        return true;
+    }
     const uint16_t *pixels=entry_cover(s,v,i);
-    if(pixels) cover_image(p,x,y,edge,pixels);
-    else placeholder(p,x,y,edge,s->games_listing.entries[i].directory);
+    if(pixels)cover_image(p,x,y,edge,pixels);
+    else placeholder(p,x,y,edge,entry->directory);
+    return pixels!=NULL;
 }
 /* Text centred in a cell, shortened with an ellipsis when it cannot fit. */
 static void centred(struct paint *p,unsigned x,unsigned y,unsigned width,uint16_t color,const char *text) {
@@ -2496,10 +2745,8 @@ static void games_flow(struct paint *p,const struct kui_shell *s,const struct ku
     if(selected>=s->games_listing.count)selected=0u;
     if(s->games_listing.count) {
         const struct kui_games_entry *e=&s->games_listing.entries[selected];
-        const uint16_t *pixels=entry_cover(s,v,selected);
-        if(pixels)cover_image(p,436,166,KUI_COVER_LARGE,pixels);
-        else placeholder(p,436,166,KUI_COVER_LARGE,e->directory);
-        centred(p,436,336,KUI_COVER_LARGE,MUTED,e->directory?"Folder":pixels?"":
+        bool art=entry_art(p,s,v,selected,436,166,KUI_COVER_LARGE);
+        centred(p,436,336,KUI_COVER_LARGE,MUTED,e->directory?"Folder":art?"":
             s->games_art_loading?"Loading box art...":"No box art yet");
     } else if(!v->busy)label(p,40,210,MUTED,"No games match this view.");
     label(p,40,398,s->games_loading?CYAN:s->games_listing.activity_notice?AMBER:MUTED,
@@ -2567,10 +2814,8 @@ static void games(struct paint *p,const struct kui_shell *s,const struct kui_she
     }
     if(view==KUI_GAMES_VIEW_LIST && count) {
         const struct kui_games_entry *e=&l->entries[chosen];
-        const uint16_t *pixels=entry_cover(s,v,chosen);
-        if(pixels) cover_image(p,436,166,KUI_COVER_LARGE,pixels);
-        else placeholder(p,436,166,KUI_COVER_LARGE,e->directory);
-        centred(p,436,336,KUI_COVER_LARGE,MUTED,e->directory?"Folder":pixels?(strcmp(entry_text(e),e->name)?e->name:""):
+        bool art=entry_art(p,s,v,chosen,436,166,KUI_COVER_LARGE);
+        centred(p,436,336,KUI_COVER_LARGE,MUTED,e->directory?"Folder":art?(strcmp(entry_text(e),e->name)?e->name:""):
             s->games_art_loading?"Loading box art...":l->artwork?"No box art found":"No box art yet");
     }
     if(!count && !v->busy) {
@@ -2741,29 +2986,85 @@ static void profile_page(struct paint *p,const struct kui_shell *s) {
 }
 
 static void games_advanced(struct paint *p,const struct kui_shell *s) {
-    title(p,40,108,"Games / Library options");label(p,508,112,MUTED,"10 options");
+    title(p,40,108,"Games / Library options");label(p,508,112,MUTED,"11 options");
     const struct kui_games_entry *entry=s->games_selected<s->games_listing.count?&s->games_listing.entries[s->games_selected]:NULL;
     words(p,40,138,608,CYAN,entry?entry_text(entry):"Source: SD card",false);
     const char *names[]={"Game library","Browse SD folders","Scan box art","Developer tests",
-        "Scan for changes","Rebuild library","Change layout","Search and filters","Edit display choices","Verify stable identity"};
+        "Scan for changes","Rebuild library","Change layout","Search and filters","Edit display choices","Verify stable identity","Scan from internet"};
     const char *details[]={"Open every game in /Games","Find a disc image elsewhere on the card",
         "Covers and titles for every game in /Games","Image and loader read tests",
         "Find added, moved or removed games","Build a fresh saved list; keep game settings",
         "LEFT/RIGHT changes layout here; keeps this tab and selection",
         "Search titles, filter region/disc, or jump to a letter",
         "Set a display name and cover without renaming files",
-        "Read the complete image to verify its content identity"};
+        "Read the complete image to verify its content identity",
+        "Find missing artwork, manuals and previews online"};
     unsigned first=s->games_advanced_selected>=7u?s->games_advanced_selected-6u:0u;
-    for(unsigned i=first;i<first+7u && i<10u;i++) {
+    for(unsigned i=first;i<first+7u && i<11u;i++) {
         unsigned y=164+(i-first)*31;
         panel(p,32,y,576,28,s->games_advanced_selected==i?SELECTED:PANEL);
         label(p,48,y+5,WHITE,names[i]);
         if(i==6)words(p,440,y+5,596,CYAN,kui_shell_games_view(s)==KUI_GAMES_VIEW_COMPACT?"< Compact >":
             kui_shell_games_view(s)==KUI_GAMES_VIEW_GALLERY?"< Gallery >":kui_shell_games_view(s)==KUI_GAMES_VIEW_FLOW?"< Flow >":"< List >",false);
     }
+    list_scrollbar(p,600,164,214,first,7,11);
     const char *notice=s->games_advanced_selected==6u && s->games_layout_notice[0]?s->games_layout_notice:
-        s->games_activity_notice[0]?s->games_activity_notice:details[s->games_advanced_selected<10?s->games_advanced_selected:0];
+        s->games_activity_notice[0]?s->games_activity_notice:details[s->games_advanced_selected<11?s->games_advanced_selected:0];
     words(p,40,396,608,MUTED,notice,false);
+}
+static void games_media(struct paint *p,const struct kui_shell *s,const struct kui_shell_view *v) {
+    title(p,40,108,"Games / Scan from internet");
+    const struct kui_app_status *st=v->app_status;
+    if(s->games_media_report) {
+        panel(p,32,152,576,236,PANEL);
+        label(p,48,170,WHITE,v->busy?"Scanning from internet":"Scan results");
+        if(st) {
+            words(p,48,210,592,st->errors?AMBER:CYAN,st->message,false);
+            if(v->busy && (st->done || st->total)) {
+                char bytes[64];
+                if(st->total) {
+                    unsigned width=st->done>=st->total?544u:(unsigned)(544u*st->done/st->total);
+                    box(p,48,242,544,8,EDGE);
+                    if(width)box(p,48,242,width,8,CYAN);
+                    snprintf(bytes,sizeof(bytes),"%llu / %llu KiB",(unsigned long long)(st->done/1024u),
+                        (unsigned long long)((st->total+1023u)/1024u));
+                } else snprintf(bytes,sizeof(bytes),"%llu KiB received",(unsigned long long)(st->done/1024u));
+                label(p,48,262,CYAN,bytes);
+            }
+            for(unsigned i=0;i<st->line_count && i<4;i++)
+                words(p,48,296+24*i,592,MUTED,st->lines[i],false);
+        }
+        return;
+    }
+    const struct kui_games_entry *e=s->games_selected<s->games_listing.count?&s->games_listing.entries[s->games_selected]:NULL;
+    words(p,40,137,606,CYAN,e && !e->directory && !e->disabled?entry_text(e):"No game selected",false);
+    const char *labels[]={"Start scan","Scan for","Box art","Manuals","Previews","Connection",
+        "Open selected game's manual","Play selected game's preview"};
+    for(unsigned i=0;i<8;i++) {
+        unsigned y=164+i*26;
+        panel(p,32,y,576,24,s->games_media_row==i?SELECTED:PANEL);
+        label(p,46,y+3,WHITE,labels[i]);
+        const char *value="";
+        if(i==1)value=s->games_media_all?"All of /Games":"Selected game";
+        else if(i>=2 && i<=4)value=(s->games_media_kinds&(1u<<(i-2u)))?"On":"Off";
+        else if(i==5) {
+            static const char *const routes[KUI_INTERNET_ROUTE_COUNT]={
+                [KUI_INTERNET_AUTO]="Automatic",[KUI_INTERNET_BBA]="Broadband Adapter",
+                [KUI_INTERNET_W5500]="W5500",[KUI_INTERNET_WIFI]="Wi-Fi",
+                [KUI_INTERNET_DREAMPI]="Dial DreamPi"
+            };
+            value=routes[(unsigned)s->games_media_route<KUI_INTERNET_ROUTE_COUNT?s->games_media_route:KUI_INTERNET_AUTO];
+        }
+        label(p,400,y+3,CYAN,value);
+    }
+    const char *hint="Downloads missing files to the SD card.";
+    if(s->games_media_route==KUI_INTERNET_DREAMPI)hint="Start scan dials the modem. Connect it to your DreamPi.";
+    if(s->games_media_row==2)hint="Download a small regional box cover when available.";
+    if(s->games_media_row==3)hint="Find scanned pages on Internet Archive or a PDF from Digital Press.";
+    if(s->games_media_row==4)hint="Save up to ten seconds of gameplay from an Internet Archive video.";
+    if(s->games_media_row==6)hint="Read a downloaded manual offline. A zooms and the D-pad turns pages.";
+    words(p,40,383,603,s->games_media_notice[0]?AMBER:MUTED,
+        s->games_media_notice[0]?s->games_media_notice:hint,false);
 }
 static void games_probe_confirmation(struct paint *p,const struct kui_shell_view *v) {
     title(p,40,108,"Games / Loader read test");
@@ -2962,6 +3263,7 @@ static void games_extra_options(struct paint *p,const struct kui_shell *s) {
         label(p,48,y+4,ready?WHITE:MUTED,names[i]);
         words(p,350,y+4,592,ready?CYAN:MUTED,values[i],false);
     }
+    list_scrollbar(p,600,174,174,first,8,KUI_SHELL_GAME_TOOL_COUNT);
     const char *hints[]={"Automatic uses the inspected CD boot encoding.",
         native_reader?"Choose New (X), Legacy (Y), or Off with A or left/right.":
             "Aggressive gives the background reader more work per step.",
@@ -3088,39 +3390,41 @@ static void files_progress(struct paint *p,const struct kui_shell *s,const struc
         op==KUI_FILES_OP_DELETE?"B stops; items already deleted stay deleted.":"B stops safely.");
 }
 static void files(struct paint *p,const struct kui_shell *s,const struct kui_shell_view *v) {
-    const struct kui_files_page *l=&s->files_listing;
-    unsigned count=l->count<KUI_FILES_ROWS?l->count:KUI_FILES_ROWS;
+    const struct kui_files_page *l=kui_shell_files_page(s,false);
+    unsigned first=s->files_scroll.first,count=0;
     title(p,40,108,s->files_screenshots?"Screenshot gallery":"File Manager");
     path_words(p,40,136,608,CYAN,s->files_path);
     label(p,40,160,v->busy?MUTED:WHITE,"A Open   X Actions   Y New folder   R Refresh");
     if(v->busy && s->files_running) {files_progress(p,s,v,190);return;}
     panel(p,32,190,576,178,PANEL);
-    if(!count) label(p,48,206,MUTED,v->busy?"Reading folder...":l->message[0]?l->message:"This folder is empty.");
-    for(unsigned i=0;i<count;i++) {
-        const struct kui_files_entry *e=&l->entries[i];
-        unsigned y=196+i*21;
-        bool chosen=i==s->files_selected;
-        if(chosen) panel(p,40,y,560,21,SELECTED);
+    if(!l->count) label(p,48,206,MUTED,v->busy?"Reading folder...":l->message[0]?l->message:"This folder is empty.");
+    for(;count<KUI_FILES_ROWS;count++) {
+        const struct kui_files_entry *e=kui_shell_files_row(s,false,first+count);
+        if(!e)break;
+        unsigned y=196+count*21;
+        bool chosen=first+count==l->before+s->files_selected;
+        if(chosen) panel(p,40,y,548,21,SELECTED);
         char tag[8],size[16];
         files_tag(tag,e);
         uint16_t ink=e->disabled?AMBER:chosen?WHITE:MUTED;
         label(p,50,y+1,e->disabled?AMBER:e->directory?CYAN:MUTED,tag);
-        words(p,100,y+1,e->directory?590:500,ink,e->name,false);
+        words(p,100,y+1,e->directory?584:500,ink,e->name,false);
         if(!e->directory) {
             kui_files_size_text(size,e->bytes);
             unsigned width=kui_shell_font_width(size,false);
-            words(p,590-width,y+1,592,chosen?WHITE:MUTED,size,false);
+            words(p,584-width,y+1,584,chosen?WHITE:MUTED,size,false);
         }
     }
+    list_scrollbar(p,592,196,168,first,count,l->total);
     const char *notice=s->files_notice[0]?s->files_notice:count?l->message:"";
     label(p,40,378,s->files_notice[0]&&s->files_notice_error?AMBER:CYAN,notice);
     char line[160];
     if(s->files_notice_detail[0]) snprintf(line,sizeof(line),"%s",s->files_notice_detail);
     else if(count) {
-        const struct kui_files_entry *e=s->files_selected<count?&l->entries[s->files_selected]:&l->entries[0];
+        const struct kui_files_entry *e=s->files_selected<l->count?&l->entries[s->files_selected]:&l->entries[0];
         char when[20];
         kui_files_date_text(when,e->date,e->time);
-        snprintf(line,sizeof(line),"Items %u-%u of %u   Modified %s%s%s",l->before+1,l->before+count,l->total,when,
+        snprintf(line,sizeof(line),"Items %u-%u of %u   Modified %s%s%s",first+1,first+count,l->total,when,
             e->attributes&AM_RDO?"   Read-only":"",e->attributes&AM_HID?"   Hidden":"");
     } else line[0]=0;
     label(p,40,396,MUTED,line);
@@ -3135,7 +3439,8 @@ static void files_actions(struct paint *p,const struct kui_shell *s) {
         "Review what will be deleted, then confirm.",
         "Size, date, and what a folder holds.",
         "Create a folder in this folder.","Browse saved K-UI captures and open their BMP images."};
-    const struct kui_files_entry *e=s->files_selected<s->files_listing.count?&s->files_listing.entries[s->files_selected]:NULL;
+    const struct kui_files_page *page=kui_shell_files_page(s,false);
+    const struct kui_files_entry *e=s->files_selected<page->count?&page->entries[s->files_selected]:NULL;
     char path[KUI_FILES_PATH_CAP];
     bool usable=e && !e->disabled && kui_files_join(path,s->files_path,e->name);
     bool locked=usable && kui_files_protected(path);
@@ -3155,28 +3460,31 @@ static void files_actions(struct paint *p,const struct kui_shell *s) {
         "K-UI cannot use this name; rename it on a computer.":"");
 }
 static void files_pick(struct paint *p,const struct kui_shell *s,const struct kui_shell_view *v) {
-    const struct kui_files_page *l=&s->files_pick;
+    const struct kui_files_page *l=kui_shell_files_page(s,true);
     bool copy=s->files_job.op==KUI_FILES_OP_COPY;
-    unsigned count=l->count<KUI_FILES_ROWS?l->count:KUI_FILES_ROWS;
+    unsigned first=s->files_pick_scroll.first,count=0;
     title(p,40,108,s->files_pick_import?"Choose an external save":
         s->files_pick_compare?(s->system_compare_bios?"Choose a BIOS image":"Choose a settings-flash image"):
         copy?"Copy to a folder":"Move to a folder");
     path_words(p,40,138,608,CYAN,s->files_pick_path);
     panel(p,32,166,576,204,PANEL);
-    if(!count) label(p,48,188,MUTED,v->busy?"Reading folder...":l->message[0]?l->message:(s->files_pick_compare || s->files_pick_import)?"No files here.":"No folders here.");
-    for(unsigned i=0;i<count;i++) {
-        const struct kui_files_entry *e=&l->entries[i];
-        unsigned y=174+i*23;
-        if(i==s->files_pick_selected) {panel(p,40,y,560,23,SELECTED);box(p,40,y+4,3,15,PINK);}
+    if(!l->count) label(p,48,188,MUTED,v->busy?"Reading folder...":l->message[0]?l->message:(s->files_pick_compare || s->files_pick_import)?"No files here.":"No folders here.");
+    for(;count<KUI_FILES_ROWS;count++) {
+        const struct kui_files_entry *e=kui_shell_files_row(s,true,first+count);
+        if(!e)break;
+        unsigned y=174+count*23;
+        bool chosen=first+count==l->before+s->files_pick_selected;
+        if(chosen) {panel(p,40,y,548,23,SELECTED);box(p,40,y+4,3,15,PINK);}
         bool wrong_size=s->files_pick_compare && !e->directory &&
             e->bytes!=(s->system_compare_bios?2097152u:131072u);
-        words(p,52,y+2,(s->files_pick_compare || s->files_pick_import)?492:608,e->disabled || wrong_size?AMBER:
-            i==s->files_pick_selected?WHITE:MUTED,e->name,false);
+        words(p,52,y+2,(s->files_pick_compare || s->files_pick_import)?492:584,e->disabled || wrong_size?AMBER:
+            chosen?WHITE:MUTED,e->name,false);
         if(s->files_pick_compare || s->files_pick_import) {
             char size[16];kui_files_size_text(size,e->bytes);
             label(p,504,y+2,MUTED,e->directory?"Folder":size);
         }
     }
+    list_scrollbar(p,592,174,184,first,count,l->total);
     label(p,40,376,v->busy?MUTED:WHITE,s->files_pick_import?"A Open folder / check save":
         s->files_pick_compare?"A Open folder / compare file":
         copy?"A Open folder   Y Copy here":"A Open folder   Y Move here");
@@ -3368,8 +3676,8 @@ static void ftp_page(struct paint *p,const struct kui_shell_view *v) {
     if(!f || f->state==KUI_FTP_STARTING) {
         panel(p,32,140,576,112,PANEL);
         label(p,48,152,CYAN,f && f->message[0]?f->message:"Starting");
-        label(p,48,180,MUTED,"It needs the Wi-Fi board, or a W5500 and a cable to your router,");
-        label(p,48,200,MUTED,"on the SCI port. The SD card stays on SCIF. B stops it at any time.");
+        label(p,48,180,MUTED,"Connect the Broadband Adapter to your router, or use a W5500");
+        label(p,48,200,MUTED,"or Wi-Fi board on SCI. B stops the server.");
         return;
     }
     bool ready=f->state==KUI_FTP_READY;
@@ -3489,6 +3797,7 @@ static void wifi_page(struct paint *p,const struct kui_shell *s,const struct kui
             words(p,482,y+2,592,text,here?"Joined":kui_wifi_security_text(n->security),false);
         }
     }
+    list_scrollbar(p,600,188,22u*WIFI_ROWS,first,WIFI_ROWS,rows);
     if(!w->count) label(p,52,188+22,MUTED,v->busy?"Looking for networks...":"No networks listed yet: X scans.");
     label(p,40,380,w->failed?AMBER:v->busy?CYAN:MUTED,w->message);
     if(rows>WIFI_ROWS) {
@@ -3500,12 +3809,19 @@ void kui_shell_draw_content(uint16_t *frame, const struct kui_shell *s,
         const struct kui_shell_view *v, kui_shell_text_fn text, void *ctx) {
     if(!frame || !s || !v) return;
     struct paint p={.fb=frame,.text=text,.ctx=ctx,.crisp=false};
+    paint_palette(&p,v);
+    if(s->page==KUI_SHELL_THEME_SPLASH_PREVIEW) {theme_splash_page(&p,s,v);return;}
     heading(&p,s,v);
     switch(s->page) {
     case KUI_SHELL_HOME: home(&p,s,v); break;
     case KUI_SHELL_DISC_TOOLS: disc_tools(&p,s,v); break;
     case KUI_SHELL_RIPPER: ripper(&p,s,v); break;
     case KUI_SHELL_SETTINGS: system_settings(&p,s,v); break;
+    case KUI_SHELL_APPEARANCE: appearance_page(&p,s);break;
+    case KUI_SHELL_THEME_PICKER: theme_picker_page(&p,s,v);break;
+    case KUI_SHELL_THEME_COLORS: theme_colors_page(&p,s);break;
+    case KUI_SHELL_THEME_MENU_PREVIEW: theme_menu_preview(&p,s,v);break;
+    case KUI_SHELL_THEME_SPLASH_PREVIEW: break;
     case KUI_SHELL_CONTROLS: controls_page(&p,s); break;
     case KUI_SHELL_RIPPER_SETTINGS: ripper_settings(&p,s,v); break;
     case KUI_SHELL_DIAGNOSTICS: diagnostics(&p,s,v); break;
@@ -3541,6 +3857,7 @@ void kui_shell_draw_content(uint16_t *frame, const struct kui_shell *s,
     case KUI_SHELL_GAMES_DETAIL: game_detail(&p,s,v); break;
     case KUI_SHELL_GAMES_VARIANTS: games_variants(&p,s); break;
     case KUI_SHELL_GAMES_ADVANCED: games_advanced(&p,s); break;
+    case KUI_SHELL_GAMES_MEDIA: games_media(&p,s,v); break;
     case KUI_SHELL_GAMES_QUERY: games_query_page(&p,s); break;
     case KUI_SHELL_GAMES_EDIT: games_edit_page(&p,s); break;
     case KUI_SHELL_VMU_HISTORY: history_page(&p,s); break;
@@ -3578,10 +3895,31 @@ void kui_shell_draw_content(uint16_t *frame, const struct kui_shell *s,
     if(v->video_trial) video_trial(&p,v);
 }
 
+void kui_shell_draw_background(uint16_t *frame,const struct kui_shell *s,const struct kui_shell_view *v) {
+    if(!frame || !s || !v) return;
+    const struct kui_theme_image *background=v->theme_images?&v->theme_images[KUI_THEME_BACKDROP]:NULL;
+    if(background && background->pixels && background->width==640u && background->height==480u) {
+        memcpy(frame,background->pixels,640u*480u*sizeof(*frame));return;
+    }
+    uint16_t color=v->theme_palette?kui_theme_rgb565(v->theme_palette->colors[KUI_THEME_BACKGROUND]):0x0864;
+#if defined(__GNUC__)
+    /* The console uses GCC and an aligned framebuffer. may_alias permits
+     * packed stores into uint16_t pixels even under strict aliasing; direct
+     * stores also stay fast with the console's -fno-builtin compilation. */
+    typedef uint32_t frame_pair __attribute__((__may_alias__));
+    if(!((uintptr_t)frame&3u)) {
+        frame_pair *pairs=(frame_pair *)(void *)frame;
+        uint32_t pair=(uint32_t)color|((uint32_t)color<<16);
+        for(unsigned i=0;i<640u*480u/2u;i++)pairs[i]=pair;
+        return;
+    }
+#endif
+    /* Host tests intentionally exercise a two-byte-offset framebuffer. */
+    for(unsigned i=0;i<640u*480u;i++)frame[i]=color;
+}
 void kui_shell_draw(uint16_t *frame, const struct kui_shell *s,
         const struct kui_shell_view *v, kui_shell_text_fn text, void *ctx) {
     if(!frame || !s || !v) return;
-    struct paint p={.fb=frame,.text=text,.ctx=ctx,.crisp=false};
-    box(&p,0,0,640,480,NAVY);
+    kui_shell_draw_background(frame,s,v);
     kui_shell_draw_content(frame,s,v,text,ctx);
 }

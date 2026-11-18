@@ -18,8 +18,15 @@ static bool browser_cancel(void) {
     /* A test barrier, not a network retry: both finite service sockets must
      * have retired earlier requests, closed their exports and rearmed. */
     if(browser_idle_requested && !test.files && !test.dirs) {
-        unsigned count=test.wifi?wifi_model_listening_count(browser_port):
-            w5500_model_listening_count(browser_port);
+        unsigned count=0;
+        if(active_bba) {
+            struct kui_net_sockets *net=&active_bba->net;
+            for(unsigned i=3;i<=4;i++) {
+                uint8_t state=0;
+                assert(net->state(net->ctx,i,&state));
+                if(state==KUI_NET_LISTEN)++count;
+            }
+        } else count=test.wifi?wifi_model_listening_count(browser_port):w5500_model_listening_count(browser_port);
         if(count==2u) {
             browser_idle_requested=false;
             printf("BROWSER_IDLE listeners=%u files=%u dirs=%u\n",count,test.files,test.dirs);
@@ -77,12 +84,13 @@ int main(int argc, char **argv) {
     else {
         assert(argc==4 || argc==5);
         bool wifi=argc==5 && !strcmp(argv[4],"wifi");
+        bool bba=argc==5 && !strcmp(argv[4],"bba");
         test.wifi=wifi;
         struct w5500_model_options model={.absent=wifi};
         w5500_model_start(&model);
         struct wifi_model_options board={false,1,0,false,KWM_WIFI_ONLINE};
         if(wifi)wifi_model_start(&board);
-        const struct kui_net_ports ports={&port,wifi?&wifi_model_port:NULL};
+        const struct kui_net_ports ports={.w5500=&port,.wifi=wifi?&wifi_model_port:NULL,.bba=bba?&loopback_port:NULL};
         const struct kui_browser_options options={(uint16_t)atoi(argv[3])};
         browser_port=options.port;
         struct kui_browser_status status;
@@ -93,6 +101,6 @@ int main(int argc, char **argv) {
         w5500_model_stop();
         result=status.state==KUI_BROWSER_STOPPED?0:1;
     }
-    assert(!test.connected && !test.files && !test.dirs && !fclose(test.image));
+    assert(!active_bba && !test.connected && !test.files && !test.dirs && !fclose(test.image));
     return result;
 }

@@ -16,6 +16,7 @@ ROOT = Path(__file__).resolve().parents[1]
 # version-agnostic boot-disc art (historical boot-red.png name).
 PNG_BLOB = "19c4fb03197b14eebdae77f1c217a0691ee99cab"
 BOOT_PNG_BLOB = "d4a3ba2793cf194e906926a53e09bf501fb7ca46"
+RGB565_FRAME = struct.Struct(f"<{640 * 480}H")
 STARTUP_RATE = 44100
 STARTUP_FRAMES = STARTUP_RATE * 265 // 100
 # The runtime embeds this Ogg Vorbis encoding of startup_samples() instead of
@@ -118,15 +119,14 @@ def array_file(path,name,kind,values,prefix=""):
             out.write(",".join(str(v) for v in items[at:at+16])+",\n")
         out.write("};\n")
 
-def art_file(path,name,pixels):
+def art_file(path,name,raw):
     """Embed 640x480 RGB565 as a zlib stream of its little-endian pixels.
 
     The runtime and bootstrap inflate it once into RAM (kui_splash_art_inflate;
     miniz verifies the Adler-32). The CRC-32 of the raw pixels lets host tests
     prove the firmware decoder reproduces every pixel."""
-    if len(pixels)!=640*480:
+    if len(raw)!=RGB565_FRAME.size:
         raise ValueError("Artwork must be 640x480")
-    raw=struct.pack(f"<{len(pixels)}H",*pixels)
     packed=zlib.compress(raw,9)
     if zlib.decompress(packed)!=raw:
         raise SystemExit("Artwork compression did not round-trip")
@@ -161,11 +161,15 @@ def main():
     data=(ROOT/"resources/branding/startup.png").read_bytes()
     if hashlib.sha1(b"blob "+str(len(data)).encode()+b"\0"+data).hexdigest()!=PNG_BLOB:
         raise SystemExit("Startup artwork differs from the pinned Muramasa asset")
-    art_file(args.directory/"splash_art.inc","kui_splash_art",decode_png(data))
+    art_file(args.directory/"splash_art.inc","kui_splash_art",RGB565_FRAME.pack(*decode_png(data)))
+    from pack_theme import HEADER, verify_image
+    factory=(ROOT/"resources/themes/moonlit-muramasa/splash.kuiimg").read_bytes()
+    verify_image(factory,"splash")
+    art_file(args.directory/"factory_splash_art.inc","kui_factory_splash_art",factory[HEADER.size:])
     boot=(ROOT/"resources/branding/boot-red.png").read_bytes()
     if hashlib.sha1(b"blob "+str(len(boot)).encode()+b"\0"+boot).hexdigest()!=BOOT_PNG_BLOB:
         raise SystemExit("Boot artwork differs from the pinned Bootloader v3 asset")
-    art_file(args.directory/"boot_splash_art.inc","kui_boot_splash_art",decode_png(boot))
+    art_file(args.directory/"boot_splash_art.inc","kui_boot_splash_art",RGB565_FRAME.pack(*decode_png(boot)))
     chime=CHIME.read_bytes()
     if hashlib.sha256(chime).hexdigest()!=CHIME_SHA256:
         raise SystemExit("Startup chime differs from the pinned Ogg encoding")

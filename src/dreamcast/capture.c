@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: GPL-3.0-only */
 #include "platform.h"
 #include "kui/capture_network.h"
+#include "kui/network_bba.h"
 #include "kui/network_w5500.h"
 #include "kui/network_wifi.h"
 
@@ -91,7 +92,8 @@ static enum kui_capture_result capture_start(enum kui_capture_mode mode,const ch
         if(f_mount(NULL,"0:",0)!=FR_OK)ok=false;
         kui_sd_disconnect();
         if(!ok) {clear_network_config(&config);kui_log("PC destination refused: %s",problem[0]?problem:"local configuration unavailable");return KUI_CAPTURE_FAILED;}
-        const struct kui_net_ports ports={kui_w5500_console_port(),kui_wifi_console_port()};
+        const struct kui_net_ports ports={.w5500=kui_w5500_console_port(),
+            .wifi=kui_wifi_console_port(),.bba=kui_bba_console_port()};
         remote=kui_capture_network_start(&ports,&config,kui_log,kui_cancelled,NULL,problem);
         clear_network_config(&config);
         if(!remote) {kui_log("PC destination refused: %s",problem);return kui_cancelled()?KUI_CAPTURE_STOPPED:KUI_CAPTURE_FAILED;}

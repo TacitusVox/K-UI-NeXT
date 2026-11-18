@@ -1,4 +1,9 @@
 {
+  "bearssl": {
+    "url": "https://www.bearssl.org/git/BearSSL",
+    "commit": "7bea48e5e850ab4cafbe68d3765cdaba13a86d6f",
+    "license": "MIT"
+  },
   "kos": {
     "url": "https://github.com/KallistiOS/KallistiOS.git",
     "commit": "fcfa7d869471591ca1c777543261a7bfea7cb726"

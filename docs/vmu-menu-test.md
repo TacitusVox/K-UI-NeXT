@@ -43,9 +43,13 @@ tests and benchmarks are under **Diagnostics**. Existing saved startup-app
 choices keep their previous meanings.
 
 **Home → VMU tools** provides direct entries for **Virtual VMUs**,
-**Physical VMUs**, **Import saves**, **Backups & restore**, and
-**Use virtual VMU: On / Off**. Off still permits browsing/importing and applies
-at the next supported native game launch, independently of prefetch.
+**Physical VMUs**, **Import saves**, **Backups & restore**,
+**Use virtual VMU** and **Disc virtual slot**. The last two rows show the
+saved On/Off and A1/A2 preferences. After startup, K-UI reads both on the
+already-mounted SD card and keeps the result in RAM. If that read was
+unavailable, opening the hub loads them in the background. Press **X** to
+read them again after changing SD cards. Open **Physical VMUs** to inspect a controller slot and
+its saves. With emulation off you can still browse and import cards.
 
 Virtual VMUs presents active game cards and stored snapshots together. The list
 uses known game titles before generated card numbers, keeps custom names, and

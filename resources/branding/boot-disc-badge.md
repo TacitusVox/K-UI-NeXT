@@ -36,10 +36,10 @@ uses `translate(7 21) scale(.95)` and the original wordmark group uses
 `translate(12 29) scale(.79)`, plus the amber credit. Since November 17, 2026 the
 credit is the maintainer's GitHub link, `github.com/TacitusVox` (previously
 `by TacitusVox`), set at x=86 with no letter spacing so it stays inside the
-header. The runtime displays that header at its existing 128×64 size. The IP.BIN
+source image. The menu uses its sword and wordmark in the native-sized
+[K-UI Original badge](README.md). The IP.BIN
 author field is `TacitusVox` (previously `K-UI Team`), as the field holds at most 16
-characters. App icon assets and embedded
-array dimensions are unchanged.
+characters.
 
 Rebuild the preview, header and MR with Inkscape and Pillow, then regenerate
 the embedded shell pixels:

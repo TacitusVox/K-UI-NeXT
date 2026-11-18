@@ -63,7 +63,7 @@ static void headers(void) {
     /* Structural rules hold even under a matching CRC. */
     memcpy(copy, h, sizeof(h)); assert(decodes_after(copy, 64, 'D'));   /* Same byte: still valid. */
     memcpy(copy, h, sizeof(h)); assert(!decodes_after(copy, 8, 2));     /* Version. */
-    memcpy(copy, h, sizeof(h)); assert(!decodes_after(copy, 12, 3));    /* Source. */
+    memcpy(copy, h, sizeof(h)); assert(!decodes_after(copy, 12, 4));    /* Source. */
     memcpy(copy, h, sizeof(h)); assert(!decodes_after(copy, 18, 112));  /* Edge. */
     memcpy(copy, h, sizeof(h)); assert(!decodes_after(copy, 50, 1));    /* Reserved. */
     memcpy(copy, h, sizeof(h)); assert(!decodes_after(copy, 64 + 20, 'x')); /* Text after NUL. */

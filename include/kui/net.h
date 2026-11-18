@@ -5,11 +5,10 @@
 #include <stddef.h>
 #include <stdint.h>
 
-/* TCP sockets on a network adapter wired to the SCI port, as the FTP
- * server uses them: the W5500's own sockets (network_w5500.c) or the Wi-Fi
- * board's socket slots (network_wifi.c), numbered from 0. States use the
- * W5500's numbers, which the Wi-Fi board's protocol shares. */
+/* Numbered TCP slots for native BBA sockets, the W5500 and the Wi-Fi board.
+ * The state values follow the W5500 and the Wi-Fi board's protocol. */
 #define KUI_NET_CLOSED 0x00u
+#define KUI_NET_INIT 0x13u       /* W5500 opened, ARP/connect still starting */
 #define KUI_NET_LISTEN 0x14u
 #define KUI_NET_CONNECTING 0x15u
 #define KUI_NET_ESTABLISHED 0x17u
@@ -30,7 +29,7 @@ struct kui_net_sockets {
     bool (*close)(void *ctx, unsigned s);
     bool (*state)(void *ctx, unsigned s, uint8_t *state);
     bool (*peer)(void *ctx, unsigned s, uint8_t ip[4], uint16_t *port);
-    /* Seconds of silence before TCP keep-alive probes. */
+    /* Optional. Seconds of silence before TCP keep-alive probes. */
     bool (*keepalive)(void *ctx, unsigned s, unsigned seconds);
     /* Bytes waiting, and taking `bytes` of them (at most that many). */
     bool (*received)(void *ctx, unsigned s, size_t *bytes);
@@ -40,17 +39,18 @@ struct kui_net_sockets {
     bool (*room)(void *ctx, unsigned s, size_t *bytes);
     bool (*send)(void *ctx, unsigned s, const void *data, size_t bytes);
     /* Everything sent so far has left the adapter: acknowledged by the peer
-     * (W5500), or handed to the Wi-Fi board's own TCP stack. */
+     * (W5500), or handed to the adapter's TCP stack (Wi-Fi and BBA). */
     bool (*sent)(void *ctx, unsigned s, bool *all);
 };
 
-/* The adapters that may be wired to the SCI port, looked for in this
- * order: a W5500 first (its probe is harmless to the Wi-Fi board; the
- * other way round is not certain). Either may be NULL. */
+/* Services probe the expansion-port BBA first. On the SCI port, always
+ * probe W5500 before Wi-Fi. Each unavailable port may be NULL. */
 struct kui_w5500_port;
 struct kui_wifi_port;
+struct kui_bba_port;
 struct kui_net_ports {
     const struct kui_w5500_port *w5500;
     const struct kui_wifi_port *wifi;
+    const struct kui_bba_port *bba;
 };
 #endif

@@ -1,0 +1,11 @@
+--- a/kernel/net/net_core.c
++++ b/kernel/net/net_core.c
+@@ -206,7 +206,7 @@
+ 
+         /* We didn't get a requested IP address, if we don't already have one
+            set, then do so via DHCP. */
+-        else if(!net_default_dev->ip_addr[0])
++        else if(!net_default_dev->ip_addr[0] && !(net_default_dev->flags & NETIF_NOETH))
+             rv = net_dhcp_request(0);
+     }
+ 
