@@ -1,32 +1,34 @@
 # Broadband Adapter updater test
 
-This directory gives the pre-merge review build a live HTTPS target. Its
-GUI package comes from the clean production-channel source `30155a97c524`.
-The optional review GUI was built from `b8b1fc445da6` with
-`KUI_UPDATE_REVIEW_FEED=1` and `KUI_GITHUB_NIGHTLY=0`. Normal builds use the
-public release channel. The adjacent [source bundle](source.bundle) retains the original build
-commits. In a clone with the baseline, run `git fetch /path/to/source.bundle HEAD`
-to inspect those exact revisions.
+The review branch serves a GUI-only KUP for a Dreamcast hardware test before
+production nightlies go live. The package and the current manual test GUI
+were built from commit `bad8016cee9aca559d52a1bef51c2c8e695d2418`.
 
-1. Back up your existing `KUI/boot.kui` and `KUI/runtime.kui`. Copy the
-   review manual ZIP’s `KUI` folder onto the existing card. Cold boot using
-   the usual disc. The running GUI should show `b8b1fc445da6`.
-2. Open **Settings → Updates**, press **L**, select **Broadband Adapter**,
-   then press **A**. The Dreamcast clock is used for HTTPS validation.
-3. At the installation review, check for **GUI 30155a97c524 / package
-   e0af44ad15ec** on the testing channel. A completed download is
-   3,001,056 bytes. Press **A** to install, then **START → Restart K-UI**.
-   The running GUI should now show `30155a97c524`.
-4. To test an interrupted transfer, press **B** partway through step 2,
-   allow the operation to stop, and start it again before installation.
-   The updater resumes when GitHub serves the requested byte range.
-5. Cold boot returns to the physical review GUI. Restore your backed-up
-   aliases and cold boot when you want the original physical installation.
+1. Back up `KUI/boot.kui` and `KUI/runtime.kui` on the card. Copy the
+   manual test ZIP's `KUI` folder over the existing installation, then cold
+   boot from your usual disc. If you already installed the earlier review
+   GUI `b8b1fc445da6`, you can run the download test from that GUI.
+2. Check the Dreamcast clock. Open **Settings → Updates**, press **L**, select
+   **Broadband Adapter** on **Connection**, then press **A**. To test resume,
+   press **B** during the transfer, let it stop, then start it again.
+3. The review should show GUI **bad8016cee9a**, package **ebff3330053f**,
+   channel **testing**. The download is 3,010,292 bytes. Press **A** to
+   install, then **START → Restart K-UI**. The old review GUI now shows the
+   new build ID. The current manual ZIP already shows that source ID, so
+   check the package ID at review and the selected bank after restart.
+4. On the new GUI, open **Settings → Updates → L** and move down to
+   **Downloads to keep**. Choose 1, 3, 5, 10, or Unlimited. Press **A** on
+   that row to save and apply the setting offline. Five is the default. A
+   single review package can exercise download, resume and installation.
+   Trimming multiple versions is exercised in the FAT32/exFAT tests.
 
-The installed target uses the production nightly feed on its next online
-check. That feed first becomes available after the workflow is on `main`
-and a nightly has been published. Installed readers, themes and saves are
-outside this GUI-only transfer.
+The physical test GUI uses the review feed. The installed GUI checks the
+production feed, available after the first successful nightly on `main`.
+Cold boot starts the physical GUI again. To restore your previous physical
+GUI, copy back your two backups and cold boot.
 
-SHA-256 of `K-UI.kup` is
-`37ca854ba9e19cfde478106416701af9b51d1384d71b8c2b272e8d535bbdafa9`.
+KUP SHA-256 is `4125d0918146692475f1a1be7ac24d5d6baeef864324a0e0dbeb6829dc51ed96`. The [source bundle](source.bundle)
+in this directory preserves the earlier review GUI sources. The new build
+uses the public commit above. See [software updates](../../docs/updater.md)
+for version compatibility and [GUI nightlies](../../docs/gui-nightlies.md)
+for production setup.
