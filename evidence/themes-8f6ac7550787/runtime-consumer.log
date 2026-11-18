@@ -1,0 +1,12 @@
+fat32 SD FAT32, 196608 sectors, cluster=512 bytes
+Volume start=0 (superfloppy)
+Loading /KUI/runtime.kui
+Package 8f6ac7550787 (2370076 bytes)
+RESULT: OK
+
+exfat SD exFAT, 196608 sectors, cluster=4096 bytes
+Volume start=0 (superfloppy)
+Loading /KUI/runtime.kui
+Package 8f6ac7550787 (2370076 bytes)
+RESULT: OK
+

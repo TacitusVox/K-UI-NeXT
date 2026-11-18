@@ -227,3 +227,18 @@ establish Dreamcast input latency or SD load timing. Hardware acceptance
 still requires comparing default versus custom appearance, opening and
 closing Appearance, changing colors/assets, reboot persistence, and game
 launch/return while holding the reader and VMU configuration constant.
+
+The host preview tool uses the production renderer and validates prepared
+assets with the production manifest/header/CRC code:
+
+```sh
+make build/render-theme
+build/render-theme appearance resources/themes/moonlit-muramasa build/theme-appearance.ppm
+build/render-theme colors resources/themes/moonlit-muramasa build/theme-colors.ppm
+build/render-theme home default build/theme-default.ppm
+```
+
+The other modes are `splash` (the temporary preview screen) and `startup`
+(full-frame artwork). Output is a 640×480 PPM image. The host tool supplies
+clearly labeled sample build/music state; it performs no card writes and
+does not measure hardware timing.
