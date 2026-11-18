@@ -21,6 +21,40 @@ SPEC.loader.exec_module(pack)
 
 
 class ThemePackingTests(unittest.TestCase):
+    def test_thumbnail_uses_original_source_and_rejects_stale_or_damaged_data(self):
+        from PIL import Image
+        with tempfile.TemporaryDirectory() as temporary:
+            directory = Path(temporary)
+            # The legacy full-size nearest filter aliases every 2-pixel stripe.
+            # A preview sampled from that packed image could never restore gray.
+            stripes = Image.frombytes("L", (1280, 960), (b"\0\xff" * 640) * 960)
+            stripes.save(directory / "stripes.png")
+            source = directory / "source.json"
+            source.write_text(json.dumps({"name": "Stripes", "version": 1, "assets": {
+                "splash": {"source": "stripes.png", "filter": "nearest"}, "background": "none"}}))
+            output = directory / "stripes"
+            pack.build(source, output)
+            data = (output / "splash.kuiimg").read_bytes()
+            self.assertEqual(len(set(struct.iter_unpack("<H", data[32:]))), 1)
+            crc = zlib.crc32(data[32:])
+            path = output / "splash.kuiimg.thumb"
+            thumb = path.read_bytes()
+            self.assertEqual(len(thumb), 32 + 320 * 240 * 2)
+            gray = struct.unpack_from("<H", thumb, 32 + 160 * 2)[0]
+            self.assertIn(gray >> 11, range(14, 18))
+            pack.verify_thumbnail(thumb, "splash", crc)
+            for at in (0, 8, 12, 14, 16, 20, 24, 28, len(thumb)-1):
+                bad = bytearray(thumb)
+                bad[at] ^= 1
+                with self.subTest(index=at), self.assertRaises(ValueError):
+                    pack.verify_thumbnail(bad, "splash", crc)
+            path.write_bytes(thumb[:-1])
+            with self.assertRaises(ValueError):
+                pack.verify_folder(output)
+            path.unlink()
+            pack.verify_folder(output)  # Existing third-party packs need no sidecars.
+            self.assertFalse((output / "background.kuiimg.thumb").exists())
+
     def test_wire_format_and_rgb565(self):
         from PIL import Image
         with tempfile.TemporaryDirectory() as temporary:
@@ -95,9 +129,35 @@ class ThemePackingTests(unittest.TestCase):
             self.assertEqual(pack.parse_manifest(files["theme.ini"])["type"], "banner")
             row = files["header.kuiimg"][32:32 + 1280]
             self.assertEqual(row, bytes(20) + b"\xff" * 600 + bytes(660))
+            header = files["header.kuiimg"][32:]
+            thumb = files["header.kuiimg.thumb"]
+            pack.verify_thumbnail(thumb, "header", zlib.crc32(header), banner_only=True)
+            self.assertEqual(thumb[32:], b"".join(header[y*1280:y*1280+640] for y in range(100)))
+            with self.assertRaises(ValueError):
+                pack.verify_thumbnail(thumb, "header", zlib.crc32(header))
             for invalid in (b"", b"header=none", b"header=logo.kuiimg\nsplash=splash.kuiimg"):
                 with self.assertRaises(ValueError):
                     pack.parse_manifest(b"[theme]\nversion=1\ntype=banner\n" + invalid)
+
+    def test_dither_preserves_dark_art_average_and_solid_status_area(self):
+        from PIL import Image
+        with tempfile.TemporaryDirectory() as temporary:
+            directory = Path(temporary)
+            Image.new("RGB", (320, 100), (4, 2, 4)).save(directory / "dark.png")
+            spec = {"source": "dark.png", "dither": True}
+            data = pack.image_pixels(directory / "source.json", spec, "header", "#000000", banner_only=True)
+            lit = [0, 0, 0]
+            for row in range(100):
+                line = data[row * 1280:(row + 1) * 1280]
+                self.assertEqual(line[640:], bytes(640))
+                for (color,) in struct.iter_unpack("<H", line[:640]):
+                    lit[0] += color >> 11
+                    lit[1] += (color >> 5) & 63
+                    lit[2] += color & 31
+            for value, levels, expected in zip(lit, (31, 63, 31), (4, 2, 4)):
+                self.assertAlmostEqual(value * 255 / (320 * 100 * levels), expected, delta=0.15)
+            with self.assertRaises(ValueError):
+                pack.image_pixels(directory / "source.json", {**spec, "dither": "yes"}, "header", "#000000")
 
     def test_alpha_is_precomposed(self):
         from PIL import Image

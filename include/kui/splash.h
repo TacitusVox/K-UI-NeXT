@@ -14,8 +14,8 @@ void kui_splash_release(void);
 /* Independent owned preview; decode on the worker, free with free(). */
 uint16_t *kui_splash_preview_decode(void);
 uint16_t *kui_splash_preview_factory_decode(void);
-/* Owned 256x192 thumbnail of the corresponding embedded splash. */
-uint16_t *kui_splash_thumbnail_decode(bool factory);
+/* Owned half-size preview. The worker can interrupt decoding between chunks. */
+uint16_t *kui_splash_thumbnail_decode(bool factory,bool (*cancelled)(void));
 /* The CD boot menu has separate artwork; dim in RAM before writing pixels. */
 void kui_boot_splash_draw(uint16_t *frame);
 void kui_boot_splash_draw_dimmed(uint16_t *frame);

@@ -26,9 +26,10 @@
       "source": "../sources/moonlit-muramasa.png",
       "sha256": "d032f007afc952b337bb2dbf47fb19cbf9801832f5a8b5a1197844a249433c23",
       "crop": [0, 570, 1448, 796],
-      "filter": "nearest",
+      "filter": "lanczos",
       "fit": "cover",
-      "brightness": 0.18
+      "brightness": 0.46,
+      "dither": true
     }
   }
 }

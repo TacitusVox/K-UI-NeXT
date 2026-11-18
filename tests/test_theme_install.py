@@ -6,6 +6,7 @@ from array import array
 import configparser
 from dataclasses import dataclass
 import shutil
+import struct
 import sys
 import tempfile
 import zlib
@@ -26,6 +27,7 @@ V3_BANNERS = {"midnight-forge", "vermilion-sun", "thanksgiving-pie"}
 class Pack:
     directory: Path
     images: dict
+    previews: dict
     files: list
     banner_only: bool
     background: int
@@ -35,13 +37,20 @@ def pixel_id(pixels):
     return f"pixels-{zlib.crc32(pixels):08x}"
 
 
+def packed_pixel_id(pixels):
+    words = array("H", pixels)
+    if sys.byteorder == "big":
+        words.byteswap()
+    return pixel_id(words)
+
+
 def installed_packs(directory):
     packs = {}
     for manifest in sorted(directory.glob("*/theme.ini")):
         data = configparser.ConfigParser(interpolation=None)
         with manifest.open(encoding="ascii") as stream:
             data.read_file(stream)
-        assets = {}
+        assets, previews = {}, {}
         files = {manifest.name}
         for component in ("splash", "header", "background"):
             name = data["theme"].get(component)
@@ -50,15 +59,72 @@ def installed_packs(directory):
                 continue
             assert Path(name).name == name
             pixels = (manifest.parent / name).read_bytes()[32:]
-            if sys.byteorder == "big":
-                pixels = b"".join(pixels[i:i+2][::-1] for i in range(0, len(pixels), 2))
-            assets[component] = pixel_id(pixels)
+            assets[component] = packed_pixel_id(pixels)
             files.add(name)
+            thumbnail = manifest.parent / (name + ".thumb")
+            if thumbnail.exists():
+                files.add(thumbnail.name)
+                prepared = thumbnail.read_bytes()[32:]
+                if component == "header" and data["theme"].get("type") == "banner":
+                    # The left half holds the authored logo at native resolution.
+                    # Match every display pixel, including the quantizer's output.
+                    assert prepared == b"".join(pixels[i:i+640] for i in range(0, len(pixels), 1280))
+                previews[component] = packed_pixel_id(prepared)
         background = int(data.get("colors", "background", fallback="#080f23").lstrip("#"), 16)
         rgb565 = ((background >> 8) & 0xf800) | ((background >> 5) & 0x07e0) | ((background >> 3) & 0x001f)
-        packs[manifest.parent.name] = Pack(manifest.parent, assets, sorted(files),
+        packs[manifest.parent.name] = Pack(manifest.parent, assets, previews, sorted(files),
                                           data["theme"].get("type") == "banner", rgb565)
     return packs
+
+
+def check_optional_thumbnail(card, directory):
+    # Deliberately distinct colors make selection of the sidecar vs fallback
+    # independently observable. The ordinary full image remains authoritative.
+    directory.mkdir()
+    pack, name = "picker-fixture", "wide.kuiimg"
+    (directory / "theme.ini").write_text("[theme]\nversion=1\nname=QA\nheader=wide.kuiimg\n")
+    width, height = 640, 100
+    def solid(word, w, h):
+        return struct.pack("<H", word) * (w*h)
+
+    def full(pixels):
+        return struct.pack("<8sIHHII8x", b"KUITEX01", 1, width, height, len(pixels), zlib.crc32(pixels)) + pixels
+
+    source = full(solid(0x15e3, width, height))
+    small = solid(0xec08, width//2, height//2)
+    preview = struct.pack("<8sIHHIIII", b"KUITHM01", 1, width//2, height//2, len(small),
+                          zlib.crc32(small), zlib.crc32(source[32:]), 0) + small
+
+    def install(filename, data):
+        (directory / filename).write_bytes(data)
+        card("install", str(directory), pack, filename)
+
+    def remove(filename):
+        card("remove", f"0:/KUI/themes/{pack}/{filename}")
+
+    def expect(identity):
+        assert f"PREVIEW {identity}" in card("preview", pack, "header").splitlines()
+
+    card("install", str(directory), pack, "theme.ini")
+    install(name, source)
+    fallback = packed_pixel_id(solid(0x15e3, width//2, height//2))
+    expect(fallback)
+    filename = name + ".thumb"
+    for damaged in (preview[:-1], preview[:8] + b"\xff" + preview[9:],
+                    preview[:12] + b"\xff" + preview[13:], preview[:28] + b"\x01" + preview[29:],
+                    preview[:-1] + bytes([preview[-1] ^ 1])):
+        install(filename, damaged)
+        expect(fallback)
+        remove(filename)
+    install(filename, preview)
+    expect(packed_pixel_id(small))
+    remove(name)
+    expect("unavailable")
+    install(name, b"!" + source[1:])
+    expect("unavailable")
+    remove(name)
+    install(name, full(solid(0x34ac, width, height)))
+    expect(packed_pixel_id(solid(0x34ac, width//2, height//2)))
 
 
 def test_card(image, packs, classic):
@@ -72,6 +138,8 @@ def test_card(image, packs, classic):
 
     for pack, item in packs.items():
         card("install", str(item.directory), pack, *item.files)
+        for component, expected in item.previews.items():
+            assert f"PREVIEW {expected}" in card("preview", pack, component).splitlines()
     listed = {line[5:] for line in card("catalog").splitlines() if line.startswith("PACK ")}
     assert listed == {"default", *packs}, (listed, packs.keys())
 
@@ -120,6 +188,9 @@ def test_card(image, packs, classic):
     splash_name.read(themes[other].directory / "theme.ini")
     card("remove", f"0:/KUI/themes/{other}/{splash_name['theme']['splash']}")
     expect_boot(other, "built-in", packs[banner].images["header"], factory["splash"])
+    check_optional_thumbnail(card, image.parent / f"{image.stem}-thumbnail")
+    count = sum(len(item.previews) for item in packs.values())
+    print(f"PASS {image.stem}: {count} installed picker thumbnails, missing/damaged/stale preview fallback")
     print(f"PASS {image.stem}: {len(packs)} shipped packs, factory startup, independent saved splash/banner, "
           "original, disabled, damaged newest/both slots and missing selected splash; exact first-frame CRCs")
 

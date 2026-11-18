@@ -41,13 +41,14 @@ uint16_t *kui_splash_preview_factory_decode(void) {
     return kui_splash_art_decode(kui_factory_splash_art,sizeof(kui_factory_splash_art));
 }
 
-uint16_t *kui_splash_thumbnail_decode(bool factory) {
+uint16_t *kui_splash_thumbnail_decode(bool factory,bool (*cancelled)(void)) {
+    if(cancelled && cancelled())return NULL;
     const uint8_t *source=factory?kui_factory_splash_art:kui_splash_art;
     size_t remaining=factory?sizeof(kui_factory_splash_art):sizeof(kui_splash_art);
     uint16_t *pixels=malloc(KUI_THEME_THUMB_WIDTH*KUI_THEME_THUMB_HEIGHT*sizeof(*pixels));
     tinfl_decompressor *decoder=malloc(sizeof(*decoder));
     uint8_t *window=malloc(TINFL_LZ_DICT_SIZE);
-    struct theme_thumbnail thumb={.pixels=pixels,.height=KUI_THEME_THUMB_HEIGHT};
+    struct theme_thumbnail thumb={.pixels=pixels};
     bool ok=false;
     if(pixels && decoder && window) {
         tinfl_init(decoder);
@@ -55,7 +56,7 @@ uint16_t *kui_splash_thumbnail_decode(bool factory) {
             size_t input=remaining,output=TINFL_LZ_DICT_SIZE;
             tinfl_status status=tinfl_decompress(decoder,source,&input,window,window,&output,
                 TINFL_FLAG_PARSE_ZLIB_HEADER);
-            if((output&1u) || output>KUI_SPLASH_FRAME_BYTES-thumb.consumed*2u)break;
+            if((cancelled && cancelled()) || (output&3u) || output>KUI_SPLASH_FRAME_BYTES-thumb.consumed*2u)break;
             theme_thumbnail_sample(&thumb,window,(unsigned)output);
             source+=input;
             remaining-=input;

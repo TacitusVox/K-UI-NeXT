@@ -1,7 +1,9 @@
 /* SPDX-License-Identifier: GPL-3.0-only */
 /* Frame-visible buffers belong to main. The idle storage worker holds its
  * own candidate until the UI can adopt it between frames. */
-#define THEME_PICKER_CACHE_SIZE 3u
+/* The highlighted image and one previously viewed image, including any
+ * buffer being filled by the worker. Nothing is prefetched. */
+#define THEME_PICKER_CACHE_SIZE 2u
 #define THEME_PICKER_SETTLE_MS 110u
 struct theme_picker_entry {
     char id[KUI_THEME_ID_BYTES];
@@ -62,6 +64,7 @@ static bool theme_picker_update_locked(uint64_t now) {
             const struct theme_picker_entry *entry=&picker_cache[i];
             if(entry->image.pixels && entry->kind==picker_kind && !strcmp(entry->id,id)) {
                 picker_status=KUI_THEME_ASSET_READY;picker_visible=&entry->image;
+                picker_next_slot=(i+1u)%THEME_PICKER_CACHE_SIZE;
                 return true;
             }
         }
@@ -79,6 +82,9 @@ static bool theme_picker_update_locked(uint64_t now) {
                 picker_status=KUI_THEME_ASSET_DEFAULT;return true;
             }
         }
+        /* Reserve the least recently used slot before the worker allocates.
+         * Only main releases an image that may have been drawn. */
+        kui_theme_image_release(&picker_cache[picker_next_slot].image);
         picker_status=KUI_THEME_ASSET_CANCELLED; /* Worker has yet to publish. */
         return true;
     }
@@ -86,7 +92,6 @@ static bool theme_picker_update_locked(uint64_t now) {
         picker_status=picker_ready_status;
         if(picker_status==KUI_THEME_ASSET_READY) {
             struct theme_picker_entry *slot=&picker_cache[picker_next_slot];
-            kui_theme_image_release(&slot->image);
             *slot=picker_ready;
             picker_ready.image=(struct kui_theme_image){0};
             picker_next_slot=(picker_next_slot+1u)%THEME_PICKER_CACHE_SIZE;
@@ -127,7 +132,7 @@ static bool theme_picker_idle_work(void) {
         }
     }
     if(entry.kind==KUI_THEME_SPLASH && status==KUI_THEME_ASSET_DEFAULT && !picker_cancelled()) {
-        entry.image.pixels=kui_splash_thumbnail_decode(strcmp(entry.id,"default")!=0);
+        entry.image.pixels=kui_splash_thumbnail_decode(strcmp(entry.id,"default")!=0,picker_cancelled);
         entry.image.width=KUI_THEME_THUMB_WIDTH;entry.image.height=KUI_THEME_THUMB_HEIGHT;
         status=entry.image.pixels?KUI_THEME_ASSET_READY:KUI_THEME_ASSET_FAILED;
     }

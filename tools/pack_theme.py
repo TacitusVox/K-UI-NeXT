@@ -8,7 +8,7 @@
     python3 tools/pack_theme.py stage-all staging/KUI/themes
 
 Build requires Pillow. Verification uses only the Python standard library.
-The Dreamcast consumes theme.ini and .kuiimg files, never source.json or PNGs.
+The Dreamcast reads theme.ini, .kuiimg artwork and optional .thumb previews.
 """
 from __future__ import annotations
 
@@ -26,6 +26,9 @@ import zlib
 MAGIC = b"KUITEX01"
 HEADER = struct.Struct("<8sIHHII8s")
 DIMENSIONS = {"splash": (640, 480), "header": (640, 100), "background": (640, 480)}
+THUMB_DIMENSIONS = {kind: (width // 2, height // 2) for kind, (width, height) in DIMENSIONS.items()}
+THUMB_HEADER = struct.Struct("<8sIHHIIII")
+THUMB_MAGIC = b"KUITHM01"
 COLOR_KEYS = (
     "background", "panel", "selection", "edge", "text", "muted", "accent",
     "accent2", "success", "warning", "selection_text",
@@ -104,13 +107,39 @@ def check_pack_type(definition: dict, assets: dict) -> None:
         raise ValueError("A banner pack must supply just its header image")
 
 
-def image_pixels(path: Path, specification: object, kind: str, matte: str, banner_only: bool = False) -> bytes:
+def dither_channel(channel, levels: int) -> bytearray:
+    """Round to the display levels and diffuse the residual across neighboring pixels."""
+    source = channel.tobytes()
+    width, height = channel.size
+    output = bytearray(len(source))
+    errors = [0] * (width + 2)
+    for y in range(height):
+        following = [0] * (width + 2)
+        step = 1 if y % 2 == 0 else -1
+        for x in (range(width) if step == 1 else reversed(range(width))):
+            index = y * width + x
+            slot = x + 1
+            # 4080 is one display level (255 × the 16 diffusion weights).
+            value = source[index] * levels * 16 + errors[slot]
+            level = max(0, min(levels, (value + 2040) // 4080))
+            output[index] = level
+            residual = (value - level * 4080 + 8) // 16
+            errors[slot + step] += residual * 7
+            following[slot - step] += residual * 3
+            following[slot] += residual * 5
+            following[slot + step] += residual
+        errors = following
+    return output
+
+
+def image_pixels(path: Path, specification: object, kind: str, matte: str, banner_only: bool = False,
+                 *, preview: bool = False) -> bytes:
     # Import here: verify does not require image tooling on the installed system.
     from PIL import Image, ImageEnhance, ImageOps
 
     if not isinstance(specification, dict):
         raise ValueError(f"{kind}: asset must be an object or the string 'none'")
-    unknown = set(specification) - {"source", "sha256", "crop", "fit", "filter", "matte", "brightness"}
+    unknown = set(specification) - {"source", "sha256", "crop", "fit", "filter", "matte", "brightness", "dither"}
     if unknown:
         raise ValueError(f"{kind}: unknown asset keys: {', '.join(sorted(unknown))}")
     source = specification.get("source")
@@ -129,7 +158,10 @@ def image_pixels(path: Path, specification: object, kind: str, matte: str, banne
     filter_name = specification.get("filter", "nearest")
     if filter_name not in ("nearest", "lanczos"):
         raise ValueError(f"{kind}: filter must be nearest or lanczos")
-    filtering = Image.Resampling.NEAREST if filter_name == "nearest" else Image.Resampling.LANCZOS
+    filtering = Image.Resampling.LANCZOS if preview or filter_name == "lanczos" else Image.Resampling.NEAREST
+    dither = specification.get("dither", preview)
+    if type(dither) is not bool:
+        raise ValueError(f"{kind}: dither must be true or false")
     matte = checked_color(specification.get("matte", matte))
     brightness = specification.get("brightness", 1.0)
     if type(brightness) not in (int, float) or not 0 <= brightness <= 1:
@@ -147,17 +179,33 @@ def image_pixels(path: Path, specification: object, kind: str, matte: str, banne
                 not (0 <= crop[0] < crop[2] <= image.width and 0 <= crop[1] < crop[3] <= image.height)):
             raise ValueError(f"{kind}: crop must be [left, top, right, bottom] inside the source PNG")
         image = image.crop(crop)
-    target = DIMENSIONS[kind]
+    target = (THUMB_DIMENSIONS if preview else DIMENSIONS)[kind]
     area = (target[0] // 2, target[1]) if banner_only else target
     image = (ImageOps.contain(image, area, method=filtering) if fit == "contain" else
              ImageOps.fit(image, area, method=filtering))
     canvas = Image.new("RGBA", target, matte)
-    canvas.alpha_composite(image, ((area[0] - image.width) // 2, (area[1] - image.height) // 2))
+    left, top = (area[0] - image.width) // 2, (area[1] - image.height) // 2
+    canvas.alpha_composite(image, (left, top))
+    artwork_box = (left, top, left + image.width, top + image.height)
     image = canvas.convert("RGB")
     if brightness != 1:
         image = ImageEnhance.Brightness(image).enhance(brightness)
-    rgb = image.tobytes()
     result = bytearray(target[0] * target[1] * 2)
+    if dither:
+        # Keep letterboxing and the solid status panel a single, stable color.
+        matte_rgb = tuple(int(matte[i:i + 2], 16) for i in (1, 3, 5))
+        r, g, b = (int(c * brightness) for c in matte_rgb)
+        result[:] = struct.pack("<H", ((r >> 3) << 11) | ((g >> 2) << 5) | (b >> 3)) * (target[0] * target[1])
+        artwork = image.crop(artwork_box)
+        red, green, blue = (dither_channel(band, levels) for band, levels in zip(artwork.split(), (31, 63, 31)))
+        for y in range(artwork.height):
+            at = y * artwork.width
+            dest = ((y + top) * target[0] + left) * 2
+            for x in range(artwork.width):
+                color = (red[at + x] << 11) | (green[at + x] << 5) | blue[at + x]
+                struct.pack_into("<H", result, dest + 2 * x, color)
+        return bytes(result)
+    rgb = image.tobytes()
     for i in range(target[0] * target[1]):
         r, g, b = rgb[i * 3:i * 3 + 3]
         struct.pack_into("<H", result, i * 2, ((r >> 3) << 11) | ((g >> 2) << 5) | (b >> 3))
@@ -187,6 +235,30 @@ def verify_image(data: bytes, kind: str) -> dict:
             "sha256": hashlib.sha256(data).hexdigest()}
 
 
+def thumbnail_dimensions(kind: str, banner_only: bool) -> tuple[int, int]:
+    if kind == "header" and banner_only:
+        return THUMB_DIMENSIONS["header"][0], DIMENSIONS["header"][1]
+    return THUMB_DIMENSIONS[kind]
+
+
+def encode_thumbnail(payload: bytes, kind: str, source_crc: int, banner_only: bool = False) -> bytes:
+    width, height = thumbnail_dimensions(kind, banner_only)
+    if len(payload) != width * height * 2:
+        raise ValueError(f"{kind}: incorrect thumbnail size")
+    return THUMB_HEADER.pack(THUMB_MAGIC, 1, width, height, len(payload), zlib.crc32(payload),
+                             source_crc, 0) + payload
+
+
+def verify_thumbnail(data: bytes, kind: str, source_crc: int, banner_only: bool = False) -> None:
+    width, height = thumbnail_dimensions(kind, banner_only)
+    size = width * height * 2
+    if len(data) != THUMB_HEADER.size + size:
+        raise ValueError(f"{kind}: incorrect thumbnail size")
+    expected = (THUMB_MAGIC, 1, width, height, size, zlib.crc32(data[THUMB_HEADER.size:]), source_crc, 0)
+    if THUMB_HEADER.unpack_from(data) != expected:
+        raise ValueError(f"{kind}: malformed, damaged or stale thumbnail")
+
+
 def manifest_text(definition: dict) -> bytes:
     lines = ["[theme]", "version=1", "name=" + definition["name"]]
     if "type" in definition:
@@ -213,11 +285,20 @@ def prepare(source: Path) -> dict[str, bytes]:
     for kind, spec in definition.get("assets", {}).items():
         if spec == "none":
             continue
-        pixels = image_pixels(source, spec, kind, definition.get("colors", {}).get("background", "#080F23"),
-                              banner_only=definition.get("type") == "banner")
+        matte = definition.get("colors", {}).get("background", "#080F23")
+        banner = definition.get("type") == "banner"
+        pixels = image_pixels(source, spec, kind, matte, banner_only=banner)
         data = encode_image(pixels, kind)
         verify_image(data, kind)
         files[f"{kind}.kuiimg"] = data
+        if banner:
+            # The right half is reserved for live menu status. Show the
+            # artwork pixel for pixel at its actual on-console size.
+            stride = DIMENSIONS["header"][0] * 2
+            thumbnail = b"".join(pixels[row:row + stride // 2] for row in range(0, len(pixels), stride))
+        else:
+            thumbnail = image_pixels(source, spec, kind, matte, preview=True)
+        files[f"{kind}.kuiimg.thumb"] = encode_thumbnail(thumbnail, kind, zlib.crc32(pixels), banner)
     files["theme.ini"] = manifest_text(definition)
     return files
 
@@ -283,6 +364,13 @@ def verify_folder(folder: Path) -> dict:
         if asset.stat().st_size != expected_size:
             raise ValueError(f"{kind}: file has incorrect size")
         result["assets"][kind] = verify_image(asset.read_bytes(), kind)
+        thumb = folder / (name + ".thumb")
+        if thumb.exists():
+            banner = theme.get("type") == "banner"
+            width, height = thumbnail_dimensions(kind, banner)
+            if thumb.stat().st_size != THUMB_HEADER.size + width * height * 2:
+                raise ValueError(f"{kind}: incorrect thumbnail size")
+            verify_thumbnail(thumb.read_bytes(), kind, int(result["assets"][kind]["crc32"], 16), banner)
     return result
 
 
@@ -324,6 +412,9 @@ def stage_all(output: Path) -> dict:
                 name = manifest.get(kind)
                 if name and name != "none":
                     shutil.copyfile(pack / name, destination / name)
+                    thumb = pack / (name + ".thumb")
+                    if thumb.is_file():
+                        shutil.copyfile(thumb, destination / thumb.name)
         staged.rename(output)
     return {"packs": [p.name for p in packs]}
 

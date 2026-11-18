@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: GPL-3.0-only */
 #include "kui/splash.h"
 #include "kui/theme.h"
+#include "theme_preview_reference.h"
 #include <assert.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -23,6 +24,8 @@ static uint32_t crc32(const void *data,size_t bytes) {
     }
     return ~crc;
 }
+static unsigned cancel_after;
+static bool cancel_decode(void) {return --cancel_after==0;}
 static void fill(uint16_t value) {for(unsigned i=1;i<=640u*480u;i++) guarded[i]=value;}
 
 int main(void) {
@@ -66,12 +69,14 @@ int main(void) {
      * which start in one inflater dictionary flush and finish in the next. */
     for(unsigned factory=0;factory<2;factory++) {
         const uint16_t *source=factory?expected_dimmed:first;
-        uint16_t *thumbnail=kui_splash_thumbnail_decode(factory!=0);
+        uint16_t *thumbnail=kui_splash_thumbnail_decode(factory!=0,NULL);
         assert(thumbnail);
         for(unsigned y=0;y<KUI_THEME_THUMB_HEIGHT;y++)
             for(unsigned x=0;x<KUI_THEME_THUMB_WIDTH;x++)
-                assert(thumbnail[y*KUI_THEME_THUMB_WIDTH+x]==source[(y*5u/2u)*640u+x*5u/2u]);
+                assert(thumbnail[y*KUI_THEME_THUMB_WIDTH+x]==reference_box565(source+2u*y*KUI_THEME_WIDTH+2u*x,KUI_THEME_WIDTH));
         free(thumbnail);
+        cancel_after=1;assert(!kui_splash_thumbnail_decode(factory!=0,cancel_decode));
+        cancel_after=3;assert(!kui_splash_thumbnail_decode(factory!=0,cancel_decode));
     }
     kui_splash_draw(guarded+1);assert(!memcmp(first,guarded+1,sizeof(first)));
     kui_splash_draw_factory(guarded+1);assert(!memcmp(expected_dimmed,guarded+1,sizeof(expected_dimmed)));

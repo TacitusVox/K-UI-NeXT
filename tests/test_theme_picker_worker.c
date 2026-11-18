@@ -41,10 +41,11 @@ void kui_theme_image_release(struct kui_theme_image *image) {
     *image=(struct kui_theme_image){0};
 }
 static uint16_t *marker(uint16_t value) {
+    assert(allocations<2u);
     uint16_t *pixel=malloc(sizeof(*pixel));assert(pixel);*pixel=value;++allocations;return pixel;
 }
-uint16_t *kui_splash_thumbnail_decode(bool factory) {
-    assert(!lock);
+uint16_t *kui_splash_thumbnail_decode(bool factory,bool (*cancelled)(void)) {
+    assert(!lock && cancelled && !cancelled());
     if(factory)factory_thumbs++;else original_thumbs++;
     return marker(factory?2u:1u);
 }
@@ -92,10 +93,11 @@ int main(void) {
     settle();assert(publish() && *picker_visible->pixels=='c' && loads==3 && connections==1);
     highlight("b",2);assert(*picker_visible->pixels=='b' && !theme_picker_idle_work());
     highlight("a",2);settle();assert(!picker_visible);
-    highlight("d",2);assert(!publish() && allocations==2); /* awaiting an old main-thread adoption */
-    during_read=queue_foreground;settle();assert(!publish() && !theme_picker_idle_work() && allocations==2);
-    foreground=false;settle();assert(publish() && *picker_visible->pixels=='d' && allocations==3);
-    highlight("a",2);settle();assert(publish() && allocations==3); /* bounded cache */
+    highlight("d",2);assert(!publish() && allocations==1); /* awaiting an old main-thread adoption */
+    during_read=queue_foreground;settle();assert(!publish() && !theme_picker_idle_work() && allocations==1);
+    foreground=false;settle();assert(publish() && *picker_visible->pixels=='d' && allocations==2);
+    highlight("b",2);assert(*picker_visible->pixels=='b' && !theme_picker_idle_work());
+    highlight("a",2);settle();assert(publish() && allocations==2);
     highlight("no-art",3);assert(picker_status==KUI_THEME_ASSET_DEFAULT && !theme_picker_idle_work());
     highlight("none",2);assert(picker_status==KUI_THEME_ASSET_DISABLED && !theme_picker_idle_work());
     highlight("a",1);during_read=leave;settle();assert(!publish() && !allocations);

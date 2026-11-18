@@ -33,7 +33,8 @@
         1448,
         843
       ],
-      "brightness": 0.26
+      "brightness": 0.41,
+      "dither": true
     }
   }
 }

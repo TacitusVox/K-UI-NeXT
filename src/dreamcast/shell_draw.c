@@ -7,6 +7,7 @@
 #include "kui/media_container.h"
 #include "shell_art.inc"
 #include "kui/splash.h"
+#include "kui/theme_filter.h"
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
@@ -830,11 +831,15 @@ static void appearance_page(struct paint *p,const struct kui_shell *s) {
 static void theme_picker_preview(struct paint *p,const struct kui_shell *s,const struct kui_shell_view *v) {
     const bool banner=s->theme_selected==2u,background=s->theme_selected==3u;
     const unsigned width=KUI_THEME_THUMB_WIDTH;
-    const unsigned height=banner?KUI_THEME_THUMB_HEADER_HEIGHT:KUI_THEME_THUMB_HEIGHT;
-    const unsigned x=332u+(276u-width)/2u,y=158u+(224u-height)/2u;
     const struct kui_theme_image *image=v->theme_picker_image;
     enum kui_theme_asset_status status=v->theme_picker_status;
-    panel(p,332,158,276,224,PANEL);
+    unsigned height=banner?KUI_THEME_THUMB_HEADER_HEIGHT:KUI_THEME_THUMB_HEIGHT;
+    /* Wide logo packs reserve half the console header for the HUD. The
+     * asset loader can supply their left artwork region at native size. */
+    if(banner && status==KUI_THEME_ASSET_READY && image && image->height==KUI_THEME_THUMB_BRANDED_HEIGHT)
+        height=KUI_THEME_THUMB_BRANDED_HEIGHT;
+    const unsigned x=284u,y=158u+(KUI_THEME_THUMB_HEIGHT-height)/2u;
+    panel(p,x-4u,154u,width+8u,KUI_THEME_THUMB_HEIGHT+8u,PANEL);
     if(status==KUI_THEME_ASSET_READY && image && image->pixels &&
        image->width==width && image->height==height) {
         for(unsigned row=0;row<height;row++)
@@ -846,30 +851,28 @@ static void theme_picker_preview(struct paint *p,const struct kui_shell *s,const
         struct kui_theme_palette palette;
         kui_shell_theme_draft_palette(s,&palette);
         box(p,x-1,y-1,width+2,height+2,EDGE);
-        box(p,x,y,width,height,kui_theme_rgb565(palette.colors[KUI_THEME_BACKGROUND]));
+        uint16_t fill=kui_theme_rgb565(palette.colors[KUI_THEME_BACKGROUND]);
+        box(p,x,y,width,height,fill);
         if(banner) {
-            /* The original banner puts a transparent 128x64 logo at (32,20). */
+            /* The applied Original header overlays a transparent 128x64 logo
+             * at (32,20). Composite transparency before the 2x2 reduction. */
             const uint16_t *logo=art_pack(KUI_ART_BRAND_OFFSET);
-            const unsigned left=(32u*width+KUI_THEME_WIDTH-1u)/KUI_THEME_WIDTH;
-            const unsigned top=(20u*height+KUI_THEME_HEADER_HEIGHT-1u)/KUI_THEME_HEADER_HEIGHT;
-            const unsigned right=((32u+KUI_ART_BRAND_WIDTH)*width+KUI_THEME_WIDTH-1u)/KUI_THEME_WIDTH;
-            const unsigned bottom=((20u+KUI_ART_BRAND_HEIGHT)*height+KUI_THEME_HEADER_HEIGHT-1u)/KUI_THEME_HEADER_HEIGHT;
-            if(logo)for(unsigned row=top;row<bottom;row++)for(unsigned col=left;col<right;col++) {
-                unsigned source_y=row*KUI_THEME_HEADER_HEIGHT/height-20u;
-                unsigned source_x=col*KUI_THEME_WIDTH/width-32u;
-                uint16_t color=logo[source_y*KUI_ART_BRAND_WIDTH+source_x];
-                if(color!=KUI_ART_TRANSPARENT)p->fb[(y+row)*640+x+col]=color;
+            if(logo)for(unsigned sy=0;sy<KUI_ART_BRAND_HEIGHT;sy+=2u) {
+                for(unsigned sx=0;sx<KUI_ART_BRAND_WIDTH;sx+=2u) {
+                    const uint16_t *top=logo+sy*KUI_ART_BRAND_WIDTH+sx;
+                    const uint16_t *bottom=top+KUI_ART_BRAND_WIDTH;
+                    p->fb[(y+(20u+sy)/2u)*640u+x+(32u+sx)/2u]=kui_theme_rgb565_average4(
+                        top[0]==KUI_ART_TRANSPARENT?fill:top[0],top[1]==KUI_ART_TRANSPARENT?fill:top[1],
+                        bottom[0]==KUI_ART_TRANSPARENT?fill:bottom[0],bottom[1]==KUI_ART_TRANSPARENT?fill:bottom[1]);
+                }
             }
-        } else {
-            centred(p,x,386,width,MUTED,status==KUI_THEME_ASSET_DISABLED?
-                "No background image":"Uses menu background color");
         }
         return;
     }
     const char *message=status==KUI_THEME_ASSET_CANCELLED?"Loading preview...":
         status==KUI_THEME_ASSET_DISABLED?(banner?"No banner":background?"No background image":"No splash"):
         "Preview unavailable";
-    centred(p,x,258,width,status==KUI_THEME_ASSET_FAILED?AMBER:MUTED,message);
+    centred(p,x,269,width,status==KUI_THEME_ASSET_FAILED?AMBER:MUTED,message);
 }
 static void theme_picker_page(struct paint *p,const struct kui_shell *s,const struct kui_shell_view *v) {
     static const char *const titles[]={"Choose a theme","Choose a splash","Choose a banner","Choose a background"};
@@ -880,21 +883,28 @@ static void theme_picker_page(struct paint *p,const struct kui_shell *s,const st
     title(p,40,108,titles[row]);
     char position[32];snprintf(position,sizeof(position),"%u of %u",count?s->theme_picker_index+1u:0u,count);
     label(p,40,136,MUTED,position);
-    label(p,342,136,MUTED,"Preview");
-    panel(p,32,158,288,224,PANEL);
+    const char *preview_label="Preview";
+    if(row==3u && v->theme_picker_status==KUI_THEME_ASSET_DEFAULT)preview_label="Uses menu background color";
+    if(row==3u && v->theme_picker_status==KUI_THEME_ASSET_DISABLED)preview_label="No background image";
+    label(p,284,136,MUTED,preview_label);
+    panel(p,32,154,236,248,PANEL);
     for(unsigned i=0;i<KUI_THEME_PICKER_ROWS && s->theme_picker_first+i<count;i++) {
-        unsigned index=s->theme_picker_first+i,y=158+i*28;
+        unsigned index=s->theme_picker_first+i,y=154+i*31;
         const char *id=kui_shell_theme_choice_id(s,index);
         if(!id)continue;
         bool focused=index==s->theme_picker_index,chosen=!strcmp(id,current);
         if(focused) {
-            panel(p,32,y,278,26,SELECTED);
-            box(p,32,y+3,3,20,PINK);
+            panel(p,32,y,226,29,SELECTED);
+            box(p,32,y+4,3,21,PINK);
         }
-        words(p,46,y+4,chosen?246:304,focused?SELECTION_TEXT:WHITE,theme_name(s,id),false);
-        if(chosen)words(p,250,y+4,308,focused?SELECTION_TEXT:CYAN,"Chosen",false);
+        if(chosen) {
+            uint16_t ink=focused?SELECTION_TEXT:CYAN;
+            for(unsigned j=0;j<4;j++)box(p,40+j,y+13+j,2,3,ink);
+            for(unsigned j=0;j<7;j++)box(p,44+j,y+16-j,2,3,ink);
+        }
+        words(p,56,y+5,255,focused?SELECTION_TEXT:WHITE,theme_name(s,id),false);
     }
-    list_scrollbar(p,314,158,224,s->theme_picker_first,KUI_THEME_PICKER_ROWS,count);
+    list_scrollbar(p,262,154,248,s->theme_picker_first,KUI_THEME_PICKER_ROWS,count);
     theme_picker_preview(p,s,v);
 }
 static void theme_colors_page(struct paint *p,const struct kui_shell *s) {

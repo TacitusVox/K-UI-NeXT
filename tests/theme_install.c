@@ -79,6 +79,28 @@ static void boot(void) {
 
 bool theme_install_test(int argc,char **argv) {
     assert(argc>0);
+    if(!strcmp(argv[0],"preview")) {
+        assert(argc==3);
+        struct kui_theme_definition def;
+        assert(kui_theme_definition_load(&def,argv[1],NULL));
+        enum kui_theme_asset_kind kind=KUI_THEME_SPLASH;
+        if(!strcmp(argv[2],"header"))kind=KUI_THEME_HEADER;
+        else if(!strcmp(argv[2],"background"))kind=KUI_THEME_BACKDROP;
+        else assert(!strcmp(argv[2],"splash"));
+        struct kui_theme_image image={0};
+        enum kui_theme_asset_status status=kui_theme_thumbnail_load(&image,&def,kind,NULL,NULL);
+        if(status==KUI_THEME_ASSET_READY) {
+            unsigned height=kind==KUI_THEME_HEADER?(def.banner_only?
+                KUI_THEME_HEADER_HEIGHT:KUI_THEME_THUMB_HEADER_HEIGHT):KUI_THEME_THUMB_HEIGHT;
+            assert(image.pixels && image.width==KUI_THEME_THUMB_WIDTH && image.height==height);
+            printf("PREVIEW pixels-%08" PRIx32 "\n",kui_crc32(0,image.pixels,image.width*image.height*2u));
+            kui_theme_image_release(&image);
+        } else {
+            assert(status==KUI_THEME_ASSET_FAILED && !image.pixels);
+            puts("PREVIEW unavailable");
+        }
+        return false;
+    }
     if(!strcmp(argv[0],"boot")) {
         assert(argc==1);
         boot();

@@ -26,7 +26,7 @@ The alternate full packs contain their own 640 × 480 splash, 640 × 100 menu ar
 | Vermilion Sun | `vermilion-sun` | A katana with a digital cyan trail crosses a red sun |
 | Thanksgiving Pie | `thanksgiving-pie` | A turkey guards a pie from approaching zombies |
 
-These packs use `"type": "banner"`. The conversion preserves the full 3:1 image and its lettering in the left half of the 640 × 100 menu strip. The menu draws the current status in the remaining space. Users can pair any of these banners with any full theme.
+These packs use `"type": "banner"`. Each pack crops its original artwork to fill the left 320 × 100 pixels while retaining the lettering and author credit. The picker shows those pixels at native size. The menu draws the current status in the right half of the 640 × 100 strip. Users can pair any of these banners with any full theme.
 
 ## Build and install
 
@@ -43,6 +43,6 @@ python3 tools/pack_theme.py build resources/themes/midnight-forge/source.json re
 python3 tools/pack_theme.py verify resources/themes/midnight-forge
 ```
 
-The SD card needs the staged `theme.ini` and `.kuiimg` files. The original PNGs and conversion definitions stay on the build computer. These K-UI artwork sources and their prepared assets use the project’s GPL-3.0-only license. The separate minimalist V3 boot-disc artwork belongs to the boot-disc project.
+Copy the staged `theme.ini`, `.kuiimg` artwork and `.kuiimg.thumb` picker previews to the card. The packer filters the original PNGs for the previews and copies the finished artwork pixels for the three standalone banners. K-UI loads the highlighted preview on demand. Older packs can supply just the manifest and artwork. The original PNGs and conversion definitions stay on the build computer. These K-UI artwork sources and their prepared assets use the project’s GPL-3.0-only license. The separate minimalist V3 boot-disc artwork belongs to the boot-disc project.
 
 See the [theme installation and controls guide](../../docs/themes.md).

@@ -17,9 +17,10 @@
 #define KUI_THEME_WIDTH 640u
 #define KUI_THEME_HEIGHT 480u
 #define KUI_THEME_HEADER_HEIGHT 100u
-#define KUI_THEME_THUMB_WIDTH 256u
-#define KUI_THEME_THUMB_HEIGHT 192u
-#define KUI_THEME_THUMB_HEADER_HEIGHT 40u
+#define KUI_THEME_THUMB_WIDTH 320u
+#define KUI_THEME_THUMB_HEIGHT 240u
+#define KUI_THEME_THUMB_HEADER_HEIGHT 50u
+#define KUI_THEME_THUMB_BRANDED_HEIGHT KUI_THEME_HEADER_HEIGHT
 
 enum kui_theme_color {
     KUI_THEME_BACKGROUND, KUI_THEME_PANEL, KUI_THEME_SELECTION,
@@ -81,6 +82,10 @@ bool kui_theme_settings_decode(struct kui_theme_settings *settings,uint64_t *seq
  * Returns payload CRC through crc only for a valid kind/dimension/size. */
 bool kui_theme_image_header(const void *header,size_t bytes,enum kui_theme_asset_kind kind,
                             size_t file_bytes,uint32_t *crc);
+/* KUITHM01 validates the prepared preview and binds it to the primary
+ * KUITEX01 payload CRC. Both files have 32-byte little-endian headers. */
+bool kui_theme_thumbnail_header(const void *header,size_t bytes,enum kui_theme_asset_kind kind,
+                                bool banner_only,size_t file_bytes,uint32_t source_crc,uint32_t *crc);
 
 /* Storage functions never mount or choose a device. Caller owns the mounted
  * FatFs volume and excludes other file workers. Never call while rendering. */
@@ -94,7 +99,8 @@ bool kui_theme_catalog_scan(struct kui_theme_catalog *out,kui_log_fn log,kui_can
 enum kui_theme_asset_status kui_theme_image_load(struct kui_theme_image *out,
     const struct kui_theme_definition *definition,enum kui_theme_asset_kind kind,
     kui_log_fn log,kui_cancel_fn cancelled);
-/* Verify the same complete image, retaining only a 2/5-size RGB565 preview.
+/* The picker reads a CRC-checked preview tied to the source image header.
+ * Without a valid companion it filters and verifies the complete image.
  * The caller owns an initially empty image and the mounted volume. */
 enum kui_theme_asset_status kui_theme_thumbnail_load(struct kui_theme_image *out,
     const struct kui_theme_definition *definition,enum kui_theme_asset_kind kind,

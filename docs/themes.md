@@ -148,6 +148,15 @@ The slot determines the exact allowed dimensions. Truncation, trailing
 bytes, nonzero reserved fields and CRC mismatches are rejected before the
 image is published to the renderer.
 
+An optional picker preview sits beside each full-size image, for example
+`header.kuiimg.thumb`. Splash and backdrop previews measure 320×240.
+A regular header measures 320×50 in the picker. A standalone banner pack
+shows its left 320×100 artwork at native size. The right half of that
+menu strip is reserved for live status. The preview uses the same little-endian
+RGB565 layout with the magic `KUITHM01`. Its 32-byte header stores
+the preview's payload CRC at offset 20, the matching full-size payload
+CRC at offset 24, and four zero bytes at offset 28.
+
 ## Prepare a new theme
 
 The PC packer uses Python 3 and Pillow. Its source JSON is an authoring
@@ -184,15 +193,28 @@ Source PNG paths are relative to the JSON file. Each image supports these option
 | `matte` | `#RRGGBB` for transparency/letterboxing; defaults to the pack's background color |
 | `crop` | Optional `[left, top, right, bottom]` source-pixel rectangle |
 | `brightness` | Optional 0–1 multiplier, applied once during preparation |
+| `dither` | Use `true` to smooth gradients when encoding RGB565. The bundled headers use this setting. Full-size assets default to `false`, and previews default to `true`. |
+| `dither` | Spread RGB565 rounding error over neighboring artwork pixels to smooth gradients. Defaults to on for picker previews and off for full-size assets. |
 
 An asset value of `"none"` disables that slot. Missing assets inherit the
-default. The packer only writes the declared `.kuiimg` files and
-`theme.ini`; it never creates user preferences. It publishes the manifest
+default. The packer writes the declared `.kuiimg` files, their `.thumb`
+previews and `theme.ini`. It publishes the manifest
 after preparing all assets. Use `build ... --check` to verify existing
 output without rewriting it. `verify` checks a prepared folder without
 requiring Pillow.
 
 ## Performance and validation
+
+In the picker, leaving a choice highlighted for 110 ms requests its
+preview. For a bundled splash this reads 153,664 file bytes, including
+both headers. A regular header takes 32,064 bytes and a standalone
+banner takes 64,064. The picker checks the
+full-size header and the preview's CRC. Full preview and Apply still
+verify the entire selected artwork. For a missing, damaged or mismatched
+preview, the picker reads the installed image. It copies artwork for
+standalone banners at native size and averages each 2×2 block into one
+pixel for other artwork. The picker holds at most two visited thumbnails,
+including an image being loaded, and frees them when you close the list.
 
 The theme engine uses the shell's existing RGB565 software framebuffer;
 it does not add a new graphics backend. The selected images are read and

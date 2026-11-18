@@ -217,3 +217,15 @@ bool kui_theme_image_header(const void *header,size_t bytes,enum kui_theme_asset
     for(unsigned i=24;i<32;i++)if(p[i])return false;
     *crc=get32(p+20);return true;
 }
+bool kui_theme_thumbnail_header(const void *header,size_t bytes,enum kui_theme_asset_kind kind,
+                                bool banner_only,size_t file_bytes,uint32_t source_crc,uint32_t *crc) {
+    if(!header || !crc || bytes!=KUI_THEME_IMAGE_HEADER_SIZE || (unsigned)kind>=KUI_THEME_ASSET_COUNT)return false;
+    const uint8_t *p=header;
+    unsigned height=kind==KUI_THEME_HEADER?(banner_only?KUI_THEME_HEADER_HEIGHT:KUI_THEME_THUMB_HEADER_HEIGHT):
+        KUI_THEME_THUMB_HEIGHT;
+    size_t payload=KUI_THEME_THUMB_WIDTH*height*2u;
+    if(memcmp(p,"KUITHM01",8) || get32(p+8)!=1 || get16(p+12)!=KUI_THEME_THUMB_WIDTH ||
+       get16(p+14)!=height || get32(p+16)!=payload || file_bytes!=KUI_THEME_IMAGE_HEADER_SIZE+payload ||
+       get32(p+24)!=source_crc || get32(p+28)!=0)return false;
+    *crc=get32(p+20);return true;
+}

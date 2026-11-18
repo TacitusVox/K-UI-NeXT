@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: GPL-3.0-only */
 #define _POSIX_C_SOURCE 200809L
 #include "kui/theme.h"
+#include "theme_preview_reference.h"
 #include "kui/media.h"
 #include <assert.h>
 #include <stdarg.h>
@@ -172,14 +173,31 @@ static void check_assets(void) {
     assert(image.width==640 && image.height==100 &&
         image.pixels[640*100-1]==(uint16_t)(0x1234u+(640u*100u-1u)*31u));kui_theme_image_release(&image);
     for(unsigned kind=KUI_THEME_SPLASH;kind<=KUI_THEME_HEADER;kind++) {
+        struct kui_theme_image source={0};
+        assert(kui_theme_image_load(&source,&definition,kind,log_line,NULL)==KUI_THEME_ASSET_READY);
         assert(kui_theme_thumbnail_load(&image,&definition,kind,log_line,NULL)==KUI_THEME_ASSET_READY);
-        assert(image.width==256 && image.height==(kind==KUI_THEME_HEADER?40u:192u));
+        assert(image.width*2u==source.width && image.height*2u==source.height);
         for(unsigned y=0;y<image.height;y++)for(unsigned x=0;x<image.width;x++) {
-            unsigned source_index=y*5u/2u*640u+x*5u/2u;
-            assert(image.pixels[y*image.width+x]==(uint16_t)(0x1234u+source_index*31u));
+            const uint16_t *footprint=source.pixels+2u*y*source.width+2u*x;
+            assert(image.pixels[y*image.width+x]==reference_box565(footprint,source.width));
         }
-        kui_theme_image_release(&image);
+        kui_theme_image_release(&source);kui_theme_image_release(&image);
     }
+    definition.banner_only=true;
+    assert(kui_theme_thumbnail_load(&image,&definition,KUI_THEME_HEADER,log_line,NULL)==KUI_THEME_ASSET_READY);
+    assert(image.width==320 && image.height==100);
+    for(unsigned y=0;y<image.height;y++)for(unsigned x=0;x<image.width;x++)
+        assert(image.pixels[y*image.width+x]==(uint16_t)(0x1234u+(y*640u+x)*31u));
+    kui_theme_image_release(&image);
+    /* Damage in the discarded right half must still fail source CRC. */
+    const unsigned right_sample=32u+2u*639u;
+    data[right_sample]^=1;
+    write_file(KUI_THEME_ROOT "/assets/header.kuiimg",data,header_bytes);
+    assert(kui_theme_thumbnail_load(&image,&definition,KUI_THEME_HEADER,log_line,NULL)==KUI_THEME_ASSET_FAILED);
+    data[right_sample]^=1;
+    write_file(KUI_THEME_ROOT "/assets/header.kuiimg",data,header_bytes);
+    before=test.writes;
+    definition.banner_only=false;
     assert(kui_theme_image_load(&image,&definition,KUI_THEME_BACKDROP,log_line,NULL)==KUI_THEME_ASSET_DISABLED);
     assert(kui_theme_thumbnail_load(&image,&definition,KUI_THEME_BACKDROP,log_line,NULL)==KUI_THEME_ASSET_DISABLED);
     definition.assets[2][0]=0;assert(kui_theme_image_load(&image,&definition,KUI_THEME_BACKDROP,log_line,NULL)==KUI_THEME_ASSET_DEFAULT);

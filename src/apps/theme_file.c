@@ -146,6 +146,60 @@ void kui_theme_image_release(struct kui_theme_image *image) {
     if(!image)return;
     free(image->pixels);memset(image,0,sizeof(*image));
 }
+static void pixels_from_le(uint16_t *pixels,size_t count) {
+    const uint16_t endian=1;
+    if(!*(const uint8_t *)&endian)for(size_t i=0;i<count;i++) {
+        const uint8_t *p=(const uint8_t *)pixels+i*2;
+        pixels[i]=(uint16_t)(p[0]|(uint16_t)p[1]<<8);
+    }
+}
+/* The full image is already open at its pixel payload, so a stale, damaged
+ * or absent preview can fall back without re-opening or rewinding it. */
+static enum kui_theme_asset_status read_prepared_thumbnail(const char *asset_path,
+        enum kui_theme_asset_kind kind,bool banner_only,uint32_t source_crc,uint16_t *pixels,size_t bytes,
+        kui_cancel_fn cancelled) {
+    char path[176];
+    int length=snprintf(path,sizeof(path),"%s.thumb",asset_path);
+    if(length<0 || (size_t)length>=sizeof(path))return KUI_THEME_ASSET_FAILED;
+    FIL file;
+    if(f_open(&file,path,FA_READ)!=FR_OK)return KUI_THEME_ASSET_FAILED;
+    uint8_t header[KUI_THEME_IMAGE_HEADER_SIZE];UINT got=0;
+    uint32_t expected=0,actual=0;
+    bool ok=f_size(&file)==sizeof(header)+bytes &&
+        f_read(&file,header,sizeof(header),&got)==FR_OK && got==sizeof(header) &&
+        kui_theme_thumbnail_header(header,sizeof(header),kind,banner_only,sizeof(header)+bytes,source_crc,&expected);
+    bool stopped=false;
+    for(size_t offset=0;ok && offset<bytes;) {
+        if(cancelled && cancelled()){stopped=true;break;}
+        UINT count=(UINT)(bytes-offset<16384u?bytes-offset:16384u);
+        uint8_t *target=(uint8_t *)pixels+offset;
+        ok=f_read(&file,target,count,&got)==FR_OK && got==count;
+        if(ok) {actual=kui_crc32(actual,target,count);offset+=count;}
+    }
+    FRESULT closed=f_close(&file);
+    if(stopped)return KUI_THEME_ASSET_CANCELLED;
+    if(!ok || closed!=FR_OK || actual!=expected)return KUI_THEME_ASSET_FAILED;
+    pixels_from_le(pixels,bytes/2u);
+    return KUI_THEME_ASSET_READY;
+}
+/* Standalone banners put the fully branded graphic in the left 320 columns.
+ * Preserve those RGB565 bytes at native scale; the CRC still covers both halves. */
+static void copy_banner_region(struct theme_thumbnail *thumb,const uint8_t *data,unsigned bytes) {
+    unsigned remaining=bytes/2u;
+    while(remaining) {
+        unsigned row=thumb->consumed/KUI_THEME_WIDTH,x=thumb->consumed%KUI_THEME_WIDTH;
+        unsigned count=KUI_THEME_WIDTH-x;
+        if(count>remaining)count=remaining;
+        if(x<KUI_THEME_THUMB_WIDTH) {
+            unsigned width=KUI_THEME_THUMB_WIDTH-x;
+            if(width>count)width=count;
+            memcpy(thumb->pixels+row*KUI_THEME_THUMB_WIDTH+x,data,width*sizeof(*thumb->pixels));
+        }
+        thumb->consumed+=count;
+        data+=count*2u;
+        remaining-=count;
+    }
+}
 static enum kui_theme_asset_status load_image(struct kui_theme_image *out,
     const struct kui_theme_definition *definition,enum kui_theme_asset_kind kind,
     kui_log_fn log,kui_cancel_fn cancelled,bool thumbnail) {
@@ -178,13 +232,31 @@ static enum kui_theme_asset_status load_image(struct kui_theme_image *out,
         kui_theme_image_header(header,sizeof(header),kind,(size_t)file_bytes,&expected);
     unsigned height=kind==KUI_THEME_HEADER?KUI_THEME_HEADER_HEIGHT:KUI_THEME_HEIGHT;
     size_t bytes=KUI_THEME_WIDTH*height*2u;
+    bool native_banner=thumbnail && kind==KUI_THEME_HEADER && definition->banner_only;
     unsigned out_width=thumbnail?KUI_THEME_THUMB_WIDTH:KUI_THEME_WIDTH;
-    unsigned out_height=thumbnail?height*2u/5u:height;
+    unsigned out_height=thumbnail && !native_banner?height/2u:height;
     uint16_t *pixels=ok?malloc(out_width*out_height*sizeof(*pixels)):NULL;
+    if(thumbnail && pixels) {
+        enum kui_theme_asset_status ready=read_prepared_thumbnail(path,kind,definition->banner_only,expected,pixels,
+            out_width*out_height*sizeof(*pixels),cancelled);
+        if(ready!=KUI_THEME_ASSET_FAILED) {
+            FRESULT closed=f_close(&file);
+            if(ready==KUI_THEME_ASSET_READY && closed==FR_OK) {
+                out->pixels=pixels;out->width=out_width;out->height=out_height;
+                return ready;
+            }
+            free(pixels);
+            return ready==KUI_THEME_ASSET_CANCELLED?ready:KUI_THEME_ASSET_FAILED;
+        }
+    }
     const unsigned chunk_size=16384u;
-    uint8_t *chunk=pixels && thumbnail?malloc(chunk_size):NULL;
-    struct theme_thumbnail thumb={.pixels=pixels,.height=out_height};
-    if(!pixels || (thumbnail && !chunk))ok=false;
+    struct theme_thumbnail *thumb=pixels && thumbnail?malloc(sizeof(*thumb)+chunk_size):NULL;
+    uint8_t *chunk=NULL;
+    if(thumb) {
+        thumb->pixels=pixels;thumb->consumed=0;
+        chunk=(uint8_t *)(thumb+1);
+    }
+    if(!pixels || (thumbnail && !thumb))ok=false;
     bool stopped=false;uint32_t actual=0;
     for(size_t offset=0;ok && offset<bytes;) {
         if(cancelled && cancelled()){stopped=true;ok=false;break;}
@@ -193,9 +265,10 @@ static enum kui_theme_asset_status load_image(struct kui_theme_image *out,
         r=f_read(&file,target,count,&got);
         if(r!=FR_OK || got!=count){ok=false;break;}
         actual=kui_crc32(actual,target,got);offset+=got;
-        if(thumbnail)theme_thumbnail_sample(&thumb,target,got);
+        if(native_banner)copy_banner_region(thumb,target,got);
+        else if(thumb)theme_thumbnail_sample(thumb,target,got);
     }
-    free(chunk);
+    free(thumb);
     FRESULT closed=f_close(&file);
     if(!ok || closed!=FR_OK || actual!=expected) {
         free(pixels);
@@ -204,11 +277,7 @@ static enum kui_theme_asset_status load_image(struct kui_theme_image *out,
     }
     /* The file is LE on every host; SH-4 and the production host are LE.
      * Explicit conversion also permits a big-endian host validator. */
-    const uint16_t endian=1;
-    if(!thumbnail && !*(const uint8_t *)&endian)for(size_t i=0;i<bytes/2;i++) {
-        const uint8_t *p=(const uint8_t *)pixels+i*2;
-        pixels[i]=(uint16_t)(p[0]|(uint16_t)p[1]<<8);
-    }
+    if(!thumbnail || native_banner)pixels_from_le(pixels,out_width*out_height);
     out->pixels=pixels;out->width=out_width;out->height=out_height;
     return KUI_THEME_ASSET_READY;
 }
