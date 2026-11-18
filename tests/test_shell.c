@@ -1774,24 +1774,24 @@ static void theme_picker_controls(void) {
     assert(!strcmp(kui_shell_theme_choice_id(&s,0),""));
     press(KUI_SHELL_DOWN,false);
     assert(!strcmp(kui_shell_theme_choice_id(&s,s.theme_picker_index),"default"));
-    /* Compare the filtered Original logo with the actual heading drawn just
-     * above it. At y=78 the full heading also overlays its URL. */
+    /* Both Original views use the same native-sized badge. Its wrapped profile
+     * link must have ink in both interlaced fields on each line. */
     struct kui_theme_palette draft_palette;kui_shell_theme_draft_palette(&s,&draft_palette);
     view.theme_palette=&draft_palette;view.theme_picker_status=KUI_THEME_ASSET_DEFAULT;
     render(&view);
-    unsigned ink_cells=0;
-    uint16_t paper=kui_theme_rgb565(draft_palette.colors[KUI_THEME_BACKGROUND]);
-    for(unsigned y=0;y<29;y++)for(unsigned x=0;x<64;x++) {
-        unsigned red=0,green=0,blue=0;
-        for(unsigned dy=0;dy<2;dy++)for(unsigned dx=0;dx<2;dx++) {
-            uint16_t sample=pixels[1+(20+2*y+dy)*640+32+2*x+dx];
-            red+=sample>>11;green+=(sample>>5)&63u;blue+=sample&31u;
+    unsigned ink_rows[2][2]={{0}};
+    for(unsigned y=0;y<58;y++) {
+        const uint16_t *applied=pixels+1+(20+y)*640+32;
+        const uint16_t *preview=pixels+1+(249+y)*640+373;
+        assert(!memcmp(applied,preview,142u*sizeof(*preview)));
+        if(y<25)continue;
+        for(unsigned x=35;x<142;x++)if(applied[x]==kui_theme_rgb565(0xffc56a)) {
+            ink_rows[y>=43][y%2u]++;
+            break;
         }
-        uint16_t expected=(uint16_t)((((red+2u)/4u)<<11)|(((green+2u)/4u)<<5)|((blue+2u)/4u));
-        assert(pixels[1+(253+10+y)*640+284+16+x]==expected);
-        if(expected!=paper)++ink_cells;
     }
-    assert(ink_cells>0);
+    for(unsigned line=0;line<2;line++)
+        for(unsigned field=0;field<2;field++)assert(ink_rows[line][field]>=5);
     press(KUI_SHELL_DOWN,false);
     assert(!strcmp(kui_shell_theme_picker_asset_id(&s),"none"));
     press(KUI_SHELL_A,false);

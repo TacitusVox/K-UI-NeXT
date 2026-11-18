@@ -147,6 +147,9 @@ static void art(struct paint *p, unsigned x, unsigned y,
         if(color!=KUI_ART_TRANSPARENT) p->fb[(y+row)*640+x+col]=color;
     }
 }
+static void original_brand(struct paint *p,unsigned x,unsigned y) {
+    art(p,x,y,KUI_ART_BRAND_WIDTH,KUI_ART_BRAND_HEIGHT,art_pack(KUI_ART_BRAND_OFFSET));
+}
 static const char *state(const struct kui_shell_view *v) {
     if(v->saving) return v->cancel_requested ? "CANCELLING SAVE" : "SAVING REPORT";
     if(v->busy) return v->cancel_requested ? "STOP REQUESTED" : "WORKING";
@@ -157,7 +160,7 @@ static void heading(struct paint *p, const struct kui_shell *s,const struct kui_
     if(header && header->pixels && header->width==640u && header->height==100u)
         memcpy(p->fb,header->pixels,640u*100u*sizeof(*p->fb));
     else if(!v->theme_asset_status || v->theme_asset_status[KUI_THEME_HEADER]!=KUI_THEME_ASSET_DISABLED)
-        art(p,32,20,128,64,art_pack(KUI_ART_BRAND_OFFSET));
+        original_brand(p,32,20);
     const char *credit=v->busy || v->saving?state(v):"by TacitusVox / READY";
     char music[48];
     const char *prefix=s->page==KUI_SHELL_HOME&&!v->busy?"Y Music":"Music";
@@ -836,7 +839,8 @@ static void theme_picker_preview(struct paint *p,const struct kui_shell *s,const
     unsigned height=banner?KUI_THEME_THUMB_HEADER_HEIGHT:KUI_THEME_THUMB_HEIGHT;
     /* Wide logo packs reserve half the console header for the HUD. The
      * asset loader can supply their left artwork region at native size. */
-    if(banner && status==KUI_THEME_ASSET_READY && image && image->height==KUI_THEME_THUMB_BRANDED_HEIGHT)
+    if(banner && (status==KUI_THEME_ASSET_DEFAULT ||
+       (status==KUI_THEME_ASSET_READY && image && image->height==KUI_THEME_THUMB_BRANDED_HEIGHT)))
         height=KUI_THEME_THUMB_BRANDED_HEIGHT;
     const unsigned x=284u,y=158u+(KUI_THEME_THUMB_HEIGHT-height)/2u;
     panel(p,x-4u,154u,width+8u,KUI_THEME_THUMB_HEIGHT+8u,PANEL);
@@ -853,20 +857,8 @@ static void theme_picker_preview(struct paint *p,const struct kui_shell *s,const
         box(p,x-1,y-1,width+2,height+2,EDGE);
         uint16_t fill=kui_theme_rgb565(palette.colors[KUI_THEME_BACKGROUND]);
         box(p,x,y,width,height,fill);
-        if(banner) {
-            /* The applied Original header overlays a transparent 128x64 logo
-             * at (32,20). Composite transparency before the 2x2 reduction. */
-            const uint16_t *logo=art_pack(KUI_ART_BRAND_OFFSET);
-            if(logo)for(unsigned sy=0;sy<KUI_ART_BRAND_HEIGHT;sy+=2u) {
-                for(unsigned sx=0;sx<KUI_ART_BRAND_WIDTH;sx+=2u) {
-                    const uint16_t *top=logo+sy*KUI_ART_BRAND_WIDTH+sx;
-                    const uint16_t *bottom=top+KUI_ART_BRAND_WIDTH;
-                    p->fb[(y+(20u+sy)/2u)*640u+x+(32u+sx)/2u]=kui_theme_rgb565_average4(
-                        top[0]==KUI_ART_TRANSPARENT?fill:top[0],top[1]==KUI_ART_TRANSPARENT?fill:top[1],
-                        bottom[0]==KUI_ART_TRANSPARENT?fill:bottom[0],bottom[1]==KUI_ART_TRANSPARENT?fill:bottom[1]);
-                }
-            }
-        }
+        if(banner)
+            original_brand(p,x+(width-KUI_ART_BRAND_WIDTH)/2u,y+(height-KUI_ART_BRAND_HEIGHT)/2u);
         return;
     }
     const char *message=status==KUI_THEME_ASSET_CANCELLED?"Loading preview...":

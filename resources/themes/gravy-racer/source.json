@@ -26,14 +26,14 @@
       "source": "../sources/gravy-racer.png",
       "sha256": "0d437f76f596639293468493fda52f5b3bbddbb7ddf65553df3af5fa37f94bed",
       "filter": "lanczos",
-      "fit": "cover",
+      "fit": "header-left",
       "crop": [
-        0,
-        661,
+        174,
+        236,
         1448,
-        887
+        1025
       ],
-      "brightness": 0.39,
+      "brightness": 1.0,
       "dither": true
     }
   }

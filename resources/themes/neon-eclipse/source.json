@@ -26,14 +26,14 @@
       "source": "../sources/neon-eclipse.png",
       "sha256": "1c520ad3b5f4210cb39261b9c33cad2c1ae42f7c957a92db76bb0d3ecb7e3561",
       "filter": "lanczos",
-      "fit": "cover",
+      "fit": "header-left",
       "crop": [
-        0,
-        485,
-        1448,
-        711
+        82,
+        262,
+        1398,
+        994
       ],
-      "brightness": 0.48,
+      "brightness": 1.0,
       "dither": true
     }
   }
