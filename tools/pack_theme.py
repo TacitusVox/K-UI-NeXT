@@ -107,6 +107,27 @@ def check_pack_type(definition: dict, assets: dict) -> None:
         raise ValueError("A banner pack must supply just its header image")
 
 
+def header_left(image, target, filtering):
+    """Frame the selected portrait to the left of the standard menu text."""
+    from PIL import Image, ImageChops, ImageOps
+
+    width, height = target
+    image = ImageOps.contain(image, target, method=filtering)
+    # The version starts at x=176 and the URL crosses the footer at y=78.
+    # Keep the face and cup bright and fade the art under those live labels.
+    end = min(image.width, width * 7 // 20)
+    image = image.crop((0, 0, end, image.height))
+    start = end * 2 // 3
+    horizontal = [min(1.0, (end - 1 - x) / max(1, end - 1 - start)) for x in range(end)]
+    top = (height - image.height) // 2
+    vertical = [1.0 - .78 * max(0.0, min(1.0, ((y + top) / height - .62) / .17))
+                for y in range(image.height)]
+    mask = Image.new("L", image.size)
+    mask.putdata([round(255 * x * y) for y in vertical for x in horizontal])
+    image.putalpha(ImageChops.multiply(image.getchannel("A"), mask))
+    return image
+
+
 def dither_channel(channel, levels: int) -> bytearray:
     """Round to the display levels and diffuse the residual across neighboring pixels."""
     source = channel.tobytes()
@@ -132,14 +153,63 @@ def dither_channel(channel, levels: int) -> bytearray:
     return output
 
 
+def checked_rect(rect: object, size: tuple[int, int], label: str) -> list[int]:
+    if (not isinstance(rect, list) or len(rect) != 4 or any(type(v) is not int for v in rect) or
+            not (0 <= rect[0] < rect[2] <= size[0] and 0 <= rect[1] < rect[3] <= size[1])):
+        raise ValueError(f"{label}: expected a rectangle inside {size[0]}×{size[1]}")
+    return rect
+
+
+def compose_banner_lettering(canvas, source, spec: dict, author: str, matte: str) -> None:
+    from PIL import Image, ImageChops, ImageDraw, ImageFilter, ImageFont, ImageOps
+
+    # The standalone banner owns the left half of the native header only.
+    artwork = canvas.crop((0, 0, canvas.width // 2, canvas.height))
+    if "logo_detail" in spec:
+        detail = spec["logo_detail"]
+        if not isinstance(detail, dict) or set(detail) != {"crop", "box"}:
+            raise ValueError("logo_detail requires a source crop and a destination box")
+        crop = checked_rect(detail["crop"], source.size, "logo_detail.crop")
+        x, y, right, bottom = checked_rect(detail["box"], artwork.size, "logo_detail.box")
+        logo = ImageOps.contain(source.crop(crop), (right - x, bottom - y), method=Image.Resampling.LANCZOS)
+        # Soften just the outer edge of the pasted source background.
+        mask = Image.new("L", (logo.width + 8, logo.height + 8))
+        ImageDraw.Draw(mask).rectangle((6, 6, logo.width + 1, logo.height + 1), fill=255)
+        mask = mask.filter(ImageFilter.GaussianBlur(1.5)).crop((4, 4, logo.width + 4, logo.height + 4))
+        artwork.paste(logo, (x, y), ImageChops.multiply(mask, logo.getchannel("A")))
+
+    if "credit_at" in spec:
+        author = checked_name(author, "Banner credit author")
+        at = spec["credit_at"]
+        if not isinstance(at, list) or len(at) != 2 or any(type(v) is not int for v in at):
+            raise ValueError("credit_at requires [left, top] in the banner artwork")
+        x, y = at
+        text = f"by {author}"
+        font_file = Path(__file__).resolve().parents[1] / "resources/fonts/DejaVuSans-Bold.ttf"
+        font = ImageFont.truetype(str(font_file), 18, layout_engine=ImageFont.Layout.BASIC)
+        left, top, right, bottom = font.getbbox(text)
+        end_x, end_y = x + right - left, y + bottom - top
+        checked_rect([x, y, end_x, end_y], artwork.size, "Banner credit")
+        # A feathered matte replaces the original small text. Scale the source
+        # artwork first, then draw the credit directly at its final pixel size.
+        mask = Image.new("L", artwork.size)
+        ImageDraw.Draw(mask).rectangle((x - 7, y - 3, end_x + 4, end_y + 3), fill=255)
+        mask = mask.filter(ImageFilter.GaussianBlur(1.5))
+        artwork.paste(matte, (0, 0, *artwork.size), mask)
+        ImageDraw.Draw(artwork).text((x - left, y - top), text, font=font,
+                                    fill="#FFF3DF", stroke_width=1, stroke_fill="#10101A")
+    canvas.paste(artwork, (0, 0))
+
+
 def image_pixels(path: Path, specification: object, kind: str, matte: str, banner_only: bool = False,
-                 *, preview: bool = False) -> bytes:
+                 *, preview: bool = False, author: str = "") -> bytes:
     # Import here: verify does not require image tooling on the installed system.
     from PIL import Image, ImageEnhance, ImageOps
 
     if not isinstance(specification, dict):
         raise ValueError(f"{kind}: asset must be an object or the string 'none'")
-    unknown = set(specification) - {"source", "sha256", "crop", "fit", "filter", "matte", "brightness", "dither"}
+    unknown = set(specification) - {"source", "sha256", "crop", "fit", "filter", "matte", "brightness", "dither",
+                                     "credit_at", "logo_detail"}
     if unknown:
         raise ValueError(f"{kind}: unknown asset keys: {', '.join(sorted(unknown))}")
     source = specification.get("source")
@@ -153,8 +223,10 @@ def image_pixels(path: Path, specification: object, kind: str, matte: str, banne
         if hashlib.sha256(source_path.read_bytes()).hexdigest() != expected:
             raise ValueError(f"{kind}: source SHA-256 differs from the pinned image")
     fit = specification.get("fit", "contain")
-    if fit not in ("contain", "cover"):
-        raise ValueError(f"{kind}: fit must be contain or cover")
+    if fit not in ("contain", "cover", "header-left"):
+        raise ValueError(f"{kind}: unsupported fit")
+    if fit == "header-left" and (kind != "header" or banner_only):
+        raise ValueError("header-left fits a full theme's menu header")
     filter_name = specification.get("filter", "nearest")
     if filter_name not in ("nearest", "lanczos"):
         raise ValueError(f"{kind}: filter must be nearest or lanczos")
@@ -172,24 +244,31 @@ def image_pixels(path: Path, specification: object, kind: str, matte: str, banne
         if opened.width * opened.height > IMAGE_PIXELS_MAX:
             raise ValueError(f"{kind}: source exceeds {IMAGE_PIXELS_MAX} pixels")
         image = opened.convert("RGBA")
+    original = image if "logo_detail" in specification else None
     if "crop" in specification:
-        crop = specification["crop"]
-        if (not isinstance(crop, list) or len(crop) != 4 or
-                any(type(v) is not int for v in crop) or
-                not (0 <= crop[0] < crop[2] <= image.width and 0 <= crop[1] < crop[3] <= image.height)):
-            raise ValueError(f"{kind}: crop must be [left, top, right, bottom] inside the source PNG")
-        image = image.crop(crop)
+        image = image.crop(checked_rect(specification["crop"], image.size, "crop"))
     target = (THUMB_DIMENSIONS if preview else DIMENSIONS)[kind]
     area = (target[0] // 2, target[1]) if banner_only else target
-    image = (ImageOps.contain(image, area, method=filtering) if fit == "contain" else
-             ImageOps.fit(image, area, method=filtering))
+    if fit == "header-left":
+        image = header_left(image, target, filtering)
+    elif fit == "contain":
+        image = ImageOps.contain(image, area, method=filtering)
+    else:
+        image = ImageOps.fit(image, area, method=filtering)
     canvas = Image.new("RGBA", target, matte)
     left, top = (area[0] - image.width) // 2, (area[1] - image.height) // 2
+    if fit == "header-left":
+        left = 0
     canvas.alpha_composite(image, (left, top))
     artwork_box = (left, top, left + image.width, top + image.height)
     image = canvas.convert("RGB")
     if brightness != 1:
         image = ImageEnhance.Brightness(image).enhance(brightness)
+    if "credit_at" in specification or "logo_detail" in specification:
+        if kind != "header" or not banner_only or preview:
+            raise ValueError("Native lettering is supported only on standalone banner artwork")
+        compose_banner_lettering(image, original, specification, author, matte)
+        artwork_box = (0, 0, area[0], area[1])
     result = bytearray(target[0] * target[1] * 2)
     if dither:
         # Keep letterboxing and the solid status panel a single, stable color.
@@ -287,7 +366,7 @@ def prepare(source: Path) -> dict[str, bytes]:
             continue
         matte = definition.get("colors", {}).get("background", "#080F23")
         banner = definition.get("type") == "banner"
-        pixels = image_pixels(source, spec, kind, matte, banner_only=banner)
+        pixels = image_pixels(source, spec, kind, matte, banner_only=banner, author=definition.get("author", ""))
         data = encode_image(pixels, kind)
         verify_image(data, kind)
         files[f"{kind}.kuiimg"] = data

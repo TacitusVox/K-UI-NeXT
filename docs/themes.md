@@ -189,12 +189,14 @@ Source PNG paths are relative to the JSON file. Each image supports these option
 | `source` | Required PNG path |
 | `sha256` | Optional exact source hash to pin the chosen artwork |
 | `filter` | `nearest` (default) or `lanczos` |
-| `fit` | `contain` (default, letterbox without distortion) or `cover` (crop to fill) |
+| `fit` | `contain` (default, letterbox without distortion), `cover` (crop to fill), or `header-left` (place a full theme’s header artwork to the left of the menu text and fade into the matte) |
 | `matte` | `#RRGGBB` for transparency/letterboxing; defaults to the pack's background color |
 | `crop` | Optional `[left, top, right, bottom]` source-pixel rectangle |
 | `brightness` | Optional 0–1 multiplier, applied once during preparation |
 | `dither` | Use `true` to smooth gradients when encoding RGB565. The bundled headers use this setting. Full-size assets default to `false`, and previews default to `true`. |
 | `dither` | Spread RGB565 rounding error over neighboring artwork pixels to smooth gradients. Defaults to on for picker previews and off for full-size assets. |
+| `credit_at` | For a standalone banner, draw “by” and the theme’s `author` at `[left, top]` in the native 320×100 artwork area. Position it over the original byline to replace small lettering. |
+| `logo_detail` | For a standalone banner, fit a `crop` from the original PNG into a `box` in the 320×100 artwork area. Both rectangles use `[left, top, right, bottom]`. |
 
 An asset value of `"none"` disables that slot. Missing assets inherit the
 default. The packer writes the declared `.kuiimg` files, their `.thumb`

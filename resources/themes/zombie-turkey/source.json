@@ -26,14 +26,14 @@
       "source": "../sources/zombie-turkey.png",
       "sha256": "a7367edcb233cef7077bbd6c5383f67c9d62d01bffc7537bada2807eb40bb2d6",
       "filter": "lanczos",
-      "fit": "cover",
+      "fit": "header-left",
       "crop": [
-        0,
-        491,
+        266,
+        257,
         1448,
-        717
+        670
       ],
-      "brightness": 0.41,
+      "brightness": 0.94,
       "dither": true
     }
   }

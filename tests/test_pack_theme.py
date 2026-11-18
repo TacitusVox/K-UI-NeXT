@@ -117,6 +117,30 @@ class ThemePackingTests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 pack.build(source, output, check=True)
 
+    def test_banner_credit_has_strokes_in_both_fields_and_stays_on_art(self):
+        from PIL import Image
+        with tempfile.TemporaryDirectory() as temporary:
+            directory = Path(temporary)
+            Image.new("RGB", (640, 200), "#182030").save(directory / "art.png")
+            source = directory / "source.json"
+            spec = {"source": "art.png", "fit": "cover", "credit_at": [8, 70]}
+            header = pack.image_pixels(source, spec, "header", "#001020", True, author="TacitusVox")
+            rows = [header[y * 1280:(y + 1) * 1280] for y in range(100)]
+            lit = [{x for x in range(320) if struct.unpack_from("<H", row, x * 2)[0] >> 11 >= 24}
+                   for row in rows]
+            # Bold native 18px credit has strokes in both alternating 480i fields.
+            for field in (0, 1):
+                populated = [xs for xs in lit[field::2] if xs]
+                self.assertGreaterEqual(len(populated), 8)
+                self.assertGreaterEqual(len(set.union(*populated)), 90)
+            self.assertTrue(all(row[640:] == b"\x84\x00" * 320 for row in rows))
+            for invalid, banner, author in [(dict(spec, credit_at=[297, 93]), True, "TacitusVox"),
+                                            (spec, True, ""), (spec, False, "TacitusVox"),
+                                            (dict(spec, logo_detail={"crop": [0, 0, 641, 200],
+                                                                    "box": [0, 0, 150, 60]}), True, "TacitusVox")]:
+                with self.assertRaises(ValueError):
+                    pack.image_pixels(source, invalid, "header", "#001020", banner, author=author)
+
     def test_banner_pack_reserves_the_right_half_for_status(self):
         from PIL import Image
         with tempfile.TemporaryDirectory() as temporary:
@@ -138,6 +162,25 @@ class ThemePackingTests(unittest.TestCase):
             for invalid in (b"", b"header=none", b"header=logo.kuiimg\nsplash=splash.kuiimg"):
                 with self.assertRaises(ValueError):
                     pack.parse_manifest(b"[theme]\nversion=1\ntype=banner\n" + invalid)
+
+    def test_header_left_keeps_portrait_ahead_of_menu_text(self):
+        from PIL import Image
+        with tempfile.TemporaryDirectory() as temporary:
+            directory = Path(temporary)
+            Image.new("RGB", (320, 100), "white").save(directory / "portrait.png")
+            spec = {"source": "portrait.png", "fit": "header-left", "dither": False}
+            for preview, width, height in ((False, 640, 100), (True, 320, 50)):
+                data = pack.image_pixels(directory / "source.json", spec, "header", "#000000", preview=preview)
+                def pixel(x, y):
+                    return struct.unpack_from("<H", data, (y * width + x) * 2)[0]
+                self.assertEqual(pixel(width // 8, height // 4), 0xffff)
+                self.assertLess(pixel(width * 3 // 10, height // 4), 0xffff)
+                self.assertLess(pixel(width // 8, height * 4 // 5), 0xffff)
+                self.assertEqual(pixel(width // 2, height // 4), 0)
+            with self.assertRaises(ValueError):
+                pack.image_pixels(directory / "source.json", spec, "splash", "#000000")
+            with self.assertRaises(ValueError):
+                pack.image_pixels(directory / "source.json", spec, "header", "#000000", banner_only=True)
 
     def test_dither_preserves_dark_art_average_and_solid_status_area(self):
         from PIL import Image

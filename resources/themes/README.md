@@ -16,7 +16,7 @@ The maintainer’s November 17, 2026 artwork set contains seven 1448 × 1086 spl
 
 Moonlight Muramasa is the 3.0 starting theme. It retains the original `moonlit-muramasa` folder ID so existing selections resolve. Its original PNG has SHA-256 `d032f007afc952b337bb2dbf47fb19cbf9801832f5a8b5a1197844a249433c23`. The pack keeps the full rainy-rooftop composition for the splash and uses a darkened scene crop behind the standard menu heading.
 
-The alternate full packs contain their own 640 × 480 splash, 640 × 100 menu artwork, and palette. Each splash preserves the full 4:3 composition, lettering and author credit. Each menu uses a separate crop and brightness from the corresponding source. Colors, crop coordinates and resampling settings are recorded in the pack definition.
+The alternate full packs contain their own 640 × 480 splash, 640 × 100 menu artwork, and palette. Each splash preserves the full 4:3 composition, lettering and author credit. Each menu uses a separate crop and brightness from the corresponding source. Zombie Turkey frames the bird’s face and steaming gravy boat to the left of the menu text. Colors, crop coordinates and resampling settings are recorded in the pack definition.
 
 ## Independent banners
 
@@ -26,7 +26,7 @@ The alternate full packs contain their own 640 × 480 splash, 640 × 100 menu ar
 | Vermilion Sun | `vermilion-sun` | A katana with a digital cyan trail crosses a red sun |
 | Thanksgiving Pie | `thanksgiving-pie` | A turkey guards a pie from approaching zombies |
 
-These packs use `"type": "banner"`. Each pack crops its original artwork to fill the left 320 × 100 pixels while retaining the lettering and author credit. The picker shows those pixels at native size. The menu draws the current status in the right half of the 640 × 100 strip. Users can pair any of these banners with any full theme.
+These packs use `"type": "banner"`. Each pack crops its original artwork to fill the left 320 × 100 pixels. The packer sets the artist credit at that final size so that the smaller lettering stays legible. Vermilion Sun also enlarges the original wordmark. The picker shows those pixels at native size. The menu draws the current status in the right half of the 640 × 100 strip. Users can pair any of these banners with any full theme.
 
 ## Build and install
 

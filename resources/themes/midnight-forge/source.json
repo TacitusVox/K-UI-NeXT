@@ -16,7 +16,11 @@
         2148,
         696
       ],
-      "dither": true
+      "dither": true,
+      "credit_at": [
+        8,
+        66
+      ]
     }
   }
 }
