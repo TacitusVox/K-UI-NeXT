@@ -26,14 +26,14 @@
       "source": "../sources/thanksgiving-samurai.png",
       "sha256": "f0830c6cf55ee69b529bf08a8a167914f1173f4423b4effad3fc47caa5ab543f",
       "filter": "lanczos",
-      "fit": "cover",
+      "fit": "header-left",
       "crop": [
-        0,
-        493,
-        1448,
-        719
+        115,
+        276,
+        1370,
+        967
       ],
-      "brightness": 0.42,
+      "brightness": 1.0,
       "dither": true
     }
   }
