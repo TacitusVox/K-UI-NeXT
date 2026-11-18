@@ -285,7 +285,7 @@ struct kui_shell {
     /* Confirmed SD preference, independent of reader selection and cards. */
     bool vmu_emulation_enabled,vmu_emulation_known,vmu_emulation_loading,vmu_emulation_requested;
     unsigned vmu_emulation_slot,vmu_emulation_slot_requested; /* Disc default; per-game image slots are separate. */
-    bool vmu_emulation_slot_change;
+    bool vmu_emulation_slot_change,vmu_emulation_background;
     unsigned vmu_emulation_generation;
     char vmu_emulation_notice[128];
     bool confirm_salvage, confirm_salvage_defer, confirm_salvage_check, confirm_repair_in_place;
@@ -557,6 +557,7 @@ void kui_shell_set_disc_vmu_cards(struct kui_shell *,unsigned generation,const s
 void kui_shell_set_disc_cards(struct kui_shell *,const struct kui_disc_cards_view *);
 void kui_shell_set_update(struct kui_shell *,const struct kui_shell_update_view *);
 void kui_shell_set_disc_region(struct kui_shell *,unsigned generation,bool enabled,bool ok,const char *notice);
+void kui_shell_vmu_tools_enter(struct kui_shell *);
 /* Global preference results echo the exact outstanding request generation.
  * Failed/uncertain saves preserve the last confirmed value and require reload. */
 void kui_shell_set_vmu_emulation(struct kui_shell *,unsigned generation,bool enabled,

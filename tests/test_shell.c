@@ -5564,25 +5564,57 @@ static void disc_virtual_slot_controls(void) {
 static void vmu_tools_entry_without_storage(void) {
     const enum kui_shell_action actions[]={KUI_SHELL_VMU_COLLECTION_LIST,KUI_SHELL_VMU_LIST,
         KUI_SHELL_VMU_WIZARD_RUN,KUI_SHELL_VMU_BACKUPS_LIST};
+    struct kui_shell_view view={0};
+    reset(kui_shell_startup_page(KUI_STARTUP_VMU));kui_shell_vmu_tools_enter(&s);
+    assert(s.vmu_tools_selected==0 && s.vmu_emulation_background);
+    kui_shell_set_vmu_emulation_full(&s,s.vmu_emulation_generation,false,KUI_GAME_VMU_SLOT_A1,
+        true,false,NULL);
+    render(&view);
+    assert(strstr(drawn,"\nOff\n") && strstr(drawn,"\nA1\n") && !strstr(drawn,"Reading"));
+    assert(!s.vmu_emulation_background && !s.vmu_emulation_notice[0] && s.vmu_tools_selected==0);
     for(unsigned row=0u;row<4u;row++) {
         reset(KUI_SHELL_HOME);s.home_selected=home_index(KUI_SHELL_VMU_TOOLS);
         assert(press(KUI_SHELL_A,false)==KUI_SHELL_NONE && s.page==KUI_SHELL_VMU_TOOLS);
-        assert(!s.vmu_emulation_known && !s.vmu_emulation_loading && !s.vmu_emulation_generation);
-        struct kui_shell_view view={0};render(&view);
-        assert(strstr(drawn,"Not loaded") && !strstr(drawn,"Unavailable"));
+        assert(!s.vmu_emulation_known && s.vmu_emulation_loading && s.vmu_emulation_background);
+        unsigned generation=s.vmu_emulation_generation;assert(generation);
+        render(&view);
+        assert(strstr(drawn,"Reading...") && !strstr(drawn,"Not loaded"));
         for(unsigned i=0u;i<row;i++)assert(press(KUI_SHELL_DOWN,false)==KUI_SHELL_NONE);
         assert(press(KUI_SHELL_A,false)==actions[row]);
-        assert(!s.vmu_emulation_loading && !s.vmu_emulation_generation);
+        assert(s.vmu_emulation_generation==generation);
     }
     reset(KUI_SHELL_HOME);s.home_selected=home_index(KUI_SHELL_VMU_TOOLS);
     assert(press(KUI_SHELL_A,false)==KUI_SHELL_NONE);
+    unsigned original=s.vmu_emulation_generation;
     assert(press(KUI_SHELL_B,false)==KUI_SHELL_NONE && s.page==KUI_SHELL_HOME);
-    assert(!s.vmu_emulation_generation);
+    assert(!s.vmu_emulation_loading && !s.vmu_emulation_background);
+    kui_shell_set_vmu_emulation_full(&s,original,true,KUI_GAME_VMU_SLOT_A2,true,false,NULL);
+    assert(!s.vmu_emulation_known);
+    s.home_selected=home_index(KUI_SHELL_DISC_TOOLS);
+    assert(press(KUI_SHELL_A,false)==KUI_SHELL_NONE && s.page==KUI_SHELL_DISC_TOOLS);
+    s.disc_tools_selected=3u;
+    assert(press(KUI_SHELL_A,false)==KUI_SHELL_NONE && s.page==KUI_SHELL_GD_PLAY);
+    assert(press(KUI_SHELL_Y,false)==KUI_SHELL_GD_OPTIONS_LOAD);
+    kui_shell_set_vmu_emulation_full(&s,original,true,KUI_GAME_VMU_SLOT_A2,true,false,NULL);
+    assert(s.vmu_emulation_loading && !s.vmu_emulation_background && !s.vmu_emulation_known);
+    kui_shell_set_vmu_emulation_full(&s,s.vmu_emulation_generation,false,KUI_GAME_VMU_SLOT_A1,true,false,NULL);
+    kui_shell_set_disc_region(&s,s.gd_region_generation,true,true,NULL);
+    assert(press(KUI_SHELL_B,false)==KUI_SHELL_NONE && s.page==KUI_SHELL_GD_PLAY);
+    assert(!s.vmu_emulation_loading && s.vmu_emulation_known);
+    reset(KUI_SHELL_HOME);s.home_selected=home_index(KUI_SHELL_VMU_TOOLS);
     assert(press(KUI_SHELL_A,false)==KUI_SHELL_NONE);
-    /* The other inline preference also automatically reads first. Failure
-     * leaves it unknown; A must request another read, never a default write. */
-    assert(press(KUI_SHELL_UP,false)==KUI_SHELL_VMU_EMULATION_LOAD && s.vmu_tools_selected==5u);
+    original=s.vmu_emulation_generation;
+    assert(s.vmu_emulation_background);
+    assert(press(KUI_SHELL_UP,false)==KUI_SHELL_NONE && s.vmu_tools_selected==5u);
     assert(press(KUI_SHELL_A,false)==KUI_SHELL_NONE);
+    kui_shell_set_vmu_emulation_full(&s,s.vmu_emulation_generation,false,KUI_GAME_VMU_SLOT_A1,
+        false,false,"Read failed");
+    render(&view);assert(strstr(drawn,"Unavailable"));
+    assert(press(KUI_SHELL_B,false)==KUI_SHELL_NONE && s.page==KUI_SHELL_HOME);
+    assert(press(KUI_SHELL_A,false)==KUI_SHELL_NONE && s.vmu_emulation_background);
+    assert(s.vmu_emulation_generation!=original);
+    kui_shell_set_vmu_emulation_full(&s,original,false,KUI_GAME_VMU_SLOT_A1,true,false,NULL);
+    assert(!s.vmu_emulation_known && s.vmu_emulation_background);
     kui_shell_set_vmu_emulation_full(&s,s.vmu_emulation_generation,false,KUI_GAME_VMU_SLOT_A1,
         false,false,"Read failed");
     assert(!s.vmu_emulation_known && press(KUI_SHELL_A,false)==KUI_SHELL_VMU_EMULATION_LOAD);
@@ -5594,21 +5626,18 @@ static void vmu_tools_entry_without_storage(void) {
         !s.vmu_emulation_loading && s.vmu_emulation_generation==generation);
     assert(press(KUI_SHELL_A,false)==KUI_SHELL_VMU_EMULATION_SAVE && s.vmu_emulation_slot_change &&
         s.vmu_emulation_slot_requested==KUI_GAME_VMU_SLOT_A2 && !s.vmu_emulation_requested);
-    puts("PASS VMU Tools entry: no storage action before card/import/backup navigation, lazy preference reads, failure-before-write guard and cached status retained");
+    puts("PASS VMU Tools entry: read both settings in the background, immediate card navigation, retry after failure and reuse confirmed settings");
 }
 static void vmu_emulation_controls(void) {
     reset(KUI_SHELL_HOME);s.home_selected=home_index(KUI_SHELL_VMU_TOOLS);
     assert(s.vmu_emulation_enabled && !s.vmu_emulation_known);
     assert(press(KUI_SHELL_A,false)==KUI_SHELL_NONE);
-    assert(s.page==KUI_SHELL_VMU_TOOLS && !s.vmu_emulation_loading && !s.vmu_emulation_generation);
+    assert(s.page==KUI_SHELL_VMU_TOOLS && s.vmu_emulation_background && s.vmu_emulation_generation);
     for(unsigned i=0;i<3;i++)assert(press(KUI_SHELL_DOWN,false)==KUI_SHELL_NONE);
-    /* Read only when entering the first inline preference, before any toggle
-     * can use the unconfirmed On/A2 initialization defaults. */
-    assert(press(KUI_SHELL_DOWN,false)==KUI_SHELL_VMU_EMULATION_LOAD && s.vmu_tools_selected==4u);
+    assert(press(KUI_SHELL_DOWN,false)==KUI_SHELL_NONE && s.vmu_tools_selected==4u);
     assert(s.vmu_emulation_loading);
     unsigned generation=s.vmu_emulation_generation;
     assert(press(KUI_SHELL_A,false)==KUI_SHELL_NONE);
-    assert(press(KUI_SHELL_B,false)==KUI_SHELL_STOP);
     kui_shell_set_vmu_emulation(&s,generation+1,false,true,false,"Stale");
     assert(s.vmu_emulation_loading && s.vmu_emulation_enabled && !s.vmu_emulation_known);
     kui_shell_set_vmu_emulation(&s,generation,false,true,false,"Preference loaded");
@@ -5619,6 +5648,7 @@ static void vmu_emulation_controls(void) {
     assert(press(KUI_SHELL_A,false)==KUI_SHELL_VMU_EMULATION_SAVE);
     assert(s.vmu_emulation_requested && !s.vmu_emulation_enabled);
     assert(press(KUI_SHELL_A,false)==KUI_SHELL_NONE);
+    assert(press(KUI_SHELL_B,false)==KUI_SHELL_STOP);
     kui_shell_set_vmu_emulation(&s,s.vmu_emulation_generation,true,false,false,"Save uncertain; reload");
     assert(!s.vmu_emulation_enabled && !s.vmu_emulation_known);
     assert(strstr(s.vmu_emulation_notice,"uncertain"));

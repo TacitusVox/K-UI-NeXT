@@ -29,6 +29,10 @@ def body(text, marker):
     return text[at:end - 1]
 
 worker = body(SOURCE, '            if(action==27) {')
+worker_body = body(SOURCE, 'static void *worker(void *unused) {')
+worker_tail = worker_body[worker_body.rindex('        mutex_lock(&lock);\n        busy = false;'):
+                          worker_body.rindex('\n    }\n    return NULL;')]
+vmu_marker = 'static void vmu_tools_warm_mounted(void) {'
 settings_marker = 'static void settings_operation(bool save,bool first_frame) {'
 theme_source = (ROOT / 'src/dreamcast/theme_runtime.inc').read_text()
 theme_marker = 'static void theme_first_frame(bool mounted) {'
@@ -78,7 +82,7 @@ static struct preferences {bool startup_chime,menu_sounds;unsigned music_volume;
 static int disc_identity,disc_snapshot;
 struct kui_settings {int marker;};
 static struct kui_settings settings_current,settings_pending;
-static struct shell_state {int marker;const void *theme_catalog;} shell;
+static struct shell_state {int marker;const void *theme_catalog;unsigned vmu_emulation_generation;bool vmu_emulation_background;} shell;
 #if CURRENT_COHORT
 static int theme_catalog,theme_startup_settings;
 static struct theme_bundle {int settings;} theme_saved_bundle;
@@ -137,6 +141,22 @@ typedef int FATFS;
 static unsigned settings_generation,destination_generation,connect_calls,mount_calls,unmounts;
 static unsigned storage_failure,selected_transport=KUI_STORAGE_SCI;
 static bool destination_ready;
+static bool retain_mount=true,failed_preference,vmu_tools_warm_ready;
+static struct {unsigned generation,slot;bool ok,enabled;} vmu_tools_preference;
+static bool screenshot_frame_pending,storage_test_running,salvage_defer_pending,cancel_requested;
+static unsigned worker_active_action,ui_hz_busy,vmu_reads;
+static unsigned enter_while_reading;
+#define KUI_OPT_UI_FULL 0
+bool kui_games_storage_active(void) {assert(!busy && startup_finished);return retain_mount && !storage_failure;}
+bool games_idle_cancelled(void) {return false;}
+bool kui_cd_audio_owns_drive(void) {return false;}
+bool kui_vmu_emulation_settings_load_full(bool *enabled,unsigned *slot,void (*log)(const char *,...)) {
+    assert(!busy && !splash_active && log==kui_log && events[event_count-1]==13);
+    if(enter_while_reading) {
+        shell.vmu_emulation_background=true;shell.vmu_emulation_generation=enter_while_reading;
+    }
+    ++vmu_reads;*enabled=false;*slot=1;return !failed_preference;
+}
 static int destination_result;
 static char destination_note[128];
 bool kui_cancelled(void) {return false;}
@@ -197,6 +217,9 @@ static void reset(void) {
     event_count=preflights=resets=early_frames=0;startup_finished=false;warm=false;
 #if CURRENT_COHORT
     connect_calls=mount_calls=unmounts=0;
+    vmu_reads=0;vmu_tools_warm_ready=false;
+    shell.vmu_emulation_generation=0;shell.vmu_emulation_background=false;
+    memset(&vmu_tools_preference,0,sizeof(vmu_tools_preference));
 #endif
     for(unsigned i=0;i<KUI_UPDATE_HANDOFF_BYTES;i++)kui_update_ram_handoff[i]=empty_slot[i];
     memset(&update_boot_view,0,sizeof(update_boot_view));
@@ -214,6 +237,11 @@ static void lifecycle(bool skip) {
 #if CURRENT_COHORT
     assert(connect_calls==1 && mount_calls==(storage_failure==1?0u:1u));
     assert(unmounts==(storage_failure?0u:1u));
+    assert(vmu_reads==(unsigned)(retain_mount && !storage_failure));
+    assert(vmu_tools_warm_ready==(vmu_reads && !failed_preference && !enter_while_reading));
+    assert(vmu_tools_preference.ok==(vmu_reads && !failed_preference && enter_while_reading<=1));
+    if(vmu_tools_preference.ok)assert(vmu_tools_preference.generation==enter_while_reading);
+    if(vmu_tools_warm_ready)assert(vmu_tools_preference.ok && !vmu_tools_preference.enabled && vmu_tools_preference.slot==1);
     if(!storage_failure)assert(events[n++]==9); /* already mounted for the first frame */
 #endif
     assert(events[n++]==6 && events[n++]==7 && events[n++]==8);
@@ -231,6 +259,10 @@ int main(void) {
     for(selected_transport=KUI_STORAGE_SCIF;selected_transport<=KUI_STORAGE_AUTO;selected_transport++)
         lifecycle(false);
     selected_transport=KUI_STORAGE_SCI;
+    retain_mount=false;lifecycle(false);retain_mount=true;
+    failed_preference=true;lifecycle(false);failed_preference=false;
+    enter_while_reading=1;lifecycle(false);
+    enter_while_reading=2;lifecycle(false);enter_while_reading=0;
     storage_failure=1;lifecycle(false);
     storage_failure=2;lifecycle(false);
     storage_failure=0;
@@ -265,7 +297,9 @@ with tempfile.TemporaryDirectory(prefix='kui-startup-root-') as temporary:
         if label == 'current':
             settings = theme_marker + body(theme_source, theme_marker) + '}\n'
             settings += settings_marker + body(SOURCE, settings_marker) + '}\n'
-        start_worker = worker if label == 'current' else 'event(9);\n' + worker
+            settings += vmu_marker + body(SOURCE, vmu_marker) + '}\n'
+        start_worker = ('unsigned action=27;\n' + worker + worker_tail if label == 'current'
+                        else 'event(9);\n' + worker)
         source.write_text('#define CURRENT_COHORT '+str(int(label == 'current'))+'\n'+before+settings+
                           worker_begin+start_worker+middle+code+after)
         subprocess.run([*shlex.split(os.environ.get('HOST_CC', 'cc')), '-std=c11', '-O1', '-g',

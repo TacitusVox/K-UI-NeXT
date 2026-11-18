@@ -258,6 +258,11 @@ static bool vmu_emulation_requested,vmu_emulation_enabled=true,vmu_emulation_ok,
 static unsigned vmu_emulation_slot,vmu_emulation_slot_requested;
 static bool vmu_emulation_slot_change;
 static char vmu_emulation_note[128];
+static struct {
+    unsigned generation,slot;
+    bool ok,enabled;
+} vmu_tools_preference;
+static bool vmu_tools_warm_ready;
 static struct kui_datetime clock_pending,clock_snapshot;
 static bool clock_valid;
 static unsigned clock_generation;
@@ -2918,6 +2923,48 @@ static bool games_idle_cancelled(void) {
     mutex_unlock(&lock);
     return stop;
 }
+/* Startup's game-selection read normally leaves this filesystem mounted.
+ * The chime and busy state have already ended. Read only on that mount. */
+static void vmu_tools_warm_mounted(void) {
+    if(!kui_games_storage_active() || games_idle_cancelled() || kui_cd_audio_owns_drive()) return;
+    bool enabled;
+    unsigned slot;
+    if(!kui_vmu_emulation_settings_load_full(&enabled,&slot,kui_log)) return;
+    mutex_lock(&lock);
+    /* A first hub entry may race this one-time startup read. Later
+     * generations belong to an explicit reload, edit or reopened hub. */
+    if(!shell.vmu_emulation_generation || (shell.vmu_emulation_background &&
+       shell.vmu_emulation_generation==1u)) {
+        vmu_tools_preference.generation=shell.vmu_emulation_generation;
+        vmu_tools_preference.ok=true;vmu_tools_preference.enabled=enabled;vmu_tools_preference.slot=slot;
+        vmu_tools_warm_ready=!shell.vmu_emulation_generation;
+    }
+    mutex_unlock(&lock);
+}
+/* Both rows share one read. The UI remains available while the sole I/O
+ * worker owns the mount. This snapshot does not start save-history work. */
+static bool vmu_tools_idle_work(void) {
+    mutex_lock(&lock);
+    unsigned generation=shell.vmu_emulation_generation;
+    bool wanted=shell.vmu_emulation_background && generation!=vmu_tools_preference.generation &&
+        !games_idle_blocked_locked();
+    mutex_unlock(&lock);
+    if(!wanted || kui_cd_audio_owns_drive()) return false;
+    bool ok=false,enabled=true;
+    unsigned slot=KUI_GAME_VMU_SLOT_A2;
+    if(!salvage_session.parked) {
+        kui_sd_set_params(KUI_STORAGE_AUTO,true);
+        if(kui_games_storage_open(kui_log)==KUI_GAMES_STORAGE_OK) {
+            ok=kui_vmu_emulation_settings_load_full(&enabled,&slot,kui_log);
+            if(!kui_games_storage_release()) ok=false;
+        }
+    }
+    mutex_lock(&lock);
+    vmu_tools_preference.generation=generation;vmu_tools_preference.slot=slot;
+    vmu_tools_preference.ok=ok;vmu_tools_preference.enabled=enabled;
+    mutex_unlock(&lock);
+    return true;
+}
 /* Main only, between draws and with lock held. A held control, page change,
  * or foreground request drops the displayed movie before drawing the new UI. */
 static bool games_hover_update_locked(const struct kui_shell_games_art_key *key,uint64_t now) {
@@ -3612,6 +3659,7 @@ static void *worker(void *unused) {
 #endif
         if(!action) {
 #ifdef KUI_SD_RUNTIME
+            if(vmu_tools_idle_work()) {thd_sleep(1);continue;}
             /* This read-only hint never makes the UI busy. A newly queued
              * foreground job cancels it, then runs on this same worker after
              * the lookup has released its filesystem; no storage concurrency. */
@@ -4768,6 +4816,9 @@ static void *worker(void *unused) {
         cancel_requested = false;
         ui_hz_busy = KUI_OPT_UI_FULL;   /* no operation leaves its cap behind for the next */
         mutex_unlock(&lock);
+#ifdef KUI_SD_RUNTIME
+        if(action==27) vmu_tools_warm_mounted();
+#endif
     }
     return NULL;
 }
@@ -5785,6 +5836,18 @@ int main(void) {
                 vmu_emulation_ok,vmu_emulation_stopped,vmu_emulation_note);
             seen_vmu_emulation=vmu_emulation_generation;
         }
+        if(vmu_tools_warm_ready) {
+            if(!shell.vmu_emulation_generation) {
+                shell.vmu_emulation_enabled=vmu_tools_preference.enabled;
+                shell.vmu_emulation_slot=vmu_tools_preference.slot;shell.vmu_emulation_known=true;
+            }
+            vmu_tools_warm_ready=false;
+        }
+        if(shell.vmu_emulation_background && shell.vmu_emulation_generation==vmu_tools_preference.generation) {
+            kui_shell_set_vmu_emulation_full(&shell,vmu_tools_preference.generation,vmu_tools_preference.enabled,
+                vmu_tools_preference.slot,vmu_tools_preference.ok,false,NULL);
+            last_draw=0;
+        }
         if(seen_vmu_delete!=vmu_delete_generation) {
             kui_shell_set_vmu_delete_preview(&shell,&vmu_snapshot);seen_vmu_delete=vmu_delete_generation;
         }
@@ -5797,6 +5860,7 @@ int main(void) {
         if(startup_finished && !busy && !startup_routed) {
             startup_routed=true;
             shell.page=kui_shell_startup_page(system_current.startup_app);
+            if(shell.page==KUI_SHELL_VMU_TOOLS) kui_shell_vmu_tools_enter(&shell);
             /* Populate read-only lists through the storage worker. A save,
              * rip or VMU write always needs an explicit controller action. */
             if(shell.page==KUI_SHELL_VMU) {

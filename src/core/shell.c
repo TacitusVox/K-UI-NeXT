@@ -143,12 +143,17 @@ void kui_shell_theme_result(struct kui_shell *s,unsigned generation,
 static enum kui_shell_action emulation_request(struct kui_shell *s,bool save) {
     ++s->vmu_emulation_generation;
     if(!s->vmu_emulation_generation) ++s->vmu_emulation_generation;
-    s->vmu_emulation_loading=true;
+    s->vmu_emulation_loading=true;s->vmu_emulation_background=false;
     s->vmu_emulation_requested=save?!s->vmu_emulation_enabled:s->vmu_emulation_enabled;
     s->vmu_emulation_slot_requested=s->vmu_emulation_slot;s->vmu_emulation_slot_change=false;
     snprintf(s->vmu_emulation_notice,sizeof(s->vmu_emulation_notice),"%s",save?
         "Saving virtual VMU preference...":"Reading virtual VMU preference...");
     return save?KUI_SHELL_VMU_EMULATION_SAVE:KUI_SHELL_VMU_EMULATION_LOAD;
+}
+void kui_shell_vmu_tools_enter(struct kui_shell *s) {
+    if(!s || s->vmu_emulation_known || s->vmu_emulation_loading) return;
+    (void)emulation_request(s,false);
+    s->vmu_emulation_background=true;
 }
 static enum kui_shell_action emulation_slot_request(struct kui_shell *s) {
     if(!s->vmu_emulation_known) return emulation_request(s,false);
@@ -167,10 +172,12 @@ void kui_shell_set_vmu_emulation(struct kui_shell *s,unsigned generation,bool en
 void kui_shell_set_vmu_emulation_full(struct kui_shell *s,unsigned generation,bool enabled,unsigned slot,
         bool ok,bool stopped,const char *message) {
     if(!s || !s->vmu_emulation_loading || generation!=s->vmu_emulation_generation) return;
-    s->vmu_emulation_loading=false;
+    bool background=s->vmu_emulation_background;
+    s->vmu_emulation_loading=false;s->vmu_emulation_background=false;
     if(slot>=KUI_GAME_VMU_SLOT_COUNT) ok=false;
     if(ok) {s->vmu_emulation_enabled=enabled;s->vmu_emulation_slot=slot;s->vmu_emulation_known=true;}
     else s->vmu_emulation_known=false;
+    if(background && ok) {s->vmu_emulation_notice[0]=0;return;}
     snprintf(s->vmu_emulation_notice,sizeof(s->vmu_emulation_notice),"%s",message && message[0]?message:
         ok?(enabled?"Virtual VMU enabled for the next supported native launch.":
             "Virtual VMU disabled; physical VMUs and imported cards are kept."):
@@ -2930,7 +2937,11 @@ enum kui_shell_action kui_shell_input(struct kui_shell *s,
             return KUI_SHELL_NONE;
         }
         if(s->page==KUI_SHELL_VMU_TOOLS) {
-            if(s->vmu_emulation_loading) return KUI_SHELL_STOP;
+            if(s->vmu_emulation_loading && !s->vmu_emulation_background) return KUI_SHELL_STOP;
+            if(s->vmu_emulation_background) {
+                s->vmu_emulation_background=false;s->vmu_emulation_loading=false;
+                s->vmu_emulation_notice[0]=0;
+            }
             s->page=KUI_SHELL_HOME;return KUI_SHELL_NONE;
         }
         if(s->page==KUI_SHELL_VMU_WIZARD) {
@@ -3180,7 +3191,8 @@ enum kui_shell_action kui_shell_input(struct kui_shell *s,
     if(s->gd_auto_launch && s->games_vmu_disc && s->page==KUI_SHELL_GAMES_VMU_CARD)
         return disc_vmu_launch(s);
     if(s->page==KUI_SHELL_VMU_WIZARD && s->vmu_wizard_loading) return KUI_SHELL_NONE;
-    if(s->page==KUI_SHELL_VMU_TOOLS && s->vmu_emulation_loading) return KUI_SHELL_NONE;
+    if(s->page==KUI_SHELL_VMU_TOOLS && s->vmu_emulation_loading && !s->vmu_emulation_background)
+        return KUI_SHELL_NONE;
     if(s->page==KUI_SHELL_DISC_CARDS && s->disc_cards_loading) return KUI_SHELL_NONE;
     if(s->page==KUI_SHELL_UPDATES && s->update_loading) return KUI_SHELL_NONE;
     if(s->page==KUI_SHELL_DISC_CARDS && s->disc_cards_confirming) {
@@ -3368,9 +3380,9 @@ enum kui_shell_action kui_shell_input(struct kui_shell *s,
                 return KUI_SHELL_LOAD_SYSTEM;
             }
             if(s->page==KUI_SHELL_VMU) return KUI_SHELL_VMU_LIST;
-            /* Opening the tools hub needs no storage or saved preference.
-             * Its preference rows load only when the user selects them. */
-            if(s->page==KUI_SHELL_VMU_TOOLS) return KUI_SHELL_NONE;
+            if(s->page==KUI_SHELL_VMU_TOOLS) {
+                kui_shell_vmu_tools_enter(s);return KUI_SHELL_NONE;
+            }
             if(s->page==KUI_SHELL_MUSIC) return list_music(s,true);
             if(s->page==KUI_SHELL_GAMES) {
                 s->games_group[0]=0;
@@ -4089,11 +4101,10 @@ enum kui_shell_action kui_shell_input(struct kui_shell *s,
             s->recovery_operation==2u?KUI_SHELL_FORENSIC:KUI_SHELL_ADVANCED_CRC;
         break;
     case KUI_SHELL_VMU_TOOLS: {
-        unsigned previous=s->vmu_tools_selected;
         s->vmu_tools_selected=move_count(s->vmu_tools_selected,buttons,6);
+        if(s->vmu_emulation_background && (buttons&KUI_SHELL_A) && s->vmu_tools_selected>=4u)
+            return KUI_SHELL_NONE;
         if(buttons==KUI_SHELL_X) return emulation_request(s,false);
-        if(!s->vmu_emulation_known && previous!=s->vmu_tools_selected && s->vmu_tools_selected>=4u)
-            return emulation_request(s,false);
         if(buttons&KUI_SHELL_A) {
             if(!s->vmu_tools_selected) {
                 s->vmu_collection_return=KUI_SHELL_VMU_TOOLS;s->page=KUI_SHELL_VMU_COLLECTION;
