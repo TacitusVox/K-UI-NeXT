@@ -172,7 +172,7 @@ bool kui_update_nightly_download(enum kui_internet_route route, const char *runn
     *path = 0;
     memset(status, 0, sizeof(*status));
     struct job job = { .status = status, .progress = progress, .cancel = cancel };
-    bool ok = false, tracked = true;
+    bool ok = false, tracked = true, published = false;
     char problem[128] = "";
     struct kui_internet *session = NULL;
     if(!kui_update_keep_valid(keep)) {
@@ -199,7 +199,6 @@ bool kui_update_nightly_download(enum kui_internet_route route, const char *runn
     }
     if(running_build && strlen(running_build) == 12 && !memcmp(running_build, asset.commit, 12)) {
         ok = true;
-        message(&job, "Already running the GitHub nightly build");
         goto trim;
     }
     if(!ensure_directory("0:/KUI") || !ensure_directory(KUI_UPDATE_BROWSER_ROOT) ||
@@ -237,6 +236,7 @@ bool kui_update_nightly_download(enum kui_internet_route route, const char *runn
             message(&job, "Cannot publish verified nightly on storage");
             goto done;
         }
+        published = true;
         /* A reset in this window can leave an untracked verified package.
          * Never pre-claim a destination that publication might fail to fill. */
         tracked = kui_nightly_record_download(&asset, cancel);
@@ -246,14 +246,27 @@ bool kui_update_nightly_download(enum kui_internet_route route, const char *runn
     }
     ok = true;
     strcpy(path, final);
-    message(&job, tracked ? "Verified nightly ready for review" :
-        "Verified nightly ready. Could not record it for automatic cleanup.");
 trim:
     kui_internet_close(session);
     session = NULL;
-    if(tracked && !kui_nightly_trim(keep, asset.commit, cancel))
+    bool wrote = false;
+    bool clean = !tracked || kui_nightly_trim_report(keep, asset.commit, cancel, &wrote);
+    /* A successful rename, receipt write or prune can disturb sectors verified
+     * earlier. Reopen the public path after all writes before offering it. */
+    if(*path && (published || wrote) &&
+       kui_nightly_verify_file(path, &asset, cancel, verified_bytes, &job) != KUI_NIGHTLY_VERIFIED) {
+        *path = 0;
+        ok = false;
+        message(&job, "Final nightly on storage failed verification. Check the card before retrying.");
+    } else if(!clean) {
         message(&job, *path ? "Nightly ready. Download cleanup incomplete. Retry the check." :
             "Already running the nightly. Download cleanup incomplete. Retry the check.");
+    } else if(!*path) {
+        message(&job, "Already running the GitHub nightly build");
+    } else {
+        message(&job, tracked ? "Verified nightly ready for review" :
+            "Verified nightly ready. Could not record it for automatic cleanup.");
+    }
     if(cancel && cancel()) {
         ok = false;
         *path = 0;

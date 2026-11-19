@@ -1010,8 +1010,11 @@ static void updates_page(struct paint *p,const struct kui_shell *s,const struct 
     const struct kui_app_status *status=s->update_loading && v->app_status?v->app_status:&u->status;
     title(p,40,108,s->update_loading?"Updates / working":s->update_online?"GitHub nightly":u->stage==KUI_SHELL_UPDATE_REVIEW?
         u->restore?"Restore this version?":"Install this package?":"K-UI updates");
-    char line[192];snprintf(line,sizeof(line),"Running GUI %.12s / restart bank %s",u->running[0]?u->running:"current",
-        !u->selection_known?"unchecked":u->selected[0]?u->selected:"original baseline");label(p,40,138,CYAN,line);
+    char line[192];
+    const char *active=!u->running_bank_known?"unknown":u->running_bank[0]?u->running_bank:"ROOT";
+    const char *next=!u->selection_known?"unchecked":u->selected[0]?u->selected:"ROOT";
+    snprintf(line,sizeof(line),"GUI %.12s  Running %s  Selected %s",u->running[0]?u->running:"current",active,next);
+    label(p,40,138,CYAN,line);
     if(s->update_online) {
         label(p,40,168,MUTED,"TacitusVox/K-UI-NeXT");
         panel(p,32,201,576,36,s->update_online_row==0?SELECTED:PANEL);
@@ -1078,8 +1081,10 @@ static void updates_page(struct paint *p,const struct kui_shell *s,const struct 
                 u->replacement_count,u->removed_count);
             label(p,48,294,CYAN,line);
         } else if(!u->restore && u->inherited_count) {
-            if(u->replacement_count==1u)
+            if(u->replacement_count==1u && u->gui_build[0])
                 label(p,48,294,CYAN,"GUI update; keeps your installed game readers.");
+            else if(u->replacement_count==1u)
+                label(p,48,294,CYAN,"Replaces one file and keeps the installed GUI.");
             else {
                 snprintf(line,sizeof(line),"Updates %u files; retains %u installed modules.",
                     u->replacement_count,u->inherited_count);
@@ -1096,7 +1101,7 @@ static void updates_page(struct paint *p,const struct kui_shell *s,const struct 
         words(p,48,206,592,status->passed?CYAN:status->stopped?MUTED:AMBER,status->message,false);
         for(unsigned i=0;i<status->line_count && i<3u;i++)words(p,48,234+i*24u,592,MUTED,status->lines[i],false);
         label(p,40,350,MUTED,"Restart K-UI loads the selected version.");
-        label(p,40,376,MUTED,"Cold CD boot loads the physical ROOT files on the card.");
+        label(p,40,376,MUTED,"Cold CD boot loads it too. Hold START for physical K-UI.");
         label(p,40,398,CYAN,"START reviews Restart K-UI. X returns to this folder.");return;
     }
     snprintf(line,sizeof(line),"Folder: %.180s",u->directory[0]?u->directory+2u:"/KUI/updates");
@@ -1118,7 +1123,9 @@ static void updates_page(struct paint *p,const struct kui_shell *s,const struct 
         label(p,48,306,MUTED,"Stable and testing packages are reviewed before installation.");
     }
     label(p,40,376,MUTED,"X Refresh   Y Restore previous   R Original baseline");
-    words(p,40,400,608,status->errors?AMBER:MUTED,status->message,false);
+    bool show_boot_notice=u->boot_notice[0] && !status->errors && !status->stopped;
+    words(p,40,400,608,show_boot_notice || status->errors?AMBER:MUTED,
+        show_boot_notice?u->boot_notice:status->message,false);
 }
 static void utility_page(struct paint *p,const struct kui_shell *s,const struct kui_shell_view *v) {
     bool memory_test=s->page==KUI_SHELL_MEMORY;

@@ -31,4 +31,6 @@ bool kui_nightly_prepare_partial(const struct kui_nightly_asset *asset);
 bool kui_nightly_record_download(const struct kui_nightly_asset *asset, kui_cancel_fn cancel);
 /* Pass NULL for protected_commit when changing the limit offline. */
 bool kui_nightly_trim(unsigned keep, const char *protected_commit, kui_cancel_fn cancel);
+/* Any attempted unlink can have affected storage, including a failed write. */
+bool kui_nightly_trim_report(unsigned keep, const char *protected_commit, kui_cancel_fn cancel, bool *wrote);
 #endif

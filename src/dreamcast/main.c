@@ -703,6 +703,10 @@ static void disc_launch_failure_report(const char *trigger,const struct kui_app_
 #ifdef KUI_SD_RUNTIME
 static void draw_shell(void);
 static void theme_first_frame(bool mounted);
+static unsigned controller_buttons(void);
+static bool update_boot_prepare(bool mounted,bool recovery,uint64_t connect_started,uint64_t connected_at,
+    uint64_t mounted_at,struct kui_runtime_image *image);
+static void update_boot_finish(bool chain,bool released,struct kui_runtime_image *image);
 /* Before the worker starts, the UI owns this initial mount. Paint the selected
  * splash first, then finish the usual capture preferences on that same mount. */
 static void settings_operation(bool save,bool first_frame) {
@@ -714,16 +718,29 @@ static void settings_operation(bool save,bool first_frame) {
     kui_destination_default(root);
     kui_sd_set_params(first_frame?kui_storage_selected():KUI_STORAGE_AUTO,true);
     FATFS fs;
+    bool recovery=first_frame && (controller_buttons()&CONT_START);
+    uint64_t connect_started=first_frame?timer_ms_gettime64():0;
     bool connected=kui_sd_connect();
+    uint64_t connected_at=first_frame?timer_ms_gettime64():0;
     bool mounted=connected && kui_mount(&fs,kui_log);
-    if(first_frame) theme_first_frame(mounted);
+    bool chain=false,released=true;
+    struct kui_runtime_image image={0};
+    if(first_frame) {
+        uint64_t mounted_at=timer_ms_gettime64();
+        theme_first_frame(mounted);
+        recovery=recovery || (controller_buttons()&CONT_START);
+        chain=update_boot_prepare(mounted,recovery,connect_started,connected_at,mounted_at,&image);
+    }
     if(mounted) {
-        ok = !kui_cancelled() && (save ? kui_settings_save(&value, kui_log)
-                                      : kui_settings_load(&value, kui_log));
-        if(!save) destination_ok = !kui_cancelled() && kui_destination_load(root, kui_log);
-        f_mount(NULL,"0:",0);
+        if(!chain) {
+            ok = !kui_cancelled() && (save ? kui_settings_save(&value, kui_log)
+                                          : kui_settings_load(&value, kui_log));
+            if(!save) destination_ok = !kui_cancelled() && kui_destination_load(root, kui_log);
+        }
+        released=f_mount(NULL,"0:",0)==FR_OK;
     }
     if(connected) kui_sd_disconnect();
+    if(first_frame)update_boot_finish(chain,released,&image);
     mutex_lock(&lock);
     if(ok) { settings_current = value; ++settings_generation; }
     if(!save) {
@@ -2775,6 +2792,9 @@ static void update_work(const struct kui_shell_update_request *request,struct ku
     if(kui_update_browser_path(request->directory))strcpy(out->directory,request->directory);
     else strcpy(out->directory,KUI_UPDATE_BROWSER_ROOT);
     snprintf(out->running,sizeof(out->running),"%s",KUI_BUILD_ID);
+    uint8_t running_receipt[32];
+    out->running_bank_known=kui_update_effective_snapshot(out->running_bank,running_receipt)>0;
+    snprintf(out->boot_notice,sizeof(out->boot_notice),"%s",update_boot_view.notice);
     out->stage=KUI_SHELL_UPDATE_RESULT;
     bool mutation=request->op==KUI_SHELL_UPDATE_INSTALL || request->op==KUI_SHELL_UPDATE_RESTORE;
     bool nightly=request->op==KUI_SHELL_UPDATE_NIGHTLY;
@@ -2807,7 +2827,8 @@ static void update_work(const struct kui_shell_update_request *request,struct ku
         out->selection_known=true;
         memcpy(out->selected,activation.selected,sizeof(out->selected));
         memcpy(out->previous,activation.previous,sizeof(out->previous));
-        out->restart_required=strcmp(activation.selected,update_boot_view.bank)!=0;
+        out->restart_required=!out->running_bank_known || strcmp(activation.selected,out->running_bank)!=0 ||
+            memcmp(activation.manifest_sha256,running_receipt,sizeof(running_receipt))!=0;
     }
     bool up_to_date=false;
     char downloaded[KUI_SHELL_UPDATE_PATH_BYTES]={0};
@@ -2825,7 +2846,8 @@ static void update_work(const struct kui_shell_update_request *request,struct ku
     }
     if(ok && nightly) {
         update_reviewed.ready=false;
-        ok=kui_update_nightly_download(request->route,KUI_GITHUB_NIGHTLY ? KUI_BUILD_ID : NULL,out->keep,downloaded,&out->status,kui_log,kui_cancelled,app_progress);
+        const char *running_nightly=KUI_GITHUB_NIGHTLY && out->selection_known && !out->restart_required ? KUI_BUILD_ID : NULL;
+        ok=kui_update_nightly_download(request->route,running_nightly,out->keep,downloaded,&out->status,kui_log,kui_cancelled,app_progress);
         up_to_date=ok && !downloaded[0];
         if(ok && !up_to_date && (!kui_update_browser_child(request->directory,downloaded) || !update_package_path(downloaded))) {
             update_view_error(out,"Downloaded package path could not be checked.");ok=false;
@@ -5426,7 +5448,7 @@ static void startup_report_save_mounted(void) {
     const size_t limit=KUI_STARTUP_REPORT_RECORD_MAX;
     size_t used=(size_t)snprintf(report,limit,
         "\n--- K-UI startup %.12s ---\nScope: current GUI startup through version selection, before storage release.\n"
-        "Entry: explicit checked GUI restart handoff.\n"
+        "Entry: checked GUI handoff during startup.\n"
         "Earlier CD bootstrap/firmware logs are not carried across execution.\n",KUI_BUILD_ID);
     bool clipped=false;
     for(unsigned i=0;i<line_count;i++) {
@@ -5466,77 +5488,76 @@ static void update_boot_timing_save(uint64_t connected_at,uint64_t mounted_at,ui
     if(f_close(&file)!=FR_OK)saved=false;
     kui_log("Updater startup timings %s: /KUI/updater-startup.txt",saved?"saved":"unavailable");
 }
-static void update_boot_start(void) {
-    uint64_t started=timer_ms_gettime64();
-    struct kui_runtime_image image={0};FATFS fs;
+/* The startup thread exclusively owns the same volume used for the first
+ * themed frame and settings. No worker or game module has started yet. */
+static bool update_boot_prepare(bool mounted,bool recovery,uint64_t connect_started,uint64_t connected_at,
+    uint64_t mounted_at,struct kui_runtime_image *image) {
     struct kui_update_handoff_context handoff={.payload_offset=UINT32_MAX};
     uintptr_t slot=(uintptr_t)kui_update_ram_handoff;
     if(slot>=KUI_RUNTIME_ADDRESS && slot-KUI_RUNTIME_ADDRESS<=KUI_RUNTIME_MAX_BYTES-KUI_UPDATE_HANDOFF_BYTES)
         handoff.payload_offset=(uint32_t)(slot-KUI_RUNTIME_ADDRESS);
     for(unsigned i=0;i<KUI_UPDATE_HANDOFF_BYTES;i++)handoff.wire[i]=kui_update_ram_handoff[i];
     for(unsigned i=16u;i<KUI_UPDATE_HANDOFF_BYTES;i++)kui_update_ram_handoff[i]=0;
-    bool baseline=(controller_buttons()&CONT_B)!=0;
-    kui_log("Startup: compiled %.12s; catalog=%u; baseline button=%s; RAM handoff=%s",
-        KUI_BUILD_ID,(unsigned)kui_update_catalog_count(),baseline?"held":"released",
-        kui_update_handoff_empty(handoff.wire,sizeof(handoff.wire),NULL)?"empty":"present/invalid");
-    /* Keep normal boot artwork until the regular splash. Selection timings
-     * and failures remain in the startup reports and eventual GUI notice;
-     * this storage preflight needs no separate waiting screen. */
-    kui_update_boot_block();
-    /* The CD/previous GUI already pinned the boot device. Opening that exact
-     * device avoids AUTO's extra probe mount/unmount before our own mount. */
-    kui_sd_set_params(kui_storage_selected(),true);
-    uint64_t connect_started=timer_ms_gettime64();
-    bool connected=kui_sd_connect();
-    uint64_t connected_at=timer_ms_gettime64();
-    bool mounted=connected && kui_mount(&fs,kui_log);
-    uint64_t mounted_at=timer_ms_gettime64();
-    enum kui_update_boot_result result=KUI_UPDATE_BOOT_ERROR;
-    if(mounted)result=baseline?
-        kui_update_boot_baseline_handoff(KUI_BUILD_ID,kui_storage_selected(),&handoff,&image,&update_boot_view,kui_log,update_boot_no_cancel):
-        kui_update_boot_read_handoff(KUI_BUILD_ID,kui_storage_selected(),&handoff,&image,&update_boot_view,kui_log,update_boot_no_cancel);
-    else snprintf(update_boot_view.notice,sizeof(update_boot_view.notice),"Update storage unavailable; module loading blocked. Restart after checking SD.");
-    uint64_t selected_at=timer_ms_gettime64();
-    kui_log("Updater startup: connection=%llu ms mount=%llu ms selection=%llu ms",
-        (unsigned long long)(connected_at-connect_started),(unsigned long long)(mounted_at-connected_at),
-        (unsigned long long)(selected_at-mounted_at));
-    bool safe_chain=false;
+    bool physical=kui_update_handoff_empty(handoff.wire,sizeof(handoff.wire),NULL);
+    enum kui_update_boot_result result;
+    if(mounted) {
+        result=kui_update_boot_startup(KUI_BUILD_ID,kui_storage_selected(),&handoff,recovery,image,
+            &update_boot_view,kui_log,update_boot_no_cancel);
+    } else if(physical) {
+        /* A CD-validated physical GUI can still run with its usual services
+         * when its boot medium doesn't expose a FatFs update volume. */
+        kui_update_boot_reset();
+        snprintf(update_boot_view.build,sizeof(update_boot_view.build),"%.12s",KUI_BUILD_ID);
+        update_boot_view.fallback=true;
+        snprintf(update_boot_view.notice,sizeof(update_boot_view.notice),"Update storage unavailable. Running physical K-UI.");
+        result=KUI_UPDATE_BOOT_BASELINE;
+    } else {
+        kui_update_boot_block();
+        snprintf(update_boot_view.notice,sizeof(update_boot_view.notice),"Update storage unavailable. Power on holding START for physical K-UI.");
+        result=KUI_UPDATE_BOOT_ERROR;
+    }
     if(result==KUI_UPDATE_BOOT_CHAIN) {
         uintptr_t stack;__asm__ __volatile__("mov r15,%0":"=r"(stack));
-        uintptr_t source=(uintptr_t)image.data;uint32_t bytes=image.info.payload_bytes;
-        safe_chain=!update_runtime_handoff_refusal(source,bytes,stack);
-        if(!safe_chain) {
-            kui_update_boot_block();result=KUI_UPDATE_BOOT_ERROR;
-            snprintf(update_boot_view.notice,sizeof(update_boot_view.notice),"Update runtime handoff refused; module loading blocked. Hold B on restart.");
+        const char *refusal=update_runtime_handoff_refusal((uintptr_t)image->data,image->info.payload_bytes,stack);
+        if(refusal) {
+            kui_runtime_free(image);kui_update_boot_block();result=KUI_UPDATE_BOOT_ERROR;
+            snprintf(update_boot_view.notice,sizeof(update_boot_view.notice),"Update handoff refused: %s. Hold START at power-on.",refusal);
         }
     }
-    kui_log("Startup selection: %s; transport=%s; bank=%s; build=%s; fallback=%s; elapsed=%llu ms",
-        startup_selection_name(result),kui_storage_name(kui_storage_selected()),
-        update_boot_view.bank[0]?update_boot_view.bank:"root",update_boot_view.build[0]?update_boot_view.build:KUI_BUILD_ID,
-        update_boot_view.fallback?"yes":"no",(unsigned long long)(timer_ms_gettime64()-started));
+    if(result==KUI_UPDATE_BOOT_ERROR && physical) {
+        /* Staging can fail after the bank was checked (including low RAM).
+         * This GUI is still the bootstrap's physical copy, with its own
+         * modules available for repair. Never do this for a bank recipient. */
+        kui_update_boot_reset();
+        update_boot_view.bank[0]=0;
+        snprintf(update_boot_view.build,sizeof(update_boot_view.build),"%.12s",KUI_BUILD_ID);
+        update_boot_view.fallback=true;
+        result=KUI_UPDATE_BOOT_BASELINE;
+    }
+    kui_log("Startup selection: %s; bank=%s; GUI=%s",startup_selection_name(result),
+        update_boot_view.bank[0]?update_boot_view.bank:"root",update_boot_view.build[0]?update_boot_view.build:KUI_BUILD_ID);
     if(update_boot_view.notice[0])kui_log("Updates: %s",update_boot_view.notice);
-    if(baseline && result==KUI_UPDATE_BOOT_BASELINE)kui_log("Updates: B selected the original baseline for this boot.");
-    if(mounted)startup_report_save_mounted();
-    if(mounted && (kui_update_handoff_empty(handoff.wire,sizeof(handoff.wire),NULL) ||
-       result!=KUI_UPDATE_BOOT_PINNED))
-        update_boot_timing_save(connected_at,mounted_at,selected_at,started,connect_started,result);
-    bool released=!mounted || f_mount(NULL,"0:",0)==FR_OK;
-    kui_sd_disconnect();
-    kui_log("Updater startup: report/release=%llu ms total=%llu ms",
-        (unsigned long long)(timer_ms_gettime64()-selected_at),
-        (unsigned long long)(timer_ms_gettime64()-started));
+    /* Preserve diagnostics for a failed checked transfer. Routine startup
+     * and a manual physical recovery must leave the SD card untouched. */
+    if(mounted && !physical && result==KUI_UPDATE_BOOT_ERROR) {
+        uint64_t selected_at=timer_ms_gettime64();
+        startup_report_save_mounted();
+        update_boot_timing_save(connected_at,mounted_at,selected_at,connect_started,connect_started,result);
+    }
+    return result==KUI_UPDATE_BOOT_CHAIN;
+}
+static void update_boot_finish(bool chain,bool released,struct kui_runtime_image *image) {
     if(!released) {
-        kui_update_boot_block();result=KUI_UPDATE_BOOT_ERROR;
-        snprintf(update_boot_view.notice,sizeof(update_boot_view.notice),"Could not release update boot storage; restart after checking SD.");
-        kui_log("Updates: %s",update_boot_view.notice);
-    }
-    if(result==KUI_UPDATE_BOOT_CHAIN && safe_chain) {
-        arch_exec(image.data,image.info.payload_bytes);
         kui_update_boot_block();
-        snprintf(update_boot_view.notice,sizeof(update_boot_view.notice),"Update runtime handoff refused; module loading blocked. Hold B on restart.");
+        snprintf(update_boot_view.notice,sizeof(update_boot_view.notice),"Could not release update storage. Check SD and restart.");
+        kui_log("Updates: %s",update_boot_view.notice);
+    } else if(chain) {
+        arch_exec(image->data,image->info.payload_bytes);
+        kui_update_boot_block();
+        snprintf(update_boot_view.notice,sizeof(update_boot_view.notice),"Update handoff returned. Power on holding START for physical K-UI.");
         kui_log("Updates: %s",update_boot_view.notice);
     }
-    kui_runtime_free(&image);
+    kui_runtime_free(image);
 }
 #endif
 int main(void) {
@@ -5570,20 +5591,11 @@ int main(void) {
 #endif
     kui_log("Use a spare test card for write tests. No formatting; existing files preserved.");
 #ifdef KUI_SD_RUNTIME
-    /* Restore direct CD/root startup: the loaded physical GUI goes straight
-     * to its original splash/chime lifecycle, with no version-selection
-     * mount, rechain or diagnostic writes. Only an explicit checked RAM
-     * restart needs the bank recipient's existing adoption/validation path. */
-    uint8_t startup_handoff[KUI_UPDATE_HANDOFF_BYTES];
-    for(unsigned i=0;i<KUI_UPDATE_HANDOFF_BYTES;i++)
-        startup_handoff[i]=kui_update_ram_handoff[i];
+    /* The first settings mount also resolves the selected update before any
+     * worker starts, preserving the themed first frame on the physical GUI. */
     kui_update_boot_require_engine(KUI_UPDATE_ENGINE_CURRENT);
-    if(kui_update_handoff_empty(startup_handoff,sizeof(startup_handoff),NULL)) {
-        kui_update_boot_reset();
-        snprintf(update_boot_view.build,sizeof(update_boot_view.build),"%.12s",KUI_BUILD_ID);
-    } else update_boot_start();
     kui_system_settings_default(&system_current);system_pending=system_current;
-    kui_music_init(kui_log);kui_disc_identity_init(&disc_identity);
+    kui_disc_identity_init(&disc_identity);
     kui_disc_identity_park(&disc_identity);disc_snapshot=disc_identity;
     safe_video_boot=(controller_buttons()&CONT_Y)!=0;
     kui_settings_default(&settings_current);
@@ -5621,6 +5633,8 @@ int main(void) {
      * not read the boot disc merely to populate the optional idle title. */
 #ifdef KUI_SD_RUNTIME
     settings_operation(false,true);
+    /* No audio worker may be live during the checked GUI handoff. */
+    kui_music_init(kui_log);
 #else
     draw_boot();
 #endif
@@ -5653,6 +5667,11 @@ int main(void) {
     uint64_t next_memory_sample=timer_ms_gettime64()+1000;
 #endif
     unsigned previous = 0;
+#ifdef KUI_SD_RUNTIME
+    /* A held recovery button is consumed by startup. A fresh press after
+     * release still opens the normal menu. */
+    previous=controller_buttons()&CONT_START;
+#endif
     uint64_t last_draw = 0;
     bool was_busy = false;
 #ifdef KUI_SD_RUNTIME

@@ -25,8 +25,9 @@ from runtime_package import envelope, verify as verify_runtime
 import update_package as update
 
 
-def gui(build, engine):
+def gui(build, engine, variant=0):
     body = bytearray(512)
+    body[8] = variant
     body[32:48] = update.CAPABILITY
     body[48:64] = (b"KUIENG" + str(engine).encode() + b"!" +
                    struct.pack("<II", engine, 0xffffffff - engine))
@@ -51,7 +52,10 @@ def main():
     parser.add_argument("--real-stage", type=Path, help="Build a current KUP from exact existing staged software and test those bytes")
     parser.add_argument("--runtime", type=Path, help="Existing real current-GUI image; use with --package")
     parser.add_argument("--package", type=Path, help="Existing exact canonical KUP; use with --runtime")
+    parser.add_argument("--bootstrap", type=Path, help="Physical GUI from the manual test ZIP, for cold boot and recovery")
     args = parser.parse_args()
+    if args.bootstrap and not (args.runtime or args.real_stage):
+        parser.error("--bootstrap requires a real runtime or stage")
     if bool(args.runtime) != bool(args.package) or args.real_stage and (args.runtime or args.package):
         parser.error("Choose --real-stage, or both --runtime and --package")
     source = fatfs_source()
@@ -66,6 +70,7 @@ def main():
                 make_update(args.real_stage, package)
             current = runtime.read_bytes()
             info = verify_runtime(current)
+            bootstrap = args.bootstrap.resolve() if args.bootstrap else runtime
             update.member_info_v2("runtime.kui", current)
             report = update.verify(package)
             update.current_consumer_check(package)
@@ -76,6 +81,8 @@ def main():
             current = gui("111111111111", update.ENGINE_CURRENT)
             runtime = base / "runtime.kui"
             runtime.write_bytes(current)
+            bootstrap = base / "bootstrap.kui"
+            bootstrap.write_bytes(gui("111111111111", update.ENGINE_CURRENT, variant=1))
             (base / "old.kui").write_bytes(gui("222222222222", 2))
             for name, helper, full in (("full", b"full helper", True),
                                        ("partial-a", b"test A helper", False),
@@ -120,7 +127,8 @@ def main():
             "src/core/diskio.c", "src/core/game_launch_settings.c", "src/core/game_ram_patches.c",
             "src/apps/game_launch_settings_file.c", "src/core/games_selection.c",
             "src/apps/games_selection.c", "src/core/update_keep_file.c",
-            "src/core/destination.c", str(miniz),
+            "src/core/destination.c", "src/core/boot_image.c", "src/core/boot_volume.c",
+            "src/core/storage_probe.c", str(miniz),
             str(source / "ff.c"), str(source / "ffunicode.c"),
             "-Wl,--wrap=f_open,--wrap=f_stat", "-o", str(binary))
         formatter = private_formatter(base)
@@ -129,7 +137,7 @@ def main():
             run(str(formatter), kind, str(image))
             command = ([str(binary), "--real", str(image), str(runtime), str(package)] if real else
                        [str(binary), str(image), str(runtime), str(base / "old.kui"), *(str(path) for path in packages)])
-            print(kind + ":\n" + run(*command).strip(), flush=True)
+            print(kind + ":\n" + run(*command, str(bootstrap)).strip(), flush=True)
     print("PASS actual GUI update worker and production software/data services on both filesystems; SH payloads validated, not executed", flush=True)
 
 

@@ -1,4 +1,8 @@
-# Restore the original CD/root startup
+# Historical CD/root startup restoration
+
+This records the earlier physical-only behavior and its timing regression.
+The current review branch restores persistent update selection. See the
+[updater guide](updater.md) for current boot and recovery instructions.
 
 The owner rejected the `f7229eed7699` early-artwork change: it painted over
 the added delay and did not restore the original splash/chime lifecycle.

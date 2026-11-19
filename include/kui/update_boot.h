@@ -31,6 +31,14 @@ enum kui_update_boot_result kui_update_boot_read_handoff(const char *compiled_bu
     unsigned transport,const struct kui_update_handoff_context *,
     struct kui_runtime_image *out,struct kui_update_boot_view *view,
     kui_log_fn log,kui_cancel_fn cancel);
+/* Physical GUI entry and checked RAM recipient. An initialized empty slot
+ * identifies the GUI just loaded by the bootstrap. No selection or an
+ * explicit recovery request keeps that physical GUI; a nonempty RAM handoff
+ * must bind to the selected bank before its modules can be used. */
+enum kui_update_boot_result kui_update_boot_startup(const char *compiled_build,
+    unsigned transport,const struct kui_update_handoff_context *,bool recovery,
+    struct kui_runtime_image *out,struct kui_update_boot_view *view,
+    kui_log_fn log,kui_cancel_fn cancel);
 /* Restart the GUI selected NOW, fully rereading it even when its build equals
  * the running GUI. Returns CHAIN or ERROR; never uses a RAM handoff shortcut.
  * A failed reload restores the running module pin. After CHAIN, caller must

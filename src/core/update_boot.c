@@ -180,32 +180,19 @@ static bool load_receipt(const struct kui_update_activation *selected,kui_cancel
  * the freshly selected receipt and the source's still-EMPTY slot. No filled
  * on-disk marker is accepted as proof; a direct boot has no RAM context and
  * always takes the full SHA/CRC path. */
-static bool adopt(const char *compiled,unsigned transport,const struct kui_update_activation *selected,
-    const struct kui_update_handoff_context *context,kui_cancel_fn cancel) {
-    struct kui_update_handoff h;
-    /* A handoff proves the sender checked its own declared engine minimum.
-     * A legacy v2 receipt says only engine2: it cannot authorize bypassing the
-     * current engine3 check merely because the GUI build/sequence still match.
-     * Re-read legacy sources under a stricter production floor. */
-    if(required_engine>kui_update_engine_minimum(running) || required_engine>KUI_UPDATE_ENGINE_CURRENT ||
-       !context || !kui_update_handoff_decode(context->wire,&h) ||
-       strcmp(compiled,h.build) || h.transport!=transport || h.payload_offset!=context->payload_offset ||
-       h.sequence!=selected->sequence ||
-       memcmp(h.manifest_sha256,selected->manifest_sha256,32u) || cancel())return false;
-    const struct kui_update_entry *entry=kui_update_package_find(running,"runtime.kui");
-    const char *build=entry?kui_update_entry_build(running->build,entry):NULL;
-    if(!build || strcmp(build,h.build) || h.file_bytes!=entry->bytes ||
-       memcmp(h.runtime_sha256,entry->sha256,32u))return false;
+static bool transfer_header_matches(const struct kui_update_handoff *h,const struct kui_runtime_info *info) {
+    return !strcmp(info->build,h->build) && info->crc32==h->payload_crc32 &&
+        info->memory_bytes==h->memory_bytes && info->payload_bytes>=KUI_UPDATE_HANDOFF_BYTES &&
+        h->payload_offset<=info->payload_bytes-KUI_UPDATE_HANDOFF_BYTES;
+}
+static bool adopt(const struct kui_update_handoff *h,kui_cancel_fn cancel) {
     char path[KUI_UPDATE_BOOT_PATH_BYTES];
-    if(!kui_update_bank_path(running->build,entry->path,path,sizeof(path)))return false;
+    if(cancel() || !kui_update_bank_path(running->build,"runtime.kui",path,sizeof(path)))return false;
     FIL file;if(f_open(&file,path,FA_READ)!=FR_OK)return false;
     uint8_t header[64],slot[KUI_UPDATE_HANDOFF_BYTES];UINT got=0;struct kui_runtime_info info;
-    bool ok=f_size(&file)==h.file_bytes && f_read(&file,header,sizeof(header),&got)==FR_OK && got==sizeof(header) &&
-        kui_runtime_header(header,f_size(&file),&info)==KUI_RUNTIME_OK && !strcmp(info.build,h.build) &&
-        info.crc32==h.payload_crc32 && info.memory_bytes==h.memory_bytes &&
-        info.payload_bytes>=KUI_UPDATE_HANDOFF_BYTES &&
-        h.payload_offset<=info.payload_bytes-KUI_UPDATE_HANDOFF_BYTES && !cancel();
-    if(ok)ok=f_lseek(&file,64u+h.payload_offset)==FR_OK &&
+    bool ok=f_size(&file)==h->file_bytes && f_read(&file,header,sizeof(header),&got)==FR_OK && got==sizeof(header) &&
+        kui_runtime_header(header,f_size(&file),&info)==KUI_RUNTIME_OK && transfer_header_matches(h,&info) && !cancel();
+    if(ok)ok=f_lseek(&file,64u+h->payload_offset)==FR_OK &&
         f_read(&file,slot,sizeof(slot),&got)==FR_OK && got==sizeof(slot) &&
         kui_update_handoff_empty(slot,sizeof(slot),NULL);
     if(f_close(&file)!=FR_OK)ok=false;
@@ -244,11 +231,26 @@ static bool stamp(struct kui_runtime_image *image,uint32_t handoff_offset,
        !kui_update_handoff_encode((uint8_t *)image->data+h.payload_offset,&h))return false;
     image->info.crc32=kui_crc32_capture(0,image->data,image->info.payload_bytes);return true;
 }
+/* The bootstrap has already checked and executed this physical GUI. Keeping
+ * it does not require the second runtime.kui alias to exist or match boot.kui. */
+static enum kui_update_boot_result keep_physical(const char *compiled,struct kui_update_boot_view *view) {
+    kui_update_boot_reset();
+    view->bank[0]=0;
+    memcpy(view->build,compiled,13u);
+    return KUI_UPDATE_BOOT_BASELINE;
+}
 static enum kui_update_boot_result read_selected(const char *compiled,unsigned transport,
     const struct kui_update_handoff_context *context,struct kui_runtime_image *out,
-    struct kui_update_boot_view *view,kui_log_fn log,kui_cancel_fn cancel,bool force) {
+    struct kui_update_boot_view *view,kui_log_fn log,kui_cancel_fn cancel,bool force,bool startup) {
     if(!start(compiled,transport,out,view,log,cancel))return KUI_UPDATE_BOOT_ERROR;
     bool force_root=force || chained_context(context);
+    bool physical=startup && !force_root;
+    struct kui_update_handoff transfer;
+    bool received=!force && context && kui_update_handoff_decode(context->wire,&transfer) &&
+        !strcmp(compiled,transfer.build) && transfer.transport==transport &&
+        transfer.payload_offset==context->payload_offset;
+    const char *transfer_failure="Update handoff failed. Cold boot with START for physical K-UI.";
+    if(startup && !physical && !received)return problem(out,view,log,transfer_failure);
     struct kui_update_activation slots[2]={{0}};
     enum kui_update_result result[2];
     for(unsigned i=0;i<2u;i++) {
@@ -271,8 +273,11 @@ static enum kui_update_boot_result read_selected(const char *compiled,unsigned t
             if(view->fallback)snprintf(view->notice,sizeof(view->notice),"Invalid update selection; using the retained baseline");
             /* An explicit rollback to baseline is authoritative. If its
              * root file is unavailable, do not reactivate an older bank. */
-            return baseline(compiled,transport,out,view,log,cancel,force_root);
+            return physical?keep_physical(compiled,view):baseline(compiled,transport,out,view,log,cancel,force_root);
         }
+        bool same_transfer=received && transfer.sequence==selected->sequence &&
+            !memcmp(transfer.manifest_sha256,selected->manifest_sha256,32u);
+        bool matches_source=false;
         if(load_receipt(selected,cancel)) {
             /* Engine3 snapshots explicitly carry their required feature bit.
              * Old receipts cannot authorize engine3 adoption. Reject them
@@ -290,7 +295,10 @@ static enum kui_update_boot_result read_selected(const char *compiled,unsigned t
                 view->fallback=true;log("Updates: skipping an unavailable or withdrawn bank GUI");
                 block_modules();continue;
             }
-            if(!force && adopt(compiled,transport,selected,context,cancel)) {
+            matches_source=same_transfer && required_engine<=kui_update_engine_minimum(running) &&
+                required_engine<=KUI_UPDATE_ENGINE_CURRENT && !strcmp(gui_build,transfer.build) &&
+                gui->bytes==transfer.file_bytes && !memcmp(gui->sha256,transfer.runtime_sha256,32u);
+            if(matches_source && adopt(&transfer,cancel)) {
                 memcpy(view->bank,selected->selected,sizeof(view->bank));
                 memcpy(view->build,compiled,sizeof(view->build));
                 if(view->fallback)snprintf(view->notice,sizeof(view->notice),"Newer update unavailable; using an older checked selection");
@@ -313,11 +321,18 @@ static enum kui_update_boot_result read_selected(const char *compiled,unsigned t
                 }
             }
         }
+        /* A receiver whose short read failed can still bind the checked RAM
+         * transfer to a complete sequential SHA/CRC read of the same source.
+         * Never execute that transfer again to resolve a persistent fault. */
+        if(startup && same_transfer && (!loaded || !matches_source ||
+           handoff_offset!=transfer.payload_offset || !transfer_header_matches(&transfer,&out->info)))
+            return problem(out,view,log,transfer_failure);
         if(loaded) {
             memcpy(view->bank,selected->selected,sizeof(view->bank));
             memcpy(view->build,out->info.build,sizeof(view->build));
             if(view->fallback)snprintf(view->notice,sizeof(view->notice),"Newer update unavailable; using an older checked selection");
-            if(!force && kui_update_package_version(running)<2u && !strcmp(compiled,out->info.build)) {
+            if((startup && same_transfer) ||
+               (!startup && !force && kui_update_package_version(running)<2u && !strcmp(compiled,out->info.build))) {
                 kui_runtime_free(out);return KUI_UPDATE_BOOT_PINNED;
             }
             if(stamp(out,handoff_offset,selected,transport)) {
@@ -330,7 +345,7 @@ static enum kui_update_boot_result read_selected(const char *compiled,unsigned t
         view->fallback=true;log("Updates: bank %s refused; checking the retained selection",selected->selected);
     }
     if(view->fallback)snprintf(view->notice,sizeof(view->notice),"Update unavailable; using the retained root baseline");
-    return baseline(compiled,transport,out,view,log,cancel,force_root);
+    return physical?keep_physical(compiled,view):baseline(compiled,transport,out,view,log,cancel,force_root);
 }
 enum kui_update_boot_result kui_update_boot_read(const char *compiled,unsigned transport,
     struct kui_runtime_image *out,struct kui_update_boot_view *view,kui_log_fn log,kui_cancel_fn cancel) {
@@ -339,14 +354,24 @@ enum kui_update_boot_result kui_update_boot_read(const char *compiled,unsigned t
 enum kui_update_boot_result kui_update_boot_read_handoff(const char *compiled,unsigned transport,
     const struct kui_update_handoff_context *context,struct kui_runtime_image *out,
     struct kui_update_boot_view *view,kui_log_fn log,kui_cancel_fn cancel) {
-    return read_selected(compiled,transport,context,out,view,log,cancel,false);
+    return read_selected(compiled,transport,context,out,view,log,cancel,false,false);
+}
+enum kui_update_boot_result kui_update_boot_startup(const char *compiled,unsigned transport,
+    const struct kui_update_handoff_context *context,bool recovery,struct kui_runtime_image *out,
+    struct kui_update_boot_view *view,kui_log_fn log,kui_cancel_fn cancel) {
+    if(recovery && !chained_context(context)) {
+        if(!start(compiled,transport,out,view,log,cancel))return KUI_UPDATE_BOOT_ERROR;
+        snprintf(view->notice,sizeof(view->notice),"Recovery: physical K-UI for this boot. Restore a version in Settings / Updates.");
+        return keep_physical(compiled,view);
+    }
+    return read_selected(compiled,transport,context,out,view,log,cancel,false,true);
 }
 enum kui_update_boot_result kui_update_boot_reload(const char *compiled,unsigned transport,
     struct kui_runtime_image *out,struct kui_update_boot_view *view,kui_log_fn log,kui_cancel_fn cancel) {
     kui_update_boot_reload_abort();
     reload_previous.active=true;reload_previous.mode=resolver;reload_previous.package=running;
     running=NULL;resolver=BLOCK_MODULES;
-    enum kui_update_boot_result r=read_selected(compiled,transport,NULL,out,view,log,cancel,true);
+    enum kui_update_boot_result r=read_selected(compiled,transport,NULL,out,view,log,cancel,true,false);
     if(r!=KUI_UPDATE_BOOT_CHAIN)kui_update_boot_reload_abort();
     return r;
 }

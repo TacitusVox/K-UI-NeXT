@@ -154,6 +154,7 @@ test-updater: build/test-update build/test-update-v2 build/test-update-handoff b
 	python3 tests/test_update_repair.py
 	python3 tests/test_update_test_bundle.py
 	python3 tests/test_update_restart_gui.py
+	python3 tests/test_startup_first_frame.py
 	python3 tests/test_update_boot_timings.py
 	python3 tests/test_update_shared_paths.py
 	python3 tests/test_update_engine_revision.py

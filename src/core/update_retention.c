@@ -117,7 +117,7 @@ struct inventory {
     uint32_t high, newest[KUI_UPDATE_KEEP_MAX], threshold;
     unsigned keep;
     const char *protected_commit;
-    bool pinned, pruning;
+    bool pinned, pruning, wrote;
 };
 
 /* Keep at most ten newest sequence numbers in RAM, regardless of how many
@@ -156,6 +156,7 @@ static bool visit(struct inventory *inv, const char *commit, const struct receip
     if(match == KUI_NIGHTLY_STORAGE_ERROR || match == KUI_NIGHTLY_STOPPED || (cancel && cancel())) return false;
     /* If a user replaced the package, retire its receipt but preserve their
      * file. Only exact bytes recorded at publication are eligible for unlink. */
+    inv->wrote = true;
     if(match == KUI_NIGHTLY_VERIFIED && f_unlink(path) != FR_OK) return false;
     return f_unlink(receipt_path) == FR_OK;
 }
@@ -192,7 +193,8 @@ bool kui_nightly_record_download(const struct kui_nightly_asset *asset, kui_canc
     return write_receipt(path, asset, inv.high + 1);
 }
 
-bool kui_nightly_trim(unsigned keep, const char *protected_commit, kui_cancel_fn cancel) {
+bool kui_nightly_trim_report(unsigned keep, const char *protected_commit, kui_cancel_fn cancel, bool *wrote) {
+    *wrote = false;
     if(!kui_update_keep_valid(keep)) return false;
     if(!keep) return true;
     struct inventory inv = {.keep = keep, .protected_commit = protected_commit};
@@ -201,5 +203,12 @@ bool kui_nightly_trim(unsigned keep, const char *protected_commit, kui_cancel_fn
     inv.threshold = slots ? inv.newest[slots - 1] : 0;
     if(slots && !inv.threshold) return true;
     inv.pruning = true;
-    return scan(&inv, cancel);
+    bool ok = scan(&inv, cancel);
+    *wrote = inv.wrote;
+    return ok;
+}
+
+bool kui_nightly_trim(unsigned keep, const char *protected_commit, kui_cancel_fn cancel) {
+    bool wrote;
+    return kui_nightly_trim_report(keep, protected_commit, cancel, &wrote);
 }

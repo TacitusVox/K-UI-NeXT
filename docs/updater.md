@@ -8,11 +8,24 @@ connection. A verified download is available for offline use in the update
 browser. Press **A** on the review to
 install, then **START → Restart K-UI** to run the selected version.
 
-Cold CD boot on this installation starts the physical `KUI/boot.kui` or
-`KUI/runtime.kui`. After a power cycle, **Restart K-UI** re-enters the selected
-bank. To bring an older updater up to date, merge both physical GUI aliases
-from the manual-copy ZIP into the SD card and cold boot once. Keep a copy of
-the prior aliases if you want to reverse the manual update.
+**Power-on and Restart K-UI use the same saved selection.** Install the
+manual ZIP's `KUI/boot.kui` and `KUI/runtime.kui` on the card once to
+give an existing boot disc this behavior. Back up both files first. A KUP
+installed through an older physical GUI only updates a software bank.
+The physical GUI on that card still decides what happens at power-on.
+
+**Recovery works before the selected GUI starts.** Hold **START** as you
+power on. If the boot disc waits at its menu, highlight **Start K-UI**
+and press **A** while still holding **START**. Keep holding it until the
+physical GUI opens. This chooses the physical copy (shown as **ROOT**) for
+one boot. To change the saved default, open **Settings → Updates**, press
+**Y** for **Restore previous** or **R** for **Original baseline**, then
+review and confirm with **A**. The next normal boot uses that choice.
+
+The Updates screen shows the GUI build, the bank actually **Running**, and
+the bank **Selected** for the next boot. A bank identifies the installed
+combination of GUI and modules. Two different banks can share a GUI build.
+If a newly selected GUI hangs, power-cycle and take the recovery path above.
 
 The nightly is a GUI overlay for an existing installation. See
 [GUI nightlies](gui-nightlies.md) for activation and publication.
@@ -22,7 +35,7 @@ The nightly is a GUI overlay for an existing installation. See
 | What the console currently runs | First update |
 | --- | --- |
 | Standalone K-UI with the GitHub nightly option | Open **Settings → Updates → L** and select the connection. |
-| Standalone K-UI with the revision 3 updater, including the reviewed `cdfc131b` build of `main` | Install the current GUI KUP locally and choose **Restart K-UI**, or use the manual ZIP to update the physical boot files. |
+| Standalone K-UI with the revision 3 updater, including the reviewed `cdfc131b` build of `main` | Copy the manual ZIP once to enable cold-boot selection. A local GUI KUP can update the version entered by **Restart K-UI** before that migration. |
 | Standalone K-UI with an earlier updater or no updater | Copy the manual ZIP's complete `KUI` folder over the existing installation, then cold boot. |
 | DreamShell-based K-UI 1.0.1 | Start with the standalone K-UI boot disc and a matching full SD installation. |
 
@@ -128,9 +141,9 @@ attempting recovery and verifies it again afterward. An inconclusive read
 produces an error. Reinstalling an already selected, verified bank leaves
 the selection in place.
 
-A partial update starts from the actual running version. After a cold boot,
-use **Restart K-UI** to re-enter a selected bank before stacking another
-partial update on it. When a matching bank is damaged, the installer can
+A partial update starts from the version actually running. After a normal
+cold boot, the selected bank supplies its earlier updates. If you deliberately
+start the physical GUI for recovery, a partial update starts from ROOT. When a matching bank is damaged, the installer can
 rebuild into a separate bank if the package and its retained files supply
 all the necessary bytes. It checks the destination and free space again at
 installation. It preserves existing complete banks for recovery.
@@ -214,10 +227,11 @@ remains available for root/inherited reads; pinned bank replacements bypass it
 so embedded old modules cannot shadow an installed test. The supplied game and
 helper binaries remain byte-identical; Main receives no game-source merge.
 
-Ordinary CD/root startup takes the original direct path. Explicit Restart K-UI
-validates its selected GUI. A valid handoff adopts the checked bank using its
-receipt, header and handoff slot. Returning from a game follows its own loader
-path. See [the cold-boot restoration](root-boot-restoration.md).
+Cold boot reuses the startup settings mount to read the saved selection.
+With no selected bank, the already loaded physical GUI continues. With a bank
+selected, K-UI reads and checks its GUI before transferring control. On entry,
+the selected GUI checks the handoff against the receipt, header and stored
+handoff slot. Returning from a game follows its own loader path.
 
 ## Current reader integration scope
 

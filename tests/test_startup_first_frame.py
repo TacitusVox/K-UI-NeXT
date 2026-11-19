@@ -3,9 +3,8 @@
 """Execute the production root startup prefix, theme lookup order, and worker.
 
 The frozen 2.0 prefix is the positive lifecycle control. The later early-artwork
-workaround is the failing control: painting cannot authorize cold preflight I/O.
-RAM handoff classification uses the real production helper, including corrupt
-nonempty contexts; explicit bank validation remains the existing preflight.
+workaround is the failing control for a second pre-splash mount. Cold selection
+and warm handoff share the real first-frame mount after the first themed draw.
 """
 import hashlib
 import os
@@ -69,11 +68,18 @@ before = r'''
 #define VID_PAL 4
 #define VID_INTERLACE 8
 #define CONT_Y 8u
+#define CONT_START 16u
+#define FR_OK 0
 static uint8_t kui_update_bank_capability[16] = {[8] = 1};
 static uint8_t kui_update_engine_capability[16] = {[8] = KUI_UPDATE_ENGINE_CURRENT};
 static volatile uint8_t kui_update_ram_handoff[KUI_UPDATE_HANDOFF_BYTES];
 static const uint8_t empty_slot[KUI_UPDATE_HANDOFF_BYTES]=KUI_UPDATE_HANDOFF_INITIALIZER;
-static struct {char build[13];} update_boot_view;
+struct kui_update_boot_view {char bank[13],build[13],notice[128];bool fallback;};
+static struct kui_update_boot_view update_boot_view;
+enum kui_update_boot_result {KUI_UPDATE_BOOT_BASELINE,KUI_UPDATE_BOOT_PINNED,KUI_UPDATE_BOOT_CHAIN,KUI_UPDATE_BOOT_ERROR};
+struct kui_runtime_image {void *data;struct {uint32_t payload_bytes;} info;};
+#define KUI_RUNTIME_ADDRESS 0x8c010000u
+#define KUI_RUNTIME_MAX_BYTES (4u*1024u*1024u)
 static struct video_mode {unsigned width,height,cable_type,flags;} video = {640,480,CT_VGA,0};
 static const struct video_mode *vid_mode = &video;
 static void *ui_thread;
@@ -118,7 +124,10 @@ void kui_system_settings_default(struct preferences *p) {*p=(struct preferences)
 void kui_music_init(void (*log)(const char *,...)) {assert(log==kui_log);event(3);}
 void kui_disc_identity_init(int *p) {*p=1;}
 void kui_disc_identity_park(int *p) {assert(*p==1);}
-unsigned controller_buttons(void) {return 0;}
+static unsigned recovery_sample;
+unsigned controller_buttons(void) {
+    return event_count && ((recovery_sample==1 && events[event_count-1]==4) || (recovery_sample==2 && events[event_count-1]==5))?CONT_START:0;
+}
 void kui_settings_default(struct kui_settings *p) {p->marker=2;}
 void kui_shell_init(struct shell_state *p,const struct kui_settings *settings) {assert(settings->marker==2);p->marker=3;event(4);}
 void kui_shell_set_system_preferences(struct shell_state *p,const struct preferences *s) {assert(p->marker==3 && s->startup_chime);}
@@ -140,6 +149,8 @@ typedef int FATFS;
 #define KUI_DEST_ROOT_CAP 32
 static unsigned settings_generation,destination_generation,connect_calls,mount_calls,unmounts;
 static unsigned storage_failure,selected_transport=KUI_STORAGE_SCI;
+static bool chain_requested,refused,release_failure,recovery_seen;
+static unsigned executions,blocks,report_writes,disconnects;
 static bool destination_ready;
 static bool retain_mount=true,failed_preference,vmu_tools_warm_ready;
 static struct {unsigned generation,slot;bool ok,enabled;} vmu_tools_preference;
@@ -163,9 +174,9 @@ bool kui_cancelled(void) {return false;}
 unsigned kui_storage_selected(void) {return selected_transport;}
 void kui_sd_set_params(unsigned adapter,bool crc) {assert(adapter==selected_transport && crc);}
 bool kui_sd_connect(void) {++connect_calls;return storage_failure!=1;}
-void kui_sd_disconnect(void) {}
+void kui_sd_disconnect(void) {++disconnects;}
 void kui_theme_startup_splash_prepare(struct theme_bundle *bundle,void (*log)(const char *,...)) {
-    assert(!storage_failure && mount_calls==1 && !unmounts && event_count==4 && log==kui_log);
+    assert(!storage_failure && mount_calls==1 && !unmounts && event_count==3 && events[2]==4 && log==kui_log);
     bundle->settings=card_theme;
 }
 void kui_shell_set_theme_preferences(struct shell_state *state,const int *settings) {
@@ -177,7 +188,7 @@ bool kui_mount(FATFS *fs,void (*log)(const char *,...)) {
     assert(fs && log==kui_log);++mount_calls;return storage_failure!=2;
 }
 int f_mount(FATFS *fs,const char *path,unsigned immediate) {
-    assert(!fs && !strcmp(path,"0:") && !immediate);++unmounts;return 0;
+    assert(!fs && !strcmp(path,"0:") && !immediate);++unmounts;return release_failure?1:0;
 }
 bool kui_settings_load(struct kui_settings *p,void (*log)(const char *,...)) {
     assert(p && log==kui_log);event(9);return true;
@@ -188,6 +199,30 @@ bool kui_settings_save(struct kui_settings *p,void (*log)(const char *,...)) {
 bool kui_destination_load(char *p,void (*log)(const char *,...)) {
     assert(p && log==kui_log);return true;
 }
+static bool update_boot_no_cancel(void) { return false; }
+static const char *startup_selection_name(enum kui_update_boot_result result) {(void)result;return "test";}
+void kui_update_boot_block(void) {++blocks;}
+static void startup_report_save_mounted(void) {assert(!unmounts);++report_writes;}
+static void update_boot_timing_save(uint64_t a,uint64_t b,uint64_t c,uint64_t d,uint64_t e,enum kui_update_boot_result r) {
+    assert(a<=b && b<=c && d<=e && r==KUI_UPDATE_BOOT_ERROR);
+}
+static const char *update_runtime_handoff_refusal(uintptr_t source,size_t bytes,uintptr_t stack) {
+    assert(source && bytes && stack);return refused?"test staging refusal":NULL;
+}
+static enum kui_update_boot_result kui_update_boot_startup(const char *build,unsigned transport,
+    const struct kui_update_handoff_context *ctx,bool recovery,struct kui_runtime_image *image,
+    struct kui_update_boot_view *view,void (*log)(const char *,...),bool (*cancel)(void)) {
+    assert(events[event_count-1]==5 && mount_calls==1 && !unmounts && !storage_failure);
+    assert(!strcmp(build,KUI_BUILD_ID) && transport==selected_transport && log==kui_log && !cancel());
+    assert(warm!=kui_update_handoff_empty(ctx->wire,sizeof(ctx->wire),NULL));recovery_seen=recovery;
+    ++preflights;strcpy(view->build,build);
+    if(chain_requested) { image->data=malloc(16);assert(image->data);image->info.payload_bytes=16;return KUI_UPDATE_BOOT_CHAIN; }
+    return warm?KUI_UPDATE_BOOT_PINNED:KUI_UPDATE_BOOT_BASELINE;
+}
+static void arch_exec(void *data,uint32_t size) {
+    assert(data && size==16 && unmounts==1 && disconnects==1 && !release_failure);++executions;
+}
+static void kui_runtime_free(struct kui_runtime_image *image) {free(image->data);image->data=NULL;}
 #endif
 void system_operation(bool save) {assert(!save);system_current.startup_chime=!disable_chime;event(10);}
 void games_selection_startup(void) {event(11);}
@@ -216,7 +251,7 @@ after = r'''
 static void reset(void) {
     event_count=preflights=resets=early_frames=0;startup_finished=false;warm=false;
 #if CURRENT_COHORT
-    connect_calls=mount_calls=unmounts=0;
+    connect_calls=mount_calls=unmounts=executions=blocks=report_writes=disconnects=0;recovery_seen=false;
     vmu_reads=0;vmu_tools_warm_ready=false;
     shell.vmu_emulation_generation=0;shell.vmu_emulation_background=false;
     memset(&vmu_tools_preference,0,sizeof(vmu_tools_preference));
@@ -228,12 +263,22 @@ static void reset(void) {
 }
 static void lifecycle(bool skip) {
     reset();skip_chime=skip;assert(startup_prefix()==0);
-    assert(!preflights && !early_frames && (!CURRENT_COHORT || resets==1));
+    assert(!early_frames);
+#if CURRENT_COHORT
+    assert(preflights==(storage_failure?0u:1u) && resets==(storage_failure?1u:0u));
+    assert(recovery_seen==(recovery_sample!=0 && !storage_failure) && !executions && !blocks && !report_writes);
+#else
+    assert(!preflights);
+#endif
     if(CURRENT_COHORT)assert(!strcmp(update_boot_view.build,KUI_BUILD_ID));
     assert(worker(NULL)==NULL && startup_finished && !splash_active);
+#if CURRENT_COHORT
+    const unsigned initial[]={1,2,4,5};
+#else
     const unsigned initial[]={1,2,3,4,5};
-    assert(event_count>=5 && !memcmp(events,initial,sizeof(initial)));
-    unsigned n=5;
+#endif
+    assert(event_count>=sizeof(initial)/sizeof(initial[0]) && !memcmp(events,initial,sizeof(initial)));
+    unsigned n=sizeof(initial)/sizeof(initial[0]);
 #if CURRENT_COHORT
     assert(connect_calls==1 && mount_calls==(storage_failure==1?0u:1u));
     assert(unmounts==(storage_failure?0u:1u));
@@ -243,6 +288,7 @@ static void lifecycle(bool skip) {
     if(vmu_tools_preference.ok)assert(vmu_tools_preference.generation==enter_while_reading);
     if(vmu_tools_warm_ready)assert(vmu_tools_preference.ok && !vmu_tools_preference.enabled && vmu_tools_preference.slot==1);
     if(!storage_failure)assert(events[n++]==9); /* already mounted for the first frame */
+    assert(events[n++]==3); /* no audio worker while a checked GUI may execute */
 #endif
     assert(events[n++]==6 && events[n++]==7 && events[n++]==8);
 #if !CURRENT_COHORT
@@ -263,9 +309,14 @@ int main(void) {
     failed_preference=true;lifecycle(false);failed_preference=false;
     enter_while_reading=1;lifecycle(false);
     enter_while_reading=2;lifecycle(false);enter_while_reading=0;
+    recovery_sample=1;lifecycle(false);recovery_sample=2;lifecycle(false);recovery_sample=0;
     storage_failure=1;lifecycle(false);
     storage_failure=2;lifecycle(false);
     storage_failure=0;
+    chain_requested=true;reset();assert(startup_prefix()==0 && executions==1 && blocks==1 && !report_writes);
+    release_failure=true;reset();assert(startup_prefix()==0 && !executions && blocks==1);
+    release_failure=false;refused=true;reset();assert(startup_prefix()==0 && !executions && resets==1);
+    refused=false;chain_requested=false;
 #endif
     if(CURRENT_COHORT) {
         struct kui_update_handoff h={.build=KUI_BUILD_ID,.transport=1,.sequence=1,
@@ -280,10 +331,15 @@ int main(void) {
             if(kind==2)kui_update_ram_handoff[0]^=1;
             assert(startup_prefix()==0 && preflights==1 && !resets && !early_frames);
         }
+#if CURRENT_COHORT
+        reset();warm=true;storage_failure=2;memcpy((void *)kui_update_ram_handoff,wire,sizeof(wire));
+        assert(startup_prefix()==0 && !preflights && !executions && blocks==1 && !resets);storage_failure=0;
+#endif
         reset();kui_update_engine_capability[8]=2;
         assert(startup_prefix()==1 && !event_count && !preflights && !resets);
     }
-    puts("PASS root startup ordering, first frame before drive STOP and worker, chime and skip, no cold updater preflight, checked warm handoff");
+    puts(CURRENT_COHORT?"PASS themed splash before version selection on the existing mount; checked cold/warm dispatch, physical recovery and storage release before execution":
+        "PASS original root splash, chime, disc stop and worker ordering");
     return 0;
 }
 '''
@@ -296,6 +352,13 @@ with tempfile.TemporaryDirectory(prefix='kui-startup-root-') as temporary:
         settings = ''
         if label == 'current':
             settings = theme_marker + body(theme_source, theme_marker) + '}\n'
+            prepare = SOURCE[SOURCE.rindex('static bool update_boot_prepare('):SOURCE.rindex('static void update_boot_finish(')]
+            # Replace just the SH-4 stack register read in the host build.
+            stack = 'uintptr_t stack;__asm__ __volatile__("mov r15,%0":"=r"(stack));'
+            assert prepare.count(stack) == 1
+            prepare = prepare.replace(stack, 'uintptr_t stack=1;')
+            finish = SOURCE[SOURCE.rindex('static void update_boot_finish('):].split('#endif',1)[0]
+            settings += prepare + finish
             settings += settings_marker + body(SOURCE, settings_marker) + '}\n'
             settings += vmu_marker + body(SOURCE, vmu_marker) + '}\n'
         start_worker = ('unsigned action=27;\n' + worker + worker_tail if label == 'current'

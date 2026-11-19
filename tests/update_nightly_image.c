@@ -25,6 +25,8 @@ static char commit[41] = COMMIT, manifest[200], path[KUI_UPDATE_BROWSER_PATH_BYT
 static unsigned keep = KUI_UPDATE_KEEP_DEFAULT;
 static uint32_t requested, size, opens, closes, transfers;
 static bool synced_checkpoint;
+static void (*after_transfer)(void);
+static long corrupt_on_next_write = -1;
 static bool interrupt, ignore_range, stopped;
 static struct kui_app_status status;
 static const char *running;
@@ -37,7 +39,12 @@ static int read_blocks(void *ctx, uint32_t block, size_t count, uint8_t *out) {
 }
 static int write_blocks(void *ctx, uint32_t block, size_t count, const uint8_t *in) {
     (void)ctx;
-    return fseek(image, (long)block*512, SEEK_SET) || fwrite(in, 512, count, image) != count ? -1 : 0;
+    if(fseek(image, (long)block*512, SEEK_SET) || fwrite(in, 512, count, image) != count) return -1;
+    if(corrupt_on_next_write >= 0) {
+        assert(!fseek(image, corrupt_on_next_write, SEEK_SET) && fputc(0xe7, image) != EOF);
+        corrupt_on_next_write = -1;
+    }
+    return 0;
 }
 static int sync_blocks(void *ctx) { (void)ctx; synced_checkpoint = true; return fflush(image); }
 static const struct kui_media_ops media = {NULL, blocks, read_blocks, write_blocks, sync_blocks};
@@ -52,7 +59,11 @@ struct kui_internet *kui_internet_open(enum kui_internet_route route, kui_log_fn
     return &session;
 }
 const char *kui_internet_problem(const struct kui_internet *s) { assert(s == &session); return "Network error"; }
-void kui_internet_close(struct kui_internet *s) { assert(s == &session); ++closes; }
+void kui_internet_close(struct kui_internet *s) {
+    assert(s == &session);
+    ++closes;
+    if(after_transfer) after_transfer();
+}
 
 enum kui_http_result kui_internet_get(struct kui_internet *s, const char *url, uint32_t limit,
         kui_http_write_fn write, void *ctx, kui_http_progress_fn progress, void *progress_ctx) {
@@ -159,6 +170,45 @@ static void expect_build(unsigned build, bool present) {
     build_path(build, name);
     assert(f_stat(name, &info) == (present ? FR_OK : FR_NO_FILE));
     if(present) assert(info.fsize == sizeof(package));
+}
+
+static char fault_path[KUI_UPDATE_BROWSER_PATH_BYTES];
+
+static void change_published_file(void) {
+    after_transfer = NULL;
+    write_bytes(fault_path, "bad", 3, FA_WRITE);
+}
+
+static void arm_retention_fault(void) {
+    after_transfer = NULL;
+    FIL file;
+    assert(f_open(&file, fault_path, FA_READ) == FR_OK && file.obj.sclust >= 2);
+    assert(file.obj.fs->csize);
+    corrupt_on_next_write = 512L * (file.obj.fs->database +
+        (file.obj.sclust - 2) * file.obj.fs->csize);
+    assert(f_close(&file) == FR_OK);
+}
+
+static void test_late_damage(void) {
+    unsigned before = transfers;
+    keep = 0;
+    choose_build(26);
+    build_path(26, fault_path);
+    after_transfer = change_published_file;
+    assert(!fetch() && !path[0] && transfers == before + 1 && !after_transfer);
+    expect_bytes(fault_path, "bad", 3, sizeof(package));
+
+    choose_build(27);
+    assert(fetch());
+    choose_build(28);
+    assert(fetch());
+    build_path(28, fault_path);
+    before = transfers;
+    keep = 1;
+    after_transfer = arm_retention_fault;
+    assert(!fetch() && !path[0] && transfers == before && !after_transfer && corrupt_on_next_write < 0);
+    expect_bytes(fault_path, "\xe7", 1, sizeof(package));
+    expect_build(27, false);
 }
 
 static void test_retention(FATFS *fs) {
@@ -383,6 +433,7 @@ int main(int argc, char **argv) {
     assert(!fetch() && transfers == 6 && strstr(status.message, "mismatch"));
     assert(f_stat(PART, &info) == FR_NO_FILE && f_stat(CACHED COMMIT ".kup", &info) == FR_NO_FILE);
     test_retention(&fs);
+    test_late_damage();
     test_unowned_partial();
     assert(f_mount(NULL, "0:", 0) == FR_OK && !fclose(image));
     puts("PASS nightly manifest, interruption, resume, ignored Range, cache readback, collision preservation, digest refusal, download retention");

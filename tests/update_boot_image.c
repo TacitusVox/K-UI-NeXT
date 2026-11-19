@@ -17,6 +17,8 @@ static unsigned checks,writes,root_opens,root_bytes,member_opens,bank_gui_bytes,
 static uint8_t *disk;static size_t disk_bytes;static FATFS fs;
 static bool observe,cancel_now,media_fault_fired,root_reread_swap;
 static const char *reading_path;
+static bool fail_bank_slot_read;
+static unsigned rejected_slot_reads;
 static char member[192],read_fault[192],close_fault[192],cancel_read[192],media_fault[192];
 static struct {FIL *file;char path[192];} opened[8];
 #define CHECK(x) do {++checks;if(!(x)){fprintf(stderr,"Update boot failed %u: %s\n",__LINE__,#x);exit(1);}}while(0)
@@ -58,6 +60,10 @@ FRESULT __wrap_f_open(FIL *file,const TCHAR *path,BYTE flags) {
 FRESULT __real_f_read(FIL *,void *,UINT,UINT *);
 FRESULT __wrap_f_read(FIL *file,void *data,UINT bytes,UINT *got) {
     const char *path=open_path(file);
+    if(observe && fail_bank_slot_read && bytes==KUI_UPDATE_HANDOFF_BYTES && f_tell(file)>64u &&
+       strstr(path,KUI_UPDATE_SYSTEM "/")==path && strstr(path,"/runtime.kui")) {
+        ++rejected_slot_reads;*got=0;return FR_DISK_ERR;
+    }
     if(observe && read_fault[0] && !strcmp(path,read_fault) && f_tell(file)>=64u) {*got=0;return FR_DISK_ERR;}
     reading_path=path;FRESULT r=__real_f_read(file,data,bytes,got);reading_path=NULL;
     if(observe && !strcmp(path,KUI_RUNTIME_PATH))root_bytes+=*got;
@@ -73,7 +79,7 @@ FRESULT __wrap_f_close(FIL *file) {
 }
 static void idle(void) {
     observe=false;cancel_now=root_reread_swap=false;read_fault[0]=close_fault[0]=cancel_read[0]=media_fault[0]=0;
-    media_fault_fired=false;reading_path=NULL;
+    media_fault_fired=fail_bank_slot_read=false;rejected_slot_reads=0u;reading_path=NULL;
     root_opens=root_bytes=member_opens=bank_gui_bytes=bank_gui_opens=0;
     for(unsigned i=0;i<8u;i++)CHECK(!opened[i].file);
 }
@@ -155,6 +161,11 @@ static void pinned_bank(const char *build) {
 }
 static void baseline_tests(struct uf_package *root) {
     struct kui_runtime_image image;struct kui_update_boot_view view;char path[192];
+    /* No saved activation on a fresh card. The CD already checked and ran
+     * this GUI, so the physical alias needs no duplicate header or body read. */
+    idle();observe=true;unsigned before=writes;
+    CHECK(kui_update_boot_startup(ROOT_BUILD,KUI_STORAGE_SCIF,NULL,false,&image,&view,logger,cancel)==KUI_UPDATE_BOOT_BASELINE);
+    CHECK(!root_opens && !bank_gui_opens && !view.bank[0] && writes==before);
     idle();CHECK(boot(ROOT_BUILD,KUI_STORAGE_SCIF,&image,&view,false)==KUI_UPDATE_BOOT_BASELINE);
     CHECK(!view.bank[0] && !view.fallback && root_opens==1u && root_bytes==64u);
     CHECK(kui_runtime_resolve_path(MODULE,path,sizeof(path)) && !strcmp(path,MODULE));
@@ -189,6 +200,27 @@ static void handoff_tests(struct uf_package *a,struct uf_package *b) {
     CHECK(boot_handoff(BUILD_A,KUI_STORAGE_SCI,&context,&image,&view)==KUI_UPDATE_BOOT_PINNED);
     CHECK(bank_gui_bytes==64u+KUI_UPDATE_HANDOFF_BYTES && bank_gui_opens==1u && !root_bytes && !view.fallback);
     CHECK(kui_runtime_resolve_path(MODULE,path,sizeof(path)) && strstr(path,"/222222222222/"));
+    /* Holding START in the known physical GUI bypasses even a valid bank
+     * without reading either GUI file or changing the saved selection. */
+    idle();observe=true;unsigned recovery_writes=writes;
+    CHECK(kui_update_boot_startup(ROOT_BUILD,KUI_STORAGE_SCI,NULL,true,&image,&view,logger,cancel)==KUI_UPDATE_BOOT_BASELINE);
+    CHECK(!root_opens && !bank_gui_opens && !view.bank[0] && writes==recovery_writes);
+    /* The targeted EMPTY-slot read persistently fails, while a sequential
+     * full GUI read works. The recipient must bind the complete source to
+     * this transfer without ever executing the same GUI a second time. */
+    unsigned before=writes;
+    idle();observe=fail_bank_slot_read=true;
+    CHECK(kui_update_boot_startup(BUILD_A,KUI_STORAGE_SCI,&context,false,&image,&view,logger,cancel)==KUI_UPDATE_BOOT_PINNED);
+    CHECK(!image.data && writes==before && rejected_slot_reads==1u && bank_gui_bytes==64u+UF_FILE_BYTES);
+    CHECK(!strcmp(view.bank,BUILD_A) && !root_opens);
+    struct kui_update_handoff altered=h;struct kui_update_handoff_context wrong=context;
+    ++altered.payload_crc32;CHECK(kui_update_handoff_encode(wrong.wire,&altered));
+    idle();observe=true;
+    CHECK(kui_update_boot_startup(BUILD_A,KUI_STORAGE_SCI,&wrong,false,&image,&view,logger,cancel)==KUI_UPDATE_BOOT_ERROR);
+    CHECK(!image.data && !kui_runtime_resolve_path(MODULE,path,sizeof(path)) && !root_opens && writes==before);
+    wrong=context;wrong.wire[188]^=1u;idle();observe=true;
+    CHECK(kui_update_boot_startup(BUILD_A,KUI_STORAGE_SCI,&wrong,false,&image,&view,logger,cancel)==KUI_UPDATE_BOOT_ERROR);
+    CHECK(!image.data && !bank_gui_opens && !root_opens && writes==before);idle();
     /* Direct root/same-build entry has no checked transfer context. */
     idle();CHECK(boot(BUILD_A,KUI_STORAGE_SCI,&image,&view,false)==KUI_UPDATE_BOOT_PINNED);
     CHECK(bank_gui_bytes==UF_FILE_BYTES);

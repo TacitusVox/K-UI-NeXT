@@ -78,7 +78,9 @@ struct kui_shell_update_view {
     struct kui_shell_update_row rows[KUI_SHELL_UPDATE_ROWS];
     struct kui_shell_update_request reviewed;
     char running[KUI_UPDATE_BUILD_BYTES],selected[KUI_UPDATE_BUILD_BYTES],previous[KUI_UPDATE_BUILD_BYTES];
-    char gui_build[KUI_UPDATE_BUILD_BYTES];
+    char gui_build[KUI_UPDATE_BUILD_BYTES],running_bank[KUI_UPDATE_BUILD_BYTES];
+    char boot_notice[128];
+    bool running_bank_known;
     bool keep_known;
     unsigned keep;
     unsigned replacement_count,inherited_count,removed_count;
