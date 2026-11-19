@@ -30,6 +30,15 @@ If a newly selected GUI hangs, power-cycle and take the recovery path above.
 The nightly is a GUI overlay for an existing installation. See
 [GUI nightlies](gui-nightlies.md) for activation and publication.
 
+For the WinCE hardware test, the manual ZIP and the review-feed KUP both
+supply `apps/games/ce-boot.kui` with the GUI. This is the generic reader for
+CD music Off. It supports either the older 64-slot map or the 96-slot map
+advertised by the current reader. The previous Armada VMU module has its own
+`ce-probe.kui` path. A future full release using this GUI must stage its
+generic WinCE reader as `apps/games/ce-boot.kui`. Normal GUI-only nightlies
+require that reader to be installed already. Existing `WCEDATA/WCEDATA.BIN`
+holds session data and is outside the package.
+
 ## Which update to use first
 
 | What the console currently runs | First update |

@@ -187,6 +187,8 @@ build/dc/src/core/update_nightly.o: force-build-id
 all: $(TARGET) $(RUNTIME) build/loader/entry.elf build/loader/image_entry.elf build/retail/entry.elf build/retail-bench/entry.elf build/retail-ce/entry.elf wince-cdda
 all: native-zso native-lzo native-cdda
 $(RUNTIME_OBJECTS): CPPFLAGS += -DKUI_SMASH_LAUNCH_TIMING=$(KUI_SMASH_LAUNCH_TIMING)
+# The GUI negotiates 64 or 96 map slots with the selected CE reader.
+$(RUNTIME_OBJECTS): CPPFLAGS += -DKUI_RETAIL_MANIFEST_CAPACITY=1
 $(RUNTIME_OBJECTS): build/dc/smash-launch-timing.config
 .PHONY: force-smash-launch-timing-config
 force-smash-launch-timing-config:

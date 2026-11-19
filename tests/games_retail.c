@@ -75,7 +75,8 @@ static const char *const standalone_package = KUI_GAMES_RETAIL_NATIVE_STANDALONE
 static bool native_standalone_case(void) {return native_dual_case() && strstr(test.fault,"-standalone");}
 /* Only this case's New launch is expected to run on the standalone module. */
 static bool native_standalone_selected(void) {return !strcmp(test.fault,"native-dual-standalone-report");}
-static const char *const ce_package = "0:/KUI/apps/games/ce-probe.kui";
+/* The generic Windows CE module (ce-probe.kui is Armada's legacy module). */
+static const char *const ce_package = "0:/KUI/apps/games/ce-boot.kui";
 static const char *const names[] = {"track01.bin", "music track02.raw", "track03.bin", "music track04.raw"};
 static const uint32_t starts[] = {0, 4, 45000, 45064};
 static const uint32_t counts[] = {4, 4, 64, 4};
@@ -692,7 +693,7 @@ static void check_mapping(const char *directory, const struct kui_runtime_image 
      * boot test continues to use its separately selected package. */
     assert(map->reader == (native_dual_case()? (strstr(test.fault,"-y")?KUI_RETAIL_READER_ASYNC_EAGER:KUI_RETAIL_READER_ASYNC) : (!strcmp(test.fault, "async-on-sci") || !strcmp(test.fault, "async-cooked-2048") ||
                            !strncmp(test.fault, "async-tracks", 12) ||
-                           !strcmp(test.fault, "ce-probe-async") ?
+                           !strcmp(test.fault, "ce-probe-async") || !strcmp(test.fault, "ce-probe-record-96") ?
                            KUI_RETAIL_READER_ASYNC : KUI_RETAIL_READER_STANDARD)));
     assert(map->storage_transport == kui_storage_active());
     size_t size; uint8_t *gdi = host_file(directory, "disc.gdi", &size);
@@ -1190,12 +1191,14 @@ static void check(const char *directory) {
     }
     bool result = !strncmp(test.fault, "ce-probe", 8) ?
         kui_games_retail_prepare_reader(selected, KUI_GAMES_RETAIL_CE_PROBE |
-            (!strcmp(test.fault, "ce-probe-async") ? KUI_RETAIL_READER_ASYNC : KUI_RETAIL_READER_STANDARD),
+            (!strcmp(test.fault, "ce-probe-async") || !strncmp(test.fault, "ce-probe-record", 15) ?
+             KUI_RETAIL_READER_ASYNC : KUI_RETAIL_READER_STANDARD),
             &image, log_line, cancel) :
         strncmp(test.fault, "async-", 6) ? kui_games_retail_prepare(selected, &image, log_line, cancel) :
         kui_games_retail_prepare_reader(selected, KUI_RETAIL_READER_ASYNC, &image, log_line, cancel);
     bool valid = (!strncmp(test.fault, "async-", 6) && strcmp(test.fault,"async-on-scif")) || !strcmp(test.fault, "valid") || !strcmp(test.fault, "fragmented") ||
         !strcmp(test.fault, "ce-probe") || !strcmp(test.fault, "ce-probe-async") || !strcmp(test.fault, "ce-probe-cooked") ||
+        !strcmp(test.fault, "ce-probe-record-96") ||
         !strcmp(test.fault, "cooked-2048") || !strcmp(test.fault, "cooked-boot-tail") ||
         !strcmp(test.fault, "boot-tail") || !strcmp(test.fault, "other-title") ||
         !strcmp(test.fault, "alternate-bootfile") || !strcmp(test.fault, "cdda-warning") ||

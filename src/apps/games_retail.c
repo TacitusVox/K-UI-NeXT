@@ -22,6 +22,8 @@
  * it strongly; the normal GUI always links the shared app implementation. */
 extern void kui_vmu_launch_history_begin_mounted(kui_log_fn,kui_cancel_fn) __attribute__((weak));
 extern void kui_vmu_launch_history_end(void) __attribute__((weak));
+/* The updater's record of a deliberately absent module; host tests link none. */
+extern bool kui_update_runtime_absent(const char *logical) __attribute__((weak));
 #include "kui/smash_reader_control.h"
 #include "kui/retail_image.h"
 #include "kui/retail_zso.h"
@@ -120,6 +122,30 @@ static bool metadata_range(void *ctx,uint32_t lba,uint32_t count) {
 }
 static uint32_t le32(const uint8_t *p) {
     return (uint32_t)p[0]|(uint32_t)p[1]<<8|(uint32_t)p[2]<<16|(uint32_t)p[3]<<24;
+}
+/* Armada's IP.BIN (src/core/game_profile.c). Its Windows CE routes below admit
+ * that exact disc, its known layout and its kernel; nothing is chosen by title. */
+#define KUI_ARMADA_IP_CRC32 UINT32_C(0x684f8040)
+/* Record of the generic Windows CE module (src/loader/retail_entry.S). */
+#define KUI_CE_MAP_RECORD_OFFSET 0x140u
+/* Record of the Armada all-on module: KUIAVM01, version 1, its profile slot. */
+#define KUI_CE_ARMADA_ALL_ON_RECORD_OFFSET 0x150u
+#define KUI_CE_ARMADA_ALL_ON_PROFILE_BYTES 0x1000u
+/* An optional module's state: FR_OK installed (or in this GUI's bundle),
+ * FR_NO_FILE/FR_NO_PATH absent. A missing file in a selected bank, a directory
+ * or an unresolvable path is an error, never "absent". */
+static FRESULT installed_module_stat(const char *path) {
+    FILINFO info;char resolved[192];
+    if(!kui_runtime_resolve_path(path,resolved,sizeof(resolved))) return FR_INVALID_NAME;
+    FRESULT r=f_stat(resolved,&info);
+    if(r==FR_OK) return (info.fattrib&AM_DIR)?FR_INVALID_OBJECT:FR_OK;
+    if((r==FR_NO_FILE || r==FR_NO_PATH) && strcmp(path,resolved)) return FR_INVALID_OBJECT;
+    return r;
+}
+static FRESULT installed_module_status(const char *path) {
+    if(kui_runtime_bundle_contains(path)) return FR_OK;
+    if(kui_update_runtime_absent && kui_update_runtime_absent(path)) return FR_NO_FILE;
+    return installed_module_stat(path);
 }
 /* ce: the Windows CE probe package, with its own magic and higher stage. */
 static bool layout_codec(const struct kui_runtime_image *image,bool ce,bool zso,enum kui_zso_codec codec) {
@@ -922,6 +948,10 @@ static bool prepare_launch(const char *path,uint32_t reader,const struct kui_gam
     FATFS fs;bool ok=false;const char *problem="cannot mount storage";
     struct kui_retail_manifest *map=NULL;struct kui_game_image *image=NULL;uint8_t *gdi=NULL;
     struct extent_crc_proof ce_kernel_proof={0};
+    /* The generic Windows CE module's map capacity (its 0x140 record), and
+     * Armada's CD music route with its virtual card. */
+    uint32_t ce_slots=KUI_RETAIL_ASYNC_SLOTS;
+    bool all_on=false;
     struct kui_retail_zso_manifest *zso_map=NULL;
     const char *vmu_package=NULL;
     enum kui_vmu_launch_route vmu_route=KUI_VMU_LAUNCH_ORDINARY;
@@ -1005,7 +1035,7 @@ static bool prepare_launch(const char *path,uint32_t reader,const struct kui_gam
     if(smash_native_menu)kui_smash_launch_timing_native(path,KUI_BUILD_ID,metadata.product,
         "Smash Pack / Standard",emulation_enabled,package->info.crc32,package->info.payload_bytes);
 #endif
-    if(!cdda && !ce_excerpt) {
+    if(!cdda && !ce_excerpt && !ce) {
         if(!close_reader(&files)) {problem="cannot close metadata reader";goto done;}
         kui_smash_launch_timing_phase(KUI_SMASH_UI_MODULE_LOAD);
 #if KUI_VMU_GAME_CARDS
@@ -1089,6 +1119,7 @@ static bool prepare_launch(const char *path,uint32_t reader,const struct kui_gam
         }
         uint8_t kernel_sha[32];uint32_t kernel_crc=0u;
         uint64_t kernel_epoch=kui_media_mutation_epoch();
+        kui_smash_launch_timing_phase(KUI_SMASH_UI_MDE_READ_HASH);
         log("Experimental CE CD music: checking the complete native kernel identity");
         r=extent_sha_crc(image,metadata.boot_lba,metadata.boot_bytes,kernel_sha,&kernel_crc);
         if(r!=KUI_GAME_OK) {problem=kui_game_result_name(r);goto done;}
@@ -1108,13 +1139,7 @@ static bool prepare_launch(const char *path,uint32_t reader,const struct kui_gam
             KUI_GAMES_RETAIL_CE_WORMS_PACKAGE:music_profile==KUI_WINCE_CDDA_BUST_A_MOVE_4?
             KUI_GAMES_RETAIL_CE_BAM4_PACKAGE:KUI_GAMES_RETAIL_CE_EXCERPT_PACKAGE;
         log("CE CD music: %s profile",kui_wince_cdda_disc(music_profile)->name);
-        if(!close_reader(&files)) {problem="cannot close metadata reader";goto done;}
-        rr=kui_runtime_read(launch_package,package,log,cancel);
-        if(rr!=KUI_RUNTIME_OK) {problem=kui_runtime_result_name(rr);goto done;}
-        if(!layout(package,ce)) {
-            problem="unsupported CE CD music package layout";
-            log("Replace %s with the selected game-launch package",launch_package+2);goto done;
-        }
+        kui_smash_launch_timing_phase(KUI_SMASH_UI_PREPARE_OTHER);
     }
     /* The owner's IP/ISO metadata selects the executable. Titles and boot
      * filenames are not compatibility gates; native GD bytes stay verbatim. */
@@ -1201,6 +1226,84 @@ static bool prepare_launch(const char *path,uint32_t reader,const struct kui_gam
         r=extent_crc(image,map->session_lba,KUI_RETAIL_IP_BYTES,&map->ip_crc32,NULL);
     }
     if(r!=KUI_GAME_OK) {problem=kui_game_result_name(r);goto done;}
+    if(ce && !ce_excerpt) {
+        /* Armada's own disc, layout and kernel keep its legacy virtual VMU
+         * module when that module is installed; every other game, and Armada
+         * without it, uses the generic module. */
+        if(reader==KUI_RETAIL_READER_ASYNC && map->ip_crc32==KUI_ARMADA_IP_CRC32 &&
+           ce_music_profile(image,&metadata)==KUI_WINCE_CDDA_ARMADA) {
+            uint8_t kernel_sha[32];uint32_t kernel_crc=0u;
+            uint64_t kernel_epoch=kui_media_mutation_epoch();
+            r=extent_sha_crc(image,metadata.boot_lba,metadata.boot_bytes,kernel_sha,&kernel_crc);
+            if(r!=KUI_GAME_OK) {problem=kui_game_result_name(r);goto done;}
+            if(kernel_epoch==kui_media_mutation_epoch())
+                ce_kernel_proof=(struct extent_crc_proof){image,kernel_epoch,
+                    metadata.boot_lba,metadata.boot_bytes,kernel_crc,true};
+            if(kui_wince_cdda_kernel_profile(metadata.boot_bytes,kernel_sha)==KUI_WINCE_CDDA_ARMADA) {
+                FRESULT legacy=installed_module_status(KUI_GAMES_RETAIL_CE_ARMADA_LEGACY_PACKAGE);
+                if(legacy==FR_OK) launch_package=KUI_GAMES_RETAIL_CE_ARMADA_LEGACY_PACKAGE;
+                else if(legacy!=FR_NO_FILE && legacy!=FR_NO_PATH) {
+                    problem="cannot inspect installed Armada legacy virtual VMU module";goto done;
+                }
+            }
+        }
+        if(!close_reader(&files)) {problem="cannot close metadata reader";goto done;}
+        kui_smash_launch_timing_phase(KUI_SMASH_UI_MODULE_LOAD);
+        rr=kui_runtime_read(launch_package,package,log,cancel);
+        if(rr!=KUI_RUNTIME_OK) {problem=kui_runtime_result_name(rr);goto done;}
+        kui_smash_launch_timing_phase(KUI_SMASH_UI_MODULE_VERIFY);
+        kui_smash_launch_timing_metric(KUI_SMASH_UI_MODULE_CRC32,package->info.crc32);
+        kui_smash_launch_timing_metric(KUI_SMASH_UI_MODULE_BYTES,package->info.payload_bytes);
+        if(!layout_codec(package,ce,zso,codec)) {problem="unsupported game-launch package layout";goto done;}
+        if(!strcmp(launch_package,KUI_GAMES_RETAIL_CE_PACKAGE)) {
+            /* Blank: the 64-slot reader. KUICEM01, version 1, 96: the 96-slot
+             * reader. Any other record names a reader this GUI cannot map. */
+            static const uint8_t blank[16];
+            const uint8_t *record=(const uint8_t *)package->data+KUI_CE_MAP_RECORD_OFFSET;
+            if(!memcmp(record,blank,sizeof(blank))) ce_slots=KUI_RETAIL_ASYNC_SLOTS;
+            else if(!memcmp(record,"KUICEM01",8u) && le32(record+8u)==1u &&
+                    le32(record+12u)==KUI_RETAIL_CE_MAP_SLOTS) ce_slots=KUI_RETAIL_CE_MAP_SLOTS;
+            else {problem="unsupported ordinary Windows CE map descriptor";goto done;}
+        }
+    }
+    if(ce_excerpt) {
+        if(!close_reader(&files)) {problem="cannot close metadata reader";goto done;}
+        kui_smash_launch_timing_phase(KUI_SMASH_UI_MODULE_LOAD);
+#if KUI_VMU_GAME_CARDS
+        /* Armada's exact disc with the all-on module installed: the virtual
+         * VMU setting chooses it, and its own dedicated test card. */
+        if(music_profile==KUI_WINCE_CDDA_ARMADA && map->ip_crc32==KUI_ARMADA_IP_CRC32 &&
+           ce_music_profile(image,&metadata)==KUI_WINCE_CDDA_ARMADA) {
+            FRESULT installed=installed_module_status(KUI_GAMES_RETAIL_CE_ARMADA_ALL_ON_PACKAGE);
+            if(installed==FR_OK) {
+                bool virtual_vmu=false;
+                if(!kui_vmu_emulation_settings_load(&virtual_vmu,log)) {
+                    problem="cannot read the saved VMU emulation setting; check VMU tools";goto done;
+                }
+                if(virtual_vmu) {launch_package=KUI_GAMES_RETAIL_CE_ARMADA_ALL_ON_PACKAGE;all_on=true;}
+            } else if(installed!=FR_NO_FILE && installed!=FR_NO_PATH) {
+                problem="cannot inspect installed Armada all-on module";goto done;
+            }
+        }
+#endif
+        rr=kui_runtime_read(launch_package,package,log,cancel);
+        if(rr!=KUI_RUNTIME_OK) {problem=kui_runtime_result_name(rr);goto done;}
+        kui_smash_launch_timing_phase(KUI_SMASH_UI_MODULE_VERIFY);
+        if(!layout(package,ce)) {
+            problem="unsupported CE CD music package layout";
+            log("Replace %s with the selected game-launch package",launch_package+2);goto done;
+        }
+        if(all_on) {
+            const uint8_t *record=(const uint8_t *)package->data+KUI_CE_ARMADA_ALL_ON_RECORD_OFFSET;
+            if(memcmp(record,"KUIAVM01",8u) || le32(record+8u)!=1u ||
+               le32(record+12u)!=KUI_CE_ARMADA_ALL_ON_PROFILE_BYTES) {
+                problem="Armada all-on module capability is missing or invalid";goto done;
+            }
+        }
+        kui_smash_launch_timing_wince(path,KUI_BUILD_ID,metadata.product,all_on,
+            package->info.crc32,package->info.payload_bytes);
+        kui_smash_launch_timing_phase(KUI_SMASH_UI_PREPARE_OTHER);
+    }
 #if KUI_VMU_GAME_CARDS
     if(smash_native) {
         uint8_t menu_sha[32];uint32_t engine_lba=0u,engine_bytes=0u,dir_lba=0u,dir_bytes=0u,rom_lba=0u,rom_bytes=0u;
@@ -1307,18 +1410,26 @@ static bool prepare_launch(const char *path,uint32_t reader,const struct kui_gam
                 cdda_stats.bad_track,map_reason_name(cdda_stats.reason),
                 cdda_stats.link_map_words,CDDA_LINK_MAP_MAX_WORDS,cdda_stats.required_extents);
     } else if(background) {
-        mapped=map_tracks(&files,&fs,&volume,image,map,KUI_RETAIL_ASYNC_SLOTS,&audio);
+        static char refusal[128];
+        const uint32_t slots=ce?ce_slots:KUI_RETAIL_ASYNC_SLOTS;
+        if(ce && slots<=image->count) {
+            snprintf(refusal,sizeof(refusal),"Windows CE background map has %u slots for %u tracks and their data extents",
+                (unsigned)slots,(unsigned)image->count);
+            problem=refusal;goto done;
+        }
+        mapped=map_tracks(&files,&fs,&volume,image,map,slots,&audio);
         if(mapped==MAP_FULL) {
-            static char refusal[128];
             unsigned track;uint32_t pieces;
             fragmented_data_track(&files,&fs,&volume,image,map,&track,&pieces);
             if(track) {
                 log("Retail boot: track %u is in %u pieces on the card; copying the game folder off the card and back makes it contiguous",
                     track,(unsigned)pieces);
-                snprintf(refusal,sizeof(refusal),"%s map exceeds 64 slots: track %u is in %u pieces; recopy the game folder",
-                    ce?"Windows CE background":"Background",track,(unsigned)pieces);
-            }
-            if(ce) {problem=track?refusal:"Windows CE background map exceeds 64 slots; defragment or use cooked tracks";goto done;}
+                snprintf(refusal,sizeof(refusal),"%s map exceeds %u slots: track %u is in %u pieces; recopy the game folder",
+                    ce?"Windows CE background":"Background",(unsigned)slots,track,(unsigned)pieces);
+            } else if(ce)
+                snprintf(refusal,sizeof(refusal),"Windows CE background map exceeds %u slots for track and data extents",
+                    (unsigned)slots);
+            if(ce) {problem=refusal;goto done;}
             if(native_dual) {problem=track?refusal:"Background map exceeds 64 slots; defragment or use supported cooked tracks";goto done;}
             log("Retail boot: the map needs more than the background reader's %u slots; using the standard reader",
                 KUI_RETAIL_ASYNC_SLOTS);
@@ -1417,8 +1528,10 @@ static bool prepare_launch(const char *path,uint32_t reader,const struct kui_gam
     }
     if(ce_excerpt) {
         size_t stream_seed=armada_stream_seed_find(package,music_profile);
+        struct kui_retail_manifest *full=NULL;
         if(stream_seed!=SIZE_MAX) {
-            struct kui_retail_manifest *full=malloc(sizeof(*full));
+            kui_smash_launch_timing_phase(KUI_SMASH_UI_TRACK_MAP);
+            full=malloc(sizeof(*full));
             if(!full) {problem="not enough memory for the complete CE audio map";goto done;}
             *full=*map;full->reader=KUI_RETAIL_READER_STANDARD;
             struct map_stats stats;
@@ -1426,13 +1539,36 @@ static bool prepare_launch(const char *path,uint32_t reader,const struct kui_gam
                 KUI_RETAIL_MANIFEST_SLOTS,&stats);
             bool admitted=complete==MAP_OK && stats.complete &&
                 armada_stream_seed_fill(package,stream_seed,full,music_profile,log);
-            if(!admitted) log("CE audio map: %u slots required; %s",stats.required_slots,
-                complete==MAP_FULL?"mapping capacity exceeded":map_reason_name(stats.reason));
-            free(full);
-            if(!admitted) {problem="complete CE audio source map is unavailable";goto done;}
+            kui_smash_launch_timing_phase(KUI_SMASH_UI_PREPARE_OTHER);
+            if(!admitted) {
+                log("CE audio map: %u slots required; %s",stats.required_slots,
+                    complete==MAP_FULL?"mapping capacity exceeded":map_reason_name(stats.reason));
+                kui_smash_launch_timing_phase(KUI_SMASH_UI_PREPARE_OTHER);
+                free(full);problem="complete CE audio source map is unavailable";goto done;
+            }
+        } else if(all_on) {
+            problem="Armada all-on module has no complete CD music seed";goto done;
         } else if(music_profile!=KUI_WINCE_CDDA_ARMADA || !armada_excerpt_seed(package,image,log)) {
             problem="CE music seed is missing, invalid, stopped or unreadable";goto done;
         }
+#if KUI_VMU_GAME_CARDS
+        if(all_on) {
+            /* The all-on route's card is its own test card, never Armada's
+             * product card: the complete map's copy carries the card's key.
+             * Every file of the image stays out of the card's placement. */
+            kui_smash_launch_timing_phase(KUI_SMASH_UI_CARD);
+            memset(full->product,0,sizeof(full->product));memcpy(full->product,"KUIARMCD",9u);
+            bool carded=close_reader(&files);
+            if(!carded) problem="cannot close image reader";
+            else carded=games_card_prepare_selected(full,package,&fs,NULL,&problem,log,cancel);
+            if(carded) log("Armada all-on: CD music and dedicated virtual A2 test card");
+            kui_smash_launch_timing_phase(KUI_SMASH_UI_PREPARE_OTHER);
+            free(full);
+            if(!carded) goto done;
+            full=NULL;
+        }
+#endif
+        free(full);
     }
     if(vmu_package) {
         struct kui_runtime_image candidate={0};
@@ -1608,7 +1744,7 @@ static bool prepare_launch(const char *path,uint32_t reader,const struct kui_gam
         if(!zso_map) {problem="not enough memory for ZSO launch map";goto done;}
         zso_map->manifest=*map;zso_map->zso=image->zso;
         r=kui_retail_zso_manifest_encode(zso_map,(uint8_t *)package->data+KUI_RETAIL_MAP_OFFSET);
-    } else r=kui_retail_manifest_encode(map,(uint8_t *)package->data+KUI_RETAIL_MAP_OFFSET);
+    } else r=kui_retail_manifest_encode_capacity(map,(uint8_t *)package->data+KUI_RETAIL_MAP_OFFSET,ce_slots);
     if(r!=KUI_GAME_OK) {problem=kui_game_result_name(r);goto done;}
     if(!fill_ram_patches(package,&applied_patches,map->boot_bytes)) {
         problem="RAM patches need a matching ordinary native loader; reinstall the game-launch package";goto done;
@@ -1630,7 +1766,8 @@ static bool prepare_launch(const char *path,uint32_t reader,const struct kui_gam
             .storage=map->storage_transport==KUI_STORAGE_SCIF?"SCIF microSD":
                 map->storage_transport==KUI_STORAGE_SCI?"SCI microSD":"IDE / CF",
             .encoding=ce?"Windows CE prefix + body":(map->flags&KUI_RETAIL_IMAGE_SCRAMBLED)?"Scrambled (decode)":"Plain",
-            .cdda=cdda || ce_excerpt,.cdda_profile=ce_excerpt?kui_wince_cdda_disc(music_profile)->name:
+            .cdda=cdda || ce_excerpt,.cdda_profile=all_on?"Armada CD music + virtual A2":
+                ce_excerpt?kui_wince_cdda_disc(music_profile)->name:
                 cdda?"Native admitted profile":"Off",.package_path=launch_package,
             .module_build=source_module.build,.module_crc32=source_module.crc32,
             .module_bytes=source_module.payload_bytes,
@@ -1641,7 +1778,7 @@ static bool prepare_launch(const char *path,uint32_t reader,const struct kui_gam
             log("Launch report unavailable; continuing without a new saved report");
     }
     log("%s prepared: %u tracks, %u extents; IP CRC32=%08x, %s=%u bytes checked at load",
-        ce_excerpt?"Windows CE CD music":ce?"Windows CE boot test":"Retail boot",
+        ce_excerpt?(all_on?"Armada all-on":"Windows CE CD music"):ce?"Windows CE boot test":"Retail boot",
         map->track_count,map->extent_count,map->ip_crc32,map->bootfile,map->boot_bytes);
     ok=true;
 done:

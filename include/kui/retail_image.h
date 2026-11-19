@@ -128,6 +128,13 @@ struct kui_retail_manifest {
 enum kui_game_result kui_retail_manifest_validate(const struct kui_retail_manifest *);
 enum kui_game_result kui_retail_manifest_encode(const struct kui_retail_manifest *,
     uint8_t out[KUI_RETAIL_IMAGE_WIRE_BYTES]);
+/* Encodes a background map for a reader built with KUI_RETAIL_ASYNC_SLOTS or
+ * with the generic Windows CE module's KUI_RETAIL_CE_MAP_SLOTS; any other
+ * capacity is refused. Defined only where KUI_RETAIL_MANIFEST_CAPACITY is set
+ * (the GUI, Makefile.dc); loader builds keep the fixed limit. */
+#define KUI_RETAIL_CE_MAP_SLOTS 96u
+enum kui_game_result kui_retail_manifest_encode_capacity(const struct kui_retail_manifest *,
+    uint8_t out[KUI_RETAIL_IMAGE_WIRE_BYTES], uint32_t async_slots);
 enum kui_game_result kui_retail_manifest_decode(
     const uint8_t wire[KUI_RETAIL_IMAGE_WIRE_BYTES], struct kui_retail_manifest *);
 uint32_t kui_retail_crc32(uint32_t previous, const void *, size_t);

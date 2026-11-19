@@ -29,7 +29,7 @@ CASES = (
     "read-fail", "close-fail", "unmount-fail", "cancel-before", "cancel-map",
     "cancel-ip", "size-change", "async-on-sci", "async-on-scif",
     "ce-probe", "ce-probe-native", "ce-probe-package", "ce-probe-small", "ce-probe-scif",
-    "ce-probe-async",
+    "ce-probe-async", "ce-probe-record-96", "ce-probe-record-bad",
 )
 RC_CASES = ("valid", "other-title", "alternate-bootfile", "cdda-warning",
             "windows-ce", "bad-flags", "bad-media", "bad-bootfile", "bad-cooked-size",
@@ -37,7 +37,7 @@ RC_CASES = ("valid", "other-title", "alternate-bootfile", "cdda-warning",
             "cooked-2048", "cooked-boot-tail", "async-cooked-2048", "ce-probe-cooked")
 SUCCESS_CASES = ("valid", "boot-tail", "fragmented", "other-title",
                  "alternate-bootfile", "cdda-warning", "blank-title",
-                 "async-on-sci", "ce-probe", "ce-probe-async",
+                 "async-on-sci", "ce-probe", "ce-probe-async", "ce-probe-record-96",
                  "tracks-31", "tracks-99", "async-tracks-31", "async-tracks-40",
                  "cooked-2048", "cooked-boot-tail", "async-cooked-2048", "ce-probe-cooked")
 # Track counts beyond the fixture's three: MDK2's 31, GD-ROM's 99, and 40,
@@ -174,7 +174,12 @@ def make_checksum_fixture(folder, case):
     (folder / "checksum.expect").write_text(f"{zlib.crc32(ip):08x} {expected_boot:08x}\n", encoding="ascii")
 
 
-def synthetic_package(ce=False, ram_seed=False, zso=False, lzo=False, dual=None):
+# The generic Windows CE module's map record at payload 0x140 (blank: 64 slots).
+CE_RECORDS = {"ce-probe-record-96": b"KUICEM01" + struct.pack("<II", 1, 96),
+              "ce-probe-record-bad": b"KUICEM01" + struct.pack("<II", 1, 95)}
+
+
+def synthetic_package(ce=False, ram_seed=False, zso=False, lzo=False, dual=None, ce_record=None):
     # Structural preparation fixture. The stage is original data, never code
     # executed on the host; every retail-looking IP field is generated here.
     # ce: the Windows CE boot test's package, with its higher stage.
@@ -191,6 +196,8 @@ def synthetic_package(ce=False, ram_seed=False, zso=False, lzo=False, dual=None)
     if ram_seed:
         struct.pack_into("<16I", payload, 0x2010, 0x5249554B, 0x31504D41, 1, 64, *([0] * 12))
     payload[0x2010 + (64 if ram_seed else 0):] = extra
+    if ce_record:
+        payload[0x140:0x140 + len(ce_record)] = ce_record
     return envelope(payload, len(payload), "0123456789ab")
 
 
@@ -252,7 +259,7 @@ def make_retail_fixture(folder, case, dual_lease=0x47000):
     if case in ZSO_CASES:
         make_zso_fixture(folder, case)
         for name, package_bytes in (("retail-boot.kui", synthetic_package()),
-                                    ("ce-probe.kui", synthetic_package(ce=True)),
+                                    ("ce-probe.kui", synthetic_package(ce=True, ce_record=CE_RECORDS.get(case))),
                                     ("zso-boot.kui", synthetic_package(zso=True)),
                                     ("lzo-boot.kui", synthetic_package(zso=True, lzo=case != "zso-lzo-wrong-package"))):
             (folder / name).write_bytes(package_bytes)
@@ -267,7 +274,7 @@ def make_retail_fixture(folder, case, dual_lease=0x47000):
         else:
             make_format_fixture(folder, case)
         (folder / "retail-boot.kui").write_bytes(synthetic_package())
-        (folder / "ce-probe.kui").write_bytes(synthetic_package(ce=True))
+        (folder / "ce-probe.kui").write_bytes(synthetic_package(ce=True, ce_record=CE_RECORDS.get(case)))
         (folder / "retail-native-dual.kui").write_bytes(installed_dual_package(case, dual_lease))
         session_files(folder, case, dual_lease)
         return
@@ -339,7 +346,7 @@ def make_retail_fixture(folder, case, dual_lease=0x47000):
             cache_seed += template_seed()
     (folder / "retail-boot.kui").write_bytes(synthetic_package(
         ram_seed=case in LAUNCH_CASES and case != "launch-patch-old-package", dual=cache_seed))
-    (folder / "ce-probe.kui").write_bytes(synthetic_package(ce=True))
+    (folder / "ce-probe.kui").write_bytes(synthetic_package(ce=True, ce_record=CE_RECORDS.get(case)))
     (folder / "retail-native-dual.kui").write_bytes(installed_dual_package(case, dual_lease))
     session_files(folder, case, dual_lease)
     if "-a1" in case:
@@ -697,6 +704,11 @@ def main():
                     if case in ("ce-probe", "ce-probe-cooked"):
                         assert "Windows CE boot test prepared" in output
                         assert "background SCI stream" not in output
+                    if case == "ce-probe-record-96":
+                        assert "Windows CE boot test prepared" in output
+                        assert "Retail boot reader: background SCI stream (test, Windows CE interrupts)" in output
+                    if case == "ce-probe-record-bad":
+                        assert "unsupported ordinary Windows CE map descriptor" in output
                     if case == "ce-probe-async":
                         assert "Windows CE boot test prepared" in output
                         assert "Retail boot reader: background SCI stream (test, Windows CE interrupts)" in output

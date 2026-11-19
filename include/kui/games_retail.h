@@ -24,7 +24,14 @@ struct kui_native_session_request;
 #define KUI_GAMES_RETAIL_VMU_TOY_PACKAGE "0:/KUI/apps/games/vmu-toy.kui"
 #define KUI_GAMES_RETAIL_ZSO_PACKAGE "0:/KUI/apps/games/zso-boot.kui"
 #define KUI_GAMES_RETAIL_LZO_PACKAGE "0:/KUI/apps/games/lzo-boot.kui"
-#define KUI_GAMES_RETAIL_CE_PACKAGE "0:/KUI/apps/games/ce-probe.kui"
+/* The generic Windows CE module. Its map capacity is the record at payload
+ * 0x140 (src/loader/retail_entry.S): blank for 64 slots, KUICEM01 for 96.
+ * ce-probe.kui is Armada's legacy virtual VMU module in the owner's
+ * installation, so the generic module no longer uses that path. */
+#define KUI_GAMES_RETAIL_CE_PACKAGE "0:/KUI/apps/games/ce-boot.kui"
+#define KUI_GAMES_RETAIL_CE_ARMADA_LEGACY_PACKAGE "0:/KUI/apps/games/ce-probe.kui"
+/* Armada with CD music and the virtual VMU: KUIAVM01 at payload 0x150. */
+#define KUI_GAMES_RETAIL_CE_ARMADA_ALL_ON_PACKAGE "0:/KUI/apps/games/ce-armada-all-on.kui"
 #define KUI_GAMES_RETAIL_CE_EXCERPT_PACKAGE "0:/KUI/apps/games/ce-cdda-armada.kui"
 #define KUI_GAMES_RETAIL_CE_BAM4_PACKAGE "0:/KUI/apps/games/ce-cdda-bam4.kui"
 #define KUI_GAMES_RETAIL_CE_WORMS_PACKAGE "0:/KUI/apps/games/ce-cdda-worms.kui"
