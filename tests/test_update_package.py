@@ -80,13 +80,26 @@ class UpdatePackageTests(unittest.TestCase):
         struct.pack_into("<I", header, 124, zlib.crc32(header[:124]))
         return bytes(header + manifest + payload)
 
-    def test_catalog_covers_every_declared_launcher_module(self):
+    def test_updaters_cover_every_declared_launcher_module(self):
         declared = set()
         for name in ("games_retail.h", "disc_launch.h", "games_probe.h", "games_image_probe.h"):
             header = (update.ROOT / "include/kui" / name).read_text()
             declared.update(re.findall(r'"0:/KUI/([^"\n]+\.kui)"', header))
         self.assertTrue(declared)
-        self.assertFalse(declared - set(self.paths), "A launcher module is absent from the update cohort")
+        # Preserve the inventory produced for the historical v1 updaters.
+        # Current WinCE modules ship as independently versioned v2 entries.
+        wince_v2 = {"apps/games/ce-boot.kui", "apps/games/ce-armada-all-on.kui"}
+        self.assertEqual(declared - set(self.paths), wince_v2)
+        stage = self.base / "wince"
+        for path in sorted(wince_v2):
+            output = stage / path
+            output.parent.mkdir(parents=True, exist_ok=True)
+            output.write_bytes(envelope(bytes(16), 16, BUILD))
+        report = update.build_package_v2(stage, self.output)
+        self.assertEqual(report["consumer"]["decoder"], "current-source")
+        self.assertEqual({entry["path"] for entry in report["members"]}, wince_v2)
+        for entry in report["members"]:
+            self.assertEqual((entry["policy"], entry["build"]), (update.SELF_KUI, BUILD))
 
     def corrupted(self, mutate, manifest=False):
         self.package()
