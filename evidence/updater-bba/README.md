@@ -1,41 +1,39 @@
-# Broadband Adapter updater test
+# Verified updater cold-boot and Broadband Adapter test
 
-This review feed serves a single GUI package for existing standalone K-UI
-installations. The manual test GUI and the installable GUI were both built
-from commit `8cf00aa5f2f1d7e3b76fd49959c8030c1149af5c`. The manual GUI
-downloads from this branch. The installed GUI uses the production channel.
+The manual test ZIP includes a physical GUI configured with this review feed and the same KUP served here for offline testing.
 
-1. To exercise the new installation checks from the first download, back up
-   `KUI/boot.kui` and `KUI/runtime.kui`, copy the current manual test ZIP's
-   `KUI` folder onto the card, then cold boot your usual disc. Confirm GUI
-   **8cf00aa5f2f1**. Earlier review GUIs **bad8016cee9a** and **b8b1fc445da6**
-   can fetch this package too. Their first installation runs the older
-   installer. After restarting into the new GUI, you can select the cached
-   KUP in **Settings → Updates** to exercise its installation checks.
-2. Check the Dreamcast date and time. Connect the Broadband Adapter, open
-   **Settings → Updates**, press **L**, choose **Broadband Adapter** on
-   **Connection**, then press **A**. To test resume, press **B** during
-   the transfer, wait for it to stop, then start it again.
-3. Confirm GUI **8cf00aa5f2f1**, package **74d1da86d711**, channel
-   **testing** and a download of **3,010,292 bytes**. Press **A** to
-   install. The new installer finishes the bank writes, reopens the files
-   on the card, and verifies the replacements against their recorded size
-   and SHA-256 before selecting the bank. After writing the selection it
-   checks the files again and confirms that the expected selection still
-   wins. If this final file check fails, the installer restores the previous
-   selection only when it can verify the prior files and selection. An
-   uncertain result is reported as a failure.
-4. Choose **START → Restart K-UI** to run the selected bank. The current
-   manual and installed GUIs share a source ID, so check the package ID at
-   review and the selected bank after restart. A power cycle loads the
-   physical GUI from the card. **Restart K-UI** re-enters the selected bank.
+Back up KUI/boot.kui and KUI/runtime.kui. Copy this ZIP's KUI folder
+onto your existing standalone K-UI card, merging directories. On this
+first boot, enter the physical test GUI using your usual boot disc.
+Hold START as you power on. If the disc waits at its menu, select Start K-UI with A and keep holding START until the physical GUI opens. This works even if an older update is already selected.
 
-The default download limit is five. Open **Settings → Updates → L →
-Downloads to keep**, pick a limit with left/right, then press **A** on
-that row to apply it offline.
+With a Broadband Adapter, check the console clock, open Settings → Updates,
+press L, choose Broadband Adapter on Connection and press A. To test
+resume, press B during the transfer, wait for it to stop and start it
+again. For an offline test, open Settings → Updates → test, select
+Cold-boot-67d1ac04091f.kup and press A. Both routes offer the identical package.
 
-KUP SHA-256 is `36dc2383a98d6ba2b6becae875539342ebf8854f93a50e66728e4b5313b8c4ea`.
-The nightly packages GUI software. See the [updater guide](../../docs/updater.md)
-for package and boot behavior and [GUI nightlies](../../docs/gui-nightlies.md)
-for production setup. The [source bundle](source.bundle) retains the original
-**b8b1fc445da6** review build.
+At review, confirm GUI 67d1ac04091f, package f1a5254e200a, channel testing.
+Press A to install and wait for verification. Select START → Restart K-UI.
+In Settings → Updates, check that Running and Selected show the same bank ID. Then power off, power on without a recovery button and
+check the running bank again. Both routes should enter the installed
+version. The physical GUI and installable GUI were built from the same
+source, so their displayed GUI build IDs alone cannot distinguish them.
+
+If the new GUI hangs, hold START as you power on. If the disc waits at its menu, select Start K-UI with A and keep holding START until the physical GUI opens.
+Recovery leaves the saved selection intact. In Settings → Updates,
+Y reviews the previous selection and R reviews the
+original baseline. Press A to confirm the restore you want. This makes
+that version the default for later boots. A one-time physical recovery
+also lets you test a fresh download from the branch feed. The installed
+GUI uses the production channel after the first main nightly is published.
+
+KUP size in bytes: 3010232
+KUP SHA-256: 2fcaf33d0869015516de52d095fb04e5f654277703af487372c4c75947e37976
+Source revision: 67d1ac04091fb6a9ee82c6d34eccb7bbb9a223e9
+
+The download limit defaults to five. In Settings → Updates → L, move to
+Downloads to keep, choose the limit using left/right and press A. The
+manually copied test KUP stays in the test folder.
+
+See the [updater guide](../../docs/updater.md) for installation and recovery and the [nightly guide](../../docs/gui-nightlies.md) for publishing.
