@@ -22,6 +22,7 @@
 #include "kui/browser_service.h"
 #include "kui/clock.h"
 #include "platform.h"
+#include <errno.h>
 #include <stdarg.h>
 #include <stddef.h>
 #include <stdio.h>
@@ -1043,7 +1044,15 @@ static void open_passive(struct server *sv, struct session *s, bool extended, ui
     uint16_t port = next_port(sv);
     if(j < 0) { reply(s, "425 Too many data connections at once; try again"); return; }
     s->data = j;
-    if(!sv->net.listen(sv->net.ctx, (unsigned)j, port)) {
+    unsigned tried = 0;
+    while(!sv->net.listen(sv->net.ctx, (unsigned)j, port)) {
+        /* KOS keeps a closed connection's port reserved through TIME_WAIT.
+         * Skip occupied ports for BBA passive transfers. */
+        if(sv->bba_online && errno == EADDRINUSE && ++tried < sv->passive_count &&
+           !(sv->cancel && sv->cancel())) {
+            port = next_port(sv);
+            continue;
+        }
         forget_data(sv, s, now);
         reply(s, "425 Cannot open a data port");
         return;

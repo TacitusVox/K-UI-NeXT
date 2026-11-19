@@ -78,16 +78,24 @@ static bool listen_slot(void *ctx, unsigned id, uint16_t port) {
     struct table *t = ctx;
     if(!port || !close_slot(ctx, id)) return false;
     struct listener *l = lookup(t, port);
+    /* Only the service's control listeners may share a port. A passive
+     * data listener must accept connections for exactly one FTP client. */
+    if(l && port != t->permanent[0] && port != t->permanent[1]) {
+        errno = EADDRINUSE;
+        return false;
+    }
     if(!l) {
         l = lookup(t, 0);
-        if(!l) return false;
+        if(!l) { errno = ENOBUFS; return false; }
         int fd = nonblocking_fd(socket(AF_INET, SOCK_STREAM, 0));
         if(fd < 0) return false;
         int yes = 1;
         (void)setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof(yes));
         struct sockaddr_in addr = {.sin_family = AF_INET, .sin_port = htons(port)};
         if(bind(fd, (const struct sockaddr *)&addr, sizeof(addr)) < 0 || listen(fd, SLOT_COUNT) < 0) {
+            int error = errno;
             close(fd);
+            errno = error;
             return false;
         }
         l->fd = fd;
