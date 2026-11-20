@@ -276,8 +276,18 @@ static bool replay_arguments(const void *image,size_t n,uint32_t load,const void
         !overlap(image,n,out,sizeof(*out)) && !overlap(wire,wire_bytes,out,sizeof(*out));
 }
 static bool replay_sdk_roles(const void *image,size_t n,const struct kui_vmu_native_resolution *r) {
-    if(r->exits.family==KUI_VMU_NATIVE_EXIT_EARLY_FIRMWARE_LITERAL_POOL &&
-       !kui_vmu_native_exit_literal_pool_valid(image,n,&r->exits))return false;
+    if(r->exits.family==KUI_VMU_NATIVE_EXIT_EARLY_FIRMWARE_LITERAL_POOL) {
+        if(!kui_vmu_native_exit_literal_pool_valid(image,n,&r->exits))return false;
+    } else if(kui_vmu_native_deferred_maple_startup(r->driver.family,r->call.call,r->layout.initializer_call)) {
+        /* A different SDK can pair this controller startup with older exits.
+         * Prove that combination independently before accepting its entries.
+         * The known pair above uses the bounded literal-pool replay. */
+        struct kui_vmu_native_exit exits;
+        const struct kui_vmu_native_patch_window windows[]={
+            {r->driver.submit,12u},{r->heap.initializer,12u},{r->heap.release,20u}};
+        if(!kui_vmu_native_exit_discover_guarded(image,n,r->driver.load_address,windows,3u,&exits) ||
+           memcmp(&exits,&r->exits,sizeof(exits)))return false;
+    }
     if(r->driver.family!=KUI_VMU_NATIVE_FAMILY_EARLY_P2_V1 &&
        !kui_vmu_native_heap_call_is_tail(&r->heap,&r->call))return true;
     if(r->driver.family==KUI_VMU_NATIVE_FAMILY_EARLY_P2_V1 &&
