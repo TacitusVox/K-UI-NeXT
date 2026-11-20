@@ -1,6 +1,32 @@
 # Launch map: up to 99 tracks
 
-## Current release — 1.8.5
+## Native SCI Background on a fragmented card
+
+K-UI accepts up to 99 track descriptors. The native compact Background reader
+also needs one entry for every contiguous run of card blocks it will read.
+The updated GUI reads the installed reader's capacity. A blank capability
+record selects the original 64-entry limit. A matching 160-entry reader can
+use the existing version 3 disc map and the same 284 KiB game-RAM reservation.
+Both New and Legacy use the negotiated capacity on this paired reader.
+
+For example, a 37-track disc with one data track in 49 pieces and two other
+data tracks in one piece each already needs 88 entries to read the data.
+If each of its 34 audio tracks occupies one piece as well, all tracks and their
+data fit in 122 entries. With 99 track descriptors, 61 entries remain for
+file pieces. When the native Background path is allowed to omit audio-sector
+mappings, it retains the original audio track numbers and table of contents.
+An image whose required data pieces still exceed the available slots is
+refused before handoff. The GUI reports the required total when it can count
+all the data pieces.
+
+The GUI checks the final selected module, including the standalone fallback.
+Older readers keep their own limits. Windows CE and dedicated CD music
+readers have their own map formats or limits. A GUI update alone does not
+enlarge an installed reader. Install the matching GUI and compact reader
+from the same overlay. For Claude's Stream Survey Test 83 use the survey
+overlay on an existing Test 83 installation and keep its report file.
+
+## Version 1.8.5
 
 The current map is `KUIRTI03` (version 3), supporting the image geometry in
 [Games formats](games-formats.md). Runtime and game payloads must be installed

@@ -2125,3 +2125,7 @@ build/render-theme: $(THEME_RENDER_SOURCES) include/kui/theme.h include/kui/shel
 build/test-splash build/theme-image: tests/theme_preview_reference.h
 build/test-splash build/theme-image build/render-theme: src/apps/theme_thumbnail.h include/kui/theme.h
 build/test-splash build/theme-image build/render-theme build/test-shell build/render-shell: include/kui/theme_filter.h
+
+.PHONY: test-native-track-capacity
+test-native-track-capacity:
+	python3 tests/test_native_track_capacity.py
