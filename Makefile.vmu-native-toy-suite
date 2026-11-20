@@ -24,6 +24,7 @@ TOY_WIRE_QUERY ?= 0
 TOY_WIRE_TIMER ?= 0
 TOY_WIRE_VMU ?= 0
 TOY_WIRE_SAVE ?= 0
+TOY_SURVEY_MIXED_PAD ?= 0
 TOY_WIRE_STAY ?= $(TOY_WIRE_STEADY)
 # Test 76 leaves LATER out unless a build asks for it.
 TOY_WIRE_LATER ?= $(if $(filter 1,$(TOY_WIRE_FLUID)),0,$(TOY_WIRE_STEADY))
@@ -455,6 +456,14 @@ else
 NATIVE_SRC += src/loader/native_return_hardware.c
 NATIVE_OBJ += $(BUILD)/toy_return_hardware.o
 endif
+ifeq ($(TOY_SURVEY_MIXED_PAD),1)
+ifneq ($(TOY_WIRE_SAVE),1)
+$(error TOY_SURVEY_MIXED_PAD requires Test 83 with TOY_WIRE_SAVE=1)
+endif
+$(BUILD)/native/src/loader/vmu_native_passive.o: private NATIVE_FLAGS += -DKUI_TOY_SURVEY_MIXED_PAD=1
+else ifneq ($(TOY_SURVEY_MIXED_PAD),0)
+$(error TOY_SURVEY_MIXED_PAD must be 0 or 1)
+endif
 ifeq ($(TOY_WIRE_SAVE),1)
 # The stage alone is told, and it alone gains sources: the survey's file
 # format and the read-only lookup of its file. No other part's compilation
@@ -473,7 +482,7 @@ $(BUILD)/native-worker.elf: $(NATIVE_OBJ)
 
 $(BUILD)/toy-suite-config: force-mode-config
 	@mkdir -p $(BUILD)
-	@printf '%s\n' 'TOY_SUITE_MODE=$(TOY_SUITE_MODE)' 'TOY_FMV_COMPARE=$(TOY_FMV_COMPARE)' 'TOY_WIRE_STREAM=$(TOY_WIRE_STREAM)' $(if $(filter 1,$(TOY_WIRE_TICK)),'TOY_WIRE_TICK=1') $(if $(filter 1,$(TOY_WIRE_CACHED)),'TOY_WIRE_CACHED=1') $(if $(filter 1,$(TOY_WIRE_WORDS)),'TOY_WIRE_WORDS=1') $(if $(filter 1,$(TOY_WIRE_PACE)),'TOY_WIRE_PACE=1') $(if $(filter 1,$(TOY_WIRE_IDLE)),'TOY_WIRE_IDLE=1') $(if $(filter 1,$(TOY_WIRE_LEAN)),'TOY_WIRE_LEAN=1 OPEN=$(TOY_WIRE_OPEN) CLEAN=$(TOY_WIRE_CLEAN) MSB=$(TOY_WIRE_MSB) QUICK=$(TOY_WIRE_QUICK) SWIFT=$(TOY_WIRE_SWIFT)') $(if $(filter 1,$(TOY_WIRE_STEADY)),'TOY_WIRE_STEADY=1 STAY=$(TOY_WIRE_STAY) LATER=$(TOY_WIRE_LATER) RING=$(TOY_WIRE_RING)') $(if $(filter 1,$(TOY_WIRE_FLUID)),'TOY_WIRE_FLUID=1 QUIT=$(TOY_WIRE_QUIT) HOT=$(TOY_WIRE_HOT) COPY=$(TOY_WIRE_COPY) GAP=$(TOY_WIRE_GAP) APART=$(TOY_WIRE_APART)') $(if $(filter 1,$(TOY_WIRE_SEQ)),'TOY_WIRE_SEQ=1') $(if $(filter 1,$(TOY_WIRE_ANY)),'TOY_WIRE_ANY=1') $(if $(filter 1,$(TOY_WIRE_TITLES)),'TOY_WIRE_TITLES=1') $(if $(filter 1,$(TOY_WIRE_QUERY)),'TOY_WIRE_QUERY=1') $(if $(filter 1,$(TOY_WIRE_TIMER)),'TOY_WIRE_TIMER=1') $(if $(filter 1,$(TOY_WIRE_VMU)),'TOY_WIRE_VMU=1') $(if $(filter 1,$(TOY_WIRE_SAVE)),'TOY_WIRE_SAVE=1') > $@.tmp
+	@printf '%s\n' 'TOY_SUITE_MODE=$(TOY_SUITE_MODE)' 'TOY_FMV_COMPARE=$(TOY_FMV_COMPARE)' 'TOY_WIRE_STREAM=$(TOY_WIRE_STREAM)' $(if $(filter 1,$(TOY_WIRE_TICK)),'TOY_WIRE_TICK=1') $(if $(filter 1,$(TOY_WIRE_CACHED)),'TOY_WIRE_CACHED=1') $(if $(filter 1,$(TOY_WIRE_WORDS)),'TOY_WIRE_WORDS=1') $(if $(filter 1,$(TOY_WIRE_PACE)),'TOY_WIRE_PACE=1') $(if $(filter 1,$(TOY_WIRE_IDLE)),'TOY_WIRE_IDLE=1') $(if $(filter 1,$(TOY_WIRE_LEAN)),'TOY_WIRE_LEAN=1 OPEN=$(TOY_WIRE_OPEN) CLEAN=$(TOY_WIRE_CLEAN) MSB=$(TOY_WIRE_MSB) QUICK=$(TOY_WIRE_QUICK) SWIFT=$(TOY_WIRE_SWIFT)') $(if $(filter 1,$(TOY_WIRE_STEADY)),'TOY_WIRE_STEADY=1 STAY=$(TOY_WIRE_STAY) LATER=$(TOY_WIRE_LATER) RING=$(TOY_WIRE_RING)') $(if $(filter 1,$(TOY_WIRE_FLUID)),'TOY_WIRE_FLUID=1 QUIT=$(TOY_WIRE_QUIT) HOT=$(TOY_WIRE_HOT) COPY=$(TOY_WIRE_COPY) GAP=$(TOY_WIRE_GAP) APART=$(TOY_WIRE_APART)') $(if $(filter 1,$(TOY_WIRE_SEQ)),'TOY_WIRE_SEQ=1') $(if $(filter 1,$(TOY_WIRE_ANY)),'TOY_WIRE_ANY=1') $(if $(filter 1,$(TOY_WIRE_TITLES)),'TOY_WIRE_TITLES=1') $(if $(filter 1,$(TOY_WIRE_QUERY)),'TOY_WIRE_QUERY=1') $(if $(filter 1,$(TOY_WIRE_TIMER)),'TOY_WIRE_TIMER=1') $(if $(filter 1,$(TOY_WIRE_VMU)),'TOY_WIRE_VMU=1') $(if $(filter 1,$(TOY_WIRE_SAVE)),'TOY_WIRE_SAVE=1') $(if $(filter 1,$(TOY_SURVEY_MIXED_PAD)),'TOY_SURVEY_MIXED_PAD=1') > $@.tmp
 	@cmp -s $@.tmp $@ || cp $@.tmp $@
 	@rm -f $@.tmp
 
@@ -638,14 +647,21 @@ endif
 # Test 83 changes the cold stage and nothing else: its other parts must be
 # Test 81's with one build label. Then the survey's own host tests: the file
 # format, the search for a blank slot and the lookup on FAT32 and exFAT cards.
+# The optional mixed-controller observer is worker-only. Give the control
+# worker that same single compiler definition, then compare every linked
+# byte as usual. Keep a separate build directory for the control variant.
+TOY_SAVE_PARTS_READER = $(BUILD)/parts-reader$(if $(filter 1,$(TOY_SURVEY_MIXED_PAD)),-mixed-pad)
+ifeq ($(TOY_SURVEY_MIXED_PAD),1)
+TOY_SAVE_PARTS_PAD = --eval='$(TOY_SAVE_PARTS_READER)/native/src/loader/vmu_native_passive.o: private NATIVE_FLAGS += -DKUI_TOY_SURVEY_MIXED_PAD=1'
+endif
 .PHONY: toy-wire-save-parts-check toy-wire-save-host-test toy-wire-save-mutation-check
 toy-wire-save-parts-check: $(BUILD)/retail-toy-test-$(TOY_WIRE_TEST).kui
 ifneq ($(TOY_WIRE_SAVE),1)
 	$(error toy-wire-save-parts-check is Test 83's: use TOY_WIRE_SAVE=1 on Test 81's switches)
 endif
-	env -u MAKEFLAGS -u MFLAGS $(MAKE) -f Makefile.vmu-native-toy-suite $(TOY_WIRE_EVERY_SWITCH) TOY_WIRE_VMU=0 TOY_WIRE_SAVE=0 \
-	 BUILD_ID=$(BUILD_ID) BUILD=$(BUILD)/parts-reader $(BUILD)/parts-reader/retail-native-dual.kui
-	python3 tests/test_toy_wire_save_parts.py $(BUILD) $(BUILD)/parts-reader
+	env -u MAKEFLAGS -u MFLAGS $(MAKE) -f Makefile.vmu-native-toy-suite $(TOY_WIRE_EVERY_SWITCH) TOY_WIRE_VMU=0 TOY_WIRE_SAVE=0 TOY_SURVEY_MIXED_PAD=0 \
+	 $(TOY_SAVE_PARTS_PAD) BUILD_ID=$(BUILD_ID) BUILD=$(TOY_SAVE_PARTS_READER) $(TOY_SAVE_PARTS_READER)/retail-native-dual.kui
+	python3 tests/test_toy_wire_save_parts.py $(BUILD) $(TOY_SAVE_PARTS_READER)
 toy-wire-save-host-test:
 	HOST_CC="$(HOST_CC)" python3 tests/test_toy_survey.py
 # Whether those tests notice a defect: each of a list, in a copy of the sources.
