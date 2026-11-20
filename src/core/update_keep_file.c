@@ -8,11 +8,12 @@ static const char *const paths[] = {
     KUI_UPDATE_SYSTEM "/nightly-keep-a.bin", KUI_UPDATE_SYSTEM "/nightly-keep-b.bin"
 };
 
-/* 8-byte magic/version, LE sequence, limit, three reserved bytes, LE CRC32. */
+/* 8-byte magic/version, LE sequence, limit, preferred channel (zero on legacy cards), two reserved bytes, LE CRC32. */
 enum { RECORD_BYTES = 20 };
 struct slot {
     uint32_t sequence; /* Zero means missing or invalid. */
     unsigned keep;
+    enum kui_update_channel channel;
     bool present;
 };
 
@@ -40,10 +41,11 @@ static bool read_slot(unsigned index, struct slot *slot) {
     FRESULT closed = f_close(&file);
     if(result != FR_OK || closed != FR_OK || (sized && size != sizeof(record))) return false;
     if(sized && !memcmp(record, "KUIKEEP1", 8) &&
-       kui_update_keep_valid(record[12]) && !record[13] && !record[14] && !record[15] &&
+       kui_update_keep_valid(record[12]) && record[13] <= KUI_UPDATE_NIGHTLIES && !record[14] && !record[15] &&
        get32(record + 16) == kui_crc32(0, record, 16)) {
         slot->sequence = get32(record + 8);
         slot->keep = record[12];
+        slot->channel = (enum kui_update_channel)record[13];
     }
     return true;
 }
@@ -57,13 +59,14 @@ static bool latest_slot(struct slot *latest, unsigned *index) {
     return true;
 }
 
-bool kui_update_keep_load(unsigned *keep) {
-    if(!keep) return false;
+bool kui_update_preferences_load(unsigned *keep, enum kui_update_channel *channel) {
+    if(!keep || !channel) return false;
     *keep = KUI_UPDATE_KEEP_DEFAULT;
+    *channel = KUI_UPDATE_RELEASES;
     struct slot latest;
     unsigned index;
     if(!latest_slot(&latest, &index)) return false;
-    if(latest.sequence) *keep = latest.keep;
+    if(latest.sequence) { *keep = latest.keep; *channel = latest.channel; }
     else if(latest.present) *keep = 0;
     return true;
 }
@@ -73,17 +76,18 @@ static bool ensure_directory(const char *path) {
     return result == FR_OK || result == FR_EXIST;
 }
 
-bool kui_update_keep_save(unsigned keep) {
+bool kui_update_preferences_save(unsigned keep, enum kui_update_channel channel) {
     struct slot latest;
     unsigned index;
-    if(!kui_update_keep_valid(keep) || !latest_slot(&latest, &index)) return false;
-    if(latest.sequence && latest.keep == keep) return true;
+    if((unsigned)channel > KUI_UPDATE_NIGHTLIES || !kui_update_keep_valid(keep) || !latest_slot(&latest, &index)) return false;
+    if(latest.sequence && latest.keep == keep && latest.channel == channel) return true;
     if(latest.sequence == UINT32_MAX) return false;
     if(!latest.sequence && (!ensure_directory("0:/KUI") || !ensure_directory(KUI_UPDATE_SYSTEM))) return false;
 
     uint8_t record[RECORD_BYTES] = "KUIKEEP1";
     put32(record + 8, latest.sequence + 1);
     record[12] = (uint8_t)keep;
+    record[13] = (uint8_t)channel;
     put32(record + 16, kui_crc32(0, record, 16));
     unsigned target = latest.sequence ? 1u - index : 0u;
     FIL file;
@@ -94,5 +98,18 @@ bool kui_update_keep_save(unsigned keep) {
     FRESULT closed = f_close(&file);
     struct slot saved;
     return ok && closed == FR_OK && read_slot(target, &saved) &&
-           saved.sequence == latest.sequence + 1 && saved.keep == keep;
+           saved.sequence == latest.sequence + 1 && saved.keep == keep && saved.channel == channel;
+}
+
+
+bool kui_update_keep_load(unsigned *keep) {
+    enum kui_update_channel channel;
+    return kui_update_preferences_load(keep, &channel);
+}
+
+bool kui_update_keep_save(unsigned keep) {
+    enum kui_update_channel channel;
+    unsigned old_keep;
+    return kui_update_keep_valid(keep) && kui_update_preferences_load(&old_keep, &channel) &&
+           kui_update_preferences_save(keep, channel);
 }

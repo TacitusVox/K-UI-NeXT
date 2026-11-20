@@ -6,6 +6,7 @@
 #include "kui/artwork_validators.h"
 #include "kui/internet_cover.h"
 #include "kui/internet_extra.h"
+#include "kui/internet_preview.h"
 #include "kui/media_container.h"
 #include "kui/games_media_storage.h"
 #include "kui/games_library.h"
@@ -21,13 +22,16 @@
 static struct {
     unsigned gets, pages, commits, limit_page, fail_page, identities, connects;
     bool mounted, owner_cover, temp, video, saved, short_write, race, dirty, stop, corrupt_png, corrupt_pdf, bad_pages;
-    bool has_url, convert, cancel_conversion, fail_identity, small_url, small_bad, small_tiny, small_changed, cover_identity;
+    bool has_url, cancel_conversion, fail_identity, small_url, small_bad, small_tiny, small_changed, cover_identity;
     bool legacy, deny_cleanup, corrupt_readback, pending_cleanup;
     unsigned removed;
     char legacy_path[KUI_GAMES_FILE_CAP];
     enum kui_http_result small_result;
     enum kui_media_reason last_reason;
-    bool no_release;
+    bool no_release, alternate_clips, runabout, short_cache_read;
+    enum kui_preview_conversion conversion;
+    unsigned unplayable_requests;
+    unsigned missing_previews, preview_requests;
     enum kui_http_result response;
     unsigned char buffer[90000], clip[200], saved_file[90000];
     size_t length, clip_length, saved_length;
@@ -51,7 +55,7 @@ static const uint8_t legacy_header[16]={'K','P','V','1',160,0,120,0,10,0,0,0,1,0
 static bool cancel(void) { return test.stop; }
 static void reset(void) {
     memset(&test,0,sizeof(test));
-    test.has_url=true; test.convert=true;
+    test.has_url=true;
 }
 bool kui_games_library_media_disc1(const struct kui_games_entry *entry, char path[KUI_GAMES_FILE_CAP]) {
     assert(entry == &game && entry->media_disc1_key[0]);
@@ -83,6 +87,15 @@ bool kui_internet_cover_url(const struct kui_games_disc_identity *id,char *url,s
 bool kui_internet_extra_url(const struct kui_games_disc_identity *id,enum kui_media_kind kind,char *url,size_t cap) {
     assert(!strcmp(id->product,"T-1"));
     snprintf(url,cap,"%s",kind==KUI_MEDIA_MANUAL?"manual":"preview");return test.has_url;
+}
+bool kui_internet_preview_fallback_url(const struct kui_games_disc_identity *id,unsigned *attempt,char *url,size_t cap,unsigned *start_seconds) {
+    assert(!strcmp(id->product,"T-1"));
+    if(!test.alternate_clips || *attempt>=2) return false;
+    ++*attempt;
+    *start_seconds=test.runabout?18u:0u;
+    if(test.runabout) snprintf(url,cap,"https://archive.org/download/016860/016860.ogv");
+    else snprintf(url,cap,"preview-%u",*attempt);
+    return true;
 }
 unsigned kui_internet_manual_pages(const struct kui_games_disc_identity *id) {(void)id;return test.pages;}
 bool kui_internet_manual_page_url(const struct kui_games_disc_identity *id,unsigned i,char *url,size_t cap) {
@@ -154,21 +167,31 @@ enum kui_http_result kui_internet_get_conditional(struct kui_internet *s,const c
 }
 enum kui_http_result kui_internet_get_prefix(struct kui_internet *s,const char *url,uint32_t max,
         kui_http_write_fn sink,void *ctx,kui_http_progress_fn progress,void *progress_ctx,bool (*complete)(void *)) {
-    assert(!strcmp(url,"preview"));
-    enum kui_http_result r = kui_internet_get(s,url,max,sink,ctx,progress,progress_ctx);
+    unsigned order = test.preview_requests++ + (test.has_url ? 0u : 1u);
+    char expected[24]="preview";
+    if(order) snprintf(expected,sizeof(expected),"preview-%u",order);
+    if(test.runabout) assert(!strcmp(url,"https://archive.org/download/016860/016860.ogv"));
+    else if(test.alternate_clips) assert(!strcmp(url,expected));
+    else assert(!strcmp(url,"preview"));
+    if(test.missing_previews) {
+        --test.missing_previews;
+        return KUI_HTTP_MISSING;
+    }
+    enum kui_http_result r = kui_internet_get(s,"preview",max,sink,ctx,progress,progress_ctx);
     assert(!complete(ctx)); /* The mock origin supplies a short whole-file response. */
     return r;
 }
-bool kui_internet_preview_convert(FIL *src,FIL *dest,kui_cancel_fn stop,kui_log_fn log,uint32_t *crc) {
-    (void)log;assert(f_tell(src)==0 && f_size(src)==4 && !stop());
-    if(test.cancel_conversion) {test.stop=true;return false;}
-    if(!test.convert)return false;
+enum kui_preview_conversion kui_internet_preview_convert(FIL *src,FIL *dest,unsigned start,kui_cancel_fn stop,kui_log_fn log,uint32_t *crc) {
+    (void)log;assert(start==(test.runabout ? 18u : 0u));assert(f_size(src)==4 && f_lseek(src,0)==FR_OK && !stop());
+    if(test.cancel_conversion) {test.stop=true;return KUI_CONVERSION_STOPPED;}
+    if(test.unplayable_requests) {--test.unplayable_requests;return KUI_CONVERSION_UNPLAYABLE;}
+    if(test.conversion!=KUI_CONVERSION_OK) return test.conversion;
     uint8_t h[16]={ 'K','P','V','2',160,0,120,0,10,0,0,0,1,0,0,0 };
     static const uint8_t pixels[KUI_PREVIEW_FRAME_BYTES]={0};
     if(crc) *crc=kui_crc32_capture(kui_crc32_capture(0,pixels,sizeof(pixels)),h,sizeof(h));
     UINT out=0;
     return f_write(dest,h,sizeof(h),&out)==FR_OK && out==sizeof(h) &&
-        f_write(dest,pixels,sizeof(pixels),&out)==FR_OK && out==sizeof(pixels);
+        f_write(dest,pixels,sizeof(pixels),&out)==FR_OK && out==sizeof(pixels) ? KUI_CONVERSION_OK : KUI_CONVERSION_IO_ERROR;
 }
 enum kui_games_storage_result kui_games_storage_open(kui_log_fn log) {
     (void)log;assert(!test.mounted);test.mounted=true;return KUI_GAMES_STORAGE_OK;
@@ -255,6 +278,7 @@ bool kui_games_publish_cover(const char *staged,const char *final,kui_cancel_fn 
 }
 FRESULT f_read(FIL *f,void *out,UINT n,UINT *got) {
     if(f==test.saved_handle) {
+        if(test.short_cache_read && n) --n;
         if(n>f_size(f)-f->fptr)n=(UINT)(f_size(f)-f->fptr);
         memcpy(out,test.read_pixels+f->fptr,n);f->fptr+=n;*got=n;return FR_OK;
     }
@@ -531,7 +555,41 @@ int main(void) {
     assert(fetch(KUI_MEDIA_PREVIEW)==KUI_MEDIA_EXISTING && test.gets==completed_gets &&
         !test.pending_cleanup && test.removed==1 && !test.legacy);
     assert(fetch(KUI_MEDIA_PREVIEW)==KUI_MEDIA_EXISTING && test.gets==completed_gets && !test.removed);
-    reset();test.convert=false;assert(fetch(KUI_MEDIA_PREVIEW)==KUI_MEDIA_ERROR && !test.saved);
+    reset();test.alternate_clips=true;test.missing_previews=2;
+    assert(fetch(KUI_MEDIA_PREVIEW)==KUI_MEDIA_INSTALLED && test.preview_requests==3 && test.connects==1);
+    reset();test.alternate_clips=true;test.has_url=false;
+    assert(fetch(KUI_MEDIA_PREVIEW)==KUI_MEDIA_INSTALLED && test.preview_requests==1);
+    reset();test.alternate_clips=true;test.has_url=false;test.runabout=true;
+    assert(fetch(KUI_MEDIA_PREVIEW)==KUI_MEDIA_INSTALLED && test.preview_requests==1);
+    reset();test.alternate_clips=true;test.missing_previews=3;
+    assert(fetch(KUI_MEDIA_PREVIEW)==KUI_MEDIA_MISSING && test.last_reason==KUI_MEDIA_REASON_PROVIDER_MISSING &&
+           test.preview_requests==3 && !test.saved);
+    reset();test.alternate_clips=true;test.response=KUI_HTTP_CONNECT_FAILED;
+    assert(fetch(KUI_MEDIA_PREVIEW)==KUI_MEDIA_CONNECT_FAILED && test.preview_requests==1);
+    reset();test.alternate_clips=true;test.response=KUI_HTTP_LIMITED;
+    assert(fetch(KUI_MEDIA_PREVIEW)==KUI_MEDIA_LIMITED && test.preview_requests==1);
+    reset();test.alternate_clips=true;test.unplayable_requests=1;
+    assert(fetch(KUI_MEDIA_PREVIEW)==KUI_MEDIA_INSTALLED && test.preview_requests==2 && test.last_reason==KUI_MEDIA_REASON_NONE);
+    reset();test.alternate_clips=true;test.conversion=KUI_CONVERSION_UNPLAYABLE;test.legacy=true;
+    assert(kui_media_file_path(&game,KUI_MEDIA_PREVIEW,test.legacy_path));
+    assert(fetch(KUI_MEDIA_PREVIEW)==KUI_MEDIA_MISSING && test.last_reason==KUI_MEDIA_REASON_UNPLAYABLE_PREVIEW &&
+        test.preview_requests==3 && !test.saved && test.legacy && !test.removed);
+    for(unsigned i=0;i<2;i++) {
+        reset();test.alternate_clips=true;
+        test.conversion=i==0?KUI_CONVERSION_IO_ERROR:KUI_CONVERSION_NO_MEMORY;
+        assert(fetch(KUI_MEDIA_PREVIEW)==KUI_MEDIA_ERROR && test.preview_requests==1 && !test.saved);
+    }
+    for(unsigned upgrade=0;upgrade<2;upgrade++) {
+        reset();
+        assert(fetch(KUI_MEDIA_PREVIEW)==KUI_MEDIA_INSTALLED);
+        if(upgrade) test.dest[strlen(test.dest)-1]='2';
+        test.short_cache_read=true;
+        assert(fetch(KUI_MEDIA_PREVIEW)==KUI_MEDIA_ERROR && test.gets==1 && test.saved && !test.removed);
+        test.short_cache_read=false;
+        test.saved_file[0]='!';
+        assert(fetch(KUI_MEDIA_PREVIEW)==KUI_MEDIA_MISSING && test.last_reason==KUI_MEDIA_REASON_INVALID_LOCAL_PREVIEW &&
+            test.gets==1 && test.saved_file[0]=='!' && !test.removed);
+    }
     reset();test.cancel_conversion=true;assert(fetch(KUI_MEDIA_PREVIEW)==KUI_MEDIA_STOPPED && !test.saved);
     puts("PASS direct media install, indexed page assembly, PDF fallback, preview conversion, cancellation and SD failures");
 }

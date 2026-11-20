@@ -385,7 +385,11 @@ static bool update_path(const char *path) {
 static enum kui_shell_action updates_dispatch(struct kui_shell *s,
     const struct kui_shell_update_request *request) {
     ++s->update_generation;if(!s->update_generation)++s->update_generation;
+    if(request->op==KUI_SHELL_UPDATE_OPTIONS || request->op==KUI_SHELL_UPDATE_LIST) {
+        s->update_nightlies.count=0;s->update_nightly_selected=0;
+    }
     s->update_request=*request;s->update_request.generation=s->update_generation;
+    s->update_details=false;s->update_detail_page=0;s->update.changes=NULL;
     s->update_loading=true;s->update_stopping=false;s->update.ready=false;
     return KUI_SHELL_UPDATE_RUN;
 }
@@ -395,27 +399,114 @@ static enum kui_shell_action updates_request(struct kui_shell *s,enum kui_shell_
         s->update.directory:KUI_UPDATE_BROWSER_ROOT);
     return updates_dispatch(s,&request);
 }
+static enum kui_shell_action updates_online_request(struct kui_shell *s,enum kui_shell_update_op op,
+        const struct kui_update_choice *choice,bool test_feed) {
+    struct kui_shell_update_request request={.op=op,.route=s->update_route,.keep=s->update_keep,
+        .channel=test_feed?s->update_saved_channel:s->update_channel,.test_feed=test_feed,
+        .change_channel=!test_feed && s->update_channel!=s->update_saved_channel,
+        .change_keep=s->update_keep!=s->update_saved_keep};
+    if(choice)request.nightly=*choice;
+    strcpy(request.directory,op==KUI_SHELL_UPDATE_SAVE_LIMIT?KUI_UPDATE_BROWSER_ROOT:KUI_NIGHTLY_DIRECTORY);
+    if(test_feed || s->update_channel!=s->update_picker_channel) {
+        s->update_nightlies.count=0;s->update_nightly_selected=0;
+    }
+    s->update_picker_channel=s->update_channel;s->update_online_relist=true;
+    s->update_online=false;s->update_transfer_settings=false;
+    return updates_dispatch(s,&request);
+}
+
+unsigned kui_shell_update_detail_pages(const struct kui_shell_update_view *v) {
+    unsigned notes=(v->online_info.note_count+KUI_UPDATE_DETAIL_NOTES_PER_PAGE-1u)/KUI_UPDATE_DETAIL_NOTES_PER_PAGE;
+    unsigned files=v->changes && v->changes->known ? v->changes->count : 0u;
+    return notes+(files?(files+KUI_UPDATE_DETAIL_FILES_PER_PAGE-1u)/KUI_UPDATE_DETAIL_FILES_PER_PAGE:1u);
+}
+
+static bool updates_valid_choices(const struct kui_update_choices *choices) {
+    if(choices->count>KUI_UPDATE_NIGHTLY_LIMIT)return false;
+    for(unsigned i=0;i<choices->count;i++) {
+        const struct kui_update_choice *row=&choices->items[i];
+        if(!row->size || row->commit[40] || row->digest[64] || row->published[20] ||
+           row->tag[sizeof(row->tag)-1u] || row->asset[sizeof(row->asset)-1u] ||
+           strlen(row->commit)!=40u || strlen(row->digest)!=64u)return false;
+    }
+    return true;
+}
+
+static void updates_got_nightlies(struct kui_shell *s,struct kui_shell_update_view *v) {
+    if(!v->status.complete)return;
+    if(s->update_request.op==KUI_SHELL_UPDATE_NIGHTLY_LIST) {
+        if(v->status.passed && v->stage==KUI_SHELL_UPDATE_NIGHTLIES &&
+           updates_valid_choices(&v->nightlies)) {
+            /* A refresh can prepend a newer build. Keep the highlighted
+             * package if it is still present, independently of its row. */
+            unsigned selected=0;
+            if(s->update_nightly_selected<s->update_nightlies.count) {
+                const struct kui_update_choice *old=&s->update_nightlies.items[s->update_nightly_selected];
+                for(unsigned i=0;i<v->nightlies.count;i++)
+                    if(!strcmp(old->commit,v->nightlies.items[i].commit) &&
+                       !strcmp(old->digest,v->nightlies.items[i].digest) &&
+                       !strcmp(old->tag,v->nightlies.items[i].tag) &&
+                       !strcmp(old->asset,v->nightlies.items[i].asset)) {selected=i;break;}
+            }
+            s->update_nightlies=v->nightlies;s->update_nightly_selected=selected;
+        } else {
+            s->update_nightlies.count=0;s->update_nightly_selected=0;
+            if(v->status.passed) {
+                v->status.passed=false;v->status.errors=1u;
+                strcpy(v->status.message,"Build list was unreadable. Refresh to retry.");
+            }
+        }
+        v->stage=KUI_SHELL_UPDATE_NIGHTLIES;
+    } else if(s->update_request.op==KUI_SHELL_UPDATE_NIGHTLY && s->update_request.nightly.size &&
+              v->stage==KUI_SHELL_UPDATE_RESULT) {
+        /* An interrupted or expired download returns to the same choice. */
+        v->stage=KUI_SHELL_UPDATE_NIGHTLIES;
+    } else if(v->stage==KUI_SHELL_UPDATE_NIGHTLIES)v->stage=KUI_SHELL_UPDATE_RESULT;
+}
+
 void kui_shell_set_update(struct kui_shell *s,const struct kui_shell_update_view *view) {
     if(!s || !view || s->page!=KUI_SHELL_UPDATES || !s->update_loading ||
        view->generation!=s->update_generation || view->generation!=s->update_request.generation ||
        !kui_update_browser_path(view->directory) || strcmp(view->directory,s->update_request.directory))return;
     if(view->keep_known && kui_update_keep_valid(view->keep)) {
         s->update_saved_keep=view->keep;
+        s->update_saved_channel=view->channel;
         if(s->update_request.op==KUI_SHELL_UPDATE_OPTIONS && view->status.complete && view->status.passed) {
             /* Keep the folder listing and cursor available when B closes options. */
             s->update_online=true;s->update_online_row=0;s->update_keep=view->keep;
+            s->update_transfer_settings=false;s->update_online_relist=false;
+            s->update_channel=view->channel;
+            memcpy(s->update_online_directory,s->update_request.directory,sizeof(s->update_online_directory));
+            s->update_online_page=s->update_request.page;
             s->update_test_feed_available=view->test_feed_available;
             s->update_loading=s->update_stopping=false;
             return;
         }
     }
+    if(s->update_request.op==KUI_SHELL_UPDATE_SAVE_LIMIT && view->status.complete) {
+        s->update_online=true;s->update_transfer_settings=true;s->update_loading=s->update_stopping=false;
+        s->update.status=view->status;
+        s->update.status.message[sizeof(s->update.status.message)-1u]=0;
+        if(view->status.passed) {
+            s->update_saved_route=s->update_route;
+            strcpy(s->update.status.message,"Transfer settings saved.");
+        }
+        return;
+    }
     s->update=*view;struct kui_shell_update_view *v=&s->update;
     v->status.message[sizeof(v->status.message)-1u]=0;
     if(v->status.line_count>KUI_APP_LINES)v->status.line_count=KUI_APP_LINES;
     for(unsigned i=0;i<v->status.line_count;i++)v->status.lines[i][KUI_APP_LINE_CAP-1u]=0;
+    if(s->update_request.op!=KUI_SHELL_UPDATE_NIGHTLY || v->restore)
+        memset(&v->online_info,0,sizeof(v->online_info));
+    unsigned max_notes=sizeof(v->online_info.notes)/sizeof(v->online_info.notes[0]);
+    if(v->online_info.note_count>max_notes)v->online_info.note_count=max_notes;
+    for(unsigned i=0;i<v->online_info.note_count;i++)
+        v->online_info.notes[i][sizeof(v->online_info.notes[i])-1u]=0;
     v->gui_build[KUI_UPDATE_BUILD_BYTES-1u]=v->running[KUI_UPDATE_BUILD_BYTES-1u]=v->selected[KUI_UPDATE_BUILD_BYTES-1u]=
         v->previous[KUI_UPDATE_BUILD_BYTES-1u]=0;
-    if(v->stage>KUI_SHELL_UPDATE_RESULT)v->stage=KUI_SHELL_UPDATE_RESULT;
+    if(v->stage>KUI_SHELL_UPDATE_NIGHTLIES)v->stage=KUI_SHELL_UPDATE_RESULT;
+    updates_got_nightlies(s,v);
     if(v->page>UINT_MAX/KUI_SHELL_UPDATE_ROWS ||
        (v->stage==KUI_SHELL_UPDATE_PACKAGES && v->page*KUI_SHELL_UPDATE_ROWS>=v->total)) {
         v->page=0;v->count=0;
@@ -436,6 +527,10 @@ void kui_shell_set_update(struct kui_shell *s,const struct kui_shell_update_view
     v->already_installed=v->already_installed && install && !v->restore && v->selection_known &&
         v->stage==KUI_SHELL_UPDATE_REVIEW && v->status.complete && v->status.passed &&
         !v->status.stopped && !v->status.errors;
+    /* The verified package describes the selected bytes. A cold CD boot
+     * can still be executing the physical root GUI. */
+    if(v->already_installed && v->selected[0] && v->running[0] && v->gui_build[0] &&
+       strcmp(v->running,v->gui_build))v->restart_required=true;
     if(v->stage!=KUI_SHELL_UPDATE_REVIEW || !v->status.complete || !v->status.passed ||
        v->status.errors || v->status.stopped || v->already_installed || !review->token || (!install && !restore) ||
        !kui_update_browser_path(review->directory) || strcmp(review->directory,v->directory) ||
@@ -2963,7 +3058,35 @@ enum kui_shell_action kui_shell_input(struct kui_shell *s,
                 if(s->update_stopping)return KUI_SHELL_NONE;
                 s->update_stopping=true;return KUI_SHELL_STOP;
             }
-            if(s->update_online) {s->update_online=false;return KUI_SHELL_NONE;}
+            if(s->update_details) {s->update_details=false;return KUI_SHELL_NONE;}
+            if(s->update_online) {
+                if(s->update_transfer_settings) {
+                    s->update_transfer_settings=false;s->update_keep=s->update_saved_keep;
+                    s->update_route=s->update_saved_route;return KUI_SHELL_NONE;
+                }
+                s->update_online=false;
+                if(s->update_online_relist) {
+                    struct kui_shell_update_request request={.op=KUI_SHELL_UPDATE_LIST,.page=s->update_online_page};
+                    strcpy(request.directory,kui_update_browser_path(s->update_online_directory)?
+                        s->update_online_directory:KUI_UPDATE_BROWSER_ROOT);
+                    return updates_dispatch(s,&request);
+                }
+                return KUI_SHELL_NONE;
+            }
+            if(s->update_request.test_feed && (s->update.stage==KUI_SHELL_UPDATE_REVIEW ||
+               s->update.stage==KUI_SHELL_UPDATE_RESULT)) {
+                s->update_online=s->update_transfer_settings=true;s->update.ready=false;
+                s->update.changes=NULL;s->update_confirm_request.token=0;return KUI_SHELL_NONE;
+            }
+            if(s->update.stage==KUI_SHELL_UPDATE_NIGHTLIES) {
+                s->update_online=true;s->update_transfer_settings=false;return KUI_SHELL_NONE;
+            }
+            if(s->update_nightlies.count && (s->update.stage==KUI_SHELL_UPDATE_REVIEW ||
+               s->update.stage==KUI_SHELL_UPDATE_RESULT)) {
+                s->update.stage=KUI_SHELL_UPDATE_NIGHTLIES;s->update.ready=false;s->update.changes=NULL;
+                s->update_confirm_request.token=0;s->update.status.message[0]=0;
+                return KUI_SHELL_NONE;
+            }
             if(s->update.stage==KUI_SHELL_UPDATE_REVIEW)
                 return updates_request(s,KUI_SHELL_UPDATE_LIST,s->update.page);
             char parent[KUI_SHELL_UPDATE_PATH_BYTES];
@@ -4594,7 +4717,19 @@ enum kui_shell_action kui_shell_input(struct kui_shell *s,
         break;
     case KUI_SHELL_UPDATES: {
         const struct kui_shell_update_view *v=&s->update;
-        if(v->stage==KUI_SHELL_UPDATE_REVIEW) {
+        if(!s->update_online && v->stage==KUI_SHELL_UPDATE_REVIEW) {
+            if(buttons==KUI_SHELL_X && !v->restore) {
+                s->update_details=!s->update_details;s->update_detail_page=0;
+                break;
+            }
+            if(s->update_details) {
+                unsigned pages=kui_shell_update_detail_pages(v);
+                if((buttons==KUI_SHELL_RIGHT || buttons==KUI_SHELL_DOWN) && s->update_detail_page+1u<pages)
+                    ++s->update_detail_page;
+                if((buttons==KUI_SHELL_LEFT || buttons==KUI_SHELL_UP) && s->update_detail_page)
+                    --s->update_detail_page;
+                break;
+            }
             if(buttons==KUI_SHELL_START && v->already_installed && v->restart_required)
                 s->confirm_restart=s->update_restart=true;
             if(buttons==KUI_SHELL_A && v->ready)
@@ -4602,10 +4737,18 @@ enum kui_shell_action kui_shell_input(struct kui_shell *s,
             break;
         }
         if(s->update_online) {
-            if(buttons==KUI_SHELL_Y && s->update_test_feed_available) {
-                s->update_use_official=!s->update_use_official;
+            if(!s->update_transfer_settings) {
+                if(buttons==KUI_SHELL_UP || buttons==KUI_SHELL_DOWN)
+                    s->update_channel=s->update_channel==KUI_UPDATE_RELEASES?KUI_UPDATE_NIGHTLIES:KUI_UPDATE_RELEASES;
+                if(buttons==KUI_SHELL_X) {
+                    s->update_transfer_settings=true;s->update_online_row=0;s->update_saved_route=s->update_route;
+                    s->update_keep=s->update_saved_keep;s->update.status.message[0]=0;
+                }
+                if(buttons==KUI_SHELL_A)return updates_online_request(s,KUI_SHELL_UPDATE_NIGHTLY_LIST,NULL,false);
                 break;
             }
+            if(buttons==KUI_SHELL_Y && s->update_test_feed_available)
+                return updates_online_request(s,KUI_SHELL_UPDATE_NIGHTLY,NULL,true);
             if(buttons==KUI_SHELL_LEFT || buttons==KUI_SHELL_RIGHT) {
                 if(s->update_online_row==0) {
                     unsigned step=buttons==KUI_SHELL_LEFT?KUI_INTERNET_ROUTE_COUNT-1u:1u;
@@ -4620,16 +4763,23 @@ enum kui_shell_action kui_shell_input(struct kui_shell *s,
                 }
             } else if(buttons==KUI_SHELL_UP || buttons==KUI_SHELL_DOWN) {
                 s->update_online_row=1u-s->update_online_row;
-            } else if(buttons==KUI_SHELL_A) {
-                struct kui_shell_update_request request={
-                    .op=s->update_online_row?KUI_SHELL_UPDATE_SAVE_LIMIT:KUI_SHELL_UPDATE_NIGHTLY,
-                    .route=s->update_route,.keep=s->update_keep,
-                    .test_feed=s->update_test_feed_available && !s->update_use_official,
-                    .change_keep=s->update_keep!=s->update_saved_keep
-                };
-                strcpy(request.directory,s->update_online_row?KUI_UPDATE_BROWSER_ROOT:KUI_NIGHTLY_DIRECTORY);
-                s->update_online=false;
-                return updates_dispatch(s,&request);
+            } else if(buttons==KUI_SHELL_A)return updates_online_request(s,KUI_SHELL_UPDATE_SAVE_LIMIT,NULL,false);
+            break;
+        }
+        if(v->stage==KUI_SHELL_UPDATE_NIGHTLIES) {
+            unsigned count=s->update_nightlies.count,index=s->update_nightly_selected;
+            if(buttons==KUI_SHELL_UP && index)--s->update_nightly_selected;
+            if(buttons==KUI_SHELL_DOWN && index+1u<count)++s->update_nightly_selected;
+            if(buttons==KUI_SHELL_LEFT && index>=KUI_SHELL_NIGHTLY_ROWS)
+                s->update_nightly_selected=(index/KUI_SHELL_NIGHTLY_ROWS-1u)*KUI_SHELL_NIGHTLY_ROWS;
+            if(buttons==KUI_SHELL_RIGHT) {
+                unsigned next=(index/KUI_SHELL_NIGHTLY_ROWS+1u)*KUI_SHELL_NIGHTLY_ROWS;
+                if(next<count)s->update_nightly_selected=next;
+            }
+            if(buttons==KUI_SHELL_X || buttons==KUI_SHELL_A) {
+                if(buttons==KUI_SHELL_A && index<count)
+                    return updates_online_request(s,KUI_SHELL_UPDATE_NIGHTLY,&s->update_nightlies.items[index],false);
+                return updates_online_request(s,KUI_SHELL_UPDATE_NIGHTLY_LIST,NULL,false);
             }
             break;
         }

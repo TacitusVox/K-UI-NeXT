@@ -92,6 +92,11 @@ int main(int argc, char **argv) {
     mount();
     operations = 0;
     expect_limit(KUI_UPDATE_KEEP_DEFAULT);
+    enum kui_update_channel channel = KUI_UPDATE_NIGHTLIES;
+    unsigned default_keep;
+    assert(kui_update_preferences_load(&default_keep, &channel) && channel == KUI_UPDATE_RELEASES &&
+           default_keep == KUI_UPDATE_KEEP_DEFAULT);
+    assert(!kui_update_preferences_save(5, KUI_UPDATE_HARDWARE));
     assert(!kui_update_keep_save(2) && !kui_update_keep_load(NULL) && !operations);
 
     /* Alternate the original system preference writer and the new preference. */
@@ -115,7 +120,7 @@ int main(int argc, char **argv) {
 
     mount();
     operations = 0;
-    assert(kui_update_keep_save(1));
+    assert(kui_update_preferences_save(1, KUI_UPDATE_NIGHTLIES));
     unsigned boundaries = operations;
     assert(boundaries && boundaries < 100);
     unmount();
@@ -124,12 +129,13 @@ int main(int argc, char **argv) {
         mount();
         operations = 0;
         fail_after = (int)cut;
-        bool saved = kui_update_keep_save(1);
+        bool saved = kui_update_preferences_save(1, KUI_UPDATE_NIGHTLIES);
         fail_after = -1;
         unmount();
         mount();
         unsigned keep = 99;
-        assert(kui_update_keep_load(&keep) && (keep == 0 || keep == 1));
+        assert(kui_update_preferences_load(&keep, &channel));
+        assert((keep == 0 && channel == KUI_UPDATE_RELEASES) || (keep == 1 && channel == KUI_UPDATE_NIGHTLIES));
         if(saved) assert(keep == 1);
         uint8_t bytes[sizeof(settings_a)];
         read_file(KUI_SYSTEM_SETTINGS_PATH_A, bytes, sizeof(bytes));
@@ -156,6 +162,10 @@ int main(int argc, char **argv) {
     unmount();
     mount();
     expect_limit(3);
+    assert(kui_update_preferences_save(0, KUI_UPDATE_NIGHTLIES));
+    assert(kui_update_keep_save(5));
+    assert(kui_update_preferences_load(&default_keep, &channel) && channel == KUI_UPDATE_NIGHTLIES && default_keep == 5);
+    assert(kui_update_preferences_save(5, KUI_UPDATE_RELEASES));
     unmount();
     mount();
     read_failure = true;
@@ -167,7 +177,7 @@ int main(int argc, char **argv) {
     unmount();
     free(seed);
     free(disk);
-    printf("PASS independent retention preference and v4 system records across %u write/sync boundaries\n",
+    printf("PASS atomic channel/retention preferences and v4 system records across %u write/sync boundaries\n",
            boundaries + 1);
     return 0;
 }

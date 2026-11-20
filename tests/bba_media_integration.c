@@ -53,7 +53,7 @@ bool __wrap_kui_internet_cover_url(const struct kui_games_disc_identity *id, cha
 void kui_test_start_scan_heap(void);
 size_t kui_test_stop_scan_heap(void);
 static bool stopping,cancel_page,completed_prefix,missing_pages,fail_clip;
-static unsigned pdfs;
+static unsigned pdfs, damaged_sources;
 static const char *release_url, *book_url;
 static unsigned page_count;
 
@@ -118,6 +118,12 @@ enum kui_http_result kui_internet_get_prefix(struct kui_internet *s,const char *
         asset="page.jpg";
     } else if(strstr(url,"skies_arcadia.pdf")) {
         asset="original.pdf"; ++pdfs;
+    } else if(strstr(url,"/SegaDreamcastVideoSnaps/") && strstr(url,"Evolution%202") && strstr(url,".ogv")) {
+        /* A successful, complete HTTP response containing unplayable media. */
+        static const char broken[]="OggS truncated response saved by the provider";
+        assert(write(ctx,broken,sizeof(broken)) && complete && !complete(ctx));
+        ++damaged_sources;
+        return KUI_HTTP_OK;
     } else if(strstr(url,"/SegaDreamcastVideoSnaps/") && strstr(url,release_url) && strstr(url,".ogv")) {
         asset="clip.ogv";++clips;
         if(fail_clip) return KUI_HTTP_CONNECT_FAILED;
@@ -827,12 +833,54 @@ static void multidisc_media(void) {
     puts("PASS grouped disc media, PDF fallback, offline reuse, interrupted and successful legacy audio refresh");
 }
 
+static void preview_batch(void) {
+    kui_games_storage_hold(true);
+    assert(kui_games_library_scan("/Games",false,log_line,cancelled));
+    struct kui_games_page rows;
+    assert(kui_games_library_rows("/Games","",0,KUI_GAMES_VIEW_LIST,&rows,log_line,cancelled));
+    assert(rows.count==2 && strstr(rows.entries[0].name,"Evolution 2") && strstr(rows.entries[1].name,"Skies"));
+    char old[KUI_GAMES_FILE_CAP], upgraded[KUI_GAMES_FILE_CAP];
+    assert(kui_media_file_path(&rows.entries[0],KUI_MEDIA_PREVIEW,old));
+    strcpy(upgraded,old);
+    upgraded[strlen(upgraded)-1]='2';
+    assert(kui_games_storage_open(log_line)==KUI_GAMES_STORAGE_OK);
+    assert(f_mkdir("0:/KUI/media")==FR_OK);
+    copy_fixture("legacy.kpv",old);
+    assert(kui_games_storage_release());
+    uint8_t installed_digest[32], after[32];
+    for(unsigned local=0;local<=1;++local) {
+        assert(scan_discs(&rows.entries[0],KUI_GAMES_MEDIA_PREVIEW,true));
+        struct kui_media_report_page page;
+        assert(kui_media_report_read_page(0,&page,log_line)==KUI_MEDIA_REPORT_OK &&
+            page.total==1 && !strcmp(page.status,"Completed") && strstr(page.entries[0].title,"Evolution 2"));
+        assert(!strcmp(page.entries[0].asset,"Preview") && !strcmp(page.entries[0].category,"Unavailable") &&
+            !strcmp(page.entries[0].reason,kui_media_reason_text(local ?
+                KUI_MEDIA_REASON_INVALID_LOCAL_PREVIEW : KUI_MEDIA_REASON_UNPLAYABLE_PREVIEW)));
+        assert(damaged_sources==1 && clips==1 && connections==1);
+        assert(kui_games_storage_open(log_line)==KUI_GAMES_STORAGE_OK);
+        verify_legacy_bytes(old);
+        verify_media(&rows.entries[1],KUI_MEDIA_PREVIEW,100);
+        FILINFO info;
+        assert(f_stat("0:/KUI/media/fetch.tmp",&info)==FR_NO_FILE && f_stat("0:/KUI/media/video.tmp",&info)==FR_NO_FILE);
+        if(!local) {
+            assert(f_stat(upgraded,&info)==FR_NO_FILE);
+            copy_fixture("original.pdf",upgraded);
+            card_digest(upgraded,installed_digest);
+        } else {
+            card_digest(upgraded,after);
+            assert(!memcmp(installed_digest,after,sizeof(after)));
+        }
+        assert(kui_games_storage_release());
+    }
+    puts("PASS damaged Evolution 2 preview reported; later Skies preview installed; local clips preserved");
+}
 int main(int argc,char **argv) {
     fault_card_path=argc>1 ? argv[1] : NULL;
     if(argc<3 || argc>5) return 2;
     large_source=argc==5 && !strcmp(argv[4],"4k");
     bool discs=argc==5 && !strcmp(argv[4],"discs");
-    bool skies=discs || (argc==5 && !strcmp(argv[4],"skies"));
+    bool previews=argc==5 && !strcmp(argv[4],"preview-batch");
+    bool skies=discs || previews || (argc==5 && !strcmp(argv[4],"skies"));
     release_url=skies?"Skies%20of%20Arcadia":"Crazy%20Taxi";
     book_url=skies?"/Skies_Of_Arcadia_2000_U/page/n":"/Crazy_Taxi_2000_U/page/n";
     page_count=skies?18:13;
@@ -843,6 +891,11 @@ int main(int argc,char **argv) {
     sectors=(uint64_t)st.st_size/512;
     if(argc==5 && !strcmp(argv[4],"cleanup")) {
         artwork_cleanup_card();
+        assert(!fclose(card));
+        return 0;
+    }
+    if(previews) {
+        preview_batch();
         assert(!fclose(card));
         return 0;
     }

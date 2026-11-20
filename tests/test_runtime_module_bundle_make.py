@@ -2,9 +2,9 @@
 # SPDX-License-Identifier: GPL-3.0-only
 """Exercise the real GUI Makefile graph across older bundle selections.
 
-Only compiler/linker output and the unrelated build-receipt writer are tiny
-authored boundaries. The production Makefile, force-build-id dependencies,
-configuration updater and all bundle-selection prerequisites execute as-is.
+The fixture supplies compiler and linker outputs, external media/network build
+products and a receipt writer. The production Makefile, force-build-id
+dependencies, configuration updater and all bundle prerequisites execute as-is.
 This is a dependency test; it does not claim SH code or console execution.
 """
 import argparse
@@ -47,6 +47,8 @@ class Fixture:
         self.root = directory
         self.makefile = directory / 'Makefile.dc'
         self.makefile.write_bytes(makefile)
+        self.external_inputs = []
+        (directory / 'dependencies.json').symlink_to(ROOT / 'dependencies.json')
         for name in ('config', 'src', 'include', 'resources', 'third_party', 'firmware'):
             (directory / name).symlink_to(ROOT / name, target_is_directory=True)
         tools = directory / 'tools'; tools.mkdir()
@@ -66,23 +68,38 @@ class Fixture:
             p.parent.mkdir(parents=True, exist_ok=True); p.write_text('')
         # Obtain the complete production object list without editing or
         # substituting the Makefile's dependency graph.
-        database = subprocess.run(self.command('a', '-p', '-n'), cwd=directory,
+        database = subprocess.run(self.command('a', '-p', '-n', target='force-build-id'), cwd=directory,
             env=self.env, text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         line = re.search(r'^RUNTIME_OBJECTS\s*:=\s*(.*)$', database.stdout, re.M)
         if not line:
             raise AssertionError('Production runtime object list missing: '+database.stderr)
-        for name in line.group(1).split():
+        # Use a completed dependency build for unrelated networking/codec
+        # products. Keep the GUI's actual link and every bundle dependency.
+        # --old-file avoids an SDK checkout or an internet fetch inside the
+        # make-graph test; the full native build exercises those recipes.
+        objects = line.group(1).split()
+        leaves = [name for name in objects if name.startswith('build/dc/kos-')]
+        for variable in ('MEDIA_TLS_DC_LIB', 'MEDIA_TLS_ROOTS', 'XIPH_DEP'):
+            value = re.search(r'^'+variable+r'\s*:=\s*(.+)$', database.stdout, re.M)
+            if value:
+                leaves.append(value.group(1))
+        for name in leaves:
+            path = directory / name
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.touch()
+            self.external_inputs.append('--old-file='+name)
+        for name in objects:
             p = directory / name; p.parent.mkdir(parents=True, exist_ok=True)
             p.write_bytes(b'UNRELATED-OBJECT\0')
-        for name in ('splash_art.inc', 'boot_splash_art.inc', 'startup_ogg.inc'):
+        for name in ('splash_art.inc', 'boot_splash_art.inc', 'factory_splash_art.inc', 'startup_ogg.inc'):
             p = directory / 'build' / name; p.write_text('')
         self.write_bundle('a', b'COMPONENT-A')
         self.write_bundle('b', b'COMPONENT-B')
 
-    def command(self, bundle, *extra):
+    def command(self, bundle, *extra, target='build/kui-runtime.elf'):
         selected = str(self.root / bundle) if bundle else ''
         return ['make', '--no-print-directory', '-s', '-f', str(self.makefile),
-                'build/kui-runtime.elf', 'BUILD_ID=0123456789ab',
+                target, 'BUILD_ID=0123456789ab', *self.external_inputs,
                 'KUI_SMASH_LAUNCH_TIMING=1', 'RUNTIME_MODULE_BUNDLE='+selected, *extra]
 
     def write_bundle(self, name, body, *, older=False, assembly_suffix=''):

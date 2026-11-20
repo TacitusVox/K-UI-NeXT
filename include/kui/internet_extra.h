@@ -11,4 +11,8 @@ bool kui_internet_manual_page_url(const struct kui_games_disc_identity *id, unsi
 /* An alternate English-language PDF, or the Ogg Theora gameplay source. */
 bool kui_internet_extra_url(const struct kui_games_disc_identity *id, enum kui_media_kind kind,
                             char *url, size_t cap);
+/* Start attempt at zero. Try USA, PAL, then matched footage of unspecified region.
+ * On success, start_seconds identifies the playback window in the returned source. */
+bool kui_internet_preview_fallback_url(const struct kui_games_disc_identity *id, unsigned *attempt,
+                                      char *url, size_t cap, unsigned *start_seconds);
 #endif

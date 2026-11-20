@@ -16,9 +16,9 @@ bool kui_ogg_reopen(struct kui_ogg *out,const uint8_t *file,size_t bytes,
     void *workspace,size_t workspace_bytes);
 size_t kui_ogg_fill(struct kui_ogg *ogg,void *pcm,size_t bytes);
 /* Decode an already demultiplexed, CRC-checked prefix once. Downmix to mono
- * and resample, leaving any unfilled tail to the caller. */
+ * and resample from start_seconds, leaving any unfilled tail to the caller. */
 size_t kui_ogg_preview_pcm(const uint8_t *file, size_t bytes, void *workspace,
-                           int16_t *pcm, size_t samples, unsigned output_rate,
+                           int16_t *pcm, size_t samples, unsigned output_rate, unsigned start_seconds,
                            bool (*cancel)(void));
 void kui_ogg_close(struct kui_ogg *ogg);
 #endif

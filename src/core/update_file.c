@@ -414,9 +414,187 @@ static enum kui_update_result quota(const struct kui_update_package *p,uint64_t 
     *needed=required>reclaim?required-reclaim:0u;*available=(uint64_t)clusters*cluster;
     return *available>=*needed?KUI_UPDATE_OK:KUI_UPDATE_SPACE;
 }
-enum kui_update_result kui_update_plan_review(const struct kui_update_package *p,
+/* Both receipts used here have already passed manifest validation. A missing
+ * entry in an overlay resolves to ROOT; in a FULL bank it resolves to absence. */
+static const struct kui_update_entry *review_entry(const struct kui_update_package *p,const char *path) {
+    for(uint32_t i=0;p && i<p->count;i++)
+        if(!strcmp(p->entries[i].path,path))return &p->entries[i];
+    return NULL;
+}
+struct review_diff {
+    const struct kui_update_package *incoming,*before,*after;
+    struct kui_update_changes *changes;
+    const struct snapshot_source *sources;
+    uint8_t *buffer;
+    kui_cancel_fn cancel;
+};
+struct review_content { bool present; uint64_t bytes; uint8_t sha256[32]; };
+static int review_policy(const struct kui_update_package *p,const struct kui_update_entry *entry) {
+    if(entry)return entry->policy;
+    return p && (p->flags & KUI_UPDATE_FULL)?KUI_UPDATE_REMOVE:KUI_UPDATE_KEEP;
+}
+static enum kui_update_result review_read(const char *path,struct review_content *file,
+    bool hash,uint64_t compare_size,struct review_diff *d) {
+    FIL f;FRESULT open=physical_open(&f,path,FA_READ);
+    if(open==FR_NO_PATH || open==FR_NO_FILE)return KUI_UPDATE_OK;
+    if(open!=FR_OK)return KUI_UPDATE_IO;
+    file->present=true;file->bytes=f_size(&f);
+    enum kui_update_result r=KUI_UPDATE_OK;
+    if(hash && (compare_size==UINT64_MAX || file->bytes==compare_size)) {
+        struct kui_sha256 sha;kui_sha256_init(&sha);
+        uint64_t left=file->bytes;
+        while(left && !r) {
+            UINT size=left>CHUNK?CHUNK:(UINT)left;
+            r=read_exact(&f,d->buffer,size,d->cancel);
+            if(!r) {kui_sha256_update(&sha,d->buffer,size);left-=size;}
+        }
+        if(!r)kui_sha256_digest(&sha,file->sha256);
+    }
+    if(f_close(&f)!=FR_OK && !r)r=KUI_UPDATE_IO;
+    return r;
+}
+static void review_record(struct kui_update_changes *changes,enum kui_update_change_kind kind,const char *path) {
+    if(kind==KUI_UPDATE_CHANGE_ADD)++changes->added;
+    else if(kind==KUI_UPDATE_CHANGE_REPLACE)++changes->replaced;
+    else ++changes->removed;
+    if(changes->count<KUI_UPDATE_CHANGE_ROWS) {
+        struct kui_update_change *row=&changes->rows[changes->count++];
+        strcpy(row->path,path);row->kind=kind;
+    }
+}
+static enum kui_update_result review_path(struct review_diff *d,const char *path,
+    const struct kui_update_entry *before,const struct kui_update_entry *after,bool requested) {
+    if(stopped(d->cancel))return KUI_UPDATE_CANCELLED;
+    int old_policy=review_policy(d->before,before),new_policy=review_policy(d->after,after);
+    struct kui_update_changes *changes=d->changes;
+    if(old_policy==new_policy && (new_policy==KUI_UPDATE_KEEP || new_policy==KUI_UPDATE_REMOVE)) {
+        if(requested)++changes->unchanged;
+        return KUI_UPDATE_OK;
+    }
+    struct review_content old={0},next={0};
+    char root[sizeof("0:/KUI/")+KUI_UPDATE_PATH_BYTES],previous[160];
+    snprintf(root,sizeof(root),"0:/KUI/%s",path);
+    if(d->sources && after && has_payload(after) && old_policy!=KUI_UPDATE_REMOVE) {
+        const struct snapshot_source *retained=d->sources+(after-d->after->entries);
+        const char *current=root;
+        if(old_policy!=KUI_UPDATE_KEEP) {
+            if(!kui_update_bank_path(d->before->build,path,previous,sizeof(previous)))return KUI_UPDATE_ARGUMENT;
+            current=previous;
+        }
+        /* The planner already read and hashed this exact retained file. A
+         * GUI-only update need not re-read all the installed game loaders. */
+        if(!retained->package && !strcmp(current,retained->path)) {
+            if(requested)++changes->unchanged;
+            return KUI_UPDATE_OK;
+        }
+    }
+    enum kui_update_result r=KUI_UPDATE_OK;
+    if(new_policy==KUI_UPDATE_KEEP)
+        r=review_read(root,&next,old_policy!=KUI_UPDATE_REMOVE,UINT64_MAX,d);
+    else if(new_policy!=KUI_UPDATE_REMOVE) {
+        next.present=true;next.bytes=after->bytes;memcpy(next.sha256,after->sha256,sizeof(next.sha256));
+    }
+    if(r)return r;
+    if(old_policy!=KUI_UPDATE_REMOVE) {
+        const char *source=root;
+        if(old_policy!=KUI_UPDATE_KEEP) {
+            if(!kui_update_bank_path(d->before->build,path,previous,sizeof(previous)))return KUI_UPDATE_ARGUMENT;
+            source=previous;
+        }
+        r=review_read(source,&old,next.present,next.bytes,d);
+        if(r)return r;
+    }
+    if(!old.present && next.present)review_record(changes,KUI_UPDATE_CHANGE_ADD,path);
+    else if(old.present && !next.present)review_record(changes,KUI_UPDATE_CHANGE_REMOVE,path);
+    else if(old.present && (old.bytes!=next.bytes || memcmp(old.sha256,next.sha256,sizeof(old.sha256))))
+        review_record(changes,KUI_UPDATE_CHANGE_REPLACE,path);
+    else if(requested)++changes->unchanged;
+    return KUI_UPDATE_OK;
+}
+/* Only FULL can hide software neither receipt names; switching back from FULL
+ * can expose it again. Never descend into user folders on these inventories. */
+static enum kui_update_result review_root(struct review_diff *d,const char *folder,unsigned asset_levels) {
+    if(stopped(d->cancel))return KUI_UPDATE_CANCELLED;
+    char physical[sizeof("0:/KUI/")+KUI_UPDATE_PATH_BYTES];
+    snprintf(physical,sizeof(physical),"0:/KUI%s%s",folder[0]?"/":"",folder);
+    DIR directory;FRESULT open=f_opendir(&directory,physical);
+    if(open==FR_NO_PATH || open==FR_NO_FILE)return KUI_UPDATE_OK;
+    if(open!=FR_OK)return KUI_UPDATE_IO;
+    enum kui_update_result result=KUI_UPDATE_OK;
+    FILINFO info;
+    while(!result) {
+        if(stopped(d->cancel)) {result=KUI_UPDATE_CANCELLED;break;}
+        if(f_readdir(&directory,&info)!=FR_OK) {result=KUI_UPDATE_IO;break;}
+        if(!info.fname[0])break;
+        char path[KUI_UPDATE_PATH_BYTES];
+        int n=snprintf(path,sizeof(path),"%s%s%s",folder,folder[0]?"/":"",info.fname);
+        if(n<0 || (size_t)n>=sizeof(path))continue;
+        for(int i=0;i<n;i++)if(path[i]>='A' && path[i]<='Z')path[i]=(char)(path[i]-'A'+'a');
+        if(!kui_update_module_path_valid(path))continue;
+        if(info.fattrib&AM_DIR) {
+            if(asset_levels>1u)result=review_root(d,path,asset_levels-1u);
+        } else if(!review_entry(d->before,path) && !review_entry(d->after,path) && !review_entry(d->incoming,path)) {
+            /* This physical file is inherited by exactly one side. Directory
+             * enumeration already established its presence. */
+            enum kui_update_change_kind kind=(d->after->flags&KUI_UPDATE_FULL)?KUI_UPDATE_CHANGE_REMOVE:KUI_UPDATE_CHANGE_ADD;
+            review_record(d->changes,kind,path);
+        }
+    }
+    if(f_closedir(&directory)!=FR_OK && !result)result=KUI_UPDATE_IO;
+    return result;
+}
+static enum kui_update_result review_changes(struct review_diff *d) {
+    const struct kui_update_package *new=d->after,*old=d->before;
+    for(uint32_t i=0;i<new->count;i++) {
+        const struct kui_update_entry *after=&new->entries[i],*before=review_entry(old,after->path);
+        bool requested=review_entry(d->incoming,after->path)!=NULL;
+        enum kui_update_result r=review_path(d,after->path,before,after,requested);
+        if(r)return r;
+    }
+    for(uint32_t i=0;old && i<old->count;i++) {
+        const struct kui_update_entry *before=&old->entries[i];
+        if(review_entry(new,before->path))continue;
+        enum kui_update_result r=review_path(d,before->path,before,NULL,review_entry(d->incoming,before->path)!=NULL);
+        if(r)return r;
+    }
+    for(uint32_t i=0;i<d->incoming->count;i++) {
+        const struct kui_update_entry *entry=&d->incoming->entries[i];
+        if(entry->policy==KUI_UPDATE_KEEP && !review_entry(new,entry->path) && !review_entry(old,entry->path)) {
+            enum kui_update_result r=review_path(d,entry->path,NULL,NULL,true);
+            if(r)return r;
+        }
+    }
+    if(((old?old->flags:0u)^new->flags)&KUI_UPDATE_FULL) {
+        static const char *const folders[]={"","apps/games","apps/disc","apps/music","assets"};
+        for(size_t i=0;i<sizeof(folders)/sizeof(folders[0]);i++) {
+            enum kui_update_result r=review_root(d,folders[i],!strcmp(folders[i],"assets")?4u:0u);
+            if(r)return r;
+        }
+    }
+    return KUI_UPDATE_OK;
+}
+static enum kui_update_result review_contents(const struct kui_update_package *incoming,
+    const struct kui_update_package *target,const struct kui_update_activation *active,
+    struct kui_update_package *scratch,const struct snapshot_source *sources,
+    struct kui_update_changes *changes,kui_cancel_fn cancel) {
+    const struct kui_update_package *before=NULL;
+    if(active->selected[0]) {
+        enum kui_update_result r=kui_update_bank_receipt_read(active->selected,scratch,cancel);
+        if(r)return r;
+        if(memcmp(scratch->manifest_sha256,active->manifest_sha256,32u))return KUI_UPDATE_STALE;
+        before=scratch;
+    }
+    struct review_diff d={incoming,before,target,changes,sources,malloc(CHUNK),cancel};
+    if(!d.buffer)return KUI_UPDATE_MEMORY;
+    enum kui_update_result r=review_changes(&d);
+    free(d.buffer);changes->known=r==KUI_UPDATE_OK;
+    return r;
+}
+enum kui_update_result kui_update_plan_review_details(const struct kui_update_package *p,
     const struct kui_update_activation *expected,bool *already_selected,
-    uint64_t *needed,uint64_t *available,kui_cancel_fn cancel) {
+    uint64_t *needed,uint64_t *available,kui_cancel_fn cancel,struct kui_update_changes *changes) {
+    if(changes)memset(changes,0,sizeof(*changes));
+    const struct kui_update_package *incoming=p;
     if(already_selected)*already_selected=false;
     if(!needed || !available)return KUI_UPDATE_ARGUMENT;
     *needed=*available=0u;
@@ -429,6 +607,7 @@ enum kui_update_result kui_update_plan_review(const struct kui_update_package *p
     struct kui_update_package *bank=malloc(sizeof(*bank)),*snapshot=NULL;
     if(!bank)return KUI_UPDATE_MEMORY;
     unsigned root_engine=0u;
+    struct snapshot_source *sources=NULL;
     if(kui_update_package_version(p)==1u) {
         r=baseline_verify(NULL,cancel,NULL,&root_engine);
         if(r==KUI_UPDATE_NOT_FOUND)r=KUI_UPDATE_OK;
@@ -436,12 +615,21 @@ enum kui_update_result kui_update_plan_review(const struct kui_update_package *p
     }
     if(kui_update_package_version(p)==2u || root_engine>=2u) {
         snapshot=malloc(sizeof(*snapshot));
-        struct snapshot_source *sources=calloc(KUI_UPDATE_MAX_ENTRIES,sizeof(*sources));
+        sources=calloc(KUI_UPDATE_MAX_ENTRIES,sizeof(*sources));
         r=snapshot && sources?snapshot_prepare(p,&a,snapshot,sources,NULL,cancel,NULL):KUI_UPDATE_MEMORY;
-        free(sources);
-        if(r) {free(snapshot);free(bank);return r;}
+        if(r) {free(sources);free(snapshot);free(bank);return r;}
         p=snapshot;
     }
+    if(changes) {
+        enum kui_update_result compared=review_contents(incoming,p,&a,bank,sources,changes,cancel);
+        if(compared) {
+            memset(changes,0,sizeof(*changes));
+            if(compared==KUI_UPDATE_CANCELLED) {free(sources);free(snapshot);free(bank);return compared;}
+            /* A broken previous bank or unavailable inventory does not remove
+             * the ability to repair it with a verified full package. */
+        }
+    }
+    free(sources);
     if(snapshot) {
         bool complete=false;r=snapshot_target(snapshot,&a,bank,allow_repair,&complete,NULL,NULL,cancel,NULL);
         if(!r && !complete)r=quota(snapshot,needed,available);
@@ -476,6 +664,11 @@ enum kui_update_result kui_update_plan_review(const struct kui_update_package *p
         }
     }
     free(snapshot);free(bank);return r;
+}
+enum kui_update_result kui_update_plan_review(const struct kui_update_package *p,
+    const struct kui_update_activation *expected,bool *already_selected,
+    uint64_t *needed,uint64_t *available,kui_cancel_fn cancel) {
+    return kui_update_plan_review_details(p,expected,already_selected,needed,available,cancel,NULL);
 }
 enum kui_update_result kui_update_plan_space(const struct kui_update_package *p,
     uint64_t *needed,uint64_t *available,kui_cancel_fn cancel) {

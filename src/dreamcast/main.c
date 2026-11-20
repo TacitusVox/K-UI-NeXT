@@ -2776,9 +2776,11 @@ static bool update_packages_list(const char *directory,unsigned page,struct kui_
     snprintf(out->status.message,sizeof(out->status.message),"%u entr%s. A opens folders or checks an update.",
         out->total,out->total==1u?"y":"ies");return true;
 }
-static bool update_space(struct kui_shell_update_view *out,const struct kui_update_package *package) {
-    enum kui_update_result result=kui_update_plan_review(package,&out->reviewed.activation,
-        &out->already_installed,&out->required_bytes,&out->free_bytes,kui_cancelled);
+static bool update_space(struct kui_shell_update_view *out,const struct kui_update_package *package,
+                         struct kui_update_changes *changes) {
+    enum kui_update_result result=kui_update_plan_review_details(package,&out->reviewed.activation,
+        &out->already_installed,&out->required_bytes,&out->free_bytes,kui_cancelled,changes);
+    out->changes=changes;
     out->space_known=result==KUI_UPDATE_OK || result==KUI_UPDATE_SPACE;
     if(!out->space_known && result!=KUI_UPDATE_CANCELLED) {
         out->status.errors=1u;
@@ -2787,6 +2789,9 @@ static bool update_space(struct kui_shell_update_view *out,const struct kui_upda
     return result==KUI_UPDATE_OK;
 }
 static void update_work(const struct kui_shell_update_request *request,struct kui_shell_update_view *out) {
+    /* The UI drops its reference before it submits another worker request. */
+    static struct kui_update_changes *changes;
+    free(changes);changes=NULL;update_reviewed.changes=NULL;
     memset(out,0,sizeof(*out));out->generation=request->generation;out->page=request->page;
     if(kui_update_browser_path(request->directory))strcpy(out->directory,request->directory);
     else strcpy(out->directory,KUI_UPDATE_BROWSER_ROOT);
@@ -2794,13 +2799,18 @@ static void update_work(const struct kui_shell_update_request *request,struct ku
     out->stage=KUI_SHELL_UPDATE_RESULT;
     bool mutation=request->op==KUI_SHELL_UPDATE_INSTALL || request->op==KUI_SHELL_UPDATE_RESTORE;
     bool nightly=request->op==KUI_SHELL_UPDATE_NIGHTLY;
+    bool list_nightlies=request->op==KUI_SHELL_UPDATE_NIGHTLY_LIST;
+    bool online=nightly || list_nightlies;
+    static struct kui_update_choices listed;
+    static enum kui_update_channel listed_channel;
     bool save_limit=request->op==KUI_SHELL_UPDATE_SAVE_LIMIT;
     bool options=request->op==KUI_SHELL_UPDATE_OPTIONS;
     bool preferences_only=options || save_limit;
-    if((unsigned)request->op>KUI_SHELL_UPDATE_OPTIONS || !kui_update_browser_path(request->directory) ||
-       ((nightly || save_limit) && !kui_update_keep_valid(request->keep)) ||
+    if((unsigned)request->op>KUI_SHELL_UPDATE_NIGHTLY_LIST || !kui_update_browser_path(request->directory) ||
+       ((online || save_limit) && (!kui_update_keep_valid(request->keep) || (unsigned)request->channel>KUI_UPDATE_NIGHTLIES)) ||
        (save_limit && strcmp(request->directory,KUI_UPDATE_BROWSER_ROOT)) ||
-       (nightly && ((unsigned)request->route>=KUI_INTERNET_ROUTE_COUNT || strcmp(request->directory,KUI_NIGHTLY_DIRECTORY))) ||
+       (list_nightlies && request->test_feed) ||
+       (online && ((unsigned)request->route>=KUI_INTERNET_ROUTE_COUNT || strcmp(request->directory,KUI_NIGHTLY_DIRECTORY))) ||
        kui_cancelled()) {
         update_view_error(out,"Update operation stopped before starting.");return;
     }
@@ -2833,21 +2843,51 @@ static void update_work(const struct kui_shell_update_request *request,struct ku
     char downloaded[KUI_SHELL_UPDATE_PATH_BYTES]={0};
     char nightly_notice[sizeof(out->status.message)]={0};
     const char *review_path=request->path;
-    if(ok && (nightly || preferences_only)) {
+    if(ok && (online || preferences_only)) {
         /* Use the preference on the currently mounted card unless the user
          * chose a new value. Failed downloads leave the saved choice intact. */
-        if(save_limit || (nightly && request->change_keep)) {
-            ok=!kui_cancelled() && kui_update_keep_save(request->keep);
-            if(ok)out->keep=request->keep;
-        } else ok=kui_update_keep_load(&out->keep);
+        ok=kui_update_preferences_load(&out->keep,&out->channel);
+        if(ok && (save_limit || (online && (request->change_keep || request->change_channel)))) {
+            if(request->change_channel) out->channel=request->channel;
+            if(save_limit || request->change_keep) out->keep=request->keep;
+            ok=!kui_cancelled() && kui_update_preferences_save(out->keep,out->channel);
+        }
         out->keep_known=ok;
         out->test_feed_available=kui_update_test_feed_available();
-        if(!ok)update_view_error(out,"Cannot read or save the download limit. Check the SD card.");
+        if(!ok)update_view_error(out,"Cannot read or save update preferences. Check the SD card.");
     }
-    if(ok && nightly) {
+    if(list_nightlies) listed.count=0;
+    const struct kui_update_choice *choice=NULL;
+    if(ok && online) {
         update_reviewed.ready=false;
-        const char *running_nightly=KUI_GITHUB_NIGHTLY && out->selection_known && !out->restart_required ? KUI_BUILD_ID : NULL;
-        ok=kui_update_nightly_download(request->route,request->test_feed,running_nightly,out->keep,downloaded,&out->status,kui_log,kui_cancelled,app_progress);
+        enum kui_update_channel source=request->test_feed?KUI_UPDATE_HARDWARE:out->channel;
+        /* Refuse an SD swap or stale options view that would check a different
+         * official channel from the one the user explicitly selected. */
+        if(!request->test_feed && request->channel!=out->channel) {
+            update_view_error(out,"Saved channel changed. Reopen GitHub updates.");
+            ok=false;
+        } else if(list_nightlies) {
+            ok=kui_update_online_list(request->route,source,&out->nightlies,&out->status,kui_log,kui_cancelled,app_progress);
+            if(ok) {
+                out->stage=KUI_SHELL_UPDATE_NIGHTLIES;
+                listed=out->nightlies;
+                listed_channel=source;
+            }
+        } else {
+            choice=source!=KUI_UPDATE_HARDWARE && source==listed_channel?
+                kui_update_choice_find(&listed,&request->nightly):NULL;
+            bool current=KUI_GITHUB_NIGHTLY && out->selection_known && !out->restart_required;
+            const char *running_source=KUI_UPDATE_SOURCE_VERIFIED?KUI_BUILD_ID:NULL;
+            if(source!=KUI_UPDATE_HARDWARE && !choice) {
+                update_view_error(out,"Build selection changed. Refresh the list and choose a build.");
+                ok=false;
+            } else ok=kui_update_online_download(request->route,source,choice,running_source,current,out->keep,downloaded,
+                &out->online_info,&out->status,kui_log,kui_cancelled,app_progress);
+            if(ok && choice) {
+                out->reviewed.nightly=*choice;
+                out->reviewed.channel=source;
+            }
+        }
         up_to_date=ok && !downloaded[0];
         if(ok && !up_to_date && (!kui_update_browser_child(request->directory,downloaded) || !update_package_path(downloaded))) {
             update_view_error(out,"Downloaded package path could not be checked.");ok=false;
@@ -2883,6 +2923,7 @@ static void update_work(const struct kui_shell_update_request *request,struct ku
                  * resulting snapshot identity can differ from the input ID. */
                 struct kui_update_activation installed;
                 if(update_activation_current(&installed)) {
+                    memcpy(out->gui_build,update_reviewed.gui_build,sizeof(out->gui_build));
                     memcpy(out->previous,installed.previous,sizeof(out->previous));
                     memcpy(out->selected,installed.selected,sizeof(out->selected));
                 } else {
@@ -2901,8 +2942,8 @@ static void update_work(const struct kui_shell_update_request *request,struct ku
     } else if(ok && preferences_only) {
         if(save_limit) {
             ok=kui_nightly_trim(out->keep,NULL,kui_cancelled);
-            if(ok)snprintf(out->status.message,sizeof(out->status.message),"Download limit saved and applied. L opens GitHub nightly.");
-            else update_view_error(out,"Limit saved. Cleanup incomplete. Choose Save limit again to retry.");
+            if(ok)snprintf(out->status.message,sizeof(out->status.message),"Update preferences saved. L opens GitHub updates.");
+            else update_view_error(out,"Preferences saved. Cleanup incomplete. Choose Save settings to retry.");
         }
     } else if(ok && !up_to_date) {
         update_reviewed.ready=false;
@@ -2918,6 +2959,11 @@ static void update_work(const struct kui_shell_update_request *request,struct ku
                     result=kui_update_zip_prepare(source,prepared,&out->status,kui_log,kui_cancelled,app_progress);source=prepared;
                 }
                 if(result==KUI_UPDATE_OK)result=kui_update_inspect(source,package,&out->status,kui_log,kui_cancelled,app_progress);
+                if(result==KUI_UPDATE_OK && nightly && !request->test_feed &&
+                   !kui_update_choice_matches_package(out->channel,choice,package)) {
+                    update_view_error(out,"Package does not match the selected official channel, source or contents.");
+                    result=KUI_UPDATE_FORMAT;
+                }
             }
             else if(request->op==KUI_SHELL_UPDATE_PREVIOUS || request->op==KUI_SHELL_UPDATE_BASELINE) {
                 const char *target=request->op==KUI_SHELL_UPDATE_BASELINE?"":activation.previous;
@@ -2944,7 +2990,8 @@ static void update_work(const struct kui_shell_update_request *request,struct ku
                 }
                 if(!out->restore)memcpy(out->reviewed.target,package->build,sizeof(out->reviewed.target));
                 out->reviewed.activation=activation;out->reviewed.storage=storage;
-                bool space=out->restore || update_space(out,package);
+                if(!out->restore)changes=calloc(1,sizeof(*changes));
+                bool space=out->restore || update_space(out,package,changes);
                 ok=space && !kui_cancelled();
                 if(!ok)out->already_installed=false;
                 out->ready=ok && !out->already_installed;

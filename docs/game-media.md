@@ -12,6 +12,8 @@ Change **Scan for** to scan all of `/Games`. **Box art** and **Manuals** start o
 
 The compiled media catalogue associates 384 different page sets and 281 distinct previews with matching releases. The providers are built into this version. ScreenScraper is not one of the on-console sources. [Cover catalogue and attribution](internet-covers.md) · [Manual and preview sources](internet-manuals-previews.md)
 
+Preview downloads try the matched release region first. If the matched clip is missing, damaged or unsupported, K-UI tries verified sources for the same title from the USA and then Europe/PAL. The footage can show a different language or title screen. Manuals and artwork continue to use the matched release. A complete preview already on the card is reused. If every source is missing or unplayable, the scan records the title and reason in **Last scan results** and continues. If an installed preview has an invalid header or length, K-UI reports the file and keeps it on the card.
+
 ## Choose the connection
 
 | Connection | Card and setup |

@@ -70,10 +70,15 @@ int main(int argc, char **argv) {
     }
     mixed[early+5]=4; /* Short sound reaches EOS before ten seconds. */
     assert(process(mixed,music+extra,1,&done)==late && done);
-    if(argc==3) {
+    if(argc==3 || argc==4) {
         FILE *src=fopen(argv[1],"rb"),*dst=fopen(argv[2],"wb");
         assert(src && dst);
         struct kui_preview_prefix p={0};
+        if(argc == 4) {
+            unsigned start = (unsigned)atoi(argv[3]);
+            assert(start <= KUI_PREVIEW_START_MAX_SECONDS);
+            p.start_seconds = (uint8_t)start;
+        }
         size_t used=0,read;
         uint8_t buf[4096];
         while(!p.complete && (read=fread(buf,1,sizeof(buf),src))) {

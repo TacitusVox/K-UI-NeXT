@@ -20,7 +20,7 @@ static void finish_page(struct kui_preview_prefix *p) {
             p->serial = serial;
             /* Three headers precede the video packets. Empty packets are
              * duplicate frames and also count towards presentation time. */
-            p->target_packets = 3u + (uint32_t)(((uint64_t)fps * 10 + divisor - 1) / divisor);
+            p->target_packets = 3u + (uint32_t)(((uint64_t)fps * (p->start_seconds + 10u) + divisor - 1) / divisor);
         }
     }
     if(!p->audio_rate && (h[5] & 2u) && !seq && p->body_bytes >= 30 &&
@@ -34,7 +34,7 @@ static void finish_page(struct kui_preview_prefix *p) {
     }
     if(p->audio_rate && serial == p->audio_serial) {
         uint64_t pos = le32(h+6) | (uint64_t)le32(h+10)<<32;
-        if((h[5] & 4u) || (pos <= INT64_MAX && pos >= p->audio_rate*10u)) p->audio_done = true;
+        if((h[5] & 4u) || (pos <= INT64_MAX && pos >= p->audio_rate * (p->start_seconds + 10u))) p->audio_done = true;
     }
     if(p->video && serial == p->serial) {
         if(seq != p->next_page) { p->disabled = true; return; }

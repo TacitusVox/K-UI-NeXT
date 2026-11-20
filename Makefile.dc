@@ -182,6 +182,10 @@ build/dc/main-runtime.o: CPPFLAGS += -DKUI_GITHUB_NIGHTLY=$(KUI_GITHUB_NIGHTLY)
 # This explicitly selected hardware-test GUI reads the authorized review branch.
 # Recompile this one small object when returning to an ordinary GUI build.
 KUI_UPDATE_REVIEW_FEED ?= 0
+# A source hash from a dirty checkout, a custom BUILD_ID, or the hardware-test
+# GUI cannot establish an ordering against published commit ancestry.
+KUI_CLEAN_HEAD := $(shell git diff --quiet HEAD -- 2>/dev/null && git rev-parse --short=12 HEAD 2>/dev/null)
+build/dc/main-runtime.o: CPPFLAGS += -DKUI_UPDATE_SOURCE_VERIFIED=$(if $(and $(filter 0,$(KUI_UPDATE_REVIEW_FEED)),$(filter $(KUI_CLEAN_HEAD),$(BUILD_ID))),1,0)
 ifeq ($(KUI_UPDATE_REVIEW_FEED)$(KUI_GITHUB_NIGHTLY),11)
 $(error An official GitHub nightly must use the production feed)
 endif

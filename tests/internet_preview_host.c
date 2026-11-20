@@ -9,6 +9,7 @@
 static FIL source, dest;
 static FILE *input, *output;
 static int calls, stop_at;
+static const char *fault = "";
 static bool cancel(void) { return stop_at && ++calls >= stop_at; }
 static void logger(const char *fmt, ...) {
     va_list ap; va_start(ap, fmt); vfprintf(stderr,fmt,ap); va_end(ap);
@@ -16,12 +17,14 @@ static void logger(const char *fmt, ...) {
 }
 FRESULT f_read(FIL *fp, void *buf, UINT len, UINT *got) {
     if(fp != &source) return FR_INT_ERR;
+    if(!strcmp(fault,"short-read") && len) --len;
     *got = (UINT)fread(buf,1,len,input);
     fp->fptr += *got;
     return ferror(input) ? FR_DISK_ERR : FR_OK;
 }
 FRESULT f_write(FIL *fp, const void *buf, UINT len, UINT *got) {
     if(fp != &dest) return FR_INT_ERR;
+    if(!strcmp(fault,"short-write") && len) --len;
     *got = (UINT)fwrite(buf,1,len,output);
     if((fp->fptr += *got) > fp->obj.objsize) fp->obj.objsize = fp->fptr;
     return *got == len ? FR_OK : FR_DISK_ERR;
@@ -38,6 +41,16 @@ int main(int argc, char **argv) {
     if(fseek(input,0,SEEK_END) || ftell(input)<0) return 2;
     source.obj.objsize = (FSIZE_t)ftell(input);
     stop_at = argc > 3 ? atoi(argv[3]) : 0;
-    bool ok = kui_internet_preview_convert(&source,&dest,cancel,logger,NULL);
-    return fclose(input) || fclose(output) || !ok;
+    unsigned start = argc > 4 ? (unsigned)atoi(argv[4]) : 0;
+    if(argc > 5) fault = argv[5];
+    enum kui_preview_conversion result = kui_internet_preview_convert(&source,&dest,start,cancel,logger,NULL);
+    if(fclose(input) || fclose(output)) return 2;
+    switch(result) {
+    case KUI_CONVERSION_OK: return 0;
+    case KUI_CONVERSION_UNPLAYABLE: fputs("Unplayable source\n",stderr); break;
+    case KUI_CONVERSION_IO_ERROR: fputs("Card I/O failed\n",stderr); break;
+    case KUI_CONVERSION_NO_MEMORY: fputs("Out of memory\n",stderr); break;
+    case KUI_CONVERSION_STOPPED: fputs("Cancelled\n",stderr); break;
+    }
+    return 1;
 }

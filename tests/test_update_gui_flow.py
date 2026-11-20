@@ -88,9 +88,20 @@ def main():
                 if full:
                     (stage / "runtime.kui").write_bytes(current)
                 package = base / (name + ".kup")
-                report = make_update(stage, package, full=full)
+                report = make_update(stage, package, full=full, channel="stable" if full else "testing")
                 assert report["flags"] & update.REQUIRES_ENGINE3
                 packages.append(package)
+            # A reader-only partial and a complete mixed nightly exercise the
+            # same worker with independently versioned module envelopes.
+            readers = base / "nightly-stage"
+            (readers / "apps/games").mkdir(parents=True)
+            (readers / "apps/games/reader.kui").write_bytes(gui("bbbbbbbbbbbb", update.ENGINE_CURRENT))
+            reader_kup = base / "readers.kup"
+            make_update(readers, reader_kup)
+            (readers / "runtime.kui").write_bytes(current)
+            (readers / "apps/games/reader-helper.bin").write_bytes(b"reader helper")
+            full_nightly = base / "complete-nightly.kup"
+            make_update(readers, full_nightly, full=True)
         build = verify_runtime(current)["build"]
         # Two valid GUIs can share a source build ID (for example, different
         # compiler flags). Comparing the displayed ID alone would lose changes.
@@ -138,7 +149,8 @@ def main():
             run(str(formatter), kind, str(image))
             command = ([str(binary), "--real", str(image), str(runtime), str(package)] if real else
                        [str(binary), str(image), str(runtime), str(base / "old.kui"), *(str(path) for path in packages)])
-            print(kind + ":\n" + run(*command, str(changed_gui), str(wrapped)).strip(), flush=True)
+            extra = [] if real else [str(reader_kup), str(full_nightly)]
+            print(kind + ":\n" + run(*command, str(changed_gui), str(wrapped), *extra).strip(), flush=True)
     print("PASS actual GUI update worker and production software/data services on both filesystems; SH payloads validated, not executed", flush=True)
 
 

@@ -16,27 +16,30 @@ static bool read_exact(FIL *file, void *out, UINT length) {
     return f_read(file, out, length, &got) == FR_OK && got == length;
 }
 
-bool kui_media_container_index(FIL *file, bool manual, struct kui_media_index *index) {
+enum kui_preview_index_result kui_preview_index(FIL *file, struct kui_media_index *index) {
     uint8_t header[KUI_PREVIEW_HEADER_BYTES];
-    if(!file || !index || f_lseek(file, 0) != FR_OK ||
-       !read_exact(file, header, manual ? 8u : KUI_PREVIEW_HEADER_BYTES))
-        return false;
-    if(!manual) {
-        uint32_t count = le32(header+12);
-        unsigned rate = le16(header+10);
-        bool legacy = !memcmp(header,"KPV1",4);
-        if((!legacy && memcmp(header,"KPV2",4)) ||
-           le16(header+4) != KUI_PREVIEW_WIDTH || le16(header+6) != KUI_PREVIEW_HEIGHT ||
-           le16(header+8) != KUI_PREVIEW_FPS || (rate && (legacy || rate != KUI_PREVIEW_AUDIO_RATE)) ||
-           !count || count > KUI_PREVIEW_FRAMES_MAX) return false;
-        unsigned stride = KUI_PREVIEW_FRAME_BYTES + 2u * (rate / KUI_PREVIEW_FPS);
-        if(f_size(file) != KUI_PREVIEW_HEADER_BYTES + count * stride) return false;
-        index->count = count;
-        index->version = legacy ? 1u : 2u;
-        index->audio_rate = rate;
-        return true;
-    }
+    if(!file || !index) return KUI_PREVIEW_INDEX_IO_ERROR;
+    if(f_size(file) < sizeof(header)) return KUI_PREVIEW_INDEX_INVALID;
+    if(f_lseek(file,0) != FR_OK || !read_exact(file,header,sizeof(header))) return KUI_PREVIEW_INDEX_IO_ERROR;
+    uint32_t count = le32(header+12);
+    unsigned rate = le16(header+10);
+    bool legacy = !memcmp(header,"KPV1",4);
+    if((!legacy && memcmp(header,"KPV2",4)) ||
+       le16(header+4) != KUI_PREVIEW_WIDTH || le16(header+6) != KUI_PREVIEW_HEIGHT ||
+       le16(header+8) != KUI_PREVIEW_FPS || (rate && (legacy || rate != KUI_PREVIEW_AUDIO_RATE)) ||
+       !count || count > KUI_PREVIEW_FRAMES_MAX) return KUI_PREVIEW_INDEX_INVALID;
+    unsigned stride = KUI_PREVIEW_FRAME_BYTES + 2u * (rate / KUI_PREVIEW_FPS);
+    if(f_size(file) != KUI_PREVIEW_HEADER_BYTES + count * stride) return KUI_PREVIEW_INDEX_INVALID;
+    index->count = count;
+    index->version = legacy ? 1u : 2u;
+    index->audio_rate = rate;
+    return KUI_PREVIEW_INDEX_OK;
+}
 
+bool kui_media_container_index(FIL *file, bool manual, struct kui_media_index *index) {
+    if(!manual) return kui_preview_index(file,index) == KUI_PREVIEW_INDEX_OK;
+    uint8_t header[8];
+    if(!file || !index || f_lseek(file,0) != FR_OK || !read_exact(file,header,sizeof(header))) return false;
     unsigned pages = le16(header+4);
     if(memcmp(header,"KDM1",4) || !pages || pages > KUI_MANUAL_PAGES_MAX ||
        le16(header+6) || f_size(file) > KUI_MANUAL_BYTES_MAX)

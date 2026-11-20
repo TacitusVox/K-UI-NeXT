@@ -65,6 +65,29 @@ int main(void) {
     assert(strstr(url, "/Railroad%20Tycoon%20II%20-%20Gold%20Edition%20%28USA%29.ogv"));
     game = (struct kui_games_disc_identity){.title="ELEMENTAL GIMMICK GEAR", .region="J"};
     assert(!kui_internet_extra_url(&game, KUI_MEDIA_PREVIEW, url, sizeof(url)));
+    unsigned candidate=0, start=99;
+    assert(kui_internet_preview_fallback_url(&game,&candidate,url,sizeof(url),&start));
+    assert(start==0);
+    assert(strstr(url,"/EGG%20-%20Elemental%20Gimmick%20Gear%20%28USA%29.ogv"));
+    assert(!kui_internet_preview_fallback_url(&game,&candidate,url,sizeof(url),&start));
+    assert(kui_internet_manual_pages(&game)==28);
+    for(const char *market="JUE"; *market; ++market) {
+        game=(struct kui_games_disc_identity){.title="SEGA RALLY 2"};
+        game.region[0]=*market;
+        candidate=0;
+        assert(kui_internet_preview_fallback_url(&game,&candidate,url,sizeof(url),&start));
+        assert(!strcmp(url,"https://archive.org/download/011564/011564.ogv"));
+        assert(!kui_internet_preview_fallback_url(&game,&candidate,url,sizeof(url),&start));
+    }
+    game=(struct kui_games_disc_identity){.product="T12509N",.title="SUPER RUNABOUT",.region="U"};
+    candidate=0;
+    assert(kui_internet_preview_fallback_url(&game,&candidate,url,sizeof(url),&start));
+    assert(start==18 && !strcmp(url,"https://archive.org/download/016860/016860.ogv"));
+    assert(!kui_internet_preview_fallback_url(&game,&candidate,url,sizeof(url),&start));
+    game=(struct kui_games_disc_identity){.product="MK-51059",.title="SHENMUE",.region="U",
+                                          .version="V1.004",.number=4,.total=4};
+    candidate=0;
+    assert(!kui_internet_preview_fallback_url(&game,&candidate,url,sizeof(url),&start));
     puts("Internet manual and preview release selection passed");
     return 0;
 }

@@ -12,13 +12,21 @@ static inline bool kui_update_keep_valid(unsigned keep) {
 
 #define KUI_NIGHTLY_DIRECTORY KUI_UPDATE_BROWSER_ROOT "/GitHub"
 #define KUI_NIGHTLY_PACKAGE KUI_NIGHTLY_DIRECTORY "/nightly-%.40s.kup"
+#define KUI_RELEASE_PACKAGE KUI_NIGHTLY_DIRECTORY "/release-%.40s.kup"
 #define KUI_NIGHTLY_STATE "0:/KUI/nightly-cache"
 #define KUI_NIGHTLY_PART KUI_NIGHTLY_STATE "/download.part"
 
 struct kui_nightly_asset {
     char commit[41], digest[65];
     uint32_t size;
+    bool release;
+    char cache_key[41]; /* Stable publication key; zero-initialize on construction. */
 };
+
+/* Use the validated release tag and full package SHA-256 to name each stable
+ * publication, including multiple releases made from the same source. */
+void kui_release_cache_key(struct kui_nightly_asset *asset, const char *tag);
+const char *kui_nightly_cache_key(const struct kui_nightly_asset *asset);
 
 enum kui_nightly_verify { KUI_NIGHTLY_VERIFIED, KUI_NIGHTLY_MISSING, KUI_NIGHTLY_MISMATCH,
     KUI_NIGHTLY_STORAGE_ERROR, KUI_NIGHTLY_STOPPED };
@@ -32,5 +40,6 @@ bool kui_nightly_record_download(const struct kui_nightly_asset *asset, kui_canc
 /* Pass NULL for protected_commit when changing the limit offline. */
 bool kui_nightly_trim(unsigned keep, const char *protected_commit, kui_cancel_fn cancel);
 /* Any attempted unlink can have affected storage, including a failed write. */
+bool kui_online_trim_report(unsigned keep, const char *protected_key, bool stable, kui_cancel_fn cancel, bool *wrote);
 bool kui_nightly_trim_report(unsigned keep, const char *protected_commit, kui_cancel_fn cancel, bool *wrote);
 #endif

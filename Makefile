@@ -1538,7 +1538,7 @@ build/test-dreampi: tests/test_dreampi.c src/dreamcast/dreampi.c include/kui/dre
 include config/media-xiph.mk
 MEDIA_DOWNLOAD = src/apps/artwork_validators.c src/apps/music_ogg.c src/apps/media_download.c src/apps/media_container.c src/apps/preview_prefix.c src/apps/internet_cover.c src/apps/internet_extra.c src/apps/internet_preview.c
 MEDIA_HEADERS = include/kui/artwork_validators.h include/kui/preview_prefix.h include/kui/internet.h include/kui/internet_cover.h include/kui/internet_extra.h include/kui/internet_preview.h include/kui/media_download.h include/kui/media_container.h include/kui/games_media.h
-MEDIA_CATALOGS = src/apps/internet_cover_catalog.inc src/apps/internet_cover_small.inc src/apps/internet_extra_data.inc
+MEDIA_CATALOGS = src/apps/internet_cover_catalog.inc src/apps/internet_cover_small.inc src/apps/internet_extra_data.inc src/apps/internet_preview_regions.inc
 MEDIA_LIBRARY = $(GAMES_COVERS) $(GAMES_ACTIVITY) $(GAMES_LIBRARY_EXTRA) src/apps/games_library.c src/core/games_group.c
 MEDIA_HOST = $(sort $(MEDIA_DOWNLOAD) $(MEDIA_LIBRARY)) src/apps/hover_clip.c src/apps/games_media.c src/apps/media_scan_report.c src/apps/artwork_cleanup.c $(CORE) $(FATFS)
 build/bba-media-integration: tests/bba_media_integration.c tests/artwork_publish_faults.inc tests/media_scan_report_card.inc tests/artwork_cleanup_card.inc tests/internet_scan_heap.c $(MEDIA_HOST) $(MEDIA_HEADERS) $(MEDIA_CATALOGS) $(XIPH_HOST_OBJS)

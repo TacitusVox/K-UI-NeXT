@@ -141,43 +141,44 @@ static enum kui_media_result media_result(enum kui_http_result r,enum kui_media_
     default:                 return KUI_MEDIA_ERROR;
     }
 }
-static enum kui_media_result cached(const char *path, enum kui_media_kind kind, bool pdf,
-        unsigned *version) {
+enum cache_status { CACHE_FOUND, CACHE_MISSING, CACHE_INVALID_PREVIEW, CACHE_ERROR };
+static enum cache_status cached(const char *path, enum kui_media_kind kind, bool pdf, unsigned *version) {
     FIL file;
-    FRESULT r = f_open(&file, path, FA_READ);
-    if(r == FR_NO_FILE || r == FR_NO_PATH) return KUI_MEDIA_MISSING;
-    if(r != FR_OK) return KUI_MEDIA_ERROR;
-    bool valid;
-    if(pdf) valid = valid_pdf(&file);
-    else {
-        struct kui_media_index index;
-        valid = kui_media_container_index(&file, kind == KUI_MEDIA_MANUAL, &index);
-        if(valid && version) *version = index.version;
-    }
-    if(f_close(&file) != FR_OK) valid = false;
-    return valid ? KUI_MEDIA_EXISTING : KUI_MEDIA_ERROR;
+    FRESULT r = f_open(&file,path,FA_READ);
+    if(r == FR_NO_FILE || r == FR_NO_PATH) return CACHE_MISSING;
+    if(r != FR_OK) return CACHE_ERROR;
+    enum cache_status result = CACHE_ERROR;
+    struct kui_media_index index;
+    if(kind == KUI_MEDIA_PREVIEW) {
+        enum kui_preview_index_result status = kui_preview_index(&file,&index);
+        if(status == KUI_PREVIEW_INDEX_OK) {
+            if(version) *version = index.version;
+            result = CACHE_FOUND;
+        } else if(status == KUI_PREVIEW_INDEX_INVALID) result = CACHE_INVALID_PREVIEW;
+    } else if(pdf ? valid_pdf(&file) : kui_media_container_index(&file,true,&index)) result = CACHE_FOUND;
+    return f_close(&file) == FR_OK ? result : CACHE_ERROR;
 }
 
 /* Explicit scans can adopt a valid pre-existing Disc 2/3 cache with a metadata
  * rename on the same card. Viewers can still use its original path until then. */
-static enum kui_media_result cached_for_set(const struct kui_games_entry *entry, const char *path,
+static enum cache_status cached_for_set(const struct kui_games_entry *entry, const char *path,
         enum kui_media_kind kind, bool pdf, unsigned *version) {
-    enum kui_media_result result = cached(path,kind,pdf,version);
-    if(result != KUI_MEDIA_MISSING || !entry->media_disc1_key[0]) return result;
+    enum cache_status result = cached(path,kind,pdf,version);
+    if(result != CACHE_MISSING || !entry->media_disc1_key[0]) return result;
     const char *suffix = strrchr(path,'.');
-    if(!suffix) return KUI_MEDIA_ERROR;
+    if(!suffix) return CACHE_ERROR;
     char member[KUI_GAMES_FILE_CAP], local[KUI_GAMES_FILE_CAP];
     for(unsigned i=0;kui_games_library_media_member(entry,i,member);++i) {
-        if(!kui_games_media_path(member,MEDIA_DIR,suffix+1,local,sizeof(local))) return KUI_MEDIA_ERROR;
+        if(!kui_games_media_path(member,MEDIA_DIR,suffix+1,local,sizeof(local))) return CACHE_ERROR;
         if(!strcmp(local,path)) continue;
         result = cached(local,kind,pdf,version);
         /* An old preview stays at its original selector until its replacement
          * is durable, even when the first scan was started on another disc. */
-        if(result == KUI_MEDIA_EXISTING && !(kind==KUI_MEDIA_PREVIEW && version && *version==1) &&
-           f_rename(local,path) != FR_OK) return KUI_MEDIA_ERROR;
-        if(result != KUI_MEDIA_MISSING) return result;
+        if(result == CACHE_FOUND && !(kind==KUI_MEDIA_PREVIEW && version && *version==1) &&
+           f_rename(local,path) != FR_OK) return CACHE_ERROR;
+        if(result != CACHE_MISSING) return result;
     }
-    return KUI_MEDIA_MISSING;
+    return CACHE_MISSING;
 }
 
 static bool complete_preview(const char *path,const uint32_t *expected,kui_cancel_fn cancel) {
@@ -328,17 +329,29 @@ static bool preview_complete(void *ctx) {
     struct preview_sink *sink = ctx;
     return sink->track.complete;
 }
-static enum kui_media_result fetch_preview(struct transfer *t, FIL *output,uint32_t *readback_crc) {
+static enum kui_media_result fetch_preview(struct transfer *t, FIL *output, unsigned start, uint32_t *readback_crc) {
     FIL source;
     if(f_open(&source,VIDEO_TEMP,FA_READ|FA_WRITE|FA_CREATE_ALWAYS) != FR_OK) return KUI_MEDIA_ERROR;
-    struct preview_sink sink = {.file=&source};
+    struct preview_sink sink = {.file=&source, .track.start_seconds=start};
     enum kui_media_result result = media_result(kui_internet_get_prefix(t->session,t->url,SOURCE_VIDEO_MAX,
         write_video,&sink,received,t,preview_complete),&t->reason);
     if(result == KUI_MEDIA_INSTALLED) {
         if(t->progress) t->progress(t->ctx,KUI_MEDIA_CONVERTING,0,0);
-        if(f_lseek(&source,0) != FR_OK) result = KUI_MEDIA_ERROR;
-        else if(!kui_internet_preview_convert(&source,output,t->cancel,t->log,readback_crc)) result = KUI_MEDIA_ERROR;
-        else if(!kui_media_container_check(output,false)) result = KUI_MEDIA_ERROR;
+        switch(kui_internet_preview_convert(&source,output,start,t->cancel,t->log,readback_crc)) {
+        case KUI_CONVERSION_OK:
+            if(!kui_media_container_check(output,false)) result = KUI_MEDIA_ERROR;
+            break;
+        case KUI_CONVERSION_UNPLAYABLE: result = unavailable(t,KUI_MEDIA_REASON_UNPLAYABLE_PREVIEW); break;
+        case KUI_CONVERSION_STOPPED: result = KUI_MEDIA_STOPPED; break;
+        case KUI_CONVERSION_IO_ERROR:
+            if(t->log) t->log("Preview: could not read or write the card");
+            result = KUI_MEDIA_ERROR;
+            break;
+        case KUI_CONVERSION_NO_MEMORY:
+            if(t->log) t->log("Preview: not enough decoder memory");
+            result = KUI_MEDIA_ERROR;
+            break;
+        }
     }
     if(f_close(&source) != FR_OK) result = KUI_MEDIA_ERROR;
     if(f_unlink(VIDEO_TEMP) != FR_OK) result = KUI_MEDIA_ERROR;
@@ -658,7 +671,8 @@ static enum kui_media_result fetch_mounted(struct transfer *t, struct kui_media_
         enum kui_media_kind kind, kui_media_connect_fn connect, char final[KUI_GAMES_FILE_CAP]) {
     const struct kui_games_entry *entry = game->entry;
     enum kui_media_result result;
-    bool replacing_preview=false;
+    bool replacing_preview=false, unplayable_source=false;
+    enum cache_status cache;
     uint32_t preview_crc=0;
     if(kind==KUI_MEDIA_COVER) return fetch_cover(game,t,connect,final);
     {
@@ -666,28 +680,29 @@ static enum kui_media_result fetch_mounted(struct transfer *t, struct kui_media_
         char upgraded[KUI_GAMES_FILE_CAP];
         if(kind == KUI_MEDIA_PREVIEW) {
             if(!upgraded_preview_path(final,upgraded)) return KUI_MEDIA_ERROR;
-            result = cached_for_set(entry,upgraded,kind,false,&version);
-            if(result == KUI_MEDIA_EXISTING) return version==2 ?
-                finish_preview(game,upgraded,result,false,t->cancel) : KUI_MEDIA_ERROR;
-            if(result != KUI_MEDIA_MISSING) return result;
+            cache = cached_for_set(entry,upgraded,kind,false,&version);
+            if(cache == CACHE_INVALID_PREVIEW || (cache == CACHE_FOUND && version != 2))
+                return unavailable(t,KUI_MEDIA_REASON_INVALID_LOCAL_PREVIEW);
+            if(cache == CACHE_FOUND) return finish_preview(game,upgraded,KUI_MEDIA_EXISTING,false,t->cancel);
+            if(cache == CACHE_ERROR) return KUI_MEDIA_ERROR;
         }
-        result = cached_for_set(entry,final,kind,false,&version);
+        cache = cached_for_set(entry,final,kind,false,&version);
+        if(cache == CACHE_INVALID_PREVIEW) return unavailable(t,KUI_MEDIA_REASON_INVALID_LOCAL_PREVIEW);
+        if(cache == CACHE_ERROR) return KUI_MEDIA_ERROR;
         /* KPV1 discarded source audio. Either scan scope can upgrade it
          * alongside the original. A current KPV2 may intentionally be silent. */
-        if(result == KUI_MEDIA_EXISTING && kind == KUI_MEDIA_PREVIEW && version == 1) {
+        if(cache == CACHE_FOUND && kind == KUI_MEDIA_PREVIEW && version == 1) {
             strcpy(final,upgraded);
             replacing_preview=true;
-            result = KUI_MEDIA_MISSING;
+        } else if(cache == CACHE_FOUND) {
+            return kind == KUI_MEDIA_PREVIEW ? finish_preview(game,final,KUI_MEDIA_EXISTING,false,t->cancel) : KUI_MEDIA_EXISTING;
         }
-        if(result==KUI_MEDIA_EXISTING && kind==KUI_MEDIA_PREVIEW)
-            return finish_preview(game,final,result,false,t->cancel);
-        if(result != KUI_MEDIA_MISSING) return result;
         if(kind == KUI_MEDIA_MANUAL && entry->media_disc1_key[0]) {
             char pdf[KUI_GAMES_FILE_CAP];
             if(!kui_media_original_path(entry,kind,pdf)) return KUI_MEDIA_ERROR;
-            result = cached_for_set(entry,pdf,kind,true,NULL);
-            if(result == KUI_MEDIA_EXISTING) return KUI_MEDIA_ORIGINAL_EXISTING;
-            if(result != KUI_MEDIA_MISSING) return result;
+            cache = cached_for_set(entry,pdf,kind,true,NULL);
+            if(cache == CACHE_FOUND) return KUI_MEDIA_ORIGINAL_EXISTING;
+            if(cache != CACHE_MISSING) return KUI_MEDIA_ERROR;
         }
     }
 
@@ -709,14 +724,17 @@ static enum kui_media_result fetch_mounted(struct transfer *t, struct kui_media_
     if(stopped(t->cancel)) return KUI_MEDIA_STOPPED;
     unsigned pages = kind == KUI_MEDIA_MANUAL ? kui_internet_manual_pages(t->id) : 0;
     bool has_url=kui_internet_extra_url(t->id,kind,t->url,sizeof(t->url));
+    unsigned preview_attempt=0, preview_start=0;
+    if(kind==KUI_MEDIA_PREVIEW && !has_url)
+        has_url=kui_internet_preview_fallback_url(t->id,&preview_attempt,t->url,sizeof(t->url),&preview_start);
     if(!pages && !has_url) {
         /* A manual saved by a previous catalogue is still available offline.
          * Disc sets already checked their shared PDF before reading the ID. */
         if(kind==KUI_MEDIA_MANUAL && !entry->media_disc1_key[0]) {
             if(!kui_media_original_path(entry,kind,final)) return KUI_MEDIA_ERROR;
-            result=cached(final,kind,true,NULL);
-            if(result==KUI_MEDIA_EXISTING) return KUI_MEDIA_ORIGINAL_EXISTING;
-            if(result!=KUI_MEDIA_MISSING) return result;
+            cache=cached(final,kind,true,NULL);
+            if(cache == CACHE_FOUND) return KUI_MEDIA_ORIGINAL_EXISTING;
+            if(cache != CACHE_MISSING) return KUI_MEDIA_ERROR;
         }
         if(kui_internet_cover_name(t->id)) return unavailable(t,KUI_MEDIA_REASON_NOT_LISTED);
         t->reason=KUI_MEDIA_REASON_NO_RELEASE;
@@ -725,9 +743,9 @@ static enum kui_media_result fetch_mounted(struct transfer *t, struct kui_media_
     FILE_RETRY:
     if(kind == KUI_MEDIA_MANUAL && !pages) {
         if(!kui_media_original_path(entry,kind,final)) return KUI_MEDIA_ERROR;
-        result = cached_for_set(entry,final,kind,true,NULL);
-        if(result == KUI_MEDIA_EXISTING) return KUI_MEDIA_ORIGINAL_EXISTING;
-        if(result != KUI_MEDIA_MISSING) return result;
+        cache = cached_for_set(entry,final,kind,true,NULL);
+        if(cache == CACHE_FOUND) return KUI_MEDIA_ORIGINAL_EXISTING;
+        if(cache != CACHE_MISSING) return KUI_MEDIA_ERROR;
         /* Page requests used the same URL scratch space. */
         if(!kui_internet_extra_url(t->id,kind,t->url,sizeof(t->url))) return KUI_MEDIA_MISSING;
     }
@@ -741,7 +759,7 @@ static enum kui_media_result fetch_mounted(struct transfer *t, struct kui_media_
     FIL file;
     if(f_open(&file,MEDIA_TEMP,FA_READ|FA_WRITE|FA_CREATE_ALWAYS) != FR_OK) return KUI_MEDIA_ERROR;
     if(pages) result = fetch_pages(t,&file,pages);
-    else if(kind == KUI_MEDIA_PREVIEW) result = fetch_preview(t,&file,replacing_preview?&preview_crc:NULL);
+    else if(kind == KUI_MEDIA_PREVIEW) result = fetch_preview(t,&file,preview_start,replacing_preview?&preview_crc:NULL);
     else {
         result=get(t,KUI_MANUAL_BYTES_MAX,&file);
         if(result==KUI_MEDIA_INSTALLED) {
@@ -757,6 +775,13 @@ static enum kui_media_result fetch_mounted(struct transfer *t, struct kui_media_
     if(result==KUI_MEDIA_INSTALLED && f_rename(MEDIA_TEMP,final)!=FR_OK) result=KUI_MEDIA_ERROR;
     if(result != KUI_MEDIA_INSTALLED) {
         if(f_unlink(MEDIA_TEMP) != FR_OK) return KUI_MEDIA_ERROR;
+        if(kind==KUI_MEDIA_PREVIEW && result==KUI_MEDIA_MISSING &&
+           (t->reason==KUI_MEDIA_REASON_PROVIDER_MISSING || t->reason==KUI_MEDIA_REASON_UNPLAYABLE_PREVIEW)) {
+            if(t->reason==KUI_MEDIA_REASON_UNPLAYABLE_PREVIEW) unplayable_source=true;
+            if(kui_internet_preview_fallback_url(t->id,&preview_attempt,t->url,sizeof(t->url),&preview_start))
+                goto FILE_RETRY;
+            if(unplayable_source) t->reason=KUI_MEDIA_REASON_UNPLAYABLE_PREVIEW;
+        }
         if(result == KUI_MEDIA_MISSING && pages && has_url) {
             pages = 0;
             goto FILE_RETRY;
@@ -765,7 +790,7 @@ static enum kui_media_result fetch_mounted(struct transfer *t, struct kui_media_
     }
     if(replacing_preview) {
         unsigned version=0;
-        if(cached(final,kind,false,&version)!=KUI_MEDIA_EXISTING || version!=2) {
+        if(cached(final,kind,false,&version)!=CACHE_FOUND || version!=2) {
             game->preview_cleanup_pending=true;
             return KUI_MEDIA_ERROR;
         }

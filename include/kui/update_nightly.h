@@ -2,14 +2,26 @@
 #ifndef KUI_UPDATE_NIGHTLY_H
 #define KUI_UPDATE_NIGHTLY_H
 #include "kui/internet.h"
+#include "kui/update_online.h"
 #include "kui/update_retention.h"
 
 /* Caller owns the exclusive mounted storage worker. Returns a verified local
  * package for the ordinary review/install flow, or true with an empty path
- * when the running official nightly already matches the feed. Pass NULL as
- * running_build for local or test GUIs. A stopped or failed transfer
+ * when the running official nightly GUI matches or no stable manifest exists.
+ * Pass NULL as running_build for GUIs without verified source provenance. A stopped or failed transfer
  * stays outside the package browser and can be resumed for the same commit. */
 bool kui_update_test_feed_available(void);
+const struct kui_update_choice *kui_update_choice_find(const struct kui_update_choices *list,
+    const struct kui_update_choice *candidate);
+struct kui_update_package;
+bool kui_update_choice_matches_package(enum kui_update_channel channel,const struct kui_update_choice *choice,
+    const struct kui_update_package *package);
+bool kui_update_online_list(enum kui_internet_route route, enum kui_update_channel channel, struct kui_update_choices *choices,
+    struct kui_app_status *status, kui_log_fn log, kui_cancel_fn cancel, kui_app_progress_fn progress);
+bool kui_update_online_download(enum kui_internet_route route, enum kui_update_channel channel,
+    const struct kui_update_choice *choice, const char *running_build, bool running_official_nightly, unsigned keep,
+    char path[KUI_UPDATE_BROWSER_PATH_BYTES], struct kui_update_online_info *info,
+    struct kui_app_status *status, kui_log_fn log, kui_cancel_fn cancel, kui_app_progress_fn progress);
 bool kui_update_nightly_download(enum kui_internet_route route, bool test_feed, const char *running_build, unsigned keep,
     char path[KUI_UPDATE_BROWSER_PATH_BYTES], struct kui_app_status *status,
     kui_log_fn log, kui_cancel_fn cancel, kui_app_progress_fn progress);
