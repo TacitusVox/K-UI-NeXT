@@ -126,6 +126,101 @@ the dump was taken. These kernels keep no low-water mark (KData+0x364 is
 0), so none is reported. The miner also records whether KData+0x334 names KData,
 and takes the ROMHDR from KData+0x330 when the stage report has none (CE2).
 
+## Timing session (`KUI_WCE_PROBE=2`)
+
+The first session's counters cover whole launches, so they cannot place a
+movie freeze or a stutter against a read. The timing build is the same probe
+(same stage, claim, slot format and end-of-game dump) with these differences:
+
+- **A request ring.** For the latest 190 read requests (`PIOREAD`,
+  `DMAREAD` and both stream commands): when the REQUEST was accepted and when
+  the read was seen to end, each as CE's millisecond count plus TMU0's count
+  with its underflow flag; whether it ended, failed (its status was not
+  COMPLETED: an error, an abort or a reset) or was replaced by the next request before
+  its end was seen; the GD calls made while it was open (65535 at most), the
+  TMU0 ticks inside them and the longest; the TMU0 ticks in the reader's
+  interrupt meanwhile; and the SCI overruns and slower-clock blocks meanwhile.
+  The header holds the requests begun, whether the newest is still open,
+  TMU0's prescaler and reload, CE's count when the ring began and at the end,
+  and the TMU0 ticks in every GD call and in the interrupt since the ring
+  began (carried past 32 bits). The layout is `struct kui_wce_probe_timing`
+  in `include/kui/wce_probe.h`.
+- **Counters from the ring's start.** The reader's counters (the same
+  structure as the data session's) live in the ring area, so GD calls made
+  before the ring is taken (bootstrap 2's, CE's first `INIT`) are not in them.
+- **No Maple sampling, AICA clock or CD audio log.** The first session
+  answered the port questions. The counters' Maple and clock fields stay
+  zero; CD audio commands are counted but not logged.
+- **One write outside the reader:** taking the ring writes 8 KiB at
+  `0x8c00e000` (below). The data build writes nothing there.
+
+**Time sources**, both read only: CE's millisecond count (the word after
+KData's reschedule flag, `kui_retail_ce_kernel[2] + 4`, as the Armada timing
+builds use it), which steps once per TMU0 period (25 ms in the first
+session), and TMU0 (`TCNT0`, `TCOR0`, `TCR0` with its UNF flag), which
+drives CE's tick. The decoder places each begin and end at CE's count plus
+TMU0's ticks since the tick CE last counted (a whole period more while an
+underflow was pending), so a read's time is known to TMU0's tick (80 ns at
+Pphi/4), not to 25 ms. GD calls run with interrupts masked (IMASK 15) and
+the reader's interrupt with SR.BL set, so neither splits the other's update
+and a pending underflow stays visible: a call or an interrupt is timed
+correctly while at most one TMU0 underflow falls in it (so up to two periods
+when none was pending at its start).
+
+**The ring's area.** The ring is 8 KiB at `0x8c00e000`: IP.BIN's bootstrap
+2, its boot VBR (`0x8c00f400`) and, on the NK-CE2-B kernels, the stack of a
+GD call made before the MMU is on (`0x8c00f3f8`). The reader takes the area,
+with one 8 KiB write, at the first GD call of a session the stage prepared (a
+data file with a free slot) that CE makes with its MMU on (MMUCR.AT), its
+own VBR and a stack outside the area; never from its interrupt, and never in
+a launch with no slot. In the first session's dumps 13 of the 17 games held
+identical bytes there (two variants of the first page); Sega Rally 2 (JPN),
+Super Producers and Virtua Cop 2 held fuller IP.BIN code. That suggests
+nothing writes the area once CE runs, which is an inference: a dump shows the
+final bytes only. Both NK-CE2-B games, Kitahei Gold and Super Producers, also
+held the reader hook's own save frame at `0x8c00f3f0` from a GD call on that
+boot stack (SR `0x700000f0`: BL set, before the MMU is on). MMUCR.AT alone
+does not exclude that call: the probe restarts the console with AT still set,
+and whether the boot ROM clears it is not established; hence the VBR and
+stack checks.
+
+The end-of-game dump saves the ring with the rest of RAM (an all-zero ring
+page is skipped like any other).
+`tools/wce_probe_data.py` decodes it as each session's `timing`, but only
+when its pages were written whole: the dump writes pages in ascending order,
+so a complete dump or a later page read back present proves it; a dump cut
+off inside the ring gives an error instead of reads that are not there.
+`tools/wce_probe_mine.py` reports the window covered, read rates and
+latencies, the reader's time in GD calls and in its interrupt (while a kept
+read was open, and since the ring began), the slowest reads, the longest gaps
+between reads, and up to the last 30 whole seconds the kept reads cover,
+second by second (the second holding the oldest kept read is partial once the
+ring has dropped older ones, so it is left out). The end itself has only
+CE's count, so the gap from the last read to the end is given to CE's 25 ms
+tick.
+
+The stage report's flags carry bit 1 for a timing build. The ring keeps the
+end of each launch: the owner presses the combination soon after the moment
+to measure. At the first session's average read rates (reads over CE's
+uptime) 190 reads cover about 14 s of Railroad Tycoon II, the busiest
+reader, 46 to 121 s of the games on the timing list, and up to 5 minutes of
+the lightest; bursts such as a movie's shorten that.
+
+The timing build's background resident ends at `0x8c00dd60` (the probe
+limit is `0x8c00ddc0`); its call-graph stack worst case is 392 of 528 bytes.
+The end-to-end host test runs it with the data build: the ring's take
+conditions; an underflow during, and pending at the end of, a call; failed,
+aborted and reset-ended reads; a ring that wraps and is decoded by
+`tools/wce_probe_data.py` with its saturated sectors, calls and latency,
+replaced reads and both carried totals; and a dump cut inside the ring.
+`tests/test_wce_probe_mine.py` checks the miner's gap to the end, its whole
+seconds and its per-second sums. Each of these checks fails when the code it
+covers is removed or altered.
+
+Delivered for the second data session: `5c1cdd89387b`
+(`KUI-WinCE-Timing-Session-20NOV2026-0158-CST-5c1cdd8.zip`, see
+[accepted progress](accepted-progress.md)).
+
 ## Build and gates
 
 ```
@@ -141,8 +236,10 @@ by 0x8c00ddc0 with a 576-byte guarded stack, its own linker script
 into IPA-split clones for the probe: worst case 392 of 528 bytes), and the
 build record.
 
-- `KUI_WCE_PROBE=0` (the default) rebuilds the installed `ce-boot.kui`
-  `7b216f2e1136` byte for byte. The probe adds nothing to any other module.
+- `KUI_WCE_PROBE=0` (the default) builds the generic `ce-boot.kui`; the
+  probe adds nothing to any other module. `KUI_WCE_PROBE=1` is the data
+  session's build and `2` the timing session's; both keep the reader the
+  first session measured (`KUI_CE_VRAM_DMA=0`, [wince-vram-stream.md](wince-vram-stream.md)).
 - The probe's resident adds a counters block, the seed and the terminal writer.
   It uses the same SCI bus and card descriptor as the reader. The bus's
   byte-work clock (`loan_ticks`) is linked so the SD write path has its timeouts.

@@ -24,8 +24,9 @@ scope; it adds the order and the prerequisites.
 
 | ID | Step | Depends on | Status |
 |---|---|---|---|
-| D1 | **Data session.** The owner swaps in the probe `ce-boot.kui` and runs as many WinCE games as possible with CD music Off, ending each with A+B+X+Y+Start. One file, `KUI/WCEDATA/WCEDATA.BIN`, collects a slot per launch. | nothing | ready |
-| D2 | **Mine the data.** `tools/wce_probe_data.py` and `tools/wce_probe_mine.py` turn the file into a per-game table: boot, disc use, CD audio commands, ports and saves, modules and DirectSound attachment, memory. Results go into the scope evidence. | D1 | tools ready |
+| D1 | **Data session.** The owner swaps in the probe `ce-boot.kui` and runs as many WinCE games as possible with CD music Off, ending each with A+B+X+Y+Start. One file, `KUI/WCEDATA/WCEDATA.BIN`, collects a slot per launch. | nothing | done 19 Nov 2026: 17 games ([session 1](wince-data-session-1.md)) |
+| D2 | **Mine the data.** `tools/wce_probe_data.py` and `tools/wce_probe_mine.py` turn the file into a per-game table: boot, disc use, CD audio commands, ports and saves, modules and DirectSound attachment, memory. Results go into the scope evidence. | D1 | done for session 1 (miner corrected: 8-bit CE names, no false saves or low-water mark) |
+| D3 | **Timing session.** The probe with a request ring (`KUI_WCE_PROBE=2`, [data probe](wince-data-probe.md)): the latest 190 reads' begin and end to TMU0's tick and the reader's own time, for the movie freezes (Resident Evil 2, Sno-Cross, Super Producers), Maximum Pool's lag, Urban Chaos's lurches and Wild Metal's load. | D2 | test build `5c1cdd89387b` delivered 20 Nov 2026, data pending |
 | G0 | **Thursday's console tests:** GUI `069d612cadea` (four tests) and the `7b216f2e1136` reports. Restore the accepted `ce-boot.kui` first. | D1 finished (the probe is swapped out) | ready |
 | B2 | **CHD to GDI import** for the PAL and JPN CHD images (43 images, 19 kernels exist only as CHD). Owner-side, on a PC. | nothing | owner task |
 
@@ -46,8 +47,9 @@ scope; it adds the order and the prerequisites.
 
 | ID | Step | Depends on | Unlocks (images) | Console test |
 |---|---|---|---|---|
-| B0 | Boot evidence on the generic reader for CD-driver lines 1, 3, 5 and 6, which have no generic-route result. | D1, D2 | lines 1, 3, 5, 6 (scope step 0) | from D1; confirmed on the accepted module at G0 |
-| B1 | Reader fix for any refused command the data shows a game issuing (command 26 open tray is the known one; a refused command stops the reader). | D2 | per finding | the affected game, against D1 |
+| B0 | Boot evidence on the generic reader for CD-driver lines 1, 3, 5 and 6, which have no generic-route result. | D1, D2 | lines 1, 3, 5, 6 (scope step 0) | done in session 1: every line reached a running game (line 3's KISS then stopped, B3) |
+| B1 | Reader fix for any refused command the data shows a game issuing (command 26 open tray is the known one; a refused command stops the reader). | D2 | per finding | none seen in session 1 |
+| B3 | DMA stream pieces into PVR video memory ([record](wince-vram-stream.md)): KISS Psycho Circus and Virtua Cop 2 stopped on them. Generic module only; the CD music modules follow after its console test and a space audit. Test build `a660354d804c` delivered 20 Nov 2026. | D2 | KISS, Virtua Cop 2 (CD music Off) | KISS and Virtua Cop 2 against session 1 |
 
 ## Virtual VMU (one family or helper per step)
 

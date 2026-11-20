@@ -57,7 +57,60 @@ Delivered: `KUI-WinCE-GUI-Routes-16NOV2026-1928-CST-069d612.zip`, GUI build
 `retail-boot.kui` `9e3295bcfaec`, as `00d8ed67d9ad` does. `00d8ed67d9ad`
 remains the reference until the owner reports the package's four tests.
 
-## WinCE data session probe: data pending, 88ff969d505c, 2026-11-18
+## WinCE timing session probe: data pending, 5c1cdd89387b, 2026-11-20
+
+A measurement build, not a candidate: the generic `ce-boot.kui` with
+`KUI_WCE_PROBE=2` ([timing session](wince-data-probe.md#timing-session-kui_wce_probe2)),
+for the movie freezes (Resident Evil 2, Sno-Cross, Super Producers), Maximum
+Pool's lag, Urban Chaos's lurches and Wild Metal's load. It reads exactly as
+the installed `7b216f2e1136` does (`KUI_CE_VRAM_DMA=0`), so KISS and Virtua
+Cop 2 still stop on the PVR refusal in it. The owner swaps it in for one
+session and puts `7b216f2e1136` back afterwards.
+
+Delivered: `KUI-WinCE-Timing-Session-20NOV2026-0158-CST-5c1cdd8.zip` (SHA256
+`652f8a627816322a2e81c5dd0fe1943e3848a4ae3d1fffb1c41e041787b5d2bd`): the module
+(93,000 bytes, payload CRC `9AAC3E84`, SHA-256
+`0a3bc111a5485892fee080497275c154f74233d64cbf65cc2152772acd0d0037`), a blank
+64-slot `KUI/WCEDATA/WCEDATA.BIN` (1,075,314,688 bytes, file id
+`968e4806ba74f2f47e03e0c6f383cb8f`), the installed `7b216f2e1136` in
+`IF-NEEDED/`, and the decoder and miner in `PC-TOOLS/`.
+
+Evidence: the end-to-end host test (take conditions, underflows, failed,
+aborted and reset reads, a wrapped ring decoded with its saturations and
+carries, a dump cut inside the ring), the miner test, mutation checks on each
+new behaviour, two adversarial reviews (no defect left in the reader; the
+decoder, miner, docs and test findings fixed), the GUI's production
+admission of the exact bytes on FAT32 and exFAT, and the build gates
+(background resident ends at `0x8c00dd60`, limit `0x8c00ddc0`; stack worst
+case 392 of 528 bytes). From the same commit, `KUI_WCE_PROBE=1` rebuilds
+`88ff969d505c` and the default build `a660354d804c` byte for byte. Console
+behaviour is untested: the session is the test.
+
+## WinCE PVR stream test: console test pending, a660354d804c, 2026-11-20
+
+One behaviour change to the generic `ce-boot.kui` against the installed
+`7b216f2e1136`: DMA stream pieces into PVR video memory, which stopped KISS
+Psycho Circus and Virtua Cop 2 in session 1 ([record](wince-vram-stream.md)).
+CPU pointers into video memory stay refused, as before. The CD-music and
+Armada modules are unchanged: from the same tree they rebuild their installed
+`7b216f2e1136` bytes, as does `KUI_CE_VRAM_DMA=0`.
+
+Delivered: `KUI-WinCE-VRAM-Stream-Test-20NOV2026-0035-CST-a660354.zip` (SHA256
+`744e817bae8eb2f6f471de731a9f7511d3d076321aeb9880f976397eb12cd13b`): the module
+(85,236 bytes, payload CRC `9CF2A176`, SHA-256
+`72dc006d86650b24daaec15e6a8ecb1575aa1cf7de8be409cc027658511dc8d5`) and the
+installed `7b216f2e1136` in `IF-NEEDED/`. Console test: KISS Psycho Circus
+(US) and Virtua Cop 2 (JPN) with CD music Off and Virtual VMU Off. With CD
+music On they still use the unchanged `ce-cdda-*` modules.
+
+## WinCE data session 1: data received 2026-11-19, 88ff969d505c
+
+The owner ran 17 games with this probe on 19 Nov 2026; the control run on
+`7b216f2e1136` behaved about the same. Results:
+[session 1](wince-data-session-1.md). KISS and Virtua Cop 2 stopped on the
+PVR refusal above; the movie freezes and lag led to the timing session.
+
+### Delivery
 
 Rebuilt on main `cdfc131b` (merge `88ff969d`, after the artwork/theme changes):
 `KUI-WinCE-Data-Session-18NOV2026-1406-CST-88ff969.zip`
