@@ -235,11 +235,15 @@ static void footer(struct paint *p, const struct kui_shell *s,
         s->confirm_wifi_update ? "A Update firmware   B Cancel" :
         s->page==KUI_SHELL_GD_PLAY ? "A K-UI   X Stock retail   Y Options   START Cards   B Back" :
         s->page==KUI_SHELL_UPDATES ? (s->update_loading?"B Request safe stop":
-            s->update_online?(s->update_online_row?"Up/down Row   Left/right Change   A Save limit   B Back":
+            s->update_online?(s->update_online_row?"Up/down Row   Left/right Change   A Save settings   B Back":
+                s->update_channel==KUI_UPDATE_NIGHTLIES?"Up/down Row   Left/right Change   A List builds   B Back":
                 "Up/down Row   Left/right Change   A Download   B Back"):
-            s->update.stage==KUI_SHELL_UPDATE_REVIEW?(s->update.already_installed && s->update.restart_required?
-                "START Restart K-UI   B Packages":s->update.ready?
-                s->update.restore?"A Restore this version   B Cancel":"A Install this package   B Cancel":"B Packages"):
+            s->update.stage==KUI_SHELL_UPDATE_NIGHTLIES?(s->update_nightlies.count?
+                "D-pad Browse   A Download   X Refresh   B Options":"A Retry   B Options"):
+            s->update.stage==KUI_SHELL_UPDATE_REVIEW?(s->update_details?"D-pad Page   X/B Review":
+                s->update.already_installed && s->update.restart_required?
+                "START Restart K-UI   X Changes   B Packages":s->update.ready?
+                s->update.restore?"A Restore this version   B Cancel":"A Install   X Changes   B Cancel":s->update.restore?"B Packages":"X Changes   B Packages"):
             s->update.stage==KUI_SHELL_UPDATE_RESULT?
                 "START Restart K-UI   X Folder   Y Previous   B Back":
                 strcmp(s->update.directory,KUI_UPDATE_BROWSER_ROOT)?
@@ -1014,32 +1018,139 @@ static const char *internet_route_name(enum kui_internet_route route) {
     };
     return routes[(unsigned)route<KUI_INTERNET_ROUTE_COUNT?route:KUI_INTERNET_AUTO];
 }
+/* Update paths and published change subjects are bounded ASCII. Wrap them
+ * without ellipses so a similar filename or the end of a change stays legible. */
+static void update_wrapped(struct paint *p,unsigned x,unsigned y,uint16_t color,const char *text) {
+    for(unsigned row=0;row<3u && y+row*19u<=398u && *text;row++) {
+        char part[96];size_t n=0,split=0;
+        unsigned width=0,spacing=p->crisp?0u:KUI_SHELL_FONT_LETTER_SPACING;
+        while(text[n] && n+1u<sizeof(part)) {
+            width+=kui_shell_font_advance((unsigned char)text[n],false)+(n?spacing:0u);
+            if(width>592u-x)break;
+            if(text[n]==' ' || text[n]=='/')split=n+1u;
+            ++n;
+        }
+        /* At least 32 glyphs fit in 544px. Avoid breaking at a short prefix
+         * that could otherwise hide the tail of an 88-character path row. */
+        if(text[n] && split>=32u)n=split;
+        if(!n)return;
+        memcpy(part,text,n);part[n]=0;words(p,x,y+row*19u,592u,color,part,false);
+        text+=n;
+        while(*text==' ')++text;
+    }
+}
+
+static void update_details_page(struct paint *p,const struct kui_shell *s) {
+    const struct kui_shell_update_view *v=&s->update;
+    unsigned page=s->update_detail_page,pages=kui_shell_update_detail_pages(v);
+    unsigned note_pages=(v->online_info.note_count+KUI_UPDATE_DETAIL_NOTES_PER_PAGE-1u)/
+        KUI_UPDATE_DETAIL_NOTES_PER_PAGE;
+    char line[120];
+    title(p,40,108,page<note_pages?"Published changes":"File changes");
+    snprintf(line,sizeof(line),"Page %u/%u",page+1u,pages);
+    words(p,476,114,604,MUTED,line,false);
+    panel(p,32,162,576,244,PANEL);
+    if(page<note_pages) {
+        label(p,48,177,CYAN,"From the publisher");
+        unsigned first=page*KUI_UPDATE_DETAIL_NOTES_PER_PAGE;
+        for(unsigned i=0;i<KUI_UPDATE_DETAIL_NOTES_PER_PAGE && first+i<v->online_info.note_count;i++)
+            update_wrapped(p,48,215u+i*84u,WHITE,v->online_info.notes[first+i]);
+        return;
+    }
+    label(p,48,177,CYAN,"Compared with the selected installation");
+    const struct kui_update_changes *c=v->changes;
+    if(!c || !c->known) {
+        label(p,48,220,WHITE,v->already_installed?"No file changes.":"File comparison unavailable.");
+        return;
+    }
+    unsigned first=(page-note_pages)*KUI_UPDATE_DETAIL_FILES_PER_PAGE;
+    if(!c->count)label(p,48,220,WHITE,"No file changes.");
+    for(unsigned i=0;i<KUI_UPDATE_DETAIL_FILES_PER_PAGE && first+i<c->count;i++) {
+        const struct kui_update_change *change=&c->rows[first+i];
+        const char *action=change->kind==KUI_UPDATE_CHANGE_ADD?"Add":
+            change->kind==KUI_UPDATE_CHANGE_REMOVE?"Remove":"Replace";
+        /* Put the action on the same line so the full panel width is
+         * available for long software paths. */
+        snprintf(line,sizeof(line),"%s   %.*s",action,(int)(KUI_UPDATE_PATH_BYTES-1u),change->path);
+        update_wrapped(p,48,213u+i*60u,WHITE,line);
+    }
+    unsigned total=c->added+c->replaced+c->removed;
+    if(total>c->count) {
+        snprintf(line,sizeof(line),"Showing %u of %u changed paths",c->count,total);
+        label(p,40,412,MUTED,line);
+    }
+}
+static void nightly_choices_page(struct paint *p,const struct kui_shell *s) {
+    unsigned count=s->update_nightlies.count,index=s->update_nightly_selected;
+    title(p,40,108,"Nightly builds");
+    char line[96];
+    snprintf(line,sizeof(line),"* Running GUI   %.12s",s->update.running[0]?s->update.running:"unknown");
+    words(p,313,141,605,CYAN,line,false);
+    if(count) {
+        unsigned first=index/KUI_SHELL_NIGHTLY_ROWS*KUI_SHELL_NIGHTLY_ROWS;
+        unsigned end=first+KUI_SHELL_NIGHTLY_ROWS;
+        if(end>count)end=count;
+        snprintf(line,sizeof(line),"Newest first   %u-%u of %u",first+1u,end,count);
+        words(p,40,141,302,CYAN,line,false);
+        label(p,40,163,WHITE,"GUI only (runtime.kui). Keeps game readers and themes.");
+        label(p,48,187,MUTED,"Published (UTC)");label(p,297,187,MUTED,"GUI build");label(p,493,187,MUTED,"Size");
+        for(unsigned i=first;i<end;i++) {
+            const struct kui_update_choice *row=&s->update_nightlies.items[i];
+            unsigned y=209u+29u*(i-first);
+            panel(p,32,y,576,27,i==index?SELECTED:PANEL);
+            if(row->published[0])
+                snprintf(line,sizeof(line),"%.10s  %.5s",row->published,row->published+11);
+            else strcpy(line,"Latest available");
+            uint16_t color=i==index?SELECTION_TEXT:WHITE;
+            words(p,48,y+6u,283,color,line,false);
+            bool running=s->update.running[0] && !strncmp(row->commit,s->update.running,12u);
+            snprintf(line,sizeof(line),"%.12s%s",row->commit,running?" *":"");
+            words(p,297,y+6u,482,color,line,false);
+            snprintf(line,sizeof(line),"%lu KiB",(unsigned long)(row->size/1024u+(row->size%1024u!=0)));
+            words(p,493,y+6u,600,color,line,false);
+        }
+        snprintf(line,sizeof(line),"A downloads %.12s for review before install.",s->update_nightlies.items[index].commit);
+        label(p,40,356,CYAN,line);
+    } else {
+        panel(p,32,172,576,103,PANEL);
+        label(p,48,193,WHITE,s->update.status.passed?"No published nightly builds.":"Nightly list unavailable.");
+    }
+    if(s->update.status.message[0] && (!count || !s->update.status.passed ||
+       s->update_request.op==KUI_SHELL_UPDATE_NIGHTLY))
+        update_wrapped(p,40,379,s->update.status.errors?AMBER:MUTED,s->update.status.message);
+}
 static void updates_page(struct paint *p,const struct kui_shell *s,const struct kui_shell_view *v) {
     const struct kui_shell_update_view *u=&s->update;
     const struct kui_app_status *status=s->update_loading && v->app_status?v->app_status:&u->status;
     bool package_review=!s->update_loading && !s->update_online && u->stage==KUI_SHELL_UPDATE_REVIEW && !u->restore;
-    title(p,40,108,s->update_loading?"Updates / working":s->update_online?"GitHub nightly":package_review?
-        (u->already_installed?"Already installed":"Install this package?"):
+    if(package_review && s->update_details) {update_details_page(p,s);return;}
+    if(!s->update_loading && !s->update_online && u->stage==KUI_SHELL_UPDATE_NIGHTLIES) {
+        nightly_choices_page(p,s);return;
+    }
+    title(p,40,108,s->update_loading?"Updates / working":s->update_online?"GitHub updates":package_review?
+        (u->already_installed?(u->restart_required?"Installed / restart needed":"Already installed"):"Install this package?"):
         u->stage==KUI_SHELL_UPDATE_REVIEW?"Restore this version?":"K-UI updates");
     char line[192];
     if(package_review) {
         snprintf(line,sizeof(line),"Running GUI   %s",u->running[0]?u->running:"unknown");
         label(p,40,138,CYAN,line);
+        bool newer=u->online_info.newer && u->gui_build[0] && u->running[0] && strcmp(u->gui_build,u->running);
         if(u->gui_build[0]) {
-            const char *comparison=!u->running[0]?"":!strcmp(u->running,u->gui_build)?
+            const char *comparison=newer?"   Newer than running":!u->running[0]?"":!strcmp(u->running,u->gui_build)?
                 "   Same GUI build ID":"   Different GUI build ID";
-            snprintf(line,sizeof(line),"Package GUI   %.12s%s",u->gui_build,comparison);
+            snprintf(line,sizeof(line),"%s GUI   %.12s%s",u->already_installed?"Selected":"Package",u->gui_build,comparison);
         } else strcpy(line,"This package contains no GUI payload.");
-        label(p,40,160,WHITE,line);
+        label(p,40,160,newer?GREEN:WHITE,line);
     } else {
         snprintf(line,sizeof(line),"Running GUI %.12s / restart target: %s",u->running[0]?u->running:"unknown",
             !u->selection_known?"unchecked":u->selected[0]?u->selected:"physical card files");
         label(p,40,138,CYAN,line);
     }
     if(s->update_online) {
-        if(s->update_test_feed_available)
-            label(p,40,168,CYAN,s->update_use_official?"Source: Official nightly   Y Change":"Source: Hardware test   Y Change");
-        else label(p,40,168,MUTED,"Source: Official nightly");
+        const char *source=s->update_channel==KUI_UPDATE_HARDWARE?"Hardware test":
+            s->update_channel==KUI_UPDATE_NIGHTLIES?"Official nightly":"Stable releases";
+        snprintf(line,sizeof(line),"Source: %s   Y Change",source);
+        label(p,40,168,CYAN,line);
         panel(p,32,201,576,36,s->update_online_row==0?SELECTED:PANEL);
         label(p,48,209,WHITE,"Connection");label(p,320,209,CYAN,internet_route_name(s->update_route));
         panel(p,32,240,576,36,s->update_online_row==1?SELECTED:PANEL);
@@ -1049,22 +1160,29 @@ static void updates_page(struct paint *p,const struct kui_shell *s,const struct 
         label(p,320,248,CYAN,line);
         if(s->update_online_row) {
             words(p,40,301,604,WHITE,s->update_keep?
-                "A saves this limit and removes older automatic downloads from this SD card. Manually copied packages stay.":
-                "A saves Unlimited. All automatic downloads stay on this SD card.",false);
+                "A saves this source and limit. Older automatic downloads are removed. Manually copied packages stay.":
+                "A saves this source and Unlimited. All automatic downloads stay on this SD card.",false);
         } else {
-            words(p,40,294,604,WHITE,s->update_test_feed_available && !s->update_use_official?
+            words(p,40,294,604,WHITE,s->update_channel==KUI_UPDATE_HARDWARE?
                 "Download this branch's hardware test to your SD card for review.":
-                "Download the official nightly to your SD card for review.",false);
+                s->update_channel==KUI_UPDATE_NIGHTLIES?"Browse the last 10 GUI builds, newest first.":
+                "Check stable releases only. A saves this source.",false);
             words(p,40,340,604,MUTED,s->update_route==KUI_INTERNET_DREAMPI?
                 "A dials the modem through DreamPi. B stops the transfer.":
                 "Automatic checks Broadband Adapter, W5500 and configured Wi-Fi.",false);
         }
         return;
     }
-    if(!s->update_loading && u->stage!=KUI_SHELL_UPDATE_REVIEW)label(p,40,160,CYAN,"L GitHub nightly");
+    if(!s->update_loading && u->stage!=KUI_SHELL_UPDATE_REVIEW)label(p,40,160,CYAN,"L GitHub updates");
     if(s->update_loading) {
         panel(p,32,192,576,192,PANEL);
-        label(p,48,208,WHITE,s->update_stopping?"Stop requested; finishing a safe boundary.":"Keep the console powered on while writing.");
+        bool listing=s->update_request.op==KUI_SHELL_UPDATE_NIGHTLY_LIST;
+        if(!s->update_stopping && s->update_request.op==KUI_SHELL_UPDATE_NIGHTLY && s->update_request.nightly.size) {
+            snprintf(line,sizeof(line),"Getting runtime.kui   %.12s   %lu KiB",s->update_request.nightly.commit,
+                (unsigned long)(s->update_request.nightly.size/1024u+(s->update_request.nightly.size%1024u!=0)));
+            label(p,48,208,WHITE,line);
+        } else label(p,48,208,WHITE,s->update_stopping?"Stop requested; finishing a safe boundary.":
+            listing?"Checking published nightly builds...":"Keep the console powered on while writing.");
         words(p,48,244,592,CYAN,status->message[0]?status->message:"Opening the selected storage...",false);
         if(status->total) {
             box(p,48,276,544,10,EDGE);unsigned width=status->done>=status->total?544u:
@@ -1074,7 +1192,8 @@ static void updates_page(struct paint *p,const struct kui_shell *s,const struct 
                 (unsigned long long)(status->done/1024u),(unsigned long long)(status->total/1024u));
             label(p,48,300,MUTED,line);
         }
-        if(s->update_request.op==KUI_SHELL_UPDATE_NIGHTLY)
+        if(listing)label(p,48,340,MUTED,"Choose a GUI build after the list opens.");
+        else if(s->update_request.op==KUI_SHELL_UPDATE_NIGHTLY)
             words(p,48,340,592,MUTED,"After download, review the package before installing.",false);
         else label(p,48,340,MUTED,"Activation finishes before Stop can return.");
         return;
@@ -1094,10 +1213,17 @@ static void updates_page(struct paint *p,const struct kui_shell *s,const struct 
                 snprintf(line,sizeof(line),"Selected bank: %.12s",u->selected);
                 label(p,48,308,MUTED,line);
             }
-            label(p,48,338,MUTED,u->restart_required?"Restart K-UI to use the selected installation.":
-                "The selected installation is running.");
+            if(u->restart_required) {
+                label(p,48,335,WHITE,"START restarts into the selected installation.");
+                label(p,48,357,MUTED,"Cold CD boot loads the physical card GUI.");
+            } else label(p,48,338,MUTED,"The selected installation is running.");
         } else {
-            snprintf(line,sizeof(line),"Package entries: replace %u, remove %u",u->replacement_count,u->removed_count);
+            const struct kui_update_changes *c=u->changes;
+            if(c && c->known) {
+                snprintf(line,sizeof(line),"Files to change: %u add, %u replace, %u remove",c->added,c->replaced,c->removed);
+            } else {
+                snprintf(line,sizeof(line),"Package entries: replace %u, remove %u",u->replacement_count,u->removed_count);
+            }
             label(p,48,250,CYAN,line);
             if(u->inherited_count) {
                 snprintf(line,sizeof(line),"Retained entries: %u",u->inherited_count);
@@ -1116,7 +1242,12 @@ static void updates_page(struct paint *p,const struct kui_shell *s,const struct 
                     (unsigned long long)(u->free_bytes/1048576u),(unsigned long long)((u->free_bytes%1048576u)*10u/1048576u));
                 label(p,48,274,MUTED,line);
             }
-            if(u->selection_known && !u->selected[0])
+            if(s->update_request.op==KUI_SHELL_UPDATE_NIGHTLY && s->update_request.nightly.size)
+                label(p,48,322,WHITE,"GUI only (runtime.kui). Keeps game readers and themes.");
+            else if(c && c->known && c->count==1u && !strcmp(c->rows[0].path,"runtime.kui") &&
+               c->rows[0].kind!=KUI_UPDATE_CHANGE_REMOVE)
+                label(p,48,322,WHITE,"K-UI interface (runtime.kui)");
+            else if(u->selection_known && !u->selected[0])
                 label(p,48,322,MUTED,"Install to create a verified bank for Restart K-UI.");
             else label(p,48,322,MUTED,"Restart K-UI after installation to use the selected bank.");
         }
@@ -1143,8 +1274,11 @@ static void updates_page(struct paint *p,const struct kui_shell *s,const struct 
         panel(p,32,188,576,146,PANEL);
         words(p,48,206,592,status->passed?CYAN:status->stopped?MUTED:AMBER,status->message,false);
         for(unsigned i=0;i<status->line_count && i<3u;i++)words(p,48,234+i*24u,592,MUTED,status->lines[i],false);
-        label(p,40,350,MUTED,"A hung application is not detected or rolled back automatically.");
-        label(p,40,376,MUTED,"Cold CD boot loads the physical K-UI from your card.");
+        if(u->restart_required && u->selection_known && status->passed && u->gui_build[0]) {
+            snprintf(line,sizeof(line),"Selected GUI   %.12s",u->gui_build);
+            label(p,40,350,WHITE,line);
+        } else label(p,40,350,MUTED,"A hung application is not detected or rolled back automatically.");
+        label(p,40,376,MUTED,"Cold CD boot loads the physical card GUI.");
         label(p,40,398,CYAN,"START reviews Restart K-UI. X returns to this folder.");return;
     }
     snprintf(line,sizeof(line),"Folder: %.180s",u->directory[0]?u->directory+2u:"/KUI/updates");

@@ -2,6 +2,8 @@
 # SPDX-License-Identifier: GPL-3.0-only
 """Build and publish the K-UI GUI testing channel from a clean main checkout."""
 import argparse
+from channel_feed import fetch_feed, git, remote_ref, write_feed
+from nightly_history import ASSET, Entry, contents, make_index
 import hashlib
 import json
 import os
@@ -15,7 +17,6 @@ from runtime_package import envelope, flatten_elf
 from update_package import current_consumer_check, SELF_KUI, verify
 
 CHANNEL = "refs/heads/nightly-channel"
-ASSET = "K-UI.kup"
 
 # Only inputs to the GUI, its dependencies and the nightly recipe. In
 # particular a new standalone game reader or card theme is not a GUI update.
@@ -31,12 +32,8 @@ GUI_INPUTS = (
     "tools/runtime_module_bundle_config.py", "tools/patches", "tools/build_splash.py",
     "tools/pack_theme.py", "tools/record_build.py", "tools/runtime_package.py",
     "tools/make_update.py", "tools/update_package.py", "tools/update_consumer_check.c",
-    "tools/nightly.py", ".github/workflows/nightly.yml",
+    "tools/nightly.py", "tools/nightly_history.py", "tools/channel_feed.py", ".github/workflows/nightly.yml",
 )
-
-
-def git(*args, **kwargs):
-    return subprocess.check_output(["git", *args], text=True, **kwargs).strip()
 
 
 def source_commit():
@@ -51,11 +48,6 @@ def fingerprint():
     return hashlib.sha256(entries).hexdigest()
 
 
-def remote_ref(ref):
-    result = git("ls-remote", "--refs", "origin", ref)
-    return result.split()[0] if result else ""
-
-
 def select():
     revision = source_commit()
     channel = remote_ref(CHANNEL)
@@ -67,9 +59,11 @@ def select():
     # Rerunning an old Actions run must never move the feed backwards.
     current = remote_ref("refs/heads/main") == revision
     build = changed and current
+    migrate = current and not changed and contents(channel, "nightlies.txt") is None
     with open(os.environ["GITHUB_OUTPUT"], "a") as out:
-        print(f"build={str(build).lower()}\nchannel={channel}\ninputs={inputs}", file=out)
-    print("GUI inputs changed; building nightly." if build else
+        print(f"build={str(build).lower()}\nmigrate={str(migrate).lower()}\nchannel={channel}\ninputs={inputs}", file=out)
+    print("Indexing existing nightly releases." if migrate else
+          "GUI inputs changed; building nightly." if build else
           "Skipped: matching GUI inputs already published or a newer main commit exists.")
 
 
@@ -143,23 +137,27 @@ def release(revision, asset, directory, checked):
 
 
 def advance_channel(parent, inputs, body, revision):
-    if parent:
-        git("fetch", "--no-tags", "--depth=1", "origin", parent)
-    # A separate index preserves other files on the channel and never changes
-    # the source checkout. Parentless first commit makes the feed branch tiny.
-    with tempfile.TemporaryDirectory() as directory:
-        env = dict(os.environ, GIT_INDEX_FILE=str(Path(directory) / "index"))
-        if parent:
-            git("read-tree", parent, env=env)
-        for name, contents in (("nightly.txt", body), ("inputs.sha256", inputs + "\n")):
-            blob = git("hash-object", "-w", "--stdin", input=contents)
-            git("update-index", "--add", "--cacheinfo", "100644", blob, name, env=env)
-        tree = git("write-tree", env=env)
-        commit = git("-c", "user.name=github-actions[bot]", "-c",
-                     "user.email=41898282+github-actions[bot]@users.noreply.github.com",
-                     "commit-tree", tree, *(("-p", parent) if parent else ()),
-                     "-m", "Publish GUI nightly " + revision[:12])
-    git("push", "--force-with-lease=" + CHANNEL + ":" + parent, "origin", commit + ":" + CHANNEL)
+    entry = Entry.from_manifest(body)
+    if entry.commit != revision:
+        raise ValueError("Nightly manifest and publication target disagree")
+    fetch_feed(parent)
+    files = make_index(parent, entry, GUI_INPUTS, manifest)
+    # Keep latest-only GUIs and every review/selection in sync in one commit.
+    files.update({"nightly.txt": body, "inputs.sha256": inputs + "\n"})
+    write_feed(CHANNEL, parent, files, revision)
+
+
+def migrate():
+    source = source_commit()
+    parent, inputs = os.environ["NIGHTLY_CHANNEL_BASE"], os.environ["NIGHTLY_INPUTS"]
+    if not parent or parent != remote_ref(CHANNEL) or source != remote_ref("refs/heads/main"):
+        raise ValueError("Source or channel changed before nightly history migration")
+    fetch_feed(parent)
+    if contents(parent, "inputs.sha256") != inputs + "\n" or inputs != fingerprint():
+        raise ValueError("Migration requires matching GUI inputs")
+    if contents(parent, "nightlies.txt") is None:
+        body = contents(parent, "nightly.txt")
+        advance_channel(parent, inputs, body, Entry.from_manifest(body).commit)
 
 
 def publish(asset):
@@ -186,11 +184,14 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     commands = parser.add_subparsers(dest="command", required=True)
     commands.add_parser("select")
+    commands.add_parser("migrate")
     for name in ("package", "publish"):
         commands.add_parser(name).add_argument("asset", type=Path)
     args = parser.parse_args()
     if args.command == "select":
         select()
+    elif args.command == "migrate":
+        migrate()
     elif args.command == "package":
         package(args.asset)
     else:

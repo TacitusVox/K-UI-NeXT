@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: GPL-3.0-only */
 #include "kui/shell.h"
+#include "kui/update_retention.h"
 #include "kui/media_container.h"
 #include "kui/salvage_display.h"
 #include "kui/version.h"
@@ -1233,10 +1234,12 @@ static const char *const ripper_tool_names[]={"Verify saved files","Resume inter
     "Saved job for Resume/Verify","New dump folder label","Repair / resume a separate copy",
     "Suspect-sector reread evidence","Rip destination: local / PC","Single-session CD source",
     "Repair / resume in place","Start a new repair copy"};
-static uint16_t ripper_tool_colors[KUI_SHELL_RIPPER_TOOL_COUNT];
+static uint16_t ripper_tool_colors[KUI_SHELL_RIPPER_TOOL_COUNT],update_comparison_color;
 static void observe(void *ctx,unsigned x,unsigned y,uint16_t color,const char *value,bool large) {
     (void)ctx;
     if(!strncmp(value,"STREAM CRC:",11)) badge_color=color;
+    if(s.page==KUI_SHELL_UPDATES && x==40 && y==160 && strstr(value,"Package GUI"))
+        update_comparison_color=color;
     if(x==48 && y==194 && !strcmp(value,"Image read test")) image_test_row_color=color;
     if(s.page==KUI_SHELL_GAMES_LAUNCH_OPTIONS && x==48) {
         static const char *const names[]={"Background loading","CD music","Advanced","Virtual VMU card","ZSO codec"};
@@ -1887,7 +1890,7 @@ static void update_controls(void) {
     --list.generation;kui_shell_set_update(&s,&list);assert(s.update_loading);
     ++list.generation;kui_shell_set_update(&s,&list);assert(!s.update_loading && s.update.count==8u);
     struct kui_shell_view view={0};render(&view);
-    assert(strstr(drawn,"K-UI updates") && strstr(drawn,"L GitHub nightly") && strstr(drawn,"A Open/check"));
+    assert(strstr(drawn,"K-UI updates") && strstr(drawn,"L GitHub updates") && strstr(drawn,"A Open/check"));
     assert(strstr(drawn,"release-7.kup") && strstr(drawn,"Restore previous") && strstr(drawn,"Original baseline"));
     assert(press(KUI_SHELL_RIGHT,false)==KUI_SHELL_UPDATE_RUN && s.update_request.page==1u);
     list.generation=s.update_generation;list.page=1u;list.count=2u;kui_shell_set_update(&s,&list);
@@ -1906,15 +1909,20 @@ static void update_controls(void) {
     strcpy(preview.status.message,"Package checked. A confirms installation.");
     for(unsigned restart=0;restart<2u;restart++) {
         struct kui_shell_update_view same=preview;
-        same.generation=s.update_generation;same.already_installed=true;same.restart_required=restart!=0;
-        strcpy(same.gui_build,same.running);strcpy(same.selected,"afad71f49dd3");
+        same.generation=s.update_generation;same.already_installed=true;same.restart_required=false;
+        strcpy(same.gui_build,restart?"234567abcdef":same.running);strcpy(same.selected,"afad71f49dd3");
         strcpy(same.status.message,"Package already verified.");
         /* Even a stray confirmation token cannot make a verified repeat writable. */
         same.reviewed.token=restart?0u:same.reviewed.token;
         kui_shell_set_update(&s,&same);
         assert(s.update.already_installed && !s.update.ready && !s.update_confirm_request.token);
         render(&view);
-        assert(strstr(drawn,"Already installed") && strstr(drawn,"Same GUI build ID") && strstr(drawn,"Files to change: 0"));
+        assert(strstr(drawn,"Files to change: 0"));
+        if(restart) {
+            assert(s.update.restart_required && strstr(drawn,"Installed / restart needed") &&
+                strstr(drawn,"Selected GUI   234567abcdef") && strstr(drawn,"Running GUI   0123456789ab") &&
+                strstr(drawn,"Cold CD boot") && !strstr(drawn,"installation is running"));
+        } else assert(strstr(drawn,"Already installed") && strstr(drawn,"Same GUI build ID"));
         assert(!strstr(drawn,"A Install") && press(KUI_SHELL_A,false)==KUI_SHELL_NONE);
         assert(press(KUI_SHELL_START,false)==KUI_SHELL_NONE && s.confirm_restart==(restart!=0));
         if(restart) {
@@ -1925,13 +1933,42 @@ static void update_controls(void) {
         list.generation=s.update_generation;kui_shell_set_update(&s,&list);
         assert(press(KUI_SHELL_A,false)==KUI_SHELL_UPDATE_RUN && s.update_request.op==KUI_SHELL_UPDATE_CHECK);
     }
-    preview.generation=s.update_generation;
-    kui_shell_set_update(&s,&preview);assert(s.update.ready && !s.update_loading && s.update.page==1u);
+    preview.generation=s.update_generation;preview.online_info.newer=true;preview.online_info.note_count=1;
+    kui_shell_set_update(&s,&preview);assert(!s.update.online_info.newer && !s.update.online_info.note_count);assert(s.update.ready && !s.update_loading && s.update.page==1u);
     render(&view);assert(strstr(drawn,"Install this package?") && strstr(drawn,"testing") && strstr(drawn,"10.0 MiB needed / 100.0 MiB free"));
     assert(strstr(drawn,"A Install") && strstr(drawn,"contains no GUI payload"));
     s.update.replacement_count=1u;s.update.inherited_count=25u;
     strcpy(s.update.gui_build,"123456abcdef");
     render(&view);assert(strstr(drawn,"Different GUI build ID") && strstr(drawn,"Retained entries: 25"));
+    static struct kui_update_changes changes;
+    changes=(struct kui_update_changes){.known=true,.added=1,.replaced=3,.removed=1,.count=5};
+    changes.rows[0]=(struct kui_update_change){.path="runtime.kui",.kind=KUI_UPDATE_CHANGE_REPLACE};
+    changes.rows[1]=(struct kui_update_change){.path="apps/games/new.kui",.kind=KUI_UPDATE_CHANGE_ADD};
+    changes.rows[2]=(struct kui_update_change){.path="apps/games/obsolete.kui",.kind=KUI_UPDATE_CHANGE_REMOVE};
+    changes.rows[3]=(struct kui_update_change){.path="assets/a/abcdefghijklmnopqrstuvwxyz0123456789/b/abcdefghijklmnopqrstuvwxyz.bin",
+        .kind=KUI_UPDATE_CHANGE_REPLACE};
+    changes.rows[4]=(struct kui_update_change){.path="apps/disc/test.kui",.kind=KUI_UPDATE_CHANGE_REPLACE};
+    s.update.changes=&changes;
+    struct kui_theme_palette palette;kui_theme_palette_default(&palette);
+    uint16_t success=kui_theme_rgb565(palette.colors[KUI_THEME_SUCCESS]);
+    assert(update_comparison_color!=success);
+    s.update.online_info.newer=true;s.update.online_info.note_count=1;
+    strcpy(s.update.online_info.notes[0],"Fix the network retry and keep interrupted previews available.");
+    render(&view);assert(strstr(drawn,"Newer than running") && update_comparison_color==success);
+    assert(press(KUI_SHELL_X,false)==KUI_SHELL_NONE && s.update_details);
+    render(&view);assert(strstr(drawn,"Published changes") && strstr(drawn,"Fix the network retry"));
+    assert(press(KUI_SHELL_A,false)==KUI_SHELL_NONE && !s.update_loading);
+    assert(press(KUI_SHELL_RIGHT,false)==KUI_SHELL_NONE && s.update_detail_page==1u);
+    render(&view);assert(strstr(drawn,"File changes") && strstr(drawn,"Replace   runtime.kui") &&
+        strstr(drawn,"Add   apps/games/new.kui") && strstr(drawn,"Remove   apps/games/obsolete.kui"));
+    assert(press(KUI_SHELL_DOWN,false)==KUI_SHELL_NONE && s.update_detail_page==2u);
+    render(&view);assert(strstr(drawn,"assets/a/") && strstr(drawn,"abcdefghijklmnopqrstuvwxyz.bin") &&
+        strstr(drawn,"apps/disc/test.kui"));
+    assert(press(KUI_SHELL_RIGHT,false)==KUI_SHELL_NONE && s.update_detail_page==2u);
+    assert(press(KUI_SHELL_B,false)==KUI_SHELL_NONE && !s.update_details && s.update.ready &&
+        s.update_confirm_request.token==77u);
+    s.update.online_info=(struct kui_update_online_info){0};
+    s.update.changes=NULL;
     s.update.replacement_count=3u;s.update.inherited_count=23u;
     strcpy(s.update.gui_build,s.update.running);
     render(&view);assert(strstr(drawn,"Same GUI build ID") && strstr(drawn,"A Install") && strstr(drawn,"Retained entries: 23"));
@@ -2003,6 +2040,70 @@ static void open_nightly(unsigned keep) {
     strcpy(result.directory,s.update_request.directory);result.status.complete=result.status.passed=true;
     kui_shell_set_update(&s,&result);assert(s.update_online && !s.update_loading && s.update_keep==keep);
 }
+static void update_nightly_picker_controls(void) {
+    reset(KUI_SHELL_UPDATES);
+    struct kui_shell_view frame={0};
+    strcpy(s.update.directory,"0:/KUI/updates/testing");s.update.page=2u;
+    open_nightly(5);
+    assert(press(KUI_SHELL_Y,false)==KUI_SHELL_NONE && s.update_channel==KUI_UPDATE_NIGHTLIES);
+    render(&frame);assert(strstr(drawn,"Browse the last 10") && strstr(drawn,"A List builds"));
+    assert(press(KUI_SHELL_A,false)==KUI_SHELL_UPDATE_RUN && s.update_request.op==KUI_SHELL_UPDATE_NIGHTLY_LIST &&
+        s.update_request.change_channel && s.update_request.channel==KUI_UPDATE_NIGHTLIES && !s.update_request.nightly.size);
+    assert(press(KUI_SHELL_A,true)==KUI_SHELL_NONE);
+    render(&frame);assert(strstr(drawn,"Checking published nightly builds"));
+    assert(press(KUI_SHELL_B,true)==KUI_SHELL_STOP && press(KUI_SHELL_B,true)==KUI_SHELL_NONE);
+    struct kui_shell_update_view response={.generation=s.update_generation,.stage=KUI_SHELL_UPDATE_RESULT,
+        .channel=KUI_UPDATE_NIGHTLIES,.keep_known=true,.keep=5u};
+    strcpy(response.directory,KUI_NIGHTLY_DIRECTORY);strcpy(response.running,"444444444444");
+    response.status.complete=response.status.stopped=true;
+    strcpy(response.status.message,"Nightly history check stopped.");
+    kui_shell_set_update(&s,&response);render(&frame);
+    assert(!s.update_loading && s.update.stage==KUI_SHELL_UPDATE_NIGHTLIES && strstr(drawn,"A Retry"));
+    assert(press(KUI_SHELL_A,false)==KUI_SHELL_UPDATE_RUN && s.update_request.op==KUI_SHELL_UPDATE_NIGHTLY_LIST);
+    response.stage=KUI_SHELL_UPDATE_NIGHTLIES;response.status.stopped=false;response.status.passed=true;
+    response.nightlies.count=10u;response.status.message[0]=0;
+    for(unsigned i=0;i<response.nightlies.count;i++) {
+        struct kui_update_choice *item=&response.nightlies.items[i];
+        memset(item->commit,'0'+i,12u);memset(item->commit+12,'1',28u);item->commit[40]=0;
+        memset(item->digest,'1',64u);item->digest[64]=0;item->size=1000+i;
+        snprintf(item->published,sizeof(item->published),"2026-11-%02uT12:34:56Z",20u-i);
+    }
+    kui_shell_set_update(&s,&response);assert(s.update_loading); /* stale cancelled generation */
+    response.generation=s.update_generation;kui_shell_set_update(&s,&response);render(&frame);
+    assert(!s.update_loading && strstr(drawn,"1-5 of 10") && strstr(drawn,"2026-11-20  12:34") &&
+        strstr(drawn,"000000000000") && strstr(drawn,"* Running GUI   444444444444") &&
+        strstr(drawn,"444444444444 *") && !strstr(drawn,"999999999999"));
+    assert(strstr(drawn,"GUI only (runtime.kui). Keeps game readers and themes.") &&
+        strstr(drawn,"A downloads 000000000000 for review before install."));
+    assert(press(KUI_SHELL_RIGHT,false)==KUI_SHELL_NONE && s.update_nightly_selected==5u);
+    assert(press(KUI_SHELL_DOWN,false)==KUI_SHELL_NONE && s.update_nightly_selected==6u);
+    render(&frame);assert(strstr(drawn,"6-10 of 10") && strstr(drawn,"999999999999") && !strstr(drawn,"000000000000"));
+    assert(press(KUI_SHELL_X,false)==KUI_SHELL_UPDATE_RUN && s.update_request.op==KUI_SHELL_UPDATE_NIGHTLY_LIST);
+    /* A newly published build shifts the rows. Refresh keeps the selected pin. */
+    memmove(response.nightlies.items+1,response.nightlies.items,9u*sizeof(response.nightlies.items[0]));
+    memset(response.nightlies.items[0].commit,'0',40u);response.generation=s.update_generation;
+    kui_shell_set_update(&s,&response);assert(s.update_nightly_selected==7u);
+    assert(press(KUI_SHELL_A,false)==KUI_SHELL_UPDATE_RUN && s.update_request.op==KUI_SHELL_UPDATE_NIGHTLY &&
+        !memcmp(&s.update_request.nightly,&response.nightlies.items[7],sizeof(s.update_request.nightly)));
+    render(&frame);assert(strstr(drawn,"Getting runtime.kui   666666666666   1 KiB"));
+    response.generation=s.update_generation;response.stage=KUI_SHELL_UPDATE_RESULT;
+    response.status.passed=false;response.status.errors=1;strcpy(response.status.message,"Could not connect.");
+    kui_shell_set_update(&s,&response);render(&frame);
+    assert(strstr(drawn,"Could not connect.") && strstr(drawn,"A Download") && s.update_nightly_selected==7u);
+    assert(press(KUI_SHELL_A,false)==KUI_SHELL_UPDATE_RUN && s.update_request.nightly.size==1006u);
+    response.generation=s.update_generation;response.stage=KUI_SHELL_UPDATE_REVIEW;
+    response.status.passed=true;response.status.errors=0;strcpy(response.status.message,"Package checked.");
+    response.ready=true;response.reviewed.token=71u;response.reviewed.op=KUI_SHELL_UPDATE_INSTALL;
+    strcpy(response.reviewed.path,KUI_NIGHTLY_DIRECTORY "/gui.kup");strcpy(response.reviewed.directory,KUI_NIGHTLY_DIRECTORY);
+    kui_shell_set_update(&s,&response);assert(s.update.ready && s.update_confirm_request.token==71u);
+    render(&frame);assert(strstr(drawn,"GUI only (runtime.kui). Keeps game readers and themes."));
+    assert(press(KUI_SHELL_B,false)==KUI_SHELL_NONE && s.update.stage==KUI_SHELL_UPDATE_NIGHTLIES &&
+        !s.update_confirm_request.token && !s.update.ready && s.update_nightly_selected==7u);
+    assert(press(KUI_SHELL_B,false)==KUI_SHELL_NONE && s.update_online);
+    assert(press(KUI_SHELL_B,false)==KUI_SHELL_UPDATE_RUN && s.update_request.op==KUI_SHELL_UPDATE_LIST &&
+        !strcmp(s.update_request.directory,"0:/KUI/updates/testing") && s.update_request.page==2u);
+    puts("PASS nightly picker: bounded latest-first pages, immutable choice, refresh, stale generation, cancel, retry and offline return");
+}
 static void update_folders_controls(void) {
     struct kui_shell_view view={0};
     reset(KUI_SHELL_SETTINGS);s.system_selected=12u;
@@ -2016,10 +2117,11 @@ static void update_folders_controls(void) {
     strcpy(list.rows[1].name,"release.kup");strcpy(list.rows[1].path,"0:/KUI/updates/release.kup");
     kui_shell_set_update(&s,&list);render(&view);assert(strstr(drawn,"Folder >"));
     open_nightly(5);
-    render(&view);assert(strstr(drawn,"Hardware test") && strstr(drawn,"Y Change"));
-    assert(press(KUI_SHELL_Y,false)==KUI_SHELL_NONE && s.update_use_official);
+    render(&view);assert(strstr(drawn,"Stable releases") && strstr(drawn,"Y Change"));
+    assert(press(KUI_SHELL_Y,false)==KUI_SHELL_NONE && s.update_channel==KUI_UPDATE_NIGHTLIES);
     render(&view);assert(strstr(drawn,"Official nightly"));
-    assert(press(KUI_SHELL_Y,false)==KUI_SHELL_NONE && !s.update_use_official);
+    assert(press(KUI_SHELL_Y,false)==KUI_SHELL_NONE && s.update_channel==KUI_UPDATE_HARDWARE);
+    render(&view);assert(strstr(drawn,"Hardware test"));
     assert(press(KUI_SHELL_LEFT,false)==KUI_SHELL_NONE && s.update_route==KUI_INTERNET_DREAMPI);
     struct kui_shell_view online_view={0};render(&online_view);
     assert(strstr(drawn,"Dial DreamPi") && strstr(drawn,"Downloads to keep") && s.update_keep==5);
@@ -2027,14 +2129,14 @@ static void update_folders_controls(void) {
     const unsigned limits[]={10,0,1,3,5,10};
     for(unsigned i=0;i<sizeof(limits)/sizeof(limits[0]);i++) {
         assert(press(KUI_SHELL_RIGHT,false)==KUI_SHELL_NONE && s.update_keep==limits[i]);
-        if(s.update_keep==0) {render(&online_view);assert(strstr(drawn,"Unlimited") && strstr(drawn,"Save limit"));}
+        if(s.update_keep==0) {render(&online_view);assert(strstr(drawn,"Unlimited") && strstr(drawn,"Save settings"));}
     }
     /* Back discards the choice without changing any existing preferences. */
     assert(press(KUI_SHELL_B,false)==KUI_SHELL_NONE && !s.update_online);
     open_nightly(5);
     assert(press(KUI_SHELL_A,false)==KUI_SHELL_UPDATE_RUN && !s.update_online &&
         s.update_request.op==KUI_SHELL_UPDATE_NIGHTLY && s.update_request.route==KUI_INTERNET_DREAMPI &&
-        s.update_request.test_feed && s.update_request.keep==5u && !s.update_request.change_keep);
+        !s.update_request.test_feed && s.update_request.channel==KUI_UPDATE_RELEASES && s.update_request.keep==5u && !s.update_request.change_keep);
     struct kui_shell_update_view online_result={.generation=s.update_generation,.stage=KUI_SHELL_UPDATE_RESULT};
     strcpy(online_result.directory,s.update_request.directory);online_result.status.complete=true;
     kui_shell_set_update(&s,&online_result);
@@ -7168,6 +7270,7 @@ int main(int argc,char **argv) {
     if(argc==2 && !strcmp(argv[1],"--smash-native"))return 0;
     update_controls();
     update_folders_controls();
+    update_nightly_picker_controls();
     if(argc==2 && !strcmp(argv[1],"--updates"))return 0;
     games_inline_layout_controls();
     games_flow_controls();

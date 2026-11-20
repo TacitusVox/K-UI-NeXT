@@ -3,6 +3,7 @@
 #include "kui/update.h"
 #include "ff.h"
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 
 #ifndef KUI_UPDATE_REVIEW_FEED
@@ -12,8 +13,10 @@
 #error "KUI_UPDATE_REVIEW_FEED must be 0 or 1"
 #endif
 #define REVIEW_BASE "https://raw.githubusercontent.com/TacitusVox/K-UI-NeXT/refs/heads/codex/themes-wince-bba-ftp/evidence/themes-bba/"
-#define MANIFEST_URL "https://raw.githubusercontent.com/TacitusVox/K-UI-NeXT/nightly-channel/nightly.txt"
-#define RELEASE_BASE "https://github.com/TacitusVox/K-UI-NeXT/releases/download/nightly-"
+#define RAW_BASE "https://raw.githubusercontent.com/TacitusVox/K-UI-NeXT/"
+#define NIGHTLY_BASE RAW_BASE "nightly-channel/"
+#define STABLE_BASE RAW_BASE "release-channel/"
+#define ASSET_BASE "https://github.com/TacitusVox/K-UI-NeXT/releases/download/"
 
 bool kui_update_test_feed_available(void) {
     return KUI_UPDATE_REVIEW_FEED != 0;
@@ -21,9 +24,9 @@ bool kui_update_test_feed_available(void) {
 
 #define FILE_LIMIT (KUI_UPDATE_MAX_PAYLOAD + KUI_UPDATE_RECEIPT_MAX)
 
-struct manifest_buffer {
-    char data[160];
-    size_t used;
+struct feed_buffer {
+    char *data;
+    size_t cap, used;
 };
 
 struct job {
@@ -39,8 +42,8 @@ static void message(struct job *job, const char *text) {
 }
 
 static bool collect(void *context, const void *data, size_t bytes) {
-    struct manifest_buffer *buffer = context;
-    if(bytes > sizeof(buffer->data) - buffer->used) return false;
+    struct feed_buffer *buffer = context;
+    if(bytes > buffer->cap - buffer->used) return false;
     memcpy(buffer->data + buffer->used, data, bytes);
     buffer->used += bytes;
     return true;
@@ -54,27 +57,218 @@ static bool hex_field(const char *text, unsigned size) {
     return true;
 }
 
-/* Exact wire format: magic, Git object ID, decimal byte length, and SHA-256.
- * The authenticated manifest supplies no URL or local filesystem components. */
-static bool parse_manifest(const struct manifest_buffer *buffer, struct kui_nightly_asset *asset) {
-    static const char magic[] = "KUI-NIGHTLY-1\n";
-    const size_t fixed = sizeof(magic)-1 + 41 + 1 + 65;
-    if(buffer->used <= fixed || buffer->used > fixed + 9) return false;
-    const char *commit = buffer->data + sizeof(magic)-1;
-    const char *number = commit + 41;
-    const char *digest = buffer->data + buffer->used - 65;
-    if(memcmp(buffer->data, magic, sizeof(magic)-1) || commit[40] != '\n' ||
-       !hex_field(commit, 40) || *number == '0' || digest[-1] != '\n' ||
-       !hex_field(digest, 64) || digest[64] != '\n') return false;
-    uint32_t size = 0;
-    for(const char *p = number; p < digest-1; ++p) {
-        if(*p < '0' || *p > '9') return false;
-        size = size * 10u + (unsigned)(*p - '0');
+/* All strings come from the selected channel over HTTPS. Treat malformed or
+ * stale data as unavailable and never take a host or local path from the feed. */
+struct lines { char *next; };
+
+static char *next_line(struct lines *lines) {
+    char *start = lines->next;
+    char *end = strchr(start, '\n');
+    if(!end) return NULL;
+    *end = 0;
+    lines->next = end + 1;
+    return start;
+}
+
+static bool decimal(const char *s, uint32_t limit, uint32_t *out) {
+    if(!s || !*s || (s[0] == '0' && s[1])) return false;
+    uint32_t n = 0;
+    while(*s) {
+        unsigned digit = (unsigned char)*s++ - (unsigned)'0';
+        if(digit > 9 || digit > limit || n > (limit - digit) / 10) return false;
+        n = n * 10 + digit;
     }
-    if(size < KUI_UPDATE_HEADER_BYTES || size > FILE_LIMIT) return false;
-    asset->size = size;
-    memcpy(asset->commit, commit, 40); asset->commit[40] = 0;
-    memcpy(asset->digest, digest, 64); asset->digest[64] = 0;
+    *out = n;
+    return true;
+}
+
+static bool stable_tag(const char *s) {
+    if(!s || *s++ != 'v') return false;
+    for(unsigned component = 0; component < 3; component++) {
+        const char *start = s;
+        uint32_t value = 0;
+        while(*s >= '0' && *s <= '9') {
+            unsigned d = (unsigned)(*s++ - '0');
+            if(value > (UINT32_MAX-d)/10) return false;
+            value = value*10+d;
+        }
+        if(start == s || (*start=='0' && s-start>1)) return false;
+        if(component < 2 && *s++ != '.') return false;
+    }
+    return !*s;
+}
+
+static bool asset_name(const char *s) {
+    if(!s) return false;
+    size_t size = strlen(s);
+    if(size < 5 || size > 63 || strstr(s, "..") || strcmp(s + size-4, ".kup")) return false;
+    for(size_t i=0; i<size; ++i) {
+        char c=s[i];
+        if((c>='a' && c<='z') || (c>='A' && c<='Z') || (c>='0' && c<='9')) continue;
+        if(!i || (c!='.' && c!='-' && c!='_')) return false;
+    }
+    return true;
+}
+
+static bool parse_manifest(struct feed_buffer *buffer, bool stable, struct kui_nightly_asset *asset,
+                           char *release_url, size_t url_size) {
+    if(memchr(buffer->data, 0, buffer->used)) return false;
+    buffer->data[buffer->used] = 0;
+    struct lines lines = {buffer->data};
+    const char *magic=next_line(&lines), *commit=next_line(&lines), *number=next_line(&lines), *digest=next_line(&lines);
+    if(!magic || strcmp(magic, stable ? "KUI-RELEASE-1" : "KUI-NIGHTLY-1") ||
+       !commit || strlen(commit)!=40 || !hex_field(commit,40) || !digest || strlen(digest)!=64 ||
+       !hex_field(digest,64) || !decimal(number, FILE_LIMIT, &asset->size) || asset->size<KUI_UPDATE_HEADER_BYTES)
+        return false;
+    int n;
+    if(stable) {
+        const char *tag=next_line(&lines), *name=next_line(&lines);
+        if(!stable_tag(tag) || !asset_name(name)) return false;
+        n=snprintf(release_url,url_size,ASSET_BASE "%s/%s",tag,name);
+    } else n=snprintf(release_url,url_size,ASSET_BASE "nightly-%s/K-UI.kup",commit);
+    if(*lines.next || n<0 || (size_t)n>=url_size) return false;
+    memcpy(asset->commit,commit,41);
+    memcpy(asset->digest,digest,65);
+    asset->release=stable;
+    return true;
+}
+
+/* The origin publishes fixed-width UTC timestamps, so lexical order is UTC
+ * order without a clock or timezone database on the console. */
+static bool publication_time(const char *date) {
+    static const char shape[]="0000-00-00T00:00:00Z";
+    if(strlen(date)!=sizeof(shape)-1) return false;
+    for(unsigned i=0;i<sizeof(shape)-1;i++) {
+        if(shape[i]=='0') {
+            if(date[i]<'0' || date[i]>'9') return false;
+        } else if(date[i]!=shape[i]) return false;
+    }
+    return true;
+}
+
+static bool parse_choices(struct feed_buffer *buffer, struct kui_update_choices *out) {
+    if(memchr(buffer->data,0,buffer->used)) return false;
+    buffer->data[buffer->used]=0;
+    struct lines lines={buffer->data};
+    char *magic=next_line(&lines);
+    uint32_t count;
+    if(!magic || strcmp(magic,"KUI-NIGHTLIES-1") || !decimal(next_line(&lines),KUI_UPDATE_NIGHTLY_LIMIT,&count) || !count)
+        return false;
+    for(unsigned i=0;i<count;i++) {
+        char *commit=next_line(&lines);
+        if(!commit) return false;
+        char *bytes=strchr(commit,' ');
+        if(!bytes) return false;
+        *bytes++=0;
+        char *digest=strchr(bytes,' ');
+        if(!digest) return false;
+        *digest++=0;
+        char *date=strchr(digest,' ');
+        if(!date) return false;
+        *date++=0;
+        struct kui_update_choice *c=&out->items[i];
+        if(strlen(commit)!=40 || !hex_field(commit,40) || strlen(digest)!=64 || !hex_field(digest,64) ||
+           !decimal(bytes,FILE_LIMIT,&c->size) || c->size<KUI_UPDATE_HEADER_BYTES ||
+           !publication_time(date) || (i && strcmp(date,out->items[i-1].published)>0)) return false;
+        for(unsigned j=0;j<i;j++) if(!strcmp(commit,out->items[j].commit)) return false;
+        memcpy(c->commit,commit,sizeof(c->commit));
+        memcpy(c->digest,digest,sizeof(c->digest));
+        memcpy(c->published,date,sizeof(c->published));
+    }
+    if(*lines.next) return false;
+    out->count=count;
+    return true;
+}
+
+const struct kui_update_choice *kui_update_choice_find(const struct kui_update_choices *list,
+        const struct kui_update_choice *candidate) {
+    if(!list || !candidate || list->count>KUI_UPDATE_NIGHTLY_LIMIT) return NULL;
+    for(unsigned i=0;i<list->count;i++) {
+        const struct kui_update_choice *prior=&list->items[i];
+        if(prior->size==candidate->size && !memcmp(prior->commit,candidate->commit,sizeof(prior->commit)) &&
+           !memcmp(prior->digest,candidate->digest,sizeof(prior->digest)) &&
+           !memcmp(prior->published,candidate->published,sizeof(prior->published))) return prior;
+    }
+    return NULL;
+}
+
+bool kui_update_nightly_list(enum kui_internet_route route, struct kui_update_choices *choices,
+        struct kui_app_status *status, kui_log_fn log, kui_cancel_fn cancel, kui_app_progress_fn progress) {
+    if(!choices || !status) return false;
+    memset(choices,0,sizeof(*choices));
+    memset(status,0,sizeof(*status));
+    struct job job={.status=status,.progress=progress,.cancel=cancel};
+    char problem[128]={0};
+    message(&job,"Checking available GitHub nightlies");
+    struct kui_internet *session=kui_internet_open(route,log,cancel,problem);
+    char *data=NULL;
+    bool ok=false;
+    if(!session) {
+        message(&job,problem[0]?problem:"Cannot open network connection");
+    } else if(!(data=malloc(1441))) {
+        message(&job,"Not enough memory for the nightly list");
+    } else {
+        struct feed_buffer buf={data,1440,0};
+        enum kui_http_result result=kui_internet_get(session,NIGHTLY_BASE "nightlies.txt",buf.cap,collect,&buf,NULL,NULL);
+        if(result==KUI_HTTP_MISSING) {
+            /* Legacy publishers have only one official, immutable nightly. A
+             * malformed/unavailable index must not silently change selection. */
+            buf.used=0;
+            result=kui_internet_get(session,NIGHTLY_BASE "nightly.txt",buf.cap,collect,&buf,NULL,NULL);
+            if(result==KUI_HTTP_OK) {
+                struct kui_nightly_asset asset;
+                char url[sizeof(ASSET_BASE)+64];
+                if(parse_manifest(&buf,false,&asset,url,sizeof(url))) {
+                    struct kui_update_choice *choice=&choices->items[0];
+                    memcpy(choice->commit,asset.commit,sizeof(choice->commit));
+                    memcpy(choice->digest,asset.digest,sizeof(choice->digest));
+                    choice->size=asset.size;
+                    choices->count=1;
+                }
+            }
+        } else if(result==KUI_HTTP_OK) parse_choices(&buf,choices);
+        ok=choices->count || result==KUI_HTTP_MISSING;
+        message(&job,choices->count?"Select a nightly to check.":result==KUI_HTTP_MISSING?
+            "No nightly builds published yet.":result==KUI_HTTP_OK?"Invalid nightly list from GitHub.":kui_internet_problem(session));
+    }
+    if(session) kui_internet_close(session);
+    free(data);
+    status->stopped=cancel && cancel();
+    status->passed=ok && !status->stopped;
+    status->complete=true;
+    status->errors=!ok && !status->stopped;
+    if(!status->passed) memset(choices,0,sizeof(*choices));
+    if(status->stopped) message(&job,"Nightly list stopped");
+    if(progress) progress(status);
+    return status->passed;
+}
+
+static bool parse_news(struct feed_buffer *buffer, const struct kui_nightly_asset *asset, const char *running,
+                       struct kui_update_online_info *out) {
+    if(memchr(buffer->data,0,buffer->used)) return false;
+    buffer->data[buffer->used]=0;
+    struct lines lines={buffer->data};
+    const char *magic=next_line(&lines), *commit=next_line(&lines), *digest=next_line(&lines);
+    uint32_t count;
+    if(!magic || strcmp(magic,"KUI-UPDATE-INFO-1") || !commit || strcmp(commit,asset->commit) ||
+       !digest || strcmp(digest,asset->digest) || !decimal(next_line(&lines),64,&count)) return false;
+    struct kui_update_online_info parsed={0};
+    bool comparable=running && strlen(running)==12 && hex_field(running,12) && strncmp(commit,running,12);
+    for(unsigned i=0;i<count;i++) {
+        const char *ancestor=next_line(&lines);
+        if(!ancestor || strlen(ancestor)!=12 || !hex_field(ancestor,12)) return false;
+        if(comparable && !strcmp(ancestor,running)) parsed.newer=true;
+    }
+    if(!decimal(next_line(&lines),4,&count)) return false;
+    for(unsigned i=0;i<count;i++) {
+        const char *note=next_line(&lines);
+        if(!note || !*note || strlen(note)>76) return false;
+        for(const char *p=note;*p;p++) if((unsigned char)*p<32 || (unsigned char)*p>126) return false;
+        strcpy(parsed.notes[i],note);
+    }
+    if(*lines.next) return false;
+    parsed.note_count=count;
+    *out=parsed;
     return true;
 }
 
@@ -88,7 +282,7 @@ static bool ensure_directory(const char *path) {
 static void verified_bytes(void *context, uint32_t bytes) {
     struct job *job = context;
     job->status->done = bytes;
-    if(!bytes) message(job, "Verifying nightly on storage");
+    if(!bytes) message(job, "Verifying update on storage");
     else if(job->progress) job->progress(job->status);
 }
 
@@ -123,22 +317,22 @@ static bool download(struct kui_internet *session, const struct kui_nightly_asse
                      const char *part, const char *url, struct job *job) {
     FIL file;
     if(f_open(&file, part, FA_READ | FA_WRITE | FA_OPEN_ALWAYS) != FR_OK) {
-        message(job, "Cannot open nightly download on storage");
+        message(job, "Cannot open update download on storage");
         return false;
     }
     FSIZE_t length = f_size(&file);
     bool ok = f_lseek(&file, length <= asset->size ? length : 0) == FR_OK;
     if(ok && length > asset->size) ok = f_truncate(&file) == FR_OK;
-    if(!ok) message(job, "Cannot prepare partial nightly on storage");
+    if(!ok) message(job, "Cannot prepare partial update on storage");
     while(ok && f_tell(&file) < asset->size) {
         job->offset = (uint32_t)f_tell(&file);
         if(!check_room(asset->size - job->offset)) {
-            message(job, "Cannot confirm enough free space for nightly");
+            message(job, "Cannot confirm enough free space for update");
             ok = false;
             break;
         }
         job->status->done = job->offset;
-        message(job, job->offset ? "Resuming nightly download" : "Downloading nightly");
+        message(job, job->offset ? "Resuming update download" : "Downloading update");
         enum kui_http_result r = kui_internet_get_remainder(session, url, job->offset, asset->size,
             write_file, &file, received, job);
         if(r == KUI_HTTP_RANGE_IGNORED && job->offset) {
@@ -150,61 +344,86 @@ static bool download(struct kui_internet *session, const struct kui_nightly_asse
         if(!ok) {
             const char *problem = kui_internet_problem(session);
             message(job, r == KUI_HTTP_STOPPED ? "Download stopped. Partial retained." :
-                *problem ? problem : "Nightly download incomplete. Retry to resume.");
+                *problem ? problem : "Update download incomplete. Retry to resume.");
         }
         break;
     }
     if(f_close(&file) != FR_OK) {
-        message(job, "Could not finish writing partial nightly to storage");
+        message(job, "Could not finish writing partial update to storage");
         return false;
     }
     return ok;
 }
 
-bool kui_update_nightly_download(enum kui_internet_route route, bool test_feed, const char *running_build, unsigned keep,
-        char path[KUI_UPDATE_BROWSER_PATH_BYTES], struct kui_app_status *status,
+bool kui_update_online_download(enum kui_internet_route route, enum kui_update_channel channel,
+        const struct kui_update_choice *choice, const char *running_build, bool running_official_nightly, unsigned keep,
+        char path[KUI_UPDATE_BROWSER_PATH_BYTES], struct kui_update_online_info *info, struct kui_app_status *status,
         kui_log_fn log, kui_cancel_fn cancel, kui_app_progress_fn progress) {
     if(!path || !status) return false;
     *path = 0;
+    if(info) memset(info, 0, sizeof(*info));
+    bool stable = channel==KUI_UPDATE_RELEASES, test_feed=channel==KUI_UPDATE_HARDWARE;
     memset(status, 0, sizeof(*status));
     struct job job = { .status = status, .progress = progress, .cancel = cancel };
     bool ok = false, tracked = true, published = false;
     char problem[128] = "";
     struct kui_internet *session = NULL;
-    if(!kui_update_keep_valid(keep)) {
-        message(&job, "Invalid nightly retention setting");
+    if((unsigned)channel>KUI_UPDATE_HARDWARE || !kui_update_keep_valid(keep)) {
+        message(&job, "Invalid update source or retention setting");
         goto done;
     }
     if(test_feed && !kui_update_test_feed_available()) {
         message(&job, "Hardware test feed unavailable in this build");
         goto done;
     }
-    const char *manifest_url = test_feed ? REVIEW_BASE "nightly.txt" : MANIFEST_URL;
-    message(&job, "Connecting to GitHub for nightly update");
+    const char *manifest_url = test_feed ? REVIEW_BASE "nightly.txt" : stable ? STABLE_BASE "release.txt" : NIGHTLY_BASE "nightly.txt";
+    message(&job, "Checking the selected GitHub update channel");
     session = kui_internet_open(route, log, cancel, problem);
     if(!session) {
         message(&job, problem[0] ? problem : "Cannot open network connection");
         goto done;
     }
-    struct manifest_buffer buffer = {0};
+    char manifest[272];
+    struct feed_buffer buffer = {manifest,sizeof(manifest)-1,0};
+    char release_url[sizeof(ASSET_BASE)+104];
     struct kui_nightly_asset asset;
-    enum kui_http_result r = kui_internet_get(session, manifest_url, sizeof(buffer.data),
-        collect, &buffer, NULL, NULL);
-    if(r != KUI_HTTP_OK) {
-        message(&job, r == KUI_HTTP_MISSING ? "No nightly channel published yet" : kui_internet_problem(session));
-        goto done;
+    enum kui_http_result r;
+    if(choice) {
+        if(channel!=KUI_UPDATE_NIGHTLIES || choice->commit[40] || !hex_field(choice->commit,40) ||
+           choice->digest[64] || !hex_field(choice->digest,64) ||
+           choice->size<KUI_UPDATE_HEADER_BYTES || choice->size>FILE_LIMIT) {
+            message(&job,"Invalid selected nightly");
+            goto done;
+        }
+        memcpy(asset.commit,choice->commit,sizeof(asset.commit));
+        memcpy(asset.digest,choice->digest,sizeof(asset.digest));
+        asset.size=choice->size;
+        asset.release=false;
+        snprintf(release_url,sizeof(release_url),ASSET_BASE "nightly-%s/K-UI.kup",asset.commit);
+    } else {
+        r = kui_internet_get(session, manifest_url, buffer.cap,
+            collect, &buffer, NULL, NULL);
+        if(r != KUI_HTTP_OK) {
+            if(stable && r==KUI_HTTP_MISSING) {
+                ok=true;
+                message(&job,"No compatible stable update published yet.");
+                goto done;
+            }
+            message(&job, r == KUI_HTTP_MISSING ? "No nightly channel published yet" : kui_internet_problem(session));
+            goto done;
+        }
+        if(!parse_manifest(&buffer, stable, &asset, release_url, sizeof(release_url))) {
+            message(&job, "GitHub returned an invalid update manifest");
+            goto done;
+        }
     }
-    if(!parse_manifest(&buffer, &asset)) {
-        message(&job, "GitHub returned an invalid nightly manifest");
-        goto done;
-    }
-    if(running_build && strlen(running_build) == 12 && !memcmp(running_build, asset.commit, 12)) {
+    if(!choice && channel == KUI_UPDATE_NIGHTLIES && running_official_nightly && running_build && strlen(running_build) == 12 && !memcmp(running_build, asset.commit, 12)) {
         ok = true;
         goto trim;
     }
     if(!ensure_directory("0:/KUI") || !ensure_directory(KUI_UPDATE_BROWSER_ROOT) ||
        !ensure_directory(KUI_NIGHTLY_DIRECTORY) || !ensure_directory(KUI_NIGHTLY_STATE)) {
-        message(&job, "Cannot create nightly download folders on storage");
+        message(&job, "Cannot create update download folders on storage");
         goto done;
     }
     status->total = asset.size;
@@ -212,32 +431,30 @@ bool kui_update_nightly_download(enum kui_internet_route route, bool test_feed, 
         asset.commit, (unsigned long)asset.size);
     status->line_count = 1;
     char final[KUI_UPDATE_BROWSER_PATH_BYTES];
-    snprintf(final, sizeof(final), KUI_NIGHTLY_PACKAGE, asset.commit);
+    snprintf(final, sizeof(final), stable ? KUI_RELEASE_PACKAGE : KUI_NIGHTLY_PACKAGE, asset.commit);
     enum kui_nightly_verify existing = kui_nightly_verify_file(final, &asset, cancel, verified_bytes, &job);
     if(existing == KUI_NIGHTLY_MISMATCH) {
-        message(&job, "A different file occupies the nightly path. Move it before retrying.");
+        message(&job, "A different file occupies the update path. Move it before retrying.");
         goto done;
     }
     if(existing == KUI_NIGHTLY_MISSING) {
         if(!kui_nightly_prepare_partial(&asset)) {
-            message(&job, "Cannot prepare the nightly resume slot on storage");
+            message(&job, "Cannot prepare the update resume slot on storage");
             goto done;
         }
-        char release_url[sizeof(RELEASE_BASE) + 60];
-        snprintf(release_url, sizeof(release_url), RELEASE_BASE "%s/K-UI.kup", asset.commit);
         const char *url = test_feed ? REVIEW_BASE "K-UI.kup" : release_url;
         if(!download(session, &asset, KUI_NIGHTLY_PART, url, &job)) goto done;
         enum kui_nightly_verify checked = kui_nightly_verify_file(KUI_NIGHTLY_PART, &asset, cancel, verified_bytes, &job);
         if(checked != KUI_NIGHTLY_VERIFIED) {
             if(checked == KUI_NIGHTLY_MISMATCH) {
-                if(f_unlink(KUI_NIGHTLY_PART) == FR_OK) message(&job, "Nightly SHA-256 or size mismatch. Retry to download again.");
-                else message(&job, "Nightly failed verification. Cannot remove damaged partial file.");
-            } else message(&job, "Could not verify nightly on storage");
+                if(f_unlink(KUI_NIGHTLY_PART) == FR_OK) message(&job, "Update SHA-256 or size mismatch. Retry to download again.");
+                else message(&job, "Update failed verification. Cannot remove damaged partial file.");
+            } else message(&job, "Could not verify update on storage");
             goto done;
         }
         if(cancel && cancel()) goto done;
         if(f_rename(KUI_NIGHTLY_PART, final) != FR_OK) {
-            message(&job, "Cannot publish verified nightly on storage");
+            message(&job, "Cannot publish verified update on storage");
             goto done;
         }
         published = true;
@@ -245,31 +462,51 @@ bool kui_update_nightly_download(enum kui_internet_route route, bool test_feed, 
          * Never pre-claim a destination that publication might fail to fill. */
         tracked = kui_nightly_record_download(&asset, cancel);
     } else if(existing != KUI_NIGHTLY_VERIFIED) {
-        message(&job, "Cannot verify existing nightly package");
+        message(&job, "Cannot verify existing update package");
         goto done;
     }
     ok = true;
     strcpy(path, final);
+    if(info && !test_feed) {
+        /* Optional on old feeds. Never attach notes from another publication. */
+        char *news=malloc(1351);
+        if(news) {
+            struct feed_buffer detail={news,1350,0};
+            char history_url[sizeof(NIGHTLY_BASE)+70];
+            const char *news_url=stable ? STABLE_BASE "update-info.txt" : NIGHTLY_BASE "update-info.txt";
+            if(choice && choice->published[0]) {
+                snprintf(history_url,sizeof(history_url),NIGHTLY_BASE "history/%s/update-info.txt",asset.commit);
+                news_url=history_url;
+            }
+            r=kui_internet_get(session,news_url,
+                               detail.cap,collect,&detail,NULL,NULL);
+            if(r==KUI_HTTP_OK) parse_news(&detail,&asset,running_build,info);
+            free(news);
+            if(r==KUI_HTTP_STOPPED || (cancel && cancel())) { ok=false; *path=0; goto done; }
+        }
+        memcpy(info->source_build,asset.commit,12);
+        info->source_build[12]=0;
+    }
 trim:
     kui_internet_close(session);
     session = NULL;
     bool wrote = false;
-    bool clean = !tracked || kui_nightly_trim_report(keep, asset.commit, cancel, &wrote);
+    bool clean = !tracked || kui_online_trim_report(keep, asset.commit, stable, cancel, &wrote);
     /* A successful rename, receipt write or prune can disturb sectors verified
      * earlier. Reopen the public path after all writes before offering it. */
     if(*path && (published || wrote) &&
        kui_nightly_verify_file(path, &asset, cancel, verified_bytes, &job) != KUI_NIGHTLY_VERIFIED) {
         *path = 0;
         ok = false;
-        message(&job, "Final nightly on storage failed verification. Check the card before retrying.");
+        message(&job, "Final update on storage failed verification. Check the card before retrying.");
     } else if(!clean) {
-        message(&job, *path ? "Nightly ready. Download cleanup incomplete. Retry the check." :
-            "Already running the nightly. Download cleanup incomplete. Retry the check.");
+        message(&job, *path ? "Update ready. Download cleanup incomplete. Retry the check." :
+            "Already running this nightly GUI. Download cleanup incomplete. Retry the check.");
     } else if(!*path) {
-        message(&job, "Already running the GitHub nightly build");
+        message(&job, "Already running this GitHub nightly GUI");
     } else {
-        message(&job, tracked ? "Verified nightly ready for review" :
-            "Verified nightly ready. Could not record it for automatic cleanup.");
+        message(&job, tracked ? (stable ? "Verified stable release ready for review" : "Verified nightly ready for review") :
+            "Verified update ready. Could not record it for automatic cleanup.");
     }
     if(cancel && cancel()) {
         ok = false;
@@ -281,8 +518,15 @@ done:
     status->passed = ok;
     status->stopped = !ok && cancel && cancel();
     status->errors = !ok && !status->stopped;
-    if(status->stopped) snprintf(status->message, sizeof(status->message), "Nightly update stopped");
+    if(status->stopped) snprintf(status->message, sizeof(status->message), "Online update stopped");
     if(progress) progress(status);
-    if(log) log("GitHub nightly: %s", status->message);
+    if(log) log("GitHub update: %s", status->message);
     return ok;
+}
+
+bool kui_update_nightly_download(enum kui_internet_route route, bool test_feed, const char *running_build, unsigned keep,
+        char path[KUI_UPDATE_BROWSER_PATH_BYTES], struct kui_app_status *status,
+        kui_log_fn log, kui_cancel_fn cancel, kui_app_progress_fn progress) {
+    return kui_update_online_download(route, test_feed ? KUI_UPDATE_HARDWARE : KUI_UPDATE_NIGHTLIES,
+        NULL,running_build,true,keep,path,NULL,status,log,cancel,progress);
 }

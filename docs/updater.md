@@ -6,6 +6,42 @@ Settings -> Updates, then Restart K-UI. Folder browsing and a ZIP containing
 exactly one .kup are supported. The producer validates the exact output with
 its current C consumer before delivery; users should not edit manifests.
 
+## Updating an older installation
+
+**Check which GUI is running.** Stock K-UI 2.0.0 “Tyrfing” from the
+[v2.0.0 release](https://github.com/TacitusVox/K-UI-NeXT/releases/tag/v2.0.0)
+has GUI build `533e2906255d`. Its Network app can update Wi-Fi firmware. It
+predates the K-UI software updater. Several later GUIs also display “2.0.0”,
+so the build ID and the presence of **Settings → Updates** matter.
+
+| Starting installation | How to upgrade |
+| --- | --- |
+| Stock independent K-UI 2.0.0 or an older independent GUI without a compatible updater | Use a newer **complete SD installation** when one is published. Power off, back up the card, then merge the supplied `KUI` folder as directed in that release. Keep the compatible independent bootstrap CD. |
+| Independent installation with an obsolete updater and an official manual repair for that installation | Merge the repair's entire `KUI` folder, including the matching `boot.kui`, `runtime.kui` and both supplied activation files. Power up and check the GUI build. A GUI-only repair adds the updater; install a **complete** software release to obtain the matching readers and helpers. |
+| Independent installation already running the current updater | Install a compatible KUP through **Settings → Updates**, then choose **Restart K-UI** to start the verified selection. |
+| DreamShell-based K-UI 1.x | Use the independent K-UI bootstrap CDI and the matching complete SD installation. Follow the release's installation guide. |
+
+The original Tyrfing release ZIP installs Tyrfing. The first public GUI nightly,
+`cb6f5cf63285`, contains one member, `runtime.kui`. Installing that nightly
+replaces the GUI and inherits the effective game readers and helpers already
+on the card. For example, stock Tyrfing lacks `apps/games/ce-boot.kui`,
+which newer GUIs use for the generic WinCE route. A one-file update cannot
+supply that reader. Copying a KUP into an updates folder requires a compatible
+GUI to open it. Use the [release assets](https://github.com/TacitusVox/K-UI-NeXT/releases)
+to distinguish a complete SD installation or complete software KUP from a
+GUI-only nightly. A ZIP containing a single KUP is also an updater package.
+
+A **complete software KUP** supplies the publisher's whole managed software
+set, including its declared GUI, readers, helpers and assets. An obsolete
+managed module omitted from a complete package becomes unavailable in the
+selected version. Games, saves, settings and personal themes stay on the card.
+The installation verifies the files in a separate directory and selects that
+version for **Restart K-UI**. On the GUI nightly above, powering the console
+off and on starts the physical SD installation. The independent bootstrap CD
+tries `KUI/boot.kui` first during automatic startup, then `KUI/runtime.kui`.
+Selecting **Start K-UI** directly uses `KUI/runtime.kui`. Use the complete
+matching manual SD distribution to update the physical installation too.
+
 ## Confirmed failures and revision3
 
 Engine2 incorrectly classified every flat apps/*.bin file as immutable code.

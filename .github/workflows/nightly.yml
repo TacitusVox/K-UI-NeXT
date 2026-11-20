@@ -20,6 +20,7 @@ jobs:
     timeout-minutes: 120
     outputs:
       built: ${{ steps.select.outputs.build }}
+      migrate: ${{ steps.select.outputs.migrate }}
       artifact: ${{ steps.upload.outputs.artifact-id }}
       channel: ${{ steps.select.outputs.channel }}
       inputs: ${{ steps.select.outputs.inputs }}
@@ -54,6 +55,7 @@ jobs:
           python3 tests/test_update_nightly_images.py
           python3 tests/test_internet_http.py
           python3 tests/test_nightly.py
+          python3 tests/test_update_channels.py
           source .deps/kos/environ.sh
           make -j2 -f Makefile.dc build/kui-runtime.elf BUILD_ID="${GITHUB_SHA:0:12}" \
             KUI_SMASH_LAUNCH_TIMING=1 KUI_GITHUB_NIGHTLY=1 KUI_UPDATE_REVIEW_FEED=0
@@ -69,14 +71,18 @@ jobs:
           retention-days: 3
   publish:
     needs: build
-    if: needs.build.outputs.built == 'true'
+    if: needs.build.outputs.built == 'true' || needs.build.outputs.migrate == 'true'
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     permissions:
       contents: write
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
-      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          fetch-depth: 0
+          filter: blob:none
+      - if: needs.build.outputs.built == 'true'
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
         with:
           artifact-ids: ${{ needs.build.outputs.artifact }}
           merge-multiple: true
@@ -88,4 +94,8 @@ jobs:
           NIGHTLY_INPUTS: ${{ needs.build.outputs.inputs }}
         run: |
           python3 tools/fetch_deps.py --fatfs-only
-          python3 tools/nightly.py publish "$RUNNER_TEMP/asset/K-UI.kup"
+          if [[ "${{ needs.build.outputs.migrate }}" == "true" ]]; then
+            python3 tools/nightly.py migrate
+          else
+            python3 tools/nightly.py publish "$RUNNER_TEMP/asset/K-UI.kup"
+          fi

@@ -16,6 +16,8 @@ from unittest import mock
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "tools"))
 import nightly
+import nightly_history as history
+from channel_feed import write_feed
 import update_package
 
 
@@ -64,12 +66,14 @@ class NightlyTests(unittest.TestCase):
         nightly.make_update(stage, package, channel="testing")
         return package
 
-    def test_first_publish_doc_only_and_missed_nights(self):
+    @mock.patch("nightly_history.publication", return_value="2026-11-20T03:33:31Z")
+    def test_first_publish_doc_only_and_missed_nights(self, checked_release):
         selected = self.selection()
         self.assertEqual(selected["build"], "true")
-        nightly.advance_channel("", selected["inputs"], "first", self.revision)
+        first_body = nightly.manifest(self.asset(), self.revision)
+        nightly.advance_channel("", selected["inputs"], first_body, self.revision)
         first = nightly.remote_ref(nightly.CHANNEL)
-        self.assertEqual(self.git("show", first + ":nightly.txt"), "first")
+        self.assertEqual(self.git("show", first + ":nightly.txt"), first_body.strip())
         self.assertEqual(self.selection()["build"], "false")
         self.commit("docs/notes.md", "manual")
         self.commit("src/loader/standalone.c", "reader only")
@@ -79,11 +83,128 @@ class NightlyTests(unittest.TestCase):
         self.assertEqual(self.selection()["build"], "true")
         # The selector is still at the prior successful build until publication.
         self.assertEqual(nightly.remote_ref(nightly.CHANNEL), first)
-        nightly.advance_channel(first, self.selection()["inputs"], "second", self.revision)
+        second_body = first_body.replace(first_body.splitlines()[1], self.revision)
+        nightly.advance_channel(first, self.selection()["inputs"], second_body, self.revision)
         self.assertEqual(self.selection()["build"], "false")
         with self.assertRaises(subprocess.CalledProcessError):
-            nightly.advance_channel(first, selected["inputs"], "stale", self.revision)
-        self.assertEqual(self.git("show", nightly.remote_ref(nightly.CHANNEL) + ":nightly.txt"), "second")
+            nightly.advance_channel(first, selected["inputs"], second_body, self.revision)
+        self.assertEqual(self.git("show", nightly.remote_ref(nightly.CHANNEL) + ":nightly.txt"), second_body.strip())
+
+    def test_picker_ten_newest_first_and_exact_closure(self):
+        dates = {}
+
+        def published(entry, check, *, check_bytes):
+            return dates.get(entry.commit)
+
+        stages = []
+        with mock.patch.object(history, "publication", side_effect=published):
+            for day in range(1, 13):
+                self.commit("src/apps/menu.c", f"menu {day}")
+                dates[self.revision] = f"2026-11-{day:02d}T03:33:31Z"
+                entry = history.Entry(self.revision, "500", hashlib.sha256(str(day).encode()).hexdigest())
+                nightly.advance_channel(nightly.remote_ref(nightly.CHANNEL), nightly.fingerprint(),
+                                        entry.manifest, self.revision)
+                stages.append(entry)
+            ref = nightly.remote_ref(nightly.CHANNEL)
+            rows = history.parse_index(history.contents(ref, "nightlies.txt"))
+            self.assertEqual([row for row, _ in rows], stages[:-11:-1])
+            self.assertEqual(history.contents(ref, "nightly.txt"), stages[-1].manifest)
+            for entry, timestamp in rows:
+                prefix = "history/" + entry.commit + "/"
+                self.assertEqual(history.contents(ref, prefix + "nightly.txt"), entry.manifest)
+                info = history.contents(ref, prefix + "update-info.txt")
+                self.assertEqual(info.splitlines()[1:3], [entry.commit, entry.digest])
+                self.assertIn("/releases/tag/nightly-" + entry.commit + ")", history.contents(ref, "README.md"))
+                self.assertEqual(dates[entry.commit], timestamp)
+            nightly.advance_channel(ref, nightly.fingerprint(), stages[-1].manifest, self.revision)
+            self.assertEqual(nightly.remote_ref(nightly.CHANNEL), ref)
+            modified = history.Entry(self.revision, "510", stages[-1].digest)
+            with self.assertRaisesRegex(ValueError, "bytes changed"):
+                nightly.advance_channel(ref, nightly.fingerprint(), modified.manifest, self.revision)
+            self.assertEqual(nightly.remote_ref(nightly.CHANNEL), ref)
+
+    def test_backfill_verified_promotions_skips_unavailable_preserves_latest(self):
+        dates = {}
+        adopted = []
+
+        def published(entry, check, *, check_bytes):
+            self.assertTrue(check_bytes)
+            adopted.append(entry.commit)
+            return dates.get(entry.commit)
+
+        parent = ""
+        entries = []
+        for day in range(1, 4):
+            self.commit("src/apps/menu.c", f"menu {day}")
+            entry = history.Entry(self.revision, "400", hashlib.sha256(bytes(day)).hexdigest())
+            inputs = nightly.fingerprint()
+            write_feed(nightly.CHANNEL, parent,
+                       {"nightly.txt": entry.manifest, "inputs.sha256": inputs + "\n"}, self.revision)
+            parent = nightly.remote_ref(nightly.CHANNEL)
+            entries.append(entry)
+            if day != 2:
+                dates[self.revision] = f"2026-11-{day:02d}T03:33:31Z"
+        self.assertEqual(self.selection()["build"], "false")
+        self.assertEqual(self.selection()["migrate"], "true")
+        with mock.patch.dict(os.environ, NIGHTLY_CHANNEL_BASE=parent, NIGHTLY_INPUTS=inputs), \
+                mock.patch.object(history, "publication", side_effect=published):
+            nightly.migrate()
+        head = nightly.remote_ref(nightly.CHANNEL)
+        self.assertNotEqual(parent, head)
+        self.assertEqual(history.contents(head, "nightly.txt"), entries[-1].manifest)
+        self.assertEqual([r for r, _ in history.parse_index(history.contents(head, "nightlies.txt"))],
+                         [entries[2], entries[0]])
+        self.assertEqual(set(adopted), {entry.commit for entry in entries})
+        self.assertEqual(self.selection()["migrate"], "false")
+        self.assertEqual(self.selection()["build"], "false")
+
+    def test_legacy_asset_is_downloaded_and_verified_against_original_receipt(self):
+        package = self.asset()
+        entry = history.Entry.from_manifest(nightly.manifest(package, self.revision))
+        tag = "nightly-" + entry.commit
+        asset = dict(name=nightly.ASSET, state="uploaded", size=int(entry.size), digest="sha256:" + entry.digest)
+        release = dict(tag_name=tag, prerelease=True, draft=False, target_commitish=entry.commit,
+                       published_at="2026-11-20T03:33:31Z", body="SHA-256: " + entry.digest, assets=[asset])
+        original_run = subprocess.run
+        transfers = []
+
+        def gh(args, **kwargs):
+            if args[0] != "gh":
+                return original_run(args, **kwargs)
+            if args[1] == "api":
+                return subprocess.CompletedProcess(args, 0, json.dumps(release), "")
+            self.assertEqual(args[:4], ["gh", "release", "download", tag])
+            shutil.copyfile(package, Path(args[-1]) / nightly.ASSET)
+            transfers.append(tag)
+            return subprocess.CompletedProcess(args, 0)
+
+        with mock.patch.object(history, "remote_ref", return_value=entry.commit), \
+                mock.patch.object(history.subprocess, "run", side_effect=gh):
+            self.assertEqual(history.publication(entry, nightly.manifest, check_bytes=True), release["published_at"])
+            self.assertEqual(transfers, [tag])
+            self.assertEqual(history.publication(entry, nightly.manifest, check_bytes=False), release["published_at"])
+            self.assertEqual(transfers, [tag])
+            asset["digest"] = "sha256:" + "0" * 64
+            self.assertIsNone(history.publication(entry, nightly.manifest, check_bytes=True))
+            asset["digest"] = None
+            package.write_bytes(package.read_bytes()[:-1])
+            self.assertIsNone(history.publication(entry, nightly.manifest, check_bytes=True))
+            release["draft"] = True
+            self.assertIsNone(history.publication(entry, nightly.manifest, check_bytes=False))
+
+    def test_picker_index_rejects_malformed_duplicate_unordered_dates(self):
+        a = history.Entry("a"*40, "600", "0"*64)
+        b = history.Entry("b"*40, "700", "1"*64)
+        def row(entry, stamp):
+            return f"{entry.commit} {entry.size} {entry.digest} {stamp}\n"
+        x = row(a, "2026-11-20T00:00:02Z")
+        y = row(b, "2026-11-20T00:00:01Z")
+        for text in ("KUI-NIGHTLIES-1\n1\n" + x.rstrip(), "KUI-NIGHTLIES-1\n2\n" + x + x,
+                     "KUI-NIGHTLIES-1\n2\n" + y + x, "KUI-NIGHTLIES-1\n1\n" + x.replace("-20T", "-32T"),
+                     "KUI-NIGHTLIES-1\n11\n" + x*11, "KUI-NIGHTLIES-1\n1\n" + x.replace(" 600 ", " 0600 ")):
+            with self.subTest(text=text), self.assertRaises(ValueError):
+                history.parse_index(text)
+        self.assertEqual(len(history.parse_index("KUI-NIGHTLIES-1\n2\n" + x + y)), 2)
 
     def test_stale_workflow_commit_is_skipped(self):
         old = self.revision

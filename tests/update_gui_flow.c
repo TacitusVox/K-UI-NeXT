@@ -73,7 +73,10 @@ bool kui_games_storage_release(void) {CHECK(mounted);mounted=false;return f_moun
 #define DOWNLOADED KUI_NIGHTLY_DIRECTORY "/nightly-" SOURCE_ID ".kup"
 static FILE *origin;
 static uint32_t origin_size;
-static char origin_manifest[160];
+#define RAW "https://raw.githubusercontent.com/TacitusVox/K-UI-NeXT/"
+#define ASSETS "https://github.com/TacitusVox/K-UI-NeXT/releases/download/"
+static char origin_manifest[256], origin_asset_url[164];
+static const char *origin_feed_url, *origin_info_url;
 struct kui_internet {bool connected;};
 static struct kui_internet session;
 
@@ -92,13 +95,16 @@ const char *kui_internet_problem(const struct kui_internet *connection) {
 enum kui_http_result kui_internet_get(struct kui_internet *connection,const char *url,uint32_t limit,
     kui_http_write_fn write,void *ctx,kui_http_progress_fn progress,void *progress_ctx) {
     (void)progress;(void)progress_ctx;
-    CHECK(connection==&session && session.connected && !strcmp(url,FEED "nightly.txt"));
+    CHECK(connection==&session && session.connected);
+    if(!strcmp(url,RAW "nightly-channel/nightlies.txt")) return KUI_HTTP_MISSING;
+    if(origin_info_url && !strcmp(url,origin_info_url)) return KUI_HTTP_MISSING;
+    CHECK(!strcmp(url,origin_feed_url));
     size_t length=strlen(origin_manifest);
     CHECK(length<=limit && write(ctx,origin_manifest,length));return KUI_HTTP_OK;
 }
 enum kui_http_result kui_internet_get_remainder(struct kui_internet *connection,const char *url,uint32_t start,
     uint32_t size,kui_http_write_fn write,void *ctx,kui_http_progress_fn progress,void *progress_ctx) {
-    CHECK(connection==&session && session.connected && !strcmp(url,FEED "K-UI.kup"));
+    CHECK(connection==&session && session.connected && !strcmp(url,origin_asset_url));
     CHECK(size==origin_size && start<size && !fseek(origin,(long)start,SEEK_SET));
     uint8_t block[8192];
     for(uint32_t at=start;at<size;) {
@@ -180,11 +186,7 @@ static struct kui_shell_update_view install_review(const struct kui_shell_update
     struct kui_shell_update_view view;update_work(&input,&view);view_ok(&view);
     CHECK(view.restart_required && view.selected[0]);return view;
 }
-static struct kui_shell_update_view fetch_review(const char *package_path) {
-    struct kui_shell_update_request input=request(KUI_SHELL_UPDATE_OPTIONS,NULL);
-    struct kui_shell_update_view view;
-    update_work(&input,&view);view_ok(&view);
-    CHECK(view.keep_known && view.keep==KUI_UPDATE_KEEP_DEFAULT && view.test_feed_available);
+static void set_origin(const char *package_path,enum kui_update_channel channel,const char *commit) {
     origin=fopen(package_path,"rb");CHECK(origin);
     struct kui_sha256 sha;kui_sha256_init(&sha);uint8_t buffer[8192],digest[32];char hex[65];
     size_t length;origin_size=0;
@@ -194,7 +196,60 @@ static struct kui_shell_update_view fetch_review(const char *package_path) {
     }
     CHECK(!ferror(origin) && origin_size);
     kui_sha256_digest(&sha,digest);kui_hex(digest,sizeof(digest),hex);
-    snprintf(origin_manifest,sizeof(origin_manifest),"KUI-NIGHTLY-1\n%s\n%u\n%s\n",SOURCE_ID,origin_size,hex);
+    bool stable=channel==KUI_UPDATE_RELEASES, test=channel==KUI_UPDATE_HARDWARE;
+    origin_feed_url=stable?RAW "release-channel/release.txt":test?FEED "nightly.txt":RAW "nightly-channel/nightly.txt";
+    origin_info_url=test?NULL:stable?RAW "release-channel/update-info.txt":RAW "nightly-channel/update-info.txt";
+    if(stable)strcpy(origin_asset_url,ASSETS "v2.1.0/K-UI-update.kup");
+    else if(test)strcpy(origin_asset_url,FEED "K-UI.kup");
+    else snprintf(origin_asset_url,sizeof(origin_asset_url),ASSETS "nightly-%s/K-UI.kup",commit);
+    snprintf(origin_manifest,sizeof(origin_manifest),"%s\n%s\n%u\n%s\n%s",stable?"KUI-RELEASE-1":"KUI-NIGHTLY-1",
+        commit,origin_size,hex,stable?"v2.1.0\nK-UI-update.kup\n":"");
+}
+
+static void official_channels(const char *full,const char *partial) {
+    struct kui_shell_update_request check=request(KUI_SHELL_UPDATE_NIGHTLY,NULL);
+    strcpy(check.directory,KUI_NIGHTLY_DIRECTORY);check.keep=5;check.route=KUI_INTERNET_BBA;
+    const char *source=KUI_BUILD_ID "0000000000000000000000000000";
+    struct kui_shell_update_view view;
+    set_origin(full,KUI_UPDATE_RELEASES,source);
+    update_work(&check,&view);view_ok(&view);
+    CHECK(view.ready && view.reviewed.token && (view.reviewed.package.flags&KUI_UPDATE_FULL));
+    CHECK(!strcmp(view.gui_build,KUI_BUILD_ID) && view.replacement_count>1);
+    CHECK(!fclose(origin));origin=NULL;
+
+    /* A matching file hash alone cannot authorize the wrong payload scope or
+     * GUI identity. Each origin below returns a real, structurally valid KUP. */
+    const struct {const char *file, *commit;enum kui_update_channel channel;} rejected[]={
+        {full,source,KUI_UPDATE_NIGHTLIES}, {partial,SOURCE_ID,KUI_UPDATE_RELEASES},
+        {full,"3333333333333333333333333333333333333333",KUI_UPDATE_RELEASES}
+    };
+    for(size_t i=0;i<sizeof(rejected)/sizeof(rejected[0]);i++) {
+        check.channel=rejected[i].channel;check.change_channel=true;
+        set_origin(rejected[i].file,check.channel,rejected[i].commit);
+        if(check.channel==KUI_UPDATE_NIGHTLIES) {
+            check.op=KUI_SHELL_UPDATE_NIGHTLY_LIST;
+            update_work(&check,&view);view_ok(&view);
+            CHECK(view.stage==KUI_SHELL_UPDATE_NIGHTLIES && view.nightlies.count==1);
+            check.nightly=view.nightlies.items[0];
+            check.nightly.digest[0]^=1;
+            check.op=KUI_SHELL_UPDATE_NIGHTLY;
+            update_work(&check,&view);
+            CHECK(view.status.complete && !view.status.passed && !view.ready && strstr(view.status.message,"selection changed"));
+            check.nightly.digest[0]^=1;
+        }
+        update_work(&check,&view);
+        CHECK(view.status.complete && !view.status.passed && !view.ready && !view.reviewed.token &&
+              strstr(view.status.message,"official channel"));
+        CHECK(!fclose(origin));origin=NULL;
+    }
+}
+
+static struct kui_shell_update_view fetch_review(const char *package_path) {
+    struct kui_shell_update_request input=request(KUI_SHELL_UPDATE_OPTIONS,NULL);
+    struct kui_shell_update_view view;
+    update_work(&input,&view);view_ok(&view);
+    CHECK(view.keep_known && view.keep==KUI_UPDATE_KEEP_DEFAULT && view.test_feed_available);
+    set_origin(package_path,KUI_UPDATE_HARDWARE,SOURCE_ID);
     input=request(KUI_SHELL_UPDATE_NIGHTLY,NULL);input.route=KUI_INTERNET_BBA;
     input.test_feed=true;input.keep=KUI_UPDATE_KEEP_DEFAULT;strcpy(input.directory,KUI_NIGHTLY_DIRECTORY);
     update_work(&input,&view);view_ok(&view);CHECK(!session.connected && !fclose(origin));origin=NULL;
@@ -381,6 +436,7 @@ int main(int argc,char **argv) {
     mount_volume();struct kui_update_activation changed={.sequence=17u};activation_write(0u,&changed);release_volume();
     input=review.reviewed;input.generation=++generation;before=writes;update_work(&input,&view);
     CHECK(view.status.complete && !view.status.passed && !view.ready && strstr(view.status.message,"review changed") && writes==before);
+    official_channels(argv[4],argv[5]);
     mount_volume();corrupt_selection();release_volume();review=fetch_review(argv[4]);view=install_review(&review);
     CHECK(strcmp(view.selected,review.reviewed.package.build));char full_bank[13];strcpy(full_bank,view.selected);
     mount_volume();CHECK(!strcmp(activation().selected,view.selected));release_volume();

@@ -131,6 +131,17 @@ static enum kui_update_result install(const char *path,const struct kui_update_p
     struct kui_app_status status;active=true;enum kui_update_result r=kui_update_install(path,pin,&status,logger,cancel,NULL);active=false;
     CHECK(status.complete && status.passed==(r==KUI_UPDATE_OK));return r;
 }
+static struct kui_update_changes changes;
+static void review(const struct fixture *fixture,bool selected) {
+    uint64_t needed,available;bool already=false;active=true;
+    CHECK(kui_update_plan_review_details(&fixture->package,NULL,&already,&needed,&available,cancel,&changes)==KUI_UPDATE_OK);
+    active=false;CHECK(already==selected && changes.known && !writes && !syncs);
+}
+static bool changed(enum kui_update_change_kind kind,const char *path) {
+    for(unsigned i=0;i<changes.count;i++)
+        if(changes.rows[i].kind==kind && !strcmp(changes.rows[i].path,path))return true;
+    return false;
+}
 static void bank_equal(const char *bank,const char *relative,const void *expected,size_t bytes) {
     char path[160];CHECK(kui_update_bank_path(bank,relative,path,sizeof(path)));equal(path,expected,bytes);
 }
@@ -421,6 +432,30 @@ int main(int argc,char **argv) {
     file_write(KUI_RUNTIME_PATH,root_old,64u+BODY);clear_faults();CHECK(install(FULL,&full_pin)==KUI_UPDATE_ENGINE && !writes);
     file_write(KUI_RUNTIME_PATH,root,64u+BODY);
     uint8_t *saved=malloc(disk_bytes);CHECK(saved);memcpy(saved,disk,disk_bytes);
+    /* A FULL delivery can hide owned files omitted by both manifests. Review
+     * actual physical bytes, including nested assets, without touching saves. */
+    file_write("0:/KUI/assets/TEST/sub/Deep/EXTRA.bin",raw,sizeof(raw));
+    file_write("0:/KUI/apps/games/session.bin",user,sizeof(user));
+    file_write("0:/KUI/apps/games/test-helper.bin",raw,sizeof(raw));
+    clear_faults();review(&full,false);
+    CHECK(changes.count==7u && changes.added==3u && changes.replaced==1u && changes.removed==3u && changes.unchanged==1u);
+    CHECK(changed(KUI_UPDATE_CHANGE_REPLACE,"runtime.kui") && changed(KUI_UPDATE_CHANGE_ADD,"apps/games/cdda.kui"));
+    CHECK(changed(KUI_UPDATE_CHANGE_REMOVE,"apps/disc/retired.kui") && changed(KUI_UPDATE_CHANGE_REMOVE,"apps/games/root.kui"));
+    CHECK(changed(KUI_UPDATE_CHANGE_REMOVE,"assets/test/sub/deep/extra.bin"));
+    /* Equal lengths cannot hide modified bytes. An unreadable preimage also
+     * must not prevent a verified FULL repair. */
+    raw[0]^=1u;file_write("0:/KUI/apps/games/test-helper.bin",raw,sizeof(raw));raw[0]^=1u;
+    clear_faults();review(&full,false);
+    CHECK(changes.replaced==2u && changed(KUI_UPDATE_CHANGE_REPLACE,"apps/games/test-helper.bin"));
+    strcpy(read_failure,"0:/KUI/apps/games/test-helper.bin");uint64_t review_needed,review_free;bool reviewed=false;active=true;
+    CHECK(kui_update_plan_review_details(&full.package,NULL,&reviewed,&review_needed,&review_free,cancel,&changes)==KUI_UPDATE_OK);
+    CHECK(!changes.known && !changes.count && !writes && !syncs);active=false;reset(saved);
+    for(unsigned i=0;i<KUI_UPDATE_CHANGE_ROWS;i++) {
+        char path[80];snprintf(path,sizeof(path),"0:/KUI/assets/many/file%04u.bin",i);file_write(path,"",0u);
+    }
+    clear_faults();review(&full,false);
+    CHECK(changes.count==KUI_UPDATE_CHANGE_ROWS && changes.removed==KUI_UPDATE_CHANGE_ROWS+2u && changes.added==4u);
+    reset(saved);
     /* The first reader-only delivery also works with no prior bank: materialize
      * the capable root GUI, retain omitted root roles, and preserve absence. */
     clear_faults();CHECK(install(READER,&delta_pin)==KUI_UPDATE_OK);struct kui_update_activation first=latest();verify(first.selected);
@@ -433,6 +468,11 @@ int main(int argc,char **argv) {
     clear_faults();CHECK(install(FULL,&full_pin)==KUI_UPDATE_OK);
     struct kui_update_activation a=latest();char full_bank[13];memcpy(full_bank,a.selected,13u);
     CHECK(strcmp(full_bank,full.package.build) && strcmp(full_bank,"222222222222") && strcmp(full_bank,root_mode_bank));verify(full_bank);
+    clear_faults();review(&full,true);CHECK(!changes.count && changes.unchanged==full.package.count);
+    review(&delta,false);CHECK(changes.count==1u && changes.unchanged==1u && changed(KUI_UPDATE_CHANGE_REPLACE,"apps/games/cdda.kui"));
+    review(&config,false);CHECK(changes.count==2u && changed(KUI_UPDATE_CHANGE_REPLACE,"runtime.kui") &&
+        changed(KUI_UPDATE_CHANGE_REMOVE,"apps/games/test-helper.bin"));
+    review(&repair,false);CHECK(changes.count==5u && changes.removed==4u && changed(KUI_UPDATE_CHANGE_REMOVE,"apps/music/player.kui"));
     fallback_mode(full_bank,true);
     bank_equal(full_bank,"apps/games/cdda.kui",game,64u+BODY);bank_absent(full_bank,"apps/disc/retired.kui");
     memcpy(saved,disk,disk_bytes);
@@ -509,6 +549,9 @@ int main(int argc,char **argv) {
     reset(saved);CHECK(kui_update_bank_receipt_read(full_bank,&package,cancel)==KUI_UPDATE_OK);
     CHECK(kui_update_select("",NULL,&status,logger,cancel,NULL)==KUI_UPDATE_OK);clear_faults();
     effective_mode=1;memcpy(effective_bank,full_bank,13u);memcpy(effective_hash,package.manifest_sha256,32u);
+    review(&delta,false);
+    CHECK(changes.replaced==1u && changes.added==4u && changes.removed==2u &&
+        changed(KUI_UPDATE_CHANGE_REMOVE,"apps/games/root.kui") && changed(KUI_UPDATE_CHANGE_ADD,"apps/music/player.kui"));
     CHECK(install(READER,&delta_pin)==KUI_UPDATE_OK);CHECK(!strcmp(latest().selected,delta_bank) && !latest().previous[0]);
     bank_equal(delta_bank,"runtime.kui",gui,64u+BODY);bank_equal(delta_bank,"apps/music/player.kui",music,64u+BODY);fallback_mode(delta_bank,true);
     full_repair_cases(saved,&full,&full_pin,full_bank,root,root_module,user,sizeof(user),raw,sizeof(raw));

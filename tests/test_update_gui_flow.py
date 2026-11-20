@@ -88,7 +88,7 @@ def main():
                 if full:
                     (stage / "runtime.kui").write_bytes(current)
                 package = base / (name + ".kup")
-                report = make_update(stage, package, full=full)
+                report = make_update(stage, package, full=full, channel="stable" if full else "testing")
                 assert report["flags"] & update.REQUIRES_ENGINE3
                 packages.append(package)
         build = verify_runtime(current)["build"]

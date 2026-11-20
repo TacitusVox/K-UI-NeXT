@@ -14,8 +14,17 @@
 #define PART "0:/KUI/nightly-cache/download.part"
 #define REVIEW_BASE "https://raw.githubusercontent.com/TacitusVox/K-UI-NeXT/refs/heads/codex/themes-wince-bba-ftp/evidence/themes-bba/"
 #define EXPECT_MANIFEST "https://raw.githubusercontent.com/TacitusVox/K-UI-NeXT/nightly-channel/nightly.txt"
+#define STABLE_MANIFEST "https://raw.githubusercontent.com/TacitusVox/K-UI-NeXT/release-channel/release.txt"
+#define STABLE_INFO "https://raw.githubusercontent.com/TacitusVox/K-UI-NeXT/release-channel/update-info.txt"
+#define NIGHTLY_INDEX "https://raw.githubusercontent.com/TacitusVox/K-UI-NeXT/nightly-channel/nightlies.txt"
+#define HISTORY_BASE "https://raw.githubusercontent.com/TacitusVox/K-UI-NeXT/nightly-channel/history/"
+#define NIGHTLY_INFO "https://raw.githubusercontent.com/TacitusVox/K-UI-NeXT/nightly-channel/update-info.txt"
+#define STABLE_URL "https://github.com/TacitusVox/K-UI-NeXT/releases/download/v2.1.0/K-UI-v2.1.0-update.kup"
 #define RELEASE_BASE "https://github.com/TacitusVox/K-UI-NeXT/releases/download/nightly-"
-static bool test_feed;
+static bool test_feed, stable, manifest_missing, forbid_manifest;
+static char catalog[1600], history_url[200];
+static char sidecar[1450], hash_hex[65];
+static struct kui_update_online_info news;
 static FILE *image;
 static uint8_t package[204800];
 static char commit[41] = COMMIT, manifest[200], path[KUI_UPDATE_BROWSER_PATH_BYTES];
@@ -65,17 +74,32 @@ void kui_internet_close(struct kui_internet *s) {
 enum kui_http_result kui_internet_get(struct kui_internet *s, const char *url, uint32_t limit,
         kui_http_write_fn write, void *ctx, kui_http_progress_fn progress, void *progress_ctx) {
     (void)progress; (void)progress_ctx;
-    assert(s == &session && !strcmp(url, test_feed ? REVIEW_BASE "nightly.txt" : EXPECT_MANIFEST));
-    size_t n = strlen(manifest);
+    assert(s == &session);
+    const char *text;
+    if(!strcmp(url,NIGHTLY_INDEX)) {
+        assert(!test_feed && !stable);
+        if(!catalog[0]) return KUI_HTTP_MISSING;
+        text=catalog;
+    } else if(!strcmp(url, history_url[0]?history_url:stable ? STABLE_INFO : NIGHTLY_INFO)) {
+        assert(!test_feed);
+        if(!sidecar[0]) return KUI_HTTP_MISSING;
+        text = sidecar;
+    } else {
+        assert(!forbid_manifest);
+        assert(!strcmp(url, stable ? STABLE_MANIFEST : test_feed ? REVIEW_BASE "nightly.txt" : EXPECT_MANIFEST));
+        if(manifest_missing) return KUI_HTTP_MISSING;
+        text = manifest;
+    }
+    size_t n = strlen(text);
     if(n > limit) return KUI_HTTP_TOO_LARGE;
-    assert(write(ctx, manifest, n/2) && write(ctx, manifest + n/2, n - n/2));
+    assert(write(ctx, text, n/2) && write(ctx, text + n/2, n - n/2));
     return KUI_HTTP_OK;
 }
 enum kui_http_result kui_internet_get_remainder(struct kui_internet *s, const char *url, uint32_t start,
         uint32_t total, kui_http_write_fn write, void *ctx, kui_http_progress_fn progress, void *progress_ctx) {
     char expected[160];
     snprintf(expected, sizeof(expected), RELEASE_BASE "%s/K-UI.kup", commit);
-    assert(!strcmp(url, test_feed ? REVIEW_BASE "K-UI.kup" : expected));
+    assert(!strcmp(url, stable ? STABLE_URL : test_feed ? REVIEW_BASE "K-UI.kup" : expected));
     assert(s == &session);
     assert(total == sizeof(package));
     ++transfers;
@@ -102,12 +126,13 @@ static bool fetch(void) {
 static void set_manifest(void) {
     struct kui_sha256 sha;
     uint8_t digest[32];
-    char hex[65];
     kui_sha256_init(&sha);
     kui_sha256_update(&sha, package, sizeof(package));
     kui_sha256_digest(&sha, digest);
-    kui_hex(digest, 32, hex);
-    snprintf(manifest, sizeof(manifest), "KUI-NIGHTLY-1\n%s\n%u\n%s\n", commit, (unsigned)sizeof(package), hex);
+    kui_hex(digest, 32, hash_hex);
+    snprintf(manifest, sizeof(manifest), "%s\n%s\n%u\n%s\n%s",
+        stable ? "KUI-RELEASE-1" : "KUI-NIGHTLY-1", commit, (unsigned)sizeof(package), hash_hex,
+        stable ? "v2.1.0\nK-UI-v2.1.0-update.kup\n" : "");
 }
 static void verify_cached(void) {
     char expected[KUI_UPDATE_BROWSER_PATH_BYTES];
@@ -292,6 +317,8 @@ static void test_retention(FATFS *fs) {
     char current[13];
     memcpy(current, commit, 12);
     current[12] = 0;
+    bool saved_test_feed = test_feed;
+    test_feed = false;
     running = current;
     keep = 1;
     assert(fetch() && !path[0] && transfers == before);
@@ -299,6 +326,7 @@ static void test_retention(FATFS *fs) {
     expect_build(14, false);
     expect_build(15, true);
     running = NULL;
+    test_feed = saved_test_feed;
 
     /* Changing Settings must be able to prune offline without checking the
      * feed, dialing the modem or pinning an arbitrary package. */
@@ -343,6 +371,132 @@ static void test_retention(FATFS *fs) {
     expect_build(23, true);
     expect_bytes(collision, "keep", 4, 4);
     expect_build(9, true);
+}
+
+static bool fetch_official(const char *build) {
+    stopped = false;
+    bool ok = kui_update_online_download(selected_route, stable ? KUI_UPDATE_RELEASES : KUI_UPDATE_NIGHTLIES,
+        NULL, build, true, keep, path, &news, &status, NULL, cancel, report);
+    assert(status.complete && ok == status.passed && (ok || !path[0]) && opens == closes);
+    return ok;
+}
+
+static void news_text(const char *source, const char *digest, const char *suffix) {
+    snprintf(sidecar, sizeof(sidecar), "KUI-UPDATE-INFO-1\n%s\n%s\n%s", source, digest, suffix);
+}
+
+static void test_online_channels(void) {
+    struct { const char *tag, *name; } invalid[] = {
+        {"v2.0.0-beta", "K-UI.kup"}, {"nightly", "K-UI.kup"}, {"v02.0.0", "K-UI.kup"},
+        {"v4294967296.0.0", "K-UI.kup"}, {"v2.1.0", "../other.kup"}, {"v2.1.0", "test?x.kup"}
+    };
+    bool prior_feed = test_feed;
+    test_feed = false;
+    stable = true;
+    keep = 0;
+    choose_build(29);
+    unsigned before = transfers;
+    manifest_missing = true;
+    assert(fetch_official(NULL) && !path[0] && strstr(status.message, "No compatible stable") && transfers == before);
+    manifest_missing = false;
+    for(unsigned i = 0; i < sizeof(invalid)/sizeof(invalid[0]); ++i) {
+        snprintf(manifest, sizeof(manifest), "KUI-RELEASE-1\n%s\n%u\n%s\n%s\n%s\n",
+                 commit, (unsigned)sizeof(package), hash_hex, invalid[i].tag, invalid[i].name);
+        assert(!fetch_official(NULL) && transfers == before);
+    }
+    set_manifest();
+    memcpy(manifest, "KUI-NIGHTLY-1", 13);
+    assert(!fetch_official(NULL) && transfers == before);
+    set_manifest();
+    char current[13];
+    memcpy(current, commit, 12); current[12] = 0;
+    const char *valid_news = "1\n111111111111\n2\nImproved menu loading\nUpdated controller help\n";
+    news_text(commit, hash_hex, valid_news);
+    assert(fetch_official(current) && path[0] && !news.newer && news.note_count == 2 && transfers == before+1);
+    char stable_path[sizeof(path)];
+    snprintf(stable_path, sizeof(stable_path), KUI_RELEASE_PACKAGE, commit);
+    assert(!strcmp(path, stable_path) && !strcmp(news.source_build, current));
+    assert(fetch_official("111111111111") && news.newer && !strcmp(news.notes[1], "Updated controller help"));
+    assert(fetch_official("222222222222") && !news.newer && news.note_count == 2);
+    assert(fetch_official(NULL) && !news.newer && news.note_count == 2);
+    news_text(COMMIT, hash_hex, valid_news);
+    assert(fetch_official("111111111111") && !news.newer && !news.note_count);
+    news_text(commit, "invalid", valid_news);
+    assert(fetch_official("111111111111") && !news.newer && !news.note_count);
+    const char *malformed[] = {"65\n", "1\n111111111111\n1\nBad\tnote\n", "0\n5\n", "1\n111111111111\n0\nextra\n", "0\n0"};
+    for(unsigned i=0; i<sizeof(malformed)/sizeof(malformed[0]); ++i) {
+        news_text(commit, hash_hex, malformed[i]);
+        assert(fetch_official("111111111111") && !news.newer && !news.note_count);
+    }
+    memset(sidecar, 'x', sizeof(sidecar)-1); sidecar[sizeof(sidecar)-1]=0;
+    assert(fetch_official("111111111111") && !news.newer && !news.note_count);
+    sidecar[0]=0;
+    assert(fetch_official("111111111111") && !news.newer && !news.note_count && transfers == before+1);
+
+    /* A nightly with the identical commit can have different bytes. Keeping
+     * one protects the exact feed's cache entry and verifies both receipts. */
+    stable = false;
+    package[1] ^= 1;
+    set_manifest();
+    keep = 1;
+    news_text(commit, hash_hex, valid_news);
+    assert(fetch_official("111111111111") && news.newer && transfers == before+2);
+    verify_cached();
+    FILINFO file;
+    assert(f_stat(stable_path, &file) == FR_NO_FILE);
+    sidecar[0]=0; test_feed=prior_feed;
+}
+static void test_nightly_picker(void) {
+    bool old_feed=test_feed;
+    test_feed=false;
+    stable=false;
+    running=NULL;
+    keep=0;
+    choose_build(30);
+    unsigned before=transfers;
+    struct kui_update_choices choices;
+    assert(kui_update_nightly_list(selected_route,&choices,&status,NULL,cancel,report));
+    assert(choices.count==1 && !choices.items[0].published[0] && !strcmp(choices.items[0].commit,commit));
+    manifest_missing=true;
+    assert(kui_update_nightly_list(selected_route,&choices,&status,NULL,cancel,report) && !choices.count);
+    manifest_missing=false;
+    strcpy(catalog,"KUI-NIGHTLIES-1\n10\n");
+    for(unsigned i=0;i<10;i++) {
+        char id[41];build_id(39-i,id);
+        size_t offset=strlen(catalog);
+        snprintf(catalog+offset,sizeof(catalog)-offset,"%s %u %s 2026-12-%02uT08:00:00Z\n",
+                 id,(unsigned)sizeof(package),hash_hex,19-i);
+    }
+    forbid_manifest=true;
+    assert(kui_update_nightly_list(selected_route,&choices,&status,NULL,cancel,report) && choices.count==10);
+    assert(!strcmp(choices.items[0].published,"2026-12-19T08:00:00Z"));
+    struct kui_update_choice older=choices.items[9];
+    assert(!strcmp(older.published,"2026-12-10T08:00:00Z") && !strcmp(older.commit,commit));
+    assert(kui_update_choice_find(&choices,&older)==&choices.items[9]);
+    strcpy(manifest,"latest changed");
+    snprintf(history_url,sizeof(history_url),HISTORY_BASE "%s/update-info.txt",commit);
+    news_text(commit,hash_hex,"0\n1\nKnown old nightly\n");
+    char current[13];memcpy(current,commit,12);current[12]=0;
+    assert(kui_update_online_download(selected_route,KUI_UPDATE_NIGHTLIES,&older,current,true,keep,path,&news,
+                                     &status,NULL,cancel,report));
+    assert(transfers==before+1 && path[0] && !news.newer && news.note_count==1 && !strcmp(news.notes[0],"Known old nightly"));
+    verify_cached();
+    history_url[0]=sidecar[0]=0;
+    /* Explicit selection is a three-field immutable package pin; no drift to
+     * latest and no accepting a malformed index as a legacy publication. */
+    older.size++;
+    assert(!kui_update_choice_find(&choices,&older));older.size--;
+    older.digest[1]^=1;assert(!kui_update_choice_find(&choices,&older));older.digest[1]^=1;
+    char *last=strstr(catalog, "2026-12-10");assert(last);memcpy(last,"2026-12-20",10);
+    assert(!kui_update_nightly_list(selected_route,&choices,&status,NULL,cancel,report) && !choices.count);
+    memcpy(last,"2026-12-10",10);
+    char *base=strstr(catalog,"10\n")+3;char *second=strchr(base,'\n')+1;
+    memcpy(second,base,40);
+    assert(!kui_update_nightly_list(selected_route,&choices,&status,NULL,cancel,report) && !choices.count);
+    strcpy(catalog,"KUI-NIGHTLIES-1\n11\n");
+    assert(!kui_update_nightly_list(selected_route,&choices,&status,NULL,cancel,report));
+    assert(opens==closes && transfers==before+1);
+    catalog[0]=0;forbid_manifest=false;test_feed=old_feed;
 }
 
 static void test_unowned_partial(void) {
@@ -391,10 +545,12 @@ int main(int argc, char **argv) {
         assert(!fetch() && !opens);
         test_feed = false;
     }
+    test_feed = false; /* Only the official GUI feed may skip using its matching source ID. */
     running = "1234567890ab";
     assert(fetch() && !path[0] && !transfers && strstr(status.message, "Already running"));
     FILINFO uncreated;
     assert(f_stat("0:/KUI", &uncreated) == FR_NO_FILE);
+    test_feed = KUI_UPDATE_REVIEW_FEED != 0;
     running = "1234567890ax";
     manifest[20] = '/';
     assert(!fetch() && !transfers);
@@ -439,7 +595,9 @@ int main(int argc, char **argv) {
         assert(fetch());
         verify_cached();
     }
+    test_online_channels();
+    test_nightly_picker();
     test_unowned_partial();
     assert(f_mount(NULL, "0:", 0) == FR_OK && !fclose(image));
-    puts("PASS nightly manifest, interruption, resume, ignored Range, cache readback, collision preservation, digest refusal, download retention");
+    puts("PASS nightly manifest, interruption, resume, ignored Range, cache readback, collision preservation, digest refusal, stable isolation, verified ancestry and notes, ten-build pinned picker and legacy fallback, cross-channel retention");
 }

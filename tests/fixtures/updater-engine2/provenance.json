@@ -47,6 +47,10 @@
     "include/kui/media.h": {
       "bytes": 1610,
       "sha256": "db7218afda33082b51f13a6b815f5835a0e259c3624cf893e2137f7cbadc3c2f"
+    },
+    "include/kui/apps.h": {
+      "bytes": 7720,
+      "sha256": "bc11151b8d736a261052bc92476d06c17dcb2f0fa1752e5952a16a052e43ce4b"
     }
   },
   "shared_current_files": {
@@ -93,10 +97,6 @@
     "include/kui/runtime.h": {
       "bytes": 1831,
       "sha256": "e520dd8ef950134327fc1a22ae6be07fea2b175f17577d011ff9a2e42cde5db4"
-    },
-    "include/kui/apps.h": {
-      "bytes": 7720,
-      "sha256": "bc11151b8d736a261052bc92476d06c17dcb2f0fa1752e5952a16a052e43ce4b"
     },
     "include/kui/probe.h": {
       "bytes": 499,

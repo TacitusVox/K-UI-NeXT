@@ -168,6 +168,21 @@ enum kui_update_result kui_update_plan_space(const struct kui_update_package *,
 enum kui_update_result kui_update_plan_review(const struct kui_update_package *,
     const struct kui_update_activation *expected,bool *already_selected,
     uint64_t *required,uint64_t *available,kui_cancel_fn);
+/* Changed logical software paths relative to the selected installation. Full
+ * snapshots can hide extra ROOT files. Counts remain exact if the row limit is
+ * reached; unchanged counts only inspected explicit entries. A damaged prior
+ * bank can still be repaired even when its old contents cannot be compared. */
+#define KUI_UPDATE_CHANGE_ROWS (2u*KUI_UPDATE_MAX_ENTRIES)
+enum kui_update_change_kind {KUI_UPDATE_CHANGE_ADD,KUI_UPDATE_CHANGE_REPLACE,KUI_UPDATE_CHANGE_REMOVE};
+struct kui_update_change {char path[KUI_UPDATE_PATH_BYTES];enum kui_update_change_kind kind;};
+struct kui_update_changes {
+    bool known;
+    unsigned added,replaced,removed,unchanged,count;
+    struct kui_update_change rows[KUI_UPDATE_CHANGE_ROWS];
+};
+enum kui_update_result kui_update_plan_review_details(const struct kui_update_package *,
+    const struct kui_update_activation *expected,bool *already_selected,
+    uint64_t *required,uint64_t *available,kui_cancel_fn,struct kui_update_changes *);
 /* select and rollback verify the entire target bank before publishing. Empty
  * build means the immutable root baseline, whose GUI header, payload CRC and
  * updater capability are freshly checked. NULL expected_manifest is allowed

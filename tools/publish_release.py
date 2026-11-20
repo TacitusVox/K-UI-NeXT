@@ -100,14 +100,26 @@ def verify_update_asset(package, installation):
                 "Release update must contain exact replacements for all staged software")
         current_consumer_check(package)
         with zipfile.ZipFile(installation) as archive:
-            software = {name[4:]: name for name in archive.namelist()
-                        if name.startswith("KUI/") and not name.endswith("/")}
+            software = {}
+            for entry in archive.infolist():
+                if entry.filename.startswith("KUI/") and not entry.is_dir():
+                    name = entry.filename[4:]
+                    require(name not in software, "Duplicate release software path: " + name)
+                    software[name] = entry
+            # The physical cold-boot alias is not a second managed GUI role.
+            alias = software.pop("boot.kui", None)
             require({row["path"] for row in report["members"]} == set(software),
                     "Release update software inventory differs from the installation ZIP")
             for row in report["members"]:
-                data = archive.read(software[row["path"]])
-                require(len(data) == row["bytes"] and hashlib.sha256(data).hexdigest() == row["sha256"],
-                        "Release update software differs from the installation ZIP: " + row["path"])
+                entries = [software[row["path"]]]
+                if row["path"] == "runtime.kui" and alias:
+                    entries.append(alias)
+                for entry in entries:
+                    require(entry.file_size == row["bytes"], "Release update software differs in length: " + entry.filename)
+                    with archive.open(entry) as stream:
+                        require(hashlib.file_digest(stream, "sha256").hexdigest() == row["sha256"],
+                                "Release update software differs from the installation ZIP: " + entry.filename)
+        return report
     except (OSError, ValueError, KeyError, zipfile.BadZipFile) as error:
         require(False, "Invalid release update: " + str(error))
 

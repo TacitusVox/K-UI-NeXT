@@ -30,6 +30,7 @@
 #include "kui/drive_controls.h"
 #include "kui/disc_cards.h"
 #include "kui/update.h"
+#include "kui/update_online.h"
 #include "kui/update_browser.h"
 #include "kui/theme.h"
 #include <stdbool.h>
@@ -48,13 +49,14 @@ enum {
 };
 #define KUI_THEME_PICKER_ROWS 8u
 #define KUI_SHELL_UPDATE_ROWS 8u
+#define KUI_SHELL_NIGHTLY_ROWS 5u
 #define KUI_SHELL_UPDATE_PATH_BYTES 192u
 enum kui_shell_update_op { KUI_SHELL_UPDATE_LIST, KUI_SHELL_UPDATE_CHECK,
     KUI_SHELL_UPDATE_INSTALL, KUI_SHELL_UPDATE_PREVIOUS, KUI_SHELL_UPDATE_BASELINE,
     KUI_SHELL_UPDATE_RESTORE, KUI_SHELL_UPDATE_NIGHTLY,
-    KUI_SHELL_UPDATE_SAVE_LIMIT, KUI_SHELL_UPDATE_OPTIONS };
+    KUI_SHELL_UPDATE_SAVE_LIMIT, KUI_SHELL_UPDATE_OPTIONS, KUI_SHELL_UPDATE_NIGHTLY_LIST };
 enum kui_shell_update_stage { KUI_SHELL_UPDATE_PACKAGES, KUI_SHELL_UPDATE_REVIEW,
-    KUI_SHELL_UPDATE_RESULT };
+    KUI_SHELL_UPDATE_RESULT, KUI_SHELL_UPDATE_NIGHTLIES };
 struct kui_shell_update_storage {
     unsigned transport;
     uint32_t partition_first,partition_blocks;
@@ -64,7 +66,9 @@ struct kui_shell_update_request {
     enum kui_shell_update_op op;
     enum kui_internet_route route;
     unsigned keep;
-    bool change_keep, test_feed;
+    bool change_keep, test_feed, change_channel;
+    enum kui_update_channel channel;
+    struct kui_update_choice nightly;
     unsigned generation,page;
     uint64_t token;
     char path[KUI_SHELL_UPDATE_PATH_BYTES],target[KUI_UPDATE_BUILD_BYTES];
@@ -88,11 +92,17 @@ struct kui_shell_update_view {
     char running[KUI_UPDATE_BUILD_BYTES],selected[KUI_UPDATE_BUILD_BYTES],previous[KUI_UPDATE_BUILD_BYTES];
     char gui_build[KUI_UPDATE_BUILD_BYTES];
     bool keep_known, test_feed_available;
+    enum kui_update_channel channel;
+    struct kui_update_online_info online_info;
+    struct kui_update_choices nightlies;
     unsigned keep;
     unsigned replacement_count,inherited_count,removed_count;
     uint64_t free_bytes,required_bytes;
     bool ready,restore,baseline,space_known,restart_required,selection_known;
     bool already_installed;
+    /* Immutable while this review is visible. The storage worker releases it
+     * when the next update operation starts. */
+    const struct kui_update_changes *changes;
 };
 /* A cover belongs to one published listing and selection. The worker must
  * echo this key; main publishes pixels only after the same key is accepted. */
@@ -301,7 +311,13 @@ struct kui_shell {
     char theme_notice[128];
     unsigned update_generation,update_selected;
     bool update_loading,update_stopping,update_restart,update_online;
-    bool update_test_feed_available, update_use_official;
+    bool update_details;
+    unsigned update_detail_page, update_nightly_selected;
+    struct kui_update_choices update_nightlies;
+    char update_online_directory[KUI_SHELL_UPDATE_PATH_BYTES];
+    unsigned update_online_page;
+    bool update_test_feed_available;
+    enum kui_update_channel update_channel, update_saved_channel;
     enum kui_internet_route update_route;
     unsigned update_online_row,update_keep,update_saved_keep;
     struct kui_shell_update_request update_request,update_confirm_request;
@@ -600,6 +616,9 @@ void kui_shell_set_vmu_wizard(struct kui_shell *,const struct kui_vmu_wizard_vie
 void kui_shell_set_game_vmu_cards(struct kui_shell *,unsigned generation,const struct kui_vmu_game_info *);
 void kui_shell_set_disc_vmu_cards(struct kui_shell *,unsigned generation,const struct kui_vmu_game_info *);
 void kui_shell_set_disc_cards(struct kui_shell *,const struct kui_disc_cards_view *);
+#define KUI_UPDATE_DETAIL_FILES_PER_PAGE 3u
+#define KUI_UPDATE_DETAIL_NOTES_PER_PAGE 2u
+unsigned kui_shell_update_detail_pages(const struct kui_shell_update_view *);
 void kui_shell_set_update(struct kui_shell *,const struct kui_shell_update_view *);
 void kui_shell_set_disc_region(struct kui_shell *,unsigned generation,bool enabled,bool ok,const char *notice);
 void kui_shell_vmu_tools_enter(struct kui_shell *);
