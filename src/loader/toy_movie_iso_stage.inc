@@ -148,6 +148,15 @@ static bool toy_suite_raw_track(void) {
 #define toy_own_source() true
 #endif
 
+#if defined(KUI_TOY_WIRE_SAVE) && KUI_TOY_WIRE_SAVE
+/* Test 83: once the title is a source for the window or is none, the stage
+ * looks for the survey's report file (toy_survey_stage.inc). The scan below
+ * is Test 81's, under another name. */
+static void toy_survey_prepare(void);
+static void toy_movie_scan_source(void);
+static void toy_movie_scan(void) {toy_movie_scan_source();toy_survey_prepare();}
+#define toy_movie_scan toy_movie_scan_source
+#endif
 static void toy_movie_scan(void) {
 #if defined(KUI_TOY_WIRE_TITLES) && KUI_TOY_WIRE_TITLES
     /* Test 79: another title is a source for the window by its raw track
@@ -202,3 +211,6 @@ static void toy_movie_scan(void) {
 #endif
     }
 }
+#if defined(KUI_TOY_WIRE_SAVE) && KUI_TOY_WIRE_SAVE
+#undef toy_movie_scan
+#endif

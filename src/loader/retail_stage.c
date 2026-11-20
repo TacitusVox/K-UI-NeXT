@@ -641,6 +641,9 @@ static void stopped(const char *message,uint32_t detail) {
     retail_display_line("POWER OFF AND ON TO RETURN");
 #if KUI_ARMADA_CE_VMU_WRITE_RUNTIME
     retail_display_line("PREPARED VMU MAY REQUIRE JOURNAL RECOVERY");
+#elif defined(KUI_TOY_WIRE_SAVE) && KUI_TOY_WIRE_SAVE
+    /* Test 83: the survey may have written its launch record by now. */
+    retail_display_line(toy_survey_wrote?"ONLY THE SURVEY FILE WAS WRITTEN":"STORAGE WAS READ ONLY");
 #else
     retail_display_line("STORAGE WAS READ ONLY");
 #endif

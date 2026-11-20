@@ -1,6 +1,6 @@
 {
   "schema": "kui.toy-switch-production-text.v1",
-  "source": "Main 776c9259 (origin/main on 16 Nov 2026), the production text before the Toy test sources were merged; include/kui/retail_loader_layout.h, src/loader/retail_async.c, retail_display.c, retail_resident.S, retail_resident.c, retail_stage.c and sci_sd_bus.c as Main 4441e92 has them (20 Nov 2026), with the Windows CE data probe's text of a257f13 and c25e9f5",
+  "source": "Main 776c9259 (origin/main on 16 Nov 2026), the production text before the Toy test sources were merged; include/kui/retail_loader_layout.h, src/loader/retail_async.c, retail_display.c, retail_resident.S, retail_resident.c, retail_stage.c and sci_sd_bus.c as Main 4441e92 has them (20 Nov 2026), with the Windows CE data probe's text of a257f13 and c25e9f5; src/core/wce_probe_fat.c as Main 4441e92 has it",
   "files": {
     "include/kui/hash.h": {
       "mode": "code",
@@ -29,6 +29,10 @@
     "src/core/hash.c": {
       "mode": "code",
       "sha256": "c0188422405b60cab0dbaf7382f6985ea470a2ba7aed6075b7777379ac03625e"
+    },
+    "src/core/wce_probe_fat.c": {
+      "mode": "exact",
+      "sha256": "f496f0032cbe751e1e7aadae08199506abdd58bfb78040fe2f8f934ddbe181f5"
     },
     "src/loader/disc_stage.c": {
       "mode": "code",
