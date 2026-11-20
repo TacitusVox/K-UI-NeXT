@@ -37,6 +37,15 @@
  * standard reader's step) or 25 (ASYNC_EAGER). */
 enum kui_retail_reader { KUI_RETAIL_READER_STANDARD, KUI_RETAIL_READER_ASYNC,
     KUI_RETAIL_READER_ASYNC_EAGER };
+#if KUI_NATIVE_BACKGROUND_MAP160
+#include "kui/native_map_capacity.h"
+#if !KUI_NATIVE_BACKGROUND_COMPACT || !KUI_NATIVE_DUAL_READERS || KUI_NATIVE_SESSION_CONTROLS
+#error "The enlarged native map requires the paired compact dual stage and readers"
+#endif
+#ifndef KUI_RETAIL_ASYNC_SLOTS
+#define KUI_RETAIL_ASYNC_SLOTS KUI_NATIVE_MAP_CAP_SLOTS
+#endif
+#endif
 #ifndef KUI_RETAIL_ASYNC_SLOTS
 /* The generic Windows CE module may be built with a larger map (Makefile.dc
  * KUI_RETAIL_CE_ASYNC_SLOTS); its stage and reader then agree on that size. */
@@ -49,6 +58,11 @@ enum kui_retail_reader { KUI_RETAIL_READER_STANDARD, KUI_RETAIL_READER_ASYNC,
  * encode/decode/validate. */
 #ifndef KUI_RETAIL_MANIFEST_SLOTS
 #define KUI_RETAIL_MANIFEST_SLOTS KUI_RETAIL_WIRE_SLOTS
+#endif
+#if KUI_NATIVE_BACKGROUND_MAP160
+_Static_assert(KUI_RETAIL_ASYNC_SLOTS == KUI_NATIVE_MAP_CAP_SLOTS &&
+    KUI_RETAIL_MANIFEST_SLOTS == KUI_NATIVE_MAP_CAP_SLOTS,
+    "The native map record must match both decoder admission and resident capacity");
 #endif
 #define KUI_RETAIL_IMAGE_MAX_SECTORS 64u
 #define KUI_RETAIL_IMAGE_BOOT_MAX (12u * 1024u * 1024u)

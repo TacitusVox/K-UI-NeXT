@@ -2576,17 +2576,38 @@ void kui_vmu_native_passive_complete(const struct kui_vmu_native_passive_frame *
            kui_vmu_native_passive_consumer!=NATIVE_HOT_CONFIG.driver.consumer) fail(0x42u);
         completion_frame=*f;
         if(!persistent_context_guard()) fail(0x43u);
+#if defined(KUI_TOY_SURVEY_MIXED_PAD) && KUI_TOY_SURVEY_MIXED_PAD
+        int pad_sample=-1;
+#endif
         for(unsigned i=0u;i<state.descriptors;i++) {
             uint32_t response;
             /* Original hardware and the SDK own these opaque responses.
              * The complete request/RX-slot proof above limits our reads;
              * no reply content grants a virtual store, backend call or TICK. */
             if(!read_value(NULL,receivers[i]|UINT32_C(0xa0000000),4u,&response)) fail(0x44u);
+#if defined(KUI_TOY_SURVEY_MIXED_PAD) && KUI_TOY_SURVEY_MIXED_PAD
+            /* chain() already proved exact RX slots, unique per batch, and
+             * compared the entire chain with its pre-DMA capture. Observe
+             * only the port A controller condition in a mixed physical batch.
+             * Missing/invalid pad replies break the hold; accessory-only
+             * traffic is not a pad sample. All RX buffers stay game-owned. */
+            if(chain_frames[i].header==UINT32_C(0x01002009) &&
+               chain_frames[i].payload0==UINT32_C(0x01000000)) {
+                uint32_t function,controls;
+                uint32_t address=receivers[i]|UINT32_C(0xa0000000);
+                pad_sample=(response&UINT32_C(0xffe0ffff))==UINT32_C(0x03200008) &&
+                    read_value(NULL,address+4u,4u,&function) && function==UINT32_C(0x01000000) &&
+                    read_value(NULL,address+8u,4u,&controls) && held_report_gesture(controls);
+            }
+#endif
             if(!i) state.first_response=response;
             state.last_response=response;
         }
         if(!persistent_context_guard()) fail(0x43u);
         state.pending=0u;++state.completed;state.error=state.proof=0u;
+#if defined(KUI_TOY_SURVEY_MIXED_PAD) && KUI_TOY_SURVEY_MIXED_PAD
+        if(pad_sample>=0) toy_suite_finish_gesture(pad_sample!=0);
+#endif
         return;
     }
     if(issued_plan.source_physical!=state.source || issued_plan.source_bytes!=state.bytes ||

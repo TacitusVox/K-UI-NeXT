@@ -16,6 +16,12 @@ SECTIONS {
  . = 0x8c010150;
  .armada_all_on_capability : { KEEP(*(.armada_all_on_capability)) } :image
  ASSERT(SIZEOF(.armada_all_on_capability)==0 || SIZEOF(.armada_all_on_capability)==16,"Armada all-on capability must be 16 bytes")
+ . = 0x8c010160;
+ .native_map_capability : { KEEP(*(.native_map_capability)) } :image
+ ASSERT(SIZEOF(.native_map_capability)==0 || SIZEOF(.native_map_capability)==16,"native map capability must be 16 bytes")
+ . = 0x8c010170;
+ .native_heap_capability : { KEEP(*(.native_heap_capability)) } :image
+ ASSERT(SIZEOF(.native_heap_capability)==0 || SIZEOF(.native_heap_capability)==16,"native heap capability must be 16 bytes")
  . = 0x8c010180;
  .vmu_launch_header : { KEEP(*(.vmu_launch_header)) } :image
  ASSERT(SIZEOF(.vmu_launch_header)==0 || SIZEOF(.vmu_launch_header)==64,"VMU launch capability must be 64 bytes")
@@ -28,6 +34,9 @@ SECTIONS {
  .smash_ce_return_capability : { KEEP(*(.smash_ce_return_capability)) } :image
  ASSERT(SIZEOF(.smash_ce_return_capability)==0 || SIZEOF(.smash_ce_return_capability)==16,"CE return capability must be16 bytes")
  ASSERT(SIZEOF(.smash_native_gin_capability)==0 || SIZEOF(.smash_ce_return_capability)==0,"Smash native and CE capabilities overlap")
+ . = 0x8c0101f0;
+ .native_sdk_proof_capability : { KEEP(*(.native_sdk_proof_capability)) } :image
+ ASSERT(SIZEOF(.native_sdk_proof_capability)==0 || SIZEOF(.native_sdk_proof_capability)==16,"SDK proof capability must be 16 bytes")
  . = 0x8c010200;
  .smash_ce_gin_header : { KEEP(*(.smash_ce_gin_header)) } :image
  ASSERT(SIZEOF(.smash_ce_gin_header)==0 || SIZEOF(.smash_ce_gin_header)==160,"CE GIN state must be 160 bytes")

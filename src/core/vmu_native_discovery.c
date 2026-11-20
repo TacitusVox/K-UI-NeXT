@@ -107,13 +107,69 @@ static bool pc_word(const uint8_t *p,size_t n,uint32_t base,size_t at,unsigned r
     size_t slot=at+4u+2u*(u16(p+at)&255u);(void)base;
     return slot<=n && n-slot>=2u && u16(p+slot)==value;
 }
-/* A startup head may be entered at its real prologue, never after the lock
- * normalization on the way to the borrowed heap call. Reject encoded entry,
- * raw entry pointers and MOVA address generation without suppressing data
- * halfwords. The head is not patched: MOV.W/MOV.L reads of its bytes do not
- * enter it. This strict head has no internal branch or literal pool. */
-static bool startup_head_no_entries(const uint8_t *p,size_t n,uint32_t base,size_t head) {
-    uint32_t first=physical(base)+(uint32_t)head,last=first+86u;
+/* One compiler emits its frame sizes and a contiguous pointer island after a
+ * forward BRA/NOP. A pointer's low half can decode as BSR to the delay slot
+ * of the heap call. Recognize data only when every word has its own complete
+ * preceding load, neither scalar has another reader, and there is no entry
+ * anywhere in the island (including the barrier delay). Never exempt a raw
+ * pointer or an address-generation instruction in the startup-head scan. */
+static bool startup_frame_pool(const uint8_t *p,size_t n,uint32_t base,size_t pos,
+    size_t *lo,size_t *hi) {
+    enum { POINTERS=13 };
+    size_t word=pos&~(size_t)3u,begin=word;
+    if(n-word<4u || !ram(u32(p+word))) return false;
+    while(begin>=4u && word-begin<4u*POINTERS && ram(u32(p+begin-4u))) begin-=4u;
+    size_t end=begin+4u*POINTERS;
+    if(begin<12u || end>n || word>=end) return false;
+    const size_t first=begin-6u,barrier=first-4u;
+    uint16_t jump=u16(p+barrier);
+    if((jump&0xf800u)!=0xa000u || barrier+4u+2u*(jump&0x7ffu)<end ||
+       barrier+4u+2u*(jump&0x7ffu)>n-2u || u16(p+barrier+2u)!=0x0009u ||
+       u16(p+first)!=0xff7cu || u16(p+first+2u)!=0x0084u || u16(p+first+4u)!=0u) return false;
+    for(unsigned i=0;i<POINTERS;i++) if(!ram(u32(p+begin+4u*i))) return false;
+    uint32_t mask=0u;unsigned dec=0u,inc=0u;
+    for(size_t at=0;at+2u<=n;at+=2u) {
+        uint16_t op=u16(p+at);
+        size_t target=SIZE_MAX;
+        if((op&0xe000u)==0xa000u) {
+            int d=op&4095u;if(d&2048)d-=4096;
+            target=(size_t)((int32_t)at+4+2*d);
+        } else if((op&0xff00u)==0x8900u || (op&0xff00u)==0x8b00u ||
+                  (op&0xff00u)==0x8d00u || (op&0xff00u)==0x8f00u) {
+            target=(size_t)((int32_t)at+4+2*(int8_t)op);
+        } else if((op&0xff00u)==0xc700u) target=((at+4u)&~(size_t)3u)+4u*(op&255u);
+        if(target>=barrier+2u && target<end) return false;
+        if(!(at&3u) && n-at>=4u) {
+            uint32_t addr=u32(p+at),v=physical(addr);
+            if(ram(addr) && v>=physical(base)+barrier+2u && v<physical(base)+end) return false;
+        }
+        if((op&0xf000u)==0xd000u) {
+            target=((at+4u)&~(size_t)3u)+4u*(op&255u);
+            if(target>=barrier+2u && target<end) {
+                if(at>=barrier || target<begin) return false;
+                mask|=1u<<((target-begin)/4u);
+            }
+        } else if((op&0xf000u)==0x9000u) {
+            target=at+4u+2u*(op&255u);
+            if(target>=barrier+2u && target<end) {
+                if(at+4u>barrier) return false;
+                if(target==first && (op>>8)==0x90u && u16(p+at+2u)==0x3f0cu) ++dec;
+                else if(target==first+2u && (op>>8)==0x91u && u16(p+at+2u)==0x3f1cu) ++inc;
+                else return false;
+            }
+        }
+    }
+    *lo=begin;*hi=end;
+    return mask==(1u<<POINTERS)-1u && dec==1u && inc==1u;
+}
+/* No bypass of the lock normalization on the way to the borrowed heap call.
+ * The deferred layout also proves through the later Maple call. Both heads
+ * have no internal branches or literal pools. Only syntactic branches from
+ * the separately proven frame pool are data; raw pointers and MOVA into
+ * either head always refuse. */
+static bool startup_head_no_entries(const uint8_t *p,size_t n,uint32_t base,size_t head,bool deferred) {
+    uint32_t first=physical(base)+(uint32_t)head,last=first+(deferred?130u:86u);
+    size_t pool_begin=0u,pool_end=0u;
     for(size_t at=0;at+2u<=n;at+=2u) {
         uint16_t op=u16(p+at);uint32_t target=0u;bool transport=false;
         if((op&0xe000u)==0xa000u) {
@@ -126,7 +182,11 @@ static bool startup_head_no_entries(const uint8_t *p,size_t n,uint32_t base,size
         } else if((op&0xff00u)==0xc700u) {
             target=((physical(base)+(uint32_t)at+4u)&~3u)+4u*(op&255u);transport=true;
         }
-        if(transport && target>first && target<last) return false;
+        if(transport && target>first && target<last) {
+            if(!deferred || (op&0xff00u)==0xc700u) return false;
+            if(!(at>=pool_begin && at<pool_end) &&
+               (pool_end || !startup_frame_pool(p,n,base,at,&pool_begin,&pool_end))) return false;
+        }
         if(!(at&3u) && n-at>=4u) {
             uint32_t value=u32(p+at);
             if(ram(value) && physical(value)>first && physical(value)<last) return false;
@@ -145,17 +205,28 @@ static bool source_code(uint32_t value,uint32_t base,size_t n) {
  * The following ordinary calls are not assumed to preserve cache state:
  * the later live coherence gate must prove both idle copies explicitly. */
 static bool startup_p2_at(const uint8_t *p,size_t n,uint32_t base,size_t s,
-    const struct kui_vmu_native_discovery *driver) {
+    const struct kui_vmu_native_discovery *driver,bool deferred) {
     static const struct witness w[]={
         {0,0x2fe6},{2,0x2fd6},{4,0x2fc6},{6,0x2fb6},{8,0x2fa6},{10,0x2f96},
-        {12,0x4f22},{14,0x7ff0},{16,0x1f41},{20,0x0002},{26,0x2019},{28,0x1f52},
-        {30,0xcbf0},{32,0x2f62},{34,0x6242},{36,0x223b},{38,0x2422},{40,0x400e},
+        {12,0x4f22},{14,0x7ff0},{20,0x0002},{26,0x2019},
+        {30,0xcbf0},{34,0x6242},{36,0x223b},{38,0x2422},{40,0x400e},
         {44,0x420b},{46,0x0009},{50,0xeee0},{54,0x6522},{58,0x2539},{64,0x6032},
         {66,0x251b},{68,0x202b},{72,0x20e9},{74,0x3508},{76,0x6403},{78,0x1f03},
-        {80,0x75e0},{82,0x420b},{84,0x7420},{88,0x55f2},{90,0x66f2},{92,0x430b},
+        {80,0x75e0},{82,0x420b},{84,0x7420}
+    };
+    static const struct witness ordinary[]={
+        {16,0x1f41},{28,0x1f52},{32,0x2f62},{88,0x55f2},{90,0x66f2},{92,0x430b},
         {94,0x54f1},{98,0x420b},{100,0x0009},{108,0x430b},{110,0xe400}
     };
-    if(s>n || n-s<112u) return false;
+    static const struct witness extended[]={
+        {16,0x2f42},{28,0x1f52},{32,0x1f61},{86,0x60f2},{90,0xc903},{92,0x430b},
+        {94,0x6403},{96,0x55f2},{98,0xe700},{102,0xe601},{104,0x430b},{106,0x64f2},
+        {110,0x430b},{112,0x54f1},{116,0x420b},{118,0x0009},{126,0x430b},{128,0xe400}
+    };
+    if(s>n || n-s<(deferred?130u:112u)) return false;
+    const struct witness *tail=deferred?extended:ordinary;
+    unsigned count=deferred?sizeof(extended)/sizeof(*extended):sizeof(ordinary)/sizeof(*ordinary);
+    for(unsigned i=0;i<count;i++) if(u16(p+s+tail[i].offset)!=tail[i].value) return false;
     for(unsigned i=0;i<sizeof(w)/sizeof(w[0]);i++)
         if(u16(p+s+w[i].offset)!=w[i].value) return false;
     uint32_t cell,alias,end_cell,again,mask,area,upper,heap,rx,tx,value;
@@ -169,13 +240,16 @@ static bool startup_p2_at(const uint8_t *p,size_t n,uint32_t base,size_t s,
        !pc_literal(p,n,base,s+56u,2u,&area) || area!=0x80000000u ||
        !pc_literal(p,n,base,s+60u,3u,&again) || again!=end_cell ||
        !pc_literal(p,n,base,s+62u,1u,&upper) || upper!=0x0d000000u ||
-       !pc_literal(p,n,base,s+70u,2u,&heap) || !source_code(heap,base,n) ||
-       !pc_literal(p,n,base,s+86u,3u,&value) || !source_code(value,base,n) ||
-       !pc_literal(p,n,base,s+96u,2u,&value) || !source_code(value,base,n) ||
-       !pc_literal(p,n,base,s+102u,3u,&value) || !source_code(value,base,n) ||
-       !pc_literal(p,n,base,s+104u,5u,&rx) || !ram(rx) ||
-       !pc_literal(p,n,base,s+106u,6u,&tx) || !ram(tx)) return false;
-    return startup_head_no_entries(p,n,base,s);
+       !pc_literal(p,n,base,s+70u,2u,&heap) || !source_code(heap,base,n)) return false;
+    if(deferred && (!pc_literal(p,n,base,s+88u,3u,&value) || !source_code(value,base,n) ||
+                    !pc_literal(p,n,base,s+100u,3u,&value) || !source_code(value,base,n))) return false;
+    size_t tail_base=s+(deferred?18u:0u);
+    if(!pc_literal(p,n,base,s+(deferred?108u:86u),3u,&value) || !source_code(value,base,n) ||
+       !pc_literal(p,n,base,tail_base+96u,2u,&value) || !source_code(value,base,n) ||
+       !pc_literal(p,n,base,tail_base+102u,3u,&value) || !source_code(value,base,n) ||
+       !pc_literal(p,n,base,tail_base+104u,5u,&rx) || !ram(rx) ||
+       !pc_literal(p,n,base,tail_base+106u,6u,&tx) || !ram(tx)) return false;
+    return startup_head_no_entries(p,n,base,s,deferred);
 }
 static const uint16_t startup_p2_prologue[]={
     0x2fe6,0x2fd6,0x2fc6,0x2fb6,0x2fa6,0x2f96,0x4f22,0x7ff0,0x1f41};
@@ -200,24 +274,39 @@ static int startup_p2(const uint8_t *p,size_t n,uint32_t base,
         else if(op==startup_p2_heap[0] && at>=72u) s=at-72u;
         else continue;
         if(n-s<112u || (found && s==*chosen)) continue;
-        unsigned anchors=startup_words(p+s,startup_p2_prologue,sizeof(startup_p2_prologue)/2u)+
+        bool deferred=u16(p+s+16u)==0x2f42u;
+        bool prologue=startup_words(p+s,startup_p2_prologue,8u) &&
+            (u16(p+s+16u)==startup_p2_prologue[8] || deferred);
+        unsigned anchors=(unsigned)prologue+
             startup_words(p+s+34u,startup_p2_lock,sizeof(startup_p2_lock)/2u)+
             startup_words(p+s+72u,startup_p2_heap,sizeof(startup_p2_heap)/2u);
         if(anchors<2u) continue;
-        if(!startup_p2_at(p,n,base,s,driver) || ++found>1u) return -1;
+        if(!startup_p2_at(p,n,base,s,driver,deferred) || ++found>1u) return -1;
         *chosen=s;
     }
     return found?1:0;
 }
+static bool early_p2_call_sites(const void *image,size_t n,
+    const struct kui_vmu_native_discovery *driver,uint32_t *heap,uint32_t *maple) {
+    size_t startup=0;
+    if(!driver || driver->family!=KUI_VMU_NATIVE_FAMILY_EARLY_P2_V1 ||
+       driver->version!=KUI_VMU_NATIVE_DISCOVERY_VERSION || driver->bytes!=sizeof(*driver) ||
+       driver->image_bytes!=n || !valid(image,n,driver->load_address) ||
+       startup_p2(image,n,driver->load_address,driver,&startup)!=1) return false;
+    uint32_t start=driver->load_address+(uint32_t)startup;
+    *heap=start+82u;
+    *maple=start+(u16((const uint8_t *)image+startup+16u)==0x2f42u?126u:108u);
+    return true;
+}
 bool kui_vmu_native_early_p2_calls_valid(const void *image,size_t n,
     const struct kui_vmu_native_discovery *driver,uint32_t heap_call,uint32_t maple_call) {
-    size_t startup=0;
-    return driver && driver->family==KUI_VMU_NATIVE_FAMILY_EARLY_P2_V1 &&
-        driver->version==KUI_VMU_NATIVE_DISCOVERY_VERSION && driver->bytes==sizeof(*driver) &&
-        driver->image_bytes==n && valid(image,n,driver->load_address) &&
-        startup_p2(image,n,driver->load_address,driver,&startup)==1 &&
-        heap_call==driver->load_address+(uint32_t)startup+82u &&
-        maple_call==driver->load_address+(uint32_t)startup+108u;
+    uint32_t heap,maple;
+    return early_p2_call_sites(image,n,driver,&heap,&maple) && heap_call==heap && maple_call==maple;
+}
+bool kui_vmu_native_early_p2_layout_call_valid(const void *image,size_t n,
+    const struct kui_vmu_native_discovery *driver,uint32_t maple_call) {
+    uint32_t heap,maple;
+    return early_p2_call_sites(image,n,driver,&heap,&maple) && maple_call==maple;
 }
 /* The pd 1.46 server entry, completion_call-0x3a: it saves R8-R14 and PR,
  * calls the lock helper with the busy word set to one in the delay slot, and

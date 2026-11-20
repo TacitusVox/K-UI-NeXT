@@ -21,6 +21,8 @@
 #define KUI_VMU_NATIVE_EXIT_EARLY_COMPACT 8u
 #define KUI_VMU_NATIVE_EXIT_FIRMWARE_CHECK 9u
 #define KUI_VMU_NATIVE_EXIT_EARLY_FIRMWARE_CHECK 10u
+/* Same hooks as EARLY_FIRMWARE_CHECK, with a separately proved SDK literal pool. */
+#define KUI_VMU_NATIVE_EXIT_EARLY_FIRMWARE_LITERAL_POOL 11u
 #define KUI_VMU_NATIVE_EXIT_ENTRIES 4u
 struct kui_vmu_native_exit {
     uint32_t version,bytes,family,load,image_bytes,count;
@@ -64,6 +66,7 @@ static inline bool kui_vmu_native_exit_shape_valid(const struct kui_vmu_native_e
         KUI_EXIT_SHAPE_WORD(2u,THIRD|THUNK|FOURTH,THIRD|THUNK|FOURTH,PAIRED),
         KUI_EXIT_SHAPE_WORD(3u,THIRD|FOURTH,FOURTH,PAIRED|COMPACT),
         KUI_EXIT_SHAPE_WORD(3u,THIRD|THUNK|FOURTH,THUNK|FOURTH,0u),
+        KUI_EXIT_SHAPE_WORD(3u,THIRD|THUNK|FOURTH,THUNK|FOURTH,PAIRED),
         KUI_EXIT_SHAPE_WORD(3u,THIRD|THUNK|FOURTH,THUNK|FOURTH,PAIRED)
     };
 #undef KUI_EXIT_SHAPE_WORD
@@ -81,7 +84,8 @@ static inline bool kui_vmu_native_exit_shape_valid(const struct kui_vmu_native_e
 static inline uint32_t kui_vmu_native_exit_window(const struct kui_vmu_native_exit *e,unsigned i) {
     return (e->family==KUI_VMU_NATIVE_EXIT_EARLY_PAIR ||
         e->family==KUI_VMU_NATIVE_EXIT_EARLY_COMPACT ||
-        e->family==KUI_VMU_NATIVE_EXIT_EARLY_FIRMWARE_CHECK) && !i?8u:12u;
+        e->family==KUI_VMU_NATIVE_EXIT_EARLY_FIRMWARE_CHECK ||
+        e->family==KUI_VMU_NATIVE_EXIT_EARLY_FIRMWARE_LITERAL_POOL) && !i?8u:12u;
 }
 /* Fresh immutable-image discovery for three strict SDK exit/exec shapes or
  * an exact legacy pair with no additional encoded firmware consumers and no
@@ -104,6 +108,10 @@ static inline uint32_t kui_vmu_native_exit_window(const struct kui_vmu_native_ex
  * clears on failure except overlapping image/output, which is untouched. */
 bool kui_vmu_native_exit_discover(const void *image,size_t bytes,uint32_t load,
     struct kui_vmu_native_exit *out);
+/* Rebind the early SDK's terminal heads and bounded literal-pool witnesses
+ * against an exact image on trusted cache replay. Full discovery additionally
+ * checks the complete image for other terminals and incoming references. */
+bool kui_vmu_native_exit_literal_pool_valid(const void *,size_t,const struct kui_vmu_native_exit *);
 /* The same complete discovery, with up to five additional disjoint patch
  * windows checked in the exit windows' immutable-image pass. No checks are
  * omitted: every returned exit and every caller window passes one combined
