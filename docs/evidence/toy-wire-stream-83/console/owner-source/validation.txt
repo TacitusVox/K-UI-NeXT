@@ -1,0 +1,41 @@
+Test 83 hardware candidate. GUI 4d4dcff77494, survey reader 1d80f771f081 (payload CRC32 1988A86E), retained standalone e5af01888606.
+
+The final production Games path selected the survey reader for the original US MDK2 executable in both raw and cooked exFAT fixtures, including the reported 31-track, 39-fragment layout. Detached reads reproduced the IP and all 750,804 executable bytes. The survey stage claimed consecutive slots 000 and 001 and recorded the MDK2 title, product and executable CRC. The host Test 83 reader generated stream metrics from five modeled game requests, and the report writer saved the resulting pages for readback. The raw model observed a 225-sector window and four hits. The cooked control had zero raw-stream windows as expected. Physical MDK2 timing, sound, playback on the survey reader and real gameplay counters await a Dreamcast run. The owner previously confirmed playback with the retained standalone reader.
+
+The full controller and exit proofs used original MDK2 instructions. Replay checks rejected both a substituted exit family and a substituted family and target, including when the host recomputed the record digest. On the genuine MDK2 mapping, normal and prehashed repeat checks each used the bounded check and made zero full exit rediscoveries. The linked installer reserved its 284 KiB survey lease and passed original allocator and controller checks. Production completion tests exercised simple and mixed controller batches. Holding both triggers plus all four face buttons for 179 accepted port A completions and releasing reset the hold. The 180th accepted completion of a fresh hold reached the terminal report path. Wrong port, function and response controls did not trigger. The writer guards and SD readback were exercised separately. Host-generated counts describe the test model.
+
+The final production GUI selected the survey reader for Omikron raw and cooked and wrote named survey slots. Installing the prior reader selected the accepted standalone for MDK2, including with a previously cached upgraded mapping. Restoring the new survey reader selected Test 83 again. The original Silver mapping stayed byte-identical across the update, and its Maple transport checks passed.
+
+The final GUI ran the original Evolution 2 IP and 4,057,056-byte US executable through raw and cooked exFAT launch fixtures at LBA 547019 and prepared the same bytes on first and repeat launches. Each first launch performed one SDK and one extent scan. Each repeat used the verified cache and skipped both scans. Each launch read the executable once.
+
+The following cold/root checks applied the three software members of the finished ZIP to FAT32 and exFAT fixtures with the preceding Test 83 software and pre-existing report bytes. Both physically installed GUI aliases are byte-identical. The checks compared retained standalone/report bytes and validated the exact loaded GUI and transport selection for each path. These checks ran on the host. The archives contain no game files.
+
+Installed components
+KUI/boot.kui  3412764 bytes   SHA256 bb78591511e2e301bf800679c19be14c9f6a853b69e7d793882af393cd088748
+KUI/runtime.kui  3412764 bytes   SHA256 bb78591511e2e301bf800679c19be14c9f6a853b69e7d793882af393cd088748
+KUI/apps/games/retail-native-dual.kui  311936 bytes   SHA256 313ac3bddb6b1d037ea2de758dd97d809125507ba9617340739baf0e05195f1c
+
+fat32 overlay readback verified all three replacements, the previous standalone reader and pre-existing report bytes
+fat32 autoboot SCIF 4d4dcff77494 3412700 payload bytes matched, transport verified, zero writes/syncs
+fat32 autoboot SCI 4d4dcff77494 3412700 payload bytes matched, transport verified, zero writes/syncs
+fat32 autoboot IDE 4d4dcff77494 3412700 payload bytes matched, transport verified, zero writes/syncs
+fat32 normal SCIF 4d4dcff77494 3412700 payload bytes matched, transport verified, zero writes/syncs
+fat32 normal SCI 4d4dcff77494 3412700 payload bytes matched, transport verified, zero writes/syncs
+fat32 normal IDE 4d4dcff77494 3412700 payload bytes matched, transport verified, zero writes/syncs
+exfat overlay readback verified all three replacements, the previous standalone reader and pre-existing report bytes
+exfat autoboot SCIF 4d4dcff77494 3412700 payload bytes matched, transport verified, zero writes/syncs
+exfat autoboot SCI 4d4dcff77494 3412700 payload bytes matched, transport verified, zero writes/syncs
+exfat autoboot IDE 4d4dcff77494 3412700 payload bytes matched, transport verified, zero writes/syncs
+exfat normal SCIF 4d4dcff77494 3412700 payload bytes matched, transport verified, zero writes/syncs
+exfat normal SCI 4d4dcff77494 3412700 payload bytes matched, transport verified, zero writes/syncs
+exfat normal IDE 4d4dcff77494 3412700 payload bytes matched, transport verified, zero writes/syncs
+ZIP GUI 4d4dcff77494 SHA256 bb78591511e2e301bf800679c19be14c9f6a853b69e7d793882af393cd088748 CRC32 b660688b
+
+Test-only follow-up
+The final production code passed 45,290 native resolution checks with the
+test assertions updated for family 11 and the shared replay helper. The
+corpus included the original MDK2, Omikron and Silver executables. Wrong
+pins, substituted roles and altered targets were refused. The update to
+the source-text lifecycle audit follows the shared replay helper through
+both checks. Applying corpus-test.patch changes tests after reproduction
+of the stated release binary hashes.

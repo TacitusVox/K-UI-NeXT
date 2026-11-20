@@ -1,0 +1,900 @@
+K-UI STREAM SURVEY FILE 1
+ID B674BC235B6B5A9B78760CBD6F7E63FF
+SLOTS 100
+EACH LAUNCH OF A GAME WITH THE SURVEY MODULE FILLS ONE SLOT BELOW.
+SEND THIS FILE BACK AS IT IS.
+                                                                                                                                                                                                                                                                                                                                                      
+==== SLOT 000 PART 0 ==== ID B674BC235B6B5A9B78760CBD6F7E63FF ==== LAUNCH ====
+SURVEY 83 BUILD 3bd4bed2fca2
+PRODUCT T1711N
+TITLE EVOLUTION2
+BOOT 1ST_READ.BIN REGION U
+IPCRC 258032E4 GDICRC 44AC6DF2 BOOTCRC FD1C17E2 BOOTBYTES 003DE7E0
+EXECCRC FD1C17E2 EXECBYTES 003DE7E0
+READER 1 TRANSPORT 1 FLAGS 00000004 SOURCE 1
+TRACKS 3 RAW 2 COOKED 0 AUDIO 1 HDAUDIO 0 MAPPED 1 OTHER 0 EXTENTS 15
+SESSION 0000AFC8 BOOTLBA 000858CB
+                                                                                            
+==== SLOT 000 PART 1 ==== ID B674BC235B6B5A9B78760CBD6F7E63FF ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 000 PART 2 ==== ID B674BC235B6B5A9B78760CBD6F7E63FF ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 001 PART 0 ==== ID B674BC235B6B5A9B78760CBD6F7E63FF ==== LAUNCH ====
+SURVEY 83 BUILD 3bd4bed2fca2
+PRODUCT T1711N
+TITLE EVOLUTION2
+BOOT 1ST_READ.BIN REGION U
+IPCRC 258032E4 GDICRC 44AC6DF2 BOOTCRC FD1C17E2 BOOTBYTES 003DE7E0
+EXECCRC FD1C17E2 EXECBYTES 003DE7E0
+READER 1 TRANSPORT 1 FLAGS 00000004 SOURCE 1
+TRACKS 3 RAW 2 COOKED 0 AUDIO 1 HDAUDIO 0 MAPPED 1 OTHER 0 EXTENTS 15
+SESSION 0000AFC8 BOOTLBA 000858CB
+                                                                                            
+==== SLOT 001 PART 1 ==== ID B674BC235B6B5A9B78760CBD6F7E63FF ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 001 PART 2 ==== ID B674BC235B6B5A9B78760CBD6F7E63FF ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 002 PART 0 ==== ID B674BC235B6B5A9B78760CBD6F7E63FF ==== LAUNCH ====
+SURVEY 83 BUILD 3bd4bed2fca2
+PRODUCT T1711N
+TITLE EVOLUTION2
+BOOT 1ST_READ.BIN REGION U
+IPCRC 258032E4 GDICRC 44AC6DF2 BOOTCRC FD1C17E2 BOOTBYTES 003DE7E0
+EXECCRC FD1C17E2 EXECBYTES 003DE7E0
+READER 1 TRANSPORT 1 FLAGS 00000004 SOURCE 1
+TRACKS 3 RAW 2 COOKED 0 AUDIO 1 HDAUDIO 0 MAPPED 1 OTHER 0 EXTENTS 15
+SESSION 0000AFC8 BOOTLBA 000858CB
+                                                                                            
+K-UI TOY COMMANDER REPORT
+TEST 81
+BUILD 3bd4bed2fca2
+HEX / 781250 HZ
+PIPE B I CALLS IRQ STAY PT
+0 0 1E6 14 11 1FBD
+AHEAD B I HIT EDC STOP OS
+0 0 13 41 0 13
+X OW E I C W O
+2 0 0 0 0 2
+BIG N S BACK TOY
+0 0 0 0
+SD BLK PIO OVR CRC DECL
+F97 0 54 0 0
+XC KEPT LO HI
+1 0 4
+K LIGHT EDC MEND MB LB ORD
+3A 7 1D 0 0 3
+V SCI TMR GAME N TICKS
+14 0 1E6 127F 0 2B40
+VMAX SCI TMR GAME D
+1F8 0 495 1776
+P RING FEED CHK OUT SVC HALT
+21D8 E0F 43E 29C 393 18
+D N T SEEK
+1491 F97D6 F1
+W START SEG CUT WAIT FULL
+2 1F 6 0 0
+W BYTES WTICK TMR ERR DET
+27504 0 1 0 0
+W BLK FIX UNFIX HOLED NOCRC SEEK
+131 24 0 0 0 0
+S C S F LF AM BC
+2 0 0 0 0 0
+W FILL REF BAD
+0 0 0
+                                                                                                                                                                                                                                                                                                                                                                                      
+END REPORT
+==== SLOT 003 PART 0 ==== ID B674BC235B6B5A9B78760CBD6F7E63FF ==== LAUNCH ====
+SURVEY 83 BUILD 3bd4bed2fca2
+PRODUCT T1711N
+TITLE EVOLUTION2
+BOOT 1ST_READ.BIN REGION U
+IPCRC 258032E4 GDICRC 44AC6DF2 BOOTCRC FD1C17E2 BOOTBYTES 003DE7E0
+EXECCRC FD1C17E2 EXECBYTES 003DE7E0
+READER 1 TRANSPORT 1 FLAGS 00000004 SOURCE 1
+TRACKS 3 RAW 2 COOKED 0 AUDIO 1 HDAUDIO 0 MAPPED 1 OTHER 0 EXTENTS 15
+SESSION 0000AFC8 BOOTLBA 000858CB
+                                                                                            
+K-UI TOY COMMANDER REPORT
+TEST 81
+BUILD 3bd4bed2fca2
+HEX / 781250 HZ
+PIPE B I CALLS IRQ STAY PT
+0 0 1E8 14 11 1FBD
+AHEAD B I HIT EDC STOP OS
+0 0 13 41 0 13
+X OW E I C W O
+2 0 0 0 0 2
+BIG N S BACK TOY
+0 0 0 0
+SD BLK PIO OVR CRC DECL
+F97 0 54 0 0
+XC KEPT LO HI
+1 0 4
+K LIGHT EDC MEND MB LB ORD
+3A 7 1D 0 0 3
+V SCI TMR GAME N TICKS
+14 0 1E8 1285 0 2B4C
+VMAX SCI TMR GAME D
+1F7 0 496 1778
+P RING FEED CHK OUT SVC HALT
+21EB E10 43F 296 396 18
+D N T SEEK
+5A1 F51EC F3
+W START SEG CUT WAIT FULL
+2 1F 6 0 0
+W BYTES WTICK TMR ERR DET
+27500 0 1 0 0
+W BLK FIX UNFIX HOLED NOCRC SEEK
+131 24 0 0 0 0
+S C S F LF AM BC
+2 0 0 0 0 0
+W FILL REF BAD
+0 0 0
+                                                                                                                                                                                                                                                                                                                                                                                       
+END REPORT
+==== SLOT 004 PART 0 ==== ID B674BC235B6B5A9B78760CBD6F7E63FF ==== LAUNCH ====
+SURVEY 83 BUILD 3bd4bed2fca2
+PRODUCT MK-51049
+TITLE CHUCHU ROCKET
+BOOT 1ST_READ.BIN REGION U
+IPCRC D5E11389 GDICRC B7D94F1F BOOTCRC 83E2CA42 BOOTBYTES 00176160
+EXECCRC 83E2CA42 EXECBYTES 00176160
+READER 1 TRANSPORT 1 FLAGS 00000004 SOURCE 1
+TRACKS 19 RAW 3 COOKED 0 AUDIO 16 HDAUDIO 15 MAPPED 16 OTHER 0 EXTENTS 20
+SESSION 0000AFC8 BOOTLBA 00085D9B
+                                                                                   
+K-UI TOY COMMANDER REPORT
+TEST 81
+BUILD 3bd4bed2fca2
+HEX / 781250 HZ
+PIPE B I CALLS IRQ STAY PT
+0 0 2274 6A 1E 1FBD
+AHEAD B I HIT EDC STOP OS
+0 0 1E 165 0 122
+X OW E I C W O
+9 0 0 1 0 8
+BIG N S BACK TOY
+3 D5 0 0
+SD BLK PIO OVR CRC DECL
+2D65 3 EA 0 0
+XC KEPT LO HI
+0 100000 0
+K LIGHT EDC MEND MB LB ORD
+13E 27 7C 0 0 3
+V SCI TMR GAME N TICKS
+6A 3 2274 246F 8 1F57E
+VMAX SCI TMR GAME D
+1A8 3 60A 1759
+P RING FEED CHK OUT SVC HALT
+D210 4715 16DE 2869 305D 79
+D N T SEEK
+4B65 34721A 1536
+W START SEG CUT WAIT FULL
+C 70 2C 4 1
+W BYTES WTICK TMR ERR DET
+DA597 127 1 0 0
+W BLK FIX UNFIX HOLED NOCRC SEEK
+674 89 2 5 0 4
+S C S F LF AM BC
+9 0 3 3 0 0
+W FILL REF BAD
+3 0 0
+                                                                                                                                                                                                                                                                                                                                                              
+END REPORT
+==== SLOT 005 PART 0 ==== ID B674BC235B6B5A9B78760CBD6F7E63FF ==== LAUNCH ====
+SURVEY 83 BUILD 3bd4bed2fca2
+PRODUCT T9704N
+TITLE READY 2 RUMBLE BOXING
+BOOT 1ST_READ.BIN REGION U
+IPCRC F709F121 GDICRC 6408E758 BOOTCRC 6C2E1B14 BOOTBYTES 001F4BE0
+EXECCRC 6C2E1B14 EXECBYTES 001F4BE0
+READER 1 TRANSPORT 1 FLAGS 00000004 SOURCE 1
+TRACKS 7 RAW 3 COOKED 0 AUDIO 4 HDAUDIO 3 MAPPED 4 OTHER 0 EXTENTS 8
+SESSION 0000AFC8 BOOTLBA 00085C9E
+                                                                                  
+==== SLOT 005 PART 1 ==== ID B674BC235B6B5A9B78760CBD6F7E63FF ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 005 PART 2 ==== ID B674BC235B6B5A9B78760CBD6F7E63FF ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 006 PART 0 ==== ID B674BC235B6B5A9B78760CBD6F7E63FF ==== LAUNCH ====
+SURVEY 83 BUILD c27892faf747
+PRODUCT T40217N
+TITLE BANGAI-O
+BOOT 1ST_READ.BIN REGION U
+IPCRC B44AFE8C GDICRC 66FE782A BOOTCRC 9AFC1E31 BOOTBYTES 00089BC0
+EXECCRC 9AFC1E31 EXECBYTES 00089BC0
+READER 1 TRANSPORT 1 FLAGS 00000004 SOURCE 1
+TRACKS 37 RAW 3 COOKED 0 AUDIO 34 HDAUDIO 33 MAPPED 34 OTHER 0 EXTENTS 111
+SESSION 0000AFC8 BOOTLBA 00085506
+                                                                                        
+K-UI TOY COMMANDER REPORT
+TEST 81
+BUILD c27892faf747
+HEX / 781250 HZ
+PIPE B I CALLS IRQ STAY PT
+0 0 7AEF 468 3AE 1FBD
+AHEAD B I HIT EDC STOP OS
+0 0 3B7 48E 0 3BA
+X OW E I C W O
+D 0 0 0 0 D
+BIG N S BACK TOY
+0 0 0 0
+SD BLK PIO OVR CRC DECL
+15C6 E9 68 0 0
+XC KEPT LO HI
+0 0 0
+K LIGHT EDC MEND MB LB ORD
+36E 121 315 0 0 3
+V SCI TMR GAME N TICKS
+468 3 7AEF B37B A BF9AE
+VMAX SCI TMR GAME D
+1F6 4 6F7 1752
+P RING FEED CHK OUT SVC HALT
+2DD54 13E36 8009 7F4C BBF3 943
+D N T SEEK
+C8CE 28AEBE 54288
+W START SEG CUT WAIT FULL
+EB 76 428 1F 1
+W BYTES WTICK TMR ERR DET
+2D626E 85D 1 0 0
+W BLK FIX UNFIX HOLED NOCRC SEEK
+1601 365 D2 FB 3 E9
+S C S F LF AM BC
+D 1 DD DA 0 3
+W FILL REF BAD
+1B 0 1
+                                                                                                                                                                                                                                                                                                                                             
+END REPORT
+==== SLOT 007 PART 0 ==== ID B674BC235B6B5A9B78760CBD6F7E63FF ==== LAUNCH ====
+SURVEY 83 BUILD c27892faf747
+PRODUCT T9704N
+TITLE READY 2 RUMBLE BOXING
+BOOT 1ST_READ.BIN REGION U
+IPCRC F709F121 GDICRC 6408E758 BOOTCRC 6C2E1B14 BOOTBYTES 001F4BE0
+EXECCRC 6C2E1B14 EXECBYTES 001F4BE0
+READER 1 TRANSPORT 1 FLAGS 00000004 SOURCE 1
+TRACKS 7 RAW 3 COOKED 0 AUDIO 4 HDAUDIO 3 MAPPED 4 OTHER 0 EXTENTS 8
+SESSION 0000AFC8 BOOTLBA 00085C9E
+                                                                                  
+==== SLOT 007 PART 1 ==== ID B674BC235B6B5A9B78760CBD6F7E63FF ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 007 PART 2 ==== ID B674BC235B6B5A9B78760CBD6F7E63FF ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 008 PART 0 ==== ID B674BC235B6B5A9B78760CBD6F7E63FF ==== LAUNCH ====
+SURVEY 83 BUILD 1d80f771f081
+PRODUCT T12502N
+TITLE MDK2
+BOOT 1ST_READ.BIN REGION U
+IPCRC 34122049 GDICRC 1714D99A BOOTCRC 682D90E3 BOOTBYTES 000B74D4
+EXECCRC 682D90E3 EXECBYTES 000B74D4
+READER 1 TRANSPORT 1 FLAGS 00000004 SOURCE 1
+TRACKS 31 RAW 3 COOKED 0 AUDIO 28 HDAUDIO 27 MAPPED 0 OTHER 0 EXTENTS 39
+SESSION 0000AFC8 BOOTLBA 00085F19
+                                                                                              
+K-UI TOY COMMANDER REPORT
+TEST 81
+BUILD 1d80f771f081
+HEX / 781250 HZ
+PIPE B I CALLS IRQ STAY PT
+0 0 B98 3FA 71 1FBD
+AHEAD B I HIT EDC STOP OS
+0 0 AD A5C 0 92F
+X OW E I C W O
+1C 0 0 0 0 1B
+BIG N S BACK TOY
+C 5E3 0 0
+SD BLK PIO OVR CRC DECL
+9973 1E 2BE 0 0
+XC KEPT LO HI
+3 0 4
+K LIGHT EDC MEND MB LB ORD
+93E 11E 377 0 0 3
+V SCI TMR GAME N TICKS
+3FA 33 B98 59270 7A 29BC8
+VMAX SCI TMR GAME D
+3E3 4 9AD 174A
+P RING FEED CHK OUT SVC HALT
+515AC 207F1 A4F8 1493A 493B 160
+D N T SEEK
+46ED 63AFA9 2FC5
+W START SEG CUT WAIT FULL
+22 349 150 34 4
+W BYTES WTICK TMR ERR DET
+61F8D7 1C6E 1 0 0
+W BLK FIX UNFIX HOLED NOCRC SEEK
+2FE8 411 1 27 2 14
+S C S F LF AM BC
+1B 0 6 6 0 0
+W FILL REF BAD
+1C 0 0
+                                                                                                                                                                                                                                                                                                                                         
+END REPORT
+==== SLOT 009 PART 0 ==== ID B674BC235B6B5A9B78760CBD6F7E63FF ==== LAUNCH ====
+SURVEY 83 BUILD 1d80f771f081
+PRODUCT T36807N
+TITLE OMIKRON THE NOMAD SOUL
+BOOT 1ST_READ.BIN REGION U
+IPCRC 19F410F8 GDICRC 78D12897 BOOTCRC D829A676 BOOTBYTES 00103BA4
+EXECCRC D829A676 EXECBYTES 00103BA4
+READER 1 TRANSPORT 1 FLAGS 00000004 SOURCE 1
+TRACKS 5 RAW 3 COOKED 0 AUDIO 2 HDAUDIO 1 MAPPED 2 OTHER 0 EXTENTS 32
+SESSION 0000AFC8 BOOTLBA 00085E80
+                                                                               
+K-UI TOY COMMANDER REPORT
+TEST 81
+BUILD 1d80f771f081
+HEX / 781250 HZ
+PIPE B I CALLS IRQ STAY PT
+0 0 49BB 900 5B 1FBD
+AHEAD B I HIT EDC STOP OS
+0 0 366 19C3 0 172D
+X OW E I C W O
+22 0 0 0 0 21
+BIG N S BACK TOY
+9 3EF 0 0
+SD BLK PIO OVR CRC DECL
+62C1 74 197 0 0
+XC KEPT LO HI
+0 0 0
+K LIGHT EDC MEND MB LB ORD
+16B2 314 7EE 1 0 3
+V SCI TMR GAME N TICKS
+900 A3 49BB 77184 1E0 1178FF
+VMAX SCI TMR GAME D
+45A 4 B46 1B1F
+P RING FEED CHK OUT SVC HALT
+C93DB 619AE 1CCC8 311A2 FE24 543
+D N T SEEK
+55DA 77F214 2B627
+W START SEG CUT WAIT FULL
+8A 82F 3D6 B0 270
+W BYTES WTICK TMR ERR DET
+10E6EDB 3BFF 1 0 0
+W BLK FIX UNFIX HOLED NOCRC SEEK
+7749 94C 39 DB 3 81
+S C S F LF AM BC
+21 3 65 64 0 1
+W FILL REF BAD
+9C 0 3
+                                                                                                                                                                                                                                                                                                                         
+END REPORT
+==== SLOT 010 PART 0 ==== ID B674BC235B6B5A9B78760CBD6F7E63FF ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 010 PART 1 ==== ID B674BC235B6B5A9B78760CBD6F7E63FF ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 010 PART 2 ==== ID B674BC235B6B5A9B78760CBD6F7E63FF ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 011 PART 0 ==== ID B674BC235B6B5A9B78760CBD6F7E63FF ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 011 PART 1 ==== ID B674BC235B6B5A9B78760CBD6F7E63FF ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 011 PART 2 ==== ID B674BC235B6B5A9B78760CBD6F7E63FF ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 012 PART 0 ==== ID B674BC235B6B5A9B78760CBD6F7E63FF ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 012 PART 1 ==== ID B674BC235B6B5A9B78760CBD6F7E63FF ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 012 PART 2 ==== ID B674BC235B6B5A9B78760CBD6F7E63FF ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 013 PART 0 ==== ID B674BC235B6B5A9B78760CBD6F7E63FF ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 013 PART 1 ==== ID B674BC235B6B5A9B78760CBD6F7E63FF ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 013 PART 2 ==== ID B674BC235B6B5A9B78760CBD6F7E63FF ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 014 PART 0 ==== ID B674BC235B6B5A9B78760CBD6F7E63FF ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 014 PART 1 ==== ID B674BC235B6B5A9B78760CBD6F7E63FF ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 014 PART 2 ==== ID B674BC235B6B5A9B78760CBD6F7E63FF ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 015 PART 0 ==== ID B674BC235B6B5A9B78760CBD6F7E63FF ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 015 PART 1 ==== ID B674BC235B6B5A9B78760CBD6F7E63FF ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 015 PART 2 ==== ID B674BC235B6B5A9B78760CBD6F7E63FF ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 016 PART 0 ==== ID B674BC235B6B5A9B78760CBD6F7E63FF ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 016 PART 1 ==== ID B674BC235B6B5A9B78760CBD6F7E63FF ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 016 PART 2 ==== ID B674BC235B6B5A9B78760CBD6F7E63FF ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 017 PART 0 ==== ID B674BC235B6B5A9B78760CBD6F7E63FF ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 017 PART 1 ==== ID B674BC235B6B5A9B78760CBD6F7E63FF ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 017 PART 2 ==== ID B674BC235B6B5A9B78760CBD6F7E63FF ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 018 PART 0 ==== ID B674BC235B6B5A9B78760CBD6F7E63FF ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 018 PART 1 ==== ID B674BC235B6B5A9B78760CBD6F7E63FF ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 018 PART 2 ==== ID B674BC235B6B5A9B78760CBD6F7E63FF ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 019 PART 0 ==== ID B674BC235B6B5A9B78760CBD6F7E63FF ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 019 PART 1 ==== ID B674BC235B6B5A9B78760CBD6F7E63FF ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 019 PART 2 ==== ID B674BC235B6B5A9B78760CBD6F7E63FF ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 020 PART 0 ==== ID B674BC235B6B5A9B78760CBD6F7E63FF ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 020 PART 1 ==== ID B674BC235B6B5A9B78760CBD6F7E63FF ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 020 PART 2 ==== ID B674BC235B6B5A9B78760CBD6F7E63FF ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 021 PART 0 ==== ID B674BC235B6B5A9B78760CBD6F7E63FF ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 021 PART 1 ==== ID B674BC235B6B5A9B78760CBD6F7E63FF ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 021 PART 2 ==== ID B674BC235B6B5A9B78760CBD6F7E63FF ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 022 PART 0 ==== ID B674BC235B6B5A9B78760CBD6F7E63FF ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 022 PART 1 ==== ID B674BC235B6B5A9B78760CBD6F7E63FF ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 022 PART 2 ==== ID B674BC235B6B5A9B78760CBD6F7E63FF ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 023 PART 0 ==== ID B674BC235B6B5A9B78760CBD6F7E63FF ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 023 PART 1 ==== ID B674BC235B6B5A9B78760CBD6F7E63FF ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 023 PART 2 ==== ID B674BC235B6B5A9B78760CBD6F7E63FF ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 024 PART 0 ==== ID B674BC235B6B5A9B78760CBD6F7E63FF ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 024 PART 1 ==== ID B674BC235B6B5A9B78760CBD6F7E63FF ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 024 PART 2 ==== ID B674BC235B6B5A9B78760CBD6F7E63FF ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 025 PART 0 ==== ID B674BC235B6B5A9B78760CBD6F7E63FF ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 025 PART 1 ==== ID B674BC235B6B5A9B78760CBD6F7E63FF ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 025 PART 2 ==== ID B674BC235B6B5A9B78760CBD6F7E63FF ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 026 PART 0 ==== ID B674BC235B6B5A9B78760CBD6F7E63FF ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 026 PART 1 ==== ID B674BC235B6B5A9B78760CBD6F7E63FF ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 026 PART 2 ==== ID B674BC235B6B5A9B78760CBD6F7E63FF ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 027 PART 0 ==== ID B674BC235B6B5A9B78760CBD6F7E63FF ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 027 PART 1 ==== ID B674BC235B6B5A9B78760CBD6F7E63FF ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 027 PART 2 ==== ID B674BC235B6B5A9B78760CBD6F7E63FF ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 028 PART 0 ==== ID B674BC235B6B5A9B78760CBD6F7E63FF ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 028 PART 1 ==== ID B674BC235B6B5A9B78760CBD6F7E63FF ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 028 PART 2 ==== ID B674BC235B6B5A9B78760CBD6F7E63FF ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 029 PART 0 ==== ID B674BC235B6B5A9B78760CBD6F7E63FF ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 029 PART 1 ==== ID B674BC235B6B5A9B78760CBD6F7E63FF ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 029 PART 2 ==== ID B674BC235B6B5A9B78760CBD6F7E63FF ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 030 PART 0 ==== ID B674BC235B6B5A9B78760CBD6F7E63FF ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 030 PART 1 ==== ID B674BC235B6B5A9B78760CBD6F7E63FF ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 030 PART 2 ==== ID B674BC235B6B5A9B78760CBD6F7E63FF ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 031 PART 0 ==== ID B674BC235B6B5A9B78760CBD6F7E63FF ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 031 PART 1 ==== ID B674BC235B6B5A9B78760CBD6F7E63FF ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 031 PART 2 ==== ID B674BC235B6B5A9B78760CBD6F7E63FF ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 032 PART 0 ==== ID B674BC235B6B5A9B78760CBD6F7E63FF ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 032 PART 1 ==== ID B674BC235B6B5A9B78760CBD6F7E63FF ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 032 PART 2 ==== ID B674BC235B6B5A9B78760CBD6F7E63FF ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 033 PART 0 ==== ID B674BC235B6B5A9B78760CBD6F7E63FF ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 033 PART 1 ==== ID B674BC235B6B5A9B78760CBD6F7E63FF ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 033 PART 2 ==== ID B674BC235B6B5A9B78760CBD6F7E63FF ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 034 PART 0 ==== ID B674BC235B6B5A9B78760CBD6F7E63FF ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 034 PART 1 ==== ID B674BC235B6B5A9B78760CBD6F7E63FF ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 034 PART 2 ==== ID B674BC235B6B5A9B78760CBD6F7E63FF ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 035 PART 0 ==== ID B674BC235B6B5A9B78760CBD6F7E63FF ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 035 PART 1 ==== ID B674BC235B6B5A9B78760CBD6F7E63FF ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 035 PART 2 ==== ID B674BC235B6B5A9B78760CBD6F7E63FF ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 036 PART 0 ==== ID B674BC235B6B5A9B78760CBD6F7E63FF ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 036 PART 1 ==== ID B674BC235B6B5A9B78760CBD6F7E63FF ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 036 PART 2 ==== ID B674BC235B6B5A9B78760CBD6F7E63FF ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 037 PART 0 ==== ID B674BC235B6B5A9B78760CBD6F7E63FF ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 037 PART 1 ==== ID B674BC235B6B5A9B78760CBD6F7E63FF ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 037 PART 2 ==== ID B674BC235B6B5A9B78760CBD6F7E63FF ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 038 PART 0 ==== ID B674BC235B6B5A9B78760CBD6F7E63FF ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 038 PART 1 ==== ID B674BC235B6B5A9B78760CBD6F7E63FF ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 038 PART 2 ==== ID B674BC235B6B5A9B78760CBD6F7E63FF ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 039 PART 0 ==== ID B674BC235B6B5A9B78760CBD6F7E63FF ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 039 PART 1 ==== ID B674BC235B6B5A9B78760CBD6F7E63FF ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 039 PART 2 ==== ID B674BC235B6B5A9B78760CBD6F7E63FF ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 040 PART 0 ==== ID B674BC235B6B5A9B78760CBD6F7E63FF ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 040 PART 1 ==== ID B674BC235B6B5A9B78760CBD6F7E63FF ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 040 PART 2 ==== ID B674BC235B6B5A9B78760CBD6F7E63FF ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 041 PART 0 ==== ID B674BC235B6B5A9B78760CBD6F7E63FF ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 041 PART 1 ==== ID B674BC235B6B5A9B78760CBD6F7E63FF ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 041 PART 2 ==== ID B674BC235B6B5A9B78760CBD6F7E63FF ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 042 PART 0 ==== ID B674BC235B6B5A9B78760CBD6F7E63FF ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 042 PART 1 ==== ID B674BC235B6B5A9B78760CBD6F7E63FF ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 042 PART 2 ==== ID B674BC235B6B5A9B78760CBD6F7E63FF ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 043 PART 0 ==== ID B674BC235B6B5A9B78760CBD6F7E63FF ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 043 PART 1 ==== ID B674BC235B6B5A9B78760CBD6F7E63FF ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 043 PART 2 ==== ID B674BC235B6B5A9B78760CBD6F7E63FF ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 044 PART 0 ==== ID B674BC235B6B5A9B78760CBD6F7E63FF ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 044 PART 1 ==== ID B674BC235B6B5A9B78760CBD6F7E63FF ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 044 PART 2 ==== ID B674BC235B6B5A9B78760CBD6F7E63FF ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 045 PART 0 ==== ID B674BC235B6B5A9B78760CBD6F7E63FF ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 045 PART 1 ==== ID B674BC235B6B5A9B78760CBD6F7E63FF ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 045 PART 2 ==== ID B674BC235B6B5A9B78760CBD6F7E63FF ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 046 PART 0 ==== ID B674BC235B6B5A9B78760CBD6F7E63FF ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 046 PART 1 ==== ID B674BC235B6B5A9B78760CBD6F7E63FF ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 046 PART 2 ==== ID B674BC235B6B5A9B78760CBD6F7E63FF ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 047 PART 0 ==== ID B674BC235B6B5A9B78760CBD6F7E63FF ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 047 PART 1 ==== ID B674BC235B6B5A9B78760CBD6F7E63FF ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 047 PART 2 ==== ID B674BC235B6B5A9B78760CBD6F7E63FF ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 048 PART 0 ==== ID B674BC235B6B5A9B78760CBD6F7E63FF ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 048 PART 1 ==== ID B674BC235B6B5A9B78760CBD6F7E63FF ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 048 PART 2 ==== ID B674BC235B6B5A9B78760CBD6F7E63FF ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 049 PART 0 ==== ID B674BC235B6B5A9B78760CBD6F7E63FF ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 049 PART 1 ==== ID B674BC235B6B5A9B78760CBD6F7E63FF ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 049 PART 2 ==== ID B674BC235B6B5A9B78760CBD6F7E63FF ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 050 PART 0 ==== ID B674BC235B6B5A9B78760CBD6F7E63FF ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 050 PART 1 ==== ID B674BC235B6B5A9B78760CBD6F7E63FF ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 050 PART 2 ==== ID B674BC235B6B5A9B78760CBD6F7E63FF ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 051 PART 0 ==== ID B674BC235B6B5A9B78760CBD6F7E63FF ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 051 PART 1 ==== ID B674BC235B6B5A9B78760CBD6F7E63FF ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 051 PART 2 ==== ID B674BC235B6B5A9B78760CBD6F7E63FF ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 052 PART 0 ==== ID B674BC235B6B5A9B78760CBD6F7E63FF ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 052 PART 1 ==== ID B674BC235B6B5A9B78760CBD6F7E63FF ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 052 PART 2 ==== ID B674BC235B6B5A9B78760CBD6F7E63FF ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 053 PART 0 ==== ID B674BC235B6B5A9B78760CBD6F7E63FF ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 053 PART 1 ==== ID B674BC235B6B5A9B78760CBD6F7E63FF ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 053 PART 2 ==== ID B674BC235B6B5A9B78760CBD6F7E63FF ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 054 PART 0 ==== ID B674BC235B6B5A9B78760CBD6F7E63FF ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 054 PART 1 ==== ID B674BC235B6B5A9B78760CBD6F7E63FF ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 054 PART 2 ==== ID B674BC235B6B5A9B78760CBD6F7E63FF ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 055 PART 0 ==== ID B674BC235B6B5A9B78760CBD6F7E63FF ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 055 PART 1 ==== ID B674BC235B6B5A9B78760CBD6F7E63FF ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 055 PART 2 ==== ID B674BC235B6B5A9B78760CBD6F7E63FF ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 056 PART 0 ==== ID B674BC235B6B5A9B78760CBD6F7E63FF ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 056 PART 1 ==== ID B674BC235B6B5A9B78760CBD6F7E63FF ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 056 PART 2 ==== ID B674BC235B6B5A9B78760CBD6F7E63FF ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 057 PART 0 ==== ID B674BC235B6B5A9B78760CBD6F7E63FF ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 057 PART 1 ==== ID B674BC235B6B5A9B78760CBD6F7E63FF ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 057 PART 2 ==== ID B674BC235B6B5A9B78760CBD6F7E63FF ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 058 PART 0 ==== ID B674BC235B6B5A9B78760CBD6F7E63FF ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 058 PART 1 ==== ID B674BC235B6B5A9B78760CBD6F7E63FF ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 058 PART 2 ==== ID B674BC235B6B5A9B78760CBD6F7E63FF ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 059 PART 0 ==== ID B674BC235B6B5A9B78760CBD6F7E63FF ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 059 PART 1 ==== ID B674BC235B6B5A9B78760CBD6F7E63FF ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 059 PART 2 ==== ID B674BC235B6B5A9B78760CBD6F7E63FF ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 060 PART 0 ==== ID B674BC235B6B5A9B78760CBD6F7E63FF ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 060 PART 1 ==== ID B674BC235B6B5A9B78760CBD6F7E63FF ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 060 PART 2 ==== ID B674BC235B6B5A9B78760CBD6F7E63FF ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 061 PART 0 ==== ID B674BC235B6B5A9B78760CBD6F7E63FF ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 061 PART 1 ==== ID B674BC235B6B5A9B78760CBD6F7E63FF ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 061 PART 2 ==== ID B674BC235B6B5A9B78760CBD6F7E63FF ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 062 PART 0 ==== ID B674BC235B6B5A9B78760CBD6F7E63FF ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 062 PART 1 ==== ID B674BC235B6B5A9B78760CBD6F7E63FF ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 062 PART 2 ==== ID B674BC235B6B5A9B78760CBD6F7E63FF ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 063 PART 0 ==== ID B674BC235B6B5A9B78760CBD6F7E63FF ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 063 PART 1 ==== ID B674BC235B6B5A9B78760CBD6F7E63FF ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 063 PART 2 ==== ID B674BC235B6B5A9B78760CBD6F7E63FF ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 064 PART 0 ==== ID B674BC235B6B5A9B78760CBD6F7E63FF ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 064 PART 1 ==== ID B674BC235B6B5A9B78760CBD6F7E63FF ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 064 PART 2 ==== ID B674BC235B6B5A9B78760CBD6F7E63FF ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 065 PART 0 ==== ID B674BC235B6B5A9B78760CBD6F7E63FF ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 065 PART 1 ==== ID B674BC235B6B5A9B78760CBD6F7E63FF ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 065 PART 2 ==== ID B674BC235B6B5A9B78760CBD6F7E63FF ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 066 PART 0 ==== ID B674BC235B6B5A9B78760CBD6F7E63FF ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 066 PART 1 ==== ID B674BC235B6B5A9B78760CBD6F7E63FF ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 066 PART 2 ==== ID B674BC235B6B5A9B78760CBD6F7E63FF ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 067 PART 0 ==== ID B674BC235B6B5A9B78760CBD6F7E63FF ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 067 PART 1 ==== ID B674BC235B6B5A9B78760CBD6F7E63FF ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 067 PART 2 ==== ID B674BC235B6B5A9B78760CBD6F7E63FF ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 068 PART 0 ==== ID B674BC235B6B5A9B78760CBD6F7E63FF ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 068 PART 1 ==== ID B674BC235B6B5A9B78760CBD6F7E63FF ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 068 PART 2 ==== ID B674BC235B6B5A9B78760CBD6F7E63FF ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 069 PART 0 ==== ID B674BC235B6B5A9B78760CBD6F7E63FF ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 069 PART 1 ==== ID B674BC235B6B5A9B78760CBD6F7E63FF ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 069 PART 2 ==== ID B674BC235B6B5A9B78760CBD6F7E63FF ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 070 PART 0 ==== ID B674BC235B6B5A9B78760CBD6F7E63FF ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 070 PART 1 ==== ID B674BC235B6B5A9B78760CBD6F7E63FF ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 070 PART 2 ==== ID B674BC235B6B5A9B78760CBD6F7E63FF ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 071 PART 0 ==== ID B674BC235B6B5A9B78760CBD6F7E63FF ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 071 PART 1 ==== ID B674BC235B6B5A9B78760CBD6F7E63FF ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 071 PART 2 ==== ID B674BC235B6B5A9B78760CBD6F7E63FF ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 072 PART 0 ==== ID B674BC235B6B5A9B78760CBD6F7E63FF ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 072 PART 1 ==== ID B674BC235B6B5A9B78760CBD6F7E63FF ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 072 PART 2 ==== ID B674BC235B6B5A9B78760CBD6F7E63FF ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 073 PART 0 ==== ID B674BC235B6B5A9B78760CBD6F7E63FF ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 073 PART 1 ==== ID B674BC235B6B5A9B78760CBD6F7E63FF ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 073 PART 2 ==== ID B674BC235B6B5A9B78760CBD6F7E63FF ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 074 PART 0 ==== ID B674BC235B6B5A9B78760CBD6F7E63FF ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 074 PART 1 ==== ID B674BC235B6B5A9B78760CBD6F7E63FF ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 074 PART 2 ==== ID B674BC235B6B5A9B78760CBD6F7E63FF ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 075 PART 0 ==== ID B674BC235B6B5A9B78760CBD6F7E63FF ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 075 PART 1 ==== ID B674BC235B6B5A9B78760CBD6F7E63FF ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 075 PART 2 ==== ID B674BC235B6B5A9B78760CBD6F7E63FF ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 076 PART 0 ==== ID B674BC235B6B5A9B78760CBD6F7E63FF ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 076 PART 1 ==== ID B674BC235B6B5A9B78760CBD6F7E63FF ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 076 PART 2 ==== ID B674BC235B6B5A9B78760CBD6F7E63FF ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 077 PART 0 ==== ID B674BC235B6B5A9B78760CBD6F7E63FF ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 077 PART 1 ==== ID B674BC235B6B5A9B78760CBD6F7E63FF ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 077 PART 2 ==== ID B674BC235B6B5A9B78760CBD6F7E63FF ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 078 PART 0 ==== ID B674BC235B6B5A9B78760CBD6F7E63FF ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 078 PART 1 ==== ID B674BC235B6B5A9B78760CBD6F7E63FF ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 078 PART 2 ==== ID B674BC235B6B5A9B78760CBD6F7E63FF ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 079 PART 0 ==== ID B674BC235B6B5A9B78760CBD6F7E63FF ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 079 PART 1 ==== ID B674BC235B6B5A9B78760CBD6F7E63FF ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 079 PART 2 ==== ID B674BC235B6B5A9B78760CBD6F7E63FF ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 080 PART 0 ==== ID B674BC235B6B5A9B78760CBD6F7E63FF ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 080 PART 1 ==== ID B674BC235B6B5A9B78760CBD6F7E63FF ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 080 PART 2 ==== ID B674BC235B6B5A9B78760CBD6F7E63FF ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 081 PART 0 ==== ID B674BC235B6B5A9B78760CBD6F7E63FF ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 081 PART 1 ==== ID B674BC235B6B5A9B78760CBD6F7E63FF ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 081 PART 2 ==== ID B674BC235B6B5A9B78760CBD6F7E63FF ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 082 PART 0 ==== ID B674BC235B6B5A9B78760CBD6F7E63FF ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 082 PART 1 ==== ID B674BC235B6B5A9B78760CBD6F7E63FF ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 082 PART 2 ==== ID B674BC235B6B5A9B78760CBD6F7E63FF ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 083 PART 0 ==== ID B674BC235B6B5A9B78760CBD6F7E63FF ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 083 PART 1 ==== ID B674BC235B6B5A9B78760CBD6F7E63FF ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 083 PART 2 ==== ID B674BC235B6B5A9B78760CBD6F7E63FF ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 084 PART 0 ==== ID B674BC235B6B5A9B78760CBD6F7E63FF ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 084 PART 1 ==== ID B674BC235B6B5A9B78760CBD6F7E63FF ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 084 PART 2 ==== ID B674BC235B6B5A9B78760CBD6F7E63FF ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 085 PART 0 ==== ID B674BC235B6B5A9B78760CBD6F7E63FF ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 085 PART 1 ==== ID B674BC235B6B5A9B78760CBD6F7E63FF ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 085 PART 2 ==== ID B674BC235B6B5A9B78760CBD6F7E63FF ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 086 PART 0 ==== ID B674BC235B6B5A9B78760CBD6F7E63FF ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 086 PART 1 ==== ID B674BC235B6B5A9B78760CBD6F7E63FF ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 086 PART 2 ==== ID B674BC235B6B5A9B78760CBD6F7E63FF ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 087 PART 0 ==== ID B674BC235B6B5A9B78760CBD6F7E63FF ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 087 PART 1 ==== ID B674BC235B6B5A9B78760CBD6F7E63FF ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 087 PART 2 ==== ID B674BC235B6B5A9B78760CBD6F7E63FF ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 088 PART 0 ==== ID B674BC235B6B5A9B78760CBD6F7E63FF ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 088 PART 1 ==== ID B674BC235B6B5A9B78760CBD6F7E63FF ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 088 PART 2 ==== ID B674BC235B6B5A9B78760CBD6F7E63FF ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 089 PART 0 ==== ID B674BC235B6B5A9B78760CBD6F7E63FF ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 089 PART 1 ==== ID B674BC235B6B5A9B78760CBD6F7E63FF ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 089 PART 2 ==== ID B674BC235B6B5A9B78760CBD6F7E63FF ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 090 PART 0 ==== ID B674BC235B6B5A9B78760CBD6F7E63FF ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 090 PART 1 ==== ID B674BC235B6B5A9B78760CBD6F7E63FF ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 090 PART 2 ==== ID B674BC235B6B5A9B78760CBD6F7E63FF ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 091 PART 0 ==== ID B674BC235B6B5A9B78760CBD6F7E63FF ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 091 PART 1 ==== ID B674BC235B6B5A9B78760CBD6F7E63FF ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 091 PART 2 ==== ID B674BC235B6B5A9B78760CBD6F7E63FF ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 092 PART 0 ==== ID B674BC235B6B5A9B78760CBD6F7E63FF ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 092 PART 1 ==== ID B674BC235B6B5A9B78760CBD6F7E63FF ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 092 PART 2 ==== ID B674BC235B6B5A9B78760CBD6F7E63FF ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 093 PART 0 ==== ID B674BC235B6B5A9B78760CBD6F7E63FF ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 093 PART 1 ==== ID B674BC235B6B5A9B78760CBD6F7E63FF ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 093 PART 2 ==== ID B674BC235B6B5A9B78760CBD6F7E63FF ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 094 PART 0 ==== ID B674BC235B6B5A9B78760CBD6F7E63FF ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 094 PART 1 ==== ID B674BC235B6B5A9B78760CBD6F7E63FF ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 094 PART 2 ==== ID B674BC235B6B5A9B78760CBD6F7E63FF ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 095 PART 0 ==== ID B674BC235B6B5A9B78760CBD6F7E63FF ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 095 PART 1 ==== ID B674BC235B6B5A9B78760CBD6F7E63FF ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 095 PART 2 ==== ID B674BC235B6B5A9B78760CBD6F7E63FF ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 096 PART 0 ==== ID B674BC235B6B5A9B78760CBD6F7E63FF ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 096 PART 1 ==== ID B674BC235B6B5A9B78760CBD6F7E63FF ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 096 PART 2 ==== ID B674BC235B6B5A9B78760CBD6F7E63FF ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 097 PART 0 ==== ID B674BC235B6B5A9B78760CBD6F7E63FF ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 097 PART 1 ==== ID B674BC235B6B5A9B78760CBD6F7E63FF ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 097 PART 2 ==== ID B674BC235B6B5A9B78760CBD6F7E63FF ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 098 PART 0 ==== ID B674BC235B6B5A9B78760CBD6F7E63FF ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 098 PART 1 ==== ID B674BC235B6B5A9B78760CBD6F7E63FF ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 098 PART 2 ==== ID B674BC235B6B5A9B78760CBD6F7E63FF ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 099 PART 0 ==== ID B674BC235B6B5A9B78760CBD6F7E63FF ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 099 PART 1 ==== ID B674BC235B6B5A9B78760CBD6F7E63FF ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 099 PART 2 ==== ID B674BC235B6B5A9B78760CBD6F7E63FF ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 

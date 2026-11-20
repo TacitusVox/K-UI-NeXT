@@ -1,9 +1,12 @@
 # Toy Commander Test 83: the stream survey, its report saved to the card
 
-Status: built 20 November 2026 (build `3bd4bed2fca2`), host and linked
-checks only. It has not run on a console. A test module, not an accepted
-component, and not a replacement for the installed New reader: it has no
-virtual VMU, no block prefetch and no CD music.
+Status: built 20 November 2026 (build `3bd4bed2fca2`), and run on the
+console by the owner the same day (Console result): the report is saved
+to the card from a Games launch, in Evolution 2 and ChuChu Rocket with
+the delivered module, and in Bangai-O, MDK2 and Omikron with the
+owner's later builds of it. A test module, not an accepted component,
+and not a replacement for the installed New reader: it has no virtual
+VMU, no block prefetch and no CD music.
 
 The module is built from `3bd4bed2fca2`: Main `4441e92` with the console
 results of Tests 80 to 82 (`719b65f`), the record of the shared sources'
@@ -220,6 +223,95 @@ or looked or sounded wrong.
 | `SURVEY ON`, and at the gesture pages headed `REPORT NOT SAVED` | The worker refused: the card's identity, a sector no longer blank, or the card not to be had at that moment. The first save in a title that is not Toy Commander is this build's |
 | `RETAIL RESIDENT INIT FAILED` under a `SURVEY OFF / FILE` line | A read of the survey's left the card not ready. Once: a fault of the port. Every time: a sector of the file or of its folders that the card does not give; without the file the launch is Test 81's |
 | A game that ran under Test 81 does not start, or stops at launch | The stage's survey disturbs the launch there. With the launch screen's last lines |
+
+## Console result
+
+The owner's runs of 20 November 2026, from the Games menu, and the
+file from the card: `KUI/SURVEY/STREAM.TXT`, ID
+B674BC235B6B5A9B78760CBD6F7E63FF, ten of its hundred slots used
+(SHA-256 `81961079...8fc3`). The owner's words with it: "I did your
+test", and "MDK2 and Omikron both saved reports on hardware". The file
+as returned, the tool's listing and its reading of every slot are in
+`docs/evidence/toy-wire-stream-83/console/`. No page was photographed.
+
+| Slot | Game | Module build | In the file |
+|---|---|---|---|
+| 0, 1 | Evolution 2 | `3bd4bed2fca2`, as delivered | A launch record, no report |
+| 2, 3 | Evolution 2 | the same | Report saved |
+| 4 | ChuChu Rocket | the same | Report saved |
+| 5 | Ready 2 Rumble Boxing | the same | A launch record, no report |
+| 6 | Bangai-O | `c27892faf747` | Report saved |
+| 7 | Ready 2 Rumble Boxing | `c27892faf747` | A launch record, no report |
+| 8 | MDK2 | `1d80f771f081` | Report saved |
+| 9 | Omikron | `1d80f771f081` | Report saved |
+
+What it settles:
+
+- The stage finds the file on the owner's card, writes the launch
+  record and hands the worker its two sectors; the worker saves. That
+  is the first write to the card from a Games-launched Toy stage, and
+  the first report saved in titles that are not Toy Commander (limit 1
+  below). Every launch record names its game, with the map as the
+  stage saw it.
+- The delivered module saved in Evolution 2 and ChuChu Rocket. The
+  other three games needed changes to the loader, which the owner made
+  in another session and sent with the file as two source lines
+  (`owner-source/README.txt`): the GUI `4d4dcff77494` on Main and the
+  reader `1d80f771f081` on this build. Bangai-O has 37 tracks and 111
+  pieces of file on the owner's card, 148 slots of a map that held 64:
+  `c27892f`, the line's first build with a map of 160 slots, saved its
+  report. MDK2 and Omikron saved with the line's last build, which
+  also sees the report gesture in a controller poll that is mixed with
+  VMU traffic, and recognises further forms of the SDK's start-up,
+  allocator and exit code.
+- Both source lines are merged here (`1781be1`, `72ae8c9`). The reader
+  built from the merged tree with the line's recipe and
+  `BUILD_ID=1d80f771f081` is the module the owner ran, byte for byte
+  (SHA-256 `313ac3bd...5f1c`, 311,936 bytes).
+
+What it does not settle:
+
+- Ready 2 Rumble Boxing left a launch record twice and no report, with
+  the delivered module and with `c27892f`. The owner has not said what
+  the screen showed. The repository's launch gates, run over the
+  owner's copy of its program on 20 November, say the reader's lease
+  does not fit beside it; a launch that stops after the survey's look
+  has already written its launch record. It was not run with
+  `1d80f77`.
+- Evolution 2's first two launches left no report; the next two did.
+  Not said why (the gesture not held, or the game ended another way).
+- Nothing was reported of how the games looked or sounded.
+
+The six saved reports, decoded (`console/reports.txt` has their text):
+
+| | Evolution 2, slot 2 | Evolution 2, slot 3 | ChuChu Rocket, slot 4 | Bangai-O, slot 6 | MDK2, slot 8 | Omikron, slot 9 |
+|---|---|---|---|---|---|---|
+| Module build | `3bd4bed2fca2` | `3bd4bed2fca2` | `3bd4bed2fca2` | `c27892faf747` | `1d80f771f081` | `1d80f771f081` |
+| Card blocks the low reader read (`BLK`) | 3,991 | 3,991 | 11,621 | 5,574 | 39,283 | 25,281 |
+| Its receive overruns (`OVR`) | 84 | 84 | 234 | 104 | 702 | 407 |
+| Its CRC failures (`CRC`) | 0 | 0 | 0 | 0 | 0 | 0 |
+| Streams begun (`START`) | 2 | 2 | 12 | 235 | 34 | 138 |
+| Runs (`SEG`) | 31 | 31 | 112 | 118 | 841 | 2,095 |
+| Runs cut (`CUT`) | 6 | 6 | 44 | 1,064 | 336 | 982 |
+| Waits (`WAIT`) | 0 | 0 | 4 | 31 | 52 | 176 |
+| Bytes through the stream (`BYTES`) | 161,028 | 161,024 | 894,359 | 2,974,318 | 6,420,695 | 17,723,099 |
+| The stream's timer (`TMR`) | TMU1 | TMU1 | TMU1 | TMU1 | TMU1 | TMU1 |
+| Sectors completed from parity (`FILL`) | 0 | 0 | 3 | 27 | 28 | 156 |
+| Sectors parity could not complete (`REF`) | 0 | 0 | 0 | 0 | 0 | 0 |
+| Sectors that failed their check (`BAD`) | 0 | 0 | 0 | 1 | 0 | 3 |
+
+Every report is headed `TEST 81`: the worker is Test 81's. In all six
+the stream took TMU1 for its timer, no block failed its CRC, and no
+sector was left that parity could not complete. Four sectors in all
+failed their check (Bangai-O one, Omikron three), and a stream ended
+at each (`S`'s second value).
+
+After the owner's lines, the earlier recipes no longer build the bytes
+that were delivered: the lines change sources every stage is built
+from. On the merged tree Tests 68, 79, 81, 82 and this test's own
+64-slot recipe each give another module than the one delivered (the
+recorded hashes are those of each test's own commit). The owner's
+reader is the baseline from here.
 
 ## Known limits, not changed here
 

@@ -1,0 +1,692 @@
+{
+ "id": "B674BC235B6B5A9B78760CBD6F7E63FF",
+ "slots": 100,
+ "entries": [
+  {
+   "slot": 0,
+   "launch": {
+    "survey": 83,
+    "build": "3bd4bed2fca2",
+    "product": "T1711N",
+    "title": "EVOLUTION2",
+    "bootfile": "1ST_READ.BIN",
+    "region": "U",
+    "ip_crc32": 629158628,
+    "gdi_crc32": 1152151026,
+    "boot_crc32": 4246476770,
+    "boot_bytes": 4057056,
+    "exec_crc32": 4246476770,
+    "exec_bytes": 4057056,
+    "reader": 1,
+    "transport": 1,
+    "flags": 4,
+    "source": 1,
+    "tracks": 3,
+    "raw": 2,
+    "cooked": 0,
+    "audio": 1,
+    "audio_high": 0,
+    "audio_mapped": 1,
+    "other": 0,
+    "extents": 15,
+    "session_lba": 45000,
+    "boot_lba": 547019
+   },
+   "state": "launched, no report saved"
+  },
+  {
+   "slot": 1,
+   "launch": {
+    "survey": 83,
+    "build": "3bd4bed2fca2",
+    "product": "T1711N",
+    "title": "EVOLUTION2",
+    "bootfile": "1ST_READ.BIN",
+    "region": "U",
+    "ip_crc32": 629158628,
+    "gdi_crc32": 1152151026,
+    "boot_crc32": 4246476770,
+    "boot_bytes": 4057056,
+    "exec_crc32": 4246476770,
+    "exec_bytes": 4057056,
+    "reader": 1,
+    "transport": 1,
+    "flags": 4,
+    "source": 1,
+    "tracks": 3,
+    "raw": 2,
+    "cooked": 0,
+    "audio": 1,
+    "audio_high": 0,
+    "audio_mapped": 1,
+    "other": 0,
+    "extents": 15,
+    "session_lba": 45000,
+    "boot_lba": 547019
+   },
+   "state": "launched, no report saved"
+  },
+  {
+   "slot": 2,
+   "launch": {
+    "survey": 83,
+    "build": "3bd4bed2fca2",
+    "product": "T1711N",
+    "title": "EVOLUTION2",
+    "bootfile": "1ST_READ.BIN",
+    "region": "U",
+    "ip_crc32": 629158628,
+    "gdi_crc32": 1152151026,
+    "boot_crc32": 4246476770,
+    "boot_bytes": 4057056,
+    "exec_crc32": 4246476770,
+    "exec_bytes": 4057056,
+    "reader": 1,
+    "transport": 1,
+    "flags": 4,
+    "source": 1,
+    "tracks": 3,
+    "raw": 2,
+    "cooked": 0,
+    "audio": 1,
+    "audio_high": 0,
+    "audio_mapped": 1,
+    "other": 0,
+    "extents": 15,
+    "session_lba": 45000,
+    "boot_lba": 547019
+   },
+   "state": "report saved",
+   "report": "K-UI TOY COMMANDER REPORT\nTEST 81\nBUILD 3bd4bed2fca2\nHEX / 781250 HZ\nPIPE B I CALLS IRQ STAY PT\n0 0 1E6 14 11 1FBD\nAHEAD B I HIT EDC STOP OS\n0 0 13 41 0 13\nX OW E I C W O\n2 0 0 0 0 2\nBIG N S BACK TOY\n0 0 0 0\nSD BLK PIO OVR CRC DECL\nF97 0 54 0 0\nXC KEPT LO HI\n1 0 4\nK LIGHT EDC MEND MB LB ORD\n3A 7 1D 0 0 3\nV SCI TMR GAME N TICKS\n14 0 1E6 127F 0 2B40\nVMAX SCI TMR GAME D\n1F8 0 495 1776\nP RING FEED CHK OUT SVC HALT\n21D8 E0F 43E 29C 393 18\nD N T SEEK\n1491 F97D6 F1\nW START SEG CUT WAIT FULL\n2 1F 6 0 0\nW BYTES WTICK TMR ERR DET\n27504 0 1 0 0\nW BLK FIX UNFIX HOLED NOCRC SEEK\n131 24 0 0 0 0\nS C S F LF AM BC\n2 0 0 0 0 0\nW FILL REF BAD\n0 0 0\n                                                                                                                                                                                                                                                                                                                                                                                      \nEND REPORT\n"
+  },
+  {
+   "slot": 3,
+   "launch": {
+    "survey": 83,
+    "build": "3bd4bed2fca2",
+    "product": "T1711N",
+    "title": "EVOLUTION2",
+    "bootfile": "1ST_READ.BIN",
+    "region": "U",
+    "ip_crc32": 629158628,
+    "gdi_crc32": 1152151026,
+    "boot_crc32": 4246476770,
+    "boot_bytes": 4057056,
+    "exec_crc32": 4246476770,
+    "exec_bytes": 4057056,
+    "reader": 1,
+    "transport": 1,
+    "flags": 4,
+    "source": 1,
+    "tracks": 3,
+    "raw": 2,
+    "cooked": 0,
+    "audio": 1,
+    "audio_high": 0,
+    "audio_mapped": 1,
+    "other": 0,
+    "extents": 15,
+    "session_lba": 45000,
+    "boot_lba": 547019
+   },
+   "state": "report saved",
+   "report": "K-UI TOY COMMANDER REPORT\nTEST 81\nBUILD 3bd4bed2fca2\nHEX / 781250 HZ\nPIPE B I CALLS IRQ STAY PT\n0 0 1E8 14 11 1FBD\nAHEAD B I HIT EDC STOP OS\n0 0 13 41 0 13\nX OW E I C W O\n2 0 0 0 0 2\nBIG N S BACK TOY\n0 0 0 0\nSD BLK PIO OVR CRC DECL\nF97 0 54 0 0\nXC KEPT LO HI\n1 0 4\nK LIGHT EDC MEND MB LB ORD\n3A 7 1D 0 0 3\nV SCI TMR GAME N TICKS\n14 0 1E8 1285 0 2B4C\nVMAX SCI TMR GAME D\n1F7 0 496 1778\nP RING FEED CHK OUT SVC HALT\n21EB E10 43F 296 396 18\nD N T SEEK\n5A1 F51EC F3\nW START SEG CUT WAIT FULL\n2 1F 6 0 0\nW BYTES WTICK TMR ERR DET\n27500 0 1 0 0\nW BLK FIX UNFIX HOLED NOCRC SEEK\n131 24 0 0 0 0\nS C S F LF AM BC\n2 0 0 0 0 0\nW FILL REF BAD\n0 0 0\n                                                                                                                                                                                                                                                                                                                                                                                       \nEND REPORT\n"
+  },
+  {
+   "slot": 4,
+   "launch": {
+    "survey": 83,
+    "build": "3bd4bed2fca2",
+    "product": "MK-51049",
+    "title": "CHUCHU ROCKET",
+    "bootfile": "1ST_READ.BIN",
+    "region": "U",
+    "ip_crc32": 3588297609,
+    "gdi_crc32": 3084472095,
+    "boot_crc32": 2212678210,
+    "boot_bytes": 1532256,
+    "exec_crc32": 2212678210,
+    "exec_bytes": 1532256,
+    "reader": 1,
+    "transport": 1,
+    "flags": 4,
+    "source": 1,
+    "tracks": 19,
+    "raw": 3,
+    "cooked": 0,
+    "audio": 16,
+    "audio_high": 15,
+    "audio_mapped": 16,
+    "other": 0,
+    "extents": 20,
+    "session_lba": 45000,
+    "boot_lba": 548251
+   },
+   "state": "report saved",
+   "report": "K-UI TOY COMMANDER REPORT\nTEST 81\nBUILD 3bd4bed2fca2\nHEX / 781250 HZ\nPIPE B I CALLS IRQ STAY PT\n0 0 2274 6A 1E 1FBD\nAHEAD B I HIT EDC STOP OS\n0 0 1E 165 0 122\nX OW E I C W O\n9 0 0 1 0 8\nBIG N S BACK TOY\n3 D5 0 0\nSD BLK PIO OVR CRC DECL\n2D65 3 EA 0 0\nXC KEPT LO HI\n0 100000 0\nK LIGHT EDC MEND MB LB ORD\n13E 27 7C 0 0 3\nV SCI TMR GAME N TICKS\n6A 3 2274 246F 8 1F57E\nVMAX SCI TMR GAME D\n1A8 3 60A 1759\nP RING FEED CHK OUT SVC HALT\nD210 4715 16DE 2869 305D 79\nD N T SEEK\n4B65 34721A 1536\nW START SEG CUT WAIT FULL\nC 70 2C 4 1\nW BYTES WTICK TMR ERR DET\nDA597 127 1 0 0\nW BLK FIX UNFIX HOLED NOCRC SEEK\n674 89 2 5 0 4\nS C S F LF AM BC\n9 0 3 3 0 0\nW FILL REF BAD\n3 0 0\n                                                                                                                                                                                                                                                                                                                                                              \nEND REPORT\n"
+  },
+  {
+   "slot": 5,
+   "launch": {
+    "survey": 83,
+    "build": "3bd4bed2fca2",
+    "product": "T9704N",
+    "title": "READY 2 RUMBLE BOXING",
+    "bootfile": "1ST_READ.BIN",
+    "region": "U",
+    "ip_crc32": 4144623905,
+    "gdi_crc32": 1678305112,
+    "boot_crc32": 1814960916,
+    "boot_bytes": 2051040,
+    "exec_crc32": 1814960916,
+    "exec_bytes": 2051040,
+    "reader": 1,
+    "transport": 1,
+    "flags": 4,
+    "source": 1,
+    "tracks": 7,
+    "raw": 3,
+    "cooked": 0,
+    "audio": 4,
+    "audio_high": 3,
+    "audio_mapped": 4,
+    "other": 0,
+    "extents": 8,
+    "session_lba": 45000,
+    "boot_lba": 547998
+   },
+   "state": "launched, no report saved"
+  },
+  {
+   "slot": 6,
+   "launch": {
+    "survey": 83,
+    "build": "c27892faf747",
+    "product": "T40217N",
+    "title": "BANGAI-O",
+    "bootfile": "1ST_READ.BIN",
+    "region": "U",
+    "ip_crc32": 3024813708,
+    "gdi_crc32": 1727952938,
+    "boot_crc32": 2600214065,
+    "boot_bytes": 564160,
+    "exec_crc32": 2600214065,
+    "exec_bytes": 564160,
+    "reader": 1,
+    "transport": 1,
+    "flags": 4,
+    "source": 1,
+    "tracks": 37,
+    "raw": 3,
+    "cooked": 0,
+    "audio": 34,
+    "audio_high": 33,
+    "audio_mapped": 34,
+    "other": 0,
+    "extents": 111,
+    "session_lba": 45000,
+    "boot_lba": 546054
+   },
+   "state": "report saved",
+   "report": "K-UI TOY COMMANDER REPORT\nTEST 81\nBUILD c27892faf747\nHEX / 781250 HZ\nPIPE B I CALLS IRQ STAY PT\n0 0 7AEF 468 3AE 1FBD\nAHEAD B I HIT EDC STOP OS\n0 0 3B7 48E 0 3BA\nX OW E I C W O\nD 0 0 0 0 D\nBIG N S BACK TOY\n0 0 0 0\nSD BLK PIO OVR CRC DECL\n15C6 E9 68 0 0\nXC KEPT LO HI\n0 0 0\nK LIGHT EDC MEND MB LB ORD\n36E 121 315 0 0 3\nV SCI TMR GAME N TICKS\n468 3 7AEF B37B A BF9AE\nVMAX SCI TMR GAME D\n1F6 4 6F7 1752\nP RING FEED CHK OUT SVC HALT\n2DD54 13E36 8009 7F4C BBF3 943\nD N T SEEK\nC8CE 28AEBE 54288\nW START SEG CUT WAIT FULL\nEB 76 428 1F 1\nW BYTES WTICK TMR ERR DET\n2D626E 85D 1 0 0\nW BLK FIX UNFIX HOLED NOCRC SEEK\n1601 365 D2 FB 3 E9\nS C S F LF AM BC\nD 1 DD DA 0 3\nW FILL REF BAD\n1B 0 1\n                                                                                                                                                                                                                                                                                                                                             \nEND REPORT\n"
+  },
+  {
+   "slot": 7,
+   "launch": {
+    "survey": 83,
+    "build": "c27892faf747",
+    "product": "T9704N",
+    "title": "READY 2 RUMBLE BOXING",
+    "bootfile": "1ST_READ.BIN",
+    "region": "U",
+    "ip_crc32": 4144623905,
+    "gdi_crc32": 1678305112,
+    "boot_crc32": 1814960916,
+    "boot_bytes": 2051040,
+    "exec_crc32": 1814960916,
+    "exec_bytes": 2051040,
+    "reader": 1,
+    "transport": 1,
+    "flags": 4,
+    "source": 1,
+    "tracks": 7,
+    "raw": 3,
+    "cooked": 0,
+    "audio": 4,
+    "audio_high": 3,
+    "audio_mapped": 4,
+    "other": 0,
+    "extents": 8,
+    "session_lba": 45000,
+    "boot_lba": 547998
+   },
+   "state": "launched, no report saved"
+  },
+  {
+   "slot": 8,
+   "launch": {
+    "survey": 83,
+    "build": "1d80f771f081",
+    "product": "T12502N",
+    "title": "MDK2",
+    "bootfile": "1ST_READ.BIN",
+    "region": "U",
+    "ip_crc32": 873603145,
+    "gdi_crc32": 387242394,
+    "boot_crc32": 1747816675,
+    "boot_bytes": 750804,
+    "exec_crc32": 1747816675,
+    "exec_bytes": 750804,
+    "reader": 1,
+    "transport": 1,
+    "flags": 4,
+    "source": 1,
+    "tracks": 31,
+    "raw": 3,
+    "cooked": 0,
+    "audio": 28,
+    "audio_high": 27,
+    "audio_mapped": 0,
+    "other": 0,
+    "extents": 39,
+    "session_lba": 45000,
+    "boot_lba": 548633
+   },
+   "state": "report saved",
+   "report": "K-UI TOY COMMANDER REPORT\nTEST 81\nBUILD 1d80f771f081\nHEX / 781250 HZ\nPIPE B I CALLS IRQ STAY PT\n0 0 B98 3FA 71 1FBD\nAHEAD B I HIT EDC STOP OS\n0 0 AD A5C 0 92F\nX OW E I C W O\n1C 0 0 0 0 1B\nBIG N S BACK TOY\nC 5E3 0 0\nSD BLK PIO OVR CRC DECL\n9973 1E 2BE 0 0\nXC KEPT LO HI\n3 0 4\nK LIGHT EDC MEND MB LB ORD\n93E 11E 377 0 0 3\nV SCI TMR GAME N TICKS\n3FA 33 B98 59270 7A 29BC8\nVMAX SCI TMR GAME D\n3E3 4 9AD 174A\nP RING FEED CHK OUT SVC HALT\n515AC 207F1 A4F8 1493A 493B 160\nD N T SEEK\n46ED 63AFA9 2FC5\nW START SEG CUT WAIT FULL\n22 349 150 34 4\nW BYTES WTICK TMR ERR DET\n61F8D7 1C6E 1 0 0\nW BLK FIX UNFIX HOLED NOCRC SEEK\n2FE8 411 1 27 2 14\nS C S F LF AM BC\n1B 0 6 6 0 0\nW FILL REF BAD\n1C 0 0\n                                                                                                                                                                                                                                                                                                                                         \nEND REPORT\n"
+  },
+  {
+   "slot": 9,
+   "launch": {
+    "survey": 83,
+    "build": "1d80f771f081",
+    "product": "T36807N",
+    "title": "OMIKRON THE NOMAD SOUL",
+    "bootfile": "1ST_READ.BIN",
+    "region": "U",
+    "ip_crc32": 435425528,
+    "gdi_crc32": 2026973335,
+    "boot_crc32": 3626608246,
+    "boot_bytes": 1063844,
+    "exec_crc32": 3626608246,
+    "exec_bytes": 1063844,
+    "reader": 1,
+    "transport": 1,
+    "flags": 4,
+    "source": 1,
+    "tracks": 5,
+    "raw": 3,
+    "cooked": 0,
+    "audio": 2,
+    "audio_high": 1,
+    "audio_mapped": 2,
+    "other": 0,
+    "extents": 32,
+    "session_lba": 45000,
+    "boot_lba": 548480
+   },
+   "state": "report saved",
+   "report": "K-UI TOY COMMANDER REPORT\nTEST 81\nBUILD 1d80f771f081\nHEX / 781250 HZ\nPIPE B I CALLS IRQ STAY PT\n0 0 49BB 900 5B 1FBD\nAHEAD B I HIT EDC STOP OS\n0 0 366 19C3 0 172D\nX OW E I C W O\n22 0 0 0 0 21\nBIG N S BACK TOY\n9 3EF 0 0\nSD BLK PIO OVR CRC DECL\n62C1 74 197 0 0\nXC KEPT LO HI\n0 0 0\nK LIGHT EDC MEND MB LB ORD\n16B2 314 7EE 1 0 3\nV SCI TMR GAME N TICKS\n900 A3 49BB 77184 1E0 1178FF\nVMAX SCI TMR GAME D\n45A 4 B46 1B1F\nP RING FEED CHK OUT SVC HALT\nC93DB 619AE 1CCC8 311A2 FE24 543\nD N T SEEK\n55DA 77F214 2B627\nW START SEG CUT WAIT FULL\n8A 82F 3D6 B0 270\nW BYTES WTICK TMR ERR DET\n10E6EDB 3BFF 1 0 0\nW BLK FIX UNFIX HOLED NOCRC SEEK\n7749 94C 39 DB 3 81\nS C S F LF AM BC\n21 3 65 64 0 1\nW FILL REF BAD\n9C 0 3\n                                                                                                                                                                                                                                                                                                                         \nEND REPORT\n"
+  },
+  {
+   "slot": 10,
+   "state": "empty"
+  },
+  {
+   "slot": 11,
+   "state": "empty"
+  },
+  {
+   "slot": 12,
+   "state": "empty"
+  },
+  {
+   "slot": 13,
+   "state": "empty"
+  },
+  {
+   "slot": 14,
+   "state": "empty"
+  },
+  {
+   "slot": 15,
+   "state": "empty"
+  },
+  {
+   "slot": 16,
+   "state": "empty"
+  },
+  {
+   "slot": 17,
+   "state": "empty"
+  },
+  {
+   "slot": 18,
+   "state": "empty"
+  },
+  {
+   "slot": 19,
+   "state": "empty"
+  },
+  {
+   "slot": 20,
+   "state": "empty"
+  },
+  {
+   "slot": 21,
+   "state": "empty"
+  },
+  {
+   "slot": 22,
+   "state": "empty"
+  },
+  {
+   "slot": 23,
+   "state": "empty"
+  },
+  {
+   "slot": 24,
+   "state": "empty"
+  },
+  {
+   "slot": 25,
+   "state": "empty"
+  },
+  {
+   "slot": 26,
+   "state": "empty"
+  },
+  {
+   "slot": 27,
+   "state": "empty"
+  },
+  {
+   "slot": 28,
+   "state": "empty"
+  },
+  {
+   "slot": 29,
+   "state": "empty"
+  },
+  {
+   "slot": 30,
+   "state": "empty"
+  },
+  {
+   "slot": 31,
+   "state": "empty"
+  },
+  {
+   "slot": 32,
+   "state": "empty"
+  },
+  {
+   "slot": 33,
+   "state": "empty"
+  },
+  {
+   "slot": 34,
+   "state": "empty"
+  },
+  {
+   "slot": 35,
+   "state": "empty"
+  },
+  {
+   "slot": 36,
+   "state": "empty"
+  },
+  {
+   "slot": 37,
+   "state": "empty"
+  },
+  {
+   "slot": 38,
+   "state": "empty"
+  },
+  {
+   "slot": 39,
+   "state": "empty"
+  },
+  {
+   "slot": 40,
+   "state": "empty"
+  },
+  {
+   "slot": 41,
+   "state": "empty"
+  },
+  {
+   "slot": 42,
+   "state": "empty"
+  },
+  {
+   "slot": 43,
+   "state": "empty"
+  },
+  {
+   "slot": 44,
+   "state": "empty"
+  },
+  {
+   "slot": 45,
+   "state": "empty"
+  },
+  {
+   "slot": 46,
+   "state": "empty"
+  },
+  {
+   "slot": 47,
+   "state": "empty"
+  },
+  {
+   "slot": 48,
+   "state": "empty"
+  },
+  {
+   "slot": 49,
+   "state": "empty"
+  },
+  {
+   "slot": 50,
+   "state": "empty"
+  },
+  {
+   "slot": 51,
+   "state": "empty"
+  },
+  {
+   "slot": 52,
+   "state": "empty"
+  },
+  {
+   "slot": 53,
+   "state": "empty"
+  },
+  {
+   "slot": 54,
+   "state": "empty"
+  },
+  {
+   "slot": 55,
+   "state": "empty"
+  },
+  {
+   "slot": 56,
+   "state": "empty"
+  },
+  {
+   "slot": 57,
+   "state": "empty"
+  },
+  {
+   "slot": 58,
+   "state": "empty"
+  },
+  {
+   "slot": 59,
+   "state": "empty"
+  },
+  {
+   "slot": 60,
+   "state": "empty"
+  },
+  {
+   "slot": 61,
+   "state": "empty"
+  },
+  {
+   "slot": 62,
+   "state": "empty"
+  },
+  {
+   "slot": 63,
+   "state": "empty"
+  },
+  {
+   "slot": 64,
+   "state": "empty"
+  },
+  {
+   "slot": 65,
+   "state": "empty"
+  },
+  {
+   "slot": 66,
+   "state": "empty"
+  },
+  {
+   "slot": 67,
+   "state": "empty"
+  },
+  {
+   "slot": 68,
+   "state": "empty"
+  },
+  {
+   "slot": 69,
+   "state": "empty"
+  },
+  {
+   "slot": 70,
+   "state": "empty"
+  },
+  {
+   "slot": 71,
+   "state": "empty"
+  },
+  {
+   "slot": 72,
+   "state": "empty"
+  },
+  {
+   "slot": 73,
+   "state": "empty"
+  },
+  {
+   "slot": 74,
+   "state": "empty"
+  },
+  {
+   "slot": 75,
+   "state": "empty"
+  },
+  {
+   "slot": 76,
+   "state": "empty"
+  },
+  {
+   "slot": 77,
+   "state": "empty"
+  },
+  {
+   "slot": 78,
+   "state": "empty"
+  },
+  {
+   "slot": 79,
+   "state": "empty"
+  },
+  {
+   "slot": 80,
+   "state": "empty"
+  },
+  {
+   "slot": 81,
+   "state": "empty"
+  },
+  {
+   "slot": 82,
+   "state": "empty"
+  },
+  {
+   "slot": 83,
+   "state": "empty"
+  },
+  {
+   "slot": 84,
+   "state": "empty"
+  },
+  {
+   "slot": 85,
+   "state": "empty"
+  },
+  {
+   "slot": 86,
+   "state": "empty"
+  },
+  {
+   "slot": 87,
+   "state": "empty"
+  },
+  {
+   "slot": 88,
+   "state": "empty"
+  },
+  {
+   "slot": 89,
+   "state": "empty"
+  },
+  {
+   "slot": 90,
+   "state": "empty"
+  },
+  {
+   "slot": 91,
+   "state": "empty"
+  },
+  {
+   "slot": 92,
+   "state": "empty"
+  },
+  {
+   "slot": 93,
+   "state": "empty"
+  },
+  {
+   "slot": 94,
+   "state": "empty"
+  },
+  {
+   "slot": 95,
+   "state": "empty"
+  },
+  {
+   "slot": 96,
+   "state": "empty"
+  },
+  {
+   "slot": 97,
+   "state": "empty"
+  },
+  {
+   "slot": 98,
+   "state": "empty"
+  },
+  {
+   "slot": 99,
+   "state": "empty"
+  }
+ ]
+}

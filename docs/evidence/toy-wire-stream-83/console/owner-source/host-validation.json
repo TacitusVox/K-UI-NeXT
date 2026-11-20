@@ -1,0 +1,167 @@
+{
+  "gui": "4d4dcff77494",
+  "gui_sha256": "bb78591511e2e301bf800679c19be14c9f6a853b69e7d793882af393cd088748",
+  "survey": "1d80f771f081",
+  "survey_sha256": "313ac3bddb6b1d037ea2de758dd97d809125507ba9617340739baf0e05195f1c",
+  "physical_console": false,
+  "mdk2_and_omikron": [
+    {
+      "title": "MDK2",
+      "encoding": "raw",
+      "track_count": 31,
+      "expected_failure": false,
+      "build": "1d80f771f081",
+      "gdi_sha256": "137a6cb8ad183268e7e918212c8fc97b9b936c9d4945de035ceaeee9c09b2bf5",
+      "executable_crc32": "682d90e3",
+      "executable_sha256": "ac5826c9a371de04207748e60e49e0a3c13a39468902f89d8c1c82e1f544bb48",
+      "ip_crc32": "34122049",
+      "boot_lba": 548633,
+      "selected": "retail-native-dual.kui",
+      "selected_crc32": "1988A86E",
+      "extents": 39,
+      "slots_used": 70,
+      "detached_match": true,
+      "standalone_sdk_family": true,
+      "model_worker_readback_slots": [
+        0,
+        1
+      ],
+      "model_window_sectors": 225
+    },
+    {
+      "title": "MDK2",
+      "encoding": "cooked",
+      "track_count": 31,
+      "expected_failure": false,
+      "build": "1d80f771f081",
+      "gdi_sha256": "0557508e0d5f9d397dca62660aa2757d1ba46348c5f0038a16b9770b564795bb",
+      "executable_crc32": "682d90e3",
+      "executable_sha256": "ac5826c9a371de04207748e60e49e0a3c13a39468902f89d8c1c82e1f544bb48",
+      "ip_crc32": "34122049",
+      "boot_lba": 548633,
+      "selected": "retail-native-dual.kui",
+      "selected_crc32": "1988A86E",
+      "extents": 39,
+      "slots_used": 70,
+      "detached_match": true,
+      "standalone_sdk_family": true,
+      "model_worker_readback_slots": [
+        0,
+        1
+      ],
+      "model_window_sectors": 0
+    },
+    {
+      "title": "OMIKRON THE NOMAD SOUL",
+      "encoding": "raw",
+      "track_count": 5,
+      "expected_failure": false,
+      "build": "1d80f771f081",
+      "gdi_sha256": "e94a34ce2e163d05e342e97c50c76d4ecae8f9fa0b427213b0520c13d04cf75e",
+      "executable_crc32": "d829a676",
+      "executable_sha256": "5567589856f88d448bdd4fe640133cac208357ab29f17308bd7363ef359cbb6c",
+      "ip_crc32": "19f410f8",
+      "boot_lba": 548480,
+      "selected": "retail-native-dual.kui",
+      "selected_crc32": "1988A86E",
+      "extents": 20,
+      "slots_used": 25,
+      "detached_match": true,
+      "standalone_sdk_family": true,
+      "model_worker_readback_slots": [
+        0,
+        1
+      ],
+      "model_window_sectors": 225
+    },
+    {
+      "title": "OMIKRON THE NOMAD SOUL",
+      "encoding": "cooked",
+      "track_count": 5,
+      "expected_failure": false,
+      "build": "1d80f771f081",
+      "gdi_sha256": "c73ec013dc0e160da5c3ea2bba531257ce543671ccf1686a8dcdc4f69b95dd05",
+      "executable_crc32": "d829a676",
+      "executable_sha256": "5567589856f88d448bdd4fe640133cac208357ab29f17308bd7363ef359cbb6c",
+      "ip_crc32": "19f410f8",
+      "boot_lba": 548480,
+      "selected": "retail-native-dual.kui",
+      "selected_crc32": "1988A86E",
+      "extents": 20,
+      "slots_used": 25,
+      "detached_match": true,
+      "standalone_sdk_family": true,
+      "model_worker_readback_slots": [
+        0,
+        1
+      ],
+      "model_window_sectors": 0
+    },
+    {
+      "title": "MDK2",
+      "encoding": "raw",
+      "track_count": 31,
+      "expected_failure": false,
+      "build": "e5af01888606",
+      "gdi_sha256": "137a6cb8ad183268e7e918212c8fc97b9b936c9d4945de035ceaeee9c09b2bf5",
+      "executable_crc32": "682d90e3",
+      "executable_sha256": "ac5826c9a371de04207748e60e49e0a3c13a39468902f89d8c1c82e1f544bb48",
+      "ip_crc32": "34122049",
+      "boot_lba": 548633,
+      "selected": "retail-native-standalone.kui",
+      "selected_crc32": "CBF929AE",
+      "extents": 39,
+      "slots_used": 70,
+      "detached_match": true,
+      "standalone_sdk_family": true
+    }
+  ],
+  "evolution2": [
+    {
+      "format": "raw",
+      "launch": "first",
+      "reader": "1d80f771f081",
+      "gui": "4d4dcff77494",
+      "crc": "1988A86E",
+      "card_callbacks": 130,
+      "original_bytes": 4057056,
+      "boot_lba": 547019,
+      "warm": false
+    },
+    {
+      "format": "raw",
+      "launch": "repeat",
+      "reader": "1d80f771f081",
+      "gui": "4d4dcff77494",
+      "crc": "1988A86E",
+      "card_callbacks": 130,
+      "original_bytes": 4057056,
+      "boot_lba": 547019,
+      "warm": true
+    },
+    {
+      "format": "cooked",
+      "launch": "first",
+      "reader": "1d80f771f081",
+      "gui": "4d4dcff77494",
+      "crc": "1988A86E",
+      "card_callbacks": 7,
+      "original_bytes": 4057056,
+      "boot_lba": 547019,
+      "warm": false
+    },
+    {
+      "format": "cooked",
+      "launch": "repeat",
+      "reader": "1d80f771f081",
+      "gui": "4d4dcff77494",
+      "crc": "1988A86E",
+      "card_callbacks": 7,
+      "original_bytes": 4057056,
+      "boot_lba": 547019,
+      "warm": true
+    }
+  ],
+  "gesture": "Production Maple submit/complete paths: B held alone ignored for 185, Port A 179 then release resets, a new 180th A completion retires before report; mixed responses with wrong function/endpoint/response/missing reset holds.",
+  "model_metrics": "Five model GD requests exercised actual Test 83 stream and report code; data is host-generated and is not MDK2 gameplay telemetry."
+}
