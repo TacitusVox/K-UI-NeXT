@@ -10,6 +10,11 @@ results of Tests 80 to 82 (`719b65f`), the record of the shared sources'
 production text (`3ca6410`, tests only), the startup bundler's run over
 the CD music games (`05ac704`, a PC tool), and the change (`55ed2f8`),
 and the two corrections its review asked for (`3059447`, `3bd4bed`).
+The review's last reader came in after the delivery and found gaps in
+the tests, none in the module. The tests were extended for them in
+`87e380b` and `f8afab2`; no source of the module changed, and the
+module built from them with the delivered label is the delivered
+module, byte for byte (Review, After the review).
 
 It answers the owner's word of 16 November on the photographed pages of
 Tests 79 to 81: "this would be a lot more convenient if you didn't break
@@ -286,11 +291,14 @@ its zeroed memory 500,904 where Test 81's is 498,728.
 
 Four readers beside the author, each with one question and without the
 author's conclusions, on 20 November 2026, on the change as it stood
-(`55ed2f8`, then `3059447`). Each worked on scratch copies outside the
-tree. Three of them built host programs from the repository's own
-sources (the stage's text, the lookup, the card command code, the
-identity read, the worker's save) over a card modelled byte for byte on
-the wire, and put faults into them. Their full record is in
+(`55ed2f8`, then `3059447`; the fourth read the delivered build,
+`3bd4bed`, and came in after the delivery). Each worked on scratch
+copies outside the tree. Three of them built host programs from the
+repository's own sources (the stage's text, the lookup, the card
+command code, the identity read, the worker's save) over a card
+modelled byte for byte on the wire, and put faults into them; the
+fourth put defects into copies of the sources and ran the repository's
+tests on them. Their full record is in
 `docs/evidence/toy-wire-stream-83/review.md`. None of it is a console
 result.
 
@@ -304,7 +312,9 @@ result.
 | Can any sector be written that is not the file's blank slot? | No: with a fault at every byte of the stage's and the worker's card traffic (a port fault, a wrong bit from the card, a wrong bit to it; about 1.3 million runs), with power lost at every byte, and on 600,000 damaged volumes, no sector was written that did not hold this file's blank text for that slot and part a moment before | Nothing to change in the writes |
 | | A sector the card no longer gives after a power cut in its write ended the slot search at every later launch: the survey was off for good | `3bd4bed`: such a slot is passed over; the search gives up at the fourth sector not read |
 | | On a damaged volume whose chain leads from this file into a second copy with the same ID, that copy's blank slot is written | No sector of a game, a save or the file system can be reached this way. The condition is stated: one copy of a blank file on a card, a new ID for every refill |
-| Do the tests and the build hold what they claim? | This reader had not finished when the build was delivered. Its questions were put to the build directly instead: the defects of `tests/test_toy_survey_mutations.py`, the parts check, the guarded production text and the probe's module bytes (Verification) | Its result is added to `review.md` when it is in |
+| Do the tests and the build hold what they claim? | Nothing wrong in the delivered module: this reader built `3bd4bed` again to the delivered bytes, and ran its text unchanged behind a partition table at sector 63 in its own copies. But no test of the repository gave the survey such a card: every test card was a volume at sector 0. A sector counted from the partition's start in place of the card's would have passed every test and all 62 defects of the mutation check. A second reader confirmed the gap, ran the unchanged text behind partitions at sectors 63 and 2,048 as well, and rated it minor: of the five slips the finding names, one would write a sector that is not the slot's; the others end in a line on the screen | `87e380b` and `f8afab2`, tests only. Both C tests run every case on a card without a partition table and on one with (FatFs's own, the volume at sector 63), and the stage test's card refuses a read or a write outside the map's partition. The five slips are in the mutation check, with the lookup's own two offsets |
+| | Seven lesser gaps. The stage's two new objects were not rebuilt when their header or the lookup's text changed. No test held the stop screen's line. The tool listed two sectors that are no report as `report saved`, did not say when a launch record was damaged, and no test ran its states or its commands. Five of the 62 defects did not compile, and counted as caught. Slot counts 990 to 999 were never parsed. The stage test's map was too plain to hold the extent check beyond one extent, the title's cut, the track counts, the slot number shown, or a seed from Card Tools. The test's card never failed the end of a read that was good | The same commits. The Makefile names the two objects' dependency files. The parts check names the stop screen's line, and holds the survey's two sector buffers to a cache line in the linked stage. The tool calls a report saved only if it begins and ends as one, says `LAUNCH RECORD DAMAGED` in its listing, and refuses a bad file with one line; a test runs each state and both commands, and has the tool read the records the stage's own text wrote. The five defects compile, and one the compiler refuses now fails the check. Every count from 1 to 999 is parsed. The stage test has a fuller map (twelve tracks of every kind, CD music from the session's first sector, seven extents, text that fills its fields), twelve slots, and a second run as a module whose seed Card Tools patched. Its card can fail the end of any read |
+| | Left open | Which of the stop screen's two lines is shown is held by no host test; the parts check holds that both are in the stage. The one-line function the reader suggests was tried: it changes the module's bytes (the same size, other bytes), so it is not in these commits and goes into the next build |
 
 Checked by the readers and found in order, among other things: every
 acquisition of the card released on every path; no read stream left
@@ -315,6 +325,35 @@ with 99 slots used; the seed's two checksums and the worker's one and
 the same function; the seed kept in the stage's memory until the worker
 is configured; `KUITRS01` with its version and size still once in the
 module, so that a patcher of the old seed sees no second match.
+
+### After the review: the tests
+
+`87e380b` and `f8afab2` change tests, the tool's reader and three
+lines of the Makefile. No source of the module changed. Checked on a
+clean worktree of `f8afab2`; the logs are the `followup-` files of the
+evidence folder. None of it is a console result.
+
+| Check | Result |
+|---|---|
+| The module, built with the delivered label `3bd4bed2fca2` | SHA-256 `a7b1c1cb...11d6`: the delivered module, byte for byte. Test 81's recipe with its own label: `5ee3273b...2db4`, as delivered |
+| `tests/test_toy_survey.py` | Passed. The file and the lookup: 14 cards, the seven layouts each without a partition table and with one, 20 launches on each to the full file. The stage's own text: 4 cards (FAT32 and exFAT, without and with a partition table), 12 slots on each. Started from Card Tools, the seed patched into a copy of the test program as Card Tools patches a module: 4 cards. The tool: every state and both commands |
+| `tests/test_toy_survey_mutations.py` | 120 of 120 defects caught, none that does not compile, none stale: the 62 of the delivered check, the readers' own, and 18 put into the tool |
+| The parts check | Passed as before; the two sector buffers of the survey begin cache lines in the linked stage |
+| A changed header | With the Makefile of `87e380b` a touched `include/kui/toy_survey.h` rebuilds `toy_survey.o` and `toy_survey_fat.o`, and a touched `src/core/wce_probe_fat.c` the second; with the Makefile of `3bd4bed` both were kept. The module's bytes are the same after each |
+| `tests/test_toy_test_switches.py` | 30 shared sources keep their production text |
+| The fourth reader's own defects | Its script, with its 105 defects, run on these tests: 92 caught where 53 were. Two no longer apply, because the tool's lines they change were rewritten; both are in the repository's check. Of the eleven left, eight change nothing a launch or a reader of the file can see today (two fields of the record that are both 1 exchanged; a seed excused from a check the survey makes itself; one of two guards dropped where the other refuses the same input, three times; a checksum taken of text just compared equal; three fields of one digit read as decimal by the tool; a slot's other sectors still read after one that failed), one is the buffers' alignment, which the parts check holds and that script does not run, and two are the stop screen's line |
+
+What the new cases hold that nothing held before: every sector the
+stage reads or writes is the card's, on a card whose volume does not
+begin at sector 0; the place check asks every extent of the game's;
+the launch record's counts for a Mode 2 track, a track of another
+sector size and CD music that begins at the session's first sector;
+the title cut at 56 characters from a field that is full; the launch
+line's slot number in three digits; a module started from Card Tools
+saving as Test 81 does where the survey's file is absent, and into the
+survey's slot where it is there; a read whose end the card does not
+take counting as no read; a file in more pieces than the lookup maps
+refused whole.
 
 ## Package
 

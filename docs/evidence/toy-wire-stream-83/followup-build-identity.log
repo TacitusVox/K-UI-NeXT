@@ -1,0 +1,33 @@
+commit f8afab2 Toy Test 83 tests: a file in more pieces than the lookup maps; the search's give-up count
+worktree: 0 changed or untracked files
+files changed against the delivered build's commit 3bd4bed, documents and evidence apart:
+   Makefile.vmu-native-toy-suite      |   3 +
+   tests/test_toy_survey.c            | 119 +++++--
+   tests/test_toy_survey.py           | 232 ++++++++++++--
+   tests/test_toy_survey_mutations.py | 231 ++++++++++++--
+   tests/test_toy_survey_stage.c      | 638 ++++++++++++++++++++++++++-----------
+   tests/test_toy_wire_save_parts.py  |  33 +-
+   tools/toy_survey.py                |  70 +++-
+   7 files changed, 1040 insertions(+), 286 deletions(-)
+sources of the module changed against 3bd4bed (src, include, the other makefiles): 0
+Test 83 build and parts check exit 0
+Test 81 build exit 0
+Test 83 built here with the delivered label 3bd4bed2fca2: a7b1c1cb97b1c40f79bf0d6f7137fc0aec21976bfe499ef803ad359a98bb11d6: the delivered module, byte for byte
+  and the evidence folder's copy of the module: the same bytes
+Test 81's recipe built here with its label 684f485644e5: 5ee3273b75dceb2a02ac73cbe5ccdcf972ded0164f15a822a192949048072db4: as delivered
+survey host tests exit 0
+mutation check exit 0
+worktree after the checks: 0 changed or untracked files (build/ and .deps apart)
+
+A changed header or lookup source, and what make rebuilds (the module's first 16 hex digits after each):
+the Makefile of 3bd4bed, include/kui/toy_survey.h touched: toy_survey.o kept, toy_survey_fat.o kept; module a7b1c1cb97b1c40f...
+the Makefile of 3bd4bed, src/core/wce_probe_fat.c touched: toy_survey.o kept, toy_survey_fat.o kept; module a7b1c1cb97b1c40f...
+this commit's Makefile, include/kui/toy_survey.h touched: toy_survey.o rebuilt, toy_survey_fat.o rebuilt; module a7b1c1cb97b1c40f...
+this commit's Makefile, src/core/wce_probe_fat.c touched: toy_survey.o kept, toy_survey_fat.o rebuilt; module a7b1c1cb97b1c40f...
+
+PASS toy test switches: 11 resolver cases; 30 shared sources keep their production text
+
+The stop screen's line, tried and not committed: with the choice of the line moved into a function of
+toy_survey_stage.inc (declared before retail_stage.c, called by its stop screen), the module built with the
+label 3bd4bed2fca2 is f6bac7a8d2000efd244dda98d60efd063fc4c1629cdeb67df12ac18e4306f9fc: the delivered
+module's size, other bytes. The sources were put back as they were.

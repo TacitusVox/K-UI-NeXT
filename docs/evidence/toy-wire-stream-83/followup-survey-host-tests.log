@@ -1,0 +1,31 @@
+PASS survey file text: 20 slots, 31232 bytes
+PASS FAT32 cluster 512 fragment 0, volume at sector 0: 1 runs; 20 launches, 16 reports, 52 sectors written, no other changed
+PASS FAT32 cluster 512 fragment 9, volume at sector 0: 8 runs; 20 launches, 16 reports, 52 sectors written, no other changed
+PASS FAT32 cluster 1024 fragment 5, volume at sector 0: 4 runs; 20 launches, 16 reports, 52 sectors written, no other changed
+PASS exFAT cluster 4096 fragment 0, volume at sector 0: 1 runs; 20 launches, 16 reports, 52 sectors written, no other changed
+PASS exFAT cluster 4096 fragment 7, volume at sector 0: 4 runs; 20 launches, 16 reports, 52 sectors written, no other changed
+PASS exFAT cluster 32768 fragment 0, volume at sector 0: 1 runs; 20 launches, 16 reports, 52 sectors written, no other changed
+PASS exFAT cluster 1024 fragment 6, volume at sector 0: 4 runs; 20 launches, 16 reports, 52 sectors written, no other changed
+PASS FAT32 refusals, volume at sector 0
+PASS exFAT refusals, volume at sector 0
+PASS FAT32 cluster 512 fragment 0, volume at sector 63: 1 runs; 20 launches, 16 reports, 52 sectors written, no other changed
+PASS FAT32 cluster 512 fragment 9, volume at sector 63: 8 runs; 20 launches, 16 reports, 52 sectors written, no other changed
+PASS FAT32 cluster 1024 fragment 5, volume at sector 63: 4 runs; 20 launches, 16 reports, 52 sectors written, no other changed
+PASS exFAT cluster 4096 fragment 0, volume at sector 63: 1 runs; 20 launches, 16 reports, 52 sectors written, no other changed
+PASS exFAT cluster 4096 fragment 7, volume at sector 63: 4 runs; 20 launches, 16 reports, 52 sectors written, no other changed
+PASS exFAT cluster 32768 fragment 0, volume at sector 63: 1 runs; 20 launches, 16 reports, 52 sectors written, no other changed
+PASS exFAT cluster 1024 fragment 6, volume at sector 63: 4 runs; 20 launches, 16 reports, 52 sectors written, no other changed
+PASS FAT32 refusals, volume at sector 63
+PASS exFAT refusals, volume at sector 63
+PASS stream survey report file
+PASS the stage's survey text on FAT32, volume at sector 0: a slot for a source and for a disc that is none; one sector written per launch, read back; every refusal leaves the card as it was
+PASS the stage's survey text on exFAT, volume at sector 0: a slot for a source and for a disc that is none; one sector written per launch, read back; every refusal leaves the card as it was
+PASS the stage's survey text on FAT32, volume at sector 63: a slot for a source and for a disc that is none; one sector written per launch, read back; every refusal leaves the card as it was
+PASS the stage's survey text on exFAT, volume at sector 63: a slot for a source and for a disc that is none; one sector written per launch, read back; every refusal leaves the card as it was
+PASS the stage's survey text
+PASS started from Card Tools on FAT32, volume at sector 0: Test 81's seed without the survey's file, the survey's slot with it
+PASS started from Card Tools on exFAT, volume at sector 0: Test 81's seed without the survey's file, the survey's slot with it
+PASS started from Card Tools on FAT32, volume at sector 63: Test 81's seed without the survey's file, the survey's slot with it
+PASS started from Card Tools on exFAT, volume at sector 63: Test 81's seed without the survey's file, the survey's slot with it
+PASS the stage's survey text, started from Card Tools
+PASS tools/toy_survey.py: its blank file is the stage's; 20 launches played and 12 the stage wrote read back; every state and both commands
