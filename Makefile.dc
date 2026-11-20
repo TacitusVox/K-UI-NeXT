@@ -435,7 +435,7 @@ build/retail/layout-config: force-retail-layout
 	@if ! cmp -s $@.new $@; then mv $@.new $@; else rm $@.new; fi
 build/retail-ce/layout-config: force-retail-layout
 	@mkdir -p $(@D)
-	@printf '%s\n' 'LOW=0 TRACE=0 SONIC=0 BUILD=$(BUILD_ID)$(if $(filter 1,$(KUI_CE_SCI_RESUME_FIX)), CE_SCI_RESUME_FIX=1)$(if $(filter-out 64,$(KUI_RETAIL_CE_ASYNC_SLOTS)), CE_ASYNC_SLOTS=$(KUI_RETAIL_CE_ASYNC_SLOTS))$(if $(filter 1,$(KUI_RETAIL_CE_MAP_RECORD)), CE_MAP_RECORD=1)$(if $(filter 1,$(KUI_CE_READER_FIXES)), CE_READER_FIXES=1)$(if $(filter 1,$(KUI_WCE_PROBE)), WCE_PROBE=1)' > $@.new
+	@printf '%s\n' 'LOW=0 TRACE=0 SONIC=0 BUILD=$(BUILD_ID)$(if $(filter 1,$(KUI_CE_SCI_RESUME_FIX)), CE_SCI_RESUME_FIX=1)$(if $(filter-out 64,$(KUI_RETAIL_CE_ASYNC_SLOTS)), CE_ASYNC_SLOTS=$(KUI_RETAIL_CE_ASYNC_SLOTS))$(if $(filter 1,$(KUI_RETAIL_CE_MAP_RECORD)), CE_MAP_RECORD=1)$(if $(filter 1,$(KUI_CE_READER_FIXES)), CE_READER_FIXES=1)$(if $(filter 1,$(KUI_WCE_PROBE)), WCE_PROBE=1)$(if $(filter 1,$(KUI_CE_VRAM_DMA)), CE_VRAM_DMA=1)' > $@.new
 	@if ! cmp -s $@.new $@; then mv $@.new $@; else rm $@.new; fi
 # SCI's DMA reader shares the original protected low-memory reservation.
 # Cross-unit optimization and SH call relaxation recover code space without
@@ -495,10 +495,21 @@ ifneq ($(filter $(KUI_WCE_PROBE),0 1),$(KUI_WCE_PROBE))
 $(error KUI_WCE_PROBE must be 0 or 1)
 endif
 RETAIL_CE_PROBE_DEFS := $(if $(filter 1,$(KUI_WCE_PROBE)),-DKUI_WCE_PROBE=1)
+# DMA stream transfers into PVR video memory (docs/wince-vram-stream.md):
+# KISS Psycho Circus and Virtua Cop 2 send them, and the reader refused them
+# and stopped the game. The generic module's two CE residents only; the CD
+# music and Armada modules keep their accepted bytes until it is console
+# tested. 0 rebuilds the previous generic module (7b216f2e1136) unchanged.
+# The data probe keeps the reader its first session measured (0) unless asked.
+KUI_CE_VRAM_DMA ?= $(if $(filter 1,$(KUI_WCE_PROBE)),0,1)
+ifneq ($(filter $(KUI_CE_VRAM_DMA),0 1),$(KUI_CE_VRAM_DMA))
+$(error KUI_CE_VRAM_DMA must be 0 or 1)
+endif
+RETAIL_CE_VRAM_DEFS := $(if $(filter 1,$(KUI_CE_VRAM_DMA)),-DKUI_RETAIL_CE_VRAM_DMA=1)
 RETAIL_CE_READER_DEFS := $(if $(filter 1,$(KUI_CE_READER_FIXES)),-DKUI_CE_SCI_SLOW_AFTER_OVERRUN=1 -DKUI_CE_SCI_FAST_TAKE=1)
 RETAIL_CE_READER_COMMA := ,
 RETAIL_CE_READER_LINK := $(if $(filter 1,$(KUI_CE_READER_FIXES)),-Wa$(RETAIL_CE_READER_COMMA)--renesas -Wl$(RETAIL_CE_READER_COMMA)-q)
-RETAIL_CE_SCIA_DEFS := $(filter-out -DKUI_RETAIL_MANIFEST_SLOTS=%,$(RETAIL_SCIA_DEFS)) -DKUI_RETAIL_MANIFEST_SLOTS=$(KUI_RETAIL_CE_ASYNC_SLOTS) -DKUI_RETAIL_CE=1 $(if $(filter 1,$(KUI_CE_SCI_RESUME_FIX)),-DKUI_CE_SCI_RESUME_FIX=1) $(RETAIL_CE_READER_DEFS) $(RETAIL_CE_PROBE_DEFS)
+RETAIL_CE_SCIA_DEFS := $(filter-out -DKUI_RETAIL_MANIFEST_SLOTS=%,$(RETAIL_SCIA_DEFS)) -DKUI_RETAIL_MANIFEST_SLOTS=$(KUI_RETAIL_CE_ASYNC_SLOTS) -DKUI_RETAIL_CE=1 $(if $(filter 1,$(KUI_CE_SCI_RESUME_FIX)),-DKUI_CE_SCI_RESUME_FIX=1) $(RETAIL_CE_READER_DEFS) $(RETAIL_CE_PROBE_DEFS) $(RETAIL_CE_VRAM_DEFS)
 RETAIL_SCIA_SRC := src/loader/retail_resident.c src/core/retail_gd.c src/loader/minic.c \
     src/core/retail_image.c src/loader/retail_display.c src/loader/sci_sd_bus.c \
     src/core/retail_cursor.c src/loader/sci_stream.c src/loader/retail_async.c
@@ -645,10 +656,10 @@ build/retail-ce/resident-ide.bin: build/retail-ce/resident-ide.elf
 RETAIL_CE_SCI := $(patsubst %.c,build/retail-ce/sci/%.o,$(RETAIL_SCI_SRC)) build/retail-ce/sci/src/loader/retail_resident_asm.o
 build/retail-ce/sci/%.o: %.c
 	@mkdir -p $(@D)
-	sh-elf-gcc $(RETAIL_LEGACY_FLAGS) $(RETAIL_SCI_FLAGS) -DKUI_RETAIL_TRANSPORT=1 -DKUI_RETAIL_CE=1 -MMD -MP -c $< -o $@
+	sh-elf-gcc $(RETAIL_LEGACY_FLAGS) $(RETAIL_SCI_FLAGS) -DKUI_RETAIL_TRANSPORT=1 -DKUI_RETAIL_CE=1 $(RETAIL_CE_VRAM_DEFS) -MMD -MP -c $< -o $@
 build/retail-ce/sci/%_asm.o: %.S
 	@mkdir -p $(@D)
-	sh-elf-gcc $(RETAIL_LEGACY_FLAGS) $(RETAIL_SCI_FLAGS) -DKUI_RETAIL_TRANSPORT=1 -DKUI_RETAIL_CE=1 -MMD -MP -c $< -o $@
+	sh-elf-gcc $(RETAIL_LEGACY_FLAGS) $(RETAIL_SCI_FLAGS) -DKUI_RETAIL_TRANSPORT=1 -DKUI_RETAIL_CE=1 $(RETAIL_CE_VRAM_DEFS) -MMD -MP -c $< -o $@
 build/retail-ce/sci/src/loader/retail_display.o: force-build-id
 build/retail-ce/resident-sci.elf: $(RETAIL_CE_SCI) src/loader/retail_resident_ce.ld
 	@mkdir -p build/retail-ce/sci/lto

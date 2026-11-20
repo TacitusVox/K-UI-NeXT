@@ -65,6 +65,20 @@
 #error "Native GD VRAM DMA requires the native DMA stream/MMU profile"
 #endif
 
+/* Windows CE DMA stream transfers (DMA_TRANSFER of DMAREAD_STREAM_EX) into
+ * PVR video memory, as KISS Psycho Circus and Virtua Cop 2 send them
+ * (docs/wince-vram-stream.md). Only those pieces: DMAREAD destinations and
+ * CPU pointers keep their RAM-only and virtual meanings. */
+#ifndef KUI_RETAIL_CE_VRAM_DMA
+#define KUI_RETAIL_CE_VRAM_DMA 0
+#endif
+#if KUI_RETAIL_CE_VRAM_DMA != 0 && KUI_RETAIL_CE_VRAM_DMA != 1
+#error "KUI_RETAIL_CE_VRAM_DMA must be zero or one"
+#endif
+#if KUI_RETAIL_CE_VRAM_DMA && !defined(KUI_RETAIL_CE)
+#error "CE VRAM stream transfers need the Windows CE reader"
+#endif
+
 #ifndef KUI_NATIVE_SESSION_CONTROLS
 #define KUI_NATIVE_SESSION_CONTROLS 0
 #endif

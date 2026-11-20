@@ -39,7 +39,7 @@ static bool cooked_fixture;
 static struct {
     uint16_t iprb;
     uint32_t mmucr, table[2]; /* the SCI's ERI and RXI entries */
-    unsigned acquires, writes, virtual_writes;
+    unsigned acquires, writes, virtual_writes, pvr_writes, pvr_irq_writes;
     bool frozen, in_irq;
 } hw;
 static struct { unsigned drive, dma_end; } ev;
@@ -124,8 +124,27 @@ static void fixture(unsigned take_max) {
 }
 
 /* ---- Guest memory and GD calls, as the resident makes them ---- */
+#if KUI_RETAIL_CE_VRAM_DMA
+#include "kui/retail_vram_dma.h"
+/* PVR memory's 64-bit view, as the resident maps a DMA stream's piece there
+ * (retail_resident.c map_guest): its uncached P2 address, also from the
+ * interrupt. */
+static uint8_t pvr[0x800000], big[257u * 2048u];
+#endif
 static uint8_t *map(void *unused, uint32_t address, uint32_t bytes, int writing) {
     (void)unused;
+#if KUI_RETAIL_CE_VRAM_DMA
+    if((address >> 29) - 4u < 2u && (address & 0xff000000u) != 0x8c000000u &&
+       (address & 0xff000000u) != 0xac000000u) {
+        uint32_t p2 = kui_retail_vram_dma_span(address, bytes);
+        CHECK(p2 && (p2 & 0xff000000u) == 0xa4000000u);
+        if(writing == KUI_RETAIL_MAP_VALIDATE) return pvr + sizeof(pvr);
+        CHECK(!hw.frozen && writing == 1);
+        ++hw.pvr_writes;
+        if(hw.in_irq) ++hw.pvr_irq_writes;
+        return pvr + (p2 & 0x007fffffu);
+    }
+#endif
     if(address < VBASE + VBYTES && address >= VBASE) {
         /* CE's virtual memory: only in CE's own calls, never the interrupt. */
         CHECK(!hw.in_irq && bytes <= VBASE + VBYTES - address);
@@ -492,6 +511,58 @@ static void test_dma_stream_pieces(void) {
     static const uint32_t whole[7] = {0x10000u, 0, 0, 0, 0, 0, 0};
     dma_stream(45010, 32, whole, 8);
 }
+
+#if KUI_RETAIL_CE_VRAM_DMA
+/* KISS Psycho Circus's and Virtua Cop 2's pieces (WCEDATA session, 19 Nov
+ * 2026): 32 bytes of RAM, the locked buffer's body in PVR memory, then
+ * 2016 bytes of RAM, through the background reader and its interrupt, as
+ * CE's driver waits for them. */
+static void test_vram_stream_pieces(void) {
+    static const struct { uint32_t sectors, vram, body; } shapes[] = {
+        {10, 0x044c0360u, 0x4800u}, {257, 0x04575600u, 0x80000u}};
+    for(unsigned k = 0; k < 2; ++k) {
+        setup(48, true);
+        mode(2048);
+        memset(pvr, 0x3c, sizeof(pvr));
+        const uint32_t total = shapes[k].sectors * 2048u, body = shapes[k].body;
+        const uint32_t offset = shapes[k].vram & 0x007fffffu;
+        CHECK(0x20u + body + 0x7e0u == total);
+        for(uint32_t at = 0; at < shapes[k].sectors; at += KUI_RETAIL_IMAGE_MAX_SECTORS) {
+            uint32_t n = shapes[k].sectors - at;
+            if(n > KUI_RETAIL_IMAGE_MAX_SECTORS) n = KUI_RETAIL_IMAGE_MAX_SECTORS;
+            CHECK(kui_retail_image_read(&reference, 45000 + at, n, KUI_GAME_SECTOR_MODE1,
+                big + at * 2048u, sizeof(big) - at * 2048u) == KUI_GAME_OK);
+        }
+        int32_t token = request(KUI_RETAIL_GD_DMAREAD_STREAM, 45000, shapes[k].sectors, 0);
+        const uint32_t dest[3] = {OUTPUT & 0x1fffffffu, shapes[k].vram, (OUTPUT + 0x40u) & 0x1fffffffu};
+        const uint32_t size[3] = {0x20u, body, 0x7e0u};
+        for(unsigned i = 0; i < 3; ++i) {
+            put(PIECE, dest[i]); put(PIECE + 4, size[i]);
+            unsigned end = ev.dma_end, woken = ev.drive;
+            CHECK(gd(KUI_GD_DMA_TRANSFER, (uint32_t)token, PIECE) == 0);
+            for(unsigned round = 0;; ++round) {
+                CHECK(round < 1000000u);
+                if(ev.drive != woken) {woken = ev.drive; (void)gd(KUI_GD_EXEC, 0, 0);}
+                if(ev.dma_end != end) {
+                    end = ev.dma_end;
+                    if(gd(KUI_GD_DMA_CHECK, (uint32_t)token, STATUS) == 0) break;
+                    continue;
+                }
+                if(!interrupts(4)) elapse();
+            }
+            CHECK(!R.shared.service.xfer_left);
+        }
+        CHECK(status(token) == KUI_GD_COMPLETED && get(STATUS + 8) == total);
+        CHECK(!memcmp(ram + OUTPUT - BEGIN, big, 0x20u) && ram[OUTPUT - BEGIN + 0x20u] == 0xa5);
+        CHECK(!memcmp(pvr + offset, big + 0x20u, body));
+        CHECK(pvr[offset - 1u] == 0x3c && pvr[offset + body] == 0x3c);
+        CHECK(!memcmp(ram + OUTPUT + 0x40u - BEGIN, big + 0x20u + body, 0x7e0u));
+        CHECK(ram[OUTPUT - BEGIN + 0x40u + 0x7e0u] == 0xa5);
+        CHECK(hw.pvr_irq_writes && hw.pvr_writes >= hw.pvr_irq_writes && !hw.virtual_writes);
+        CHECK(!R.engine.spill_bytes);
+    }
+}
+#endif
 
 /* ---- PIO streams: CE's driver's own (virtual) buffer, through read_part ---- */
 static void test_pio_stream(void) {
@@ -972,6 +1043,9 @@ int main(void) {
     test_prefetch_between_dma_pieces();
     test_prefetched_stream_tail();
     test_dma_stream_pieces();
+#if KUI_RETAIL_CE_VRAM_DMA
+    test_vram_stream_pieces();
+#endif
     test_pio_stream();
     test_abort_writes_nothing_more();
     test_abort_discards_prefetch();

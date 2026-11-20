@@ -16,6 +16,11 @@ __asm__(".global __kui_smash_swirl_ce_vmu\n.set __kui_smash_swirl_ce_vmu,1\n");
 __asm__(".global __kui_native_gd_vram_dma\n"
         ".set __kui_native_gd_vram_dma,1\n");
 #endif
+#if KUI_RETAIL_CE_VRAM_DMA
+#include "kui/retail_vram_dma.h"
+__asm__(".global __kui_retail_ce_vram_dma\n"
+        ".set __kui_retail_ce_vram_dma,1\n");
+#endif
 #include "kui/retail_image.h"
 #include "kui/native_standalone_foreground.h"
 #include "kui/retail_ocram.h"
@@ -412,6 +417,15 @@ ocram_mapping_done:
      * as they are: the resident runs with SR.BL clear, so CE's own TLB-miss
      * handler maps each page as it is touched, through CE's cache. */
     if(!ram_alias(address)) {
+#if KUI_RETAIL_CE_VRAM_DMA
+        /* P1 and P2 never name CE's virtual memory, and outside RAM only PVR
+         * memory is usable there: a DMA stream's piece (retail_gd.c
+         * stream_guest), which the background reader's interrupt fills
+         * through its P1 alias. Written uncached through P2 and without
+         * cache maintenance, as the G1 DMA would. */
+        if((address >> 29) - 4u < 2u)
+            return (uint8_t *)(uintptr_t)kui_retail_vram_dma_span(address, bytes);
+#endif
         uint32_t end = address + bytes;
         if(!(*(volatile const uint32_t *)(uintptr_t)0xff000010u & 1u) || end < address)
             { RETURN_BAD_MAP(); }

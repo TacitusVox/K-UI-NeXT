@@ -114,6 +114,21 @@ static uint8_t *dma_guest(struct kui_retail_gd *s, uint32_t address,
     return guest(s, address, bytes, align, writing);
 }
 #endif
+#if KUI_RETAIL_CE_VRAM_DMA
+/* A DMA stream's transfer may also name PVR video memory: CE's driver sends
+ * a locked buffer's body straight to the 64-bit window, between RAM bounce
+ * pieces for its unaligned head and tail. The whole piece stays inside one
+ * window, 32-byte aligned; the mapper writes it uncached through P2. */
+static uint8_t *stream_guest(struct kui_retail_gd *s, uint32_t address,
+                             uint32_t bytes, int writing) {
+    uint32_t vram = kui_retail_vram_dma_map(address, bytes, 32u);
+    if(vram) return s->ops.map(s->ops.context, vram, bytes, writing);
+    return dma_guest(s, address, bytes, 32, writing);
+}
+#define STREAM_GUEST(s, address, bytes, writing) stream_guest(s, address, bytes, writing)
+#else
+#define STREAM_GUEST(s, address, bytes, writing) dma_guest(s, address, bytes, 32, writing)
+#endif
 static void reset(struct kui_retail_gd *s) {
     s->sector_part = 0x2000; s->track_type = 0; s->sector_bytes = 2048;
     s->pending = 0; s->command = 0; s->status = KUI_GD_NOT_FOUND;
@@ -772,7 +787,7 @@ static void stream_step(struct kui_retail_gd *s) {
     if(!s->pending || s->command != KUI_RETAIL_GD_DMAREAD_STREAM || !s->xfer_left) return;
     uint32_t n = KUI_RETAIL_GD_STEP_SECTORS * s->sector_bytes;
     if(n > s->xfer_left) n = s->xfer_left;
-    uint8_t *out = dma_guest(s, s->xfer_destination, n, 32, 1);
+    uint8_t *out = STREAM_GUEST(s, s->xfer_destination, n, 1);
     uint32_t before = s->completed_bytes / s->sector_bytes;
     DIAG_OBSERVE(++s->diag.read_steps);
     if(!out) s->error = KUI_GD_ERROR_MEMORY;
@@ -807,7 +822,7 @@ static int32_t transfer(struct kui_retail_gd *s, uint32_t token, uint32_t addres
     uint32_t destination = get32(p), bytes = get32(p + 4);
     DIAG_OBSERVE(s->diag.last_destination = destination);
     if(!bytes || (bytes & 31u) || bytes > s->request_bytes - s->completed_bytes ||
-       !dma_guest(s, destination, bytes, 32, KUI_RETAIL_MAP_VALIDATE)) return -1;
+       !STREAM_GUEST(s, destination, bytes, KUI_RETAIL_MAP_VALIDATE)) return -1;
     s->xfer_destination = destination; s->xfer_left = bytes;
 #ifndef KUI_RETAIL_GD_ASYNC
     stream_step(s);

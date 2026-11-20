@@ -15,6 +15,13 @@ static uint8_t ram[END - BEGIN];
 #define VIRT 0x0c3b0000u /* A CE process slot's addresses, not RAM. */
 static uint8_t virt[0x10000];
 #endif
+#if KUI_RETAIL_CE_VRAM_DMA
+#include "kui/retail_vram_dma.h"
+/* PVR memory's two 8 MiB views, as the CE resident maps a stream piece
+ * there (retail_resident.c map_guest): the uncached P2 address. */
+static uint8_t pvr64[0x800000], pvr32[0x800000];
+static uint32_t pvr_maps, pvr_validations, last_cpu_map;
+#endif
 static struct kui_retail_gd service;
 static struct {
     uint32_t reads, sectors, max_count, deny, fail_at, checks, reenter;
@@ -64,6 +71,19 @@ static uint32_t get(uint32_t a) {
 }
 static uint8_t *map(void *unused, uint32_t a, uint32_t bytes, int writing) {
     (void)unused;
+#if KUI_RETAIL_CE_VRAM_DMA
+    /* The resident's branch: P1/P2 outside RAM is PVR memory or nothing. */
+    if((a >> 29) - 4u < 2u && (a & 0xff000000u) != 0x8c000000u && (a & 0xff000000u) != 0xac000000u) {
+        uint32_t p2 = kui_retail_vram_dma_span(a, bytes);
+        if(!p2) return NULL;
+        CHECK((p2 & 0xfe000000u) == 0xa4000000u);
+        uint8_t *view = (p2 & 0x01000000u) ? pvr32 : pvr64;
+        if(writing == KUI_RETAIL_MAP_VALIDATE) {++pvr_validations; return view + sizeof(pvr64);}
+        ++pvr_maps;
+        return view + (p2 & 0x007fffffu);
+    }
+    last_cpu_map = a;
+#endif
 #ifdef KUI_RETAIL_CE
     /* The CE build passes other areas' addresses on as CE's virtual ones:
      * here one 64 KiB window of a process slot, separate from RAM, stands
@@ -1053,6 +1073,105 @@ static void pio_stream_reads(void) {
     CHECK(call(KUI_GD_INIT, 0, 0) == 0 && !service.pio_callback && !service.callback_due);
     part.fail = 0;
 }
+/* CE's driver sends a locked buffer whose body is PVR memory as three
+ * transfers: 32 bytes of RAM, the body straight to the 64-bit window, then
+ * 2016 bytes of RAM. These are the pieces KISS Psycho Circus (10 sectors)
+ * and Virtua Cop 2 (257 sectors) sent when the reader refused the second
+ * (WCEDATA session, 19 Nov 2026; docs/wince-vram-stream.md). */
+static int32_t driver_transfer(int32_t token, uint32_t destination, uint32_t bytes) {
+    int32_t result = piece(token, destination, bytes);
+    if(result) return result;
+    for(unsigned round = 0; service.xfer_left; ++round) {
+        CHECK(round < 1000u);
+        CHECK(call(KUI_GD_DMA_CHECK, (uint32_t)token, STATUS) >= 0);
+    }
+    return 0;
+}
+static void pvr_bytes(const uint8_t *view, uint32_t offset, uint32_t skip, uint32_t bytes) {
+    for(uint32_t i = 0; i < bytes; ++i)
+        CHECK(view[offset + i] == pattern(45000 + (skip + i) / 2048, (skip + i) % 2048));
+}
+#if KUI_RETAIL_CE_VRAM_DMA
+static void vram_stream_pieces(void) {
+    static const struct { uint32_t sectors, vram, body; } shapes[] = {
+        {10, 0x044c0360u, 0x4800u}, {257, 0x04575600u, 0x80000u}};
+    for(unsigned k = 0; k < 2; ++k) {
+        reset(); memset(&part, 0, sizeof(part));
+        memset(pvr64, 0x3c, sizeof(pvr64));
+        service.read_part = read_part;
+        const uint32_t total = shapes[k].sectors * 2048u, body = shapes[k].body;
+        const uint32_t offset = shapes[k].vram & 0x007fffffu;
+        CHECK(0x20u + body + 0x7e0u == total);
+        stream_params(45000, shapes[k].sectors);
+        int32_t token = call(KUI_GD_REQUEST, KUI_RETAIL_GD_DMAREAD_STREAM, PARAM);
+        CHECK(token > 0);
+        CHECK(driver_transfer(token, OUTPUT & 0x1fffffffu, 0x20u) == 0);
+        uint32_t validations = pvr_validations, maps = pvr_maps;
+        service.interrupts = 0;
+        CHECK(driver_transfer(token, shapes[k].vram, body) == 0);
+        CHECK(pvr_validations == validations + 1 && pvr_maps == maps + (body + 4095u) / 4096u);
+        CHECK(service.diag.last_destination == shapes[k].vram && service.pending);
+        CHECK(service.interrupts & KUI_RETAIL_GD_IRQ_DMA_END);
+        CHECK(service.completed_bytes == 0x20u + body);
+        CHECK(driver_transfer(token, (OUTPUT + 0x40u) & 0x1fffffffu, 0x7e0u) == 0);
+        CHECK(!service.pending && service.completed_bytes == total);
+        CHECK(call(KUI_GD_CHECK, (uint32_t)token, STATUS) == KUI_GD_COMPLETED);
+        CHECK(get(STATUS + 8) == total);
+        stream_bytes(OUTPUT, 45000, 0, 0x20u, 2048);
+        pvr_bytes(pvr64, offset, 0x20u, body);
+        stream_bytes(OUTPUT + 0x40u, 45000, 0x20u + body, 0x7e0u, 2048);
+        CHECK(pvr64[offset - 1u] == 0x3c && pvr64[offset + body] == 0x3c);
+        CHECK(ram[OUTPUT - BEGIN + 0x20u] == 0xa5 && ram[OUTPUT - BEGIN + 0x40u + 0x7e0u] == 0xa5);
+    }
+    /* Either view, through its physical, P1 or P2 address. */
+    static const uint32_t views[] = {0x05000020u, 0x857fffc0u, 0xa4000000u};
+    for(unsigned k = 0; k < 3; ++k) {
+        reset(); memset(&part, 0, sizeof(part)); service.read_part = read_part;
+        memset(pvr64, 0x3c, sizeof(pvr64)); memset(pvr32, 0x3c, sizeof(pvr32));
+        stream_params(45000, 1);
+        int32_t token = call(KUI_GD_REQUEST, KUI_RETAIL_GD_DMAREAD_STREAM, PARAM);
+        CHECK(token > 0 && driver_transfer(token, views[k], 0x40u) == 0);
+        pvr_bytes(views[k] & 0x01000000u ? pvr32 : pvr64, views[k] & 0x007fffffu, 0, 0x40u);
+        CHECK(driver_transfer(token, OUTPUT & 0x1fffffffu, 2048u - 0x40u) == 0 && !service.pending);
+    }
+    /* Refused, changing nothing: crossing a window's end, the holes above
+     * each window, the TA and other areas, an unaligned piece. */
+    static const struct { uint32_t address, bytes; } refused[] = {
+        {0x047fffe0u, 0x40u}, {0x04800000u, 0x20u}, {0x05800000u, 0x20u}, {0x06000000u, 0x20u},
+        {0x10000000u, 0x20u}, {0x1f000000u, 0x20u}, {0x044c0370u, 0x20u}, {0xc4000000u, 0x20u}};
+    reset(); memset(&part, 0, sizeof(part)); service.read_part = read_part;
+    stream_params(45000, 1);
+    int32_t token = call(KUI_GD_REQUEST, KUI_RETAIL_GD_DMAREAD_STREAM, PARAM);
+    CHECK(token > 0);
+    for(unsigned k = 0; k < sizeof(refused) / sizeof(refused[0]); ++k)
+        CHECK(piece(token, refused[k].address, refused[k].bytes) == -1);
+    CHECK(!part.calls && service.pending && !service.completed_bytes && !service.xfer_left);
+    /* An ordinary DMAREAD keeps RAM-only destinations, and a CPU pointer in
+     * 0x04... stays CE's virtual address (a process slot), never PVR. */
+    CHECK(call(KUI_GD_ABORT, (uint32_t)token, 0) == 0 && !service.pending);
+    CHECK(call(KUI_GD_CHECK, (uint32_t)token, STATUS) == KUI_GD_FAILED && !service.command);
+    uint32_t pvr_before = pvr_validations + pvr_maps;
+    read_params(45000, 1, 0x044c0360u);
+    CHECK(call(KUI_GD_REQUEST, KUI_GD_DMAREAD, PARAM) == 0 && !service.pending);
+    last_cpu_map = 0;
+    CHECK(call(KUI_GD_REQUEST, KUI_GD_PIOREAD, PARAM) == 0 && last_cpu_map == 0x044c0360u);
+    CHECK(pvr_validations + pvr_maps == pvr_before && !service.pending);
+    read_params(45000, 1, OUTPUT & 0x1fffffffu);
+    CHECK(call(KUI_GD_REQUEST, KUI_GD_DMAREAD, PARAM) > 0);
+}
+#else
+/* Without the PVR admission the driver's second transfer is refused, which
+ * stops the game (the installed module's behaviour). */
+static void vram_stream_pieces(void) {
+    reset(); memset(&part, 0, sizeof(part)); service.read_part = read_part;
+    stream_params(45000, 10);
+    int32_t token = call(KUI_GD_REQUEST, KUI_RETAIL_GD_DMAREAD_STREAM, PARAM);
+    CHECK(token > 0 && driver_transfer(token, OUTPUT & 0x1fffffffu, 0x20u) == 0);
+    CHECK(piece(token, 0x044c0360u, 0x4800u) == -1 && service.pending);
+    CHECK(service.diag.last_destination == 0x044c0360u && service.completed_bytes == 0x20u);
+    (void)pvr_bytes;
+}
+#endif
 #endif
 /* GD-ROM's 99 tracks: the TOC lists each in its numbered entry, and the
  * position reports name the track holding the current sector. */
@@ -1117,7 +1236,7 @@ int main(void) {
         large_reads(); paced_steps(); cancel_failures(); metadata(); silent_cd_audio(); version_query(); subcode_query(); bounds_and_modes();
 #endif
 #ifdef KUI_RETAIL_CE
-        virtual_pointers(); stream_reads(); pio_stream_reads();
+        virtual_pointers(); stream_reads(); pio_stream_reads(); vram_stream_pieces();
 #endif
     }
     printf("retail GD service: %u checks passed\n", assertions);

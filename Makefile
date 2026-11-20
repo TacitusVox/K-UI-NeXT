@@ -380,6 +380,7 @@ test: build/test-resident-image build/test-gd-service build/test-image-client
 test: build/test-retail-image build/test-retail-gd build/test-retail-gd-subcode build/test-retail-pace build/test-retail-sd build/test-ce-load-plan build/test-retail-boot
 test: build/test-retail-relay build/test-retail-relay-ce build/test-retail-startup-trace build/test-retail-gd-trace build/test-retail-mount-trace build/test-sonic-stack
 test: build/test-retail-cursor build/test-sci-stream build/test-sci-stream-ce build/test-retail-gd-async build/test-retail-gd-ce build/test-retail-async build/test-retail-async-native-resume build/test-retail-async-ce
+test: build/test-retail-gd-ce-vram build/test-retail-async-ce-vram
 test: build/test-retail-async-native-bounds build/test-retail-async-native-hybrid
 test: build/test-boot-volume build/ext4-boot build/boot-recovery build/test-boot-ui
 test: build/test-ata build/test-storage-policy build/test-sci-sd-bus build/test-retail-storage build/test-sci-sd-storage build/test-sci-async-probe build/test-sci-async-heartbeat build/test-sci-async-runtime build/test-sci-video-quiet
@@ -408,10 +409,12 @@ test: build/test-storage-errors build/test-cd-audio build/test-network-probe bui
 	./build/test-retail-async-native-bounds
 	./build/test-retail-async-native-hybrid
 	./build/test-retail-async-ce
+	./build/test-retail-async-ce-vram
 	./build/test-retail-gd
 	./build/test-retail-gd-subcode
 	./build/test-retail-gd-async
 	./build/test-retail-gd-ce
+	./build/test-retail-gd-ce-vram
 	./build/test-retail-pace
 	./build/test-retail-sd
 	./build/test-ce-load-plan
@@ -736,6 +739,11 @@ build/test-retail-async-ce: tests/test_retail_async_ce.c tests/sci_stream_model.
 build/test-retail-async-ce-slow: tests/test_retail_async_ce.c tests/sci_stream_model.h src/loader/retail_async.c src/loader/retail_async.h src/loader/sci_stream.c src/loader/sci_stream.h src/core/retail_cursor.c src/core/retail_image.c src/core/retail_gd.c include/kui/retail_gd.h include/kui/retail_cursor.h include/kui/retail_image.h include/kui/retail_loader_layout.h include/kui/ata.h
 	@mkdir -p $(@D)
 	$(CC) $(HOST_FLAGS) $(SANITIZERS) -DKUI_RETAIL_ASYNC_TEST=1 -DKUI_SCI_STREAM_TEST=1 -DKUI_RETAIL_ASYNC=1 -DKUI_RETAIL_GD_ASYNC=1 -DKUI_RETAIL_CE=1 -DKUI_RETAIL_TRANSPORT=1 -DKUI_CE_SCI_SLOW_AFTER_OVERRUN=1 -Iinclude -Isrc/loader src/loader/retail_async.c src/loader/sci_stream.c src/core/retail_cursor.c src/core/retail_image.c src/core/retail_gd.c tests/test_retail_async_ce.c -o $@
+# The generic CE module's reader: slow refetch after an overrun and DMA stream
+# pieces in PVR memory (KUI_CE_VRAM_DMA, Makefile.dc).
+build/test-retail-async-ce-vram: tests/test_retail_async_ce.c tests/sci_stream_model.h src/loader/retail_async.c src/loader/retail_async.h src/loader/sci_stream.c src/loader/sci_stream.h src/core/retail_cursor.c src/core/retail_image.c src/core/retail_gd.c include/kui/retail_gd.h include/kui/retail_cursor.h include/kui/retail_image.h include/kui/retail_loader_layout.h include/kui/ata.h include/kui/retail_vram_dma.h
+	@mkdir -p $(@D)
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) -DKUI_RETAIL_ASYNC_TEST=1 -DKUI_SCI_STREAM_TEST=1 -DKUI_RETAIL_ASYNC=1 -DKUI_RETAIL_GD_ASYNC=1 -DKUI_RETAIL_CE=1 -DKUI_RETAIL_TRANSPORT=1 -DKUI_CE_SCI_SLOW_AFTER_OVERRUN=1 -DKUI_RETAIL_CE_VRAM_DMA=1 -Iinclude -Isrc/loader src/loader/retail_async.c src/loader/sci_stream.c src/core/retail_cursor.c src/core/retail_image.c src/core/retail_gd.c tests/test_retail_async_ce.c -o $@
 .PHONY: test-ce-slow-after-overrun
 test-ce-slow-after-overrun: build/test-sci-stream-ce-slow build/test-retail-async-ce-slow
 	./build/test-sci-stream-ce-slow
@@ -819,6 +827,10 @@ build/test-retail-gd-async: tests/test_retail_gd.c src/core/retail_gd.c include/
 build/test-retail-gd-ce: tests/test_retail_gd.c src/core/retail_gd.c include/kui/retail_gd.h include/kui/retail_image.h
 	@mkdir -p $(@D)
 	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) -DKUI_RETAIL_CE=1 src/core/retail_gd.c tests/test_retail_gd.c -o $@
+
+build/test-retail-gd-ce-vram: tests/test_retail_gd.c src/core/retail_gd.c include/kui/retail_gd.h include/kui/retail_image.h include/kui/retail_vram_dma.h
+	@mkdir -p $(@D)
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) -DKUI_RETAIL_CE=1 -DKUI_RETAIL_CE_VRAM_DMA=1 src/core/retail_gd.c tests/test_retail_gd.c -o $@
 
 build/test-retail-pace: tests/test_retail_pace.c src/core/retail_pace.c include/kui/retail_pace.h
 	@mkdir -p $(@D)

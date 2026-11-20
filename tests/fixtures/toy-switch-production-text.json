@@ -1,6 +1,6 @@
 {
   "schema": "kui.toy-switch-production-text.v1",
-  "source": "Main 776c9259 (origin/main on 16 Nov 2026), the production text before the Toy test sources were merged; then the reviewed WinCE data probe hunks (KUI_WCE_PROBE, a257f13e and c25e9f5e)",
+  "source": "Main 776c9259 (origin/main on 16 Nov 2026), the production text before the Toy test sources were merged; then the reviewed WinCE data probe hunks (KUI_WCE_PROBE, a257f13e and c25e9f5e); then the reviewed CE VRAM stream admission (KUI_RETAIL_CE_VRAM_DMA)",
   "files": {
     "include/kui/hash.h": {
       "mode": "code",
@@ -72,7 +72,7 @@
     },
     "src/loader/retail_resident.c": {
       "mode": "code",
-      "sha256": "a704de50267fdb079bbb25d7f708e8c4aaf48b4d4d45ba1b77d5a71a2d50f252"
+      "sha256": "6437e400a164e14a766253e755368bb4db72e280266f334dd335beb2d6d8b9b7"
     },
     "src/loader/retail_stage.c": {
       "mode": "code",
