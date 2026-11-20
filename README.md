@@ -69,6 +69,24 @@ The historical [1.8.5 notes](docs/release-v1.8.5-notes.md),
 [1.7 notes](docs/release-v1.7-notes.md) and
 [1.5.1 notes](docs/release-v1.5.1-notes.md) remain available.
 
+## GUI nightlies
+
+The [K-UI GUI nightly workflow](https://github.com/TacitusVox/K-UI-NeXT/actions/workflows/nightly.yml)
+checks `main` daily at 08:23 UTC (2:23 a.m. CST or 3:23 a.m. CDT). It publishes a
+GUI-only testing package when the build inputs differ from the last successful
+publication. A missed run catches up at the next check. Existing game readers
+and installed card themes carry forward.
+
+To publish the first nightly immediately, open the workflow, choose **Run workflow**,
+select **main**, then click **Run workflow**. The first successful run creates a
+[prerelease](https://github.com/TacitusVox/K-UI-NeXT/releases) with `K-UI.kup`
+and publishes the console feed on `nightly-channel`. It uses GitHub's built-in token.
+
+On a network-enabled K-UI build, open **System settings → Updates → L GitHub nightly**.
+If the source reads **Hardware test**, press **Y** to select **Official nightly**.
+Choose **Automatic** or **Broadband Adapter** and press **A**. Review the verified
+package and GUI build, confirm installation, then choose **Restart K-UI**.
+
 ## Foundation and capture evidence
 
 The independent SD runtime established **raw-track GDI capture, saved-file

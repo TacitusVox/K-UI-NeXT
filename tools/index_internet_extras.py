@@ -22,6 +22,11 @@ REGIONS = {"U": "USA", "US": "USA", "J": "Japan", "JP": "Japan", "E": "Europe",
 # Names with different wording between the publishers' catalogues.
 ALIASES = {"segarallychampionship2": "segarally2", "smashpackv1": "segasmashpackvol1",
            "quake3arena": "quakeiiiarena", "lodossrecordoflodosswar": "recordoflodosswar"}
+# Archive lists these two US gameplay clips under their box subtitles.
+MOVIE_RELEASES = {
+    "Elemental Gimmick Gear (USA)": "EGG - Elemental Gimmick Gear (USA)",
+    "Railroad Tycoon II (USA)": "Railroad Tycoon II - Gold Edition (USA)",
+}
 # These scans use alternative titles or distinct limited-edition product numbers.
 # Each record pairs the exact release with the search index imagecount and its
 # verified available leaves from the item's *_scandata.xml. Some items repeat
@@ -75,6 +80,8 @@ MANUAL_RELEASES = {
         ("PenPen TriIcelon (USA)", 17, 16),
     "Puzzle_Bubble_4_2000_J_color":
         ("Puzzle Bobble 4 (Japan)", 33, 32),
+    "Railroad_Tycoon_II_Gold_Edition_2000_U":
+        ("Railroad Tycoon II (USA)", 17, 16),
     "Ring_Terrors_Realm_The_2000_U":
         ("Ring, The - Terror's Realm (USA)", 15, 14),
     "SGGG_2001_J_color":
@@ -83,6 +90,8 @@ MANUAL_RELEASES = {
         ("Sega GT - Homologation Special (Japan)", 81, 80),
     "Sega_Rally_2_Championship_1999_U":
         ("Sega Rally 2 (USA)", 15, 14),
+    "Shenmue_Passport_2000_U":
+        ("Shenmue (USA) (Shenmue Passport)", 11, 10),
     "Shutoko_Battle_1999_J_color":
         ("Shutokou Battle (Japan)", 17, 16),
     "Shutoko_Battle_2_2000_J_color":
@@ -170,7 +179,8 @@ def select_manuals(docs):
         # Prefer color scans, then the fewest network requests for the same game.
         if item in MANUAL_RELEASES:
             release, advertised, leaves = MANUAL_RELEASES[item]
-            if release_key(release)[1] == region:
+            market = REGION.search(release)
+            if market and market[1] == region:
                 by_release[release] = (leaves if pages == advertised else pages, item)
         title = title.partition("(")[0].strip()
         key = textkey(title)
@@ -229,6 +239,11 @@ def generate(covers, manuals, movie_metadata, dp_html, output):
         seen[h] = stem
         key = release_key(stem)
         if key is None:
+            # A bonus disc can have a separately published booklet. Never
+            # borrow a retail manual, PDF or movie for an excluded edition.
+            if stem in by_release:
+                pages, item = by_release[stem]
+                records[h] = (pages, item, "", "")
             continue
         # A sole same-game/region movie can also serve discs or revisions.
         movies = by_key.get(key, [])
@@ -239,6 +254,8 @@ def generate(covers, manuals, movie_metadata, dp_html, output):
                 movie = movies[0]
             elif len(first) == 1 and all(re.search(r"\(Disc [0-9]+\)", name) for name in movies):
                 movie = first[0]
+        if not movie and MOVIE_RELEASES.get(stem) in movie_names:
+            movie = MOVIE_RELEASES[stem]
         n, item = by_release.get(stem, manuals.get(key, (0, "")))
         pdf = pdfs.items.get(key, "")
         if item or pdf or movie:
