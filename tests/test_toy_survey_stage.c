@@ -77,7 +77,10 @@ enum kui_loader_sd_result kui_retail_storage_acquire(struct kui_retail_storage *
 }
 enum kui_loader_sd_result kui_retail_storage_read_run(struct kui_retail_storage *s,uint32_t lba,
     uint32_t available,uint8_t out[512]) {
-    assert(s==&card && owned && !stream_open && available==1u && lba<BLOCKS && card.device.sd.ready && !io.in_read);
+    assert(s==&card && owned && !stream_open && available==1u && lba<BLOCKS);
+    /* A card that is not ready is sent nothing (kui_loader_sd_stream_start). */
+    if(!card.device.sd.ready) return KUI_LOADER_SD_NOT_READY;
+    assert(!io.in_read);
     stream_open=true;
     if(++io.reads==io.fail_read_at) {
         if(io.read_kills) {card.device.sd.ready=false;io.stop_failed=true;io.in_read=true;}
@@ -354,16 +357,31 @@ int main(void) {
         memset(&io,0,sizeof(io));dead=true;
         launch(KUI_RETAIL_READER_ASYNC,KUI_STORAGE_SCI,raw,5u);card.device.sd.ready=false;
         off("SURVEY OFF / CARD NOT READY",0u);assert(!io.acquires && !io.syncs);
+        assert(acquires==reads+1u); /* one acquisition a read, and the identity's */
         for(unsigned at=1u;at<=acquires;at++) {
             memset(&io,0,sizeof(io));io.fail_acquire_at=at;
             launch(KUI_RETAIL_READER_ASYNC,KUI_STORAGE_SCI,raw,5u);
             scan();
+            if(at+5u>reads && at<=reads) {
+                /* The card not to be had for a slot's sector: that slot is passed over, as below. */
+                char line[80];snprintf(line,sizeof(line),"SURVEY ON / REPORT SAVES TO SLOT %03u",at+3u>reads?3u:2u);
+                assert(lines==1u && !strcmp(shown[0],line) && toy_survey_seed.test==66u && io.writes==1u && changed()==1u);
+                memcpy(disk,before,(size_t)BLOCKS*512u);
+            } else
             assert(lines==1u && !strncmp(shown[0],"SURVEY OFF / ",13u) && !toy_survey_seed.test && !io.writes);
         }
         for(unsigned at=1u;at<=reads;at++) {
             memset(&io,0,sizeof(io));io.fail_read_at=at;
             launch(KUI_RETAIL_READER_ASYNC,KUI_STORAGE_SCI,raw,5u);
             scan();
+            if(at+5u>reads) {
+                /* A sector of a slot that the card does not give, the card well: the slot is passed over,
+                 * used (slots 0 and 1) or blank (slot 2), and the launch has the next blank one. */
+                char line[80];snprintf(line,sizeof(line),"SURVEY ON / REPORT SAVES TO SLOT %03u",at+3u>reads?3u:2u);
+                assert(lines==1u && !strcmp(shown[0],line) && toy_survey_seed.test==66u && io.writes==1u &&
+                       io.written[0]==file_lba[kui_toy_survey_sector(at+3u>reads?3u:2u,0u)] && changed()==1u);
+                memcpy(disk,before,(size_t)BLOCKS*512u);
+            } else
             assert(lines==1u && !strncmp(shown[0],"SURVEY OFF / FILE ",18u) && !toy_survey_seed.test && !io.writes);
             /* The same read leaving the card not ready, its stream not ended: the card is
              * asked nothing, and the launch stops as it does for a read of the stage's own. */

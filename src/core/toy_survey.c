@@ -137,12 +137,18 @@ enum kui_toy_survey_claim_result kui_toy_survey_claim_find(const struct kui_wce_
     if(claim_read(volume,layout,0u,work,&lba)) return KUI_TOY_SURVEY_CLAIM_IO;
     if(kui_toy_survey_file_parse(work,&file) || layout->bytes!=kui_toy_survey_bytes(file.slots))
         return KUI_TOY_SURVEY_CLAIM_NOT_FILE;
+    unsigned unread=0u;
     for(uint32_t slot=0u;slot<file.slots;slot++) {
         /* Nothing of a slot is known to the caller until all of it is blank. */
         uint32_t at[KUI_TOY_SURVEY_PARTS],crc[KUI_TOY_SURVEY_PARTS],blank=0u;
         for(uint32_t part=0u;part<KUI_TOY_SURVEY_PARTS;part++) {
-            if(claim_read(volume,layout,kui_toy_survey_sector(slot,part),work,&lba))
-                return KUI_TOY_SURVEY_CLAIM_IO;
+            /* A sector the card does not give (a write that power cut off
+             * can leave one): its slot is passed over like any that is not
+             * blank. A card that gives none is not asked for every slot. */
+            if(claim_read(volume,layout,kui_toy_survey_sector(slot,part),work,&lba)) {
+                if(++unread==KUI_TOY_SURVEY_UNREAD_MAX) return KUI_TOY_SURVEY_CLAIM_IO;
+                break;
+            }
             kui_toy_survey_blank_sector(&file,slot,part,expect);
             /* Anything but this part's blank text: a used slot, one cut off
              * or one damaged. It is left alone, whatever it holds. */
@@ -158,7 +164,7 @@ enum kui_toy_survey_claim_result kui_toy_survey_claim_find(const struct kui_wce_
         }
     }
     out->file=file;out->used=file.slots;
-    return KUI_TOY_SURVEY_CLAIM_FULL;
+    return unread?KUI_TOY_SURVEY_CLAIM_IO:KUI_TOY_SURVEY_CLAIM_FULL;
 }
 
 void kui_toy_survey_seed_build(const struct kui_toy_survey_claim *claim,const uint8_t cid[16],

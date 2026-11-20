@@ -158,7 +158,8 @@ static void toy_survey_look(void) {
     }
     /* The launch record first, and read back: only a slot that names its
      * game is given to the worker. A write cut off leaves a slot that is no
-     * longer blank, which later launches pass over. */
+     * longer blank, or that the card no longer gives: later launches pass
+     * it over either way. */
     kui_toy_survey_launch_sector(&c->file,c->slot,&launch,toy_survey_text);
     if(toy_survey_write(c->lba[0],toy_survey_text)) {
         uint32_t response=card.device.sd.last_response;

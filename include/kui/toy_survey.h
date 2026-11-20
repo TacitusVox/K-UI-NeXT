@@ -13,8 +13,13 @@
  *   sector 1+3*s          slot s, part 0: the launch record (the cold stage)
  *   sector 2+3*s, 3+3*s   slot s, parts 1 and 2: the reader's 1,024-byte
  *                         report (the Toy worker, at the report gesture)
- * A blank sector names its file, its slot and its part, so no other sector
- * of the card can be taken for it. The stage writes a launch record only
+ * A blank sector names its file, its slot and its part, so no sector of the
+ * card but a blank sector of a file with this ID can be taken for it: no
+ * game, no save, nothing of the file system. (Keep one copy of a blank file
+ * on a card, and a new ID for every refill: tools/toy_survey.py gives each
+ * file its own. Were the volume damaged so that this file's chain led into a
+ * second copy with the same ID, that copy's blank slot would be written.)
+ * The stage writes a launch record only
  * over a sector it has just read back as that slot's blank part 0, and hands
  * the worker only two sectors it has just read back as the same slot's blank
  * parts 1 and 2; the worker checks their CRC-32 again before it writes
@@ -28,6 +33,8 @@
 #define KUI_TOY_SURVEY_PARTS 3u
 #define KUI_TOY_SURVEY_SLOTS_MAX 999u
 #define KUI_TOY_SURVEY_ID_BYTES 16u
+/* The slot search gives up at this many sectors the card does not give. */
+#define KUI_TOY_SURVEY_UNREAD_MAX 4u
 /* The Toy tests' report seed carries the test Card Tools started. */
 #define KUI_TOY_SURVEY_SEED_TEST 66u
 
@@ -74,7 +81,9 @@ void kui_toy_survey_launch_sector(const struct kui_toy_survey_file *file,uint32_
 /* Claiming a slot (the stage, and its host test). Read-only: the first slot
  * whose three parts all read back as their blank text. Every other slot is
  * passed over, whatever it holds: a launch record, a report, a write that
- * was cut off, bytes that are not the file's at all. */
+ * was cut off, bytes that are not the file's at all, a sector the card does
+ * not give. FULL: no slot is blank. IO: the first sector could not be read,
+ * or no blank slot was found and some sector could not be read. */
 enum kui_toy_survey_claim_result {
     KUI_TOY_SURVEY_CLAIM_OK = 0, KUI_TOY_SURVEY_CLAIM_IO, KUI_TOY_SURVEY_CLAIM_NOT_FILE,
     KUI_TOY_SURVEY_CLAIM_FULL

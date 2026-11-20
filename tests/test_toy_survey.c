@@ -24,7 +24,7 @@
 #define FILE_BYTES (FILE_SECTORS*512u)
 #define PATH "0:/KUI/SURVEY/STREAM.TXT"
 static uint8_t *disk,*before;
-static unsigned reads,fail_read_at;
+static unsigned reads,fail_read_at,fail_read_from;
 static const struct kui_toy_survey_file survey={
     {0x01,0x23,0x45,0x67,0x89,0xab,0xcd,0xef,0xfe,0xdc,0xba,0x98,0x76,0x54,0x32,0x10},SLOTS};
 
@@ -61,7 +61,7 @@ static uint8_t *within(uint8_t sector[512],const char *text) {
 static int card_read(void *context,uint32_t lba,uint8_t sector[512]) {
     (void)context;
     if(lba>=BLOCKS) return -1;
-    if(fail_read_at && ++reads==fail_read_at) return -1;
+    if((fail_read_at || fail_read_from) && (++reads==fail_read_at || (fail_read_from && reads>=fail_read_from))) return -1;
     memcpy(sector,disk+(size_t)lba*512u,512u);return 0;
 }
 
@@ -303,15 +303,29 @@ static void refusals(bool exfat,uint8_t *image) {
     kui_toy_survey_blank_sector(&survey,1u,1u,sector);sector[100]='x';set_sector(1u,1u,sector); /* part 1 not blank */
     kui_toy_survey_blank_sector(&survey,2u,2u,sector);sector[0]='x';set_sector(2u,2u,sector);   /* part 2 not blank */
     check(claim(&c)==KUI_TOY_SURVEY_CLAIM_OK && c.slot==3u && c.used==3u,"used and cut-off slots passed over");
-    /* A read that fails, wherever it falls. */
-    reads=0u;fail_read_at=0u;
-    check(claim(&c)==KUI_TOY_SURVEY_CLAIM_OK,"count the reads");
-    for(unsigned at=1u;;at++) {
+    /* A read that fails, wherever it falls: the first sector's ends the
+     * search; a slot's passes that slot over, used or blank. (Ten reads:
+     * the first sector, slot 0's one, slot 1's two, slot 2's and 3's three.) */
+    for(unsigned at=1u;at<=11u;at++) {
         reads=0u;fail_read_at=at;
         enum kui_toy_survey_claim_result r=claim(&c);
-        if(r==KUI_TOY_SURVEY_CLAIM_OK) {check(at>3u,"reads counted");break;}
-        check(r==KUI_TOY_SURVEY_CLAIM_IO && !c.lba[0] && !c.lba[1] && !c.lba[2],"failed read refused");
+        if(at==1u) check(r==KUI_TOY_SURVEY_CLAIM_IO && !c.lba[0] && !c.lba[1] && !c.lba[2],"failed first read refused");
+        else check(r==KUI_TOY_SURVEY_CLAIM_OK && c.slot==(at>=8u && at<=10u?4u:3u) &&
+                   c.lba[2]==kui_wce_probe_lba(&layout,kui_toy_survey_sector(c.slot,2u)),"a slot with a sector not read is passed over");
     }
+    fail_read_at=0u;
+    /* A card that gives nothing more is not asked for every slot. */
+    for(unsigned from=2u;from<=10u;from++) {
+        reads=0u;fail_read_from=from;
+        check(claim(&c)==KUI_TOY_SURVEY_CLAIM_IO && !c.lba[0] && !c.lba[1] && !c.lba[2] &&
+              reads==from-1u+KUI_TOY_SURVEY_UNREAD_MAX,"the search gives up at four sectors not read");
+    }
+    fail_read_from=0u;
+    /* Sectors not read and no blank slot behind them: not a full file. */
+    for(uint32_t slot=3u;slot<SLOTS;slot++) {kui_toy_survey_launch_sector(&survey,slot,&facts,sector);set_sector(slot,0u,sector);}
+    check(claim(&c)==KUI_TOY_SURVEY_CLAIM_FULL && c.used==SLOTS,"a file with no blank slot is full");
+    reads=0u;fail_read_at=3u;
+    check(claim(&c)==KUI_TOY_SURVEY_CLAIM_IO && !c.lba[0],"no blank slot and a sector not read: not called full");
     fail_read_at=0u;
     /* A partition that ends before the file. */
     const struct kui_wce_probe_volume small={0u,layout.runs[0].lba+2u,card_read,NULL};
