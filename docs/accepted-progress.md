@@ -86,6 +86,17 @@ case 392 of 528 bytes). From the same commit, `KUI_WCE_PROBE=1` rebuilds
 `88ff969d505c` and the default build `a660354d804c` byte for byte. Console
 behaviour is untested: the session is the test.
 
+### Rechecked against Main and the Test 83 reader line, 2026-11-20
+
+Main is still `4441e92c`, which both test builds already contain. A trial merge
+of `claude/hopeful-dijkstra-r2g7c4` at `9fd8e907` (the Test 83 survey and the
+owner's reader and GUI lines, not on Main) rebuilds, with each delivered
+label: the generic module with the PVR change off (`7b216f2e1136`), on
+(`a660354d804c`), the timing probe (`5c1cdd89387b`) and the data probe
+(`88ff969d505c`), and the four CD-music modules and `ce-armada-all-on.kui`
+(`7b216f2e1136`), each byte for byte. That line changes native readers only;
+the two delivered ZIPs stand as they are.
+
 ## WinCE PVR stream test: console test pending, a660354d804c, 2026-11-20
 
 One behaviour change to the generic `ce-boot.kui` against the installed
