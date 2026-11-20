@@ -25,7 +25,7 @@ static unsigned owner_fixture(void) {
         KUI_VMU_NATIVE_RESOLUTION_DETECTOR_EPOCH)<(int)sizeof(path));
     unsigned node=node_add(path,false);struct kui_vmu_native_resolution r;
     mock(engine,KUI_SMASH_NATIVE_ENGINE_BYTES,&r);memcpy(r.driver.image_sha256,engine_sha,32u);
-    CHECK(kui_vmu_native_resolution_cache_encode(&r,disk[node].data,sizeof(disk[node].data)));
+    CHECK(kui_vmu_native_resolution_cache_encode(&r,disk[node].data,KUI_VMU_NATIVE_RESOLUTION_CACHE_BYTES));
     disk[node].size=1024u;return node;
 }
 static enum native_cache_result owner_prepare(bool *deferred) {
