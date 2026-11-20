@@ -463,6 +463,9 @@ override STAGE_SRC += src/core/toy_survey.c src/core/toy_survey_fat.c
 $(STAGE_OBJ): private FLAGS += -DKUI_TOY_WIRE_SAVE=1
 $(BUILD)/stage.elf: $(STAGE_OBJ)
 $(BUILD)/stage/src/loader/vmu_native_heap_probe_stage.o: src/loader/toy_survey_stage.inc include/kui/toy_survey.h
+# The stage objects' dependency files were named before these two sources
+# were added (Makefile.toy_pilot): theirs are named here.
+-include $(BUILD)/stage/src/core/toy_survey.d $(BUILD)/stage/src/core/toy_survey_fat.d
 endif
 
 $(BUILD)/toy_return_hardware.o: src/loader/native_return_hardware.S $(BUILD)/readonly-config

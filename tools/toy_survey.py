@@ -8,6 +8,16 @@
 The file is text in 512-byte sectors: the first names the file, then three
 for each slot: the launch record Test 83's cold stage writes, and the two
 halves of the report its reader saves at the report gesture.
+
+A slot's state, as `read` lists it:
+  empty                       its three sectors are blank
+  launched, no report saved   a launch record, the report's sectors blank
+  launched, report cut off    a launch record, one of the report's sectors blank
+  report saved                a launch record and the reader's report
+  report damaged              a launch record; the other two sectors are neither blank nor a report
+  damaged                     the first sector is neither blank nor this slot's launch record,
+                              or it is blank and the others are not
+A launch record whose lines are not all read is listed with the line it stops at.
 """
 import argparse
 import json
@@ -20,6 +30,9 @@ SECTOR = 512
 PARTS = 3
 SLOTS_MAX = 999
 DEFAULT_SLOTS = 100
+# The reader's report (src/loader/toy_suite_report_save.inc): 1,024 bytes of text.
+REPORT_HEAD = b'K-UI TOY COMMANDER REPORT\nTEST '
+REPORT_TAIL = b'\nEND REPORT\n'
 
 
 def sector(text):
@@ -95,6 +108,11 @@ def parse_launch(file_id, slot, data):
     return record
 
 
+def is_report(data):
+    """Whether two sectors hold a report as the reader saves it."""
+    return len(data) == 2 * SECTOR and data.startswith(REPORT_HEAD) and data.endswith(REPORT_TAIL)
+
+
 def read_file(data):
     file_id, slots = parse_file_sector(data[:SECTOR])
     if len(data) != SECTOR * (1 + PARTS * slots):
@@ -117,15 +135,34 @@ def read_file(data):
                     entry['state'] = 'launched, no report saved'
                 elif blank[1] or blank[2]:
                     entry['state'] = 'launched, report cut off'
-                else:
+                elif is_report(parts[1] + parts[2]):
                     entry['state'] = 'report saved'
+                else:
+                    entry['state'] = 'report damaged'
                 if not (blank[1] and blank[2]):
                     entry['report'] = (parts[1] + parts[2]).decode('ascii', 'replace')
         out.append(entry)
     return {'id': file_id.hex().upper(), 'slots': slots, 'entries': out}
 
 
-def main():
+def listing(name, result):
+    """The lines `read` prints: the file, then every slot that is not empty."""
+    used = [entry for entry in result['entries'] if entry['state'] != 'empty']
+    lines = ['%s: ID %s, %d of %d slots used' % (name, result['id'], len(used), result['slots'])]
+    for entry in used:
+        launch = entry.get('launch', {})
+        line = 'slot %03d: %s' % (entry['slot'], entry['state'])
+        if launch:
+            line += ': %s %s (build %s; source %s; tracks %s, CD music tracks %s)' % (
+                launch.get('product', '?'), launch.get('title', '?'), launch.get('build', '?'),
+                launch.get('source', '?'), launch.get('tracks', '?'), launch.get('audio_high', '?'))
+        if 'damaged' in launch:
+            line += '; LAUNCH RECORD DAMAGED at its %s line' % launch['damaged']
+        lines.append(line)
+    return lines
+
+
+def main(arguments=None):
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     commands = parser.add_subparsers(dest='command', required=True)
     blank = commands.add_parser('blank', help='make a blank file')
@@ -135,22 +172,23 @@ def main():
     read = commands.add_parser('read', help="list a returned file's slots")
     read.add_argument('file', type=Path)
     read.add_argument('--json', type=Path)
-    args = parser.parse_args()
-    if args.command == 'blank':
-        file_id = bytes.fromhex(args.id) if args.id else secrets.token_bytes(16)
-        args.out.write_bytes(blank_file(file_id, args.slots))
-        print('%s: %d slots, %d bytes, ID %s' % (args.out, args.slots, args.out.stat().st_size, file_id.hex().upper()))
-        return 0
-    result = read_file(args.file.read_bytes())
+    args = parser.parse_args(arguments)
+    try:
+        if args.command == 'blank':
+            if args.id is not None and not re.fullmatch('[0-9A-Fa-f]{32}', args.id):
+                raise ValueError('--id takes 32 hex digits')
+            file_id = bytes.fromhex(args.id) if args.id else secrets.token_bytes(16)
+            data = blank_file(file_id, args.slots)
+            args.out.write_bytes(data)
+            print('%s: %d slots, %d bytes, ID %s' % (args.out, args.slots, len(data), file_id.hex().upper()))
+            return 0
+        result = read_file(args.file.read_bytes())
+    except (ValueError, OSError) as error:
+        print('toy_survey.py: %s' % error, file=sys.stderr)
+        return 1
     if args.json:
         args.json.write_text(json.dumps(result, indent=1) + '\n')
-    used = [e for e in result['entries'] if e['state'] != 'empty']
-    print('%s: ID %s, %d of %d slots used' % (args.file, result['id'], len(used), result['slots']))
-    for entry in used:
-        launch = entry.get('launch', {})
-        print('slot %03d: %s: %s %s (build %s; source %s; tracks %s, CD music tracks %s)' % (
-            entry['slot'], entry['state'], launch.get('product', '?'), launch.get('title', '?'),
-            launch.get('build', '?'), launch.get('source', '?'), launch.get('tracks', '?'), launch.get('audio_high', '?')))
+    print('\n'.join(listing(args.file, result)))
     return 0
 
 
