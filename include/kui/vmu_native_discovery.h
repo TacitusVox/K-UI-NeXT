@@ -76,4 +76,9 @@ bool kui_vmu_native_discovery_cache_valid(const struct kui_vmu_native_discovery 
  * alias ownership or cache-coherence authority. Neither output ABI grows. */
 bool kui_vmu_native_early_p2_calls_valid(const void *image,size_t bytes,
     const struct kui_vmu_native_discovery *,uint32_t heap_call,uint32_t maple_call);
+/* During layout discovery the allocator has not been independently bound
+ * yet; compare the Maple call to the same fully recognized startup head.
+ * Cache and stage admission later require both independently bound calls. */
+bool kui_vmu_native_early_p2_layout_call_valid(const void *image,size_t bytes,
+    const struct kui_vmu_native_discovery *,uint32_t maple_call);
 #endif
