@@ -113,9 +113,18 @@ at most 255 slots (under 4 GiB).
 
 `tools/wce_probe_data.py read WCEDATA.BIN --json out.json --dumps DIR` decodes
 every used slot and rebuilds each dump as a 16 MiB image (`-partial.ram` when
-the dump was cut off; a truncated upload stops at its last whole slot).
+the dump was cut off; a truncated upload stops at its last whole slot). A
+saturated counter reads `65535+` (16-bit) or `255+` (the 8-bit Maple counters).
 `tools/wce_probe_mine.py WCEDATA.BIN --out DIR` turns the file into per-game
-findings, starting with the roadmap answers.
+findings, starting with the roadmap answers: launches ended by the combination,
+by a reader fault or with no end record; the card slots sent a storage frame,
+read from, and saved to (a block write seen), sampled during GD calls, so
+absence is not proof; completion frames (command 13) are listed apart, since
+CE's driver sends them after block reads as well as writes; process and module
+names, read as the 8-bit strings these kernels keep; and CE's free pages when
+the dump was taken. These kernels keep no low-water mark (KData+0x364 is
+0), so none is reported. The miner also records whether KData+0x334 names KData,
+and takes the ROMHDR from KData+0x330 when the stage report has none (CE2).
 
 ## Build and gates
 

@@ -99,9 +99,11 @@ def main():
                   "Maple sampled on every GD call: samples and frames")
             units = m["units"]
             check(units["A"]["condition"] == m["samples"] and units["A"]["functions"] == "0x01000000", "port A")
-            check(units["A1"]["block write"] == min(255, m["samples"]) and units["A1"]["other"] == min(255, m["samples"])
+            # The 8-bit Maple counters stop at 255, which the decoder shows as "255+".
+            capped = m["samples"] if m["samples"] < 255 else "255+"
+            check(units["A1"]["block write"] == capped and units["A1"]["other"] == capped
                   and units["A1"]["functions"] == "0x06000000", "A1: storage writes count, LCD writes do not")
-            check(units["B2"]["media info"] == min(255, m["samples"]), "B2 media info")
+            check(units["B2"]["media info"] == capped, "B2 media info")
             # The dump: every non-zero page, byte for byte.
             image = Path(s0["dump_file"]).read_bytes()
             original = ram.read_bytes()

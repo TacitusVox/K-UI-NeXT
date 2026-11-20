@@ -164,6 +164,9 @@ def decode_counters(raw):
     def count16(n):
         return "65535+" if n == 0xffff else n  # the 16-bit counters saturate
 
+    def count8(n):
+        return "255+" if n == 0xff else n  # so do the 8-bit Maple counters
+
     return {"magic_ok": True, "calls": v[3],
             "rtc": {"first_call": v[4], "first_read": v[5], "first_audio": v[6], "last": v[7]},
             "functions": {FUNCTIONS[i]: count16(n) for i, n in enumerate(functions) if n},
@@ -177,7 +180,7 @@ def decode_counters(raw):
             "maple": {"samples": maple_samples, "lists": maple_lists, "frames": maple_frames,
                       "bad_lists": maple_bad, "last_list": f"{maple_last_list:#010x}",
                       "units": {MAPLE_UNITS[u]: {"functions": f"{maple_functions[u]:#010x}",
-                                                 **{MAPLE_COMMANDS[c]: maple[u * 8 + c]
+                                                 **{MAPLE_COMMANDS[c]: count8(maple[u * 8 + c])
                                                     for c in range(8) if maple[u * 8 + c]}}
                                 for u in range(12) if any(maple[u * 8:(u + 1) * 8]) or maple_functions[u]}}}
 
