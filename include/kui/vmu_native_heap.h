@@ -50,9 +50,14 @@ struct kui_vmu_native_heap_call {uint32_t load,call,return_pr,entry_begin,entry_
  * outside that interval. Fixed/arena plans have their own representation. */
 static inline bool kui_vmu_native_heap_call_is_tail(const struct kui_vmu_native_heap *heap,
     const struct kui_vmu_native_heap_call *call) {
-    return KUI_NATIVE_TAIL_HEAP_PROOF && heap->family!=KUI_VMU_NATIVE_HEAP_ARENA && heap->initializer_slot &&
-        call->load && call->call &&
-        (call->call<=call->load || call->call-call->load>16u);
+    return KUI_NATIVE_TAIL_HEAP_PROOF &&
+        (heap->family==KUI_VMU_NATIVE_HEAP_TAIL32 || heap->family==KUI_VMU_NATIVE_HEAP_DIRECT32) &&
+        heap->initializer_slot && !((call->load|call->call)&1u) &&
+        heap->image_bytes>=6u && heap->image_bytes<=UINT32_MAX-heap->load &&
+        call->load>=heap->load && call->load-heap->load<=heap->image_bytes-2u &&
+        call->call>=heap->load && call->call-heap->load<=heap->image_bytes-6u &&
+        call->return_pr==call->call+4u &&
+        (call->call<call->load || call->call-call->load>16u);
 }
 /* Resolve a bounded immutable argument path, including a forward conditional
  * guard only when TST operands prove its decision before the selected target
