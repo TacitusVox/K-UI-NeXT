@@ -154,6 +154,12 @@ _start:
     .ascii KUI_NATIVE_MAP_CAP_MAGIC
     .long KUI_NATIVE_MAP_CAP_VERSION,KUI_NATIVE_MAP_CAP_SLOTS
 #endif
+#if KUI_NATIVE_BACKGROUND_COMPACT && KUI_NATIVE_DUAL_READERS && !KUI_NATIVE_SESSION_CONTROLS
+#include "kui/native_heap_capability.h"
+    .section .native_heap_capability,"a"
+    .ascii KUI_NATIVE_HEAP_CAP_MAGIC
+    .long KUI_NATIVE_HEAP_CAP_VERSION,KUI_NATIVE_HEAP_CAP_TAIL
+#endif
 #if KUI_ARMADA_CE_CDDA_VMU
     /* Combined Armada CD music + writable virtual A2 (ce-armada-all-on.kui).
      * GUI 00d8ed67d9ad admits that route only with this record at payload
