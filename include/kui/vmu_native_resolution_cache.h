@@ -17,6 +17,12 @@ struct kui_vmu_native_resolution {
     struct kui_vmu_native_heap_call call;
     struct kui_vmu_native_exit exits;
 };
+/* These two SDK variants require startup and exit witnesses that earlier
+ * detached modules cannot replay. Keep their cache records distinguishable. */
+static inline bool kui_vmu_native_extended_sdk_proof(const struct kui_vmu_native_resolution *r) {
+    return r->exits.family==KUI_VMU_NATIVE_EXIT_EARLY_FIRMWARE_LITERAL_POOL ||
+        kui_vmu_native_deferred_maple_startup(r->driver.family,r->call.call,r->layout.initializer_call);
+}
 /* Complete fresh immutable-image discovery, uniqueness and six-window proof.
  * For an executable without an SDK allocator, a reviewed arena plan for that
  * exact image replaces the allocator proof, and the submit window alone

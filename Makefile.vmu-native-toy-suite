@@ -461,6 +461,8 @@ ifneq ($(TOY_WIRE_SAVE),1)
 $(error TOY_SURVEY_MIXED_PAD requires Test 83 with TOY_WIRE_SAVE=1)
 endif
 $(BUILD)/native/src/loader/vmu_native_passive.o: private NATIVE_FLAGS += -DKUI_TOY_SURVEY_MIXED_PAD=1
+$(BUILD)/entry_asm.o: private FLAGS += -DKUI_NATIVE_SURVEY_EXTENDED_SDK=1
+$(BUILD)/entry_asm.o: include/kui/native_sdk_proof_capability.h
 else ifneq ($(TOY_SURVEY_MIXED_PAD),0)
 $(error TOY_SURVEY_MIXED_PAD must be 0 or 1)
 endif

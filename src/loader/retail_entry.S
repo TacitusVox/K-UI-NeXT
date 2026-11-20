@@ -169,6 +169,12 @@ _start:
     .ascii "KUIAVM01"
     .long 1,4096
 #endif
+#if KUI_NATIVE_SURVEY_EXTENDED_SDK
+#include "kui/native_sdk_proof_capability.h"
+    .section .native_sdk_proof_capability,"a"
+    .ascii KUI_NATIVE_SDK_PROOF_MAGIC
+    .long KUI_NATIVE_SDK_PROOF_VERSION,KUI_NATIVE_SDK_PROOF_EXTENDED
+#endif
     .section .package_header,"a"
     .ascii PACKAGE_MAGIC
     .long KUI_RETAIL_PACKAGE_VERSION

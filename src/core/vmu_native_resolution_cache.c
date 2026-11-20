@@ -15,8 +15,10 @@ static const uint8_t magic[8]={'K','U','I','N','V','R','0','1'};
 /* Header word 20 names the proof's kind. Kind 2, a reviewed fixed arena,
  * and kind 3, the arena lease of an executable without an SDK allocator, are
  * newer: older readers accept fewer kinds and treat the rest as a cache miss. */
-enum {KIND_INITIALIZER_CALL=1u,KIND_FIXED_ARENA=2u,KIND_ARENA_LEASE=3u,KIND_TAIL_INITIALIZER=4u};
+enum {KIND_INITIALIZER_CALL=1u,KIND_FIXED_ARENA=2u,KIND_ARENA_LEASE=3u,KIND_TAIL_INITIALIZER=4u,
+      KIND_EXTENDED_SDK=5u};
 static uint32_t kind(const struct kui_vmu_native_resolution *r) {
+    if(kui_vmu_native_extended_sdk_proof(r))return KIND_EXTENDED_SDK;
     if(kui_vmu_native_heap_call_is_tail(&r->heap,&r->call))return KIND_TAIL_INITIALIZER;
     return r->heap.family==KUI_VMU_NATIVE_HEAP_ARENA?KIND_ARENA_LEASE:
         r->heap.initializer_slot?KIND_INITIALIZER_CALL:KIND_FIXED_ARENA;
@@ -112,6 +114,16 @@ static bool heap_schema(const struct kui_vmu_native_resolution *r) {
         (h->initializer_slot || (!h->initializer_target &&
          r->call.return_pr==r->call.call+4u && r->call.entry_bytes));
 }
+static bool early_startup_schema(const struct kui_vmu_native_resolution *r) {
+    const struct kui_vmu_native_discovery *d=&r->driver;
+    if(d->family!=KUI_VMU_NATIVE_FAMILY_EARLY_P2_V1)return true;
+    const uint32_t target=r->layout.initializer_call,call=r->call.call;
+    if(!r->heap.initializer_slot || call<d->load_address || call-d->load_address<82u ||
+       r->call.load!=call-12u || r->call.return_pr!=call+4u)return false;
+    /* Both calls and their delay slots must lie in the verified executable. */
+    return target>=d->load_address && target-d->load_address<=d->image_bytes-4u &&
+        ((target>=call && target-call==26u) || kui_vmu_native_deferred_maple_startup(d->family,call,target));
+}
 static bool schema(const struct kui_vmu_native_resolution *r) {
     const struct kui_vmu_native_discovery *d=&r->driver;
     return d->version==KUI_VMU_NATIVE_DISCOVERY_VERSION && d->bytes==sizeof(*d) &&
@@ -123,10 +135,7 @@ static bool schema(const struct kui_vmu_native_resolution *r) {
         ((r->layout.rx_layout==KUI_VMU_NATIVE_RX_EXPLICIT48 && r->layout.inputs==12u) ||
          (r->layout.rx_layout==KUI_VMU_NATIVE_RX_UNIFORM48 && r->layout.inputs==1u)) &&
         heap_schema(r) &&
-        (d->family!=KUI_VMU_NATIVE_FAMILY_EARLY_P2_V1 ||
-         (r->heap.initializer_slot && r->call.call>=d->load_address+82u &&
-          r->call.call-d->load_address<=d->image_bytes-30u && r->call.load==r->call.call-12u &&
-          r->call.return_pr==r->call.call+4u && r->call.call+26u==r->layout.initializer_call)) &&
+        early_startup_schema(r) &&
         kui_vmu_native_exit_shape_valid(&r->exits) &&
         r->exits.load==d->load_address && r->exits.image_bytes==d->image_bytes &&
         r->exits.count<=KUI_VMU_NATIVE_EXIT_ENTRIES;
@@ -138,7 +147,7 @@ static bool decode(const void *wire,size_t n,struct kui_vmu_native_resolution *r
        get32(p+12u)!=KUI_VMU_NATIVE_RESOLUTION_CACHE_BYTES ||
        get32(p+16u)!=KUI_VMU_NATIVE_RESOLUTION_DETECTOR_EPOCH ||
        (get32(p+20u)!=KIND_INITIALIZER_CALL && get32(p+20u)!=KIND_FIXED_ARENA &&
-        get32(p+20u)!=KIND_ARENA_LEASE && get32(p+20u)!=KIND_TAIL_INITIALIZER)) return false;
+        get32(p+20u)!=KIND_ARENA_LEASE && get32(p+20u)!=KIND_TAIL_INITIALIZER && get32(p+20u)!=KIND_EXTENDED_SDK)) return false;
     for(size_t i=CACHE_PAYLOAD_END;i<CACHE_DIGEST_OFFSET;i++) if(p[i]) return false;
     hash(p,CACHE_DIGEST_OFFSET,digest);
     if(memcmp(digest,p+CACHE_DIGEST_OFFSET,32u)) return false;
@@ -228,6 +237,16 @@ static bool replay_arguments(const void *image,size_t n,uint32_t load,const void
         object(wire,wire_bytes) && object(out,sizeof(*out)) &&
         !overlap(image,n,out,sizeof(*out)) && !overlap(wire,wire_bytes,out,sizeof(*out));
 }
+static bool replay_sdk_roles(const void *image,size_t n,const struct kui_vmu_native_resolution *r) {
+    if(r->exits.family==KUI_VMU_NATIVE_EXIT_EARLY_FIRMWARE_LITERAL_POOL &&
+       !kui_vmu_native_exit_literal_pool_valid(image,n,&r->exits))return false;
+    if(r->driver.family!=KUI_VMU_NATIVE_FAMILY_EARLY_P2_V1 &&
+       !kui_vmu_native_heap_call_is_tail(&r->heap,&r->call))return true;
+    if(r->driver.family==KUI_VMU_NATIVE_FAMILY_EARLY_P2_V1 &&
+       !kui_vmu_native_early_p2_calls_valid(image,n,&r->driver,r->call.call,r->layout.initializer_call))return false;
+    struct kui_vmu_native_heap_call call;
+    return kui_vmu_native_heap_call_discover(image,n,&r->heap,&call) && !memcmp(&call,&r->call,sizeof(call));
+}
 bool kui_vmu_native_resolution_cache_replay(const void *image,size_t n,uint32_t load,
     const void *wire,size_t wire_bytes,const uint8_t expected[32],struct kui_vmu_native_resolution *out) {
     if(!replay_arguments(image,n,load,wire,wire_bytes,out) || !object(expected,32u) ||
@@ -238,14 +257,7 @@ bool kui_vmu_native_resolution_cache_replay(const void *image,size_t n,uint32_t 
        decoded.driver.image_bytes!=n || decoded.driver.load_address!=load) return false;
     hash(image,n,digest);
     if(memcmp(digest,decoded.driver.image_sha256,32u)) return false;
-    if(decoded.driver.family==KUI_VMU_NATIVE_FAMILY_EARLY_P2_V1 ||
-       kui_vmu_native_heap_call_is_tail(&decoded.heap,&decoded.call)) {
-        struct kui_vmu_native_heap_call call;
-        if((decoded.driver.family==KUI_VMU_NATIVE_FAMILY_EARLY_P2_V1 &&
-            !kui_vmu_native_early_p2_calls_valid(image,n,&decoded.driver,decoded.call.call,decoded.layout.initializer_call)) ||
-           !kui_vmu_native_heap_call_discover(image,n,&decoded.heap,&call) ||
-           memcmp(&call,&decoded.call,sizeof(call))) return false;
-    }
+    if(!replay_sdk_roles(image,n,&decoded))return false;
     *out=decoded;return true;
 }
 /* The ordinary console stage/worker translation units retain precisely
@@ -263,14 +275,7 @@ bool kui_vmu_native_resolution_cache_replay_hashed(const void *image,size_t n,ui
     if(!decode(wire,wire_bytes,&decoded,digest) || memcmp(digest,expected,32u) ||
        decoded.driver.image_bytes!=n || decoded.driver.load_address!=load ||
        memcmp(fresh_image_digest,decoded.driver.image_sha256,32u)) return false;
-    if(decoded.driver.family==KUI_VMU_NATIVE_FAMILY_EARLY_P2_V1 ||
-       kui_vmu_native_heap_call_is_tail(&decoded.heap,&decoded.call)) {
-        struct kui_vmu_native_heap_call call;
-        if((decoded.driver.family==KUI_VMU_NATIVE_FAMILY_EARLY_P2_V1 &&
-            !kui_vmu_native_early_p2_calls_valid(image,n,&decoded.driver,decoded.call.call,decoded.layout.initializer_call)) ||
-           !kui_vmu_native_heap_call_discover(image,n,&decoded.heap,&call) ||
-           memcmp(&call,&decoded.call,sizeof(call))) return false;
-    }
+    if(!replay_sdk_roles(image,n,&decoded))return false;
     *out=decoded;return true;
 }
 #endif

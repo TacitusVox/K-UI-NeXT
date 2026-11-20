@@ -34,6 +34,9 @@ SECTIONS {
  .smash_ce_return_capability : { KEEP(*(.smash_ce_return_capability)) } :image
  ASSERT(SIZEOF(.smash_ce_return_capability)==0 || SIZEOF(.smash_ce_return_capability)==16,"CE return capability must be16 bytes")
  ASSERT(SIZEOF(.smash_native_gin_capability)==0 || SIZEOF(.smash_ce_return_capability)==0,"Smash native and CE capabilities overlap")
+ . = 0x8c0101f0;
+ .native_sdk_proof_capability : { KEEP(*(.native_sdk_proof_capability)) } :image
+ ASSERT(SIZEOF(.native_sdk_proof_capability)==0 || SIZEOF(.native_sdk_proof_capability)==16,"SDK proof capability must be 16 bytes")
  . = 0x8c010200;
  .smash_ce_gin_header : { KEEP(*(.smash_ce_gin_header)) } :image
  ASSERT(SIZEOF(.smash_ce_gin_header)==0 || SIZEOF(.smash_ce_gin_header)==160,"CE GIN state must be 160 bytes")
