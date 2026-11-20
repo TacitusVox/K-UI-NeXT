@@ -78,6 +78,34 @@ static void fresh_hash_replay_tests(void) {
     wire[300]^=1u;
     CHECK(!replay_hashed(image,sizeof(image),load,wire,sizeof(wire),pin,fresh,&out));
 }
+/* Encoding a distant BSR is only a wire-format distinction. Both replay
+ * entry points must re-prove the actual instructions even with fresh pins. */
+static void tail_codec_tests(void) {
+    uint8_t image[1024]={0},wire[1024],pin[32],sha[32];
+    struct kui_vmu_native_resolution r,out;mock(image,sizeof(image),&r);
+    r.heap.initializer_slot=load+0x300u;
+    r.call.load=load+0x100u;r.call.call=load+0x200u;r.call.return_pr=r.call.call+4u;
+    CHECK(kui_vmu_native_heap_call_is_tail(&r.heap,&r.call));
+    CHECK(kui_vmu_native_resolution_cache_encode(&r,wire,sizeof(wire)) && get32(wire+20u)==4u);
+    CHECK(kui_vmu_native_resolution_cache_record_digest(wire,sizeof(wire),pin));
+    digest(image,sizeof(image),sha);
+    CHECK(!replay(image,sizeof(image),load,wire,sizeof(wire),pin,&out));
+    CHECK(!replay_hashed(image,sizeof(image),load,wire,sizeof(wire),pin,sha,&out));
+    wire[20]=1u;seal(wire);
+    CHECK(!kui_vmu_native_resolution_cache_record_digest(wire,sizeof(wire),pin));
+    const struct kui_vmu_native_heap_call original=r.call;
+    const uint32_t sites[]={load-2u,load+1u,load+sizeof(image)-4u,load+sizeof(image),original.load,original.load+16u};
+    for(unsigned i=0;i<sizeof(sites)/sizeof(sites[0]);i++) {
+        r.call.call=sites[i];r.call.return_pr=sites[i]+4u;
+        CHECK(!kui_vmu_native_heap_call_is_tail(&r.heap,&r.call));
+    }
+    r.call=original;r.call.load=load+sizeof(image);
+    CHECK(!kui_vmu_native_heap_call_is_tail(&r.heap,&r.call));
+    r.call=original;r.call.load++;
+    CHECK(!kui_vmu_native_heap_call_is_tail(&r.heap,&r.call));
+    r.call=original;r.call.return_pr+=2u;
+    CHECK(!kui_vmu_native_heap_call_is_tail(&r.heap,&r.call));
+}
 /* An arena lease's owner names only the image and the borrowed literal; its
  * call returns after the borrowed JSR/delay slot and names a nonempty arena. */
 static void arena_record(struct kui_vmu_native_resolution *r) {
@@ -443,6 +471,18 @@ static void generic_actual_tests(const char *path) {
     CHECK(kui_vmu_native_resolution_cache_record_digest(wire,sizeof(wire),pin));
     CHECK(replay(image,program_bytes,load,wire,sizeof(wire),pin,&out));CHECK(!memcmp(&fresh,&out,sizeof(fresh)));
     CHECK(strict(image,program_bytes,load,wire,sizeof(wire),&out));CHECK(!memcmp(&fresh,&out,sizeof(fresh)));
+    CHECK(replay_hashed(image,program_bytes,load,wire,sizeof(wire),pin,program_hash,&out));
+    CHECK(!memcmp(&fresh,&out,sizeof(fresh)));
+    if(get32(wire+20u)==4u) {
+        struct kui_vmu_native_resolution forged=fresh;
+        uint8_t forged_pin[32];
+        forged.call.call+=2u;forged.call.return_pr+=2u;
+        CHECK(kui_vmu_native_resolution_cache_encode(&forged,again,sizeof(again)) && get32(again+20u)==4u);
+        CHECK(kui_vmu_native_resolution_cache_record_digest(again,sizeof(again),forged_pin));
+        CHECK(!replay(image,program_bytes,load,again,sizeof(again),forged_pin,&out));
+        CHECK(!replay_hashed(image,program_bytes,load,again,sizeof(again),forged_pin,program_hash,&out));
+        CHECK(!strict(image,program_bytes,load,again,sizeof(again),&out));
+    }
     CHECK(kui_vmu_native_resolution_cache_build(image,program_bytes,load,again,sizeof(again),NULL));CHECK(!memcmp(wire,again,sizeof(wire)));
     if(n-program_bytes==0x8000u) {
         /* Live-image APIs retain their explicit extent contract: only the
@@ -492,7 +532,8 @@ static void generic_actual_tests(const char *path) {
     free(image);
 }
 int main(int argc,char **argv) {
-    CHECK(argc>=1);codec_and_trust_tests();direct_codec_tests();fresh_hash_replay_tests();if(argc>=2) actual_tests(argv[1]);
+    CHECK(argc>=1);codec_and_trust_tests();direct_codec_tests();fresh_hash_replay_tests();tail_codec_tests();
+    if(argc>=2 && strcmp(argv[1],"--generic")) actual_tests(argv[1]);
     for(int i=2;i<argc;i++) generic_actual_tests(argv[i]);
     printf("Native complete resolution cache: %u checks passed%s\n",checks,argc>=2?" including actual images, stale/forged records and first-build mutations":"");
     return 0;

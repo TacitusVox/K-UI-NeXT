@@ -354,14 +354,20 @@ static bool tail_initializer(const uint8_t *p,size_t n,const struct kui_vmu_nati
             uint32_t a=h32(p+i);
             if(span(a,2u) && phys(a)>=phys(lo)-2u && phys(a)<phys(hi))return false;
         }
-        if((op>>12)==9u && phys(h->load+(uint32_t)i+4u+2u*(op&255u))-phys(h->initializer_slot)<4u)
+        uint32_t pc=h->load+(uint32_t)i;
+        if((op>>12)==9u && phys(pc+4u+2u*(op&255u))-phys(h->initializer_slot)<4u)
             return false;
+        if((op>>8)==0xc7u) {
+            uint32_t address=((pc+4u)&~3u)+4u*(op&255u);
+            if((address>=lo-2u && address<hi) || phys(address)==phys(h->initializer_slot))return false;
+        }
         if((op>>12)==10u || (op>>12)==11u)
             disp=(int32_t)((op&4095u)^2048u)-2048;
         else if((op>>8)==0x89u || (op>>8)==0x8bu || (op>>8)==0x8du || (op>>8)==0x8fu)
             disp=(int8_t)op;
         else continue;
-        uint32_t pc=h->load+(uint32_t)i,dest=pc+4u+2u*(uint32_t)disp;
+        uint32_t dest=pc+4u+2u*(uint32_t)disp;
+        if(phys(dest)-phys(h->initializer_slot)<4u)return false;
         if(dest<lo-2u || dest>=hi)continue;
         if(caller || dest!=lo || op>>12!=11u || i+6u>n || h16(p+i+2u)!=0x0009u ||
            (pc>=lo && pc<hi))return false;

@@ -354,7 +354,9 @@ static void tail_wrapper_tests(void) {
         {caller,0xa000u|(branch&4095u)},{caller+2u,0x4f26u},{leaf-4u,0x0009u},
         {leaf+52u,0x430bu},{leaf+54u,0x7f60u},{leaf+48u,0x2302u},
         {0x200u,0xb000u|((leaf-0x204u)/2u)},{0x200u,0xa000u|((leaf+2u-0x204u)/2u)},
-        {0x200u,0xa000u|((leaf-2u-0x204u)/2u)},{0x690u,0x9037u}};
+        {0x200u,0xa000u|((leaf-2u-0x204u)/2u)},{0x690u,0x9037u},
+        {0x200u,0xc700u|((leaf-0x204u)/4u)},{0x200u,0xc700u|((leaf+4u-0x204u)/4u)},
+        {0x690u,0xc71bu},{0x690u,0xa037u}};
     for(size_t i=0;i<sizeof(changes)/sizeof(changes[0]);i++) {
         uint16_t before=h16(image+changes[i].at);put16(changes[i].at,changes[i].op);
         CHECK(!kui_vmu_native_heap_call_discover(image,sizeof(image),&h,&call));put16(changes[i].at,before);
