@@ -66,7 +66,7 @@ class NightlyTests(unittest.TestCase):
         nightly.make_update(stage, package, channel="testing")
         return package
 
-    @mock.patch("nightly_history.publication", return_value="2026-11-20T03:33:31Z")
+    @mock.patch("nightly_history.publication", return_value=("2026-11-20T03:33:31Z", history.GUI_ONLY))
     def test_first_publish_doc_only_and_missed_nights(self, checked_release):
         selected = self.selection()
         self.assertEqual(selected["build"], "true")
@@ -93,8 +93,8 @@ class NightlyTests(unittest.TestCase):
     def test_picker_ten_newest_first_and_exact_closure(self):
         dates = {}
 
-        def published(entry, check, *, check_bytes):
-            return dates.get(entry.commit)
+        def published(entry, check, *, known_scope=None):
+            return (dates[entry.commit], history.GUI_ONLY) if entry.commit in dates else None
 
         stages = []
         with mock.patch.object(history, "publication", side_effect=published):
@@ -123,14 +123,37 @@ class NightlyTests(unittest.TestCase):
                 nightly.advance_channel(ref, nightly.fingerprint(), modified.manifest, self.revision)
             self.assertEqual(nightly.remote_ref(nightly.CHANNEL), ref)
 
+    def test_reader_updates_keep_original_gui_feed_while_advancing_new_index(self):
+        verified = {}
+        def publish(entry, check, *, known_scope=None):
+            return verified[entry.commit]
+        with mock.patch.object(history, "publication", side_effect=publish):
+            for day in range(1, 13):
+                self.commit("src/apps/menu.c", f"menu {day}")
+                entry = history.Entry(self.revision, "500", hashlib.sha256(bytes(day)).hexdigest())
+                mode = history.GUI_ONLY if day == 1 else "partial 1 0 0 2"
+                verified[entry.commit] = (f"2026-11-{day:02d}T00:00:00Z", mode)
+                nightly.advance_channel(nightly.remote_ref(nightly.CHANNEL), nightly.fingerprint(),
+                                        entry.manifest, self.revision)
+                if day == 1:
+                    first_gui = entry
+            ref = nightly.remote_ref(nightly.CHANNEL)
+            self.assertEqual(history.contents(ref, "nightly.txt"), first_gui.manifest)
+            self.assertIn(first_gui.digest, history.contents(ref, "update-info.txt"))
+            self.assertEqual(len(history.parse_index(history.contents(ref, "nightlies.txt"))), 1)
+            full = history.parse_index(history.contents(ref, "nightlies-v2.txt"), rich=True)
+            self.assertEqual(len(full), 10)
+            self.assertEqual(full[0], (entry, *verified[entry.commit]))
+            self.assertTrue(all(scope == "partial 1 0 0 2" for _, _, scope in full))
+
     def test_backfill_verified_promotions_skips_unavailable_preserves_latest(self):
         dates = {}
         adopted = []
 
-        def published(entry, check, *, check_bytes):
-            self.assertTrue(check_bytes)
+        def published(entry, check, *, known_scope=None):
+            self.assertIsNone(known_scope)
             adopted.append(entry.commit)
-            return dates.get(entry.commit)
+            return (dates[entry.commit], history.GUI_ONLY) if entry.commit in dates else None
 
         parent = ""
         entries = []
@@ -180,17 +203,17 @@ class NightlyTests(unittest.TestCase):
 
         with mock.patch.object(history, "remote_ref", return_value=entry.commit), \
                 mock.patch.object(history.subprocess, "run", side_effect=gh):
-            self.assertEqual(history.publication(entry, nightly.manifest, check_bytes=True), release["published_at"])
+            self.assertEqual(history.publication(entry, nightly.manifest), (release["published_at"], history.GUI_ONLY))
             self.assertEqual(transfers, [tag])
-            self.assertEqual(history.publication(entry, nightly.manifest, check_bytes=False), release["published_at"])
+            self.assertEqual(history.publication(entry, nightly.manifest, known_scope=history.GUI_ONLY), (release["published_at"], history.GUI_ONLY))
             self.assertEqual(transfers, [tag])
             asset["digest"] = "sha256:" + "0" * 64
-            self.assertIsNone(history.publication(entry, nightly.manifest, check_bytes=True))
+            self.assertIsNone(history.publication(entry, nightly.manifest))
             asset["digest"] = None
             package.write_bytes(package.read_bytes()[:-1])
-            self.assertIsNone(history.publication(entry, nightly.manifest, check_bytes=True))
+            self.assertIsNone(history.publication(entry, nightly.manifest))
             release["draft"] = True
-            self.assertIsNone(history.publication(entry, nightly.manifest, check_bytes=False))
+            self.assertIsNone(history.publication(entry, nightly.manifest, known_scope=history.GUI_ONLY))
 
     def test_picker_index_rejects_malformed_duplicate_unordered_dates(self):
         a = history.Entry("a"*40, "600", "0"*64)
@@ -280,8 +303,84 @@ class NightlyTests(unittest.TestCase):
         loader.parent.mkdir(parents=True)
         loader.write_bytes(nightly.envelope(b"loader00", 8, self.revision[:12]))
         nightly.make_update(stage, package, channel="testing")
-        with self.assertRaisesRegex(ValueError, "GUI-only"):
+        with self.assertRaisesRegex(ValueError, "inventory"):
             nightly.manifest(package, self.revision)
+
+    def prepare_recipe(self, *, gui=False, full=False):
+        name = "apps/games/ce-boot.kui"
+        data = nightly.envelope(b"settled0", 16, "0123456789ab")
+        path = Path(nightly.SOFTWARE) / name
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(data)
+        self.git("add", "--", str(path))
+        recipe = {"gui": gui, "full": full, "files": {name: hashlib.sha256(data).hexdigest()},
+                  "remove": [] if full else ["apps/games/old-helper.bin"]}
+        self.commit(nightly.RECIPE, json.dumps(recipe))
+        return recipe, path
+
+    def test_reader_only_uses_reviewed_git_bytes_and_source_without_native_gui(self):
+        recipe, path = self.prepare_recipe()
+        original = self.revision
+        package = self.root / nightly.ASSET
+        path.write_bytes(b"changed in workspace")
+        with mock.patch.object(nightly, "build_gui", side_effect=AssertionError("unexpected link")):
+            nightly.package(package)
+        report = update_package.verify(package)
+        self.assertEqual(report["members"][0]["build"], "0123456789ab")
+        self.assertEqual(report["members"][1]["policy"], update_package.REMOVE)
+        self.assertEqual(nightly.manifest(package, original).splitlines()[1], original)
+        inputs = nightly.fingerprint()
+        self.commit("src/apps/menu.c", "unrelated GUI update")
+        self.assertEqual(nightly.fingerprint(), inputs)
+        self.assertEqual(self.selection()["gui"], "false")
+        recipe["files"]["apps/games/ce-boot.kui"] = "0" * 64
+        self.commit(nightly.RECIPE, json.dumps(recipe))
+        self.assertNotEqual(nightly.fingerprint(), inputs)
+        with self.assertRaisesRegex(ValueError, "reviewed software"):
+            nightly.manifest(package, self.revision)
+        with self.assertRaisesRegex(ValueError, "checksum"):
+            nightly.package(self.root / "unexpected.kup")
+        self.assertFalse((self.root / "unexpected.kup").exists())
+        self.assertEqual(nightly.manifest(package, original).splitlines()[1], original)
+
+    def test_gui_and_reader_preserve_independent_build_ids(self):
+        self.prepare_recipe(gui=True)
+        payload = update_package.CAPABILITY + update_package.ENGINE + update_package.HANDOFF_HEADER + bytes(176)
+        def fixture_gui(revision, stage):
+            (Path(stage) / "runtime.kui").write_bytes(nightly.envelope(payload, len(payload), revision[:12]))
+        with mock.patch.object(nightly, "build_gui", side_effect=fixture_gui):
+            package = self.root / nightly.ASSET
+            nightly.package(package)
+        reported = update_package.verify(package)
+        self.assertFalse(reported["full"])
+        self.assertEqual([m["build"] for m in reported["members"][:2]], [self.revision[:12], "0123456789ab"])
+        self.assertEqual(nightly.manifest(package, self.revision).splitlines()[1], self.revision)
+
+    def test_full_flag_cannot_promote_a_selection_of_individual_files(self):
+        self.prepare_recipe(gui=True, full=True)
+        with self.assertRaisesRegex(ValueError, "qualified tag"):
+            nightly.package(self.root / "invalid.kup")
+
+    def test_denies_user_data_and_duplicate_or_nonregular_inputs(self):
+        recipe, path = self.prepare_recipe()
+        original = recipe["files"]
+        for name in ("../private", "apps/games/selection-a.bin", "vmu/card.vmd", "runtime.kui"):
+            recipe["files"] = {name: "0" * 64}
+            self.commit(nightly.RECIPE, json.dumps(recipe))
+            with self.assertRaisesRegex(ValueError, "paths"):
+                nightly.read_recipe(self.revision)
+        recipe["files"] = original
+        recipe["remove"] = list(original)
+        self.commit(nightly.RECIPE, json.dumps(recipe))
+        with self.assertRaisesRegex(ValueError, "paths"):
+            nightly.read_recipe(self.revision)
+        recipe["remove"] = []
+        path.unlink()
+        path.symlink_to("elsewhere")
+        self.git("add", "--", str(path))
+        self.commit(nightly.RECIPE, json.dumps(recipe))
+        with self.assertRaisesRegex(ValueError, "regular tracked file"):
+            nightly.package(self.root / "unexpected.kup")
 
     def test_main_advancing_during_upload_keeps_previous_feed(self):
         selected = self.selection()

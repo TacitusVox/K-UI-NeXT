@@ -2802,13 +2802,14 @@ static void update_work(const struct kui_shell_update_request *request,struct ku
     bool list_nightlies=request->op==KUI_SHELL_UPDATE_NIGHTLY_LIST;
     bool online=nightly || list_nightlies;
     static struct kui_update_choices listed;
+    static enum kui_update_channel listed_channel;
     bool save_limit=request->op==KUI_SHELL_UPDATE_SAVE_LIMIT;
     bool options=request->op==KUI_SHELL_UPDATE_OPTIONS;
     bool preferences_only=options || save_limit;
     if((unsigned)request->op>KUI_SHELL_UPDATE_NIGHTLY_LIST || !kui_update_browser_path(request->directory) ||
        ((online || save_limit) && (!kui_update_keep_valid(request->keep) || (unsigned)request->channel>KUI_UPDATE_NIGHTLIES)) ||
        (save_limit && strcmp(request->directory,KUI_UPDATE_BROWSER_ROOT)) ||
-       (list_nightlies && (request->channel!=KUI_UPDATE_NIGHTLIES || request->test_feed)) ||
+       (list_nightlies && request->test_feed) ||
        (online && ((unsigned)request->route>=KUI_INTERNET_ROUTE_COUNT || strcmp(request->directory,KUI_NIGHTLY_DIRECTORY))) ||
        kui_cancelled()) {
         update_view_error(out,"Update operation stopped before starting.");return;
@@ -2856,6 +2857,7 @@ static void update_work(const struct kui_shell_update_request *request,struct ku
         if(!ok)update_view_error(out,"Cannot read or save update preferences. Check the SD card.");
     }
     if(list_nightlies) listed.count=0;
+    const struct kui_update_choice *choice=NULL;
     if(ok && online) {
         update_reviewed.ready=false;
         enum kui_update_channel source=request->test_feed?KUI_UPDATE_HARDWARE:out->channel;
@@ -2865,21 +2867,26 @@ static void update_work(const struct kui_shell_update_request *request,struct ku
             update_view_error(out,"Saved channel changed. Reopen GitHub updates.");
             ok=false;
         } else if(list_nightlies) {
-            ok=kui_update_nightly_list(request->route,&out->nightlies,&out->status,kui_log,kui_cancelled,app_progress);
+            ok=kui_update_online_list(request->route,source,&out->nightlies,&out->status,kui_log,kui_cancelled,app_progress);
             if(ok) {
                 out->stage=KUI_SHELL_UPDATE_NIGHTLIES;
                 listed=out->nightlies;
+                listed_channel=source;
             }
         } else {
-            const struct kui_update_choice *choice=source==KUI_UPDATE_NIGHTLIES?
+            choice=source!=KUI_UPDATE_HARDWARE && source==listed_channel?
                 kui_update_choice_find(&listed,&request->nightly):NULL;
             bool current=KUI_GITHUB_NIGHTLY && out->selection_known && !out->restart_required;
             const char *running_source=KUI_UPDATE_SOURCE_VERIFIED?KUI_BUILD_ID:NULL;
-            if(source==KUI_UPDATE_NIGHTLIES && !choice) {
-                update_view_error(out,"Nightly selection changed. Refresh the list and choose a build.");
+            if(source!=KUI_UPDATE_HARDWARE && !choice) {
+                update_view_error(out,"Build selection changed. Refresh the list and choose a build.");
                 ok=false;
             } else ok=kui_update_online_download(request->route,source,choice,running_source,current,out->keep,downloaded,
                 &out->online_info,&out->status,kui_log,kui_cancelled,app_progress);
+            if(ok && choice) {
+                out->reviewed.nightly=*choice;
+                out->reviewed.channel=source;
+            }
         }
         up_to_date=ok && !downloaded[0];
         if(ok && !up_to_date && (!kui_update_browser_child(request->directory,downloaded) || !update_package_path(downloaded))) {
@@ -2952,16 +2959,10 @@ static void update_work(const struct kui_shell_update_request *request,struct ku
                     result=kui_update_zip_prepare(source,prepared,&out->status,kui_log,kui_cancelled,app_progress);source=prepared;
                 }
                 if(result==KUI_UPDATE_OK)result=kui_update_inspect(source,package,&out->status,kui_log,kui_cancelled,app_progress);
-                if(result==KUI_UPDATE_OK && nightly && !request->test_feed) {
-                    const struct kui_update_entry *runtime=kui_update_package_find(package,"runtime.kui");
-                    bool stable=out->channel==KUI_UPDATE_RELEASES;
-                    if(kui_update_package_version(package)!=2 || package->channel!=(stable?0u:1u) ||
-                       !!(package->flags & KUI_UPDATE_FULL)!=stable || (!stable && package->count!=1) ||
-                       !runtime || runtime->policy!=KUI_UPDATE_SELF_KUI ||
-                       strcmp(runtime->build,out->online_info.source_build)) {
-                        update_view_error(out,"Package does not match the selected official channel and source build.");
-                        result=KUI_UPDATE_FORMAT;
-                    }
+                if(result==KUI_UPDATE_OK && nightly && !request->test_feed &&
+                   !kui_update_choice_matches_package(out->channel,choice,package)) {
+                    update_view_error(out,"Package does not match the selected official channel, source or contents.");
+                    result=KUI_UPDATE_FORMAT;
                 }
             }
             else if(request->op==KUI_SHELL_UPDATE_PREVIOUS || request->op==KUI_SHELL_UPDATE_BASELINE) {

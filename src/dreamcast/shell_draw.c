@@ -235,11 +235,10 @@ static void footer(struct paint *p, const struct kui_shell *s,
         s->confirm_wifi_update ? "A Update firmware   B Cancel" :
         s->page==KUI_SHELL_GD_PLAY ? "A K-UI   X Stock retail   Y Options   START Cards   B Back" :
         s->page==KUI_SHELL_UPDATES ? (s->update_loading?"B Request safe stop":
-            s->update_online?(s->update_online_row?"Up/down Row   Left/right Change   A Save settings   B Back":
-                s->update_channel==KUI_UPDATE_NIGHTLIES?"Up/down Row   Left/right Change   A List builds   B Back":
-                "Up/down Row   Left/right Change   A Download   B Back"):
+            s->update_online?(s->update_transfer_settings?"Up/down Row   Left/right Change   A Save   B Sources":
+                "Up/down Choose   A List builds   X Transfer settings   B Back"):
             s->update.stage==KUI_SHELL_UPDATE_NIGHTLIES?(s->update_nightlies.count?
-                "D-pad Browse   A Download   X Refresh   B Options":"A Retry   B Options"):
+                "D-pad Browse   A Download/review   X Refresh   B Sources":"A Retry   B Sources"):
             s->update.stage==KUI_SHELL_UPDATE_REVIEW?(s->update_details?"D-pad Page   X/B Review":
                 s->update.already_installed && s->update.restart_required?
                 "START Restart K-UI   X Changes   B Packages":s->update.ready?
@@ -1080,44 +1079,78 @@ static void update_details_page(struct paint *p,const struct kui_shell *s) {
         label(p,40,412,MUTED,line);
     }
 }
-static void nightly_choices_page(struct paint *p,const struct kui_shell *s) {
+static const char *update_choice_scope(const struct kui_update_choice *c) {
+    if(c->scope==KUI_UPDATE_SCOPE_FULL)return "Full software snapshot";
+    if(c->scope!=KUI_UPDATE_SCOPE_PARTIAL)return "Scope checked after download";
+    if(c->components==KUI_UPDATE_COMPONENT_GUI && (!c->described ||
+       (c->replace==1u && !c->remove && !c->keep)))return "GUI only (runtime.kui)";
+    switch(c->components) {
+    case KUI_UPDATE_COMPONENT_GUI:return "GUI changes";
+    case KUI_UPDATE_COMPONENT_READERS:return "Game/disc modules";
+    case KUI_UPDATE_COMPONENT_GUI|KUI_UPDATE_COMPONENT_READERS:return "GUI and game/disc modules";
+    case KUI_UPDATE_COMPONENT_OTHER:return "Other managed software";
+    case KUI_UPDATE_COMPONENT_GUI|KUI_UPDATE_COMPONENT_OTHER:return "GUI and other software";
+    case KUI_UPDATE_COMPONENT_READERS|KUI_UPDATE_COMPONENT_OTHER:return "Game/disc modules and other software";
+    case KUI_UPDATE_COMPONENT_GUI|KUI_UPDATE_COMPONENT_READERS|KUI_UPDATE_COMPONENT_OTHER:return "GUI, game/disc modules and other software";
+    default:return "Partial software update";
+    }
+}
+
+static void update_choices_page(struct paint *p,const struct kui_shell *s) {
     unsigned count=s->update_nightlies.count,index=s->update_nightly_selected;
-    title(p,40,108,"Nightly builds");
-    char line[96];
+    bool stable=s->update_picker_channel==KUI_UPDATE_RELEASES;
+    title(p,40,108,stable?"Main releases":"Nightly builds");
+    char line[128];
     snprintf(line,sizeof(line),"* Running GUI   %.12s",s->update.running[0]?s->update.running:"unknown");
-    words(p,313,141,605,CYAN,line,false);
+    words(p,313,140,605,CYAN,line,false);
     if(count) {
         unsigned first=index/KUI_SHELL_NIGHTLY_ROWS*KUI_SHELL_NIGHTLY_ROWS;
         unsigned end=first+KUI_SHELL_NIGHTLY_ROWS;
         if(end>count)end=count;
         snprintf(line,sizeof(line),"Newest first   %u-%u of %u",first+1u,end,count);
-        words(p,40,141,302,CYAN,line,false);
-        label(p,40,163,WHITE,"GUI only (runtime.kui). Keeps game readers and themes.");
-        label(p,48,187,MUTED,"Published (UTC)");label(p,297,187,MUTED,"GUI build");label(p,493,187,MUTED,"Size");
+        words(p,40,140,302,CYAN,line,false);
+        label(p,48,165,MUTED,"Published (UTC)");label(p,290,165,MUTED,"Build");label(p,495,165,MUTED,"Size");
         for(unsigned i=first;i<end;i++) {
             const struct kui_update_choice *row=&s->update_nightlies.items[i];
-            unsigned y=209u+29u*(i-first);
-            panel(p,32,y,576,27,i==index?SELECTED:PANEL);
-            if(row->published[0])
-                snprintf(line,sizeof(line),"%.10s  %.5s",row->published,row->published+11);
-            else strcpy(line,"Latest available");
+            unsigned y=186u+43u*(i-first);
+            panel(p,32,y,576,40,i==index?SELECTED:PANEL);
+            if(row->published[0])snprintf(line,sizeof(line),"%.10s  %.5s",row->published,row->published+11);
+            else strcpy(line,"Date unavailable");
             uint16_t color=i==index?SELECTION_TEXT:WHITE;
-            words(p,48,y+6u,283,color,line,false);
-            bool running=s->update.running[0] && !strncmp(row->commit,s->update.running,12u);
-            snprintf(line,sizeof(line),"%.12s%s",row->commit,running?" *":"");
-            words(p,297,y+6u,482,color,line,false);
+            words(p,48,y+1u,284,color,line,false);
+            bool has_gui=(row->components&KUI_UPDATE_COMPONENT_GUI) || row->scope==KUI_UPDATE_SCOPE_FULL;
+            bool matches=has_gui && s->update.running[0] && !strncmp(row->commit,s->update.running,12u);
+            snprintf(line,sizeof(line),"%.12s%s",row->commit,matches?" *":"");
+            words(p,290,y+1u,486,color,line,false);
             snprintf(line,sizeof(line),"%lu KiB",(unsigned long)(row->size/1024u+(row->size%1024u!=0)));
-            words(p,493,y+6u,600,color,line,false);
+            words(p,495,y+1u,602,color,line,false);
+            if(stable && row->tag[0]) {
+                words(p,48,y+20u,287,color,row->tag,false);
+                words(p,290,y+20u,602,color,update_choice_scope(row),false);
+            } else words(p,48,y+20u,602,color,update_choice_scope(row),false);
         }
-        snprintf(line,sizeof(line),"A downloads %.12s for review before install.",s->update_nightlies.items[index].commit);
-        label(p,40,356,CYAN,line);
+        const struct kui_update_choice *selected=&s->update_nightlies.items[index];
+        bool notice=s->update.status.message[0] && (!s->update.status.passed ||
+            s->update_request.op==KUI_SHELL_UPDATE_NIGHTLY);
+        if(notice)update_wrapped(p,40,367,s->update.status.errors?AMBER:MUTED,s->update.status.message);
+        else {
+            if(selected->described) {
+                snprintf(line,sizeof(line),"Package entries   %u replace   %u remove   %u keep",
+                    (unsigned)selected->replace,(unsigned)selected->remove,(unsigned)selected->keep);
+                label(p,40,360,MUTED,line);
+            } else if(selected->scope==KUI_UPDATE_SCOPE_FULL)
+                label(p,40,360,MUTED,"Omitted software is removed from a full installation.");
+            else label(p,40,360,MUTED,"Review the exact file changes after download.");
+            snprintf(line,sizeof(line),"A downloads %s for review.",selected->asset[0]?selected->asset:"this package");
+            update_wrapped(p,40,380,CYAN,line);
+        }
     } else {
-        panel(p,32,172,576,103,PANEL);
-        label(p,48,193,WHITE,s->update.status.passed?"No published nightly builds.":"Nightly list unavailable.");
+        panel(p,32,174,576,116,PANEL);
+        label(p,48,195,WHITE,s->update.status.passed?(stable?"No installable releases yet.":"No published nightly builds."):"Build list unavailable.");
+        if(stable && s->update.status.passed)label(p,48,232,MUTED,"Older release ZIPs use manual SD installation.");
+        if(s->update.status.message[0] && !s->update.status.passed)
+            update_wrapped(p,40,314,s->update.status.errors?AMBER:MUTED,s->update.status.message);
     }
-    if(s->update.status.message[0] && (!count || !s->update.status.passed ||
-       s->update_request.op==KUI_SHELL_UPDATE_NIGHTLY))
-        update_wrapped(p,40,379,s->update.status.errors?AMBER:MUTED,s->update.status.message);
 }
 static void updates_page(struct paint *p,const struct kui_shell *s,const struct kui_shell_view *v) {
     const struct kui_shell_update_view *u=&s->update;
@@ -1125,9 +1158,9 @@ static void updates_page(struct paint *p,const struct kui_shell *s,const struct 
     bool package_review=!s->update_loading && !s->update_online && u->stage==KUI_SHELL_UPDATE_REVIEW && !u->restore;
     if(package_review && s->update_details) {update_details_page(p,s);return;}
     if(!s->update_loading && !s->update_online && u->stage==KUI_SHELL_UPDATE_NIGHTLIES) {
-        nightly_choices_page(p,s);return;
+        update_choices_page(p,s);return;
     }
-    title(p,40,108,s->update_loading?"Updates / working":s->update_online?"GitHub updates":package_review?
+    title(p,40,108,s->update_loading?"Updates / working":s->update_online?(s->update_transfer_settings?"Transfer settings":"GitHub updates"):package_review?
         (u->already_installed?(u->restart_required?"Installed / restart needed":"Already installed"):"Install this package?"):
         u->stage==KUI_SHELL_UPDATE_REVIEW?"Restore this version?":"K-UI updates");
     char line[192];
@@ -1139,6 +1172,8 @@ static void updates_page(struct paint *p,const struct kui_shell *s,const struct 
             const char *comparison=newer?"   Newer than running":!u->running[0]?"":!strcmp(u->running,u->gui_build)?
                 "   Same GUI build ID":"   Different GUI build ID";
             snprintf(line,sizeof(line),"%s GUI   %.12s%s",u->already_installed?"Selected":"Package",u->gui_build,comparison);
+        } else if(s->update_request.nightly.size) {
+            snprintf(line,sizeof(line),"Package build   %.12s   No GUI payload",s->update_request.nightly.commit);
         } else strcpy(line,"This package contains no GUI payload.");
         label(p,40,160,newer?GREEN:WHITE,line);
     } else {
@@ -1147,29 +1182,29 @@ static void updates_page(struct paint *p,const struct kui_shell *s,const struct 
         label(p,40,138,CYAN,line);
     }
     if(s->update_online) {
-        const char *source=s->update_channel==KUI_UPDATE_HARDWARE?"Hardware test":
-            s->update_channel==KUI_UPDATE_NIGHTLIES?"Official nightly":"Stable releases";
-        snprintf(line,sizeof(line),"Source: %s   Y Change",source);
-        label(p,40,168,CYAN,line);
-        panel(p,32,201,576,36,s->update_online_row==0?SELECTED:PANEL);
-        label(p,48,209,WHITE,"Connection");label(p,320,209,CYAN,internet_route_name(s->update_route));
-        panel(p,32,240,576,36,s->update_online_row==1?SELECTED:PANEL);
-        label(p,48,248,WHITE,"Downloads to keep");
-        if(s->update_keep)snprintf(line,sizeof(line),"%u",s->update_keep);
-        else strcpy(line,"Unlimited");
-        label(p,320,248,CYAN,line);
-        if(s->update_online_row) {
-            words(p,40,301,604,WHITE,s->update_keep?
-                "A saves this source and limit. Older automatic downloads are removed. Manually copied packages stay.":
-                "A saves this source and Unlimited. All automatic downloads stay on this SD card.",false);
+        if(!s->update_transfer_settings) {
+            const char *names[]={"Nightly builds","Main releases"};
+            for(unsigned i=0;i<2u;i++) {
+                bool nightly=i==0u,selected=nightly==(s->update_channel==KUI_UPDATE_NIGHTLIES);
+                unsigned y=188u+80u*i;
+                panel(p,32,y,576,68,selected?SELECTED:PANEL);
+                label(p,48,y+8u,selected?SELECTION_TEXT:WHITE,names[i]);
+                label(p,48,y+36u,selected?SELECTION_TEXT:MUTED,nightly?
+                    "Browse recent development builds.":"Browse compatible published stable packages.");
+            }
+            label(p,40,372,CYAN,"A opens the build list. Choose a package there.");
         } else {
-            words(p,40,294,604,WHITE,s->update_channel==KUI_UPDATE_HARDWARE?
-                "Download this branch's hardware test to your SD card for review.":
-                s->update_channel==KUI_UPDATE_NIGHTLIES?"Browse the last 10 GUI builds, newest first.":
-                "Check stable releases only. A saves this source.",false);
-            words(p,40,340,604,MUTED,s->update_route==KUI_INTERNET_DREAMPI?
-                "A dials the modem through DreamPi. B stops the transfer.":
-                "Automatic checks Broadband Adapter, W5500 and configured Wi-Fi.",false);
+            panel(p,32,190,576,44,s->update_online_row==0?SELECTED:PANEL);
+            label(p,48,201,WHITE,"Connection");label(p,320,201,CYAN,internet_route_name(s->update_route));
+            panel(p,32,244,576,44,s->update_online_row==1?SELECTED:PANEL);
+            label(p,48,255,WHITE,"Downloads to keep");
+            if(s->update_keep)snprintf(line,sizeof(line),"%u",s->update_keep);else strcpy(line,"Unlimited");
+            label(p,320,255,CYAN,line);
+            if(s->update_online_row)label(p,40,309,MUTED,"The limit applies to automatic downloads on this card.");
+            else label(p,40,309,MUTED,s->update_route==KUI_INTERNET_DREAMPI?"Dial through DreamPi.":"Choose the connection for GitHub downloads.");
+            if(s->update_test_feed_available)label(p,40,344,CYAN,"Y Download hardware test for review");
+            if(s->update.status.message[0])
+                update_wrapped(p,40,377,s->update.status.errors?AMBER:MUTED,s->update.status.message);
         }
         return;
     }
@@ -1178,11 +1213,14 @@ static void updates_page(struct paint *p,const struct kui_shell *s,const struct 
         panel(p,32,192,576,192,PANEL);
         bool listing=s->update_request.op==KUI_SHELL_UPDATE_NIGHTLY_LIST;
         if(!s->update_stopping && s->update_request.op==KUI_SHELL_UPDATE_NIGHTLY && s->update_request.nightly.size) {
-            snprintf(line,sizeof(line),"Getting runtime.kui   %.12s   %lu KiB",s->update_request.nightly.commit,
-                (unsigned long)(s->update_request.nightly.size/1024u+(s->update_request.nightly.size%1024u!=0)));
-            label(p,48,208,WHITE,line);
+            const struct kui_update_choice *row=&s->update_request.nightly;
+            snprintf(line,sizeof(line),"Getting %s",row->asset[0]?row->asset:"selected package");
+            words(p,48,201,592,WHITE,line,false);
+            snprintf(line,sizeof(line),"Build   %.12s   %lu KiB",row->commit,
+                (unsigned long)(row->size/1024u+(row->size%1024u!=0)));
+            label(p,48,223,CYAN,line);
         } else label(p,48,208,WHITE,s->update_stopping?"Stop requested; finishing a safe boundary.":
-            listing?"Checking published nightly builds...":"Keep the console powered on while writing.");
+            listing?"Checking published builds...":"Keep the console powered on while writing.");
         words(p,48,244,592,CYAN,status->message[0]?status->message:"Opening the selected storage...",false);
         if(status->total) {
             box(p,48,276,544,10,EDGE);unsigned width=status->done>=status->total?544u:
@@ -1192,7 +1230,7 @@ static void updates_page(struct paint *p,const struct kui_shell *s,const struct 
                 (unsigned long long)(status->done/1024u),(unsigned long long)(status->total/1024u));
             label(p,48,300,MUTED,line);
         }
-        if(listing)label(p,48,340,MUTED,"Choose a GUI build after the list opens.");
+        if(listing)label(p,48,340,MUTED,"Choose a package after the list opens.");
         else if(s->update_request.op==KUI_SHELL_UPDATE_NIGHTLY)
             words(p,48,340,592,MUTED,"After download, review the package before installing.",false);
         else label(p,48,340,MUTED,"Activation finishes before Stop can return.");
@@ -1243,7 +1281,7 @@ static void updates_page(struct paint *p,const struct kui_shell *s,const struct 
                 label(p,48,274,MUTED,line);
             }
             if(s->update_request.op==KUI_SHELL_UPDATE_NIGHTLY && s->update_request.nightly.size)
-                label(p,48,322,WHITE,"GUI only (runtime.kui). Keeps game readers and themes.");
+                label(p,48,322,WHITE,update_choice_scope(&s->update_request.nightly));
             else if(c && c->known && c->count==1u && !strcmp(c->rows[0].path,"runtime.kui") &&
                c->rows[0].kind!=KUI_UPDATE_CHANGE_REMOVE)
                 label(p,48,322,WHITE,"K-UI interface (runtime.kui)");

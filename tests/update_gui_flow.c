@@ -75,7 +75,7 @@ static FILE *origin;
 static uint32_t origin_size;
 #define RAW "https://raw.githubusercontent.com/TacitusVox/K-UI-NeXT/"
 #define ASSETS "https://github.com/TacitusVox/K-UI-NeXT/releases/download/"
-static char origin_manifest[256], origin_asset_url[164];
+static char origin_manifest[256], origin_asset_url[164], origin_catalog[512], origin_digest[65], historical_url[220];
 static const char *origin_feed_url, *origin_info_url;
 struct kui_internet {bool connected;};
 static struct kui_internet session;
@@ -96,8 +96,12 @@ enum kui_http_result kui_internet_get(struct kui_internet *connection,const char
     kui_http_write_fn write,void *ctx,kui_http_progress_fn progress,void *progress_ctx) {
     (void)progress;(void)progress_ctx;
     CHECK(connection==&session && session.connected);
-    if(!strcmp(url,RAW "nightly-channel/nightlies.txt")) return KUI_HTTP_MISSING;
-    if(origin_info_url && !strcmp(url,origin_info_url)) return KUI_HTTP_MISSING;
+    if(origin_catalog[0] && !strcmp(url,RAW "nightly-channel/nightlies-v2.txt")) {
+        size_t n=strlen(origin_catalog);CHECK(n<=limit && write(ctx,origin_catalog,n));return KUI_HTTP_OK;
+    }
+    if(!strcmp(url,RAW "nightly-channel/nightlies.txt") || !strcmp(url,RAW "nightly-channel/nightlies-v2.txt") ||
+       !strcmp(url,RAW "release-channel/releases.txt")) return KUI_HTTP_MISSING;
+    if(!strcmp(url,historical_url) || (origin_info_url && !strcmp(url,origin_info_url))) return KUI_HTTP_MISSING;
     CHECK(!strcmp(url,origin_feed_url));
     size_t length=strlen(origin_manifest);
     CHECK(length<=limit && write(ctx,origin_manifest,length));return KUI_HTTP_OK;
@@ -196,6 +200,7 @@ static void set_origin(const char *package_path,enum kui_update_channel channel,
     }
     CHECK(!ferror(origin) && origin_size);
     kui_sha256_digest(&sha,digest);kui_hex(digest,sizeof(digest),hex);
+    strcpy(origin_digest,hex);
     bool stable=channel==KUI_UPDATE_RELEASES, test=channel==KUI_UPDATE_HARDWARE;
     origin_feed_url=stable?RAW "release-channel/release.txt":test?FEED "nightly.txt":RAW "nightly-channel/nightly.txt";
     origin_info_url=test?NULL:stable?RAW "release-channel/update-info.txt":RAW "nightly-channel/update-info.txt";
@@ -206,15 +211,20 @@ static void set_origin(const char *package_path,enum kui_update_channel channel,
         commit,origin_size,hex,stable?"v2.1.0\nK-UI-update.kup\n":"");
 }
 
-static void official_channels(const char *full,const char *partial) {
+static void official_channels(const char *full,const char *partial,const char *reader,const char *full_nightly) {
     struct kui_shell_update_request check=request(KUI_SHELL_UPDATE_NIGHTLY,NULL);
     strcpy(check.directory,KUI_NIGHTLY_DIRECTORY);check.keep=5;check.route=KUI_INTERNET_BBA;
     const char *source=KUI_BUILD_ID "0000000000000000000000000000";
     struct kui_shell_update_view view;
     set_origin(full,KUI_UPDATE_RELEASES,source);
+    check.op=KUI_SHELL_UPDATE_NIGHTLY_LIST;
+    update_work(&check,&view);view_ok(&view);
+    CHECK(view.stage==KUI_SHELL_UPDATE_NIGHTLIES && view.nightlies.count==1 && !strcmp(view.nightlies.items[0].tag,"v2.1.0"));
+    check.nightly=view.nightlies.items[0];
+    check.op=KUI_SHELL_UPDATE_NIGHTLY;
     update_work(&check,&view);view_ok(&view);
     CHECK(view.ready && view.reviewed.token && (view.reviewed.package.flags&KUI_UPDATE_FULL));
-    CHECK(!strcmp(view.gui_build,KUI_BUILD_ID) && view.replacement_count>1);
+    CHECK(!strcmp(view.gui_build,KUI_BUILD_ID) && view.replacement_count>1 && !strcmp(view.reviewed.nightly.tag,"v2.1.0"));
     CHECK(!fclose(origin));origin=NULL;
 
     /* A matching file hash alone cannot authorize the wrong payload scope or
@@ -226,7 +236,7 @@ static void official_channels(const char *full,const char *partial) {
     for(size_t i=0;i<sizeof(rejected)/sizeof(rejected[0]);i++) {
         check.channel=rejected[i].channel;check.change_channel=true;
         set_origin(rejected[i].file,check.channel,rejected[i].commit);
-        if(check.channel==KUI_UPDATE_NIGHTLIES) {
+        {
             check.op=KUI_SHELL_UPDATE_NIGHTLY_LIST;
             update_work(&check,&view);view_ok(&view);
             CHECK(view.stage==KUI_SHELL_UPDATE_NIGHTLIES && view.nightlies.count==1);
@@ -242,6 +252,34 @@ static void official_channels(const char *full,const char *partial) {
               strstr(view.status.message,"official channel"));
         CHECK(!fclose(origin));origin=NULL;
     }
+    const char *mixed_source=KUI_BUILD_ID "ffffffffffffffffffffffffffff";
+    const struct {const char *file,*source,*summary; bool accepted;unsigned changed;} scoped[]={
+        {reader,"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","partial 1 0 0 2",true,1},
+        {full_nightly,mixed_source,"full 3 0 0 7",true,3},
+        {full_nightly,mixed_source,"partial 3 0 0 7",false,0},
+        {full_nightly,mixed_source,"full 2 0 0 7",false,0},
+        {full_nightly,mixed_source,"full 3 0 0 1",false,0},
+        {reader,"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","partial 1 0 0 1",false,0}
+    };
+    for(unsigned i=0;i<sizeof(scoped)/sizeof(scoped[0]);++i) {
+        check.channel=KUI_UPDATE_NIGHTLIES;check.change_channel=true;check.op=KUI_SHELL_UPDATE_NIGHTLY_LIST;
+        set_origin(scoped[i].file,check.channel,scoped[i].source);
+        snprintf(origin_catalog,sizeof(origin_catalog),"KUI-NIGHTLIES-2\n1\n%s %u %s 2026-11-22T01:00:00Z %s\n",
+                 scoped[i].source,origin_size,origin_digest,scoped[i].summary);
+        snprintf(historical_url,sizeof(historical_url),RAW "nightly-channel/history/%s/update-info.txt",scoped[i].source);
+        update_work(&check,&view);view_ok(&view);
+        CHECK(view.nightlies.count==1 && view.nightlies.items[0].described);
+        check.nightly=view.nightlies.items[0];check.op=KUI_SHELL_UPDATE_NIGHTLY;
+        update_work(&check,&view);
+        if(scoped[i].accepted) {
+            view_ok(&view);
+            CHECK(view.ready && view.replacement_count==scoped[i].changed);
+            if(scoped[i].file==reader) CHECK(!view.gui_build[0]);
+            else CHECK(!strcmp(view.gui_build,KUI_BUILD_ID));
+        } else CHECK(!view.status.passed && !view.ready && strstr(view.status.message,"official channel"));
+        CHECK(!fclose(origin));origin=NULL;
+    }
+    historical_url[0]=origin_catalog[0]=0;
 }
 
 static struct kui_shell_update_view fetch_review(const char *package_path) {
@@ -408,7 +446,7 @@ static void real_artifact_flow(const char *runtime_path,const char *package_path
         checks,KUI_BUILD_ID,package->count,package->build);free(package);
 }
 int main(int argc,char **argv) {
-    bool real=argc==7 && !strcmp(argv[1],"--real");CHECK(real || argc==9);
+    bool real=argc==7 && !strcmp(argv[1],"--real");CHECK(real || argc==11);
     FILE *host=fopen(argv[real?2:1],"rb");CHECK(host && !fseek(host,0,SEEK_END));long size=ftell(host);
     CHECK(size>0 && !fseek(host,0,SEEK_SET));disk_bytes=(size_t)size;disk=malloc(disk_bytes);CHECK(disk);
     CHECK(fread(disk,1u,disk_bytes,host)==disk_bytes && !fclose(host));kui_media_set(&media);mount_volume();
@@ -436,7 +474,7 @@ int main(int argc,char **argv) {
     mount_volume();struct kui_update_activation changed={.sequence=17u};activation_write(0u,&changed);release_volume();
     input=review.reviewed;input.generation=++generation;before=writes;update_work(&input,&view);
     CHECK(view.status.complete && !view.status.passed && !view.ready && strstr(view.status.message,"review changed") && writes==before);
-    official_channels(argv[4],argv[5]);
+    official_channels(argv[4],argv[5],argv[9],argv[10]);
     mount_volume();corrupt_selection();release_volume();review=fetch_review(argv[4]);view=install_review(&review);
     CHECK(strcmp(view.selected,review.reviewed.package.build));char full_bank[13];strcpy(full_bank,view.selected);
     mount_volume();CHECK(!strcmp(activation().selected,view.selected));release_volume();

@@ -110,70 +110,123 @@ static bool asset_name(const char *s) {
     return true;
 }
 
-static bool parse_manifest(struct feed_buffer *buffer, bool stable, struct kui_nightly_asset *asset,
-                           char *release_url, size_t url_size) {
-    if(memchr(buffer->data, 0, buffer->used)) return false;
-    buffer->data[buffer->used] = 0;
-    struct lines lines = {buffer->data};
-    const char *magic=next_line(&lines), *commit=next_line(&lines), *number=next_line(&lines), *digest=next_line(&lines);
-    if(!magic || strcmp(magic, stable ? "KUI-RELEASE-1" : "KUI-NIGHTLY-1") ||
-       !commit || strlen(commit)!=40 || !hex_field(commit,40) || !digest || strlen(digest)!=64 ||
-       !hex_field(digest,64) || !decimal(number, FILE_LIMIT, &asset->size) || asset->size<KUI_UPDATE_HEADER_BYTES)
-        return false;
-    int n;
-    if(stable) {
-        const char *tag=next_line(&lines), *name=next_line(&lines);
-        if(!stable_tag(tag) || !asset_name(name)) return false;
-        n=snprintf(release_url,url_size,ASSET_BASE "%s/%s",tag,name);
-    } else n=snprintf(release_url,url_size,ASSET_BASE "nightly-%s/K-UI.kup",commit);
-    if(*lines.next || n<0 || (size_t)n>=url_size) return false;
-    memcpy(asset->commit,commit,41);
-    memcpy(asset->digest,digest,65);
-    asset->release=stable;
+static bool begin_lines(struct feed_buffer *buffer, struct lines *lines) {
+    if(memchr(buffer->data,0,buffer->used)) return false;
+    buffer->data[buffer->used]=0;
+    lines->next=buffer->data;
     return true;
 }
 
-/* The origin publishes fixed-width UTC timestamps, so lexical order is UTC
- * order without a clock or timezone database on the console. */
+static bool set_identity(struct kui_update_choice *choice,const char *commit,const char *size,const char *digest) {
+    if(!commit || strlen(commit)!=40 || !hex_field(commit,40) || !digest || strlen(digest)!=64 ||
+       !hex_field(digest,64) || !decimal(size,FILE_LIMIT,&choice->size) || choice->size<KUI_UPDATE_HEADER_BYTES)
+        return false;
+    memcpy(choice->commit,commit,sizeof(choice->commit));
+    memcpy(choice->digest,digest,sizeof(choice->digest));
+    return true;
+}
+
+static bool set_release(struct kui_update_choice *choice,const char *tag,const char *name) {
+    if(!stable_tag(tag) || !asset_name(name)) return false;
+    strcpy(choice->tag,tag);
+    strcpy(choice->asset,name);
+    return true;
+}
+
+static bool parse_manifest(struct feed_buffer *buffer, bool stable, struct kui_update_choice *choice) {
+    struct lines lines;
+    if(!begin_lines(buffer,&lines)) return false;
+    const char *magic=next_line(&lines), *commit=next_line(&lines), *size=next_line(&lines), *digest=next_line(&lines);
+    if(!magic || strcmp(magic,stable?"KUI-RELEASE-1":"KUI-NIGHTLY-1") ||
+       !set_identity(choice,commit,size,digest)) return false;
+    if(stable) {
+        const char *tag=next_line(&lines), *name=next_line(&lines);
+        if(!set_release(choice,tag,name)) return false;
+    }
+    choice->scope=stable?KUI_UPDATE_SCOPE_FULL:KUI_UPDATE_SCOPE_PARTIAL;
+    choice->components=stable?0:KUI_UPDATE_COMPONENT_GUI;
+    return !*lines.next;
+}
+
+static unsigned digits2(const char *p) {
+    return (unsigned)(p[0]-'0')*10u+(unsigned)(p[1]-'0');
+}
+
+/* A checked fixed-width UTC timestamp also sorts with strcmp. */
 static bool publication_time(const char *date) {
     static const char shape[]="0000-00-00T00:00:00Z";
-    if(strlen(date)!=sizeof(shape)-1) return false;
+    static const unsigned days[]={31,28,31,30,31,30,31,31,30,31,30,31};
+    if(!date || strlen(date)!=sizeof(shape)-1) return false;
     for(unsigned i=0;i<sizeof(shape)-1;i++) {
         if(shape[i]=='0') {
             if(date[i]<'0' || date[i]>'9') return false;
         } else if(date[i]!=shape[i]) return false;
     }
+    unsigned year=digits2(date)*100u+digits2(date+2), month=digits2(date+5), day=digits2(date+8);
+    bool leap=year%4==0 && (year%100!=0 || year%400==0);
+    return year && month && month<=12 && day && day<=days[month-1]+(month==2 && leap) &&
+           digits2(date+11)<=23 && digits2(date+14)<=59 && digits2(date+17)<=59;
+}
+
+static char *next_field(char **cursor) {
+    char *field=*cursor;
+    if(!field) return NULL;
+    char *delimiter=strchr(field,' ');
+    if(delimiter) *delimiter++=0;
+    *cursor=delimiter;
+    return field;
+}
+
+static bool descriptor(struct kui_update_choice *c,bool stable,char **cursor) {
+    const char *scope=next_field(cursor);
+    if(!scope) return false;
+    if(!strcmp(scope,"full")) c->scope=KUI_UPDATE_SCOPE_FULL;
+    else if(!stable && !strcmp(scope,"partial")) c->scope=KUI_UPDATE_SCOPE_PARTIAL;
+    else return false;
+    uint32_t replaced,removed,kept,components;
+    if(!decimal(next_field(cursor),KUI_UPDATE_MAX_ENTRIES,&replaced) ||
+       !decimal(next_field(cursor),KUI_UPDATE_MAX_ENTRIES,&removed) ||
+       !decimal(next_field(cursor),KUI_UPDATE_MAX_ENTRIES,&kept) ||
+       !decimal(next_field(cursor),7,&components)) return false;
+    unsigned total=replaced+removed+kept;
+    if(!total || total>KUI_UPDATE_MAX_ENTRIES || (!!components != !!(replaced+removed)) ||
+       (c->scope==KUI_UPDATE_SCOPE_FULL && (kept || !(components & KUI_UPDATE_COMPONENT_GUI) || !replaced))) return false;
+    c->described=true;
+    c->replace=(uint16_t)replaced;c->remove=(uint16_t)removed;c->keep=(uint16_t)kept;
+    c->components=(uint8_t)components;
     return true;
 }
 
-static bool parse_choices(struct feed_buffer *buffer, struct kui_update_choices *out) {
-    if(memchr(buffer->data,0,buffer->used)) return false;
-    buffer->data[buffer->used]=0;
-    struct lines lines={buffer->data};
-    char *magic=next_line(&lines);
+static bool parse_choices(struct feed_buffer *buffer, bool stable, bool rich, struct kui_update_choices *out) {
+    struct lines lines;
+    if(!begin_lines(buffer,&lines)) return false;
+    const char *magic=next_line(&lines);
+    const char *expected=stable?"KUI-RELEASES-1":rich?"KUI-NIGHTLIES-2":"KUI-NIGHTLIES-1";
     uint32_t count;
-    if(!magic || strcmp(magic,"KUI-NIGHTLIES-1") || !decimal(next_line(&lines),KUI_UPDATE_NIGHTLY_LIMIT,&count) || !count)
+    if(!magic || strcmp(magic,expected) || !decimal(next_line(&lines),KUI_UPDATE_NIGHTLY_LIMIT,&count) || !count)
         return false;
     for(unsigned i=0;i<count;i++) {
-        char *commit=next_line(&lines);
-        if(!commit) return false;
-        char *bytes=strchr(commit,' ');
-        if(!bytes) return false;
-        *bytes++=0;
-        char *digest=strchr(bytes,' ');
-        if(!digest) return false;
-        *digest++=0;
-        char *date=strchr(digest,' ');
-        if(!date) return false;
-        *date++=0;
+        char *row=next_line(&lines);
+        const char *commit=next_field(&row), *size=next_field(&row), *digest=next_field(&row), *date=next_field(&row);
         struct kui_update_choice *c=&out->items[i];
-        if(strlen(commit)!=40 || !hex_field(commit,40) || strlen(digest)!=64 || !hex_field(digest,64) ||
-           !decimal(bytes,FILE_LIMIT,&c->size) || c->size<KUI_UPDATE_HEADER_BYTES ||
-           !publication_time(date) || (i && strcmp(date,out->items[i-1].published)>0)) return false;
-        for(unsigned j=0;j<i;j++) if(!strcmp(commit,out->items[j].commit)) return false;
-        memcpy(c->commit,commit,sizeof(c->commit));
-        memcpy(c->digest,digest,sizeof(c->digest));
+        if(!set_identity(c,commit,size,digest) || !publication_time(date) ||
+           (i && strcmp(date,out->items[i-1].published)>0)) return false;
         memcpy(c->published,date,sizeof(c->published));
+        if(stable) {
+            const char *tag=next_field(&row), *name=next_field(&row);
+            if(!set_release(c,tag,name)) return false;
+        }
+        for(unsigned j=0;j<i;j++) {
+            const struct kui_update_choice *prior=&out->items[j];
+            if(stable?!strcmp(c->tag,prior->tag):!strcmp(c->commit,prior->commit)) return false;
+        }
+        if(rich) {
+            if(!descriptor(c,stable,&row)) return false;
+        } else {
+            c->scope=KUI_UPDATE_SCOPE_PARTIAL;
+            c->components=KUI_UPDATE_COMPONENT_GUI;
+        }
+        if(row) return false;
     }
     if(*lines.next) return false;
     out->count=count;
@@ -184,52 +237,83 @@ const struct kui_update_choice *kui_update_choice_find(const struct kui_update_c
         const struct kui_update_choice *candidate) {
     if(!list || !candidate || list->count>KUI_UPDATE_NIGHTLY_LIMIT) return NULL;
     for(unsigned i=0;i<list->count;i++) {
-        const struct kui_update_choice *prior=&list->items[i];
-        if(prior->size==candidate->size && !memcmp(prior->commit,candidate->commit,sizeof(prior->commit)) &&
-           !memcmp(prior->digest,candidate->digest,sizeof(prior->digest)) &&
-           !memcmp(prior->published,candidate->published,sizeof(prior->published))) return prior;
+        const struct kui_update_choice *p=&list->items[i];
+        if(p->size==candidate->size && p->scope==candidate->scope && p->described==candidate->described &&
+           p->replace==candidate->replace && p->remove==candidate->remove && p->keep==candidate->keep &&
+           p->components==candidate->components && !memcmp(p->tag,candidate->tag,sizeof(p->tag)) &&
+           !memcmp(p->asset,candidate->asset,sizeof(p->asset)) && !memcmp(p->commit,candidate->commit,sizeof(p->commit)) &&
+           !memcmp(p->digest,candidate->digest,sizeof(p->digest)) && !memcmp(p->published,candidate->published,sizeof(p->published))) return p;
     }
     return NULL;
 }
 
-bool kui_update_nightly_list(enum kui_internet_route route, struct kui_update_choices *choices,
+/* Called after the complete KUP and its member bytes have been inspected.
+ * A partial can target only modules. Each module retains its own build ID. */
+bool kui_update_choice_matches_package(enum kui_update_channel channel,const struct kui_update_choice *choice,
+        const struct kui_update_package *package) {
+    if(!choice || !package || package->version!=2 || !package->count || package->count>KUI_UPDATE_MAX_ENTRIES ||
+       (channel!=KUI_UPDATE_RELEASES && channel!=KUI_UPDATE_NIGHTLIES)) return false;
+    bool stable=channel==KUI_UPDATE_RELEASES, full=(package->flags & KUI_UPDATE_FULL)!=0;
+    enum kui_update_scope scope=full?KUI_UPDATE_SCOPE_FULL:KUI_UPDATE_SCOPE_PARTIAL;
+    if(package->channel!=(stable?0u:1u) || (stable && !full) || scope!=choice->scope) return false;
+    unsigned replaced=0, removed=0, kept=0, components=0;
+    bool gui=false;
+    for(unsigned i=0;i<package->count;i++) {
+        const struct kui_update_entry *entry=&package->entries[i];
+        if(entry->policy==KUI_UPDATE_INHERIT_ROOT) { ++kept;continue; }
+        if(entry->policy==KUI_UPDATE_REMOVE) ++removed;
+        else if(entry->policy==KUI_UPDATE_SELF_KUI || entry->policy==KUI_UPDATE_RAW) ++replaced;
+        else return false;
+        if(!strcmp(entry->path,"runtime.kui")) {
+            if(entry->policy!=KUI_UPDATE_SELF_KUI || strncmp(entry->build,choice->commit,12)) return false;
+            components|=KUI_UPDATE_COMPONENT_GUI;gui=true;
+        } else {
+            size_t n=strlen(entry->path);
+            bool module=(!strncmp(entry->path,"apps/games/",11) || !strncmp(entry->path,"apps/disc/",10)) &&
+                n>4 && !strcmp(entry->path+n-4,".kui");
+            components|=module?KUI_UPDATE_COMPONENT_READERS:KUI_UPDATE_COMPONENT_OTHER;
+        }
+    }
+    if(full && !gui) return false;
+    if(!choice->described) return stable || (gui && package->count==1);
+    return replaced==choice->replace && removed==choice->remove && kept==choice->keep && components==choice->components;
+}
+
+#define CATALOG_BYTES 2700u
+bool kui_update_online_list(enum kui_internet_route route, enum kui_update_channel channel, struct kui_update_choices *choices,
         struct kui_app_status *status, kui_log_fn log, kui_cancel_fn cancel, kui_app_progress_fn progress) {
     if(!choices || !status) return false;
     memset(choices,0,sizeof(*choices));
     memset(status,0,sizeof(*status));
     struct job job={.status=status,.progress=progress,.cancel=cancel};
+    bool stable=channel==KUI_UPDATE_RELEASES;
     char problem[128]={0};
-    message(&job,"Checking available GitHub nightlies");
-    struct kui_internet *session=kui_internet_open(route,log,cancel,problem);
+    message(&job,stable?"Checking available GitHub releases":"Checking available GitHub nightlies");
+    struct kui_internet *session=NULL;
     char *data=NULL;
     bool ok=false;
-    if(!session) {
-        message(&job,problem[0]?problem:"Cannot open network connection");
-    } else if(!(data=malloc(1441))) {
-        message(&job,"Not enough memory for the nightly list");
-    } else {
-        struct feed_buffer buf={data,1440,0};
-        enum kui_http_result result=kui_internet_get(session,NIGHTLY_BASE "nightlies.txt",buf.cap,collect,&buf,NULL,NULL);
-        if(result==KUI_HTTP_MISSING) {
-            /* Legacy publishers have only one official, immutable nightly. A
-             * malformed/unavailable index must not silently change selection. */
+    if(!stable && channel!=KUI_UPDATE_NIGHTLIES) message(&job,"Invalid official update source");
+    else if(!(data=malloc(CATALOG_BYTES+1))) message(&job,"Not enough memory for the update list");
+    else if(!(session=kui_internet_open(route,log,cancel,problem))) message(&job,problem[0]?problem:"Cannot open network connection");
+    else {
+        struct feed_buffer buf={data,CATALOG_BYTES,0};
+        const char *url=stable?STABLE_BASE "releases.txt":NIGHTLY_BASE "nightlies-v2.txt";
+        enum kui_http_result result=kui_internet_get(session,url,buf.cap,collect,&buf,NULL,NULL);
+        if(result==KUI_HTTP_OK) parse_choices(&buf,stable,true,choices);
+        if(result==KUI_HTTP_MISSING && !stable) {
             buf.used=0;
-            result=kui_internet_get(session,NIGHTLY_BASE "nightly.txt",buf.cap,collect,&buf,NULL,NULL);
-            if(result==KUI_HTTP_OK) {
-                struct kui_nightly_asset asset;
-                char url[sizeof(ASSET_BASE)+64];
-                if(parse_manifest(&buf,false,&asset,url,sizeof(url))) {
-                    struct kui_update_choice *choice=&choices->items[0];
-                    memcpy(choice->commit,asset.commit,sizeof(choice->commit));
-                    memcpy(choice->digest,asset.digest,sizeof(choice->digest));
-                    choice->size=asset.size;
-                    choices->count=1;
-                }
-            }
-        } else if(result==KUI_HTTP_OK) parse_choices(&buf,choices);
+            result=kui_internet_get(session,NIGHTLY_BASE "nightlies.txt",buf.cap,collect,&buf,NULL,NULL);
+            if(result==KUI_HTTP_OK) parse_choices(&buf,false,false,choices);
+        }
+        if(result==KUI_HTTP_MISSING) {
+            buf.used=0;
+            result=kui_internet_get(session,stable?STABLE_BASE "release.txt":NIGHTLY_BASE "nightly.txt",buf.cap,collect,&buf,NULL,NULL);
+            if(result==KUI_HTTP_OK && parse_manifest(&buf,stable,&choices->items[0])) choices->count=1;
+        }
         ok=choices->count || result==KUI_HTTP_MISSING;
-        message(&job,choices->count?"Select a nightly to check.":result==KUI_HTTP_MISSING?
-            "No nightly builds published yet.":result==KUI_HTTP_OK?"Invalid nightly list from GitHub.":kui_internet_problem(session));
+        message(&job,choices->count?"Choose a build to check.":result==KUI_HTTP_MISSING?
+            (stable?"No compatible stable update published yet.":"No nightly builds published yet."):
+            result==KUI_HTTP_OK?"Invalid update list from GitHub.":kui_internet_problem(session));
     }
     if(session) kui_internet_close(session);
     free(data);
@@ -238,7 +322,7 @@ bool kui_update_nightly_list(enum kui_internet_route route, struct kui_update_ch
     status->complete=true;
     status->errors=!ok && !status->stopped;
     if(!status->passed) memset(choices,0,sizeof(*choices));
-    if(status->stopped) message(&job,"Nightly list stopped");
+    if(status->stopped) message(&job,"Update list stopped");
     if(progress) progress(status);
     return status->passed;
 }
@@ -386,39 +470,44 @@ bool kui_update_online_download(enum kui_internet_route route, enum kui_update_c
     char manifest[272];
     struct feed_buffer buffer = {manifest,sizeof(manifest)-1,0};
     char release_url[sizeof(ASSET_BASE)+104];
-    struct kui_nightly_asset asset;
+    struct kui_nightly_asset asset={0};
+    struct kui_update_choice legacy={0};
+    const bool selected=choice!=NULL;
     enum kui_http_result r;
-    if(choice) {
-        if(channel!=KUI_UPDATE_NIGHTLIES || choice->commit[40] || !hex_field(choice->commit,40) ||
-           choice->digest[64] || !hex_field(choice->digest,64) ||
-           choice->size<KUI_UPDATE_HEADER_BYTES || choice->size>FILE_LIMIT) {
-            message(&job,"Invalid selected nightly");
-            goto done;
-        }
-        memcpy(asset.commit,choice->commit,sizeof(asset.commit));
-        memcpy(asset.digest,choice->digest,sizeof(asset.digest));
-        asset.size=choice->size;
-        asset.release=false;
-        snprintf(release_url,sizeof(release_url),ASSET_BASE "nightly-%s/K-UI.kup",asset.commit);
-    } else {
-        r = kui_internet_get(session, manifest_url, buffer.cap,
-            collect, &buffer, NULL, NULL);
-        if(r != KUI_HTTP_OK) {
+    if(!selected) {
+        r=kui_internet_get(session,manifest_url,buffer.cap,collect,&buffer,NULL,NULL);
+        if(r!=KUI_HTTP_OK) {
             if(stable && r==KUI_HTTP_MISSING) {
                 ok=true;
                 message(&job,"No compatible stable update published yet.");
-                goto done;
-            }
-            message(&job, r == KUI_HTTP_MISSING ? "No nightly channel published yet" : kui_internet_problem(session));
+            } else message(&job,r==KUI_HTTP_MISSING?"No nightly channel published yet":kui_internet_problem(session));
             goto done;
         }
-        if(!parse_manifest(&buffer, stable, &asset, release_url, sizeof(release_url))) {
-            message(&job, "GitHub returned an invalid update manifest");
+        if(!parse_manifest(&buffer,stable,&legacy)) {
+            message(&job,"GitHub returned an invalid update manifest");
             goto done;
         }
+        choice=&legacy;
     }
-    if(!choice && channel == KUI_UPDATE_NIGHTLIES && running_official_nightly && running_build && strlen(running_build) == 12 && !memcmp(running_build, asset.commit, 12)) {
-        ok = true;
+    if((selected && test_feed) || choice->commit[40] || !hex_field(choice->commit,40) ||
+       choice->digest[64] || !hex_field(choice->digest,64) ||
+       choice->size<KUI_UPDATE_HEADER_BYTES || choice->size>FILE_LIMIT ||
+       (stable && (choice->tag[34] || choice->asset[63] || !stable_tag(choice->tag) || !asset_name(choice->asset))) ||
+       (!stable && (choice->tag[0] || choice->asset[0]))) {
+        message(&job,"Invalid selected package");
+        goto done;
+    }
+    memcpy(asset.commit,choice->commit,sizeof(asset.commit));
+    memcpy(asset.digest,choice->digest,sizeof(asset.digest));
+    asset.size=choice->size;
+    asset.release=stable;
+    if(stable) {
+        kui_release_cache_key(&asset,choice->tag);
+        snprintf(release_url,sizeof(release_url),ASSET_BASE "%s/%s",choice->tag,choice->asset);
+    } else snprintf(release_url,sizeof(release_url),ASSET_BASE "nightly-%s/K-UI.kup",asset.commit);
+    if(!selected && channel==KUI_UPDATE_NIGHTLIES && running_official_nightly && running_build &&
+       strlen(running_build)==12 && !memcmp(running_build,asset.commit,12)) {
+        ok=true;
         goto trim;
     }
     if(!ensure_directory("0:/KUI") || !ensure_directory(KUI_UPDATE_BROWSER_ROOT) ||
@@ -431,7 +520,7 @@ bool kui_update_online_download(enum kui_internet_route route, enum kui_update_c
         asset.commit, (unsigned long)asset.size);
     status->line_count = 1;
     char final[KUI_UPDATE_BROWSER_PATH_BYTES];
-    snprintf(final, sizeof(final), stable ? KUI_RELEASE_PACKAGE : KUI_NIGHTLY_PACKAGE, asset.commit);
+    snprintf(final, sizeof(final), stable ? KUI_RELEASE_PACKAGE : KUI_NIGHTLY_PACKAGE, kui_nightly_cache_key(&asset));
     enum kui_nightly_verify existing = kui_nightly_verify_file(final, &asset, cancel, verified_bytes, &job);
     if(existing == KUI_NIGHTLY_MISMATCH) {
         message(&job, "A different file occupies the update path. Move it before retrying.");
@@ -474,8 +563,9 @@ bool kui_update_online_download(enum kui_internet_route route, enum kui_update_c
             struct feed_buffer detail={news,1350,0};
             char history_url[sizeof(NIGHTLY_BASE)+70];
             const char *news_url=stable ? STABLE_BASE "update-info.txt" : NIGHTLY_BASE "update-info.txt";
-            if(choice && choice->published[0]) {
-                snprintf(history_url,sizeof(history_url),NIGHTLY_BASE "history/%s/update-info.txt",asset.commit);
+            if(selected && choice->published[0]) {
+                snprintf(history_url,sizeof(history_url),"%shistory/%s/update-info.txt",
+                         stable?STABLE_BASE:NIGHTLY_BASE,stable?choice->tag:asset.commit);
                 news_url=history_url;
             }
             r=kui_internet_get(session,news_url,
@@ -491,7 +581,7 @@ trim:
     kui_internet_close(session);
     session = NULL;
     bool wrote = false;
-    bool clean = !tracked || kui_online_trim_report(keep, asset.commit, stable, cancel, &wrote);
+    bool clean = !tracked || kui_online_trim_report(keep, kui_nightly_cache_key(&asset), stable, cancel, &wrote);
     /* A successful rename, receipt write or prune can disturb sectors verified
      * earlier. Reopen the public path after all writes before offering it. */
     if(*path && (published || wrote) &&

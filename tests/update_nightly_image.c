@@ -22,7 +22,10 @@
 #define STABLE_URL "https://github.com/TacitusVox/K-UI-NeXT/releases/download/v2.1.0/K-UI-v2.1.0-update.kup"
 #define RELEASE_BASE "https://github.com/TacitusVox/K-UI-NeXT/releases/download/nightly-"
 static bool test_feed, stable, manifest_missing, forbid_manifest;
-static char catalog[1600], history_url[200];
+static char catalog[1600], history_url[200], rich_catalog[2750], expected_stable_url[200];
+#define STABLE_INDEX "https://raw.githubusercontent.com/TacitusVox/K-UI-NeXT/release-channel/releases.txt"
+#define NIGHTLY_RICH "https://raw.githubusercontent.com/TacitusVox/K-UI-NeXT/nightly-channel/nightlies-v2.txt"
+#define STABLE_HISTORY "https://raw.githubusercontent.com/TacitusVox/K-UI-NeXT/release-channel/history/"
 static char sidecar[1450], hash_hex[65];
 static struct kui_update_online_info news;
 static FILE *image;
@@ -76,7 +79,10 @@ enum kui_http_result kui_internet_get(struct kui_internet *s, const char *url, u
     (void)progress; (void)progress_ctx;
     assert(s == &session);
     const char *text;
-    if(!strcmp(url,NIGHTLY_INDEX)) {
+    if(!strcmp(url,stable?STABLE_INDEX:NIGHTLY_RICH)) {
+        if(!rich_catalog[0]) return KUI_HTTP_MISSING;
+        text=rich_catalog;
+    } else if(!strcmp(url,NIGHTLY_INDEX)) {
         assert(!test_feed && !stable);
         if(!catalog[0]) return KUI_HTTP_MISSING;
         text=catalog;
@@ -99,7 +105,7 @@ enum kui_http_result kui_internet_get_remainder(struct kui_internet *s, const ch
         uint32_t total, kui_http_write_fn write, void *ctx, kui_http_progress_fn progress, void *progress_ctx) {
     char expected[160];
     snprintf(expected, sizeof(expected), RELEASE_BASE "%s/K-UI.kup", commit);
-    assert(!strcmp(url, stable ? STABLE_URL : test_feed ? REVIEW_BASE "K-UI.kup" : expected));
+    assert(!strcmp(url, stable ? (expected_stable_url[0]?expected_stable_url:STABLE_URL) : test_feed ? REVIEW_BASE "K-UI.kup" : expected));
     assert(s == &session);
     assert(total == sizeof(package));
     ++transfers;
@@ -414,7 +420,10 @@ static void test_online_channels(void) {
     news_text(commit, hash_hex, valid_news);
     assert(fetch_official(current) && path[0] && !news.newer && news.note_count == 2 && transfers == before+1);
     char stable_path[sizeof(path)];
-    snprintf(stable_path, sizeof(stable_path), KUI_RELEASE_PACKAGE, commit);
+    struct kui_nightly_asset saved_asset={.release=true};
+    strcpy(saved_asset.digest,hash_hex);
+    kui_release_cache_key(&saved_asset,"v2.1.0");
+    snprintf(stable_path, sizeof(stable_path), KUI_RELEASE_PACKAGE, kui_nightly_cache_key(&saved_asset));
     assert(!strcmp(path, stable_path) && !strcmp(news.source_build, current));
     assert(fetch_official("111111111111") && news.newer && !strcmp(news.notes[1], "Updated controller help"));
     assert(fetch_official("222222222222") && !news.newer && news.note_count == 2);
@@ -455,10 +464,10 @@ static void test_nightly_picker(void) {
     choose_build(30);
     unsigned before=transfers;
     struct kui_update_choices choices;
-    assert(kui_update_nightly_list(selected_route,&choices,&status,NULL,cancel,report));
+    assert(kui_update_online_list(selected_route,KUI_UPDATE_NIGHTLIES,&choices,&status,NULL,cancel,report));
     assert(choices.count==1 && !choices.items[0].published[0] && !strcmp(choices.items[0].commit,commit));
     manifest_missing=true;
-    assert(kui_update_nightly_list(selected_route,&choices,&status,NULL,cancel,report) && !choices.count);
+    assert(kui_update_online_list(selected_route,KUI_UPDATE_NIGHTLIES,&choices,&status,NULL,cancel,report) && !choices.count);
     manifest_missing=false;
     strcpy(catalog,"KUI-NIGHTLIES-1\n10\n");
     for(unsigned i=0;i<10;i++) {
@@ -468,7 +477,7 @@ static void test_nightly_picker(void) {
                  id,(unsigned)sizeof(package),hash_hex,19-i);
     }
     forbid_manifest=true;
-    assert(kui_update_nightly_list(selected_route,&choices,&status,NULL,cancel,report) && choices.count==10);
+    assert(kui_update_online_list(selected_route,KUI_UPDATE_NIGHTLIES,&choices,&status,NULL,cancel,report) && choices.count==10);
     assert(!strcmp(choices.items[0].published,"2026-12-19T08:00:00Z"));
     struct kui_update_choice older=choices.items[9];
     assert(!strcmp(older.published,"2026-12-10T08:00:00Z") && !strcmp(older.commit,commit));
@@ -488,15 +497,80 @@ static void test_nightly_picker(void) {
     assert(!kui_update_choice_find(&choices,&older));older.size--;
     older.digest[1]^=1;assert(!kui_update_choice_find(&choices,&older));older.digest[1]^=1;
     char *last=strstr(catalog, "2026-12-10");assert(last);memcpy(last,"2026-12-20",10);
-    assert(!kui_update_nightly_list(selected_route,&choices,&status,NULL,cancel,report) && !choices.count);
+    assert(!kui_update_online_list(selected_route,KUI_UPDATE_NIGHTLIES,&choices,&status,NULL,cancel,report) && !choices.count);
     memcpy(last,"2026-12-10",10);
     char *base=strstr(catalog,"10\n")+3;char *second=strchr(base,'\n')+1;
     memcpy(second,base,40);
-    assert(!kui_update_nightly_list(selected_route,&choices,&status,NULL,cancel,report) && !choices.count);
+    assert(!kui_update_online_list(selected_route,KUI_UPDATE_NIGHTLIES,&choices,&status,NULL,cancel,report) && !choices.count);
     strcpy(catalog,"KUI-NIGHTLIES-1\n11\n");
-    assert(!kui_update_nightly_list(selected_route,&choices,&status,NULL,cancel,report));
+    assert(!kui_update_online_list(selected_route,KUI_UPDATE_NIGHTLIES,&choices,&status,NULL,cancel,report));
     assert(opens==closes && transfers==before+1);
     catalog[0]=0;forbid_manifest=false;test_feed=old_feed;
+}
+
+static bool choose_stable(const struct kui_update_choice *choice,unsigned keep_count) {
+    snprintf(expected_stable_url,sizeof(expected_stable_url),"https://github.com/TacitusVox/K-UI-NeXT/releases/download/%s/%s",
+        choice->tag,choice->asset);
+    snprintf(history_url,sizeof(history_url),STABLE_HISTORY "%s/update-info.txt",choice->tag);
+    news_text(choice->commit,choice->digest,"0\n1\nChecked release notes\n");
+    stopped=false;
+    return kui_update_online_download(selected_route,KUI_UPDATE_RELEASES,choice,NULL,false,keep_count,path,&news,
+                                      &status,NULL,cancel,report);
+}
+
+static void test_release_history(void) {
+    bool old_feed=test_feed;test_feed=false;stable=true;keep=0;
+    choose_build(40);
+    struct kui_update_choices choices;
+    assert(kui_update_online_list(selected_route,KUI_UPDATE_RELEASES,&choices,&status,NULL,cancel,report));
+    assert(choices.count==1 && !choices.items[0].described && !choices.items[0].published[0] &&
+           !strcmp(choices.items[0].tag,"v2.1.0") && !strcmp(choices.items[0].asset,"K-UI-v2.1.0-update.kup"));
+    manifest_missing=true;
+    assert(kui_update_online_list(selected_route,KUI_UPDATE_RELEASES,&choices,&status,NULL,cancel,report));
+    assert(!choices.count && strstr(status.message,"No compatible stable"));
+    manifest_missing=false;
+    char older_digest[65];
+    strcpy(older_digest,hash_hex);
+    package[3]^=1;set_manifest();
+    snprintf(rich_catalog,sizeof(rich_catalog),"KUI-RELEASES-1\n2\n"
+        "%s %u %s 2026-02-02T10:00:00Z v2.1.1 New.kup full 24 1 0 7\n"
+        "%s %u %s 2026-02-01T10:00:00Z v2.1.0 Old.kup full 20 0 0 7\n",
+        commit,(unsigned)sizeof(package),hash_hex,commit,(unsigned)sizeof(package),older_digest);
+    forbid_manifest=true;
+    unsigned before=transfers;
+    assert(kui_update_online_list(selected_route,KUI_UPDATE_RELEASES,&choices,&status,NULL,cancel,report) &&
+           choices.count==2 && transfers==before);
+    struct kui_update_choice newer=choices.items[0],older=choices.items[1];
+    assert(newer.described && newer.scope==KUI_UPDATE_SCOPE_FULL && newer.replace==24 && newer.remove==1 &&
+           newer.components==7 && !strcmp(older.commit,newer.commit) && strcmp(older.digest,newer.digest));
+    struct kui_update_choice edited=older;
+    strcpy(edited.asset,newer.asset);assert(!kui_update_choice_find(&choices,&edited));
+    edited=older;strcpy(edited.tag,newer.tag);assert(!kui_update_choice_find(&choices,&edited));
+    edited=older;edited.components=3;assert(!kui_update_choice_find(&choices,&edited));
+
+    interrupt=true;
+    assert(!choose_stable(&newer,0) && !requested);
+    interrupt=false; package[3]^=1;
+    assert(choose_stable(&older,0) && !requested && news.note_count==1);
+    char old_name[sizeof(path)];strcpy(old_name,path);
+    package[3]^=1;
+    assert(choose_stable(&newer,0) && !requested && news.note_count==1 && strcmp(path,old_name));
+    char new_name[sizeof(path)];strcpy(new_name,path);
+    FILINFO info;
+    assert(f_stat(old_name,&info)==FR_OK && f_stat(new_name,&info)==FR_OK);
+    assert(choose_stable(&older,1) && !strcmp(path,old_name) && transfers==before+3);
+    assert(f_stat(old_name,&info)==FR_OK && f_stat(new_name,&info)==FR_NO_FILE);
+
+    char *date=strstr(rich_catalog,"2026-02-02");assert(date);memcpy(date,"2026-02-30",10);
+    assert(!kui_update_online_list(selected_route,KUI_UPDATE_RELEASES,&choices,&status,NULL,cancel,report) && !choices.count);
+    memcpy(date,"2026-02-02",10);
+    char *tag=strstr(rich_catalog,"v2.1.1");assert(tag);tag[5]='0';
+    assert(!kui_update_online_list(selected_route,KUI_UPDATE_RELEASES,&choices,&status,NULL,cancel,report));
+    tag[5]='1';
+    char *scope=strstr(rich_catalog,"full 24");assert(scope);scope[0]='x';
+    assert(!kui_update_online_list(selected_route,KUI_UPDATE_RELEASES,&choices,&status,NULL,cancel,report));
+    rich_catalog[0]=expected_stable_url[0]=history_url[0]=sidecar[0]=0;
+    stable=forbid_manifest=false;test_feed=old_feed;
 }
 
 static void test_unowned_partial(void) {
@@ -597,7 +671,8 @@ int main(int argc, char **argv) {
     }
     test_online_channels();
     test_nightly_picker();
+    test_release_history();
     test_unowned_partial();
     assert(f_mount(NULL, "0:", 0) == FR_OK && !fclose(image));
-    puts("PASS nightly manifest, interruption, resume, ignored Range, cache readback, collision preservation, digest refusal, stable isolation, verified ancestry and notes, ten-build pinned picker and legacy fallback, cross-channel retention");
+    puts("PASS nightly manifest, interruption, resume, ignored Range, cache readback, collision preservation, digest refusal, stable isolation, verified ancestry and notes, pinned nightly and stable pickers, same-commit tagged releases, isolated retention and legacy fallback");
 }

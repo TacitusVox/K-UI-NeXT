@@ -49,7 +49,7 @@ enum {
 };
 #define KUI_THEME_PICKER_ROWS 8u
 #define KUI_SHELL_UPDATE_ROWS 8u
-#define KUI_SHELL_NIGHTLY_ROWS 5u
+#define KUI_SHELL_NIGHTLY_ROWS 4u
 #define KUI_SHELL_UPDATE_PATH_BYTES 192u
 enum kui_shell_update_op { KUI_SHELL_UPDATE_LIST, KUI_SHELL_UPDATE_CHECK,
     KUI_SHELL_UPDATE_INSTALL, KUI_SHELL_UPDATE_PREVIOUS, KUI_SHELL_UPDATE_BASELINE,
@@ -316,9 +316,9 @@ struct kui_shell {
     struct kui_update_choices update_nightlies;
     char update_online_directory[KUI_SHELL_UPDATE_PATH_BYTES];
     unsigned update_online_page;
-    bool update_test_feed_available;
-    enum kui_update_channel update_channel, update_saved_channel;
-    enum kui_internet_route update_route;
+    bool update_test_feed_available, update_transfer_settings, update_online_relist;
+    enum kui_update_channel update_channel, update_saved_channel, update_picker_channel;
+    enum kui_internet_route update_route, update_saved_route;
     unsigned update_online_row,update_keep,update_saved_keep;
     struct kui_shell_update_request update_request,update_confirm_request;
     struct kui_shell_update_view update;

@@ -96,3 +96,40 @@ def update_info(revision, digest, previous=None, paths=(), release_notes=()):
                 break
     return "\n".join(["KUI-UPDATE-INFO-1", revision, digest, str(len(ancestry)), *ancestry,
                       str(len(notes)), *notes, ""])
+
+
+def payload_scope(report):
+    """Describe explicit actions in an already verified v2 KUP, before console-specific comparisons."""
+    from update_package import INHERIT_ROOT, RAW_SOFTWARE, REMOVE, SELF_KUI
+    replace = remove = keep = components = 0
+    for member in report["members"]:
+        policy, path = member["policy"], member["path"]
+        if policy == INHERIT_ROOT:
+            keep += 1
+            continue
+        if policy == REMOVE:
+            remove += 1
+        elif policy in (SELF_KUI, RAW_SOFTWARE):
+            replace += 1
+        else:
+            raise ValueError("Unrecognized KUP member policy")
+        if path == "runtime.kui":
+            components |= 1
+        elif path.startswith(("apps/games/", "apps/disc/")) and path.endswith(".kui"):
+            components |= 2
+        else:
+            components |= 4
+    return checked_scope(f"{'full' if report['full'] else 'partial'} {replace} {remove} {keep} {components}")
+
+
+def checked_scope(text):
+    from update_package import MAX_ENTRIES
+    mode, *counts = text.split(" ")
+    if mode not in ("full", "partial") or len(counts) != 4 or not all(
+            re.fullmatch(r"0|[1-9][0-9]{0,2}", n) for n in counts):
+        raise ValueError("Invalid package scope")
+    replace, remove, keep, mask = map(int, counts)
+    if (not 1 <= replace + remove + keep <= MAX_ENTRIES or mask > 7 or bool(mask) != bool(replace + remove) or
+            (mode == "full" and (keep or not replace or not mask & 1))):
+        raise ValueError("Invalid package action totals")
+    return text

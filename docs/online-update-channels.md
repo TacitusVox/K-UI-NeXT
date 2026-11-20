@@ -1,17 +1,62 @@
 # Publishing online K-UI updates
 
-The nightly feed distributes the GUI built from the checked-out source. A nightly's
-one `runtime.kui` entry is its full list of replacements. The updater keeps
-installed game readers. An older installation can therefore require a full
-software release to bring its readers up to date.
+Open the Main or Nightly channel to choose a package before downloading it.
+Each channel lists up to ten builds by GitHub publication time, newest first.
+The picker identifies the exact version or source build, download size, scope,
+and declared changes to the GUI, readers and other managed software. The
+default nightly contains the GUI. A maintainer can also publish a reader-only
+update, a mix of components, or a complete release. Each component retains
+its own build ID.
 
-The stable feed tracks the latest published GitHub release with a verified
-full, stable KUP. A release contains the exact GUI, game readers and other
+The Main channel offers published, verified full stable KUPs. A release contains the exact GUI, game readers and other
 managed software from its installation ZIP. The console compares their
 hashes against the installed files. Save data and user settings live outside
 the package. The separately distributed boot CD, physical GUI aliases and
 any installation-only bootstrap steps are described in the release's SD
 installation instructions.
+
+## Select the contents of a nightly
+
+With no `config/nightly-package.json`, the workflow builds the GUI from
+`main` as usual. To include other software, place already tested files under
+`resources/nightly-software/`, preserving their paths relative to `KUI/`.
+Commit both the files and their reviewed SHA-256 values in
+`config/nightly-package.json`. Obtain a file's value with `sha256sum`.
+For example, a partial update of the GUI and the generic WinCE reader uses
+the following recipe after filling in the reader's hash.
+
+```json
+{
+  "gui": true,
+  "full": false,
+  "files": {
+    "apps/games/ce-boot.kui": "replace with the 64-character SHA-256 of the tested reader"
+  },
+  "remove": []
+}
+```
+
+Set `gui` to `false` for a partial containing only the selected readers or
+assets. The job then skips the GUI compiler. With `gui` set to `true`,
+the GUI comes from the verified native build of this commit. Reader binaries
+come directly from the named Git blobs and retain their embedded identities.
+List obsolete managed paths in `remove` to make them unavailable in the
+selected installation. With `full` set to `false`, all unlisted components
+carry forward.
+
+For a complete nightly, use a recipe containing just
+`{"full_release": "vMAJOR.MINOR.PATCH"}`. Commit it on the source revision
+intended for that release. Publish the matching stable KUP, installation ZIP
+and SHA-256 manifest, then run the nightly workflow for the same commit. The
+publisher compares the stable KUP with the checked installation ZIP, verifies
+the GUI build and tag, and places those exact software bytes into a testing
+package. A missing or mismatched complete release stops publication. Use a
+partial recipe while only individual components are qualified.
+
+The recipe remains active until changed or removed on `main`. The packaging
+and publishing jobs validate the inventory against that source revision and
+check the final KUP with the console decoder. GitHub's publication receipt
+ties each package, including a reader-only one, to its SHA-256 and commit.
 
 ## Publish a stable update
 
@@ -45,16 +90,20 @@ The first compatible stable KUP must come from an actual subsequent
 release. A user running an older GUI without online updates must first
 install a compatible release using its SD installation instructions.
 
-## Choose a previous nightly
+## Choose an earlier update
 
-The Nightly channel offers up to ten published GUI builds, newest first, with
-their original GitHub publication dates in UTC. Each selection has its own
-source commit, package length, SHA-256 and change notes. A previous build
-uses its original release asset. The console compares its downloaded bytes
-with that build's checksum. The same list has links for computer downloads
-on the [nightly channel page](https://github.com/TacitusVox/K-UI-NeXT/tree/nightly-channel).
+Each choice has its own release asset, SHA-256 and change notes. The console
+checks the downloaded bytes and package manifest against that selection.
+Declared replacements, removals and keeps describe the package. The installed
+files determine how many replacements are needed on a particular console.
 
-When the picker is first deployed, the publisher checks previously promoted
-builds against their original release assets and verifies their KUP files.
-The list starts with as many verified releases as exist. The picker retains
-ten choices; previous releases remain available individually on GitHub.
+Computer downloads use the same [nightly list](https://github.com/TacitusVox/K-UI-NeXT/tree/nightly-channel)
+and [stable release list](https://github.com/TacitusVox/K-UI-NeXT/tree/release-channel).
+Both lists use GitHub publication times in UTC. For releases with the same
+timestamp, the stable list shows the higher version first.
+
+The publisher verifies existing eligible packages and includes as many real
+builds as exist. Older GUI-only updaters keep receiving their latest compatible
+single-file GUI nightly through the original feed. A newer reader-only update
+is available to consoles with the expanded picker. Older release assets
+remain accessible individually on GitHub after they leave a ten-build list.

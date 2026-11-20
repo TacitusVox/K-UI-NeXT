@@ -71,32 +71,32 @@ The historical [1.8.5 notes](docs/release-v1.8.5-notes.md),
 
 ## Online updates
 
-The [K-UI GUI nightly workflow](https://github.com/TacitusVox/K-UI-NeXT/actions/workflows/nightly.yml)
-checks `main` daily at 08:23 UTC (2:23 a.m. CST or 3:23 a.m. CDT). It publishes a
-GUI-only testing package when the build inputs differ from the last successful
-publication. A missed run catches up at the next check. Existing game readers
-and installed card themes carry forward.
+Open **System settings → Updates** and press **L** to choose a channel.
 
-To publish the first nightly immediately, open the workflow, choose **Run workflow**,
-select **main**, then click **Run workflow**. The first successful run creates a
-[prerelease](https://github.com/TacitusVox/K-UI-NeXT/releases) with `K-UI.kup`
-and publishes the console feed on `nightly-channel`. It uses GitHub's built-in token.
+| Channel | Builds offered |
+| --- | --- |
+| **Main releases** | Published stable versions with a complete, verified update package, up to ten versions in publication order. |
+| **Nightly builds** | Up to ten published testing builds from `main`, newest first. |
 
-On a GUI with the build picker, open **System settings → Updates**, press **L**
-for **GitHub updates**, and choose your connection. **Stable releases** is the
-default. Press **Y** to choose **Official nightly**, then **A** on the
-connection row to list up to ten published builds, newest first. Each row shows
-the publication time in UTC, GUI build ID and package size. Choose a build
-and press **A** to download and verify it. Press **X** on the review screen
-for change notes and the files affected. Confirm installation and choose
-**Restart K-UI**. Check the running GUI build in the header after restart.
+Choose a channel to read its list. Each build shows its publication time, source
+ID and download size. Check the package contents for the selected build, then
+press **A** to download it for review. Press **X** on the review screen to see
+change notes and the files affected on your installation. Confirm installation
+and choose **Restart K-UI**. The running GUI build is shown in the header.
 
-Earlier network-enabled GUIs display **L GitHub nightly** and offer only the
-latest build. If the source reads **Hardware test**, press **Y** for
-**Official nightly** before downloading. Once the picker ships, installing
-that nightly once enables the new menu. A complete stable update can also
-deliver the picker. See [publishing update channels](docs/online-update-channels.md)
-and [upgrading older SD installations](docs/updater.md#updating-an-older-installation).
+The nightly workflow checks `main` daily at 08:23 UTC (2:23 a.m. CST or
+3:23 a.m. CDT). It checks for changed package inputs and catches up after a
+missed day. The default package updates the GUI. Maintainers can publish a
+reader-only, mixed, or complete nightly when those components are qualified. To run it immediately, choose **Run workflow** on
+**main**. GitHub publishes the checked KUP as a prerelease and updates the
+console feed. [Nightly workflow](https://github.com/TacitusVox/K-UI-NeXT/actions/workflows/nightly.yml)
+
+Earlier network-enabled GUIs display **L GitHub nightly** and offer the latest
+build. If the source reads **Hardware test**, press **Y** for **Official
+nightly**. Install the first compatible update containing the chooser, then
+choose **Restart K-UI** to open the new menu. Stock Tyrfing requires an SD
+upgrade first. [Publishing update channels](docs/online-update-channels.md) ·
+[Upgrading older installations](docs/updater.md#updating-an-older-installation)
 
 ## Foundation and capture evidence
 

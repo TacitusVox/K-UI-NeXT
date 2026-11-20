@@ -13,7 +13,10 @@
 bool kui_update_test_feed_available(void);
 const struct kui_update_choice *kui_update_choice_find(const struct kui_update_choices *list,
     const struct kui_update_choice *candidate);
-bool kui_update_nightly_list(enum kui_internet_route route, struct kui_update_choices *choices,
+struct kui_update_package;
+bool kui_update_choice_matches_package(enum kui_update_channel channel,const struct kui_update_choice *choice,
+    const struct kui_update_package *package);
+bool kui_update_online_list(enum kui_internet_route route, enum kui_update_channel channel, struct kui_update_choices *choices,
     struct kui_app_status *status, kui_log_fn log, kui_cancel_fn cancel, kui_app_progress_fn progress);
 bool kui_update_online_download(enum kui_internet_route route, enum kui_update_channel channel,
     const struct kui_update_choice *choice, const char *running_build, bool running_official_nightly, unsigned keep,
