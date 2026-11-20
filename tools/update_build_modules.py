@@ -167,8 +167,10 @@ def inspect_component(directory, name, build, slot, commit, clean):
         absolute_symbol(directory, "stage.elf", "__kui_native_background_compact_stage", 1)
         absolute_symbol(directory, "native-worker.elf", "__kui_native_background_compact_worker", 1)
         absolute_symbol(directory, "stage.elf", "__kui_native_isolation_lease_bytes", 0x47000)
+        require(payload[0x160:0x170] == struct.pack("<8sII", b"KUINMP01", 1, 160),
+                "Background release requires the 160-slot native map capability")
         proof.update({"virtual_slot": slot, "worker_bytes": 0x12000,
-                      "complete_lease_bytes": 0x47000,
+                      "native_map_slots": 160, "complete_lease_bytes": 0x47000,
                       "storage": "SCI persistent worker; blank launcher-filled manifest"})
     elif family == "standalone":
         data = standalone_module(directory, build)

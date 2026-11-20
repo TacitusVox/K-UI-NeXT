@@ -148,6 +148,12 @@ _start:
     .ascii "KUICEM01"
     .long 1,KUI_RETAIL_CE_MAP_RECORD
 #endif
+#if KUI_NATIVE_BACKGROUND_MAP160
+#include "kui/native_map_capacity.h"
+    .section .native_map_capability,"a"
+    .ascii KUI_NATIVE_MAP_CAP_MAGIC
+    .long KUI_NATIVE_MAP_CAP_VERSION,KUI_NATIVE_MAP_CAP_SLOTS
+#endif
 #if KUI_ARMADA_CE_CDDA_VMU
     /* Combined Armada CD music + writable virtual A2 (ce-armada-all-on.kui).
      * GUI 00d8ed67d9ad admits that route only with this record at payload

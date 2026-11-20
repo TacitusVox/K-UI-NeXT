@@ -52,8 +52,9 @@ FLAGS = -std=c11 -Os -g -Wall -Wextra -Werror $(CPU) \
  -fno-stack-protector -fno-pic -ffunction-sections -fdata-sections \
  -fno-jump-tables -fstack-usage -Iinclude -Isrc/loader -I$(BUILD) \
  -DKUI_BUILD_ID='"$(BUILD_ID)"'
+VMU_RESIDENT_MAP_SLOTS := 64
 RESIDENT_FLAGS = $(FLAGS) -fno-tree-scev-cprop -flto -mrelax \
- -DKUI_RETAIL_TRANSPORT=1 -DKUI_RETAIL_MANIFEST_SLOTS=64
+ -DKUI_RETAIL_TRANSPORT=1 -DKUI_RETAIL_MANIFEST_SLOTS=$(VMU_RESIDENT_MAP_SLOTS)
 LINK = $(CPU) -nostdlib -Wl,--gc-sections -Wl,--build-id=none
 RESIDENT_SRC = src/loader/vmu_maple_observe_resident.c src/core/retail_gd.c \
  src/core/retail_pace.c src/loader/minic.c src/core/retail_image.c \
@@ -141,6 +142,9 @@ force-mode-config:
 $(BUILD)/readonly-config: force-mode-config
 	@mkdir -p $(BUILD)
 	@printf '%s\n' 'READONLY_PROOF=$(READONLY_PROOF)' 'SD_PROFILE=$(SD_PROFILE)' 'MAPLE_PROFILE=$(MAPLE_PROFILE)' 'VMU_READER_PROFILE=$(VMU_READER_PROFILE)' 'BUILD_ID=$(BUILD_ID)' 'NATIVE_LAYOUT=$(NATIVE_LAYOUT)' 'NATIVE_SPAN=$(NATIVE_SPAN)' > $(BUILD)/readonly-config.tmp
+ifneq ($(VMU_RESIDENT_MAP_SLOTS),64)
+	@printf '%s\n' 'VMU_RESIDENT_MAP_SLOTS=$(VMU_RESIDENT_MAP_SLOTS)' >> $(BUILD)/readonly-config.tmp
+endif
 ifneq ($(filter $(READONLY_PROOF),2 3 4),)
 	@sha256sum '$(SD_PROFILE)' >> $(BUILD)/readonly-config.tmp
 endif
