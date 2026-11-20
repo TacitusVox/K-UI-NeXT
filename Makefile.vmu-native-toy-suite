@@ -664,6 +664,21 @@ endif
 	env -u MAKEFLAGS -u MFLAGS $(MAKE) -f Makefile.vmu-native-toy-suite $(TOY_WIRE_EVERY_SWITCH) TOY_WIRE_VMU=0 TOY_WIRE_SAVE=0 TOY_SURVEY_MIXED_PAD=0 \
 	 $(TOY_SAVE_PARTS_PAD) BUILD_ID=$(BUILD_ID) BUILD=$(TOY_SAVE_PARTS_READER) $(TOY_SAVE_PARTS_READER)/retail-native-dual.kui
 	python3 tests/test_toy_wire_save_parts.py $(BUILD) $(TOY_SAVE_PARTS_READER)
+.PHONY: toy-survey-mixed-pad-host-test
+toy-survey-mixed-pad-host-test:
+	@mkdir -p $(BUILD)
+	$(HOST_CC) $(PASSIVE_HOST_FLAGS) -DKUI_VMU_EXPERIMENTAL=1 \
+	 -DKUI_VMU_NATIVE_PERSISTENT_PROBE=1 -DKUI_VMU_NATIVE_CACHED_CODE=1 -DKUI_NATIVE_DUAL_READERS=1 \
+	 -DKUI_NATIVE_RA_TICK_OFF_ISOLATION=1 -DKUI_NATIVE_SPLIT_CONTROLLER_ISOLATION=1 \
+	 -DKUI_NATIVE_SPLIT_CONTROLLER_GENERAL=1 -DKUI_NATIVE_GENERAL_LEAN_LAYOUT=1 \
+	 -DKUI_NATIVE_READER_DIAGNOSTIC=1 -DKUI_VMU_NATIVE_BACKGROUND=1 -DKUI_NATIVE_READAHEAD=1 \
+	 -DKUI_NATIVE_TOY_MOVIE_CAPTURE=1 -DKUI_RETAIL_ASYNC_TEST=1 -DKUI_NATIVE_BACKGROUND_COMPACT=1 \
+	 -DKUI_TOY_SUITE_MODE=66 -DKUI_TOY_WIRE_TITLES=1 -DKUI_TOY_SURVEY_MIXED_PAD=1 \
+	 tests/test_toy_survey_mixed_pad.c $(COMPAT_WORKER_HOST_SRC) -Wl,--gc-sections -o $(BUILD)/test-survey-mixed-pad
+	ASAN_OPTIONS=detect_leaks=0 $(BUILD)/test-survey-mixed-pad
+ifeq ($(TOY_SURVEY_MIXED_PAD),1)
+toy-wire-save-host-test: toy-survey-mixed-pad-host-test
+endif
 toy-wire-save-host-test:
 	HOST_CC="$(HOST_CC)" python3 tests/test_toy_survey.py
 # Whether those tests notice a defect: each of a list, in a copy of the sources.
