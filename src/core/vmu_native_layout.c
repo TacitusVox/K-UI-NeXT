@@ -607,8 +607,16 @@ static bool layout_from_bound(const void *image,size_t n,
         uniform_found=uniform_from_bound(image,n,d,&uniform_layout,false,false,true);
     if(variable_found==uniform_found) return false;
     struct kui_vmu_native_layout chosen=variable_found?variable_layout:uniform_layout;bool infile;
-    if(d->family==KUI_VMU_NATIVE_FAMILY_EARLY_P2_V1 &&
-       !kui_vmu_native_early_p2_calls_valid(image,n,d,chosen.initializer_call-26u,chosen.initializer_call)) return false;
+    if(d->family==KUI_VMU_NATIVE_FAMILY_EARLY_P2_V1) {
+        /* The root finder always checks at least eight bytes before the
+         * call. A prior JSR/NOP selects the later startup variant for full
+         * replay; this delay slot alone does not establish either role. */
+        size_t call=chosen.initializer_call-d->load_address;
+        if(call<8u || call>=n) return false;
+        uint32_t distance=u16((const uint8_t *)image+call-8u)==0x0009u?44u:26u;
+        if(!kui_vmu_native_early_p2_calls_valid(image,n,d,
+               chosen.initializer_call-distance,chosen.initializer_call)) return false;
+    }
     if(!source_buffers(image,n,d,&chosen,&infile)) return false;
     chosen.version=infile?KUI_VMU_NATIVE_LAYOUT_INFILE_VERSION:KUI_VMU_NATIVE_LAYOUT_VERSION;
     *out=chosen;return true;
