@@ -33,6 +33,15 @@ SDK allocator wrapper that jumps to the allocator using its caller's
 return address. Its fixed capability record tells the GUI whether the
 installed module can replay that proof, including on cached launches.
 
+The updated Test 83 survey can also recognize the early SDK controller
+initialization and firmware exit used by US MDK2. The GUI checks the installed
+reader's SDK capability before using this mapping, on both first and repeat
+launches. Restoring the earlier reader on the same card selects the standalone
+gameplay path again. During a survey, physical controller A can request the
+report while an accessory shares the transfer. Hold both triggers and A+B+X+Y
+until the report pages appear. The result is complete when the pages show
+`REPORT SAVED TO SD`.
+
 Older readers keep their own limits. Windows CE and dedicated CD music
 readers have their own map formats or limits. A GUI update alone does not
 enlarge an installed reader. Install the matching GUI and compact reader

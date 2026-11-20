@@ -1671,7 +1671,7 @@ static bool prepare_launch(const char *path,uint32_t reader,const struct kui_gam
         problem="cancelled during native executable mapping";goto done;
     }
     if(cache==NATIVE_CACHE_READER_TOO_OLD && (emulation_enabled || !standalone_candidate)) {
-        problem="Install the updated Background reader for this game's SDK allocator";goto done;
+        problem="Install the updated Background reader for this game's SDK";goto done;
     }
     if(cache==NATIVE_CACHE_POOL_OVERLAP) {
         if(emulation_enabled || reader!=KUI_RETAIL_READER_ASYNC) {
