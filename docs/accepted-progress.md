@@ -100,7 +100,13 @@ the GUI the Test 83 runs used) admits both delivered modules in the GUI's
 seven production WinCE cases on FAT32 and exFAT (`tests/test_wce_probe_admission.py`
 built from that line's source); its WinCE launches are not console-tested.
 
-## WinCE PVR stream test: console test pending, a660354d804c, 2026-11-20
+## WinCE PVR stream test: both games pass on the console, a660354d804c, 2026-11-20
+
+The owner's result: "the video memory fix worked for both of the games" (KISS
+Psycho Circus (US) and Virtua Cop 2 (JPN), CD music Off). No launch report was
+sent, so the GUI and the module's payload CRC as launched are not confirmed by
+the console. The CD-music modules keep the refusal; whether the change can take
+them still needs their resident space audited.
 
 One behaviour change to the generic `ce-boot.kui` against the installed
 `7b216f2e1136`: DMA stream pieces into PVR video memory, which stopped KISS

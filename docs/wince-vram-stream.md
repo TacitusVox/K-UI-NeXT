@@ -1,9 +1,11 @@
 # WinCE stream transfers into video memory (generic `ce-boot.kui`, 20 Nov 2026)
 
-**Status: host-tested and linked, not console-tested.** One behaviour change
-to the generic Windows CE module, `KUI/apps/games/ce-boot.kui`, against the
-installed `7b216f2e1136` (payload CRC `04D83892`). The CD-music and Armada
-modules are unchanged.
+**Status: passed the owner's console test on 20 Nov 2026** ("the video memory
+fix worked for both of the games": KISS Psycho Circus and Virtua Cop 2, CD music
+Off; no launch report, so the GUI and payload CRC as launched are the owner's
+word, not a record). One behaviour change to the generic Windows CE module,
+`KUI/apps/games/ce-boot.kui`, against the installed `7b216f2e1136` (payload CRC
+`04D83892`). The CD-music and Armada modules are unchanged.
 
 Test build: `a660354d804c` (commits `deb8319d` and its correction
 `a660354d`), 85,236 bytes, payload CRC `9CF2A176`, SHA-256

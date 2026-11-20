@@ -49,7 +49,7 @@ scope; it adds the order and the prerequisites.
 |---|---|---|---|---|
 | B0 | Boot evidence on the generic reader for CD-driver lines 1, 3, 5 and 6, which have no generic-route result. | D1, D2 | lines 1, 3, 5, 6 (scope step 0) | done in session 1: every line reached a running game (line 3's KISS then stopped, B3) |
 | B1 | Reader fix for any refused command the data shows a game issuing (command 26 open tray is the known one; a refused command stops the reader). | D2 | per finding | none seen in session 1 |
-| B3 | DMA stream pieces into PVR video memory ([record](wince-vram-stream.md)): KISS Psycho Circus and Virtua Cop 2 stopped on them. Generic module only; the CD music modules follow after its console test and a space audit. Test build `a660354d804c` delivered 20 Nov 2026. | D2 | KISS, Virtua Cop 2 (CD music Off) | KISS and Virtua Cop 2 against session 1 |
+| B3 | DMA stream pieces into PVR video memory ([record](wince-vram-stream.md)): KISS Psycho Circus and Virtua Cop 2 stopped on them. Generic module only; the CD music modules follow after its console test and a space audit. Test build `a660354d804c` delivered 20 Nov 2026. | D2 | KISS, Virtua Cop 2 (CD music Off) | passed 20 Nov 2026: both get past where they stopped (owner) |
 
 ## Virtual VMU (one family or helper per step)
 
