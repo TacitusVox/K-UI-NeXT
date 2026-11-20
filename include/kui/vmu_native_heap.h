@@ -38,6 +38,22 @@ bool kui_vmu_native_heap_metadata_valid(const struct kui_vmu_native_heap *);
 enum kui_vmu_native_heap_result kui_vmu_native_heap_discover(
     const void *,size_t,uint32_t,struct kui_vmu_native_heap *);
 struct kui_vmu_native_heap_call {uint32_t load,call,return_pr,entry_begin,entry_bytes;};
+/* Only the paired compact stages publish support for the tail-call ABI.
+ * Other on-console profiles continue to build with their original decoder. */
+#if !KUI_ON_CONSOLE || KUI_GUI_DIGEST_REUSE || (KUI_NATIVE_BACKGROUND_COMPACT && KUI_NATIVE_DUAL_READERS && !KUI_NATIVE_SESSION_CONTROLS)
+#define KUI_NATIVE_TAIL_HEAP_PROOF 1
+#else
+#define KUI_NATIVE_TAIL_HEAP_PROOF 0
+#endif
+/* A direct JSR sits within 16 bytes after its pointer load. For the proved
+ * tail wrapper, call identifies the caller's BSR that actually supplies PR,
+ * outside that interval. Fixed/arena plans have their own representation. */
+static inline bool kui_vmu_native_heap_call_is_tail(const struct kui_vmu_native_heap *heap,
+    const struct kui_vmu_native_heap_call *call) {
+    return KUI_NATIVE_TAIL_HEAP_PROOF && heap->family!=KUI_VMU_NATIVE_HEAP_ARENA && heap->initializer_slot &&
+        call->load && call->call &&
+        (call->call<=call->load || call->call-call->load>16u);
+}
 /* Resolve a bounded immutable argument path, including a forward conditional
  * guard only when TST operands prove its decision before the selected target
  * load. The selected pointer load must execute and remain untransformed until
