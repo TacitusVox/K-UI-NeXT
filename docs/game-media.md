@@ -8,9 +8,9 @@ Change **Scan for** to scan all of `/Games`. **Box art** and **Manuals** start o
 | --- | --- |
 | Box covers | K-UI matches the disc's product number and region. For 329 catalogued releases the console can request a small JPEG directly from Internet Archive. The Libretro catalogue supplies the full-size fallback and covers 1,104 releases. Downloaded box art can replace an automatic disc icon. A manually assigned or loose custom cover keeps priority. |
 | Manuals | Internet Archive page scans are assembled one page at a time into a book the console can open. Where only a Digital Press PDF is available, K-UI saves the original and reports it as PDF-only. |
-| Gameplay previews | Internet Archive Dreamcast video snaps. K-UI decodes the source on the Dreamcast and stores up to ten seconds of silent 160 × 120 video at ten frames per second. Available previews and manuals depend on the matched release. |
+| Gameplay previews | Internet Archive Dreamcast video snaps. K-UI decodes the source on the Dreamcast and stores up to ten seconds of 160 × 120 video at ten frames per second, with 16 kHz mono audio when available. Available previews and manuals depend on the matched release. |
 
-The compiled media catalogue associates 382 different page sets and 279 distinct previews with matching releases. The providers are built into this version. ScreenScraper is not one of the on-console sources. [Cover catalogue and attribution](internet-covers.md) · [Manual and preview sources](internet-manuals-previews.md)
+The compiled media catalogue associates 384 different page sets and 281 distinct previews with matching releases. The providers are built into this version. ScreenScraper is not one of the on-console sources. [Cover catalogue and attribution](internet-covers.md) · [Manual and preview sources](internet-manuals-previews.md)
 
 ## Choose the connection
 
@@ -33,7 +33,7 @@ Each downloaded box is stored once in `KUI/covers/downloads/` at the three sizes
 
 For the U.S. Crazy Taxi cover, the source-hosted JPEG is 192 × 190 pixels and transfers 23,900 bytes. The Libretro fallback PNG is 512 × 510 pixels and transfers 490,502 bytes. K-UI runs at 640 × 480 and fits the cover to its Games tile. Even a 4K baseline JPEG or non-interlaced PNG can be converted on the console. The scan streams the original to the card and removes it after installing the thumbnails. On FAT32 and exFAT test images, an 11,467,965-byte PNG used 229,328 bytes of additional scan heap and a 6,117,673-byte JPEG used 484,304 bytes. Each installed cover occupied 79,632 bytes. Network and TLS buffers are additional.
 
-Manual pages download individually. A complete ten-second preview occupies 3,840,016 bytes on the card. Browsing reads no movie frames before the three-second delay. During playback two frames take 76,800 bytes of RAM. The decoder also uses temporary storage for the compressed source. In the U.S. Crazy Taxi test, the first 1,754,567 bytes of a 5,562,116-byte source produced the same 100 frames as downloading the full video. Other titles depend on their frame rate, compression and Ogg page layout. Dial-up can take several minutes for a preview. The console reports transfer and conversion progress.
+Manual pages download individually. A ten-second preview occupies 4,160,016 bytes with audio or 3,840,016 bytes when silent. Browsing reads no movie frames before the three-second delay. During playback two frames take 76,800 bytes of RAM. The decoder also uses temporary storage for the compressed source. In the U.S. Crazy Taxi test, the first 1,754,567 bytes of a 5,562,116-byte source produced the same 100 frames as downloading the full video. Other titles depend on their frame rate, compression and Ogg page layout. Dial-up can take several minutes for a preview. The console reports transfer and conversion progress.
 
 ## First console test
 
