@@ -4,6 +4,7 @@
 # The Standard paced 72 KiB module remains independently linked.
 BUILD ?= build/native-background-compact
 include Makefile.vmu-native-split-controller-stream-guard
+$(BUILD)/entry_asm.o: include/kui/native_heap_capability.h
 FLAGS += -DKUI_NATIVE_BACKGROUND_COMPACT=1
 NATIVE_FLAGS += -DKUI_NATIVE_BACKGROUND_COMPACT=1
 # The legacy flag filter deliberately removes New-engine KUI_NATIVE flags.

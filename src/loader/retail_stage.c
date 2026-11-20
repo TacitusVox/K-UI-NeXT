@@ -1433,6 +1433,9 @@ void kui_retail_stage_main(const uint8_t *wire) {
     if(!kui_native_standalone_launch_prepare(&manifest))
         stopped("NEW STANDALONE NEEDS SCI AND NEW READER",manifest.reader);
     retail_display_line("NEW STANDALONE DEMAND READER");
+#if KUI_NATIVE_STANDALONE_MAP128
+    retail_display_line("SURVEY OFF / STANDALONE READER");
+#endif
     retail_display_line("NO VIRTUAL VMU / NO GAME RAM RESERVATION");
 #elif KUI_NATIVE_STANDALONE_READER
     if(!kui_native_standalone_launch_prepare(&manifest))

@@ -24,7 +24,9 @@ static void refused(struct kui_retail_manifest m) {
 }
 static void launch_checks(void) {
     CHECK(!kui_native_standalone_launch_prepare(NULL));
-    for(unsigned tracks=1;tracks<64;tracks++)for(unsigned extents=1;extents<=64-tracks;extents++) {
+    const unsigned slots=KUI_RETAIL_ASYNC_SLOTS;
+    for(unsigned tracks=1;tracks<=KUI_RETAIL_IMAGE_TRACKS && tracks<slots;tracks++)
+    for(unsigned extents=1;extents<=slots-tracks;extents++) {
         struct kui_retail_manifest m=valid(),before;m.track_count=tracks;m.extent_count=extents;
         m.flags=(tracks&1u)?KUI_RETAIL_IMAGE_BOOT_CRC:0;before=m;
         CHECK(kui_native_standalone_launch_prepare(&m));CHECK(!memcmp(&m,&before,sizeof(m)));
@@ -40,7 +42,13 @@ static void launch_checks(void) {
     for(unsigned id=0;id<8;id++)if(id!=KUI_RETAIL_READER_ASYNC){m=valid();m.reader=id;refused(m);}
     for(unsigned bit=0;bit<32;bit++)if((1u<<bit)!=KUI_RETAIL_IMAGE_BOOT_CRC){m=valid();m.flags=1u<<bit;refused(m);}
     m=valid();m.track_count=0;refused(m);m=valid();m.extent_count=0;refused(m);
-    m=valid();m.track_count=64;refused(m);m=valid();m.extent_count=62;refused(m);
+    m=valid();m.track_count=slots;refused(m);
+    m=valid();m.track_count=KUI_RETAIL_IMAGE_TRACKS+1u;refused(m);
+    m=valid();m.extent_count=slots-m.track_count+1u;refused(m);
+    /* The card that motivated the extension has three mapped data tracks
+     * split into 28, 6 and 5 physically disjoint runs. */
+    m=valid();m.track_count=31u;m.extent_count=28u+6u+5u;
+    CHECK(kui_native_standalone_launch_prepare(&m)==(slots>=70u));
 }
 static void put(uint8_t *p,uint32_t value) {for(unsigned i=0;i<4;i++)p[i]=(uint8_t)(value>>(8u*i));}
 static void capability(uint8_t *p) {

@@ -77,6 +77,15 @@
 #define KUI_RETAIL_LOW_ASYNC_LIMIT 0x8c007e20
 #define KUI_RETAIL_LOW_HOOK_STACK 0x8c007f80
 #endif
+#if KUI_NATIVE_STANDALONE_MAP128
+/* The no-lease demand reader fits its 128-slot map and its complete 352-byte
+ * service stack below IP.BIN. The returned bootstrap frame is checked above
+ * this interval. The game and the retained buffer each keep their own RAM. */
+#undef KUI_RETAIL_LOW_ASYNC_LIMIT
+#undef KUI_RETAIL_LOW_HOOK_STACK
+#define KUI_RETAIL_LOW_ASYNC_LIMIT 0x8c007ea0
+#define KUI_RETAIL_LOW_HOOK_STACK 0x8c008000
+#endif
 #if KUI_NATIVE_GD_VRAM_DMA
 /* The bounded PVR payload path consumes the remaining128 firmware bytes.
  * The352-byte guarded stack ends at, and never includes, IP.BIN's start. */

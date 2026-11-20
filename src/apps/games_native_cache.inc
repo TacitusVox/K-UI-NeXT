@@ -7,12 +7,14 @@
 #include "kui/vmu_native_resolution_cache.h"
 #include "kui/vmu_native_program.h"
 #include "kui/native_sdk_sci_family.h"
+#include "kui/native_heap_capability.h"
 #include "kui/hash.h"
 #include "kui/sha256_prefix.h"
 #include "kui/core.h"
 #include "kui/smash_launch_timing.h"
 
-enum native_cache_result {NATIVE_CACHE_SKIPPED,NATIVE_CACHE_READY,NATIVE_CACHE_CANCELLED,NATIVE_CACHE_POOL_OVERLAP};
+enum native_cache_result {NATIVE_CACHE_SKIPPED,NATIVE_CACHE_READY,NATIVE_CACHE_CANCELLED,
+    NATIVE_CACHE_POOL_OVERLAP,NATIVE_CACHE_READER_TOO_OLD};
 /* This reports only a completed source read, independently of whether an
  * optional SDK mapping can be built. It never grants cache/live ownership. */
 struct native_cache_source_proof {bool complete;uint32_t crc32;uint8_t sha256[32];};
@@ -242,6 +244,8 @@ static enum native_cache_result native_cache_prepare_repeat(const struct kui_gam
         }
         if(native_cache_cancelled(cancel)) {result=NATIVE_CACHE_CANCELLED;goto finished;}
         if(disk && (!dual || !kui_vmu_native_pool_overlaps_program(&work->resolution)) &&
+           (!kui_vmu_native_heap_call_is_tail(&work->resolution.heap,&work->resolution.call) ||
+            (dual && kui_native_heap_tail_supported(package->data,package->info.payload_bytes))) &&
            !native_cache_file_publish(path,work->wire,work->compare,cancel)) {
             if(native_cache_cancelled(cancel)) {result=NATIVE_CACHE_CANCELLED;goto finished;}
             if(log) log("Native VMU cache persistence unavailable; using the complete in-memory proof");
@@ -249,6 +253,16 @@ static enum native_cache_result native_cache_prepare_repeat(const struct kui_gam
     }
 admit:
     if(native_cache_cancelled(cancel)) {result=NATIVE_CACHE_CANCELLED;goto finished;}
+    /* A cached proof also passes here. An older detached reader cannot
+     * replay a tail wrapper, even when this GUI can prove the call. */
+    if(kui_vmu_native_heap_call_is_tail(&work->resolution.heap,&work->resolution.call) &&
+       (!dual || !kui_native_heap_tail_supported(package->data,package->info.payload_bytes))) {
+        if(dual) {
+            native_cache_standalone(boot,map,standalone);
+            result=NATIVE_CACHE_READER_TOO_OLD;
+        }
+        goto finished;
+    }
     /* A reviewed fixed arena (no initializer slot) borrows a startup call
      * that only the combined module's stage redirects. Other modules are
      * never seeded with one; their stage refuses the game as before. An

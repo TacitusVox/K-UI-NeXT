@@ -130,6 +130,25 @@ static enum native_cache_result prepare(bool dual) {
     else CHECK(!memcmp(module,before,128u) && !memcmp(module+1248u,before+1248u,sizeof(module)-1248u));
     return result;
 }
+static void tail_reader_capability(void) {
+    const uint8_t cap[16]={'K','U','I','H','A','P','0','1',1,0,0,0,1,0,0,0};
+    struct kui_vmu_native_resolution r;
+    setup();dual_module(0x47000u);mock(image,sizeof(image),&r);
+    r.call.load=r.heap.load+128u;
+    r.call.call=r.call.load-32u;
+    r.call.return_pr=r.call.call+4u;
+    CHECK(kui_vmu_native_heap_call_is_tail(&r.heap,&r.call));
+    CHECK(!native_cache_hint_admitted(&map,true,&package,&r));
+    memcpy(module+KUI_NATIVE_HEAP_CAP_OFFSET,cap,sizeof(cap));
+    CHECK(native_cache_hint_admitted(&map,true,&package,&r));
+    CHECK(!native_cache_hint_admitted(&map,false,&package,&r));
+    for(unsigned i=0;i<sizeof(cap);i++) {
+        module[KUI_NATIVE_HEAP_CAP_OFFSET+i]^=2u;
+        CHECK(!native_cache_hint_admitted(&map,true,&package,&r));
+        module[KUI_NATIVE_HEAP_CAP_OFFSET+i]^=2u;
+    }
+    CHECK(!kui_native_heap_tail_supported(module,KUI_NATIVE_HEAP_CAP_OFFSET+sizeof(cap)-1u));
+}
 static void overlapping_hint(void) {
     setup();dual_module(KUI_NATIVE_DUAL_COMPACT_LEASE_BYTES);
     struct kui_vmu_native_resolution r;mock(image,sizeof(image),&r);
@@ -393,7 +412,7 @@ static void actual_module_slot(const char *path) {
     free(original);free(envelope);
 }
 int main(int argc,char **argv) {
-    inspect_tests();overlapping_hint();selection_tests();module_tests();failure_tests();stale_hint_tests();indexed_hint_tests();prefix_candidate_tests();
+    inspect_tests();tail_reader_capability();overlapping_hint();selection_tests();module_tests();failure_tests();stale_hint_tests();indexed_hint_tests();prefix_candidate_tests();
     bool modules=argc>1 && !strcmp(argv[1],"--modules");
     if(modules) {CHECK(argc>2);for(int i=2;i<argc;i++)actual_module_slot(argv[i]);}
     else if(argc>1)actual_rediscovery(argv[1]);

@@ -1670,6 +1670,9 @@ static bool prepare_launch(const char *path,uint32_t reader,const struct kui_gam
     if(cache==NATIVE_CACHE_CANCELLED) {
         problem="cancelled during native executable mapping";goto done;
     }
+    if(cache==NATIVE_CACHE_READER_TOO_OLD && (emulation_enabled || !standalone_candidate)) {
+        problem="Install the updated Background reader for this game's SDK allocator";goto done;
+    }
     if(cache==NATIVE_CACHE_POOL_OVERLAP) {
         if(emulation_enabled || reader!=KUI_RETAIL_READER_ASYNC) {
             problem="SDK pool overlaps the game. Standalone New requires New (X) and Virtual VMU Off";goto done;
@@ -1692,6 +1695,9 @@ static bool prepare_launch(const char *path,uint32_t reader,const struct kui_gam
         }
         if(present!=FR_OK && cache==NATIVE_CACHE_POOL_OVERLAP) {
             problem="SDK pool overlaps the game. Install the standalone New reader for Virtual VMU Off";goto done;
+        }
+        if(present!=FR_OK && cache==NATIVE_CACHE_READER_TOO_OLD) {
+            problem="Install the updated Background or standalone New reader for this game";goto done;
         }
         if(present==FR_OK) {
             struct kui_runtime_image candidate={0};
@@ -1722,6 +1728,7 @@ static bool prepare_launch(const char *path,uint32_t reader,const struct kui_gam
             kui_runtime_free(package);*package=candidate;
             launch_package=KUI_GAMES_RETAIL_NATIVE_STANDALONE_PACKAGE;native_standalone=true;
             log("New reader: virtual-A2 module cannot admit this executable; using standalone New without virtual VMU");
+            log("Standalone New supports gameplay without recording a stream survey");
         }
     }
     /* A fresh cooked full proof already supplied its CRC in one source pass.

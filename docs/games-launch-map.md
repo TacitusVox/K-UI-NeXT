@@ -20,6 +20,19 @@ refused before handoff. The GUI reports the required total when it can count
 all the data pieces.
 
 The GUI checks the final selected module, including the standalone fallback.
+The updated standalone New reader advertises 128 entries in a separate
+low-memory layout. It can read a 31-track disc with 39 data extents using
+70 entries. When the combined reader's SDK memory pool would overlap the
+live executable, New with Virtual VMU Off can select this reader after
+checking that the executable supports its SCI callbacks.
+
+The standalone reader supports gameplay without a stream survey. The
+survey reader's `SURVEY ON` and `REPORT SAVED TO SD` messages identify a
+recorded Test 83 run. The new combined module can also prove a bounded
+SDK allocator wrapper that jumps to the allocator using its caller's
+return address. Its fixed capability record tells the GUI whether the
+installed module can replay that proof, including on cached launches.
+
 Older readers keep their own limits. Windows CE and dedicated CD music
 readers have their own map formats or limits. A GUI update alone does not
 enlarge an installed reader. Install the matching GUI and compact reader

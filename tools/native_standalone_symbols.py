@@ -29,7 +29,13 @@ if dma:
     assert symbols['__native_dma_region_bytes'][0]==0x640
 else:
     assert symbols['_standalone_reader_region'][1]==(0x660 if mmu else 0x6a0 if legacy else 0x760)
-assert symbols['__retail_resident_bss_end'][0]<=(0x8c007ea0 if vram else 0x8c007e20 if pio and transfer else 0x8c007dc0 if pio else 0x8c007ba0)
+map128=symbols.get('__kui_native_standalone_map_slots')==(128,0,0,0xfff1)
+if map128:
+    assert not any((legacy,mmu,dma,pio,vram))
+    assert symbols['_manifest'][1]==252+12*128
+    assert symbols['__retail_hook_stack_bottom'][0]==0x8c007ea0
+    assert symbols['__retail_hook_stack'][0]==0x8c008000
+assert symbols['__retail_resident_bss_end'][0]<=(0x8c007ea0 if vram or map128 else 0x8c007e20 if pio and transfer else 0x8c007dc0 if pio else 0x8c007ba0)
 lines=['/* Generated from the linked standalone resident. */']
 for name,symbol in roles.items():
     lines.append('#define KUI_STANDALONE_'+name+' UINT32_C(0x%08x)'%symbols[symbol][0])
