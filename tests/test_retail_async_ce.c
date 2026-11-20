@@ -129,7 +129,8 @@ static void fixture(unsigned take_max) {
 /* PVR memory's 64-bit view, as the resident maps a DMA stream's piece there
  * (retail_resident.c map_guest): its uncached P2 address, also from the
  * interrupt. */
-static uint8_t pvr[0x800000], big[257u * 2048u];
+/* PVR memory's 64-bit and 32-bit views (0x04000000 and 0x05000000). */
+static uint8_t pvr[0x800000], pvr32[0x800000], big[257u * 2048u];
 #endif
 static uint8_t *map(void *unused, uint32_t address, uint32_t bytes, int writing) {
     (void)unused;
@@ -137,12 +138,13 @@ static uint8_t *map(void *unused, uint32_t address, uint32_t bytes, int writing)
     if((address >> 29) - 4u < 2u && (address & 0xff000000u) != 0x8c000000u &&
        (address & 0xff000000u) != 0xac000000u) {
         uint32_t p2 = kui_retail_vram_dma_span(address, bytes);
-        CHECK(p2 && (p2 & 0xff000000u) == 0xa4000000u);
-        if(writing == KUI_RETAIL_MAP_VALIDATE) return pvr + sizeof(pvr);
+        CHECK(p2 && (p2 & 0xfe000000u) == 0xa4000000u);
+        uint8_t *view = p2 & 0x01000000u ? pvr32 : pvr;
+        if(writing == KUI_RETAIL_MAP_VALIDATE) return view + sizeof(pvr);
         CHECK(!hw.frozen && writing == 1);
         ++hw.pvr_writes;
         if(hw.in_irq) ++hw.pvr_irq_writes;
-        return pvr + (p2 & 0x007fffffu);
+        return view + (p2 & 0x007fffffu);
     }
 #endif
     if(address < VBASE + VBYTES && address >= VBASE) {
@@ -516,14 +518,17 @@ static void test_dma_stream_pieces(void) {
 /* KISS Psycho Circus's and Virtua Cop 2's pieces (WCEDATA session, 19 Nov
  * 2026): 32 bytes of RAM, the locked buffer's body in PVR memory, then
  * 2016 bytes of RAM, through the background reader and its interrupt, as
- * CE's driver waits for them. */
+ * CE's driver waits for them; and KISS's shape in the 32-bit view, which the
+ * reader's P1 alias of the piece must keep. */
 static void test_vram_stream_pieces(void) {
     static const struct { uint32_t sectors, vram, body; } shapes[] = {
-        {10, 0x044c0360u, 0x4800u}, {257, 0x04575600u, 0x80000u}};
-    for(unsigned k = 0; k < 2; ++k) {
+        {10, 0x044c0360u, 0x4800u}, {257, 0x04575600u, 0x80000u}, {10, 0x054c0360u, 0x4800u}};
+    for(unsigned k = 0; k < 3; ++k) {
         setup(48, true);
         mode(2048);
-        memset(pvr, 0x3c, sizeof(pvr));
+        memset(pvr, 0x3c, sizeof(pvr)); memset(pvr32, 0x3c, sizeof(pvr32));
+        uint8_t *view = shapes[k].vram & 0x01000000u ? pvr32 : pvr;
+        const uint8_t *other = view == pvr ? pvr32 : pvr;
         const uint32_t total = shapes[k].sectors * 2048u, body = shapes[k].body;
         const uint32_t offset = shapes[k].vram & 0x007fffffu;
         CHECK(0x20u + body + 0x7e0u == total);
@@ -554,8 +559,10 @@ static void test_vram_stream_pieces(void) {
         }
         CHECK(status(token) == KUI_GD_COMPLETED && get(STATUS + 8) == total);
         CHECK(!memcmp(ram + OUTPUT - BEGIN, big, 0x20u) && ram[OUTPUT - BEGIN + 0x20u] == 0xa5);
-        CHECK(!memcmp(pvr + offset, big + 0x20u, body));
-        CHECK(pvr[offset - 1u] == 0x3c && pvr[offset + body] == 0x3c);
+        CHECK(!memcmp(view + offset, big + 0x20u, body));
+        CHECK(view[offset - 1u] == 0x3c && view[offset + body] == 0x3c);
+        for(uint32_t i = 0; i < sizeof(pvr); i += 4093u) CHECK(other[i] == 0x3c);
+        CHECK(other[offset] == 0x3c && other[offset + body - 1u] == 0x3c);
         CHECK(!memcmp(ram + OUTPUT + 0x40u - BEGIN, big + 0x20u + body, 0x7e0u));
         CHECK(ram[OUTPUT - BEGIN + 0x40u + 0x7e0u] == 0xa5);
         CHECK(hw.pvr_irq_writes && hw.pvr_writes >= hw.pvr_irq_writes && !hw.virtual_writes);
