@@ -130,6 +130,13 @@ static enum native_cache_result prepare(bool dual) {
     else CHECK(!memcmp(module,before,128u) && !memcmp(module+1248u,before+1248u,sizeof(module)-1248u));
     return result;
 }
+static void overlapping_hint(void) {
+    setup();dual_module(KUI_NATIVE_DUAL_COMPACT_LEASE_BYTES);
+    struct kui_vmu_native_resolution r;mock(image,sizeof(image),&r);
+    r.call.entry_begin=0xac010000u+sizeof(image)-32u;r.call.entry_bytes=0x100000u;
+    add(&r,'a');CHECK(prepare(true)==NATIVE_CACHE_SKIPPED);
+    CHECK(!io.publishes && !memcmp(module,before,sizeof(module)));
+}
 static void inspect_tests(void) {
     setup();add_regular('a');struct kui_vmu_native_resolution out,expected;
     mock(image,sizeof(image),&expected);memset(&out,0xa5,sizeof(out));
@@ -386,7 +393,7 @@ static void actual_module_slot(const char *path) {
     free(original);free(envelope);
 }
 int main(int argc,char **argv) {
-    inspect_tests();selection_tests();module_tests();failure_tests();stale_hint_tests();indexed_hint_tests();prefix_candidate_tests();
+    inspect_tests();overlapping_hint();selection_tests();module_tests();failure_tests();stale_hint_tests();indexed_hint_tests();prefix_candidate_tests();
     bool modules=argc>1 && !strcmp(argv[1],"--modules");
     if(modules) {CHECK(argc>2);for(int i=2;i<argc;i++)actual_module_slot(argv[i]);}
     else if(argc>1)actual_rediscovery(argv[1]);

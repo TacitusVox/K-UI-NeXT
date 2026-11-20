@@ -12,7 +12,7 @@
 #include "kui/core.h"
 #include "kui/smash_launch_timing.h"
 
-enum native_cache_result {NATIVE_CACHE_SKIPPED,NATIVE_CACHE_READY,NATIVE_CACHE_CANCELLED};
+enum native_cache_result {NATIVE_CACHE_SKIPPED,NATIVE_CACHE_READY,NATIVE_CACHE_CANCELLED,NATIVE_CACHE_POOL_OVERLAP};
 /* This reports only a completed source read, independently of whether an
  * optional SDK mapping can be built. It never grants cache/live ownership. */
 struct native_cache_source_proof {bool complete;uint32_t crc32;uint8_t sha256[32];};
@@ -241,7 +241,8 @@ static enum native_cache_result native_cache_prepare_repeat(const struct kui_gam
             goto finished;
         }
         if(native_cache_cancelled(cancel)) {result=NATIVE_CACHE_CANCELLED;goto finished;}
-        if(disk && !native_cache_file_publish(path,work->wire,work->compare,cancel)) {
+        if(disk && (!dual || !kui_vmu_native_pool_overlaps_program(&work->resolution)) &&
+           !native_cache_file_publish(path,work->wire,work->compare,cancel)) {
             if(native_cache_cancelled(cancel)) {result=NATIVE_CACHE_CANCELLED;goto finished;}
             if(log) log("Native VMU cache persistence unavailable; using the complete in-memory proof");
         }
@@ -255,6 +256,12 @@ admit:
      * call and is the whole lease: only a combined module whose own lease is
      * exactly that arena installs it; otherwise New may use the reader-only
      * module, as for an executable without any proof. */
+    if(dual && kui_vmu_native_pool_overlaps_program(&work->resolution)) {
+        if(log)log("Native reader: the SDK pool overlaps the live executable; the combined reader cannot reserve its lease");
+        native_cache_standalone(boot,map,standalone);
+        result=NATIVE_CACHE_POOL_OVERLAP;
+        goto finished;
+    }
     const bool arena=work->resolution.heap.family==KUI_VMU_NATIVE_HEAP_ARENA;
     if(!dual && (arena || !work->resolution.heap.initializer_slot)) {
         if(log) log(arena?"Native VMU mapping: this executable's RAM arena needs the compact Background module":

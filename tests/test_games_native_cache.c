@@ -28,6 +28,7 @@ static struct {
     unsigned fail,cancel_when;bool cancelled;
     const uint8_t *runtime_boot;size_t runtime_bytes,source_sha_bytes;
     size_t forced_program_bytes;
+    uint32_t forced_pool;
     unsigned source_sha_calls,extent_calls,vmu_path_lookups;
     bool authored_resolution;
 } io;
@@ -139,6 +140,10 @@ static bool fixture_build_prefixed(const void *image,size_t bytes,uint32_t addre
     ++io.builds;
     if(io.authored_resolution) {
         mock(image,bytes,out);
+        if(io.forced_pool) {
+            out->call.entry_begin=io.forced_pool;
+            out->call.entry_bytes=0x100000u;
+        }
         return kui_vmu_native_resolution_cache_encode(out,wire,wire_bytes);
     }
     return kui_vmu_native_resolution_cache_build_prefixed(image,bytes,address,wire,wire_bytes,out,marks);
@@ -395,6 +400,31 @@ static void actual_arena_frontend(uint8_t *boot,size_t bytes) {
         }
     free(boot);
 }
+/* Ready 2 Rumble's SDK pool begins 8 KiB inside the verified program.
+ * The same placement decision applies to physical, P1 and P2 addresses.
+ * Only the verified prefix stays live; overlap with a reclaimed tail is OK. */
+static void pool_placement_tests(void) {
+    uint8_t boot[0x9000]={0};
+    const uint32_t live=0x8000u;
+    const uint32_t aliases[]={0x0c010000u,0x8c010000u,0xac010000u};
+    const struct kui_native_dual_capability cap={KUI_NATIVE_DUAL_MAGIC0,KUI_NATIVE_DUAL_MAGIC1,
+        1u,KUI_NATIVE_DUAL_CAPABILITY_BYTES,KUI_RETAIL_READER_ASYNC,KUI_RETAIL_READER_ASYNC_EAGER,
+        KUI_NATIVE_DUAL_COMPACT_LEASE_BYTES,0u};
+    for(unsigned i=0;i<sizeof(aliases)/sizeof(aliases[0]);++i) {
+        for(unsigned overlap=0u;overlap<2u;++overlap) {
+            setup(boot,sizeof(boot));allow_persistent_cache=false;
+            map.reader=KUI_RETAIL_READER_ASYNC;
+            memcpy(module+3072u,&cap,sizeof(cap));memcpy(before,module,sizeof(module));
+            io.forced_program_bytes=live;io.forced_pool=aliases[i]+live-(overlap?8192u:0u);
+            io.authored_resolution=true;
+            CHECK(prepare(true,map.reader,false,"/Games/Placement")==
+                (overlap?NATIVE_CACHE_POOL_OVERLAP:NATIVE_CACHE_READY));
+            CHECK(io.reads==1u && io.builds==1u && !io.writes && !io.vmu_path_lookups);
+            if(overlap)CHECK(!memcmp(before,module,sizeof(module)));
+        }
+    }
+    puts("PASS native pool placement: 8 KiB live overlap refuses every RAM alias; adjacent pool in reclaimed tail admits; single source read");
+}
 /* Exercise a new launch with the disk left intact but fresh package and RAM.
  * Both the source proof returned to the GUI and the seed validated by the
  * detached reader must still describe the original bytes after any cache hit. */
@@ -607,7 +637,7 @@ static void advisory_alias_publication_faults(void) {
 }
 int KUI_GAMES_NATIVE_CACHE_TEST_MAIN(int argc,char **argv) {
     CHECK(argc>=1 && argc<=4);codec_and_trust_tests();gates_and_hits();dual_gates_and_hits();
-    fixed_arena_needs_dual();arena_needs_compact_dual();
+    fixed_arena_needs_dual();arena_needs_compact_dual();pool_placement_tests();
     advisory_alias_publication_faults();
     uint8_t authored[1024];
     for(unsigned i=0;i<sizeof(authored);i++)authored[i]=(uint8_t)(i*17u+1u);

@@ -17,6 +17,19 @@ struct kui_vmu_native_resolution {
     struct kui_vmu_native_heap_call call;
     struct kui_vmu_native_exit exits;
 };
+/* Both bottom and tail leases require the whole pool to be outside the
+ * live program. The GUI can disprove placement from these immutable fields
+ * before handing control to the stage. Disjoint spans alone grant no lease. */
+static inline bool kui_vmu_native_pool_overlaps_program(const struct kui_vmu_native_resolution *r) {
+    const uint32_t physical=UINT32_C(0x1fffffff);
+    uint32_t program=r->driver.load_address&physical,pool=r->call.entry_begin&physical;
+    uint32_t alias=r->call.entry_begin&~physical;
+    if((alias!=0u && alias!=UINT32_C(0x80000000) && alias!=UINT32_C(0xa0000000)) ||
+       pool<UINT32_C(0x0c000000) || pool>=UINT32_C(0x0d000000) ||
+       !r->call.entry_bytes || r->call.entry_bytes>UINT32_C(0x0d000000)-pool ||
+       !r->driver.image_bytes)return false;
+    return pool>=program?pool-program<r->driver.image_bytes:program-pool<r->call.entry_bytes;
+}
 /* Complete fresh immutable-image discovery, uniqueness and six-window proof.
  * For an executable without an SDK allocator, a reviewed arena plan for that
  * exact image replaces the allocator proof, and the submit window alone

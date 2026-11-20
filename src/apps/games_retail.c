@@ -1670,6 +1670,14 @@ static bool prepare_launch(const char *path,uint32_t reader,const struct kui_gam
     if(cache==NATIVE_CACHE_CANCELLED) {
         problem="cancelled during native executable mapping";goto done;
     }
+    if(cache==NATIVE_CACHE_POOL_OVERLAP) {
+        if(emulation_enabled || reader!=KUI_RETAIL_READER_ASYNC) {
+            problem="SDK pool overlaps the game. Standalone New requires New (X) and Virtual VMU Off";goto done;
+        }
+        if(!standalone_candidate) {
+            problem="SDK pool overlaps the game and the standalone New reader cannot admit this executable";goto done;
+        }
+    }
     /* New only: the combined module would refuse this executable, which has
      * the SDK SCI family. An installed reader-only module runs it instead;
      * without one the combined module reports its refusal as before. */
@@ -1681,6 +1689,9 @@ static bool prepare_launch(const char *path,uint32_t reader,const struct kui_gam
             resolved,sizeof(resolved))?f_stat(resolved,&optional):FR_INVALID_NAME;
         if(present!=FR_OK && present!=FR_NO_FILE && present!=FR_NO_PATH) {
             problem="cannot inspect the standalone New module; launch refused";goto done;
+        }
+        if(present!=FR_OK && cache==NATIVE_CACHE_POOL_OVERLAP) {
+            problem="SDK pool overlaps the game. Install the standalone New reader for Virtual VMU Off";goto done;
         }
         if(present==FR_OK) {
             struct kui_runtime_image candidate={0};
