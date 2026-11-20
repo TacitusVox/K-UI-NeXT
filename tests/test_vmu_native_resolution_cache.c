@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: GPL-3.0-only */
 #include "kui/vmu_native_resolution_cache.h"
 #include "kui/vmu_native_program.h"
+#include "kui/sha256_prefix.h"
 #include "kui/hash.h"
 #include <stdio.h>
 #include <stdlib.h>
@@ -395,12 +396,42 @@ static void codec_and_trust_tests(void) {
     arena_record(&source);source.heap.image_bytes+=4u;CHECK(!kui_vmu_native_resolution_cache_encode(&source,wire,sizeof(wire)));
     arena_record(&source);source.heap.family=3u;CHECK(!kui_vmu_native_resolution_cache_encode(&source,wire,sizeof(wire)));
 }
+/* Run fresh discovery with and without source checkpoints and compare its
+ * entire public record. Exercise the full digest and the reclaimed prefix. */
+static void prefixed_actual(const uint8_t *image,size_t source_bytes,size_t program_bytes,
+    const uint8_t expected_wire[1024],const struct kui_vmu_native_resolution *expected) {
+    struct kui_sha256_prefix marks={0};
+    struct kui_vmu_native_resolution out;
+    uint8_t wire[1024],whole[32];
+    kui_sha256_prefix_hash(&marks,image,source_bytes,whole);
+    CHECK(kui_vmu_native_resolution_cache_build_prefixed(image,program_bytes,load,wire,sizeof(wire),&out,&marks));
+    CHECK(!memcmp(wire,expected_wire,sizeof(wire)) && !memcmp(&out,expected,sizeof(out)));
+    if(program_bytes<source_bytes) {
+        free(marks.marks);marks.marks=NULL;marks.count=0;
+        CHECK(kui_vmu_native_resolution_cache_build_prefixed(image,program_bytes,load,wire,sizeof(wire),&out,&marks));
+        CHECK(!memcmp(wire,expected_wire,sizeof(wire)) && !memcmp(&out,expected,sizeof(out)));
+    }
+    kui_sha256_prefix_hash(&marks,image,program_bytes,whole);
+    CHECK(kui_vmu_native_resolution_cache_build_prefixed(image,program_bytes,load,wire,sizeof(wire),&out,&marks));
+    CHECK(!memcmp(wire,expected_wire,sizeof(wire)) && !memcmp(&out,expected,sizeof(out)));
+    CHECK(!kui_vmu_native_resolution_cache_build_prefixed(image+2,program_bytes-2,load,wire,sizeof(wire),&out,&marks));
+    CHECK(!kui_vmu_native_resolution_cache_build_prefixed(image,program_bytes+1,load,wire,sizeof(wire),&out,&marks));
+    CHECK(!kui_vmu_native_resolution_cache_build_prefixed(image,program_bytes,load+1,wire,sizeof(wire),&out,&marks));
+    CHECK(!kui_vmu_native_resolution_cache_build_prefixed(image,program_bytes,load,wire,sizeof(wire),&out,NULL));
+    CHECK(!kui_vmu_native_resolution_cache_build_prefixed(image,program_bytes,load,(void *)image,sizeof(wire),&out,&marks));
+    CHECK(!kui_vmu_native_resolution_cache_build_prefixed(image,program_bytes,load,&marks,sizeof(wire),&out,&marks));
+    if(marks.marks)
+        CHECK(!kui_vmu_native_resolution_cache_build_prefixed(image,program_bytes,load,marks.marks,sizeof(wire),&out,&marks));
+    CHECK(!memcmp(wire,expected_wire,sizeof(wire)) && !memcmp(&out,expected,sizeof(out)));
+    kui_sha256_prefix_free(&marks);
+}
 static void actual_tests(const char *path) {
     FILE *f=fopen(path,"rb");CHECK(f);CHECK(!fseek(f,0,SEEK_END));long length=ftell(f);CHECK(length>0 && length<=0xc00000);rewind(f);
     size_t n=(size_t)length;uint8_t *image=malloc(n),*original=malloc(n);CHECK(image && original);
     CHECK(fread(image,1,n,f)==n);CHECK(!fclose(f));memcpy(original,image,n);
     struct kui_vmu_native_resolution fresh,out;uint8_t wire[1024],second[1024],pin[32];
     CHECK(kui_vmu_native_resolution_cache_build(image,n,load,wire,sizeof(wire),&fresh));
+    prefixed_actual(image,n,n,wire,&fresh);
     CHECK(kui_vmu_native_resolution_cache_record_digest(wire,sizeof(wire),pin));
     CHECK(kui_vmu_native_resolution_cache_build(image,n,load,second,sizeof(second),NULL));CHECK(!memcmp(wire,second,sizeof(wire)));
     CHECK(replay(image,n,load,wire,sizeof(wire),pin,&out));CHECK(!memcmp(&fresh,&out,sizeof(out)));
@@ -467,6 +498,7 @@ static void generic_actual_tests(const char *path) {
     digest(image,program_bytes,program_hash);
     CHECK(kui_vmu_native_resolution_cache_build(image,program_bytes,load,wire,sizeof(wire),&fresh));
     CHECK(fresh.driver.image_bytes==program_bytes && !memcmp(fresh.driver.image_sha256,program_hash,32u));
+    prefixed_actual(image,n,program_bytes,wire,&fresh);
     CHECK(get32(wire+24u)==program_bytes && !memcmp(wire+32u,program_hash,32u));
     CHECK(kui_vmu_native_resolution_cache_record_digest(wire,sizeof(wire),pin));
     CHECK(replay(image,program_bytes,load,wire,sizeof(wire),pin,&out));CHECK(!memcmp(&fresh,&out,sizeof(fresh)));

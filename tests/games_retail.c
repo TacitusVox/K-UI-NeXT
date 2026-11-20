@@ -73,8 +73,9 @@ static const char *const dual_a1_package = KUI_GAMES_RETAIL_NATIVE_DUAL_A1_PACKA
 static bool native_dual_a1_case(void) {return native_dual_case() && strstr(test.fault,"-a1");}
 static const char *const standalone_package = KUI_GAMES_RETAIL_NATIVE_STANDALONE_PACKAGE;
 static bool native_standalone_case(void) {return native_dual_case() && strstr(test.fault,"-standalone");}
-/* Only this case's New launch is expected to run on the standalone module. */
-static bool native_standalone_selected(void) {return !strcmp(test.fault,"native-dual-standalone-report");}
+static bool native_standalone_selected(void) {
+    return !strcmp(test.fault,"native-dual-standalone-report") || !strcmp(test.fault,"native-dual-standalone-remap-report");
+}
 /* The generic Windows CE module (ce-probe.kui is Armada's legacy module). */
 static const char *const ce_package = "0:/KUI/apps/games/ce-boot.kui";
 static const char *const names[] = {"track01.bin", "music track02.raw", "track03.bin", "music track04.raw"};
@@ -84,7 +85,9 @@ static bool source_directory_case(void) {return !strcmp(test.fault,"launch-repor
 static const char *game_root(void) {return source_directory_case()?"0:/KUI/apps/games":"0:/Games/Reader Test";}
 /* Tracks 5 on are copies of track 2's audio, four sectors each, end to end. */
 static unsigned track_count(void) {
-    return !strcmp(test.fault, "tracks-99") || !strcmp(test.fault,"native-dual-too-many") ? 99u :
+    if(!strcmp(test.fault,"native-dual-standalone-remap-report"))return 37u;
+    return !strcmp(test.fault, "tracks-99") || !strcmp(test.fault,"native-dual-too-many") ||
+        !strcmp(test.fault,"native-dual-standalone-99") ? 99u :
         !strcmp(test.fault, "tracks-31") || !strcmp(test.fault, "async-tracks-31") ? 31u :
         !strcmp(test.fault, "async-tracks-40") ? 40u :
         !strcmp(test.fault, "cdda-warning") ? 4u : 3u;
@@ -107,7 +110,8 @@ static uint32_t track_stride(unsigned i) { return cooked_track(i) ? 2048u : 2352
 /* Maps whose tracks with their files exceed the reader's slots list audio
  * tracks without them: 99 + 99 > 160, and the background reader's 40 + 40 > 64. */
 static bool audio_unmapped(void) {
-    return !strcmp(test.fault, "tracks-99") || !strcmp(test.fault, "async-tracks-40");
+    return !strcmp(test.fault, "tracks-99") || !strcmp(test.fault, "async-tracks-40") ||
+        !strcmp(test.fault,"native-dual-standalone-remap-report");
 }
 static bool fault(const char *name) { return test.active && !strcmp(test.fault, name); }
 static bool launch_case(void) {return !strncmp(test.fault,"launch-",7);}
@@ -1038,7 +1042,7 @@ static void check_native_dual(const char *directory) {
         assert(test.dual_a1_package_opens==1u && !test.dual_package_opens);
         assert(test.family_calls==(reader==KUI_RETAIL_READER_ASYNC?1u:0u));
     } else assert(!test.dual_a1_package_opens);
-    assert(test.standalone_package_opens==(standalone || fault("native-dual-standalone-badcap")?1u:0u));
+    assert(test.standalone_package_opens==(standalone || fault("native-dual-standalone-badcap") || fault("native-dual-standalone-99")?1u:0u));
     if(result && standalone) {
         assert(test.dual_package_opens==1u &&
             kui_native_standalone_descriptor_find(image.data,image.info.payload_bytes,NULL)==1 &&

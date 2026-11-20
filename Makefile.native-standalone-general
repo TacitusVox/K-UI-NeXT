@@ -6,6 +6,16 @@
 BUILD ?= build/native-standalone-general
 include Makefile.native-standalone-doa2
 FLAGS += -DKUI_NATIVE_STANDALONE_STRUCTURAL=1
+# Only the ordinary no-lease structural module uses the larger firmware
+# reservation. Foreground/experimental descendants retain their own layouts.
+KUI_NATIVE_STANDALONE_MAP128 ?= $(if $(filter Makefile.native-standalone-general,$(notdir $(firstword $(MAKEFILE_LIST)))),1,0)
+ifeq ($(KUI_NATIVE_STANDALONE_MAP128),1)
+STANDALONE_RESIDENT_MAP_SLOTS := 128
+FLAGS += -DKUI_NATIVE_STANDALONE_MAP128=1
+$(BUILD)/entry_asm.o: include/kui/native_map_capacity.h
+else ifneq ($(KUI_NATIVE_STANDALONE_MAP128),0)
+$(error KUI_NATIVE_STANDALONE_MAP128 must be 0 or 1)
+endif
 FAMILY_OBJ = $(BUILD)/stage/src/core/native_sdk_sci_family.o
 STAGE_SRC += src/core/native_sdk_sci_family.c
 .DEFAULT_GOAL := $(BUILD)/retail-native-standalone.kui
@@ -17,12 +27,17 @@ $(BUILD)/retail-native-standalone.kui: $(BUILD)/entry.elf
 -include $(FAMILY_OBJ:.o=.d)
 
 HOST_CC ?= cc
-.PHONY: standalone-structural-host-tests
+.PHONY: standalone-relay-publication-test standalone-structural-host-tests
+standalone-relay-publication-test: $(BUILD)/retail-native-standalone.kui
+	python3 tests/test_native_standalone_relay_publication.py $(BUILD)
+
 standalone-structural-host-tests:
 	@mkdir -p $(BUILD)
 	$(HOST_CC) -std=c11 -O1 -g -Wall -Wextra -Werror -Wpedantic \
 	 -fsanitize=address,undefined -fno-sanitize-recover=all -Iinclude \
-	 -DKUI_NATIVE_STANDALONE_STRUCTURAL=1 tests/test_native_standalone_structural.c \
+	 -DKUI_NATIVE_STANDALONE_STRUCTURAL=1 -DKUI_NATIVE_STANDALONE_READER=1 \
+	 -DKUI_NATIVE_STANDALONE_STAGE=1 -DKUI_NATIVE_STANDALONE_MAP128=$(KUI_NATIVE_STANDALONE_MAP128) \
+	 tests/test_native_standalone_structural.c \
 	 src/core/native_standalone_admission.c src/core/native_sdk_sci_family.c \
 	 src/core/hash.c src/core/data.c -o $(BUILD)/test-standalone-structural
 	ASAN_OPTIONS=detect_leaks=0 $(BUILD)/test-standalone-structural

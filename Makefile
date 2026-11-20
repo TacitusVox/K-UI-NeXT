@@ -315,6 +315,8 @@ NATIVE_CACHE_SOURCES := src/core/vmu_native_program.c src/core/vmu_native_cache_
     src/core/vmu_native_discovery.c src/core/vmu_native_layout.c src/core/vmu_native_heap.c \
     src/core/vmu_native_exit.c src/core/vmu_native_patch.c src/core/native_sdk_sci_family.c
 ARMADA_PREPARE_TEST_SOURCES += $(NATIVE_CACHE_SOURCES)
+build/test-games-native-cache build/test-games-native-owner-cache build/test-armada-ce-excerpt-prepare \
+build/test-wince-packaged-prepare build/games-retail: src/apps/games_native_repeat.inc include/kui/sha256_prefix.h
 # Both WinCE preparation fixtures include the production Games launcher;
 # retain its real optional-session boundary even for ordinary CE packages.
 ARMADA_PREPARE_TEST_SOURCES += src/apps/native_session_prepare.c src/core/native_session.c \
@@ -2123,3 +2125,7 @@ build/render-theme: $(THEME_RENDER_SOURCES) include/kui/theme.h include/kui/shel
 build/test-splash build/theme-image: tests/theme_preview_reference.h
 build/test-splash build/theme-image build/render-theme: src/apps/theme_thumbnail.h include/kui/theme.h
 build/test-splash build/theme-image build/render-theme build/test-shell build/render-shell: include/kui/theme_filter.h
+
+.PHONY: test-native-track-capacity
+test-native-track-capacity:
+	python3 tests/test_native_track_capacity.py

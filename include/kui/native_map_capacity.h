@@ -10,6 +10,7 @@
 #define KUI_NATIVE_MAP_CAP_MAGIC "KUINMP01"
 #define KUI_NATIVE_MAP_CAP_VERSION 1
 #define KUI_NATIVE_MAP_CAP_SLOTS 160
+#define KUI_NATIVE_MAP_STANDALONE_SLOTS 128
 #define KUI_NATIVE_MAP_LEGACY_SLOTS 64
 
 #ifndef __ASSEMBLER__
@@ -22,9 +23,11 @@ static inline unsigned kui_native_map_capacity(const void *module,size_t bytes) 
     if(!module || bytes<KUI_NATIVE_MAP_CAP_OFFSET+KUI_NATIVE_MAP_CAP_BYTES)return 0;
     const uint8_t *record=(const uint8_t *)module+KUI_NATIVE_MAP_CAP_OFFSET;
     if(!memcmp(record,empty,sizeof(empty)))return KUI_NATIVE_MAP_LEGACY_SLOTS;
-    static const uint8_t supported[KUI_NATIVE_MAP_CAP_BYTES]={
-        'K','U','I','N','M','P','0','1',KUI_NATIVE_MAP_CAP_VERSION,0,0,0,KUI_NATIVE_MAP_CAP_SLOTS,0,0,0};
-    return !memcmp(record,supported,sizeof(supported))?KUI_NATIVE_MAP_CAP_SLOTS:0;
+    const unsigned slots=record[12];
+    static const uint8_t version[4]={KUI_NATIVE_MAP_CAP_VERSION,0,0,0};
+    if(memcmp(record,KUI_NATIVE_MAP_CAP_MAGIC,8u) || memcmp(record+8u,version,sizeof(version)) ||
+       record[13] || record[14] || record[15])return 0;
+    return slots==KUI_NATIVE_MAP_CAP_SLOTS || slots==KUI_NATIVE_MAP_STANDALONE_SLOTS ? slots : 0;
 }
 #endif
 #endif

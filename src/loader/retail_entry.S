@@ -148,11 +148,15 @@ _start:
     .ascii "KUICEM01"
     .long 1,KUI_RETAIL_CE_MAP_RECORD
 #endif
-#if KUI_NATIVE_BACKGROUND_MAP160
+#if KUI_NATIVE_BACKGROUND_MAP160 || KUI_NATIVE_STANDALONE_MAP128
 #include "kui/native_map_capacity.h"
     .section .native_map_capability,"a"
     .ascii KUI_NATIVE_MAP_CAP_MAGIC
+#if KUI_NATIVE_STANDALONE_MAP128
+    .long KUI_NATIVE_MAP_CAP_VERSION,KUI_NATIVE_MAP_STANDALONE_SLOTS
+#else
     .long KUI_NATIVE_MAP_CAP_VERSION,KUI_NATIVE_MAP_CAP_SLOTS
+#endif
 #endif
 #if KUI_NATIVE_BACKGROUND_COMPACT && KUI_NATIVE_DUAL_READERS && !KUI_NATIVE_SESSION_CONTROLS
 #include "kui/native_heap_capability.h"

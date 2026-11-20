@@ -48,7 +48,8 @@ NATIVE_DUAL_CASES = ("native-dual-x", "native-dual-y", "native-dual-x-report", "
     "native-dual-scif", "native-dual-too-many", "native-dual-patches",
     "native-dual-fallback-report", "native-dual-retry-report", "native-dual-x-cooked-report", "native-dual-cancel-source",
     "native-dual-standalone-report", "native-dual-standalone-y-report", "native-dual-standalone-absent-report",
-    "native-dual-standalone-nofamily-report", "native-dual-standalone-badcap", "native-dual-x-a1-report",
+    "native-dual-standalone-nofamily-report", "native-dual-standalone-remap-report",
+    "native-dual-standalone-99", "native-dual-standalone-badcap", "native-dual-x-a1-report",
     "native-dual-y-a1-report", "native-dual-y-runtime-absent",
     "native-dual-session-absent", "native-dual-session-duplicate", "native-dual-session-malformed",
     "native-dual-runtime-absent", "native-dual-runtime-bad-crc",
@@ -56,12 +57,11 @@ NATIVE_DUAL_CASES = ("native-dual-x", "native-dual-y", "native-dual-x-report", "
     "native-dual-session-report", "native-dual-session-a1-report", "native-dual-y-session",
     "native-dual-stale-session-report", "native-dual-y-stale-session-report",
     "native-dual-stale-session-a1-report", "native-dual-y-stale-session-a1-report")
-# Only the first standalone case is a New launch whose combined proof refuses,
-# whose executable has the SDK family and whose standalone module is installed.
-NATIVE_STANDALONE_SELECTED = "native-dual-standalone-report"
+# These New launches reach an installed, eligible standalone reader.
+NATIVE_STANDALONE_SELECTED = ("native-dual-standalone-report", "native-dual-standalone-remap-report")
 NATIVE_DUAL_SUCCESS = NATIVE_DUAL_CASES[:4] + ("native-dual-fallback-report", "native-dual-retry-report", "native-dual-x-cooked-report",
     "native-dual-standalone-report", "native-dual-standalone-y-report", "native-dual-standalone-absent-report",
-    "native-dual-standalone-nofamily-report", "native-dual-x-a1-report", "native-dual-y-a1-report",
+    "native-dual-standalone-nofamily-report", "native-dual-standalone-remap-report", "native-dual-x-a1-report", "native-dual-y-a1-report",
     "native-dual-y-runtime-absent", "native-dual-session-absent",
     "native-dual-session-report", "native-dual-session-a1-report",
     "native-dual-stale-session-report", "native-dual-y-stale-session-report",
@@ -73,7 +73,8 @@ NATIVE_STANDARD_CASES = ("native-standard-report", "native-standard-cooked-repor
 NATIVE_STANDARD_REFUSED = ("native-standard-cancel-source", "native-standard-crc-fail")
 
 
-MANY_TRACKS = {"native-dual-too-many": 99, "tracks-31": 31, "tracks-99": 99, "async-tracks-31": 31, "async-tracks-40": 40}
+MANY_TRACKS = {"native-dual-standalone-remap-report": 37, "native-dual-standalone-99": 99,
+               "native-dual-too-many": 99, "tracks-31": 31, "tracks-99": 99, "async-tracks-31": 31, "async-tracks-40": 40}
 AUDIO_UNMAPPED = ("tracks-99", "async-tracks-40")
 FORMAT_CASES = (
     "format-gdi-offset-raw", "format-gdi-offset-cooked",
@@ -179,7 +180,7 @@ CE_RECORDS = {"ce-probe-record-96": b"KUICEM01" + struct.pack("<II", 1, 96),
               "ce-probe-record-bad": b"KUICEM01" + struct.pack("<II", 1, 95)}
 
 
-def synthetic_package(ce=False, ram_seed=False, zso=False, lzo=False, dual=None, ce_record=None):
+def synthetic_package(ce=False, ram_seed=False, zso=False, lzo=False, dual=None, ce_record=None, native_wide=False):
     # Structural preparation fixture. The stage is original data, never code
     # executed on the host; every retail-looking IP field is generated here.
     # ce: the Windows CE boot test's package, with its higher stage.
@@ -198,6 +199,8 @@ def synthetic_package(ce=False, ram_seed=False, zso=False, lzo=False, dual=None,
     payload[0x2010 + (64 if ram_seed else 0):] = extra
     if ce_record:
         payload[0x140:0x140 + len(ce_record)] = ce_record
+    if native_wide:
+        payload[0x160:0x170] = struct.pack("<8sII", b"KUINMP01", 1, 160)
     return envelope(payload, len(payload), "0123456789ab")
 
 
@@ -229,7 +232,7 @@ def dual_package(case, lease_bytes=0x47000, session=False):
         if case == "native-dual-session-malformed": descriptor[32] = 1
         cap += descriptor
         if case == "native-dual-session-duplicate": cap += descriptor
-    return synthetic_package(dual=cap)
+    return synthetic_package(dual=cap, native_wide=case in ("native-dual-standalone-remap-report", "native-dual-standalone-99"))
 
 
 def session_files(folder, case, lease_bytes):
@@ -588,6 +591,7 @@ def main():
                         reasons = {"native-dual-absent": "module missing or unreadable",
                             "native-dual-scif": "require SCI microSD", "native-dual-too-many": "map exceeds 64 slots",
                             "native-dual-patches": "requires RAM patches Off", "native-dual-cancel": "cancelled",
+                            "native-dual-standalone-99": "Standalone New map exceeds 64 slots: 99 tracks + 2 data pieces need 101",
                             "native-dual-standalone-badcap": "standalone New module unreadable or capability missing",
                             "native-dual-y-session": "Background module does not match",
                             "native-dual-session-duplicate": "Background module does not match",
@@ -598,7 +602,9 @@ def main():
                             "native-dual-runtime-marker-duplicate": "return runtime changed"}
                         if "-cap-" in case: assert "module capability missing or ambiguous" in output
                         if case in reasons: assert reasons[case] in output
-                        selected = case == NATIVE_STANDALONE_SELECTED
+                        selected = case in NATIVE_STANDALONE_SELECTED
+                        if case == "native-dual-standalone-remap-report":
+                            assert "Standalone New map: kept all track numbers with audio sectors unmapped" in output
                         module = ("retail-native-standalone.kui" if selected else
                             "retail-native-dual" +
                             ("-a1.kui" if "-a1" in case else ".kui"))

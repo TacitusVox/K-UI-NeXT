@@ -21,7 +21,7 @@ def audit():
             cmd=commands[0].copy();cmd[cmd.index('tests/games_retail.c')]='tests/test_games_native_alias_crc.c'
             if label=='old':cmd[cmd.index('src/apps/games_retail.c')]=str(old_path)
             exe=d/label;cmd[cmd.index('-o')+1]=str(exe)
-            cmd+=['-Isrc/apps','-fno-pie','-no-pie','-Wl,--wrap=kui_vmu_native_resolution_cache_build','-DOLD_POLICY='+str(int(label=='old'))]
+            cmd+=['-Isrc/apps','-fno-pie','-no-pie','-Wl,--wrap=kui_vmu_native_resolution_cache_build_prefixed','-DOLD_POLICY='+str(int(label=='old'))]
             built=subprocess.run(cmd,cwd=ROOT,env=env,capture_output=True,text=True);assert not built.returncode,built.stderr;binaries[label]=exe
         fmt=private_formatter(d)
         for fs in ('fat32','exfat'):

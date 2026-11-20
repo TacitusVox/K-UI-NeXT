@@ -1,5 +1,8 @@
 /* SPDX-License-Identifier: GPL-3.0-only */
 #include "kui/retail_image.h"
+#if KUI_RETAIL_MANIFEST_CAPACITY
+#include "kui/native_map_capacity.h"
+#endif
 #include "kui/native_session.h"
 #include <stdbool.h>
 #include <string.h>
@@ -236,7 +239,8 @@ enum kui_game_result kui_retail_manifest_validate(const struct kui_retail_manife
 }
 enum kui_game_result kui_retail_manifest_encode_capacity(const struct kui_retail_manifest *m,
     uint8_t out[KUI_RETAIL_IMAGE_WIRE_BYTES], uint32_t async_slots) {
-    if(!out || (async_slots != KUI_RETAIL_ASYNC_SLOTS && async_slots != KUI_RETAIL_CE_MAP_SLOTS))
+    if(!out || (async_slots != KUI_RETAIL_ASYNC_SLOTS && async_slots != KUI_RETAIL_CE_MAP_SLOTS &&
+                async_slots != KUI_NATIVE_MAP_STANDALONE_SLOTS && async_slots != KUI_NATIVE_MAP_CAP_SLOTS))
         return KUI_GAME_INVALID;
     enum kui_game_result r = validate_capacity(m, async_slots);
 #else

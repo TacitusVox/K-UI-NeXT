@@ -111,27 +111,34 @@ with pathlib.Path(__file__).with_name('compiles.jsonl').open('a') as stream:
             objects=[build/path for path in (
                 'native/src/core/vmu_native_heap.o','resident/src/loader/sci_sd_bus.o',
                 'legacy/src/core/retail_gd.o','stage/src/core/hash.o',
-                'worker/src/loader/vmu_maple_observe_worker.o','ra/src/core/native_readahead_cache.o')]
+                'worker/src/loader/vmu_maple_observe_worker.o','ra/src/core/native_readahead_cache.o',
+                'entry_asm.o')]
 
-            def run(compact):
+            def run(compact, map160):
                 makefile='Makefile.vmu-native-background-compact' if compact else 'Makefile.vmu-native-split-controller-stream-guard'
                 command=['make','--no-print-directory','-f',makefile,f'BUILD={build}',
-                         f'CC={sys.executable} {compiler}']
+                         f'CC={sys.executable} {compiler}', f'KUI_NATIVE_BACKGROUND_MAP160={int(map160)}']
                 for ignored in ('vmu_maple_observe_symbols.h','worker.bin','native-ra-aux.bin',
-                                'native-ra-aux.reloc','vmu_maple_observe_legacy_symbols.h','resident-legacy.bin'):
+                                'native-ra-aux.reloc','vmu_maple_observe_legacy_symbols.h','resident-legacy.bin','stage.bin'):
                     command+=['-o',str(build/ignored)]
                 result=subprocess.run([*command,*map(str,objects)],cwd=ROOT,text=True,capture_output=True)
                 self.assertEqual(result.returncode,0,result.stdout+result.stderr)
                 return [json.loads(line) for line in log.read_text().splitlines()]
 
             count=0
-            for compact in (False,True,False,True):
-                rows=run(compact)
+            # Switch width with the same build directory and compiler, then
+            # repeat each build to verify an unmodified stamp stays current.
+            for compact, map160 in ((False, False), (True, False), (True, True),
+                                    (True, False), (False, False), (True, True)):
+                rows=run(compact, map160)
                 self.assertEqual(len(rows),count+len(objects),'Layout switch retained a stale object')
+                stamp=(build/'readonly-config').read_text().splitlines()
+                self.assertEqual('VMU_RESIDENT_MAP_SLOTS=160' in stamp, map160)
                 for row in rows[count:]:
                     self.assertEqual('-DKUI_NATIVE_BACKGROUND_COMPACT=1' in row,compact)
+                    self.assertEqual('-DKUI_NATIVE_BACKGROUND_MAP160=1' in row,map160)
                 count=len(rows)
-                self.assertEqual(len(run(compact)),count,'Unchanged layout rebuilt an object')
+                self.assertEqual(len(run(compact, map160)),count,'Unchanged layout rebuilt an object')
 
 
 if __name__=='__main__':

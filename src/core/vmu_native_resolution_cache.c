@@ -1,6 +1,13 @@
 /* SPDX-License-Identifier: GPL-3.0-only */
 #include "kui/vmu_native_resolution_cache.h"
 #include "kui/hash.h"
+#if !KUI_ON_CONSOLE || KUI_GUI_DIGEST_REUSE
+#include "kui/sha256_prefix.h"
+/* Detached builds keep the original discover signature and call graph. */
+#define GUI_DIGEST_ARG(value) ,value
+#else
+#define GUI_DIGEST_ARG(value)
+#endif
 #include <string.h>
 
 #define CACHE_HEADER_BYTES 64u
@@ -198,9 +205,14 @@ static bool release_window(const void *image,size_t n,uint32_t load,uint32_t rel
     if(literal<base || literal-base>n-2u) return false;
     p=(const uint8_t *)image+literal-base;return p[0]==0x0fu && p[1]==0xffu;
 }
-static bool discover(const void *image,size_t n,uint32_t load,struct kui_vmu_native_resolution *r) {
+static bool discover(const void *image,size_t n,uint32_t load,struct kui_vmu_native_resolution *r
+    GUI_DIGEST_ARG(const struct kui_sha256_prefix *source)) {
     memset(r,0,sizeof(*r));
+#if !KUI_ON_CONSOLE || KUI_GUI_DIGEST_REUSE
+    if(!kui_vmu_native_discover_layout_prefixed(image,n,load,&r->driver,&r->layout,source))return false;
+#else
     if(!kui_vmu_native_discover_layout(image,n,load,&r->driver,&r->layout)) return false;
+#endif
     enum kui_vmu_native_heap_result heap=kui_vmu_native_heap_discover(image,n,load,&r->heap);
     if(heap==KUI_VMU_NATIVE_HEAP_NONE) {
         /* No SDK allocator: only the reviewed arena plan for this exact image,
@@ -220,17 +232,43 @@ static bool discover(const void *image,size_t n,uint32_t load,struct kui_vmu_nat
         {r->driver.submit,12u},{r->heap.initializer,12u},{r->heap.release,20u}};
     return kui_vmu_native_exit_discover_guarded(image,n,load,windows,3u,&r->exits) && schema(r);
 }
+#if !KUI_ON_CONSOLE || KUI_GUI_DIGEST_REUSE
+static bool build(const void *image,size_t n,uint32_t load,void *wire,size_t wire_bytes,
+    struct kui_vmu_native_resolution *out,const struct kui_sha256_prefix *source) {
+#else
 bool kui_vmu_native_resolution_cache_build(const void *image,size_t n,uint32_t load,
     void *wire,size_t wire_bytes,struct kui_vmu_native_resolution *out) {
+#endif
     if(!image_valid(image,n,load) || wire_bytes!=KUI_VMU_NATIVE_RESOLUTION_CACHE_BYTES ||
        !object(wire,wire_bytes) || overlap(image,n,wire,wire_bytes) ||
        (out && (!object(out,sizeof(*out)) || overlap(out,sizeof(*out),image,n) ||
         overlap(out,sizeof(*out),wire,wire_bytes)))) return false;
     struct kui_vmu_native_resolution fresh;
-    if(!discover(image,n,load,&fresh) || !kui_vmu_native_resolution_cache_encode(&fresh,wire,wire_bytes)) return false;
+    if(!discover(image,n,load,&fresh GUI_DIGEST_ARG(source)) || !kui_vmu_native_resolution_cache_encode(&fresh,wire,wire_bytes)) return false;
     if(out) *out=fresh;
     return true;
 }
+#if !KUI_ON_CONSOLE || KUI_GUI_DIGEST_REUSE
+bool kui_vmu_native_resolution_cache_build(const void *image,size_t n,uint32_t load,
+    void *wire,size_t wire_bytes,struct kui_vmu_native_resolution *out) {
+    return build(image,n,load,wire,wire_bytes,out,NULL);
+}
+bool kui_vmu_native_resolution_cache_build_prefixed(const void *image,size_t n,uint32_t load,
+    void *wire,size_t wire_bytes,struct kui_vmu_native_resolution *out,const struct kui_sha256_prefix *source) {
+    if(!source || source->source!=image || n>source->bytes ||
+       !image_valid(image,source->bytes,load) || overlap(wire,wire_bytes,image,source->bytes) ||
+       overlap(wire,wire_bytes,source,sizeof(*source)) ||
+       (out && (overlap(out,sizeof(*out),image,source->bytes) ||
+                overlap(out,sizeof(*out),source,sizeof(*source)))))return false;
+    if(source->marks) {
+        if(source->count!=source->bytes/KUI_SHA256_PREFIX_STRIDE+1u)return false;
+        size_t marks_bytes=source->count*sizeof(*source->marks);
+        if(overlap(wire,wire_bytes,source->marks,marks_bytes) ||
+           (out && overlap(out,sizeof(*out),source->marks,marks_bytes)))return false;
+    } else if(source->count)return false;
+    return build(image,n,load,wire,wire_bytes,out,source);
+}
+#endif
 static bool replay_arguments(const void *image,size_t n,uint32_t load,const void *wire,size_t wire_bytes,
     struct kui_vmu_native_resolution *out) {
     return image_valid(image,n,load) && wire_bytes==KUI_VMU_NATIVE_RESOLUTION_CACHE_BYTES &&
@@ -294,7 +332,7 @@ bool kui_vmu_native_resolution_cache_validate_untrusted(const void *image,size_t
     if(!replay_arguments(image,n,load,wire,wire_bytes,out)) return false;
     struct kui_vmu_native_resolution decoded,fresh;uint8_t digest[32];
     if(!decode(wire,wire_bytes,&decoded,digest) || decoded.driver.image_bytes!=n ||
-       decoded.driver.load_address!=load || !discover(image,n,load,&fresh)) return false;
+       decoded.driver.load_address!=load || !discover(image,n,load,&fresh GUI_DIGEST_ARG(NULL))) return false;
     uint8_t canonical[KUI_VMU_NATIVE_RESOLUTION_CACHE_BYTES];
     if(!kui_vmu_native_resolution_cache_encode(&fresh,canonical,sizeof(canonical)) ||
        memcmp(canonical,wire,sizeof(canonical))) return false;

@@ -97,16 +97,22 @@ def bind_entry(directory, module, entry="entry"):
     return payload
 
 
-def standalone_resident(directory):
+def standalone_resident(directory, payload):
+    slots = 128
+    bottom = 0x8c007ea0
+    top = 0x8c008000
+    require(payload[0x160:0x170] == struct.pack("<8sII", b"KUINMP01", 1, slots),
+            "Standalone release requires the 128-slot native map capability")
     resident = read_elf(directory / "resident-sci.elf")
     symbols = resident[4]
     require(symbols.get("__kui_native_standalone_reader_resident") == (1, 0, 0, 0xfff1),
             "Standalone low resident lacks its reader-only marker")
     require(symbols["_start"][0] == 0x8c004000 and
-            symbols["__retail_hook_stack_bottom"][0] == 0x8c007ba0 and
-            symbols["__retail_resident_bss_end"][0] <= 0x8c007ba0 and
+            symbols["__retail_hook_stack_bottom"][0] == bottom and
+            symbols["__retail_hook_stack"][0] == top and
+            symbols["__retail_resident_bss_end"][0] <= bottom and
             symbols["_standalone_reader_region"][1] == 0x760 and
-            symbols["_manifest"][1] == 1020,
+            symbols["_manifest"][1] == 252 + 12 * slots,
             "Standalone retained reader/map escaped the reviewed low reservation")
     require(not any("readahead" in name or "passive" in name or "vmu_observe" in name
                     for name in symbols), "Standalone resident contains a virtual/high worker")
@@ -117,7 +123,7 @@ def standalone_resident(directory):
     kind, offset, address, physical, size, memory, flags, _ = PROGRAM_HEADER.unpack_from(
         resident[0], header[5])
     require(kind == 1 and address == physical == 0x8c004000 and flags == 7 and
-            size == len(raw) and size <= memory <= 0x3ba0 and
+            size == len(raw) and size <= memory <= bottom - address and
             raw == resident[0][offset:offset + size],
             "Standalone low resident ELF/raw binary differ")
     stage = read_elf(directory / "stage.elf")[4]
@@ -126,8 +132,8 @@ def standalone_resident(directory):
     require(0 <= begin < end and ordinary(directory / "stage.bin")[begin:end] == raw,
             "Standalone high stage embeds a different retained reader")
     return {"bss_end": symbols["__retail_resident_bss_end"][0],
-            "stack_bottom": 0x8c007ba0, "reader_region_bytes": 0x760,
-            "manifest_bytes": 1020, "embedded_bytes": len(raw)}
+            "stack_bottom": bottom, "stack_top": top, "reader_region_bytes": 0x760,
+            "native_map_slots": slots, "manifest_bytes": symbols["_manifest"][1], "embedded_bytes": len(raw)}
 
 
 def linked_files(directory, family, commit, clean):
@@ -167,8 +173,10 @@ def inspect_component(directory, name, build, slot, commit, clean):
         absolute_symbol(directory, "stage.elf", "__kui_native_background_compact_stage", 1)
         absolute_symbol(directory, "native-worker.elf", "__kui_native_background_compact_worker", 1)
         absolute_symbol(directory, "stage.elf", "__kui_native_isolation_lease_bytes", 0x47000)
+        require(payload[0x160:0x170] == struct.pack("<8sII", b"KUINMP01", 1, 160),
+                "Background release requires the 160-slot native map capability")
         proof.update({"virtual_slot": slot, "worker_bytes": 0x12000,
-                      "complete_lease_bytes": 0x47000,
+                      "native_map_slots": 160, "complete_lease_bytes": 0x47000,
                       "storage": "SCI persistent worker; blank launcher-filled manifest"})
     elif family == "standalone":
         data = standalone_module(directory, build)
@@ -188,7 +196,7 @@ def inspect_component(directory, name, build, slot, commit, clean):
                 "Standalone module has the wrong reader identity")
         proof.update({"virtual_slot": None, "complete_lease_bytes": 0,
                       "storage": "SCI structural SDK demand reader",
-                      "retained_reader": standalone_resident(directory),
+                      "retained_reader": standalone_resident(directory, payload),
                       "owner_game_proof_required_for_build": False})
     elif family == "disc-native":
         data = ordinary(directory / "native-disc.kui")

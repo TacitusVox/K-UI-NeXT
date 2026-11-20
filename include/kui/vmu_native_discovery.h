@@ -65,6 +65,12 @@ static inline uint32_t kui_vmu_native_lock_pointer(const struct kui_vmu_native_d
  * which are untouched. Exactly one complete candidate required. */
 enum kui_vmu_native_discovery_result kui_vmu_native_discover(
     const void *image,size_t bytes,uint32_t load,struct kui_vmu_native_discovery *out);
+struct kui_sha256_prefix;
+/* GUI fresh discovery on the same exclusively owned, immutable source buffer.
+ * A missing set of marks runs ordinary hashing. */
+enum kui_vmu_native_discovery_result kui_vmu_native_discover_prefixed(
+    const void *image,size_t bytes,uint32_t load,struct kui_vmu_native_discovery *out,
+    const struct kui_sha256_prefix *source);
 /* Bind an untrusted cached resolution to the exact executable and schema,
  * replaying all witnesses and uniqueness. This reference path does not skip
  * the scan for speed and still supplies no runtime capability. */
