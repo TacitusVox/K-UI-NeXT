@@ -58,8 +58,9 @@ static struct {
     enum kui_loader_sd_result write_result;
     bool drop_write,unhealthy,faulted,no_identity;
     /* A read that fails for good: the card is left not ready and its stream
-     * cannot be confirmed stopped, as the real reader leaves them. */
-    bool read_kills,stop_failed;
+     * cannot be confirmed stopped, as the real reader leaves them. Such a
+     * card is still sending the read: it must not be asked anything. */
+    bool read_kills,stop_failed,in_read;
     uint32_t written[4];
 } io;
 static bool owned,stream_open;
@@ -76,10 +77,10 @@ enum kui_loader_sd_result kui_retail_storage_acquire(struct kui_retail_storage *
 }
 enum kui_loader_sd_result kui_retail_storage_read_run(struct kui_retail_storage *s,uint32_t lba,
     uint32_t available,uint8_t out[512]) {
-    assert(s==&card && owned && !stream_open && available==1u && lba<BLOCKS && card.device.sd.ready);
+    assert(s==&card && owned && !stream_open && available==1u && lba<BLOCKS && card.device.sd.ready && !io.in_read);
     stream_open=true;
     if(++io.reads==io.fail_read_at) {
-        if(io.read_kills) {card.device.sd.ready=false;io.stop_failed=true;}
+        if(io.read_kills) {card.device.sd.ready=false;io.stop_failed=true;io.in_read=true;}
         return KUI_LOADER_SD_TIMEOUT;
     }
     memcpy(out,disk+(size_t)lba*512u,512u);return KUI_LOADER_SD_OK;
@@ -94,7 +95,7 @@ void kui_retail_storage_release(struct kui_retail_storage *s) {
 }
 enum kui_loader_sd_result kui_sci_sd_write(struct kui_loader_sd *sd,uint32_t lba,uint32_t count,const uint8_t *data) {
     assert(sd==&card.device.sd && owned && !stream_open && count==1u && data && lba<BLOCKS);
-    assert(sd->ready && !sd->bus.transfer_block && toy_survey_wrote_before_write());
+    assert(sd->ready && !sd->bus.transfer_block && toy_survey_wrote_before_write() && !io.in_read);
     assert(io.writes<4u);io.written[io.writes++]=lba;
     if(io.write_result!=KUI_LOADER_SD_OK) {sd->ready=false;sd->last_response=0x0du;return io.write_result;}
     if(!io.drop_write) memcpy(disk+(size_t)lba*512u,data,512u);
@@ -102,6 +103,7 @@ enum kui_loader_sd_result kui_sci_sd_write(struct kui_loader_sd *sd,uint32_t lba
 }
 enum kui_loader_sd_result kui_sci_sd_sync(struct kui_loader_sd *sd) {
     assert(sd==&card.device.sd && owned && !stream_open && sd->ready);
+    assert(!io.in_read && "a card inside a read is asked for its status");
     ++io.syncs;
     if(io.sync_failures) {--io.sync_failures;sd->ready=false;return KUI_LOADER_SD_COMMAND;}
     return KUI_LOADER_SD_OK;
@@ -109,7 +111,7 @@ enum kui_loader_sd_result kui_sci_sd_sync(struct kui_loader_sd *sd) {
 bool kui_sci_sd_healthy(void) {return !io.unhealthy;}
 bool kui_sci_sd_faulted(void) {return io.faulted;}
 int kui_vmu_sd_identity_read(struct kui_loader_sd *sd,struct kui_vmu_sd_identity *out) {
-    assert(sd==&card.device.sd && owned && !stream_open);
+    assert(sd==&card.device.sd && owned && !stream_open && !io.in_read);
     ++io.identities;
     /* The real read marks the card not ready whenever it fails (src/loader/vmu_backing.c). */
     if(io.no_identity) {sd->ready=false;return KUI_VMU_BACKING_IO;}
@@ -363,12 +365,13 @@ int main(void) {
             launch(KUI_RETAIL_READER_ASYNC,KUI_STORAGE_SCI,raw,5u);
             scan();
             assert(lines==1u && !strncmp(shown[0],"SURVEY OFF / FILE ",18u) && !toy_survey_seed.test && !io.writes);
-            /* The same read leaving the card not ready, its stream not confirmed stopped: asked for its status once. */
-            memset(&io,0,sizeof(io));io.fail_read_at=at;io.read_kills=true;
+            /* The same read leaving the card not ready, its stream not ended: the card is
+             * asked nothing, and the launch stops as it does for a read of the stage's own. */
+            memset(&io,0,sizeof(io));io.fail_read_at=at;io.read_kills=true;dead=true;
             launch(KUI_RETAIL_READER_ASYNC,KUI_STORAGE_SCI,raw,5u);
             scan();
             assert(lines==1u && !strncmp(shown[0],"SURVEY OFF / FILE ",18u) && !toy_survey_seed.test && !io.writes &&
-                   io.syncs==1u);
+                   !io.syncs && !io.identities);
         }
         assert(!changed());
         /* The write is refused by the card: it answers its status afterwards, and the launch goes on with it. */
@@ -406,9 +409,10 @@ int main(void) {
          * with its launch record and no seed, and the next launch takes the
          * next one. */
         memset(&io,0,sizeof(io));
-        if(exfat) io.fail_read_at=reads+1u; else io.fail_acquire_at=acquires+2u;
+        if(exfat) {io.fail_read_at=reads+1u;io.read_kills=true;dead=true;} else io.fail_acquire_at=acquires+2u;
         launch(KUI_RETAIL_READER_ASYNC,KUI_STORAGE_SCI,raw,5u);
         off("SURVEY OFF / WRITE NOT READ BACK",1u);
+        assert(!io.syncs);
         assert(changed()==1u && io.written[0]==file_lba[kui_toy_survey_sector(2u,0u)] &&
                launch_record(&survey,2u,disk+(size_t)io.written[0]*512u));
         memcpy(before,disk,(size_t)BLOCKS*512u);

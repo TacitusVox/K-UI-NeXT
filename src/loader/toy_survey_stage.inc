@@ -15,11 +15,13 @@
  * The one sector written here was read back as that slot's blank part 0 of
  * this file a moment before, lies in the partition and in no extent of the
  * game's, and is read back after the write. Any failure leaves the launch as
- * Test 81 runs it, with no report file: the pages again. The survey reads
- * sectors Test 81's stage never asks for and sends the card two commands it
- * never sends (its identity, a write); where one of them leaves the card
- * marked not ready, the card is asked for its status before the launch goes
- * on (toy_survey_settle), and stops the launch only if it does not answer. */
+ * Test 81 runs it, with no report file: the pages again. But for one case:
+ * the survey reads sectors Test 81's stage never asks for, and a read that
+ * leaves the card marked not ready (a port fault, a stream whose stop the
+ * card did not take) stops the launch, as a read of the stage's own does.
+ * The two commands Test 81's stage never sends, the card's identity and the
+ * write, leave the card idle where they fail: there it is asked for its
+ * status, and the launch goes on if it answers (toy_survey_settle). */
 #include "kui/toy_survey.h"
 #include "kui/vmu_backing.h"
 #include "../dreamcast/sci_sd_storage.h"
@@ -71,12 +73,15 @@ static int toy_survey_write(uint32_t lba,const uint8_t *data) {
     kui_retail_storage_release(&card);
     return result==KUI_LOADER_SD_OK && healthy?0:-1;
 }
-/* A read, the identity command or the write can leave the card marked not
- * ready, and the low resident refuses such a card: a launch Test 81 would
- * boot must not stop for the survey. The card is kept while it still answers
- * its status command with the port well. A write error stays with the card
- * for the first status read, which clears it, so a second one decides (as
- * the Windows CE data probe's stage does after a failed write). */
+/* The identity command and the write mark the card not ready where they
+ * fail, and the low resident refuses such a card: a launch Test 81 would boot
+ * must not stop for a command only the survey sends. Both leave the card
+ * idle, so it can be asked: it is kept while it answers its status command
+ * with the port well. A write error stays with the card for the first status
+ * read, which clears it, so a second one decides (as the Windows CE data
+ * probe's stage does after a failed write).
+ * Not after a read: a card whose read was not ended is still sending it, and
+ * would answer the question with the read's bytes. */
 static void toy_survey_settle(void) {
     struct kui_loader_sd *sd=&card.device.sd;
     if(sd->ready || kui_retail_storage_acquire(&card)!=KUI_LOADER_SD_OK) return;
@@ -124,7 +129,10 @@ static void toy_survey_look(void) {
     if(kui_retail_storage_acquire(&card)!=KUI_LOADER_SD_OK) {retail_display_line("SURVEY OFF / CARD BUSY");return;}
     int known=kui_vmu_sd_identity_read(&card.device.sd,&identity);
     kui_retail_storage_release(&card);
-    if(known!=KUI_VMU_BACKING_OK) {retail_display_hex("SURVEY OFF / CARD IDENTITY",(uint32_t)known);return;}
+    if(known!=KUI_VMU_BACKING_OK) {
+        toy_survey_settle();
+        retail_display_hex("SURVEY OFF / CARD IDENTITY",(uint32_t)known);return;
+    }
 
     struct kui_toy_survey_launch launch={.build=KUI_BUILD_ID,
         .title=manifest.title,.title_bytes=sizeof(manifest.title),
@@ -153,7 +161,9 @@ static void toy_survey_look(void) {
      * longer blank, which later launches pass over. */
     kui_toy_survey_launch_sector(&c->file,c->slot,&launch,toy_survey_text);
     if(toy_survey_write(c->lba[0],toy_survey_text)) {
-        retail_display_hex("SURVEY OFF / CARD WRITE",card.device.sd.last_response);return;
+        uint32_t response=card.device.sd.last_response;
+        toy_survey_settle();
+        retail_display_hex("SURVEY OFF / CARD WRITE",response);return;
     }
     if(toy_survey_read(NULL,c->lba[0],toy_survey_work) ||
        memcmp(toy_survey_work,toy_survey_text,KUI_TOY_SURVEY_SECTOR)) {
@@ -167,5 +177,4 @@ static void toy_survey_prepare(void) {
     toy_survey_wrote=false;
     if(!card.device.sd.ready) {retail_display_line("SURVEY OFF / CARD NOT READY");return;}
     toy_survey_look();
-    toy_survey_settle();
 }

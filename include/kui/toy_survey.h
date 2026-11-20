@@ -7,7 +7,8 @@
  * copies onto the card blank, and the report the reader showed on pages is
  * saved into it, with the game's name.
  *
- * The file is text in 512-byte sectors, each ending in a line feed:
+ * The file is text in 512-byte sectors. A blank sector and a launch record
+ * each end in a line feed, and so does the report's second sector:
  *   sector 0              the file's first sector: its ID and its slot count
  *   sector 1+3*s          slot s, part 0: the launch record (the cold stage)
  *   sector 2+3*s, 3+3*s   slot s, parts 1 and 2: the reader's 1,024-byte
