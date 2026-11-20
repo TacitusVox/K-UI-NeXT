@@ -20,7 +20,7 @@
     },
     "include/kui/retail_loader_layout.h": {
       "mode": "code",
-      "sha256": "4ef65bfa3b9e54895681f013291e6c9d2f1892de8a1e1955496207feac61cd7c"
+      "sha256": "876a45730dae104eac21d25dc33c0d449a0ac1d8a28d3537e8db962c54e8fe85"
     },
     "include/kui/vmu_native_passive.h": {
       "mode": "code",
@@ -72,15 +72,15 @@
     },
     "src/loader/retail_resident.S": {
       "mode": "code",
-      "sha256": "a94e2d5e78eb7663085a727d4846934227b9a6ef9c13501afdbdf6d4008f1d8e"
+      "sha256": "cfd38d0a26b343806ef800724fec4eb8cf4b62de4cf1c629a6f7d062fecb7faf"
     },
     "src/loader/retail_resident.c": {
       "mode": "code",
-      "sha256": "a704de50267fdb079bbb25d7f708e8c4aaf48b4d4d45ba1b77d5a71a2d50f252"
+      "sha256": "972c271c234c73aacda11bddd3cbb683b2f36b2862e5543da2a0fdaae6a11951"
     },
     "src/loader/retail_stage.c": {
       "mode": "code",
-      "sha256": "17510096e303a30df54db8d879ea77b3c439b86b80fbdd362dd0a7abf70d3e1c"
+      "sha256": "42cfb04e2266ec9b482ab0bbfa589bf282a6190a301104535d773c52c6684675"
     },
     "src/loader/sci_sd_bus.c": {
       "mode": "code",
