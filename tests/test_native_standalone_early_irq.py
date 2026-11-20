@@ -6,7 +6,7 @@ import argparse, ctypes, hashlib, json, struct, subprocess, sys, tempfile
 from pathlib import Path
 ROOT=Path(__file__).resolve().parents[1]
 sys.path[:0]=[str(ROOT/'tools'),str(ROOT/'tests')]
-from check_native_standalone_reader import BinderCPU,StageCPU,StageStop,assert_publication,PRIVATE_TOP,RETURN
+from check_native_standalone_reader import BinderCPU,StageCPU,StageStop,assert_publication,relay_publication_ccr,PRIVATE_TOP,RETURN
 from check_vmu_native_worker_gateway import read_elf,symbol_bytes
 from test_vmu_native_heap_execution import MASK,signed
 LOAD=0x8c010000
@@ -85,7 +85,7 @@ class EarlyStageCPU(StageCPU):
   self.stage=stage;self.resident=resident;self.symbols=stage[4]
   for kind,offset,address,_,count,_,_,_ in stage[2]:
    if kind==1 and count:self.put_block(address,stage[0][offset:offset+count])
-  self.r[15]=0x8cfeffe0;self.pr=RETURN;self.sr=0x400001f0;self.ccr=0
+  self.r[15]=0x8cfeffe0;self.pr=RETURN;self.sr=0x400001f0;self.ccr=relay_publication_ccr(stage)
   self.leaves=[];self.publisher_visits=0
   self.api={stage[4][name][0]:name for name in ('_stopped','_relay_stopped')}
   self.targets=set(self.api)

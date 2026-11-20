@@ -321,6 +321,13 @@ def original_initialization(resident,owner):
         full_fpu_frame_executed=False)
 
 
+def relay_publication_ccr(stage):
+    from check_disc_vmu_handoff import Image
+    from check_vc2_stage_cached_relay import Relay
+    enabled = '__kui_retail_cold_instruction_cache' in stage[4]
+    return Relay(Image(stage[0]), 0x121, 0, enabled).run().calls[0][1]
+
+
 class StageStop(Exception):pass
 
 
@@ -331,7 +338,7 @@ class StageCPU(BinderCPU):
         self.resident=resident;self.stage=stage;self.symbols=stage[4]
         for kind,offset,address,_,count,_,_,_ in stage[2]:
             if kind==1 and count:self.put_block(address,stage[0][offset:offset+count])
-        self.r[15]=0x8cfeffe0;self.pr=RETURN;self.sr=0x400001f0;self.ccr=0
+        self.r[15]=0x8cfeffe0;self.pr=RETURN;self.sr=0x400001f0;self.ccr=relay_publication_ccr(stage)
         self.sha_contexts={};self.leaves=[];self.sha_inputs=[];self.publisher_visits=0
         self.api={stage[4][name][0]:name for name in ('_kui_sha256_init','_kui_sha256_update',
             '_kui_sha256_digest','_kui_retail_crc32','_stopped','_relay_stopped','_retail_display_pause')}
@@ -445,7 +452,7 @@ def stage_cases(stage,resident,owner):
                     for _,a,_,_ in c.writes),'Stage activated SCI routing before the game SDK initializer')
     refusals=[]
     mutations={
-        'cache_data':lambda x:setattr(x,'ccr',1),'cache_instruction':lambda x:setattr(x,'ccr',0x100),
+        'cache_data':lambda x:setattr(x,'ccr',1),'cache_instruction_and_data':lambda x:setattr(x,'ccr',0x101),
         'mask14':lambda x:setattr(x,'sr',0x400001e0),
         'wrong_limit':lambda x:x.put(stage[4]['_resident_limit'][0],0x8c007b80),
         'binary_overlaps_region':lambda x:x.put(stage[4]['_resident_bytes'][0],x.region-0x8c004000+4),
