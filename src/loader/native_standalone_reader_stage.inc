@@ -84,7 +84,11 @@ static void __attribute__((noipa)) standalone_source_check(void) {
 }
 #endif
 /* The relay has already restored/verified the original executable and the
- * complete low code. Both caches are off and IRQs masked. The route remains
+ * complete low code. IRQs are masked and the operand cache is off. The
+ * P2 resume stub may leave the instruction cache on for the P1 relay.
+ * These stores publish data through P2; they never modify instructions.
+ * The resume stub invalidates caches before restoring the game's CCR.
+ * The route remains
  * unarmed; the later binder separately requires complete SCI/GD quiescence.
  * Only game-code roles survive; no temporary stage pointer is retained. */
 #if !KUI_NATIVE_STANDALONE_FOREGROUND
@@ -96,11 +100,16 @@ static void __attribute__((noipa)) standalone_source_publish(void) {
     const struct kui_native_sdk_sci_runtime_exports expected={
         KUI_NATIVE_SDK_SCI_DESCRIPTOR_MAGIC,KUI_NATIVE_SDK_SCI_DESCRIPTOR_VERSION,
         KUI_NATIVE_SDK_SCI_DESCRIPTOR_BYTES,KUI_STANDALONE_CALLBACK,KUI_STANDALONE_REGION_POINTER};
-    if((sr&UINT32_C(0x400000f0))!=UINT32_C(0x400000f0) || (ccr&UINT32_C(0x101)) ||
+    if((sr&UINT32_C(0x400000f0))!=UINT32_C(0x400000f0))
+        stopped("STANDALONE PUBLISH CPU STATE",sr);
+    /* Retain the original all-caches-off path. With ICE on, accept only the
+     * live state of the relay's 0x908 write (invalidate bits self-clear). */
+    if((ccr&UINT32_C(0x101)) && ccr!=UINT32_C(0x100))
+        stopped("STANDALONE PUBLISH CACHE STATE",ccr);
 #if KUI_NATIVE_STANDALONE_STRUCTURAL
-       !standalone_family_found ||
+    if(!standalone_family_found)stopped("STANDALONE SDK PROOF MISSING",1u);
 #endif
-       resident_limit!=KUI_RETAIL_LOW_ASYNC_LIMIT ||
+    if(resident_limit!=KUI_RETAIL_LOW_ASYNC_LIMIT ||
        KUI_STANDALONE_BSS_END>KUI_RETAIL_LOW_ASYNC_LIMIT || region<low+resident_bytes ||
        region>KUI_STANDALONE_BSS_END-UINT32_C(0x760) ||
        KUI_STANDALONE_EXPORTS<low+40u ||
