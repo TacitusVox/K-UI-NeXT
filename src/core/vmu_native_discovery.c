@@ -289,16 +289,27 @@ static int startup_p2(const uint8_t *p,size_t n,uint32_t base,
     }
     return found?1:0;
 }
+static bool early_p2_call_sites(const void *image,size_t n,
+    const struct kui_vmu_native_discovery *driver,uint32_t *heap,uint32_t *maple) {
+    size_t startup=0;
+    if(!driver || driver->family!=KUI_VMU_NATIVE_FAMILY_EARLY_P2_V1 ||
+       driver->version!=KUI_VMU_NATIVE_DISCOVERY_VERSION || driver->bytes!=sizeof(*driver) ||
+       driver->image_bytes!=n || !valid(image,n,driver->load_address) ||
+       startup_p2(image,n,driver->load_address,driver,&startup)!=1) return false;
+    uint32_t start=driver->load_address+(uint32_t)startup;
+    *heap=start+82u;
+    *maple=start+(u16((const uint8_t *)image+startup+16u)==0x2f42u?126u:108u);
+    return true;
+}
 bool kui_vmu_native_early_p2_calls_valid(const void *image,size_t n,
     const struct kui_vmu_native_discovery *driver,uint32_t heap_call,uint32_t maple_call) {
-    size_t startup=0;
-    return driver && driver->family==KUI_VMU_NATIVE_FAMILY_EARLY_P2_V1 &&
-        driver->version==KUI_VMU_NATIVE_DISCOVERY_VERSION && driver->bytes==sizeof(*driver) &&
-        driver->image_bytes==n && valid(image,n,driver->load_address) &&
-        startup_p2(image,n,driver->load_address,driver,&startup)==1 &&
-        heap_call==driver->load_address+(uint32_t)startup+82u &&
-        maple_call==driver->load_address+(uint32_t)startup+
-            (u16((const uint8_t *)image+startup+16u)==0x2f42u?126u:108u);
+    uint32_t heap,maple;
+    return early_p2_call_sites(image,n,driver,&heap,&maple) && heap_call==heap && maple_call==maple;
+}
+bool kui_vmu_native_early_p2_layout_call_valid(const void *image,size_t n,
+    const struct kui_vmu_native_discovery *driver,uint32_t maple_call) {
+    uint32_t heap,maple;
+    return early_p2_call_sites(image,n,driver,&heap,&maple) && maple_call==maple;
 }
 /* The pd 1.46 server entry, completion_call-0x3a: it saves R8-R14 and PR,
  * calls the lock helper with the busy word set to one in the delay slot, and
