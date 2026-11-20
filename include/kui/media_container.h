@@ -27,6 +27,12 @@ struct kui_media_index {
     uint32_t offsets[KUI_MANUAL_PAGES_MAX + 1u];
 };
 
+enum kui_preview_index_result {
+    KUI_PREVIEW_INDEX_OK, KUI_PREVIEW_INDEX_INVALID, KUI_PREVIEW_INDEX_IO_ERROR
+};
+/* Validate an installed preview without confusing malformed content with a failed card read. */
+enum kui_preview_index_result kui_preview_index(FIL *file, struct kui_media_index *index);
+
 /* Caller owns an open readable FatFs file. File position is unspecified on return.
  * Checks the complete container structure; JPEG pixels are decoded on demand. */
 bool kui_media_container_index(FIL *file, bool manual, struct kui_media_index *index);

@@ -13,7 +13,8 @@ enum kui_media_result {
 enum kui_media_reason {
     KUI_MEDIA_REASON_NONE, KUI_MEDIA_REASON_DISC_ID, KUI_MEDIA_REASON_NO_RELEASE,
     KUI_MEDIA_REASON_NOT_LISTED, KUI_MEDIA_REASON_PROVIDER_MISSING, KUI_MEDIA_REASON_TOO_LARGE,
-    KUI_MEDIA_REASON_INVALID_ASSET, KUI_MEDIA_REASON_LOCAL_PATH
+    KUI_MEDIA_REASON_INVALID_ASSET, KUI_MEDIA_REASON_LOCAL_PATH,
+    KUI_MEDIA_REASON_UNPLAYABLE_PREVIEW, KUI_MEDIA_REASON_INVALID_LOCAL_PREVIEW
 };
 static inline const char *kui_media_reason_text(enum kui_media_reason reason) {
     switch(reason) {
@@ -23,6 +24,8 @@ static inline const char *kui_media_reason_text(enum kui_media_reason reason) {
     case KUI_MEDIA_REASON_PROVIDER_MISSING: return "Provider reported the file missing (404/410)";
     case KUI_MEDIA_REASON_TOO_LARGE: return "Asset exceeds K-UI's size limit";
     case KUI_MEDIA_REASON_INVALID_ASSET: return "Downloaded data failed the format or integrity check";
+    case KUI_MEDIA_REASON_UNPLAYABLE_PREVIEW: return "Downloaded preview is damaged or unsupported";
+    case KUI_MEDIA_REASON_INVALID_LOCAL_PREVIEW: return "Installed preview is damaged or unsupported. File kept.";
     case KUI_MEDIA_REASON_LOCAL_PATH: return "Cannot use this game's media path";
     default: return "";
     }

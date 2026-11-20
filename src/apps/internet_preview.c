@@ -18,12 +18,13 @@ union allocation {
     max_align_t alignment;
 };
 static size_t used, peak;
+static bool allocator_failed;
 
 void *kui_xiph_alloc(size_t size) {
     if(size > XIPH_MAX || sizeof(union allocation)+size > XIPH_MAX-used) return NULL;
     size_t bytes = sizeof(union allocation)+size;
     union allocation *p = malloc(bytes);
-    if(!p) return NULL;
+    if(!p) { allocator_failed = true; return NULL; }
     p->bytes = bytes;
     used += bytes;
     if(peak < used) peak = used;
@@ -53,7 +54,7 @@ void *kui_xiph_resize(void *ptr, size_t size) {
     if(size > XIPH_MAX || size+sizeof(*old) > XIPH_MAX-others) return NULL;
     size_t bytes = size+sizeof(*old);
     union allocation *p = realloc(old, bytes);
-    if(!p) return NULL;
+    if(!p) { allocator_failed = true; return NULL; }
     p->bytes = bytes;
     used = others+bytes;
     if(peak < used) peak = used;
@@ -120,7 +121,19 @@ struct convert {
     uint32_t *readback_crc;
     unsigned start_seconds, source_frames, written;
     bool found, video_done;
+    enum kui_preview_conversion failure;
 };
+
+static bool failed(struct convert *c, enum kui_preview_conversion why) {
+    c->failure = why;
+    return false;
+}
+
+static bool cancelled(struct convert *c, kui_cancel_fn cancel) {
+    if(!cancel || !cancel()) return false;
+    c->failure = KUI_CONVERSION_STOPPED;
+    return true;
+}
 
 static unsigned clamp(int n) {
     return n < 0 ? 0u : n > 255 ? 255u : (unsigned)n;
@@ -157,12 +170,14 @@ static void sample_frame(struct convert *c, th_ycbcr_buffer planes) {
     }
 }
 
-static bool write_bytes(FIL *dest, const void *data, UINT size) {
+static bool write_bytes(struct convert *c, FIL *dest, const void *data, UINT size) {
     UINT written;
-    return f_write(dest, data, size, &written) == FR_OK && written == size;
+    if(f_write(dest, data, size, &written) != FR_OK || written != size)
+        return failed(c,KUI_CONVERSION_IO_ERROR);
+    return true;
 }
 static bool write_checked(struct convert *c,FIL *dest,const void *data,UINT size) {
-    if(!write_bytes(dest,data,size)) return false;
+    if(!write_bytes(c,dest,data,size)) return false;
     if(c->readback_crc) *c->readback_crc=kui_crc32_capture(*c->readback_crc,data,size);
     return true;
 }
@@ -203,7 +218,7 @@ static bool frame_packet(struct convert *c, ogg_packet *packet, FIL *dest) {
 
 static bool convert_stream(struct convert *c, FIL *source, FIL *dest, kui_cancel_fn cancel) {
     unsigned first = c->start_seconds * KUI_PREVIEW_FPS;
-    while(!cancel || !cancel()) {
+    while(!cancelled(c,cancel)) {
         if(c->video_done && (!c->audio.rate || c->audio.done ||
            c->audio.granule >= (ogg_int64_t)(first + c->written) * c->audio.rate / KUI_PREVIEW_FPS))
             return true;
@@ -211,14 +226,19 @@ static bool convert_stream(struct convert *c, FIL *source, FIL *dest, kui_cancel
         int status = ogg_sync_pageout(&c->sync, &page);
         if(status < 0) return false;
         if(!status) {
-            char *buf = ogg_sync_buffer(&c->sync, READ_SIZE);
+            FSIZE_t left = f_size(source) - f_tell(source);
+            if(!left) return c->video_done;
+            UINT needed = left < READ_SIZE ? (UINT)left : READ_SIZE;
+            char *buf = ogg_sync_buffer(&c->sync, needed);
+            if(!buf) return false;
             UINT got;
-            if(!buf || f_read(source, buf, READ_SIZE, &got) != FR_OK) return false;
-            if(!got) return c->video_done;
+            if(f_read(source,buf,needed,&got) != FR_OK || got != needed)
+                return failed(c,KUI_CONVERSION_IO_ERROR);
             if(ogg_sync_wrote(&c->sync, got)) return false;
             continue;
         }
-        if(!collect_audio(&c->audio,&page,c->start_seconds + KUI_PREVIEW_FRAMES_MAX / KUI_PREVIEW_FPS)) return false;
+        if(!collect_audio(&c->audio,&page,c->start_seconds + KUI_PREVIEW_FRAMES_MAX / KUI_PREVIEW_FPS))
+            return failed(c,KUI_CONVERSION_NO_MEMORY);
         if(c->video_done) continue;
         if(!c->found && ogg_page_bos(&page) && page.body_len >= 7 &&
            memcmp(page.body, "\200theora", 7) == 0) {
@@ -230,7 +250,7 @@ static bool convert_stream(struct convert *c, FIL *source, FIL *dest, kui_cancel
            ogg_stream_pagein(&c->stream, &page)) return false;
         ogg_packet packet;
         while((status = ogg_stream_packetout(&c->stream, &packet)) > 0) {
-            if((cancel && cancel()) || !frame_packet(c, &packet, dest)) return false;
+            if(cancelled(c,cancel) || !frame_packet(c, &packet, dest)) return false;
             if(c->written == KUI_PREVIEW_FRAMES_MAX) {
                 c->video_done = true;
                 break;
@@ -251,16 +271,17 @@ static bool append_audio(struct convert *c, FIL *dest, uint8_t *header, kui_canc
     int16_t *pcm = calloc(samples,sizeof(*pcm));
     void *workspace = malloc(KUI_OGG_WORKSPACE_BYTES);
     bool ok = workspace && pcm;
+    if(!ok) c->failure = KUI_CONVERSION_NO_MEMORY;
     if(ok) {
         size_t decoded = kui_ogg_preview_pcm(c->audio.data,c->audio.size,workspace,pcm,
                                               samples,KUI_PREVIEW_AUDIO_RATE,c->start_seconds,cancel);
-        if(cancel && cancel()) ok = false;
+        if(cancelled(c,cancel)) ok = false;
         if(ok && decoded) {
             /* The final video frame may outlast the source audio. The zeroed
              * tail preserves synchronization without looping shorter tracks. */
             for(size_t pos=0; ok && pos<samples;) {
                 size_t n = samples-pos < 4096u ? samples-pos : 4096u;
-                ok = (!cancel || !cancel()) && write_checked(c,dest,pcm+pos,(UINT)(2u*n));
+                ok = !cancelled(c,cancel) && write_checked(c,dest,pcm+pos,(UINT)(2u*n));
                 pos += n;
             }
             header[10] = (uint8_t)KUI_PREVIEW_AUDIO_RATE;
@@ -272,20 +293,25 @@ static bool append_audio(struct convert *c, FIL *dest, uint8_t *header, kui_canc
     return ok;
 }
 
-bool kui_internet_preview_convert(FIL *source, FIL *dest, unsigned start_seconds,
+enum kui_preview_conversion kui_internet_preview_convert(FIL *source, FIL *dest, unsigned start_seconds,
                                   kui_cancel_fn cancel, kui_log_fn log,
                                   uint32_t *readback_crc) {
-    if(start_seconds > KUI_PREVIEW_START_MAX_SECONDS || !source || !dest || used || f_size(dest) || !f_size(source) ||
-       f_size(source) > 32u*1024u*1024u || f_lseek(source, 0) != FR_OK) return false;
-    struct convert c = {.readback_crc=readback_crc, .start_seconds=start_seconds};
+    if(!source || !dest || f_size(dest) || f_lseek(source,0) != FR_OK) return KUI_CONVERSION_IO_ERROR;
+    if(start_seconds > KUI_PREVIEW_START_MAX_SECONDS || !f_size(source) || f_size(source) > 32u*1024u*1024u)
+        return KUI_CONVERSION_UNPLAYABLE;
+    if(used) return KUI_CONVERSION_NO_MEMORY;
+    struct convert c = {.readback_crc=readback_crc, .start_seconds=start_seconds,
+                        .failure=KUI_CONVERSION_UNPLAYABLE};
     if(readback_crc) *readback_crc=0;
     /* Dreamcast and the host test target are little-endian RGB565. */
     uint8_t header[KUI_PREVIEW_HEADER_BYTES] = {'K','P','V','2',KUI_PREVIEW_WIDTH,0,
                                                 KUI_PREVIEW_HEIGHT,0,KUI_PREVIEW_FPS,0,0,0};
     peak = 0;
+    allocator_failed = false;
     c.frame = calloc(KUI_PREVIEW_WIDTH*KUI_PREVIEW_HEIGHT, sizeof(*c.frame));
     ogg_sync_init(&c.sync); th_info_init(&c.info); th_comment_init(&c.comments);
-    bool ok = c.frame && write_bytes(dest, header, sizeof(header)) && convert_stream(&c, source, dest, cancel);
+    if(!c.frame) c.failure = KUI_CONVERSION_NO_MEMORY;
+    bool ok = c.frame && write_bytes(&c,dest,header,sizeof(header)) && convert_stream(&c,source,dest,cancel);
     if(c.decoder) th_decode_free(c.decoder);
     th_setup_free(c.setup);
     th_comment_clear(&c.comments); th_info_clear(&c.info);
@@ -296,9 +322,11 @@ bool kui_internet_preview_convert(FIL *source, FIL *dest, unsigned start_seconds
     free(c.audio.data);
     if(ok) {
         header[12] = (uint8_t)c.written;
-        ok = f_lseek(dest, 0) == FR_OK && write_checked(&c,dest,header,sizeof(header));
+        if(f_lseek(dest,0) != FR_OK) ok = failed(&c,KUI_CONVERSION_IO_ERROR);
+        else ok = write_checked(&c,dest,header,sizeof(header));
     }
     if(log) log("Internet preview: %u source frames, %u preview frames, codec peak %lu bytes",
                 c.source_frames, c.written, (unsigned long)peak);
-    return ok && used == 0;
+    if(used || (!ok && c.failure == KUI_CONVERSION_UNPLAYABLE && allocator_failed)) return KUI_CONVERSION_NO_MEMORY;
+    return ok ? KUI_CONVERSION_OK : c.failure;
 }

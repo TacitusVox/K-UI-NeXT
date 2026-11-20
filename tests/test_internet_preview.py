@@ -127,11 +127,13 @@ class Preview(unittest.TestCase):
 
     def test_stop_truncated_oversize(self):
         self.encode(duration="2")
-        self.run_converter(False, "3")
+        self.assertIn(b"Cancelled", self.run_converter(False, "3").stderr)
+        for fault in ("short-read", "short-write"):
+            self.assertIn(b"Card I/O failed", self.run_converter(False, "0", "0", fault).stderr)
         self.src.write_bytes(self.src.read_bytes()[:-73])
-        self.run_converter(False)
+        self.assertIn(b"Unplayable source", self.run_converter(False).stderr)
         self.encode(size="704x480",duration="0.2")
-        self.run_converter(False)
+        self.assertIn(b"Unplayable source", self.run_converter(False).stderr)
 
 
 if __name__ == "__main__":

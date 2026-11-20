@@ -84,6 +84,19 @@ def multidisc_fixture(folder):
     return source
 
 
+def preview_batch_fixture(folder):
+    source = folder / "preview-batch"
+    (source / "KUI").mkdir(parents=True)
+    for title, product in (("Evolution 2", b"T-17711N"), ("Skies of Arcadia", b"MK-51052")):
+        game = source / "Games" / title
+        make_fixture(game, title.upper().encode())
+        with (game / "track03.bin").open("r+b") as data:
+            data.seek(16 + 48)
+            data.write(b"U       0000000 " + product.ljust(10))
+    write_manifest(source)
+    return source
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--public-cover", type=Path, help="Use the pinned public cover PNG for --release")
@@ -126,6 +139,7 @@ def main():
             "-f", "lavfi", "-i", "sine=frequency=850:sample_rate=32000", "-t", "24",
             "-threads", "1", "-c:v", "libtheora", "-c:a", "libvorbis", str(folder / "clip.ogv"))
         disc_source = multidisc_fixture(folder)
+        preview_source = preview_batch_fixture(folder)
         formatter = private_formatter(folder)
         for kind in ("fat32", "exfat"):
             if kind == "exfat":
@@ -150,6 +164,10 @@ def main():
                 digest = sha256(thumbs.read_bytes()).hexdigest()
                 assert digest == thumbnail_hash, digest
                 print(f"{kind}: all three retrieved public cover thumbnails match {digest}")
+            preview_card = folder / (kind + "-preview-batch.img")
+            run(formatter, kind, preview_card)
+            run(ROOT / "build/games-covers-image", preview_card, preview_source, "seed", "network-media")
+            run(ROOT / "build/bba-media-integration", preview_card, folder, "-", "preview-batch")
             cleanup_card = folder / (kind + "-cleanup.img")
             run(formatter, kind, cleanup_card)
             run(ROOT / "build/bba-media-integration", cleanup_card, folder, "-", "cleanup")
