@@ -142,9 +142,8 @@ force-mode-config:
 $(BUILD)/readonly-config: force-mode-config
 	@mkdir -p $(BUILD)
 	@printf '%s\n' 'READONLY_PROOF=$(READONLY_PROOF)' 'SD_PROFILE=$(SD_PROFILE)' 'MAPLE_PROFILE=$(MAPLE_PROFILE)' 'VMU_READER_PROFILE=$(VMU_READER_PROFILE)' 'BUILD_ID=$(BUILD_ID)' 'NATIVE_LAYOUT=$(NATIVE_LAYOUT)' 'NATIVE_SPAN=$(NATIVE_SPAN)' > $(BUILD)/readonly-config.tmp
-ifneq ($(VMU_RESIDENT_MAP_SLOTS),64)
-	@printf '%s\n' 'VMU_RESIDENT_MAP_SLOTS=$(VMU_RESIDENT_MAP_SLOTS)' >> $(BUILD)/readonly-config.tmp
-endif
+	@if test '$(VMU_RESIDENT_MAP_SLOTS)' != 64; then \
+	 printf '%s\n' 'VMU_RESIDENT_MAP_SLOTS=$(VMU_RESIDENT_MAP_SLOTS)' >> $(BUILD)/readonly-config.tmp; fi
 ifneq ($(filter $(READONLY_PROOF),2 3 4),)
 	@sha256sum '$(SD_PROFILE)' >> $(BUILD)/readonly-config.tmp
 endif
@@ -219,7 +218,7 @@ $(BUILD)/stage.elf: $(STAGE_OBJ) src/loader/retail_stage.ld
 	 -o $@ $(STAGE_OBJ) -lgcc
 $(BUILD)/stage.bin: $(BUILD)/stage.elf
 	$(OBJCOPY) -O binary $< $@
-$(BUILD)/entry_asm.o: src/loader/retail_entry.S $(BUILD)/stage.bin
+$(BUILD)/entry_asm.o: src/loader/retail_entry.S $(BUILD)/stage.bin $(BUILD)/readonly-config
 	$(CC) $(FLAGS) -DKUI_RETAIL_STAGE_BIN='"$(BUILD)/stage.bin"' -c $< -o $@
 $(BUILD)/entry.elf: $(BUILD)/entry_asm.o src/loader/retail_entry.ld
 	$(CC) $(LINK) -Tsrc/loader/retail_entry.ld -Wl,-Map,$(BUILD)/entry.map -o $@ $<
