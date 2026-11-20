@@ -1,10 +1,13 @@
 # Toy Commander Test 81: the stream's timer in every title
 
-Status: built 16 November 2026 (build `684f485644e5`), host and linked
-checks only. It has not run on a console. A test module, not an accepted
-component, and not a replacement for the installed New reader: it has no
-virtual VMU and no block prefetch. Delivered together with Test 80
-(`docs/toy-wire-stream-test-80.md`), its baseline.
+Status: built 16 November 2026 (build `684f485644e5`) and run by the
+owner on the console the same day, in Evolution and Evolution 2
+(Console result): the stream took a spare timer of the game's in both,
+and a wait lasts 0.12 to 0.17 ms where it lasted 10 to 15 ms. A test
+module, not an accepted component, and not a replacement for the
+installed New reader: it has no virtual VMU and no block prefetch.
+Delivered together with Test 80 (`docs/toy-wire-stream-test-80.md`),
+its baseline.
 
 The module is built from `684f485644e5`: Test 80's source and the change
 (`494a6e9`), the correction its review asked for (`9d4e338`) and the
@@ -153,6 +156,90 @@ tells this reader's stutter from the game's.
 Toy Commander needs no run of this build for the change: its two words
 are the constants it had. A run through the Games menu or Card Tools
 would show `TMR` 1 as before.
+
+## Console result
+
+The owner's runs of 16 November 2026: Evolution, then Evolution 2, each
+from the Games menu with this module in the installed module's place,
+the virtual VMU off. The three pages of each run were photographed, at
+15:37 and 15:41, and sent as two archives.
+
+Owner's observation, for Tests 80 to 82 together: "I don't know if that
+stutter is real or imagined. Not worth hunting down at this very
+moment. May be some fine-tuning in the distant future." Nothing wrong
+was reported of either game.
+
+| Game | Report as read | SHA-256 |
+|---|---|---|
+| Evolution | `docs/evidence/toy-wire-stream-81/console-report-evolution.txt` | `d0af21a1...424e` |
+| Evolution 2 | `docs/evidence/toy-wire-stream-81/console-report-evolution-2.txt` | `59ba7aa3...b07e` |
+
+Evolution 2's was read twice, the second time by a reader given the
+photographs alone, and the two readings are equal in every character.
+Evolution's was read once: its second reader did not finish, and the
+checks the report makes of itself stand in for it, every one of which
+holds (`console-report-photographs.txt`). The figures below are `console-report-decoded.txt`. Both
+reports are headed `TEST 81`, `BUILD 684F485644E5`, with `PT` `1FBD`
+and `TOY` 0.
+
+| | Evolution 2, Test 80 | Evolution 2, Test 81 | Evolution, Test 79 | Evolution, Test 81 |
+|---|---|---|---|---|
+| The stream's timer (`TMR`) | none | TMU1 | none | TMU1 |
+| Runs cut by an overrun | 4,710 | 2,498 | 9,813 | 5,051 |
+| Of those answered with a wait | 2,290 | 143 | 3,421 | 146 |
+| The stream stood for them | 34.5 s | 0.024 s | 34.6 s | 0.018 s |
+| A wait, on average | 15.1 ms | 0.17 ms | 10.1 ms | 0.12 ms |
+| The timer's visits, their time in all, the longest | none | 137, 0.5 ms, 8 us | none | 119, 0.5 ms, 9 us |
+| Windows opened | 31 | 22 | 75 | 31 |
+| Given up for a read elsewhere / for a command | 30 / 0 | 22 / 0 | 74 / 0 | 30 / 0 |
+| Commands a window stood through | 2,476, GETSCD | 2,672, GETSCD | not counted | none met |
+| Requests served from windows | 1,307 | 1,283 | 2,743 | 2,685 |
+| To a window: requests, sectors | 42, 398 | 58, 555 | 37, 445 | 87, 849 |
+| Streams begun | 195 | 150 | 388 | 260 |
+| Stops of the stream for a full window | 1,181 | 1,198 | 2,225 | 2,275 |
+| The windows' share of the sectors read | about 71% | about 74% | about 80% | about 84% |
+| Sectors the parity could not complete / that failed a check, all read again | 33 / 2 | 0 / 4 | 27 / 12 | 0 / 14 |
+| Longest pump from the SCI's interrupt / from a call of the game's | 1.4 / 3.7 ms | 1.4 / 3.8 ms | not measured | 1.6 / 3.6 ms |
+| Longest delivery visit of one disc call | 9.6 ms | 8.3 ms | not measured | 8.2 ms |
+| Take-overs refused / stream errors / the low reader's CRC16 failures | 0 / 0 / 0 | 0 / 0 / 0 | 0 / 0 / 0 | 0 / 0 / 0 |
+
+The runs differ in length: the game's disc calls were 8,027 and 7,620
+in Evolution 2, 37,020 and 13,745 in Evolution.
+
+What the runs say, by the outcomes above:
+
+1. **The stream has its timer in both games.** It is the first
+   outcome: `TMR` 1 in both, TMU1 taken from the game's own table. A
+   wait lasts 0.17 and 0.12 ms where it lasted 15 and 10 ms: `WTICK`
+   over `WAIT` is `84` and `61` ticks, against the `400` the outcome
+   asks for. That is shorter than in Toy Commander (0.58 ms in Test
+   78's run). The time the stream stood fell from 34.5 s to 24 ms in
+   Evolution 2 and from 34.6 s to 18 ms in Evolution.
+2. **Fewer runs are cut, and far fewer waits begin.** In Evolution 2
+   half as many cuts for the same amount streamed (34 MB in both
+   runs); in Evolution a third fewer to the megabyte. And 143 and 146
+   waits where there were thousands. The report does not say why. What it fits: a
+   stream without a timer begins again at the game's next disc call,
+   which is when the game's own work has the bus; one with a timer
+   begins again a tenth of a millisecond later.
+3. **A borrowed timer did no harm that was seen.** This is the first
+   time the reader took a timer from a game other than Toy Commander.
+   Both games ran, and the owner reports nothing wrong. The timer's
+   visits cost half a millisecond in a whole run.
+4. **Everything of Test 80 held with it.** No window given up for a
+   command, the subcode request stood through 2,672 times in Evolution
+   2, none met in Evolution; windows of 58 and 87 requests.
+5. **The reader held.** No stream error, no take-over refused, no
+   CRC16 failure in the low reader; 4 and 14 sectors failed a check and
+   were read again.
+6. **The stutter is left where it is**, by the owner's word above. The
+   look at the same places under the installed module was not
+   reported. The longest delivery visit of one disc call is 8.2 to
+   8.3 ms, half a frame, as under Test 80.
+
+What follows: the virtual VMU beside this reader, Test 82
+(`docs/toy-wire-stream-test-82.md`), which the owner ran the same
+afternoon.
 
 ## Known limits, not changed here
 

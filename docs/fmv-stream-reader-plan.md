@@ -14,10 +14,11 @@ Evolution games. Their results, and the two tests that follow from
 Test 79's, are under The order from here: Test 80
 (`docs/toy-wire-stream-test-80.md`, `e58dd2e6b641`) and Test 81
 (`docs/toy-wire-stream-test-81.md`, `684f485644e5`), built and delivered
-together on 16 November and not yet run on a console; and Test 82
+together on 16 November; and Test 82
 (`docs/toy-wire-stream-test-82.md`, `af5ebae4f0a5`), the virtual VMU beside
-the stream, delivered behind them the same day. Nothing else here is
-built or approved. It answers the
+the stream, delivered behind them the same day. The owner ran all three
+that afternoon; their results are in the three documents and summed up
+under The order from here. Nothing else here is built or approved. It answers the
 owner's remark after Test 76's console run,
 "then we can probably package this for every game's FMVs", with what
 that takes and in what order. The decisions at the end are the owner's.
@@ -361,8 +362,8 @@ is still open.
 Tests 80 and 81 were built as the table says, on 16 November, and
 delivered as two archives: Test 80 for Evolution 2, Test 81 for both
 games, each with three pages of report to photograph, and a last look
-at the same places under the installed module. Neither has run on a
-console. Each had a reader of its own before it went out. Test 80's
+at the same places under the installed module. Each had a reader of
+its own before it went out. Test 80's
 found no fault in the change and two holes in its tests, which are
 closed. Test 81's found the hand-back of a title's timer wanting, as
 the author's own reading had begun to: the timer now goes back as it
@@ -392,6 +393,26 @@ every title but Toy Commander, waits its time before it begins a cut
 run again; and the report's page says what to do when Start cannot
 restart the console. The two tests' documents have their reviews in
 full.
+
+The owner ran Tests 80, 81 and 82 on 16 November, in that order.
+Test 80, Evolution 2: no window was given up for a command (969 of 972
+under Test 79); 2,476 subcode requests were stood through; a window
+serves 42 requests and 398 sectors where it served 1.3 and 13. Test 81,
+both games: the stream took TMU1 from the game's own table in each; a
+wait lasts 0.17 and 0.12 ms where it lasted 15 and 10 ms, and the
+stream stood for 24 and 18 ms in a run where it had stood for 34
+seconds. No stream error, no take-over refused and no CRC16 failure in
+any of the three reports. Test 82, the virtual VMU on: "everything
+seems fine", with no detail and no launch record; that a save survives
+power off under it is not yet reported. Of the stutter seen under Test
+79 the owner says: "I don't know if that stutter is real or imagined.
+Not worth hunting down at this very moment." It is left where it is;
+the one figure of its size in the reports is the longest delivery visit
+of a disc call, 8 to 10 ms. And of the photographed pages: "this would
+be a lot more convenient if you didn't break the report writing feature
+to the SD card". A test that needs a report saves it to the card from a
+Games launch from now on (`docs/handoff-2026-11-10.md`, For the next
+Toy change).
 
 What the reviews add to the work behind them, none of it built:
 

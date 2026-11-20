@@ -1,0 +1,38 @@
+== docs/evidence/toy-wire-stream-80/console-report-evolution-2.txt
+test 80, build E58DD2E6B641
+title: another title (no movie rows)
+V: SCI 8370 visits 1.46 s; timer 0, 0.000 s; game 8027, 2.60 s; all 4.05 s; stream blocks 62022; 65.4 us a block
+P us/block: ring 35.7, feed less checks 10.2, checks 4.5, service 2.8, seek 8.0, rest 4.2; out 0.50 s (40.4 us a sector of 12337); ending streams 0.002 s
+seek 0.49 s, 2.53 ms for each stream begun
+D: delivery visits 20652, 7.64 s, 0.37 ms each
+W: begun 195, full runs 3959, runs cut 4710, waits 2290 of 34.53 s (15.08 ms each), stops for room 1181; bytes 34232329 (551.9 a block); timer 0; errors 0, detail 0
+BLK: 62022, rebuilt 5713, unexplained 77, holed 521, crc only 17; brought by the low reader for a window 337
+S: closed 29, sector 35, could not follow 131: lost frame 131, ambiguous 0, bad crc 0
+FILL: 177, refused 33, bad 2;  K: light 11908, edc 1533, mend 4720, MB 0, LB 0, ORD 3
+  check: light + edc - bad = 13439 against sectors into the window 13434 (the difference is sectors refused for too many lost bytes once whole)
+AHEAD: sectors served from the movies' windows 0, from other windows 12337, all 12337; requests served 1307 (9.4 sectors each); sectors into the window 13434, of which not served 1097 (8.2%); stop 0
+PIPE: movie windows 0; game's calls 8027, interrupt visits 8370, stay 66, PT FBD
+X: other windows 31; opened in all 31 (398.0 sectors, 42.16 requests each); given up: error 0, request state 0, command 0, waited 0, other read 30, together 30 (1 not given up by the report's end)
+BIG: requests of more than sixty sectors 16, 1458 sectors (91.1 each), back to the low reader 0
+SD: low reader's blocks by DMA 23674 (5154 sectors' worth), by programmed transfers 355, overruns 537 (2.27 per hundred blocks), CRC16 failures 0; take-overs refused 0
+  the windows' share of the sectors read: 71% (12337 of about 17491)
+VMAX: longest pump from the SCI's interrupt 1.42 ms, from the timer 0.000 ms, from a call of the game's 3.65 ms; longest delivery visit 9.55 ms (a frame is 16.7 ms)
+XC: commands a window stood through 2476; commands that are no reads met with a window open: 34 GETSCD
+== docs/evidence/toy-wire-stream-79/console-report-evolution-2.txt
+test 79, build 9F183A7F72F5
+title: another title (no movie rows)
+V: SCI 7783 visits 3.29 s; timer 0, 0.000 s; game 9049, 2.79 s; all 6.08 s; stream blocks 72686; 83.6 us a block
+P us/block: ring 37.0, feed less checks 10.8, checks 5.7, service 2.3, seek 24.7, rest 3.2; out 0.62 s (51.0 us a sector of 12238); ending streams 0.012 s
+seek 1.79 s, 1.68 ms for each stream begun
+D: delivery visits 32512, 8.31 s, 0.26 ms each
+W: begun 1066, full runs 5511, runs cut 3783, waits 606 of 5.94 s (9.80 ms each), stops for room 1; bytes 38955844 (535.9 a block); timer 0; errors 0, detail 0
+BLK: 72686, rebuilt 6084, unexplained 34, holed 922, crc only 9; brought by the low reader for a window 1062
+S: closed 972, sector 4, could not follow 90: lost frame 90, ambiguous 0, bad crc 0
+FILL: 837, refused 0, bad 4;  K: light 12707, edc 2639, mend 4355, MB 0, LB 0, ORD 3
+  check: light + edc - bad = 15342 against sectors into the window 15342 (the difference is sectors refused for too many lost bytes once whole)
+AHEAD: sectors served from the movies' windows 0, from other windows 12238, all 12238; requests served 1244 (9.8 sectors each); sectors into the window 15342, of which not served 3104 (20.2%); stop 0
+PIPE: movie windows 0; game's calls 9049, interrupt visits 7783, stay 308, PT 7BD
+X: other windows 972; opened in all 972 (12.6 sectors, 1.28 requests each); given up: error 0, request state 0, command 969, waited 0, other read 3, together 972
+BIG: requests of more than sixty sectors 16, 1479 sectors (92.4 each), back to the low reader 0
+SD: low reader's blocks by DMA 25615 (5576 sectors' worth), by programmed transfers 1083, overruns 598 (2.33 per hundred blocks), CRC16 failures 0; take-overs refused 0
+  the windows' share of the sectors read: 69% (12238 of about 17814)

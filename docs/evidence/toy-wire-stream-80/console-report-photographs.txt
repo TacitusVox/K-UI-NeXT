@@ -1,0 +1,66 @@
+Test 80 on the console, 16 November 2026: the report's pages as photographed
+
+A launch from the Games menu brings no report file, so the worker shows the
+report on the screen, twelve lines to a page (docs/toy-wire-stream-test-80.md,
+The report). The owner photographed the three pages of the Evolution 2 run with
+a telephone, 3000 x 4000 pixels each, and sent them as one archive. The
+photographs are the owner's and are not in this repository; what identifies
+them is below.
+
+Evolution 2 (Evolution_2_test_80.zip, 6,400,588 bytes,
+SHA-256 24f56cefe8ec9b6b664eaba955d4d592c7c51cc4c3ccfc79b8b68231026214e1)
+  page  file                      bytes    SHA-256
+  2     20261116_153058412.jpg    2206288  23ca413ff98197b7c7596df67681a34d7356f4de308bb2da82946eeeacafe36c
+  3     20261116_153100836.jpg    2126075  c4d7a3c45d656a9370a1957100c5638a7498c914c61bc1e0605a013632b3129b
+  1     20261116_153106156.jpg    2067795  7d6379ea2a9a80f1ca348f8f94b4c23ca7544d2e2154deb56d36e36891a290d4
+
+The file names and the pictures' own records carry the time of each photograph
+(America/Chicago): 15:30:58 to 15:31:06. The pages go round; they were
+photographed from the second on.
+
+Every page shows, above the report's lines, the worker's own three lines
+(HYBRID, BUILD E58DD2E6B641, NATIVE), the heading REPORT NOT SAVED / FILM EVERY
+PAGE and, below them, START / REBOOT TO K-UI CD. Each page holds twelve lines
+of the report: 36 lines.
+
+console-report-evolution-2.txt is those 36 lines in the report's order, as the
+screen shows them. (The screen's letters are capitals only: a saved report has
+the build as e58dd2e6b641.)
+
+How they were read
+  1. By the author, from crops of the photographs at their full resolution.
+  2. A second time by a reader that was given the photographs and nothing of
+     the first reading. It measured the look-alikes (0, 8, B, D) against
+     glyphs of the same photograph whose identity the words give, and against
+     the program's own glyph table.
+  3. The two readings were compared by a program: equal in every character,
+     36 lines of 36.
+
+The first page's photograph (20261116_153106156.jpg) is blurred: the holes of
+0, 8, B and D are nearly closed in it. Both readers have its values the same.
+What holds them beside the reading:
+  PIPE's CALLS and IRQ are the row V's GAME and SCI on the second page, which
+  is sharp: 1F5B and 20B2 on both.
+  PT is FBD, which this build's switches give.
+  The values that rest on the blurred page alone: STAY 42; AHEAD's HIT 51B,
+  EDC 347A, STOP 0 and OS 3031; X's row 1F 0 0 0 0 1E; BIG's row 10 5B2 0 0.
+  Of those, K's LIGHT and EDC less W FILL's BAD (2E84 + 5FD - 2 = 13,439) are
+  five more than AHEAD's EDC (347A = 13,434), with 33 sectors refused once
+  whole (REF 21): the same relation as in Test 79's Evolution report. OS over
+  HIT is 9.4 sectors a request, as in Test 81's run of the same game (9.5).
+
+Checks the report makes of itself
+  S's second and third values, the streams ended for a sector that failed and
+  for a reader that could not follow, are what the other rows hold: 23 = REF
+  21 + BAD 2; 83 = LF 83 + AM 0 + BC 0.
+  The stream's bytes to a block, 20A5809 / F246 = 551.9, are those of the
+  other runs (535.9 to 555.5).
+  X's OW, the windows opened, is 1F; S's first value, the streams ended with
+  their window, is 1D. In Test 79's reports the two were equal. Here one
+  window was still open when the report was asked for, and one was given up
+  with no stream running behind it: with 35 streams ended for a failed sector
+  that can happen, and Test 81's reports have the two equal again.
+
+decode_report.py of docs/evidence/toy-wire-stream-81/ turns the lines into the
+figures the document quotes (console-report-decoded.txt, with Test 79's report
+of the same game beside it).

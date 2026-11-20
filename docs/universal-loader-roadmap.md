@@ -106,7 +106,9 @@ timer. Those two are the next tests, each one change, before the virtual VMU
 beside the stream. The games were not compared with the installed module on
 the same day.
 
-Built and delivered for that on 16 November, not yet run on a console: Test 80
+Built and delivered for that on 16 November, and run by the owner the same day
+(results in the two documents: no window given up for a command in Evolution 2,
+and the stream's waits down from 10 to 15 ms to under 0.2 ms in both games): Test 80
 (`toy-wire-stream-test-80.md`, build `e58dd2e6b641`, a window stands through a
 command that only asks the drive something) and Test 81
 (`toy-wire-stream-test-81.md`, build `684f485644e5`, the stream's timer in every
@@ -114,7 +116,8 @@ title by the title's own admitted SDK table). Both are test modules for the
 installed New reader's place, virtual VMU off; the delivered `f8807cb16561`
 candidate is not changed.
 
-Behind them, the same day and not yet run on a console either: Test 82
+Behind them, the same day, and run by the owner that afternoon ("everything
+seems fine"; a save's survival of power off is not yet reported): Test 82
 (`toy-wire-stream-test-82.md`, build `af5ebae4f0a5`), the virtual VMU beside the
 stream reader. It is the installed New reader's worker, byte for byte with that
 module's label, in the test module's place of a worker, with Test 81's low
