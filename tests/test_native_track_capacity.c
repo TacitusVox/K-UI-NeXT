@@ -56,6 +56,9 @@ static unsigned module_capacity(int extended) {
     for(unsigned i=0;i<sizeof(record);++i) {
         header[i]^=1u;assert(kui_native_map_capacity(module,sizeof(module))==0);header[i]^=1u;
     }
+    header[12]=128;assert(kui_native_map_capacity(module,sizeof(module))==128);
+    header[12]=129;assert(kui_native_map_capacity(module,sizeof(module))==0);
+    header[12]=160;
     unsigned n=kui_native_map_capacity(module,sizeof(module));assert(n==160);return n;
 }
 int main(int argc,char **argv) {
