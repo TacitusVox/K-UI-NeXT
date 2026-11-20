@@ -18,7 +18,10 @@ together on 16 November; and Test 82
 (`docs/toy-wire-stream-test-82.md`, `af5ebae4f0a5`), the virtual VMU beside
 the stream, delivered behind them the same day. The owner ran all three
 that afternoon; their results are in the three documents and summed up
-under The order from here. Nothing else here is built or approved. It answers the
+under The order from here. Test 83
+(`docs/toy-wire-stream-test-83.md`, `3bd4bed2fca2`, 20 November) is Test
+81's reader with its report saved to the card from a Games launch, for a
+survey over more games; it has not run on a console. Nothing else here is built or approved. It answers the
 owner's remark after Test 76's console run,
 "then we can probably package this for every game's FMVs", with what
 that takes and in what order. The decisions at the end are the owner's.

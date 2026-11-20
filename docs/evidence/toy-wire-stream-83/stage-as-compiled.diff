@@ -1,0 +1,552 @@
+507a508
+> static _Bool toy_survey_wrote;
+1060c1061
+<     retail_display_line("STORAGE WAS READ ONLY");
+---
+>     retail_display_line(toy_survey_wrote?"ONLY THE SURVEY FILE WAS WRITTEN":"STORAGE WAS READ ONLY");
+1429c1430,1433
+< static void toy_movie_scan(void) {
+---
+> static void toy_survey_prepare(void);
+> static void toy_movie_scan_source(void);
+> static void toy_movie_scan(void) {toy_movie_scan_source();toy_survey_prepare();}
+> static void toy_movie_scan_source(void) {
+1474a1479,1885
+> enum kui_wce_probe_state {
+>     KUI_WCE_PROBE_EMPTY = 0u,
+>     KUI_WCE_PROBE_CLAIMED = 1u,
+>     KUI_WCE_PROBE_DUMPING = 2u,
+>     KUI_WCE_PROBE_COMPLETE = 3u
+> };
+> enum kui_wce_probe_reason {
+>     KUI_WCE_PROBE_MENU = 1u,
+>     KUI_WCE_PROBE_FAULT = 2u
+> };
+> struct kui_wce_probe_file {
+>     char magic[8];
+>     uint32_t version,header_bytes,slot_count,slot_sectors,first_slot,dump_sectors;
+>     uint8_t file_id[16];
+>     uint32_t flags,reserved[2],crc32;
+> };
+> _Static_assert(sizeof(struct kui_wce_probe_file)==64u,"WCE probe file header");
+> struct kui_wce_probe_slot {
+>     char magic[8];
+>     uint32_t version,header_bytes,slot,state,sequence,rtc;
+>     uint8_t file_id[16];
+>     uint32_t pages,reason,reserved,crc32;
+> };
+> _Static_assert(sizeof(struct kui_wce_probe_slot)==64u,"WCE probe slot header");
+> struct kui_wce_probe_run {uint32_t lba,sectors;};
+> struct kui_wce_probe_seed {
+>     uint32_t magic,version,slot,run_count;
+>     uint32_t slot_header_lba,sequence,stage_rtc,flags;
+>     uint8_t file_id[16];
+>     struct kui_wce_probe_run runs[8u];
+>     struct kui_wce_probe_slot complete;
+>     uint32_t reserved,crc32;
+> };
+> _Static_assert(sizeof(struct kui_wce_probe_seed)==184u,"WCE probe seed");
+> struct kui_wce_probe_audio {
+>     uint8_t command,result;uint16_t call;
+>     uint32_t first,last,repeat;
+> };
+> struct kui_wce_probe_counters {
+>     uint32_t magic,version,bytes,calls;
+>     uint32_t rtc_first,rtc_first_read,rtc_first_audio,rtc_last;
+>     uint16_t functions[16u];
+>     uint16_t commands[32u];
+>     uint32_t refused,refused_last,refused_mask[2];
+>     uint32_t read_requests,read_sectors,largest_read,unknown_commands;
+>     uint32_t audio_count,maple_samples,maple_lists,maple_frames;
+>     uint32_t maple_bad,maple_last_list;
+>     struct kui_wce_probe_audio audio_first[4u];
+>     struct kui_wce_probe_audio audio_ring[8u];
+>     uint8_t maple[12u][8u];
+>     uint32_t maple_functions[12u];
+> };
+> _Static_assert(sizeof(struct kui_wce_probe_counters)==520u,"WCE probe counters");
+> struct kui_wce_probe_stage {
+>     char magic[8];
+>     uint32_t version,bytes;
+>     char build[16];
+>     uint32_t rtc,transport,card_high_capacity,card_blocks;
+>     uint32_t partition_start,partition_end,track_count,extent_count;
+>     uint32_t map_slots,kernel_bytes,kernel_crc32,kernel_head_crc32;
+>     uint32_t rom_header,rom_header_method,ram_start,ram_free;
+>     uint32_t ram_end,zero_begin,zero_end,file_runs;
+>     uint32_t slot,slot_runs,sequence,flags;
+>     uint8_t ip[256];
+>     uint8_t rom_header_bytes[84];
+>     uint32_t zero_high_begin,zero_high_end;
+>     uint32_t reserved[11];
+> };
+> _Static_assert(sizeof(struct kui_wce_probe_stage)<=7u*512u,
+>     "WCE probe stage report");
+> struct kui_wce_probe_terminal {
+>     char magic[8];
+>     uint32_t version,bytes,reason,menu_command,caller,stack;
+>     uint32_t rtc,hook_fault,pages,dump_sectors;
+>     uint32_t registers[32u];
+>     struct kui_wce_probe_seed seed;
+>     struct kui_wce_probe_counters counters;
+> };
+> _Static_assert(__builtin_offsetof (struct kui_wce_probe_terminal, counters)+sizeof(struct kui_wce_probe_counters)<=
+>     3584u,"WCE probe terminal report");
+> typedef int (*kui_wce_probe_read)(void *context,uint32_t lba,uint8_t sector[512]);
+> struct kui_wce_probe_volume {
+>     uint32_t partition_start,partition_end;
+>     kui_wce_probe_read read;void *context;
+> };
+> struct kui_wce_probe_layout {
+>     uint32_t bytes,run_count;
+>     struct kui_wce_probe_run runs[128u];
+> };
+> enum kui_wce_probe_fat_result {
+>     KUI_WCE_PROBE_FAT_OK = 0, KUI_WCE_PROBE_FAT_IO, KUI_WCE_PROBE_FAT_VOLUME,
+>     KUI_WCE_PROBE_FAT_MISSING, KUI_WCE_PROBE_FAT_CHAIN, KUI_WCE_PROBE_FAT_FRAGMENTED
+> };
+> enum kui_wce_probe_fat_result kui_wce_probe_fat_find(const struct kui_wce_probe_volume *volume,
+>     struct kui_wce_probe_layout *layout,uint8_t work[512]);
+> uint32_t kui_wce_probe_lba(const struct kui_wce_probe_layout *layout,uint32_t sector);
+> uint32_t kui_wce_probe_runs(const struct kui_wce_probe_layout *layout,uint32_t first,uint32_t count,
+>     struct kui_wce_probe_run *out,uint32_t capacity);
+> uint32_t kui_wce_probe_crc32(uint32_t crc,const void *data,size_t bytes);
+> enum kui_wce_probe_claim_result {
+>     KUI_WCE_PROBE_CLAIM_OK = 0, KUI_WCE_PROBE_CLAIM_IO, KUI_WCE_PROBE_CLAIM_NOT_FILE,
+>     KUI_WCE_PROBE_CLAIM_FULL, KUI_WCE_PROBE_CLAIM_SLOT_HEADER, KUI_WCE_PROBE_CLAIM_NOT_BLANK
+> };
+> struct kui_wce_probe_claim {
+>     struct kui_wce_probe_file file;
+>     uint32_t slot,used,header_lba,stage_count,run_count;
+>     struct kui_wce_probe_run stage_runs[7u];
+>     struct kui_wce_probe_run runs[8u];
+> };
+> enum kui_wce_probe_claim_result kui_wce_probe_claim_find(const struct kui_wce_probe_volume *volume,
+>     const struct kui_wce_probe_layout *layout,uint8_t work[512],struct kui_wce_probe_claim *out);
+> void kui_wce_probe_slot_header(struct kui_wce_probe_slot *h,uint32_t slot,uint32_t state,
+>     uint32_t sequence,uint32_t rtc,const uint8_t file_id[16]);
+> void kui_wce_probe_seed_build(const struct kui_wce_probe_claim *claim,uint32_t rtc,uint32_t flags,
+>     struct kui_wce_probe_seed *seed);
+> struct kui_toy_survey_file {
+>     uint8_t id[16u];
+>     uint32_t slots;
+> };
+> static inline uint32_t kui_toy_survey_sector(uint32_t slot,uint32_t part) {
+>     return 1u+slot*3u +part;
+> }
+> static inline uint32_t kui_toy_survey_bytes(uint32_t slots) {
+>     return (1u+slots*3u)*512u;
+> }
+> void kui_toy_survey_file_sector(const struct kui_toy_survey_file *file,uint8_t out[512]);
+> int kui_toy_survey_file_parse(const uint8_t sector[512],struct kui_toy_survey_file *out);
+> void kui_toy_survey_blank_sector(const struct kui_toy_survey_file *file,uint32_t slot,uint32_t part,
+>     uint8_t out[512]);
+> struct kui_toy_survey_launch {
+>     const char *build;
+>     const char *title,*product,*bootfile,*region;
+>     uint32_t title_bytes,product_bytes,bootfile_bytes,region_bytes;
+>     uint32_t ip_crc32,gdi_crc32,boot_crc32,boot_bytes;
+>     uint32_t exec_crc32,exec_bytes;
+>     uint32_t reader,transport,flags,source;
+>     uint32_t tracks,raw,cooked,other,extents;
+>     uint32_t audio,audio_high,audio_mapped;
+>     uint32_t session_lba,boot_lba;
+> };
+> void kui_toy_survey_launch_sector(const struct kui_toy_survey_file *file,uint32_t slot,
+>     const struct kui_toy_survey_launch *launch,uint8_t out[512]);
+> enum kui_toy_survey_claim_result {
+>     KUI_TOY_SURVEY_CLAIM_OK = 0, KUI_TOY_SURVEY_CLAIM_IO, KUI_TOY_SURVEY_CLAIM_NOT_FILE,
+>     KUI_TOY_SURVEY_CLAIM_FULL
+> };
+> struct kui_toy_survey_claim {
+>     struct kui_toy_survey_file file;
+>     uint32_t slot,used;
+>     uint32_t lba[3u];
+>     uint32_t blank_crc[3u];
+> };
+> enum kui_toy_survey_claim_result kui_toy_survey_claim_find(const struct kui_wce_probe_volume *volume,
+>     const struct kui_wce_probe_layout *layout,uint8_t work[512],uint8_t expect[512],
+>     struct kui_toy_survey_claim *out);
+> void kui_toy_survey_seed_build(const struct kui_toy_survey_claim *claim,const uint8_t cid[16],
+>     uint32_t high_capacity,struct kui_toy_report_wire *seed);
+> enum kui_vmu_store_result {
+>     KUI_VMU_STORE_OK = 0,
+>     KUI_VMU_STORE_ARGUMENT = -1,
+>     KUI_VMU_STORE_MAPPING = -2,
+>     KUI_VMU_STORE_IO = -3,
+>     KUI_VMU_STORE_CORRUPT = -4,
+>     KUI_VMU_STORE_BLOCKED = -5,
+>     KUI_VMU_STORE_IDENTITY = -6
+> };
+> struct kui_vmu_store_extent { uint64_t first_lba; uint32_t sectors; };
+> struct kui_vmu_store_io {
+>     void *context;
+>     int (*read_sector)(void *context,uint64_t lba,void *sector);
+>     int (*write_sector)(void *context,uint64_t lba,const void *sector);
+>     int (*sync)(void *context);
+> };
+> struct kui_vmu_store_config {
+>     uint64_t card_sectors;
+>     uint8_t image_id[16];
+>     const struct kui_vmu_store_extent *image_extents;
+>     size_t image_extent_count;
+>     const struct kui_vmu_store_extent *journal_extents;
+>     size_t journal_extent_count;
+> };
+> struct kui_vmu_store {
+>     struct kui_vmu_store_io io;
+>     struct kui_vmu_store_extent image[16u];
+>     struct kui_vmu_store_extent journal[16u];
+>     size_t image_count,journal_count;
+>     uint64_t card_sectors,sequence;
+>     uint32_t mapping_crc;
+>     uint8_t image_id[16];
+>     uint8_t data[512u];
+>     uint8_t marker[512u];
+>     unsigned ready;
+> };
+> int kui_vmu_store_open(struct kui_vmu_store *store,
+>     const struct kui_vmu_store_io *io,const struct kui_vmu_store_config *config);
+> int kui_vmu_store_read(struct kui_vmu_store *store,unsigned block,void *sector);
+> int kui_vmu_store_write(struct kui_vmu_store *store,unsigned block,
+>     const void *sector);
+> int kui_vmu_store_sync(struct kui_vmu_store *store);
+> int kui_vmu_store_checkpoint(struct kui_vmu_store *store);
+> struct kui_loader_sd;
+> struct kui_loader_sd_stream;
+> struct kui_vmu_sd_identity {
+>     uint8_t cid[16];
+>     uint64_t sectors;
+>     _Bool high_capacity;
+> };
+> int kui_vmu_sd_identity_read(struct kui_loader_sd *,struct kui_vmu_sd_identity *);
+> struct kui_vmu_backing_bus {
+>     void *context;
+>     struct kui_loader_sd *card;
+>     _Bool (*enter)(void *);
+>     void (*leave)(void *);
+>     int (*acquire)(void *);
+>     void (*release)(void *);
+>     _Bool (*healthy)(void *);
+>     struct kui_loader_sd_stream *reader_stream;
+>     _Bool *reader_lease;
+> };
+> struct kui_vmu_backing_config {
+>     struct kui_vmu_sd_identity identity;
+>     const struct kui_vmu_store_config *store;
+>     uint64_t partition_first,partition_sectors;
+>     const struct kui_vmu_store_extent *forbidden;
+>     size_t forbidden_count;
+>     _Bool allow_writes;
+> };
+> enum kui_vmu_backing_result {
+>     KUI_VMU_BACKING_OK=0,
+>     KUI_VMU_BACKING_ARGUMENT=-1,
+>     KUI_VMU_BACKING_MAPPING=-2,
+>     KUI_VMU_BACKING_IDENTITY=-3,
+>     KUI_VMU_BACKING_BUSY=-4,
+>     KUI_VMU_BACKING_IO=-5,
+>     KUI_VMU_BACKING_READ_ONLY=-6,
+>     KUI_VMU_BACKING_POISONED=-7
+> };
+> struct kui_vmu_backing {
+>     struct kui_vmu_backing_bus bus;
+>     struct kui_vmu_sd_identity identity;
+>     struct kui_vmu_store_extent allowed[16u*2u];
+>     size_t allowed_count;
+>     int last_result,last_sd_result;
+>     _Bool initialized,allow_writes,poisoned,inflight,reserved,callback_active;
+> };
+> int kui_vmu_backing_init(struct kui_vmu_backing *,
+>     const struct kui_vmu_backing_bus *,const struct kui_vmu_backing_config *);
+> struct kui_vmu_store_io kui_vmu_backing_io(struct kui_vmu_backing *);
+> int kui_vmu_backing_read(void *,uint64_t absolute_lba,void *sector);
+> int kui_vmu_backing_write(void *,uint64_t absolute_lba,const void *sector);
+> int kui_vmu_backing_sync(void *);
+> int kui_vmu_backing_reserve(struct kui_vmu_backing *);
+> int kui_vmu_backing_unreserve(struct kui_vmu_backing *);
+> enum kui_loader_sd_result kui_sci_sd_write(struct kui_loader_sd *card,
+>     uint32_t lba, uint32_t count, const uint8_t *data);
+> enum kui_loader_sd_result kui_sci_sd_sync(struct kui_loader_sd *card);
+> enum kui_loader_sd_result kui_sci_sd_acquire(void);
+> void kui_sci_sd_release(void);
+> struct kui_sci_sd_port {
+>     uint32_t work, mode;
+>     uint16_t data;
+>     uint8_t smr, brr, scr, ptr, standby;
+>     _Bool acquired, fault, slow;
+> };
+> const struct kui_loader_sd_bus *kui_sci_sd_bus(void);
+> _Bool kui_sci_sd_healthy(void);
+> _Bool kui_sci_sd_faulted(void);
+> _Bool kui_sci_sd_resync_speed(void);
+> struct kui_sci_sd_fault {
+>     uint32_t valid, wait_flag, ssr, scr, smr, brr, scmr, sptr, pdtr, polls;
+> };
+> void kui_sci_sd_fault_get(struct kui_sci_sd_fault *out);
+> struct kui_sci_sd_stats {
+>     uint32_t rx_blocks, tx_blocks, polled_blocks, failures;
+>     uint32_t profiled_rx_blocks, profiled_tx_blocks;
+>     uint64_t rx_setup_us, rx_transfer_us, rx_check_us;
+>     uint64_t tx_setup_us, tx_transfer_us;
+> };
+> void kui_sci_sd_stats_get(struct kui_sci_sd_stats *out);
+> void kui_sci_sd_profile_timer(uint64_t (*now_us)(void *), void *ctx);
+> __asm__(".global __kui_toy_survey_stage\n.set __kui_toy_survey_stage,1\n");
+> _Static_assert(66u==66,"the survey's seed is this module's test entry");
+> static struct kui_toy_report_wire toy_survey_seed;
+> static struct kui_wce_probe_layout toy_survey_layout;
+> static struct kui_toy_survey_claim toy_survey_claim;
+> static uint8_t toy_survey_work[512u] __attribute__((aligned(32)));
+> static uint8_t toy_survey_text[512u] __attribute__((aligned(32)));
+> static _Bool toy_survey_wrote;
+> static int toy_survey_read(void *context,uint32_t lba,uint8_t out[512]) {
+>     (void)context;
+>     if(kui_retail_storage_acquire(&card)!=KUI_LOADER_SD_OK) return -1;
+>     enum kui_loader_sd_result read=kui_retail_storage_read_run(&card,lba,1u,out);
+>     enum kui_loader_sd_result stop=kui_retail_storage_stop(&card);
+>     kui_retail_storage_release(&card);
+>     return read==KUI_LOADER_SD_OK && stop==KUI_LOADER_SD_OK?0:-1;
+> }
+> static _Bool toy_survey_place(uint32_t lba) {
+>     if(!lba || lba<manifest.partition_start || lba>=manifest.partition_end ||
+>        lba>=manifest.card_sectors || lba>=card.device.sd.blocks) return 0;
+>     for(uint32_t j=0u;j<manifest.extent_count;j++) {
+>         const struct kui_retail_extent *e=&manifest.slots[manifest.track_count+j].extent;
+>         if(lba>=e->card_lba && lba-e->card_lba<e->blocks) return 0;
+>     }
+>     return 1;
+> }
+> static int toy_survey_write(uint32_t lba,const uint8_t *data) {
+>     if(!toy_survey_place(lba) || kui_retail_storage_acquire(&card)!=KUI_LOADER_SD_OK) return -1;
+>     struct kui_loader_sd *sd=&card.device.sd;
+>     _Bool (*block)(void *,const uint8_t *,uint8_t *,size_t,_Bool,uint16_t *)=sd->bus.transfer_block;
+>     sd->bus.transfer_block=((void *)0);
+>     toy_survey_wrote=1;
+>     enum kui_loader_sd_result result=kui_sci_sd_write(sd,lba,1u,data);
+>     sd->bus.transfer_block=block;
+>     _Bool healthy=kui_sci_sd_healthy() && !kui_sci_sd_faulted();
+>     kui_retail_storage_release(&card);
+>     return result==KUI_LOADER_SD_OK && healthy?0:-1;
+> }
+> static void toy_survey_settle(void) {
+>     struct kui_loader_sd *sd=&card.device.sd;
+>     if(sd->ready || kui_retail_storage_acquire(&card)!=KUI_LOADER_SD_OK) return;
+>     sd->ready=1;
+>     if(kui_sci_sd_sync(sd)!=KUI_LOADER_SD_OK) {sd->ready=1;(void)kui_sci_sd_sync(sd);}
+>     if(!kui_sci_sd_healthy() || kui_sci_sd_faulted()) sd->ready=0;
+>     kui_retail_storage_release(&card);
+> }
+> static void toy_survey_line(const char *text,uint32_t slot) {
+>     char line[40];unsigned n=0u;
+>     while(*text && n<sizeof(line)-5u) line[n++]=*text++;
+>     line[n++]=' ';line[n++]=(char)('0'+slot/100u%10u);line[n++]=(char)('0'+slot/10u%10u);
+>     line[n++]=(char)('0'+slot%10u);line[n]=0;
+>     retail_display_line(line);
+> }
+> static void toy_survey_look(void) {
+>     if(manifest.reader!=KUI_RETAIL_READER_ASYNC || native_runtime_mode()!=KUI_VMU_NATIVE_MODE_READER_ONLY) {
+>         retail_display_line("SURVEY OFF / NOT THE NEW (X) READER");return;
+>     }
+>     if(manifest.storage_transport!=KUI_STORAGE_SCI || card.transport!=KUI_STORAGE_SCI ||
+>        manifest.partition_end>0xffffffffUL || manifest.partition_start>=manifest.partition_end) {
+>         retail_display_line("SURVEY OFF / NOT THE SCI CARD");return;
+>     }
+>     const struct kui_wce_probe_volume volume={(uint32_t)manifest.partition_start,
+>         (uint32_t)manifest.partition_end,toy_survey_read,((void *)0)};
+>     enum kui_wce_probe_fat_result found=kui_wce_probe_fat_find(&volume,&toy_survey_layout,toy_survey_work);
+>     if(found!=KUI_WCE_PROBE_FAT_OK) {
+>         if(found==KUI_WCE_PROBE_FAT_MISSING) retail_display_line("SURVEY OFF / NO KUI/SURVEY/STREAM.TXT");
+>         else retail_display_hex("SURVEY OFF / FILE LOOKUP",(uint32_t)found);
+>         return;
+>     }
+>     const struct kui_toy_survey_claim *c=&toy_survey_claim;
+>     enum kui_toy_survey_claim_result claimed=kui_toy_survey_claim_find(&volume,&toy_survey_layout,
+>         toy_survey_work,toy_survey_text,&toy_survey_claim);
+>     if(claimed!=KUI_TOY_SURVEY_CLAIM_OK) {
+>         if(claimed==KUI_TOY_SURVEY_CLAIM_FULL) retail_display_line("SURVEY OFF / FILE FULL - COPY A BLANK ONE");
+>         else retail_display_hex("SURVEY OFF / FILE CHECK",(uint32_t)claimed);
+>         return;
+>     }
+>     for(unsigned i=0u;i<3u;i++)
+>         if(!toy_survey_place(c->lba[i])) {retail_display_hex("SURVEY OFF / FILE PLACE",c->lba[i]);return;}
+>     struct kui_vmu_sd_identity identity;
+>     if(kui_retail_storage_acquire(&card)!=KUI_LOADER_SD_OK) {retail_display_line("SURVEY OFF / CARD BUSY");return;}
+>     int known=kui_vmu_sd_identity_read(&card.device.sd,&identity);
+>     kui_retail_storage_release(&card);
+>     if(known!=KUI_VMU_BACKING_OK) {
+>         toy_survey_settle();
+>         retail_display_hex("SURVEY OFF / CARD IDENTITY",(uint32_t)known);return;
+>     }
+>     struct kui_toy_survey_launch launch={.build="3bd4bed2fca2",
+>         .title=manifest.title,.title_bytes=sizeof(manifest.title),
+>         .product=manifest.product,.product_bytes=sizeof(manifest.product),
+>         .bootfile=manifest.bootfile,.bootfile_bytes=sizeof(manifest.bootfile),
+>         .region=manifest.region,.region_bytes=sizeof(manifest.region),
+>         .ip_crc32=manifest.ip_crc32,.gdi_crc32=manifest.gdi_crc32,
+>         .boot_crc32=manifest.boot_crc32,.boot_bytes=manifest.boot_bytes,
+>         .exec_crc32=boot_crc,.exec_bytes=exec_bytes,
+>         .reader=manifest.reader,.transport=manifest.storage_transport,.flags=manifest.flags,
+>         .source=toy_suite_source,.tracks=manifest.track_count,.extents=manifest.extent_count,
+>         .session_lba=manifest.session_lba,.boot_lba=manifest.boot_lba};
+>     for(uint32_t i=0u;i<manifest.track_count;i++) {
+>         const struct kui_retail_track *track=&manifest.slots[i].track;
+>         if(!kui_retail_track_control(track)) {
+>             ++launch.audio;
+>             if(track->start_lba>=manifest.session_lba) ++launch.audio_high;
+>             if(track->extent_count) ++launch.audio_mapped;
+>         } else if(kui_retail_track_sector_bytes(track)==2352u &&
+>                   kui_retail_track_header_bytes(track)==16u) ++launch.raw;
+>         else if(kui_retail_track_sector_bytes(track)==2048u) ++launch.cooked;
+>         else ++launch.other;
+>     }
+>     kui_toy_survey_launch_sector(&c->file,c->slot,&launch,toy_survey_text);
+>     if(toy_survey_write(c->lba[0],toy_survey_text)) {
+>         uint32_t response=card.device.sd.last_response;
+>         toy_survey_settle();
+>         retail_display_hex("SURVEY OFF / CARD WRITE",response);return;
+>     }
+>     if(toy_survey_read(((void *)0),c->lba[0],toy_survey_work) ||
+>        memcmp(toy_survey_work,toy_survey_text,512u)) {
+>         retail_display_line("SURVEY OFF / WRITE NOT READ BACK");return;
+>     }
+>     kui_toy_survey_seed_build(c,identity.cid,identity.high_capacity,&toy_survey_seed);
+>     toy_survey_line("SURVEY ON / REPORT SAVES TO SLOT",c->slot);
+> }
+> static void toy_survey_prepare(void) {
+>     memset(&toy_survey_seed,0,sizeof(toy_survey_seed));
+>     toy_survey_wrote=0;
+>     if(!card.device.sd.ready) {retail_display_line("SURVEY OFF / CARD NOT READY");return;}
+>     toy_survey_look();
+> }
+1483c1894,1896
+<     if(!toy_suite_source || card.transport!=KUI_STORAGE_SCI || seed->test!=test ||
+---
+>     _Bool survey=toy_survey_seed.test!=0u;
+>     if(survey)seed=&toy_survey_seed;
+>     if((!toy_suite_source && !survey) || card.transport!=KUI_STORAGE_SCI || seed->test!=test ||
+1680,1722d2092
+< enum kui_vmu_store_result {
+<     KUI_VMU_STORE_OK = 0,
+<     KUI_VMU_STORE_ARGUMENT = -1,
+<     KUI_VMU_STORE_MAPPING = -2,
+<     KUI_VMU_STORE_IO = -3,
+<     KUI_VMU_STORE_CORRUPT = -4,
+<     KUI_VMU_STORE_BLOCKED = -5,
+<     KUI_VMU_STORE_IDENTITY = -6
+< };
+< struct kui_vmu_store_extent { uint64_t first_lba; uint32_t sectors; };
+< struct kui_vmu_store_io {
+<     void *context;
+<     int (*read_sector)(void *context,uint64_t lba,void *sector);
+<     int (*write_sector)(void *context,uint64_t lba,const void *sector);
+<     int (*sync)(void *context);
+< };
+< struct kui_vmu_store_config {
+<     uint64_t card_sectors;
+<     uint8_t image_id[16];
+<     const struct kui_vmu_store_extent *image_extents;
+<     size_t image_extent_count;
+<     const struct kui_vmu_store_extent *journal_extents;
+<     size_t journal_extent_count;
+< };
+< struct kui_vmu_store {
+<     struct kui_vmu_store_io io;
+<     struct kui_vmu_store_extent image[16u];
+<     struct kui_vmu_store_extent journal[16u];
+<     size_t image_count,journal_count;
+<     uint64_t card_sectors,sequence;
+<     uint32_t mapping_crc;
+<     uint8_t image_id[16];
+<     uint8_t data[512u];
+<     uint8_t marker[512u];
+<     unsigned ready;
+< };
+< int kui_vmu_store_open(struct kui_vmu_store *store,
+<     const struct kui_vmu_store_io *io,const struct kui_vmu_store_config *config);
+< int kui_vmu_store_read(struct kui_vmu_store *store,unsigned block,void *sector);
+< int kui_vmu_store_write(struct kui_vmu_store *store,unsigned block,
+<     const void *sector);
+< int kui_vmu_store_sync(struct kui_vmu_store *store);
+< int kui_vmu_store_checkpoint(struct kui_vmu_store *store);
+1988,2067d2357
+< struct kui_loader_sd;
+< struct kui_loader_sd_stream;
+< struct kui_vmu_sd_identity {
+<     uint8_t cid[16];
+<     uint64_t sectors;
+<     _Bool high_capacity;
+< };
+< int kui_vmu_sd_identity_read(struct kui_loader_sd *,struct kui_vmu_sd_identity *);
+< struct kui_vmu_backing_bus {
+<     void *context;
+<     struct kui_loader_sd *card;
+<     _Bool (*enter)(void *);
+<     void (*leave)(void *);
+<     int (*acquire)(void *);
+<     void (*release)(void *);
+<     _Bool (*healthy)(void *);
+<     struct kui_loader_sd_stream *reader_stream;
+<     _Bool *reader_lease;
+< };
+< struct kui_vmu_backing_config {
+<     struct kui_vmu_sd_identity identity;
+<     const struct kui_vmu_store_config *store;
+<     uint64_t partition_first,partition_sectors;
+<     const struct kui_vmu_store_extent *forbidden;
+<     size_t forbidden_count;
+<     _Bool allow_writes;
+< };
+< enum kui_vmu_backing_result {
+<     KUI_VMU_BACKING_OK=0,
+<     KUI_VMU_BACKING_ARGUMENT=-1,
+<     KUI_VMU_BACKING_MAPPING=-2,
+<     KUI_VMU_BACKING_IDENTITY=-3,
+<     KUI_VMU_BACKING_BUSY=-4,
+<     KUI_VMU_BACKING_IO=-5,
+<     KUI_VMU_BACKING_READ_ONLY=-6,
+<     KUI_VMU_BACKING_POISONED=-7
+< };
+< struct kui_vmu_backing {
+<     struct kui_vmu_backing_bus bus;
+<     struct kui_vmu_sd_identity identity;
+<     struct kui_vmu_store_extent allowed[16u*2u];
+<     size_t allowed_count;
+<     int last_result,last_sd_result;
+<     _Bool initialized,allow_writes,poisoned,inflight,reserved,callback_active;
+< };
+< int kui_vmu_backing_init(struct kui_vmu_backing *,
+<     const struct kui_vmu_backing_bus *,const struct kui_vmu_backing_config *);
+< struct kui_vmu_store_io kui_vmu_backing_io(struct kui_vmu_backing *);
+< int kui_vmu_backing_read(void *,uint64_t absolute_lba,void *sector);
+< int kui_vmu_backing_write(void *,uint64_t absolute_lba,const void *sector);
+< int kui_vmu_backing_sync(void *);
+< int kui_vmu_backing_reserve(struct kui_vmu_backing *);
+< int kui_vmu_backing_unreserve(struct kui_vmu_backing *);
+< enum kui_loader_sd_result kui_sci_sd_write(struct kui_loader_sd *card,
+<     uint32_t lba, uint32_t count, const uint8_t *data);
+< enum kui_loader_sd_result kui_sci_sd_sync(struct kui_loader_sd *card);
+< enum kui_loader_sd_result kui_sci_sd_acquire(void);
+< void kui_sci_sd_release(void);
+< struct kui_sci_sd_port {
+<     uint32_t work, mode;
+<     uint16_t data;
+<     uint8_t smr, brr, scr, ptr, standby;
+<     _Bool acquired, fault, slow;
+< };
+< const struct kui_loader_sd_bus *kui_sci_sd_bus(void);
+< _Bool kui_sci_sd_healthy(void);
+< _Bool kui_sci_sd_faulted(void);
+< _Bool kui_sci_sd_resync_speed(void);
+< struct kui_sci_sd_fault {
+<     uint32_t valid, wait_flag, ssr, scr, smr, brr, scmr, sptr, pdtr, polls;
+< };
+< void kui_sci_sd_fault_get(struct kui_sci_sd_fault *out);
+< struct kui_sci_sd_stats {
+<     uint32_t rx_blocks, tx_blocks, polled_blocks, failures;
+<     uint32_t profiled_rx_blocks, profiled_tx_blocks;
+<     uint64_t rx_setup_us, rx_transfer_us, rx_check_us;
+<     uint64_t tx_setup_us, tx_transfer_us;
+< };
+< void kui_sci_sd_stats_get(struct kui_sci_sd_stats *out);
+< void kui_sci_sd_profile_timer(uint64_t (*now_us)(void *), void *ctx);

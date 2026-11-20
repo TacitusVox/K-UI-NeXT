@@ -1,0 +1,50 @@
+repro79 build exit 0 557822ecfcd9761f2617d146e69b0a5918ae745cdb16247a607466242f4147be as recorded
+repro76 build exit 0 6540c38df4143222db3d75cd4dcaf6503b9daa39421ec456f0bb4d1fad21a881 as recorded
+repro77 build exit 0 1c1e54f3fc5ebad7232dd3bb2d158e6e6521eebfd1a25d1f7ed7b9723dc37323 as recorded
+repro75 build exit 0 9ef4c29b30385acbc0a3b96973895455d4f5840107e4c58c254f1cbfbba9eb08 as recorded
+repro73 build exit 0 7f28c744e501bbbe7dc38c2a77bd255b8e146dd2c0accb5741262b455d967124 as recorded
+repro74 build exit 0 9e3bb2b261c81ffdec948c92f3c9aad8480e54d08e01c97dbf057e56e7e1d4e4 as recorded
+repro78 build exit 0 dbff892578510f742e0b8b99c74fb456a2870ab6bcacccd0db1b91a8863092de as recorded
+repro66 build exit 0 06f347789a76d1b9df274e946033270c5d7eb404bde323aec7187fee6e68f8d2 as recorded
+repro76nogap build exit 0 7ce3c839e6ec014e799ae4598800f24bd3bbbfdfaaa1b508e0015970f6991c67 as recorded
+repro70 build exit 0 7802a1d75e132f61837c7f8062974e297abd727a1233832313c38ab91316d7dd as recorded
+repro71 build exit 0 73e8f9ed271278a10e02d9dec5b114b896b3866b48309cdc08bbb7860eb3a26f as recorded
+repro75alt build exit 0 52423cf26778573e5bbd7c031f1bd403c120122ea835d31714c7fe622bccda1f as recorded
+repro72 build exit 0 04c6b439ebb4ebb28f9f6b64de1cd00cb2ab148d3256411f74a5ef34cc5dfe9b as recorded
+repro74alt build exit 0 582e2d7aacd69703d15e65264a58dc37e436f8a4e5d6b91b5ebb6de5ce4dd86c as recorded
+repro76alt build exit 0 a742b4a7f68c3c9744ddca5e8c2935dff035ac2ebb7323d30c0a539921b6ee51 as recorded
+repro69 build exit 0 c6baf0104b347cea3252526302ae2e7dde3265081379e75c1ac591ecb0228beb as recorded
+repro68 build exit 0 ae72c817dbd5606d4e7a7a43814621bbfb8d648642b642be1d21dad41eb5c17a as recorded
+repro80 build exit 0 c1b58a9761b29299d542727a66a420ee185d3e30ef30629256f4e715c5f0a3dc as recorded
+repro81 build exit 0 5ee3273b75dceb2a02ac73cbe5ccdcf972ded0164f15a822a192949048072db4 as recorded
+repro67 build exit 0 7533fb8b0e483567c9b015542f1c6897d5e8fffebd028ab7f84a83201edaf4e5 as recorded
+repro82 build exit 0 9f8faeaca27521708130a1dae8fe3de7df67e465d2f2124a08f3396c23083a42 as recorded
+t83 build exit 0 a7b1c1cb97b1c40f79bf0d6f7137fc0aec21976bfe499ef803ad359a98bb11d6
+t83again build exit 0 a7b1c1cb97b1c40f79bf0d6f7137fc0aec21976bfe499ef803ad359a98bb11d6
+label81 build exit 0 e060b4e7c35b345528ed82aaa5048f2dd0b222b74b14102a5c662f8d2b0e3558
+installed build exit 0 5e4ca7dd4b591fec2af3056e71299b1c5737eae586a5c886288f282e5ed4b36c
+installed-main build exit 0 5e4ca7dd4b591fec2af3056e71299b1c5737eae586a5c886288f282e5ed4b36c
+Test 83 built twice: the same bytes
+resident-sci.bin: Test 81's recipe with this label, byte for byte (5db1650dd586a28998da0cb05845c9d1243dddf8d0378762ec9ba4d61cef92a4, 15848 bytes)
+resident-legacy.bin: Test 81's recipe with this label, byte for byte (cd908e52e95d22a23ba8bbdf4bd644a15c6268ffdd85bfe4a9ee7b04c6a7f51f, 15120 bytes)
+native-ra-aux.bin: Test 81's recipe with this label, byte for byte (45dfb95f72c93b1e1478416dcb4edb5cfbaa2863d88a0fdfa3d6c4a84e943356, 24576 bytes)
+native-ra-aux.reloc: Test 81's recipe with this label, byte for byte (161db911bdebcd23dea2ebb494986d1e3769b6f8f56bcc70261df198539c147e, 2224 bytes)
+native-worker.bin: Test 81's recipe with this label, byte for byte (d617e36e56558490e3021498512c62a068ffb2cb2a7d27b8d31eca9b57a3f6ba, 39712 bytes)
+native-worker.reloc: Test 81's recipe with this label, byte for byte (26426c76b6247bd80e9cacbc0f90df392fe410ae3cf10fb21ced0cd9043fb3e1, 4888 bytes)
+worker.bin: Test 81's recipe with this label, byte for byte (041fb5132f0cd8ac5dba3cdcabe356e9cac52489faa9f46f223ff702ccd7f444, 5316 bytes)
+stage.bin: its own, 299000 bytes (Test 81's with this label: 291840)
+the installed New reader's recipe: Main's bytes at this commit (5e4ca7dd4b591fec2af3056e71299b1c5737eae586a5c886288f282e5ed4b36c, label f8807cb16561)
+a7b1c1cb97b1c40f79bf0d6f7137fc0aec21976bfe499ef803ad359a98bb11d6  build/toy-suite-83/retail-toy-test-83.kui
+307256 bytes
+ 291820	      0	 498728	 790548	  c1014	build/label81/stage.elf
+ 298980	      0	 500904	 799884	  c348c	build/toy-suite-83/stage.elf
+  20544	   1824	   6176	  28544	   6f80	build/toy-suite-83/native-ra-aux.elf
+  39700	     12	  21856	  61568	   f080	build/toy-suite-83/native-worker.elf
+8cec34a8 B __retail_stage_bss_end
+8cec1028 B __retail_stage_bss_end
+{
+  "commit": "3bd4bed2fca227530e343a2fd97a1d790b230e21",
+  "source_dirty": false,
+  "elf_sha256": "635fc368ded6192343a843dde079376bd001fbe6a85bbd3fdeacf4b681b699cc"
+}
+all builds done

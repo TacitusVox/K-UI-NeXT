@@ -132,6 +132,80 @@ reproduces it at the candidate's own source alone, until that is resolved
 (`fmv-stream-reader-plan.md`, owed list;
 `evidence/toy-wire-stream-82/installed-recipe-on-this-source.log`).
 
+## Owner's direction, November 20, 2026
+
+> Go ahead with the survey build. I want to add as much compatibility as I
+> can this week. Let's go in order of what I need to do. I'm having Opus 5.5
+> work on WinCE compatibility as I think we're almost done there. I think I
+> have you working on just CDDA games
+
+Windows CE is another session's work (`wince-roadmap.md`). This sequence is the
+regular games, with CD music first.
+
+Built for it: Test 83 (`toy-wire-stream-test-83.md`), Test 81's stream reader
+with its report saved to the card from a Games launch, into a text file the
+owner copies onto the card blank. No photographs. And a run of the startup
+bundler over the regular games with CD music only
+(`tools/kui-library-startup-bundle-README.md`, `--cd-audio`), because the
+repository holds only the hashes of their programs and sound drivers.
+
+### CD music in regular games: what there is
+
+Read from the sources on 20 November, by file:
+
+- Two titles have CD music, Toy Commander and MDK2, by one adapter each on the
+  Standard reader, with no virtual VMU and no read-ahead
+  (`src/loader/toy_pilot_*`, `src/loader/mdk2_cdda_*`). The disc calls for
+  play, pause, resume and stop go to a worker; the worker reads the audio
+  track's raw sectors from the card, writes them into a ring of 131,072 bytes
+  it takes from the game's own sound heap, and has the game's AUDIO64 driver
+  play that ring on two of its ports, by packets in the driver's own queue. It
+  runs from a hook on the game's sound update.
+- What that costs a title: its executable's size, CRC-32 and SHA-256; 17 to
+  20 addresses in it (the sound update, the driver's installation, heap and
+  shutdown calls, the port picker); the game-heap words that put the worker at
+  `0x8cfd0000`; and, for its driver build, the SHA-256 and five offsets
+  (`include/kui/cdda_audio64_profile.h`, `include/kui/native_cdda_compat.h`).
+  The list of titles is compiled into the menu: a new module file by itself
+  adds none (`include/kui/native_cdda_compat.h:54`,
+  `src/apps/games_retail.c:1494`).
+- Both drivers are AUDIO64 builds. MDK2's serves 24 surveyed titles and Toy
+  Commander's 3. Nothing in the sources knows MANATEE.DRV (143 distinct
+  titles in 22 builds), MANATEE2.DRV or NAMIHEI.DRV
+  (`library-cd-audio-us.md`, `evidence/world-cd-audio-survey-2026-11-11.json`).
+- With CD music off, every reader answers play, pause and resume as done and
+  plays nothing; the drive never reports playing, and the subcode position
+  stands still (`src/core/retail_gd.c:288`, `:481`). The New reader's launch
+  map lists the audio tracks, with their place on the card where its 64 slots
+  hold them (`src/apps/games_retail.c:361`).
+- Not known: which games ask for a track at all; what card time a sector of
+  audio costs beside the game's reads; which sound channels and how much
+  sound memory a game's driver leaves free.
+
+### CD music in regular games: the order proposed
+
+An adapter a title does not reach the library: each is a table of addresses
+found by hand, and a change to the menu. What reaches it is the New reader
+playing the tracks itself, for whatever driver the game has: the disc calls
+and a play position in the low resident, the audio read by the card stream
+(a real drive cannot read data while it plays, so a game that plays a track
+leaves the card to it), and two sound channels and a ring of the loader's own.
+Whether a game's driver leaves two channels and the memory alone is the open
+question, and a console can answer it for many games in one round.
+
+1. Test 83 on a few games: the report saved from a Games launch.
+2. The owner's `--cd-audio` run: the programs and sound drivers.
+3. A sound probe on Test 83's ground: at the report gesture, the sound
+   chip's channel registers, its mixer and effect settings, which driver is
+   loaded and which parts of sound memory are in use, saved with the report.
+   One long round over the CD music games.
+4. From 2 and 3: the first CD music in the New reader's place, as a test
+   module, in the games the probe shows to be safe. No menu change is needed
+   for a test module; the menu's own CD music setting is a later question.
+
+None of this is built yet beyond steps 1 and 2's tools, and none of it is a
+console result.
+
 ## 1. Shared correctness and reproducible deployment — active
 
 Shared GUI preparation is also an immediate integration requirement. The

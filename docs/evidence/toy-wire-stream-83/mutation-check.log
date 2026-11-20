@@ -1,0 +1,64 @@
+passes  the tests without a mutation
+caught  the launch record is not read back                   FAIL shown "SURVEY ON / REPORT SAVES TO SLOT 002", not "SURVEY OFF / WRITE NOT READ BACK"
+caught  the read-back is not compared                        FAIL shown "SURVEY ON / REPORT SAVES TO SLOT 002", not "SURVEY OFF / WRITE NOT READ BACK"
+caught  a sector in an extent of the game is taken           FAIL shown "SURVEY ON / REPORT SAVES TO SLOT 002", not "SURVEY OFF / FILE PLACE 00000C2D"
+caught  an extent is checked one sector short                FAIL shown "SURVEY ON / REPORT SAVES TO SLOT 002", not "SURVEY OFF / FILE PLACE 00000C2D"
+caught  the map's card size is not asked                     FAIL shown "SURVEY ON / REPORT SAVES TO SLOT 002", not "SURVEY OFF / FILE PLACE 00000C2E"
+caught  the card's size is not asked                         FAIL shown "SURVEY ON / REPORT SAVES TO SLOT 002", not "SURVEY OFF / FILE PLACE 00000C2F"
+caught  the block path is left on for the write              test-toy-survey-stage: /tmp/tmp3dv0krtn/tree/tests/test_toy_survey_stage.c:101: kui_sci_sd
+caught  the block path is not given back                     /tmp/tmp3dv0krtn/tree/src/loader/toy_survey_stage.inc:67:12: error: unused variable ‘block
+caught  no status is asked after a failed identity           test-toy-survey-stage: /tmp/tmp3dv0krtn/tree/tests/test_toy_survey_stage.c:236: scan: Asse
+caught  no status is asked after a failed write              test-toy-survey-stage: /tmp/tmp3dv0krtn/tree/tests/test_toy_survey_stage.c:236: scan: Asse
+caught  a card inside a read is asked for its status         test-toy-survey-stage: /tmp/tmp3dv0krtn/tree/tests/test_toy_survey_stage.c:236: scan: Asse
+caught  one status read decides for a card left not ready    test-toy-survey-stage: /tmp/tmp3dv0krtn/tree/tests/test_toy_survey_stage.c:236: scan: Asse
+caught  a card that answers nothing is kept                  test-toy-survey-stage: /tmp/tmp3dv0krtn/tree/tests/test_toy_survey_stage.c:236: scan: Asse
+caught  a card on an unwell port is kept                     test-toy-survey-stage: /tmp/tmp3dv0krtn/tree/tests/test_toy_survey_stage.c:236: scan: Asse
+caught  a card on a port with a latched fault is kept        test-toy-survey-stage: /tmp/tmp3dv0krtn/tree/tests/test_toy_survey_stage.c:236: scan: Asse
+caught  a card that is ready is asked for its status         test-toy-survey-stage: /tmp/tmp3dv0krtn/tree/tests/test_toy_survey_stage.c:236: scan: Asse
+caught  a card not ready at the start is surveyed            FAIL shown "SURVEY OFF / FILE LOOKUP 00000002", not "SURVEY OFF / CARD NOT READY"
+caught  the stop screen is not told of the write             test-toy-survey-stage: /tmp/tmp3dv0krtn/tree/tests/test_toy_survey_stage.c:101: kui_sci_sd
+caught  the stop screen keeps an earlier launch's write      test-toy-survey-stage: /tmp/tmp3dv0krtn/tree/tests/test_toy_survey_stage.c:246: off: Asser
+caught  audio tracks without their files count as mapped     test-toy-survey-stage: /tmp/tmp3dv0krtn/tree/tests/test_toy_survey_stage.c:273: good: Asse
+caught  an unwell port passes                                FAIL shown "SURVEY OFF / WRITE NOT READ BACK", not "SURVEY OFF / CARD WRITE 00000000"
+caught  a latched fault passes                               FAIL shown "SURVEY OFF / WRITE NOT READ BACK", not "SURVEY OFF / CARD WRITE 00000000"
+caught  a failed write gives a seed                          test-toy-survey-stage: /tmp/tmp3dv0krtn/tree/tests/test_toy_survey_stage.c:246: off: Asser
+caught  a record not read back gives a seed                  test-toy-survey-stage: /tmp/tmp3dv0krtn/tree/tests/test_toy_survey_stage.c:246: off: Asser
+caught  the record goes to the slot's second sector          FAIL shown "SURVEY OFF / WRITE NOT READ BACK", not "SURVEY ON / REPORT SAVES TO SLOT 000"
+caught  the Legacy reader is surveyed                        FAIL shown "SURVEY ON / REPORT SAVES TO SLOT 002", not "SURVEY OFF / NOT THE NEW (X) READE
+caught  a launch with the virtual VMU is surveyed            FAIL shown "SURVEY ON / REPORT SAVES TO SLOT 002", not "SURVEY OFF / NOT THE NEW (X) READE
+caught  the map's transport is not asked                     FAIL shown "SURVEY ON / REPORT SAVES TO SLOT 002", not "SURVEY OFF / NOT THE SCI CARD"
+caught  the card's transport is not asked                    FAIL shown "SURVEY ON / REPORT SAVES TO SLOT 002", not "SURVEY OFF / NOT THE SCI CARD"
+caught  a partition past 32 bits is taken                    FAIL shown "SURVEY OFF / FILE LOOKUP 00000002", not "SURVEY OFF / NOT THE SCI CARD"
+caught  the slot's places are not asked                      FAIL shown "SURVEY OFF / CARD WRITE 00000000", not "SURVEY OFF / FILE PLACE 00000C2D"
+caught  the write does not ask the place                     test-toy-survey-stage: /tmp/tmp3dv0krtn/tree/tests/test_toy_survey_stage.c:331: main: Asse
+caught  a card without an identity gets a seed               test-toy-survey-stage: /tmp/tmp3dv0krtn/tree/tests/test_toy_survey_stage.c:246: off: Asser
+caught  an earlier launch's seed stays                       test-toy-survey-stage: /tmp/tmp3dv0krtn/tree/tests/test_toy_survey_stage.c:246: off: Asser
+caught  the executable's checksum is the map's               test-toy-survey-stage: /tmp/tmp3dv0krtn/tree/tests/test_toy_survey_stage.c:272: good: Asse
+caught  audio tracks below the session count as high         test-toy-survey-stage: /tmp/tmp3dv0krtn/tree/tests/test_toy_survey_stage.c:273: good: Asse
+caught  a cooked track counts as raw                         test-toy-survey-stage: /tmp/tmp3dv0krtn/tree/tests/test_toy_survey_stage.c:273: good: Asse
+caught  the survey's seed is not handed on                   test-toy-survey-stage: /tmp/tmp3dv0krtn/tree/tests/test_toy_survey_stage.c:278: good: Asse
+caught  a disc that is no source gets no seed                test-toy-survey-stage: /tmp/tmp3dv0krtn/tree/tests/test_toy_survey_stage.c:278: good: Asse
+caught  the survey is not looked for                         /tmp/tmp3dv0krtn/tree/src/loader/toy_survey_stage.inc:176:13: error: ‘toy_survey_prepare’ 
+caught  the survey is looked for before the source is known  test-toy-survey-stage: /tmp/tmp3dv0krtn/tree/tests/test_toy_survey_stage.c:272: good: Asse
+caught  the probe's file is looked for                       FAIL lookup
+caught  a slot with one blank sector is claimed              FAIL used and cut-off slots passed over
+caught  a slot with two blank sectors is claimed             FAIL used and cut-off slots passed over
+caught  a slot's sector that is not read ends the search     FAIL a slot with a sector not read is passed over
+caught  a card that gives nothing is asked for every slot    FAIL the search gives up at four sectors not read
+caught  a slot whose sector is not read is claimed           FAIL a slot with a sector not read is passed over
+caught  a file with sectors not read is called full          FAIL no blank slot and a sector not read: not called full
+caught  the file's size is not asked                         FAIL wrong size refused
+caught  the first sector is not held to its exact text       FAIL bad slot count refused
+caught  the seed names the launch record's sector            FAIL seed
+caught  the seed's checksums are the wrong sectors'          FAIL the worker finds the blank sectors it was told of
+caught  the seed has no card                                 /tmp/tmp3dv0krtn/tree/src/core/toy_survey.c:170:87: error: unused parameter ‘cid’ [-Werror
+caught  the seed's capacity flag is lost                     /tmp/tmp3dv0krtn/tree/src/core/toy_survey.c:171:14: error: unused parameter ‘high_capacity
+caught  the seed is not sealed                               FAIL seed
+caught  a blank sector does not name its part                FAIL blank sectors differ
+caught  a blank sector does not name its slot                FAIL blank sectors differ
+caught  a blank sector does not name its file                /tmp/tmp3dv0krtn/tree/src/core/toy_survey.c:83:72: error: unused parameter ‘file’ [-Werror
+caught  a sector outside the partition is read               FAIL sector outside the partition
+caught  a count of the map can run the record over           FAIL the widest launch record fits
+caught  text that is no text goes into the record            FAIL odd text
+caught  the claim is of the slot after                       FAIL next blank slot
+62 mutations: 62 caught, 0 missed, 0 stale

@@ -1,0 +1,17 @@
+Test 83 package test exit 0
+Test 83 host tests exit 0
+Test 83 linked check exit 0
+Test 83 integration exit 0
+Test 83 parts check exit 0
+Test 83 survey host tests exit 0
+Games app byte checks exit 0
+Toy switch check exit 0
+WinCE lookup test exit 0
+WinCE probe end to end exit 0
+asm audit exit 1
+WinCE data probe module: Main's bytes (entry.elf 96e4ab448f1e0ca1f61ecb6f3aab4b0ee8dd25650bba57c5eefdc2cf4ea58580 dcbcc593b1ad0c49cbc22a06a6e8d1619681f7b22e0f5ae831c0d3b06d79f658 )
+== the stage as each recipe compiles it
+t83: 4719 lines
+t81: 4429 lines
+Test 81 -> Test 83: 126 lines only in Test 81's, 416 only in Test 83's, in 7 places
+tests done
