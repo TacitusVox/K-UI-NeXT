@@ -435,7 +435,7 @@ build/retail/layout-config: force-retail-layout
 	@if ! cmp -s $@.new $@; then mv $@.new $@; else rm $@.new; fi
 build/retail-ce/layout-config: force-retail-layout
 	@mkdir -p $(@D)
-	@printf '%s\n' 'LOW=0 TRACE=0 SONIC=0 BUILD=$(BUILD_ID)$(if $(filter 1,$(KUI_CE_SCI_RESUME_FIX)), CE_SCI_RESUME_FIX=1)$(if $(filter-out 64,$(KUI_RETAIL_CE_ASYNC_SLOTS)), CE_ASYNC_SLOTS=$(KUI_RETAIL_CE_ASYNC_SLOTS))$(if $(filter 1,$(KUI_RETAIL_CE_MAP_RECORD)), CE_MAP_RECORD=1)$(if $(filter 1,$(KUI_CE_READER_FIXES)), CE_READER_FIXES=1)$(if $(filter 1,$(KUI_WCE_PROBE)), WCE_PROBE=1)$(if $(filter 1,$(KUI_CE_VRAM_DMA)), CE_VRAM_DMA=1)' > $@.new
+	@printf '%s\n' 'LOW=0 TRACE=0 SONIC=0 BUILD=$(BUILD_ID)$(if $(filter 1,$(KUI_CE_SCI_RESUME_FIX)), CE_SCI_RESUME_FIX=1)$(if $(filter-out 64,$(KUI_RETAIL_CE_ASYNC_SLOTS)), CE_ASYNC_SLOTS=$(KUI_RETAIL_CE_ASYNC_SLOTS))$(if $(filter 1,$(KUI_RETAIL_CE_MAP_RECORD)), CE_MAP_RECORD=1)$(if $(filter 1,$(KUI_CE_READER_FIXES)), CE_READER_FIXES=1)$(if $(filter 1 2,$(KUI_WCE_PROBE)), WCE_PROBE=$(KUI_WCE_PROBE))$(if $(filter 1,$(KUI_CE_VRAM_DMA)), CE_VRAM_DMA=1)' > $@.new
 	@if ! cmp -s $@.new $@; then mv $@.new $@; else rm $@.new; fi
 # SCI's DMA reader shares the original protected low-memory reservation.
 # Cross-unit optimization and SH call relaxation recover code space without
@@ -488,20 +488,21 @@ RETAIL_CE_MAP_DEFS := $(if $(filter-out 64,$(KUI_RETAIL_CE_ASYNC_SLOTS)),-DKUI_R
 # 0 rebuilds the earlier generic reader byte-identical.
 KUI_CE_READER_FIXES ?= 1
 # The WinCE data probe (docs/wince-data-probe.md): a test build of this module
-# that saves each game's counters and RAM to KUI/WCEDATA/WCEDATA.BIN. 0, the
-# default, builds the accepted generic module unchanged.
+# that saves each game's counters and RAM to KUI/WCEDATA/WCEDATA.BIN. 1 adds
+# Maple sampling (the data session); 2 times the reads instead (the timing
+# session). 0, the default, builds the accepted generic module unchanged.
 KUI_WCE_PROBE ?= 0
-ifneq ($(filter $(KUI_WCE_PROBE),0 1),$(KUI_WCE_PROBE))
-$(error KUI_WCE_PROBE must be 0 or 1)
+ifneq ($(filter $(KUI_WCE_PROBE),0 1 2),$(KUI_WCE_PROBE))
+$(error KUI_WCE_PROBE must be 0, 1 or 2)
 endif
-RETAIL_CE_PROBE_DEFS := $(if $(filter 1,$(KUI_WCE_PROBE)),-DKUI_WCE_PROBE=1)
+RETAIL_CE_PROBE_DEFS := $(if $(filter 1 2,$(KUI_WCE_PROBE)),-DKUI_WCE_PROBE=$(KUI_WCE_PROBE))
 # DMA stream transfers into PVR video memory (docs/wince-vram-stream.md):
 # KISS Psycho Circus and Virtua Cop 2 send them, and the reader refused them
 # and stopped the game. The generic module's two CE residents only; the CD
 # music and Armada modules keep their accepted bytes until it is console
 # tested. 0 rebuilds the previous generic module (7b216f2e1136) unchanged.
 # The data probe keeps the reader its first session measured (0) unless asked.
-KUI_CE_VRAM_DMA ?= $(if $(filter 1,$(KUI_WCE_PROBE)),0,1)
+KUI_CE_VRAM_DMA ?= $(if $(filter 1 2,$(KUI_WCE_PROBE)),0,1)
 ifneq ($(filter $(KUI_CE_VRAM_DMA),0 1),$(KUI_CE_VRAM_DMA))
 $(error KUI_CE_VRAM_DMA must be 0 or 1)
 endif
@@ -679,7 +680,7 @@ build/retail-ce/scia/%_asm.o: %.S
 	@mkdir -p $(@D)
 	sh-elf-gcc $(RETAIL_LEGACY_FLAGS) $(RETAIL_SCI_FLAGS) $(RETAIL_CE_SCIA_DEFS) -MMD -MP -c $< -o $@
 build/retail-ce/scia/src/loader/retail_display.o: force-build-id
-RETAIL_CE_SCIA_LD := src/loader/retail_resident_ce_async$(if $(filter 1,$(KUI_WCE_PROBE)),_probe).ld
+RETAIL_CE_SCIA_LD := src/loader/retail_resident_ce_async$(if $(filter 1 2,$(KUI_WCE_PROBE)),_probe).ld
 build/retail-ce/resident-scia.elf: $(RETAIL_CE_SCIA) $(RETAIL_CE_SCIA_LD)
 	@mkdir -p build/retail-ce/scia/lto
 	rm -f build/retail-ce/resident-scia.elf.ltrans* build/retail-ce/scia/lto/*

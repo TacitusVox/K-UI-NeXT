@@ -1686,6 +1686,9 @@ int32_t kui_retail_resident_dispatch(uint32_t r4, uint32_t r5,
     uint32_t source=kui_retail_hook_source;
 #ifdef KUI_RETAIL_CE
     uint32_t started=*(volatile const uint32_t *)(uintptr_t)TCNT0;
+#if KUI_WCE_PROBE == 2
+    uint32_t probe_started=kui_wce_probe_tmu(started);
+#endif
     if(ce_record(source,r4,r5,r6,r7)) return 0;
 #endif
     if(source>3) return -1;
@@ -1779,6 +1782,9 @@ int32_t kui_retail_resident_dispatch(uint32_t r4, uint32_t r5,
     armada_ce_audio_kick(r7);
 #endif
     meter_call(started);
+#if KUI_WCE_PROBE == 2
+    kui_wce_probe_time_call(probe_started);
+#endif
 #endif
     return result;
 }
@@ -1791,6 +1797,9 @@ int32_t kui_retail_resident_dispatch(uint32_t r4, uint32_t r5,
  * one, when both, raised here as CE would; 0 for none. */
 uint32_t kui_retail_ce_irq(void) {
     uint32_t started=*(volatile const uint32_t *)(uintptr_t)TCNT0, sysintr=0;
+#if KUI_WCE_PROBE == 2
+    uint32_t probe_started=kui_wce_probe_tmu(started);
+#endif
     if(!kui_retail_async_irq()) {
         uint32_t raised=service.interrupts;
         service.interrupts=0;
@@ -1801,6 +1810,9 @@ uint32_t kui_retail_ce_irq(void) {
         }
     }
     meter_busy(started);
+#if KUI_WCE_PROBE == 2
+    kui_wce_probe_time_irq(probe_started);
+#endif
     return sysintr;
 }
 #endif

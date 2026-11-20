@@ -271,6 +271,59 @@ def main():
         check(needle in report, f"report shows {needle!r}")
     print("PASS miner report: roadmap rollups for boot (combination, fault, no record), card slots, saves and "
           "completion frames, DirectSound, refused commands and memory without a low-water mark")
+    timing()
+
+
+def ring(requests, begun, first_ms, end_ms):
+    """A decoded timing ring as tools/wce_probe_data.py decode_timing returns
+    it, for timing_summary."""
+    return {"ticks_per_ms": 12500, "period": 312500, "tick_ms": 25.0, "first_ms": first_ms, "end_ms": end_ms,
+            "requests_begun": begun, "requests_kept": len(requests), "open_at_end": False,
+            "call_us": 0, "irq_us": 0, "requests": requests}
+
+
+def read(issued_ms, phase_us, took_us, call_us=0, sectors=32):
+    """An ended read issued `phase_us` into CE's tick `issued_ms`, taking
+    `took_us`; its CE-count latency follows from CE's 25 ms ticks."""
+    begin = issued_ms * 1000 + phase_us
+    latency_ms = (begin + took_us) // 25000 * 25 - issued_ms
+    return {"issued_ms": issued_ms, "begin_us": begin, "latency_us": took_us, "end_us": begin + took_us,
+            "latency_ms": latency_ms, "ended": True, "failed": False, "replaced": False, "lba": 0,
+            "sectors": sectors, "command": "DMAREAD", "calls": 2, "call_us": call_us, "irq_us": 0,
+            "longest_call_us": call_us, "overruns": 0, "slow_blocks": 0}
+
+
+def timing():
+    # The last read ends 10 ms into CE's tick 5000 and the end comes 5 ms
+    # later in the same tick: CE's count says 5000 for both. The gap to the
+    # end is taken in CE's count on both sides, never negative.
+    s = mine.timing_summary(ring([read(5000, 5000, 5000)], 1, 4000, 5000))
+    end = [g for g in s["gaps"] if g["next"] == "the end"]
+    check(len(end) == 1 and end[0]["gap_ms"] == 0 and end[0]["to_ce_tick"], f"gap to the end {end}")
+    # 300 reads begun 50 ms apart, the latest 190 kept: they cover 9.55 s
+    # before the end, which comes 100 ms after the last read. Only the 9 whole
+    # seconds are tabled: 18 reads in the last (none in its final 100 ms), 20
+    # in each other; the second holding the oldest kept read lost reads to the
+    # ring and is left out.
+    reqs = [read(10000 + 50 * i, 0, 4000, call_us=149) for i in range(110, 300)]
+    end_ms = 10000 + 50 * 299 + 100
+    s = mine.timing_summary(ring(reqs, 300, 9000, end_ms))
+    rows = s["last_seconds"]
+    check(s["full_seconds"] == 9 and [b["second_before_end"] for b in rows] == list(range(9))
+          and [b["requests"] for b in rows] == [18] + [20] * 8,
+          f"whole seconds only {[(b['second_before_end'], b['requests']) for b in rows]}")
+    # Each second's call time is summed, then rounded once: 18 or 20 x 149 us
+    # (rounding each read's 0.149 ms would give 1.8 and 2.0).
+    check([b["call_ms"] for b in rows] == [2.7] + [3.0] * 8, f"per-second sums {[b['call_ms'] for b in rows]}")
+    report = "\n".join(mine.timing_text({"slot": 0, "title": "T", "area": "U", "timing": s}))
+    check("The last 9 whole seconds" in report and "| 8 | 20 |" in report and "| 9 | " not in report,
+          "the report's per-second table")
+    # A ring that has not wrapped covers the seconds since it began.
+    s = mine.timing_summary(ring(reqs[-40:], 40, end_ms - 2500, end_ms))
+    check(s["full_seconds"] == 2 and [b["second_before_end"] for b in s["last_seconds"]] == [0, 1],
+          f"seconds since the ring began {s['full_seconds']}")
+    print("PASS miner timing: the gap to the end in CE's count, whole seconds only once the ring has wrapped, "
+          "per-second sums rounded once")
 
 
 if __name__ == "__main__":

@@ -127,7 +127,7 @@ static void probe_stage_prepare(const uint8_t *ip) {
         memcpy(r->rom_header_bytes,h,sizeof(r->rom_header_bytes));
     }
     r->file_runs=probe_layout.run_count;r->slot=c->slot;r->slot_runs=c->run_count;r->sequence=c->used+1u;
-    r->flags=manifest.reader!=KUI_RETAIL_READER_STANDARD?1u:0u;
+    r->flags=(manifest.reader!=KUI_RETAIL_READER_STANDARD?1u:0u)|(KUI_WCE_PROBE==2?2u:0u);
     memcpy(r->ip,ip,sizeof(r->ip));
 #if KUI_WCE_PROBE_ZERO
     /* Nothing the launch still needs lives here: firmware, IP.BIN and the

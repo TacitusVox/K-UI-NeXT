@@ -15,6 +15,10 @@ in memory and reports, per launch:
     storage frame, the slots read from, the slots a block write was seen to
     (a save), and the slots with completion frames (command 13, which CE's
     driver sends after block reads as well as writes: not a save);
+  - for a timing session (KUI_WCE_PROBE=2), the request ring: how long each
+    of the latest reads took (to TMU0's tick), the reader's time in GD calls
+    and in its interrupt meanwhile, the slowest reads, the longest gaps
+    between reads and up to the last 30 whole seconds the ring covers;
   - from the RAM dump: the Windows CE process list, the module list with the
     processes that use each module (DirectSound, maple, mapledev), the kernel
     heap bounds, the kernel's own free-page counters and the ROMHDR.
@@ -462,6 +466,8 @@ def mine(path, evidence_path=EVIDENCE, kernels_path=KERNELS):
             row["cd_audio"] = audio(counters)
             row["ports"] = ports(counters)
             row["rtc"] = counters.get("rtc")
+            if "timing" in session:
+                row["timing"] = timing_summary(session["timing"])
             base = (decoded["file"]["first_slot"] + session["slot"] * decoded["file"]["slot_sectors"]) * wd.SECTOR
             f.seek(base + wd.TERMINAL_SECTOR * wd.SECTOR)
             page_list = wd.page_map(f.read(wd.TERMINAL_SECTORS * wd.SECTOR))
@@ -511,6 +517,147 @@ def analyse(image, ttb, stage, page_list):
     return out
 
 
+def timing_summary(t):
+    """The request ring (tools/wce_probe_data.py decode_timing) as findings.
+    Latencies and gaps are in milliseconds to TMU0's tick where the ring has
+    it (CE's 25 ms steps otherwise); "before the end" counts back from the end
+    of the session (A+B+X+Y+Start or the fault) by CE's count. KiB assume
+    2048-byte sectors."""
+    if not t or t.get("error"):
+        return t
+    reqs = t["requests"]
+    end = t.get("end_ms") or (reqs[-1]["issued_ms"] if reqs else 0)
+
+    def before(ms):
+        return round((end - ms) / 1000.0, 1)
+
+    def count(n):
+        return n if isinstance(n, int) else 65535
+
+    def latency(r):
+        if not r["ended"] or r["latency_ms"] is None:
+            return None
+        return r["latency_us"] / 1000 if r.get("latency_us") is not None else count(r["latency_ms"])
+
+    def begin(r):
+        return r["begin_us"] / 1000 if r.get("begin_us") is not None else r["issued_ms"]
+    ended = [r for r in reqs if latency(r) is not None]
+    latencies = sorted(latency(r) for r in ended)
+
+    def share(p):
+        return round(latencies[min(len(latencies) - 1, int(p * len(latencies)))], 1) if latencies else None
+    window = (end - reqs[0]["issued_ms"]) if reqs else 0
+    sectors = sum(count(r["sectors"]) for r in reqs)
+    call_us = sum(r["call_us"] or 0 for r in reqs)
+    irq_us = sum(r["irq_us"] or 0 for r in reqs)
+
+    def rate(r):
+        ms = latency(r)  # none for a read still open at the end
+        return round(count(r["sectors"]) * 2000 / ms, 1) if ms else None
+
+    def row(r):
+        took = latency(r)
+        return {"before_end_s": before(r["issued_ms"]), "command": r["command"], "lba": r["lba"],
+                "sectors": r["sectors"], "latency_ms": round(took, 1) if took is not None else None,
+                "kib_s": rate(r),
+                "call_ms": round((r["call_us"] or 0) / 1000, 1), "irq_ms": round((r["irq_us"] or 0) / 1000, 1),
+                "longest_call_ms": round((r["longest_call_us"] or 0) / 1000, 2), "calls": r["calls"],
+                "overruns": r["overruns"], "slow_blocks": r["slow_blocks"], "failed": r["failed"],
+                "replaced": r["replaced"]}
+    gaps = []
+    for a, b in zip(reqs, reqs[1:]):
+        if latency(a) is not None:
+            gaps.append({"before_end_s": before(a["issued_ms"] + count(a["latency_ms"])),
+                         "gap_ms": round(begin(b) - begin(a) - latency(a), 1),
+                         "after": a["command"], "next": b["command"]})
+    if reqs and latency(reqs[-1]) is not None and end:
+        # The end has CE's count only (no TMU0 phase), so this gap is taken in
+        # CE's count on both sides: to its tick (25 ms), never negative.
+        last = reqs[-1]
+        gaps.append({"before_end_s": before(last["issued_ms"] + count(last["latency_ms"])),
+                     "gap_ms": end - last["issued_ms"] - count(last["latency_ms"]), "after": last["command"],
+                     "next": "the end", "to_ce_tick": True})
+    # Seconds the kept requests cover completely, counting back from the end:
+    # after the oldest kept request once the ring has dropped older ones,
+    # after the ring began otherwise. The second holding that start is
+    # partial and left out.
+    since = reqs[0]["issued_ms"] if reqs and t["requests_begun"] > len(reqs) else t["first_ms"]
+    full_seconds = min(30, max(0, end - since) // 1000) if reqs and end else 0
+    bins = {}
+    for r in reqs:
+        second = int((end - r["issued_ms"]) // 1000)
+        if second < full_seconds:
+            b = bins.setdefault(second, {"second_before_end": second, "requests": 0, "kib": 0,
+                                         "longest_latency_ms": 0, "call_us": 0, "irq_us": 0})
+            b["requests"] += 1
+            b["kib"] += count(r["sectors"]) * 2
+            took = latency(r)
+            b["longest_latency_ms"] = max(b["longest_latency_ms"],
+                                          round(took, 1) if took is not None else end - r["issued_ms"])
+            b["call_us"] += r["call_us"] or 0
+            b["irq_us"] += r["irq_us"] or 0
+    seconds = []
+    for s in sorted(bins):
+        b = bins[s]
+        seconds.append(dict({k: v for k, v in b.items() if k not in ("call_us", "irq_us")},
+                            call_ms=round(b["call_us"] / 1000, 1), irq_ms=round(b["irq_us"] / 1000, 1)))
+    return {"ticks_per_ms": t["ticks_per_ms"], "requests_begun": t["requests_begun"], "requests_kept": len(reqs),
+            "window_s": round(window / 1000.0, 1), "end_ms": end,
+            "kib": sectors * 2, "kib_s": round(sectors * 2000 / window, 1) if window else None,
+            "latency_ms": {"median": share(0.5), "p90": share(0.9), "max": round(latencies[-1], 1) if latencies else None},
+            "call_ms": round(call_us / 1000, 1), "irq_ms": round(irq_us / 1000, 1),
+            "call_share": round(call_us / 10 / window, 1) if window else None,
+            "irq_share": round(irq_us / 10 / window, 1) if window else None,
+            "longest_call_us": max((r["longest_call_us"] or 0 for r in reqs), default=None),
+            "ring_call_ms": round((t["call_us"] or 0) / 1000, 1),
+            "ring_irq_ms": round((t["irq_us"] or 0) / 1000, 1),
+            "ring_s": round((end - t["first_ms"]) / 1000.0, 1) if end else None,
+            "slowest": [row(r) for r in sorted(ended, key=lambda r: -latency(r))[:10]],
+            "gaps": sorted(gaps, key=lambda g: -g["gap_ms"])[:5],
+            "open_at_end": [dict(row(r), pending_ms=end - r["issued_ms"]) for r in reqs if not r["ended"]],
+            "full_seconds": full_seconds, "last_seconds": seconds}
+
+
+def timing_text(r):
+    """The report section for one timing launch."""
+    t = r.get("timing")
+    name = f"{r.get('title') or '?'} ({r.get('area') or '?'})"
+    out = ["", f"### Slot {r['slot']}: {name}", ""]
+    if not t or t.get("error"):
+        return out + [f"No request ring: {(t or {}).get('error', 'none in the dump')}."]
+    lat = t["latency_ms"]
+    out += [f"{t['requests_kept']} of {t['requests_begun']} requests kept: the last {t['window_s']} s before "
+            f"the end. Read {t['kib']} KiB ({t['kib_s']} KiB/s over the window). Latency median "
+            f"{lat['median']} ms, 90% {lat['p90']} ms, longest {lat['max']} ms.",
+            f"Reader time while a kept read was open: GD calls {t['call_ms']} ms ({t['call_share']}% of the "
+            f"window), interrupt {t['irq_ms']} ms ({t['irq_share']}%); the longest GD call during a read "
+            f"{t['longest_call_us']} us. Since the ring began ({t['ring_s']} s, the first GD call with CE "
+            f"running): every GD call {t['ring_call_ms']} ms, the interrupt {t['ring_irq_ms']} ms.", "",
+            "Slowest reads:", "",
+            "| s before end | Command | Sectors | Latency ms | KiB/s | In calls ms | Longest call ms | "
+            "In interrupt ms | Overruns | Slow blocks |",
+            "|---|---|---|---|---|---|---|---|---|---|"]
+    for s in t["slowest"]:
+        out.append(f"| {s['before_end_s']} | {s['command']} | {s['sectors']} | {s['latency_ms']} | {s['kib_s']} | "
+                   f"{s['call_ms']} | {s['longest_call_ms']} | {s['irq_ms']} | {s['overruns']} | {s['slow_blocks']} |")
+    out += ["", "Longest gaps from a read's end to the next request: " +
+            ("; ".join(f"{g['gap_ms']} ms{' (to the 25 ms tick)' if g.get('to_ce_tick') else ''} at "
+                       f"{g['before_end_s']} s before the end (after {g['after']}, then {g['next']})"
+                       for g in t["gaps"]) or "none") + "."]
+    if t["open_at_end"]:
+        out.append("Still open at the end: " + "; ".join(
+            f"{o['command']} of {o['sectors']} sectors, pending {o['pending_ms']} ms" for o in t["open_at_end"]) + ".")
+    if not t["full_seconds"]:
+        return out + ["", "The kept requests cover no whole second before the end."]
+    out += ["", f"The last {t['full_seconds']} whole seconds the kept requests cover (by the second each "
+            "request began; a second with no row had no request):", "",
+            "| s before end | Requests | KiB | Longest latency ms | In calls ms | In interrupt ms |",
+            "|---|---|---|---|---|---|"]
+    out += [f"| {b['second_before_end']} | {b['requests']} | {b['kib']} | {b['longest_latency_ms']} | "
+            f"{b['call_ms']} | {b['irq_ms']} |" for b in t["last_seconds"]]
+    return out
+
+
 def ending(r):
     """The terminal report's reason ("A+B+X+Y+Start", "reader fault", ...), or
     None for a launch with no end-of-game record."""
@@ -553,7 +700,7 @@ def rollup(launches):
         p = r.get("ports") or {}
         if not p:
             continue
-        unseen = f"not seen ({p.get('samples', 0)} samples)"
+        unseen = f"not seen ({p.get('samples', 0)} samples)" if p.get("samples") else "not sampled"
         out.append(f"| {r.get('maple_family', '?')} | {name(r)} | {', '.join(p.get('addressed_slots', [])) or unseen} | "
                    f"{', '.join(p.get('read_from', [])) or unseen} | {', '.join(p.get('saved_to', [])) or unseen} | "
                    f"{', '.join(p.get('completion_frames', [])) or '-'} |")
@@ -613,11 +760,19 @@ def text(result):
             r["slot"], f"{r.get('title') or '?'} ({r.get('product')} {r.get('version')} {r.get('area')})",
             (r.get("kernel") or {}).get("class", "?"), r.get("maple_family", "?"), r.get("cd_driver_line", "?"),
             r.get("sound_group", "?"), r.get("end") if r.get("complete", True) else f"{r.get('end')} (incomplete)",
-            ", ".join(ports_.get("saved_to", [])) or "not seen",
-            ", ".join(ports_.get("addressed_slots", [])) or "not seen",
+            ", ".join(ports_.get("saved_to", [])) or ("not seen" if ports_.get("samples") else "not sampled"),
+            ", ".join(ports_.get("addressed_slots", [])) or ("not seen" if ports_.get("samples") else "not sampled"),
             ", ".join(f"{k} {v}" for k, v in (cd.get("commands") or {}).items()) or "-",
             ", ".join(ds) if ds else ("not loaded" if dump.get("modules") else "?"), free))
     lines += [""] + rollup(launches)
+    timed = [r for r in launches if "timing" in r]
+    if timed:
+        lines += ["", "## Read timing (timing session)", "",
+                  "Each read request's time from REQUEST to its end, by CE's millisecond count and TMU0's tick, "
+                  "and the reader's own time (TMU0) in GD calls and in its interrupt while it was open. The ring "
+                  "keeps the latest 190 requests, so it covers the end of each launch."]
+        for r in timed:
+            lines += timing_text(r)
     for r in launches:
         lines += ["", f"## Slot {r['slot']}: {r.get('title') or '?'}", ""]
         lines.append("```")

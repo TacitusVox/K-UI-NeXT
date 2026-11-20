@@ -72,7 +72,7 @@
     },
     "src/loader/retail_resident.c": {
       "mode": "code",
-      "sha256": "6437e400a164e14a766253e755368bb4db72e280266f334dd335beb2d6d8b9b7"
+      "sha256": "fed194cb5abc5d51ce3a69672a9f0788992492b419fef4bed63848ffe6ef1638"
     },
     "src/loader/retail_stage.c": {
       "mode": "code",

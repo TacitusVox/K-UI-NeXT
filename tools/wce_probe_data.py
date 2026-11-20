@@ -7,9 +7,10 @@ usage:
   wce_probe_data.py read DATA [--json OUT] [--dumps DIR]  decode a filled one
 
 `read` decodes every claimed slot: the stage report (game, kernel, card), the
-terminal report (counters, registers) and, with --dumps, writes each slot's
-RAM dump as a 16 MiB image (zero pages filled back in) named by slot and
-product. It reads the owner's file only; nothing is sent anywhere.
+terminal report (counters, registers), a timing session's request ring (from
+the dump) and, with --dumps, writes each slot's RAM dump as a 16 MiB image
+(zero pages filled back in) named by slot and product. It reads the owner's
+file only; nothing is sent anywhere.
 """
 import argparse
 import hashlib
@@ -54,6 +55,17 @@ MAPLE_COMMANDS = ["other", "device info", "condition", "media info", "block read
 REGISTERS = ["SR (hook)", "VBR", "CCR", "MMUCR", "PTEH", "TTB", "MDSTAR", "ISTNRM",
              "SPG_CONTROL", "SPG_LOAD", "VO_CONTROL", "FB_R_CTRL", "FB_R_SOF1",
              "IML2NRM", "IML4NRM", "IML6NRM"]
+
+# The timing session's request ring (KUI_WCE_PROBE=2): IP.BIN's bootstrap 2
+# area, taken by the reader once CE runs and saved with the dump. Its header,
+# then the reader's counters, then the ring.
+TIMING_ADDRESS, TIMING_BYTES, TIMING_MAGIC, TIMING_REQUESTS = 0x8c00e000, 0x2000, 0x54454357, 190
+TIMING_HEAD = struct.Struct("<16I")
+TIMING_COUNTERS = 520
+TIMING_ENTRY = struct.Struct("<IIIIHBBHHIIIHH")
+TIMING_WRAPS = struct.Struct("<2I")  # after the ring: carries out of the call and interrupt totals
+TMU_PENDING = 0x80000000  # a kept TMU0 count's flag: an underflow CE had not counted yet
+STAGE_TIMING_BUILD = 2  # stage report flags bit: a timing session's module
 
 FILE = struct.Struct("<8s6I16s4I")
 SLOT = struct.Struct("<8s6I16s4I")
@@ -225,6 +237,66 @@ def decode_terminal(raw):
             "seed": seed, "counters": counters}
 
 
+def decode_timing(image):
+    """The request ring in a rebuilt dump (include/kui/wce_probe.h), oldest
+    request first; None when the dump has none. Times in microseconds come
+    from TMU0 ticks at the rate TCR0 selects (Pphi 50 MHz / 4, 16, 64, 256 or
+    1024). A request's begin and end are CE's millisecond count plus TMU0's
+    ticks since the tick CE last counted: CE's count steps once per TMU0
+    period (25 ms in the first session), so these place a read to the tick,
+    not to CE's 25 ms steps."""
+    at = TIMING_ADDRESS - RAM_BEGIN
+    raw = bytes(image[at:at + TIMING_BYTES])
+    if len(raw) < TIMING_BYTES:
+        return None
+    v = TIMING_HEAD.unpack_from(raw)
+    if v[0] != TIMING_MAGIC:
+        return None
+    capacity, count, current, still_open, tcr0, tcor0, first_ms, end_ms = v[1:9]
+    if capacity != TIMING_REQUESTS or current >= TIMING_REQUESTS:
+        return {"error": "timing ring layout not recognised"}
+    tpsc = tcr0 & 7
+    per_ms = 50000 >> (2 + 2 * tpsc) if tpsc < 5 else 0
+    period = tcor0 + 1
+
+    def us(ticks):
+        return round(ticks * 1000 / per_ms) if per_ms else None
+
+    def phase(tmu):
+        # Ticks since the last tick CE counted: from TMU0's reload, plus a
+        # whole period while an underflow was pending.
+        return tcor0 - (tmu & ~TMU_PENDING) + (period if tmu & TMU_PENDING else 0)
+    kept = min(count, TIMING_REQUESTS)
+    ring = TIMING_HEAD.size + TIMING_COUNTERS
+    call_wraps, irq_wraps = TIMING_WRAPS.unpack_from(raw, ring + TIMING_REQUESTS * TIMING_ENTRY.size)
+    requests = []
+    for n in range(kept):
+        i = (current - kept + 1 + n) % TIMING_REQUESTS
+        (issued, issued_tmu, ended_tmu, lba, sectors, command, flags, latency, calls, call_ticks, irq_ticks,
+         longest, overruns, slow) = TIMING_ENTRY.unpack_from(raw, ring + i * TIMING_ENTRY.size)
+        ended = bool(flags & 1)
+        begin = issued * per_ms + phase(issued_tmu)
+        # TMU0's precision needs the end and an unsaturated count.
+        took = latency * per_ms + phase(ended_tmu) - phase(issued_tmu) if ended and latency != 0xffff else None
+        requests.append({"issued_ms": issued, "lba": lba, "sectors": "65535+" if sectors == 0xffff else sectors,
+                         "command": COMMANDS.get(command, command), "ended": ended,
+                         "failed": bool(flags & 2), "replaced": bool(flags & 4),
+                         "latency_ms": ("65535+" if latency == 0xffff else latency) if ended else None,
+                         "begin_us": us(begin), "latency_us": us(took) if took is not None else None,
+                         "end_us": us(begin + took) if took is not None else None,
+                         "calls": "65535+" if calls == 0xffff else calls, "longest_call_us": us(longest),
+                         # Set when the read ends: none for one still open at the end.
+                         "call_us": us(call_ticks) if ended else None,
+                         "irq_us": us(irq_ticks) if ended else None,
+                         "overruns": overruns if ended else None, "slow_blocks": slow if ended else None})
+    # The totals since the ring began: every GD call and interrupt, not only
+    # those while a read was open.
+    return {"ticks_per_ms": per_ms, "tcr0": tcr0, "period": period,
+            "tick_ms": round(period / per_ms, 3) if per_ms else None, "first_ms": first_ms, "end_ms": end_ms,
+            "requests_begun": count, "requests_kept": kept, "open_at_end": bool(still_open),
+            "call_us": us(call_wraps << 32 | v[9]), "irq_us": us(irq_wraps << 32 | v[10]), "requests": requests}
+
+
 def page_map(raw):
     bits = raw[PAGE_MAP_OFFSET:PAGE_MAP_OFFSET + PAGE_MAP_BYTES]
     return [p for p in range(PAGES) if bits[p // 8] >> (p % 8) & 1]
@@ -267,16 +339,27 @@ def read(path, json_out=None, dumps=None):
                 pages = page_map(terminal_raw)[:terminal["pages"]]
                 image = bytearray(RAM_BYTES)
                 f.seek(base + DUMP_SECTOR * SECTOR)
-                missing = 0
+                missing, present = 0, []
                 for p in pages:
                     chunk = f.read(PAGE)
                     # Every page the probe dumps is non-zero: an all-zero or
                     # short page was never written (a cut-off dump).
                     if len(chunk) < PAGE or not any(chunk):
                         missing += 1
+                    else:
+                        present.append(p)
                     image[p * PAGE:p * PAGE + len(chunk)] = chunk
                 complete = session["state"] == "complete" and not missing
                 session["dump_complete"] = complete
+                # The dump writes pages in ascending order, so the ring's pages
+                # are whole in a complete dump or when a later page is present;
+                # a cut inside them would leave entries reading as zero.
+                last_ring_page = (TIMING_ADDRESS - RAM_BEGIN + TIMING_BYTES - 1) // PAGE
+                ring_whole = complete or any(p > last_ring_page for p in present)
+                timing = decode_timing(image) if ring_whole else None
+                if timing or (session["stage"] or {}).get("flags", 0) & STAGE_TIMING_BUILD:
+                    session["timing"] = timing or {"error": "no request ring in the dump" if ring_whole else
+                                                   "request ring incomplete: the dump was cut off in it"}
                 session["dump_pages"] = len(pages) - missing
                 session["dump_missing_pages"] = missing
                 if dumps:
