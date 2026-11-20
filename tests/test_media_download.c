@@ -27,7 +27,8 @@ static struct {
     char legacy_path[KUI_GAMES_FILE_CAP];
     enum kui_http_result small_result;
     enum kui_media_reason last_reason;
-    bool no_release;
+    bool no_release, alternate_clips;
+    unsigned missing_previews, preview_requests;
     enum kui_http_result response;
     unsigned char buffer[90000], clip[200], saved_file[90000];
     size_t length, clip_length, saved_length;
@@ -83,6 +84,12 @@ bool kui_internet_cover_url(const struct kui_games_disc_identity *id,char *url,s
 bool kui_internet_extra_url(const struct kui_games_disc_identity *id,enum kui_media_kind kind,char *url,size_t cap) {
     assert(!strcmp(id->product,"T-1"));
     snprintf(url,cap,"%s",kind==KUI_MEDIA_MANUAL?"manual":"preview");return test.has_url;
+}
+bool kui_internet_preview_fallback_url(const struct kui_games_disc_identity *id,unsigned *attempt,char *url,size_t cap) {
+    assert(!strcmp(id->product,"T-1"));
+    if(!test.alternate_clips || *attempt>=2) return false;
+    snprintf(url,cap,"preview-%u",++*attempt);
+    return true;
 }
 unsigned kui_internet_manual_pages(const struct kui_games_disc_identity *id) {(void)id;return test.pages;}
 bool kui_internet_manual_page_url(const struct kui_games_disc_identity *id,unsigned i,char *url,size_t cap) {
@@ -154,8 +161,16 @@ enum kui_http_result kui_internet_get_conditional(struct kui_internet *s,const c
 }
 enum kui_http_result kui_internet_get_prefix(struct kui_internet *s,const char *url,uint32_t max,
         kui_http_write_fn sink,void *ctx,kui_http_progress_fn progress,void *progress_ctx,bool (*complete)(void *)) {
-    assert(!strcmp(url,"preview"));
-    enum kui_http_result r = kui_internet_get(s,url,max,sink,ctx,progress,progress_ctx);
+    unsigned order = test.preview_requests++ + (test.has_url ? 0u : 1u);
+    char expected[24]="preview";
+    if(order) snprintf(expected,sizeof(expected),"preview-%u",order);
+    if(test.alternate_clips) assert(!strcmp(url,expected));
+    else assert(!strcmp(url,"preview"));
+    if(test.missing_previews) {
+        --test.missing_previews;
+        return KUI_HTTP_MISSING;
+    }
+    enum kui_http_result r = kui_internet_get(s,"preview",max,sink,ctx,progress,progress_ctx);
     assert(!complete(ctx)); /* The mock origin supplies a short whole-file response. */
     return r;
 }
@@ -531,6 +546,17 @@ int main(void) {
     assert(fetch(KUI_MEDIA_PREVIEW)==KUI_MEDIA_EXISTING && test.gets==completed_gets &&
         !test.pending_cleanup && test.removed==1 && !test.legacy);
     assert(fetch(KUI_MEDIA_PREVIEW)==KUI_MEDIA_EXISTING && test.gets==completed_gets && !test.removed);
+    reset();test.alternate_clips=true;test.missing_previews=2;
+    assert(fetch(KUI_MEDIA_PREVIEW)==KUI_MEDIA_INSTALLED && test.preview_requests==3 && test.connects==1);
+    reset();test.alternate_clips=true;test.has_url=false;
+    assert(fetch(KUI_MEDIA_PREVIEW)==KUI_MEDIA_INSTALLED && test.preview_requests==1);
+    reset();test.alternate_clips=true;test.missing_previews=3;
+    assert(fetch(KUI_MEDIA_PREVIEW)==KUI_MEDIA_MISSING && test.last_reason==KUI_MEDIA_REASON_PROVIDER_MISSING &&
+           test.preview_requests==3 && !test.saved);
+    reset();test.alternate_clips=true;test.response=KUI_HTTP_CONNECT_FAILED;
+    assert(fetch(KUI_MEDIA_PREVIEW)==KUI_MEDIA_CONNECT_FAILED && test.preview_requests==1);
+    reset();test.alternate_clips=true;test.response=KUI_HTTP_LIMITED;
+    assert(fetch(KUI_MEDIA_PREVIEW)==KUI_MEDIA_LIMITED && test.preview_requests==1);
     reset();test.convert=false;assert(fetch(KUI_MEDIA_PREVIEW)==KUI_MEDIA_ERROR && !test.saved);
     reset();test.cancel_conversion=true;assert(fetch(KUI_MEDIA_PREVIEW)==KUI_MEDIA_STOPPED && !test.saved);
     puts("PASS direct media install, indexed page assembly, PDF fallback, preview conversion, cancellation and SD failures");

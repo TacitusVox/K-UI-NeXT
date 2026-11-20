@@ -14,12 +14,25 @@ static const struct extra media[] = {
 #include "internet_extra_data.inc"
 };
 
-static const struct extra *find_extra(const struct kui_games_disc_identity *id) {
+struct preview_alternate {
+    uint32_t release;
+    const char *source[3]; /* USA, PAL, then a verified clip of unspecified region */
+};
+static const struct preview_alternate preview_alternates[] = {
+#include "internet_preview_regions.inc"
+};
+
+static uint32_t release_hash(const struct kui_games_disc_identity *id) {
     const char *name = id ? kui_internet_cover_name(id) : NULL;
-    if(!name) return NULL;
+    if(!name) return 0;
     uint32_t hash = UINT32_C(2166136261);
     for(const unsigned char *p = (const unsigned char *)name; *p; ++p)
         hash = (hash ^ *p) * UINT32_C(16777619);
+    return hash;
+}
+
+static const struct extra *find_extra(const struct kui_games_disc_identity *id) {
+    uint32_t hash = release_hash(id);
     size_t low = 0, high = sizeof(media)/sizeof(*media);
     while(low < high) {
         size_t mid = low + (high-low)/2;
@@ -44,15 +57,30 @@ bool kui_internet_manual_page_url(const struct kui_games_disc_identity *id, unsi
 }
 
 static bool video_url(const char *name, char *url, size_t cap) {
-    static const char prefix[] = "https://archive.org/download/SegaDreamcastVideoSnaps/";
+    static const char snaps[] = "https://archive.org/download/SegaDreamcastVideoSnaps/";
+    static const char archive[] = "https://archive.org/download/";
     static const char hex[] = "0123456789ABCDEF";
-    size_t pos = sizeof(prefix)-1;
+    const char *prefix = snaps, *separator = NULL;
+    const char *suffix = ".ogv";
+    if(*name == '/') {
+        /* A curated source names one Archive item and one Ogg file in it. */
+        ++name;
+        separator = strchr(name, '/');
+        if(!separator || separator == name || *name == '.' || !separator[1] ||
+           separator[1] == '.' || strchr(separator + 1, '/')) return false;
+        size_t n = strlen(separator + 1);
+        if(n <= 4 || strcmp(separator + 1 + n - 4, ".ogv")) return false;
+        prefix = archive;
+        suffix = "";
+    }
+    size_t pos = strlen(prefix);
     if(cap <= pos) return false;
     memcpy(url, prefix, pos);
     for(const unsigned char *p = (const unsigned char *)name; *p; ++p) {
         unsigned ch = *p;
         if((ch >= 'a' && ch <= 'z') || (ch >= 'A' && ch <= 'Z') ||
-           (ch >= '0' && ch <= '9') || strchr("-._~", (int)ch)) {
+           (ch >= '0' && ch <= '9') || strchr("-._~", (int)ch) ||
+           (const char *)p == separator) {
             if(cap-pos <= 1) return false;
             url[pos++] = (char)ch;
         } else {
@@ -60,9 +88,31 @@ static bool video_url(const char *name, char *url, size_t cap) {
             url[pos++] = '%'; url[pos++] = hex[ch>>4]; url[pos++] = hex[ch&15];
         }
     }
-    if(cap-pos < sizeof(".ogv")) return false;
-    memcpy(url+pos, ".ogv", sizeof(".ogv"));
+    size_t tail = strlen(suffix) + 1;
+    if(cap-pos < tail) return false;
+    memcpy(url+pos, suffix, tail);
     return true;
+}
+
+bool kui_internet_preview_fallback_url(const struct kui_games_disc_identity *id, unsigned *attempt,
+                                      char *url, size_t cap) {
+    if(!attempt || !url || !cap || *attempt >= 3) return false;
+    uint32_t hash = release_hash(id);
+    size_t low = 0, high = sizeof(preview_alternates)/sizeof(*preview_alternates);
+    while(low < high) {
+        size_t mid = low + (high-low)/2;
+        const struct preview_alternate *alt = preview_alternates + mid;
+        if(alt->release == hash) {
+            while(*attempt < 3) {
+                const char *movie = alt->source[(*attempt)++];
+                if(movie) return video_url(movie, url, cap);
+            }
+            break;
+        }
+        if(alt->release < hash) low = mid+1;
+        else high = mid;
+    }
+    return false;
 }
 
 bool kui_internet_extra_url(const struct kui_games_disc_identity *id, enum kui_media_kind kind,

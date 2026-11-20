@@ -709,6 +709,9 @@ static enum kui_media_result fetch_mounted(struct transfer *t, struct kui_media_
     if(stopped(t->cancel)) return KUI_MEDIA_STOPPED;
     unsigned pages = kind == KUI_MEDIA_MANUAL ? kui_internet_manual_pages(t->id) : 0;
     bool has_url=kui_internet_extra_url(t->id,kind,t->url,sizeof(t->url));
+    unsigned preview_attempt=0;
+    if(kind==KUI_MEDIA_PREVIEW && !has_url)
+        has_url=kui_internet_preview_fallback_url(t->id,&preview_attempt,t->url,sizeof(t->url));
     if(!pages && !has_url) {
         /* A manual saved by a previous catalogue is still available offline.
          * Disc sets already checked their shared PDF before reading the ID. */
@@ -757,6 +760,9 @@ static enum kui_media_result fetch_mounted(struct transfer *t, struct kui_media_
     if(result==KUI_MEDIA_INSTALLED && f_rename(MEDIA_TEMP,final)!=FR_OK) result=KUI_MEDIA_ERROR;
     if(result != KUI_MEDIA_INSTALLED) {
         if(f_unlink(MEDIA_TEMP) != FR_OK) return KUI_MEDIA_ERROR;
+        if(kind==KUI_MEDIA_PREVIEW && result==KUI_MEDIA_MISSING &&
+           t->reason==KUI_MEDIA_REASON_PROVIDER_MISSING &&
+           kui_internet_preview_fallback_url(t->id,&preview_attempt,t->url,sizeof(t->url))) goto FILE_RETRY;
         if(result == KUI_MEDIA_MISSING && pages && has_url) {
             pages = 0;
             goto FILE_RETRY;

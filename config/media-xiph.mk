@@ -39,7 +39,7 @@ test-internet-preview: build/test-internet-preview build/test-preview-prefix
 	python3 tests/test_internet_preview.py
 
 build/test-internet-extra: tests/test_internet_extra.c src/apps/internet_extra.c src/apps/internet_cover.c \
-        src/apps/internet_extra_data.inc src/apps/internet_cover_catalog.inc src/apps/internet_cover_small.inc
+        src/apps/internet_extra_data.inc src/apps/internet_preview_regions.inc src/apps/internet_cover_catalog.inc src/apps/internet_cover_small.inc
 	@mkdir -p $(@D)
 	$(CC) -std=c11 -Wall -Wextra -Werror -O2 -Iinclude -I.deps/fatfs/source \
 	    tests/test_internet_extra.c src/apps/internet_extra.c src/apps/internet_cover.c -o $@
@@ -47,6 +47,7 @@ build/test-internet-extra: tests/test_internet_extra.c src/apps/internet_extra.c
 .PHONY: test-internet-extra
 test-internet-extra: build/test-internet-extra
 	./build/test-internet-extra
+	python3 tests/test_preview_regions.py
 
 # Makefile.dc includes dependency files for all GUI objects. Ogg/Theora
 # sources are immutable at this pin; do not look for derived *.d.c inputs.
