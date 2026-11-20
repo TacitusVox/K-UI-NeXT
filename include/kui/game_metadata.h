@@ -46,7 +46,12 @@ struct kui_game_metadata {
      * Multisession writers may exclude the session lead-in from that count. */
     uint32_t session_lba, volume_blocks, root_lba, root_bytes;
     uint32_t boot_lba, boot_bytes, sectors_read;
+    /* Display only. Launch records and content identity use title above. */
+    char japanese_title[129];
 };
+static inline const char *kui_game_metadata_display_title(const struct kui_game_metadata *metadata) {
+    return metadata->japanese_title[0] ? metadata->japanese_title : metadata->title;
+}
 /* Parse just the first 256 bytes of a Dreamcast IP header, resetting out.
  * No filesystem access or executable admission. A recognized header may have
  * unsupported media/boot flags or unknown disc-number fields. */

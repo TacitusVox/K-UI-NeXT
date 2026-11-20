@@ -9,7 +9,7 @@ static void quiet(const char *format, ...) { (void)format; }
 static void finish(struct kui_hover_clip *clip, bool keep_mount) {
     bool closed = f_close(&clip->file) == FR_OK;
     clip->open = false;
-    clip->frames = 0;
+    clip->frames = clip->audio_rate = 0;
     (void)kui_games_storage_done(keep_mount && closed);
 }
 
@@ -29,14 +29,17 @@ bool kui_hover_clip_open(struct kui_hover_clip *clip, const struct kui_games_ent
         (void)kui_games_storage_done(true);
         return false;
     }
-    FRESULT result = f_open(&clip->file, path, FA_READ);
+    FRESULT result = kui_media_open_preview(&clip->file, path);
+    if((result == FR_NO_FILE || result == FR_NO_PATH) &&
+       kui_media_local_fallback(entry,KUI_MEDIA_PREVIEW,path))
+        result = kui_media_open_preview(&clip->file,path);
     if(result != FR_OK) {
         (void)kui_games_storage_done(result == FR_NO_FILE || result == FR_NO_PATH);
         return false;
     }
 
-    /* Read the 16-byte KPV header only. Its dimensions/rate/count must match
-     * the complete file length (at most 100 frames / 3,840,016 bytes). */
+    /* Reading the header validates the complete expected video/audio size.
+     * PCM and video frames are read separately after focus is established. */
     struct kui_media_index index;
     if(!kui_media_container_index(&clip->file, false, &index) || (cancel && cancel())) {
         finish(clip, f_error(&clip->file) == 0);
@@ -44,6 +47,7 @@ bool kui_hover_clip_open(struct kui_hover_clip *clip, const struct kui_games_ent
     }
     clip->open = true;
     clip->frames = index.count;
+    clip->audio_rate = index.audio_rate;
     return true;
 }
 

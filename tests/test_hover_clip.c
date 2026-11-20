@@ -42,6 +42,11 @@ FRESULT f_open(FIL *file, const TCHAR *path, BYTE mode) {
     memset(file, 0, sizeof(*file)); file->obj.objsize = size;
     return FR_OK;
 }
+FRESULT kui_media_open_preview(FIL *file, const char *path) { return f_open(file, path, FA_READ); }
+bool kui_media_local_fallback(const struct kui_games_entry *entry, enum kui_media_kind kind,
+        char out[KUI_GAMES_FILE_CAP]) {
+    (void)entry; (void)kind; (void)out; return false;
+}
 FRESULT f_close(FIL *file) {
     (void)file;
     assert(mounted && opened);

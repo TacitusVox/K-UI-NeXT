@@ -84,5 +84,11 @@ void kui_music_shutdown(void);
 /* Drain and release global KOS streamer, retaining cache/config. Used only for
  * the startup cue and exiting to the BIOS, not ordinary foreground work. */
 void kui_music_release_audio(void);
+/* Preview PCM is borrowed until stop. The optional cancellation check runs on
+ * the audio thread under its mutex and must only read nonblocking RAM state.
+ * Stop is safe after cancellation. Only the viewer/hover worker owns playback. */
+bool kui_music_preview_enabled(void);
+bool kui_music_preview_play(const int16_t *samples, size_t count, unsigned rate, kui_cancel_fn cancel);
+void kui_music_preview_stop(void);
 void kui_music_play_boot_chime(kui_cancel_fn cancel);
 #endif

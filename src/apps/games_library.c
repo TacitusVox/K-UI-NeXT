@@ -2,6 +2,8 @@
 #include "kui/games_library.h"
 #include "kui/games_covers.h"
 #include "kui/games_group.h"
+#include "kui/games_media_storage.h"
+#include "kui/internet_cover.h"
 #include "kui/games_storage.h"
 #include "kui/games_scan_log.h"
 #include "kui/hash.h"
@@ -25,17 +27,19 @@
 #ifndef KUI_BUILD_ID
 #define KUI_BUILD_ID "local-unversioned"
 #endif
-struct library_group {char key[33],name[KUI_DEST_NAME_CAP];unsigned count,first,representative,label_set;bool valid,metadata;};
+struct library_group {char key[33],name[KUI_DEST_NAME_CAP];unsigned count,first,representative,label_set;uint16_t media_slot;bool valid,metadata;};
 struct library_member {unsigned group,disc;};
 struct library {
     uint8_t *wire;
     uint32_t *offsets;
     struct library_group *groups;
     struct library_member *members;
+    char (*media_keys)[33];
+    unsigned media_groups;
     uint32_t *display,*group_display;
     size_t bytes;
     unsigned count,group_count,display_count,slot;
-    uint64_t sequence,epoch;
+    uint64_t sequence,epoch,mount_serial;
     uint8_t identity[32];
     char root[KUI_DEST_ROOT_CAP];
     bool resource_error;
@@ -50,6 +54,10 @@ struct library {
     bool query_ready;
 };
 static struct library saved;
+/* In addition to the current folder, retain at most two previously visited
+ * folders during one live Games mount. Large catalogues still work normally. */
+#define RECENT_FOLDER_BYTES (512u*1024u)
+static struct library recent_folders[2];
 static bool distrust_disk;
 static struct kui_games_activity *activity;
 static bool activity_attempted;
@@ -96,19 +104,43 @@ static uint64_t get64(const uint8_t *p) {return get32(p)|(uint64_t)get32(p+4)<<3
 static void put16(uint8_t *p,unsigned n) {p[0]=(uint8_t)n;p[1]=(uint8_t)(n>>8);}
 static void put32(uint8_t *p,uint32_t n) {for(unsigned i=0;i<4;i++)p[i]=(uint8_t)(n>>(8*i));}
 static void put64(uint8_t *p,uint64_t n) {put32(p,(uint32_t)n);put32(p+4,(uint32_t)(n>>32));}
+static unsigned char folded_byte(unsigned char byte) {
+    return byte>='A' && byte<='Z'?(unsigned char)(byte+('a'-'A')):byte;
+}
 static bool fold_equal(const char *a,const char *b) {
     while(*a && *b) {
-        unsigned x=(unsigned char)*a++,y=(unsigned char)*b++;
-        if(x>='A' && x<='Z')x+='a'-'A';
-        if(y>='A' && y<='Z')y+='a'-'A';
-        if(x!=y)return false;
+        if(folded_byte((unsigned char)*a++)!=folded_byte((unsigned char)*b++))return false;
     }
     return !*a && !*b;
 }
 static void library_free(struct library *lib) {
+    free(lib->media_keys);
     free(lib->wire);free(lib->offsets);free(lib->groups);free(lib->members);free(lib->display);free(lib->group_display);free(lib->query_display);memset(lib,0,sizeof(*lib));
 }
-void kui_games_library_clear(void) {library_free(&saved);free(activity);activity=NULL;activity_attempted=false;free(edits);edits=NULL;edits_attempted=false;}
+static void forget_recent_folders(void) {
+    for(unsigned i=0;i<2;i++)library_free(&recent_folders[i]);
+}
+static size_t folder_bytes(const struct library *folder) {
+    if(!folder->wire)return 0;
+    size_t rows=folder->count?folder->count:1;
+    return folder->bytes+(folder->media_keys?folder->media_groups*sizeof(*folder->media_keys):0)+rows*(sizeof(*folder->members)+sizeof(*folder->groups)+
+        sizeof(*folder->offsets)+sizeof(*folder->display)+sizeof(*folder->group_display)+
+        (folder->query_display?sizeof(*folder->query_display):0));
+}
+/* Transfer ownership of the parsed arrays, with no new allocation. */
+static void select_folder(struct library *folder) {
+    size_t bytes=folder_bytes(&saved);
+    if(saved.mount_serial && saved.mount_serial==folder->mount_serial && bytes<=RECENT_FOLDER_BYTES) {
+        if(recent_folders[0].wire) {
+            library_free(&recent_folders[1]);
+            recent_folders[1]=recent_folders[0];
+        }
+        recent_folders[0]=saved;
+        if(bytes+folder_bytes(&recent_folders[1])>RECENT_FOLDER_BYTES)library_free(&recent_folders[1]);
+    } else library_free(&saved);
+    saved=*folder;memset(folder,0,sizeof(*folder));kui_games_cache_clear();
+}
+void kui_games_library_clear(void) {forget_recent_folders();library_free(&saved);free(activity);activity=NULL;activity_attempted=false;free(edits);edits=NULL;edits_attempted=false;}
 static bool ensure_edits(kui_log_fn log) {
     if(edits_attempted)return edits!=NULL;
     edits_attempted=true;edits=calloc(1,sizeof(*edits));
@@ -200,27 +232,46 @@ static bool write_checked(const char *path,const uint8_t *wire,size_t bytes,kui_
     if(f_close(&file)!=FR_OK)ok=false;
     return ok && !stopped(cancel);
 }
+static bool epoch_advance(const uint8_t identity[32],uint64_t sequence,unsigned slot) {
+    if(sequence==UINT64_MAX || !mkdirs())return false;
+    uint8_t wire[EPOCH_BYTES]={0};char path[80];
+    memcpy(wire,"KUIGGEN1",8);put64(wire+8,sequence+1);memcpy(wire+16,identity,32);
+    put32(wire+60,kui_crc32(0,wire,60));epoch_path(path,slot^1u);
+    return write_checked(path,wire,sizeof(wire),NULL);
+}
+bool kui_games_library_invalidate_mounted(kui_log_fn log) {
+    uint8_t identity[32];uint64_t sequence=0;unsigned slot=0;
+    kui_games_library_clear();kui_games_cache_clear();
+    bool ok=volume_identity(identity) && epoch_load(identity,&sequence,&slot,NULL) && epoch_advance(identity,sequence,slot);
+    distrust_disk=!ok;
+    if(!ok && log)log("Games library: saved catalogue invalidation could not be confirmed");
+    return ok;
+}
 bool kui_games_library_invalidate(const char *root,kui_log_fn log) {
     (void)root;
-    distrust_disk=true;kui_games_library_clear();kui_games_cache_clear();
     if(kui_games_storage_open(log)!=KUI_GAMES_STORAGE_OK) {
-        if(log)log("Games library: cannot invalidate saved catalogue before changing game files");
+        kui_games_library_clear();kui_games_cache_clear();distrust_disk=true;
+        if(log)log("Games library: cannot mount card to invalidate saved catalogue");
         return false;
     }
-    uint8_t identity[32],wire[EPOCH_BYTES]={0};uint64_t sequence=0;unsigned slot=0;
-    bool ok=volume_identity(identity) && epoch_load(identity,&sequence,&slot,NULL) && sequence!=UINT64_MAX && mkdirs();
-    if(ok) {
-        memcpy(wire,"KUIGGEN1",8);put64(wire+8,sequence+1);memcpy(wire+16,identity,32);
-        put32(wire+60,kui_crc32(0,wire,60));char path[80];epoch_path(path,slot^1u);
-        ok=write_checked(path,wire,sizeof(wire),NULL);
-    }
+    bool ok=kui_games_library_invalidate_mounted(log);
     if(!kui_games_storage_done(ok))ok=false;
-    distrust_disk=!ok;
-    if(!ok && log)log("Games library: cannot invalidate saved catalogue before changing game files");
-    return ok;
+    distrust_disk=!ok;return ok;
 }
 static void library_path(char out[96],const char *root,unsigned slot) {
     uint32_t hash=kui_crc32(0,root,strlen(root));snprintf(out,96,LIBRARY_FOLDER "/%08lx-%c.bin",(unsigned long)hash,slot?'b':'a');
+}
+const char *kui_games_library_watch_root_mounted(void) {
+    /* Advanced > Browse SD starts at /. A persisted catalogue for that
+     * entry point means Games can also have indexed its other folders. */
+    if(saved.wire && strncmp(saved.root,KUI_GAMES_SCAN_ROOT "/",sizeof(KUI_GAMES_SCAN_ROOT)) &&
+       strcmp(saved.root,KUI_GAMES_SCAN_ROOT))return "/";
+    for(unsigned i=0;i<2;i++) {
+        char path[96];FILINFO info;library_path(path,"/",i);
+        FRESULT r=f_stat(path,&info);
+        if(r!=FR_NO_FILE && r!=FR_NO_PATH)return "/";
+    }
+    return KUI_GAMES_SCAN_ROOT;
 }
 static bool index_filename(const char *name) {
     if(strlen(name)!=14 || name[8]!='-' || (name[9]!='a' && name[9]!='b' && name[9]!='A' && name[9]!='B') || !fold_equal(name+10,".bin"))return false;
@@ -472,7 +523,7 @@ static void group_label(char out[KUI_DEST_NAME_CAP],const char *base,const char 
 static bool library_groups(struct library *lib) {
     lib->groups=calloc(lib->count?lib->count:1,sizeof(*lib->groups));
     lib->members=calloc(lib->count?lib->count:1,sizeof(*lib->members));
-    if(!lib->groups || !lib->members)return false;
+    if(!lib->groups || !lib->members) {lib->resource_error=true;return false;}
     for(unsigned i=0;i<lib->count;i++) {
         struct kui_games_entry entry;if(!decode_record(lib,i,&entry))return false;
         char base[KUI_DEST_NAME_CAP],key[33];unsigned disc=0;
@@ -560,7 +611,7 @@ static bool library_groups(struct library *lib) {
     }
     lib->display=calloc(lib->count?lib->count:1,sizeof(*lib->display));
     lib->group_display=calloc(lib->count?lib->count:1,sizeof(*lib->group_display));
-    if(!lib->display || !lib->group_display)return false;
+    if(!lib->display || !lib->group_display) {lib->resource_error=true;return false;}
     unsigned member_count=0;
     for(unsigned i=0;i<lib->count;i++) {
         unsigned g=lib->members[i].group;
@@ -574,7 +625,10 @@ static bool library_groups(struct library *lib) {
     sorting=lib;qsort(lib->group_display,member_count,sizeof(*lib->group_display),member_order);sorting=NULL;
     for(unsigned i=0;i<member_count;i++) {
         unsigned g=lib->members[lib->group_display[i]].group;
-        if(!i || lib->members[lib->group_display[i-1]].group!=g)lib->groups[g-1].first=i;
+        if(!i || lib->members[lib->group_display[i-1]].group!=g) {
+            lib->groups[g-1].first=i;
+            lib->groups[g-1].media_slot=(uint16_t)lib->media_groups++;
+        }
     }
     return true;
 }
@@ -601,6 +655,36 @@ static __attribute__((noinline)) bool slot_header(const char *root,unsigned slot
     if(f_close(&file)!=FR_OK)ok=false;
     return ok && !stopped(cancel);
 }
+/* A saved folder depends on the published scan of every ancestor, including
+ * the optional card-root library. A rescan refreshes descendants on demand
+ * even if their immediate parent is unchanged. Only fixed headers are read;
+ * paging a resident catalogue needs no ancestor reads. */
+static bool catalogue_identity(const char *root,const uint8_t volume[32],uint64_t epoch,
+    uint8_t identity[32],kui_cancel_fn cancel) {
+    memcpy(identity,volume,32);
+    if(!root[1])return true;
+    char ancestor[KUI_DEST_ROOT_CAP]="/";
+    const char *component=root+1;
+    for(;;) {
+        uint64_t newest=0;
+        for(unsigned slot=0;slot<2;slot++) {
+            bool admitted=false;uint64_t sequence=0;
+            if(!slot_header(ancestor,slot,identity,epoch,cancel,&admitted,&sequence))return false;
+            if(admitted && sequence>newest)newest=sequence;
+        }
+        if(newest) {
+            struct kui_sha256 hash;uint8_t encoded[8];put64(encoded,newest);
+            kui_sha256_init(&hash);kui_sha256_update(&hash,identity,32);
+            kui_sha256_update(&hash,ancestor,strlen(ancestor)+1u);kui_sha256_update(&hash,encoded,sizeof(encoded));
+            kui_sha256_digest(&hash,identity);
+        }
+        const char *slash=strchr(component,'/');
+        if(!slash)break;
+        size_t length=(size_t)(slash-root);
+        memcpy(ancestor,root,length);ancestor[length]=0;component=slash+1;
+    }
+    return true;
+}
 /* Read and check one complete slot. LOAD_MISSING: readable but malformed. */
 static __attribute__((noinline)) enum load_result slot_load(struct library *out,const char *root,unsigned slot,
     const uint8_t identity[32],uint64_t epoch,kui_cancel_fn cancel) {
@@ -619,8 +703,9 @@ static __attribute__((noinline)) enum load_result slot_load(struct library *out,
         io_error=!ok;at+=got;
     }
     if(f_close(&file)!=FR_OK) {ok=false;io_error=true;}
-    if(stopped(cancel) || io_error || memory_error) {library_free(&candidate);return LOAD_ERROR;}
+    if(stopped(cancel) || io_error || memory_error) {library_free(&candidate);out->resource_error=memory_error;return LOAD_ERROR;}
     if(ok && library_validate(&candidate,root,identity,epoch)) {*out=candidate;out->slot=slot;return LOAD_OK;}
+    out->resource_error=candidate.resource_error;
     enum load_result result=candidate.resource_error?LOAD_ERROR:LOAD_MISSING;
     library_free(&candidate);return result;
 }
@@ -641,7 +726,9 @@ static enum load_result library_load(struct library *out,const char *root,const 
         if(!admitted[slot])continue;
         result=stopped(cancel)?LOAD_ERROR:slot_load(out,root,slot,identity,epoch,cancel);
     }
-    if(result==LOAD_ERROR || (result==LOAD_OK && !library_groups(out))) {library_free(out);return LOAD_ERROR;}
+    if(result==LOAD_ERROR || (result==LOAD_OK && !library_groups(out))) {
+        bool exhausted=out->resource_error;library_free(out);out->resource_error=exhausted;return LOAD_ERROR;
+    }
     return result;
 }
 static bool append_record(struct library *lib,const struct kui_games_entry *entry) {
@@ -658,7 +745,7 @@ static bool append_record(struct library *lib,const struct kui_games_entry *entr
 }
 /* Capture's " (2)" suffix is only a collision counter. Read one real IP
  * header for each matching name family before considering it a disc set. */
-static bool build_group_evidence(struct library *lib,kui_log_fn log,kui_cancel_fn cancel) {
+static bool build_group_evidence(struct library *lib,kui_log_fn log,kui_cancel_fn cancel,bool check_numbered) {
     struct family {char name[KUI_DEST_NAME_CAP];unsigned named_disc;};
     struct family *families=calloc(lib->count?lib->count:1u,sizeof(*families));
     lib->offsets=calloc(lib->count?lib->count:1u,sizeof(*lib->offsets));
@@ -678,7 +765,9 @@ static bool build_group_evidence(struct library *lib,kui_log_fn log,kui_cancel_f
         for(unsigned j=0;j<lib->count;j++)if(families[j].name[0] && group_family_equal(families[i].name,families[j].name)) {
             ++matches;if(!families[j].named_disc)unnumbered=true;
         }
-        if(matches<2u || !unnumbered)continue;
+        /* Numbered sets already have a chooser. Only an explicit rescan
+         * examines their headers for sharing media across a verified release. */
+        if(matches<2u || (!unnumbered && !check_numbered))continue;
         struct kui_games_entry entry;if(!decode_record(lib,i,&entry)) {ok=false;break;}
         if(kui_games_storage_open(log)!=KUI_GAMES_STORAGE_OK) {ok=false;break;}
         struct kui_games_group_evidence evidence={0};
@@ -686,6 +775,10 @@ static bool build_group_evidence(struct library *lib,kui_log_fn log,kui_cancel_f
         enum kui_games_group_read_result result=kui_games_identity_group(entry.path,&evidence,cancel);
         scan_phase(result==KUI_GAMES_GROUP_READ_OK?"image-open-ok":result==KUI_GAMES_GROUP_READ_CANCELLED?
             "image-open-cancelled":result==KUI_GAMES_GROUP_READ_IO?"image-open-io-error":"image-open-unsupported");
+        if(!unnumbered && result==KUI_GAMES_GROUP_READ_IO) {
+            if(log)log("Game media: cannot verify %.72s; keeping per-disc media",entry.name);
+            continue;
+        }
         if(result==KUI_GAMES_GROUP_READ_IO || result==KUI_GAMES_GROUP_READ_CANCELLED) {
             if(log)log("Disc grouping: %.72s: header read failed; previous catalogue retained",entry.name);
             ok=false;break;
@@ -725,7 +818,7 @@ static bool folder_has_members(const char *root,bool *present,kui_log_fn log,kui
     bool ok=kui_games_visit_images(root,folder_member,present,cancel);
     return kui_games_storage_done(ok || stopped(cancel)) && ok;
 }
-static bool build_catalogue(struct library *out,const char *root,const uint8_t identity[32],uint64_t epoch,kui_log_fn log,kui_cancel_fn cancel) {
+static bool build_catalogue(struct library *out,const char *root,const uint8_t identity[32],uint64_t epoch,kui_log_fn log,kui_cancel_fn cancel,bool check_numbered) {
     memset(out,0,sizeof(*out));out->version=4;strcpy(out->root,root);memcpy(out->identity,identity,32);out->epoch=epoch;
     out->bytes=LIBRARY_HEADER+strlen(root);out->wire=calloc(1,out->bytes);if(!out->wire)return false;
     memcpy(out->wire+LIBRARY_HEADER,root,strlen(root));
@@ -751,7 +844,7 @@ static bool build_catalogue(struct library *out,const char *root,const uint8_t i
         if(!ok || !page->has_more)break;
     }
     free(page);
-    return ok && !stopped(cancel) && kui_games_cache_complete(root) && build_group_evidence(out,log,cancel);
+    return ok && !stopped(cancel) && kui_games_cache_complete(root) && build_group_evidence(out,log,cancel,check_numbered);
 }
 static bool prepare_catalogue(struct library *draft,uint64_t sequence,unsigned slot) {
     uint8_t *p=draft->wire;memcpy(p,"KUIGLIB4",8);put32(p+8,4);put32(p+12,(uint32_t)draft->bytes);
@@ -788,33 +881,47 @@ static bool publish_catalogue(struct library *draft,kui_cancel_fn cancel) {
     if(f_close(&file)!=FR_OK)ok=false;
     return ok;
 }
-static bool scan_mounted(const char *root,bool rebuild,bool allow_unsaved,const uint8_t identity[32],uint64_t epoch,kui_log_fn log,kui_cancel_fn cancel) {
-    struct library previous={0},draft={0};
+static bool scan_mounted(const char *root,const uint8_t missing_identity[32],const uint8_t volume[32],uint64_t epoch,kui_log_fn log,kui_cancel_fn cancel) {
+    forget_recent_folders(); /* discovery and publication need the heap and can supersede descendants */
+    struct library previous={0},draft={0};uint8_t identity[32];
+    if(missing_identity)memcpy(identity,missing_identity,32);
+    else if(!catalogue_identity(root,volume,epoch,identity,cancel))return false;
     scan_phase("before-load-catalogue");
     if(saved.wire && !strcmp(saved.root,root) && !memcmp(saved.identity,identity,32) && saved.epoch==epoch) {
         /* Retain the complete RAM generation until the replacement is saved. */
         previous.sequence=saved.sequence;previous.slot=saved.slot;
-    } else {
+    } else if(!missing_identity) {
         enum load_result loaded=library_load(&previous,root,identity,epoch,cancel);
         if(loaded==LOAD_ERROR)return false;
     }
-    (void)rebuild;
     /* Either explicit scan discovers host edits, even in a warm session.
      * Saved cover records remain on card; only stale RAM labels are dropped. */
     kui_games_cache_clear();kui_games_covers_cache_clear();
     scan_phase("before-build-catalogue");
-    bool built=previous.sequence!=UINT64_MAX && build_catalogue(&draft,root,identity,epoch,log,cancel);
-    uint8_t current_identity[32];uint64_t current_epoch=0;unsigned current_slot=0;
+    bool built=previous.sequence!=UINT64_MAX && build_catalogue(&draft,root,identity,epoch,log,cancel,missing_identity==NULL);
+    uint8_t current_volume[32],current_identity[32];uint64_t current_epoch=0;unsigned current_slot=0;
     bool unchanged=built && kui_games_storage_open(log)==KUI_GAMES_STORAGE_OK &&
-        volume_identity(current_identity) && !memcmp(identity,current_identity,32) &&
-        epoch_load(identity,&current_epoch,&current_slot,NULL) && current_epoch==epoch;
+        volume_identity(current_volume) && !memcmp(volume,current_volume,32) &&
+        epoch_load(current_volume,&current_epoch,&current_slot,NULL) && current_epoch==epoch &&
+        catalogue_identity(root,current_volume,epoch,current_identity,cancel) && !memcmp(identity,current_identity,32);
     if(unchanged)scan_checkpoint("before-prepare",NULL,draft.count,draft.count,scan_trace.offset,false);
     bool prepared=unchanged && prepare_catalogue(&draft,previous.sequence+1,previous.sequence?previous.slot^1u:0u);
     bool persisted=prepared && publish_catalogue(&draft,cancel);
-    bool ok=persisted || (allow_unsaved && prepared && !stopped(cancel));
+    bool ok=persisted || (missing_identity && prepared && !stopped(cancel));
     if(!persisted && prepared) (void)kui_games_storage_release();
     library_free(&previous);
-    if(ok) {library_free(&saved);saved=draft;memset(&draft,0,sizeof(draft));kui_games_cache_clear();if(log)log("Games library: %s %u entries (%lu bytes)",persisted?"saved":"using RAM only; could not save",saved.count,(unsigned long)saved.bytes);}
+    if(ok) {
+        draft.mount_serial=persisted?kui_games_storage_session():0;
+        /* First entry into a child publishes that child only. A parent from
+         * this live mount remains valid and Back can select it immediately. */
+        size_t parent_len=strlen(saved.root);
+        bool parent=missing_identity && saved.epoch==epoch && parent_len &&
+            ((!strcmp(saved.root,"/") && root[1]) ||
+             (!strncmp(saved.root,root,parent_len) && root[parent_len]=='/'));
+        if(!parent)library_free(&saved);
+        select_folder(&draft);
+        if(log)log("Games library: %s %u entries (%lu bytes)",persisted?"saved":"using RAM only; could not save",saved.count,(unsigned long)saved.bytes);
+    }
     library_free(&draft);return ok;
 }
 bool kui_games_library_scan(const char *root,bool rebuild,kui_log_fn log,kui_cancel_fn cancel) {
@@ -830,13 +937,13 @@ bool kui_games_library_scan(const char *root,bool rebuild,kui_log_fn log,kui_can
         ok=corrupt && rebuild && epoch_recover(cancel);epoch=0;slot=1;
     }
     if(ok && distrust_disk) {
-        uint8_t wire[EPOCH_BYTES]={0};ok=epoch!=UINT64_MAX && mkdirs() && !stopped(cancel);
-        if(ok) {memcpy(wire,"KUIGGEN1",8);put64(wire+8,epoch+1);memcpy(wire+16,identity,32);put32(wire+60,kui_crc32(0,wire,60));char path[80];epoch_path(path,slot^1u);ok=write_checked(path,wire,sizeof(wire),cancel);if(ok)++epoch;}
+        ok=!stopped(cancel) && epoch_advance(identity,epoch,slot);
+        if(ok)++epoch;
     }
     if(ok) {
         memset(&scan_trace,0,sizeof(scan_trace));scan_trace.active=true;scan_trace.log=log;
         strcpy(scan_trace.root,normalized);scan_phase("begin");
-        ok=scan_mounted(root,rebuild,false,identity,epoch,log,cancel);
+        ok=scan_mounted(root,NULL,identity,epoch,log,cancel);
     }
     if(ok)distrust_disk=false;
     scan_checkpoint(ok?"complete":stopped(cancel)?"cancelled":"failed",NULL,scan_trace.index,scan_trace.count,scan_trace.offset,true);
@@ -846,8 +953,9 @@ bool kui_games_library_scan(const char *root,bool rebuild,kui_log_fn log,kui_can
     return ok;
 }
 static bool use_live_catalogue(const char *root,const uint8_t identity[32],const char *reason,kui_log_fn log,kui_cancel_fn cancel) {
+    forget_recent_folders();
     struct library live={0};kui_games_cache_clear();kui_games_covers_cache_clear();
-    bool ok=build_catalogue(&live,root,identity,0,log,cancel) && prepare_catalogue(&live,1,0);
+    bool ok=build_catalogue(&live,root,identity,0,log,cancel,false) && prepare_catalogue(&live,1,0);
     if(ok) {
         library_free(&saved);saved=live;memset(&live,0,sizeof(live));kui_games_cache_clear();
         if(log)log("Games library: using fresh RAM list; %s",reason);
@@ -855,9 +963,23 @@ static bool use_live_catalogue(const char *root,const uint8_t identity[32],const
     library_free(&live);return ok;
 }
 static bool ensure_library(const char *root,kui_log_fn log,kui_cancel_fn cancel) {
+    if(stopped(cancel))return false;
     (void)ensure_edits(log);
     if(saved.wire && !strcmp(saved.root,root))return !stopped(cancel);
+    char normalized[KUI_DEST_ROOT_CAP];
+    if(!kui_destination_normalize(normalized,root) || strcmp(normalized,root))return false;
     if(kui_games_storage_open(log)!=KUI_GAMES_STORAGE_OK)return false;
+    uint64_t mount=kui_games_storage_session();
+    struct library loaded={0};
+    for(unsigned i=0;i<2;i++) {
+        struct library *folder=&recent_folders[i];
+        if(!folder->wire)continue;
+        if(!mount || folder->mount_serial!=mount) {library_free(folder);continue;}
+        if(!strcmp(folder->root,root)) {
+            loaded=*folder;memset(folder,0,sizeof(*folder));select_folder(&loaded);
+            return kui_games_storage_done(true) && !stopped(cancel);
+        }
+    }
     uint8_t identity[32];uint64_t epoch=0;unsigned slot=0;bool corrupt=false;
     bool identity_ok=volume_identity(identity);
     if(identity_ok && distrust_disk) {
@@ -865,19 +987,33 @@ static bool ensure_library(const char *root,kui_log_fn log,kui_cancel_fn cancel)
         if(!kui_games_storage_done(ok || stopped(cancel)))ok=false;
         return ok && !stopped(cancel);
     }
+    /* Fuse repeated directory/FAT sectors from the generation, ancestors
+     * and index slot lookups. Stop before discovery, repair or any write. */
+    kui_games_storage_lookup_begin();
     bool ok=identity_ok && epoch_load(identity,&epoch,&slot,&corrupt);
     if(identity_ok && !ok && corrupt && !stopped(cancel)) {
+        kui_games_storage_lookup_end();
         ok=use_live_catalogue(root,identity,"rebuild repairs damaged saved catalogue",log,cancel);
         if(!kui_games_storage_done(ok || stopped(cancel)))ok=false;
         return ok && !stopped(cancel);
     }
-    if(ok) {
-        struct library loaded={0};enum load_result result=library_load(&loaded,root,identity,epoch,cancel);
-        if(result==LOAD_OK) {library_free(&saved);saved=loaded;memset(&loaded,0,sizeof(loaded));kui_games_cache_clear();}
-        else if(result==LOAD_MISSING && !stopped(cancel))ok=scan_mounted(root,false,true,identity,epoch,log,cancel);
-        else ok=false;
-        library_free(&loaded);
+    uint8_t index_identity[32];
+    if(ok)ok=catalogue_identity(root,identity,epoch,index_identity,cancel);
+    enum load_result result=ok?library_load(&loaded,root,index_identity,epoch,cancel):LOAD_ERROR;
+    if(result==LOAD_ERROR && loaded.resource_error && !stopped(cancel)) {
+        /* Retained navigation data is optional. Retry only allocation
+         * failure, leaving real storage errors on their original path. */
+        forget_recent_folders();kui_games_storage_lookup_discard();library_free(&loaded);
+        result=library_load(&loaded,root,index_identity,epoch,cancel);
     }
+    kui_games_storage_lookup_end();
+    if(result==LOAD_OK) {loaded.mount_serial=mount;select_folder(&loaded);}
+    else if(result==LOAD_MISSING && !stopped(cancel)) {
+        kui_games_storage_lookup_discard();
+        ok=scan_mounted(root,index_identity,identity,epoch,log,cancel);
+    }
+    else ok=false;
+    library_free(&loaded);
     if(!kui_games_storage_done(ok || stopped(cancel)))ok=false;
     return ok && !stopped(cancel);
 }
@@ -984,10 +1120,99 @@ static bool build_query(const char *group,unsigned requested_group,const struct 
     }
     saved.query=*query;snprintf(saved.query_group,sizeof(saved.query_group),"%s",group?group:"");saved.query_ready=true;return true;
 }
+static unsigned group_number(const char *group) {
+    if(group && group[0])for(unsigned i=0;i<saved.group_count;i++)
+        if(saved.groups[i].valid && !strcmp(saved.groups[i].key,group))return i+1u;
+    return 0;
+}
+/* Only admitted, length-checked records reach the sorted per-group array.
+ * Read one in-memory field without decoding the whole row or opening a file. */
+static void group_record_field(const struct library *lib,unsigned index,unsigned field,char *out) {
+    if(field>=record_fields(lib)) {out[0]=0;return;}
+    const uint8_t *record=lib->wire+lib->offsets[index];
+    const uint8_t *value=record+record_header(lib);
+    for(unsigned i=0;i<field;i++) value+=get16(record+2u*i);
+    unsigned bytes=get16(record+2u*field);
+    memcpy(out,value,bytes);out[bytes]=0;
+}
+static const char *serial_release(const struct kui_games_group_evidence *e) {
+    /* An empty title rules out the provider's title-only fallback. */
+    struct kui_games_disc_identity id={0};
+    strcpy(id.product,e->product);strcpy(id.region,e->region);
+    return kui_internet_cover_name(&id);
+}
+static bool same_media_release(const struct kui_games_group_evidence *a,const struct kui_games_group_evidence *b) {
+    if(kui_games_group_evidence_equal(a,b)) return true;
+    if(a->total!=b->total || strcmp(a->region,b->region) || strcmp(a->version,b->version)) return false;
+    if(strcmp(a->title,b->title)) {
+        char first[KUI_DEST_NAME_CAP],second[KUI_DEST_NAME_CAP];
+        unsigned adisc=0,bdisc=0;
+        const char *aname=kui_games_group_parse(a->title,first,&adisc)?first:a->title;
+        const char *bname=kui_games_group_parse(b->title,second,&bdisc)?second:b->title;
+        if((adisc && adisc!=a->disc) || (bdisc && bdisc!=b->disc) || !group_family_equal(aname,bname)) return false;
+    }
+    const char *release=serial_release(a);
+    return release && release==serial_release(b);
+}
+static bool group_media_key(const struct library *lib,const struct library_group *group,char key[33]) {
+    unsigned first=lib->group_display[group->first];
+    if(lib->members[first].disc!=1) return false;
+    unsigned last=lib->group_display[group->first+group->count-1u];
+    struct kui_games_group_evidence release={0};
+    /* Filename grouping can predate IP evidence. Keep that group browsable
+     * even when positive disc, region or release evidence forbids sharing. */
+    for(unsigned i=0;i<group->count;i++) {
+        unsigned index=lib->group_display[group->first+i];
+        struct kui_games_group_evidence e;
+        if(!record_evidence(lib,index,&e) || e.disc!=lib->members[index].disc || !e.disc ||
+           e.total<lib->members[last].disc || (release.disc && !same_media_release(&release,&e))) return false;
+        char tag[9];
+        group_record_field(lib,index,4,tag);
+        if(tag[0] && strcmp(tag,e.region)) return false;
+        release=e;
+    }
+    char path[KUI_GAMES_FILE_CAP];
+    group_record_field(lib,first,1,path);
+    return kui_games_media_key(path,key);
+}
+static const char *media_key_for_group(struct library *lib,const struct library_group *group) {
+    if(!lib->media_keys) lib->media_keys=calloc(lib->media_groups,sizeof(*lib->media_keys));
+    if(!lib->media_keys) return "";
+    char *key=lib->media_keys[group->media_slot];
+    /* '-' is outside the hexadecimal filename alphabet; remember refusals. */
+    if(!key[0] && !group_media_key(lib,group,key)) key[0]='-';
+    return key[0]=='-' ? "" : key;
+}
+bool kui_games_library_media_member(const struct kui_games_entry *entry,unsigned member,char path[KUI_GAMES_FILE_CAP]) {
+    if(!entry || !path || !entry->media_disc1_key[0] || entry->disabled || entry->directory ||
+       !memchr(entry->path,0,sizeof(entry->path))) return false;
+    struct library *folders[]={&saved,&recent_folders[0],&recent_folders[1]};
+    for(unsigned f=0;f<sizeof(folders)/sizeof(*folders);f++) {
+        struct library *lib=folders[f];
+        if(!lib->media_keys) continue;
+        for(unsigned i=0;i<lib->group_count;i++) {
+            const struct library_group *group=&lib->groups[i];
+            if(!group->valid || member>=group->count) continue;
+            const char *key=lib->media_keys[group->media_slot];
+            if(!key[0] || key[0]=='-' || memcmp(key,entry->media_disc1_key,33)) continue;
+            for(unsigned j=0;j<group->count;j++) {
+                unsigned index=lib->group_display[group->first+j];
+                char selector[KUI_GAMES_FILE_CAP];
+                group_record_field(lib,index,1,selector);
+                if(strcmp(entry->path,selector)) continue;
+                group_record_field(lib,lib->group_display[group->first+member],1,path);
+                return true;
+            }
+        }
+    }
+    return false;
+}
+bool kui_games_library_media_disc1(const struct kui_games_entry *entry,char path[KUI_GAMES_FILE_CAP]) {
+    return kui_games_library_media_member(entry,0,path);
+}
 static bool fill_page_query(const char *group,unsigned offset,const struct kui_games_query *query,struct kui_games_page *out,kui_cancel_fn cancel) {
-    unsigned requested_group=0;
+    unsigned requested_group=group_number(group);
     if(group && group[0]) {
-        for(unsigned i=0;i<saved.group_count;i++)if(saved.groups[i].valid && !strcmp(saved.groups[i].key,group)) {requested_group=i+1;break;}
         if(!requested_group) {snprintf(out->message,sizeof(out->message),"Disc group changed; return to Games and scan again.");return false;}
         strcpy(out->group,group);snprintf(out->group_name,sizeof(out->group_name),"%.*s",
             (int)sizeof(out->group_name)-1,group_title(&saved,requested_group));
@@ -1004,6 +1229,7 @@ static bool fill_page_query(const char *group,unsigned offset,const struct kui_g
         unsigned g=active_group(&saved,index);
         struct kui_games_entry *entry=&out->entries[out->count++];if(!decode_record(&saved,index,entry))return false;
         struct kui_games_activity_entry a;entry->favorite=row_activity(index,&a) && a.favorite;
+        if(g) strcpy(entry->media_disc1_key,media_key_for_group(&saved,&saved.groups[g-1u]));
         if(requested_group) {
             entry->disc=saved.members[index].disc;
             snprintf(entry->title,sizeof(entry->title),"Disc %u",entry->disc);
@@ -1051,6 +1277,16 @@ bool kui_games_library_find_filter(const char *root,const char *group,const char
     struct kui_games_query query;kui_games_query_default(&query);query.activity=filter;
     return kui_games_library_find_query(root,group,name,&query,offset,log,cancel);
 }
+/* Admission checked every record and offset. The first length-prefixed
+ * field is the physical name; display edits change only title and artwork. */
+static bool record_name_matches(unsigned index,const char *name,size_t length) {
+    const uint8_t *record=saved.wire+saved.offsets[index];
+    if(get16(record)!=length)return false;
+    const uint8_t *field=record+record_header(&saved);
+    for(size_t i=0;i<length;i++)
+        if(folded_byte(field[i])!=folded_byte((unsigned char)name[i]))return false;
+    return true;
+}
 bool kui_games_library_find_query(const char *root,const char *group,const char *name,const struct kui_games_query *query,unsigned *offset,kui_log_fn log,kui_cancel_fn cancel) {
     char normalized[KUI_DEST_ROOT_CAP];
     if(!kui_games_query_valid(query))return false;
@@ -1058,24 +1294,24 @@ bool kui_games_library_find_query(const char *root,const char *group,const char 
     if(!root || !name || !offset || !kui_destination_normalize(normalized,root) || strcmp(root,normalized) ||
        (group && strlen(group)>32) || filter>=KUI_GAMES_FILTER_COUNT || !kui_destination_name_valid(name) || !ensure_library(root,log,cancel))return false;
     if(!ensure_activity(log) && filter!=KUI_GAMES_FILTER_ALL)return false;
-    struct kui_games_page *page=calloc(1,sizeof(*page));if(!page)return false;
-    bool found=false;
-    for(unsigned at=0;at<=LIBRARY_ROWS;at+=KUI_GAMES_ROWS) {
-        memset(page,0,sizeof(*page));if(!fill_page_query(group,at,query,page,cancel))goto done;
-        for(unsigned i=0;i<page->count;i++) {
-            const struct kui_games_entry *entry=&page->entries[i];bool match=fold_equal(entry->name,name);
-            if(!match && (!group || !group[0]) && entry->group[0]) {
-                for(unsigned j=0;j<saved.count;j++)if(active_group(&saved,j)) {
-                    unsigned g=active_group(&saved,j);struct kui_games_entry member;
-                    if(!strcmp(saved.groups[g-1].key,entry->group) && decode_record(&saved,j,&member) && fold_equal(member.name,name)) {match=true;break;}
-                }
+    unsigned requested_group=group_number(group);
+    if((group && group[0] && !requested_group) || !build_query(group,requested_group,query,cancel))return false;
+    size_t length=strlen(name);
+    for(unsigned at=0;at<saved.query_count;at++) {
+        if(stopped(cancel))return false;
+        unsigned index=saved.query_display[at];
+        if(record_name_matches(index,name,length)) {*offset=at;return true;}
+        unsigned g=requested_group?0:active_group(&saved,index);
+        if(g) {
+            const struct library_group *set=&saved.groups[g-1u];
+            for(unsigned i=0;i<set->count;i++) {
+                if(stopped(cancel))return false;
+                unsigned member=saved.group_display[set->first+i];
+                if(member!=index && record_name_matches(member,name,length)) {*offset=at;return true;}
             }
-            if(match) {*offset=at+i;found=true;goto done;}
         }
-        if(!page->has_more)break;
     }
-done:
-    free(page);return found;
+    return false;
 }
 bool kui_games_library_jump_query(const char *root,const char *group,char letter,const struct kui_games_query *query,unsigned *offset,kui_log_fn log,kui_cancel_fn cancel) {
     if(!offset || (letter!='#' && !(letter>='A' && letter<='Z')))return false;
@@ -1107,6 +1343,7 @@ bool kui_games_library_get_edit(const char *root,const char *group,const char *p
     *out=e?e->edit:(struct kui_games_library_edit){0};return true;
 }
 static void edits_changed(void) {
+    forget_recent_folders();
     saved.filtered_ready=false;saved.query_ready=false;
     if(saved.display)display_sort(&saved);
     kui_games_covers_content_clear();
@@ -1252,7 +1489,7 @@ bool kui_games_library_favorite_toggle(const char *root,const char *group,const 
     ok=ok && kui_games_activity_favorite(draft,key.path,key.group,enabled) &&
         kui_games_storage_open(log)==KUI_GAMES_STORAGE_OK && kui_games_activity_save(draft,log);
     if(!kui_games_storage_done(ok))ok=false;
-    if(ok) {*activity=*draft;saved.filtered_ready=false;saved.query_ready=false;}
+    if(ok) {*activity=*draft;forget_recent_folders();saved.filtered_ready=false;saved.query_ready=false;}
     free(draft);return ok;
 }
 bool kui_games_library_record_played(const struct kui_games_activity_entry *key,kui_log_fn log) {
@@ -1274,7 +1511,7 @@ bool kui_games_library_record_played(const struct kui_games_activity_entry *key,
     }
     ok=ok && kui_games_activity_played(draft,key->path,key->group) && kui_games_activity_save(draft,log);
     if(!kui_games_storage_done(ok))ok=false;
-    if(ok && activity) {*activity=*draft;saved.filtered_ready=false;saved.query_ready=false;}
+    if(ok && activity) {*activity=*draft;forget_recent_folders();saved.filtered_ready=false;saved.query_ready=false;}
     free(draft);return ok;
 }
 bool kui_games_library_session_request(const char *root,const char *path,

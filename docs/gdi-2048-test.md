@@ -87,8 +87,10 @@ if its budget/allocation is exceeded, entries remain standalone.
 Select the combined title, choose **Original** or **2048-byte copy** with the
 D-pad, press **A** to inspect, then continue to launch confirmation. **B**
 returns. Details and confirmation identify the selected copy. For a nested
-dump such as `Armada/extracted`, the converter creates `extracted-2048`; open
-Armada to find the combined `extracted` entry.
+dump such as `Armada/extracted`, the converter creates `extracted-2048`.
+After **Scan for changes**, select **Armada** to choose either copy. The
+launcher keeps the folder browsable when it contains another game or the two
+copies have incompatible layouts.
 
 Four recent folder catalogues share at most 2048 cached entries. An individual
 listing beyond 1024 rows remains browsable without a snapshot. Page navigation

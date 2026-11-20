@@ -11,6 +11,7 @@
 #include "kui/retail_image.h"
 #include "kui/game_cover.h"
 #include "kui/vmu_description.h"
+#include "kui/japanese_text.h"
 #include "kui/smash_launch_timing.h"
 #include "kui/media.h"
 #include "ff.h"
@@ -532,7 +533,7 @@ static void text_append(char *games,size_t capacity,const char *key) {
     if(n>=3u && !strcmp(games+n-3u,"...")) return;
     if(n+extra>=capacity) {
         if(n+5u<capacity) strcat(games,", ...");
-        else if(n>=3u) memcpy(games+n-3u,"...",4u);
+        else if(n>=3u) memcpy(games+kui_utf8_prefix(games,n-3u),"...",4u);
         return;
     }
     if(n) strcat(games,", ");
@@ -590,7 +591,7 @@ static int titles_load(struct library_titles *titles,kui_cancel_fn cancel) {
 }
 static unsigned get16(const uint8_t *p) {return p[0]|(unsigned)p[1]<<8;}
 static void save_contents(const uint8_t *image,char out[97]) {
-    char descriptions[3][33]={{0}};unsigned count=0;
+    char descriptions[3][KUI_VMU_LONG_UTF8_CAP]={{0}};unsigned count=0;
     const uint8_t *fat=image+254u*512u;out[0]=0;
     for(unsigned directory=253u;directory>=241u;directory--) for(unsigned slot=0;slot<16u;slot++) {
         const uint8_t *entry=image+directory*512u+slot*32u;
@@ -607,7 +608,7 @@ static void save_contents(const uint8_t *image,char out[97]) {
         unsigned found=0;while(found<count && strcmp(descriptions[found],description.description)) ++found;
         if(found<count) continue;
         if(count==3u) {text_append(out,97u,"...");return;}
-        memcpy(descriptions[count++],description.description,33u);
+        memcpy(descriptions[count++],description.description,sizeof(description.description));
         text_append(out,97u,description.description);
     }
 }
@@ -991,15 +992,14 @@ int kui_vmu_library_list(unsigned page,struct kui_vmu_backup_view *out,kui_log_f
                 if(first[0] && row->users>1u) snprintf(shared,sizeof(shared)," +%u game%s",row->users-1u,row->users==2u?"":"s");
                 size_t suffix=strlen(shared);
                 if(length+suffix>=sizeof(row->label)) length=sizeof(row->label)-suffix-1u;
-                if(length>=sizeof(row->label)) length=sizeof(row->label)-1u;
+                length=kui_utf8_prefix(context,length);
                 memcpy(row->label,context,length);row->label[length]=0;
                 if(suffix) strcat(row->label,shared);
             } else snprintf(row->label,sizeof(row->label),"%s",!file_counts[i]?
                 (row->users?"Empty game card":row->active?"Empty virtual VMU":"Empty backup"):
                 row->users>1u?"Shared virtual VMU":row->users?"Game saves":row->active?"Saved games":"Save backup");
         }
-        size_t label_bytes=strlen(row->label);
-        if(label_bytes>=sizeof(row->name)) label_bytes=sizeof(row->name)-1u;
+        size_t label_bytes=kui_utf8_prefix(row->label,sizeof(row->name)-1u);
         memcpy(row->name,row->label,label_bytes);row->name[label_bytes]=0;
     }
     if(!result) {

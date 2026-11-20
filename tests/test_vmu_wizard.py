@@ -27,7 +27,7 @@ with tempfile.TemporaryDirectory(prefix="kui-vmu-wizard-") as work:
     subprocess.run([*compiler, *flags,
                     *(f"-Dkui_vmu_match_memory_{name}=unused_real_match_memory_{name}" for name in persistent),
                     "-c", "src/apps/vmu_match_memory.c", "-o", str(fingerprint)], cwd=ROOT, check=True)
-    sources = ("tests/test_vmu_wizard.c", "src/apps/vmu_wizard.c",
+    sources = ("tests/test_vmu_wizard.c", "src/apps/vmu_wizard.c", "src/core/japanese_text.c",
                "src/core/vmu_image.c", "src/core/vmu_image_pack.c",
                "src/core/vmu_image_subset.c", "src/core/vmu_import_plan.c", "src/core/vmu_import_match.c", "src/core/hash.c", "src/core/vmu_game_card.c", "src/core/vmu_game_assign.c",
                "src/core/data.c", "src/core/retail_image.c")

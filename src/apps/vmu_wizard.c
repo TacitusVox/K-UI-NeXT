@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: GPL-3.0-only */
 #include "kui/vmu_wizard.h"
+#include "kui/japanese_text.h"
 #include "kui/vmu_import_plan.h"
 #include "kui/vmu_import_match.h"
 #include "kui/vmu_game_candidates.h"
@@ -195,14 +196,38 @@ static void group_reason(const struct kui_vmu_import_match_group *group,char out
     snprintf(out,96,"%s",reason);
 }
 static void save_row(struct kui_vmu_wizard_save *row,const struct kui_vmu_import_entry *entry,
-    unsigned source_slot,unsigned index) {
-    row->index=index;row->slot=source_slot;row->blocks=entry->blocks;row->type=entry->type;
+    const struct wizard_card *source,unsigned index) {
+    row->index=index;row->slot=source->source_slot;row->blocks=entry->blocks;row->type=entry->type;
     row->header_offset=entry->header_offset;
-    memcpy(row->name,entry->name,sizeof(row->name));
-    memcpy(row->short_description,entry->short_description,sizeof(row->short_description));
-    memcpy(row->long_description,entry->long_description,sizeof(row->long_description));
-    memcpy(row->application,entry->application,sizeof(row->application));
+    /* The plan's legacy ASCII fields remain stable matching/fingerprint
+     * inputs. Decode the admitted immutable bytes only for visible rows. */
+    const uint8_t *header=source->image+(size_t)entry->header_block*512u;
+    const uint8_t *dirent=source->image+(253u-entry->slot/16u)*512u+(entry->slot%16u)*32u;
+    kui_sjis_to_utf8(row->name,sizeof(row->name),dirent+4u,12u);
+    kui_sjis_to_utf8(row->short_description,sizeof(row->short_description),header,16u);
+    kui_sjis_to_utf8(row->long_description,sizeof(row->long_description),header+16u,32u);
+    kui_sjis_to_utf8(row->application,sizeof(row->application),header+48u,16u);
     row->suggested=entry->hints!=0;
+}
+/* The matcher can only use ASCII for identification. Where it had to
+ * display a filename, prefer an actual Japanese label from that same save. */
+static void group_label(char out[49],const struct wizard_card *source,
+                        const struct kui_vmu_import_match_group *group) {
+    memcpy(out,group->label,sizeof(group->label));
+    if(!group->filename_label_entry || group->filename_label_entry>source->plan->entry_count) return;
+    unsigned index=group->filename_label_entry-1u;
+    struct kui_vmu_wizard_save row={0};
+    save_row(&row,&source->plan->entries[index],source,index);
+    const char *fields[]={row.long_description,row.short_description,row.name};
+    for(unsigned i=0;i<sizeof(fields)/sizeof(*fields);i++) {
+        const char *text=fields[i];
+        const unsigned char *c=(const unsigned char *)text;
+        while(*c && *c<128u) ++c;
+        if(!*c) continue;
+        size_t bytes=kui_utf8_prefix(text,sizeof(group->label)-1u);
+        memcpy(out,text,bytes);out[bytes]=0;
+        return;
+    }
 }
 static void view(struct operation *s,unsigned generation) {
     struct kui_vmu_wizard_view *out=s->out;
@@ -246,7 +271,7 @@ static void view(struct operation *s,unsigned generation) {
             const struct kui_vmu_import_match_group *group=wizard.cards[i].matches->groups+j;
             struct kui_vmu_wizard_group *row=out->groups+out->groups_count++;
             row->index=i*KUI_VMU_IMAGE_DIRECTORY_ENTRIES+j;row->source=i;row->source_slot=wizard.cards[i].source_slot;
-            row->files=group->files;row->blocks=group->blocks;memcpy(row->label,group->label,sizeof(row->label));
+            row->files=group->files;row->blocks=group->blocks;group_label(row->label,&wizard.cards[i],group);
             group_reason(group,row->reason);
         }
     if(wizard.stage==KUI_VMU_WIZARD_GROUP_GAME) {
@@ -255,7 +280,7 @@ static void view(struct operation *s,unsigned generation) {
         if(group) {
             out->group_index=wizard.group_index;out->group_source=wizard.group_index/KUI_VMU_IMAGE_DIRECTORY_ENTRIES;
             out->group_source_slot=source->source_slot;out->group_files=group->files;out->group_blocks=group->blocks;
-            memcpy(out->group_label,group->label,sizeof(out->group_label));
+            group_label(out->group_label,source,group);
         }
     }
     if(wizard.stage==KUI_VMU_WIZARD_SAVES && wizard.save_game<wizard.game_count && wizard.card<wizard.card_count) {
@@ -270,7 +295,7 @@ static void view(struct operation *s,unsigned generation) {
         for(unsigned i=wizard.save_page*KUI_VMU_WIZARD_ROWS;plan && i<plan->entry_count && out->saves_count<KUI_VMU_WIZARD_ROWS;i++) {
             const struct kui_vmu_import_entry *entry=plan->entries+i;
             struct kui_vmu_wizard_save *row=&out->saves[out->saves_count++];
-            save_row(row,entry,wizard.cards[wizard.card].source_slot,i);
+            save_row(row,entry,&wizard.cards[wizard.card],i);
             row->picked=picked(game,wizard.card,i);
         }
     }
@@ -279,13 +304,13 @@ static void view(struct operation *s,unsigned generation) {
         const struct kui_vmu_import_match_group *group=wizard.details_filtered?group_at(wizard.details_group,NULL,NULL):NULL;
         out->details_return_stage=wizard.details_return_stage;out->saves_page=wizard.details_page;
         out->group_source_slot=source->source_slot;
-        if(group) memcpy(out->group_label,group->label,sizeof(out->group_label));
+        if(group) group_label(out->group_label,source,group);
         position=0;start=wizard.details_page*KUI_VMU_WIZARD_ROWS;
         for(unsigned i=0;source->plan && i<source->plan->entry_count;i++) {
             if(group && !(group->members[i/8u]&(1u<<(i%8u)))) continue;
             ++out->saves_total;
             if(position++<start || out->saves_count==KUI_VMU_WIZARD_ROWS) continue;
-            save_row(&out->saves[out->saves_count++],&source->plan->entries[i],source->source_slot,i);
+            save_row(&out->saves[out->saves_count++],&source->plan->entries[i],source,i);
         }
     }
     out->status.complete=true;

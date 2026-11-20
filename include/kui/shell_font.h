@@ -7,10 +7,13 @@
 #define KUI_SHELL_FONT_SMALL_HEIGHT 18u
 #define KUI_SHELL_FONT_LARGE_HEIGHT 24u
 #define KUI_SHELL_FONT_LETTER_SPACING 1u
-/* ASCII 32..126, proportional advances plus 1px between characters; no trailing
- * gap. Unsupported bytes use '?'. NULL/empty strings have width zero. Width
+/* In the GUI, input is UTF-8 with Japanese glyphs. Bootstrap and standalone
+ * helpers use the original printable ASCII font. Unsupported characters use
+ * '?'. The letter gap is 1px. NULL/empty strings have width zero. Width
  * saturates at UINT_MAX. Glyphs fit inside their advance, with no kerning. */
 unsigned kui_shell_font_width(const char *text,bool large);
+/* GUI glyph advance without letter spacing. Zero denotes an unsupported scalar. */
+unsigned kui_shell_font_advance(uint32_t scalar,bool large);
 /* Draw into a 640x480 RGB565 framebuffer. x/y are the line box's top-left;
  * clipping includes negative/extreme coordinates. No allocation, I/O or KOS
  * calls. Four-bit coverage blends with existing pixels; transparency skips

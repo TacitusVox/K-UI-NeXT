@@ -187,10 +187,11 @@ static void seed(const char *host) {
         free(data);
     }
     assert(!fclose(list));
-    if(!strcmp(test.fault,"format-legacy-empty")) {
+    if(!strcmp(test.fault,"format-legacy-empty") || !strcmp(test.fault,"format-legacy-japanese")) {
         FILINFO info;assert(f_stat("0:/Games/Format Game/selected.iso",&info)==FR_OK);
         struct kui_cover_record old={0};old.source=KUI_COVER_SOURCE_NONE;
         strcpy(old.gdi_path,"/Games/Format Game/selected.iso");
+        if(!strcmp(test.fault,"format-legacy-japanese")) strcpy(old.title,"?");
         old.gdi.bytes=info.fsize;old.gdi.date=info.fdate;old.gdi.time=info.ftime;
         uint8_t header[KUI_COVER_HEADER_BYTES];assert(kui_cover_header_encode(header,&old));
         write_file("0:/KUI/covers/Format Game.kcv",header,sizeof(header));
@@ -339,7 +340,7 @@ static void check_replacement(const char *host) {
 static void check_scan(const char *host) {
     struct kui_games_scan_counts c;
     scan(&c, true);
-    assert(c.games == 8 && c.disc == 4 && c.user == 1 && c.none == 3 && c.unchanged == 0 &&
+    assert(c.games == 9 && c.disc == 5 && c.user == 1 && c.none == 3 && c.unchanged == 0 &&
         c.failed == 0 && c.duplicates == 1);
     assert(records() == 8);
     struct kui_games_page page;
@@ -365,10 +366,10 @@ static void check_scan(const char *host) {
     selected(&page,"User Art",KUI_COVER_SIZE_LARGE);
     assert(e->cover && !strcmp(e->title, "USER ART GAME"));
     assert(at(pixels[row], 160, 80, 80) == rgb565(30, 60, 200) && at(pixels[row], 160, 5, 80) == navy);
-    /* The name's record belongs to the category's game, not this one. */
+    /* The other same-name game has its own exact-path record and title. */
     e = entry(&page, "Plain Game", &row);
     selected(&page,"Plain Game",KUI_COVER_SIZE_LARGE);
-    assert(!e->cover && !strcmp(e->title, "Plain Game"));
+    assert(!e->cover && !strcmp(e->title, "PLAIN GAME"));
     art_cache_checks(&page);
     /* Listing with the saved view writes nothing; a new view is saved. */
     test.writes = 0;
@@ -409,12 +410,14 @@ static void check_scan(const char *host) {
     assert(kui_games_inspect_cover("/Games/Loose.gdi", &detail, large, log_line, cancel) && detail.cover);
     assert(at(large, 160, 80, 80) == magenta);
     assert(kui_games_inspect_cover("/Games/Plain Game/disc.gdi", &detail, large, log_line, cancel) && !detail.cover);
+    assert(kui_games_inspect_cover("/Games/Fighting/Plain Game/disc.gdi",&detail,large,log_line,cancel));
+    assert(detail.cover && at(large,160,80,80)==0x07ff && !strcmp(detail.title,"SAME NAME GAME"));
     assert(kui_games_inspect_cover("/Games/Fighting/Category Game/disc.gdi", &detail, large, log_line, cancel));
     assert(detail.cover && at(large, 160, 80, 80) == yellow);
     /* An unchanged library is checked without writing. */
     test.writes = 0;
     scan(&c, true);
-    assert(c.unchanged == 8 && c.disc + c.user + c.none + c.failed == 0 && c.duplicates == 1 && !test.writes);
+    assert(c.unchanged == 9 && c.disc + c.user + c.none + c.failed == 0 && c.duplicates == 1 && !test.writes);
     /* A replaced owner image is used again; a removed one falls back to the disc. */
     char path[1024]; size_t bytes;
     snprintf(path, sizeof(path), "%s/extra/User Art.png", host);
@@ -424,7 +427,7 @@ static void check_scan(const char *host) {
     mounted(false); test.active = true;
     free(data);
     scan(&c, true);
-    assert(c.user == 1 && c.unchanged == 7);
+    assert(c.user == 1 && c.unchanged == 8);
     list(KUI_GAMES_VIEW_LIST, &page);
     entry(&page, "User Art", &row);
     selected(&page,"User Art",KUI_COVER_SIZE_LARGE);
@@ -433,7 +436,7 @@ static void check_scan(const char *host) {
     assert(f_unlink(KUI_GAMES_COVERS_FOLDER "/User Art.png") == FR_OK);
     mounted(false); test.active = true;
     scan(&c, true);
-    assert(c.none == 1 && c.unchanged == 7);
+    assert(c.none == 1 && c.unchanged == 8);
     list(KUI_GAMES_VIEW_LIST, &page);
     e = entry(&page, "User Art", &row);
     selected(&page,"User Art",KUI_COVER_SIZE_LARGE);
@@ -586,7 +589,7 @@ static void check_titles(void) {
     unsigned reads=test.block_reads,opens=test.record_opens,rows=0;
     for(unsigned i=0;i<page.count;i++) rows+=!page.entries[i].directory && !page.entries[i].disabled;
     assert(kui_games_prefetch_titles(&page,log_line,cancel));
-    assert(test.record_opens-opens<=rows && test.connected && !test.files);
+    assert(test.record_opens-opens<=rows+1 && test.connected && !test.files);
     const unsigned header_reads=test.block_reads-reads;
     reads=test.block_reads;opens=test.record_opens;
     assert(!kui_games_prefetch_titles(&page,log_line,cancel));
@@ -630,6 +633,10 @@ static void check(const char *host) {
     if(!strcmp(test.fault,"titles")) {check_titles();return;}
     if(!strcmp(test.fault,"selected-cache")) {check_selected_cache();return;}
     if(!strncmp(test.fault,"format-",7)) {
+        const char *expected_title = "GENERIC BOX ART";
+        if(!strcmp(test.fault,"format-japanese")) expected_title = "すし";
+        if(!strcmp(test.fault,"format-legacy-japanese")) expected_title = "ｱ";
+        if(!strcmp(test.fault,"format-question-mark")) expected_title = "WHAT?";
         struct kui_games_scan_counts c;scan(&c,true);
         if(!strcmp(test.fault,"format-compressed")) {
             assert(c.games==1 && c.failed==1 && !c.disc && !c.none && !c.user && records()==0 && test.imports==1);return;
@@ -641,11 +648,12 @@ static void check(const char *host) {
         assert(page.count==count && page.total==count && !page.has_more);
         for(unsigned i=0;i<page.count;i++) {
             selected(&page,page.entries[i].name,KUI_COVER_SIZE_LARGE);
-            assert(!page.entries[i].directory && page.entries[i].cover && !strcmp(page.entries[i].title,"GENERIC BOX ART"));
+            assert(!page.entries[i].directory && page.entries[i].cover && !strcmp(page.entries[i].title,expected_title));
             check_split(pixels[i],KUI_COVER_LARGE);
             struct kui_games_detail detail;static uint16_t large[KUI_COVER_PIXELS];
             assert(kui_games_inspect_cover_codec(page.entries[i].path,lzo?KUI_ZSO_LZO1X:KUI_ZSO_LZ4,&detail,large,log_line,cancel));
             assert(detail.valid && detail.cover && detail.native_cd && detail.cd_image);
+            assert(!strcmp(detail.title,expected_title));
             check_split(large,KUI_COVER_LARGE);
         }
         test.writes=0;scan(&c,true);
@@ -674,7 +682,7 @@ static void check(const char *host) {
     }
     if(!strcmp(test.fault, "write-fail")) {
         scan(&c, true);
-        assert(c.failed == 8 && c.disc + c.user + c.none == 0);
+        assert(c.failed == 9 && c.disc + c.user + c.none == 0);
         assert(records() == 0);
         return;
     }

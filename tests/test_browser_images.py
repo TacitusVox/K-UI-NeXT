@@ -186,6 +186,19 @@ def ftp_regression(image, mode):
     service = FtpServer(str(BINARY), image, port, passive, extra=(mode,), env=ENV)
     try:
         ftp = client(port, service.password)
+        if mode == "bba":
+            # KOS also treats a port from a recently closed TCP connection as
+            # in use. A single occupied port must not prevent a listing.
+            with socket.socket() as occupied:
+                occupied.bind(("127.0.0.1", passive))
+                occupied.listen()
+                assert "KUI" in ftp.nlst()
+            # Leave a data listener pending while another client cycles the
+            # test server's 40-port range. Every listener has one owner.
+            _, reserved = ftp.makepasv()
+            with client(port, service.password) as second:
+                for _ in range(40):
+                    assert second.makepasv()[1] != reserved
         received = bytearray()
         ftp.retrbinary("RETR /KUI/screenshots/Fish & Chips.bmp", received.extend)
         assert received == b"screen capture\n"

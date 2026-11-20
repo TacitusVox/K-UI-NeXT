@@ -15,7 +15,8 @@ from zso_fixture import lzo_block
 ROOT = Path(__file__).resolve().parents[1]
 BINARY = str(ROOT / "build/games-covers-image")
 CASES = ("scan", "selected-cache", "session", "titles", "layout-save", "cancel", "write-fail", "replace-fail", "missing-root", "format-iso", "format-cue",
-         "format-cdi", "format-zso-lzo", "format-compressed", "format-legacy-empty", "format-payloads")
+         "format-cdi", "format-zso-lzo", "format-compressed", "format-legacy-empty", "format-japanese",
+         "format-legacy-japanese", "format-question-mark", "format-payloads")
 
 
 def twiddled(x, y):
@@ -61,7 +62,7 @@ def make_tree(base):
     # ARGB1555 with mipmaps and a GBIX chunk: the largest level ends the chunk.
     mips = bytes(2 * 1366) + struct.pack("<4096H", *[0xFFE0] * 4096)
     make_fixture(games / "Fighting" / "Category Game", b"CATEGORY GAME", pvr(0, 2, 64, 64, mips, True))
-    make_fixture(games / "Fighting" / "Plain Game", b"SAME NAME GAME")
+    make_fixture(games / "Fighting" / "Plain Game", b"SAME NAME GAME", pvr(1, 9, 64, 32, b"\xff\x07" * (64 * 32)))
     # A loose GDI beside its tracks, with a wide stride texture.
     make_fixture(games, b"LOOSE GAME", pvr(1, 9, 64, 32, struct.pack("<2048H", *[0xF81F] * 2048)), "Loose.gdi")
     # Distinct backing maps in one folder are two games named after themselves;
@@ -100,7 +101,9 @@ def write_manifest(base):
 def make_format_tree(base, case):
     source = base / "source"
     art = pvr(1, 1, 128, 128, twiddled_square(128, lambda x, y: 0xF800 if y < 64 else 0x001F))
-    make_fixture(source, b"GENERIC BOX ART", art)
+    title = {"format-japanese": "すし", "format-legacy-japanese": "ｱ",
+             "format-question-mark": "WHAT?"}.get(case, "GENERIC BOX ART").encode("shift_jis")
+    make_fixture(source, title, art)
     raw = (source / "track03.bin").read_bytes()
     sectors = [bytearray(raw[n + 16:n + 2064]) for n in range(0, len(raw), 2352)]
     session = 11700 if case == "format-cdi" else 0
@@ -115,6 +118,8 @@ def make_format_tree(base, case):
         offset += directory[offset]
     games = base / "Games"
     folder = games / ("Ambiguous" if case == "format-payloads" else "Format Game")
+    if case == "format-japanese":
+        folder = games / "日本"
     folder.mkdir(parents=True)
     (base / "KUI" / "covers").mkdir(parents=True)
     if case == "format-compressed":
@@ -138,7 +143,7 @@ def make_format_tree(base, case):
         preferences = base / "KUI/apps/games"
         preferences.mkdir(parents=True)
         (preferences / "launch-settings-a.bin").write_bytes(body + struct.pack("<I", zlib.crc32(body)))
-    elif case in ("format-iso", "format-legacy-empty"):
+    elif case in ("format-iso", "format-legacy-empty", "format-japanese", "format-legacy-japanese", "format-question-mark"):
         (folder / "selected.iso").write_bytes(b"".join(sectors))
     else:
         data = []

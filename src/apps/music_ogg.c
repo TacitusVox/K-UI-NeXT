@@ -112,3 +112,50 @@ size_t kui_ogg_fill(struct kui_ogg *ogg,void *pcm,size_t bytes) {
     }
     unlock_codec();return done;
 }
+
+size_t kui_ogg_preview_pcm(const uint8_t *file, size_t bytes, void *workspace,
+                           int16_t *pcm, size_t samples, unsigned output_rate,
+                           bool (*cancel)(void)) {
+    if(!file || !workspace || !bytes || bytes > INT_MAX || !pcm || !samples ||
+       !output_rate || output_rate > 48000u || ((uintptr_t)workspace & 7u)) return 0;
+    stb_vorbis_alloc arena = {(char *)workspace, KUI_OGG_WORKSPACE_BYTES};
+    lock_codec();
+    stb_vorbis *v = stb_vorbis_open_memory(file,(int)bytes,NULL,&arena);
+    unlock_codec();
+    if(!v) return 0;
+    stb_vorbis_info info = stb_vorbis_get_info(v);
+    unsigned rate = info.sample_rate;
+    int channels = info.channels;
+    size_t written = 0;
+    unsigned elapsed = 0;
+    int32_t sum = 0;
+    /* Average each destination interval in integer input/output clock ticks.
+     * At 48 kHz a full-scale interval fits in int32_t. Preserve the fractional
+     * interval between chunks so long previews keep their video timing. */
+    while((channels == 1 || channels == 2) && rate >= 8000u && rate <= 48000u &&
+          written < samples && (!cancel || !cancel())) {
+        int16_t block[512];
+        lock_codec();
+        int got = stb_vorbis_get_samples_short_interleaved(v,channels,block,512);
+        unlock_codec();
+        if(!got) break;
+        for(int i=0; i<got && written<samples; ++i) {
+            int sample = block[i*channels];
+            if(channels == 2) sample = (sample+block[i*channels+1])/2;
+            unsigned ticks = output_rate;
+            while(ticks && written<samples) {
+                unsigned take = rate-elapsed < ticks ? rate-elapsed : ticks;
+                sum += sample * (int32_t)take;
+                ticks -= take;
+                elapsed += take;
+                if(elapsed == rate) {
+                    pcm[written++] = (int16_t)(sum/(int32_t)rate);
+                    sum = 0;
+                    elapsed = 0;
+                }
+            }
+        }
+    }
+    stb_vorbis_close(v);
+    return written;
+}

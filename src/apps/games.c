@@ -65,6 +65,7 @@ static bool split_file(const char *path,char root[KUI_DEST_ROOT_CAP],char name[K
 struct cached_entry {
     char name[KUI_DEST_NAME_CAP],gdi[KUI_DEST_NAME_CAP];
     char cooked[KUI_DEST_NAME_CAP],cooked_gdi[KUI_DEST_NAME_CAP];
+    char extracted[sizeof("extracted")];
     char *long_name;
     bool folder,resolved,disabled;
 };
@@ -167,7 +168,8 @@ struct selector_index {
     bool retry,manifest,capture;
 };
 struct descriptor_names {char names[SELECTOR_DESCRIPTORS][KUI_DEST_NAME_CAP];unsigned count;};
-struct selector_names {char (*names)[KUI_DEST_NAME_CAP];unsigned count,capacity;bool complete;};
+struct source_folders {char raw[sizeof("extracted")],cooked[sizeof("extracted-2048")];bool other;};
+struct selector_names {char (*names)[KUI_DEST_NAME_CAP];unsigned count,capacity;bool complete;struct source_folders folders;};
 static void descriptor_payloads(const char *root,const struct descriptor_names *sources,
     struct selector_index *index,kui_cancel_fn cancel);
 static bool selected_image(const char *name,const struct selector_index *index) {
@@ -192,8 +194,16 @@ static bool index_selectors(DIR *dir,const char *root,unsigned budget,struct sel
         /* The ripper's one fixed internal descriptor is payload metadata,
          * never a selectable image. Other hidden metadata remains ignored. */
         bool internal=!strcmp(info.fname,".capture.gdi") && !(info.fattrib&AM_DIR);
-        if((info.fname[0]=='.' && !internal) || (info.fattrib&AM_DIR) ||
+        if((info.fname[0]=='.' && !internal) ||
            ((info.fattrib&(AM_HID|AM_SYS)) && !internal)) continue;
+        if(info.fattrib&AM_DIR) {
+            if(saved) {
+                if(same_component(info.fname,"extracted"))strcpy(saved->folders.raw,info.fname);
+                else if(same_component(info.fname,"extracted-2048"))strcpy(saved->folders.cooked,info.fname);
+                else saved->folders.other=true;
+            }
+            continue;
+        }
         if(!strcmp(info.fname,"manifest.json")) index->manifest=true;
         if(saved && !internal && image_name(info.fname)) {
             if(strlen(info.fname)>=KUI_DEST_NAME_CAP) {free(sources);return false;}
@@ -251,6 +261,7 @@ static bool cooked_folder(const char *name) {
         !(size>10u && !strcmp(name+size-10u,"-2048-2048"));
 }
 static bool variant_pair(const char *root,struct variant *pair,kui_cancel_fn cancel,const char **reason,bool *retry);
+static bool variant_layouts(const char *original,const char *cooked,kui_cancel_fn cancel,const char **reason,bool *retry);
 /* One bounded directory snapshot avoids probing a sibling for every ordinary
  * folder. Only suffix candidates allocate memory or need descriptor checks. */
 static bool index_variants(DIR *dir,const char *root,struct variant **out,unsigned *count,kui_cancel_fn cancel,kui_log_fn log,bool *retry) {
@@ -329,7 +340,8 @@ static enum single_result single_gdi(const char *root,char selected[KUI_GAMES_FI
 bool kui_games_single_gdi(const char *root,char selected[KUI_GAMES_FILE_CAP],kui_cancel_fn cancel) {
     return single_gdi(root,selected,cancel)==SINGLE_FOUND;
 }
-static enum single_result single_image(const char *root,char selected[KUI_GAMES_FILE_CAP],kui_cancel_fn cancel) {
+static enum single_result immediate_image(const char *root,char selected[KUI_GAMES_FILE_CAP],
+    struct source_folders *folders,kui_cancel_fn cancel) {
     DIR dir;char path[KUI_GAMES_FILE_CAP+3];snprintf(path,sizeof(path),"0:%s",root);
     if(f_opendir(&dir,path)!=FR_OK) return SINGLE_FAILED;
     struct selector_index *index=calloc(1,sizeof(*index));
@@ -345,12 +357,48 @@ static enum single_result single_image(const char *root,char selected[KUI_GAMES_
     free(index);free(names.names);
     if(f_closedir(&dir)!=FR_OK) ok=false;
     if(!ok) return SINGLE_FAILED;
+    if(folders)*folders=names.folders;
     if(matches>1) return SINGLE_AMBIGUOUS;
     if(!names.complete) return SINGLE_FAILED;
     return matches?SINGLE_FOUND:SINGLE_NONE;
 }
+static enum single_result source_image(const char *root,const char *name,char selected[KUI_GAMES_FILE_CAP],
+    kui_cancel_fn cancel) {
+    if(!name[0])return SINGLE_NONE;
+    char child[KUI_DEST_ROOT_CAP];struct source_folders inner={0};
+    if(!kui_destination_join(child,root,name))return SINGLE_AMBIGUOUS;
+    enum single_result result=immediate_image(child,selected,&inner,cancel);
+    if(result!=SINGLE_FAILED && (inner.raw[0] || inner.cooked[0] || inner.other))return SINGLE_AMBIGUOUS;
+    return result;
+}
+/* A K-UI extraction may sit one level beneath the title. Keep both real
+ * descriptor paths when its converted sibling is a verified variant. Never
+ * descend into arbitrary collections or collapse competing selectors. */
+static enum single_result folder_image(const char *root,char selected[KUI_GAMES_FILE_CAP],
+    struct cached_entry *entry,kui_cancel_fn cancel) {
+    struct source_folders folders={0};
+    enum single_result direct=immediate_image(root,selected,&folders,cancel);
+    if((direct!=SINGLE_NONE && direct!=SINGLE_FOUND) || (!folders.raw[0] && !folders.cooked[0]))return direct;
+    if(direct==SINGLE_NONE && (folders.other || !folders.raw[0]))return SINGLE_NONE;
+    char alternate[KUI_GAMES_FILE_CAP];
+    enum single_result raw=source_image(root,folders.raw,direct==SINGLE_FOUND?alternate:selected,cancel);
+    if(raw==SINGLE_FAILED || raw==SINGLE_AMBIGUOUS)return raw;
+    if(direct==SINGLE_FOUND && raw==SINGLE_FOUND)return SINGLE_AMBIGUOUS;
+    enum single_result cooked=source_image(root,folders.cooked,alternate,cancel);
+    if(cooked==SINGLE_FAILED || cooked==SINGLE_AMBIGUOUS)return cooked;
+    if(direct==SINGLE_FOUND)return cooked==SINGLE_NONE?SINGLE_FOUND:SINGLE_AMBIGUOUS;
+    if(raw!=SINGLE_FOUND)return SINGLE_NONE;
+    if(cooked==SINGLE_FOUND) {
+        const char *reason=NULL;bool retry=false;
+        if(!gdi_name(selected) || !gdi_name(alternate))return SINGLE_AMBIGUOUS;
+        if(!variant_layouts(selected,alternate,cancel,&reason,&retry))return retry?SINGLE_FAILED:SINGLE_AMBIGUOUS;
+        if(entry) {strcpy(entry->cooked,folders.cooked);strcpy(entry->cooked_gdi,strrchr(alternate,'/')+1);}
+    }
+    if(entry)strcpy(entry->extracted,folders.raw);
+    return SINGLE_FOUND;
+}
 bool kui_games_single_image(const char *root,char selected[KUI_GAMES_FILE_CAP],kui_cancel_fn cancel) {
-    return single_image(root,selected,cancel)==SINGLE_FOUND;
+    return folder_image(root,selected,NULL,cancel)==SINGLE_FOUND;
 }
 static bool cached_page_needs_io(unsigned offset) {
     for(unsigned i=offset;i<listing_cache.count && i-offset<KUI_GAMES_ROWS;i++) {
@@ -376,18 +424,23 @@ static bool entry_page(struct cached_entry *entries,unsigned count,unsigned offs
             }
             if(!saved->resolved) {
                 char selected[KUI_GAMES_FILE_CAP];
-                enum single_result result=single_image(child,selected,cancel);
+                enum single_result result=folder_image(child,selected,saved,cancel);
                 if(stopped(cancel)) return false;
                 if(result==SINGLE_FOUND) strcpy(saved->gdi,strrchr(selected,'/')+1);
                 /* A transient IO/budget failure is still a browsable folder,
                  * but must not become a permanent cached absence of a GDI. */
                 saved->resolved=result!=SINGLE_FAILED;
             }
+            char nested[KUI_DEST_ROOT_CAP];const char *cooked_root=out->root;
+            if(saved->extracted[0]) {
+                strcpy(nested,child);cooked_root=nested;
+                if(!kui_destination_join(child,nested,saved->extracted)) {entry->disabled=true;continue;}
+            }
             if(saved->gdi[0]) {
                 entry->directory=false;entry->disabled=!file_join(entry->path,child,saved->gdi);
             } else strcpy(entry->path,child);
             if(saved->cooked[0]) entry->disabled=entry->disabled ||
-                !kui_destination_join(child,out->root,saved->cooked) ||
+                !kui_destination_join(child,cooked_root,saved->cooked) ||
                 !file_join(entry->variant_2048_path,child,saved->cooked_gdi);
         } else entry->disabled=!file_join(entry->path,out->root,saved->name);
     }
@@ -815,6 +868,12 @@ static bool variant_pair(const char *root,struct variant *pair,kui_cancel_fn can
     if(single!=SINGLE_FOUND) {*reason="original needs one GDI (missing/ambiguous/IO)";if(single==SINGLE_FAILED) *retry=true;return false;}
     single=single_gdi(cooked_root,cooked,cancel);
     if(single!=SINGLE_FOUND) {*reason="copy needs one GDI (missing/ambiguous/IO)";if(single==SINGLE_FAILED) *retry=true;return false;}
+    if(!variant_layouts(original,cooked,cancel,reason,retry))return false;
+    strcpy(pair->original_gdi,strrchr(original,'/')+1);
+    strcpy(pair->cooked_gdi,strrchr(cooked,'/')+1);
+    return true;
+}
+static bool variant_layouts(const char *original,const char *cooked,kui_cancel_fn cancel,const char **reason,bool *retry) {
     struct kui_game_image *images=malloc(2u*sizeof(*images));
     if(!images) {*reason="insufficient layout memory";*retry=true;return false;}
     struct image_files files[2]={{.cancel=cancel},{.cancel=cancel}};
@@ -834,13 +893,8 @@ static bool variant_pair(const char *root,struct variant *pair,kui_cancel_fn can
         } else if(b->sector_bytes!=KUI_GAME_RAW_BYTES) {ok=false;*reason="copy audio is not raw2352";}
     }
     free(images);
-    if(ok && data && !stopped(cancel)) {
-        strcpy(pair->original_gdi,strrchr(original,'/')+1);
-        strcpy(pair->cooked_gdi,strrchr(cooked,'/')+1);
-        return true;
-    }
-    if(ok && !data) *reason="no data tracks";
-    return false;
+    if(ok && !data)*reason="no data tracks";
+    return ok && data && !stopped(cancel);
 }
 struct metadata_reader {const struct kui_game_image *image;struct image_files *files;};
 static enum kui_game_metadata_io_result metadata_sector(void *ctx,uint32_t lba,uint8_t out[2048]) {
@@ -1028,7 +1082,7 @@ bool kui_games_inspect_with_codec(const char *path,enum kui_zso_codec codec,stru
     struct kui_game_metadata metadata;
     enum kui_game_metadata_status status=kui_game_metadata_read(&metadata_ops,session,&metadata);
     if(metadata.ip_valid) {
-        snprintf(out->title,sizeof(out->title),"%s",metadata.title);
+        snprintf(out->title,sizeof(out->title),"%s",kui_game_metadata_display_title(&metadata));
         snprintf(out->product,sizeof(out->product),"%s",metadata.product);
         snprintf(out->region,sizeof(out->region),"%s",metadata.region);
         snprintf(out->boot_file,sizeof(out->boot_file),"%s",metadata.bootfile);

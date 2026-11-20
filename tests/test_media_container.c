@@ -2,13 +2,21 @@
 #include "kui/media_container.h"
 #include <assert.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 
 /* The container reader should fetch only headers/the seek table, even if the
  * represented file is many megabytes or claims untrusted payload lengths. */
 static uint8_t header[8 + 4*(KUI_MANUAL_PAGES_MAX+1u)];
 static unsigned reads;
+static unsigned mock_payload;
 FRESULT f_read(FIL *file, void *buf, UINT count, UINT *got) {
+    if(mock_payload && file->fptr >= sizeof(header)) {
+        assert(file->fptr+count <= f_size(file));
+        memset(buf,mock_payload==1 ? 0 : 4,count);
+        *got=count; file->fptr+=count;
+        return FR_OK;
+    }
     assert(file->fptr + count <= sizeof(header));
     if(file->fptr >= f_size(file)) count = 0;
     else if(count > f_size(file)-file->fptr) count = (UINT)(f_size(file)-file->fptr);
@@ -60,6 +68,22 @@ int main(void) {
     struct kui_media_index idx;
     setup_preview(&f,100);
     assert(kui_media_container_index(&f,false,&idx) && idx.count==100 && f_tell(&f)==16 && reads==1);
+    assert(idx.version==1 && !idx.audio_rate);
+    header[3]='2';
+    assert(kui_media_container_index(&f,false,&idx) && idx.version==2 && !idx.audio_rate);
+    header[10]=0x80; header[11]=0x3e;
+    assert(!kui_media_container_index(&f,false,&idx));
+    f.obj.objsize+=3200u*100;
+    assert(kui_media_container_index(&f,false,&idx) && idx.audio_rate==16000);
+    assert(!kui_preview_load_audio(&f,100,16000,stop));
+    assert(!kui_preview_load_audio(&f,100,0,NULL));
+    mock_payload=1; assert(!kui_preview_load_audio(&f,100,16000,NULL));
+    mock_payload=2;
+    int16_t *pcm=kui_preview_load_audio(&f,100,16000,NULL);
+    assert(pcm && pcm[159999]==0x0404); free(pcm);
+    mock_payload=0;
+    header[3]='1'; assert(!kui_media_container_index(&f,false,&idx));
+    header[3]='2'; header[10]--; assert(!kui_media_container_index(&f,false,&idx));
     for(unsigned n=0;n<16;++n) {
         setup_preview(&f,100); f.obj.objsize=n;
         assert(!kui_media_container_check(&f,false));

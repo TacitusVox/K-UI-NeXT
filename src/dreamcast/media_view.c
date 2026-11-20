@@ -1,6 +1,8 @@
 /* SPDX-License-Identifier: GPL-3.0-only */
 #include "kui/media_view.h"
 #include "kui/media_container.h"
+#include "kui/media_download.h"
+#include "kui/music.h"
 #include "kui/games.h"
 #include "kui/cover_image.h"
 #include "kui/shell_font.h"
@@ -40,23 +42,39 @@ static uint16_t *clear_frame(uint16_t *canvas) {
     return frame;
 }
 
-static const char *preview(FIL *file, unsigned count, uint16_t *canvas) {
+static bool preview_back_held(void) {
+    return (buttons() & CONT_B) != 0;
+}
+
+static const char *preview(FIL *file, const struct kui_media_index *index, uint16_t *canvas) {
     uint16_t *pixels = malloc(KUI_PREVIEW_FRAME_BYTES);
     if(!pixels) return "Insufficient memory for preview";
+    unsigned count = index->count;
+    int16_t *audio = NULL;
+    if(index->audio_rate && kui_music_preview_enabled())
+        audio = kui_preview_load_audio(file, count, index->audio_rate, preview_back_held);
+    size_t samples = (size_t)count*(index->audio_rate/KUI_PREVIEW_FPS);
     unsigned previous = buttons(), shown = count;
-    uint64_t start = timer_ms_gettime64();
+    uint64_t start = 0;
+    bool playing = false, restart = true;
     const char *error = NULL;
+    if(previous & CONT_B) goto done;
     for(;;) {
         unsigned held = buttons(), pressed = held & ~previous;
         previous = held;
         if(pressed & CONT_B) break;
         if(pressed & CONT_A) {
-            shown = count;
-            start = timer_ms_gettime64();
+            if(playing) kui_music_preview_stop();
+            playing = false;
+            restart = true;
         }
-        uint64_t ticks = (timer_ms_gettime64()-start)/(1000u/KUI_PREVIEW_FPS);
+        uint64_t ticks = restart ? 0 : (timer_ms_gettime64()-start)/(1000u/KUI_PREVIEW_FPS);
         unsigned wanted = ticks < count ? (unsigned)ticks : count-1u;
-        if(wanted != shown) {
+        if(ticks >= count && playing) {
+            kui_music_preview_stop();
+            playing = false;
+        }
+        if(restart || wanted != shown) {
             if(!kui_preview_read_frame(file, count, wanted, pixels, NULL)) {
                 error = "Cannot read preview frame"; break;
             }
@@ -72,10 +90,18 @@ static const char *preview(FIL *file, unsigned count, uint16_t *canvas) {
             kui_shell_font_draw(fb,32,422,0xffff,
                 wanted+1u==count ? "Preview finished     A Replay     B Back" : "Game preview     A Replay     B Back",false);
             present(canvas);
+            if(restart) {
+                if(audio) playing = kui_music_preview_play(audio, samples, index->audio_rate, NULL);
+                start = timer_ms_gettime64();
+                restart = false;
+            }
             shown = wanted;
         }
         thd_sleep(12);
     }
+done:
+    if(playing) kui_music_preview_stop();
+    free(audio);
     free(pixels);
     return error;
 }
@@ -194,7 +220,7 @@ static const char *manual_view(FIL *file, struct kui_media_index *index, uint16_
     return error;
 }
 
-bool kui_media_view(const char *path, bool manual, kui_log_fn log, char *message, size_t cap,
+bool kui_media_view(const char *path, const char *local_fallback, bool manual, kui_log_fn log, char *message, size_t cap,
                     uint16_t *canvas) {
     const char *problem = NULL;
     if(!path || (strncmp(path,"0:/",3) && path[0]!='/') || !log)
@@ -205,16 +231,21 @@ bool kui_media_view(const char *path, bool manual, kui_log_fn log, char *message
         if(!kui_mount(&fs,log)) problem = "Cannot mount game media storage";
         else {
             FIL file;
-            FRESULT r = f_open(&file, path, FA_READ);
+            FRESULT r = manual ? f_open(&file, path, FA_READ) : kui_media_open_preview(&file, path);
+            if((r==FR_NO_FILE || r==FR_NO_PATH) && local_fallback && *local_fallback)
+                r = manual ? f_open(&file,local_fallback,FA_READ) : kui_media_open_preview(&file,local_fallback);
             if(r==FR_NO_FILE || r==FR_NO_PATH) {
                 problem = manual ? "Download this manual first" : "Download this preview first";
                 if(manual) {
                     /* A provider may only offer an original PDF. Keep its status
                      * distinct from a missing or damaged page-format manual. */
-                    size_t n = strlen(path);
+                    const char *paths[] = {path,local_fallback};
                     char original[KUI_GAMES_FILE_CAP];
-                    if(n > 4 && n < sizeof(original) && !strcmp(path+n-4,".kdm")) {
-                        memcpy(original,path,n-4);
+                    for(unsigned i=0;i<2 && (r==FR_NO_FILE || r==FR_NO_PATH);i++) {
+                        if(!paths[i]) continue;
+                        size_t n = strlen(paths[i]);
+                        if(n <= 4 || n >= sizeof(original) || strcmp(paths[i]+n-4,".kdm")) continue;
+                        memcpy(original,paths[i],n-4);
                         memcpy(original+n-4,".pdf",5);
                         FILINFO info;
                         r = f_stat(original,&info);
@@ -229,7 +260,7 @@ bool kui_media_view(const char *path, bool manual, kui_log_fn log, char *message
             else {
                 struct kui_media_index index;
                 if(!kui_media_container_index(&file,manual,&index)) problem = "Damaged or unsupported game media file";
-                else problem = manual ? manual_view(&file,&index,canvas) : preview(&file,index.count,canvas);
+                else problem = manual ? manual_view(&file,&index,canvas) : preview(&file,&index,canvas);
                 if(f_close(&file)!=FR_OK && !problem) problem = "Cannot close game media file";
             }
             if(f_mount(NULL,"0:",0)!=FR_OK && !problem) problem = "Cannot release game media storage";

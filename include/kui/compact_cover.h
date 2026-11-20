@@ -17,5 +17,7 @@ enum kui_compact_result { KUI_COMPACT_OK, KUI_COMPACT_INVALID, KUI_COMPACT_ERROR
  * thumbnails are complete before any source bytes would be overwritten. */
 enum kui_compact_result kui_compact_cover_encode(FIL *source, FIL *dest, bool small_jpeg, kui_cancel_fn cancel);
 bool kui_compact_cover_pixels(FIL *file, enum kui_cover_size size, uint16_t *pixels);
+/* Optionally compute SHA-256 of the exact native file in the verification pass. */
+enum kui_compact_result kui_compact_cover_verify_digest(FIL *file,kui_cancel_fn cancel,uint8_t digest[32]);
 enum kui_compact_result kui_compact_cover_verify(FIL *file, kui_cancel_fn cancel);
 #endif

@@ -15,6 +15,7 @@
 #include "kui/games_activity.h"
 #include "kui/games_covers.h"
 #include "kui/games_media.h"
+#include "kui/media_scan_report.h"
 #include "kui/files.h"
 #include "kui/ftp.h"
 #include "kui/browser.h"
@@ -38,12 +39,20 @@
 #define KUI_SHELL_HEIGHT 480u
 #define KUI_SHELL_LOG_ROWS 10u
 #define KUI_SHELL_SYSTEM_ROWS 14u
+enum { KUI_GAMES_OPTION_ART_SOURCE=11, KUI_GAMES_OPTION_COUNT };
+enum {
+    KUI_GAMES_MEDIA_ROW_START, KUI_GAMES_MEDIA_ROW_RESULTS, KUI_GAMES_MEDIA_ROW_SCOPE,
+    KUI_GAMES_MEDIA_ROW_ART, KUI_GAMES_MEDIA_ROW_MANUAL, KUI_GAMES_MEDIA_ROW_PREVIEW,
+    KUI_GAMES_MEDIA_ROW_CONNECTION, KUI_GAMES_MEDIA_ROW_OPEN_MANUAL, KUI_GAMES_MEDIA_ROW_PLAY_PREVIEW,
+    KUI_GAMES_MEDIA_ROW_ARTWORK_MODE, KUI_GAMES_MEDIA_ROW_COUNT
+};
 #define KUI_THEME_PICKER_ROWS 8u
 #define KUI_SHELL_UPDATE_ROWS 8u
 #define KUI_SHELL_UPDATE_PATH_BYTES 192u
 enum kui_shell_update_op { KUI_SHELL_UPDATE_LIST, KUI_SHELL_UPDATE_CHECK,
     KUI_SHELL_UPDATE_INSTALL, KUI_SHELL_UPDATE_PREVIOUS, KUI_SHELL_UPDATE_BASELINE,
-    KUI_SHELL_UPDATE_RESTORE };
+    KUI_SHELL_UPDATE_RESTORE, KUI_SHELL_UPDATE_NIGHTLY,
+    KUI_SHELL_UPDATE_SAVE_LIMIT, KUI_SHELL_UPDATE_OPTIONS };
 enum kui_shell_update_stage { KUI_SHELL_UPDATE_PACKAGES, KUI_SHELL_UPDATE_REVIEW,
     KUI_SHELL_UPDATE_RESULT };
 struct kui_shell_update_storage {
@@ -53,6 +62,9 @@ struct kui_shell_update_storage {
 };
 struct kui_shell_update_request {
     enum kui_shell_update_op op;
+    enum kui_internet_route route;
+    unsigned keep;
+    bool change_keep, test_feed;
     unsigned generation,page;
     uint64_t token;
     char path[KUI_SHELL_UPDATE_PATH_BYTES],target[KUI_UPDATE_BUILD_BYTES];
@@ -74,9 +86,13 @@ struct kui_shell_update_view {
     struct kui_shell_update_row rows[KUI_SHELL_UPDATE_ROWS];
     struct kui_shell_update_request reviewed;
     char running[KUI_UPDATE_BUILD_BYTES],selected[KUI_UPDATE_BUILD_BYTES],previous[KUI_UPDATE_BUILD_BYTES];
+    char gui_build[KUI_UPDATE_BUILD_BYTES];
+    bool keep_known, test_feed_available;
+    unsigned keep;
     unsigned replacement_count,inherited_count,removed_count;
     uint64_t free_bytes,required_bytes;
     bool ready,restore,baseline,space_known,restart_required,selection_known;
+    bool already_installed;
 };
 /* A cover belongs to one published listing and selection. The worker must
  * echo this key; main publishes pixels only after the same key is accepted. */
@@ -85,7 +101,7 @@ struct kui_shell_games_art_key {
     char root[KUI_DEST_ROOT_CAP],path[KUI_GAMES_FILE_CAP];
 };
 /* An idle selection earns one cache lookup, including a missing preview. */
-#define KUI_SHELL_PREVIEW_DWELL_MS 6000u
+#define KUI_SHELL_PREVIEW_DWELL_MS 3000u
 struct kui_shell_preview_focus {
     struct kui_shell_games_art_key key;
     uint64_t since;
@@ -249,8 +265,21 @@ enum kui_shell_action {
     KUI_SHELL_UPDATE_RUN, KUI_SHELL_RESTART_KUI,
     KUI_SHELL_MEDIA_DOWNLOAD,
     KUI_SHELL_MEDIA_OPEN_MANUAL, KUI_SHELL_MEDIA_PLAY_PREVIEW,
-    KUI_SHELL_THEME_SCAN, KUI_SHELL_THEME_PREVIEW, KUI_SHELL_THEME_APPLY, KUI_SHELL_THEME_CANCEL
+    KUI_SHELL_THEME_SCAN, KUI_SHELL_THEME_PREVIEW, KUI_SHELL_THEME_APPLY, KUI_SHELL_THEME_CANCEL,
+    KUI_SHELL_GAMES_ART_SOURCE_READ, KUI_SHELL_GAMES_ART_SOURCE_SAVE, KUI_SHELL_MEDIA_SCAN_DETAILS
 };
+struct kui_shell_media_details {
+    /* Read-only worker snapshot, borrowed until the next page request. */
+    const struct kui_media_report_page *page;
+    enum kui_media_report_result result;
+    unsigned request,cursor,selected,line;
+    bool open,loading,item,select_last;
+};
+enum { KUI_MEDIA_DETAIL_COLUMNS=36, KUI_MEDIA_DETAIL_LINES=9 };
+void kui_shell_set_media_details(struct kui_shell_media_details *,unsigned request,
+    enum kui_media_report_result,const struct kui_media_report_page *);
+unsigned kui_shell_media_detail_lines(const struct kui_media_report_entry *,unsigned start,
+    char out[KUI_MEDIA_DETAIL_LINES][KUI_MEDIA_DETAIL_COLUMNS+1]);
 enum kui_shell_outcome { KUI_SHELL_OUTCOME_NONE, KUI_SHELL_OUTCOME_COMPLETE,
     KUI_SHELL_OUTCOME_STOPPED, KUI_SHELL_OUTCOME_FAILED };
 struct kui_shell {
@@ -271,7 +300,10 @@ struct kui_shell {
     bool theme_loading,theme_preview_active,theme_preview_stale,theme_failed;
     char theme_notice[128];
     unsigned update_generation,update_selected;
-    bool update_loading,update_stopping,update_restart;
+    bool update_loading,update_stopping,update_restart,update_online;
+    bool update_test_feed_available, update_use_official;
+    enum kui_internet_route update_route;
+    unsigned update_online_row,update_keep,update_saved_keep;
     struct kui_shell_update_request update_request,update_confirm_request;
     struct kui_shell_update_view update;
     bool video_trial, confirm_defaults, confirm_clock, confirm_vmu_restore;
@@ -358,8 +390,12 @@ struct kui_shell {
     char games_original_path[KUI_GAMES_FILE_CAP], games_2048_path[KUI_GAMES_FILE_CAP];
     unsigned games_variant_selected;
     unsigned games_page, games_selected, games_advanced_selected;
+    enum kui_games_art_preference games_art_preference;
+    bool games_art_preference_known,games_art_preference_failed;
     unsigned games_media_row,games_media_kinds;
-    bool games_media_all,games_media_report,games_media_readable;
+    enum kui_artwork_mode games_media_artwork_mode;
+    bool games_media_all,games_media_report,games_media_readable,games_media_saved;
+    struct kui_shell_media_details games_media_details;
     enum kui_internet_route games_media_route;
     char games_media_notice[100];
     /* KUI_GAMES_VIEW_SAVED until a listing reports the card's saved view. */
@@ -639,6 +675,7 @@ bool kui_shell_games_smash_native_ready(const struct kui_shell *shell);
 unsigned kui_shell_games_view(const struct kui_shell *shell);
 bool kui_shell_set_games_layout_saved(struct kui_shell *,unsigned generation,unsigned view,
     bool ok,const char *notice);
+void kui_shell_set_games_art_source(struct kui_shell *,enum kui_games_art_preference,bool ok);
 /* Main-loop publications only. The worker snapshots context while locked and
  * queues its rows; it never writes shell state while a frame is being drawn. */
 bool kui_shell_games_flow_needed(const struct kui_shell *,unsigned *page,unsigned *epoch);

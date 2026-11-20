@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: GPL-3.0-only */
 #include "kui/disc_identity.h"
 #include "kui/disc_number.h"
+#include "kui/japanese_text.h"
 #include "kui/hash.h"
 #include "../dreamcast/platform.h"
 #include <stdio.h>
@@ -148,20 +149,15 @@ void kui_disc_identity_read(struct kui_disc_identity *id,
     if(offset<0 || !kui_sector_edc_valid(raw) ||
        memcmp(raw+offset,"SEGA SEGAKATANA",14)) {failed_read(id,ops);return;}
     char title[KUI_DISC_IDENTITY_TITLE_CAP];
-    for(unsigned i=0;i<128;i++) {
-        unsigned ch=raw[(unsigned)offset+128+i];
-        title[i]=ch>=32 && ch<=126?(char)ch:'?';
-    }
-    title[128]=0;
-    size_t n=128;while(n && title[n-1]==' ') title[--n]=0;
-    size_t first=0;while(first<n && title[first]==' ') ++first;
-    if(first) {memmove(title,title+first,n-first+1);n-=first;}
-    if(!n) strcpy(title,"Untitled GD-ROM");
+    const uint8_t *field=raw+offset+128;
+    size_t first=0;
+    while(first<128 && field[first]==' ') ++first;
+    if(!kui_sjis_to_utf8(title,sizeof(title),field+first,128-first)) strcpy(title,"Untitled GD-ROM");
     unsigned number,total;
     if(kui_disc_number_read(raw+offset,&number,&total) && total>1u) {
         char suffix[24];snprintf(suffix,sizeof(suffix)," (Disc %u)",number);
         size_t bytes=strlen(title),tail=strlen(suffix),limit=sizeof(title)-1u-tail;
-        if(bytes>limit)bytes=limit;
+        if(bytes>limit)bytes=kui_utf8_prefix(title,limit);
         while(bytes && title[bytes-1u]==' ')--bytes;
         memcpy(title+bytes,suffix,tail+1u);
     }

@@ -14,7 +14,7 @@ SOURCES=(
     '.deps/fatfs/source/ff.c','.deps/fatfs/source/ffunicode.c',
     'src/core/vmu_collection.c','src/core/vmu_image.c','src/core/vmu_image_subset.c',
     'src/core/vmu_save_snapshot.c','src/core/vmu_image_pack.c','src/core/vmu_image_merge.c',
-    'src/core/vmu_description.c','src/core/vmu_library.c','src/core/vmu_game_assign.c',
+    'src/core/vmu_description.c','src/core/japanese_text.c','src/core/vmu_library.c','src/core/vmu_game_assign.c',
     'src/core/vmu_game_card.c','src/core/vmu_persist_profile.c','src/core/retail_image.c',
     'src/core/game_cover.c','src/core/vmu_game_candidates.c','src/core/vmu_import_plan.c',
     'src/core/hash.c','src/apps/vmu.c','tests/test_vmu_capture_recover.c')

@@ -23,13 +23,27 @@ static void finish_page(struct kui_preview_prefix *p) {
             p->target_packets = 3u + (uint32_t)(((uint64_t)fps * 10 + divisor - 1) / divisor);
         }
     }
+    if(!p->audio_rate && (h[5] & 2u) && !seq && p->body_bytes >= 30 &&
+       !memcmp(p->identification,"\1vorbis",7) &&
+       p->identification[11] && p->identification[11] <= 2) {
+        uint32_t rate = le32(p->identification+12);
+        if(rate >= 8000u && rate <= 48000u) {
+            p->audio_serial = serial;
+            p->audio_rate = rate;
+        }
+    }
+    if(p->audio_rate && serial == p->audio_serial) {
+        uint64_t pos = le32(h+6) | (uint64_t)le32(h+10)<<32;
+        if((h[5] & 4u) || (pos <= INT64_MAX && pos >= p->audio_rate*10u)) p->audio_done = true;
+    }
     if(p->video && serial == p->serial) {
         if(seq != p->next_page) { p->disabled = true; return; }
         ++p->next_page;
         for(unsigned i = 0; i < h[26]; ++i)
             if(h[27+i] < 255) ++p->packets;
-        if(p->packets >= p->target_packets) p->complete = true;
+
     }
+    p->complete = p->video && p->packets >= p->target_packets && (!p->audio_rate || p->audio_done);
     p->header_bytes = p->body_bytes = 0;
 }
 
@@ -52,7 +66,7 @@ size_t kui_preview_prefix_consume(struct kui_preview_prefix *p, const void *byte
         }
         size_t n = p->remaining;
         if(n > size-at) n = size-at;
-        if(!p->video && p->body_bytes < sizeof(p->identification)) {
+        if((p->header[5] & 2u) && p->body_bytes < sizeof(p->identification)) {
             size_t save = sizeof(p->identification) - p->body_bytes;
             if(save > n) save = n;
             memcpy(p->identification + p->body_bytes, b+at, save);

@@ -155,10 +155,28 @@ const struct kui_wifi_port *kui_wifi_console_port(void) { return &wifi_model_por
 /* Use the production expansion-port TCP backend on the host loopback.
  * Only the Dreamcast interface/link and DHCP acquisition are substituted. */
 static struct kui_bba_session *active_bba;
+static struct kui_net_sockets real_bba;
+static bool slow_receive(void *ctx, unsigned socket, void *data, size_t bytes) {
+    bool ok = real_bba.receive(ctx, socket, data, bytes);
+    if(ok && socket < 3) w5500_model_advance(bytes / 4u);
+    return ok;
+}
+static bool slow_send(void *ctx, unsigned socket, const void *data, size_t bytes) {
+    bool ok = real_bba.send(ctx, socket, data, bytes);
+    if(ok && socket < 3) w5500_model_advance(bytes / 4u);
+    return ok;
+}
+
 static int loopback_open(struct kui_bba_session *s, kui_log_fn log, kui_cancel_fn cancel_fn) {
     (void)log; (void)cancel_fn;
     assert(!active_bba && kui_bba_sockets_init(&s->net));
     active_bba = s;
+    if(getenv("KUI_FTP_TEST_SLOW_TRANSFER")) {
+        /* Real sockets and bytes, with 4 bytes/ms on the three data sockets. */
+        real_bba = s->net;
+        s->net.receive = slow_receive;
+        s->net.send = slow_send;
+    }
     s->reuse_listener = kui_bba_sockets_reuse_listener;
     memcpy(s->ip, (uint8_t[]){127,0,0,1}, 4);
     mac(s->mac);
@@ -182,6 +200,10 @@ static bool cancel(void) {
     if(!test.stop && poll(&in, 1, 0) > 0) {
         char byte;
         if(read(0, &byte, 1) <= 0 || byte == 's') test.stop = true;
+        else if(byte == 't') {
+            w5500_model_advance(50000u);
+            printf("CLOCK advanced\n");
+        }
         else if(byte == 'r') wifi_model_restart();
         else if(byte == 'd') wifi_model_drop();
         else if(byte == 'u') wifi_model_recover((const uint8_t[4]){127, 0, 0, 2});
@@ -245,6 +267,13 @@ static void put(const char *path, const char *text) {
     assert(f_write(&file, text, (UINT)strlen(text), &wrote) == FR_OK && wrote == strlen(text));
     assert(f_close(&file) == FR_OK);
 }
+static const char *games_watch_root(void) {
+    return getenv("KUI_FTP_TEST_WHOLE_CARD") ? "/" : "/Games";
+}
+static bool mark_games(kui_log_fn log) {
+    log("Games change marker");
+    return true;
+}
 static void seed(bool bad_password) {
     assert(kui_sd_connect() && kui_mount(&fs, log_line));
     assert(f_mkdir("0:/KUI") == FR_OK && f_mkdir("0:/KUI/apps") == FR_OK && f_mkdir("0:/KUI/apps/games") == FR_OK);
@@ -281,7 +310,8 @@ int main(int argc, char **argv) {
         if(kind == 7) { fprintf(stderr, "unknown adapter %s\n", mode); return 2; }
         bool wifi = kind >= 2 && kind <= 4;
         test.wifi = wifi;
-        struct kui_ftp_options options = {(uint16_t)atoi(argv[3]), (uint16_t)atoi(argv[4]), 40, 1234};
+        struct kui_ftp_options options = {.control_port = (uint16_t)atoi(argv[3]), .passive_first = (uint16_t)atoi(argv[4]),
+            .passive_count = 40, .seed = 1234, .games_watch_root = games_watch_root, .invalidate_games = mark_games};
         struct kui_ftp_status status;
         struct w5500_model_options model = {.absent = kind >= 1 && kind <= 4, .no_async = kind == 5};
         w5500_model_start(&model);

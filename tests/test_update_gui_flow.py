@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: GPL-3.0-only
 """Run the actual GUI update worker against production FatFs/update services.
 
-Only audio, the exclusive storage owner and progress publishing are stubbed.
+Audio, the storage owner, progress publication and the HTTPS origin are modeled.
 No selected SH payload is executed; boot/handoff checks validate its bytes.
 """
 import argparse
@@ -13,6 +13,7 @@ import shlex
 import struct
 import sys
 import tempfile
+import zipfile
 
 from test_games_library_images import fatfs_source, private_formatter
 from test_update_images import run
@@ -24,13 +25,14 @@ from runtime_package import envelope, verify as verify_runtime
 import update_package as update
 
 
-def gui(build, engine):
+def gui(build, engine, marker=0):
     body = bytearray(512)
     body[32:48] = update.CAPABILITY
     body[48:64] = (b"KUIENG" + str(engine).encode() + b"!" +
                    struct.pack("<II", engine, 0xffffffff - engine))
     body[80:100] = struct.pack("<IIIII", 0x5349554b, 0x544f4f42, 1, 3, 0xfffffffc)
     body[128:320] = update.HANDOFF_HEADER + bytes(176)
+    body[320] = marker
     return envelope(bytes(body), len(body), build)
 
 
@@ -90,6 +92,18 @@ def main():
                 assert report["flags"] & update.REQUIRES_ENGINE3
                 packages.append(package)
         build = verify_runtime(current)["build"]
+        # Two valid GUIs can share a source build ID (for example, different
+        # compiler flags). Comparing the displayed ID alone would lose changes.
+        control_dir = base / "same-label"
+        control_dir.mkdir()
+        control = gui(build, update.ENGINE_CURRENT, marker=1)
+        assert control != current and verify_runtime(control)["build"] == build
+        (control_dir / "runtime.kui").write_bytes(control)
+        changed_gui = base / "same-label.kup"
+        make_update(control_dir, changed_gui)
+        wrapped = base / "repeat.zip"
+        with zipfile.ZipFile(wrapped, "w", compression=zipfile.ZIP_DEFLATED) as archive:
+            archive.write(package if real else packages[0], "KUI/updates/test.kup")
         main_source = (ROOT / "src/dreamcast/main.c").read_text()
         helpers = ("update_package_path", "update_storage_read", "update_storage_same",
                    "update_activation_current", "update_activation_same", "update_view_error",
@@ -100,7 +114,7 @@ def main():
                  "-Wall", "-Wextra", "-Werror", "-Wpedantic", "-fsanitize=address,undefined",
                  "-fno-sanitize-recover=all", "-fno-omit-frame-pointer", "-fno-pie", "-no-pie",
                  "-ffunction-sections", "-fdata-sections", "-Wl,--gc-sections",
-                 "-Iinclude", "-I" + str(source), "-I" + str(base), "-Isrc/dreamcast",
+                 "-DKUI_GITHUB_NIGHTLY=0", "-DKUI_UPDATE_REVIEW_FEED=1", "-Iinclude", "-I" + str(source), "-I" + str(base), "-Isrc/dreamcast",
                  "-Ifirmware/kui-wifi/components/kwlink/include",
                  "-Ithird_party/miniz", "-DMINIZ_NO_ARCHIVE_APIS", "-DMINIZ_NO_STDIO",
                  "-DMINIZ_NO_TIME", "-DMINIZ_NO_ZLIB_APIS", "-DMINIZ_NO_MALLOC",
@@ -110,6 +124,7 @@ def main():
         binary = base / "gui-update-flow"
         run(*flags, "tests/update_gui_flow.c", "src/core/update.c", "src/core/update_file.c",
             "src/core/update_boot.c", "src/core/update_browser.c", "src/core/update_zip.c",
+            "src/core/update_keep_file.c", "src/core/update_nightly.c", "src/core/update_retention.c",
             "src/core/update_software_file.c", "src/core/update_handoff.c", "src/core/runtime_image.c",
             "src/core/runtime_file.c", "src/core/storage_policy.c", "src/core/hash.c", "src/core/data.c",
             "src/core/diskio.c", "src/core/game_launch_settings.c", "src/core/game_ram_patches.c",
@@ -123,7 +138,7 @@ def main():
             run(str(formatter), kind, str(image))
             command = ([str(binary), "--real", str(image), str(runtime), str(package)] if real else
                        [str(binary), str(image), str(runtime), str(base / "old.kui"), *(str(path) for path in packages)])
-            print(kind + ":\n" + run(*command).strip(), flush=True)
+            print(kind + ":\n" + run(*command, str(changed_gui), str(wrapped)).strip(), flush=True)
     print("PASS actual GUI update worker and production software/data services on both filesystems; SH payloads validated, not executed", flush=True)
 
 

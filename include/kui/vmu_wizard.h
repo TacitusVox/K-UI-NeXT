@@ -57,7 +57,8 @@ struct kui_vmu_wizard_save {
     /* index is the inspected directory ordinal, slot its original VMU slot.
      * Neither is a displayed page-relative row number. */
     unsigned index,slot,blocks,type,header_offset;
-    char name[13],short_description[17],long_description[33],application[17];
+    char name[KUI_VMU_NAME_UTF8_CAP],short_description[KUI_VMU_SHORT_UTF8_CAP];
+    char long_description[KUI_VMU_LONG_UTF8_CAP],application[KUI_VMU_SHORT_UTF8_CAP];
     bool picked,suggested;
 };
 struct kui_vmu_wizard_group {

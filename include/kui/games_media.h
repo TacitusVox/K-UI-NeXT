@@ -11,8 +11,10 @@
 
 struct kui_games_media_job {
     struct kui_games_entry selected;
+    char selected_root[KUI_DEST_ROOT_CAP];
     unsigned kinds;
     bool all;
+    enum kui_artwork_mode artwork_mode;
     enum kui_internet_route route;
 };
 /* The exclusive storage worker owns the network session. Returns whether

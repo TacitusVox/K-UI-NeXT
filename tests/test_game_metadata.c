@@ -90,6 +90,20 @@ static void expect(enum kui_game_metadata_status want) {
 static uint8_t *pvd(void) {return fixture.sectors[16];}
 static uint8_t *root(void) {return pvd() + 156;}
 static uint8_t *boot(void) {return fixture.sectors[ROOT] + 68;}
+static void japanese_display_title(void) {
+    setup(45000u);
+    uint8_t *field = fixture.sectors[0] + 128;
+    const uint8_t sushi[] = {0x82, 0xb7, 0x82, 0xb5}; /* すし */
+    memset(field, ' ', 128);
+    memcpy(field + 2, sushi, sizeof(sushi));
+    expect(KUI_GAME_METADATA_OK);
+    assert(!strcmp(kui_game_metadata_display_title(&meta), "すし"));
+    assert(!strcmp(meta.title, "????")); /* launch records keep their original title */
+    for(unsigned i=0;i<128;i+=2) memcpy(field+i,sushi,2);
+    expect(KUI_GAME_METADATA_OK);
+    assert(strlen(kui_game_metadata_display_title(&meta))==126);
+    for(unsigned i=0;i<126;i+=3) assert(!memcmp(meta.japanese_title+i,"す",3));
+}
 static void disc_numbers(void) {
     for(unsigned disc=1u;disc<=9u;disc++)for(unsigned total=disc;total<=9u;total++) {
         setup(45000u);uint8_t *ip=fixture.sectors[0];
@@ -200,6 +214,7 @@ static void child_directories(void) {
 }
 
 int main(void) {
+    japanese_display_title();
     disc_numbers();child_directories();
     setup(45000); expect(KUI_GAME_METADATA_OK);
     assert(meta.ip_valid && meta.boot_valid);

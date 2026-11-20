@@ -51,7 +51,8 @@ static bool name(const uint8_t *p,size_t len,size_t *at,char out[KUI_HTTP_HOST])
         }
     }
 }
-bool kui_dns_answer(const uint8_t *p,size_t len,uint16_t id,const char *host,uint8_t ip[4],uint32_t *ttl) {
+bool kui_dns_answer(const uint8_t *p,size_t len,uint16_t id,const char *host,uint8_t ip[4],uint32_t *ttl,
+                    const uint8_t avoid[4]) {
     if(len<12 || word(p)!=id || (word(p+2)&0xfa0f)!=0x8000 || word(p+4)!=1) return false;
     size_t first=12;
     char owner[KUI_HTTP_HOST], wanted[KUI_HTTP_HOST];
@@ -62,6 +63,8 @@ bool kui_dns_answer(const uint8_t *p,size_t len,uint16_t id,const char *host,uin
     for(unsigned alias=0;alias<12;alias++) {
         size_t pos=first;
         bool next=false;
+        const uint8_t *fallback=NULL;
+        uint32_t fallback_ttl=0;
         for(unsigned i=0;i<word(p+6);i++) {
             if(!name(p,len,&pos,owner) || len-pos<10) return false;
             unsigned type=word(p+pos), cls=word(p+pos+2), bytes=word(p+pos+8);
@@ -69,7 +72,10 @@ bool kui_dns_answer(const uint8_t *p,size_t len,uint16_t id,const char *host,uin
             pos+=10;
             if(bytes>len-pos) return false;
             if(cls==1 && !strcasecmp(owner,wanted)) {
-                if(type==1 && bytes==4) {
+                if(type==1 && bytes==4 && avoid && !memcmp(avoid,p+pos,4)) {
+                    fallback=p+pos;
+                    fallback_ttl=age;
+                } else if(type==1 && bytes==4) {
                     memcpy(ip,p+pos,4);
                     if(age<*ttl) *ttl=age;
                     return true;
@@ -83,6 +89,11 @@ bool kui_dns_answer(const uint8_t *p,size_t len,uint16_t id,const char *host,uin
                 }
             }
             pos+=bytes;
+        }
+        if(!next && fallback) {
+            memcpy(ip,fallback,4);
+            if(fallback_ttl<*ttl) *ttl=fallback_ttl;
+            return true;
         }
         if(!next) break;
     }

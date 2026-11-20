@@ -29,8 +29,41 @@ int main(void) {
     check("T-1204N", "U", "disc 2", "Resident Evil - Code - Veronica (USA)");
     check("MK-51184", "E", "", "Shenmue II (Europe) (En,Fr,De,Es)");
     /* PSO and its bundled Sonic Adventure 2 trial share a catalog serial. */
+    check("MK-51100", "U", "PSO", "Phantasy Star Online (USA)");
+    check("51100", "U", "PSO", "Phantasy Star Online (USA)");
+    check("MK-51100", "U", "Sonic Adventure 2 - The Trial", "Sonic Adventure 2 - The Trial (USA, Japan) (En,Ja)");
     check("MK-51100", "U", "PHANTASY STAR ONLINE", "Phantasy Star Online (USA)");
     check("MK-51100", "U", "", NULL);
+    check("MK-51100", "U", "PSO VER. 2", NULL);
+    check("MK-51193", "U", "PSO VER. 2", "Phantasy Star Online Ver. 2 (USA)");
+    check("MK-5110050", "E", "PSO", "Phantasy Star Online (Europe) (En,Ja,Fr,De,Es) (Rev 1)");
+    check("MK-51100", "E", "PSO", "Phantasy Star Online (Europe) (En,Ja,Fr,De,Es) (Rev 1)");
+    check("MK-51100", "J", "PSO", NULL);
+    check("MK-51100", "JUE", "PSO", NULL);
+    check("51100", "E", "PSO", NULL);
+    check("51100", "JUE", "PSO", NULL);
+    check("51100", "", "PSO", NULL);
+    check("", "U", "PSO", NULL);
+    check("UNKNOWN", "U", "PSO", NULL);
+    /* Real US retail IP fields from the scan. Printed product numbers differ. */
+    check("T1711N", "U", "EVOLUTION2", "Evolution 2 - Far Off Promise (USA)");
+    check("T11010N", "U", "SIERRA SPORTS MAXIMUM POOL", "Maximum Pool (USA)");
+    check("T12509N", "U", "SUPER RUNABOUT", "Super Runabout - San Francisco Edition (USA)");
+    check("T12509N", "J", "SUPER RUNABOUT", NULL);
+    check("T11010N", "JUE", "SIERRA SPORTS MAXIMUM POOL", NULL);
+    check("T1711N", "U", "EVOLUTION", NULL);
+    struct kui_games_disc_identity shenmue = {
+        .title="SHENMUE", .product="MK-51059", .version="V1.003", .region="U", .total=4
+    };
+    for(shenmue.number=1; shenmue.number<=3; ++shenmue.number)
+        assert(!strcmp(kui_internet_cover_name(&shenmue), "Shenmue (USA)"));
+    assert(!kui_internet_cover_name(&shenmue)); /* Disc four with the game version. */
+    strcpy(shenmue.version,"V1.004");
+    assert(!strcmp(kui_internet_cover_name(&shenmue), "Shenmue (USA) (Shenmue Passport)"));
+    shenmue.number=1;
+    assert(!kui_internet_cover_name(&shenmue)); /* Game disc with the Passport version. */
+    shenmue.number=shenmue.total=0;
+    assert(!kui_internet_cover_name(&shenmue)); /* A filename or an unnumbered rip is insufficient. */
     check("MK-51020", "U", "TOY COMMANDER", "Toy Commander (USA) (En,Fr,De,Es)");
     check("", "U", "THE HOUSE OF THE DEAD 2", "House of the Dead 2, The (USA)");
     check("", "U", "house of the dead 2, the", "House of the Dead 2, The (USA)");
@@ -69,6 +102,8 @@ int main(void) {
     assert(kui_internet_cover_url(&id, url, sizeof(url)) && strstr(url, "%28Europe%29"));
     id = (struct kui_games_disc_identity){.title="THE HOUSE OF THE DEAD 2", .region="U"};
     assert(kui_internet_cover_small_url(&id, url, sizeof(url)) && strstr(url, "/__ia_thumb.jpg"));
+    uint32_t bytes,crc;
+    assert(kui_internet_cover_small_pin(&id,&bytes,&crc) && bytes==21946 && crc==UINT32_C(0x98908bea));
     assert(kui_internet_cover_small_matches(&id, 21946, UINT32_C(0x98908bea)));
     assert(!kui_internet_cover_small_matches(&id, 21946, UINT32_C(0x98908beb)));
     assert(!kui_internet_cover_small_matches(&id, 21945, UINT32_C(0x98908bea)));

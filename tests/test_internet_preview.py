@@ -1,10 +1,13 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: GPL-3.0-only
 """Exercise the storage converter on generated, redistributable motion frames."""
+from array import array
+from math import sqrt
 from pathlib import Path
 import struct
 import subprocess
 import tempfile
+import sys
 import unittest
 
 BIN = Path("build/test-internet-preview").resolve()
@@ -18,10 +21,13 @@ class Preview(unittest.TestCase):
         self.src = Path(self.temp.name) / "src.ogv"
         self.dst = Path(self.temp.name) / "dest.kpv"
 
-    def encode(self, size="96x64", rate="30000/1001", duration="12", audio=False):
+    def encode(self, size="96x64", rate="30000/1001", duration="12", audio=False, audio_length=None):
         inputs = ["-f", "lavfi", "-i", f"testsrc2=s={size}:r={rate}"]
         if audio:
-            inputs += ["-f", "lavfi", "-i", "sine=frequency=300", "-c:a", "libvorbis"]
+            signal = "sine=frequency=300:sample_rate=48000"
+            if audio_length:
+                signal += f":duration={audio_length}"
+            inputs += ["-f", "lavfi", "-i", signal, "-ac", "2", "-c:a", "libvorbis"]
         subprocess.run(["ffmpeg", "-loglevel", "error", "-y", *inputs, "-t", duration,
                         "-c:v", "libtheora", "-threads", "1", str(self.src)], check=True)
 
@@ -30,17 +36,41 @@ class Preview(unittest.TestCase):
         self.assertEqual(result.returncode == 0, expected, result.stderr)
         return result
 
-    def read_frames(self, count):
+    def read_frames(self, count, audio=False):
         data = self.dst.read_bytes()
-        self.assertEqual(struct.unpack_from("<4sHHHHI", data), (b"KPV1",160,120,10,0,count))
-        self.assertEqual(len(data), 16 + count*FRAME)
+        self.assertEqual(struct.unpack_from("<4sHHHHI", data), (b"KPV2",160,120,10,16000 if audio else 0,count))
+        self.assertEqual(len(data), 16 + count*(FRAME + (3200 if audio else 0)))
         return [data[16+i*FRAME:16+(i+1)*FRAME] for i in range(count)]
 
     def test_rate_limit_mixed_audio(self):
         self.encode(audio=True)
+        prefix = self.src.with_name("prefix.ogv")
+        subprocess.run([str(BIN.with_name("test-preview-prefix")), self.src, prefix], check=True)
+        self.assertLess(prefix.stat().st_size, self.src.stat().st_size)
+        self.src = prefix
         self.run_converter(True)
-        frames = self.read_frames(100)
+        frames = self.read_frames(100, audio=True)
         self.assertGreater(len(set(frames)), 60)
+        sound = array("h", self.dst.read_bytes()[16+100*FRAME:])
+        reference = subprocess.check_output(["ffmpeg", "-loglevel", "error", "-i", self.src,
+                    "-map", "0:a:0", "-ac", "1", "-ar", "16000", "-t", "10", "-f", "s16le", "-"])
+        ref = array("h",reference)
+        if sys.byteorder != "little":
+            sound.byteswap()
+            ref.byteswap()
+        self.assertEqual(len(sound), len(ref))
+        for start in (0, 75000, 153000):
+            a, b = sound[start:start+6400], ref[start:start+6400]
+            corr = sum(x*y for x,y in zip(a,b)) / sqrt(sum(x*x for x in a)*sum(y*y for y in b))
+            self.assertGreater(corr, .98)
+
+    def test_short_audio_tail_is_silence(self):
+        self.encode(rate="10", duration="2", audio=True, audio_length="0.6")
+        self.run_converter(True)
+        self.read_frames(20, audio=True)
+        data = self.dst.read_bytes()[16+20*FRAME:]
+        self.assertNotEqual(set(data[:12000]), {0})
+        self.assertEqual(set(data[24000:]), {0})
 
     def test_short_and_duplicate(self):
         self.encode(rate="5", duration="1")

@@ -13,6 +13,7 @@
 #include "kui/vmu_image_subset.h"
 #include "kui/vmu_save_snapshot.h"
 #include "kui/vmu_description.h"
+#include "kui/japanese_text.h"
 #include "platform.h"
 #include <dc/maple.h>
 #include <dc/maple/vmu.h>
@@ -227,7 +228,9 @@ static void fill_view(struct session *s,const struct snapshot *snap,unsigned pag
     for(unsigned i=start;i<snap->count && out->count<KUI_VMU_ROWS;i++) {
         const uint8_t *entry=snap->directory+snap->entries[i]*32;
         struct kui_vmu_entry *row=&out->entries[out->count++];
-        display_name(row->name,entry);row->bytes=(uint32_t)le16(entry+24)*BLOCK_BYTES;
+        display_name(row->name,entry);
+        kui_sjis_to_utf8(row->display_name,sizeof(row->display_name),entry+4,12u);
+        row->bytes=(uint32_t)le16(entry+24)*BLOCK_BYTES;
     }
 }
 /* The header offset is a logical file-block offset, including for fragmented

@@ -18,7 +18,7 @@ SOURCES = (
     'src/core/vmu_fs_admission.c', 'src/core/vmu_persist_profile.c',
     'src/core/vmu_image.c', 'src/core/vmu_store.c', 'src/core/retail_image.c',
     'src/core/hash.c', 'src/core/data.c', 'src/core/destination.c',
-    'src/core/game_cover.c', 'src/core/vmu_description.c',
+    'src/core/game_cover.c', 'src/core/vmu_description.c','src/core/japanese_text.c',
     'src/core/destination_file.c', 'src/core/diskio.c',
     'src/core/clock.c', 'src/core/command.c',
     '.deps/fatfs/source/ff.c', '.deps/fatfs/source/ffunicode.c',

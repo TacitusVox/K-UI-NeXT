@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: GPL-3.0-only */
 #include "kui/game_metadata.h"
+#include "kui/japanese_text.h"
 #include "kui/disc_number.h"
 
 #include <stddef.h>
@@ -75,6 +76,17 @@ bool kui_game_metadata_ip(const uint8_t ip[256],struct kui_game_metadata *out) {
     if(!ip || memcmp(ip,"SEGA SEGAKATANA ",16u))return false;
     field(out->title,ip+128,128);field(out->product,ip+64,10);
     field(out->version,ip+74,6);field(out->region,ip+48,8);field(out->bootfile,ip+96,16);
+    /* Preserve the legacy byte-for-byte launch title. Decode a separate
+     * display spelling only for high bytes in the 128-byte IP title. */
+    if(strchr(out->title,'?')) {
+        size_t first=0;
+        while(first<128 && ip[128+first]==' ') ++first;
+        for(size_t i=first;i<128 && ip[128+i];++i) {
+            if(ip[128+i]<0x80) continue;
+            kui_sjis_to_utf8(out->japanese_title,sizeof(out->japanese_title),ip+128+first,128-first);
+            break;
+        }
+    }
     out->ip_valid=true;boot_profile(ip,out);
     (void)kui_disc_number_read(ip,&out->disc_number,&out->disc_total);
     return true;

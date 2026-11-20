@@ -787,7 +787,9 @@ static void description_header(uint8_t *bytes,const char *description) {
 static void test_description_rows(const char *mode) {
     FATFS fs;struct kui_vmu_view out;setup(2);
     description_header(card[0],"  Long save title  ");
-    description_header(card[2],""); /* Long field blank: use the short field. */
+    description_header(card[2],""); /* Long field blank: use the Shift-JIS short field. */
+    memset(card[2],0,16);memcpy(card[2],"\x83\x5a\x81\x5b\x83\x75",6); /* セーブ */
+    memset(card[253]+32u+4u,0,12u);memcpy(card[253]+32u+4u,"\x96\xbc",2); /* 名 */
     bool fragmented=strstr(mode,"fragmented")!=NULL;
     if(fragmented) {
         /* Header block 1 follows FAT 0 -> 190; physical block 1 is unrelated. */
@@ -817,7 +819,8 @@ static void test_description_rows(const char *mode) {
     } else {
         assert(!strcmp(out.entries[0].description,fragmented?"Fragmented title":"Long save title"));
         assert(!strcmp(out.entries[0].app_id,"TEST_APP"));
-        assert(!strcmp(out.entries[1].description,"Short title"));
+        assert(!strcmp(out.entries[1].description,"セーブ"));
+        assert(!strcmp(out.entries[1].display_name,"名"));
     }
     assert(!memcmp(card,original_card,sizeof(card)));
     if(is("description-read-fail")) {

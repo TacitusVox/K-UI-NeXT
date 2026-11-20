@@ -109,6 +109,7 @@ int kui_vmu_import_plan_inspect(const void *source, size_t source_bytes,
          * file chain. Follow links, never assume consecutive data blocks. */
         for(unsigned n = 0; n < out->header_offset; ++n)
             at = plan_le16(work->fat + at * 2u);
+        out->header_block = (uint8_t)at;
         const uint8_t *header = input + at * 512u;
         plan_text(out->name, entry + 4u, 12u);
         plan_text(out->short_description, header, 16u);

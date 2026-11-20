@@ -74,7 +74,8 @@ image, and preserves concrete read/layout/entry/capacity errors when it refuses.
 Save descriptions are display-only VMS-header metadata. The reader follows the
 file's logical header-block offset through its allocation chain. Implausible or
 unreadable headers fall back to the filename and do not block listing/copying.
-Unsupported text becomes '?' with the current font; no save text is rewritten.
+The save list decodes Shift-JIS descriptions and directory names for display.
+Backups and restores keep the original file and directory bytes.
 
 Version1 catalog cards are immutable management snapshots, not active game
 pairs. The browser checks complete image SHA/CRC, standard filesystem, exact

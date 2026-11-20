@@ -13,6 +13,8 @@
 #ifdef KUI_SD_RUNTIME
 #include "kui/update_handoff.h"
 #include "kui/update.h"
+#include "kui/update_nightly.h"
+#include "kui/update_keep_file.h"
 /* One retained marker admits this runtime to immutable update banks. A
  * volatile read in main keeps the capability in the linked payload. */
 static volatile const uint8_t kui_update_bank_capability[16] __attribute__((used))={
@@ -108,6 +110,7 @@ static volatile uint8_t kui_update_ram_handoff[KUI_UPDATE_HANDOFF_BYTES]
 #include <inttypes.h>
 #include <limits.h>
 #include <stdarg.h>
+#include <stdatomic.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -362,6 +365,8 @@ static bool games_warm_done;
 static unsigned games_storage_observed=KUI_STORAGE_AUTO;
 static struct kui_shell_games_art_key games_art_requested,games_art_running,games_art_published,games_art_done;
 static bool games_art_request_valid,games_art_result_ready,games_art_done_valid;
+static enum kui_games_art_preference games_art_source_active,games_art_source_pending;
+static bool games_art_source_ready,games_art_source_ok;
 /* Only the storage worker uses this staging page. Warmup and prefetch run
  * serially. Keep cold catalogue creation below the worker's fixed stack budget. */
 static struct kui_games_page games_idle_rows;
@@ -384,8 +389,13 @@ static struct kui_games_entry games_art_entry,games_art_running_entry;
 static struct kui_games_cover_result games_art_result;
 static struct kui_app_status games_scan_status, games_media_status;
 static struct kui_games_media_job games_media_pending;
-static bool games_media_manual,games_media_readable;
+static bool games_media_manual,games_media_readable,games_media_saved;
+static struct kui_media_report_page games_report_page;
+static unsigned games_report_request,games_report_cursor;
+static enum kui_media_report_result games_report_result;
+static bool games_report_ready;
 static char games_media_view_path[KUI_GAMES_FILE_CAP];
+static char games_media_view_fallback[KUI_GAMES_FILE_CAP];
 /* Set only after the sole storage worker has finished outstanding SD work.
  * Main owns the screen and temporarily borrows the idle SD session. */
 static bool games_media_view_ready,games_media_view_active,games_media_notice_ready;
@@ -395,6 +405,7 @@ static bool games_media_view_ready,games_media_view_active,games_media_notice_re
 static struct kui_shell_preview_focus games_hover_focus;
 static unsigned games_hover_served;
 static bool games_hover_finished;
+static atomic_bool games_hover_audio_cancel;
 static uint16_t *games_hover_visible,*games_hover_ready,*games_hover_spare;
 
 /* The worker fills staging pixels; only main publishes them to the selected
@@ -2507,8 +2518,10 @@ static void games_media_progress(const struct kui_app_status *status) {
     mutex_unlock(&lock);
 }
 static void games_media_queue_viewer(void) {
-    bool ok=kui_media_file_path(&games_media_pending.selected,
-        games_media_manual?KUI_MEDIA_MANUAL:KUI_MEDIA_PREVIEW,games_media_view_path) &&
+    enum kui_media_kind kind=games_media_manual?KUI_MEDIA_MANUAL:KUI_MEDIA_PREVIEW;
+    if(!kui_media_local_fallback(&games_media_pending.selected,kind,games_media_view_fallback))
+        games_media_view_fallback[0]=0;
+    bool ok=kui_media_file_path(&games_media_pending.selected,kind,games_media_view_path) &&
         kui_games_storage_release();
     mutex_lock(&lock);
     if(!ok) {
@@ -2677,13 +2690,20 @@ static struct {char root[KUI_DEST_ROOT_CAP],group[33];unsigned page,view,filter,
     struct kui_games_query query;bool valid;} games_prefetch;
 static uint16_t games_prefetch_pixels[KUI_COVER_PIXELS];
 static void games_prefetch_reset(void) {games_prefetch.valid=false;}
-static void games_cache_invalidate(void) {
-    (void)kui_games_storage_release();
-    kui_games_cache_clear();kui_games_library_clear();kui_games_covers_cache_clear();games_warm_done=false;
+static void games_artwork_display_reset(void) {
     games_prefetch_reset();
     mutex_lock(&lock);
     games_art_done_valid=false;games_art_result_ready=false;games_tiles_invalid=true;
     mutex_unlock(&lock);
+}
+static void games_artwork_changed(void) {
+    kui_games_covers_cache_clear();
+    games_artwork_display_reset();
+}
+static void games_cache_invalidate(void) {
+    (void)kui_games_storage_release();
+    kui_games_cache_clear();kui_games_library_clear();games_warm_done=false;
+    games_artwork_changed();
 }
 static void games_storage_observe(void) {
     /* This is the selected boot device, read without probing the card. A
@@ -2702,7 +2722,12 @@ static bool update_package_path(const char *path) {
 static bool update_storage_read(struct kui_shell_update_storage *out) {
     const struct kui_volume *volume=kui_media_volume();uint8_t sector[512];
     if(!volume || !volume->count || disk_read(0,sector,0,1)!=RES_OK)return false;
+    /* FatFs updates exFAT PercentInUse when our own download or ZIP stage
+     * allocates clusters. The serial, geometry and other boot bytes still
+     * distinguish the volume when the checked package is confirmed. */
+    if(!memcmp(sector+3,"EXFAT   ",8))sector[112]=0;
     memset(out,0,sizeof(*out));out->transport=kui_storage_selected();
+
     out->partition_first=volume->start;out->partition_blocks=volume->count;
     struct kui_sha256 sha;kui_sha256_init(&sha);kui_sha256_update(&sha,sector,sizeof(sector));
     kui_sha256_digest(&sha,out->boot_sha256);return true;
@@ -2722,7 +2747,7 @@ static bool update_activation_same(const struct kui_update_activation *a,const s
         !memcmp(a->previous,b->previous,sizeof(a->previous)) && !memcmp(a->manifest_sha256,b->manifest_sha256,32u);
 }
 static void update_view_error(struct kui_shell_update_view *out,const char *message) {
-    out->ready=false;out->stage=KUI_SHELL_UPDATE_RESULT;
+    out->ready=false;out->already_installed=false;out->stage=KUI_SHELL_UPDATE_RESULT;
     out->status=(struct kui_app_status){.complete=true,.stopped=kui_cancelled()};
     out->status.errors=out->status.stopped?0u:1u;
     snprintf(out->status.message,sizeof(out->status.message),"%s",message);
@@ -2752,8 +2777,8 @@ static bool update_packages_list(const char *directory,unsigned page,struct kui_
         out->total,out->total==1u?"y":"ies");return true;
 }
 static bool update_space(struct kui_shell_update_view *out,const struct kui_update_package *package) {
-    enum kui_update_result result=kui_update_plan_space(package,&out->required_bytes,
-        &out->free_bytes,kui_cancelled);
+    enum kui_update_result result=kui_update_plan_review(package,&out->reviewed.activation,
+        &out->already_installed,&out->required_bytes,&out->free_bytes,kui_cancelled);
     out->space_known=result==KUI_UPDATE_OK || result==KUI_UPDATE_SPACE;
     if(!out->space_known && result!=KUI_UPDATE_CANCELLED) {
         out->status.errors=1u;
@@ -2768,20 +2793,28 @@ static void update_work(const struct kui_shell_update_request *request,struct ku
     snprintf(out->running,sizeof(out->running),"%s",KUI_BUILD_ID);
     out->stage=KUI_SHELL_UPDATE_RESULT;
     bool mutation=request->op==KUI_SHELL_UPDATE_INSTALL || request->op==KUI_SHELL_UPDATE_RESTORE;
-    if(request->op>KUI_SHELL_UPDATE_RESTORE || !kui_update_browser_path(request->directory) || kui_cancelled()) {
+    bool nightly=request->op==KUI_SHELL_UPDATE_NIGHTLY;
+    bool save_limit=request->op==KUI_SHELL_UPDATE_SAVE_LIMIT;
+    bool options=request->op==KUI_SHELL_UPDATE_OPTIONS;
+    bool preferences_only=options || save_limit;
+    if((unsigned)request->op>KUI_SHELL_UPDATE_OPTIONS || !kui_update_browser_path(request->directory) ||
+       ((nightly || save_limit) && !kui_update_keep_valid(request->keep)) ||
+       (save_limit && strcmp(request->directory,KUI_UPDATE_BROWSER_ROOT)) ||
+       (nightly && ((unsigned)request->route>=KUI_INTERNET_ROUTE_COUNT || strcmp(request->directory,KUI_NIGHTLY_DIRECTORY))) ||
+       kui_cancelled()) {
         update_view_error(out,"Update operation stopped before starting.");return;
     }
     struct kui_music_status music;kui_music_status_copy(&music);kui_music_pause();publish_music();
     kui_sd_set_params(KUI_STORAGE_AUTO,true);
     bool opened=kui_games_storage_open(kui_log)==KUI_GAMES_STORAGE_OK;
     struct kui_update_activation activation={0};struct kui_shell_update_storage storage={0};
-    bool storage_ok=opened && update_storage_read(&storage);unsigned activation_slot=0u;
-    enum kui_update_result selection_result=storage_ok?
+    bool storage_ok=opened && (preferences_only || update_storage_read(&storage));unsigned activation_slot=0u;
+    enum kui_update_result selection_result=storage_ok && !preferences_only?
         kui_update_activation_for_update(&activation,&activation_slot,kui_cancelled):KUI_UPDATE_IO;
     bool selection_ok=selection_result==KUI_UPDATE_OK || selection_result==KUI_UPDATE_NOT_FOUND;
     /* Browsing is read-only and remains available even when saved selection
      * cannot be recovered safely. Only review/publication needs that pin. */
-    bool ok=storage_ok && (selection_ok || request->op==KUI_SHELL_UPDATE_LIST);
+    bool ok=storage_ok && (selection_ok || request->op==KUI_SHELL_UPDATE_LIST || preferences_only);
     if(!ok)update_view_error(out,!storage_ok?"Cannot verify the update SD card; refresh after checking storage.":
         selection_result==KUI_UPDATE_PROTECTED?"Saved bank selections conflict; use the bootstrap repair ZIP.":
         selection_result==KUI_UPDATE_ENGINE?"Root updater needs repair; use the bootstrap repair ZIP.":
@@ -2790,7 +2823,37 @@ static void update_work(const struct kui_shell_update_request *request,struct ku
         out->selection_known=true;
         memcpy(out->selected,activation.selected,sizeof(out->selected));
         memcpy(out->previous,activation.previous,sizeof(out->previous));
-        out->restart_required=strcmp(activation.selected,update_boot_view.bank)!=0;
+        char bank[KUI_UPDATE_BUILD_BYTES];uint8_t running_manifest[32];
+        int known=kui_update_effective_snapshot(bank,running_manifest);
+        if(known>0)out->restart_required=strcmp(activation.selected,bank)!=0 ||
+            (bank[0] && memcmp(activation.manifest_sha256,running_manifest,32u));
+        else out->restart_required=known<0 || activation.selected[0] || update_boot_view.bank[0];
+    }
+    bool up_to_date=false;
+    char downloaded[KUI_SHELL_UPDATE_PATH_BYTES]={0};
+    char nightly_notice[sizeof(out->status.message)]={0};
+    const char *review_path=request->path;
+    if(ok && (nightly || preferences_only)) {
+        /* Use the preference on the currently mounted card unless the user
+         * chose a new value. Failed downloads leave the saved choice intact. */
+        if(save_limit || (nightly && request->change_keep)) {
+            ok=!kui_cancelled() && kui_update_keep_save(request->keep);
+            if(ok)out->keep=request->keep;
+        } else ok=kui_update_keep_load(&out->keep);
+        out->keep_known=ok;
+        out->test_feed_available=kui_update_test_feed_available();
+        if(!ok)update_view_error(out,"Cannot read or save the download limit. Check the SD card.");
+    }
+    if(ok && nightly) {
+        update_reviewed.ready=false;
+        const char *running_nightly=KUI_GITHUB_NIGHTLY && out->selection_known && !out->restart_required ? KUI_BUILD_ID : NULL;
+        ok=kui_update_nightly_download(request->route,request->test_feed,running_nightly,out->keep,downloaded,&out->status,kui_log,kui_cancelled,app_progress);
+        up_to_date=ok && !downloaded[0];
+        if(ok && !up_to_date && (!kui_update_browser_child(request->directory,downloaded) || !update_package_path(downloaded))) {
+            update_view_error(out,"Downloaded package path could not be checked.");ok=false;
+        }
+        if(ok && !up_to_date)memcpy(nightly_notice,out->status.message,sizeof(nightly_notice));
+        review_path=downloaded;
     }
     struct kui_update_package *package=NULL;
     if(ok && request->op==KUI_SHELL_UPDATE_LIST) {
@@ -2835,15 +2898,22 @@ static void update_work(const struct kui_shell_update_request *request,struct ku
                 "%s selected. Restart to use it.",request->op==KUI_SHELL_UPDATE_INSTALL?"Update":"Restore target");
             ok=result==KUI_UPDATE_OK;
         }
-    } else if(ok) {
+    } else if(ok && preferences_only) {
+        if(save_limit) {
+            ok=kui_nightly_trim(out->keep,NULL,kui_cancelled);
+            if(ok)snprintf(out->status.message,sizeof(out->status.message),"Download limit saved and applied. L opens GitHub nightly.");
+            else update_view_error(out,"Limit saved. Cleanup incomplete. Choose Save limit again to retry.");
+        }
+    } else if(ok && !up_to_date) {
+        update_reviewed.ready=false;
         package=malloc(sizeof(*package));
         if(!package) {update_view_error(out,"Not enough RAM to check the update package.");ok=false;}
         else {
-            out->restore=request->op!=KUI_SHELL_UPDATE_CHECK;
+            out->restore=request->op==KUI_SHELL_UPDATE_PREVIOUS || request->op==KUI_SHELL_UPDATE_BASELINE;
             enum kui_update_result result=KUI_UPDATE_ARGUMENT;
-            if(request->op==KUI_SHELL_UPDATE_CHECK && update_package_path(request->path) &&
-               kui_update_browser_child(request->directory,request->path)) {
-                char prepared[KUI_SHELL_UPDATE_PATH_BYTES];const char *source=request->path;result=KUI_UPDATE_OK;
+            if((nightly || request->op==KUI_SHELL_UPDATE_CHECK) && update_package_path(review_path) &&
+               kui_update_browser_child(request->directory,review_path)) {
+                char prepared[KUI_SHELL_UPDATE_PATH_BYTES];const char *source=review_path;result=KUI_UPDATE_OK;
                 if(kui_update_browser_suffix(source,".zip")) {
                     result=kui_update_zip_prepare(source,prepared,&out->status,kui_log,kui_cancelled,app_progress);source=prepared;
                 }
@@ -2861,10 +2931,13 @@ static void update_work(const struct kui_shell_update_request *request,struct ku
             } else {
                 out->stage=KUI_SHELL_UPDATE_REVIEW;
                 out->reviewed.op=out->restore?KUI_SHELL_UPDATE_RESTORE:KUI_SHELL_UPDATE_INSTALL;
-                memcpy(out->reviewed.path,request->path,sizeof(out->reviewed.path));
+                if(!out->restore)snprintf(out->reviewed.path,sizeof(out->reviewed.path),"%s",review_path);
                 memcpy(out->reviewed.directory,request->directory,sizeof(out->reviewed.directory));
                 kui_update_package_pin(package,&out->reviewed.package);
                 for(uint32_t i=0;i<package->count;i++) {
+                    const struct kui_update_entry *entry=&package->entries[i];
+                    if(!strcmp(entry->path,"runtime.kui") && entry->bytes)
+                        snprintf(out->gui_build,sizeof(out->gui_build),"%.12s",entry->build[0]?entry->build:package->build);
                     if(package->entries[i].policy==KUI_UPDATE_INHERIT_ROOT)++out->inherited_count;
                     else if(package->entries[i].policy==KUI_UPDATE_REMOVE)++out->removed_count;
                     else ++out->replacement_count;
@@ -2872,16 +2945,22 @@ static void update_work(const struct kui_shell_update_request *request,struct ku
                 if(!out->restore)memcpy(out->reviewed.target,package->build,sizeof(out->reviewed.target));
                 out->reviewed.activation=activation;out->reviewed.storage=storage;
                 bool space=out->restore || update_space(out,package);
-                out->ready=space && !kui_cancelled();
-                ok=out->ready;
-                if(++update_tokens==0u)++update_tokens;
-                out->reviewed.token=update_tokens;
+                ok=space && !kui_cancelled();
+                if(!ok)out->already_installed=false;
+                out->ready=ok && !out->already_installed;
                 if(!out->status.errors || out->space_known)
-                    snprintf(out->status.message,sizeof(out->status.message),"%s",out->ready?
+                    snprintf(out->status.message,sizeof(out->status.message),"%s",out->already_installed?
+                        "All package changes are already installed and verified.":out->ready?
                         out->restore?"Restore target checked. A confirms the selection.":"Package checked. A confirms installation.":
                         kui_cancelled()?"Update check stopped.":out->space_known?
                         "Not enough free space for the update and safety margin.":"Cannot confirm available SD space; installation is unavailable.");
-                if(out->ready)update_reviewed=*out;
+                if(out->ready) {
+                    if(++update_tokens==0u)++update_tokens;
+                    out->reviewed.token=update_tokens;
+                    /* Inspection replaces the transfer status. Keep cleanup or receipt warnings visible. */
+                    if(nightly_notice[0])memcpy(out->status.message,nightly_notice,sizeof(nightly_notice));
+                    update_reviewed=*out;
+                }
             }
         }
     }
@@ -2911,7 +2990,8 @@ static bool games_action_changes_content(unsigned action) {
     /* Directory-changing writers can add/remove launch selectors. Saved
      * recovery edits existing track bytes; it does not change this list and
      * must retain its same-session resume receipt. */
-    return action==4 || action==5 || action==22 || action==62 || action==64;
+    /* FTP owns its mount and marks its first relevant write in that session. */
+    return action==4 || action==5 || action==22 || action==62;
 }
 static bool games_idle_blocked_locked(void) {
     return busy || pending || video_preview || cancel_requested || games_cache_clear_pending ||
@@ -2972,6 +3052,7 @@ static bool games_hover_update_locked(const struct kui_shell_games_art_key *key,
     unsigned previous=games_hover_focus.generation;
     kui_shell_preview_focus_update(&games_hover_focus,key,now);
     if(previous!=games_hover_focus.generation || games_hover_finished) {
+        atomic_store_explicit(&games_hover_audio_cancel,true,memory_order_relaxed);
         bool painted=games_hover_visible!=NULL;
         free(games_hover_visible);games_hover_visible=NULL;
         free(games_hover_ready);games_hover_ready=NULL;
@@ -2995,6 +3076,11 @@ static bool games_hover_cancelled(void) {
     mutex_unlock(&lock);
     return stop;
 }
+/* The audio thread can silence a departed row during a slow SD read without
+ * waiting on the storage worker or taking the shell lock under its audio lock. */
+static bool games_hover_audio_interrupted(void) {
+    return atomic_load_explicit(&games_hover_audio_cancel,memory_order_relaxed);
+}
 /* One optional job on the sole storage worker. The file closes before this
  * returns or another action can take SD. Slow cards may skip movie frames. */
 static bool games_hover_idle_work(void) {
@@ -3004,6 +3090,7 @@ static bool games_hover_idle_work(void) {
         !games_idle_blocked_locked() && !cd_drive_owned && !screenshot_frame_pending;
     if(wanted) {
         games_hover_served=games_hover_focus.generation;
+        atomic_store_explicit(&games_hover_audio_cancel,false,memory_order_relaxed);
         entry=shell.games_listing.entries[games_hover_focus.key.row];
     }
     mutex_unlock(&lock);
@@ -3011,14 +3098,33 @@ static bool games_hover_idle_work(void) {
 
     struct kui_hover_clip clip={0};
     uint16_t *pixels=NULL;
+    int16_t *audio=NULL;
+    bool audio_started=false;
     kui_sd_set_params(KUI_STORAGE_AUTO,true);
     if(kui_hover_clip_open(&clip,&entry,kui_log,games_hover_cancelled)) {
+        if(clip.audio_rate && kui_music_preview_enabled())
+            audio=kui_preview_load_audio(&clip.file,clip.frames,clip.audio_rate,games_hover_cancelled);
+        size_t samples=(size_t)clip.frames*(clip.audio_rate/KUI_PREVIEW_FPS);
+        bool audio_wanted=audio!=NULL;
         uint64_t started=0;
         unsigned next=0;
         while(!games_hover_cancelled()) {
             uint64_t now=timer_ms_gettime64();
             unsigned elapsed=next?(unsigned)((now-started)/(1000u/KUI_PREVIEW_FPS)):0;
             if(elapsed>=clip.frames) break;
+            if(audio_wanted && next) {
+                mutex_lock(&lock);
+                bool shown=games_hover_current_locked() && games_hover_visible;
+                mutex_unlock(&lock);
+                if(shown) {
+                    /* Skip the sound for frames missed before the first paint. */
+                    size_t offset=(size_t)((now-started)*clip.audio_rate/1000u);
+                    if(offset<samples)
+                        audio_started=kui_music_preview_play(audio+offset,samples-offset,clip.audio_rate,
+                                                           games_hover_audio_interrupted);
+                    audio_wanted=false;
+                }
+            }
             if(elapsed<next) {thd_sleep(10);continue;}
             mutex_lock(&lock);
             bool can_read=games_hover_current_locked() && !games_hover_ready;
@@ -3037,6 +3143,8 @@ static bool games_hover_idle_work(void) {
             if(pixels) break;
         }
     }
+    if(audio_started) kui_music_preview_stop();
+    free(audio);
     kui_hover_clip_close(&clip);
     free(pixels);
     mutex_lock(&lock);
@@ -3328,7 +3436,8 @@ static bool games_warm_cancelled(void) {
  * the held storage session. Every other job connects and mounts for itself,
  * so it starts with the card released. */
 static bool games_session_action(unsigned action) {
-    return action==54 || action==55 || action==76 || action==109 || (action>=112u && action<=115u);
+    return action==54 || action==55 || action==76 || action==109 || (action>=112u && action<=115u) ||
+        action==KUI_GAMES_ART_SOURCE_READ_JOB || action==KUI_GAMES_ART_SOURCE_SAVE_JOB;
 }
 /* Release the held session when the owner leaves Games or browsing has done
  * no storage work for a while; the next browsing job connects again. */
@@ -3808,6 +3917,12 @@ static void *worker(void *unused) {
                 mutex_unlock(&lock);
             }
             mutex_lock(&lock);
+            if(action==KUI_GAMES_ART_SOURCE_READ_JOB || action==KUI_GAMES_ART_SOURCE_SAVE_JOB) {
+                games_art_source_ok=false;games_art_source_ready=true;
+            }
+            if(action==KUI_GAMES_MEDIA_DETAILS_JOB) {
+                games_report_result=KUI_MEDIA_REPORT_ERROR;games_report_ready=true;
+            }
             if(action==KUI_GAMES_MEDIA_DOWNLOAD_JOB || action==KUI_GAMES_MEDIA_VIEW_JOB) {
                 games_media_status=(struct kui_app_status){.complete=true,.stopped=true};
                 snprintf(games_media_status.message,sizeof(games_media_status.message),"Stopped before starting.");
@@ -4232,21 +4347,44 @@ static void *worker(void *unused) {
                  * empty result retains the outgoing window and selection. */
                 if(!ok && !page.count && games_view_pending<KUI_GAMES_VIEW_COUNT)page.view=games_view_pending;
                 if(!ok && !kui_cancelled()) games_cache_invalidate();
-                kui_log("Games list: %u rows, %u items, %lu ms%s",page.count,page.total,
-                    (unsigned long)(timer_ms_gettime64()-list_started),ok?"":" (stopped or failed)");
+                kui_log("Games list: %lu ms, %u/%u rows%s %.38s",
+                    (unsigned long)(timer_ms_gettime64()-list_started),page.count,page.total,
+                    ok?"":" (failed/stopped)",page.root[0]?page.root:games_path_pending);
                 mutex_lock(&lock);games_listing=page;games_result_offset=offset;
                 games_result_restore=restore;games_result_selected=selected;
                 games_result_epoch=games_epoch_pending;games_result_view=games_view_pending;
                 ++games_listing_generation;mutex_unlock(&lock);
             }
+            if(action==KUI_GAMES_ART_SOURCE_READ_JOB || action==KUI_GAMES_ART_SOURCE_SAVE_JOB) {
+                kui_sd_set_params(KUI_STORAGE_AUTO,true);
+                enum kui_games_art_preference source=games_art_source_pending;
+                bool saving=action==KUI_GAMES_ART_SOURCE_SAVE_JOB;
+                bool ok=saving?kui_games_art_preference_save(source,kui_log):kui_games_art_preference_get(&source,kui_log);
+                if(ok && saving)games_artwork_display_reset();
+                mutex_lock(&lock);
+                if(ok)games_art_source_active=source;
+                games_art_source_ok=ok;games_art_source_ready=true;
+                mutex_unlock(&lock);
+            }
             if(action==KUI_GAMES_MEDIA_DOWNLOAD_JOB) {
                 struct kui_app_status result;
                 kui_sd_set_params(KUI_STORAGE_AUTO,true);
                 bool readable=kui_games_media_run(&games_media_pending,&result,kui_log,kui_cancelled,games_media_progress);
-                games_cache_invalidate();
+                /* Media files live outside the game images. Keep the saved
+                 * catalogue and favorites in RAM after a successful scan. */
+                if(result.passed) games_artwork_changed();
+                else games_cache_invalidate();
                 mutex_lock(&lock);
                 games_media_status=result;
                 games_media_readable=readable;
+                games_media_saved=kui_media_report_saved();
+                mutex_unlock(&lock);
+            }
+            if(action==KUI_GAMES_MEDIA_DETAILS_JOB) {
+                kui_sd_set_params(KUI_STORAGE_AUTO,true);
+                enum kui_media_report_result result=kui_media_report_read_page(games_report_cursor,&games_report_page,kui_log);
+                mutex_lock(&lock);
+                games_report_result=result;games_report_ready=true;
                 mutex_unlock(&lock);
             }
             if(action==KUI_GAMES_MEDIA_VIEW_JOB) {
@@ -4307,6 +4445,8 @@ static void *worker(void *unused) {
                 kui_sd_set_params(KUI_STORAGE_AUTO,true);
                 struct kui_ftp_options options={0};
                 options.seed=(uint32_t)timer_us_gettime64();
+                options.games_watch_root=kui_games_library_watch_root_mounted;
+                options.invalidate_games=kui_games_library_invalidate_mounted;
                 const struct kui_net_ports ports={.w5500=kui_w5500_console_port(),
                     .wifi=kui_wifi_console_port(),.bba=kui_bba_console_port()};
                 struct kui_ftp_status result;
@@ -5218,7 +5358,10 @@ static unsigned worker_action(enum kui_shell_action action) {
         case KUI_SHELL_GAMES_SMASH_PHANTASY_STAR_II: return 121;
         case KUI_SHELL_GAMES_SMASH_SHINING_FORCE: return 122;
         case KUI_SHELL_GAMES_SCAN: return 59;
+        case KUI_SHELL_GAMES_ART_SOURCE_READ:return KUI_GAMES_ART_SOURCE_READ_JOB;
+        case KUI_SHELL_GAMES_ART_SOURCE_SAVE:return KUI_GAMES_ART_SOURCE_SAVE_JOB;
         case KUI_SHELL_MEDIA_DOWNLOAD:return KUI_GAMES_MEDIA_DOWNLOAD_JOB;
+        case KUI_SHELL_MEDIA_SCAN_DETAILS:return KUI_GAMES_MEDIA_DETAILS_JOB;
         case KUI_SHELL_MEDIA_OPEN_MANUAL:
         case KUI_SHELL_MEDIA_PLAY_PREVIEW:return KUI_GAMES_MEDIA_VIEW_JOB;
         case KUI_SHELL_FILES_LIST: return 60;
@@ -5716,6 +5859,10 @@ int main(void) {
             seen_games_selection=games_selection_generation;
         }
         if(games_tiles_changed) {games_tiles_changed=false;games_ui_changed=true;}
+        if(games_art_source_ready) {
+            kui_shell_set_games_art_source(&shell,games_art_source_active,games_art_source_ok);
+            games_art_source_ready=false;games_ui_changed=true;
+        }
         if(games_art_result_ready) {
             if(kui_shell_set_games_art(&shell,&games_art_published,&games_art_result)) {
                 if(games_art_result.cover) memcpy(games_cover_pixels,games_cover_staging,sizeof(games_cover_pixels));
@@ -5761,6 +5908,12 @@ int main(void) {
             seen_vmu_history_generation=vmu_history_result_generation;
         }
         shell.games_media_readable=games_media_readable;
+        shell.games_media_saved=games_media_saved;
+        if(games_report_ready) {
+            games_report_ready=false;
+            kui_shell_set_media_details(&shell.games_media_details,games_report_request,games_report_result,&games_report_page);
+            games_ui_changed=true;
+        }
         if(games_media_notice_ready) {
             games_media_notice_ready=false;
             snprintf(shell.games_media_notice,sizeof(shell.games_media_notice),"%.99s",games_media_status.message);
@@ -5990,13 +6143,23 @@ int main(void) {
             /* Main is the sole frame owner. Free before exposing pending to
              * the worker; drawing cannot reallocate it while this job is busy. */
             shell_frame_release_for_action(action);
+            if(action==KUI_GAMES_ART_SOURCE_SAVE_JOB)
+                games_art_source_pending=shell.games_art_preference==KUI_GAMES_ART_DISC_FIRST?
+                    KUI_GAMES_ART_DOWNLOADED_FIRST:KUI_GAMES_ART_DISC_FIRST;
+            if(action==KUI_GAMES_MEDIA_DETAILS_JOB) {
+                games_report_ready=false;
+                games_report_request=shell.games_media_details.request;
+                games_report_cursor=shell.games_media_details.cursor;
+            }
             if(action==KUI_GAMES_MEDIA_DOWNLOAD_JOB || action==KUI_GAMES_MEDIA_VIEW_JOB) {
                 games_media_pending=(struct kui_games_media_job){.all=shell.games_media_all,
-                    .kinds=shell.games_media_kinds,.route=shell.games_media_route};
+                    .kinds=shell.games_media_kinds,.route=shell.games_media_route,.artwork_mode=shell.games_media_artwork_mode};
+                snprintf(games_media_pending.selected_root,sizeof(games_media_pending.selected_root),"%s",shell.games_listing.root);
                 if(shell.games_selected<shell.games_listing.count)
                     games_media_pending.selected=shell.games_listing.entries[shell.games_selected];
                 games_media_manual=requested==KUI_SHELL_MEDIA_OPEN_MANUAL;
                 games_media_readable=false;
+                if(action==KUI_GAMES_MEDIA_DOWNLOAD_JOB)games_media_saved=false;
                 games_media_status=(struct kui_app_status){0};
                 snprintf(games_media_status.message,sizeof(games_media_status.message),"%s",
                     action==KUI_GAMES_MEDIA_DOWNLOAD_JOB?"Starting internet scan...":"Opening media...");
@@ -6347,7 +6510,8 @@ int main(void) {
         mutex_unlock(&lock);
         if(open_media) {
             char notice[sizeof(shell.games_media_notice)]={0};
-            (void)kui_media_view(games_media_view_path,games_media_manual,kui_log,notice,sizeof(notice),shell_frame_prepare(false));
+            (void)kui_media_view(games_media_view_path,games_media_view_fallback,games_media_manual,
+                kui_log,notice,sizeof(notice),shell_frame_prepare(false));
             mutex_lock(&lock);
             games_media_view_active=false;
             snprintf(shell.games_media_notice,sizeof(shell.games_media_notice),"%s",notice);

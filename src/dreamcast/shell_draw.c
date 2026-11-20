@@ -2,6 +2,7 @@
 #include "kui/shell.h"
 #include "kui/version.h"
 #include "kui/shell_font.h"
+#include "kui/japanese_text.h"
 #include "kui/retail_image.h"
 #include "kui/storage.h"
 #include "kui/media_container.h"
@@ -73,33 +74,26 @@ static void words(struct paint *p, unsigned x, unsigned y,
     if(right>608) right=608;
     if(right<=x) return;
     char clipped[160];
-    size_t n=0,read=0;
-    while(n+1<sizeof(clipped) && value[read] && value[read]!='\n' && value[read]!='\r') {
-        unsigned char c=(unsigned char)value[read++];
-        clipped[n++]=(c>=32 && c<=126)?(char)c:'?';
-        /* The embedded font is ASCII. A UTF-8 folder remains intact in the
-         * model; show one replacement glyph, not a misleading blank per byte. */
-        if(c>=0xc2 && c<=0xf4) {
-            unsigned extra=c<0xe0?1:c<0xf0?2:3;
-            while(extra && ((unsigned char)value[read]&0xc0u)==0x80u) {
-                ++read; --extra;
-            }
-        }
+    size_t n=0,ellipsis_at=0;
+    unsigned width=0,room=right-x,spacing=p->crisp?0u:KUI_SHELL_FONT_LETTER_SPACING;
+    unsigned dots=word_width(p,"...",large);
+    const char *at=value;
+    while(*at && *at!='\n' && *at!='\r') {
+        uint32_t scalar;
+        size_t len=kui_utf8_next(at,&scalar);
+        unsigned advance=kui_shell_font_advance(scalar,large);
+        const char *glyph=at;
+        size_t bytes=len;
+        if(!advance) {glyph="?";bytes=1;advance=kui_shell_font_advance('?',large);}
+        unsigned next=width+(n?spacing:0)+advance;
+        if(next>room || n+bytes>=sizeof(clipped))break;
+        memcpy(clipped+n,glyph,bytes);n+=bytes;at+=len;width=next;
+        if(width+spacing+dots<=room && n+4<=sizeof(clipped))ellipsis_at=n;
     }
-    clipped[n]='\0';
-    bool truncated=value[read] && value[read]!='\n' && value[read]!='\r';
-    while(n && word_width(p,clipped,large)>right-x) {
-        clipped[--n]='\0'; truncated=true;
+    if(*at && *at!='\n' && *at!='\r' && dots<=room) {
+        n=ellipsis_at;memcpy(clipped+n,"...",3);n+=3;
     }
-    if(truncated) {
-        unsigned ellipsis=word_width(p,"...",large);
-        unsigned spacing=p->crisp?0u:KUI_SHELL_FONT_LETTER_SPACING;
-        while(n && (n+4>sizeof(clipped) ||
-                word_width(p,clipped,large)+spacing+ellipsis>right-x))
-            clipped[--n]='\0';
-        if(n+4<=sizeof(clipped) && ellipsis<=right-x)
-            memcpy(clipped+n,"...",4);
-    }
+    clipped[n]=0;
     if(p->crisp) kui_shell_font_draw_crisp(p->fb,(int)x,(int)y,color,clipped,large);
     else if(p->clip)kui_shell_font_draw_clipped(p->fb,(int)x,(int)y,color,clipped,large,(int)p->clip_top,(int)p->clip_bottom);
     else kui_shell_font_draw(p->fb,(int)x,(int)y,color,clipped,large);
@@ -189,6 +183,20 @@ static void heading(struct paint *p, const struct kui_shell *s,const struct kui_
     }
     rule(p,98);
 }
+static const char *media_controls(const struct kui_shell *s,bool busy) {
+    const struct kui_shell_media_details *d=&s->games_media_details;
+    if(d->open) {
+        if(d->loading)return "B Back";
+        if(d->result!=KUI_MEDIA_REPORT_OK)return "A Retry   B Back";
+        if(d->item)return "UP/DOWN Scroll   B Findings";
+        return d->page && d->page->count?"UP/DOWN Select   LEFT/RIGHT Page   A Details   B Back":"B Back";
+    }
+    if(busy)return "B Stop";
+    if(!s->games_media_report)return "D-pad Select   A Choose   Y Last scan   B Options";
+    if(s->games_media_saved)return s->games_media_readable?
+        "Y Scan details   X Read manual   A/B Back":"Y Scan details   A/B Back";
+    return s->games_media_readable?"X Read manual   A/B Back":"A/B Back";
+}
 static void footer(struct paint *p, const struct kui_shell *s,
         const struct kui_shell_view *v) {
     rule(p,416);
@@ -227,7 +235,10 @@ static void footer(struct paint *p, const struct kui_shell *s,
         s->confirm_wifi_update ? "A Update firmware   B Cancel" :
         s->page==KUI_SHELL_GD_PLAY ? "A K-UI   X Stock retail   Y Options   START Cards   B Back" :
         s->page==KUI_SHELL_UPDATES ? (s->update_loading?"B Request safe stop":
-            s->update.stage==KUI_SHELL_UPDATE_REVIEW?(s->update.ready?
+            s->update_online?(s->update_online_row?"Up/down Row   Left/right Change   A Save limit   B Back":
+                "Up/down Row   Left/right Change   A Download   B Back"):
+            s->update.stage==KUI_SHELL_UPDATE_REVIEW?(s->update.already_installed && s->update.restart_required?
+                "START Restart K-UI   B Packages":s->update.ready?
                 s->update.restore?"A Restore this version   B Cancel":"A Install this package   B Cancel":"B Packages"):
             s->update.stage==KUI_SHELL_UPDATE_RESULT?
                 "START Restart K-UI   X Folder   Y Previous   B Back":
@@ -333,10 +344,10 @@ static void footer(struct paint *p, const struct kui_shell *s,
         s->page==KUI_SHELL_SCI_ASYNC_PROBE ? "A Quick   X 60s stress   Y With screen   R Speed   B Back" :
         s->page==KUI_SHELL_STORAGE_TEST_HISTORY ? "A View   Y Baseline   X Refresh   B Back" :
         s->page==KUI_SHELL_WIFI ? (s->wifi.found?"A Join   X Scan   Y Forget   START Update   B Network":"X Look again   B Network") :
-        s->page==KUI_SHELL_GAMES_MEDIA ? (v->busy?"B Stop":s->games_media_report?
-            (s->games_media_readable?"X Read manual   A or B Back":"A or B Back"):"D-pad Select   A Choose   B Options") :
+        s->page==KUI_SHELL_GAMES_MEDIA ? media_controls(s,v->busy) :
         s->page==KUI_SHELL_GAMES_ADVANCED ? (s->games_advanced_selected==6u?
-            "LEFT/RIGHT Layout   A Next and open   B Games":"D-pad Select   A Open   B Games") :
+            "LEFT/RIGHT Layout   A Next and open   B Games":s->games_advanced_selected==KUI_GAMES_OPTION_ART_SOURCE?
+            "LEFT/RIGHT or A Change source   B Games":"D-pad Select   A Open   B Games") :
         s->page==KUI_SHELL_GAMES_PROBE_CONFIRM ? "A Start test   B Tests" :
         s->page==KUI_SHELL_GAMES_IMAGE_PROBE_CONFIRM ? (kui_shell_games_image_ready(s)?
             "A Start test   B Tests":"B Tests") :
@@ -995,14 +1006,62 @@ static void app_status(struct paint *p,const struct kui_app_status *status,bool 
         if(width) box(p,40,y+24,width,8,busy?CYAN:color);
     }
 }
+static const char *internet_route_name(enum kui_internet_route route) {
+    static const char *const routes[KUI_INTERNET_ROUTE_COUNT]={
+        [KUI_INTERNET_AUTO]="Automatic",[KUI_INTERNET_BBA]="Broadband Adapter",
+        [KUI_INTERNET_W5500]="W5500",[KUI_INTERNET_WIFI]="Wi-Fi",
+        [KUI_INTERNET_DREAMPI]="Dial DreamPi"
+    };
+    return routes[(unsigned)route<KUI_INTERNET_ROUTE_COUNT?route:KUI_INTERNET_AUTO];
+}
 static void updates_page(struct paint *p,const struct kui_shell *s,const struct kui_shell_view *v) {
     const struct kui_shell_update_view *u=&s->update;
     const struct kui_app_status *status=s->update_loading && v->app_status?v->app_status:&u->status;
-    title(p,40,108,s->update_loading?"Updates / working":u->stage==KUI_SHELL_UPDATE_REVIEW?
-        u->restore?"Restore this version?":"Install this package?":"Offline updates");
-    char line[192];snprintf(line,sizeof(line),"Running %.12s / selected %s",u->running[0]?u->running:"current",
-        !u->selection_known?"unchecked":u->selected[0]?u->selected:"original baseline");label(p,40,138,CYAN,line);
-    label(p,40,160,MUTED,"Source: TacitusVox/K-UI-NeXT Releases");
+    bool package_review=!s->update_loading && !s->update_online && u->stage==KUI_SHELL_UPDATE_REVIEW && !u->restore;
+    title(p,40,108,s->update_loading?"Updates / working":s->update_online?"GitHub nightly":package_review?
+        (u->already_installed?"Already installed":"Install this package?"):
+        u->stage==KUI_SHELL_UPDATE_REVIEW?"Restore this version?":"K-UI updates");
+    char line[192];
+    if(package_review) {
+        snprintf(line,sizeof(line),"Running GUI   %s",u->running[0]?u->running:"unknown");
+        label(p,40,138,CYAN,line);
+        if(u->gui_build[0]) {
+            const char *comparison=!u->running[0]?"":!strcmp(u->running,u->gui_build)?
+                "   Same GUI build ID":"   Different GUI build ID";
+            snprintf(line,sizeof(line),"Package GUI   %.12s%s",u->gui_build,comparison);
+        } else strcpy(line,"This package contains no GUI payload.");
+        label(p,40,160,WHITE,line);
+    } else {
+        snprintf(line,sizeof(line),"Running GUI %.12s / restart target: %s",u->running[0]?u->running:"unknown",
+            !u->selection_known?"unchecked":u->selected[0]?u->selected:"physical card files");
+        label(p,40,138,CYAN,line);
+    }
+    if(s->update_online) {
+        if(s->update_test_feed_available)
+            label(p,40,168,CYAN,s->update_use_official?"Source: Official nightly   Y Change":"Source: Hardware test   Y Change");
+        else label(p,40,168,MUTED,"Source: Official nightly");
+        panel(p,32,201,576,36,s->update_online_row==0?SELECTED:PANEL);
+        label(p,48,209,WHITE,"Connection");label(p,320,209,CYAN,internet_route_name(s->update_route));
+        panel(p,32,240,576,36,s->update_online_row==1?SELECTED:PANEL);
+        label(p,48,248,WHITE,"Downloads to keep");
+        if(s->update_keep)snprintf(line,sizeof(line),"%u",s->update_keep);
+        else strcpy(line,"Unlimited");
+        label(p,320,248,CYAN,line);
+        if(s->update_online_row) {
+            words(p,40,301,604,WHITE,s->update_keep?
+                "A saves this limit and removes older automatic downloads from this SD card. Manually copied packages stay.":
+                "A saves Unlimited. All automatic downloads stay on this SD card.",false);
+        } else {
+            words(p,40,294,604,WHITE,s->update_test_feed_available && !s->update_use_official?
+                "Download this branch's hardware test to your SD card for review.":
+                "Download the official nightly to your SD card for review.",false);
+            words(p,40,340,604,MUTED,s->update_route==KUI_INTERNET_DREAMPI?
+                "A dials the modem through DreamPi. B stops the transfer.":
+                "Automatic checks Broadband Adapter, W5500 and configured Wi-Fi.",false);
+        }
+        return;
+    }
+    if(!s->update_loading && u->stage!=KUI_SHELL_UPDATE_REVIEW)label(p,40,160,CYAN,"L GitHub nightly");
     if(s->update_loading) {
         panel(p,32,192,576,192,PANEL);
         label(p,48,208,WHITE,s->update_stopping?"Stop requested; finishing a safe boundary.":"Keep the console powered on while writing.");
@@ -1015,38 +1074,66 @@ static void updates_page(struct paint *p,const struct kui_shell *s,const struct 
                 (unsigned long long)(status->done/1024u),(unsigned long long)(status->total/1024u));
             label(p,48,300,MUTED,line);
         }
-        label(p,48,340,MUTED,"Activation finishes before Stop can return.");return;
+        if(s->update_request.op==KUI_SHELL_UPDATE_NIGHTLY)
+            words(p,48,340,592,MUTED,"After download, review the package before installing.",false);
+        else label(p,48,340,MUTED,"Activation finishes before Stop can return.");
+        return;
+    }
+    if(package_review) {
+        panel(p,32,184,576,196,PANEL);
+        const char *name=strrchr(u->reviewed.path,'/');
+        snprintf(line,sizeof(line),"File: %.160s",name?name+1u:u->reviewed.path);
+        label(p,48,196,WHITE,line);
+        snprintf(line,sizeof(line),"Package ID: %.12s    Channel: %s",u->reviewed.target,
+            u->reviewed.package.channel==1u?"testing":"stable");
+        label(p,48,220,MUTED,line);
+        if(u->already_installed) {
+            label(p,48,256,CYAN,"Package verified against the selected installation.");
+            label(p,48,282,WHITE,"Files to change: 0");
+            if(u->selected[0]) {
+                snprintf(line,sizeof(line),"Selected bank: %.12s",u->selected);
+                label(p,48,308,MUTED,line);
+            }
+            label(p,48,338,MUTED,u->restart_required?"Restart K-UI to use the selected installation.":
+                "The selected installation is running.");
+        } else {
+            snprintf(line,sizeof(line),"Package entries: replace %u, remove %u",u->replacement_count,u->removed_count);
+            label(p,48,250,CYAN,line);
+            if(u->inherited_count) {
+                snprintf(line,sizeof(line),"Retained entries: %u",u->inherited_count);
+                label(p,48,298,MUTED,line);
+            } else if(u->reviewed.package.version==2u)
+                label(p,48,298,MUTED,u->reviewed.package.flags & KUI_UPDATE_FULL?
+                    "Full snapshot: omitted software will be removed.":
+                    "Other installed files are kept.");
+            if(u->space_known) {
+                if(u->required_bytes<1048576u)
+                    snprintf(line,sizeof(line),"%llu KiB needed / %llu.%llu MiB free",
+                        (unsigned long long)((u->required_bytes+1023u)/1024u),
+                        (unsigned long long)(u->free_bytes/1048576u),(unsigned long long)((u->free_bytes%1048576u)*10u/1048576u));
+                else snprintf(line,sizeof(line),"%llu.%llu MiB needed / %llu.%llu MiB free",
+                    (unsigned long long)(u->required_bytes/1048576u),(unsigned long long)((u->required_bytes%1048576u)*10u/1048576u),
+                    (unsigned long long)(u->free_bytes/1048576u),(unsigned long long)((u->free_bytes%1048576u)*10u/1048576u));
+                label(p,48,274,MUTED,line);
+            }
+            if(u->selection_known && !u->selected[0])
+                label(p,48,322,MUTED,"Install to create a verified bank for Restart K-UI.");
+            else label(p,48,322,MUTED,"Restart K-UI after installation to use the selected bank.");
+        }
+        words(p,40,394,608,(u->ready || u->already_installed)?CYAN:AMBER,status->message,false);
+        return;
     }
     if(u->stage==KUI_SHELL_UPDATE_REVIEW) {
         panel(p,32,184,576,196,PANEL);
-        snprintf(line,sizeof(line),"Target: %s",u->baseline?"original baseline":u->reviewed.target);
+        snprintf(line,sizeof(line),"Restore target: %s",
+            u->baseline?"original baseline":u->reviewed.target);
         label(p,48,196,WHITE,line);
         snprintf(line,sizeof(line),"Channel: %s",u->baseline?"retained root installation":
             u->reviewed.package.channel==1u?"testing":"stable");label(p,48,220,CYAN,line);
-        if(!u->restore) {
-            snprintf(line,sizeof(line),"Space estimate: %llu.%llu MiB needed / %llu.%llu MiB free",
-                (unsigned long long)(u->required_bytes/1048576u),(unsigned long long)((u->required_bytes%1048576u)*10u/1048576u),
-                (unsigned long long)(u->free_bytes/1048576u),(unsigned long long)((u->free_bytes%1048576u)*10u/1048576u));
-            label(p,48,244,u->space_known?MUTED:AMBER,u->space_known?line:"Available SD space could not be checked.");
-            const char *name=strrchr(u->reviewed.path,'/');
-            snprintf(line,sizeof(line),"Package: %.160s",name?name+1u:u->reviewed.path);
-            label(p,48,268,MUTED,line);
-        } else label(p,48,244,MUTED,u->baseline?
+        label(p,48,244,MUTED,u->baseline?
             "Original root baseline; checked again before selection.":
             "The complete target version was checked before this review.");
-        if(!u->restore && u->reviewed.package.version==2u) {
-            snprintf(line,sizeof(line),"Files to update: %u; remove: %u. Others kept.",
-                u->replacement_count,u->removed_count);
-            label(p,48,294,CYAN,line);
-        } else if(!u->restore && u->inherited_count) {
-            if(u->replacement_count==1u)
-                label(p,48,294,CYAN,"GUI update; keeps your installed game readers.");
-            else {
-                snprintf(line,sizeof(line),"Updates %u files; retains %u installed modules.",
-                    u->replacement_count,u->inherited_count);
-                label(p,48,294,CYAN,line);
-            }
-        } else label(p,48,294,MUTED,"Cards, saves and preferences stay outside the software bank.");
+        label(p,48,294,MUTED,"Cards, saves and preferences stay outside the software bank.");
         label(p,48,320,MUTED,"Saves are kept. Restart K-UI to use the selected version.");
         label(p,48,346,u->ready?WHITE:AMBER,u->ready?"A confirms this exact target. B returns without selecting it.":
             "This target cannot be installed or selected.");
@@ -1057,7 +1144,7 @@ static void updates_page(struct paint *p,const struct kui_shell *s,const struct 
         words(p,48,206,592,status->passed?CYAN:status->stopped?MUTED:AMBER,status->message,false);
         for(unsigned i=0;i<status->line_count && i<3u;i++)words(p,48,234+i*24u,592,MUTED,status->lines[i],false);
         label(p,40,350,MUTED,"A hung application is not detected or rolled back automatically.");
-        label(p,40,376,MUTED,"Hold B at startup to use the original baseline.");
+        label(p,40,376,MUTED,"Cold CD boot loads the physical K-UI from your card.");
         label(p,40,398,CYAN,"START reviews Restart K-UI. X returns to this folder.");return;
     }
     snprintf(line,sizeof(line),"Folder: %.180s",u->directory[0]?u->directory+2u:"/KUI/updates");
@@ -1135,7 +1222,8 @@ static void vmu_save_rows(struct paint *p,const struct kui_vmu_view *view,unsign
         const struct kui_vmu_entry *entry=&view->entries[i];
         unsigned y=196+i*21;
         if(i==selected) panel(p,40,y,544,21,SELECTED);
-        const char *name=entry->description[0]?entry->description:entry->app_id[0]?entry->app_id:entry->name;
+        const char *file=entry->display_name[0]?entry->display_name:entry->name;
+        const char *name=entry->description[0]?entry->description:entry->app_id[0]?entry->app_id:file;
         words(p,52,y+1,486,i==selected?WHITE:MUTED,name,false);
         unsigned long used=entry->bytes/512u+(entry->bytes%512u!=0);
         char blocks[32];snprintf(blocks,sizeof(blocks),"%lu %s",used,used==1?"block":"blocks");
@@ -1144,8 +1232,9 @@ static void vmu_save_rows(struct paint *p,const struct kui_vmu_view *view,unsign
     vmu_scrollbar(p,page,selected,view->total);
     if(selected<count) {
         const struct kui_vmu_entry *entry=&view->entries[selected];
-        char detail[112];
-        snprintf(detail,sizeof(detail),"File: %s   %lu bytes%s%s",entry->name,(unsigned long)entry->bytes,
+        char detail[144];
+        const char *file=entry->display_name[0]?entry->display_name:entry->name;
+        snprintf(detail,sizeof(detail),"File: %s   %lu bytes%s%s",file,(unsigned long)entry->bytes,
             entry->app_id[0]?"   App: ":"",entry->app_id);
         label(p,40,378,MUTED,detail);
     }
@@ -2452,7 +2541,7 @@ static void disc_cards(struct paint *p,const struct kui_shell *s,const struct ku
         (review->op==KUI_DISC_CARDS_LINK?"Link this save card?":review->op==KUI_DISC_CARDS_CREATE?
          "Create a blank save card?":review->op==KUI_DISC_CARDS_DEFAULT?"Use this card by default?":"Clear the saved default?"):
         imports?"Disc / link imported card":"Disc / linked save cards");
-    label(p,40,138,CYAN,d->identified && d->metadata.title[0]?d->metadata.title:
+    label(p,40,138,CYAN,d->identified && d->metadata.title[0]?kui_game_metadata_display_title(&d->metadata):
         s->disc_cards_loading?"Identifying the inserted disc...":"No identified disc");
     char line[240];
     if(d->identified) {
@@ -2986,11 +3075,11 @@ static void profile_page(struct paint *p,const struct kui_shell *s) {
 }
 
 static void games_advanced(struct paint *p,const struct kui_shell *s) {
-    title(p,40,108,"Games / Library options");label(p,508,112,MUTED,"11 options");
+    title(p,40,108,"Games / Library options");label(p,508,112,MUTED,"12 options");
     const struct kui_games_entry *entry=s->games_selected<s->games_listing.count?&s->games_listing.entries[s->games_selected]:NULL;
     words(p,40,138,608,CYAN,entry?entry_text(entry):"Source: SD card",false);
     const char *names[]={"Game library","Browse SD folders","Scan box art","Developer tests",
-        "Scan for changes","Rebuild library","Change layout","Search and filters","Edit display choices","Verify stable identity","Scan from internet"};
+        "Scan for changes","Rebuild library","Change layout","Search and filters","Edit display choices","Verify stable identity","Scan from internet","Artwork source"};
     const char *details[]={"Open every game in /Games","Find a disc image elsewhere on the card",
         "Covers and titles for every game in /Games","Image and loader read tests",
         "Find added, moved or removed games","Build a fresh saved list; keep game settings",
@@ -2998,21 +3087,70 @@ static void games_advanced(struct paint *p,const struct kui_shell *s) {
         "Search titles, filter region/disc, or jump to a letter",
         "Set a display name and cover without renaming files",
         "Read the complete image to verify its content identity",
-        "Find missing artwork, manuals and previews online"};
+        "Find missing artwork, manuals and previews online",
+        "Uses the other source when the first has no cover."};
     unsigned first=s->games_advanced_selected>=7u?s->games_advanced_selected-6u:0u;
-    for(unsigned i=first;i<first+7u && i<11u;i++) {
+    for(unsigned i=first;i<first+7u && i<KUI_GAMES_OPTION_COUNT;i++) {
         unsigned y=164+(i-first)*31;
         panel(p,32,y,576,28,s->games_advanced_selected==i?SELECTED:PANEL);
         label(p,48,y+5,WHITE,names[i]);
         if(i==6)words(p,440,y+5,596,CYAN,kui_shell_games_view(s)==KUI_GAMES_VIEW_COMPACT?"< Compact >":
             kui_shell_games_view(s)==KUI_GAMES_VIEW_GALLERY?"< Gallery >":kui_shell_games_view(s)==KUI_GAMES_VIEW_FLOW?"< Flow >":"< List >",false);
+        if(i==KUI_GAMES_OPTION_ART_SOURCE && s->games_art_preference_known)
+            label(p,360,y+5,CYAN,s->games_art_preference==KUI_GAMES_ART_DISC_FIRST?"< Disc first >":"< Downloaded first >");
     }
-    list_scrollbar(p,600,164,214,first,7,11);
-    const char *notice=s->games_advanced_selected==6u && s->games_layout_notice[0]?s->games_layout_notice:
-        s->games_activity_notice[0]?s->games_activity_notice:details[s->games_advanced_selected<11?s->games_advanced_selected:0];
+    list_scrollbar(p,600,164,214,first,7,KUI_GAMES_OPTION_COUNT);
+    unsigned row=s->games_advanced_selected<KUI_GAMES_OPTION_COUNT?s->games_advanced_selected:0;
+    const char *notice=details[row];
+    if(row==KUI_GAMES_OPTION_ART_SOURCE) {
+        if(s->games_art_preference_failed)notice=s->games_art_preference_known?
+            "Could not save artwork source. Press A to retry.":"Could not read artwork source. Press A to retry.";
+    } else if(row==6u && s->games_layout_notice[0])notice=s->games_layout_notice;
+    else if(s->games_activity_notice[0])notice=s->games_activity_notice;
     words(p,40,396,608,MUTED,notice,false);
 }
+static void media_report_details(struct paint *p,const struct kui_shell_media_details *d) {
+    title(p,40,108,d->item?"Games / Finding details":"Games / Last scan");
+    if(d->loading || d->result!=KUI_MEDIA_REPORT_OK) {
+        words(p,40,181,604,CYAN,d->loading?"Reading scan details from the card...":
+            d->result==KUI_MEDIA_REPORT_NONE?"No internet scan report saved on this card.":
+            "Could not read the scan report from this card.",false);
+        if(!d->loading)label(p,40,215,MUTED,KUI_MEDIA_REPORT_PATH+2);
+        return;
+    }
+    const struct kui_media_report_page *page=d->page;
+    if(!page)return;
+    char line[128];
+    if(d->item) {
+        const struct kui_media_report_entry *e=&page->entries[d->selected];
+        snprintf(line,sizeof(line),"%u of %u    %s    %s",page->first+d->selected+1,page->total,e->category,e->asset);
+        words(p,40,142,604,AMBER,line,false);
+        char body[KUI_MEDIA_DETAIL_LINES][KUI_MEDIA_DETAIL_COLUMNS+1];
+        unsigned total=kui_shell_media_detail_lines(e,d->line,body);
+        panel(p,32,171,576,207,PANEL);
+        for(unsigned i=0;i<KUI_MEDIA_DETAIL_LINES && d->line+i<total;i++)
+            words(p,46,178+i*22,594,i==0 && !d->line?WHITE:MUTED,body[i],false);
+        list_scrollbar(p,600,175,197,d->line,KUI_MEDIA_DETAIL_LINES,total);
+        return;
+    }
+    snprintf(line,sizeof(line),"%s   %s   %s",page->status,page->scope,page->kinds);
+    words(p,40,138,604,CYAN,line,false);
+    if(page->count) {
+        for(unsigned i=0;i<page->count;i++) {
+            const struct kui_media_report_entry *e=&page->entries[i];
+            unsigned y=168+i*52;
+            panel(p,32,y,576,48,i==d->selected?SELECTED:PANEL);
+            words(p,46,y+4,590,WHITE,e->title,false);
+            snprintf(line,sizeof(line),"%s   %s",e->category,e->asset);
+            words(p,46,y+25,590,AMBER,line,false);
+        }
+        list_scrollbar(p,600,171,197,page->first,page->count,page->total);
+        snprintf(line,sizeof(line),"Findings %u-%u of %u",page->first+1,page->first+page->count,page->total);
+        label(p,40,384,MUTED,line);
+    } else words(p,40,194,600,WHITE,"No findings recorded for this scan.",false);
+}
 static void games_media(struct paint *p,const struct kui_shell *s,const struct kui_shell_view *v) {
+    if(s->games_media_details.open) {media_report_details(p,&s->games_media_details);return;}
     title(p,40,108,"Games / Scan from internet");
     const struct kui_app_status *st=v->app_status;
     if(s->games_media_report) {
@@ -3031,38 +3169,43 @@ static void games_media(struct paint *p,const struct kui_shell *s,const struct k
                 } else snprintf(bytes,sizeof(bytes),"%llu KiB received",(unsigned long long)(st->done/1024u));
                 label(p,48,262,CYAN,bytes);
             }
-            for(unsigned i=0;i<st->line_count && i<4;i++)
-                words(p,48,296+24*i,592,MUTED,st->lines[i],false);
+            unsigned first_y=v->busy?296:236;
+            for(unsigned i=0;i<st->line_count && i<(v->busy?4u:8u);i++)
+                words(p,48,first_y+(v->busy?24u:19u)*i,592,MUTED,st->lines[i],false);
+            if(st->complete && !v->busy && !s->games_media_saved)
+                words(p,40,392,604,AMBER,"This scan has no saved details.",false);
         }
         return;
     }
     const struct kui_games_entry *e=s->games_selected<s->games_listing.count?&s->games_listing.entries[s->games_selected]:NULL;
     words(p,40,137,606,CYAN,e && !e->directory && !e->disabled?entry_text(e):"No game selected",false);
-    const char *labels[]={"Start scan","Scan for","Box art","Manuals","Previews","Connection",
-        "Open selected game's manual","Play selected game's preview"};
-    for(unsigned i=0;i<8;i++) {
-        unsigned y=164+i*26;
-        panel(p,32,y,576,24,s->games_media_row==i?SELECTED:PANEL);
-        label(p,46,y+3,WHITE,labels[i]);
+    const char *labels[]={"Start scan","Last scan results","Scan for","Box art","Manuals","Previews","Connection",
+        "Open selected game's manual","Play selected game's preview","Artwork mode"};
+    static const char *const modes[KUI_ART_MODE_COUNT]={"Missing only","Check for updates","Redownload all"};
+    bool artwork=(s->games_media_kinds & KUI_GAMES_MEDIA_ART)!=0;
+    for(unsigned i=0;i<KUI_GAMES_MEDIA_ROW_COUNT;i++) {
+        unsigned y=159+i*22;
+        panel(p,32,y,576,21,s->games_media_row==i?SELECTED:PANEL);
+        label(p,46,y+2,WHITE,labels[i]);
         const char *value="";
-        if(i==1)value=s->games_media_all?"All of /Games":"Selected game";
-        else if(i>=2 && i<=4)value=(s->games_media_kinds&(1u<<(i-2u)))?"On":"Off";
-        else if(i==5) {
-            static const char *const routes[KUI_INTERNET_ROUTE_COUNT]={
-                [KUI_INTERNET_AUTO]="Automatic",[KUI_INTERNET_BBA]="Broadband Adapter",
-                [KUI_INTERNET_W5500]="W5500",[KUI_INTERNET_WIFI]="Wi-Fi",
-                [KUI_INTERNET_DREAMPI]="Dial DreamPi"
-            };
-            value=routes[(unsigned)s->games_media_route<KUI_INTERNET_ROUTE_COUNT?s->games_media_route:KUI_INTERNET_AUTO];
-        }
-        label(p,400,y+3,CYAN,value);
+        if(i==KUI_GAMES_MEDIA_ROW_SCOPE)value=s->games_media_all?"All of /Games":"Selected game";
+        else if(i>=KUI_GAMES_MEDIA_ROW_ART && i<=KUI_GAMES_MEDIA_ROW_PREVIEW)value=(s->games_media_kinds&(1u<<(i-KUI_GAMES_MEDIA_ROW_ART)))?"On":"Off";
+        else if(i==KUI_GAMES_MEDIA_ROW_CONNECTION)value=internet_route_name(s->games_media_route);
+        else if(i==KUI_GAMES_MEDIA_ROW_ARTWORK_MODE && (unsigned)s->games_media_artwork_mode<KUI_ART_MODE_COUNT)
+            value=modes[s->games_media_artwork_mode];
+        label(p,400,y+2,i==KUI_GAMES_MEDIA_ROW_ARTWORK_MODE && !artwork?MUTED:CYAN,value);
     }
-    const char *hint="Downloads missing files to the SD card.";
+    const char *art_hint="Downloads covers missing from the card.";
+    if(s->games_media_artwork_mode==KUI_ART_CHECK)art_hint="Checks the provider for updated box art.";
+    if(s->games_media_artwork_mode==KUI_ART_REDOWNLOAD)art_hint="Downloads each provider cover again.";
+    const char *hint=artwork && s->games_media_artwork_mode!=KUI_ART_MISSING?art_hint:"Downloads missing files to the SD card.";
     if(s->games_media_route==KUI_INTERNET_DREAMPI)hint="Start scan dials the modem. Connect it to your DreamPi.";
-    if(s->games_media_row==2)hint="Download a small regional box cover when available.";
-    if(s->games_media_row==3)hint="Find scanned pages on Internet Archive or a PDF from Digital Press.";
-    if(s->games_media_row==4)hint="Save up to ten seconds of gameplay from an Internet Archive video.";
-    if(s->games_media_row==6)hint="Read a downloaded manual offline. A zooms and the D-pad turns pages.";
+    if(s->games_media_row==KUI_GAMES_MEDIA_ROW_RESULTS)hint="Open /KUI/media/last-scan.txt from the card.";
+    if(s->games_media_row==KUI_GAMES_MEDIA_ROW_ART)hint="Download a small regional box cover when available.";
+    if(s->games_media_row==KUI_GAMES_MEDIA_ROW_MANUAL)hint="Find scanned pages on Internet Archive or a PDF from Digital Press.";
+    if(s->games_media_row==KUI_GAMES_MEDIA_ROW_PREVIEW)hint="Downloads missing previews and upgrades older clips for sound.";
+    if(s->games_media_row==KUI_GAMES_MEDIA_ROW_OPEN_MANUAL)hint="Read a downloaded manual offline. A zooms and the D-pad turns pages.";
+    if(s->games_media_row==KUI_GAMES_MEDIA_ROW_ARTWORK_MODE)hint=artwork?art_hint:"Turn Box art on to change the artwork mode.";
     words(p,40,383,603,s->games_media_notice[0]?AMBER:MUTED,
         s->games_media_notice[0]?s->games_media_notice:hint,false);
 }
@@ -3349,11 +3492,13 @@ static void path_words(struct paint *p,unsigned x,unsigned y,unsigned right,uint
         unsigned dots=kui_shell_font_width("...",false)+KUI_SHELL_FONT_LETTER_SPACING;
         room=room>dots?room-dots:0;
         while(*start && width>room) {
-            char one[2]={*start,0};
-            unsigned step=kui_shell_font_width(one,false)+KUI_SHELL_FONT_LETTER_SPACING;
+            uint32_t scalar;
+            size_t bytes=kui_utf8_next(start,&scalar);
+            unsigned advance=kui_shell_font_advance(scalar,false);
+            if(!advance)advance=kui_shell_font_advance('?',false);
+            unsigned step=advance+KUI_SHELL_FONT_LETTER_SPACING;
             width=width>step?width-step:0;
-            ++start;
-            while(((unsigned char)*start&0xc0u)==0x80u) ++start;
+            start+=bytes;
         }
         clipped=true;
     }

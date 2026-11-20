@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: GPL-3.0-only */
 #include "kui/media_container.h"
 #include <string.h>
+#include <stdlib.h>
 
 static unsigned le16(const uint8_t *p) {
     return p[0] | (unsigned)p[1] << 8;
@@ -22,12 +23,17 @@ bool kui_media_container_index(FIL *file, bool manual, struct kui_media_index *i
         return false;
     if(!manual) {
         uint32_t count = le32(header+12);
-        if(memcmp(header,"KPV1",4) || le16(header+4) != KUI_PREVIEW_WIDTH ||
-           le16(header+6) != KUI_PREVIEW_HEIGHT || le16(header+8) != KUI_PREVIEW_FPS ||
-           le16(header+10) || !count || count > KUI_PREVIEW_FRAMES_MAX ||
-           f_size(file) != KUI_PREVIEW_HEADER_BYTES + count*KUI_PREVIEW_FRAME_BYTES)
-            return false;
+        unsigned rate = le16(header+10);
+        bool legacy = !memcmp(header,"KPV1",4);
+        if((!legacy && memcmp(header,"KPV2",4)) ||
+           le16(header+4) != KUI_PREVIEW_WIDTH || le16(header+6) != KUI_PREVIEW_HEIGHT ||
+           le16(header+8) != KUI_PREVIEW_FPS || (rate && (legacy || rate != KUI_PREVIEW_AUDIO_RATE)) ||
+           !count || count > KUI_PREVIEW_FRAMES_MAX) return false;
+        unsigned stride = KUI_PREVIEW_FRAME_BYTES + 2u * (rate / KUI_PREVIEW_FPS);
+        if(f_size(file) != KUI_PREVIEW_HEADER_BYTES + count * stride) return false;
         index->count = count;
+        index->version = legacy ? 1u : 2u;
+        index->audio_rate = rate;
         return true;
     }
 
@@ -48,6 +54,8 @@ bool kui_media_container_index(FIL *file, bool manual, struct kui_media_index *i
     }
     if(index->offsets[pages] != f_size(file)) return false;
     index->count = pages;
+    index->version = 1;
+    index->audio_rate = 0;
     return true;
 }
 
@@ -69,6 +77,28 @@ bool kui_preview_read_frame(FIL *file, unsigned count, unsigned frame,
         out += chunk;
     }
     return true;
+}
+
+int16_t *kui_preview_load_audio(FIL *file, unsigned frames, unsigned rate, bool (*cancel)(void)) {
+    if(!file || rate != KUI_PREVIEW_AUDIO_RATE || !frames || frames > KUI_PREVIEW_FRAMES_MAX ||
+       (cancel && cancel())) return NULL;
+    FSIZE_t offset = KUI_PREVIEW_HEADER_BYTES + (FSIZE_t)frames * KUI_PREVIEW_FRAME_BYTES;
+    unsigned samples = frames * KUI_PREVIEW_AUDIO_SAMPLES_PER_FRAME;
+    if(f_size(file) != offset + 2u*samples || f_lseek(file,offset) != FR_OK) return NULL;
+    int16_t *pcm = malloc(2u*samples);
+    if(!pcm) return NULL;
+    bool audible = false;
+    for(unsigned i=0; i<samples;) {
+        unsigned chunk = samples-i < 4096u ? samples-i : 4096u;
+        if(!read_exact(file,pcm+i,chunk*2u) || (cancel && cancel())) {
+            free(pcm);
+            return NULL;
+        }
+        for(unsigned j=0; !audible && j<chunk; ++j) audible = pcm[i+j] != 0;
+        i += chunk;
+    }
+    if(!audible) { free(pcm); return NULL; }
+    return pcm;
 }
 
 bool kui_media_container_check(FIL *file, bool manual) {

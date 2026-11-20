@@ -5,6 +5,7 @@
 #include "fixtures/music_vorbis.h"
 #include "platform.h"
 #include <dc/sound/stream.h>
+#include <dc/sound/sound.h>
 #ifdef KUI_ON_CONSOLE
 #include <kos/thread.h>
 #endif
@@ -55,6 +56,12 @@ static struct {
     bool cancel,missing,short_read,close_error,unmount_error,init_error,alloc_error,poll_error,queued,active;
     unsigned cancel_after_reads,volume;size_t advertised_size;
     snd_stream_callback_t callback;
+    struct {
+        snd_stream_callback_t callback;
+        bool queued, active, fail, low_spu_ram;
+        unsigned volume, pos;
+        int16_t data[16384];
+    } preview;
     void *previous;uint8_t previous_copy[131072];size_t previous_size;
     unsigned log_lines;char last_log[256];
 #ifdef KUI_ON_CONSOLE
@@ -144,13 +151,21 @@ FRESULT f_read(FIL *file,void *out,UINT requested,UINT *got) {
     return FR_OK;
 }
 FRESULT f_close(FIL *file) {(void)file;++fake.closes;return fake.close_error?FR_DISK_ERR:FR_OK;}
+uint32_t snd_mem_available(void) {return fake.preview.low_spu_ram?8192u:2097152u;}
 int snd_stream_init_ex(int channels,size_t size) {assert(channels==2 && size==65536);++fake.init;return fake.init_error?-1:0;}
-void snd_stream_shutdown(void) {assert(!fake.active);++fake.shutdown;}
-snd_stream_hnd_t snd_stream_alloc(snd_stream_callback_t cb,int size) {assert(size==65536 && !fake.active);++fake.alloc;fake.callback=cb;return fake.alloc_error?SND_STREAM_INVALID:0;}
-void snd_stream_destroy(snd_stream_hnd_t hnd) {assert(hnd==0);++fake.destroy;fake.active=false;fake.previous=NULL;}
-void snd_stream_queue_enable(snd_stream_hnd_t hnd) {assert(hnd==0);fake.queued=true;}
-void snd_stream_queue_disable(snd_stream_hnd_t hnd) {assert(hnd==0);fake.queued=false;}
-void snd_stream_queue_go(snd_stream_hnd_t hnd) {assert(hnd==0 && fake.queued);assert(fake.volume<=255);fake.active=true;}
+void snd_stream_shutdown(void) {assert(!fake.active && !fake.preview.active);++fake.shutdown;}
+snd_stream_hnd_t snd_stream_alloc(snd_stream_callback_t cb,int size) {
+    if(size==8192) {
+        assert(!fake.preview.active);fake.preview.callback=cb;
+        return fake.alloc_error?SND_STREAM_INVALID:1;
+    }
+    assert(size==65536 && !fake.active);++fake.alloc;fake.callback=cb;return fake.alloc_error?SND_STREAM_INVALID:0;}
+void snd_stream_destroy(snd_stream_hnd_t hnd) {
+    if(hnd==1) {assert(fake.preview.active);fake.preview.active=false;return;}
+    assert(hnd==0);++fake.destroy;fake.active=false;fake.previous=NULL;}
+void snd_stream_queue_enable(snd_stream_hnd_t hnd) {if(hnd==1){fake.preview.queued=true;return;}assert(hnd==0);fake.queued=true;}
+void snd_stream_queue_disable(snd_stream_hnd_t hnd) {if(hnd==1){fake.preview.queued=false;return;}assert(hnd==0);fake.queued=false;}
+void snd_stream_queue_go(snd_stream_hnd_t hnd) {if(hnd==1){assert(fake.preview.queued);fake.preview.active=true;return;}assert(hnd==0 && fake.queued);assert(fake.volume<=255);fake.active=true;}
 static void fill(unsigned requested) {
     int got=0;void *data=fake.callback(0,(int)requested,&got);
     assert(data && got==(int)requested && !((uintptr_t)data&31));
@@ -160,12 +175,28 @@ static void fill(unsigned requested) {
     }
     memcpy(fake.previous_copy,data,requested);fake.previous=data;fake.previous_size=requested;
 }
+static void preview_fill(void) {
+    int got=0;
+    int16_t *buf=fake.preview.callback(1,4096,&got);
+    assert(buf && got==4096 && !((uintptr_t)buf&31));
+    assert(fake.preview.pos+2048<=sizeof(fake.preview.data)/sizeof(int16_t));
+    memcpy(fake.preview.data+fake.preview.pos,buf,4096);fake.preview.pos+=2048;
+}
 void snd_stream_start(snd_stream_hnd_t hnd,uint32_t rate,int stereo) {
+    if(hnd==1) {
+        assert(!stereo && rate==16000 && fake.preview.queued);
+        fake.preview.pos=0;preview_fill();preview_fill();return;
+    }
     assert(hnd==0 && rate==22050 && fake.queued);++fake.starts;fake.volume=255;
     fill(stereo?65536:32768);fill(stereo?65536:32768);
 }
-void snd_stream_volume(snd_stream_hnd_t hnd,int volume) {assert(hnd==0 && volume>=0 && volume<=255);fake.volume=(unsigned)volume;}
+void snd_stream_volume(snd_stream_hnd_t hnd,int volume) {if(hnd==1){assert(volume>=0 && volume<=255);fake.preview.volume=(unsigned)volume;return;}assert(hnd==0 && volume>=0 && volume<=255);fake.volume=(unsigned)volume;}
 int snd_stream_poll(snd_stream_hnd_t hnd) {
+    if(hnd==1) {
+        assert(fake.preview.active);
+        if(fake.preview.fail)return -1;
+        preview_fill();return 0;
+    }
     assert(hnd==0 && fake.active);++fake.polls;if(fake.poll_error) return -1;
 #ifdef KUI_ON_CONSOLE
     if(fake.ui_snapshot_during_poll) {
@@ -533,7 +564,55 @@ static void nonblocking_requests(void) {
     kui_music_request_select(1,12u);kui_music_service();assert(state().current_index==1 && state().selected_request==12u);
     kui_music_shutdown();
 }
+static void preview_playback(void) {
+    static int16_t samples[5000];
+    for(unsigned i=0;i<5000;++i) samples[i]=(int16_t)(i-2500);
+    reset(1);kui_music_init(log_line);kui_music_set_config(true,80);
+    assert(kui_music_load(0,cancel) && kui_music_preview_enabled());
+    unsigned reads=fake.reads, starts=fake.starts, destroyed=fake.destroy;
+    fake.preview.low_spu_ram=true;
+    assert(!kui_music_preview_play(samples,5000,16000,cancel) && fake.volume==204);
+    fake.preview.low_spu_ram=false;
+    fake.alloc_error=true;
+    assert(!kui_music_preview_play(samples,5000,16000,cancel) && fake.volume==204);
+    fake.alloc_error=false;
+    assert(kui_music_preview_play(samples,5000,16000,cancel));
+    assert(fake.preview.volume==204 && fake.volume==51 && state().volume==80 && state().playing);
+    kui_music_service();
+    assert(!memcmp(fake.preview.data,samples,sizeof(samples)));
+    for(unsigned i=5000;i<fake.preview.pos;++i)assert(fake.preview.data[i]==0);
+    kui_music_set_config(true,40);
+    assert(fake.preview.volume==102 && fake.volume==25 && state().volume==40);
+    fake.cancel=true;kui_music_service();
+    assert(!fake.preview.active && fake.volume==102 && state().playing);
+    assert(!kui_music_preview_play(samples,5000,16000,cancel));
+    fake.cancel=false;
+    assert(kui_music_preview_play(samples,5000,16000,cancel));
+    fake.preview.fail=true;kui_music_service();fake.preview.fail=false;
+    assert(!fake.preview.active && fake.volume==102 && state().playing);
+    assert(kui_music_preview_play(samples,5000,16000,cancel));
+    kui_music_preview_stop();kui_music_preview_stop();
+    assert(!fake.preview.active && fake.volume==102 && fake.starts==starts &&
+           fake.destroy==destroyed && fake.reads==reads);
+    assert(kui_music_preview_play(samples,5000,16000,cancel));
+    kui_music_pause();assert(!fake.preview.active && !kui_music_preview_enabled());
+    assert(!kui_music_preview_play(samples,5000,16000,cancel) && state().paused);
+    kui_music_resume();assert(kui_music_preview_play(samples,5000,16000,cancel));
+    kui_music_set_config(true,0);assert(!fake.preview.active && !kui_music_preview_enabled());
+    kui_music_set_config(true,40);assert(kui_music_preview_play(samples,5000,16000,cancel));
+    kui_music_set_config(false,40);assert(!fake.preview.active && !kui_music_preview_enabled());
+    kui_music_shutdown();
+
+    reset(1);kui_music_init(log_line);kui_music_set_config(true,30);
+    kui_music_pause();assert(!kui_music_preview_enabled());
+    kui_music_set_config(true,60);assert(!kui_music_preview_enabled());
+    kui_music_resume();
+    assert(!state().loaded && kui_music_preview_play(samples,5000,16000,NULL));
+    kui_music_release_audio();assert(!fake.preview.active && !state().loaded);
+    kui_music_shutdown();
+}
 int main(void) {
+    preview_playback();
     for(unsigned channels=1;channels<=2;channels++) {
         reset(channels);kui_music_init(log_line);assert(!fake.connects && !fake.init);
         kui_music_set_config(true,30);assert(!fake.connects && !fake.init);

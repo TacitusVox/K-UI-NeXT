@@ -15,6 +15,45 @@ static bool read_slot(unsigned which,struct slot *slot,struct kui_games_metadata
     if(sized)slot->valid=kui_games_metadata_decode(table,&slot->sequence,wire,(size_t)size);
     return true;
 }
+bool kui_games_metadata_cover_stamp(uint8_t headers[2][40]) {
+    memset(headers,0,2*40);
+    for(unsigned i=0;i<2;i++) {
+        FIL file;
+        FRESULT r=f_open(&file,paths[i],FA_READ);
+        if(r==FR_NO_FILE || r==FR_NO_PATH) continue;
+        if(r!=FR_OK) return false;
+        UINT got=0;
+        r=f_read(&file,headers[i],40,&got);
+        if(f_close(&file)!=FR_OK || r!=FR_OK || got!=40) return false;
+    }
+    return true;
+}
+/* Either verified edition may become the reader's rollback slot. */
+bool kui_games_metadata_visit_covers(void (*visit)(void *,const char *),void *ctx) {
+    struct kui_games_metadata *table=NULL;
+    uint8_t *wire=NULL;
+    bool ok=true;
+    for(unsigned i=0;i<2 && ok;i++) {
+        FILINFO info;
+        FRESULT r=f_stat(paths[i],&info);
+        if(r==FR_NO_FILE || r==FR_NO_PATH) continue;
+        if(r!=FR_OK || (info.fattrib & AM_DIR)) {ok=false;break;}
+        if(!table) {
+            table=malloc(sizeof(*table));
+            wire=malloc(KUI_GAMES_METADATA_WIRE_MAX);
+            if(!table || !wire) {ok=false;break;}
+        }
+        struct slot slot;
+        ok=read_slot(i,&slot,table,wire) && slot.valid;
+        if(ok) for(unsigned j=0;j<table->count;j++) {
+            const char *path=table->entries[j].edit.cover_path;
+            if(*path) visit(ctx,path);
+        }
+    }
+    free(table);
+    free(wire);
+    return ok;
+}
 static bool load_table(struct kui_games_metadata *out,uint64_t *sequence,int *current,kui_log_fn log) {
     struct kui_games_metadata *candidate=malloc(sizeof(*candidate));uint8_t *wire=malloc(KUI_GAMES_METADATA_WIRE_MAX);
     if(!candidate || !wire) {free(candidate);free(wire);return false;}

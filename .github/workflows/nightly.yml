@@ -1,0 +1,91 @@
+name: K-UI GUI nightly
+
+on:
+  schedule:
+    # 02:23 CST / 03:23 CDT
+    - cron: '23 8 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: gui-nightly
+  cancel-in-progress: false
+
+jobs:
+  build:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    outputs:
+      built: ${{ steps.select.outputs.build }}
+      artifact: ${{ steps.upload.outputs.artifact-id }}
+      channel: ${{ steps.select.outputs.channel }}
+      inputs: ${{ steps.select.outputs.inputs }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - name: Select changed GUI inputs
+        id: select
+        run: python3 tools/nightly.py select
+      - name: Install build prerequisites
+        if: steps.select.outputs.build == 'true'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential git curl wget patch python3 bison flex texinfo gettext \
+            libgmp-dev libmpfr-dev libmpc-dev libisl-dev libpng-dev libjpeg-dev dosfstools exfatprogs mtools
+      - name: Restore pinned compiler and downloads
+        if: steps.select.outputs.build == 'true'
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        with:
+          path: |
+            .deps/sh-elf
+            .deps/kos/utils/kos-chain/*.tar.*
+          key: sh-elf-ubuntu24-v1-${{ hashFiles('dependencies.json', 'tools/setup_kos.sh') }}
+      - name: Build and check the GUI update
+        if: steps.select.outputs.build == 'true'
+        shell: bash
+        run: |
+          bash tools/setup_kos.sh
+          python3 tests/test_update_package_v2.py
+          python3 tests/test_update_v2_images.py
+          python3 tests/test_update_software_images.py
+          python3 tests/test_update_keep_file.py
+          python3 tests/test_update_nightly_images.py
+          python3 tests/test_internet_http.py
+          python3 tests/test_nightly.py
+          source .deps/kos/environ.sh
+          make -j2 -f Makefile.dc build/kui-runtime.elf BUILD_ID="${GITHUB_SHA:0:12}" \
+            KUI_SMASH_LAUNCH_TIMING=1 KUI_GITHUB_NIGHTLY=1 KUI_UPDATE_REVIEW_FEED=0
+          python3 tools/nightly.py package "$RUNNER_TEMP/K-UI.kup"
+      - name: Pass checked KUP to publisher
+        id: upload
+        if: steps.select.outputs.build == 'true'
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: nightly-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/K-UI.kup
+          if-no-files-found: error
+          retention-days: 3
+  publish:
+    needs: build
+    if: needs.build.outputs.built == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          artifact-ids: ${{ needs.build.outputs.artifact }}
+          merge-multiple: true
+          path: ${{ runner.temp }}/asset
+      - name: Publish prerelease, verify its asset and advance the feed
+        env:
+          GH_TOKEN: ${{ github.token }}
+          NIGHTLY_CHANNEL_BASE: ${{ needs.build.outputs.channel }}
+          NIGHTLY_INPUTS: ${{ needs.build.outputs.inputs }}
+        run: |
+          python3 tools/fetch_deps.py --fatfs-only
+          python3 tools/nightly.py publish "$RUNNER_TEMP/asset/K-UI.kup"

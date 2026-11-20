@@ -78,7 +78,7 @@ int main(void) {
     assert(!shell_frame_prepare(true) && !live);
     assert(shell_frame_prepare(false)==frame && live);
     shell_frame_release_for_action(58u);
-    for(unsigned action=0;action<=THEME_RESTORE_WORK;action++) {
+    for(unsigned action=0;action<=KUI_GAMES_MEDIA_DETAILS_JOB;action++) {
         assert(shell_frame_prepare(false) && live);
         shell_frame_ready=true;
         bool large=action==19u || (action>=56u && action<=58u) || action==62u || action==79u || action==104u || action==126u || action==KUI_GAMES_MEDIA_DOWNLOAD_JOB;

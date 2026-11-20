@@ -61,7 +61,7 @@ static bool poll_link(struct kui_internet *s) {
     default: return false;
     }
 }
-static bool dns_udp(struct connection *c,const char *host,uint8_t ip[4],uint32_t *ttl) {
+static bool dns_udp(struct connection *c,const char *host,uint8_t ip[4],uint32_t *ttl,const uint8_t avoid[4]) {
     struct kui_internet *s=&c->http;
     const uint8_t *dns=c->kind==WIRED ? c->w5500.config.dns : net_default_dev ? net_default_dev->dns : NULL;
     if(!dns || !dns[0]) return problem(s,"Connection supplied no DNS resolver");
@@ -108,7 +108,7 @@ static bool dns_udp(struct connection *c,const char *host,uint8_t ip[4],uint32_t
             }
         }
         if(got && from_port==53 && !memcmp(from,dns,4) && got>=12 && reply[0]==query[0] && reply[1]==query[1]) {
-            ok=kui_dns_answer(reply,got,id,host,ip,ttl);
+            ok=kui_dns_answer(reply,got,id,host,ip,ttl,avoid);
             break;
         }
         s->pause(4);
@@ -117,12 +117,13 @@ static bool dns_udp(struct connection *c,const char *host,uint8_t ip[4],uint32_t
     else close(fd);
     return ok;
 }
-static bool resolve(struct kui_internet *s,const char *host,uint8_t ip[4]) {
+static bool resolve(struct kui_internet *s,const char *host,uint8_t ip[4],const uint8_t avoid[4]) {
     struct connection *c=(struct connection *)s;
     uint64_t now=s->now();
     for(unsigned i=0;i<4;i++) {
         if(c->names[i].expires>now && !strcasecmp(c->names[i].name,host)) {
-            memcpy(ip,c->names[i].ip,4);return true;
+            if(!avoid) {memcpy(ip,c->names[i].ip,4);return true;}
+            c->names[i].expires=0;
         }
     }
     uint32_t ttl=30;
@@ -137,7 +138,7 @@ static bool resolve(struct kui_internet *s,const char *host,uint8_t ip[4]) {
         }
         if(h->dns_status) return false;
         memcpy(ip,h->dns_ip,4);
-    } else if(!dns_udp(c,host,ip,&ttl)) return false;
+    } else if(!dns_udp(c,host,ip,&ttl,avoid)) return false;
     struct dns_cache *cached=&c->names[c->replace++%4];
     snprintf(cached->name,sizeof(cached->name),"%s",host);
     memcpy(cached->ip,ip,4);

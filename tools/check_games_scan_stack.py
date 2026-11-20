@@ -20,7 +20,7 @@ import subprocess
 ROOT = Path(__file__).resolve().parents[1]
 SOURCES = ("src/dreamcast/main.c", "src/apps/games.c", "src/apps/games_library.c",
            "src/apps/games_identity.c", "src/apps/games_covers.c", "src/core/game_image.c",
-           "src/core/game_metadata.c", "src/core/games_group.c", "src/core/hash.c")
+           "src/core/game_metadata.c", "src/core/japanese_text.c", "src/core/games_group.c", "src/core/hash.c")
 ENTRIES = ("kui_games_library_scan", "kui_games_scan", "kui_games_library_rows_query",
            "kui_games_library_find_query", "kui_games_library_jump_query", "kui_games_library_verify_identity")
 WORKER = "src/dreamcast/main.c:worker"
@@ -41,6 +41,12 @@ def digest(path):
 
 
 def source_name(path):
+    # GCC attributes static functions from these included implementations
+    # to main.c in graph edges and to the .inc file in frame locations.
+    for name in ("theme_picker_runtime.inc", "theme_runtime.inc"):
+        included = "src/dreamcast/" + name
+        if path == included or path.endswith("/" + included):
+            return "src/dreamcast/main.c"
     for source in SOURCES:
         if path == source or path.endswith("/" + source):
             return source

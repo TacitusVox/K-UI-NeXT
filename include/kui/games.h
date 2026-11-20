@@ -9,6 +9,7 @@
 #include "kui/games_query.h"
 #define KUI_GAMES_ROWS 8u
 #define KUI_GAMES_FILE_CAP KUI_DEST_PATH_CAP
+enum kui_artwork_mode { KUI_ART_MISSING, KUI_ART_CHECK, KUI_ART_REDOWNLOAD, KUI_ART_MODE_COUNT };
 struct kui_games_entry {
     char name[KUI_DEST_NAME_CAP];
     /* Card-root path, without drive prefix. A directory may target its single
@@ -27,6 +28,8 @@ struct kui_games_entry {
     /* A virtual disc set keeps its real root and representative image path.
      * Empty for ordinary rows. Disc members retain their own exact paths. */
     char group[33];
+    /* Transient media key of the group's real Disc 1 selector, when known. */
+    char media_disc1_key[33];
     unsigned disc;
     bool directory, disabled, cover, favorite;
 };

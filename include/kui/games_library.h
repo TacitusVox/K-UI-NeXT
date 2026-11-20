@@ -7,6 +7,11 @@
 #include "kui/games_metadata.h"
 #include "kui/games_identity.h"
 
+/* Resolve a presented member's exact Disc 1 using only resident catalogue
+ * records. Missing or ambiguous families fall back to per-image media. */
+bool kui_games_library_media_member(const struct kui_games_entry *entry,unsigned member,char path[KUI_GAMES_FILE_CAP]);
+bool kui_games_library_media_disc1(const struct kui_games_entry *entry,char path[KUI_GAMES_FILE_CAP]);
+
 /* Storage-worker APIs. A checked, sorted catalogue survives reboot; opening
  * a valid catalogue never walks game folders or stats their images. group is
  * empty for the ordinary list, or the stable key of a row's disc chooser.
@@ -71,5 +76,9 @@ bool kui_games_library_ready(const char *root);
  * roots are invalidated, conservatively, regardless of root. A false result
  * means the caller must not assume a next-boot index has been invalidated. */
 bool kui_games_library_invalidate(const char *root,kui_log_fn log);
+/* Root of Games content to watch on the current writer-owned mount. */
+const char *kui_games_library_watch_root_mounted(void);
+/* Same durable invalidation for a writer that owns the current FatFs mount. */
+bool kui_games_library_invalidate_mounted(kui_log_fn log);
 
 #endif

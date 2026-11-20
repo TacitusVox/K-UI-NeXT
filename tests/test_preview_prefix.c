@@ -47,6 +47,29 @@ int main(int argc, char **argv) {
     assert(process(stream,full,7,&done)==full && !done);
     stream[0]='x';
     assert(process(stream,full,1,&done)==full && !done);
+    /* Theora can reach 10 seconds before the next interleaved audio page.
+     * Stop exactly at the first complete Vorbis page covering that interval. */
+    uint8_t mixed[1024];
+    size_t video=page(mixed,5,0,1,42,true);
+    memcpy(mixed+28,"\x80theora",7); mixed[28+25]=1; mixed[28+29]=1;
+    size_t audio_header=page(mixed+video,8,0,1,30,true);
+    uint8_t *id=mixed+video+28;
+    memcpy(id,"\1vorbis",7); id[11]=2; id[12]=0x80; id[13]=0x3e; /* 16 kHz */
+    size_t music=video+audio_header;
+    music+=page(mixed+music,5,1,12,1,false); /* Two remaining headers and ten one-second frames. */
+    size_t early=music;
+    music+=page(mixed+music,8,1,1,1,false);
+    memset(mixed+early+6,0xff,8); /* no completed granule yet */
+    size_t late=music;
+    music+=page(mixed+music,8,2,1,1,false);
+    mixed[late+6]=0; mixed[late+7]=0x71; mixed[late+8]=2; /* 160000 */
+    size_t extra=page(mixed+music,5,2,1,1,false);
+    for(size_t chunk=1;chunk<music+extra;++chunk) {
+        assert(process(mixed,music+extra,chunk,&done)==music && done);
+        assert(process(mixed,music-1,chunk,&done)==music-1 && !done);
+    }
+    mixed[early+5]=4; /* Short sound reaches EOS before ten seconds. */
+    assert(process(mixed,music+extra,1,&done)==late && done);
     if(argc==3) {
         FILE *src=fopen(argv[1],"rb"),*dst=fopen(argv[2],"wb");
         assert(src && dst);

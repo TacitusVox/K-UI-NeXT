@@ -28,3 +28,17 @@ The generator checks these source SHA-256 values and the rasterizer versions:
 | `DejaVuSans-Bold.ttf` | `5c1247acef7f2b8522a31742c76d6adcb5569bacc0be7ceaa4dc39dd252ce895` |
 
 Upstream project: <https://dejavu-fonts.github.io/>.
+
+## Japanese GUI glyphs
+
+The GUI includes 7,331 full-width glyph cells and 63 half-width kana cells derived
+from the Japanese face of Noto Sans CJK Regular 2.004. The source collection's
+SHA-256 is `b76b0433203017ca80401b2ee0dd69350349871c4b19d504c34dbdd80541690a`.
+The committed bitmap is compiled only into the Japanese-enabled Dreamcast GUI.
+Drawing neither reads BIOS ROM nor touches the card. Private-use characters
+and characters absent from the subset use the question-mark glyph.
+
+To regenerate with Pillow 13.0.0, FreeType 2.14.3, and fontTools, run
+`python3 tools/generate_shell_japanese_font.py /path/to/NotoSansCJK-Regular.ttc`.
+Add `--check` to verify the committed output. The font and derived bitmaps carry
+the [SIL Open Font License](../../LICENSES/Noto-CJK.txt).

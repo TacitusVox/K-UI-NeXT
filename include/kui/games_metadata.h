@@ -20,6 +20,10 @@ bool kui_games_metadata_upsert(struct kui_games_metadata *,const struct kui_game
 bool kui_games_metadata_encode(void *,size_t,size_t *,const struct kui_games_metadata *,uint64_t sequence);
 bool kui_games_metadata_decode(struct kui_games_metadata *,uint64_t *,const void *,size_t);
 /* Already-mounted, storage-worker-only dual-slot persistence. */
+/* Includes each edition's sequence and payload CRC for the optional artwork
+ * collection cache. Absent slots contribute zeroes. */
+bool kui_games_metadata_cover_stamp(uint8_t headers[2][40]);
+bool kui_games_metadata_visit_covers(void (*visit)(void *,const char *),void *ctx);
 bool kui_games_metadata_load(struct kui_games_metadata *,kui_log_fn);
 bool kui_games_metadata_save(const struct kui_games_metadata *,kui_log_fn);
 #endif

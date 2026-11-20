@@ -261,6 +261,8 @@ int main(void) {
     assert(!strcmp(id.title,"Untitled GD-ROM"));
     reset("TITLE\nWITH\001CONTROL");kui_disc_identity_init(&id);identify(&id,ops,0);
     assert(!strcmp(id.title,"TITLE?WITH?CONTROL"));
+    reset("  \x82\xb7\x82\xb5");kui_disc_identity_init(&id);identify(&id,ops,0);
+    assert(!strcmp(id.title,"すし"));
     assert(kui_disc_identity_text(KUI_DISC_IDENTITY_NON_GD)[0]);
     puts("PASS idle disc status: nonnegative BIOS success, unknown-type insertion, guarded startup, open/empty/replacement, bounded retries, title EDC/signature, CD exclusion, cancellation, poisoned-adapter preservation");
     return 0;

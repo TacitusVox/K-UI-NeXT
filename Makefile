@@ -19,7 +19,7 @@ EXPORT_CODECS = third_party/miniz/miniz.c third_party/minilzo/minilzo.c
 CAPTURE_EXPORT = src/core/capture_export.c src/core/capture_export_file.c src/core/capture_cooked.c src/core/capture_chd.c $(EXPORT_CODECS)
 CAPTURE = $(DESTINATION) src/core/hash.c src/core/capture_plan.c src/core/capture.c src/core/recovery_manifest.c src/core/recovery_guard.c src/core/recovery_sector.c src/core/known_dumps.c src/core/timing.c $(CAPTURE_EXPORT)
 FATFS = .deps/fatfs/source/ff.c .deps/fatfs/source/ffunicode.c
-VMU_MANAGEMENT = src/core/vmu_collection.c src/core/vmu_image.c src/core/vmu_image_subset.c src/core/vmu_save_snapshot.c src/core/vmu_image_pack.c src/core/vmu_image_merge.c src/core/vmu_description.c
+VMU_MANAGEMENT = src/core/vmu_collection.c src/core/vmu_image.c src/core/vmu_image_subset.c src/core/vmu_save_snapshot.c src/core/vmu_image_pack.c src/core/vmu_image_merge.c src/core/vmu_description.c src/core/japanese_text.c
 VMU_MANAGEMENT += src/core/vmu_library.c src/core/vmu_game_assign.c src/core/vmu_game_card.c src/core/vmu_persist_profile.c src/core/retail_image.c src/core/game_cover.c
 VMU_MANAGEMENT += src/core/vmu_game_candidates.c src/core/vmu_import_plan.c
 
@@ -170,6 +170,8 @@ test-updater: build/test-update build/test-update-v2 build/test-update-handoff b
 	python3 tests/test_make_updater_repair.py
 	$(MAKE) test-runtime-provider
 	python3 tests/test_update_browser_images.py
+	python3 tests/test_update_nightly_images.py
+	python3 tests/test_update_keep_file.py
 	python3 tests/test_update_zip_images.py
 	python3 tests/test_update_images.py --skip-codec --binary $(CURDIR)/build/update-image --boot-binary $(CURDIR)/build/update-boot
 
@@ -838,13 +840,13 @@ build/test-image-client: tests/test_image_client.c src/loader/image_client.c $(G
 	@mkdir -p $(@D)
 	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) src/loader/image_client.c $(GD_SERVICE) tests/test_image_client.c -o $@
 
-GAMES_IMAGE_PROBE = src/apps/games_image_probe.c $(RESIDENT_IMAGE) src/core/game_image.c src/core/zso.c src/core/lzo1x.c src/core/game_metadata.c $(DESTINATION) src/core/runtime_image.c src/core/runtime_file.c src/core/storage_probe.c
+GAMES_IMAGE_PROBE = src/apps/games_image_probe.c $(RESIDENT_IMAGE) src/core/game_image.c src/core/zso.c src/core/lzo1x.c src/core/game_metadata.c src/core/japanese_text.c $(DESTINATION) src/core/runtime_image.c src/core/runtime_file.c src/core/storage_probe.c
 GAMES_IMAGE_PROBE_WRAP = -Wl,--wrap=f_open,--wrap=f_read,--wrap=f_lseek,--wrap=f_close,--wrap=f_mount,--wrap=f_write,--wrap=f_mkdir,--wrap=f_unlink,--wrap=f_rename
 build/games-image-probe: tests/games_image_probe.c $(GAMES_IMAGE_PROBE) $(CORE) $(FATFS) include/kui/games_image_probe.h include/kui/resident_image.h include/kui/game_image.h include/kui/game_metadata.h include/kui/image_loader_layout.h include/kui/runtime.h include/kui/destination.h include/kui/media.h src/dreamcast/platform.h config/ffconf.h .deps/fatfs/source/ff.h
 	@mkdir -p $(@D)
 	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) -Isrc/dreamcast tests/games_image_probe.c $(GAMES_IMAGE_PROBE) $(CORE) $(FATFS) $(GAMES_IMAGE_PROBE_WRAP) -o $@
 
-GAMES_RETAIL = src/core/smash_native_child.c src/core/vmu_launch_package.c src/core/retail_zso.c src/apps/game_launch_report.c src/core/game_launch_settings.c src/core/game_ram_patches.c src/apps/games_retail.c src/core/hash.c src/core/retail_image.c src/core/retail_cursor.c src/core/game_image.c src/core/zso.c src/core/lzo1x.c src/core/game_metadata.c $(DESTINATION) src/core/runtime_image.c src/core/runtime_file.c src/core/storage_probe.c src/core/vmu_emulation_settings.c
+GAMES_RETAIL = src/core/smash_native_child.c src/core/vmu_launch_package.c src/core/retail_zso.c src/apps/game_launch_report.c src/core/game_launch_settings.c src/core/game_ram_patches.c src/apps/games_retail.c src/core/hash.c src/core/retail_image.c src/core/retail_cursor.c src/core/game_image.c src/core/zso.c src/core/lzo1x.c src/core/game_metadata.c src/core/japanese_text.c $(DESTINATION) src/core/runtime_image.c src/core/runtime_file.c src/core/storage_probe.c src/core/vmu_emulation_settings.c
 GAMES_RETAIL += $(NATIVE_CACHE_SOURCES)
 GAMES_RETAIL += src/core/smash_menu_collection.c src/core/smash_menu_loader.c src/core/smash_ce_child.c src/core/smash_ce_profile.c src/core/smash_ce_helper.c
 GAMES_RETAIL += src/apps/native_session_prepare.c src/core/native_session.c src/core/native_return.c src/core/storage_policy.c
@@ -940,6 +942,8 @@ build/test-settings: tests/test_settings.c src/core/settings.c src/core/data.c i
 build/test-shell: $(DRIVE_CONTROLS) $(SALVAGE_DISPLAY) include/kui/games_selection.h include/kui/zso.h include/kui/game_launch_settings.h src/core/wifi_text.c include/kui/network_wifi.h $(STORAGE_TEST_MODEL) include/kui/storage_test.h include/kui/storage_error.h src/core/files_path.c include/kui/files.h include/kui/version.h src/core/clock.c src/apps/system_settings.c include/kui/system_settings.h src/core/destination.c include/kui/destination.h tests/test_shell.c src/core/games_selection.c src/core/game_launch_settings.c src/core/game_ram_patches.c src/core/shell.c src/dreamcast/shell_draw.c src/apps/splash_art.c third_party/miniz/miniz.c src/dreamcast/shell_font.c src/dreamcast/shell_font_data.inc src/dreamcast/shell_art.inc include/kui/shell_font.h src/core/settings.c src/core/data.c include/kui/shell.h include/kui/settings.h .deps/fatfs/source/ff.h include/kui/game_ram_patches.h src/apps/splash_art.c include/kui/splash.h src/dreamcast/shell_art.inc
 	@mkdir -p $(@D)
 	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) $(EXPORT_CODEC_FLAGS) $(STORAGE_TEST_MODEL) src/core/wifi_text.c src/core/destination.c src/core/files_path.c src/core/game_launch_settings.c src/core/game_ram_patches.c src/core/games_selection.c src/core/game_profile.c src/core/hash.c src/core/games_query.c src/core/theme.c src/core/shell.c src/core/clock.c src/dreamcast/shell_draw.c src/apps/splash_art.c third_party/miniz/miniz.c src/dreamcast/shell_font.c src/apps/system_settings.c src/core/settings.c src/core/data.c src/core/salvage_display.c src/core/drive_controls.c tests/test_shell.c -o $@
+
+build/test-shell build/render-shell build/test-shell-font build/render-theme build/test-salvage-display build/render-boot: src/dreamcast/shell_font_ja_data.inc include/kui/japanese_text.h
 
 build/test-shell-font: tests/test_shell_font.c src/dreamcast/shell_font.c src/dreamcast/shell_font_data.inc include/kui/shell_font.h
 	@mkdir -p $(@D)
@@ -1077,9 +1081,9 @@ build/system-settings-image: tests/system_settings_image.c $(CORE) $(FATFS) src/
 	@mkdir -p $(@D)
 	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) $(CORE) $(FATFS) src/core/storage_probe.c src/apps/system_settings.c src/apps/system_settings_file.c tests/system_settings_image.c -o $@
 
-build/test-disc-identity: tests/test_disc_identity.c src/apps/disc_identity.c src/core/data.c src/core/hash.c include/kui/disc_identity.h
+build/test-disc-identity: tests/test_disc_identity.c src/apps/disc_identity.c src/core/japanese_text.c src/core/data.c src/core/hash.c include/kui/disc_identity.h
 	@mkdir -p $(@D)
-	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) -DKUI_ON_CONSOLE=1 -Itests/identity_stubs -Isrc/dreamcast src/apps/disc_identity.c src/core/data.c src/core/hash.c tests/test_disc_identity.c -o $@
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) -DKUI_ON_CONSOLE=1 -Itests/identity_stubs -Isrc/dreamcast src/apps/disc_identity.c src/core/japanese_text.c src/core/data.c src/core/hash.c tests/test_disc_identity.c -o $@
 
 build/test-wav: tests/test_wav.c src/apps/wav.c include/kui/wav.h
 	@mkdir -p $(@D)
@@ -1125,13 +1129,22 @@ build/test-vmu-match-memory: tests/test_vmu_match_memory.c src/apps/vmu_match_me
 	@mkdir -p $(@D)
 	$(CC) $(HOST_FLAGS) $(SANITIZERS) -fno-pie -no-pie $(INCLUDES) tests/test_vmu_match_memory.c src/apps/vmu_match_memory.c src/core/vmu_import_plan.c src/core/vmu_image_subset.c src/core/vmu_image.c src/core/hash.c src/core/data.c $(FATFS) -Wl,--wrap=f_open,--wrap=f_read,--wrap=f_write,--wrap=f_sync,--wrap=f_rename,--wrap=f_unlink -o $@
 
+build/test-japanese-text: tests/test_japanese_text.c src/core/japanese_text.c src/core/japanese_text_data.inc include/kui/japanese_text.h
+	@mkdir -p $(@D)
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) -no-pie $(INCLUDES) tests/test_japanese_text.c src/core/japanese_text.c -o $@
+
+.PHONY: test-japanese-text
+test-japanese-text: build/test-japanese-text
+	ASAN_OPTIONS=detect_leaks=0 ./build/test-japanese-text
+test: test-japanese-text
+
 build/test-vmu-save-format: tests/test_vmu_save_format.c src/core/vmu_save_format.c src/core/crc16.c include/kui/vmu_import.h include/kui/crc16.h
 	@mkdir -p $(@D)
 	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) tests/test_vmu_save_format.c src/core/vmu_save_format.c src/core/crc16.c -o $@
 
-build/test-vmu-description: tests/test_vmu_description.c src/core/vmu_description.c include/kui/vmu_description.h
+build/test-vmu-description: tests/test_vmu_description.c src/core/vmu_description.c src/core/japanese_text.c include/kui/vmu_description.h
 	@mkdir -p $(@D)
-	$(CC) $(HOST_FLAGS) $(SANITIZERS) -fno-pie -no-pie $(INCLUDES) tests/test_vmu_description.c src/core/vmu_description.c -o $@
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) -fno-pie -no-pie $(INCLUDES) tests/test_vmu_description.c src/core/vmu_description.c src/core/japanese_text.c -o $@
 
 build/vmu-import-image: tests/vmu_import_image.c $(CORE) $(DESTINATION) src/core/storage_probe.c src/core/files_path.c src/core/hash.c src/core/crc16.c $(FATFS) $(VMU_MANAGEMENT) src/core/vmu_save_format.c src/apps/vmu_import.c src/apps/vmu.c src/apps/vmu_collection.inc include/kui/vmu_import.h include/kui/apps.h include/kui/vmu_read_bounded.h $(wildcard tests/vmu_stubs/dc/*.h tests/vmu_stubs/dc/maple/*.h)
 	@mkdir -p $(@D)
@@ -1313,9 +1326,9 @@ test-game-image-fatfs-dma:
 	python3 tests/test_game_image_fatfs_dma.py
 test: test-game-image-fatfs-dma
 
-build/test-game-metadata: tests/test_game_metadata.c src/core/game_metadata.c include/kui/game_metadata.h
+build/test-game-metadata: tests/test_game_metadata.c src/core/game_metadata.c src/core/japanese_text.c include/kui/game_metadata.h
 	@mkdir -p $(@D)
-	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) src/core/game_metadata.c tests/test_game_metadata.c -o $@
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) src/core/game_metadata.c src/core/japanese_text.c tests/test_game_metadata.c -o $@
 
 build/test-pvr-texture: tests/test_pvr_texture.c src/core/pvr_texture.c include/kui/pvr_texture.h
 	@mkdir -p $(@D)
@@ -1329,7 +1342,7 @@ build/test-cover-image: tests/test_cover_image.c src/apps/cover_image.c include/
 	@mkdir -p $(@D)
 	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) -Itests src/apps/cover_image.c tests/test_cover_image.c -o $@
 
-GAMES = src/core/smash_native_child.c src/core/retail_image.c src/apps/games.c src/apps/games_storage.c src/core/game_image.c src/core/zso.c src/core/lzo1x.c src/core/game_metadata.c src/core/destination.c src/core/storage_probe.c src/core/hash.c src/core/game_profile.c src/apps/game_profile_file.c src/core/game_launch_settings.c src/core/game_ram_patches.c
+GAMES = src/core/smash_native_child.c src/core/retail_image.c src/apps/games.c src/apps/games_storage.c src/core/game_image.c src/core/zso.c src/core/lzo1x.c src/core/game_metadata.c src/core/japanese_text.c src/core/destination.c src/core/storage_probe.c src/core/hash.c src/core/game_profile.c src/apps/game_profile_file.c src/core/game_launch_settings.c src/core/game_ram_patches.c
 COVER_COMPACT = src/apps/compact_cover.c src/apps/cover_png_rows.c src/apps/cover_jpeg.c third_party/tjpgd/tjpgd.c build/cover-miniz.o
 build/cover-miniz.o: third_party/miniz/miniz.c third_party/miniz/miniz.h
 	@mkdir -p $(@D)
@@ -1337,7 +1350,7 @@ build/cover-miniz.o: third_party/miniz/miniz.c third_party/miniz/miniz.h
 
 GAMES_COVERS = $(sort $(COVER_COMPACT) $(GAMES) src/apps/game_launch_settings_file.c src/apps/games_covers.c src/apps/cover_image.c src/core/game_cover.c src/core/pvr_texture.c src/core/retail_image.c)
 GAMES_ACTIVITY = src/core/games_activity.c src/apps/games_activity_file.c
-GAMES_LIBRARY_EXTRA = src/core/games_query.c src/core/games_metadata.c src/apps/games_metadata_file.c src/apps/games_identity.c src/apps/games_scan_log.c
+GAMES_LIBRARY_EXTRA = src/apps/internet_cover.c src/core/games_query.c src/core/games_metadata.c src/apps/games_metadata_file.c src/apps/games_identity.c src/apps/games_scan_log.c
 
 build/test-shell build/render-shell: src/core/game_profile.c src/core/hash.c src/core/games_query.c include/kui/game_profile.h include/kui/games_query.h
 
@@ -1371,7 +1384,7 @@ build/games-library-image: tests/games_library_image.c $(GAMES_COVERS) $(GAMES_A
 	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) -Isrc/dreamcast $(GAMES_COVERS) $(GAMES_ACTIVITY) $(GAMES_LIBRARY_EXTRA) src/apps/games_library.c src/core/games_group.c $(CORE) $(FATFS) tests/games_library_image.c $(GAMES_LIBRARY_WRAP) -lm -o $@
 
 # Cold load, grouping and display order against a frozen previous copy.
-GAMES_LIBRARY_DIFFERENTIAL = src/core/destination.c src/core/games_group.c src/core/games_metadata.c src/core/games_activity.c \
+GAMES_LIBRARY_DIFFERENTIAL = src/apps/internet_cover.c src/core/destination.c src/core/games_group.c src/core/games_metadata.c src/core/games_activity.c \
     src/core/game_launch_settings.c src/core/game_ram_patches.c src/core/hash.c src/core/data.c
 build/test-games-library-differential: tests/test_games_library_differential.c src/apps/games_library.c $(GAMES_LIBRARY_DIFFERENTIAL) include/kui/games_library.h include/kui/games_group.h include/kui/games_metadata.h
 	@mkdir -p $(@D)
@@ -1523,17 +1536,18 @@ build/test-dreampi: tests/test_dreampi.c src/dreamcast/dreampi.c include/kui/dre
 # Run the console downloader, provider catalogue, Theora decoder and FatFs
 # against a synthetic origin. The transport has separate protocol tests.
 include config/media-xiph.mk
-MEDIA_DOWNLOAD = src/apps/media_download.c src/apps/media_container.c src/apps/preview_prefix.c src/apps/internet_cover.c src/apps/internet_extra.c src/apps/internet_preview.c
-MEDIA_HEADERS = include/kui/preview_prefix.h include/kui/internet.h include/kui/internet_cover.h include/kui/internet_extra.h include/kui/internet_preview.h include/kui/media_download.h include/kui/media_container.h include/kui/games_media.h
+MEDIA_DOWNLOAD = src/apps/artwork_validators.c src/apps/music_ogg.c src/apps/media_download.c src/apps/media_container.c src/apps/preview_prefix.c src/apps/internet_cover.c src/apps/internet_extra.c src/apps/internet_preview.c
+MEDIA_HEADERS = include/kui/artwork_validators.h include/kui/preview_prefix.h include/kui/internet.h include/kui/internet_cover.h include/kui/internet_extra.h include/kui/internet_preview.h include/kui/media_download.h include/kui/media_container.h include/kui/games_media.h
 MEDIA_CATALOGS = src/apps/internet_cover_catalog.inc src/apps/internet_cover_small.inc src/apps/internet_extra_data.inc
 MEDIA_LIBRARY = $(GAMES_COVERS) $(GAMES_ACTIVITY) $(GAMES_LIBRARY_EXTRA) src/apps/games_library.c src/core/games_group.c
-MEDIA_HOST = $(MEDIA_DOWNLOAD) $(MEDIA_LIBRARY) src/apps/hover_clip.c src/apps/games_media.c $(CORE) $(FATFS)
-build/bba-media-integration: tests/bba_media_integration.c tests/internet_scan_heap.c $(MEDIA_HOST) $(MEDIA_HEADERS) $(MEDIA_CATALOGS) $(XIPH_HOST_OBJS)
+MEDIA_HOST = $(sort $(MEDIA_DOWNLOAD) $(MEDIA_LIBRARY)) src/apps/hover_clip.c src/apps/games_media.c src/apps/media_scan_report.c src/apps/artwork_cleanup.c $(CORE) $(FATFS)
+build/bba-media-integration: tests/bba_media_integration.c tests/artwork_publish_faults.inc tests/media_scan_report_card.inc tests/artwork_cleanup_card.inc tests/internet_scan_heap.c $(MEDIA_HOST) $(MEDIA_HEADERS) $(MEDIA_CATALOGS) $(XIPH_HOST_OBJS)
 	@mkdir -p $(@D)
 	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) $(XIPH_FLAGS) -Isrc/dreamcast $(MEDIA_HOST) $< tests/internet_scan_heap.c $(XIPH_HOST_OBJS) \
+	    -Wl,--wrap=f_open,--wrap=f_read,--wrap=f_write,--wrap=f_sync,--wrap=f_rename,--wrap=f_unlink \
 	    -Wl,--wrap=kui_internet_cover_url,--wrap=malloc,--wrap=calloc,--wrap=realloc,--wrap=free -lm -o $@
 
-build/test-games-media-batch: tests/test_games_media_batch.c src/apps/games_media.c include/kui/games_media.h include/kui/media_download.h include/kui/internet.h
+build/test-games-media-batch: tests/test_games_media_batch.c include/kui/media_scan_report.h src/apps/games_media.c include/kui/games_media.h include/kui/media_download.h include/kui/internet.h
 	@mkdir -p $(@D)
 	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) -ffunction-sections -fdata-sections $< src/apps/games_media.c -Wl,--gc-sections -o $@
 
@@ -1976,7 +1990,7 @@ build/test-vmu-game-candidates: tests/test_vmu_game_candidates.c src/core/vmu_ga
 	@mkdir -p build
 	$(CC) $(HOST_FLAGS) $(SANITIZERS) -ffunction-sections -fdata-sections $(INCLUDES) tests/test_vmu_game_candidates.c src/core/vmu_game_card.c src/core/retail_image.c src/core/hash.c -Wl,--gc-sections -o $@
 
-DISC_BOOT_CORE = src/core/disc_boot.c src/core/game_metadata.c src/core/hash.c src/core/data.c
+DISC_BOOT_CORE = src/core/disc_boot.c src/core/game_metadata.c src/core/japanese_text.c src/core/hash.c src/core/data.c
 DISC_LAUNCH_CORE = src/core/disc_launch.c src/core/hash.c src/core/data.c
 .PHONY: test-disc-native
 test-disc-native: build/test-disc-boot build/test-disc-launch build/test-disc-launch-adversarial build/test-disc-vmu-storage build/test-disc-launcher build/test-shell

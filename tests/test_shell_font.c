@@ -109,15 +109,41 @@ static void check_fallback(bool large) {
         assert(!memcmp(actual.pixels, reference.pixels, sizeof(actual.pixels)));
     }
     const char bytes[] = {'A', (char)0xc3, (char)0xa9, '\n', 'B', '\0'};
-    assert(kui_shell_font_width(bytes, large) == kui_shell_font_width("A???B", large));
+    assert(kui_shell_font_width(bytes, large) == kui_shell_font_width("A??B", large));
     clear(&reference, 0x0410); clear(&actual, 0x0410);
-    kui_shell_font_draw(reference.pixels, 20, 30, 0xffff, "A???B", large);
+    kui_shell_font_draw(reference.pixels, 20, 30, 0xffff, "A??B", large);
     kui_shell_font_draw(actual.pixels, 20, 30, 0xffff, bytes, large);
     check_guards(&actual); check_guards(&reference);
     assert(!memcmp(actual.pixels, reference.pixels, sizeof(actual.pixels)));
 }
+static void check_japanese(bool large) {
+    /* These masks sample the JP face, both kana widths and a CP932-only kanji. */
+    const struct {const char *text;unsigned width;uint32_t mask_hash;} cells[]={
+        {"日",16,0x92d21e9fu}, {"あ",16,0x12553823u}, {"ア",16,0x118b6dc5u},
+        {"ｱ",8,0xf64c78e5u}, {"髙",16,0xc2547ae3u}, {"語",16,0x8a6ce423u}
+    };
+    for(size_t i=0;i<sizeof(cells)/sizeof(cells[0]);i++) {
+        unsigned width=large?cells[i].width*3/2:cells[i].width;
+        unsigned height=large?24:18;
+        assert(kui_shell_font_width(cells[i].text,large)==width);
+        clear(&actual,0);
+        kui_shell_font_draw(actual.pixels,0,0,0xffff,cells[i].text,large);
+        check_guards(&actual);
+        assert(changed(&actual,0)>0);
+        uint32_t hash=2166136261u;
+        for(unsigned y=0;y<height;y++)for(unsigned x=0;x<width;x++)
+            hash=(hash^(actual.pixels[y*WIDTH+x]!=0))*16777619u;
+        if(!large)assert(hash==cells[i].mask_hash);
+    }
+    clear(&actual,0);
+    kui_shell_font_draw(actual.pixels,0,0,0xffff,"　",large);
+    assert(!changed(&actual,0));
+    assert(kui_shell_font_width("日Aｱ",large)==kui_shell_font_width("A",large)+
+           (large?24u+12u:16u+8u)+2*KUI_SHELL_FONT_LETTER_SPACING);
+    assert(kui_shell_font_width("🐈",large)==kui_shell_font_width("?",large));
+}
 static void check_clipping(bool large) {
-    const char *text = "AgjW_?";
+    const char *text = "AgjW_?語ｱ";
     const uint16_t background = 0x021f, color = 0xfbe1;
     const int reference_x = 128, reference_y = 128;
     int width = (int)kui_shell_font_width(text, large);
@@ -185,7 +211,7 @@ static void check_blending(bool large) {
 }
 static void check_window_clipping(bool large) {
     const uint16_t background=0x021f,color=0xfbe1;
-    const char *text="AgjW_?";
+    const char *text="AgjW_?語ｱ";
     clear(&reference,background);
     kui_shell_font_draw(reference.pixels,17,91,color,text,large);
     int first=HEIGHT,last=-1;
@@ -251,10 +277,11 @@ int main(void) {
         check_ascii(large != 0);
         check_advances_match_draw(large != 0);
         check_fallback(large != 0);
+        check_japanese(large != 0);
         check_clipping(large != 0);
         check_blending(large != 0);
         check_window_clipping(large != 0);
     }
-    puts("PASS shell font: advances, all ASCII, fallback, framebuffer/window clipping, extreme coordinates, RGB565 antialiasing");
+    puts("PASS shell font: ASCII, Japanese kana/kanji, mixed advances, fallback, framebuffer/window clipping, extreme coordinates, RGB565 antialiasing");
     return 0;
 }

@@ -157,12 +157,16 @@ RUNTIME_OBJECTS += build/dc/src/core/runtime_image.o build/dc/src/core/runtime_f
 RUNTIME_OBJECTS += build/dc/src/core/update.o build/dc/src/core/update_file.o build/dc/src/core/update_boot.o
 RUNTIME_OBJECTS += build/dc/src/core/update_handoff.o
 RUNTIME_OBJECTS += build/dc/src/core/startup_report.o
-RUNTIME_OBJECTS += build/dc/src/core/update_browser.o build/dc/src/core/update_zip.o
+RUNTIME_OBJECTS += build/dc/src/core/update_browser.o build/dc/src/core/update_zip.o build/dc/src/core/update_nightly.o build/dc/src/core/update_retention.o build/dc/src/core/update_keep_file.o
 RUNTIME_OBJECTS += build/dc/src/core/update_software_file.o
 RUNTIME_OBJECTS += build/dc/src/core/resident_image.o
 RUNTIME_OBJECTS += build/dc/src/core/retail_image.o
 RUNTIME_OBJECTS += build/dc/src/core/theme.o
-RUNTIME_OBJECTS += build/dc/src/core/shell.o build/dc/src/dreamcast/shell_draw.o build/dc/src/dreamcast/shell_font.o
+RUNTIME_OBJECTS += build/dc/src/core/shell.o build/dc/src/dreamcast/shell_draw.o build/dc/shell_font_runtime.o
+RUNTIME_OBJECTS += build/dc/src/core/japanese_text.o
+build/dc/shell_font_runtime.o: src/dreamcast/shell_font.c
+	@mkdir -p $(@D)
+	kos-cc -std=c11 -Wall -Wextra -Werror -MMD -MP $(CPPFLAGS) -DKUI_GUI_JAPANESE=1 -c $< -o $@
 RUNTIME_OBJECTS += build/dc/src/core/capture_display.o build/dc/src/core/viewport.o build/dc/src/core/salvage.o build/dc/src/core/salvage_display.o build/dc/src/core/recovery_crc.o
 APP_SOURCES := $(filter-out src/apps/boot_splash.c,$(wildcard src/apps/*.c))
 RUNTIME_OBJECTS += $(patsubst %.c,build/dc/%.o,$(APP_SOURCES))
@@ -170,6 +174,19 @@ ifeq ($(KUI_SMASH_LAUNCH_TIMING),1)
 RUNTIME_OBJECTS += build/dc/src/core/smash_phase_clock.o build/dc/src/core/smash_phase_trace.o build/dc/src/core/smash_phase_video.o
 endif
 BUILD_ID ?= $(shell git rev-parse --short=12 HEAD 2>/dev/null || echo local)
+
+# main-runtime.o already depends on force-build-id so switching between an
+# official nightly and a local build of the same revision recompiles this flag.
+KUI_GITHUB_NIGHTLY ?= 0
+build/dc/main-runtime.o: CPPFLAGS += -DKUI_GITHUB_NIGHTLY=$(KUI_GITHUB_NIGHTLY)
+# This explicitly selected hardware-test GUI reads the authorized review branch.
+# Recompile this one small object when returning to an ordinary GUI build.
+KUI_UPDATE_REVIEW_FEED ?= 0
+ifeq ($(KUI_UPDATE_REVIEW_FEED)$(KUI_GITHUB_NIGHTLY),11)
+$(error An official GitHub nightly must use the production feed)
+endif
+build/dc/src/core/update_nightly.o: CPPFLAGS += -DKUI_UPDATE_REVIEW_FEED=$(KUI_UPDATE_REVIEW_FEED)
+build/dc/src/core/update_nightly.o: force-build-id
 
 .PHONY: all force-build-id wince-cdda native-cdda
 all: $(TARGET) $(RUNTIME) build/loader/entry.elf build/loader/image_entry.elf build/retail/entry.elf build/retail-bench/entry.elf build/retail-ce/entry.elf wince-cdda

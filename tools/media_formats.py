@@ -39,8 +39,8 @@ def _convert(args, timeout):
     return proc.stdout
 
 
-def convert_preview(source_path, dest_path):
-    """Convert up to the first ten seconds, RGB565 little-endian, with no audio."""
+def convert_preview(source_path, dest_path, *, legacy=False):
+    """Convert up to ten seconds of video with an optional 16 kHz mono soundtrack."""
     width, height, fps, max_frames = 160, 120, 10, 100
     frame_bytes = width * height * 2
     # Accept common self-contained movies. Disable playlists and network protocols
@@ -49,21 +49,36 @@ def convert_preview(source_path, dest_path):
     filters = ("fps=10,scale=w='if(gt(dar,4/3),160,max(1,trunc(120*dar)))':"
                "h='if(gt(dar,4/3),max(1,trunc(160/dar)),120)',setsar=1,"
                "pad=160:120:(ow-iw)/2:(oh-ih)/2:black")
+    source = ["-protocol_whitelist", "file", "-format_whitelist",
+              "mov,avi,matroska,webm,mpeg,mpegts,ogg,flv", "-i", str(Path(source_path).resolve())]
+    ffmpeg = ["ffmpeg", "-nostdin", "-hide_banner", "-loglevel", "error", "-xerror",
+              "-threads", "1", "-filter_threads", "1", "-max_pixels", "16777216"]
     raw = _convert([
-        "ffmpeg", "-nostdin", "-hide_banner", "-loglevel", "error", "-xerror",
-        "-threads", "1", "-filter_threads", "1", "-max_pixels", "16777216",
-        "-protocol_whitelist", "file",
-        "-format_whitelist", "mov,avi,matroska,webm,mpeg,mpegts,ogg,flv",
-        "-i", str(Path(source_path).resolve()), "-map", "0:v:0", "-an", "-sn", "-dn",
+        *ffmpeg, *source, "-map", "0:v:0", "-an", "-sn", "-dn",
         "-vf", filters, "-frames:v", str(max_frames), "-threads", "1",
         "-pix_fmt", "rgb565le", "-f", "rawvideo", "pipe:1"
     ], 90)
     count, remainder = divmod(len(raw), frame_bytes)
     if not 1 <= count <= max_frames or remainder:
         raise ValueError("The video did not produce complete preview frames")
+    audio = b""
+    sample_rate = 16000
+    if not legacy:
+        audio_stream = _convert(["ffprobe", "-v", "error", "-select_streams", "a:0",
+                                 "-show_entries", "stream=index", "-of", "csv=p=0", *source], 15)
+        if audio_stream.strip():
+            # Preserve the timing of tracks that begin after the first video frame.
+            pcm = _convert([*ffmpeg, *source, "-map", "0:a:0", "-vn", "-sn", "-dn",
+                            "-t", str(count / fps), "-af", "aresample=async=1:first_pts=0",
+                            "-ac", "1", "-ar", str(sample_rate), "-f", "s16le", "pipe:1"], 30)
+            if pcm:
+                total = count * (sample_rate // fps) * 2
+                audio = pcm[:total].ljust(total, b"\0")
     with _output(dest_path) as out:
-        out.write(struct.pack("<4sHHHHI", b"KPV1", width, height, fps, 0, count))
+        out.write(struct.pack("<4sHHHHI", b"KPV1" if legacy else b"KPV2", width,
+                              height, fps, sample_rate if audio else 0, count))
         out.write(raw)
+        out.write(audio)
 
 
 def convert_manual(source_path, dest_path):

@@ -24,7 +24,7 @@ def run(*args, **kwargs):
     return subprocess.run(args, check=True, **kwargs)
 
 
-def create_test_ca(work, host_build, hostname=HOST):
+def create_test_ca(work, host_build, hostname=HOST, alternate=None):
     def openssl(*args):
         run("openssl", *args, cwd=work, stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL)
@@ -34,7 +34,8 @@ def create_test_ca(work, host_build, hostname=HOST):
             "-addext", "keyUsage=critical,keyCertSign", "-keyout", "ca.key", "-out", "ca.pem")
     openssl("req", "-new", "-newkey", "rsa:2048", "-nodes", "-subj", "/CN=" + hostname,
             "-keyout", "server.key", "-out", "server.csr")
-    (work / "server.ext").write_text("subjectAltName=DNS:" + hostname + "\n"
+    names = "DNS:" + hostname + (",DNS:" + alternate if alternate else "")
+    (work / "server.ext").write_text("subjectAltName=" + names + "\n"
                                      "basicConstraints=critical,CA:FALSE\n"
                                      "extendedKeyUsage=serverAuth\n"
                                      "keyUsage=digitalSignature\n")

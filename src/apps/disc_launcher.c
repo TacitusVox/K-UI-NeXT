@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: GPL-3.0-only */
 #include "kui/disc_launcher.h"
+#include "kui/japanese_text.h"
 #include "kui/disc_boot.h"
 #include "kui/disc_launch.h"
 #include "kui/hash.h"
@@ -269,11 +270,12 @@ static bool fail(struct optical_source *s,const char *message) {
 static void describe(struct optical_source *s,const struct kui_disc_boot_plan *plan) {
     struct kui_app_status *out=s->status;
     out->line_count=4u;
-    snprintf(out->lines[0],KUI_APP_LINE_CAP,"%.70s",plan->metadata.title);
+    const char *title=kui_game_metadata_display_title(&plan->metadata);
+    snprintf(out->lines[0],KUI_APP_LINE_CAP,"%.*s",(int)kui_utf8_prefix(title,70),title);
     snprintf(out->lines[1],KUI_APP_LINE_CAP,"Product %.10s / region %.8s",plan->metadata.product,plan->metadata.region);
     snprintf(out->lines[2],KUI_APP_LINE_CAP,"%.16s: %" PRIu32 " bytes",plan->metadata.bootfile,plan->metadata.boot_bytes);
     snprintf(out->lines[3],KUI_APP_LINE_CAP,"IP %08" PRIX32 " / executable %08" PRIX32,plan->ip_crc32,plan->boot_crc32);
-    s->log("Physical disc: %s; product %s; region %s; %s",plan->metadata.title,
+    s->log("Physical disc: %s; product %s; region %s; %s",title,
         plan->metadata.product,plan->metadata.region,plan->metadata.bootfile);
     s->log("Physical disc: session DATA bounds FAD %" PRIu32 "..%" PRIu32 "; boot FAD %" PRIu32 "; %" PRIu32 " bytes",
         plan->first_fad,plan->end_fad,plan->boot_fad,plan->metadata.boot_bytes);
@@ -400,7 +402,8 @@ bool kui_disc_launcher_metadata(struct kui_game_metadata *metadata,uint8_t signa
     *metadata=first;memcpy(signature,first_signature,32u);
     out->complete=out->passed=true;
     out->line_count=2u;
-    snprintf(out->lines[0],KUI_APP_LINE_CAP,"%.70s",metadata->title);
+    const char *title=kui_game_metadata_display_title(metadata);
+    snprintf(out->lines[0],KUI_APP_LINE_CAP,"%.*s",(int)kui_utf8_prefix(title,70),title);
     snprintf(out->lines[1],KUI_APP_LINE_CAP,"Product %.10s / region %.8s / %.6s",
         metadata->product,metadata->region,metadata->version);
     snprintf(out->message,sizeof(out->message),"Disc release identified: %.10s",metadata->product);

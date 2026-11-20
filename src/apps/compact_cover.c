@@ -120,11 +120,13 @@ bool kui_compact_cover_pixels(FIL *file, enum kui_cover_size size, uint16_t *pix
     for(unsigned j=0; j<count; ++j) pixels[j] = (uint16_t)(b[2*j] | b[2*j+1] << 8);
     return true;
 }
-enum kui_compact_result kui_compact_cover_verify(FIL *file, kui_cancel_fn cancel) {
+enum kui_compact_result kui_compact_cover_verify_digest(FIL *file,kui_cancel_fn cancel,uint8_t digest[32]) {
+    struct kui_sha256 sha;
     uint8_t header[KUI_COMPACT_COVER_HEADER], block[2048];
     if(f_size(file) != KUI_COMPACT_COVER_BYTES) return KUI_COMPACT_INVALID;
     if(f_lseek(file,0) != FR_OK || !read_exact(file,header,sizeof(header))) return KUI_COMPACT_ERROR;
     if(memcmp(header,"KCT1",4)) return KUI_COMPACT_INVALID;
+    if(digest) { kui_sha256_init(&sha); kui_sha256_update(&sha,header,sizeof(header)); }
     for(enum kui_cover_size i=KUI_COVER_SIZE_LARGE; i<=KUI_COVER_SIZE_SMALL; ++i) {
         unsigned left = 2*kui_cover_edge(i)*kui_cover_edge(i);
         uint32_t crc = 0;
@@ -132,9 +134,14 @@ enum kui_compact_result kui_compact_cover_verify(FIL *file, kui_cancel_fn cancel
             UINT n = left < sizeof(block) ? left : sizeof(block);
             if((cancel && cancel()) || !read_exact(file,block,n)) return KUI_COMPACT_ERROR;
             crc = kui_crc32_capture(crc,block,n);
+            if(digest) kui_sha256_update(&sha,block,n);
             left -= n;
         }
         if(crc != le32(header+4+4*i)) return KUI_COMPACT_INVALID;
     }
+    if(digest) kui_sha256_digest(&sha,digest);
     return KUI_COMPACT_OK;
+}
+enum kui_compact_result kui_compact_cover_verify(FIL *file,kui_cancel_fn cancel) {
+    return kui_compact_cover_verify_digest(file,cancel,NULL);
 }

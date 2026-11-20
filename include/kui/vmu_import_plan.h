@@ -17,6 +17,9 @@ enum kui_vmu_import_hint {
 struct kui_vmu_import_entry {
     uint16_t slot, blocks, header_offset;
     uint8_t type, hints;
+    /* Already validated physical header block in the immutable source image.
+     * Display code uses it without changing the match keys below. */
+    uint8_t header_block;
     char name[13];
     char short_description[17];
     char long_description[33];

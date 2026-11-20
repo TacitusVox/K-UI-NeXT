@@ -4,6 +4,8 @@
 #include "kui/probe.h"
 
 /* Storage worker only. Both files are open, dest is a new empty temp file.
- * On success dest contains at most ten seconds of muted KPV1 playback. */
-bool kui_internet_preview_convert(FIL *source, FIL *dest, kui_cancel_fn cancel, kui_log_fn log);
+ * On success dest contains at most ten seconds of KPV2 video and optional mono PCM.
+ * An optional readback CRC covers the emitted payload followed by its final header. */
+bool kui_internet_preview_convert(FIL *source, FIL *dest, kui_cancel_fn cancel, kui_log_fn log,
+                                  uint32_t *readback_crc);
 #endif

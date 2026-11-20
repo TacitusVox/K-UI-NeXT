@@ -3,10 +3,13 @@
  * two card filesystems. A synthetic HTTPS origin supplies original test media. */
 #define _POSIX_C_SOURCE 200809L
 #include "kui/internet.h"
+#include "kui/compact_cover.h"
+#include "kui/artwork_validators.h"
 #include "kui/hover_clip.h"
 #include "kui/internet_cover.h"
 #include "kui/games_covers.h"
 #include "kui/games_media.h"
+#include "kui/games_library.h"
 #include "kui/games_media_storage.h"
 #include "kui/games_storage.h"
 #include "kui/media.h"
@@ -24,9 +27,18 @@
 
 static FILE *card;
 static uint64_t sectors;
+static bool count_cleanup_reads;
+static unsigned cleanup_sectors_read;
 static const char *fixtures;
 static bool card_open;
-static unsigned covers, small_requests, pages, clips;
+static const char *blocked_preview_unlink;
+FRESULT __real_f_unlink(const TCHAR *path);
+FRESULT __wrap_f_unlink(const TCHAR *path) {
+    if(blocked_preview_unlink && !strcmp(path,blocked_preview_unlink)) return FR_DENIED;
+    return __real_f_unlink(path);
+}
+static unsigned covers, small_requests, pages, clips, connections;
+static unsigned art_revision, conditional_bodies, unchanged_responses;
 static bool used_small, large_source;
 static size_t origin_bytes;
 static const char opaque_url[]="https://fixtures.invalid/covers/13284?region=us";
@@ -40,7 +52,8 @@ bool __wrap_kui_internet_cover_url(const struct kui_games_disc_identity *id, cha
 }
 void kui_test_start_scan_heap(void);
 size_t kui_test_stop_scan_heap(void);
-static bool stopping,cancel_page,completed_prefix;
+static bool stopping,cancel_page,completed_prefix,missing_pages,fail_clip;
+static unsigned pdfs;
 static const char *release_url, *book_url;
 static unsigned page_count;
 
@@ -53,6 +66,7 @@ static void log_line(const char *fmt, ...) {
 }
 static uint64_t blocks(void *unused) { (void)unused; return sectors; }
 static int read_blocks(void *ctx, uint32_t block, size_t count, uint8_t *data) {
+    if(count_cleanup_reads) cleanup_sectors_read+=(unsigned)count;
     return fseeko(ctx, (off_t)block*512, SEEK_SET) || fread(data, 512, count, ctx) != count;
 }
 static int write_blocks(void *ctx, uint32_t block, size_t count, const uint8_t *data) {
@@ -74,6 +88,7 @@ static struct kui_internet mock;
 struct kui_internet *kui_internet_open(enum kui_internet_route route,kui_log_fn log,kui_cancel_fn cancel,char problem[128]) {
     (void)log;(void)problem;
     assert(route==KUI_INTERNET_AUTO && !cancel() && card_open && !mock.online);
+    ++connections;
     mock.online=true;
     return &mock;
 }
@@ -96,11 +111,16 @@ enum kui_http_result kui_internet_get_prefix(struct kui_internet *s,const char *
         used_small=true;
         asset="small.jpg"; ++covers;
     } else if(strstr(url,"Named_Boxarts/") && strstr(url,release_url) && strstr(url,".png")) {
-        asset="box.png";++covers;
+        asset=art_revision==2?"custom.png":"box.png";++covers;
     } else if(strstr(url,book_url) && strstr(url,"_w512.jpg")) {
-        asset="page.jpg";++pages;
+        ++pages;
+        if(missing_pages) return KUI_HTTP_MISSING;
+        asset="page.jpg";
+    } else if(strstr(url,"skies_arcadia.pdf")) {
+        asset="original.pdf"; ++pdfs;
     } else if(strstr(url,"/SegaDreamcastVideoSnaps/") && strstr(url,release_url) && strstr(url,".ogv")) {
         asset="clip.ogv";++clips;
+        if(fail_clip) return KUI_HTTP_CONNECT_FAILED;
     }
     if(!asset)fprintf(stderr,"Unexpected origin URL: %s\n",url);
     assert(asset);
@@ -123,7 +143,7 @@ enum kui_http_result kui_internet_get_prefix(struct kui_internet *s,const char *
         received+=(uint32_t)size;
         if(progress)progress(progress_ctx,received,total);
         if(complete && complete(ctx)) {
-            assert(clips==1 && received<total);
+            assert(asset && !strcmp(asset,"clip.ogv") && received<total);
             completed_prefix=true;
             break;
         }
@@ -139,6 +159,23 @@ enum kui_http_result kui_internet_get_prefix(struct kui_internet *s,const char *
 enum kui_http_result kui_internet_get(struct kui_internet *s,const char *url,uint32_t limit,
         kui_http_write_fn write,void *ctx,kui_http_progress_fn progress,void *progress_ctx) {
     return kui_internet_get_prefix(s,url,limit,write,ctx,progress,progress_ctx,NULL);
+}
+enum kui_http_result kui_internet_get_conditional(struct kui_internet *s,const char *url,uint32_t limit,
+        kui_http_write_fn sink,void *ctx,kui_http_progress_fn progress,void *progress_ctx,
+        const struct kui_http_validators *known,struct kui_http_validators *received) {
+    memset(received,0,sizeof(*received));
+    if(art_revision) {
+        if(strstr(url,"_thumb.jpg")) return KUI_HTTP_MISSING;
+        const char *tag=art_revision==2?"\"green\"":"\"original\"";
+        strcpy(received->etag,tag);
+        struct kui_sha256 hash;kui_sha256_init(&hash);kui_sha256_update(&hash,url,strlen(url));
+        kui_sha256_digest(&hash,received->resource);
+        if(known && !strcmp(known->etag,tag) && !memcmp(known->resource,received->resource,sizeof(known->resource))) {
+            ++unchanged_responses; return KUI_HTTP_NOT_MODIFIED;
+        }
+        ++conditional_bodies;
+    }
+    return kui_internet_get(s,url,limit,sink,ctx,progress,progress_ctx);
 }
 static bool cancelled(void) { return stopping; }
 static void report(const struct kui_app_status *s) {
@@ -178,13 +215,14 @@ static void copy_fixture(const char *name, const char *to) {
 }
 
 static void cover_only(struct kui_games_media_job *job, bool expect_fetch) {
-    unsigned previous=covers, attempts=small_requests;
+    unsigned previous=covers, attempts=small_requests, opens=connections;
     struct kui_app_status status;
     job->all=false;
     job->kinds=KUI_GAMES_MEDIA_ART;
     kui_games_media_run(job,&status,log_line,cancelled,report);
     assert(status.passed && covers==previous+(expect_fetch?1u:0u) && !card_open && !mock.online);
     if(!expect_fetch) assert(small_requests==attempts);
+    assert(connections==opens+(expect_fetch?1u:0u));
 }
 
 static void offline_scan(void) {
@@ -268,10 +306,101 @@ static void seed_old_download(const struct kui_games_entry *game) {
            (unsigned long)(info.fsize+KUI_COVER_FILE_BYTES), (unsigned)(16u+PIXEL_BYTES+KUI_COVER_HEADER_BYTES));
 }
 
+static void art_preference(enum kui_games_art_preference value) {
+    enum kui_games_art_preference loaded;
+    assert(kui_games_art_preference_save(value,log_line));
+    assert(kui_games_storage_release());
+    kui_games_covers_cache_clear();
+    assert(kui_games_art_preference_get(&loaded,log_line) && loaded == value);
+}
+
+static void check_sources(const struct kui_games_entry *game,const uint16_t *download) {
+    static uint16_t actual[PIXEL_BYTES/2];
+    unsigned mid=KUI_COVER_PIXELS/2+KUI_COVER_LARGE/2;
+    enum kui_games_art_preference loaded;
+    assert(kui_games_art_preference_get(&loaded,log_line) && loaded==KUI_GAMES_ART_DOWNLOADED_FIRST);
+    /* Model an existing card with only the internet download and its header. */
+    assert(kui_games_storage_open(log_line)==KUI_GAMES_STORAGE_OK);
+    FRESULT r=f_unlink(KUI_GAMES_COVERS_FOLDER "/Local Game.kcd");
+    assert((r==FR_OK || r==FR_NO_FILE) && kui_games_storage_release());
+    art_preference(KUI_GAMES_ART_DISC_FIRST);
+    visible_pixels(game,actual);
+    assert(actual[mid]==0x001f && memcmp(actual,download,sizeof(actual)));
+    struct kui_games_detail detail;
+    assert(kui_games_inspect_cover(game->path,&detail,actual,log_line,cancelled));
+    assert(detail.cover && actual[mid]==0x001f);
+
+    /* Remove the synthetic texture directory entry, as on a disc without
+     * 0GDTEX, then restore its exact original bytes. */
+    assert(kui_games_storage_open(log_line)==KUI_GAMES_STORAGE_OK);
+    FIL track;
+    UINT got;
+    const FSIZE_t root_at=20u*2352u+16u;
+    uint8_t sector[2048];
+    assert(f_open(&track,"0:/Games/Local Game/track03.bin",FA_READ|FA_WRITE)==FR_OK);
+    assert(f_lseek(&track,root_at)==FR_OK && f_read(&track,sector,sizeof(sector),&got)==FR_OK && got==sizeof(sector));
+    unsigned offset=0;
+    while(offset+10<sizeof(sector) && memcmp(sector+offset,"0GDTEX.PVR",10)) offset++;
+    assert(offset+10<sizeof(sector) && f_lseek(&track,root_at+offset)==FR_OK);
+    assert(f_write(&track,"X",1,&got)==FR_OK && got==1 && f_close(&track)==FR_OK);
+    assert(f_unlink(KUI_GAMES_COVERS_FOLDER "/Local Game.kcd")==FR_OK && kui_games_storage_release());
+    kui_games_covers_content_clear();
+    visible_pixels(game,actual);
+    assert(!memcmp(actual,download,sizeof(actual)));
+    assert(kui_games_storage_open(log_line)==KUI_GAMES_STORAGE_OK);
+    FILINFO info;
+    assert(f_stat(KUI_GAMES_COVERS_FOLDER "/Local Game.kcd",&info)==FR_OK && info.fsize==KUI_COVER_HEADER_BYTES);
+    assert(f_open(&track,"0:/Games/Local Game/track03.bin",FA_WRITE)==FR_OK && f_lseek(&track,root_at+offset)==FR_OK);
+    assert(f_write(&track,"0",1,&got)==FR_OK && got==1 && f_close(&track)==FR_OK);
+    assert(f_unlink(KUI_GAMES_COVERS_FOLDER "/Local Game.kcd")==FR_OK && kui_games_storage_release());
+
+    art_preference(KUI_GAMES_ART_DOWNLOADED_FIRST);
+    visible_pixels(game,actual);
+    assert(!memcmp(actual,download,sizeof(actual)));
+    assert(kui_games_inspect_cover(game->path,&detail,actual,log_line,cancelled));
+    assert(detail.cover && !memcmp(actual,download,KUI_COVER_PIXELS*2u));
+    /* Regional sets can both contain a selector named "Local Game".
+     * The second is scanned independently and cannot change the first. */
+    struct kui_games_entry second=*game;
+    strcpy(second.path,"/KUI/Regional/Local Game/disc.gdi");
+    bool present=true;
+    assert(kui_games_storage_open(log_line)==KUI_GAMES_STORAGE_OK);
+    assert(kui_games_prepare_media_cover(&second,&present,NULL,log_line,cancelled) && !present);
+    assert(kui_games_storage_release());
+    visible_pixels(&second,actual);
+    assert(actual[mid]==0xffe0);
+    assert(kui_games_inspect_cover(second.path,&detail,actual,log_line,cancelled) && detail.cover);
+    assert(actual[mid]==0xffe0 && !strcmp(detail.title,"OTHER REGION"));
+    visible_pixels(game,actual);
+    assert(!memcmp(actual,download,sizeof(actual)));
+    /* Temporarily missing master: show disc art, then pick up the restored
+     * preferred source even when the console's art cache is warm. */
+    char master[KUI_GAMES_FILE_CAP];
+    assert(kui_media_file_path(game,KUI_MEDIA_COVER,master));
+    assert(kui_games_storage_open(log_line)==KUI_GAMES_STORAGE_OK);
+    assert(f_rename(master,KUI_DOWNLOADED_COVERS "/held.kct")==FR_OK && kui_games_storage_release());
+    kui_games_covers_content_clear();
+    visible_pixels(game,actual);
+    assert(actual[mid]==0x001f);
+    assert(kui_games_storage_open(log_line)==KUI_GAMES_STORAGE_OK);
+    assert(f_rename(KUI_DOWNLOADED_COVERS "/held.kct",master)==FR_OK && kui_games_storage_release());
+    visible_pixels(game,actual);
+    assert(!memcmp(actual,download,sizeof(actual)));
+}
+
+static void expect_cover_owner(const struct kui_games_entry *entry,enum kui_games_media_cover_state expected) {
+    enum kui_games_media_cover_state state;
+    assert(kui_games_storage_open(log_line)==KUI_GAMES_STORAGE_OK);
+    assert(kui_games_prepare_media_cover_state(entry,&state,NULL,log_line,cancelled) && state==expected);
+    assert(kui_games_storage_release());
+}
+
 static void exercise_cover(struct kui_games_media_job *job, const char *thumbs) {
     static uint16_t reference[PIXEL_BYTES/2], after[PIXEL_BYTES/2];
     const struct kui_games_entry *game=&job->selected;
     visible_pixels(game,reference);
+    expect_cover_owner(game,KUI_GAMES_MEDIA_COVER_MANAGED);
+    check_sources(game,reference);
     if(thumbs) {
         FILE *out=fopen(thumbs,"wb");
         assert(out);
@@ -290,22 +419,31 @@ static void exercise_cover(struct kui_games_media_job *job, const char *thumbs) 
     if(!used_small) {
         seed_old_download(game);
         assert(kui_games_storage_release());
-        kui_games_covers_cache_clear();
+        art_preference(KUI_GAMES_ART_DISC_FIRST);
+        visible_pixels(game,after);
+        assert(after[KUI_COVER_PIXELS/2+KUI_COVER_LARGE/2]==0x001f);
         cover_only(job,false);
+        art_preference(KUI_GAMES_ART_DOWNLOADED_FIRST);
         assert(kui_games_storage_open(log_line)==KUI_GAMES_STORAGE_OK);
         assert_new_layout(game,reference);
     }
     copy_fixture("custom.png",LOOSE_PATH);
     assert(kui_games_storage_release());
     offline_scan();
+    expect_cover_owner(game,KUI_GAMES_MEDIA_COVER_OWNER);
+    art_preference(KUI_GAMES_ART_DISC_FIRST);
     visible_pixels(game,after);
     assert(after[KUI_COVER_PIXELS/2+KUI_COVER_LARGE/2]==0x07e0);
+    art_preference(KUI_GAMES_ART_DOWNLOADED_FIRST);
     cover_only(job,false);
     assert(kui_games_storage_open(log_line)==KUI_GAMES_STORAGE_OK);
     assert(f_unlink(LOOSE_PATH)==FR_OK && kui_games_storage_release());
     offline_scan();
     visible_pixels(game,after);
     assert(!memcmp(reference,after,sizeof(after)));
+    art_preference(KUI_GAMES_ART_DISC_FIRST);
+    strcpy(job->selected.cover_path,"/kui/owner-removed.png");
+    expect_cover_owner(game,KUI_GAMES_MEDIA_COVER_OWNER);
     strcpy(job->selected.cover_path,"/kui/owner.png");
     kui_games_covers_cache_clear();
     cover_only(job,false);
@@ -356,10 +494,345 @@ static void exercise_cover(struct kui_games_media_job *job, const char *thumbs) 
     }
     assert(kui_games_storage_release());
 }
+static bool scan_discs(const struct kui_games_entry *disc,unsigned kinds,bool all) {
+    struct kui_games_media_job job={.selected=*disc,.kinds=kinds,.all=all};
+    struct kui_app_status status;
+    kui_games_media_run(&job,&status,log_line,cancelled,report);
+    assert(!card_open && !mock.online);
+    return status.passed;
+}
+
+static void verify_legacy_bytes(const char *path) {
+    FIL file;
+    struct kui_media_index index;
+    static uint16_t pixels[KUI_PREVIEW_FRAME_BYTES/2u];
+    assert(f_open(&file,path,FA_READ)==FR_OK && kui_media_container_index(&file,false,&index));
+    assert(index.version==1 && index.count==1 && index.audio_rate==0);
+    assert(kui_preview_read_frame(&file,index.count,0,pixels,NULL));
+    for(unsigned i=0; i<KUI_PREVIEW_FRAME_BYTES/2u; ++i) assert(pixels[i]==0xa55a);
+    assert(f_close(&file)==FR_OK);
+}
+
+static uint64_t preview_free_bytes(void) {
+    FATFS *fs;
+    DWORD clusters;
+    assert(f_getfree("0:",&clusters,&fs)==FR_OK);
+    return (uint64_t)clusters*fs->csize*512u;
+}
+static struct kui_internet *unexpected_preview_connection(void *ctx) {
+    (void)ctx; assert(!"Cleanup of an installed preview must work offline"); return NULL;
+}
+
+static void card_digest(const char *path,uint8_t digest[32]) {
+    FIL file;
+    uint8_t buf[8192];
+    struct kui_sha256 hash;
+    kui_sha256_init(&hash);
+    assert(f_open(&file,path,FA_READ)==FR_OK);
+    while(f_tell(&file)<f_size(&file)) {
+        UINT got;
+        assert(f_read(&file,buf,sizeof(buf),&got)==FR_OK && got);
+        kui_sha256_update(&hash,buf,got);
+    }
+    assert(f_close(&file)==FR_OK);
+    kui_sha256_digest(&hash,digest);
+}
+
+static void change_card_byte(const char *path,unsigned offset) {
+    FIL f;
+    UINT got;
+    uint8_t byte;
+    assert(f_open(&f,path,FA_READ|FA_WRITE)==FR_OK && f_lseek(&f,offset)==FR_OK);
+    assert(f_read(&f,&byte,1,&got)==FR_OK && got==1);
+    byte^=0x20;
+    assert(f_lseek(&f,offset)==FR_OK && f_write(&f,&byte,1,&got)==FR_OK && got==1 && f_close(&f)==FR_OK);
+}
+
+static unsigned validator_count(void) {
+    DIR directory;FILINFO info;unsigned count=0;
+    assert(f_opendir(&directory,"0:/KUI/media/art-checks")==FR_OK);
+    for(;;) {
+        assert(f_readdir(&directory,&info)==FR_OK);
+        if(!info.fname[0])break;
+        const char *ext=strrchr(info.fname,'.');
+        if(ext && !strcmp(ext,".kav"))++count;
+    }
+    assert(f_closedir(&directory)==FR_OK);return count;
+}
+
+static void validators_on_card(const char *master) {
+    const char *release="Validator fixture (Europe)", *first="https://fixture.invalid/front.jpg#kui-tile-00001000-ab123456";
+    const char *second="https://fixture.invalid/front.png";
+    struct kui_http_validators a={.etag="\"a\"", .modified="Fri, 20 Nov 2026 05:01:13 GMT",.resource={1}},
+        b={.etag="W/\"b\"",.resource={2}}, out;
+    assert(!kui_artwork_validators_load(release,true,master,first,&out) && !out.etag[0]);
+    FRESULT dir=f_mkdir("0:/KUI/media");assert(dir==FR_OK || dir==FR_EXIST);
+    dir=f_mkdir("0:/KUI/media/art-checks");assert(dir==FR_OK || dir==FR_EXIST);
+    unsigned before=validator_count();
+    /* Old KAV1 files bound their source hash to a specific native filename. */
+    uint8_t old[324]={'K','A','V','1'};
+    struct kui_sha256 hash;
+    kui_sha256_init(&hash);kui_sha256_update(&hash,master,strlen(master)+1u);
+    kui_sha256_update(&hash,first,strlen(first));kui_sha256_digest(&hash,old+4);
+    card_digest(master,old+36);memcpy(old+68,a.resource,32);
+    memcpy(old+100,a.etag,strlen(a.etag));memcpy(old+228,a.modified,strlen(a.modified));
+    kui_sha256_init(&hash);kui_sha256_update(&hash,old,292);kui_sha256_digest(&hash,old+292);
+    char old_path[96],hex[33];kui_hex(old+4,16,hex);
+    snprintf(old_path,sizeof(old_path),"0:/KUI/media/art-checks/%s.kav",hex);
+    FIL f;UINT n;
+    assert(f_open(&f,old_path,FA_WRITE|FA_CREATE_NEW)==FR_OK);
+    assert(f_write(&f,old,sizeof(old),&n)==FR_OK && n==sizeof(old) && f_close(&f)==FR_OK);
+    assert(kui_artwork_validators_load(release,true,master,first,&out) && !memcmp(&a,&out,sizeof(a)));
+    assert(kui_artwork_validators_save(release,true,master,first,&a) && kui_artwork_validators_save(release,false,master,second,&b));
+    FILINFO fi;
+    assert(f_stat(old_path,&fi)==FR_NO_FILE && validator_count()==before+2);
+    assert(kui_artwork_validators_load(release,true,master,first,&out) && !memcmp(&out,&a,sizeof(out)));
+    assert(kui_artwork_validators_load(release,false,master,second,&out) && !memcmp(&out,&b,sizeof(out)));
+    /* A stale ETag must not skip a request after other KCT pixels were
+     * committed or damaged, even if the KCT header has its original CRCs. */
+    change_card_byte(master,10000);
+    assert(!kui_artwork_validators_load(release,true,master,first,&out) && !out.etag[0]);
+    change_card_byte(master,10000);
+    assert(kui_artwork_validators_load(release,true,master,first,&out));
+    uint8_t pixels[32],after[32],source[32];
+    card_digest(master,pixels);
+    /* Make a metadata write fail before publication; the cover and its prior
+     * validator are still readable. */
+    const char *temp="0:/KUI/media/art-checks/write.tmp";
+    assert(f_mkdir(temp)==FR_OK && !kui_artwork_validators_save(release,true,master,first,&b));
+    assert(f_unlink(temp)==FR_OK && kui_artwork_validators_load(release,true,master,first,&out) && !strcmp(out.etag,a.etag));
+    /* Locate this specific sidecar even if the real downloader has already
+     * stored other source validators in the same directory. */
+    uint8_t role=1;
+    kui_sha256_init(&hash);kui_sha256_update(&hash,"KAV2",4);
+    kui_sha256_update(&hash,release,strlen(release)+1u);kui_sha256_update(&hash,&role,1);
+    kui_sha256_digest(&hash,source);
+    char side[96]; kui_hex(source,16,hex);
+    assert(snprintf(side,sizeof(side),"0:/KUI/media/art-checks/%s.kav",hex)<(int)sizeof(side));
+    change_card_byte(side,50);
+    assert(!kui_artwork_validators_load(release,true,master,first,&out));
+    assert(kui_artwork_validators_load(release,false,master,second,&out));
+    FIL file;
+    assert(f_open(&file,side,FA_WRITE)==FR_OK && f_lseek(&file,9)==FR_OK);
+    assert(f_truncate(&file)==FR_OK && f_close(&file)==FR_OK);
+    assert(!kui_artwork_validators_load(release,true,master,first,&out));
+    assert(kui_artwork_validators_save(release,true,master,first,&a) && kui_artwork_validators_load(release,true,master,first,&out));
+    /* Both a changed URL/pin and changed native bytes must invalidate the
+     * previous condition. Five different native revisions use those same
+     * two slots. Restoring the test master leaves the scan fixture intact. */
+    for(unsigned i=0;i<5;i++) {
+        char moved[96],source_url[100];
+        snprintf(moved,sizeof(moved),"0:/KUI/media/validator-revision-%u.kct",i);
+        snprintf(source_url,sizeof(source_url),"https://fixture.invalid/front.jpg#kui-tile-00002000-%08x",i);
+        assert(f_rename(master,moved)==FR_OK);
+        change_card_byte(moved,512+i);
+        assert(!kui_artwork_validators_load(release,true,moved,source_url,&out));
+        assert(kui_artwork_validators_save(release,true,moved,source_url,&a));
+        assert(kui_artwork_validators_load(release,true,moved,source_url,&out) && !memcmp(&out,&a,sizeof(a)));
+        assert(!kui_artwork_validators_load(release,true,moved,first,&out));
+        assert(validator_count()==before+2);
+        change_card_byte(moved,512+i);
+        assert(!kui_artwork_validators_load(release,true,moved,source_url,&out));
+        assert(f_rename(moved,master)==FR_OK);
+    }
+    memset(&a,0,sizeof(a));
+    assert(kui_artwork_validators_save(release,true,master,first,&a) && !kui_artwork_validators_load(release,true,master,first,&out));
+    assert(kui_artwork_validators_load(release,false,master,second,&out) && !strcmp(out.etag,b.etag));
+    card_digest(master,after); assert(!memcmp(pixels,after,sizeof(pixels)));
+    puts("PASS bounded artwork validators, legacy migration, changed source/pin, interrupted writes and corrupt records");
+}
+
+#include "artwork_publish_faults.inc"
+#include "media_scan_report_card.inc"
+#include "artwork_cleanup_card.inc"
+
+static void refresh_disc_art(const struct kui_games_entry *e,enum kui_artwork_mode mode,bool all) {
+    struct kui_games_media_job job={.selected=*e,.kinds=KUI_GAMES_MEDIA_ART,.all=all,.artwork_mode=mode};
+    struct kui_app_status status;
+    kui_games_media_run(&job,&status,log_line,cancelled,report);
+    assert(status.passed && !mock.online && !card_open);
+}
+static void grouped_front_covers(const struct kui_games_entry *one,const struct kui_games_entry *two) {
+    assert(scan_discs(two,KUI_GAMES_MEDIA_ART,false) && covers);
+    unsigned attempts=connections;
+    assert(scan_discs(one,KUI_GAMES_MEDIA_ART,false) && connections==attempts);
+    char master[KUI_GAMES_FILE_CAP], member[KUI_GAMES_FILE_CAP];
+    assert(kui_media_file_path(one,KUI_MEDIA_COVER,master) && kui_media_file_path(two,KUI_MEDIA_COVER,member));
+    assert(strcmp(master,member) && kui_games_storage_open(log_line)==KUI_GAMES_STORAGE_OK);
+    FIL file;
+    FILINFO info;
+    assert(f_stat(master,&info)==FR_OK && info.fsize==KUI_COMPACT_COVER_BYTES);
+    validators_on_card(master);
+    char link[36];
+    UINT got;
+    assert(f_open(&file,member,FA_READ)==FR_OK && f_size(&file)==sizeof(link));
+    assert(f_read(&file,link,sizeof(link),&got)==FR_OK && got==sizeof(link) && f_close(&file)==FR_OK);
+    assert(!memcmp(link,"KCL1",4) && !memcmp(link+4,strrchr(master,'/')+1,32));
+    assert(kui_games_storage_release());
+    static uint16_t primary[(KUI_COMPACT_COVER_BYTES-KUI_COMPACT_COVER_HEADER)/2u];
+    static uint16_t secondary[(KUI_COMPACT_COVER_BYTES-KUI_COMPACT_COVER_HEADER)/2u];
+    visible_pixels(one,primary);
+    visible_pixels(two,secondary);
+    assert(!memcmp(primary,secondary,sizeof(primary)));
+    artwork_publish_faults(one,two,primary,master);
+    art_revision=1;conditional_bodies=unchanged_responses=0;
+    refresh_disc_art(two,KUI_ART_CHECK,false);
+    assert(conditional_bodies==1 && unchanged_responses==0);
+    refresh_disc_art(two,KUI_ART_CHECK,false);
+    assert(conditional_bodies==1 && unchanged_responses==1);
+    refresh_disc_art(two,KUI_ART_REDOWNLOAD,false);
+    assert(conditional_bodies==2 && unchanged_responses==1);
+    art_revision=2;
+    refresh_disc_art(one,KUI_ART_CHECK,true);
+    assert(conditional_bodies==3 && unchanged_responses==1);
+    visible_pixels(one,primary);
+    visible_pixels(two,secondary);
+    assert(!memcmp(primary,secondary,sizeof(primary)) && primary[80u*160u+80u]==0x07e0);
+    unsigned checked=connections;
+    refresh_disc_art(one,KUI_ART_MISSING,true);
+    assert(connections==checked && conditional_bodies==3);
+    refresh_disc_art(one,KUI_ART_CHECK,true);
+    assert(conditional_bodies==3 && unchanged_responses==2);
+    art_revision=0;
+    puts("PASS legacy cover validation, no-body 304, forced transfer and one changed regional cover for both discs");
+}
+static void multidisc_media(void) {
+    kui_games_storage_hold(true);
+    struct kui_games_page rows, members;
+    assert(kui_games_library_scan("/Games",false,log_line,cancelled));
+    assert(kui_games_library_rows("/Games","",0,KUI_GAMES_VIEW_LIST,&rows,log_line,cancelled));
+    assert(rows.count==2);
+    struct kui_games_entry *group=rows.entries, *unrelated=rows.entries+1;
+    if(!group->group[0]) { group=rows.entries+1; unrelated=rows.entries; }
+    assert(group->group[0] && !unrelated->group[0]);
+    assert(kui_games_library_rows("/Games",group->group,0,KUI_GAMES_VIEW_LIST,&members,log_line,cancelled));
+    assert(members.count==2 && members.entries[0].disc==1 && members.entries[1].disc==2);
+    struct kui_games_entry *one=members.entries,*two=members.entries+1;
+    grouped_front_covers(one,two);
+    char kdm[KUI_GAMES_FILE_CAP],kpv[KUI_GAMES_FILE_CAP],pdf[KUI_GAMES_FILE_CAP],path[KUI_GAMES_FILE_CAP];
+    assert(kui_media_file_path(one,KUI_MEDIA_MANUAL,kdm) && kui_media_file_path(two,KUI_MEDIA_MANUAL,path) && !strcmp(kdm,path));
+    assert(kui_media_file_path(one,KUI_MEDIA_PREVIEW,kpv) && kui_media_file_path(two,KUI_MEDIA_PREVIEW,path) && !strcmp(kpv,path));
+    assert(kui_media_original_path(one,KUI_MEDIA_MANUAL,pdf) && kui_media_original_path(two,KUI_MEDIA_MANUAL,path) && !strcmp(pdf,path));
+    assert(kui_games_media_path(one->path,"0:/KUI/media","kpv",path,sizeof(path)) && !strcmp(kpv,path));
+    assert(kui_media_file_path(unrelated,KUI_MEDIA_PREVIEW,path) && strcmp(kpv,path));
+    assert(kui_media_file_path(unrelated,KUI_MEDIA_MANUAL,path) && strcmp(kdm,path));
+    assert(kui_media_original_path(unrelated,KUI_MEDIA_MANUAL,path) && strcmp(pdf,path));
+    /* Request Disc 2 before its sibling. A missing page source falls back to
+     * the original PDF. Both siblings subsequently find the same file offline. */
+    missing_pages=true;
+    assert(scan_discs(two,KUI_GAMES_MEDIA_MANUAL|KUI_GAMES_MEDIA_PREVIEW,false));
+    assert(pages==1 && clips==1 && pdfs==1);
+    unsigned opens=connections;
+    assert(scan_discs(one,KUI_GAMES_MEDIA_MANUAL|KUI_GAMES_MEDIA_PREVIEW,false));
+    assert(connections==opens);
+    assert(kui_games_storage_open(log_line)==KUI_GAMES_STORAGE_OK);
+    FILINFO info;
+    assert(f_stat(pdf,&info)==FR_OK && info.fsize>64);
+    verify_media(one,KUI_MEDIA_PREVIEW,100);
+    struct kui_hover_clip hover={0};
+    assert(kui_hover_clip_open(&hover,one,log_line,cancelled) && hover.audio_rate==16000);
+    int16_t *pcm=kui_preview_load_audio(&hover.file,hover.frames,hover.audio_rate,NULL);
+    assert(pcm);
+    unsigned audible=0;
+    for(unsigned i=0;i<160000u;++i) if(pcm[i]>32 || pcm[i]<-32) ++audible;
+    assert(audible>100000u);
+    free(pcm);
+    kui_hover_clip_close(&hover);
+    assert(f_unlink(pdf)==FR_OK);
+    char peer[KUI_GAMES_FILE_CAP],other[KUI_GAMES_FILE_CAP];
+    assert(kui_games_media_path(two->path,"0:/KUI/media","kpv",peer,sizeof(peer)) && strcmp(peer,kpv));
+    assert(kui_media_file_path(unrelated,KUI_MEDIA_PREVIEW,other));
+    copy_fixture("legacy.kpv",kpv);
+    assert(f_rename(kpv,peer)==FR_OK);
+    verify_legacy_bytes(peer);
+    assert(kui_games_storage_release());
+    /* New readable pages share the same group cache; the unrelated title
+     * has its own key and has no matching catalogue assets. */
+    missing_pages=false;
+    assert(scan_discs(two,KUI_GAMES_MEDIA_MANUAL,false));
+    assert(pages==page_count+1 && pdfs==1);
+    opens=connections;
+    assert(scan_discs(one,KUI_GAMES_MEDIA_MANUAL,false));
+    assert(connections==opens && clips==1);
+    assert(kui_games_storage_open(log_line)==KUI_GAMES_STORAGE_OK);
+    verify_media(one,KUI_MEDIA_MANUAL,page_count);
+    verify_legacy_bytes(peer);
+    assert(kui_games_storage_release());
+    /* A whole-library scan attempts the older preview once for the set.
+     * On failure it remains playable, and on the next scan both discs
+     * receive the new soundtrack without any per-disc selection. */
+    fail_clip=true;
+    assert(!scan_discs(one,KUI_GAMES_MEDIA_PREVIEW,true) && clips==2);
+    assert(kui_games_storage_open(log_line)==KUI_GAMES_STORAGE_OK);
+    verify_legacy_bytes(peer);
+    assert(f_stat(kpv,&info)==FR_NO_FILE);
+    assert(kui_hover_clip_open(&hover,two,log_line,cancelled) && hover.frames==1 && !hover.audio_rate);
+    kui_hover_clip_close(&hover);
+    assert(kui_games_storage_release());
+    fail_clip=false;
+    assert(scan_discs(one,KUI_GAMES_MEDIA_PREVIEW,true) && clips==3);
+    opens=connections;
+    assert(scan_discs(one,KUI_GAMES_MEDIA_PREVIEW,true) && connections==opens && clips==3);
+    assert(scan_discs(one,KUI_GAMES_MEDIA_PREVIEW,false) && connections==opens && clips==3);
+    assert(kui_games_storage_open(log_line)==KUI_GAMES_STORAGE_OK);
+    assert(f_stat(kpv,&info)==FR_NO_FILE && f_stat(peer,&info)==FR_NO_FILE);
+    assert(kui_hover_clip_open(&hover,one,log_line,cancelled) && hover.frames==100 && hover.audio_rate==16000);
+    kui_hover_clip_close(&hover);
+    /* Model an earlier build (or a reset just after installing KPV2) with
+     * legacy copies in both member slots plus a separate title's clip. */
+    copy_fixture("legacy.kpv",kpv); copy_fixture("legacy.kpv",peer); copy_fixture("legacy.kpv",other);
+    uint64_t with_obsolete=preview_free_bytes();
+    assert(kui_games_storage_release());
+    struct kui_media_game retry={.entry=two};
+    blocked_preview_unlink=kpv;
+    assert(kui_media_fetch_internet(&retry,KUI_MEDIA_PREVIEW,unexpected_preview_connection,log_line,
+        cancelled,NULL,NULL)==KUI_MEDIA_EXISTING && retry.preview_cleanup_pending && !retry.previews_removed);
+    assert(kui_games_storage_release());
+    blocked_preview_unlink=NULL;
+    assert(kui_media_fetch_internet(&retry,KUI_MEDIA_PREVIEW,unexpected_preview_connection,log_line,
+        cancelled,NULL,NULL)==KUI_MEDIA_EXISTING && !retry.preview_cleanup_pending && retry.previews_removed==2);
+    assert(kui_games_storage_open(log_line)==KUI_GAMES_STORAGE_OK);
+    assert(f_stat(kpv,&info)==FR_NO_FILE && f_stat(peer,&info)==FR_NO_FILE);
+    verify_legacy_bytes(other);
+    uint64_t reclaimed=preview_free_bytes()-with_obsolete;
+    assert(reclaimed>=2u*(KUI_PREVIEW_HEADER_BYTES+KUI_PREVIEW_FRAME_BYTES));
+    printf("PASS reclaimed %llu bytes across two superseded previews on an offline retry\n",
+           (unsigned long long)reclaimed);
+    assert(kui_games_storage_release());
+    /* Older builds may have downloaded both assets only for Disc 2. Model
+     * that card, then scan Disc 1 first without any shared file to find. */
+    assert(kui_games_storage_open(log_line)==KUI_GAMES_STORAGE_OK);
+    char shared[2][KUI_GAMES_FILE_CAP], old[2][KUI_GAMES_FILE_CAP];
+    uint8_t before[2][32], after[32];
+    const char *formats[]={"kdm","kp2"};
+    for(unsigned i=0;i<2;++i) {
+        assert(kui_games_media_path(one->path,"0:/KUI/media",formats[i],shared[i],sizeof(shared[i])));
+        assert(kui_games_media_path(two->path,"0:/KUI/media",formats[i],old[i],sizeof(old[i])));
+        assert(strcmp(old[i],shared[i]) && f_rename(shared[i],old[i])==FR_OK);
+        card_digest(old[i],before[i]);
+        assert(f_stat(shared[i],&info)==FR_NO_FILE);
+    }
+    assert(kui_games_storage_release());
+    opens=connections;
+    assert(scan_discs(one,KUI_GAMES_MEDIA_MANUAL|KUI_GAMES_MEDIA_PREVIEW,false));
+    assert(connections==opens && kui_games_storage_open(log_line)==KUI_GAMES_STORAGE_OK);
+    for(unsigned i=0;i<2;++i) {
+        card_digest(shared[i],after);
+        assert(!memcmp(before[i],after,sizeof(after)) && f_stat(old[i],&info)==FR_NO_FILE);
+    }
+    verify_media(one,KUI_MEDIA_MANUAL,page_count);
+    assert(kui_hover_clip_open(&hover,one,log_line,cancelled) && hover.frames==100 && hover.audio_rate==16000);
+    kui_hover_clip_close(&hover);
+    assert(kui_games_storage_release());
+    puts("PASS grouped disc media, PDF fallback, offline reuse, interrupted and successful legacy audio refresh");
+}
+
 int main(int argc,char **argv) {
+    fault_card_path=argc>1 ? argv[1] : NULL;
     if(argc<3 || argc>5) return 2;
     large_source=argc==5 && !strcmp(argv[4],"4k");
-    bool skies=argc==5 && !strcmp(argv[4],"skies");
+    bool discs=argc==5 && !strcmp(argv[4],"discs");
+    bool skies=discs || (argc==5 && !strcmp(argv[4],"skies"));
     release_url=skies?"Skies%20of%20Arcadia":"Crazy%20Taxi";
     book_url=skies?"/Skies_Of_Arcadia_2000_U/page/n":"/Crazy_Taxi_2000_U/page/n";
     page_count=skies?18:13;
@@ -368,6 +841,17 @@ int main(int argc,char **argv) {
     struct stat st;
     assert(card && !fstat(fileno(card),&st));
     sectors=(uint64_t)st.st_size/512;
+    if(argc==5 && !strcmp(argv[4],"cleanup")) {
+        artwork_cleanup_card();
+        assert(!fclose(card));
+        return 0;
+    }
+    if(discs) {
+        media_scan_report_card();
+        multidisc_media();
+        assert(!fclose(card));
+        return 0;
+    }
     struct kui_games_page page;
     assert(kui_games_list("/Games",0,&page,log_line,cancelled) && page.count==1);
     struct kui_games_media_job job = {.all=true,.kinds=KUI_GAMES_MEDIA_ART|KUI_GAMES_MEDIA_MANUAL|KUI_GAMES_MEDIA_PREVIEW,
@@ -377,6 +861,22 @@ int main(int argc,char **argv) {
     struct kui_games_scan_counts counts;
     assert(kui_games_scan(&status,&counts,report,log_line,cancelled) && counts.disc==1);
     kui_games_storage_hold(true);
+    /* A fresh cover record can supply the same IP identity as a direct
+     * image read. A previously built record cannot vouch for a live IP. */
+    struct kui_games_entry probe=job.selected;
+    strcpy(probe.name,"Identity test");
+    struct kui_games_disc_identity identity={0},direct;
+    bool present;
+    assert(kui_games_storage_open(log_line)==KUI_GAMES_STORAGE_OK);
+    assert(kui_games_media_identity(probe.path,&direct,log_line,cancelled)==KUI_GAMES_IDENTITY_FOUND);
+    assert(kui_games_prepare_media_cover(&probe,&present,&identity,log_line,cancelled) && !present);
+    assert(identity.number==1 && identity.total==1 && !strcmp(identity.version,"V1.000"));
+    assert(identity.number==direct.number && identity.total==direct.total && !strcmp(identity.version,direct.version));
+    assert(identity.product[0] && !strcmp(identity.product,direct.product) &&
+        !strcmp(identity.title,direct.title) && !strcmp(identity.region,direct.region));
+    memset(&identity,0,sizeof(identity));
+    assert(kui_games_prepare_media_cover(&probe,&present,&identity,log_line,cancelled) && !present && !identity.product[0]);
+    assert(kui_games_storage_release());
     if(large_source) {
         static uint16_t pixels[PIXEL_BYTES/2];
         job.all=false;
@@ -427,10 +927,14 @@ int main(int argc,char **argv) {
     assert(!hover.open && !mock.online);
     assert(completed_prefix);
     assert(kui_games_storage_release());
-    /* Selected-game run must reuse the completed files without another GET. */
-    job.all=false;
-    kui_games_media_run(&job,&status,log_line,cancelled,report);
-    assert(status.passed && small_requests==1 && covers==1 && pages==1+page_count && clips==1 && !card_open);
+    /* Both scan scopes reuse completed files without opening a connection. */
+    unsigned opens=connections;
+    for(unsigned scope=0;scope<2;++scope) {
+        job.all=scope==0;
+        kui_games_media_run(&job,&status,log_line,cancelled,report);
+        assert(status.passed && connections==opens && small_requests==1 &&
+            covers==1 && pages==1+page_count && clips==1 && !card_open);
+    }
     exercise_cover(&job,argc>=4 && strcmp(argv[3],"-") ? argv[3] : NULL);
     assert(!card_open && !fclose(card));
     puts("PASS library download, on-card pixels/pages/frames, and selected-game skip");

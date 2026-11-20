@@ -15,7 +15,7 @@ from test_images import run
 
 ROOT = Path(__file__).resolve().parents[1]
 BINARY = str(ROOT / "build/games-library-image")
-CASES = ("cold", "groups", "stale", "cancel", "cancel-before", "cancel-readback",
+CASES = ("cold", "groups", "stale", "rescan-subfolders", "rebuild-subfolders", "scan-volume-root", "cancel", "cancel-before", "cancel-readback",
          "first-write-fail", "load-read-fail", "corrupt-newer", "pending-newer", "epoch", "corrupt-epoch",
          "volume-identity", "generation-read-fail", "source-read-fail", "failed-invalidation-readonly",
          "activity", "activity-write-fail", "activity-corrupt")
@@ -26,9 +26,9 @@ CASES += EDITOR_CASES + ("catalogue-v2", "catalogue-v3")
 GROUP_CASES = ("capture-groups", "capture-duplicates", "capture-release-conflict", "capture-invalid",
                "capture-read-fail", "capture-cancel", "capture-passport", "capture-duplicate-copy", "capture-two-releases", "capture-label-collision",
                "capture-activity", "capture-activity-explicit", "capture-activity-capacity")
-GROUP_CASES += ("mixed-recv", "mixed-recv-reverse", "mixed-recv-release", "mixed-recv-invalid",
+GROUP_CASES += ("numbered-media", "mixed-recv", "mixed-recv-reverse", "mixed-recv-release", "mixed-recv-invalid",
                 "mixed-recv-marker", "mixed-recv-duplicate", "mixed-recv-io")
-CASES += GROUP_CASES
+CASES += GROUP_CASES + ("extracted-sources", "recent-folders")
 
 
 def private_formatter(base):
@@ -68,7 +68,40 @@ def fixture(base, enhanced=False, capture_case=None):
         folder.mkdir(parents=True)
         (folder / "selected.iso").write_bytes(b"SYNTHETIC IMAGE; LISTING ONLY")
     (base / "KUI").mkdir()
-    if capture_case and capture_case.startswith("mixed-recv"):
+    if capture_case == "extracted-sources":
+        wrapped = games / "Armada"
+        make_fixture(wrapped / "Extracted", b"ARMADA", gdi_name="Armada.gdi")
+        run(sys.executable, str(ROOT / "tools/gdi_optimize.py"), str(wrapped / "Extracted/Armada.gdi"),
+            str(wrapped / "Extracted-2048"))
+        (wrapped / "MDK2.iso").write_bytes(b"TEMPORARY TEST IMAGE")
+        (wrapped / ".Trash-1000").mkdir()
+        (wrapped / "Extracted/._Armada.gdi").write_bytes(b"HIDDEN SIDECAR")
+        make_fixture(games / "Only raw/extracted", b"ONLY RAW")
+        make_fixture(games / "Direct", b"DIRECT")
+        (games / "Direct/extracted").mkdir()
+        (games / "Direct/extracted-2048").mkdir()
+        (games / "Direct/extracted-2048/README.txt").write_text("Sidecar folder")
+        (games / "Direct/Artwork").mkdir()
+        (games / "Direct/Artwork/cover.jpg").write_bytes(b"SIDECAR")
+        make_fixture(games / "Collection/extracted", b"FIRST")
+        make_fixture(games / "Collection/Other game", b"SECOND")
+        make_fixture(games / "Disc set/extracted", b"DISC ONE")
+        make_fixture(games / "Disc set/extracted-2048", b"SECOND RAW DISC")
+        make_fixture(games / "Independent/extracted", b"ONE")
+        (games / "Independent/extracted/another.cdi").write_bytes(b"OTHER SELECTOR")
+    elif capture_case == "numbered-media":
+        for family in ("Verified", "Mixed region", "Mixed revision"):
+            for disc in (1, 2):
+                folder = games / f"{family} Disc {disc}"
+                make_fixture(folder, b"VERIFIED TEST")
+                track = folder / "track03.bin"
+                data = bytearray(track.read_bytes())
+                data[48:64] = f"5BFD GD-ROM{disc}/2  ".encode()
+                data[64:72] = b"J       " if family == "Mixed region" and disc == 2 else b"E       "
+                data[80:90] = b"KUI-1234  "
+                data[90:96] = b"V1.002" if family == "Mixed revision" and disc == 2 else b"V1.001"
+                track.write_bytes(data)
+    elif capture_case and capture_case.startswith("mixed-recv"):
         # The owner's 2026-10-28 Library-startup-01.zip manifest names the
         # original pair exactly this way: unnumbered Disc1, explicitly D2.
         # Fixed fields are the owner's Disc1 IP / Redump Disc2 (2876) fields;
@@ -185,7 +218,7 @@ def main():
         formatter = None
         capture_sources = {}
         for case in args.case or CASES:
-            if case in GROUP_CASES:
+            if case in GROUP_CASES or case == "extracted-sources":
                 capture_sources[case] = base / case
                 fixture(capture_sources[case], capture_case=case)
         for kind in ("fat32", "exfat"):

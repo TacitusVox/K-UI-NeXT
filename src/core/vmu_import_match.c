@@ -368,7 +368,7 @@ static void label_group(const struct kui_vmu_import_plan *plan,
             if(informative(text,cap)) {label=text;break;}
         }
     if(!label) for(unsigned i=0;i<plan->entry_count;i++) if(member(group->members,i)) {
-        label=plan->entries[i].name;break;
+        group->filename_label_entry=(uint16_t)(i+1u);label=plan->entries[i].name;break;
     }
     size_t n=strlen(label);if(n>=sizeof(group->label)) n=sizeof(group->label)-1u;
     for(size_t i=0;i<n;i++) {

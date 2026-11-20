@@ -31,7 +31,8 @@ struct cached_cover {
 };
 static struct cached_cover covers[COVER_CACHE_SLOTS];
 static unsigned cover_clock,cover_bytes,saved_view;
-static bool view_known,artwork_known,artwork_exists;
+static bool view_known,artwork_known,artwork_exists,art_preference_known;
+static enum kui_games_art_preference art_preference;
 /* Display titles of rows near the page on screen, read from record headers
  * alone, so a page shows its titles as soon as it is drawn. Same identity
  * rule as the artwork cache: this exact path and row name. */
@@ -46,7 +47,7 @@ static unsigned title_clock;
 void kui_games_covers_cache_clear(void) {
     for(unsigned i=0;i<COVER_CACHE_SLOTS;i++) free(covers[i].pixels);
     memset(covers,0,sizeof(covers));cover_clock=cover_bytes=saved_view=0;
-    view_known=artwork_known=artwork_exists=false;
+    view_known=artwork_known=artwork_exists=art_preference_known=false;
     memset(titles,0,sizeof(titles));title_clock=0;
 }
 void kui_games_covers_content_clear(void) {
@@ -103,6 +104,59 @@ static bool make_folders(const char *const *paths, unsigned count, kui_log_fn lo
         }
     }
     return true;
+}
+
+/* A zero-length marker needs no in-place overwrite on FAT. Its absence is
+ * the historical preference, so existing cards need no migration. */
+#define DISC_PREFERENCE "0:/KUI/apps/games/prefer-disc"
+static bool read_art_preference(enum kui_games_art_preference *value) {
+    FILINFO info;
+    FRESULT r = f_stat(DISC_PREFERENCE, &info);
+    if(r == FR_NO_FILE || r == FR_NO_PATH) {
+        *value = KUI_GAMES_ART_DOWNLOADED_FIRST;
+        return true;
+    }
+    if(r != FR_OK || (info.fattrib & AM_DIR) || info.fsize) return false;
+    *value = KUI_GAMES_ART_DISC_FIRST;
+    return true;
+}
+static bool load_art_preference(void) {
+    if(!art_preference_known) art_preference_known = read_art_preference(&art_preference);
+    return art_preference_known;
+}
+bool kui_games_art_preference_get(enum kui_games_art_preference *out, kui_log_fn log) {
+    if(!out) return false;
+    if(!art_preference_known && kui_games_storage_open(log) == KUI_GAMES_STORAGE_OK) {
+        bool ok = load_art_preference();
+        if(!kui_games_storage_done(ok)) art_preference_known = false;
+    }
+    if(art_preference_known) *out = art_preference;
+    return art_preference_known;
+}
+bool kui_games_art_preference_save(enum kui_games_art_preference value, kui_log_fn log) {
+    if(value != KUI_GAMES_ART_DOWNLOADED_FIRST && value != KUI_GAMES_ART_DISC_FIRST) return false;
+    if(kui_games_storage_open(log) != KUI_GAMES_STORAGE_OK) return false;
+    enum kui_games_art_preference current;
+    bool ok = read_art_preference(&current);
+    if(ok && current != value) {
+        if(value == KUI_GAMES_ART_DISC_FIRST) {
+            static const char *const parents[] = {"0:/KUI", "0:/KUI/apps", "0:/KUI/apps/games"};
+            FIL marker;
+            ok = make_folders(parents, 3, log) && f_open(&marker, DISC_PREFERENCE, FA_CREATE_NEW | FA_WRITE) == FR_OK;
+            if(ok) {
+                ok = f_sync(&marker) == FR_OK;
+                if(f_close(&marker) != FR_OK) ok = false;
+            }
+        } else ok = f_unlink(DISC_PREFERENCE) == FR_OK;
+    }
+    if(ok) ok = read_art_preference(&current) && current == value;
+    if(!kui_games_storage_done(ok)) ok = false;
+    if(ok) {
+        if(!art_preference_known || art_preference != value) kui_games_covers_content_clear();
+        art_preference = value;
+        art_preference_known = true;
+    }
+    return ok;
 }
 
 /* ---- The saved view ---- */
@@ -171,31 +225,224 @@ static FRESULT record_read_at(const char *path, FIL *file, struct kui_cover_reco
     }
     return r;
 }
-static FRESULT record_read(const char *key, FIL *file, struct kui_cover_record *record) {
+static FRESULT record_read(const char *key, FIL *file, struct kui_cover_record *record, bool *backup) {
+    *backup = false;
     char path[PATH_CAP];
     if(!record_path(key, ".kcv", path)) return FR_INVALID_NAME;
     bool invalid;
     FRESULT r = record_read_at(path, file, record, &invalid);
     if(!invalid) return r;
+    *backup = true;
     /* Replacement keeps the canonical name present with an invalid header until
      * its body is complete. Ordinary cache hits and misses take one lookup. */
     if(!record_path(key, ".kcb", path)) return FR_INVALID_NAME;
     r = record_read_at(path, file, record, &invalid);
     return r == FR_NO_FILE ? FR_INVALID_OBJECT : r;
 }
-static bool record_open(const char *key, const char *gdi_path, FIL *file, struct kui_cover_record *record) {
-    if(record_read(key, file, record) != FR_OK) return false;
-    if(!strcmp(record->gdi_path, gdi_path)) return true;
-    f_close(file);
-    return false;
+/* Keep the existing filename for its rightful owner. Only a verified
+ * same-name collision requires a second lookup, and the full selector
+ * inside the secondary header must match even when its hash does. */
+static FRESULT selector_record(char key[KUI_COVER_PATH_CAP], const char *selector, FIL *file,
+        struct kui_cover_record *record, bool *backup, bool create, kui_log_fn log) {
+    FRESULT r = record_read(key, file, record, backup);
+    if(r != FR_OK || !strcmp(record->gdi_path, selector)) return r;
+    if(f_close(file) != FR_OK) return FR_DISK_ERR;
+    if(strchr(key, '/')) return FR_DENIED;
+    char digest[33];
+    if(!kui_games_media_key(selector, digest)) return FR_INVALID_NAME;
+    snprintf(key, KUI_COVER_PATH_CAP, "by-path/%s", digest);
+    r = record_read(key, file, record, backup);
+    if(r == FR_OK && strcmp(record->gdi_path, selector))
+        return f_close(file) == FR_OK ? FR_DENIED : FR_DISK_ERR;
+    if(create && r == FR_NO_PATH) {
+        static const char *const folders[] = {KUI_GAMES_COVERS_FOLDER "/by-path"};
+        return make_folders(folders, 1, log) ? FR_NO_FILE : FR_DISK_ERR;
+    }
+    return r;
+}
+/* Each updated selector binds to immutable RGB565 pixels. Separate FAT
+ * sectors hold two generations so a torn write to the inactive slot cannot
+ * destroy the previously verified binding. Existing native masters and
+ * other selectors borrowing them keep their original meaning. */
+#define COMPACT_PATH_CAP (sizeof(KUI_DOWNLOADED_COVERS) + 37u)
+#define OVERLAY_SLOT 48u
+#define OVERLAY_STRIDE 512u
+#define OVERLAY_STAMP (UINT64_C(1) << 63)
+struct cover_overlay {
+    uint64_t serial[2];
+    char key[2][33];
+};
+static bool compact_key(const char *key) {
+    return strlen(key) == 32 && strspn(key, "0123456789abcdef") == 32;
+}
+static void compact_path(const char *key, char out[COMPACT_PATH_CAP]) {
+    snprintf(out, COMPACT_PATH_CAP, "%s/%s.kct", KUI_DOWNLOADED_COVERS, key);
+}
+static bool managed_name(const char *path, const char *extension) {
+    static const char prefix[]=KUI_DOWNLOADED_COVERS "/";
+    for(size_t i=0; i<sizeof(prefix)-1; ++i) {
+        unsigned a=(unsigned char)path[i], b=(unsigned char)prefix[i];
+        if(a>='A' && a<='Z') a+='a'-'A';
+        if(b>='A' && b<='Z') b+='a'-'A';
+        if(a!=b) return false;
+    }
+    const char *name=path+sizeof(prefix)-1;
+    return strlen(name)==36 && strspn(name,"0123456789abcdef")==32 && !strcmp(name+32,extension);
+}
+static bool overlay_path(const char *base, char out[COMPACT_PATH_CAP]) {
+    if(!managed_name(base,".kct")) return false;
+    strcpy(out,base);
+    out[strlen(out)-1]='u';
+    return true;
+}
+static FRESULT publish_target(FIL *file, const char *path, char *target, size_t cap) {
+    if(target) {
+        size_t size=strlen(path)+1;
+        if(size>cap) return f_close(file)==FR_OK ? FR_INVALID_NAME : FR_DISK_ERR;
+        memmove(target,path,size);
+    }
+    return FR_OK;
+}
+static FRESULT open_native(FIL *file,const char *path) {
+    FRESULT r=f_open(file,path,FA_READ);
+    if(r==FR_OK && f_size(file)!=KUI_COMPACT_COVER_BYTES)
+        return f_close(file)==FR_OK ? FR_INVALID_OBJECT : FR_DISK_ERR;
+    return r;
+}
+static FRESULT link_key(FIL *file, char key[33]) {
+    uint8_t data[KUI_COMPACT_LINK_BYTES];
+    if(f_size(file)!=sizeof(data)) return FR_INVALID_OBJECT;
+    UINT got;
+    FRESULT r=f_read(file,data,sizeof(data),&got);
+    if(r!=FR_OK) return r;
+    if(got!=sizeof(data) || memcmp(data,"KCL1",4)) return FR_INVALID_OBJECT;
+    memcpy(key,data+4,32);
+    key[32]=0;
+    return compact_key(key) ? FR_OK : FR_INVALID_OBJECT;
+}
+static FRESULT open_base(FIL *file,const char *path,char *target,size_t cap) {
+    FRESULT r=f_open(file,path,FA_READ);
+    if(r!=FR_OK) return r;
+    char resolved[COMPACT_PATH_CAP];
+    if(f_size(file)==KUI_COMPACT_LINK_BYTES) {
+        char key[33];
+        r=link_key(file,key);
+        if(f_close(file)!=FR_OK) return FR_DISK_ERR;
+        if(r!=FR_OK) return r;
+        compact_path(key,resolved);
+        r=open_native(file,resolved);
+        if(r==FR_NO_PATH || r==FR_NO_FILE) return FR_INVALID_OBJECT;
+        if(r!=FR_OK) return r;
+        path=resolved;
+    }
+    return publish_target(file,path,target,cap);
+}
+FRESULT kui_games_open_compact_direct(FIL *file,const char *path) {
+    return open_base(file,path,NULL,0);
+}
+static FRESULT read_slots(FIL *file,struct cover_overlay *slots) {
+    memset(slots,0,sizeof(*slots));
+    if(f_size(file)>2*OVERLAY_STRIDE) return FR_INVALID_OBJECT;
+    for(unsigned n=0;n<2;n++) {
+        FSIZE_t at=n*OVERLAY_STRIDE;
+        if(f_size(file)<at+OVERLAY_SLOT) continue;
+        uint8_t data[OVERLAY_SLOT]; UINT got;
+        FRESULT r=f_lseek(file,at);
+        if(r==FR_OK) r=f_read(file,data,sizeof(data),&got);
+        if(r!=FR_OK) return r;
+        if(got!=sizeof(data)) return FR_DISK_ERR;
+        if(memcmp(data,"KCU1",4)) continue;
+        uint32_t crc=kui_crc32_capture(0,data,44);
+        bool intact=true;
+        for(unsigned i=0;i<4;i++) if(data[44+i]!=(uint8_t)(crc>>(8*i))) intact=false;
+        if(!intact) continue;
+        memcpy(slots->key[n],data+12,32);
+        if(!compact_key(slots->key[n])) continue;
+        uint64_t serial=0;
+        for(unsigned i=0;i<8;i++) serial |= (uint64_t)data[4+i]<<(8*i);
+        if(serial<OVERLAY_STAMP) slots->serial[n]=serial;
+    }
+    return FR_OK;
+}
+FRESULT kui_games_cover_reference_keys(FIL *file,bool overlay,char keys[2][33]) {
+    memset(keys,0,2*33);
+    if(!overlay) return link_key(file,keys[0]);
+    struct cover_overlay slots;
+    FRESULT r=read_slots(file,&slots);
+    if(r==FR_OK) {
+        for(unsigned n=0;n<2;n++)
+            if(slots.serial[n]) memcpy(keys[n],slots.key[n],sizeof(slots.key[n]));
+    }
+    return r;
+}
+static FRESULT read_overlay(const char *path,struct cover_overlay *slots) {
+    FIL file; FRESULT r=f_open(&file,path,FA_READ);
+    if(r!=FR_OK) return r;
+    r=read_slots(&file,slots);
+    return f_close(&file)==FR_OK ? r : FR_DISK_ERR;
+}
+static FRESULT open_slot(const struct cover_overlay *slots, unsigned n, FIL *file,char *target,size_t cap) {
+    if(!slots->serial[n]) return FR_NO_FILE;
+    char path[COMPACT_PATH_CAP]; compact_path(slots->key[n],path);
+    FRESULT r=open_native(file,path);
+    if(r==FR_OK) return publish_target(file,path,target,cap);
+    return r;
+}
+static bool unavailable(FRESULT r) {
+    return r==FR_NO_FILE || r==FR_NO_PATH || r==FR_INVALID_OBJECT;
+}
+static FRESULT verified_slot(const struct cover_overlay *slots,unsigned *slot,kui_cancel_fn cancel);
+static FRESULT open_overlay(const char *path,FIL *file,char *target,size_t cap) {
+    struct cover_overlay slots;
+    FRESULT r=read_overlay(path,&slots);
+    if(r!=FR_OK) return r;
+    if(target) {
+        /* Conditional requests and duplicate checks must identify the
+         * actual verified master, including after damage to a newer slot. */
+        unsigned valid;
+        r=verified_slot(&slots,&valid,NULL);
+        return r==FR_OK ? open_slot(&slots,valid,file,target,cap) : r;
+    }
+    unsigned n=slots.serial[1]>slots.serial[0] ? 1 : 0;
+    r=open_slot(&slots,n,file,NULL,0);
+    return unavailable(r) ? open_slot(&slots,1-n,file,NULL,0) : r;
+}
+FRESULT kui_games_open_compact_target(FIL *file,const char *path,char *target,size_t cap) {
+    char overlay[COMPACT_PATH_CAP];
+    if(overlay_path(path,overlay)) {
+        FRESULT r=open_overlay(overlay,file,target,cap);
+        if(!unavailable(r)) return r;
+    }
+    return open_base(file,path,target,cap);
+}
+FRESULT kui_games_open_compact(FIL *file,const char *path) {
+    return kui_games_open_compact_target(file,path,NULL,0);
 }
 static bool record_pixels(FIL *file, const struct kui_cover_record *record,
                           enum kui_cover_size size, uint16_t *out) {
     if(record->source == KUI_COVER_SOURCE_DOWNLOAD) {
         char path[PATH_CAP];
         FIL compact;
-        if(!kui_games_media_path(record->gdi_path,KUI_DOWNLOADED_COVERS,"kct",path,sizeof(path)) ||
-           f_open(&compact,path,FA_READ) != FR_OK) return false;
+        if(!kui_games_media_path(record->gdi_path,KUI_DOWNLOADED_COVERS,"kct",path,sizeof(path))) return false;
+        if(record->user.bytes & OVERLAY_STAMP) {
+            char name[COMPACT_PATH_CAP];
+            struct cover_overlay slots;
+            if(!overlay_path(path,name)) return false;
+            FRESULT r=read_overlay(name,&slots);
+            if(r==FR_OK) {
+                unsigned n=slots.serial[1]>slots.serial[0] ? 1 : 0;
+                for(unsigned attempt=0;attempt<2;++attempt,n=1-n) {
+                    if(slots.serial[n]>(record->user.bytes & ~OVERLAY_STAMP)) continue;
+                    r=open_slot(&slots,n,&compact,NULL,0);
+                    if(r==FR_OK) {
+                        bool ok=kui_compact_cover_pixels(&compact,size,out);
+                        if(f_close(&compact)!=FR_OK) return false;
+                        if(ok) return true;
+                    } else if(!unavailable(r)) return false;
+                }
+            } else if(!unavailable(r)) return false;
+        }
+        if(kui_games_open_compact_direct(&compact,path)!=FR_OK) return false;
         bool ok = kui_compact_cover_pixels(&compact,size,out);
         return f_close(&compact) == FR_OK && ok;
     }
@@ -208,6 +455,9 @@ static bool record_pixels(FIL *file, const struct kui_cover_record *record,
     for(unsigned i = 0; i < edge * edge; ++i) out[i] = (uint16_t)(b[2u * i] | b[2u * i + 1u] << 8);
     return true;
 }
+
+static bool preferred_pixels(const char *key, FIL *file, const struct kui_cover_record *record,
+    enum kui_cover_size size, uint16_t *pixels, kui_log_fn log, kui_cancel_fn cancel, bool *cacheable);
 
 static bool same_cover(const struct cached_cover *cover,const struct kui_games_entry *entry) {
     return cover->valid && !strcmp(cover->result.path,entry->path) && !strcmp(cover->result.name,entry->name);
@@ -311,7 +561,7 @@ static bool assigned_cover(const struct kui_games_entry *entry,enum kui_cover_si
     kui_games_storage_lookup_begin();
     FRESULT r = stopped(cancel) ? FR_INVALID_OBJECT : f_open(&file,path,FA_READ);
     bool managed = (r == FR_NO_FILE || r == FR_NO_PATH) && migrated_assignment(path);
-    if(managed) r = f_open(&file,path,FA_READ);
+    if(managed) r = kui_games_open_compact(&file,path);
     bool ok = r == FR_OK;
     uint8_t *data=NULL,*decoded=NULL;
     unsigned width=0,height=0,channels=0;
@@ -354,7 +604,7 @@ bool kui_games_selected_cover(const struct kui_games_entry *entry,enum kui_cover
     if(entry->cover_path[0])return assigned_cover(entry,size,pixels,out,log,cancel);
     char key[KUI_COVER_PATH_CAP];
     if(!kui_cover_key(entry->name,key)) return false;
-    bool mounted=false,opened=false,ok=false,observed=false,exists=false;
+    bool mounted=false,opened=false,ok=false,observed=false,exists=false,cacheable=true;
     FIL file;
     const char *problem="SD card unavailable";
     enum kui_games_storage_result storage=kui_games_storage_open(log);
@@ -369,17 +619,16 @@ bool kui_games_selected_cover(const struct kui_games_entry *entry,enum kui_cover
         exists=r==FR_OK && (info.fattrib&AM_DIR);
     }
     struct kui_cover_record record;
-    FRESULT r=record_read(key,&file,&record);
+    bool backup;
+    FRESULT r=selector_record(key,entry->path,&file,&record,&backup,false,log);
     if(r==FR_NO_FILE || r==FR_NO_PATH) {ok=true;goto done;}
     problem="Cannot read selected box art";
     if(r!=FR_OK) goto done;
     opened=true;
     if(stopped(cancel)) goto done;
-    /* A same-name record for a different image is a definite missing cover. */
-    if(strcmp(record.gdi_path,entry->path)) {ok=true;goto done;}
     if(!entry->custom_title)kui_cover_display_title(record.title,entry->name,out->title);
     if(record.source!=KUI_COVER_SOURCE_NONE) {
-        if(stopped(cancel) || !record_pixels(&file,&record,size,pixels)) goto done;
+        if(stopped(cancel) || !preferred_pixels(key,&file,&record,size,pixels,log,cancel,&cacheable)) goto done;
         out->cover=true;
     }
     ok=true;
@@ -391,7 +640,8 @@ done:
     if(ok) {
         if(observed) {artwork_known=true;artwork_exists=exists;}
         if(out->cover) {artwork_known=artwork_exists=true;}
-        cover_store(out,pixels);title_store(entry,out->title);
+        if(cacheable) cover_store(out,pixels);
+        title_store(entry,out->title);
     } else {
         out->cover=false;
         if(log && !out->stopped) log("Games cover %.72s: %s",entry->name,problem);
@@ -416,14 +666,12 @@ bool kui_games_prefetch_titles(const struct kui_games_page *page,kui_log_fn log,
             opened=true;kui_games_storage_lookup_begin();
         }
         char title[KUI_COVER_TITLE_CAP],region[9]={0};kui_cover_display_title(NULL,entry->name,title);
-        FIL file;struct kui_cover_record record;FRESULT r=record_read(key,&file,&record);
+        FIL file;struct kui_cover_record record;bool backup;
+        FRESULT r=selector_record(key,entry->path,&file,&record,&backup,false,log);
         bool ok=r==FR_NO_FILE || r==FR_NO_PATH;
         if(r==FR_OK) {
             ok=true;
-            /* A same-name record for a different image keeps the row's own name. */
-            if(!strcmp(record.gdi_path,entry->path)) {
-                kui_cover_display_title(record.title,entry->name,title);strcpy(region,record.region);
-            }
+            kui_cover_display_title(record.title,entry->name,title);strcpy(region,record.region);
             if(f_close(&file)!=FR_OK) ok=false;
         }
         if(!ok) {
@@ -437,7 +685,6 @@ bool kui_games_prefetch_titles(const struct kui_games_page *page,kui_log_fn log,
 
 struct detail_job { const char *path; struct kui_games_detail *detail; uint16_t *pixels; };
 static void detail_cover(void *ctx, kui_log_fn log, kui_cancel_fn cancel) {
-    (void)log;
     struct detail_job *job = ctx;
     const char *slash = strrchr(job->path, '/');
     if(!slash || !job->pixels) return;
@@ -452,9 +699,14 @@ static void detail_cover(void *ctx, kui_log_fn log, kui_cancel_fn cancel) {
         char key[KUI_COVER_PATH_CAP];
         FIL file;
         struct kui_cover_record record;
-        if(!kui_cover_key(names[k], key) || !record_open(key, job->path, &file, &record)) continue;
-        if(record.source != KUI_COVER_SOURCE_NONE)
-            job->detail->cover = record_pixels(&file, &record, KUI_COVER_SIZE_LARGE, job->pixels);
+        bool backup;
+        if(!kui_cover_key(names[k], key) ||
+           selector_record(key,job->path,&file,&record,&backup,false,log)!=FR_OK) continue;
+        if(record.source != KUI_COVER_SOURCE_NONE) {
+            bool cacheable = true;
+            job->detail->cover = preferred_pixels(key, &file, &record, KUI_COVER_SIZE_LARGE,
+                job->pixels, log, cancel, &cacheable);
+        }
         f_close(&file);
         return;
     }
@@ -474,21 +726,17 @@ struct scan {
     kui_log_fn log;
     kui_cancel_fn cancel;
     struct kui_games_scan_counts *counts;
-    /* Found games as "key\0path\0" pairs, with folded key hashes for the
-     * duplicate check (FAT names ignore case). */
+    /* Found games as "key\0path\0" pairs. */
     char *names;
     size_t used, capacity;
-    uint32_t *hashes;
     unsigned found;
     uint8_t *record, *raw;       /* One record file; sixteen raw sectors. */
     uint16_t *scaled;
+    bool disc_only; /* Build a disposable secondary copy without touching the primary record. */
+    uint64_t overlay_generation;
     bool compact_verified; /* Single-game internet scan has checked the master. */
+    struct kui_games_disc_identity *identity;
 };
-static uint32_t folded_hash(const char *s) {
-    uint32_t h = 2166136261u;
-    for(; *s; ++s) h = (h ^ (uint32_t)((*s >= 'A' && *s <= 'Z') ? *s + 32 : *s)) * 16777619u;
-    return h;
-}
 static bool same_name(const char *a, const char *b) {
     for(;; ++a, ++b) {
         int x = *a >= 'A' && *a <= 'Z' ? *a + 32 : *a, y = *b >= 'A' && *b <= 'Z' ? *b + 32 : *b;
@@ -504,15 +752,6 @@ static void add_game(struct scan *s, const char *name, const char *path) {
         ++s->counts->failed;
         return;
     }
-    uint32_t hash = folded_hash(key);
-    const char *at = s->names;
-    for(unsigned i = 0; i < s->found; ++i, at = nth_path(at) + strlen(nth_path(at)) + 1u) {
-        if(s->hashes[i] == hash && same_name(at, key)) {
-            if(s->log) s->log("Box art: two games are named %s; rename one to give both covers", key);
-            ++s->counts->duplicates;
-            return;
-        }
-    }
     size_t need = strlen(key) + strlen(path) + 2u;
     if(s->found >= KUI_GAMES_SCAN_MAX) { ++s->counts->failed; return; }
     if(s->used + need > s->capacity) {
@@ -523,14 +762,10 @@ static void add_game(struct scan *s, const char *name, const char *path) {
         s->names = names;
         s->capacity = capacity;
     }
-    if(!s->hashes) {
-        s->hashes = malloc(KUI_GAMES_SCAN_MAX * sizeof(*s->hashes));
-        if(!s->hashes) { ++s->counts->failed; return; }
-    }
     memcpy(s->names + s->used, key, strlen(key) + 1u);
     memcpy(s->names + s->used + strlen(key) + 1u, path, strlen(path) + 1u);
     s->used += need;
-    s->hashes[s->found++] = hash;
+    ++s->found;
 }
 /* Shares the Games payload filter: a folder with one image takes the folder
  * name; other folders are categories; loose selectors take their filename. */
@@ -728,6 +963,121 @@ static FRESULT close_record(FIL *file, FRESULT r) {
     FRESULT closed = f_close(file);
     return r == FR_OK ? closed : r;
 }
+/* Validate every source plane before exposing new pixels. A cancelled or
+ * corrupt transfer never participates in selecting the next active slot. */
+static bool checked_compact(const char *path,kui_cancel_fn cancel) {
+    FIL file;
+    if(kui_games_open_compact_direct(&file,path)!=FR_OK) return false;
+    bool ok=kui_compact_cover_verify(&file,cancel)==KUI_COMPACT_OK;
+    return f_close(&file)==FR_OK && ok && !stopped(cancel);
+}
+static FRESULT verify_slot(const struct cover_overlay *slots,unsigned n,kui_cancel_fn cancel) {
+    FIL file;
+    FRESULT r=open_slot(slots,n,&file,NULL,0);
+    if(r!=FR_OK) return r;
+    enum kui_compact_result result=kui_compact_cover_verify(&file,cancel);
+    if(f_close(&file)!=FR_OK || result==KUI_COMPACT_ERROR) return FR_DISK_ERR;
+    return result==KUI_COMPACT_OK ? FR_OK : FR_INVALID_OBJECT;
+}
+static FRESULT verified_slot(const struct cover_overlay *slots,unsigned *slot,kui_cancel_fn cancel) {
+    unsigned n=slots->serial[1]>slots->serial[0] ? 1 : 0;
+    FRESULT r=verify_slot(slots,n,cancel);
+    if(unavailable(r)) {n=1-n; r=verify_slot(slots,n,cancel);}
+    if(r==FR_OK) *slot=n;
+    return r;
+}
+/* Explicit scans validate all RGB565 planes. The catalogue remembers this
+ * generation, keeping untouched selectors' ordinary art reads on one path. */
+static FRESULT overlay_generation(const char *base,uint64_t *generation,kui_cancel_fn cancel) {
+    char path[COMPACT_PATH_CAP];
+    if(!overlay_path(base,path)) return FR_INVALID_NAME;
+    struct cover_overlay slots;
+    FRESULT r=read_overlay(path,&slots);
+    if(r!=FR_OK) return r;
+    unsigned n;
+    r=verified_slot(&slots,&n,cancel);
+    if(r==FR_OK) *generation=slots.serial[n];
+    return r;
+}
+static FRESULT seek_slot(FIL *file,FSIZE_t offset) {
+    /* FatFs can return FR_OK with a shorter seek when a volume is full. */
+    FRESULT r=f_lseek(file,offset);
+    return r==FR_OK && f_tell(file)!=offset ? FR_DISK_ERR : r;
+}
+static void forget_slot(const char *path,unsigned n) {
+    FIL f;
+    if(f_open(&f,path,FA_WRITE)!=FR_OK) return;
+    if(seek_slot(&f,n*OVERLAY_STRIDE)==FR_OK && write_exact(&f,"",1)==FR_OK) (void)f_sync(&f);
+    (void)f_close(&f);
+}
+static bool publish_overlay(const char *staged,const char *final,kui_cancel_fn cancel) {
+    FIL f;
+    if(f_open(&f,staged,FA_READ)!=FR_OK) return false;
+    char key[33];
+    FRESULT r=link_key(&f,key);
+    if(f_close(&f)!=FR_OK || r!=FR_OK) return false;
+    struct cover_overlay slots;
+    r=read_overlay(final,&slots);
+    if(r==FR_NO_FILE) memset(&slots,0,sizeof(slots));
+    else if(r!=FR_OK) return false;
+    unsigned active=1;
+    r=verified_slot(&slots,&active,cancel);
+    if(!unavailable(r) && r!=FR_OK) return false;
+    if(stopped(cancel)) return false;
+    if(r==FR_OK && !strcmp(slots.key[active],key)) return true;
+    unsigned n=1-active;
+    uint64_t last=slots.serial[0]>slots.serial[1] ? slots.serial[0] : slots.serial[1];
+    if(last>=OVERLAY_STAMP-1) return false;
+    uint64_t next=last+1;
+    uint8_t data[OVERLAY_SLOT]="KCU1";
+    for(unsigned i=0;i<8;i++) data[4+i]=(uint8_t)(next>>(8*i));
+    memcpy(data+12,key,32);
+    uint32_t crc=kui_crc32_capture(0,data,44);
+    for(unsigned i=0;i<4;i++) data[44+i]=(uint8_t)(crc>>(8*i));
+
+    r=f_open(&f,final,FA_READ|FA_WRITE|FA_OPEN_ALWAYS);
+    if(r!=FR_OK) return false;
+    if(f_size(&f)<2*OVERLAY_STRIDE) {
+        /* FatFs leaves seek-created gaps undefined. Explicitly clear every
+         * new byte so a slot from a previously freed cluster can never win. */
+        static const uint8_t empty[OVERLAY_STRIDE]={0};
+        r=seek_slot(&f,f_size(&f));
+        while(r==FR_OK && f_tell(&f)<2*OVERLAY_STRIDE) {
+            FSIZE_t left=2*OVERLAY_STRIDE-f_tell(&f);
+            r=write_exact(&f,empty,left<sizeof(empty)?(UINT)left:(UINT)sizeof(empty));
+        }
+        if(r==FR_OK) r=f_sync(&f);
+    }
+    if(r==FR_OK && stopped(cancel)) r=FR_DENIED;
+    if(r==FR_OK) r=seek_slot(&f,n*OVERLAY_STRIDE);
+    bool attempted=r==FR_OK;
+    if(attempted) r=write_exact(&f,data,sizeof(data));
+    if(r==FR_OK) r=f_sync(&f);
+    if(f_close(&f)!=FR_OK) r=FR_DISK_ERR;
+    if(r==FR_OK && !stopped(cancel)) {
+        r=read_overlay(final,&slots);
+        if(r==FR_OK && slots.serial[n]==next && slots.serial[1-n]<next &&
+           !strcmp(slots.key[n],key)) return true;
+    }
+    if(attempted) forget_slot(final,n);
+    return false;
+}
+bool kui_games_publish_cover(const char *staged,const char *final,kui_cancel_fn cancel) {
+    if(!staged || !final || !strcmp(staged,final) || stopped(cancel)) return false;
+    bool overlay=managed_name(final,".kcu");
+    if(!overlay && !managed_name(final,".kct")) return false;
+    if(!checked_compact(staged,cancel)) return false;
+    if(overlay) {
+        if(!publish_overlay(staged,final,cancel)) return false;
+        (void)f_unlink(staged);
+    } else {
+        /* A native master may already serve other discs. FAT's non-replacing
+         * rename protects it even if a later selector lost its group. */
+        if(f_rename(staged,final)!=FR_OK) return false;
+    }
+    kui_games_covers_content_clear();
+    return true;
+}
 /* The source is a complete, validated primary. Before editing it, copy its
  * bytes to independent clusters. A failed backup leaves the primary intact. */
 static FRESULT backup_record(FIL *source, const char *backup, uint8_t *scratch) {
@@ -769,6 +1119,11 @@ static bool record_write(struct scan *s, const char *key, const struct kui_cover
     struct kui_cover_record old;
     bool invalid;
     FRESULT r = record_read_at(final, &file, &old, &invalid);
+    /* The replacement already makes a verified old-record copy. Retain its
+     * embedded disc art when an internet scan first installs box art. */
+    bool keep_disc = r == FR_OK && old.source == KUI_COVER_SOURCE_DISC &&
+        record->source == KUI_COVER_SOURCE_DOWNLOAD && !strcmp(old.gdi_path, record->gdi_path) &&
+        same_stamp(&old.gdi, &record->gdi);
     if(r == FR_NO_FILE) {
         /* First publication has no earlier copy to protect. */
         char temp[PATH_CAP];
@@ -784,6 +1139,8 @@ static bool record_write(struct scan *s, const char *key, const struct kui_cover
         else if(invalid) r = FR_OK; /* retain any backup from an interrupted replacement */
         if(r == FR_OK) r = replace_record(final, s->record, size);
         if(r == FR_OK) {
+            char disc[PATH_CAP];
+            if(keep_disc && record_path(key, ".kcd", disc) && f_rename(backup, disc) == FR_OK) return true;
             FILINFO info;
             if(f_stat(backup, &info) == FR_OK && !(info.fattrib & AM_DIR)) (void)f_unlink(backup);
         }
@@ -791,7 +1148,20 @@ static bool record_write(struct scan *s, const char *key, const struct kui_cover
     if(r != FR_OK && s->log) s->log("Box art: %s: cannot save cover: FatFs=%u", key, (unsigned)r);
     return r == FR_OK;
 }
-static enum outcome build(struct scan *s, const char *key, const char *gdi_path) {
+static bool media_identity(const struct kui_game_metadata *meta,struct kui_games_disc_identity *out) {
+    if(!(meta->native_gd || meta->native_cd || meta->windows_ce) ||
+       !meta->title[0] || !meta->product[0] || !meta->region[0]) return false;
+    snprintf(out->title, sizeof(out->title), "%s", meta->title);
+    snprintf(out->product, sizeof(out->product), "%s", meta->product);
+    snprintf(out->version, sizeof(out->version), "%s", meta->version);
+    snprintf(out->region, sizeof(out->region), "%s", meta->region);
+    out->number = meta->disc_number;
+    out->total = meta->disc_total;
+    return true;
+}
+static enum outcome build(struct scan *s, const char *name, const char *gdi_path) {
+    char key[KUI_COVER_PATH_CAP];
+    snprintf(key, sizeof(key), "%s", name);
     const char *slash = strrchr(gdi_path, '/');
     if(!slash || !kui_game_image_name_supported(slash+1)) {
         if(s->log) s->log("Box art: %s: compressed image requires offline import",key);
@@ -811,18 +1181,43 @@ static enum outcome build(struct scan *s, const char *key, const char *gdi_path)
     snprintf(path, sizeof(path), "0:%s", gdi_path);
     if(strlen(gdi_path) >= sizeof(record.gdi_path) || f_stat(path, &info) != FR_OK) return OUT_FAILED;
     strcpy(record.gdi_path, gdi_path);
+    if(zso && s->disc_only) record.user.bytes = 1u + (unsigned)choice.codec;
     stamp_of(&info, &record.gdi);
+    struct kui_cover_record old;
+    bool current = false;
+    if(!s->disc_only) {
+        FIL file;
+        bool backup;
+        FRESULT found = selector_record(key, gdi_path, &file, &old, &backup, true, s->log);
+        if(found == FR_OK) {
+            if(f_close(&file) != FR_OK) return OUT_FAILED;
+            current = !backup;
+        } else if(found != FR_NO_FILE && !(found == FR_INVALID_OBJECT && backup)) return OUT_FAILED;
+        if(s->counts && strchr(key, '/')) ++s->counts->duplicates;
+    }
     /* Explicit owner images take priority over internet box art. All
      * images feed the same thumbnail cache, including on later rescans. */
     unsigned owner_count = sizeof(user_images) / sizeof(user_images[0]);
     bool compact = false;
-    for(unsigned i = 0; i < owner_count + 2; ++i) {
+    for(unsigned i = 0; !s->disc_only && i < owner_count + 2; ++i) {
         if(i < owner_count) {
             if(!record_path(key, user_images[i], user)) return OUT_FAILED;
         } else if(!kui_games_media_path(gdi_path, KUI_DOWNLOADED_COVERS,
                 i == owner_count ? "kct" : "png", user, sizeof(user))) {
             user[0] = 0;
             break; /* Offline cover scans also accept some legacy image paths. */
+        }
+        if(i==owner_count) {
+            uint64_t generation=s->overlay_generation;
+            if(!s->compact_verified) {
+                FRESULT r=overlay_generation(user,&generation,s->cancel);
+                if(r!=FR_OK && !unavailable(r)) return OUT_FAILED;
+            }
+            if(generation) {
+                record.user.bytes=OVERLAY_STAMP | generation;
+                compact=true;
+                break;
+            }
         }
         FRESULT art_stat = f_stat(user, &info);
         if(art_stat == FR_OK && !(info.fattrib & AM_DIR)) {
@@ -833,24 +1228,20 @@ static enum outcome build(struct scan *s, const char *key, const char *gdi_path)
         if(art_stat != FR_OK && art_stat != FR_NO_FILE && art_stat != FR_NO_PATH) return OUT_FAILED;
         user[0] = 0;
     }
-    {
-        FIL file;
-        struct kui_cover_record old;
-        bool invalid;
-        if(!record_path(key, ".kcv", path)) return OUT_FAILED;
-        FRESULT r = record_read_at(path, &file, &old, &invalid);
-        if(r == FR_OK) {
-            if(f_close(&file) != FR_OK) return OUT_FAILED;
-            /* Old records do not carry a codec. Recheck ZSO during explicit
-             * scans so a changed preference never reuses another decoder's
-             * result; selected-art RAM/disk caches remain unchanged. Records
-             * without a parsed title also need a retry. */
-            bool pending_download = !strncmp(user, KUI_DOWNLOADED_COVERS "/", sizeof(KUI_DOWNLOADED_COVERS)) &&
-                old.source != (compact ? KUI_COVER_SOURCE_DOWNLOAD : KUI_COVER_SOURCE_USER);
-            if(!zso && !pending_download && !(old.source == KUI_COVER_SOURCE_DOWNLOAD && !compact) &&
-               old.title[0] && !strcmp(old.gdi_path, gdi_path) &&
-               same_stamp(&old.gdi, &record.gdi) && same_stamp(&old.user, &record.user)) return OUT_UNCHANGED;
-        } else if(!invalid && r != FR_NO_FILE) return OUT_FAILED;
+    bool check_old_title = false;
+    if(current) {
+        /* Old records do not carry a codec. Recheck ZSO during explicit
+         * scans so a changed preference never reuses another decoder's
+         * result; selected-art RAM/disk caches remain unchanged. Records
+         * with a missing or legacy question-mark title also need a retry. */
+        bool pending_download = !strncmp(user, KUI_DOWNLOADED_COVERS "/", sizeof(KUI_DOWNLOADED_COVERS)) &&
+            old.source != (compact ? KUI_COVER_SOURCE_DOWNLOAD : KUI_COVER_SOURCE_USER);
+        if(!zso && !pending_download && !(old.source == KUI_COVER_SOURCE_DOWNLOAD && !compact) &&
+           old.title[0] && !strcmp(old.gdi_path, gdi_path) &&
+           same_stamp(&old.gdi, &record.gdi) && same_stamp(&old.user, &record.user)) {
+            if(!strchr(old.title, '?')) return OUT_UNCHANGED;
+            check_old_title = true;
+        }
     }
     /* Bounded image metadata, then IP and the root directory for title/art. */
     struct image_files files = {.cancel = s->cancel};
@@ -874,16 +1265,25 @@ static enum outcome build(struct scan *s, const char *key, const char *gdi_path)
         enum kui_game_metadata_status m = kui_game_metadata_read(&meta_ops,image->data_lba,&meta);
         if(m == KUI_GAME_METADATA_IO || m == KUI_GAME_METADATA_CANCELLED) io = true;
         if(meta.ip_valid) {
-            snprintf(record.title, sizeof(record.title), "%s", meta.title);
+            if(s->identity) media_identity(&meta,s->identity);
+            snprintf(record.title, sizeof(record.title), "%s", kui_game_metadata_display_title(&meta));
             snprintf(record.product, sizeof(record.product), "%s", meta.product);
             snprintf(record.version, sizeof(record.version), "%s", meta.version);
             snprintf(record.region, sizeof(record.region), "%s", meta.region);
         }
     }
+    /* Even a single half-width kana used to become '?'. Read the IP title
+     * before touching existing artwork: a literal question mark is valid.
+     * Keep the previous record when the disc no longer supplies a title. */
+    if(check_old_title && (!record.title[0] || !strcmp(old.title, record.title))) {
+        if(!image_close(&files)) io = true;
+        free(image);
+        return io || stopped(s->cancel) ? OUT_FAILED : OUT_UNCHANGED;
+    }
     if(!io && compact) {
         FIL saved;
-        if(s->compact_verified) art = true;
-        else if(f_open(&saved,user,FA_READ) != FR_OK) io = true;
+        if(s->compact_verified || (record.user.bytes & OVERLAY_STAMP)) art = true;
+        else if(kui_games_open_compact(&saved,user) != FR_OK) io = true;
         else {
             art = kui_compact_cover_verify(&saved,s->cancel) == KUI_COMPACT_OK;
             if(f_close(&saved) != FR_OK || !art) io = true;
@@ -910,24 +1310,113 @@ static enum outcome build(struct scan *s, const char *key, const char *gdi_path)
     if(!image_close(&files)) io = true;
     free(image);
     if(io || stopped(s->cancel)) return OUT_FAILED;
-    if(!record_write(s, key, &record)) return OUT_FAILED;
+    if(s->disc_only) {
+        if(!kui_cover_header_encode(s->record, &record)) return OUT_FAILED;
+    } else if(!record_write(s, key, &record)) return OUT_FAILED;
     if(record.source == KUI_COVER_SOURCE_DOWNLOAD || record.source == KUI_COVER_SOURCE_USER) return OUT_USER;
     return record.source == KUI_COVER_SOURCE_DISC ? OUT_DISC : OUT_NONE;
 }
+/* The compact network master and its reference stay intact. Older cards
+ * with only that reference generate a disc copy on first use. A header-only
+ * negative cache also avoids repeatedly opening images with no 0GDTEX. */
+static enum outcome alternative_disc(const char *key, const struct kui_cover_record *primary,
+        enum kui_cover_size size, uint16_t *pixels, kui_log_fn log, kui_cancel_fn cancel) {
+    char path[PATH_CAP], temp[PATH_CAP];
+    if(!record_path(key, ".kcd", path) || !record_path(key, ".kdn", temp)) return OUT_FAILED;
+    FIL file;
+    struct kui_cover_record disc;
+    bool invalid;
+    const char *extension = strrchr(primary->gdi_path, '.');
+    bool zso = extension && same_name(extension, ".zso");
+    struct kui_game_launch_settings choice;
+    if(zso && !kui_game_launch_settings_load(primary->gdi_path, &choice, log)) return OUT_FAILED;
+    FRESULT r = record_read_at(path, &file, &disc, &invalid);
+    bool replace = r == FR_OK || invalid;
+    if(r == FR_OK) {
+        bool match = !strcmp(disc.gdi_path, primary->gdi_path) && same_stamp(&disc.gdi, &primary->gdi) &&
+            (!zso || disc.user.bytes == 1u + (unsigned)choice.codec) &&
+            (disc.source == KUI_COVER_SOURCE_DISC || disc.source == KUI_COVER_SOURCE_NONE);
+        bool visible = match && disc.source == KUI_COVER_SOURCE_DISC;
+        bool ok = !visible || record_pixels(&file, &disc, size, pixels);
+        if(f_close(&file) != FR_OK || !ok) return OUT_FAILED;
+        if(match) return visible ? OUT_DISC : OUT_NONE;
+    } else if(!invalid && r != FR_NO_FILE && r != FR_NO_PATH) return OUT_FAILED;
+    struct scan scan = {.log = log, .cancel = cancel, .disc_only = true};
+    scan.record = malloc(KUI_COVER_FILE_BYTES);
+    scan.raw = malloc(16u * KUI_GAME_RAW_BYTES);
+    scan.scaled = malloc(KUI_COVER_PIXELS * sizeof(*scan.scaled));
+    enum outcome found = OUT_FAILED;
+    if(scan.record && scan.raw && scan.scaled) found = build(&scan, key, primary->gdi_path);
+    if(found == OUT_DISC || found == OUT_NONE) {
+        UINT bytes = found == OUT_DISC ? KUI_COVER_FILE_BYTES : KUI_COVER_HEADER_BYTES;
+        if(found == OUT_DISC) {
+            unsigned edge = kui_cover_edge(size);
+            const uint8_t *data = scan.record + kui_cover_offset(size);
+            for(unsigned i = 0; i < edge * edge; ++i)
+                pixels[i] = (uint16_t)(data[2*i] | data[2*i+1] << 8);
+        }
+        /* The cache is reproducible. On a full or read-only card, still
+         * display the newly decoded pixels; only publish a complete file. */
+        r = f_open(&file, temp, FA_CREATE_ALWAYS | FA_WRITE);
+        if(r == FR_OK) {
+            r = close_record(&file, write_exact(&file, scan.record, bytes));
+            if(r == FR_OK && replace) r = f_unlink(path);
+            if(r == FR_OK) r = f_rename(temp, path);
+            if(r != FR_OK) (void)f_unlink(temp);
+        }
+    }
+    free(scan.scaled);
+    free(scan.raw);
+    free(scan.record);
+    return found;
+}
+static bool preferred_pixels(const char *key, FIL *file, const struct kui_cover_record *record,
+        enum kui_cover_size size, uint16_t *pixels, kui_log_fn log, kui_cancel_fn cancel, bool *cacheable) {
+    if(record->source == KUI_COVER_SOURCE_DISC) return record_pixels(file, record, size, pixels);
+    if(!load_art_preference()) *cacheable = false;
+    bool disc_first = art_preference_known && art_preference == KUI_GAMES_ART_DISC_FIRST;
+    if(record->source == KUI_COVER_SOURCE_USER) {
+        /* Legacy internet PNGs and loose owner art shared the same source
+         * tag. Only the managed PNG with a matching stamp may yield to disc. */
+        char path[PATH_CAP];
+        FILINFO info;
+        if(!disc_first || !kui_games_media_path(record->gdi_path, KUI_DOWNLOADED_COVERS,
+                "png", path, sizeof(path)) || f_stat(path, &info) != FR_OK ||
+                (info.fattrib & AM_DIR)) return record_pixels(file, record, size, pixels);
+        struct kui_cover_stamp legacy;
+        stamp_of(&info, &legacy);
+        if(!same_stamp(&legacy, &record->user)) return record_pixels(file, record, size, pixels);
+        for(unsigned i = 0; i < sizeof(user_images) / sizeof(user_images[0]); ++i) {
+            if(!record_path(key, user_images[i], path)) return false;
+            FRESULT r = f_stat(path, &info);
+            if(r != FR_NO_FILE && r != FR_NO_PATH) return record_pixels(file, record, size, pixels);
+        }
+    }
+    if(!disc_first && record_pixels(file, record, size, pixels)) return true;
+    if(stopped(cancel)) return false;
+    enum outcome disc = alternative_disc(key, record, size, pixels, log, cancel);
+    if(disc == OUT_FAILED || !disc_first) *cacheable = false;
+    if(disc == OUT_DISC) return true;
+    return disc_first && !stopped(cancel) && record_pixels(file, record, size, pixels);
+}
+
 /* Old network downloads use a dedicated, path-hashed PNG. Preserve this
  * original until the complete compact replacement is on the card and its
  * three pixel checksums have been read back. A retry finishes any cleanup. */
-static bool migrate_download(const char *game, kui_cancel_fn cancel, kui_log_fn log) {
+static bool migrate_download(const char *game,uint64_t *generation,kui_cancel_fn cancel,kui_log_fn log) {
     char png[PATH_CAP], compact[PATH_CAP];
     if(!kui_games_media_path(game,KUI_DOWNLOADED_COVERS,"png",png,sizeof(png)) ||
        !kui_games_media_path(game,KUI_DOWNLOADED_COVERS,"kct",compact,sizeof(compact))) return false;
+    FRESULT overlay=overlay_generation(compact,generation,cancel);
+    if(overlay==FR_OK) return true;
+    if(!unavailable(overlay)) return false;
     FILINFO info;
     FRESULT r = f_stat(png,&info);
     bool has_png = r == FR_OK;
     if((has_png && (info.fattrib & AM_DIR)) || (!has_png && r != FR_NO_FILE && r != FR_NO_PATH)) return false;
 
     FIL saved;
-    r = f_open(&saved,compact,FA_READ);
+    r = kui_games_open_compact_direct(&saved,compact);
     if(r == FR_OK) {
         enum kui_compact_result checked = kui_compact_cover_verify(&saved,cancel);
         if(f_close(&saved) != FR_OK || checked == KUI_COMPACT_ERROR || stopped(cancel)) return false;
@@ -936,6 +1425,10 @@ static bool migrate_download(const char *game, kui_cancel_fn cancel, kui_log_fn 
          * may be reclaimed by this explicit scan. Leave SD read errors alone. */
         if(f_unlink(compact) != FR_OK) return false;
         if(log) log("Box art: replacing a damaged downloaded cover for %s",game);
+    } else if(r == FR_INVALID_OBJECT) {
+        /* A broken generated link may be reclaimed on this explicit scan.
+         * The shared target and other discs' links remain intact. */
+        if(f_unlink(compact) != FR_OK) return false;
     } else if(r != FR_NO_FILE && r != FR_NO_PATH) return false;
     if(!has_png) return true;
 
@@ -960,28 +1453,35 @@ static bool migrate_download(const char *game, kui_cancel_fn cancel, kui_log_fn 
     if(log) log("Box art: compacted existing download for %s",game);
     return true;
 }
-bool kui_games_prepare_media_cover(const struct kui_games_entry *entry, bool *present,
-        kui_log_fn log, kui_cancel_fn cancel) {
-    *present = entry->cover_path[0] != 0;
-    if(*present) return true;
+bool kui_games_prepare_media_cover_state(const struct kui_games_entry *entry,enum kui_games_media_cover_state *state,
+        struct kui_games_disc_identity *identity, kui_log_fn log, kui_cancel_fn cancel) {
+    if(!entry || !state) return false;
+    *state = KUI_GAMES_MEDIA_COVER_MISSING;
+    if(entry->cover_path[0]) { *state=KUI_GAMES_MEDIA_COVER_OWNER; return true; }
     char key[KUI_COVER_PATH_CAP], path[PATH_CAP];
     if(!kui_cover_key(entry->name, key) || stopped(cancel)) return false;
     static const char *const folders[] = {"0:/KUI", KUI_GAMES_COVERS_FOLDER};
     if(!make_folders(folders, 2, log)) return false;
     FIL file;
     struct kui_cover_record old;
-    FRESULT r = record_read(key, &file, &old);
+    bool backup;
+    FRESULT r = selector_record(key, entry->path, &file, &old, &backup, true, log);
     if(r == FR_OK) {
         if(f_close(&file) != FR_OK) return false;
-        if(strcmp(old.gdi_path, entry->path)) {
-            if(log) log("Media: cover name %s belongs to another game", key);
-            *present = true;
-            return true;
-        }
-    } else if(r != FR_NO_FILE && r != FR_INVALID_OBJECT) return false;
-    if(!migrate_download(entry->path,cancel,log)) return false;
+    } else if(r != FR_NO_FILE && !(r == FR_INVALID_OBJECT && backup)) return false;
+    /* An explicit owner file stays protected even when its decoder fails. */
+    for(unsigned i=0;i<sizeof(user_images)/sizeof(user_images[0]);++i) {
+        FILINFO info;
+        if(!record_path(key,user_images[i],path)) return false;
+        r=f_stat(path,&info);
+        if(r==FR_OK) { *state=KUI_GAMES_MEDIA_COVER_OWNER; break; }
+        if(r!=FR_NO_FILE && r!=FR_NO_PATH) return false;
+    }
+    uint64_t generation=0;
+    if(*state!=KUI_GAMES_MEDIA_COVER_OWNER && !migrate_download(entry->path,&generation,cancel,log)) return false;
     /* Build the catalogue reference, including after an interrupted install. */
-    struct scan scan = {.log = log, .cancel = cancel, .compact_verified = true};
+    struct scan scan = {.log = log, .cancel = cancel, .compact_verified = *state!=KUI_GAMES_MEDIA_COVER_OWNER,
+        .identity = identity, .overlay_generation = generation};
     scan.record = malloc(KUI_COVER_FILE_BYTES);
     scan.raw = malloc(16u * KUI_GAME_RAW_BYTES);
     scan.scaled = malloc(KUI_COVER_PIXELS * sizeof(*scan.scaled));
@@ -995,26 +1495,23 @@ bool kui_games_prepare_media_cover(const struct kui_games_entry *entry, bool *pr
         kui_games_covers_content_clear();
         artwork_known = false;
     }
-    /* A disc texture is the offline fallback. Scanning for box art can
-     * upgrade it without replacing an owner image or an existing download. */
-    *present = result == OUT_USER;
-    if(*present) return true;
-    /* Even an unscannable image belongs to the owner. Never replace it. */
-    for(unsigned i = 0; i < sizeof(user_images) / sizeof(user_images[0]); ++i) {
-        FILINFO info;
-        if(!record_path(key, user_images[i], path)) return false;
-        r = f_stat(path, &info);
-        if(r == FR_OK) { *present = true; return true; }
-        if(r != FR_NO_FILE) return false;
-    }
-    if(!kui_games_media_path(entry->path, KUI_DOWNLOADED_COVERS, "kct", path, sizeof(path))) return false;
+    if(*state==KUI_GAMES_MEDIA_COVER_OWNER) return true;
+    if(generation) { *state=KUI_GAMES_MEDIA_COVER_MANAGED; return true; }
+    if(!kui_games_media_path(entry->path,KUI_DOWNLOADED_COVERS,"kct",path,sizeof(path))) return false;
     FILINFO info;
-    r = f_stat(path, &info);
-    if(r == FR_OK) {
-        *present = result == OUT_UNCHANGED && info.fsize == KUI_COMPACT_COVER_BYTES && !(info.fattrib & AM_DIR);
-        return *present;
-    }
-    return r == FR_NO_FILE || r == FR_NO_PATH;
+    r=f_stat(path,&info);
+    if(r==FR_NO_FILE || r==FR_NO_PATH) return true;
+    if(r!=FR_OK || (info.fattrib & AM_DIR) ||
+       (info.fsize!=KUI_COMPACT_COVER_BYTES && info.fsize!=KUI_COMPACT_LINK_BYTES)) return false;
+    *state=KUI_GAMES_MEDIA_COVER_MANAGED;
+    return true;
+}
+bool kui_games_prepare_media_cover(const struct kui_games_entry *entry,bool *present,
+        struct kui_games_disc_identity *identity,kui_log_fn log,kui_cancel_fn cancel) {
+    enum kui_games_media_cover_state state;
+    bool ok=kui_games_prepare_media_cover_state(entry,&state,identity,log,cancel);
+    *present=ok && state!=KUI_GAMES_MEDIA_COVER_MISSING;
+    return ok;
 }
 
 enum kui_games_identity_result kui_games_media_identity(const char *path,
@@ -1041,13 +1538,8 @@ enum kui_games_identity_result kui_games_media_identity(const char *path,
         if(result == KUI_GAME_OK)
             result = kui_game_image_read(image, image->data_lba, 1, KUI_GAME_SECTOR_MODE1, sector, 2048);
         struct kui_game_metadata meta;
-        if(result == KUI_GAME_OK && kui_game_metadata_ip(sector, &meta) && (meta.native_gd || meta.native_cd || meta.windows_ce) &&
-           meta.title[0] && meta.product[0] && meta.region[0]) {
-            snprintf(out->title, sizeof(out->title), "%s", meta.title);
-            snprintf(out->product, sizeof(out->product), "%s", meta.product);
-            snprintf(out->region, sizeof(out->region), "%s", meta.region);
+        if(result == KUI_GAME_OK && kui_game_metadata_ip(sector, &meta) && media_identity(&meta,out))
             found = KUI_GAMES_IDENTITY_FOUND;
-        }
     }
     free(sector);
     free(image);
@@ -1064,7 +1556,7 @@ static void summary(struct kui_app_status *status, const struct kui_games_scan_c
     snprintf(l[status->line_count++], KUI_APP_LINE_CAP, "No artwork found: %u", c->none);
     snprintf(l[status->line_count++], KUI_APP_LINE_CAP, "Unchanged since last scan: %u", c->unchanged);
     if(c->duplicates)
-        snprintf(l[status->line_count++], KUI_APP_LINE_CAP, "Skipped, same name as another game: %u", c->duplicates);
+        snprintf(l[status->line_count++], KUI_APP_LINE_CAP, "Separate records for same-name games: %u", c->duplicates);
     if(c->failed) snprintf(l[status->line_count++], KUI_APP_LINE_CAP, "Could not be read or saved: %u", c->failed);
 }
 bool kui_games_scan(struct kui_app_status *status, struct kui_games_scan_counts *counts,
@@ -1115,7 +1607,7 @@ bool kui_games_scan(struct kui_app_status *status, struct kui_games_scan_counts 
         }
         status->done = i + 1u;
     }
-    free(s.names); free(s.hashes); free(s.record); free(s.raw); free(s.scaled);
+    free(s.names); free(s.record); free(s.raw); free(s.scaled);
     if(mounted && f_mount(NULL, "0:", 0) != FR_OK && !problem) problem = "Cannot release SD filesystem";
     if(connected) kui_sd_disconnect();
     summary(status, counts);

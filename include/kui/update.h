@@ -163,6 +163,11 @@ enum kui_update_result kui_update_target_verify(const char *build,struct kui_upd
  * of an incomplete unselected bank. Complete exact-bank reuse requires0. */
 enum kui_update_result kui_update_plan_space(const struct kui_update_package *,
     uint64_t *required,uint64_t *available,kui_cancel_fn);
+/* Review the same plan against its pinned activation. already_selected requires
+ * a verified installed bank, including its complete receipt and member data. */
+enum kui_update_result kui_update_plan_review(const struct kui_update_package *,
+    const struct kui_update_activation *expected,bool *already_selected,
+    uint64_t *required,uint64_t *available,kui_cancel_fn);
 /* select and rollback verify the entire target bank before publishing. Empty
  * build means the immutable root baseline, whose GUI header, payload CRC and
  * updater capability are freshly checked. NULL expected_manifest is allowed

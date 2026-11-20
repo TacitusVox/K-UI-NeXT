@@ -414,8 +414,10 @@ static enum kui_update_result quota(const struct kui_update_package *p,uint64_t 
     *needed=required>reclaim?required-reclaim:0u;*available=(uint64_t)clusters*cluster;
     return *available>=*needed?KUI_UPDATE_OK:KUI_UPDATE_SPACE;
 }
-enum kui_update_result kui_update_plan_space(const struct kui_update_package *p,
+enum kui_update_result kui_update_plan_review(const struct kui_update_package *p,
+    const struct kui_update_activation *expected,bool *already_selected,
     uint64_t *needed,uint64_t *available,kui_cancel_fn cancel) {
+    if(already_selected)*already_selected=false;
     if(!needed || !available)return KUI_UPDATE_ARGUMENT;
     *needed=*available=0u;
     if(!p || (kui_update_package_version(p)!=2u && !kui_update_package_find(p,"runtime.kui")))return KUI_UPDATE_ARGUMENT;
@@ -423,6 +425,7 @@ enum kui_update_result kui_update_plan_space(const struct kui_update_package *p,
     struct kui_update_activation a;unsigned slot;
     enum kui_update_result r=kui_update_activation_for_update(&a,&slot,cancel);
     if(r)return r;
+    if(expected && !activation_equal(expected,&a))return KUI_UPDATE_STALE;
     struct kui_update_package *bank=malloc(sizeof(*bank)),*snapshot=NULL;
     if(!bank)return KUI_UPDATE_MEMORY;
     unsigned root_engine=0u;
@@ -441,28 +444,42 @@ enum kui_update_result kui_update_plan_space(const struct kui_update_package *p,
     }
     if(snapshot) {
         bool complete=false;r=snapshot_target(snapshot,&a,bank,allow_repair,&complete,NULL,NULL,cancel,NULL);
-        if(!r && complete) {
-            FATFS *fs=NULL;DWORD free_clusters=0u;
-            if(f_getfree("0:",&free_clusters,&fs)!=FR_OK || !fs)r=KUI_UPDATE_IO;
-            else *available=(uint64_t)free_clusters*fs->csize*512u;
-        } else if(!r)r=quota(snapshot,needed,available);
-        free(snapshot);free(bank);return r;
-    }
-    r=kui_update_bank_receipt_read(p->build,bank,cancel);
-    if(!r) {
-        struct kui_update_pin pin;kui_update_package_pin(p,&pin);
-        if(!kui_update_pin_matches(&pin,bank))r=KUI_UPDATE_STALE;
-        else {
-            FATFS *fs=NULL;DWORD free_clusters=0u;
-            if(f_getfree("0:",&free_clusters,&fs)!=FR_OK || !fs)r=KUI_UPDATE_IO;
-            else *available=(uint64_t)free_clusters*fs->csize*512u;
+        if(!r && !complete)r=quota(snapshot,needed,available);
+        if(r || !complete) {free(snapshot);free(bank);return r;}
+        if(!snapshot_same(snapshot,bank))r=KUI_UPDATE_STALE;
+    } else {
+        r=kui_update_bank_receipt_read(p->build,bank,cancel);
+        if(!r) {
+            struct kui_update_pin pin;kui_update_package_pin(p,&pin);
+            if(!kui_update_pin_matches(&pin,bank))r=KUI_UPDATE_STALE;
+            /* Legacy quota alone needs just a receipt. Re-read the selected
+             * bank's files before reporting a successful duplicate check. */
+            else if(already_selected && !strcmp(a.selected,p->build)) {
+                r=kui_update_bank_verify(p->build,bank,NULL,NULL,cancel,NULL);
+                if(!r && !kui_update_pin_matches(&pin,bank))r=KUI_UPDATE_STALE;
+            }
+        } else if(r==KUI_UPDATE_NOT_FOUND || r==KUI_UPDATE_FORMAT || r==KUI_UPDATE_CHECKSUM ||
+                  r==KUI_UPDATE_COHORT || r==KUI_UPDATE_STALE) {
+            if(!strcmp(a.selected,p->build) || !strcmp(a.previous,p->build))r=KUI_UPDATE_PROTECTED;
+            else if(stopped(cancel))r=KUI_UPDATE_CANCELLED;
+            else r=quota(p,needed,available);
+            free(bank);return r;
         }
-    } else if(r==KUI_UPDATE_NOT_FOUND || r==KUI_UPDATE_FORMAT || r==KUI_UPDATE_CHECKSUM || r==KUI_UPDATE_COHORT || r==KUI_UPDATE_STALE) {
-        if(!strcmp(a.selected,p->build) || !strcmp(a.previous,p->build))r=KUI_UPDATE_PROTECTED;
-        else if(stopped(cancel))r=KUI_UPDATE_CANCELLED;
-        else r=quota(p,needed,available);
+    }
+    if(!r) {
+        FATFS *fs=NULL;DWORD free_clusters=0u;
+        if(f_getfree("0:",&free_clusters,&fs)!=FR_OK || !fs)r=KUI_UPDATE_IO;
+        else {
+            *available=(uint64_t)free_clusters*fs->csize*512u;
+            if(already_selected)*already_selected=!strcmp(a.selected,p->build) &&
+                !memcmp(a.manifest_sha256,bank->manifest_sha256,32u);
+        }
     }
     free(snapshot);free(bank);return r;
+}
+enum kui_update_result kui_update_plan_space(const struct kui_update_package *p,
+    uint64_t *needed,uint64_t *available,kui_cancel_fn cancel) {
+    return kui_update_plan_review(p,NULL,NULL,needed,available,cancel);
 }
 static enum kui_update_result clear_partial(const struct kui_update_package *p,kui_cancel_fn cancel) {
     char path[160];FILINFO info;

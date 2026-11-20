@@ -458,7 +458,11 @@ class Catalogue:
             if shutil.which(program) is None:
                 raise MediaError(503, f"Install {program} on the media companion")
         try:
-            {"cover": convert_cover, "manual": convert_manual, "preview": convert_preview}[kind](source, target)
+            if kind == "preview":
+                # Clients of the v1 endpoint only understand silent KPV1 clips.
+                convert_preview(source, target, legacy=True)
+            else:
+                {"cover": convert_cover, "manual": convert_manual}[kind](source, target)
         except (OSError, ValueError, Image.DecompressionBombError) as error:
             # Decoder errors can include a host path, not useful to the console.
             print(f"Could not convert {kind}: {type(error).__name__}: {error}", file=sys.stderr)

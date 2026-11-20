@@ -4,6 +4,7 @@
 #include "kui/music_ogg.h"
 #include "platform.h"
 #include <dc/sound/stream.h>
+#include <dc/sound/sound.h>
 #ifdef KUI_ON_CONSOLE
 #include <kos/mutex.h>
 #include <kos/thread.h>
@@ -15,6 +16,7 @@
 /* At 44.1 kHz stereo this gives about 740 ms of queued audio. The callback
  * copies RAM only, leaving the single SD/optical worker free to run captures. */
 #define MUSIC_STREAM_BYTES 65536u
+#define PREVIEW_STREAM_BYTES 8192u
 #define MUSIC_CALLBACK_BYTES (MUSIC_STREAM_BYTES*2u)
 /* How often the audio worker polls the stream. Each poll reads the sound
  * chip's play position over the G2 bus, which holds the SH-4's bus long
@@ -49,7 +51,7 @@ static struct {
     struct kui_ogg ogg;
     uint8_t *arena;
     snd_stream_hnd_t stream;
-    bool audio_initialized,playback_failed,thread_stop;
+    bool audio_initialized,playback_failed,thread_stop,preview_suspended;
     unsigned next_buffer;
 #ifdef KUI_ON_CONSOLE
     kthread_t *thread;
@@ -72,6 +74,113 @@ static volatile unsigned request_index,request_number;
 static unsigned request_seen;
 /* KOS requests the next callback before draining the preceding transfer. */
 static _Alignas(32) uint8_t callback_data[2][MUSIC_CALLBACK_BYTES];
+/* A separate AICA stream preserves the selected song's decoder position. The
+ * pinned KOS polls at most half a channel buffer per refill and may still be
+ * transferring the previous callback when it asks for the next one. */
+static struct {
+    snd_stream_hnd_t stream;
+    const int16_t *samples;
+    size_t remaining;
+    kui_cancel_fn cancel;
+    uint8_t *buffers;
+    unsigned next;
+} preview = {.stream=SND_STREAM_INVALID};
+
+static void *preview_data(snd_stream_hnd_t hnd, int requested, int *received) {
+    (void)hnd;
+    *received=0;
+    if(requested<=0 || requested%2 || (unsigned)requested>PREVIEW_STREAM_BYTES/2) return NULL;
+    size_t count=(unsigned)requested/sizeof(int16_t);
+    if(count>preview.remaining) count=preview.remaining;
+    uintptr_t aligned=((uintptr_t)preview.buffers+31u)&~(uintptr_t)31u;
+    uint8_t *out=(uint8_t *)aligned+preview.next*(PREVIEW_STREAM_BYTES/2);
+    preview.next^=1u;
+    size_t bytes=count*sizeof(int16_t);
+    memcpy(out,preview.samples,bytes);
+    memset(out+bytes,0,(size_t)requested-bytes);
+    preview.samples+=count;
+    preview.remaining-=count;
+    *received=requested;
+    return out;
+}
+static void set_song_gain_locked(void) {
+    if(music.stream==SND_STREAM_INVALID) return;
+    unsigned gain=kui_music_aica_volume(music.status.volume);
+    if(preview.stream!=SND_STREAM_INVALID) gain/=4;
+    snd_stream_volume(music.stream,(int)gain);
+}
+static void preview_stop_locked(void) {
+    if(preview.stream==SND_STREAM_INVALID) return;
+    snd_stream_destroy(preview.stream);
+    preview.stream=SND_STREAM_INVALID;
+    free(preview.buffers);
+    preview.buffers=NULL;
+    preview.samples=NULL;
+    preview.remaining=0;
+    preview.cancel=NULL;
+    set_song_gain_locked();
+}
+void kui_music_preview_stop(void) {
+    lock_audio();
+    preview_stop_locked();
+    unlock_audio();
+}
+static bool preview_enabled_locked(void) {
+#ifdef KUI_ON_CONSOLE
+    if(!music.thread) return false;
+#endif
+    return music.status.enabled && music.status.volume && !music.status.paused && !music.preview_suspended;
+}
+bool kui_music_preview_enabled(void) {
+    lock_audio();
+    bool enabled=preview_enabled_locked();
+    unlock_audio();
+    return enabled;
+}
+static bool initialize_streams_locked(void) {
+    if(music.audio_initialized) return true;
+    if(snd_stream_init_ex(2,MUSIC_STREAM_BYTES)<0) {
+        snd_stream_shutdown();
+        return false;
+    }
+    music.audio_initialized=true;
+    return true;
+}
+bool kui_music_preview_play(const int16_t *samples, size_t count, unsigned rate, kui_cancel_fn cancel) {
+    lock_audio();
+    preview_stop_locked();
+    if(!samples || !count || !rate || !preview_enabled_locked() || (cancel && cancel()) ||
+       !initialize_streams_locked()) {
+        unlock_audio();
+        return false;
+    }
+    /* KOS allocates max_channels * bufsize even for a mono stream, and its
+     * snd_stream_alloc does not reject a failed SPU allocation. */
+    if(snd_mem_available()<2*PREVIEW_STREAM_BYTES ||
+       !(preview.buffers=malloc(PREVIEW_STREAM_BYTES+31u))) {
+        unlock_audio();
+        return false;
+    }
+    preview.stream=snd_stream_alloc(preview_data,PREVIEW_STREAM_BYTES);
+    if(preview.stream==SND_STREAM_INVALID) {
+        free(preview.buffers);
+        preview.buffers=NULL;
+        unlock_audio();
+        return false;
+    }
+    preview.samples=samples;
+    preview.remaining=count;
+    preview.cancel=cancel;
+    preview.next=0;
+    snd_stream_queue_enable(preview.stream);
+    snd_stream_start(preview.stream,rate,0);
+    snd_stream_volume(preview.stream,(int)kui_music_aica_volume(music.status.volume));
+    snd_stream_queue_go(preview.stream);
+    snd_stream_queue_disable(preview.stream);
+    set_song_gain_locked();
+    unlock_audio();
+    return true;
+}
 static void notice_locked(const char *text) {
     snprintf(music.status.message,sizeof(music.status.message),"%s",text);
 }
@@ -119,6 +228,7 @@ static void *stream_data(snd_stream_hnd_t hnd,int requested,int *received) {
     *received=(int)count;return out;
 }
 static void pause_locked(void) {
+    preview_stop_locked();
     if(music.stream!=SND_STREAM_INVALID) {
         snd_stream_destroy(music.stream);music.stream=SND_STREAM_INVALID;
     }
@@ -126,12 +236,12 @@ static void pause_locked(void) {
     music.status.paused=music.status.loaded && music.status.enabled;
 }
 void kui_music_pause(void) {
-    lock_audio();pause_locked();
+    lock_audio();music.preview_suspended=true;pause_locked();
     if(music.status.paused && !music.playback_failed) notice_locked("Music paused");
     unlock_audio();
 }
 void kui_music_release_audio(void) {
-    lock_audio();pause_locked();
+    lock_audio();music.preview_suspended=true;pause_locked();
     if(music.audio_initialized) {snd_stream_shutdown();music.audio_initialized=false;}
     unlock_audio();
 }
@@ -140,11 +250,8 @@ static void resume_locked(void) {
     if(!music.thread) {notice_locked("Audio service unavailable; restart K-UI");return;}
 #endif
     if(!music.status.enabled || !music.status.loaded || music.status.playing || music.playback_failed) return;
-    if(!music.audio_initialized) {
-        if(snd_stream_init_ex(2,MUSIC_STREAM_BYTES)<0) {
-            snd_stream_shutdown();music.playback_failed=true;notice_locked("Audio initialization failed; choose Music again");return;
-        }
-        music.audio_initialized=true;
+    if(!initialize_streams_locked()) {
+        music.playback_failed=true;notice_locked("Audio initialization failed; choose Music again");return;
     }
     music.stream=snd_stream_alloc(stream_data,MUSIC_STREAM_BYTES);
     if(music.stream==SND_STREAM_INVALID) {
@@ -153,11 +260,11 @@ static void resume_locked(void) {
     music.next_buffer=0;
     snd_stream_queue_enable(music.stream);
     snd_stream_start(music.stream,music.status.sample_rate,music.loop.frame_bytes==4);
-    snd_stream_volume(music.stream,(int)kui_music_aica_volume(music.status.volume));
+    set_song_gain_locked();
     snd_stream_queue_go(music.stream);snd_stream_queue_disable(music.stream);
     music.status.playing=true;music.status.paused=false;notice_locked("Playing from RAM");
 }
-void kui_music_resume(void) {lock_audio();resume_locked();unlock_audio();}
+void kui_music_resume(void) {lock_audio();music.preview_suspended=false;resume_locked();unlock_audio();}
 void kui_music_request_select(unsigned index,unsigned number) {
     if(!number) return;
     request_number=0;request_index=index;request_number=number;
@@ -174,6 +281,9 @@ static void apply_request_locked(void) {
 void kui_music_service(void) {
     lock_audio();
     apply_request_locked();
+    if(preview.stream!=SND_STREAM_INVALID &&
+       ((preview.cancel && preview.cancel()) || snd_stream_poll(preview.stream)<0))
+        preview_stop_locked();
     if(music.status.playing && snd_stream_poll(music.stream)<0) {
         pause_locked();music.playback_failed=true;notice_locked("Audio stopped after a playback error; choose Music again");
     }
@@ -209,7 +319,7 @@ void kui_music_init(kui_log_fn log) {
     kui_music_shutdown();lock_audio();music.log=log;music.next_buffer=0;
     /* A request made before this service started is not replayed. */
     request_seen=request_number;
-    music.status.volume=30;music.thread_stop=false;unlock_audio();
+    music.status.volume=30;music.thread_stop=false;music.preview_suspended=false;unlock_audio();
 #ifdef KUI_ON_CONSOLE
     kthread_attr_t attrs={.stack_size=32u*1024u,.label="kui-audio"};
     music.thread=thd_create_ex(&attrs,audio_worker,NULL);
@@ -218,9 +328,15 @@ void kui_music_init(kui_log_fn log) {
 }
 void kui_music_set_config(bool enabled,unsigned volume_percent) {
     lock_audio();music.playback_failed=false;
+    if(enabled && !music.status.enabled) music.preview_suspended=false;
     music.status.enabled=enabled;music.status.volume=volume_percent>100?100:volume_percent;
     if(!enabled) {pause_locked();notice_locked("Music off");}
-    else if(music.status.playing) snd_stream_volume(music.stream,(int)kui_music_aica_volume(music.status.volume));
+    else {
+        if(!music.status.volume) preview_stop_locked();
+        if(preview.stream!=SND_STREAM_INVALID)
+            snd_stream_volume(preview.stream,(int)kui_music_aica_volume(music.status.volume));
+        set_song_gain_locked();
+    }
     unlock_audio();
 }
 static void cache_status_locked(void) {
@@ -366,6 +482,7 @@ bool kui_music_cache_menu(unsigned index,kui_cancel_fn cancel) {return cache_men
 bool kui_music_cache_menu_mounted(unsigned index,kui_cancel_fn cancel) {return cache_menu(index,true,cancel);}
 static bool select_locked(unsigned index) {
     if(index>=MUSIC_SLOTS || !music.tracks[index].file) return false;
+    music.preview_suspended=false;
     music.playback_failed=false;
     if(music.status.loaded && music.status.current_index==index && music.loop.data==music.tracks[index].file+music.tracks[index].wav.offset) {
         resume_locked();return true;
@@ -415,7 +532,7 @@ bool kui_music_step_cached(int direction,unsigned *wanted) {
     bool ok=select_locked(index);unlock_audio();return ok;
 }
 void kui_music_clear_cache(void) {
-    lock_audio();pause_locked();kui_ogg_close(&music.ogg);
+    lock_audio();music.preview_suspended=true;pause_locked();kui_ogg_close(&music.ogg);
     for(unsigned i=0;i<MUSIC_SLOTS;i++) {
         release_file_locked(music.tracks[i].file);memset(&music.tracks[i],0,sizeof(music.tracks[i]));
     }

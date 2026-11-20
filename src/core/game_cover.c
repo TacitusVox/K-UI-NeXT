@@ -2,6 +2,7 @@
 #include "kui/game_cover.h"
 #include "kui/core.h"
 #include "kui/destination.h"
+#include "kui/japanese_text.h"
 
 #include <string.h>
 
@@ -45,7 +46,7 @@ static bool field_read(char *out, const uint8_t *in, size_t cap) {
     if(!end) return false;
     for(const uint8_t *p = end; p < in + cap; ++p) if(*p) return false;
     memcpy(out, in, cap);
-    return printable(out, cap);
+    return true; /* record_valid checks the encoding of each field. */
 }
 static void stamp_write(uint8_t *p, const struct kui_cover_stamp *s) {
     put64(p, s->bytes); put16(p + 8, s->date); put16(p + 10, s->time);
@@ -61,10 +62,13 @@ static bool zero(const uint8_t *p, size_t n) {
     for(size_t i = 0; i < n; ++i) if(p[i]) return false;
     return true;
 }
+static bool display_field(const char *s, size_t capacity) {
+    return memchr(s, 0, capacity) && kui_utf8_display_valid(s);
+}
 static bool record_valid(const struct kui_cover_record *r) {
     return r && r->source <= KUI_COVER_SOURCE_DOWNLOAD &&
-        printable(r->gdi_path, sizeof(r->gdi_path)) && r->gdi_path[0] == '/' &&
-        printable(r->title, sizeof(r->title)) && printable(r->product, sizeof(r->product)) &&
+        display_field(r->gdi_path, sizeof(r->gdi_path)) && r->gdi_path[0] == '/' &&
+        display_field(r->title, sizeof(r->title)) && printable(r->product, sizeof(r->product)) &&
         printable(r->version, sizeof(r->version)) && printable(r->region, sizeof(r->region)) &&
         ((r->source != KUI_COVER_SOURCE_USER && r->source != KUI_COVER_SOURCE_DOWNLOAD) || r->user.bytes != 0);
 }
@@ -136,18 +140,24 @@ void kui_cover_display_title(const char *title, const char *fallback, char out[K
     if(!out) return;
     size_t used = 0;
     bool space = false;
-    for(const char *p = title; p && *p && used + 1 < KUI_COVER_TITLE_CAP; ++p) {
-        if(*p == ' ') { space = used > 0; continue; }
-        if(space && used + 2 < KUI_COVER_TITLE_CAP) out[used++] = ' ';
+    for(const char *p = title; p && *p;) {
+        if(*p == ' ') { space = used > 0; ++p; continue; }
+        uint32_t scalar;
+        size_t n = kui_utf8_next(p, &scalar);
+        if((n == 1 && scalar == 0xfffd) ||
+           n + (space ? 1u : 0u) >= KUI_COVER_TITLE_CAP - used) break;
+        if(space) out[used++] = ' ';
         space = false;
-        out[used++] = *p;
+        memcpy(out + used, p, n);
+        used += n;
+        p += n;
     }
     out[used] = 0;
-    /* Titles in Japanese character sets arrive as runs of '?'. */
+    /* Legacy cached titles can contain runs of '?' from the old decoder. */
     if(used && !strstr(out, "??")) return;
     char key[KUI_COVER_PATH_CAP];
     const char *name = fallback && kui_cover_key(fallback, key) ? key : fallback ? fallback : "";
-    size_t n = bounded(name, KUI_COVER_TITLE_CAP - 1u);
+    size_t n = kui_utf8_prefix(name, KUI_COVER_TITLE_CAP - 1u);
     memcpy(out, name, n);
     out[n] = 0;
 }

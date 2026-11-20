@@ -1,6 +1,8 @@
 /* SPDX-License-Identifier: GPL-3.0-only */
 #include "kui/internet_preview.h"
+#include "kui/hash.h"
 #include "kui/media_container.h"
+#include "kui/music_ogg.h"
 #include <ogg/ogg.h>
 #include <theora/theoradec.h>
 #include <stdlib.h>
@@ -57,7 +59,56 @@ void *kui_xiph_resize(void *ptr, size_t size) {
     return p+1;
 }
 
+/* Only keep complete, CRC-checked pages of the first supported Vorbis
+ * stream. The Theora decoder and its frame are freed before audio decoding. */
+struct audio_pages {
+    uint8_t *data;
+    size_t size, capacity;
+    int serial;
+    unsigned rate;
+    uint32_t next_page;
+    ogg_int64_t granule;
+    bool done;
+};
+
+static bool collect_audio(struct audio_pages *a, ogg_page *page) {
+    if(a->done) return true;
+    if(!a->rate) {
+        const uint8_t *id = page->body;
+        if(!ogg_page_bos(page) || page->body_len < 30 || memcmp(id,"\1vorbis",7) ||
+           !id[11] || id[11] > 2) return true;
+        uint32_t rate = id[12] | (uint32_t)id[13]<<8 | (uint32_t)id[14]<<16 | (uint32_t)id[15]<<24;
+        if(rate < 8000u || rate > 48000u) return true;
+        a->rate = rate;
+        a->serial = ogg_page_serialno(page);
+    }
+    if(ogg_page_serialno(page) != a->serial) return true;
+    size_t bytes = (size_t)page->header_len + (size_t)page->body_len;
+    const size_t limit = 512u*1024u;
+    if((uint32_t)ogg_page_pageno(page) != a->next_page++ || bytes > limit-a->size) {
+        a->done = true;
+        a->size = 0;
+        return true;
+    }
+    if(a->size+bytes > a->capacity) {
+        size_t capacity = a->capacity ? a->capacity*2u : 8192u;
+        while(capacity < a->size+bytes) capacity *= 2u;
+        uint8_t *buf = realloc(a->data,capacity);
+        if(!buf) return false;
+        a->capacity = capacity;
+        a->data = buf;
+    }
+    memcpy(a->data+a->size,page->header,(size_t)page->header_len);
+    memcpy(a->data+a->size+page->header_len,page->body,(size_t)page->body_len);
+    a->size += bytes;
+    ogg_int64_t pos = ogg_page_granulepos(page);
+    if(pos >= 0) a->granule = pos;
+    a->done = ogg_page_eos(page) || a->granule >= (ogg_int64_t)a->rate * KUI_PREVIEW_FRAMES_MAX / KUI_PREVIEW_FPS;
+    return true;
+}
+
 struct convert {
+    struct audio_pages audio;
     ogg_sync_state sync;
     ogg_stream_state stream;
     th_info info;
@@ -65,8 +116,9 @@ struct convert {
     th_setup_info *setup;
     th_dec_ctx *decoder;
     uint16_t *frame;
+    uint32_t *readback_crc;
     unsigned source_frames, written;
-    bool found;
+    bool found, video_done;
 };
 
 static unsigned clamp(int n) {
@@ -108,6 +160,11 @@ static bool write_bytes(FIL *dest, const void *data, UINT size) {
     UINT written;
     return f_write(dest, data, size, &written) == FR_OK && written == size;
 }
+static bool write_checked(struct convert *c,FIL *dest,const void *data,UINT size) {
+    if(!write_bytes(dest,data,size)) return false;
+    if(c->readback_crc) *c->readback_crc=kui_crc32_capture(*c->readback_crc,data,size);
+    return true;
+}
 
 static bool frame_packet(struct convert *c, ogg_packet *packet, FIL *dest) {
     if(!c->decoder) {
@@ -134,7 +191,7 @@ static bool frame_packet(struct convert *c, ogg_packet *packet, FIL *dest) {
         if(th_decode_ycbcr_out(c->decoder, planes) < 0) return false;
         sample_frame(c, planes);
         do {
-            if(!write_bytes(dest, c->frame, KUI_PREVIEW_FRAME_BYTES)) return false;
+            if(!write_checked(c,dest,c->frame,KUI_PREVIEW_FRAME_BYTES)) return false;
             ++c->written;
         } while(c->written < KUI_PREVIEW_FRAMES_MAX &&
                 (uint64_t)c->written*c->info.fps_numerator < end);
@@ -144,16 +201,22 @@ static bool frame_packet(struct convert *c, ogg_packet *packet, FIL *dest) {
 
 static bool convert_stream(struct convert *c, FIL *source, FIL *dest, kui_cancel_fn cancel) {
     while(!cancel || !cancel()) {
+        if(c->video_done && (!c->audio.rate || c->audio.done ||
+           c->audio.granule >= (ogg_int64_t)c->written * c->audio.rate / KUI_PREVIEW_FPS))
+            return true;
         ogg_page page;
         int status = ogg_sync_pageout(&c->sync, &page);
         if(status < 0) return false;
         if(!status) {
             char *buf = ogg_sync_buffer(&c->sync, READ_SIZE);
             UINT got;
-            if(!buf || f_read(source, buf, READ_SIZE, &got) != FR_OK || !got ||
-               ogg_sync_wrote(&c->sync, got)) return false;
+            if(!buf || f_read(source, buf, READ_SIZE, &got) != FR_OK) return false;
+            if(!got) return c->video_done;
+            if(ogg_sync_wrote(&c->sync, got)) return false;
             continue;
         }
+        if(!collect_audio(&c->audio,&page)) return false;
+        if(c->video_done) continue;
         if(!c->found && ogg_page_bos(&page) && page.body_len >= 7 &&
            memcmp(page.body, "\200theora", 7) == 0) {
             if(ogg_stream_init(&c->stream, ogg_page_serialno(&page))) return false;
@@ -165,35 +228,72 @@ static bool convert_stream(struct convert *c, FIL *source, FIL *dest, kui_cancel
         ogg_packet packet;
         while((status = ogg_stream_packetout(&c->stream, &packet)) > 0) {
             if((cancel && cancel()) || !frame_packet(c, &packet, dest)) return false;
-            if(c->written == KUI_PREVIEW_FRAMES_MAX) return true;
+            if(c->written == KUI_PREVIEW_FRAMES_MAX) {
+                c->video_done = true;
+                break;
+            }
         }
         if(status < 0) return false;
-        if(ogg_page_eos(&page)) return c->written != 0;
+        if(ogg_page_eos(&page)) {
+            if(!c->written) return false;
+            c->video_done = true;
+        }
     }
     return false;
 }
 
-bool kui_internet_preview_convert(FIL *source, FIL *dest, kui_cancel_fn cancel, kui_log_fn log) {
+static bool append_audio(struct convert *c, FIL *dest, uint8_t *header, kui_cancel_fn cancel) {
+    if(!c->audio.size) return true;
+    size_t samples = c->written * KUI_PREVIEW_AUDIO_SAMPLES_PER_FRAME;
+    int16_t *pcm = calloc(samples,sizeof(*pcm));
+    void *workspace = malloc(KUI_OGG_WORKSPACE_BYTES);
+    bool ok = workspace && pcm;
+    if(ok) {
+        size_t decoded = kui_ogg_preview_pcm(c->audio.data,c->audio.size,workspace,pcm,
+                                              samples,KUI_PREVIEW_AUDIO_RATE,cancel);
+        if(cancel && cancel()) ok = false;
+        if(ok && decoded) {
+            /* The final video frame may outlast the source audio. The zeroed
+             * tail preserves synchronization without looping shorter tracks. */
+            for(size_t pos=0; ok && pos<samples;) {
+                size_t n = samples-pos < 4096u ? samples-pos : 4096u;
+                ok = (!cancel || !cancel()) && write_checked(c,dest,pcm+pos,(UINT)(2u*n));
+                pos += n;
+            }
+            header[10] = (uint8_t)KUI_PREVIEW_AUDIO_RATE;
+            header[11] = (uint8_t)(KUI_PREVIEW_AUDIO_RATE>>8);
+        }
+    }
+    free(workspace);
+    free(pcm);
+    return ok;
+}
+
+bool kui_internet_preview_convert(FIL *source, FIL *dest, kui_cancel_fn cancel, kui_log_fn log,
+                                  uint32_t *readback_crc) {
     if(!source || !dest || used || f_size(dest) || !f_size(source) ||
        f_size(source) > 32u*1024u*1024u || f_lseek(source, 0) != FR_OK) return false;
-    struct convert c = {0};
+    struct convert c = {.readback_crc=readback_crc};
+    if(readback_crc) *readback_crc=0;
     /* Dreamcast and the host test target are little-endian RGB565. */
-    uint8_t header[KUI_PREVIEW_HEADER_BYTES] = {'K','P','V','1',KUI_PREVIEW_WIDTH,0,
+    uint8_t header[KUI_PREVIEW_HEADER_BYTES] = {'K','P','V','2',KUI_PREVIEW_WIDTH,0,
                                                 KUI_PREVIEW_HEIGHT,0,KUI_PREVIEW_FPS,0,0,0};
     peak = 0;
     c.frame = calloc(KUI_PREVIEW_WIDTH*KUI_PREVIEW_HEIGHT, sizeof(*c.frame));
     ogg_sync_init(&c.sync); th_info_init(&c.info); th_comment_init(&c.comments);
     bool ok = c.frame && write_bytes(dest, header, sizeof(header)) && convert_stream(&c, source, dest, cancel);
-    if(ok) {
-        header[12] = (uint8_t)c.written;
-        ok = f_lseek(dest, 0) == FR_OK && write_bytes(dest, header, sizeof(header));
-    }
     if(c.decoder) th_decode_free(c.decoder);
     th_setup_free(c.setup);
     th_comment_clear(&c.comments); th_info_clear(&c.info);
     if(c.found) ogg_stream_clear(&c.stream);
     ogg_sync_clear(&c.sync);
     free(c.frame);
+    if(ok) ok = append_audio(&c,dest,header,cancel);
+    free(c.audio.data);
+    if(ok) {
+        header[12] = (uint8_t)c.written;
+        ok = f_lseek(dest, 0) == FR_OK && write_checked(&c,dest,header,sizeof(header));
+    }
     if(log) log("Internet preview: %u source frames, %u preview frames, codec peak %lu bytes",
                 c.source_frames, c.written, (unsigned long)peak);
     return ok && used == 0;

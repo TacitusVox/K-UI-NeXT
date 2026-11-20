@@ -20,6 +20,11 @@ enum kui_games_view {
 #define KUI_GAMES_SCAN_MAX 2000u
 #define KUI_GAMES_ART_MAX_BYTES (2u * 1024u * 1024u)
 
+/* Worker-only, card-wide choice. Assigned and owner-supplied covers take priority. */
+enum kui_games_art_preference { KUI_GAMES_ART_DOWNLOADED_FIRST, KUI_GAMES_ART_DISC_FIRST };
+bool kui_games_art_preference_get(enum kui_games_art_preference *out, kui_log_fn log);
+bool kui_games_art_preference_save(enum kui_games_art_preference preference, kui_log_fn log);
+
 enum kui_cover_size kui_games_view_size(unsigned view);
 const char *kui_games_view_name(unsigned view);
 /* Resolve/save only the view preference, without listing any game folders. */

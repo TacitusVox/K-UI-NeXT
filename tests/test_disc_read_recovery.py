@@ -14,7 +14,7 @@ with tempfile.TemporaryDirectory(prefix='kui-disc-read-recovery-') as folder:
         '-Wall','-Wextra','-Werror','-Wpedantic','-fsanitize=address,undefined',
         '-fno-sanitize-recover=all','-fno-omit-frame-pointer','-fno-pie','-no-pie',
         '-Iinclude','-I.deps/fatfs/source','-Isrc/dreamcast',
-        'tests/test_disc_read_recovery.c','src/core/disc_boot.c','src/core/game_metadata.c',
+        'tests/test_disc_read_recovery.c','src/core/disc_boot.c','src/core/game_metadata.c', 'src/core/japanese_text.c',
         'src/core/disc_launch.c','src/core/hash.c','src/core/data.c',
         '-Wl,--wrap=realloc','-o',str(binary)],cwd=ROOT,check=True)
     subprocess.run([str(binary)],cwd=ROOT,check=True,

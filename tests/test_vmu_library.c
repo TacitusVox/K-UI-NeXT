@@ -223,6 +223,12 @@ static void display_metadata(const char *game_path,const char *import_path,const
         snprintf(removed,sizeof(removed),"0:/KUI/vmu/cards/v%04u/%s",backup.id,leaves[i]);CHECK(f_unlink(removed)==FR_OK);
     }
     snprintf(removed,sizeof(removed),"0:/KUI/vmu/cards/v%04u",backup.id);CHECK(f_unlink(removed)==FR_OK);
+    memset(saved+9u*512u+16u,0xb6,32u); /* Halfwidth KA expands to three UTF-8 bytes. */
+    file_write(orphan_path,saved,131072u);writes=0;
+    CHECK(!kui_vmu_library_list(0,&view,log_line,cancelled) && !writes);
+    row=find_row(&view,orphan_path);CHECK(row && strlen(row->label)==48 && strlen(row->name)==15);
+    CHECK(!strcmp(row->label,"ｶｶｶｶｶｶｶｶｶｶｶｶｶｶｶｶ") && !strcmp(row->name,"ｶｶｶｶｶ"));
+    CHECK(!strcmp(row->contents+93u,"..."));
     file_write(orphan_path,blank,131072u);free(saved);
 }
 static void candidate_display_metadata(const char *game_path,const char *import_path,

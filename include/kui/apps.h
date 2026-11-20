@@ -6,6 +6,7 @@
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
+#include "kui/vmu_description.h"
 #define KUI_APP_LINES 12u
 #define KUI_APP_LINE_CAP 80u
 #define KUI_VMU_ROWS 8u
@@ -23,7 +24,8 @@ struct kui_vmu_entry {
     char name[16];
     uint32_t bytes;
     /* Optional, sanitized embedded VMS text. Empty when unavailable. */
-    char description[33],app_id[17];
+    char display_name[KUI_VMU_NAME_UTF8_CAP];
+    char description[KUI_VMU_LONG_UTF8_CAP],app_id[KUI_VMU_SHORT_UTF8_CAP];
 };
 struct kui_vmu_view {
     struct kui_app_status status;

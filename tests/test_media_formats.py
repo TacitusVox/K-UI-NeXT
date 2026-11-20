@@ -20,7 +20,7 @@ class MediaFormats(unittest.TestCase):
         self.base = Path(temp.name)
         self.output = self.base / "media.bin"
 
-    @unittest.skipUnless(shutil.which("ffmpeg"), "ffmpeg required")
+    @unittest.skipUnless(shutil.which("ffmpeg") and shutil.which("ffprobe"), "FFmpeg tools required")
     def test_preview(self):
         ffmpeg = shutil.which("ffmpeg")
         src = self.base / "source.mp4"
@@ -29,7 +29,7 @@ class MediaFormats(unittest.TestCase):
                         "-threads", "1", "-c:v", "mpeg4", str(src)], check=True)
         convert_preview(src, self.output)
         result = self.output.read_bytes()
-        self.assertEqual(struct.unpack_from("<4sHHHHI", result), (b"KPV1",160,120,10,0,100))
+        self.assertEqual(struct.unpack_from("<4sHHHHI", result), (b"KPV2",160,120,10,0,100))
         self.assertEqual(len(result), 16+160*120*2*100)
         for index in (0, 99):
             frame = 16+index*160*120*2
@@ -38,6 +38,27 @@ class MediaFormats(unittest.TestCase):
             self.assertLess(top, 0x21)  # Dithered near-black letterbox.
             self.assertGreater(center >> 11, 28)
             self.assertLess(center & 0x07ff, 0x42)
+
+    @unittest.skipUnless(shutil.which("ffmpeg") and shutil.which("ffprobe"), "FFmpeg tools required")
+    def test_preview_audio_alignment_and_v1(self):
+        src = self.base / "sound.mkv"
+        subprocess.run(["ffmpeg", "-nostdin", "-loglevel", "error", "-f", "lavfi",
+                        "-i", "color=c=blue:size=160x120:rate=10:duration=1",
+                        "-itsoffset", "0.2", "-f", "lavfi",
+                        "-i", "sine=frequency=640:duration=0.2",
+                        "-threads", "1", "-c:v", "mpeg4", "-c:a", "pcm_s16le", str(src)], check=True)
+        convert_preview(src, self.output)
+        data = self.output.read_bytes()
+        self.assertEqual(struct.unpack_from("<4sHHHHI", data), (b"KPV2", 160, 120, 10, 16000, 10))
+        end_video = 16 + 160 * 120 * 2 * 10
+        samples = struct.unpack("<16000h", data[end_video:])
+        self.assertFalse(any(samples[:3000]))
+        self.assertGreater(max(samples[3300:6200]), 2000)
+        self.assertFalse(any(samples[6600:]))
+        convert_preview(src, self.output, legacy=True)
+        legacy = self.output.read_bytes()
+        self.assertEqual(struct.unpack_from("<4sHHHHI", legacy), (b"KPV1", 160, 120, 10, 0, 10))
+        self.assertEqual(legacy[16:], data[16:end_video])
 
     @unittest.skipUnless(shutil.which("pdftoppm") and shutil.which("pdfinfo"), "Poppler required")
     def test_manual(self):

@@ -8,6 +8,7 @@
 /* Synchronous modal viewer on the display thread. Park the storage worker first,
  * including its background SD tasks. Returns after dropping the filesystem and
  * display. Caller invalidates its shell frame and consumes the exit button. */
-bool kui_media_view(const char *path, bool manual, kui_log_fn log, char *message, size_t cap, uint16_t *canvas);
+bool kui_media_view(const char *path, const char *local_fallback, bool manual, kui_log_fn log,
+                    char *message, size_t cap, uint16_t *canvas);
 
 #endif

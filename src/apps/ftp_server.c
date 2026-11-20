@@ -22,6 +22,7 @@
 #include "kui/browser_service.h"
 #include "kui/clock.h"
 #include "platform.h"
+#include <errno.h>
 #include <stdarg.h>
 #include <stddef.h>
 #include <stdio.h>
@@ -75,7 +76,7 @@ struct session {
     bool active, user, logged_in, closing;
     unsigned control, failures;
     uint8_t peer[4];
-    uint64_t hold_until, last_command, opened_ms, closing_ms;
+    uint64_t hold_until, last_activity, opened_ms, closing_ms;
     char cwd[KUI_FILES_PATH_CAP], rename_from[KUI_FILES_PATH_CAP];
     bool rename_ready;
     uint64_t rest;
@@ -153,6 +154,10 @@ struct server {
     uint64_t published_ms, link_ms;
     uint32_t passes; /* over the sockets, by the main loop */
     bool changed, connected, mounted;
+    bool (*invalidate_games)(kui_log_fn);
+    const char *(*games_watch_root)(void);
+    const char *games_root;
+    bool games_invalidated, games_marker_failed;
     const char *stop_reason;
     FATFS fs;
     struct kui_w5500_stream stream;
@@ -391,6 +396,20 @@ static bool path_within(const char *path, const char *folder) {
         if(!*path || path_letter(&path) != path_letter(&folder)) return false;
     return !*path || *path == '/';
 }
+/* Update packages in the dedicated inbox never add a Games selector. */
+static bool update_package_path(const char *path) {
+    const char *ext = strrchr(kui_files_leaf(path), '.');
+    return path_within(path, "/KUI/updates") && ext &&
+           (kui_ftp_glob(".kup", ext) || kui_ftp_glob(".zip", ext));
+}
+static void invalidate_games(struct server *sv, const char *path, bool directory) {
+    if(sv->games_invalidated || !sv->invalidate_games || (!directory && update_package_path(path))) return;
+    if(!sv->games_root) sv->games_root = sv->games_watch_root ? sv->games_watch_root() : "/";
+    if(!path_within(path, sv->games_root)) return;
+    sv->games_invalidated = sv->invalidate_games(sv->log);
+    sv->games_marker_failed = !sv->games_invalidated;
+    if(sv->games_marker_failed) event(sv, "Games index could not be marked; refresh Games after restart");
+}
 /* Another client owns this file, its upload staging file, or a descendant. */
 static bool in_use(const struct server *sv, const struct session *self, const char *path) {
     for(unsigned i = 0; i < KUI_FTP_SESSIONS; ++i) {
@@ -459,7 +478,20 @@ static bool stream_stop(struct server *sv, struct session *s, bool keep, uint64_
     }
     return ok && !s->card_failed;
 }
+/* Clients can browse on one authenticated control connection while another
+ * transfers a file. Give both a full idle interval after data activity. */
+static void transfer_activity(struct server *sv, struct session *s, uint64_t now) {
+    static const uint8_t unknown[4] = {0};
+    s->last_activity = now;
+    if(!s->logged_in || !memcmp(s->peer, unknown, sizeof(unknown))) return;
+    for(unsigned i = 0; i < KUI_FTP_SESSIONS; ++i) {
+        struct session *other = &sv->sessions[i];
+        if(other->active && other->logged_in && !memcmp(other->peer, s->peer, sizeof(s->peer)))
+            other->last_activity = now;
+    }
+}
 static void end_transfer(struct server *sv, struct session *s, bool ok, uint64_t now) {
+    transfer_activity(sv, s, now);
     (void)stream_stop(sv, s, false, now);
     if(s->file_open) {
         FRESULT r = f_close(&s->file);
@@ -512,15 +544,17 @@ static bool spare_path(struct server *sv, struct session *s, char out[KUI_FILES_
     }
     return false;
 }
-static void rate(struct session *s, uint64_t now) {
+static void rate(struct server *sv, struct session *s, uint64_t now) {
     if(!s->rate_mark_ms) { s->rate_mark_ms = now; s->rate_mark_bytes = s->done; return; }
     uint64_t span = now - s->rate_mark_ms;
     if(span < 1000u) return;
+    if(s->done != s->rate_mark_bytes) transfer_activity(sv, s, now);
     s->rate = (uint32_t)((s->done - s->rate_mark_bytes) * 1000u / span);
     s->rate_mark_ms = now;
     s->rate_mark_bytes = s->done;
 }
 static void begin_transfer(struct server *sv, struct session *s, enum transfer kind, const char *path, uint64_t now) {
+    transfer_activity(sv, s, now);
     s->kind = kind;
     s->phase = P_CONNECT;
     s->phase_ms = s->progress_ms = now;
@@ -665,11 +699,14 @@ static void finish_upload(struct server *sv, struct session *s, uint64_t now) {
         /* Read-only files are not replaced, as when uploads deleted them. */
         else if(replacing && (old.fattrib & AM_RDO)) problem = "451 Cannot replace the old file";
         else if(seen != FR_OK && seen != FR_NO_FILE) problem = "451 Cannot check the destination";
+        /* Invalidate before publishing a change, including removal of the
+         * old name if its replacement cannot complete. */
+        if(!problem) invalidate_games(sv, s->path, false);
         /* The old file moves aside until the upload has its name, so a
          * failed rename can put it back. */
-        else if(replacing && (!spare_path(sv, s, aside, s->path, OLD_SUFFIX) || !card(kept, aside) || f_rename(to, kept) != FR_OK))
+        if(!problem && replacing && (!spare_path(sv, s, aside, s->path, OLD_SUFFIX) || !card(kept, aside) || f_rename(to, kept) != FR_OK))
             problem = "451 Cannot replace the old file";
-        else if(f_rename(from, to) != FR_OK) {
+        else if(!problem && f_rename(from, to) != FR_OK) {
             problem = "451 Cannot give the upload its name";
             if(replacing && f_rename(kept, to) == FR_OK) problem = "451 Cannot name the upload; old file kept";
             else if(replacing) {
@@ -785,7 +822,7 @@ static bool stream_transfer(struct server *sv, struct session *s, uint64_t now, 
         fail_transfer(sv, s, now, "426 No data moved for 60 seconds; transfer stopped");
         return true;
     }
-    rate(s, now);
+    rate(sv, s, now);
     return false;
 }
 /* The card's side of the streamed transfer, while the bus is lent: one
@@ -964,7 +1001,7 @@ static bool transfer_step(struct server *sv, struct session *s, uint64_t now) {
         fail_transfer(sv, s, now, "426 No data moved for 60 seconds; transfer stopped");
         return true;
     }
-    rate(s, now);
+    rate(sv, s, now);
     return work;
 }
 
@@ -1043,7 +1080,15 @@ static void open_passive(struct server *sv, struct session *s, bool extended, ui
     uint16_t port = next_port(sv);
     if(j < 0) { reply(s, "425 Too many data connections at once; try again"); return; }
     s->data = j;
-    if(!sv->net.listen(sv->net.ctx, (unsigned)j, port)) {
+    unsigned tried = 0;
+    while(!sv->net.listen(sv->net.ctx, (unsigned)j, port)) {
+        /* KOS keeps a closed connection's port reserved through TIME_WAIT.
+         * Skip occupied ports for BBA passive transfers. */
+        if(sv->bba_online && errno == EADDRINUSE && ++tried < sv->passive_count &&
+           !(sv->cancel && sv->cancel())) {
+            port = next_port(sv);
+            continue;
+        }
         forget_data(sv, s, now);
         reply(s, "425 Cannot open a data port");
         return;
@@ -1189,6 +1234,7 @@ static void remove_item(struct server *sv, struct session *s, const char *argume
     bool directory = info.fattrib & AM_DIR;
     if(directory != folder) { reply(s, folder ? "550 %s is not a folder" : "550 %s is a folder; use RMD", path); return; }
     if(!card(c, path)) { reply(s, "553 Invalid path"); return; }
+    invalidate_games(sv, path, directory);
     /* Read-only marks are cleared first, as the File Manager does. */
     if(info.fattrib & AM_RDO) (void)f_chmod(c, 0, AM_RDO);
     r = f_unlink(c);
@@ -1226,6 +1272,8 @@ static void rename_to(struct server *sv, struct session *s, const char *argument
         reply(s, "553 Invalid path");
         return;
     }
+    invalidate_games(sv, s->rename_from, (info.fattrib & AM_DIR) != 0);
+    invalidate_games(sv, path, (info.fattrib & AM_DIR) != 0);
     r = f_rename(from, to);
     if(r != FR_OK) { reply(s, r == FR_EXIST ? "553 %s already exists" : "450 Cannot rename to %s", path); return; }
     event(sv, "Renamed %.34s to %.34s", kui_files_leaf(s->rename_from), kui_files_leaf(path));
@@ -1252,7 +1300,7 @@ static bool password_matches(const struct server *sv, const char *given) {
 static void command(struct server *sv, struct session *s, char *line, uint64_t now) {
     char verb[8], path[KUI_FILES_PATH_CAP];
     const char *arg;
-    s->last_command = now;
+    s->last_activity = now;
     if(!kui_ftp_parse(line, verb, &arg)) { reply(s, "500 Unknown command"); return; }
     if(strcmp(verb, "RNTO")) s->rename_ready = false;
     if(!strcmp(verb, "USER")) {
@@ -1375,6 +1423,7 @@ static void command(struct server *sv, struct session *s, char *line, uint64_t n
         if(!resolved(s, path, arg)) return;
         if(!path[1] || !card(c, path)) { reply(s, "550 The root already exists"); return; }
         if(busy(sv, s, path)) return;
+        invalidate_games(sv, path, true);
         FRESULT r = f_mkdir(c);
         if(r != FR_OK) { reply(s, r == FR_EXIST ? "550 %s already exists" : missing(r) ? "550 The folder for %s does not exist" :
             "450 Cannot create %s", path); return; }
@@ -1445,7 +1494,7 @@ static void session_open(struct server *sv, struct session *s, unsigned control,
     s->phase = P_IDLE;
     s->active = true;
     s->control = control;
-    s->opened_ms = s->last_command = now;
+    s->opened_ms = s->last_activity = now;
     strcpy(s->cwd, "/");
     uint16_t port;
     if(!net_peer(sv, control, s->peer, &port)) memset(s->peer, 0, 4);
@@ -1506,7 +1555,7 @@ static bool service(struct server *sv, struct session *s, uint64_t now) {
         reply(s, "421 No login within a minute; closing");
         s->closing = true;
         s->closing_ms = now;
-    } else if(!transferring(s) && now - s->last_command > IDLE_MS) {
+    } else if(!transferring(s) && now - s->last_activity > IDLE_MS) {
         reply(s, "421 Idle for ten minutes; closing");
         s->closing = true;
         s->closing_ms = now;
@@ -1855,7 +1904,7 @@ static bool wifi_buffers(struct server *sv, uint64_t now, bool *work) {
             size_t waiting;
             if(!receive_buffer(sv, s, j, now, &waiting, work)) return false;
         } else if(!send_buffer(sv, s, j, now, work)) return false;
-        rate(s, now);
+        rate(sv, s, now);
     }
     return true;
 }
@@ -1971,6 +2020,8 @@ void kui_ftp_run(const struct kui_net_ports *ports, const struct kui_ftp_options
     sv->log = log;
     sv->cancel = cancel;
     sv->publish = publish_fn;
+    sv->games_watch_root = options ? options->games_watch_root : NULL;
+    sv->invalidate_games = options ? options->invalidate_games : NULL;
     sv->control_port = options && options->control_port ? options->control_port : KUI_FTP_PORT;
     sv->passive_first = options && options->passive_first ? options->passive_first : KUI_FTP_PASSIVE_FIRST;
     sv->passive_count = options && options->passive_count ? options->passive_count : KUI_FTP_PASSIVE_COUNT;
@@ -2037,6 +2088,9 @@ void kui_ftp_run(const struct kui_net_ports *ports, const struct kui_ftp_options
         out->state = KUI_FTP_STOPPED;
         snprintf(out->message, sizeof(out->message), "The FTP server was stopped on the Dreamcast");
     }
+    /* A deletion may have freed enough space for a previously failed marker. */
+    if(sv->games_marker_failed && !sv->invalidate_games(sv->log))
+        event(sv, "Refresh Games after restart to pick up FTP changes");
     for(unsigned i = 0; i < KUI_FTP_SESSIONS; ++i) free(sv->sessions[i].buffer);
     free(sv->ring);
     release_adapter(sv);

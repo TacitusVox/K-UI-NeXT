@@ -42,6 +42,8 @@ struct kui_vmu_import_match_group {
     enum kui_vmu_import_match_state state;
     uint32_t reasons;
     char label[49];
+    /* 1-based plan entry when the ASCII matcher fell back to the filename. */
+    uint16_t filename_label_entry;
 };
 struct kui_vmu_import_matches {
     unsigned group_count;

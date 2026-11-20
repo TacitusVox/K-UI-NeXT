@@ -29,6 +29,8 @@ void kui_games_storage_hold(bool hold);
 /* Unmount and disconnect now if a session is open. False if unmount failed. */
 bool kui_games_storage_release(void);
 bool kui_games_storage_active(void);
+/* Identifies this live mount; zero after release or a foreign mount. */
+uint64_t kui_games_storage_session(void);
 /* Jobs finished on an open session, so the worker can time an idle one out. */
 unsigned kui_games_storage_jobs(void);
 /* Cover and title lookups search the flat KUI/covers folder; FatFs rereads
@@ -39,4 +41,6 @@ unsigned kui_games_storage_jobs(void);
  * verification. Releasing the session discards and frees the sectors. */
 void kui_games_storage_lookup_begin(void);
 void kui_games_storage_lookup_end(void);
+/* Release optional cached sector storage under memory pressure or before discovery. */
+void kui_games_storage_lookup_discard(void);
 #endif

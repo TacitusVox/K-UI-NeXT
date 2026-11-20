@@ -14,14 +14,19 @@ int main(void) {
         0xc0,0x0c,0,5,0,1,0,0,0,12,0,4,1,'b',0xc0,0x0e,
         0xc0,0x2b,0,1,0,1,0,0,0,90,0,4,192,0,2,44};
     memcpy(p+n,results,sizeof(results));size_t size=n+sizeof(results);
-    assert(kui_dns_answer(p,size,0x2345,"A.EXAMPLE.ORG",ip,&ttl) && ttl==12 && ip[3]==44);
-    assert(!kui_dns_answer(p,size,0x2344,"a.example.org",ip,&ttl));
-    assert(!kui_dns_answer(p,size,0x2345,"b.example.org",ip,&ttl));
-    assert(!kui_dns_answer(p,size-1,0x2345,"a.example.org",ip,&ttl));
-    p[2]|=2;assert(!kui_dns_answer(p,size,0x2345,"a.example.org",ip,&ttl));p[2]&=(uint8_t)~2u;
-    p[n+15]=0x2b;assert(!kui_dns_answer(p,size,0x2345,"a.example.org",ip,&ttl));p[n+15]=0x0e;
+    assert(kui_dns_answer(p,size,0x2345,"A.EXAMPLE.ORG",ip,&ttl,NULL) && ttl==12 && ip[3]==44);
+    static const uint8_t failed[]={192,0,2,44};
+    assert(kui_dns_answer(p,size,0x2345,"a.example.org",ip,&ttl,failed) && ip[3]==44 && ttl==12);
+    memcpy(p+size,p+size-16,16);p[7]=3;p[size+15]=45;
+    assert(kui_dns_answer(p,size+16,0x2345,"a.example.org",ip,&ttl,failed) && ip[3]==45 && ttl==12);
+    p[7]=2;
+    assert(!kui_dns_answer(p,size,0x2344,"a.example.org",ip,&ttl,NULL));
+    assert(!kui_dns_answer(p,size,0x2345,"b.example.org",ip,&ttl,NULL));
+    assert(!kui_dns_answer(p,size-1,0x2345,"a.example.org",ip,&ttl,NULL));
+    p[2]|=2;assert(!kui_dns_answer(p,size,0x2345,"a.example.org",ip,&ttl,NULL));p[2]&=(uint8_t)~2u;
+    p[n+15]=0x2b;assert(!kui_dns_answer(p,size,0x2345,"a.example.org",ip,&ttl,NULL));p[n+15]=0x0e;
     /* A response for another owner is never selected from a recursive response. */
-    p[n+16+1]=0x0e;assert(!kui_dns_answer(p,size,0x2345,"a.example.org",ip,&ttl));
+    p[n+16+1]=0x0e;assert(!kui_dns_answer(p,size,0x2345,"a.example.org",ip,&ttl,NULL));
     assert(!kui_dns_query(p,sizeof(p),1,"a..org") && !kui_dns_query(p,20,1,"example.org"));
     puts("DNS queries, compressed CNAME chains, TTL, identity and bounds passed");
 }

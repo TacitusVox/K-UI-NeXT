@@ -12,7 +12,7 @@ Maintainers can run `python3 tools/index_internet_extras.py` from the repository
 
 ## Playback in Games
 
-A cached clip plays once in the selected artwork tile after six seconds on the same game in any layout. Browsing, entering a game or leaving the screen cancels the pending or playing preview. The first frame is read from the card only after the delay. The player streams into two 38,400-byte frame buffers and releases them when finished. Highlight the title again for a replay or use the scan screen for immediate playback.
+A cached clip plays once in the selected artwork tile after three seconds on the same game in any layout. Browsing, entering a game or leaving the screen cancels the pending or playing preview. The first frame is read from the card only after the delay. The player streams into two 38,400-byte frame buffers and releases them when finished. Highlight the title again for a replay or use the scan screen for immediate playback.
 
 ## Resource checks
 

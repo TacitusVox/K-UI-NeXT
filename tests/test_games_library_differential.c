@@ -681,9 +681,43 @@ static void load_checks(void) {
     slot_clear(0);slot_clear(1);
     for(unsigned i=0;i<3;i++)free(sources[i]);
 }
+/* The representative is Disc 2. Conflicting IP data must prevent sharing
+ * even in a filename-only set that the user can still open in the browser. */
+static void test_media_family(void) {
+    struct library lib;
+    for(unsigned mode=0;mode<11;mode++) {
+        memset(records,0,2*sizeof(*records));
+        as_file(&records[0],"Regional Set Disc 2");
+        as_file(&records[1],mode==4 ? "Regional Set Disc 3" : "Regional Set Disc 1");
+        prove(&records[0],2,3,1,1,mode==1 ? "J" : "E","REGIONAL SET");
+        prove(&records[1],mode==2 || mode==4 ? 3 : 1,3,1,mode==3 ? 2 : 1,"E","REGIONAL SET");
+        if(mode==5) strcpy(records[1].region,"U");
+        if(mode==6) memset(&records[1].evidence,0,sizeof(records[1].evidence));
+        if(mode>=7) {
+            strcpy(records[0].evidence.product,mode==10?"KUI-9999":"MK-5105250");
+            strcpy(records[1].evidence.product,"MK-51052");
+            strcpy(records[0].evidence.region,"E");strcpy(records[1].evidence.region,"E");
+            strcpy(records[0].evidence.title,mode==8?"Skies of Arcadia Disc 2":
+                mode==9?"Skies of Arcadia Passport":"Skies of Arcadia");
+            strcpy(records[1].evidence.title,"Skies of Arcadia");
+        }
+        size_t bytes;
+        uint8_t *wire=encode(2,ROOT,1,&bytes);
+        admit(&lib,wire,bytes,false);
+        require(lib.display_count==1 && lib.groups[0].valid && lib.groups[0].representative==0);
+        const char *key=media_key_for_group(&lib,lib.groups);
+        if(!mode || mode==7 || mode==8) {
+            char expected[33];
+            require(kui_games_media_key(records[1].path,expected) && !strcmp(key,expected));
+        } else require(!*key);
+        require(media_key_for_group(&lib,lib.groups)==key);
+        library_free(&lib);free(wire);
+    }
+}
 int main(void) {
     setvbuf(stdout,NULL,_IONBF,0);
     edits=calloc(1,sizeof(*edits));require(edits);
+    test_media_family();
     static const struct {enum mode mode;unsigned count;uint32_t seed;} catalogues[]={
         {MIXED,0,1},{MIXED,1,2},{MIXED,2,3},{MIXED,3,4},{MIXED,7,5},{MIXED,41,6},{MIXED,300,7},{MIXED,300,8},
         {MIXED,1000,9},{MIXED,LIBRARY_ROWS,10},{SHORT_NAMES,64,21},{SHORT_NAMES,300,22},{SHORT_NAMES,LIBRARY_ROWS,23},

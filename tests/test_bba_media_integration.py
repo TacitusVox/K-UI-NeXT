@@ -4,6 +4,7 @@ import argparse
 from hashlib import sha256
 import os
 from pathlib import Path
+import struct
 import subprocess
 import tempfile
 
@@ -64,6 +65,25 @@ def check_scaled_cover(source, dumped, max_mean_error=12):
     assert not data
 
 
+def multidisc_fixture(folder):
+    source = folder / "multidisc"
+    (source / "KUI").mkdir(parents=True)
+    for disc in (1, 2):
+        game = source / "Games" / f"Skies of Arcadia Disc {disc}"
+        make_fixture(game, b"SKIES OF ARCADIA")
+        with (game / "track03.bin").open("r+b") as data:
+            data.seek(16 + 32)
+            data.write(f"0000 GD-ROM{disc}/2  ".encode())
+            data.write(b"U       0000000 MK-51052  ")
+    make_fixture(source / "Games" / "Standalone", b"Unrelated Test Game")
+    write_manifest(source)
+    # One legacy frame deliberately recognisable after an interrupted upgrade.
+    (folder / "legacy.kpv").write_bytes(struct.pack("<4sHHHHI",b"KPV1",160,120,10,0,1)
+                                        + b"\x5a\xa5"*(160*120))
+    (folder / "original.pdf").write_bytes(b"%PDF-1.4\n" + b" " * 64 + b"\n%%EOF\n")
+    return source
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--public-cover", type=Path, help="Use the pinned public cover PNG for --release")
@@ -79,6 +99,8 @@ def main():
         game = source / "Games" / "Local Game"
         disc_art = pvr(1, 9, 64, 32, b"\x1f\x00" * (64 * 32))
         make_fixture(game, title, art=disc_art)
+        make_fixture(source / "KUI" / "Regional" / "Local Game", b"OTHER REGION",
+                     art=pvr(1, 9, 64, 32, b"\xe0\xff" * (64 * 32)))
         # Only the product/region describe a real release; all sectors and
         # artwork, manual pages and video frames are locally authored fixtures.
         track = game / "track03.bin"
@@ -101,7 +123,9 @@ def main():
             Image.new("RGB", (64, 64), "#ff0000").save(folder / "box.png")
         Image.new("RGB", (160, 120), "blue").save(folder / "page.jpg")
         run("ffmpeg", "-v", "error", "-f", "lavfi", "-i", "testsrc2=s=160x120:r=10",
-            "-t", "24", "-threads", "1", "-c:v", "libtheora", "-an", str(folder / "clip.ogv"))
+            "-f", "lavfi", "-i", "sine=frequency=850:sample_rate=32000", "-t", "24",
+            "-threads", "1", "-c:v", "libtheora", "-c:a", "libvorbis", str(folder / "clip.ogv"))
+        disc_source = multidisc_fixture(folder)
         formatter = private_formatter(folder)
         for kind in ("fat32", "exfat"):
             if kind == "exfat":
@@ -126,6 +150,13 @@ def main():
                 digest = sha256(thumbs.read_bytes()).hexdigest()
                 assert digest == thumbnail_hash, digest
                 print(f"{kind}: all three retrieved public cover thumbnails match {digest}")
+            cleanup_card = folder / (kind + "-cleanup.img")
+            run(formatter, kind, cleanup_card)
+            run(ROOT / "build/bba-media-integration", cleanup_card, folder, "-", "cleanup")
+            group_card = folder / (kind + "-discs.img")
+            run(formatter, kind, group_card)
+            run(ROOT / "build/games-covers-image", group_card, disc_source, "seed", "network-media")
+            run(ROOT / "build/bba-media-integration", group_card, folder, "-", "discs")
 
 
 if __name__ == "__main__":

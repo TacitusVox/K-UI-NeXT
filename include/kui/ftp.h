@@ -39,6 +39,8 @@
 struct kui_ftp_options {
     uint16_t control_port, passive_first, passive_count;
     uint32_t seed; /* mixed into a new password */
+    const char *(*games_watch_root)(void); /* mounted scope, valid throughout service */
+    bool (*invalidate_games)(kui_log_fn); /* called on this server's mounted card */
 };
 enum kui_ftp_state { KUI_FTP_STARTING, KUI_FTP_READY, KUI_FTP_STOPPED, KUI_FTP_FAILED };
 struct kui_ftp_client {

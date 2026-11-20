@@ -89,6 +89,29 @@ static size_t first_serial(const char *key) {
     return lo;
 }
 
+/* These US discs have distinct printed and internal product numbers. The
+ * measured boot title and market must agree before using the printed key.
+ * A folder rename is never used as evidence. */
+struct boot_product {
+    const char *product, *title, *catalog_product;
+};
+static const struct boot_product us_boot_products[] = {
+    {"t1711n",  "evolution2",               "t17711n"},
+    {"t11010n", "sierrasportsmaximumpool", "t11002n"},
+    {"t12509n", "superrunabout",           "t12511n"}
+};
+
+static const char *shenmue_us_box(const struct kui_games_disc_identity *id) {
+    /* The three game discs and Passport share the IP title and product.
+     * The disc ordinal and revision identify the two different covers. */
+    if(id->total != 4) return NULL;
+    if(id->number >= 1 && id->number <= 3 && !memcmp(id->version, "V1.003", 7))
+        return "Shenmue (USA)";
+    if(id->number == 4 && !memcmp(id->version, "V1.004", 7))
+        return "Shenmue (USA) (Shenmue Passport)";
+    return NULL;
+}
+
 static const struct cover_release *find_release(const struct kui_games_disc_identity *id) {
     if(!id || !memchr(id->product, 0, sizeof(id->product)) ||
        !memchr(id->title, 0, sizeof(id->title)) ||
@@ -98,21 +121,40 @@ static const struct cover_release *find_release(const struct kui_games_disc_iden
     char key[sizeof(id->title)], serial[sizeof(id->product)];
     if(!normalize(id->title, strlen(id->title), key, sizeof(key))) key[0] = 0;
     if(normalize(id->product, strlen(id->product), serial, sizeof(serial))) {
+        /* The US retail IP title is "PSO". Its serial is also listed for
+         * the Sonic Adventure 2 trial. The bare serial is a US alias. */
+        bool bare_pso_serial = !strcmp(serial, "51100");
+        bool pso = !strcmp(key, "pso") && (bare_pso_serial || !strcmp(serial, "mk51100"));
+        if(pso && bare_pso_serial && markets != 2u) return NULL;
+        const char *serial_title = pso ? "phantasystaronline" : key;
+        const char *catalog_product = serial;
+        for(size_t i = 0; i < COUNT(us_boot_products); ++i) {
+            const struct boot_product *alias = &us_boot_products[i];
+            if(strcmp(alias->product, serial)) continue;
+            if(markets != 2u || strcmp(alias->title, key)) return NULL;
+            catalog_product = alias->catalog_product;
+            break;
+        }
+        const char *box = NULL;
+        if(markets == 2u && !strcmp(serial, "mk51059") && !strcmp(key, "shenmue")) {
+            box = shenmue_us_box(id);
+            if(!box) return NULL;
+        }
         const struct cover_release *match = NULL, *named = NULL;
         unsigned matches = 0, named_matches = 0;
-        for(size_t i = first_serial(serial);
-            i < COUNT(cover_serials) && !strcmp(cover_serials[i].key, serial); ++i) {
+        for(size_t i = first_serial(catalog_product);
+            i < COUNT(cover_serials) && !strcmp(cover_serials[i].key, catalog_product); ++i) {
             const struct cover_release *item = &cover_releases[cover_serials[i].release];
             if(markets && !(item->markets & markets)) continue;
             match = item;
             ++matches;
-            if(title_matches(item, key)) {
+            if(box ? !strcmp(item->name, box) : title_matches(item, serial_title)) {
                 named = item;
                 ++named_matches;
             }
         }
+        if(box || pso || matches > 1) return named_matches == 1 ? named : NULL;
         if(matches == 1) return match;
-        if(matches > 1) return named_matches == 1 ? named : NULL;
     }
     if(!key[0]) return NULL;
 
@@ -192,12 +234,21 @@ bool kui_internet_cover_small_url(const struct kui_games_disc_identity *id, char
         cover->stem ? cover->stem : match->name, "_thumb.jpg");
 }
 
-bool kui_internet_cover_small_matches(const struct kui_games_disc_identity *id, uint32_t bytes, uint32_t crc) {
-    const struct small_cover *cover = find_small(find_release(id));
-    if(!cover || !bytes || bytes > 128u * 1024u) return false;
-    for(size_t i = 0; i < COUNT(cover_tiles); ++i) {
-        const struct cover_tile *tile = &cover_tiles[i];
-        if(tile->release == cover->release) return tile->bytes == bytes && tile->crc == crc;
-    }
+static const struct cover_tile *find_tile(const struct small_cover *cover) {
+    if(cover) for(size_t i=0;i<COUNT(cover_tiles);++i)
+        if(cover_tiles[i].release==cover->release) return &cover_tiles[i];
+    return NULL;
+}
+bool kui_internet_cover_small_pin(const struct kui_games_disc_identity *id,uint32_t *bytes,uint32_t *crc) {
+    const struct cover_tile *tile=find_tile(find_small(find_release(id)));
+    if(!tile) return false;
+    *bytes=tile->bytes;
+    *crc=tile->crc;
     return true;
+}
+bool kui_internet_cover_small_matches(const struct kui_games_disc_identity *id,uint32_t bytes,uint32_t crc) {
+    const struct small_cover *cover=find_small(find_release(id));
+    if(!cover || !bytes || bytes>128u*1024u) return false;
+    const struct cover_tile *tile=find_tile(cover);
+    return !tile || (tile->bytes==bytes && tile->crc==crc);
 }

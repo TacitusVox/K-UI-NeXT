@@ -11,10 +11,6 @@ static void header(uint8_t p[128]) {
     memcpy(p+16,"Long description",16);memcpy(p+48,"GAME_APP",8);
     put16(p+64,1);put32(p+72,384);
 }
-static void safe(const char *text,size_t cap) {
-    size_t n=0;while(n<cap && text[n]) {assert((unsigned char)text[n]>=32 && (unsigned char)text[n]<=126);++n;}
-    assert(n<cap);
-}
 int main(void) {
     uint8_t p[128];struct kui_vmu_description out;header(p);
     assert(kui_vmu_description_parse(p,sizeof(p),1024,&out));
@@ -33,8 +29,12 @@ int main(void) {
     header(p);memset(p+16,' ',32);memcpy(p+16,"  Save\n\t\x1b\x7f",10);p[26]=0x82;p[27]=0xa0;p[28]=' ';p[29]=0;
     memcpy(p+48," APP\n\x81\x40 ",8);
     assert(kui_vmu_description_parse(p,128,1024,&out));
-    assert(!strcmp(out.description,"Save    ??") && !strcmp(out.app_id,"APP ?@"));
-    safe(out.description,sizeof(out.description));safe(out.app_id,sizeof(out.app_id));
+    assert(!strcmp(out.description,"Save    あ") && !strcmp(out.app_id,"APP 　"));
+    memset(p+16,0xb6,32); /* halfwidth KA, the largest expansion */
+    assert(kui_vmu_description_parse(p,128,1024,&out));
+    assert(strlen(out.description)==96 && !strcmp(out.description+93,"ｶ"));
+    p[16]=0x82;p[17]=0;
+    assert(kui_vmu_description_parse(p,128,1024,&out) && !strcmp(out.description,"?"));
     /* A NUL terminates the bounded field; bytes after it cannot become UI text. */
     header(p);p[16]=0;p[17]=0x1b;
     assert(kui_vmu_description_parse(p,128,1024,&out) && !strcmp(out.description,"Short save"));

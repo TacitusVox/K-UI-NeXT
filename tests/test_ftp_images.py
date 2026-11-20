@@ -645,6 +645,100 @@ def card_fails(f, server):
     print("PASS FTP card write failure: 451, nothing kept, the next upload works", flush=True)
 
 
+def transfer_idle_clock(binary, image, port, passive):
+    env = dict(os.environ, KUI_FTP_TEST_SLOW_TRANSFER="1")
+    server = Server(binary, image, port, passive, extra=("bba",), env=env)
+    browse = client(port, server.password)
+    transfer = client(port, server.password)
+    outsider = ftplib.FTP()
+    outsider.connect(HOST, port, timeout=30, source_address=("127.0.0.2", 0))
+    outsider.login("kui", server.password)
+
+    def advance(steps):
+        count = server.count("CLOCK advanced") + steps
+        server.send("t" * steps)
+        deadline = time.monotonic() + 10
+        while server.count("CLOCK advanced") < count:
+            assert time.monotonic() < deadline, server.output()
+            time.sleep(0.01)
+
+    try:
+        # Each direction exceeds twelve simulated minutes. The FileZilla-
+        # style browsing connection issues no command during either transfer.
+        name = "long-transfer.bin"
+        data = bytes(range(256)) * 12288
+        upload(transfer, name, data)
+        advance(11)  # another 9 min 10 seconds after completion
+        assert name in dict(browse.mlsd()) and transfer.size(name) == len(data)
+        assert "Idle for ten minutes" in expect("421", lambda: outsider.sendcmd("NOOP"))
+        outsider.close()
+
+        outsider.connect(HOST, port, timeout=30)  # same host, still unauthenticated
+        assert download(transfer, name) == data
+        advance(11)
+        lines = []
+        assert browse.retrlines("LIST", lines.append).startswith("226")
+        assert any(line.endswith(name) for line in lines) and transfer.size(name) == len(data)
+        assert "No login" in expect("421", lambda: outsider.login("kui", server.password))
+
+        with transfer.transfercmd("STOR stalled.bin") as stream:
+            stream.sendall(b"start")
+            assert transfer.sendcmd("STAT").startswith("211")
+            advance(2)
+            assert "No data moved" in expect("426", transfer.voidresp)
+        advance(13)
+        for session in (browse, transfer):
+            assert "Idle for ten minutes" in expect("421", lambda: session.sendcmd("NOOP"))
+    finally:
+        for session in (browse, transfer, outsider):
+            session.close()
+        code, output = server.stop()
+    assert code == 0, output
+    print("PASS FTP long transfers preserve the same client's browsing and genuine timeouts", flush=True)
+
+
+def games_markers(binary, image, port, passive):
+    # Each newly started service must arm a fresh marker. Within one run all
+    # clients share it, so moving an entire game costs a single ledger write.
+    def check(action, expected, whole_card=False):
+        env = dict(os.environ)
+        if whole_card:
+            env["KUI_FTP_TEST_WHOLE_CARD"] = "1"
+        server = Server(binary, image, port, passive, extra=("bba",), env=env)
+        try:
+            with client(port, server.password) as ftp:
+                action(ftp)
+        finally:
+            code, output = server.stop()
+        assert code == 0 and server.count("Games change marker") == expected, output
+
+    def setup(ftp):
+        ftp.mkd("/KUI/updates")
+        ftp.mkd("/Music")
+        upload(ftp, "/Music/test.mp3", b"music")
+        ftp.mkd("/Games")
+        ftp.mkd("/Games/Armada")
+        upload(ftp, "/Games/Armada/copy.iso", b"test image")
+
+    def unrelated(ftp):
+        ftp.nlst("/Games/Armada")
+        assert download(ftp, "/Games/Armada/copy.iso") == b"test image"
+        upload(ftp, "/KUI/updates/test.zip", b"test package")
+        ftp.rename("/Music/test.mp3", "/Music/new.mp3")
+        expect("550", lambda: ftp.delete("/Games/Armada/missing.iso"))
+
+    check(setup, 1)
+    check(unrelated, 0)
+    check(lambda f: upload(f, "/KUI/updates/test.zip", b"new package"), 0, whole_card=True)
+    check(lambda f: f.rename("/Music/new.mp3", "/Music/test.mp3"), 1, whole_card=True)
+    check(lambda f: f.rename("/games/Armada/copy.iso", "/Music/copy.iso"), 1)
+    check(lambda f: f.rename("/Music/copy.iso", "/games/Armada/copy.iso"), 1)
+    check(lambda f: upload(f, "/Games/Armada/copy.iso", b"replacement"), 1)
+    check(lambda f: f.delete("/Games/Armada/copy.iso"), 1)
+    check(lambda f: f.rmd("/Games/Armada"), 1)
+    print("PASS FTP marks the active Games scope before publishing card edits", flush=True)
+
+
 def serve_image(binary, image, kind, port, passive, case_insensitive=True, env=None, adapter=()):
     server = Server(binary, image, port, passive, env=env, extra=adapter)
     password = server.password
@@ -710,6 +804,10 @@ def main():
             run("mkfs.fat", "-F", "32", str(image)) if kind == "fat32" else run("mkfs.exfat", str(image))
             fsck = ("fsck.fat",) if kind == "fat32" else ("fsck.exfat",)
             run(BINARY, str(image), "seed")
+            marker_image = base / "games-marker.img"
+            shutil.copyfile(image, marker_image)
+            games_markers(BINARY, marker_image, port, passive)
+            transfer_idle_clock(BINARY, marker_image, port, passive)
 
             # No W5500: the server stops before touching the card.
             quiet = Server(BINARY, image, port + 1, passive, extra=("absent",), ready=False)

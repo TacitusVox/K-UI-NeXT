@@ -147,6 +147,7 @@ static void source_images(void) {
                 size=source?10u:(i==12u?26u:20u);
                 strcpy(short_text,"ARCHIVE DATA");strcpy(long_text,"Archived unrecognized saves");
             }
+            if(!source && i==6u) strcpy(short_text,"\x83\x5a\x81\x5b\x83\x75");
             files[i].entry[0]=0x33;memcpy(files[i].entry+4u,name,strlen(name));
             put16(files[i].entry+24u,size);files[i].bytes=size*512u;
             uint8_t *payload=malloc(files[i].bytes);CHECK(payload);
@@ -214,7 +215,8 @@ static void details_row(const struct kui_vmu_wizard_save *row,unsigned source) {
         CHECK(block<200u);block=details16(image+254u*512u+block*2u);
     }
     CHECK(block<200u);const uint8_t *header=image+block*512u;
-    CHECK(!strncmp(row->short_description,(const char *)header,16u));
+    if(!source && row->index==6u) CHECK(!strcmp(row->short_description,"セーブ"));
+    else CHECK(!strncmp(row->short_description,(const char *)header,16u));
     CHECK(!strncmp(row->long_description,(const char *)header+16u,32u));
     CHECK(!strncmp(row->application,(const char *)header+48u,16u));
 }

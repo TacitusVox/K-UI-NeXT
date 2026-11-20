@@ -72,6 +72,19 @@ static void headers(void) {
     memcpy(copy, h, sizeof(h)); assert(!decodes_after(copy, 500, 1));
     memcpy(copy, h, sizeof(h)); memset(copy + 64, 'A', 129); assert(!decodes_after(copy, 64, 'A'));
     memcpy(copy, h, sizeof(h)); memset(copy + 36, 0, 12); assert(!decodes_after(copy, 36, 0)); /* User art, no stamp. */
+    /* The fixed header still accepts old ASCII titles and now preserves
+     * checked UTF-8 display titles and selectors. Identity stays ASCII. */
+    strcpy(r.title,"すし");
+    strcpy(r.gdi_path,"/Games/日本/ゲーム.gdi");
+    assert(kui_cover_header_encode(h,&r) && kui_cover_header_decode(&back,h));
+    assert(!strcmp(back.title,r.title) && !strcmp(back.gdi_path,r.gdi_path));
+    memcpy(copy,h,sizeof(h)); assert(!decodes_after(copy,64,0xff)); /* malformed title */
+    memcpy(copy,h,sizeof(h)); assert(!decodes_after(copy,232+7,0xc0)); /* overlong UTF-8 */
+    strcpy(r.product,"製"); assert(!kui_cover_header_encode(h,&r));
+    char long_title[160],clipped[KUI_COVER_TITLE_CAP];
+    memset(long_title,'A',127);strcpy(long_title+127,"す");
+    kui_cover_display_title(long_title,NULL,clipped);assert(strlen(clipped)==127);
+    kui_cover_display_title(NULL,long_title,clipped);assert(strlen(clipped)==127);
     /* Records that cannot be stored are refused. */
     r = sample(); r.title[3] = '\t'; assert(!kui_cover_header_encode(h, &r));
     r = sample(); r.gdi_path[0] = 'G'; assert(!kui_cover_header_encode(h, &r));
