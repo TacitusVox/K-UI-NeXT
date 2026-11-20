@@ -1,6 +1,6 @@
 {
   "schema": "kui.toy-switch-production-text.v1",
-  "source": "Main 776c9259 (origin/main on 16 Nov 2026), the production text before the Toy test sources were merged",
+  "source": "Main 776c9259 (origin/main on 16 Nov 2026), the production text before the Toy test sources were merged; include/kui/retail_loader_layout.h, src/loader/retail_async.c, retail_display.c, retail_resident.S, retail_resident.c, retail_stage.c and sci_sd_bus.c as Main 4441e92 has them (20 Nov 2026), with the Windows CE data probe's text of a257f13 and c25e9f5",
   "files": {
     "include/kui/hash.h": {
       "mode": "code",
@@ -20,7 +20,7 @@
     },
     "include/kui/retail_loader_layout.h": {
       "mode": "code",
-      "sha256": "78fc0fa3f6fe64102581df1bdd47e7fcaa8e29396719dbfd434ce0b96f5dc4cc"
+      "sha256": "4ef65bfa3b9e54895681f013291e6c9d2f1892de8a1e1955496207feac61cd7c"
     },
     "include/kui/vmu_native_passive.h": {
       "mode": "code",
@@ -56,7 +56,7 @@
     },
     "src/loader/retail_async.c": {
       "mode": "exact",
-      "sha256": "e9c5d2c40e2ef715756159bf9b0c013811571bd4e7d1f6d8a9cce40bb83fb673"
+      "sha256": "61dad0f8654b155afa518b7227448ee6c3396672f033e9ce5cd8f516503efdc6"
     },
     "src/loader/retail_async.h": {
       "mode": "code",
@@ -64,23 +64,23 @@
     },
     "src/loader/retail_display.c": {
       "mode": "code",
-      "sha256": "94bdc347a1857587fb3f1799439bb1418d38764d27e693fc08ef84cd56393b2a"
+      "sha256": "1eb785bc7b14b0d4b414721e59c73736863d232d4b24ed82cd371c6043dfb6b1"
     },
     "src/loader/retail_resident.S": {
       "mode": "code",
-      "sha256": "90843a59e18831d610c58595b04f2847a8db2e78c2f039c0317803ba43631bcd"
+      "sha256": "a94e2d5e78eb7663085a727d4846934227b9a6ef9c13501afdbdf6d4008f1d8e"
     },
     "src/loader/retail_resident.c": {
       "mode": "code",
-      "sha256": "3f612def85f53d267384a4eeafad75498efbaafab25a50b3a8f8776b82d75c43"
+      "sha256": "a704de50267fdb079bbb25d7f708e8c4aaf48b4d4d45ba1b77d5a71a2d50f252"
     },
     "src/loader/retail_stage.c": {
       "mode": "code",
-      "sha256": "97f53bd0b362b0416fae6ba48fae71cbf8bf366536228133700fbd87033e7c66"
+      "sha256": "17510096e303a30df54db8d879ea77b3c439b86b80fbdd362dd0a7abf70d3e1c"
     },
     "src/loader/sci_sd_bus.c": {
       "mode": "code",
-      "sha256": "041062f9ad53237bf52677bf77074e5d1a3aa7c84ca314d9c7e30775ddb0399f"
+      "sha256": "27b6d10898250df0be6de1e5e1ed64db142a9567f72f1375efa6b55c31435b61"
     },
     "src/loader/sci_sd_bus.h": {
       "mode": "code",
