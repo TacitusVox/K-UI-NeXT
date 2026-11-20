@@ -473,6 +473,16 @@ static void generic_actual_tests(const char *path) {
     CHECK(strict(image,program_bytes,load,wire,sizeof(wire),&out));CHECK(!memcmp(&fresh,&out,sizeof(fresh)));
     CHECK(replay_hashed(image,program_bytes,load,wire,sizeof(wire),pin,program_hash,&out));
     CHECK(!memcmp(&fresh,&out,sizeof(fresh)));
+    if(get32(wire+20u)==5u && fresh.exits.family==KUI_VMU_NATIVE_EXIT_EARLY_FIRMWARE_LITERAL_POOL) {
+        struct kui_vmu_native_resolution changed=fresh;
+        uint8_t changed_pin[32];
+        changed.exits.family=KUI_VMU_NATIVE_EXIT_EARLY_FIRMWARE_CHECK;
+        CHECK(kui_vmu_native_resolution_cache_encode(&changed,again,sizeof(again)));
+        CHECK(kui_vmu_native_resolution_cache_record_digest(again,sizeof(again),changed_pin));
+        CHECK(!replay(image,program_bytes,load,again,sizeof(again),changed_pin,&out));
+        CHECK(!replay_hashed(image,program_bytes,load,again,sizeof(again),changed_pin,program_hash,&out));
+        CHECK(!strict(image,program_bytes,load,again,sizeof(again),&out));
+    }
     if(get32(wire+20u)==4u) {
         struct kui_vmu_native_resolution forged=fresh;
         uint8_t forged_pin[32];
