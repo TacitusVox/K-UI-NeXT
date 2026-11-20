@@ -206,6 +206,39 @@ question, and a console can answer it for many games in one round.
 None of this is built yet beyond steps 1 and 2's tools, and none of it is a
 console result.
 
+### The sound probe (step 3): what the sources give it
+
+Read on 20 November for the probe's design; it is built after Test 83's
+console round, because it saves through Test 83's file.
+
+- A bounded way onto the sound bus exists and ran on the console in the two
+  adapters: `src/loader/toy_pilot_bus.c`. It masks interrupts, refuses while
+  exceptions are blocked or any of the bus's four DMA channels is enabled or
+  started, waits for the bus FIFO to drain, reads a word twice until the two
+  agree, and gives up after 2 ms. It admits sound memory only; the registers
+  need their own list, as MDK2's probe has for seven of them.
+- The record a probe would fill is there in part: `include/kui/retail_observe.h`
+  holds the first and last play commands, and a mask of the channels ever
+  keyed on. The code that sampled for it is gone from the resident
+  (`observe_call` is called and defined nowhere), so that build no longer
+  links.
+- The reader keeps nothing of CD music today: play, pause and resume are
+  answered and forgotten (`src/core/retail_gd.c`). The auxiliary is visited
+  on each of the game's disc calls, so a count of them and the first and last
+  play commands can be kept there, without a change to the low resident.
+- The report is formatted and saved by the Toy worker
+  (`toy_suite_save_report`, `toy_suite_report_write`): two sectors, each
+  checked blank by its CRC-32 before the first write. More sectors a slot
+  mean a new file version and a seed that names them.
+- What to record, for one long round: the channels keyed on over the session
+  and each channel's registers at the gesture; the mixer's CD input and
+  master settings; checksums of the driver's first bytes, to tell which
+  driver is loaded; and which 4 KiB pages of sound memory changed since
+  launch, from checksums the stage takes before the game starts. Nothing is
+  written to the sound chip or its memory.
+- Not answerable by a probe: what card time a second of audio costs beside
+  the game's own reads. That is the first sounding test's question.
+
 ## 1. Shared correctness and reproducible deployment — active
 
 Shared GUI preparation is also an immediate integration requirement. The
