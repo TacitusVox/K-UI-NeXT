@@ -415,7 +415,7 @@ static void native_passive_run(struct kui_vmu_native_heap_lease *lease) {
 #endif
 #if KUI_VMU_NATIVE_BACKGROUND
     /* The retained map and reader region are outside the worker's
-     * copied/zeroed worker span. Retain the validated 64-slot map there before
+     * copied/zeroed worker span. Retain the validated reader map there before
      * the temporary stage can retire. Both aliases are checked by the low
      * binder; every P1 line reaches RAM before the P2 copy and comparison. */
     uint32_t map_address=load+KUI_VMU_NATIVE_BACKGROUND_WORKER_BYTES;

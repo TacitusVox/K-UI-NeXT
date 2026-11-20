@@ -621,7 +621,7 @@ toy-wire-package-test: $(BUILD)/retail-toy-test-$(TOY_WIRE_TEST).kui
 # auxiliary Test 81's, each with one build label. A Toy flag that slips
 # through to the worker, or one the auxiliary loses, still builds a module
 # and passes every other check.
-TOY_WIRE_EVERY_SWITCH = TOY_SUITE_MODE=$(TOY_SUITE_MODE) TOY_FMV_COMPARE=$(TOY_FMV_COMPARE) \
+TOY_WIRE_EVERY_SWITCH = KUI_NATIVE_BACKGROUND_MAP160=$(KUI_NATIVE_BACKGROUND_MAP160) TOY_SUITE_MODE=$(TOY_SUITE_MODE) TOY_FMV_COMPARE=$(TOY_FMV_COMPARE) \
  $(foreach s,STREAM TICK CACHED WORDS PACE IDLE LEAN OPEN CLEAN MSB QUICK SWIFT STEADY FLUID SEQ ANY TITLES QUERY TIMER \
  STAY LATER RING QUIT HOT COPY GAP APART,TOY_WIRE_$(s)=$(TOY_WIRE_$(s)))
 .PHONY: toy-wire-vmu-parts-check
@@ -632,7 +632,7 @@ endif
 	env -u MAKEFLAGS -u MFLAGS $(MAKE) -f Makefile.vmu-native-toy-suite $(TOY_WIRE_EVERY_SWITCH) TOY_WIRE_VMU=0 \
 	 BUILD_ID=$(BUILD_ID) BUILD=$(BUILD)/parts-reader $(BUILD)/parts-reader/retail-native-dual.kui
 	env -u MAKEFLAGS -u MFLAGS $(MAKE) -f Makefile.vmu-native-background-compact \
-	 BUILD_ID=$(BUILD_ID) BUILD=$(BUILD)/parts-installed $(BUILD)/parts-installed/retail-native-dual.kui
+	 KUI_NATIVE_BACKGROUND_MAP160=$(KUI_NATIVE_BACKGROUND_MAP160) BUILD_ID=$(BUILD_ID) BUILD=$(BUILD)/parts-installed $(BUILD)/parts-installed/retail-native-dual.kui
 	python3 tests/test_toy_wire_vmu_parts.py $(BUILD) $(BUILD)/parts-reader $(BUILD)/parts-installed
 
 # Test 83 changes the cold stage and nothing else: its other parts must be

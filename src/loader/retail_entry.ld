@@ -16,6 +16,9 @@ SECTIONS {
  . = 0x8c010150;
  .armada_all_on_capability : { KEEP(*(.armada_all_on_capability)) } :image
  ASSERT(SIZEOF(.armada_all_on_capability)==0 || SIZEOF(.armada_all_on_capability)==16,"Armada all-on capability must be 16 bytes")
+ . = 0x8c010160;
+ .native_map_capability : { KEEP(*(.native_map_capability)) } :image
+ ASSERT(SIZEOF(.native_map_capability)==0 || SIZEOF(.native_map_capability)==16,"native map capability must be 16 bytes")
  . = 0x8c010180;
  .vmu_launch_header : { KEEP(*(.vmu_launch_header)) } :image
  ASSERT(SIZEOF(.vmu_launch_header)==0 || SIZEOF(.vmu_launch_header)==64,"VMU launch capability must be 64 bytes")
