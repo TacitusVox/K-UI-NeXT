@@ -38,6 +38,7 @@ int main(int argc, char **argv) {
     if(fseek(input,0,SEEK_END) || ftell(input)<0) return 2;
     source.obj.objsize = (FSIZE_t)ftell(input);
     stop_at = argc > 3 ? atoi(argv[3]) : 0;
-    bool ok = kui_internet_preview_convert(&source,&dest,cancel,logger,NULL);
+    unsigned start = argc > 4 ? (unsigned)atoi(argv[4]) : 0;
+    bool ok = kui_internet_preview_convert(&source,&dest,start,cancel,logger,NULL);
     return fclose(input) || fclose(output) || !ok;
 }

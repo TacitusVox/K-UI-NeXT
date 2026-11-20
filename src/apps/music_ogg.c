@@ -114,7 +114,7 @@ size_t kui_ogg_fill(struct kui_ogg *ogg,void *pcm,size_t bytes) {
 }
 
 size_t kui_ogg_preview_pcm(const uint8_t *file, size_t bytes, void *workspace,
-                           int16_t *pcm, size_t samples, unsigned output_rate,
+                           int16_t *pcm, size_t samples, unsigned output_rate, unsigned start_seconds,
                            bool (*cancel)(void)) {
     if(!file || !workspace || !bytes || bytes > INT_MAX || !pcm || !samples ||
        !output_rate || output_rate > 48000u || ((uintptr_t)workspace & 7u)) return 0;
@@ -127,6 +127,7 @@ size_t kui_ogg_preview_pcm(const uint8_t *file, size_t bytes, void *workspace,
     unsigned rate = info.sample_rate;
     int channels = info.channels;
     size_t written = 0;
+    uint64_t skip = (uint64_t)rate * start_seconds;
     unsigned elapsed = 0;
     int32_t sum = 0;
     /* Average each destination interval in integer input/output clock ticks.
@@ -139,7 +140,11 @@ size_t kui_ogg_preview_pcm(const uint8_t *file, size_t bytes, void *workspace,
         int got = stb_vorbis_get_samples_short_interleaved(v,channels,block,512);
         unlock_codec();
         if(!got) break;
-        for(int i=0; i<got && written<samples; ++i) {
+        /* Each whole second ends on a sample boundary at both rates. Discard
+         * source frames in-place, preserving the PCM allocation and timing. */
+        int skipped = skip < (unsigned)got ? (int)skip : got;
+        skip -= (unsigned)skipped;
+        for(int i=skipped; i<got && written<samples; ++i) {
             int sample = block[i*channels];
             if(channels == 2) sample = (sample+block[i*channels+1])/2;
             unsigned ticks = output_rate;

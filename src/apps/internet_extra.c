@@ -17,6 +17,7 @@ static const struct extra media[] = {
 struct preview_alternate {
     uint32_t release;
     const char *source[3]; /* USA, PAL, then a verified clip of unspecified region */
+    uint8_t start_seconds[3];
 };
 static const struct preview_alternate preview_alternates[] = {
 #include "internet_preview_regions.inc"
@@ -95,8 +96,8 @@ static bool video_url(const char *name, char *url, size_t cap) {
 }
 
 bool kui_internet_preview_fallback_url(const struct kui_games_disc_identity *id, unsigned *attempt,
-                                      char *url, size_t cap) {
-    if(!attempt || !url || !cap || *attempt >= 3) return false;
+                                      char *url, size_t cap, unsigned *start_seconds) {
+    if(!attempt || !url || !cap || !start_seconds || *attempt >= 3) return false;
     uint32_t hash = release_hash(id);
     size_t low = 0, high = sizeof(preview_alternates)/sizeof(*preview_alternates);
     while(low < high) {
@@ -104,8 +105,11 @@ bool kui_internet_preview_fallback_url(const struct kui_games_disc_identity *id,
         const struct preview_alternate *alt = preview_alternates + mid;
         if(alt->release == hash) {
             while(*attempt < 3) {
-                const char *movie = alt->source[(*attempt)++];
-                if(movie) return video_url(movie, url, cap);
+                unsigned slot = (*attempt)++;
+                if(!alt->source[slot]) continue;
+                if(!video_url(alt->source[slot], url, cap)) return false;
+                *start_seconds = alt->start_seconds[slot];
+                return true;
             }
             break;
         }

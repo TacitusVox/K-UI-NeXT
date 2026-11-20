@@ -27,7 +27,7 @@ static struct {
     char legacy_path[KUI_GAMES_FILE_CAP];
     enum kui_http_result small_result;
     enum kui_media_reason last_reason;
-    bool no_release, alternate_clips;
+    bool no_release, alternate_clips, runabout;
     unsigned missing_previews, preview_requests;
     enum kui_http_result response;
     unsigned char buffer[90000], clip[200], saved_file[90000];
@@ -85,10 +85,13 @@ bool kui_internet_extra_url(const struct kui_games_disc_identity *id,enum kui_me
     assert(!strcmp(id->product,"T-1"));
     snprintf(url,cap,"%s",kind==KUI_MEDIA_MANUAL?"manual":"preview");return test.has_url;
 }
-bool kui_internet_preview_fallback_url(const struct kui_games_disc_identity *id,unsigned *attempt,char *url,size_t cap) {
+bool kui_internet_preview_fallback_url(const struct kui_games_disc_identity *id,unsigned *attempt,char *url,size_t cap,unsigned *start_seconds) {
     assert(!strcmp(id->product,"T-1"));
     if(!test.alternate_clips || *attempt>=2) return false;
-    snprintf(url,cap,"preview-%u",++*attempt);
+    ++*attempt;
+    *start_seconds=test.runabout?18u:0u;
+    if(test.runabout) snprintf(url,cap,"https://archive.org/download/016860/016860.ogv");
+    else snprintf(url,cap,"preview-%u",*attempt);
     return true;
 }
 unsigned kui_internet_manual_pages(const struct kui_games_disc_identity *id) {(void)id;return test.pages;}
@@ -164,7 +167,8 @@ enum kui_http_result kui_internet_get_prefix(struct kui_internet *s,const char *
     unsigned order = test.preview_requests++ + (test.has_url ? 0u : 1u);
     char expected[24]="preview";
     if(order) snprintf(expected,sizeof(expected),"preview-%u",order);
-    if(test.alternate_clips) assert(!strcmp(url,expected));
+    if(test.runabout) assert(!strcmp(url,"https://archive.org/download/016860/016860.ogv"));
+    else if(test.alternate_clips) assert(!strcmp(url,expected));
     else assert(!strcmp(url,"preview"));
     if(test.missing_previews) {
         --test.missing_previews;
@@ -174,8 +178,8 @@ enum kui_http_result kui_internet_get_prefix(struct kui_internet *s,const char *
     assert(!complete(ctx)); /* The mock origin supplies a short whole-file response. */
     return r;
 }
-bool kui_internet_preview_convert(FIL *src,FIL *dest,kui_cancel_fn stop,kui_log_fn log,uint32_t *crc) {
-    (void)log;assert(f_tell(src)==0 && f_size(src)==4 && !stop());
+bool kui_internet_preview_convert(FIL *src,FIL *dest,unsigned start,kui_cancel_fn stop,kui_log_fn log,uint32_t *crc) {
+    (void)log;assert(start==(test.runabout ? 18u : 0u));assert(f_tell(src)==0 && f_size(src)==4 && !stop());
     if(test.cancel_conversion) {test.stop=true;return false;}
     if(!test.convert)return false;
     uint8_t h[16]={ 'K','P','V','2',160,0,120,0,10,0,0,0,1,0,0,0 };
@@ -549,6 +553,8 @@ int main(void) {
     reset();test.alternate_clips=true;test.missing_previews=2;
     assert(fetch(KUI_MEDIA_PREVIEW)==KUI_MEDIA_INSTALLED && test.preview_requests==3 && test.connects==1);
     reset();test.alternate_clips=true;test.has_url=false;
+    assert(fetch(KUI_MEDIA_PREVIEW)==KUI_MEDIA_INSTALLED && test.preview_requests==1);
+    reset();test.alternate_clips=true;test.has_url=false;test.runabout=true;
     assert(fetch(KUI_MEDIA_PREVIEW)==KUI_MEDIA_INSTALLED && test.preview_requests==1);
     reset();test.alternate_clips=true;test.missing_previews=3;
     assert(fetch(KUI_MEDIA_PREVIEW)==KUI_MEDIA_MISSING && test.last_reason==KUI_MEDIA_REASON_PROVIDER_MISSING &&

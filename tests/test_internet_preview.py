@@ -64,6 +64,52 @@ class Preview(unittest.TestCase):
             corr = sum(x*y for x,y in zip(a,b)) / sqrt(sum(x*x for x in a)*sum(y*y for y in b))
             self.assertGreater(corr, .98)
 
+    def test_offset_keeps_video_and_sound_in_sync(self):
+        # A unique brightness per source frame and a sweeping tone distinguish
+        # frame or sample misalignment from a correctly shortened file.
+        start = 18
+        video = "nullsrc=s=160x120:r=30000/1001,geq=lum='24+mod(N*37,195)':cb=128:cr=128"
+        signal = "aevalsrc=0.25*sin(2*PI*(75*t+11.3*t*t)):s=48000"
+        subprocess.run(["ffmpeg", "-v", "error", "-y", "-f", "lavfi", "-i", video,
+                        "-f", "lavfi", "-i", signal, "-t", "32", "-c:v", "libtheora",
+                        "-c:a", "libvorbis", "-threads", "1", str(self.src)], check=True)
+        original = self.src
+        self.run_converter(True, "0", str(start))
+        expected = self.dst.read_bytes()
+        self.src = self.src.with_name("offset-prefix.ogv")
+        subprocess.run([str(BIN.with_name("test-preview-prefix")), original, self.src,
+                        str(start)], check=True)
+        self.assertLess(self.src.stat().st_size, original.stat().st_size)
+        self.run_converter(True, "0", str(start))
+        self.assertEqual(self.dst.read_bytes(), expected)
+
+        frames = self.read_frames(100, audio=True)
+        # The presentation clock samples the frame containing each requested
+        # instant. Use FFmpeg's independently decoded luminance for all frames.
+        reference = subprocess.check_output(["ffmpeg", "-v", "error", "-i", original,
+                    "-map", "0:v:0", "-vf", "scale=1:1", "-pix_fmt", "gray",
+                    "-f", "rawvideo", "-threads", "1", "-"])
+        for i, frame in enumerate(frames):
+            sample = int.from_bytes(frame[:2], "little")
+            green = ((sample >> 5) & 63) * 255 / 63
+            self.assertAlmostEqual(green, reference[(start * 10 + i) * 30000 // 10010], delta=5)
+
+        sound = array("h", expected[16 + 100*FRAME:])
+        pcm = subprocess.check_output(["ffmpeg", "-v", "error", "-i", original,
+                    "-map", "0:a:0", "-ac", "1", "-ar", "16000", "-f", "s16le", "-"])
+        ref = array("h", pcm)[start * 16000:(start + 10) * 16000]
+        if sys.byteorder != "little":
+            sound.byteswap()
+            ref.byteswap()
+        self.assertEqual(len(ref), len(sound))
+        for i in (0, 73000, 153000):
+            a, b = sound[i:i+6400], ref[i:i+6400]
+            corr = sum(x*y for x,y in zip(a,b)) / sqrt(sum(x*x for x in a)*sum(y*y for y in b))
+            self.assertGreater(corr, .98)
+        self.run_converter(False, "8", str(start))
+        self.encode(rate="15", duration="2", audio=True)
+        self.run_converter(False, "0", str(start))
+
     def test_short_audio_tail_is_silence(self):
         self.encode(rate="10", duration="2", audio=True, audio_length="0.6")
         self.run_converter(True)

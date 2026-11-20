@@ -328,16 +328,16 @@ static bool preview_complete(void *ctx) {
     struct preview_sink *sink = ctx;
     return sink->track.complete;
 }
-static enum kui_media_result fetch_preview(struct transfer *t, FIL *output,uint32_t *readback_crc) {
+static enum kui_media_result fetch_preview(struct transfer *t, FIL *output, unsigned start, uint32_t *readback_crc) {
     FIL source;
     if(f_open(&source,VIDEO_TEMP,FA_READ|FA_WRITE|FA_CREATE_ALWAYS) != FR_OK) return KUI_MEDIA_ERROR;
-    struct preview_sink sink = {.file=&source};
+    struct preview_sink sink = {.file=&source, .track.start_seconds=start};
     enum kui_media_result result = media_result(kui_internet_get_prefix(t->session,t->url,SOURCE_VIDEO_MAX,
         write_video,&sink,received,t,preview_complete),&t->reason);
     if(result == KUI_MEDIA_INSTALLED) {
         if(t->progress) t->progress(t->ctx,KUI_MEDIA_CONVERTING,0,0);
         if(f_lseek(&source,0) != FR_OK) result = KUI_MEDIA_ERROR;
-        else if(!kui_internet_preview_convert(&source,output,t->cancel,t->log,readback_crc)) result = KUI_MEDIA_ERROR;
+        else if(!kui_internet_preview_convert(&source,output,start,t->cancel,t->log,readback_crc)) result = KUI_MEDIA_ERROR;
         else if(!kui_media_container_check(output,false)) result = KUI_MEDIA_ERROR;
     }
     if(f_close(&source) != FR_OK) result = KUI_MEDIA_ERROR;
@@ -709,9 +709,9 @@ static enum kui_media_result fetch_mounted(struct transfer *t, struct kui_media_
     if(stopped(t->cancel)) return KUI_MEDIA_STOPPED;
     unsigned pages = kind == KUI_MEDIA_MANUAL ? kui_internet_manual_pages(t->id) : 0;
     bool has_url=kui_internet_extra_url(t->id,kind,t->url,sizeof(t->url));
-    unsigned preview_attempt=0;
+    unsigned preview_attempt=0, preview_start=0;
     if(kind==KUI_MEDIA_PREVIEW && !has_url)
-        has_url=kui_internet_preview_fallback_url(t->id,&preview_attempt,t->url,sizeof(t->url));
+        has_url=kui_internet_preview_fallback_url(t->id,&preview_attempt,t->url,sizeof(t->url),&preview_start);
     if(!pages && !has_url) {
         /* A manual saved by a previous catalogue is still available offline.
          * Disc sets already checked their shared PDF before reading the ID. */
@@ -744,7 +744,7 @@ static enum kui_media_result fetch_mounted(struct transfer *t, struct kui_media_
     FIL file;
     if(f_open(&file,MEDIA_TEMP,FA_READ|FA_WRITE|FA_CREATE_ALWAYS) != FR_OK) return KUI_MEDIA_ERROR;
     if(pages) result = fetch_pages(t,&file,pages);
-    else if(kind == KUI_MEDIA_PREVIEW) result = fetch_preview(t,&file,replacing_preview?&preview_crc:NULL);
+    else if(kind == KUI_MEDIA_PREVIEW) result = fetch_preview(t,&file,preview_start,replacing_preview?&preview_crc:NULL);
     else {
         result=get(t,KUI_MANUAL_BYTES_MAX,&file);
         if(result==KUI_MEDIA_INSTALLED) {
@@ -762,7 +762,7 @@ static enum kui_media_result fetch_mounted(struct transfer *t, struct kui_media_
         if(f_unlink(MEDIA_TEMP) != FR_OK) return KUI_MEDIA_ERROR;
         if(kind==KUI_MEDIA_PREVIEW && result==KUI_MEDIA_MISSING &&
            t->reason==KUI_MEDIA_REASON_PROVIDER_MISSING &&
-           kui_internet_preview_fallback_url(t->id,&preview_attempt,t->url,sizeof(t->url))) goto FILE_RETRY;
+           kui_internet_preview_fallback_url(t->id,&preview_attempt,t->url,sizeof(t->url),&preview_start)) goto FILE_RETRY;
         if(result == KUI_MEDIA_MISSING && pages && has_url) {
             pages = 0;
             goto FILE_RETRY;

@@ -14,6 +14,8 @@ Maintainers can run `python3 tools/index_internet_extras.py` from the repository
 
 *Sega Rally 2* also has a gameplay preview in the Internet Archive's Video Game Previews collection. The footage opens with the Sega Dreamcast logo and shows racing in the first ten seconds. Its region is unspecified. The K-UI converter produced 100 frames and 16 kHz mono sound from the first 830,874 bytes, identical to converting the full file. [Preview source](https://archive.org/details/011564)
 
+The US *Super Runabout: San Francisco Edition* trailer opens with a publisher logo. The scan reads the first 1,634,236 compressed bytes and saves the ten-second window beginning at 18 seconds, including its matching soundtrack. This file is identified in the catalogue by its Internet Archive source, so the same window applies to an eligible alternate region. [Preview source](https://archive.org/details/016860)
+
 A cached clip plays once in the selected artwork tile after three seconds on the same game in any layout. Browsing, entering a game or leaving the screen cancels the pending or playing preview. The first frame is read from the card only after the delay. The player streams into two 38,400-byte frame buffers and releases them when finished. Highlight the title again for a replay or use the scan screen for immediate playback.
 
 ## Resource checks

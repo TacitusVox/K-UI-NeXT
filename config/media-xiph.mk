@@ -30,7 +30,7 @@ $(eval $(call xiph-rules,host,$(CC)))
 build/dc/src/apps/internet_preview.o: CPPFLAGS += $(XIPH_FLAGS)
 build/dc/src/apps/internet_preview.o: $(XIPH_DEP)
 
-build/test-internet-preview: tests/internet_preview_host.c src/apps/internet_preview.c src/apps/music_ogg.c src/core/hash.c src/core/data.c include/kui/music_ogg.h include/kui/media_container.h $(XIPH_HOST_OBJS) $(XIPH_DEP)
+build/test-internet-preview: tests/internet_preview_host.c src/apps/internet_preview.c src/apps/music_ogg.c src/core/hash.c src/core/data.c include/kui/internet_preview.h include/kui/preview_prefix.h include/kui/music_ogg.h include/kui/media_container.h $(XIPH_HOST_OBJS) $(XIPH_DEP)
 	$(CC) -std=c11 -Wall -Wextra -Werror -O2 -Iinclude -I.deps/fatfs/source $(XIPH_FLAGS) \
 	    -Isrc/dreamcast -Itests/stubs tests/internet_preview_host.c src/apps/internet_preview.c src/apps/music_ogg.c src/core/hash.c src/core/data.c $(XIPH_HOST_OBJS) -lm -o $@
 
