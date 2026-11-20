@@ -95,7 +95,10 @@ label: the generic module with the PVR change off (`7b216f2e1136`), on
 (`a660354d804c`), the timing probe (`5c1cdd89387b`) and the data probe
 (`88ff969d505c`), and the four CD-music modules and `ce-armada-all-on.kui`
 (`7b216f2e1136`), each byte for byte. That line changes native readers only;
-the two delivered ZIPs stand as they are.
+the two delivered ZIPs stand as they are. The owner's GUI line (`4d4dcff7`,
+the GUI the Test 83 runs used) admits both delivered modules in the GUI's
+seven production WinCE cases on FAT32 and exFAT (`tests/test_wce_probe_admission.py`
+built from that line's source); its WinCE launches are not console-tested.
 
 ## WinCE PVR stream test: console test pending, a660354d804c, 2026-11-20
 
