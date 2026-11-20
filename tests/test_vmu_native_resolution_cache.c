@@ -540,7 +540,9 @@ static void generic_actual_tests(const char *path) {
     }
     CHECK((fresh.layout.rx_layout==KUI_VMU_NATIVE_RX_UNIFORM48 && fresh.layout.inputs==1u) ||
         (fresh.layout.rx_layout==KUI_VMU_NATIVE_RX_EXPLICIT48 && fresh.layout.inputs==12u));
-    CHECK(fresh.exits.family>=KUI_VMU_NATIVE_EXIT_FAMILY && fresh.exits.family<=KUI_VMU_NATIVE_EXIT_EARLY_COMPACT);
+    CHECK(fresh.exits.family>=KUI_VMU_NATIVE_EXIT_FAMILY &&
+          fresh.exits.family<=KUI_VMU_NATIVE_EXIT_EARLY_FIRMWARE_LITERAL_POOL);
+    CHECK(kui_vmu_native_exit_shape_valid(&fresh.exits));
     CHECK(fresh.exits.count==(fresh.exits.family==KUI_VMU_NATIVE_EXIT_PAIR_ONLY ||
         fresh.exits.family==KUI_VMU_NATIVE_EXIT_EARLY_PAIR?2u:
         fresh.exits.family==KUI_VMU_NATIVE_EXIT_CRT_BOOTSTRAP?4u:3u));

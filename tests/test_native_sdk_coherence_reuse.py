@@ -75,10 +75,12 @@ def audit():
     assert 'kui_vmu_native_early_p2_calls_valid' not in checked
     core=(ROOT/'src/core/vmu_native_resolution_cache.c').read_text()
     replay=function(core,'kui_vmu_native_resolution_cache_replay')
-    assert replay.index('hash(image,n,digest)')<replay.index('kui_vmu_native_early_p2_calls_valid')<replay.index('*out=decoded')
-    assert 'memcmp(digest,decoded.driver.image_sha256,32u)' in replay
-    assert 'decoded.call.call,decoded.layout.initializer_call' in replay
-    assert 'memcmp(&call,&decoded.call,sizeof(call))' in replay
+    roles=function(core,'replay_sdk_roles')
+    validation='if(!replay_sdk_roles(image,n,&decoded))return false;'
+    assert replay.index('hash(image,n,digest)')<replay.index('memcmp(digest,decoded.driver.image_sha256,32u)')<replay.index(validation)<replay.index('*out=decoded')
+    assert 'r->driver.family==KUI_VMU_NATIVE_FAMILY_EARLY_P2_V1 &&' in roles
+    assert '!kui_vmu_native_early_p2_calls_valid(image,n,&r->driver,r->call.call,r->layout.initializer_call))return false;' in roles
+    assert 'kui_vmu_native_heap_call_discover(image,n,&r->heap,&call) && !memcmp(&call,&r->call,sizeof(call))' in roles
     passive=(ROOT/'src/loader/vmu_native_passive_stage.inc').read_text()
     image=function(passive,'native_passive_prepare_image')
     finish=function(passive,'native_passive_prepare_finish')
