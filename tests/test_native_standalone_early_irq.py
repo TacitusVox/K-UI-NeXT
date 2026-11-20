@@ -6,7 +6,7 @@ import argparse, ctypes, hashlib, json, struct, subprocess, sys, tempfile
 from pathlib import Path
 ROOT=Path(__file__).resolve().parents[1]
 sys.path[:0]=[str(ROOT/'tools'),str(ROOT/'tests')]
-from check_native_standalone_reader import BinderCPU,StageCPU,StageStop,assert_publication,relay_publication_ccr,PRIVATE_TOP,RETURN
+from check_native_standalone_reader import BinderCPU,StageCPU,StageStop,assert_publication,relay_publication_ccr,standalone_stack,RETURN
 from check_vmu_native_worker_gateway import read_elf,symbol_bytes
 from test_vmu_native_heap_execution import MASK,signed
 LOAD=0x8c010000
@@ -63,10 +63,10 @@ def installed(resident,owner,mode,roles):
  need(c.r[15]==0x8c00e000 and c.sr&0xf0==0xe0,'installer changed caller stack/mask')
  for off,source in ((0x100,owner['vector']-0x34),(0x400,owner['vector']-0x34),(0x600,owner['vector'])):
   need(all(c.read(owner['vbr']+off+4*i)==c.read(source+4*i) for i in range(13)),'installer copied vector differs')
- c.cache_on=True;c.cache.clear();c.r[15]=PRIVATE_TOP;c.sr=0x400001f0;c.pr=RETURN
+ c.cache_on=True;c.cache.clear();c.r[15]=c.private_top;c.sr=0x400001f0;c.pr=RETURN
  return c
 def no_publish(c):
- need(not c.ready_ram() and not [(a,v,n) for _,a,v,n in c.writes if not PRIVATE_TOP-128<=a<PRIVATE_TOP] and not c.flushes,'refused binder published externally')
+ need(not c.ready_ram() and not [(a,v,n) for _,a,v,n in c.writes if not c.private_top-128<=a<c.private_top] and not c.flushes,'refused binder published externally')
 
 class Family(ctypes.Structure):
  _fields_=[(name,ctypes.c_uint32) for name in ('vector','normal','fpu','original')]
@@ -90,7 +90,7 @@ class EarlyStageCPU(StageCPU):
   self.api={stage[4][name][0]:name for name in ('_stopped','_relay_stopped')}
   self.targets=set(self.api)
   blob=stage[4]['__retail_resident_sci_blob_start'][0]
-  for name,value in (('_resident_blob',blob),('_resident_bytes',resident[4]['__retail_resident_binary_end'][0]-0x8c004000),('_resident_limit',0x8c007ba0),('_exec_bytes',len(owner['image']))):
+  for name,value in (('_resident_blob',blob),('_resident_bytes',resident[4]['__retail_resident_binary_end'][0]-0x8c004000),('_resident_limit',self.guard),('_exec_bytes',len(owner['image']))):
    self.put(stage[4][name][0],value)
   for i in (0,4,8,12,16,0x530,0x534,0x538):self.put(self.region+i,0)
   # The guarded wrapper is independently executed below before composing it
@@ -155,10 +155,7 @@ def main():
  p=argparse.ArgumentParser();p.add_argument('--old-build',type=Path,required=True);p.add_argument('--new-build',type=Path);p.add_argument('--output',type=Path,required=True);p.add_argument('originals',type=Path,nargs='+');a=p.parse_args()
  old=read_elf(a.old_build/'resident-sci.elf');new=read_elf(a.new_build/'resident-sci.elf') if a.new_build else None
  if new:
-  for symbol in ('__retail_hook_stack_bottom','__retail_hook_stack'):
-   need(old[4][symbol][0]==new[4][symbol][0],'standalone fixed service stack moved')
-  need(old[4]['_standalone_reader_region'][1]==new[4]['_standalone_reader_region'][1]==0x760,'standalone region geometry changed')
-  need(new[4]['__retail_resident_bss_end'][0]<=new[4]['__retail_hook_stack_bottom'][0],'resident exceeds fixed low-RAM budget')
+  standalone_stack(old);standalone_stack(new)
  stage=read_elf(a.new_build/'stage.elf') if a.new_build else None
  sdk_cache=None
  if stage and '__kui_native_cached_sdk_family' in stage[4]:
