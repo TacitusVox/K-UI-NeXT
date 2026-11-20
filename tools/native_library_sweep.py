@@ -36,7 +36,8 @@ INNER_LIMIT = 48 * 1024 * 1024
 BOOT_LIMIT = 0x8d000000 - 0x8c010000  # the most a boot program can occupy in main RAM
 GDI_LIMIT = 64 * 1024
 INFO_LIMIT = 4 * 1024 * 1024
-STATUSES = ('bundled', 'duplicate', 'windows_ce', 'cdda', 'error', 'other_format', 'already_sent')
+STATUSES = ('bundled', 'duplicate', 'windows_ce', 'cdda', 'error', 'other_format', 'already_sent',
+            'not_windows_ce', 'not_cd_audio')
 SCI_SOURCES = ('tools/native_sci_family_probe.c', 'src/core/native_sdk_sci_family.c',
                'src/core/hash.c', 'src/core/data.c')
 GATE_NOTES = {

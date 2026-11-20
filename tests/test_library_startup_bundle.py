@@ -336,6 +336,15 @@ class LibraryStartupBundleTests(unittest.TestCase):
             with zipfile.ZipFile(io.BytesIO(archive.read(by['Delta CDDA/disc.gdi']['archive']))) as game:
                 self.assertEqual(game.namelist(), ['1ST_READ.BIN', 'AUDIO64.DRV', 'IP.BIN', 'MANATEE.DRV', 'disc.gdi',
                                                    'startup-info.json'])
+        # The sweep reads a CD audio run's numbered parts as it reads any other run's.
+        info, merged, blobs, missing = sweep.read_parts(created[1:])
+        bundled = [row for row in merged if row['status'] == 'bundled']
+        self.assertEqual([row['source'] for row in bundled], ['Delta CDDA/disc.gdi', 'Kappa CDDA/disc.gdi'])
+        self.assertEqual(missing, [])
+        for row in bundled:
+            self.assertEqual(hashlib.sha256(sweep.open_game(blobs[row['archive']], row)).hexdigest(), row['boot_sha256'])
+        left_out = next(row for row in merged if row['status'] == 'not_cd_audio')
+        self.assertEqual(sweep.verdict(left_out), ('not copied by a CD audio-only run', 'not_native'))
         # A file over the small ZIP's bound is listed, not copied.
         self.output = self.folder / 'out-audio-bound'
         self.output.mkdir()
