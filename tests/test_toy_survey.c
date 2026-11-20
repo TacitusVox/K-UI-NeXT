@@ -350,11 +350,12 @@ static void refusals(bool exfat,bool partitioned,uint8_t *image) {
                    c.lba[2]==kui_wce_probe_lba(&layout,kui_toy_survey_sector(c.slot,2u)),"a slot with a sector not read is passed over");
     }
     fail_read_at=0u;
-    /* A card that gives nothing more is not asked for every slot. */
+    /* A card that gives nothing more is not asked for every slot: the
+     * search ends at the fourth sector it does not give. */
     for(unsigned from=2u;from<=10u;from++) {
         reads=0u;fail_read_from=from;
         check(claim(&c)==KUI_TOY_SURVEY_CLAIM_IO && !c.lba[0] && !c.lba[1] && !c.lba[2] &&
-              reads==from-1u+KUI_TOY_SURVEY_UNREAD_MAX,"the search gives up at four sectors not read");
+              reads==from+3u,"the search gives up at four sectors not read");
     }
     fail_read_from=0u;
     /* Sectors not read and no blank slot behind them: not a full file. */

@@ -378,6 +378,31 @@ static void good(uint32_t slot,unsigned map) {
     }
 }
 
+/* The largest blank file there is, written in pieces of eight sectors with
+ * a spacer file's between them: more runs than the lookup maps. */
+static void fragmented_file(void) {
+    static FATFS fs;static uint8_t sector[512],fill[4096];
+    FIL file,spacer;UINT done;
+    struct kui_toy_survey_file largest=survey;
+    largest.slots=KUI_TOY_SURVEY_SLOTS_MAX;
+    uint32_t pieces=0u;
+    memset(fill,0x77,sizeof(fill));
+    assert(f_mount(&fs,"0:",1)==FR_OK && f_open(&file,PATH,FA_WRITE|FA_CREATE_ALWAYS)==FR_OK);
+    assert(f_open(&spacer,"0:/SPACER.BIN",FA_WRITE|FA_CREATE_ALWAYS)==FR_OK);
+    for(uint32_t at=0u;at<1u+3u*largest.slots;at++) {
+        if(!at) kui_toy_survey_file_sector(&largest,sector);
+        else kui_toy_survey_blank_sector(&largest,(at-1u)/3u,(at-1u)%3u,sector);
+        assert(f_write(&file,sector,512u,&done)==FR_OK && done==512u);
+        if(at%8u==7u) {
+            assert(f_sync(&file)==FR_OK && f_write(&spacer,fill,sizeof(fill),&done)==FR_OK && done==sizeof(fill));
+            assert(f_sync(&spacer)==FR_OK);
+            ++pieces;
+        }
+    }
+    assert(pieces>KUI_WCE_PROBE_FILE_RUNS);
+    assert(f_close(&file)==FR_OK && f_close(&spacer)==FR_OK && f_unlink("0:/SPACER.BIN")==FR_OK);
+    assert(f_mount(NULL,"0:",0)==FR_OK);
+}
 /* A launch with the file as it stands and the plain raw map. */
 static void plain(void) {launch(KUI_RETAIL_READER_ASYNC,KUI_STORAGE_SCI,raw,5u);}
 static void place_line(char line[80],uint32_t slot,uint32_t part) {
@@ -591,12 +616,20 @@ static void standing(bool exfat,bool partitioned,const char *leave) {
         FILE *out=fopen(leave,"wb");
         assert(out && fwrite(back,1u,FILE_BYTES,out)==FILE_BYTES && !fclose(out));
     }
-    /* No file, no folder: off, and not a write. */
+    /* No file: off, and not a write. */
     card_make(exfat,partitioned,false);
     memset(&io,0,sizeof(io));
     plain();
     off("SURVEY OFF / NO KUI/SURVEY/STREAM.TXT",0u);
     assert(!changed());
+    /* A file in more pieces than the lookup maps is refused whole, though
+     * its first slots are blank and lie in the runs the lookup has. */
+    fragmented_file();
+    memcpy(before,disk,(size_t)BLOCKS*512u);
+    memset(&io,0,sizeof(io));
+    plain();
+    off("SURVEY OFF / FILE LOOKUP 00000005",0u);
+    assert(io.reads && !changed());
     printf("PASS the stage's survey text on %s, volume at sector %u: a slot for a source and for a disc that is "
            "none; one sector written per launch, read back; every refusal leaves the card as it was\n",
            exfat?"exFAT":"FAT32",(unsigned)part_first);

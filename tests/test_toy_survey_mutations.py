@@ -241,6 +241,10 @@ MUTATIONS = [
      'put_field(&t,launch->region,launch->region_bytes,16u);'),
     ('the launch line has no tens of the slot', STAGE, "line[n++]=(char)('0'+slot/10u%10u);", "line[n++]='0';"),
     ('the launch line has no hundreds of the slot', STAGE, "line[n++]=(char)('0'+slot/100u%10u);", "line[n++]='0';"),
+    ('a file in more pieces than the lookup maps is taken', STAGE, 'if(found!=KUI_WCE_PROBE_FAT_OK) {',
+     'if(found!=KUI_WCE_PROBE_FAT_OK && found!=KUI_WCE_PROBE_FAT_FRAGMENTED) {'),
+    ('the search gives up at five sectors not read', 'include/kui/toy_survey.h',
+     '#define KUI_TOY_SURVEY_UNREAD_MAX 4u', '#define KUI_TOY_SURVEY_UNREAD_MAX 5u'),
     # A read whose stream the card does not end.
     ('a read counts whose stop the card did not take', STAGE,
      'return read==KUI_LOADER_SD_OK && stop==KUI_LOADER_SD_OK?0:-1;', 'return (void)stop,read==KUI_LOADER_SD_OK?0:-1;'),
