@@ -223,9 +223,11 @@ console round, because it saves through Test 83's file.
   (`observe_call` is called and defined nowhere), so that build no longer
   links.
 - The reader keeps nothing of CD music today: play, pause and resume are
-  answered and forgotten (`src/core/retail_gd.c`). The auxiliary is visited
-  on each of the game's disc calls, so a count of them and the first and last
-  play commands can be kept there, without a change to the low resident.
+  answered and forgotten (`src/core/retail_gd.c`). In the Toy test module
+  the auxiliary is visited from the game's disc calls, also from those that
+  are no read (Tests 73 and 80), so the play commands may be countable
+  there without a change to the low resident. Not yet read: whether every
+  command reaches it, and with its parameters.
 - The report is formatted and saved by the Toy worker
   (`toy_suite_save_report`, `toy_suite_report_write`): two sectors, each
   checked blank by its CRC-32 before the first write. More sectors a slot
