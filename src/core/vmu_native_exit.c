@@ -512,7 +512,8 @@ bool kui_vmu_native_exit_discover_guarded(const void *image,size_t bytes,uint32_
         for(size_t i=0;i<extra_count;i++) windows[entries+i]=additional[i];
         if(!kui_vmu_native_patch_no_interiors(image,bytes,load,windows,entries+extra_count)) return false;
         *out=(struct kui_vmu_native_exit){.version=KUI_VMU_NATIVE_EXIT_VERSION,.bytes=sizeof(*out),
-            .family=firmware?KUI_VMU_NATIVE_EXIT_EARLY_FIRMWARE_CHECK:
+            .family=firmware==2?KUI_VMU_NATIVE_EXIT_EARLY_FIRMWARE_LITERAL_POOL:
+                firmware?KUI_VMU_NATIVE_EXIT_EARLY_FIRMWARE_CHECK:
                 loaders?KUI_VMU_NATIVE_EXIT_EARLY_COMPACT:KUI_VMU_NATIVE_EXIT_EARLY_PAIR,
             .load=load,.image_bytes=(uint32_t)bytes,.count=entries,
             .entries={load+(uint32_t)pair,load+(uint32_t)pair+8u,entries==3u?windows[2].begin:0u,0u},
