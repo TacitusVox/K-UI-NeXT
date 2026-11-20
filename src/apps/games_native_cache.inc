@@ -23,10 +23,9 @@ struct native_cache_workspace {
     struct kui_vmu_native_resolution resolution;
 };
 static bool native_cache_cancelled(kui_cancel_fn cancel) {return cancel && cancel();}
-static bool native_cache_source_conflict(const char *root) {
-    /* The whole reserved VMU subtree is excluded, including the ancestor of
-     * possible FAT short aliases for native-cache. Track names are siblings. */
-    const char *reserved="/kui/vmu";
+static bool native_cache_in_tree(const char *root,const char *reserved) {
+    /* Each reserved subtree uses an 8.3 root name. Exclude descendants,
+     * including any FAT short aliases for names below it. */
     if(!root) return true;
     if(root[0]=='0' && root[1]==':') root+=2;
     while(*reserved && *root) {
@@ -36,13 +35,21 @@ static bool native_cache_source_conflict(const char *root) {
     }
     return !*reserved && (!*root || *root=='/');
 }
-static bool native_cache_file_read(const char *path,uint8_t out[1024]) {
+static bool native_cache_source_conflict(const char *root) {return native_cache_in_tree(root,"/kui/vmu");}
+static bool native_cache_read_bytes(const char *path,void *out,UINT bytes) {
     FILINFO info;FIL file;UINT got=0;
-    if(f_stat(path,&info)!=FR_OK || (info.fattrib&AM_DIR) || info.fsize!=1024u ||
+    if(f_stat(path,&info)!=FR_OK || (info.fattrib&AM_DIR) || info.fsize!=bytes ||
        f_open(&file,path,FA_READ)!=FR_OK) return false;
-    bool read=f_read(&file,out,1024u,&got)==FR_OK && got==1024u;
+    bool read=f_read(&file,out,bytes,&got)==FR_OK && got==bytes;
     bool closed=f_close(&file)==FR_OK;
     return read && closed;
+}
+static bool native_cache_file_read(const char *path,uint8_t out[1024]) {
+    return native_cache_read_bytes(path,out,1024u);
+}
+static bool native_cache_ensure_directory(const char *path) {
+    FILINFO info;FRESULT result=f_mkdir(path);
+    return (result==FR_OK || result==FR_EXIST) && f_stat(path,&info)==FR_OK && (info.fattrib&AM_DIR);
 }
 static bool native_cache_directories(void) {
     char epoch[64];
@@ -50,14 +57,13 @@ static bool native_cache_directories(void) {
     if(n<0 || (size_t)n>=sizeof(epoch)) return false;
     const char *const paths[]={"0:/KUI","0:/KUI/VMU","0:/KUI/VMU/native-cache",epoch};
     for(unsigned i=0;i<sizeof(paths)/sizeof(paths[0]);i++) {
-        FILINFO info;FRESULT result=f_mkdir(paths[i]);
-        if((result!=FR_OK && result!=FR_EXIST) || f_stat(paths[i],&info)!=FR_OK || !(info.fattrib&AM_DIR)) return false;
+        if(!native_cache_ensure_directory(paths[i]))return false;
     }
     return true;
 }
-static bool native_cache_file_publish(const char *path,const uint8_t wire[1024],
-    uint8_t compare[1024],kui_cancel_fn cancel) {
-    if(native_cache_cancelled(cancel) || !native_cache_directories()) return false;
+static bool native_cache_publish_bytes(const char *path,const void *wire,void *compare,
+    UINT bytes,kui_cancel_fn cancel,const uint8_t *replace_key) {
+    if(native_cache_cancelled(cancel)) return false;
     char temporary[128];FIL file;FRESULT opened=FR_EXIST;
     for(unsigned attempt=0;attempt<8u && opened==FR_EXIST;attempt++) {
         int n=snprintf(temporary,sizeof(temporary),"%s.tmp%u",path,attempt);
@@ -67,23 +73,34 @@ static bool native_cache_file_publish(const char *path,const uint8_t wire[1024],
     if(opened!=FR_OK) return false;
     UINT written=0;
     bool valid=!native_cache_cancelled(cancel) &&
-        f_write(&file,wire,1024u,&written)==FR_OK && written==1024u;
+        f_write(&file,wire,bytes,&written)==FR_OK && written==bytes;
     if(valid) valid=f_sync(&file)==FR_OK;
     bool closed=f_close(&file)==FR_OK;
     valid=valid && closed && !native_cache_cancelled(cancel) &&
-        native_cache_file_read(temporary,compare) && !memcmp(wire,compare,1024u);
+        native_cache_read_bytes(temporary,compare,bytes) && !memcmp(wire,compare,bytes);
     if(valid && !native_cache_cancelled(cancel)) {
         FILINFO old;FRESULT present=f_stat(path,&old);
         /* A bad old record is replaceable configuration, never a directory.
          * Power loss between unlink and rename leaves a cache miss. The new
          * name is published only after a complete synced/readback record. */
-        valid=present==FR_NO_FILE || present==FR_NO_PATH ||
-            (present==FR_OK && !(old.fattrib&AM_DIR) && f_unlink(path)==FR_OK);
+        valid=present==FR_NO_FILE || present==FR_NO_PATH;
+        if(present==FR_OK && !(old.fattrib&AM_DIR)) {
+            /* A reader-cache filename alone does not own an existing file.
+             * Preserve unfamiliar/truncated data and fall back to discovery. */
+            bool owned=!replace_key || (old.fsize==bytes && native_cache_read_bytes(path,compare,bytes) &&
+                !memcmp(compare,replace_key,32u));
+            valid=owned && !native_cache_cancelled(cancel) && f_unlink(path)==FR_OK;
+        }
         if(valid && !native_cache_cancelled(cancel)) valid=f_rename(temporary,path)==FR_OK;
         else valid=false;
     } else valid=false;
     if(!valid) (void)f_unlink(temporary);
     return valid;
+}
+static bool native_cache_file_publish(const char *path,const uint8_t wire[1024],
+    uint8_t compare[1024],kui_cancel_fn cancel) {
+    return !native_cache_cancelled(cancel) && native_cache_directories() &&
+        native_cache_publish_bytes(path,wire,compare,1024u,cancel,NULL);
 }
 /* The combined module's stage refuses this executable. Only then may New
  * use the reader-only module, if its SDK family exists. */
@@ -113,10 +130,12 @@ static bool native_cache_source_eligible(const struct kui_game_image *image,
         map->boot_lba<KUI_GAME_LBA_LIMIT &&
         (map->boot_bytes+2047u)/2048u<=KUI_GAME_LBA_LIMIT-map->boot_lba;
 }
-static enum native_cache_result native_cache_prepare(const struct kui_game_image *image,
+#include "games_native_repeat.inc"
+static enum native_cache_result native_cache_prepare_repeat(const struct kui_game_image *image,
     const struct kui_retail_manifest *map,bool native,uint32_t options,bool patched,
     struct kui_runtime_image *package,const char *source_root,bool allow_persistent_cache,kui_log_fn log,kui_cancel_fn cancel,
-    struct native_cache_source_proof *source_proof,bool *standalone) {
+    struct native_cache_source_proof *source_proof,bool *standalone,struct native_repeat_record **pending) {
+    if(pending)*pending=NULL;
     if(source_proof)*source_proof=(struct native_cache_source_proof){0};
     if(standalone)*standalone=false;
     const bool dual=map && package && package->data &&
@@ -136,6 +155,9 @@ static enum native_cache_result native_cache_prepare(const struct kui_game_image
     struct native_cache_workspace *work=malloc(sizeof(*work));
     if(!boot || !work) {free(work);free(boot);return NATIVE_CACHE_SKIPPED;}
     enum native_cache_result result=NATIVE_CACHE_SKIPPED;
+    struct native_repeat_record *repeat=NULL;
+    uint8_t repeat_key[32];
+    bool hit=false;
     /* One SHA-256 pass over the executable also keeps resumable 64 KiB
      * states, so the proved program prefix needs at most 64 KiB more hashing
      * instead of a second pass over the whole executable. */
@@ -160,6 +182,23 @@ static enum native_cache_result native_cache_prepare(const struct kui_game_image
     if(source_proof)source_crc=kui_crc32(source_crc,boot,map->boot_bytes);
     KUI_SMASH_TIME_END(source_crc_time);
     if(source_proof) {source_proof->complete=true;source_proof->crc32=source_crc;memcpy(source_proof->sha256,image_hash,32u);}
+    if(pending && !native_cache_source_conflict(source_root) &&
+       !native_cache_in_tree(source_root,"/kui/gmcache")) {
+        repeat=malloc(sizeof(*repeat));
+        if(repeat) {
+            native_repeat_key(repeat_key,image_hash,map,package,dual);
+            kui_smash_launch_timing_phase(KUI_SMASH_UI_MDE_PROOF);
+            KUI_SMASH_TIME_SPAN(repeat_replay,KUI_SMASH_UI_SDK_REPLAY);
+            hit=native_repeat_read(repeat,repeat_key,boot,map,package,dual,&image_marks,image_hash,work);
+            KUI_SMASH_TIME_END(repeat_replay);
+            if(hit) {
+                kui_smash_launch_timing_metric(KUI_SMASH_UI_PROGRAM_BYTES,work->resolution.driver.image_bytes);
+                kui_smash_launch_timing_metric(KUI_SMASH_UI_CACHE_HIT,1u);
+                if(log)log("Native reader mapping: reused proof for the verified executable and reader");
+                goto admit;
+            }
+        }
+    }
     kui_smash_launch_timing_phase(KUI_SMASH_UI_MDE_EXTENT);
     /* The cache filename binds the complete source read above. Its record
      * describes only the caller-proven live program, matching stage replay.
@@ -184,36 +223,18 @@ static enum native_cache_result native_cache_prepare(const struct kui_game_image
      * kept separate from the record, never passed as an aliased self-hash. */
     if(log)log("Native VMU mapping: checking saved proof");
     KUI_SMASH_TIME_SPAN(replay_time,KUI_SMASH_UI_SDK_REPLAY);
-    bool hit=disk && native_cache_file_read(path,work->wire) &&
+    hit=disk && native_cache_file_read(path,work->wire) &&
         kui_vmu_native_resolution_cache_record_digest(work->wire,sizeof(work->wire),work->digest);
-    if(hit) {
-        uint8_t prefix_hash[32];const uint8_t *program_hash=image_hash;
-        if(program_bytes!=map->boot_bytes) {
-            /* A reclaimed bootstrap suffix has a different identity. Hash
-             * exactly the proved prefix bytes; never reuse the full-source
-             * digest for that shorter program or copy a digest from wire.
-             * The pass resumes from the source pass's state at the nearest
-             * 64 KiB boundary below the prefix (the same bytes, unchanged). */
-            KUI_SMASH_TIME_SPAN(prefix_sha,KUI_SMASH_UI_EXEC_SHA);
-            size_t rehashed=0u;
-            if(!kui_sha256_prefix_digest(&image_marks,boot,program_bytes,prefix_hash,&rehashed)) {
-                KUI_SMASH_TIME_END(prefix_sha);goto finished;
-            }
-            KUI_SMASH_TIME_END(prefix_sha);
-            kui_smash_launch_timing_add(KUI_SMASH_UI_EXEC_SHA_BYTES,rehashed);
-            program_hash=prefix_hash;
-        }
-        hit=kui_vmu_native_resolution_cache_replay_hashed(boot,program_bytes,KUI_RETAIL_EXEC_ADDRESS,
-            work->wire,sizeof(work->wire),work->digest,program_hash,&work->resolution);
-    }
+    if(hit)hit=native_cache_replay_program(boot,map->boot_bytes,program_bytes,
+        &image_marks,image_hash,work);
     KUI_SMASH_TIME_END(replay_time);
     kui_smash_launch_timing_metric(KUI_SMASH_UI_CACHE_HIT,hit?1u:0u);
     if(!hit) {
         if(native_cache_cancelled(cancel)) {result=NATIVE_CACHE_CANCELLED;goto finished;}
         if(log)log("Native VMU mapping: scanning SDK families");
         KUI_SMASH_TIME_SPAN(discover_time,KUI_SMASH_UI_SDK_DISCOVERY);
-        bool resolved=kui_vmu_native_resolution_cache_build(boot,program_bytes,KUI_RETAIL_EXEC_ADDRESS,
-            work->wire,sizeof(work->wire),&work->resolution);
+        bool resolved=kui_vmu_native_resolution_cache_build_prefixed(boot,program_bytes,KUI_RETAIL_EXEC_ADDRESS,
+            work->wire,sizeof(work->wire),&work->resolution,&image_marks);
         KUI_SMASH_TIME_END(discover_time);
         if(!resolved) {
             native_cache_standalone(boot,map,standalone);
@@ -225,6 +246,7 @@ static enum native_cache_result native_cache_prepare(const struct kui_game_image
             if(log) log("Native VMU cache persistence unavailable; using the complete in-memory proof");
         }
     }
+admit:
     if(native_cache_cancelled(cancel)) {result=NATIVE_CACHE_CANCELLED;goto finished;}
     /* A reviewed fixed arena (no initializer slot) borrows a startup call
      * that only the combined module's stage redirects. Other modules are
@@ -247,10 +269,25 @@ static enum native_cache_result native_cache_prepare(const struct kui_game_image
     if(kui_vmu_native_cache_seed_fill((uint8_t *)package->data+slot,
         KUI_VMU_NATIVE_CACHE_SEED_BYTES,work->wire,sizeof(work->wire))) {
         result=NATIVE_CACHE_READY;
+        if(repeat && !hit && !allow_persistent_cache) {
+            memcpy(repeat->key,repeat_key,sizeof(repeat->key));
+            memcpy(repeat->wire,work->wire,sizeof(repeat->wire));
+            native_repeat_seal(repeat,repeat->seal);
+            *pending=repeat;repeat=NULL;
+        }
         if(log) log("Native VMU mapping: %s complete executable proof; live ownership remains checked",
             hit?"cached":"resolved");
     }
 finished:
     kui_sha256_prefix_free(&image_marks);
-    free(work);free(boot);return result;
+    free(repeat);free(work);free(boot);return result;
+}
+
+/* Exact-owner adapters have their own proof and persistence policy. */
+static inline enum native_cache_result native_cache_prepare(const struct kui_game_image *image,
+    const struct kui_retail_manifest *map,bool native,uint32_t options,bool patched,
+    struct kui_runtime_image *package,const char *source_root,bool allow_persistent_cache,
+    kui_log_fn log,kui_cancel_fn cancel,struct native_cache_source_proof *source_proof,bool *standalone) {
+    return native_cache_prepare_repeat(image,map,native,options,patched,package,source_root,
+        allow_persistent_cache,log,cancel,source_proof,standalone,NULL);
 }

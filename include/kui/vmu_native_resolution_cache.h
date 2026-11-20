@@ -27,6 +27,14 @@ struct kui_vmu_native_resolution {
  * APIs leave their outputs untouched on failure. out may be NULL for build. */
 bool kui_vmu_native_resolution_cache_build(const void *image,size_t image_bytes,
     uint32_t load,void *wire,size_t wire_bytes,struct kui_vmu_native_resolution *out);
+/* GUI only. source must come from hashing the identical, exclusively owned
+ * image allocation during this preparation. image_bytes is the independently
+ * proven program extent, and may exclude a suffix. No write to the image or
+ * checkpoint workspace is permitted between hashing and this call. All fresh
+ * discovery checks still run, and ordinary stages hash their own images. */
+bool kui_vmu_native_resolution_cache_build_prefixed(const void *image,size_t image_bytes,
+    uint32_t load,void *wire,size_t wire_bytes,struct kui_vmu_native_resolution *out,
+    const struct kui_sha256_prefix *source);
 /* Encode already completely discovered metadata. This only checks schema;
  * it does NOT certify that discovery took place. A caller that pins this
  * record must independently establish the same complete fresh proof. */

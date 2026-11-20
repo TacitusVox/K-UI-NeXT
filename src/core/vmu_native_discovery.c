@@ -1,6 +1,9 @@
 /* SPDX-License-Identifier: GPL-3.0-only */
 #include "kui/vmu_native_discovery.h"
 #include "kui/hash.h"
+#if !KUI_ON_CONSOLE || KUI_GUI_DIGEST_REUSE
+#include "kui/sha256_prefix.h"
+#endif
 #include <string.h>
 
 struct witness {int16_t offset;uint16_t value;};
@@ -250,7 +253,8 @@ static bool early_server(const uint8_t *p,size_t n,uint32_t base,const struct ku
         pc_word(p,n,base,h+2u,0u,0xfc0u) && pc_word(p,n,base,h+20u,0u,0x10f4u) &&
         pc_literal(p,n,base,h+36u,3u,&lock) && lock==r->lock_cell;
 }
-static bool finish(struct kui_vmu_native_discovery *r,const void *p,size_t n,uint32_t base) {
+static bool finish(struct kui_vmu_native_discovery *r,const void *p,size_t n,uint32_t base,
+    const struct kui_sha256_prefix *source) {
     r->version=KUI_VMU_NATIVE_DISCOVERY_VERSION;r->bytes=sizeof(*r);
     r->family=early_server(p,n,base,r)?KUI_VMU_NATIVE_FAMILY_EARLY_V1:KUI_VMU_NATIVE_FAMILY_UNIFORM_V1;
     if(r->family==KUI_VMU_NATIVE_FAMILY_EARLY_V1) {
@@ -259,11 +263,29 @@ static bool finish(struct kui_vmu_native_discovery *r,const void *p,size_t n,uin
         if(normalizer) r->family=KUI_VMU_NATIVE_FAMILY_EARLY_P2_V1;
     }
     r->image_bytes=(uint32_t)n;
-    r->load_address=base;r->requirements=KUI_VMU_NATIVE_REQUIREMENTS;hash(p,n,r->image_sha256);
+    r->load_address=base;r->requirements=KUI_VMU_NATIVE_REQUIREMENTS;
+#if !KUI_ON_CONSOLE || KUI_GUI_DIGEST_REUSE
+    if(source) {
+        if(p!=source->source || n>source->bytes)return false;
+        if(n==source->bytes)memcpy(r->image_sha256,source->whole,sizeof(r->image_sha256));
+        else if(!kui_sha256_prefix_digest(source,p,n,r->image_sha256,NULL))return false;
+        return true;
+    }
+#else
+    (void)source;
+#endif
+    hash(p,n,r->image_sha256);
     return true;
 }
+#if !KUI_ON_CONSOLE || KUI_GUI_DIGEST_REUSE
+enum kui_vmu_native_discovery_result kui_vmu_native_discover_prefixed(
+    const void *image,size_t n,uint32_t base,struct kui_vmu_native_discovery *out,
+    const struct kui_sha256_prefix *source) {
+#else
 enum kui_vmu_native_discovery_result kui_vmu_native_discover(
     const void *image,size_t n,uint32_t base,struct kui_vmu_native_discovery *out) {
+    const struct kui_sha256_prefix *source=NULL;
+#endif
     if(!out) return KUI_VMU_NATIVE_INVALID;
     uintptr_t start=(uintptr_t)image,dest=(uintptr_t)out;
     if(sizeof(*out)>UINTPTR_MAX-dest || n>UINTPTR_MAX-start ||
@@ -287,9 +309,15 @@ enum kui_vmu_native_discovery_result kui_vmu_native_discover(
         if(partial>1u) return KUI_VMU_NATIVE_AMBIGUOUS;
     }
     if(!found) return partial?KUI_VMU_NATIVE_INCOMPLETE:KUI_VMU_NATIVE_NOT_FOUND;
-    if(!finish(&chosen,image,n,base)) return KUI_VMU_NATIVE_INCOMPLETE;
+    if(!finish(&chosen,image,n,base,source)) return KUI_VMU_NATIVE_INCOMPLETE;
     *out=chosen;return KUI_VMU_NATIVE_RESOLVED;
 }
+#if !KUI_ON_CONSOLE || KUI_GUI_DIGEST_REUSE
+enum kui_vmu_native_discovery_result kui_vmu_native_discover(
+    const void *image,size_t n,uint32_t base,struct kui_vmu_native_discovery *out) {
+    return kui_vmu_native_discover_prefixed(image,n,base,out,NULL);
+}
+#endif
 bool kui_vmu_native_discovery_cache_valid(const struct kui_vmu_native_discovery *r,
     const void *image,size_t n,uint32_t base) {
     if(!r || !valid(image,n,base) || r->version!=KUI_VMU_NATIVE_DISCOVERY_VERSION ||

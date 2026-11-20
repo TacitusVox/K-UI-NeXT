@@ -6,6 +6,7 @@
 #include <stddef.h>
 #include <stdint.h>
 #include <stdlib.h>
+#include <string.h>
 
 /* One SHA-256 pass over a buffer that also yields the exact SHA-256 of any
  * later-chosen prefix. The streaming state is saved at every stride boundary
@@ -18,10 +19,12 @@
 struct kui_sha256_prefix {
     struct kui_sha256 *marks; /* marks[k]: state after k*STRIDE bytes */
     size_t count,bytes;
+    const void *source;
+    uint8_t whole[32];
 };
 static inline void kui_sha256_prefix_free(struct kui_sha256_prefix *p) {
     if(!p) return;
-    free(p->marks);p->marks=NULL;p->count=p->bytes=0;
+    free(p->marks);*p=(struct kui_sha256_prefix){0};
 }
 /* Digest all of data[0..bytes) into `digest`, keeping marks. */
 static inline void kui_sha256_prefix_hash(struct kui_sha256_prefix *p,const void *data,size_t bytes,
@@ -32,21 +35,22 @@ static inline void kui_sha256_prefix_hash(struct kui_sha256_prefix *p,const void
     size_t count=bytes/KUI_SHA256_PREFIX_STRIDE+1u;
     p->marks=(struct kui_sha256 *)malloc(count*sizeof(*p->marks));
     if(p->marks) {p->count=count;p->marks[0]=sha;}
-    p->bytes=bytes;
+    p->bytes=bytes;p->source=data;
     for(size_t done=0,k=1;done<bytes;k++) {
         size_t n=bytes-done<KUI_SHA256_PREFIX_STRIDE?bytes-done:KUI_SHA256_PREFIX_STRIDE;
         kui_sha256_update(&sha,at+done,n);done+=n;
         if(p->marks && n==KUI_SHA256_PREFIX_STRIDE && k<p->count) p->marks[k]=sha;
     }
     kui_sha256_digest(&sha,digest);
+    memcpy(p->whole,digest,sizeof(p->whole));
 }
 /* Exact SHA-256 of data[0..prefix). `data` must be the buffer passed to
  * kui_sha256_prefix_hash and unchanged since. `rehashed` reports the bytes
- * hashed for this call. False only for a prefix beyond the hashed bytes. */
+ * hashed for this call. Reject a different source or an out-of-range prefix. */
 static inline bool kui_sha256_prefix_digest(const struct kui_sha256_prefix *p,const void *data,size_t prefix,
         uint8_t digest[32],size_t *rehashed) {
     if(rehashed) *rehashed=0;
-    if(!p || !data || prefix>p->bytes) return false;
+    if(!p || !data || data!=p->source || prefix>p->bytes) return false;
     size_t k=p->marks?prefix/KUI_SHA256_PREFIX_STRIDE:0u;
     if(k>=p->count) k=p->count?p->count-1u:0u;
     struct kui_sha256 sha;

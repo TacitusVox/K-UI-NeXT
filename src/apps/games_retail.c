@@ -876,6 +876,16 @@ static void smash_native_boot_target(struct kui_game_metadata *metadata,
 }
 #include "smash_menu_capsule_prepare.inc"
 #endif
+static bool native_repeat_session_safe(const struct kui_native_session_request *session) {
+    if(!session)return true;
+    if(session->count>KUI_NATIVE_SESSION_DISC_MAX)return false;
+    for(unsigned i=0u;i<session->count;++i) {
+        const char *path=session->paths[i];
+        if(!memchr(path,0,sizeof(session->paths[i])) || native_cache_in_tree(path,"/kui/gmcache"))
+            return false;
+    }
+    return true;
+}
 static bool prepare_launch(const char *path,uint32_t reader,const struct kui_game_ram_patches *patches,
     const struct kui_vmu_game_selection *selection,const struct kui_native_session_request *session,
     bool reporting,struct kui_runtime_image *package,kui_log_fn log,kui_cancel_fn cancel,unsigned smash_child) {
@@ -948,6 +958,7 @@ static bool prepare_launch(const char *path,uint32_t reader,const struct kui_gam
     FATFS fs;bool ok=false;const char *problem="cannot mount storage";
     struct kui_retail_manifest *map=NULL;struct kui_game_image *image=NULL;uint8_t *gdi=NULL;
     struct extent_crc_proof ce_kernel_proof={0};
+    struct native_repeat_record *pending_repeat=NULL;
     /* The generic Windows CE module's map capacity (its 0x140 record), and
      * Armada's CD music route with its virtual card. */
     uint32_t ce_slots=KUI_RETAIL_ASYNC_SLOTS;
@@ -1617,10 +1628,15 @@ static bool prepare_launch(const char *path,uint32_t reader,const struct kui_gam
         kui_smash_launch_timing_metric(KUI_SMASH_UI_MDE_BYTES,map->boot_bytes);
         kui_smash_launch_timing_metric(KUI_SMASH_UI_CACHE_HIT,1u);
     }
-    if(cache==NATIVE_CACHE_SKIPPED)
-        cache=native_cache_prepare(image,map,!ce && metadata.native_gd,
+    if(cache==NATIVE_CACHE_SKIPPED) {
+        bool ordinary_reader=(native_dual || native_standard) && !smash_native && !vmu_package;
+#if KUI_VMU_GAME_CARDS
+        ordinary_reader=ordinary_reader && !smash_collection;
+#endif
+        cache=native_cache_prepare_repeat(image,map,!ce && metadata.native_gd,
             requested_options,patched,package,files.root,emulation_enabled,log,cancel,defer_boot_crc?&source_proof:NULL,
-            native_dual?&standalone_candidate:NULL);
+            native_dual?&standalone_candidate:NULL,ordinary_reader?&pending_repeat:NULL);
+    }
     if(smash_native && (cache!=NATIVE_CACHE_READY || !source_proof.complete ||
        source_proof.crc32!=KUI_SMASH_NATIVE_ENGINE_CRC32 ||
        !kui_smash_native_child_engine_owner(map->boot_bytes,source_proof.sha256))) {
@@ -1785,6 +1801,11 @@ done:
     kui_smash_launch_timing_phase(KUI_SMASH_UI_FILE_CLEANUP);
     if(kui_vmu_launch_history_end)kui_vmu_launch_history_end();
     if(!close_reader(&files)) {ok=false;problem="cannot close image reader";}
+    /* All launch checks have consumed the fresh source receipt. This optional
+     * write is staged only for launches without virtual-card ownership. */
+    if(pending_repeat && ok && !stopped(&files) && native_repeat_session_safe(session))
+        native_repeat_publish(pending_repeat,log,cancel);
+    free(pending_repeat);
     if(f_mount(NULL,"0:",0)!=FR_OK) {ok=false;problem="cannot release filesystem";}
     kui_sd_disconnect();free(zso_map);free(gdi);free(image);free(map);
     if(stopped(&files)) {ok=false;problem="cancelled before retail handoff";}

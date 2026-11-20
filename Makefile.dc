@@ -207,6 +207,7 @@ build/dc/smash-launch-timing.config: force-smash-launch-timing-config
 	@printf 'KUI_SMASH_LAUNCH_TIMING=%s\n' '$(KUI_SMASH_LAUNCH_TIMING)' > $@.new
 	@cmp -s $@.new $@ && rm $@.new || mv $@.new $@
 build/dc/src/apps/games_retail.o: src/apps/games_native_cache.inc src/apps/games_native_cache_hint.inc src/apps/games_native_cache_alias.inc src/apps/games_native_owner_cache.inc include/kui/native_source_owner.h include/kui/vmu_native_cache_seed.h include/kui/vmu_native_resolution_cache.h
+build/dc/src/apps/games_retail.o: src/apps/games_native_repeat.inc include/kui/sha256_prefix.h
 build/dc/src/apps/games_retail.o: include/kui/native_standard_route.h include/kui/native_standalone_foreground.h
 build/dc/src/core/repair_copy.o: src/core/repair_resume.inc include/kui/recovery_guard.h
 build/dc/src/core/salvage.o: src/core/salvage_files.inc src/core/salvage_control_trial.inc
@@ -261,7 +262,10 @@ build/dc/src/loader/sd_reader.o: CPPFLAGS += -DKUI_RETAIL_FAST_IO=1
 # Mounted GUI verification uses the shared byte CRC. Freestanding game
 # workers/residents keep their existing code, tables and memory layout.
 build/dc/src/core/data.o build/dc/src/core/retail_image.o: CPPFLAGS += -DKUI_GUI_FAST_CRC32=1
-build/dc/src/core/vmu_native_resolution_cache.o: CPPFLAGS += -DKUI_GUI_DIGEST_REUSE=1
+GUI_DIGEST_OBJECTS := build/dc/src/core/vmu_native_resolution_cache.o \
+    build/dc/src/core/vmu_native_discovery.o build/dc/src/core/vmu_native_layout.o
+$(GUI_DIGEST_OBJECTS): CPPFLAGS += -DKUI_GUI_DIGEST_REUSE=1
+$(GUI_DIGEST_OBJECTS): Makefile.dc
 # Experimental, never-run-on-hardware code (the GD-ROM DMA probe and its competing thread) is NOT in
 # the default build. Opt in with: make diagnostic KUI_EXPERIMENTAL=1
 ifdef KUI_EXPERIMENTAL

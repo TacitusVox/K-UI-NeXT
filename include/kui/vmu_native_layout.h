@@ -35,6 +35,10 @@ bool kui_vmu_native_layout_discover(const void *image,size_t bytes,
  * is rejected without writes. */
 bool kui_vmu_native_discover_layout(const void *image,size_t bytes,uint32_t load,
     struct kui_vmu_native_discovery *,struct kui_vmu_native_layout *);
+/* Same fresh GUI proof with invocation-local SHA checkpoints. */
+bool kui_vmu_native_discover_layout_prefixed(const void *image,size_t bytes,uint32_t load,
+    struct kui_vmu_native_discovery *,struct kui_vmu_native_layout *,
+    const struct kui_sha256_prefix *source);
 /* Layout must be freshly resolved from the immutable executable. An installed
  * hook/lifetime adapter remains independently necessary. Out is modified only
  * on success; the caller's prepopulated lease fields are preserved. */
