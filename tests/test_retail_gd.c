@@ -1158,6 +1158,21 @@ static void vram_stream_pieces(void) {
     CHECK(pvr_validations + pvr_maps == pvr_before && !service.pending);
     read_params(45000, 1, OUTPUT & 0x1fffffffu);
     CHECK(call(KUI_GD_REQUEST, KUI_GD_DMAREAD, PARAM) > 0);
+    /* A CPU pointer into P1/P2 PVR memory (a TOC buffer or a PIO
+     * destination) is refused before the mapper: only a DMA stream's pieces
+     * reach PVR memory. The same requests into CE's virtual window pass. */
+    static const uint32_t cpu[] = {0xa5000000u, 0x844c0360u, 0xa4575600u, 0x857fffc0u, VIRT};
+    for(unsigned k = 0; k < sizeof(cpu) / sizeof(cpu[0]); ++k)
+        for(unsigned pio = 0; pio < 2; ++pio) {
+            const int admitted = cpu[k] == VIRT;
+            reset();
+            pvr_before = pvr_validations + pvr_maps;
+            if(pio) read_params(45000, 1, cpu[k]);
+            else {put(PARAM, 1); put(PARAM + 4, cpu[k]);}
+            int32_t request = call(KUI_GD_REQUEST, pio ? KUI_GD_PIOREAD : KUI_GD_GETTOC2, PARAM);
+            CHECK((request > 0) == admitted && !service.pending == !admitted);
+            CHECK(pvr_validations + pvr_maps == pvr_before);
+        }
 }
 #else
 /* Without the PVR admission the driver's second transfer is refused, which

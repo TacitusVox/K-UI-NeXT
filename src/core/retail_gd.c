@@ -78,6 +78,11 @@ static uint8_t *guest(struct kui_retail_gd *s, uint32_t address,
      * included (a process slot). Its resident's map decides whether one is
      * usable. Only DMA destinations are physical (dma_guest). */
     if(area != 0x8c000000u && area != 0xac000000u) {
+#if KUI_RETAIL_CE_VRAM_DMA
+        /* P1/P2 outside RAM is PVR memory or nothing: only a DMA stream's
+         * piece may name it (stream_guest), never a CPU pointer. */
+        if((address >> 29) - 4u < 2u) return NULL;
+#endif
         if(!bytes || (address & (align - 1u))) return NULL;
         return s->ops.map(s->ops.context, address, bytes, writing);
     }

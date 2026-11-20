@@ -57,7 +57,13 @@ static uint8_t *stream_guest(struct kui_retail_gd *s, uint32_t address,
 #define STREAM_GUEST(s, address, bytes, writing) dma_guest(s, address, bytes, 32, writing)
 #endif
 '''
-LATER_CHANGES=((VRAM_STREAM_HELPER,''),
+VRAM_CPU_GUARD='''#if KUI_RETAIL_CE_VRAM_DMA
+        /* P1/P2 outside RAM is PVR memory or nothing: only a DMA stream's
+         * piece may name it (stream_guest), never a CPU pointer. */
+        if((address >> 29) - 4u < 2u) return NULL;
+#endif
+'''
+LATER_CHANGES=((VRAM_STREAM_HELPER,''),(VRAM_CPU_GUARD,''),
     ('    uint8_t *out = STREAM_GUEST(s, s->xfer_destination, n, 1);\n',
      '    uint8_t *out = dma_guest(s, s->xfer_destination, n, 32, 1);\n'),
     ('       !STREAM_GUEST(s, destination, bytes, KUI_RETAIL_MAP_VALIDATE)) return -1;\n',

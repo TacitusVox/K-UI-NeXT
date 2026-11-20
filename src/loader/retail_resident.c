@@ -420,9 +420,10 @@ ocram_mapping_done:
 #if KUI_RETAIL_CE_VRAM_DMA
         /* P1 and P2 never name CE's virtual memory, and outside RAM only PVR
          * memory is usable there: a DMA stream's piece (retail_gd.c
-         * stream_guest), which the background reader's interrupt fills
-         * through its P1 alias. Written uncached through P2 and without
-         * cache maintenance, as the G1 DMA would. */
+         * stream_guest; guest() refuses such CPU pointers), which the
+         * background reader's interrupt fills through its P1 alias. Written
+         * uncached through P2 and without cache maintenance, as the G1 DMA
+         * would. */
         if((address >> 29) - 4u < 2u)
             return (uint8_t *)(uintptr_t)kui_retail_vram_dma_span(address, bytes);
 #endif
