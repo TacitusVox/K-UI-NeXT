@@ -1823,6 +1823,13 @@ test-armada-ce-movie-timing: build/test-armada-ce-movie-timing
 build/test-armada-ce-movie-timing: tests/test_armada_ce_movie_timing.c include/kui/armada_ce_movie_timing.h
 	@mkdir -p $(@D)
 	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) tests/test_armada_ce_movie_timing.c -o $@
+.PHONY: test-armada-ce-play-timing
+test: test-armada-ce-play-timing
+test-armada-ce-play-timing: build/test-armada-ce-play-timing
+	./build/test-armada-ce-play-timing
+build/test-armada-ce-play-timing: tests/test_armada_ce_play_timing.c include/kui/armada_ce_play_timing.h include/kui/armada_ce_movie_timing.h
+	@mkdir -p $(@D)
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) tests/test_armada_ce_play_timing.c -o $@
 # Needs sh-elf binutils: the gate that refuses relaxed calls entering a
 # function mid-way (tools/check_relaxed_calls.py).
 .PHONY: test-check-relaxed-calls

@@ -62,6 +62,25 @@ endif
 else ifneq ($(KUI_ARMADA_CE_SLOW_AFTER_OVERRUN)$(KUI_ARMADA_CE_FAST_TAKE),)
 $(error The slow-after-overrun and fast-check trials need KUI_ARMADA_CE_MOVIE_TIMING=1)
 endif
+# Diagnostic only (Armada, CD music On): the fast-check timing reader with
+# its six report rows taken from gameplay instead of the movie, from the first
+# GD poll after the intro movie to the report: K-UI's time with the music
+# worker's, the game's 64 KiB reads with and without music grants while they
+# ran, the music transport's counts and the worker's steps
+# (include/kui/armada_ce_play_timing.h). The low reader is the timing
+# reader's; only the controller changes.
+# KUI_ARMADA_CE_PLAY_TIMING=2 builds its control: the same module, except
+# that the music is never queued (no worker, buffer or music card reads).
+KUI_ARMADA_CE_PLAY_TIMING ?= 0
+ifneq ($(filter $(KUI_ARMADA_CE_PLAY_TIMING),1 2),)
+ifneq ($(KUI_ARMADA_CE_MOVIE_TIMING):$(KUI_ARMADA_CE_MOVIE_TIMING_PARTS):$(KUI_ARMADA_CE_SLOW_AFTER_OVERRUN):$(KUI_ARMADA_CE_FAST_TAKE),1:both:1:1)
+$(error The gameplay timing needs KUI_ARMADA_CE_MOVIE_TIMING=1 KUI_ARMADA_CE_SLOW_AFTER_OVERRUN=1 KUI_ARMADA_CE_FAST_TAKE=1)
+endif
+override ARMADA_AUDIO_DIR := build/armada-ce-play-timing$(if $(filter 2,$(KUI_ARMADA_CE_PLAY_TIMING)),-silent)
+WINCE_CDDA_PROFILE_FLAGS += -DKUI_ARMADA_CE_PLAY_TIMING=$(KUI_ARMADA_CE_PLAY_TIMING)
+else ifneq ($(KUI_ARMADA_CE_PLAY_TIMING),0)
+$(error KUI_ARMADA_CE_PLAY_TIMING must be 0, 1 or 2)
+endif
 # Every WinCE CD music reader (Armada, Worms, Bust-A-Move 4, Worms World
 # Party): after a 12.5 MHz DMA overrun the next 64 receptions run at
 # 6.25 MHz, and each block's CRC and bit reversal run as one tighter pass.

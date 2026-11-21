@@ -5,6 +5,9 @@
 #include "kui/retail_cursor.h"
 #include "retail_async.h"
 #include <string.h>
+#if KUI_ARMADA_CE_PLAY_TIMING
+#include "kui/gd_service.h"
+#endif
 #if KUI_ARMADA_CE_VMU_WRITE_RUNTIME
 #include "kui/retail_loader_layout.h"
 #define VMU_LOW_DATA_END KUI_RETAIL_CE_ASYNC_LIMIT
@@ -35,6 +38,9 @@ static struct {
     uint32_t initialized,generation,data_token,data_credit,audio_credit,cancelled,early_polled,urgent;
 #if KUI_ARMADA_CE_VMU_WRITE_RUNTIME
     uint32_t vmu_loan;
+#endif
+#if KUI_ARMADA_CE_PLAY_TIMING
+    uint32_t play_grants; /* Diagnostic: music grants while a game read was active. */
 #endif
 } t;
 #ifdef KUI_ARMADA_CE_STREAM_TRANSPORT_TEST
@@ -92,8 +98,28 @@ static void discard_holds(void) {
     t.held[0].used=t.held[1].used=0;
     t.data_token=data()->token;
 }
+#if KUI_ARMADA_CE_PLAY_TIMING
+static bool play_reading(uint32_t command) {
+    return command==KUI_GD_PIOREAD || command==KUI_GD_DMAREAD ||
+        command==KUI_RETAIL_GD_DMAREAD_STREAM || command==KUI_RETAIL_GD_PIOREAD_STREAM;
+}
+/* Diagnostic: the service's request as each attached bus event finds it,
+ * read only. The pinned event function's first call is refresh_holds, so
+ * this sees every event: a data block event follows the block's feed, and
+ * the engine's cursor for the service's request is complete from the event
+ * after its last card block until the next request starts. */
+static __attribute__((noinline)) void play_observe(void) {
+    const struct kui_retail_gd *s=&t.bus.region->shared.service;
+    const struct kui_retail_async *e=data();
+    kui_armada_ce_play_read(s->token,s->pending!=0u,play_reading(s->command),s->count,
+        e->token==s->token && e->cursor.done==e->cursor.count,t.play_grants);
+}
+#endif
 static void refresh_holds(void) {
     if(t.data_token!=data()->token) discard_holds();
+#if KUI_ARMADA_CE_PLAY_TIMING
+    play_observe();
+#endif
 }
 static void audio_failure(uint32_t result) {
     if(result==KUI_SCI_STREAM_OVERRUN) t.early_polled=1u;
@@ -193,6 +219,9 @@ static bool audio_grant(void) {
     park_data(result);t.bus.discard();
     t.stats.owner=OWNER_AUDIO;
     t.audio_credit=t.urgent?AUDIO_URGENT_QUANTUM:AUDIO_QUANTUM;t.data_credit=0;
+#if KUI_ARMADA_CE_PLAY_TIMING
+    if(data_active()) ++t.play_grants;
+#endif
     return true;
 }
 static void release_audio(void) {
@@ -276,6 +305,12 @@ const volatile uint32_t *kui_armada_ce_stream_transport_movie_timing(void) {
 }
 const volatile struct kui_sci_stream_stats *kui_armada_ce_stream_transport_stream_stats(void) {
     return t.stats.attached==1u ? &t.bus.region->shared.stream.stats : NULL;
+}
+#endif
+#if KUI_ARMADA_CE_PLAY_TIMING
+void kui_armada_ce_stream_transport_play_counts(uint32_t out[4]) {
+    out[0]=t.stats.audio_blocks;out[1]=t.stats.data_blocks;
+    out[2]=t.play_grants;out[3]=t.stats.preemptions;
 }
 #endif
 uint32_t kui_armada_ce_stream_transport_event(uint32_t event,uintptr_t argument) {

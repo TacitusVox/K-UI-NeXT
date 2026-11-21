@@ -342,6 +342,12 @@ void kui_armada_ce_stream_fault(uint32_t out[5]) {
 int kui_armada_ce_excerpt_queue(const struct kui_armada_ce_excerpt_binding *unused,
     uint32_t command,uint32_t first,uint32_t last,uint32_t repeat) {
     (void)unused;++player.stats.requests;
+#if KUI_ARMADA_CE_PLAY_TIMING == 2
+    /* Diagnostic control only (the gameplay timing's silent build): the
+     * game's audio controls reach the GD service as before, but the music is
+     * never queued, so no worker, buffer or music card reads start. */
+    return 0;
+#endif
     if(player.disabled) {++player.stats.refused;return 0;}
     if(command!=20u && command!=21u && command!=22u && command!=23u && command!=33u) {
         refuse(KUI_ARMADA_CE_EXCERPT_ARGUMENT);return 0;
@@ -1183,9 +1189,17 @@ uint32_t kui_armada_ce_stream_worker(uint32_t argument) {
                 cancel_read();
             } else {
                 kui_armada_ce_stream_trace_worker_begin(player.now_ms);
+#if KUI_ARMADA_CE_PLAY_TIMING
+                uint32_t play_mark[3];
+                kui_armada_ce_play_step_begin(play_mark);
+#endif
                 player.worker_step=1u;publish();
                 kui_armada_ce_excerpt_owner_deferred(0);
                 publish();player.worker_step=0;
+#if KUI_ARMADA_CE_PLAY_TIMING
+                kui_armada_ce_play_step_end(play_mark,player.model.state==KUI_ARMADA_CE_STREAM_PLAYING?
+                    ready_bytes():UINT32_MAX,kui_armada_ce_stream_transport_urgent());
+#endif
                 kui_armada_ce_stream_trace_sample(player.now_ms,player.source_total,
                     ready_bytes(),player.read_active | (player.model.native_running?2u:0u) |
                     (kui_armada_ce_stream_transport_urgent()?4u:0u) |
