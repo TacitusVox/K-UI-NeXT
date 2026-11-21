@@ -1,6 +1,6 @@
 # WinCE adaptive slow window (generic `ce-boot.kui`, 21 Nov 2026)
 
-**Status: host-tested and linked, not console-tested.** One behaviour change
+**Status: console-tested 21 Nov 2026 (seven launches, results below).** One behaviour change
 to the generic Windows CE module's background reader, measured on the timing
 probe so its rings compare with the two earlier sessions
 ([timing session 1](wince-timing-session-1.md) at 64 receptions,
@@ -11,12 +11,15 @@ Test build: `871c4c7784b4` (`KUI_WCE_PROBE=2 KUI_CE_SLOW_WINDOW=16 KUI_CE_SLOW_A
 
 ## Why
 
-The 16-reception window fixed Super Producers' movie and, on the everyday
-candidate `41e3450bc94d`, removed Armada's gameplay lag, but brought back
-Armada's intro echo (CD music Off). The rings show overruns clustering: just
-after one, the bus is often still held. A short window can end inside such a
-hold; the fast clock then overruns again, and each overrun costs a fresh read
-of its block.
+The 16-reception window fixed Super Producers' movie. On the everyday
+candidate `41e3450bc94d` Armada's intro echo seemed to come back (CD music
+Off); that launch in fact ran Armada's legacy `ce-probe.kui`, not the
+candidate (correction below), so the 16-reception window has no Armada result.
+The case that remains: Super Producers' echo on the candidate and Worms'
+slight audio lag, and the rings showing overruns clustering. Just after one,
+the bus is often still held; a short window can end inside such a hold, the
+fast clock then overruns again, and each overrun costs a fresh read of its
+block.
 
 ## The change
 
@@ -107,8 +110,93 @@ With no counter of the level, the slow blocks per counted overrun read it:
 about 16 at the shortest window, up to 64 at the longest (less where an
 overrun at 6.25 MHz cuts one short).
 
-## Not answered
+## Scope
 
 - The CD-music and Armada VMU modules keep their fixed 64-reception window.
-- How the 8-reception threshold suits each game: the rings will show where
-  the level settles, not why.
+
+## Result (21 Nov 2026)
+
+Seven complete slots, every stage report naming `871c4c7784b4`, CD music Off,
+Virtual VMU Off, no VMU. Armada's first launch ended on the old text screen,
+not the probe's colours: with CD music Off the GUI sends Armada to its legacy
+module `ce-probe.kui` whenever that is installed ([routes](wince-gui-routing.md));
+nothing was saved. With `ce-probe.kui` moved off the card, Armada ran this
+module (slots 0 and 1). The owner:
+
+| Game | Result |
+|---|---|
+| Armada (US) intro | "may have had some incredibly small echo with the intro video but it was largely unnoticeable" |
+| Armada (US) gameplay | "Gameplay worked great!" |
+| Super Producers (JPN) | "audio was better, still heavily lagged at the end" |
+| Worms Armageddon (US) | fine |
+| Super Runabout (US) | fine |
+| Maximum Pool (US) | "trash" |
+| Resident Evil 2 (US) | "stuttered during the first video" |
+
+The streamed 64 KiB reads (`DMAREAD` and `DMAREAD_STREAM_EX` of 32 sectors;
+clean, such a read takes 52.3 ms), with the two earlier sessions. "Flat out"
+counts the next sequential request coming one frame after a read ends (the
+game polls on the 16.64 ms frame grid), against later:
+
+| Game, window | Reads | Median ms | 90% ms | Counted overruns per 1,000 blocks | Blocks at 6.25 MHz | Flat out / later |
+|---|---|---|---|---|---|---|
+| Armada intro, adaptive | 66 | 89.7 | 107.1 | 50.2 | 60% | 37 / 0 |
+| Armada gameplay, adaptive | 44 | 86.9 | 105.0 | 51.2 | 56% | 21 / 0 |
+| Super Producers, 64 | 189 | 74.1 | 82.1 | 13.0 | 41% | 185 / 2 |
+| Super Producers, 16 | 189 | 64.8 | 76.1 | 22.3 | 21% | 129 / 58 |
+| Super Producers, adaptive | 189 | 64.8 | 78.5 | 19.7 | 25% | 140 / 47 |
+| Super Runabout, 16 | 75 | 72.4 | 85.0 | 44.4 | 24% | 8 / 66 |
+| Super Runabout, adaptive | 75 | 97.2 | 111.7 | 55.3 | 66% | 14 / 60 |
+| Maximum Pool, 64 | 163 | 91.3 | 101.8 | 32.5 | 65% | 157 / 3 |
+| Maximum Pool, 16 | 142 | 76.8 | 87.1 | 41.2 | 38% | 139 / 0 |
+| Maximum Pool, adaptive | 163 | 81.7 | 97.0 | 37.6 | 49% | 159 / 1 |
+| RE2, 64 (run 1) | 185 | 89.6 | 104.4 | 30.8 | 61% | 60 / 119 |
+| RE2, 16 (run 1) | 180 | 74.4 | 81.3 | 36.0 | 29% | 73 / 96 |
+| RE2, adaptive | 186 | 72.9 | 86.3 | 31.0 | 30% | 87 / 95 |
+
+(Worms' ring holds four such reads; its intro reads 8 and 16 sectors at a time,
+508 KiB/s over 11.2 s, 140 of 141 sequential requests flat out.)
+
+1. **The window follows the contention.** Super Producers and RE2 ran near the
+   shortest window, as at a fixed 16; Super Runabout, with the most counted
+   overruns of any game (73 per 1,000 blocks over its whole ring), near the
+   longest, so its reads were a third slower than at 16, with the game's
+   slack to spare (60 of 74 requests later than a frame); Maximum Pool between,
+   its reads 6% slower than at 16 and 11% faster than at 64. No read failed.
+2. **Armada on the generic reader works.** Its intro is the heaviest stream on
+   this reader: 190 reads in 16.1 s, 521 KiB/s, the reader open 72% of the
+   time, 7.4 counted overruns per 64 KiB read, every sequential request flat
+   out; clean reads would take 60% of the time. The owner heard at most a
+   trace of echo, against the bad echo of `ce-probe.kui`. Its gameplay is light
+   (169 KiB/s, the reader open 17% of the time). There is no ring of Armada at
+   a fixed 16 or 64 on this reader, so this does not show that the adaptive
+   window is what it needs.
+3. **Read-limited streams.** Armada's intro, Maximum Pool's animations, Worms'
+   intro and, partly, Super Producers' movie ask for the next sectors one
+   frame after each read ends: 151 of 151, 162 of 163, 140 of 141 and 139 of
+   185 sequential requests. Each flat-out read of about 67 to 82 ms is followed
+   by a gap of about 24 ms in which the card waits. Reading on into that gap
+   would add up to 29% (Maximum Pool) to 34% (Super Producers); the longest
+   such gap needs 24 to 31 KiB of buffer.
+4. **Super Producers' end.** In the last 16 seconds before the combination its
+   reads ran as in the rest of the movie: 544 to 736 KiB/s per two seconds,
+   about seven in ten sequential requests flat out, as in the 16-reception
+   session. The lag the owner saw at the end is not a read slowdown in the
+   ring; the movie is read-limited much of the time throughout.
+5. **Maximum Pool** is read-limited with every window (flat out 157 of 160,
+   139 of 139, 159 of 160). RE2's stutters, seen on 20 and 21 Nov, remain; its
+   reads match the 16-reception session.
+
+## Not answered
+
+- Whether a fixed 16-reception window would also serve Armada on this
+  reader; only an Armada launch on such a build (with `ce-probe.kui` aside)
+  answers it.
+- Where a read-ahead buffer can live: the top of RAM above CE3's map
+  (`0x8cfd0000`) is in use in every launch from `0x8cfe0000` up, and in Super
+  Producers (a CE2 kernel) from `0x8cfd0000`; the CD-music Armada module's
+  stage reserves RAM outside CE's page allocator, the route a buffer would
+  take.
+- Armada with CD music Off keeps `ce-probe.kui` when installed. None of the
+  deliveries since the slow refetch (8 Nov) carried it, so the installed one
+  has no slow window; it gives Armada its virtual VMU with CD music Off.

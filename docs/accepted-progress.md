@@ -57,7 +57,7 @@ Delivered: `KUI-WinCE-GUI-Routes-16NOV2026-1928-CST-069d612.zip`, GUI build
 `retail-boot.kui` `9e3295bcfaec`, as `00d8ed67d9ad` does. `00d8ed67d9ad`
 remains the reference until the owner reports the package's four tests.
 
-## WinCE adaptive slow window: console test pending, 871c4c7784b4, 2026-11-21
+## WinCE adaptive slow window: console result, 871c4c7784b4, 2026-11-21
 
 A measurement build, not a candidate: the timing probe with one change, the
 6.25 MHz window after a DMA overrun starting at 16 receptions and doubling,
@@ -78,9 +78,24 @@ admission of the exact bytes (seven cases, FAT32 and exFAT); the background
 resident ends at `0x8c00ddc0`, the probe layout's limit, stack worst case 392
 of 528 bytes. From the same commit with the switch at 0, the generic module's
 six delivered configurations and the five CD-music and Armada modules rebuild
-their delivered or installed bytes. Console behaviour is untested: the session
-is the test. The run list leads with Armada US (CD music Off): its intro, for
-the echo, and its gameplay, for the lag.
+their delivered or installed bytes. The run list leads with Armada US (CD
+music Off): its intro, for the echo, and its gameplay, for the lag.
+
+Result (the owner, seven complete slots, every stage report naming
+`871c4c7784b4`): Armada "may have had some incredibly small echo with the intro
+video but it was largely unnoticeable", gameplay "worked great"; Super
+Producers' audio better, its movie still "heavily lagged at the end"; Worms
+Armageddon and Super Runabout fine; Maximum Pool "trash"; RE2 stuttered during
+its first movie. Armada's first launch showed the old text screen at the
+combination: with CD music Off the GUI sends Armada to its legacy module
+`ce-probe.kui` whenever that is installed ([routes](wince-gui-routing.md)).
+With `ce-probe.kui` moved off the card, both Armada slots ran this module.
+The window followed the contention: Super Producers and RE2 ran near the
+shortest window (25% and 30% of blocks at 6.25 MHz, against 21% and 29% at a
+fixed 16), Super Runabout near the longest (66%, against 24%), Maximum Pool
+between (49%, against 38% at 16 and 65% at 64). No read failed. Armada's intro,
+Maximum Pool and Super Producers read flat out or nearly (the next request one
+frame after each read ends) ([record](wince-adaptive-window-test.md#result-21-nov-2026)).
 
 ## WinCE reader candidate: console result, 41e3450bc94d, 2026-11-21
 
@@ -97,21 +112,25 @@ Delivered: `KUI-WinCE-Reader-Candidate-20NOV2026-2002-CST-41e3450.zip` (SHA256
 installed `7b216f2e1136` in `IF-NEEDED/`. Gates: background resident ends at
 `0x8c00d700` (limit `0x8c00d800`), stack worst case 348 of 2,000 bytes, the PVR
 write-width check on both residents, the GUI's seven production admission
-cases. The run list leads with Armada US, CD music Off, which uses this module
-and was never run with the shorter window. The window stays 64 by default
-until this candidate's result.
+cases. The run list leads with Armada US, CD music Off. The window stays 64 by
+default until this candidate's result.
 
 Result (the owner, CD music Off): Armada's intro movie is "back to how it was
-before, bad echo and slightly choppy", the fault the 64-reception window had
-cured; Armada's gameplay lag, present on the installed module, is gone ("Actual
+before, bad echo and slightly choppy"; Armada's gameplay lag is gone ("Actual
 gameplay is super smooth"); Super Producers' movie had the same echo, its
 picture relatively smooth until the last 5 or so seconds; KISS Psycho Circus
 and Virtua Cop 2 no problems; Worms Armageddon no problems, "maybe slight lag in
-the audio with the intro movies"; Super Runabout no problems. So a fixed
-16-reception window is not a default: it is faster under light or periodic
-contention and gives more restarts under Armada's heavy contention. The window
-stays 64 by default; the next test grows the window only while overruns keep
-recurring ([slow-window test](wince-slow-window-test.md#the-candidate-armada-with-cd-music-off)).
+the audio with the intro movies"; Super Runabout no problems.
+
+Correction (21 Nov 2026): Armada did not run this module. With CD music Off
+the GUI sends Armada to its legacy module `ce-probe.kui` whenever that is
+installed, as the owner's card has it ([routes](wince-gui-routing.md)); the
+run list overlooked the route, and the adaptive-window test showed it (its
+first Armada launch ended on `ce-probe.kui`'s text screen). Armada's two
+results therefore describe `ce-probe.kui`, not the 16-reception window:
+plausibly the echo because that module predates the slow refetch, and the
+smooth gameplay because no CD music streams with CD music Off (inferences).
+The 16-reception window has no Armada result. The window stays 64 by default.
 
 ## WinCE slow-window test: console result, 9313dad06594, 2026-11-21
 
@@ -119,8 +138,8 @@ The owner: "That seemed to fully fix Super Producers"; Super Runabout
 "flawless"; Maximum Pool still slow in menus; Sno-Cross and RE2 still hang
 (RE2 differently each run). The rings: streamed reads 12-17% faster at the
 median, half-clock blocks roughly halved, overruns per block up 15-70%, no
-read failed ([results](wince-slow-window-test.md)). Armada US with CD music Off,
-which uses this module, was not in the run.
+read failed ([results](wince-slow-window-test.md)). Armada US was not in the
+run (with CD music Off it uses this module only when `ce-probe.kui` is absent).
 
 ### Delivery
 

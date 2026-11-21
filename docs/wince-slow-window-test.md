@@ -72,8 +72,9 @@ sectors. Bust-A-Move 4 has no 32-sector reads and no overrun in either session.)
 - Settled: a 16-reception window reads faster than 64 under the contention these
   games produce and fixes Super Producers' movie. No read got slower in these
   seven launches; RE2's hangs vary from run to run as they did on 20 Nov.
-- Not tested: Armada US with CD music Off runs on this generic module. Its movie,
-  measured on the CD-music route, had about 22% of receptions overrun at
+- Not tested: Armada US with CD music Off, which runs on this generic module
+  when Armada's legacy `ce-probe.kui` is absent ([routes](wince-gui-routing.md)).
+  Its movie, measured on the CD-music route, had about 22% of receptions overrun at
   12.5 MHz, where the 64-reception window was chosen; at that level the two
   windows cost about the same per block, but the shorter one means about three
   times as many overruns, each a restart with interrupts held off. It must be
@@ -90,20 +91,24 @@ The owner's results, 21 Nov 2026 (CD music Off, no data recorded):
 
 | Game | Result |
 |---|---|
-| Armada (US) intro movie | "back to how it was before, bad echo and slightly choppy" |
-| Armada (US) gameplay | the earlier "bad lag in the gameplay" is "erased", "super smooth" |
+| Armada (US) intro movie | "back to how it was before, bad echo and slightly choppy" (ran `ce-probe.kui`, see below) |
+| Armada (US) gameplay | the earlier "bad lag in the gameplay" is "erased", "super smooth" (ran `ce-probe.kui`) |
 | Super Producers (JPN) | the same echo; the picture relatively smooth until the last 5 or so seconds |
 | KISS Psycho Circus (US), Virtua Cop 2 (JPN) | no problems |
 | Worms Armageddon (US) | no problems, "maybe slight lag in the audio with the intro movies" |
 | Super Runabout (US) | no problems |
 
-Armada's intro echo is the fault the 64-reception window was chosen to cure
-on the CD-music route, where about 22% of its receptions overran at 12.5 MHz.
-Under that much contention the shorter window returns to the fast clock while
-the bus is still held, so overruns, each followed by a fresh read of its
-block, come about one and a half to three times as often (an estimate from
-those rates; this build records no ring).
-Its gameplay, like Super Producers' movie, gains from the faster reads.
+**Correction (21 Nov 2026): Armada did not run this candidate.** With CD music
+Off the GUI sends Armada to its legacy module `ce-probe.kui` whenever that is
+installed, as it is on the owner's card ([routes](wince-gui-routing.md)); the
+run list overlooked the route. The next test showed it: its first Armada launch
+ended on `ce-probe.kui`'s text screen, not the probe's colours. Both Armada rows
+above therefore describe `ce-probe.kui` against the owner's usual CD music On
+route (`ce-cdda-armada.kui`): plausibly the echo because `ce-probe.kui` predates
+the slow refetch, and the smooth gameplay because no CD music streams with CD
+music Off (inferences, not measured). This section first read the echo as the
+shorter window's extra overruns under Armada's contention; that reading does
+not hold, and the 16-reception window has no Armada result.
 Super Producers' echo was not reported on the slow-window test, where the
 owner judged the movie fixed; the two runs differ in the probe and the
 PVR-piece change, neither of which touches its reads.
