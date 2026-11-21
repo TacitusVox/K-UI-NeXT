@@ -57,6 +57,25 @@ Delivered: `KUI-WinCE-GUI-Routes-16NOV2026-1928-CST-069d612.zip`, GUI build
 `retail-boot.kui` `9e3295bcfaec`, as `00d8ed67d9ad` does. `00d8ed67d9ad`
 remains the reference until the owner reports the package's four tests.
 
+## WinCE reader candidate: console test pending, 41e3450bc94d, 2026-11-20
+
+The generic `ce-boot.kui` for everyday use with both console-tested changes:
+PVR stream pieces (`a660354d804c`) and the 16-reception slow window
+(`9313dad06594`). Recipe: the generic build at `41e3450bc94d` with
+`KUI_CE_SLOW_WINDOW=16` (`KUI_CE_VRAM_DMA=1` is that build's default). Its
+payload differs from that commit's 64-reception build in the one window byte,
+and that build's payload is `a660354d804c`'s with the build ID swapped.
+Delivered: `KUI-WinCE-Reader-Candidate-20NOV2026-2002-CST-41e3450.zip` (SHA256
+`4adf42ae05416b060b36edabe579ae77406a3e9f959832b8730157e701d47d01`): the module
+(85,236 bytes, payload CRC `47EEC0FF`, SHA-256
+`ace07b8e9af93191662fe028774b96c16f5e23d54f6fe8f0ec34e96f36dce697`) and the
+installed `7b216f2e1136` in `IF-NEEDED/`. Gates: background resident ends at
+`0x8c00d700` (limit `0x8c00d800`), stack worst case 348 of 2,000 bytes, the PVR
+write-width check on both residents, the GUI's seven production admission
+cases. The run list leads with Armada US, CD music Off, which uses this module
+and was never run with the shorter window. The window stays 64 by default
+until this candidate's result.
+
 ## WinCE slow-window test: console result, 9313dad06594, 2026-11-21
 
 The owner: "That seemed to fully fix Super Producers"; Super Runabout
