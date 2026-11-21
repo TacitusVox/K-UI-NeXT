@@ -57,6 +57,29 @@ Delivered: `KUI-WinCE-GUI-Routes-16NOV2026-1928-CST-069d612.zip`, GUI build
 `retail-boot.kui` `9e3295bcfaec`, as `00d8ed67d9ad` does. `00d8ed67d9ad`
 remains the reference until the owner reports the package's four tests.
 
+## WinCE reader candidate 2: console test pending, 91b0540103f0, 2026-11-21
+
+The generic `ce-boot.kui` for everyday use with both console-tested changes:
+PVR stream pieces (`a660354d804c`) and the adaptive slow window
+(`871c4c7784b4`). Recipe: the generic build at `91b0540103f0` with
+`KUI_CE_SLOW_WINDOW=16 KUI_CE_SLOW_ADAPT=2` (`KUI_CE_VRAM_DMA=1` is that build's
+default); its sources are `871c4c77`'s (the later commits are documents).
+Delivered: `KUI-WinCE-Reader-Candidate-20NOV2026-2208-CST-91b0540.zip` (SHA256
+`fc8d440f3b964f97feaed588bf3bd11d5c6f191a9423e7ee3c24d9616a513cea`): the module
+(85,300 bytes, payload CRC `6829D405`, SHA-256
+`a75e0ce9010708953b707aad5db975bb83f9ee20f5657ddf4fdea8cf014acabd`) and the
+installed `7b216f2e1136` in `IF-NEEDED/`. Gates: background resident ends at
+`0x8c00d740` (limit `0x8c00d800`), stack worst case 348 of 2,000 bytes, the PVR
+write-width check on both residents, the GUI's seven production admission
+cases. Host suite at `871c4c77`: every make target passes; the unittest
+failures are the known environment gaps (`test_asm_audit`'s console macro,
+`test_cover_png_rows`, `test_internet_preview`, `test_wince_release_package`)
+and `test_splash_assets`, whose boot art is not RGB565-exact since `3c80b58e`
+(the failing comparison's diff of 307,200 pixels stalls the run); none is in
+the reader. The README explains Armada's `ce-probe.kui` route with CD music
+Off and leaves the owner the choice between Armada's virtual VMU there and
+this reader. The window stays 64 by default; the switch is a build setting.
+
 ## WinCE adaptive slow window: console result, 871c4c7784b4, 2026-11-21
 
 A measurement build, not a candidate: the timing probe with one change, the
