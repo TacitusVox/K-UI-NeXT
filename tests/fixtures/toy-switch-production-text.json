@@ -76,7 +76,7 @@
     },
     "src/loader/retail_stage.c": {
       "mode": "code",
-      "sha256": "17510096e303a30df54db8d879ea77b3c439b86b80fbdd362dd0a7abf70d3e1c"
+      "sha256": "3c72f6ab50ae90cb5109fe71bb3791b55f7cf8b3eacf3e88741054930c21cb38"
     },
     "src/loader/sci_sd_bus.c": {
       "mode": "code",

@@ -435,7 +435,7 @@ build/retail/layout-config: force-retail-layout
 	@if ! cmp -s $@.new $@; then mv $@.new $@; else rm $@.new; fi
 build/retail-ce/layout-config: force-retail-layout
 	@mkdir -p $(@D)
-	@printf '%s\n' 'LOW=0 TRACE=0 SONIC=0 BUILD=$(BUILD_ID)$(if $(filter 1,$(KUI_CE_SCI_RESUME_FIX)), CE_SCI_RESUME_FIX=1)$(if $(filter-out 64,$(KUI_RETAIL_CE_ASYNC_SLOTS)), CE_ASYNC_SLOTS=$(KUI_RETAIL_CE_ASYNC_SLOTS))$(if $(filter 1,$(KUI_RETAIL_CE_MAP_RECORD)), CE_MAP_RECORD=1)$(if $(filter 1,$(KUI_CE_READER_FIXES)), CE_READER_FIXES=1)$(if $(filter 1 2,$(KUI_WCE_PROBE)), WCE_PROBE=$(KUI_WCE_PROBE))$(if $(filter 1,$(KUI_CE_VRAM_DMA)), CE_VRAM_DMA=1)$(if $(filter-out 64,$(KUI_CE_SLOW_WINDOW)), CE_SLOW_WINDOW=$(KUI_CE_SLOW_WINDOW))$(if $(filter-out 0,$(KUI_CE_SLOW_ADAPT)), CE_SLOW_ADAPT=$(KUI_CE_SLOW_ADAPT))' > $@.new
+	@printf '%s\n' 'LOW=0 TRACE=0 SONIC=0 BUILD=$(BUILD_ID)$(if $(filter 1,$(KUI_CE_SCI_RESUME_FIX)), CE_SCI_RESUME_FIX=1)$(if $(filter-out 64,$(KUI_RETAIL_CE_ASYNC_SLOTS)), CE_ASYNC_SLOTS=$(KUI_RETAIL_CE_ASYNC_SLOTS))$(if $(filter 1,$(KUI_RETAIL_CE_MAP_RECORD)), CE_MAP_RECORD=1)$(if $(filter 1,$(KUI_CE_READER_FIXES)), CE_READER_FIXES=1)$(if $(filter 1 2,$(KUI_WCE_PROBE)), WCE_PROBE=$(KUI_WCE_PROBE))$(if $(filter 1,$(KUI_CE_VRAM_DMA)), CE_VRAM_DMA=1)$(if $(filter-out 64,$(KUI_CE_SLOW_WINDOW)), CE_SLOW_WINDOW=$(KUI_CE_SLOW_WINDOW))$(if $(filter-out 0,$(KUI_CE_SLOW_ADAPT)), CE_SLOW_ADAPT=$(KUI_CE_SLOW_ADAPT))$(if $(filter-out 0,$(KUI_CE_POOL_KIB)), CE_POOL_KIB=$(KUI_CE_POOL_KIB))' > $@.new
 	@if ! cmp -s $@.new $@; then mv $@.new $@; else rm $@.new; fi
 # SCI's DMA reader shares the original protected low-memory reservation.
 # Cross-unit optimization and SH call relaxation recover code space without
@@ -538,6 +538,18 @@ $(error KUI_CE_SLOW_WINDOW doubled KUI_CE_SLOW_ADAPT times exceeds 127 reception
 endif
 endif
 RETAIL_CE_READER_DEFS := $(if $(filter 1,$(KUI_CE_READER_FIXES)),-DKUI_CE_SCI_SLOW_AFTER_OVERRUN=1 -DKUI_CE_SCI_FAST_TAKE=1 $(if $(filter-out 64,$(KUI_CE_SLOW_WINDOW)),-DKUI_SCI_STREAM_SLOW_BLOCKS=$(KUI_CE_SLOW_WINDOW)u) $(if $(filter-out 0,$(KUI_CE_SLOW_ADAPT)),-DKUI_SCI_STREAM_SLOW_ADAPT=$(KUI_CE_SLOW_ADAPT)))
+# A RAM pool below Windows CE's RAM end for the generic module's own
+# services (include/kui/ce_ram_pool.h): KUI_CE_POOL_KIB, a multiple of 64 KiB
+# up to 512, reserved by the stage for the background reader on every kernel
+# whose ROM header has CE's layout. 0, the default, reserves nothing and
+# builds every module unchanged; the CD-music modules keep their own pools.
+KUI_CE_POOL_KIB ?= 0
+ifneq ($(KUI_CE_POOL_KIB),0)
+ifneq ($(shell [ "$(KUI_CE_POOL_KIB)" -ge 64 ] 2>/dev/null && [ "$(KUI_CE_POOL_KIB)" -le 512 ] 2>/dev/null && [ $$(( $(KUI_CE_POOL_KIB) % 64 )) -eq 0 ] && echo ok),ok)
+$(error KUI_CE_POOL_KIB must be 0 or a multiple of 64 from 64 to 512)
+endif
+endif
+RETAIL_CE_POOL_DEFS := $(if $(filter-out 0,$(KUI_CE_POOL_KIB)),-DKUI_RETAIL_CE_POOL_KIB=$(KUI_CE_POOL_KIB))
 RETAIL_CE_READER_COMMA := ,
 RETAIL_CE_READER_LINK := $(if $(filter 1,$(KUI_CE_READER_FIXES)),-Wa$(RETAIL_CE_READER_COMMA)--renesas -Wl$(RETAIL_CE_READER_COMMA)-q)
 RETAIL_CE_SCIA_DEFS := $(filter-out -DKUI_RETAIL_MANIFEST_SLOTS=%,$(RETAIL_SCIA_DEFS)) -DKUI_RETAIL_MANIFEST_SLOTS=$(KUI_RETAIL_CE_ASYNC_SLOTS) -DKUI_RETAIL_CE=1 $(if $(filter 1,$(KUI_CE_SCI_RESUME_FIX)),-DKUI_CE_SCI_RESUME_FIX=1) $(RETAIL_CE_READER_DEFS) $(RETAIL_CE_PROBE_DEFS) $(RETAIL_CE_VRAM_DEFS)
@@ -727,7 +739,7 @@ build/retail-ce/retail_stage_asm.o: src/loader/retail_stage.S build/retail-ce/re
 	sh-elf-gcc $(RETAIL_LEGACY_FLAGS) $(RETAIL_CE_MAP_DEFS) -DKUI_RETAIL_CE=1 -MMD -MP -c $< -o $@
 build/retail-ce/retail_stage.o: src/loader/retail_stage.c
 	@mkdir -p $(@D)
-	sh-elf-gcc $(RETAIL_LEGACY_FLAGS) $(RETAIL_CE_MAP_DEFS) -DKUI_RETAIL_CE=1 $(RETAIL_CE_PROBE_DEFS) -MMD -MP -c $< -o $@
+	sh-elf-gcc $(RETAIL_LEGACY_FLAGS) $(RETAIL_CE_MAP_DEFS) -DKUI_RETAIL_CE=1 $(RETAIL_CE_PROBE_DEFS) $(RETAIL_CE_POOL_DEFS) -MMD -MP -c $< -o $@
 build/retail-ce/ce_load_plan.o: src/core/ce_load_plan.c
 	@mkdir -p $(@D)
 	sh-elf-gcc $(RETAIL_LEGACY_FLAGS) $(RETAIL_CE_MAP_DEFS) -MMD -MP -c $< -o $@

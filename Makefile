@@ -114,6 +114,15 @@ test-vmu-stage-snapshot:
 test: test-ce-virtual-vram-copy test-ce-crc16-factoring
 
 # Shared reader sources keep their production text with the Toy test switches off.
+# The universal Windows CE RAM pool plan over the surveyed kernel layouts.
+build/test-ce-ram-pool: tests/test_ce_ram_pool.c include/kui/ce_ram_pool.h
+	@mkdir -p $(@D)
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) -Iinclude tests/test_ce_ram_pool.c -o $@
+.PHONY: test-ce-ram-pool
+test-ce-ram-pool: build/test-ce-ram-pool
+	./build/test-ce-ram-pool
+test: test-ce-ram-pool
+
 .PHONY: test-toy-test-switches
 test-toy-test-switches:
 	python3 tests/test_toy_test_switches.py
@@ -378,7 +387,7 @@ test: build/test-pvr-texture build/test-game-cover build/test-cover-image build/
 test: build/test-w5500 build/test-network-w5500 build/test-network-wifi build/test-wifi-pacing build/test-wifi-update build/test-ftp build/test-ftp-cleanup
 test: build/test-resident-image build/test-gd-service build/test-image-client
 test: build/test-retail-image build/test-retail-gd build/test-retail-gd-subcode build/test-retail-pace build/test-retail-sd build/test-ce-load-plan build/test-retail-boot
-test: build/test-retail-relay build/test-retail-relay-ce build/test-retail-startup-trace build/test-retail-gd-trace build/test-retail-mount-trace build/test-sonic-stack
+test: build/test-retail-relay build/test-retail-relay-ce build/test-retail-relay-ce-pool build/test-retail-startup-trace build/test-retail-gd-trace build/test-retail-mount-trace build/test-sonic-stack
 test: build/test-retail-cursor build/test-sci-stream build/test-sci-stream-ce build/test-retail-gd-async build/test-retail-gd-ce build/test-retail-async build/test-retail-async-native-resume build/test-retail-async-ce
 test: build/test-retail-gd-ce-vram build/test-retail-async-ce-vram
 test: build/test-retail-async-native-bounds build/test-retail-async-native-hybrid
@@ -421,6 +430,7 @@ test: build/test-storage-errors build/test-cd-audio build/test-network-probe bui
 	./build/test-retail-boot
 	./build/test-retail-relay
 	./build/test-retail-relay-ce
+	./build/test-retail-relay-ce-pool
 	./build/test-retail-startup-trace
 	./build/test-retail-gd-trace
 	./build/test-retail-mount-trace
@@ -684,6 +694,10 @@ build/test-retail-relay: $(RETAIL_RELAY_DEPS)
 build/test-retail-relay-ce: $(RETAIL_RELAY_DEPS) include/kui/ce_load_plan.h
 	@mkdir -p $(@D)
 	$(CC) $(HOST_FLAGS) $(RETAIL_RELAY_FLAGS) -DKUI_RETAIL_CE=1 -Iinclude -Isrc/loader tests/test_retail_relay.c src/core/retail_image.c src/core/game_ram_patches.c -Wl,--gc-sections -o $@
+# The same relay with the universal CE RAM pool (Makefile.dc KUI_CE_POOL_KIB).
+build/test-retail-relay-ce-pool: $(RETAIL_RELAY_DEPS) include/kui/ce_load_plan.h include/kui/ce_ram_pool.h
+	@mkdir -p $(@D)
+	$(CC) $(HOST_FLAGS) $(RETAIL_RELAY_FLAGS) -DKUI_RETAIL_CE=1 -DKUI_RETAIL_CE_POOL_KIB=64 -Iinclude -Isrc/loader tests/test_retail_relay.c src/core/retail_image.c src/core/game_ram_patches.c -Wl,--gc-sections -o $@
 
 build/test-retail-startup-trace: tests/test_retail_startup_trace.c $(RETAIL_RELAY_DEPS)
 	@mkdir -p $(@D)

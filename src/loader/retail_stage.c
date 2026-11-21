@@ -192,6 +192,18 @@ extern const uint8_t __retail_stage_bss_end[] __asm__("__retail_stage_bss_end");
 const uint32_t kui_armada_ce_maple_hook_stage_contract
     __attribute__((used,section(".armada_maple_hook_stage_contract")))=0x31484d43u;
 #endif
+#if KUI_RETAIL_CE_POOL_KIB
+#if !defined(KUI_RETAIL_CE) || KUI_ARMADA_CE_EXCERPT_STAGE || KUI_ARMADA_CE_RAM_BIND_STAGE
+#error "The universal CE RAM pool is for the generic module; the CD-music modules keep their own pools"
+#endif
+#if KUI_RETAIL_CE_POOL_KIB % 64 || KUI_RETAIL_CE_POOL_KIB > 512
+#error "KUI_RETAIL_CE_POOL_KIB: a multiple of 64 KiB, at most 512"
+#endif
+#include "kui/ce_ram_pool.h"
+#define KUI_RETAIL_CE_POOL_BYTES ((uint32_t)KUI_RETAIL_CE_POOL_KIB * 1024u)
+/* CE must keep at least this much RAM above ulRAMFree. */
+#define KUI_RETAIL_CE_POOL_KEEP UINT32_C(0x400000)
+#endif
 #if KUI_ARMADA_CE_EXCERPT_STAGE
 #if KUI_ARMADA_CE_EXCERPT_STAGE != 1 || !KUI_ARMADA_CE_RAM_BIND_STAGE
 #error Armada excerpt reservation requires the isolated admitted binding stage
@@ -927,6 +939,46 @@ static bool armada_stream_controller_valid(size_t bytes) {
         word(footer+28u)==ARMADA_BIND_INSTALL_ADDRESS;
 }
 #endif
+#if KUI_RETAIL_CE_POOL_KIB
+/* The universal pool (kui/ce_ram_pool.h): CE's RAM end comes down by the
+ * pool before NK builds its page allocator. Taken after the body's own
+ * checks and before the executable CRC the relay compares, so that check
+ * also proves the patched word survived the bootstrap. A kernel whose header
+ * the rule does not find keeps all its RAM and the launch goes on. */
+static struct kui_ce_ram_pool_plan ce_pool;
+static uint8_t ce_pool_original[KUI_CE_ROMHDR_BYTES];
+static uint32_t ce_pool_body_crc;
+static uint8_t ce_pool_reserved;
+extern const uint8_t __retail_stage_bss_end[] __asm__("__retail_stage_bss_end");
+static bool ce_pool_clear_of(uint32_t begin,uint32_t end) {
+    return ce_pool.pool_end<=begin || ce_pool.pool_begin>=end;
+}
+static void ce_pool_reserve(uint8_t *body,uint32_t bytes,uint32_t body_crc,uint32_t prefix,uint32_t prefix_bytes) {
+    uint32_t planned=(uint32_t)kui_ce_ram_pool_plan(body,(uint32_t)(uintptr_t)body,bytes,
+        KUI_RETAIL_CE_POOL_BYTES,KUI_RETAIL_CE_POOL_KEEP,&ce_pool);
+    /* The pool is cleared now, while this stage still runs: never over the
+     * stage (image and BSS, its stack below KUI_RETAIL_STAGE_STACK) or the
+     * CE prefix the bootstrap runs. */
+    if(planned==KUI_CE_RAM_POOL_OK &&
+       (!ce_pool_clear_of(KUI_RETAIL_CE_STAGE_ADDRESS,(uint32_t)(uintptr_t)__retail_stage_bss_end) ||
+        !ce_pool_clear_of(KUI_RETAIL_STAGE_MEMORY_END,KUI_RETAIL_STAGE_STACK) ||
+        !ce_pool_clear_of(prefix,prefix+prefix_bytes)))
+        planned=0x10u;
+    if(planned!=KUI_CE_RAM_POOL_OK) {retail_display_hex("CE RAM POOL OFF",planned);return;}
+    uint8_t *header=(uint8_t *)(uintptr_t)ce_pool.header;
+    memcpy(ce_pool_original,header,sizeof(ce_pool_original));
+    *(volatile uint32_t *)(uintptr_t)(ce_pool.header+28u)=ce_pool.pool_begin;
+    for(unsigned i=0;i<sizeof(ce_pool_original);i++) {
+        uint8_t expected=i>=28u && i<32u ?
+            (uint8_t)(ce_pool.pool_begin>>((i-28u)*8u)):ce_pool_original[i];
+        if(header[i]!=expected) stopped("CE RAM POOL PATCH CHANGED",i);
+    }
+    memset((void *)(uintptr_t)ce_pool.pool_begin,0,KUI_RETAIL_CE_POOL_BYTES);
+    ce_pool_body_crc=body_crc;
+    ce_pool_reserved=1u;
+    retail_display_hex("CE RAM POOL FROM",ce_pool.pool_begin);
+}
+#endif
 #if KUI_ARMADA_CE_EXCERPT_STAGE
 static uint8_t armada_original_romhdr[KUI_ARMADA_CE_EXCERPT_ROMHDR_BYTES];
 #if !KUI_ARMADA_CE_STREAM
@@ -1205,6 +1257,11 @@ static uint32_t ce_load(const uint8_t *ip) {
         stopped("CE ENTRY IS NOT THE BODY START",plan.entry_address);
     if(manifest.storage_transport!=KUI_STORAGE_SCI)
         stopped("THE CE BOOT TEST NEEDS SCI MICROSD",manifest.storage_transport);
+#if KUI_RETAIL_CE_POOL_KIB
+    /* Only the background reader has services to put in the pool. */
+    if(manifest.reader!=KUI_RETAIL_READER_STANDARD)
+        ce_pool_reserve(body,plan.body.bytes,body_crc,plan.prefix.address,plan.prefix.bytes);
+#endif
 #if KUI_ARMADA_CE_EXCERPT_STAGE
     if(manifest.reader==KUI_RETAIL_READER_STANDARD)
         stopped("ARMADA EXCERPT NEEDS BACKGROUND READER",manifest.reader);
@@ -2478,6 +2535,13 @@ void kui_retail_stage_relay(const uint32_t *frame,uint32_t ccr) {
     uint32_t crc=kui_retail_crc32(0,boot,exec_bytes);
 #endif
     if(crc!=boot_crc) relay_stopped("BOOTSTRAP ALTERED EXECUTABLE",crc);
+#if KUI_RETAIL_CE_POOL_KIB
+    if(ce_pool_reserved) {
+        const volatile uint32_t *pool=(const volatile uint32_t *)(uintptr_t)(ce_pool.pool_begin|0x20000000u);
+        for(uint32_t i=0;i<KUI_RETAIL_CE_POOL_BYTES/4u;i++)
+            if(pool[i]) relay_stopped("BOOTSTRAP ALTERED CE RAM POOL",i);
+    }
+#endif
 #if KUI_NATIVE_STAGE_FAST_CRC
     retail_display_line("ENTIRE EXECUTABLE VERIFIED");
 #endif

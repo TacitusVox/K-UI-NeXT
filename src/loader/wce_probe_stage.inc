@@ -128,6 +128,18 @@ static void probe_stage_prepare(const uint8_t *ip) {
     }
     r->file_runs=probe_layout.run_count;r->slot=c->slot;r->slot_runs=c->run_count;r->sequence=c->used+1u;
     r->flags=(manifest.reader!=KUI_RETAIL_READER_STANDARD?1u:0u)|(KUI_WCE_PROBE==2?2u:0u);
+#if KUI_RETAIL_CE_POOL_KIB
+    /* The kernel as admitted, before the pool's word: its CRC and header
+     * (found by structure, method 2, also where no ECEC pointer exists).
+     * Bit 2: the pool was reserved below that RAM end. */
+    if(ce_pool_reserved) {
+        r->kernel_crc32=ce_pool_body_crc;
+        r->rom_header=ce_pool.header;r->rom_header_method=2u;
+        r->ram_start=ce_pool.ram_start;r->ram_free=ce_pool.ram_free;r->ram_end=ce_pool.ram_end;
+        memcpy(r->rom_header_bytes,ce_pool_original,sizeof(r->rom_header_bytes));
+        r->flags|=4u;
+    }
+#endif
     memcpy(r->ip,ip,sizeof(r->ip));
 #if KUI_WCE_PROBE_ZERO
     /* Nothing the launch still needs lives here: firmware, IP.BIN and the
