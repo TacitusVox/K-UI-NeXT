@@ -81,12 +81,15 @@ Overall the owner found gameplay a tiny bit worse with CD music On than Off.
 So CD music On has not reached parity, and it stays the player's choice (not
 a default) for these games.
 
+The owner added the same day that they copy each ZIP's whole `KUI` folder,
+so both Armada modules of this set ran (`ce-armada-all-on.kui` included), and
+that it plays about the same as the installed CD music modules
+(`7b216f2e1136`), with the movies fixed. They asked to find the gameplay lag
+before CD music On is built for every game:
+[the gameplay timing test](wince-cdda-play-timing-test.md).
+
 What the report does not settle:
 
-- Whether this set is better, the same or worse than the installed CD music
-  modules (`7b216f2e1136`) with CD music On: the comparison was with CD music
-  Off. The owner described the VMU On module as the one from before the
-  universal-loader work, so which `ce-armada-all-on.kui` ran is unconfirmed.
 - Where CD music On loses time in gameplay. The music adds its own card
   reads (about 172 KiB/s) and the work of feeding them to the game's sound
   buffer; the slow window only changes how the reader recovers from an

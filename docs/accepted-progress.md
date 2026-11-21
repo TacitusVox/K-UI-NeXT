@@ -57,14 +57,34 @@ Delivered: `KUI-WinCE-GUI-Routes-16NOV2026-1928-CST-069d612.zip`, GUI build
 `retail-boot.kui` `9e3295bcfaec`, as `00d8ed67d9ad` does. `00d8ed67d9ad`
 remains the reference until the owner reports the package's four tests.
 
+## Armada CD music On gameplay timing: delivered, console test pending, 32b3bbb33e39, 2026-11-21
+
+A measurement of where CD music On costs Armada's gameplay, not a fix
+([record](wince-cdda-play-timing-test.md)). Source `32b3bbb3` adds
+`KUI_ARMADA_CE_PLAY_TIMING` to Makefile.armada-stream. With the default (0)
+the five CD music modules rebuild byte-identical to `7b216f2e1136`, and the
+movie timing build to its earlier bytes. Two modules of build `32b3bbb33e39`
+on the movie timing reader (fixed 64-reception window, low reader
+byte-identical): run 1 with the music (payload CRC `9E73BA00`), run 2 the same
+with the music never queued (`E9655CBD`). Their six report rows cover the
+window after the intro movie: K-UI's time with the music worker's, the game's
+64 KiB reads with and without music grants while they ran, the transport's
+counts and the worker's steps. Delivered as
+`KUI-Armada-CD-Music-Play-Timing-21NOV2026-1304-CST-32b3bbb.zip` (SHA256
+`69efd1fee70345c96cb31fbde2eec809d67b5cf2a92d0fd42f510eca0de9065b`) with the
+card's `52a946122537` module in `IF-NEEDED/`. Route: Armada (US), CD music On,
+Virtual VMU Off. Gates: the stream excerpt, layout and relaxed-call checks;
+stack worst case 656 of 2,000 bytes. Host: `test-armada-ce-play-timing`.
+
 ## WinCE CD music readers, adaptive slow window: console-tested, not at parity, 52a946122537, 2026-11-21
 
 **Result (21 Nov 2026, owner):** with CD music On, Armada's intro keeps a tiny
 lag and its gameplay lag returns (VMU On: intro lag gone, the same minor
 gameplay lag); Bust-A-Move 4 okay, maybe a tiny lag; both Worms games a tiny
 gameplay lag, movies fine. Gameplay is a tiny bit worse with CD music On than
-Off, so CD music On stays opt-in. The comparison with the installed
-`7b216f2e1136` set is not yet made ([result](wince-cdda-adaptive-test.md#result-21-nov-2026)).
+Off, so CD music On stays opt-in. The owner then reported that the whole set
+ran (they copy each ZIP's whole `KUI` folder) and plays about the same as the
+installed `7b216f2e1136` set, with the movies fixed ([result](wince-cdda-adaptive-test.md#result-21-nov-2026)).
 
 
 The generic module's adaptive slow window (16 receptions doubling to 64,

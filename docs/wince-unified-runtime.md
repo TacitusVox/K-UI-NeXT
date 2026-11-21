@@ -120,7 +120,8 @@ what read-ahead fills.
 |---|---|
 | Universal pool (generic module) | built `c6745ab2`, host-tested on the surveyed layouts; console-tested 21 Nov 2026 on 7 kernels: reserved on all, untouched by CE, reads unchanged ([result](wince-pool-readahead-test.md#result-of-test-1-21-nov-2026)) |
 | Read-ahead (generic module) | built `1a5f4677`, host-tested (306,260 checks with every existing CE case); console-tested 21 Nov 2026: no visible difference on Maximum Pool, RE2 and Super Producers; not adopted, off by default ([result](wince-pool-readahead-test.md#result-of-test-2-21-nov-2026)) |
-| Adaptive slow window in the CD-music modules | built `52a94612` (the same switches, default off); test build `52a946122537` delivered 21 Nov 2026 ([record](wince-cdda-adaptive-test.md)) |
+| Adaptive slow window in the CD-music modules | built `52a94612` (the same switches, default off); console-tested 21 Nov 2026: movies fixed, gameplay with CD music On still a tiny bit worse than Off ([record](wince-cdda-adaptive-test.md)) |
+| Where CD music On costs gameplay | Armada gameplay timing, two runs (music, and the music never queued), build `32b3bbb33e39` delivered 21 Nov 2026 ([record](wince-cdda-play-timing-test.md)) |
 | Read-ahead in the CD-music modules | designed: claim 3 above, yielding to the music's refills |
 | CD music On by default | designed: a GUI default per CD-music game, once that game's CD-music module matches CD music Off |
 | Virtual VMU switchable per game | exists for Armada's family; every other family needs its own profile ([VMU families](wince-vmu-driver-families.md)) |

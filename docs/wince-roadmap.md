@@ -77,6 +77,7 @@ scope; it adds the order and the prerequisites.
 | ID | Step | Depends on | Unlocks | Console test |
 |---|---|---|---|---|
 | S0 | **The adaptive slow window in the five CD music modules** (`KUI_CE_SLOW_WINDOW=16 KUI_CE_SLOW_ADAPT=2`, source `52a94612`), the reader half of CD music On matching CD music Off ([record](wince-cdda-adaptive-test.md)) | D5 | the five CD music routes | Armada (VMU Off and On), BAM4, Worms, WWP with CD music On: console-tested 21 Nov 2026, gameplay still a tiny bit worse than CD music Off; not at parity ([result](wince-cdda-adaptive-test.md#result-21-nov-2026)) |
+| S0t | **Where CD music On costs gameplay**: Armada's gameplay timing diagnostic, run with the music and with the music never queued (source `32b3bbb3`, [record](wince-cdda-play-timing-test.md)) | S0 | the fix for CD music On's gameplay lag, then CD music On for every CD music game | Armada (US), CD music On, VMU Off, two runs: delivered 21 Nov 2026 |
 | S3 | BAM4 adapter on its 10 other kernels | G0, F2, D2 (DirectSound attached; Super Runabout loads it from disc) | 12 | Caesars Palace 2000 US; Super Runabout US; Virtua Cop 2 JPN |
 | S4 | WWP adapter on its 8 other kernels with the usual RAM end | G0, F2, D2 (CD audio commands and polling) | 12 | Railroad Tycoon II US, Ducati World US, Net de Para JPN |
 | S11 | Worms adapter, then Armada adapter, on their other kernels | G0, F2, D2 (does Wild Metal attach DirectSound?) | 4 + 3 | Sega Rally 2 US; Wild Metal US |
