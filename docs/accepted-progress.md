@@ -57,6 +57,25 @@ Delivered: `KUI-WinCE-GUI-Routes-16NOV2026-1928-CST-069d612.zip`, GUI build
 `retail-boot.kui` `9e3295bcfaec`, as `00d8ed67d9ad` does. `00d8ed67d9ad`
 remains the reference until the owner reports the package's four tests.
 
+## WinCE CD music for World Party's group: console test pending, 1c71ba3afa17, 2026-11-21
+
+CD music On for eleven more WinCE kernels that carry World Party's sound
+system unchanged ([record](wince-cdda-wwp-group-test.md)): Ducati World,
+Championship Surfer, The Next Tetris Online, Railroad Tycoon II, 4x4
+Evolution, Starlancer, Hidden and Dangerous (US, PAL), Atari Anniversary,
+Hoyle Casino and Who Wants to Beat Up a Millionaire. Each kernel has its own
+module `ce-cdda-<first 12 hex digits of its SHA-256>.kui`, built from the
+accepted recipe with that kernel's derived record (source `2f19afa2`), and the
+GUI admits such a module by its `KUICDK01` record (source `1c71ba3a`). The five
+accepted CD music modules rebuild byte-identical to `1ba2fa7e7040`.
+
+Delivered: `KUI-WinCE-CD-Music-World-Party-Group-21NOV2026-1550-CST-1c71ba3.zip`,
+the GUI `1c71ba3afa17` (Main `4441e92c` with the route, the owner's Standard
+binding `9e3295bcfaec`, the Smash bundle, launch timing) and the eleven
+modules; the reference GUI `00d8ed67d9ad` in `IF-NEEDED/`. Until the owner's
+report, the CD music set `1ba2fa7e7040` and the GUI `00d8ed67d9ad` stay the
+references.
+
 ## WinCE CD music set accepted: 1ba2fa7e7040, 2026-11-21
 
 **Accepted (21 Nov 2026, owner):** smooth gameplay with CD music On in Armada

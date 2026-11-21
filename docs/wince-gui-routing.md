@@ -19,6 +19,7 @@ Addresses below are the GUI's own.
 | Armada, CD music On, VMU Off | `ce-cdda-armada.kui` |
 | Armada, CD music On, VMU On, `ce-armada-all-on.kui` installed | `ce-armada-all-on.kui`, with its own test card |
 | BAM4, Worms Armageddon, Worms World Party, CD music On | their own modules |
+| Another kernel of a sound group, CD music On (GUI `1c71ba3afa17` on) | `ce-cdda-<first 12 hex digits of the kernel's SHA-256>.kui`, by its record below |
 
 ### How the routes were recovered (17 Nov 2026)
 
@@ -79,6 +80,21 @@ file missing from a selected bank. The VMU setting is not consulted.
   Armada's. Every image file is excluded from the card's placement.
 - The report's CD music profile is "Armada CD music + virtual A2"; the log says
   "Armada all-on: CD music and dedicated virtual A2 test card".
+
+### Another kernel of a sound group (GUI `1c71ba3afa17` on, not in `00d8ed67d9ad`)
+
+CD music On, a WinCE GDI the CD music modules can stream, and a kernel SHA-256
+of none of the four reviewed kernels: the GUI looks for
+`ce-cdda-<first 12 hex digits of the SHA-256>.kui`. Absent, the launch refuses
+as before ("unrecognized WinCE runtime") and the log names the file; a
+directory or an unresolvable path refuses ("cannot inspect the installed CD
+music module for this WinCE runtime"). After reading the module, the 64 bytes
+at payload `0x300` must be `KUICDK01`, version 1, 64, a sound profile 1 to 4,
+the kernel's size, that profile's stream pool, zero and the kernel's complete
+SHA-256 ("CD music module record does not name this WinCE runtime"). The stream
+seed is filled as for the reviewed kernels, with the map checked against the
+kernel's own size. The report's CD music profile names the sound and the
+kernel ([round 1](wince-cdda-wwp-group-test.md)).
 
 ### Launch timing
 

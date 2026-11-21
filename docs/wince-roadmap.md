@@ -46,7 +46,7 @@ scope; it adds the order and the prerequisites.
 | F4 | WinCE map larger than 64 slots in the VMU and CD music readers and their stage admission. | G0 | NC2 US/PAL VMU and CD music |
 | F5 | Memory layout measured from RAM end: CE2 (RAM end 0x8cef0000) and the 9 kernels with other ends. | D2 (heap room) | S16, S18 |
 | F6 | Relocated `maple.dll` text bridge on the standalone stage (as Swirl's helper does), and a pool plan with 32 KiB for it. | S1 | S17, WWP x family 2 |
-| F7 | Optional: one CD music module per sound group carrying several exact-kernel records, instead of one module per kernel. | S3 or S4 | fewer modules for S3, S4, S11 |
+| F7 | Optional: one CD music module per sound group carrying several exact-kernel records, instead of one module per kernel. S4 keeps one module per kernel: the pinned startup bodies embed each kernel's addresses as literal words, and the GUI finds a kernel's module by its SHA-256 with no table to update. | S3 or S4 | fewer modules for S3, S4, S11 |
 | F8 | One RAM pool for every WinCE service, found by the ROM header's structure instead of one exact header per kernel (`include/kui/ce_ram_pool.h`; 19 surveyed kernels, three RAM ends). Built for the generic module (`c6745ab2`); the CD music and VMU parts move into it one module per change ([design](wince-unified-runtime.md)). | D6 | F5, S18v, S18c without per-kernel pool records |
 
 ## Boot (generic reader)
@@ -82,7 +82,7 @@ scope; it adds the order and the prerequisites.
 | S0f | **The fix, part 1**: the worker's programmed receptions as an emergency only (`KUI_CE_CDDA_EMERGENCY_PIO`, source `06341c5a`, [record](wince-cdda-emergency-pio-test.md)) | S0t | S0c | console-tested 21 Nov 2026: smooth gameplay; Armada's music repeated, Worms fine ([result](wince-cdda-emergency-pio-test.md#result-21-nov-2026)) |
 | S0c | **The fix, part 2**: the music's card stream restarts where it stops (`KUI_CE_CDDA_CHAIN`, source `1ba2fa7e`, [record](wince-cdda-chain-test.md)) | S0f | CD music On by default, game by game; S3, S4, S11 on the accepted recipe | accepted 21 Nov 2026: smooth gameplay in every CD music game, the music's reserve at least 566 ms; the makefiles' default ([result](wince-cdda-chain-test.md#measured-run-21-nov-2026)) |
 | S3 | BAM4 adapter on its 10 other kernels | G0, F2, D2 (DirectSound attached; Super Runabout loads it from disc) | 12 | Caesars Palace 2000 US; Super Runabout US; Virtua Cop 2 JPN |
-| S4 | WWP adapter on its 8 other kernels with the usual RAM end | G0, F2, D2 (CD audio commands and polling) | 12 | Railroad Tycoon II US, Ducati World US, Net de Para JPN |
+| S4 | WWP adapter on its other kernels with the usual RAM end: per-kernel records derived from each kernel (`tools/wince_cdda_wwp_kernels.py`, `include/kui/wince_cdda_wwp_kernels.h`), one module per kernel with a `KUICDK01` record, and a GUI route that admits any such module by its record ([record](wince-cdda-wwp-group-test.md)) | G0, F2, D2 (CD audio commands and polling) | 11 kernels (Net de Para's `sndcore` differs: later) | Railroad Tycoon II US, Ducati World US: test build `1c71ba3afa17` delivered 21 Nov 2026, console test pending |
 | S11 | Worms adapter, then Armada adapter, on their other kernels | G0, F2, D2 (does Wild Metal attach DirectSound?) | 4 + 3 | Sega Rally 2 US; Wild Metal US |
 | S13 | NC2-PAL contract, then Sno-Cross (both WWP variants) | S4, F4 (NC2), B2 (NC2 PAL) | 7 + 2 | Spirit of Speed 1937 US, Urban Chaos US; NC2 PAL |
 | S14 | NC2-US contract | F4, D2 | 5 | GAH 2 US, NC2 US |
