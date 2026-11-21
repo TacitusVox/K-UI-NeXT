@@ -57,6 +57,23 @@ Delivered: `KUI-WinCE-GUI-Routes-16NOV2026-1928-CST-069d612.zip`, GUI build
 `retail-boot.kui` `9e3295bcfaec`, as `00d8ed67d9ad` does. `00d8ed67d9ad`
 remains the reference until the owner reports the package's four tests.
 
+## WinCE CD music worker fix: delivered, console test pending, 06341c5a3681, 2026-11-21
+
+The fix for the CD music On gameplay lag ([record](wince-cdda-emergency-pio-test.md)).
+Source `06341c5a` adds `KUI_CE_CDDA_EMERGENCY_PIO` (Makefile.armada-stream,
+Makefile.armada-vmu-a2; controller only): the music worker receives by
+programmed transfers only while the music plays with at most half a second of
+fresh PCM (until one second), not whenever it is urgent; DMA otherwise,
+prefill included. Default 0: the five CD music modules rebuild byte-identical
+to `7b216f2e1136`, the adaptive set to `52a946122537`. Test build
+`06341c5a3681`: the five with the adaptive window and the change (payload
+CRCs `91A2A1AE`, `69175F62`, `D841F413`, `D87C83F5`, `EE540C64`), and the
+Armada gameplay timing with the change (`C9D6F9C6`). Delivered as
+`KUI-WinCE-CD-Music-Worker-Fix-21NOV2026-1345-CST-06341c5.zip` (SHA256
+`c80bb79a35fe104ae401b768b075ffd2900c6af26de6c864f2c82f85e04ec9f9`) with the
+card's `52a946122537` set in `IF-NEEDED/`. Gates pass; stack worst cases
+unchanged. `52a946122537` stays the card's set until the owner reports.
+
 ## Armada CD music On gameplay timing: console-tested, cause found, 32b3bbb33e39, 2026-11-21
 
 **Result (21 Nov 2026):** run 1 (music) lagged; run 2 (the music never

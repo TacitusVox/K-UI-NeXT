@@ -136,6 +136,9 @@ So CD music On's gameplay cost is the worker's programmed receptions, in
 bursts above the game's priority, while the music's reserve is merely below
 one second. The interrupt time of its card blocks is the smaller part.
 
+The fix, the worker's programmed receptions as an emergency only, is
+[its own test](wince-cdda-emergency-pio-test.md).
+
 An inference, not measured: with CD music Off this window had no 64 KiB
 streamed reads, but on the generic reader Armada's gameplay read 64 KiB
 streams at 169 KiB/s ([adaptive session](wince-adaptive-window-test.md#result-21-nov-2026)),
