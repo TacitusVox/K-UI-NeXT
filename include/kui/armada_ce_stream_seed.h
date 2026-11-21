@@ -46,12 +46,16 @@ static inline bool kui_armada_ce_stream_seed_header_valid(const uint32_t *words)
     for(unsigned i=8u;i<KUI_ARMADA_CE_STREAM_SEED_WORDS;i++) if(words[i]) return false;
     return true;
 }
+/* The stream pool's start in each sound profile's modules. */
+static inline uint32_t kui_wince_cdda_seed_pool(enum kui_wince_cdda_profile profile) {
+    return profile==KUI_WINCE_CDDA_WORMS_WORLD_PARTY?KUI_WWP_CE_POOL_BEGIN:
+        profile==KUI_WINCE_CDDA_WORMS_ARMAGEDDON?0x8ce70000u:0x8cf50000u;
+}
 /* The shared menu validates the selected module's placement rather than its
  * own compilation profile. Never fill one runtime's wire seed in another. */
 static inline bool kui_wince_cdda_seed_header_valid(const uint32_t *words,
         enum kui_wince_cdda_profile profile) {
-    uint32_t pool=profile==KUI_WINCE_CDDA_WORMS_WORLD_PARTY?KUI_WWP_CE_POOL_BEGIN:
-        profile==KUI_WINCE_CDDA_WORMS_ARMAGEDDON?0x8ce70000u:0x8cf50000u;
+    uint32_t pool=kui_wince_cdda_seed_pool(profile);
     if(!words || !kui_wince_cdda_disc(profile) ||
        words[0]!=KUI_ARMADA_CE_STREAM_MAGIC || words[1]!=KUI_ARMADA_CE_STREAM_VERSION ||
        words[2]!=pool+64u || words[3]!=KUI_ARMADA_CE_STREAM_SOURCE_BYTES ||

@@ -9,6 +9,15 @@ static uint8_t *owner_kernel,*shipped_payload;
 static size_t owner_bytes,shipped_bytes;
 static const char *shipped_path;
 static enum kui_wince_cdda_profile packaged_profile=KUI_WINCE_CDDA_WORMS_ARMAGEDDON;
+/* --kernel SHA256 BYTES: a module for another kernel of World Party's group,
+ * ce-cdda-<first 12 hex digits>.kui, on World Party's synthetic disc layout. */
+static bool kernel_mode;
+static uint8_t group_kernel_sha[32];
+static uint32_t group_kernel_bytes;
+static char group_package[96];
+static const char *packaged_path(void) {
+    return kernel_mode?group_package:profile_package_path(packaged_profile);
+}
 static uint8_t *read_whole(const char *path,size_t *bytes) {
     FILE *file=fopen(path,"rb");CHECK(file);
     CHECK(!fseek(file,0,SEEK_END));long size=ftell(file);CHECK(size>0);
@@ -17,7 +26,7 @@ static uint8_t *read_whole(const char *path,size_t *bytes) {
     *bytes=(size_t)size;return data;
 }
 static enum kui_runtime_result shipped_runtime(const char *path,struct kui_runtime_image *out) {
-    CHECK(!strcmp(path,profile_package_path(packaged_profile)));
+    CHECK(!strcmp(path,packaged_path()));
     size_t bytes;uint8_t *data=read_whole(shipped_path,&bytes);
     CHECK(bytes>=64u && !memcmp(data,"KUIRUN1\0",8u) && le32(data+12u)==64u);
     CHECK(kui_crc32(0,data,60u)==le32(data+60u));
@@ -54,6 +63,15 @@ static void packaged_disc(bool cooked) {
     launch.admit_kernel=owner_kernel==NULL;
     const struct kui_wince_cdda_disc *disc=kui_wince_cdda_disc(launch.kernel_profile);
     image.count=disc->track_count;metadata.boot_lba=disc->boot_lba;metadata.boot_bytes=disc->kernel_bytes;
+    if(kernel_mode) {
+        /* The kernel's own size, ending inside the last DATA track. */
+        launch.admit_kernel=false;launch.group_sha=owner_kernel?NULL:group_kernel_sha;
+        launch.group_bytes=group_kernel_bytes;launch.group_installed=true;
+        char hex[65];kui_hex(group_kernel_sha,32u,hex);
+        snprintf(launch.group_name,sizeof(launch.group_name),"ce-cdda-%.12s.kui",hex);
+        metadata.boot_bytes=group_kernel_bytes;
+        metadata.boot_lba=549150u-(group_kernel_bytes+2047u)/2048u-16u;
+    }
     strcpy(metadata.product,disc->product);
     size_t at=(size_t)snprintf(launch.descriptor,sizeof(launch.descriptor),"%u\n",disc->track_count);
     for(unsigned i=0;i<image.count;i++) {
@@ -134,7 +152,7 @@ static void packaged_case(bool cooked) {
     CHECK(kui_games_retail_prepare_reader("/Games/ARMADA/ARMADA.gdi",request,&prepared,record_log,launch_cancel));
     CHECK(!launch.connected && !launch.mounted && launch.opens==launch.closes);
     CHECK(launch.kernel_hashes==(owner_kernel?0u:1u));
-    CHECK(launch.package_reads==1u && !strcmp(launch.package_path,profile_package_path(packaged_profile)));
+    CHECK(launch.package_reads==1u && !strcmp(launch.package_path,packaged_path()));
     uint8_t *payload=prepared.data;CHECK(prepared.info.payload_bytes==shipped_bytes);
     size_t seed_at=armada_stream_seed_find(&prepared,packaged_profile);CHECK(seed_at!=SIZE_MAX);
     for(size_t i=0;i<shipped_bytes;i++) {
@@ -156,17 +174,24 @@ static void packaged_case(bool cooked) {
     CHECK(decoded.flags==(cooked?KUI_RETAIL_IMAGE_BOOT_CRC:0u));
     for(unsigned i=0;i<disc->track_count;i++) CHECK(decoded.slots[i].track.control==
         (kui_wince_cdda_track_control(packaged_profile,i)|(cooked && image.tracks[i].control?KUI_RETAIL_TRACK_COOKED:0u)));
-    CHECK(kui_wince_cdda_runtime_data_manifest_valid(&decoded,packaged_profile));
+    if(kernel_mode) {
+        CHECK(!memcmp(payload+KUI_CE_CDDA_KERNEL_RECORD_OFFSET,"KUICDK01",8u));
+        CHECK(!memcmp(payload+KUI_CE_CDDA_KERNEL_RECORD_OFFSET+32u,group_kernel_sha,32u));
+        CHECK(decoded.track_count<=KUI_RETAIL_ASYNC_SLOTS &&
+              decoded.extent_count<=KUI_RETAIL_ASYNC_SLOTS-decoded.track_count &&
+              kui_wince_cdda_runtime_kernel_tracks_valid(&decoded,group_kernel_bytes,KUI_RETAIL_READER_ASYNC,false));
+    } else CHECK(kui_wince_cdda_runtime_data_manifest_valid(&decoded,packaged_profile));
     struct kui_armada_ce_stream_seed *seed=(void *)(payload+seed_at);
     CHECK(kui_retail_manifest_decode(seed->wire,&source)==KUI_GAME_OK);
     CHECK(source.track_count==disc->track_count && source.extent_count==disc->track_count);
-    CHECK(kui_wince_cdda_runtime_manifest_valid(&source,packaged_profile));
+    CHECK(kernel_mode?kui_wince_cdda_runtime_kernel_manifest_valid(&source,group_kernel_bytes):
+          kui_wince_cdda_runtime_manifest_valid(&source,packaged_profile));
     CHECK(kui_armada_ce_stream_maps_match(&source,&decoded));
     uint8_t broken[4096]={0};CHECK(kui_retail_manifest_decode(broken,&decoded)==KUI_GAME_INVALID);
     memcpy(broken,wire,sizeof(broken));broken[16]^=1u;
     CHECK(kui_retail_manifest_decode(broken,&decoded)==KUI_GAME_INVALID);
     printf("PASS real package %s %s %s: blank CEX2 accepted and only map/seed changed; actual SH entry copy/cache/BSS preamble preserves map; production decode/raw/cooked flags pass; %s\n",
-        prepared.info.build,disc->name,cooked?"2048 DATA":"raw DATA",owner_kernel?"owner kernel SHA computed without substitution":"explicit synthetic fingerprint orchestration fixture");
+        prepared.info.build,kernel_mode?group_package+18:disc->name,cooked?"2048 DATA":"raw DATA",owner_kernel?"owner kernel SHA computed without substitution":"explicit synthetic fingerprint orchestration fixture");
     free(ram);kui_runtime_free(&prepared);
 }
 static void packaged_kernel_rejections(bool cooked) {
@@ -183,11 +208,22 @@ static void packaged_kernel_rejections(bool cooked) {
 int main(int argc,char **argv) {
     int first=1;
     if(argc>1 && !strcmp(argv[1],"--wwp")) {packaged_profile=KUI_WINCE_CDDA_WORMS_WORLD_PARTY;++first;}
+    else if(argc>3 && !strcmp(argv[1],"--kernel")) {
+        packaged_profile=KUI_WINCE_CDDA_WORMS_WORLD_PARTY;kernel_mode=true;first+=3;
+        CHECK(strlen(argv[2])==64u);
+        for(unsigned i=0;i<32u;i++) {
+            unsigned value;CHECK(sscanf(argv[2]+2u*i,"%2x",&value)==1);
+            group_kernel_sha[i]=(uint8_t)value;
+        }
+        group_kernel_bytes=(uint32_t)strtoul(argv[3],NULL,10);
+        CHECK(group_kernel_bytes>2048u && group_kernel_bytes<=KUI_RETAIL_EXEC_MAX_BYTES);
+        snprintf(group_package,sizeof(group_package),"%s%.12s.kui",KUI_GAMES_RETAIL_CE_KERNEL_PACKAGE_PREFIX,argv[2]);
+    }
     else if(argc>1 && !strcmp(argv[1],"--armada")) {packaged_profile=KUI_WINCE_CDDA_ARMADA;++first;}
     CHECK(argc>=first+2);
     if(strcmp(argv[first],"-")) {
         owner_kernel=read_whole(argv[first],&owner_bytes);
-        CHECK(owner_bytes==kui_wince_cdda_disc(packaged_profile)->kernel_bytes);
+        CHECK(owner_bytes==(kernel_mode?group_kernel_bytes:kui_wince_cdda_disc(packaged_profile)->kernel_bytes));
     }
     fixture_runtime_source=shipped_runtime;fixture_sector_source=owner_sector;
     for(int i=first+1;i<argc;i++) {shipped_path=argv[i];packaged_case(false);packaged_case(true);}

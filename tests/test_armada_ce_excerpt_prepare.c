@@ -330,12 +330,12 @@ static void bam4_manifest_seed(void) {
     new_package(SEED_AT+sizeof(struct kui_armada_ce_stream_seed)+64u,false);
     const uint32_t blank[16]=KUI_ARMADA_CE_STREAM_BLANK_WORDS;
     memcpy(seed(),blank,sizeof(blank));
-    CHECK(!armada_stream_seed_fill(&package,SEED_AT,&map,KUI_WINCE_CDDA_BUST_A_MOVE_4,record_log));
+    CHECK(!armada_stream_seed_fill(&package,SEED_AT,&map,KUI_WINCE_CDDA_BUST_A_MOVE_4,kui_wince_cdda_disc(KUI_WINCE_CDDA_BUST_A_MOVE_4)->kernel_bytes,record_log));
     CHECK(!reads && !logs && !seed()[KUI_ARMADA_CE_STREAM_MAP_CRC_WORD]);guard_check();
     map=original;
     CHECK(armada_stream_seed_find(&package,KUI_WINCE_CDDA_ARMADA)==SEED_AT);
-    CHECK(!armada_stream_seed_fill(&package,SEED_AT,&map,KUI_WINCE_CDDA_ARMADA,record_log));
-    CHECK(armada_stream_seed_fill(&package,SEED_AT,&map,KUI_WINCE_CDDA_BUST_A_MOVE_4,record_log));
+    CHECK(!armada_stream_seed_fill(&package,SEED_AT,&map,KUI_WINCE_CDDA_ARMADA,kui_wince_cdda_disc(KUI_WINCE_CDDA_ARMADA)->kernel_bytes,record_log));
+    CHECK(armada_stream_seed_fill(&package,SEED_AT,&map,KUI_WINCE_CDDA_BUST_A_MOVE_4,kui_wince_cdda_disc(KUI_WINCE_CDDA_BUST_A_MOVE_4)->kernel_bytes,record_log));
     struct kui_retail_manifest decoded;
     struct kui_armada_ce_stream_seed *source=(void *)seed();
     CHECK(kui_retail_manifest_decode(source->wire,&decoded)==KUI_GAME_OK);
@@ -378,8 +378,8 @@ static void worms_profile_and_seed(void) {
     memcpy(seed(),blank,sizeof(blank));
     CHECK(armada_stream_seed_find(&package,KUI_WINCE_CDDA_ARMADA)==SIZE_MAX);
     CHECK(armada_stream_seed_find(&package,KUI_WINCE_CDDA_WORMS_ARMAGEDDON)==SEED_AT);
-    CHECK(!armada_stream_seed_fill(&package,SEED_AT,&map,KUI_WINCE_CDDA_ARMADA,record_log));
-    CHECK(armada_stream_seed_fill(&package,SEED_AT,&map,KUI_WINCE_CDDA_WORMS_ARMAGEDDON,record_log));
+    CHECK(!armada_stream_seed_fill(&package,SEED_AT,&map,KUI_WINCE_CDDA_ARMADA,kui_wince_cdda_disc(KUI_WINCE_CDDA_ARMADA)->kernel_bytes,record_log));
+    CHECK(armada_stream_seed_fill(&package,SEED_AT,&map,KUI_WINCE_CDDA_WORMS_ARMAGEDDON,kui_wince_cdda_disc(KUI_WINCE_CDDA_WORMS_ARMAGEDDON)->kernel_bytes,record_log));
     struct kui_retail_manifest decoded;
     CHECK(kui_retail_manifest_decode(((struct kui_armada_ce_stream_seed *)(void *)seed())->wire,&decoded)==KUI_GAME_OK);
     CHECK(decoded.track_count==8u && decoded.slots[7].track.start_lba==379575u);
@@ -406,6 +406,12 @@ static struct {
     bool variant;
     bool admit_kernel;
     enum kui_wince_cdda_profile kernel_profile;
+    /* Another kernel of a sound group: its digest, size and own module. */
+    const uint8_t *group_sha;
+    uint32_t group_bytes;
+    bool group_installed,group_directory,group_record_set;
+    char group_name[32];
+    uint8_t group_record[64];
     unsigned kernel_hashes;
     bool count_kernel_reads;
     bool kernel_epoch_during_read,kernel_epoch_after_hash;
@@ -414,6 +420,10 @@ static struct {
 } launch;
 static void fixture_kernel_digest(const struct kui_sha256 *hash,uint8_t digest[32]) {
     kui_sha256_digest(hash,digest);
+    if(launch.group_sha) {
+        CHECK(hash->bytes==launch.group_bytes);
+        ++launch.kernel_hashes;memcpy(digest,launch.group_sha,32u);return;
+    }
     if(!launch.admit_kernel) return;
     const struct kui_wince_cdda_disc *disc=kui_wince_cdda_disc(launch.kernel_profile);
     CHECK(disc && hash->bytes==disc->kernel_bytes);
@@ -423,6 +433,7 @@ static void fixture_kernel_digest(const struct kui_sha256 *hash,uint8_t digest[3
 static const struct kui_volume launch_volume={.start=2048u,.count=4000000u};
 static uint64_t fixture_size(const char *name) {
     if(!strcmp(name,"ARMADA.gdi")) return launch.descriptor[0]?strlen(launch.descriptor):sizeof(descriptor)-1u;
+    if(launch.group_installed && launch.group_name[0] && !strcmp(name,launch.group_name)) return 4096u;
     for(unsigned i=0;i<image.count;i++)
         if(!strcmp(name,image.tracks[i].name)) return image.tracks[i].file_bytes;
     return 0u;
@@ -452,6 +463,9 @@ FRESULT f_stat(const TCHAR *path,FILINFO *info) {
         if(native_preference_fault) return FR_DISK_ERR;
     }
     const char *name=strrchr(path,'/');CHECK(name!=NULL);
+    if(launch.group_directory && !strcmp(name+1u,launch.group_name)) {
+        memset(info,0,sizeof(*info));info->fattrib=AM_DIR;return FR_OK;
+    }
     uint64_t bytes=fixture_size(name+1u);
     if(!bytes) return FR_NO_FILE;
     memset(info,0,sizeof(*info));info->fsize=bytes;return FR_OK;
@@ -594,9 +608,12 @@ enum kui_runtime_result kui_runtime_read(const char *path,struct kui_runtime_ima
     ++launch.package_reads;snprintf(launch.package_path,sizeof(launch.package_path),"%s",path);
     if(launch.kernel_epoch_after_hash)++fixture_media_epoch;
     if(fixture_runtime_source) return fixture_runtime_source(path,out);
+    const char *leaf=strrchr(path,'/');
+    bool group=launch.group_name[0] && leaf && !strcmp(leaf+1u,launch.group_name) &&
+        !strncmp(path,KUI_GAMES_RETAIL_CE_KERNEL_PACKAGE_PREFIX,strlen(KUI_GAMES_RETAIL_CE_KERNEL_PACKAGE_PREFIX));
     bool excerpt=!strcmp(path,KUI_GAMES_RETAIL_CE_EXCERPT_PACKAGE) ||
         !strcmp(path,KUI_GAMES_RETAIL_CE_BAM4_PACKAGE) || !strcmp(path,KUI_GAMES_RETAIL_CE_WORMS_PACKAGE) ||
-        !strcmp(path,KUI_GAMES_RETAIL_CE_WWP_PACKAGE);
+        !strcmp(path,KUI_GAMES_RETAIL_CE_WWP_PACKAGE) || group;
     bool ce=!strcmp(path,KUI_GAMES_RETAIL_CE_PACKAGE) || excerpt;
     CHECK(ce || !strcmp(path,KUI_GAMES_RETAIL_PACKAGE));
     uint32_t bytes=excerpt?SEED_AT+(launch.stream?sizeof(struct kui_armada_ce_stream_seed):SEED_TOTAL)+64u:KUI_RETAIL_STAGE_BLOB_OFFSET+16u;
@@ -619,6 +636,10 @@ enum kui_runtime_result kui_runtime_read(const char *path,struct kui_runtime_ima
                 seed[2]=0x8ce70040u;seed[4]=0x8cedf000u;
             }
         } else CHECK(kui_armada_ce_excerpt_seed_make((uint32_t *)(void *)(data+SEED_AT),0u));
+    }
+    if(group && launch.group_record_set) {
+        CHECK(bytes>=KUI_CE_CDDA_KERNEL_RECORD_OFFSET+sizeof(launch.group_record));
+        memcpy(data+KUI_CE_CDDA_KERNEL_RECORD_OFFSET,launch.group_record,sizeof(launch.group_record));
     }
     return KUI_RUNTIME_OK;
 }
@@ -939,6 +960,123 @@ static void experimental_ce_launcher_paths(void) {
     }
     puts("PASS experimental WinCE orchestration: unfamiliar products, boot filenames and six-track layout use all four fingerprint-selected adapter fixtures; real unknown SHA, cooked AUDIO, capacity overflow and missing seed refuse cleanly");
 }
+static void group_record_make(uint8_t record[64],uint32_t profile,uint32_t bytes,uint32_t pool,
+        const uint8_t sha[32]) {
+    memset(record,0,64u);memcpy(record,"KUICDK01",8u);
+    put32(record+8u,1u);put32(record+12u,64u);put32(record+16u,profile);
+    put32(record+20u,bytes);put32(record+24u,pool);memcpy(record+32u,sha,32u);
+}
+static void group_descriptor(void) {
+    size_t at=(size_t)snprintf(launch.descriptor,sizeof(launch.descriptor),"%u\n",image.count);
+    for(unsigned i=0;i<image.count;i++) {
+        const struct kui_game_image_track *t=&image.tracks[i];
+        at+=(size_t)snprintf(launch.descriptor+at,sizeof(launch.descriptor)-at,
+            "%u %u %u %u %s 0\n",t->number,t->start_lba,t->control,t->sector_bytes,t->name);
+        CHECK(at<sizeof(launch.descriptor));
+    }
+}
+/* Another kernel of a sound group: its own module, named by the kernel's
+ * SHA-256 and admitted only by a record naming that kernel, its size, a sound
+ * profile and that profile's pool. A synthetic digest, not a real kernel's. */
+static void kernel_module_route(void) {
+    const uint32_t request=KUI_GAMES_RETAIL_CE_PROBE|KUI_GAMES_RETAIL_CE_EXCERPT|KUI_RETAIL_READER_ASYNC;
+    uint8_t sha[32];for(unsigned i=0;i<32u;i++) sha[i]=(uint8_t)(0x5au+7u*i);
+    const uint32_t bytes=1116160u;
+    char hex[65];kui_hex(sha,32u,hex);
+    char name[32],path[96];
+    snprintf(name,sizeof(name),"ce-cdda-%.12s.kui",hex);
+    snprintf(path,sizeof(path),"%s%.12s.kui",KUI_GAMES_RETAIL_CE_KERNEL_PACKAGE_PREFIX,hex);
+    CHECK(!strcmp(path,"0:/KUI/apps/games/ce-cdda-5a61686f767d.kui"));
+    for(unsigned fault=0;fault<14u;fault++) {
+        launch_setup();unfamiliar_profile();launch.stream=launch.variant=true;
+        metadata.boot_bytes=bytes;
+        launch.group_sha=sha;launch.group_bytes=bytes;
+        snprintf(launch.group_name,sizeof(launch.group_name),"%s",name);
+        launch.group_installed=fault!=1u;launch.group_directory=fault==2u;
+        group_record_make(launch.group_record,KUI_WINCE_CDDA_WORMS_WORLD_PARTY,bytes,0x8cf50000u,sha);
+        launch.group_record_set=fault!=3u;
+        if(fault==4u) launch.group_record[0]^=1u;
+        if(fault==5u) put32(launch.group_record+8u,2u);
+        if(fault==6u) put32(launch.group_record+12u,60u);
+        if(fault==7u) put32(launch.group_record+16u,KUI_WINCE_CDDA_NONE);
+        if(fault==8u) put32(launch.group_record+16u,KUI_WINCE_CDDA_WORMS_WORLD_PARTY+1u);
+        if(fault==9u) put32(launch.group_record+20u,bytes+1u);
+        if(fault==10u) put32(launch.group_record+24u,0x8ce70000u); /* another profile's pool */
+        if(fault==11u) put32(launch.group_record+28u,1u);
+        if(fault==12u) launch.group_record[63]^=1u;
+        if(fault==13u) launch.missing_seed=true;
+        group_descriptor();
+        struct kui_runtime_image prepared;
+        bool ok=kui_games_retail_prepare_reader("/Games/ARMADA/ARMADA.gdi",request,&prepared,record_log,launch_cancel);
+        CHECK(ok==(fault==0u));
+        CHECK(!launch.preloads && !launch.connected && !launch.mounted && launch.opens==launch.closes);
+        CHECK(launch.kernel_hashes==1u);
+        if(fault) {
+            CHECK(!prepared.data && !prepared.info.payload_bytes);
+            CHECK(launch.package_reads==(fault>=3u?1u:0u));
+            if(fault>=3u) CHECK(!strcmp(launch.package_path,path));
+            continue;
+        }
+        CHECK(launch.package_reads==1u && !strcmp(launch.package_path,path));
+        CHECK(!memcmp((uint8_t *)prepared.data+KUI_CE_CDDA_KERNEL_RECORD_OFFSET,launch.group_record,64u));
+        CHECK(armada_stream_seed_find(&prepared,KUI_WINCE_CDDA_WORMS_WORLD_PARTY)==SEED_AT);
+        struct kui_armada_ce_stream_seed *seed=(void *)((uint8_t *)prepared.data+SEED_AT);
+        struct kui_retail_manifest data,full;
+        CHECK(kui_retail_manifest_decode(seed->wire,&full)==KUI_GAME_OK);
+        CHECK(kui_retail_manifest_decode((uint8_t *)prepared.data+KUI_RETAIL_MAP_OFFSET,&data)==KUI_GAME_OK);
+        CHECK(full.boot_bytes==bytes && data.boot_bytes==bytes && full.track_count==6u);
+        CHECK(kui_wince_cdda_runtime_kernel_manifest_valid(&full,bytes));
+        CHECK(!kui_wince_cdda_runtime_manifest_valid(&full,KUI_WINCE_CDDA_WORMS_WORLD_PARTY));
+        CHECK(kui_wince_cdda_runtime_kernel_tracks_valid(&data,bytes,KUI_RETAIL_READER_ASYNC,false));
+        CHECK(kui_armada_ce_stream_maps_match(&full,&data));
+        kui_runtime_free(&prepared);
+    }
+    /* A reviewed kernel keeps its own module, even with a kernel module
+     * installed under its name. */
+    launch_setup();unfamiliar_profile();launch.stream=launch.variant=true;
+    launch.kernel_profile=KUI_WINCE_CDDA_WORMS_WORLD_PARTY;launch.admit_kernel=true;
+    metadata.boot_bytes=kui_wince_cdda_disc(KUI_WINCE_CDDA_WORMS_WORLD_PARTY)->kernel_bytes;
+    kui_hex(kui_wince_cdda_kernel_sha(KUI_WINCE_CDDA_WORMS_WORLD_PARTY),32u,hex);
+    snprintf(launch.group_name,sizeof(launch.group_name),"ce-cdda-%.12s.kui",hex);
+    launch.group_installed=true;
+    group_descriptor();
+    struct kui_runtime_image prepared;
+    CHECK(kui_games_retail_prepare_reader("/Games/ARMADA/ARMADA.gdi",request,&prepared,record_log,launch_cancel));
+    CHECK(!strcmp(launch.package_path,KUI_GAMES_RETAIL_CE_WWP_PACKAGE) && launch.package_reads==1u);
+    kui_runtime_free(&prepared);
+    /* The size-based runtime check agrees with each reviewed profile's. */
+    unfamiliar_profile();
+    for(enum kui_wince_cdda_profile profile=KUI_WINCE_CDDA_ARMADA;
+            profile<=KUI_WINCE_CDDA_WORMS_WORLD_PARTY;profile++) {
+        struct kui_retail_manifest map;memset(&map,0,sizeof(map));
+        map.track_count=image.count;map.extent_count=image.count;map.session_lba=45000u;
+        map.boot_lba=45002u;map.boot_bytes=kui_wince_cdda_disc(profile)->kernel_bytes;
+        map.storage_transport=KUI_STORAGE_SCI;map.reader=KUI_RETAIL_READER_STANDARD;
+        for(unsigned i=0;i<image.count;i++) {
+            map.slots[i].track=(struct kui_retail_track){image.tracks[i].start_lba,image.tracks[i].end_lba,
+                (uint16_t)(image.count+i),1u,(uint8_t)image.tracks[i].control};
+            map.slots[image.count+i].extent=(struct kui_retail_extent){0u,1u+100u*i,100u};
+        }
+        for(unsigned change=0;change<6u;change++) {
+            struct kui_retail_manifest changed=map;
+            if(change==1u) changed.boot_bytes++;
+            if(change==2u) changed.reader=KUI_RETAIL_READER_ASYNC;
+            if(change==3u) changed.slots[3].track.extent_count=0u;
+            if(change==4u) changed.session_lba=44999u;
+            if(change==5u) changed.flags=KUI_RETAIL_IMAGE_CD;
+            for(unsigned mapped=0;mapped<2u;mapped++)
+                for(unsigned reader=0;reader<2u;reader++) {
+                    uint32_t r=reader?KUI_RETAIL_READER_ASYNC:KUI_RETAIL_READER_STANDARD;
+                    CHECK(kui_wince_cdda_runtime_tracks_valid(&changed,profile,r,mapped)==
+                        kui_wince_cdda_runtime_kernel_tracks_valid(&changed,
+                            kui_wince_cdda_disc(profile)->kernel_bytes,r,mapped));
+                }
+        }
+        CHECK(kui_wince_cdda_runtime_manifest_valid(&map,profile) &&
+              kui_wince_cdda_runtime_kernel_manifest_valid(&map,map.boot_bytes));
+    }
+    puts("PASS WinCE CD music for another kernel of a sound group: its SHA-named module is admitted only by its exact record (11 record and installation faults and a missing seed refuse); a reviewed kernel keeps its module; the size-based check agrees with every reviewed profile");
+}
 static void kernel_read_reuse(void) {
     /* The optional runner executes an old-source mutation with two passes,
      * then verifies that this same one-pass expectation rejects it. */
@@ -1031,6 +1169,7 @@ int main(void) {
     stream_launcher_paths();
     converted_ce_launcher_paths();
     experimental_ce_launcher_paths();
+    kernel_module_route();
     kernel_read_reuse();
     printf("WinCE music preparation: %u checks; complete real SHA hashing, fingerprint routing, experimental synthetic layouts, exact raw/cooked DATA fixtures, raw AUDIO, source maps, generated preload, seed bounds, package isolation and failed/cancelled reads passed\n",checks);
     return 0;
