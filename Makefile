@@ -800,6 +800,16 @@ test-ce-fast-take: build/test-sci-stream-ce-fast build/test-retail-async-ce-fast
 	./build/test-retail-async-ce-fast
 # Both switches are on by default in every CE reader build.
 test: test-ce-slow-after-overrun test-ce-fast-take
+# The generic WinCE module's read-ahead into the stage's pool (KUI_CE_READAHEAD):
+# the candidate's reader (VRAM streams, slow window 16 adapting twice) with it.
+# Every other CE test above also runs here, the pool not yet published.
+build/test-retail-async-ce-readahead: tests/test_retail_async_ce.c tests/sci_stream_model.h src/loader/retail_async.c src/loader/retail_async.h src/loader/sci_stream.c src/loader/sci_stream.h src/loader/sci_stream_check.h src/core/retail_cursor.c src/core/retail_image.c src/core/retail_gd.c include/kui/retail_gd.h include/kui/retail_cursor.h include/kui/retail_image.h include/kui/retail_loader_layout.h include/kui/ata.h include/kui/retail_vram_dma.h include/kui/ce_ram_pool.h
+	@mkdir -p $(@D)
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) -DKUI_RETAIL_ASYNC_TEST=1 -DKUI_SCI_STREAM_TEST=1 -DKUI_RETAIL_ASYNC=1 -DKUI_RETAIL_GD_ASYNC=1 -DKUI_RETAIL_CE=1 -DKUI_RETAIL_TRANSPORT=1 -DKUI_CE_SCI_SLOW_AFTER_OVERRUN=1 -DKUI_CE_SCI_FAST_TAKE=1 -DKUI_SCI_STREAM_SLOW_BLOCKS=16u -DKUI_SCI_STREAM_SLOW_ADAPT=2 -DKUI_RETAIL_CE_VRAM_DMA=1 -DKUI_RETAIL_CE_READAHEAD=1 -Iinclude -Isrc/loader src/loader/retail_async.c src/loader/sci_stream.c src/core/retail_cursor.c src/core/retail_image.c src/core/retail_gd.c tests/test_retail_async_ce.c -o $@
+.PHONY: test-ce-readahead
+test-ce-readahead: build/test-retail-async-ce-readahead
+	./build/test-retail-async-ce-readahead
+test: test-ce-readahead
 # The same check's SH-4 assembly, built with the resident's CPU flags and
 # run under qemu-sh4 (Linux user mode) against a bitwise reference.
 SH4_TEST_FLAGS := -std=c11 -Os -Wall -Wextra -Werror -m4-single -ml -mdiv=call-div1 \

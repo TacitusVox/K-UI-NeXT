@@ -231,6 +231,12 @@ bool kui_sci_stream_busy(void);
  * in flight): the next one may be fetched before it is taken, and goes into
  * the other area. */
 bool kui_sci_stream_ready(uint32_t lba);
+#if KUI_RETAIL_CE_READAHEAD
+/* Whether channel 1 is free for a DMA reception now: a fetch while it is not
+ * receives by programmed transfers, with interrupts masked, which the CE
+ * read-ahead never does for a block nobody has asked for yet. */
+bool kui_sci_stream_dma_free(void);
+#endif
 #if KUI_SCI_STREAM_TOKEN_SLICED
 #if KUI_TOY_SUITE_ASYNC_DEMAND
 #define KUI_SCI_STREAM_TOKEN_SLICE 64u

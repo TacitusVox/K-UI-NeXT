@@ -83,4 +83,14 @@ static inline enum kui_ce_ram_pool_result kui_ce_ram_pool_plan(const uint8_t *im
     return KUI_CE_RAM_POOL_OK;
 }
 
+/* What the stage's relay hands the generic module's background reader once
+ * every bootstrap check has passed, through the word at
+ * KUI_RETAIL_CE_POOL_ENTRY: the pool's bounds (P1). Until then, or without
+ * the magic, the reader has no pool. */
+#define KUI_CE_RAM_POOL_MAGIC UINT32_C(0x3150434b) /* KCP1 */
+struct kui_ce_ram_pool_record {
+    uint32_t magic, bytes;
+    uintptr_t begin;
+};
+
 #endif

@@ -116,7 +116,15 @@
  * Once booted, CE uses nothing below its kernel image at 0x8c010000 (its RAM
  * lies above that), so this reader may fill everything below D800 and keep a
  * 2 KiB guarded stack above it, ending where bootstrap 2 begins. */
-#if KUI_ARMADA_CE_VMU_WRITE_RUNTIME
+#if KUI_RETAIL_CE_READAHEAD
+/* The generic module's read-ahead reader keeps a 1 KiB guarded stack, as
+ * the writable VMU reader does, against a call-graph worst case checked by
+ * tools/check_retail_loader_layout.py; the code takes the rest. */
+#if !defined(KUI_RETAIL_CE) || KUI_ARMADA_CE_VMU_WRITE_RUNTIME || KUI_WCE_PROBE || KUI_ARMADA_CE_STREAM
+#error "CE read-ahead is the generic Windows CE module's background reader"
+#endif
+#define KUI_RETAIL_CE_ASYNC_LIMIT 0x8c00dc00
+#elif KUI_ARMADA_CE_VMU_WRITE_RUNTIME
 /* The isolated writable CE profile omits its periodic framebuffer meter.
  * Retain a separately audited 1 KiB guarded stack below bootstrap2. Its
  * top never moves into the owner's bootstrap or retained boot VBR. */
@@ -142,6 +150,9 @@
 /* The WinCE data probe's resident (never a STREAM build) has, in the same
  * place, the address of its seed (include/kui/wce_probe.h). */
 #define KUI_RETAIL_CE_PROBE_SEED_ENTRY 0x8c008334
+/* The read-ahead reader (never a probe or STREAM build): in the same place,
+ * the address of its pool record (include/kui/ce_ram_pool.h). */
+#define KUI_RETAIL_CE_POOL_ENTRY 0x8c008334
 #if KUI_ARMADA_CE_CDDA_VMU
 #define KUI_ARMADA_CE_CDDA_VMU_SPILL_P1 0x8cfc0000
 #define KUI_ARMADA_CE_CDDA_VMU_SPILL_P2 0xacfc0000

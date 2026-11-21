@@ -1,6 +1,6 @@
 {
   "schema": "kui.toy-switch-production-text.v1",
-  "source": "Main 776c9259 (origin/main on 16 Nov 2026), the production text before the Toy test sources were merged; then the reviewed WinCE data probe hunks (KUI_WCE_PROBE, a257f13e and c25e9f5e); then the reviewed CE VRAM stream admission (KUI_RETAIL_CE_VRAM_DMA)",
+  "source": "Main 776c9259 (origin/main on 16 Nov 2026), the production text before the Toy test sources were merged; then the reviewed WinCE data probe hunks (KUI_WCE_PROBE, a257f13e and c25e9f5e); then the reviewed CE VRAM stream admission (KUI_RETAIL_CE_VRAM_DMA); then the reviewed generic WinCE reader switches (KUI_CE_SLOW_WINDOW, KUI_CE_SLOW_ADAPT, KUI_CE_POOL_KIB, KUI_CE_READAHEAD)",
   "files": {
     "include/kui/hash.h": {
       "mode": "code",
@@ -20,7 +20,7 @@
     },
     "include/kui/retail_loader_layout.h": {
       "mode": "code",
-      "sha256": "4ef65bfa3b9e54895681f013291e6c9d2f1892de8a1e1955496207feac61cd7c"
+      "sha256": "ab83222b4cc2de4e951f0054c713bdde7a12af2dc81e7d0b1fd6410b969f9eef"
     },
     "include/kui/vmu_native_passive.h": {
       "mode": "code",
@@ -56,11 +56,11 @@
     },
     "src/loader/retail_async.c": {
       "mode": "exact",
-      "sha256": "61dad0f8654b155afa518b7227448ee6c3396672f033e9ce5cd8f516503efdc6"
+      "sha256": "99d70d805f29469df0cd82d4e3ab0113c88c17121b5a3ed76493184e7aa0f34c"
     },
     "src/loader/retail_async.h": {
       "mode": "code",
-      "sha256": "ed939de9277f7d847aa6b6d6bff27d299f769a19cced6cb9102dcf2451472cb5"
+      "sha256": "f07f0a2e1f9ec42c2558fa1bc45955cf5cf8d19793ebd5f976e9075c58c6946f"
     },
     "src/loader/retail_display.c": {
       "mode": "code",
@@ -68,7 +68,7 @@
     },
     "src/loader/retail_resident.S": {
       "mode": "code",
-      "sha256": "a94e2d5e78eb7663085a727d4846934227b9a6ef9c13501afdbdf6d4008f1d8e"
+      "sha256": "5c46b35ab6b5631efe9152c2d533108a51b300ef8d5e1c4a7e646816bb46112d"
     },
     "src/loader/retail_resident.c": {
       "mode": "code",
@@ -76,7 +76,7 @@
     },
     "src/loader/retail_stage.c": {
       "mode": "code",
-      "sha256": "3c72f6ab50ae90cb5109fe71bb3791b55f7cf8b3eacf3e88741054930c21cb38"
+      "sha256": "acf90c7951d8721d2d836134c3b135d7f61fd5eef2231b29fa637e40593b9641"
     },
     "src/loader/sci_sd_bus.c": {
       "mode": "code",
@@ -88,11 +88,11 @@
     },
     "src/loader/sci_stream.c": {
       "mode": "exact",
-      "sha256": "6ae73966bf9ceb8c6148889d779d2f7f066bb7e941d11a982fc6d4918cb5ca95"
+      "sha256": "f9ae0bebb516eeefb14ec9047eb3e13f1e1706b1b17b236e88bc16c6916a556c"
     },
     "src/loader/sci_stream.h": {
       "mode": "code",
-      "sha256": "4b5fa21040ba95aa4a31f7b89ccdd0dd4c318234d751819b35916ccd3e2ea9fa"
+      "sha256": "255df6f780a5f50536eb69e716bffe75b134bfaa7e721a633a8a4495d99bbb2b"
     },
     "src/loader/vmu_native_background_resident.c": {
       "mode": "code",

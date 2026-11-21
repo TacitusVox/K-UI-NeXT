@@ -337,6 +337,9 @@ bool kui_sci_stream_busy(void) {
 bool kui_sci_stream_busy(void) { return s.state == DMA; }
 #endif
 bool kui_sci_stream_ready(uint32_t lba) { return s.arrived == lba + 1u; }
+#if KUI_RETAIL_CE_READAHEAD
+bool kui_sci_stream_dma_free(void) { return channel_idle(); }
+#endif
 #if KUI_SCI_STREAM_TOKEN_SLICED
 void kui_sci_stream_token_budget(bool bounded) {
     s.token_bounded = bounded;

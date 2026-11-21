@@ -435,7 +435,7 @@ build/retail/layout-config: force-retail-layout
 	@if ! cmp -s $@.new $@; then mv $@.new $@; else rm $@.new; fi
 build/retail-ce/layout-config: force-retail-layout
 	@mkdir -p $(@D)
-	@printf '%s\n' 'LOW=0 TRACE=0 SONIC=0 BUILD=$(BUILD_ID)$(if $(filter 1,$(KUI_CE_SCI_RESUME_FIX)), CE_SCI_RESUME_FIX=1)$(if $(filter-out 64,$(KUI_RETAIL_CE_ASYNC_SLOTS)), CE_ASYNC_SLOTS=$(KUI_RETAIL_CE_ASYNC_SLOTS))$(if $(filter 1,$(KUI_RETAIL_CE_MAP_RECORD)), CE_MAP_RECORD=1)$(if $(filter 1,$(KUI_CE_READER_FIXES)), CE_READER_FIXES=1)$(if $(filter 1 2,$(KUI_WCE_PROBE)), WCE_PROBE=$(KUI_WCE_PROBE))$(if $(filter 1,$(KUI_CE_VRAM_DMA)), CE_VRAM_DMA=1)$(if $(filter-out 64,$(KUI_CE_SLOW_WINDOW)), CE_SLOW_WINDOW=$(KUI_CE_SLOW_WINDOW))$(if $(filter-out 0,$(KUI_CE_SLOW_ADAPT)), CE_SLOW_ADAPT=$(KUI_CE_SLOW_ADAPT))$(if $(filter-out 0,$(KUI_CE_POOL_KIB)), CE_POOL_KIB=$(KUI_CE_POOL_KIB))' > $@.new
+	@printf '%s\n' 'LOW=0 TRACE=0 SONIC=0 BUILD=$(BUILD_ID)$(if $(filter 1,$(KUI_CE_SCI_RESUME_FIX)), CE_SCI_RESUME_FIX=1)$(if $(filter-out 64,$(KUI_RETAIL_CE_ASYNC_SLOTS)), CE_ASYNC_SLOTS=$(KUI_RETAIL_CE_ASYNC_SLOTS))$(if $(filter 1,$(KUI_RETAIL_CE_MAP_RECORD)), CE_MAP_RECORD=1)$(if $(filter 1,$(KUI_CE_READER_FIXES)), CE_READER_FIXES=1)$(if $(filter 1 2,$(KUI_WCE_PROBE)), WCE_PROBE=$(KUI_WCE_PROBE))$(if $(filter 1,$(KUI_CE_VRAM_DMA)), CE_VRAM_DMA=1)$(if $(filter-out 64,$(KUI_CE_SLOW_WINDOW)), CE_SLOW_WINDOW=$(KUI_CE_SLOW_WINDOW))$(if $(filter-out 0,$(KUI_CE_SLOW_ADAPT)), CE_SLOW_ADAPT=$(KUI_CE_SLOW_ADAPT))$(if $(filter-out 0,$(KUI_CE_POOL_KIB)), CE_POOL_KIB=$(KUI_CE_POOL_KIB))$(if $(filter 1,$(KUI_CE_READAHEAD)), CE_READAHEAD=1)' > $@.new
 	@if ! cmp -s $@.new $@; then mv $@.new $@; else rm $@.new; fi
 # SCI's DMA reader shares the original protected low-memory reservation.
 # Cross-unit optimization and SH call relaxation recover code space without
@@ -550,9 +550,28 @@ $(error KUI_CE_POOL_KIB must be 0 or a multiple of 64 from 64 to 512)
 endif
 endif
 RETAIL_CE_POOL_DEFS := $(if $(filter-out 0,$(KUI_CE_POOL_KIB)),-DKUI_RETAIL_CE_POOL_KIB=$(KUI_CE_POOL_KIB))
+# Read-ahead into that pool (src/loader/retail_async.c): after two sequential
+# reads, the generic module's background reader goes on streaming from where
+# the last stopped while the game works, and the next read takes what arrived
+# from RAM. 1 needs KUI_CE_POOL_KIB and is not a data probe build (its
+# resident keeps a 1 KiB stack: retail_resident_ce_async_readahead.ld). 0, the
+# default, builds every module unchanged.
+KUI_CE_READAHEAD ?= 0
+ifneq ($(filter $(KUI_CE_READAHEAD),0 1),$(KUI_CE_READAHEAD))
+$(error KUI_CE_READAHEAD must be 0 or 1)
+endif
+ifeq ($(KUI_CE_READAHEAD),1)
+ifeq ($(KUI_CE_POOL_KIB),0)
+$(error KUI_CE_READAHEAD reads into the pool of KUI_CE_POOL_KIB)
+endif
+ifneq ($(KUI_WCE_PROBE),0)
+$(error KUI_CE_READAHEAD is not a data probe build)
+endif
+endif
+RETAIL_CE_READAHEAD_DEFS := $(if $(filter 1,$(KUI_CE_READAHEAD)),-DKUI_RETAIL_CE_READAHEAD=1)
 RETAIL_CE_READER_COMMA := ,
 RETAIL_CE_READER_LINK := $(if $(filter 1,$(KUI_CE_READER_FIXES)),-Wa$(RETAIL_CE_READER_COMMA)--renesas -Wl$(RETAIL_CE_READER_COMMA)-q)
-RETAIL_CE_SCIA_DEFS := $(filter-out -DKUI_RETAIL_MANIFEST_SLOTS=%,$(RETAIL_SCIA_DEFS)) -DKUI_RETAIL_MANIFEST_SLOTS=$(KUI_RETAIL_CE_ASYNC_SLOTS) -DKUI_RETAIL_CE=1 $(if $(filter 1,$(KUI_CE_SCI_RESUME_FIX)),-DKUI_CE_SCI_RESUME_FIX=1) $(RETAIL_CE_READER_DEFS) $(RETAIL_CE_PROBE_DEFS) $(RETAIL_CE_VRAM_DEFS)
+RETAIL_CE_SCIA_DEFS := $(filter-out -DKUI_RETAIL_MANIFEST_SLOTS=%,$(RETAIL_SCIA_DEFS)) -DKUI_RETAIL_MANIFEST_SLOTS=$(KUI_RETAIL_CE_ASYNC_SLOTS) -DKUI_RETAIL_CE=1 $(if $(filter 1,$(KUI_CE_SCI_RESUME_FIX)),-DKUI_CE_SCI_RESUME_FIX=1) $(RETAIL_CE_READER_DEFS) $(RETAIL_CE_PROBE_DEFS) $(RETAIL_CE_VRAM_DEFS) $(RETAIL_CE_READAHEAD_DEFS)
 RETAIL_SCIA_SRC := src/loader/retail_resident.c src/core/retail_gd.c src/loader/minic.c \
     src/core/retail_image.c src/loader/retail_display.c src/loader/sci_sd_bus.c \
     src/core/retail_cursor.c src/loader/sci_stream.c src/loader/retail_async.c
@@ -722,7 +741,7 @@ build/retail-ce/scia/%_asm.o: %.S
 	@mkdir -p $(@D)
 	sh-elf-gcc $(RETAIL_LEGACY_FLAGS) $(RETAIL_SCI_FLAGS) $(RETAIL_CE_SCIA_DEFS) -MMD -MP -c $< -o $@
 build/retail-ce/scia/src/loader/retail_display.o: force-build-id
-RETAIL_CE_SCIA_LD := src/loader/retail_resident_ce_async$(if $(filter 1 2,$(KUI_WCE_PROBE)),_probe).ld
+RETAIL_CE_SCIA_LD := src/loader/retail_resident_ce_async$(if $(filter 1 2,$(KUI_WCE_PROBE)),_probe)$(if $(filter 1,$(KUI_CE_READAHEAD)),_readahead).ld
 build/retail-ce/resident-scia.elf: $(RETAIL_CE_SCIA) $(RETAIL_CE_SCIA_LD)
 	@mkdir -p build/retail-ce/scia/lto
 	rm -f build/retail-ce/resident-scia.elf.ltrans* build/retail-ce/scia/lto/*
@@ -739,7 +758,7 @@ build/retail-ce/retail_stage_asm.o: src/loader/retail_stage.S build/retail-ce/re
 	sh-elf-gcc $(RETAIL_LEGACY_FLAGS) $(RETAIL_CE_MAP_DEFS) -DKUI_RETAIL_CE=1 -MMD -MP -c $< -o $@
 build/retail-ce/retail_stage.o: src/loader/retail_stage.c
 	@mkdir -p $(@D)
-	sh-elf-gcc $(RETAIL_LEGACY_FLAGS) $(RETAIL_CE_MAP_DEFS) -DKUI_RETAIL_CE=1 $(RETAIL_CE_PROBE_DEFS) $(RETAIL_CE_POOL_DEFS) -MMD -MP -c $< -o $@
+	sh-elf-gcc $(RETAIL_LEGACY_FLAGS) $(RETAIL_CE_MAP_DEFS) -DKUI_RETAIL_CE=1 $(RETAIL_CE_PROBE_DEFS) $(RETAIL_CE_POOL_DEFS) $(RETAIL_CE_READAHEAD_DEFS) -MMD -MP -c $< -o $@
 build/retail-ce/ce_load_plan.o: src/core/ce_load_plan.c
 	@mkdir -p $(@D)
 	sh-elf-gcc $(RETAIL_LEGACY_FLAGS) $(RETAIL_CE_MAP_DEFS) -MMD -MP -c $< -o $@

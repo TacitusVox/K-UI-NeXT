@@ -22,6 +22,7 @@ ROOT=Path(__file__).resolve().parents[1]
 sys.path.insert(0,str(ROOT/'tests'))
 from test_native_virtual_vram_copy import COPY_HARNESS
 from toy_test_switches import resolve_toy_switches
+from test_ce_crc16_factoring import without_reader_switches
 sys.path.insert(0,str(ROOT/'tools'))
 from check_ce_virtual_vram_width import audit_code
 from check_vmu_native_worker_gateway import read_elf,symbol_bytes
@@ -197,6 +198,11 @@ int main(void) {
 }
 '''
 
+# The generic module's read-ahead (KUI_RETAIL_CE_READAHEAD), later still and
+# off in this control's builds: only its exact condition resolves, and any
+# other use of the switch fails.
+READAHEAD=('KUI_RETAIL_CE_READAHEAD',)
+READAHEAD_CONDITIONS={'#if KUI_RETAIL_CE_READAHEAD':False}
 def sha(data):return hashlib.sha256(data).hexdigest()
 def old_source(source):
     """Reverse only exact reviewed hunks, then bind the complete old file.
@@ -209,6 +215,7 @@ def old_source(source):
     """
     # The Toy test modules' switches are off in this control's builds.
     body=resolve_toy_switches((ROOT/source).read_text())
+    body=without_reader_switches(body,READAHEAD,READAHEAD_CONDITIONS)
     for new,old in LATER_HUNKS.get(source,()):
         if body.count(new)!=1:raise AssertionError('Later reviewed hunk changed: '+source)
         body=body.replace(new,old,1)

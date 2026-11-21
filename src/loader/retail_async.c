@@ -564,6 +564,83 @@ static void wake(void) {
     else if(s->command == KUI_RETAIL_GD_DMAREAD_STREAM && s->xfer_left)
         s->interrupts |= KUI_RETAIL_GD_IRQ_DMA_END | KUI_RETAIL_GD_IRQ_DRIVE;
 }
+#if KUI_RETAIL_CE_READAHEAD
+/* Read-ahead (the generic module): while no request is active, the stream
+ * goes on from where a sequential read stopped into the RAM pool the stage
+ * reserved below CE's RAM end, and the next read takes what arrived from
+ * there, then the stream's own block in flight. Only checked blocks are
+ * stored and a card block never changes, so what the pool holds stays
+ * valid; any failure only stops the read-ahead. The pool is written through
+ * the cache and each line then purged, as the stream's areas are. */
+struct kui_ce_ram_pool_record kui_retail_ce_pool;
+static uint32_t ra_blocks(void) {
+    const volatile struct kui_ce_ram_pool_record *pool = &kui_retail_ce_pool;
+    return pool->magic == KUI_CE_RAM_POOL_MAGIC ? pool->bytes / 512u : 0u;
+}
+static bool ra_holds(uint32_t lba) { return lba - e.ra_first < e.ra_count; }
+static const uint8_t *ra_block(uint32_t lba) {
+    return (const uint8_t *)kui_retail_ce_pool.begin + (lba - e.ra_first) * 512u;
+}
+static void ra_store(const uint8_t *block) {
+    uint8_t *to = (uint8_t *)kui_retail_ce_pool.begin + e.ra_count * 512u;
+    memcpy(to, block, 512u);
+#ifndef KUI_RETAIL_ASYNC_TEST
+    for(unsigned i = 0; i < 512u; i += 32u) __asm__ __volatile__("ocbp @%0" : : "r"(to + i) : "memory");
+#endif
+    ++e.ra_count; ++e.ra_stored;
+}
+/* One step while idle; r: how the reception in flight ended (OK if none
+ * was). The window's next block goes into the pool if it is here, and the
+ * one after starts; one not yet here is fetched (a token still sought, a
+ * reception an interrupt left to resume). Only by DMA: with channel 1 not
+ * free, a fetch would receive with interrupts masked, so the read-ahead
+ * stops there instead. */
+static void ra_step(enum kui_sci_stream_result r) {
+    if(r == KUI_SCI_STREAM_OK) {
+        uint32_t lba = e.ra_first + e.ra_count;
+        const uint8_t *block = kui_sci_stream_take(lba, &r);
+        if(block) {
+            ra_store(block);
+            if(e.ra_count == e.ra_limit) {e.ra_fill = 0; return;}
+            ++lba;
+        }
+        if(r <= KUI_SCI_STREAM_PENDING)
+            r = kui_sci_stream_dma_free() ? kui_sci_stream_fetch(lba, TOKEN_LIMIT, false) : KUI_SCI_STREAM_BUSY;
+    }
+    if(r > KUI_SCI_STREAM_PENDING) e.ra_fill = 0;
+}
+/* A request completed. Where would the next sequential one begin? If this
+ * one was sequential too, read ahead from there, to its extent's end or the
+ * pool's: on in the window when that block is in it or next for it, else a
+ * new window. The last block fed is the stream's kept block, so a next
+ * sector beginning in it (a 2352-byte track) is stored from there. */
+static void ra_arm(void) {
+    const struct kui_retail_track *t = &e.manifest->slots[e.cursor.track].track;
+    uint32_t next = e.cursor.lba + e.cursor.count, blocks = ra_blocks();
+    bool seq = e.ra_seq;
+    struct kui_retail_cursor c;
+    e.ra_expect = 0;
+    if(next >= t->end_lba || kui_retail_cursor_begin(&c, e.manifest, next, blocks / 4u + 1u,
+           e.cursor.raw ? KUI_GAME_SECTOR_RAW : KUI_GAME_SECTOR_MODE1, NULL, NULL) != KUI_GAME_OK)
+        return;
+    e.ra_expect = c.block;
+    if(!seq || !blocks) return;
+    if(c.block - e.ra_first > e.ra_count) {
+        uint32_t last = e.cursor.block;
+        if(c.block - last > 1u) return;
+        e.ra_first = c.block; e.ra_count = 0;
+        e.ra_limit = c.run < blocks ? c.run : blocks;
+        if(c.block == last) {
+            enum kui_sci_stream_result r;
+            const uint8_t *kept = kui_sci_stream_take(last, &r);
+            if(!kept) return;
+            ra_store(kept);
+        }
+    }
+    e.ra_fill = e.ra_count < e.ra_limit;
+    if(e.ra_fill && !kui_sci_stream_busy()) ra_step(KUI_SCI_STREAM_OK);
+}
+#endif
 #else
 #define retry_polled() (e.retries >= POLLED)
 #if KUI_NATIVE_GD_VRAM_DMA
@@ -781,6 +858,11 @@ deliver_work(uint32_t wait) {
         if(kui_sci_stream_busy()) {
             r = kui_sci_stream_poll(e.in_irq != 0);
             if(r == KUI_SCI_STREAM_PENDING) {
+#if KUI_RETAIL_CE_READAHEAD
+                /* What the pool holds does not wait for the stream. */
+                if(e.active && !e.failed && ra_holds(e.cursor.block)) r = KUI_SCI_STREAM_OK;
+                else {
+#endif
                 if(!e.active || e.failed || delivered >= wait) return;
 #ifdef KUI_RETAIL_CE
                 /* read_part waits for its requested bytes, never for a
@@ -788,13 +870,26 @@ deliver_work(uint32_t wait) {
                 if(e.piece_set && e.piece_filled == e.piece_bytes) return;
 #endif
                 r = kui_sci_stream_wait();
+#if KUI_RETAIL_CE_READAHEAD
+                }
+#endif
             }
         }
+#if KUI_RETAIL_CE_READAHEAD
+        /* Idle: the read-ahead goes on (r: the reception just ended). */
+        if(!e.active) {
+            if(e.ra_fill) ra_step(r);
+            return;
+        }
+#endif
         if(!e.active || e.failed) return;
         if(r != KUI_SCI_STREAM_OK) {failure(r); continue;}
         uint32_t lba = e.cursor.block;
 #ifdef KUI_RETAIL_CE
         if(!writable()) {
+#if KUI_RETAIL_CE_READAHEAD
+            if(ra_holds(lba)) return;
+#endif
             /* The queue is full: keep at most one more card block ready. */
             if(!kui_sci_stream_ready(lba)) {
                 r = kui_sci_stream_fetch(lba, TOKEN_LIMIT, retry_polled());
@@ -829,7 +924,14 @@ deliver_work(uint32_t wait) {
         if(held.copied) {block=held.block;r=(enum kui_sci_stream_result)held.result;}
         else block=kui_sci_stream_take(lba,&r);
 #else
+#if KUI_RETAIL_CE_READAHEAD
+        /* A block the read-ahead holds is fed from the pool. */
+        const bool pooled = ra_holds(lba);
+        const uint8_t *block = pooled ? ra_block(lba) : kui_sci_stream_take(lba, &r);
+        if(pooled) ++e.ra_served;
+#else
         const uint8_t *block = kui_sci_stream_take(lba, &r);
+#endif
 #endif
         if(block) {
             e.retries = 0;
@@ -847,6 +949,9 @@ deliver_work(uint32_t wait) {
 #endif
             if(e.cursor.done == e.cursor.count) {
                 e.active = 0;
+#if KUI_RETAIL_CE_READAHEAD
+                ra_arm();
+#endif
 #if KUI_NATIVE_REQUEST_TIMING && !KUI_NATIVE_STANDALONE_READER && KUI_TOY_SUITE_MODE != 34
                 uint32_t elapsed=e.stats.hooks-rd32(UINT32_C(0xffd8000c));
                 if(elapsed>e.stats.releases) {
@@ -1046,6 +1151,9 @@ static void start(void) {
     e.piece_set = 0; e.piece_begin = e.piece_bytes = e.piece_filled = 0;
     e.spill_from = e.spill_bytes = 0;
     e.early_polled = 0;
+#if KUI_RETAIL_CE_READAHEAD
+    e.ra_fill = 0; /* the request's own stream from here, or the pool */
+#endif
 #else
     e.destination = s->destination;
 #if KUI_NATIVE_GD_VRAM_DMA
@@ -1078,6 +1186,9 @@ static void start(void) {
         return;
     }
     e.active = 1;
+#if KUI_RETAIL_CE_READAHEAD
+    e.ra_seq = e.cursor.block == e.ra_expect || ra_holds(e.cursor.block);
+#endif
 #ifdef KUI_RETAIL_CE
     /* An ordinary read's piece is its whole destination: physical when P1
      * or P2 (or, for a DMA, a physical address), else CE's virtual one.

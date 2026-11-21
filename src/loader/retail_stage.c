@@ -204,6 +204,12 @@ const uint32_t kui_armada_ce_maple_hook_stage_contract
 /* CE must keep at least this much RAM above ulRAMFree. */
 #define KUI_RETAIL_CE_POOL_KEEP UINT32_C(0x400000)
 #endif
+#if KUI_RETAIL_CE_READAHEAD
+#if !KUI_RETAIL_CE_POOL_KIB
+#error "CE read-ahead reads into the universal pool (KUI_RETAIL_CE_POOL_KIB)"
+#endif
+__asm__(".global __kui_ce_readahead_stage\n.set __kui_ce_readahead_stage,1\n");
+#endif
 #if KUI_ARMADA_CE_EXCERPT_STAGE
 #if KUI_ARMADA_CE_EXCERPT_STAGE != 1 || !KUI_ARMADA_CE_RAM_BIND_STAGE
 #error Armada excerpt reservation requires the isolated admitted binding stage
@@ -978,6 +984,26 @@ static void ce_pool_reserve(uint8_t *body,uint32_t bytes,uint32_t body_crc,uint3
     ce_pool_reserved=1u;
     retail_display_hex("CE RAM POOL FROM",ce_pool.pool_begin);
 }
+#if KUI_RETAIL_CE_READAHEAD
+/* The relay, after every check (the pool still zero, the resident
+ * unchanged): only now may the reader fill the pool, so nothing filled it
+ * while bootstrap 2 ran. The resident's entry word, compared with the rest
+ * of it, names the record in its BSS. The caches are off here. */
+static void ce_pool_publish(void) {
+    uint32_t at=word((const uint8_t *)(uintptr_t)KUI_RETAIL_CE_POOL_ENTRY);
+    if((at&3u) || at<KUI_RETAIL_RESIDENT_ADDRESS+resident_bytes ||
+       at>KUI_RETAIL_CE_ASYNC_LIMIT-sizeof(struct kui_ce_ram_pool_record)) {
+        retail_display_hex("CE READ-AHEAD OFF",at);
+        return;
+    }
+    volatile struct kui_ce_ram_pool_record *record=
+        (volatile struct kui_ce_ram_pool_record *)(uintptr_t)at;
+    record->bytes=KUI_RETAIL_CE_POOL_BYTES;
+    record->begin=ce_pool.pool_begin;
+    record->magic=KUI_CE_RAM_POOL_MAGIC;
+    retail_display_hex("CE READ-AHEAD INTO",ce_pool.pool_begin);
+}
+#endif
 #endif
 #if KUI_ARMADA_CE_EXCERPT_STAGE
 static uint8_t armada_original_romhdr[KUI_ARMADA_CE_EXCERPT_ROMHDR_BYTES];
@@ -2562,6 +2588,9 @@ void kui_retail_stage_relay(const uint32_t *frame,uint32_t ccr) {
     }
 #if KUI_NATIVE_STAGE_FAST_CRC
     retail_display_line("ENTIRE RESIDENT VERIFIED");
+#endif
+#if KUI_RETAIL_CE_READAHEAD
+    if(ce_pool_reserved) ce_pool_publish();
 #endif
 #if KUI_NATIVE_STANDALONE_READER
     standalone_source_check();
