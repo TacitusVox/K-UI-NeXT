@@ -744,10 +744,20 @@ build/test-retail-async-ce-slow: tests/test_retail_async_ce.c tests/sci_stream_m
 build/test-retail-async-ce-vram: tests/test_retail_async_ce.c tests/sci_stream_model.h src/loader/retail_async.c src/loader/retail_async.h src/loader/sci_stream.c src/loader/sci_stream.h src/core/retail_cursor.c src/core/retail_image.c src/core/retail_gd.c include/kui/retail_gd.h include/kui/retail_cursor.h include/kui/retail_image.h include/kui/retail_loader_layout.h include/kui/ata.h include/kui/retail_vram_dma.h
 	@mkdir -p $(@D)
 	$(CC) $(HOST_FLAGS) $(SANITIZERS) -DKUI_RETAIL_ASYNC_TEST=1 -DKUI_SCI_STREAM_TEST=1 -DKUI_RETAIL_ASYNC=1 -DKUI_RETAIL_GD_ASYNC=1 -DKUI_RETAIL_CE=1 -DKUI_RETAIL_TRANSPORT=1 -DKUI_CE_SCI_SLOW_AFTER_OVERRUN=1 -DKUI_RETAIL_CE_VRAM_DMA=1 -Iinclude -Isrc/loader src/loader/retail_async.c src/loader/sci_stream.c src/core/retail_cursor.c src/core/retail_image.c src/core/retail_gd.c tests/test_retail_async_ce.c -o $@
+# A shorter slow window (Makefile.dc KUI_CE_SLOW_WINDOW): the generic module's
+# console test of 16 receptions.
+build/test-sci-stream-ce-window16: tests/test_sci_stream.c tests/sci_stream_model.h src/loader/sci_stream.c src/loader/sci_stream.h src/loader/sci_stream_check.h src/loader/sd_reader.h src/loader/sci_sd_bus.h
+	@mkdir -p $(@D)
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) -DKUI_SCI_STREAM_TEST=1 -DKUI_RETAIL_CE=1 -DKUI_CE_SCI_SLOW_AFTER_OVERRUN=1 -DKUI_CE_SCI_FAST_TAKE=1 -DKUI_SCI_STREAM_SLOW_BLOCKS=16u -Iinclude -Isrc/loader src/loader/sci_stream.c tests/test_sci_stream.c -o $@
+build/test-retail-async-ce-window16: tests/test_retail_async_ce.c tests/sci_stream_model.h src/loader/retail_async.c src/loader/retail_async.h src/loader/sci_stream.c src/loader/sci_stream.h src/loader/sci_stream_check.h src/core/retail_cursor.c src/core/retail_image.c src/core/retail_gd.c include/kui/retail_gd.h include/kui/retail_cursor.h include/kui/retail_image.h include/kui/retail_loader_layout.h include/kui/ata.h
+	@mkdir -p $(@D)
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) -DKUI_RETAIL_ASYNC_TEST=1 -DKUI_SCI_STREAM_TEST=1 -DKUI_RETAIL_ASYNC=1 -DKUI_RETAIL_GD_ASYNC=1 -DKUI_RETAIL_CE=1 -DKUI_RETAIL_TRANSPORT=1 -DKUI_CE_SCI_SLOW_AFTER_OVERRUN=1 -DKUI_CE_SCI_FAST_TAKE=1 -DKUI_SCI_STREAM_SLOW_BLOCKS=16u -Iinclude -Isrc/loader src/loader/retail_async.c src/loader/sci_stream.c src/core/retail_cursor.c src/core/retail_image.c src/core/retail_gd.c tests/test_retail_async_ce.c -o $@
 .PHONY: test-ce-slow-after-overrun
-test-ce-slow-after-overrun: build/test-sci-stream-ce-slow build/test-retail-async-ce-slow
+test-ce-slow-after-overrun: build/test-sci-stream-ce-slow build/test-retail-async-ce-slow build/test-sci-stream-ce-window16 build/test-retail-async-ce-window16
 	./build/test-sci-stream-ce-slow
 	./build/test-retail-async-ce-slow
+	./build/test-sci-stream-ce-window16
+	./build/test-retail-async-ce-window16
 # The same trial with the faster per-block check (identical bytes and CRC).
 build/test-sci-stream-ce-fast: tests/test_sci_stream.c tests/sci_stream_model.h src/loader/sci_stream.c src/loader/sci_stream.h src/loader/sci_stream_check.h src/loader/sd_reader.h src/loader/sci_sd_bus.h
 	@mkdir -p $(@D)

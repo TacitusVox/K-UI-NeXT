@@ -241,8 +241,15 @@ bool kui_sci_stream_token_pending(void);
  * to take each byte; an overrun at 6.25 MHz returns to 12.5 MHz. Commands
  * and token searches always run at 12.5 MHz. Whether the slower clock is
  * pending: a reader then refetches an overrun block by DMA, not by
- * programmed transfers. */
+ * programmed transfers. 64, the default, is every accepted reader's window;
+ * a build may set another for a console test (Makefile.dc
+ * KUI_CE_SLOW_WINDOW, the generic WinCE module only). */
+#ifndef KUI_SCI_STREAM_SLOW_BLOCKS
 #define KUI_SCI_STREAM_SLOW_BLOCKS 64u
+#endif
+#if KUI_SCI_STREAM_SLOW_BLOCKS < 1
+#error "KUI_SCI_STREAM_SLOW_BLOCKS: the slow window takes at least one reception"
+#endif
 bool kui_sci_stream_slow_pending(void);
 #endif
 /* If the in-flight block has arrived (or reception stopped), end it and hand

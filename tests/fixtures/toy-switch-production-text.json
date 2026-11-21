@@ -92,7 +92,7 @@
     },
     "src/loader/sci_stream.h": {
       "mode": "code",
-      "sha256": "50b7feb216205dcf1aa06aae8826b6546dc14d8bb40d5ee1973c65330578eb10"
+      "sha256": "378b65a5d8867e07fb1927f53ea50d353d7c3e38286660cd355c1419e6025da4"
     },
     "src/loader/vmu_native_background_resident.c": {
       "mode": "code",
