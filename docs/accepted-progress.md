@@ -57,6 +57,45 @@ Delivered: `KUI-WinCE-GUI-Routes-16NOV2026-1928-CST-069d612.zip`, GUI build
 `retail-boot.kui` `9e3295bcfaec`, as `00d8ed67d9ad` does. `00d8ed67d9ad`
 remains the reference until the owner reports the package's four tests.
 
+## WinCE RAM pool and read-ahead: console tests pending, two builds of 1a5f46776c0c, 2026-11-21
+
+Two behaviour changes to the generic `ce-boot.kui`, off by default, each with
+its own test build ([tests](wince-pool-readahead-test.md),
+[design](wince-unified-runtime.md)):
+
+- **Universal RAM pool** (`c6745ab2`, Makefile.dc `KUI_CE_POOL_KIB`): the stage
+  finds CE's ROM header by its structure and lowers its RAM end by the pool
+  before NK runs; the relay proves the pool and the patched word survived
+  bootstrap 2. Test build `1a5f46776c0c`: the adaptive timing probe with a
+  64 KiB pool, unused (`KUI_WCE_PROBE=2 KUI_CE_SLOW_WINDOW=16
+  KUI_CE_SLOW_ADAPT=2 KUI_CE_POOL_KIB=64`), 93,816 bytes, payload CRC
+  `FCE53735`, SHA-256 `ac6600b1ca16e046efc365b6719b85e86cee9d0157b7c8edba2c8aaaed95e446`. Delivered:
+  `KUI-WinCE-Pool-Timing-Test-21NOV2026-0006-CST-1a5f467.zip` (SHA256 `0099aa561f62f04be3176eec5b0efe64726a9b08d1453a0f828a31e5c28b1ce4`), with a blank 64-slot
+  `KUI/WCEDATA/WCEDATA.BIN` (file id `bcd16a2e664c9574b66cfcc07c0e384c`), both restore modules
+  in `IF-NEEDED/` and the PC tools.
+- **Read-ahead** (`1a5f4677`, `KUI_CE_READAHEAD`): after two sequential reads
+  the background reader streams on into the pool while no request is active;
+  the next read takes it from there. Test build `1a5f46776c0c`: the candidate
+  `91b0540103f0`'s reader with the pool and read-ahead (`KUI_CE_SLOW_WINDOW=16
+  KUI_CE_SLOW_ADAPT=2 KUI_CE_POOL_KIB=64 KUI_CE_READAHEAD=1`), 86,884
+  bytes, payload CRC `2C8248D8`, SHA-256 `2c6bf8d2cbebc984bf3b1a470f0ba8aa6fc80eeed3f4d900781eed3016cc4958`. Delivered: `KUI-WinCE-ReadAhead-Test-21NOV2026-0006-CST-1a5f467.zip`
+  (SHA256 `ca7c2205ea4c6c6bd870211fc5bfaef3371c5232ece9a852e8d8b9878afeed6d`), with both restore modules in `IF-NEEDED/`.
+
+Gates on the exact bytes: the GUI's seven production admission cases on FAT32
+and exFAT for each module; the PVR write-width check on both residents of
+each; the layout checker (read-ahead resident ends at `0x8c00da40`, limit
+`0x8c00dc00`, stack worst case 416 of 976 bytes; the probe's resident is the
+adaptive probe's). Every delivered module rebuilds byte-identical from
+`1a5f4677` with its own switches: `ce-boot` `7b216f2e1136`, the data, VRAM,
+timing and window-16 probes, the candidates `41e3450bc94d` and `91b0540103f0`,
+the four `ce-cdda` modules and `ce-armada-all-on`. Host suite at
+`1a5f4677`: every C suite and script passes; the unittest gaps are the known environment ones (`test_asm_audit`'s console macro, `test_cover_png_rows`, `test_internet_preview`, `test_wince_release_package` without `.deps/bearssl`), and `test_splash_assets`' known stall was run around, as before.
+
+Not answered: read-ahead's timings (no measurement build has room for it), CD
+music On and VMU On (their modules have neither change), kernels not yet run.
+`7b216f2e1136` remains the accepted generic module and `91b0540103f0` the
+pending everyday candidate.
+
 ## WinCE reader candidate 2: console test pending, 91b0540103f0, 2026-11-21
 
 The generic `ce-boot.kui` for everyday use with both console-tested changes:
