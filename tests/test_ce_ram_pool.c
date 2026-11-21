@@ -2,8 +2,9 @@
 /* The universal Windows CE RAM pool plan (include/kui/ce_ram_pool.h) over
  * every kernel layout the data probe recorded: synthetic images that carry
  * only each surveyed ROM header's derived fields at its surveyed offset
- * (docs/evidence/wince-kernel-ram-layouts-2026-11-21.json; no kernel bytes),
- * and every refusal. */
+ * (docs/evidence/wince-kernel-ram-layouts-2026-11-21.json, and Worms World
+ * Party's from docs/evidence/wince-pool-session-2026-11-21.json; no kernel
+ * bytes), and every refusal. */
 #include <assert.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -30,6 +31,7 @@ static const struct layout layouts[] = {
     {1353728u, 1351468u, 1352420u, UINT32_C(0x8c15b000), UINT32_C(0x8c168000), UINT32_C(0x8cfd0000), UINT32_C(0x30000)}, /* 0x31294673 */
     {1630208u, 1628032u, 1629272u, UINT32_C(0x8c19e000), UINT32_C(0x8c1ac000), UINT32_C(0x8cfd0000), UINT32_C(0x30000)}, /* 0x6d147148 */
     {1695744u, 1694068u, 1695120u, UINT32_C(0x8c1ae000), UINT32_C(0x8c1bc000), UINT32_C(0x8cfd0000), UINT32_C(0x30000)}, /* 0x29bf6186 */
+    {1826816u, 1824276u, 1825324u, UINT32_C(0x8c1ce000), UINT32_C(0x8c1dc000), UINT32_C(0x8cfd0000), UINT32_C(0x30000)}, /* 0x12f68791 */
     {1828864u, 1827228u, 1828276u, UINT32_C(0x8c1cf000), UINT32_C(0x8c1dc000), UINT32_C(0x8cfd0000), UINT32_C(0x30000)}, /* 0xf6902800 */
     {2422784u, 2420232u, 2421216u, UINT32_C(0x8c260000), UINT32_C(0x8c26c000), UINT32_C(0x8cfd0000), UINT32_C(0x30000)}, /* 0x1c0f852b */
     {3352576u, 3349704u, 3350976u, UINT32_C(0x8c343000), UINT32_C(0x8c350000), UINT32_C(0x8cfd0000), UINT32_C(0x30000)}, /* 0xb370f288 */
