@@ -15,8 +15,9 @@ scope; it adds the order and the prerequisites.
 - **Gate G0.** Nothing that changes game behaviour stacks before GUI
   `069d612cadea`'s four console tests and the pending `7b216f2e1136` reports
   (BAM4, WWP, both Armada modules) are in.
-- **Accepted bytes stay:** `ce-boot` `7b216f2e1136`, `ce-cdda-*`, the Armada
-  modules, the Smash set, the native `f8807cb16561` cohort.
+- **Accepted bytes stay:** `ce-boot` `7b216f2e1136`, the CD music set
+  `1ba2fa7e7040` (`ce-cdda-*` and `ce-armada-all-on`, accepted 21 Nov 2026 in
+  place of `7b216f2e1136`), the Smash set, the native `f8807cb16561` cohort.
 - **Separate requirements:** VMU-only, CD-music-only and combined modules are
   separate steps, and so are physical and virtual cards.
 
@@ -79,7 +80,7 @@ scope; it adds the order and the prerequisites.
 | S0 | **The adaptive slow window in the five CD music modules** (`KUI_CE_SLOW_WINDOW=16 KUI_CE_SLOW_ADAPT=2`, source `52a94612`), the reader half of CD music On matching CD music Off ([record](wince-cdda-adaptive-test.md)) | D5 | the five CD music routes | Armada (VMU Off and On), BAM4, Worms, WWP with CD music On: console-tested 21 Nov 2026, gameplay still a tiny bit worse than CD music Off; not at parity ([result](wince-cdda-adaptive-test.md#result-21-nov-2026)) |
 | S0t | **Where CD music On costs gameplay**: Armada's gameplay timing diagnostic, run with the music and with the music never queued (source `32b3bbb3`, [record](wince-cdda-play-timing-test.md)) | S0 | the fix for CD music On's gameplay lag, then CD music On for every CD music game | Armada (US), CD music On, VMU Off, two runs: console-tested 21 Nov 2026, the lag is the worker's programmed receptions while the music is urgent ([result](wince-cdda-play-timing-test.md#result-21-nov-2026)) |
 | S0f | **The fix, part 1**: the worker's programmed receptions as an emergency only (`KUI_CE_CDDA_EMERGENCY_PIO`, source `06341c5a`, [record](wince-cdda-emergency-pio-test.md)) | S0t | S0c | console-tested 21 Nov 2026: smooth gameplay; Armada's music repeated, Worms fine ([result](wince-cdda-emergency-pio-test.md#result-21-nov-2026)) |
-| S0c | **The fix, part 2**: the music's card stream restarts where it stops (`KUI_CE_CDDA_CHAIN`, source `1ba2fa7e`, [record](wince-cdda-chain-test.md)) | S0f | CD music On by default, game by game | Armada (VMU Off and On), BAM4, Worms, WWP with CD music On, and one measured Armada run: delivered 21 Nov 2026 |
+| S0c | **The fix, part 2**: the music's card stream restarts where it stops (`KUI_CE_CDDA_CHAIN`, source `1ba2fa7e`, [record](wince-cdda-chain-test.md)) | S0f | CD music On by default, game by game; S3, S4, S11 on the accepted recipe | accepted 21 Nov 2026: smooth gameplay in every CD music game, the music's reserve at least 566 ms; the makefiles' default ([result](wince-cdda-chain-test.md#measured-run-21-nov-2026)) |
 | S3 | BAM4 adapter on its 10 other kernels | G0, F2, D2 (DirectSound attached; Super Runabout loads it from disc) | 12 | Caesars Palace 2000 US; Super Runabout US; Virtua Cop 2 JPN |
 | S4 | WWP adapter on its 8 other kernels with the usual RAM end | G0, F2, D2 (CD audio commands and polling) | 12 | Railroad Tycoon II US, Ducati World US, Net de Para JPN |
 | S11 | Worms adapter, then Armada adapter, on their other kernels | G0, F2, D2 (does Wild Metal attach DirectSound?) | 4 + 3 | Sega Rally 2 US; Wild Metal US |

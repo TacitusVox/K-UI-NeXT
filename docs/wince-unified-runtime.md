@@ -123,7 +123,7 @@ what read-ahead fills.
 | Adaptive slow window in the CD-music modules | built `52a94612` (the same switches, default off); console-tested 21 Nov 2026: movies fixed, gameplay with CD music On still a tiny bit worse than Off ([record](wince-cdda-adaptive-test.md)) |
 | Where CD music On costs gameplay | Armada gameplay timing, two runs (music, and the music never queued), build `32b3bbb33e39`: console-tested 21 Nov 2026, the music worker's urgent programmed receptions ([record](wince-cdda-play-timing-test.md)) |
 | The CD music worker fix | programmed receptions only in an emergency (`KUI_CE_CDDA_EMERGENCY_PIO`, source `06341c5a`): console-tested 21 Nov 2026, smooth gameplay but Armada's music repeated ([record](wince-cdda-emergency-pio-test.md)) |
-| The CD music chain fix | the music's card stream restarts where it stops (`KUI_CE_CDDA_CHAIN`, source `1ba2fa7e`), test build `1ba2fa7e7040` delivered 21 Nov 2026 ([record](wince-cdda-chain-test.md)) |
+| The CD music chain fix | the music's card stream restarts where it stops (`KUI_CE_CDDA_CHAIN`, source `1ba2fa7e`): accepted 21 Nov 2026 with the adaptive window and the emergency-only receptions as the CD music set `1ba2fa7e7040`, now the makefiles' default ([record](wince-cdda-chain-test.md)) |
 | Read-ahead in the CD-music modules | designed: claim 3 above, yielding to the music's refills |
 | CD music On by default | designed: a GUI default per CD-music game, once that game's CD-music module matches CD music Off |
 | Virtual VMU switchable per game | exists for Armada's family; every other family needs its own profile ([VMU families](wince-vmu-driver-families.md)) |

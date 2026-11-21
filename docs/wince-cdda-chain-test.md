@@ -1,8 +1,9 @@
 # WinCE CD music: restart the music's card stream where it stops (21 Nov 2026)
 
-**Status: console-tested on Armada 21 Nov 2026 ([result](#result-21-nov-2026)):
-the repeats are no longer clear; gameplay, the other games and the measured
-run not yet reported.** One behaviour change
+**Status: accepted 21 Nov 2026 ([result](#result-21-nov-2026),
+[measured run](#measured-run-21-nov-2026)): smooth gameplay in every CD music
+game, the music's reserve at least 566 ms.** The makefiles now build this set
+by default ([the pin](#the-pin)). One behaviour change
 on top of the worker's emergency-only programmed receptions
 ([`06341c5a3681`](wince-cdda-emergency-pio-test.md)), which made Armada's
 gameplay smooth but left its music repeating
@@ -99,9 +100,58 @@ The report's first page:
   game holds all but one of its sixteen voices and retries at its next
   visit, and refuses a command the model cannot apply.
 
-Not answered yet: the gameplay with this build, the other CD music games,
-and the measured run (whether the music's reserve stays above the 155 ms CE
-mixes ahead).
+The owner then reported smooth gameplay with this build, and smooth gameplay
+in the other CD music games.
+
+## Measured run (21 Nov 2026)
+
+`MEASURE/ce-cdda-armada.kui` (`A2F1FE09`), Armada (US), CD music On, Virtual
+VMU Off, against gameplay timing run 1 (`32b3bbb33e39`, the earlier CD music
+behaviour) and run 2 (the music never queued); all three on the fixed
+64-reception timing reader:
+
+| Row | Run 1 (105 s) | Run 2, silent (128 s) | This build (244.5 s) |
+|---|---|---|---|
+| PLAY-MS SECTORS KB/S READS STATUS | 105,150 · 7,212 · 137 · 38 · 15 | 127,775 · 7,212 · 112 · 38 · 7 | 244,500 · 7,212 · 58 · 38 · 15 |
+| CALL-MS IRQ-MS WORK-MS BUSY% PEAK% | 258 · 5,557 · 10,142 · 15 · 44 | 158 · 3,203 · 0 · 2 · 28 | 267 · 16,459 · 4,394 · 8 · 28 |
+| MUSICBLK GAMEBLK GRANTS PREEMPT PEND% | 27,371 · 33,147 · 37 · 176 · 11 | 0 · 33,146 · 0 · 0 · 9 | 77,088 · 33,146 · 26 · 131 · 5 |
+| DMA-OK POLLED OVERRUN RESTART SLOW-OK | 51,984 · 8,530 · 1,017 · 1,311 · 8,068 | 33,141 · 0 · 0 · 29 · 0 | 107,540 · 2,693 · 5,394 · 6,003 · 16,023 |
+| STEPS MAX-US OVER8MS URGENT LOW-MS | 1,437 · 173,083 · 236 · 239 · 1,012 | all 0 | 4,353 · 51,040 · 10 · 233 · 566 |
+
+Per second of play:
+
+| | Run 1 | Run 2 | This build |
+|---|---|---|---|
+| Worker time | 9.6% | 0 | 1.8% |
+| Interrupt time | 5.3% | 2.5% | 6.7% |
+| K-UI's busiest second | 44% | 28% | 28% |
+| Worker steps of 8 ms or more | 2.2 | 0 | 0.04 |
+| Programmed receptions | 81 | 0 | 11 |
+| Overruns | 9.7 | 0 | 22 |
+
+- **The lag's cause is gone.** The worker's time fell from 9.6% to 1.8% of
+  play, its steps of 8 ms or more from 236 in 105 s to 10 in 244 s (longest
+  51 ms), and the busiest second equals the silent run's.
+- **The music stays supplied.** Its fresh PCM never fell below 566 ms at a
+  playing step's end, well above the 155 ms CE mixes ahead, and above the
+  half-second emergency floor. It is still urgent at times (233 steps), which
+  now only lengthens its card grants.
+- **The cost moved into the interrupt**, 6.7% of play against 5.3%: more of
+  the music's blocks travel by DMA, so more of them overrun (7% of the
+  music's DMA receptions, 5.4% in run 1), each with a restart. This timing
+  reader keeps the fixed 64-reception slow window; the delivered modules use
+  the adaptive one.
+
+## The pin
+
+The commit after `1ba2fa7e`'s records makes this recipe the default of
+Makefile.armada-stream and Makefile.armada-vmu-a2 (the adaptive window,
+`KUI_CE_CDDA_EMERGENCY_PIO=1`, `KUI_CE_CDDA_CHAIN=1`) for every build with the
+reader fixes and no timing diagnostic. Verified: the defaults with build ID
+`1ba2fa7e7040` rebuild the five accepted modules byte-identical;
+`KUI_CE_SLOW_WINDOW=64 KUI_CE_SLOW_ADAPT=0 KUI_CE_CDDA_EMERGENCY_PIO=0
+KUI_CE_CDDA_CHAIN=0` with `7b216f2e1136` rebuild the previous set byte-identical;
+both gameplay timing runs (`32b3bbb33e39`) rebuild unchanged.
 
 ## Questions for the console test
 
