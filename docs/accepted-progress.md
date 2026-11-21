@@ -57,7 +57,14 @@ Delivered: `KUI-WinCE-GUI-Routes-16NOV2026-1928-CST-069d612.zip`, GUI build
 `retail-boot.kui` `9e3295bcfaec`, as `00d8ed67d9ad` does. `00d8ed67d9ad`
 remains the reference until the owner reports the package's four tests.
 
-## WinCE CD music chain fix: delivered, console test pending, 1ba2fa7e7040, 2026-11-21
+## WinCE CD music chain fix: Armada console-tested, the rest pending, 1ba2fa7e7040, 2026-11-21
+
+**Armada result (21 Nov 2026):** the owner can no longer tell whether the music
+repeats; one abrupt switch back to the first song was the game's own PLAY
+command (the GD service keeps no play state). No model underrun and no fault
+over 6.8 minutes of music. Gameplay, the other games and the measured run are
+not yet reported ([result](wince-cdda-chain-test.md#result-21-nov-2026)).
+
 
 On top of the worker fix below (smooth gameplay, but Armada's music
 repeated): the music's card stream restarts where it stops

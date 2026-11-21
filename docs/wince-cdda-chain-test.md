@@ -1,6 +1,8 @@
 # WinCE CD music: restart the music's card stream where it stops (21 Nov 2026)
 
-**Status: delivered for a console test, 21 Nov 2026.** One behaviour change
+**Status: console-tested on Armada 21 Nov 2026 ([result](#result-21-nov-2026)):
+the repeats are no longer clear; gameplay, the other games and the measured
+run not yet reported.** One behaviour change
 on top of the worker's emergency-only programmed receptions
 ([`06341c5a3681`](wince-cdda-emergency-pio-test.md)), which made Armada's
 gameplay smooth but left its music repeating
@@ -69,6 +71,37 @@ emergency with the chain (continued token slices in a generic pump and an
 interrupt, the eight-slice bound, the worker's single slice, the DMA
 refetch while the window is armed, and the programmed refetch at the slow
 clock and on a second failure).
+
+## Result (21 Nov 2026)
+
+The owner, Armada (US), CD music On, Virtual VMU Off, the normal module
+`1ba2fa7e7040`: "Can't tell if the music is repeating or that's just the
+nature of the song" (the last build's repeats were plain), and at one point a
+different song was playing and it changed abruptly back to the first song.
+The measured run was not made.
+
+The report's first page:
+
+| Row | Values |
+|---|---|
+| GD BIND SOURCE GAPS WORKER | 31 · 0 · `044E6B00` (72,248,064 bytes, 6.8 minutes of music) · 0 · 1 |
+| AUDIO WHY NODE VALUE EXPECT DETAIL | all 0 (no fault) |
+| STREAM ATTEMPT PLAY REFUSED HR | 2 (playing) · 20 · 17 · 3 · 0 |
+| BUFFER CAPS BYTES VOICES CRC | `0103D2AC` · `1E8` · `56200` · 13 · `EE6CA949` |
+| CMD FIRST LAST PLAYCUR WRITECUR | 20 (play) · track 4 · 4 · `14F00` · `11B00` |
+
+- No model underrun (GAPS 0) and no fault over 6.8 minutes of music.
+- **The switch back to the first song was the game's request.** The GD
+  service accepts a CD audio command at once and keeps no play state, so it
+  never reports a song's end to Armada; the player changes songs only when
+  the game's command arrives, and the last command was PLAY track 4.
+- The three refusals change no song: the player refuses a start while the
+  game holds all but one of its sixteen voices and retries at its next
+  visit, and refuses a command the model cannot apply.
+
+Not answered yet: the gameplay with this build, the other CD music games,
+and the measured run (whether the music's reserve stays above the 155 ms CE
+mixes ahead).
 
 ## Questions for the console test
 
