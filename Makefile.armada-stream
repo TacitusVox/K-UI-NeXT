@@ -96,15 +96,25 @@ ifeq ($(KUI_CE_READER_FIXES),1)
 WINCE_CDDA_PROFILE_FLAGS += -DKUI_CE_SCI_SLOW_AFTER_OVERRUN=1 -DKUI_CE_SCI_FAST_TAKE=1
 endif
 endif
+# Delivery defaults: the CD music set console-accepted on 21 Nov 2026 as
+# build 1ba2fa7e7040 on all five CD music modules (docs/wince-cdda-chain-test.md):
+# the adaptive slow window (16 receptions, doubling twice), the worker's
+# programmed receptions as an emergency only, and the music's card stream
+# restarting where it stops. The timing diagnostics and KUI_CE_READER_FIXES=0
+# keep the earlier settings. KUI_CE_SLOW_WINDOW=64 KUI_CE_SLOW_ADAPT=0
+# KUI_CE_CDDA_EMERGENCY_PIO=0 KUI_CE_CDDA_CHAIN=0 rebuild the previous set
+# (7b216f2e1136) byte-identical.
+ifeq ($(filter 1,$(KUI_ARMADA_CE_MOVIE_TIMING)):$(KUI_CE_READER_FIXES),:1)
+WINCE_CDDA_ACCEPTED_DEFAULTS := 1
+endif
 # The slow window after an overrun, as the generic module's switches
 # (Makefile.dc KUI_CE_SLOW_WINDOW, KUI_CE_SLOW_ADAPT; src/loader/sci_stream.h):
 # 16 receptions doubling up to 64 while overruns recur soon after the window
 # is the generic module's console-measured setting (871c4c7784b4,
 # docs/wince-adaptive-window-test.md). Both reach the reader and the
-# controller, so the two see the same stream state. The defaults (64, 0)
-# build every accepted CD music reader unchanged.
-KUI_CE_SLOW_WINDOW ?= 64
-KUI_CE_SLOW_ADAPT ?= 0
+# controller, so the two see the same stream state.
+KUI_CE_SLOW_WINDOW ?= $(if $(WINCE_CDDA_ACCEPTED_DEFAULTS),16,64)
+KUI_CE_SLOW_ADAPT ?= $(if $(WINCE_CDDA_ACCEPTED_DEFAULTS),2,0)
 ifneq ($(KUI_CE_SLOW_WINDOW):$(KUI_CE_SLOW_ADAPT),64:0)
 ifneq ($(KUI_CE_READER_FIXES),1)
 $(error KUI_CE_SLOW_WINDOW and KUI_CE_SLOW_ADAPT size the slow refetch of KUI_CE_READER_FIXES=1)
@@ -133,9 +143,9 @@ endif
 # second of fresh PCM (until one second), not whenever the music is urgent;
 # by DMA otherwise, prefill included (src/loader/armada_ce_stream_transport.c).
 # Those urgent receptions were the console-measured cause of CD music On's
-# gameplay lag (docs/wince-cdda-play-timing-test.md). Controller only; 0
-# builds every accepted module unchanged.
-KUI_CE_CDDA_EMERGENCY_PIO ?= 0
+# gameplay lag (docs/wince-cdda-play-timing-test.md). Controller only; on by
+# default with the delivery defaults above.
+KUI_CE_CDDA_EMERGENCY_PIO ?= $(if $(WINCE_CDDA_ACCEPTED_DEFAULTS),1,0)
 ifeq ($(KUI_CE_CDDA_EMERGENCY_PIO),1)
 WINCE_CDDA_PROFILE_FLAGS += -DKUI_ARMADA_CE_STREAM_EMERGENCY_PIO=1
 else ifneq ($(KUI_CE_CDDA_EMERGENCY_PIO),0)
@@ -148,9 +158,9 @@ endif
 # (src/loader/armada_ce_stream_transport.c). Without it the music's DMA chain
 # stops at each such restart until the worker's next visit, which the
 # worker's programmed receptions covered (docs/wince-cdda-emergency-pio-test.md).
-# Controller only; needs the reader's slow window. 0 builds every accepted
-# module unchanged.
-KUI_CE_CDDA_CHAIN ?= 0
+# Controller only; needs the reader's slow window. On by default with the
+# delivery defaults above.
+KUI_CE_CDDA_CHAIN ?= $(if $(WINCE_CDDA_ACCEPTED_DEFAULTS),1,0)
 ifeq ($(KUI_CE_CDDA_CHAIN),1)
 ifeq ($(findstring -DKUI_CE_SCI_SLOW_AFTER_OVERRUN=1,$(WINCE_CDDA_PROFILE_FLAGS)),)
 $(error KUI_CE_CDDA_CHAIN needs the reader's slow window (KUI_CE_READER_FIXES=1, or the timing reader's slow trial))
