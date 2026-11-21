@@ -111,6 +111,34 @@ override ARMADA_AUDIO_EXTRA_FLAGS += -DKUI_CE_SCI_SLOW_AFTER_OVERRUN=1 -DKUI_CE_
 else ifneq ($(ARMADA_CDDA_VMU_READER_FIXES),0)
 $(error ARMADA_CDDA_VMU_READER_FIXES must be 0 or 1)
 endif
+# The slow window after an overrun, as in the other CD music modules
+# (Makefile.armada-stream, Makefile.dc): KUI_CE_SLOW_WINDOW receptions, doubled
+# up to KUI_CE_SLOW_ADAPT times while overruns recur soon after the window.
+# The defaults (64, 0) build the accepted module unchanged.
+KUI_CE_SLOW_WINDOW ?= 64
+KUI_CE_SLOW_ADAPT ?= 0
+ARMADA_CDDA_VMU_SLOW_FLAGS :=
+ifneq ($(KUI_CE_SLOW_WINDOW):$(KUI_CE_SLOW_ADAPT),64:0)
+ifneq ($(ARMADA_CDDA_VMU_READER_FIXES),1)
+$(error KUI_CE_SLOW_WINDOW and KUI_CE_SLOW_ADAPT size the slow refetch of ARMADA_CDDA_VMU_READER_FIXES=1)
+endif
+ifneq ($(shell [ "$(KUI_CE_SLOW_WINDOW)" -ge 1 ] 2>/dev/null && [ "$(KUI_CE_SLOW_WINDOW)" -le 127 ] 2>/dev/null && echo ok),ok)
+$(error KUI_CE_SLOW_WINDOW must be a number from 1 to 127)
+endif
+ifneq ($(filter $(KUI_CE_SLOW_ADAPT),0 1 2 3),$(KUI_CE_SLOW_ADAPT))
+$(error KUI_CE_SLOW_ADAPT must be 0, 1, 2 or 3 doublings)
+endif
+ifneq ($(shell [ $$(( $(KUI_CE_SLOW_WINDOW) << $(KUI_CE_SLOW_ADAPT) )) -le 127 ] 2>/dev/null && echo ok),ok)
+$(error KUI_CE_SLOW_WINDOW doubled KUI_CE_SLOW_ADAPT times exceeds 127 receptions)
+endif
+ifneq ($(KUI_CE_SLOW_WINDOW),64)
+ARMADA_CDDA_VMU_SLOW_FLAGS += -DKUI_SCI_STREAM_SLOW_BLOCKS=$(KUI_CE_SLOW_WINDOW)u
+endif
+ifneq ($(KUI_CE_SLOW_ADAPT),0)
+ARMADA_CDDA_VMU_SLOW_FLAGS += -DKUI_SCI_STREAM_SLOW_ADAPT=$(KUI_CE_SLOW_ADAPT)
+endif
+override ARMADA_AUDIO_EXTRA_FLAGS += $(ARMADA_CDDA_VMU_SLOW_FLAGS)
+endif
 override ARMADA_AUDIO_EXTRA_STAGE_FLAGS += $(ARMADA_A2_CDDA_FLAGS) -DKUI_ARMADA_CE_EXCERPT_STAGE=1 -DKUI_RETAIL_EXTENDED_MAP=1
 override ARMADA_AUDIO_EXTRA_ASM_FLAGS += $(ARMADA_A2_CDDA_FLAGS)
 # Diagnostic only, never a delivery default: the VMU Off movie timing (the
@@ -128,7 +156,7 @@ ARMADA_A2_TIMING_CHECK := --timing
 # The controller's movie rows read the reader's 6.25 MHz counters only when
 # compiled with the same reader change (a measurement view, no behavior).
 ifeq ($(ARMADA_CDDA_VMU_READER_FIXES),1)
-ARMADA_STREAM_EXTRA_FLAGS += -DKUI_CE_SCI_SLOW_AFTER_OVERRUN=1
+ARMADA_STREAM_EXTRA_FLAGS += -DKUI_CE_SCI_SLOW_AFTER_OVERRUN=1 $(ARMADA_CDDA_VMU_SLOW_FLAGS)
 endif
 else ifneq ($(ARMADA_CDDA_VMU_TIMING),0)
 $(error ARMADA_CDDA_VMU_TIMING must be 0 or 1)
@@ -176,6 +204,9 @@ ifeq ($(ARMADA_A2_WRITE_RUNTIME),1)
 endif
 ifeq ($(ARMADA_A2_CDDA),1)
 	@printf '%s\n' 'READER_FIXES=$(ARMADA_CDDA_VMU_READER_FIXES)' 'TIMING=$(ARMADA_CDDA_VMU_TIMING)' >> $@.tmp
+ifneq ($(KUI_CE_SLOW_WINDOW):$(KUI_CE_SLOW_ADAPT),64:0)
+	@printf '%s\n' 'SLOW_WINDOW=$(KUI_CE_SLOW_WINDOW)' 'SLOW_ADAPT=$(KUI_CE_SLOW_ADAPT)' >> $@.tmp
+endif
 endif
 	@cmp -s $@.tmp $@ || cp $@.tmp $@
 	@rm -f $@.tmp

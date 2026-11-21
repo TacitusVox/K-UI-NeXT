@@ -170,8 +170,11 @@ int main(void) {
     armada_ce_audio_kick(KUI_GD_EXEC);
     CHECK(kui_retail_ce_deferred[0]==(uint32_t)(uintptr_t)kui_armada_ce_excerpt_deferred);
     armada_ce_audio_report();CHECK(rows==6u);
+#if KUI_ARMADA_CE_HISTORY_PAGES
+    /* The reader changes take the history pages' space (audio_observe). */
     armada_ce_audio_history(0u);armada_ce_audio_history(1u);
     CHECK(rows==20u && lines==5u);
+#endif
 
     /* The adopted SCI descriptor still reads full audio bytes after the
      * delayed handoff. No detached synthetic bus or separate card model. */

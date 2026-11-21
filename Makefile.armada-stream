@@ -77,6 +77,38 @@ ifeq ($(KUI_CE_READER_FIXES),1)
 WINCE_CDDA_PROFILE_FLAGS += -DKUI_CE_SCI_SLOW_AFTER_OVERRUN=1 -DKUI_CE_SCI_FAST_TAKE=1
 endif
 endif
+# The slow window after an overrun, as the generic module's switches
+# (Makefile.dc KUI_CE_SLOW_WINDOW, KUI_CE_SLOW_ADAPT; src/loader/sci_stream.h):
+# 16 receptions doubling up to 64 while overruns recur soon after the window
+# is the generic module's console-measured setting (871c4c7784b4,
+# docs/wince-adaptive-window-test.md). Both reach the reader and the
+# controller, so the two see the same stream state. The defaults (64, 0)
+# build every accepted CD music reader unchanged.
+KUI_CE_SLOW_WINDOW ?= 64
+KUI_CE_SLOW_ADAPT ?= 0
+ifneq ($(KUI_CE_SLOW_WINDOW):$(KUI_CE_SLOW_ADAPT),64:0)
+ifneq ($(KUI_CE_READER_FIXES),1)
+$(error KUI_CE_SLOW_WINDOW and KUI_CE_SLOW_ADAPT size the slow refetch of KUI_CE_READER_FIXES=1)
+endif
+ifeq ($(KUI_ARMADA_CE_MOVIE_TIMING),1)
+$(error The movie timing diagnostic keeps its own reader settings)
+endif
+ifneq ($(shell [ "$(KUI_CE_SLOW_WINDOW)" -ge 1 ] 2>/dev/null && [ "$(KUI_CE_SLOW_WINDOW)" -le 127 ] 2>/dev/null && echo ok),ok)
+$(error KUI_CE_SLOW_WINDOW must be a number from 1 to 127)
+endif
+ifneq ($(filter $(KUI_CE_SLOW_ADAPT),0 1 2 3),$(KUI_CE_SLOW_ADAPT))
+$(error KUI_CE_SLOW_ADAPT must be 0, 1, 2 or 3 doublings)
+endif
+ifneq ($(shell [ $$(( $(KUI_CE_SLOW_WINDOW) << $(KUI_CE_SLOW_ADAPT) )) -le 127 ] 2>/dev/null && echo ok),ok)
+$(error KUI_CE_SLOW_WINDOW doubled KUI_CE_SLOW_ADAPT times exceeds 127 receptions)
+endif
+ifneq ($(KUI_CE_SLOW_WINDOW),64)
+WINCE_CDDA_PROFILE_FLAGS += -DKUI_SCI_STREAM_SLOW_BLOCKS=$(KUI_CE_SLOW_WINDOW)u
+endif
+ifneq ($(KUI_CE_SLOW_ADAPT),0)
+WINCE_CDDA_PROFILE_FLAGS += -DKUI_SCI_STREAM_SLOW_ADAPT=$(KUI_CE_SLOW_ADAPT)
+endif
+endif
 override ARMADA_AUDIO_EXTRA_FLAGS := -DKUI_ARMADA_CE_EXCERPT=1 -DKUI_ARMADA_CE_STREAM=1 $(WINCE_CDDA_PROFILE_FLAGS)
 override ARMADA_AUDIO_EXTRA_STAGE_FLAGS := -DKUI_ARMADA_CE_RAM_BIND_STAGE=1 -DKUI_ARMADA_CE_EXCERPT_STAGE=1 -DKUI_ARMADA_CE_STREAM=1 -DKUI_RETAIL_EXTENDED_MAP=1 $(WINCE_CDDA_PROFILE_FLAGS)
 override ARMADA_AUDIO_EXTRA_STAGE_DEPS := $(ARMADA_AUDIO_DIR)/bind-probe.bin
@@ -116,6 +148,9 @@ force-wince-reader-config:
 $(ARMADA_AUDIO_DIR)/reader-config: force-wince-reader-config
 	@mkdir -p $(@D)
 	@printf '%s\n' 'READER_FIXES=$(KUI_CE_READER_FIXES)' > $@.tmp
+ifneq ($(KUI_CE_SLOW_WINDOW):$(KUI_CE_SLOW_ADAPT),64:0)
+	@printf '%s\n' 'SLOW_WINDOW=$(KUI_CE_SLOW_WINDOW)' 'SLOW_ADAPT=$(KUI_CE_SLOW_ADAPT)' >> $@.tmp
+endif
 	@cmp -s $@.tmp $@ || cp $@.tmp $@
 	@rm -f $@.tmp
 $(ARMADA_AUDIO_STAGE) $(ARMADA_AUDIO_SCIF) $(ARMADA_AUDIO_IDE) $(ARMADA_AUDIO_SCI) $(ARMADA_AUDIO_SCIA) $(ARMADA_STREAM_OBJS) $(ARMADA_AUDIO_DIR)/retail_entry_asm.o: $(ARMADA_AUDIO_DIR)/reader-config
