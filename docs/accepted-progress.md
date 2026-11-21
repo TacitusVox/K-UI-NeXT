@@ -57,7 +57,7 @@ Delivered: `KUI-WinCE-GUI-Routes-16NOV2026-1928-CST-069d612.zip`, GUI build
 `retail-boot.kui` `9e3295bcfaec`, as `00d8ed67d9ad` does. `00d8ed67d9ad`
 remains the reference until the owner reports the package's four tests.
 
-## WinCE reader candidate: console test pending, 41e3450bc94d, 2026-11-20
+## WinCE reader candidate: console result, 41e3450bc94d, 2026-11-21
 
 The generic `ce-boot.kui` for everyday use with both console-tested changes:
 PVR stream pieces (`a660354d804c`) and the 16-reception slow window
@@ -75,6 +75,18 @@ write-width check on both residents, the GUI's seven production admission
 cases. The run list leads with Armada US, CD music Off, which uses this module
 and was never run with the shorter window. The window stays 64 by default
 until this candidate's result.
+
+Result (the owner, CD music Off): Armada's intro movie is "back to how it was
+before, bad echo and slightly choppy", the fault the 64-reception window had
+cured; Armada's gameplay lag, present on the installed module, is gone ("Actual
+gameplay is super smooth"); Super Producers' movie had the same echo, its
+picture relatively smooth until the last 5 or so seconds; KISS Psycho Circus
+and Virtua Cop 2 no problems; Worms Armageddon no problems, "maybe slight lag in
+the audio with the intro movies"; Super Runabout no problems. So a fixed
+16-reception window is not a default: it is faster under light or periodic
+contention and gives more restarts under Armada's heavy contention. The window
+stays 64 by default; the next test grows the window only while overruns keep
+recurring ([slow-window test](wince-slow-window-test.md#the-candidate-armada-with-cd-music-off)).
 
 ## WinCE slow-window test: console result, 9313dad06594, 2026-11-21
 

@@ -80,3 +80,49 @@ sectors. Bust-A-Move 4 has no 32-sector reads and no overrun in either session.)
   checked before 16 becomes the generic module's default.
 - Not answered: RE2's and Sno-Cross's freezes, which these data place away from
   read speed, and what slows Maximum Pool beyond the overruns.
+
+## The candidate: Armada with CD music Off
+
+The everyday candidate `41e3450bc94d`
+(`KUI-WinCE-Reader-Candidate-20NOV2026-2002-CST-41e3450.zip`) carries both
+console-tested changes: the PVR stream pieces and this 16-reception window.
+The owner's results, 21 Nov 2026 (CD music Off, no data recorded):
+
+| Game | Result |
+|---|---|
+| Armada (US) intro movie | "back to how it was before, bad echo and slightly choppy" |
+| Armada (US) gameplay | the earlier "bad lag in the gameplay" is "erased", "super smooth" |
+| Super Producers (JPN) | the same echo; the picture relatively smooth until the last 5 or so seconds |
+| KISS Psycho Circus (US), Virtua Cop 2 (JPN) | no problems |
+| Worms Armageddon (US) | no problems, "maybe slight lag in the audio with the intro movies" |
+| Super Runabout (US) | no problems |
+
+Armada's intro echo is the fault the 64-reception window was chosen to cure
+on the CD-music route, where about 22% of its receptions overran at 12.5 MHz.
+Under that much contention the shorter window returns to the fast clock while
+the bus is still held, so overruns, each followed by a fresh read of its
+block, come about one and a half to three times as often (an estimate from
+those rates; this build records no ring).
+Its gameplay, like Super Producers' movie, gains from the faster reads.
+Super Producers' echo was not reported on the slow-window test, where the
+owner judged the movie fixed; the two runs differ in the probe and the
+PVR-piece change, neither of which touches its reads.
+
+What the rings show: overruns cluster. Super Producers' most common read on
+the 16-reception build had two counted overruns and 32 blocks at 6.25 MHz (62
+of 189 reads), and on the 64-reception build one or two: a regular count per
+read, as from a periodic source. A fit of both sessions with overruns spread
+evenly over receptions does not hold: in the same five games (32-sector reads)
+the fitted rate at 6.25 MHz is 1.4 to 2.7 times higher with the 16-reception
+window than with the 64-reception one, so overruns come more often just after
+an overrun. (The ring counts an overrun that ends a reception: one in a
+block's CRC bytes, or a second in the same block. One resumed mid-block, whose
+block is then refused and read again, also starts or ends a window but is not
+counted; on Armada's CD-music route these were 95 of 5,726,
+[movie timing](armada-movie-timing-test.md#third-result-fast-check-reader-8cdbc0a351f8-9-nov-2026).)
+
+Next: a window that grows only while overruns keep recurring. It starts at
+16 receptions and doubles, up to the accepted 64, when an overrun at 12.5 MHz
+follows the end of the last window within a few receptions (the bus is still
+held), and falls back a step when one comes later.
+
