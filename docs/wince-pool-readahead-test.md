@@ -1,6 +1,7 @@
 # WinCE RAM pool and read-ahead tests (generic `ce-boot.kui`, 21 Nov 2026)
 
-**Status: two test builds delivered 21 Nov 2026; console tests pending.**
+**Status: test 1 console-tested 21 Nov 2026 (seven launches, [result](#result-of-test-1-21-nov-2026));
+test 2 pending.**
 Two behaviour changes to the generic Windows CE module, each with its own
 console test, in this order ([design](wince-unified-runtime.md)):
 
@@ -47,6 +48,46 @@ pool in this build. Questions:
 Run list: Maximum Pool (US), Resident Evil 2 (US) disc 1, Super Producers
 (JPN), Armada (US) with `ce-probe.kui` aside, Worms Armageddon (US), Super
 Runabout (US), then every other WinCE game the owner has, a minute each.
+
+## Result of test 1 (21 Nov 2026)
+
+Seven launches, each ended by the owner with A+B+X+Y+Start after 1.8 to 4.8
+minutes, every dump complete ([evidence](evidence/wince-pool-session-2026-11-21.json),
+derived fields only). The owner sent no per-launch notes and reported no
+problem.
+
+| Game | Kernel | Pool | CE's RAM end while running | Pool pages in use at the end | 64 KiB below it | Top 64 KiB without the pool (D5) |
+|---|---|---|---|---|---|---|
+| Maximum Pool (US) | CE 3, 1,695,744 bytes | `0x8cfc0000` | `0x8cfc0000` | 0 of 16 | 16 of 16 | 16 of 16 |
+| Resident Evil 2 (US) | CE 3, 1,204,224 | `0x8cfc0000` | `0x8cfc0000` | 0 | 16 | 16 |
+| Super Producers (JPN) | CE 2, 819,200 | `0x8cee0000` | `0x8cee0000` | 0 | 15 | 15 |
+| Armada (US) | CE 3, 1,251,328 | `0x8cfc0000` | `0x8cfc0000` | 0 | 15 | 15 |
+| Worms Armageddon (US) | CE 2, 1,107,968 | `0x8cee0000` | `0x8cee0000` | 0 | 15 | 15 |
+| Super Runabout (US) | CE 3, 1,064,960 | `0x8cfc0000` | `0x8cfc0000` | 0 | 15 | 15 |
+| Worms World Party (US) | CE 3, 1,826,816 (not surveyed before) | `0x8cfc0000` | `0x8cfc0000` | 0 | 15 | not run in D5 |
+
+- **The pool was reserved on all seven kernels**, CE 2 and CE 3, by the
+  structural rule (`rom_header_method` 2). Worms World Party's kernel was not
+  among the 19 surveyed: the rule found its header too, so it now holds on
+  20 kernels.
+- **CE honoured it.** In each running kernel the header's RAM end reads the
+  lowered value and no other header byte differs. Without the pool (the
+  adaptive session, same kernels) CE had used 15 or 16 of the 16 pages at the
+  top of its RAM by the end of a launch; with it, those 16 pages, the pool,
+  were untouched in every launch, and the 64 KiB just below, CE's new top,
+  was in use instead.
+- **No game minded 64 KiB less**: every launch played until the owner ended
+  it, with no failed request, no refused or unknown command.
+- **Reading is unchanged.** The streamed 32-sector reads of the same games
+  against the adaptive session: Super Producers median 64.8 ms against 64.8
+  (189 reads each), Super Runabout 97.1 against 97.2 (75 each), Armada's play
+  86.8 against 86.9, Maximum Pool 78.5 against 81.7. Resident Evil 2's ring
+  this time held a later stretch of the launch (146 to 181 s, against 2 to
+  38 s), with the game asking less often; its reads, 76.7 against 72.9 ms,
+  stay within the run-to-run spread of earlier sessions.
+
+So the pool is safe to use on these kernels; read-ahead (test 2) is the next
+behaviour change.
 
 ## Test 2: read-ahead
 

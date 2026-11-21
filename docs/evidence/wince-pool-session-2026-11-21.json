@@ -1,0 +1,391 @@
+{
+ "schema": "kui.wince-pool-session.v1",
+ "source": "WCEDATA.BIN of the owner's console session of 21 Nov 2026 with the pool timing test build 1a5f46776c0c (KUI_WCE_PROBE=2 KUI_CE_SLOW_WINDOW=16 KUI_CE_SLOW_ADAPT=2 KUI_CE_POOL_KIB=64), file id bcd16a2e664c9574b66cfcc07c0e384c; derived fields only (no kernel, game or RAM bytes). The comparison is the adaptive session of 21 Nov 2026 (871c4c7784b4, same reader, no pool), same kernels.",
+ "page_rule": "a 4 KiB page is in use if any byte of it is non-zero in the end-of-launch RAM dump",
+ "launches": [
+  {
+   "slot": 1,
+   "product": "T11010N",
+   "title": "SIERRA SPORTS MAXIMUM POOL",
+   "kernel_bytes": 1695744,
+   "kernel_crc32": "0x29bf6186",
+   "rom_header": "0x8c1ad974",
+   "rom_header_method": 2,
+   "pool_reserved": true,
+   "header_physlast_offset": 1695120,
+   "ram_start": "0x8c1ae000",
+   "ram_free": "0x8c1bc000",
+   "ram_end_found": "0x8cfd0000",
+   "drivglob_len": "0x30000",
+   "ram_end_in_running_kernel": "0x8cfc0000",
+   "pool": [
+    "0x8cfc0000",
+    "0x8cfd0000"
+   ],
+   "pool_pages_in_use_at_end": 0,
+   "pages_in_use_in_the_64k_below": 16,
+   "end": "A+B+X+Y+Start",
+   "launch_seconds": 151.8,
+   "gd_requests": 435,
+   "gd_sectors": 15815,
+   "ring_requests": 190,
+   "ring_failed": 0,
+   "refused_commands": 0,
+   "unknown_commands": 0,
+   "ring_window_ms": [
+    25875,
+    151050
+   ],
+   "reads_32_sectors": {
+    "reads": 28,
+    "median_ms": 78.5,
+    "p90_ms": 92.1,
+    "longest_ms": 109.5,
+    "overruns_per_1000_blocks": 36.4,
+    "slow_block_percent": 46.3
+   },
+   "without_pool_session_4": {
+    "top_64k_pages_in_use_at_end": 16,
+    "reads_32_sectors": {
+     "reads": 163,
+     "median_ms": 81.7,
+     "p90_ms": 97.0,
+     "longest_ms": 107.2,
+     "overruns_per_1000_blocks": 37.6,
+     "slow_block_percent": 48.9
+    },
+    "ring_window_ms": [
+     9100,
+     34650
+    ]
+   }
+  },
+  {
+   "slot": 2,
+   "product": "T1205N",
+   "title": "RESIDENT EVIL 2",
+   "kernel_bytes": 1204224,
+   "kernel_crc32": "0x6eb69d17",
+   "rom_header": "0x8c13583c",
+   "rom_header_method": 2,
+   "pool_reserved": true,
+   "header_physlast_offset": 1203000,
+   "ram_start": "0x8c136000",
+   "ram_free": "0x8c144000",
+   "ram_end_found": "0x8cfd0000",
+   "drivglob_len": "0x30000",
+   "ram_end_in_running_kernel": "0x8cfc0000",
+   "pool": [
+    "0x8cfc0000",
+    "0x8cfd0000"
+   ],
+   "pool_pages_in_use_at_end": 0,
+   "pages_in_use_in_the_64k_below": 16,
+   "end": "A+B+X+Y+Start",
+   "launch_seconds": 181.6,
+   "gd_requests": 624,
+   "gd_sectors": 20942,
+   "ring_requests": 190,
+   "ring_failed": 0,
+   "refused_commands": 0,
+   "unknown_commands": 0,
+   "ring_window_ms": [
+    146425,
+    181375
+   ],
+   "reads_32_sectors": {
+    "reads": 186,
+    "median_ms": 76.7,
+    "p90_ms": 95.6,
+    "longest_ms": 108.2,
+    "overruns_per_1000_blocks": 37.7,
+    "slow_block_percent": 38.9
+   },
+   "without_pool_session_4": {
+    "top_64k_pages_in_use_at_end": 16,
+    "reads_32_sectors": {
+     "reads": 186,
+     "median_ms": 72.9,
+     "p90_ms": 86.3,
+     "longest_ms": 110.0,
+     "overruns_per_1000_blocks": 31.0,
+     "slow_block_percent": 29.5
+    },
+    "ring_window_ms": [
+     1875,
+     37975
+    ]
+   }
+  },
+  {
+   "slot": 3,
+   "product": "T14303M",
+   "title": "SUPER PRODUCERS",
+   "kernel_bytes": 819200,
+   "kernel_crc32": "0xf6f9a169",
+   "rom_header": "0x8c0d77a4",
+   "rom_header_method": 2,
+   "pool_reserved": true,
+   "header_physlast_offset": 817628,
+   "ram_start": "0x8c0d8000",
+   "ram_free": "0x8c0e1000",
+   "ram_end_found": "0x8cef0000",
+   "drivglob_len": "0x110000",
+   "ram_end_in_running_kernel": "0x8cee0000",
+   "pool": [
+    "0x8cee0000",
+    "0x8cef0000"
+   ],
+   "pool_pages_in_use_at_end": 0,
+   "pages_in_use_in_the_64k_below": 15,
+   "end": "A+B+X+Y+Start",
+   "launch_seconds": 125.4,
+   "gd_requests": 1200,
+   "gd_sectors": 39002,
+   "ring_requests": 190,
+   "ring_failed": 0,
+   "refused_commands": 0,
+   "unknown_commands": 0,
+   "ring_window_ms": [
+    104950,
+    124275
+   ],
+   "reads_32_sectors": {
+    "reads": 189,
+    "median_ms": 64.8,
+    "p90_ms": 79.7,
+    "longest_ms": 102.9,
+    "overruns_per_1000_blocks": 19.5,
+    "slow_block_percent": 25.1
+   },
+   "without_pool_session_4": {
+    "top_64k_pages_in_use_at_end": 15,
+    "reads_32_sectors": {
+     "reads": 189,
+     "median_ms": 64.8,
+     "p90_ms": 78.5,
+     "longest_ms": 105.5,
+     "overruns_per_1000_blocks": 19.7,
+     "slow_block_percent": 25.1
+    },
+    "ring_window_ms": [
+     104950,
+     124250
+    ]
+   }
+  },
+  {
+   "slot": 4,
+   "product": "T40301N 00",
+   "title": "ARMADA",
+   "kernel_bytes": 1251328,
+   "kernel_crc32": "0xb9f755bc",
+   "rom_header": "0x8c141420",
+   "rom_header_method": 2,
+   "pool_reserved": true,
+   "header_physlast_offset": 1251192,
+   "ram_start": "0x8c142000",
+   "ram_free": "0x8c150000",
+   "ram_end_found": "0x8cfd0000",
+   "drivglob_len": "0x30000",
+   "ram_end_in_running_kernel": "0x8cfc0000",
+   "pool": [
+    "0x8cfc0000",
+    "0x8cfd0000"
+   ],
+   "pool_pages_in_use_at_end": 0,
+   "pages_in_use_in_the_64k_below": 15,
+   "end": "A+B+X+Y+Start",
+   "launch_seconds": 250.9,
+   "gd_requests": 1468,
+   "gd_sectors": 39036,
+   "ring_requests": 190,
+   "ring_failed": 0,
+   "refused_commands": 0,
+   "unknown_commands": 0,
+   "ring_window_ms": [
+    107400,
+    250775
+   ],
+   "reads_32_sectors": {
+    "reads": 47,
+    "median_ms": 86.8,
+    "p90_ms": 111.5,
+    "longest_ms": 118.3,
+    "overruns_per_1000_blocks": 59.8,
+    "slow_block_percent": 55.7
+   },
+   "without_pool_session_4": {
+    "top_64k_pages_in_use_at_end": 15,
+    "reads_32_sectors": {
+     "reads": 44,
+     "median_ms": 86.9,
+     "p90_ms": 105.0,
+     "longest_ms": 123.4,
+     "overruns_per_1000_blocks": 51.2,
+     "slow_block_percent": 56.3
+    },
+    "ring_window_ms": [
+     107525,
+     230625
+    ]
+   }
+  },
+  {
+   "slot": 5,
+   "product": "T40601N",
+   "title": "WORMS ARMAGEDDON",
+   "kernel_bytes": 1107968,
+   "kernel_crc32": "0xcd686951",
+   "rom_header": "0x8c11de70",
+   "rom_header_method": 2,
+   "pool_reserved": true,
+   "header_physlast_offset": 1106348,
+   "ram_start": "0x8c11f000",
+   "ram_free": "0x8c129000",
+   "ram_end_found": "0x8cef0000",
+   "drivglob_len": "0x110000",
+   "ram_end_in_running_kernel": "0x8cee0000",
+   "pool": [
+    "0x8cee0000",
+    "0x8cef0000"
+   ],
+   "pool_pages_in_use_at_end": 0,
+   "pages_in_use_in_the_64k_below": 15,
+   "end": "A+B+X+Y+Start",
+   "launch_seconds": 106.8,
+   "gd_requests": 763,
+   "gd_sectors": 17511,
+   "ring_requests": 190,
+   "ring_failed": 0,
+   "refused_commands": 0,
+   "unknown_commands": 0,
+   "ring_window_ms": [
+    90725,
+    101600
+   ],
+   "reads_32_sectors": {
+    "reads": 2,
+    "median_ms": 64.3,
+    "p90_ms": 65.8,
+    "longest_ms": 65.8,
+    "overruns_per_1000_blocks": 20.4,
+    "slow_block_percent": 15.0
+   },
+   "without_pool_session_4": {
+    "top_64k_pages_in_use_at_end": 15,
+    "reads_32_sectors": {
+     "reads": 4,
+     "median_ms": 74.3,
+     "p90_ms": 83.3,
+     "longest_ms": 83.3,
+     "overruns_per_1000_blocks": 25.5,
+     "slow_block_percent": 35.7
+    },
+    "ring_window_ms": [
+     108850,
+     120000
+    ]
+   }
+  },
+  {
+   "slot": 6,
+   "product": "T12509N",
+   "title": "SUPER RUNABOUT",
+   "kernel_bytes": 1064960,
+   "kernel_crc32": "0x5ec7ec3f",
+   "rom_header": "0x8c113b24",
+   "rom_header_method": 2,
+   "pool_reserved": true,
+   "header_physlast_offset": 1064452,
+   "ram_start": "0x8c114000",
+   "ram_free": "0x8c120000",
+   "ram_end_found": "0x8cfd0000",
+   "drivglob_len": "0x30000",
+   "ram_end_in_running_kernel": "0x8cfc0000",
+   "pool": [
+    "0x8cfc0000",
+    "0x8cfd0000"
+   ],
+   "pool_pages_in_use_at_end": 0,
+   "pages_in_use_in_the_64k_below": 15,
+   "end": "A+B+X+Y+Start",
+   "launch_seconds": 287.2,
+   "gd_requests": 235,
+   "gd_sectors": 20628,
+   "ring_requests": 190,
+   "ring_failed": 0,
+   "refused_commands": 0,
+   "unknown_commands": 0,
+   "ring_window_ms": [
+    10000,
+    285975
+   ],
+   "reads_32_sectors": {
+    "reads": 75,
+    "median_ms": 97.1,
+    "p90_ms": 115.1,
+    "longest_ms": 124.6,
+    "overruns_per_1000_blocks": 59.2,
+    "slow_block_percent": 69.3
+   },
+   "without_pool_session_4": {
+    "top_64k_pages_in_use_at_end": 15,
+    "reads_32_sectors": {
+     "reads": 75,
+     "median_ms": 97.2,
+     "p90_ms": 111.7,
+     "longest_ms": 124.8,
+     "overruns_per_1000_blocks": 55.3,
+     "slow_block_percent": 66.3
+    },
+    "ring_window_ms": [
+     9500,
+     260350
+    ]
+   }
+  },
+  {
+   "slot": 7,
+   "product": "T22904N",
+   "title": "WORMS WORLD PARTY",
+   "kernel_bytes": 1826816,
+   "kernel_crc32": "0x12f68791",
+   "rom_header": "0x8c1cd614",
+   "rom_header_method": 2,
+   "pool_reserved": true,
+   "header_physlast_offset": 1825324,
+   "ram_start": "0x8c1ce000",
+   "ram_free": "0x8c1dc000",
+   "ram_end_found": "0x8cfd0000",
+   "drivglob_len": "0x30000",
+   "ram_end_in_running_kernel": "0x8cfc0000",
+   "pool": [
+    "0x8cfc0000",
+    "0x8cfd0000"
+   ],
+   "pool_pages_in_use_at_end": 0,
+   "pages_in_use_in_the_64k_below": 15,
+   "end": "A+B+X+Y+Start",
+   "launch_seconds": 130.8,
+   "gd_requests": 655,
+   "gd_sectors": 15595,
+   "ring_requests": 190,
+   "ring_failed": 0,
+   "refused_commands": 0,
+   "unknown_commands": 0,
+   "ring_window_ms": [
+    113900,
+    127750
+   ],
+   "reads_32_sectors": {
+    "reads": 22,
+    "median_ms": 82.6,
+    "p90_ms": 97.3,
+    "longest_ms": 104.4,
+    "overruns_per_1000_blocks": 39.9,
+    "slow_block_percent": 53.2
+   }
+  }
+ ]
+}

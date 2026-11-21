@@ -35,7 +35,9 @@ in each image does (`include/kui/ce_ram_pool.h`): `physfirst` is the image's
 load address, `physlast` lies inside the image, `physlast <= ulRAMStart <=
 ulRAMFree < ulRAMEnd <= 0x8d000000`, `ulRAMEnd` is page aligned, and the
 driver globals fill the RAM above it. The probe's own `ECEC` method found no
-CE 2 kernel; this rule finds all six.
+CE 2 kernel; this rule finds all six. The pool session of 21 Nov 2026 added a
+20th kernel (Worms World Party's), which obeys the same rule
+([evidence](evidence/wince-pool-session-2026-11-21.json)).
 
 Games leave much of that RAM unused. The session-1 dumps' page counters
 (unreviewed, see the [roadmap](wince-roadmap.md)) put the RAM still free at
@@ -114,7 +116,7 @@ what read-ahead fills.
 
 | Item | State |
 |---|---|
-| Universal pool (generic module) | built `c6745ab2`, host-tested on the 19 layouts, not console-tested (its console test: [tests](wince-pool-readahead-test.md)) |
+| Universal pool (generic module) | built `c6745ab2`, host-tested on the surveyed layouts; console-tested 21 Nov 2026 on 7 kernels: reserved on all, untouched by CE, reads unchanged ([result](wince-pool-readahead-test.md#result-of-test-1-21-nov-2026)) |
 | Read-ahead (generic module) | built `1a5f4677`, host-tested (306,260 checks with every existing CE case), not console-tested ([tests](wince-pool-readahead-test.md)); no measurement build carries it (the probe's resident has no room) |
 | Adaptive slow window in the CD-music modules | designed: the same switch; after the generic module's acceptance |
 | Read-ahead in the CD-music modules | designed: claim 3 above, yielding to the music's refills |
