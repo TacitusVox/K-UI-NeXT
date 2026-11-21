@@ -57,7 +57,15 @@ Delivered: `KUI-WinCE-GUI-Routes-16NOV2026-1928-CST-069d612.zip`, GUI build
 `retail-boot.kui` `9e3295bcfaec`, as `00d8ed67d9ad` does. `00d8ed67d9ad`
 remains the reference until the owner reports the package's four tests.
 
-## WinCE timing session probe: data pending, 5c1cdd89387b, 2026-11-20
+## WinCE timing session probe: data received, 5c1cdd89387b, 2026-11-20
+
+The owner ran eight launches with no VMU inserted; results:
+[timing session 1](wince-timing-session-1.md). No read stalled in any window.
+Overruns, from bus contention during streams, slow the paced movie and
+animation reads 1.4 to 1.8 times, and RE2's halts begin with nothing
+outstanding. Wild Metal's load ran at the clean rate.
+
+### Delivery
 
 A measurement build, not a candidate: the generic `ce-boot.kui` with
 `KUI_WCE_PROBE=2` ([timing session](wince-data-probe.md#timing-session-kui_wce_probe2)),
