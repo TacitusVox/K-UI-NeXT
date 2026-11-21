@@ -110,3 +110,5 @@ The report's first page (A+B+X+Y+Start), the fixed module:
    waits for the worker's next visit (73 ms apart on average in run 1).
    Armada overran 1,017 times in 105 s of play; Worms, with less bus
    contention, keeps up.
+
+Next: [restart the music's card stream where it stops](wince-cdda-chain-test.md).

@@ -57,7 +57,31 @@ Delivered: `KUI-WinCE-GUI-Routes-16NOV2026-1928-CST-069d612.zip`, GUI build
 `retail-boot.kui` `9e3295bcfaec`, as `00d8ed67d9ad` does. `00d8ed67d9ad`
 remains the reference until the owner reports the package's four tests.
 
-## WinCE CD music worker fix: delivered, console test pending, 06341c5a3681, 2026-11-21
+## WinCE CD music chain fix: delivered, console test pending, 1ba2fa7e7040, 2026-11-21
+
+On top of the worker fix below (smooth gameplay, but Armada's music
+repeated): the music's card stream restarts where it stops
+([record](wince-cdda-chain-test.md)). Source `1ba2fa7e` adds
+`KUI_CE_CDDA_CHAIN` (controller only): a restart's token search goes on for up
+to eight more slices inside the interrupt or GD call that needs it, and a fast
+overrun is refetched by DMA at 6.25 MHz while the reader's slow window is
+armed. Default 0: the five CD music modules rebuild byte-identical to
+`7b216f2e1136`, and with the emergency switch alone to `06341c5a3681`. Test
+build `1ba2fa7e7040` (adaptive window, emergency and chain): payload CRCs
+`830BD7EA`, `23A93E11`, `0074D23C`, `F219336E`, `8C21F910`, and the Armada
+gameplay timing `A2F1FE09`. Delivered as
+`KUI-WinCE-CD-Music-Chain-Fix-21NOV2026-1415-CST-1ba2fa7.zip` (SHA256
+`b932e05403cd410446097d1d2b9c6311e1302fd541c9712d547bde164f8ec134`) with the
+`52a946122537` set in `IF-NEEDED/`. Gates pass; stack worst cases unchanged.
+
+## WinCE CD music worker fix: console-tested, music repeats in Armada, 06341c5a3681, 2026-11-21
+
+**Result (21 Nov 2026):** Armada: smooth gameplay, but its music repeated;
+Worms: fine. No model underrun (GAPS 0): CE mixes 155 ms ahead of the play
+cursor, and without the worker's programmed receptions the music's DMA chain
+stopped at each restart inside an interrupt or GD call until the worker's next
+visit ([result](wince-cdda-emergency-pio-test.md#result-21-nov-2026)).
+
 
 The fix for the CD music On gameplay lag ([record](wince-cdda-emergency-pio-test.md)).
 Source `06341c5a` adds `KUI_CE_CDDA_EMERGENCY_PIO` (Makefile.armada-stream,
