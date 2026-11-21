@@ -22,6 +22,14 @@
 #define AUDIO_URGENT_QUANTUM ((KUI_ARMADA_CE_STREAM_BATCH_BYTES+1022u)/512u)
 #define AUDIO_URGENT_ENTER_BYTES 176400u
 #define AUDIO_URGENT_EXIT_BYTES 264600u
+#if KUI_ARMADA_CE_STREAM_EMERGENCY_PIO
+/* The source worker's programmed receptions are an emergency only: while
+ * the music plays with at most half a second of fresh PCM, until it has a
+ * second again. Urgency alone keeps its longer grants; the worker's visit
+ * then restarts a stalled reception by DMA, as the IRQ and DATA pumps do. */
+#define AUDIO_PIO_ENTER_BYTES 88200u
+#define AUDIO_PIO_EXIT_BYTES 176400u
+#endif
 #define TOKEN_LIMIT 65536u
 #define RETRIES 8u
 #define OWNER_NONE 0u
@@ -42,6 +50,9 @@ static struct {
 #if KUI_ARMADA_CE_PLAY_TIMING
     uint32_t play_grants; /* Diagnostic: music grants while a game read was active. */
 #endif
+#if KUI_ARMADA_CE_STREAM_EMERGENCY_PIO
+    uint32_t pio; /* The source worker may receive by programmed transfers. */
+#endif
 } t;
 #ifdef KUI_ARMADA_CE_STREAM_TRANSPORT_TEST
 void kui_armada_ce_stream_transport_test_reset(void) { memset(&t,0,sizeof(t)); }
@@ -52,6 +63,16 @@ void kui_armada_ce_stream_transport_priority(uint32_t fresh_bytes,bool active) {
     else if(fresh_bytes<=AUDIO_URGENT_ENTER_BYTES) t.urgent=1u;
 }
 bool kui_armada_ce_stream_transport_urgent(void) { return t.urgent!=0u; }
+#if KUI_ARMADA_CE_STREAM_EMERGENCY_PIO
+void kui_armada_ce_stream_transport_pio_floor(uint32_t fresh_bytes,bool playing) {
+    if(!playing || fresh_bytes>=AUDIO_PIO_EXIT_BYTES) t.pio=0u;
+    else if(fresh_bytes<=AUDIO_PIO_ENTER_BYTES) t.pio=1u;
+}
+bool kui_armada_ce_stream_transport_pio(void) { return t.pio!=0u; }
+#define WORKER_PIO t.pio
+#else
+#define WORKER_PIO t.urgent
+#endif
 bool kui_armada_ce_stream_transport_worker_can_pump(void) {
 #if KUI_ARMADA_CE_VMU_WRITE_RUNTIME
     if(t.vmu_loan) return false;
@@ -266,7 +287,7 @@ static enum kui_armada_ce_stream_transport_status pump(bool worker) {
         lba=t.cursor.block;
     } else if(result==KUI_SCI_STREAM_CRC) audio_failure(result);
     if(t.stats.status!=KUI_ARMADA_CE_STREAM_TRANSPORT_PENDING) {release_audio();return KUI_ARMADA_CE_STREAM_TRANSPORT_IO;}
-    result=t.bus.fetch(lba,TOKEN_LIMIT,(worker && t.urgent) || t.early_polled || t.stats.retries>=2u);
+    result=t.bus.fetch(lba,TOKEN_LIMIT,(worker && WORKER_PIO) || t.early_polled || t.stats.retries>=2u);
     if(result>KUI_SCI_STREAM_BUSY) audio_failure(result);
     if(t.bus.busy()) t.bus.hook();
     else t.bus.unhook();

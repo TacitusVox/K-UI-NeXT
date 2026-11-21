@@ -128,6 +128,19 @@ ifneq ($(KUI_CE_SLOW_ADAPT),0)
 WINCE_CDDA_PROFILE_FLAGS += -DKUI_SCI_STREAM_SLOW_ADAPT=$(KUI_CE_SLOW_ADAPT)
 endif
 endif
+# The music worker's programmed receptions as an emergency only: it receives
+# by programmed transfers only while the music plays with at most half a
+# second of fresh PCM (until one second), not whenever the music is urgent;
+# by DMA otherwise, prefill included (src/loader/armada_ce_stream_transport.c).
+# Those urgent receptions were the console-measured cause of CD music On's
+# gameplay lag (docs/wince-cdda-play-timing-test.md). Controller only; 0
+# builds every accepted module unchanged.
+KUI_CE_CDDA_EMERGENCY_PIO ?= 0
+ifeq ($(KUI_CE_CDDA_EMERGENCY_PIO),1)
+WINCE_CDDA_PROFILE_FLAGS += -DKUI_ARMADA_CE_STREAM_EMERGENCY_PIO=1
+else ifneq ($(KUI_CE_CDDA_EMERGENCY_PIO),0)
+$(error KUI_CE_CDDA_EMERGENCY_PIO must be 0 or 1)
+endif
 override ARMADA_AUDIO_EXTRA_FLAGS := -DKUI_ARMADA_CE_EXCERPT=1 -DKUI_ARMADA_CE_STREAM=1 $(WINCE_CDDA_PROFILE_FLAGS)
 override ARMADA_AUDIO_EXTRA_STAGE_FLAGS := -DKUI_ARMADA_CE_RAM_BIND_STAGE=1 -DKUI_ARMADA_CE_EXCERPT_STAGE=1 -DKUI_ARMADA_CE_STREAM=1 -DKUI_RETAIL_EXTENDED_MAP=1 $(WINCE_CDDA_PROFILE_FLAGS)
 override ARMADA_AUDIO_EXTRA_STAGE_DEPS := $(ARMADA_AUDIO_DIR)/bind-probe.bin
@@ -169,6 +182,9 @@ $(ARMADA_AUDIO_DIR)/reader-config: force-wince-reader-config
 	@printf '%s\n' 'READER_FIXES=$(KUI_CE_READER_FIXES)' > $@.tmp
 ifneq ($(KUI_CE_SLOW_WINDOW):$(KUI_CE_SLOW_ADAPT),64:0)
 	@printf '%s\n' 'SLOW_WINDOW=$(KUI_CE_SLOW_WINDOW)' 'SLOW_ADAPT=$(KUI_CE_SLOW_ADAPT)' >> $@.tmp
+endif
+ifeq ($(KUI_CE_CDDA_EMERGENCY_PIO),1)
+	@printf '%s\n' 'EMERGENCY_PIO=1' >> $@.tmp
 endif
 	@cmp -s $@.tmp $@ || cp $@.tmp $@
 	@rm -f $@.tmp

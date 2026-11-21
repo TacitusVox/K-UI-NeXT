@@ -173,6 +173,9 @@ static void update_priority(bool active) {
      * same short integer mask as the worker's transport bridge. */
     uint32_t saved=mask_begin();
     kui_armada_ce_stream_transport_priority(ready_bytes(),active);
+#if KUI_ARMADA_CE_STREAM_EMERGENCY_PIO
+    kui_armada_ce_stream_transport_pio_floor(ready_bytes(),active && player.model.native_running);
+#endif
     mask_end(saved);
 }
 static void copy_bytes(void *to,const void *from,uint32_t bytes) {

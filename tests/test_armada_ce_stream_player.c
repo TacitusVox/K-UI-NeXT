@@ -46,6 +46,9 @@ struct authored_bus {
     bool pending,cancelled,revoked,stale_unlock,stale_source,bad_unlock,fail_end;
     bool bad_current,fail_ticks,driver_context,fail_owner_admission,urgent,priority_active,pio_ready;
     bool bad_object_page,bad_copy_page,lock_held;
+#if KUI_ARMADA_CE_STREAM_EMERGENCY_PIO
+    unsigned floor_updates;uint32_t floor_fresh;bool floor_playing;
+#endif
     uint32_t copy_page_address;
     unsigned copy_page_hits,copy_page_flip;
 } bus;
@@ -353,6 +356,15 @@ void kui_armada_ce_stream_transport_priority(uint32_t fresh,bool active) {
     bus.urgent=active && fresh<=176400u;
 }
 bool kui_armada_ce_stream_transport_urgent(void) {return bus.urgent;}
+#if KUI_ARMADA_CE_STREAM_EMERGENCY_PIO
+void kui_armada_ce_stream_transport_pio_floor(uint32_t fresh,bool playing) {
+    /* Published with priority, in the same masked bridge. The transport's
+     * own tests verify the floor's hysteresis and the worker's DMA. */
+    CHECK(bus.priority_updates==bus.floor_updates+1u && fresh==bus.priority_fresh &&
+        (!playing || bus.priority_active));
+    ++bus.floor_updates;bus.floor_fresh=fresh;bus.floor_playing=playing;
+}
+#endif
 bool kui_armada_ce_stream_transport_worker_can_pump(void) {
     CHECK(!bus.consumer && !bus.control);
     return bus.pio_ready && bus.pending && !bus.cancelled && !bus.revoked && !bus.pending_pumps;
@@ -779,9 +791,23 @@ int main(int argc,char **argv) {
     CHECK(!player.disabled && player.model.native_running && bus.urgent &&
         bus.priority_active && bus.priority_fresh==ready_bytes() &&
         bus.priority_fresh<=176400u);
+#if KUI_ARMADA_CE_STREAM_EMERGENCY_PIO
+    /* The floor sees the same fresh bytes, and playing only once the
+     * native buffer runs. */
+    CHECK(bus.floor_updates==bus.priority_updates && bus.floor_playing &&
+        bus.floor_fresh==bus.priority_fresh);
+#endif
     (void)kui_armada_ce_excerpt_queue(NULL,22u,0,0,0);visit();
     CHECK(!bus.urgent && !bus.priority_active &&
-        player.model.state==KUI_ARMADA_CE_STREAM_PAUSED);++cases;
+        player.model.state==KUI_ARMADA_CE_STREAM_PAUSED);
+#if KUI_ARMADA_CE_STREAM_EMERGENCY_PIO
+    CHECK(bus.floor_updates==bus.priority_updates && !bus.floor_playing);
+    /* Filling before playback is never an emergency. */
+    reset(true,128u);visit();
+    CHECK(bus.floor_updates==bus.priority_updates && bus.floor_updates && !bus.floor_playing &&
+        !player.model.native_running);
+#endif
+    ++cases;
     /* Native calls may wait after the worker entry timestamp. A delayed
      * cursor is checked against a clock captured after that call, and Play
      * records a fresh pre-call time because hardware may start while Play

@@ -221,14 +221,16 @@ LWEXT4_HOST_OBJECTS := $(patsubst %.c,build/host/%.o,$(LWEXT4_SOURCES))
 .PHONY: test test-recovery test-images deps diagnostic clean test-recovery-dashboard
 .PHONY: test-armada-ce-excerpt
 .PHONY: test-armada-ce-stream
-test-armada-ce-stream: build/test-armada-ce-stream-model build/test-armada-ce-stream-native build/test-armada-ce-stream-api build/test-armada-ce-stream-transport build/test-armada-ce-stream-boot build/test-armada-ce-stream-entry build/test-armada-ce-stream-player build/test-armada-ce-stream-owner-word build/test-armada-ce-stream-initial-word build/test-armada-ce-stream-discover-owner build/test-armada-ce-excerpt-prepare
+test-armada-ce-stream: build/test-armada-ce-stream-model build/test-armada-ce-stream-native build/test-armada-ce-stream-api build/test-armada-ce-stream-transport build/test-armada-ce-stream-transport-emergency-pio build/test-armada-ce-stream-player-emergency-pio build/test-armada-ce-stream-boot build/test-armada-ce-stream-entry build/test-armada-ce-stream-player build/test-armada-ce-stream-owner-word build/test-armada-ce-stream-initial-word build/test-armada-ce-stream-discover-owner build/test-armada-ce-excerpt-prepare
 	ASAN_OPTIONS=detect_leaks=0 ./build/test-armada-ce-stream-model
 	ASAN_OPTIONS=detect_leaks=0 ./build/test-armada-ce-stream-native
 	ASAN_OPTIONS=detect_leaks=0 ./build/test-armada-ce-stream-api
 	ASAN_OPTIONS=detect_leaks=0 ./build/test-armada-ce-stream-transport
+	ASAN_OPTIONS=detect_leaks=0 ./build/test-armada-ce-stream-transport-emergency-pio
 	./build/test-armada-ce-stream-boot
 	./build/test-armada-ce-stream-entry
 	./build/test-armada-ce-stream-player
+	./build/test-armada-ce-stream-player-emergency-pio
 	ASAN_OPTIONS=detect_leaks=0 ./build/test-armada-ce-stream-owner-word
 	ASAN_OPTIONS=detect_leaks=0 ./build/test-armada-ce-stream-initial-word
 	ASAN_OPTIONS=detect_leaks=0 ./build/test-armada-ce-stream-discover-owner
@@ -269,6 +271,14 @@ build/test-armada-ce-stream-api: tests/test_armada_ce_stream_api.c tests/test_ar
 build/test-armada-ce-stream-transport: tests/test_armada_ce_stream_transport.c src/loader/armada_ce_stream_transport.c include/kui/armada_ce_stream_transport.h src/core/retail_cursor.c src/core/retail_image.c
 	@mkdir -p $(@D)
 	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) -Isrc/loader -DKUI_RETAIL_CE=1 -DKUI_RETAIL_ASYNC=1 -DKUI_ARMADA_CE_STREAM=1 -DKUI_ARMADA_CE_STREAM_TRANSPORT_TEST=1 tests/test_armada_ce_stream_transport.c src/loader/armada_ce_stream_transport.c src/core/retail_cursor.c src/core/retail_image.c -o $@
+# The same transport and player with the worker's programmed receptions as
+# an emergency only (KUI_CE_CDDA_EMERGENCY_PIO).
+build/test-armada-ce-stream-transport-emergency-pio: tests/test_armada_ce_stream_transport.c src/loader/armada_ce_stream_transport.c include/kui/armada_ce_stream_transport.h src/core/retail_cursor.c src/core/retail_image.c
+	@mkdir -p $(@D)
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) -Isrc/loader -DKUI_RETAIL_CE=1 -DKUI_RETAIL_ASYNC=1 -DKUI_ARMADA_CE_STREAM=1 -DKUI_ARMADA_CE_STREAM_TRANSPORT_TEST=1 -DKUI_ARMADA_CE_STREAM_EMERGENCY_PIO=1 tests/test_armada_ce_stream_transport.c src/loader/armada_ce_stream_transport.c src/core/retail_cursor.c src/core/retail_image.c -o $@
+build/test-armada-ce-stream-player-emergency-pio: tests/test_armada_ce_stream_player.c src/loader/armada_ce_stream_player.c src/loader/armada_ce_stream_model.c src/loader/armada_ce_stream_trace.c include/kui/armada_ce_stream_trace.h include/kui/armada_ce_stream_model.h include/kui/armada_ce_stream_native.h include/kui/armada_ce_stream_transport.h
+	@mkdir -p $(@D)
+	$(CC) $(HOST_FLAGS) -fsanitize=undefined -fno-omit-frame-pointer -fno-pie -no-pie $(INCLUDES) -Isrc/loader -DKUI_ARMADA_CE_STREAM_EMERGENCY_PIO=1 tests/test_armada_ce_stream_player.c src/loader/armada_ce_stream_model.c src/loader/armada_ce_stream_trace.c -o $@
 build/test-armada-ce-stream-boot: tests/test_armada_ce_stream_boot.c tests/test_retail_async_ce.c tests/sci_stream_model.h src/loader/retail_async.c src/loader/retail_async.h src/loader/armada_ce_audio_observe.inc src/loader/armada_ce_excerpt_entry.c include/kui/armada_ce_stream_transport.h src/loader/armada_ce_stream_transport.c src/loader/sci_stream.c src/core/retail_cursor.c src/core/retail_image.c src/core/retail_gd.c
 	@mkdir -p $(@D)
 	$(CC) $(HOST_FLAGS) -fsanitize=undefined -fno-omit-frame-pointer -fno-pie -no-pie $(INCLUDES) -Isrc/loader -DKUI_RETAIL_ASYNC_TEST=1 -DKUI_SCI_STREAM_TEST=1 -DKUI_RETAIL_CE=1 -DKUI_RETAIL_ASYNC=1 -DKUI_RETAIL_GD_ASYNC=1 -DKUI_RETAIL_TRANSPORT=1 -DKUI_ARMADA_CE_EXCERPT=1 -DKUI_ARMADA_CE_STREAM=1 -DKUI_ARMADA_CE_STREAM_TRANSPORT_TEST=1 tests/test_armada_ce_stream_boot.c src/loader/retail_async.c src/loader/sci_stream.c src/loader/armada_ce_stream_trace.c src/core/retail_cursor.c src/core/retail_image.c src/core/retail_gd.c -o $@

@@ -100,6 +100,15 @@ endif
 WINCE_CDDA_CONTROLLER_BEGIN := 0x8cfa7000
 ARMADA_A2_CDDA_FLAGS := -DKUI_ARMADA_CE_CDDA_VMU=1 -DKUI_ARMADA_CE_STREAM=1
 ARMADA_STREAM_EXTRA_FLAGS := $(ARMADA_A2_CDDA_FLAGS) $(ARMADA_A2_EXPERIMENT_FLAGS)
+# The music worker's programmed receptions as an emergency only, as in the
+# other CD music modules (Makefile.armada-stream KUI_CE_CDDA_EMERGENCY_PIO).
+# Controller only; 0 builds the accepted module unchanged.
+KUI_CE_CDDA_EMERGENCY_PIO ?= 0
+ifeq ($(KUI_CE_CDDA_EMERGENCY_PIO),1)
+ARMADA_STREAM_EXTRA_FLAGS += -DKUI_ARMADA_CE_STREAM_EMERGENCY_PIO=1
+else ifneq ($(KUI_CE_CDDA_EMERGENCY_PIO),0)
+$(error KUI_CE_CDDA_EMERGENCY_PIO must be 0 or 1)
+endif
 override ARMADA_AUDIO_EXTRA_FLAGS += $(ARMADA_A2_CDDA_FLAGS) -DKUI_ARMADA_CE_EXCERPT=1
 # The background reader's two console-measured changes (Armada VMU Off,
 # readers 5d92a111b0fa and 8cdbc0a351f8): after a 12.5 MHz DMA overrun the
@@ -206,6 +215,9 @@ ifeq ($(ARMADA_A2_CDDA),1)
 	@printf '%s\n' 'READER_FIXES=$(ARMADA_CDDA_VMU_READER_FIXES)' 'TIMING=$(ARMADA_CDDA_VMU_TIMING)' >> $@.tmp
 ifneq ($(KUI_CE_SLOW_WINDOW):$(KUI_CE_SLOW_ADAPT),64:0)
 	@printf '%s\n' 'SLOW_WINDOW=$(KUI_CE_SLOW_WINDOW)' 'SLOW_ADAPT=$(KUI_CE_SLOW_ADAPT)' >> $@.tmp
+endif
+ifeq ($(KUI_CE_CDDA_EMERGENCY_PIO),1)
+	@printf '%s\n' 'EMERGENCY_PIO=1' >> $@.tmp
 endif
 endif
 	@cmp -s $@.tmp $@ || cp $@.tmp $@
