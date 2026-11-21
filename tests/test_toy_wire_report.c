@@ -24,6 +24,14 @@
 #define KUI_GENERAL_SCI_RESUME_FIX 1
 #define KUI_VMU_NATIVE_BACKGROUND 1
 #define KUI_BUILD_ID "DEADBEEF0123"
+/* Test 84's switches the expressions below use, off where the recipe does
+ * not set them (an undefined name is 0 in #if, but not in C). */
+#ifndef KUI_TOY_CDDA_DRIVE
+#define KUI_TOY_CDDA_DRIVE 0
+#endif
+#ifndef KUI_TOY_CDDA_SURVEY
+#define KUI_TOY_CDDA_SURVEY 0
+#endif
 
 #include "kui/native_readahead.h"
 #include "kui/toy_suite_report_wire.h"
