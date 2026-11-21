@@ -1,16 +1,21 @@
 /* SPDX-License-Identifier: GPL-3.0-only */
-/* Test 84 (DRIVE): the drive plays. The real disc service (src/core/retail_gd.c)
- * and the real player (src/loader/toy_cdda_player.c), called in the low
- * resident's order: the auxiliary's visit, which hands the player the call
- * first, then the service (src/loader/retail_async.c, kui_retail_async_call),
- * then the visit's end (KEEP). TMU0 is a scripted count. The call sequences are
+/* Test 84 (DRIVE, KEEP): the drive plays. The real disc service
+ * (src/core/retail_gd.c) and the real player (src/loader/toy_cdda_player.c),
+ * called in the low resident's order (src/loader/retail_async.c,
+ * kui_retail_async_call and kui_retail_async_after): the auxiliary's delivery
+ * visit, which hands the player the call first, delivers what the background
+ * reader's engine has, and hands the player the visit's end; then report(),
+ * which publishes the engine's progress of the read pending; then the
+ * service's answer. A read the service accepts starts at once, with a visit
+ * and a report() of its own. TMU0 is a scripted count. The call sequences are
  * the games' own, as their gdFs library makes them (docs/cd-audio-corpus.md):
  * REQUEST and EXEC at once, CHECK later, the library's REQ_STAT after PLAY and
  * PAUSE, and its resume by RELEASE or by the saved PLAY.
  *
- * A twin service without a player answers every call too: where no play
- * stands, every answer and every word of the service must be the twin's. Host
- * model only; nothing here ran on a console. */
+ * A twin service without a player answers every call too and is published the
+ * same progress: where no play stands, every answer and every word of the
+ * service must be the twin's; through KEEP's reads, every word but the drive
+ * status. Host model only; nothing here ran on a console. */
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -40,6 +45,9 @@
 
 #if !KUI_TOY_CDDA_DRIVE
 #error "This is DRIVE's test"
+#endif
+#ifndef KUI_TOY_CDDA_KEEP
+#define KUI_TOY_CDDA_KEEP 0
 #endif
 
 static unsigned long checks;
@@ -93,7 +101,15 @@ static const union kui_retail_slot tracks[TRACKS] = {
 };
 static kui_retail_async_region_type R;
 static struct kui_retail_gd twin;
-static bool twin_on;
+/* twin_but_status: the twin is compared in every word but the drive status. */
+static bool twin_on, twin_but_status;
+
+/* The background reader's engine (src/loader/retail_async.c): the read it
+ * serves is the one whose token it took at its start (R.engine.token). A
+ * delivery visit brings its complete sectors up to delivered, and its
+ * failure to failure. started: the low reader starts a read accepted. */
+static uint32_t delivered, failure;
+static bool started;
 
 /* TMU0 under the Toy profile, counting down. */
 static uint32_t tcnt = UINT32_C(0x12345678), frqcr = 0x0e0au, tcor = UINT32_MAX, tcr = 0x0002u, tstr = 1u;
@@ -121,7 +137,8 @@ static void fresh(void) {
     CHECK(kui_retail_gd_init(&R.shared.service, tracks, TRACKS, &ops, UINT32_C(0x8c008000), UINT32_C(0x8d000000)) == 0);
     CHECK(kui_retail_gd_init(&twin, tracks, TRACKS, &twin_ops, UINT32_C(0x8c008000), UINT32_C(0x8d000000)) == 0);
     R.shared.service.position_lba = twin.position_lba = 45000u;
-    twin_on = true;
+    twin_on = true; twin_but_status = false;
+    delivered = failure = 0u; started = true;
     frqcr = 0x0e0au; tcor = UINT32_MAX; tcr = 0x0002u; tstr = 1u;
 }
 /* The twin keeps up while nothing has been played: every answer and every
@@ -129,40 +146,61 @@ static void fresh(void) {
 static void same_as_twin(void) {
     struct kui_retail_gd a = R.shared.service, b = twin;
     a.ops.context = b.ops.context = NULL;
+    if(twin_but_status) a.drive_status = b.drive_status;
     if(memcmp(&a, &b, sizeof(a))) {
         const uint8_t *x = (const void *)&a, *y = (const void *)&b;
         for(size_t i = 0; i < sizeof(a); ++i)
             if(x[i] != y[i]) fprintf(stderr, "service byte %zu: %02x against the twin's %02x\n", i, x[i], y[i]);
     }
     CHECK(!memcmp(&a, &b, sizeof(a)));
-    CHECK(!memcmp(bank[0], bank[1], sizeof(bank[0])));
+    /* Function 4's answer is the drive status: its word at OUT is left out. */
+    const size_t out = OUT - BEGIN;
+    CHECK(!memcmp(bank[0], bank[1], twin_but_status ? out : sizeof(bank[0])));
+    if(twin_but_status) CHECK(!memcmp(bank[0] + out + 4u, bank[1] + out + 4u, sizeof(bank[0]) - out - 4u));
 }
-/* The sectors the background reader has delivered of the read pending:
- * published before the service answers, as the low reader's report() does
- * inside kui_retail_async_call after the visit (src/loader/retail_async.c). */
-static uint32_t delivered;
-static void publish(struct kui_retail_gd *s) {
-    if(s->pending && (s->command == KUI_GD_PIOREAD || s->command == KUI_GD_DMAREAD))
-        kui_retail_gd_progress(s, delivered, 0u);
+/* The low resident tells the auxiliary of a successful INIT or RESET, and of
+ * an ABORT, after the service, and of a read report() completed
+ * (retail_async.c, kui_retail_async_after and report()). */
+static void movie_complete(void) {
+    (void)kui_toy_cdda_player_visit(KUI_NATIVE_RA_MOVIE_COMPLETE, 0u, &R, NULL);
+}
+/* report(): the engine's progress, published to the service whose read it is. */
+static void report(struct kui_retail_gd *s) {
+    if(!s->pending || R.engine.token != s->token) return;
+    kui_retail_gd_progress(s, R.engine.cursor.done, R.engine.failed);
+    if(s == &R.shared.service && !s->pending) movie_complete();
+}
+/* A delivery visit from one of the game's calls: the player first, the
+ * visit's deliveries, the player again at the visit's end. */
+static void visit(void) {
+    (void)kui_toy_cdda_player_visit(KUI_NATIVE_RA_DELIVER, 0u, &R, NULL);
+    R.engine.cursor.done = delivered; R.engine.failed = failure;
+    (void)kui_toy_cdda_player_visit(KUI_TOY_CDDA_VISIT_END, 0u, &R, NULL);
+}
+static bool reading(const struct kui_retail_gd *s) {
+    return s->pending && (s->command == KUI_GD_PIOREAD || s->command == KUI_GD_DMAREAD);
 }
 /* One of the game's GD calls, as the low resident makes it. */
 static int32_t call(uint32_t function, uint32_t r4, uint32_t r5) {
     CHECK(!R.engine.in_irq);
-    (void)kui_toy_cdda_player_visit(KUI_NATIVE_RA_DELIVER, 0u, &R, NULL);
-    publish(&R.shared.service);
+    visit();
+    report(&R.shared.service);
     const int32_t result = kui_retail_gd_dispatch(&R.shared.service, r4, r5, 0u, function);
-    (void)kui_toy_cdda_player_visit(KUI_TOY_CDDA_KEEP, 0u, &R, NULL);
     if(twin_on) {
-        publish(&twin);
+        report(&twin);
         CHECK(kui_retail_gd_dispatch(&twin, r4, r5, 0u, function) == result);
-        same_as_twin();
     }
+    /* A read accepted starts at once: the engine takes its token, delivers
+     * what it has (an open window's sectors) in a visit, and report()s. */
+    if(started && function == KUI_GD_REQUEST && result > 0 && reading(&R.shared.service)) {
+        R.engine.token = R.shared.service.token;
+        R.engine.cursor.done = 0u; R.engine.failed = failure = 0u;
+        visit();
+        report(&R.shared.service);
+        if(twin_on) report(&twin);
+    }
+    if(twin_on) same_as_twin();
     return result;
-}
-/* The low resident tells the auxiliary of a successful INIT or RESET, and of
- * an ABORT, after the service (retail_async.c, kui_retail_async_after). */
-static void movie_complete(void) {
-    (void)kui_toy_cdda_player_visit(KUI_NATIVE_RA_MOVIE_COMPLETE, 0u, &R, NULL);
 }
 /* gdFs: the request, and EXEC at once. */
 static int32_t request(uint32_t command, uint32_t a, uint32_t b, uint32_t c, uint32_t d) {
@@ -563,6 +601,135 @@ static void catalogue_and_partial_lap(void) {
     ++scenarios;
 }
 
+/* The card's interrupt between the game's calls: its visit answers no call of
+ * the game's. The engine delivers up to sectors; in the Toy suite, report()
+ * follows once the engine has finished (retail_async.c, kui_retail_async_irq).
+ * The auxiliary hands no interrupt visit's end to the player: were it handed
+ * one, the player would keep nothing in it. */
+static void interrupt_delivers(uint32_t sectors, bool reports) {
+    const struct kui_retail_gd before = R.shared.service;
+    const struct kui_toy_cdda_drive drive_before = kui_toy_cdda_drive;
+    R.engine.in_irq = 1u;
+    (void)kui_toy_cdda_player_visit(KUI_NATIVE_RA_DELIVER, 0u, &R, NULL);
+    delivered = sectors; R.engine.cursor.done = delivered;
+    (void)kui_toy_cdda_player_visit(KUI_TOY_CDDA_VISIT_END, 0u, &R, NULL);
+    R.engine.in_irq = 0u;
+    CHECK(!memcmp(&before, &R.shared.service, sizeof(before)));
+    CHECK(!memcmp(&drive_before, &kui_toy_cdda_drive, sizeof(drive_before)));
+    if(reports) {
+        report(&R.shared.service);
+        if(twin_on) report(&twin);
+    }
+}
+
+#if KUI_TOY_CDDA_KEEP
+/* KEEP: MDK2 and Bangai-O ask for the drive's status between the pieces of a
+ * load. The engine delivers in the visit (an open window's sectors at the
+ * read's start, then the low reader's as it reads) and from the card's
+ * interrupt between the game's calls. While the drive plays, every call
+ * answers 3, and the service's words are the twin's but for the status, which
+ * the twin's report() sets to 1. Raw sectors (2,352 bytes) are kept as well.
+ * Paused or ended, the player keeps nothing. A failed read and an engine that
+ * serves another read are report()'s: the failure's call answers 1, the next 3
+ * again. */
+static void keep_through_reads(void) {
+    fresh();
+    twin_but_status = true;
+    finish(request(KUI_RETAIL_GD_PLAY, 4u, 4u, 15u, 0u));
+    CHECK(drive() == 3u && twin.drive_status == 1u);
+    const uint32_t first = kui_toy_cdda_drive.keeps;
+    /* 24 sectors: 8 from an open window at the start, then 2 from an
+     * interrupt and 4 from a poll's visit, in turn. */
+    delivered = 8u;
+    const int32_t token = request(KUI_GD_PIOREAD, 45300u + 150u, 24u, BUFFER, 0u);
+    CHECK(kui_toy_cdda_drive.keeps == first + 1u && R.shared.service.completed_bytes == 8u * 2048u);
+    CHECK(R.shared.service.drive_status == 3u && twin.drive_status == 1u && R.shared.service.position_lba == 45307u);
+    interrupt_delivers(10u, false);
+    CHECK(drive() == 3u);                     /* the interrupt's 2, kept */
+    delivered = 14u;
+    CHECK(check(token) == KUI_GD_PROCESSING); /* the poll's own 4 */
+    CHECK(drive() == 3u);
+    interrupt_delivers(16u, false);
+    delivered = 20u;
+    CHECK(check(token) == KUI_GD_PROCESSING); /* both at once */
+    CHECK(drive() == 3u);
+    interrupt_delivers(22u, false);
+    CHECK(drive() == 3u && kui_toy_cdda_drive.keeps == first + 5u);
+    /* The interrupt that delivers the last two, and its report(): 1 until the
+     * game's next call, whose visit writes 3 before it is answered. */
+    interrupt_delivers(24u, true);
+    CHECK(!R.shared.service.pending && R.shared.service.drive_status == 1u);
+    CHECK(drive() == 3u && check(token) == KUI_GD_COMPLETED);
+    CHECK(R.shared.service.position_lba == 45300u + 23u && R.shared.service.diag.sectors_read == 24u);
+    const uint32_t kept = kui_toy_cdda_drive.keeps;
+    /* Raw sectors: 37 of 2,352 bytes. */
+    for(int i = 0; i < 2; ++i) { put(i, PARAM, 0u); put(i, PARAM + 4u, 0x1000u); put(i, PARAM + 8u, 0u); put(i, PARAM + 12u, 2352u); }
+    CHECK(call(KUI_GD_DATATYPE, PARAM, 0u) == 0 && R.shared.service.sector_bytes == 2352u);
+    delivered = 5u;
+    const int32_t raw = request(KUI_GD_PIOREAD, 45400u + 150u, 37u, BUFFER, 0u);
+    while(delivered < 37u) {
+        CHECK(drive() == 3u);
+        delivered = delivered + 7u < 37u ? delivered + 7u : 37u;
+        (void)call(KUI_GD_EXEC, 0u, 0u);
+    }
+    CHECK(drive() == 3u && check(raw) == KUI_GD_COMPLETED && R.shared.service.completed_bytes == 37u * 2352u);
+    CHECK(kui_toy_cdda_drive.keeps == kept + 6u);
+    for(int i = 0; i < 2; ++i) { put(i, PARAM, 0u); put(i, PARAM + 4u, 0x2000u); put(i, PARAM + 8u, 0u); put(i, PARAM + 12u, 2048u); }
+    CHECK(call(KUI_GD_DATATYPE, PARAM, 0u) == 0 && R.shared.service.sector_bytes == 2048u);
+    /* A failed read is report()'s. */
+    delivered = 0u;
+    const int32_t bad = request(KUI_GD_PIOREAD, 45500u + 150u, 10u, BUFFER, 0u);
+    delivered = 4u;
+    CHECK(drive() == 3u && R.shared.service.completed_bytes == 4u * 2048u);
+    delivered = 6u; failure = KUI_GD_ERROR_IO;
+    CHECK(drive() == 1u && R.shared.service.completed_bytes == 6u * 2048u && !R.shared.service.pending);
+    CHECK(drive() == 3u && check(bad) == KUI_GD_FAILED);
+    /* An engine serving another read (the low reader did not start this one)
+     * is report()'s too: nothing of it is published. */
+    started = false;
+    delivered = 9u; failure = 0u;
+    const int32_t stale = request(KUI_GD_PIOREAD, 45600u + 150u, 10u, BUFFER, 0u);
+    CHECK(drive() == 3u && !R.shared.service.completed_bytes && R.shared.service.pending);
+    CHECK(call(KUI_GD_ABORT, (uint32_t)stale, 0u) == 0);
+    movie_complete();
+    CHECK(check(stale) == KUI_GD_FAILED);
+    started = true;
+    CHECK(kui_toy_cdda_drive.state == KUI_TOY_CDDA_PLAYING && drive() == 3u);
+    /* Paused: 1, and nothing kept. */
+    finish(request(KUI_RETAIL_GD_PAUSE, 0u, 0u, 0u, 0u));
+    const uint32_t paused = kui_toy_cdda_drive.keeps;
+    data_read(45700u, 12u);
+    CHECK(drive() == 1u && kui_toy_cdda_drive.keeps == paused);
+    /* Ended: likewise. */
+    finish(request(KUI_RETAIL_GD_PLAY, 5u, 5u, 0u, 0u));
+    ticks(ticks_for(850u));
+    CHECK(drive() == 1u && kui_toy_cdda_drive.state == KUI_TOY_CDDA_ENDED);
+    data_read(45800u, 12u);
+    CHECK(drive() == 1u && kui_toy_cdda_drive.keeps == paused);
+    ++scenarios;
+}
+#else
+/* Without KEEP the drive status is 1 in a call during a read in a play
+ * whenever the call's visit delivered sectors: the low reader's report()
+ * publishes them after the visit, and kui_retail_gd_progress writes 1. */
+static void status_through_reads(void) {
+    fresh();
+    twin_on = false;
+    finish(request(KUI_RETAIL_GD_PLAY, 4u, 4u, 15u, 0u));
+    delivered = 0u;
+    const int32_t token = request(KUI_GD_PIOREAD, 45300u + 150u, 24u, BUFFER, 0u);
+    CHECK(drive() == 3u);
+    delivered = 4u;
+    CHECK(drive() == 1u);
+    CHECK(drive() == 3u);
+    interrupt_delivers(8u, false);
+    CHECK(drive() == 1u);
+    delivered = 24u;
+    CHECK(check(token) == KUI_GD_COMPLETED && drive() == 3u);
+    ++scenarios;
+}
+#endif
+
 int main(void) {
     no_play();
     catalogue_and_partial_lap();
@@ -572,10 +739,17 @@ int main(void) {
     ranges();
     by_fad();
     reads_during_play();
+#if KUI_TOY_CDDA_KEEP
+    keep_through_reads();
+#else
+    status_through_reads();
+#endif
     ends();
     library_order();
     clock();
     printf("PASS Test 84 drive: %u scenarios, %lu checks; with no play every answer and every service word "
-           "is the twin service's without a player\n", scenarios, checks);
+           "is the twin service's without a player%s\n", scenarios, checks,
+           KUI_TOY_CDDA_KEEP ? "; through a play's reads (KEEP) status 3 and every other word the twin's" :
+           "; without KEEP a play's reads answer 1");
     return 0;
 }

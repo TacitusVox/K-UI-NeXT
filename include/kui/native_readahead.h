@@ -88,10 +88,10 @@ typedef uint32_t (*kui_native_ra_visit)(uint32_t event,uint32_t arg,
 #if KUI_TOY_CDDA_HOOK
 /* Test 84 (HOOK): the worker's CD-music player (src/loader/toy_cdda_player.c).
  * The auxiliary calls it after its guard on every visit it admits, with the
- * visit's event and argument, and once more with KUI_TOY_CDDA_KEEP at the end
+ * visit's event and argument, and once more with KUI_TOY_CDDA_VISIT_END at the end
  * of a delivery visit made from one of the game's GD calls. It runs on the
  * auxiliary's stack under its gate and calls no auxiliary code. */
-#define KUI_TOY_CDDA_KEEP UINT32_C(0x101)
+#define KUI_TOY_CDDA_VISIT_END UINT32_C(0x101)
 typedef uint32_t (*kui_toy_cdda_player)(uint32_t event,uint32_t arg,
     kui_retail_async_region_type *region,const struct kui_native_ra_low_ops *ops);
 uint32_t kui_toy_cdda_player_visit(uint32_t event,uint32_t arg,

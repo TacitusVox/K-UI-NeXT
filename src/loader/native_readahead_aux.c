@@ -1918,7 +1918,7 @@ uint32_t kui_native_readahead_aux_dispatch(uint32_t event,uint32_t arg,
     /* Test 84 (HOOK): and once more at the end of a delivery visit from one
      * of the game's GD calls, after everything the visit delivered. */
     if(event==KUI_NATIVE_RA_DELIVER && !(visit_context>>24) && C.config.cdda_player)
-        (void)C.config.cdda_player(KUI_TOY_CDDA_KEEP,arg,r,C.config.ops);
+        (void)C.config.cdda_player(KUI_TOY_CDDA_VISIT_END,arg,r,C.config.ops);
 #endif
     struct ra_clock after=clock_read();uint32_t elapsed=before.counter-after.counter;
 #if KUI_TOY_WIRE_STREAM && KUI_TOY_WIRE_IDLE

@@ -6,10 +6,13 @@ in a copy of src/loader/toy_cdda_player.c, built and run on its own.
 usage: test_toy_cdda_mutations.py [--jobs N] [--work DIR]
 
 Every mutation must still compile and must make toy-cdda-drive-host-test
-fail. (Left out as equivalent: dropping PLAY2's test of a start below FAD 150,
-which the search for its track refuses as well.) Run from the repository root with the Test 84 recipe's switches in the
-environment's make command line (Makefile.vmu-native-toy-suite,
-toy-cdda-mutation-check).
+fail. Left out as equivalent: dropping PLAY2's test of a start below FAD 150,
+which the search for its track refuses as well; and in KEEP, dropping the test
+of the command (only a read's token is the engine's), of the sector size (the
+service admits 2,048 and 2,352 bytes alone) and the bound to the request's
+sectors (the engine's cursor never passes it). Run from the repository root
+(Makefile.vmu-native-toy-suite, toy-cdda-mutation-check); the recipe's switches
+are this file's own.
 """
 import argparse
 import concurrent.futures
@@ -24,7 +27,7 @@ PLAYER = ROOT / "src/loader/toy_cdda_player.c"
 RECIPE = ("TOY_SUITE_MODE=66 TOY_WIRE_STREAM=1 TOY_WIRE_CACHED=1 TOY_WIRE_WORDS=1 TOY_WIRE_PACE=1 TOY_WIRE_IDLE=1 "
           "TOY_WIRE_LEAN=1 TOY_WIRE_STEADY=1 TOY_WIRE_FLUID=1 TOY_WIRE_SEQ=1 TOY_WIRE_ANY=1 TOY_WIRE_TITLES=1 "
           "TOY_WIRE_QUERY=1 TOY_WIRE_TIMER=1 TOY_WIRE_SAVE=1 KUI_NATIVE_BACKGROUND_MAP160=1 TOY_SURVEY_MIXED_PAD=1 "
-          "TOY_CDDA_ROOM=1 TOY_CDDA_HOOK=1 TOY_CDDA_DRIVE=1").split()
+          "TOY_CDDA_ROOM=1 TOY_CDDA_HOOK=1 TOY_CDDA_DRIVE=1 TOY_CDDA_KEEP=1").split()
 MUTATIONS = [
     ("status 1 while playing", "s->drive_status=D.state==KUI_TOY_CDDA_PLAYING?3u:1u;",
      "s->drive_status=D.state==KUI_TOY_CDDA_PLAYING?1u:1u;"),
@@ -67,6 +70,25 @@ MUTATIONS = [
      "    if(D.state==KUI_TOY_CDDA_PLAYING)advance();"),
     ("a lost play still plays", "        D.state=KUI_TOY_CDDA_LOST;++D.lost;++D.generation;return;\n    }\n    const int32_t length",
      "        ++D.lost;return;\n    }\n    const int32_t length"),
+    # KEEP
+    ("KEEP keeps nothing", "        if(!r->engine.in_irq)keep(s,r);", "        if(0)keep(s,r);"),
+    ("KEEP writes 1", "s->position_lba=s->lba+sectors-1u;s->drive_status=3u;",
+     "s->position_lba=s->lba+sectors-1u;s->drive_status=1u;"),
+    ("KEEP in an interrupt's visit", "        if(!r->engine.in_irq)keep(s,r);", "        keep(s,r);"),
+    ("KEEP while paused or ended", "    if(D.state!=KUI_TOY_CDDA_PLAYING || !s->pending ||",
+     "    if(D.state==KUI_TOY_CDDA_IDLE || !s->pending ||"),
+    ("KEEP of a failed read", " || r->engine.failed ||\n", " ||\n"),
+    ("KEEP of another read's engine", "r->engine.token!=s->token || ", ""),
+    ("KEEP's raw sectors as 2,048 bytes", "return sector_bytes==2048u?bytes>>11:(bytes>>4)/147u;", "return sector_bytes?bytes>>11:0u;"),
+    ("KEEP's position one on", "s->position_lba=s->lba+sectors-1u;s->drive_status=3u;",
+     "s->position_lba=s->lba+sectors;s->drive_status=3u;"),
+    ("KEEP's sectors not counted", "    s->diag.sectors_read+=sectors-done;++s->diag.read_steps;\n",
+     "    ++s->diag.read_steps;\n"),
+    ("KEEP's step not counted", "    s->diag.sectors_read+=sectors-done;++s->diag.read_steps;\n",
+     "    s->diag.sectors_read+=sectors-done;\n"),
+    ("KEEP publishes no new sector", "    if(sectors<=done)return;\n", "    if(sectors<done)return;\n"),
+    ("KEEP's bytes of one sector less", "    s->completed_bytes=sectors*s->sector_bytes;\n",
+     "    s->completed_bytes=(sectors-1u)*s->sector_bytes;\n"),
 ]
 
 
@@ -101,6 +123,7 @@ def main():
     parser.add_argument("--work")
     args = parser.parse_args()
     work = args.work or tempfile.mkdtemp(prefix="toy-cdda-mutations-")
+    print("mutations in", work)
     with concurrent.futures.ThreadPoolExecutor(args.jobs) as pool:
         results = sorted(pool.map(lambda i: run(i, work), range(len(MUTATIONS))))
     bad = [(i, r) for i, r in results if r != "caught"]

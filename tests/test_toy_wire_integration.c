@@ -4243,7 +4243,7 @@ static uint32_t hook_player(uint32_t event, uint32_t arg, kui_retail_async_regio
     const struct kui_native_ra_low_ops *ops) {
     CHECK(r == &R && ops == &kui_native_ra_reader_ops);
     CHECK(kui_native_readahead_aux_context.initialized);
-    if(event == KUI_TOY_CDDA_KEEP) {
+    if(event == KUI_TOY_CDDA_VISIT_END) {
         /* Only at the end of a delivery visit of the game's, called first. */
         CHECK(hook.open && !R.engine.in_irq);
         hook.open = false;
@@ -4285,6 +4285,66 @@ static void player_hook_counts(void) {
            "%lu from interrupts, %lu others), %lu ended with KEEP and %lu returned before it; "
            "%lu refused by the guard reached no player\n", hook.calls, hook.deliver_game, hook.deliver_irq,
            hook.other, hook.keeps, hook.unkept, hook.guarded);
+}
+#endif
+#if KUI_TOY_CDDA_DRIVE
+#include "kui/toy_cdda_player.h"
+#ifndef KUI_TOY_CDDA_KEEP
+#define KUI_TOY_CDDA_KEEP 0
+#endif
+/* Test 84 (DRIVE, KEEP): a play beside the game's data reads, through the real
+ * low reader, auxiliary and service. The fixture's track 2 is audio. The game
+ * asks for the drive's status between the polls of each read while the
+ * window, the low reader and the card's interrupts deliver. With KEEP every
+ * answer is 3; without it, a call whose visit was followed by new sectors in
+ * report() answers 1. The data is exact either way. STOP ends the play, and
+ * the player's state is the next scenario's as it was. */
+static void cdda_reads_in_play(void) {
+    open_card(2000u, false, true, file_amid, false);
+    const struct kui_toy_cdda_drive before = kui_toy_cdda_drive;
+    memset(&kui_toy_cdda_drive, 0, sizeof(kui_toy_cdda_drive));
+    put(PARAM, 2u); put(PARAM + 4u, 2u); put(PARAM + 8u, 15u); put(PARAM + 12u, 0u);
+    const int32_t play = gd(KUI_GD_REQUEST, KUI_RETAIL_GD_PLAY, PARAM);
+    CHECK(play > 0 && gd(KUI_GD_EXEC, 0, 0) == 0);
+    CHECK(gd(KUI_GD_CHECK, (uint32_t)play, STATUS) == KUI_GD_COMPLETED);
+    CHECK(kui_toy_cdda_drive.state == KUI_TOY_CDDA_PLAYING);
+    /* Four reads one behind the other (the low reader's, then the window's),
+     * and one elsewhere (the low reader's again). */
+    static const uint32_t pieces[][2] = {{45010u, 60u}, {45070u, 60u}, {45130u, 60u}, {45190u, 60u}, {45020u, 30u}};
+    unsigned long answers[4] = {0};
+    for(unsigned piece = 0u; piece < sizeof(pieces) / sizeof(pieces[0]); ++piece) {
+        const uint32_t lba = pieces[piece][0], count = pieces[piece][1];
+        memset(ram + (OUTPUT - BEGIN), 0xa5, 64u * 2352u + 16u);
+        const int32_t token = request(lba, count, OUTPUT);
+        int32_t status = KUI_GD_PROCESSING;
+        for(unsigned n = 0u; status == KUI_GD_PROCESSING; ++n) {
+            CHECK(n < 200000u);
+            (void)hardware();
+            for(unsigned ask = 0u; ask < (n % 3u ? 1u : 2u); ++ask) {
+                if(ask) CHECK(gd(KUI_GD_EXEC, 0, 0) == 0);
+                CHECK(gd(KUI_GD_DRIVE, STATUS + 32u, 0u) == 0);
+                const uint32_t answer = get(STATUS + 32u);
+                CHECK(answer == 1u || answer == 3u);
+                ++answers[answer];
+            }
+            status = gd(KUI_GD_CHECK, (uint32_t)token, STATUS);
+            invariants();
+        }
+        CHECK(status == KUI_GD_COMPLETED);
+        compare(lba, count, OUTPUT);
+    }
+    CHECK(answers[3] && kui_toy_cdda_drive.reads_in_play == 5u);
+#if KUI_TOY_CDDA_KEEP
+    CHECK(!answers[1] && kui_toy_cdda_drive.keeps);
+#else
+    CHECK(answers[1]);
+#endif
+    plain_command(KUI_GD_STOP, 0u);
+    CHECK(kui_toy_cdda_drive.state == KUI_TOY_CDDA_IDLE);
+    printf("PASS Test 84 play beside 5 reads (270 sectors) through the real reader: function 4 answered "
+           "3 %lu times and 1 %lu times%s\n", answers[3], answers[1],
+           KUI_TOY_CDDA_KEEP ? ", the player keeping the reads' progress" : " (without KEEP: report()'s 1)");
+    kui_toy_cdda_drive = before;
 }
 #endif
 int main(void) {
@@ -4507,6 +4567,9 @@ int main(void) {
     CHECK(pause_seen > 100000u);
     printf("  the wire's standstill for timer waits, placed in the course's pieces in all of the above: %llu ticks\n",
         (unsigned long long)pause_seen);
+#endif
+#if KUI_TOY_CDDA_DRIVE
+    cdda_reads_in_play();
 #endif
 #if KUI_TOY_CDDA_HOOK
     player_hook_counts();

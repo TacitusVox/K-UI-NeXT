@@ -3,7 +3,7 @@
  * (docs/cdda-background-test-84.md).
  *
  * The auxiliary calls kui_toy_cdda_player_visit after its guard on every visit
- * it admits, and once more with KUI_TOY_CDDA_KEEP at the end of a delivery
+ * it admits, and once more with KUI_TOY_CDDA_VISIT_END at the end of a delivery
  * visit from one of the game's GD calls (include/kui/native_readahead.h). It
  * runs on the auxiliary's private stack, under its gate (SR.BL and IMASK 15),
  * and calls nothing of the auxiliary's. The cold stage finds it through the
@@ -29,7 +29,18 @@
  *   window's rule for sequential reads keeps seeing the data position.
  * - The play clock is TMU0, read only and trusted only under the Toy timer
  *   profile (include/kui/toy_pilot_clock.h): 75 sectors a second.
- * With no play the player writes nothing: every answer is today's. */
+ * With no play the player writes nothing: every answer is today's.
+ *
+ * KEEP: the status stays 3 while the game reads data during a play. After the
+ * visit, before the service answers, the low reader's report() publishes the
+ * sectors its engine has delivered of the read pending, and the service's
+ * kui_retail_gd_progress (src/core/retail_gd.c) writes status 1 whenever it
+ * adds sectors: without KEEP, a call during a read in a play answers 1. At the
+ * visit's end (VISIT_END) the player adds them first, word for word as that
+ * function does, but with status 3, so report() finds none to add and writes
+ * no status. The request's error, completion and status stay report()'s. The
+ * GD call runs with interrupts blocked from the visit through the answer
+ * (src/loader/retail_resident.S), so nothing is delivered in between. */
 #include <stdbool.h>
 #include <stdint.h>
 #include "kui/vmu_native_background.h"
@@ -61,6 +72,12 @@
 #ifndef KUI_TOY_CDDA_DRIVE
 #define KUI_TOY_CDDA_DRIVE 0
 #endif
+#ifndef KUI_TOY_CDDA_KEEP
+#define KUI_TOY_CDDA_KEEP 0
+#endif
+#if KUI_TOY_CDDA_KEEP && !KUI_TOY_CDDA_DRIVE
+#error "KEEP keeps the playing drive's status (KUI_TOY_CDDA_DRIVE)"
+#endif
 
 #if !KUI_TOY_CDDA_DRIVE
 uint32_t kui_toy_cdda_player_visit(uint32_t event,uint32_t arg,
@@ -72,6 +89,9 @@ uint32_t kui_toy_cdda_player_visit(uint32_t event,uint32_t arg,
 #include "kui/retail_gd.h"
 #include "kui/toy_cdda_player.h"
 #include "kui/toy_pilot_clock.h"
+#if KUI_TOY_CDDA_KEEP && (defined(KUI_RETAIL_CE) || KUI_NATIVE_SESSION_CONTROLS || KUI_NATIVE_GD_LEGACY_STREAM)
+#error "KEEP publishes a read's progress as the Background reader's report() does"
+#endif
 
 struct kui_toy_cdda_drive kui_toy_cdda_drive;
 #define D kui_toy_cdda_drive
@@ -246,6 +266,30 @@ static bool position_query(const struct kui_retail_gd *s) {
     return s->command==KUI_RETAIL_GD_REQ_STAT ||
         (s->command==KUI_RETAIL_GD_GETSCD && s->outputs[0]<=1u);
 }
+#if KUI_TOY_CDDA_KEEP
+/* The service's sectors are 2,048 or 2,352 bytes (datatype); 2,352 is 16 x 147,
+ * and a division by a constant needs no division routine. */
+static uint32_t sectors_in(uint32_t bytes,uint32_t sector_bytes) {
+    return sector_bytes==2048u?bytes>>11:(bytes>>4)/147u;
+}
+/* KEEP: the engine's complete sectors of the read pending, as report() is
+ * about to publish them (kui_retail_gd_progress's first branch, and its
+ * observed counts), with the play's status. A failed engine, a read the
+ * engine does not serve and every state but PLAYING are left to report(). */
+static void keep(struct kui_retail_gd *s,const kui_retail_async_region_type *r) {
+    if(D.state!=KUI_TOY_CDDA_PLAYING || !s->pending || r->engine.token!=s->token || r->engine.failed ||
+       (s->command!=KUI_GD_PIOREAD && s->command!=KUI_GD_DMAREAD) ||
+       (s->sector_bytes!=2048u && s->sector_bytes!=2352u))return;
+    uint32_t sectors=r->engine.cursor.done;
+    const uint32_t done=sectors_in(s->completed_bytes,s->sector_bytes);
+    if(sectors>s->count)sectors=s->count;
+    if(sectors<=done)return;
+    s->completed_bytes=sectors*s->sector_bytes;
+    s->diag.sectors_read+=sectors-done;++s->diag.read_steps;
+    s->position_lba=s->lba+sectors-1u;s->drive_status=3u;
+    ++D.keeps;
+}
+#endif
 uint32_t kui_toy_cdda_player_visit(uint32_t event,uint32_t arg,
     kui_retail_async_region_type *r,const struct kui_native_ra_low_ops *ops) {
     (void)arg;(void)ops;
@@ -256,6 +300,12 @@ uint32_t kui_toy_cdda_player_visit(uint32_t event,uint32_t arg,
         if((s->status==KUI_GD_NOT_FOUND && !s->command && !s->pending) ||
            (s->error==KUI_GD_ERROR_CANCELLED && s->token==D.play_token &&
             D.state!=KUI_TOY_CDDA_IDLE))stop(s);
+        return 0u;
+    }
+    if(event==KUI_TOY_CDDA_VISIT_END) {
+#if KUI_TOY_CDDA_KEEP
+        if(!r->engine.in_irq)keep(s,r);
+#endif
         return 0u;
     }
     if(event!=KUI_NATIVE_RA_DELIVER || r->engine.in_irq)return 0u;
