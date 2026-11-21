@@ -57,7 +57,16 @@ Delivered: `KUI-WinCE-GUI-Routes-16NOV2026-1928-CST-069d612.zip`, GUI build
 `retail-boot.kui` `9e3295bcfaec`, as `00d8ed67d9ad` does. `00d8ed67d9ad`
 remains the reference until the owner reports the package's four tests.
 
-## Armada CD music On gameplay timing: delivered, console test pending, 32b3bbb33e39, 2026-11-21
+## Armada CD music On gameplay timing: console-tested, cause found, 32b3bbb33e39, 2026-11-21
+
+**Result (21 Nov 2026):** run 1 (music) lagged; run 2 (the music never
+queued) had no lag. K-UI took 15% of gameplay with the music, 2% without; the
+worker 10.1 s of 105 s, 236 of its 1,437 steps 8 ms or longer (239 ended
+urgent), the longest 173 ms; 8,530 of the music's 27,371 card blocks were
+programmed receptions. The game read the same 7,212 sectors in both runs, for
+the same time. The cause is the worker's programmed receptions while the music
+is urgent ([result](wince-cdda-play-timing-test.md#result-21-nov-2026)).
+
 
 A measurement of where CD music On costs Armada's gameplay, not a fix
 ([record](wince-cdda-play-timing-test.md)). Source `32b3bbb3` adds

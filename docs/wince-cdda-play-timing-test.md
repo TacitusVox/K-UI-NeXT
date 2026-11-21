@@ -1,7 +1,9 @@
 # Armada CD music On: the gameplay timing test (21 Nov 2026)
 
-**Status: delivered for a console test, 21 Nov 2026.** A measurement, not a
-fix. It changes no installed module.
+**Status: console-tested 21 Nov 2026 ([result](#result-21-nov-2026)): the
+lag is the music worker's programmed receptions while the music is urgent,
+in steps of 8 ms and more above the game's threads; the game's reads are not
+slowed.** A measurement, not a fix. It changes no installed module.
 
 The adaptive CD music modules (`52a946122537`) left CD music On a tiny bit
 worse in gameplay than CD music Off ([result](wince-cdda-adaptive-test.md#result-21-nov-2026)).
@@ -94,6 +96,51 @@ the movie timing build to its bytes before this source. Host:
 | IRQ-MS well above run 2's | The music blocks' interrupts |
 | Run 2 lags like run 1 | Not the music path: the timing reader or the module itself |
 | Run 2 smooth, run 1 lags, and the rows differ little | Cost outside what is timed, such as CE's mixing of the music buffer |
+
+## Result (21 Nov 2026)
+
+Armada (US), CD music On, Virtual VMU Off, both runs report build
+`32b3bbb33e39`. The owner: run 1 lagged as before; in run 2 "with the music
+off any lag that existed before was gone".
+
+| Row | Run 1, music (`9E73BA00`) | Run 2, silent (`E9655CBD`) |
+|---|---|---|
+| PLAY-MS SECTORS KB/S READS STATUS | 105,150 · 7,212 · 137 · 38 · 15 | 127,775 · 7,212 · 112 · 38 · 7 |
+| CALL-MS IRQ-MS WORK-MS BUSY% PEAK% | 258 · 5,557 · 10,142 · 15 · 44 | 158 · 3,203 · 0 · 2 · 28 |
+| SOLO SOLO-MS SHARED SHARED-MS MAX-MS | 0 · 0 · 0 · 0 · 0 | 0 · 0 · 0 · 0 · 0 |
+| MUSICBLK GAMEBLK GRANTS PREEMPT PEND% | 27,371 · 33,147 · 37 · 176 · 11 | 0 · 33,146 · 0 · 0 · 9 |
+| DMA-OK POLLED OVERRUN RESTART SLOW-OK | 51,984 · 8,530 · 1,017 · 1,311 · 8,068 | 33,141 · 0 · 0 · 29 · 0 |
+| STEPS MAX-US OVER8MS URGENT LOW-MS | 1,437 · 173,083 · 236 · 239 · 1,012 | 0 · 0 · 0 · 0 · 0 |
+
+1. **The game's reads are not slowed.** Both runs read the same 7,212 sectors
+   in the same 38 requests (190 sectors each on average; no 32-sector reads
+   fell in this window, so the read-time row is empty), with a read
+   outstanding for about 11.5 s in each (11% of 105 s, 9% of 128 s). The
+   music took the card during them only 37 times.
+2. **K-UI's time: 15% of gameplay with the music, 2% without** (busiest
+   second 44% against 28%). The worker accounts for 10.1 s of 105 s, the
+   music's card blocks for about 2.4 s more interrupt time.
+3. **The long steps are the urgent ones.** 236 steps of 8 ms or more against
+   239 that ended urgent; 1,437 steps in all, 7.1 ms on average, the longest
+   173 ms. While urgent (fresh PCM under one second, until 1.5), the worker
+   receives by programmed transfers, at most 32 per playing step (about 7,600
+   for 239 steps) and up to 92 per visit while filling before playback
+   starts (the 173 ms step fits two such visits). Run 1's 8,530 programmed
+   receptions are those, plus the refetch after each of the 1,017 overruns
+   (the music's refetch after an overrun is programmed; run 2 had none).
+4. **The reserve never ran low**: the least fresh PCM a playing step ended
+   with was 1,012 ms. The urgent band holds the music near one second, where
+   each step reaches for the card by programmed transfers.
+
+So CD music On's gameplay cost is the worker's programmed receptions, in
+bursts above the game's priority, while the music's reserve is merely below
+one second. The interrupt time of its card blocks is the smaller part.
+
+An inference, not measured: with CD music Off this window had no 64 KiB
+streamed reads, but on the generic reader Armada's gameplay read 64 KiB
+streams at 169 KiB/s ([adaptive session](wince-adaptive-window-test.md#result-21-nov-2026)),
+about CD audio's 172 KiB/s. The game may stream its music from the data
+track when CD audio is off.
 
 ## Not answered by this test
 
