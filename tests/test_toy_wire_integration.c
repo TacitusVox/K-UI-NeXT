@@ -4229,8 +4229,60 @@ static void degraded(void) {
 #endif
 }
 
+#if KUI_TOY_CDDA_HOOK
+/* Test 84 (HOOK): the auxiliary hands every visit it admits to the worker's
+ * player before any of the visit's own work, and a delivery visit made from
+ * one of the game's GD calls once more at its end. This player only counts:
+ * every scenario of this file runs with it, and so shows the data path as
+ * the hook leaves it. */
+static struct {
+    unsigned long calls, deliver_game, deliver_irq, other, keeps, unkept, guarded;
+    bool open;
+} hook;
+static uint32_t hook_player(uint32_t event, uint32_t arg, kui_retail_async_region_type *r,
+    const struct kui_native_ra_low_ops *ops) {
+    CHECK(r == &R && ops == &kui_native_ra_reader_ops);
+    CHECK(kui_native_readahead_aux_context.initialized);
+    if(event == KUI_TOY_CDDA_KEEP) {
+        /* Only at the end of a delivery visit of the game's, called first. */
+        CHECK(hook.open && !R.engine.in_irq);
+        hook.open = false;
+        ++hook.keeps;
+        return 0u;
+    }
+    if(hook.open) ++hook.unkept;
+    hook.open = false;
+    ++hook.calls;
+    if(event == KUI_NATIVE_RA_DELIVER && !R.engine.in_irq) {
+        ++hook.deliver_game;
+        hook.open = true;
+    } else if(event == KUI_NATIVE_RA_DELIVER) ++hook.deliver_irq;
+    else ++hook.other;
+    (void)arg;
+    return 0u;
+}
+static void player_hook_counts(void) {
+    /* A visit the guard refuses reaches no player. */
+    const unsigned long calls = hook.calls, faults = kui_native_readahead_aux_context.stats.guard_faults;
+    kui_retail_async_region_type other;
+    memset(&other, 0, sizeof(other));
+    (void)kui_native_readahead_aux_dispatch(KUI_NATIVE_RA_DELIVER, 0u, &other, 0u);
+    (void)kui_native_readahead_aux_dispatch(KUI_NATIVE_RA_DELIVER, 0u, &R, 1u);
+    CHECK(hook.calls == calls && kui_native_readahead_aux_context.stats.guard_faults == faults + 2u);
+    hook.guarded += 2u;
+    CHECK(hook.deliver_game && hook.deliver_irq && hook.other && hook.keeps);
+    CHECK(hook.keeps + hook.unkept <= hook.deliver_game && hook.keeps + hook.unkept + 1u >= hook.deliver_game);
+    printf("PASS Test 84 player hook: %lu visits handed on first (%lu deliveries from the game's calls, "
+           "%lu from interrupts, %lu others), %lu ended with KEEP and %lu returned before it; "
+           "%lu refused by the guard reached no player\n", hook.calls, hook.deliver_game, hook.deliver_irq,
+           hook.other, hook.keeps, hook.unkept, hook.guarded);
+}
+#endif
 int main(void) {
     setvbuf(stdout, NULL, _IOLBF, 0);
+#if KUI_TOY_CDDA_HOOK
+    toy_cdda_test_player = hook_player;
+#endif
     for(unsigned i = 0; i < 256u; ++i) {
         unsigned j = i << 1;
         if(j & 0x100u) j ^= 0x11du;
@@ -4447,6 +4499,9 @@ int main(void) {
     printf("  the wire's standstill for timer waits, placed in the course's pieces in all of the above: %llu ticks\n",
         (unsigned long long)pause_seen);
 #endif
-    printf("PASS Test %u reader integration: %u checks\n", KUI_TOY_WIRE_TICK ? 69u : KUI_TOY_WIRE_TIMER ? 81u : KUI_TOY_WIRE_QUERY ? 80u : KUI_TOY_WIRE_TITLES ? 79u : KUI_TOY_WIRE_ANY ? 78u : KUI_TOY_WIRE_SEQ ? 77u : KUI_TOY_WIRE_FLUID ? 76u : KUI_TOY_WIRE_STEADY ? 75u : KUI_TOY_WIRE_LEAN ? 74u : KUI_TOY_WIRE_IDLE ? 73u : KUI_TOY_WIRE_PACE ? 72u : KUI_TOY_WIRE_WORDS ? 71u : KUI_TOY_WIRE_CACHED ? 70u : 68u, checks);
+#if KUI_TOY_CDDA_HOOK
+    player_hook_counts();
+#endif
+    printf("PASS Test %u reader integration: %u checks\n", KUI_TOY_CDDA_ROOM ? 84u : KUI_TOY_WIRE_TICK ? 69u : KUI_TOY_WIRE_TIMER ? 81u : KUI_TOY_WIRE_QUERY ? 80u : KUI_TOY_WIRE_TITLES ? 79u : KUI_TOY_WIRE_ANY ? 78u : KUI_TOY_WIRE_SEQ ? 77u : KUI_TOY_WIRE_FLUID ? 76u : KUI_TOY_WIRE_STEADY ? 75u : KUI_TOY_WIRE_LEAN ? 74u : KUI_TOY_WIRE_IDLE ? 73u : KUI_TOY_WIRE_PACE ? 72u : KUI_TOY_WIRE_WORDS ? 71u : KUI_TOY_WIRE_CACHED ? 70u : 68u, checks);
     return 0;
 }

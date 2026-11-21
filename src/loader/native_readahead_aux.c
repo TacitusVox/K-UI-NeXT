@@ -160,6 +160,13 @@ static bool config_valid(const struct kui_native_ra_config *c) {
 #endif
        !low_code((uintptr_t)c->ops->stop) || !low_code((uintptr_t)c->ops->busy) ||
        !low_code((uintptr_t)c->ops->feed))return false;
+#if KUI_TOY_CDDA_HOOK
+    /* Test 84 (HOOK): the player is the worker's code, an even P1 address in
+     * the worker's span of this same lease, behind its export header. */
+    uintptr_t player=(uintptr_t)c->cdda_player;
+    if(player && ((player&1u) || player<(p|UINT32_C(0x80000000))+64u ||
+       player>=(p|UINT32_C(0x80000000))+KUI_VMU_NATIVE_BACKGROUND_WORKER_BYTES))return false;
+#endif
 #endif
     const struct kui_native_ra_low_ops *o=c->ops;
     return o->magic==KUI_NATIVE_RA_OPS_MAGIC && o->version==KUI_NATIVE_RA_VERSION &&
@@ -1631,6 +1638,12 @@ uint32_t kui_native_readahead_aux_dispatch(uint32_t event,uint32_t arg,
         ++C.stats.guard_faults;return event==KUI_NATIVE_RA_QUIESCE?0u:1u;
 #endif
     }
+#if KUI_TOY_CDDA_HOOK
+    /* Test 84 (HOOK): the worker's player sees every visit admitted here first,
+     * before any of the visit's own work. */
+    if(C.config.cdda_player)
+        (void)C.config.cdda_player(event,arg,r,C.config.ops);
+#endif
 #if KUI_TOY_SUITE_MODE == 27 || KUI_TOY_SUITE_MODE == 28
     if(event==KUI_NATIVE_RA_CALIBRATE) return arg ? 0u : burst_quiet_calibrate(r);
 #endif
@@ -1901,6 +1914,12 @@ uint32_t kui_native_readahead_aux_dispatch(uint32_t event,uint32_t arg,
         break;
     default:++C.stats.guard_faults;result=0u;break;
     }
+#if KUI_TOY_CDDA_HOOK
+    /* Test 84 (HOOK): and once more at the end of a delivery visit from one
+     * of the game's GD calls, after everything the visit delivered. */
+    if(event==KUI_NATIVE_RA_DELIVER && !(visit_context>>24) && C.config.cdda_player)
+        (void)C.config.cdda_player(KUI_TOY_CDDA_KEEP,arg,r,C.config.ops);
+#endif
     struct ra_clock after=clock_read();uint32_t elapsed=before.counter-after.counter;
 #if KUI_TOY_WIRE_STREAM && KUI_TOY_WIRE_IDLE
     /* A delivery visit from one of the game's GD calls, whole. */

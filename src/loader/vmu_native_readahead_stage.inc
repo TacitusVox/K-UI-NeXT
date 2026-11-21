@@ -185,6 +185,9 @@ static void __attribute__((noipa)) native_readahead_bind(uint32_t payload) {
 #if KUI_TOY_SUITE_MOVIE_POLL
         ,0u
 #endif
+#if KUI_TOY_CDDA_HOOK
+        ,0
+#endif
     };
 #else
         KUI_NATIVE_RA_DATA_BYTES,lease&UINT32_C(0x1fffffff),KUI_NATIVE_RA_LEASE_BYTES};
@@ -195,6 +198,10 @@ static void __attribute__((noipa)) native_readahead_bind(uint32_t payload) {
 #if defined(KUI_TOY_SUITE_MODE)
     cfg.suite_seed=toy_suite_seed;
     cfg.suite_source=toy_suite_source;
+#if KUI_TOY_CDDA_HOOK
+    /* Test 84 (HOOK): proved with the timeline's descriptor, which is bound first. */
+    cfg.cdda_player=(kui_toy_cdda_player)(uintptr_t)toy_cdda_player_entry;
+#endif
 #if KUI_TOY_SUITE_MOVIE_POLL
     /* The SDK call frames below are specific to this complete 1GUTH.BIN. */
     static const uint8_t toy_poll_digest[32]={

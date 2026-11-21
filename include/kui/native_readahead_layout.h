@@ -38,6 +38,15 @@
 #if KUI_TOY_CDDA_ROOM && !KUI_TOY_WIRE_STREAM
 #error "Test 84's room is taken from the Toy wire stream's auxiliary stack"
 #endif
+#ifndef KUI_TOY_CDDA_HOOK
+#define KUI_TOY_CDDA_HOOK 0
+#endif
+#if KUI_TOY_CDDA_HOOK != 0 && KUI_TOY_CDDA_HOOK != 1
+#error "KUI_TOY_CDDA_HOOK must be zero or one"
+#endif
+#if KUI_TOY_CDDA_HOOK && !KUI_TOY_CDDA_ROOM
+#error "Test 84's player hook builds on its ROOM"
+#endif
 #if KUI_TOY_WIRE_STREAM
 /* Test 68 is Test 66 with the continuous card stream: the same lease, with
  * two more pages of it given to auxiliary code. */

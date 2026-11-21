@@ -6,6 +6,8 @@ usage: test_toy_cdda_parts.py <Test 84 build> <Test 83's recipe, same BUILD_ID> 
 
 Both are built with one BUILD_ID (Makefile.vmu-native-toy-suite, toy-cdda-parts-check).
 """
+import re
+import struct
 import subprocess
 import sys
 from pathlib import Path
@@ -15,6 +17,18 @@ from pathlib import Path
 
 SAME = ("resident-sci.bin", "resident-legacy.bin", "worker.bin")
 CHANGED = ("native-ra-aux.bin", "native-worker.bin", "stage.bin")
+
+
+def section_bytes(elf, address, count, nm):
+    objdump = nm.replace("nm", "objdump") if nm.endswith("nm") else "sh-elf-objdump"
+    out = subprocess.run([objdump, "-s", "--start-address=%#x" % address, "--stop-address=%#x" % (address + count),
+                          str(elf)], check=True, capture_output=True, text=True).stdout
+    data = bytearray()
+    for line in out.splitlines():
+        m = re.match(r"^ ([0-9a-f]{8}) ((?:[0-9a-f]{2,8} ){1,4})", line)
+        if m:
+            data += bytes.fromhex(m.group(2).replace(" ", ""))
+    return bytes(data[:count])
 
 
 def symbols(elf, nm):
@@ -42,10 +56,21 @@ def main(test84, test83, nm="sh-elf-nm"):
     if s84["__native_ra_stack_bottom"] - s83["__native_ra_stack_bottom"] != 0x900 or \
        s84["__native_ra_image_end"] > s84["__native_ra_stack_bottom"] - 0x20000000:
         sys.exit("FAIL the auxiliary's code does not stop below its 1,792-byte stack")
+    # HOOK: the player's descriptor right behind the loader timeline's, naming the player.
+    w = symbols(test84 / "native-worker.elf", nm)
+    hook = ""
+    if "_kui_toy_cdda_player_exports" in w:
+        at = w["_kui_toy_cdda_player_exports"]
+        if at != w["_kui_vmu_native_trace_exports"] + 52 or at != w["_kui_native_loader_timeline_exports"] + 12:
+            sys.exit("FAIL the player's descriptor is not 12 bytes behind the timeline's")
+        words = struct.unpack("<3I", section_bytes(test84 / "native-worker.elf", at, 12, nm))
+        if words != (0x4b434431, 1, w["_kui_toy_cdda_player_visit"]):
+            sys.exit("FAIL the player's descriptor is %r" % (tuple(hex(x) for x in words),))
+        hook = "; the worker's player descriptor names %#x at the trace table +52" % words[2]
     print("PASS Test 84's parts: both low residents and the observing worker are Test 83's; "
           "the auxiliary, the worker and the stage are its own; the auxiliary keeps its span and "
           "stack top, its code ends at %#x below the stack at %#x" %
-          (s84["__native_ra_image_end"], s84["__native_ra_stack_bottom"]))
+          (s84["__native_ra_image_end"], s84["__native_ra_stack_bottom"]) + hook)
 
 
 if __name__ == "__main__":
