@@ -1780,6 +1780,27 @@ build/test-native-cdda-compat: tests/test_native_cdda_compat.c include/kui/nativ
 	@mkdir -p $(@D)
 	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) -DKUI_RETAIL_EXTENDED_MAP=1 tests/test_native_cdda_compat.c src/core/retail_image.c src/core/hash.c src/core/data.c -o $@
 
+# World Party's CD music group (include/kui/wince_cdda_wwp_kernels.h): the
+# runtime admission, generic sound binder and native lease tests with each
+# kernel's record, and the derivation tool's reading of the header.
+WWP_GROUP_KERNELS := $(shell sed -n 's/^\#define KUI_WINCE_CDDA_WWP_KERNEL_\([A-Z0-9_]*\) [0-9]\{1,2\}$$/\1/p' include/kui/wince_cdda_wwp_kernels.h)
+WWP_GROUP_TESTS := $(foreach k,$(WWP_GROUP_KERNELS),build/wwp-group/runtime-$(k) build/wwp-group/sound-$(k) build/wwp-group/native-$(k))
+.PHONY: test-wince-cdda-wwp-group
+test-wince-cdda-wwp-group: $(WWP_GROUP_TESTS)
+	@test $(words $(WWP_GROUP_KERNELS)) -ge 12
+	@for t in $(WWP_GROUP_TESTS); do ASAN_OPTIONS=detect_leaks=0 ./$$t >/dev/null || { echo "FAIL $$t"; exit 1; }; done
+	python3 -c "import sys; sys.path.insert(0, 'tools'); import wince_cdda_wwp_kernels as w; r = w.header_values(); assert list(r) == list(w.NAMES); assert r['WORMS_WORLD_PARTY']['kernel_sha256'] == w.REFERENCE_SHA256 and r['WORMS_WORLD_PARTY']['data_shift'] == 0"
+	@echo "PASS World Party CD music group: $(words $(WWP_GROUP_KERNELS)) kernels, runtime admission, sound binder and native lease"
+build/wwp-group/runtime-%: tests/test_wince_runtime_profiles.c src/core/retail_image.c include/kui/wince_cdda_profiles.h include/kui/wince_cdda_wwp_kernels.h include/kui/armada_ce_audio_admission.h include/kui/armada_ce_stream_seed.h
+	@mkdir -p $(@D)
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) -DKUI_RETAIL_EXTENDED_MAP=1 -DKUI_WINCE_CDDA_WWP=1 -DKUI_WINCE_CDDA_WWP_KERNEL=KUI_WINCE_CDDA_WWP_KERNEL_$* tests/test_wince_runtime_profiles.c src/core/retail_image.c -o $@
+build/wwp-group/sound-%: tests/test_armada_ce_generic_sound.c tests/test_armada_ce_live_sound.c include/kui/armada_ce_live_sound.h include/kui/wince_cdda_wwp_kernel.h include/kui/wince_cdda_wwp_kernels.h
+	@mkdir -p $(@D)
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) -DKUI_WINCE_CDDA_WWP=1 -DKUI_WINCE_CDDA_WWP_KERNEL=KUI_WINCE_CDDA_WWP_KERNEL_$* $< -o $@
+build/wwp-group/native-%: tests/test_wwp_ce_stream_native.c tests/test_armada_ce_stream_native.c src/loader/armada_ce_stream_native.c include/kui/armada_ce_live_sound.h include/kui/wince_cdda_wwp_kernel.h include/kui/wince_cdda_wwp_kernels.h
+	@mkdir -p $(@D)
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) -DKUI_WINCE_CDDA_WWP=1 -DKUI_ARMADA_CE_GENERIC_APPLICATION=1 -DKUI_RETAIL_CE=1 -DKUI_ARMADA_CE_STREAM=1 -DKUI_WINCE_CDDA_WWP_KERNEL=KUI_WINCE_CDDA_WWP_KERNEL_$* $< src/loader/armada_ce_stream_native.c -o $@
+
 .PHONY: test-wince-runtime-families
 test-wince-runtime-families: build/test-wince-runtime-armada build/test-wince-runtime-bam4 build/test-wince-runtime-worms build/test-wince-runtime-wwp build/test-armada-ce-generic-sound build/test-bam4-ce-generic-sound build/test-worms-ce-generic-sound
 	ASAN_OPTIONS=detect_leaks=0 ./build/test-wince-runtime-armada
@@ -1872,7 +1893,7 @@ build/test-retail-map-stage-native build/test-retail-map-stage-ce build/test-ret
 	$(CC) $(HOST_FLAGS) -fsanitize=undefined -fno-omit-frame-pointer $(INCLUDES) -Isrc/loader -ffunction-sections -fdata-sections -fno-pie -no-pie $(MAP_STAGE_FLAGS) tests/test_retail_map_stage_diagnostic.c src/core/retail_image.c -Wl,--gc-sections -o $@
 
 # Broader CD music admission and linked-reader regression coverage.
-test: test-games-cdda-status test-games-cdda-identity-io test-native-cdda-compat test-wince-runtime-families test-wwp-ce-stream test-retail-map-diagnostic
+test: test-games-cdda-status test-games-cdda-identity-io test-native-cdda-compat test-wince-runtime-families test-wwp-ce-stream test-retail-map-diagnostic test-wince-cdda-wwp-group
 
 .PHONY: test-vmu-lcd
 test-vmu-lcd: build/test-vmu-lcd

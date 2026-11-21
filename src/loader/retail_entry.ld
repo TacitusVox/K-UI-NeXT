@@ -38,7 +38,10 @@ SECTIONS {
  .collection_session_header : { KEEP(*(.collection_session_header)) } :image
  ASSERT(SIZEOF(.collection_session_header)==0 || SIZEOF(.collection_session_header)==96,"Collection session receipt must be96 bytes")
  . = 0x8c010300;
+ .ce_cdda_kernel_capability : { KEEP(*(.ce_cdda_kernel_capability)) } :image
+ ASSERT(SIZEOF(.ce_cdda_kernel_capability)==0 || SIZEOF(.ce_cdda_kernel_capability)==64,"CE CD music kernel capability must be 64 bytes")
  .smash_native_gin_verify : { KEEP(*(.smash_native_gin_verify)) } :image
+ ASSERT(SIZEOF(.ce_cdda_kernel_capability)==0 || SIZEOF(.smash_native_gin_verify)==0,"CE CD music kernel capability and native GIN verifier overlap")
  ASSERT(SIZEOF(.smash_native_gin_verify)<=0xd00,"native GIN verifier exceeds prefix budget")
  . = 0x8c011000;
  .retail_map : { KEEP(*(.retail_map)) } :image

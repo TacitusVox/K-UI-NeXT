@@ -17,6 +17,26 @@ WINCE_CDDA_PROFILE_CHECK := --wwp
 else
 override ARMADA_AUDIO_DIR := build/armada-ce-stream
 endif
+# Another kernel of World Party's group (include/kui/wince_cdda_wwp_kernels.h,
+# derived by tools/wince_cdda_wwp_kernels.py): KUI_WINCE_CDDA_WWP_KERNEL=NAME,
+# for example RAILROAD_TYCOON_II. That module admits only that kernel and
+# carries its KUICDK01 record for the GUI; package it as
+# ce-cdda-<first 12 hex digits of the kernel's SHA-256>.kui. World Party's own
+# kernel, the default, builds ce-cdda-wwp.kui unchanged.
+KUI_WINCE_CDDA_WWP_KERNEL ?= WORMS_WORLD_PARTY
+ifneq ($(KUI_WINCE_CDDA_WWP_KERNEL),WORMS_WORLD_PARTY)
+ifneq ($(KUI_WINCE_CDDA_PROFILE),wwp)
+$(error KUI_WINCE_CDDA_WWP_KERNEL selects a kernel of World Party's group: build Makefile.wwp-stream)
+endif
+ifeq ($(shell grep -c '^\#define KUI_WINCE_CDDA_WWP_KERNEL_$(KUI_WINCE_CDDA_WWP_KERNEL) ' include/kui/wince_cdda_wwp_kernels.h),0)
+$(error Unknown World Party group kernel $(KUI_WINCE_CDDA_WWP_KERNEL))
+endif
+WINCE_CDDA_WWP_KERNEL_FLAGS := -DKUI_WINCE_CDDA_WWP_KERNEL=KUI_WINCE_CDDA_WWP_KERNEL_$(KUI_WINCE_CDDA_WWP_KERNEL)
+override ARMADA_AUDIO_DIR := build/wwp-ce-stream-$(shell echo '$(KUI_WINCE_CDDA_WWP_KERNEL)' | tr A-Z_ a-z-)
+WINCE_CDDA_PROFILE_FLAGS += $(WINCE_CDDA_WWP_KERNEL_FLAGS)
+WINCE_CDDA_PROFILE_CHECK += --wwp-kernel $(KUI_WINCE_CDDA_WWP_KERNEL)
+ARMADA_AUDIO_EXTRA_ENTRY_FLAGS += -DKUI_WINCE_CDDA_KERNEL_RECORD=1 $(WINCE_CDDA_WWP_KERNEL_FLAGS)
+endif
 WINCE_CDDA_CONTROLLER_BEGIN ?= 0x8cfa7000
 # Diagnostic only (Armada): K-UI's time in its GD calls and interrupt during
 # the intro movie. The low reader keeps TMU0 tick totals in its own region;
@@ -216,6 +236,9 @@ ifeq ($(KUI_CE_CDDA_EMERGENCY_PIO),1)
 endif
 ifeq ($(KUI_CE_CDDA_CHAIN),1)
 	@printf '%s\n' 'CHAIN=1' >> $@.tmp
+endif
+ifneq ($(KUI_WINCE_CDDA_WWP_KERNEL),WORMS_WORLD_PARTY)
+	@printf '%s\n' 'WWP_KERNEL=$(KUI_WINCE_CDDA_WWP_KERNEL)' >> $@.tmp
 endif
 	@cmp -s $@.tmp $@ || cp $@.tmp $@
 	@rm -f $@.tmp

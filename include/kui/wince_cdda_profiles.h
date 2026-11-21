@@ -2,6 +2,7 @@
 #ifndef KUI_WINCE_CDDA_PROFILES_H
 #define KUI_WINCE_CDDA_PROFILES_H
 #include "kui/retail_image.h"
+#include "kui/wince_cdda_wwp_kernels.h"
 #include <stddef.h>
 #include <string.h>
 
@@ -23,8 +24,9 @@ static inline const uint8_t *kui_wince_cdda_kernel_sha(enum kui_wince_cdda_profi
          0x79,0x81,0x58,0xf9,0xcb,0x8c,0xac,0xfd,0x4a,0x8a,0x20,0xde,0xa6,0xbb,0xb3,0x5d},
         {0x39,0xb8,0x0e,0x30,0x59,0x47,0x05,0x65,0x51,0x31,0x8b,0xb6,0x55,0x29,0xcc,0xcc,
          0x88,0x60,0x21,0xbe,0x60,0x40,0x6c,0x06,0xf3,0x11,0x0f,0x7f,0xe0,0x3b,0xf5,0x71},
-        {0x18,0x97,0x19,0xd8,0xd3,0x76,0x32,0x84,0xf7,0x4c,0x5e,0x66,0x70,0x47,0x10,0xb9,
-         0xf9,0x96,0x81,0x18,0xcb,0x58,0xae,0xb0,0xa0,0x84,0x4b,0xd1,0x21,0xa6,0x29,0xab}};
+        /* World Party's group: the selected kernel (World Party's unless a
+         * module is built for another kernel of the group). */
+        {KUI_WINCE_CDDA_WWP_SHA256_BYTES}};
     return profile>=KUI_WINCE_CDDA_ARMADA && profile<=KUI_WINCE_CDDA_WORMS_WORLD_PARTY?
         hashes[profile-KUI_WINCE_CDDA_ARMADA]:NULL;
 }
@@ -48,7 +50,7 @@ static inline const struct kui_wince_cdda_disc *kui_wince_cdda_disc(
         {"Armada","T40301N 00",1253376u,548388u,5u,armada},
         {"Bust-A-Move 4","T-8117N",1830912u,548106u,26u,bam4},
         {"Worms Armageddon","T40601N",1110016u,548458u,8u,worms},
-        {"Worms World Party","T22904N",1828864u,548107u,18u,wwp}};
+        {"Worms World Party","T22904N",KUI_WINCE_CDDA_WWP_KERNEL_BYTES,548107u,18u,wwp}};
     return profile>=KUI_WINCE_CDDA_ARMADA && profile<=KUI_WINCE_CDDA_WORMS_WORLD_PARTY?
         &discs[profile-KUI_WINCE_CDDA_ARMADA]:NULL;
 }
@@ -139,9 +141,44 @@ static inline bool kui_wince_cdda_runtime_tracks_valid(const struct kui_retail_m
     }
     return session && audio && next==map->track_count+map->extent_count;
 }
+/* The same policy for one kernel of a sound group, given by its size (a
+ * module built for that kernel, kui/wince_cdda_wwp_kernels.h). A separate copy
+ * keeps the accepted modules' compiled check unchanged; the runtime profile
+ * test checks that both agree for every reviewed profile. */
+static inline bool kui_wince_cdda_runtime_kernel_tracks_valid(const struct kui_retail_manifest *map,
+        uint32_t kernel_bytes,uint32_t reader,bool mapped_audio) {
+    if(!map || !kernel_bytes || !map->track_count || map->track_count>KUI_RETAIL_IMAGE_TRACKS ||
+       map->track_count>KUI_RETAIL_MANIFEST_SLOTS ||
+       !map->extent_count || map->extent_count>KUI_RETAIL_MANIFEST_SLOTS-map->track_count ||
+       map->storage_transport!=KUI_STORAGE_SCI || map->session_lba<45000u ||
+       map->reader!=reader || map->boot_bytes!=kernel_bytes ||
+       map->boot_lba<map->session_lba || map->flags&~KUI_RETAIL_IMAGE_BOOT_CRC)
+        return false;
+    bool session=false,audio=false;
+    uint32_t next=map->track_count;
+    for(unsigned i=0;i<map->track_count;i++) {
+        const struct kui_retail_track *track=&map->slots[i].track;
+        uint32_t control=kui_retail_track_control(track);
+        if(track->end_lba<=track->start_lba || track->end_lba>KUI_GAME_LBA_LIMIT ||
+           (i && track->start_lba<map->slots[i-1u].track.end_lba) ||
+           !kui_wince_cdda_track_storage_valid(track,control,map->flags) ||
+           kui_retail_track_file_offset(track) ||
+           (!track->extent_count && (control==4u || mapped_audio)) ||
+           kui_retail_track_first_extent(track)!=next ||
+           track->extent_count>map->track_count+map->extent_count-next) return false;
+        next+=track->extent_count;
+        if(control==4u && track->start_lba==map->session_lba) session=true;
+        if(control==0u && track->start_lba>=map->session_lba) audio=true;
+    }
+    return session && audio && next==map->track_count+map->extent_count;
+}
 static inline bool kui_wince_cdda_runtime_manifest_valid(const struct kui_retail_manifest *map,
         enum kui_wince_cdda_profile profile) {
     return kui_wince_cdda_runtime_tracks_valid(map,profile,KUI_RETAIL_READER_STANDARD,true);
+}
+static inline bool kui_wince_cdda_runtime_kernel_manifest_valid(const struct kui_retail_manifest *map,
+        uint32_t kernel_bytes) {
+    return kui_wince_cdda_runtime_kernel_tracks_valid(map,kernel_bytes,KUI_RETAIL_READER_STANDARD,true);
 }
 static inline bool kui_wince_cdda_runtime_data_manifest_valid(const struct kui_retail_manifest *map,
         enum kui_wince_cdda_profile profile) {

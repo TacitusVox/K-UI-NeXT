@@ -7,7 +7,8 @@
  * be Mode 1 payload-only with an executable CRC; AUDIO remains raw2352.
  * It does not embed or patch proprietary sound code. */
 #if defined(KUI_WINCE_CDDA_WWP) && KUI_WINCE_CDDA_WWP == 1
-#define KUI_ARMADA_CE_KERNEL_BYTES UINT32_C(1828864)
+/* The selected kernel of World Party's group (kui/wince_cdda_wwp_kernels.h). */
+#define KUI_ARMADA_CE_KERNEL_BYTES ((uint32_t)KUI_WINCE_CDDA_WWP_KERNEL_BYTES)
 #elif defined(KUI_WINCE_CDDA_WORMS) && KUI_WINCE_CDDA_WORMS == 1
 #define KUI_ARMADA_CE_KERNEL_BYTES UINT32_C(1110016)
 #elif defined(KUI_WINCE_CDDA_BAM4) && KUI_WINCE_CDDA_BAM4 == 1
@@ -22,8 +23,8 @@ static inline bool kui_armada_ce_audio_admit(const struct kui_retail_manifest *m
      * independently of the application identity or disc track geometry.
      * IP is still bound to the launcher map, and detached physical loading
      * rechecks the complete kernel SHA before any pool patch or native call. */
-    static const uint32_t prefix[4]={0x6200729cu,0x70513a3cu,0xeffd7677u,0x7e29bc00u};
-    static const uint32_t body[4]={0xb9f755bcu,0xf6902800u,0xcd686951u,0x12f68791u};
+    static const uint32_t prefix[4]={0x6200729cu,0x70513a3cu,0xeffd7677u,KUI_WINCE_CDDA_WWP_PREFIX_CRC};
+    static const uint32_t body[4]={0xb9f755bcu,0xf6902800u,0xcd686951u,KUI_WINCE_CDDA_WWP_BODY_CRC};
     const enum kui_wince_cdda_profile profile=KUI_WINCE_CDDA_COMPILED_PROFILE;
     return kui_wince_cdda_runtime_data_manifest_valid(m,profile) &&
         ip_crc==m->ip_crc32 && prefix_crc==prefix[profile-KUI_WINCE_CDDA_ARMADA] &&

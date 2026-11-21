@@ -4,6 +4,9 @@
 #if KUI_VMU_MAPLE_OBSERVE && KUI_VMU_READONLY_PROOF == 4
 #include "kui/vmu_maple_observe_profile.h"
 #endif
+#if KUI_WINCE_CDDA_KERNEL_RECORD
+#include "kui/wince_cdda_wwp_kernels.h"
+#endif
 #ifndef KUI_RETAIL_STAGE_BIN
 #define KUI_RETAIL_STAGE_BIN "build/retail/stage.bin"
 #endif
@@ -147,6 +150,19 @@ _start:
     .section .ce_map_capability,"a"
     .ascii "KUICEM01"
     .long 1,KUI_RETAIL_CE_MAP_RECORD
+#endif
+#if KUI_WINCE_CDDA_KERNEL_RECORD
+    /* CD music for a kernel of World Party's group other than World Party's
+     * own (ce-cdda-<first 12 hex digits of the kernel's SHA-256>.kui). The GUI
+     * admits the module only with this record at payload 0x300: "KUICDK01",
+     * version 1, 64 bytes, the sound profile, the kernel's size, the stream
+     * pool's start, zero, and the kernel's SHA-256. The stage admits the same
+     * kernel again by its complete SHA-256 before CE starts. */
+    .section .ce_cdda_kernel_capability,"a"
+    .ascii "KUICDK01"
+    .long 1,64,KUI_WINCE_CDDA_WWP_PROFILE,KUI_WINCE_CDDA_WWP_KERNEL_BYTES
+    .long KUI_WINCE_CDDA_WWP_POOL_BEGIN,0
+    .byte KUI_WINCE_CDDA_WWP_SHA256_BYTES
 #endif
 #if KUI_ARMADA_CE_CDDA_VMU
     /* Combined Armada CD music + writable virtual A2 (ce-armada-all-on.kui).
