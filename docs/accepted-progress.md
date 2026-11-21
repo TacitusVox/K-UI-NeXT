@@ -57,7 +57,15 @@ Delivered: `KUI-WinCE-GUI-Routes-16NOV2026-1928-CST-069d612.zip`, GUI build
 `retail-boot.kui` `9e3295bcfaec`, as `00d8ed67d9ad` does. `00d8ed67d9ad`
 remains the reference until the owner reports the package's four tests.
 
-## WinCE CD music readers, adaptive slow window: console test pending, 52a946122537, 2026-11-21
+## WinCE CD music readers, adaptive slow window: console-tested, not at parity, 52a946122537, 2026-11-21
+
+**Result (21 Nov 2026, owner):** with CD music On, Armada's intro keeps a tiny
+lag and its gameplay lag returns (VMU On: intro lag gone, the same minor
+gameplay lag); Bust-A-Move 4 okay, maybe a tiny lag; both Worms games a tiny
+gameplay lag, movies fine. Gameplay is a tiny bit worse with CD music On than
+Off, so CD music On stays opt-in. The comparison with the installed
+`7b216f2e1136` set is not yet made ([result](wince-cdda-adaptive-test.md#result-21-nov-2026)).
+
 
 The generic module's adaptive slow window (16 receptions doubling to 64,
 console-run with CD music Off) in the five CD music modules: `ce-cdda-armada`,
