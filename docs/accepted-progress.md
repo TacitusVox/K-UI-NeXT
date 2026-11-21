@@ -57,6 +57,31 @@ Delivered: `KUI-WinCE-GUI-Routes-16NOV2026-1928-CST-069d612.zip`, GUI build
 `retail-boot.kui` `9e3295bcfaec`, as `00d8ed67d9ad` does. `00d8ed67d9ad`
 remains the reference until the owner reports the package's four tests.
 
+## WinCE adaptive slow window: console test pending, 871c4c7784b4, 2026-11-21
+
+A measurement build, not a candidate: the timing probe with one change, the
+6.25 MHz window after a DMA overrun starting at 16 receptions and doubling,
+up to 64, while overruns at 12.5 MHz come within 8 receptions of a window's
+end; a later one halves it again (Makefile.dc `KUI_CE_SLOW_WINDOW=16
+KUI_CE_SLOW_ADAPT=2`, the generic module's background reader only;
+[record](wince-adaptive-window-test.md)). Delivered:
+`KUI-WinCE-Adaptive-Window-Test-20NOV2026-2111-CST-871c4c7.zip` (SHA256
+`bb31ca45ae44966a9c99c521233cfdfd2809590fca89d3add08816f7af12b62a`): the module
+(93,096 bytes, payload CRC `C3140C14`, SHA-256
+`b5932b2a83bd00472345349d162d1e6fa3866126250d49a5ec9130b29463548e`), a blank
+64-slot `KUI/WCEDATA/WCEDATA.BIN` (file id `1333bb630d269579d578c20d04aa86f3`),
+the installed `7b216f2e1136` in `IF-NEEDED/`, and the PC tools.
+
+Evidence: host tests of the policy in two shapes and of the CE background
+reader with it, nine policy mutations each caught; the GUI's production
+admission of the exact bytes (seven cases, FAT32 and exFAT); the background
+resident ends at `0x8c00ddc0`, the probe layout's limit, stack worst case 392
+of 528 bytes. From the same commit with the switch at 0, the generic module's
+six delivered configurations and the five CD-music and Armada modules rebuild
+their delivered or installed bytes. Console behaviour is untested: the session
+is the test. The run list leads with Armada US (CD music Off): its intro, for
+the echo, and its gameplay, for the lag.
+
 ## WinCE reader candidate: console result, 41e3450bc94d, 2026-11-21
 
 The generic `ce-boot.kui` for everyday use with both console-tested changes:

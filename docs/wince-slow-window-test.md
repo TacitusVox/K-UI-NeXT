@@ -124,5 +124,6 @@ counted; on Armada's CD-music route these were 95 of 5,726,
 Next: a window that grows only while overruns keep recurring. It starts at
 16 receptions and doubles, up to the accepted 64, when an overrun at 12.5 MHz
 follows the end of the last window within a few receptions (the bus is still
-held), and falls back a step when one comes later.
+held), and falls back a step when one comes later
+([adaptive-window test](wince-adaptive-window-test.md)).
 
