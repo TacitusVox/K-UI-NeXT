@@ -191,6 +191,14 @@ struct kui_sci_stream_state {
     /* In the padding byte: bits 0..6, receptions still to run at the
      * slower clock; bit 7, the DMA reception in flight runs at it. */
     uint8_t slow;
+#if KUI_SCI_STREAM_SLOW_ADAPT
+    /* Bits 0..3, DMA receptions completed at the fast clock since the
+     * window ended (counting stops at KUI_SCI_STREAM_SLOW_QUICK); bits 4..5,
+     * the next window's doublings. slow took the last padding byte, so in
+     * such a build the fields after this one move by a word; only the same
+     * module reads them. */
+    uint8_t slow_adapt;
+#endif
 #endif
     uint32_t token_limit, token_used, token_budget;
 #endif
@@ -249,6 +257,26 @@ bool kui_sci_stream_token_pending(void);
 #endif
 #if KUI_SCI_STREAM_SLOW_BLOCKS < 1
 #error "KUI_SCI_STREAM_SLOW_BLOCKS: the slow window takes at least one reception"
+#endif
+/* KUI_SCI_STREAM_SLOW_ADAPT N (Makefile.dc KUI_CE_SLOW_ADAPT, the generic
+ * WinCE module only; 0, every accepted reader, keeps one fixed window): a
+ * window of KUI_SCI_STREAM_SLOW_BLOCKS that adapts to how long the bus stays
+ * held. An overrun at 12.5 MHz within KUI_SCI_STREAM_SLOW_QUICK DMA
+ * receptions of the last window's end (the bus still held) doubles the next
+ * window, up to N doublings; a later one halves it, down to
+ * KUI_SCI_STREAM_SLOW_BLOCKS. An overrun at 6.25 MHz still ends the window
+ * at once. */
+#ifndef KUI_SCI_STREAM_SLOW_ADAPT
+#define KUI_SCI_STREAM_SLOW_ADAPT 0
+#endif
+#ifndef KUI_SCI_STREAM_SLOW_QUICK
+#define KUI_SCI_STREAM_SLOW_QUICK 8u
+#endif
+#if KUI_SCI_STREAM_SLOW_ADAPT < 0 || KUI_SCI_STREAM_SLOW_ADAPT > 3
+#error "KUI_SCI_STREAM_SLOW_ADAPT: zero to three doublings"
+#endif
+#if KUI_SCI_STREAM_SLOW_ADAPT && (KUI_SCI_STREAM_SLOW_QUICK < 1 || KUI_SCI_STREAM_SLOW_QUICK > 15)
+#error "KUI_SCI_STREAM_SLOW_QUICK: one to fifteen receptions"
 #endif
 bool kui_sci_stream_slow_pending(void);
 #endif

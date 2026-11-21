@@ -88,11 +88,11 @@
     },
     "src/loader/sci_stream.c": {
       "mode": "exact",
-      "sha256": "38cf0d3241a76bc5d3e598d470bad914e8aca10eb6df1592458f46d178b0c3ff"
+      "sha256": "6ae73966bf9ceb8c6148889d779d2f7f066bb7e941d11a982fc6d4918cb5ca95"
     },
     "src/loader/sci_stream.h": {
       "mode": "code",
-      "sha256": "378b65a5d8867e07fb1927f53ea50d353d7c3e38286660cd355c1419e6025da4"
+      "sha256": "4b5fa21040ba95aa4a31f7b89ccdd0dd4c318234d751819b35916ccd3e2ea9fa"
     },
     "src/loader/vmu_native_background_resident.c": {
       "mode": "code",

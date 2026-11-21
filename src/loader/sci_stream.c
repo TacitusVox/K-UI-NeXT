@@ -299,11 +299,18 @@ enum kui_sci_stream_result kui_sci_stream_open(const struct kui_loader_sd *card,
 #endif
 #if KUI_CE_SCI_SLOW_AFTER_OVERRUN
     s.slow = 0;
+#if KUI_SCI_STREAM_SLOW_ADAPT
+    s.slow_adapt = KUI_SCI_STREAM_SLOW_QUICK;
+#endif
 #endif
 #else
     s.ready[0] = s.ready[1] = 0; s.kept = 0; s.unrepaired = 0; s.arrived = 0;
 #if KUI_CE_SCI_SLOW_AFTER_OVERRUN
     s.slow = 0;
+#if KUI_SCI_STREAM_SLOW_ADAPT
+    /* A first overrun starts the shortest window. */
+    s.slow_adapt = KUI_SCI_STREAM_SLOW_QUICK;
+#endif
 #endif
 #endif
     s.sptr = rd8(SPTR);
@@ -340,10 +347,29 @@ bool kui_sci_stream_token_pending(void) { return s.state == TOKEN_WAIT; }
 #if KUI_CE_SCI_SLOW_AFTER_OVERRUN
 #define SLOW_RX 0x80u
 #define SLOW_LEFT 0x7fu
-_Static_assert(KUI_SCI_STREAM_SLOW_BLOCKS <= SLOW_LEFT, "slow window fits seven bits");
+_Static_assert((KUI_SCI_STREAM_SLOW_BLOCKS << KUI_SCI_STREAM_SLOW_ADAPT) <= SLOW_LEFT,
+    "slow window fits seven bits");
 bool kui_sci_stream_slow_pending(void) { return (s.slow & SLOW_LEFT) != 0; }
 /* After a completed reception: one fewer still to run slowly. */
 static void __attribute__((noinline)) slow_done(void) { if(s.slow & SLOW_LEFT) --s.slow; }
+#if KUI_SCI_STREAM_SLOW_ADAPT
+#define ADAPT_SEEN 0x0fu
+#define ADAPT_STEP 0x10u
+/* An overrun at 12.5 MHz: the window it starts is twice the last if the
+ * bus was still held when that one ended (fewer than QUICK fast DMA
+ * receptions since), otherwise half; the count of fast receptions restarts.
+ * No DMA reception at the fast clock completes inside a window, so the
+ * count also runs from the end of a window an overrun at 6.25 MHz cut
+ * short. */
+static void __attribute__((noinline)) slow_start(void) {
+    uint32_t level = s.slow_adapt / ADAPT_STEP;
+    if((s.slow_adapt & ADAPT_SEEN) < KUI_SCI_STREAM_SLOW_QUICK) {
+        if(level < KUI_SCI_STREAM_SLOW_ADAPT) ++level;
+    } else if(level) --level;
+    s.slow_adapt = (uint8_t)(level * ADAPT_STEP);
+    s.slow = (uint8_t)(KUI_SCI_STREAM_SLOW_BLOCKS << level);
+}
+#endif
 #endif
 const struct kui_sci_stream_stats *kui_sci_stream_stats(void) { return &s.stats; }
 #if KUI_TOY_TEST_BUILD
@@ -918,7 +944,11 @@ static enum kui_sci_stream_result finish(bool later) {
          * than 1.28 us gets the existing programmed refetch, not a repeat. */
         if(status & ORER) {
             if(s.slow & SLOW_RX) {++s.stats.slow_overruns; s.slow = 0;}
+#if KUI_SCI_STREAM_SLOW_ADAPT
+            else slow_start();
+#else
             else s.slow = KUI_SCI_STREAM_SLOW_BLOCKS;
+#endif
         }
 #endif
         if((status & ORER) && lost < 512u && !s.lost[area] && s.unrepaired < 2u) {
@@ -967,6 +997,10 @@ static enum kui_sci_stream_result finish(bool later) {
     STREAM_OBSERVE(++s.stats.blocks);
 #if KUI_CE_SCI_SLOW_AFTER_OVERRUN
     if(s.slow & SLOW_RX) ++s.stats.slow_blocks;
+#if KUI_SCI_STREAM_SLOW_ADAPT
+    /* A programmed reception cannot overrun and is not counted. */
+    else if((s.slow_adapt & ADAPT_SEEN) < KUI_SCI_STREAM_SLOW_QUICK) ++s.slow_adapt;
+#endif
     slow_done();
 #endif
     return KUI_SCI_STREAM_OK;

@@ -752,12 +752,27 @@ build/test-sci-stream-ce-window16: tests/test_sci_stream.c tests/sci_stream_mode
 build/test-retail-async-ce-window16: tests/test_retail_async_ce.c tests/sci_stream_model.h src/loader/retail_async.c src/loader/retail_async.h src/loader/sci_stream.c src/loader/sci_stream.h src/loader/sci_stream_check.h src/core/retail_cursor.c src/core/retail_image.c src/core/retail_gd.c include/kui/retail_gd.h include/kui/retail_cursor.h include/kui/retail_image.h include/kui/retail_loader_layout.h include/kui/ata.h
 	@mkdir -p $(@D)
 	$(CC) $(HOST_FLAGS) $(SANITIZERS) -DKUI_RETAIL_ASYNC_TEST=1 -DKUI_SCI_STREAM_TEST=1 -DKUI_RETAIL_ASYNC=1 -DKUI_RETAIL_GD_ASYNC=1 -DKUI_RETAIL_CE=1 -DKUI_RETAIL_TRANSPORT=1 -DKUI_CE_SCI_SLOW_AFTER_OVERRUN=1 -DKUI_CE_SCI_FAST_TAKE=1 -DKUI_SCI_STREAM_SLOW_BLOCKS=16u -Iinclude -Isrc/loader src/loader/retail_async.c src/loader/sci_stream.c src/core/retail_cursor.c src/core/retail_image.c src/core/retail_gd.c tests/test_retail_async_ce.c -o $@
+# An adaptive slow window (Makefile.dc KUI_CE_SLOW_ADAPT): 16 receptions,
+# doubled up to 64 while overruns keep coming soon after a window ends; and a
+# second shape of the same parameters.
+build/test-sci-stream-ce-adapt: tests/test_sci_stream.c tests/sci_stream_model.h src/loader/sci_stream.c src/loader/sci_stream.h src/loader/sci_stream_check.h src/loader/sd_reader.h src/loader/sci_sd_bus.h
+	@mkdir -p $(@D)
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) -DKUI_SCI_STREAM_TEST=1 -DKUI_RETAIL_CE=1 -DKUI_CE_SCI_SLOW_AFTER_OVERRUN=1 -DKUI_CE_SCI_FAST_TAKE=1 -DKUI_SCI_STREAM_SLOW_BLOCKS=16u -DKUI_SCI_STREAM_SLOW_ADAPT=2 -Iinclude -Isrc/loader src/loader/sci_stream.c tests/test_sci_stream.c -o $@
+build/test-sci-stream-ce-adapt-shape: tests/test_sci_stream.c tests/sci_stream_model.h src/loader/sci_stream.c src/loader/sci_stream.h src/loader/sci_stream_check.h src/loader/sd_reader.h src/loader/sci_sd_bus.h
+	@mkdir -p $(@D)
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) -DKUI_SCI_STREAM_TEST=1 -DKUI_RETAIL_CE=1 -DKUI_CE_SCI_SLOW_AFTER_OVERRUN=1 -DKUI_CE_SCI_FAST_TAKE=1 -DKUI_SCI_STREAM_SLOW_BLOCKS=12u -DKUI_SCI_STREAM_SLOW_ADAPT=3 -DKUI_SCI_STREAM_SLOW_QUICK=3u -Iinclude -Isrc/loader src/loader/sci_stream.c tests/test_sci_stream.c -o $@
+build/test-retail-async-ce-adapt: tests/test_retail_async_ce.c tests/sci_stream_model.h src/loader/retail_async.c src/loader/retail_async.h src/loader/sci_stream.c src/loader/sci_stream.h src/loader/sci_stream_check.h src/core/retail_cursor.c src/core/retail_image.c src/core/retail_gd.c include/kui/retail_gd.h include/kui/retail_cursor.h include/kui/retail_image.h include/kui/retail_loader_layout.h include/kui/ata.h
+	@mkdir -p $(@D)
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) -DKUI_RETAIL_ASYNC_TEST=1 -DKUI_SCI_STREAM_TEST=1 -DKUI_RETAIL_ASYNC=1 -DKUI_RETAIL_GD_ASYNC=1 -DKUI_RETAIL_CE=1 -DKUI_RETAIL_TRANSPORT=1 -DKUI_CE_SCI_SLOW_AFTER_OVERRUN=1 -DKUI_CE_SCI_FAST_TAKE=1 -DKUI_SCI_STREAM_SLOW_BLOCKS=16u -DKUI_SCI_STREAM_SLOW_ADAPT=2 -Iinclude -Isrc/loader src/loader/retail_async.c src/loader/sci_stream.c src/core/retail_cursor.c src/core/retail_image.c src/core/retail_gd.c tests/test_retail_async_ce.c -o $@
 .PHONY: test-ce-slow-after-overrun
-test-ce-slow-after-overrun: build/test-sci-stream-ce-slow build/test-retail-async-ce-slow build/test-sci-stream-ce-window16 build/test-retail-async-ce-window16
+test-ce-slow-after-overrun: build/test-sci-stream-ce-slow build/test-retail-async-ce-slow build/test-sci-stream-ce-window16 build/test-retail-async-ce-window16 build/test-sci-stream-ce-adapt build/test-sci-stream-ce-adapt-shape build/test-retail-async-ce-adapt
 	./build/test-sci-stream-ce-slow
 	./build/test-retail-async-ce-slow
 	./build/test-sci-stream-ce-window16
 	./build/test-retail-async-ce-window16
+	./build/test-sci-stream-ce-adapt
+	./build/test-sci-stream-ce-adapt-shape
+	./build/test-retail-async-ce-adapt
 # The same trial with the faster per-block check (identical bytes and CRC).
 build/test-sci-stream-ce-fast: tests/test_sci_stream.c tests/sci_stream_model.h src/loader/sci_stream.c src/loader/sci_stream.h src/loader/sci_stream_check.h src/loader/sd_reader.h src/loader/sci_sd_bus.h
 	@mkdir -p $(@D)
