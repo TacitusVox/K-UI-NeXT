@@ -24,6 +24,12 @@ static void toy_report_row(char **at,const char *label,const uint32_t *values,un
 #if KUI_TOY_CDDA_DRIVE
 #include "kui/toy_cdda_player.h"
 #endif
+#if KUI_TOY_CDDA_SURVEY
+#include "kui/toy_cdda_survey.h"
+static uint32_t toy_cdda_cap(uint32_t value,uint32_t most) {
+    return value>most?most:value;
+}
+#endif
 /* Test 68 has more to say than fixed-width rows leave room for in the two
  * report sectors. A row whose values are written without leading zeros,
  * and only if all of it fits before `end`: a row is never cut short and
@@ -152,6 +158,34 @@ static void toy_report_wire(char **at,const char *end,const struct kui_native_ra
         toy_report_short(at,end,"CD ST RD KEEP REF LOST PJ",
             (uint32_t[]){cd->state|(cd->generation&255u)<<8|(cd->repeat&255u)<<16|(cd->track&255u)<<24,
                 cd->reads_in_play,cd->keeps,cd->refused,cd->lost,cd->projections},6u);
+    }
+#endif
+#if KUI_TOY_CDDA_SURVEY
+    /* Test 84 (SURVEY), the sound chip as read while the drive played. SV:
+     * the driver's version bytes (sound memory 0x20..0x23). DT: its family
+     * <<28 (1 MANATEE 2, 2 MANATEE 1 from 1.01.37, 3 older MANATEE 1, 4
+     * NAMIHEI, 5 AUDIO64, 6 AUDIO64 hybrid, 7 the sound CPU in reset), the
+     * identity's changes <<24 (to 15), its state word's first byte <<16 and a
+     * hash of its build date. B: surveys that found the first and the second
+     * candidate channel in use by the game, 16 bits each. N: surveys that read
+     * the candidates <<16, and those whose records proved no layout. WIN
+     * (AUDIO64 only): a non-zero word in the first pass of 0x1F4000.. <<31,
+     * passes <<16, KiB changed since the first pass. SKIP: surveys not made
+     * for SR.BL <<20, for the bus's budget <<10, and for G2 DMA, each to 1023. */
+    {
+        const struct kui_toy_cdda_survey *sv=&kui_toy_cdda_survey;
+        uint32_t changed=0u;
+        for(unsigned i=0;i<2u;i++)
+            for(uint32_t bits=sv->window_changed[i];bits;bits&=bits-1u)++changed;
+        toy_report_short(at,end,"CD SV DT B N WIN SKIP",
+            (uint32_t[]){sv->version,
+                (sv->family&15u)<<28|toy_cdda_cap(sv->changes,15u)<<24|(sv->state_word&255u)<<16|
+                    (sv->date_hash&0xffffu),
+                toy_cdda_cap(sv->busy[0],0xffffu)<<16|toy_cdda_cap(sv->busy[1],0xffffu),
+                toy_cdda_cap(sv->proved,0xffffu)<<16|toy_cdda_cap(sv->unproved,0xffffu),
+                (sv->window_nonzero?UINT32_C(0x80000000):0u)|toy_cdda_cap(sv->window_passes,0x7fffu)<<16|changed,
+                toy_cdda_cap(sv->skipped_bl,1023u)<<20|toy_cdda_cap(sv->timeouts,1023u)<<10|
+                    toy_cdda_cap(sv->skipped_dma,1023u)},6u);
     }
 #endif
 #else

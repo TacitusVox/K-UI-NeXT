@@ -31,6 +31,7 @@ TOY_CDDA_ROOM ?= 0
 TOY_CDDA_HOOK ?= 0
 TOY_CDDA_DRIVE ?= 0
 TOY_CDDA_KEEP ?= 0
+TOY_CDDA_SURVEY ?= 0
 TOY_WIRE_STAY ?= $(TOY_WIRE_STEADY)
 # Test 76 leaves LATER out unless a build asks for it.
 TOY_WIRE_LATER ?= $(if $(filter 1,$(TOY_WIRE_FLUID)),0,$(TOY_WIRE_STEADY))
@@ -537,6 +538,25 @@ TOY_WIRE_TICK_FLAG += $(TOY_CDDA_KEEP_FLAGS)
 else ifneq ($(TOY_CDDA_KEEP),0)
 $(error TOY_CDDA_KEEP must be 0 or 1)
 endif
+ifeq ($(TOY_CDDA_SURVEY),1)
+# Test 84 (SURVEY): while the drive plays, the worker's heartbeat reads the
+# sound chip, and only reads it: the driver, the records of the two channels
+# Test 85 would take and, under AUDIO64, the top 48 KiB. Worker only, and the
+# report's row CD SV.
+ifneq ($(TOY_CDDA_KEEP),1)
+$(error TOY_CDDA_SURVEY builds on Test 84's KEEP: use TOY_CDDA_KEEP=1)
+endif
+ifneq ($(TOY_SURVEY_MIXED_PAD),1)
+$(error TOY_CDDA_SURVEY follows Test 83's mixed heartbeat: use TOY_SURVEY_MIXED_PAD=1)
+endif
+TOY_CDDA_SURVEY_FLAGS := -DKUI_TOY_CDDA_SURVEY=1
+NATIVE_FLAGS += $(TOY_CDDA_SURVEY_FLAGS)
+TOY_MOVIE_TEST_FLAGS += $(TOY_CDDA_SURVEY_FLAGS)
+TOY_WIRE_TICK_FLAG += $(TOY_CDDA_SURVEY_FLAGS)
+NATIVE_SRC += src/loader/toy_cdda_survey.c
+else ifneq ($(TOY_CDDA_SURVEY),0)
+$(error TOY_CDDA_SURVEY must be 0 or 1)
+endif
 ifeq ($(TOY_WIRE_SAVE),1)
 # The stage alone is told, and it alone gains sources: the survey's file
 # format and the read-only lookup of its file. No other part's compilation
@@ -558,7 +578,7 @@ $(BUILD)/native-worker.elf: $(NATIVE_OBJ)
 
 $(BUILD)/toy-suite-config: force-mode-config
 	@mkdir -p $(BUILD)
-	@printf '%s\n' 'TOY_SUITE_MODE=$(TOY_SUITE_MODE)' 'TOY_FMV_COMPARE=$(TOY_FMV_COMPARE)' 'TOY_WIRE_STREAM=$(TOY_WIRE_STREAM)' $(if $(filter 1,$(TOY_WIRE_TICK)),'TOY_WIRE_TICK=1') $(if $(filter 1,$(TOY_WIRE_CACHED)),'TOY_WIRE_CACHED=1') $(if $(filter 1,$(TOY_WIRE_WORDS)),'TOY_WIRE_WORDS=1') $(if $(filter 1,$(TOY_WIRE_PACE)),'TOY_WIRE_PACE=1') $(if $(filter 1,$(TOY_WIRE_IDLE)),'TOY_WIRE_IDLE=1') $(if $(filter 1,$(TOY_WIRE_LEAN)),'TOY_WIRE_LEAN=1 OPEN=$(TOY_WIRE_OPEN) CLEAN=$(TOY_WIRE_CLEAN) MSB=$(TOY_WIRE_MSB) QUICK=$(TOY_WIRE_QUICK) SWIFT=$(TOY_WIRE_SWIFT)') $(if $(filter 1,$(TOY_WIRE_STEADY)),'TOY_WIRE_STEADY=1 STAY=$(TOY_WIRE_STAY) LATER=$(TOY_WIRE_LATER) RING=$(TOY_WIRE_RING)') $(if $(filter 1,$(TOY_WIRE_FLUID)),'TOY_WIRE_FLUID=1 QUIT=$(TOY_WIRE_QUIT) HOT=$(TOY_WIRE_HOT) COPY=$(TOY_WIRE_COPY) GAP=$(TOY_WIRE_GAP) APART=$(TOY_WIRE_APART)') $(if $(filter 1,$(TOY_WIRE_SEQ)),'TOY_WIRE_SEQ=1') $(if $(filter 1,$(TOY_WIRE_ANY)),'TOY_WIRE_ANY=1') $(if $(filter 1,$(TOY_WIRE_TITLES)),'TOY_WIRE_TITLES=1') $(if $(filter 1,$(TOY_WIRE_QUERY)),'TOY_WIRE_QUERY=1') $(if $(filter 1,$(TOY_WIRE_TIMER)),'TOY_WIRE_TIMER=1') $(if $(filter 1,$(TOY_WIRE_VMU)),'TOY_WIRE_VMU=1') $(if $(filter 1,$(TOY_WIRE_SAVE)),'TOY_WIRE_SAVE=1') $(if $(filter 1,$(TOY_SURVEY_MIXED_PAD)),'TOY_SURVEY_MIXED_PAD=1') $(if $(filter 1,$(TOY_CDDA_ROOM)),'TOY_CDDA_ROOM=1') $(if $(filter 1,$(TOY_CDDA_HOOK)),'TOY_CDDA_HOOK=1') $(if $(filter 1,$(TOY_CDDA_DRIVE)),'TOY_CDDA_DRIVE=1') $(if $(filter 1,$(TOY_CDDA_KEEP)),'TOY_CDDA_KEEP=1') > $@.tmp
+	@printf '%s\n' 'TOY_SUITE_MODE=$(TOY_SUITE_MODE)' 'TOY_FMV_COMPARE=$(TOY_FMV_COMPARE)' 'TOY_WIRE_STREAM=$(TOY_WIRE_STREAM)' $(if $(filter 1,$(TOY_WIRE_TICK)),'TOY_WIRE_TICK=1') $(if $(filter 1,$(TOY_WIRE_CACHED)),'TOY_WIRE_CACHED=1') $(if $(filter 1,$(TOY_WIRE_WORDS)),'TOY_WIRE_WORDS=1') $(if $(filter 1,$(TOY_WIRE_PACE)),'TOY_WIRE_PACE=1') $(if $(filter 1,$(TOY_WIRE_IDLE)),'TOY_WIRE_IDLE=1') $(if $(filter 1,$(TOY_WIRE_LEAN)),'TOY_WIRE_LEAN=1 OPEN=$(TOY_WIRE_OPEN) CLEAN=$(TOY_WIRE_CLEAN) MSB=$(TOY_WIRE_MSB) QUICK=$(TOY_WIRE_QUICK) SWIFT=$(TOY_WIRE_SWIFT)') $(if $(filter 1,$(TOY_WIRE_STEADY)),'TOY_WIRE_STEADY=1 STAY=$(TOY_WIRE_STAY) LATER=$(TOY_WIRE_LATER) RING=$(TOY_WIRE_RING)') $(if $(filter 1,$(TOY_WIRE_FLUID)),'TOY_WIRE_FLUID=1 QUIT=$(TOY_WIRE_QUIT) HOT=$(TOY_WIRE_HOT) COPY=$(TOY_WIRE_COPY) GAP=$(TOY_WIRE_GAP) APART=$(TOY_WIRE_APART)') $(if $(filter 1,$(TOY_WIRE_SEQ)),'TOY_WIRE_SEQ=1') $(if $(filter 1,$(TOY_WIRE_ANY)),'TOY_WIRE_ANY=1') $(if $(filter 1,$(TOY_WIRE_TITLES)),'TOY_WIRE_TITLES=1') $(if $(filter 1,$(TOY_WIRE_QUERY)),'TOY_WIRE_QUERY=1') $(if $(filter 1,$(TOY_WIRE_TIMER)),'TOY_WIRE_TIMER=1') $(if $(filter 1,$(TOY_WIRE_VMU)),'TOY_WIRE_VMU=1') $(if $(filter 1,$(TOY_WIRE_SAVE)),'TOY_WIRE_SAVE=1') $(if $(filter 1,$(TOY_SURVEY_MIXED_PAD)),'TOY_SURVEY_MIXED_PAD=1') $(if $(filter 1,$(TOY_CDDA_ROOM)),'TOY_CDDA_ROOM=1') $(if $(filter 1,$(TOY_CDDA_HOOK)),'TOY_CDDA_HOOK=1') $(if $(filter 1,$(TOY_CDDA_DRIVE)),'TOY_CDDA_DRIVE=1') $(if $(filter 1,$(TOY_CDDA_KEEP)),'TOY_CDDA_KEEP=1') $(if $(filter 1,$(TOY_CDDA_SURVEY)),'TOY_CDDA_SURVEY=1') > $@.tmp
 	@cmp -s $@.tmp $@ || cp $@.tmp $@
 	@rm -f $@.tmp
 
@@ -749,7 +769,7 @@ endif
 TOY_CDDA_PARTS_READER = $(BUILD)/parts-test83
 # Command-line switches reach a sub-make through its environment: each is
 # said off.
-TOY_CDDA_OFF = TOY_CDDA_ROOM=0 TOY_CDDA_HOOK=0 TOY_CDDA_DRIVE=0 TOY_CDDA_KEEP=0
+TOY_CDDA_OFF = TOY_CDDA_ROOM=0 TOY_CDDA_HOOK=0 TOY_CDDA_DRIVE=0 TOY_CDDA_KEEP=0 TOY_CDDA_SURVEY=0
 .PHONY: toy-cdda-parts-check
 toy-cdda-parts-check: $(BUILD)/retail-toy-test-$(TOY_WIRE_TEST).kui
 ifneq ($(TOY_CDDA_ROOM),1)
@@ -785,18 +805,38 @@ endif
 .PHONY: toy-cdda-mutation-check
 toy-cdda-mutation-check:
 	HOST_CC="$(HOST_CC)" python3 tests/test_toy_cdda_mutations.py
+# Test 84 (SURVEY): the survey on a model of the bus that answers only what it
+# may read. Its source can be named (tests/test_toy_cdda_survey_mutations.py).
+TOY_CDDA_SURVEY_SRC ?= src/loader/toy_cdda_survey.c
+.PHONY: toy-cdda-survey-host-test toy-cdda-survey-mutation-check
+toy-cdda-survey-host-test:
+	@mkdir -p $(BUILD)
+	$(HOST_CC) $(TOY_WIRE_HOST_FLAGS) -DKUI_TOY_CDDA_SURVEY=1 -DKUI_TOY_CDDA_SURVEY_HOST_TEST=1 \
+	 tests/test_toy_cdda_survey.c $(TOY_CDDA_SURVEY_SRC) -o $(BUILD)/test-toy-cdda-survey
+	ASAN_OPTIONS=detect_leaks=0 $(BUILD)/test-toy-cdda-survey
+toy-cdda-survey-mutation-check:
+	HOST_CC="$(HOST_CC)" python3 tests/test_toy_cdda_survey_mutations.py
 .PHONY: toy-survey-mixed-pad-host-test
+TOY_SURVEY_MIXED_PAD_HOST_FLAGS = $(PASSIVE_HOST_FLAGS) -DKUI_VMU_EXPERIMENTAL=1 \
+ -DKUI_VMU_NATIVE_PERSISTENT_PROBE=1 -DKUI_VMU_NATIVE_CACHED_CODE=1 -DKUI_NATIVE_DUAL_READERS=1 \
+ -DKUI_NATIVE_RA_TICK_OFF_ISOLATION=1 -DKUI_NATIVE_SPLIT_CONTROLLER_ISOLATION=1 \
+ -DKUI_NATIVE_SPLIT_CONTROLLER_GENERAL=1 -DKUI_NATIVE_GENERAL_LEAN_LAYOUT=1 \
+ -DKUI_NATIVE_READER_DIAGNOSTIC=1 -DKUI_VMU_NATIVE_BACKGROUND=1 -DKUI_NATIVE_READAHEAD=1 \
+ -DKUI_NATIVE_TOY_MOVIE_CAPTURE=1 -DKUI_RETAIL_ASYNC_TEST=1 -DKUI_NATIVE_BACKGROUND_COMPACT=1 \
+ -DKUI_TOY_SUITE_MODE=66 -DKUI_TOY_WIRE_TITLES=1 -DKUI_TOY_SURVEY_MIXED_PAD=1
 toy-survey-mixed-pad-host-test:
 	@mkdir -p $(BUILD)
-	$(HOST_CC) $(PASSIVE_HOST_FLAGS) -DKUI_VMU_EXPERIMENTAL=1 \
-	 -DKUI_VMU_NATIVE_PERSISTENT_PROBE=1 -DKUI_VMU_NATIVE_CACHED_CODE=1 -DKUI_NATIVE_DUAL_READERS=1 \
-	 -DKUI_NATIVE_RA_TICK_OFF_ISOLATION=1 -DKUI_NATIVE_SPLIT_CONTROLLER_ISOLATION=1 \
-	 -DKUI_NATIVE_SPLIT_CONTROLLER_GENERAL=1 -DKUI_NATIVE_GENERAL_LEAN_LAYOUT=1 \
-	 -DKUI_NATIVE_READER_DIAGNOSTIC=1 -DKUI_VMU_NATIVE_BACKGROUND=1 -DKUI_NATIVE_READAHEAD=1 \
-	 -DKUI_NATIVE_TOY_MOVIE_CAPTURE=1 -DKUI_RETAIL_ASYNC_TEST=1 -DKUI_NATIVE_BACKGROUND_COMPACT=1 \
-	 -DKUI_TOY_SUITE_MODE=66 -DKUI_TOY_WIRE_TITLES=1 -DKUI_TOY_SURVEY_MIXED_PAD=1 \
+	$(HOST_CC) $(TOY_SURVEY_MIXED_PAD_HOST_FLAGS) \
 	 tests/test_toy_survey_mixed_pad.c $(COMPAT_WORKER_HOST_SRC) -Wl,--gc-sections -o $(BUILD)/test-survey-mixed-pad
 	ASAN_OPTIONS=detect_leaks=0 $(BUILD)/test-survey-mixed-pad
+ifeq ($(TOY_CDDA_SURVEY),1)
+# Test 84 (SURVEY): the same with the drive playing and the survey after both
+# heartbeats.
+	$(HOST_CC) $(TOY_SURVEY_MIXED_PAD_HOST_FLAGS) -DKUI_TOY_CDDA_SURVEY=1 -DKUI_TOY_CDDA_SURVEY_HOST_TEST=1 \
+	 tests/test_toy_survey_mixed_pad.c $(COMPAT_WORKER_HOST_SRC) src/loader/toy_cdda_survey.c \
+	 -Wl,--gc-sections -o $(BUILD)/test-survey-mixed-pad-cdda
+	ASAN_OPTIONS=detect_leaks=0 $(BUILD)/test-survey-mixed-pad-cdda
+endif
 ifeq ($(TOY_SURVEY_MIXED_PAD),1)
 toy-wire-save-host-test: toy-survey-mixed-pad-host-test
 endif

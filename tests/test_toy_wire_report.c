@@ -80,6 +80,11 @@ static const struct kui_toy_wire_report *toy_wire_report_block(void) { return &w
 #include "kui/toy_cdda_player.h"
 struct kui_toy_cdda_drive kui_toy_cdda_drive;
 #endif
+#if KUI_TOY_CDDA_SURVEY
+/* And its sound chip survey. */
+#include "kui/toy_cdda_survey.h"
+struct kui_toy_cdda_survey kui_toy_cdda_survey;
+#endif
 #include "toy_suite_report_save.inc"
 
 #if KUI_TOY_WIRE_ANY
@@ -114,6 +119,9 @@ static const char *const labels[] = {
 #if KUI_TOY_CDDA_DRIVE
     /* Test 84: the drive's audio, in BIG's, K's and P's place. */
     "CD P P2 PA RE END LAP", "CD ST RD KEEP REF LOST PJ",
+#if KUI_TOY_CDDA_SURVEY
+    "CD SV DT B N WIN SKIP",
+#endif
 #endif
 #else
     "BIG N S BACK",
@@ -137,7 +145,8 @@ static const char *const labels[] = {
     "BP ON OT OC OI SN ST",
 };
 enum { LABELS = sizeof(labels) / sizeof(labels[0]),
-    ESSENTIAL = (KUI_TOY_WIRE_QUERY ? 20 : KUI_TOY_WIRE_TITLES ? 18 : 17) - (KUI_TOY_CDDA_DRIVE ? 1 : 0),
+    ESSENTIAL = (KUI_TOY_WIRE_QUERY ? 20 : KUI_TOY_WIRE_TITLES ? 18 : 17) - (KUI_TOY_CDDA_DRIVE ? 1 : 0) +
+        (KUI_TOY_CDDA_SURVEY ? 1 : 0),
     /* Test 80 leaves the movie player's rows out for a title that is not
      * Toy Commander: the second movie's two, the first movie's, and the
      * two players'. */
@@ -445,10 +454,13 @@ int main(int argc, char **argv) {
      * play: and BIG, K and P have made room. Fifteen rows. */
     assert(strstr(text, "X OW E I C W O\n0 0 0 0 0 0\nSD BLK PIO OVR CRC DECL\n0 0 0 0 0\nXC KEPT LO HI\n0 0 0\n"
                         "CD P P2 PA RE END LAP\n0 0 0 0 0 0\nCD ST RD KEEP REF LOST PJ\n0 0 0 0 0 0\n"
+#if KUI_TOY_CDDA_SURVEY
+                        "CD SV DT B N WIN SKIP\n0 0 0 0 0 0\n"
+#endif
                         "V SCI TMR GAME N TICKS\n0 0 0 0 0 0\nVMAX SCI TMR GAME D\n0 0 0 0\nD N T SEEK\n"));
     assert(!strstr(text, "SUBMIT") && !strstr(text, "I FIRST") && !strstr(text, "IP ON") && !strstr(text, "BP ON"));
     assert(!strstr(text, "BIG N") && !strstr(text, "K LIGHT") && !strstr(text, "P RING"));
-    assert(rows == 15u && 4u + 2u * rows <= 3u * TOY_PAGE_LINES);
+    assert(rows == 15u + KUI_TOY_CDDA_SURVEY && 4u + 2u * rows <= 3u * TOY_PAGE_LINES);
 #elif KUI_TOY_WIRE_TITLES
     /* A title that is not the verified Toy Commander says so. */
     assert(strstr(text, "BIG N S BACK TOY\n0 0 0 0\nSD BLK PIO OVR CRC DECL\n0 0 0 0 0\n"));
@@ -646,6 +658,14 @@ int main(int argc, char **argv) {
         .track = 3u, .plays = 0x40, .play2s = 0x12, .pauses = 0x1b, .releases = 0x1a, .ends = 0xc,
         .laps = 0xf, .reads_in_play = 0x3e8, .keeps = 0x2710, .refused = 2u, .lost = 1u, .projections = 0x4e2};
 #endif
+#if KUI_TOY_CDDA_SURVEY
+    /* An AUDIO64 game's survey through a long session: every value wide. */
+    kui_toy_cdda_survey = (struct kui_toy_cdda_survey){.version = 0x02665a01u, .date_hash = 0xbeefu,
+        .state_word = 0x43455845u, .family = 5u, .changes = 40u, .identified = 1u, .proved = 70000u,
+        .busy = {0x1234u, 0x42u}, .unproved = 3u, .window_passes = 0x30u, .window_nonzero = 1u,
+        .window_changed = {UINT32_C(1) << 5, UINT32_C(1) << 8}, .skipped_bl = 2u, .skipped_dma = 0x50u,
+        .timeouts = 1u};
+#endif
     body = format(&ra, &region, text, &rows);
 #if KUI_TOY_WIRE_SEQ
     /* Every row but the last fits at a full run's values with the game's
@@ -656,9 +676,17 @@ int main(int argc, char **argv) {
 #if KUI_TOY_WIRE_ANY
     /* Test 78 has no row by piece: everything fits, the first movie's
      * player too. */
+#if KUI_TOY_CDDA_SURVEY
+    /* Test 84's survey row at its widest leaves no room for that player,
+     * the last row: every other is written. */
+    assert(essential_rows == ESSENTIAL && rows == LABELS - 1u && !strstr(text, "BP ON"));
+    const char *last = strstr(text, "W FILL REF BAD\n1500 4 2\n");
+    assert(last);
+#else
     assert(essential_rows == ESSENTIAL && rows == LABELS);
     const char *last = strstr(text, "W FILL REF BAD\n1500 4 2\n");
     assert(last && strstr(text, "BP ON") > last);
+#endif
     const size_t needed = (size_t)(last - text) + strlen("W FILL REF BAD\n1500 4 2\n");
 #else
     assert(essential_rows == ESSENTIAL && rows >= LABELS - 1u);
@@ -716,7 +744,14 @@ int main(int argc, char **argv) {
      * it, before the movie player's rows; P has made room before D. */
     assert(strstr(text, "SD BLK PIO OVR CRC DECL\n40 2F 11 0 6\nXC KEPT LO HI\n2E02 28080000 16\n"
                         "CD P P2 PA RE END LAP\n40 12 1B 1A C F\n"
-                        "CD ST RD KEEP REF LOST PJ\n30F2C01 3E8 2710 2 1 4E2\nI SUBMIT"));
+                        "CD ST RD KEEP REF LOST PJ\n30F2C01 3E8 2710 2 1 4E2\n"
+#if KUI_TOY_CDDA_SURVEY
+                        /* AUDIO64 1.90f.2, 15 or more changes, 'E', its date's hash; candidates
+                         * busy 0x1234 and 0x42 times of 0xFFFF or more; the window non-zero,
+                         * 0x30 passes, KiB 5 and 40 changed; skips. */
+                        "CD SV DT B N WIN SKIP\n2665A01 5F45BEEF 12340042 FFFF0003 80300002 200450\n"
+#endif
+                        "I SUBMIT"));
     assert(strstr(text, "\nVMAX SCI TMR GAME D\n494 2C 1D4C 4C4B\nD N T SEEK"));
 #else
     assert(strstr(text, "SD BLK PIO OVR CRC DECL\n40 2F 11 0 6\nXC KEPT LO HI\n2E02 28080000 16\nI SUBMIT"));
