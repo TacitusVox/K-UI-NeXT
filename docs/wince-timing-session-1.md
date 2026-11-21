@@ -107,13 +107,41 @@ reviewers who recomputed its numbers; their corrections are applied here.
   in either session; its window holds no movie-shaped stream, so it is not yet
   a control for a streamed movie.
 
+## The owner's answers, 21 Nov 2026
+
+- "Start does skip all the videos mentioned": the movie streams' stops 1.7 to
+  4.9 s before each press (RE2, Sno-Cross, Super Producers) are the skip, so
+  every freeze lies earlier in its ring or before it.
+- "The freezes usually happen >10 seconds into the videos, generally.
+  Sometimes the freeze doesn't resolve until the movie is done like Super
+  Producers."
+
+Read with those answers:
+
+- **Super Producers** is the clearest reader-limited case. For the whole
+  18.7 s before the skip the player read flat out (each request one or two
+  frames after the last read ended, a read open 74% of the time), which is how
+  a player that has fallen behind reads. A freeze that lasts to the movie's end
+  fits a movie whose data rate is above the 636 KiB/s it received; clean reads
+  would have given about 769.
+- **Maximum Pool's** animations come from the same kind of loop, 1.36 times
+  slower than clean reads would allow.
+- **Sno-Cross's** movie stream is whole in its ring: it starts 42.4 s before
+  the press with two clean reads and ends at the skip 4.9 s before it. A freeze
+  more than 10 s in falls between about 32 and 5 s before the press, where the
+  game read at its own pace with margin (reads of about 80 ms, then about
+  200 ms idle, no request gap over 0.61 s). Its picture froze while its data
+  arrived on time: not the read rate.
+- **RE2** lies between: its request stalls begin with nothing outstanding, and
+  the catch-ups after them run at the reader's slowed rate. Run 1 ("not many
+  issues") and run 2 ("WAY worse") show the same pattern in their rings, so the
+  stalls may not be the visible freezes.
+
 ## Not answered
 
 - Where each freeze, halt or lurch falls on the ring's clock: the ring records
   no picture, sound or controller event, and its end is the BIOS menu call, not
   the combination's first button.
-- Whether the movie streams' stops 1.7 to 4.9 s before each press are natural
-  ends or skips caused by the combination's first button.
 - What holds DMA channel 1 off the bus during streams; Super Producers' regular
   2 overruns per read suggests a periodic source.
 - Whether a shorter 6.25 MHz window would help. That depends on how the bus
