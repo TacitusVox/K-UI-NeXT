@@ -1,8 +1,10 @@
 # WinCE CD music: the worker's programmed receptions as an emergency only (21 Nov 2026)
 
-**Status: delivered for a console test, 21 Nov 2026.** One behaviour change
-to the five CD music modules, the fix for the gameplay lag the Armada timing
-found ([result](wince-cdda-play-timing-test.md#result-21-nov-2026)).
+**Status: console-tested 21 Nov 2026 ([result](#result-21-nov-2026)):
+Armada's gameplay is smooth but its music repeats; Worms plays music and
+gameplay fine.** One behaviour change to the five CD music modules, the fix
+for the gameplay lag the Armada timing found
+([result](wince-cdda-play-timing-test.md#result-21-nov-2026)).
 
 ## The change (source `06341c5a`)
 
@@ -72,3 +74,39 @@ filling.
 
 A game that plays as well with CD music On as Off is ready for CD music On
 by default (a GUI change of its own).
+
+## Result (21 Nov 2026)
+
+The owner: Armada (US), CD music On, Virtual VMU Off on `ce-cdda-armada.kui`
+`06341c5a3681`: smooth gameplay, but "a lot of audio repeats", possibly
+during loading. Worms: music and gameplay fine. The owner recalled the same
+trade-off from earlier builds: fixing the gameplay broke the CD music, and
+the reverse. The measured Armada run was not made.
+
+The report's first page (A+B+X+Y+Start), the fixed module:
+
+| Row | Values |
+|---|---|
+| GD BIND SOURCE GAPS WORKER | 9 · 0 · `011F8F00` (18,845,440 bytes of music) · 0 · 1 |
+| AUDIO WHY NODE VALUE EXPECT DETAIL | all 0 (no fault) |
+| STREAM ATTEMPT PLAY REFUSED HR | 2 · 7 · 7 · 0 · 0 |
+| BUFFER CAPS BYTES VOICES CRC | `0103DE9C` · `1E8` · `56200` (352,768) · 15 · `EE6CA949` |
+| CMD FIRST LAST PLAYCUR WRITECUR | 20 (play) · track 4 · 4 · `1BD80` · `22800` |
+
+1. **The model never saw the ring run out**: GAPS counts its underrun
+   recoveries and is 0. Its underrun test compares the play cursor with the
+   fresh PCM written.
+2. **CE mixes ahead of the play cursor**: the write cursor runs `0x6A80`
+   bytes (27,264, about 155 ms) past it. Music written later than that
+   lookahead is mixed as last lap's ring contents, an audible repeat, while
+   the play cursor still trails the fresh data. So the music ran short
+   without the model's test firing.
+3. **Why the music ran short without the worker's programmed receptions**:
+   in gameplay timing run 1, 8,530 of the music's 27,371 card blocks (31%)
+   came from them. The music's DMA chain stops at every restart made inside
+   an interrupt or GD call: the card's token search after CMD18 (about 330
+   bytes) exceeds the 256-byte slice those calls allow, and after an overrun
+   the music refetches by programmed transfers and arms no DMA. Each stop
+   waits for the worker's next visit (73 ms apart on average in run 1).
+   Armada overran 1,017 times in 105 s of play; Worms, with less bus
+   contention, keeps up.
