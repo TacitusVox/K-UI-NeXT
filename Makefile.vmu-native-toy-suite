@@ -816,6 +816,20 @@ toy-cdda-survey-host-test:
 	ASAN_OPTIONS=detect_leaks=0 $(BUILD)/test-toy-cdda-survey
 toy-cdda-survey-mutation-check:
 	HOST_CC="$(HOST_CC)" python3 tests/test_toy_cdda_survey_mutations.py
+# Test 84 (SURVEY) on the original sound drivers: the survey, unmodified, over
+# each driver image of the corpus with its family's start-up stores. The images
+# are the owner's (TOY_CDDA_DRIVERS: the folder of files named by SHA-256 that
+# the CD-audio sound-driver archive gives); they are read, never copied.
+.PHONY: toy-cdda-survey-driver-check
+toy-cdda-survey-driver-check:
+ifndef TOY_CDDA_DRIVERS
+	$(error toy-cdda-survey-driver-check reads the owner's sound-driver files: TOY_CDDA_DRIVERS=<their folder>)
+endif
+	@mkdir -p $(BUILD)
+	$(HOST_CC) $(TOY_WIRE_HOST_FLAGS) -DKUI_TOY_CDDA_SURVEY=1 -DKUI_TOY_CDDA_SURVEY_HOST_TEST=1 \
+	 tests/test_toy_cdda_survey_drivers.c $(TOY_CDDA_SURVEY_SRC) -o $(BUILD)/test-toy-cdda-survey-drivers
+	ASAN_OPTIONS=detect_leaks=0 python3 -I tests/test_toy_cdda_survey_drivers.py $(BUILD)/test-toy-cdda-survey-drivers \
+	 docs/evidence/cd-audio-corpus-2026-11-20/sound-files.json $(TOY_CDDA_DRIVERS)
 .PHONY: toy-survey-mixed-pad-host-test
 TOY_SURVEY_MIXED_PAD_HOST_FLAGS = $(PASSIVE_HOST_FLAGS) -DKUI_VMU_EXPERIMENTAL=1 \
  -DKUI_VMU_NATIVE_PERSISTENT_PROBE=1 -DKUI_VMU_NATIVE_CACHED_CODE=1 -DKUI_NATIVE_DUAL_READERS=1 \

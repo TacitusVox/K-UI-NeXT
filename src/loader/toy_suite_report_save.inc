@@ -165,13 +165,14 @@ static void toy_report_wire(char **at,const char *end,const struct kui_native_ra
      * the driver's version bytes (sound memory 0x20..0x23). DT: its family
      * <<28 (1 MANATEE 2, 2 MANATEE 1 from 1.01.37, 3 older MANATEE 1, 4
      * NAMIHEI, 5 AUDIO64, 6 AUDIO64 hybrid, 7 the sound CPU in reset), the
-     * identity's changes <<24 (to 15), its state word's first byte <<16 and a
-     * hash of its build date. B: surveys that found the first and the second
+     * identity's changes (its version or date) <<24 (to 15), MANATEE's state
+     * word's first byte <<16 (0 for the others) and a hash of its build date. B: surveys that found the first and the second
      * candidate channel in use by the game, 16 bits each. N: surveys that read
      * the candidates <<16, and those whose records proved no layout. WIN
      * (AUDIO64 only): a non-zero word in the first pass of 0x1F4000.. <<31,
      * passes <<16, KiB changed since the first pass. SKIP: surveys not made
-     * for SR.BL <<20, for the bus's budget <<10, and for G2 DMA, each to 1023. */
+     * for SR.BL <<24, heartbeats with TMU0 out of the Toy profile <<16, surveys
+     * cut by the bus's budget <<8, surveys not made for G2 DMA; each to 255. */
     {
         const struct kui_toy_cdda_survey *sv=&kui_toy_cdda_survey;
         uint32_t changed=0u;
@@ -184,8 +185,8 @@ static void toy_report_wire(char **at,const char *end,const struct kui_native_ra
                 toy_cdda_cap(sv->busy[0],0xffffu)<<16|toy_cdda_cap(sv->busy[1],0xffffu),
                 toy_cdda_cap(sv->proved,0xffffu)<<16|toy_cdda_cap(sv->unproved,0xffffu),
                 (sv->window_nonzero?UINT32_C(0x80000000):0u)|toy_cdda_cap(sv->window_passes,0x7fffu)<<16|changed,
-                toy_cdda_cap(sv->skipped_bl,1023u)<<20|toy_cdda_cap(sv->timeouts,1023u)<<10|
-                    toy_cdda_cap(sv->skipped_dma,1023u)},6u);
+                toy_cdda_cap(sv->skipped_bl,255u)<<24|toy_cdda_cap(sv->skipped_clock,255u)<<16|
+                    toy_cdda_cap(sv->timeouts,255u)<<8|toy_cdda_cap(sv->skipped_dma,255u)},6u);
     }
 #endif
 #else

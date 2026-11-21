@@ -18,7 +18,13 @@ void *kui_vmu_native_reader_test_region(uint32_t address) {
 struct kui_toy_cdda_drive kui_toy_cdda_drive;
 static uint32_t survey_sr=UINT32_C(0x40000000),survey_clock=UINT32_C(0x70000000);
 static unsigned long reset_reads,surveys,fast_polls,fast_surveys,mixed_polls,mixed_surveys;
-uint32_t kui_toy_cdda_survey_test_read(uint32_t address) {
+uint32_t kui_toy_cdda_survey_test_read(uint32_t address,unsigned width) {
+    (void)width;
+    /* TMU0 in the Toy profile. */
+    if(address==UINT32_C(0xffc00000))return 0x0e0au;
+    if(address==UINT32_C(0xffd80008))return UINT32_MAX;
+    if(address==UINT32_C(0xffd80010))return 0x0002u;
+    if(address==UINT32_C(0xffd80004))return 1u;
     if(address==UINT32_C(0xffd8000c))return --survey_clock;
     /* A survey reads the reset bit first, twice, until two reads agree. */
     if(address==UINT32_C(0xa0702c00))++reset_reads;
