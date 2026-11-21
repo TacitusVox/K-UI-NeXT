@@ -57,6 +57,24 @@ Delivered: `KUI-WinCE-GUI-Routes-16NOV2026-1928-CST-069d612.zip`, GUI build
 `retail-boot.kui` `9e3295bcfaec`, as `00d8ed67d9ad` does. `00d8ed67d9ad`
 remains the reference until the owner reports the package's four tests.
 
+## WinCE CD music readers, adaptive slow window: console test pending, 52a946122537, 2026-11-21
+
+The generic module's adaptive slow window (16 receptions doubling to 64,
+console-run with CD music Off) in the five CD music modules: `ce-cdda-armada`,
+`-bam4`, `-worms`, `-wwp` and `ce-armada-all-on` ([record](wince-cdda-adaptive-test.md)).
+Source `52a94612` adds the switches to Makefile.armada-stream and
+Makefile.armada-vmu-a2; the defaults rebuild all five accepted modules
+byte-identical to `7b216f2e1136`. Test build `52a946122537` (`KUI_CE_SLOW_WINDOW=16
+KUI_CE_SLOW_ADAPT=2`), delivered as
+`KUI-WinCE-CD-Music-Adaptive-Test-21NOV2026-0852-CST-52a9461.zip` (SHA256
+`79b257caf083395542c66362a454736cde01c1c0f50c6eec8da1a94eba24b4ee`) with the
+installed five in `IF-NEEDED/`. Gates: the four readers end exactly at their
+`0x8c00d800` limit and the combined one at `0x8c00d7e0`; regions unchanged
+(`0xf60`, `0x760`); stack worst cases 512 to 516 of 2,000 and 504 of 976; the
+stream excerpt, layout and relaxed-call checks pass for each. Host:
+`test-ce-cdda-reader`, 50,229 checks in each configuration. `7b216f2e1136`
+remains accepted until the owner reports CD music On for these games.
+
 ## WinCE RAM pool and read-ahead: console-tested, read-ahead not adopted, two builds of 1a5f46776c0c, 2026-11-21
 
 **Test 2 result (21 Nov 2026):** against the candidate `91b0540103f0`, Maximum
