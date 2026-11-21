@@ -9,7 +9,10 @@ address. No host test can run SH-4 code or model the cache, so this reads
 the linked module instead: the gate's instructions, in order, and its
 literal words. It checks what was built, not how the console behaves.
 
-usage: test_toy_wire_cached_stack.py native-ra-aux.elf {cached|uncached}
+usage: test_toy_wire_cached_stack.py native-ra-aux.elf {cached|uncached} [STACK_BYTES]
+
+STACK_BYTES is the private stack's size, 0x1000 unless a build gives some of
+it to code (Test 84's ROOM: 0x700, the same top).
 """
 import re
 import subprocess
@@ -22,7 +25,8 @@ def run(*cmd):
 
 def main():
     elf, want = sys.argv[1], sys.argv[2]
-    assert want in ("cached", "uncached")
+    stack_bytes = int(sys.argv[3], 0) if len(sys.argv) > 3 else 0x1000
+    assert want in ("cached", "uncached") and stack_bytes in (0x1000, 0x700)
     symbols = {}
     for line in run("sh-elf-nm", elf).splitlines():
         parts = line.split()
@@ -32,7 +36,7 @@ def main():
     bottom, top = symbols["__native_ra_stack_bottom"], symbols["__native_ra_stack_top"]
     # The stack is linked at its uncached address either way: the stage
     # checks and seeds it there.
-    assert bottom >> 28 == 0xa and top - bottom == 0x1000, (hex(bottom), hex(top))
+    assert bottom >> 28 == 0xa and top - bottom == stack_bytes, (hex(bottom), hex(top))
     text = run("sh-elf-objdump", "-d", f"--start-address={gate:#x}", f"--stop-address={gate + 0x120:#x}", elf)
     code, literal_at = [], {}
     for line in text.splitlines():

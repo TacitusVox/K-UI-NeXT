@@ -188,14 +188,16 @@ def audit(directory, kui, slots, negative_controls=False):
     aux_size = len(payload(aux)[1])
     bottom, top = (aux[4][n][0] & 0x1fffffff for n in ("__native_ra_stack_bottom", "__native_ra_stack_top"))
     aux_span = bottom-0x0c421000
-    require(aux_size <= aux_span and aux_span in (0x3000,0x6000) and top-bottom == 0x1000,
+    # Test 84 (ROOM) gives 2,304 bytes of the 4 KiB stack to code, at the same top.
+    require(aux_size <= aux_span and ((aux_span in (0x3000,0x6000) and top-bottom == 0x1000) or
+                                      (aux_span == 0x6900 and top-bottom == 0x700)),
             "auxiliary executable and stack overlap")
     if "_kui_native_ra_extent_end" in aux[4]:
         stack = private_stack(directory, files["resident-sci"], self_test=negative_controls)
         stack_result = stack["total_bytes"]
     else:
         # Test 83 links its wire reader instead of the normal lookahead seeder.
-        require(aux_span == 0x6000, "normal auxiliary lost physical-extent traversal")
+        require(aux_span in (0x6000,0x6900), "normal auxiliary lost physical-extent traversal")
         stack_result = "extent traversal removed by linker"
     return dict(package_sha256=hashlib.sha256(package).hexdigest(), package_build=identity["build"],
                 slots=slots, retained_map_bytes=map_bytes, region_offset=hex(region), region_bytes=region_size,

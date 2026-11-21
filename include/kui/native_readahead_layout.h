@@ -29,6 +29,15 @@
 #if KUI_TOY_WIRE_STREAM != 0 && KUI_TOY_WIRE_STREAM != 1
 #error "KUI_TOY_WIRE_STREAM must be zero or one"
 #endif
+#ifndef KUI_TOY_CDDA_ROOM
+#define KUI_TOY_CDDA_ROOM 0
+#endif
+#if KUI_TOY_CDDA_ROOM != 0 && KUI_TOY_CDDA_ROOM != 1
+#error "KUI_TOY_CDDA_ROOM must be zero or one"
+#endif
+#if KUI_TOY_CDDA_ROOM && !KUI_TOY_WIRE_STREAM
+#error "Test 84's room is taken from the Toy wire stream's auxiliary stack"
+#endif
 #if KUI_TOY_WIRE_STREAM
 /* Test 68 is Test 66 with the continuous card stream: the same lease, with
  * two more pages of it given to auxiliary code. */
@@ -37,11 +46,22 @@
 #endif
 #define KUI_NATIVE_RA_LEASE_BYTES UINT32_C(0x47000)
 #define KUI_NATIVE_RA_AUX_OFFSET UINT32_C(0x13000)
+#if KUI_TOY_CDDA_ROOM
+/* Test 84 (ROOM): the same span and the same stack top; 2,304 bytes of the
+ * private stack go to code. Its deepest linked path with every callback
+ * charged is about 1 KiB (tests/test_toy_cdda_stack_bound.py). */
+#define KUI_NATIVE_RA_STACK_OFFSET UINT32_C(0x19900)
+#else
 #define KUI_NATIVE_RA_STACK_OFFSET UINT32_C(0x19000)
+#endif
 #define KUI_NATIVE_RA_STACK_END UINT32_C(0x1a000)
 #define KUI_NATIVE_RA_DATA_OFFSET UINT32_C(0x1a000)
 #define KUI_NATIVE_RA_AUX_SPAN UINT32_C(0x7000)
+#if KUI_TOY_CDDA_ROOM
+#define KUI_NATIVE_RA_AUX_IMAGE_BYTES UINT32_C(0x6900)
+#else
 #define KUI_NATIVE_RA_AUX_IMAGE_BYTES UINT32_C(0x6000)
+#endif
 #define KUI_NATIVE_RA_DATA_BYTES UINT32_C(0x2d000)
 #define KUI_NATIVE_RA_BLOCKS 360u
 #elif defined(KUI_TOY_SUITE_MODE) && (KUI_TOY_SUITE_MODE == 26 || KUI_TOY_SUITE_MODE == 27 || KUI_TOY_SUITE_MODE == 28 || \

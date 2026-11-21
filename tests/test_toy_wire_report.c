@@ -78,7 +78,9 @@ static const struct kui_toy_wire_report *toy_wire_report_block(void) { return &w
 #include "toy_suite_report_save.inc"
 
 #if KUI_TOY_WIRE_ANY
-#if KUI_TOY_WIRE_TIMER
+#if KUI_TOY_CDDA_ROOM
+#define TEST_NUMBER "84"
+#elif KUI_TOY_WIRE_TIMER
 #define TEST_NUMBER "81"
 #elif KUI_TOY_WIRE_QUERY
 #define TEST_NUMBER "80"
