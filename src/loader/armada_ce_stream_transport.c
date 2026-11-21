@@ -31,6 +31,20 @@
 #define AUDIO_PIO_EXIT_BYTES 176400u
 #endif
 #define TOKEN_LIMIT 65536u
+#if KUI_ARMADA_CE_STREAM_CHAIN
+#if !KUI_CE_SCI_SLOW_AFTER_OVERRUN || !KUI_SCI_STREAM_TOKEN_SLICED
+#error "The music chain reads the reader's slow window: build the controller with the reader's slow-after-overrun switch"
+#endif
+/* The music's card stream restarts inside the pump that needs it (an
+ * interrupt, a GD call's idle visit or a data block's yield), not at the
+ * worker's next visit: a restart's token search, which takes about 330
+ * bytes after CMD18, continues for up to CHAIN_SLICES more 256-byte slices,
+ * and an overrun at the fast clock is refetched by DMA at the slower clock
+ * while its window is armed, as the game's reads are. An overrun at the
+ * slow clock and a second failure keep the programmed refetch. */
+#define CHAIN_SLICES 8u
+#define SLOW_LEFT 0x7fu
+#endif
 #define RETRIES 8u
 #define OWNER_NONE 0u
 #define OWNER_DATA 1u
@@ -134,6 +148,13 @@ static __attribute__((noinline)) void play_observe(void) {
     const struct kui_retail_async *e=data();
     kui_armada_ce_play_read(s->token,s->pending!=0u,play_reading(s->command),s->count,
         e->token==s->token && e->cursor.done==e->cursor.count,t.play_grants);
+}
+#endif
+#if KUI_ARMADA_CE_STREAM_CHAIN
+/* The reader's slow window (sci_stream.c): receptions still to run at
+ * 6.25 MHz. Read only; the same field in every build of this layout. */
+static bool slow_pending(void) {
+    return (t.bus.region->shared.stream.slow & SLOW_LEFT)!=0u;
 }
 #endif
 static void refresh_holds(void) {
@@ -287,7 +308,18 @@ static enum kui_armada_ce_stream_transport_status pump(bool worker) {
         lba=t.cursor.block;
     } else if(result==KUI_SCI_STREAM_CRC) audio_failure(result);
     if(t.stats.status!=KUI_ARMADA_CE_STREAM_TRANSPORT_PENDING) {release_audio();return KUI_ARMADA_CE_STREAM_TRANSPORT_IO;}
+#if KUI_ARMADA_CE_STREAM_CHAIN
+    bool polled=(worker && WORKER_PIO) || (t.early_polled && !slow_pending()) || t.stats.retries>=2u;
+    result=t.bus.fetch(lba,TOKEN_LIMIT,polled);
+    /* The worker continues a sliced search through its own visit loop. */
+    for(unsigned slice=0;!worker && result==KUI_SCI_STREAM_PENDING && !t.bus.busy() &&
+        slice<CHAIN_SLICES;slice++) {
+        t.bus.token_budget(true);
+        result=t.bus.fetch(lba,TOKEN_LIMIT,polled);
+    }
+#else
     result=t.bus.fetch(lba,TOKEN_LIMIT,(worker && WORKER_PIO) || t.early_polled || t.stats.retries>=2u);
+#endif
     if(result>KUI_SCI_STREAM_BUSY) audio_failure(result);
     if(t.bus.busy()) t.bus.hook();
     else t.bus.unhook();
