@@ -1,7 +1,9 @@
 # WinCE RAM pool and read-ahead tests (generic `ce-boot.kui`, 21 Nov 2026)
 
-**Status: test 1 console-tested 21 Nov 2026 (seven launches, [result](#result-of-test-1-21-nov-2026));
-test 2 pending.**
+**Status: both console-tested 21 Nov 2026.** Test 1: the pool is safe on seven
+kernels and costs nothing ([result](#result-of-test-1-21-nov-2026)). Test 2:
+read-ahead made no visible difference on three games, and the owner ended it
+there; read-ahead is not adopted ([result](#result-of-test-2-21-nov-2026)).
 Two behaviour changes to the generic Windows CE module, each with its own
 console test, in this order ([design](wince-unified-runtime.md)):
 
@@ -107,9 +109,30 @@ Questions, each against the candidate `91b0540103f0`:
 A game that fails in test 2 but ran in test 1 points at read-ahead; one that
 fails in both points at the pool.
 
+## Result of test 2 (21 Nov 2026)
+
+The owner's report, against the candidate `91b0540103f0` (CD music Off, VMU
+Off): Maximum Pool (US) the same, Resident Evil 2 (US) the same, Super
+Producers (JPN) about the same. With no change in the three games read-ahead
+was built for, the owner ended the test there. Nothing was worse.
+
+The timing rings of test 1 and of the adaptive session show that read-ahead's
+condition is met in these streams: in Super Producers' movie 98% of reads
+begin exactly where the previous one ended (185 of 189), in Resident Evil
+2's intro 84 to 93%, and in Maximum Pool's movie 86% (its menus, in test 1's
+ring, 17%). So read-ahead either ran without a visible gain or did not run on
+the console; no measurement build carries it (the probe's resident has no
+room), so the two cannot be told apart from this test.
+
+Decision: read-ahead is not adopted. It stays in the source, off by default
+(`KUI_CE_READAHEAD=0`), and no further console time goes to it. The pool
+stays: test 1 proved it, and it is what CD music and the VMU will share. The
+everyday candidate remains `91b0540103f0`.
+
 ## Not answered by these tests
 
-- Read-ahead's timings: no measurement build carries it.
+- Read-ahead's timings, and so whether it ran at all: no measurement build
+  carries it.
 - CD music On (`ce-cdda-*`) and VMU On (`ce-armada-all-on`): those modules
   have neither change.
 - The kernels the owner has not run; the rule is proved on the 19 surveyed.

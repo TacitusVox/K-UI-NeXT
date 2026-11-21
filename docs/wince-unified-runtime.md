@@ -78,6 +78,8 @@ runs.
 
 The background reader already serves the game's requests from the card by
 interrupt and by the game's own GD calls. Read-ahead adds one state to it.
+(Console-tested 21 Nov 2026 without a visible gain and not adopted: the
+order below stands for CD music and the VMU without it.)
 The order of claims on the card bus, as the CD-music and VMU services join it:
 
 1. **The game's request.** Always first. Its first blocks may already be in
@@ -117,7 +119,7 @@ what read-ahead fills.
 | Item | State |
 |---|---|
 | Universal pool (generic module) | built `c6745ab2`, host-tested on the surveyed layouts; console-tested 21 Nov 2026 on 7 kernels: reserved on all, untouched by CE, reads unchanged ([result](wince-pool-readahead-test.md#result-of-test-1-21-nov-2026)) |
-| Read-ahead (generic module) | built `1a5f4677`, host-tested (306,260 checks with every existing CE case), not console-tested ([tests](wince-pool-readahead-test.md)); no measurement build carries it (the probe's resident has no room) |
+| Read-ahead (generic module) | built `1a5f4677`, host-tested (306,260 checks with every existing CE case); console-tested 21 Nov 2026: no visible difference on Maximum Pool, RE2 and Super Producers; not adopted, off by default ([result](wince-pool-readahead-test.md#result-of-test-2-21-nov-2026)) |
 | Adaptive slow window in the CD-music modules | designed: the same switch; after the generic module's acceptance |
 | Read-ahead in the CD-music modules | designed: claim 3 above, yielding to the music's refills |
 | CD music On by default | designed: a GUI default per CD-music game, once that game's CD-music module matches CD music Off |
@@ -139,7 +141,8 @@ reserved (and for which header) and the reads' timing, which must match the
 adaptive session's (D5) for the same games. A game that fails here fails
 because CE lost 64 KiB.
 
-**Tier 1: read-ahead.** The read-ahead candidate on the read-limited and the
+**Tier 1: read-ahead** (run 21 Nov 2026 on three games, no visible
+difference; not adopted). The read-ahead candidate on the read-limited and the
 low-RAM games: Maximum Pool (US), Armada (US) intro and gameplay, Super
 Producers (JPN) to the movie's end, Worms Armageddon (US) intros, Resident
 Evil 2 (US) intro, Super Runabout (US) (the heaviest card traffic), KISS Psycho

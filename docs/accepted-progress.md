@@ -57,7 +57,16 @@ Delivered: `KUI-WinCE-GUI-Routes-16NOV2026-1928-CST-069d612.zip`, GUI build
 `retail-boot.kui` `9e3295bcfaec`, as `00d8ed67d9ad` does. `00d8ed67d9ad`
 remains the reference until the owner reports the package's four tests.
 
-## WinCE RAM pool and read-ahead: pool console-tested, read-ahead pending, two builds of 1a5f46776c0c, 2026-11-21
+## WinCE RAM pool and read-ahead: console-tested, read-ahead not adopted, two builds of 1a5f46776c0c, 2026-11-21
+
+**Test 2 result (21 Nov 2026):** against the candidate `91b0540103f0`, Maximum
+Pool the same, RE2 the same, Super Producers about the same (owner); the
+owner ended the test there. The rings show read-ahead's condition met in
+those streams (Super Producers 98% exactly sequential), so it either ran
+without a visible gain or did not run; no measurement build carries it.
+Read-ahead is not adopted and stays off by default; the pool stays for CD
+music and the VMU; `91b0540103f0` remains the everyday candidate
+([result](wince-pool-readahead-test.md#result-of-test-2-21-nov-2026)).
 
 **Test 1 result (21 Nov 2026):** seven launches on seven kernels (two CE 2,
 five CE 3, one of them outside the 19 surveyed), each played until the owner
@@ -65,7 +74,7 @@ ended it, no failed request, no refused command. The pool was reserved on
 all seven; each running kernel kept the lowered RAM end, and the pool's 16
 pages stayed untouched where CE had used them without the pool. The streamed
 reads match the adaptive session's ([result](wince-pool-readahead-test.md#result-of-test-1-21-nov-2026),
-[evidence](evidence/wince-pool-session-2026-11-21.json)). Test 2 is pending.
+[evidence](evidence/wince-pool-session-2026-11-21.json)).
 
 
 Two behaviour changes to the generic `ce-boot.kui`, off by default, each with
