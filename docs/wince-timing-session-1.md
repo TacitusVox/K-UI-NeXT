@@ -132,6 +132,9 @@ Read with those answers:
   game read at its own pace with margin (reads of about 80 ms, then about
   200 ms idle, no request gap over 0.61 s). Its picture froze while its data
   arrived on time: not the read rate.
+- **Wild Metal:** with VMUs in A1 and A2 it again waited at the start screen,
+  and the VMU showed "SCAN": the game itself scans the cards slowly. Its long
+  load is the game's, not the reader's (the owner, 21 Nov).
 - **RE2** lies between: its request stalls begin with nothing outstanding, and
   the catch-ups after them run at the reader's slowed rate. Run 1 ("not many
   issues") and run 2 ("WAY worse") show the same pattern in their rings, so the
@@ -148,13 +151,24 @@ Read with those answers:
   hold-offs are spaced over 1 to 40 ms; a model that assumes independent
   overruns does not fit Super Producers. Not shown.
 
+## The next test: a shorter slow window
+
+Built 20 Nov 2026 for the reader-limited cases: build `9313dad06594`
+(`KUI-WinCE-Slow-Window-Test-20NOV2026-1847-CST-9313dad.zip`). It is the
+timing build `5c1cdd89387b` with one change: the 6.25 MHz window after an
+overrun lasts 16 receptions, not 64 (Makefile.dc `KUI_CE_SLOW_WINDOW=16`; the
+payload differs from a 64-reception build of the same label in that one byte).
+Its rings compare with this session's. Run list: Super Producers, Maximum Pool,
+RE2 twice, Sno-Cross (expected unchanged), Super Runabout (session 1's most
+overruns, the risk check) and Bust-A-Move 4. Whether a shorter window helps is
+not shown: if the bus hold-offs come in long bursts it can bring more overruns.
+
 ## Next, in order
 
 1. Owner checks, no build: whether Start alone or A alone skips the RE2,
    Sno-Cross and Super Producers movies; per freeze, the scene, seconds into the
    movie, how long it lasts and what the sound does; the original discs, if at
-   hand, at the same spots; Wild Metal timed from Start to the level with VMUs in
-   A1 and A2, with none, and with each alone.
+   hand, at the same spots. (Answered for Start and Wild Metal on 21 Nov.)
 2. A measurement build, one change against `5c1cdd89387b`: the time of the
    combination's first button and of a mark button; a ring of overrun events
    with the DMA and bus state; GD calls between reads and CD audio commands; the

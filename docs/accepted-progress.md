@@ -57,6 +57,29 @@ Delivered: `KUI-WinCE-GUI-Routes-16NOV2026-1928-CST-069d612.zip`, GUI build
 `retail-boot.kui` `9e3295bcfaec`, as `00d8ed67d9ad` does. `00d8ed67d9ad`
 remains the reference until the owner reports the package's four tests.
 
+## WinCE slow-window test: data pending, 9313dad06594, 2026-11-20
+
+A measurement build, not a candidate: the timing probe `5c1cdd89387b` with
+one change, the 6.25 MHz window after a DMA overrun cut from 64 receptions to
+16 (Makefile.dc `KUI_CE_SLOW_WINDOW=16`, the generic module's background reader
+only). Its payload differs from a 64-reception build with the same label in
+that one byte. Delivered:
+`KUI-WinCE-Slow-Window-Test-20NOV2026-1847-CST-9313dad.zip` (SHA256
+`12be4232ca56333edea18bcabc355f36409409b14397a85b62a9bbbe66b73226`): the module
+(93,000 bytes, payload CRC `41969797`, SHA-256
+`5876c63d292231cd38970fee4626e33d5cb16cdb62ed552fa36f9a38ba4d0863`), a blank
+64-slot `KUI/WCEDATA/WCEDATA.BIN` (file id `49201ca448c8f448cd43f6514335f36d`),
+the installed `7b216f2e1136` in `IF-NEEDED/`, and the PC tools.
+
+Evidence: the SCI stream and CE background reader host tests at 16 and 64
+receptions; the GUI's production admission of the exact bytes (seven cases,
+FAT32 and exFAT); the background resident ends at `0x8c00dd60` (limit
+`0x8c00ddc0`), stack worst case 392 of 528 bytes. From the same commit, with
+the default window, the generic module in all four configurations and the five
+CD-music and Armada modules rebuild their delivered or installed bytes.
+Console behaviour is untested: the session is the test
+([timing session 1](wince-timing-session-1.md#the-next-test-a-shorter-slow-window)).
+
 ## WinCE timing session probe: data received, 5c1cdd89387b, 2026-11-20
 
 The owner ran eight launches with no VMU inserted; results:
