@@ -57,7 +57,16 @@ Delivered: `KUI-WinCE-GUI-Routes-16NOV2026-1928-CST-069d612.zip`, GUI build
 `retail-boot.kui` `9e3295bcfaec`, as `00d8ed67d9ad` does. `00d8ed67d9ad`
 remains the reference until the owner reports the package's four tests.
 
-## WinCE slow-window test: data pending, 9313dad06594, 2026-11-20
+## WinCE slow-window test: console result, 9313dad06594, 2026-11-21
+
+The owner: "That seemed to fully fix Super Producers"; Super Runabout
+"flawless"; Maximum Pool still slow in menus; Sno-Cross and RE2 still hang
+(RE2 differently each run). The rings: streamed reads 12-17% faster at the
+median, half-clock blocks roughly halved, overruns per block up 15-70%, no
+read failed ([results](wince-slow-window-test.md)). Armada US with CD music Off,
+which uses this module, was not in the run.
+
+### Delivery
 
 A measurement build, not a candidate: the timing probe `5c1cdd89387b` with
 one change, the 6.25 MHz window after a DMA overrun cut from 64 receptions to
