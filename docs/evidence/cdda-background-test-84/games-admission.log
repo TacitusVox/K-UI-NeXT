@@ -1,0 +1,41 @@
+# The Games app's byte checks (the scratch admission program of Test 79's verification), main module
+kui_runtime_header: OK payload=0x4d120 memory=0x4d120 crc=bafaaf7c build=4abc63b0cc58
+payload crc matches: 1
+layout_codec(native): 1
+  stage bytes=0x4b120 resident=0x8c004000 limit=0x8c007800
+dual descriptor find: 1 at payload+0x3815c lease=0x47000 new=1 legacy=2 flags=0
+kui_native_map_capacity: 160 ; native_background_map_slots: 160
+session descriptor find: 0
+background module matches New(1): 1 Legacy(2): 1
+vmu toggle find: 1 at payload+0x3813c off_mode=7 lease=0x47000 cache=0x30000 flags=1
+  KUINVM01 at payload+0x22bc0 version=1 bytes=32 mode=0 reserved_nonzero=0
+  KUINVM01 at payload+0x397e8 version=0 bytes=12059004 mode=12583100 reserved_nonzero=1
+mode records seen: 2
+cache seed find: payload+0x362e0 filled=0
+heap tail capability: 1
+sdk proof capability at 0x1f0: 1
+standalone descriptor find: 0
+  KUIVMUP2 magic at payload+0x22c20
+  KUIVMUP2 magic at payload+0x379a4
+KUIVMUP2 4-aligned magics: 2
+
+# alternate module
+kui_runtime_header: OK payload=0x4ca00 memory=0x4ca00 crc=e00000c9 build=4abc63b0cc58
+payload crc matches: 1
+layout_codec(native): 1
+  stage bytes=0x4aa00 resident=0x8c004000 limit=0x8c007800
+dual descriptor find: 1 at payload+0x37a3c lease=0x47000 new=1 legacy=2 flags=0
+kui_native_map_capacity: 160 ; native_background_map_slots: 160
+session descriptor find: 0
+background module matches New(1): 1 Legacy(2): 1
+vmu toggle find: 1 at payload+0x37a1c off_mode=7 lease=0x47000 cache=0x30000 flags=1
+  KUINVM01 at payload+0x22bc0 version=1 bytes=32 mode=0 reserved_nonzero=0
+  KUINVM01 at payload+0x390c8 version=0 bytes=12059004 mode=12583100 reserved_nonzero=1
+mode records seen: 2
+cache seed find: payload+0x35bc0 filled=0
+heap tail capability: 1
+sdk proof capability at 0x1f0: 1
+standalone descriptor find: 0
+  KUIVMUP2 magic at payload+0x22c20
+  KUIVMUP2 magic at payload+0x37284
+KUIVMUP2 4-aligned magics: 2

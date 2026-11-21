@@ -1,0 +1,5 @@
+# make toy-cdda-parts-check, main
+PASS Test 84's parts: both low residents and the observing worker are Test 83's; the auxiliary, the worker and the stage are its own; the auxiliary keeps its span and stack top, its code ends at 0x8c427040 below the stack at 0xac427900; the worker's player descriptor names 0x8c108b50 at the trace table +52
+
+# alternate
+PASS Test 84's parts: both low residents and the observing worker are Test 83's; the auxiliary, the worker and the stage are its own; the auxiliary keeps its span and stack top, its code ends at 0x8c427040 below the stack at 0xac427900; the worker's player descriptor names 0x8c108a3c at the trace table +52

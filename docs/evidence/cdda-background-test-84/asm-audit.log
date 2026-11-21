@@ -1,0 +1,25 @@
+.........F
+======================================================================
+FAIL: test_raw_sh4_macros_appear_only_in_the_shared_target_detector (__main__.ConsoleMacro.test_raw_sh4_macros_appear_only_in_the_shared_target_detector)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "<clean worktree>/tests/test_asm_audit.py", line 205, in test_raw_sh4_macros_appear_only_in_the_shared_target_detector
+    self.assertEqual(raw_target_macros(ROOT), [],
+    ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+                     "use KUI_ON_CONSOLE outside include/kui/target.h (see docstring)")
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: Lists differ: [('src/core/bba_sockets.c', 197), ('src/co[55 chars] 10)] != []
+
+First list contains 3 additional elements.
+First extra element 0:
+('src/core/bba_sockets.c', 197)
+
++ []
+- [('src/core/bba_sockets.c', 197),
+-  ('src/core/bba_sockets.c', 274),
+-  ('src/dreamcast/shell_font.c', 10)] : use KUI_ON_CONSOLE outside include/kui/target.h (see docstring)
+
+----------------------------------------------------------------------
+Ran 10 tests in 1.013s
+
+FAILED (failures=1)

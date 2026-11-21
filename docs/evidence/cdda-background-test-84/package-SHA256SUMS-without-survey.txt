@@ -1,0 +1,2 @@
+e74cca711600ecd8ddd38a62839fda7c6dda837740331fb3f0f458b761f03014  KUI/apps/games/retail-native-dual.kui
+422eaec835b4119bd0f31b13ccdffa40e9342d485ce4a93bab3bbbce1f13fbb1  README.txt

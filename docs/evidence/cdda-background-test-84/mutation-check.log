@@ -1,0 +1,105 @@
+# make toy-cdda-mutation-check
+caught    status 1 while playing
+caught    no status written
+caught    no position projected
+caught    projection not brought up to date
+caught    data position not restored
+caught    restored while still pending
+caught    the catalogue projected too
+caught    one pass too many
+caught    repeat 15 not endless
+caught    the end a pass late
+caught    two sectors a group
+caught    a group's part left out
+caught    a lap within a group counted twice
+caught    PAUSE ignored
+caught    RELEASE from the start
+caught    a data track plays
+caught    PLAY2 in a gap refused
+caught    a range through data
+caught    PLAY of a data track
+caught    SEEK keeps the play
+caught    an ended play leaves its 3
+caught    RESET ignored
+caught    ABORT ignored
+caught    interrupt visits answer
+caught    a command seen again
+caught    the clock always trusted
+caught    a refused play keeps the last one
+caught    written with no play
+caught    a lost play still plays
+caught    KEEP keeps nothing
+caught    KEEP writes 1
+caught    KEEP in an interrupt's visit
+caught    KEEP while paused or ended
+caught    KEEP of a failed read
+caught    KEEP of another read's engine
+caught    KEEP's raw sectors as 2,048 bytes
+caught    KEEP's position one on
+caught    KEEP's sectors not counted
+caught    KEEP's step not counted
+caught    KEEP publishes no new sector
+caught    KEEP's bytes of one sector less
+PASS Test 84 drive mutations: all 41 caught by the drive test
+
+# make toy-cdda-survey-mutation-check
+caught    SR.BL not refused
+caught    the mask not raised
+caught    SR not given back
+caught    a DMA channel enabled not refused
+caught    a DMA channel running not refused
+caught    three DMA channels
+caught    no FIFO wait in the window
+caught    bursts of sixteen
+caught    one read believed
+caught    ten times the polls
+caught    ten times the time
+caught    ten times as often
+caught    surveyed while not playing
+caught    timeouts not counted
+caught    the clock's profile not checked
+caught    TCR0 read as a word
+caught    the reset bit ignored
+caught    MANATEE 2 not running taken for running
+caught    NAMIHEI not running taken for running
+caught    MANATEE 1 asked for a mark its first build never writes
+caught    1.01.37 taken for older
+caught    a new driver of the same version not seen
+caught    the state word as identity
+caught    the state word kept for every driver
+caught    the family lost to a cut survey
+caught    the date's bytes as one
+caught    MANATEE 2's split unproved
+caught    MANATEE 2's small split unproved
+caught    MANATEE 2's fixed ports
+caught    MANATEE 1's pool unproved
+caught    MANATEE 1's entries
+caught    NAMIHEI's ports
+caught    AUDIO64's base word unproved
+caught    AUDIO64's table past the image
+caught    AUDIO64's table below the header
+caught    AUDIO64's neighbour counted
+caught    unproved on a timeout
+caught    busy counted before the verdict
+caught    the window for a driver its records did not prove
+caught    NAMIHEI's record busy by any bit
+caught    MANATEE 1's first entry unproved
+caught    the FIFO's AICA bit ignored
+caught    the FIFO's G2 bit ignored
+caught    the first survey refused below the clock's wrap
+caught    twice the time
+caught    the window for every driver
+caught    half a chunk counted
+caught    no change marked
+caught    a later pass's word taken for the first's
+caught    a cut chunk counted
+PASS Test 84 survey mutations: all 50 caught by the survey test
+
+# make toy-cdda-survey-site-mutation-check
+caught    the fast path surveys early discovery batches
+caught    the mixed path surveys batches without the controller
+caught    the fast path surveys before the controller's completion
+caught    no survey on the fast path
+caught    no survey on the mixed path
+PASS Test 84 survey sites: all 5 mutations of the heartbeat's calls caught by the gesture test
+

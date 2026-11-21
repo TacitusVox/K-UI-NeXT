@@ -1,0 +1,10 @@
+# Builds from the clean worktree at 4abc63b, each from nothing
+main:        597d8eac96b0238045e7bde9c642653a0bb5e138d6763993cabd0c156c210260
+main again:  597d8eac96b0238045e7bde9c642653a0bb5e138d6763993cabd0c156c210260
+alternate:   e74cca711600ecd8ddd38a62839fda7c6dda837740331fb3f0f458b761f03014
+all off:     313ac3bddb6b1d037ea2de758dd97d809125507ba9617340739baf0e05195f1c (Test 83 owner line 313ac3bddb6b1d037ea2de758dd97d809125507ba9617340739baf0e05195f1c)
+installed:   467be62f555a28f3171d82b39e125e536d5f31f25cfc6555cf4b85f77aa7e537 (at 9fd8e90, before Test 84: 467be62f555a28f3171d82b39e125e536d5f31f25cfc6555cf4b85f77aa7e537)
+alternate auxiliary = main auxiliary
+alternate resident-sci.bin = main resident-sci.bin
+alternate resident-legacy.bin = main resident-legacy.bin
+alternate worker.bin = main worker.bin
