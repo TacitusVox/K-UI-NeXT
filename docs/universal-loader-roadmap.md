@@ -241,6 +241,32 @@ console round, because it saves through Test 83's file.
 - Not answerable by a probe: what card time a second of audio costs beside
   the game's own reads. That is the first sounding test's question.
 
+### Test 84 (20 November 2026): the drive plays, and the sound chip is read
+
+Step 3 as built (`cdda-background-test-84.md`, build `4abc63b0cc58`), on the
+owner's Test 83 lines (GUI `4d4dcff77494`, reader `1d80f771f081`). Not a
+probe at the gesture: two things the first sounding test needs anyway, in
+the Background reader's Toy test module, one switch each.
+
+- The drive plays. The worker's player answers the game's disc calls as a
+  drive that plays its audio tracks: status 3 while playing, a position that
+  moves at 75 sectors a second on TMU0, repeats, pause and resume, an end
+  when the piece's time is up, and status 3 kept while the game reads data
+  during a play. No sound.
+- The sound chip is read, and never written, while the drive plays: which
+  driver is loaded (its version bytes and build date), whether the two
+  channels the first sounding test would take are in use, and under AUDIO64
+  the top 48 KiB of sound memory, on the console-used pilot's bus rules.
+  Run over the 60 driver images of the owner's archive, it names each as the
+  drivers' static reading does.
+- 150 of the corpus's 426 CD audio games take the Background reader with
+  that GUI and the virtual VMU off; the 271 on the standalone New reader are
+  not reached.
+
+Next, after its console round: Test 85, the sound (the track's audio read
+from the card, two channels, the game's CD volume), in the games whose
+survey shows those channels left alone.
+
 ## 1. Shared correctness and reproducible deployment — active
 
 Shared GUI preparation is also an immediate integration requirement. The
