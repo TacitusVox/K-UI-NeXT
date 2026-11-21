@@ -47,6 +47,15 @@
 #if KUI_TOY_CDDA_HOOK && !KUI_TOY_CDDA_ROOM
 #error "Test 84's player hook builds on its ROOM"
 #endif
+#ifndef KUI_TOY_CDDA_DRIVE
+#define KUI_TOY_CDDA_DRIVE 0
+#endif
+#if KUI_TOY_CDDA_DRIVE != 0 && KUI_TOY_CDDA_DRIVE != 1
+#error "KUI_TOY_CDDA_DRIVE must be zero or one"
+#endif
+#if KUI_TOY_CDDA_DRIVE && !KUI_TOY_CDDA_HOOK
+#error "Test 84's drive plays through its player hook"
+#endif
 #if KUI_TOY_WIRE_STREAM
 /* Test 68 is Test 66 with the continuous card stream: the same lease, with
  * two more pages of it given to auxiliary code. */

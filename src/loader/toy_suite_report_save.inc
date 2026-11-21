@@ -21,6 +21,9 @@ static void toy_report_row(char **at,const char *label,const uint32_t *values,un
 
 #if KUI_TOY_WIRE_STREAM
 #include "kui/toy_wire_report.h"
+#if KUI_TOY_CDDA_DRIVE
+#include "kui/toy_cdda_player.h"
+#endif
 /* Test 68 has more to say than fixed-width rows leave room for in the two
  * report sectors. A row whose values are written without leading zeros,
  * and only if all of it fits before `end`: a row is never cut short and
@@ -111,8 +114,10 @@ static void toy_report_wire(char **at,const char *end,const struct kui_native_ra
 #if KUI_TOY_WIRE_TITLES
     /* Test 79 adds whose disc it is: 1 the verified Toy Commander, with
      * its hooks and its movie policy; 0 any other title. */
+#if !KUI_TOY_CDDA_DRIVE
     toy_report_short(at,end,"BIG N S BACK TOY",
         (uint32_t[]){w->large_requests,w->large_sectors,w->large_returned,ra->demand.owner_verified},4u);
+#endif
     /* And the low reader's own totals, which the two fixed pages show and
      * a report on the screen alone would not: the blocks it read, those
      * of them by programmed transfers, its receive overruns and its CRC16
@@ -129,6 +134,25 @@ static void toy_report_wire(char **at,const char *end,const struct kui_native_ra
      * the row X counts the windows given up for one.) */
     toy_report_short(at,end,"XC KEPT LO HI",
         (uint32_t[]){w->queries,w->command_seen[0],w->command_seen[1]},3u);
+#endif
+#if KUI_TOY_CDDA_DRIVE
+    /* Test 84 (DRIVE), the drive's audio. What the game asked: PLAYs, PLAY2s,
+     * PAUSEs, RELEASEs; plays that ended once; repeats played (laps). The
+     * rows BIG, K and P of Test 83 have served and make room. */
+    {
+        const struct kui_toy_cdda_drive *cd=&kui_toy_cdda_drive;
+        toy_report_short(at,end,"CD P P2 PA RE END LAP",
+            (uint32_t[]){cd->plays,cd->play2s,cd->pauses,cd->releases,cd->ends,cd->laps},6u);
+        /* ST: the play's state (1 playing, 2 paused, 3 ended, 4 clock lost),
+         * its generation's low byte <<8, the repeat word's low byte <<16 and
+         * its first track <<24. RD: data reads made while a play stood. KEEP:
+         * read progress published with the status kept at 3. REF: plays the
+         * player could not place. LOST: plays the clock lost. PJ: positions
+         * answered from the play. */
+        toy_report_short(at,end,"CD ST RD KEEP REF LOST PJ",
+            (uint32_t[]){cd->state|(cd->generation&255u)<<8|(cd->repeat&255u)<<16|(cd->track&255u)<<24,
+                cd->reads_in_play,cd->keeps,cd->refused,cd->lost,cd->projections},6u);
+    }
 #endif
 #else
     toy_report_short(at,end,"BIG N S BACK",
@@ -166,8 +190,10 @@ static void toy_report_wire(char **at,const char *end,const struct kui_native_ra
 #if KUI_TOY_WIRE_QUERY
     }
 #endif
+#if !KUI_TOY_CDDA_DRIVE
     toy_report_short(at,end,"K LIGHT EDC MEND MB LB ORD",
         (uint32_t[]){w->light,w->edc,w->mends,w->mend_bad,w->light_bad,w->n.order},6u);
+#endif
     toy_report_short(at,end,"V SCI TMR GAME N TICKS",
         (uint32_t[]){w->visit_calls[0],w->visit_calls[1],w->visit_calls[2],
             w->visit_ticks[0],w->visit_ticks[1],w->visit_ticks[2]},6u);
@@ -181,9 +207,11 @@ static void toy_report_wire(char **at,const char *end,const struct kui_native_ra
 #endif
     /* The reader's ticks by what it was doing, as Test 75; then the ticks
      * spent ending streams. */
+#if !KUI_TOY_CDDA_DRIVE
     toy_report_short(at,end,"P RING FEED CHK OUT SVC HALT",
         (uint32_t[]){w->parse_ticks,w->feed_ticks,w->check_ticks,w->publish_ticks,w->service_ticks,
             w->halt_ticks},6u);
+#endif
     /* CAP: the capacity of the player's own buffer as TB's sampling found
      * it, in bytes (Test 73's console run: C9120). Zero: it was never
      * found, and TB says nothing. */

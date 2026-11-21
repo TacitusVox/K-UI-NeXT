@@ -4248,7 +4248,11 @@ static uint32_t hook_player(uint32_t event, uint32_t arg, kui_retail_async_regio
         CHECK(hook.open && !R.engine.in_irq);
         hook.open = false;
         ++hook.keeps;
+#if KUI_TOY_CDDA_DRIVE
+        return kui_toy_cdda_player_visit(event, arg, r, ops);
+#else
         return 0u;
+#endif
     }
     if(hook.open) ++hook.unkept;
     hook.open = false;
@@ -4258,8 +4262,13 @@ static uint32_t hook_player(uint32_t event, uint32_t arg, kui_retail_async_regio
         hook.open = true;
     } else if(event == KUI_NATIVE_RA_DELIVER) ++hook.deliver_irq;
     else ++hook.other;
+#if KUI_TOY_CDDA_DRIVE
+    /* With DRIVE the real player runs behind the count, in every scenario. */
+    return kui_toy_cdda_player_visit(event, arg, r, ops);
+#else
     (void)arg;
     return 0u;
+#endif
 }
 static void player_hook_counts(void) {
     /* A visit the guard refuses reaches no player. */

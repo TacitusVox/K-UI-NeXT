@@ -1,0 +1,116 @@
+#!/usr/bin/env python3
+# SPDX-License-Identifier: GPL-3.0-only
+"""Whether Test 84's drive test notices a defect in the player: each of a list,
+in a copy of src/loader/toy_cdda_player.c, built and run on its own.
+
+usage: test_toy_cdda_mutations.py [--jobs N] [--work DIR]
+
+Every mutation must still compile and must make toy-cdda-drive-host-test
+fail. (Left out as equivalent: dropping PLAY2's test of a start below FAD 150,
+which the search for its track refuses as well.) Run from the repository root with the Test 84 recipe's switches in the
+environment's make command line (Makefile.vmu-native-toy-suite,
+toy-cdda-mutation-check).
+"""
+import argparse
+import concurrent.futures
+import os
+import subprocess
+import sys
+import tempfile
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parents[1]
+PLAYER = ROOT / "src/loader/toy_cdda_player.c"
+RECIPE = ("TOY_SUITE_MODE=66 TOY_WIRE_STREAM=1 TOY_WIRE_CACHED=1 TOY_WIRE_WORDS=1 TOY_WIRE_PACE=1 TOY_WIRE_IDLE=1 "
+          "TOY_WIRE_LEAN=1 TOY_WIRE_STEADY=1 TOY_WIRE_FLUID=1 TOY_WIRE_SEQ=1 TOY_WIRE_ANY=1 TOY_WIRE_TITLES=1 "
+          "TOY_WIRE_QUERY=1 TOY_WIRE_TIMER=1 TOY_WIRE_SAVE=1 KUI_NATIVE_BACKGROUND_MAP160=1 TOY_SURVEY_MIXED_PAD=1 "
+          "TOY_CDDA_ROOM=1 TOY_CDDA_HOOK=1 TOY_CDDA_DRIVE=1").split()
+MUTATIONS = [
+    ("status 1 while playing", "s->drive_status=D.state==KUI_TOY_CDDA_PLAYING?3u:1u;",
+     "s->drive_status=D.state==KUI_TOY_CDDA_PLAYING?1u:1u;"),
+    ("no status written", "s->drive_status=D.state==KUI_TOY_CDDA_PLAYING?3u:1u;", "(void)0;"),
+    ("no position projected", "        s->position_lba=play_sector();\n", "        (void)play_sector();\n"),
+    ("projection not brought up to date",
+     "            ++D.projections;\n        }\n        s->position_lba=play_sector();",
+     "            ++D.projections;\n            s->position_lba=play_sector();\n        }"),
+    ("data position not restored", "s->position_lba=D.saved_position;D.projected=0u;", "D.projected=0u;"),
+    ("restored while still pending", "(s->token!=D.projected_token || !s->pending)", "(s->token!=D.projected_token || 1)"),
+    ("the catalogue projected too", "s->outputs[0]<=1u", "s->outputs[0]<=2u"),
+    ("one pass too many", "(repeat&15u)+1u", "(repeat&15u)+2u"),
+    ("repeat 15 not endless", "(repeat&15u)==15u", "(repeat&15u)==14u"),
+    ("the end a pass late", "if(D.passes && D.done>=D.passes)", "if(D.passes && D.done>D.passes)"),
+    ("two sectors a group", "uint32_t step=groups*3u;", "uint32_t step=groups*2u;"),
+    ("a group's part left out", "    offset+=(int32_t)(ticks*3u/KUI_TOY_CDDA_TICKS_3_SECTORS);", "    offset+=0;"),
+    ("a lap within a group counted twice", "offset-=length;D.base_offset-=length;", "offset-=length;"),
+    ("PAUSE ignored", "if(D.state==KUI_TOY_CDDA_PLAYING)D.state=KUI_TOY_CDDA_PAUSED;",
+     "if(0)D.state=KUI_TOY_CDDA_PAUSED;"),
+    ("RELEASE from the start", "D.base_offset=(int32_t)D.frozen;", "D.base_offset=0;"),
+    ("a data track plays", "return t && !kui_retail_track_control(t) && t->start_lba<t->end_lba;",
+     "return t && t->start_lba<t->end_lba;"),
+    ("PLAY2 in a gap refused", "(lba<t->start_lba && !audio(track_at(s,n-1u)))", "(lba<t->start_lba)"),
+    ("a range through data", "while(n<limit && audio(track_at(s,n+1u)))++n;", "while(n<limit && track_at(s,n+1u))++n;"),
+    ("PLAY of a data track", "if(!audio(t) || b<a)return false;", "if(!t || b<a)return false;"),
+    ("SEEK keeps the play", "case KUI_GD_STOP: case KUI_RETAIL_GD_SEEK: case KUI_GD_COMMAND_INIT:",
+     "case KUI_GD_STOP: case KUI_GD_COMMAND_INIT:"),
+    ("an ended play leaves its 3", "    s->drive_status=1u;D.state=KUI_TOY_CDDA_IDLE;",
+     "    s->drive_status=s->drive_status;D.state=KUI_TOY_CDDA_IDLE;"),
+    ("RESET ignored", "if((s->status==KUI_GD_NOT_FOUND && !s->command && !s->pending) ||",
+     "if((0 && !s->command && !s->pending) ||"),
+    ("ABORT ignored", "(s->error==KUI_GD_ERROR_CANCELLED && s->token==D.play_token &&",
+     "(0 && s->token==D.play_token &&"),
+    ("interrupt visits answer", "if(event!=KUI_NATIVE_RA_DELIVER || r->engine.in_irq)return 0u;",
+     "if(event!=KUI_NATIVE_RA_DELIVER)return 0u;"),
+    ("a command seen again", "        D.seen_token=s->token;\n", "\n"),
+    ("the clock always trusted", "    return kui_toy_pilot_clock_profile(frqcr,tcor,tcr,tstr);", "    (void)frqcr;(void)tcor;(void)tcr;(void)tstr;return true;"),
+    ("a refused play keeps the last one", "    ++D.refused;\n    stop(s);", "    ++D.refused;"),
+    ("written with no play", "    if(D.state==KUI_TOY_CDDA_IDLE)return 0u;\n    if(D.state==KUI_TOY_CDDA_PLAYING)advance();",
+     "    if(D.state==KUI_TOY_CDDA_PLAYING)advance();"),
+    ("a lost play still plays", "        D.state=KUI_TOY_CDDA_LOST;++D.lost;++D.generation;return;\n    }\n    const int32_t length",
+     "        ++D.lost;return;\n    }\n    const int32_t length"),
+]
+
+
+def run(index, work):
+    name, old, new = MUTATIONS[index]
+    text = PLAYER.read_text()
+    if text.count(old) != 1:
+        return index, "not applied (%d matches)" % text.count(old)
+    directory = Path(work) / ("m%02d" % index)
+    directory.mkdir(parents=True, exist_ok=True)
+    mutated = directory / "toy_cdda_player.c"
+    mutated.write_text(text.replace(old, new))
+    env = dict(os.environ)
+    env.pop("MAKEFLAGS", None)
+    env.pop("MFLAGS", None)
+    result = subprocess.run(["make", "-f", "Makefile.vmu-native-toy-suite", *RECIPE,
+                             "HOST_CC=" + env.get("HOST_CC", "cc"), "BUILD_ID=000000000000",
+                             "BUILD=" + str(directory / "build"), "TOY_CDDA_PLAYER_SRC=" + str(mutated),
+                             "toy-cdda-drive-host-test"], cwd=ROOT, env=env, capture_output=True, text=True)
+    log = result.stdout + result.stderr
+    (directory / "log.txt").write_text(log)
+    if result.returncode == 0:
+        return index, "SURVIVED"
+    if "test_toy_cdda_drive.c:" in log or "AddressSanitizer" in log or "runtime error" in log:
+        return index, "caught"
+    return index, "did not build"
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    parser.add_argument("--jobs", type=int, default=4)
+    parser.add_argument("--work")
+    args = parser.parse_args()
+    work = args.work or tempfile.mkdtemp(prefix="toy-cdda-mutations-")
+    with concurrent.futures.ThreadPoolExecutor(args.jobs) as pool:
+        results = sorted(pool.map(lambda i: run(i, work), range(len(MUTATIONS))))
+    bad = [(i, r) for i, r in results if r != "caught"]
+    for i, r in results:
+        print("%-9s %s" % (r, MUTATIONS[i][0]))
+    if bad:
+        sys.exit("FAIL %d of %d mutations not caught: %s" % (len(bad), len(MUTATIONS),
+                 "; ".join("%s (%s)" % (MUTATIONS[i][0], r) for i, r in bad)))
+    print("PASS Test 84 drive mutations: all %d caught by the drive test" % len(MUTATIONS))
+
+
+if __name__ == "__main__":
+    main()

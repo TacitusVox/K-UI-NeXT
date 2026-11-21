@@ -94,6 +94,8 @@ typedef uint32_t (*kui_native_ra_visit)(uint32_t event,uint32_t arg,
 #define KUI_TOY_CDDA_KEEP UINT32_C(0x101)
 typedef uint32_t (*kui_toy_cdda_player)(uint32_t event,uint32_t arg,
     kui_retail_async_region_type *region,const struct kui_native_ra_low_ops *ops);
+uint32_t kui_toy_cdda_player_visit(uint32_t event,uint32_t arg,
+    kui_retail_async_region_type *region,const struct kui_native_ra_low_ops *ops);
 #endif
 struct kui_native_ra_config {
     uint32_t version,bytes;
