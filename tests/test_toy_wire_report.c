@@ -659,12 +659,13 @@ int main(int argc, char **argv) {
         .laps = 0xf, .reads_in_play = 0x3e8, .keeps = 0x2710, .refused = 2u, .lost = 1u, .projections = 0x4e2};
 #endif
 #if KUI_TOY_CDDA_SURVEY
-    /* An AUDIO64 game's survey through a long session: every value wide. */
-    kui_toy_cdda_survey = (struct kui_toy_cdda_survey){.version = 0x00665a01u, .date_hash = 0xbeefu,
-        .state_word = 0u, .family = 5u, .changes = 40u, .identified = 1u, .proved = 70000u,
-        .busy = {0x1234u, 0x42u}, .unproved = 3u, .window_passes = 0x30u, .window_nonzero = 1u,
-        .window_changed = {UINT32_C(1) << 5, UINT32_C(1) << 8}, .skipped_bl = 2u, .skipped_dma = 0x50u,
-        .timeouts = 1u, .skipped_clock = 3u};
+    /* The survey row at its widest: every count past its cap, every field
+     * at its eight digits. */
+    kui_toy_cdda_survey = (struct kui_toy_cdda_survey){.version = 0xffffffffu, .date_hash = 0xffffu,
+        .state_word = 0xffffffffu, .family = 7u, .changes = 40u, .identified = 1u, .proved = 70000u,
+        .busy = {0x10000u, 0x23456u}, .unproved = 0x10001u, .window_passes = 0x8001u, .window_nonzero = 1u,
+        .window_changed = {UINT32_MAX, 0xffffu}, .skipped_bl = 300u, .skipped_dma = 0x1000u,
+        .timeouts = 256u, .skipped_clock = 1000u};
 #endif
     body = format(&ra, &region, text, &rows);
 #if KUI_TOY_WIRE_SEQ
@@ -746,11 +747,10 @@ int main(int argc, char **argv) {
                         "CD P P2 PA RE END LAP\n40 12 1B 1A C F\n"
                         "CD ST RD KEEP REF LOST PJ\n30F2C01 3E8 2710 2 1 4E2\n"
 #if KUI_TOY_CDDA_SURVEY
-                        /* AUDIO64 1.90f.2 (no state word), 15 or more changes, its date's
-                         * hash; candidates busy 0x1234 and 0x42 times of 0xFFFF or more; the
-                         * window non-zero, 0x30 passes, KiB 5 and 40 changed; skips by SR.BL,
-                         * the clock, the budget and G2 DMA. */
-                        "CD SV DT B N WIN SKIP\n665A01 5F00BEEF 12340042 FFFF0003 80300002 2030150\n"
+                        /* Each field held at its cap: changes at 15, busy and the two
+                         * counts of N at 0xFFFF, passes at 0x7FFF, 48 KiB changed, the four
+                         * skips at 255; nothing spills into a neighbour. */
+                        "CD SV DT B N WIN SKIP\nFFFFFFFF 7FFFFFFF FFFFFFFF FFFFFFFF FFFF0030 FFFFFFFF\n"
 #endif
                         "I SUBMIT"));
     assert(strstr(text, "\nVMAX SCI TMR GAME D\n494 2C 1D4C 4C4B\nD N T SEEK"));

@@ -33,6 +33,11 @@ uint32_t kui_toy_cdda_survey_test_read(uint32_t address,unsigned width) {
 }
 uint32_t kui_toy_cdda_survey_test_sr(void) { return survey_sr; }
 void kui_toy_cdda_survey_test_set_sr(uint32_t value) { survey_sr=value; }
+#if KUI_NATIVE_COOP_PUMP
+/* The worker's cooperative service, built as the worker has it: with no read
+ * active in this region it returns before its visit. */
+int kui_native_cooperative_test_visit(void) { CHECK(false); return 0; }
+#endif
 #define SURVEY_POLL(kind,call) do { const unsigned long before_=surveys; survey_clock-=13021u; call; \
     ++kind##_polls; kind##_surveys+=surveys-before_; } while(0)
 #else
@@ -91,6 +96,36 @@ static void other_port_poll(void) {
     put(rx_at(12u)+8u,4u,held);put(rx_at(VIRTUAL),4u,UINT32_MAX);
     finish_poll(false);
 }
+#if KUI_TOY_CDDA_SURVEY
+/* The early SDK's drivers: the survey follows the reader's rule on the fast
+ * path, a GETCOND parent's completion only, never an INFO or ALLINFO
+ * discovery batch's. */
+static void early_family_survey(void) {
+    split_early_setup_mode(1u,1u,KUI_VMU_NATIVE_DIAGNOSTICS_READER_ONLY);
+    submit_sr=complete_sr=0x60000101u;
+    unsigned long before=surveys;
+    survey_clock-=13021u;
+    split_batch(0u,15u,0u);split_submit_ok();split_done(0u,15u,controller_fn);complete_return();
+    CHECK(surveys==before);
+    survey_clock-=13021u;
+    split_batch(1u,0u,0u);split_submit_ok();split_done(1u,0u,controller_fn);complete_return();
+    CHECK(surveys==before+1u);
+    held_report=0u;
+}
+/* The fast path's survey comes after the controller's completion: the
+ * completion that finishes the hold hands over to the terminal and makes no
+ * survey. */
+static void fast_terminal_survey(void) {
+    setup_survey();
+    for(unsigned i=0;i<HELD_REPORT_FRAMES-1u;i++) fast_poll(held,UINT32_MAX,false);
+    CHECK(held_report==HELD_REPORT_FRAMES-1u);
+    const unsigned long before=surveys;
+    survey_clock-=13021u;
+    fast_poll_once(held,UINT32_MAX,true);
+    CHECK(surveys==before);
+    held_report=0u;
+}
+#endif
 int main(void) {
     setup_survey();
     stage_batch(1u,0u);
@@ -106,13 +141,28 @@ int main(void) {
     mixed_poll(condition_reply,controller_fn,UINT32_MAX,false);
     CHECK(!surveys && !held_report);
     kui_toy_cdda_drive.state=KUI_TOY_CDDA_PLAYING;
-    fast_polls=mixed_polls=0u;
+    early_family_survey();
+    fast_terminal_survey();
+    setup_survey();
+    surveys=reset_reads=0u;
+    fast_polls=mixed_polls=fast_surveys=mixed_surveys=0u;
 #endif
     for(unsigned i=0;i<185u;i++)fast_poll(UINT32_MAX,held,false);
     CHECK(!held_report);
     for(unsigned i=0;i<179u;i++)mixed_poll(condition_reply,controller_fn,held,false);
     CHECK(held_report==179u);
-    other_port_poll();CHECK(held_report==179u);
+#if KUI_TOY_CDDA_SURVEY
+    /* A batch without the port-A controller: no survey, its time due or not. */
+    {
+        const unsigned long before=surveys;
+        survey_clock-=13021u;
+        other_port_poll();
+        CHECK(surveys==before);
+    }
+#else
+    other_port_poll();
+#endif
+    CHECK(held_report==179u);
     mixed_poll(condition_reply,controller_fn,UINT32_MAX,false);CHECK(!held_report);
     mixed_poll(condition_reply,controller_fn,held,false);CHECK(held_report==1u);
     mixed_poll(condition_reply,UINT32_C(0x02000000),held,false);CHECK(!held_report);

@@ -17,6 +17,17 @@ image the survey's result is held against two readings that are not its own:
 And no identity change, no timeout, every survey of a family with candidates
 proved (its records at rest: none in use), none for the others. One line an
 image with its full SHA-256: the input inventory. Run with python3 -I.
+
+What is the image's and what is authored: the version bytes, the date text,
+NAMIHEI's mark (the image's own word at 0x38) and AUDIO64's table address (its
+header word 0xE0) are the image's. What the driver's start-up writes is
+authored from the static reading (the harness): MANATEE 2's mark and split,
+MANATEE 1's pool, NAMIHEI's copy of its mark to 0xF8, the AUDIO64 and MIDIDA
+ports' base word. So each line names its basis: "image" where the family rests
+on the image's bytes alone (MANATEE 1's family is its version's; its proved
+counts rest on the authored pool), else the authored store it also rests on.
+AUDIO64 against its hybrid is decided by the authored base word: that line
+checks the model, not the image.
 """
 import hashlib
 import json
@@ -40,6 +51,10 @@ MANATEE = {
     "509589f6b96d": GEN2, "2806d17567c5": GEN2, "8c4a4d3b2b91": GEN2,
 }
 KIND = {GEN2: "gen2", GEN1: "gen1", GEN1_OLD: "gen1", NAMIHEI: "namihei", None: "gen1"}
+# What the family decision rests on besides the image's own bytes.
+BASIS = {"gen2": "image+authored mark", "gen1": "image (pool authored)", "namihei": "image+authored copy of 0x38",
+         "audio64": "image+authored port base", "midida": "image+authored port base",
+         "aicadrv": "image", "other": "image"}
 
 
 def le32(b):
@@ -118,8 +133,8 @@ def main():
             window = 4 * 64 if expected in (AUDIO64, HYBRID) else 0
             if int(got["window_reads"]) != window:
                 why.append("window reads %s" % got["window_reads"])
-        lines.append("%s %-8s family %d version %08x date %04x proved %s unproved %s %s" % (
-            e["sha256"], kind, family, got["version"], got["date_hash"], got["proved"], got["unproved"],
+        lines.append("%s %-8s family %d version %08x date %04x proved %s unproved %s [%s] %s" % (
+            e["sha256"], kind, family, got["version"], got["date_hash"], got["proved"], got["unproved"], BASIS[kind],
             "no expectation (damaged)" if expected is None else ("ok" if not why else "FAIL: " + "; ".join(why))))
         if why:
             problems.append("%s %s" % (e["sha256"][:12], "; ".join(why)))
@@ -128,8 +143,11 @@ def main():
         print("%s unavailable: not in %s" % (sha, directory))
     if problems:
         sys.exit("FAIL Test 84 survey on the original drivers: " + " | ".join(problems))
+    image_only = sum(1 for e, _, _ in jobs if plan(e)[1] is not None and BASIS[plan(e)[0]].startswith("image") and
+                     "authored" not in BASIS[plan(e)[0]].split("(")[0])
     print("PASS Test 84 survey on the original drivers: %d images run (%d unavailable), %d held against the "
-          "static reading's family, every version and date the image's own" % (len(jobs), len(missing), checked))
+          "static reading's family (%d of them on the image's bytes alone, the rest also on an authored start-up "
+          "store), every version and date the image's own" % (len(jobs), len(missing), checked, image_only))
 
 
 if __name__ == "__main__":

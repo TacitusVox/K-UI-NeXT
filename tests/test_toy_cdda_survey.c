@@ -63,8 +63,10 @@ uint32_t kui_toy_cdda_survey_test_read(uint32_t address, unsigned width) {
     if(address == UINT32_C(0xa05f688c)) {
         ++fifo_polls;
         tcnt -= tick_per_read;
-        if(fifo_busy) { --fifo_busy; return 0x11u; }
-        if(fifo_after && sound_reads >= fifo_after) return 0x20u;
+        /* Busy, one of the mask's three bits at a time; and a busy poll
+         * admits no read of the chip until one that reads empty. */
+        if(fifo_busy) { --fifo_busy; since_empty = 8u; return (uint32_t[]){0x01u, 0x10u, 0x20u}[fifo_busy % 3u]; }
+        if(fifo_after && sound_reads >= fifo_after) { since_empty = 8u; return 0x20u; }
         since_empty = 0;
         return 0u;
     }
@@ -167,6 +169,12 @@ static void spacing(void) {
     tcnt -= SPACING - 10000u;
     kui_toy_cdda_survey_heartbeat();
     CHECK(V.proved == 2u);
+    /* The first survey surveys, wherever TMU0 stands: just below its wrap. */
+    fresh();
+    driver(UINT32_C(0x00090002), EXEC, "1999.06.16");
+    put32(0x12060u, 0x00080830u);
+    tcnt = UINT32_MAX - 100u + SPACING;
+    CHECK(heartbeat() && V.proved == 1u);
     ++scenarios;
 }
 
@@ -240,16 +248,24 @@ static void manatee_1(void) {
         }
         CHECK(V.family == builds[b].family && V.proved == 40u && V.busy[0] == 12u && V.busy[1] == 5u);
         CHECK(V.date_hash == date_hash(builds[b].date) && !V.unproved && V.state_word == builds[b].state);
-        /* A pool elsewhere: the base word disproves it. */
+        /* A pool elsewhere: the base word disproves it, and nothing of that
+         * survey is counted, though its first candidate's owner is set. */
+        put32(0x12080u + 12u * builds[b].first + 4u, 1u);
         put32(0x12080u + 12u * (builds[b].first + 1u) + 8u, UINT32_C(0x00801800));
         heartbeat();
-        CHECK(V.proved == 40u && V.unproved == 1u);
+        CHECK(V.proved == 40u && V.unproved == 1u && V.busy[0] == 12u && V.busy[1] == 5u);
+        put32(0x12080u + 12u * builds[b].first + 4u, 0u);
+        /* The first candidate's own base disproves it as well. */
+        put32(0x12080u + 12u * (builds[b].first + 1u) + 8u, UINT32_C(0x00801800) + 0x80u * (builds[b].first + 1u));
+        put32(0x12080u + 12u * builds[b].first + 8u, UINT32_C(0x00801800) + 0x80u * (builds[b].first + 2u));
+        heartbeat();
+        CHECK(V.proved == 40u && V.unproved == 2u);
+        put32(0x12080u + 12u * builds[b].first + 8u, UINT32_C(0x00801800) + 0x80u * builds[b].first);
         /* Whatever its state word says (all ones: halted), MANATEE 1 is known
          * by its version and its pool. */
-        put32(0x12080u + 12u * (builds[b].first + 1u) + 8u, UINT32_C(0x00801800) + 0x80u * (builds[b].first + 1u));
         put32(0xf8u, 0xffffffffu);
         heartbeat();
-        CHECK(V.family == builds[b].family && V.proved == 41u && V.unproved == 1u && V.state_word == 0xffffffffu);
+        CHECK(V.family == builds[b].family && V.proved == 41u && V.unproved == 2u && V.state_word == 0xffffffffu);
         CHECK(!V.changes);
     }
     ++scenarios;
@@ -261,7 +277,7 @@ static void namihei(void) {
     driver(UINT32_C(0x00120001), SEGA, "1999.06.08");
     for(unsigned i = 0; i < 20u; ++i) {
         put8(0x11200u + 0x40u * 6u, i & 1u);
-        put8(0x11200u + 0x40u * 7u, i < 4u);
+        put8(0x11200u + 0x40u * 7u, i < 4u ? 1u : 0x80u); /* bit 0 alone says playing */
         put8(0x11200u + 0x40u * 5u, 1u);
         heartbeat();
     }
@@ -296,7 +312,10 @@ static void audio64(void) {
         }
         CHECK(V.family == builds[b].family && V.proved == 30u && V.busy[0] == 9u && V.busy[1] == 2u);
         CHECK(V.date_hash == date_hash(builds[b].date) && !V.state_word && !V.changes);
-        /* No proof: a base word of neither kind, a table out of the image, misaligned. */
+        /* No proof: a base word of neither kind, a table out of the image,
+         * misaligned, below the header. Nothing of the window is read. */
+        const unsigned long window = window_reads;
+        const uint32_t offset = V.window_offset;
         put32(builds[b].table - 4u, UINT32_C(0x00801000));
         heartbeat();
         put32(builds[b].table - 4u, builds[b].base);
@@ -309,7 +328,7 @@ static void audio64(void) {
         put32(0xe0u, 0x100u);
         put32(0xfcu, builds[b].base);
         heartbeat();
-        CHECK(V.proved == 30u && V.unproved == 4u);
+        CHECK(V.proved == 30u && V.unproved == 4u && window_reads == window && V.window_offset == offset);
     }
     ++scenarios;
 }
@@ -459,20 +478,25 @@ static void budgets(void) {
     tcnt -= SPACING;
     kui_toy_cdda_survey_heartbeat();
     CHECK(fifo_polls - polls == 10000u && V.timeouts == 1u && !V.identified);
-    tick_per_read = 2u; /* 2 ms of reads: the clock bounds it */
-    polls = fifo_polls;
+    tick_per_read = 2u; /* 2 ms of reads: the clock bounds it, to 1,563 ticks and one poll's */
+    tcnt -= SPACING;
+    const uint32_t start = tcnt;
+    kui_toy_cdda_survey_heartbeat();
+    CHECK(start - tcnt >= 1563u && start - tcnt <= 2u + 1563u + 4u && V.timeouts == 2u);
+    /* A FIFO busy for a few polls, each of its three bits: the survey waits. */
+    fifo_busy = 6u;
     heartbeat();
-    CHECK(fifo_polls - polls < 1563u && V.timeouts == 2u);
+    CHECK(V.timeouts == 2u && V.identified && V.proved == 1u);
     fifo_busy = 0u;
     torn_address = SOUND + 0x20u; torn_left = 5u;
     heartbeat();
-    CHECK(V.version == UINT32_C(0x00090002) && V.proved == 1u && V.timeouts == 2u);
+    CHECK(V.version == UINT32_C(0x00090002) && V.proved == 2u && V.timeouts == 2u);
     torn_address = SOUND + 0x13980u; torn_left = UINT32_MAX;
     heartbeat();
-    CHECK(V.timeouts == 3u && V.proved == 1u && !V.unproved);
+    CHECK(V.timeouts == 3u && V.proved == 2u && !V.unproved);
     torn_left = 0u;
     heartbeat();
-    CHECK(V.proved == 2u);
+    CHECK(V.proved == 3u);
     ++scenarios;
 }
 

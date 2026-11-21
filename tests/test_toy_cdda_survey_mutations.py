@@ -76,6 +76,25 @@ MUTATIONS = [
     ("AUDIO64's table below the header", "word < 0x104u", "word < 0x100u"),
     ("AUDIO64's neighbour counted", "busy[0] = (other >> 16 & 255u) != 0u;", "busy[0] = (other >> 8 & 255u) != 0u;"),
     ("unproved on a timeout", "    if(!b->ok)return;\n    V.family = family;", "    V.family = family;"),
+    ("busy counted before the verdict",
+     "    if(read < 0) {\n        ++V.unproved;\n        return;\n    }\n    if(read) {\n        ++V.proved;\n"
+     "        V.busy[0] += busy[0];\n        V.busy[1] += busy[1];\n    }",
+     "    V.busy[0] += busy[0];\n    V.busy[1] += busy[1];\n    if(read < 0) {\n        ++V.unproved;\n"
+     "        return;\n    }\n    if(read) {\n        ++V.proved;\n    }"),
+    ("the window for a driver its records did not prove",
+     "    if(read < 0) {\n        ++V.unproved;\n        return;\n    }",
+     "    if(read < 0) {\n        ++V.unproved;\n"
+     "        if(family == KUI_TOY_CDDA_FAMILY_AUDIO64 || family == KUI_TOY_CDDA_FAMILY_HYBRID)window(b);\n"
+     "        return;\n    }"),
+    ("NAMIHEI's record busy by any bit", "0x11200u + 0x40u * (6u + k), &word))return -1;\n            busy[k] = word & 1u;",
+     "0x11200u + 0x40u * (6u + k), &word))return -1;\n            busy[k] = word != 0u;"),
+    ("MANATEE 1's first entry unproved", " || word != UINT32_C(0x00801800) + 0x80u * entry ||",
+     " || (k && word != UINT32_C(0x00801800) + 0x80u * entry) ||"),
+    ("the FIFO's AICA bit ignored", "#define FIFO_MASK 0x31u", "#define FIFO_MASK 0x30u"),
+    ("the FIFO's G2 bit ignored", "#define FIFO_MASK 0x31u", "#define FIFO_MASK 0x21u"),
+    ("the first survey refused below the clock's wrap", "    if(V.started && V.last_tick - now < SPACING)return;",
+     "    if(V.last_tick - now < SPACING)return;"),
+    ("twice the time", "#define TICK_LIMIT 1563u", "#define TICK_LIMIT 3126u"),
     # The window
     ("the window for every driver",
      "    if(family == KUI_TOY_CDDA_FAMILY_AUDIO64 || family == KUI_TOY_CDDA_FAMILY_HYBRID)window(b);",

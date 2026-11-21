@@ -660,6 +660,12 @@ ifeq ($(TOY_CDDA_HOOK),1)
 else ifeq ($(TOY_CDDA_ROOM),1)
 	python3 tests/test_toy_cdda_stack_bound.py $(BUILD)
 endif
+ifeq ($(TOY_CDDA_SURVEY),1)
+# Test 84 (SURVEY) in the linked worker: its calls, its depth on the stack the
+# completion admits, its callers; then the same check refusing altered readings.
+	python3 tests/test_toy_cdda_survey_linked.py $(BUILD)/native-worker.elf $(BUILD)/native
+	python3 tests/test_toy_cdda_survey_linked.py --self-test $(BUILD)/native-worker.elf $(BUILD)/native
+endif
 ifeq ($(TOY_WIRE_SWIFT),1)
 	python3 tests/test_toy_wire_linked_loops.py $(if $(filter 0,$(TOY_WIRE_MSB)),--no-as-sent) $(BUILD)/native-ra-aux.elf $(TOY_WIRE_LOOP_REFERENCE)
 else ifeq ($(TOY_WIRE_WORDS),1)
@@ -816,6 +822,11 @@ toy-cdda-survey-host-test:
 	ASAN_OPTIONS=detect_leaks=0 $(BUILD)/test-toy-cdda-survey
 toy-cdda-survey-mutation-check:
 	HOST_CC="$(HOST_CC)" python3 tests/test_toy_cdda_survey_mutations.py
+# Test 84 (SURVEY): whether the gesture test notices the heartbeat's survey
+# calls moved, in a copy of the sources.
+.PHONY: toy-cdda-survey-site-mutation-check
+toy-cdda-survey-site-mutation-check:
+	HOST_CC="$(HOST_CC)" python3 tests/test_toy_cdda_survey_sites.py
 # Test 84 (SURVEY) on the original sound drivers: the survey, unmodified, over
 # each driver image of the corpus with its family's start-up stores. The images
 # are the owner's (TOY_CDDA_DRIVERS: the folder of files named by SHA-256 that
@@ -845,8 +856,9 @@ toy-survey-mixed-pad-host-test:
 	ASAN_OPTIONS=detect_leaks=0 $(BUILD)/test-survey-mixed-pad
 ifeq ($(TOY_CDDA_SURVEY),1)
 # Test 84 (SURVEY): the same with the drive playing and the survey after both
-# heartbeats.
-	$(HOST_CC) $(TOY_SURVEY_MIXED_PAD_HOST_FLAGS) -DKUI_TOY_CDDA_SURVEY=1 -DKUI_TOY_CDDA_SURVEY_HOST_TEST=1 \
+# heartbeats, the completion built with the worker's cooperative pump.
+	$(HOST_CC) $(TOY_SURVEY_MIXED_PAD_HOST_FLAGS) -DKUI_NATIVE_COOP_PUMP=1 -DKUI_NATIVE_IRQ_REARM=1 \
+	 -DKUI_TOY_CDDA_SURVEY=1 -DKUI_TOY_CDDA_SURVEY_HOST_TEST=1 \
 	 tests/test_toy_survey_mixed_pad.c $(COMPAT_WORKER_HOST_SRC) src/loader/toy_cdda_survey.c \
 	 -Wl,--gc-sections -o $(BUILD)/test-survey-mixed-pad-cdda
 	ASAN_OPTIONS=detect_leaks=0 $(BUILD)/test-survey-mixed-pad-cdda
