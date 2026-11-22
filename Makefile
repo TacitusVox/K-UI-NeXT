@@ -312,6 +312,41 @@ test-ce-cdda-reader: build/test-armada-ce-stream-boot-fixes build/test-armada-ce
 	./build/test-armada-ce-stream-boot-fixes
 	./build/test-armada-ce-stream-boot-adapt
 test: test-ce-cdda-reader
+# The CD music modules' background reader as Makefile.armada-audio compiles it
+# (scia: ARMADA_AUDIO_FLAGS with the accepted defaults, Virtua Cop 2's kernel)
+# through the whole CE reader suite (test_retail_async_ce.c), the production
+# music transport answering every bus event. With KUI_RETAIL_CE_VRAM_DMA it adds
+# KISS Psycho Circus's and Virtua Cop 2's PVR pieces, their refusals through the
+# background service, and the pieces with a music read pending (as accepted,
+# below the emergency PIO floor, with chained token searches, and with overruns,
+# CRC errors and DMA1 taken by the game). Not on the
+# host: KUI_ON_CONSOLE (word get32/put32) and KUI_RETAIL_MANIFEST_SLOTS=64 (the
+# fixture validates its manifest, which a 64-slot build cannot).
+CE_CDDA_READER_FLAGS := -DKUI_RETAIL_ASYNC_TEST=1 -DKUI_SCI_STREAM_TEST=1 -DKUI_ARMADA_CE_STREAM_TRANSPORT_TEST=1 \
+    -DKUI_RETAIL_TRANSPORT=1 -DKUI_RETAIL_ASYNC=1 -DKUI_RETAIL_GD_ASYNC=1 -DKUI_SCI_SD_NO_BLOCK=1 \
+    -DKUI_RETAIL_CE=1 -DKUI_CE_SCI_RESUME_FIX=1 -DKUI_ARMADA_CE_AUDIO_OBSERVE=1 -DKUI_ARMADA_CE_EXCERPT=1 \
+    -DKUI_ARMADA_CE_STREAM=1 -DKUI_WINCE_CDDA_BAM4=1 -DKUI_WINCE_CDDA_BAM4_KERNEL=KUI_WINCE_CDDA_BAM4_KERNEL_VIRTUA_COP_2 \
+    -DKUI_CE_SCI_SLOW_AFTER_OVERRUN=1 -DKUI_CE_SCI_FAST_TAKE=1 -DKUI_SCI_STREAM_SLOW_BLOCKS=16u \
+    -DKUI_SCI_STREAM_SLOW_ADAPT=2 -DKUI_ARMADA_CE_STREAM_EMERGENCY_PIO=1 -DKUI_ARMADA_CE_STREAM_CHAIN=1 \
+    -DKUI_RETAIL_FAST_IO=1 -DKUI_RETAIL_STARTUP_TRACE=0 -DKUI_RETAIL_SONIC_STACK_TEST=0 -DKUI_RETAIL_LOW_RESIDENT=0
+CE_CDDA_READER_DEPS := tests/test_retail_async_ce_cdda.c tests/test_retail_async_ce.c tests/sci_stream_model.h \
+    src/loader/retail_async.c src/loader/retail_async.h src/loader/sci_stream.c src/loader/sci_stream.h \
+    src/loader/sci_stream_check.h src/loader/armada_ce_stream_transport.c include/kui/armada_ce_stream_transport.h \
+    src/core/retail_cursor.c src/core/retail_image.c src/core/retail_gd.c include/kui/retail_gd.h \
+    include/kui/retail_vram_dma.h include/kui/retail_ce_payload_copy.h include/kui/general_sci_options.h
+CE_CDDA_READER_SOURCES := tests/test_retail_async_ce_cdda.c src/loader/retail_async.c src/loader/sci_stream.c \
+    src/core/retail_cursor.c src/core/retail_image.c src/core/retail_gd.c
+build/test-retail-async-ce-cdda: $(CE_CDDA_READER_DEPS)
+	@mkdir -p $(@D)
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) -fno-pie -no-pie -pthread $(CE_CDDA_READER_FLAGS) -Iinclude -Isrc/loader $(CE_CDDA_READER_SOURCES) -o $@
+build/test-retail-async-ce-cdda-vram: $(CE_CDDA_READER_DEPS)
+	@mkdir -p $(@D)
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) -fno-pie -no-pie -pthread $(CE_CDDA_READER_FLAGS) -DKUI_RETAIL_CE_VRAM_DMA=1 -Iinclude -Isrc/loader $(CE_CDDA_READER_SOURCES) -o $@
+.PHONY: test-ce-cdda-vram
+test-ce-cdda-vram: build/test-retail-async-ce-cdda build/test-retail-async-ce-cdda-vram
+	./build/test-retail-async-ce-cdda
+	./build/test-retail-async-ce-cdda-vram
+test: test-ce-cdda-vram
 build/test-armada-ce-stream-entry: tests/test_armada_ce_stream_entry.c src/loader/armada_ce_excerpt_entry.c src/loader/armada_ce_audio_observe.inc src/loader/armada_ce_stream_trace.c include/kui/armada_ce_stream_transport.h include/kui/armada_ce_stream_initial_word.h include/kui/armada_ce_stream_rebind_word.h include/kui/armada_ce_live_sound.h
 	@mkdir -p $(@D)
 	$(CC) $(HOST_FLAGS) -fsanitize=undefined -fno-omit-frame-pointer $(INCLUDES) -Isrc/loader $< src/loader/armada_ce_stream_trace.c -o $@
