@@ -1826,7 +1826,9 @@ test-wince-cdda-bam4-group: $(BAM4_GROUP_TESTS) build/test-armada-ce-boot2-scrat
 	@echo "PASS Bust-A-Move 4 CD music group: $(words $(BAM4_GROUP_KERNELS)) kernels, runtime admission, sound binder and native lease"
 # Virtua Cop 2's module: the map and work pages its disc's bootstrap 2 uses as
 # scratch, reinstalled from the stage's proven copy (KUI_CE_CDDA_BOOT2_SCRATCH).
-build/test-armada-ce-boot2-scratch: tests/test_armada_ce_boot2_scratch.c src/core/retail_image.c include/kui/armada_ce_boot2_scratch.h include/kui/armada_ce_stream_seed.h include/kui/wince_cdda_bam4_kernels.h
+build/test-armada-ce-boot2-scratch: tests/test_armada_ce_boot2_scratch.c src/core/retail_image.c include/kui/armada_ce_boot2_scratch.h include/kui/armada_ce_stream_seed.h include/kui/armada_ce_excerpt_pool.h \
+		include/kui/retail_image.h include/kui/game_image.h include/kui/wince_cdda_profiles.h include/kui/wince_cdda_bam4_kernel.h include/kui/wince_cdda_bam4_kernels.h \
+		include/kui/wince_cdda_wwp_kernel.h include/kui/wince_cdda_wwp_kernels.h
 	@mkdir -p $(@D)
 	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) -DKUI_RETAIL_EXTENDED_MAP=1 -DKUI_WINCE_CDDA_BAM4=1 -DKUI_WINCE_CDDA_BAM4_KERNEL=KUI_WINCE_CDDA_BAM4_KERNEL_VIRTUA_COP_2 tests/test_armada_ce_boot2_scratch.c src/core/retail_image.c -o $@
 build/bam4-group/runtime-%: tests/test_wince_runtime_profiles.c src/core/retail_image.c include/kui/wince_cdda_profiles.h include/kui/wince_cdda_bam4_kernels.h include/kui/armada_ce_audio_admission.h include/kui/armada_ce_stream_seed.h
