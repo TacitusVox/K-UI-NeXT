@@ -57,7 +57,16 @@ Delivered: `KUI-WinCE-GUI-Routes-16NOV2026-1928-CST-069d612.zip`, GUI build
 `retail-boot.kui` `9e3295bcfaec`, as `00d8ed67d9ad` does. `00d8ed67d9ad`
 remains the reference until the owner reports the package's four tests.
 
-## WinCE CD music: Ducati World's repeat count, console test pending, d7fd810eb837, 2026-11-21
+## WinCE CD music: Ducati World's repeat count, console-tested, d7fd810eb837, 2026-11-21
+
+**Result (21 Nov 2026, [record](wince-cdda-ducati-repeat-test.md#result-21-nov-2026)):**
+- The first race plays its CD track: the PLAY was accepted and started
+  once, with no refusal, recovery or fault.
+- The owner found the music itself a ten-second loop, judged it the game's
+  own, and asked not to pursue it.
+- A second race, which is expected to stay silent, was not reported. The
+  player rebind it would need is not pursued for now.
+
 
 Ducati World asks for 1,000 repeats of its race track. The stream model
 refused any count above 15, so the game was silent in round 1. Source
@@ -78,7 +87,7 @@ Delivered: `KUI-WinCE-Ducati-Music-Test-21NOV2026-1929-CST-d7fd810.zip`, with:
 
 The GUI stays `1c71ba3afa17`.
 
-## WinCE CD music for World Party's group: first console result, 1c71ba3afa17, 2026-11-21
+## WinCE CD music for World Party's group: console result, 1c71ba3afa17, 2026-11-21
 
 **Result (21 Nov 2026,
 [record](wince-cdda-wwp-group-test.md#result-21-nov-2026)):**
@@ -89,7 +98,10 @@ The GUI stays `1c71ba3afa17`.
   ([test](wince-cdda-ducati-repeat-test.md)).
 - With CD music Off, 4x4 Evolution crashed after its intro was skipped, on
   the read-ahead test build `1a5f46776c0c` still installed as `ce-boot.kui`.
-  The retest is on the candidate `91b0540103f0`.
+  On the candidate `91b0540103f0` it runs, with CD music Off and On.
+- 4x4's occasional video lag is the same with CD music Off, so it is the
+  reader's, not CD music's.
+- Ducati World plays its first race with `d7fd810eb837`.
 
 CD music On for eleven more WinCE kernels that carry World Party's sound
 system unchanged ([record](wince-cdda-wwp-group-test.md)): Ducati World,

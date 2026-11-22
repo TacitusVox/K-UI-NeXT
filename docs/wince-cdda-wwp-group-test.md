@@ -1,10 +1,11 @@
 # WinCE CD music round 1: World Party's group on eleven more kernels (21 Nov 2026)
 
-**Status: test build `1c71ba3afa17` delivered 21 Nov 2026; first console
-result 21 Nov 2026 ([result](#result-21-nov-2026)): Railroad Tycoon II
-plays; Ducati World was silent (its repeat count was refused:
-[test](wince-cdda-ducati-repeat-test.md)); 4x4 Evolution's race music is not
-yet observed.** Roadmap step S4 ([roadmap](wince-roadmap.md)): World Party's CD
+**Status: test build `1c71ba3afa17` delivered 21 Nov 2026; console result
+21 Nov 2026 ([result](#result-21-nov-2026)): Railroad Tycoon II and 4x4
+Evolution run with CD music On. Ducati World plays its first race with the
+repeat test `d7fd810eb837` ([test](wince-cdda-ducati-repeat-test.md)); in
+round 1 its repeat count was refused. The other eight games are not yet
+reported.** Roadmap step S4 ([roadmap](wince-roadmap.md)): World Party's CD
 music adapter on its other kernels with the usual RAM end. The owner asked to
 "allow all WinCE games to run CDDA that have it", after the accepted CD music
 set `1ba2fa7e7040` ([record](wince-cdda-chain-test.md)).
@@ -212,6 +213,11 @@ four GUI checks were not reported.
     when the video is skipped. Its only ABORT follows a 15-second stall.
   - **Next:** the retest on the candidate is part of the
     [repeat test](wince-cdda-ducati-repeat-test.md).
+- **Retest (21 Nov 2026, the candidate `91b0540103f0` as `ce-boot.kui`):**
+  - 4x4 Evolution runs with CD music Off, intro skipped, and with CD music
+    On. So the crash belonged to the read-ahead build.
+  - The video lag stays, still very infrequent, with CD music Off too. It is
+    the reader's, not CD music's.
 
 ## Questions for the console test
 

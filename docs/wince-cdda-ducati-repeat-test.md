@@ -1,7 +1,9 @@
 # WinCE CD music: Ducati World's repeat count (21 Nov 2026)
 
-**Status: test build `d7fd810eb837` delivered 21 Nov 2026; console test
-pending.** One behaviour change on round 1's Ducati World module
+**Status: console-tested 21 Nov 2026 ([result](#result-21-nov-2026)): the
+first race plays its CD track.** The owner found the music itself a short,
+repetitive loop, judged it the game's own, and asked not to pursue it.
+Later races were not reported. One behaviour change on round 1's Ducati World module
 (`1c71ba3afa17`, [record](wince-cdda-wwp-group-test.md)), which played no
 music ([result](wince-cdda-wwp-group-test.md#result-21-nov-2026)).
 
@@ -114,6 +116,33 @@ Delivered: `KUI-WinCE-Ducati-Music-Test-21NOV2026-1929-CST-d7fd810.zip`
   ([why](wince-cdda-wwp-group-test.md#result-21-nov-2026)).
 
 The GUI stays `1c71ba3afa17`.
+
+## Result (21 Nov 2026)
+
+The owner: "Music worked on Ducati world that time." It was "basically the
+same ten second track on loop... I think there's nothing wrong on our end,
+it's on the developer's end. It was GDI. I wouldn't worry about it."
+
+The report's first page, photographed after A+B+X+Y+Start in that session,
+with build `D7FD810EB837`:
+
+| Field | Value | Meaning |
+|---|---|---|
+| ATTEMPT / PLAY / REFUSED / HR | 2 / 1 / 0 / 0 | the PLAY {t, t, 1000} was accepted and started once |
+| SOURCE / GAPS / WORKER | `0x0189EA00` / 0 / 1 | 25,815,552 bytes (about 146 s of CD audio) streamed in total, no recovery |
+| AUDIO WHY ... | all 0 | no fault |
+| CURRENT = OWNER | `8C156A88` | the race's process, bound at its first PLAY |
+| BUFFER / CAPS / BYTES / VOICES | `0020AC18` / `0x1E8` / 352,768 / 11 | a software buffer; 11 of 16 voices free before Play |
+| CMD | `0x21` | the last command was STOP |
+
+K-UI's side shows one Play and no restart or recovery, so it played the
+selected track straight through. The surveyed image's tracks 5 to 14 last
+194 to 425 s. K-UI's own loops are 2 s (its ring) and about 70 ms (a sound
+port's ring when its refill is late). So a ten-second repetition is in the
+recording, as the owner judged.
+
+Not reported: the end of the race, a second race (expected silent), and
+whether any sound kept playing after the race.
 
 ## Questions for the console test
 

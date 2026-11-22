@@ -136,6 +136,8 @@ CD music Off, 4x4 Evolution crashed on it after its intro was skipped
 ([report](wince-cdda-wwp-group-test.md#result-21-nov-2026)). The candidate
 `91b0540103f0` went back on the card in
 `KUI-WinCE-Ducati-Music-Test-21NOV2026-1929-CST-d7fd810.zip`, for the retest.
+On it, the skip runs (owner, 21 Nov 2026), so the crash belongs to the
+read-ahead build, which stays off.
 
 ## Not answered by these tests
 
