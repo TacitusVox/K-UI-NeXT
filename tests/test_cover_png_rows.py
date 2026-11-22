@@ -72,5 +72,8 @@ with tempfile.TemporaryDirectory() as temp:
     check(head(16,0)+chunk(b"tRNS",b"\0\0")+gray16,"match")
     rgb=encode(192,174,3)
     check(rgb[:33]+chunk(b"tRNS",b"\0"*6)+rgb[33:],"match")
+
+# During unittest discovery argv belongs to the parent test runner.
+if __name__ == "__main__":
     for path in sys.argv[1:]:
         subprocess.run([ROOT/"build/cover-rows-host",path,"match"],check=True)
