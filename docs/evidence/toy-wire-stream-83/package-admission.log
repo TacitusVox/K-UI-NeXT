@@ -1,0 +1,18 @@
+cc -std=c11 -O1 -g -Wall -Wextra -Werror -fsanitize=address,undefined -fno-omit-frame-pointer -Iinclude -Isrc/loader -Ifatfs/source tests/test_toy_reader_package.c \
+ src/core/runtime_image.c src/core/native_session.c src/core/vmu_native_cache_seed.c \
+ src/core/vmu_game_card.c src/core/vmu_persist_profile.c src/core/retail_image.c src/core/hash.c src/core/data.c \
+ -o build/toy-suite-83/test-toy-reader-package
+ASAN_OPTIONS=detect_leaks=0 build/toy-suite-83/test-toy-reader-package build/toy-suite-83/retail-toy-test-83.kui \
+ 
+envelope: OK build=3bd4bed2fca2 payload=307192 memory=307192 crc=7a90b4ab
+payload CRC32: ok
+layout_codec: ok
+dual descriptor: 1 at 0x360bc lease=0x47000
+session descriptor: 0
+background_module_matches(ASYNC): ok
+toggle capability: 1 at 0x3609c
+emulation Off: ok, mode slot at 0x21ae0 (GUI writes 7 at +16)
+native cache seed: blank slot at 0x34240
+toy report seed: blank slot at 0x21b00
+handoff staging limit 0x112000: ok
+RESULT: admitted by Card Tools' module checks, report seed bound

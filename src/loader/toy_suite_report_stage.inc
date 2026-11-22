@@ -16,7 +16,17 @@ static void toy_suite_report_prepare(struct kui_toy_report_wire *out) {
 #else
     unsigned test=toy_suite_source==2u && KUI_TOY_SUITE_MODE==1 ? 5u : KUI_TOY_SUITE_MODE;
 #endif
+#if defined(KUI_TOY_WIRE_SAVE) && KUI_TOY_WIRE_SAVE
+    /* Test 83: the stage found the report's place itself
+     * (toy_survey_stage.inc). That seed is for any title on the SCI card, a
+     * source for the window or none; every other rule below holds for it as
+     * for a seed Card Tools patched. */
+    bool survey=toy_survey_seed.test!=0u;
+    if(survey)seed=&toy_survey_seed;
+    if((!toy_suite_source && !survey) || card.transport!=KUI_STORAGE_SCI || seed->test!=test ||
+#else
     if(!toy_suite_source || card.transport!=KUI_STORAGE_SCI || seed->test!=test ||
+#endif
        seed->magic[0]!=KUI_TOY_REPORT_MAGIC0 || seed->magic[1]!=KUI_TOY_REPORT_MAGIC1 ||
        seed->version!=KUI_TOY_REPORT_VERSION || seed->bytes!=sizeof(*seed) || seed->reserved ||
        seed->high_capacity>1u || seed->lba[0]==seed->lba[1] ||

@@ -1,0 +1,12 @@
+STREAM.TXT: ID B5829D27CAF13A94DEAFD593D1FDC00A, 11 of 100 slots used
+slot 000: launched, no report saved: MK-51049 CHUCHU ROCKET (build 4abc63b0cc58; source 1; tracks 19, CD music tracks 15)
+slot 001: report saved: MK-51049 CHUCHU ROCKET (build 4abc63b0cc58; source 1; tracks 19, CD music tracks 15)
+slot 002: report saved: MK-57020 TOY COMMANDER (build 4abc63b0cc58; source 1; tracks 15, CD music tracks 11)
+slot 003: report saved: MK-57020 TOY COMMANDER (build 4abc63b0cc58; source 1; tracks 15, CD music tracks 11)
+slot 004: report saved: T3101N THE KING OF FIGHTERS DREAM MATCH 1999 (build 4abc63b0cc58; source 1; tracks 43, CD music tracks 39)
+slot 005: report saved: T1711N EVOLUTION2 (build 4abc63b0cc58; source 1; tracks 3, CD music tracks 0)
+slot 006: report saved: T40217N BANGAI-O (build 4abc63b0cc58; source 1; tracks 37, CD music tracks 33)
+slot 007: report saved: T12502N MDK2 (build 4abc63b0cc58; source 1; tracks 31, CD music tracks 27)
+slot 008: launched, no report saved: T1207N PLASMA SWORD (build 4abc63b0cc58; source 1; tracks 66, CD music tracks 62)
+slot 009: report saved: T36807N OMIKRON THE NOMAD SOUL (build 4abc63b0cc58; source 1; tracks 5, CD music tracks 1)
+slot 010: launched, no report saved: T40202N TOKYO XTREME RACER (build 4abc63b0cc58; source 1; tracks 21, CD music tracks 17)

@@ -1,9 +1,11 @@
 # Toy Commander Test 80: a window stands through a command that only asks
 
-Status: built 16 November 2026 (build `e58dd2e6b641`), host and linked
-checks only. It has not run on a console. A test module, not an accepted
-component, and not a replacement for the installed New reader: it has no
-virtual VMU and no block prefetch. Delivered together with Test 81
+Status: built 16 November 2026 (build `e58dd2e6b641`) and run by the
+owner on the console the same day, in Evolution 2 (Console result): no
+window was given up for a command, and a window serves 42 requests
+where it served 1.3. A test module, not an accepted component, and not
+a replacement for the installed New reader: it has no virtual VMU and
+no block prefetch. Delivered together with Test 81
 (`docs/toy-wire-stream-test-81.md`), which is this build with one change
 more.
 
@@ -146,6 +148,77 @@ changed; the three photographs.
 | `C` small, windows live, and the stutter as before | The stutter is not the windows given up. `VMAX` says whether one visit of the reader holds the processor for a frame; `WAIT` and `WTICK` are Test 81's |
 | `VMAX` `D` or `GAME` near or above `32DD` | A single call of the game's was held for about a frame by the reader: a large request handed over in one visit, or the low reader's work in the call. That is a stutter's size, and the next thing to bound |
 | A stop screen, a hang, wrong picture or sound | The change does not hold for this game. The screen's lines, or the report's rows, say where |
+
+## Console result
+
+The owner's run of 16 November 2026: Evolution 2 from the Games menu
+with this module in the installed module's place, the virtual VMU off.
+A Games launch brings no report file: the three pages were photographed
+at 15:31 and sent as one archive.
+
+Owner's observation, for Tests 80 to 82 together: "I don't know if that
+stutter is real or imagined. Not worth hunting down at this very
+moment. May be some fine-tuning in the distant future." And of the
+photographing: "I feel like this would be a lot more convenient if you
+didn't break the report writing feature to the SD card."
+
+The report as read is
+`docs/evidence/toy-wire-stream-80/console-report-evolution-2.txt`
+(SHA-256 `b779d4f6...4856`). It was read twice, the second time by a
+reader given the photographs alone, and the two readings are equal in
+every character. How it was read, which values rest on the one blurred
+photograph, and what the report checks of itself are in
+`console-report-photographs.txt`; the figures below are
+`console-report-decoded.txt`. The report is headed `TEST 80`, `BUILD
+E58DD2E6B641`, with `PT` `FBD` and `TOY` 0: this module, a title that
+is not Toy Commander.
+
+| Evolution 2 | Test 79 | Test 80 |
+|---|---|---|
+| Windows opened | 972 | 31 |
+| Given up for a command that is no read / for a read elsewhere | 969 / 3 | 0 / 30 |
+| Commands a window stood through, and which | not counted | 2,476, every one GETSCD (`LO` 0, `HI` 4) |
+| Requests served from windows | 1,244 | 1,307 |
+| To a window: requests, sectors | 1.28, 12.6 | 42.2, 398 |
+| Sectors verified into windows and never served | 3,104 (20.2%) | 1,097 (8.2%) |
+| Streams begun | 1,066 | 195 |
+| Stops of the stream for a full window | 1 | 1,181 |
+| The windows' share of the sectors read | about 69% | about 71% |
+| Runs cut by an overrun | 3,783 | 4,710 |
+| Waits, the time the stream stood for them, each | 606, 5.9 s, 9.8 ms | 2,290, 34.5 s, 15.1 ms |
+| The stream's timer | none | none |
+| Longest pump from the SCI's interrupt / from a call of the game's | not measured | 1.4 ms / 3.7 ms |
+| Longest delivery visit of one disc call | not measured | 9.6 ms (a frame is 16.7 ms) |
+| Sectors the parity could not complete / that failed a check, all read again | 0 / 4 | 33 / 2 |
+| Take-overs refused / stream errors / the low reader's CRC16 failures | 0 / 0 / 0 | 0 / 0 / 0 |
+
+What the run says, by the outcomes above:
+
+1. **The change does what it was built for.** It is the first outcome:
+   no window was given up for a command, 2,476 commands were stood
+   through, and the one kind a window met was the request for the
+   subcode. A window now serves 42 requests and 398 sectors where it
+   served 1.3 and 13, the stream stopped 1,181 times because its
+   window was full, and a fifth as many streams were begun. The window
+   reads ahead in Evolution 2 as it does in Evolution.
+2. **The windows that went, went for a read elsewhere**, 30 of 31, as
+   in Evolution under Test 79. That is the game moving to another
+   place on the disc after some forty requests, not the game reading
+   in two places by turns.
+3. **The stream stands still for longer than before**, 34.5 s in all,
+   because it now runs for most of the session and still has no timer:
+   a run cut short waits for the game's next disc call, 15 ms on
+   average. This is Test 81's subject and was expected of this build.
+4. **No single visit of the reader holds a frame.** The longest
+   delivery visit of one disc call was 9.6 ms, the longest pump from a
+   call 3.7 ms. The first is more than half a frame; it is the only
+   figure in the report of a stutter's size.
+5. **The reader held.** No stream error, no take-over refused, no
+   CRC16 failure in the low reader; 35 sectors that the window could
+   not complete or that failed their check were read again by the low
+   reader, as designed.
+6. **The stutter is left where it is**, by the owner's word above. No
+   run compared the game with the installed module.
 
 ## Known limits, not changed here
 

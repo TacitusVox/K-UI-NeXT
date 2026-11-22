@@ -12,6 +12,7 @@ typedef bool (*kui_cancel_fn)(void);
 #include "kui/retail_loader_layout.h"
 #include "kui/vmu_native_cache_seed.h"
 #include "kui/native_dual_reader.h"
+#include "kui/sha256_prefix.h"
 
 typedef unsigned UINT;
 typedef unsigned FRESULT;
@@ -19,7 +20,7 @@ enum {FR_OK,FR_NO_FILE,FR_NO_PATH,FR_EXIST,FR_DISK_ERR,FR_DENIED};
 enum {AM_DIR=16u,FA_READ=1u,FA_WRITE=2u,FA_CREATE_NEW=4u};
 typedef struct {size_t fsize;unsigned fattrib;} FILINFO;
 typedef struct {unsigned node;size_t at;} FIL;
-struct fake_node {char path[128];uint8_t data[1024];size_t size;bool directory,exists;};
+struct fake_node {char path[128];uint8_t data[KUI_VMU_NATIVE_RESOLUTION_CACHE_BYTES+64u];size_t size;bool directory,exists;};
 static struct fake_node disk[20];
 static struct {
     const uint8_t *boot;size_t bytes;unsigned reads,opens,closed,writes,syncs,renames,unlinks,builds,replays,logs;
@@ -27,7 +28,9 @@ static struct {
     unsigned fail,cancel_when;bool cancelled;
     const uint8_t *runtime_boot;size_t runtime_bytes,source_sha_bytes;
     size_t forced_program_bytes;
-    unsigned source_sha_calls,extent_calls;
+    uint32_t forced_pool;
+    unsigned source_sha_calls,extent_calls,vmu_path_lookups;
+    bool authored_resolution;
 } io;
 void __real_kui_sha256_update(struct kui_sha256 *,const void *,size_t);
 void __wrap_kui_sha256_update(struct kui_sha256 *sha,const void *data,size_t bytes) {
@@ -39,7 +42,11 @@ void __wrap_kui_sha256_update(struct kui_sha256 *sha,const void *data,size_t byt
 }
 enum {FAIL_NONE,FAIL_OPEN,FAIL_WRITE,FAIL_SHORT,FAIL_SYNC,FAIL_CLOSE,FAIL_READBACK,FAIL_RENAME,FAIL_MKDIR,
     FAIL_BOOT_READ,FAIL_BOOT_CANCEL};
-static int node_find(const char *path) {for(unsigned i=0;i<20u;i++) if(disk[i].exists && !strcmp(disk[i].path,path)) return (int)i;return -1;}
+static int node_find(const char *path) {
+    if(!strncmp(path,"0:/KUI/VMU",10u) && (!path[10] || path[10]=='/'))++io.vmu_path_lookups;
+    for(unsigned i=0;i<20u;i++) if(disk[i].exists && !strcmp(disk[i].path,path)) return (int)i;
+    return -1;
+}
 static unsigned node_add(const char *path,bool directory) {
     int existing=node_find(path);if(existing>=0) return (unsigned)existing;
     for(unsigned i=0;i<20u;i++) if(!disk[i].exists) {
@@ -114,10 +121,6 @@ enum kui_game_result kui_game_image_read(const struct kui_game_image *image,uint
     size_t n=io.bytes-at;CHECK(n<=capacity);memset(out,0,capacity);memcpy(out,io.boot+at,n);
     return KUI_GAME_OK;
 }
-static bool fixture_build(const void *image,size_t bytes,uint32_t address,void *wire,size_t wire_bytes,
-    struct kui_vmu_native_resolution *out) {
-    ++io.builds;return kui_vmu_native_resolution_cache_build(image,bytes,address,wire,wire_bytes,out);
-}
 static bool fixture_replay_hashed(const void *image,size_t bytes,uint32_t address,const void *wire,size_t wire_bytes,
     const uint8_t pin[32],const uint8_t fresh[32],struct kui_vmu_native_resolution *out) {
     uint8_t expected[32];digest(io.boot,bytes,expected);CHECK(!memcmp(expected,fresh,sizeof(expected)));
@@ -130,17 +133,32 @@ static bool fixture_extent(const void *image,size_t bytes,uint32_t address,size_
     }
     return kui_vmu_native_program_extent(image,bytes,address,program_bytes);
 }
+/* The default run supplies authored SDK metadata for this small generated
+ * image. With an original executable the actual full detector is used. */
+static bool fixture_build_prefixed(const void *image,size_t bytes,uint32_t address,void *wire,
+    size_t wire_bytes,struct kui_vmu_native_resolution *out,const struct kui_sha256_prefix *marks) {
+    ++io.builds;
+    if(io.authored_resolution) {
+        mock(image,bytes,out);
+        if(io.forced_pool) {
+            out->call.entry_begin=io.forced_pool;
+            out->call.entry_bytes=0x100000u;
+        }
+        return kui_vmu_native_resolution_cache_encode(out,wire,wire_bytes);
+    }
+    return kui_vmu_native_resolution_cache_build_prefixed(image,bytes,address,wire,wire_bytes,out,marks);
+}
 static void *fixture_malloc(size_t bytes) {
     if(++io.allocations==io.allocation_at) return NULL;
     return malloc(bytes);
 }
-#define kui_vmu_native_resolution_cache_build fixture_build
+#define kui_vmu_native_resolution_cache_build_prefixed fixture_build_prefixed
 #define kui_vmu_native_resolution_cache_replay_hashed fixture_replay_hashed
 #define kui_vmu_native_program_extent fixture_extent
 #define malloc fixture_malloc
 #include "../src/apps/games_native_cache.inc"
 #undef malloc
-#undef kui_vmu_native_resolution_cache_build
+#undef kui_vmu_native_resolution_cache_build_prefixed
 #undef kui_vmu_native_resolution_cache_replay_hashed
 #undef kui_vmu_native_program_extent
 
@@ -382,6 +400,111 @@ static void actual_arena_frontend(uint8_t *boot,size_t bytes) {
         }
     free(boot);
 }
+/* Ready 2 Rumble's SDK pool begins 8 KiB inside the verified program.
+ * The same placement decision applies to physical, P1 and P2 addresses.
+ * Only the verified prefix stays live; overlap with a reclaimed tail is OK. */
+static void pool_placement_tests(void) {
+    uint8_t boot[0x9000]={0};
+    const uint32_t live=0x8000u;
+    const uint32_t aliases[]={0x0c010000u,0x8c010000u,0xac010000u};
+    const struct kui_native_dual_capability cap={KUI_NATIVE_DUAL_MAGIC0,KUI_NATIVE_DUAL_MAGIC1,
+        1u,KUI_NATIVE_DUAL_CAPABILITY_BYTES,KUI_RETAIL_READER_ASYNC,KUI_RETAIL_READER_ASYNC_EAGER,
+        KUI_NATIVE_DUAL_COMPACT_LEASE_BYTES,0u};
+    for(unsigned i=0;i<sizeof(aliases)/sizeof(aliases[0]);++i) {
+        for(unsigned overlap=0u;overlap<2u;++overlap) {
+            setup(boot,sizeof(boot));allow_persistent_cache=false;
+            map.reader=KUI_RETAIL_READER_ASYNC;
+            memcpy(module+3072u,&cap,sizeof(cap));memcpy(before,module,sizeof(module));
+            io.forced_program_bytes=live;io.forced_pool=aliases[i]+live-(overlap?8192u:0u);
+            io.authored_resolution=true;
+            CHECK(prepare(true,map.reader,false,"/Games/Placement")==
+                (overlap?NATIVE_CACHE_POOL_OVERLAP:NATIVE_CACHE_READY));
+            CHECK(io.reads==1u && io.builds==1u && !io.writes && !io.vmu_path_lookups);
+            if(overlap)CHECK(!memcmp(before,module,sizeof(module)));
+        }
+    }
+    puts("PASS native pool placement: 8 KiB live overlap refuses every RAM alias; adjacent pool in reclaimed tail admits; single source read");
+}
+/* Exercise a new launch with the disk left intact but fresh package and RAM.
+ * Both the source proof returned to the GUI and the seed validated by the
+ * detached reader must still describe the original bytes after any cache hit. */
+static unsigned repeat_launch(const uint8_t *boot,size_t bytes,const char *root,bool authored,
+    bool vmu_on,unsigned expected_scans,bool accepted) {
+    memset(&io,0,sizeof(io));io.boot=boot;io.bytes=bytes;io.authored_resolution=authored;
+    memcpy(module,before,sizeof(module));
+    struct native_repeat_record *pending=NULL;
+    bool standalone=false;
+    struct native_cache_source_proof proof={0};
+    enum native_cache_result result=native_cache_prepare_repeat(&game,&map,true,map.reader,false,
+        &package,root,vmu_on,logger,cancelled,&proof,&standalone,&pending);
+    CHECK(result==(accepted?NATIVE_CACHE_READY:NATIVE_CACHE_SKIPPED));
+    CHECK(io.reads==1u && io.extent_calls==expected_scans && io.builds==expected_scans);
+    CHECK(proof.complete && proof.crc32==kui_crc32(0,boot,bytes));
+    uint8_t expected[32];digest(boot,bytes,expected);CHECK(!memcmp(proof.sha256,expected,32u));
+    if(accepted) {
+        const uint8_t *wire=NULL,*pin=NULL;struct kui_vmu_native_resolution out;
+        CHECK(!standalone && kui_vmu_native_cache_seed_read(module+128u,
+            KUI_VMU_NATIVE_CACHE_SEED_BYTES,&wire,&pin));
+        size_t program_bytes;CHECK(kui_vmu_native_program_extent(boot,bytes,load,&program_bytes));
+        CHECK(kui_vmu_native_resolution_cache_replay(boot,program_bytes,load,wire,1024u,pin,&out));
+    } else CHECK(!pending && !memcmp(before,module,sizeof(module)));
+    CHECK(!io.writes && !io.renames);
+    if(pending) {native_repeat_publish(pending,logger,cancelled);free(pending);}
+    CHECK(!io.vmu_path_lookups && io.opens==io.closed);
+    return io.renames;
+}
+static void repeat_tests(uint8_t *boot,size_t bytes,bool authored) {
+    const struct kui_native_dual_capability cap={KUI_NATIVE_DUAL_MAGIC0,KUI_NATIVE_DUAL_MAGIC1,
+        1u,KUI_NATIVE_DUAL_CAPABILITY_BYTES,KUI_RETAIL_READER_ASYNC,
+        KUI_RETAIL_READER_ASYNC_EAGER,KUI_NATIVE_DUAL_COMPACT_LEASE_BYTES,0u};
+    setup(boot,bytes);map.reader=KUI_RETAIL_READER_ASYNC;
+    memcpy(module+3072u,&cap,sizeof(cap));memcpy(before,module,sizeof(module));
+    memcpy(package.info.build,"0123456789ab",13u);package.info.crc32=kui_crc32(0,module,sizeof(module));
+    const char *root="/Games/Native";
+    CHECK(repeat_launch(boot,bytes,root,authored,false,1u,true)==1);
+    CHECK(repeat_launch(boot,bytes,root,authored,false,0u,true)==0);
+    unsigned saved=0u;
+    while(saved<20u && !(disk[saved].exists && !disk[saved].directory &&
+          !strncmp(disk[saved].path,"0:/KUI/GMCACHE/",15u)))++saved;
+    CHECK(saved<20u);
+    char stored_path[128];strcpy(stored_path,disk[saved].path);
+    const struct fake_node original=disk[saved];
+    for(unsigned damage=0;damage<4u;damage++) {
+        int found=node_find(stored_path);CHECK(found>=0);saved=(unsigned)found;
+        disk[saved]=original;
+        if(damage==0u)disk[saved].size--;
+        if(damage==1u)disk[saved].data[0]^=1u;
+        if(damage==2u)disk[saved].directory=true;
+        if(damage==3u)disk[saved].data[disk[saved].size-1u]^=1u;
+        const struct fake_node damaged=disk[saved];
+        bool owned=damage==3u;
+        CHECK(repeat_launch(boot,bytes,root,authored,false,1u,true)==(unsigned)owned);
+        if(owned)CHECK(repeat_launch(boot,bytes,root,authored,false,0u,true)==0);
+        else CHECK(!memcmp(&damaged,&disk[saved],sizeof(damaged)));
+    }
+    /* An identical reader with VMU on may consume an existing Off record
+     * after the GUI's separate advisory lookup misses. It must not publish. */
+    CHECK(repeat_launch(boot,bytes,root,authored,true,0u,true)==0);
+    const char *conflicts[]={"0:/kui/gmcache","/KUI/GMCACHE/disc","/KUI/VMU"};
+    for(unsigned i=0;i<sizeof(conflicts)/sizeof(conflicts[0]);++i) {
+        CHECK(repeat_launch(boot,bytes,conflicts[i],authored,false,1u,true)==0);
+        CHECK(!io.stats && !io.opens && !io.mkdirs);
+    }
+    ++package.info.crc32;
+    CHECK(repeat_launch(boot,bytes,root,authored,false,1u,true)==1);
+    --package.info.crc32;
+    map.reader=KUI_RETAIL_READER_ASYNC_EAGER;
+    CHECK(repeat_launch(boot,bytes,root,authored,false,1u,true)==1);
+    map.reader=KUI_RETAIL_READER_ASYNC;
+    CHECK(repeat_launch(boot,bytes,root,authored,false,0u,true)==0);
+    /* A different executable under the same GDI/path cannot inherit a
+     * prior positive decision, even if it keeps the old executable length. */
+    uint8_t *replacement=calloc(1,bytes);CHECK(replacement);
+    CHECK(repeat_launch(replacement,bytes,root,false,false,1u,false)==0);
+    free(replacement);
+    if(!authored)printf("Original repeat: %zu original bytes read and CRC checked on every launch; "
+        "GUI lifetime/discovery 1/1 cold, 0/0 warm; corruption and replacement missed\n",bytes);
+}
 static void actual_frontend(const char *path) {
     FILE *f=fopen(path,"rb");CHECK(f && !fseek(f,0,SEEK_END));long length=ftell(f);CHECK(length>128 && length<=0xc00000);rewind(f);
     size_t bytes=(size_t)length;uint8_t *boot=malloc(bytes);CHECK(boot && fread(boot,1,bytes,f)==bytes && !fclose(f));
@@ -462,8 +585,10 @@ static void actual_frontend(const char *path) {
         CHECK(prepare(true,reader,false,"/Games/PS2")==NATIVE_CACHE_READY);
         CHECK(io.replays==1u && !io.builds && !io.writes && !io.renames);
         size_t program_bytes;CHECK(kui_vmu_native_program_extent(boot,bytes,load,&program_bytes));
-        CHECK(io.source_sha_bytes==bytes+(program_bytes==bytes?0u:program_bytes));
-        CHECK(io.source_sha_calls==(program_bytes==bytes?1u:2u) && io.extent_calls==1u);
+        const size_t tail=program_bytes==bytes?0u:program_bytes%KUI_SHA256_PREFIX_STRIDE;
+        CHECK(io.source_sha_bytes==bytes+tail);
+        CHECK(io.source_sha_calls==(bytes+KUI_SHA256_PREFIX_STRIDE-1u)/KUI_SHA256_PREFIX_STRIDE+
+            (program_bytes!=bytes) && io.extent_calls==1u);
         printf("  Native hot cache SHA: %s reader=%u source_bytes=%zu program_bytes=%zu before_bytes=%zu after_bytes=%zu fresh_reads=%u extent_calls=%u\n",
             path,reader,bytes,program_bytes,bytes+program_bytes,io.source_sha_bytes,io.reads,io.extent_calls);
     }
@@ -480,7 +605,7 @@ static void actual_frontend(const char *path) {
         CHECK(io.builds==1u && !io.replays && !io.stats && !io.mkdirs && !io.opens &&
             !io.writes && !io.syncs && !io.renames && !io.unlinks);
     }
-    free(boot);
+    repeat_tests(boot,bytes,false);free(boot);
 }
 #ifndef KUI_GAMES_NATIVE_CACHE_TEST_MAIN
 #define KUI_GAMES_NATIVE_CACHE_TEST_MAIN main
@@ -512,8 +637,11 @@ static void advisory_alias_publication_faults(void) {
 }
 int KUI_GAMES_NATIVE_CACHE_TEST_MAIN(int argc,char **argv) {
     CHECK(argc>=1 && argc<=4);codec_and_trust_tests();gates_and_hits();dual_gates_and_hits();
-    fixed_arena_needs_dual();arena_needs_compact_dual();
+    fixed_arena_needs_dual();arena_needs_compact_dual();pool_placement_tests();
     advisory_alias_publication_faults();
+    uint8_t authored[1024];
+    for(unsigned i=0;i<sizeof(authored);i++)authored[i]=(uint8_t)(i*17u+1u);
+    repeat_tests(authored,sizeof(authored),true);
     for(int i=1;i<argc;i++) actual_frontend(argv[i]);
     printf("Native launcher cache: %u checks passed%s\n",checks,argc>1?" including actual-image rebuild/publication faults":"");return 0;
 }

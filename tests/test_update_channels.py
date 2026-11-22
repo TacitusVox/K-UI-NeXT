@@ -43,7 +43,7 @@ class UpdateChannels(unittest.TestCase):
         git("commit", "-qm", subject)
         return git("rev-parse", "HEAD")
 
-    def test_full_nightly_uses_exact_qualified_release_and_installation(self):
+    def test_historical_full_nightly_matches_its_qualified_release_and_installation(self):
         import nightly
         import nightly_recipe
         import os
@@ -64,7 +64,10 @@ class UpdateChannels(unittest.TestCase):
                 patch.object(stable, "download_assets", side_effect=download), \
                 patch.object(nightly, "build_gui", side_effect=AssertionError("unexpected rebuild")):
             full = self.root / "nightly.kup"
-            nightly.package(full)
+            historical_stage = self.root / "historical"
+            recipe = nightly.read_recipe(rev)
+            recipe.stage(rev, historical_stage)
+            make_update(historical_stage, full, channel="testing", full=True)
             result = kup.verify(full)
             approved = kup.verify(assets / release["assets"][0]["name"])
             self.assertTrue(result["full"])
@@ -103,7 +106,7 @@ class UpdateChannels(unittest.TestCase):
             with (assets / release["assets"][1]["name"]).open("ab") as out:
                 out.write(b"damaged")
             with self.assertRaisesRegex(ValueError, "length"):
-                nightly.package(self.root / "corrupt.kup")
+                recipe.stage(rev, self.root / "corrupt")
 
     def test_order_uses_git_ancestry_and_package_bound_notes(self):
         git("checkout", "-qb", "unrelated")

@@ -1,0 +1,41 @@
+{
+  "schema": 2,
+  "prepared": "2026-11-20 00:42 CST (America/Chicago)",
+  "packages": [
+    {
+      "test": 83,
+      "source_commit": "3bd4bed2fca227530e343a2fd97a1d790b230e21",
+      "archive": {
+        "name": "KUI-Stream-Survey-Test-83-20NOV2026-0042-CST-3bd4bed.zip",
+        "bytes": 183794,
+        "sha256": "4e09f97a4a7bea51f1878a4ced9b19e737902858237dae046454e887b7f9a897"
+      },
+      "files": [
+        {
+          "path": "KUI/apps/games/retail-native-dual.kui",
+          "sha256": "a7b1c1cb97b1c40f79bf0d6f7137fc0aec21976bfe499ef803ad359a98bb11d6",
+          "bytes": 307256,
+          "module": {
+            "format": 1,
+            "build": "3bd4bed2fca2",
+            "payload_bytes": 307192,
+            "memory_bytes": 307192,
+            "crc32": "7a90b4ab"
+          },
+          "status": "changed for the test only: Test 83 in the place of the installed New reader module, which the owner copies away first and puts back afterwards"
+        },
+        {
+          "path": "KUI/SURVEY/STREAM.TXT",
+          "sha256": "3e32647c8a728a303f7592a8784c3f0ad8cffbfdbe1c111aaa0c49ce12cf14e3",
+          "bytes": 154112,
+          "status": "added: the blank report file of this test, 100 slots, ID B674BC235B6B5A9B78760CBD6F7E63FF; no software"
+        }
+      ],
+      "readme_sha256": "024b3e2b92f362afd8e45f1e4a53d31295ca8fb6470f2e31d7207f3b005d9222",
+      "report_file": {
+        "id": "B674BC235B6B5A9B78760CBD6F7E63FF",
+        "slots": 100
+      }
+    }
+  ]
+}

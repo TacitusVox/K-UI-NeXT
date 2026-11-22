@@ -23,6 +23,15 @@ TOY_WIRE_TITLES ?= 0
 TOY_WIRE_QUERY ?= 0
 TOY_WIRE_TIMER ?= 0
 TOY_WIRE_VMU ?= 0
+TOY_WIRE_SAVE ?= 0
+TOY_SURVEY_MIXED_PAD ?= 0
+# Test 84: CD music in the Background reader, one switch a behaviour
+# (docs/cdda-background-test-84.md).
+TOY_CDDA_ROOM ?= 0
+TOY_CDDA_HOOK ?= 0
+TOY_CDDA_DRIVE ?= 0
+TOY_CDDA_KEEP ?= 0
+TOY_CDDA_SURVEY ?= 0
 TOY_WIRE_STAY ?= $(TOY_WIRE_STEADY)
 # Test 76 leaves LATER out unless a build asks for it.
 TOY_WIRE_LATER ?= $(if $(filter 1,$(TOY_WIRE_FLUID)),0,$(TOY_WIRE_STEADY))
@@ -45,6 +54,10 @@ endif
 ifeq ($(TOY_WIRE_STREAM),1)
 ifeq ($(TOY_WIRE_TICK),1)
 TOY_WIRE_TEST := 69
+else ifeq ($(TOY_CDDA_ROOM),1)
+TOY_WIRE_TEST := 84
+else ifeq ($(TOY_WIRE_CACHED)$(TOY_WIRE_WORDS)$(TOY_WIRE_PACE)$(TOY_WIRE_IDLE)$(TOY_WIRE_LEAN)$(TOY_WIRE_STEADY)$(TOY_WIRE_FLUID)$(TOY_WIRE_SEQ)$(TOY_WIRE_ANY)$(TOY_WIRE_TITLES)$(TOY_WIRE_QUERY)$(TOY_WIRE_TIMER)$(TOY_WIRE_VMU)$(TOY_WIRE_SAVE),11111111111101)
+TOY_WIRE_TEST := 83
 else ifeq ($(TOY_WIRE_CACHED)$(TOY_WIRE_WORDS)$(TOY_WIRE_PACE)$(TOY_WIRE_IDLE)$(TOY_WIRE_LEAN)$(TOY_WIRE_STEADY)$(TOY_WIRE_FLUID)$(TOY_WIRE_SEQ)$(TOY_WIRE_ANY)$(TOY_WIRE_TITLES)$(TOY_WIRE_QUERY)$(TOY_WIRE_TIMER)$(TOY_WIRE_VMU),1111111111111)
 TOY_WIRE_TEST := 82
 else ifeq ($(TOY_WIRE_CACHED)$(TOY_WIRE_WORDS)$(TOY_WIRE_PACE)$(TOY_WIRE_IDLE)$(TOY_WIRE_LEAN)$(TOY_WIRE_STEADY)$(TOY_WIRE_FLUID)$(TOY_WIRE_SEQ)$(TOY_WIRE_ANY)$(TOY_WIRE_TITLES)$(TOY_WIRE_QUERY)$(TOY_WIRE_TIMER),111111111111)
@@ -89,6 +102,8 @@ else ifneq ($(TOY_WIRE_TIMER),0)
 $(error TOY_WIRE_TIMER extends the Test 68 reader: use TOY_WIRE_STREAM=1 and Test 80's switches)
 else ifneq ($(TOY_WIRE_VMU),0)
 $(error TOY_WIRE_VMU extends the Test 68 reader: use TOY_WIRE_STREAM=1 and Test 81's switches)
+else ifneq ($(TOY_WIRE_SAVE),0)
+$(error TOY_WIRE_SAVE extends the Test 68 reader: use TOY_WIRE_STREAM=1 and Test 81's switches)
 endif
 BUILD ?= build/toy-suite-$(TOY_SUITE_MODE)
 include Makefile.vmu-native-toy-playback
@@ -399,6 +414,20 @@ endif
 else ifneq ($(TOY_WIRE_VMU),0)
 $(error TOY_WIRE_VMU must be 0 or 1)
 endif
+ifeq ($(TOY_WIRE_SAVE),1)
+# Test 83, the stream survey: Test 81 with its report saved to the card from
+# a Games launch. The cold stage finds the report file itself; the worker,
+# the low residents and the auxiliary are Test 81's
+# (docs/toy-wire-stream-test-83.md).
+ifneq ($(TOY_WIRE_TIMER),1)
+$(error TOY_WIRE_SAVE builds on Test 81: use TOY_WIRE_TIMER=1 on Test 80's switches)
+endif
+ifeq ($(TOY_WIRE_VMU),1)
+$(error TOY_WIRE_SAVE needs the Toy worker, which writes the report: not with TOY_WIRE_VMU=1)
+endif
+else ifneq ($(TOY_WIRE_SAVE),0)
+$(error TOY_WIRE_SAVE must be 0 or 1)
+endif
 RA_AUX_LINK_FLAGS := -Wl,--defsym=__native_ra_extra_code=0x3000
 RA_AUX_SPAN := 0x7000
 RA_SRC += src/loader/toy_wire_stream.c src/core/mode1_erasure.c
@@ -436,6 +465,110 @@ else
 NATIVE_SRC += src/loader/native_return_hardware.c
 NATIVE_OBJ += $(BUILD)/toy_return_hardware.o
 endif
+ifeq ($(TOY_SURVEY_MIXED_PAD),1)
+ifneq ($(TOY_WIRE_SAVE),1)
+$(error TOY_SURVEY_MIXED_PAD requires Test 83 with TOY_WIRE_SAVE=1)
+endif
+$(BUILD)/native/src/loader/vmu_native_passive.o: private NATIVE_FLAGS += -DKUI_TOY_SURVEY_MIXED_PAD=1
+$(BUILD)/entry_asm.o: private FLAGS += -DKUI_NATIVE_SURVEY_EXTENDED_SDK=1
+$(BUILD)/entry_asm.o: include/kui/native_sdk_proof_capability.h
+else ifneq ($(TOY_SURVEY_MIXED_PAD),0)
+$(error TOY_SURVEY_MIXED_PAD must be 0 or 1)
+endif
+ifeq ($(TOY_CDDA_ROOM),1)
+# Test 84 (ROOM): Test 83's reader with 2,304 bytes of the auxiliary's
+# private stack given to its code, at the same stack top and in the same span
+# (include/kui/native_readahead_layout.h). No behaviour changes. The low
+# residents were given their flags further up and keep their bytes.
+ifneq ($(TOY_WIRE_SAVE)$(TOY_SURVEY_MIXED_PAD),11)
+$(error TOY_CDDA_ROOM builds on Test 83: use TOY_WIRE_SAVE=1 TOY_SURVEY_MIXED_PAD=1 on Test 81's switches)
+endif
+RA_AUX_LINK_FLAGS := -Wl,--defsym=__native_ra_extra_code=0x3900 -Wl,--defsym=__native_ra_stack_bytes=0x700
+TOY_CDDA_FLAGS := -DKUI_TOY_CDDA_ROOM=1
+FLAGS += $(TOY_CDDA_FLAGS)
+NATIVE_FLAGS += $(TOY_CDDA_FLAGS)
+TOY_MOVIE_TEST_FLAGS += $(TOY_CDDA_FLAGS)
+TOY_WIRE_TICK_FLAG += $(TOY_CDDA_FLAGS)
+else ifneq ($(TOY_CDDA_ROOM),0)
+$(error TOY_CDDA_ROOM must be 0 or 1)
+endif
+ifeq ($(TOY_CDDA_HOOK),1)
+# Test 84 (HOOK): the worker's CD-music player, proved by the stage and called
+# by the auxiliary on every visit it admits; it does nothing yet
+# (src/loader/toy_cdda_player.c).
+ifneq ($(TOY_CDDA_ROOM),1)
+$(error TOY_CDDA_HOOK builds on Test 84's ROOM: use TOY_CDDA_ROOM=1)
+endif
+TOY_CDDA_HOOK_FLAGS := -DKUI_TOY_CDDA_HOOK=1
+FLAGS += $(TOY_CDDA_HOOK_FLAGS)
+NATIVE_FLAGS += $(TOY_CDDA_HOOK_FLAGS)
+TOY_MOVIE_TEST_FLAGS += $(TOY_CDDA_HOOK_FLAGS)
+TOY_WIRE_TICK_FLAG += $(TOY_CDDA_HOOK_FLAGS)
+NATIVE_SRC += src/loader/toy_cdda_player.c
+else ifneq ($(TOY_CDDA_HOOK),0)
+$(error TOY_CDDA_HOOK must be 0 or 1)
+endif
+ifeq ($(TOY_CDDA_DRIVE),1)
+# Test 84 (DRIVE): the drive plays. The player answers the game's audio
+# commands with a play clock: status 3 while playing, 1 paused or ended, and
+# the play's position for a pending REQ_STAT or GETSCD. Worker only, and the
+# report's CD rows.
+ifneq ($(TOY_CDDA_HOOK),1)
+$(error TOY_CDDA_DRIVE builds on Test 84's HOOK: use TOY_CDDA_HOOK=1)
+endif
+TOY_CDDA_DRIVE_FLAGS := -DKUI_TOY_CDDA_DRIVE=1
+NATIVE_FLAGS += $(TOY_CDDA_DRIVE_FLAGS)
+TOY_MOVIE_TEST_FLAGS += $(TOY_CDDA_DRIVE_FLAGS)
+TOY_WIRE_TICK_FLAG += $(TOY_CDDA_DRIVE_FLAGS)
+else ifneq ($(TOY_CDDA_DRIVE),0)
+$(error TOY_CDDA_DRIVE must be 0 or 1)
+endif
+ifeq ($(TOY_CDDA_KEEP),1)
+# Test 84 (KEEP): the status stays 3 while the game reads data during a play.
+# At the end of a delivery visit from one of the game's GD calls the player
+# publishes the read's progress as the low reader's report() is about to, with
+# status 3, so report() writes no 1 before the call is answered. Worker only.
+ifneq ($(TOY_CDDA_DRIVE),1)
+$(error TOY_CDDA_KEEP builds on Test 84's DRIVE: use TOY_CDDA_DRIVE=1)
+endif
+TOY_CDDA_KEEP_FLAGS := -DKUI_TOY_CDDA_KEEP=1
+NATIVE_FLAGS += $(TOY_CDDA_KEEP_FLAGS)
+TOY_MOVIE_TEST_FLAGS += $(TOY_CDDA_KEEP_FLAGS)
+TOY_WIRE_TICK_FLAG += $(TOY_CDDA_KEEP_FLAGS)
+else ifneq ($(TOY_CDDA_KEEP),0)
+$(error TOY_CDDA_KEEP must be 0 or 1)
+endif
+ifeq ($(TOY_CDDA_SURVEY),1)
+# Test 84 (SURVEY): while the drive plays, the worker's heartbeat reads the
+# sound chip, and only reads it: the driver, the records of the two channels
+# Test 85 would take and, under AUDIO64, the top 48 KiB. Worker only, and the
+# report's row CD SV.
+ifneq ($(TOY_CDDA_KEEP),1)
+$(error TOY_CDDA_SURVEY builds on Test 84's KEEP: use TOY_CDDA_KEEP=1)
+endif
+ifneq ($(TOY_SURVEY_MIXED_PAD),1)
+$(error TOY_CDDA_SURVEY follows Test 83's mixed heartbeat: use TOY_SURVEY_MIXED_PAD=1)
+endif
+TOY_CDDA_SURVEY_FLAGS := -DKUI_TOY_CDDA_SURVEY=1
+NATIVE_FLAGS += $(TOY_CDDA_SURVEY_FLAGS)
+TOY_MOVIE_TEST_FLAGS += $(TOY_CDDA_SURVEY_FLAGS)
+TOY_WIRE_TICK_FLAG += $(TOY_CDDA_SURVEY_FLAGS)
+NATIVE_SRC += src/loader/toy_cdda_survey.c
+else ifneq ($(TOY_CDDA_SURVEY),0)
+$(error TOY_CDDA_SURVEY must be 0 or 1)
+endif
+ifeq ($(TOY_WIRE_SAVE),1)
+# The stage alone is told, and it alone gains sources: the survey's file
+# format and the read-only lookup of its file. No other part's compilation
+# sees the switch, and each is Test 81's (toy-wire-save-parts-check).
+override STAGE_SRC += src/core/toy_survey.c src/core/toy_survey_fat.c
+$(STAGE_OBJ): private FLAGS += -DKUI_TOY_WIRE_SAVE=1
+$(BUILD)/stage.elf: $(STAGE_OBJ)
+$(BUILD)/stage/src/loader/vmu_native_heap_probe_stage.o: src/loader/toy_survey_stage.inc include/kui/toy_survey.h
+# The stage objects' dependency files were named before these two sources
+# were added (Makefile.toy_pilot): theirs are named here.
+-include $(BUILD)/stage/src/core/toy_survey.d $(BUILD)/stage/src/core/toy_survey_fat.d
+endif
 
 $(BUILD)/toy_return_hardware.o: src/loader/native_return_hardware.S $(BUILD)/readonly-config
 	@mkdir -p $(@D)
@@ -445,7 +578,7 @@ $(BUILD)/native-worker.elf: $(NATIVE_OBJ)
 
 $(BUILD)/toy-suite-config: force-mode-config
 	@mkdir -p $(BUILD)
-	@printf '%s\n' 'TOY_SUITE_MODE=$(TOY_SUITE_MODE)' 'TOY_FMV_COMPARE=$(TOY_FMV_COMPARE)' 'TOY_WIRE_STREAM=$(TOY_WIRE_STREAM)' $(if $(filter 1,$(TOY_WIRE_TICK)),'TOY_WIRE_TICK=1') $(if $(filter 1,$(TOY_WIRE_CACHED)),'TOY_WIRE_CACHED=1') $(if $(filter 1,$(TOY_WIRE_WORDS)),'TOY_WIRE_WORDS=1') $(if $(filter 1,$(TOY_WIRE_PACE)),'TOY_WIRE_PACE=1') $(if $(filter 1,$(TOY_WIRE_IDLE)),'TOY_WIRE_IDLE=1') $(if $(filter 1,$(TOY_WIRE_LEAN)),'TOY_WIRE_LEAN=1 OPEN=$(TOY_WIRE_OPEN) CLEAN=$(TOY_WIRE_CLEAN) MSB=$(TOY_WIRE_MSB) QUICK=$(TOY_WIRE_QUICK) SWIFT=$(TOY_WIRE_SWIFT)') $(if $(filter 1,$(TOY_WIRE_STEADY)),'TOY_WIRE_STEADY=1 STAY=$(TOY_WIRE_STAY) LATER=$(TOY_WIRE_LATER) RING=$(TOY_WIRE_RING)') $(if $(filter 1,$(TOY_WIRE_FLUID)),'TOY_WIRE_FLUID=1 QUIT=$(TOY_WIRE_QUIT) HOT=$(TOY_WIRE_HOT) COPY=$(TOY_WIRE_COPY) GAP=$(TOY_WIRE_GAP) APART=$(TOY_WIRE_APART)') $(if $(filter 1,$(TOY_WIRE_SEQ)),'TOY_WIRE_SEQ=1') $(if $(filter 1,$(TOY_WIRE_ANY)),'TOY_WIRE_ANY=1') $(if $(filter 1,$(TOY_WIRE_TITLES)),'TOY_WIRE_TITLES=1') $(if $(filter 1,$(TOY_WIRE_QUERY)),'TOY_WIRE_QUERY=1') $(if $(filter 1,$(TOY_WIRE_TIMER)),'TOY_WIRE_TIMER=1') $(if $(filter 1,$(TOY_WIRE_VMU)),'TOY_WIRE_VMU=1') > $@.tmp
+	@printf '%s\n' 'TOY_SUITE_MODE=$(TOY_SUITE_MODE)' 'TOY_FMV_COMPARE=$(TOY_FMV_COMPARE)' 'TOY_WIRE_STREAM=$(TOY_WIRE_STREAM)' $(if $(filter 1,$(TOY_WIRE_TICK)),'TOY_WIRE_TICK=1') $(if $(filter 1,$(TOY_WIRE_CACHED)),'TOY_WIRE_CACHED=1') $(if $(filter 1,$(TOY_WIRE_WORDS)),'TOY_WIRE_WORDS=1') $(if $(filter 1,$(TOY_WIRE_PACE)),'TOY_WIRE_PACE=1') $(if $(filter 1,$(TOY_WIRE_IDLE)),'TOY_WIRE_IDLE=1') $(if $(filter 1,$(TOY_WIRE_LEAN)),'TOY_WIRE_LEAN=1 OPEN=$(TOY_WIRE_OPEN) CLEAN=$(TOY_WIRE_CLEAN) MSB=$(TOY_WIRE_MSB) QUICK=$(TOY_WIRE_QUICK) SWIFT=$(TOY_WIRE_SWIFT)') $(if $(filter 1,$(TOY_WIRE_STEADY)),'TOY_WIRE_STEADY=1 STAY=$(TOY_WIRE_STAY) LATER=$(TOY_WIRE_LATER) RING=$(TOY_WIRE_RING)') $(if $(filter 1,$(TOY_WIRE_FLUID)),'TOY_WIRE_FLUID=1 QUIT=$(TOY_WIRE_QUIT) HOT=$(TOY_WIRE_HOT) COPY=$(TOY_WIRE_COPY) GAP=$(TOY_WIRE_GAP) APART=$(TOY_WIRE_APART)') $(if $(filter 1,$(TOY_WIRE_SEQ)),'TOY_WIRE_SEQ=1') $(if $(filter 1,$(TOY_WIRE_ANY)),'TOY_WIRE_ANY=1') $(if $(filter 1,$(TOY_WIRE_TITLES)),'TOY_WIRE_TITLES=1') $(if $(filter 1,$(TOY_WIRE_QUERY)),'TOY_WIRE_QUERY=1') $(if $(filter 1,$(TOY_WIRE_TIMER)),'TOY_WIRE_TIMER=1') $(if $(filter 1,$(TOY_WIRE_VMU)),'TOY_WIRE_VMU=1') $(if $(filter 1,$(TOY_WIRE_SAVE)),'TOY_WIRE_SAVE=1') $(if $(filter 1,$(TOY_SURVEY_MIXED_PAD)),'TOY_SURVEY_MIXED_PAD=1') $(if $(filter 1,$(TOY_CDDA_ROOM)),'TOY_CDDA_ROOM=1') $(if $(filter 1,$(TOY_CDDA_HOOK)),'TOY_CDDA_HOOK=1') $(if $(filter 1,$(TOY_CDDA_DRIVE)),'TOY_CDDA_DRIVE=1') $(if $(filter 1,$(TOY_CDDA_KEEP)),'TOY_CDDA_KEEP=1') $(if $(filter 1,$(TOY_CDDA_SURVEY)),'TOY_CDDA_SURVEY=1') > $@.tmp
 	@cmp -s $@.tmp $@ || cp $@.tmp $@
 	@rm -f $@.tmp
 
@@ -521,7 +654,18 @@ TOY_WIRE_HOST_FLAGS = -std=c11 -O1 -g -Wall -Wextra -Werror -Wpedantic \
 .PHONY: toy-wire-host-tests toy-wire-integration-host-test toy-wire-package-test toy-wire-linked-check
 # The linked visit gate: which address the private stack is used at.
 toy-wire-linked-check: $(BUILD)/retail-toy-test-$(TOY_WIRE_TEST).kui
-	python3 tests/test_toy_wire_cached_stack.py $(BUILD)/native-ra-aux.elf $(if $(filter 1,$(TOY_WIRE_CACHED)),cached,uncached)
+	python3 tests/test_toy_wire_cached_stack.py $(BUILD)/native-ra-aux.elf $(if $(filter 1,$(TOY_WIRE_CACHED)),cached,uncached) $(if $(filter 1,$(TOY_CDDA_ROOM)),0x700)
+ifeq ($(TOY_CDDA_HOOK),1)
+	python3 tests/test_toy_cdda_stack_bound.py $(BUILD) --player $(BUILD)/native-worker.elf $(BUILD)/native _kui_toy_cdda_player_visit
+else ifeq ($(TOY_CDDA_ROOM),1)
+	python3 tests/test_toy_cdda_stack_bound.py $(BUILD)
+endif
+ifeq ($(TOY_CDDA_SURVEY),1)
+# Test 84 (SURVEY) in the linked worker: its calls, its depth on the stack the
+# completion admits, its callers; then the same check refusing altered readings.
+	python3 tests/test_toy_cdda_survey_linked.py $(BUILD)/native-worker.elf $(BUILD)/native
+	python3 tests/test_toy_cdda_survey_linked.py --self-test $(BUILD)/native-worker.elf $(BUILD)/native
+endif
 ifeq ($(TOY_WIRE_SWIFT),1)
 	python3 tests/test_toy_wire_linked_loops.py $(if $(filter 0,$(TOY_WIRE_MSB)),--no-as-sent) $(BUILD)/native-ra-aux.elf $(TOY_WIRE_LOOP_REFERENCE)
 else ifeq ($(TOY_WIRE_WORDS),1)
@@ -577,6 +721,7 @@ toy-wire-integration-host-test:
 	 $(STALL_READER_SRC) src/loader/native_readahead_aux.c src/core/native_readahead_cache.c \
 	 src/loader/toy_wire_stream.c src/core/mode1_erasure.c \
 	 src/core/hash.c src/core/data.c tests/test_toy_wire_integration.c \
+	 $(if $(filter 1,$(TOY_CDDA_HOOK)),src/loader/toy_cdda_player.c) \
 	 -Wl,--gc-sections -o $(BUILD)/test-toy-wire-integration
 	ASAN_OPTIONS=detect_leaks=0 $(BUILD)/test-toy-wire-integration
 # Card Tools' own admission of the packaged module bytes.
@@ -593,7 +738,7 @@ toy-wire-package-test: $(BUILD)/retail-toy-test-$(TOY_WIRE_TEST).kui
 # auxiliary Test 81's, each with one build label. A Toy flag that slips
 # through to the worker, or one the auxiliary loses, still builds a module
 # and passes every other check.
-TOY_WIRE_EVERY_SWITCH = TOY_SUITE_MODE=$(TOY_SUITE_MODE) TOY_FMV_COMPARE=$(TOY_FMV_COMPARE) \
+TOY_WIRE_EVERY_SWITCH = KUI_NATIVE_BACKGROUND_MAP160=$(KUI_NATIVE_BACKGROUND_MAP160) TOY_SUITE_MODE=$(TOY_SUITE_MODE) TOY_FMV_COMPARE=$(TOY_FMV_COMPARE) \
  $(foreach s,STREAM TICK CACHED WORDS PACE IDLE LEAN OPEN CLEAN MSB QUICK SWIFT STEADY FLUID SEQ ANY TITLES QUERY TIMER \
  STAY LATER RING QUIT HOT COPY GAP APART,TOY_WIRE_$(s)=$(TOY_WIRE_$(s)))
 .PHONY: toy-wire-vmu-parts-check
@@ -604,8 +749,128 @@ endif
 	env -u MAKEFLAGS -u MFLAGS $(MAKE) -f Makefile.vmu-native-toy-suite $(TOY_WIRE_EVERY_SWITCH) TOY_WIRE_VMU=0 \
 	 BUILD_ID=$(BUILD_ID) BUILD=$(BUILD)/parts-reader $(BUILD)/parts-reader/retail-native-dual.kui
 	env -u MAKEFLAGS -u MFLAGS $(MAKE) -f Makefile.vmu-native-background-compact \
-	 BUILD_ID=$(BUILD_ID) BUILD=$(BUILD)/parts-installed $(BUILD)/parts-installed/retail-native-dual.kui
+	 KUI_NATIVE_BACKGROUND_MAP160=$(KUI_NATIVE_BACKGROUND_MAP160) BUILD_ID=$(BUILD_ID) BUILD=$(BUILD)/parts-installed $(BUILD)/parts-installed/retail-native-dual.kui
 	python3 tests/test_toy_wire_vmu_parts.py $(BUILD) $(BUILD)/parts-reader $(BUILD)/parts-installed
+
+# Test 83 changes the cold stage and nothing else: its other parts must be
+# Test 81's with one build label. Then the survey's own host tests: the file
+# format, the search for a blank slot and the lookup on FAT32 and exFAT cards.
+# The optional mixed-controller observer is worker-only. Give the control
+# worker that same single compiler definition, then compare every linked
+# byte as usual. Keep a separate build directory for the control variant.
+TOY_SAVE_PARTS_READER = $(BUILD)/parts-reader$(if $(filter 1,$(TOY_SURVEY_MIXED_PAD)),-mixed-pad)
+ifeq ($(TOY_SURVEY_MIXED_PAD),1)
+TOY_SAVE_PARTS_PAD = --eval='$(TOY_SAVE_PARTS_READER)/native/src/loader/vmu_native_passive.o: private NATIVE_FLAGS += -DKUI_TOY_SURVEY_MIXED_PAD=1'
+endif
+.PHONY: toy-wire-save-parts-check toy-wire-save-host-test toy-wire-save-mutation-check
+toy-wire-save-parts-check: $(BUILD)/retail-toy-test-$(TOY_WIRE_TEST).kui
+ifneq ($(TOY_WIRE_SAVE),1)
+	$(error toy-wire-save-parts-check is Test 83's: use TOY_WIRE_SAVE=1 on Test 81's switches)
+endif
+	env -u MAKEFLAGS -u MFLAGS $(MAKE) -f Makefile.vmu-native-toy-suite $(TOY_WIRE_EVERY_SWITCH) TOY_WIRE_VMU=0 TOY_WIRE_SAVE=0 TOY_SURVEY_MIXED_PAD=0 \
+	 $(TOY_SAVE_PARTS_PAD) BUILD_ID=$(BUILD_ID) BUILD=$(TOY_SAVE_PARTS_READER) $(TOY_SAVE_PARTS_READER)/retail-native-dual.kui
+	python3 tests/test_toy_wire_save_parts.py $(BUILD) $(TOY_SAVE_PARTS_READER)
+# Test 84 changes the auxiliary, the worker and the stage: its low residents
+# must be Test 83's with one build label.
+TOY_CDDA_PARTS_READER = $(BUILD)/parts-test83
+# Command-line switches reach a sub-make through its environment: each is
+# said off.
+TOY_CDDA_OFF = TOY_CDDA_ROOM=0 TOY_CDDA_HOOK=0 TOY_CDDA_DRIVE=0 TOY_CDDA_KEEP=0 TOY_CDDA_SURVEY=0
+.PHONY: toy-cdda-parts-check
+toy-cdda-parts-check: $(BUILD)/retail-toy-test-$(TOY_WIRE_TEST).kui
+ifneq ($(TOY_CDDA_ROOM),1)
+	$(error toy-cdda-parts-check is Test 84's: use TOY_CDDA_ROOM=1 on Test 83's switches)
+endif
+	env -u MAKEFLAGS -u MFLAGS $(MAKE) -f Makefile.vmu-native-toy-suite $(TOY_WIRE_EVERY_SWITCH) TOY_WIRE_VMU=0 TOY_WIRE_SAVE=1 \
+	 TOY_SURVEY_MIXED_PAD=1 $(TOY_CDDA_OFF) BUILD_ID=$(BUILD_ID) BUILD=$(TOY_CDDA_PARTS_READER) $(TOY_CDDA_PARTS_READER)/retail-native-dual.kui
+	python3 tests/test_toy_cdda_parts.py $(BUILD) $(TOY_CDDA_PARTS_READER)
+# Test 84 (DRIVE): the real disc service and the real player in the low
+# resident's order, with a twin service without a player. The player's source
+# can be named (tests/test_toy_cdda_mutations.py).
+TOY_CDDA_PLAYER_SRC ?= src/loader/toy_cdda_player.c
+.PHONY: toy-cdda-drive-host-test
+toy-cdda-drive-host-test:
+ifneq ($(TOY_CDDA_DRIVE),1)
+	$(error toy-cdda-drive-host-test is Test 84's DRIVE: use TOY_CDDA_DRIVE=1)
+endif
+	@mkdir -p $(BUILD)
+	$(HOST_CC) $(PASSIVE_HOST_FLAGS) -O1 $(STALL_READER_FLAGS) \
+	 -DKUI_NATIVE_DUAL_READERS=1 -DKUI_NATIVE_SPLIT_CONTROLLER_ISOLATION=1 \
+	 -DKUI_NATIVE_SPLIT_CONTROLLER_GENERAL=1 -DKUI_NATIVE_SPLIT_CONTROLLER_PREFETCH=1 \
+	 -DKUI_VMU_NATIVE_CACHED_CODE=1 -DKUI_VMU_NATIVE_PERSISTENT_PROBE=1 \
+	 -DKUI_NATIVE_GENERAL_LEAN_LAYOUT=1 -DKUI_NATIVE_BACKGROUND_COMPACT=1 \
+	 -DKUI_NATIVE_REQUEST_TIMING=1 -DKUI_NATIVE_COOP_PUMP=1 -DKUI_NATIVE_IRQ_REARM=1 \
+	 -DKUI_NATIVE_LOADER_TIMELINE=1 -DKUI_VMU_NATIVE_BACKGROUND=1 -DKUI_NATIVE_SDK_SCI_ROUTE=1 \
+	 -DKUI_NATIVE_SDK_SCI_STRUCTURAL=1 -DKUI_NATIVE_READAHEAD=1 -DKUI_NATIVE_READAHEAD_AUX_HOST_TEST=1 \
+	 -DKUI_NATIVE_TOY_MOVIE_CAPTURE=1 -DKUI_NATIVE_TOY_PLAYBACK_CAPTURE=1 -DKUI_TOY_SUITE_MODE=66 \
+	 -DKUI_CD_EDC_CACHED_PAIR=1 -DKUI_TOY_WIRE_STREAM=1 $(TOY_WIRE_TICK_FLAG) \
+	 tests/test_toy_cdda_drive.c $(TOY_CDDA_PLAYER_SRC) src/core/retail_gd.c \
+	 -Wl,--gc-sections -o $(BUILD)/test-toy-cdda-drive
+	ASAN_OPTIONS=detect_leaks=0 $(BUILD)/test-toy-cdda-drive
+# Whether the drive test notices a defect in the player: each of a list.
+.PHONY: toy-cdda-mutation-check
+toy-cdda-mutation-check:
+	HOST_CC="$(HOST_CC)" python3 tests/test_toy_cdda_mutations.py
+# Test 84 (SURVEY): the survey on a model of the bus that answers only what it
+# may read. Its source can be named (tests/test_toy_cdda_survey_mutations.py).
+TOY_CDDA_SURVEY_SRC ?= src/loader/toy_cdda_survey.c
+.PHONY: toy-cdda-survey-host-test toy-cdda-survey-mutation-check
+toy-cdda-survey-host-test:
+	@mkdir -p $(BUILD)
+	$(HOST_CC) $(TOY_WIRE_HOST_FLAGS) -DKUI_TOY_CDDA_SURVEY=1 -DKUI_TOY_CDDA_SURVEY_HOST_TEST=1 \
+	 tests/test_toy_cdda_survey.c $(TOY_CDDA_SURVEY_SRC) -o $(BUILD)/test-toy-cdda-survey
+	ASAN_OPTIONS=detect_leaks=0 $(BUILD)/test-toy-cdda-survey
+toy-cdda-survey-mutation-check:
+	HOST_CC="$(HOST_CC)" python3 tests/test_toy_cdda_survey_mutations.py
+# Test 84 (SURVEY): whether the gesture test notices the heartbeat's survey
+# calls moved, in a copy of the sources.
+.PHONY: toy-cdda-survey-site-mutation-check
+toy-cdda-survey-site-mutation-check:
+	HOST_CC="$(HOST_CC)" python3 tests/test_toy_cdda_survey_sites.py
+# Test 84 (SURVEY) on the original sound drivers: the survey, unmodified, over
+# each driver image of the corpus with its family's start-up stores. The images
+# are the owner's (TOY_CDDA_DRIVERS: the folder of files named by SHA-256 that
+# the CD-audio sound-driver archive gives); they are read, never copied.
+.PHONY: toy-cdda-survey-driver-check
+toy-cdda-survey-driver-check:
+ifndef TOY_CDDA_DRIVERS
+	$(error toy-cdda-survey-driver-check reads the owner's sound-driver files: TOY_CDDA_DRIVERS=<their folder>)
+endif
+	@mkdir -p $(BUILD)
+	$(HOST_CC) $(TOY_WIRE_HOST_FLAGS) -DKUI_TOY_CDDA_SURVEY=1 -DKUI_TOY_CDDA_SURVEY_HOST_TEST=1 \
+	 tests/test_toy_cdda_survey_drivers.c $(TOY_CDDA_SURVEY_SRC) -o $(BUILD)/test-toy-cdda-survey-drivers
+	ASAN_OPTIONS=detect_leaks=0 python3 -I tests/test_toy_cdda_survey_drivers.py $(BUILD)/test-toy-cdda-survey-drivers \
+	 docs/evidence/cd-audio-corpus-2026-11-20/sound-files.json $(TOY_CDDA_DRIVERS)
+.PHONY: toy-survey-mixed-pad-host-test
+TOY_SURVEY_MIXED_PAD_HOST_FLAGS = $(PASSIVE_HOST_FLAGS) -DKUI_VMU_EXPERIMENTAL=1 \
+ -DKUI_VMU_NATIVE_PERSISTENT_PROBE=1 -DKUI_VMU_NATIVE_CACHED_CODE=1 -DKUI_NATIVE_DUAL_READERS=1 \
+ -DKUI_NATIVE_RA_TICK_OFF_ISOLATION=1 -DKUI_NATIVE_SPLIT_CONTROLLER_ISOLATION=1 \
+ -DKUI_NATIVE_SPLIT_CONTROLLER_GENERAL=1 -DKUI_NATIVE_GENERAL_LEAN_LAYOUT=1 \
+ -DKUI_NATIVE_READER_DIAGNOSTIC=1 -DKUI_VMU_NATIVE_BACKGROUND=1 -DKUI_NATIVE_READAHEAD=1 \
+ -DKUI_NATIVE_TOY_MOVIE_CAPTURE=1 -DKUI_RETAIL_ASYNC_TEST=1 -DKUI_NATIVE_BACKGROUND_COMPACT=1 \
+ -DKUI_TOY_SUITE_MODE=66 -DKUI_TOY_WIRE_TITLES=1 -DKUI_TOY_SURVEY_MIXED_PAD=1
+toy-survey-mixed-pad-host-test:
+	@mkdir -p $(BUILD)
+	$(HOST_CC) $(TOY_SURVEY_MIXED_PAD_HOST_FLAGS) \
+	 tests/test_toy_survey_mixed_pad.c $(COMPAT_WORKER_HOST_SRC) -Wl,--gc-sections -o $(BUILD)/test-survey-mixed-pad
+	ASAN_OPTIONS=detect_leaks=0 $(BUILD)/test-survey-mixed-pad
+ifeq ($(TOY_CDDA_SURVEY),1)
+# Test 84 (SURVEY): the same with the drive playing and the survey after both
+# heartbeats, the completion built with the worker's cooperative pump.
+	$(HOST_CC) $(TOY_SURVEY_MIXED_PAD_HOST_FLAGS) -DKUI_NATIVE_COOP_PUMP=1 -DKUI_NATIVE_IRQ_REARM=1 \
+	 -DKUI_TOY_CDDA_SURVEY=1 -DKUI_TOY_CDDA_SURVEY_HOST_TEST=1 \
+	 tests/test_toy_survey_mixed_pad.c $(COMPAT_WORKER_HOST_SRC) src/loader/toy_cdda_survey.c \
+	 -Wl,--gc-sections -o $(BUILD)/test-survey-mixed-pad-cdda
+	ASAN_OPTIONS=detect_leaks=0 $(BUILD)/test-survey-mixed-pad-cdda
+endif
+ifeq ($(TOY_SURVEY_MIXED_PAD),1)
+toy-wire-save-host-test: toy-survey-mixed-pad-host-test
+endif
+toy-wire-save-host-test:
+	HOST_CC="$(HOST_CC)" python3 tests/test_toy_survey.py
+# Whether those tests notice a defect: each of a list, in a copy of the sources.
+toy-wire-save-mutation-check:
+	HOST_CC="$(HOST_CC)" python3 tests/test_toy_survey_mutations.py
 
 .PHONY: toy-suite-cached-edc-host-test
 toy-suite-cached-edc-host-test:

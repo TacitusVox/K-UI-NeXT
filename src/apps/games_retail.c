@@ -9,6 +9,7 @@
 #include "kui/ce_load_plan.h"
 #include "kui/armada_ce_excerpt_pool.h"
 #include "kui/armada_ce_stream_seed.h"
+#include "kui/armada_ce_vmu_sd_loan.h"
 #include "kui/games.h"
 #include "kui/game_metadata.h"
 #include "kui/smash_native_child.h"
@@ -30,6 +31,7 @@ extern bool kui_update_runtime_absent(const char *logical) __attribute__((weak))
 #include "kui/retail_loader_layout.h"
 #include "kui/vmu_launch_package.h"
 #include "kui/native_dual_reader.h"
+#include "kui/native_map_capacity.h"
 #include "kui/native_standalone_capability.h"
 #include "kui/native_physical_capability.h"
 #include "kui/native_standard_route.h"
@@ -181,6 +183,55 @@ static bool layout_codec(const struct kui_runtime_image *image,bool ce,bool zso,
     return true;
 }
 static bool layout(const struct kui_runtime_image *image,bool ce) {return layout_codec(image,ce,false,KUI_ZSO_LZ4);}
+/* A session-control module also copies maps into its disc-switch worker.
+ * Its existing descriptor proves only the 64-slot session ABI. */
+static unsigned native_background_map_slots(const struct kui_runtime_image *package) {
+    unsigned slots=kui_native_map_capacity(package->data,package->info.payload_bytes);
+    if(slots>KUI_NATIVE_MAP_LEGACY_SLOTS) {
+        int session=kui_native_session_descriptor_find(package->data,package->info.payload_bytes,NULL);
+        if(session<0)return 0;
+        if(session)slots=KUI_NATIVE_MAP_LEGACY_SLOTS;
+    }
+    return slots;
+}
+/* The writable Armada A2 resident in retail_resident.S has four empty CE
+ * kernel slots followed by its two callable SD loan services. The CD music
+ * resident inserts a stream service between those slots and the descriptor.
+ * These public fields survive personalizing the card profile. */
+static bool armada_legacy_vmu(const struct kui_runtime_image *image) {
+    const uint8_t *data=image->data;
+    const size_t bytes=image->info.payload_bytes;
+    static const uint8_t empty_kernel[16];
+    for(size_t at=KUI_RETAIL_STAGE_BLOB_OFFSET+52u;
+        at+KUI_ARMADA_CE_VMU_LOAN_DESCRIPTOR_BYTES<=bytes;at+=4u) {
+        const uint8_t *desc=data+at;
+        if(le32(desc)!=KUI_ARMADA_CE_VMU_LOAN_DESCRIPTOR_MAGIC ||
+           le32(desc+4)!=KUI_ARMADA_CE_VMU_LOAN_DESCRIPTOR_VERSION ||
+           le32(desc+8)!=KUI_ARMADA_CE_VMU_LOAN_DESCRIPTOR_BYTES ||
+           memcmp(desc-16u,empty_kernel,sizeof(empty_kernel)))continue;
+        /* In this non-stream entry the resident begins 52 bytes before the
+         * descriptor. Its BSS start follows its code. */
+        uint32_t code_end=le32(desc-28u),begin=le32(desc+12u),end=le32(desc+16u);
+        uint32_t first=KUI_RETAIL_LEGACY_RESIDENT_ADDRESS+52u+KUI_ARMADA_CE_VMU_LOAN_DESCRIPTOR_BYTES;
+        if(begin>=first && begin<code_end && end>=first && end<code_end &&
+           begin!=end && !((begin|end)&1u) && code_end<=KUI_RETAIL_CE_ASYNC_HOOK_STACK &&
+           code_end-KUI_RETAIL_LEGACY_RESIDENT_ADDRESS<=bytes-(at-52u))return true;
+    }
+    return false;
+}
+static enum kui_runtime_result read_ordinary_ce(const char **path,struct kui_runtime_image *package,
+    kui_log_fn log,kui_cancel_fn cancel) {
+    enum kui_runtime_result result=kui_runtime_read(*path,package,log,cancel);
+    if(result==KUI_RUNTIME_OK && !strcmp(*path,KUI_GAMES_RETAIL_CE_ARMADA_LEGACY_PACKAGE) &&
+       (!layout(package,true) || !armada_legacy_vmu(package))) {
+        /* Old public cards installed the ordinary CE reader at ce-probe.kui. */
+        kui_runtime_free(package);
+        *path=KUI_GAMES_RETAIL_CE_PACKAGE;
+        log("Using ordinary Windows CE reader for Armada");
+        result=kui_runtime_read(*path,package,log,cancel);
+    }
+    return result;
+}
 static bool zso_path(const char *path) {
     if(!path) return false;
     size_t n=strlen(path);
@@ -337,19 +388,36 @@ static enum map_result map_track(struct files *files,FATFS *fs,const struct kui_
     free(allocated);
     return result;
 }
-/* After a background map refusal, count the separate pieces of each data
- * track's file on the card: audio is dropped before the refusal, so a data
- * file in more pieces than the map holds is the cause. Only counts; the
- * caller rebuilds or abandons the map. */
-static void fragmented_data_track(struct files *files,FATFS *fs,const struct kui_volume *volume,
-    const struct kui_game_image *image,struct kui_retail_manifest *map,unsigned *track,uint32_t *pieces) {
-    *track=0u;*pieces=0u;
-    for(unsigned i=0;i<image->count && !stopped(files);i++) {
-        if(!image->tracks[i].control) continue;
+/* Count only data runs after both mapping attempts have failed. Every track
+ * still needs a TOC entry, including audio omitted in the second attempt.
+ * A failed walk cannot establish the total, even if earlier tracks were read. */
+static const char *background_map_refusal(const char *reader,unsigned slots,struct files *files,
+    FATFS *fs,const struct kui_volume *volume,const struct kui_game_image *image,
+    struct kui_retail_manifest *map,kui_log_fn log) {
+    static char text[160]; /* The storage worker owns the launch problem until cleanup. */
+    unsigned data_tracks=0u,pieces=0u,largest=0u,track=0u;
+    bool complete=true;
+    for(unsigned i=0;i<image->count && !stopped(files);++i) {
+        if(!image->tracks[i].control)continue;
+        ++data_tracks;
         struct map_stats stats={.complete=true};
-        if(map_track(files,fs,volume,&image->tracks[i],map,i,0u,true,&stats)==MAP_FAILED) continue;
-        if(stats.max_track_extents>*pieces) {*pieces=stats.max_track_extents;*track=i+1u;}
+        if(map_track(files,fs,volume,&image->tracks[i],map,i,0u,true,&stats)==MAP_FAILED) {
+            complete=false;continue;
+        }
+        pieces+=stats.required_extents;
+        if(stats.max_track_extents>largest) {largest=stats.max_track_extents;track=i+1u;}
     }
+    if(largest>1u)log("Retail boot: track %u is in %u pieces on the card",track,largest);
+    if(complete && !stopped(files)) {
+        const char *action=image->count+data_tracks<=slots && largest>1u?
+            "A fresh copy may reduce fragmentation.":"Use a reader with more map slots.";
+        snprintf(text,sizeof(text),"%s map exceeds %u slots: %u tracks + %u data pieces need %u. %s",
+            reader,slots,image->count,pieces,image->count+pieces,action);
+    } else {
+        snprintf(text,sizeof(text),"%s map exceeds %u slots for %u tracks; could not count all data pieces",
+            reader,slots,image->count);
+    }
+    return text;
 }
 static enum map_result map_cdda_tracks(struct files *files,FATFS *fs,const struct kui_volume *volume,
     const struct kui_game_image *image,struct kui_retail_manifest *map,uint32_t capacity,
@@ -914,6 +982,16 @@ static void smash_native_boot_target(struct kui_game_metadata *metadata,
 }
 #include "smash_menu_capsule_prepare.inc"
 #endif
+static bool native_repeat_session_safe(const struct kui_native_session_request *session) {
+    if(!session)return true;
+    if(session->count>KUI_NATIVE_SESSION_DISC_MAX)return false;
+    for(unsigned i=0u;i<session->count;++i) {
+        const char *path=session->paths[i];
+        if(!memchr(path,0,sizeof(session->paths[i])) || native_cache_in_tree(path,"/kui/gmcache"))
+            return false;
+    }
+    return true;
+}
 static bool prepare_launch(const char *path,uint32_t reader,const struct kui_game_ram_patches *patches,
     const struct kui_vmu_game_selection *selection,const struct kui_native_session_request *session,
     bool reporting,struct kui_runtime_image *package,kui_log_fn log,kui_cancel_fn cancel,unsigned smash_child) {
@@ -986,9 +1064,10 @@ static bool prepare_launch(const char *path,uint32_t reader,const struct kui_gam
     FATFS fs;bool ok=false;const char *problem="cannot mount storage";
     struct kui_retail_manifest *map=NULL;struct kui_game_image *image=NULL;uint8_t *gdi=NULL;
     struct extent_crc_proof ce_kernel_proof={0};
+    struct native_repeat_record *pending_repeat=NULL;
     /* The generic Windows CE module's map capacity (its 0x140 record), and
      * Armada's CD music route with its virtual card. */
-    uint32_t ce_slots=KUI_RETAIL_ASYNC_SLOTS;
+    uint32_t background_slots=KUI_RETAIL_ASYNC_SLOTS;
     bool all_on=false;
     struct kui_retail_zso_manifest *zso_map=NULL;
     const char *vmu_package=NULL;
@@ -1125,6 +1204,9 @@ static bool prepare_launch(const char *path,uint32_t reader,const struct kui_gam
 #endif
         if(native_dual && kui_native_dual_descriptor_find(package->data,package->info.payload_bytes,NULL)!=1) {
             problem="native X/Y module capability missing or ambiguous; install the matching candidate";goto done;
+        }
+        if(native_dual && !(background_slots=native_background_map_slots(package))) {
+            problem="unsupported native Background map capability";goto done;
         }
         if(native_dual && !kui_native_background_module_matches(reader,package->data,package->info.payload_bytes)) {
             problem="Background module does not match the selected reader; reinstall the matching update";goto done;
@@ -1309,7 +1391,7 @@ static bool prepare_launch(const char *path,uint32_t reader,const struct kui_gam
         }
         if(!close_reader(&files)) {problem="cannot close metadata reader";goto done;}
         kui_smash_launch_timing_phase(KUI_SMASH_UI_MODULE_LOAD);
-        rr=kui_runtime_read(launch_package,package,log,cancel);
+        rr=read_ordinary_ce(&launch_package,package,log,cancel);
         if(rr!=KUI_RUNTIME_OK) {problem=kui_runtime_result_name(rr);goto done;}
         kui_smash_launch_timing_phase(KUI_SMASH_UI_MODULE_VERIFY);
         kui_smash_launch_timing_metric(KUI_SMASH_UI_MODULE_CRC32,package->info.crc32);
@@ -1320,9 +1402,9 @@ static bool prepare_launch(const char *path,uint32_t reader,const struct kui_gam
              * reader. Any other record names a reader this GUI cannot map. */
             static const uint8_t blank[16];
             const uint8_t *record=(const uint8_t *)package->data+KUI_CE_MAP_RECORD_OFFSET;
-            if(!memcmp(record,blank,sizeof(blank))) ce_slots=KUI_RETAIL_ASYNC_SLOTS;
+            if(!memcmp(record,blank,sizeof(blank))) background_slots=KUI_RETAIL_ASYNC_SLOTS;
             else if(!memcmp(record,"KUICEM01",8u) && le32(record+8u)==1u &&
-                    le32(record+12u)==KUI_RETAIL_CE_MAP_SLOTS) ce_slots=KUI_RETAIL_CE_MAP_SLOTS;
+                    le32(record+12u)==KUI_RETAIL_CE_MAP_SLOTS) background_slots=KUI_RETAIL_CE_MAP_SLOTS;
             else {problem="unsupported ordinary Windows CE map descriptor";goto done;}
         }
     }
@@ -1482,7 +1564,7 @@ static bool prepare_launch(const char *path,uint32_t reader,const struct kui_gam
                 cdda_stats.link_map_words,CDDA_LINK_MAP_MAX_WORDS,cdda_stats.required_extents);
     } else if(background) {
         static char refusal[128];
-        const uint32_t slots=ce?ce_slots:KUI_RETAIL_ASYNC_SLOTS;
+        const uint32_t slots=background_slots;
         if(ce && slots<=image->count) {
             snprintf(refusal,sizeof(refusal),"Windows CE background map has %u slots for %u tracks and their data extents",
                 (unsigned)slots,(unsigned)image->count);
@@ -1490,18 +1572,11 @@ static bool prepare_launch(const char *path,uint32_t reader,const struct kui_gam
         }
         mapped=map_tracks(&files,&fs,&volume,image,map,slots,&audio);
         if(mapped==MAP_FULL) {
-            unsigned track;uint32_t pieces;
-            fragmented_data_track(&files,&fs,&volume,image,map,&track,&pieces);
-            if(track) {
-                log("Retail boot: track %u is in %u pieces on the card; copying the game folder off the card and back makes it contiguous",
-                    track,(unsigned)pieces);
-                snprintf(refusal,sizeof(refusal),"%s map exceeds %u slots: track %u is in %u pieces; recopy the game folder",
-                    ce?"Windows CE background":"Background",(unsigned)slots,track,(unsigned)pieces);
-            } else if(ce)
-                snprintf(refusal,sizeof(refusal),"Windows CE background map exceeds %u slots for track and data extents",
-                    (unsigned)slots);
-            if(ce) {problem=refusal;goto done;}
-            if(native_dual) {problem=track?refusal:"Background map exceeds 64 slots; defragment or use supported cooked tracks";goto done;}
+            if(ce || native_dual) {
+                problem=background_map_refusal(ce?"Windows CE background":"Background",slots,
+                    &files,&fs,&volume,image,map,log);
+                goto done;
+            }
             log("Retail boot: the map needs more than the background reader's %u slots; using the standard reader",
                 KUI_RETAIL_ASYNC_SLOTS);
             background=false;
@@ -1689,10 +1764,15 @@ static bool prepare_launch(const char *path,uint32_t reader,const struct kui_gam
         kui_smash_launch_timing_metric(KUI_SMASH_UI_MDE_BYTES,map->boot_bytes);
         kui_smash_launch_timing_metric(KUI_SMASH_UI_CACHE_HIT,1u);
     }
-    if(cache==NATIVE_CACHE_SKIPPED)
-        cache=native_cache_prepare(image,map,!ce && metadata.native_gd,
+    if(cache==NATIVE_CACHE_SKIPPED) {
+        bool ordinary_reader=(native_dual || native_standard) && !smash_native && !vmu_package;
+#if KUI_VMU_GAME_CARDS
+        ordinary_reader=ordinary_reader && !smash_collection;
+#endif
+        cache=native_cache_prepare_repeat(image,map,!ce && metadata.native_gd,
             requested_options,patched,package,files.root,emulation_enabled,log,cancel,defer_boot_crc?&source_proof:NULL,
-            native_dual?&standalone_candidate:NULL);
+            native_dual?&standalone_candidate:NULL,ordinary_reader?&pending_repeat:NULL);
+    }
     if(smash_native && (cache!=NATIVE_CACHE_READY || !source_proof.complete ||
        source_proof.crc32!=KUI_SMASH_NATIVE_ENGINE_CRC32 ||
        !kui_smash_native_child_engine_owner(map->boot_bytes,source_proof.sha256))) {
@@ -1700,6 +1780,17 @@ static bool prepare_launch(const char *path,uint32_t reader,const struct kui_gam
     }
     if(cache==NATIVE_CACHE_CANCELLED) {
         problem="cancelled during native executable mapping";goto done;
+    }
+    if(cache==NATIVE_CACHE_READER_TOO_OLD && (emulation_enabled || !standalone_candidate)) {
+        problem="Install the updated Background reader for this game's SDK";goto done;
+    }
+    if(cache==NATIVE_CACHE_POOL_OVERLAP) {
+        if(emulation_enabled || reader!=KUI_RETAIL_READER_ASYNC) {
+            problem="SDK pool overlaps the game. Standalone New requires New (X) and Virtual VMU Off";goto done;
+        }
+        if(!standalone_candidate) {
+            problem="SDK pool overlaps the game and the standalone New reader cannot admit this executable";goto done;
+        }
     }
     /* New only: the combined module would refuse this executable, which has
      * the SDK SCI family. An installed reader-only module runs it instead;
@@ -1713,6 +1804,12 @@ static bool prepare_launch(const char *path,uint32_t reader,const struct kui_gam
         if(present!=FR_OK && present!=FR_NO_FILE && present!=FR_NO_PATH) {
             problem="cannot inspect the standalone New module; launch refused";goto done;
         }
+        if(present!=FR_OK && cache==NATIVE_CACHE_POOL_OVERLAP) {
+            problem="SDK pool overlaps the game. Install the standalone New reader for Virtual VMU Off";goto done;
+        }
+        if(present!=FR_OK && cache==NATIVE_CACHE_READER_TOO_OLD) {
+            problem="Install the updated Background or standalone New reader for this game";goto done;
+        }
         if(present==FR_OK) {
             struct kui_runtime_image candidate={0};
             rr=(optional.fattrib&AM_DIR)?KUI_RUNTIME_IO:
@@ -1722,9 +1819,27 @@ static bool prepare_launch(const char *path,uint32_t reader,const struct kui_gam
                 kui_runtime_free(&candidate);
                 problem="standalone New module unreadable or capability missing; reinstall it";goto done;
             }
+            background_slots=native_background_map_slots(&candidate);
+            if(!background_slots) {
+                kui_runtime_free(&candidate);problem="unsupported standalone New map capability";goto done;
+            }
+            /* The selected standalone reader can have a smaller map than
+             * the dual reader. Reuse the normal all-tracks/data-only retry. */
+            if(map->track_count+map->extent_count>background_slots) {
+                enum map_result remapped=map_tracks(&files,&fs,&volume,image,map,background_slots,&audio);
+                if(remapped!=MAP_OK) {
+                    kui_runtime_free(&candidate);
+                    problem=remapped==MAP_FULL?
+                        background_map_refusal("Standalone New",background_slots,&files,&fs,&volume,image,map,log):
+                        "standalone New track map failed: changed file, I/O or bounds";
+                    goto done;
+                }
+                if(!audio)log("Standalone New map: kept all track numbers with audio sectors unmapped");
+            }
             kui_runtime_free(package);*package=candidate;
             launch_package=KUI_GAMES_RETAIL_NATIVE_STANDALONE_PACKAGE;native_standalone=true;
             log("New reader: virtual-A2 module cannot admit this executable; using standalone New without virtual VMU");
+            log("Standalone New supports gameplay without recording a stream survey");
         }
     }
     /* A fresh cooked full proof already supplied its CRC in one source pass.
@@ -1816,7 +1931,7 @@ static bool prepare_launch(const char *path,uint32_t reader,const struct kui_gam
         if(!zso_map) {problem="not enough memory for ZSO launch map";goto done;}
         zso_map->manifest=*map;zso_map->zso=image->zso;
         r=kui_retail_zso_manifest_encode(zso_map,(uint8_t *)package->data+KUI_RETAIL_MAP_OFFSET);
-    } else r=kui_retail_manifest_encode_capacity(map,(uint8_t *)package->data+KUI_RETAIL_MAP_OFFSET,ce_slots);
+    } else r=kui_retail_manifest_encode_capacity(map,(uint8_t *)package->data+KUI_RETAIL_MAP_OFFSET,background_slots);
     if(r!=KUI_GAME_OK) {problem=kui_game_result_name(r);goto done;}
     if(!fill_ram_patches(package,&applied_patches,map->boot_bytes)) {
         problem="RAM patches need a matching ordinary native loader; reinstall the game-launch package";goto done;
@@ -1857,6 +1972,11 @@ done:
     kui_smash_launch_timing_phase(KUI_SMASH_UI_FILE_CLEANUP);
     if(kui_vmu_launch_history_end)kui_vmu_launch_history_end();
     if(!close_reader(&files)) {ok=false;problem="cannot close image reader";}
+    /* All launch checks have consumed the fresh source receipt. This optional
+     * write is staged only for launches without virtual-card ownership. */
+    if(pending_repeat && ok && !stopped(&files) && native_repeat_session_safe(session))
+        native_repeat_publish(pending_repeat,log,cancel);
+    free(pending_repeat);
     if(f_mount(NULL,"0:",0)!=FR_OK) {ok=false;problem="cannot release filesystem";}
     kui_sd_disconnect();free(zso_map);free(gdi);free(image);free(map);
     if(stopped(&files)) {ok=false;problem="cancelled before retail handoff";}

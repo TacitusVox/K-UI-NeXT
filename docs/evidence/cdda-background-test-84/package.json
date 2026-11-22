@@ -1,0 +1,71 @@
+{
+  "schema": 2,
+  "prepared": "2026-11-21 01:13 CST (America/Chicago)",
+  "packages": [
+    {
+      "test": 84,
+      "variant": "survey",
+      "source_commit": "4abc63b0cc58d63095c00ab9808b8cd43c90e865",
+      "archive": {
+        "name": "KUI-CD-Drive-Test-84-21NOV2026-0113-CST-4abc63b.zip",
+        "bytes": 192055,
+        "sha256": "428a4ba43653682e00967588b3d5c29222ddcd8629200192c2a78848b0aac012"
+      },
+      "files": [
+        {
+          "path": "KUI/apps/games/retail-native-dual.kui",
+          "sha256": "597d8eac96b0238045e7bde9c642653a0bb5e138d6763993cabd0c156c210260",
+          "bytes": 315744,
+          "module": {
+            "format": 1,
+            "build": "4abc63b0cc58",
+            "payload_bytes": 315680,
+            "memory_bytes": 315680,
+            "crc32": "bafaaf7c"
+          },
+          "status": "changed for the test only: Test 84 in the place of the installed New reader module, which the owner copies away first and puts back afterwards"
+        },
+        {
+          "path": "KUI/SURVEY/STREAM.TXT",
+          "sha256": "15e12c77a4cb25d2167ae9e1c7f63fd784c24f259b6536d0e436bfd55eadc006",
+          "bytes": 154112,
+          "status": "replaced: a new blank report file of this test, 100 slots, ID B5829D27CAF13A94DEAFD593D1FDC00A; no software"
+        }
+      ],
+      "readme_sha256": "1e5f6fb713b126aa3027074dc95b90cfab530901c151316acaf9b45f356d72f6",
+      "report_file": {
+        "id": "B5829D27CAF13A94DEAFD593D1FDC00A",
+        "slots": 100
+      }
+    },
+    {
+      "test": 84,
+      "variant": "without survey",
+      "source_commit": "4abc63b0cc58d63095c00ab9808b8cd43c90e865",
+      "archive": {
+        "name": "KUI-CD-Drive-Test-84-without-survey-21NOV2026-0113-CST-4abc63b.zip",
+        "bytes": 186361,
+        "sha256": "05ecd4b4279bed8dc3636b90827141585a0e9d33324b1d1bbf85e15cf8cad2ed"
+      },
+      "files": [
+        {
+          "path": "KUI/apps/games/retail-native-dual.kui",
+          "sha256": "e74cca711600ecd8ddd38a62839fda7c6dda837740331fb3f0f458b761f03014",
+          "bytes": 313920,
+          "module": {
+            "format": 1,
+            "build": "4abc63b0cc58",
+            "payload_bytes": 313856,
+            "memory_bytes": 313856,
+            "crc32": "e00000c9"
+          },
+          "status": "changed for the test only: Test 84 without its sound-chip survey (TOY_CDDA_SURVEY=0), used only if a game misbehaves with the first archive"
+        }
+      ],
+      "readme_sha256": "422eaec835b4119bd0f31b13ccdffa40e9342d485ce4a93bab3bbbce1f13fbb1",
+      "report_file": {
+        "note": "none in this archive: the first archive's STREAM.TXT is used"
+      }
+    }
+  ]
+}

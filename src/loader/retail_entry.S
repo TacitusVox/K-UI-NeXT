@@ -165,6 +165,22 @@ _start:
     .ascii "KUICEM01"
     .long 1,KUI_RETAIL_CE_MAP_RECORD
 #endif
+#if KUI_NATIVE_BACKGROUND_MAP160 || KUI_NATIVE_STANDALONE_MAP128
+#include "kui/native_map_capacity.h"
+    .section .native_map_capability,"a"
+    .ascii KUI_NATIVE_MAP_CAP_MAGIC
+#if KUI_NATIVE_STANDALONE_MAP128
+    .long KUI_NATIVE_MAP_CAP_VERSION,KUI_NATIVE_MAP_STANDALONE_SLOTS
+#else
+    .long KUI_NATIVE_MAP_CAP_VERSION,KUI_NATIVE_MAP_CAP_SLOTS
+#endif
+#endif
+#if KUI_NATIVE_BACKGROUND_COMPACT && KUI_NATIVE_DUAL_READERS && !KUI_NATIVE_SESSION_CONTROLS
+#include "kui/native_heap_capability.h"
+    .section .native_heap_capability,"a"
+    .ascii KUI_NATIVE_HEAP_CAP_MAGIC
+    .long KUI_NATIVE_HEAP_CAP_VERSION,KUI_NATIVE_HEAP_CAP_TAIL
+#endif
 #if KUI_WINCE_CDDA_KERNEL_RECORD
     /* CD music for a kernel of a sound group other than the group's reviewed
      * kernel (ce-cdda-<first 12 hex digits of the kernel's SHA-256>.kui). The
@@ -186,6 +202,12 @@ _start:
     .section .armada_all_on_capability,"a"
     .ascii "KUIAVM01"
     .long 1,4096
+#endif
+#if KUI_NATIVE_SURVEY_EXTENDED_SDK
+#include "kui/native_sdk_proof_capability.h"
+    .section .native_sdk_proof_capability,"a"
+    .ascii KUI_NATIVE_SDK_PROOF_MAGIC
+    .long KUI_NATIVE_SDK_PROOF_VERSION,KUI_NATIVE_SDK_PROOF_EXTENDED
 #endif
     .section .package_header,"a"
     .ascii PACKAGE_MAGIC

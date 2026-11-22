@@ -15,9 +15,20 @@ import tempfile
 
 from make_update import make_update
 from runtime_package import envelope, flatten_elf
-from update_package import CONSUMER_INPUTS, current_consumer_check, REMOVE, verify
+from update_package import CONSUMER_INPUTS, current_consumer_check, verify
 
 CHANNEL = "refs/heads/nightly-channel"
+SD_ZIP = "K-UI-SD.zip"
+SUMS = "SHA256SUMS.txt"
+
+# This includes every tracked reader/GUI source, build recipe and staged binary.
+# Historical reports and documentation alone do not change installed software.
+DISTRIBUTION_INPUTS = ("Makefile*", "src", "include", "config", "tools", "resources",
+                       "third_party", "dependencies.json", "firmware", "data", "fatfs",
+                       "toolchain-checkpoint", ".github/workflows/nightly.yml", "tests",
+                       "LICENSE", "LICENSES", "THIRD_PARTY.md",
+                       "docs/evidence/reader-corrections/delivery.json",
+                       "docs/evidence/wince-cdda-*-kernels-*.json")
 
 # Only inputs to the GUI, its dependencies and the nightly recipe. In
 # particular a new standalone game reader or card theme is not a GUI update.
@@ -40,6 +51,8 @@ GUI_INPUTS = (
 
 def input_paths(revision):
     recipe = read_recipe(revision)
+    if recipe.distribution:
+        return DISTRIBUTION_INPUTS
     producer = ("tools/nightly*.py", "tools/channel_feed.py", "tools/make_update.py",
                 "tools/update_package.py", "tools/runtime_package.py", "tools/update_consumer_check.c",
                 ".github/workflows/nightly.yml", "dependencies.json", *CONSUMER_INPUTS)
@@ -74,7 +87,7 @@ def select():
     migrate = current and not changed and contents(channel, "nightlies-v2.txt") is None
     recipe = read_recipe(revision)
     with open(os.environ["GITHUB_OUTPUT"], "a") as out:
-        print(f"gui={str(recipe.gui and not recipe.full).lower()}\nbuild={str(build).lower()}\nmigrate={str(migrate).lower()}\nchannel={channel}\ninputs={inputs}", file=out)
+        print(f"gui={str(recipe.distribution or (recipe.gui and not recipe.full)).lower()}\nbuild={str(build).lower()}\nmigrate={str(migrate).lower()}\nchannel={channel}\ninputs={inputs}", file=out)
     print("Indexing existing nightly releases." if migrate else
           "Software inputs changed; building nightly." if build else
           "Skipped: matching software inputs already published or a newer main commit exists.")
@@ -94,12 +107,39 @@ def build_gui(revision, stage):
 def package(output):
     revision = source_commit()
     recipe = read_recipe(revision)
-    with tempfile.TemporaryDirectory() as stage:
+    require_distribution(recipe)
+    from stage_distribution import verify_linked_gui
+    from software_distribution import write_distribution
+    with tempfile.TemporaryDirectory() as temporary:
+        stage = Path(temporary) / "KUI"
         recipe.stage(revision, stage)
-        if recipe.gui and not recipe.full:
-            build_gui(revision, stage)
-        report = make_update(Path(stage), output, channel="testing", full=recipe.full, remove=recipe.remove)
-        recipe.check_members(report, revision)
+        build_gui(revision, stage)
+        verify_linked_gui(stage / "runtime.kui", stage)
+        write_distribution(stage, output, output.with_name(SD_ZIP), revision=revision,
+                           label="K-UI nightly " + revision[:12])
+    recipe.check_members(verify(output), revision)
+    output.with_name(SUMS).write_text(checksum_text(output), encoding="ascii")
+
+
+def require_distribution(recipe):
+    if not recipe.distribution:
+        raise ValueError("Publishing a new nightly requires the complete reviewed distribution")
+
+
+def checksum_text(asset):
+    rows = []
+    for path in (asset, asset.with_name(SD_ZIP)):
+        with path.open("rb") as stream:
+            rows.append(hashlib.file_digest(stream, "sha256").hexdigest() + "  " + path.name)
+    return "\n".join(rows) + "\n"
+
+
+def verify_assets(asset, revision):
+    if asset.name != ASSET or asset.with_name(SUMS).read_bytes() != checksum_text(asset).encode("ascii"):
+        raise ValueError("Nightly assets differ from SHA256SUMS.txt")
+    from software_distribution import verify_distribution
+    verify_distribution(asset, asset.with_name(SD_ZIP), revision=revision)
+    return manifest(asset, revision)
 
 
 def manifest(path, revision):
@@ -121,12 +161,17 @@ def release(revision, asset, directory, checked):
     target = remote_ref("refs/tags/" + tag)
     if target and target != revision:
         raise ValueError("Nightly tag already points to another commit")
-    report = verify(asset)
-    scope = ("Complete software package. Managed software omitted from this version becomes unavailable."
-             if report["full"] else "Partial software update. Other installed software is kept.")
-    changes = ["- " + ("Remove" if row["policy"] == REMOVE else "Install") + " `" + row["path"] + "`"
-               for row in report["members"]]
-    notes = "\n".join([scope, "", *changes, "", "SHA-256: " + checked.splitlines()[3]])
+    require_distribution(read_recipe(revision))
+    if verify_assets(asset, revision) != checked:
+        raise ValueError("Nightly package changed before upload")
+    files = (asset, asset.with_name(SD_ZIP), asset.with_name(SUMS))
+    patterns = ["--pattern", ASSET, "--pattern", SD_ZIP, "--pattern", SUMS]
+    notes = "\n".join([
+        "Complete Universal Loader testing build.",
+        "Install K-UI.kup through Settings → Updates. On stock K-UI 1.7 and older GUI installations,",
+        "merge the KUI folder from K-UI-SD.zip onto the card and follow its instructions.",
+        "", "SHA-256: " + checked.splitlines()[3], *checksum_text(asset).splitlines(),
+    ])
     existing = subprocess.run(["gh", "release", "view", tag, "--json",
                                "tagName,targetCommitish,isDraft,isPrerelease,body"],
                               text=True, capture_output=True)
@@ -143,23 +188,25 @@ def release(revision, asset, directory, checked):
             raise ValueError("Existing release does not match the nightly source")
         draft = info["isDraft"]
 
+    def download():
+        subprocess.run(["gh", "release", "download", tag, "--clobber",
+                        *patterns,
+                        "--dir", str(directory)], check=True)
+        return verify_assets(directory / ASSET, revision)
+
     if draft:
-        # A failed upload may leave a draft or a partial asset. Only drafts
-        # may be repaired. Published release assets are never replaced.
-        subprocess.run(["gh", "release", "upload", tag, str(asset), "--clobber"], check=True)
+        subprocess.run(["gh", "release", "upload", tag, *map(str, files), "--clobber"], check=True)
+        # Verify the uploaded KUP and its matching manual installer before publishing the draft.
+        if download() != checked or (directory / SUMS).read_bytes() != files[2].read_bytes():
+            raise ValueError("Uploaded assets differ from the verified nightly")
         subprocess.run(["gh", "release", "edit", tag, "--draft=false", "--latest=false", "--notes", notes], check=True)
     if remote_ref("refs/tags/" + tag) != revision:
         raise ValueError("Published tag does not point to the requested source")
-    published = directory / ASSET
-    subprocess.run(["gh", "release", "download", tag, "--pattern", ASSET,
-                    "--dir", str(directory)], check=True)
-    published_body = manifest(published, revision)
-    if draft:
-        matches = published_body == checked
-    else:
-        matches = "SHA-256: " + published_body.splitlines()[3] in info["body"].splitlines()
-    if not matches:
-        raise ValueError("Downloaded asset differs from the verified nightly")
+    published_body = download()
+    release_notes = notes if draft else info["body"]
+    checks = ["SHA-256: " + published_body.splitlines()[3], *checksum_text(directory / ASSET).splitlines()]
+    if not all(line in release_notes.splitlines() for line in checks):
+        raise ValueError("Downloaded assets differ from the published nightly checksums")
     return published_body
 
 
@@ -216,6 +263,7 @@ if __name__ == "__main__":
         commands.add_parser(name).add_argument("asset", type=Path)
     args = parser.parse_args()
     if args.command == "select":
+        require_distribution(read_recipe(source_commit()))
         select()
     elif args.command == "migrate":
         migrate()

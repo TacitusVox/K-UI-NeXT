@@ -52,7 +52,7 @@ def main():
     fixture_args = []
     if args.original_manifest:
         manifest = json.loads(args.original_manifest.read_text())
-        for title, expected in [("GENERATOR", -1), ("MDK", -1), ("QUAKE", 1),
+        for title, expected in [("GENERATOR", -1), ("MDK", 2), ("QUAKE", 1),
                                 ("SMASH", 1), ("TOY", 1)]:
             row, = [r for r in manifest["files"] if title in r["title"].upper()]
             path = Path(row["startup"])

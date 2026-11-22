@@ -405,7 +405,7 @@ static void run_case(enum scenario which) {
     assert(!memcmp(before_reader,(const void *)(uintptr_t)SONIC_STACK_SNAPSHOT_BEGIN,reader_bytes));
     if(which==BAD_RETURN_SP) {expect_stop_after(returned-1,"SCOPED RETURN FRAME INVALID");return;}
     if(which==BAD_RETURN_CCR || which==BAD_RETURN_CCR_ZERO) {
-        uint32_t actual_ccr=which==BAD_RETURN_CCR_ZERO?0u:TEST_CCR^1u;
+        const volatile uint32_t actual_ccr=which==BAD_RETURN_CCR_ZERO?0u:TEST_CCR^1u;
         expect_terminal=1;
         if(!setjmp(terminal)) {kui_retail_sonic_stack_after(returned,actual_ccr,s);abort();}
         assert(has_line("SCOPED RETURN FRAME INVALID") && calls.row[0][0]==4u &&

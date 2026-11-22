@@ -1,0 +1,569 @@
+{
+ "schema": "kui.verification-agents.v1",
+ "note": "host checks by independent subagents of this session at the merge 89a241cda854, not console runs",
+ "results": [
+  {
+   "reviewer": "host-tests",
+   "result": {
+    "verdict": "pass",
+    "rows": [
+     {
+      "item": "Merge structure: git diff --stat 1222228d 89a241cda854",
+      "expected": "only the files changed by beeef062, 0414c2d0 and 949be408",
+      "got": "Exactly those 10 files (600 insertions, 35 deletions). 6 are byte-identical to the 949be408 blobs: Makefile.armada-stream, retail_resident_ce_async_small_stack.ld, test_retail_async_ce_cdda.c, test_retail_ce_map_guest.py, check_armada_ce_excerpt.py, check_retail_loader_layout.py. 3 are byte-identical to a clean 'git merge-file' (rc=0) of 1222228d/b7c92e0c/949be408: Makefile, include/kui/retail_loader_layout.h, src/loader/retail_resident.S. The 10th is the recomputed toy-switch fixture.",
+      "ok": true,
+      "note": "The union in the two production files is disjoint. This branch adds KUI_NATIVE_STANDALONE_MAP128 blocks; the CE line adds the #elif KUI_ARMADA_CE_STREAM_SMALL_STACK block and the __kui_ce_cdda_small_stack_resident marker."
+     },
+     {
+      "item": "make -j2 test-wince-cdda-bam4-group",
+      "expected": "pass, same at merge and CE head",
+      "got": "merge: exit 0 (29 s). CE 949be408: exit 0 (28 s). Both print 'PASS bootstrap-2 scratch repair ... (219 checks)' and 'PASS Bust-A-Move 4 CD music group: 8 kernels, runtime admission, sound binder and native lease'. I re-ran all 24 group binaries one by one: all exit 0, output identical in both trees. Each of the 8 kernels gives 'armada native stream: 7664 checks passed', 'PASS WinCE runtime families ...' and 'Generic CE application sound: 112 cases PASS, max 2232 budgeted reads'.",
+      "ok": true,
+      "note": "The make target sends each binary's output to /dev/null, so I re-ran each binary to get the counts (logs/pergroup.sh)."
+     },
+     {
+      "item": "make -j2 test-wince-cdda-wwp-group",
+      "expected": "pass, same at both",
+      "got": "merge: exit 0 (43 s). CE: exit 0 (43 s). Both print 'PASS World Party CD music group: 12 kernels, runtime admission, sound binder and native lease'. All 36 binaries exit 0 with identical output: 12 x 'armada native stream: 7664 checks passed', 12 x runtime PASS, 12 x 'Generic CE application sound: 121 cases PASS'.",
+      "ok": true
+     },
+     {
+      "item": "make -j2 test-wince-runtime-families",
+      "expected": "pass, same at both",
+      "got": "merge: exit 0 (10 s). CE: exit 0 (10 s). 7 binaries, output identical. The armada, bam4, worms and wwp runtime tests each print 'PASS WinCE runtime families: ...'. The armada, bam4 and worms generic-sound tests each print 'Generic CE application sound: 112 cases PASS'.",
+      "ok": true
+     },
+     {
+      "item": "make -j2 test-armada-ce-stream",
+      "expected": "pass, same at both",
+      "got": "exit 0 at both (39 s each), output identical. Counts: model 23,855,282 (+40,635 reserve replay); native 7,664; API 1,303 cases / 1,285 extension reads; transport 722,575; emergency-PIO 766,695; chain 790,419; boot 50,248; entry PASS; player 63 cases / 117,438,809; player-emergency 117,597,413; model-repeat-clamp 27,048,040; player-repeat-clamp 119,911,696; owner-word 1,116 cases / 45,128 checks; initial-word 6; discover-owner 11 checks / 91 reads; excerpt-prepare 5 PASS lines. Last line: 'WinCE music preparation: 388928 checks'.",
+      "ok": true,
+      "note": "test-armada-ce-excerpt-prepare compiles the production Games launcher, whose sources differ between the two trees (this branch's GUI work). It still gives identical results."
+     },
+     {
+      "item": "make -j2 test-ce-cdda-vram (new target from beeef062)",
+      "expected": "pass, same at both",
+      "got": "exit 0 at both (12 s / 11 s), output identical. Plain binary: suite 164,230, 'CE reader suite with the CD music reader flags: 164233', last line 'retail async reader (Windows CE, CD music): 164233 checks passed'. VRAM binary: suite 175,731/175,734; 'refused PVR pieces through the background service: 6239 checks'; 4 passes x 3 PVR pieces (044c0360 10 sectors, 04575600 257 sectors, 054c0360 10 sectors); 'attached transport: 1460 audio blocks, 13 preemptions in all'; last line '... PVR stream pieces): 231328 checks passed'.",
+      "ok": true,
+      "note": "Three more runs per tree gave the same counts. At beeef062 itself the counts are also 164,233 and 231,328. The beeef062 commit message says 164,229 (see problems)."
+     },
+     {
+      "item": "python3 tests/test_retail_ce_map_guest.py -v",
+      "expected": "pass, same at both",
+      "got": "exit 0 at both: 4 tests OK, including the two new CD music variants. Harness counts at both: 156 (generic PVR), 156 (installed, no PVR), 192 (CD music with PVR), 192 (CD music without PVR). The generated harness source is identical in both trees (9,700 chars).",
+      "ok": true,
+      "note": "The test does not print the harness counts; I captured them with logs/mapguest_counts.py."
+     },
+     {
+      "item": "python3 tools/check_armada_ce_excerpt.py --self-test",
+      "expected": "pass, same at both",
+      "got": "exit 0 at both (23 s / 25 s): 'PASS Armada excerpt linked-auditor self-test: 316967 checks'",
+      "ok": true
+     },
+     {
+      "item": "Self-test of tools/check_retail_loader_layout.py",
+      "expected": "run if one exists",
+      "got": "None exists: its argparse has only 'directory' and '--ce'. Instead I ran the unit tests that import it. tests/test_retail_package.py -v: 28 tests OK at both. tests/test_retail_low_resident.py -v: 4 tests OK at both (one prints 'PASS native legacy standard: 10063 assertions'). Output identical.",
+      "ok": true,
+      "note": "Neither test exercises the new small-stack branch (see problems)."
+     },
+     {
+      "item": "python3 tests/test_toy_test_switches.py",
+      "expected": "pass at both",
+      "got": "merge: exit 0, 'PASS toy test switches: 11 resolver cases; 30 shared sources keep their production text'. CE: exit 0, '...; 29 shared sources ...'.",
+      "ok": true,
+      "note": "Expected difference: the merge fixture also has src/core/wce_probe_fat.c from this branch's line. Independent check: 28 fingerprints equal this branch's 1222228d fixture; the 2 that changed (retail_loader_layout.h, retail_resident.S) are both-line unions. For all 30 sources, the Toy-resolved merge text equals a clean 'git merge-file' union of the resolved base/ours/CE texts, and every fixture SHA matches (0 problems)."
+     },
+     {
+      "item": "python3 tests/test_check_gui_lines.py (merge only)",
+      "expected": "pass",
+      "got": "exit 0: 'PASS check_gui_lines: a build lacking a line's code is refused and names the branch; merged it passes; ...'",
+      "ok": true
+     },
+     {
+      "item": "python3 tests/test_games_retail.py (merge only)",
+      "expected": "pass with 408 PASS lines, as recorded for 2e03b96e",
+      "got": "'make build/games-retail' exit 0 (21 s, 6,470,712-byte binary). The test: exit 0 in 170 s, 408 PASS lines (204 fat32, 204 exFAT; 400 MBR, 8 superfloppy). No non-PASS line contains fail, error or traceback. The 408 lines are line-for-line identical to the earlier merge log scratchpad/verify/wince-bytes/logs/merge-gate-test-games-retail-full.log (the 2e03b96e comparison) and to 3 other earlier logs.",
+      "ok": true,
+      "note": "The script does not build build/games-retail itself (BINARY = build/games-retail, no build step), so I ran make first. Between 2e03b96e and the merge, tests/test_games_retail.py, tests/games_retail.c and src/apps/games_retail.c are unchanged."
+     },
+     {
+      "item": "Sources compiled by the K-UI, 64ae07435de5 vs 89a241cd (context only)",
+      "expected": "no GUI-source change",
+      "got": "git diff --stat 64ae07435de5 89a241cda854 -- src include config Makefile.dc Makefile lists only Makefile, include/kui/retail_loader_layout.h (+14, under #elif KUI_ARMADA_CE_STREAM_SMALL_STACK), src/loader/retail_resident.S (+6) and the new .ld file, all from the CE line.",
+      "ok": true,
+      "note": "I did not rebuild or compare the GUI binary; that is another job (gui-repro). This row is source-level only."
+     },
+     {
+      "item": "Not run",
+      "expected": "n/a",
+      "got": "tests/test_game_reader_provenance.py and foreground-map-tests (excluded by the task); the 'make test' aggregate; module builds (Makefile.armada-stream for Virtua Cop 2) and the K-UI build, which other jobs handle; console tests.",
+      "ok": true,
+      "note": "Not run by design."
+     }
+    ],
+    "problems": [
+     {
+      "severity": "risk",
+      "claim": "tools/check_retail_loader_layout.py has no self-test, and no host test covers its new CD music small-stack checks (0414c2d0). These are the marker selection and refusals: 'belongs to the background reader only', 'requires the ordinary CE placement', 'code leaves the stream controller bounds', and the dc00 stack bottom. They run only on a linked module build. This was already so on the CE line; the merge did not introduce it.",
+      "evidence": "The tool's argparse accepts only 'directory' and '--ce'. At 949be408, grep -rln 'small_stack|SMALL_STACK|__kui_ce_cdda_small_stack_resident' over tests/, tools/ and Makefile* finds only the toy fixture, tools/check_armada_ce_excerpt.py, tools/check_retail_loader_layout.py and Makefile.armada-stream. test_retail_package.py (28 tests) and test_retail_low_resident.py (4 tests) pass but never set the marker. The only use is Makefile.armada-audio:79 (check_retail_loader_layout.py --ce on the linked module directory).",
+      "where": "tools/check_retail_loader_layout.py check_directory/resident_limit (CE line 0414c2d0; byte-identical in the merge)",
+      "fix": "Add fixture cases to tests/test_retail_package.py: marker in resident-scia with --ce gives stack bottom 0x8c00dc00; marker without --ce, in another resident, or with a code end above d800 is refused."
+     },
+     {
+      "severity": "nit",
+      "claim": "The beeef062 commit message gives the wrong check count for the new non-VRAM test binary: it says 164,229, but the tree gives 164,233.",
+      "evidence": "build/test-retail-async-ce-cdda prints 'retail async reader (Windows CE, CD music): 164233 checks passed' at beeef062, 949be408 and 89a241cd, the same in 3 reruns per tree. The VRAM figure 231,328 matches. 164,229 also appears in docs/evidence/one-kui-64ae074/verification-agents.json:377 for a different set of targets (test-wwp-ce-stream / test-ce-cdda-reader / test-ce-slow-after-overrun / test-ce-fast-take), which I did not run.",
+      "where": "beeef062 commit message",
+      "fix": "Quote 164,233 in any doc or evidence that cites this target; the commit message itself cannot be changed."
+     }
+    ],
+    "commands": [
+     "git -C <repo> worktree add --detach <scratch>/verify2/hosttests/merge 89a241cda854",
+     "git -C <repo> worktree add --detach <scratch>/verify2/hosttests/ce 949be40865cf",
+     "ln -s <repo>/.deps <tree>/.deps (both trees)",
+     "In each tree, with PATH=<repo>/.deps/sh-elf/bin:$PATH and MAKEFLAGS/MFLAGS unset (logs/run.sh): make -j2 test-wince-cdda-bam4-group; make -j2 test-wince-cdda-wwp-group; make -j2 test-wince-runtime-families; make -j2 test-armada-ce-stream; make -j2 test-ce-cdda-vram; python3 tests/test_retail_ce_map_guest.py -v; python3 tools/check_armada_ce_excerpt.py --self-test; python3 tests/test_retail_package.py -v; python3 tests/test_retail_low_resident.py -v; python3 tests/test_toy_test_switches.py",
+     "merge only: python3 tests/test_check_gui_lines.py; make build/games-retail; TMPDIR=.../verify2/hosttests/tmp python3 tests/test_games_retail.py; grep -c '^PASS' logs/merge-gamesretail.log",
+     "Per-binary reruns: ASAN_OPTIONS=detect_leaks=0 ./build/{bam4,wwp}-group/<each> in both trees (logs/pergroup.sh), then diff",
+     "python3 logs/mapguest_counts.py <tree> (captures the harness counts of the 4 mapper variants)",
+     "3 more runs of ./build/test-retail-async-ce-cdda and ./build/test-retail-async-ce-cdda-vram per tree",
+     "git worktree add --detach .../verify2/hosttests/beeef beeef062e3d4; make -j2 test-ce-cdda-vram (count check, then removed)",
+     "git diff --stat 1222228d 89a241cda854; git rev-parse <rev>:<file> per changed file; git merge-file on (1222228d, b7c92e0c, 949be408) for Makefile, retail_loader_layout.h, retail_resident.S; a Toy-resolved three-way union check over all 30 fixture sources",
+     "git -C <repo> worktree remove --force for merge, ce and beeef; logs kept in <scratch>/verify2/hosttests/logs/ (284 KB)"
+    ]
+   }
+  },
+  {
+   "reviewer": "gui-identity",
+   "result": {
+    "verdict": "pass",
+    "rows": [
+     {
+      "item": "1. Build finished: last line of merged2.log",
+      "expected": "done",
+      "got": "'done' was already the last line at my first check (log written 05:29), so no polling was needed. 'make exit 0'. 'status before build: 0 changes'.",
+      "ok": true
+     },
+     {
+      "item": "1. New runtime.kui vs runtime-package.kui",
+      "expected": "identical",
+      "got": "cmp: identical. Both 3834412 bytes, SHA-256 a230d3f96afafa5de9a269d7039ea3f3d99e295b81c31705e3eac3d86a1d3a0f",
+      "ok": true
+     },
+     {
+      "item": "1. Delivered file and ELF identity",
+      "expected": "d572510c... / b9801fdd...",
+      "got": "one-kui/pkg/KUI/runtime.kui = boot.kui = gui-repro/out-merged/runtime.kui = runtime-package.kui, all SHA-256 d572510ce3d5804ee8ad5c04096197f8f4cd9b0724342ea76bda5dfdbcd84f2d. one-kui/elf/kui-runtime.elf is b9801fddad7c39644c7d7da6e55803c39f5765502b6b0b326718046a7fb3936f. Its receipt gives commit 64ae07435de5aefa212d1fdfe21742bbf0c94b13, source_dirty false and that same elf_sha256.",
+      "ok": true
+     },
+     {
+      "item": "1. New compile receipt",
+      "expected": "commit 89a241cd..., source_dirty false",
+      "got": "commit 89a241cda854c26082d2eec3d6d30be8c9dd6d8f, source_dirty false. elf_sha256 47da2b8b0a39841c138c06c0784ca8831eb819d277ec5d18b97542d05d1bdf17 equals sha256sum of w-merged2/build/kui-runtime.elf. Worktree HEAD is 89a241cd with 0 porcelain changes.",
+      "ok": true
+     },
+     {
+      "item": "1. Compiled flags vs the delivered build log merged.log",
+      "expected": "same flags",
+      "got": "main.c compile line in both logs: -DKUI_GITHUB_NIGHTLY=0 -DKUI_UPDATE_SOURCE_VERIFIED=1 -DKUI_SMASH_LAUNCH_TIMING=1 -DKUI_RETAIL_MANIFEST_CAPACITY=1 -DKUI_VMU_GAME_CARDS=1 -DKUI_SD_RUNTIME=1. KUI_SMASH_LAUNCH_TIMING=1 appears on 261 lines in each log. native_vmu_standard.c uses -DKUI_NATIVE_STANDARD_MANIFEST=<worktree>/resources/updater-bindings/installed-standard-9e3295bcfaec.h in both. That file has sha256 967238ee32e3de95... at both commits, and resources/ has no diff between 64ae and 89a2. The bundle is 'kos-cc -c <bundle dir>/bundle.S' in both: bundle.bin sha256 3d22cc80c99ebc0fb77ca25d64054e5f4245d1c66dca7c786e9070c352688f39 in both, equal to scratchpad/smash/embedded-bundle.bin. bundle.json is identical; bundle.S differs only in its .incbin path. Whole-log check: each log has 960 lines. Sorted, with the worktree, bundle and out directory names and the build ID/commit normalized, the logs are identical apart from output hashes/CRC, ls timestamps and time(1) lines. The new build took 50 s real against 3m24s, but it ran the same full compile command set.",
+      "ok": true
+     },
+     {
+      "item": "2. Envelope header (64 bytes)",
+      "expected": "only build ID and CRCs differ",
+      "got": "Same in both: magic KUIRUN1, format 1, header 64, payload 3834348, load/entry 0x8c010000, memory 8201924, flags 0, pad 0. Bytes that differ: 0x20-0x23 payload CRC (1431624f -> 44c01521); 0x28-0x33 build ID (64ae07435de5 -> 89a241cda854; byte 0x2a 'a' is the same in both); 0x3c-0x3f header CRC (b1fdd6b8 -> a06eb57f, each matching its recomputed value).",
+      "ok": true
+     },
+     {
+      "item": "2. Occurrences of build-ID text",
+      "expected": "count each ID",
+      "got": "Delivered payload: '64ae07435de5' x3, at 0x8c020be0, 0x8c2141a0 and 0x8c2199b1; '89a241cda854' x0. New payload: '89a241cda854' x3 at the same addresses; '64ae07435de5' x0. Neither payload contains the full 40-hex commit or an upper-case, UTF-16 or 6-byte binary form of either ID.",
+      "ok": true
+     },
+     {
+      "item": "2. Payloads after replacing the 3 contiguous IDs",
+      "expected": "every remaining difference explained",
+      "got": "22 bytes still differ, in two 16-byte spans: 0x8c030694-0x8c0306a3 and 0x8c030878-0x8c030887. Each span is the build ID split by the compiler into literal-pool words: '64ae' '0743', then the unchanged word 0x8c4fb288 (&_update_pending), then '5de5'. Before any replacement, 55 payload bytes differed: 5 instances x 11 differing characters.",
+      "ok": true
+     },
+     {
+      "item": "2. Payloads after also replacing the split form",
+      "expected": "identical",
+      "got": "Identical (3834348 bytes). The CRC of the transformed delivered payload is 44c01521, equal to the new header's field. The transformed delivered file, with its header ID and both CRCs recomputed, has SHA-256 a230d3f9..., the same as the new file. Transforming the new payload back gives exactly the delivered payload.",
+      "ok": true
+     },
+     {
+      "item": "3. sh-elf-nm -S --numeric-sort",
+      "expected": "same symbols, addresses, sizes",
+      "got": "Both outputs have 6589 lines and are byte-identical (cmp).",
+      "ok": true
+     },
+     {
+      "item": "3. Section headers (sh-elf-readelf -S -W) and program headers",
+      "expected": "same section sizes",
+      "got": "Both have 26 sections, and all 4 program headers are identical. Every allocated section has the same address, offset and size: .text 0x2002e0, .init 0x36, .fini 0x2a, .rodata 0x1a45cc, .eh_frame 0x168, .tbss 0x1c, .ctors 0xc, .dtors 0x8, .data 0x1998, .got 0xc, .bss 0x42a4c4, .ocram 0. The only size change is .debug_line_str (0x6f86 -> 0x6f88). That moves .symtab, .strtab, .shstrtab and the section header table by +4 in the file (ELF 17329412 -> 17329416 bytes).",
+      "ok": true
+     },
+     {
+      "item": "3. Section contents",
+      "expected": "only build-ID bytes differ in allocated sections",
+      "got": ".text: 33 bytes differ (3 instances x 11). .rodata: 22 bytes differ (2 x 11). Both sections are equal once both ID forms are replaced. .init, .fini, .eh_frame, .ctors, .dtors, .data, .got, .symtab, .strtab, .shstrtab, .comment, .debug_aranges, .debug_abbrev, .debug_frame, .debug_str, .debug_loclists and .debug_rnglists are identical. .debug_info (1166 B), .debug_line (9782 B) and .debug_line_str differ.",
+      "ok": true
+     },
+     {
+      "item": "3. Debug-section differences explained",
+      "expected": "build path only",
+      "got": ".debug_line_str holds the same 1109 strings except two worktree paths that are one character longer: .../gui-repro/w-merged -> w-merged2, and .../w-merged/resources/updater-bindings -> w-merged2/.... After normalizing these, the string multiset is equal. The longer paths reorder the merged string table. With the path and the '(indirect line string, offset: 0x..)' values normalized, readelf --debug-dump=info (1,918,938 lines) and --debug-dump=rawline (2,182,533 lines) give identical sha256 (65801bd2... and 5fdd1aa8...).",
+      "ok": true
+     },
+     {
+      "item": "3. Functions whose bytes differ",
+      "expected": "show where",
+      "got": "_update_failure (0x8c020b30, size 0xc0): literal pool +0xb0..+0xbb (0x8c020be0-0x8c020beb), read by mov.l at 0x8c020b6e/72/76 and stored as 3 words plus a NUL into update_snapshot+0x11e4. This is main.c:515, snprintf(update_snapshot.running,...,\"%s\",KUI_BUILD_ID). _update_work.constprop.0 (0x8c030570, size 0x2290): literal pools at +0x124..+0x12b with +0x130..+0x133, and at +0x308..+0x30f with +0x314..+0x317. They are read at 0x8c030620/22/28 and 0x8c0306c6/c8/ce and stored into _result.27+0x11e4. This is main.c:2798, snprintf(out->running,...), inlined twice (confirmed with sh-elf-addr2line). In both functions the instruction words are identical; only the literal data words differ. In .rodata (not functions): the plain string at 0x8c2141a0 and 'Running K-UI V2.0.0 SD runtime build <ID>' at 0x8c21998c (the ID itself at 0x8c2199b1).",
+      "ok": true
+     },
+     {
+      "item": "3. Link map (allocated part)",
+      "expected": "same layout",
+      "got": "The region from .text up to .comment (19213 lines) is identical after path normalization. The discarded-input list differs only in three discarded .debug_line_str sizes (+1 each, from the longer path).",
+      "ok": true
+     },
+     {
+      "item": "ELF to runtime.kui reproduction",
+      "expected": "each ELF gives its file",
+      "got": "runtime_package.flatten_elf plus envelope(...) on each ELF reproduces its runtime.kui byte for byte. runtime_package.verify passes on both (crc32 1431624f / 44c01521, memory 8201924).",
+      "ok": true
+     },
+     {
+      "item": "4. Producer GUI member check member_info_v2 on the new file",
+      "expected": "accepted, engine3",
+      "got": "{'path': 'runtime.kui', 'bytes': 3834412, 'sha256': 'a230d3f96afafa5de9a269d7039ea3f3d99e295b81c31705e3eac3d86a1d3a0f', 'policy': 3, 'build': '89a241cda854'}, exit 0, no exception. The delivered file gives the same result with build 64ae07435de5. <repo> is at HEAD 89a241cd with no edits in tools/.",
+      "ok": true
+     },
+     {
+      "item": "4. Engine, capability and handoff records",
+      "expected": "one KUIENG3! record, no KUIENG2!",
+      "got": "Exactly one 16-byte record KUIENG3!/3/0xFFFFFFFC (_kui_update_engine_capability, 0x8c278d48). Zero KUIENG2!/2/0xFFFFFFFD records. One KUIBANK1 capability (0x8c278d58). One empty KUIHOF1 handoff (192 bytes, _kui_update_ram_handoff, 0x8c3b68b0). The delivered file has the same records at the same addresses. Raw 8-byte text also appears outside these records, explained in the problems list.",
+      "ok": true
+     },
+     {
+      "item": "Extra: merge 89a241cd file-level structure",
+      "expected": "each file from the right parent",
+      "got": "Parents are 1222228d and 949be408; merge base b7c92e0c. From P1 the merge changes exactly the CE line's 10 files; from P2 it changes exactly this branch's 217 files. The 6 CE-only files equal 949be408's and the 213 branch-only files equal 1222228d's. The overlapping Makefile, include/kui/retail_loader_layout.h and src/loader/retail_resident.S equal git merge-file's clean 3-way output (0 conflicts).",
+      "ok": true
+     },
+     {
+      "item": "Extra: fixture conflict resolution",
+      "expected": "consistent fingerprints",
+      "got": "tests/test_toy_test_switches.py passes in a clean worktree of 89a241cd ('11 resolver cases; 30 shared sources keep their production text'). Against 1222228d, only the 'source' text and two fingerprints change: retail_loader_layout.h 61d979ee... and retail_resident.S 01d2cfa2.... My own 3-way merge of the Toy-resolved texts (0 conflicts) equals the resolved merged texts and gives exactly these two fingerprints. retail_resident.c, retail_stage.c and wce_probe_fat.c keep 1222228d's values, and their sources equal 1222228d's.",
+      "ok": true
+     }
+    ],
+    "problems": [
+     {
+      "severity": "nit",
+      "claim": "The Windows CE commits do change one header the K-UI compiles, so 'they change nothing the K-UI compiles' is not exact at source level. The compiled result is unchanged.",
+      "evidence": "include/kui/retail_loader_layout.h is listed in w-merged2/build/dc/src/apps/games.d and games_retail.d; games.c:11 and games_retail.c:30 include it. 0414c2d0 adds '#elif KUI_ARMADA_CE_STREAM_SMALL_STACK' there. That macro, KUI_CE_CDDA_SMALL_STACK and KUI_RETAIL_CE_VRAM_DMA appear on 0 of the 960 lines of either GUI build log, so the GUI does not take the new branch. The ELF is identical apart from the build ID.",
+      "fix": "None needed for this delivery. Treat future edits to retail_loader_layout.h as GUI inputs and re-run this comparison.",
+      "where": "include/kui/retail_loader_layout.h:147-160 (89a241cd)"
+     },
+     {
+      "severity": "nit",
+      "claim": "Two of the five build-ID instances are split by literal-pool words, so a plain substring count finds only 3. A check that replaces only contiguous text leaves 22 bytes unexplained.",
+      "evidence": "_update_work.constprop.0 holds '64ae0743' + 0x8c4fb288 (&_update_pending) + '5de5' at 0x8c030694 and at 0x8c030878. These come from snprintf(out->running,...,\"%s\",KUI_BUILD_ID) at main.c:2798, inlined twice. Once this form is also replaced, the payloads are identical.",
+      "fix": "In future equality checks, also replace the 8-chars + 4-byte word + 4-chars form, or compare disassembly.",
+      "where": "src/dreamcast/main.c:2798"
+     },
+     {
+      "severity": "nit",
+      "claim": "The raw 8-byte texts 'KUIENG2!' (once) and 'KUIENG3!' (twice) occur in the payload. Only the 16-byte records count, and those are one engine3 record and no engine2 record.",
+      "evidence": "0x8c23028c 'KUIENG2!' and 0x8c230298 'KUIENG3!' are NUL-padded string literals used by the GUI's own marker scanners (src/core/update.c:369, src/core/update_file.c:89). The single real record is _kui_update_engine_capability at 0x8c278d48. update_package.member_info_v2 counts the 16-byte ENGINE/ENGINE_LEGACY records and accepts the file at level 3. The delivered file is identical in this respect.",
+      "fix": "None. A naive 8-byte grep must not be read as an engine2 marker.",
+      "where": "rodata 0x8c230284-0x8c2302a3"
+     },
+     {
+      "severity": "nit",
+      "claim": "Not run in this job: a console run; tools/check_gui_lines.py (it fetches remote lines and is not part of this task); module rebuilds and comparisons (other jobs); a rebuild of 64ae itself.",
+      "evidence": "The delivered build's worktree w-merged no longer exists, so the delivered side rests on its saved log gui-repro/merged.log and on one-kui/elf/kui-runtime.{elf,map,compile.json}. Re-flattening that ELF reproduces the delivered runtime.kui exactly.",
+      "fix": "Before the CE module-only test, run its required --installed-has check and confirm on the console that the Diagnostics page's first line names 64ae07435de5."
+     }
+    ],
+    "commands": [
+     "S=<scratch>; tail -5 $S/gui-repro/merged2.log",
+     "sha256sum $S/one-kui/pkg/KUI/runtime.kui $S/one-kui/pkg/KUI/boot.kui $S/gui-repro/out-merged/*.kui $S/gui-repro/out-merged2/*.kui $S/one-kui/elf/kui-runtime.elf $S/gui-repro/w-merged2/build/kui-runtime.elf",
+     "cmp $S/gui-repro/out-merged2/runtime.kui $S/gui-repro/out-merged2/runtime-package.kui",
+     "cat $S/gui-repro/w-merged2/build/kui-runtime.compile.json $S/one-kui/elf/kui-runtime.compile.json; git -C $S/gui-repro/w-merged2 rev-parse HEAD; git -C $S/gui-repro/w-merged2 status --porcelain | wc -l",
+     "grep -n -E 'KUI_GITHUB_NIGHTLY|KUI_UPDATE_SOURCE_VERIFIED|installed-standard|bundle' $S/gui-repro/merged.log $S/gui-repro/merged2.log; grep -c KUI_SMASH_LAUNCH_TIMING $S/gui-repro/merged.log $S/gui-repro/merged2.log",
+     "norm(){ sed -e 's#gui-repro/w-merged2#gui-repro/w-merged#g; s#gui-repro/bundle-merged2#gui-repro/bundle-merged#g; s#gui-repro/out-merged2#gui-repro/out-merged#g; s#89a241cda854c26082d2eec3d6d30be8c9dd6d8f#COMMITFULL#g; s#64ae07435de5aefa212d1fdfe21742bbf0c94b13#COMMITFULL#g; s#89a241cda854#BUILDID#g; s#64ae07435de5#BUILDID#g' \"$1\"; }; diff <(norm $S/gui-repro/merged.log | sort) <(norm $S/gui-repro/merged2.log | sort)",
+     "sha256sum $S/gui-repro/bundle-merged/bundle.bin $S/gui-repro/bundle-merged2/bundle.bin $S/smash/embedded-bundle.bin; cmp $S/gui-repro/bundle-merged/bundle.json $S/gui-repro/bundle-merged2/bundle.json; diff $S/gui-repro/bundle-merged/bundle.S $S/gui-repro/bundle-merged2/bundle.S",
+     "git -C <repo> diff --quiet 64ae07435de5 89a241cda854 -- resources/; git -C <repo> show <c>:resources/updater-bindings/installed-standard-9e3295bcfaec.h | sha256sum",
+     "python3 -I $S/verify2/kui-equal/scripts/cmp_kui.py $S/one-kui/pkg/KUI/runtime.kui $S/gui-repro/out-merged2/runtime.kui",
+     "python3 -I $S/verify2/kui-equal/scripts/full_replace.py $S/one-kui/pkg/KUI/runtime.kui $S/gui-repro/out-merged2/runtime.kui",
+     "export PATH=<repo>/.deps/sh-elf/bin:$PATH; sh-elf-nm -S --numeric-sort $S/one-kui/elf/kui-runtime.elf > old.nm; sh-elf-nm -S --numeric-sort $S/gui-repro/w-merged2/build/kui-runtime.elf > new.nm; cmp old.nm new.nm",
+     "sh-elf-readelf -S -W <old elf> > old.sections; sh-elf-readelf -S -W <new elf> > new.sections; diff old.sections new.sections",
+     "python3 -I $S/verify2/kui-equal/scripts/cmp_sections.py $S/one-kui/elf/kui-runtime.elf $S/gui-repro/w-merged2/build/kui-runtime.elf",
+     "python3 -I $S/verify2/kui-equal/scripts/linestr.py $S/one-kui/elf/kui-runtime.elf $S/gui-repro/w-merged2/build/kui-runtime.elf",
+     "for kind in info rawline; do sh-elf-readelf --debug-dump=$kind <elf> | sed -E -e 's#gui-repro/w-merged2#gui-repro/w-merged#g' -e 's#\\(indirect line string, offset: 0x[0-9a-f]+\\)#(indirect line string)#g' | sha256sum; done",
+     "python3 -I $S/verify2/kui-equal/scripts/addr2sym.py $S/verify2/kui-equal/logs/new.nm 0x8c020be0 0x8c030694 0x8c030878 0x8c2141a0 0x8c2199b1 0x8c4fb288 0x8c4fa73c 0x8c4480a8",
+     "sh-elf-objdump -d --start-address=0x8c020b30 --stop-address=0x8c020bf0 <elf>; sh-elf-objdump -d --start-address=0x8c030570 --stop-address=0x8c032800 <elf>; diff old/new disassembly",
+     "sh-elf-addr2line -f -i -e $S/gui-repro/w-merged2/build/kui-runtime.elf 0x8c020b74 0x8c030624 0x8c0306ca",
+     "region(){ awk '/^\\.text[ \\t]+0x8c010000/{f=1} /^\\.comment[ \\t]/{f=0} f' \"$1\"; }; diff <(region $S/one-kui/elf/kui-runtime.map | sed 's#gui-repro/w-merged2#gui-repro/w-merged#g') <(region $S/gui-repro/w-merged2/build/kui-runtime.map | sed 's#gui-repro/w-merged2#gui-repro/w-merged#g')",
+     "python3 - (sys.path.insert(0,'<repo>/tools'); runtime_package.flatten_elf + envelope + verify on each ELF/runtime.kui pair)",
+     "python3 -c \"import sys; sys.path.insert(0,'<repo>/tools'); import update_package as u; print(u.member_info_v2('runtime.kui', open('$S/gui-repro/out-merged2/runtime.kui','rb').read()))\"",
+     "python3 -I $S/verify2/kui-equal/scripts/records.py $S/gui-repro/out-merged2/runtime.kui (and on the delivered file)",
+     "git -C <repo> diff --name-only b7c92e0c 1222228d / b7c92e0c 949be408 / 1222228d 89a241cd / 949be408 89a241cd; git merge-file -p ours base theirs for Makefile, include/kui/retail_loader_layout.h, src/loader/retail_resident.S, compared with 89a241cd's blobs",
+     "git -C <repo> worktree add --detach $S/verify2/kui-equal/wt 89a241cda854; cd $S/verify2/kui-equal/wt && PYTHONDONTWRITEBYTECODE=1 python3 tests/test_toy_test_switches.py",
+     "3-way merge of resolve_toy_switches() texts (base/1222228d/949be408) for retail_loader_layout.h and retail_resident.S, compared with resolve(89a241cd) and its code fingerprint",
+     "git -C <repo> worktree remove --force $S/verify2/kui-equal/wt"
+    ]
+   }
+  },
+  {
+   "reviewer": "merge-review",
+   "result": {
+    "verdict": "pass",
+    "rows": [
+     {
+      "item": "1a. Files changed on both sides since merge base b7c92e0c",
+      "expected": "the files that need a 3-way check",
+      "got": "4 files: Makefile, include/kui/retail_loader_layout.h, src/loader/retail_resident.S, tests/fixtures/toy-switch-production-text.json. Ours (b7c92e0c..1222228d) changed 217 files, theirs (b7c92e0c..949be408) changed 10",
+      "ok": true
+     },
+     {
+      "item": "1b. Makefile vs a clean git merge-file (ours 1222228d, base b7c92e0c, theirs 949be408)",
+      "expected": "identical",
+      "got": "merge-file rc=0; byte-identical to the merged file (sha256 069445a86460c859...)",
+      "ok": true
+     },
+     {
+      "item": "1c. include/kui/retail_loader_layout.h vs a clean merge-file",
+      "expected": "identical",
+      "got": "rc=0; byte-identical (sha256 fc4ef0d7f5413d7ab06811a0037a7663e7cdf9511951a80f427d17bb54ee0a20)",
+      "ok": true
+     },
+     {
+      "item": "1d. src/loader/retail_resident.S vs a clean merge-file",
+      "expected": "identical",
+      "got": "rc=0; byte-identical (sha256 b9cd068aea169169b8a00ff6ecd7542e4e66450e5062fb74b983abb0d3f8e590)",
+      "ok": true
+     },
+     {
+      "item": "1e. Every other path (4716 paths across the base, ours, theirs and merged trees)",
+      "expected": "each merged entry equals the side that changed it",
+      "got": "0 mode/blob mismatches. Tree sizes: base 4588, ours 4714, theirs 4590, merged 4716",
+      "ok": true
+     },
+     {
+      "item": "1f. Independent cross-check with git's own merge (git merge-tree --write-tree 1222228d 949be408)",
+      "expected": "only the fixture differs from 89a241cd",
+      "got": "The merge-tree tree c200b151... differs from 89a241cd's tree f75de924... only in tests/fixtures/toy-switch-production-text.json. merge-file on the fixture gives rc=3: three conflicting hunks (the source text and the sha256 of each of the two shared sources). Everything else in the fixture equals the clean merge",
+      "ok": true
+     },
+     {
+      "item": "1g. Fixture fingerprints recomputed from the merged files with the repo's own code (tests/toy_test_switches.py bc3cba74, test_toy_test_switches.fingerprint)",
+      "expected": "30/30 match",
+      "got": "30/30 match; `python3 tests/test_toy_test_switches.py` prints 'PASS toy test switches: 11 resolver cases; 30 shared sources keep their production text'. New values: retail_loader_layout.h 61d979ee893f9e19b8588bc454cc206fba8342995aea0517717c384ba340e86e and retail_resident.S 01d2cfa28486ef783cb0d8f7090fdd73b401fff602b359c0262d27bb3ae76782. The other 28 entries equal ours' values, so --write changed nothing else. The file is byte-identical to the format --write emits",
+      "ok": true
+     },
+     {
+      "item": "1h. Each commit's fixture vs its own tree, using its own resolver",
+      "expected": "0 mismatches",
+      "got": "0 mismatches at b7c92e0c (29 files, resolver 1ffddf1d), 1222228d (30, bc3cba74), 949be408 (29, 1ffddf1d) and 89a241cd (30, bc3cba74)",
+      "ok": true
+     },
+     {
+      "item": "1i. Union property, re-derived independently (Toy switches resolved with the merged resolver in base, ours, theirs and merged; git merge-file of the resolved texts)",
+      "expected": "merged == the clean 3-way union",
+      "got": "Exact text equality for all 30 sources. For the two sources both lines changed (retail_loader_layout.h, retail_resident.S): merge-file rc=0, union == merged exactly. The merge author's union.py compares the same way",
+      "ok": true
+     },
+     {
+      "item": "2a. Which recipes can define KUI_ARMADA_CE_STREAM_SMALL_STACK, KUI_CE_CDDA_SMALL_STACK, KUI_CE_CDDA_VRAM_DMA, KUI_ARMADA_CE_BOOT2_SCRATCH (grep of Makefile*, tools/*.py, tools/*.sh; git grep of the whole tree outside docs)",
+      "expected": "only Virtua Cop 2's CD music module",
+      "got": "Only Makefile.armada-stream defines them:\n- line 255: -DKUI_ARMADA_CE_STREAM_SMALL_STACK=1 into ARMADA_AUDIO_EXTRA_FLAGS, which reaches only ARMADA_AUDIO_FLAGS for scia, plus the small-stack .ld at line 256. Needs KUI_CE_CDDA_SMALL_STACK=1.\n- line 277: -DKUI_RETAIL_CE_VRAM_DMA=1. Needs KUI_CE_CDDA_VRAM_DMA=1.\n- lines 238-239: -DKUI_ARMADA_CE_BOOT2_SCRATCH=1, stage C and asm only.\nAll three variables default to 1 only when KUI_WINCE_CDDA_BAM4_KERNEL=VIRTUA_COP_2. Makefile.armada-stream is included only by Makefile.bam4-stream, Makefile.worms-stream and Makefile.wwp-stream. Makefile.dc reaches it only through `$(MAKE) -f` in its separate wince-cdda target, which builds the default kernels",
+      "ok": true
+     },
+     {
+      "item": "2b. K-UI build: make -n -B -f Makefile.dc build/kui-runtime.elf with the delivered flags",
+      "expected": "none of the macros",
+      "got": "0 occurrences of the 4 names (nor of KUI_RETAIL_CE_VRAM_DMA or VIRTUA_COP_2) in the 1205 dry-run lines at either commit, with and without a RUNTIME_MODULE_BUNDLE",
+      "ok": true
+     },
+     {
+      "item": "2c. Regular-games recipes",
+      "expected": "cannot define them",
+      "got": "No include/recursive-make closure of any Makefile.vmu-native-*, native-*, disc-*, vmu-*, mdk2, toy, smash or vc2 recipe reaches Makefile.armada-stream. Ours' KUI_NATIVE_STANDALONE_MAP128 is set only in Makefile.native-standalone-general",
+      "ok": true
+     },
+     {
+      "item": "2d. Makefile guards (make -n, exit codes)",
+      "expected": "refused outside Virtua Cop 2's module",
+      "got": "rc=2 with the guard message for:\n- KUI_CE_CDDA_SMALL_STACK=1 on BAM4 default, Puzzle Bobble 4 kernel, Armada, Worms, WWP;\n- KUI_CE_CDDA_VRAM_DMA=1 on Armada and WWP;\n- VC2 with SMALL_STACK=0 and the VRAM_DMA default ('needs KUI_CE_CDDA_SMALL_STACK=1');\n- SMALL_STACK=2 and VRAM_DMA=2 ('must be 0 or 1');\n- the VC2 kernel through the Armada profile;\n- KUI_CE_CDDA_BOOT2_SCRATCH=1 on BAM4 default.\nrc=0 for VC2 defaults, for VC2 with SMALL_STACK=0 VRAM_DMA=0, and for BAM4 default",
+      "ok": true
+     },
+     {
+      "item": "2e. Where the VC2 recipe applies each switch (merged dry run)",
+      "expected": "reader only; stage only for BOOT2",
+      "got": "SMALL_STACK=1 and RETAIL_CE_VRAM_DMA=1 reach only the 10 scia objects. BOOT2_SCRATCH=1 reaches only retail_stage.o and retail_stage_asm.o. retail_entry.S (package header and KUICDK01) gets none of them. scia links with retail_resident_ce_async_small_stack.ld",
+      "ok": true
+     },
+     {
+      "item": "2f. The header's own #error guard (cc -E probe of retail_loader_layout.h)",
+      "expected": "refused outside a CE async stream reader",
+      "got": "- No CE (the GUI's case): limit 0x8c00d800.\n- SMALL_STACK alone, with CE but no ASYNC, with no STREAM, or with CDDA_VMU: #error.\n- CE+ASYNC+STREAM+SMALL_STACK: limit and stack bottom 0x8c00dc00.\n- SMALL_STACK=0: unchanged",
+      "ok": true
+     },
+     {
+      "item": "3a. K-UI dry run at 64ae0743 vs 89a241cd (BUILD_ID=64ae07435de5 KUI_SMASH_LAUNCH_TIMING=1 NATIVE_STANDARD_MANIFEST=resources/updater-bindings/installed-standard-9e3295bcfaec.h)",
+      "expected": "same commands",
+      "got": "Identical after worktree-path normalisation. At 89a241cd I passed KUI_CLEAN_HEAD=64ae07435de5 so that KUI_UPDATE_SOURCE_VERIFIED=1 at both, as in the delivered build. Also identical with a dummy RUNTIME_MODULE_BUNDLE",
+      "ok": true
+     },
+     {
+      "item": "3b. K-UI translation units that include retail_loader_layout.h",
+      "expected": "found from the build itself",
+      "got": "2 units: build/dc/src/apps/games.o (src/apps/games.c) and build/dc/src/apps/games_retail.o (src/apps/games_retail.c). Same result from the -E line markers and from -MM -MG over all 281 repository-side units, at both commits",
+      "ok": true
+     },
+     {
+      "item": "3c. games.c preprocessed with its exact flags (kos-cc -E, line markers removed)",
+      "expected": "identical",
+      "got": "Identical: sha256 65675dd11408c109d0ce2b7836b32b94619e7fc415bba49d296520a909c0db49 (206,077 bytes) at both commits. -dM macro tables identical (1750 macros); KUI_RETAIL_CE_ASYNC_LIMIT is 0x8c00d800 in both",
+      "ok": true
+     },
+     {
+      "item": "3d. games_retail.c preprocessed with its exact flags",
+      "expected": "identical",
+      "got": "Identical: sha256 064987cbe9ccc1894feb44dcc0c5dc9546be19da0391bbfdd1ab7547d6ce689b (534,938 bytes) at both. -dM tables identical (2530 macros). The compiled GUI code's only resident-layout literals are 0x8c008300 and 0x8c00bb00, in layout_codec. No 0x8c00d800 or 0x8c00dc00 appears",
+      "ok": true
+     },
+     {
+      "item": "3e. Every other K-UI unit",
+      "expected": "identical",
+      "got": "- 273/273 kos-cc units that preprocess standalone: identical. runtime_module_bundle.c (bundle builds only): identical, no layout header.\n- Not preprocessed in isolation, 302 units: 294 bearssl objects built by make -C .deps/bearssl from the shared .deps tree; 5 KOS-patch outputs, generated from unchanged KOS sources and tools/patches, no repo include path.\n- 3 units with generated includes (splash.c, startup_sound.c, media_tls.c): -MM -MG shows no layout header, and their sources and generators are unchanged",
+      "ok": true
+     },
+     {
+      "item": "4a. GUI-facing changes 64ae0743 -> 89a241cd",
+      "expected": "none that affect the K-UI",
+      "got": "Of Makefile.dc, resources/, src/apps, src/core, src/dreamcast, include/, config, firmware, third_party and the packagers, only include/kui/retail_loader_layout.h changed (+14 lines). All 10 non-doc changes: Makefile, Makefile.armada-stream, retail_loader_layout.h, retail_resident.S, the new .ld, the fixture, 2 tests, 2 checkers. Only retail_loader_layout.h is in the recorded K-UI compile inputs (gui-inputs.txt). The delivered ELF has no small_stack or retail_resident symbols",
+      "ok": true
+     },
+     {
+      "item": "4b. CE CD music admission code: CE line 949be408 vs merge vs delivered 64ae0743",
+      "expected": "same",
+      "got": "Function bodies identical in all three: layout_codec, layout, ce_music_kernel_record, armada_stream_seed_find/_fill, ce_music_runtime_profile, ce_music_image_valid, ce_music_kernel_package, installed_module_status/_stat, ce_music_profile. Their profile, seed and kernel headers are also identical",
+      "ok": true
+     },
+     {
+      "item": "4c. Could the delivered K-UI refuse or mis-admit a Virtua Cop 2 small-stack CD music module?",
+      "expected": "no",
+      "got": "No. games_retail.c reads only:\n- the KUIRUN1 image;\n- the package header at payload 0x100, where layout_codec requires resident 0x8c008300 and limit 0x8c00bb00. retail_entry.S writes these from KUI_RETAIL_RESIDENT_ADDRESS and KUI_RETAIL_STANDARD_LIMIT (lines 225-226), which the small-stack #elif never touches, and the entry is compiled without the reader flags;\n- the KUICDK01 record at 0x300 (ce_music_kernel_record: magic, version 1, 64 bytes, profile, kernel bytes, pool == kui_wince_cdda_seed_pool, zero, SHA-256);\n- one unique blank typed CEX2 seed (7 fixed words plus zeros).\nNothing reads the reader's stack or data bounds. CE CD music maps use 64 slots, as before. With the merged VC2 commands, 61/63 units preprocess identically at 64ae0743 and 89a241cd; entry and stage are among them. The 2 that differ are scia retail_resident.c (guard and purge 0x8c00d800 -> 0x8c00dc00) and scia retail_resident.S (the marker, plus .Lguard and .Lce_isr_guard d800 -> dc00). The reader zeroes its own BSS (retail_resident.S lines 73-82)",
+      "ok": true
+     },
+     {
+      "item": "4d. Other modules at the preprocessor level, 64ae0743 vs 89a241cd",
+      "expected": "unchanged",
+      "got": "Same commands and 63/63 identical units each for the Armada, BAM4, Worms and WWP defaults and the Puzzle Bobble 4 and Ducati World kernel modules. VC2 with KUI_CE_CDDA_SMALL_STACK=0 KUI_CE_CDDA_VRAM_DMA=0 at 89a241cd gives the same commands as VC2 at 64ae0743 (the 1ac7e667c0d3 configuration), 63/63 identical. Test 84 main recipe: 77/77. vmu-native-background: 51/51. native-standalone-general: 25/25 (retail_stage.o with an empty stub for its generated standalone_symbols.h)",
+      "ok": true
+     },
+     {
+      "item": "4e. Host tests in the merged tree",
+      "expected": "pass",
+      "got": "- make test-ce-cdda-vram: 164230/164233/164233 and 175731/175734/231328 checks passed.\n- tools/check_armada_ce_excerpt.py --self-test: PASS, 316967 checks.\n- tests/test_retail_ce_map_guest.py: OK (4 tests).\n- test_retail_low_resident.py: OK (4). test_retail_package.py: OK (28).\n- test_cold_handoff_policy.py, test_native_dual_readers.py: rc=0. test_sonic_caller_stack.py: PASS, 23766 checks",
+      "ok": true
+     },
+     {
+      "item": "4f. Line ledger (tools/check_gui_lines.py --no-fetch)",
+      "expected": "merge contains every line",
+      "got": "--commit 89a241cda854: PASS. --commit 64ae07435de5: FAIL, lacks beeef062, 0414c2d0, 949be408 and 89a241cd. --installed-has 0414c2d0, 949be408 or beeef062: rc=1. --installed-has b7c92e0c or 4d4dcff7: rc=0. See problem 1",
+      "ok": true
+     },
+     {
+      "item": "Delivered artifacts and remote heads",
+      "expected": "as stated in the task",
+      "got": "- runtime.kui = boot.kui, sha256 d572510ce3d5804ee8ad5c04096197f8f4cd9b0724342ea76bda5dfdbcd84f2d; KUIRUN1, payload 3,834,348 bytes, CRC 1431624F (recomputed), build 64ae07435de5.\n- ELF b9801fddad7c39644c7d7da6e55803c39f5765502b6b0b326718046a7fb3936f; receipt: commit 64ae0743, source_dirty false.\n- git ls-remote: CE line still at 949be408 (no newer commits), main at 4441e92c, this branch at 89a241cd",
+      "ok": true
+     },
+     {
+      "item": "NOT RUN: byte-level K-UI rebuild from 89a241cd compared with the delivered runtime.kui",
+      "got": "not run by me (another job's task; disk). An uncommitted file another actor wrote at 05:51 UTC, docs/evidence/one-kui-64ae074/merge-89a241cd.txt, reports such a rebuild differs only in build-ID text. That is not my evidence",
+      "ok": false,
+      "note": "My evidence is preprocessor-level: every K-UI unit identical and identical commands"
+     },
+     {
+      "item": "NOT RUN: the delivered GUI's admission path on the actual new VC2 module bytes",
+      "got": "not run. No VC2 small-stack module was built here; I did not use the other jobs' module outputs",
+      "ok": false,
+      "note": "See problem 2 for the command"
+     },
+     {
+      "item": "NOT RUN: full `make test`; tests/test_armada_ce_vmu_runtime_native.py (needs a build directory); any console test",
+      "got": "not run (scope and time; only targeted tests). No console result exists for the new VC2 reader",
+      "ok": false
+     },
+     {
+      "item": "Repository hygiene",
+      "got": "I made no modification, commit or branch switch in <repo>. Both worktrees under verify2/merge-review were removed; only small logs remain. One write to note: `git merge-tree --write-tree` added unreachable loose objects to the shared object store (no ref, index or working-tree change). The main checkout now shows changes I did not make (mtimes 05:51 UTC, another actor): M docs/one-kui-both-threads.md, ?? docs/evidence/cdda-background-test-84/console-rerun-2026-11-22/, ?? docs/evidence/one-kui-64ae074/merge-89a241cd.txt",
+      "ok": true
+     }
+    ],
+    "problems": [
+     {
+      "severity": "risk",
+      "claim": "The line ledger now reports that the delivered K-UI 64ae07435de5 lacks the CE line's commits. A module-only VC2 delivery that follows rule 3 with the module's own commits would wrongly be told to bring a new K-UI.",
+      "evidence": "From the merged checkout:\n- python3 tools/check_gui_lines.py --no-fetch --commit 64ae07435de5 prints FAIL: missing beeef062, 0414c2d0, 949be408 (claude/great-darwin-yjmgfi) and 89a241cd.\n- --installed-has 0414c2d0, 949be408 or beeef062 exits 1.\n- --installed-has b7c92e0c exits 0.\nThe tool checks commit ancestry, not K-UI inputs, yet every K-UI unit preprocesses identically at 64ae0743 and 89a241cd.",
+      "fix": "In the VC2 module-only test, run --installed-has against the K-UI change the module needs. Its admission (KUICDK01 kernel route) is in b7c92e0c, which passes. State in the README and docs that 0414c2d0 and 949be408 are module-only and that the delivered K-UI's compile inputs are unchanged. Optionally record in gui-lines that 89a241cd's K-UI equals 64ae07435de5 apart from the build ID, once the byte-level rebuild is confirmed.",
+      "where": "tools/check_gui_lines.py; docs/gui-lines.json (installed.contains still says claude/great-darwin-yjmgfi b7c92e0c59c2)"
+     },
+     {
+      "severity": "risk",
+      "claim": "I did not run the delivered GUI's production admission path against the actual bytes of the new Virtua Cop 2 small-stack module. AGENTS.md requires admission on real packaged bytes, because literal pools can mimic records.",
+      "evidence": "My evidence is code reading plus preprocessing. The entry (package header and KUICDK01) and stage units of the VC2 module preprocess identically at 64ae0743 and 89a241cd, and the GUI functions involved are identical across 949be408, 89a241cd and 64ae0743. The seed scan needs 7 exact words plus zeros, so an accidental match is very unlikely.",
+      "fix": "Build build/test-wince-packaged-prepare from 89a241cd (its games_retail.c is identical to 64ae0743's). Run `./build/test-wince-packaged-prepare --bam4-kernel <VC2 kernel SHA-256, 64 hex> <kernel bytes> - <new ce-cdda-<sha12>.kui>` on the exact module before the console test. Have the owner confirm the module's payload CRC and size in the launch report.",
+      "where": "tests/test_wince_packaged_prepare.c; src/apps/games_retail.c ce_music_kernel_record, layout_codec, armada_stream_seed_find"
+     },
+     {
+      "severity": "nit",
+      "claim": "Stale rebuild comments in Makefile.armada-stream (from the CE line, carried by the merge): after 949be408, single-switch rollbacks no longer work as the comments say.",
+      "evidence": "- Line 232: KUI_CE_CDDA_BOOT2_SCRATCH '0 rebuilds that module as test build 9e89e778370f'. For VC2, BOOT2_SCRATCH=0 alone now still builds the small-stack and VRAM-DMA reader.\n- Line 248: SMALL_STACK '0 builds that module with the 2 KiB stack'. `make -n -f Makefile.bam4-stream ... KUI_WINCE_CDDA_BAM4_KERNEL=VIRTUA_COP_2 KUI_CE_CDDA_SMALL_STACK=0` stops with 'KUI_CE_CDDA_VRAM_DMA=1 needs KUI_CE_CDDA_SMALL_STACK=1'.\n- 0414c2d0's message ('With KUI_CE_CDDA_SMALL_STACK=0 ... rebuilds as 1ac7e667c0d3') held only before 949be408.\nSMALL_STACK=0 VRAM_DMA=0 does reproduce the 1ac7e667c0d3 commands (63/63 units identical).",
+      "fix": "Say that 1ac7e667c0d3 needs KUI_CE_CDDA_SMALL_STACK=0 KUI_CE_CDDA_VRAM_DMA=0, and that 9e89e778370f also needs KUI_CE_CDDA_BOOT2_SCRATCH=0.",
+      "where": "Makefile.armada-stream lines 226-248"
+     },
+     {
+      "severity": "nit",
+      "claim": "Part of the new #error in retail_loader_layout.h's small-stack #elif is dead code, and some invalid combinations compile silently.",
+      "evidence": "- The #error tests KUI_ARMADA_CE_VMU_WRITE_RUNTIME || KUI_WCE_PROBE, but earlier #elif branches already take those cases.\n- cc -E probes with SMALL_STACK+CE+ASYNC compile without error, at limit 0x8c00ddc0 with KUI_WCE_PROBE=1, 0x8c00dc00 with VMU_WRITE_RUNTIME+STREAM, and 0x8c00dc00 with KUI_RETAIL_CE_READAHEAD=1.\n- retail_resident.S still emits the small-stack marker in these cases.\nNo recipe can produce them: the Makefile guard refuses them, the .ld asserts, and check_retail_loader_layout.py refuses the marker with probe, runtime or readahead profiles.",
+      "fix": "Optionally move the check before the #if KUI_RETAIL_CE_READAHEAD chain, or drop the unreachable terms.",
+      "where": "include/kui/retail_loader_layout.h lines 147-160"
+     }
+    ],
+    "commands": [
+     "git -C <repo> worktree add --detach .../verify2/merge-review/wt-merged 89a241cda854 ; ... wt-gui 64ae07435de5 ; ln -s <repo>/.deps <wt>/.deps",
+     "git diff --name-only b7c92e0c 1222228d | sort > ours.txt ; git diff --name-only b7c92e0c 949be40865cf | sort > theirs.txt ; comm -12 ours.txt theirs.txt",
+     "for f in Makefile include/kui/retail_loader_layout.h src/loader/retail_resident.S tests/fixtures/toy-switch-production-text.json: git show 1222228d:$f > o; git show b7c92e0c:$f > b; git show 949be40865cf:$f > t; git show 89a241cda854:$f > m; git merge-file -p o b t > clean; cmp clean m",
+     "git ls-tree -r --full-tree <c> for b7c92e0c 1222228d 949be40865cf 89a241cda854; python per-path check (merged == ours if theirs==base, theirs if ours==base): 0 mismatches",
+     "git merge-tree --write-tree --name-only 1222228d 949be40865cf ; git diff --stat c200b1512e05 89a241cda854",
+     "(wt-merged) python3 tests/test_toy_test_switches.py",
+     "python3 -I verify2/merge-review/scripts/union_check.py <dir>   # each commit's fixture vs own tree/resolver; Toy-resolved git merge-file union == merged for all 30 sources",
+     "git grep -n -E 'KUI_ARMADA_CE_STREAM_SMALL_STACK|KUI_CE_CDDA_SMALL_STACK|KUI_CE_CDDA_VRAM_DMA|KUI_ARMADA_CE_BOOT2_SCRATCH|KUI_CE_CDDA_BOOT2_SCRATCH' -- ':!docs' ; grep over Makefile* tools/*.py tools/*.sh",
+     "export PATH=<repo>/.deps/sh-elf/bin:$PATH; source <repo>/.deps/kos/environ.sh; unset MAKEFLAGS MFLAGS",
+     "(wt-gui) make -n -B -f Makefile.dc build/kui-runtime.elf BUILD_ID=64ae07435de5 KUI_SMASH_LAUNCH_TIMING=1 NATIVE_STANDARD_MANIFEST=resources/updater-bindings/installed-standard-9e3295bcfaec.h > dryrun-gui.txt",
+     "(wt-merged) make -n -B -f Makefile.dc build/kui-runtime.elf BUILD_ID=64ae07435de5 KUI_SMASH_LAUNCH_TIMING=1 NATIVE_STANDARD_MANIFEST=resources/updater-bindings/installed-standard-9e3295bcfaec.h KUI_CLEAN_HEAD=64ae07435de5 > dryrun-merged.txt ; (same with RUNTIME_MODULE_BUNDLE=<dummy dir>)",
+     "python3 -I scripts/pp_compare.py dryrun-<t>.txt wt-<t> pp-<t>.json ...   # each kos-cc line: -c -> -E, -o obj -> -o tmp, -MMD/-MP dropped, SOURCE_DATE_EPOCH=0, sh -c in worktree; drop '^# N \"file\"' markers, worktree path -> WT, sha256",
+     "SOURCE_DATE_EPOCH=0 kos-cc -std=c11 -Wall -Wextra -Werror -Iinclude -Isrc/dreamcast -Isrc/loader -I.deps/fatfs/source -Ifirmware/kui-wifi/components/kwlink/include -DKUI_BUILD_ID='\"64ae07435de5\"' -DKUI_RETAIL_EXTENDED_MAP=1 -Ithird_party/miniz -Ithird_party/minilzo -DMINIZ_NO_ARCHIVE_APIS -DMINIZ_NO_STDIO -DMINIZ_NO_TIME -DMINIZ_NO_ZLIB_APIS -DMINIZ_NO_MALLOC -DLZO_CFG_NO_UNALIGNED=1 -DKUI_NATIVE_CDDA_MANIFEST='\"<wt>/resources/updater-bindings/native-cdda-manifest.h\"' -DKUI_SMASH_LAUNCH_TIMING=1 -DKUI_RETAIL_MANIFEST_CAPACITY=1 -DKUI_VMU_GAME_CARDS=1 -E src/apps/games_retail.c -o unit.i   (same with -E -dM; games.c without the manifest and VMU_GAME_CARDS defines)",
+     "python3 -I scripts/mm_scan.py dryrun-<t>.txt wt-<t>   # -MM -MG on all 281 repo-side units: layout header only in games.o, games_retail.o",
+     "make -n -f Makefile.bam4-stream build/bam4-ce-stream/entry.elf KUI_CE_CDDA_SMALL_STACK=1 <WINCE_CDDA_BUILD_FLAGS>  (and the other guard cases: PUZZLE_BOBBLE_4, Makefile.armada-stream, Makefile.worms-stream, Makefile.wwp-stream, KUI_CE_CDDA_VRAM_DMA=1, VC2 with SMALL_STACK=0/2, VRAM_DMA=2, VC2 via Armada, BOOT2_SCRATCH=1)",
+     "make -n -f Makefile.bam4-stream build/bam4-ce-stream-virtua-cop-2/entry.elf KUI_WINCE_CDDA_BAM4_KERNEL=VIRTUA_COP_2 <WINCE_CDDA_BUILD_FLAGS> > vc2-dry.txt ; python3 -I scripts/pp_pair.py vc2-dry.txt wt-gui wt-merged tmp",
+     "make -n -B for the default Armada/BAM4/Worms/WWP, PUZZLE_BOBBLE_4, DUCATI_WORLD modules, VC2 with KUI_CE_CDDA_SMALL_STACK=0 KUI_CE_CDDA_VRAM_DMA=0, the Test 84 main recipe (Makefile.vmu-native-toy-suite ... BUILD=build/t84-main), Makefile.native-standalone-general and Makefile.vmu-native-background, each followed by pp_pair.py",
+     "cc -E -P -Iinclude [-DKUI_ARMADA_CE_STREAM_SMALL_STACK=1 -DKUI_RETAIL_CE=1 -DKUI_RETAIL_ASYNC=1 -DKUI_ARMADA_CE_STREAM=1 ...] probe.c   # header #error probes",
+     "(wt-merged) make test-ce-cdda-vram ; python3 tools/check_armada_ce_excerpt.py --self-test ; python3 tests/test_retail_ce_map_guest.py ; python3 tests/test_retail_low_resident.py ; python3 tests/test_retail_package.py ; python3 tests/test_cold_handoff_policy.py ; python3 tests/test_native_dual_readers.py ; python3 tests/test_sonic_caller_stack.py",
+     "(wt-merged) python3 tools/check_gui_lines.py --no-fetch --commit 89a241cda854 ; --commit 64ae07435de5 ; --installed-has 0414c2d0|949be408|beeef062|b7c92e0c|4d4dcff7",
+     "git ls-remote origin refs/heads/claude/great-darwin-yjmgfi refs/heads/main refs/heads/claude/hopeful-dijkstra-r2g7c4",
+     "sha256sum one-kui/pkg/KUI/runtime.kui one-kui/pkg/KUI/boot.kui one-kui/elf/kui-runtime.elf ; KUIRUN1 header and payload CRC32 recomputed",
+     "git -C <repo> worktree remove --force .../verify2/merge-review/wt-gui ; ... wt-merged   # kept logs: <scratch>/verify2/merge-review/{pp-gui.json,pp-merged.json,dryrun-gui.txt,dryrun-merged.txt,vc2-dry.txt,host-ce-cdda-vram.log,shas.txt,both.txt,ours.txt,theirs.txt,scripts/}"
+    ]
+   }
+  }
+ ]
+}

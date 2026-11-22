@@ -189,4 +189,13 @@ C(kui_vmu_native_trace_exports):
 C(kui_native_loader_timeline_exports):
     .long 0x4b4c5431,1,C(kui_native_loader_timeline_visit)
     .size C(kui_native_loader_timeline_exports),.-C(kui_native_loader_timeline_exports)
+#if KUI_TOY_CDDA_HOOK
+    /* Test 84 (HOOK): the CD-music player's descriptor, right behind the
+     * timeline's at the trace table +52 (src/loader/toy_cdda_player.c). */
+    .global C(kui_toy_cdda_player_exports)
+    .type C(kui_toy_cdda_player_exports),@object
+C(kui_toy_cdda_player_exports):
+    .long 0x4b434431,1,C(kui_toy_cdda_player_visit)
+    .size C(kui_toy_cdda_player_exports),.-C(kui_toy_cdda_player_exports)
+#endif
 #endif

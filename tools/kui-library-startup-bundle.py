@@ -9,7 +9,9 @@ and Windows CE games, with or without CD audio, are all bundled: IP.BIN, the
 IP-selected boot file, Windows CE EXEs, small runtime/sound-driver files and
 the disc's file listing (names and sizes only). No audio, movies or other game
 assets are copied. Startups listed in already-sent.json beside this script are
-not copied again; extra program files named per product in requests.json are. Other image formats are listed by name. Writes
+not copied again; extra program files named per product in requests.json are.
+--cd-audio copies only regular games with CD audio tracks (see the README).
+Other image formats are listed by name. Writes
 Library-startup-01.zip, -02.zip ... of at most --part-mb MiB each, without
 overwriting. Requires only Python3's standard library. Source tracks are read
 only. This prepares analysis evidence, not a game patch or a compatibility
@@ -29,7 +31,7 @@ import tempfile
 import uuid
 import zipfile
 
-LIBRARY_VERSION = '2.4'
+LIBRARY_VERSION = '2.5'
 SCHEMA = 'kui.library-startup.v2'
 DESCRIPTOR_LIMIT = 4096
 WALK_LIMIT = 1000000
@@ -42,6 +44,10 @@ SLUG = re.compile(r'[0-9]{3,4}-[A-Za-z0-9-]{0,56}')
 SHA256 = re.compile(r'[0-9a-f]{64}')
 KNOWN_NAME = 'already-sent.json'
 REQUESTS_NAME = 'requests.json'
+# A CD audio run's small first ZIP: sound-driver files no larger than this
+# each, every distinct file once, up to this much in all.
+DRIVER_FILE_LIMIT = 256 * 1024
+DRIVERS_LIMIT = 20 * 1024 * 1024
 
 
 def load_extractor():
@@ -127,6 +133,36 @@ def peek_windows_ce(descriptor):
     except (OSError, ValueError, UnicodeError):
         return None
     return None
+
+
+def peek_cd_audio(descriptor):
+    """Whether a GDI/CUE lists an audio track in the high-density area, or None.
+
+    From the descriptor alone; anything unreadable is left to full extraction."""
+    try:
+        original = descriptor.read_bytes()
+        if len(original) > 64 * 1024:
+            return None
+        parser = disc.parse_gdi if descriptor.suffix.lower() == '.gdi' else disc.parse_cue
+        tracks, _ = parser(descriptor, original)
+        return any(control == 0 and start >= 45000 for start, _end, control, _path, _stride, _offset in tracks)
+    except (OSError, ValueError, UnicodeError):
+        return None
+
+
+def chd_audio_tracks(chdman, chd):
+    """Audio tracks MAME's chdman lists for a CHD, or None when it does not say.
+
+    A GD-ROM's second track is audio whether or not the game has CD music, so
+    a game with CD music lists at least two."""
+    try:
+        result = subprocess.run([chdman, 'info', '-i', str(chd)], capture_output=True, text=True)
+    except OSError:
+        return None
+    tracks = re.findall(r'TRACK:\d+ +TYPE:(\w+)', result.stdout)
+    if result.returncode or not tracks:
+        return None
+    return sum(kind == 'AUDIO' for kind in tracks)
 
 
 def peek_ip(descriptor):
@@ -256,12 +292,21 @@ def load_requests(path):
 
 
 def classify(descriptor, root, index, method, staging, known, requests=None,
-             windows_ce_only=False):
+             windows_ce_only=False, cd_audio_only=False):
     """One library row; writes the inner ZIP into staging when bundled.
 
     windows_ce_only lists native games from their header without copying them,
-    and copies every Windows CE startup even when it was sent before."""
+    and copies every Windows CE startup even when it was sent before.
+    cd_audio_only copies every regular (not Windows CE) game that has CD audio
+    tracks, even when it was sent before, and lists the others."""
     row = {'source': descriptor.relative_to(root).as_posix(), 'status': 'error'}
+    if cd_audio_only and peek_cd_audio(descriptor) is False:
+        try:
+            row.update(peek_ip(descriptor))
+        except (OSError, ValueError, UnicodeError):
+            pass
+        row['status'] = 'not_cd_audio'
+        return row
     if windows_ce_only:
         header = peek_windows_ce(descriptor)
         if header and not header[0]:
@@ -303,7 +348,10 @@ def classify(descriptor, root, index, method, staging, known, requests=None,
     if windows_ce_only and not report['windows_ce']:
         row['status'] = 'not_windows_ce'
         return row
-    if not windows_ce_only and (('key', row['startup_key']) in known or
+    if cd_audio_only and (report['windows_ce'] or not row['cdda_tracks']):
+        row['status'] = 'not_cd_audio'
+        return row
+    if not windows_ce_only and not cd_audio_only and (('key', row['startup_key']) in known or
             (not report['windows_ce'] and not wanted and ('boot', row['boot_sha256']) in known)):
         row['status'] = 'already_sent'
         return row
@@ -365,12 +413,74 @@ def publish(destination, library, rows, staging):
             temporary.unlink(missing_ok=True)
 
 
+def publish_drivers(destination, library, rows, staging):
+    """A CD audio run's small first ZIP: each copied game's file listing and
+    its sound-driver files (every distinct file once), without the programs."""
+    files, games, total, left_out = {}, {}, 0, 0
+    for row in rows:
+        if row['status'] != 'bundled':
+            continue
+        with zipfile.ZipFile(staging / (row['slug'] + '.zip')) as game:
+            report = json.loads(game.read('startup-info.json'))
+            required = set(report['required_files']) | {'IP.BIN', 'disc.gdi', 'disc.cue', 'startup-info.json'}
+            listed = []
+            for name in game.namelist():
+                if name in required:
+                    continue
+                data = game.read(name)
+                digest = hashlib.sha256(data).hexdigest()
+                if digest not in files:
+                    if len(data) > DRIVER_FILE_LIMIT or total + len(data) > DRIVERS_LIMIT:
+                        left_out += 1
+                        listed.append({'path': name, 'bytes': len(data), 'sha256': digest, 'copied': False})
+                        continue
+                    files[digest] = data
+                    total += len(data)
+                listed.append({'path': name, 'bytes': len(data), 'sha256': digest, 'copied': True})
+        games[row['slug']] = {'report': report, 'sound_files': listed}
+    names = ['library.json'] + [f'games/{slug}.json' for slug in games] + [f'files/{digest}' for digest in files]
+    temporary = None
+    try:
+        with tempfile.NamedTemporaryFile(prefix='.Library-startup-', suffix='.zip.tmp',
+                                         dir=destination.parent, delete=False) as stage:
+            temporary = Path(stage.name)
+        with zipfile.ZipFile(temporary, 'w', compression=zipfile.ZIP_DEFLATED) as archive:
+            archive.writestr('library.json', json.dumps(dict(library, drivers_only=True, files_left_out=left_out),
+                                                        indent=2) + '\n')
+            for slug, game in games.items():
+                archive.writestr(f'games/{slug}.json', json.dumps(game, indent=2) + '\n')
+            for digest, data in files.items():
+                archive.writestr(f'files/{digest}', data)
+        with zipfile.ZipFile(temporary) as verify:
+            if verify.namelist() != names or verify.testzip() is not None:
+                raise ValueError('Generated sound-driver ZIP failed its integrity check')
+            for digest, data in files.items():
+                if verify.read(f'files/{digest}') != data:
+                    raise ValueError('Generated sound-driver ZIP differs from the extracted files')
+        with temporary.open('rb') as archive:
+            os.fsync(archive.fileno())
+        try:
+            os.link(temporary, destination)
+        except OSError:
+            if os.path.lexists(destination):
+                raise
+            os.replace(temporary, destination)
+            temporary = None
+    finally:
+        if temporary is not None:
+            temporary.unlink(missing_ok=True)
+    return len(games), len(files)
+
+
 def describe(row):
     status = row['status']
     if status == 'error':
         return row['error']
     if status == 'not_windows_ce':
         return 'native; not copied (Windows CE games only)'
+    if status == 'not_cd_audio':
+        return ('Windows CE' if row.get('windows_ce') else 'no CD audio tracks') + \
+            '; not copied (regular games with CD audio only)'
     kind = ('Windows CE' if row['windows_ce'] else 'native') + \
         (f", CD audio ({row['cdda_tracks']} tracks)" if row['cdda_tracks'] else '')
     if status == 'duplicate':
@@ -392,7 +502,7 @@ def extract_chd(chdman, chd, folder):
 
 
 def build(root, output_dir, name, part_mb, known_path=None, log=print, requests_path=None,
-          windows_ce_only=False, chdman=None):
+          windows_ce_only=False, chdman=None, cd_audio_only=False):
     root, output_dir = Path(root), Path(output_dir)
     if root.is_symlink() or not root.is_dir():
         raise ValueError(f'{root} is not a folder')
@@ -414,16 +524,22 @@ def build(root, output_dir, name, part_mb, known_path=None, log=print, requests_
         staging = Path(work)
         jobs = [(descriptor, None) for descriptor in descriptors] + [(None, chd) for chd in chds]
         for index, (descriptor, chd) in enumerate(jobs, 1):
+            # A CHD whose track list has no audio track beyond a GD-ROM's
+            # second has no CD music: a CD audio run does not write it out.
+            listed_audio = chd_audio_tracks(chdman, chd) if cd_audio_only and chd is not None else None
             if chd is None:
                 row = classify(descriptor, root, index, method, staging, known, requests,
-                               windows_ce_only=windows_ce_only)
+                               windows_ce_only=windows_ce_only, cd_audio_only=cd_audio_only)
+            elif listed_audio is not None and listed_audio < 2:
+                row = {'status': 'not_cd_audio'}
+                row.update(source=chd.relative_to(root).as_posix(), converted_from='chd')
             else:
                 # One CHD at a time: a temporary GDI beside the output, removed after reading.
                 with tempfile.TemporaryDirectory(prefix='.kui-chd-', dir=output_dir) as temporary:
                     try:
                         gdi = extract_chd(chdman, chd, temporary)
                         row = classify(gdi, Path(temporary), index, method, staging, known, requests,
-                                       windows_ce_only=windows_ce_only)
+                                       windows_ce_only=windows_ce_only, cd_audio_only=cd_audio_only)
                     except (OSError, ValueError) as error:
                         row = {'status': 'error', 'error': str(error)}
                 row.update(source=chd.relative_to(root).as_posix(), converted_from='chd')
@@ -455,7 +571,12 @@ def build(root, output_dir, name, part_mb, known_path=None, log=print, requests_
                        'purpose': 'K-UI startup sweep; game bytes unchanged',
                        'compression': 'lzma' if method == zipfile.ZIP_LZMA else 'deflate',
                        'already_sent': len(known), 'windows_ce_only': windows_ce_only,
-                       'summary': counts, 'games': rows}
+                       'cd_audio_only': cd_audio_only, 'summary': counts, 'games': rows}
+            if cd_audio_only and number == 1:
+                # The small ZIP first: the sound-driver files of every copied game.
+                destination = output_dir / f'{name}-sound-drivers.zip'
+                publish_drivers(destination, library, rows, staging)
+                created.append(destination)
             destination = output_dir / f'{name}-{number:02d}.zip'
             publish(destination, library, part, staging)
             created.append(destination)
@@ -480,9 +601,15 @@ def main():
     parser.add_argument('--windows-ce', action='store_true',
                         help='Copy only Windows CE games, including ones sent before; '
                              'native games are listed from their header, not copied')
+    parser.add_argument('--cd-audio', action='store_true',
+                        help='Copy only regular (not Windows CE) games that have CD audio '
+                             'tracks, including ones sent before; also writes one small '
+                             'NAME-sound-drivers.zip with their sound-driver files')
     args = parser.parse_args()
     if not re.fullmatch(r'[A-Za-z0-9_-]{1,40}', args.name) or args.part_mb < 0:
         parser.error('--name takes letters, digits, - and _; --part-mb is 0 or more')
+    if args.windows_ce and args.cd_audio:
+        parser.error('--windows-ce and --cd-audio are two different runs')
     print(version, flush=True)
     known = None if args.resend_all else Path(__file__).resolve().with_name(KNOWN_NAME)
     chdman = shutil.which('chdman') if args.chd else None
@@ -492,7 +619,8 @@ def main():
         rows, created = build(args.folder, args.output_dir, args.name, args.part_mb,
                               known_path=known, log=lambda line: print(line, flush=True),
                               requests_path=Path(__file__).resolve().with_name(REQUESTS_NAME),
-                              windows_ce_only=args.windows_ce, chdman=chdman)
+                              windows_ce_only=args.windows_ce, chdman=chdman,
+                              cd_audio_only=args.cd_audio)
     except (OSError, ValueError, zipfile.BadZipFile, UnicodeError) as error:
         parser.exit(1, f'Bundling stopped: {error}\n')
     except KeyboardInterrupt:
@@ -503,8 +631,12 @@ def main():
     print('Summary: ' + ', '.join(f'{count} {status}' for status, count in sorted(counts.items())))
     for path in created:
         print(f'Created {path.resolve()} ({path.stat().st_size:,} bytes)')
-    print(f'Upload every {args.name}-NN.zip file (the first always lists every game). '
-          'Source tracks were read only.')
+    if args.cd_audio:
+        print(f'Upload {args.name}-sound-drivers.zip first (it is small), then every '
+              f'{args.name}-NN.zip file. Source tracks were read only.')
+    else:
+        print(f'Upload every {args.name}-NN.zip file (the first always lists every game). '
+              'Source tracks were read only.')
 
 
 if __name__ == '__main__':

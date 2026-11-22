@@ -74,6 +74,10 @@ static enum kui_loader_sd_result native_persist_storage_init(struct kui_retail_s
 #if KUI_NATIVE_TOY_MOVIE_CAPTURE
 static void toy_movie_scan(void);
 #endif
+#if defined(KUI_TOY_WIRE_SAVE) && KUI_TOY_WIRE_SAVE
+/* The stage's stop screen asks this (toy_survey_stage.inc). */
+static bool toy_survey_wrote;
+#endif
 #define kui_retail_stage_relay kui_native_heap_base_relay
 #include "retail_stage.c"
 #undef kui_retail_stage_relay
@@ -81,6 +85,9 @@ static void toy_movie_scan(void);
 #include "toy_movie_iso_stage.inc"
 #endif
 #if KUI_TOY_SUITE_MODE && !KUI_TOY_WIRE_VMU
+#if defined(KUI_TOY_WIRE_SAVE) && KUI_TOY_WIRE_SAVE
+#include "toy_survey_stage.inc"
+#endif
 #include "toy_suite_report_stage.inc"
 #endif
 #if KUI_NATIVE_VMU_ONLY

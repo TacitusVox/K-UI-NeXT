@@ -1,0 +1,42 @@
+# Test 84 verification on a clean worktree at 4abc63b (build 4abc63b0cc58), 20 November 2026 CST
+# One line a check; each check's result lines are in the other logs of this folder.
+# asm-audit: 9 of its 10 tests pass. The tenth fails on raw target macros in src/core/bba_sockets.c and
+# src/dreamcast/shell_font.c, which Test 84 does not touch (asm-audit.log); it fails the same way at Main
+# 4441e92 (docs/toy-wire-stream-test-83.md) and, in the pre-delivery package audit's own run, at 9fd8e90.
+
+commit 4abc63b Test 84 SURVEY: the integration review's test gaps closed; build 4abc63b0cc58; worktree changes: 0
+ok   build-main
+ok   main-toy-wire-linked-check
+ok   main-toy-cdda-parts-check
+ok   main-toy-wire-package-test
+ok   main-toy-wire-save-host-test
+ok   main-toy-wire-host-tests
+ok   main-toy-wire-integration-host-test
+ok   main-toy-cdda-drive-host-test
+ok   main-toy-cdda-survey-host-test
+ok   main-toy-cdda-mutation-check
+ok   main-toy-cdda-survey-mutation-check
+ok   main-toy-cdda-survey-site-mutation-check
+ok   main-toy-survey-mixed-pad-host-test
+ok   main-toy-cdda-survey-driver-check
+ok   switches
+FAIL asm-audit (exit 1)  (the known Main failure above)
+ok   admission-main
+ok   build-main-again
+ok   build-alt
+ok   alt-toy-wire-linked-check
+ok   alt-toy-wire-package-test
+ok   alt-toy-cdda-parts-check
+ok   admission-alt
+ok   build-off
+ok   build-installed
+main:        597d8eac96b0238045e7bde9c642653a0bb5e138d6763993cabd0c156c210260
+main again:  597d8eac96b0238045e7bde9c642653a0bb5e138d6763993cabd0c156c210260
+alternate:   e74cca711600ecd8ddd38a62839fda7c6dda837740331fb3f0f458b761f03014
+all off:     313ac3bddb6b1d037ea2de758dd97d809125507ba9617340739baf0e05195f1c (Test 83 owner line 313ac3bddb6b1d037ea2de758dd97d809125507ba9617340739baf0e05195f1c)
+installed:   467be62f555a28f3171d82b39e125e536d5f31f25cfc6555cf4b85f77aa7e537 (at 9fd8e90, before Test 84: 467be62f555a28f3171d82b39e125e536d5f31f25cfc6555cf4b85f77aa7e537)
+alternate auxiliary = main auxiliary
+alternate resident-sci.bin = main resident-sci.bin
+alternate resident-legacy.bin = main resident-legacy.bin
+alternate worker.bin = main worker.bin
+done

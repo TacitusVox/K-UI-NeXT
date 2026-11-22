@@ -1,0 +1,11 @@
+docs/evidence/toy-wire-stream-83/console/STREAM.TXT: ID B674BC235B6B5A9B78760CBD6F7E63FF, 10 of 100 slots used
+slot 000: launched, no report saved: T1711N EVOLUTION2 (build 3bd4bed2fca2; source 1; tracks 3, CD music tracks 0)
+slot 001: launched, no report saved: T1711N EVOLUTION2 (build 3bd4bed2fca2; source 1; tracks 3, CD music tracks 0)
+slot 002: report saved: T1711N EVOLUTION2 (build 3bd4bed2fca2; source 1; tracks 3, CD music tracks 0)
+slot 003: report saved: T1711N EVOLUTION2 (build 3bd4bed2fca2; source 1; tracks 3, CD music tracks 0)
+slot 004: report saved: MK-51049 CHUCHU ROCKET (build 3bd4bed2fca2; source 1; tracks 19, CD music tracks 15)
+slot 005: launched, no report saved: T9704N READY 2 RUMBLE BOXING (build 3bd4bed2fca2; source 1; tracks 7, CD music tracks 3)
+slot 006: report saved: T40217N BANGAI-O (build c27892faf747; source 1; tracks 37, CD music tracks 33)
+slot 007: launched, no report saved: T9704N READY 2 RUMBLE BOXING (build c27892faf747; source 1; tracks 7, CD music tracks 3)
+slot 008: report saved: T12502N MDK2 (build 1d80f771f081; source 1; tracks 31, CD music tracks 27)
+slot 009: report saved: T36807N OMIKRON THE NOMAD SOUL (build 1d80f771f081; source 1; tracks 5, CD music tracks 1)

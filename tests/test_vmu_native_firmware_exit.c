@@ -145,6 +145,65 @@ static void synthetic(void) {
     word(image+exec+0x94u,0u);CHECK(!discover(image,sizeof(image),load,&e));
 #endif
 }
+static void global_pool_fixture(void) {
+    const unsigned pool=0x4d4u;
+    firmware_fixture(2u);
+    halfword(image+pool-8u,0x000bu);halfword(image+pool-6u,0x6ef6u);
+    halfword(image+pool-4u,9u);halfword(image+pool-2u,9u);halfword(image+pool+40u,9u);
+    for(unsigned i=0u;i<9u;i++)short_load(0x410u+2u*i,1u,pool+2u*i,(uint16_t)(51u+i));
+    uint32_t partial=0x9000u|(fw+2u-(pool+20u+4u))/2u;
+    for(unsigned i=0u;i<5u;i++) {
+        uint32_t pointer=i==4u?load+0x44u:UINT32_C(0x8c460000)+4u*i;
+        if(!i) pointer|=partial;
+        long_load(0x440u+2u*i,3u,pool+20u+4u*i,pointer);
+    }
+}
+static void global_pool_checks(void) {
+    const unsigned pool=0x4d4u;struct kui_vmu_native_exit e,changed;
+    global_pool_fixture();
+    CHECK(discover(image,sizeof(image),load,&e));
+    CHECK(e.family==KUI_VMU_NATIVE_EXIT_EARLY_FIRMWARE_LITERAL_POOL && e.entries[2]==load+fw);
+    CHECK(kui_vmu_native_exit_literal_pool_valid(image,sizeof(image),&e));
+    CHECK(kui_vmu_native_exit_window(&e,0)==8u && kui_vmu_native_exit_window(&e,2)==12u);
+    const unsigned consumers[]={0x410u,0x420u,0x440u,0x442u,0x444u,0x446u,0x448u};
+    for(unsigned i=0;i<sizeof(consumers)/sizeof(*consumers);i++) {
+        global_pool_fixture();halfword(image+consumers[i],9u);
+        CHECK(!discover(image,sizeof(image),load,&changed));
+        CHECK(!kui_vmu_native_exit_literal_pool_valid(image,sizeof(image),&e));
+    }
+    for(unsigned at=pool-8u;at<pool;at+=2u) {
+        global_pool_fixture();halfword(image+at,0u);
+        CHECK(!discover(image,sizeof(image),load,&changed));
+    }
+    for(unsigned at=pool-6u;at<pool+40u;at+=2u) {
+        const unsigned src=0x470u;
+        global_pool_fixture();halfword(image+src,(uint16_t)(0xa000u|((at-src-4u)/2u)));
+        CHECK(!discover(image,sizeof(image),load,&changed));
+        global_pool_fixture();word(image+0x100u,0xac010000u+at);
+        CHECK(!discover(image,sizeof(image),load,&changed));
+        if(!(at&3u)){
+            global_pool_fixture();halfword(image+src,(uint16_t)(0xc700u|((at-src-4u)/4u)));
+            CHECK(!discover(image,sizeof(image),load,&changed));
+        }
+    }
+    global_pool_fixture();short_load(0x470u,0u,pool+24u,0x0030u); /* half of a global */
+    CHECK(!discover(image,sizeof(image),load,&changed));
+    global_pool_fixture();long_load(0x470u,0u,pool,0x00220033u); /* crosses scalar lanes */
+    CHECK(!discover(image,sizeof(image),load,&changed));
+    global_pool_fixture();halfword(image+0x570u,(uint16_t)(0x9100u|((fw+2u-0x574u)/2u)));
+    CHECK(!discover(image,sizeof(image),load,&changed));
+    CHECK(!kui_vmu_native_exit_literal_pool_valid(image,sizeof(image),&e));
+    global_pool_fixture();word(image+pool+24u,load+0x680u); /* global points into code */
+    CHECK(!discover(image,sizeof(image),load,&changed));
+    global_pool_fixture();changed=e;changed.cleanup^=4u;
+    CHECK(!kui_vmu_native_exit_literal_pool_valid(image,sizeof(image),&changed));
+    changed=e;changed.bios_vector_literal+=4u;
+    CHECK(!kui_vmu_native_exit_literal_pool_valid(image,sizeof(image),&changed));
+    changed=e;changed.entries[2]+=2u;
+    CHECK(!kui_vmu_native_exit_literal_pool_valid(image,sizeof(image),&changed));
+    changed=e;changed.family=KUI_VMU_NATIVE_EXIT_EARLY_FIRMWARE_CHECK;
+    CHECK(!kui_vmu_native_exit_literal_pool_valid(image,sizeof(image),&changed));
+}
 static void original(const char *path,int expected) {
     FILE *f=fopen(path,"rb");CHECK(f!=NULL);CHECK(!fseek(f,0,SEEK_END));long length=ftell(f);
     CHECK(length>0 && length<=0xc00000);CHECK(!fseek(f,0,SEEK_SET));
@@ -165,11 +224,13 @@ static void original(const char *path,int expected) {
         if(firmware_exit_prefix(p,(size_t)length,at))
             fprintf(stderr,"firmware mismatch: result=%d expected=%d pair=%zx helper=%zx body=%d closed=%d\n",
                 actual,expected,found_pair,at,firmware_exit_body(p,(size_t)length,at),
-                firmware_exit_closed(p,(size_t)length,load,at,found_pair,is_pvr));
+                firmware_exit_closed(p,(size_t)length,load,at,found_pair,is_pvr,is_early));
     CHECK(actual==expected);if(expected<1) CHECK(out==123u);
 #ifdef FIRMWARE_EXIT_INTEGRATED
     struct kui_vmu_native_exit e,g;
-    CHECK(discover(p,(size_t)length,load,&e)==(expected==1));
+    CHECK(discover(p,(size_t)length,load,&e)==(expected>=1));
+    if(expected==2) CHECK(e.family==KUI_VMU_NATIVE_EXIT_EARLY_FIRMWARE_LITERAL_POOL &&
+        kui_vmu_native_exit_literal_pool_valid(p,(size_t)length,&e));
     if(expected==1) {
         struct kui_vmu_native_discovery driver;struct kui_vmu_native_heap heap;
         CHECK(kui_vmu_native_discover(p,(size_t)length,load,&driver)==KUI_VMU_NATIVE_RESOLVED);
@@ -183,7 +244,7 @@ static void original(const char *path,int expected) {
         CHECK(!guarded(p,(size_t)length,load,extra,3u,&g));
     }
 #endif
-    if(expected==1) {
+    if(expected>=1) {
         CHECK(firmware_exit_body(p,(size_t)length,out));
         for(unsigned byte=0;byte<62u;byte++) for(unsigned bit=0;bit<8u;bit++) {
             p[out+byte]^=(unsigned char)(1u<<bit);size_t unchanged=123u;
@@ -194,6 +255,6 @@ static void original(const char *path,int expected) {
     printf("original firmware result %d: %s\n",actual,path);free(p);
 }
 int main(int argc,char **argv) {
-    synthetic();for(int i=1;i+1<argc;i+=2) original(argv[i],atoi(argv[i+1]));
+    synthetic();global_pool_checks();for(int i=1;i+1<argc;i+=2) original(argv[i],atoi(argv[i+1]));
     printf("firmware exit: %u checks passed\n",checks);return 0;
 }

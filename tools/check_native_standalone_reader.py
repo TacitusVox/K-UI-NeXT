@@ -19,7 +19,7 @@ import zlib
 
 ROOT=Path(__file__).resolve().parents[1]
 sys.path[:0]=[str(ROOT/'tools'),str(ROOT/'tests')]
-from check_vmu_native_sdk_sci_route import SDKCPU,IPRB,RETURN,COOKIE,PRIVATE_TOP
+from check_vmu_native_sdk_sci_route import SDKCPU,IPRB,RETURN,COOKIE
 from check_vmu_native_worker_gateway import read_elf,symbol_bytes
 from prove_native_sdk_sci_structural_runtime import original_contract,original_dispatch
 from test_vmu_native_heap_execution import MASK,signed
@@ -53,6 +53,20 @@ def require(value,message):
 def sha(data):return hashlib.sha256(data).hexdigest()
 
 
+def standalone_stack(resident):
+    syms=resident[4]
+    bottom=syms['__retail_hook_stack_bottom'][0]
+    top=syms['__retail_hook_stack'][0]
+    manifest_bytes=syms['_manifest'][1]
+    require((manifest_bytes,bottom,top) in ((1020,0x8c007ba0,0x8c007d00),
+                                          (1788,0x8c007ea0,0x8c008000)),
+            'Unexpected standalone manifest/service stack geometry')
+    require(syms['_standalone_reader_region'][1]==0x760 and
+            syms['__retail_resident_bss_end'][0]<=bottom,
+            'Standalone region or BSS exceeds its reservation')
+    return bottom,top
+
+
 class BinderCPU(SDKCPU):
     """Immutable instruction fetch plus scalar write-back/P2 alias model.
 
@@ -60,8 +74,9 @@ class BinderCPU(SDKCPU):
     or replacement behavior is modeled. Only scalar P1 data reads fill D lines.
     """
     def __init__(self,resident,owner,*,cache=True,common=1):
+        bottom,top=standalone_stack(resident)
         super().__init__(resident,seed=11,mask=15,bank=0,owner=owner['image'],
-                         previous=owner['default'],vbr=owner['vbr'])
+                         previous=owner['default'],vbr=owner['vbr'],guard=bottom,private_top=top-16)
         self.owner=owner;self.region=self.symbols['_standalone_reader_region'][0]
         self.ram=dict(self.overlay);self.cache={};self.cache_on=cache
         self.flushes=[];self.readbacks=[];self.data_reads=[];self.fault_readback=None
@@ -74,7 +89,7 @@ class BinderCPU(SDKCPU):
         self.put(self.region+0x534,owner['default'])
         self.put(self.region+0x378,1);self.put(self.active,1)
         self.put(self.eri_slot,0);self.put(self.rxi_slot,0)
-        self.r[15]=PRIVATE_TOP;self.pr=RETURN;self.targets=set()
+        self.r[15]=self.private_top;self.pr=RETURN;self.targets=set()
         self.control['vbr']=owner['vbr'];self.sr=0x400001f0
         # The full original initializer is replayed separately. This bounded
         # source-derived copied-vector fixture also covers both original modes.
@@ -199,7 +214,7 @@ class BinderCPU(SDKCPU):
 
 
 def assert_publication(c):
-    external=[(a,v,n) for _,a,v,n in c.writes if not PRIVATE_TOP-128<=a<PRIVATE_TOP]
+    external=[(a,v,n) for _,a,v,n in c.writes if not c.private_top-128<=a<c.private_top]
     require(external==[(c.region+0x538,c.owner['vbr'],4),(c.eri_slot,c.callback,4),
                        (c.rxi_slot,c.callback,4),(c.region+0x530,COOKIE,4)],
             'First binder published unexpected memory or sequence')
@@ -228,7 +243,7 @@ def publication_cases(resident,owner):
                     c.read((c.region+0x53c)|0x20000000)==0xabc00789,
                     'Binder discarded neighboring dirty data')
             first=c.instructions;c.bind()
-            require(not [a for _,a,_,_ in c.writes if not PRIVATE_TOP-128<=a<PRIVATE_TOP],
+            require(not [a for _,a,_,_ in c.writes if not c.private_top-128<=a<c.private_top],
                     'First-install-only binder wrote on a repeated visit')
             rows.append(dict(cache=cache,common=hex(owner['commons'][common]),
                 first_instructions=first,repeat_instructions=c.instructions,ready=True,
@@ -275,7 +290,7 @@ def refusal_cases(resident,owner):
     mutations['foreign_vbr']=lambda c:c.control.update(vbr=0x8cc80000)
     for name,mutate in mutations.items():
         c=BinderCPU(resident,owner);mutate(c);c.bind()
-        require(not [a for _,a,_,_ in c.writes if not PRIVATE_TOP-128<=a<PRIVATE_TOP] and
+        require(not [a for _,a,_,_ in c.writes if not c.private_top-128<=a<c.private_top] and
                 not c.flushes and not c.iprb_writes and not c.vbr_writes,
                 'Refused first binder changed external state: '+name)
         rows.append(dict(name=name,external_writes=0,publication=False,instructions=c.instructions))
@@ -303,7 +318,7 @@ def original_initialization(resident,owner):
             'Actual original initializer did not publish its SCI defaults')
     require(c.read(owner['vbr']+0x658)==owner['commons'][1],
             'Actual original initializer did not select its expected FPU common')
-    c.r[15]=PRIVATE_TOP;c.sr=0x400001f0;c.bind();assert_publication(c)
+    c.r[15]=c.private_top;c.sr=0x400001f0;c.bind();assert_publication(c)
     c.write(c.active,0);c.iprb=0xa50f;c.run_symbol('_hook')
     require(c.iprb==0xa51f and not c.vbr_writes,'Published route did not enable the real SCI1 hook')
     c.calls=0;c.targets={c.symbols['_kui_retail_async_irq'][0]};c.callee_mode='deep-reader';c.callee_return=0
@@ -321,6 +336,13 @@ def original_initialization(resident,owner):
         full_fpu_frame_executed=False)
 
 
+def relay_publication_ccr(stage):
+    from check_disc_vmu_handoff import Image
+    from check_vc2_stage_cached_relay import Relay
+    enabled = '__kui_retail_cold_instruction_cache' in stage[4]
+    return Relay(Image(stage[0]), 0x121, 0, enabled).run().calls[0][1]
+
+
 class StageStop(Exception):pass
 
 
@@ -331,7 +353,7 @@ class StageCPU(BinderCPU):
         self.resident=resident;self.stage=stage;self.symbols=stage[4]
         for kind,offset,address,_,count,_,_,_ in stage[2]:
             if kind==1 and count:self.put_block(address,stage[0][offset:offset+count])
-        self.r[15]=0x8cfeffe0;self.pr=RETURN;self.sr=0x400001f0;self.ccr=0
+        self.r[15]=0x8cfeffe0;self.pr=RETURN;self.sr=0x400001f0;self.ccr=relay_publication_ccr(stage)
         self.sha_contexts={};self.leaves=[];self.sha_inputs=[];self.publisher_visits=0
         self.api={stage[4][name][0]:name for name in ('_kui_sha256_init','_kui_sha256_update',
             '_kui_sha256_digest','_kui_retail_crc32','_stopped','_relay_stopped','_retail_display_pause')}
@@ -339,7 +361,7 @@ class StageCPU(BinderCPU):
         self.blob=stage[4]['__retail_resident_sci_blob_start'][0]
         self.blob_bytes=resident[4]['__retail_resident_binary_end'][0]-0x8c004000
         for name,value in (('_resident_blob',self.blob),('_resident_bytes',self.blob_bytes),
-                           ('_resident_limit',0x8c007ba0),('_exec_bytes',len(owner['image'])),
+                           ('_resident_limit',self.guard),('_exec_bytes',len(owner['image'])),
                            ('_boot_crc',zlib.crc32(owner['image']))):self.put(stage[4][name][0],value)
         for i in range(5):self.put(self.region+4*i,0)
         for i in (0x530,0x534,0x538):self.put(self.region+i,0)
@@ -445,7 +467,7 @@ def stage_cases(stage,resident,owner):
                     for _,a,_,_ in c.writes),'Stage activated SCI routing before the game SDK initializer')
     refusals=[]
     mutations={
-        'cache_data':lambda x:setattr(x,'ccr',1),'cache_instruction':lambda x:setattr(x,'ccr',0x100),
+        'cache_data':lambda x:setattr(x,'ccr',1),'cache_instruction_and_data':lambda x:setattr(x,'ccr',0x101),
         'mask14':lambda x:setattr(x,'sr',0x400001e0),
         'wrong_limit':lambda x:x.put(stage[4]['_resident_limit'][0],0x8c007b80),
         'binary_overlaps_region':lambda x:x.put(stage[4]['_resident_bytes'][0],x.region-0x8c004000+4),

@@ -321,7 +321,61 @@ static void fixture_alignment_tests(void) {
     }
     puts("Authored heap alignment: offsets 0..7, both instruction halfword positions and all RAM aliases preserve exact metadata and reject body damage");
 }
+#ifndef KUI_HEAP_SCAN_SHARED_CORPUS
+/* Relocated caller/leaf/arena and negative controls for tail initializer
+ * admission. An older stage cannot use the inherited return PC. */
+static void tail_wrapper_tests(void) {
+    struct kui_vmu_native_heap h=call_fixture();
+    const uint32_t base=0x8c010000u;
+    const unsigned caller=0x180u,leaf=0x380u,load=leaf+40u;
+    struct kui_vmu_native_heap_call call;
+    const uint16_t plain[]={
+        0x7f98,0,0xe400,0,0,0x2342,0x2242,0,0,0x2142,0x6522,0,
+        0x2539,0,0,0x6032,0xe3e0,0x251b,0x202b,0x2039,0,0x6403,
+        0x3508,0x7420,0x2f02,0x75e0,0x432b,0x7f68};
+    for(size_t i=0;i<sizeof(plain)/sizeof(plain[0]);i++)put16(leaf+2u*i,plain[i]);
+    put16(leaf-4u,0x000bu);put16(leaf-2u,0x0009u);
+    const uint16_t branch=(uint16_t)(0xb000u+(leaf-caller-4u)/2u);
+    put16(caller,branch);put16(caller+2u,0x0009u);
+    load_literal(leaf+2u,2,0x560u,0x8c027004u);
+    load_literal(leaf+6u,3,0x564u,0x8c027000u);
+    load_literal(leaf+8u,1,0x568u,0x8c027008u);
+    load_literal(leaf+14u,2,0x56cu,base+0x1100u);
+    load_literal(leaf+16u,3,0x570u,0xe0000000u);
+    load_literal(leaf+22u,2,0x574u,0x80000000u);
+    load_literal(leaf+26u,3,0x56cu,base+0x1100u);
+    load_literal(leaf+28u,1,0x578u,0x0d000000u);
+    load_literal(load,3,h.initializer_slot-base,h.initializer_target);
+    put32(0x1100u,0x8c461259u);
+    CHECK(kui_vmu_native_heap_call_discover(image,sizeof(image),&h,&call));
+    CHECK(kui_vmu_native_heap_call_is_tail(&h,&call));
+    CHECK(call.load==base+load && call.call==base+caller && call.return_pr==base+caller+4u);
+    CHECK(call.entry_begin==0x8c461260u && call.entry_bytes==0x8d000000u-call.entry_begin);
+    const struct {uint16_t at,op;} changes[]={
+        {caller,0xa000u|(branch&4095u)},{caller+2u,0x4f26u},{leaf-4u,0x0009u},
+        {leaf+52u,0x430bu},{leaf+54u,0x7f60u},{leaf+48u,0x2302u},
+        {0x200u,0xb000u|((leaf-0x204u)/2u)},{0x200u,0xa000u|((leaf+2u-0x204u)/2u)},
+        {0x200u,0xa000u|((leaf-2u-0x204u)/2u)},{0x690u,0x9037u},
+        {0x200u,0xc700u|((leaf-0x204u)/4u)},{0x200u,0xc700u|((leaf+4u-0x204u)/4u)},
+        {0x690u,0xc71bu},{0x690u,0xa037u}};
+    for(size_t i=0;i<sizeof(changes)/sizeof(changes[0]);i++) {
+        uint16_t before=h16(image+changes[i].at);put16(changes[i].at,changes[i].op);
+        CHECK(!kui_vmu_native_heap_call_discover(image,sizeof(image),&h,&call));put16(changes[i].at,before);
+    }
+    const struct {uint16_t at;uint32_t value;} words[]={
+        {0x564u,base+0x1100u},{0x56cu,base+0x700u},{0x56cu,0x8cfff000u},
+        {0x1100u,0x8c026000u},{0x570u,0xf0000000u},{0x578u,0x0cffffffu},
+        {0x298u,base+leaf+2u},{0x298u,0xac000000u+(base+leaf-2u-0x8c000000u)}};
+    for(size_t i=0;i<sizeof(words)/sizeof(words[0]);i++) {
+        uint32_t before=h32(image+words[i].at);put32(words[i].at,words[i].value);
+        CHECK(!kui_vmu_native_heap_call_discover(image,sizeof(image),&h,&call));put32(words[i].at,before);
+    }
+}
+#endif
 int main(int argc,char **argv) {
+#ifndef KUI_HEAP_SCAN_SHARED_CORPUS
+    tail_wrapper_tests();
+#endif
     fixture_alignment_tests();
     const uint32_t aliases[]={0u,0x80000000u,0xa0000000u};
     for(unsigned a=0;a<3u;a++) for(unsigned half=0;half<2u;half++) {

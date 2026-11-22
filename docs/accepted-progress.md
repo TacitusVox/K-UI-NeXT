@@ -1,5 +1,17 @@
 # K-UI accepted progress
 
+## RC1 updater and console checklist · 22 November 2026
+
+The owner reported that the repaired RC1 GUI `93f13e84d989` passed the full Dreamcast hardware checklist. The checklist covered installing the complete update and restarting K-UI, cold booting the matching physical SD install, and checking native games, WinCE CD music, virtual saves and Sega Smash Pack handoffs. The repaired full package carries the GUI and the same 103 other managed files as the first RC1 candidate.
+
+The owner specifically confirmed that **4x4 Evolution CD music works** on this build. The earlier report had established that the game launched and its menu WAV audio played. This adds a CD music result for the tested game. Other kernel variants retain their individual evidence in the [World Party group](wince-cdda-wwp-group-test.md) and [Bust-A-Move 4 group](wince-cdda-bam4-group-test.md) records.
+
+## K-UI 3.0 RC1 generic WinCE reader · 22 November 2026
+
+The owner promoted the everyday generic reader `ce-boot.kui` build `91b0540103f0` for RC1 and subsequent full nightlies. It supersedes the previous generic acceptance at `7b216f2e1136`. This build enables video-memory transfers and uses the adaptive 16-reception slow window with two doublings. RAM pooling and read-ahead are disabled. The file is 85,300 bytes with payload CRC32 `6829D405` and SHA-256 `a75e0ce9010708953b707aad5db975bb83f9ee20f5657ddf4fdea8cf014acabd`.
+
+The five original CD music roles retain their accepted `1ba2fa7e7040` payloads. Ducati World and Virtua Cop 2 Japan keep their own fixes. The distribution manifest pins each component at its individual build.
+
 ## Standing delivery rule — 2026-11-06
 
 The owner uses manual-copy ZIPs as the default delivery workflow. This persists
@@ -43,6 +55,36 @@ ordinary `ce-probe.kui` remains omitted. It also confirms that menu Restart
 may select a stale bank, while cold ROOT boot bypasses selectors. The physical
 card is unavailable, so existing banks are not assumed present or absent.
 Claude's original-backed SA1 result is recorded as an external report only.
+
+## One K-UI for both threads: console test pending, 64ae07435de5, 2026-11-21
+
+Delivered: `KUI-One-KUI-Both-Threads-21NOV2026-2308-CST-64ae074.zip`, GUI build `64ae07435de5` (commit `64ae0743`), GUI only
+([record](one-kui-both-threads.md)). Its source merges Main `4441e92c`, the
+Windows CE line to `b7c92e0c` (the source of `1c71ba3afa17`, then CD music
+round 2 and Virtua Cop 2's bootstrap-2 repair) and the regular games' line
+(the owner's Test 83 GUI line `4d4dcff77494` and reader line
+`1d80f771f081`, Tests 83 and 84 behind their switches).
+
+It is built as `1c71ba3afa17` is (that recipe rebuilds the owner's file byte
+for byte): the owner's Standard binding `9e3295bcfaec`, the Smash bundle
+`cc81e63ca4d2` (identical to the owner's), launch timing, nightly off. It
+is not built as `4d4dcff77494` was (owner-source README: nightly
+`build_gui` with `KUI_GITHUB_NIGHTLY=1`, the default preserved Standard
+manifest, no bundle). Native routes decide as `4d4dcff77494` (160-slot
+Background map, standalone New for overlapping SDK pools, cached
+mappings); Windows CE routes decide as `1c71ba3afa17`, with one text
+changed: a CE map-full refusal uses the regular line's wording. Every
+delivered module of both lines rebuilds byte-identical from `64ae0743`.
+
+State of the regular games' line: the owner's reader `1d80f771f081`
+(`313ac3bd...5f1c`) with the GUI line `4d4dcff77494` ran on the console in
+Test 83 (20 Nov 2026), a test configuration, not accepted components
+([Test 83](toy-wire-stream-test-83.md)). Test 84's module `4abc63b0cc58`
+(`597d8eac...`) ran on 21 Nov under `1c71ba3afa17`, whose 64-slot map
+refused three games ([Test 84](cdda-background-test-84.md)); its re-run
+under this K-UI is pending. Native results taken under `1c71ba3afa17` are
+their own baseline. Until the owner's report, `1c71ba3afa17` stays the
+reference for the Windows CE and Smash Pack games.
 
 ## Repository GUI with the installed WinCE routes: console test pending, 069d612cadea, 2026-11-17
 

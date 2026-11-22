@@ -11,6 +11,7 @@ import subprocess
 import sys
 import tempfile
 import unittest
+import zipfile
 from unittest import mock
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -41,6 +42,10 @@ class NightlyTests(unittest.TestCase):
         env.start()
         self.addCleanup(env.stop)
         self.commit("src/apps/menu.c", "one")
+        # The temporary repo has no factory catalog; individual tests supply its assets.
+        derived = mock.patch("nightly_recipe.derived_members", return_value={})
+        self.derived = derived.start()
+        self.addCleanup(derived.stop)
 
     def commit(self, name, content):
         path = Path(name)
@@ -237,18 +242,21 @@ class NightlyTests(unittest.TestCase):
         self.assertEqual(self.selection()["build"], "false")
 
     def test_release_recovers_interrupted_upload_and_does_not_replace_published_assets(self):
-        package = self.asset()
+        package = self.distribution_assets()
         actual = nightly.manifest(package, self.revision)
         digest = hashlib.sha256(package.read_bytes()).hexdigest()
         self.assertEqual(actual, f"KUI-NIGHTLY-1\n{self.revision}\n{package.stat().st_size}\n{digest}\n")
         download = self.root / "download"
         download.mkdir()
         uploaded = self.root / "uploaded"
+        uploaded.mkdir()
         info = {}
         commands = []
+        corrupt_first_download = True
         original_run = subprocess.run
 
         def run(args, **kwargs):
+            nonlocal corrupt_first_download
             if args[0] != "gh":
                 return original_run(args, **kwargs)
             action = args[2]
@@ -265,13 +273,20 @@ class NightlyTests(unittest.TestCase):
                 self.assertTrue(info["isDraft"])
                 if commands.count("upload") == 1:
                     raise subprocess.CalledProcessError(1, args)
-                shutil.copyfile(package, uploaded)
+                for path in args[4:-1]:
+                    path = Path(path)
+                    shutil.copyfile(path, uploaded / path.name)
             elif action == "edit":
-                self.assertTrue(uploaded.exists())
+                self.assertIn("download", commands[:-1])
+                self.assertTrue((uploaded / nightly.SD_ZIP).is_file())
                 info.update(isDraft=False, body=args[args.index("--notes") + 1])
             else:
                 self.assertEqual(action, "download")
-                shutil.copyfile(uploaded, download / nightly.ASSET)
+                for name in (nightly.ASSET, nightly.SD_ZIP, nightly.SUMS):
+                    shutil.copyfile(uploaded / name, download / name)
+                if corrupt_first_download:
+                    corrupt_first_download = False
+                    (download / nightly.SD_ZIP).write_bytes(b"incomplete asset")
             return subprocess.CompletedProcess(args, 0)
 
         with mock.patch.object(nightly, "remote_ref", return_value=self.revision), \
@@ -279,13 +294,17 @@ class NightlyTests(unittest.TestCase):
             with self.assertRaises(subprocess.CalledProcessError):
                 nightly.release(self.revision, package, download, actual)
             self.assertTrue(info["isDraft"])
+            with self.assertRaisesRegex(ValueError, "SHA256SUMS"):
+                nightly.release(self.revision, package, download, actual)
+            self.assertTrue(info["isDraft"])
+            self.assertNotIn("edit", commands)
             self.assertEqual(nightly.release(self.revision, package, download, actual), actual)
             self.assertFalse(info["isDraft"])
             commands.clear()
             self.assertEqual(nightly.release(self.revision, package, download, actual), actual)
             self.assertEqual(commands, ["view", "download"])
             info["body"] = "SHA-256: " + "0" * 64
-            with self.assertRaisesRegex(ValueError, "differs"):
+            with self.assertRaisesRegex(ValueError, "differ"):
                 nightly.release(self.revision, package, download, actual)
 
     def test_wrong_source_or_corrupt_kup_never_qualifies(self):
@@ -306,6 +325,137 @@ class NightlyTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "inventory"):
             nightly.manifest(package, self.revision)
 
+    def build_legacy_fixture(self, output):
+        # Regenerate historical artifacts only to verify the archived feed.
+        recipe = nightly.read_recipe(self.revision)
+        with tempfile.TemporaryDirectory() as stage:
+            recipe.stage(self.revision, stage)
+            if recipe.gui and not recipe.full:
+                nightly.build_gui(self.revision, stage)
+            report = nightly.make_update(Path(stage), output, channel="testing",
+                                        full=recipe.full, remove=recipe.remove)
+            recipe.check_members(report, self.revision)
+
+    def distribution(self):
+        name = "apps/games/retail-boot.kui"
+        data = nightly.envelope(b"reader00", 8, "abcdef012345")
+        model = {"schema": 1, "reader_inputs_sha256": "a" * 64,
+                 "files": {name: hashlib.sha256(data).hexdigest()}}
+        self.commit("config/distribution.json", json.dumps(model))
+        self.commit(nightly.RECIPE, json.dumps({"distribution": "config/distribution.json"}))
+        return name, data
+
+    def distribution_assets(self):
+        name, data = self.distribution()
+        stage = self.root / "KUI"
+        target = stage / name
+        target.parent.mkdir(parents=True)
+        target.write_bytes(data)
+        payload = update_package.CAPABILITY + update_package.ENGINE + update_package.HANDOFF_HEADER + bytes(176)
+        (stage / "runtime.kui").write_bytes(nightly.envelope(payload, len(payload), self.revision[:12]))
+        package = self.root / nightly.ASSET
+        from software_distribution import write_distribution
+        write_distribution(stage, package, self.root / nightly.SD_ZIP, revision=self.revision, label="GUI test")
+        (self.root / nightly.SUMS).write_text(nightly.checksum_text(package))
+        return package
+
+    def test_new_nightly_requires_complete_distribution(self):
+        with self.assertRaisesRegex(ValueError, "complete reviewed distribution"):
+            nightly.package(self.root / nightly.ASSET)
+        self.prepare_recipe(gui=True)
+        with self.assertRaisesRegex(ValueError, "complete reviewed distribution"):
+            nightly.package(self.root / nightly.ASSET)
+
+    def test_complete_nightly_detects_reader_sources_and_verifies_inventory(self):
+        asset = self.distribution_assets()
+        revision = self.revision
+        first = nightly.fingerprint()
+        body = nightly.verify_assets(asset, revision)
+        self.assertEqual(body.splitlines()[1], revision)
+        start = self.selection()
+        self.assertEqual(start["gui"], "true")
+        self.assertEqual(start["build"], "true")
+        with mock.patch.object(history, "publication", return_value=(
+                "2026-11-22T00:00:00Z", "full 2 0 0 3")):
+            nightly.advance_channel("", first, body, revision)
+        self.assertEqual(self.selection()["build"], "false")
+        self.commit("docs/guide.md", "notes")
+        self.assertEqual(nightly.fingerprint(), first)
+        self.assertEqual(self.selection()["build"], "false")
+        self.commit("src/loader/standalone.c", "updated reader")
+        self.assertNotEqual(nightly.fingerprint(), first)
+        self.assertEqual(self.selection()["build"], "true")
+        self.assertEqual(nightly.manifest(asset, revision), body)
+        self.assertTrue(update_package.verify(asset)["full"])
+        self.assertEqual({m["build"] for m in update_package.verify(asset)["members"]},
+                         {"abcdef012345", revision[:12]})
+        # A partial package with the identical members cannot qualify.
+        nightly.make_update(self.root / "KUI", asset, channel="testing")
+        with self.assertRaisesRegex(ValueError, "inventory"):
+            nightly.manifest(asset, revision)
+        with self.assertRaisesRegex(ValueError, "checksums|SHA256SUMS"):
+            nightly.verify_assets(asset, revision)
+
+    def test_factory_assets_follow_their_original_revision(self):
+        name, data = self.distribution()
+        # Derive a canonical asset from each revision in the temporary repository.
+        def factory(revision):
+            body = subprocess.check_output(["git", "show", revision + ":data/catalog"])
+            return {"redump.db": hashlib.sha256(body).hexdigest()}
+        self.derived.side_effect = factory
+        self.commit("data/catalog", "first catalog")
+        first = self.revision
+        stage = self.root / "factory"
+        (stage / name).parent.mkdir(parents=True)
+        (stage / name).write_bytes(data)
+        (stage / "redump.db").write_text("first catalog")
+        payload = update_package.CAPABILITY + update_package.ENGINE + update_package.HANDOFF_HEADER + bytes(176)
+        def gui(revision):
+            (stage / "runtime.kui").write_bytes(nightly.envelope(payload, len(payload), revision[:12]))
+        gui(first)
+        package = self.root / nightly.ASSET
+        nightly.make_update(stage, package, full=True, channel="testing")
+        receipt = nightly.manifest(package, first)
+        self.commit("data/catalog", "second catalog")
+        self.assertEqual(nightly.manifest(package, first), receipt)
+        gui(self.revision)
+        nightly.make_update(stage, package, full=True, channel="testing")
+        with self.assertRaisesRegex(ValueError, "reviewed software"):
+            nightly.manifest(package, self.revision)
+        (stage / "redump.db").write_text("second catalog")
+        nightly.make_update(stage, package, full=True, channel="testing")
+        self.assertEqual(nightly.manifest(package, self.revision).splitlines()[1], self.revision)
+
+    def test_nightly_producer_checks_linked_gui_before_building_both_assets(self):
+        name, data = self.distribution()
+        output = self.root / nightly.ASSET
+
+        def stage_reader(recipe, revision, stage):
+            path = stage / name
+            path.parent.mkdir(parents=True)
+            path.write_bytes(data)
+
+        def build_gui(revision, stage):
+            payload = update_package.CAPABILITY + update_package.ENGINE + update_package.HANDOFF_HEADER + bytes(176)
+            (stage / "runtime.kui").write_bytes(nightly.envelope(payload, len(payload), revision[:12]))
+
+        def validate_gui(gui, stage):
+            self.assertEqual(gui, stage / "runtime.kui")
+            self.assertTrue(gui.is_file())
+            self.assertEqual((stage / name).read_bytes(), data)
+
+        with mock.patch("nightly_recipe.Recipe.stage", stage_reader), \
+                mock.patch.object(nightly, "build_gui", side_effect=build_gui), \
+                mock.patch("stage_distribution.verify_linked_gui", side_effect=validate_gui) as admission:
+            nightly.package(output)
+        admission.assert_called_once()
+        nightly.verify_assets(output, self.revision)
+        zip_path = self.root / nightly.SD_ZIP
+        zip_path.write_bytes(zip_path.read_bytes()[:-300])
+        (self.root / nightly.SUMS).write_text(nightly.checksum_text(output))
+        with self.assertRaises((ValueError, zipfile.BadZipFile)):
+            nightly.verify_assets(output, self.revision)
+
     def prepare_recipe(self, *, gui=False, full=False):
         name = "apps/games/ce-boot.kui"
         data = nightly.envelope(b"settled0", 16, "0123456789ab")
@@ -324,7 +474,7 @@ class NightlyTests(unittest.TestCase):
         package = self.root / nightly.ASSET
         path.write_bytes(b"changed in workspace")
         with mock.patch.object(nightly, "build_gui", side_effect=AssertionError("unexpected link")):
-            nightly.package(package)
+            self.build_legacy_fixture(package)
         report = update_package.verify(package)
         self.assertEqual(report["members"][0]["build"], "0123456789ab")
         self.assertEqual(report["members"][1]["policy"], update_package.REMOVE)
@@ -339,7 +489,7 @@ class NightlyTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "reviewed software"):
             nightly.manifest(package, self.revision)
         with self.assertRaisesRegex(ValueError, "checksum"):
-            nightly.package(self.root / "unexpected.kup")
+            self.build_legacy_fixture(self.root / "unexpected.kup")
         self.assertFalse((self.root / "unexpected.kup").exists())
         self.assertEqual(nightly.manifest(package, original).splitlines()[1], original)
 
@@ -350,7 +500,7 @@ class NightlyTests(unittest.TestCase):
             (Path(stage) / "runtime.kui").write_bytes(nightly.envelope(payload, len(payload), revision[:12]))
         with mock.patch.object(nightly, "build_gui", side_effect=fixture_gui):
             package = self.root / nightly.ASSET
-            nightly.package(package)
+            self.build_legacy_fixture(package)
         reported = update_package.verify(package)
         self.assertFalse(reported["full"])
         self.assertEqual([m["build"] for m in reported["members"][:2]], [self.revision[:12], "0123456789ab"])
@@ -359,7 +509,7 @@ class NightlyTests(unittest.TestCase):
     def test_full_flag_cannot_promote_a_selection_of_individual_files(self):
         self.prepare_recipe(gui=True, full=True)
         with self.assertRaisesRegex(ValueError, "qualified tag"):
-            nightly.package(self.root / "invalid.kup")
+            self.build_legacy_fixture(self.root / "invalid.kup")
 
     def test_denies_user_data_and_duplicate_or_nonregular_inputs(self):
         recipe, path = self.prepare_recipe()
@@ -380,7 +530,7 @@ class NightlyTests(unittest.TestCase):
         self.git("add", "--", str(path))
         self.commit(nightly.RECIPE, json.dumps(recipe))
         with self.assertRaisesRegex(ValueError, "regular tracked file"):
-            nightly.package(self.root / "unexpected.kup")
+            self.build_legacy_fixture(self.root / "unexpected.kup")
 
     def test_main_advancing_during_upload_keeps_previous_feed(self):
         selected = self.selection()

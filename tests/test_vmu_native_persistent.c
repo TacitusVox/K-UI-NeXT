@@ -859,17 +859,21 @@ static void early_compact_hook_witnesses(void) {
 }
 /* Firmware-check capabilities use a third terminal entry and no executable
  * thunk. The early variant retains the exact eight-byte shared head. */
-static void firmware_check_setup(bool early,unsigned half) {
+static void firmware_check_setup(uint32_t family,unsigned half) {
+    const bool early=family!=KUI_VMU_NATIVE_EXIT_FIRMWARE_CHECK;
     early_pair_setup(half);
-    input.exits.family=early?KUI_VMU_NATIVE_EXIT_EARLY_FIRMWARE_CHECK:KUI_VMU_NATIVE_EXIT_FIRMWARE_CHECK;
+    input.exits.family=family;
     input.exits.count=3u;input.exits.exec_thunk=0u;
     if(!early) input.exits.entries[1]=input.exits.entries[0]+0x100u;
     input.exits.entries[2]=input.exits.entries[0]+0x200u;
 }
 static void firmware_check_hook_witnesses(void) {
+    static const uint32_t families[]={KUI_VMU_NATIVE_EXIT_FIRMWARE_CHECK,
+        KUI_VMU_NATIVE_EXIT_EARLY_FIRMWARE_CHECK,KUI_VMU_NATIVE_EXIT_EARLY_FIRMWARE_LITERAL_POOL};
     unsigned mutations=0u,neighbors=0u;
-    for(unsigned early=0u;early<2u;early++)for(unsigned half=0u;half<2u;half++) {
-        firmware_check_setup(early!=0u,half);arm();install_hooks();
+    for(unsigned variant=0;variant<sizeof(families)/sizeof(families[0]);variant++)for(unsigned half=0u;half<2u;half++) {
+        const bool early=families[variant]!=KUI_VMU_NATIVE_EXIT_FIRMWARE_CHECK;
+        firmware_check_setup(families[variant],half);arm();install_hooks();
         CHECK(kui_vmu_native_exit_window(&input.exits,0u)==(early?8u:12u));
         CHECK(kui_vmu_native_exit_window(&input.exits,1u)==12u && kui_vmu_native_exit_window(&input.exits,2u)==12u);
         if(early) {
@@ -898,13 +902,14 @@ static void firmware_check_hook_witnesses(void) {
         }
         idle();
     }
-    for(unsigned early=0;early<2u;early++)for(unsigned invalid=0;invalid<12u;invalid++) {
-        firmware_check_setup(early!=0u,0u);
+    for(unsigned variant=0;variant<sizeof(families)/sizeof(families[0]);variant++)for(unsigned invalid=0;invalid<12u;invalid++) {
+        const bool early=families[variant]!=KUI_VMU_NATIVE_EXIT_FIRMWARE_CHECK;
+        firmware_check_setup(families[variant],0u);
         switch(invalid) {
         case 0:input.exits.count=2u;break;case 1:input.exits.count=4u;break;
         case 2:input.exits.entries[2]=0u;break;case 3:input.exits.entries[3]=UINT32_C(0x8c013300);break;
         case 4:input.exits.exec_thunk=UINT32_C(0x8c01324c);break;case 5:input.exits.version=1u;break;
-        case 6:input.exits.bytes=48u;break;case 7:input.exits.family=11u;break;
+        case 6:input.exits.bytes=48u;break;case 7:input.exits.family=UINT32_MAX;break;
         case 8:input.exits.entries[2]|=1u;break;case 9:input.exits.entries[2]=input.driver.load_address-2u;break;
         case 10:input.exits.entries[2]=input.driver.load_address+input.driver.image_bytes-10u;break;
         default:if(early)input.exits.entries[1]+=2u;else input.exits.entries[1]=0u;break;

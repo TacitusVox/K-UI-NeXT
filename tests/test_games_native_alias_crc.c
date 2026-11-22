@@ -22,13 +22,23 @@
 #include "kui/retail_loader_layout.h"
 #include "kui/vmu_native_cache_seed.h"
 static FIL *cache_files[4];
-static unsigned cache_opens,alias_publications;
+static unsigned cache_opens,alias_publications,repeat_publications;
 static bool fail_alias,physical_off;
 static bool cache_path(const char *p) {return !strncmp(p,"0:/KUI/VMU/native-cache",sizeof("0:/KUI/VMU/native-cache")-1u);}
+static bool repeat_file(const char *path) {
+    static const char dir[]="0:/KUI/GMCACHE/";
+    if(!physical_off || strncmp(path,dir,sizeof(dir)-1u))return false;
+    const char *name=path+sizeof(dir)-1u;
+    if(strspn(name,"0123456789abcdef")!=64u)return false;
+    const char *suffix=name+64u;
+    return !strcmp(suffix,".nvr") ||
+        (!strncmp(suffix,".nvr.tmp",8u) && suffix[8]>='0' && suffix[8]<='7' && !suffix[9]);
+}
 static bool cache_file(FIL *f) {for(unsigned i=0;i<4u;i++)if(cache_files[i]==f)return true;return false;}
 FRESULT __wrap_f_open(FIL *f,const TCHAR *p,BYTE flags) {
-    if(!test.active || !cache_path(p))return fixture_open(f,p,flags);
-    FRESULT result=__real_f_open(f,p,flags);++cache_opens;
+    if(!test.active || (!cache_path(p) && !repeat_file(p)))return fixture_open(f,p,flags);
+    FRESULT result=__real_f_open(f,p,flags);
+    if(cache_path(p))++cache_opens;
     if(result==FR_OK){unsigned i;for(i=0;i<4u && cache_files[i];i++);assert(i<4u);cache_files[i]=f;++test.files;}
     return result;
 }
@@ -39,21 +49,29 @@ FRESULT __wrap_f_close(FIL *f) {
 FRESULT __wrap_f_write(FIL *f,const void *p,UINT n,UINT *put) {return cache_file(f)?__real_f_write(f,p,n,put):fixture_write(f,p,n,put);}
 FRESULT __wrap_f_mkdir(const TCHAR *p) {
     if(test.active && (!strcmp(p,"0:/KUI") || !strcmp(p,"0:/KUI/VMU") || cache_path(p)))return __real_f_mkdir(p);
+    if(test.active && physical_off && !strcmp(p,"0:/KUI/GMCACHE"))return __real_f_mkdir(p);
     return fixture_mkdir(p);
 }
 FRESULT __wrap_f_unlink(const TCHAR *p) {return test.active && cache_path(p)?__real_f_unlink(p):fixture_unlink(p);}
 FRESULT __wrap_f_rename(const TCHAR *p,const TCHAR *to) {
+    if(test.active && repeat_file(p) && repeat_file(to)) {
+        FRESULT result=__real_f_rename(p,to);
+        if(result==FR_OK)++repeat_publications;
+        return result;
+    }
     if(test.active && cache_path(p) && cache_path(to)) {
         if(strstr(to,"/hints/")){++alias_publications;if(fail_alias)return FR_DISK_ERR;}
         return __real_f_rename(p,to);
     }
     return fixture_rename(p,to);
 }
-bool __real_kui_vmu_native_resolution_cache_build(const void *,size_t,uint32_t,void *,size_t,struct kui_vmu_native_resolution *);
-bool __wrap_kui_vmu_native_resolution_cache_build(const void *source,size_t bytes,uint32_t address,
-    void *wire,size_t wire_bytes,struct kui_vmu_native_resolution *out) {
+bool __real_kui_vmu_native_resolution_cache_build_prefixed(const void *,size_t,uint32_t,void *,size_t,
+    struct kui_vmu_native_resolution *,const struct kui_sha256_prefix *);
+bool __wrap_kui_vmu_native_resolution_cache_build_prefixed(const void *source,size_t bytes,uint32_t address,
+    void *wire,size_t wire_bytes,struct kui_vmu_native_resolution *out,const struct kui_sha256_prefix *marks) {
     assert(test.active && bytes==3001u && address==load && wire_bytes==1024u);
-    assert(!__real_kui_vmu_native_resolution_cache_build(source,bytes,address,wire,wire_bytes,out));
+    assert(marks && marks->source==source && marks->bytes==bytes);
+    assert(!__real_kui_vmu_native_resolution_cache_build_prefixed(source,bytes,address,wire,wire_bytes,out,marks));
     struct kui_vmu_native_resolution record;mock(source,bytes,&record);record.heap.initializer_slot=0x8c010100u;
     assert(kui_vmu_native_resolution_cache_encode(&record,wire,wire_bytes));*out=record;return true;
 }
@@ -78,6 +96,7 @@ int main(int argc,char **argv) {
         assert((bool)(map.flags&KUI_RETAIL_IMAGE_BOOT_CRC)==!optional_deferred);
         if(physical_off)assert(!cache_opens && !alias_publications);
         else assert(alias_publications==(!cooked_track(2)?1u:0u));
+        assert(repeat_publications==(physical_off?1u:0u));
         /* Execute the same fresh length/SHA replay used after stage lifetime
          * proof. A changed loaded source must miss even with optional CRC off. */
         size_t n;uint8_t *track=host_file(argv[2],"track03.bin",&n);uint8_t loaded[3001];

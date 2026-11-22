@@ -85,6 +85,18 @@ struct kui_native_ra_low_ops {
 };
 typedef uint32_t (*kui_native_ra_visit)(uint32_t event,uint32_t arg,
     kui_retail_async_region_type *region,uint32_t reserved);
+#if KUI_TOY_CDDA_HOOK
+/* Test 84 (HOOK): the worker's CD-music player (src/loader/toy_cdda_player.c).
+ * The auxiliary calls it after its guard on every visit it admits, with the
+ * visit's event and argument, and once more with KUI_TOY_CDDA_VISIT_END at the end
+ * of a delivery visit made from one of the game's GD calls. It runs on the
+ * auxiliary's stack under its gate and calls no auxiliary code. */
+#define KUI_TOY_CDDA_VISIT_END UINT32_C(0x101)
+typedef uint32_t (*kui_toy_cdda_player)(uint32_t event,uint32_t arg,
+    kui_retail_async_region_type *region,const struct kui_native_ra_low_ops *ops);
+uint32_t kui_toy_cdda_player_visit(uint32_t event,uint32_t arg,
+    kui_retail_async_region_type *region,const struct kui_native_ra_low_ops *ops);
+#endif
 struct kui_native_ra_config {
     uint32_t version,bytes;
     kui_retail_async_region_type *region;
@@ -100,6 +112,10 @@ struct kui_native_ra_config {
 #endif
 #if KUI_TOY_SUITE_MOVIE_POLL
     uint32_t toy_poll_owner;
+#endif
+#if KUI_TOY_CDDA_HOOK
+    /* The player the cold stage proved in the worker's image, or none. */
+    kui_toy_cdda_player cdda_player;
 #endif
 };
 /* The relocation domain includes exports, context, code and private stack;
@@ -307,7 +323,9 @@ _Static_assert(sizeof(struct kui_native_ra_public)==656u,"read-ahead diagnostic 
 #if UINTPTR_MAX == UINT32_MAX
 _Static_assert(sizeof(struct kui_native_ra_low_ops)==52u,"read-ahead low operations ABI");
 _Static_assert(sizeof(struct kui_native_ra_exports)==64u,"read-ahead auxiliary exports ABI");
-#if KUI_TOY_SUITE_MOVIE_POLL
+#if KUI_TOY_CDDA_HOOK
+_Static_assert(sizeof(struct kui_native_ra_config)==92u,"Test 84 player configuration ABI");
+#elif KUI_TOY_SUITE_MOVIE_POLL
 _Static_assert(sizeof(struct kui_native_ra_config)==88u,"Toy movie poll configuration ABI");
 #elif defined(KUI_TOY_SUITE_MODE)
 _Static_assert(sizeof(struct kui_native_ra_config)==84u,"Toy suite configuration ABI");

@@ -1,0 +1,2 @@
+python3 tests/test_toy_test_switches.py
+PASS toy test switches: 11 resolver cases; 30 shared sources keep their production text

@@ -23,26 +23,6 @@ ROOT = Path(__file__).resolve().parents[1]
 SOURCE = ROOT / 'src/core/vmu_native_heap.c'
 BASELINE = 'f8807cb1656137cc5fad7854802d685ea168736f'
 BASELINE_SHA256 = '7d99629da1954d1332c1da653a67b9d7139ee488c0cc33e78946f207f88594e2'
-GATED = '''        /* Most halfwords cannot start either allocator. Keep that cheap gate
-         * ahead of the candidate's scratch initialization: the cold stage's
-         * freestanding memset otherwise clears 72 bytes at every offset. */
-        uint16_t op=h16(p+at);
-        bool dispatch=op==0x2fe6u && h16(p+at+2u)==0x6e53u;
-        if(!dispatch && op!=0x741fu) continue;
-        struct kui_vmu_native_heap h={0};
-        if(dispatch) {
-            if(!candidate(p,n,base,at,&h)) continue;
-        } else {
-            if(!direct_candidate(p,n,base,at,&h)) continue;
-        }
-'''
-UNGATED = '''        struct kui_vmu_native_heap h={0};
-        if(h16(p+at)==0x2fe6u && h16(p+at+2u)==0x6e53u) {
-            if(!candidate(p,n,base,at,&h)) continue;
-        } else if(h16(p+at)==0x741fu) {
-            if(!direct_candidate(p,n,base,at,&h)) continue;
-        } else continue;
-'''
 INITIALIZER = 'struct kui_vmu_native_heap h={0};'
 LOAD = 0x8c010000
 METADATA_BYTES = 72
@@ -58,16 +38,13 @@ def run(command, **kwargs):
 
 
 def baseline_source(ref):
-    if ref is not None:
-        return run(['git', 'show', ref + ':src/core/vmu_native_heap.c'])
-    # Reconstruct the exact pre-gate translation unit in shallow CI checkouts.
-    source = SOURCE.read_bytes()
-    gated = GATED.encode()
-    if source.count(gated) != 1:
-        raise AssertionError('Exact heap gate hunk changed; supply --baseline-ref')
-    baseline = source.replace(gated, UNGATED.encode())
+    # Keep the dated control independent of later heap recognizer features
+    # and available to a shallow Actions checkout.
+    baseline = ((ROOT / 'tests/fixtures/native-heap-f8807cb/vmu_native_heap.c').read_bytes()
+                if ref is None else subprocess.check_output(
+                    ['git', 'show', ref + ':src/core/vmu_native_heap.c'], cwd=ROOT))
     if hashlib.sha256(baseline).hexdigest() != BASELINE_SHA256:
-        raise AssertionError(f'Reconstructed heap source differs from {BASELINE}; supply --baseline-ref')
+        raise AssertionError(f'Heap control differs from verified source {BASELINE}')
     return baseline.decode()
 
 
@@ -116,18 +93,25 @@ def build(folder, label, source, fast, compiler):
     common = [*compiler, '-std=c11', '-O1', '-g', '-Wall', '-Wextra', '-Werror',
               '-fno-builtin', '-fno-omit-frame-pointer', '-Iinclude', '-I.', '-Isrc/core',
               f'-DKUI_NATIVE_STAGE_FAST_SCAN={fast}']
+    # Compare the common corpus on both releases and run every newer
+    # caller/leaf test against the current recognizer in both scan modes.
     corpus = folder / f'{label}-{fast}-corpus.c'
     corpus.write_text(fixture)
     binary = folder / f'{label}-{fast}-corpus'
-    run([*common, '-fsanitize=address,undefined', '-fno-sanitize-recover=all',
-         '-fno-pie', '-no-pie', corpus, '-o', binary])
+    sanitized = [*common, '-fsanitize=address,undefined', '-fno-sanitize-recover=all',
+                 '-fno-pie', '-no-pie']
+    shared = '-DKUI_HEAP_SCAN_SHARED_CORPUS'
+    run([*sanitized, shared, corpus, '-o', binary])
     env = dict(os.environ, ASAN_OPTIONS='detect_leaks=0', UBSAN_OPTIONS='halt_on_error=1')
     output = run([binary], env=env)
+    if label == 'candidate':
+        run([*sanitized, corpus, '-o', binary])
+        run([binary], env=env)
     harness = folder / f'{label}-{fast}-library.c'
     harness.write_text('#define main fixture_main\n' + fixture +
                        '\n#undef main\n' + WRAPPERS)
     library = folder / f'{label}-{fast}.so'
-    run([*common, '-shared', '-fPIC', harness, '-o', library])
+    run([*common, shared, '-shared', '-fPIC', harness, '-o', library])
     lib = ct.CDLL(str(library))
     lib.test_scan.argtypes = [ct.c_void_p, ct.c_size_t, ct.c_uint32, ct.c_void_p]
     lib.test_scan.restype = ct.c_int

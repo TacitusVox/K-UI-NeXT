@@ -67,6 +67,11 @@ static bool passive_entry(uint32_t entry,uint32_t begin,uint32_t bytes) {
 #if KUI_NATIVE_SDK_SCI_ROUTE
 #include "vmu_native_sdk_sci_route_stage.inc"
 #endif
+#if KUI_TOY_CDDA_HOOK
+/* Test 84 (HOOK): the worker's CD-music player, proved with the loader
+ * timeline's descriptor and handed to the auxiliary (src/loader/toy_cdda_player.c). */
+static uint32_t toy_cdda_player_entry;
+#endif
 #if KUI_NATIVE_READAHEAD
 #include "vmu_native_readahead_stage.inc"
 #endif
@@ -86,6 +91,15 @@ static void __attribute__((noipa)) native_loader_timeline_bind(const struct kui_
     const uint32_t *descriptor=(const void *)(uintptr_t)(table+40u);
     if(descriptor[0]!=UINT32_C(0x4b4c5431) || descriptor[1]!=1u ||
        !passive_entry(descriptor[2],dest,bytes)) native_report(8u,0x55u);
+#if KUI_TOY_CDDA_HOOK
+    /* Its own typed descriptor, 12 bytes behind the timeline's, one entry
+     * inside this worker's image. */
+    if(bytes<64u || physical-begin>bytes-64u)native_report(8u,0x58u);
+    const uint32_t *player=(const void *)(uintptr_t)(table+52u);
+    if(player[0]!=UINT32_C(0x4b434431) || player[1]!=1u ||
+       !passive_entry(player[2],dest,bytes)) native_report(8u,0x59u);
+    toy_cdda_player_entry=player[2];
+#endif
     uint32_t region=(payload&UINT32_C(0x1fffffff))|UINT32_C(0x80000000);
     region+=KUI_VMU_NATIVE_BACKGROUND_REGION_OFFSET;
     if(!kui_vmu_native_background_region_address(payload,region))native_report(8u,0x56u);
@@ -415,7 +429,7 @@ static void native_passive_run(struct kui_vmu_native_heap_lease *lease) {
 #endif
 #if KUI_VMU_NATIVE_BACKGROUND
     /* The retained map and reader region are outside the worker's
-     * copied/zeroed worker span. Retain the validated 64-slot map there before
+     * copied/zeroed worker span. Retain the validated reader map there before
      * the temporary stage can retire. Both aliases are checked by the low
      * binder; every P1 line reaches RAM before the P2 copy and comparison. */
     uint32_t map_address=load+KUI_VMU_NATIVE_BACKGROUND_WORKER_BYTES;

@@ -1,0 +1,12 @@
+  the window's reason gone (reader closed): stream off, window gone, given up as error/over/idle/command/waiting/other 0/0/0/0/0/0 and on a pump's error 0, CMD12 once, no pump
+  the window's reason gone (bus released): stream off, window gone, given up as error/over/idle/command/waiting/other 0/0/0/0/0/0 and on a pump's error 0, CMD12 once, no pump
+  the window's reason gone (low reader mid-resume): stream off, window gone, given up as error/over/idle/command/waiting/other 1/0/0/0/0/0 and on a pump's error 0, CMD12 once, no pump
+  the window's reason gone (window marked in error): stream off, window gone, given up as error/over/idle/command/waiting/other 1/0/0/0/0/0 and on a pump's error 0, CMD12 once, no pump
+  the window's reason gone (region lent out): stream on, window kept, given up as error/over/idle/command/waiting/other 0/0/0/0/0/0 and on a pump's error 0, CMD12 none, not pumped
+  the window's reason gone (stream beyond repair): stream off, window gone, given up as error/over/idle/command/waiting/other 0/0/0/0/0/0 and on a pump's error 1, CMD12 at least 8, pumped
+  four streams in a row that lose a byte ahead of their first token: the bit order is no longer asked, data exact
+  a byte lost in the first stream's first block: not rebuilt while the bit order was unconfirmed, filled from the sector's parity, data exact
+  no free timer: waits end at the next visit after their time, and a look before it leaves one standing, and an update call that finds one is passed on; channel 1 taken: programmed reads only; data exact
+  the ring read through the cache in all of the above: 6342360 lines dropped and fetched afresh
+  blocks copied into the window by the word copy's stand-in in all of the above: 497978 pieces, 210335808 bytes
+PASS Test 81 reader integration: 359191981 checks

@@ -584,7 +584,8 @@ int main(int argc,char **argv) {
             out.family==KUI_VMU_NATIVE_EXIT_CRT_BOOTSTRAP || out.family==KUI_VMU_NATIVE_EXIT_EARLY_PAIR ||
             out.family==KUI_VMU_NATIVE_EXIT_EARLY_COMPACT ||
             out.family==KUI_VMU_NATIVE_EXIT_FIRMWARE_CHECK ||
-            out.family==KUI_VMU_NATIVE_EXIT_EARLY_FIRMWARE_CHECK);
+            out.family==KUI_VMU_NATIVE_EXIT_EARLY_FIRMWARE_CHECK ||
+            out.family==KUI_VMU_NATIVE_EXIT_EARLY_FIRMWARE_LITERAL_POOL);
         struct kui_vmu_native_exit original=out;
         CHECK(out.count==(out.family==KUI_VMU_NATIVE_EXIT_PAIR_ONLY || out.family==KUI_VMU_NATIVE_EXIT_EARLY_PAIR?2u:
             out.family==KUI_VMU_NATIVE_EXIT_CRT_BOOTSTRAP?4u:3u));

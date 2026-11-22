@@ -139,7 +139,7 @@ static int toy_gd_clock_valid(void) {
 #include "kui/vmu_native_background.h"
 #include "kui/vmu_maple_observe_boot.h"
 _Static_assert(sizeof(struct kui_retail_manifest)==KUI_VMU_NATIVE_BACKGROUND_MAP_BYTES,
-    "Native Background VMU map must hold exactly64slots");
+    "The retained native map must match the complete reader manifest");
 static const struct kui_retail_manifest *native_background_manifest;
 #define RETAIL_MANIFEST native_background_manifest
 #elif KUI_RETAIL_MDK2_CDDA

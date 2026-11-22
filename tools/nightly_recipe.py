@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: GPL-3.0-only
 """Read the software selected for a nightly from its exact source revision."""
 from dataclasses import dataclass
+from functools import lru_cache
 import hashlib
 import json
 from pathlib import Path
@@ -14,6 +15,7 @@ from update_package import verify, MAX_ENTRIES, MAX_PAYLOAD, RAW_SOFTWARE, REMOV
 
 RECIPE = "config/nightly-package.json"
 SOFTWARE = "resources/nightly-software"
+DISTRIBUTION = "config/distribution.json"
 
 
 def blob(revision, path):
@@ -43,8 +45,12 @@ class Recipe:
     files: dict
     remove: list
     release_tag: str = ""
+    distribution: bool = False
 
     def stage(self, revision, directory):
+        if self.distribution:
+            subprocess.run(["python3", "tools/stage_distribution.py", "--output", str(directory)], check=True)
+            return
         if self.full:
             qualified_release(revision, self.release_tag, stage=directory)
             return
@@ -66,7 +72,7 @@ class Recipe:
 
     def check_members(self, report, revision):
         members = {r["path"]: r for r in report["members"]}
-        if self.full:
+        if self.full and not self.distribution:
             expected = {r["path"]: r for r in qualified_release(revision, self.release_tag)}
             if not report["full"] or members != expected:
                 raise ValueError("Full nightly differs from the qualified complete release")
@@ -125,6 +131,12 @@ def qualified_release(revision, tag, *, stage=None):
     return members
 
 
+@lru_cache(maxsize=16)
+def derived_members(revision):
+    from stage_distribution import derived_hashes
+    return derived_hashes(revision)
+
+
 def read_recipe(revision):
     if not COMMIT.fullmatch(revision):
         raise ValueError("Invalid nightly source revision")
@@ -134,6 +146,26 @@ def read_recipe(revision):
     if int(subprocess.check_output(["git", "cat-file", "-s", oid])) > 65536:
         raise ValueError("Nightly recipe is oversized")
     data = json.loads(subprocess.check_output(["git", "cat-file", "blob", oid]), object_pairs_hook=unique_keys)
+    if data == {"distribution": DISTRIBUTION}:
+        inventory = blob(revision, DISTRIBUTION)
+        if not inventory or int(subprocess.check_output(["git", "cat-file", "-s", inventory])) > 131072:
+            raise ValueError("Missing or oversized distribution manifest")
+        model = json.loads(subprocess.check_output(["git", "cat-file", "blob", inventory]), object_pairs_hook=unique_keys)
+        files = model.get("files") if isinstance(model, dict) else None
+        if (not isinstance(files, dict) or model.get("schema") != 1 or
+                not isinstance(model.get("reader_inputs_sha256"), str) or not DIGEST.fullmatch(model["reader_inputs_sha256"]) or
+                not 1 <= len(files) < MAX_ENTRIES or any(not software_path_v2(path) or path == "runtime.kui"
+                    or not isinstance(digest, str) or not DIGEST.fullmatch(digest) for path, digest in files.items())):
+            raise ValueError("Invalid reviewed distribution manifest")
+        # Nightlies may outlive changes to factory themes, music and catalogs.
+        # Validate those generated members against this release's Git objects.
+        derived = derived_members(revision)
+        if (set(files).intersection(derived) or len(files) + len(derived) >= MAX_ENTRIES or
+                any(not software_path_v2(path) or path == "runtime.kui" or
+                    not isinstance(digest, str) or not DIGEST.fullmatch(digest)
+                    for path, digest in derived.items())):
+            raise ValueError("Invalid generated distribution members")
+        return Recipe(True, True, {**files, **derived}, [], distribution=True)
     if isinstance(data, dict) and set(data) == {"full_release"}:
         tag = data["full_release"]
         if not isinstance(tag, str):

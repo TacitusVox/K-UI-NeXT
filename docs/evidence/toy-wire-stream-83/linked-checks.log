@@ -1,0 +1,12 @@
+python3 tests/test_toy_wire_cached_stack.py build/toy-suite-83/native-ra-aux.elf cached
+PASS cached gate at 0x8c426a60: with the MMU off the stack is used at 0x0c427fe0 and the guards read at 0x0c427000 and 0x0c427ff0; with it on at 0xac427fe0, 0xac427000 and 0xac427ff0 as before
+python3 tests/test_toy_wire_linked_loops.py  build/toy-suite-83/native-ra-aux.elf build/repro73/native-ra-aux.elf
+PASS kui_wire_words_lsb as linked: 400 runs equal to the byte steps, a block's CRC16 taken to zero and a damaged block's not; 41 instructions, 9 loads and 4 stores for four bytes; registers, stack and everything around the destination left alone
+PASS kui_wire_words_true as linked: 400 runs equal to the byte steps, a block's CRC16 taken to zero and a damaged block's not; 34 instructions, 5 loads and 4 stores for four bytes; registers, stack and everything around the destination left alone
+PASS the compiler's wire_words of build/repro73/native-ra-aux.elf on the same data: the interpreter agrees with it (49 instructions, 9 loads and 4 stores for four bytes)
+python3 tests/test_toy_wire_linked_ring.py build/toy-suite-83/native-ra-aux.elf
+PASS linked cache view: 6096 runs, every line of a run dropped once and nothing else (242409 lines); short runs left uncached; no memory but the stack touched
+python3 tests/test_toy_wire_linked_hot.py build/toy-suite-83/native-ra-aux.elf 
+PASS the window's state, the context's last three cache lines at 0xac421700, is used at its cached address 0x8c421700 only: 22 constants in the linked code, none at the uncached address
+python3 tests/test_toy_wire_linked_copy.py build/toy-suite-83/native-ra-aux.elf
+PASS kui_wire_copy as linked: 3302 copies exact, destinations and sources at every word of a line, nothing outside the destination written; 18797 lines claimed by MOVCA.L, each wholly inside its destination and wholly stored, its eight words loaded first; 20 instructions a line, 338 for a block of 512

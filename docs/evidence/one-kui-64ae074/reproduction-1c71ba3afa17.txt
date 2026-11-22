@@ -1,0 +1,32 @@
+Reproduction of the owner's K-UI 1c71ba3afa17 from its source (22 Nov 2026 UTC)
+owner's runtime.kui: 3816892 bytes, sha256 902270842a277221df459edce57667642e11fe274bec17c87272715e5e591ff7
+common: clean worktree at 1c71ba3afa179c472a633a3508b5c0de7dd1f17c; make -j8 -f Makefile.dc build/kui-runtime.elf BUILD_ID=1c71ba3afa17 KUI_SMASH_LAUNCH_TIMING=1 RUNTIME_MODULE_BUNDLE=<bundle> NATIVE_STANDARD_MANIFEST=resources/updater-bindings/installed-standard-9e3295bcfaec.h [extra]; python3 tools/runtime_package.py build build/kui-runtime.elf <out> --build-id 1c71ba3afa17
+bundle: the four Smash modules decoded from the owner's runtime.kui, re-encoded with tools/build_runtime_module_bundle.py build(members, 'cc81e63ca4d2'): identical to the embedded bundle (413,045 bytes)
+
+== try 1c71: defaults (nightly off)
+   flags: DKUI_GITHUB_NIGHTLY=0 DKUI_UPDATE_SOURCE_VERIFIED=1 
+   result: 3816892 bytes, sha256 3a4eaa54a89ea46c76d8123055602951e437e2cdfe5f9fa0e276d0fb6a550fef
+   bytes differing from the owner's: 1840307
+== try 1c71n: KUI_GITHUB_NIGHTLY=1 KUI_UPDATE_REVIEW_FEED=0
+   flags: DKUI_GITHUB_NIGHTLY=1 DKUI_UPDATE_SOURCE_VERIFIED=1 
+   result: 3816892 bytes, sha256 9e06dc308a7d631b765f2b12b631bc250e07c3fefc767c00a137116593ee7233
+   bytes differing from the owner's: 1832219
+== try 1c71d: KUI_CLEAN_HEAD=dirty (KUI_UPDATE_SOURCE_VERIFIED=0)
+   flags: DKUI_GITHUB_NIGHTLY=0 DKUI_UPDATE_SOURCE_VERIFIED=0 
+   result: 3816892 bytes, sha256 43ca5803afa8ccc76021556625a2ca760bb763513df5c01578446cb4174e70b0
+   bytes differing from the owner's: 20
+== try 1c71p: KUI_CLEAN_HEAD=dirty, KallistiOS kernel library rebuilt with the owner's banner date
+   flags: DKUI_GITHUB_NIGHTLY=0 DKUI_UPDATE_SOURCE_VERIFIED=0 
+   result: 3816892 bytes, sha256 902270842a277221df459edce57667642e11fe274bec17c87272715e5e591ff7
+   bytes differing from the owner's: 0
+== try 1c71q: as 1c71p, bundle outside the worktree (clean compile receipt), both packagers
+   flags: DKUI_GITHUB_NIGHTLY=0 DKUI_UPDATE_SOURCE_VERIFIED=0 
+   result: 3816892 bytes, sha256 902270842a277221df459edce57667642e11fe274bec17c87272715e5e591ff7
+   bytes differing from the owner's: 0
+   tools/nightly.py build_gui: sha256 902270842a277221df459edce57667642e11fe274bec17c87272715e5e591ff7
+
+try 1c71: shift analysis by function (sh-elf-nm of the rebuild's ELF): shift 0 up to _salvage_operation; _update_work.constprop.0 8848 bytes (owner's 8 shorter); +8 from _worker on; +16 from _strncmp (alignment)
+try 1c71n: _update_work.constprop.0 8844 bytes, match 0.16 at shift 0; +4 from _worker
+try 1c71d: 20 bytes differ: header CRC words (offsets 0x20-0x23, 0x3c-0x3f) and 12 bytes of KallistiOS's banner date at payload 0x3a1a00+:
+   owner's: 'Tue Oct 27 15:07:25 UTC 2026'; rebuild: 'Sun Nov 22 04:32:10 UTC 2026' (the local library build)
+KallistiOS: v2.3.0 [dreamcast/pristine], git fcfa7d8, <user>@<host>:<KOS_BASE> (the same in both), sh-elf-gcc (GCC) 15.2.0; kernel/make_banner.sh prints date(1); 1c71p rebuilt kernel/banner.o and libkallisti.a with a date(1) that prints the owner's date

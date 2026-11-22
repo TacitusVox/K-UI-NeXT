@@ -1,0 +1,50 @@
+cc -std=c11 -O1 -g -Wall -Wextra -Werror -Wpedantic -fsanitize=address,undefined -fno-omit-frame-pointer -Iinclude -Isrc/loader tests/test_mode1_erasure.c src/core/mode1_erasure.c \
+ src/core/recovery_sector.c src/core/hash.c src/core/data.c -o build/toy-suite-83/test-mode1-erasure
+ASAN_OPTIONS=detect_leaks=0 build/toy-suite-83/test-mode1-erasure
+PASS Mode 1 lost-byte fill: 27329 patterns filled exactly, 11 refused; 1 of 8000 clustered patterns knotted
+cc -std=c11 -O1 -g -Wall -Wextra -Werror -Wpedantic -fsanitize=address,undefined -fno-omit-frame-pointer -Iinclude -Isrc/loader -DKUI_WIRE_STREAM_TEST=1 -DKUI_TOY_WIRE_CACHED=1 -DKUI_TOY_WIRE_WORDS=1 -DKUI_TOY_WIRE_PACE=1 -DKUI_TOY_WIRE_IDLE=1 -DKUI_TOY_WIRE_LEAN=1 -DKUI_TOY_WIRE_STEADY=1 -DKUI_TOY_WIRE_LATER=0 -DKUI_TOY_WIRE_FLUID=1 -DKUI_TOY_WIRE_GAP=0 -DKUI_TOY_WIRE_SEQ=1 -DKUI_TOY_WIRE_ANY=1 -DKUI_TOY_WIRE_TITLES=1 -DKUI_TOY_WIRE_QUERY=1 -DKUI_TOY_WIRE_TIMER=1 tests/test_toy_wire_stream.c \
+ src/loader/toy_wire_stream.c -o build/toy-suite-83/test-toy-wire-stream
+ASAN_OPTIONS=detect_leaks=0 build/toy-suite-83/test-toy-wire-stream
+Test 81 card stream on the wire model:
+  run  0 (timer 2, stall every ~0, 0% busy): blocks 15000, rebuilt 931, unsolved 0, holed 5, cuts 0, runs 978, waits 0, fulls 0, gap idle/token 40/1, stops crc/ambiguous 0/0
+  run  1 (timer 1, stall every ~1200, 10% busy): blocks 15005, rebuilt 4480, unsolved 0, holed 1529, cuts 18724, runs 224, waits 12800, fulls 0, gap idle/token 722/52, stops crc/ambiguous 4/29
+  run  2 (timer 2, stall every ~2400, 20% busy): blocks 15005, rebuilt 2420, unsolved 0, holed 1239, cuts 16649, runs 999, waits 13641, fulls 0, gap idle/token 634/42, stops crc/ambiguous 2/33
+  run  3 (timer 1, stall every ~600, 30% busy): blocks 15036, rebuilt 4610, unsolved 3, holed 6190, cuts 86487, runs 121, waits 77350, fulls 0, gap idle/token 3028/227, stops crc/ambiguous 1/273
+  run  4 (timer 0, stall every ~0, 0% busy): blocks 15001, rebuilt 931, unsolved 0, holed 5, cuts 0, runs 977, waits 0, fulls 0, gap idle/token 40/1, stops crc/ambiguous 0/0
+  run  5 (timer 1, stall every ~2400, 50% busy): blocks 15035, rebuilt 1576, unsolved 1, holed 3316, cuts 54010, runs 1803, waits 51212, fulls 0, gap idle/token 1974/229, stops crc/ambiguous 3/272
+  run  6 (timer 2, stall every ~600, 60% busy): blocks 15163, rebuilt 2078, unsolved 1, holed 10000, cuts 189622, runs 6, waits 183077, fulls 0, gap idle/token 6460/886, stops crc/ambiguous 9/1172
+  run  7 (timer 1, stall every ~1200, 0% busy): blocks 15001, rebuilt 5108, unsolved 0, holed 596, cuts 6332, runs 244, waits 207, fulls 0, gap idle/token 251/9, stops crc/ambiguous 0/0
+  run  8 (timer 2, stall every ~0, 0% busy): blocks 15002, rebuilt 931, unsolved 0, holed 5, cuts 0, runs 977, waits 0, fulls 0, gap idle/token 40/1, stops crc/ambiguous 0/0
+  run  9 (timer 0, stall every ~600, 20% busy): blocks 15035, rebuilt 5678, unsolved 0, holed 4741, cuts 58218, runs 170, waits 48287, fulls 0, gap idle/token 2188/136, stops crc/ambiguous 5/125
+  run 10 (timer 2, stall every ~1200, 30% busy): blocks 15030, rebuilt 3420, unsolved 0, holed 3351, cuts 48851, runs 167, waits 43335, fulls 0, gap idle/token 1737/131, stops crc/ambiguous 2/157
+  run 11 (timer 1, stall every ~2400, 40% busy): blocks 15029, rebuilt 1838, unsolved 0, holed 2485, cuts 37466, runs 1572, waits 34594, fulls 0, gap idle/token 1319/135, stops crc/ambiguous 1/165
+  courses with the stream's timer: 7 in Toy Commander, 3 in another title at its own table
+  the stream's timer by the title's own table: taken in another title with both free, the second where the first is the title's, none without an admitted table, at another vector base, behind the title's own handlers, behind another default, or with both in use; the title's entries, priorities and its timers' reload, count and control as they were after each, and an entry or a priority the title took meanwhile left to it
+  a title that takes the stream's timer while the stream runs, by its entry, by starting it, or under a wait that stands armed: never armed, stopped or answered by the stream again, the entry left to the title or given back to it, the waits ended as without a timer
+  an underflow of a timer the title started under the stream's entry: not answered and not stopped by the stream, the entry given back
+  a stream ended by a fault: its timer back as it was found, and a timer the title has taken or started meanwhile not written
+  the corner by construction, a block read three bytes late behind its lost token: with a byte of that reading's CRC16 lost it is handed on unchecked where the byte behind looks like a gap, and refused for the right reading where it does not; with one data byte lost it is handed on rebuilt, and wrong, for 3 of 492 places of that byte (35, 353, 418; the same on a second block) and rebuilt right for the others; 986 streams, the bytes lost in each exactly the two listed
+  a block of FF read three bytes early, behind a lost gap byte and with more lost bytes than the right reading may have: handed on unchecked with 24 lost bytes listed, every other byte the card's; the stream then finds itself beside the blocks and stops
+  the bit order by construction: four streams that lose a byte ahead of their first token end the asking; an honoured order is given up when a whole reading from beside its place fails its CRC16 before a block has settled it; either way the next stream reads the old way, and right
+  blocks handed on as clean 112879, rebuilt 34001, left to the sector check 33462: none of the first two kinds had a missing byte, none called clean a wrong one
+  bit order asked of the receiver: ignored in 4 runs, honoured in 4, token only in 4; each read right, but for 0 honoured ones given up before a whole block had settled the order (7 blocks with lost bytes went to the sector check before a whole block had exposed the token-only answer)
+  the ring read through the cache: 3054493 lines dropped and fetched afresh for 179994 blocks
+  streams given up while they received: 1088, the card clocked on for 2174 bytes in all, 2 at most
+  block buffers: 166545 blocks taken into the first, 13797 into the second; none shared a place in the cache with its bytes in the ring
+  waits without a timer: 234299 looks before a wait's time left it standing, 16619 after it ended it
+PASS Test 81 card stream: 179994 blocks checked against the card over 527204 overruns; 2598 streams restarted (clean block failing CRC16 31, too many lost bytes 2226); 341 blocks handed on from beside their place, each behind a byte lost between blocks and none after a whole CRC16: 341 with lost bytes listed, 0 with a byte of the CRC16 lost, 0 rebuilt from a CRC16 that fitted (0 of them equal to the card in every byte not listed all the same); all left to the sector check
+cc -std=c11 -O1 -g -Wall -Wextra -Werror -fsanitize=address,undefined -fno-omit-frame-pointer -Iinclude -Isrc/loader -DKUI_TOY_WIRE_CACHED=1 -DKUI_TOY_WIRE_WORDS=1 -DKUI_TOY_WIRE_PACE=1 -DKUI_TOY_WIRE_IDLE=1 -DKUI_TOY_WIRE_LEAN=1 -DKUI_TOY_WIRE_STEADY=1 -DKUI_TOY_WIRE_LATER=0 -DKUI_TOY_WIRE_FLUID=1 -DKUI_TOY_WIRE_GAP=0 -DKUI_TOY_WIRE_SEQ=1 -DKUI_TOY_WIRE_ANY=1 -DKUI_TOY_WIRE_TITLES=1 -DKUI_TOY_WIRE_QUERY=1 -DKUI_TOY_WIRE_TIMER=1 tests/test_toy_wire_report.c \
+ -o build/toy-suite-83/test-toy-wire-report
+ASAN_OPTIONS=detect_leaks=0 build/toy-suite-83/test-toy-wire-report
+  the report as lines for the screen: every character once and in order, no line over 50 places; 37 lines at full width, 5 of them cut at a space
+  the page loop: heading, at most 12 lines and the line for Start to a page, every line of the text in order, round after round; the busy line once Start was refused; without a report file the card is asked for once and nothing counts as saved
+PASS Test 81 report: 582 body bytes with nothing counted, 1010 with a full run's values (essential rows end at 961 of 1012); at full width 14 of the 20 essential rows are written and no row is ever cut
+  with twelve thousand windows opened by ordinary reads beside the movies' the first movie's player, the last row, still fits; with the movies' windows alone every row fits (993 bytes)
+cc -std=c11 -O1 -g -Wall -Wextra -Werror -Wpedantic -fsanitize=address,undefined -fno-omit-frame-pointer -Iinclude -Isrc/loader -DKUI_TOY_WIRE_TITLES=1 \
+  tests/test_toy_titles_stage.c \
+ -o build/toy-suite-83/test-toy-titles-stage
+ASAN_OPTIONS=detect_leaks=0 build/toy-suite-83/test-toy-titles-stage
+PASS the stage's source for the window: another title on the New reader with the virtual VMU off, by a raw Mode 1 track on the SCI card and nothing else; Toy Commander by its own files as before, with the virtual VMU off only
+cc -std=c11 -O1 -g -Wall -Wextra -Werror -Wpedantic -fsanitize=address,undefined -fno-omit-frame-pointer -Iinclude -Isrc/loader tests/test_toy_wire_msf.c -o build/toy-suite-83/test-toy-wire-msf
+ASAN_OPTIONS=detect_leaks=0 build/toy-suite-83/test-toy-wire-msf
+PASS sector address successor: 719849 addresses, 9597 second carries, 159 minute carries, one past 99 minutes

@@ -1,0 +1,84 @@
+{
+  "schema": 2,
+  "prepared": "2026-11-21 23:08 CST (America/Chicago)",
+  "packages": [
+    {
+      "delivery": "one K-UI for both threads",
+      "source_commit": "64ae07435de5aefa212d1fdfe21742bbf0c94b13",
+      "archive": {
+        "name": "KUI-One-KUI-Both-Threads-21NOV2026-2308-CST-64ae074.zip",
+        "bytes": 11287803,
+        "sha256": "f1c56130b54f57614d987708cfda321353ca7b7ccba586972f2804b79d57fbaa"
+      },
+      "files": [
+        {
+          "path": "KUI/boot.kui",
+          "bytes": 3834412,
+          "sha256": "d572510ce3d5804ee8ad5c04096197f8f4cd9b0724342ea76bda5dfdbcd84f2d",
+          "runtime": {
+            "format": 1,
+            "build": "64ae07435de5",
+            "payload_bytes": 3834348,
+            "memory_bytes": 8201924,
+            "crc32": "1431624f"
+          },
+          "status": "replaced: K-UI 64ae07435de5; boot.kui and runtime.kui identical"
+        },
+        {
+          "path": "KUI/runtime.kui",
+          "bytes": 3834412,
+          "sha256": "d572510ce3d5804ee8ad5c04096197f8f4cd9b0724342ea76bda5dfdbcd84f2d",
+          "runtime": {
+            "format": 1,
+            "build": "64ae07435de5",
+            "payload_bytes": 3834348,
+            "memory_bytes": 8201924,
+            "crc32": "1431624f"
+          },
+          "status": "replaced: K-UI 64ae07435de5; boot.kui and runtime.kui identical"
+        },
+        {
+          "path": "IF-NEEDED/KUI/boot.kui",
+          "bytes": 3816892,
+          "sha256": "902270842a277221df459edce57667642e11fe274bec17c87272715e5e591ff7",
+          "runtime": {
+            "format": 1,
+            "build": "1c71ba3afa17",
+            "payload_bytes": 3816828,
+            "memory_bytes": 8184228,
+            "crc32": "2e38ccc2"
+          },
+          "status": "not copied: the owner's current K-UI 1c71ba3afa17, the same bytes as the owner's file; copied over KUI/ only to go back"
+        },
+        {
+          "path": "IF-NEEDED/KUI/runtime.kui",
+          "bytes": 3816892,
+          "sha256": "902270842a277221df459edce57667642e11fe274bec17c87272715e5e591ff7",
+          "runtime": {
+            "format": 1,
+            "build": "1c71ba3afa17",
+            "payload_bytes": 3816828,
+            "memory_bytes": 8184228,
+            "crc32": "2e38ccc2"
+          },
+          "status": "not copied: the owner's current K-UI 1c71ba3afa17, the same bytes as the owner's file; copied over KUI/ only to go back"
+        }
+      ],
+      "retained": "every other file on the card: the reader modules and helpers under KUI/apps/games (the New reader module the owner has there, Test 84's or the owner's own), the Windows CE CD music modules, ce-boot.kui and ce-probe.kui, banks and their selection records, settings, virtual VMU cards, saves, KUI/SURVEY/STREAM.TXT and the games",
+      "excluded": "updater packages, activation records, banks, reader modules and user data",
+      "gui": {
+        "build": "64ae07435de5",
+        "updater_engine": 3,
+        "smash_bundle": "cc81e63ca4d2, the four Smash Pack modules, identical to 1c71ba3afa17's",
+        "standard_binding": "9e3295bcfaec (the owner's retail-boot.kui)",
+        "launch_timing": true,
+        "github_nightly": false,
+        "contains": [
+          "Main 4441e92c",
+          "Windows CE line to b7c92e0c (1c71ba3afa17 and later)",
+          "the owner's Test 83 GUI line 4d4dcff77494"
+        ]
+      }
+    }
+  ]
+}

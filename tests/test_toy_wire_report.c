@@ -24,6 +24,14 @@
 #define KUI_GENERAL_SCI_RESUME_FIX 1
 #define KUI_VMU_NATIVE_BACKGROUND 1
 #define KUI_BUILD_ID "DEADBEEF0123"
+/* Test 84's switches the expressions below use, off where the recipe does
+ * not set them (an undefined name is 0 in #if, but not in C). */
+#ifndef KUI_TOY_CDDA_DRIVE
+#define KUI_TOY_CDDA_DRIVE 0
+#endif
+#ifndef KUI_TOY_CDDA_SURVEY
+#define KUI_TOY_CDDA_SURVEY 0
+#endif
 
 #include "kui/native_readahead.h"
 #include "kui/toy_suite_report_wire.h"
@@ -75,10 +83,22 @@ static int lease_stub(kui_vmu_sd_transaction transaction, void *context) {
 #endif
 static struct kui_toy_wire_report wire;
 static const struct kui_toy_wire_report *toy_wire_report_block(void) { return &wire; }
+#if KUI_TOY_CDDA_DRIVE
+/* Test 84: the worker's player, whose counters the report writes. */
+#include "kui/toy_cdda_player.h"
+struct kui_toy_cdda_drive kui_toy_cdda_drive;
+#endif
+#if KUI_TOY_CDDA_SURVEY
+/* And its sound chip survey. */
+#include "kui/toy_cdda_survey.h"
+struct kui_toy_cdda_survey kui_toy_cdda_survey;
+#endif
 #include "toy_suite_report_save.inc"
 
 #if KUI_TOY_WIRE_ANY
-#if KUI_TOY_WIRE_TIMER
+#if KUI_TOY_CDDA_ROOM
+#define TEST_NUMBER "84"
+#elif KUI_TOY_WIRE_TIMER
 #define TEST_NUMBER "81"
 #elif KUI_TOY_WIRE_QUERY
 #define TEST_NUMBER "80"
@@ -95,30 +115,46 @@ static const char *const labels[] = {
     "PIPE B I CALLS IRQ STAY PT", "AHEAD B I HIT EDC STOP OS", "X OW E I C W O",
 #if KUI_TOY_WIRE_TITLES
     /* Test 79: whose disc it is, and the low reader's own totals. */
-    "BIG N S BACK TOY", "SD BLK PIO OVR CRC DECL",
+#if !KUI_TOY_CDDA_DRIVE
+    "BIG N S BACK TOY",
+#endif
+    "SD BLK PIO OVR CRC DECL",
 #if KUI_TOY_WIRE_QUERY
     /* Test 80: the commands that are no reads a window stood through, and
      * which such commands a window met. */
     "XC KEPT LO HI",
+#endif
+#if KUI_TOY_CDDA_DRIVE
+    /* Test 84: the drive's audio, in BIG's, K's and P's place. */
+    "CD P P2 PA RE END LAP", "CD ST RD KEEP REF LOST PJ",
+#if KUI_TOY_CDDA_SURVEY
+    "CD SV DT B N WIN SKIP",
+#endif
 #endif
 #else
     "BIG N S BACK",
 #endif
     "I SUBMIT CADENCE MAX AT", "I FIRST LAST SKIP EXIT SF", "B SUBMIT CADENCE MAX AT",
     "IP ON OT OC OI SN ST",
+#if !KUI_TOY_CDDA_DRIVE
     "K LIGHT EDC MEND MB LB ORD",
+#endif
     "V SCI TMR GAME N TICKS",
 #if KUI_TOY_WIRE_QUERY
     /* Test 80: the longest single visits. */
     "VMAX SCI TMR GAME D",
 #endif
-    "P RING FEED CHK OUT SVC HALT", "D N T SEEK",
+#if !KUI_TOY_CDDA_DRIVE
+    "P RING FEED CHK OUT SVC HALT",
+#endif
+    "D N T SEEK",
     "W START SEG CUT WAIT FULL", "W BYTES WTICK TMR ERR DET", "W BLK FIX UNFIX HOLED NOCRC SEEK",
     "S C S F LF AM BC", "W FILL REF BAD",
     "BP ON OT OC OI SN ST",
 };
 enum { LABELS = sizeof(labels) / sizeof(labels[0]),
-    ESSENTIAL = KUI_TOY_WIRE_QUERY ? 20 : KUI_TOY_WIRE_TITLES ? 18 : 17,
+    ESSENTIAL = (KUI_TOY_WIRE_QUERY ? 20 : KUI_TOY_WIRE_TITLES ? 18 : 17) - (KUI_TOY_CDDA_DRIVE ? 1 : 0) +
+        (KUI_TOY_CDDA_SURVEY ? 1 : 0),
     /* Test 80 leaves the movie player's rows out for a title that is not
      * Toy Commander: the second movie's two, the first movie's, and the
      * two players'. */
@@ -421,7 +457,19 @@ int main(int argc, char **argv) {
     assert(rows == LABELS && strstr(text, "W START SEG CUT WAIT FULL\n0 0 0 0 0\n"));
 #endif
     const size_t empty = body;
-#if KUI_TOY_WIRE_TITLES
+#if KUI_TOY_WIRE_TITLES && KUI_TOY_CDDA_DRIVE
+    /* Test 84: the drive's audio behind the commands a window met, with no
+     * play: and BIG, K and P have made room. Fifteen rows. */
+    assert(strstr(text, "X OW E I C W O\n0 0 0 0 0 0\nSD BLK PIO OVR CRC DECL\n0 0 0 0 0\nXC KEPT LO HI\n0 0 0\n"
+                        "CD P P2 PA RE END LAP\n0 0 0 0 0 0\nCD ST RD KEEP REF LOST PJ\n0 0 0 0 0 0\n"
+#if KUI_TOY_CDDA_SURVEY
+                        "CD SV DT B N WIN SKIP\n0 0 0 0 0 0\n"
+#endif
+                        "V SCI TMR GAME N TICKS\n0 0 0 0 0 0\nVMAX SCI TMR GAME D\n0 0 0 0\nD N T SEEK\n"));
+    assert(!strstr(text, "SUBMIT") && !strstr(text, "I FIRST") && !strstr(text, "IP ON") && !strstr(text, "BP ON"));
+    assert(!strstr(text, "BIG N") && !strstr(text, "K LIGHT") && !strstr(text, "P RING"));
+    assert(rows == 15u + KUI_TOY_CDDA_SURVEY && 4u + 2u * rows <= 3u * TOY_PAGE_LINES);
+#elif KUI_TOY_WIRE_TITLES
     /* A title that is not the verified Toy Commander says so. */
     assert(strstr(text, "BIG N S BACK TOY\n0 0 0 0\nSD BLK PIO OVR CRC DECL\n0 0 0 0 0\n"));
 #if KUI_TOY_WIRE_QUERY
@@ -433,6 +481,8 @@ int main(int argc, char **argv) {
     assert(strstr(text, "V SCI TMR GAME N TICKS\n0 0 0 0 0 0\nVMAX SCI TMR GAME D\n0 0 0 0\nP RING"));
     assert(rows == 16u && 4u + 2u * rows == 3u * TOY_PAGE_LINES);
 #endif
+#endif
+#if KUI_TOY_WIRE_TITLES
     /* On the screen: four lines of heading and two for each row, none cut. */
     assert(screen(text, body) == 4u + 2u * rows && !screen_cut);
     screen_lines();
@@ -610,6 +660,21 @@ int main(int argc, char **argv) {
     ra.movie_chunk[1] = (struct kui_toy_movie_chunk_trace){0x7b0, 0x1234, 0x56, 1};
     ra.wait[0] = (struct kui_toy_movie_wait_trace){0x69263, 0x10, 0xc, 0x235678, 0x1345, 0x1ce1};
     ra.wait[1] = (struct kui_toy_movie_wait_trace){0x6e450, 0x11, 0x3, 0x2e4567, UINT32_MAX, UINT32_MAX};
+#if KUI_TOY_CDDA_DRIVE
+    /* A long session of music: wide counters, a play standing. */
+    kui_toy_cdda_drive = (struct kui_toy_cdda_drive){.state = 1u, .generation = 0x22c, .repeat = 15u,
+        .track = 3u, .plays = 0x40, .play2s = 0x12, .pauses = 0x1b, .releases = 0x1a, .ends = 0xc,
+        .laps = 0xf, .reads_in_play = 0x3e8, .keeps = 0x2710, .refused = 2u, .lost = 1u, .projections = 0x4e2};
+#endif
+#if KUI_TOY_CDDA_SURVEY
+    /* The survey row at its widest: every count past its cap, every field
+     * at its eight digits. */
+    kui_toy_cdda_survey = (struct kui_toy_cdda_survey){.version = 0xffffffffu, .date_hash = 0xffffu,
+        .state_word = 0xffffffffu, .family = 7u, .changes = 40u, .identified = 1u, .proved = 70000u,
+        .busy = {0x10000u, 0x23456u}, .unproved = 0x10001u, .window_passes = 0x8001u, .window_nonzero = 1u,
+        .window_changed = {UINT32_MAX, 0xffffu}, .skipped_bl = 300u, .skipped_dma = 0x1000u,
+        .timeouts = 256u, .skipped_clock = 1000u};
+#endif
     body = format(&ra, &region, text, &rows);
 #if KUI_TOY_WIRE_SEQ
     /* Every row but the last fits at a full run's values with the game's
@@ -620,9 +685,17 @@ int main(int argc, char **argv) {
 #if KUI_TOY_WIRE_ANY
     /* Test 78 has no row by piece: everything fits, the first movie's
      * player too. */
+#if KUI_TOY_CDDA_SURVEY
+    /* Test 84's survey row at its widest leaves no room for that player,
+     * the last row: every other is written. */
+    assert(essential_rows == ESSENTIAL && rows == LABELS - 1u && !strstr(text, "BP ON"));
+    const char *last = strstr(text, "W FILL REF BAD\n1500 4 2\n");
+    assert(last);
+#else
     assert(essential_rows == ESSENTIAL && rows == LABELS);
     const char *last = strstr(text, "W FILL REF BAD\n1500 4 2\n");
     assert(last && strstr(text, "BP ON") > last);
+#endif
     const size_t needed = (size_t)(last - text) + strlen("W FILL REF BAD\n1500 4 2\n");
 #else
     assert(essential_rows == ESSENTIAL && rows >= LABELS - 1u);
@@ -665,12 +738,34 @@ int main(int argc, char **argv) {
 #if KUI_TOY_WIRE_TITLES
     /* And whose disc it is: the verified Toy Commander here. Behind it the
      * low reader's own totals and the stream's refused take-overs. */
+#if KUI_TOY_CDDA_DRIVE
+    /* Test 84: BIG has made room; the low reader's totals follow X. */
+    assert(!strstr(text, "BIG N S BACK") &&
+        strstr(text, "X OW E I C W O\n2F00 1 3 FE 35 2E00\nSD BLK PIO OVR CRC DECL\n40 2F 11 0 6\n"));
+#else
     assert(strstr(text, "BIG N S BACK TOY\n1C00 7B000 3 1\nSD BLK PIO OVR CRC DECL\n40 2F 11 0 6\n"));
+#endif
 #if KUI_TOY_WIRE_QUERY
     /* The commands a window stood through, and the commands windows met
      * by their numbers' bits: 19, 27 and 29; 33, 34 and 36. */
+#if KUI_TOY_CDDA_DRIVE
+    /* Test 84: then the drive's audio, at the widest values a session gives
+     * it, before the movie player's rows; P has made room before D. */
+    assert(strstr(text, "SD BLK PIO OVR CRC DECL\n40 2F 11 0 6\nXC KEPT LO HI\n2E02 28080000 16\n"
+                        "CD P P2 PA RE END LAP\n40 12 1B 1A C F\n"
+                        "CD ST RD KEEP REF LOST PJ\n30F2C01 3E8 2710 2 1 4E2\n"
+#if KUI_TOY_CDDA_SURVEY
+                        /* Each field held at its cap: changes at 15, busy and the two
+                         * counts of N at 0xFFFF, passes at 0x7FFF, 48 KiB changed, the four
+                         * skips at 255; nothing spills into a neighbour. */
+                        "CD SV DT B N WIN SKIP\nFFFFFFFF 7FFFFFFF FFFFFFFF FFFFFFFF FFFF0030 FFFFFFFF\n"
+#endif
+                        "I SUBMIT"));
+    assert(strstr(text, "\nVMAX SCI TMR GAME D\n494 2C 1D4C 4C4B\nD N T SEEK"));
+#else
     assert(strstr(text, "SD BLK PIO OVR CRC DECL\n40 2F 11 0 6\nXC KEPT LO HI\n2E02 28080000 16\nI SUBMIT"));
     assert(strstr(text, "\nVMAX SCI TMR GAME D\n494 2C 1D4C 4C4B\nP RING"));
+#endif
 #endif
 #else
     assert(strstr(text, "BIG N S BACK\n1C00 7B000 3\n") && !strstr(text, "BACK TOY"));
@@ -688,10 +783,16 @@ int main(int argc, char **argv) {
 #if !KUI_TOY_WIRE_SEQ
     assert(strstr(text, "BP ON OT OC OI SN ST\n14B 4F0000 7E0000 30000 0 0\n"));
 #endif
+#if KUI_TOY_CDDA_DRIVE
+    assert(!strstr(text, "K LIGHT") && !strstr(text, "P RING"));
+#else
     assert(strstr(text, "K LIGHT EDC MEND MB LB ORD\n4C00 25E7 1A90 3 0 3\n"));
+#endif
     assert(strstr(text, "V SCI TMR GAME N TICKS\nC67C D000 26265 3A0000 4E0000 5B0000\n"));
+#if !KUI_TOY_CDDA_DRIVE
     /* The reader's ticks by what it was doing, and those spent ending streams. */
     assert(strstr(text, "P RING FEED CHK OUT SVC HALT\n4A0000 1C0000 60000 D0000 5F000 13000\n"));
+#endif
 #if KUI_TOY_WIRE_SEQ
     assert(strstr(text, "D N T SEEK\n1E000 2A0000 B0000\n") && !strstr(text, "CAP"));
 #else

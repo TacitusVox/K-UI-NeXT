@@ -1,0 +1,89 @@
+# The host tests with the second module's switches (TOY_CDDA_SURVEY=0) on the clean worktree
+# At 4abc63b:
+FAIL alt-toy-wire-host-tests (exit 2)
+tests/test_toy_wire_report.c:149:10: error: 'KUI_TOY_CDDA_SURVEY' undeclared here (not in a function); did you mean 'KUI_TOY_CDDA_DRIVE'?
+  149 |         (KUI_TOY_CDDA_SURVEY ? 1 : 0),
+      |          ^~~~~~~~~~~~~~~~~~~
+      |          KUI_TOY_CDDA_DRIVE
+make: *** [Makefile.vmu-native-toy-suite:689: toy-wire-host-tests] Error 1
+ok   alt-toy-wire-save-host-test
+ok   alt-toy-cdda-drive-host-test
+ok   alt-toy-survey-mixed-pad-host-test
+ok   alt-toy-wire-integration-host-test
+ok   alt-toy-cdda-mutation-check
+the second module unchanged by the runs
+
+## alt toy-wire-save-host-test
+PASS stream survey report file
+PASS the stage's survey text on FAT32, volume at sector 0: a slot for a source and for a disc that is none; one sector written per launch, read back; every refusal leaves the card as it was
+PASS the stage's survey text on exFAT, volume at sector 0: a slot for a source and for a disc that is none; one sector written per launch, read back; every refusal leaves the card as it was
+PASS the stage's survey text on FAT32, volume at sector 63: a slot for a source and for a disc that is none; one sector written per launch, read back; every refusal leaves the card as it was
+PASS the stage's survey text on exFAT, volume at sector 63: a slot for a source and for a disc that is none; one sector written per launch, read back; every refusal leaves the card as it was
+PASS the stage's survey text
+PASS started from Card Tools on FAT32, volume at sector 0: Test 81's seed without the survey's file, the survey's slot with it
+PASS started from Card Tools on exFAT, volume at sector 0: Test 81's seed without the survey's file, the survey's slot with it
+PASS started from Card Tools on FAT32, volume at sector 63: Test 81's seed without the survey's file, the survey's slot with it
+PASS started from Card Tools on exFAT, volume at sector 63: Test 81's seed without the survey's file, the survey's slot with it
+PASS the stage's survey text, started from Card Tools
+PASS tools/toy_survey.py: its blank file is the stage's; 20 launches played and 12 the stage wrote read back; every state and both commands
+
+## alt toy-cdda-drive-host-test
+PASS Test 84 drive: 12 scenarios, 11704 checks; with no play every answer and every service word is the twin service's without a player; through a play's reads (KEEP) status 3 and every other word the twin's
+
+## alt toy-survey-mixed-pad-host-test
+PASS mixed and fast Test 83 controller hold, unchanged game input and retired terminal handoff
+
+## alt toy-wire-integration-host-test
+  the window's reason gone (low reader mid-resume): stream off, window gone, given up as error/over/idle/command/waiting/other 1/0/0/0/0/0 and on a pump's error 0, CMD12 once, no pump
+  the window's reason gone (window marked in error): stream off, window gone, given up as error/over/idle/command/waiting/other 1/0/0/0/0/0 and on a pump's error 0, CMD12 once, no pump
+  the window's reason gone (region lent out): stream on, window kept, given up as error/over/idle/command/waiting/other 0/0/0/0/0/0 and on a pump's error 0, CMD12 none, not pumped
+  the window's reason gone (stream beyond repair): stream off, window gone, given up as error/over/idle/command/waiting/other 0/0/0/0/0/0 and on a pump's error 1, CMD12 at least 8, pumped
+  four streams in a row that lose a byte ahead of their first token: the bit order is no longer asked, data exact
+  a byte lost in the first stream's first block: not rebuilt while the bit order was unconfirmed, filled from the sector's parity, data exact
+  no free timer: waits end at the next visit after their time, and a look before it leaves one standing, and an update call that finds one is passed on; channel 1 taken: programmed reads only; data exact
+  the ring read through the cache in all of the above: 6342360 lines dropped and fetched afresh
+  blocks copied into the window by the word copy's stand-in in all of the above: 497978 pieces, 210335808 bytes
+PASS Test 84 play beside 5 reads (270 sectors) through the real reader: function 4 answered 3 15 times and 1 0 times, the player keeping the reads' progress
+PASS Test 84 player hook: 3325746 visits handed on first (1271122 deliveries from the game's calls, 125055 from interrupts, 1929569 others), 1257722 ended with KEEP and 13400 returned before it; 2 refused by the guard reached no player
+PASS Test 84 reader integration: 370346318 checks
+
+## alt toy-cdda-mutation-check
+caught    KEEP writes 1
+caught    KEEP in an interrupt's visit
+caught    KEEP while paused or ended
+caught    KEEP of a failed read
+caught    KEEP of another read's engine
+caught    KEEP's raw sectors as 2,048 bytes
+caught    KEEP's position one on
+caught    KEEP's sectors not counted
+caught    KEEP's step not counted
+caught    KEEP publishes no new sector
+caught    KEEP's bytes of one sector less
+PASS Test 84 drive mutations: all 41 caught by the drive test
+
+# At 88ec3d6 (the report test's fix; tests only), with the label 4abc63b0cc58:
+commit 88ec3d6 Test 84 tests: the report test builds with the survey off; worktree changes: 0
+ok   main rebuilt at 88ec3d6 with label 4abc63b0cc58: the delivered bytes 597d8eac96b0238045e7bde9c642653a0bb5e138d6763993cabd0c156c210260
+ok   main toy-wire-host-tests: PASS Test 84 report: 583 body bytes with nothing counted, 979 with a full run's values (essential rows end at 979 of 1012)
+ok   alt rebuilt at 88ec3d6 with label 4abc63b0cc58: the delivered bytes e74cca711600ecd8ddd38a62839fda7c6dda837740331fb3f0f458b761f03014
+ok   alt toy-wire-host-tests: PASS Test 84 report: 549 body bytes with nothing counted, 952 with a full run's values (essential rows end at 903 of 1012)
+
+## main toy-wire-host-tests
+  waits without a timer: 234299 looks before a wait's time left it standing, 16619 after it ended it
+PASS Test 81 card stream: 179994 blocks checked against the card over 527204 overruns; 2598 streams restarted (clean block failing CRC16 31, too many lost bytes 2226); 341 blocks handed on from beside their place, each behind a byte lost between blocks and none after a whole CRC16: 341 with lost bytes listed, 0 with a byte of the CRC16 lost, 0 rebuilt from a CRC16 that fitted (0 of them equal to the card in every byte not listed all the same); all left to the sector check
+  the report as lines for the screen: every character once and in order, no line over 50 places; 39 lines at full width, 5 of them cut at a space
+  the page loop: heading, at most 12 lines and the line for Start to a page, every line of the text in order, round after round; the busy line once Start was refused; without a report file the card is asked for once and nothing counts as saved
+PASS Test 84 report: 583 body bytes with nothing counted, 979 with a full run's values (essential rows end at 979 of 1012); at full width 15 of the 20 essential rows are written and no row is ever cut
+  with twelve thousand windows opened by ordinary reads beside the movies' the first movie's player, the last row, is the one row left out; with the movies' windows alone every row fits (1011 bytes)
+PASS the stage's source for the window: another title on the New reader with the virtual VMU off, by a raw Mode 1 track on the SCI card and nothing else; Toy Commander by its own files as before, with the virtual VMU off only
+PASS sector address successor: 719849 addresses, 9597 second carries, 159 minute carries, one past 99 minutes
+
+## alt toy-wire-host-tests
+  waits without a timer: 234299 looks before a wait's time left it standing, 16619 after it ended it
+PASS Test 81 card stream: 179994 blocks checked against the card over 527204 overruns; 2598 streams restarted (clean block failing CRC16 31, too many lost bytes 2226); 341 blocks handed on from beside their place, each behind a byte lost between blocks and none after a whole CRC16: 341 with lost bytes listed, 0 with a byte of the CRC16 lost, 0 rebuilt from a CRC16 that fitted (0 of them equal to the card in every byte not listed all the same); all left to the sector check
+  the report as lines for the screen: every character once and in order, no line over 50 places; 38 lines at full width, 4 of them cut at a space
+  the page loop: heading, at most 12 lines and the line for Start to a page, every line of the text in order, round after round; the busy line once Start was refused; without a report file the card is asked for once and nothing counts as saved
+PASS Test 84 report: 549 body bytes with nothing counted, 952 with a full run's values (essential rows end at 903 of 1012); at full width 15 of the 19 essential rows are written and no row is ever cut
+  with twelve thousand windows opened by ordinary reads beside the movies' the first movie's player, the last row, still fits; with the movies' windows alone every row fits (935 bytes)
+PASS the stage's source for the window: another title on the New reader with the virtual VMU off, by a raw Mode 1 track on the SCI card and nothing else; Toy Commander by its own files as before, with the virtual VMU off only
+PASS sector address successor: 719849 addresses, 9597 second carries, 159 minute carries, one past 99 minutes

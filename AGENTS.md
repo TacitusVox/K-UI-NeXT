@@ -163,6 +163,22 @@ reader admission. A reader-only ZIP requires an identified matching running
 GUI and source route; do not assume a saved bank uses copied ROOT files.
 Do not disable game ABI/admission guards to force a package to run.
 
+## One K-UI for every thread
+
+Two threads change K-UI at once (regular games with CD music; Windows CE). A
+K-UI built from one thread's branch alone drops the other's K-UI work (21 Nov
+2026: K-UI `1c71ba3afa17` lacked the owner's 160-slot map, so Test 84 was
+refused for three games). Before building a K-UI for delivery, run
+`python3 tools/check_gui_lines.py` from its clean checkout: it fetches every
+line in `docs/gui-lines.json` and fails if the build lacks one of their code
+commits. Merge the line it names, rebuild each line's delivered modules from
+the merge and compare their bytes, then build. Record each delivered K-UI as
+`installed` in `docs/gui-lines.json`. A module-only delivery runs
+`--installed-has <the K-UI change it needs>` and otherwise brings a K-UI; its
+README tells the owner to confirm the Diagnostics page's first line first.
+Read a console result only against the K-UI build its logs name. Details:
+`docs/gui-lines.md`.
+
 ## Explicit KUP operation semantics
 
 This section documents the retained updater, not the default delivery workflow.

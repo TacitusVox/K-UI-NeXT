@@ -1,0 +1,280 @@
+The reports of the returned KUI/SURVEY/STREAM.TXT (file ID B674BC235B6B5A9B78760CBD6F7E63FF), as tools/toy_survey.py reads them.
+
+==== slot 000: launched, no report saved ====
+T1711N EVOLUTION2; boot 1ST_READ.BIN, region U; module build 3bd4bed2fca2
+IP CRC 258032E4, GDI CRC 44AC6DF2, executable CRC FD1C17E2, 4057056 bytes
+tracks 3: raw data 2, cooked 0, audio 1 (of them 0 in the high-density area, 1 with their files in the map), other 0; extents 15; session 45000, boot LBA 547019; source 1
+
+==== slot 001: launched, no report saved ====
+T1711N EVOLUTION2; boot 1ST_READ.BIN, region U; module build 3bd4bed2fca2
+IP CRC 258032E4, GDI CRC 44AC6DF2, executable CRC FD1C17E2, 4057056 bytes
+tracks 3: raw data 2, cooked 0, audio 1 (of them 0 in the high-density area, 1 with their files in the map), other 0; extents 15; session 45000, boot LBA 547019; source 1
+
+==== slot 002: report saved ====
+T1711N EVOLUTION2; boot 1ST_READ.BIN, region U; module build 3bd4bed2fca2
+IP CRC 258032E4, GDI CRC 44AC6DF2, executable CRC FD1C17E2, 4057056 bytes
+tracks 3: raw data 2, cooked 0, audio 1 (of them 0 in the high-density area, 1 with their files in the map), other 0; extents 15; session 45000, boot LBA 547019; source 1
+K-UI TOY COMMANDER REPORT
+TEST 81
+BUILD 3bd4bed2fca2
+HEX / 781250 HZ
+PIPE B I CALLS IRQ STAY PT
+0 0 1E6 14 11 1FBD
+AHEAD B I HIT EDC STOP OS
+0 0 13 41 0 13
+X OW E I C W O
+2 0 0 0 0 2
+BIG N S BACK TOY
+0 0 0 0
+SD BLK PIO OVR CRC DECL
+F97 0 54 0 0
+XC KEPT LO HI
+1 0 4
+K LIGHT EDC MEND MB LB ORD
+3A 7 1D 0 0 3
+V SCI TMR GAME N TICKS
+14 0 1E6 127F 0 2B40
+VMAX SCI TMR GAME D
+1F8 0 495 1776
+P RING FEED CHK OUT SVC HALT
+21D8 E0F 43E 29C 393 18
+D N T SEEK
+1491 F97D6 F1
+W START SEG CUT WAIT FULL
+2 1F 6 0 0
+W BYTES WTICK TMR ERR DET
+27504 0 1 0 0
+W BLK FIX UNFIX HOLED NOCRC SEEK
+131 24 0 0 0 0
+S C S F LF AM BC
+2 0 0 0 0 0
+W FILL REF BAD
+0 0 0
+                                                                                                                                                                                                                                                                                                                                                                                      
+END REPORT
+
+==== slot 003: report saved ====
+T1711N EVOLUTION2; boot 1ST_READ.BIN, region U; module build 3bd4bed2fca2
+IP CRC 258032E4, GDI CRC 44AC6DF2, executable CRC FD1C17E2, 4057056 bytes
+tracks 3: raw data 2, cooked 0, audio 1 (of them 0 in the high-density area, 1 with their files in the map), other 0; extents 15; session 45000, boot LBA 547019; source 1
+K-UI TOY COMMANDER REPORT
+TEST 81
+BUILD 3bd4bed2fca2
+HEX / 781250 HZ
+PIPE B I CALLS IRQ STAY PT
+0 0 1E8 14 11 1FBD
+AHEAD B I HIT EDC STOP OS
+0 0 13 41 0 13
+X OW E I C W O
+2 0 0 0 0 2
+BIG N S BACK TOY
+0 0 0 0
+SD BLK PIO OVR CRC DECL
+F97 0 54 0 0
+XC KEPT LO HI
+1 0 4
+K LIGHT EDC MEND MB LB ORD
+3A 7 1D 0 0 3
+V SCI TMR GAME N TICKS
+14 0 1E8 1285 0 2B4C
+VMAX SCI TMR GAME D
+1F7 0 496 1778
+P RING FEED CHK OUT SVC HALT
+21EB E10 43F 296 396 18
+D N T SEEK
+5A1 F51EC F3
+W START SEG CUT WAIT FULL
+2 1F 6 0 0
+W BYTES WTICK TMR ERR DET
+27500 0 1 0 0
+W BLK FIX UNFIX HOLED NOCRC SEEK
+131 24 0 0 0 0
+S C S F LF AM BC
+2 0 0 0 0 0
+W FILL REF BAD
+0 0 0
+                                                                                                                                                                                                                                                                                                                                                                                       
+END REPORT
+
+==== slot 004: report saved ====
+MK-51049 CHUCHU ROCKET; boot 1ST_READ.BIN, region U; module build 3bd4bed2fca2
+IP CRC D5E11389, GDI CRC B7D94F1F, executable CRC 83E2CA42, 1532256 bytes
+tracks 19: raw data 3, cooked 0, audio 16 (of them 15 in the high-density area, 16 with their files in the map), other 0; extents 20; session 45000, boot LBA 548251; source 1
+K-UI TOY COMMANDER REPORT
+TEST 81
+BUILD 3bd4bed2fca2
+HEX / 781250 HZ
+PIPE B I CALLS IRQ STAY PT
+0 0 2274 6A 1E 1FBD
+AHEAD B I HIT EDC STOP OS
+0 0 1E 165 0 122
+X OW E I C W O
+9 0 0 1 0 8
+BIG N S BACK TOY
+3 D5 0 0
+SD BLK PIO OVR CRC DECL
+2D65 3 EA 0 0
+XC KEPT LO HI
+0 100000 0
+K LIGHT EDC MEND MB LB ORD
+13E 27 7C 0 0 3
+V SCI TMR GAME N TICKS
+6A 3 2274 246F 8 1F57E
+VMAX SCI TMR GAME D
+1A8 3 60A 1759
+P RING FEED CHK OUT SVC HALT
+D210 4715 16DE 2869 305D 79
+D N T SEEK
+4B65 34721A 1536
+W START SEG CUT WAIT FULL
+C 70 2C 4 1
+W BYTES WTICK TMR ERR DET
+DA597 127 1 0 0
+W BLK FIX UNFIX HOLED NOCRC SEEK
+674 89 2 5 0 4
+S C S F LF AM BC
+9 0 3 3 0 0
+W FILL REF BAD
+3 0 0
+                                                                                                                                                                                                                                                                                                                                                              
+END REPORT
+
+==== slot 005: launched, no report saved ====
+T9704N READY 2 RUMBLE BOXING; boot 1ST_READ.BIN, region U; module build 3bd4bed2fca2
+IP CRC F709F121, GDI CRC 6408E758, executable CRC 6C2E1B14, 2051040 bytes
+tracks 7: raw data 3, cooked 0, audio 4 (of them 3 in the high-density area, 4 with their files in the map), other 0; extents 8; session 45000, boot LBA 547998; source 1
+
+==== slot 006: report saved ====
+T40217N BANGAI-O; boot 1ST_READ.BIN, region U; module build c27892faf747
+IP CRC B44AFE8C, GDI CRC 66FE782A, executable CRC 9AFC1E31, 564160 bytes
+tracks 37: raw data 3, cooked 0, audio 34 (of them 33 in the high-density area, 34 with their files in the map), other 0; extents 111; session 45000, boot LBA 546054; source 1
+K-UI TOY COMMANDER REPORT
+TEST 81
+BUILD c27892faf747
+HEX / 781250 HZ
+PIPE B I CALLS IRQ STAY PT
+0 0 7AEF 468 3AE 1FBD
+AHEAD B I HIT EDC STOP OS
+0 0 3B7 48E 0 3BA
+X OW E I C W O
+D 0 0 0 0 D
+BIG N S BACK TOY
+0 0 0 0
+SD BLK PIO OVR CRC DECL
+15C6 E9 68 0 0
+XC KEPT LO HI
+0 0 0
+K LIGHT EDC MEND MB LB ORD
+36E 121 315 0 0 3
+V SCI TMR GAME N TICKS
+468 3 7AEF B37B A BF9AE
+VMAX SCI TMR GAME D
+1F6 4 6F7 1752
+P RING FEED CHK OUT SVC HALT
+2DD54 13E36 8009 7F4C BBF3 943
+D N T SEEK
+C8CE 28AEBE 54288
+W START SEG CUT WAIT FULL
+EB 76 428 1F 1
+W BYTES WTICK TMR ERR DET
+2D626E 85D 1 0 0
+W BLK FIX UNFIX HOLED NOCRC SEEK
+1601 365 D2 FB 3 E9
+S C S F LF AM BC
+D 1 DD DA 0 3
+W FILL REF BAD
+1B 0 1
+                                                                                                                                                                                                                                                                                                                                             
+END REPORT
+
+==== slot 007: launched, no report saved ====
+T9704N READY 2 RUMBLE BOXING; boot 1ST_READ.BIN, region U; module build c27892faf747
+IP CRC F709F121, GDI CRC 6408E758, executable CRC 6C2E1B14, 2051040 bytes
+tracks 7: raw data 3, cooked 0, audio 4 (of them 3 in the high-density area, 4 with their files in the map), other 0; extents 8; session 45000, boot LBA 547998; source 1
+
+==== slot 008: report saved ====
+T12502N MDK2; boot 1ST_READ.BIN, region U; module build 1d80f771f081
+IP CRC 34122049, GDI CRC 1714D99A, executable CRC 682D90E3, 750804 bytes
+tracks 31: raw data 3, cooked 0, audio 28 (of them 27 in the high-density area, 0 with their files in the map), other 0; extents 39; session 45000, boot LBA 548633; source 1
+K-UI TOY COMMANDER REPORT
+TEST 81
+BUILD 1d80f771f081
+HEX / 781250 HZ
+PIPE B I CALLS IRQ STAY PT
+0 0 B98 3FA 71 1FBD
+AHEAD B I HIT EDC STOP OS
+0 0 AD A5C 0 92F
+X OW E I C W O
+1C 0 0 0 0 1B
+BIG N S BACK TOY
+C 5E3 0 0
+SD BLK PIO OVR CRC DECL
+9973 1E 2BE 0 0
+XC KEPT LO HI
+3 0 4
+K LIGHT EDC MEND MB LB ORD
+93E 11E 377 0 0 3
+V SCI TMR GAME N TICKS
+3FA 33 B98 59270 7A 29BC8
+VMAX SCI TMR GAME D
+3E3 4 9AD 174A
+P RING FEED CHK OUT SVC HALT
+515AC 207F1 A4F8 1493A 493B 160
+D N T SEEK
+46ED 63AFA9 2FC5
+W START SEG CUT WAIT FULL
+22 349 150 34 4
+W BYTES WTICK TMR ERR DET
+61F8D7 1C6E 1 0 0
+W BLK FIX UNFIX HOLED NOCRC SEEK
+2FE8 411 1 27 2 14
+S C S F LF AM BC
+1B 0 6 6 0 0
+W FILL REF BAD
+1C 0 0
+                                                                                                                                                                                                                                                                                                                                         
+END REPORT
+
+==== slot 009: report saved ====
+T36807N OMIKRON THE NOMAD SOUL; boot 1ST_READ.BIN, region U; module build 1d80f771f081
+IP CRC 19F410F8, GDI CRC 78D12897, executable CRC D829A676, 1063844 bytes
+tracks 5: raw data 3, cooked 0, audio 2 (of them 1 in the high-density area, 2 with their files in the map), other 0; extents 32; session 45000, boot LBA 548480; source 1
+K-UI TOY COMMANDER REPORT
+TEST 81
+BUILD 1d80f771f081
+HEX / 781250 HZ
+PIPE B I CALLS IRQ STAY PT
+0 0 49BB 900 5B 1FBD
+AHEAD B I HIT EDC STOP OS
+0 0 366 19C3 0 172D
+X OW E I C W O
+22 0 0 0 0 21
+BIG N S BACK TOY
+9 3EF 0 0
+SD BLK PIO OVR CRC DECL
+62C1 74 197 0 0
+XC KEPT LO HI
+0 0 0
+K LIGHT EDC MEND MB LB ORD
+16B2 314 7EE 1 0 3
+V SCI TMR GAME N TICKS
+900 A3 49BB 77184 1E0 1178FF
+VMAX SCI TMR GAME D
+45A 4 B46 1B1F
+P RING FEED CHK OUT SVC HALT
+C93DB 619AE 1CCC8 311A2 FE24 543
+D N T SEEK
+55DA 77F214 2B627
+W START SEG CUT WAIT FULL
+8A 82F 3D6 B0 270
+W BYTES WTICK TMR ERR DET
+10E6EDB 3BFF 1 0 0
+W BLK FIX UNFIX HOLED NOCRC SEEK
+7749 94C 39 DB 3 81
+S C S F LF AM BC
+21 3 65 64 0 1
+W FILL REF BAD
+9C 0 3
+                                                                                                                                                                                                                                                                                                                         
+END REPORT
+

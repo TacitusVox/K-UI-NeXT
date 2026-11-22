@@ -167,10 +167,16 @@ enum kui_wce_probe_fat_result kui_wce_probe_fat_find(const struct kui_wce_probe_
     memset(layout,0,sizeof(*layout));
     struct volume f={.v=volume,.work=work};
     if(mount(&f)) return KUI_WCE_PROBE_FAT_VOLUME;
+#ifdef KUI_TOY_WIRE_SAVE_PATH
+    /* The Toy stream survey finds its own file with this lookup
+     * (src/core/toy_survey_fat.c); the probe's build never defines it. */
+    static const struct wanted path[3]={KUI_TOY_WIRE_SAVE_PATH};
+#else
     static const struct wanted path[3]={
         {"KUI",{'K','U','I',' ',' ',' ',' ',' ',' ',' ',' '}},
         {"WCEDATA",{'W','C','E','D','A','T','A',' ',' ',' ',' '}},
         {"WCEDATA.BIN",{'W','C','E','D','A','T','A',' ','B','I','N'}}};
+#endif
     struct found at={.cluster=f.root,.directory=1,.contiguous=0,.bytes=0};
     for(unsigned i=0u;i<3u;i++) {
         if(!at.directory) return KUI_WCE_PROBE_FAT_MISSING;

@@ -39,6 +39,12 @@ int main(void) {
             assert(rehashed<=KUI_SHA256_PREFIX_STRIDE && rehashed==prefix%KUI_SHA256_PREFIX_STRIDE+
                 (prefix && prefix%KUI_SHA256_PREFIX_STRIDE==0 && prefix/KUI_SHA256_PREFIX_STRIDE>=p.count?KUI_SHA256_PREFIX_STRIDE:0u));
         }
+        /* A checkpoint from this allocation cannot attest another pointer. */
+        uint8_t other[1]={0},unchanged[32];memset(unchanged,0x5a,sizeof(unchanged));
+        memcpy(got,unchanged,sizeof(got));
+        size_t rejected=1u;
+        assert(!kui_sha256_prefix_digest(&p,other,0u,got,&rejected) && rejected==0u);
+        assert(!memcmp(got,unchanged,sizeof(got)));
         /* Without marks every prefix still hashes correctly, from the start. */
         struct kui_sha256 *saved=p.marks;size_t count=p.count;p.marks=NULL;p.count=0;
         size_t rehashed;assert(kui_sha256_prefix_digest(&p,data,total,got,&rehashed));

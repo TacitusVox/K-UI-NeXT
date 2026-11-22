@@ -14,11 +14,11 @@ static void mkdir_if_missing(const char *path) {
     assert(result==FR_OK || result==FR_EXIST);
 }
 
-static void install_file(const char *directory,const char *id,const char *name) {
+static void install_file(const char *directory,const char *folder,const char *name) {
     char host[1024],card[256];
     int n=snprintf(host,sizeof(host),"%s/%s",directory,name);
     assert(n>0 && (size_t)n<sizeof(host));
-    n=snprintf(card,sizeof(card),"%s/%s/%s",KUI_THEME_ROOT,id,name);
+    n=snprintf(card,sizeof(card),"%s/%s",folder,name);
     assert(n>0 && (size_t)n<sizeof(card));
     FILE *source=fopen(host,"rb");
     FIL target;
@@ -32,16 +32,18 @@ static void install_file(const char *directory,const char *id,const char *name) 
     assert(!ferror(source) && !fclose(source) && f_close(&target)==FR_OK);
 }
 
-static void install_pack(int argc,char **argv) {
+static void install_pack(int argc,char **argv,bool managed) {
+    const char *root=managed?KUI_THEME_MANAGED_ROOT:KUI_THEME_ROOT;
     const char *id=argv[2];
     assert(kui_theme_id_valid(id));
     mkdir_if_missing("0:/KUI");
-    mkdir_if_missing(KUI_THEME_ROOT);
+    if(managed)mkdir_if_missing("0:/KUI/assets");
+    mkdir_if_missing(root);
     char folder[128];
-    int n=snprintf(folder,sizeof(folder),"%s/%s",KUI_THEME_ROOT,id);
+    int n=snprintf(folder,sizeof(folder),"%s/%s",root,id);
     assert(n>0 && (size_t)n<sizeof(folder));
     mkdir_if_missing(folder);
-    for(int i=3;i<argc;i++) install_file(argv[1],id,argv[i]);
+    for(int i=3;i<argc;i++) install_file(argv[1],folder,argv[i]);
 }
 
 static void set_id(char id[KUI_THEME_ID_BYTES],const char *value) {
@@ -112,9 +114,12 @@ bool theme_install_test(int argc,char **argv) {
         for(unsigned i=0;i<catalog.count;i++) printf("PACK %s\n",catalog.themes[i].id);
         return false;
     }
-    if(!strcmp(argv[0],"install")) {
+    if(!strcmp(argv[0],"install") || !strcmp(argv[0],"install-factory")) {
         assert(argc>=4);
-        install_pack(argc,argv);
+        install_pack(argc,argv,!strcmp(argv[0],"install-factory"));
+    } else if(!strcmp(argv[0],"factory-index")) {
+        assert(argc==2);
+        install_file(argv[1],KUI_THEME_MANAGED_ROOT,"index.txt");
     } else if(!strcmp(argv[0],"save")) {
         assert(argc==4);
         struct kui_theme_settings settings;
@@ -124,7 +129,8 @@ bool theme_install_test(int argc,char **argv) {
         set_id(settings.header_id,argv[3]);
         assert(kui_theme_settings_save(&settings,NULL));
     } else if(!strcmp(argv[0],"remove")) {
-        assert(argc==2 && !strncmp(argv[1],KUI_THEME_ROOT "/",sizeof(KUI_THEME_ROOT)));
+        assert(argc==2 && (!strncmp(argv[1],KUI_THEME_ROOT "/",sizeof(KUI_THEME_ROOT)) ||
+                           !strncmp(argv[1],KUI_THEME_MANAGED_ROOT "/",sizeof(KUI_THEME_MANAGED_ROOT))));
         assert(f_unlink(argv[1])==FR_OK);
     } else {
         assert(!strcmp(argv[0],"damage") && argc==2);

@@ -146,6 +146,11 @@ static void setup_movie_card(unsigned first_token_delay, unsigned extent_blocks)
     setup_movie_card_extents(first_token_delay, extent_blocks, false);
 }
 
+#if KUI_TOY_CDDA_HOOK
+/* Test 84 (HOOK): the worker's player the stage would hand the auxiliary;
+ * a test that sets it has every configuration below carry it. */
+static kui_toy_cdda_player toy_cdda_test_player;
+#endif
 static struct kui_native_ra_config movie_configuration(void) {
     struct kui_native_ra_config configuration = {
         .version = KUI_NATIVE_RA_VERSION,
@@ -158,6 +163,9 @@ static struct kui_native_ra_config movie_configuration(void) {
         .suite_source = 1u,
 #if KUI_TOY_SUITE_MOVIE_POLL
         .toy_poll_owner = 1u,
+#endif
+#if KUI_TOY_CDDA_HOOK
+        .cdda_player = toy_cdda_test_player,
 #endif
     };
     return configuration;

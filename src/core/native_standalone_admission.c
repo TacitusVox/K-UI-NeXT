@@ -13,7 +13,7 @@ bool __attribute__((noipa)) kui_native_standalone_launch_prepare(struct kui_reta
 bool __attribute__((noipa)) kui_native_standalone_launch_prepare(struct kui_retail_manifest *m) {
     return m && m->storage_transport==KUI_STORAGE_SCI &&
        m->reader==KUI_RETAIL_READER_ASYNC &&
-       m->track_count && m->track_count<=KUI_RETAIL_ASYNC_SLOTS &&
+       m->track_count && m->track_count<=KUI_RETAIL_IMAGE_TRACKS && m->track_count<=KUI_RETAIL_ASYNC_SLOTS &&
        m->extent_count && m->extent_count<=KUI_RETAIL_ASYNC_SLOTS-m->track_count &&
        !(m->flags&~KUI_RETAIL_IMAGE_BOOT_CRC);
 }

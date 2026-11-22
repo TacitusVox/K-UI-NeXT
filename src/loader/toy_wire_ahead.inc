@@ -130,9 +130,17 @@ struct toy_wire_keep {
 #define TOY_WIRE_BLOCK_OFFSET ((TOY_WIRE_STATE_OFFSET+(uint32_t)sizeof(struct kui_wire_stream)+16383u)&~UINT32_C(16383))
 #define TOY_WIRE_TABLE_OFFSET (TOY_WIRE_BLOCK_OFFSET+KUI_WIRE_BLOCK_BYTES)
 #define TOY_WIRE_TABLE_END (TOY_WIRE_TABLE_OFFSET+KUI_WIRE_TABLE_BYTES+KUI_WIRE_BLOCK_BYTES)
+#if KUI_TOY_CDDA_ROOM
+/* Test 84 (ROOM): the stack keeps its top at the arena and is 1,792 bytes,
+ * so its lines are a part of the same last quarter the buffers avoid. */
+_Static_assert(KUI_NATIVE_RA_STACK_END==KUI_NATIVE_RA_DATA_OFFSET &&
+    KUI_NATIVE_RA_STACK_END-KUI_NATIVE_RA_STACK_OFFSET<=4096u,
+    "The private stack ends at the arena and is at most the 4 KiB its cache lines are told by");
+#else
 _Static_assert(KUI_NATIVE_RA_STACK_END==KUI_NATIVE_RA_DATA_OFFSET &&
     KUI_NATIVE_RA_STACK_END-KUI_NATIVE_RA_STACK_OFFSET==4096u,
     "The private stack is the 4 KiB below the arena: that is what its cache lines are told by");
+#endif
 _Static_assert(TOY_WIRE_TABLE_END-TOY_WIRE_BLOCK_OFFSET<=16384u-4096u,
     "Block buffers and tables use none of the stack's cache lines");
 _Static_assert((KUI_WIRE_BLOCK_BYTES+KUI_WIRE_TABLE_BYTES)/32u>=18u+16u,

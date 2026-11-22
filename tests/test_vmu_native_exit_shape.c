@@ -19,7 +19,7 @@ static bool reference(const struct kui_vmu_native_exit *e) {
     case 8:return e->count==3u && e->entries[0] && e->entries[1]==e->entries[0]+8u &&
         e->entries[2] && !e->entries[3] && e->exec_thunk==e->entries[2]+76u;
     case 9:return e->count==3u && e->entries[2] && !e->entries[3] && !e->exec_thunk;
-    case 10:return e->count==3u && e->entries[0] && e->entries[1]==e->entries[0]+8u &&
+    case 10:case 11:return e->count==3u && e->entries[0] && e->entries[1]==e->entries[0]+8u &&
         e->entries[2] && !e->entries[3] && !e->exec_thunk;
     default:return false;
     }
@@ -29,7 +29,7 @@ static void compare(const struct kui_vmu_native_exit *e) {
     if(!e)return;
     const unsigned indices[]={0u,1u,2u,3u,UINT32_MAX};
     for(unsigned i=0;i<sizeof(indices)/sizeof(indices[0]);i++) {
-        unsigned expected=!indices[i] && (e->family==7u || e->family==8u || e->family==10u)?8u:12u;
+        unsigned expected=!indices[i] && (e->family==7u || e->family==8u || e->family==10u || e->family==11u)?8u:12u;
         CHECK(kui_vmu_native_exit_window(e,indices[i])==expected);
     }
 }
@@ -41,7 +41,8 @@ int main(void) {
     CHECK(KUI_VMU_NATIVE_EXIT_FAMILY==1u && KUI_VMU_NATIVE_EXIT_PVR_CLEAR==2u && KUI_VMU_NATIVE_EXIT_PVR_COMPACT==3u &&
         KUI_VMU_NATIVE_EXIT_PAIR_ONLY==4u && KUI_VMU_NATIVE_EXIT_TERMINAL_DISPATCH==5u && KUI_VMU_NATIVE_EXIT_CRT_BOOTSTRAP==6u &&
         KUI_VMU_NATIVE_EXIT_EARLY_PAIR==7u && KUI_VMU_NATIVE_EXIT_EARLY_COMPACT==8u &&
-        KUI_VMU_NATIVE_EXIT_FIRMWARE_CHECK==9u && KUI_VMU_NATIVE_EXIT_EARLY_FIRMWARE_CHECK==10u);
+        KUI_VMU_NATIVE_EXIT_FIRMWARE_CHECK==9u && KUI_VMU_NATIVE_EXIT_EARLY_FIRMWARE_CHECK==10u &&
+        KUI_VMU_NATIVE_EXIT_EARLY_FIRMWARE_LITERAL_POOL==11u);
     compare(NULL);
     const uint32_t families[]={0,1,2,3,4,5,6,7,8,9,10,11,12,UINT32_MAX};
     const uint32_t counts[]={0,1,2,3,4,5,UINT32_MAX};
@@ -69,13 +70,13 @@ int main(void) {
         e.version=(i&1u)?2u:random_word(&state);e.bytes=(i&2u)?52u:random_word(&state);
         e.count=random_word(&state)%6u;compare(&e);
     }
-    for(unsigned family=1;family<=10;family++) {
+    for(unsigned family=1;family<=11;family++) {
         e=(struct kui_vmu_native_exit){.version=2u,.bytes=52u,.family=family,.count=3u,
             .entries={UINT32_C(0x8c020000),UINT32_C(0x8c020008),UINT32_C(0x8c030000),0u},
             .exec_thunk=UINT32_C(0x8c03004c)};
         if(family==4u || family==7u){e.count=2u;e.entries[2]=e.exec_thunk=0u;}
         if(family==6u){e.count=4u;e.entries[3]=UINT32_C(0x8c040000);}
-        if(family==9u || family==10u)e.exec_thunk=0u;
+        if(family==9u || family==10u || family==11u)e.exec_thunk=0u;
         CHECK(reference(&e));compare(&e);
         uint32_t words[13];memcpy(words,&e,sizeof(e));
         for(unsigned word=0;word<13;word++)for(unsigned bit=0;bit<32;bit++) {
@@ -83,6 +84,6 @@ int main(void) {
             words[word]^=UINT32_C(1)<<bit;
         }
     }
-    printf("Exit descriptor reference: %u checks across ten families, null roles, aliases, wrap, invalid tags and bit mutants\n",checks);
+    printf("Exit descriptor reference: %u checks across eleven families, null roles, aliases, wrap, invalid tags and bit mutants\n",checks);
     return 0;
 }

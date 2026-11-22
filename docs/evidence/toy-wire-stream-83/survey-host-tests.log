@@ -1,0 +1,16 @@
+HOST_CC="cc" python3 tests/test_toy_survey.py
+PASS survey file text: 20 slots, 31232 bytes
+PASS FAT32 cluster 512 fragment 0: 1 runs; 20 launches, 16 reports, 52 sectors written, no other changed
+PASS FAT32 cluster 512 fragment 9: 8 runs; 20 launches, 16 reports, 52 sectors written, no other changed
+PASS FAT32 cluster 1024 fragment 5: 4 runs; 20 launches, 16 reports, 52 sectors written, no other changed
+PASS exFAT cluster 4096 fragment 0: 1 runs; 20 launches, 16 reports, 52 sectors written, no other changed
+PASS exFAT cluster 4096 fragment 7: 4 runs; 20 launches, 16 reports, 52 sectors written, no other changed
+PASS exFAT cluster 32768 fragment 0: 1 runs; 20 launches, 16 reports, 52 sectors written, no other changed
+PASS exFAT cluster 1024 fragment 6: 4 runs; 20 launches, 16 reports, 52 sectors written, no other changed
+PASS FAT32 refusals
+PASS exFAT refusals
+PASS stream survey report file
+PASS the stage's survey text on FAT32: a slot for a source and for a disc that is none; one sector written per launch, read back; every refusal leaves the card as it was
+PASS the stage's survey text on exFAT: a slot for a source and for a disc that is none; one sector written per launch, read back; every refusal leaves the card as it was
+PASS the stage's survey text
+PASS tools/toy_survey.py: its blank file is the stage's; 20 launches read back

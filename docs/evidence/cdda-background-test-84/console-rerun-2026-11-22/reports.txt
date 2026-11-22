@@ -1,0 +1,227 @@
+# Test 84 re-run under K-UI 64ae07435de5, 22 November 2026: the CD rows of the new reports decoded (the texts of slots 6 to 10 follow)
+# Read from STREAM.TXT as returned (ID B5829D27CAF13A94DEAFD593D1FDC00A) with tools/toy_survey.py and the CD row layout of src/loader/toy_suite_report_save.inc; every value is hexadecimal in the file.
+
+## slot 006
+  CD P: 9 PLAY, 0 PLAY2, 6 PAUSE, 0 RELEASE; 0 plays ended; 0 laps
+  CD ST: playing, generation 9, repeat 15, first track 28; 3 data reads in a play; 12 progress kept at 3; 0 refused; 0 lost; 15 positions from the play
+  CD SV: version bytes 02 00 09; family 1 (MANATEE 2), identity changes 0, state byte 45, date hash c46d
+         candidates in use: first 0, second 0 surveys; surveys that read the candidates 0, unproved 0
+         AUDIO64 window: non-zero in the first pass no, passes 0, KiB changed 0; skipped for SR.BL 0, timer 0, budget 0, G2 DMA 0
+## slot 007
+  CD P: 3 PLAY, 0 PLAY2, 6 PAUSE, 0 RELEASE; 0 plays ended; 0 laps
+  CD ST: paused, generation 3, repeat 15, first track 17; 0 data reads in a play; 0 progress kept at 3; 0 refused; 0 lost; 1778 positions from the play
+  CD SV: version bytes 01 5a 62; family 5 (AUDIO64), identity changes 0, state byte 00, date hash 1880
+         candidates in use: first 57, second 74 surveys; surveys that read the candidates 1377, unproved 0
+         AUDIO64 window: non-zero in the first pass no, passes 7, KiB changed 0; skipped for SR.BL 0, timer 0, budget 0, G2 DMA 0
+## slot 009
+  CD P: 0 PLAY, 0 PLAY2, 0 PAUSE, 0 RELEASE; 0 plays ended; 0 laps
+  CD ST: no play, generation 0, repeat 0, first track 0; 0 data reads in a play; 0 progress kept at 3; 0 refused; 0 lost; 0 positions from the play
+  CD SV: no survey (the drive never played)
+
+## slot 008: T1207N PLASMA SWORD (launched, no report saved): the stop screen, transcribed from the owner's photo
+  HYBRID / BUILD 4ABC63B0CC58 / NATIVE
+  AUTOMATIC NATIVE ALLOCATOR PROBE
+  PERSISTENT VMU PREPARATION STOPPED
+  PHASE 00000002
+  DETAIL 0000000A
+  SDK SUBMIT 00000000 / INITIALIZER 00000000 / INITIALIZER SLOT 00000000 / ALLOCATE 00000000
+  SCANNED HEAP BEGIN 00000000 / SCANNED HEAP BYTES 00000000
+  PROBE REFUSED - PHOTO THEN POWER OFF
+  DETAIL 00000002
+  LAUNCH STOPPED - PHOTOGRAPH THIS SCREEN / POWER OFF AND ON TO RETURN / ONLY THE SURVEY FILE WAS WRITTEN
+
+## slot 010: T40202N TOKYO XTREME RACER (launched, no report saved): a black screen after the bootstrap (the owner)
+
+# The launch records and reports of slots 6 to 10 as text
+
+==================== slot 006
+-- launch record
+==== SLOT 006 PART 0 ==== ID B5829D27CAF13A94DEAFD593D1FDC00A ==== LAUNCH ====
+SURVEY 83 BUILD 4abc63b0cc58
+PRODUCT T40217N
+TITLE BANGAI-O
+BOOT 1ST_READ.BIN REGION U
+IPCRC B44AFE8C GDICRC 66FE782A BOOTCRC 9AFC1E31 BOOTBYTES 00089BC0
+EXECCRC 9AFC1E31 EXECBYTES 00089BC0
+READER 1 TRANSPORT 1 FLAGS 00000004 SOURCE 1
+TRACKS 37 RAW 3 COOKED 0 AUDIO 34 HDAUDIO 33 MAPPED 34 OTHER 0 EXTENTS 111
+SESSION 0000AFC8 BOOTLBA 00085506
+-- report 1
+K-UI TOY COMMANDER REPORT
+TEST 84
+BUILD 4abc63b0cc58
+HEX / 781250 HZ
+PIPE B I CALLS IRQ STAY PT
+0 0 6239 47D 3AE 1FBD
+AHEAD B I HIT EDC STOP OS
+0 0 3B7 48B 0 3BA
+X OW E I C W O
+D 0 0 0 0 D
+SD BLK PIO OVR CRC DECL
+1ABD EC 83 0 0
+XC KEPT LO HI
+0 0 0
+CD P P2 PA RE END LAP
+9 0 6 0 0 0
+CD ST RD KEEP REF LOST PJ
+1C0F0901 3 C 0 0 F
+CD SV DT B N WIN SKIP
+90002 1045C46D 0 0 0 0
+V SCI TMR GAME N TICKS
+47D 5 6239 BF3F F B9C39
+VMAX SCI TMR GAME D
+1FA 4 6FA 1756
+D N T SEEK
+B091 2E17AC 54B90
+W START SEG CUT WAIT FULL
+EC
+-- report 2
+83 435 29 1
+W BYTES WTICK TMR ERR DET
+2D8F2A C1F 1 0 0
+W BLK FIX UNFIX HOLED NOCRC SEEK
+160A 37B D2 FF 4 EA
+S C S F LF AM BC
+D 1 DE DD 0 1
+W FILL REF BAD
+1F 0 1
+                                                                                                                                                                                                                                                                                                                                                   
+END REPORT
+==================== slot 007
+-- launch record
+==== SLOT 007 PART 0 ==== ID B5829D27CAF13A94DEAFD593D1FDC00A ==== LAUNCH ====
+SURVEY 83 BUILD 4abc63b0cc58
+PRODUCT T12502N
+TITLE MDK2
+BOOT 1ST_READ.BIN REGION U
+IPCRC 34122049 GDICRC 1714D99A BOOTCRC 682D90E3 BOOTBYTES 000B74D4
+EXECCRC 682D90E3 EXECBYTES 000B74D4
+READER 1 TRANSPORT 1 FLAGS 00000004 SOURCE 1
+TRACKS 31 RAW 3 COOKED 0 AUDIO 28 HDAUDIO 27 MAPPED 0 OTHER 0 EXTENTS 39
+SESSION 0000AFC8 BOOTLBA 00085F19
+-- report 1
+K-UI TOY COMMANDER REPORT
+TEST 84
+BUILD 4abc63b0cc58
+HEX / 781250 HZ
+PIPE B I CALLS IRQ STAY PT
+0 0 9E4 3B1 70 1FBD
+AHEAD B I HIT EDC STOP OS
+0 0 AC 991 0 8A3
+X OW E I C W O
+1B 0 0 0 0 1B
+SD BLK PIO OVR CRC DECL
+9971 1C 2C0 0 0
+XC KEPT LO HI
+0 0 0
+CD P P2 PA RE END LAP
+3 0 6 0 0 0
+CD ST RD KEEP REF LOST PJ
+110F0302 0 0 0 0 6F2
+CD SV DT B N WIN SKIP
+625A01 50001880 39004A 5610000 70000 0
+V SCI TMR GAME N TICKS
+3B1 26 9E4 51E95 53 24488
+VMAX SCI TMR GAME D
+3F1 3 5C5 1750
+D N T SEEK
+4616 645067 18B0
+W START SE
+-- report 2
+G CUT WAIT FULL
+1D 304 124 26 3
+W BYTES WTICK TMR ERR DET
+59B4DD 12D8 1 0 0
+W BLK FIX UNFIX HOLED NOCRC SEEK
+2C2C 3B5 0 1C 1 F
+S C S F LF AM BC
+1B 0 2 2 0 0
+W FILL REF BAD
+19 0 0
+                                                                                                                                                                                                                                                                                                                                 
+END REPORT
+==================== slot 008
+-- launch record
+==== SLOT 008 PART 0 ==== ID B5829D27CAF13A94DEAFD593D1FDC00A ==== LAUNCH ====
+SURVEY 83 BUILD 4abc63b0cc58
+PRODUCT T1207N
+TITLE PLASMA SWORD
+BOOT 1ST_READ.BIN REGION U
+IPCRC BB964C80 GDICRC ED6DFEC2 BOOTCRC 0B9BD71C BOOTBYTES 00912C78
+EXECCRC 0B9BD71C EXECBYTES 00912C78
+READER 1 TRANSPORT 1 FLAGS 00000004 SOURCE 1
+TRACKS 66 RAW 3 COOKED 0 AUDIO 63 HDAUDIO 62 MAPPED 63 OTHER 0 EXTENTS 66
+SESSION 0000AFC8 BOOTLBA 00084E62
+-- report 1
+==== SLOT 008 PART 1 ==== ID B5829D27CAF13A94DEAFD593D1FDC00A ==== EMPTY ====
+-- report 2
+==== SLOT 008 PART 2 ==== ID B5829D27CAF13A94DEAFD593D1FDC00A ==== EMPTY ====
+==================== slot 009
+-- launch record
+==== SLOT 009 PART 0 ==== ID B5829D27CAF13A94DEAFD593D1FDC00A ==== LAUNCH ====
+SURVEY 83 BUILD 4abc63b0cc58
+PRODUCT T36807N
+TITLE OMIKRON THE NOMAD SOUL
+BOOT 1ST_READ.BIN REGION U
+IPCRC 19F410F8 GDICRC 78D12897 BOOTCRC D829A676 BOOTBYTES 00103BA4
+EXECCRC D829A676 EXECBYTES 00103BA4
+READER 1 TRANSPORT 1 FLAGS 00000004 SOURCE 1
+TRACKS 5 RAW 3 COOKED 0 AUDIO 2 HDAUDIO 1 MAPPED 2 OTHER 0 EXTENTS 32
+SESSION 0000AFC8 BOOTLBA 00085E80
+-- report 1
+K-UI TOY COMMANDER REPORT
+TEST 84
+BUILD 4abc63b0cc58
+HEX / 781250 HZ
+PIPE B I CALLS IRQ STAY PT
+0 0 3F56 478 5F 1FBD
+AHEAD B I HIT EDC STOP OS
+0 0 147 C77 0 9E3
+X OW E I C W O
+23 0 0 0 0 22
+SD BLK PIO OVR CRC DECL
+6EB9 2E 1BB 0 0
+XC KEPT LO HI
+0 0 0
+CD P P2 PA RE END LAP
+0 0 0 0 0 0
+CD ST RD KEEP REF LOST PJ
+0 0 0 0 0 0
+CD SV DT B N WIN SKIP
+0 0 0 0 0 0
+V SCI TMR GAME N TICKS
+478 8B 3F56 4D280 15A 7E7B8
+VMAX SCI TMR GAME D
+412 4 A9F 1CD0
+D N T SEEK
+5EC0 7B8823 12251
+W START SEG CUT WAIT FULL
+51 3E0 286 A0 9
+-- report 2
+5
+W BYTES WTICK TMR ERR DET
+818683 3A38 1 0 0
+W BLK FIX UNFIX HOLED NOCRC SEEK
+39D7 482 17 98 1 3B
+S C S F LF AM BC
+22 0 2E 2E 0 0
+W FILL REF BAD
+79 0 0
+                                                                                                                                                                                                                                                                                                                                                           
+END REPORT
+==================== slot 010
+-- launch record
+==== SLOT 010 PART 0 ==== ID B5829D27CAF13A94DEAFD593D1FDC00A ==== LAUNCH ====
+SURVEY 83 BUILD 4abc63b0cc58
+PRODUCT T40202N
+TITLE TOKYO XTREME RACER
+BOOT 1ST_READ.BIN REGION U
+IPCRC B601BEB1 GDICRC 5E566A85 BOOTCRC F129E73B BOOTBYTES 00104780
+EXECCRC F129E73B EXECBYTES 00104780
+READER 1 TRANSPORT 1 FLAGS 00000004 SOURCE 1
+TRACKS 21 RAW 3 COOKED 0 AUDIO 18 HDAUDIO 17 MAPPED 18 OTHER 0 EXTENTS 22
+SESSION 0000AFC8 BOOTLBA 00085E7F
+-- report 1
+==== SLOT 010 PART 1 ==== ID B5829D27CAF13A94DEAFD593D1FDC00A ==== EMPTY ====
+-- report 2
+==== SLOT 010 PART 2 ==== ID B5829D27CAF13A94DEAFD593D1FDC00A ==== EMPTY ====

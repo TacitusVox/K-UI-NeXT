@@ -4,6 +4,29 @@ The performance requirement is shared behavior: the next supported game must
 inherit batched reads, complete block validation and fast cold verification
 without adding a title-specific switch or recipe.
 
+### Native executable preparation
+
+Treat executable verification as reader work with virtual VMU both on and off.
+On Evolution 2 the console recorded 19.362 seconds before handoff with New (X)
+and VMU Off. Reading and checksumming the executable took 6.760 seconds,
+proving the live extent took 4.248 seconds and resolving its SDK took 6.800
+seconds. This is the baseline for Test 83, before the shared GUI change.
+
+Ordinary native SCI GDI launches with a compatible mapping seed can reuse a
+completed positive mapping. The GUI checks the full executable and selected
+reader identity, verifies the live prefix, and replays the mapping. A first
+launch or an unusable record takes the normal discovery path, including the
+choice of the standalone reader. The VMU setting controls card ownership.
+Reader-only launches can save their proof under `/KUI/GMCACHE`. Virtual-card
+launches retain their earlier fast lookup and can also read a matching proof
+when that lookup misses. The detached reader keeps its own checks.
+
+Use work counts and compare the final selected module on a first and repeat
+launch. Measure controller-to-handoff and bootstrap-to-game separately on the
+console. WinCE, native CD music adapters, compressed images and physical discs
+use different preparation paths. Assess their actual work before extending a
+native GDI performance claim to them.
+
 The shared image reader batches consecutive physical sectors. GUI executable
 checks use 32 KiB logical batches, including exact final-byte CRC/SHA checks.
 Cold stages use the byte CRC implementation and run their verification code

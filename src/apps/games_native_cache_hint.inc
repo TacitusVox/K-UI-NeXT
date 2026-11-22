@@ -3,6 +3,7 @@
  * This helper does no source read or checksum reuse. Its caller must restrict
  * admission to a path whose detached stage can reject a hint and rediscover
  * from its own freshly loaded image. Exact-owner adapters keep fresh proof. */
+#include "kui/native_sdk_proof_capability.h"
 struct native_cache_hint_workspace {
     DIR directory;
     FILINFO entry;
@@ -24,6 +25,8 @@ static bool native_cache_hint_admitted(const struct kui_retail_manifest *map,boo
      * full source lifetime, then requires exact program length and fresh SHA. */
     return r->driver.image_bytes<=map->boot_bytes &&
         r->driver.load_address==KUI_RETAIL_EXEC_ADDRESS &&
+        (!dual || !kui_vmu_native_pool_overlaps_program(r)) &&
+        kui_native_reader_admits_sdk_proof(package->data,package->info.payload_bytes,dual,r) &&
         (dual || (!arena && r->heap.initializer_slot)) &&
         (!arena || native_cache_dual_lease(package)==r->call.entry_bytes);
 }

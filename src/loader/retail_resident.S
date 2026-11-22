@@ -1,5 +1,9 @@
 /* SPDX-License-Identifier: GPL-3.0-only */
 #include "kui/retail_loader_layout.h"
+#if KUI_NATIVE_STANDALONE_MAP128
+    .global __kui_native_standalone_map_slots
+    .set __kui_native_standalone_map_slots,128
+#endif
 #include "kui/retail_native_disc.h"
 #include "kui/native_sci_priority.h"
 #include "kui/native_sdk_sci_runtime.h"

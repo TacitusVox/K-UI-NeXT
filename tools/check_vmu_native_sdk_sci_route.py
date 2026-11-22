@@ -436,7 +436,8 @@ def assert_c_abi(c,before):
 
 class SDKCPU(InterruptCPU):
     """Actual linked scalar SH with physical aliases and both integer banks."""
-    def __init__(self,resident,seed=0,mask=15,bank=0,blocked=False,owner=b'',*,previous=DEFAULT,vbr=SDK_VBR):
+    def __init__(self,resident,seed=0,mask=15,bank=0,blocked=False,owner=b'',*,previous=DEFAULT,vbr=SDK_VBR,
+                 guard=GUARD,private_top=PRIVATE_TOP):
         key=(id(resident[0]),id(owner))
         if key not in MEMORY_CACHE:
             backing=SH(owner)
@@ -469,7 +470,8 @@ class SDKCPU(InterruptCPU):
         self.loan=REGION+fields.get(LOAN-REGION,LOAN-REGION)
         self.rearms=REGION+fields.get(REARMS-REGION,REARMS-REGION)
         self.write(self.pointer,REGION);self.write(self.active,0);self.write(self.fault,0)
-        self.write(GUARD,0x4b554947);self.write(COOKIE_AT,COOKIE)
+        self.guard=guard;self.private_top=private_top
+        self.write(self.guard,0x4b554947);self.write(COOKIE_AT,COOKIE)
         self.previous=previous
         self.write(DEFAULT_AT,previous);self.write(OWNER_AT,vbr)
         self.write(self.eri_slot,self.callback);self.write(self.rxi_slot,self.callback)
@@ -512,8 +514,8 @@ class SDKCPU(InterruptCPU):
     def callee(self):
         self.calls+=1;continuation=self.pr
         if self.callee_mode=='abi':
-            assert self.sr&0x100000f0==0x100000f0 and self.r[15]==PRIVATE_TOP
-        if self.corrupt_guard:self.write(GUARD,0xbad0bad0)
+            assert self.sr&0x100000f0==0x100000f0 and self.r[15]==self.private_top
+        if self.corrupt_guard:self.write(self.guard,0xbad0bad0)
         for i in range(8):self.r[i]=(0x913579bd+i*0x13579bd+self.calls)&MASK
         self.r[0]=self.callee_return;self.sr^=1
         self.mach^=0xaaaaaaaa;self.macl^=0x55555555;self.pr^=0x13572468

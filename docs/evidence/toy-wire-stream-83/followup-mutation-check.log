@@ -1,0 +1,122 @@
+passes  the tests without a mutation
+caught  the launch record is not read back                         FAIL shown "SURVEY ON / REPORT SAVES TO SLOT 002", not "SURVEY OFF / WRITE NOT READ BACK"
+caught  the read-back is not compared                              FAIL shown "SURVEY ON / REPORT SAVES TO SLOT 002", not "SURVEY OFF / WRITE NOT READ BACK"
+caught  a sector in an extent of the game is taken                 FAIL shown "SURVEY ON / REPORT SAVES TO SLOT 002", not "SURVEY OFF / FILE PLACE 00000C2D"
+caught  an extent is checked one sector short                      FAIL shown "SURVEY ON / REPORT SAVES TO SLOT 002", not "SURVEY OFF / FILE PLACE 00000C2D"
+caught  the map's card size is not asked                           FAIL shown "SURVEY ON / REPORT SAVES TO SLOT 002", not "SURVEY OFF / FILE PLACE 00000C2E"
+caught  the card's size is not asked                               FAIL shown "SURVEY ON / REPORT SAVES TO SLOT 002", not "SURVEY OFF / FILE PLACE 00000C2F"
+caught  the block path is left on for the write                    test-toy-survey-stage: tests/test_toy_survey_stage.c:113: kui_sci_sd_write: Assertion `sd->ready && !sd->bus.transfer_block && toy_survey_wrote_before
+caught  the block path is not given back                           test-toy-survey-stage: tests/test_toy_survey_stage.c:295: scan: Assertion `card.device.sd.bus.transfer_block==block_path' failed.
+caught  no status is asked after a failed identity                 test-toy-survey-stage: tests/test_toy_survey_stage.c:298: scan: Assertion `card.device.sd.ready==!dead' failed.
+caught  no status is asked after a failed write                    test-toy-survey-stage: tests/test_toy_survey_stage.c:298: scan: Assertion `card.device.sd.ready==!dead' failed.
+caught  a card inside a read is asked for its status               test-toy-survey-stage: tests/test_toy_survey_stage.c:298: scan: Assertion `card.device.sd.ready==!dead' failed.
+caught  one status read decides for a card left not ready          test-toy-survey-stage: tests/test_toy_survey_stage.c:298: scan: Assertion `card.device.sd.ready==!dead' failed.
+caught  a card that answers nothing is kept                        test-toy-survey-stage: tests/test_toy_survey_stage.c:298: scan: Assertion `card.device.sd.ready==!dead' failed.
+caught  a card on an unwell port is kept                           test-toy-survey-stage: tests/test_toy_survey_stage.c:298: scan: Assertion `card.device.sd.ready==!dead' failed.
+caught  a card on a port with a latched fault is kept              test-toy-survey-stage: tests/test_toy_survey_stage.c:298: scan: Assertion `card.device.sd.ready==!dead' failed.
+caught  a card that is ready is asked for its status               test-toy-survey-stage: tests/test_toy_survey_stage.c:298: scan: Assertion `card.device.sd.ready==!dead' failed.
+caught  a card not ready at the start is surveyed                  FAIL shown "SURVEY OFF / FILE LOOKUP 00000002", not "SURVEY OFF / CARD NOT READY"
+caught  the stop screen is not told of the write                   test-toy-survey-stage: tests/test_toy_survey_stage.c:113: kui_sci_sd_write: Assertion `sd->ready && !sd->bus.transfer_block && toy_survey_wrote_before
+caught  the stop screen keeps an earlier launch's write            test-toy-survey-stage: tests/test_toy_survey_stage.c:308: off: Assertion `lines==1u && !toy_survey_seed.test && io.writes==writes && toy_survey_wrote=
+caught  audio tracks without their files count as mapped           FAIL the launch record of slot 0:
+caught  an unwell port passes                                      FAIL shown "SURVEY OFF / WRITE NOT READ BACK", not "SURVEY OFF / CARD WRITE 00000000"
+caught  a latched fault passes                                     FAIL shown "SURVEY OFF / WRITE NOT READ BACK", not "SURVEY OFF / CARD WRITE 00000000"
+caught  a failed write gives a seed                                test-toy-survey-stage: tests/test_toy_survey_stage.c:308: off: Assertion `lines==1u && !toy_survey_seed.test && io.writes==writes && toy_survey_wrote=
+caught  a record not read back gives a seed                        test-toy-survey-stage: tests/test_toy_survey_stage.c:308: off: Assertion `lines==1u && !toy_survey_seed.test && io.writes==writes && toy_survey_wrote=
+caught  the record goes to the slot's second sector                FAIL shown "SURVEY OFF / WRITE NOT READ BACK", not "SURVEY ON / REPORT SAVES TO SLOT 000"
+caught  the Legacy reader is surveyed                              FAIL shown "SURVEY ON / REPORT SAVES TO SLOT 002", not "SURVEY OFF / NOT THE NEW (X) READER"
+caught  a launch with the virtual VMU is surveyed                  FAIL shown "SURVEY ON / REPORT SAVES TO SLOT 002", not "SURVEY OFF / NOT THE NEW (X) READER"
+caught  the map's transport is not asked                           FAIL shown "SURVEY ON / REPORT SAVES TO SLOT 002", not "SURVEY OFF / NOT THE SCI CARD"
+caught  the card's transport is not asked                          FAIL shown "SURVEY ON / REPORT SAVES TO SLOT 002", not "SURVEY OFF / NOT THE SCI CARD"
+caught  a partition past 32 bits is taken                          FAIL shown "SURVEY OFF / FILE LOOKUP 00000002", not "SURVEY OFF / NOT THE SCI CARD"
+caught  the slot's places are not asked                            FAIL shown "SURVEY OFF / CARD WRITE 00000000", not "SURVEY OFF / FILE PLACE 00000C2D"
+caught  the write does not ask the place                           test-toy-survey-stage: tests/test_toy_survey_stage.c:470: standing: Assertion `toy_survey_write(EXTENTS_AT+7u,blank)==-1 && toy_survey_write(EXTENTS_A
+caught  a card without an identity gets a seed                     test-toy-survey-stage: tests/test_toy_survey_stage.c:308: off: Assertion `lines==1u && !toy_survey_seed.test && io.writes==writes && toy_survey_wrote=
+caught  an earlier launch's seed stays                             test-toy-survey-stage: tests/test_toy_survey_stage.c:308: off: Assertion `lines==1u && !toy_survey_seed.test && io.writes==writes && toy_survey_wrote=
+caught  the executable's checksum is the map's                     FAIL the launch record of slot 0:
+caught  audio tracks below the session count as high               FAIL the launch record of slot 0:
+caught  a cooked track counts as raw                               FAIL the launch record of slot 1:
+caught  the survey's seed is not handed on                         test-toy-survey-stage: tests/test_toy_survey_stage.c:370: good: Assertion `!memcmp(&out,&toy_survey_seed,sizeof(out)) && out.test==66u && out.bytes==6
+caught  a disc that is no source gets no seed                      test-toy-survey-stage: tests/test_toy_survey_stage.c:370: good: Assertion `!memcmp(&out,&toy_survey_seed,sizeof(out)) && out.test==66u && out.bytes==6
+caught  the survey is not looked for                               FAIL shown "", not "SURVEY ON / REPORT SAVES TO SLOT 000"
+caught  the survey is looked for before the source is known        FAIL the launch record of slot 0:
+caught  the probe's file is looked for                             FAIL lookup
+caught  a slot with one blank sector is claimed                    FAIL a slot whose last sector is behind the partition
+caught  a slot with two blank sectors is claimed                   FAIL a slot whose last sector is behind the partition
+caught  a slot's sector that is not read ends the search           FAIL a slot with a sector not read is passed over
+caught  a card that gives nothing is asked for every slot          FAIL the search gives up at four sectors not read
+caught  a slot whose sector is not read is claimed                 FAIL a slot whose last sector is behind the partition
+caught  a file with sectors not read is called full                FAIL no blank slot and a sector not read: not called full
+caught  the file's size is not asked                               FAIL wrong size refused
+caught  the first sector is not held to its exact text             FAIL bad slot count refused
+caught  the seed names the launch record's sector                  FAIL seed
+caught  the seed's checksums are the wrong sectors'                FAIL the worker finds the blank sectors it was told of
+caught  the seed has no card                                       FAIL seed
+caught  the seed's capacity flag is lost                           FAIL seed
+caught  the seed is not sealed                                     FAIL seed
+caught  a blank sector does not name its part                      FAIL blank sectors differ
+caught  a blank sector does not name its slot                      FAIL blank sectors differ
+caught  a blank sector does not name its file                      FAIL and is a launch record
+caught  a sector outside the partition is read                     FAIL a slot whose last sector is behind the partition
+caught  a count of the map can run the record over                 FAIL the widest launch record fits
+caught  text that is no text goes into the record                  FAIL odd text
+caught  the claim is of the slot after                             FAIL next blank slot
+caught  the record is written at its place in the partition        FAIL shown "SURVEY OFF / WRITE NOT READ BACK", not "SURVEY ON / REPORT SAVES TO SLOT 000"
+caught  the record is read back from its place in the partition    FAIL shown "SURVEY OFF / WRITE NOT READ BACK", not "SURVEY ON / REPORT SAVES TO SLOT 000"
+caught  the lookup is given the card, not the partition            test-toy-survey-stage: tests/test_toy_survey_stage.c:88: kui_retail_storage_read_run: Assertion `lba>=manifest.partition_start && lba<manifest.partiti
+caught  the lookup places an exFAT file from the card's first sector FAIL lookup
+caught  the lookup places a FAT32 file from the card's first sector FAIL lookup
+caught  the card's first sector is taken                           test-toy-survey-stage: tests/test_toy_survey_stage.c:470: standing: Assertion `toy_survey_write(EXTENTS_AT+7u,blank)==-1 && toy_survey_write(EXTENTS_A
+caught  a sector before the partition is taken                     test-toy-survey-stage: tests/test_toy_survey_stage.c:114: kui_sci_sd_write: Assertion `lba>=manifest.partition_start && lba<manifest.partition_end &&
+caught  a sector behind the partition is taken                     test-toy-survey-stage: tests/test_toy_survey_stage.c:114: kui_sci_sd_write: Assertion `lba>=manifest.partition_start && lba<manifest.partition_end &&
+caught  a sector before the partition is read                      FAIL a file whose first sector is before the partition
+caught  a sector behind the partition is read                      FAIL a slot whose last sector is behind the partition
+caught  the card is written at the sector's place in the partition FAIL shown "SURVEY OFF / WRITE NOT READ BACK", not "SURVEY ON / REPORT SAVES TO SLOT 000"
+caught  the card is read behind the sector by the partition's start FAIL shown "SURVEY OFF / FILE LOOKUP 00000002", not "SURVEY ON / REPORT SAVES TO SLOT 000"
+caught  the seed names places counted from the partition           test-toy-survey-stage: tests/test_toy_survey_stage.c:375: good: Assertion `out.lba[i]==file_lba[kui_toy_survey_sector(slot,1u+i)] && out.lba[i]>=part_
+caught  the partition's end is one sector late for a write         test-toy-survey-stage: tests/test_toy_survey_stage.c:114: kui_sci_sd_write: Assertion `lba>=manifest.partition_start && lba<manifest.partition_end &&
+caught  the partition's end is one sector late for a read          FAIL a slot whose last sector is behind the partition
+caught  the partition's start is one sector late for a read        FAIL a file whose first sector is the partition's first
+caught  only the game's last extent is asked                       FAIL shown "SURVEY ON / REPORT SAVES TO SLOT 002", not "SURVEY OFF / FILE PLACE 00000C2D"
+caught  every data track that is not raw counts as cooked          FAIL the launch record of slot 3:
+caught  the title is cut at 40 characters                          FAIL the launch record of slot 3:
+caught  the launch line's tens are the slot's hundreds             test-toy-survey-stage: tests/test_toy_survey_stage.c:715: main: Assertion `lines==1u && !strcmp(shown[0],numbers[i].text)' failed.
+caught  a slot count above 989 is refused                          FAIL slot count parses
+caught  only the game's first extent is asked                      FAIL shown "SURVEY ON / REPORT SAVES TO SLOT 002", not "SURVEY OFF / FILE PLACE 00000C2E"
+caught  the game's last extent is not asked                        FAIL shown "SURVEY ON / REPORT SAVES TO SLOT 002", not "SURVEY OFF / FILE PLACE 00000C2F"
+caught  an audio track at the session's first sector is no CD music FAIL the launch record of slot 3:
+caught  a Mode 2 track counts as raw                               FAIL the launch record of slot 3:
+caught  a track of another sector size counts as cooked            FAIL the launch record of slot 3:
+caught  the title is given the product's length                    FAIL the launch record of slot 3:
+caught  the title is not cut                                       FAIL the widest launch record fits
+caught  the boot file's name is not cut                            FAIL the widest launch record fits
+caught  the region is not cut                                      FAIL the widest launch record fits
+caught  the launch line has no tens of the slot                    test-toy-survey-stage: tests/test_toy_survey_stage.c:715: main: Assertion `lines==1u && !strcmp(shown[0],numbers[i].text)' failed.
+caught  the launch line has no hundreds of the slot                test-toy-survey-stage: tests/test_toy_survey_stage.c:715: main: Assertion `lines==1u && !strcmp(shown[0],numbers[i].text)' failed.
+caught  a file in more pieces than the lookup maps is taken        FAIL shown "SURVEY OFF / FILE CHECK 00000001", not "SURVEY OFF / FILE LOOKUP 00000005"
+caught  the search gives up at five sectors not read               FAIL the search gives up at four sectors not read
+caught  a read counts whose stop the card did not take             test-toy-survey-stage: tests/test_toy_survey_stage.c:130: kui_vmu_sd_identity_read: Assertion `sd==&card.device.sd && owned && !stream_open && !io.in_
+caught  a read counts that failed and was stopped                  test-toy-survey-stage: tests/test_toy_survey_stage.c:533: standing: Assertion `lines==1u && !strncmp(shown[0],"SURVEY OFF / FILE ",18u) && !toy_survey
+caught  a seed from Card Tools is refused without the survey's file test-toy-survey-stage-card-tools: tests/test_toy_survey_stage.c:667: card_tools: Assertion `!memcmp(&out,&wanted,sizeof(out))' failed.
+caught  a disc that is no source takes a seed from Card Tools      test-toy-survey-stage-card-tools: tests/test_toy_survey_stage.c:668: card_tools: Assertion `!out.test && !out.lba[0] && !out.lba[1]' failed.
+caught  a seed from Card Tools comes before the survey's           test-toy-survey-stage-card-tools: tests/test_toy_survey_stage.c:680: card_tools: Assertion `!memcmp(&out,&toy_survey_seed,sizeof(out)) && memcmp(&out,
+caught  every launch is taken for a surveyed one                   test-toy-survey-stage-card-tools: tests/test_toy_survey_stage.c:667: card_tools: Assertion `!memcmp(&out,&wanted,sizeof(out))' failed.
+caught  the tool calls a cut-off report saved                      assert entry["slot"] == slot and entry["state"] == expect[slot], (entry, expect[slot])
+caught  the tool calls any two sectors a report                    assert entry["slot"] == slot and entry["state"] == expect[slot], (entry, expect[slot])
+caught  the tool asks no report for its first line                 assert entry["slot"] == slot and entry["state"] == expect[slot], (entry, expect[slot])
+caught  the tool asks no report for its last line                  assert entry["slot"] == slot and entry["state"] == expect[slot], (entry, expect[slot])
+caught  the tool lists a damaged slot as empty                     assert entry["slot"] == slot and entry["state"] == expect[slot], (entry, expect[slot])
+caught  the tool takes a report without a launch record for a launch assert entry["slot"] == slot and entry["state"] == expect[slot], (entry, expect[slot])
+caught  the tool takes any slot's launch record                    assert entry["slot"] == slot and entry["state"] == expect[slot], (entry, expect[slot])
+caught  the tool takes a launch record that does not end its line  assert entry["slot"] == slot and entry["state"] == expect[slot], (entry, expect[slot])
+caught  the tool does not say where a launch record stops          assert entry["launch"].get("damaged") == damaged_launch.get(slot), entry
+caught  the tool does not list a damaged launch record             assert ("LAUNCH RECORD DAMAGED at its %s line" % damaged_launch.get(slot) in line) == (slot in damaged_launch), line
+caught  the tool does not hold the first sector to its text        assert status == 1 and not out and why in complaints, (name, status, complaints)
+caught  the tool does not ask the file's size                      raise AssertionError("a damaged file was read")
+caught  the tool makes 20 slots whatever is asked                  assert status == 0 and not complaints and len(data) == 512 * (1 + 3 * 100), (status, complaints)
+caught  the tool's blank file has 1000 slots unless told           the test stopped
+caught  the tool counts slots modulo 100                           assert (out / "blank-999.txt").read_bytes() == toy_survey.blank_file(FILE_ID, toy_survey.SLOTS_MAX), \
+caught  the tool's CD music column is every audio track            assert listed[0] == ("slot 000: report saved: T-12345N SURVEY GAME NUMBER A (build %s; source 0; tracks 5, "
+caught  the tool gives every blank file one ID                     assert files[0] != files[1], "two blank files share an ID"
+caught  the tool takes an ID of any length                         assert status == 1 and not out and why in complaints and not refused.exists(), (arguments, status, complaints)
+120 mutations: 120 caught, 0 missed, 0 stale, 0 that do not compile

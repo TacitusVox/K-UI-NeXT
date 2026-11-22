@@ -257,6 +257,141 @@ class LibraryStartupBundleTests(unittest.TestCase):
                              [ce['archive']])
         self.assertEqual(sweep.verdict(native)[1], 'not_native')
 
+    def test_cd_audio_only_copies_regular_cd_audio_games_and_their_sound_drivers(self):
+        delta = self.games / 'Delta CDDA'
+        manatee = b'MANATEE driver bytes ' * 12
+        audio64 = b'AUDIO64 driver bytes ' * 9
+        add_root_records(delta, record(b'MANATEE.DRV;1', SESSION + 22, len(manatee)),
+                         record(b'AUDIO64.DRV;1', SESSION + 23, len(audio64)))
+        patch(delta, 22, 0, manatee)
+        patch(delta, 23, 0, audio64)
+        # Another regular game with CD audio and the same MANATEE.DRV, and a Windows CE game with CD audio.
+        for name, title, mark in (('Kappa CDDA', b'Kappa Audio Fixture', b'KAPPA'), ('Lambda CE CDDA', b'Lambda CE Audio', b'LAMBD')):
+            folder = self.games / name
+            make_fixture(folder, title=title)
+            patch(folder, 21, 0, mark)
+            (folder / 'track04.raw').write_bytes(bytes(4 * RAW))
+            (folder / 'disc.gdi').write_text(
+                '4\n1 0 4 2352 track01.bin 0\n2 4 0 2352 track02.raw 0\n'
+                '3 45000 4 2352 track03.bin 0\n4 45070 0 2352 track04.raw 0\n', encoding='ascii')
+        add_root_records(self.games / 'Kappa CDDA', record(b'MANATEE.DRV;1', SESSION + 22, len(manatee)))
+        patch(self.games / 'Kappa CDDA', 22, 0, manatee)
+        patch(self.games / 'Lambda CE CDDA', 0, 56, b'0000001')
+        first, _ = self.build()
+        sent = next(row for row in first if row['source'] == 'Delta CDDA/disc.gdi')
+        known = self.folder / 'already-sent.json'
+        known.write_text(json.dumps({'startups': [{'title': 'Delta', 'startup_key': sent['startup_key']}]}))
+        self.output = self.folder / 'out-audio'
+        self.output.mkdir()
+        before = self.hashes()
+        extracted = []
+        extract = library.disc.extract
+        library.disc.extract = lambda descriptor, *more: extracted.append(descriptor.parent.name) or extract(descriptor, *more)
+        try:
+            rows, created = self.build(known_path=known, cd_audio_only=True, name='CD-audio')
+        finally:
+            library.disc.extract = extract
+        self.assertEqual(self.hashes(), before, 'source tracks are read only')
+        status = {row['source']: row['status'] for row in rows}
+        self.assertEqual(status, {
+            'Alpha/disc.gdi': 'not_cd_audio', 'Alpha copy/disc.gdi': 'not_cd_audio',
+            'Beta/disc.gdi': 'not_cd_audio', 'Broken/disc.gdi': 'error',
+            'Delta CDDA/disc.gdi': 'bundled', 'Eta (USA)/game.cue': 'not_cd_audio',
+            'Gamma CE/disc.gdi': 'not_cd_audio', 'Kappa CDDA/disc.gdi': 'bundled',
+            'Lambda CE CDDA/disc.gdi': 'not_cd_audio', 'Zeta-2048/disc.gdi': 'not_cd_audio',
+            'Epsilon/game.cdi': 'other_format', 'Loose/game.iso': 'other_format'})
+        # Only images whose descriptor lists a high-density audio track are read at all
+        # (and the one whose descriptor cannot be read, which then fails).
+        self.assertEqual(sorted(extracted), ['Broken', 'Delta CDDA', 'Kappa CDDA', 'Lambda CE CDDA'])
+        by = {row['source']: row for row in rows}
+        self.assertEqual(by['Alpha/disc.gdi']['title'], 'Alpha Fixture', 'a game that is not copied is still named')
+        self.assertEqual(by['Delta CDDA/disc.gdi']['startup_key'], sent['startup_key'], 'sent before, copied again')
+        self.assertIs(by['Lambda CE CDDA/disc.gdi']['windows_ce'], True)
+        self.assertEqual([path.name for path in created], ['CD-audio-sound-drivers.zip', 'CD-audio-01.zip'])
+        self.assertEqual(sorted(self.output.iterdir()), sorted(created), 'no staging files remain')
+        with zipfile.ZipFile(created[0]) as drivers:
+            info = json.loads(drivers.read('library.json'))
+            self.assertEqual((info['cd_audio_only'], info['drivers_only'], info['files_left_out']), (True, True, 0))
+            self.assertEqual(info['games'], rows)
+            names = drivers.namelist()
+            digests = {hashlib.sha256(data).hexdigest(): data for data in (audio64, manatee)}
+            self.assertEqual(names, ['library.json', f"games/{by['Delta CDDA/disc.gdi']['slug']}.json",
+                                     f"games/{by['Kappa CDDA/disc.gdi']['slug']}.json"] +
+                             [f'files/{digest}' for digest in digests], 'each distinct driver file once')
+            for digest, data in digests.items():
+                self.assertEqual(drivers.read(f'files/{digest}'), data)
+            delta_game = json.loads(drivers.read(f"games/{by['Delta CDDA/disc.gdi']['slug']}.json"))
+            self.assertEqual([(item['path'], item['copied']) for item in delta_game['sound_files']],
+                             [('AUDIO64.DRV', True), ('MANATEE.DRV', True)])
+            self.assertEqual(delta_game['report']['boot_path'], '1ST_READ.BIN')
+            kappa_game = json.loads(drivers.read(f"games/{by['Kappa CDDA/disc.gdi']['slug']}.json"))
+            self.assertEqual([item['sha256'] for item in kappa_game['sound_files']],
+                             [hashlib.sha256(manatee).hexdigest()])
+            boot = bytes((i * 17 + 3) & 255 for i in range(2048))
+            self.assertFalse(any(boot in drivers.read(name) for name in names), 'no program in the small ZIP')
+        with zipfile.ZipFile(created[1]) as archive:
+            self.assertIs(json.loads(archive.read('library.json'))['cd_audio_only'], True)
+            self.assertEqual([name for name in archive.namelist() if name.startswith('games/')],
+                             [by['Delta CDDA/disc.gdi']['archive'], by['Kappa CDDA/disc.gdi']['archive']])
+            with zipfile.ZipFile(io.BytesIO(archive.read(by['Delta CDDA/disc.gdi']['archive']))) as game:
+                self.assertEqual(game.namelist(), ['1ST_READ.BIN', 'AUDIO64.DRV', 'IP.BIN', 'MANATEE.DRV', 'disc.gdi',
+                                                   'startup-info.json'])
+        # The sweep reads a CD audio run's numbered parts as it reads any other run's.
+        info, merged, blobs, missing = sweep.read_parts(created[1:])
+        bundled = [row for row in merged if row['status'] == 'bundled']
+        self.assertEqual([row['source'] for row in bundled], ['Delta CDDA/disc.gdi', 'Kappa CDDA/disc.gdi'])
+        self.assertEqual(missing, [])
+        for row in bundled:
+            self.assertEqual(hashlib.sha256(sweep.open_game(blobs[row['archive']], row)).hexdigest(), row['boot_sha256'])
+        left_out = next(row for row in merged if row['status'] == 'not_cd_audio')
+        self.assertEqual(sweep.verdict(left_out), ('not copied by a CD audio-only run', 'not_native'))
+        # A file over the small ZIP's bound is listed, not copied.
+        self.output = self.folder / 'out-audio-bound'
+        self.output.mkdir()
+        limit, library.DRIVER_FILE_LIMIT = library.DRIVER_FILE_LIMIT, len(audio64)
+        try:
+            _, created = self.build(cd_audio_only=True, name='CD-audio')
+        finally:
+            library.DRIVER_FILE_LIMIT = limit
+        with zipfile.ZipFile(created[0]) as drivers:
+            self.assertEqual(json.loads(drivers.read('library.json'))['files_left_out'], 2)
+            self.assertEqual([name for name in drivers.namelist() if name.startswith('files/')],
+                             [f'files/{hashlib.sha256(audio64).hexdigest()}'])
+
+    def test_cd_audio_only_passes_over_a_chd_without_audio_tracks_unextracted(self):
+        fake = self.folder / 'chdman'
+        fake.write_text('#!/bin/sh\n'
+                        'case "$1 $3" in\n'
+                        '  info*music*) printf "Metadata: Tag=CHGD\\n TRACK:1 TYPE:MODE1_RAW SUBTYPE:NONE\\n'
+                        ' TRACK:2 TYPE:AUDIO SUBTYPE:NONE\\n TRACK:3 TYPE:MODE1_RAW\\n TRACK:4 TYPE:AUDIO\\n";;\n'
+                        '  info*plain*) printf " TRACK:1 TYPE:MODE1_RAW\\n TRACK:2 TYPE:AUDIO\\n TRACK:3 TYPE:MODE1_RAW\\n";;\n'
+                        '  info*silent*) printf " TRACK:1 TYPE:MODE1_RAW\\n";;\n'
+                        '  info*) echo "chdman cannot say";;\n'
+                        '  *) echo "extract refused" >&2; exit 1;;\n'
+                        'esac\n')
+        fake.chmod(0o755)
+        chd_root = self.folder / 'CHD'
+        chd_root.mkdir()
+        for name in ('music.chd', 'plain.chd', 'silent.chd', 'odd.chd'):
+            (chd_root / name).write_bytes(b'chd')
+        self.assertEqual([library.chd_audio_tracks(str(fake), chd_root / name)
+                          for name in ('music.chd', 'plain.chd', 'silent.chd', 'odd.chd')], [2, 1, 0, None])
+        self.assertIsNone(library.chd_audio_tracks(str(self.folder / 'missing-chdman'), chd_root / 'music.chd'))
+        rows, _ = library.build(chd_root, self.output, 'CD-audio', 0, log=lambda line: None,
+                                chdman=str(fake), cd_audio_only=True)
+        by = {row['source']: row for row in rows}
+        # Written out only when the track list has CD music or does not say; this chdman then refuses.
+        self.assertEqual({source: row['status'] for source, row in by.items()},
+                         {'music.chd': 'error', 'odd.chd': 'error', 'plain.chd': 'not_cd_audio',
+                          'silent.chd': 'not_cd_audio'})
+        self.assertEqual(by['plain.chd']['converted_from'], 'chd')
+        self.assertIn('extract refused', by['music.chd']['error'])
+        # Without the CD audio run every CHD is written out, as before.
+        self.output = self.folder / 'out-all'
+        self.output.mkdir()
+        rows, _ = library.build(chd_root, self.output, 'Library-startup', 0, log=lambda line: None, chdman=str(fake))
+        self.assertEqual({row['status'] for row in rows}, {'error'})
+
     def test_chd_images_read_through_chdman_match_their_gdi(self):
         chdman = shutil.which('chdman')
         if not chdman:

@@ -21,6 +21,15 @@ static void toy_report_row(char **at,const char *label,const uint32_t *values,un
 
 #if KUI_TOY_WIRE_STREAM
 #include "kui/toy_wire_report.h"
+#if KUI_TOY_CDDA_DRIVE
+#include "kui/toy_cdda_player.h"
+#endif
+#if KUI_TOY_CDDA_SURVEY
+#include "kui/toy_cdda_survey.h"
+static uint32_t toy_cdda_cap(uint32_t value,uint32_t most) {
+    return value>most?most:value;
+}
+#endif
 /* Test 68 has more to say than fixed-width rows leave room for in the two
  * report sectors. A row whose values are written without leading zeros,
  * and only if all of it fits before `end`: a row is never cut short and
@@ -111,8 +120,10 @@ static void toy_report_wire(char **at,const char *end,const struct kui_native_ra
 #if KUI_TOY_WIRE_TITLES
     /* Test 79 adds whose disc it is: 1 the verified Toy Commander, with
      * its hooks and its movie policy; 0 any other title. */
+#if !KUI_TOY_CDDA_DRIVE
     toy_report_short(at,end,"BIG N S BACK TOY",
         (uint32_t[]){w->large_requests,w->large_sectors,w->large_returned,ra->demand.owner_verified},4u);
+#endif
     /* And the low reader's own totals, which the two fixed pages show and
      * a report on the screen alone would not: the blocks it read, those
      * of them by programmed transfers, its receive overruns and its CRC16
@@ -129,6 +140,54 @@ static void toy_report_wire(char **at,const char *end,const struct kui_native_ra
      * the row X counts the windows given up for one.) */
     toy_report_short(at,end,"XC KEPT LO HI",
         (uint32_t[]){w->queries,w->command_seen[0],w->command_seen[1]},3u);
+#endif
+#if KUI_TOY_CDDA_DRIVE
+    /* Test 84 (DRIVE), the drive's audio. What the game asked: PLAYs, PLAY2s,
+     * PAUSEs, RELEASEs; plays that ended once; repeats played (laps). The
+     * rows BIG, K and P of Test 83 have served and make room. */
+    {
+        const struct kui_toy_cdda_drive *cd=&kui_toy_cdda_drive;
+        toy_report_short(at,end,"CD P P2 PA RE END LAP",
+            (uint32_t[]){cd->plays,cd->play2s,cd->pauses,cd->releases,cd->ends,cd->laps},6u);
+        /* ST: the play's state (1 playing, 2 paused, 3 ended, 4 clock lost),
+         * its generation's low byte <<8, the repeat word's low byte <<16 and
+         * its first track <<24. RD: data reads made while a play stood. KEEP:
+         * read progress published with the status kept at 3. REF: plays the
+         * player could not place. LOST: plays the clock lost. PJ: positions
+         * answered from the play. */
+        toy_report_short(at,end,"CD ST RD KEEP REF LOST PJ",
+            (uint32_t[]){cd->state|(cd->generation&255u)<<8|(cd->repeat&255u)<<16|(cd->track&255u)<<24,
+                cd->reads_in_play,cd->keeps,cd->refused,cd->lost,cd->projections},6u);
+    }
+#endif
+#if KUI_TOY_CDDA_SURVEY
+    /* Test 84 (SURVEY), the sound chip as read while the drive played. SV:
+     * the driver's version bytes (sound memory 0x20..0x23). DT: its family
+     * <<28 (1 MANATEE 2, 2 MANATEE 1 from 1.01.37, 3 older MANATEE 1, 4
+     * NAMIHEI, 5 AUDIO64, 6 AUDIO64 hybrid, 7 the sound CPU in reset), the
+     * identity's changes (its version or date) <<24 (to 15), MANATEE's state
+     * word's first byte <<16 (0 for the others) and a hash of its build date. B: surveys that found the first and the second
+     * candidate channel in use by the game, 16 bits each. N: surveys that read
+     * the candidates <<16, and those whose records proved no layout. WIN
+     * (AUDIO64 only): a non-zero word in the first pass of 0x1F4000.. <<31,
+     * passes <<16, KiB changed since the first pass. SKIP: surveys not made
+     * for SR.BL <<24, heartbeats with TMU0 out of the Toy profile <<16, surveys
+     * cut by the bus's budget <<8, surveys not made for G2 DMA; each to 255. */
+    {
+        const struct kui_toy_cdda_survey *sv=&kui_toy_cdda_survey;
+        uint32_t changed=0u;
+        for(unsigned i=0;i<2u;i++)
+            for(uint32_t bits=sv->window_changed[i];bits;bits&=bits-1u)++changed;
+        toy_report_short(at,end,"CD SV DT B N WIN SKIP",
+            (uint32_t[]){sv->version,
+                (sv->family&15u)<<28|toy_cdda_cap(sv->changes,15u)<<24|(sv->state_word&255u)<<16|
+                    (sv->date_hash&0xffffu),
+                toy_cdda_cap(sv->busy[0],0xffffu)<<16|toy_cdda_cap(sv->busy[1],0xffffu),
+                toy_cdda_cap(sv->proved,0xffffu)<<16|toy_cdda_cap(sv->unproved,0xffffu),
+                (sv->window_nonzero?UINT32_C(0x80000000):0u)|toy_cdda_cap(sv->window_passes,0x7fffu)<<16|changed,
+                toy_cdda_cap(sv->skipped_bl,255u)<<24|toy_cdda_cap(sv->skipped_clock,255u)<<16|
+                    toy_cdda_cap(sv->timeouts,255u)<<8|toy_cdda_cap(sv->skipped_dma,255u)},6u);
+    }
 #endif
 #else
     toy_report_short(at,end,"BIG N S BACK",
@@ -166,8 +225,10 @@ static void toy_report_wire(char **at,const char *end,const struct kui_native_ra
 #if KUI_TOY_WIRE_QUERY
     }
 #endif
+#if !KUI_TOY_CDDA_DRIVE
     toy_report_short(at,end,"K LIGHT EDC MEND MB LB ORD",
         (uint32_t[]){w->light,w->edc,w->mends,w->mend_bad,w->light_bad,w->n.order},6u);
+#endif
     toy_report_short(at,end,"V SCI TMR GAME N TICKS",
         (uint32_t[]){w->visit_calls[0],w->visit_calls[1],w->visit_calls[2],
             w->visit_ticks[0],w->visit_ticks[1],w->visit_ticks[2]},6u);
@@ -181,9 +242,11 @@ static void toy_report_wire(char **at,const char *end,const struct kui_native_ra
 #endif
     /* The reader's ticks by what it was doing, as Test 75; then the ticks
      * spent ending streams. */
+#if !KUI_TOY_CDDA_DRIVE
     toy_report_short(at,end,"P RING FEED CHK OUT SVC HALT",
         (uint32_t[]){w->parse_ticks,w->feed_ticks,w->check_ticks,w->publish_ticks,w->service_ticks,
             w->halt_ticks},6u);
+#endif
     /* CAP: the capacity of the player's own buffer as TB's sampling found
      * it, in bytes (Test 73's console run: C9120). Zero: it was never
      * found, and TB says nothing. */
@@ -610,7 +673,7 @@ static void toy_report_format(char *text,const struct kui_native_ra_public *ra,
     toy_report_string(&at,"K-UI TOY COMMANDER REPORT\nTEST ");
 #if KUI_TOY_WIRE_STREAM
     /* Card Tools starts this reader from its Test 66 entry. */
-    test=KUI_TOY_WIRE_TICK?69u:KUI_TOY_WIRE_TIMER?81u:KUI_TOY_WIRE_QUERY?80u:KUI_TOY_WIRE_TITLES?79u:KUI_TOY_WIRE_ANY?78u:KUI_TOY_WIRE_SEQ?77u:KUI_TOY_WIRE_FLUID?76u:KUI_TOY_WIRE_STEADY?75u:KUI_TOY_WIRE_LEAN?74u:KUI_TOY_WIRE_IDLE?73u:KUI_TOY_WIRE_PACE?72u:KUI_TOY_WIRE_WORDS?71u:KUI_TOY_WIRE_CACHED?70u:68u;
+    test=KUI_TOY_CDDA_ROOM?84u:KUI_TOY_WIRE_TICK?69u:KUI_TOY_WIRE_TIMER?81u:KUI_TOY_WIRE_QUERY?80u:KUI_TOY_WIRE_TITLES?79u:KUI_TOY_WIRE_ANY?78u:KUI_TOY_WIRE_SEQ?77u:KUI_TOY_WIRE_FLUID?76u:KUI_TOY_WIRE_STEADY?75u:KUI_TOY_WIRE_LEAN?74u:KUI_TOY_WIRE_IDLE?73u:KUI_TOY_WIRE_PACE?72u:KUI_TOY_WIRE_WORDS?71u:KUI_TOY_WIRE_CACHED?70u:68u;
 #endif
     if(test>=10u)*at++=(char)('0'+test/10u);
     *at++=(char)('0'+test%10u);

@@ -128,6 +128,17 @@ test-toy-test-switches:
 	python3 tests/test_toy_test_switches.py
 test: test-toy-test-switches
 
+# One K-UI for every thread (docs/gui-lines.md): a K-UI build must contain
+# every active line's head. check-gui-lines fetches them; run it before
+# building a K-UI for delivery. test-check-gui-lines holds the check to its
+# cases on a repository of its own.
+.PHONY: check-gui-lines test-check-gui-lines
+check-gui-lines:
+	python3 tools/check_gui_lines.py
+test-check-gui-lines:
+	python3 tests/test_check_gui_lines.py
+test: test-check-gui-lines
+
 .PHONY: test-wince-family7-profiles
 test-wince-family7-profiles:
 	python3 tests/test_wince_family7_profiles.py
@@ -399,6 +410,8 @@ NATIVE_CACHE_SOURCES := src/core/vmu_native_program.c src/core/vmu_native_cache_
     src/core/vmu_native_discovery.c src/core/vmu_native_layout.c src/core/vmu_native_heap.c \
     src/core/vmu_native_exit.c src/core/vmu_native_patch.c src/core/native_sdk_sci_family.c
 ARMADA_PREPARE_TEST_SOURCES += $(NATIVE_CACHE_SOURCES)
+build/test-games-native-cache build/test-games-native-owner-cache build/test-armada-ce-excerpt-prepare \
+build/test-wince-packaged-prepare build/games-retail: src/apps/games_native_repeat.inc include/kui/sha256_prefix.h
 # Both WinCE preparation fixtures include the production Games launcher;
 # retain its real optional-session boundary even for ordinary CE packages.
 ARMADA_PREPARE_TEST_SOURCES += src/apps/native_session_prepare.c src/core/native_session.c \
@@ -452,6 +465,7 @@ build/test-armada-ce-excerpt: tests/test_armada_ce_excerpt.c src/loader/armada_c
 	@mkdir -p $(@D)
 	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) -fno-pie -no-pie $< -o $@
 test: build/test-drive-controls build/test-drive-speed-probe build/test-g1-mode-probe build/test-g1-mode-probe-native build/test-salvage-display
+test: build/cover-rows-host build/test-internet-preview build/test-preview-prefix
 test: build/test-vmu-lcd build/test-vmu-save-format
 test: build/test-recovery-manifest build/scan-fixtures/.stamp build/test-music-ogg-seek build/music-asset-check
 test: build/test-games-selection build/test-zso build/test-lzo1x build/test-retail-zso build/test-retail-lzo build/test-game-launch-settings build/test-game-launch-settings-file build/test-game-ram-patches build/test-game-launch-report build/test-retail-relay-patches
@@ -2316,3 +2330,7 @@ build/render-theme: $(THEME_RENDER_SOURCES) include/kui/theme.h include/kui/shel
 build/test-splash build/theme-image: tests/theme_preview_reference.h
 build/test-splash build/theme-image build/render-theme: src/apps/theme_thumbnail.h include/kui/theme.h
 build/test-splash build/theme-image build/render-theme build/test-shell build/render-shell: include/kui/theme_filter.h
+
+.PHONY: test-native-track-capacity
+test-native-track-capacity:
+	python3 tests/test_native_track_capacity.py

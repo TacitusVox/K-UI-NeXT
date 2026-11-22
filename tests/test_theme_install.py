@@ -136,8 +136,13 @@ def test_card(image, packs, classic):
         expected = (f"THEME {theme}", f"SPLASH {splash}", f"BANNER {banner}", f"FRAME {frame or splash}")
         assert all(line in output for line in expected), (expected, output)
 
+    from pack_theme import stage_all
+    shipping = image.parent / f"{image.stem}-factory"
+    stage_all(shipping, managed=True)
     for pack, item in packs.items():
-        card("install", str(item.directory), pack, *item.files)
+        card("install-factory", str(item.directory), pack, *item.files)
+    card("factory-index", str(shipping))
+    for pack, item in packs.items():
         for component, expected in item.previews.items():
             assert f"PREVIEW {expected}" in card("preview", pack, component).splitlines()
     listed = {line[5:] for line in card("catalog").splitlines() if line.startswith("PACK ")}
@@ -184,11 +189,32 @@ def test_card(image, packs, classic):
     card("damage", older)
     expect_boot(FACTORY, factory["splash"], factory["header"])
     card("save", other, "-", banner)
+    # An existing card can have a personal pack with a factory ID. Its complete
+    # manifest wins for both full images and previews. Its missing artwork must
+    # take the normal built-in fallback instead of borrowing factory artwork.
+    override = packs[FACTORY]
+    card("install", str(override.directory), other, *override.files)
+    assert card("catalog").splitlines().count(f"PACK {other}") == 1
+    expect_boot(other, factory["splash"], packs[banner].images["header"])
+    assert f"PREVIEW {override.previews['splash']}" in card("preview", other, "splash").splitlines()
     splash_name = configparser.ConfigParser()
-    splash_name.read(themes[other].directory / "theme.ini")
+    splash_name.read(override.directory / "theme.ini")
     card("remove", f"0:/KUI/themes/{other}/{splash_name['theme']['splash']}")
     expect_boot(other, "built-in", packs[banner].images["header"], factory["splash"])
+    assert "PREVIEW unavailable" in card("preview", other, "splash").splitlines()
     check_optional_thumbnail(card, image.parent / f"{image.stem}-thumbnail")
+    original = (shipping / "index.txt").read_bytes()
+    factory_index = "0:/KUI/assets/themes/index.txt"
+    for invalid in (original + b"../escape\n", b"x"*32 + b"\n", b"a\x00b\n",
+                    b"a\n"*24, b"a"*737, b"missing-newline"):
+        card("remove", factory_index)
+        (shipping / "index.txt").write_bytes(invalid)
+        card("factory-index", str(shipping))
+        listed = {line[5:] for line in card("catalog").splitlines() if line.startswith("PACK ")}
+        assert listed == {"default", other, "picker-fixture"}
+    card("remove", factory_index)
+    (shipping / "index.txt").write_bytes(original)
+    card("factory-index", str(shipping))
     count = sum(len(item.previews) for item in packs.values())
     print(f"PASS {image.stem}: {count} installed picker thumbnails, missing/damaged/stale preview fallback")
     print(f"PASS {image.stem}: {len(packs)} shipped packs, factory startup, independent saved splash/banner, "

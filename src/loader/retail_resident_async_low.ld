@@ -23,10 +23,11 @@ SECTIONS
         . = ALIGN(4);
         __retail_resident_bss_end = .;
     } :resident
-    __retail_hook_stack_bottom = 0x8c007ba0;
-    __retail_hook_stack = 0x8c007d00;
+    __retail_hook_stack_bottom = DEFINED(__kui_native_standalone_map_slots) ? 0x8c007ea0 : 0x8c007ba0;
+    __retail_hook_stack = __retail_hook_stack_bottom + 352;
+    ASSERT(__retail_hook_stack <= 0x8c008000, "private stack overlaps IP.BIN")
     ASSERT(_start == 0x8c004000, "resident entry moved")
-    ASSERT(__retail_resident_bss_end <= 0x8c007ba0,
+    ASSERT(__retail_resident_bss_end <= __retail_hook_stack_bottom,
            "retail resident overlaps its guarded service stack")
     /DISCARD/ : { *(.comment) *(.note*) *(.eh_frame*) }
 }

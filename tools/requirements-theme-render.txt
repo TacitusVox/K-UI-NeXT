@@ -1,0 +1,4 @@
+# Ubuntu 24.04 x86-64, CPython 3.12. This wheel bundles FreeType 2.14.3.
+# It reproduces the native-size credits on all three factory banners with
+# resources/fonts/DejaVuSans-Bold.ttf and Pillow's BASIC layout engine.
+Pillow==13.0.0 --hash=sha256:42d63be3af4f9b951b199b0a9d23365d37ab14687e6d77b74940432c8515c4ca

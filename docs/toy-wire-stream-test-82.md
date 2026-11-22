@@ -1,11 +1,12 @@
 # Toy Commander Test 82: the virtual VMU beside the stream
 
-Status: built 16 November 2026 (build `af5ebae4f0a5`), host and linked
-checks only. It has not run on a console. A test module, not an accepted
-component, and not a replacement for the installed New reader: it has no
-block prefetch, and no report pages. Delivered behind Tests 80 and 81
-(`docs/toy-wire-stream-test-81.md`), which have not run on a console
-either.
+Status: built 16 November 2026 (build `af5ebae4f0a5`) and run by the
+owner on the console the same day (Console result): "everything seems
+fine", with no detail and no launch record. A test module, not an
+accepted component, and not a replacement for the installed New
+reader: it has no block prefetch, and no report pages. Delivered behind
+Tests 80 and 81 (`docs/toy-wire-stream-test-81.md`), which the owner
+ran before it.
 
 The module is built from `af5ebae4f0a5`: Test 81's source and the change
 (`b604dea`), the corrections its two reviews asked for (`af5ebae`), and
@@ -150,6 +151,30 @@ happened. And `launch-timing.txt` from the card after one launch.
 Before the test, a copy of the card's `KUI/vmu-test` and `KUI/vmu`
 folders is worth the minute it takes: this is the first build that
 reads and writes the game cards' files through this reader.
+
+## Console result
+
+The owner, 16 November 2026, with the photographs of Tests 80 and 81:
+"As for test 82, everything seems fine." And of the stutter seen under
+Test 79: "I don't know if that stutter is real or imagined. Not worth
+hunting down at this very moment."
+
+It was a short run: the message came within a quarter of an hour of
+the archive. Nothing else was reported: not which of the two games
+were run, not whether an old save loaded or a new one was there after
+power off, and no `launch-timing.txt`.
+
+By the outcomes above that is the first one as far as the owner's word
+reaches: the module starts and plays with the virtual VMU on, with
+nothing seen to be wrong. It is the first console run of the installed
+worker's loans against the stream reader. What it does not establish:
+
+- that a save made under this module survives power off and loads
+  again, in either game (asked of the owner again);
+- that a window was open when a loan came, or how often loans came:
+  this module has no page to show it (Known limit 1);
+- the identity of what ran, beyond the owner's having installed the
+  archive: no launch record was sent.
 
 ## Known limits, not changed here
 

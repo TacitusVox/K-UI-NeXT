@@ -10,6 +10,7 @@
 #define KUI_THEME_CATALOG_MAX 24u
 #define KUI_THEME_MANIFEST_MAX 4096u
 #define KUI_THEME_ROOT "0:/KUI/themes"
+#define KUI_THEME_MANAGED_ROOT "0:/KUI/assets/themes"
 #define KUI_THEME_SETTINGS_PATH_A "0:/KUI/apps/system/theme-a.bin"
 #define KUI_THEME_SETTINGS_PATH_B "0:/KUI/apps/system/theme-b.bin"
 #define KUI_THEME_SETTINGS_RECORD_SIZE 256u
@@ -37,6 +38,7 @@ struct kui_theme_definition {
     char assets[KUI_THEME_ASSET_COUNT][KUI_THEME_FILE_BYTES];
     struct kui_theme_palette palette;
     bool banner_only;
+    bool managed; /* Source of the manifest and its artwork; never persisted. */
 };
 struct kui_theme_settings {
     char theme_id[KUI_THEME_ID_BYTES];

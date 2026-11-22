@@ -1,0 +1,258 @@
+# Test 84 console reports, 21 November 2026: the CD rows decoded (the full texts follow)
+# Read from STREAM.TXT as returned (ID B5829D27CAF13A94DEAFD593D1FDC00A) with tools/toy_survey.py; every value is hexadecimal in the file.
+
+## slot 000: MK-51049 CHUCHU ROCKET (launched, no report saved)
+  no report saved
+
+## slot 001: MK-51049 CHUCHU ROCKET (report saved)
+  CD P: 12 PLAY, 0 PLAY2, 18 PAUSE, 0 RELEASE; 1 plays ended; 0 laps
+  CD ST: playing, generation 13, repeat 15, first track 5; 2 data reads in a play; 21 progress kept at 3; 0 refused; 0 lost; 28 positions from the play
+  CD SV: version bytes 02 00 09; family 1 (MANATEE 2), identity changes 0, state byte 45, date hash c46d
+         candidates in use: first 0, second 0 surveys; surveys that read the candidates 2640, unproved 0
+         AUDIO64 window: non-zero in the first pass no, passes 0, KiB changed 0; skipped for SR.BL 0, timer 0, budget 0, G2 DMA 0
+
+## slot 002: MK-57020 TOY COMMANDER (report saved)
+  CD P: 0 PLAY, 0 PLAY2, 2 PAUSE, 0 RELEASE; 0 plays ended; 0 laps
+  CD ST: no play, generation 0, repeat 0, first track 0; 0 data reads in a play; 0 progress kept at 3; 0 refused; 0 lost; 0 positions from the play
+  CD SV: no survey (the drive never played)
+
+## slot 003: MK-57020 TOY COMMANDER (report saved)
+  CD P: 1 PLAY, 0 PLAY2, 4 PAUSE, 0 RELEASE; 0 plays ended; 0 laps
+  CD ST: playing, generation 1, repeat 0, first track 14; 0 data reads in a play; 0 progress kept at 3; 0 refused; 0 lost; 195 positions from the play
+  CD SV: version bytes 01 50 64; family 5 (AUDIO64), identity changes 0, state byte 00, date hash a9ff
+         candidates in use: first 0, second 0 surveys; surveys that read the candidates 196, unproved 0
+         AUDIO64 window: non-zero in the first pass no, passes 1, KiB changed 0; skipped for SR.BL 0, timer 0, budget 0, G2 DMA 0
+
+## slot 004: T3101N THE KING OF FIGHTERS DREAM MATCH 1999 (report saved)
+  CD P: 7 PLAY, 0 PLAY2, 16 PAUSE, 0 RELEASE; 0 plays ended; 0 laps
+  CD ST: playing, generation 7, repeat 0, first track 6; 0 data reads in a play; 0 progress kept at 3; 0 refused; 0 lost; 3420 positions from the play
+  CD SV: version bytes 01 01 3b; family 2 (MANATEE 1 from 1.01.37), identity changes 0, state byte 53, date hash 1c1f
+         candidates in use: first 0, second 0 surveys; surveys that read the candidates 10084, unproved 0
+         AUDIO64 window: non-zero in the first pass no, passes 0, KiB changed 0; skipped for SR.BL 0, timer 0, budget 0, G2 DMA 0
+
+## slot 005: T1711N EVOLUTION2 (report saved)
+  CD P: 0 PLAY, 0 PLAY2, 0 PAUSE, 0 RELEASE; 0 plays ended; 0 laps
+  CD ST: no play, generation 0, repeat 0, first track 0; 0 data reads in a play; 0 progress kept at 3; 0 refused; 0 lost; 0 positions from the play
+  CD SV: no survey (the drive never played)
+
+# The saved reports as text
+
+## slot 001
+K-UI TOY COMMANDER REPORT
+TEST 84
+BUILD 4abc63b0cc58
+HEX / 781250 HZ
+PIPE B I CALLS IRQ STAY PT
+0 0 1E92 63 1E 1FBD
+AHEAD B I HIT EDC STOP OS
+0 0 1E 164 0 122
+X OW E I C W O
+9 0 0 1 0 8
+SD BLK PIO OVR CRC DECL
+2D65 3 EC 0 0
+XC KEPT LO HI
+0 100000 0
+CD P P2 PA RE END LAP
+C 0 12 0 1 0
+CD ST RD KEEP REF LOST PJ
+50F0D01 2 15 0 0 1C
+CD SV DT B N WIN SKIP
+90002 1045C46D 0 A500000 0 0
+V SCI TMR GAME N TICKS
+63 3 1E92 242B 9 1E085
+VMAX SCI TMR GAME D
+1EE 3 617 175C
+D N T SEEK
+4D30 34B591 1580
+W START SEG CUT WAIT FULL
+C 70 2A 3 1
+W BYTES WTICK TMR ERR DET
+DAB0D 183 1 0 0
+W BLK FIX UNFIX HOLED NOCRC SEEK
+676 86 2 6 1 4
+S C S F LF AM BC
+9 0 3 3 0 0
+W FILL REF BAD
+2 0 0
+                                                                                                                                                                                                                                                                                                                                                        
+END REPORT
+
+## slot 002
+K-UI TOY COMMANDER REPORT
+TEST 84
+BUILD 4abc63b0cc58
+HEX / 781250 HZ
+PIPE B I CALLS IRQ STAY PT
+3 3 BB26 20A3 49 1FBD
+AHEAD B I HIT EDC STOP OS
+D5D 1437 30E 2970 0 627
+X OW E I C W O
+E 0 0 2 0 11
+SD BLK PIO OVR CRC DECL
+F73 101 51 0 0
+XC KEPT LO HI
+3EE 400000 4
+CD P P2 PA RE END LAP
+0 0 2 0 0 0
+CD ST RD KEEP REF LOST PJ
+0 0 0 0 0 0
+CD SV DT B N WIN SKIP
+0 0 0 0 0 0
+I SUBMIT CADENCE MAX AT
+15D 15A CA02 A6
+I FIRST LAST SKIP EXIT SF
+98C8E 160 3 7DC A9
+B SUBMIT CADENCE MAX AT
+14B 14A 914A 11D
+IP ON OT OC OI SN ST
+15C 8A362A 8A3ED9 7FE3F 2 C71
+V SCI TMR GAME N TICKS
+20A3 880 BB26 F7918 1EA1 1B6483
+VMAX SCI TMR GAME D
+3D1 B A75 17A6
+D N T SEEK
+B42D 30F7B1 56EB6
+W START SEG CUT WAIT FULL
+F1 A23 192C A7D 17F
+W BYTES WTICK TMR ERR DET
+18D91EE 118D3C 1 0 0
+W BLK FIX UNFIX HOLED NOCRC SEEK
+C005 13E4 11 3F4 14 107
+S C S F LF AM BC
+13 9 D4 D2 0 2
+W FILL REF BAD
+28C 0 9
+BP ON OT OC OI SN ST
+14A 58FBFC 595B51 4EC8F 0 0
+                                                                                              
+END REPORT
+
+## slot 003
+K-UI TOY COMMANDER REPORT
+TEST 84
+BUILD 4abc63b0cc58
+HEX / 781250 HZ
+PIPE B I CALLS IRQ STAY PT
+3 3 11A51 666A 56 1FBD
+AHEAD B I HIT EDC STOP OS
+D5D 64E0 993 7D2B 0 8C1
+X OW E I C W O
+15 0 0 4 0 17
+SD BLK PIO OVR CRC DECL
+F9B 2C7 50 0 0
+XC KEPT LO HI
+1 500000 4
+CD P P2 PA RE END LAP
+1 0 4 0 0 0
+CD ST RD KEEP REF LOST PJ
+E000101 0 0 0 0 C3
+CD SV DT B N WIN SKIP
+645001 5000A9FF 0 C40000 10000 0
+I SUBMIT CADENCE MAX AT
+786 77A B6F5E 47A
+I FIRST LAST SKIP EXIT SF
+98FC7 7B0 2A 7DC 42B
+B SUBMIT CADENCE MAX AT
+14B 14A 91F5 11D
+IP ON OT OC OI SN ST
+785 2C16BD0 2C1E56E 28E86B 4 472B
+V SCI TMR GAME N TICKS
+666A 1A36 11A51 3285C6 59F5 45BBD4
+VMAX SCI TMR GAME D
+400 B A71 1757
+D N T SEEK
+10410 5D76BB F374D
+W START SEG CUT WAIT FULL
+295 1E2D 4E63 203E 5CF
+W BYTES WTICK TMR ERR DET
+4B31B36 3C3BC9 1 0 0
+W BLK FIX UNFIX HOLED NOCRC SEEK
+2435B 3EA5 3B B05 43 2D2
+S C S F LF AM BC
+1B 13 267 266 0 1
+W FILL REF BAD
+721 1 12
+BP ON OT OC OI SN ST
+14A 58B9E2 58F71B 4E651 0 0
+                                              
+END REPORT
+
+## slot 004
+K-UI TOY COMMANDER REPORT
+TEST 84
+BUILD 4abc63b0cc58
+HEX / 781250 HZ
+PIPE B I CALLS IRQ STAY PT
+0 0 2BEEB 5045 396 1FBD
+AHEAD B I HIT EDC STOP OS
+0 0 D2F BDE5 0 BD71
+X OW E I C W O
+21 0 0 3 0 1E
+SD BLK PIO OVR CRC DECL
+5454 9A 1DA 0 0
+XC KEPT LO HI
+0 400000 0
+CD P P2 PA RE END LAP
+7 0 10 0 0 0
+CD ST RD KEEP REF LOST PJ
+6000701 0 0 0 0 D5C
+CD SV DT B N WIN SKIP
+3B0101 20531C1F 0 27640000 0 0
+V SCI TMR GAME N TICKS
+5045 1356 2BEEB 273F75 3862 8638BB
+VMAX SCI TMR GAME D
+445 9 78C 18BC
+D N T SEEK
+39C16 EF05D7 2D81C
+W START SEG CUT WAIT FULL
+9B 3682 2B3E 13BA BF8
+W BYTES WTICK TMR ERR DET
+6E2BA79 18D178 1 0 0
+W BLK FIX UNFIX HOLED NOCRC SEEK
+36968 4219 58 947 3C 8D
+S C S F LF AM BC
+21 1 79 78 0 1
+W FILL REF BAD
+882 0 1
+                                                                                                                                                                                                                                                                                                
+END REPORT
+
+## slot 005
+K-UI TOY COMMANDER REPORT
+TEST 84
+BUILD 4abc63b0cc58
+HEX / 781250 HZ
+PIPE B I CALLS IRQ STAY PT
+0 0 187D 163C 27 1FBD
+AHEAD B I HIT EDC STOP OS
+0 0 4F5 2F86 0 2CEB
+X OW E I C W O
+E 0 0 0 0 D
+SD BLK PIO OVR CRC DECL
+4231 9A 173 0 0
+XC KEPT LO HI
+82F 0 4
+CD P P2 PA RE END LAP
+0 0 0 0 0 0
+CD ST RD KEEP REF LOST PJ
+0 0 0 0 0 0
+CD SV DT B N WIN SKIP
+0 0 0 0 0 0
+V SCI TMR GAME N TICKS
+163C 66 187D DCC75 128 1B7751
+VMAX SCI TMR GAME D
+424 5 A78 1B67
+D N T SEEK
+35D8 490306 33756
+W START SEG CUT WAIT FULL
+93 E44 8C7 6E 4AB
+W BYTES WTICK TMR ERR DET
+1DD0E7A 28DF 1 0 0
+W BLK FIX UNFIX HOLED NOCRC SEEK
+DB6E 143D 31 B3 C 96
+S C S F LF AM BC
+D 3 82 7F 0 3
+W FILL REF BAD
+67 0 3
+                                                                                                                                                                                                                                                                                                                                                    
+END REPORT

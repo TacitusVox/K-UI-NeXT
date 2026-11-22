@@ -1,0 +1,19 @@
+{
+  "schema": 1,
+  "what": "the startup bundler for the owner's PC, with the run over the CD music games (tools/kui-library-startup-bundle.py 2.5); no game bytes",
+  "archive": {
+    "name": "KUI-Startup-Bundler-2.5-CD-Audio-19NOV2026-2323-CST-05ac704.zip",
+    "bytes": 38795,
+    "sha256": "c146b36c792a5ca2f65eaac75b865fd59689d6504ca58697d8ef93ac3566fa41"
+  },
+  "source_commit": "05ac70459b3ec5e9fdc4d6a2930cc7af892743d8",
+  "files": [
+    "kui-library-startup-bundle.py",
+    "kui-cdda-startup-bundle.py",
+    "kui-library-startup-bundle-README.md",
+    "requests.json",
+    "already-sent.json",
+    "README-FIRST.txt",
+    "SHA256SUMS.txt"
+  ]
+}

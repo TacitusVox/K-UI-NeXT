@@ -4,11 +4,30 @@
 # The Standard paced 72 KiB module remains independently linked.
 BUILD ?= build/native-background-compact
 include Makefile.vmu-native-split-controller-stream-guard
+$(BUILD)/entry_asm.o: include/kui/native_heap_capability.h
 FLAGS += -DKUI_NATIVE_BACKGROUND_COMPACT=1
 NATIVE_FLAGS += -DKUI_NATIVE_BACKGROUND_COMPACT=1
 # The legacy flag filter deliberately removes New-engine KUI_NATIVE flags.
 # Its shared worker/map ownership must retain this exact geometry selector.
 LEGACY_FLAGS += -DKUI_NATIVE_BACKGROUND_COMPACT=1
+# The capacity record belongs to this complete stage/worker/reader combination.
+# A direct A1/A2 build produces the current production reader. Test profiles
+# that include this makefile can reproduce their historical 64-slot geometry.
+compact_entry := $(notdir $(firstword $(MAKEFILE_LIST)))
+ifneq ($(filter Makefile.vmu-native-background-compact Makefile.vmu-native-background-compact-a1,$(compact_entry)),)
+KUI_NATIVE_BACKGROUND_MAP160 ?= 1
+else
+KUI_NATIVE_BACKGROUND_MAP160 ?= 0
+endif
+ifeq ($(KUI_NATIVE_BACKGROUND_MAP160),1)
+VMU_RESIDENT_MAP_SLOTS := 160
+FLAGS += -DKUI_NATIVE_BACKGROUND_MAP160=1
+NATIVE_FLAGS += -DKUI_NATIVE_BACKGROUND_MAP160=1
+LEGACY_FLAGS += -DKUI_NATIVE_BACKGROUND_MAP160=1
+$(BUILD)/entry_asm.o: include/kui/native_map_capacity.h
+else ifneq ($(KUI_NATIVE_BACKGROUND_MAP160),0)
+$(error KUI_NATIVE_BACKGROUND_MAP160 must be 0 or 1)
+endif
 NATIVE_LAYOUT := src/loader/vmu_native_background_compact.ld
 NATIVE_SPAN := 0x12000
 $(BUILD)/native-worker.elf: src/loader/vmu_native_background_compact.ld

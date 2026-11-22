@@ -207,6 +207,7 @@ build/dc/smash-launch-timing.config: force-smash-launch-timing-config
 	@printf 'KUI_SMASH_LAUNCH_TIMING=%s\n' '$(KUI_SMASH_LAUNCH_TIMING)' > $@.new
 	@cmp -s $@.new $@ && rm $@.new || mv $@.new $@
 build/dc/src/apps/games_retail.o: src/apps/games_native_cache.inc src/apps/games_native_cache_hint.inc src/apps/games_native_cache_alias.inc src/apps/games_native_owner_cache.inc include/kui/native_source_owner.h include/kui/vmu_native_cache_seed.h include/kui/vmu_native_resolution_cache.h
+build/dc/src/apps/games_retail.o: src/apps/games_native_repeat.inc include/kui/sha256_prefix.h
 build/dc/src/apps/games_retail.o: include/kui/native_standard_route.h include/kui/native_standalone_foreground.h
 build/dc/src/core/repair_copy.o: src/core/repair_resume.inc include/kui/recovery_guard.h
 build/dc/src/core/salvage.o: src/core/salvage_files.inc src/core/salvage_control_trial.inc
@@ -238,11 +239,16 @@ build/dc/src/core/disc_launch.o: CPPFLAGS += -DKUI_DISC_STAGE_FAST_CRC32=1
 # even when the ordinary native loader uses its lower firmware reservation.
 # Explicit arguments also isolate them from a requested native diagnostic.
 WINCE_CDDA_BUILD_FLAGS := KUI_RETAIL_LOW_RESIDENT=0 KUI_RETAIL_STARTUP_TRACE=0 KUI_RETAIL_SONIC_STACK_TEST=0 KUI_GENERAL_SCI_RESUME_FIX=0 KUI_CE_SCI_RESUME_FIX=1 KUI_RETAIL_RETURN_TRACE=0 KUI_RETAIL_NATIVE_DISC_CHECK=0 KUI_RETAIL_NATIVE_DRIVE_STATE=0
+# Generic window experiments must not reach nested music makes through either
+# MAKEFLAGS or their exported environment. The music makefiles keep their own
+# accepted defaults and still allow explicit stand-alone diagnostic builds.
+wince-cdda: private override MAKEOVERRIDES := $(filter-out KUI_CE_SLOW_WINDOW=% KUI_CE_SLOW_ADAPT=%,$(MAKEOVERRIDES))
+WINCE_CDDA_ENV := env -u KUI_CE_SLOW_WINDOW -u KUI_CE_SLOW_ADAPT
 wince-cdda:
-	$(MAKE) -f Makefile.armada-stream build/armada-ce-stream/entry.elf $(WINCE_CDDA_BUILD_FLAGS)
-	$(MAKE) -f Makefile.bam4-stream build/bam4-ce-stream/entry.elf $(WINCE_CDDA_BUILD_FLAGS)
-	$(MAKE) -f Makefile.worms-stream build/worms-ce-stream/entry.elf $(WINCE_CDDA_BUILD_FLAGS)
-	$(MAKE) -f Makefile.wwp-stream build/wwp-ce-stream/entry.elf $(WINCE_CDDA_BUILD_FLAGS)
+	$(WINCE_CDDA_ENV) $(MAKE) -f Makefile.armada-stream build/armada-ce-stream/entry.elf $(WINCE_CDDA_BUILD_FLAGS)
+	$(WINCE_CDDA_ENV) $(MAKE) -f Makefile.bam4-stream build/bam4-ce-stream/entry.elf $(WINCE_CDDA_BUILD_FLAGS)
+	$(WINCE_CDDA_ENV) $(MAKE) -f Makefile.worms-stream build/worms-ce-stream/entry.elf $(WINCE_CDDA_BUILD_FLAGS)
+	$(WINCE_CDDA_ENV) $(MAKE) -f Makefile.wwp-stream build/wwp-ce-stream/entry.elf $(WINCE_CDDA_BUILD_FLAGS)
 
 # Reference builds prove that broader admission leaves native playback intact.
 # Only the three experimental compatibility adapters are installation payloads.
@@ -261,7 +267,10 @@ build/dc/src/loader/sd_reader.o: CPPFLAGS += -DKUI_RETAIL_FAST_IO=1
 # Mounted GUI verification uses the shared byte CRC. Freestanding game
 # workers/residents keep their existing code, tables and memory layout.
 build/dc/src/core/data.o build/dc/src/core/retail_image.o: CPPFLAGS += -DKUI_GUI_FAST_CRC32=1
-build/dc/src/core/vmu_native_resolution_cache.o: CPPFLAGS += -DKUI_GUI_DIGEST_REUSE=1
+GUI_DIGEST_OBJECTS := build/dc/src/core/vmu_native_resolution_cache.o \
+    build/dc/src/core/vmu_native_discovery.o build/dc/src/core/vmu_native_layout.o
+$(GUI_DIGEST_OBJECTS): CPPFLAGS += -DKUI_GUI_DIGEST_REUSE=1
+$(GUI_DIGEST_OBJECTS): Makefile.dc
 # Experimental, never-run-on-hardware code (the GD-ROM DMA probe and its competing thread) is NOT in
 # the default build. Opt in with: make diagnostic KUI_EXPERIMENTAL=1
 ifdef KUI_EXPERIMENTAL
@@ -508,9 +517,8 @@ $(error KUI_CE_VRAM_DMA must be 0 or 1)
 endif
 RETAIL_CE_VRAM_DEFS := $(if $(filter 1,$(KUI_CE_VRAM_DMA)),-DKUI_RETAIL_CE_VRAM_DMA=1)
 # The 6.25 MHz window after a DMA overrun, in receptions (src/loader/sci_stream.h).
-# 64, the default, builds every accepted reader unchanged. Another value is a
-# console test of the generic module's background reader only: the CD music and
-# Armada modules keep 64 (docs/wince-timing-session-1.md).
+# 64 is the generic reader's default. Its window experiments are isolated
+# from the independently configured CD music modules.
 KUI_CE_SLOW_WINDOW ?= 64
 ifneq ($(KUI_CE_SLOW_WINDOW),64)
 ifneq ($(KUI_CE_READER_FIXES),1)

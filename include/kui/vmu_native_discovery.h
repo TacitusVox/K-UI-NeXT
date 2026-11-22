@@ -24,6 +24,11 @@ static inline bool kui_vmu_native_early_server(uint32_t family) {
 static inline bool kui_vmu_native_family_valid(uint32_t family) {
     return family-KUI_VMU_NATIVE_FAMILY_UNIFORM_V1<3u;
 }
+/* An ABI discriminator for a separately proved early-P2 startup that calls
+ * two additional setup routines between heap and Maple initialization. */
+static inline bool kui_vmu_native_deferred_maple_startup(uint32_t family,uint32_t heap_call,uint32_t maple_call) {
+    return family==KUI_VMU_NATIVE_FAMILY_EARLY_P2_V1 && maple_call>heap_call && maple_call-heap_call==44u;
+}
 /* Bytes from the Maple server entry to its completion call. */
 static inline uint32_t kui_vmu_native_server_span(uint32_t family) {
     return kui_vmu_native_early_server(family)?0x3au:0x4au;
@@ -60,6 +65,12 @@ static inline uint32_t kui_vmu_native_lock_pointer(const struct kui_vmu_native_d
  * which are untouched. Exactly one complete candidate required. */
 enum kui_vmu_native_discovery_result kui_vmu_native_discover(
     const void *image,size_t bytes,uint32_t load,struct kui_vmu_native_discovery *out);
+struct kui_sha256_prefix;
+/* GUI fresh discovery on the same exclusively owned, immutable source buffer.
+ * A missing set of marks runs ordinary hashing. */
+enum kui_vmu_native_discovery_result kui_vmu_native_discover_prefixed(
+    const void *image,size_t bytes,uint32_t load,struct kui_vmu_native_discovery *out,
+    const struct kui_sha256_prefix *source);
 /* Bind an untrusted cached resolution to the exact executable and schema,
  * replaying all witnesses and uniqueness. This reference path does not skip
  * the scan for speed and still supplies no runtime capability. */
@@ -71,4 +82,9 @@ bool kui_vmu_native_discovery_cache_valid(const struct kui_vmu_native_discovery 
  * alias ownership or cache-coherence authority. Neither output ABI grows. */
 bool kui_vmu_native_early_p2_calls_valid(const void *image,size_t bytes,
     const struct kui_vmu_native_discovery *,uint32_t heap_call,uint32_t maple_call);
+/* During layout discovery the allocator has not been independently bound
+ * yet; compare the Maple call to the same fully recognized startup head.
+ * Cache and stage admission later require both independently bound calls. */
+bool kui_vmu_native_early_p2_layout_call_valid(const void *image,size_t bytes,
+    const struct kui_vmu_native_discovery *,uint32_t maple_call);
 #endif

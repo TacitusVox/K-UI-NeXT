@@ -57,7 +57,8 @@ def release_metadata(path=ROOT / "include/kui/version.h"):
         raise ValueError("Release version and console name must be ASCII")
     if not re.fullmatch(r"kui-[a-z0-9][a-z0-9.-]*", release["artifact_prefix"]):
         raise ValueError("Release artifact prefix must use lowercase ASCII letters, digits, dots and hyphens")
-    if not release["artifact_prefix"].startswith("kui-" + release["version"] + "-"):
+    prefix = "kui-" + release["version"]
+    if release["artifact_prefix"] != prefix and not release["artifact_prefix"].startswith(prefix + "-"):
         raise ValueError("Release artifact prefix must include the canonical version")
     return release
 
@@ -76,11 +77,11 @@ def development_test(release=None):
 
 
 def release_is_rc(release=None):
-    return re.search(r"-rc[1-9][0-9]*$", (release or release_metadata())["version"]) is not None
+    return re.search(r"-rc\.?[1-9][0-9]*$", (release or release_metadata())["version"]) is not None
 
 
 def guide_version(release=None):
-    version = re.sub(r"-rc[1-9][0-9]*$", "", (release or release_metadata())["version"])
+    version = re.sub(r"-rc\.?[1-9][0-9]*$", "", (release or release_metadata())["version"])
     # Tyrfing's RC and final documentation/artwork share their 2.0 family paths.
     return "2.0" if version == "2.0.0" else version
 

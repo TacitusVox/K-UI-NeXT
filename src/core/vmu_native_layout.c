@@ -608,7 +608,7 @@ static bool layout_from_bound(const void *image,size_t n,
     if(variable_found==uniform_found) return false;
     struct kui_vmu_native_layout chosen=variable_found?variable_layout:uniform_layout;bool infile;
     if(d->family==KUI_VMU_NATIVE_FAMILY_EARLY_P2_V1 &&
-       !kui_vmu_native_early_p2_calls_valid(image,n,d,chosen.initializer_call-26u,chosen.initializer_call)) return false;
+       !kui_vmu_native_early_p2_layout_call_valid(image,n,d,chosen.initializer_call)) return false;
     if(!source_buffers(image,n,d,&chosen,&infile)) return false;
     chosen.version=infile?KUI_VMU_NATIVE_LAYOUT_INFILE_VERSION:KUI_VMU_NATIVE_LAYOUT_VERSION;
     *out=chosen;return true;
@@ -642,17 +642,33 @@ bool kui_vmu_native_layout_discover(const void *image,size_t n,
     memset(out,0,sizeof(*out));
     return kui_vmu_native_discovery_cache_valid(d,image,n,d->load_address) && layout_from_bound(image,n,d,out);
 }
+#if !KUI_ON_CONSOLE || KUI_GUI_DIGEST_REUSE
+bool kui_vmu_native_discover_layout_prefixed(const void *image,size_t n,uint32_t load,
+    struct kui_vmu_native_discovery *driver,struct kui_vmu_native_layout *out,
+    const struct kui_sha256_prefix *source) {
+#else
 bool kui_vmu_native_discover_layout(const void *image,size_t n,uint32_t load,
     struct kui_vmu_native_discovery *driver,struct kui_vmu_native_layout *out) {
+#endif
     if(!layout_arguments(image,n,driver,out) || object_overlap(image,n,driver,sizeof(*driver))) return false;
     memset(driver,0,sizeof(*driver));memset(out,0,sizeof(*out));
     struct kui_vmu_native_discovery fresh;
     struct kui_vmu_native_layout layout;
-    if(kui_vmu_native_discover(image,n,load,&fresh)!=KUI_VMU_NATIVE_RESOLVED ||
-       !layout_from_bound(image,n,&fresh,&layout)) return false;
+#if !KUI_ON_CONSOLE || KUI_GUI_DIGEST_REUSE
+    enum kui_vmu_native_discovery_result result=kui_vmu_native_discover_prefixed(image,n,load,&fresh,source);
+#else
+    enum kui_vmu_native_discovery_result result=kui_vmu_native_discover(image,n,load,&fresh);
+#endif
+    if(result!=KUI_VMU_NATIVE_RESOLVED || !layout_from_bound(image,n,&fresh,&layout)) return false;
     *driver=fresh;*out=layout;return true;
 }
 
+#if !KUI_ON_CONSOLE || KUI_GUI_DIGEST_REUSE
+bool kui_vmu_native_discover_layout(const void *image,size_t n,uint32_t load,
+    struct kui_vmu_native_discovery *driver,struct kui_vmu_native_layout *out) {
+    return kui_vmu_native_discover_layout_prefixed(image,n,load,driver,out,NULL);
+}
+#endif
 static bool bind_failure(struct kui_vmu_native_layout_diagnostic *diag,uint32_t code,
     uint32_t address,uint32_t value,uint32_t expected) {
     if(diag) *diag=(struct kui_vmu_native_layout_diagnostic){code,address,value,expected};

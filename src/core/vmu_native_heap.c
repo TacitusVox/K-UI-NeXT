@@ -309,6 +309,75 @@ static bool call_expression(const uint8_t *p,size_t n,const struct kui_vmu_nativ
        ((value[4]|value[5])&31u) || !span(value[4],value[5])) return false;
     *first=value[4];*bytes=value[5];return true;
 }
+#if KUI_NATIVE_TAIL_HEAP_PROOF
+/* A leaf wrapper can tail-call the SDK initializer with its caller's PR.
+ * This compiler form saves no PR, balances its fixed stack frame in the
+ * jump delay slot, and computes both arguments exclusively from the image's
+ * break cell. The original initializer hook independently checks actual
+ * R4, R5 and PR. Require a unique direct BSR into the start of the wrapper. */
+static bool tail_initializer(const uint8_t *p,size_t n,const struct kui_vmu_native_heap *h,
+    size_t target_load,struct kui_vmu_native_heap_call *out) {
+    static const uint16_t code[]={
+        0x7f98,0xd200,0xe400,0xd300,0xd100,0x2342,0x2242,0xd200,
+        0xd300,0x2142,0x6522,0xd200,0x2539,0xd300,0xd100,0x6032,
+        0xe3e0,0x251b,0x202b,0x2039,0xd300,0x6403,0x3508,0x7420,
+        0x2f02,0x75e0,0x432b,0x7f68};
+    if(target_load<40u || n-target_load<16u || h16(p+target_load+12u)!=0x432bu)return false;
+    size_t start=target_load-40u;
+    if(start<4u || h16(p+start-4u)!=0x000bu || h16(p+start-2u)!=0x0009u)return false;
+    for(size_t i=0;i<sizeof(code)/sizeof(code[0]);i++) {
+        uint16_t op=h16(p+start+i*2u);
+        if((code[i]>>12)==13u)op&=0xff00u;
+        if(op!=code[i])return false;
+    }
+    uint32_t mid,first,last,cell,cell_again,mask,p1,ram_end;
+    if(!literal(p,n,h->load,start+2,2,&mid) || !literal(p,n,h->load,start+6,3,&first) ||
+       !literal(p,n,h->load,start+8,1,&last) || !literal(p,n,h->load,start+14,2,&cell) ||
+       !literal(p,n,h->load,start+16,3,&mask) || !literal(p,n,h->load,start+22,2,&p1) ||
+       !literal(p,n,h->load,start+26,3,&cell_again) || !literal(p,n,h->load,start+28,1,&ram_end) ||
+       cell_again!=cell || mask!=UINT32_C(0xe0000000) || p1!=UINT32_C(0x80000000) ||
+       ram_end!=UINT32_C(0x0d000000) || !span(first,12u) || (first&3u) ||
+       mid!=first+4u || last!=first+8u || phys(first)<phys(h->load)+n)return false;
+    size_t at;
+    if(!index(cell,h->load,n,4u,&at) || phys(cell)==phys(h->initializer_slot))return false;
+    uint32_t raw=h32(p+at);
+    if(!span(raw,64u))return false;
+    uint32_t begin=((raw|p1)&~UINT32_C(31))+32u;
+    uint32_t end=(raw&mask)|ram_end;
+    if(begin>=end || end-begin<64u || !span(begin,end-begin) || phys(first)+12u>phys(begin))return false;
+    /* The wrapper has no internal branches. Reject other encoded entrances
+     * or pointer references to its body, including aliases of game RAM. */
+    uint32_t lo=h->load+(uint32_t)start,hi=lo+sizeof(code),caller=0;
+    for(size_t i=0;i+2<=n;i+=2u) {
+        uint16_t op=h16(p+i);int32_t disp;
+        if(!(i&3u) && n-i>=4u) {
+            uint32_t a=h32(p+i);
+            if(span(a,2u) && phys(a)>=phys(lo)-2u && phys(a)<phys(hi))return false;
+        }
+        uint32_t pc=h->load+(uint32_t)i;
+        if((op>>12)==9u && phys(pc+4u+2u*(op&255u))-phys(h->initializer_slot)<4u)
+            return false;
+        if((op>>8)==0xc7u) {
+            uint32_t address=((pc+4u)&~3u)+4u*(op&255u);
+            if((address>=lo-2u && address<hi) || phys(address)==phys(h->initializer_slot))return false;
+        }
+        if((op>>12)==10u || (op>>12)==11u)
+            disp=(int32_t)((op&4095u)^2048u)-2048;
+        else if((op>>8)==0x89u || (op>>8)==0x8bu || (op>>8)==0x8du || (op>>8)==0x8fu)
+            disp=(int8_t)op;
+        else continue;
+        uint32_t dest=pc+4u+2u*(uint32_t)disp;
+        if(phys(dest)-phys(h->initializer_slot)<4u)return false;
+        if(dest<lo-2u || dest>=hi)continue;
+        if(caller || dest!=lo || op>>12!=11u || i+6u>n || h16(p+i+2u)!=0x0009u ||
+           (pc>=lo && pc<hi))return false;
+        caller=pc;
+    }
+    if(!caller || (caller>h->load+target_load && caller-(h->load+target_load)<=16u))return false;
+    *out=(struct kui_vmu_native_heap_call){h->load+(uint32_t)target_load,caller,caller+4u,begin,end-begin};
+    return true;
+}
+#endif
 static int call_discover(const void *image,size_t n,
     const struct kui_vmu_native_heap *h,struct kui_vmu_native_heap_call *out) {
     if(!image || !out || !metadata(h) || !h->initializer_slot || n!=h->image_bytes ||
@@ -322,6 +391,13 @@ static int call_discover(const void *image,size_t n,
         if((op&0xf000u)!=0xd000u || reg>3u ||
            phys(((h->load+(uint32_t)at+4u)&~3u)+4u*(op&255u))!=phys(h->initializer_slot) ||
            !literal(p,n,h->load,at,reg,&target) || target!=h->initializer_target) continue;
+#if KUI_NATIVE_TAIL_HEAP_PROOF
+        struct kui_vmu_native_heap_call tail;
+        if(reg==3u && tail_initializer(p,n,h,at,&tail)) {
+            if(++found>1u)return -1;
+            chosen=tail;continue;
+        }
+#endif
         for(size_t call=at+2u;call<=at+16u && call<n && n-call>=4u;call+=2u) {
             if(h16(p+call)!=(0x400bu|(reg<<8))) continue;
             bool resolved=false;uint32_t first=0,bytes=0;

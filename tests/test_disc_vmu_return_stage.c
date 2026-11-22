@@ -244,7 +244,8 @@ static void early_compact_return_and_retarget(void) {
     native_exits.exec_thunk=native_exits.entries[2]+74u;
     refused_before_write((void *)(uintptr_t)FRAME);
 }
-static void setup_firmware_check(bool early,uint32_t alignment) {
+static void setup_firmware_check(uint32_t family,uint32_t alignment) {
+    const bool early=family!=KUI_VMU_NATIVE_EXIT_FIRMWARE_CHECK;
     if(early)setup_early_pair(alignment);
     else {
         setup();for(unsigned i=0;i<3u;i++) {
@@ -252,7 +253,7 @@ static void setup_firmware_check(bool early,uint32_t alignment) {
             memcpy((void *)(uintptr_t)native_exits.entries[i],persistent_exit_windows[i],12u);
         }
     }
-    native_exits.family=early?KUI_VMU_NATIVE_EXIT_EARLY_FIRMWARE_CHECK:KUI_VMU_NATIVE_EXIT_FIRMWARE_CHECK;
+    native_exits.family=family;
     native_exits.count=3u;native_exits.exec_thunk=0u;
     native_exits.entries[2]=EXIT+0x200u+alignment;
     for(unsigned i=0;i<6u;i++)persistent_exit_windows[2][i]=(uint16_t)(0xe200u+i);
@@ -263,9 +264,12 @@ static void require_exit_loop_refusal(void) {
     if(!setjmp(report_return)) {actual_installer_exit_loop();CHECK(false);}
 }
 static void firmware_check_return_and_retarget(void) {
+    static const uint32_t families[]={KUI_VMU_NATIVE_EXIT_FIRMWARE_CHECK,
+        KUI_VMU_NATIVE_EXIT_EARLY_FIRMWARE_CHECK,KUI_VMU_NATIVE_EXIT_EARLY_FIRMWARE_LITERAL_POOL};
     unsigned mutations=0u;
-    for(unsigned early=0;early<2u;early++)for(uint32_t alignment=0;alignment<=2u;alignment+=2u) {
-        setup_firmware_check(early!=0u,alignment);uint32_t selected=native_exits.entries[early?1u:0u];
+    for(unsigned variant=0;variant<sizeof(families)/sizeof(families[0]);variant++)for(uint32_t alignment=0;alignment<=2u;alignment+=2u) {
+        const bool early=families[variant]!=KUI_VMU_NATIVE_EXIT_FIRMWARE_CHECK;
+        setup_firmware_check(families[variant],alignment);uint32_t selected=native_exits.entries[early?1u:0u];
         uint32_t *frame=(void *)(uintptr_t)FRAME,before[21];memcpy(before,frame,sizeof(before));
         CHECK(native_disc_entry_return_bind(frame));CHECK(frame[5]==selected && native_disc_entry_return_entry==selected);
         for(unsigned i=0;i<21u;i++)CHECK(frame[i]==(i==5u?selected:before[i]));
@@ -287,7 +291,7 @@ static void firmware_check_return_and_retarget(void) {
             }
         }
         for(unsigned i=0;i<3u;i++)for(unsigned byte=0;byte<(i==0u&&early?8u:12u);byte++)for(unsigned bit=0;bit<8u;bit++) {
-            setup_firmware_check(early!=0u,alignment);CHECK(native_disc_entry_return_bind((void *)(uintptr_t)FRAME));
+            setup_firmware_check(families[variant],alignment);CHECK(native_disc_entry_return_bind((void *)(uintptr_t)FRAME));
             uint32_t after[21];memcpy(after,(void *)(uintptr_t)FRAME,sizeof(after));
             ((uint8_t *)(uintptr_t)native_exits.entries[i])[byte]^=(uint8_t)(1u<<bit);
             uint8_t corrupt=((const uint8_t *)(uintptr_t)native_exits.entries[i])[byte];
@@ -299,12 +303,13 @@ static void firmware_check_return_and_retarget(void) {
             unchanged((void *)(uintptr_t)FRAME,after);++mutations;
         }
     }
-    for(unsigned early=0;early<2u;early++)for(unsigned mode=0;mode<10u;mode++) {
-        setup_firmware_check(early!=0u,0u);
+    for(unsigned variant=0;variant<sizeof(families)/sizeof(families[0]);variant++)for(unsigned mode=0;mode<10u;mode++) {
+        const bool early=families[variant]!=KUI_VMU_NATIVE_EXIT_FIRMWARE_CHECK;
+        setup_firmware_check(families[variant],0u);
         switch(mode) {
         case 0:native_exits.count=2u;break;case 1:native_exits.count=4u;break;
         case 2:native_exits.entries[2]=0u;break;case 3:native_exits.entries[3]=EXIT+0x300u;break;
-        case 4:native_exits.exec_thunk=native_exits.entries[2]+76u;break;case 5:native_exits.family=11u;break;
+        case 4:native_exits.exec_thunk=native_exits.entries[2]+76u;break;case 5:native_exits.family=UINT32_MAX;break;
         case 6:native_exits.version=1u;break;case 7:native_exits.bytes=48u;break;
         case 8:if(early)native_exits.entries[1]+=2u;else native_exits.entries[0]|=UINT32_C(0x20000000);break;
         default:if(early)native_exits.entries[0]=0u;else native_exits.entries[0]|=1u;break;

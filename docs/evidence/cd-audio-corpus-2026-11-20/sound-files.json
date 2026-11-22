@@ -1,0 +1,2135 @@
+[
+ {
+  "sha256": "11c89eaa2b207c178495a2789363bcbbc15cf0d67c00557b9a2bdf4c2cf8de06",
+  "names": [
+   "MANATEE.DRV",
+   "MANATEE155.DRV",
+   "MANATEE2.DRV"
+  ],
+  "bytes": 36160,
+  "games": 86,
+  "family": "MANATEE",
+  "build_text": "1999,(C)SEGA ENTERPRISES 1999.06.16:DigitalMedia :Y.Kashima / K.Suyama",
+  "image_offset": 32
+ },
+ {
+  "sha256": "906e3b8a1336be01c2ea0affeda9124b9637bd0d83af25084102beccfe2a10e4",
+  "names": [
+   "MANATEE.DRV",
+   "SOUND.DRV"
+  ],
+  "bytes": 33408,
+  "games": 51,
+  "family": "MANATEE",
+  "build_text": "1998,(C)SEGA ENTERPRISES 1998.12.08:DIGITALMEDIA :Y.Kashima / K.Suyama",
+  "image_offset": 32
+ },
+ {
+  "sha256": "64c38a8d253c82ee23a183f792e2b8783604ae676cc75d4b9a7bb15b70d5f423",
+  "names": [
+   "2MANATEE.DRV",
+   "MANATEE.DRV",
+   "OLD_SND.DRV"
+  ],
+  "bytes": 33568,
+  "games": 50,
+  "family": "MANATEE",
+  "build_text": "1998,(C)SEGA ENTERPRISES 1999.05.25:DIGITALMEDIA :Y.Kashima / K.Suyama",
+  "image_offset": 32
+ },
+ {
+  "sha256": "9fcdbb82d761157f917a3a0568d2ce5efb185c12a1f5005c11a16c204dc7f947",
+  "names": [
+   "AUDIO64.DRV"
+  ],
+  "bytes": 18608,
+  "games": 50,
+  "family": "AUDIO64",
+  "build_text": "1998,(C)SEGA ENTERPRISES 2000.03.16:Y.Kashima / Tom Miley Version 1.90f.2",
+  "image_offset": 0
+ },
+ {
+  "sha256": "e2d37d24d03f1f8746fafaa7be70c23c009bbad92fe29fe3effefab11c62c073",
+  "names": [
+   "SOUND.BIN"
+  ],
+  "bytes": 24,
+  "games": 48,
+  "family": null,
+  "build_text": "",
+  "image_offset": null
+ },
+ {
+  "sha256": "3f6aabe1fc731f4b936b96e74ff25f36a1c6fe5235dde35bce01a15125b4bb5b",
+  "names": [
+   "MANATEE.DRV"
+  ],
+  "bytes": 36768,
+  "games": 38,
+  "family": "MANATEE",
+  "build_text": "2000,(C)SEGA ENTERPRISES 2000.03.03:DigitalMedia :Y.Kashima / K.Suyama manatee ver.2.02.05.00",
+  "image_offset": 32
+ },
+ {
+  "sha256": "af8f90440edceacf33a90d094c9b570d8d40c2774a5f6067953277859a6ba413",
+  "names": [
+   "AUDIO64.DRV"
+  ],
+  "bytes": 20824,
+  "games": 37,
+  "family": "AUDIO64",
+  "build_text": "1998,(C)SEGA ENTERPRISES 1999.10.29:Y.Kashima / Tom Miley Version 1.90b.1",
+  "image_offset": 0
+ },
+ {
+  "sha256": "12c461d78bcf70e73dccb309979fbf2aa8534112270384fb45b0a0d1b8e85afc",
+  "names": [
+   "MANATEE.DRV"
+  ],
+  "bytes": 33568,
+  "games": 33,
+  "family": "MANATEE",
+  "build_text": "1998,(C)SEGA ENTERPRISES 1999.03.18:DIGITALMEDIA :Y.Kashima / K.Suyama",
+  "image_offset": 32
+ },
+ {
+  "sha256": "b95396e19897532acba94364dc38801887bcf70382af7776a057519e248d8fb5",
+  "names": [
+   "MANATEE.DRV"
+  ],
+  "bytes": 36064,
+  "games": 29,
+  "family": "MANATEE",
+  "build_text": "1999,(C)SEGA ENTERPRISES 1999.06.04:DigitalMedia :Y.Kashima / K.Suyama",
+  "image_offset": 32
+ },
+ {
+  "sha256": "91979d045fb7e164ee4a993e143b54d8a70522c41a315fa468717a255d5a53f5",
+  "names": [
+   "AUDIO64.DRV"
+  ],
+  "bytes": 20824,
+  "games": 21,
+  "family": "AUDIO64",
+  "build_text": "1998,(C)SEGA ENTERPRISES 1999.10.13:Y.Kashima / Tom Miley Version 1.80g.3",
+  "image_offset": 0
+ },
+ {
+  "sha256": "8631470a329d0675ff07e2b62ba67c030c628e37d2bbc5fb793e0e5f068e8385",
+  "names": [
+   "MANATEE.DRV"
+  ],
+  "bytes": 33288,
+  "games": 21,
+  "family": "MANATEE",
+  "build_text": "1998,(C)SEGA ENTERPRISES 1998.11.02:DIGITALMEDIA :Y.Kashima / K.Suyama",
+  "image_offset": 32
+ },
+ {
+  "sha256": "fecdab296c8bfa78d04a502d0c595aca39af06aadd440d5107c0f642d2d550f1",
+  "names": [
+   "MANATEE.DRV"
+  ],
+  "bytes": 36480,
+  "games": 20,
+  "family": "MANATEE",
+  "build_text": "1999,(C)SEGA ENTERPRISES 1999.09.20:DigitalMedia :Y.Kashima / K.Suyama",
+  "image_offset": 32
+ },
+ {
+  "sha256": "3f88553a52a6d1af0b988ea3f41800178988350721bd7422a570dc3e4e369915",
+  "names": [
+   "AICADRV.BIN"
+  ],
+  "bytes": 59264,
+  "games": 18,
+  "family": "AICADRV",
+  "build_text": "AM2/AICAsoundDrv990916/Ver1.74a / Sequencer 1.30 99/06/22 Y.Takeda",
+  "image_offset": 0
+ },
+ {
+  "sha256": "509589f6b96de2103dc4ba1c6196f636b37450f961d92dcdd947af04f87e4c56",
+  "names": [
+   "MANATEE.DRV"
+  ],
+  "bytes": 36768,
+  "games": 18,
+  "family": "MANATEE",
+  "build_text": "2000,(C)SEGA ENTERPRISES 2000.05.24:DigitalMedia :Y.Kashima / K.Suyama",
+  "image_offset": 32
+ },
+ {
+  "sha256": "938069c72b0f543382c5cc05b4c13b017d6100839917e97a9baed418aa6aa311",
+  "names": [
+   "MANATEE.DRV",
+   "MANATEE2.DRV"
+  ],
+  "bytes": 36704,
+  "games": 18,
+  "family": "MANATEE",
+  "build_text": "2000,(C)SEGA ENTERPRISES 2000.02.17:DigitalMedia :Y.Kashima / K.Suyama manatee ver.2.02.04.00",
+  "image_offset": 32
+ },
+ {
+  "sha256": "fe0fe456a1bf698ed86bb07ae670da4c668e7f9444915510a7619b9cfd2f425d",
+  "names": [
+   "AUDIO64.DRV"
+  ],
+  "bytes": 18540,
+  "games": 14,
+  "family": "AUDIO64",
+  "build_text": "1998,(C)SEGA ENTERPRISES 2000.02.04:Y.Kashima / Tom Miley Version 1.90e.3",
+  "image_offset": 0
+ },
+ {
+  "sha256": "8c4a4d3b2b91fcd961e3b4e50c58084cadad6e4cd434bf17492280e56e39c4d1",
+  "names": [
+   "MANATEE.DRV"
+  ],
+  "bytes": 36960,
+  "games": 14,
+  "family": "MANATEE",
+  "build_text": "2000,(C)SEGA ENTERPRISES 2000.07.11:Y.Kashima/K.Suyama",
+  "image_offset": 32
+ },
+ {
+  "sha256": "6596544102985d53994fa1c86c4d2cbf92b2ca07d0c56401dca39410e36d1df4",
+  "names": [
+   "AUDIO64.DRV",
+   "AUDIO64OLD.DRV"
+  ],
+  "bytes": 20668,
+  "games": 13,
+  "family": "AUDIO64",
+  "build_text": "1998,(C)SEGA ENTERPRISES 1999.06.07:Y.Kashima / Tom Miley Version 1.80b.2",
+  "image_offset": 0
+ },
+ {
+  "sha256": "5f99adacb1af9c0648d9b64fdf48a4a6dc17d566bbafa105577da48ce891cb51",
+  "names": [
+   "AUDIO64.DRV"
+  ],
+  "bytes": 19180,
+  "games": 11,
+  "family": "AUDIO64",
+  "build_text": "1998,(C)SEGA ENTERPRISES 2000.06.28:Y.Kashima / Tom Miley Version 1.90h.2",
+  "image_offset": 0
+ },
+ {
+  "sha256": "1b1c71711bcc44b26cc63d37ca76336bf00ce0d1922b9ed3426ac4e65c1ec799",
+  "names": [
+   "9900MANATEE.DRV",
+   "MANATEE.DRV"
+  ],
+  "bytes": 33288,
+  "games": 10,
+  "family": "MANATEE",
+  "build_text": "1998,(C)SEGA ENTERPRISES 1998.10.23:DIGITALMEDIA :Y.Kashima / K.Suyama",
+  "image_offset": 32
+ },
+ {
+  "sha256": "ca87ecf864d0498f25174e8fad8639ab09e88e7ca28bc754946e1b06f01c6451",
+  "names": [
+   "NAMIHEI.DRV"
+  ],
+  "bytes": 32736,
+  "games": 10,
+  "family": "MANATEE",
+  "build_text": "1998,(C)SEGA ENTERPRISES 1999.06.08:DigitalMedia :Y.Kashima / K.Suyama",
+  "image_offset": 32
+ },
+ {
+  "sha256": "c12bee5264e6eac3504944d85b81a88213bc275e2999042f1c270705e19c26a0",
+  "names": [
+   "AICADRV.BIN"
+  ],
+  "bytes": 63432,
+  "games": 8,
+  "family": "AICADRV",
+  "build_text": "AM2/AICAsoundDrv000307/Ver1.78b / Sequencer 1.32 99/11/18 Y.Takeda",
+  "image_offset": 0
+ },
+ {
+  "sha256": "477ede3766c27fa58e4c14d5218c583b7806a29c328a6e0d4965293375b704e5",
+  "names": [
+   "AUDIO64.DRV"
+  ],
+  "bytes": 20740,
+  "games": 7,
+  "family": "AUDIO64",
+  "build_text": "1998,(C)SEGA ENTERPRISES 1999.09.27:Y.Kashima / Tom Miley Version 1.80d.2",
+  "image_offset": 0
+ },
+ {
+  "sha256": "5ea0bf6de4b765925b0f97e86149d547c95e6ac5e9fae0f8d12439ec75be197e",
+  "names": [
+   "AUDIO64.DRV"
+  ],
+  "bytes": 20740,
+  "games": 7,
+  "family": "AUDIO64",
+  "build_text": "1998,(C)SEGA ENTERPRISES 1999.09.28:Y.Kashima / Tom Miley Version 1.80e.1",
+  "image_offset": 0
+ },
+ {
+  "sha256": "066e9c4ef8cbcf08c519dad117cd8960d27306242fe1e27fe338c7046b6e0af1",
+  "names": [
+   "AUDIO64.DRV"
+  ],
+  "bytes": 18132,
+  "games": 7,
+  "family": "AUDIO64",
+  "build_text": "1998,(C)SEGA ENTERPRISES 1999.12.16:Y.Kashima / Tom Miley Version 1.90d.2",
+  "image_offset": 0
+ },
+ {
+  "sha256": "afb9469debb8e643a906499154c3c0c7a82942be74537b8a4fa80e391acd77e8",
+  "names": [
+   "MANATEE.DRV"
+  ],
+  "bytes": 32820,
+  "games": 7,
+  "family": "MANATEE",
+  "build_text": "1998,(C)SEGA ENTERPRISES 1998.09.22:DIGITALMEDIA :Y.Kashima / K.Suyama",
+  "image_offset": 32
+ },
+ {
+  "sha256": "49e26ddf0d7e71b80de42ddcd2afc99e33477fe9a58dfe1b081de27ccc7d4fb8",
+  "names": [
+   "MANATEE.DRV"
+  ],
+  "bytes": 33328,
+  "games": 7,
+  "family": "MANATEE",
+  "build_text": "1998,(C)SEGA ENTERPRISES 1998.11.06:DIGITALMEDIA :Y.Kashima / K.Suyama",
+  "image_offset": 32
+ },
+ {
+  "sha256": "2c19fe6f8e2d11cd5e2c4561529e5af0e04e67ab0fa0d43811a9277d1b7f7f4d",
+  "names": [
+   "AUDIO64.DRV"
+  ],
+  "bytes": 20732,
+  "games": 6,
+  "family": "AUDIO64",
+  "build_text": "1998,(C)SEGA ENTERPRISES 1999.09.16:Y.Kashima / Tom Miley Version 1.80c.2",
+  "image_offset": 0
+ },
+ {
+  "sha256": "4758236e8c53d513e27f3195eb1f42b456f4bd49c005d243a6c21202204f8344",
+  "names": [
+   "SOUND.BIN"
+  ],
+  "bytes": 16,
+  "games": 6,
+  "family": null,
+  "build_text": "",
+  "image_offset": null
+ },
+ {
+  "sha256": "b049598cc971bac3dcc5144451c641d5e6cc91f500dc022d763d1c942eca9d84",
+  "names": [
+   "SOUND.BIN"
+  ],
+  "bytes": 16,
+  "games": 6,
+  "family": null,
+  "build_text": "",
+  "image_offset": null
+ },
+ {
+  "sha256": "3c76d1dc917740a9b41aad4626b4d6879555467b2311e04d849e3b9c895b2379",
+  "names": [
+   "BERSND.DRV",
+   "MANATEE.DRV"
+  ],
+  "bytes": 36192,
+  "games": 5,
+  "family": "MANATEE",
+  "build_text": "1999,(C)SEGA ENTERPRISES 1999.08.24:DigitalMedia :Y.Kashima / K.Suyama",
+  "image_offset": 32
+ },
+ {
+  "sha256": "4320e30aed034fba0987c49b9630d953fc6708c671d6846643f65936c51cdc15",
+  "names": [
+   "MANATEE.DRV"
+  ],
+  "bytes": 32424,
+  "games": 5,
+  "family": "MANATEE",
+  "build_text": "1998,(C)SEGA ENTERPRISES 1998.08.31:DIGITALMEDIA :Y.Kashima / K.Suyama",
+  "image_offset": 32
+ },
+ {
+  "sha256": "5ab700a241e5d5e164c104a76555b35002a6a84370aea17bf8c34d713cdc2cb9",
+  "names": [
+   "MASARU.DRV"
+  ],
+  "bytes": 33408,
+  "games": 5,
+  "family": "MANATEE",
+  "build_text": "1998,(C)SEGA ENTERPRISES 1998.11.27:DIGITALMEDIA :Y.Kashima / K.Suyama",
+  "image_offset": 32
+ },
+ {
+  "sha256": "e31f3e2f3cadfe21dc4d7008c662f7ba4f91017071b6141e83ed109e8641998d",
+  "names": [
+   "MIDIDA.DRV"
+  ],
+  "bytes": 31284,
+  "games": 5,
+  "family": "AUDIO64-MIDIDA",
+  "build_text": "1998,(C)SEGA ENTERPRISES 1990.04.26:Y.Kashima / K.Suyama / Tom Miley Version 1.90f.2 Midi/DA Hybrid",
+  "image_offset": 0
+ },
+ {
+  "sha256": "c1100593c84ea6a0b16dd7553bb8b82f7aa2c6b897251efc8c78bd9740427717",
+  "names": [
+   "AUDIO64.DRV"
+  ],
+  "bytes": 18540,
+  "games": 4,
+  "family": "AUDIO64",
+  "build_text": "1998,(C)SEGA ENTERPRISES 2000.03.16:Y.Kashima / Tom Miley Version 1.90f.1",
+  "image_offset": 0
+ },
+ {
+  "sha256": "1063ed11b9ae1155b51da7432d1f016b0affa598f21fc74f23c057f1fb4c127d",
+  "names": [
+   "MIDIDA.DRV"
+  ],
+  "bytes": 31244,
+  "games": 4,
+  "family": "AUDIO64-MIDIDA",
+  "build_text": "1998,(C)SEGA ENTERPRISES 1990.03.16:Y.Kashima / K.Suyama / Tom Miley Version 1.90f.1 Midi/DA Hybrid",
+  "image_offset": 0
+ },
+ {
+  "sha256": "5f0dff5a07b4d0d22833c7179e8cfa0380dd46840e8be67fadf2e22f24408ec6",
+  "names": [
+   "NAMIHEI.DRV"
+  ],
+  "bytes": 32512,
+  "games": 4,
+  "family": "MANATEE",
+  "build_text": "1998,(C)SEGA ENTERPRISES 1998.12.16:DigitalMedia :Y.Kashima / K.Suyama",
+  "image_offset": 32
+ },
+ {
+  "sha256": "90c3b3f48e9777a8960fbd3dbddaabde3e23e7dbe1e4f7ab595f06c090338d3a",
+  "names": [
+   "SOUND.BIN"
+  ],
+  "bytes": 1052600,
+  "games": 4,
+  "family": null,
+  "build_text": "",
+  "image_offset": null
+ },
+ {
+  "sha256": "b775b13ab0df29a93cf98f8aff3beb1b7637c1952018dab706e2b3ad4d5f9887",
+  "names": [
+   "AICADRV.BIN"
+  ],
+  "bytes": 63432,
+  "games": 3,
+  "family": "AICADRV",
+  "build_text": "AM2/AICAsoundDrv000927/Ver1.78h / Sequencer 1.33 00/05/02 Y.Takeda",
+  "image_offset": 0
+ },
+ {
+  "sha256": "e512df3a5762d581653d7ed5a2fc0770b1d50740d07af553ac773e0142de202f",
+  "names": [
+   "AICADRV.BIN"
+  ],
+  "bytes": 59336,
+  "games": 3,
+  "family": "AICADRV",
+  "build_text": "AM2/AICAsoundDrv000215/Ver1.78a / Sequencer 1.32 99/11/18 Y.Takeda",
+  "image_offset": 0
+ },
+ {
+  "sha256": "45906bf0bdd150368bfcb9b2c6ae261af5ad54e406e97599088e2bde427c3f03",
+  "names": [
+   "AUDIO64.DRV"
+  ],
+  "bytes": 18632,
+  "games": 3,
+  "family": "AUDIO64",
+  "build_text": "1998,(C)SEGA ENTERPRISES 2000.05.24:Y.Kashima / Tom Miley Version 1.90g.1",
+  "image_offset": 0
+ },
+ {
+  "sha256": "2806d17567c54e7fa8c3e7e0c560b20635ecc4cedebd3c03511ffc9778419e30",
+  "names": [
+   "MANATEE.DRV"
+  ],
+  "bytes": 36800,
+  "games": 3,
+  "family": "MANATEE",
+  "build_text": "2000,(C)SEGA ENTERPRISES 2000.07.11:DigitalMedia :Y.Kashima / K.Suyama",
+  "image_offset": 32
+ },
+ {
+  "sha256": "276264a7d4b075ef45b92198e0610e2a0fd8d4f5d4641b08ae105e0e6aa44da4",
+  "names": [
+   "MANATEE.DRV"
+  ],
+  "bytes": 35776,
+  "games": 3,
+  "family": "MANATEE",
+  "build_text": "1999,(C)SEGA ENTERPRISES 1999.05.25:DigitalMedia :Y.Kashima / K.Suyama",
+  "image_offset": 32
+ },
+ {
+  "sha256": "10c1e706b17bab582545702e88d06695d4b01d5076cd2cffdb6e49c97346437b",
+  "names": [
+   "MIDIDA.DRV"
+  ],
+  "bytes": 31312,
+  "games": 3,
+  "family": "AUDIO64-MIDIDA",
+  "build_text": "1998,(C)SEGA ENTERPRISES 1990.05.24:Y.Kashima / K.Suyama / Tom Miley Version 1.90g.1 Midi/DA Hybrid",
+  "image_offset": 0
+ },
+ {
+  "sha256": "069d6e4e03ccd5c6830c40e7a6f520c94a8ac27224774b055098be9b30991d3f",
+  "names": [
+   "SOUND.BIN"
+  ],
+  "bytes": 16,
+  "games": 3,
+  "family": null,
+  "build_text": "",
+  "image_offset": null
+ },
+ {
+  "sha256": "fd610d25e3f7677bc5c046791acf5ef93145673c67d2eca806bc309bfacccc6b",
+  "names": [
+   "SOUND.BIN"
+  ],
+  "bytes": 16,
+  "games": 3,
+  "family": null,
+  "build_text": "",
+  "image_offset": null
+ },
+ {
+  "sha256": "a220c379dcba9f2d17ac09737cc424ddeec37b2e6ca9d9c15b9886d8d489294e",
+  "names": [
+   "SOUND.BIN"
+  ],
+  "bytes": 16,
+  "games": 3,
+  "family": null,
+  "build_text": "",
+  "image_offset": null
+ },
+ {
+  "sha256": "7b0a1f3d065a550b1ae42bdae3260c933736b38d7043a61e77adfc17509db95b",
+  "names": [
+   "SOUND.BIN"
+  ],
+  "bytes": 16,
+  "games": 3,
+  "family": null,
+  "build_text": "",
+  "image_offset": null
+ },
+ {
+  "sha256": "18d55b35f7f30ac0f82ec683ebf0271ff3090ff5f888219adfee26c42fa9c2cf",
+  "names": [
+   "SOUND.BIN"
+  ],
+  "bytes": 16,
+  "games": 3,
+  "family": null,
+  "build_text": "",
+  "image_offset": null
+ },
+ {
+  "sha256": "bac781f94461158c7e91ddef38ddabcecbf11e66aaa0c63d80598dc98eebd55e",
+  "names": [
+   "SOUND.BIN"
+  ],
+  "bytes": 16,
+  "games": 3,
+  "family": null,
+  "build_text": "",
+  "image_offset": null
+ },
+ {
+  "sha256": "5f78948455a317c3fdfbb7b31d311061807f8e62204d01ed1e6a82e69df65dc3",
+  "names": [
+   "SOUND.BIN"
+  ],
+  "bytes": 16,
+  "games": 3,
+  "family": null,
+  "build_text": "",
+  "image_offset": null
+ },
+ {
+  "sha256": "162503495803e17adfa2810c6caa477b744a04ba464052288994add9b18cfb18",
+  "names": [
+   "SOUND.BIN"
+  ],
+  "bytes": 16,
+  "games": 3,
+  "family": null,
+  "build_text": "",
+  "image_offset": null
+ },
+ {
+  "sha256": "f6c1e40ac35b4c49a6593ffbafe1208608dd617ce3c7c20385b5cb4b52b3a023",
+  "names": [
+   "SOUND.BIN"
+  ],
+  "bytes": 17472,
+  "games": 3,
+  "family": null,
+  "build_text": "",
+  "image_offset": null
+ },
+ {
+  "sha256": "a80f177febbd4f3bcd683b1dc960a0c4b8425b88e9159b739398669d079112bc",
+  "names": [
+   "SWIRLDC.EXE"
+  ],
+  "bytes": 340480,
+  "games": 3,
+  "family": null,
+  "build_text": "",
+  "image_offset": null
+ },
+ {
+  "sha256": "30eece2cdb402f05846833ab0ac7cc278f66f9399476bdf9fc6af67ea7f50145",
+  "names": [
+   "1ST_READ.BIN"
+  ],
+  "bytes": 1232896,
+  "games": 2,
+  "family": null,
+  "build_text": "",
+  "image_offset": null
+ },
+ {
+  "sha256": "fcf11377370bc76c71ba3415a6c1ef89f22489d96482e68fe70ba6b0a14cbc41",
+  "names": [
+   "9900MANATEE.DRV",
+   "MANATEE.DRV"
+  ],
+  "bytes": 33032,
+  "games": 2,
+  "family": "MANATEE",
+  "build_text": "1998,(C)SEGA ENTERPRISES 1998.10.14:DIGITALMEDIA :Y.Kashima / K.Suyama",
+  "image_offset": 32
+ },
+ {
+  "sha256": "404262079fba21cf5be4449e5162ed69d45afffd10f92609ed022acd0498c1c7",
+  "names": [
+   "AICADRV.BIN"
+  ],
+  "bytes": 46944,
+  "games": 2,
+  "family": "AICADRV",
+  "build_text": "AM2/AICAsoundDrv990120/Ver1.37 / Sequencer 1.22 99/01/20 Y.Takeda",
+  "image_offset": 0
+ },
+ {
+  "sha256": "c0ff6f06c50b71de5d7df75b8274e4ac2daaa4150fcacbd3c4e854f594b32661",
+  "names": [
+   "AICADRV.BIN"
+  ],
+  "bytes": 46944,
+  "games": 2,
+  "family": "AICADRV",
+  "build_text": "AM2/AICAsoundDrv990126/Ver1.38 / Sequencer 1.22 99/01/20 Y.Takeda",
+  "image_offset": 0
+ },
+ {
+  "sha256": "b331da887e409b529f068e8d11afaf67ddf06bb5e5845d28f55fbccca8114bcb",
+  "names": [
+   "AICADRV.BIN"
+  ],
+  "bytes": 46944,
+  "games": 2,
+  "family": "AICADRV",
+  "build_text": "AM2/AICAsoundDrv981228/Ver1.35 / Sequencer 1.21 98/12/07 Y.Takeda",
+  "image_offset": 0
+ },
+ {
+  "sha256": "5f8e777ef5072aa932f317575ed5e0cb812c7c31ef39210f2f50395f30839cc2",
+  "names": [
+   "ARMCOM.DRV"
+  ],
+  "bytes": 30888,
+  "games": 2,
+  "family": "AUDIO64-MIDIDA",
+  "build_text": "1998,(C)SEGA ENTERPRISES 1999.05.26:Y.Kashima / K.Suyama / Tom Miley Version 1.69",
+  "image_offset": 12
+ },
+ {
+  "sha256": "e784603c9656d190f07440f7b1f0b918a42a89b82ea28eac276dab93281a5202",
+  "names": [
+   "AUDIO64.DRV"
+  ],
+  "bytes": 18184,
+  "games": 2,
+  "family": "AUDIO64",
+  "build_text": "1998,(C)SEGA ENTERPRISES 2000.01.19:Y.Kashima / Tom Miley Version 1.90e.1",
+  "image_offset": 0
+ },
+ {
+  "sha256": "32d8c69ce13cc20daa25a396fc324b4d6468222ba5df8f9ca310e166e7b3b4dd",
+  "names": [
+   "AUDIO64.DRV"
+  ],
+  "bytes": 20560,
+  "games": 2,
+  "family": "AUDIO64",
+  "build_text": "1998,(C)SEGA ENTERPRISES 1999.06.07:Y.Kashima / Tom Miley Version 1.80a.3",
+  "image_offset": 0
+ },
+ {
+  "sha256": "eb2cc99aa0d1b41244e73a18cd0b3b6637cbe12ea635ef31d7d4d3901277c6a4",
+  "names": [
+   "DBG.DLL"
+  ],
+  "bytes": 26700,
+  "games": 2,
+  "family": null,
+  "build_text": "",
+  "image_offset": null
+ },
+ {
+  "sha256": "802adf43b0d48d1981e201409435d5b1b973468edd0341596ca0c9673a786740",
+  "names": [
+   "GIGEN.EXE"
+  ],
+  "bytes": 49152,
+  "games": 2,
+  "family": null,
+  "build_text": "",
+  "image_offset": null
+ },
+ {
+  "sha256": "5a39b4bdcd8e17ee87672008334097ac11ac5f5ee46e7ccce6c69f55bbae6d12",
+  "names": [
+   "ICCVID.DLL"
+  ],
+  "bytes": 79711,
+  "games": 2,
+  "family": null,
+  "build_text": "",
+  "image_offset": null
+ },
+ {
+  "sha256": "8d650806526c3ac12cef5dd86c233e36a9f87eaa4ed061ac6a7cce990e1f2468",
+  "names": [
+   "IFORCE2.DLL"
+  ],
+  "bytes": 69632,
+  "games": 2,
+  "family": null,
+  "build_text": "",
+  "image_offset": null
+ },
+ {
+  "sha256": "416cbb4f5624ce283f76809d62283ba551254a9355664c1fffce33b8d2b56fce",
+  "names": [
+   "MANATEE.DRV"
+  ],
+  "bytes": 36704,
+  "games": 2,
+  "family": "MANATEE",
+  "build_text": "1999,(C)SEGA ENTERPRISES 1999.11.24:DigitalMedia :Y.Kashima / K.Suyama manatee ver.2.02.02.00",
+  "image_offset": 32
+ },
+ {
+  "sha256": "de9ab7ffa637aee0365914d8057a390b7a3b6cc0620a0d7b6208d159fe787f13",
+  "names": [
+   "MANATEE.DRV"
+  ],
+  "bytes": 36448,
+  "games": 2,
+  "family": "MANATEE",
+  "build_text": "1999,(C)SEGA ENTERPRISES 1999.07.16:DigitalMedia :Y.Kashima / K.Suyama",
+  "image_offset": 32
+ },
+ {
+  "sha256": "0154ac6dee6a2d9f6ad0c6ef340412ee2e803fbb1974ecba0f80b15403e2e033",
+  "names": [
+   "TGASIZE.EXE"
+  ],
+  "bytes": 159793,
+  "games": 2,
+  "family": null,
+  "build_text": "",
+  "image_offset": null
+ },
+ {
+  "sha256": "7f75c600f10ba2eea4024273d462a9197127124ae2281eafe5f373e86d21b670",
+  "names": [
+   "1ST_READ.BIN"
+  ],
+  "bytes": 2197892,
+  "games": 1,
+  "family": null,
+  "build_text": "",
+  "image_offset": null
+ },
+ {
+  "sha256": "8e1e9ac43289b18f324745cdc0c04fc821d3e88d8ac4922b1ab77a90d39fd773",
+  "names": [
+   "1ST_READ.BIN"
+  ],
+  "bytes": 1233024,
+  "games": 1,
+  "family": null,
+  "build_text": "",
+  "image_offset": null
+ },
+ {
+  "sha256": "e52a1103efd3de29a08bcbcb98e7d62cb417735c627a7493a86f57e9b37cba42",
+  "names": [
+   "1ST_READ.BIN"
+  ],
+  "bytes": 455552,
+  "games": 1,
+  "family": null,
+  "build_text": "",
+  "image_offset": null
+ },
+ {
+  "sha256": "e1a2d7d6e7d6387ccf3e228e621a30f6c483e69500c7f8050489c08ff71b3a54",
+  "names": [
+   "1ST_READ.BIN"
+  ],
+  "bytes": 1613496,
+  "games": 1,
+  "family": null,
+  "build_text": "",
+  "image_offset": null
+ },
+ {
+  "sha256": "b4d8f2065e49f8f7057629c12c50432824c3cfc1b17586a75f258da112ec4a3f",
+  "names": [
+   "1ST_READ.BIN"
+  ],
+  "bytes": 2565593,
+  "games": 1,
+  "family": null,
+  "build_text": "",
+  "image_offset": null
+ },
+ {
+  "sha256": "1f1e45067f961ade8f6fa1873605b596108807c956dbbf771b4e2dd21432ebe2",
+  "names": [
+   "1ST_READ.BIN"
+  ],
+  "bytes": 754848,
+  "games": 1,
+  "family": null,
+  "build_text": "",
+  "image_offset": null
+ },
+ {
+  "sha256": "e22d5d4a9197ba82becb7f387500cbd5ca55a5f8476a83fd873338a3fb8b12ec",
+  "names": [
+   "1ST_READ.BIN"
+  ],
+  "bytes": 759840,
+  "games": 1,
+  "family": null,
+  "build_text": "",
+  "image_offset": null
+ },
+ {
+  "sha256": "9bcc1364bb6d562994de2f97530fa52c73bc7d920117e200d74124423c576197",
+  "names": [
+   "AICADRV.BIN"
+  ],
+  "bytes": 57216,
+  "games": 1,
+  "family": "AICADRV",
+  "build_text": "AM2/AICAsoundDrv990709/Ver1.70b / Sequencer 1.27 99/03/16 Y.Takeda",
+  "image_offset": 0
+ },
+ {
+  "sha256": "2512b4f192f59ed611cd67ba07eb5874cda89eedcc26275054533f618c2d7528",
+  "names": [
+   "AMSTREAM.DLL"
+  ],
+  "bytes": 94806,
+  "games": 1,
+  "family": null,
+  "build_text": "",
+  "image_offset": null
+ },
+ {
+  "sha256": "ee58c33e436fec511311931faddd4549f81ff77d37462774fd8fd3b487163fd5",
+  "names": [
+   "AMSTREAM.DLL"
+  ],
+  "bytes": 94806,
+  "games": 1,
+  "family": null,
+  "build_text": "",
+  "image_offset": null
+ },
+ {
+  "sha256": "e8e6a99839bbdf257cca9e3cdf3d06e79f4e2f1aed9e3c430d970e7d2b584961",
+  "names": [
+   "ASMPSX.EXE"
+  ],
+  "bytes": 136192,
+  "games": 1,
+  "family": null,
+  "build_text": "",
+  "image_offset": null
+ },
+ {
+  "sha256": "4d91176e7bca434f351e2ce617696e7249c4c0dc45d67b45f657d7f60aae3709",
+  "names": [
+   "AUDIO64.DRV"
+  ],
+  "bytes": 20860,
+  "games": 1,
+  "family": "AUDIO64",
+  "build_text": "1998,(C)SEGA ENTERPRISES 1999.11.03:Y.Kashima / Tom Miley Version 1.90c.3",
+  "image_offset": 0
+ },
+ {
+  "sha256": "6e1b2d601630ad38eb5c4da53d8fcc674edda4cf2a94bc20ab72fe7167ec4997",
+  "names": [
+   "AUDIO64.DRV"
+  ],
+  "bytes": 18136,
+  "games": 1,
+  "family": "AUDIO64",
+  "build_text": "1998,(C)SEGA ENTERPRISES 2000.01.10:Y.Kashima / Tom Miley Version 1.90d.3",
+  "image_offset": 0
+ },
+ {
+  "sha256": "cd0dc73499310b8906be0589261dad4ed320b3cbef4dfc5db20503e6429bda0d",
+  "names": [
+   "AUDIO64.DRV"
+  ],
+  "bytes": 20712,
+  "games": 1,
+  "family": "AUDIO64",
+  "build_text": "1998,(C)SEGA ENTERPRISES 1999.07.22:Y.Kashima / Tom Miley Version 1.80c.1",
+  "image_offset": 0
+ },
+ {
+  "sha256": "51269efc2d6b3ad2dbb2734503ba271eeb10eb23e4fc740457ebfd3de17e9599",
+  "names": [
+   "AUDIO64.DRV"
+  ],
+  "bytes": 20668,
+  "games": 1,
+  "family": "AUDIO64",
+  "build_text": "1998,(C)SEGA ENTERPRISES 1999.06.07:Y.Kashima / Tom Miley Version 1.80b.1",
+  "image_offset": 0
+ },
+ {
+  "sha256": "4a8e5479785841b41e0369279bafcd1a02fa23f5a242bbb931d588889832bd87",
+  "names": [
+   "BLOKE.DRV"
+  ],
+  "bytes": 113320,
+  "games": 1,
+  "family": null,
+  "build_text": "",
+  "image_offset": null
+ },
+ {
+  "sha256": "f81787c1b015975dad57581c36b5e0abb4e4feca07db289c1f6bb30ee3405e18",
+  "names": [
+   "CEGSM.DLL"
+  ],
+  "bytes": 12883,
+  "games": 1,
+  "family": null,
+  "build_text": "",
+  "image_offset": null
+ },
+ {
+  "sha256": "99dc4214213d392bfabba1815e1b6aff3dfd986e05997817e74cf0c977c5c5fa",
+  "names": [
+   "CEGSM.DLL"
+  ],
+  "bytes": 12883,
+  "games": 1,
+  "family": null,
+  "build_text": "",
+  "image_offset": null
+ },
+ {
+  "sha256": "88b4eb0d16561255dcddeb2f34d43983dac7aa8536f3021c967bc0e37a72969b",
+  "names": [
+   "CEMM.DLL"
+  ],
+  "bytes": 28241,
+  "games": 1,
+  "family": null,
+  "build_text": "",
+  "image_offset": null
+ },
+ {
+  "sha256": "c9f36a62de8d36afeb6aecad9beafabf2dbbcdefda2798583799eb6acda6ce71",
+  "names": [
+   "CEMM.DLL"
+  ],
+  "bytes": 28241,
+  "games": 1,
+  "family": null,
+  "build_text": "",
+  "image_offset": null
+ },
+ {
+  "sha256": "d60b2bf72bf101c94c69f4c2cce303f47de375a9db651178a765b65285d661e9",
+  "names": [
+   "D3DIM.DLL"
+  ],
+  "bytes": 89169,
+  "games": 1,
+  "family": null,
+  "build_text": "",
+  "image_offset": null
+ },
+ {
+  "sha256": "c3c265293210f36af7cc8fa0bb442fe9735c687b5edc7db0fb20b6a7a1138139",
+  "names": [
+   "D3DIM.DLL"
+  ],
+  "bytes": 87633,
+  "games": 1,
+  "family": null,
+  "build_text": "",
+  "image_offset": null
+ },
+ {
+  "sha256": "9af448b1d3eb01ed6edbdcde31a61b5e4086772300a8cea6acfad956836c1eb8",
+  "names": [
+   "DC.EXE"
+  ],
+  "bytes": 1638439,
+  "games": 1,
+  "family": null,
+  "build_text": "",
+  "image_offset": null
+ },
+ {
+  "sha256": "f2f240281aa4f62bf903e8473b618ad7c25c42f8d7e8ed6fb5e703a7220cdb29",
+  "names": [
+   "DCMOVIE.EXE"
+  ],
+  "bytes": 22590,
+  "games": 1,
+  "family": null,
+  "build_text": "",
+  "image_offset": null
+ },
+ {
+  "sha256": "68db614aff954a73bd2577519db6ba5a9edb825bb817c5d3b004ba80a19602bf",
+  "names": [
+   "DDHAL.DLL"
+  ],
+  "bytes": 168527,
+  "games": 1,
+  "family": null,
+  "build_text": "",
+  "image_offset": null
+ },
+ {
+  "sha256": "90060045dc8712ec545e4b1d662d892c798d17eaa6ad4ad328107881371aefa1",
+  "names": [
+   "DDHAL.DLL"
+  ],
+  "bytes": 170063,
+  "games": 1,
+  "family": null,
+  "build_text": "",
+  "image_offset": null
+ },
+ {
+  "sha256": "93669b95d66caced6c38dfcf8be6a23a6262ac4d4917b3df9bf20e25b458707b",
+  "names": [
+   "DDI.DLL"
+  ],
+  "bytes": 33357,
+  "games": 1,
+  "family": null,
+  "build_text": "",
+  "image_offset": null
+ },
+ {
+  "sha256": "18ff317730637edfc506a9a0fb88d518518f083cd3699cac1732c31db3dc8bf4",
+  "names": [
+   "DDI.DLL"
+  ],
+  "bytes": 33357,
+  "games": 1,
+  "family": null,
+  "build_text": "",
+  "image_offset": null
+ },
+ {
+  "sha256": "15b6fe2791a406d4eef6b85b3be8a796bf4954644f28c5c86661f5995561b7cd",
+  "names": [
+   "DDRAW.DLL"
+  ],
+  "bytes": 67666,
+  "games": 1,
+  "family": null,
+  "build_text": "",
+  "image_offset": null
+ },
+ {
+  "sha256": "46823ce09413656afcefcf6c649af68b433f0639739d68f6c489f33a91ba6d95",
+  "names": [
+   "DDRAW.DLL"
+  ],
+  "bytes": 67154,
+  "games": 1,
+  "family": null,
+  "build_text": "",
+  "image_offset": null
+ },
+ {
+  "sha256": "5377d611bb0d7bff97a054a05c03f50cdc8de3b2bcf8751639fc1f88114d9421",
+  "names": [
+   "DINPUTX.DLL"
+  ],
+  "bytes": 15444,
+  "games": 1,
+  "family": null,
+  "build_text": "",
+  "image_offset": null
+ },
+ {
+  "sha256": "5853cdb5ab10e8864766a29aaf05e6347b891a187f41023aad3f9fc9c9342f14",
+  "names": [
+   "DINPUTX.DLL"
+  ],
+  "bytes": 15444,
+  "games": 1,
+  "family": null,
+  "build_text": "",
+  "image_offset": null
+ },
+ {
+  "sha256": "ec233ced6badaf8d22ee0c62d0a311f03d71eac266f8d8f033873969ed2ed472",
+  "names": [
+   "DMBAND.DLL"
+  ],
+  "bytes": 33362,
+  "games": 1,
+  "family": null,
+  "build_text": "",
+  "image_offset": null
+ },
+ {
+  "sha256": "54f8e0f43219528724b546f58cf53b2b2624cd1b181ffac58b9a487a7f54e009",
+  "names": [
+   "DMBAND.DLL"
+  ],
+  "bytes": 33362,
+  "games": 1,
+  "family": null,
+  "build_text": "",
+  "image_offset": null
+ },
+ {
+  "sha256": "5411945a22df5abd0c4314fb2223bff75c1cb9e5dc3b73127d3f69d0d127574e",
+  "names": [
+   "DMCOMPOS.DLL"
+  ],
+  "bytes": 70740,
+  "games": 1,
+  "family": null,
+  "build_text": "",
+  "image_offset": null
+ },
+ {
+  "sha256": "c04ab51cefb45cbf7292ef7466b4f92e99bb3ef7f9d91b716bc05d737c6939bc",
+  "names": [
+   "DMCOMPOS.DLL"
+  ],
+  "bytes": 70740,
+  "games": 1,
+  "family": null,
+  "build_text": "",
+  "image_offset": null
+ },
+ {
+  "sha256": "d3ede8800af77af7d8142a2fa184c42d9785a883944d3e0aa65ff2b1ff331a98",
+  "names": [
+   "DMIME.DLL"
+  ],
+  "bytes": 110673,
+  "games": 1,
+  "family": null,
+  "build_text": "",
+  "image_offset": null
+ },
+ {
+  "sha256": "b28070eccb35e96b55d46418113bacd4c2e4c2782821d59d3c876d0ec1285d9e",
+  "names": [
+   "DMIME.DLL"
+  ],
+  "bytes": 110673,
+  "games": 1,
+  "family": null,
+  "build_text": "",
+  "image_offset": null
+ },
+ {
+  "sha256": "e381a45c1fcbb0e8943f6b70ab5cec1e0bb8b130cabefa35823edb22be83339c",
+  "names": [
+   "DMLOADER.DLL"
+  ],
+  "bytes": 25172,
+  "games": 1,
+  "family": null,
+  "build_text": "",
+  "image_offset": null
+ },
+ {
+  "sha256": "d1ff7f461a4907d33afc48479c0ed4eea8553cd4b1c3037483180497adc909b0",
+  "names": [
+   "DMLOADER.DLL"
+  ],
+  "bytes": 25172,
+  "games": 1,
+  "family": null,
+  "build_text": "",
+  "image_offset": null
+ },
+ {
+  "sha256": "0a2f3814087ca3c5340753c4577d0b0a90f49508e81376963e1d2dc6d8aea208",
+  "names": [
+   "DMSTYLE.DLL"
+  ],
+  "bytes": 97363,
+  "games": 1,
+  "family": null,
+  "build_text": "",
+  "image_offset": null
+ },
+ {
+  "sha256": "39936c1223e281b7498db5dde1faed0ee8be19d56fa00dac18f146c94459d1b3",
+  "names": [
+   "DMSTYLE.DLL"
+  ],
+  "bytes": 97875,
+  "games": 1,
+  "family": null,
+  "build_text": "",
+  "image_offset": null
+ },
+ {
+  "sha256": "a1406701e970efc1321dcbaae5a3fa81d0411f540bb0eb58f82bbfabc00656e1",
+  "names": [
+   "DMUSIC.DLL"
+  ],
+  "bytes": 55378,
+  "games": 1,
+  "family": null,
+  "build_text": "",
+  "image_offset": null
+ },
+ {
+  "sha256": "66dcca8eae42d8c46753093b90b9b7a4e55f6d634be9761b75c70c4e260523ad",
+  "names": [
+   "DMUSIC.DLL"
+  ],
+  "bytes": 55890,
+  "games": 1,
+  "family": null,
+  "build_text": "",
+  "image_offset": null
+ },
+ {
+  "sha256": "9f97d44e25eb43a1384cdf84da4c72d2e1e2c2099839fbaac94f5e0fffc83d0b",
+  "names": [
+   "DPLAYX.DLL"
+  ],
+  "bytes": 247890,
+  "games": 1,
+  "family": null,
+  "build_text": "",
+  "image_offset": null
+ },
+ {
+  "sha256": "fcd4c943eda03b84c8a127b5ff66d45cececedf342ea3193c9a40506756384f8",
+  "names": [
+   "DPLAYX.DLL"
+  ],
+  "bytes": 247890,
+  "games": 1,
+  "family": null,
+  "build_text": "",
+  "image_offset": null
+ },
+ {
+  "sha256": "d8e302e444b05d26d72ad078aa651ff4fe432389176ff210c443c348ddf254ff",
+  "names": [
+   "DPLDPLAY.DLL"
+  ],
+  "bytes": 21076,
+  "games": 1,
+  "family": null,
+  "build_text": "",
+  "image_offset": null
+ },
+ {
+  "sha256": "379db043390ab2d6e43a9b2108df8aa8b2869c21fb9039f39b559282a1648648",
+  "names": [
+   "DPMODEMX.DLL"
+  ],
+  "bytes": 22612,
+  "games": 1,
+  "family": null,
+  "build_text": "",
+  "image_offset": null
+ },
+ {
+  "sha256": "8d02007a6b352f55dcf7bed12cc991010515f74864f1b1007246a248300a9db7",
+  "names": [
+   "DPMODEMX.DLL"
+  ],
+  "bytes": 22612,
+  "games": 1,
+  "family": null,
+  "build_text": "",
+  "image_offset": null
+ },
+ {
+  "sha256": "08d4c4dde3f5a714ef729650e6782864e914f87de3a1bac2e4b88c8b1e5876ed",
+  "names": [
+   "DPWSOCKX.DLL"
+  ],
+  "bytes": 25172,
+  "games": 1,
+  "family": null,
+  "build_text": "",
+  "image_offset": null
+ },
+ {
+  "sha256": "d141f767e398da279b6f5c73e7a9c57985a363dda30fe0ac5ce90fe109172b1d",
+  "names": [
+   "DPWSOCKX.DLL"
+  ],
+  "bytes": 25172,
+  "games": 1,
+  "family": null,
+  "build_text": "",
+  "image_offset": null
+ },
+ {
+  "sha256": "2f5c29d705adc51c94d362311b7e76872c9b63215b0c0c6b33da34da13873218",
+  "names": [
+   "DSOUND.DLL"
+  ],
+  "bytes": 30291,
+  "games": 1,
+  "family": null,
+  "build_text": "",
+  "image_offset": null
+ },
+ {
+  "sha256": "645e879953a9d9cec7cd0f03c77f37d3b19e5fa16da8d783af093320de3b4115",
+  "names": [
+   "DSOUND.DLL"
+  ],
+  "bytes": 33363,
+  "games": 1,
+  "family": null,
+  "build_text": "",
+  "image_offset": null
+ },
+ {
+  "sha256": "95edd49cecba182af439187f9cb1af3332df6597bc3b9d3845673d4d606d78b0",
+  "names": [
+   "DTRACE.DLL"
+  ],
+  "bytes": 7248,
+  "games": 1,
+  "family": null,
+  "build_text": "",
+  "image_offset": null
+ },
+ {
+  "sha256": "74be388d16f2e1813e73547979e0dc135977e932dfcf74f40b6fc768dd69f130",
+  "names": [
+   "DTRACE.DLL"
+  ],
+  "bytes": 7248,
+  "games": 1,
+  "family": null,
+  "build_text": "",
+  "image_offset": null
+ },
+ {
+  "sha256": "6276599f41ea14de31da3f0646941c405acce6a9dd22a560be62c51bddc60135",
+  "names": [
+   "FEMALE.DRV"
+  ],
+  "bytes": 90376,
+  "games": 1,
+  "family": null,
+  "build_text": "",
+  "image_offset": null
+ },
+ {
+  "sha256": "acbc13d4631b53f53597e2f10fadc21072729560ea8205b8433a60e2231425b9",
+  "names": [
+   "FEMALEALT1.DRV"
+  ],
+  "bytes": 88692,
+  "games": 1,
+  "family": null,
+  "build_text": "",
+  "image_offset": null
+ },
+ {
+  "sha256": "8e9fe2f7e0394b904cf3ba43399106abe1d53ddbdb01c6b75f13e5c80d444c09",
+  "names": [
+   "FEMALEALT2.DRV"
+  ],
+  "bytes": 88692,
+  "games": 1,
+  "family": null,
+  "build_text": "",
+  "image_offset": null
+ },
+ {
+  "sha256": "283dc98873cd0809e2c7cb50ed5815e22948c542ae18d9b9e797896b695609f2",
+  "names": [
+   "GAME.EXE"
+  ],
+  "bytes": 955964,
+  "games": 1,
+  "family": null,
+  "build_text": "",
+  "image_offset": null
+ },
+ {
+  "sha256": "2446b192e576da260de12f443ce7315cdf31c59db7ecd3a7ffbbe447efade366",
+  "names": [
+   "GETHINFO.EXE"
+  ],
+  "bytes": 4180,
+  "games": 1,
+  "family": null,
+  "build_text": "",
+  "image_offset": null
+ },
+ {
+  "sha256": "7903e2e3e54e7ddd6b7becb13463d8a86a1aab30797efb974af4c589438d0648",
+  "names": [
+   "ICM.DLL"
+  ],
+  "bytes": 8785,
+  "games": 1,
+  "family": null,
+  "build_text": "",
+  "image_offset": null
+ },
+ {
+  "sha256": "811899d3e3fe35921f49033b2449ddabee86e8c43293509d5e9324ea02e6d7e3",
+  "names": [
+   "ICM.DLL"
+  ],
+  "bytes": 8785,
+  "games": 1,
+  "family": null,
+  "build_text": "",
+  "image_offset": null
+ },
+ {
+  "sha256": "25119e1e0c2e79bc5476dc83455ef2c24c448179d13647900dd4a482d1fbc161",
+  "names": [
+   "IECEEXT.DLL"
+  ],
+  "bytes": 36958,
+  "games": 1,
+  "family": null,
+  "build_text": "",
+  "image_offset": null
+ },
+ {
+  "sha256": "163e72d4d1659a8cc841c696c4b14b9452fc126e8d17a747424edb9e37e0feb9",
+  "names": [
+   "IECEEXT.DLL"
+  ],
+  "bytes": 36958,
+  "games": 1,
+  "family": null,
+  "build_text": "",
+  "image_offset": null
+ },
+ {
+  "sha256": "f0999b9cc8ff8f609882f4dcf4406552f4fdf213fb57091e2518ed39ec32f969",
+  "names": [
+   "IECEUI.DLL"
+  ],
+  "bytes": 68688,
+  "games": 1,
+  "family": null,
+  "build_text": "",
+  "image_offset": null
+ },
+ {
+  "sha256": "7e3ede27503c8e63fda65e4304b9765299a7f89b445e6de615d27e8431a96ccf",
+  "names": [
+   "IECEUI.DLL"
+  ],
+  "bytes": 53332,
+  "games": 1,
+  "family": null,
+  "build_text": "",
+  "image_offset": null
+ },
+ {
+  "sha256": "c966bf27b79be3f300185f29d8b31a01fb936f8c88786b32aceefd93e717746d",
+  "names": [
+   "IEUI.DLL"
+  ],
+  "bytes": 43086,
+  "games": 1,
+  "family": null,
+  "build_text": "",
+  "image_offset": null
+ },
+ {
+  "sha256": "acd815355609e6887d6834957dc386a351a1b87046164ddaa3f4825c1e3be629",
+  "names": [
+   "IMAADPCM.DLL"
+  ],
+  "bytes": 10326,
+  "games": 1,
+  "family": null,
+  "build_text": "",
+  "image_offset": null
+ },
+ {
+  "sha256": "b410d69fc673a98d4c01ea0407d46c199286b44de2c977257c2ea94be5361922",
+  "names": [
+   "IMAADPCM.DLL"
+  ],
+  "bytes": 10326,
+  "games": 1,
+  "family": null,
+  "build_text": "",
+  "image_offset": null
+ },
+ {
+  "sha256": "b7fc5fe18b1b68b73ee4bd29a4663febe33483c17d02dce311c21b26da06c0cc",
+  "names": [
+   "IMEJPP.DLL"
+  ],
+  "bytes": 97874,
+  "games": 1,
+  "family": null,
+  "build_text": "",
+  "image_offset": null
+ },
+ {
+  "sha256": "8d6b15a2afac64e55beecb6cbd49b77a3a97ded8fe68991e63a9ce5e29acd6b2",
+  "names": [
+   "IMEJPPUI.DLL"
+  ],
+  "bytes": 3668,
+  "games": 1,
+  "family": null,
+  "build_text": "",
+  "image_offset": null
+ },
+ {
+  "sha256": "b71303d572315e60bfd31e2d12fdc8f884050a9946af8cc527d7d05cfdc020d9",
+  "names": [
+   "IMEJPPUI.DLL"
+  ],
+  "bytes": 3668,
+  "games": 1,
+  "family": null,
+  "build_text": "",
+  "image_offset": null
+ },
+ {
+  "sha256": "586dca76a58d2d0b936b3f7d65732183c09dea406f11dc02ddd019cb73e142b6",
+  "names": [
+   "IMGUTIL.DLL"
+  ],
+  "bytes": 37982,
+  "games": 1,
+  "family": null,
+  "build_text": "",
+  "image_offset": null
+ },
+ {
+  "sha256": "4aeb0b75486b6a7897373d4fc093e49263cb958549b52dbeafe830d5bad0d670",
+  "names": [
+   "JSCRIPT.DLL"
+  ],
+  "bytes": 338526,
+  "games": 1,
+  "family": null,
+  "build_text": "",
+  "image_offset": null
+ },
+ {
+  "sha256": "49ccde24fd8de49691d3a990c41ea3816197e027efee4b2a14b73eff31a1efe9",
+  "names": [
+   "LOADDBG.EXE"
+  ],
+  "bytes": 2640,
+  "games": 1,
+  "family": null,
+  "build_text": "",
+  "image_offset": null
+ },
+ {
+  "sha256": "fe069ff057308edbb0e3f5f2b2e8d70f845ec9dd385625f0b5fcfe9a28acfe6a",
+  "names": [
+   "MALE.DRV"
+  ],
+  "bytes": 115368,
+  "games": 1,
+  "family": null,
+  "build_text": "",
+  "image_offset": null
+ },
+ {
+  "sha256": "4604763c569f14c497d2700b854732d49d852f6648945e1c5a1939fee9996b91",
+  "names": [
+   "MALEALT1.DRV"
+  ],
+  "bytes": 115368,
+  "games": 1,
+  "family": null,
+  "build_text": "",
+  "image_offset": null
+ },
+ {
+  "sha256": "906101ee76f6a274fe60874576bccbb6fe55ccf98eca835a0ed34d410bac0bc0",
+  "names": [
+   "MALEALT2.DRV"
+  ],
+  "bytes": 112188,
+  "games": 1,
+  "family": null,
+  "build_text": "",
+  "image_offset": null
+ },
+ {
+  "sha256": "8fcd0c4e9b4c92d93ad915130ed3b96df6148183fec65b8c9f8b0d5fdb1a640a",
+  "names": [
+   "MALEALT3.DRV"
+  ],
+  "bytes": 106992,
+  "games": 1,
+  "family": null,
+  "build_text": "",
+  "image_offset": null
+ },
+ {
+  "sha256": "d81346ddd4b9707868b6f2e275fa866bf4f827293960135d90cfda4ef3ae37ff",
+  "names": [
+   "MALEALT4.DRV"
+  ],
+  "bytes": 108580,
+  "games": 1,
+  "family": null,
+  "build_text": "",
+  "image_offset": null
+ },
+ {
+  "sha256": "2b3634f6aa15b30b8eefba6aa913b59688fcb68037d2f0990a79e678126cd347",
+  "names": [
+   "MALEALT5.DRV"
+  ],
+  "bytes": 108612,
+  "games": 1,
+  "family": null,
+  "build_text": "",
+  "image_offset": null
+ },
+ {
+  "sha256": "1c9cd13f9c6c2528bfa7c4a760d6394f8ef7cdbb2079f54057fdf10edf5f64b7",
+  "names": [
+   "MANATEE.DRV"
+  ],
+  "bytes": 36480,
+  "games": 1,
+  "family": "MANATEE",
+  "build_text": "1999,(C)SEGA ENTERPRISES 1999.08.25:DigitalMedia :Y.Kashima / K.Suyama",
+  "image_offset": 32
+ },
+ {
+  "sha256": "a70defb3d9603a1621d8d8f24a3dbb15f2ae68273dd963cc4dec45f99db7c7c5",
+  "names": [
+   "MANATEE.DRV"
+  ],
+  "bytes": 36768,
+  "games": 1,
+  "family": "MANATEE",
+  "build_text": "2000,(C)SEGA ENTERPRISES 2000.05.22:DigitalMedia :Y.Kashima / K.Suyama",
+  "image_offset": 32
+ },
+ {
+  "sha256": "8a1433e941ec0376257bf0914b15fe9c9362d9209a401ff7998e2e2bc1053b2c",
+  "names": [
+   "MANATEE.DRV"
+  ],
+  "bytes": 33846,
+  "games": 1,
+  "family": "MANATEE",
+  "build_text": "1998,(C)SEGA ENTERPRISES 1999.03.18:DIGITALMEDIA :Y.Kashima / K.Suyama",
+  "image_offset": 32
+ },
+ {
+  "sha256": "f9c9175d7a9c6c47e30f1070bd40824f3f710b7718a40b09396fb9aeba308b96",
+  "names": [
+   "MANATEE.DRV"
+  ],
+  "bytes": 36896,
+  "games": 1,
+  "family": "MANATEE",
+  "build_text": "2000,(C)SEGA ENTERPRISES 2000.03.16:Y.Kashima/K.Suyama ver2.50.01 2000.03.16: ver2.50.01.00",
+  "image_offset": 32
+ },
+ {
+  "sha256": "92cfb0ecb0d458ee191d84364cb4ec81cd6726bab5f1ce5c032d6dd60d0129ef",
+  "names": [
+   "MAPLE.DLL"
+  ],
+  "bytes": 32335,
+  "games": 1,
+  "family": null,
+  "build_text": "",
+  "image_offset": null
+ },
+ {
+  "sha256": "06f0c6da389dd8bb1f8127fba8e3a10ca9ca25292452e477c559b155a4df434d",
+  "names": [
+   "MAPLEDEV.DLL"
+  ],
+  "bytes": 60501,
+  "games": 1,
+  "family": null,
+  "build_text": "",
+  "image_offset": null
+ },
+ {
+  "sha256": "367bb33258d25032d72c451c77f0c11aaee6b235b398c8ea30beb4e9f9349c8e",
+  "names": [
+   "MCRIMIDDLEWARELIBRARY.DLL"
+  ],
+  "bytes": 187482,
+  "games": 1,
+  "family": null,
+  "build_text": "",
+  "image_offset": null
+ },
+ {
+  "sha256": "732f5885ae7cec41e2dd7876792194e3317fad5a3b4078dee47ef916a1bfc00b",
+  "names": [
+   "MCRITICALSECTION.DLL"
+  ],
+  "bytes": 9808,
+  "games": 1,
+  "family": null,
+  "build_text": "",
+  "image_offset": null
+ },
+ {
+  "sha256": "deba98f628a11c934078d4252cd88e04f09cb0de7ef937c4e63c564751a315cc",
+  "names": [
+   "MDREAMCAST.DLL"
+  ],
+  "bytes": 6733,
+  "games": 1,
+  "family": null,
+  "build_text": "",
+  "image_offset": null
+ },
+ {
+  "sha256": "b5d25e11bb9c9a718526b4fb52ee87068ab58f6961431daac2418f5531c6697b",
+  "names": [
+   "MDREAMCASTCONTROLLER.DLL"
+  ],
+  "bytes": 16384,
+  "games": 1,
+  "family": null,
+  "build_text": "",
+  "image_offset": null
+ },
+ {
+  "sha256": "465209e7cc60a6b4f7f3dc7cfc768ddae4802ae80f2fbec27a0b71c2c2f349d3",
+  "names": [
+   "MEMTOOL.EXE"
+  ],
+  "bytes": 4688,
+  "games": 1,
+  "family": null,
+  "build_text": "",
+  "image_offset": null
+ },
+ {
+  "sha256": "2ced528a53da26f2fe7b185297f98adb830ab4e49fa8acc01f1bc89d8d0a0b4c",
+  "names": [
+   "MEVENT.DLL"
+  ],
+  "bytes": 12860,
+  "games": 1,
+  "family": null,
+  "build_text": "",
+  "image_offset": null
+ },
+ {
+  "sha256": "921b2c987aae141c0caadb75455b4544cc24a77613cf961aa390c92c6e0a42b3",
+  "names": [
+   "MFILE.DLL"
+  ],
+  "bytes": 15930,
+  "games": 1,
+  "family": null,
+  "build_text": "",
+  "image_offset": null
+ },
+ {
+  "sha256": "c4d4e06f0064b07a81d372bd92b8a4aad461826a5a4aa705e6473b1ce7293208",
+  "names": [
+   "MGAMEAUDIO.DLL"
+  ],
+  "bytes": 22084,
+  "games": 1,
+  "family": null,
+  "build_text": "",
+  "image_offset": null
+ },
+ {
+  "sha256": "b68123a56289f8e778e876acfc53b13f3eb15ca540ccdd4b269adcc4f430007e",
+  "names": [
+   "MGAMECABINET.DLL"
+  ],
+  "bytes": 9800,
+  "games": 1,
+  "family": null,
+  "build_text": "",
+  "image_offset": null
+ },
+ {
+  "sha256": "e58b826fc4a6d0373aad1e316f0dd16b4f8479bd2152ac1f97fe92e106b66e85",
+  "names": [
+   "MGAMED3D.DLL"
+  ],
+  "bytes": 41984,
+  "games": 1,
+  "family": null,
+  "build_text": "",
+  "image_offset": null
+ },
+ {
+  "sha256": "c7abf18b62e32be0daca62ba1a970aea269a7850252cd727f4b4718af5f54404",
+  "names": [
+   "MGAMEFLASH.DLL"
+  ],
+  "bytes": 8704,
+  "games": 1,
+  "family": null,
+  "build_text": "",
+  "image_offset": null
+ },
+ {
+  "sha256": "af09dd9ed1ac53c19e7b9e4743ef5df3a23489b84c16a7eee62111e1180b130e",
+  "names": [
+   "MGAMEGL.DLL"
+  ],
+  "bytes": 24576,
+  "games": 1,
+  "family": null,
+  "build_text": "",
+  "image_offset": null
+ },
+ {
+  "sha256": "7bf97aaf3d56f7d5a6de634037cbcb65a8e4822c3cfb4eac30b5f7bf1307c739",
+  "names": [
+   "MGAMEGLPARTICLE.DLL"
+  ],
+  "bytes": 6144,
+  "games": 1,
+  "family": null,
+  "build_text": "",
+  "image_offset": null
+ },
+ {
+  "sha256": "12148e390e913a4be80a71a956388935de8b29e4c869f36aeaa5352129c8dc21",
+  "names": [
+   "MGAMEGLSPRITE.DLL"
+  ],
+  "bytes": 6656,
+  "games": 1,
+  "family": null,
+  "build_text": "",
+  "image_offset": null
+ },
+ {
+  "sha256": "3660049b1361e6c7fba51b1363ef81c749e05a8d7d93e7745045d495f6f976c6",
+  "names": [
+   "MGAMEGLSTRING.DLL"
+  ],
+  "bytes": 7168,
+  "games": 1,
+  "family": null,
+  "build_text": "",
+  "image_offset": null
+ },
+ {
+  "sha256": "a3bf99bc170e2b1218806a51d8cf4b384f961d3a51078c04da6af351945f764d",
+  "names": [
+   "MGAMEGUN.DLL"
+  ],
+  "bytes": 22592,
+  "games": 1,
+  "family": null,
+  "build_text": "",
+  "image_offset": null
+ },
+ {
+  "sha256": "e19ab8ae291b8863d112c415020be70289d5f9af67075c389cebb67f284d5bed",
+  "names": [
+   "MGAMEINPUT.DLL"
+  ],
+  "bytes": 70212,
+  "games": 1,
+  "family": null,
+  "build_text": "",
+  "image_offset": null
+ },
+ {
+  "sha256": "fb686a8d9a3f7b56216bd112118fde18c9ae8d27772a16ab84fb6f7868df702c",
+  "names": [
+   "MGAMELCD.DLL"
+  ],
+  "bytes": 24128,
+  "games": 1,
+  "family": null,
+  "build_text": "",
+  "image_offset": null
+ },
+ {
+  "sha256": "4f204e6570051693186820607d2c90c91aca371cfdffc3fc33d0d2a613329158",
+  "names": [
+   "MGAMEMIC.DLL"
+  ],
+  "bytes": 21568,
+  "games": 1,
+  "family": null,
+  "build_text": "",
+  "image_offset": null
+ },
+ {
+  "sha256": "cb8ddd1fbd30d3000e381d0522abb62864d34fcf7beab58d8be90ca7b3c0b41f",
+  "names": [
+   "MGAMEMOVIE.DLL"
+  ],
+  "bytes": 16964,
+  "games": 1,
+  "family": null,
+  "build_text": "",
+  "image_offset": null
+ },
+ {
+  "sha256": "336a32f0835214d5a6b402ac02e72a4c23fadd843cbd5e3a7dc29f66255b1d1d",
+  "names": [
+   "MGAMEREGISTRY.DLL"
+  ],
+  "bytes": 10826,
+  "games": 1,
+  "family": null,
+  "build_text": "",
+  "image_offset": null
+ },
+ {
+  "sha256": "0b6f67c3d8133dc5b91759caf9b6ff2ffbb50fc3a25ad2905a81a099a10a78ac",
+  "names": [
+   "MGAMESOUND.DLL"
+  ],
+  "bytes": 50244,
+  "games": 1,
+  "family": null,
+  "build_text": "",
+  "image_offset": null
+ },
+ {
+  "sha256": "db457b6ea915a6b634d9d094f601691828d9f89ca80e17bf156b75e6e85dca61",
+  "names": [
+   "MGAMESTORAGE.DLL"
+  ],
+  "bytes": 26184,
+  "games": 1,
+  "family": null,
+  "build_text": "",
+  "image_offset": null
+ },
+ {
+  "sha256": "46f9a5c7d363207b7098013ee90b77ad6043f5978378e8b051f72634332b93bc",
+  "names": [
+   "MGAMETIMER.DLL"
+  ],
+  "bytes": 22084,
+  "games": 1,
+  "family": null,
+  "build_text": "",
+  "image_offset": null
+ },
+ {
+  "sha256": "e32c6f7264beb5e141d9269eea367e8dac0af87930839f29c2b311cd5ee8cd7c",
+  "names": [
+   "MGAMEVIB.DLL"
+  ],
+  "bytes": 26176,
+  "games": 1,
+  "family": null,
+  "build_text": "",
+  "image_offset": null
+ },
+ {
+  "sha256": "21351b9dd23092d7be0d7409ef021e0b6e24068869b0881657457f06e92ef551",
+  "names": [
+   "MGAMEVISUALMEMORY.DLL"
+  ],
+  "bytes": 19538,
+  "games": 1,
+  "family": null,
+  "build_text": "",
+  "image_offset": null
+ },
+ {
+  "sha256": "f03fda5b92b03f93464572c74b48ae929c637e5e89ffb2bdf812463eb23d5355",
+  "names": [
+   "MGLBACKGROUND.DLL"
+  ],
+  "bytes": 14336,
+  "games": 1,
+  "family": null,
+  "build_text": "",
+  "image_offset": null
+ },
+ {
+  "sha256": "25422c86530326008831b4a2e08401d18d9d4262c23fa6b0f2bb11b332c5f73d",
+  "names": [
+   "MGLFIX.DLL"
+  ],
+  "bytes": 10240,
+  "games": 1,
+  "family": null,
+  "build_text": "",
+  "image_offset": null
+ },
+ {
+  "sha256": "35929310630e318ff65242c93b935a83968df31d85b89096bf38d8452607a090",
+  "names": [
+   "MGLMODELM.DLL"
+  ],
+  "bytes": 9728,
+  "games": 1,
+  "family": null,
+  "build_text": "",
+  "image_offset": null
+ },
+ {
+  "sha256": "5e635a191aaa5d8e5436a15477dccd40f7da63bad46bef469ba995d28a58a3c8",
+  "names": [
+   "MGLMODELQ.DLL"
+  ],
+  "bytes": 9728,
+  "games": 1,
+  "family": null,
+  "build_text": "",
+  "image_offset": null
+ },
+ {
+  "sha256": "45182de7385686ab8f25ae131e38df11d571636a4298e396d2c6f5706c3f6753",
+  "names": [
+   "MIDIDA.DRV"
+  ],
+  "bytes": 31244,
+  "games": 1,
+  "family": "AUDIO64-MIDIDA",
+  "build_text": "1998,(C)SEGA ENTERPRISES 1990.02.29:Y.Kashima / K.Suyama / Tom Miley Version 1.90e.3 Midi/DA Hybrid",
+  "image_offset": 0
+ },
+ {
+  "sha256": "9e6739ad6f15559e46d56605e88b63d244f309ff325bea986249c92c71d46d91",
+  "names": [
+   "MIDIDA.DRV"
+  ],
+  "bytes": 31872,
+  "games": 1,
+  "family": "AUDIO64-MIDIDA",
+  "build_text": "1998,(C)SEGA ENTERPRISES 1990.06.29:Y.Kashima / K.Suyama / Tom Miley Version 1.90h.2 Midi/DA Hybrid",
+  "image_offset": 0
+ },
+ {
+  "sha256": "75bf3bab37ad3d0e7b9d817ba16a4fdefce8af243ade8257efe3a89ca2449582",
+  "names": [
+   "MMTIMER.DLL"
+  ],
+  "bytes": 7764,
+  "games": 1,
+  "family": null,
+  "build_text": "",
+  "image_offset": null
+ },
+ {
+  "sha256": "9801ce2af701c5edae0c2e56a002d4fffd1bede352c2dad2fce01a52d9e799d5",
+  "names": [
+   "MSADPCM.DLL"
+  ],
+  "bytes": 10837,
+  "games": 1,
+  "family": null,
+  "build_text": "",
+  "image_offset": null
+ },
+ {
+  "sha256": "5a1c57262655b1a94f9ad05514bc5ba656ddd9d4eb8482ed18c5ad6a82ea6794",
+  "names": [
+   "MSRLE32.DLL"
+  ],
+  "bytes": 4181,
+  "games": 1,
+  "family": null,
+  "build_text": "",
+  "image_offset": null
+ },
+ {
+  "sha256": "b013281919ef2ac24472b962247cff91e534baf215cc4ea687dbe1890d0c9a9f",
+  "names": [
+   "PROJECTCE.EXE"
+  ],
+  "bytes": 747068,
+  "games": 1,
+  "family": null,
+  "build_text": "",
+  "image_offset": null
+ },
+ {
+  "sha256": "1dfcd9eac3f2d32a2d29b60d295aef7f48b5ea53cd8f656cee926f8204d7695d",
+  "names": [
+   "RT2DC.EXE"
+  ],
+  "bytes": 485888,
+  "games": 1,
+  "family": null,
+  "build_text": "",
+  "image_offset": null
+ }
+]

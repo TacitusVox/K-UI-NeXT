@@ -9,9 +9,14 @@ PHDRS {
 }
 SECTIONS {
     PROVIDE(__native_ra_extra_code = 0);
+    PROVIDE(__native_ra_stack_bytes = 0x1000);
     ASSERT(__native_ra_extra_code == 0 || __native_ra_extra_code == 0x1000 ||
-           __native_ra_extra_code == 0x3000,
+           __native_ra_extra_code == 0x3000 ||
+           (__native_ra_extra_code == 0x3900 && __native_ra_stack_bytes == 0x700),
            "Read-ahead auxiliary code extension must be one page, or three for the Toy wire stream")
+    ASSERT(__native_ra_stack_bytes == 0x1000 ||
+           (__native_ra_stack_bytes == 0x700 && __native_ra_extra_code == 0x3900),
+           "The private stack is 4 KiB, or 1,792 bytes below Test 84's code at the same top")
     . = 0x8c421000;
     .exports : { KEEP(*(.native_ra_exports)) } :exports
     ASSERT(SIZEOF(.exports)==64,"Read-ahead exports must be64bytes")
@@ -33,10 +38,10 @@ SECTIONS {
     . = 0x8c424000+__native_ra_extra_code;
     .stack (NOLOAD) : {
         __native_ra_stack_bottom = .+0x20000000;
-        . += 0x1000;
+        . += __native_ra_stack_bytes;
         __native_ra_stack_top = .+0x20000000;
     } :code
     __native_ra_memory_end = .+0x20000000;
-    ASSERT(__native_ra_memory_end==0xac425000+__native_ra_extra_code,"Read-ahead auxiliary span changed")
+    ASSERT(__native_ra_memory_end==0xac424000+__native_ra_extra_code+__native_ra_stack_bytes,"Read-ahead auxiliary span changed")
     /DISCARD/ : { *(.comment) *(.note*) *(.eh_frame*) }
 }

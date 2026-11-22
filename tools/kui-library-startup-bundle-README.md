@@ -1,4 +1,4 @@
-# Whole-library startup bundle (v2.4)
+# Whole-library startup bundle (v2.5)
 
 One command inventories every Dreamcast image below a folder and collects what
 K-UI needs to check each game against its launch routes: the disc header
@@ -70,6 +70,28 @@ Every Windows CE game is copied, even one sent before. Each copy holds the disc
 header, the Windows CE kernel `0WINCEOS.BIN` the header names, the game's
 programs and the file listing. Native games are recognized from their disc
 header alone. They are listed by title and not copied, so the parts stay small.
+
+## Regular games with CD music only (`--cd-audio`)
+
+To collect what the CD music work needs, and nothing else, add `--cd-audio`
+(with `--chd` for a CHD collection):
+
+```sh
+mkdir -p ~/kui-cd-audio
+python3 kui-library-startup-bundle.py /run/media/apollonius/Dreamcast/Games --output-dir ~/kui-cd-audio --cd-audio --chd --name CD-audio
+```
+
+Every regular (not Windows CE) game with CD audio tracks is copied, even one
+sent before: its disc header, boot program, sound-driver files and file
+listing, as in a full run. No audio is copied. Every other game is listed by
+title and not read further: a GDI or CUE by its track list, a CHD by the track
+list `chdman info` prints, so a CHD without CD music is not written out as a
+temporary GDI.
+
+The run writes one small ZIP first, `CD-audio-sound-drivers.zip`: each copied
+game's file listing and its sound-driver files (each distinct file once, files
+up to 256 KiB), without the programs. Upload that one first; then the parts
+`CD-audio-01.zip`, `CD-audio-02.zip` and so on.
 
 ## Why the startup count can be smaller than the collection
 

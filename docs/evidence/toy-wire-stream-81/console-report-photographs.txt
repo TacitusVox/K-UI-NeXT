@@ -1,0 +1,68 @@
+Test 81 on the console, 16 November 2026: the report's pages as photographed
+
+A launch from the Games menu brings no report file, so the worker shows the
+report on the screen, twelve lines to a page (docs/toy-wire-stream-test-81.md,
+The report). The owner photographed the three pages of each run with a
+telephone, 3000 x 4000 pixels each, and sent them as two archives. The
+photographs are the owner's and are not in this repository; what identifies
+them is below.
+
+Evolution (Evolution_test_81.zip, 6,198,875 bytes,
+SHA-256 4502d97c7092cfbfc449954b0b8c5ec4cacd1178727963ceafdb092340c665c5)
+  page  file                      bytes    SHA-256
+  1     20261116_153649952.jpg    2100413  6ef41ecc751245453a44e252f533a2cd30ccca692408bf0cd9dadce45fe4b561
+  2     20261116_153652935.jpg    2063402  a8bcb9c8dc10c2d546b0d1b83d89610bf3f89e0fc33206f51a188da55c5a2c00
+  3     20261116_153657881.jpg    2034630  858e01184a203c63f232892e7d2a740c6817f59517d6e93fbf7296bf49f2a3ca
+
+Evolution 2 (Evolution_2_test_81.zip, 6,345,741 bytes,
+SHA-256 5191c852bed81b6c65e55a0c02441df36eed69b65dd853701be56fd8be92eb35)
+  page  file                      bytes    SHA-256
+  1     20261116_154108521.jpg    2072685  b049696c3ca4385cb157b4d35bf934c4f6248e653fdb6a3c0659996716e5fc79
+  2     20261116_154113063.jpg    2171442  a93a565d1f51cdba0d30c82830a95be0182a37a92b97dc3b422cd90c4c50d57d
+  3     20261116_154119009.jpg    2101184  969e7bb93174e7d6369477ac88bd99ee8576bd01b399687a4e370857962f75d5
+
+The file names and the pictures' own records carry the time of each photograph
+(America/Chicago): Evolution's pages at 15:36:50 to 15:36:57, Evolution 2's at
+15:41:08 to 15:41:19. Evolution was run first.
+
+Every page shows, above the report's lines, the worker's own three lines
+(HYBRID, BUILD 684F485644E5, NATIVE), the heading REPORT NOT SAVED / FILM EVERY
+PAGE and, below them, START / REBOOT TO K-UI CD. Each page holds twelve lines
+of the report: 36 lines a report.
+
+console-report-evolution.txt and console-report-evolution-2.txt are those 36
+lines in the report's order, as the screen shows them. (The screen's letters
+are capitals only: a saved report has the build as 684f485644e5.)
+
+How they were read
+  1. By the author, from crops of the photographs at their full resolution.
+  2. Evolution 2's a second time, by a reader that was given the photographs
+     and nothing of the first reading. It compared the look-alikes (0, 8, B,
+     D) against glyphs of the same photograph whose identity the words give,
+     and left no character in doubt. The two readings were compared by a
+     program: equal in every character, 36 lines of 36.
+  3. Evolution's pages have the author's reading alone. Their second reader
+     did not finish (the session's usage limit). The photographs are sharp,
+     and every check below holds for them; the values no check covers (the
+     rows SD, VMAX, P, D, the three W rows and BIG) rest on the one reading.
+
+Checks the reports make of themselves
+  PIPE's CALLS and IRQ are the row V's GAME and SCI: 35B1 and 2FCB on pages 1
+  and 2 of Evolution, 1DC4 and 180B on pages 1 and 2 of Evolution 2.
+  X's OW, the windows opened, is S's first value, the streams ended with their
+  windows: 1F and 1F, 16 and 16.
+  K's LIGHT and EDC, less W FILL's BAD, are the sectors verified into windows
+  (AHEAD's EDC) exactly, with no sector refused in either run: Evolution
+  24,944 + 2,738 - 14 = 27,668 = 6C14; Evolution 2 11,888 + 1,375 - 4 =
+  13,259 = 33CB.
+  S's second and third values are what the other rows hold: Evolution E = REF
+  0 + BAD E, D7 = LF D4 + AM 0 + BC 3; Evolution 2 4 = REF 0 + BAD 4, 7C =
+  LF 7A + AM 0 + BC 2.
+  The stream's bytes to a block: Evolution 42EAA0A / 1F253 = 550.0, Evolution 2
+  206B187 / EF0A = 555.5.
+  PT is 1FBD in both, which this build's switches give, and TOY is 0: a title
+  that is not Toy Commander.
+
+decode_report.py in this folder turns the lines into the figures the document
+quotes (console-report-decoded.txt, with Test 80's and Test 79's reports
+beside them). It is Test 79's decoder with the rows Tests 80 and 81 added.

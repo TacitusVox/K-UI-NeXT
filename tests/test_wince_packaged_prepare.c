@@ -26,9 +26,8 @@ static uint8_t *read_whole(const char *path,size_t *bytes) {
     CHECK(fread(data,1,(size_t)size,file)==(size_t)size && !fclose(file));
     *bytes=(size_t)size;return data;
 }
-static enum kui_runtime_result shipped_runtime(const char *path,struct kui_runtime_image *out) {
-    CHECK(!strcmp(path,packaged_path()));
-    size_t bytes;uint8_t *data=read_whole(shipped_path,&bytes);
+static void load_module(const char *file,struct kui_runtime_image *out) {
+    size_t bytes;uint8_t *data=read_whole(file,&bytes);
     CHECK(bytes>=64u && !memcmp(data,"KUIRUN1\0",8u) && le32(data+12u)==64u);
     CHECK(kui_crc32(0,data,60u)==le32(data+60u));
     shipped_bytes=le32(data+16u);CHECK(shipped_bytes==bytes-64u);
@@ -40,6 +39,10 @@ static enum kui_runtime_result shipped_runtime(const char *path,struct kui_runti
     out->info=(struct kui_runtime_info){.payload_bytes=(uint32_t)shipped_bytes,
         .memory_bytes=(uint32_t)shipped_bytes,.crc32=le32(data+32u)};
     memcpy(out->info.build,data+40u,12u);free(data);
+}
+static enum kui_runtime_result shipped_runtime(const char *path,struct kui_runtime_image *out) {
+    CHECK(!strcmp(path,packaged_path()));
+    load_module(shipped_path,out);
     size_t seed_at=armada_stream_seed_find(out,packaged_profile);CHECK(seed_at!=SIZE_MAX);
     const struct kui_armada_ce_stream_seed *blank=(const void *)((const uint8_t *)out->data+seed_at);
     CHECK(!blank->words[KUI_ARMADA_CE_STREAM_MAP_CRC_WORD]);
@@ -213,7 +216,31 @@ static void packaged_kernel_rejections(bool cooked) {
     CHECK(!prepared.data && !prepared.info.payload_bytes && !launch.package_reads && !launch.kernel_hashes);
     CHECK(!launch.connected && !launch.mounted && !launch.active && launch.opens==launch.closes);
 }
+static const char *legacy_input,*generic_input;
+static enum kui_runtime_result legacy_runtime(const char *path,struct kui_runtime_image *out) {
+    bool legacy=!strcmp(path,KUI_GAMES_RETAIL_CE_ARMADA_LEGACY_PACKAGE);
+    CHECK(legacy || !strcmp(path,KUI_GAMES_RETAIL_CE_PACKAGE));
+    load_module(legacy?legacy_input:generic_input,out);
+    return KUI_RUNTIME_OK;
+}
+static void legacy_route(const char *file,bool writable) {
+    launch_setup();
+    launch.connected=launch.mounted=true;
+    fixture_runtime_source=legacy_runtime;legacy_input=file;
+    const char *path=KUI_GAMES_RETAIL_CE_ARMADA_LEGACY_PACKAGE;
+    struct kui_runtime_image actual={0};
+    CHECK(read_ordinary_ce(&path,&actual,record_log,launch_cancel)==KUI_RUNTIME_OK);
+    CHECK(!strcmp(path,writable?KUI_GAMES_RETAIL_CE_ARMADA_LEGACY_PACKAGE:KUI_GAMES_RETAIL_CE_PACKAGE));
+    CHECK(launch.package_reads==(writable?1u:2u));
+    kui_runtime_free(&actual);free(shipped_payload);shipped_payload=NULL;
+    launch.connected=launch.mounted=false;
+}
 int main(int argc,char **argv) {
+    if(argc==5 && !strcmp(argv[1],"--armada-legacy")) {
+        generic_input=argv[2];legacy_route(argv[3],false);legacy_route(argv[4],true);
+        puts("PASS Armada selects the public generic and installed writable readers from their package bytes");
+        return 0;
+    }
     int first=1;
     if(argc>1 && !strcmp(argv[1],"--wwp")) {packaged_profile=KUI_WINCE_CDDA_WORMS_WORLD_PARTY;++first;}
     else if(argc>3 && (!strcmp(argv[1],"--kernel") || !strcmp(argv[1],"--bam4-kernel"))) {

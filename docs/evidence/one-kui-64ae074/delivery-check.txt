@@ -1,0 +1,28 @@
+Delivery check of the packaged K-UI 64ae07435de5 against the owner's 1c71ba3afa17 (gui-tools/check-gui.py)
+ok    envelope KUIRUN1 format 1, 3834412 bytes, payload 3834348
+ok    build 64ae07435de5
+ok    payload CRC32 1431624f
+      load 0x8c010000 entry 0x8c010000 memory 8201924
+ok    producer verify_runtime: build 64ae07435de5
+ok    producer member check (engine 3, bank capability, empty handoff, not withdrawn): 3
+ok    KUIENG3! once, KUIENG2! absent
+ok    embedded module bundle identical to the owner's (413045 bytes, build cc81e63ca4d2)
+ok      apps/games/retail-smash-menu.kui           e6d0bef744f007a6
+ok      apps/games/retail-smash-native-menu.kui    b2d633f5254e5db8
+ok      apps/games/retail-smash-swirl.kui          5b8f7f1c36983ad4
+ok      apps/games/retail-smash-vc2.kui            a36421a22e4e3d1d
+ok    KallistiOS banner as in the owner's K-UI: b'KallistiOS v2.3.0 [dreamcast/pristine]\n  Git revision: fcfa7d8\n  Tue Oct 27 15:07:25 UTC 2'
+ok    Diagnostics line text present ("SD runtime")
+sha256 d572510ce3d5804ee8ad5c04096197f8f4cd9b0724342ea76bda5dfdbcd84f2d
+PASS
+
+compile receipt (build/kui-runtime.compile.json):
+{
+  "commit": "64ae07435de5aefa212d1fdfe21742bbf0c94b13",
+  "source_dirty": false,
+  "elf_sha256": "b9801fddad7c39644c7d7da6e55803c39f5765502b6b0b326718046a7fb3936f"
+}
+
+make command: make -j8 -f Makefile.dc build/kui-runtime.elf BUILD_ID=64ae07435de5 KUI_SMASH_LAUNCH_TIMING=1 RUNTIME_MODULE_BUNDLE=<bundle-merged> NATIVE_STANDARD_MANIFEST=resources/updater-bindings/installed-standard-9e3295bcfaec.h
+compiled flags:       1 DKUI_GITHUB_NIGHTLY=0;      1 DKUI_UPDATE_REVIEW_FEED=0;      1 DKUI_UPDATE_SOURCE_VERIFIED=1;
+packagers: tools/runtime_package.py build and tools/nightly.py build_gui both give sha256 d572510ce3d5804ee8ad5c04096197f8f4cd9b0724342ea76bda5dfdbcd84f2d

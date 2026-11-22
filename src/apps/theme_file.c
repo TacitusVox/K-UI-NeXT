@@ -87,6 +87,12 @@ bool kui_theme_definition_load(struct kui_theme_definition *out,const char *id,k
     char path[128];int length=snprintf(path,sizeof(path),KUI_THEME_ROOT "/%s/theme.ini",id);
     if(length<0 || (size_t)length>=sizeof(path))return false;
     FIL file;FRESULT r=f_open(&file,path,FA_READ);
+    bool managed=r==FR_NO_FILE || r==FR_NO_PATH;
+    if(managed) {
+        length=snprintf(path,sizeof(path),KUI_THEME_MANAGED_ROOT "/%s/theme.ini",id);
+        if(length<0 || (size_t)length>=sizeof(path))return false;
+        r=f_open(&file,path,FA_READ);
+    }
     if(r!=FR_OK){if(log)log("Theme %s unavailable: FatFs=%u",id,(unsigned)r);return false;}
     FSIZE_t bytes=f_size(&file);UINT got=0;
     char text[KUI_THEME_MANIFEST_MAX];
@@ -94,7 +100,8 @@ bool kui_theme_definition_load(struct kui_theme_definition *out,const char *id,k
     if(sized)r=f_read(&file,text,(UINT)bytes,&got);
     FRESULT closed=f_close(&file);
     bool ok=sized && r==FR_OK && closed==FR_OK && got==bytes && kui_theme_parse(out,id,text,got);
-    if(!ok && log)log("Theme %s has an invalid/unreadable manifest",id);
+    if(ok)out->managed=managed;
+    else if(log)log("Theme %s has an invalid/unreadable manifest",id);
     return ok;
 }
 static int compare_ascii(const char *a,const char *b) {
@@ -121,9 +128,7 @@ static void catalog_insert(struct kui_theme_catalog *out,const struct kui_theme_
     for(unsigned i=out->count-1;i>at;i--)out->themes[i]=out->themes[i-1];
     out->themes[at]=*definition;
 }
-bool kui_theme_catalog_scan(struct kui_theme_catalog *out,kui_log_fn log,kui_cancel_fn cancelled) {
-    if(!out)return false;
-    memset(out,0,sizeof(*out));kui_theme_definition_default(&out->themes[0]);out->count=1;
+static bool scan_user_catalog(struct kui_theme_catalog *out,kui_log_fn log,kui_cancel_fn cancelled) {
     if(cancelled && cancelled())return false;
     DIR directory;FRESULT r=f_opendir(&directory,KUI_THEME_ROOT);
     if(r==FR_NO_PATH || r==FR_NO_FILE)return true;
@@ -141,6 +146,52 @@ bool kui_theme_catalog_scan(struct kui_theme_catalog *out,kui_log_fn log,kui_can
     }
     FRESULT closed=f_closedir(&directory);
     return ok && closed==FR_OK;
+}
+/* A bank may inherit individual files from root. Opening a bounded list through
+ * the same checked software-file resolver as its manifests works in both layouts. */
+static bool scan_managed_catalog(struct kui_theme_catalog *out,kui_log_fn log,kui_cancel_fn cancelled) {
+    FIL file;
+    FRESULT r=f_open(&file,KUI_THEME_MANAGED_ROOT "/index.txt",FA_READ);
+    if(r==FR_NO_FILE || r==FR_NO_PATH)return true;
+    if(r!=FR_OK) {
+        if(log)log("Factory theme catalog unavailable: FatFs=%u",(unsigned)r);
+        return true;
+    }
+    char ids[(KUI_THEME_CATALOG_MAX-1u)*KUI_THEME_ID_BYTES];
+    char *entries[KUI_THEME_CATALOG_MAX-1u];
+    FSIZE_t size=f_size(&file);
+    UINT got=0;
+    bool valid=size>0 && size<=sizeof(ids) && f_read(&file,ids,(UINT)size,&got)==FR_OK && got==size;
+    if(f_close(&file)!=FR_OK)valid=false;
+    unsigned count=0;
+    char *next=ids,*end=ids+got;
+    while(valid && next<end) {
+        char *newline=memchr(next,'\n',(size_t)(end-next));
+        if(!newline || (size_t)(newline-next)>=KUI_THEME_ID_BYTES ||
+           memchr(next,0,(size_t)(newline-next)) || count==KUI_THEME_CATALOG_MAX-1u) {
+            valid=false;break;
+        }
+        *newline=0;
+        if(!kui_theme_id_valid(next) || !strcmp(next,"default") || !strcmp(next,"none")) {
+            valid=false;break;
+        }
+        entries[count++]=next;next=newline+1;
+    }
+    if(!valid) {
+        if(log)log("Ignoring invalid factory theme catalog");
+        return true;
+    }
+    for(unsigned i=0;i<count;i++) {
+        if(cancelled && cancelled())return false;
+        struct kui_theme_definition definition;
+        if(kui_theme_definition_load(&definition,entries[i],log))catalog_insert(out,&definition);
+    }
+    return true;
+}
+bool kui_theme_catalog_scan(struct kui_theme_catalog *out,kui_log_fn log,kui_cancel_fn cancelled) {
+    if(!out)return false;
+    memset(out,0,sizeof(*out));kui_theme_definition_default(&out->themes[0]);out->count=1;
+    return scan_user_catalog(out,log,cancelled) && scan_managed_catalog(out,log,cancelled);
 }
 void kui_theme_image_release(struct kui_theme_image *image) {
     if(!image)return;
@@ -221,7 +272,8 @@ static enum kui_theme_asset_status load_image(struct kui_theme_image *out,
     }
     if(!terminated)return KUI_THEME_ASSET_FAILED;
     if(!strcmp(filename,"none"))return KUI_THEME_ASSET_DISABLED;
-    char path[160];int length=snprintf(path,sizeof(path),KUI_THEME_ROOT "/%s/%s",definition->id,filename);
+    const char *root=definition->managed?KUI_THEME_MANAGED_ROOT:KUI_THEME_ROOT;
+    char path[160];int length=snprintf(path,sizeof(path),"%s/%s/%s",root,definition->id,filename);
     if(length<0 || (size_t)length>=sizeof(path))return KUI_THEME_ASSET_FAILED;
     FIL file;FRESULT r=f_open(&file,path,FA_READ);
     if(r!=FR_OK){if(log)log("Theme asset unavailable: %s",path+2);return KUI_THEME_ASSET_FAILED;}
