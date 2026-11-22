@@ -217,6 +217,71 @@ The README asks for, with this K-UI on the card (Diagnostics' first line
 A console result is read against the K-UI build its logs name
 (`docs/gui-lines.md`, rule 4).
 
+## After delivery: the Windows CE line to `949be408`
+
+**The Windows CE session's check on the owner's kernels** (its report of 22
+Nov 2026, attributed to that session, not run here): at `86214640362c`,
+whose K-UI compile inputs equal `64ae0743`'s, `build/test-wince-packaged-prepare`
+passes with all 21 delivered CD music modules and the owner's real kernels,
+raw and 2048-byte DATA, with check counts identical to its own tree's; so do
+`test-wince-cdda-bam4-group`, `test-wince-cdda-wwp-group` and
+`test-wince-runtime-families`. Virtua Cop 2's module rebuilds byte-identical
+to `1ac7e667c0d3`. Not in that check: `ce-cdda-bam4.kui`, `ce-armada-all-on`
+and the generic `ce-boot` route.
+
+**The line moved on after the build** (`beeef062` host tests; `0414c2d0`
+Virtua Cop 2's CD music reader keeps the all-on reader's 1 KiB stack;
+`949be408` that reader takes video-memory stream pieces), so
+`tools/check_gui_lines.py --commit 64ae0743` fails on them. They are merged as
+`89a241cd` (the fixture's two shared sources, `retail_loader_layout.h` and
+`retail_resident.S`, are clean unions; fingerprints recorded with `--write`).
+From `89a241cd`:
+
+- the K-UI built with this recipe equals the delivered `64ae07435de5` apart
+  from its build-ID text: five places (three whole, two split into an
+  8- and a 4-character literal) and the two header CRC words that follow
+  from them; every other byte is identical (`evidence/one-kui-64ae074/merge-89a241cd.txt`).
+  The delivered K-UI is therefore this source's K-UI; no new one is needed;
+- the four regular-games modules rebuild byte-identical (Test 84's two, the
+  owner's Test 83 reader, the installed New reader's recipe), with Test 84's
+  linked and parts checks passing;
+- the 27 Windows CE module builds (the 26 above and the new reader's defaults)
+  are byte-identical to the same recipes at `949be408`, and every one but the
+  new reader is identical to its build at `64ae0743`; Virtua Cop 2 with its
+  new switches off is `1ac7e667c0d3` exactly, and with every switch off round
+  2's `9e89e778370f`.
+
+Three independent reviewers checked the merge (`evidence/one-kui-64ae074/verification-89a241cd.json`;
+host checks, not console runs):
+
+- **The merge itself:** the three files both lines changed (`Makefile`,
+  `retail_loader_layout.h`, `retail_resident.S`) equal a clean three-way
+  merge; every other path equals the side that changed it; `git merge-tree`
+  differs only in the fixture, whose 30 fingerprints the reviewer recomputed.
+  The four new switches can be defined only by `Makefile.armada-stream` for
+  Virtua Cop 2's module, and its guards refuse them anywhere else. Every K-UI
+  translation unit preprocesses identically at `64ae0743` and `89a241cd` (the
+  two that include `retail_loader_layout.h`, `games.c` and `games_retail.c`,
+  with identical macro tables). The K-UI's CD music admission functions are
+  identical on both lines and the merge, and read only the package header,
+  the `KUICDK01` record and the seed, none of which the new reader changes.
+- **The K-UI bytes:** the same identity as above, found independently: same
+  6,589 symbols at the same addresses and sizes, every section equal once the
+  build-ID text (two split by the compiler around `&update_pending`) is
+  replaced; both ELFs flatten to their `runtime.kui` byte for byte.
+- **Host tests at the merge and at `949be408`:** the Windows CE groups, the
+  runtime families, the Armada stream suite, the new video-memory CD music
+  reader test, `test_retail_ce_map_guest.py`, the excerpt checker's self-test,
+  the switches' production text, the line check's test and
+  `tests/test_games_retail.py` (408 PASS lines, line for line as before) pass
+  with identical output.
+
+Not run here: the delivered K-UI's admission of the actual new Virtua Cop 2
+reader with the owner's kernel (`test-wince-packaged-prepare --bam4-kernel`
+needs that private kernel; the Windows CE session runs it with its test of
+that reader). The line ledger records `89a241cd` under `installed`/`equivalent`,
+so `--installed-has` counts the Windows CE line's commits up to `949be408`.
+
 ## Console result
 
 Pending.

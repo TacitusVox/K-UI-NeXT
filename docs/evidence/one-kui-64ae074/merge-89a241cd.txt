@@ -1,0 +1,61 @@
+The merge 89a241cda854 (the Windows CE line to 949be408) and the delivered K-UI 64ae07435de5
+
+== K-UI built from 89a241cd with the delivered recipe (BUILD_ID=89a241cda854), compared with the delivered runtime.kui
+differing bytes: 19 in the header (only the payload CRC 0x20, the build ID 0x28 and the header CRC 0x3c: True; build ID 0x28-0x33: True), 55 in the payload
+payload bytes outside the build-ID text: 0 []
+build-ID places: [('0x10be0', '64ae0743'), ('0x10be0', '64ae07435de5'), ('0x10be8', '5de5'), ('0x2041a0', '64ae0743'), ('0x2041a0', '64ae07435de5'), ('0x2041a8', '5de5'), ('0x20694', '64ae0743'), ('0x206a0', '5de5'), ('0x20878', '64ae0743'), ('0x20884', '5de5'), ('0x2099b1', '64ae0743'), ('0x2099b1', '64ae07435de5'), ('0x2099b9', '5de5')]
+PASS: the two K-UIs are equal apart from the build-ID text (and the payload CRC that follows from it)
+new file sha256 a230d3f96afafa5de9a269d7039ea3f3d99e295b81c31705e3eac3d86a1d3a0f; compile receipt: {"commit":"89a241cda854c26082d2eec3d6d30be8c9dd6d8f","source_dirty":false,"elf_sha256":"47da2b8b0a39841c138c06c0784ca8831eb819d277ec5d18b97542d05d1bdf17"}
+compiled flags identical to the delivered build's: yes
+
+== Production-text fixture: each shared source is its line's text or the clean union (base b7c92e0c, ours 1222228d, theirs 949be408)
+src/loader/vmu_native_readahead_stage.inc               same on both
+src/loader/vmu_native_reader_capture.inc                same on both
+PASS: every production text is its line's or the clean union of both
+
+== Regular-games modules at 89a241cd
+ok   build-main
+ok   main-toy-wire-linked-check
+ok   main-toy-cdda-parts-check
+ok   switches
+FAIL asm-audit (exit 1)
+FAILED (failures=1)
+ok   build-alt
+ok   build-off
+ok   build-installed
+main:        597d8eac96b0238045e7bde9c642653a0bb5e138d6763993cabd0c156c210260 expected 597d8eac96b0238045e7bde9c642653a0bb5e138d6763993cabd0c156c210260
+alternate:   e74cca711600ecd8ddd38a62839fda7c6dda837740331fb3f0f458b761f03014 expected e74cca711600ecd8ddd38a62839fda7c6dda837740331fb3f0f458b761f03014
+all off:     313ac3bddb6b1d037ea2de758dd97d809125507ba9617340739baf0e05195f1c expected 313ac3bddb6b1d037ea2de758dd97d809125507ba9617340739baf0e05195f1c
+installed:   467be62f555a28f3171d82b39e125e536d5f31f25cfc6555cf4b85f77aa7e537 expected 467be62f555a28f3171d82b39e125e536d5f31f25cfc6555cf4b85f77aa7e537
+(asm-audit: the known failure in bba_sockets.c and shell_font.c, as recorded with Test 84)
+
+== Windows CE modules at 89a241cd and at 949be408 (same recipes), and against 64ae0743
+module (label/kernel)                       bytes      CRC merge vs CE head       vs previous merge 64ae0743
+1ac7e667c0d3/VIRTUA_COP_2.kui              135736 1A985F40 identical              identical
+1ba2fa7e7040/ce-armada-all-on.kui          206428 8C21F910 identical              identical
+1ba2fa7e7040/ce-cdda-armada.kui            135412 830BD7EA identical              identical
+1ba2fa7e7040/ce-cdda-bam4.kui              135396 23A93E11 identical              identical
+1ba2fa7e7040/ce-cdda-worms.kui             136324 0074D23C identical              identical
+1ba2fa7e7040/ce-cdda-wwp.kui               136036 F219336E identical              identical
+1c71ba3afa17/ATARI_ANNIVERSARY.kui         136036 548A2594 identical              identical
+1c71ba3afa17/BEAT_UP_A_MILLIONAIRE.kui     136036 D9ED879E identical              identical
+1c71ba3afa17/CHAMPIONSHIP_SURFER.kui       136036 E3ECE95B identical              identical
+1c71ba3afa17/DUCATI_WORLD.kui              136036 702BE589 identical              identical
+1c71ba3afa17/FOUR_BY_FOUR_EVOLUTION.kui    136036 3F954344 identical              identical
+1c71ba3afa17/HIDDEN_AND_DANGEROUS.kui      136036 D5857DC0 identical              identical
+1c71ba3afa17/HIDDEN_AND_DANGEROUS_PAL.kui   136036 381D423B identical              identical
+1c71ba3afa17/HOYLE_CASINO.kui              136068 EF354FFE identical              identical
+1c71ba3afa17/NEXT_TETRIS_ONLINE.kui        136036 72CA764E identical              identical
+1c71ba3afa17/RAILROAD_TYCOON_II.kui        136036 FBA74081 identical              identical
+1c71ba3afa17/STARLANCER.kui                136036 2416DB88 identical              identical
+91b0540103f0/ce-boot.kui                    85300 6829D405 identical              identical
+949be40865cf/VIRTUA_COP_2.kui              135864 C1FEC7A6 identical              new reader (no earlier build)
+9e89e778370f/CAESARS_PALACE_2000.kui       135396 80EEC206 identical              identical
+9e89e778370f/CAESARS_PALACE_2000_PAL.kui   135396 9BA9C4DD identical              identical
+9e89e778370f/GET_COLONY.kui                135396 F44C11B1 identical              identical
+9e89e778370f/HELLO_KITTY_MAGICAL_BLOCK.kui   135396 61B17703 identical              identical
+9e89e778370f/MARIONETTE_COMPANY_2.kui      135396 ED494C26 identical              identical
+9e89e778370f/PUZZLE_BOBBLE_4.kui           135396 EB9CC023 identical              identical
+9e89e778370f/VIRTUA_COP_2.kui              135396 4236DAEC identical              identical
+d7fd810eb837/DUCATI_WORLD.kui              136004 3FB89B1C identical              identical
+27 modules; PASS

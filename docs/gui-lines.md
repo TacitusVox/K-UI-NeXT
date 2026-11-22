@@ -37,7 +37,11 @@ Plasma Sword (`cdda-background-test-84.md`, Console result).
 
    If that fails, the delivery brings a K-UI that has it. The test's README
    tells the owner to check the first line of the Diagnostics page
-   (`K-UI V2.0.0 SD runtime <build>`) before the first launch.
+   (`K-UI V2.0.0 SD runtime <build>`) before the first launch. When a line
+   moves on after a K-UI is built and the K-UI built from the merge is proven
+   to be the installed one apart from its build-ID text, the merge is
+   recorded under `installed`/`equivalent` with its evidence, and its commits
+   count as contained (64ae07435de5 and the merge `89a241cd`).
 4. **Before reading a console result**, compare the K-UI build in the owner's
    logs with `installed`. A result from another K-UI is that K-UI's result.
 5. **A new thread** that changes K-UI on its own branch adds its branch to

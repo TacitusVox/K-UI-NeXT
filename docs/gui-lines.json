@@ -32,6 +32,13 @@
       "source": "1c71ba3afa179c472a633a3508b5c0de7dd1f17c",
       "seen": "the owner's diagnostics logs of 21 November 2026 (Test 84's console result)",
       "line": "claude/great-darwin-yjmgfi"
-    }
+    },
+    "equivalent": [
+      {
+        "source": "89a241cda854c26082d2eec3d6d30be8c9dd6d8f",
+        "evidence": "docs/evidence/one-kui-64ae074/merge-89a241cd.txt",
+        "how": "the merge with the Windows CE line to 949be408; its K-UI, built with the installed recipe, equals 64ae07435de5 apart from the build-ID text, and every K-UI unit preprocesses identically (docs/one-kui-both-threads.md, After delivery)"
+      }
+    ]
   }
 }
