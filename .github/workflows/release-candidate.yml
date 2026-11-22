@@ -160,3 +160,23 @@ jobs:
           flags=()
           if [[ "$LEAVE_DRAFT" == "true" ]]; then flags+=(--draft); fi
           python3 tools/release_candidate.py publish "$RUNNER_TEMP/candidate" --tag "$CANDIDATE_TAG" "${flags[@]}"
+
+  update-post:
+    if: >-
+      github.repository == 'TacitusVox/K-UI-NeXT' && github.event_name == 'push' &&
+      github.ref == 'refs/heads/main' && github.event.head_commit.message == 'Release post: v3.0.0-rc.1'
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - name: Update the published RC1 artwork and notes
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: v3.0.0-rc.1
+        run: |
+          endpoint="repos/$GITHUB_REPOSITORY/releases"
+          id=$(gh api "$endpoint/tags/$TAG" --jq 'select(.draft == false and .prerelease == true) | .id')
+          test -n "$id"
+          gh api --method PATCH "$endpoint/$id" -f 'name=K-UI 3.0 RC1 “Muramasa”' \
+            -F body=@docs/release-v3.0.0-notes.md --silent
