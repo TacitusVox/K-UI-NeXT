@@ -44,6 +44,10 @@ CE_VMU_RUNTIME_STACK_BOTTOM=0x8c00dc00
 CE_PROBE_STACK_BOTTOM=0x8c00ddc0
 # The generic module's read-ahead reader (KUI_RETAIL_CE_READAHEAD): 1 KiB stack.
 CE_READAHEAD_STACK_BOTTOM=0x8c00dc00
+# A CD music module's background reader with more data than d800
+# (KUI_ARMADA_CE_STREAM_SMALL_STACK): 1 KiB stack, code still below d800.
+CE_CDDA_SMALL_STACK_BOTTOM=0x8c00dc00
+CDDA_SMALL_STACK_MARKER='__kui_ce_cdda_small_stack_resident'
 
 
 def exact_profile_marker(data,name):
@@ -69,10 +73,12 @@ def exact_profile_marker(data,name):
     return bool(found)
 
 
-def resident_limit(transport, ce=False, low=False, runtime=False, probe=False, readahead=False):
+def resident_limit(transport, ce=False, low=False, runtime=False, probe=False, readahead=False,
+                   small_stack=False):
     if runtime and ce and transport==ASYNC:return CE_VMU_RUNTIME_STACK_BOTTOM
     if probe and ce and transport==ASYNC:return CE_PROBE_STACK_BOTTOM
     if readahead and ce and transport==ASYNC:return CE_READAHEAD_STACK_BOTTOM
+    if small_stack and ce and transport==ASYNC:return CE_CDDA_SMALL_STACK_BOTTOM
     if ce and transport == "sci":
         return layout.CE_RESIDENT_LIMIT
     if ce and transport == ASYNC:
@@ -82,8 +88,9 @@ def resident_limit(transport, ce=False, low=False, runtime=False, probe=False, r
     return layout.ASYNC_RESIDENT_LIMIT if transport == ASYNC else layout.RESIDENT_LIMIT
 
 
-def stack_bottom(transport, ce=False, low=False, runtime=False, probe=False, readahead=False):
-    return resident_limit(transport, ce, low, runtime, probe, readahead)
+def stack_bottom(transport, ce=False, low=False, runtime=False, probe=False, readahead=False,
+                 small_stack=False):
+    return resident_limit(transport, ce, low, runtime, probe, readahead, small_stack)
 
 
 def stack_top(transport, ce=False, low=False):
@@ -95,8 +102,10 @@ def stack_top(transport, ce=False, low=False):
     return layout.LOW_HOOK_STACK if low else layout.HOOK_STACK
 
 
-def check_async_stack(directory, ce=False, low=False, runtime=False, probe=False, readahead=False):
-    available = (stack_top(ASYNC, ce, low) - stack_bottom(ASYNC, ce, low, runtime, probe, readahead) -
+def check_async_stack(directory, ce=False, low=False, runtime=False, probe=False, readahead=False,
+                      small_stack=False):
+    available = (stack_top(ASYNC, ce, low) - stack_bottom(ASYNC, ce, low, runtime, probe, readahead,
+                                                          small_stack) -
                  STACK_GUARD_BYTES - STACK_ALIGNMENT_GAP)
     result = check_retail_stack.check(Path(directory), available, ce)
     return {"worst_bytes": result["worst_bytes"], "available_bytes": available,
@@ -191,6 +200,12 @@ def check_directory(directory, ce=False):
     if probe and (not ce or low or runtime):raise ValueError('The WinCE data probe requires the ordinary CE placement')
     readahead=exact_profile_marker(stage_data,'__kui_ce_readahead_stage')
     if readahead and (not ce or low or runtime or probe):raise ValueError('WinCE read-ahead requires the ordinary CE placement')
+    # The CD music small-stack reader has no stage profile: the stage keeps
+    # d800 as the bound of the image it installs, and the reader's own marker
+    # selects its stack (retail_resident_ce_async_small_stack.ld).
+    small_stack=exact_profile_marker((directory/'resident-scia.elf').read_bytes(),CDDA_SMALL_STACK_MARKER)
+    if small_stack and (not ce or low or runtime or probe or readahead):
+        raise ValueError('The CD music small-stack reader requires the ordinary CE placement')
     images = {
         "stage": inspect_elf(stage_data,
                              stage_address, layout.STAGE_MEMORY_END),
@@ -205,9 +220,15 @@ def check_directory(directory, ce=False):
             raise ValueError('Mixed WinCE data probe stage/resident profiles')
         if exact_profile_marker(data,'__kui_ce_readahead_resident')!=(readahead and transport==ASYNC):
             raise ValueError('Mixed WinCE read-ahead stage/resident profiles')
-        images[name] = inspect_elf(data,resident_address,resident_limit(transport,ce,low,runtime,probe,readahead))
+        if exact_profile_marker(data,CDDA_SMALL_STACK_MARKER)!=(small_stack and transport==ASYNC):
+            raise ValueError('The CD music small-stack profile belongs to the background reader only')
+        images[name] = inspect_elf(data,resident_address,
+                                   resident_limit(transport,ce,low,runtime,probe,readahead,small_stack))
         if marker and images[name]['symbols'].get('__retail_resident_binary_end',0)>layout.CE_ASYNC_RESIDENT_LIMIT:
             raise ValueError('Runtime resident executable bytes leave the original service code range')
+        if (small_stack and transport==ASYNC and
+                images[name]['symbols'].get('__retail_resident_binary_end',0)>layout.CE_ASYNC_RESIDENT_LIMIT):
+            raise ValueError('CD music small-stack reader code leaves the stream controller bounds')
     for name, image in images.items():
         forbidden = [s for s in image["symbols"] if
                      s.startswith(FORBIDDEN_PREFIXES) or s in FORBIDDEN_SYMBOLS]
@@ -254,7 +275,8 @@ def check_directory(directory, ce=False):
             code_symbol(resident, symbol, resident_address)
         rs = resident["symbols"]
         if (rs.get("__retail_hook_stack") != stack_top(transport, ce, low) or
-                rs.get("__retail_hook_stack_bottom") != stack_bottom(transport, ce, low, runtime, probe, readahead)):
+                rs.get("__retail_hook_stack_bottom") != stack_bottom(transport, ce, low, runtime, probe, readahead,
+                                                                     small_stack)):
             raise ValueError(f"{name} hook stack is outside its resident reservation")
         for symbol in ("_kui_retail_hook_active", "_kui_retail_hook_fault"):
             if not resident_address <= rs.get(symbol, 0) < resident["memory_end"]:
@@ -271,7 +293,8 @@ def check_directory(directory, ce=False):
             if region_symbol % 32 or not (resident_address <= region_symbol and
                                           region_symbol + 0x440 <= resident["memory_end"]):
                 raise ValueError("Background reader's region is misplaced")
-            stacks[transport] = check_async_stack(directory / transport, ce, low, runtime, probe, readahead)
+            stacks[transport] = check_async_stack(directory / transport, ce, low, runtime, probe, readahead,
+                                                  small_stack)
         elif transport == ASYNC:
             region_symbol = rs.get("_kui_retail_async_region", 0)
             if region_symbol % 32 or not (resident_address + 0x100 <= region_symbol and

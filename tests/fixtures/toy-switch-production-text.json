@@ -1,6 +1,6 @@
 {
   "schema": "kui.toy-switch-production-text.v1",
-  "source": "Main 776c9259 (origin/main on 16 Nov 2026), the production text before the Toy test sources were merged; then the reviewed WinCE data probe hunks (KUI_WCE_PROBE, a257f13e and c25e9f5e); then the reviewed CE VRAM stream admission (KUI_RETAIL_CE_VRAM_DMA); then the reviewed generic WinCE reader switches (KUI_CE_SLOW_WINDOW, KUI_CE_SLOW_ADAPT, KUI_CE_POOL_KIB, KUI_CE_READAHEAD); then the reviewed WinCE CD music changes to retail_stage.c: the Bust-A-Move 4 group's kernel records for its interrupt words (9e89e778) and Virtua Cop 2's bootstrap-2 scratch repair (KUI_ARMADA_CE_BOOT2_SCRATCH, e8b3f744 and 1ac7e667)",
+  "source": "Main 776c9259 (origin/main on 16 Nov 2026), the production text before the Toy test sources were merged; then the reviewed WinCE data probe hunks (KUI_WCE_PROBE, a257f13e and c25e9f5e); then the reviewed CE VRAM stream admission (KUI_RETAIL_CE_VRAM_DMA); then the reviewed generic WinCE reader switches (KUI_CE_SLOW_WINDOW, KUI_CE_SLOW_ADAPT, KUI_CE_POOL_KIB, KUI_CE_READAHEAD); then the reviewed WinCE CD music changes to retail_stage.c: the Bust-A-Move 4 group's kernel records for its interrupt words (9e89e778) and Virtua Cop 2's bootstrap-2 scratch repair (KUI_ARMADA_CE_BOOT2_SCRATCH, e8b3f744 and 1ac7e667); then Virtua Cop 2's CD music reader layout with the 1 KiB guarded stack (KUI_ARMADA_CE_STREAM_SMALL_STACK) in retail_loader_layout.h and retail_resident.S",
   "files": {
     "include/kui/hash.h": {
       "mode": "code",
@@ -20,7 +20,7 @@
     },
     "include/kui/retail_loader_layout.h": {
       "mode": "code",
-      "sha256": "ab83222b4cc2de4e951f0054c713bdde7a12af2dc81e7d0b1fd6410b969f9eef"
+      "sha256": "6c2ed03e35efcf0b5cb97be5195476e84b76fdca1a58dc4a087a636d9c964d09"
     },
     "include/kui/vmu_native_passive.h": {
       "mode": "code",
@@ -68,7 +68,7 @@
     },
     "src/loader/retail_resident.S": {
       "mode": "code",
-      "sha256": "5c46b35ab6b5631efe9152c2d533108a51b300ef8d5e1c4a7e646816bb46112d"
+      "sha256": "d9df1a060653b6cac92701c01cabac13283163c9b357b3a6ae24eca88c3888aa"
     },
     "src/loader/retail_resident.c": {
       "mode": "code",

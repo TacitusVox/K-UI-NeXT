@@ -112,6 +112,12 @@ C_SYMBOL(kui_retail_ce_pool_entry): .long C_SYMBOL(kui_retail_ce_pool)
     .global __kui_ce_readahead_resident
     .set __kui_ce_readahead_resident,1
 #endif
+#if KUI_ARMADA_CE_STREAM_SMALL_STACK && defined(KUI_RETAIL_ASYNC)
+/* A CD music module's background reader with the 1 KiB guarded stack
+ * (retail_resident_ce_async_small_stack.ld). */
+    .global __kui_ce_cdda_small_stack_resident
+    .set __kui_ce_cdda_small_stack_resident,1
+#endif
 #if KUI_ARMADA_CE_STREAM
 /* Stage verifies the complete immutable resident before following this word.
  * High stream state remains dormant throughout owner bootstrap 2. */
