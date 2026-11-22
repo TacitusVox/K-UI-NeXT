@@ -1,0 +1,83 @@
+name: Verify hardware-tested RC1 artifacts
+on:
+  push:
+    branches: [codex/rc1-tested-artifact-stage]
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          path: transport
+          persist-credentials: false
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: 93f13e84d9893d149d2202c90417c3ec6b5aa940
+          path: source
+          persist-credentials: false
+      - name: Fetch the immutable original RC1 build artifact
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          artifact-ids: 14763878608
+          run-id: 45047313105
+          repository: TacitusVox/K-UI-NeXT
+          github-token: ${{ github.token }}
+          path: ${{ runner.temp }}/original
+          merge-multiple: true
+      - name: Verify both GUI identities and reproduce the distributions from tested source
+        working-directory: source
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = 93f13e84d9893d149d2202c90417c3ec6b5aa940
+          test "$(git rev-parse HEAD^{tree})" = b7d87324462eefd8bd915bf184d5dcafb27d5072
+          test -z "$(git status --porcelain)"
+          echo '31070e9432735e0c951ea605cdb202133418e1640570d57ea503734ca8a6a5fa  ../transport/runtime-delta.zst' | sha256sum --check
+          cd "$RUNNER_TEMP/original"
+          echo '93f353de2571d71e02d763d4681b8a06d95fae48534d14ac3a2f72d627ea001a  kui-3.0.0-rc.1-sd.zip' | sha256sum --check
+          unzip -p kui-3.0.0-rc.1-sd.zip KUI/runtime.kui > "$RUNNER_TEMP/old.kui"
+          cd "$RUNNER_TEMP"
+          echo 'f8207de160ce6e6b766fdc7f0a560d04202132c20148d2000f59f42c4f9d0af7  old.kui' | sha256sum --check
+          zstd -q -d --patch-from=old.kui "$GITHUB_WORKSPACE/transport/runtime-delta.zst" -o runtime.kui
+          echo 'f70694b4b73e45ed8d12cbcd9a4a1d561f4feb3727eb7c7f7c6fac8caf7ced55  runtime.kui' | sha256sum --check
+          cd "$GITHUB_WORKSPACE/source"
+          python3 tools/fetch_deps.py --fatfs-only
+          PYTHONPATH=tools /usr/bin/python3 - <<'PY'
+          import os, shutil
+          from pathlib import Path
+          from package import release_metadata
+          from release_candidate import check_assets, checksums
+          from software_distribution import write_distribution
+          from stage_distribution import stage
+
+          revision = '93f13e84d9893d149d2202c90417c3ec6b5aa940'
+          root = Path(os.environ['RUNNER_TEMP'])
+          out = root / 'candidate'
+          software = root / 'software' / 'KUI'
+          metadata = release_metadata()
+          prefix = metadata['artifact_prefix']
+          kup, sd = prefix + '-full.kup', prefix + '-sd.zip'
+          stage(software)
+          shutil.copyfile(root / 'runtime.kui', software / 'runtime.kui')
+          write_distribution(software, out / kup, out / sd, revision=revision, label=metadata['name'])
+          (out / 'SHA256SUMS.txt').write_text(checksums(out, (kup, sd)), encoding='ascii')
+          check_assets(out, revision, kup, sd)
+          PY
+          cd "$RUNNER_TEMP/candidate"
+          sha256sum --check <<'SUMS'
+          0eac66520a3d62216857a1ea04ddad9f141638dd93de3d93c392fce78bafbacd  kui-3.0.0-rc.1-full.kup
+          e0eb22cf92a965a01522cfb54465363828d1758606cf18d6de8f5a05655a2c14  kui-3.0.0-rc.1-sd.zip
+          d79f03eec7d772701ada93b1ea1b2b34cc6cea3019fe6c67faa826f1052fb0ca  SHA256SUMS.txt
+          SUMS
+          sha256sum --check SHA256SUMS.txt
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: verified-rc1-93f13e84d989
+          path: ${{ runner.temp }}/candidate
+          if-no-files-found: error
+          retention-days: 30
