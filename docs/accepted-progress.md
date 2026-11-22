@@ -44,6 +44,36 @@ may select a stale bank, while cold ROOT boot bypasses selectors. The physical
 card is unavailable, so existing banks are not assumed present or absent.
 Claude's original-backed SA1 result is recorded as an external report only.
 
+## One K-UI for both threads: console test pending, 64ae07435de5, 2026-11-21
+
+Delivered: `KUI-One-KUI-Both-Threads-21NOV2026-2308-CST-64ae074.zip`, GUI build `64ae07435de5` (commit `64ae0743`), GUI only
+([record](one-kui-both-threads.md)). Its source merges Main `4441e92c`, the
+Windows CE line to `b7c92e0c` (the source of `1c71ba3afa17`, then CD music
+round 2 and Virtua Cop 2's bootstrap-2 repair) and the regular games' line
+(the owner's Test 83 GUI line `4d4dcff77494` and reader line
+`1d80f771f081`, Tests 83 and 84 behind their switches).
+
+It is built as `1c71ba3afa17` is (that recipe rebuilds the owner's file byte
+for byte): the owner's Standard binding `9e3295bcfaec`, the Smash bundle
+`cc81e63ca4d2` (identical to the owner's), launch timing, nightly off. It
+is not built as `4d4dcff77494` was (owner-source README: nightly
+`build_gui` with `KUI_GITHUB_NIGHTLY=1`, the default preserved Standard
+manifest, no bundle). Native routes decide as `4d4dcff77494` (160-slot
+Background map, standalone New for overlapping SDK pools, cached
+mappings); Windows CE routes decide as `1c71ba3afa17`, with one text
+changed: a CE map-full refusal uses the regular line's wording. Every
+delivered module of both lines rebuilds byte-identical from `64ae0743`.
+
+State of the regular games' line: the owner's reader `1d80f771f081`
+(`313ac3bd...5f1c`) with the GUI line `4d4dcff77494` ran on the console in
+Test 83 (20 Nov 2026), a test configuration, not accepted components
+([Test 83](toy-wire-stream-test-83.md)). Test 84's module `4abc63b0cc58`
+(`597d8eac...`) ran on 21 Nov under `1c71ba3afa17`, whose 64-slot map
+refused three games ([Test 84](cdda-background-test-84.md)); its re-run
+under this K-UI is pending. Native results taken under `1c71ba3afa17` are
+their own baseline. Until the owner's report, `1c71ba3afa17` stays the
+reference for the Windows CE and Smash Pack games.
+
 ## Repository GUI with the installed WinCE routes: console test pending, 069d612cadea, 2026-11-17
 
 The owner's GUI `00d8ed67d9ad` was built from source in no repository. Its

@@ -1,15 +1,37 @@
 {
   "schema": "kui.gui-lines.v1",
-  "about": "The active lines every K-UI build must contain (tools/check_gui_lines.py; docs/gui-lines.md), and the K-UI the owner runs. Update 'installed' in the docs commit of every K-UI delivery; add a line when a thread starts changing K-UI on its own branch.",
+  "about": "The active lines every K-UI build must contain (tools/check_gui_lines.py; docs/gui-lines.md), and the K-UI the owner runs. Update 'installed' in the docs commit of every K-UI delivery; add a line when a thread starts changing K-UI on its own branch. 'seen' names the owner's log that first shows the build; until then the delivered K-UI is the one to build against, and 'previous' the one a console result may still come from.",
   "lines": [
-    {"branch": "main", "thread": "Main"},
-    {"branch": "claude/hopeful-dijkstra-r2g7c4", "thread": "regular games: the Background reader, CD music, virtual VMU (with the owner's Test 83 reader and GUI lines)"},
-    {"branch": "claude/great-darwin-yjmgfi", "thread": "Windows CE: CD music, the generic reader, CE routes"}
+    {
+      "branch": "main",
+      "thread": "Main"
+    },
+    {
+      "branch": "claude/hopeful-dijkstra-r2g7c4",
+      "thread": "regular games: the Background reader, CD music, virtual VMU (with the owner's Test 83 reader and GUI lines)"
+    },
+    {
+      "branch": "claude/great-darwin-yjmgfi",
+      "thread": "Windows CE: CD music, the generic reader, CE routes"
+    }
   ],
   "installed": {
-    "build": "1c71ba3afa17",
-    "source": "1c71ba3afa179c472a633a3508b5c0de7dd1f17c",
-    "seen": "the owner's diagnostics logs of 21 November 2026 (Test 84's console result)",
-    "line": "claude/great-darwin-yjmgfi"
+    "build": "64ae07435de5",
+    "source": "64ae07435de5aefa212d1fdfe21742bbf0c94b13",
+    "delivered": "KUI-One-KUI-Both-Threads-21NOV2026-2308-CST-64ae074.zip (21 November 2026, 23:08 CST), docs/one-kui-both-threads.md",
+    "recipe": "docs/gui-lines.md, Building the owner's K-UI: launch timing, the Smash bundle cc81e63ca4d2, the Standard binding 9e3295bcfaec, nightly off",
+    "seen": null,
+    "line": "claude/hopeful-dijkstra-r2g7c4",
+    "contains": [
+      "main 4441e92c65bc",
+      "claude/great-darwin-yjmgfi b7c92e0c59c2",
+      "the owner's Test 83 GUI line 4d4dcff77494"
+    ],
+    "previous": {
+      "build": "1c71ba3afa17",
+      "source": "1c71ba3afa179c472a633a3508b5c0de7dd1f17c",
+      "seen": "the owner's diagnostics logs of 21 November 2026 (Test 84's console result)",
+      "line": "claude/great-darwin-yjmgfi"
+    }
   }
 }

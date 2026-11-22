@@ -1,0 +1,34 @@
+commit 64ae0743 Merge the Windows CE line to b7c92e0c (fixture record and VC2 console docs); HEAD 64ae07435de5aefa212d1fdfe21742bbf0c94b13
+worktree changes: 0
+sh-elf-gcc: <repo>/.deps/sh-elf/bin/sh-elf-gcc (sh-elf-gcc (GCC) 15.2.0)
+sh-elf-ld:  <repo>/.deps/sh-elf/bin/sh-elf-ld
+KOS_BASE='' MAKEFLAGS='' MFLAGS=''
+ok   build-main
+main (just built):      597d8eac96b0238045e7bde9c642653a0bb5e138d6763993cabd0c156c210260
+ok   main-toy-wire-linked-check
+ok   main-toy-cdda-parts-check
+ok   switches
+FAIL asm-audit (exit 1)
+
+----------------------------------------------------------------------
+Ran 10 tests in 0.799s
+
+FAILED (failures=1)
+ok   build-alt
+alternate (just built): e74cca711600ecd8ddd38a62839fda7c6dda837740331fb3f0f458b761f03014
+ok   build-off
+all off (just built):   313ac3bddb6b1d037ea2de758dd97d809125507ba9617340739baf0e05195f1c
+ok   build-installed
+installed (just built): 467be62f555a28f3171d82b39e125e536d5f31f25cfc6555cf4b85f77aa7e537
+== final hashes ==
+main:        597d8eac96b0238045e7bde9c642653a0bb5e138d6763993cabd0c156c210260 expected 597d8eac96b0238045e7bde9c642653a0bb5e138d6763993cabd0c156c210260
+alternate:   e74cca711600ecd8ddd38a62839fda7c6dda837740331fb3f0f458b761f03014 expected e74cca711600ecd8ddd38a62839fda7c6dda837740331fb3f0f458b761f03014
+all off:     313ac3bddb6b1d037ea2de758dd97d809125507ba9617340739baf0e05195f1c expected 313ac3bddb6b1d037ea2de758dd97d809125507ba9617340739baf0e05195f1c
+installed:   467be62f555a28f3171d82b39e125e536d5f31f25cfc6555cf4b85f77aa7e537 expected 467be62f555a28f3171d82b39e125e536d5f31f25cfc6555cf4b85f77aa7e537
+parts-test83 reader: d7def83141c354b31db55ed3b8853e3fa1e893ed787518e882c53a4be7cec0ec
+alternate auxiliary = main auxiliary
+alternate resident-sci.bin = main resident-sci.bin
+alternate resident-legacy.bin = main resident-legacy.bin
+alternate worker.bin = main worker.bin
+worktree HEAD at end: 64ae07435de5aefa212d1fdfe21742bbf0c94b13
+done

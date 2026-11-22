@@ -1,0 +1,28 @@
+module (label/kernel)                       bytes      CRC result
+1ac7e667c0d3/VIRTUA_COP_2.kui              135736 1A985F40 identical to CE line b7c92e0c
+1ba2fa7e7040/ce-armada-all-on.kui          206428 8C21F910 identical to first merge 2e03b96e
+1ba2fa7e7040/ce-cdda-armada.kui            135412 830BD7EA identical to first merge 2e03b96e
+1ba2fa7e7040/ce-cdda-bam4.kui              135396 23A93E11 identical to first merge 2e03b96e
+1ba2fa7e7040/ce-cdda-worms.kui             136324 0074D23C identical to first merge 2e03b96e
+1ba2fa7e7040/ce-cdda-wwp.kui               136036 F219336E identical to first merge 2e03b96e
+1c71ba3afa17/ATARI_ANNIVERSARY.kui         136036 548A2594 identical to first merge 2e03b96e
+1c71ba3afa17/BEAT_UP_A_MILLIONAIRE.kui     136036 D9ED879E identical to first merge 2e03b96e
+1c71ba3afa17/CHAMPIONSHIP_SURFER.kui       136036 E3ECE95B identical to first merge 2e03b96e
+1c71ba3afa17/DUCATI_WORLD.kui              136036 702BE589 identical to first merge 2e03b96e
+1c71ba3afa17/FOUR_BY_FOUR_EVOLUTION.kui    136036 3F954344 identical to first merge 2e03b96e
+1c71ba3afa17/HIDDEN_AND_DANGEROUS.kui      136036 D5857DC0 identical to first merge 2e03b96e
+1c71ba3afa17/HIDDEN_AND_DANGEROUS_PAL.kui   136036 381D423B identical to first merge 2e03b96e
+1c71ba3afa17/HOYLE_CASINO.kui              136068 EF354FFE identical to first merge 2e03b96e
+1c71ba3afa17/NEXT_TETRIS_ONLINE.kui        136036 72CA764E identical to first merge 2e03b96e
+1c71ba3afa17/RAILROAD_TYCOON_II.kui        136036 FBA74081 identical to first merge 2e03b96e
+1c71ba3afa17/STARLANCER.kui                136036 2416DB88 identical to first merge 2e03b96e
+91b0540103f0/ce-boot.kui                    85300 6829D405 identical to first merge 2e03b96e
+9e89e778370f/CAESARS_PALACE_2000.kui       135396 80EEC206 identical to first merge 2e03b96e
+9e89e778370f/CAESARS_PALACE_2000_PAL.kui   135396 9BA9C4DD identical to first merge 2e03b96e
+9e89e778370f/GET_COLONY.kui                135396 F44C11B1 identical to first merge 2e03b96e
+9e89e778370f/HELLO_KITTY_MAGICAL_BLOCK.kui   135396 61B17703 identical to first merge 2e03b96e
+9e89e778370f/MARIONETTE_COMPANY_2.kui      135396 ED494C26 identical to first merge 2e03b96e
+9e89e778370f/PUZZLE_BOBBLE_4.kui           135396 EB9CC023 identical to first merge 2e03b96e
+9e89e778370f/VIRTUA_COP_2.kui              135396 4236DAEC identical to first merge 2e03b96e (repair off)
+d7fd810eb837/DUCATI_WORLD.kui              136004 3FB89B1C identical to first merge 2e03b96e
+26 modules; PASS

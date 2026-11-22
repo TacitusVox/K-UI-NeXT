@@ -1,0 +1,36 @@
+python3 tests/test_toy_wire_cached_stack.py build/t84-main/native-ra-aux.elf cached 0x700
+PASS cached gate at 0x8c426ab8: with the MMU off the stack is used at 0x0c427fe0 and the guards read at 0x0c427900 and 0x0c427ff0; with it on at 0xac427fe0, 0xac427900 and 0xac427ff0 as before
+python3 tests/test_toy_cdda_stack_bound.py build/t84-main --player build/t84-main/native-worker.elf build/t84-main/native _kui_toy_cdda_player_visit
+  _kui_native_readahead_aux_dispatch         996  _kui_native_readahead_aux_dispatch 176 -> _toy_movie_ahead 88 -> _toy_ahead_pump 140 -> indirect(592)
+  _kui_native_readahead_aux_init             108  _kui_native_readahead_aux_init 92 -> _kui_native_ra_cache_init 16
+PASS auxiliary stack bound: 996 bytes deepest with every indirect call charged 352 or the player 88, 1052 with the gate; 1776 usable of 1792 (1.69 x)
+python3 tests/test_toy_cdda_survey_linked.py build/t84-main/native-worker.elf build/t84-main/native
+  kui_toy_cdda_survey_heartbeat                 frame  88, calls src/loader/toy_cdda_survey.c:drain, src/loader/toy_cdda_survey.c:stable
+  src/loader/toy_cdda_survey.c:stable           frame  20, calls src/loader/toy_cdda_survey.c:drain
+  src/loader/toy_cdda_survey.c:drain            frame   4, calls nothing
+  call at 0x8c104410 (tail call, stack offset 0): lowest point 268 above the low end, 204 clear of the guard
+  call at 0x8c10449e (call, stack offset -124): lowest point 144 above the low end, 80 clear of the guard
+PASS Test 84 survey linked: three fixed frames calling only each other, 112 bytes deep; called from the completion only (2 sites, each after stack_valid, the survey's address loaded for them only; 3 of the completion's 38 calls through registers the walk does not follow); on the least stack stack_valid admits (256 bytes above the low end at its call, 64 of guard) the survey stays 80 bytes clear of the guard words (192 usable, 1.71 x); entered at the top of the 3072-byte stack, its deepest point is 236 bytes down; its source reads the hardware and writes only SR
+python3 tests/test_toy_cdda_survey_linked.py --self-test build/t84-main/native-worker.elf build/t84-main/native
+  refused   a call out of the survey: kui_toy_cdda_survey_heartbeat calls memcpy (x), outside the survey
+  refused   a call through a pointer: src/loader/toy_cdda_survey.c:stable calls __indirect_call (x), outside the survey
+  refused   a frame the linked code does not have: kui_toy_cdda_survey_heartbeat: linked frame 88, the compiler's 200
+  refused   a larger frame, linked and compiled: on the least stack admitted, 192 bytes for a survey of 224 (needs 1.5 x)
+  refused   a frame of no fixed size: src/loader/toy_cdda_survey.c:drain has a dynamic frame, not a fixed one
+  refused   another caller: reader_cooperative_service calls kui_toy_cdda_survey_heartbeat (x)
+  refused   the survey's address in a table: the survey's address is in the linked image outside the completion's literals: ['0x8c00000
+  refused   a linked call the compiler did not make: kui_toy_cdda_survey_heartbeat calls ['?'] at 0x0, not one of the survey's own functions
+  refused   the survey's address loaded for a call not found: the completion loads the survey's address 3 times for 2 calls
+  refused   a call into the survey before stack_valid: a call into the survey not after stack_valid on every path
+  refused   a write in the source: a volatile access or asm statement besides the three reads and SR
+  refused   less room in stack_valid: on the least stack admitted, 96 bytes for a survey of 112 (needs 1.5 x)
+PASS Test 84 survey linked check refuses all 12 altered readings
+python3 tests/test_toy_wire_linked_loops.py  build/t84-main/native-ra-aux.elf 
+PASS kui_wire_words_lsb as linked: 400 runs equal to the byte steps, a block's CRC16 taken to zero and a damaged block's not; 41 instructions, 9 loads and 4 stores for four bytes; registers, stack and everything around the destination left alone
+PASS kui_wire_words_true as linked: 400 runs equal to the byte steps, a block's CRC16 taken to zero and a damaged block's not; 34 instructions, 5 loads and 4 stores for four bytes; registers, stack and everything around the destination left alone
+python3 tests/test_toy_wire_linked_ring.py build/t84-main/native-ra-aux.elf
+PASS linked cache view: 6096 runs, every line of a run dropped once and nothing else (242409 lines); short runs left uncached; no memory but the stack touched
+python3 tests/test_toy_wire_linked_hot.py build/t84-main/native-ra-aux.elf 
+PASS the window's state, the context's last three cache lines at 0xac421720, is used at its cached address 0x8c421720 only: 22 constants in the linked code, none at the uncached address
+python3 tests/test_toy_wire_linked_copy.py build/t84-main/native-ra-aux.elf
+PASS kui_wire_copy as linked: 3302 copies exact, destinations and sources at every word of a line, nothing outside the destination written; 18797 lines claimed by MOVCA.L, each wholly inside its destination and wholly stored, its eight words loaded first; 20 instructions a line, 338 for a block of 512

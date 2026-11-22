@@ -1,8 +1,10 @@
 # Test 84: CD music in the Background reader, part 1: the drive plays
 
 Status: packaged 21 November 2026, 01:13 CST (build `4abc63b0cc58`,
-commit `4abc63b`). Host and linked checks only; it has not run on a
-console. A test module in the place of the installed New
+commit `4abc63b`). Run on the console on 21 November under the Windows CE
+line's K-UI `1c71ba3afa17`, which refused three games (Console result); its
+re-run under the one K-UI `64ae07435de5` is pending
+(`one-kui-both-threads.md`). A test module in the place of the installed New
 reader, like Tests 79 to 83, not an accepted component. It makes no sound:
 the drive answers as a drive that plays the game's audio tracks, and the
 worker looks at the sound chip without writing to it. Test 85 is to add the

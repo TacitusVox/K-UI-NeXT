@@ -1,0 +1,888 @@
+{
+ "schema": "kui.verification-agents.v1",
+ "note": "host checks by independent subagents of this session, not console runs; merge commit 2e03b96e044b",
+ "results": [
+  {
+   "reviewer": "regular-games modules at 2e03b96e",
+   "result": {
+    "verdict": "pass",
+    "rows": [
+     {
+      "item": "1. Test 84 main module: MAIN recipe, BUILD_ID=4abc63b0cc58, build/t84-main/retail-toy-test-84.kui at 2e03b96e044b",
+      "expected": "597d8eac96b0238045e7bde9c642653a0bb5e138d6763993cabd0c156c210260",
+      "got": "597d8eac96b0238045e7bde9c642653a0bb5e138d6763993cabd0c156c210260",
+      "ok": true,
+      "note": "Built from nothing in a fresh worktree, 315744 bytes. Same hash right after the build and again at the end, after the linked and parts checks had run in the same BUILD dir. Exact string compare: MATCH."
+     },
+     {
+      "item": "2. Test 84 second module: ALT recipe (TOY_CDDA_SURVEY=0), BUILD_ID=4abc63b0cc58, build/t84-alt/retail-toy-test-84.kui",
+      "expected": "e74cca711600ecd8ddd38a62839fda7c6dda837740331fb3f0f458b761f03014",
+      "got": "e74cca711600ecd8ddd38a62839fda7c6dda837740331fb3f0f458b761f03014",
+      "ok": true,
+      "note": "313920 bytes, MATCH. As in the reference, native-ra-aux.bin, resident-sci.bin, resident-legacy.bin and worker.bin are cmp-equal to the main build's."
+     },
+     {
+      "item": "3. Test 83 with every Test 84 switch off: OFF recipe, BUILD_ID=1d80f771f081, build/t84-off/retail-native-dual.kui",
+      "expected": "313ac3bddb6b1d037ea2de758dd97d809125507ba9617340739baf0e05195f1c",
+      "got": "313ac3bddb6b1d037ea2de758dd97d809125507ba9617340739baf0e05195f1c",
+      "ok": true,
+      "note": "311936 bytes, MATCH: this is the owner's Test 83 module."
+     },
+     {
+      "item": "4. Installed New reader: make -f Makefile.vmu-native-background-compact BUILD_ID=f8807cb16561 BUILD=build/t84-inst build/t84-inst/retail-native-dual.kui",
+      "expected": "467be62f555a28f3171d82b39e125e536d5f31f25cfc6555cf4b85f77aa7e537",
+      "got": "467be62f555a28f3171d82b39e125e536d5f31f25cfc6555cf4b85f77aa7e537",
+      "ok": true,
+      "note": "294464 bytes, MATCH."
+     },
+     {
+      "item": "5a. make test-toy-test-switches at 2e03b96e044b",
+      "expected": "PASS (reference: '11 resolver cases; 30 shared sources keep their production text')",
+      "got": "PASS toy test switches: 11 resolver cases; 30 shared sources keep their production text",
+      "ok": true,
+      "note": "Output is byte-identical to the 4abc63b reference switches.log. This PASS compares against tests/fixtures/toy-switch-production-text.json as re-recorded by the merge itself: it changed 8 of the 30 entries relative to dc938fea (see problems)."
+     },
+     {
+      "item": "5b. python3 tests/test_asm_audit.py at 2e03b96e044b",
+      "expected": "one known failure, in src/core/bba_sockets.c and src/dreamcast/shell_font.c",
+      "got": "Ran 10 tests, FAILED (failures=1). The only failure is test_raw_sh4_macros_appear_only_in_the_shared_target_detector, listing exactly ('src/core/bba_sockets.c', 197), ('src/core/bba_sockets.c', 274), ('src/dreamcast/shell_font.c', 10)",
+      "ok": true,
+      "note": "No other failure. Apart from the worktree path and run time, the log is identical to the 4abc63b reference asm-audit.log. The merge did not touch test_asm_audit.py, bba_sockets.c, shell_font.c or include/kui/target.h."
+     },
+     {
+      "item": "5c. Test 84 linked check: MAIN recipe, BUILD_ID=4abc63b0cc58, BUILD=build/t84-main, target toy-wire-linked-check",
+      "expected": "all PASS, as in the reference run",
+      "got": "all PASS: cached stack gate at 0x8c426ab8; auxiliary stack bound 996 bytes deepest (1776 usable of 1792, 1.69x); Test 84 survey linked (112 bytes deep, 80 clear of the guard); its self-test refuses all 12 altered readings; word loops lsb/true; linked ring; hot; copy",
+      "ok": true,
+      "note": "The whole log is identical to the 4abc63b reference main-toy-wire-linked-check.log (diff empty)."
+     },
+     {
+      "item": "5d. Test 84 parts check: MAIN recipe, BUILD_ID=4abc63b0cc58, BUILD=build/t84-main, target toy-cdda-parts-check",
+      "expected": "PASS, as in the reference run",
+      "got": "PASS Test 84's parts: both low residents and the observing worker are Test 83's; the auxiliary, the worker and the stage are its own; the auxiliary's code ends at 0x8c427040 below its stack at 0xac427900; the worker's player descriptor names 0x8c108b50",
+      "ok": true,
+      "note": "Verdict text is identical to the reference. Its Test 83 sub-reader build/t84-main/parts-test83/retail-native-dual.kui hashes d7def83141c354b31db55ed3b8853e3fa1e893ed787518e882c53a4be7cec0ec, the same as the reference build directory's."
+     },
+     {
+      "item": "Extra: every built part compared with the reference build directory (clean84/build from the 4abc63b final.sh run, files dated 2026-11-21 05:48-05:56)",
+      "expected": "identical",
+      "got": "38 of 38 .bin/.kui files in t84-main, t84-alt, t84-off and t84-inst are cmp-identical; none absent",
+      "ok": true,
+      "note": "Files compared: native-ra-aux.bin, native-worker.bin, resident-legacy.bin, resident-sci.bin, retail-maple-observe.kui, retail-native-dual.kui, stage.bin, vmu-sd-profile.bin, worker.bin, plus retail-toy-test-84.kui in main and alt. Full hashes are in verify/modules/logs/sha256-parts.txt."
+     },
+     {
+      "item": "Extra: merge-changed sources these four recipes compile",
+      "expected": "n/a (shows the byte checks exercise merged code)",
+      "got": "All four builds compile 13 files the merge changed. 11 come from the .d files: include/kui/retail_gd.h, retail_loader_layout.h, wce_probe.h, src/core/retail_gd.c, src/loader/retail_async.c, retail_async.h, retail_resident.S, retail_resident.c, retail_stage.c, sci_stream.c, sci_stream.h. retail_entry.S and retail_entry.ld are on the command line.",
+      "ok": true,
+      "note": "The outputs are identical, so the merged hunks in these files produce no byte change in these recipes (they sit behind switches such as KUI_RETAIL_CE_READAHEAD and KUI_SCI_STREAM_SLOW_ADAPT). The merge left the Makefile.vmu* recipe files unchanged."
+     }
+    ],
+    "problems": [
+     {
+      "severity": "risk",
+      "where": "branch claude/hopeful-dijkstra-r2g7c4 (main checkout <repo>)",
+      "claim": "The branch moved past the verified commit during this run. These results hold for 2e03b96e044b only, not for the current head 86214640362c.",
+      "evidence": "At the start the main checkout was at 2e03b96e. At the end the branch points at 86214640362cb382e3ddad60f9ea34b584ea96d4, two commits later: 67cdd635 'One K-UI for every thread: the line ledger, its check and the rule' and 86214640 'Merge the Windows CE line's Virtua Cop 2 fixes (to 83becb53)'. They change src/loader/retail_stage.c (+28) and src/loader/retail_stage.S (+10), both of which all four recipes compile. Those hunks are under #if KUI_ARMADA_CE_BOOT2_SCRATCH. The commits also change Makefile and 4 lines of tests/fixtures/toy-switch-production-text.json. I made no commits; the main checkout's status is clean.",
+      "fix": "Before delivering from the new head, rerun the same four recipes and checks at 86214640: <scratch>/verify/modules/run.sh with its HEAD check changed. Compare against the same four expected hashes."
+     },
+     {
+      "severity": "risk",
+      "where": "tests/fixtures/toy-switch-production-text.json at 2e03b96e044b",
+      "claim": "The switches PASS is measured against fingerprints the merge itself re-recorded. On its own it does not show that the production text of the shared sources is unchanged from this line.",
+      "evidence": "Relative to dc938fea, the merge changed 8 of the 30 entries: include/kui/retail_loader_layout.h, src/loader/retail_async.c, retail_async.h, retail_resident.S, retail_resident.c, retail_stage.c, sci_stream.c, sci_stream.h. Relative to b616e2db it re-recorded 4 and added src/core/wce_probe_fat.c. For the four recipes here, byte identity covers these files. Other shipped recipes that compile them, outside these four, were not built in this run.",
+      "fix": "Rely on byte-for-byte rebuilds of each delivered recipe (as done here for these four) rather than the switches test to show preservation. Byte-check any other installed family that compiles these files separately."
+     },
+     {
+      "severity": "nit",
+      "where": "expected values (t84/final/summary.txt, docs/evidence/cdda-background-test-84/build-identity.log)",
+      "claim": "The expected hashes were recorded at 4abc63b, not literally at dc938fea. I did not rebuild at dc938fea.",
+      "evidence": "Both files say the builds came from the clean worktree at 4abc63b. 4abc63b..dc938fea changes only docs/ and tests/test_toy_wire_report.c. That file is a host test with 0 references in the module build log, and the Makefile.vmu* recipes are unchanged across that range.",
+      "fix": "None needed for these modules. If the record must name dc938fea literally, rebuild the four recipes there."
+     }
+    ],
+    "commands": [
+     "git -C <repo> worktree add --detach <scratch>/verify/modules 2e03b96e044b, then git -C <repo> worktree remove --force on that path (re-placed one level down; nothing was built in it)",
+     "git -C <repo> worktree add -q --detach <scratch>/verify/modules/wt 2e03b96e044b  (HEAD confirmed 2e03b96e044bab1f7ae2f9e9c7f47e64617befb4)",
+     "ln -s <repo>/.deps <scratch>/verify/modules/wt/.deps",
+     "nohup bash <scratch>/verify/modules/run.sh &   (cd wt; export PATH=<repo>/.deps/sh-elf/bin:$PATH; unset MAKEFLAGS MFLAGS; sh-elf-gcc resolved to <repo>/.deps/sh-elf/bin/sh-elf-gcc, GCC 15.2.0; KOS environ.sh not sourced: no GUI build, same as final.sh. BASE/MAIN/ALT/OFF copied verbatim from t84/final.sh)",
+     "make -f Makefile.vmu-native-toy-suite $MAIN BUILD_ID=4abc63b0cc58 BUILD=build/t84-main build/t84-main/retail-toy-test-84.kui",
+     "make -f Makefile.vmu-native-toy-suite $MAIN BUILD_ID=4abc63b0cc58 BUILD=build/t84-main toy-wire-linked-check",
+     "make -f Makefile.vmu-native-toy-suite $MAIN BUILD_ID=4abc63b0cc58 BUILD=build/t84-main toy-cdda-parts-check",
+     "make test-toy-test-switches",
+     "python3 tests/test_asm_audit.py",
+     "make -f Makefile.vmu-native-toy-suite $ALT BUILD_ID=4abc63b0cc58 BUILD=build/t84-alt build/t84-alt/retail-toy-test-84.kui",
+     "make -f Makefile.vmu-native-toy-suite $OFF BUILD_ID=1d80f771f081 BUILD=build/t84-off build/t84-off/retail-native-dual.kui",
+     "make -f Makefile.vmu-native-background-compact BUILD_ID=f8807cb16561 BUILD=build/t84-inst build/t84-inst/retail-native-dual.kui",
+     "sha256sum of each module, compared to the expected value as an exact string; cmp of all 38 .bin/.kui parts against <scratch>/clean84/build/t84-*; diff of the linked-check, parts-check, switches and asm-audit logs against <scratch>/t84/final/*.log",
+     "grep of the build logs and build/*/**.d for the merge's changed files (git diff --name-only dc938fea 2e03b96e044b -- src include)",
+     "git -C <repo> worktree remove --force <scratch>/verify/modules/wt  (removed; the verify/wince-bytes worktrees belong to another agent and were left alone)",
+     "Logs kept: <scratch>/verify/modules/logs/summary.txt, per-step logs, sha256-parts.txt (39 full hashes)"
+    ]
+   }
+  },
+  {
+   "reviewer": "Windows CE modules at 2e03b96e and b616e2db",
+   "result": {
+    "verdict": "pass",
+    "rows": [
+     {
+      "item": "ce-cdda-armada.kui, label 1ba2fa7e7040 (accepted CD music set). Recipe: make -f Makefile.armada-stream build/armada-ce-stream/entry.elf BUILD_ID=1ba2fa7e7040 (delivery defaults)",
+      "expected": "doc (wince-cdda-chain-test.md): 135,412 bytes, CRC 830BD7EA, SHA-256 f39ed7df4863297b...",
+      "got": "b616e2db = 2e03b96e: 135,412 bytes, CRC 830BD7EA, SHA-256 f39ed7df4863297be4bd2b47cfc52c7fecdd4c14c3ac8cdfc3ab7124789d59c3",
+      "ok": true,
+      "note": "Identical in both trees and matches the doc. The entry.elf files are byte-identical too."
+     },
+     {
+      "item": "ce-cdda-bam4.kui, 1ba2fa7e7040. Makefile.bam4-stream build/bam4-ce-stream/entry.elf",
+      "expected": "135,396 bytes, CRC 23A93E11, ac9aa157f0a4a6d6...",
+      "got": "both trees: 135,396 bytes, CRC 23A93E11, ac9aa157f0a4a6d64df8d2b6d7ee0becd54e9a5f623843402897519192757025",
+      "ok": true,
+      "note": "identical; matches doc"
+     },
+     {
+      "item": "ce-cdda-worms.kui, 1ba2fa7e7040. Makefile.worms-stream build/worms-ce-stream/entry.elf",
+      "expected": "136,324 bytes, CRC 0074D23C, 3063469fb42e93fd...",
+      "got": "both trees: 136,324 bytes, CRC 0074D23C, 3063469fb42e93fdd7199d5b14ba6a3454ed4722c60a6cbecaa1f941dbe09dfd",
+      "ok": true,
+      "note": "identical; matches doc"
+     },
+     {
+      "item": "ce-cdda-wwp.kui, 1ba2fa7e7040. Makefile.wwp-stream build/wwp-ce-stream/entry.elf",
+      "expected": "136,036 bytes, CRC F219336E, 991e4b9ea745cdc8...",
+      "got": "both trees: 136,036 bytes, CRC F219336E, 991e4b9ea745cdc849f8de7c783a50ae1811f18f0f5aa8993612e9247a33bbec",
+      "ok": true,
+      "note": "identical; matches doc"
+     },
+     {
+      "item": "ce-armada-all-on.kui, 1ba2fa7e7040. Recipe: make -f Makefile.armada-cdda-vmu build/armada-ce-cdda-vmu/entry.elf BUILD_ID=1ba2fa7e7040 (defaults: reader fixes, adaptive window 16/2, emergency PIO, chain)",
+      "expected": "206,428 bytes, CRC 8C21F910, 2e3a79ed891002b4...",
+      "got": "both trees: 206,428 bytes, CRC 8C21F910, 2e3a79ed891002b43b8c80496f711b89247d99044149d98ef84a6ff1464aa994",
+      "ok": true,
+      "note": "identical; matches doc. Build gates ran: check_armada_ce_excerpt.py --cdda-vmu, check_relaxed_calls, layout --ce."
+     },
+     {
+      "item": "Makefile.dc's own target: make -f Makefile.dc wince-cdda BUILD_ID=1ba2fa7e7040 (passes WINCE_CDDA_BUILD_FLAGS to the four stream makefiles)",
+      "expected": "the same four SHA-256 values as the plain-default builds",
+      "got": "armada f39ed7df\u202659c3, bam4 ac9aa157\u20267025, worms 3063469f\u20269dfd, wwp 991e4b9e\u2026bbec in both trees",
+      "ok": true,
+      "note": "Both recipe forms give the same bytes."
+     },
+     {
+      "item": "World Party group, 1c71ba3afa17 (10 on the card plus round 1's Ducati). Recipe: make -f Makefile.wwp-stream build/wwp-ce-stream-<kernel>/entry.elf BUILD_ID=1c71ba3afa17 KUI_WINCE_CDDA_WWP_KERNEL=<NAME>; DUCATI_WORLD adds KUI_CE_CDDA_REPEAT_CLAMP=0",
+      "expected": "doc table (wince-cdda-wwp-group-test.md): sizes, CRCs and 16-hex SHA prefixes",
+      "got": "All 11 are identical in both trees and match the doc. Each file name was re-derived from its own KUICDK01 record (profile 4). The rows below give the full SHA-256 values.",
+      "ok": true,
+      "note": "Uses only the derived records in include/kui/wince_cdda_wwp_kernels.h; no private kernel is needed to build."
+     },
+     {
+      "item": "ce-cdda-41b0fe340c3a.kui Ducati World, round 1 (clamp 0), 1c71ba3afa17",
+      "expected": "136,036, 702BE589, e639a9ac0e987d33...",
+      "got": "136,036, 702BE589, e639a9ac0e987d33a50d05df36973f622fe82dbc54e4f812b09b065a94ea2569 (both)",
+      "ok": true,
+      "note": "Round 1's IF-NEEDED module. The card holds d7fd810eb837 (below)."
+     },
+     {
+      "item": "ce-cdda-28ed98cbb3b9.kui Championship Surfer, 1c71ba3afa17",
+      "expected": "136,036, E3ECE95B, e02bc6cfe1921881...",
+      "got": "136,036, E3ECE95B, e02bc6cfe1921881e120cb4065bad7b568b8d7828b4da4a64e35d0e1a284a98d (both)",
+      "ok": true,
+      "note": ""
+     },
+     {
+      "item": "ce-cdda-4a6246a5f39b.kui Next Tetris Online, 1c71ba3afa17",
+      "expected": "136,036, 72CA764E, 852f042df9cc1fb4...",
+      "got": "136,036, 72CA764E, 852f042df9cc1fb452e5d9cc1dfdb45d460afaa2241570ba248f311bbb953398 (both)",
+      "ok": true,
+      "note": ""
+     },
+     {
+      "item": "ce-cdda-0974f36c0dfe.kui Railroad Tycoon II, 1c71ba3afa17",
+      "expected": "136,036, FBA74081, 5bf8fad80abcccbb...",
+      "got": "136,036, FBA74081, 5bf8fad80abcccbb8342b3b8f3ec7212ecbfbbd3cc87d68ce176b6c5fd12c061 (both)",
+      "ok": true,
+      "note": ""
+     },
+     {
+      "item": "ce-cdda-76e49e9f4cb7.kui 4x4 Evolution, 1c71ba3afa17",
+      "expected": "136,036, 3F954344, 6e5579fd169e6803...",
+      "got": "136,036, 3F954344, 6e5579fd169e680396ad357cc26c88543139224304157ec5b18e79c6039036b4 (both)",
+      "ok": true,
+      "note": ""
+     },
+     {
+      "item": "ce-cdda-3c7b808ed105.kui Starlancer, 1c71ba3afa17",
+      "expected": "136,036, 2416DB88, b988333be643cdf1...",
+      "got": "136,036, 2416DB88, b988333be643cdf1c26b915a59fdd8fbd21d6e2ddec147152a2e4c189628a9d9 (both)",
+      "ok": true,
+      "note": ""
+     },
+     {
+      "item": "ce-cdda-5a02ed6b8ad7.kui Hidden and Dangerous US, 1c71ba3afa17",
+      "expected": "136,036, D5857DC0, 3345e1b4406b6192...",
+      "got": "136,036, D5857DC0, 3345e1b4406b6192372e670b2f852b64bd1526f2499d0b3a6fdf4e33b9ba8241 (both)",
+      "ok": true,
+      "note": ""
+     },
+     {
+      "item": "ce-cdda-3b2dd28facb6.kui Hidden and Dangerous PAL, 1c71ba3afa17",
+      "expected": "136,036, 381D423B, 0b6510a00876a284...",
+      "got": "136,036, 381D423B, 0b6510a00876a28470e6ce8307fbe21d059c84b998be81abd495e7cb5fa366ae (both)",
+      "ok": true,
+      "note": ""
+     },
+     {
+      "item": "ce-cdda-3408e1ee7e3f.kui Atari Anniversary, 1c71ba3afa17",
+      "expected": "136,036, 548A2594, 522a73b6c2d73726...",
+      "got": "136,036, 548A2594, 522a73b6c2d73726d3c5d8c7c65483cfe08676801678b53bce683eeb0fc724ea (both)",
+      "ok": true,
+      "note": ""
+     },
+     {
+      "item": "ce-cdda-774e2e170096.kui Hoyle Casino, 1c71ba3afa17",
+      "expected": "136,068, EF354FFE, 757906a8baccd162...",
+      "got": "136,068, EF354FFE, 757906a8baccd162de9b0444a9132ec1f8046968a0dfa9a8056c0c6254f9d011 (both)",
+      "ok": true,
+      "note": ""
+     },
+     {
+      "item": "ce-cdda-24b52a5953d2.kui Beat Up a Millionaire, 1c71ba3afa17",
+      "expected": "136,036, D9ED879E, 5988a576f413b881...",
+      "got": "136,036, D9ED879E, 5988a576f413b88175bb28cedf94c4379cdf2a0382439aae9830ecc42e3f8706 (both)",
+      "ok": true,
+      "note": ""
+     },
+     {
+      "item": "ce-cdda-41b0fe340c3a.kui Ducati World repeat test, d7fd810eb837 (on the card). Recipe: make -f Makefile.wwp-stream build/wwp-ce-stream-ducati-world/entry.elf BUILD_ID=d7fd810eb837 KUI_WINCE_CDDA_WWP_KERNEL=DUCATI_WORLD (clamp on by default)",
+      "expected": "doc (wince-cdda-ducati-repeat-test.md, full hash): 136,004, 3FB89B1C, 4979cff7a8e005e11a2cd8e6730ed43cc6c8cbc35afb2f828f653517937a7a2b",
+      "got": "both trees: 136,004, 3FB89B1C, 4979cff7a8e005e11a2cd8e6730ed43cc6c8cbc35afb2f828f653517937a7a2b",
+      "ok": true,
+      "note": "Full SHA-256 matches the delivered value."
+     },
+     {
+      "item": "Bust-A-Move 4 group, 9e89e778370f (7 modules). Recipe: make -f Makefile.bam4-stream build/bam4-ce-stream-<kernel>/entry.elf BUILD_ID=9e89e778370f KUI_WINCE_CDDA_BAM4_KERNEL=<NAME>",
+      "expected": "doc table (wince-cdda-bam4-group-test.md)",
+      "got": "All 7 are identical in both trees and match the doc. Names were re-derived from each KUICDK01 record (profile 2).",
+      "ok": true,
+      "note": "Only the derived records in include/kui/wince_cdda_bam4_kernels.h are needed."
+     },
+     {
+      "item": "ce-cdda-9d0ea356bd66.kui Puzzle Bobble 4, 9e89e778370f",
+      "expected": "135,396, EB9CC023, 02eb9a0db4e539f4...",
+      "got": "135,396, EB9CC023, 02eb9a0db4e539f4e7041b671731595610dad6ea415bc283933966ab69e1d33b (both)",
+      "ok": true,
+      "note": ""
+     },
+     {
+      "item": "ce-cdda-6c09543a5680.kui Virtua Cop 2 JPN, 9e89e778370f",
+      "expected": "135,396, 4236DAEC, 06ff4312034bdca1...",
+      "got": "135,396, 4236DAEC, 06ff4312034bdca168c34c42e00f3156a4577ec89521fe259c7c1eed551d1223 (both)",
+      "ok": true,
+      "note": ""
+     },
+     {
+      "item": "ce-cdda-25e68cedcd08.kui Caesars Palace 2000 US, 9e89e778370f",
+      "expected": "135,396, 80EEC206, 68011ca1fe73385d...",
+      "got": "135,396, 80EEC206, 68011ca1fe73385d8ec31f9f02f0143e133e35087637041376cfcf715c1b6880 (both)",
+      "ok": true,
+      "note": ""
+     },
+     {
+      "item": "ce-cdda-ae7b13b52064.kui Caesars Palace 2000 PAL, 9e89e778370f",
+      "expected": "135,396, 9BA9C4DD, c239f98263583337...",
+      "got": "135,396, 9BA9C4DD, c239f982635833370b2a3f8c64d623d23090e83bf00da8f1bc6c4cc06e8f826b (both)",
+      "ok": true,
+      "note": ""
+     },
+     {
+      "item": "ce-cdda-04f9b8cd872e.kui Get!! Colonies, 9e89e778370f",
+      "expected": "135,396, F44C11B1, 54475949844cc920...",
+      "got": "135,396, F44C11B1, 54475949844cc920b08944d0dd3a62583f5d300cd7e78cbcc6620c50bc78beb2 (both)",
+      "ok": true,
+      "note": ""
+     },
+     {
+      "item": "ce-cdda-877c91cd3930.kui Marionette Company 2, 9e89e778370f",
+      "expected": "135,396, ED494C26, 5d0e4470c35bada9...",
+      "got": "135,396, ED494C26, 5d0e4470c35bada970efae693522c3ed99a9f72b615d6a983cf9a3f5a2eddab5 (both)",
+      "ok": true,
+      "note": ""
+     },
+     {
+      "item": "ce-cdda-8cbfba9fc5e4.kui Hello Kitty Magical Block, 9e89e778370f",
+      "expected": "135,396, 61B17703, bea93e8c0400ff32...",
+      "got": "135,396, 61B17703, bea93e8c0400ff3282c5ec360c3ae019098916c13f9b68edd81d5490325415f4 (both)",
+      "ok": true,
+      "note": ""
+     },
+     {
+      "item": "ce-boot.kui everyday candidate 2, 91b0540103f0. Recipe (from wince-vram-stream.md and accepted-progress.md): make -f Makefile.dc build/retail-ce/entry.elf BUILD_ID=91b0540103f0 KUI_RETAIL_CE_ASYNC_SLOTS=96 KUI_RETAIL_CE_MAP_RECORD=1 KUI_CE_SLOW_WINDOW=16 KUI_CE_SLOW_ADAPT=2",
+      "expected": "doc (full hash): 85,300 bytes, CRC 6829D405, a75e0ce9010708953b707aad5db975bb83f9ee20f5657ddf4fdea8cf014acabd",
+      "got": "both trees: 85,300, 6829D405, a75e0ce9010708953b707aad5db975bb83f9ee20f5657ddf4fdea8cf014acabd",
+      "ok": true,
+      "note": "Matches the delivered bytes exactly. check_ce_virtual_vram_width.py passes on resident-sci and resident-scia in both trees."
+     },
+     {
+      "item": "MEASURE/ce-cdda-armada.kui gameplay timing, 1ba2fa7e7040 (extra; a measurement build, not an installed module). Recipe inferred from docs: Makefile.armada-stream build/armada-ce-play-timing/entry.elf KUI_ARMADA_CE_MOVIE_TIMING=1 KUI_ARMADA_CE_SLOW_AFTER_OVERRUN=1 KUI_ARMADA_CE_FAST_TAKE=1 KUI_ARMADA_CE_PLAY_TIMING=1 KUI_CE_CDDA_EMERGENCY_PIO=1 KUI_CE_CDDA_CHAIN=1",
+      "expected": "138,604, A2F1FE09, 79b383abbf40862b...",
+      "got": "both trees: 138,604, A2F1FE09, 79b383abbf40862b3d2f79edc8d6e1668e76fe7541c6dd620865cdf9ca742fbf",
+      "ok": true,
+      "note": "identical; matches doc"
+     },
+     {
+      "item": "Whole-build identity beyond the .kui",
+      "expected": "no difference that the merge introduces",
+      "got": "All 25 entry.elf files are byte-identical. All 153 intermediate .bin files (residents, stages, controllers) are identical. All 175 intermediate ELFs are identical after sh-elf-objcopy --strip-debug.",
+      "ok": true,
+      "note": "The unstripped intermediate ELFs differ only in DWARF, which holds the absolute worktree path. The merge changed 9 compiled inputs of these builds (native_readahead.h, native_readahead_layout.h, retail_image.h, retail_loader_layout.h, retail_image.c, retail_entry.S, retail_resident.S, retail_resident.c, retail_stage.c) plus retail_entry.ld and Makefile.dc. All of those changes sit under native-only conditions."
+     },
+     {
+      "item": "Build-time gates inside every module recipe (both trees, all 25 builds)",
+      "expected": "pass",
+      "got": "pass: check_retail_instructions, check_retail_loader_layout --ce, check_relaxed_calls, check_armada_ce_excerpt --stream <profile> [--wwp-kernel/--bam4-kernel NAME] --reader-fixes (or --cdda-vmu), record_build",
+      "ok": true,
+      "note": "make stops on any gate failure, and no build failed"
+     },
+     {
+      "item": "make test-wince-cdda-wwp-group",
+      "expected": "pass",
+      "got": "PASS at 2e03b96e and at b616e2db: 12 kernels, runtime admission, sound binder and native lease",
+      "ok": true,
+      "note": ""
+     },
+     {
+      "item": "make test-wince-cdda-bam4-group",
+      "expected": "pass",
+      "got": "PASS at both: 8 kernels",
+      "ok": true,
+      "note": ""
+     },
+     {
+      "item": "make test-wince-runtime-families",
+      "expected": "pass",
+      "got": "PASS at both (112 generic CE sound cases)",
+      "ok": true,
+      "note": ""
+     },
+     {
+      "item": "make test-armada-ce-stream (repeat-clamp model and player, transport default/emergency/chain, launch fixture test-armada-ce-excerpt-prepare)",
+      "expected": "pass",
+      "got": "PASS at both. Fixture: SHA-named module admitted only by its exact record, 11 faults plus a missing seed refused, reviewed kernels keep their modules. 388,928 preparation checks.",
+      "ok": true,
+      "note": ""
+     },
+     {
+      "item": "make test-wwp-ce-stream / test-ce-cdda-reader / test-ce-slow-after-overrun / test-ce-fast-take",
+      "expected": "pass",
+      "got": "PASS at both (50,229 bootstrap checks; 164,229 CE async reader checks)",
+      "ok": true,
+      "note": ""
+     },
+     {
+      "item": "make test-check-relaxed-calls / test-armada-ce-play-timing / test-armada-ce-excerpt / test-worms-ce-stream / test-wince-cooked-admission",
+      "expected": "pass",
+      "got": "PASS at both (excerpt 1,931 checks)",
+      "ok": true,
+      "note": ""
+     },
+     {
+      "item": "make test-retail-map-diagnostic / test-games-cdda-status / test-ce-ram-pool / test-wce-probe",
+      "expected": "pass",
+      "got": "PASS at both (1,081 CD audio evidence checks; 20 kernel layouts, 261 pool checks)",
+      "ok": true,
+      "note": ""
+     },
+     {
+      "item": "python3 tools/check_armada_ce_excerpt.py --self-test",
+      "expected": "pass",
+      "got": "PASS at both: 271,877 checks",
+      "ok": true,
+      "note": ""
+     },
+     {
+      "item": "build/test-wince-packaged-prepare, accepted modules: - ce-cdda-worms.kui; --wwp - ce-cdda-wwp.kui; --armada - ce-cdda-armada.kui",
+      "expected": "pass",
+      "got": "PASS at both: 921,664 / 920,614 / 916,569 checks, raw and 2048-byte DATA",
+      "ok": true,
+      "note": "Run with '-', the harness's explicit synthetic fingerprint, because the owner's kernels are not here"
+     },
+     {
+      "item": "build/test-wince-packaged-prepare --kernel SHA BYTES - MODULE (11 WWP-group modules 1c71ba3afa17 plus Ducati d7fd810eb837) and --bam4-kernel (7 BAM4 modules)",
+      "expected": "pass",
+      "got": "PASS at both: 920,513\u2013920,765 checks each (WWP), 920,372 (Ducati d7fd810eb837), 917,311\u2013917,612 (BAM4), raw and 2048-byte DATA",
+      "ok": true,
+      "note": "SHA and size come from each module's own record. The real-kernel SHA computation and the one-byte-changed kernel refusal need the owner's kernels and were not run."
+     },
+     {
+      "item": "python3 tests/test_wce_probe_admission.py <ce-boot.kui 91b0540103f0>",
+      "expected": "pass",
+      "got": "PASS at both: 85,300 bytes, 7 production cases on FAT32 and exFAT",
+      "ok": true,
+      "note": "Needed dosfstools and exfatprogs, which I installed with apt"
+     },
+     {
+      "item": "python3 tests/test_games_retail.py (full run)",
+      "expected": "pass",
+      "got": "PASS at both: 408 PASS lines at 2e03b96e, 404 at b616e2db, including the 22 CE case lines (ce-probe*, windows-ce, zso-windows-ce)",
+      "ok": true,
+      "note": "The merge adds 2 cases per filesystem"
+     },
+     {
+      "item": "Record-derivation gate: tools/wince_cdda_wwp_kernels.py and wince_cdda_bam4_kernels.py --reference ... --check-header",
+      "expected": "run with the owner's kernels",
+      "got": "not run",
+      "ok": false,
+      "note": "Skipped: needs the owner's private kernel images, which are not in the repository. The header self-consistency asserts inside the two group gates did pass."
+     },
+     {
+      "item": "Legacy ce-probe.kui (Armada's legacy virtual VMU module)",
+      "expected": "build if this line builds it",
+      "got": "not built",
+      "ok": true,
+      "note": "Not built on this line. The docs say ce-probe.kui is 'not rebuilt' and stays on the card. There is no recipe and no delivered identity in the WinCE docs."
+     },
+     {
+      "item": "GUI 1c71ba3afa17 (boot.kui/runtime.kui)",
+      "expected": "out of scope (not a reader module)",
+      "got": "not built or compared",
+      "ok": true,
+      "note": "The merge changes GUI sources by design (games_retail.c and others), so its GUI cannot equal 1c71ba3afa17. At 2e03b96e the merged GUI admission code admits every module through the packaged-prepare and games-retail harnesses above."
+     }
+    ],
+    "problems": [
+     {
+      "severity": "risk",
+      "where": "<repo> branch claude/hopeful-dijkstra-r2g7c4",
+      "claim": "The branch moved past the verified commit while I was working, and the new commits change WinCE build inputs.",
+      "evidence": "HEAD is now 86214640362c: 2e03b96e -> d05496c1 -> 67cdd635 -> 86214640 'Merge the Windows CE line's Virtua Cop 2 fixes (to 83becb53)'. It touches Makefile.armada-stream, src/loader/retail_stage.S, src/loader/retail_stage.c, include/kui/armada_ce_boot2_scratch.h, tools/check_armada_ce_excerpt.py and Makefile. I did not make these commits. My result covers 2e03b96e044b only.",
+      "fix": "Rerun the same scripts against 86214640: build_all.sh <tree> <tag>, then compare.py. Expect differences only where the VC2 fix intends them."
+     },
+     {
+      "severity": "risk",
+      "where": "record and real-kernel gates",
+      "claim": "Two documented gates need private inputs and were not run.",
+      "evidence": "wince_cdda_wwp_kernels.py and wince_cdda_bam4_kernels.py --reference WWP.BIN/BAM4.BIN NAME=KERNEL.BIN --check-header, and test-wince-packaged-prepare --kernel/--bam4-kernel SHA BYTES KERNEL MODULE with a real kernel (the GUI computes the SHA; a one-byte-changed kernel is refused). Both need the owner's kernel images, which are not in the repository. I ran the harness with '-' (synthetic fingerprint) instead.",
+      "fix": "Run those two modes on a machine that has the owner's kernels"
+     },
+     {
+      "severity": "nit",
+      "where": "docs naming 'make test-wince-packaged-prepare'",
+      "claim": "There is no make target by that name.",
+      "evidence": "'make -n test-wince-packaged-prepare' gives 'No rule to make target' in both trees. The name refers to the binary build/test-wince-packaged-prepare, which I built with make and ran.",
+      "fix": "None needed; call the binary directly"
+     },
+     {
+      "severity": "nit",
+      "where": "doc-recorded hashes",
+      "claim": "For 23 of the 25 modules the docs record only a 16-hex SHA-256 prefix.",
+      "evidence": "Full SHA-256 is recorded only for Ducati d7fd810eb837 and ce-boot 91b0540103f0, and both match. The full hashes are said to be in the ZIPs' INVENTORY.json, which is not in the repository. For the other 23, the doc comparison is bytes plus the full payload CRC32 plus the 64-bit SHA prefix.",
+      "fix": "Record full hashes in docs or evidence for future checks"
+     },
+     {
+      "severity": "nit",
+      "where": "container environment",
+      "claim": "I installed system packages to run the FAT32/exFAT gates; qemu-sh4 is absent.",
+      "evidence": "apt-get install -y --no-install-recommends dosfstools exfatprogs installed dosfstools 4.2 and exfatprogs 1.2.2, outside the repository. qemu-sh4 is not installed, so the older test-sh4-* checks were not run.",
+      "fix": "None; this note records an environment change"
+     }
+    ],
+    "commands": [
+     "git -C <repo> worktree add --detach <scratch>/verify/wince-bytes/ce b616e2db1a47391bef4a271371ea637b23dc31db",
+     "git -C <repo> worktree add --detach <scratch>/verify/wince-bytes/merge 2e03b96e044b",
+     "ln -s <repo>/.deps <tree>/.deps (both trees)",
+     "Each build: export PATH=<repo>/.deps/sh-elf/bin:$PATH; source <repo>/.deps/kos/environ.sh; unset MAKEFLAGS MFLAGS; rm -rf <builddir>; make -f <Makefile> <builddir>/entry.elf BUILD_ID=<label> [vars]; python3 tools/runtime_package.py build <builddir>/entry.elf <out>.kui --build-id <label>",
+     "make -f Makefile.armada-stream build/armada-ce-stream/entry.elf BUILD_ID=1ba2fa7e7040 (likewise Makefile.bam4-stream, Makefile.worms-stream, Makefile.wwp-stream into build/<p>-ce-stream)",
+     "make -f Makefile.armada-cdda-vmu build/armada-ce-cdda-vmu/entry.elf BUILD_ID=1ba2fa7e7040",
+     "make -f Makefile.wwp-stream build/wwp-ce-stream-<kernel>/entry.elf BUILD_ID=1c71ba3afa17 KUI_WINCE_CDDA_WWP_KERNEL=<DUCATI_WORLD|CHAMPIONSHIP_SURFER|NEXT_TETRIS_ONLINE|RAILROAD_TYCOON_II|FOUR_BY_FOUR_EVOLUTION|STARLANCER|HIDDEN_AND_DANGEROUS|HIDDEN_AND_DANGEROUS_PAL|ATARI_ANNIVERSARY|HOYLE_CASINO|BEAT_UP_A_MILLIONAIRE> (DUCATI_WORLD also KUI_CE_CDDA_REPEAT_CLAMP=0)",
+     "make -f Makefile.wwp-stream build/wwp-ce-stream-ducati-world/entry.elf BUILD_ID=d7fd810eb837 KUI_WINCE_CDDA_WWP_KERNEL=DUCATI_WORLD",
+     "make -f Makefile.bam4-stream build/bam4-ce-stream-<kernel>/entry.elf BUILD_ID=9e89e778370f KUI_WINCE_CDDA_BAM4_KERNEL=<PUZZLE_BOBBLE_4|VIRTUA_COP_2|CAESARS_PALACE_2000|CAESARS_PALACE_2000_PAL|GET_COLONY|MARIONETTE_COMPANY_2|HELLO_KITTY_MAGICAL_BLOCK>",
+     "make -f Makefile.dc build/retail-ce/entry.elf BUILD_ID=91b0540103f0 KUI_RETAIL_CE_ASYNC_SLOTS=96 KUI_RETAIL_CE_MAP_RECORD=1 KUI_CE_SLOW_WINDOW=16 KUI_CE_SLOW_ADAPT=2",
+     "make -f Makefile.dc wince-cdda BUILD_ID=1ba2fa7e7040",
+     "make -f Makefile.armada-stream build/armada-ce-play-timing/entry.elf BUILD_ID=1ba2fa7e7040 KUI_ARMADA_CE_MOVIE_TIMING=1 KUI_ARMADA_CE_SLOW_AFTER_OVERRUN=1 KUI_ARMADA_CE_FAST_TAKE=1 KUI_ARMADA_CE_PLAY_TIMING=1 KUI_CE_CDDA_EMERGENCY_PIO=1 KUI_CE_CDDA_CHAIN=1",
+     "python3 -I scripts/compare.py out (full SHA-256 of both trees plus doc bytes/CRC/SHA; writes out/comparison.json)",
+     "cmp of all 25 entry.elf, 153 intermediate .bin, and 175 intermediate ELFs after sh-elf-objcopy --strip-debug, between trees",
+     "python3 tools/check_ce_virtual_vram_width.py build/retail-ce/resident-sci.elf and resident-scia.elf (both trees)",
+     "apt-get install -y --no-install-recommends dosfstools exfatprogs",
+     "In both trees: make test-wince-cdda-wwp-group test-wince-cdda-bam4-group test-wince-runtime-families test-armada-ce-stream test-wwp-ce-stream test-ce-cdda-reader test-ce-slow-after-overrun test-ce-fast-take test-check-relaxed-calls test-armada-ce-play-timing test-armada-ce-excerpt test-worms-ce-stream test-wince-cooked-admission test-retail-map-diagnostic test-games-cdda-status test-ce-ram-pool test-wce-probe (each separately)",
+     "python3 tools/check_armada_ce_excerpt.py --self-test",
+     "make build/test-wince-packaged-prepare; ./build/test-wince-packaged-prepare - ce-cdda-worms.kui; --wwp - ce-cdda-wwp.kui; --armada - ce-cdda-armada.kui; --kernel <sha> <bytes> - ce-cdda-<sha12>.kui (12 WWP-group builds); --bam4-kernel <sha> <bytes> - ce-cdda-<sha12>.kui (7 BAM4 builds)",
+     "make build/games-retail; python3 tests/test_wce_probe_admission.py out/<tree>/91b0540103f0/ce-boot.kui; python3 tests/test_games_retail.py",
+     "unlink <tree>/.deps; git -C <repo> worktree remove --force <tree> (both removed)",
+     "Kept: <scratch>/verify/wince-bytes/out/comparison.json, out/results-{ce,merge}.txt, out/extras-{ce,merge}.txt, out/gates-{ce,merge}.txt, the built .kui and entry.elf under out/{ce,merge}/<label>/, logs under <scratch>/verify/wince-bytes/logs, scripts under <scratch>/verify/wince-bytes/scripts"
+    ]
+   }
+  },
+  {
+   "reviewer": "semantic review of the merge",
+   "result": {
+    "verdict": "pass",
+    "rows": [
+     {
+      "item": "Auto-merged files equal a clean 3-way merge",
+      "expected": "For each of Makefile, Makefile.dc, include/kui/retail_loader_layout.h, src/apps/games_retail.c, src/loader/retail_entry.ld, src/loader/retail_resident.S, src/loader/retail_resident.c and src/loader/retail_stage.c, the 2e03b96e version equals git merge-file(dc938fea, 4441e92, b616e2db).",
+      "got": "All 8 are identical to the clean merge (merge-file rc=0). src/loader/retail_entry.S had 1 conflict hunk and tests/fixtures/toy-switch-production-text.json had 4; both were resolved by hand.",
+      "ok": true,
+      "note": "No hand edits in any auto-merged file. Only the two conflicted files carry hand-written resolutions."
+     },
+     {
+      "item": "retail_entry.S hand resolution",
+      "expected": "Both lines' records kept, each block with its own #if/#endif.",
+      "got": "The resolution is the conflict text without markers plus one added #endif. That #endif closes the T83 heap block (KUI_NATIVE_BACKGROUND_COMPACT && KUI_NATIVE_DUAL_READERS && !KUI_NATIVE_SESSION_CONTROLS). The common #endif after the conflict closes #if KUI_WINCE_CDDA_KERNEL_RECORD. The KUIAVM01 and KUISDP01 blocks are untouched. #if/#endif nesting is balanced (merged lines 168-211).",
+      "ok": true,
+      "note": "The order of the blocks in the .S file does not matter: each record is in its own named section, placed by retail_entry.ld."
+     },
+     {
+      "item": "Fixed payload offsets in retail_entry.ld (merged)",
+      "expected": "Records never overlap: 0x140 KUICEM01(16), 0x150 KUIAVM01(16), 0x160 KUINMP01(16), 0x170 KUIHAP01(16), 0x180 VMU(64), 0x1c0 cold(24), 0x1e0 GIN or CE-return(16, asserted exclusive), 0x1f0 KUISDP01(16), 0x200 GIN header(160), 0x2a0 session(96), 0x300 KUICDK01(64, asserted exclusive with .smash_native_gin_verify).",
+      "got": "Each '. =' sits after sections whose sizes are asserted, so nothing can be pushed into the next slot. Payload dumps of modules built at the merge: owner reader has 0x160 KUINMP01 slots 0xa0 (160), 0x170 KUIHAP01, 0x1f0 KUISDP01 and zero at 0x300. Test 84 is the same. Standalone has 0x160 KUINMP01 0x80 (128) and nothing else. PB4 has 0x300 KUICDK01 (v1, 64, profile 2, 1830912, pool 0x8cf50000, 0, sha 9d0ea356bd664028...) with 0x140-0x2a0 zero. All-on has 0x150 KUIAVM01 (v1, 0x1000) with 0x160 zero. ce-boot has 0x140 KUICEM01 (v1, 96) with the rest zero.",
+      "ok": true,
+      "note": "KUIAVM01 ends exactly where KUINMP01 begins (0x160). Both sizes are asserted to be 16."
+     },
+     {
+      "item": "#if gating of each line's additions in the both-changed files",
+      "expected": "No recipe defines a macro from both lines.",
+      "got": "T83 macros are defined only by native makefiles: KUI_NATIVE_BACKGROUND_MAP160 (vmu-native-background-compact, toy-suite), KUI_NATIVE_STANDALONE_MAP128 (native-standalone-general), KUI_NATIVE_SURVEY_EXTENDED_SDK (toy-suite) and KUI_TOY_WIRE_SAVE. COMPACT appears only in vmu-native-background-compact, -compat and -toy-suite, and DUAL_READERS only in vmu-native makefiles. CE macros are defined only by Armada makefiles and Makefile.dc's build/retail-ce rules: KUI_RETAIL_CE=1, RETAIL_CE_VRAM/POOL/READAHEAD_DEFS, and the slow-window flags. The CE line's shared changes in retail_gd.c, retail_async.c/.h and sci_stream.c/.h are under CE-only macros; with VRAM off, STREAM_GUEST expands to the original dma_guest(...,32,...) call.",
+      "ok": true,
+      "note": "The heap-record #if uses pre-existing Main macros. The T83 line intended it for compact dual readers, and no CE recipe sets those macros."
+     },
+     {
+      "item": "Function-level ownership (games_retail.c, retail_stage.c, retail_resident.c)",
+      "expected": "Only prepare_launch is changed by both lines. Every other function equals the version from the line that changed it.",
+      "got": "games_retail.c, CE line only (merge equals CE): armada_stream_seed_fill and ce_music_image_valid/_runtime_profile/_kernel_package/_kernel_record. T83 line only (merge equals T83): background_map_refusal, native_background_map_slots, native_repeat_session_safe, and fragmented_data_track (removed). Changed by both: prepare_launch. map_tracks, map_track and map_cdda_tracks are byte-identical in all four trees. retail_stage.c and retail_resident.c have no function changed by both lines.",
+      "ok": true,
+      "note": "Found with a brace-matching function extractor over 4441e92, dc938fea, b616e2db and 2e03b96e."
+     },
+     {
+      "item": "prepare_launch, Windows CE routes, merge vs CE line",
+      "expected": "Same admission, map capacity and encode decisions.",
+      "got": "When ce is set, native_dual and native_standard are false, and native_cache_prepare_repeat gets native=false and returns SKIPPED. So READER_TOO_OLD, POOL_OVERLAP, the standalone remap and the repeat publish cannot be reached. background_slots is 64, or 96 from KUICEM01 for ce-boot.kui: the same values the CE line's ce_slots took. kui_retail_manifest_encode_capacity gets the same capacity (64 and 96 are still accepted). The KUICDK01 path is unchanged.",
+      "ok": true,
+      "note": "One difference: the wording of the map-full refusal (problem 1)."
+     },
+     {
+      "item": "prepare_launch, native routes, merge vs T83 line",
+      "expected": "Same behaviour as dc938fea (whose src/apps equals the owner's GUI line 4d4dcff7).",
+      "got": "Every CE-line addition is guarded by ce_excerpt or ce_kernel_module, both false on native routes. The report's cdda_profile gains a ce_kernel_module branch that is false there. Native map capacity, the standalone and pool-overlap routing, and cached-mapping revalidation are all T83 code that the CE line did not touch.",
+      "ok": true,
+      "note": "git diff 4d4dcff7 dc938fea -- src/apps is empty."
+     },
+     {
+      "item": "Owner's Test 83 reader rebuilt at the merge",
+      "expected": "313ac3bddb6b1d037ea2de758dd97d809125507ba9617340739baf0e05195f1c, payload CRC 1988A86E (owner-source validation.txt)",
+      "got": "313ac3bddb6b1d037ea2de758dd97d809125507ba9617340739baf0e05195f1c, 311936 bytes, crc32 1988a86e, build 1d80f771f081",
+      "ok": true,
+      "note": "Owner-source README recipe: Makefile.vmu-native-toy-suite, Test 83 switches, KUI_NATIVE_BACKGROUND_MAP160=1 TOY_SURVEY_MIXED_PAD=1, BUILD_ID=1d80f771f081."
+     },
+     {
+      "item": "Test 84 modules rebuilt at the merge",
+      "expected": "main 597d8eac96b0238045e7bde9c642653a0bb5e138d6763993cabd0c156c210260; alternate e74cca711600ecd8ddd38a62839fda7c6dda837740331fb3f0f458b761f03014 (build-identity.log)",
+      "got": "main 597d8eac96b0238045e7bde9c642653a0bb5e138d6763993cabd0c156c210260 (315744 B); alternate e74cca711600ecd8ddd38a62839fda7c6dda837740331fb3f0f458b761f03014 (313920 B)",
+      "ok": true,
+      "note": "Recipe from docs/cdda-background-test-84.md with BUILD_ID=4abc63b0cc58. This covers the T83 stopped() text under KUI_TOY_WIRE_SAVE in the merged retail_stage.c."
+     },
+     {
+      "item": "Standalone New MAP128 module, T83 line vs merge",
+      "expected": "Byte-identical with the same BUILD_ID.",
+      "got": "Both are 6fd04ec621819967ca41f2f6939d40a7013935a9a17a8996b93951b492cb7e44 (49252 B, crc32 2032a70d, BUILD_ID aaaaaaaaaaaa).",
+      "ok": true,
+      "note": "This is the only recipe that uses the T83 MAP128 block of retail_loader_layout.h, the retail_resident.S .set and the stage display line."
+     },
+     {
+      "item": "CE modules rebuilt at the merge",
+      "expected": "The CE line's delivered bytes.",
+      "got": "ce-boot candidate (BUILD_ID 91b0540103f0; 96 slots, KUICEM01, window 16, adapt 2): a75e0ce9010708953b707aad5db975bb83f9ee20f5657ddf4fdea8cf014acabd = doc. Read-ahead (1a5f46776c0c, plus POOL_KIB=64 READAHEAD=1): 2c6bf8d2cbebc984bf3b1a470f0ba8aa6fc80eeed3f4d900781eed3016cc4958 = doc. Pool timing probe (1a5f46776c0c, WCE_PROBE=2, POOL_KIB=64): ac6600b1ca16e046efc365b6719b85e86cee9d0157b7c8edba2c8aaaed95e446 = doc. Ducati ce-cdda-41b0fe340c3a (d7fd810eb837): 4979cff7a8e005e11a2cd8e6730ed43cc6c8cbc35afb2f828f653517937a7a2b = doc. All-on (1ba2fa7e7040): 2e3a79ed891002b43b8c80496f711b89247d99044149d98ef84a6ff1464aa994, 206428 B, crc 8c21f910 (doc gives 206,428 B, 8C21F910, prefix 2e3a79ed891002b4). PB4 ce-cdda-9d0ea356bd66 (9e89e778370f): 02eb9a0db4e539f4e7041b671731595610dad6ea415bc283933966ab69e1d33b, identical to the build at b616e2db (doc gives prefix 02eb9a0db4e539f4 and EB9CC023).",
+      "ok": true,
+      "note": "Together these exercise the CE line's paths in all four both-changed loader sources: the readahead layout, the pool entry word, the stage pool/publish, BAM4/WWP KUICDK01 and the VRAM and probe hunks."
+     },
+     {
+      "item": "Production GUI admission of real module bytes (merged games_retail.c)",
+      "expected": "PASS",
+      "got": "build/test-wince-packaged-prepare --bam4-kernel <PB4 sha> 1830912 - <PB4 module>: raw and 2048 DATA PASS, 917444 checks. --kernel <Ducati sha> 1288192 - <Ducati module>: PASS, 920372 checks.",
+      "ok": true,
+      "note": "No owner kernels were available, so the test ran its 'explicit synthetic fingerprint orchestration fixture': the kernel SHA is substituted, not computed from a real kernel."
+     },
+     {
+      "item": "Host suites at the merge",
+      "expected": "PASS",
+      "got": "tests/test_games_retail.py ran to its last case with no traceback: 408 PASS lines, including ce-probe, ce-probe-record-96/-bad, native-dual-too-many and native-dual-standalone-99/-remap/-badcap on FAT32 and exFAT. Check counts: test-armada-ce-excerpt-prepare 388928, test-games-native-cache 40211, owner-cache 255, cache-hint 1579; test-sha256-prefix PASS. Also PASS: 14 make targets (test-native-track-capacity, test-ce-ram-pool, test-ce-readahead, test-ce-cdda-reader, test-ce-slow-after-overrun, test-ce-fast-take, test-armada-ce-play-timing, test-wince-cdda-wwp-group, test-wince-cdda-bam4-group, test-wince-runtime-families, test-retail-map-diagnostic, test-armada-ce-stream, test-armada-ce-excerpt, test-wwp-ce-stream), 13 relay/async/gd/sci binaries including test-retail-relay-ce-pool, tests/test_native_background_compact_config.py, Test 84 toy-wire-host-tests (rc=0) and tests/test_toy_test_switches.py (30 shared sources keep their production text).",
+      "ok": true,
+      "note": "These are host and linked checks only, not console tests."
+     },
+     {
+      "item": "GUI object compile with the pinned SH toolchain, and stack",
+      "expected": "-Werror clean; no meaningful stack growth",
+      "got": "make -f Makefile.dc build/dc/src/apps/games_retail.o compiles under -Werror. prepare_launch frame (-fstack-usage, GUI flags): merge 5652 B, T83 5484 B, CE 5616 B. It runs on the kui-io worker, whose stack is 64 KiB (KUI_IO_WORKER_STACK_BYTES).",
+      "ok": true,
+      "note": "I did not build the full GUI image."
+     },
+     {
+      "item": "Makefile recipe overrides",
+      "expected": "No 'overriding recipe' warnings",
+      "got": "make -n test: 0 make warnings on merge, t83 and ce",
+      "ok": true,
+      "note": ""
+     },
+     {
+      "item": "Coverage limits",
+      "expected": "n/a",
+      "got": "Not rebuilt: ce-cdda-armada/bam4/worms/wwp (1ba2fa7e7040), the other 10 WWP-group and 6 BAM4-group modules, ce-probe.kui, WCE data probe 1, and Main's native production cohort (retail-boot.kui, A1 variants). No real WinCE kernels or game executables were used. No console run.",
+      "ok": true,
+      "note": "The modules I did rebuild cover every conditional path that the two lines added to the shared loader files. The branch head moved after 2e03b96e (86214640, then 64ae0743); those commits are not reviewed here."
+     }
+    ],
+    "problems": [
+     {
+      "severity": "nit",
+      "where": "src/apps/games_retail.c:1536-1538 (prepare_launch MAP_FULL, WinCE branch) and :355 background_map_refusal (merged numbering)",
+      "claim": "The WinCE background map-full refusal now uses the T83 line's wording. The launch decision is unchanged, but the text differs from what CE GUI 1c71ba3afa17 shows.",
+      "evidence": "The CE line (b616e2db, text from Main) called fragmented_data_track and refused with 'Windows CE background map exceeds %u slots: track %u is in %u pieces; recopy the game folder', or '...for track and data extents'. It also logged '...copying the game folder off the card and back makes it contiguous', and named a track even when that track had a single piece. The merge refuses with '%s map exceeds %u slots: %u tracks + %u data pieces need %u. A fresh copy may reduce fragmentation.' or 'Use a reader with more map slots.', or '...for %u tracks; could not count all data pieces', and logs only when a track has more than one piece. Both versions refuse in exactly the same cases (goto done). No test on either line checks the WinCE map-full text (grep of tests and tools). For CE, 'Use a reader with more map slots' has no remedy, since 96 (KUI_RETAIL_CE_MAP_SLOTS) is the largest CE map, but it appears only when tracks plus data tracks exceed the slots or every data track is contiguous.",
+      "fix": "No behaviour fix needed: this is the T83 line's intended shared change, not a merge artifact. Record it as such. Optionally add a ce-probe map-overflow case to tests/test_games_retail.py that checks the new message."
+     },
+     {
+      "severity": "risk",
+      "where": "GUI cohort: merged GUI vs GUI 1c71ba3afa17 (owner-run) vs 4d4dcff77494",
+      "claim": "The merged GUI's native routes behave as 4d4dcff77494, not as 1c71ba3afa17. Native console results under 1c71ba3afa17 cannot be compared with results under the merged GUI.",
+      "evidence": "kui_native_map_capacity appears 0 times in games_retail.c at 1c71ba3a and b616e2db, and once at 4d4dcff7, dc938fea and 2e03b96e. The CE GUI uses slots=ce?ce_slots:KUI_RETAIL_ASYNC_SLOTS (64) for native_dual and refuses with 'Background map exceeds 64 slots; defragment...'. So with the owner's 313ac3bd (KUINMP01=160) installed, 1c71ba3afa17 refuses maps above 64 slots, for example MDK2's 31 tracks plus 39 fragments. It also has no pool-overlap standalone routing or repeat records. The parent GUIs were also built differently. 1c71ba3afa17: launch timing, Smash bundle cc81e63ca4d2 and Standard binding 9e3295bcfaec (docs/wince-cdda-wwp-group-test.md). 4d4dcff77494: nightly build_gui with KUI_SMASH_LAUNCH_TIMING=1 KUI_GITHUB_NIGHTLY=1 KUI_UPDATE_REVIEW_FEED=0 (owner-source README). The merge cannot encode which of these the merged GUI is built with.",
+      "fix": "Choose the merged GUI's bindings, bundle and flags explicitly and record them. Label every console result with the GUI build and the module path, build and CRC. Treat native results taken under 1c71ba3afa17 as their own baseline."
+     },
+     {
+      "severity": "risk",
+      "where": "docs/accepted-progress.md at 2e03b96e (outside the listed files)",
+      "claim": "The ledger that AGENTS.md requires reading before choosing recipes or tests records only the CE line and the old f8807cb16561 native checkpoint.",
+      "evidence": "In the merged file, 1d80f771f081, 4d4dcff77494, 4abc63b0cc58 and 313ac3bd each occur 0 times, while 1c71ba3afa17 occurs 8 times and f8807cb16561 5 times. The T83 line kept its records in docs/universal-loader-roadmap.md and the test docs.",
+      "fix": "Add entries for the native line: owner reader 1d80f771f081 (module 313ac3bd...5f1c), GUI line 4d4dcff77494, Test 84 4abc63b0cc58 (console pending) and the retained standalone e5af01888606. The later commit 67cdd635 ('the line ledger') may already cover this; I did not review it."
+     }
+    ],
+    "commands": [
+     "git -C <repo> worktree add --detach .../scratchpad/verify/semantic-review/{merge,t83,ce} {2e03b96e044b,dc938fea,b616e2db}; ln -s <repo>/.deps <wt>/.deps",
+     "git diff 4441e92 dc938fea -- <file>; git diff 4441e92 b616e2db -- <file>; git show 2e03b96e:<file>  (all 9 files plus the fixture JSON)",
+     "for each file: git show dc938fea/4441e92/b616e2db:<f>; git merge-file -q ours base theirs; cmp with git show 2e03b96e:<f>",
+     "python3 funcs.py <file>  (function-level hashes over 4441e92/dc938fea/b616e2db/2e03b96e for games_retail.c, retail_stage.c, retail_resident.c)",
+     "git grep over Makefile.* for KUI_NATIVE_BACKGROUND_COMPACT=1, KUI_NATIVE_DUAL_READERS=1, KUI_RETAIL_CE=1, RETAIL_CE_VRAM/POOL/READAHEAD_DEFS, KUI_CE_SCI_SLOW_AFTER_OVERRUN|KUI_SCI_STREAM_SLOW",
+     "merge: python3 tests/test_toy_test_switches.py",
+     "merge: make -j3 build/test-armada-ce-excerpt-prepare build/test-wince-packaged-prepare build/games-retail build/test-games-native-cache build/test-games-native-owner-cache build/test-games-native-cache-hint build/test-sha256-prefix; run each binary (ASAN_OPTIONS=detect_leaks=0)",
+     "merge: python3 tests/test_games_retail.py",
+     "merge: make -j2 -f Makefile.vmu-native-toy-suite TOY_SUITE_MODE=66 TOY_WIRE_STREAM=1 TOY_WIRE_CACHED=1 TOY_WIRE_WORDS=1 TOY_WIRE_PACE=1 TOY_WIRE_IDLE=1 TOY_WIRE_LEAN=1 TOY_WIRE_STEADY=1 TOY_WIRE_FLUID=1 TOY_WIRE_SEQ=1 TOY_WIRE_ANY=1 TOY_WIRE_TITLES=1 TOY_WIRE_QUERY=1 TOY_WIRE_TIMER=1 TOY_WIRE_SAVE=1 KUI_NATIVE_BACKGROUND_MAP160=1 TOY_SURVEY_MIXED_PAD=1 BUILD_ID=1d80f771f081 BUILD=build/survey83 build/survey83/retail-native-dual.kui",
+     "merge: same recipe + TOY_CDDA_ROOM=1 TOY_CDDA_HOOK=1 TOY_CDDA_DRIVE=1 TOY_CDDA_KEEP=1 TOY_CDDA_SURVEY=1 BUILD_ID=4abc63b0cc58 BUILD=build/t84-main build/t84-main/retail-toy-test-84.kui; and TOY_CDDA_SURVEY=0 BUILD=build/t84-alt",
+     "merge: same T84 switches ... toy-wire-host-tests",
+     "(source .deps/kos/environ.sh; PATH=.deps/sh-elf/bin) t83 and merge: make -j2 -f Makefile.native-standalone-general BUILD_ID=aaaaaaaaaaaa",
+     "merge and ce: make -j2 -f Makefile.bam4-stream KUI_WINCE_CDDA_BAM4_KERNEL=PUZZLE_BOBBLE_4 BUILD_ID=9e89e778370f build/bam4-ce-stream-puzzle-bobble-4/entry.elf; python3 tools/runtime_package.py build <entry.elf> <out.kui> --build-id 9e89e778370f",
+     "merge: make -f Makefile.dc build/retail-ce/entry.elf BUILD_ID=91b0540103f0 KUI_RETAIL_CE_ASYNC_SLOTS=96 KUI_RETAIL_CE_MAP_RECORD=1 KUI_CE_SLOW_WINDOW=16 KUI_CE_SLOW_ADAPT=2; runtime_package.py build",
+     "merge: make -f Makefile.dc build/retail-ce/entry.elf BUILD_ID=1a5f46776c0c KUI_RETAIL_CE_ASYNC_SLOTS=96 KUI_RETAIL_CE_MAP_RECORD=1 KUI_CE_SLOW_WINDOW=16 KUI_CE_SLOW_ADAPT=2 KUI_CE_POOL_KIB=64 KUI_CE_READAHEAD=1; runtime_package.py build",
+     "merge: make -f Makefile.dc build/retail-ce/entry.elf BUILD_ID=1a5f46776c0c KUI_RETAIL_CE_ASYNC_SLOTS=96 KUI_RETAIL_CE_MAP_RECORD=1 KUI_WCE_PROBE=2 KUI_CE_SLOW_WINDOW=16 KUI_CE_SLOW_ADAPT=2 KUI_CE_POOL_KIB=64; runtime_package.py build",
+     "merge: make -f Makefile.armada-cdda-vmu BUILD_ID=1ba2fa7e7040 build/armada-ce-cdda-vmu/entry.elf; runtime_package.py build",
+     "merge: make -f Makefile.wwp-stream KUI_WINCE_CDDA_WWP_KERNEL=DUCATI_WORLD BUILD_ID=d7fd810eb837 build/wwp-ce-stream-ducati-world/entry.elf; runtime_package.py build",
+     "merge: ./build/test-wince-packaged-prepare --bam4-kernel 9d0ea356bd664028a5b8bb9df13a188e9835c40a788b39f5cb7b9064b81574a3 1830912 - <PB4 module>",
+     "merge: ./build/test-wince-packaged-prepare --kernel 41b0fe340c3a50471b27b655025baf7bcff4b66a0484e4aa2df5ed7106876b97 1288192 - <Ducati module>",
+     "python3 payload dump of 0x100..0x300 record slots of the built modules",
+     "merge: host-batch.sh (make test-native-track-capacity test-ce-ram-pool test-ce-readahead test-ce-cdda-reader test-ce-slow-after-overrun test-ce-fast-take test-armada-ce-play-timing test-wince-cdda-wwp-group test-wince-cdda-bam4-group test-wince-runtime-families test-retail-map-diagnostic test-armada-ce-stream test-armada-ce-excerpt test-wwp-ce-stream; build and run test-retail-relay{,-ce,-ce-pool}, test-retail-async{,-ce,-ce-vram,-native-bounds,-native-hybrid,-native-resume}, test-retail-gd{,-ce-vram}, test-sci-stream{,-ce}; python3 tests/test_native_background_compact_config.py)",
+     "merge: make -f Makefile.dc build/dc/src/apps/games_retail.o BUILD_ID=000000000000 KUI_SMASH_LAUNCH_TIMING=1; the same compile line with -fstack-usage in merge, t83 and ce",
+     "merge, t83, ce: make -n test (grep for make warnings)",
+     "git show <rev>:src/apps/games_retail.c | grep -c kui_native_map_capacity for 1c71ba3a, b616e2db, 4d4dcff7, dc938fea, 2e03b96e",
+     "git show 2e03b96e:docs/accepted-progress.md | grep -c for 1d80f771f081 4d4dcff77494 4abc63b0cc58 313ac3bd 1c71ba3afa17 f8807cb16561",
+     "git -C <repo> worktree remove --force for all three worktrees (logs kept in <scratch>/verify/semantic-review/)"
+    ]
+   }
+  },
+  {
+   "reviewer": "merged GUI build, admission, routing, host tests",
+   "result": {
+    "verdict": "partial",
+    "rows": [
+     {
+      "item": "Step 1: the owner's Test 83 GUI recipe",
+      "expected": "The command in docs/evidence/toy-wire-stream-83/console/owner-source/README.txt",
+      "got": "make -j8 -f Makefile.dc build/kui-runtime.elf BUILD_ID=4d4dcff77494 KUI_SMASH_LAUNCH_TIMING=1 KUI_GITHUB_NIGHTLY=1 KUI_UPDATE_REVIEW_FEED=0, then PYTHONPATH=tools python3 -c \"from nightly import build_gui;build_gui('4d4dcff77494bf36a7eb810eec6684b8b5d64cca','build/survey-package')\". It sets no NATIVE_STANDARD_MANIFEST, so the default resources/updater-bindings/preserved-standard-manifest.h (f8807cb16561) applies.",
+      "ok": true,
+      "note": "The 4d4dcff77494 reference was built with exactly this recipe."
+     },
+     {
+      "item": "Step 1: KUI_GITHUB_NIGHTLY and KUI_UPDATE_REVIEW_FEED in 1c71ba3afa17",
+      "expected": "Work out from the WinCE line's docs and tools whether they were set",
+      "got": "Most likely neither was set, so both had the Makefile default of 0. (1) No doc, tool or test at b616e2db mentions either flag, apart from Makefile.dc, .github/workflows/nightly.yml (the official nightly: NIGHTLY=1, REVIEW_FEED=0) and two updater tests. (2) Every GUI build command recorded in that line (package_armada_ce_*.py, package_bam4_ce_stream.py, package_launch_options.py and others) is `make -j2 -f Makefile.dc build/kui-runtime.elf BUILD_ID=<id>` with neither flag. (3) wince-cdda-wwp-group-test.md:128-140, wince-gui-routing.md:25-35 and docs/evidence/gui-00d8ed67d9ad-reconstruction-2026-11-17.json list every option used (launch timing, bundle cc81e63ca4d2, Standard binding 9e3295bcfaec) and neither flag. (4) That reconstruction matched 00d8ed67d9ad in update_work.constprop.0, the only function KUI_GITHUB_NIGHTLY changes. In my builds it is 8848 bytes with 0 and 8844 bytes with 1. 069d612cadea's update_work differs 'because it embeds the build ID', which is consistent with KUI_UPDATE_SOURCE_VERIFIED=1, and that requires REVIEW_FEED=0.",
+      "ok": true,
+      "note": "Inferred, moderate confidence. I could not check this against bytes: neither the delivered 1c71ba3afa17 runtime.kui nor the bundle is on this machine. The owner's Test 83 GUI used KUI_GITHUB_NIGHTLY=1, so the two lines' GUIs differ on this flag."
+     },
+     {
+      "item": "Smash Pack bundle",
+      "expected": "The four modules are not available, so build without RUNTIME_MODULE_BUNDLE",
+      "got": "RUNTIME_MODULE_BUNDLE was unset in all four builds. build/dc/runtime-module-bundle.config = {\"directory\":\"\",\"enabled\":false,...}.",
+      "ok": true,
+      "note": "The 1c71ba3afa17 byte comparison with the delivered GUI is therefore impossible."
+     },
+     {
+      "item": "GUI build environment as instructed (.deps -> <repo>/.deps, source its kos/environ.sh)",
+      "expected": "A GUI that links with the shared .deps",
+      "got": "This was not possible. <repo>/.deps/kos/lib/dreamcast is empty because KOS was never built: the first link failed with 'cannot find _kos_startup.o'. .deps/bearssl is an empty .git, and there are no libogg or libtheora sources. To leave <repo> unmodified I used a private $V/deps. In it: sh-elf is a symlink to <repo>/.deps/sh-elf (gcc 15.2.0); fatfs was copied (ffconf.h identical); BearSSL 7bea48e5e850ab4cafbe68d3765cdaba13a86d6f came from tools/fetch_deps.py --bearssl-only; libogg-1.3.6.tar.xz (sha256 5c8253428e181840cd20d41f3ca16557a9cc04bad4a3d04cce84808677fa1061) and libtheora-1.2.0.tar.xz (sha256 ebdf77a8f5c0a8f7a9e42323844fa09502b34eb1d1fece7b5f54da41fe2122ec) came from tools/fetch_media_xiph.py. KOS was cloned from <repo>/.deps/kos at fcfa7d869471591ca1c777543261a7bfea7cb726. Its environ.sh was generated as tools/setup_kos.sh does (that transformation reproduces the shared environ.sh exactly). make -C $KOS_BASE -j4 built the kernel and all 8 addons. utils/dcbumpgen failed for lack of a host jpeglib.h; the GUI does not use it.",
+      "ok": false,
+      "note": "This deviation was needed for any GUI build here. All four GUIs below use the same private KOS build."
+     },
+     {
+      "item": "Step 2: merged GUI 2e03b96e044b",
+      "expected": "Built with BUILD_ID=2e03b96e044b, launch timing, the 9e3295bcfaec Standard binding and the flags as in 1c71ba3afa17 (0/0)",
+      "got": "runtime.kui: 3,413,196 bytes (payload 3,413,132, memory 7,780,708), payload CRC32 96C2B705 (file CRC32 5C505F6E), SHA-256 7b4894075803723fb137151deed972fdd1dba992d90abd1c6358c31f937cbf6d. ELF SHA-256 f1a81cb0c845a97f1c98437ebf2aebe369707da9ed09dbc5f73dbfa6a600bdff. Compile record: commit 2e03b96e044bab1f7ae2f9e9c7f47e64617befb4, source_dirty false. The build log shows -DKUI_GITHUB_NIGHTLY=0, -DKUI_UPDATE_SOURCE_VERIFIED=1, -DKUI_UPDATE_REVIEW_FEED=0, -DKUI_SMASH_LAUNCH_TIMING=1 on 260 objects, and KUI_NATIVE_STANDARD_MANIFEST=.../installed-standard-9e3295bcfaec.h. The binary contains all 8 digest words of 9e3295bcfaec and none of f8807cb16561.",
+      "ok": true,
+      "note": "Saved at <scratch>/verify/gui-build/out/gui/runtime-merge.kui"
+     },
+     {
+      "item": "Step 2: which packager produces runtime.kui",
+      "expected": "tools/nightly.py build_gui, or Makefile.dc's runtime_package rule",
+      "got": "nightly.build_gui and `python3 tools/runtime_package.py build build/kui-runtime.elf ... --build-id <id>` produced byte-identical files (cmp) for all four builds; both call runtime_package.envelope(). Makefile.dc has no runtime.kui rule for the GUI: its only runtime_package.py rule (line 925) builds retail-physical.kui. The envelope passes runtime_package.py verify: KUIRUN1, v1, 64-byte header, load/entry 0x8c010000, flags 0, build 2e03b96e044b, header CRC 175ce22c.",
+      "ok": true,
+      "note": "No delivered GUI binary is available here to compare its header byte for byte."
+     },
+     {
+      "item": "Step 2: engine markers",
+      "expected": "Exactly one engine-3 marker and no engine-2 marker",
+      "got": "There is one initialized KUIENG3!/3/0xFFFFFFFC record (payload+0x266d2c, just before KUIBANK1) and zero initialized KUIENG2! records. The raw 8-byte magics occur 2x (KUIENG3!) and 1x (KUIENG2!); the extra ones are the scanner's own NUL-padded literals at payload+0x21e268/+0x21e274. The production kui_update_engine_level() returns 3 and kui_update_capability_valid() returns 1. The producer tools/update_package.member_info_v2('runtime.kui') accepts it (engine 3 required). The 1c71ba3, 4d4dcff and 86214640 builds give the same result.",
+      "ok": true,
+      "note": "Counted the way tools/update_package.py counts ENGINE and ENGINE_LEGACY."
+     },
+     {
+      "item": "Step 3: 1c71ba3afa17 reference (same flags, no bundle)",
+      "expected": "Report size and CRCs. The delivered GUI was 3,816,892 bytes with the bundle, payload CRC 2E38CCC2, SHA-256 902270842a277221...",
+      "got": "3,403,872 bytes (payload 3,403,808), payload CRC32 E2B7F0CD (file CRC32 55388330), SHA-256 f9a306bf86a1517c8602a38825e76f4c0bd2829b5136baadb25210f7853c1536. ELF SHA-256 77ece7776142db887e8208e31c6c696a3f920a9a1abf863730ec70c17b64dc2e. One engine-3 record, no engine-2.",
+      "ok": true,
+      "note": "Not comparable to the delivered GUI: that file is 413,020 bytes larger (the bundle and its code)."
+     },
+     {
+      "item": "Step 3: 4d4dcff77494 reference against the delivered bb785915",
+      "expected": "3,412,764 bytes, SHA-256 bb78591511e2e301bf800679c19be14c9f6a853b69e7d793882af393cd088748",
+      "got": "3,412,820 bytes (payload 3,412,756), payload CRC32 C33A1674 (file CRC32 EAC0B4CB; validation.txt lists CRC32 b660688b), SHA-256 95be3b4b79a41ecb6ee8c4bfdc80a9320f483eab2781bde20656412ebf3b797e. NOT reproduced: 56 bytes larger. The only environment-dependent bytes I can find are the KOS banner that KOS init.c links (247 bytes near the end of the payload): 'KallistiOS v2.3.0 [dreamcast/pristine] / Git revision: fcfa7d8 / Sun Nov 22 04:24:08 UTC 2026 / root@vm:<private KOS path> / sh-elf-gcc (GCC) 15.2.0'. No other path or date strings are present.",
+      "ok": false,
+      "note": "This does not prove that this environment builds GUIs as the owner's did. The owner's banner (date, user@host:KOS_BASE) is unknown without their binary."
+     },
+     {
+      "item": "Merged GUI inputs are the union of the two lines",
+      "expected": "No lost or invented GUI changes",
+      "got": "Every GUI-input file changed by only one line equals that line's version (54 GUI-line-only, 33 WinCE-only). The 7 files changed by both (Makefile.dc, retail_loader_layout.h, games_retail.c, retail_entry.ld, retail_resident.S/.c, retail_stage.c) equal git merge-file's clean result. Only src/loader/retail_entry.S, which had a conflict resolved by hand, differs from that result, and it is not compiled into the GUI. There are no merge-only changes. Function level against the 4d4dcff build: +ce_music_image_valid, +ce_music_kernel_record, +games_card_emulation_mode (now out of line); map_cdda_tracks and native_cache_alias_publish are now inlined; sizes changed for prepare_launch 21420->21724, armada_stream_seed_fill 672->684, installed_module_stat 200->204 and update_work.constprop.0 8844->8848 (the NIGHTLY flag). Against the 1c71ba3 build, the 23 added and 22 resized functions are all the GUI line's native discovery, cache and route code.",
+      "ok": true,
+      "note": "Each line's distinctive log strings appear in the merged GUI; each reference GUI contains only its own."
+     },
+     {
+      "item": "Step 4: admit_check (rebuilt at 2e03b96e) on Test 84 main and alt",
+      "expected": "Admitted by the merged production helpers",
+      "got": "main (sha256 597d8eac96b0238045e7bde9c642653a0bb5e138d6763993cabd0c156c210260) and alt (e74cca711600ecd8ddd38a62839fda7c6dda837740331fb3f0f458b761f03014): header OK, build 4abc63b0cc58, payload CRC bafaaf7c / e00000c9 matches, layout_codec 1, stage 0x4b120 / 0x4aa00, resident 0x8c004000, limit 0x8c007800. One dual descriptor (lease 0x47000, new 1, legacy 2, flags 0). kui_native_map_capacity 160 and native_background_map_slots 160. No session descriptor; matches New and Legacy. Toggle record: off-mode 7, lease 0x47000, cache 0x30000, flags 1. One valid KUINVM01 (+0x22bc0); the second hit is code, version 0. Blank cache seed. Heap-tail 1, SDK-proof 1, no standalone descriptor.",
+      "ok": true,
+      "note": "Output is byte-identical to the original admit_check binary and to my rebuild at 4d4dcff. The functions admit_check copies (layout_codec, layout, native_background_map_slots) are text-identical at 4d4dcff and 2e03b96e."
+     },
+     {
+      "item": "Step 4 (extra): merged production kui_games_retail_prepare_reader on the real Test 84 bytes",
+      "expected": "Admit and map with the module's 160-slot capacity",
+      "got": "I used a copy of tests/games_retail.c with one added case (the repository's 99-track native-dual-too-many disc, New (X), FAT32 and exFAT), with each actual module installed. It prepared 99 tracks + 2 extents = 101 slots, with audio unmapped and reader 1. Only payload 0x1000-0x1fff changed. The map decodes with a 160-slot decoder and is refused by a 64-slot decoder. Same fixture and module with 1c71ba3afa17's games_retail.c: refused, card unchanged, with 'Background map exceeds 64 slots: track 1 is in 1 pieces; recopy the game folder'.",
+      "ok": true,
+      "note": "This is the exact case of a 1c71ba3afa17 GUI with the Test 84 reader. Its refusal message wrongly blames fragmentation."
+     },
+     {
+      "item": "Step 4: WinCE production admission at 2e03b96e",
+      "expected": "test-wince-packaged-prepare and tests/test_wce_probe_admission.py pass",
+      "got": "test-wince-packaged-prepare: 22 of 22 runs exited 0, with 916,569-921,664 checks each. The runs: default (Worms), --wwp and --armada with the 1ba2fa7e7040 modules; --kernel SHA BYTES with the 11 1c71ba3afa17 modules and d7fd810eb837 Ducati; --bam4-kernel with the 7 9e89e778370f modules. Output is identical line for line at b616e2db. test_wce_probe_admission.py with ce-boot.kui 91b0540103f0 (85,300 bytes, 6829D405, sha256 a75e0ce9010708953b707aad5db975bb83f9ee20f5657ddf4fdea8cf014acabd): 7 cases on FAT32 and exFAT pass, EXIT=0, identical at b616e2db.",
+      "ok": true,
+      "note": "The modules are my clean builds at 2e03b96e. All 24 match the WinCE docs on bytes, payload CRC and SHA-256 (prefix, or full for d7fd810eb837 and ce-boot), and match the wince-bytes agent's builds. The kernel argument was '-' (synthetic fingerprint): the owner's kernels are not available."
+     },
+     {
+      "item": "Step 5: route corpus with the merged route_check",
+      "expected": "Every native game routes as with 4d4dcff77494",
+      "got": "I rebuilt route_check at 2e03b96e twice: with -O2, and with ASAN+UBSAN. Both produce a TSV byte-identical to route-corpus.tsv (426 rows, SHA-256 48130db0749892a6e8ccf00824645c891d9391ee5a72343f17647219fb068af0), and there were no sanitizer reports. With New and VMU Off: 243 standalone, 89 dual-seeded, 61 dual-unseeded, 28 standalone (pool overlap), 5 refused. With VMU On: 33 refused for pool overlap.",
+      "ok": true,
+      "note": "0 differences. The route decision it replicates (4d4dcff games_retail.c:1670-1731 = merge:1742-1803), the games_native_*.inc files and every discovery source are identical. The -O2 binaries at 4d4dcff and at the merge are byte-identical (ad67578ae6be953574faa65767d0a0797b82be089add7050b33e612882be6181)."
+     },
+     {
+      "item": "Step 5: Background map capacity",
+      "expected": "160 for this module in the merged GUI (64 in 1c71ba3afa17)",
+      "got": "Merged GUI: native_background_map_slots() returns 160 for both modules. The compiled function is at 0x8c187e24 (200 bytes): it reads the record at 0x160 and returns 64 for a blank record. prepare_launch calls it at 0x8c18f17c (dual module) and 0x8c19200c (standalone), and the result feeds map_tracks and kui_retail_manifest_encode_capacity. 1c71ba3afa17 has no such function: ce_slots = KUI_RETAIL_ASYNC_SLOTS = 64 for every non-CE Background launch (games_retail.c:991/1485/1819). The real-bytes prepare above agrees: 101 slots in the merge, refused at 64 in 1c71ba3afa17.",
+      "ok": true,
+      "note": ""
+     },
+     {
+      "item": "Step 6: tests/test_games_retail.py at 2e03b96e",
+      "expected": "Pass",
+      "got": "Exit 0, 408 PASS (204 FAT32 + 204 exFAT). The output is identical line for line at dc938fea. It is a superset of b616e2db's 404 PASS: it adds native-dual-standalone-99 and native-dual-standalone-remap-report on both filesystems.",
+      "ok": true,
+      "note": "The full run, including launch-check, completed."
+     },
+     {
+      "item": "Step 6: other GUI-side host tests that touch games_retail.c",
+      "expected": "Pass",
+      "got": "Pass at 2e03b96e: test_games_retail_checksum_batch, test_games_cooked_native_hint, test_games_native_alias_crc, test_native_background_route, test-native-track-capacity, test_retail_low_resident, test-gui-launch-preparation, test-games-native-cache (40,211 checks), test-games-native-cache-hint (1,579), test_wince_kernel_read_reuse, test_native_cold_discovery, test_native_sdk_coherence_reuse, test_cold_handoff_policy, test-armada-ce-excerpt-prepare (388,928 checks, identical at b616e2db), test-wince-cdda-wwp-group (12 kernels), test-wince-cdda-bam4-group (8 kernels), vc2-late-host-tests (680 checks), vc2-persist-ui-tests, smash-menu-ui-tests.",
+      "ok": true,
+      "note": "The logs differ from the parents only in recorded source fingerprints, timings and the other line's extra checks (b616e2db: 39,776 cache checks and 1,523 hint checks)."
+     },
+     {
+      "item": "Step 6: failing or unrun tests",
+      "expected": "None caused by the merge",
+      "got": "Two tests fail at 2e03b96e and fail identically at dc938fea and b616e2db, so they are pre-existing. tests/test_game_reader_provenance.py needs commit 2aac9af84e8246efab046b12918c626ec1252087, which is not in this clone ('not a tree object'); it is part of make test-shared-game-launch. Makefile.native-standalone-foreground foreground-map-tests stops at tests/test_native_foreground_mapping.c:93 ('!kui_native_foreground_descriptor_valid(cap,sizeof(cap))'). tests/test_smash_packaged_admission.py was not run: it needs a shipped ZIP with the four Smash modules.",
+      "ok": false,
+      "note": "Not merge-induced."
+     },
+     {
+      "item": "Extra: GUI at the moved HEAD",
+      "expected": "Know whether the 2e03b96e results carry over",
+      "got": "HEAD moved during the run, to 86214640 and then 64ae0743. The only GUI-input change after 2e03b96e is include/kui/armada_ce_boot2_scratch.h, which only src/loader/retail_stage.c includes; 64ae0743 changes no GUI input. Built at 86214640362c with the same flags: 3,413,196 bytes, payload CRC 4C379333, SHA-256 8f80db9f41227c6031b1911fea6d0d0bd0b5d3c92f057c8c31d3ef59c354e995. It is identical to the 2e03b96e GUI apart from the build-ID text (5 occurrences), so builds are deterministic in this environment.",
+      "ok": true,
+      "note": "The main checkout now shows ' M docs/gui-lines.md' and '?? docs/one-kui-both-threads.md'. This run did not make those changes; it only added and removed its own worktrees."
+     }
+    ],
+    "problems": [
+     {
+      "severity": "risk",
+      "where": "<repo>/.deps (kos, bearssl, libogg, libtheora)",
+      "claim": "The shared dependency cache cannot build a GUI. KOS is unbuilt, and BearSSL and the Xiph sources are absent. I built the GUIs with a private copy of the pinned KOS and dependencies instead.",
+      "evidence": "lib/dreamcast was empty; the first link failed: 'ld: cannot find _kos_startup.o'. .deps/bearssl contains only an empty .git. The private build is at <scratch>/verify/gui-build/deps, and the deps/kos-fcfa7d8 banner reads 'Sun Nov 22 04:24:08 UTC 2026 root@vm:<private path>'.",
+      "fix": "Decide whether to run tools/setup_kos.sh once in <repo>/.deps or keep the private deps for GUI builds. Either way, record the KOS_BASE and banner with every delivered GUI."
+     },
+     {
+      "severity": "risk",
+      "where": "4d4dcff77494 reproduction",
+      "claim": "This environment cannot reproduce delivered GUIs byte for byte, so the 'same build as the owner' proof is not available.",
+      "evidence": "Rebuilt 95be3b4b79a41ecb6ee8c4bfdc80a9320f483eab2781bde20656412ebf3b797e (3,412,820 bytes) against the delivered bb78591511e2e301bf800679c19be14c9f6a853b69e7d793882af393cd088748 (3,412,764). The KOS banner (build date, user@host:KOS_BASE) is the only environment-specific text I found.",
+      "fix": "Compare with the banner region masked against the delivered runtime.kui (not present here), or obtain the owner's libkallisti or banner text."
+     },
+     {
+      "severity": "risk",
+      "where": "1c71ba3afa17 build flags",
+      "claim": "KUI_GITHUB_NIGHTLY=0 and KUI_UPDATE_REVIEW_FEED=0 are inferred from documentation; I did not verify them against bytes.",
+      "evidence": "Neither the delivered 1c71ba3afa17 runtime.kui (902270842a277221...) nor the Smash bundle cc81e63ca4d2 is on this machine.",
+      "fix": "When the delivered GUI is available, compare update_work.constprop.0: it is 8848 bytes with NIGHTLY=0 and 8844 with NIGHTLY=1 in these builds. Record both flags in future GUI delivery evidence."
+     },
+     {
+      "severity": "nit",
+      "where": "GUI recipe for 'one K-UI'",
+      "claim": "The two lines' GUIs were built with different KUI_GITHUB_NIGHTLY values, so the merged GUI built as 1c71ba3afa17 differs from the owner's Test 83 GUI in update_work.",
+      "evidence": "The owner's README uses KUI_GITHUB_NIGHTLY=1; the WinCE line evidently used 0. In the merged GUI, update_work.constprop.0 is 8848 bytes, against 8844 in the 4d4dcff build.",
+      "fix": "Choose one value for the unified GUI and record it in the delivery recipe."
+     },
+     {
+      "severity": "risk",
+      "where": "test-wince-packaged-prepare coverage",
+      "claim": "Without the owner's kernels, the GUI's own kernel SHA-256 computation and the one-byte-changed-kernel refusal (packaged_kernel_rejections) did not run.",
+      "evidence": "All 22 runs used kernel '-', reported as an 'explicit synthetic fingerprint orchestration fixture'.",
+      "fix": "Rerun with the owner's kernels where they are available."
+     },
+     {
+      "severity": "defect",
+      "where": "tests/test_native_foreground_mapping.c:93; tests/test_game_reader_provenance.py",
+      "claim": "Two host tests fail. Both are pre-existing: they fail the same way at dc938fea and b616e2db.",
+      "evidence": "foreground-map-tests stops at the assertion '!kui_native_foreground_descriptor_valid(cap,sizeof(cap))'. The provenance test fails on 'git ls-tree ... 2aac9af84e8246efab046b12918c626ec1252087: not a tree object'.",
+      "fix": "Investigate the foreground assertion on Main, and fetch commit 2aac9af84e82 (or update ORIGINAL) for the provenance test."
+     }
+    ],
+    "commands": [
+     "V=<scratch>/verify/gui-build; git -C <repo> worktree add --detach $V/{merge,ce,t83,p-ce,p-gui,head} at 2e03b96e044b / 1c71ba3afa17 / 4d4dcff77494 / b616e2db / dc938fea / 86214640 (all removed at the end with git -C <repo> worktree remove --force)",
+     "Private deps: ln -s <repo>/.deps/sh-elf $V/deps/sh-elf; cp -a <repo>/.deps/fatfs and ff16 downloads; ln -sfn $V/deps <worktree>/.deps; in $V/merge: python3 tools/fetch_deps.py --bearssl-only; python3 tools/fetch_media_xiph.py",
+     "git clone --no-hardlinks --no-checkout <repo>/.deps/kos $V/deps/kos-fcfa7d8 && git checkout --detach fcfa7d869471591ca1c777543261a7bfea7cb726; environ.sh generated from doc/environ.sh.sample as tools/setup_kos.sh does; source it; make -C $KOS_BASE -j4",
+     "$V/tools/build_gui.sh: export PATH=<repo>/.deps/sh-elf/bin:$PATH; source $V/deps/kos-fcfa7d8/environ.sh; unset MAKEFLAGS MFLAGS; make -j8 -f Makefile.dc build/kui-runtime.elf BUILD_ID=2e03b96e044b KUI_SMASH_LAUNCH_TIMING=1 KUI_GITHUB_NIGHTLY=0 KUI_UPDATE_REVIEW_FEED=0 NATIVE_STANDARD_MANIFEST=resources/updater-bindings/installed-standard-9e3295bcfaec.h; PYTHONPATH=tools python3 -c \"from nightly import build_gui;build_gui('2e03b96e044bab1f7ae2f9e9c7f47e64617befb4','build/survey-package')\"; python3 tools/runtime_package.py build build/kui-runtime.elf build/runtime-pkg.kui --build-id 2e03b96e044b; cmp (identical)",
+     "Same script for 1c71ba3afa17 (same flags) and 86214640362c (same flags); 4d4dcff77494 with the owner's recipe: KUI_SMASH_LAUNCH_TIMING=1 KUI_GITHUB_NIGHTLY=1 KUI_UPDATE_REVIEW_FEED=0, default Standard manifest",
+     "python3 -I $V/tools/gui_info.py $V/merge $V/out/gui/runtime-{merge,ce,t83,head}.kui (sizes, CRCs, SHA-256, ENGINE/ENGINE_LEGACY counts, producer member_info_v2); $V/harness/bin/engine_check-merge (production kui_update_engine_level/kui_update_capability_valid, compiled from src/core/update.c, hash.c, data.c)",
+     "admit_check: cc -std=c11 -O1 -g -Wall -Wextra -Iinclude -Isrc/loader -I.deps/fatfs/source admit_check.c src/core/{runtime_image,native_session,vmu_native_cache_seed,vmu_native_resolution_cache,vmu_native_discovery,vmu_native_layout,vmu_native_heap,vmu_native_exit,vmu_native_patch,vmu_native_program,hash,data}.c at 2e03b96e and at 4d4dcff; run on <scratch>/t84/pkg/{main,alt}/KUI/apps/games/retail-native-dual.kui (outputs in $V/out/admit)",
+     "route_check: cc -std=c11 -O2 (and -O1 -g -fsanitize=address,undefined) -Iinclude -Isrc/loader route_check.c src/core/{data,hash,native_sdk_sci_family,vmu_native_cache_seed,vmu_native_discovery,vmu_native_exit,vmu_native_heap,vmu_native_layout,vmu_native_patch,vmu_native_program,vmu_native_resolution_cache}.c at 2e03b96e; python3 -I run_route_corpus.py <scratch>/work84/games.json <binary> $V/out/route/route-corpus-merge-{fast,asan}.tsv; cmp with work84/agents/gui-line/route-corpus.tsv",
+     "Real-bytes prepare: python3 -I $V/tools/patch_real_harness.py <tree>/tests/games_retail.c (adds case native-dual-real-99); built with the tree's own `make -n -B build/games-retail` command; python3 $V/tools/real_dual_prepare.py <tree> <binary> ok|refuse <both Test 84 modules>; decode with $V/harness/bin/decode-wire-{160,64}",
+     "$V/tools/build_ce_modules.sh: clean builds at 2e03b96e of 24 WinCE modules (e.g. make -f Makefile.wwp-stream build/wwp-ce-stream-ducati-world/entry.elf BUILD_ID=1c71ba3afa17 KUI_WINCE_CDDA_WWP_KERNEL=DUCATI_WORLD KUI_CE_CDDA_REPEAT_CLAMP=0; make -f Makefile.dc build/retail-ce/entry.elf BUILD_ID=91b0540103f0 KUI_RETAIL_CE_ASYNC_SLOTS=96 KUI_RETAIL_CE_MAP_RECORD=1 KUI_CE_SLOW_WINDOW=16 KUI_CE_SLOW_ADAPT=2) + tools/runtime_package.py build",
+     "make build/test-wince-packaged-prepare build/test-armada-ce-excerpt-prepare build/games-retail (2e03b96e and b616e2db); python3 -I $V/tools/run_packaged_prepare.py <tree> $V/out/modules <log> (22 runs, kernel '-'); python3 tests/test_wce_probe_admission.py $V/out/modules/91b0540103f0/ce-boot.kui",
+     "python3 tests/test_games_retail.py at 2e03b96e, dc938fea, b616e2db; $V/tools/run_host_tests.sh $V/merge merge; $V/tools/run_parity_tests.sh at dc938fea and b616e2db; python3 tests/test_native_cold_discovery.py, test_native_sdk_coherence_reuse.py, test_cold_handoff_policy.py; make -f Makefile.native-standalone-foreground foreground-map-tests BUILD=build/fg-tests and python3 tests/test_game_reader_provenance.py at all three trees",
+     "Outputs kept: $V/out/gui (runtime-*.kui, kui-runtime-*.elf/.map/.compile.json, gui-info.json), $V/out/admit, $V/out/route, $V/out/modules, $V/out/host-tests-{merge,p-gui,p-ce}.txt, all logs in $V/logs; private deps in $V/deps"
+    ]
+   }
+  }
+ ]
+}
