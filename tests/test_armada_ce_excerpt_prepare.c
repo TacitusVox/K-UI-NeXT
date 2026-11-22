@@ -987,19 +987,26 @@ static void kernel_module_route(void) {
     snprintf(name,sizeof(name),"ce-cdda-%.12s.kui",hex);
     snprintf(path,sizeof(path),"%s%.12s.kui",KUI_GAMES_RETAIL_CE_KERNEL_PACKAGE_PREFIX,hex);
     CHECK(!strcmp(path,"0:/KUI/apps/games/ce-cdda-5a61686f767d.kui"));
+    /* World Party's group and Bust-A-Move 4's: the same route, each record
+     * naming its own sound profile (both keep the pool at 0x8cf50000). */
+    static const enum kui_wince_cdda_profile group_profiles[2]={
+        KUI_WINCE_CDDA_WORMS_WORLD_PARTY,KUI_WINCE_CDDA_BUST_A_MOVE_4};
+    for(unsigned group=0;group<2u;group++)
     for(unsigned fault=0;fault<14u;fault++) {
+        const enum kui_wince_cdda_profile profile=group_profiles[group];
         launch_setup();unfamiliar_profile();launch.stream=launch.variant=true;
         metadata.boot_bytes=bytes;
         launch.group_sha=sha;launch.group_bytes=bytes;
         snprintf(launch.group_name,sizeof(launch.group_name),"%s",name);
         launch.group_installed=fault!=1u;launch.group_directory=fault==2u;
-        group_record_make(launch.group_record,KUI_WINCE_CDDA_WORMS_WORLD_PARTY,bytes,0x8cf50000u,sha);
+        group_record_make(launch.group_record,profile,bytes,0x8cf50000u,sha);
         launch.group_record_set=fault!=3u;
         if(fault==4u) launch.group_record[0]^=1u;
         if(fault==5u) put32(launch.group_record+8u,2u);
         if(fault==6u) put32(launch.group_record+12u,60u);
         if(fault==7u) put32(launch.group_record+16u,KUI_WINCE_CDDA_NONE);
-        if(fault==8u) put32(launch.group_record+16u,KUI_WINCE_CDDA_WORMS_WORLD_PARTY+1u);
+        if(fault==8u) put32(launch.group_record+16u,group?KUI_WINCE_CDDA_WORMS_ARMAGEDDON: /* another pool */
+            KUI_WINCE_CDDA_WORMS_WORLD_PARTY+1u);
         if(fault==9u) put32(launch.group_record+20u,bytes+1u);
         if(fault==10u) put32(launch.group_record+24u,0x8ce70000u); /* another profile's pool */
         if(fault==11u) put32(launch.group_record+28u,1u);
@@ -1019,31 +1026,36 @@ static void kernel_module_route(void) {
         }
         CHECK(launch.package_reads==1u && !strcmp(launch.package_path,path));
         CHECK(!memcmp((uint8_t *)prepared.data+KUI_CE_CDDA_KERNEL_RECORD_OFFSET,launch.group_record,64u));
-        CHECK(armada_stream_seed_find(&prepared,KUI_WINCE_CDDA_WORMS_WORLD_PARTY)==SEED_AT);
+        CHECK(armada_stream_seed_find(&prepared,profile)==SEED_AT);
         struct kui_armada_ce_stream_seed *seed=(void *)((uint8_t *)prepared.data+SEED_AT);
         struct kui_retail_manifest data,full;
         CHECK(kui_retail_manifest_decode(seed->wire,&full)==KUI_GAME_OK);
         CHECK(kui_retail_manifest_decode((uint8_t *)prepared.data+KUI_RETAIL_MAP_OFFSET,&data)==KUI_GAME_OK);
         CHECK(full.boot_bytes==bytes && data.boot_bytes==bytes && full.track_count==6u);
         CHECK(kui_wince_cdda_runtime_kernel_manifest_valid(&full,bytes));
-        CHECK(!kui_wince_cdda_runtime_manifest_valid(&full,KUI_WINCE_CDDA_WORMS_WORLD_PARTY));
+        CHECK(!kui_wince_cdda_runtime_manifest_valid(&full,profile));
         CHECK(kui_wince_cdda_runtime_kernel_tracks_valid(&data,bytes,KUI_RETAIL_READER_ASYNC,false));
         CHECK(kui_armada_ce_stream_maps_match(&full,&data));
         kui_runtime_free(&prepared);
     }
     /* A reviewed kernel keeps its own module, even with a kernel module
      * installed under its name. */
-    launch_setup();unfamiliar_profile();launch.stream=launch.variant=true;
-    launch.kernel_profile=KUI_WINCE_CDDA_WORMS_WORLD_PARTY;launch.admit_kernel=true;
-    metadata.boot_bytes=kui_wince_cdda_disc(KUI_WINCE_CDDA_WORMS_WORLD_PARTY)->kernel_bytes;
-    kui_hex(kui_wince_cdda_kernel_sha(KUI_WINCE_CDDA_WORMS_WORLD_PARTY),32u,hex);
-    snprintf(launch.group_name,sizeof(launch.group_name),"ce-cdda-%.12s.kui",hex);
-    launch.group_installed=true;
-    group_descriptor();
-    struct kui_runtime_image prepared;
-    CHECK(kui_games_retail_prepare_reader("/Games/ARMADA/ARMADA.gdi",request,&prepared,record_log,launch_cancel));
-    CHECK(!strcmp(launch.package_path,KUI_GAMES_RETAIL_CE_WWP_PACKAGE) && launch.package_reads==1u);
-    kui_runtime_free(&prepared);
+    static const struct {enum kui_wince_cdda_profile profile;const char *package;} reviewed[2]={
+        {KUI_WINCE_CDDA_WORMS_WORLD_PARTY,KUI_GAMES_RETAIL_CE_WWP_PACKAGE},
+        {KUI_WINCE_CDDA_BUST_A_MOVE_4,KUI_GAMES_RETAIL_CE_BAM4_PACKAGE}};
+    for(unsigned r=0;r<2u;r++) {
+        launch_setup();unfamiliar_profile();launch.stream=launch.variant=true;
+        launch.kernel_profile=reviewed[r].profile;launch.admit_kernel=true;
+        metadata.boot_bytes=kui_wince_cdda_disc(reviewed[r].profile)->kernel_bytes;
+        kui_hex(kui_wince_cdda_kernel_sha(reviewed[r].profile),32u,hex);
+        snprintf(launch.group_name,sizeof(launch.group_name),"ce-cdda-%.12s.kui",hex);
+        launch.group_installed=true;
+        group_descriptor();
+        struct kui_runtime_image prepared;
+        CHECK(kui_games_retail_prepare_reader("/Games/ARMADA/ARMADA.gdi",request,&prepared,record_log,launch_cancel));
+        CHECK(!strcmp(launch.package_path,reviewed[r].package) && launch.package_reads==1u);
+        kui_runtime_free(&prepared);
+    }
     /* The size-based runtime check agrees with each reviewed profile's. */
     unfamiliar_profile();
     for(enum kui_wince_cdda_profile profile=KUI_WINCE_CDDA_ARMADA;
@@ -1075,7 +1087,7 @@ static void kernel_module_route(void) {
         CHECK(kui_wince_cdda_runtime_manifest_valid(&map,profile) &&
               kui_wince_cdda_runtime_kernel_manifest_valid(&map,map.boot_bytes));
     }
-    puts("PASS WinCE CD music for another kernel of a sound group: its SHA-named module is admitted only by its exact record (11 record and installation faults and a missing seed refuse); a reviewed kernel keeps its module; the size-based check agrees with every reviewed profile");
+    puts("PASS WinCE CD music for another kernel of a sound group (World Party's and Bust-A-Move 4's): its SHA-named module is admitted only by its exact record (11 record and installation faults and a missing seed refuse); a reviewed kernel keeps its module; the size-based check agrees with every reviewed profile");
 }
 static void kernel_read_reuse(void) {
     /* The optional runner executes an old-source mutation with two passes,

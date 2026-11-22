@@ -80,17 +80,18 @@ def same_place(reference, rom, wa, wb):
     return False
 
 
-def compare_nk(reference, rom):
+def compare_nk(reference, rom, label="World Party's"):
+    """label names the reference in refusals (another group's tool reuses this)."""
     r_nk, k_nk = reference.modules['nk.exe'], rom.modules['nk.exe']
     if [(s['rva'], s['virtual_bytes'], s['stored_bytes'], s['flags']) for s in r_nk['sections']] != \
        [(s['rva'], s['virtual_bytes'], s['stored_bytes'], s['flags']) for s in k_nk['sections']]:
-        raise ValueError("nk.exe is not World Party's build (section layout differs)")
+        raise ValueError("nk.exe is not %s build (section layout differs)" % label)
     if len(reference.copies) != 1 or len(rom.copies) != 1:
         raise ValueError('Expected one kernel data copy record')
     r_copy, k_copy = reference.copies[0], rom.copies[0]
     if (k_copy['source'], k_copy['copied_bytes'], k_copy['total_bytes']) != \
        (r_copy['source'], r_copy['copied_bytes'], r_copy['total_bytes']):
-        raise ValueError("The kernel data copy record's source or sizes differ from World Party's")
+        raise ValueError("The kernel data copy record's source or sizes differ from " + label)
     shift = (k_copy['destination'] - r_copy['destination']) & 0xffffffff
     if any(s['compressed'] for s in r_nk['sections'] + k_nk['sections']):
         raise ValueError('nk.exe has a compressed section')
@@ -98,7 +99,7 @@ def compare_nk(reference, rom):
     pointers = [(i, at) for i, s in enumerate(r_nk['sections'])
                 for at, w in enumerate(loaded(reference, s)) if w == reference.header_address]
     if len(pointers) != 1:
-        raise ValueError("World Party's nk.exe must hold one ROM header pointer, found %d" % len(pointers))
+        raise ValueError("%s nk.exe must hold one ROM header pointer, found %d" % (label, len(pointers)))
     differing = moved = 0
     for i, (r_sec, k_sec) in enumerate(zip(r_nk['sections'], k_nk['sections'])):
         k_words = loaded(rom, k_sec)
@@ -119,11 +120,25 @@ def compare_nk(reference, rom):
                 moved=moved, romhdr_pointer_rva=r_nk['sections'][section]['rva'] + 4 * at)
 
 
-def compare_dll(reference, rom, name, shift):
-    r_mod, k_mod = reference.modules[name], rom.modules[name]
+def debug_stamp_rvas(module):
+    """The TimeDateStamp words of a module's debug directory entries (PE directory 6,
+    28-byte entries): link metadata, not code."""
+    rva, size = module['directories'][6]
+    return {rva + 28 * i + 4 for i in range(size // 28)}
+
+
+def compare_dll(reference, rom, name, shift, label="World Party's", allow_stamps=False):
+    """allow_stamps admits a different debug-directory TimeDateStamp (and only that
+    word, located from the module's own debug directory), reported as 'stamps'."""
+    r_mod, k_mod = reference.modules[name], rom.modules.get(name)
+    if k_mod is None:
+        raise ValueError(name + ' is not in the kernel ROM')
     if layout(r_mod) != layout(k_mod) or r_mod['virtual_bytes'] != k_mod['virtual_bytes']:
-        raise ValueError(name + " is not World Party's build (section layout differs)")
+        raise ValueError("%s is not %s build (section layout differs)" % (name, label))
     base_shift = (k_mod['nominal_virtual_base'] - r_mod['nominal_virtual_base']) & 0xffffffff
+    stamps = (debug_stamp_rvas(r_mod) if allow_stamps and
+              k_mod['directories'][6] == r_mod['directories'][6] else set())
+    stamp_words = []
 
     def relocated(wa, wb):
         return ((wb - wa) & 0xffffffff in (base_shift, shift & 0xffffffff) or
@@ -150,13 +165,16 @@ def compare_dll(reference, rom, name, shift):
                              struct.unpack_from('<I', raw_b, 4 * at + d)[0])
                    for d in (-3, -2, -1, 1, 2, 3)):
                 continue
+            if r_sec['rva'] + 4 * at in stamps:
+                stamp_words.append(dict(rva=r_sec['rva'] + 4 * at, reference=wa, kernel=wb))
+                continue
             unexplained.append((wa, wb))
         if unexplained:
-            raise ValueError("%s differs from World Party's in %d words" % (name, len(unexplained)))
+            raise ValueError("%s differs from %s in %d words" % (name, label, len(unexplained)))
     if not compared:
         raise ValueError(name + ' has no uncompressed code to compare')
     return dict(toc=k_mod['toc_address'], base=k_mod['nominal_virtual_base'],
-                span=k_mod['virtual_bytes'], words_compared=compared)
+                span=k_mod['virtual_bytes'], words_compared=compared, stamps=stamp_words)
 
 
 def derive(reference, rom, raw):

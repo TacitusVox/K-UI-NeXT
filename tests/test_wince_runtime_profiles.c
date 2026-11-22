@@ -17,7 +17,8 @@ static struct kui_retail_manifest full_map(enum kui_wince_cdda_profile profile,u
     strcpy(map.bootfile,"RENAMED.BIN");strcpy(map.region,"JUE");
     uint32_t card=1u;
     for(unsigned i=0;i<count;i++) {
-        /* The data track holds the largest kernel of World Party's group. */
+        /* The data track holds the largest kernel of World Party's and
+         * Bust-A-Move 4's groups. */
         uint32_t start=i<2u?i*100u:i==2u?45000u:47000u+(i-3u)*100u;
         uint32_t sectors=i==2u?2000u:100u;
         uint32_t blocks=(sectors*2352u+511u)/512u;
@@ -91,9 +92,12 @@ int main(void) {
         assert(!kui_wince_cdda_runtime_data_manifest_valid(&large,profile));
 #endif
         if(profile==KUI_WINCE_CDDA_COMPILED_PROFILE) {
-            /* World Party's slot: the selected kernel of its group. */
-            static const uint32_t prefix[4]={0x6200729cu,0x70513a3cu,0xeffd7677u,KUI_WINCE_CDDA_WWP_PREFIX_CRC};
-            static const uint32_t body[4]={0xb9f755bcu,0xf6902800u,0xcd686951u,KUI_WINCE_CDDA_WWP_BODY_CRC};
+            /* Bust-A-Move 4's and World Party's slots: the selected kernel of
+             * each group. */
+            static const uint32_t prefix[4]={0x6200729cu,KUI_WINCE_CDDA_BAM4_PREFIX_CRC,0xeffd7677u,
+                KUI_WINCE_CDDA_WWP_PREFIX_CRC};
+            static const uint32_t body[4]={0xb9f755bcu,KUI_WINCE_CDDA_BAM4_BODY_CRC,0xcd686951u,
+                KUI_WINCE_CDDA_WWP_BODY_CRC};
             unsigned index=(unsigned)(profile-KUI_WINCE_CDDA_ARMADA);
             assert(kui_armada_ce_audio_admit(&data,data.ip_crc32,prefix[index],body[index],sha));
             assert(!kui_armada_ce_audio_admit(&data,data.ip_crc32^1u,prefix[index],body[index],sha));

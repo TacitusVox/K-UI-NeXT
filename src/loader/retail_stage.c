@@ -123,6 +123,8 @@ static struct kui_game_ram_patch_seed ram_patch_seed
 #include "kui/hash.h"
 #if KUI_WINCE_CDDA_WWP
 #include "kui/wince_cdda_wwp_kernel.h"
+#elif KUI_WINCE_CDDA_BAM4
+#include "kui/wince_cdda_bam4_kernel.h"
 #endif
 #endif
 #if KUI_ARMADA_CE_RAM_BIND_STAGE
@@ -1259,7 +1261,8 @@ static uint32_t ce_load(const uint8_t *ip) {
         KUI_WWP_CE_IRQ_PENDING,KUI_WWP_CE_IRQ_RING,
         KUI_WWP_CE_IRQ_RESCHEDULE,KUI_WWP_CE_IRQ_TABLE};
 #elif KUI_WINCE_CDDA_BAM4
-        0x8c1d1b40u,0x8c1d1aa8u,0x8c1d1884u,0x8c1d1c04u};
+        KUI_BAM4_CE_IRQ_PENDING,KUI_BAM4_CE_IRQ_RING,
+        KUI_BAM4_CE_IRQ_RESCHEDULE,KUI_BAM4_CE_IRQ_TABLE};
 #else
         0x8c145b40u,0x8c145aa8u,0x8c145884u,0x8c145c04u};
 #endif

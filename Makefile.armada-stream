@@ -37,6 +37,24 @@ WINCE_CDDA_PROFILE_FLAGS += $(WINCE_CDDA_WWP_KERNEL_FLAGS)
 WINCE_CDDA_PROFILE_CHECK += --wwp-kernel $(KUI_WINCE_CDDA_WWP_KERNEL)
 ARMADA_AUDIO_EXTRA_ENTRY_FLAGS += -DKUI_WINCE_CDDA_KERNEL_RECORD=1 $(WINCE_CDDA_WWP_KERNEL_FLAGS)
 endif
+# Another kernel of Bust-A-Move 4's group (include/kui/wince_cdda_bam4_kernels.h,
+# derived by tools/wince_cdda_bam4_kernels.py): KUI_WINCE_CDDA_BAM4_KERNEL=NAME,
+# for example PUZZLE_BOBBLE_4, as World Party's group above. Bust-A-Move 4's own
+# kernel, the default, builds ce-cdda-bam4.kui unchanged.
+KUI_WINCE_CDDA_BAM4_KERNEL ?= BUST_A_MOVE_4
+ifneq ($(KUI_WINCE_CDDA_BAM4_KERNEL),BUST_A_MOVE_4)
+ifneq ($(KUI_WINCE_CDDA_PROFILE),bam4)
+$(error KUI_WINCE_CDDA_BAM4_KERNEL selects a kernel of Bust-A-Move 4's group: build Makefile.bam4-stream)
+endif
+ifeq ($(shell grep -c '^\#define KUI_WINCE_CDDA_BAM4_KERNEL_$(KUI_WINCE_CDDA_BAM4_KERNEL) ' include/kui/wince_cdda_bam4_kernels.h),0)
+$(error Unknown Bust-A-Move 4 group kernel $(KUI_WINCE_CDDA_BAM4_KERNEL))
+endif
+WINCE_CDDA_BAM4_KERNEL_FLAGS := -DKUI_WINCE_CDDA_BAM4_KERNEL=KUI_WINCE_CDDA_BAM4_KERNEL_$(KUI_WINCE_CDDA_BAM4_KERNEL)
+override ARMADA_AUDIO_DIR := build/bam4-ce-stream-$(shell echo '$(KUI_WINCE_CDDA_BAM4_KERNEL)' | tr A-Z_ a-z-)
+WINCE_CDDA_PROFILE_FLAGS += $(WINCE_CDDA_BAM4_KERNEL_FLAGS)
+WINCE_CDDA_PROFILE_CHECK += --bam4-kernel $(KUI_WINCE_CDDA_BAM4_KERNEL)
+ARMADA_AUDIO_EXTRA_ENTRY_FLAGS += -DKUI_WINCE_CDDA_KERNEL_RECORD=1 -DKUI_WINCE_CDDA_BAM4=1 $(WINCE_CDDA_BAM4_KERNEL_FLAGS)
+endif
 WINCE_CDDA_CONTROLLER_BEGIN ?= 0x8cfa7000
 # Diagnostic only (Armada): K-UI's time in its GD calls and interrupt during
 # the intro movie. The low reader keeps TMU0 tick totals in its own region;
@@ -254,6 +272,9 @@ ifeq ($(KUI_CE_CDDA_REPEAT_CLAMP),1)
 endif
 ifneq ($(KUI_WINCE_CDDA_WWP_KERNEL),WORMS_WORLD_PARTY)
 	@printf '%s\n' 'WWP_KERNEL=$(KUI_WINCE_CDDA_WWP_KERNEL)' >> $@.tmp
+endif
+ifneq ($(KUI_WINCE_CDDA_BAM4_KERNEL),BUST_A_MOVE_4)
+	@printf '%s\n' 'BAM4_KERNEL=$(KUI_WINCE_CDDA_BAM4_KERNEL)' >> $@.tmp
 endif
 	@cmp -s $@.tmp $@ || cp $@.tmp $@
 	@rm -f $@.tmp

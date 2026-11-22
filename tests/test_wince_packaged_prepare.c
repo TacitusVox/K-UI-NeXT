@@ -9,8 +9,9 @@ static uint8_t *owner_kernel,*shipped_payload;
 static size_t owner_bytes,shipped_bytes;
 static const char *shipped_path;
 static enum kui_wince_cdda_profile packaged_profile=KUI_WINCE_CDDA_WORMS_ARMAGEDDON;
-/* --kernel SHA256 BYTES: a module for another kernel of World Party's group,
- * ce-cdda-<first 12 hex digits>.kui, on World Party's synthetic disc layout. */
+/* --kernel SHA256 BYTES (or --bam4-kernel SHA256 BYTES): a module for another
+ * kernel of World Party's group (or of Bust-A-Move 4's),
+ * ce-cdda-<first 12 hex digits>.kui, on that profile's synthetic disc layout. */
 static bool kernel_mode;
 static uint8_t group_kernel_sha[32];
 static uint32_t group_kernel_bytes;
@@ -63,26 +64,32 @@ static void packaged_disc(bool cooked) {
     launch.admit_kernel=owner_kernel==NULL;
     const struct kui_wince_cdda_disc *disc=kui_wince_cdda_disc(launch.kernel_profile);
     image.count=disc->track_count;metadata.boot_lba=disc->boot_lba;metadata.boot_bytes=disc->kernel_bytes;
+    uint32_t last_start=disc->starts[disc->track_count-1u];
     if(kernel_mode) {
-        /* The kernel's own size, ending inside the last DATA track. */
+        /* The kernel's own size, ending inside the last DATA track, which
+         * starts earlier when the kernel needs it (a larger kernel than the
+         * profile's own). */
         launch.admit_kernel=false;launch.group_sha=owner_kernel?NULL:group_kernel_sha;
         launch.group_bytes=group_kernel_bytes;launch.group_installed=true;
         char hex[65];kui_hex(group_kernel_sha,32u,hex);
         snprintf(launch.group_name,sizeof(launch.group_name),"ce-cdda-%.12s.kui",hex);
         metadata.boot_bytes=group_kernel_bytes;
         metadata.boot_lba=549150u-(group_kernel_bytes+2047u)/2048u-16u;
+        if(metadata.boot_lba<last_start+16u) last_start=metadata.boot_lba-16u;
+        CHECK(last_start>disc->starts[disc->track_count-2u]);
     }
     strcpy(metadata.product,disc->product);
     size_t at=(size_t)snprintf(launch.descriptor,sizeof(launch.descriptor),"%u\n",disc->track_count);
     for(unsigned i=0;i<image.count;i++) {
         uint32_t control=kui_wince_cdda_track_control(launch.kernel_profile,i);
         uint32_t stride=cooked && control?2048u:2352u;
-        uint32_t end=i+1u<image.count?disc->starts[i+1u]:549150u;
+        uint32_t start=i+1u<image.count?disc->starts[i]:last_start;
+        uint32_t end=i+2u<image.count?disc->starts[i+1u]:i+1u<image.count?last_start:549150u;
         struct kui_game_image_track *t=&image.tracks[i];
-        *t=(struct kui_game_image_track){.number=i+1u,.start_lba=disc->starts[i],.end_lba=end,
+        *t=(struct kui_game_image_track){.number=i+1u,.start_lba=start,.end_lba=end,
             .control=control,.sector_bytes=stride,.sector_mode=control?1u:0u,
             .data_offset=control && stride==2352u?16u:0u,
-            .file_bytes=(uint64_t)(end-disc->starts[i])*stride};
+            .file_bytes=(uint64_t)(end-start)*stride};
         snprintf(t->name,sizeof(t->name),"track%02u.raw",i+1u);
         at+=(size_t)snprintf(launch.descriptor+at,sizeof(launch.descriptor)-at,
             "%u %u %u %u %s 0\n",t->number,t->start_lba,t->control,t->sector_bytes,t->name);
@@ -176,6 +183,7 @@ static void packaged_case(bool cooked) {
         (kui_wince_cdda_track_control(packaged_profile,i)|(cooked && image.tracks[i].control?KUI_RETAIL_TRACK_COOKED:0u)));
     if(kernel_mode) {
         CHECK(!memcmp(payload+KUI_CE_CDDA_KERNEL_RECORD_OFFSET,"KUICDK01",8u));
+        CHECK(le32(payload+KUI_CE_CDDA_KERNEL_RECORD_OFFSET+16u)==(uint32_t)packaged_profile);
         CHECK(!memcmp(payload+KUI_CE_CDDA_KERNEL_RECORD_OFFSET+32u,group_kernel_sha,32u));
         CHECK(decoded.track_count<=KUI_RETAIL_ASYNC_SLOTS &&
               decoded.extent_count<=KUI_RETAIL_ASYNC_SLOTS-decoded.track_count &&
@@ -208,8 +216,10 @@ static void packaged_kernel_rejections(bool cooked) {
 int main(int argc,char **argv) {
     int first=1;
     if(argc>1 && !strcmp(argv[1],"--wwp")) {packaged_profile=KUI_WINCE_CDDA_WORMS_WORLD_PARTY;++first;}
-    else if(argc>3 && !strcmp(argv[1],"--kernel")) {
-        packaged_profile=KUI_WINCE_CDDA_WORMS_WORLD_PARTY;kernel_mode=true;first+=3;
+    else if(argc>3 && (!strcmp(argv[1],"--kernel") || !strcmp(argv[1],"--bam4-kernel"))) {
+        packaged_profile=strcmp(argv[1],"--kernel")?KUI_WINCE_CDDA_BUST_A_MOVE_4:
+            KUI_WINCE_CDDA_WORMS_WORLD_PARTY;
+        kernel_mode=true;first+=3;
         CHECK(strlen(argv[2])==64u);
         for(unsigned i=0;i<32u;i++) {
             unsigned value;CHECK(sscanf(argv[2]+2u*i,"%2x",&value)==1);
