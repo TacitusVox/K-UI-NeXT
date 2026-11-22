@@ -57,6 +57,34 @@ Delivered: `KUI-WinCE-GUI-Routes-16NOV2026-1928-CST-069d612.zip`, GUI build
 `retail-boot.kui` `9e3295bcfaec`, as `00d8ed67d9ad` does. `00d8ed67d9ad`
 remains the reference until the owner reports the package's four tests.
 
+## WinCE CD music for Bust-A-Move 4's group: console test pending, 9e89e778370f, 2026-11-21
+
+CD music On for seven more WinCE kernels that carry Bust-A-Move 4's sound
+system unchanged ([record](wince-cdda-bam4-group-test.md)):
+- Puzzle Bobble 4;
+- Virtua Cop 2 (JPN);
+- Caesars Palace 2000 (US and PAL);
+- Get!! Colonies;
+- Marionette Company 2;
+- Hello Kitty: Magical Block.
+
+The method is round 1's. Each kernel's record is derived from the kernel
+itself (`tools/wince_cdda_bam4_kernels.py`). Each module carries a
+`KUICDK01` record of sound profile 2, which GUI `1c71ba3afa17` already admits
+(source `9e89e778`).
+
+Rebuilt from that tree, all byte-identical:
+- the five accepted CD music modules (`1ba2fa7e7040`);
+- the ten other round-1 modules (`1c71ba3afa17`);
+- Ducati's test module (`d7fd810eb837`);
+- the GUI `1c71ba3afa17`.
+
+Super Runabout is excluded. It plays its sound through `MANATEE.DRV`
+without DirectSound.
+
+Delivered: `KUI-WinCE-CD-Music-BAM4-Group-21NOV2026-2037-CST-9e89e77.zip`,
+the seven modules only.
+
 ## WinCE CD music: Ducati World's repeat count, console-tested, d7fd810eb837, 2026-11-21
 
 **Result (21 Nov 2026, [record](wince-cdda-ducati-repeat-test.md#result-21-nov-2026)):**
