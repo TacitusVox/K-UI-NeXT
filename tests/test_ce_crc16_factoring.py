@@ -56,15 +56,18 @@ def signed(value,bits):return value-(1<<bits) if value&(1<<(bits-1)) else value
 # ones. Resolved off, the reader must reduce to its exact pre-switch text, so
 # every reconstruction below binds the same historical hashes. Only these
 # reviewed conditions are resolved; any other use of a switch fails the test.
-READER_SWITCHES=('KUI_CE_SCI_SLOW_AFTER_OVERRUN','KUI_CE_SCI_FAST_TAKE')
+# The generic module's read-ahead (KUI_RETAIL_CE_READAHEAD) is off in every
+# accepted reader too; its one stream hunk resolves the same way.
+READER_SWITCHES=('KUI_CE_SCI_SLOW_AFTER_OVERRUN','KUI_CE_SCI_FAST_TAKE','KUI_RETAIL_CE_READAHEAD')
 READER_CONDITIONS={
+    '#if KUI_RETAIL_CE_READAHEAD':False,
     '#if defined(KUI_RETAIL_CE) && KUI_CE_SCI_FAST_TAKE':False,
     '#if KUI_CE_SCI_FAST_TAKE && !defined(KUI_RETAIL_CE)':False,
     '#if KUI_CE_SCI_FAST_TAKE && __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__':False,
     '#if KUI_CE_SCI_SLOW_AFTER_OVERRUN':False,
     '#if !KUI_CE_SCI_SLOW_AFTER_OVERRUN':True}
-def without_reader_switches(source):
-    """Resolve the reviewed switch conditionals, both switches off.
+def without_reader_switches(source,switches=READER_SWITCHES,conditions=READER_CONDITIONS):
+    """Resolve the reviewed switch conditionals, every switch off.
 
     A resolved group is [live, taken]; other groups are kept as written (None).
     A plain #elif that becomes a group's first possible branch reopens it as
@@ -74,10 +77,10 @@ def without_reader_switches(source):
     for line in source.splitlines(keepends=True):
         text=line.strip();match=re.match(r'#\s*(\w+)',text)
         word=match.group(1) if match else ''
-        mentions=any(name in text for name in READER_SWITCHES)
+        mentions=any(name in text for name in switches)
         if word in ('if','ifdef','ifndef'):
-            if text in READER_CONDITIONS:
-                value=READER_CONDITIONS[text];stack.append([value,value]);continue
+            if text in conditions:
+                value=conditions[text];stack.append([value,value]);continue
             if mentions:raise AssertionError('Unreviewed reader-switch condition: '+text)
             stack.append(None)
         elif word=='elif':

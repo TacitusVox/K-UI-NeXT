@@ -85,6 +85,32 @@ static void play_frames(unsigned sectors,unsigned repeat,bool infinite) {
         unsigned work=0;while(pump()) CHECK(++work<1000u);
     }
 }
+/* PLAY20/PLAY21 repeat counts beyond the drive's four-bit field. Default:
+ * refused with no state change. KUI_ARMADA_CE_STREAM_REPEAT_CLAMP=1:
+ * saturated to 15 (indefinite). Counts 0..15 are the same in both builds. */
+static void long_repeats(const struct kui_armada_ce_stream_track *tracks) {
+    static const uint32_t big[]={16u,1000u,0x7fffffffu,UINT32_MAX};
+    for(unsigned c=0;c<2u;c++) for(unsigned i=0;i<4u;i++) {
+        reset(tracks,5u);
+        uint32_t cmd=c?21u:20u,first=c?160u:2u,end=c?173u:3u;
+        enum kui_armada_ce_stream_result r=kui_armada_ce_stream_request(&model,cmd,first,end,big[i]);
+#if KUI_ARMADA_CE_STREAM_REPEAT_CLAMP
+        CHECK(r==KUI_ARMADA_CE_STREAM_OK && model.epoch==1u && model.repeats==15u &&
+            model.infinite && model.finite_end==UINT64_MAX &&
+            model.first_lba==10u && model.end_lba==23u && model.state==KUI_ARMADA_CE_STREAM_PREFILL);
+#else
+        CHECK(r==KUI_ARMADA_CE_STREAM_ARGUMENT && !model.epoch && !model.pending_play &&
+            model.state==KUI_ARMADA_CE_STREAM_STOPPED);
+#endif
+    }
+    for(uint32_t rep=0;rep<=15u;rep++) {
+        reset(tracks,5u);
+        CHECK(kui_armada_ce_stream_request(&model,20u,2u,3u,rep)==KUI_ARMADA_CE_STREAM_OK &&
+            model.repeats==rep && model.infinite==(rep==15u));
+        if(rep!=15u) CHECK(model.finite_end==(uint64_t)13u*KUI_ARMADA_CE_STREAM_SECTOR_BYTES*(rep+1u));
+    }
+    reset(tracks,5u);
+}
 static void progressive_reads(void) {
     struct kui_armada_ce_stream_track t={1u,0u,1000u,1200u};
     struct kui_armada_ce_stream_read rd,old;
@@ -225,10 +251,15 @@ int main(int argc,char **argv) {
     CHECK(kui_armada_ce_stream_init(&model,bad,5u)==KUI_ARMADA_CE_STREAM_ARGUMENT);
     reset(tracks,5u);
     const uint32_t invalid[][4]={{20,0,2,0},{20,3,2,0},{20,1,1,0},{20,2,4,0},
-        {20,2,5,0},{20,2,3,16},{21,159,161,0},{21,160,160,0},{21,172,181,0}};
+        {20,2,5,0},
+#if !KUI_ARMADA_CE_STREAM_REPEAT_CLAMP
+        {20,2,3,16},{21,160,173,16},
+#endif
+        {21,159,161,0},{21,160,160,0},{21,172,181,0}};
     for(unsigned i=0;i<sizeof(invalid)/sizeof(invalid[0]);i++)
         CHECK(kui_armada_ce_stream_request(&model,invalid[i][0],invalid[i][1],invalid[i][2],invalid[i][3])==KUI_ARMADA_CE_STREAM_ARGUMENT);
     CHECK(!model.epoch);
+    long_repeats(tracks);
     CHECK(kui_armada_ce_stream_request(&model,21u,160u,173u,0u)==KUI_ARMADA_CE_STREAM_OK && model.first_lba==10u && model.end_lba==23u);
     CHECK(kui_armada_ce_stream_request(&model,22u,0u,0u,0u)==KUI_ARMADA_CE_STREAM_OK && model.state==KUI_ARMADA_CE_STREAM_PAUSED);
     uint32_t selection=model.selection;
@@ -252,6 +283,21 @@ int main(int argc,char **argv) {
         play_frames(sectors,2u,false);play_frames(sectors,14u,false);
     }
     play_frames(1u,15u,true);play_frames(7u,15u,true);play_frames(151u,15u,true);
+#if KUI_ARMADA_CE_STREAM_REPEAT_CLAMP
+    /* Ducati World's PLAY {t,t,1000}: indefinite, byte-exact across three
+     * ring passes; PAUSE and RELEASE keep the selection; STOP ends it. */
+    play_frames(1u,1000u,true);play_frames(7u,1000u,true);play_frames(151u,1000u,true);
+    {
+        uint32_t sel=model.selection;
+        CHECK(kui_armada_ce_stream_request(&model,22u,0u,0u,0u)==KUI_ARMADA_CE_STREAM_OK && model.stop_needed);
+        CHECK(kui_armada_ce_stream_stop_complete(&model,model.epoch,true)==KUI_ARMADA_CE_STREAM_OK &&
+            model.state==KUI_ARMADA_CE_STREAM_PAUSED && model.selection==sel && model.infinite);
+        CHECK(kui_armada_ce_stream_request(&model,23u,0u,0u,0u)==KUI_ARMADA_CE_STREAM_OK &&
+            model.state==KUI_ARMADA_CE_STREAM_PREFILL && model.selection==sel && model.infinite);
+        CHECK(kui_armada_ce_stream_request(&model,33u,0u,0u,0u)==KUI_ARMADA_CE_STREAM_OK &&
+            model.state==KUI_ARMADA_CE_STREAM_STOPPED && !model.selection && !model.repeats);
+    }
+#endif
     /* Source padding is confined to final EOF. Every sector remainder and
      * every repeat above is checked byte-for-byte against an independent
      * generated sample sequence, across native ring boundaries. */

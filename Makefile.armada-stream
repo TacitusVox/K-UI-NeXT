@@ -17,6 +17,44 @@ WINCE_CDDA_PROFILE_CHECK := --wwp
 else
 override ARMADA_AUDIO_DIR := build/armada-ce-stream
 endif
+# Another kernel of World Party's group (include/kui/wince_cdda_wwp_kernels.h,
+# derived by tools/wince_cdda_wwp_kernels.py): KUI_WINCE_CDDA_WWP_KERNEL=NAME,
+# for example RAILROAD_TYCOON_II. That module admits only that kernel and
+# carries its KUICDK01 record for the GUI; package it as
+# ce-cdda-<first 12 hex digits of the kernel's SHA-256>.kui. World Party's own
+# kernel, the default, builds ce-cdda-wwp.kui unchanged.
+KUI_WINCE_CDDA_WWP_KERNEL ?= WORMS_WORLD_PARTY
+ifneq ($(KUI_WINCE_CDDA_WWP_KERNEL),WORMS_WORLD_PARTY)
+ifneq ($(KUI_WINCE_CDDA_PROFILE),wwp)
+$(error KUI_WINCE_CDDA_WWP_KERNEL selects a kernel of World Party's group: build Makefile.wwp-stream)
+endif
+ifeq ($(shell grep -c '^\#define KUI_WINCE_CDDA_WWP_KERNEL_$(KUI_WINCE_CDDA_WWP_KERNEL) ' include/kui/wince_cdda_wwp_kernels.h),0)
+$(error Unknown World Party group kernel $(KUI_WINCE_CDDA_WWP_KERNEL))
+endif
+WINCE_CDDA_WWP_KERNEL_FLAGS := -DKUI_WINCE_CDDA_WWP_KERNEL=KUI_WINCE_CDDA_WWP_KERNEL_$(KUI_WINCE_CDDA_WWP_KERNEL)
+override ARMADA_AUDIO_DIR := build/wwp-ce-stream-$(shell echo '$(KUI_WINCE_CDDA_WWP_KERNEL)' | tr A-Z_ a-z-)
+WINCE_CDDA_PROFILE_FLAGS += $(WINCE_CDDA_WWP_KERNEL_FLAGS)
+WINCE_CDDA_PROFILE_CHECK += --wwp-kernel $(KUI_WINCE_CDDA_WWP_KERNEL)
+ARMADA_AUDIO_EXTRA_ENTRY_FLAGS += -DKUI_WINCE_CDDA_KERNEL_RECORD=1 $(WINCE_CDDA_WWP_KERNEL_FLAGS)
+endif
+# Another kernel of Bust-A-Move 4's group (include/kui/wince_cdda_bam4_kernels.h,
+# derived by tools/wince_cdda_bam4_kernels.py): KUI_WINCE_CDDA_BAM4_KERNEL=NAME,
+# for example PUZZLE_BOBBLE_4, as World Party's group above. Bust-A-Move 4's own
+# kernel, the default, builds ce-cdda-bam4.kui unchanged.
+KUI_WINCE_CDDA_BAM4_KERNEL ?= BUST_A_MOVE_4
+ifneq ($(KUI_WINCE_CDDA_BAM4_KERNEL),BUST_A_MOVE_4)
+ifneq ($(KUI_WINCE_CDDA_PROFILE),bam4)
+$(error KUI_WINCE_CDDA_BAM4_KERNEL selects a kernel of Bust-A-Move 4's group: build Makefile.bam4-stream)
+endif
+ifeq ($(shell grep -c '^\#define KUI_WINCE_CDDA_BAM4_KERNEL_$(KUI_WINCE_CDDA_BAM4_KERNEL) ' include/kui/wince_cdda_bam4_kernels.h),0)
+$(error Unknown Bust-A-Move 4 group kernel $(KUI_WINCE_CDDA_BAM4_KERNEL))
+endif
+WINCE_CDDA_BAM4_KERNEL_FLAGS := -DKUI_WINCE_CDDA_BAM4_KERNEL=KUI_WINCE_CDDA_BAM4_KERNEL_$(KUI_WINCE_CDDA_BAM4_KERNEL)
+override ARMADA_AUDIO_DIR := build/bam4-ce-stream-$(shell echo '$(KUI_WINCE_CDDA_BAM4_KERNEL)' | tr A-Z_ a-z-)
+WINCE_CDDA_PROFILE_FLAGS += $(WINCE_CDDA_BAM4_KERNEL_FLAGS)
+WINCE_CDDA_PROFILE_CHECK += --bam4-kernel $(KUI_WINCE_CDDA_BAM4_KERNEL)
+ARMADA_AUDIO_EXTRA_ENTRY_FLAGS += -DKUI_WINCE_CDDA_KERNEL_RECORD=1 -DKUI_WINCE_CDDA_BAM4=1 $(WINCE_CDDA_BAM4_KERNEL_FLAGS)
+endif
 WINCE_CDDA_CONTROLLER_BEGIN ?= 0x8cfa7000
 # Diagnostic only (Armada): K-UI's time in its GD calls and interrupt during
 # the intro movie. The low reader keeps TMU0 tick totals in its own region;
@@ -62,6 +100,25 @@ endif
 else ifneq ($(KUI_ARMADA_CE_SLOW_AFTER_OVERRUN)$(KUI_ARMADA_CE_FAST_TAKE),)
 $(error The slow-after-overrun and fast-check trials need KUI_ARMADA_CE_MOVIE_TIMING=1)
 endif
+# Diagnostic only (Armada, CD music On): the fast-check timing reader with
+# its six report rows taken from gameplay instead of the movie, from the first
+# GD poll after the intro movie to the report: K-UI's time with the music
+# worker's, the game's 64 KiB reads with and without music grants while they
+# ran, the music transport's counts and the worker's steps
+# (include/kui/armada_ce_play_timing.h). The low reader is the timing
+# reader's; only the controller changes.
+# KUI_ARMADA_CE_PLAY_TIMING=2 builds its control: the same module, except
+# that the music is never queued (no worker, buffer or music card reads).
+KUI_ARMADA_CE_PLAY_TIMING ?= 0
+ifneq ($(filter $(KUI_ARMADA_CE_PLAY_TIMING),1 2),)
+ifneq ($(KUI_ARMADA_CE_MOVIE_TIMING):$(KUI_ARMADA_CE_MOVIE_TIMING_PARTS):$(KUI_ARMADA_CE_SLOW_AFTER_OVERRUN):$(KUI_ARMADA_CE_FAST_TAKE),1:both:1:1)
+$(error The gameplay timing needs KUI_ARMADA_CE_MOVIE_TIMING=1 KUI_ARMADA_CE_SLOW_AFTER_OVERRUN=1 KUI_ARMADA_CE_FAST_TAKE=1)
+endif
+override ARMADA_AUDIO_DIR := build/armada-ce-play-timing$(if $(filter 2,$(KUI_ARMADA_CE_PLAY_TIMING)),-silent)
+WINCE_CDDA_PROFILE_FLAGS += -DKUI_ARMADA_CE_PLAY_TIMING=$(KUI_ARMADA_CE_PLAY_TIMING)
+else ifneq ($(KUI_ARMADA_CE_PLAY_TIMING),0)
+$(error KUI_ARMADA_CE_PLAY_TIMING must be 0, 1 or 2)
+endif
 # Every WinCE CD music reader (Armada, Worms, Bust-A-Move 4, Worms World
 # Party): after a 12.5 MHz DMA overrun the next 64 receptions run at
 # 6.25 MHz, and each block's CRC and bit reversal run as one tighter pass.
@@ -76,6 +133,91 @@ ifneq ($(KUI_ARMADA_CE_MOVIE_TIMING),1)
 ifeq ($(KUI_CE_READER_FIXES),1)
 WINCE_CDDA_PROFILE_FLAGS += -DKUI_CE_SCI_SLOW_AFTER_OVERRUN=1 -DKUI_CE_SCI_FAST_TAKE=1
 endif
+endif
+# Delivery defaults: the CD music set console-accepted on 21 Nov 2026 as
+# build 1ba2fa7e7040 on all five CD music modules (docs/wince-cdda-chain-test.md):
+# the adaptive slow window (16 receptions, doubling twice), the worker's
+# programmed receptions as an emergency only, and the music's card stream
+# restarting where it stops. The timing diagnostics and KUI_CE_READER_FIXES=0
+# keep the earlier settings. KUI_CE_SLOW_WINDOW=64 KUI_CE_SLOW_ADAPT=0
+# KUI_CE_CDDA_EMERGENCY_PIO=0 KUI_CE_CDDA_CHAIN=0 rebuild the previous set
+# (7b216f2e1136) byte-identical.
+ifeq ($(filter 1,$(KUI_ARMADA_CE_MOVIE_TIMING)):$(KUI_CE_READER_FIXES),:1)
+WINCE_CDDA_ACCEPTED_DEFAULTS := 1
+endif
+# The slow window after an overrun, as the generic module's switches
+# (Makefile.dc KUI_CE_SLOW_WINDOW, KUI_CE_SLOW_ADAPT; src/loader/sci_stream.h):
+# 16 receptions doubling up to 64 while overruns recur soon after the window
+# is the generic module's console-measured setting (871c4c7784b4,
+# docs/wince-adaptive-window-test.md). Both reach the reader and the
+# controller, so the two see the same stream state.
+KUI_CE_SLOW_WINDOW ?= $(if $(WINCE_CDDA_ACCEPTED_DEFAULTS),16,64)
+KUI_CE_SLOW_ADAPT ?= $(if $(WINCE_CDDA_ACCEPTED_DEFAULTS),2,0)
+ifneq ($(KUI_CE_SLOW_WINDOW):$(KUI_CE_SLOW_ADAPT),64:0)
+ifneq ($(KUI_CE_READER_FIXES),1)
+$(error KUI_CE_SLOW_WINDOW and KUI_CE_SLOW_ADAPT size the slow refetch of KUI_CE_READER_FIXES=1)
+endif
+ifeq ($(KUI_ARMADA_CE_MOVIE_TIMING),1)
+$(error The movie timing diagnostic keeps its own reader settings)
+endif
+ifneq ($(shell [ "$(KUI_CE_SLOW_WINDOW)" -ge 1 ] 2>/dev/null && [ "$(KUI_CE_SLOW_WINDOW)" -le 127 ] 2>/dev/null && echo ok),ok)
+$(error KUI_CE_SLOW_WINDOW must be a number from 1 to 127)
+endif
+ifneq ($(filter $(KUI_CE_SLOW_ADAPT),0 1 2 3),$(KUI_CE_SLOW_ADAPT))
+$(error KUI_CE_SLOW_ADAPT must be 0, 1, 2 or 3 doublings)
+endif
+ifneq ($(shell [ $$(( $(KUI_CE_SLOW_WINDOW) << $(KUI_CE_SLOW_ADAPT) )) -le 127 ] 2>/dev/null && echo ok),ok)
+$(error KUI_CE_SLOW_WINDOW doubled KUI_CE_SLOW_ADAPT times exceeds 127 receptions)
+endif
+ifneq ($(KUI_CE_SLOW_WINDOW),64)
+WINCE_CDDA_PROFILE_FLAGS += -DKUI_SCI_STREAM_SLOW_BLOCKS=$(KUI_CE_SLOW_WINDOW)u
+endif
+ifneq ($(KUI_CE_SLOW_ADAPT),0)
+WINCE_CDDA_PROFILE_FLAGS += -DKUI_SCI_STREAM_SLOW_ADAPT=$(KUI_CE_SLOW_ADAPT)
+endif
+endif
+# The music worker's programmed receptions as an emergency only: it receives
+# by programmed transfers only while the music plays with at most half a
+# second of fresh PCM (until one second), not whenever the music is urgent;
+# by DMA otherwise, prefill included (src/loader/armada_ce_stream_transport.c).
+# Those urgent receptions were the console-measured cause of CD music On's
+# gameplay lag (docs/wince-cdda-play-timing-test.md). Controller only; on by
+# default with the delivery defaults above.
+KUI_CE_CDDA_EMERGENCY_PIO ?= $(if $(WINCE_CDDA_ACCEPTED_DEFAULTS),1,0)
+ifeq ($(KUI_CE_CDDA_EMERGENCY_PIO),1)
+WINCE_CDDA_PROFILE_FLAGS += -DKUI_ARMADA_CE_STREAM_EMERGENCY_PIO=1
+else ifneq ($(KUI_CE_CDDA_EMERGENCY_PIO),0)
+$(error KUI_CE_CDDA_EMERGENCY_PIO must be 0 or 1)
+endif
+# The music's card stream restarts inside the interrupt or GD call that
+# needs it, not at the worker's next visit: a restart's token search goes on
+# for up to eight more slices there, and a fast overrun is refetched by DMA
+# at 6.25 MHz while the slow window is armed, as the game's reads are
+# (src/loader/armada_ce_stream_transport.c). Without it the music's DMA chain
+# stops at each such restart until the worker's next visit, which the
+# worker's programmed receptions covered (docs/wince-cdda-emergency-pio-test.md).
+# Controller only; needs the reader's slow window. On by default with the
+# delivery defaults above.
+KUI_CE_CDDA_CHAIN ?= $(if $(WINCE_CDDA_ACCEPTED_DEFAULTS),1,0)
+ifeq ($(KUI_CE_CDDA_CHAIN),1)
+ifeq ($(findstring -DKUI_CE_SCI_SLOW_AFTER_OVERRUN=1,$(WINCE_CDDA_PROFILE_FLAGS)),)
+$(error KUI_CE_CDDA_CHAIN needs the reader's slow window (KUI_CE_READER_FIXES=1, or the timing reader's slow trial))
+endif
+WINCE_CDDA_PROFILE_FLAGS += -DKUI_ARMADA_CE_STREAM_CHAIN=1
+else ifneq ($(KUI_CE_CDDA_CHAIN),0)
+$(error KUI_CE_CDDA_CHAIN must be 0 or 1)
+endif
+# A PLAY20/PLAY21 repeat count above the drive's four-bit field (15 repeats
+# indefinitely) saturates to 15 instead of being refused
+# (src/loader/armada_ce_stream_model.c). Ducati World asks for 1000.
+# Controller only. On by default only in Ducati World's kernel module, so
+# every other module stays byte-identical; 0 rebuilds that module as test
+# build 1c71ba3afa17.
+KUI_CE_CDDA_REPEAT_CLAMP ?= $(if $(filter DUCATI_WORLD,$(KUI_WINCE_CDDA_WWP_KERNEL)),1,0)
+ifeq ($(KUI_CE_CDDA_REPEAT_CLAMP),1)
+ARMADA_STREAM_EXTRA_FLAGS += -DKUI_ARMADA_CE_STREAM_REPEAT_CLAMP=1
+else ifneq ($(KUI_CE_CDDA_REPEAT_CLAMP),0)
+$(error KUI_CE_CDDA_REPEAT_CLAMP must be 0 or 1)
 endif
 override ARMADA_AUDIO_EXTRA_FLAGS := -DKUI_ARMADA_CE_EXCERPT=1 -DKUI_ARMADA_CE_STREAM=1 $(WINCE_CDDA_PROFILE_FLAGS)
 override ARMADA_AUDIO_EXTRA_STAGE_FLAGS := -DKUI_ARMADA_CE_RAM_BIND_STAGE=1 -DKUI_ARMADA_CE_EXCERPT_STAGE=1 -DKUI_ARMADA_CE_STREAM=1 -DKUI_RETAIL_EXTENDED_MAP=1 $(WINCE_CDDA_PROFILE_FLAGS)
@@ -116,6 +258,24 @@ force-wince-reader-config:
 $(ARMADA_AUDIO_DIR)/reader-config: force-wince-reader-config
 	@mkdir -p $(@D)
 	@printf '%s\n' 'READER_FIXES=$(KUI_CE_READER_FIXES)' > $@.tmp
+ifneq ($(KUI_CE_SLOW_WINDOW):$(KUI_CE_SLOW_ADAPT),64:0)
+	@printf '%s\n' 'SLOW_WINDOW=$(KUI_CE_SLOW_WINDOW)' 'SLOW_ADAPT=$(KUI_CE_SLOW_ADAPT)' >> $@.tmp
+endif
+ifeq ($(KUI_CE_CDDA_EMERGENCY_PIO),1)
+	@printf '%s\n' 'EMERGENCY_PIO=1' >> $@.tmp
+endif
+ifeq ($(KUI_CE_CDDA_CHAIN),1)
+	@printf '%s\n' 'CHAIN=1' >> $@.tmp
+endif
+ifeq ($(KUI_CE_CDDA_REPEAT_CLAMP),1)
+	@printf '%s\n' 'REPEAT_CLAMP=1' >> $@.tmp
+endif
+ifneq ($(KUI_WINCE_CDDA_WWP_KERNEL),WORMS_WORLD_PARTY)
+	@printf '%s\n' 'WWP_KERNEL=$(KUI_WINCE_CDDA_WWP_KERNEL)' >> $@.tmp
+endif
+ifneq ($(KUI_WINCE_CDDA_BAM4_KERNEL),BUST_A_MOVE_4)
+	@printf '%s\n' 'BAM4_KERNEL=$(KUI_WINCE_CDDA_BAM4_KERNEL)' >> $@.tmp
+endif
 	@cmp -s $@.tmp $@ || cp $@.tmp $@
 	@rm -f $@.tmp
 $(ARMADA_AUDIO_STAGE) $(ARMADA_AUDIO_SCIF) $(ARMADA_AUDIO_IDE) $(ARMADA_AUDIO_SCI) $(ARMADA_AUDIO_SCIA) $(ARMADA_STREAM_OBJS) $(ARMADA_AUDIO_DIR)/retail_entry_asm.o: $(ARMADA_AUDIO_DIR)/reader-config

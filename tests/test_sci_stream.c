@@ -704,6 +704,83 @@ static void test_ce_slow_after_overrun(void) {
     assert(slow_block(lba, true) == 0xffu && st->polled - b.polled == 2u);
     assert(slow_block(++lba, false) == 0);
 }
+#if KUI_SCI_STREAM_SLOW_ADAPT
+/* An unrecovered 12.5 MHz overrun on block *lba (its second CRC byte), then
+ * the refetch and the rest of the window it started: how many receptions ran
+ * at 6.25 MHz. Returns with the window just over, no fast reception since. */
+static unsigned adapt_window(uint32_t *lba) {
+    m.overrun_fast_only = true; m.overrun_after = 512u;
+    assert(!kui_sci_stream_slow_pending());
+    assert(kui_sci_stream_fetch(*lba, LIMIT, false) == KUI_SCI_STREAM_OK && m.rx_brr == 0);
+    assert(kui_sci_stream_wait() == KUI_SCI_STREAM_OVERRUN);
+    check_restored(); check_channel_restored();
+    assert(kui_sci_stream_slow_pending() && !m.overrun_after);
+    unsigned n = 0;
+    while(kui_sci_stream_slow_pending()) {assert(slow_block(*lba, false) == 1u); ++*lba; ++n;}
+    return n;
+}
+static void fast_blocks(uint32_t *lba, unsigned count, bool polled) {
+    while(count--) assert(slow_block((*lba)++, polled) == (polled ? 0xffu : 0u));
+}
+static void test_ce_slow_adapt(void) {
+    const unsigned base = KUI_SCI_STREAM_SLOW_BLOCKS, top = base << KUI_SCI_STREAM_SLOW_ADAPT;
+    const unsigned quick = KUI_SCI_STREAM_SLOW_QUICK;
+    reset_model(); open_stream(false);
+    const struct kui_sci_stream_stats *st = kui_sci_stream_stats();
+    const struct kui_sci_stream_stats b = *st;
+    uint32_t lba = 1200;
+    /* The first overrun after the stream opens starts the shortest window,
+     * however soon it comes. */
+    assert(adapt_window(&lba) == base);
+    unsigned slow = base, w = base;
+    /* An overrun within quick - 1 fast receptions of the window's end (the
+     * bus still held) doubles the next window, up to the top; the top holds. */
+    for(unsigned i = 0; i <= KUI_SCI_STREAM_SLOW_ADAPT; ++i) {
+        fast_blocks(&lba, quick - 1u, false);
+        if(w < top) w *= 2u;
+        assert(adapt_window(&lba) == w); slow += w;
+    }
+    assert(w == top);
+    /* quick fast receptions: the bus was let go; each such overrun halves
+     * the window, down to the shortest, which holds. */
+    for(unsigned i = 0; i <= KUI_SCI_STREAM_SLOW_ADAPT; ++i) {
+        fast_blocks(&lba, quick, false);
+        if(w > base) w /= 2u;
+        assert(adapt_window(&lba) == w); slow += w;
+    }
+    assert(w == base);
+    /* Programmed receptions cannot overrun and do not count: after quick of
+     * them (and quick - 1 fast ones) an overrun is still soon. */
+    fast_blocks(&lba, quick, true);
+    fast_blocks(&lba, quick - 1u, false);
+    w = base << 1; if(w > top) w = top;
+    assert(adapt_window(&lba) == w); slow += w;
+    /* An overrun at 6.25 MHz ends the window at once and the reader's
+     * programmed refetch follows; an overrun right after it is soon. */
+    fast_blocks(&lba, quick, false);
+    m.overrun_fast_only = true; m.overrun_after = 512u;
+    assert(kui_sci_stream_fetch(lba, LIMIT, false) == KUI_SCI_STREAM_OK && m.rx_brr == 0);
+    assert(kui_sci_stream_wait() == KUI_SCI_STREAM_OVERRUN);
+    assert(kui_sci_stream_slow_pending());
+    assert(slow_block(lba++, false) == 1u); ++slow;
+    m.overrun_fast_only = false; m.overrun_after = 512u;
+    assert(kui_sci_stream_fetch(lba, LIMIT, false) == KUI_SCI_STREAM_OK && m.rx_brr == 1u);
+    assert(kui_sci_stream_wait() == KUI_SCI_STREAM_OVERRUN);
+    check_restored(); check_channel_restored();
+    assert(!kui_sci_stream_slow_pending() && st->slow_overruns - b.slow_overruns == 1u);
+    assert(slow_block(lba++, true) == 0xffu);
+    unsigned cut = base; /* the window that was cut: halved from the last */
+    w = cut << 1; if(w > top) w = top;
+    assert(adapt_window(&lba) == w); slow += w;
+    assert(st->slow_blocks - b.slow_blocks == slow);
+    /* Opening the stream again starts over at the shortest window. */
+    for(unsigned i = 0; i < KUI_SCI_STREAM_SLOW_ADAPT; ++i) assert(adapt_window(&lba) > base);
+    assert(kui_sci_stream_stop() == KUI_SCI_STREAM_OK);
+    open_stream(false);
+    assert(adapt_window(&lba) == base);
+    assert(kui_sci_stream_stop() == KUI_SCI_STREAM_OK);
+}
+#endif
 #endif
 int main(void) {
     test_sequential();
@@ -724,6 +801,9 @@ int main(void) {
 #endif
 #if KUI_CE_SCI_SLOW_AFTER_OVERRUN
     test_ce_slow_after_overrun();
+#if KUI_SCI_STREAM_SLOW_ADAPT
+    test_ce_slow_adapt();
+#endif
 #endif
     puts("sci stream: ok");
     return 0;

@@ -57,7 +57,476 @@ Delivered: `KUI-WinCE-GUI-Routes-16NOV2026-1928-CST-069d612.zip`, GUI build
 `retail-boot.kui` `9e3295bcfaec`, as `00d8ed67d9ad` does. `00d8ed67d9ad`
 remains the reference until the owner reports the package's four tests.
 
-## WinCE data session probe: data pending, 88ff969d505c, 2026-11-18
+## WinCE CD music for Bust-A-Move 4's group: console test pending, 9e89e778370f, 2026-11-21
+
+CD music On for seven more WinCE kernels that carry Bust-A-Move 4's sound
+system unchanged ([record](wince-cdda-bam4-group-test.md)):
+- Puzzle Bobble 4;
+- Virtua Cop 2 (JPN);
+- Caesars Palace 2000 (US and PAL);
+- Get!! Colonies;
+- Marionette Company 2;
+- Hello Kitty: Magical Block.
+
+The method is round 1's. Each kernel's record is derived from the kernel
+itself (`tools/wince_cdda_bam4_kernels.py`). Each module carries a
+`KUICDK01` record of sound profile 2, which GUI `1c71ba3afa17` already admits
+(source `9e89e778`).
+
+Rebuilt from that tree, all byte-identical:
+- the five accepted CD music modules (`1ba2fa7e7040`);
+- the ten other round-1 modules (`1c71ba3afa17`);
+- Ducati's test module (`d7fd810eb837`);
+- the GUI `1c71ba3afa17`.
+
+Super Runabout is excluded. It plays its sound through `MANATEE.DRV`
+without DirectSound.
+
+Delivered: `KUI-WinCE-CD-Music-BAM4-Group-21NOV2026-2037-CST-9e89e77.zip`,
+the seven modules only.
+
+## WinCE CD music: Ducati World's repeat count, console-tested, d7fd810eb837, 2026-11-21
+
+**Result (21 Nov 2026, [record](wince-cdda-ducati-repeat-test.md#result-21-nov-2026)):**
+- The first race plays its CD track: the PLAY was accepted and started
+  once, with no refusal, recovery or fault.
+- The owner found the music itself a ten-second loop, judged it the game's
+  own, and asked not to pursue it.
+- A second race, which is expected to stay silent, was not reported. The
+  player rebind it would need is not pursued for now.
+
+
+Ducati World asks for 1,000 repeats of its race track. The stream model
+refused any count above 15, so the game was silent in round 1. Source
+`d7fd810e` saturates such a count to 15 (endless), only in Ducati World's
+module ([record](wince-cdda-ducati-repeat-test.md)). Rebuilt from that tree:
+- the five accepted CD music modules are byte-identical to `1ba2fa7e7040`;
+- the ten other round-1 modules are byte-identical to `1c71ba3afa17`;
+- Ducati's module with the switch off is byte-identical to `1c71ba3afa17`.
+
+Known limit: the player binds one process per console session, and Ducati
+runs each race in a new process, so only the first race can play.
+
+Delivered: `KUI-WinCE-Ducati-Music-Test-21NOV2026-1929-CST-d7fd810.zip`, with:
+- Ducati's module `d7fd810eb837` (payload CRC `3FB89B1C`);
+- the everyday candidate `ce-boot.kui` `91b0540103f0`, in place of the
+  read-ahead test build still on the owner's card;
+- round 1's module in `IF-NEEDED/`.
+
+The GUI stays `1c71ba3afa17`.
+
+## WinCE CD music for World Party's group: console result, 1c71ba3afa17, 2026-11-21
+
+**Result (21 Nov 2026,
+[record](wince-cdda-wwp-group-test.md#result-21-nov-2026)):**
+- Railroad Tycoon II plays.
+- 4x4 Evolution's menus play the game's own WAV files, and its race music is
+  not yet observed.
+- Ducati World was silent: the model refused its repeat count of 1,000
+  ([test](wince-cdda-ducati-repeat-test.md)).
+- With CD music Off, 4x4 Evolution crashed after its intro was skipped, on
+  the read-ahead test build `1a5f46776c0c` still installed as `ce-boot.kui`.
+  On the candidate `91b0540103f0` it runs, with CD music Off and On.
+- 4x4's occasional video lag is the same with CD music Off, so it is the
+  reader's, not CD music's.
+- Ducati World plays its first race with `d7fd810eb837`.
+
+CD music On for eleven more WinCE kernels that carry World Party's sound
+system unchanged ([record](wince-cdda-wwp-group-test.md)): Ducati World,
+Championship Surfer, The Next Tetris Online, Railroad Tycoon II, 4x4
+Evolution, Starlancer, Hidden and Dangerous (US, PAL), Atari Anniversary,
+Hoyle Casino and Who Wants to Beat Up a Millionaire. Each kernel has its own
+module `ce-cdda-<first 12 hex digits of its SHA-256>.kui`, built from the
+accepted recipe with that kernel's derived record (source `2f19afa2`), and the
+GUI admits such a module by its `KUICDK01` record (source `1c71ba3a`). The five
+accepted CD music modules rebuild byte-identical to `1ba2fa7e7040`.
+
+Delivered: `KUI-WinCE-CD-Music-World-Party-Group-21NOV2026-1550-CST-1c71ba3.zip`,
+the GUI `1c71ba3afa17` (Main `4441e92c` with the route, the owner's Standard
+binding `9e3295bcfaec`, the Smash bundle, launch timing) and the eleven
+modules; the reference GUI `00d8ed67d9ad` in `IF-NEEDED/`. Until the owner's
+report, the CD music set `1ba2fa7e7040` and the GUI `00d8ed67d9ad` stay the
+references.
+
+## WinCE CD music set accepted: 1ba2fa7e7040, 2026-11-21
+
+**Accepted (21 Nov 2026, owner):** smooth gameplay with CD music On in Armada
+and in the other CD music games; Armada's music no longer plainly repeats (one
+abrupt switch back to the first song was the game's own PLAY command; the GD
+service keeps no play state). The measured Armada run: worker time 1.8% of
+play (9.6% before), 10 worker steps of 8 ms or more in 244 s (236 in 105 s
+before), the busiest second as with the music silent, and the music's fresh
+PCM never below 566 ms ([result](wince-cdda-chain-test.md#measured-run-21-nov-2026)).
+The five modules on the card (`830BD7EA`, `23A93E11`, `0074D23C`, `F219336E`,
+`8C21F910`) replace `7b216f2e1136` as the accepted CD music modules. The
+makefiles now build them by default; the previous set rebuilds byte-identical
+with `KUI_CE_SLOW_WINDOW=64 KUI_CE_SLOW_ADAPT=0 KUI_CE_CDDA_EMERGENCY_PIO=0
+KUI_CE_CDDA_CHAIN=0` ([the pin](wince-cdda-chain-test.md#the-pin)).
+
+
+On top of the worker fix below (smooth gameplay, but Armada's music
+repeated): the music's card stream restarts where it stops
+([record](wince-cdda-chain-test.md)). Source `1ba2fa7e` adds
+`KUI_CE_CDDA_CHAIN` (controller only): a restart's token search goes on for up
+to eight more slices inside the interrupt or GD call that needs it, and a fast
+overrun is refetched by DMA at 6.25 MHz while the reader's slow window is
+armed. Default 0: the five CD music modules rebuild byte-identical to
+`7b216f2e1136`, and with the emergency switch alone to `06341c5a3681`. Test
+build `1ba2fa7e7040` (adaptive window, emergency and chain): payload CRCs
+`830BD7EA`, `23A93E11`, `0074D23C`, `F219336E`, `8C21F910`, and the Armada
+gameplay timing `A2F1FE09`. Delivered as
+`KUI-WinCE-CD-Music-Chain-Fix-21NOV2026-1415-CST-1ba2fa7.zip` (SHA256
+`b932e05403cd410446097d1d2b9c6311e1302fd541c9712d547bde164f8ec134`) with the
+`52a946122537` set in `IF-NEEDED/`. Gates pass; stack worst cases unchanged.
+
+## WinCE CD music worker fix: console-tested, music repeats in Armada, 06341c5a3681, 2026-11-21
+
+**Result (21 Nov 2026):** Armada: smooth gameplay, but its music repeated;
+Worms: fine. No model underrun (GAPS 0): CE mixes 155 ms ahead of the play
+cursor, and without the worker's programmed receptions the music's DMA chain
+stopped at each restart inside an interrupt or GD call until the worker's next
+visit ([result](wince-cdda-emergency-pio-test.md#result-21-nov-2026)).
+
+
+The fix for the CD music On gameplay lag ([record](wince-cdda-emergency-pio-test.md)).
+Source `06341c5a` adds `KUI_CE_CDDA_EMERGENCY_PIO` (Makefile.armada-stream,
+Makefile.armada-vmu-a2; controller only): the music worker receives by
+programmed transfers only while the music plays with at most half a second of
+fresh PCM (until one second), not whenever it is urgent; DMA otherwise,
+prefill included. Default 0: the five CD music modules rebuild byte-identical
+to `7b216f2e1136`, the adaptive set to `52a946122537`. Test build
+`06341c5a3681`: the five with the adaptive window and the change (payload
+CRCs `91A2A1AE`, `69175F62`, `D841F413`, `D87C83F5`, `EE540C64`), and the
+Armada gameplay timing with the change (`C9D6F9C6`). Delivered as
+`KUI-WinCE-CD-Music-Worker-Fix-21NOV2026-1345-CST-06341c5.zip` (SHA256
+`c80bb79a35fe104ae401b768b075ffd2900c6af26de6c864f2c82f85e04ec9f9`) with the
+card's `52a946122537` set in `IF-NEEDED/`. Gates pass; stack worst cases
+unchanged. `52a946122537` stays the card's set until the owner reports.
+
+## Armada CD music On gameplay timing: console-tested, cause found, 32b3bbb33e39, 2026-11-21
+
+**Result (21 Nov 2026):** run 1 (music) lagged; run 2 (the music never
+queued) had no lag. K-UI took 15% of gameplay with the music, 2% without; the
+worker 10.1 s of 105 s, 236 of its 1,437 steps 8 ms or longer (239 ended
+urgent), the longest 173 ms; 8,530 of the music's 27,371 card blocks were
+programmed receptions. The game read the same 7,212 sectors in both runs, for
+the same time. The cause is the worker's programmed receptions while the music
+is urgent ([result](wince-cdda-play-timing-test.md#result-21-nov-2026)).
+
+
+A measurement of where CD music On costs Armada's gameplay, not a fix
+([record](wince-cdda-play-timing-test.md)). Source `32b3bbb3` adds
+`KUI_ARMADA_CE_PLAY_TIMING` to Makefile.armada-stream. With the default (0)
+the five CD music modules rebuild byte-identical to `7b216f2e1136`, and the
+movie timing build to its earlier bytes. Two modules of build `32b3bbb33e39`
+on the movie timing reader (fixed 64-reception window, low reader
+byte-identical): run 1 with the music (payload CRC `9E73BA00`), run 2 the same
+with the music never queued (`E9655CBD`). Their six report rows cover the
+window after the intro movie: K-UI's time with the music worker's, the game's
+64 KiB reads with and without music grants while they ran, the transport's
+counts and the worker's steps. Delivered as
+`KUI-Armada-CD-Music-Play-Timing-21NOV2026-1304-CST-32b3bbb.zip` (SHA256
+`69efd1fee70345c96cb31fbde2eec809d67b5cf2a92d0fd42f510eca0de9065b`) with the
+card's `52a946122537` module in `IF-NEEDED/`. Route: Armada (US), CD music On,
+Virtual VMU Off. Gates: the stream excerpt, layout and relaxed-call checks;
+stack worst case 656 of 2,000 bytes. Host: `test-armada-ce-play-timing`.
+
+## WinCE CD music readers, adaptive slow window: console-tested, not at parity, 52a946122537, 2026-11-21
+
+**Result (21 Nov 2026, owner):** with CD music On, Armada's intro keeps a tiny
+lag and its gameplay lag returns (VMU On: intro lag gone, the same minor
+gameplay lag); Bust-A-Move 4 okay, maybe a tiny lag; both Worms games a tiny
+gameplay lag, movies fine. Gameplay is a tiny bit worse with CD music On than
+Off, so CD music On stays opt-in. The owner then reported that the whole set
+ran (they copy each ZIP's whole `KUI` folder) and plays about the same as the
+installed `7b216f2e1136` set, with the movies fixed ([result](wince-cdda-adaptive-test.md#result-21-nov-2026)).
+
+
+The generic module's adaptive slow window (16 receptions doubling to 64,
+console-run with CD music Off) in the five CD music modules: `ce-cdda-armada`,
+`-bam4`, `-worms`, `-wwp` and `ce-armada-all-on` ([record](wince-cdda-adaptive-test.md)).
+Source `52a94612` adds the switches to Makefile.armada-stream and
+Makefile.armada-vmu-a2; the defaults rebuild all five accepted modules
+byte-identical to `7b216f2e1136`. Test build `52a946122537` (`KUI_CE_SLOW_WINDOW=16
+KUI_CE_SLOW_ADAPT=2`), delivered as
+`KUI-WinCE-CD-Music-Adaptive-Test-21NOV2026-0852-CST-52a9461.zip` (SHA256
+`79b257caf083395542c66362a454736cde01c1c0f50c6eec8da1a94eba24b4ee`) with the
+installed five in `IF-NEEDED/`. Gates: the four readers end exactly at their
+`0x8c00d800` limit and the combined one at `0x8c00d7e0`; regions unchanged
+(`0xf60`, `0x760`); stack worst cases 512 to 516 of 2,000 and 504 of 976; the
+stream excerpt, layout and relaxed-call checks pass for each. Host:
+`test-ce-cdda-reader`, 50,229 checks in each configuration. `7b216f2e1136`
+remains accepted until the owner reports CD music On for these games.
+
+## WinCE RAM pool and read-ahead: console-tested, read-ahead not adopted, two builds of 1a5f46776c0c, 2026-11-21
+
+**Test 2 result (21 Nov 2026):** against the candidate `91b0540103f0`, Maximum
+Pool the same, RE2 the same, Super Producers about the same (owner); the
+owner ended the test there. The rings show read-ahead's condition met in
+those streams (Super Producers 98% exactly sequential), so it either ran
+without a visible gain or did not run; no measurement build carries it.
+Read-ahead is not adopted and stays off by default; the pool stays for CD
+music and the VMU; `91b0540103f0` remains the everyday candidate
+([result](wince-pool-readahead-test.md#result-of-test-2-21-nov-2026)).
+
+**Test 1 result (21 Nov 2026):** seven launches on seven kernels (two CE 2,
+five CE 3, one of them outside the 19 surveyed), each played until the owner
+ended it, no failed request, no refused command. The pool was reserved on
+all seven; each running kernel kept the lowered RAM end, and the pool's 16
+pages stayed untouched where CE had used them without the pool. The streamed
+reads match the adaptive session's ([result](wince-pool-readahead-test.md#result-of-test-1-21-nov-2026),
+[evidence](evidence/wince-pool-session-2026-11-21.json)).
+
+
+Two behaviour changes to the generic `ce-boot.kui`, off by default, each with
+its own test build ([tests](wince-pool-readahead-test.md),
+[design](wince-unified-runtime.md)):
+
+- **Universal RAM pool** (`c6745ab2`, Makefile.dc `KUI_CE_POOL_KIB`): the stage
+  finds CE's ROM header by its structure and lowers its RAM end by the pool
+  before NK runs; the relay proves the pool and the patched word survived
+  bootstrap 2. Test build `1a5f46776c0c`: the adaptive timing probe with a
+  64 KiB pool, unused (`KUI_WCE_PROBE=2 KUI_CE_SLOW_WINDOW=16
+  KUI_CE_SLOW_ADAPT=2 KUI_CE_POOL_KIB=64`), 93,816 bytes, payload CRC
+  `FCE53735`, SHA-256 `ac6600b1ca16e046efc365b6719b85e86cee9d0157b7c8edba2c8aaaed95e446`. Delivered:
+  `KUI-WinCE-Pool-Timing-Test-21NOV2026-0006-CST-1a5f467.zip` (SHA256 `0099aa561f62f04be3176eec5b0efe64726a9b08d1453a0f828a31e5c28b1ce4`), with a blank 64-slot
+  `KUI/WCEDATA/WCEDATA.BIN` (file id `bcd16a2e664c9574b66cfcc07c0e384c`), both restore modules
+  in `IF-NEEDED/` and the PC tools.
+- **Read-ahead** (`1a5f4677`, `KUI_CE_READAHEAD`): after two sequential reads
+  the background reader streams on into the pool while no request is active;
+  the next read takes it from there. Test build `1a5f46776c0c`: the candidate
+  `91b0540103f0`'s reader with the pool and read-ahead (`KUI_CE_SLOW_WINDOW=16
+  KUI_CE_SLOW_ADAPT=2 KUI_CE_POOL_KIB=64 KUI_CE_READAHEAD=1`), 86,884
+  bytes, payload CRC `2C8248D8`, SHA-256 `2c6bf8d2cbebc984bf3b1a470f0ba8aa6fc80eeed3f4d900781eed3016cc4958`. Delivered: `KUI-WinCE-ReadAhead-Test-21NOV2026-0006-CST-1a5f467.zip`
+  (SHA256 `ca7c2205ea4c6c6bd870211fc5bfaef3371c5232ece9a852e8d8b9878afeed6d`), with both restore modules in `IF-NEEDED/`.
+
+Gates on the exact bytes: the GUI's seven production admission cases on FAT32
+and exFAT for each module; the PVR write-width check on both residents of
+each; the layout checker (read-ahead resident ends at `0x8c00da40`, limit
+`0x8c00dc00`, stack worst case 416 of 976 bytes; the probe's resident is the
+adaptive probe's). Every delivered module rebuilds byte-identical from
+`1a5f4677` with its own switches: `ce-boot` `7b216f2e1136`, the data, VRAM,
+timing and window-16 probes, the candidates `41e3450bc94d` and `91b0540103f0`,
+the four `ce-cdda` modules and `ce-armada-all-on`. Host suite at
+`1a5f4677`: every C suite and script passes; the unittest gaps are the known environment ones (`test_asm_audit`'s console macro, `test_cover_png_rows`, `test_internet_preview`, `test_wince_release_package` without `.deps/bearssl`), and `test_splash_assets`' known stall was run around, as before.
+
+Not answered: read-ahead's timings (no measurement build has room for it), CD
+music On and VMU On (their modules have neither change), kernels not yet run.
+`7b216f2e1136` remains the accepted generic module and `91b0540103f0` the
+pending everyday candidate.
+
+## WinCE reader candidate 2: console test pending, 91b0540103f0, 2026-11-21
+
+The generic `ce-boot.kui` for everyday use with both console-tested changes:
+PVR stream pieces (`a660354d804c`) and the adaptive slow window
+(`871c4c7784b4`). Recipe: the generic build at `91b0540103f0` with
+`KUI_CE_SLOW_WINDOW=16 KUI_CE_SLOW_ADAPT=2` (`KUI_CE_VRAM_DMA=1` is that build's
+default); its sources are `871c4c77`'s (the later commits are documents).
+Delivered: `KUI-WinCE-Reader-Candidate-20NOV2026-2208-CST-91b0540.zip` (SHA256
+`fc8d440f3b964f97feaed588bf3bd11d5c6f191a9423e7ee3c24d9616a513cea`): the module
+(85,300 bytes, payload CRC `6829D405`, SHA-256
+`a75e0ce9010708953b707aad5db975bb83f9ee20f5657ddf4fdea8cf014acabd`) and the
+installed `7b216f2e1136` in `IF-NEEDED/`. Gates: background resident ends at
+`0x8c00d740` (limit `0x8c00d800`), stack worst case 348 of 2,000 bytes, the PVR
+write-width check on both residents, the GUI's seven production admission
+cases. Host suite at `871c4c77`: every make target passes; the unittest
+failures are the known environment gaps (`test_asm_audit`'s console macro,
+`test_cover_png_rows`, `test_internet_preview`, `test_wince_release_package`)
+and `test_splash_assets`, whose boot art is not RGB565-exact since `3c80b58e`
+(the failing comparison's diff of 307,200 pixels stalls the run); none is in
+the reader. The README explains Armada's `ce-probe.kui` route with CD music
+Off and leaves the owner the choice between Armada's virtual VMU there and
+this reader. The window stays 64 by default; the switch is a build setting.
+
+## WinCE adaptive slow window: console result, 871c4c7784b4, 2026-11-21
+
+A measurement build, not a candidate: the timing probe with one change, the
+6.25 MHz window after a DMA overrun starting at 16 receptions and doubling,
+up to 64, while overruns at 12.5 MHz come within 8 receptions of a window's
+end; a later one halves it again (Makefile.dc `KUI_CE_SLOW_WINDOW=16
+KUI_CE_SLOW_ADAPT=2`, the generic module's background reader only;
+[record](wince-adaptive-window-test.md)). Delivered:
+`KUI-WinCE-Adaptive-Window-Test-20NOV2026-2111-CST-871c4c7.zip` (SHA256
+`bb31ca45ae44966a9c99c521233cfdfd2809590fca89d3add08816f7af12b62a`): the module
+(93,096 bytes, payload CRC `C3140C14`, SHA-256
+`b5932b2a83bd00472345349d162d1e6fa3866126250d49a5ec9130b29463548e`), a blank
+64-slot `KUI/WCEDATA/WCEDATA.BIN` (file id `1333bb630d269579d578c20d04aa86f3`),
+the installed `7b216f2e1136` in `IF-NEEDED/`, and the PC tools.
+
+Evidence: host tests of the policy in two shapes and of the CE background
+reader with it, nine policy mutations each caught; the GUI's production
+admission of the exact bytes (seven cases, FAT32 and exFAT); the background
+resident ends at `0x8c00ddc0`, the probe layout's limit, stack worst case 392
+of 528 bytes. From the same commit with the switch at 0, the generic module's
+six delivered configurations and the five CD-music and Armada modules rebuild
+their delivered or installed bytes. The run list leads with Armada US (CD
+music Off): its intro, for the echo, and its gameplay, for the lag.
+
+Result (the owner, seven complete slots, every stage report naming
+`871c4c7784b4`): Armada "may have had some incredibly small echo with the intro
+video but it was largely unnoticeable", gameplay "worked great"; Super
+Producers' audio better, its movie still "heavily lagged at the end"; Worms
+Armageddon and Super Runabout fine; Maximum Pool "trash"; RE2 stuttered during
+its first movie. Armada's first launch showed the old text screen at the
+combination: with CD music Off the GUI sends Armada to its legacy module
+`ce-probe.kui` whenever that is installed ([routes](wince-gui-routing.md)).
+With `ce-probe.kui` moved off the card, both Armada slots ran this module.
+The window followed the contention: Super Producers and RE2 ran near the
+shortest window (25% and 30% of blocks at 6.25 MHz, against 21% and 29% at a
+fixed 16), Super Runabout near the longest (66%, against 24%), Maximum Pool
+between (49%, against 38% at 16 and 65% at 64). No read failed. Armada's intro,
+Maximum Pool and Super Producers read flat out or nearly (the next request one
+frame after each read ends) ([record](wince-adaptive-window-test.md#result-21-nov-2026)).
+
+## WinCE reader candidate: console result, 41e3450bc94d, 2026-11-21
+
+The generic `ce-boot.kui` for everyday use with both console-tested changes:
+PVR stream pieces (`a660354d804c`) and the 16-reception slow window
+(`9313dad06594`). Recipe: the generic build at `41e3450bc94d` with
+`KUI_CE_SLOW_WINDOW=16` (`KUI_CE_VRAM_DMA=1` is that build's default). Its
+payload differs from that commit's 64-reception build in the one window byte,
+and that build's payload is `a660354d804c`'s with the build ID swapped.
+Delivered: `KUI-WinCE-Reader-Candidate-20NOV2026-2002-CST-41e3450.zip` (SHA256
+`4adf42ae05416b060b36edabe579ae77406a3e9f959832b8730157e701d47d01`): the module
+(85,236 bytes, payload CRC `47EEC0FF`, SHA-256
+`ace07b8e9af93191662fe028774b96c16f5e23d54f6fe8f0ec34e96f36dce697`) and the
+installed `7b216f2e1136` in `IF-NEEDED/`. Gates: background resident ends at
+`0x8c00d700` (limit `0x8c00d800`), stack worst case 348 of 2,000 bytes, the PVR
+write-width check on both residents, the GUI's seven production admission
+cases. The run list leads with Armada US, CD music Off. The window stays 64 by
+default until this candidate's result.
+
+Result (the owner, CD music Off): Armada's intro movie is "back to how it was
+before, bad echo and slightly choppy"; Armada's gameplay lag is gone ("Actual
+gameplay is super smooth"); Super Producers' movie had the same echo, its
+picture relatively smooth until the last 5 or so seconds; KISS Psycho Circus
+and Virtua Cop 2 no problems; Worms Armageddon no problems, "maybe slight lag in
+the audio with the intro movies"; Super Runabout no problems.
+
+Correction (21 Nov 2026): Armada did not run this module. With CD music Off
+the GUI sends Armada to its legacy module `ce-probe.kui` whenever that is
+installed, as the owner's card has it ([routes](wince-gui-routing.md)); the
+run list overlooked the route, and the adaptive-window test showed it (its
+first Armada launch ended on `ce-probe.kui`'s text screen). Armada's two
+results therefore describe `ce-probe.kui`, not the 16-reception window:
+plausibly the echo because that module predates the slow refetch, and the
+smooth gameplay because no CD music streams with CD music Off (inferences).
+The 16-reception window has no Armada result. The window stays 64 by default.
+
+## WinCE slow-window test: console result, 9313dad06594, 2026-11-21
+
+The owner: "That seemed to fully fix Super Producers"; Super Runabout
+"flawless"; Maximum Pool still slow in menus; Sno-Cross and RE2 still hang
+(RE2 differently each run). The rings: streamed reads 12-17% faster at the
+median, half-clock blocks roughly halved, overruns per block up 15-70%, no
+read failed ([results](wince-slow-window-test.md)). Armada US was not in the
+run (with CD music Off it uses this module only when `ce-probe.kui` is absent).
+
+### Delivery
+
+A measurement build, not a candidate: the timing probe `5c1cdd89387b` with
+one change, the 6.25 MHz window after a DMA overrun cut from 64 receptions to
+16 (Makefile.dc `KUI_CE_SLOW_WINDOW=16`, the generic module's background reader
+only). Its payload differs from a 64-reception build with the same label in
+that one byte. Delivered:
+`KUI-WinCE-Slow-Window-Test-20NOV2026-1847-CST-9313dad.zip` (SHA256
+`12be4232ca56333edea18bcabc355f36409409b14397a85b62a9bbbe66b73226`): the module
+(93,000 bytes, payload CRC `41969797`, SHA-256
+`5876c63d292231cd38970fee4626e33d5cb16cdb62ed552fa36f9a38ba4d0863`), a blank
+64-slot `KUI/WCEDATA/WCEDATA.BIN` (file id `49201ca448c8f448cd43f6514335f36d`),
+the installed `7b216f2e1136` in `IF-NEEDED/`, and the PC tools.
+
+Evidence: the SCI stream and CE background reader host tests at 16 and 64
+receptions; the GUI's production admission of the exact bytes (seven cases,
+FAT32 and exFAT); the background resident ends at `0x8c00dd60` (limit
+`0x8c00ddc0`), stack worst case 392 of 528 bytes. From the same commit, with
+the default window, the generic module in all four configurations and the five
+CD-music and Armada modules rebuild their delivered or installed bytes.
+Console behaviour is untested: the session is the test
+([timing session 1](wince-timing-session-1.md#the-next-test-a-shorter-slow-window)).
+
+## WinCE timing session probe: data received, 5c1cdd89387b, 2026-11-20
+
+The owner ran eight launches with no VMU inserted; results:
+[timing session 1](wince-timing-session-1.md). No read stalled in any window.
+Overruns, from bus contention during streams, slow the paced movie and
+animation reads 1.4 to 1.8 times, and RE2's halts begin with nothing
+outstanding. Wild Metal's load ran at the clean rate.
+
+### Delivery
+
+A measurement build, not a candidate: the generic `ce-boot.kui` with
+`KUI_WCE_PROBE=2` ([timing session](wince-data-probe.md#timing-session-kui_wce_probe2)),
+for the movie freezes (Resident Evil 2, Sno-Cross, Super Producers), Maximum
+Pool's lag, Urban Chaos's lurches and Wild Metal's load. It reads exactly as
+the installed `7b216f2e1136` does (`KUI_CE_VRAM_DMA=0`), so KISS and Virtua
+Cop 2 still stop on the PVR refusal in it. The owner swaps it in for one
+session and puts `7b216f2e1136` back afterwards.
+
+Delivered: `KUI-WinCE-Timing-Session-20NOV2026-0158-CST-5c1cdd8.zip` (SHA256
+`652f8a627816322a2e81c5dd0fe1943e3848a4ae3d1fffb1c41e041787b5d2bd`): the module
+(93,000 bytes, payload CRC `9AAC3E84`, SHA-256
+`0a3bc111a5485892fee080497275c154f74233d64cbf65cc2152772acd0d0037`), a blank
+64-slot `KUI/WCEDATA/WCEDATA.BIN` (1,075,314,688 bytes, file id
+`968e4806ba74f2f47e03e0c6f383cb8f`), the installed `7b216f2e1136` in
+`IF-NEEDED/`, and the decoder and miner in `PC-TOOLS/`.
+
+Evidence: the end-to-end host test (take conditions, underflows, failed,
+aborted and reset reads, a wrapped ring decoded with its saturations and
+carries, a dump cut inside the ring), the miner test, mutation checks on each
+new behaviour, two adversarial reviews (no defect left in the reader; the
+decoder, miner, docs and test findings fixed), the GUI's production
+admission of the exact bytes on FAT32 and exFAT, and the build gates
+(background resident ends at `0x8c00dd60`, limit `0x8c00ddc0`; stack worst
+case 392 of 528 bytes). From the same commit, `KUI_WCE_PROBE=1` rebuilds
+`88ff969d505c` and the default build `a660354d804c` byte for byte. Console
+behaviour is untested: the session is the test.
+
+### Rechecked against Main and the Test 83 reader line, 2026-11-20
+
+Main is still `4441e92c`, which both test builds already contain. A trial merge
+of `claude/hopeful-dijkstra-r2g7c4` at `9fd8e907` (the Test 83 survey and the
+owner's reader and GUI lines, not on Main) rebuilds, with each delivered
+label: the generic module with the PVR change off (`7b216f2e1136`), on
+(`a660354d804c`), the timing probe (`5c1cdd89387b`) and the data probe
+(`88ff969d505c`), and the four CD-music modules and `ce-armada-all-on.kui`
+(`7b216f2e1136`), each byte for byte. That line changes native readers only;
+the two delivered ZIPs stand as they are. The owner's GUI line (`4d4dcff7`,
+the GUI the Test 83 runs used) admits both delivered modules in the GUI's
+seven production WinCE cases on FAT32 and exFAT (`tests/test_wce_probe_admission.py`
+built from that line's source); its WinCE launches are not console-tested.
+
+## WinCE PVR stream test: both games pass on the console, a660354d804c, 2026-11-20
+
+The owner's result: "the video memory fix worked for both of the games" (KISS
+Psycho Circus (US) and Virtua Cop 2 (JPN), CD music Off). No launch report was
+sent, so the GUI and the module's payload CRC as launched are not confirmed by
+the console. The CD-music modules keep the refusal; whether the change can take
+them still needs their resident space audited.
+
+One behaviour change to the generic `ce-boot.kui` against the installed
+`7b216f2e1136`: DMA stream pieces into PVR video memory, which stopped KISS
+Psycho Circus and Virtua Cop 2 in session 1 ([record](wince-vram-stream.md)).
+CPU pointers into video memory stay refused, as before. The CD-music and
+Armada modules are unchanged: from the same tree they rebuild their installed
+`7b216f2e1136` bytes, as does `KUI_CE_VRAM_DMA=0`.
+
+Delivered: `KUI-WinCE-VRAM-Stream-Test-20NOV2026-0035-CST-a660354.zip` (SHA256
+`744e817bae8eb2f6f471de731a9f7511d3d076321aeb9880f976397eb12cd13b`): the module
+(85,236 bytes, payload CRC `9CF2A176`, SHA-256
+`72dc006d86650b24daaec15e6a8ecb1575aa1cf7de8be409cc027658511dc8d5`) and the
+installed `7b216f2e1136` in `IF-NEEDED/`. Console test: KISS Psycho Circus
+(US) and Virtua Cop 2 (JPN) with CD music Off and Virtual VMU Off. With CD
+music On they still use the unchanged `ce-cdda-*` modules.
+
+## WinCE data session 1: data received 2026-11-19, 88ff969d505c
+
+The owner ran 17 games with this probe on 19 Nov 2026; the control run on
+`7b216f2e1136` behaved about the same. Results:
+[session 1](wince-data-session-1.md). KISS and Virtua Cop 2 stopped on the
+PVR refusal above; the movie freezes and lag led to the timing session.
+
+### Delivery
 
 Rebuilt on main `cdfc131b` (merge `88ff969d`, after the artwork/theme changes):
 `KUI-WinCE-Data-Session-18NOV2026-1406-CST-88ff969.zip`

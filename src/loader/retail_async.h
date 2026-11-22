@@ -136,6 +136,17 @@ struct kui_retail_async {
     /* A failed overrun uses a polled reread of this block only. Other
      * faults retain the ordinary retry threshold; no session-wide mode. */
     uint8_t piece_set, piece_physical, isr, early_polled;
+#if KUI_RETAIL_CE_READAHEAD
+    /* Read-ahead into the stage's pool (kui_retail_ce_pool): card blocks
+     * [ra_first, ra_first + ra_count) are in it, checked, at most ra_limit
+     * of them (one extent). While ra_fill, no request is active and the
+     * stream brings block ra_first + ra_count for the pool. ra_expect: the
+     * first block of the read that would follow the last one completed;
+     * ra_seq: the active read began there or in the pool. ra_served and
+     * ra_stored count blocks fed from the pool and stored in it. */
+    uint32_t ra_first, ra_count, ra_limit, ra_expect, ra_served, ra_stored;
+    uint8_t ra_fill, ra_seq;
+#endif
 #if KUI_ARMADA_CE_VMU_WRITE_RUNTIME
     /* Canonical P1 state, shared by masked reader calls/IRQs and the fixed
      * worker loan entry. No guest pointer or pending caller frame is kept. */
@@ -235,6 +246,12 @@ _Static_assert(sizeof(struct kui_retail_async_shared) <= 0x1e0u, "shared fits ga
 #endif
 #endif
 typedef struct kui_retail_async_region kui_retail_async_region_type;
+#if KUI_RETAIL_CE_READAHEAD
+#include "kui/ce_ram_pool.h"
+/* The pool's bounds, written by the stage's relay once its checks have
+ * passed (include/kui/ce_ram_pool.h); without its magic, no read-ahead. */
+extern struct kui_ce_ram_pool_record kui_retail_ce_pool;
+#endif
 #if KUI_VMU_NATIVE_BACKGROUND || KUI_NATIVE_STANDALONE_READER
 /* The stage supplies the initial protected workspace; the native allocator
  * binder moves the complete idle region into the already owned lease tail. */

@@ -75,12 +75,34 @@ const struct kui_retail_gd *kui_armada_ce_stream_transport_service(void);
 const volatile uint32_t *kui_armada_ce_stream_transport_movie_timing(void);
 const volatile struct kui_sci_stream_stats *kui_armada_ce_stream_transport_stream_stats(void);
 #endif
+#if KUI_ARMADA_CE_PLAY_TIMING
+/* Diagnostic: the transport's music and game block totals, its music grants
+ * while a game read was active and its preemptions (in that order); and the
+ * controller's read observer, which the transport calls with the service's
+ * request at each attached bus event (GD calls, data blocks, interrupts). */
+void kui_armada_ce_stream_transport_play_counts(uint32_t out[4]);
+void kui_armada_ce_play_read(uint32_t token,bool pending,bool reading,uint32_t sectors,
+    bool produced,uint32_t grants);
+/* The worker's step, timed by the controller: mark before it, then its fresh
+ * PCM (UINT32_MAX unless the music is playing) and urgency after it. */
+void kui_armada_ce_play_step_begin(uint32_t mark[3]);
+void kui_armada_ce_play_step_end(const uint32_t mark[3],uint32_t reserve_bytes,bool urgent);
+#endif
 /* Masked authored-state update only. Enter urgency at one second of fresh
  * PCM, leave at1.5 seconds, and clear when inactive. A changed priority
  * applies at the next AUDIO grant; DATA's16-block allowance and its
  * synchronous one-reception preemption remain unchanged. */
 void kui_armada_ce_stream_transport_priority(uint32_t fresh_bytes,bool active);
 bool kui_armada_ce_stream_transport_urgent(void);
+#if KUI_ARMADA_CE_STREAM_EMERGENCY_PIO
+/* Masked authored-state update only. The source worker receives by
+ * programmed transfers only while the music plays with at most half a
+ * second of fresh PCM, until it has one second again; otherwise by DMA,
+ * urgent or not, prefill included. Without this build switch the worker
+ * receives by programmed transfers whenever the music is urgent. */
+void kui_armada_ce_stream_transport_pio_floor(uint32_t fresh_bytes,bool playing);
+bool kui_armada_ce_stream_transport_pio(void);
+#endif
 /* Masked state query for bounded worker visits: a pending AUDIO lease has
  * no reception in flight. The next pump can consume a ready block or
  * continue a sliced token search. Does not poll, fetch, copy or wait. */

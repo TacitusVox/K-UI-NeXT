@@ -46,6 +46,9 @@ struct authored_bus {
     bool pending,cancelled,revoked,stale_unlock,stale_source,bad_unlock,fail_end;
     bool bad_current,fail_ticks,driver_context,fail_owner_admission,urgent,priority_active,pio_ready;
     bool bad_object_page,bad_copy_page,lock_held;
+#if KUI_ARMADA_CE_STREAM_EMERGENCY_PIO
+    unsigned floor_updates;uint32_t floor_fresh;bool floor_playing;
+#endif
     uint32_t copy_page_address;
     unsigned copy_page_hits,copy_page_flip;
 } bus;
@@ -353,6 +356,15 @@ void kui_armada_ce_stream_transport_priority(uint32_t fresh,bool active) {
     bus.urgent=active && fresh<=176400u;
 }
 bool kui_armada_ce_stream_transport_urgent(void) {return bus.urgent;}
+#if KUI_ARMADA_CE_STREAM_EMERGENCY_PIO
+void kui_armada_ce_stream_transport_pio_floor(uint32_t fresh,bool playing) {
+    /* Published with priority, in the same masked bridge. The transport's
+     * own tests verify the floor's hysteresis and the worker's DMA. */
+    CHECK(bus.priority_updates==bus.floor_updates+1u && fresh==bus.priority_fresh &&
+        (!playing || bus.priority_active));
+    ++bus.floor_updates;bus.floor_fresh=fresh;bus.floor_playing=playing;
+}
+#endif
 bool kui_armada_ce_stream_transport_worker_can_pump(void) {
     CHECK(!bus.consumer && !bus.control);
     return bus.pio_ready && bus.pending && !bus.cancelled && !bus.revoked && !bus.pending_pumps;
@@ -740,6 +752,37 @@ static void ram_copy_boundaries(void) {
     }
     ++cases;
 }
+/* Ducati World's only CD-audio request, GD20 {t,t,1000}, queued while the
+ * player already plays a reviewed {1,1,15} selection. */
+static void long_repeat_play(void) {
+    reset(true,128u);prime();
+    uint32_t refused=player.stats.refused,plays=bus.plays,selection=player.model.selection;
+    (void)kui_armada_ce_excerpt_queue(NULL,20u,1u,1u,1000u);
+    CHECK(player.stats.repeat==1000u && player.stats.status==KUI_ARMADA_CE_EXCERPT_QUEUED);
+    visit();
+#if KUI_ARMADA_CE_STREAM_REPEAT_CLAMP
+    for(unsigned i=0;i<1000u && bus.plays==plays && !player.disabled;i++) visit();
+    CHECK(!player.disabled && player.stats.refused==refused && player.applied_play_epoch==player.mail.play_epoch &&
+        player.model.repeats==15u && player.model.infinite && player.model.selection!=selection &&
+        bus.plays==plays+1u && player.model.state==KUI_ARMADA_CE_STREAM_PLAYING);
+    /* PAUSE and RELEASE now apply to the accepted selection. */
+    selection=player.model.selection;
+    (void)kui_armada_ce_excerpt_queue(NULL,22u,0,0,0);visit();
+    CHECK(player.model.state==KUI_ARMADA_CE_STREAM_PAUSED && player.model.selection==selection);
+    (void)kui_armada_ce_excerpt_queue(NULL,23u,0,0,0);visit();
+    CHECK(player.model.selection==selection && player.model.infinite &&
+        (player.model.state==KUI_ARMADA_CE_STREAM_PREFILL || player.model.state==KUI_ARMADA_CE_STREAM_PLAYING));
+    (void)kui_armada_ce_excerpt_queue(NULL,33u,0,0,0);visit();
+    CHECK(player.model.state==KUI_ARMADA_CE_STREAM_STOPPED && !player.model.selection);
+#else
+    /* Refused and counted; the earlier selection keeps playing, and the
+     * unapplied PLAY epoch is retried (and refused again) on later controls. */
+    CHECK(player.stats.refused==refused+1u && player.model.selection==selection &&
+        player.model.repeats==15u && bus.plays==plays &&
+        player.applied_play_epoch!=player.mail.play_epoch && !player.disabled);
+#endif
+    ++cases;
+}
 int main(int argc,char **argv) {
     void *source_mapping=mmap((void *)(uintptr_t)KUI_ARMADA_CE_EXCERPT_POOL_BEGIN,512u*1024u,
         PROT_READ|PROT_WRITE,MAP_PRIVATE|MAP_ANONYMOUS|MAP_FIXED_NOREPLACE,-1,0);
@@ -779,9 +822,23 @@ int main(int argc,char **argv) {
     CHECK(!player.disabled && player.model.native_running && bus.urgent &&
         bus.priority_active && bus.priority_fresh==ready_bytes() &&
         bus.priority_fresh<=176400u);
+#if KUI_ARMADA_CE_STREAM_EMERGENCY_PIO
+    /* The floor sees the same fresh bytes, and playing only once the
+     * native buffer runs. */
+    CHECK(bus.floor_updates==bus.priority_updates && bus.floor_playing &&
+        bus.floor_fresh==bus.priority_fresh);
+#endif
     (void)kui_armada_ce_excerpt_queue(NULL,22u,0,0,0);visit();
     CHECK(!bus.urgent && !bus.priority_active &&
-        player.model.state==KUI_ARMADA_CE_STREAM_PAUSED);++cases;
+        player.model.state==KUI_ARMADA_CE_STREAM_PAUSED);
+#if KUI_ARMADA_CE_STREAM_EMERGENCY_PIO
+    CHECK(bus.floor_updates==bus.priority_updates && !bus.floor_playing);
+    /* Filling before playback is never an emergency. */
+    reset(true,128u);visit();
+    CHECK(bus.floor_updates==bus.priority_updates && bus.floor_updates && !bus.floor_playing &&
+        !player.model.native_running);
+#endif
+    ++cases;
     /* Native calls may wait after the worker entry timestamp. A delayed
      * cursor is checked against a clock captured after that call, and Play
      * records a fresh pre-call time because hardware may start while Play
@@ -1117,6 +1174,7 @@ int main(int argc,char **argv) {
     ++cases;
     /* Half a percent of clock mismatch for two minutes: no false stops. */
     CHECK(drifting_clock(5000u,120u)==0u);++cases;
+    long_repeat_play();
     CHECK(munmap(source_mapping,512u*1024u)==0 && munmap(host,0x60000u)==0);
     printf("armada stream player: %u cases, %u checks\n",cases,checks);return 0;
 }

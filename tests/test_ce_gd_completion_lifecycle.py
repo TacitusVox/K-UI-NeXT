@@ -38,6 +38,36 @@ CALLBACK_FIX='''#endif
          * Keeping a due flag with no callback can never be drained by EXEC
          * and would permanently prevent an otherwise idle VMU loan. */
 '''
+# A later reviewed CE change, off in this test's build: DMA stream pieces in
+# PVR memory (KUI_RETAIL_CE_VRAM_DMA, docs/wince-vram-stream.md). Each
+# (current, historical) pair must occur exactly once.
+VRAM_STREAM_HELPER='''#if KUI_RETAIL_CE_VRAM_DMA
+/* A DMA stream's transfer may also name PVR video memory: CE's driver sends
+ * a locked buffer's body straight to the 64-bit window, between RAM bounce
+ * pieces for its unaligned head and tail. The whole piece stays inside one
+ * window, 32-byte aligned; the mapper writes it uncached through P2. */
+static uint8_t *stream_guest(struct kui_retail_gd *s, uint32_t address,
+                             uint32_t bytes, int writing) {
+    uint32_t vram = kui_retail_vram_dma_map(address, bytes, 32u);
+    if(vram) return s->ops.map(s->ops.context, vram, bytes, writing);
+    return dma_guest(s, address, bytes, 32, writing);
+}
+#define STREAM_GUEST(s, address, bytes, writing) stream_guest(s, address, bytes, writing)
+#else
+#define STREAM_GUEST(s, address, bytes, writing) dma_guest(s, address, bytes, 32, writing)
+#endif
+'''
+VRAM_CPU_GUARD='''#if KUI_RETAIL_CE_VRAM_DMA
+        /* P1/P2 outside RAM is PVR memory or nothing: only a DMA stream's
+         * piece may name it (stream_guest), never a CPU pointer. */
+        if((address >> 29) - 4u < 2u) return NULL;
+#endif
+'''
+LATER_CHANGES=((VRAM_STREAM_HELPER,''),(VRAM_CPU_GUARD,''),
+    ('    uint8_t *out = STREAM_GUEST(s, s->xfer_destination, n, 1);\n',
+     '    uint8_t *out = dma_guest(s, s->xfer_destination, n, 32, 1);\n'),
+    ('       !STREAM_GUEST(s, destination, bytes, KUI_RETAIL_MAP_VALIDATE)) return -1;\n',
+     '       !dma_guest(s, destination, bytes, 32, KUI_RETAIL_MAP_VALIDATE)) return -1;\n'))
 NATIVE_PROFILES={
     'native-sync':(),
     'native-background':('KUI_RETAIL_GD_ASYNC=1',),
@@ -74,6 +104,10 @@ def main():
             text=(ROOT/'src/core/retail_gd.c').read_text()
             if text.count(DMA_FIX)!=1 or text.count(CALLBACK_FIX)!=1:
                 raise AssertionError('Exact lifecycle fix hunks changed; supply --baseline-ref')
+            for current,historical in LATER_CHANGES:
+                if text.count(current)!=1:
+                    raise AssertionError('Exact later CE hunk changed; supply --baseline-ref')
+                text=text.replace(current,historical)
             old=text.replace(DMA_FIX,'').replace(CALLBACK_FIX,'').encode()
         if hashlib.sha256(old).hexdigest()!=BASELINE_SHA256:
             raise AssertionError('Historical GD core differs from the pinned full-source hash')

@@ -39,7 +39,7 @@ static bool cooked_fixture;
 static struct {
     uint16_t iprb;
     uint32_t mmucr, table[2]; /* the SCI's ERI and RXI entries */
-    unsigned acquires, writes, virtual_writes;
+    unsigned acquires, writes, virtual_writes, pvr_writes, pvr_irq_writes;
     bool frozen, in_irq;
 } hw;
 static struct { unsigned drive, dma_end; } ev;
@@ -124,8 +124,29 @@ static void fixture(unsigned take_max) {
 }
 
 /* ---- Guest memory and GD calls, as the resident makes them ---- */
+#if KUI_RETAIL_CE_VRAM_DMA
+#include "kui/retail_vram_dma.h"
+/* PVR memory's 64-bit view, as the resident maps a DMA stream's piece there
+ * (retail_resident.c map_guest): its uncached P2 address, also from the
+ * interrupt. */
+/* PVR memory's 64-bit and 32-bit views (0x04000000 and 0x05000000). */
+static uint8_t pvr[0x800000], pvr32[0x800000], big[257u * 2048u];
+#endif
 static uint8_t *map(void *unused, uint32_t address, uint32_t bytes, int writing) {
     (void)unused;
+#if KUI_RETAIL_CE_VRAM_DMA
+    if((address >> 29) - 4u < 2u && (address & 0xff000000u) != 0x8c000000u &&
+       (address & 0xff000000u) != 0xac000000u) {
+        uint32_t p2 = kui_retail_vram_dma_span(address, bytes);
+        CHECK(p2 && (p2 & 0xfe000000u) == 0xa4000000u);
+        uint8_t *view = p2 & 0x01000000u ? pvr32 : pvr;
+        if(writing == KUI_RETAIL_MAP_VALIDATE) return view + sizeof(pvr);
+        CHECK(!hw.frozen && writing == 1);
+        ++hw.pvr_writes;
+        if(hw.in_irq) ++hw.pvr_irq_writes;
+        return view + (p2 & 0x007fffffu);
+    }
+#endif
     if(address < VBASE + VBYTES && address >= VBASE) {
         /* CE's virtual memory: only in CE's own calls, never the interrupt. */
         CHECK(!hw.in_irq && bytes <= VBASE + VBYTES - address);
@@ -206,6 +227,10 @@ static void setup(unsigned take_max, bool mmu) {
     m.sar = 0x11111111u; m.dar = 0x22222222u; m.tcr = 0x33u; m.chcr = 0; m.dmaor = 0x8201u;
     m.delay = RECEIVE_POLLS; m.late_take = true;
     memset(&R, 0, sizeof(R)); /* _start clears resident BSS */
+#if KUI_RETAIL_CE_READAHEAD
+    /* No pool until a test installs one, as before the stage's relay. */
+    memset(&kui_retail_ce_pool, 0, sizeof(kui_retail_ce_pool));
+#endif
     m.areas[0] = R.area0; m.areas[1] = R.area1;
     struct kui_loader_sd *sd = &R.shared.card.device.sd;
     R.shared.card.transport = KUI_STORAGE_SCI;
@@ -492,6 +517,63 @@ static void test_dma_stream_pieces(void) {
     static const uint32_t whole[7] = {0x10000u, 0, 0, 0, 0, 0, 0};
     dma_stream(45010, 32, whole, 8);
 }
+
+#if KUI_RETAIL_CE_VRAM_DMA
+/* KISS Psycho Circus's and Virtua Cop 2's pieces (WCEDATA session, 19 Nov
+ * 2026): 32 bytes of RAM, the locked buffer's body in PVR memory, then
+ * 2016 bytes of RAM, through the background reader and its interrupt, as
+ * CE's driver waits for them; and KISS's shape in the 32-bit view, which the
+ * reader's P1 alias of the piece must keep. */
+static void test_vram_stream_pieces(void) {
+    static const struct { uint32_t sectors, vram, body; } shapes[] = {
+        {10, 0x044c0360u, 0x4800u}, {257, 0x04575600u, 0x80000u}, {10, 0x054c0360u, 0x4800u}};
+    for(unsigned k = 0; k < 3; ++k) {
+        setup(48, true);
+        mode(2048);
+        memset(pvr, 0x3c, sizeof(pvr)); memset(pvr32, 0x3c, sizeof(pvr32));
+        uint8_t *view = shapes[k].vram & 0x01000000u ? pvr32 : pvr;
+        const uint8_t *other = view == pvr ? pvr32 : pvr;
+        const uint32_t total = shapes[k].sectors * 2048u, body = shapes[k].body;
+        const uint32_t offset = shapes[k].vram & 0x007fffffu;
+        CHECK(0x20u + body + 0x7e0u == total);
+        for(uint32_t at = 0; at < shapes[k].sectors; at += KUI_RETAIL_IMAGE_MAX_SECTORS) {
+            uint32_t n = shapes[k].sectors - at;
+            if(n > KUI_RETAIL_IMAGE_MAX_SECTORS) n = KUI_RETAIL_IMAGE_MAX_SECTORS;
+            CHECK(kui_retail_image_read(&reference, 45000 + at, n, KUI_GAME_SECTOR_MODE1,
+                big + at * 2048u, sizeof(big) - at * 2048u) == KUI_GAME_OK);
+        }
+        int32_t token = request(KUI_RETAIL_GD_DMAREAD_STREAM, 45000, shapes[k].sectors, 0);
+        const uint32_t dest[3] = {OUTPUT & 0x1fffffffu, shapes[k].vram, (OUTPUT + 0x40u) & 0x1fffffffu};
+        const uint32_t size[3] = {0x20u, body, 0x7e0u};
+        for(unsigned i = 0; i < 3; ++i) {
+            put(PIECE, dest[i]); put(PIECE + 4, size[i]);
+            unsigned end = ev.dma_end, woken = ev.drive;
+            CHECK(gd(KUI_GD_DMA_TRANSFER, (uint32_t)token, PIECE) == 0);
+            for(unsigned round = 0;; ++round) {
+                CHECK(round < 1000000u);
+                if(ev.drive != woken) {woken = ev.drive; (void)gd(KUI_GD_EXEC, 0, 0);}
+                if(ev.dma_end != end) {
+                    end = ev.dma_end;
+                    if(gd(KUI_GD_DMA_CHECK, (uint32_t)token, STATUS) == 0) break;
+                    continue;
+                }
+                if(!interrupts(4)) elapse();
+            }
+            CHECK(!R.shared.service.xfer_left);
+        }
+        CHECK(status(token) == KUI_GD_COMPLETED && get(STATUS + 8) == total);
+        CHECK(!memcmp(ram + OUTPUT - BEGIN, big, 0x20u) && ram[OUTPUT - BEGIN + 0x20u] == 0xa5);
+        CHECK(!memcmp(view + offset, big + 0x20u, body));
+        CHECK(view[offset - 1u] == 0x3c && view[offset + body] == 0x3c);
+        for(uint32_t i = 0; i < sizeof(pvr); i += 4093u) CHECK(other[i] == 0x3c);
+        CHECK(other[offset] == 0x3c && other[offset + body - 1u] == 0x3c);
+        CHECK(!memcmp(ram + OUTPUT + 0x40u - BEGIN, big + 0x20u + body, 0x7e0u));
+        CHECK(ram[OUTPUT - BEGIN + 0x40u + 0x7e0u] == 0xa5);
+        CHECK(hw.pvr_irq_writes && hw.pvr_writes >= hw.pvr_irq_writes && !hw.virtual_writes);
+        CHECK(!R.engine.spill_bytes);
+    }
+}
+#endif
 
 /* ---- PIO streams: CE's driver's own (virtual) buffer, through read_part ---- */
 static void test_pio_stream(void) {
@@ -964,6 +1046,310 @@ static void test_cooked_reads(void) {
     test_stress();
     cooked_fixture = false;
 }
+#if KUI_RETAIL_CE_READAHEAD
+/* ---- Read-ahead into the stage's pool ---- */
+static uint8_t pool[64u * 1024u] __attribute__((aligned(32)));
+#define POOL_BLOCKS (sizeof(pool) / 512u)
+/* What the stage's relay writes once its checks pass. */
+static void pool_install(void) {
+    kui_retail_ce_pool = (struct kui_ce_ram_pool_record){KUI_CE_RAM_POOL_MAGIC, sizeof(pool), (uintptr_t)pool};
+}
+/* What the pool says it holds is the card's own blocks, in one extent. */
+static void pool_checked(void) {
+    const struct kui_retail_async *g = &R.engine;
+    CHECK(g->ra_count <= g->ra_limit && g->ra_limit <= POOL_BLOCKS);
+    for(uint32_t i = 0; i < g->ra_count; ++i)
+        CHECK(!memcmp(pool + i * 512u, image_card + (g->ra_first + i) * 512u, 512u));
+    if(!g->ra_limit) return;
+    bool inside = false;
+    for(uint32_t i = 0; i < manifest.extent_count; ++i) {
+        const struct kui_retail_extent *x = &manifest.slots[4u + i].extent;
+        if(g->ra_first - x->card_lba < x->blocks)
+            inside = g->ra_first + g->ra_limit <= x->card_lba + x->blocks;
+    }
+    CHECK(inside);
+}
+/* The card block holding the first byte of sector lba. */
+static uint32_t card_block(uint32_t lba) {
+    struct kui_retail_cursor c;
+    CHECK(kui_retail_cursor_begin(&c, &manifest, lba, 1, KUI_GAME_SECTOR_MODE1, NULL, NULL) == KUI_GAME_OK);
+    return c.block;
+}
+/* An ordinary read into P1 RAM, compared with the image reader's bytes. */
+static void read_ok(uint32_t command, uint32_t lba, uint32_t count, unsigned irqs) {
+    uint32_t bytes = count * R.shared.service.sector_bytes;
+    memset(ram + (OUTPUT - BEGIN), 0xa5, bytes + 1u);
+    int32_t token = request(command, lba, count, OUTPUT);
+    CHECK(finish(token, irqs) == KUI_GD_COMPLETED);
+    reference_read(lba, count);
+    CHECK(!memcmp(ram + (OUTPUT - BEGIN), expected, bytes));
+    CHECK(ram[OUTPUT - BEGIN + bytes] == 0xa5);
+}
+static void test_readahead_needs_pool(void) {
+    /* Before the relay publishes the pool (or on a kernel that kept all
+     * its RAM): sequential reads, and nothing read ahead; idle, the SCI's
+     * level is CE's again after every read. */
+    cooked_fixture = true;
+    setup(2000, true);
+    mode(2048);
+    const struct kui_retail_async *g = &R.engine;
+    for(uint32_t n = 0; n < 6u; ++n) {
+        read_ok(KUI_GD_DMAREAD, 45000u + n * 8u, 8, 12);
+        CHECK(!kui_sci_stream_busy() && hw.iprb == 0x5a0f && g->stats.hooks == g->stats.releases);
+    }
+    CHECK(!g->ra_stored && !g->ra_served && !g->ra_fill);
+    CHECK(g->ra_expect == card_block(45048u));
+    cooked_fixture = false;
+}
+static void test_readahead_sequential(void) {
+    /* A game streaming 16 sectors at a time and working between reads.
+     * Two reads make a sequence: from the third on, the blocks that arrived
+     * meanwhile come from the pool, then the stream's own block in flight.
+     * The card's one CMD18 runs throughout. */
+    cooked_fixture = true;
+    setup(2000, true);
+    pool_install();
+    mode(2048);
+    const struct kui_retail_async *g = &R.engine;
+    for(uint32_t n = 0; n < 10u; ++n) {
+        uint32_t served = g->ra_served, lba = 45000u + n * 16u;
+        read_ok(KUI_GD_DMAREAD, lba, 16, 12);
+        CHECK(n < 2u ? g->ra_served == served : g->ra_served > served);
+        /* The next read's first block: in the pool or on its way. */
+        if(n) CHECK(g->ra_fill && g->ra_first + g->ra_count >= card_block(lba + 16u) &&
+                    g->ra_first <= card_block(lba + 16u) && kui_sci_stream_busy() && level_up());
+        else CHECK(!g->ra_fill && !kui_sci_stream_busy());
+        CHECK(g->ra_expect == card_block(lba + 16u));
+        (void)interrupts(24); /* the game works */
+        pool_checked();
+    }
+    CHECK(card.cmd18 == 1u && !card.cmd12 && !kui_sci_stream_stats()->crc_errors);
+    CHECK(g->ra_served > 8u * 10u && g->ra_stored >= g->ra_served);
+    cooked_fixture = false;
+}
+static void test_readahead_shared_blocks(void) {
+    /* 2352-byte sectors: the next read often begins in the last block the
+     * previous read fed, which the stream still keeps. A window then begins
+     * with that block, from there. Data reads, then whole raw sectors. */
+    setup(2000, true);
+    pool_install();
+    const struct kui_retail_async *g = &R.engine;
+    unsigned shared = 0, fresh = 0;
+    for(unsigned pass = 0; pass < 2u; ++pass) {
+        mode(pass ? 2352u : 2048u);
+        uint32_t lba = pass ? 45150u : 45000u;
+        for(uint32_t n = 0; n < 12u; ++n, lba += 7u) {
+            uint32_t served = g->ra_served;
+            read_ok(KUI_GD_DMAREAD, lba, 7, 12);
+            if(n >= 2u) CHECK(g->ra_served > served);
+            if(n && g->ra_count) {
+                if(g->ra_first == g->cursor.block) ++shared;
+                else {CHECK(g->ra_first == g->cursor.block + 1u); ++fresh;}
+            }
+            (void)interrupts(18);
+            pool_checked();
+        }
+    }
+    CHECK(shared && fresh && !kui_sci_stream_stats()->crc_errors);
+}
+static void test_readahead_elsewhere(void) {
+    /* A read elsewhere stops the read-ahead and moves the stream; the pool
+     * stays valid, and a read back where it was is served from it at once,
+     * before any interrupt, and the read-ahead goes on from there. */
+    cooked_fixture = true;
+    setup(2000, true);
+    pool_install();
+    mode(2048);
+    const struct kui_retail_async *g = &R.engine;
+    read_ok(KUI_GD_DMAREAD, 45000, 8, 12);
+    read_ok(KUI_GD_DMAREAD, 45008, 8, 12);
+    CHECK(g->ra_fill && g->ra_first == card_block(45016u));
+    (void)interrupts(30);
+    uint32_t first = g->ra_first, count = g->ra_count;
+    CHECK(count >= 12u && count < g->ra_limit);
+    unsigned cmd18 = card.cmd18;
+    read_ok(KUI_GD_DMAREAD, 45200, 4, 12);
+    CHECK(!g->ra_fill && card.cmd18 == cmd18 + 1u && g->ra_first == first && g->ra_count == count);
+    CHECK(g->ra_expect == card_block(45204u));
+    pool_checked();
+    uint32_t served = g->ra_served;
+    memset(ram + (OUTPUT - BEGIN), 0xa5, 3u * 2048u + 1u);
+    int32_t token = request(KUI_GD_DMAREAD, 45016, 3, OUTPUT);
+    CHECK(status(token) == KUI_GD_COMPLETED && g->ra_served == served + 12u);
+    reference_read(45016, 3);
+    CHECK(!memcmp(ram + (OUTPUT - BEGIN), expected, 3u * 2048u) && ram[OUTPUT - BEGIN + 3u * 2048u] == 0xa5);
+    /* On in the same window: its next block, after the pool's last. */
+    CHECK(g->ra_fill && g->ra_first == first && card.cmd18 == cmd18 + 2u);
+    (void)interrupts(30);
+    CHECK(g->ra_count > count);
+    pool_checked();
+    read_ok(KUI_GD_DMAREAD, 45019, 8, 12);
+    CHECK(g->ra_served > served + 12u);
+    cooked_fixture = false;
+}
+static void test_readahead_extent_end(void) {
+    /* Small extents scattered over the card: a window never passes its
+     * extent's end; the read that crosses it goes on by the stream. */
+    cooked_fixture = true;
+    setup(48, true);
+    pool_install();
+    mode(2048);
+    const struct kui_retail_async *g = &R.engine;
+    unsigned limited = 0;
+    for(uint32_t n = 0, lba = 45000; n < 24u; ++n, lba += 5u) {
+        read_ok(KUI_GD_DMAREAD, lba, 5, 12);
+        (void)interrupts(40);
+        pool_checked();
+        if(g->ra_limit && g->ra_limit < 20u) ++limited;
+    }
+    CHECK(limited && g->ra_served > 100u && !kui_sci_stream_stats()->crc_errors);
+    cooked_fixture = false;
+}
+static void test_readahead_crc(void) {
+    /* A block the read-ahead receives fails its CRC: the read-ahead stops
+     * there, keeping what it stored; the next read takes those from the
+     * pool and fetches that block afresh. */
+    cooked_fixture = true;
+    setup(2000, true);
+    pool_install();
+    mode(2048);
+    const struct kui_retail_async *g = &R.engine;
+    read_ok(KUI_GD_DMAREAD, 45000, 8, 12);
+    read_ok(KUI_GD_DMAREAD, 45008, 8, 12);
+    CHECK(g->ra_fill);
+    card.corrupt_lba = g->ra_first + 9u;
+    card.corrupt_count = 1u;
+    (void)interrupts(40);
+    CHECK(!g->ra_fill && g->ra_count == 9u && kui_sci_stream_stats()->crc_errors == 1u);
+    CHECK(!kui_sci_stream_busy() && hw.iprb == 0x5a0f);
+    pool_checked();
+    uint32_t served = g->ra_served;
+    read_ok(KUI_GD_DMAREAD, 45016, 8, 12);
+    CHECK(g->ra_served == served + 9u && !card.corrupt_count);
+    cooked_fixture = false;
+}
+static void test_readahead_dma_only(void) {
+    /* Channel 1 not free (the game's own transfer): the read reads by
+     * programmed transfers, as before; the read-ahead then stops instead of
+     * receiving a block nobody asked for that way, interrupts masked. */
+    cooked_fixture = true;
+    setup(2000, true);
+    pool_install();
+    mode(2048);
+    const struct kui_retail_async *g = &R.engine;
+    read_ok(KUI_GD_DMAREAD, 45000, 8, 12);
+    m.chcr = 1;
+    unsigned polled = kui_sci_stream_stats()->polled;
+    read_ok(KUI_GD_DMAREAD, 45008, 8, 12);
+    unsigned after = kui_sci_stream_stats()->polled;
+    CHECK(after > polled && !g->ra_fill && !g->ra_count && !kui_sci_stream_busy());
+    CHECK(hw.iprb == 0x5a0f && !interrupts(30) && kui_sci_stream_stats()->polled == after);
+    m.chcr = 0;
+    /* Free again: the next sequential read arms it once more. */
+    read_ok(KUI_GD_DMAREAD, 45016, 8, 12);
+    CHECK(g->ra_fill && kui_sci_stream_busy());
+    cooked_fixture = false;
+}
+static void test_readahead_quiet_when_full(void) {
+    /* A full window: nothing in flight, the SCI's level CE's again, an SCI
+     * event not the reader's. A read the pool holds completes at once. */
+    cooked_fixture = true;
+    setup(2000, true);
+    pool_install();
+    mode(2048);
+    const struct kui_retail_async *g = &R.engine;
+    read_ok(KUI_GD_DMAREAD, 45000, 4, 12);
+    read_ok(KUI_GD_DMAREAD, 45004, 4, 12);
+    for(unsigned i = 0; i < 400u && g->ra_fill; ++i) (void)interrupts(8);
+    CHECK(!g->ra_fill && g->ra_count == POOL_BLOCKS && g->ra_limit == POOL_BLOCKS);
+    CHECK(!kui_sci_stream_busy() && hw.iprb == 0x5a0f && g->stats.hooks == g->stats.releases);
+    CHECK(kui_retail_async_irq() == 1 && hw.iprb == 0x5a0f);
+    pool_checked();
+    memset(ram + (OUTPUT - BEGIN), 0xa5, 32u * 2048u + 1u);
+    unsigned blocks = kui_sci_stream_stats()->blocks;
+    int32_t token = request(KUI_GD_DMAREAD, 45008, 32, OUTPUT);
+    CHECK(status(token) == KUI_GD_COMPLETED && kui_sci_stream_stats()->blocks == blocks);
+    reference_read(45008, 32);
+    CHECK(!memcmp(ram + (OUTPUT - BEGIN), expected, 32u * 2048u) && ram[OUTPUT - BEGIN + 32u * 2048u] == 0xa5);
+    /* Past the pool's end: a new window from the stream's own next block. */
+    read_ok(KUI_GD_DMAREAD, 45040, 4, 12);
+    CHECK(g->ra_fill && g->ra_first == card_block(45044u));
+    cooked_fixture = false;
+}
+static void test_readahead_virtual_and_streams(void) {
+    /* CE's virtual buffers are filled from the pool only in its own calls
+     * (map refuses them in the interrupt); DMA streams take pooled blocks
+     * into their transfers' pieces. One extent: every read here goes on
+     * where the last stopped (test_readahead_extent_end crosses them). */
+    cooked_fixture = true;
+    setup(2000, true);
+    pool_install();
+    mode(2048);
+    const struct kui_retail_async *g = &R.engine;
+    for(uint32_t n = 0, lba = 45010; n < 6u; ++n, lba += 10u) {
+        uint32_t dest = VBASE + 0x800u, served = g->ra_served;
+        memset(vram, 0xa5, sizeof(vram));
+        int32_t token = request(KUI_GD_PIOREAD, lba, 10, dest);
+        for(unsigned round = 0; round < 100000u; ++round) {
+            (void)interrupts(3);
+            if(status(token) != KUI_GD_PROCESSING) break;
+        }
+        CHECK(!R.shared.service.pending);
+        reference_read(lba, 10);
+        CHECK(!memcmp(vram + (dest - VBASE), expected, 10u * 2048u) && vram[dest - VBASE + 10u * 2048u] == 0xa5);
+        if(n >= 2u) CHECK(g->ra_served > served);
+        (void)interrupts(16);
+        pool_checked();
+    }
+    static const uint32_t sizes[7] = {32, 4096, 2080, 96, 8192, 512, 1600};
+    for(uint32_t n = 0, lba = 45100; n < 5u; ++n, lba += 12u) {
+        uint32_t served = g->ra_served;
+        dma_stream(lba, 12, sizes, 4);
+        if(n >= 2u) CHECK(g->ra_served > served);
+        (void)interrupts(16);
+        pool_checked();
+    }
+    cooked_fixture = false;
+}
+static void test_readahead_stress(void) {
+    /* Reads that mostly go on where the last stopped, of every kind, with
+     * card and channel faults, and the game's work between them. */
+    cooked_fixture = true;
+    for(unsigned layout = 0; layout < 2u; ++layout) {
+        setup(layout ? 48u : 2000u, true);
+        pool_install();
+        mode(2048);
+        srand(4242u + layout);
+        const struct kui_retail_async *g = &R.engine;
+        uint32_t lba = 45000;
+        for(unsigned round = 0; round < 300u; ++round) {
+            uint32_t count = 1u + (uint32_t)rand() % 20u;
+            if(rand() % 4 == 0 || lba + count > 45300u) lba = 45000u + (uint32_t)rand() % (300u - count);
+            int fault = rand() % 8;
+            if(fault == 0) {card.corrupt_lba = 100u + (uint32_t)rand() % 1800u; card.corrupt_count = 1;}
+            if(fault == 1) {m.overrun_after = 1u + (unsigned)rand() % 512u; m.in_flight = rand() % 2;}
+            if(fault == 2) m.chcr = 1;
+            uint32_t sizes[7];
+            for(unsigned i = 0; i < 7; ++i) sizes[i] = 32u * (1u + (uint32_t)rand() % 300u);
+            int kind = rand() % 3;
+            if(kind == 0) dma_stream(lba, count, sizes, 1u + (unsigned)rand() % 5u);
+            else read_ok(kind == 1 ? KUI_GD_DMAREAD : KUI_GD_PIOREAD, lba, count, (unsigned)rand() % 6u);
+            /* Only the fault injected: the read-ahead's own reception may be
+             * in flight, and clearing CHCR would stop it mid-block. */
+            if(fault == 2) m.chcr = 0;
+            m.overrun_after = 0; card.corrupt_count = 0; m.in_flight = false;
+            (void)interrupts((unsigned)rand() % 40u);
+            pool_checked();
+            lba += count;
+        }
+        printf("read-ahead stress (extents of %u): served %u stored %u\n", layout ? 48u : 2000u,
+            g->ra_served, g->ra_stored);
+        fflush(stdout);
+        CHECK(g->ra_served > 1000u);
+    }
+    cooked_fixture = false;
+}
+#endif
 int main(void) {
     test_dma_reads_by_interrupt();
     test_before_ce_runs();
@@ -972,6 +1358,9 @@ int main(void) {
     test_prefetch_between_dma_pieces();
     test_prefetched_stream_tail();
     test_dma_stream_pieces();
+#if KUI_RETAIL_CE_VRAM_DMA
+    test_vram_stream_pieces();
+#endif
     test_pio_stream();
     test_abort_writes_nothing_more();
     test_abort_discards_prefetch();
@@ -992,6 +1381,18 @@ int main(void) {
     test_level_dropped_in_a_call();
     test_stress();
     test_cooked_reads();
+#if KUI_RETAIL_CE_READAHEAD
+    test_readahead_needs_pool();
+    test_readahead_sequential();
+    test_readahead_shared_blocks();
+    test_readahead_elsewhere();
+    test_readahead_extent_end();
+    test_readahead_crc();
+    test_readahead_dma_only();
+    test_readahead_quiet_when_full();
+    test_readahead_virtual_and_streams();
+    test_readahead_stress();
+#endif
     printf("retail async reader (Windows CE): %u checks passed\n", checks);
     return 0;
 }

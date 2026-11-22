@@ -23,7 +23,10 @@
 /* ---- the reader's environment ---- */
 #define KUI_RETAIL_CE 1
 #define KUI_RETAIL_ASYNC 1
-#define KUI_WCE_PROBE 1
+#ifndef KUI_WCE_PROBE
+#define KUI_WCE_PROBE 1 /* 2: the timing session's reader (request ring, no Maple sampling) */
+#endif
+#define KUI_CE_SCI_SLOW_AFTER_OVERRUN 1
 #define KUI_WCE_PROBE_HOST_TEST 1
 #include "kui/wce_probe.h"
 #include "kui/gd_service.h"
@@ -40,14 +43,27 @@ static struct {
     uint8_t area1[544] __attribute__((aligned(32)));
     uint8_t spill[KUI_RETAIL_ASYNC_SPILL_BYTES];
     struct {
-        struct {uint32_t count,outputs[4];} service;
+        struct {uint32_t count,outputs[4],lba,token,pending,error,status;} service;
         struct {struct {struct kui_loader_sd sd;} device;} card;
+        struct {struct {uint32_t overruns,slow_blocks;} stats;} stream;
     } shared;
 } R;
 struct host_manifest {uint64_t card_sectors,partition_start,partition_end;};
 static const struct host_manifest host_map={BLOCKS_FOR_MAP,0u,BLOCKS_FOR_MAP};
-static struct {uint32_t opened;const struct host_manifest *manifest;} e;
+static struct {
+    uint32_t opened;const struct host_manifest *manifest;
+    struct {uint32_t irq_blocks,call_blocks;} stats;
+} e;
+/* CE's kernel words: word 2 is KData + 0x84, CE's millisecond count follows. */
+volatile uint32_t kui_retail_ce_kernel[4]={0x8c1203c0u,0x8c1202a8u,0x8c120084u,0x8c1204c4u};
+#define CE_MS_OFFSET 0x120088u
+static uint32_t mmucr,tcnt0,tcor0=124999u; /* TMU0 at Pphi/4: 12500 ticks a ms */
+/* The timing session's: TCR0 (TPSC 0; bit 8 is UNF) and VBR (bootstrap 2's
+ * until CE's). */
+static uint16_t host_tcr0 __attribute__((unused));
+static uint32_t host_vbr __attribute__((unused))=0x8c00f400u;
 volatile uint32_t kui_retail_hook_fault;
+volatile uint32_t kui_retail_hook_caller[2];
 
 #define BLOCKS (128u*1024u*1024u/512u)
 static uint8_t *disk;
@@ -67,6 +83,9 @@ static void check(bool ok,const char *what) {if(!ok) fail(what);}
 
 static uint32_t host_reg(uint32_t address) {
     switch(address) {
+    case 0xff000010u: return mmucr;
+    case 0xffd80008u: return tcor0;
+    case 0xffd8000cu: return tcnt0;
     case 0xa05f6c04u: return mdstar;
     case 0xa0710000u: return rtc_seconds>>16;
     case 0xa0710004u: return rtc_seconds&0xffffu;
@@ -80,6 +99,9 @@ static const void *host_ram(uint32_t address) {
     return ram+(physical-0x0c000000u);
 }
 #define WCE_PROBE_REG(address) host_reg(address)
+#define WCE_PROBE_REG16(address) ((address)==0xffd80010u?host_tcr0:(uint16_t)host_reg(address))
+#define WCE_PROBE_VBR() host_vbr
+#define WCE_PROBE_TIMING ((struct kui_wce_probe_timing *)(void *)(ram+(KUI_WCE_PROBE_TIMING_ADDRESS-0x8c000000u)))
 #define WCE_PROBE_RAM(address) host_ram(address)
 #define WCE_PROBE_REBOOT() longjmp(rebooted,1)
 static unsigned cache_purges;
@@ -101,6 +123,13 @@ enum kui_loader_sd_result kui_sci_sd_write(struct kui_loader_sd *card,uint32_t l
     ++writes;return KUI_LOADER_SD_OK;
 }
 #include "../src/loader/wce_probe_reader.inc"
+/* The data session's counters are the resident's; the timing session's live
+ * in its ring area, which session() takes afresh. */
+#if KUI_WCE_PROBE == 1
+#define RESET_COUNTERS() memset(&probe,0,sizeof(probe))
+#else
+#define RESET_COUNTERS() ((void)0)
+#endif
 
 /* ---- FatFs RAM disk ---- */
 DSTATUS disk_initialize(BYTE drive) {return drive || !disk?STA_NOINIT:0;}
@@ -153,6 +182,7 @@ static void stage(struct kui_wce_probe_seed *seed,uint32_t expected_slot,const c
     memcpy(report.r.magic,"KUIWCEST",8u);report.r.version=1u;report.r.bytes=sizeof(report.r);
     memcpy(report.r.build,"0000000000aa",12u);report.r.rtc=rtc_seconds;report.r.slot=c.slot;
     report.r.kernel_bytes=1253376u;report.r.kernel_crc32=0xa5a5a5a5u;report.r.track_count=3u;
+    report.r.flags=KUI_WCE_PROBE==2?2u:0u; /* as wce_probe_stage.inc marks a timing build */
     memcpy(report.r.ip,"SEGA SEGAKATANA SEGA ENTERPRISES",32u);
     memcpy(report.r.ip+64,product,strlen(product));
     memcpy(report.r.ip+128,"HOST TEST GAME",14u);
@@ -169,15 +199,75 @@ static void stage(struct kui_wce_probe_seed *seed,uint32_t expected_slot,const c
     kui_wce_probe_seed_build(&c,rtc_seconds,1u,seed);
 }
 
+#if KUI_WCE_PROBE == 2
+static void set_ms(uint32_t ms) {memcpy(ram+CE_MS_OFFSET,&ms,4u);}
+/* The end of a GD call or an interrupt that took `ticks` (TMU0 counts down;
+ * an underflow pending now was pending at its start too). */
+static uint32_t pending(void) {return host_tcr0&0x100u?KUI_WCE_PROBE_TMU_PENDING:0u;}
+static void timed_call(uint32_t function,uint32_t ticks) {(void)function;tcnt0=60000u-ticks;kui_wce_probe_time_call(60000u|pending());}
+static void timed_irq(uint32_t ticks) {tcnt0=60000u-ticks;kui_wce_probe_time_irq(60000u|pending());}
+#endif
 static void session(void) {
     /* A GD session: init, reads, CD audio, a refused tray command, and enough
-     * calls for the Maple sampler. */
+     * calls for the Maple sampler. The timing reader also times every read:
+     * the ring stays untouched until CE runs (its MMU on, its own VBR and
+     * stack, for a prepared session); read i is issued 34999 TMU0 ticks into
+     * a tick of CE's and ends 10 + i ms later by CE's count, (i + 1) * 125
+     * ticks after the next tick's 65000th; it spends 100 us in its REQUEST,
+     * two 200 us interrupts and a CHECK of (i + 1) * 10 us; read 5 ends with
+     * an underflow pending, read 7 fails, read 39 is still open at the end. */
+#if KUI_WCE_PROBE == 2
+    /* Bootstrap 2's area holds its pattern again (an earlier session's ring
+     * may be there). */
+    for(uint32_t page=14u;page<16u;page++)
+        for(uint32_t i=0;i<1024u;i++) ((uint32_t *)(void *)ram)[page*1024u+i]=page*2654435761u^i;
+    mmucr=0u;set_ms(5u);probe_timing_on=0u;host_tcr0=0u;
+    host_vbr=0x8c0c4000u;kui_retail_hook_caller[1]=0x8c0fff00u;
+#endif
     kui_wce_probe_record(KUI_GD_INIT,0u,0);
+#if KUI_WCE_PROBE == 2
+    timed_call(KUI_GD_INIT,1000u);timed_irq(500u);
+    /* CE's MMU on, but bootstrap 2's VBR; then the boot stack some kernels
+     * call from; then a session the stage did not prepare. */
+    mmucr=0x105u;host_vbr=0x8c00f400u;kui_wce_probe_record(KUI_GD_DRIVE,0u,0);
+    host_vbr=0x8c0c4000u;kui_retail_hook_caller[1]=0x8c00f3f8u;kui_wce_probe_record(KUI_GD_DRIVE,0u,0);
+    kui_retail_hook_caller[1]=0x8c0fff00u;
+    uint32_t seed_magic=kui_wce_probe_seed.magic;kui_wce_probe_seed.magic=0u;
+    kui_wce_probe_record(KUI_GD_DRIVE,0u,0);kui_wce_probe_seed.magic=seed_magic;
+    check(!probe_timing_on && ((uint32_t *)(void *)ram)[0xe000u/4u]==14u*2654435761u &&
+          ((uint32_t *)(void *)ram)[0xf000u/4u+5u]==(15u*2654435761u^5u),
+          "the ring waits for CE's MMU, VBR and stack and a prepared session: bootstrap 2's area untouched");
+#endif
     for(unsigned i=0;i<40u;i++) {
         R.shared.service.count=32u+i;
+#if KUI_WCE_PROBE == 2
+        set_ms(1000u+100u*i);tcnt0=90000u;
+        R.shared.service.lba=45000u+64u*i;R.shared.service.token=i+1u;R.shared.service.pending=1u;
+        R.shared.service.error=0u;R.shared.service.status=KUI_GD_PROCESSING;
+#endif
         kui_wce_probe_record(KUI_GD_REQUEST,KUI_GD_DMAREAD,(int32_t)(i+1u));
+#if KUI_WCE_PROBE == 2
+        timed_call(KUI_GD_REQUEST,1250u);
+        R.shared.stream.stats.overruns+=i%3u;R.shared.stream.stats.slow_blocks+=i%5u;
+        timed_irq(2500u);timed_irq(2500u);
+        set_ms(1000u+100u*i+10u+i);
+        if(i==7u) R.shared.service.error=4u;
+        if(i!=39u) {R.shared.service.pending=0u;R.shared.service.status=i==7u?KUI_GD_FAILED:KUI_GD_COMPLETED;}
+        if(i==5u) host_tcr0=0x100u;
+#endif
         kui_wce_probe_record(KUI_GD_CHECK,0u,2);
+#if KUI_WCE_PROBE == 2
+        timed_call(KUI_GD_CHECK,125u*(i+1u));
+        host_tcr0=0u;
+#endif
     }
+#if KUI_WCE_PROBE == 2
+    /* TMU0 reloaded during an interrupt: 100 ticks before, 51 after; then an
+     * underflow raised during one and still pending at its end. */
+    tcnt0=tcor0-50u;kui_wce_probe_time_irq(100u);
+    tcnt0=50u;host_tcr0=0x100u;kui_wce_probe_time_irq(100u);host_tcr0=0u;
+    set_ms(9000u);
+#endif
     for(unsigned i=0;i<14u;i++) {
         R.shared.service.outputs[0]=2u+i;R.shared.service.outputs[1]=3u+i;R.shared.service.outputs[2]=15u;
         kui_wce_probe_record(KUI_GD_REQUEST,i%2u?KUI_RETAIL_GD_PAUSE:KUI_RETAIL_GD_PLAY,(int32_t)(100u+i));
@@ -192,7 +282,8 @@ static void write_file(const char *path,const void *data,size_t bytes) {
 }
 
 int main(int argc,char **argv) {
-    if(argc!=7) return 2;
+    /* argv[7], the timing build's only: where its wrapped ring goes. */
+    if(argc!=7 && !(KUI_WCE_PROBE==2 && argc==8)) return 2;
     bool exfat=!strcmp(argv[1],"exfat");unsigned fragment=(unsigned)atoi(argv[2]);
     disk=calloc(BLOCKS,512u);ram=calloc(1u,0x01000000u);
     if(!disk || !ram) return 2;
@@ -247,13 +338,16 @@ int main(int argc,char **argv) {
     static const struct retail_display_state display;
     if(!setjmp(rebooted)) {kui_wce_probe_terminal(&display,KUI_WCE_PROBE_MENU,1u,0x8c123456u,0x8c0fff00u);fail("no restart");}
     check(color_count==2u && colors[0]==PROBE_BLUE && colors[1]==PROBE_GREEN,"blue then green");
+#if KUI_WCE_PROBE == 2
+    check(WCE_PROBE_TIMING->end_ms==9000u && WCE_PROBE_TIMING->open==1u,"the ring's end and its open read");
+#endif
     check(stream_stops==1u && writes>4u && cache_purges==1u,"cache written back, stream stopped, slot written");
     check(!fail_once && write_attempts==writes+1u,"a transient write error was retried once");
     uint32_t first_writes=writes;
     /* The dump's expected content, for the decode check. */
     write_file(argv[5],ram,0x01000000u);
     /* Session 2: slot 1; the reader's writes fail: red, slot stays CLAIMED. */
-    memset(&probe,0,sizeof(probe));color_count=0u;fail_writes=true;
+    RESET_COUNTERS();color_count=0u;fail_writes=true;
     stage(&kui_wce_probe_seed,1u,"T42101N");
     session();
     if(!setjmp(rebooted)) {kui_wce_probe_terminal(&display,KUI_WCE_PROBE_FAULT,7u,0u,0u);fail("no restart");}
@@ -290,7 +384,7 @@ int main(int argc,char **argv) {
     stage(&third,4u,"T12509N");
     /* Session 6: slot 5 ends in a reader fault (a refused request), named as
      * the probe's report_fault macro names it: by its message's length. */
-    memset(&probe,0,sizeof(probe));color_count=0u;writes=0u;
+    RESET_COUNTERS();color_count=0u;writes=0u;
     stage(&kui_wce_probe_seed,5u,"T40601N");
     session();
     if(!setjmp(rebooted)) {kui_wce_probe_terminal(&display,KUI_WCE_PROBE_FAULT,KUI_GD_REQUEST,
@@ -298,12 +392,71 @@ int main(int argc,char **argv) {
     check(color_count==2u && colors[1]==PROBE_GREEN,"a fault's dump completes");
     /* Session 7: slot 6; the card fails part-way through the pages: red,
      * and the slot keeps its report and the pages written so far. */
-    memset(&probe,0,sizeof(probe));color_count=0u;writes=0u;fail_after=6u;
+    RESET_COUNTERS();color_count=0u;writes=0u;fail_after=6u;
     stage(&kui_wce_probe_seed,6u,"T44102N");
     session();
     if(!setjmp(rebooted)) {kui_wce_probe_terminal(&display,KUI_WCE_PROBE_MENU,1u,0u,0u);fail("no restart");}
     check(color_count==2u && colors[1]==PROBE_RED && writes==6u,"red after a mid-dump failure");
     fail_after=0u;
+#if KUI_WCE_PROBE == 2
+    /* The ring keeps the latest 190 of 256 reads, the newest at current;
+     * argv[7] receives it for the decoder. Read 247 asks for 70000 sectors. */
+    {
+        struct kui_wce_probe_timing *t=WCE_PROBE_TIMING;
+        probe_timing_on=0u;mmucr=0x105u;
+        for(unsigned i=0;i<250u;i++) {
+            set_ms(20000u+i);R.shared.service.token=1000u+i;R.shared.service.pending=1u;
+            R.shared.service.lba=i;R.shared.service.count=i==247u?70000u:1u;
+            R.shared.service.status=KUI_GD_PROCESSING;
+            probe_time_begin(KUI_GD_PIOREAD);
+            R.shared.service.pending=0u;R.shared.service.status=KUI_GD_COMPLETED;timed_call(KUI_GD_CHECK,1u);
+            check((t->ring[t->current].flags&(KUI_WCE_PROBE_TIME_ENDED|KUI_WCE_PROBE_TIME_FAILED))==
+                  KUI_WCE_PROBE_TIME_ENDED,"a completed read");
+        }
+        check(t->count==250u && t->current==(250u-1u)%KUI_WCE_PROBE_TIMING_REQUESTS && !t->open,"ring count");
+        check(t->ring[247u%KUI_WCE_PROBE_TIMING_REQUESTS].sectors==UINT16_MAX,"sectors saturate");
+        check(t->ring[t->current].lba==249u &&
+              t->ring[(t->current+1u)%KUI_WCE_PROBE_TIMING_REQUESTS].lba==250u-KUI_WCE_PROBE_TIMING_REQUESTS,
+              "newest at current, oldest after it");
+        /* A request that begins before the last one's end replaces it. */
+        R.shared.service.token=7u;R.shared.service.pending=1u;probe_time_begin(KUI_GD_PIOREAD);
+        uint32_t was=t->current;
+        R.shared.service.token=8u;probe_time_begin(KUI_GD_PIOREAD);
+        check((t->ring[was].flags&KUI_WCE_PROBE_TIME_REPLACED) && t->open && t->current!=was,"a replaced request");
+        R.shared.service.token=9u;timed_call(KUI_GD_CHECK,1u);
+        check(!t->open && (t->ring[t->current].flags&KUI_WCE_PROBE_TIME_REPLACED),"another token ends it");
+        /* An aborted read failed; the call total carries past 32 bits. */
+        R.shared.service.pending=1u;R.shared.service.status=KUI_GD_PROCESSING;probe_time_begin(KUI_GD_PIOREAD);
+        R.shared.service.pending=0u;R.shared.service.status=KUI_GD_FAILED;timed_call(KUI_GD_ABORT,1u);
+        check((t->ring[t->current].flags&KUI_WCE_PROBE_TIME_FAILED) && !t->open,"an aborted read failed");
+        t->call_ticks=UINT32_MAX-5u;timed_call(KUI_GD_CHECK,10u);
+        check(t->call_ticks==4u && t->call_wraps==1u,"the call total carries");
+        /* Calls while one read is open saturate at 65535. */
+        R.shared.service.pending=1u;R.shared.service.token=10u;R.shared.service.status=KUI_GD_PROCESSING;
+        probe_time_begin(KUI_GD_PIOREAD);
+        for(unsigned i=0;i<70000u;i++) timed_call(KUI_GD_CHECK,1u);
+        check(t->ring[t->current].calls==UINT16_MAX && t->open,"calls saturate");
+        R.shared.service.pending=0u;R.shared.service.status=KUI_GD_COMPLETED;timed_call(KUI_GD_CHECK,1u);
+        /* CE's INIT or RESET ends a read: reset() clears pending, keeps the
+         * token and leaves status NOT_FOUND. It did not complete. */
+        R.shared.service.pending=1u;R.shared.service.token=11u;R.shared.service.status=KUI_GD_PROCESSING;
+        probe_time_begin(KUI_GD_PIOREAD);
+        R.shared.service.pending=0u;R.shared.service.status=KUI_GD_NOT_FOUND;timed_call(KUI_GD_INIT,1u);
+        check((t->ring[t->current].flags&(KUI_WCE_PROBE_TIME_ENDED|KUI_WCE_PROBE_TIME_FAILED|KUI_WCE_PROBE_TIME_REPLACED))==
+              (KUI_WCE_PROBE_TIME_ENDED|KUI_WCE_PROBE_TIME_FAILED),"a read ended by a reset failed");
+        /* The interrupt total carries too, on its own. */
+        t->irq_ticks=UINT32_MAX-5u;timed_irq(10u);
+        check(t->irq_ticks==4u && t->irq_wraps==1u && t->call_wraps==1u,"the interrupt total carries");
+        /* A read longer than 65535 ms by CE's count. */
+        set_ms(100000u);R.shared.service.pending=1u;R.shared.service.token=12u;
+        R.shared.service.status=KUI_GD_PROCESSING;probe_time_begin(KUI_GD_PIOREAD);
+        set_ms(170000u);R.shared.service.pending=0u;R.shared.service.status=KUI_GD_COMPLETED;
+        timed_call(KUI_GD_CHECK,1u);
+        check(t->ring[t->current].latency_ms==UINT16_MAX && t->count==256u && !t->open,"latency saturates");
+        t->end_ms=170500u;
+        if(argc>7) write_file(argv[7],t,sizeof(*t));
+    }
+#endif
     /* The claim's refusals on the filled file. */
     {
         static uint8_t work[512];
@@ -339,8 +492,13 @@ int main(int argc,char **argv) {
     while(f_read(&out,chunk,sizeof(chunk),&done)==FR_OK && done) check(fwrite(chunk,1,done,copy)==done,"out write");
     fclose(copy);f_close(&out);
     FILE *summary=fopen(argv[6],"w");if(!summary) fail("json");
+#if KUI_WCE_PROBE == 1
+    const struct kui_wce_probe_counters *counted=&probe;
+#else
+    const struct kui_wce_probe_counters *counted=&WCE_PROBE_TIMING->counters;
+#endif
     fprintf(summary,"{\"calls\":%u,\"audio\":%u,\"maple_samples\":%u,\"first_writes\":%u,\"pages\":%u}\n",
-        (unsigned)probe.calls,(unsigned)probe.audio_count,(unsigned)probe.maple_samples,first_writes,0u);
+        (unsigned)counted->calls,(unsigned)counted->audio_count,(unsigned)counted->maple_samples,first_writes,0u);
     fclose(summary);
     printf("PASS WinCE data probe end to end (%s, %u fragments): stage claim, reader session and "
         "end-of-game dump stayed inside their slots; red, yellow and full-slot paths\n",argv[1],fragment);

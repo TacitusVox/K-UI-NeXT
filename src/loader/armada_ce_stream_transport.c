@@ -5,6 +5,9 @@
 #include "kui/retail_cursor.h"
 #include "retail_async.h"
 #include <string.h>
+#if KUI_ARMADA_CE_PLAY_TIMING
+#include "kui/gd_service.h"
+#endif
 #if KUI_ARMADA_CE_VMU_WRITE_RUNTIME
 #include "kui/retail_loader_layout.h"
 #define VMU_LOW_DATA_END KUI_RETAIL_CE_ASYNC_LIMIT
@@ -19,7 +22,29 @@
 #define AUDIO_URGENT_QUANTUM ((KUI_ARMADA_CE_STREAM_BATCH_BYTES+1022u)/512u)
 #define AUDIO_URGENT_ENTER_BYTES 176400u
 #define AUDIO_URGENT_EXIT_BYTES 264600u
+#if KUI_ARMADA_CE_STREAM_EMERGENCY_PIO
+/* The source worker's programmed receptions are an emergency only: while
+ * the music plays with at most half a second of fresh PCM, until it has a
+ * second again. Urgency alone keeps its longer grants; the worker's visit
+ * then restarts a stalled reception by DMA, as the IRQ and DATA pumps do. */
+#define AUDIO_PIO_ENTER_BYTES 88200u
+#define AUDIO_PIO_EXIT_BYTES 176400u
+#endif
 #define TOKEN_LIMIT 65536u
+#if KUI_ARMADA_CE_STREAM_CHAIN
+#if !KUI_CE_SCI_SLOW_AFTER_OVERRUN || !KUI_SCI_STREAM_TOKEN_SLICED
+#error "The music chain reads the reader's slow window: build the controller with the reader's slow-after-overrun switch"
+#endif
+/* The music's card stream restarts inside the pump that needs it (an
+ * interrupt, a GD call's idle visit or a data block's yield), not at the
+ * worker's next visit: a restart's token search, which takes about 330
+ * bytes after CMD18, continues for up to CHAIN_SLICES more 256-byte slices,
+ * and an overrun at the fast clock is refetched by DMA at the slower clock
+ * while its window is armed, as the game's reads are. An overrun at the
+ * slow clock and a second failure keep the programmed refetch. */
+#define CHAIN_SLICES 8u
+#define SLOW_LEFT 0x7fu
+#endif
 #define RETRIES 8u
 #define OWNER_NONE 0u
 #define OWNER_DATA 1u
@@ -36,6 +61,12 @@ static struct {
 #if KUI_ARMADA_CE_VMU_WRITE_RUNTIME
     uint32_t vmu_loan;
 #endif
+#if KUI_ARMADA_CE_PLAY_TIMING
+    uint32_t play_grants; /* Diagnostic: music grants while a game read was active. */
+#endif
+#if KUI_ARMADA_CE_STREAM_EMERGENCY_PIO
+    uint32_t pio; /* The source worker may receive by programmed transfers. */
+#endif
 } t;
 #ifdef KUI_ARMADA_CE_STREAM_TRANSPORT_TEST
 void kui_armada_ce_stream_transport_test_reset(void) { memset(&t,0,sizeof(t)); }
@@ -46,6 +77,16 @@ void kui_armada_ce_stream_transport_priority(uint32_t fresh_bytes,bool active) {
     else if(fresh_bytes<=AUDIO_URGENT_ENTER_BYTES) t.urgent=1u;
 }
 bool kui_armada_ce_stream_transport_urgent(void) { return t.urgent!=0u; }
+#if KUI_ARMADA_CE_STREAM_EMERGENCY_PIO
+void kui_armada_ce_stream_transport_pio_floor(uint32_t fresh_bytes,bool playing) {
+    if(!playing || fresh_bytes>=AUDIO_PIO_EXIT_BYTES) t.pio=0u;
+    else if(fresh_bytes<=AUDIO_PIO_ENTER_BYTES) t.pio=1u;
+}
+bool kui_armada_ce_stream_transport_pio(void) { return t.pio!=0u; }
+#define WORKER_PIO t.pio
+#else
+#define WORKER_PIO t.urgent
+#endif
 bool kui_armada_ce_stream_transport_worker_can_pump(void) {
 #if KUI_ARMADA_CE_VMU_WRITE_RUNTIME
     if(t.vmu_loan) return false;
@@ -92,8 +133,35 @@ static void discard_holds(void) {
     t.held[0].used=t.held[1].used=0;
     t.data_token=data()->token;
 }
+#if KUI_ARMADA_CE_PLAY_TIMING
+static bool play_reading(uint32_t command) {
+    return command==KUI_GD_PIOREAD || command==KUI_GD_DMAREAD ||
+        command==KUI_RETAIL_GD_DMAREAD_STREAM || command==KUI_RETAIL_GD_PIOREAD_STREAM;
+}
+/* Diagnostic: the service's request as each attached bus event finds it,
+ * read only. The pinned event function's first call is refresh_holds, so
+ * this sees every event: a data block event follows the block's feed, and
+ * the engine's cursor for the service's request is complete from the event
+ * after its last card block until the next request starts. */
+static __attribute__((noinline)) void play_observe(void) {
+    const struct kui_retail_gd *s=&t.bus.region->shared.service;
+    const struct kui_retail_async *e=data();
+    kui_armada_ce_play_read(s->token,s->pending!=0u,play_reading(s->command),s->count,
+        e->token==s->token && e->cursor.done==e->cursor.count,t.play_grants);
+}
+#endif
+#if KUI_ARMADA_CE_STREAM_CHAIN
+/* The reader's slow window (sci_stream.c): receptions still to run at
+ * 6.25 MHz. Read only; the same field in every build of this layout. */
+static bool slow_pending(void) {
+    return (t.bus.region->shared.stream.slow & SLOW_LEFT)!=0u;
+}
+#endif
 static void refresh_holds(void) {
     if(t.data_token!=data()->token) discard_holds();
+#if KUI_ARMADA_CE_PLAY_TIMING
+    play_observe();
+#endif
 }
 static void audio_failure(uint32_t result) {
     if(result==KUI_SCI_STREAM_OVERRUN) t.early_polled=1u;
@@ -193,6 +261,9 @@ static bool audio_grant(void) {
     park_data(result);t.bus.discard();
     t.stats.owner=OWNER_AUDIO;
     t.audio_credit=t.urgent?AUDIO_URGENT_QUANTUM:AUDIO_QUANTUM;t.data_credit=0;
+#if KUI_ARMADA_CE_PLAY_TIMING
+    if(data_active()) ++t.play_grants;
+#endif
     return true;
 }
 static void release_audio(void) {
@@ -237,7 +308,18 @@ static enum kui_armada_ce_stream_transport_status pump(bool worker) {
         lba=t.cursor.block;
     } else if(result==KUI_SCI_STREAM_CRC) audio_failure(result);
     if(t.stats.status!=KUI_ARMADA_CE_STREAM_TRANSPORT_PENDING) {release_audio();return KUI_ARMADA_CE_STREAM_TRANSPORT_IO;}
-    result=t.bus.fetch(lba,TOKEN_LIMIT,(worker && t.urgent) || t.early_polled || t.stats.retries>=2u);
+#if KUI_ARMADA_CE_STREAM_CHAIN
+    bool polled=(worker && WORKER_PIO) || (t.early_polled && !slow_pending()) || t.stats.retries>=2u;
+    result=t.bus.fetch(lba,TOKEN_LIMIT,polled);
+    /* The worker continues a sliced search through its own visit loop. */
+    for(unsigned slice=0;!worker && result==KUI_SCI_STREAM_PENDING && !t.bus.busy() &&
+        slice<CHAIN_SLICES;slice++) {
+        t.bus.token_budget(true);
+        result=t.bus.fetch(lba,TOKEN_LIMIT,polled);
+    }
+#else
+    result=t.bus.fetch(lba,TOKEN_LIMIT,(worker && WORKER_PIO) || t.early_polled || t.stats.retries>=2u);
+#endif
     if(result>KUI_SCI_STREAM_BUSY) audio_failure(result);
     if(t.bus.busy()) t.bus.hook();
     else t.bus.unhook();
@@ -276,6 +358,12 @@ const volatile uint32_t *kui_armada_ce_stream_transport_movie_timing(void) {
 }
 const volatile struct kui_sci_stream_stats *kui_armada_ce_stream_transport_stream_stats(void) {
     return t.stats.attached==1u ? &t.bus.region->shared.stream.stats : NULL;
+}
+#endif
+#if KUI_ARMADA_CE_PLAY_TIMING
+void kui_armada_ce_stream_transport_play_counts(uint32_t out[4]) {
+    out[0]=t.stats.audio_blocks;out[1]=t.stats.data_blocks;
+    out[2]=t.play_grants;out[3]=t.stats.preemptions;
 }
 #endif
 uint32_t kui_armada_ce_stream_transport_event(uint32_t event,uintptr_t argument) {

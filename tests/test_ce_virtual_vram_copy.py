@@ -22,6 +22,7 @@ ROOT=Path(__file__).resolve().parents[1]
 sys.path.insert(0,str(ROOT/'tests'))
 from test_native_virtual_vram_copy import COPY_HARNESS
 from toy_test_switches import resolve_toy_switches
+from test_ce_crc16_factoring import without_reader_switches
 sys.path.insert(0,str(ROOT/'tools'))
 from check_ce_virtual_vram_width import audit_code
 from check_vmu_native_worker_gateway import read_elf,symbol_bytes
@@ -31,9 +32,11 @@ BASELINE_HASHES={
     'src/loader/retail_async.c':'e17b7517e5d442d01a3488ce0de322a10116c4c2c3332464d60ee237715fa4cf',
     'src/core/retail_image.c':'08b6e2db82bf77f91c2ad944235d3233e96eff59f711d782984a605e1018455c'}
 # Later reviewed hunks this control predates, each off in its build: the CE
-# reader's slow-refetch exception (KUI_CE_SCI_SLOW_AFTER_OVERRUN) and the
+# reader's slow-refetch exception (KUI_CE_SCI_SLOW_AFTER_OVERRUN), the
 # combined Armada CD music and virtual VMU build's fixed spill
-# (KUI_ARMADA_CE_CDDA_VMU). Each must occur exactly once.
+# (KUI_ARMADA_CE_CDDA_VMU), the WinCE data probe's reader
+# (KUI_WCE_PROBE) and the GUI's 64/96-slot CE map encoder
+# (KUI_RETAIL_MANIFEST_CAPACITY). Each must occur exactly once.
 LATER_HUNKS={'src/loader/retail_async.c':(
     ('    if(result == KUI_SCI_STREAM_OVERRUN\n#if KUI_CE_SCI_SLOW_AFTER_OVERRUN\n'
      '       /* A fast overrun is refetched by DMA at the slower clock first. */\n'
@@ -44,7 +47,43 @@ LATER_HUNKS={'src/loader/retail_async.c':(
      '#define CE_DATA_SPILL ((uint8_t *)(uintptr_t)KUI_ARMADA_CE_CDDA_VMU_SPILL_P2)\n'
      '#else\n#define CE_DATA_SPILL (R.spill)\n#endif\n',''),
     ('        place(CE_DATA_SPILL + e.spill_from, n);\n','        place(R.spill + e.spill_from, n);\n'),
-    ('        memcpy(CE_DATA_SPILL + at, bytes, n);\n','        memcpy(R.spill + at, bytes, n);\n'))}
+    ('        memcpy(CE_DATA_SPILL + at, bytes, n);\n','        memcpy(R.spill + at, bytes, n);\n'),
+    ('#if KUI_WCE_PROBE && defined(KUI_RETAIL_CE)\n/* The Windows CE data probe (test ce-boot.kui only). */\n'
+     '#include "wce_probe_reader.inc"\n#endif\n','')),
+    'src/core/retail_image.c':(
+    ('#if KUI_RETAIL_MANIFEST_CAPACITY\n'
+     "/* The GUI encodes the generic Windows CE module's map with that module's\n"
+     ' * capacity (64 or 96 background slots). Without this switch, as in every\n'
+     ' * loader, the source is exactly the fixed-capacity validator. */\n'
+     'static enum kui_game_result validate_capacity(const struct kui_retail_manifest *m, uint32_t async_slots) {\n'
+     '#define KUI_RETAIL_VALIDATE_ASYNC_SLOTS async_slots\n#else\n'
+     'enum kui_game_result kui_retail_manifest_validate(const struct kui_retail_manifest *m) {\n'
+     '#define KUI_RETAIL_VALIDATE_ASYNC_SLOTS KUI_RETAIL_ASYNC_SLOTS\n#endif\n',
+     'enum kui_game_result kui_retail_manifest_validate(const struct kui_retail_manifest *m) {\n'),
+    ('           (m->storage_transport != KUI_STORAGE_SCI || m->track_count > KUI_RETAIL_VALIDATE_ASYNC_SLOTS ||\n'
+     '            m->extent_count > KUI_RETAIL_VALIDATE_ASYNC_SLOTS - m->track_count)) ||\n',
+     '           (m->storage_transport != KUI_STORAGE_SCI || m->track_count > KUI_RETAIL_ASYNC_SLOTS ||\n'
+     '            m->extent_count > KUI_RETAIL_ASYNC_SLOTS - m->track_count)) ||\n'),
+    ('#undef KUI_RETAIL_VALIDATE_ASYNC_SLOTS\n#if KUI_RETAIL_MANIFEST_CAPACITY\n'
+     'enum kui_game_result kui_retail_manifest_validate(const struct kui_retail_manifest *m) {\n'
+     '    return validate_capacity(m, KUI_RETAIL_ASYNC_SLOTS);\n}\n'
+     'enum kui_game_result kui_retail_manifest_encode_capacity(const struct kui_retail_manifest *m,\n'
+     '    uint8_t out[KUI_RETAIL_IMAGE_WIRE_BYTES], uint32_t async_slots) {\n'
+     '    if(!out || (async_slots != KUI_RETAIL_ASYNC_SLOTS && async_slots != KUI_RETAIL_CE_MAP_SLOTS))\n'
+     '        return KUI_GAME_INVALID;\n'
+     '    enum kui_game_result r = validate_capacity(m, async_slots);\n#else\n'
+     'enum kui_game_result kui_retail_manifest_encode(const struct kui_retail_manifest *m,\n'
+     '    uint8_t out[KUI_RETAIL_IMAGE_WIRE_BYTES]) {\n'
+     '    if(!out) return KUI_GAME_INVALID;\n'
+     '    enum kui_game_result r = kui_retail_manifest_validate(m);\n#endif\n',
+     'enum kui_game_result kui_retail_manifest_encode(const struct kui_retail_manifest *m,\n'
+     '    uint8_t out[KUI_RETAIL_IMAGE_WIRE_BYTES]) {\n'
+     '    if(!out) return KUI_GAME_INVALID;\n'
+     '    enum kui_game_result r = kui_retail_manifest_validate(m);\n'),
+    ('#if KUI_RETAIL_MANIFEST_CAPACITY\n'
+     'enum kui_game_result kui_retail_manifest_encode(const struct kui_retail_manifest *m,\n'
+     '    uint8_t out[KUI_RETAIL_IMAGE_WIRE_BYTES]) {\n'
+     '    return kui_retail_manifest_encode_capacity(m, out, KUI_RETAIL_ASYNC_SLOTS);\n}\n#endif\n',''))}
 SOURCES=('src/loader/retail_async.c','src/loader/sci_stream.c',
          'src/core/retail_cursor.c','src/core/retail_image.c','src/core/retail_gd.c')
 FLAGS=('-std=c11','-O1','-g','-Wall','-Wextra','-Werror','-Wpedantic',
@@ -159,6 +198,11 @@ int main(void) {
 }
 '''
 
+# The generic module's read-ahead (KUI_RETAIL_CE_READAHEAD), later still and
+# off in this control's builds: only its exact condition resolves, and any
+# other use of the switch fails.
+READAHEAD=('KUI_RETAIL_CE_READAHEAD',)
+READAHEAD_CONDITIONS={'#if KUI_RETAIL_CE_READAHEAD':False}
 def sha(data):return hashlib.sha256(data).hexdigest()
 def old_source(source):
     """Reverse only exact reviewed hunks, then bind the complete old file.
@@ -171,6 +215,7 @@ def old_source(source):
     """
     # The Toy test modules' switches are off in this control's builds.
     body=resolve_toy_switches((ROOT/source).read_text())
+    body=without_reader_switches(body,READAHEAD,READAHEAD_CONDITIONS)
     for new,old in LATER_HUNKS.get(source,()):
         if body.count(new)!=1:raise AssertionError('Later reviewed hunk changed: '+source)
         body=body.replace(new,old,1)

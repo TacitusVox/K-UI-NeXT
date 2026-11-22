@@ -1,0 +1,279 @@
+{
+  "schema": "kui.wince.cdda-bam4-kernels.v1",
+  "reference": "BUST_A_MOVE_4",
+  "reference_sha256": "2a8d24738bb5ba0687fa56ad33e814fe798158f9cb8cacfd4a8a20dea6bbb35d",
+  "kernels": {
+    "BUST_A_MOVE_4": {
+      "kernel_bytes": 1830912,
+      "prefix_crc": 1884371516,
+      "body_crc": 4136642560,
+      "data_shift": 0,
+      "nk_words_differing": 0,
+      "nk_words_moved": 0,
+      "romhdr": 2350703004,
+      "romhdr_crc": 3820493491,
+      "ram_start": 2350706688,
+      "ram_free": 2350759936,
+      "ram_end": 2365390848,
+      "coredll_toc": 2350703120,
+      "sndcore_toc": 2350703632,
+      "dsound_toc": 2350703664,
+      "coredll_debug_stamps": [],
+      "dll_bases": {
+        "coredll.dll": 30801920,
+        "sndcore.dll": 29687808,
+        "dsound.dll": 29622272,
+        "wsegacd.dll": 30343168
+      },
+      "dll_words_compared": {
+        "coredll.dll": 46009,
+        "sndcore.dll": 3849,
+        "dsound.dll": 6253,
+        "wsegacd.dll": 4956
+      },
+      "kernel_sha256": "2a8d24738bb5ba0687fa56ad33e814fe798158f9cb8cacfd4a8a20dea6bbb35d"
+    },
+    "PUZZLE_BOBBLE_4": {
+      "kernel_bytes": 1830912,
+      "prefix_crc": 1884371516,
+      "body_crc": 2857696535,
+      "data_shift": 0,
+      "nk_words_differing": 0,
+      "nk_words_moved": 0,
+      "romhdr": 2350703004,
+      "romhdr_crc": 3820493491,
+      "ram_start": 2350706688,
+      "ram_free": 2350759936,
+      "ram_end": 2365390848,
+      "coredll_toc": 2350703120,
+      "sndcore_toc": 2350703632,
+      "dsound_toc": 2350703664,
+      "coredll_debug_stamps": [],
+      "dll_bases": {
+        "coredll.dll": 30801920,
+        "sndcore.dll": 29687808,
+        "dsound.dll": 29622272,
+        "wsegacd.dll": 30343168
+      },
+      "dll_words_compared": {
+        "coredll.dll": 46009,
+        "sndcore.dll": 3849,
+        "dsound.dll": 6253,
+        "wsegacd.dll": 4956
+      },
+      "kernel_sha256": "9d0ea356bd664028a5b8bb9df13a188e9835c40a788b39f5cb7b9064b81574a3"
+    },
+    "VIRTUA_COP_2": {
+      "kernel_bytes": 1632256,
+      "prefix_crc": 1116470851,
+      "body_crc": 1830056264,
+      "data_shift": -196608,
+      "nk_words_differing": 1018,
+      "nk_words_moved": 1018,
+      "romhdr": 2350503808,
+      "romhdr_crc": 2321219881,
+      "ram_start": 2350505984,
+      "ram_free": 2350563328,
+      "ram_end": 2365390848,
+      "coredll_toc": 2350503924,
+      "sndcore_toc": 2350504436,
+      "dsound_toc": 2350504468,
+      "coredll_debug_stamps": [],
+      "dll_bases": {
+        "coredll.dll": 30736384,
+        "sndcore.dll": 29622272,
+        "dsound.dll": 29556736,
+        "wsegacd.dll": 30277632
+      },
+      "dll_words_compared": {
+        "coredll.dll": 46009,
+        "sndcore.dll": 3849,
+        "dsound.dll": 6253,
+        "wsegacd.dll": 4956
+      },
+      "kernel_sha256": "6c09543a5680d8255e64011ef44aff73816793674806ceb64cb0cd10e323e807"
+    },
+    "CAESARS_PALACE_2000": {
+      "kernel_bytes": 1191936,
+      "prefix_crc": 1400022997,
+      "body_crc": 3953821098,
+      "data_shift": -638976,
+      "nk_words_differing": 1018,
+      "nk_words_moved": 1018,
+      "romhdr": 2350064560,
+      "romhdr_crc": 4278290245,
+      "ram_start": 2350067712,
+      "ram_free": 2350120960,
+      "ram_end": 2365390848,
+      "coredll_toc": 2350064676,
+      "sndcore_toc": 2350065188,
+      "dsound_toc": 2350065220,
+      "coredll_debug_stamps": [
+        {
+          "rva": 4100,
+          "reference": 940963717,
+          "kernel": 938741246
+        }
+      ],
+      "dll_bases": {
+        "coredll.dll": 31457280,
+        "sndcore.dll": 30343168,
+        "dsound.dll": 30277632,
+        "wsegacd.dll": 30998528
+      },
+      "dll_words_compared": {
+        "coredll.dll": 46009,
+        "sndcore.dll": 3849,
+        "dsound.dll": 6253,
+        "wsegacd.dll": 4956
+      },
+      "kernel_sha256": "25e68cedcd08f4920eb1b08a91dfae4a3dfe66c7b72e9946641523843d00c8a4"
+    },
+    "CAESARS_PALACE_2000_PAL": {
+      "kernel_bytes": 1191936,
+      "prefix_crc": 1400022997,
+      "body_crc": 2614046751,
+      "data_shift": -638976,
+      "nk_words_differing": 1018,
+      "nk_words_moved": 1018,
+      "romhdr": 2350064560,
+      "romhdr_crc": 4278290245,
+      "ram_start": 2350067712,
+      "ram_free": 2350120960,
+      "ram_end": 2365390848,
+      "coredll_toc": 2350064676,
+      "sndcore_toc": 2350065188,
+      "dsound_toc": 2350065220,
+      "coredll_debug_stamps": [
+        {
+          "rva": 4100,
+          "reference": 940963717,
+          "kernel": 938741246
+        }
+      ],
+      "dll_bases": {
+        "coredll.dll": 31457280,
+        "sndcore.dll": 30343168,
+        "dsound.dll": 30277632,
+        "wsegacd.dll": 30998528
+      },
+      "dll_words_compared": {
+        "coredll.dll": 46009,
+        "sndcore.dll": 3849,
+        "dsound.dll": 6253,
+        "wsegacd.dll": 4956
+      },
+      "kernel_sha256": "ae7b13b520645e520ccedfb9471f18b3eb77fb41d69b5a5211bdb644d007a109"
+    },
+    "GET_COLONY": {
+      "kernel_bytes": 1282048,
+      "prefix_crc": 2574851364,
+      "body_crc": 783907749,
+      "data_shift": -540672,
+      "nk_words_differing": 1018,
+      "nk_words_moved": 1018,
+      "romhdr": 2350154856,
+      "romhdr_crc": 66547327,
+      "ram_start": 2350157824,
+      "ram_free": 2350219264,
+      "ram_end": 2365390848,
+      "coredll_toc": 2350154972,
+      "sndcore_toc": 2350155484,
+      "dsound_toc": 2350155516,
+      "coredll_debug_stamps": [
+        {
+          "rva": 4100,
+          "reference": 940963717,
+          "kernel": 938741246
+        }
+      ],
+      "dll_bases": {
+        "coredll.dll": 31588352,
+        "sndcore.dll": 30474240,
+        "dsound.dll": 30408704,
+        "wsegacd.dll": 31129600
+      },
+      "dll_words_compared": {
+        "coredll.dll": 46009,
+        "sndcore.dll": 3849,
+        "dsound.dll": 6253,
+        "wsegacd.dll": 4956
+      },
+      "kernel_sha256": "04f9b8cd872e0b45b680bd93fd2a1fb8d99ce1f6c33ca08a2bbccd3d2efb0365"
+    },
+    "MARIONETTE_COMPANY_2": {
+      "kernel_bytes": 2611200,
+      "prefix_crc": 3581249846,
+      "body_crc": 2775591647,
+      "data_shift": 786432,
+      "nk_words_differing": 1018,
+      "nk_words_moved": 1018,
+      "romhdr": 2351482284,
+      "romhdr_crc": 367947710,
+      "ram_start": 2351484928,
+      "ram_free": 2351546368,
+      "ram_end": 2365390848,
+      "coredll_toc": 2351482400,
+      "sndcore_toc": 2351482912,
+      "dsound_toc": 2351482944,
+      "coredll_debug_stamps": [],
+      "dll_bases": {
+        "coredll.dll": 29294592,
+        "sndcore.dll": 28180480,
+        "dsound.dll": 28114944,
+        "wsegacd.dll": 28835840
+      },
+      "dll_words_compared": {
+        "coredll.dll": 46009,
+        "sndcore.dll": 3849,
+        "dsound.dll": 6253,
+        "wsegacd.dll": 4956
+      },
+      "kernel_sha256": "877c91cd39306c1ac3440f4c3553def28c508258c0cd31c05127acaa3b29a6af"
+    },
+    "HELLO_KITTY_MAGICAL_BLOCK": {
+      "kernel_bytes": 2244608,
+      "prefix_crc": 860193567,
+      "body_crc": 1524932074,
+      "data_shift": 409600,
+      "nk_words_differing": 1018,
+      "nk_words_moved": 1018,
+      "romhdr": 2351116688,
+      "romhdr_crc": 51233161,
+      "ram_start": 2351120384,
+      "ram_free": 2351169536,
+      "ram_end": 2365390848,
+      "coredll_toc": 2351116804,
+      "sndcore_toc": 2351117316,
+      "dsound_toc": 2351117348,
+      "coredll_debug_stamps": [],
+      "dll_bases": {
+        "coredll.dll": 30015488,
+        "sndcore.dll": 28901376,
+        "dsound.dll": 28835840,
+        "wsegacd.dll": 29556736
+      },
+      "dll_words_compared": {
+        "coredll.dll": 46009,
+        "sndcore.dll": 3849,
+        "dsound.dll": 6253,
+        "wsegacd.dll": 4956
+      },
+      "kernel_sha256": "8cbfba9fc5e481fa3e095eed506e45b56596145c9f112c645b1b990bd1c27cc4"
+    }
+  },
+  "refused": {
+    "b4bb0c6a5ca3": "Super Runabout (US, San Francisco Edition JPN): sndcore.dll is not in the kernel ROM",
+    "c162b4f15c5e": "Super Runabout (PAL): sndcore.dll is not in the kernel ROM",
+    "c5424ab1c12c": "Super Runabout (JPN): sndcore.dll is not in the kernel ROM",
+    "943857d144c1": "Tomb Raider IV / The Last Revelation: RAM end or OEM globals differ",
+    "5fc403b72f8b": "Daisessen: RAM end or OEM globals differ",
+    "a7628c78090f": "Armada: dsound.dll is not Bust-A-Move 4's build",
+    "189719d8d376": "Worms World Party: nk.exe is not Bust-A-Move 4's build",
+    "41b0fe340c3a": "Ducati World: nk.exe is not Bust-A-Move 4's build",
+    "39b80e305947": "Worms Armageddon: nk.exe is not Bust-A-Move 4's build"
+  },
+  "excluded_by_application": {
+    "0925fdaf26c9": "Super Runabout (JPN trial): a kernel member, but SUPERRA.EXE plays its sound through MANATEE.DRV without DirectSound (US build checked)"
+  }
+}

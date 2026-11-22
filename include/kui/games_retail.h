@@ -36,6 +36,9 @@ struct kui_native_session_request;
 #define KUI_GAMES_RETAIL_CE_BAM4_PACKAGE "0:/KUI/apps/games/ce-cdda-bam4.kui"
 #define KUI_GAMES_RETAIL_CE_WORMS_PACKAGE "0:/KUI/apps/games/ce-cdda-worms.kui"
 #define KUI_GAMES_RETAIL_CE_WWP_PACKAGE "0:/KUI/apps/games/ce-cdda-wwp.kui"
+/* CD music for another kernel of a sound group: ce-cdda-<first 12 hex digits
+ * of the kernel's SHA-256>.kui, with its KUICDK01 record at payload 0x300. */
+#define KUI_GAMES_RETAIL_CE_KERNEL_PACKAGE_PREFIX "0:/KUI/apps/games/ce-cdda-"
 #define KUI_GAMES_RETAIL_CDDA_RAW_PACKAGE "0:/KUI/apps/games/cdda-toy-raw.kui"
 #define KUI_GAMES_RETAIL_CDDA_COOKED_PACKAGE "0:/KUI/apps/games/cdda-toy-cooked.kui"
 #define KUI_GAMES_RETAIL_CDDA_MDK2_PACKAGE "0:/KUI/apps/games/retail-cdda-mdk2.kui"

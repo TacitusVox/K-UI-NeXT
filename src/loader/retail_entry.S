@@ -4,6 +4,23 @@
 #if KUI_VMU_MAPLE_OBSERVE && KUI_VMU_READONLY_PROOF == 4
 #include "kui/vmu_maple_observe_profile.h"
 #endif
+#if KUI_WINCE_CDDA_KERNEL_RECORD
+/* The selected sound group's kernel record: Bust-A-Move 4's group or World
+ * Party's. */
+#if KUI_WINCE_CDDA_BAM4
+#include "kui/wince_cdda_bam4_kernels.h"
+#define KUI_CDK_PROFILE KUI_WINCE_CDDA_BAM4_PROFILE
+#define KUI_CDK_KERNEL_BYTES KUI_WINCE_CDDA_BAM4_KERNEL_BYTES
+#define KUI_CDK_POOL_BEGIN KUI_WINCE_CDDA_BAM4_POOL_BEGIN
+#define KUI_CDK_SHA256_BYTES KUI_WINCE_CDDA_BAM4_SHA256_BYTES
+#else
+#include "kui/wince_cdda_wwp_kernels.h"
+#define KUI_CDK_PROFILE KUI_WINCE_CDDA_WWP_PROFILE
+#define KUI_CDK_KERNEL_BYTES KUI_WINCE_CDDA_WWP_KERNEL_BYTES
+#define KUI_CDK_POOL_BEGIN KUI_WINCE_CDDA_WWP_POOL_BEGIN
+#define KUI_CDK_SHA256_BYTES KUI_WINCE_CDDA_WWP_SHA256_BYTES
+#endif
+#endif
 #ifndef KUI_RETAIL_STAGE_BIN
 #define KUI_RETAIL_STAGE_BIN "build/retail/stage.bin"
 #endif
@@ -163,6 +180,19 @@ _start:
     .section .native_heap_capability,"a"
     .ascii KUI_NATIVE_HEAP_CAP_MAGIC
     .long KUI_NATIVE_HEAP_CAP_VERSION,KUI_NATIVE_HEAP_CAP_TAIL
+#endif
+#if KUI_WINCE_CDDA_KERNEL_RECORD
+    /* CD music for a kernel of a sound group other than the group's reviewed
+     * kernel (ce-cdda-<first 12 hex digits of the kernel's SHA-256>.kui). The
+     * GUI admits the module only with this record at payload 0x300:
+     * "KUICDK01", version 1, 64 bytes, the sound profile, the kernel's size,
+     * the stream pool's start, zero, and the kernel's SHA-256. The stage
+     * admits the same kernel again by its complete SHA-256 before CE starts. */
+    .section .ce_cdda_kernel_capability,"a"
+    .ascii "KUICDK01"
+    .long 1,64,KUI_CDK_PROFILE,KUI_CDK_KERNEL_BYTES
+    .long KUI_CDK_POOL_BEGIN,0
+    .byte KUI_CDK_SHA256_BYTES
 #endif
 #if KUI_ARMADA_CE_CDDA_VMU
     /* Combined Armada CD music + writable virtual A2 (ce-armada-all-on.kui).

@@ -9,11 +9,19 @@ Reads WCEDATA.BIN with tools/wce_probe_data.py, rebuilds each slot's RAM dump
 in memory and reports, per launch:
   - the game (IP.BIN) joined to the library scope: kernel, VMU family, sound
     group and CD-driver line (docs/evidence/wince-universal-scope-*.json);
-  - how the launch ended, disc use, refused commands and CD audio commands;
-  - controller ports: which port and slot the game polls, reads and writes;
+  - how the launch ended (A+B+X+Y+Start, a reader fault or no end record),
+    disc use, refused commands and CD audio commands;
+  - controller ports, sampled during GD calls only: the card slots sent a
+    storage frame, the slots read from, the slots a block write was seen to
+    (a save), and the slots with completion frames (command 13, which CE's
+    driver sends after block reads as well as writes: not a save);
+  - for a timing session (KUI_WCE_PROBE=2), the request ring: how long each
+    of the latest reads took (to TMU0's tick), the reader's time in GD calls
+    and in its interrupt meanwhile, the slowest reads, the longest gaps
+    between reads and up to the last 30 whole seconds the ring covers;
   - from the RAM dump: the Windows CE process list, the module list with the
     processes that use each module (DirectSound, maple, mapledev), the kernel
-    heap bounds and the kernel's own free-page counters.
+    heap bounds, the kernel's own free-page counters and the ROMHDR.
 Writes DIR/findings.json and DIR/findings.md. Reads the owner's file only.
 
 Kernel structures are read only through offsets with this evidence:
@@ -24,10 +32,21 @@ Kernel structures are read only through offsets with this evidence:
     self +0, next +4, use bits +12, reference counts +16, base +80,
     TOC/file +96, kind +100, size +124 (include/kui/armada_ce_live_sound.h);
   - CE's software page walk for virtual addresses (include/kui/armada_ce_ram_bind.h).
-Process names (+0x20), module names of disc DLLs (+8) and the KData aInfo
-memory counters (free pages +0x310, total +0x32c, lowest free +0x364) follow
-the standard CE layout and are labelled unreviewed; each is used only when
-the reviewed fields around it check out.
+Process names (+0x20) and the names of file-loaded modules (+8) are 8-bit
+strings in all 17 dumps of the first data session (the standard CE layout has
+them UTF-16): a name whose second byte is zero after a non-zero first is read
+as UTF-16, any other as 8-bit, and an invalid one gives no name. The KData
+aInfo words follow the standard CE layout and are labelled unreviewed in the
+output; each is used only when the reviewed fields around it check out:
+  - free pages +0x310 and total pages +0x32c, when the page size (+0x304)
+    and the process array (+0x300) match;
+  - the ROMHDR (pTOC, +0x330) when the stage report has none (the CE2
+    kernels), and only if its fields are consistent; in all 12 CE3 dumps it
+    is the stage report's ROMHDR, with the same RAM start, free and end;
+  - KData's own address (+0x334), recorded as a self-check: it names KData
+    in all 17 dumps.
+The low-water mark (+0x364, KINX_MINPAGEFREE) is 0 in all 17 dumps: these
+kernels do not keep it, so a value is reported only when 0 < value <= free.
 """
 import argparse
 import json
@@ -46,6 +65,10 @@ OFFSETS = {"CE3": {"process_array": 0x8ee0, "heap_low": 0x7c30, "heap_high": 0x7
            "CE2": {"process_array": 0x5ec0, "heap_low": 0x4c10, "heap_high": 0x4c14}}
 MODULE_HEAD, CURRENT_PROCESS, PROCESS_STRIDE = 0x324, 0x90, 0x9c
 INFO_PROCARRAY, INFO_PAGESIZE, INFO_PAGEFREE, INFO_NUMPAGES, INFO_MINPAGEFREE = 0x300, 0x304, 0x310, 0x32c, 0x364
+INFO_PTOC, INFO_KDATA_ADDR = 0x330, 0x334
+ROMHDR_BYTES, TOC_ENTRY_BYTES = 84, 32  # CE's ROMHDR, then one TOCentry per module
+NOT_KEPT = "not kept by this kernel"
+NO_END = "no end-of-game record (combination not reached, power off, or probe not armed)"
 WATCH = ("dsound.dll", "sndcore.dll", "maple.dll", "mapledev.dll", "wsegacd.dll", "ddraw.dll",
          "dinput.dll", "coredll.dll")
 
@@ -93,6 +116,10 @@ class Ram:
         physical = (page & 0xfffff000) | (va & 0xfff) | 0x80000000
         return physical if self.offset(physical) is not None else None
 
+    def vbyte(self, va):
+        p = self.translate(va)
+        return None if p is None else self.byte(p)
+
     def vword(self, va):
         p = self.translate(va)
         return None if p is None else self.word(p)
@@ -114,6 +141,20 @@ class Ram:
         else:
             return None
         return "".join(out) or None
+
+
+def name_at(ram, pointer):
+    """A CE name string. These kernels keep process names (+0x20) and file
+    module names (+8) 8-bit; the standard CE layout has them UTF-16. The form
+    is chosen from the first two bytes (a character, then zero: UTF-16), and
+    only that form is read: a UTF-16 name that does not read as one gives no
+    name, never its first character."""
+    if not pointer:
+        return None
+    first, second = ram.vbyte(pointer), ram.vbyte(pointer + 1)
+    if not first:
+        return None
+    return ram.string(pointer, second == 0)
 
 
 def kdata_from(ram):
@@ -145,7 +186,7 @@ def processes(ram, kd):
                 bad += 1
                 continue
             rows.append({"slot": i, "handle": f"{ram.word(e + 8):#010x}", "vm_base": f"{vm:#010x}",
-                         "name": ram.string(ram.word(e + 0x20) or 0, True) if ram.word(e + 0x20) else None,
+                         "name": name_at(ram, ram.word(e + 0x20)),
                          "process": e})
         current = ram.word(kd + CURRENT_PROCESS)
         current_ok = current is not None and base <= current < base + 32 * PROCESS_STRIDE and \
@@ -188,8 +229,7 @@ def modules(ram, kd, low=None, high=None):
             name = ram.string(pointer, False) if pointer else None
             source = "ROM"
         else:
-            pointer = ram.word(node + 8)
-            name = ram.string(pointer, True) if pointer else None
+            name = name_at(ram, ram.word(node + 8))
             source = "disc/file" if kind == 2 else f"kind {kind}"
         use = ram.word(node + 12) or 0
         refs = []
@@ -221,8 +261,13 @@ def memory(ram, kd, cls, stage, page_list):
             "layout_check": "page size 4096 and process array match" if valid else "not matched; values not used",
             "unreviewed": True}
         if valid:
-            info["kernel_pages"].update({"free_kib": (free or 0) * 4, "total_kib": (total or 0) * 4,
-                                         "lowest_free_kib": (lowest or 0) * 4})
+            info["kernel_pages"].update({"free_kib": (free or 0) * 4, "total_kib": (total or 0) * 4})
+            # A low-water mark lies between 1 and the free pages; these kernels
+            # leave KINX_MINPAGEFREE at 0, so 0 is never published as one.
+            if lowest and lowest <= (free or 0):
+                info["kernel_pages"]["lowest_free_kib"] = lowest * 4
+            else:
+                info["kernel_pages"]["lowest_free"] = f"{NOT_KEPT} (KData+0x364 = {lowest or 0})"
     pages = set(page_list)
     info["dumped_pages"] = len(pages)
     if stage:
@@ -256,6 +301,45 @@ def memory(ram, kd, cls, stage, page_list):
     return info
 
 
+def rom_header_at(ram, address):
+    """CE's ROMHDR at `address` (dllfirst +0, dlllast +4, physfirst +8,
+    physlast +12, nummods +16, ulRAMStart +20, ulRAMFree +24, ulRAMEnd +28),
+    only if it is consistent: the image physfirst..physlast lies in RAM and
+    holds the header and its nummods TOC entries, and ulRAMStart <= ulRAMFree
+    <= ulRAMEnd lie in RAM."""
+    words = [ram.word(address + 4 * i) for i in range(8)] if address else [None]
+    if None in words:
+        return None
+    _, _, physfirst, physlast, nummods, start, free, end = words
+    low, high = wd.RAM_BEGIN, wd.RAM_BEGIN + wd.RAM_BYTES
+    if not (0 < nummods and low <= physfirst <= address and
+            address + ROMHDR_BYTES + TOC_ENTRY_BYTES * nummods <= physlast <= high and
+            low <= start <= free <= end <= high):
+        return None
+    return {"address": address, "modules": nummods, "ram_start": start, "ram_free": free, "ram_end": end}
+
+
+def rom_header(ram, kd, stage):
+    """The ROMHDR: the stage report's, checked against pTOC at KData+0x330;
+    when the stage report has none (its method finds none on the CE2
+    kernels), KData+0x330's own if that is a consistent ROMHDR."""
+    ptoc = ram.word(kd + INFO_PTOC)
+    found = rom_header_at(ram, ptoc)
+    stage = stage or {}
+    fields = ("ram_start", "ram_free", "ram_end")
+    reported = int(stage.get("rom_header", "0x0"), 16)
+    if reported:
+        agrees = bool(found) and found["address"] == reported and \
+            all(found[f] == int(stage.get(f, "0x0"), 16) for f in fields)
+        return {"source": "stage report", "address": f"{reported:#010x}", **{f: stage.get(f) for f in fields},
+                "kdata_ptoc": f"{ptoc or 0:#010x}", "kdata_ptoc_agrees": agrees}
+    if not found:
+        return {"source": None, "note": f"none in the stage report, and KData+0x330 ({ptoc or 0:#010x}) "
+                                        "is not a consistent ROMHDR"}
+    return {"source": "KData+0x330", "unreviewed": True, "address": f"{found['address']:#010x}", "modules": found["modules"],
+            **{f: f"{found[f]:#010x}" for f in fields}}
+
+
 def ports(counters):
     units = (counters or {}).get("maple", {}).get("units", {})
     out = {}
@@ -277,13 +361,26 @@ def ports(counters):
                       "condition": row.get("condition", 0), "media_info": row.get("media info", 0),
                       "block_reads": row.get("block read", 0), "block_writes": row.get("block write", 0),
                       "write_complete": row.get("write complete", 0)}
-    saves = [u for u, r in out.items() if r["block_writes"]]
+    # Counts are tested for truth only: the decoder marks a saturated 8-bit
+    # counter "255+". Block read, write and write complete count only for the
+    # storage function (src/loader/wce_probe_reader.inc).
+    saves = [u for u, r in out.items() if len(u) == 2 and r["block_writes"]]
+    # Command 13 completes a block access: CE's mapledev sends it after a
+    # one-phase block read too (docs/evidence/armada-ce-maple-write-owner.json),
+    # and Wild Metal shows 27 reads, 21 completions and no write per slot. It
+    # is card activity, not a save.
+    completions = [u for u, r in out.items() if len(u) == 2 and r["write_complete"]]
+    # A slot (A1, A2, ...) sent a storage-function frame: the probe ORs the
+    # function of every condition, media, block and set-condition frame.
+    addressed = [u for u, r in out.items() if len(u) == 2 and
+                 ("storage" in r["functions"] or r["block_reads"] or r["block_writes"] or r["write_complete"])]
     reads = [u for u, r in out.items() if r["block_reads"]]
     polled = [u for u, r in out.items() if r["device_info"] and len(u) == 2]
     # Positive evidence only: the probe reads the Maple list during GD calls,
     # so a frame it did not see may still have happened.
     samples = (counters or {}).get("maple", {}).get("samples", 0)
-    return {"units": out, "saved_to": saves, "read_from": reads, "polled_slots": polled, "samples": samples}
+    return {"units": out, "saved_to": saves, "completion_frames": completions, "addressed_slots": addressed,
+            "read_from": reads, "polled_slots": polled, "samples": samples}
 
 
 def audio(counters):
@@ -355,7 +452,7 @@ def mine(path, evidence_path=EVIDENCE, kernels_path=KERNELS):
                                         "rom_header": stage["rom_header"], "map_slots": stage["map_slots"],
                                         "tracks": stage["track_count"], "extents": stage["extent_count"]}
             if not terminal:
-                row["end"] = "no end-of-game record (combination not reached, power off, or probe not armed)"
+                row["end"] = NO_END
                 rows.append(row)
                 continue
             counters = terminal.get("counters") or {}
@@ -369,6 +466,8 @@ def mine(path, evidence_path=EVIDENCE, kernels_path=KERNELS):
             row["cd_audio"] = audio(counters)
             row["ports"] = ports(counters)
             row["rtc"] = counters.get("rtc")
+            if "timing" in session:
+                row["timing"] = timing_summary(session["timing"])
             base = (decoded["file"]["first_slot"] + session["slot"] * decoded["file"]["slot_sectors"]) * wd.SECTOR
             f.seek(base + wd.TERMINAL_SECTOR * wd.SECTOR)
             page_list = wd.page_map(f.read(wd.TERMINAL_SECTORS * wd.SECTOR))
@@ -393,6 +492,10 @@ def analyse(image, ttb, stage, page_list):
         out["memory"] = memory(ram, None, None, stage, page_list)
         return out
     out["kdata"] = f"{kd:#010x}"
+    # aInfo[KINX_KDATA_ADDR] names KData itself: recorded, never a refusal.
+    named = ram.word(kd + INFO_KDATA_ADDR)
+    out["kdata_self_check"] = {"value": f"{named or 0:#010x}", "matches": named == kd, "unreviewed": True}
+    out["rom_header"] = rom_header(ram, kd, stage)
     procs = processes(ram, kd)
     cls = procs["class"] if procs else None
     out["processes"] = procs
@@ -414,31 +517,193 @@ def analyse(image, ttb, stage, page_list):
     return out
 
 
+def timing_summary(t):
+    """The request ring (tools/wce_probe_data.py decode_timing) as findings.
+    Latencies and gaps are in milliseconds to TMU0's tick where the ring has
+    it (CE's 25 ms steps otherwise); "before the end" counts back from the end
+    of the session (A+B+X+Y+Start or the fault) by CE's count. KiB assume
+    2048-byte sectors."""
+    if not t or t.get("error"):
+        return t
+    reqs = t["requests"]
+    end = t.get("end_ms") or (reqs[-1]["issued_ms"] if reqs else 0)
+
+    def before(ms):
+        return round((end - ms) / 1000.0, 1)
+
+    def count(n):
+        return n if isinstance(n, int) else 65535
+
+    def latency(r):
+        if not r["ended"] or r["latency_ms"] is None:
+            return None
+        return r["latency_us"] / 1000 if r.get("latency_us") is not None else count(r["latency_ms"])
+
+    def begin(r):
+        return r["begin_us"] / 1000 if r.get("begin_us") is not None else r["issued_ms"]
+    ended = [r for r in reqs if latency(r) is not None]
+    latencies = sorted(latency(r) for r in ended)
+
+    def share(p):
+        return round(latencies[min(len(latencies) - 1, int(p * len(latencies)))], 1) if latencies else None
+    window = (end - reqs[0]["issued_ms"]) if reqs else 0
+    sectors = sum(count(r["sectors"]) for r in reqs)
+    call_us = sum(r["call_us"] or 0 for r in reqs)
+    irq_us = sum(r["irq_us"] or 0 for r in reqs)
+
+    def rate(r):
+        ms = latency(r)  # none for a read still open at the end
+        return round(count(r["sectors"]) * 2000 / ms, 1) if ms else None
+
+    def row(r):
+        took = latency(r)
+        return {"before_end_s": before(r["issued_ms"]), "command": r["command"], "lba": r["lba"],
+                "sectors": r["sectors"], "latency_ms": round(took, 1) if took is not None else None,
+                "kib_s": rate(r),
+                "call_ms": round((r["call_us"] or 0) / 1000, 1), "irq_ms": round((r["irq_us"] or 0) / 1000, 1),
+                "longest_call_ms": round((r["longest_call_us"] or 0) / 1000, 2), "calls": r["calls"],
+                "overruns": r["overruns"], "slow_blocks": r["slow_blocks"], "failed": r["failed"],
+                "replaced": r["replaced"]}
+    gaps = []
+    for a, b in zip(reqs, reqs[1:]):
+        if latency(a) is not None:
+            gaps.append({"before_end_s": before(a["issued_ms"] + count(a["latency_ms"])),
+                         "gap_ms": round(begin(b) - begin(a) - latency(a), 1),
+                         "after": a["command"], "next": b["command"]})
+    if reqs and latency(reqs[-1]) is not None and end:
+        # The end has CE's count only (no TMU0 phase), so this gap is taken in
+        # CE's count on both sides: to its tick (25 ms), never negative.
+        last = reqs[-1]
+        gaps.append({"before_end_s": before(last["issued_ms"] + count(last["latency_ms"])),
+                     "gap_ms": end - last["issued_ms"] - count(last["latency_ms"]), "after": last["command"],
+                     "next": "the end", "to_ce_tick": True})
+    # Seconds the kept requests cover completely, counting back from the end:
+    # after the oldest kept request once the ring has dropped older ones,
+    # after the ring began otherwise. The second holding that start is
+    # partial and left out.
+    since = reqs[0]["issued_ms"] if reqs and t["requests_begun"] > len(reqs) else t["first_ms"]
+    full_seconds = min(30, max(0, end - since) // 1000) if reqs and end else 0
+    bins = {}
+    for r in reqs:
+        second = int((end - r["issued_ms"]) // 1000)
+        if second < full_seconds:
+            b = bins.setdefault(second, {"second_before_end": second, "requests": 0, "kib": 0,
+                                         "longest_latency_ms": 0, "call_us": 0, "irq_us": 0})
+            b["requests"] += 1
+            b["kib"] += count(r["sectors"]) * 2
+            took = latency(r)
+            b["longest_latency_ms"] = max(b["longest_latency_ms"],
+                                          round(took, 1) if took is not None else end - r["issued_ms"])
+            b["call_us"] += r["call_us"] or 0
+            b["irq_us"] += r["irq_us"] or 0
+    seconds = []
+    for s in sorted(bins):
+        b = bins[s]
+        seconds.append(dict({k: v for k, v in b.items() if k not in ("call_us", "irq_us")},
+                            call_ms=round(b["call_us"] / 1000, 1), irq_ms=round(b["irq_us"] / 1000, 1)))
+    return {"ticks_per_ms": t["ticks_per_ms"], "requests_begun": t["requests_begun"], "requests_kept": len(reqs),
+            "window_s": round(window / 1000.0, 1), "end_ms": end,
+            "kib": sectors * 2, "kib_s": round(sectors * 2000 / window, 1) if window else None,
+            "latency_ms": {"median": share(0.5), "p90": share(0.9), "max": round(latencies[-1], 1) if latencies else None},
+            "call_ms": round(call_us / 1000, 1), "irq_ms": round(irq_us / 1000, 1),
+            "call_share": round(call_us / 10 / window, 1) if window else None,
+            "irq_share": round(irq_us / 10 / window, 1) if window else None,
+            "longest_call_us": max((r["longest_call_us"] or 0 for r in reqs), default=None),
+            "ring_call_ms": round((t["call_us"] or 0) / 1000, 1),
+            "ring_irq_ms": round((t["irq_us"] or 0) / 1000, 1),
+            "ring_s": round((end - t["first_ms"]) / 1000.0, 1) if end else None,
+            "slowest": [row(r) for r in sorted(ended, key=lambda r: -latency(r))[:10]],
+            "gaps": sorted(gaps, key=lambda g: -g["gap_ms"])[:5],
+            "open_at_end": [dict(row(r), pending_ms=end - r["issued_ms"]) for r in reqs if not r["ended"]],
+            "full_seconds": full_seconds, "last_seconds": seconds}
+
+
+def timing_text(r):
+    """The report section for one timing launch."""
+    t = r.get("timing")
+    name = f"{r.get('title') or '?'} ({r.get('area') or '?'})"
+    out = ["", f"### Slot {r['slot']}: {name}", ""]
+    if not t or t.get("error"):
+        return out + [f"No request ring: {(t or {}).get('error', 'none in the dump')}."]
+    lat = t["latency_ms"]
+    out += [f"{t['requests_kept']} of {t['requests_begun']} requests kept: the last {t['window_s']} s before "
+            f"the end. Read {t['kib']} KiB ({t['kib_s']} KiB/s over the window). Latency median "
+            f"{lat['median']} ms, 90% {lat['p90']} ms, longest {lat['max']} ms.",
+            f"Reader time while a kept read was open: GD calls {t['call_ms']} ms ({t['call_share']}% of the "
+            f"window), interrupt {t['irq_ms']} ms ({t['irq_share']}%); the longest GD call during a read "
+            f"{t['longest_call_us']} us. Since the ring began ({t['ring_s']} s, the first GD call with CE "
+            f"running): every GD call {t['ring_call_ms']} ms, the interrupt {t['ring_irq_ms']} ms.", "",
+            "Slowest reads:", "",
+            "| s before end | Command | Sectors | Latency ms | KiB/s | In calls ms | Longest call ms | "
+            "In interrupt ms | Overruns | Slow blocks |",
+            "|---|---|---|---|---|---|---|---|---|---|"]
+    for s in t["slowest"]:
+        out.append(f"| {s['before_end_s']} | {s['command']} | {s['sectors']} | {s['latency_ms']} | {s['kib_s']} | "
+                   f"{s['call_ms']} | {s['longest_call_ms']} | {s['irq_ms']} | {s['overruns']} | {s['slow_blocks']} |")
+    out += ["", "Longest gaps from a read's end to the next request: " +
+            ("; ".join(f"{g['gap_ms']} ms{' (to the 25 ms tick)' if g.get('to_ce_tick') else ''} at "
+                       f"{g['before_end_s']} s before the end (after {g['after']}, then {g['next']})"
+                       for g in t["gaps"]) or "none") + "."]
+    if t["open_at_end"]:
+        out.append("Still open at the end: " + "; ".join(
+            f"{o['command']} of {o['sectors']} sectors, pending {o['pending_ms']} ms" for o in t["open_at_end"]) + ".")
+    if not t["full_seconds"]:
+        return out + ["", "The kept requests cover no whole second before the end."]
+    out += ["", f"The last {t['full_seconds']} whole seconds the kept requests cover (by the second each "
+            "request began; a second with no row had no request):", "",
+            "| s before end | Requests | KiB | Longest latency ms | In calls ms | In interrupt ms |",
+            "|---|---|---|---|---|---|"]
+    out += [f"| {b['second_before_end']} | {b['requests']} | {b['kib']} | {b['longest_latency_ms']} | "
+            f"{b['call_ms']} | {b['irq_ms']} |" for b in t["last_seconds"]]
+    return out
+
+
+def ending(r):
+    """The terminal report's reason ("A+B+X+Y+Start", "reader fault", ...), or
+    None for a launch with no end-of-game record."""
+    end = r.get("end")
+    if not end or end == NO_END:
+        return None
+    return end.split(":", 1)[0]
+
+
+
+
 def rollup(launches):
     """Roadmap answers across launches (docs/wince-roadmap.md, 'What the data session answers')."""
     def name(r):
         return f"{r.get('title') or '?'} ({r.get('area') or '?'})"
     out = ["## Roadmap answers", ""]
-    out += ["### Boot by CD-driver line (B0)", "", "| Line | Launches | End-of-game record | Read the disc after start | Games |",
-            "|---|---|---|---|---|"]
+    out += ["### Boot by CD-driver line (B0)", "",
+            "A reader fault leaves a terminal report and a dump too; it is counted apart from the end-of-game "
+            "combination.", "",
+            "| Line | Launches | Ended by A+B+X+Y+Start | Reader fault | No end record | Read the disc after start | Games |",
+            "|---|---|---|---|---|---|---|"]
     lines = {}
     for r in launches:
         lines.setdefault(r.get("cd_driver_line", "?"), []).append(r)
     for line in sorted(lines, key=str):
         rs = lines[line]
-        ended = [r for r in rs if r.get("complete")]
+        ends = [ending(r) for r in rs]
         read = [r for r in rs if ((r.get("disc") or {}).get("reads") or {}).get("requests")]
-        out.append(f"| {line} | {len(rs)} | {len(ended)} | {len(read)} | {', '.join(sorted({name(r) for r in rs}))} |")
-    out += ["", "### Virtual VMU: slots and saves by maple.dll family (S1, S5-S9, S16)", "",
-            "Frames are sampled during GD calls: a slot listed is evidence; \"not seen\" is not proof of absence.", "",
-            "| Family | Game | Polls | Reads from | Saves to |", "|---|---|---|---|---|"]
+        out.append(f"| {line} | {len(rs)} | {ends.count(wd.REASONS[1])} | {ends.count(wd.REASONS[2])} | "
+                   f"{ends.count(None)} | {len(read)} | {', '.join(sorted({name(r) for r in rs}))} |")
+    out += ["", "### Virtual VMU: card slots and write frames by maple.dll family (S1, S5-S9, S16)", "",
+            "The probe samples the Maple list only during GD calls, so a slot listed is evidence and \"not seen\" "
+            "is not proof of absence. A count is the frames seen, summed over the sampled lists (at most 32 frames "
+            "a list) and stopping at 255. Card slots addressed: sent a storage-function frame. Saved to: a block "
+            "write was seen. Completion frames (command 13) follow block reads as well as writes: card activity, "
+            "not a save.", "",
+            "| Family | Game | Card slots addressed | Reads from | Saved to | Completion frames |",
+            "|---|---|---|---|---|---|"]
     for r in sorted(launches, key=lambda r: (str(r.get("maple_family", "?")), name(r))):
         p = r.get("ports") or {}
         if not p:
             continue
-        unseen = f"not seen ({p.get('samples', 0)} samples)"
-        out.append(f"| {r.get('maple_family', '?')} | {name(r)} | {', '.join(p.get('polled_slots', [])) or unseen} | "
-                   f"{', '.join(p.get('read_from', [])) or unseen} | {', '.join(p.get('saved_to', [])) or unseen} |")
+        unseen = f"not seen ({p.get('samples', 0)} samples)" if p.get("samples") else "not sampled"
+        out.append(f"| {r.get('maple_family', '?')} | {name(r)} | {', '.join(p.get('addressed_slots', [])) or unseen} | "
+                   f"{', '.join(p.get('read_from', [])) or unseen} | {', '.join(p.get('saved_to', [])) or unseen} | "
+                   f"{', '.join(p.get('completion_frames', [])) or '-'} |")
     out += ["", "### DirectSound by sound group (S3, S11, S15, R1)", "",
             "| Sound group | Game | dsound.dll | sndcore.dll | CD audio commands |", "|---|---|---|---|---|"]
     for r in sorted(launches, key=lambda r: (str(r.get("sound_group", "?")), name(r))):
@@ -461,14 +726,17 @@ def rollup(launches):
     out += ["", "### Refused commands (B1)", ""]
     out += [f"- {name(r)}: {', '.join(r['disc']['refused']['commands'])} ({r['disc']['refused']['count']} times)"
             for r in refused] or ["- none"]
-    out += ["", "### Memory left (F5 and every CD music step)", "", "| Game | Lowest free | Free at the end | Kernel class |",
-            "|---|---|---|---|"]
-    def lowest(r):
+    out += ["", "### Memory left (F5 and every CD music step)", "",
+            "Free at the end: CE's free physical pages (KData+0x310) when the dump was taken, at the end-of-game "
+            "combination or a fault. It is not a low-water mark or free heap.", "",
+            "| Game | Lowest free | Free at the end | Kernel class |", "|---|---|---|---|"]
+    def free(r):
         k = ((r.get("dump") or {}).get("memory") or {}).get("kernel_pages") or {}
-        return k.get("lowest_free_kib")
-    for r in sorted([r for r in launches if lowest(r) is not None], key=lowest):
+        return k.get("free_kib")
+    for r in sorted([r for r in launches if free(r) is not None], key=lambda r: (free(r), name(r))):
         k = r["dump"]["memory"]["kernel_pages"]
-        out.append(f"| {name(r)} | {k['lowest_free_kib']} KiB | {k['free_kib']} KiB | {(r.get('kernel') or {}).get('class', '?')} |")
+        low = f"{k['lowest_free_kib']} KiB" if "lowest_free_kib" in k else NOT_KEPT
+        out.append(f"| {name(r)} | {low} | {k['free_kib']} KiB | {(r.get('kernel') or {}).get('class', '?')} |")
     return out
 
 
@@ -477,7 +745,8 @@ def text(result):
     launches = [r for r in result["launches"] if "state" in r]
     lines.append(f"{len(launches)} launches in {result['file']['slots']} slots.")
     lines.append("")
-    lines.append("| Slot | Game | Kernel class | VMU family | CD line | Sound group | End | Saves to | Polls | CD audio | DirectSound used by | Lowest free |")
+    lines.append("| Slot | Game | Kernel class | VMU family | CD line | Sound group | End | Saved to (block write seen) | "
+                 "Card slots addressed | CD audio | DirectSound used by | Free at the end |")
     lines.append("|---|---|---|---|---|---|---|---|---|---|---|---|")
     for r in launches:
         dump = r.get("dump") or {}
@@ -485,15 +754,25 @@ def text(result):
         ds = (dump.get("watched_modules") or {}).get("dsound.dll", {}).get("used_by")
         cd = r.get("cd_audio") or {}
         ports_ = r.get("ports") or {}
+        free = "?" if "free_kib" not in mem else f"{mem['free_kib']} KiB" + \
+            (f" (lowest {mem['lowest_free_kib']} KiB)" if "lowest_free_kib" in mem else "")
         lines.append("| {} | {} | {} | {} | {} | {} | {} | {} | {} | {} | {} | {} |".format(
             r["slot"], f"{r.get('title') or '?'} ({r.get('product')} {r.get('version')} {r.get('area')})",
             (r.get("kernel") or {}).get("class", "?"), r.get("maple_family", "?"), r.get("cd_driver_line", "?"),
             r.get("sound_group", "?"), r.get("end") if r.get("complete", True) else f"{r.get('end')} (incomplete)",
-            ", ".join(ports_.get("saved_to", [])) or "not seen", ", ".join(ports_.get("polled_slots", [])) or "not seen",
+            ", ".join(ports_.get("saved_to", [])) or ("not seen" if ports_.get("samples") else "not sampled"),
+            ", ".join(ports_.get("addressed_slots", [])) or ("not seen" if ports_.get("samples") else "not sampled"),
             ", ".join(f"{k} {v}" for k, v in (cd.get("commands") or {}).items()) or "-",
-            ", ".join(ds) if ds else ("not loaded" if dump.get("modules") else "?"),
-            f"{mem['lowest_free_kib']} KiB" if "lowest_free_kib" in mem else "?"))
+            ", ".join(ds) if ds else ("not loaded" if dump.get("modules") else "?"), free))
     lines += [""] + rollup(launches)
+    timed = [r for r in launches if "timing" in r]
+    if timed:
+        lines += ["", "## Read timing (timing session)", "",
+                  "Each read request's time from REQUEST to its end, by CE's millisecond count and TMU0's tick, "
+                  "and the reader's own time (TMU0) in GD calls and in its interrupt while it was open. The ring "
+                  "keeps the latest 190 requests, so it covers the end of each launch."]
+        for r in timed:
+            lines += timing_text(r)
     for r in launches:
         lines += ["", f"## Slot {r['slot']}: {r.get('title') or '?'}", ""]
         lines.append("```")

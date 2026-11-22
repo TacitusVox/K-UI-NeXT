@@ -4,6 +4,8 @@
 #include "kui/armada_ce_ram_bind.h"
 #if defined(KUI_WINCE_CDDA_WWP) && KUI_WINCE_CDDA_WWP == 1
 #include "kui/wince_cdda_wwp_kernel.h"
+#elif defined(KUI_WINCE_CDDA_BAM4) && KUI_WINCE_CDDA_BAM4 == 1
+#include "kui/wince_cdda_bam4_kernel.h"
 #endif
 #include <stddef.h>
 #include <string.h>
@@ -65,16 +67,18 @@
 #define KUI_ARMADA_CE_LIVE_BUFFER_POSITION_RVA 0x2f00u
 #elif defined(KUI_WINCE_CDDA_BAM4) && KUI_WINCE_CDDA_BAM4 == 1
 /* Exact supplied Bust-A-Move4 US kernel/game/DSOUND profile. SNDCORE and
- * the admitted COREDLL wrapper prefixes match the Armada contracts. */
-#define KUI_ARMADA_CE_LIVE_MODULE_HEAD UINT32_C(0x8c1d1b24)
-#define KUI_ARMADA_CE_LIVE_PROCESS_BASE UINT32_C(0x8c1da6e0)
-#define KUI_ARMADA_CE_LIVE_CURRENT_PROCESS UINT32_C(0x8c1d1890)
-#define KUI_ARMADA_CE_LIVE_HEAP_LOW UINT32_C(0x8c1d9430)
-#define KUI_ARMADA_CE_LIVE_HEAP_HIGH UINT32_C(0x8c1d9434)
-#define KUI_ARMADA_CE_LIVE_APISETS UINT32_C(0x8c1dba80)
-#define KUI_ARMADA_CE_LIVE_DSOUND_TOC UINT32_C(0x8c1ce430)
-#define KUI_ARMADA_CE_LIVE_SNDCORE_TOC UINT32_C(0x8c1ce410)
-#define KUI_ARMADA_CE_LIVE_COREDLL_TOC UINT32_C(0x8c1ce210)
+ * the admitted COREDLL wrapper prefixes match the Armada contracts. The NK
+ * globals and ROM table entries are the selected kernel of Bust-A-Move 4's
+ * group (kui/wince_cdda_bam4_kernel.h): Bust-A-Move 4's own by default. */
+#define KUI_ARMADA_CE_LIVE_MODULE_HEAD KUI_BAM4_CE_MODULE_HEAD
+#define KUI_ARMADA_CE_LIVE_PROCESS_BASE KUI_BAM4_CE_PROCESS_BASE
+#define KUI_ARMADA_CE_LIVE_CURRENT_PROCESS KUI_BAM4_CE_CURRENT_PROCESS
+#define KUI_ARMADA_CE_LIVE_HEAP_LOW KUI_BAM4_CE_HEAP_LOW
+#define KUI_ARMADA_CE_LIVE_HEAP_HIGH KUI_BAM4_CE_HEAP_HIGH
+#define KUI_ARMADA_CE_LIVE_APISETS KUI_BAM4_CE_APISETS
+#define KUI_ARMADA_CE_LIVE_DSOUND_TOC KUI_BAM4_CE_DSOUND_TOC
+#define KUI_ARMADA_CE_LIVE_SNDCORE_TOC KUI_BAM4_CE_SNDCORE_TOC
+#define KUI_ARMADA_CE_LIVE_COREDLL_TOC KUI_BAM4_CE_COREDLL_TOC
 #define KUI_ARMADA_CE_LIVE_DEVICE_VTABLE_RVA 0x111cu
 #define KUI_ARMADA_CE_LIVE_DSOUND_TEXT_BYTES 0x61b6u
 #define KUI_ARMADA_CE_LIVE_GAME_DEVICE 0x13f14cu

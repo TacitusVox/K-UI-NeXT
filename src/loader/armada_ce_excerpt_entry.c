@@ -345,6 +345,20 @@ int kui_armada_ce_stream_bind_native(struct kui_armada_ce_live_stream_api *out) 
 #if !KUI_ARMADA_CE_STREAM || KUI_WINCE_CDDA_WORMS || KUI_WINCE_CDDA_BAM4 || KUI_WINCE_CDDA_WWP
 #error "Movie timing is an Armada stream diagnostic only"
 #endif
+#if KUI_ARMADA_CE_PLAY_TIMING
+#include "kui/armada_ce_play_timing.h"
+#if KUI_ARMADA_CE_HOOK_TIMING
+#error "The gameplay timing replaces the movie rows; the hook timing has its own build"
+#endif
+/* Gameplay timing: the same sources, with the music worker's steps and the
+ * game's reads from the low reader's bus events, over the window after the
+ * intro movie (include/kui/armada_ce_play_timing.h). */
+static struct kui_armada_play_timing play;
+static const char play_labels[KUI_ARMADA_PLAY_ROWS][40]={
+    "PLAY-MS SECTORS KB/S READS STATUS", "CALL-MS IRQ-MS WORK-MS BUSY% PEAK%",
+    "SOLO SOLO-MS SHARED SHARED-MS MAX-MS", "MUSICBLK GAMEBLK GRANTS PREEMPT PEND%",
+    "DMA-OK POLLED OVERRUN RESTART SLOW-OK", "STEPS MAX-US OVER8MS URGENT LOW-MS"};
+#else
 static struct kui_armada_movie_timing movie;
 /* File scope keeps the audited terminal label tables' local names. */
 static const char movie_labels[KUI_ARMADA_MOVIE_ROWS][40]={
@@ -355,6 +369,7 @@ static const char movie_labels[KUI_ARMADA_MOVIE_ROWS][40]={
     "HOOK-MS HOOK% HOOKS HOOKMAX-US STEADY"};
 #else
     "CALLS IRQS SAMPLES HOT>50 1S-WINS"};
+#endif
 #endif
 #if KUI_ARMADA_CE_HOOK_TIMING
 #include "kui/armada_ce_vmu_layout.h"
@@ -388,7 +403,13 @@ static void movie_sample(void) {
     volatile uint32_t *hook=(volatile uint32_t *)(uintptr_t)KUI_ARMADA_CE_HOOK_TIMING_P2;
     bool opened=(movie.flags&KUI_ARMADA_MOVIE_STARTED)!=0;
 #endif
+#if KUI_ARMADA_CE_PLAY_TIMING
+    uint32_t transport[KUI_ARMADA_PLAY_TRANSPORT];
+    kui_armada_ce_stream_transport_play_counts(transport);
+    kui_armada_play_sample(&play,&in,transport);
+#else
     kui_armada_movie_sample(&movie,&in);
+#endif
 #if KUI_ARMADA_CE_HOOK_TIMING
     if(!(movie.flags&KUI_ARMADA_MOVIE_STARTED)) return;
     if(!opened) {
@@ -399,6 +420,56 @@ static void movie_sample(void) {
     }
 #endif
 }
+#if KUI_ARMADA_CE_PLAY_TIMING
+#define PLAY_TCOR0 0xffd80008u
+#define PLAY_TCNT0 0xffd8000cu
+#define PLAY_TCR0 0xffd80010u
+#define PLAY_TCR0_UNF 0x100u
+/* CE's count and TMU0's, with no tick of CE's between them; an underflow
+ * CE has not counted leaves the count after the reload (as the WinCE data
+ * probe reads them, wce_probe_reader.inc). Read only. */
+static uint32_t play_now_us(void) {
+    uint32_t kdata=*(volatile const uint32_t *)(uintptr_t)MOVIE_CE_KERNEL_DATA;
+    if(!kdata) return 0u;
+    volatile const uint32_t *ms_word=(volatile const uint32_t *)(uintptr_t)(kdata+4u);
+    uint32_t ms,count;uint16_t tcr;unsigned tries=0;
+    do {
+        ms=*ms_word;
+        count=*(volatile const uint32_t *)(uintptr_t)PLAY_TCNT0;
+        tcr=*(volatile const uint16_t *)(uintptr_t)PLAY_TCR0;
+        if(tcr&PLAY_TCR0_UNF) {
+            uint32_t again=*(volatile const uint32_t *)(uintptr_t)PLAY_TCNT0;
+            if(again>count) count=again;
+        }
+    } while(ms!=*ms_word && ++tries<4u);
+    return kui_armada_play_us(ms,count,(tcr&PLAY_TCR0_UNF)!=0u,
+        *(volatile const uint32_t *)(uintptr_t)PLAY_TCOR0,kui_armada_movie_ticks_per_ms(tcr));
+}
+/* From the transport's bus events (masked GD calls and the SCI interrupt). */
+void kui_armada_ce_play_read(uint32_t token,bool pending,bool reading,uint32_t sectors,
+    bool produced,uint32_t grants) {
+    if(!kui_armada_play_read_due(&play,token,pending,reading,produced)) return;
+    kui_armada_play_read(&play,play_now_us(),token,pending,reading,sectors,produced,grants);
+}
+/* From the music worker, which runs with interrupts enabled: the clock and
+ * K-UI's call and interrupt ticks before a step, then the step's time less
+ * those of K-UI's GD calls and interrupts within it, recorded masked. */
+void kui_armada_ce_play_step_begin(uint32_t mark[3]) {
+    const volatile uint32_t *acc=kui_armada_ce_stream_transport_movie_timing();
+    mark[0]=play_now_us();mark[1]=acc?acc[0]:0u;mark[2]=acc?acc[2]:0u;
+}
+void kui_armada_ce_play_step_end(const uint32_t mark[3],uint32_t reserve_bytes,bool urgent) {
+    const volatile uint32_t *acc=kui_armada_ce_stream_transport_movie_timing();
+    uint32_t now=play_now_us();
+    uint32_t per_ms=kui_armada_movie_ticks_per_ms(*(volatile const uint16_t *)(uintptr_t)PLAY_TCR0);
+    uint32_t ticks=acc?(acc[0]-mark[1])+(acc[2]-mark[2]):0u;
+    uint32_t kui_us=per_ms?ticks/per_ms*1000u+ticks%per_ms*1000u/per_ms:0u;
+    uint32_t elapsed=now-mark[0];
+    uint32_t saved=worker_mask_begin();
+    kui_armada_play_step(&play,elapsed>kui_us?elapsed-kui_us:0u,urgent,reserve_bytes);
+    worker_mask_end(saved);
+}
+#endif
 /* The audited entry's bytes are unchanged: its existing calls to these two
  * functions reach same-named wrappers. The poll wrapper samples before the
  * player's unchanged answer; the terminal wrapper rewrites all six rows of
@@ -414,7 +485,12 @@ __attribute__((noipa)) void kui_armada_ce_stream_underrun_snapshot(
     kui_armada_ce_stream_underrun_snapshot_core(out);
     uint32_t rows[KUI_ARMADA_MOVIE_ROWS][5];
     uint32_t per_ms=kui_armada_movie_ticks_per_ms(*(volatile const uint16_t *)(uintptr_t)0xffd80010u);
+#if KUI_ARMADA_CE_PLAY_TIMING
+    _Static_assert(KUI_ARMADA_PLAY_ROWS==KUI_ARMADA_MOVIE_ROWS,"the report has six timing rows");
+    kui_armada_play_rows(&play,per_ms,rows);
+#else
     kui_armada_movie_rows(&movie,per_ms,rows);
+#endif
 #if KUI_ARMADA_CE_HOOK_TIMING
     uint32_t elapsed=movie.end_ms-movie.start_ms;
     uint32_t hook_ms=per_ms?(hook_end[0]-hook_base[0])/per_ms:0u;
@@ -427,7 +503,11 @@ __attribute__((noipa)) void kui_armada_ce_stream_underrun_snapshot(
         snapshot.playback,snapshot.buffer,snapshot.cursor};
     for(unsigned r=0;r<KUI_ARMADA_MOVIE_ROWS;r++) {
         for(unsigned c=0;c<5u;c++) targets[r][c]=rows[r][c];
+#if KUI_ARMADA_CE_PLAY_TIMING
+        snapshot.report_labels[r]=(uint32_t)(uintptr_t)play_labels[r];
+#else
         snapshot.report_labels[r]=(uint32_t)(uintptr_t)movie_labels[r];
+#endif
     }
 }
 #endif

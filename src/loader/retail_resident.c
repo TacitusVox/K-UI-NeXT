@@ -16,6 +16,11 @@ __asm__(".global __kui_smash_swirl_ce_vmu\n.set __kui_smash_swirl_ce_vmu,1\n");
 __asm__(".global __kui_native_gd_vram_dma\n"
         ".set __kui_native_gd_vram_dma,1\n");
 #endif
+#if KUI_RETAIL_CE_VRAM_DMA
+#include "kui/retail_vram_dma.h"
+__asm__(".global __kui_retail_ce_vram_dma\n"
+        ".set __kui_retail_ce_vram_dma,1\n");
+#endif
 #include "kui/retail_image.h"
 #include "kui/native_standalone_foreground.h"
 #include "kui/retail_ocram.h"
@@ -412,6 +417,16 @@ ocram_mapping_done:
      * as they are: the resident runs with SR.BL clear, so CE's own TLB-miss
      * handler maps each page as it is touched, through CE's cache. */
     if(!ram_alias(address)) {
+#if KUI_RETAIL_CE_VRAM_DMA
+        /* P1 and P2 never name CE's virtual memory, and outside RAM only PVR
+         * memory is usable there: a DMA stream's piece (retail_gd.c
+         * stream_guest; guest() refuses such CPU pointers), which the
+         * background reader's interrupt fills through its P1 alias. Written
+         * uncached through P2 and without cache maintenance, as the G1 DMA
+         * would. */
+        if((address >> 29) - 4u < 2u)
+            return (uint8_t *)(uintptr_t)kui_retail_vram_dma_span(address, bytes);
+#endif
         uint32_t end = address + bytes;
         if(!(*(volatile const uint32_t *)(uintptr_t)0xff000010u & 1u) || end < address)
             { RETURN_BAD_MAP(); }
@@ -1671,6 +1686,9 @@ int32_t kui_retail_resident_dispatch(uint32_t r4, uint32_t r5,
     uint32_t source=kui_retail_hook_source;
 #ifdef KUI_RETAIL_CE
     uint32_t started=*(volatile const uint32_t *)(uintptr_t)TCNT0;
+#if KUI_WCE_PROBE == 2
+    uint32_t probe_started=kui_wce_probe_tmu(started);
+#endif
     if(ce_record(source,r4,r5,r6,r7)) return 0;
 #endif
     if(source>3) return -1;
@@ -1764,6 +1782,9 @@ int32_t kui_retail_resident_dispatch(uint32_t r4, uint32_t r5,
     armada_ce_audio_kick(r7);
 #endif
     meter_call(started);
+#if KUI_WCE_PROBE == 2
+    kui_wce_probe_time_call(probe_started);
+#endif
 #endif
     return result;
 }
@@ -1776,6 +1797,9 @@ int32_t kui_retail_resident_dispatch(uint32_t r4, uint32_t r5,
  * one, when both, raised here as CE would; 0 for none. */
 uint32_t kui_retail_ce_irq(void) {
     uint32_t started=*(volatile const uint32_t *)(uintptr_t)TCNT0, sysintr=0;
+#if KUI_WCE_PROBE == 2
+    uint32_t probe_started=kui_wce_probe_tmu(started);
+#endif
     if(!kui_retail_async_irq()) {
         uint32_t raised=service.interrupts;
         service.interrupts=0;
@@ -1786,6 +1810,9 @@ uint32_t kui_retail_ce_irq(void) {
         }
     }
     meter_busy(started);
+#if KUI_WCE_PROBE == 2
+    kui_wce_probe_time_irq(probe_started);
+#endif
     return sysintr;
 }
 #endif

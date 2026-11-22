@@ -191,12 +191,19 @@ def stream_owner_bodies(*, bam4=False, worms=False, wwp=False):
     if bam4 or worms or wwp:
         # WWP's NK globals and process/page contracts were reviewed against
         # its complete supplied kernel; matching BAM4 values are intentional.
+        current, negated_base = 0x8c1d1890, 0x73e25920
+        if wwp:
+            # Another kernel of the group moves both by its data block shift.
+            current, negated_base = wwp_current_process(), -wwp_process_base() & 0xffffffff
+        elif bam4:
+            # The same for another kernel of Bust-A-Move 4's group.
+            current, negated_base = bam4_current_process(), -bam4_process_base() & 0xffffffff
         changes = {
-            '_read_native': ((72, 0x8c145890, 0x8c1d1890),),
+            '_read_native': ((72, 0x8c145890, current),),
             '_kui_armada_ce_stream_owner_word': (
-                (348, 0x73eb1920, 0x73e25920),
-                (376, 0x8c145890, 0x8c1d1890),
-                (496, 0x8c145890, 0x8c1d1890)),
+                (348, 0x73eb1920, negated_base),
+                (376, 0x8c145890, current),
+                (496, 0x8c145890, current)),
         }
         if worms:
             changes = {
@@ -259,6 +266,97 @@ CDDA_VMU_LOW_LIMIT, CDDA_VMU_LOW_REGION_BYTES = 0x8c00dc00, 0xf60 - 0x800
 # alignment. Never a delivery layout.
 CDDA_VMU_TIMING_REGION_BYTES = CDDA_VMU_LOW_REGION_BYTES + 0x20
 CDDA_VMU_TIMING = False
+# Another kernel of World Party's group (--wwp-kernel NAME): its record from
+# include/kui/wince_cdda_wwp_kernels.h. None audits World Party's own kernel.
+WWP_KERNEL = None
+WWP_CURRENT_PROCESS, WWP_PROCESS_BASE, WWP_ROMHDR = 0x8c1d1890, 0x8c1da6e0, 0x8c1cd614
+
+
+def wwp_kernel_record(name):
+    """The selected group kernel's record, as tools/wince_cdda_wwp_kernels.py checks it."""
+    import wince_cdda_wwp_kernels
+    records = wince_cdda_wwp_kernels.header_values()
+    if name not in records or name == wince_cdda_wwp_kernels.NAMES[0]:
+        raise ValueError('Unknown kernel of World Party\'s group other than its own: ' + name)
+    return dict(records[name], name=name)
+
+
+def wwp_profile_name():
+    return "wwp-group:" + WWP_KERNEL["name"].lower() if WWP_KERNEL else "wwp-us"
+
+
+def wwp_current_process():
+    shift = WWP_KERNEL['data_shift'] if WWP_KERNEL else 0
+    return (WWP_CURRENT_PROCESS + shift) & 0xffffffff
+
+
+def wwp_process_base():
+    shift = WWP_KERNEL['data_shift'] if WWP_KERNEL else 0
+    return (WWP_PROCESS_BASE + shift) & 0xffffffff
+
+
+def wwp_romhdr_p2():
+    return ((WWP_KERNEL['romhdr'] if WWP_KERNEL else WWP_ROMHDR) & 0x1fffffff) | 0xa0000000
+
+
+# Another kernel of Bust-A-Move 4's group (--bam4-kernel NAME): its record from
+# include/kui/wince_cdda_bam4_kernels.h. None audits Bust-A-Move 4's own kernel.
+BAM4_KERNEL = None
+BAM4_CURRENT_PROCESS, BAM4_PROCESS_BASE, BAM4_ROMHDR = 0x8c1d1890, 0x8c1da6e0, 0x8c1ce19c
+
+
+def bam4_kernel_record(name):
+    """The selected group kernel's record, as tools/wince_cdda_bam4_kernels.py checks it."""
+    import wince_cdda_bam4_kernels
+    records = wince_cdda_bam4_kernels.header_values()
+    if name not in records or name == wince_cdda_bam4_kernels.NAMES[0]:
+        raise ValueError('Unknown kernel of Bust-A-Move 4\'s group other than its own: ' + name)
+    return dict(records[name], name=name)
+
+
+def bam4_profile_name():
+    return "bam4-group:" + BAM4_KERNEL["name"].lower() if BAM4_KERNEL else "bam4-us"
+
+
+def bam4_current_process():
+    shift = BAM4_KERNEL['data_shift'] if BAM4_KERNEL else 0
+    return (BAM4_CURRENT_PROCESS + shift) & 0xffffffff
+
+
+def bam4_process_base():
+    shift = BAM4_KERNEL['data_shift'] if BAM4_KERNEL else 0
+    return (BAM4_PROCESS_BASE + shift) & 0xffffffff
+
+
+def bam4_romhdr_p2():
+    return ((BAM4_KERNEL['romhdr'] if BAM4_KERNEL else BAM4_ROMHDR) & 0x1fffffff) | 0xa0000000
+
+
+# A module for another kernel of a sound group carries, at payload 0x300,
+# "KUICDK01", version 1, 64 bytes, the group's sound profile (World Party 4,
+# Bust-A-Move 4 2), the kernel's size, the stream pool's start, zero and the
+# kernel's SHA-256 (src/loader/retail_entry.S). Every other stream module has
+# none there.
+CDDA_KERNEL_CAPABILITY_OFFSET = 0x300
+
+
+def audit_cdda_kernel_capability(directory):
+    entry = inspect_elf((Path(directory) / "entry.elf").read_bytes(), 0x8c010000, 0x8c112000)
+    record = region(entry["payload"], CDDA_KERNEL_CAPABILITY_OFFSET, 64, "CD music kernel capability")
+    if WWP_KERNEL and BAM4_KERNEL:
+        raise ValueError("Select one sound group's kernel")
+    kernel, profile = (WWP_KERNEL, 4) if WWP_KERNEL else (BAM4_KERNEL, 2)
+    if not kernel:
+        if any(record):
+            raise ValueError("A stream module for a reviewed kernel carries a group kernel record")
+        return None
+    expected = (b"KUICDK01" + struct.pack("<6I", 1, 64, profile, kernel["kernel_bytes"], 0x8cf50000, 0) +
+                bytes.fromhex(kernel["kernel_sha256"]))
+    if record != expected:
+        raise ValueError("CD music kernel capability record is missing or differs from its kernel")
+    return {"payload_offset": hex(CDDA_KERNEL_CAPABILITY_OFFSET), "magic": "KUICDK01", "version": 1,
+            "sound_profile": profile, "kernel": kernel["name"], "kernel_bytes": kernel["kernel_bytes"],
+            "kernel_sha256": kernel["kernel_sha256"], "pool_begin": "0x8cf50000"}
 STREAM_BUS_VALID_SPAN_OFFSET = 0x126
 
 
@@ -595,7 +693,7 @@ def stream_boot_bodies(*, bam4=False, worms=False, wwp=False, photo_hold=True):
         if body[0x234:0x238] != struct.pack('<I', 0xac141420):
             raise ValueError('Title startup pin no longer matches reviewed Armada ROMHDR literal')
         body[0x234:0x238] = struct.pack('<I', 0xac11de70 if worms else
-                                     0xac1cd614 if wwp else 0xac1ce19c)
+                                     wwp_romhdr_p2() if wwp else bam4_romhdr_p2())
         if worms:
             for offset, original, replacement in (
                     (0x230, 0x8cf50000, 0x8ce70000),
@@ -965,12 +1063,12 @@ def audit_stream_owner_code(image, locals, sizes, *, bam4=False, worms=False, ww
     if any((unit, name) in locals for name in ("_read_cache", "_read_mapped")):
         raise ValueError("Native worker retains the entry binder's cache-array observer")
     return {"complete_owner_reader_bodies_pinned": len(bodies),
-            "kernel_profile": "worms-us" if worms else "wwp-us" if wwp else
-                              "bam4-us" if bam4 else "armada-us",
-            "current_process_p1": hex(0x8c121890 if worms else
-                                      0x8c1d1890 if bam4 or wwp else 0x8c145890),
-            "process_base_p1": hex(0x8c1276c0 if worms else
-                                   0x8c1da6e0 if bam4 or wwp else 0x8c14e6e0),
+            "kernel_profile": "worms-us" if worms else wwp_profile_name() if wwp else
+                              bam4_profile_name() if bam4 else "armada-us",
+            "current_process_p1": hex(0x8c121890 if worms else wwp_current_process() if wwp else
+                                      bam4_current_process() if bam4 else 0x8c145890),
+            "process_base_p1": hex(0x8c1276c0 if worms else wwp_process_base() if wwp else
+                                   bam4_process_base() if bam4 else 0x8c14e6e0),
             "irq_mask_covers_both_walks_and_native_sample": True,
             "entire_saved_sr_restored": True, "ttb_and_sr_rechecked": True,
             "sr_stability_mask": "0x700000f0", "arithmetic_status_flags_do_not_refuse": True,
@@ -1201,8 +1299,8 @@ def audit_stream_boot_arm(controller, controller_spans, resident, resident_spans
     if not pinned:
         raise ValueError("Missing stream bootstrap reviewed body pins")
     return {"entry_slot": slot, "descriptor_address": hex(descriptor),
-            "romhdr_p2": hex(0xac11de70 if worms else 0xac1cd614 if wwp else
-                              0xac1ce19c if bam4 else 0xac141420),
+            "romhdr_p2": hex(0xac11de70 if worms else wwp_romhdr_p2() if wwp else
+                              bam4_romhdr_p2() if bam4 else 0xac141420),
             "preserves_controller_zero_check": True, "attach_only_after_relay": True,
             "bootstrap_audio_and_bus_gated": True, "complete_linked_body_pins": pinned,
             "photo_hold_frames": photo_frames, "only_final_photo_hold_removed": not photo_hold}
@@ -1342,8 +1440,8 @@ def check(directory, *, stream=False, bam4=False, worms=False, wwp=False, cdda_v
     if not stack["call_graph"] or stack["worst_bytes"] + stack["margin"] > stack["available_bytes"]:
         raise ValueError("Excerpt entry is not covered by bounded masked-stack audit")
     return {"controller_entry": hex(controller_base), "controller_memory_end": hex(controller["memory_end"]),
-            "title_profile": "worms-us" if worms else "wwp-us" if wwp else
-                             "bam4-us" if bam4 else "armada-us",
+            "title_profile": "worms-us" if worms else wwp_profile_name() if wwp else
+                             bam4_profile_name() if bam4 else "armada-us",
             "stream_profile": stream, "stream_controller_contract": stream_contract,
             "controller_payload_bytes": len(controller["payload"]), "controller_unresolved_symbols": 0,
             "controller_integer_instructions": instructions, "exact_authored_deferred_bridge": True,
@@ -1374,6 +1472,7 @@ def check(directory, *, stream=False, bam4=False, worms=False, wwp=False, cdda_v
             "native_owner_reader": owner_reader,
             "stream_bus": stream_bus, "stream_boot_arm": stream_boot_arm,
             "all_on_capability": audit_all_on_capability(directory) if cdda_vmu else None,
+            "cdda_kernel_capability": audit_cdda_kernel_capability(directory) if stream else None,
             "terminal_snapshot": terminal_snapshot, "drive_status_projection": drive_projection,
             "linked_direct_calls": direct_calls}
 
@@ -2118,6 +2217,12 @@ def main():
                         help="With --stream: the reader changes are built in (no CD music history pages)")
     parser.add_argument("--timing", action="store_true",
                         help="With --cdda-vmu: the Virtual VMU On timing diagnostic's reader region")
+    parser.add_argument("--wwp-kernel", metavar="NAME",
+                        help="With --wwp: another kernel of World Party's group "
+                             "(include/kui/wince_cdda_wwp_kernels.h)")
+    parser.add_argument("--bam4-kernel", metavar="NAME",
+                        help="With --bam4: another kernel of Bust-A-Move 4's group "
+                             "(include/kui/wince_cdda_bam4_kernels.h)")
     parser.add_argument('--wwp-drive-link', type=Path, metavar='ELF',
                         help='Emit one checked WWP scalar linker assignment from the controller ELF')
     args = parser.parse_args()
@@ -2134,8 +2239,14 @@ def main():
         parser.error('--timing applies only to --cdda-vmu')
     if args.reader_fixes and not args.stream:
         parser.error('--reader-fixes applies only to --stream')
-    global CDDA_VMU_TIMING
+    if args.wwp_kernel and not args.wwp:
+        parser.error('--wwp-kernel applies only to --wwp')
+    if args.bam4_kernel and not args.bam4:
+        parser.error('--bam4-kernel applies only to --bam4')
+    global CDDA_VMU_TIMING, WWP_KERNEL, BAM4_KERNEL
     CDDA_VMU_TIMING = args.timing
+    WWP_KERNEL = wwp_kernel_record(args.wwp_kernel) if args.wwp_kernel else None
+    BAM4_KERNEL = bam4_kernel_record(args.bam4_kernel) if args.bam4_kernel else None
     if args.self_test:
         print(f"PASS Armada excerpt linked-auditor self-test: {self_test()} checks")
     if args.directory:

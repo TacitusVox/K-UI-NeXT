@@ -132,6 +132,12 @@ static uint32_t le32(const uint8_t *p) {
 /* Record of the Armada all-on module: KUIAVM01, version 1, its profile slot. */
 #define KUI_CE_ARMADA_ALL_ON_RECORD_OFFSET 0x150u
 #define KUI_CE_ARMADA_ALL_ON_PROFILE_BYTES 0x1000u
+/* Record of a CD music module built for one kernel of a sound group other
+ * than the group's reviewed kernel (src/loader/retail_entry.S): KUICDK01,
+ * version 1, 64 bytes, the sound profile, the kernel's size, the stream
+ * pool's start, zero and the kernel's SHA-256. */
+#define KUI_CE_CDDA_KERNEL_RECORD_OFFSET 0x300u
+#define KUI_CE_CDDA_KERNEL_RECORD_BYTES 64u
 /* An optional module's state: FR_OK installed (or in this GUI's bundle),
  * FR_NO_FILE/FR_NO_PATH absent. A missing file in a selected bank, a directory
  * or an unresolvable path is an error, never "absent". */
@@ -535,22 +541,53 @@ static enum kui_wince_cdda_profile ce_music_profile(const struct kui_game_image 
     }
     return KUI_WINCE_CDDA_NONE;
 }
-static enum kui_wince_cdda_profile ce_music_runtime_profile(const struct kui_game_image *image,
-        const struct kui_game_metadata *metadata,const uint8_t sha[32]) {
+/* A WinCE GDI whose tracks the CD music modules can stream. */
+static bool ce_music_image_valid(const struct kui_game_image *image,
+        const struct kui_game_metadata *metadata) {
     if(!image || !metadata || image->format!=KUI_GAME_IMAGE_GDI || image->cd_image ||
        image->scrambled || !metadata->windows_ce || !metadata->boot_valid ||
-       !image->count || image->count>KUI_GAME_TRACK_MAX) return KUI_WINCE_CDDA_NONE;
+       !image->count || image->count>KUI_GAME_TRACK_MAX) return false;
     struct kui_game_audio_info audio;
     if(kui_game_image_audio_info(image,&audio)!=KUI_GAME_OK ||
        audio.classification!=KUI_GAME_AUDIO_GD_HIGH_DENSITY || !audio.candidate_tracks)
-        return KUI_WINCE_CDDA_NONE;
+        return false;
     for(unsigned i=0;i<image->count;i++) {
         const struct kui_game_image_track *track=&image->tracks[i];
         if(track->file_offset || track->end_lba<=track->start_lba ||
            (track->sector_bytes!=2352u && !(track->control==4u &&
-             track->sector_bytes==2048u && !track->data_offset))) return KUI_WINCE_CDDA_NONE;
+             track->sector_bytes==2048u && !track->data_offset))) return false;
     }
+    return true;
+}
+static enum kui_wince_cdda_profile ce_music_runtime_profile(const struct kui_game_image *image,
+        const struct kui_game_metadata *metadata,const uint8_t sha[32]) {
+    if(!ce_music_image_valid(image,metadata)) return KUI_WINCE_CDDA_NONE;
     return kui_wince_cdda_kernel_profile(metadata->boot_bytes,sha);
+}
+/* Another kernel of a sound group has its own module, named by the kernel:
+ * ce-cdda-<first 12 hex digits of its SHA-256>.kui. */
+#define KUI_CE_CDDA_KERNEL_PACKAGE_BYTES (sizeof(KUI_GAMES_RETAIL_CE_KERNEL_PACKAGE_PREFIX)+12u+4u)
+static void ce_music_kernel_package(const uint8_t sha[32],char out[KUI_CE_CDDA_KERNEL_PACKAGE_BYTES]) {
+    char hex[65];kui_hex(sha,32u,hex);
+    snprintf(out,KUI_CE_CDDA_KERNEL_PACKAGE_BYTES,"%s%.12s.kui",KUI_GAMES_RETAIL_CE_KERNEL_PACKAGE_PREFIX,hex);
+}
+/* The module's record names this exact kernel, a sound profile and that
+ * profile's stream pool. The stage admits the same kernel again by its
+ * complete SHA-256 before Windows CE starts. */
+static enum kui_wince_cdda_profile ce_music_kernel_record(const struct kui_runtime_image *package,
+        uint32_t kernel_bytes,const uint8_t sha[32]) {
+    if(!package || !package->data || !sha ||
+       package->info.payload_bytes<KUI_CE_CDDA_KERNEL_RECORD_OFFSET+KUI_CE_CDDA_KERNEL_RECORD_BYTES)
+        return KUI_WINCE_CDDA_NONE;
+    const uint8_t *record=(const uint8_t *)package->data+KUI_CE_CDDA_KERNEL_RECORD_OFFSET;
+    const uint32_t profile=le32(record+16u);
+    if(memcmp(record,"KUICDK01",8u) || le32(record+8u)!=1u ||
+       le32(record+12u)!=KUI_CE_CDDA_KERNEL_RECORD_BYTES ||
+       profile<KUI_WINCE_CDDA_ARMADA || profile>KUI_WINCE_CDDA_WORMS_WORLD_PARTY ||
+       le32(record+20u)!=kernel_bytes ||
+       le32(record+24u)!=kui_wince_cdda_seed_pool((enum kui_wince_cdda_profile)profile) ||
+       le32(record+28u) || memcmp(record+32u,sha,32u)) return KUI_WINCE_CDDA_NONE;
+    return (enum kui_wince_cdda_profile)profile;
 }
 static bool armada_excerpt_seed(struct kui_runtime_image *package,
         const struct kui_game_image *image,kui_log_fn log) {
@@ -594,10 +631,11 @@ static size_t armada_stream_seed_find(const struct kui_runtime_image *package,
     return found;
 }
 static bool armada_stream_seed_fill(struct kui_runtime_image *package,size_t at,
-        const struct kui_retail_manifest *map,enum kui_wince_cdda_profile profile,kui_log_fn log) {
+        const struct kui_retail_manifest *map,enum kui_wince_cdda_profile profile,
+        uint32_t kernel_bytes,kui_log_fn log) {
     if(at==SIZE_MAX || at>package->info.payload_bytes ||
        sizeof(struct kui_armada_ce_stream_seed)>package->info.payload_bytes-at ||
-       !kui_wince_cdda_runtime_manifest_valid(map,profile)) return false;
+       !kui_wince_cdda_runtime_kernel_manifest_valid(map,kernel_bytes)) return false;
     struct kui_armada_ce_stream_seed *seed=(void *)((uint8_t *)package->data+at);
     if(!kui_wince_cdda_seed_header_valid(seed->words,profile) ||
        seed->words[KUI_ARMADA_CE_STREAM_MAP_CRC_WORD]) return false;
@@ -1054,6 +1092,11 @@ static bool prepare_launch(const char *path,uint32_t reader,const struct kui_gam
             (reader==KUI_RETAIL_READER_ASYNC?"Background New":"Background Legacy"):"Standard",
             emulation_enabled,0u,0u);
     enum kui_wince_cdda_profile music_profile=KUI_WINCE_CDDA_NONE;
+    /* CD music for another kernel of a sound group: its own module. */
+    bool ce_kernel_module=false;
+    uint8_t ce_kernel_sha[32]={0};
+    char ce_kernel_package[KUI_CE_CDDA_KERNEL_PACKAGE_BYTES]="";
+    char ce_kernel_label[64]="";
     const char *launch_package=zso?(codec==KUI_ZSO_LZO1X?KUI_GAMES_RETAIL_LZO_PACKAGE:KUI_GAMES_RETAIL_ZSO_PACKAGE):ce?KUI_GAMES_RETAIL_CE_PACKAGE:KUI_GAMES_RETAIL_PACKAGE;
     /* With Virtual VMU Off neither module emulates a card, so Off always
      * takes the A2 module and its unchanged reader. */
@@ -1160,7 +1203,7 @@ static bool prepare_launch(const char *path,uint32_t reader,const struct kui_gam
            metadata.boot_bytes>KUI_RETAIL_EXEC_MAX_BYTES) {
             problem="Experimental WinCE CD music requires a WinCE GDI on SCI microSD";goto done;
         }
-        uint8_t kernel_sha[32];uint32_t kernel_crc=0u;
+        uint8_t *kernel_sha=ce_kernel_sha;uint32_t kernel_crc=0u;
         uint64_t kernel_epoch=kui_media_mutation_epoch();
         kui_smash_launch_timing_phase(KUI_SMASH_UI_MDE_READ_HASH);
         log("Experimental CE CD music: checking the complete native kernel identity");
@@ -1170,18 +1213,35 @@ static bool prepare_launch(const char *path,uint32_t reader,const struct kui_gam
             ce_kernel_proof=(struct extent_crc_proof){image,kernel_epoch,
                 metadata.boot_lba,metadata.boot_bytes,kernel_crc,true};
         music_profile=ce_music_runtime_profile(image,&metadata,kernel_sha);
-        if(music_profile==KUI_WINCE_CDDA_NONE) {
+        if(music_profile==KUI_WINCE_CDDA_NONE && ce_music_image_valid(image,&metadata)) {
+            /* Another kernel of a sound group: its own module, if installed.
+             * Its record, read with the module, names the sound profile. */
+            ce_music_kernel_package(kernel_sha,ce_kernel_package);
+            FRESULT installed=installed_module_status(ce_kernel_package);
+            if(installed==FR_OK) ce_kernel_module=true;
+            else if(installed!=FR_NO_FILE && installed!=FR_NO_PATH) {
+                problem="cannot inspect the installed CD music module for this WinCE runtime";goto done;
+            }
+        }
+        if(music_profile==KUI_WINCE_CDDA_NONE && !ce_kernel_module) {
             char hex[65];kui_hex(kernel_sha,32u,hex);
             log("CE music unsupported runtime: boot bytes=%u SHA256=%s",metadata.boot_bytes,hex);
+            if(ce_kernel_package[0]) log("CE music: no %s installed",ce_kernel_package+2);
             problem="Experimental CD music: unrecognized WinCE runtime; turn CD music Off to launch";goto done;
         }
-        log("CE CD music: %s native runtime; %s",kui_wince_cdda_disc(music_profile)->name,
-            ce_music_profile(image,&metadata)==music_profile?"known disc layout":"experimental image / untested");
-        launch_package=music_profile==KUI_WINCE_CDDA_WORMS_WORLD_PARTY?
-            KUI_GAMES_RETAIL_CE_WWP_PACKAGE:music_profile==KUI_WINCE_CDDA_WORMS_ARMAGEDDON?
-            KUI_GAMES_RETAIL_CE_WORMS_PACKAGE:music_profile==KUI_WINCE_CDDA_BUST_A_MOVE_4?
-            KUI_GAMES_RETAIL_CE_BAM4_PACKAGE:KUI_GAMES_RETAIL_CE_EXCERPT_PACKAGE;
-        log("CE CD music: %s profile",kui_wince_cdda_disc(music_profile)->name);
+        if(ce_kernel_module) {
+            launch_package=ce_kernel_package;
+            log("CE CD music: this WinCE runtime's own module %s; experimental image / untested",
+                ce_kernel_package+2);
+        } else {
+            log("CE CD music: %s native runtime; %s",kui_wince_cdda_disc(music_profile)->name,
+                ce_music_profile(image,&metadata)==music_profile?"known disc layout":"experimental image / untested");
+            launch_package=music_profile==KUI_WINCE_CDDA_WORMS_WORLD_PARTY?
+                KUI_GAMES_RETAIL_CE_WWP_PACKAGE:music_profile==KUI_WINCE_CDDA_WORMS_ARMAGEDDON?
+                KUI_GAMES_RETAIL_CE_WORMS_PACKAGE:music_profile==KUI_WINCE_CDDA_BUST_A_MOVE_4?
+                KUI_GAMES_RETAIL_CE_BAM4_PACKAGE:KUI_GAMES_RETAIL_CE_EXCERPT_PACKAGE;
+            log("CE CD music: %s profile",kui_wince_cdda_disc(music_profile)->name);
+        }
         kui_smash_launch_timing_phase(KUI_SMASH_UI_PREPARE_OTHER);
     }
     /* The owner's IP/ISO metadata selects the executable. Titles and boot
@@ -1335,6 +1395,17 @@ static bool prepare_launch(const char *path,uint32_t reader,const struct kui_gam
         if(!layout(package,ce)) {
             problem="unsupported CE CD music package layout";
             log("Replace %s with the selected game-launch package",launch_package+2);goto done;
+        }
+        if(ce_kernel_module) {
+            music_profile=ce_music_kernel_record(package,metadata.boot_bytes,ce_kernel_sha);
+            if(music_profile==KUI_WINCE_CDDA_NONE) {
+                problem="CD music module record does not name this WinCE runtime";
+                log("Replace %s with the module built for this kernel",launch_package+2);goto done;
+            }
+            char hex[65];kui_hex(ce_kernel_sha,32u,hex);
+            snprintf(ce_kernel_label,sizeof(ce_kernel_label),"%s sound, kernel %.12s",
+                kui_wince_cdda_disc(music_profile)->name,hex);
+            log("CE CD music: %s",ce_kernel_label);
         }
         if(all_on) {
             const uint8_t *record=(const uint8_t *)package->data+KUI_CE_ARMADA_ALL_ON_RECORD_OFFSET;
@@ -1574,7 +1645,8 @@ static bool prepare_launch(const char *path,uint32_t reader,const struct kui_gam
             enum map_result complete=map_cdda_tracks(&files,&fs,&volume,image,full,
                 KUI_RETAIL_MANIFEST_SLOTS,&stats);
             bool admitted=complete==MAP_OK && stats.complete &&
-                armada_stream_seed_fill(package,stream_seed,full,music_profile,log);
+                armada_stream_seed_fill(package,stream_seed,full,music_profile,
+                    ce_kernel_module?metadata.boot_bytes:kui_wince_cdda_disc(music_profile)->kernel_bytes,log);
             kui_smash_launch_timing_phase(KUI_SMASH_UI_PREPARE_OTHER);
             if(!admitted) {
                 log("CE audio map: %u slots required; %s",stats.required_slots,
@@ -1584,7 +1656,7 @@ static bool prepare_launch(const char *path,uint32_t reader,const struct kui_gam
             }
         } else if(all_on) {
             problem="Armada all-on module has no complete CD music seed";goto done;
-        } else if(music_profile!=KUI_WINCE_CDDA_ARMADA || !armada_excerpt_seed(package,image,log)) {
+        } else if(ce_kernel_module || music_profile!=KUI_WINCE_CDDA_ARMADA || !armada_excerpt_seed(package,image,log)) {
             problem="CE music seed is missing, invalid, stopped or unreadable";goto done;
         }
 #if KUI_VMU_GAME_CARDS
@@ -1843,7 +1915,7 @@ static bool prepare_launch(const char *path,uint32_t reader,const struct kui_gam
                 map->storage_transport==KUI_STORAGE_SCI?"SCI microSD":"IDE / CF",
             .encoding=ce?"Windows CE prefix + body":(map->flags&KUI_RETAIL_IMAGE_SCRAMBLED)?"Scrambled (decode)":"Plain",
             .cdda=cdda || ce_excerpt,.cdda_profile=all_on?"Armada CD music + virtual A2":
-                ce_excerpt?kui_wince_cdda_disc(music_profile)->name:
+                ce_kernel_module?ce_kernel_label:ce_excerpt?kui_wince_cdda_disc(music_profile)->name:
                 cdda?"Native admitted profile":"Off",.package_path=launch_package,
             .module_build=source_module.build,.module_crc32=source_module.crc32,
             .module_bytes=source_module.payload_bytes,

@@ -5,6 +5,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include "kui/armada_ce_excerpt_pool.h"
 #include "kui/armada_ce_stream_native.h"
 
 #define PROCESS_BASE KUI_ARMADA_CE_LIVE_PROCESS_BASE
@@ -246,7 +247,12 @@ static void admission_and_publication(void) {
         CHECK(!start());no_thread_cleanup();CHECK(model.freed==1u && !model.writes);
     }
     reset();model.page_word=0x0cf50000u|0x37du;CHECK(!start());
-    reset();model.page_word=0x0c149000u|0x37du;CHECK(!start());
+    reset();model.page_word=0x0c149000u|0x37du;
+    /* A page below the kernel's free RAM: 0x0c149000 for Armada and World
+     * Party, one page below its own RAM free for another kernel. */
+    if(KUI_ARMADA_CE_EXCERPT_RAM_FREE<=0x8c149000u)
+        model.page_word=((KUI_ARMADA_CE_EXCERPT_RAM_FREE-0x1000u)&0x1ffff000u)|0x37du;
+    CHECK(!start());
     CHECK(!model.writes && !model.created);
     no_thread_cleanup();CHECK(!model.writes && model.freed==1u);
     reset();CHECK(start());unsigned reads=model.reads;

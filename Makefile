@@ -114,6 +114,15 @@ test-vmu-stage-snapshot:
 test: test-ce-virtual-vram-copy test-ce-crc16-factoring
 
 # Shared reader sources keep their production text with the Toy test switches off.
+# The universal Windows CE RAM pool plan over the surveyed kernel layouts.
+build/test-ce-ram-pool: tests/test_ce_ram_pool.c include/kui/ce_ram_pool.h
+	@mkdir -p $(@D)
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) -Iinclude tests/test_ce_ram_pool.c -o $@
+.PHONY: test-ce-ram-pool
+test-ce-ram-pool: build/test-ce-ram-pool
+	./build/test-ce-ram-pool
+test: test-ce-ram-pool
+
 .PHONY: test-toy-test-switches
 test-toy-test-switches:
 	python3 tests/test_toy_test_switches.py
@@ -212,14 +221,19 @@ LWEXT4_HOST_OBJECTS := $(patsubst %.c,build/host/%.o,$(LWEXT4_SOURCES))
 .PHONY: test test-recovery test-images deps diagnostic clean test-recovery-dashboard
 .PHONY: test-armada-ce-excerpt
 .PHONY: test-armada-ce-stream
-test-armada-ce-stream: build/test-armada-ce-stream-model build/test-armada-ce-stream-native build/test-armada-ce-stream-api build/test-armada-ce-stream-transport build/test-armada-ce-stream-boot build/test-armada-ce-stream-entry build/test-armada-ce-stream-player build/test-armada-ce-stream-owner-word build/test-armada-ce-stream-initial-word build/test-armada-ce-stream-discover-owner build/test-armada-ce-excerpt-prepare
+test-armada-ce-stream: build/test-armada-ce-stream-model build/test-armada-ce-stream-native build/test-armada-ce-stream-api build/test-armada-ce-stream-transport build/test-armada-ce-stream-transport-emergency-pio build/test-armada-ce-stream-transport-chain build/test-armada-ce-stream-player-emergency-pio build/test-armada-ce-stream-model-repeat-clamp build/test-armada-ce-stream-player-repeat-clamp build/test-armada-ce-stream-boot build/test-armada-ce-stream-entry build/test-armada-ce-stream-player build/test-armada-ce-stream-owner-word build/test-armada-ce-stream-initial-word build/test-armada-ce-stream-discover-owner build/test-armada-ce-excerpt-prepare
 	ASAN_OPTIONS=detect_leaks=0 ./build/test-armada-ce-stream-model
 	ASAN_OPTIONS=detect_leaks=0 ./build/test-armada-ce-stream-native
 	ASAN_OPTIONS=detect_leaks=0 ./build/test-armada-ce-stream-api
 	ASAN_OPTIONS=detect_leaks=0 ./build/test-armada-ce-stream-transport
+	ASAN_OPTIONS=detect_leaks=0 ./build/test-armada-ce-stream-transport-emergency-pio
+	ASAN_OPTIONS=detect_leaks=0 ./build/test-armada-ce-stream-transport-chain
 	./build/test-armada-ce-stream-boot
 	./build/test-armada-ce-stream-entry
 	./build/test-armada-ce-stream-player
+	./build/test-armada-ce-stream-player-emergency-pio
+	ASAN_OPTIONS=detect_leaks=0 ./build/test-armada-ce-stream-model-repeat-clamp
+	./build/test-armada-ce-stream-player-repeat-clamp
 	ASAN_OPTIONS=detect_leaks=0 ./build/test-armada-ce-stream-owner-word
 	ASAN_OPTIONS=detect_leaks=0 ./build/test-armada-ce-stream-initial-word
 	ASAN_OPTIONS=detect_leaks=0 ./build/test-armada-ce-stream-discover-owner
@@ -251,6 +265,15 @@ build/test-armada-ce-stream-discover-owner: tests/test_armada_ce_stream_discover
 build/test-armada-ce-stream-model: tests/test_armada_ce_stream_model.c src/loader/armada_ce_stream_model.c include/kui/armada_ce_stream_model.h
 	@mkdir -p $(@D)
 	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) tests/test_armada_ce_stream_model.c src/loader/armada_ce_stream_model.c -o $@
+# The model and player with a PLAY repeat count above 15 saturated to 15
+# (KUI_CE_CDDA_REPEAT_CLAMP; Ducati World's module), with the accepted
+# emergency-only programmed receptions.
+build/test-armada-ce-stream-model-repeat-clamp: tests/test_armada_ce_stream_model.c src/loader/armada_ce_stream_model.c include/kui/armada_ce_stream_model.h
+	@mkdir -p $(@D)
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) -DKUI_ARMADA_CE_STREAM_REPEAT_CLAMP=1 tests/test_armada_ce_stream_model.c src/loader/armada_ce_stream_model.c -o $@
+build/test-armada-ce-stream-player-repeat-clamp: tests/test_armada_ce_stream_player.c src/loader/armada_ce_stream_player.c src/loader/armada_ce_stream_model.c src/loader/armada_ce_stream_trace.c include/kui/armada_ce_stream_trace.h include/kui/armada_ce_stream_model.h include/kui/armada_ce_stream_native.h include/kui/armada_ce_stream_transport.h
+	@mkdir -p $(@D)
+	$(CC) $(HOST_FLAGS) -fsanitize=undefined -fno-omit-frame-pointer -fno-pie -no-pie $(INCLUDES) -Isrc/loader -DKUI_ARMADA_CE_STREAM_REPEAT_CLAMP=1 -DKUI_ARMADA_CE_STREAM_EMERGENCY_PIO=1 tests/test_armada_ce_stream_player.c src/loader/armada_ce_stream_model.c src/loader/armada_ce_stream_trace.c -o $@
 build/test-armada-ce-stream-native: tests/test_armada_ce_stream_native.c src/loader/armada_ce_stream_native.c include/kui/armada_ce_stream_native.h include/kui/armada_ce_live_sound.h
 	@mkdir -p $(@D)
 	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) -DKUI_RETAIL_CE=1 -DKUI_ARMADA_CE_STREAM=1 tests/test_armada_ce_stream_native.c src/loader/armada_ce_stream_native.c -o $@
@@ -260,9 +283,35 @@ build/test-armada-ce-stream-api: tests/test_armada_ce_stream_api.c tests/test_ar
 build/test-armada-ce-stream-transport: tests/test_armada_ce_stream_transport.c src/loader/armada_ce_stream_transport.c include/kui/armada_ce_stream_transport.h src/core/retail_cursor.c src/core/retail_image.c
 	@mkdir -p $(@D)
 	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) -Isrc/loader -DKUI_RETAIL_CE=1 -DKUI_RETAIL_ASYNC=1 -DKUI_ARMADA_CE_STREAM=1 -DKUI_ARMADA_CE_STREAM_TRANSPORT_TEST=1 tests/test_armada_ce_stream_transport.c src/loader/armada_ce_stream_transport.c src/core/retail_cursor.c src/core/retail_image.c -o $@
+# The same transport and player with the worker's programmed receptions as
+# an emergency only (KUI_CE_CDDA_EMERGENCY_PIO).
+build/test-armada-ce-stream-transport-emergency-pio: tests/test_armada_ce_stream_transport.c src/loader/armada_ce_stream_transport.c include/kui/armada_ce_stream_transport.h src/core/retail_cursor.c src/core/retail_image.c
+	@mkdir -p $(@D)
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) -Isrc/loader -DKUI_RETAIL_CE=1 -DKUI_RETAIL_ASYNC=1 -DKUI_ARMADA_CE_STREAM=1 -DKUI_ARMADA_CE_STREAM_TRANSPORT_TEST=1 -DKUI_ARMADA_CE_STREAM_EMERGENCY_PIO=1 tests/test_armada_ce_stream_transport.c src/loader/armada_ce_stream_transport.c src/core/retail_cursor.c src/core/retail_image.c -o $@
+# And with the music chain on top (KUI_CE_CDDA_CHAIN; the reader's slow window).
+build/test-armada-ce-stream-transport-chain: tests/test_armada_ce_stream_transport.c src/loader/armada_ce_stream_transport.c include/kui/armada_ce_stream_transport.h src/core/retail_cursor.c src/core/retail_image.c
+	@mkdir -p $(@D)
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) -Isrc/loader -DKUI_RETAIL_CE=1 -DKUI_RETAIL_ASYNC=1 -DKUI_ARMADA_CE_STREAM=1 -DKUI_ARMADA_CE_STREAM_TRANSPORT_TEST=1 -DKUI_ARMADA_CE_STREAM_EMERGENCY_PIO=1 -DKUI_ARMADA_CE_STREAM_CHAIN=1 -DKUI_CE_SCI_SLOW_AFTER_OVERRUN=1 tests/test_armada_ce_stream_transport.c src/loader/armada_ce_stream_transport.c src/core/retail_cursor.c src/core/retail_image.c -o $@
+build/test-armada-ce-stream-player-emergency-pio: tests/test_armada_ce_stream_player.c src/loader/armada_ce_stream_player.c src/loader/armada_ce_stream_model.c src/loader/armada_ce_stream_trace.c include/kui/armada_ce_stream_trace.h include/kui/armada_ce_stream_model.h include/kui/armada_ce_stream_native.h include/kui/armada_ce_stream_transport.h
+	@mkdir -p $(@D)
+	$(CC) $(HOST_FLAGS) -fsanitize=undefined -fno-omit-frame-pointer -fno-pie -no-pie $(INCLUDES) -Isrc/loader -DKUI_ARMADA_CE_STREAM_EMERGENCY_PIO=1 tests/test_armada_ce_stream_player.c src/loader/armada_ce_stream_model.c src/loader/armada_ce_stream_trace.c -o $@
 build/test-armada-ce-stream-boot: tests/test_armada_ce_stream_boot.c tests/test_retail_async_ce.c tests/sci_stream_model.h src/loader/retail_async.c src/loader/retail_async.h src/loader/armada_ce_audio_observe.inc src/loader/armada_ce_excerpt_entry.c include/kui/armada_ce_stream_transport.h src/loader/armada_ce_stream_transport.c src/loader/sci_stream.c src/core/retail_cursor.c src/core/retail_image.c src/core/retail_gd.c
 	@mkdir -p $(@D)
 	$(CC) $(HOST_FLAGS) -fsanitize=undefined -fno-omit-frame-pointer -fno-pie -no-pie $(INCLUDES) -Isrc/loader -DKUI_RETAIL_ASYNC_TEST=1 -DKUI_SCI_STREAM_TEST=1 -DKUI_RETAIL_CE=1 -DKUI_RETAIL_ASYNC=1 -DKUI_RETAIL_GD_ASYNC=1 -DKUI_RETAIL_TRANSPORT=1 -DKUI_ARMADA_CE_EXCERPT=1 -DKUI_ARMADA_CE_STREAM=1 -DKUI_ARMADA_CE_STREAM_TRANSPORT_TEST=1 tests/test_armada_ce_stream_boot.c src/loader/retail_async.c src/loader/sci_stream.c src/loader/armada_ce_stream_trace.c src/core/retail_cursor.c src/core/retail_image.c src/core/retail_gd.c -o $@
+# The same bootstrap with the CD music readers' delivered changes (slow
+# refetch, fast block check: KUI_CE_READER_FIXES), and with those plus the
+# adaptive slow window of their KUI_CE_SLOW_WINDOW=16 KUI_CE_SLOW_ADAPT=2 build.
+build/test-armada-ce-stream-boot-fixes: tests/test_armada_ce_stream_boot.c tests/test_retail_async_ce.c tests/sci_stream_model.h src/loader/retail_async.c src/loader/retail_async.h src/loader/armada_ce_audio_observe.inc src/loader/armada_ce_excerpt_entry.c include/kui/armada_ce_stream_transport.h src/loader/armada_ce_stream_transport.c src/loader/sci_stream.c src/loader/sci_stream.h src/core/retail_cursor.c src/core/retail_image.c src/core/retail_gd.c
+	@mkdir -p $(@D)
+	$(CC) $(HOST_FLAGS) -fsanitize=undefined -fno-omit-frame-pointer -fno-pie -no-pie $(INCLUDES) -Isrc/loader -DKUI_RETAIL_ASYNC_TEST=1 -DKUI_SCI_STREAM_TEST=1 -DKUI_RETAIL_CE=1 -DKUI_RETAIL_ASYNC=1 -DKUI_RETAIL_GD_ASYNC=1 -DKUI_RETAIL_TRANSPORT=1 -DKUI_ARMADA_CE_EXCERPT=1 -DKUI_ARMADA_CE_STREAM=1 -DKUI_ARMADA_CE_STREAM_TRANSPORT_TEST=1 -DKUI_CE_SCI_SLOW_AFTER_OVERRUN=1 -DKUI_CE_SCI_FAST_TAKE=1 tests/test_armada_ce_stream_boot.c src/loader/retail_async.c src/loader/sci_stream.c src/loader/armada_ce_stream_trace.c src/core/retail_cursor.c src/core/retail_image.c src/core/retail_gd.c -o $@
+build/test-armada-ce-stream-boot-adapt: tests/test_armada_ce_stream_boot.c tests/test_retail_async_ce.c tests/sci_stream_model.h src/loader/retail_async.c src/loader/retail_async.h src/loader/armada_ce_audio_observe.inc src/loader/armada_ce_excerpt_entry.c include/kui/armada_ce_stream_transport.h src/loader/armada_ce_stream_transport.c src/loader/sci_stream.c src/loader/sci_stream.h src/core/retail_cursor.c src/core/retail_image.c src/core/retail_gd.c
+	@mkdir -p $(@D)
+	$(CC) $(HOST_FLAGS) -fsanitize=undefined -fno-omit-frame-pointer -fno-pie -no-pie $(INCLUDES) -Isrc/loader -DKUI_RETAIL_ASYNC_TEST=1 -DKUI_SCI_STREAM_TEST=1 -DKUI_RETAIL_CE=1 -DKUI_RETAIL_ASYNC=1 -DKUI_RETAIL_GD_ASYNC=1 -DKUI_RETAIL_TRANSPORT=1 -DKUI_ARMADA_CE_EXCERPT=1 -DKUI_ARMADA_CE_STREAM=1 -DKUI_ARMADA_CE_STREAM_TRANSPORT_TEST=1 -DKUI_CE_SCI_SLOW_AFTER_OVERRUN=1 -DKUI_CE_SCI_FAST_TAKE=1 -DKUI_SCI_STREAM_SLOW_BLOCKS=16u -DKUI_SCI_STREAM_SLOW_ADAPT=2 tests/test_armada_ce_stream_boot.c src/loader/retail_async.c src/loader/sci_stream.c src/loader/armada_ce_stream_trace.c src/core/retail_cursor.c src/core/retail_image.c src/core/retail_gd.c -o $@
+.PHONY: test-ce-cdda-reader
+test-ce-cdda-reader: build/test-armada-ce-stream-boot-fixes build/test-armada-ce-stream-boot-adapt
+	./build/test-armada-ce-stream-boot-fixes
+	./build/test-armada-ce-stream-boot-adapt
+test: test-ce-cdda-reader
 build/test-armada-ce-stream-entry: tests/test_armada_ce_stream_entry.c src/loader/armada_ce_excerpt_entry.c src/loader/armada_ce_audio_observe.inc src/loader/armada_ce_stream_trace.c include/kui/armada_ce_stream_transport.h include/kui/armada_ce_stream_initial_word.h include/kui/armada_ce_stream_rebind_word.h include/kui/armada_ce_live_sound.h
 	@mkdir -p $(@D)
 	$(CC) $(HOST_FLAGS) -fsanitize=undefined -fno-omit-frame-pointer $(INCLUDES) -Isrc/loader $< src/loader/armada_ce_stream_trace.c -o $@
@@ -380,8 +429,9 @@ test: build/test-pvr-texture build/test-game-cover build/test-cover-image build/
 test: build/test-w5500 build/test-network-w5500 build/test-network-wifi build/test-wifi-pacing build/test-wifi-update build/test-ftp build/test-ftp-cleanup
 test: build/test-resident-image build/test-gd-service build/test-image-client
 test: build/test-retail-image build/test-retail-gd build/test-retail-gd-subcode build/test-retail-pace build/test-retail-sd build/test-ce-load-plan build/test-retail-boot
-test: build/test-retail-relay build/test-retail-relay-ce build/test-retail-startup-trace build/test-retail-gd-trace build/test-retail-mount-trace build/test-sonic-stack
+test: build/test-retail-relay build/test-retail-relay-ce build/test-retail-relay-ce-pool build/test-retail-startup-trace build/test-retail-gd-trace build/test-retail-mount-trace build/test-sonic-stack
 test: build/test-retail-cursor build/test-sci-stream build/test-sci-stream-ce build/test-retail-gd-async build/test-retail-gd-ce build/test-retail-async build/test-retail-async-native-resume build/test-retail-async-ce
+test: build/test-retail-gd-ce-vram build/test-retail-async-ce-vram
 test: build/test-retail-async-native-bounds build/test-retail-async-native-hybrid
 test: build/test-boot-volume build/ext4-boot build/boot-recovery build/test-boot-ui
 test: build/test-ata build/test-storage-policy build/test-sci-sd-bus build/test-retail-storage build/test-sci-sd-storage build/test-sci-async-probe build/test-sci-async-heartbeat build/test-sci-async-runtime build/test-sci-video-quiet
@@ -410,16 +460,19 @@ test: build/test-storage-errors build/test-cd-audio build/test-network-probe bui
 	./build/test-retail-async-native-bounds
 	./build/test-retail-async-native-hybrid
 	./build/test-retail-async-ce
+	./build/test-retail-async-ce-vram
 	./build/test-retail-gd
 	./build/test-retail-gd-subcode
 	./build/test-retail-gd-async
 	./build/test-retail-gd-ce
+	./build/test-retail-gd-ce-vram
 	./build/test-retail-pace
 	./build/test-retail-sd
 	./build/test-ce-load-plan
 	./build/test-retail-boot
 	./build/test-retail-relay
 	./build/test-retail-relay-ce
+	./build/test-retail-relay-ce-pool
 	./build/test-retail-startup-trace
 	./build/test-retail-gd-trace
 	./build/test-retail-mount-trace
@@ -683,6 +736,10 @@ build/test-retail-relay: $(RETAIL_RELAY_DEPS)
 build/test-retail-relay-ce: $(RETAIL_RELAY_DEPS) include/kui/ce_load_plan.h
 	@mkdir -p $(@D)
 	$(CC) $(HOST_FLAGS) $(RETAIL_RELAY_FLAGS) -DKUI_RETAIL_CE=1 -Iinclude -Isrc/loader tests/test_retail_relay.c src/core/retail_image.c src/core/game_ram_patches.c -Wl,--gc-sections -o $@
+# The same relay with the universal CE RAM pool (Makefile.dc KUI_CE_POOL_KIB).
+build/test-retail-relay-ce-pool: $(RETAIL_RELAY_DEPS) include/kui/ce_load_plan.h include/kui/ce_ram_pool.h
+	@mkdir -p $(@D)
+	$(CC) $(HOST_FLAGS) $(RETAIL_RELAY_FLAGS) -DKUI_RETAIL_CE=1 -DKUI_RETAIL_CE_POOL_KIB=64 -Iinclude -Isrc/loader tests/test_retail_relay.c src/core/retail_image.c src/core/game_ram_patches.c -Wl,--gc-sections -o $@
 
 build/test-retail-startup-trace: tests/test_retail_startup_trace.c $(RETAIL_RELAY_DEPS)
 	@mkdir -p $(@D)
@@ -738,10 +795,40 @@ build/test-retail-async-ce: tests/test_retail_async_ce.c tests/sci_stream_model.
 build/test-retail-async-ce-slow: tests/test_retail_async_ce.c tests/sci_stream_model.h src/loader/retail_async.c src/loader/retail_async.h src/loader/sci_stream.c src/loader/sci_stream.h src/core/retail_cursor.c src/core/retail_image.c src/core/retail_gd.c include/kui/retail_gd.h include/kui/retail_cursor.h include/kui/retail_image.h include/kui/retail_loader_layout.h include/kui/ata.h
 	@mkdir -p $(@D)
 	$(CC) $(HOST_FLAGS) $(SANITIZERS) -DKUI_RETAIL_ASYNC_TEST=1 -DKUI_SCI_STREAM_TEST=1 -DKUI_RETAIL_ASYNC=1 -DKUI_RETAIL_GD_ASYNC=1 -DKUI_RETAIL_CE=1 -DKUI_RETAIL_TRANSPORT=1 -DKUI_CE_SCI_SLOW_AFTER_OVERRUN=1 -Iinclude -Isrc/loader src/loader/retail_async.c src/loader/sci_stream.c src/core/retail_cursor.c src/core/retail_image.c src/core/retail_gd.c tests/test_retail_async_ce.c -o $@
+# The generic CE module's reader: slow refetch after an overrun and DMA stream
+# pieces in PVR memory (KUI_CE_VRAM_DMA, Makefile.dc).
+build/test-retail-async-ce-vram: tests/test_retail_async_ce.c tests/sci_stream_model.h src/loader/retail_async.c src/loader/retail_async.h src/loader/sci_stream.c src/loader/sci_stream.h src/core/retail_cursor.c src/core/retail_image.c src/core/retail_gd.c include/kui/retail_gd.h include/kui/retail_cursor.h include/kui/retail_image.h include/kui/retail_loader_layout.h include/kui/ata.h include/kui/retail_vram_dma.h
+	@mkdir -p $(@D)
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) -DKUI_RETAIL_ASYNC_TEST=1 -DKUI_SCI_STREAM_TEST=1 -DKUI_RETAIL_ASYNC=1 -DKUI_RETAIL_GD_ASYNC=1 -DKUI_RETAIL_CE=1 -DKUI_RETAIL_TRANSPORT=1 -DKUI_CE_SCI_SLOW_AFTER_OVERRUN=1 -DKUI_RETAIL_CE_VRAM_DMA=1 -Iinclude -Isrc/loader src/loader/retail_async.c src/loader/sci_stream.c src/core/retail_cursor.c src/core/retail_image.c src/core/retail_gd.c tests/test_retail_async_ce.c -o $@
+# A shorter slow window (Makefile.dc KUI_CE_SLOW_WINDOW): the generic module's
+# console test of 16 receptions.
+build/test-sci-stream-ce-window16: tests/test_sci_stream.c tests/sci_stream_model.h src/loader/sci_stream.c src/loader/sci_stream.h src/loader/sci_stream_check.h src/loader/sd_reader.h src/loader/sci_sd_bus.h
+	@mkdir -p $(@D)
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) -DKUI_SCI_STREAM_TEST=1 -DKUI_RETAIL_CE=1 -DKUI_CE_SCI_SLOW_AFTER_OVERRUN=1 -DKUI_CE_SCI_FAST_TAKE=1 -DKUI_SCI_STREAM_SLOW_BLOCKS=16u -Iinclude -Isrc/loader src/loader/sci_stream.c tests/test_sci_stream.c -o $@
+build/test-retail-async-ce-window16: tests/test_retail_async_ce.c tests/sci_stream_model.h src/loader/retail_async.c src/loader/retail_async.h src/loader/sci_stream.c src/loader/sci_stream.h src/loader/sci_stream_check.h src/core/retail_cursor.c src/core/retail_image.c src/core/retail_gd.c include/kui/retail_gd.h include/kui/retail_cursor.h include/kui/retail_image.h include/kui/retail_loader_layout.h include/kui/ata.h
+	@mkdir -p $(@D)
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) -DKUI_RETAIL_ASYNC_TEST=1 -DKUI_SCI_STREAM_TEST=1 -DKUI_RETAIL_ASYNC=1 -DKUI_RETAIL_GD_ASYNC=1 -DKUI_RETAIL_CE=1 -DKUI_RETAIL_TRANSPORT=1 -DKUI_CE_SCI_SLOW_AFTER_OVERRUN=1 -DKUI_CE_SCI_FAST_TAKE=1 -DKUI_SCI_STREAM_SLOW_BLOCKS=16u -Iinclude -Isrc/loader src/loader/retail_async.c src/loader/sci_stream.c src/core/retail_cursor.c src/core/retail_image.c src/core/retail_gd.c tests/test_retail_async_ce.c -o $@
+# An adaptive slow window (Makefile.dc KUI_CE_SLOW_ADAPT): 16 receptions,
+# doubled up to 64 while overruns keep coming soon after a window ends; and a
+# second shape of the same parameters.
+build/test-sci-stream-ce-adapt: tests/test_sci_stream.c tests/sci_stream_model.h src/loader/sci_stream.c src/loader/sci_stream.h src/loader/sci_stream_check.h src/loader/sd_reader.h src/loader/sci_sd_bus.h
+	@mkdir -p $(@D)
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) -DKUI_SCI_STREAM_TEST=1 -DKUI_RETAIL_CE=1 -DKUI_CE_SCI_SLOW_AFTER_OVERRUN=1 -DKUI_CE_SCI_FAST_TAKE=1 -DKUI_SCI_STREAM_SLOW_BLOCKS=16u -DKUI_SCI_STREAM_SLOW_ADAPT=2 -Iinclude -Isrc/loader src/loader/sci_stream.c tests/test_sci_stream.c -o $@
+build/test-sci-stream-ce-adapt-shape: tests/test_sci_stream.c tests/sci_stream_model.h src/loader/sci_stream.c src/loader/sci_stream.h src/loader/sci_stream_check.h src/loader/sd_reader.h src/loader/sci_sd_bus.h
+	@mkdir -p $(@D)
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) -DKUI_SCI_STREAM_TEST=1 -DKUI_RETAIL_CE=1 -DKUI_CE_SCI_SLOW_AFTER_OVERRUN=1 -DKUI_CE_SCI_FAST_TAKE=1 -DKUI_SCI_STREAM_SLOW_BLOCKS=12u -DKUI_SCI_STREAM_SLOW_ADAPT=3 -DKUI_SCI_STREAM_SLOW_QUICK=3u -Iinclude -Isrc/loader src/loader/sci_stream.c tests/test_sci_stream.c -o $@
+build/test-retail-async-ce-adapt: tests/test_retail_async_ce.c tests/sci_stream_model.h src/loader/retail_async.c src/loader/retail_async.h src/loader/sci_stream.c src/loader/sci_stream.h src/loader/sci_stream_check.h src/core/retail_cursor.c src/core/retail_image.c src/core/retail_gd.c include/kui/retail_gd.h include/kui/retail_cursor.h include/kui/retail_image.h include/kui/retail_loader_layout.h include/kui/ata.h
+	@mkdir -p $(@D)
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) -DKUI_RETAIL_ASYNC_TEST=1 -DKUI_SCI_STREAM_TEST=1 -DKUI_RETAIL_ASYNC=1 -DKUI_RETAIL_GD_ASYNC=1 -DKUI_RETAIL_CE=1 -DKUI_RETAIL_TRANSPORT=1 -DKUI_CE_SCI_SLOW_AFTER_OVERRUN=1 -DKUI_CE_SCI_FAST_TAKE=1 -DKUI_SCI_STREAM_SLOW_BLOCKS=16u -DKUI_SCI_STREAM_SLOW_ADAPT=2 -Iinclude -Isrc/loader src/loader/retail_async.c src/loader/sci_stream.c src/core/retail_cursor.c src/core/retail_image.c src/core/retail_gd.c tests/test_retail_async_ce.c -o $@
 .PHONY: test-ce-slow-after-overrun
-test-ce-slow-after-overrun: build/test-sci-stream-ce-slow build/test-retail-async-ce-slow
+test-ce-slow-after-overrun: build/test-sci-stream-ce-slow build/test-retail-async-ce-slow build/test-sci-stream-ce-window16 build/test-retail-async-ce-window16 build/test-sci-stream-ce-adapt build/test-sci-stream-ce-adapt-shape build/test-retail-async-ce-adapt
 	./build/test-sci-stream-ce-slow
 	./build/test-retail-async-ce-slow
+	./build/test-sci-stream-ce-window16
+	./build/test-retail-async-ce-window16
+	./build/test-sci-stream-ce-adapt
+	./build/test-sci-stream-ce-adapt-shape
+	./build/test-retail-async-ce-adapt
 # The same trial with the faster per-block check (identical bytes and CRC).
 build/test-sci-stream-ce-fast: tests/test_sci_stream.c tests/sci_stream_model.h src/loader/sci_stream.c src/loader/sci_stream.h src/loader/sci_stream_check.h src/loader/sd_reader.h src/loader/sci_sd_bus.h
 	@mkdir -p $(@D)
@@ -755,6 +842,16 @@ test-ce-fast-take: build/test-sci-stream-ce-fast build/test-retail-async-ce-fast
 	./build/test-retail-async-ce-fast
 # Both switches are on by default in every CE reader build.
 test: test-ce-slow-after-overrun test-ce-fast-take
+# The generic WinCE module's read-ahead into the stage's pool (KUI_CE_READAHEAD):
+# the candidate's reader (VRAM streams, slow window 16 adapting twice) with it.
+# Every other CE test above also runs here, the pool not yet published.
+build/test-retail-async-ce-readahead: tests/test_retail_async_ce.c tests/sci_stream_model.h src/loader/retail_async.c src/loader/retail_async.h src/loader/sci_stream.c src/loader/sci_stream.h src/loader/sci_stream_check.h src/core/retail_cursor.c src/core/retail_image.c src/core/retail_gd.c include/kui/retail_gd.h include/kui/retail_cursor.h include/kui/retail_image.h include/kui/retail_loader_layout.h include/kui/ata.h include/kui/retail_vram_dma.h include/kui/ce_ram_pool.h
+	@mkdir -p $(@D)
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) -DKUI_RETAIL_ASYNC_TEST=1 -DKUI_SCI_STREAM_TEST=1 -DKUI_RETAIL_ASYNC=1 -DKUI_RETAIL_GD_ASYNC=1 -DKUI_RETAIL_CE=1 -DKUI_RETAIL_TRANSPORT=1 -DKUI_CE_SCI_SLOW_AFTER_OVERRUN=1 -DKUI_CE_SCI_FAST_TAKE=1 -DKUI_SCI_STREAM_SLOW_BLOCKS=16u -DKUI_SCI_STREAM_SLOW_ADAPT=2 -DKUI_RETAIL_CE_VRAM_DMA=1 -DKUI_RETAIL_CE_READAHEAD=1 -Iinclude -Isrc/loader src/loader/retail_async.c src/loader/sci_stream.c src/core/retail_cursor.c src/core/retail_image.c src/core/retail_gd.c tests/test_retail_async_ce.c -o $@
+.PHONY: test-ce-readahead
+test-ce-readahead: build/test-retail-async-ce-readahead
+	./build/test-retail-async-ce-readahead
+test: test-ce-readahead
 # The same check's SH-4 assembly, built with the resident's CPU flags and
 # run under qemu-sh4 (Linux user mode) against a bitwise reference.
 SH4_TEST_FLAGS := -std=c11 -Os -Wall -Wextra -Werror -m4-single -ml -mdiv=call-div1 \
@@ -821,6 +918,10 @@ build/test-retail-gd-async: tests/test_retail_gd.c src/core/retail_gd.c include/
 build/test-retail-gd-ce: tests/test_retail_gd.c src/core/retail_gd.c include/kui/retail_gd.h include/kui/retail_image.h
 	@mkdir -p $(@D)
 	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) -DKUI_RETAIL_CE=1 src/core/retail_gd.c tests/test_retail_gd.c -o $@
+
+build/test-retail-gd-ce-vram: tests/test_retail_gd.c src/core/retail_gd.c include/kui/retail_gd.h include/kui/retail_image.h include/kui/retail_vram_dma.h
+	@mkdir -p $(@D)
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) -DKUI_RETAIL_CE=1 -DKUI_RETAIL_CE_VRAM_DMA=1 src/core/retail_gd.c tests/test_retail_gd.c -o $@
 
 build/test-retail-pace: tests/test_retail_pace.c src/core/retail_pace.c include/kui/retail_pace.h
 	@mkdir -p $(@D)
@@ -1692,6 +1793,48 @@ build/test-native-cdda-compat: tests/test_native_cdda_compat.c include/kui/nativ
 	@mkdir -p $(@D)
 	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) -DKUI_RETAIL_EXTENDED_MAP=1 tests/test_native_cdda_compat.c src/core/retail_image.c src/core/hash.c src/core/data.c -o $@
 
+# World Party's CD music group (include/kui/wince_cdda_wwp_kernels.h): the
+# runtime admission, generic sound binder and native lease tests with each
+# kernel's record, and the derivation tool's reading of the header.
+WWP_GROUP_KERNELS := $(shell sed -n 's/^\#define KUI_WINCE_CDDA_WWP_KERNEL_\([A-Z0-9_]*\) [0-9]\{1,2\}$$/\1/p' include/kui/wince_cdda_wwp_kernels.h)
+WWP_GROUP_TESTS := $(foreach k,$(WWP_GROUP_KERNELS),build/wwp-group/runtime-$(k) build/wwp-group/sound-$(k) build/wwp-group/native-$(k))
+.PHONY: test-wince-cdda-wwp-group
+test-wince-cdda-wwp-group: $(WWP_GROUP_TESTS)
+	@test $(words $(WWP_GROUP_KERNELS)) -ge 12
+	@for t in $(WWP_GROUP_TESTS); do ASAN_OPTIONS=detect_leaks=0 ./$$t >/dev/null || { echo "FAIL $$t"; exit 1; }; done
+	python3 -c "import sys; sys.path.insert(0, 'tools'); import wince_cdda_wwp_kernels as w; r = w.header_values(); assert list(r) == list(w.NAMES); assert r['WORMS_WORLD_PARTY']['kernel_sha256'] == w.REFERENCE_SHA256 and r['WORMS_WORLD_PARTY']['data_shift'] == 0"
+	@echo "PASS World Party CD music group: $(words $(WWP_GROUP_KERNELS)) kernels, runtime admission, sound binder and native lease"
+build/wwp-group/runtime-%: tests/test_wince_runtime_profiles.c src/core/retail_image.c include/kui/wince_cdda_profiles.h include/kui/wince_cdda_wwp_kernels.h include/kui/armada_ce_audio_admission.h include/kui/armada_ce_stream_seed.h
+	@mkdir -p $(@D)
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) -DKUI_RETAIL_EXTENDED_MAP=1 -DKUI_WINCE_CDDA_WWP=1 -DKUI_WINCE_CDDA_WWP_KERNEL=KUI_WINCE_CDDA_WWP_KERNEL_$* tests/test_wince_runtime_profiles.c src/core/retail_image.c -o $@
+build/wwp-group/sound-%: tests/test_armada_ce_generic_sound.c tests/test_armada_ce_live_sound.c include/kui/armada_ce_live_sound.h include/kui/wince_cdda_wwp_kernel.h include/kui/wince_cdda_wwp_kernels.h
+	@mkdir -p $(@D)
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) -DKUI_WINCE_CDDA_WWP=1 -DKUI_WINCE_CDDA_WWP_KERNEL=KUI_WINCE_CDDA_WWP_KERNEL_$* $< -o $@
+build/wwp-group/native-%: tests/test_wwp_ce_stream_native.c tests/test_armada_ce_stream_native.c src/loader/armada_ce_stream_native.c include/kui/armada_ce_live_sound.h include/kui/wince_cdda_wwp_kernel.h include/kui/wince_cdda_wwp_kernels.h
+	@mkdir -p $(@D)
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) -DKUI_WINCE_CDDA_WWP=1 -DKUI_ARMADA_CE_GENERIC_APPLICATION=1 -DKUI_RETAIL_CE=1 -DKUI_ARMADA_CE_STREAM=1 -DKUI_WINCE_CDDA_WWP_KERNEL=KUI_WINCE_CDDA_WWP_KERNEL_$* $< src/loader/armada_ce_stream_native.c -o $@
+
+# The kernels of Bust-A-Move 4's CD music group (include/kui/wince_cdda_bam4_kernels.h):
+# the runtime admission, the generic sound binder and the native lease with each
+# record, as for World Party's group above.
+BAM4_GROUP_KERNELS := $(shell sed -n 's/^\#define KUI_WINCE_CDDA_BAM4_KERNEL_\([A-Z0-9_]*\) [0-9]\{1,2\}$$/\1/p' include/kui/wince_cdda_bam4_kernels.h)
+BAM4_GROUP_TESTS := $(foreach k,$(BAM4_GROUP_KERNELS),build/bam4-group/runtime-$(k) build/bam4-group/sound-$(k) build/bam4-group/native-$(k))
+.PHONY: test-wince-cdda-bam4-group
+test-wince-cdda-bam4-group: $(BAM4_GROUP_TESTS)
+	@test $(words $(BAM4_GROUP_KERNELS)) -ge 8
+	@for t in $(BAM4_GROUP_TESTS); do ASAN_OPTIONS=detect_leaks=0 ./$$t >/dev/null || { echo "FAIL $$t"; exit 1; }; done
+	python3 -c "import sys; sys.path.insert(0, 'tools'); import wince_cdda_bam4_kernels as w; r = w.header_values(); assert list(r) == list(w.NAMES); assert r['BUST_A_MOVE_4']['kernel_sha256'] == w.REFERENCE_SHA256 and r['BUST_A_MOVE_4']['data_shift'] == 0"
+	@echo "PASS Bust-A-Move 4 CD music group: $(words $(BAM4_GROUP_KERNELS)) kernels, runtime admission, sound binder and native lease"
+build/bam4-group/runtime-%: tests/test_wince_runtime_profiles.c src/core/retail_image.c include/kui/wince_cdda_profiles.h include/kui/wince_cdda_bam4_kernels.h include/kui/armada_ce_audio_admission.h include/kui/armada_ce_stream_seed.h
+	@mkdir -p $(@D)
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) -DKUI_RETAIL_EXTENDED_MAP=1 -DKUI_WINCE_CDDA_BAM4=1 -DKUI_WINCE_CDDA_BAM4_KERNEL=KUI_WINCE_CDDA_BAM4_KERNEL_$* tests/test_wince_runtime_profiles.c src/core/retail_image.c -o $@
+build/bam4-group/sound-%: tests/test_armada_ce_generic_sound.c tests/test_armada_ce_live_sound.c include/kui/armada_ce_live_sound.h include/kui/wince_cdda_bam4_kernel.h include/kui/wince_cdda_bam4_kernels.h
+	@mkdir -p $(@D)
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) -DKUI_WINCE_CDDA_BAM4=1 -DKUI_ARMADA_CE_STREAM=1 -DKUI_WINCE_CDDA_BAM4_KERNEL=KUI_WINCE_CDDA_BAM4_KERNEL_$* $< -o $@
+build/bam4-group/native-%: tests/test_armada_ce_stream_native.c src/loader/armada_ce_stream_native.c include/kui/armada_ce_live_sound.h include/kui/wince_cdda_bam4_kernel.h include/kui/wince_cdda_bam4_kernels.h
+	@mkdir -p $(@D)
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) -DKUI_WINCE_CDDA_BAM4=1 -DKUI_ARMADA_CE_GENERIC_APPLICATION=1 -DKUI_RETAIL_CE=1 -DKUI_ARMADA_CE_STREAM=1 -DKUI_WINCE_CDDA_BAM4_KERNEL=KUI_WINCE_CDDA_BAM4_KERNEL_$* $< src/loader/armada_ce_stream_native.c -o $@
+
 .PHONY: test-wince-runtime-families
 test-wince-runtime-families: build/test-wince-runtime-armada build/test-wince-runtime-bam4 build/test-wince-runtime-worms build/test-wince-runtime-wwp build/test-armada-ce-generic-sound build/test-bam4-ce-generic-sound build/test-worms-ce-generic-sound
 	ASAN_OPTIONS=detect_leaks=0 ./build/test-wince-runtime-armada
@@ -1750,6 +1893,13 @@ test-armada-ce-movie-timing: build/test-armada-ce-movie-timing
 build/test-armada-ce-movie-timing: tests/test_armada_ce_movie_timing.c include/kui/armada_ce_movie_timing.h
 	@mkdir -p $(@D)
 	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) tests/test_armada_ce_movie_timing.c -o $@
+.PHONY: test-armada-ce-play-timing
+test: test-armada-ce-play-timing
+test-armada-ce-play-timing: build/test-armada-ce-play-timing
+	./build/test-armada-ce-play-timing
+build/test-armada-ce-play-timing: tests/test_armada_ce_play_timing.c include/kui/armada_ce_play_timing.h include/kui/armada_ce_movie_timing.h
+	@mkdir -p $(@D)
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) tests/test_armada_ce_play_timing.c -o $@
 # Needs sh-elf binutils: the gate that refuses relaxed calls entering a
 # function mid-way (tools/check_relaxed_calls.py).
 .PHONY: test-check-relaxed-calls
@@ -1777,7 +1927,7 @@ build/test-retail-map-stage-native build/test-retail-map-stage-ce build/test-ret
 	$(CC) $(HOST_FLAGS) -fsanitize=undefined -fno-omit-frame-pointer $(INCLUDES) -Isrc/loader -ffunction-sections -fdata-sections -fno-pie -no-pie $(MAP_STAGE_FLAGS) tests/test_retail_map_stage_diagnostic.c src/core/retail_image.c -Wl,--gc-sections -o $@
 
 # Broader CD music admission and linked-reader regression coverage.
-test: test-games-cdda-status test-games-cdda-identity-io test-native-cdda-compat test-wince-runtime-families test-wwp-ce-stream test-retail-map-diagnostic
+test: test-games-cdda-status test-games-cdda-identity-io test-native-cdda-compat test-wince-runtime-families test-wwp-ce-stream test-retail-map-diagnostic test-wince-cdda-wwp-group test-wince-cdda-bam4-group
 
 .PHONY: test-vmu-lcd
 test-vmu-lcd: build/test-vmu-lcd

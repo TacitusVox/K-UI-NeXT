@@ -127,6 +127,60 @@ struct kui_wce_probe_counters {
 #define KUI_WCE_PROBE_COUNTERS_MAGIC 0x43454357u
 _Static_assert(sizeof(struct kui_wce_probe_counters)==520u,"WCE probe counters");
 
+/* The timing session (KUI_WCE_PROBE=2): the same probe without Maple
+ * sampling or the CD audio log, plus a ring of the latest read requests,
+ * timed by CE's millisecond count and by TMU0 (which drives CE's tick; the
+ * probe only reads it). The ring sits in IP.BIN's bootstrap 2 area, whose
+ * code, boot VBR and boot stack serve only until Windows CE runs: the reader
+ * takes it, with one 8 KiB write, at the first GD call of a session the
+ * stage prepared that CE makes with its MMU on and with neither its VBR nor
+ * the calling stack in the area. The end-of-game dump saves it with the rest
+ * of RAM. Its counters are the reader's (struct kui_wce_probe_counters,
+ * which the data session keeps in the resident), counted from then on. */
+#define KUI_WCE_PROBE_TIMING_ADDRESS 0x8c00e000u
+#define KUI_WCE_PROBE_TIMING_BYTES 0x2000u
+#define KUI_WCE_PROBE_TIMING_MAGIC 0x54454357u /* 'WCET' */
+#define KUI_WCE_PROBE_TIMING_REQUESTS 190u
+/* A TMU0 count as kept: TCNT0, with this bit set while an underflow is
+ * pending (TCR0.UNF: CE's tick has not counted it yet). */
+#define KUI_WCE_PROBE_TMU_PENDING 0x80000000u
+enum kui_wce_probe_time_flags {
+    KUI_WCE_PROBE_TIME_ENDED = 1u,    /* the read ended: completed, failed or aborted */
+    KUI_WCE_PROBE_TIME_FAILED = 2u,   /* it ended with an error (an abort included) */
+    KUI_WCE_PROBE_TIME_REPLACED = 4u  /* another request began before its end was seen */
+};
+struct kui_wce_probe_request_time {
+    uint32_t issued_ms;          /* CE's millisecond count at the accepted REQUEST */
+    uint32_t issued_tmu;         /* TMU0's count then (KUI_WCE_PROBE_TMU_PENDING form) */
+    uint32_t ended_tmu;          /* TMU0's count when its end was seen (0 while open) */
+    uint32_t lba;                /* its first sector (FAD - 150) */
+    uint16_t sectors;            /* sector count, 65535 at most */
+    uint8_t command,flags;       /* GD command; enum kui_wce_probe_time_flags */
+    uint16_t latency_ms;         /* CE's count from REQUEST to its end, 65535 at most (0 while open) */
+    uint16_t calls;              /* GD calls while it was open, 65535 at most */
+    uint32_t call_ticks;         /* TMU0 ticks inside GD calls while open (set at its end) */
+    uint32_t irq_ticks;          /* TMU0 ticks in the reader's interrupt while open (set at its end) */
+    uint32_t longest_call;       /* the longest of those GD calls, in ticks */
+    uint16_t overruns,slow_blocks; /* SCI overruns; blocks received at the slower clock (set at its end) */
+};
+_Static_assert(sizeof(struct kui_wce_probe_request_time)==40u,"WCE probe request time");
+struct kui_wce_probe_timing {
+    /* count: requests begun; the newest is ring[current]; open: it has not ended. */
+    uint32_t magic,capacity,count,current,open;
+    /* TMU0's prescaler (TCR0) and reload (TCOR0); CE's millisecond count when
+     * the ring began and at the end. */
+    uint32_t tcr0,tcor0,first_ms,end_ms;
+    /* TMU0 ticks inside GD calls and in the reader's interrupt since the ring
+     * began, and their values (with SCI overruns and slow blocks) when the
+     * open request began. */
+    uint32_t call_ticks,irq_ticks,snap[4],token;
+    struct kui_wce_probe_counters counters;
+    struct kui_wce_probe_request_time ring[KUI_WCE_PROBE_TIMING_REQUESTS];
+    uint32_t call_wraps,irq_wraps; /* carries out of call_ticks and irq_ticks */
+};
+_Static_assert(sizeof(struct kui_wce_probe_timing)==KUI_WCE_PROBE_TIMING_BYTES,"WCE probe timing area");
+
+
 /* The stage report, slot sectors +1..+7. */
 struct kui_wce_probe_stage {
     char magic[8];               /* "KUIWCEST" */
@@ -223,6 +277,14 @@ extern struct kui_wce_probe_seed kui_wce_probe_seed;
 void kui_wce_probe_record(uint32_t function,uint32_t command,int32_t result);
 void kui_wce_probe_terminal(const struct retail_display_state *display,uint32_t reason,
     uint32_t command,uint32_t caller,uint32_t stack) __attribute__((noreturn));
+#if KUI_WCE_PROBE == 2
+/* TMU0's count `count`, just read, in KUI_WCE_PROBE_TMU_PENDING form; and
+ * the end of a GD call and of the reader's interrupt, given that form of
+ * TMU0's count at their start (retail_resident.c). */
+uint32_t kui_wce_probe_tmu(uint32_t count);
+void kui_wce_probe_time_call(uint32_t started);
+void kui_wce_probe_time_irq(uint32_t started);
+#endif
 #endif
 #endif
 #endif

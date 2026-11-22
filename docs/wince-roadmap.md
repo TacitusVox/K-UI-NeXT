@@ -15,8 +15,9 @@ scope; it adds the order and the prerequisites.
 - **Gate G0.** Nothing that changes game behaviour stacks before GUI
   `069d612cadea`'s four console tests and the pending `7b216f2e1136` reports
   (BAM4, WWP, both Armada modules) are in.
-- **Accepted bytes stay:** `ce-boot` `7b216f2e1136`, `ce-cdda-*`, the Armada
-  modules, the Smash set, the native `f8807cb16561` cohort.
+- **Accepted bytes stay:** `ce-boot` `7b216f2e1136`, the CD music set
+  `1ba2fa7e7040` (`ce-cdda-*` and `ce-armada-all-on`, accepted 21 Nov 2026 in
+  place of `7b216f2e1136`), the Smash set, the native `f8807cb16561` cohort.
 - **Separate requirements:** VMU-only, CD-music-only and combined modules are
   separate steps, and so are physical and virtual cards.
 
@@ -24,8 +25,13 @@ scope; it adds the order and the prerequisites.
 
 | ID | Step | Depends on | Status |
 |---|---|---|---|
-| D1 | **Data session.** The owner swaps in the probe `ce-boot.kui` and runs as many WinCE games as possible with CD music Off, ending each with A+B+X+Y+Start. One file, `KUI/WCEDATA/WCEDATA.BIN`, collects a slot per launch. | nothing | ready |
-| D2 | **Mine the data.** `tools/wce_probe_data.py` and `tools/wce_probe_mine.py` turn the file into a per-game table: boot, disc use, CD audio commands, ports and saves, modules and DirectSound attachment, memory. Results go into the scope evidence. | D1 | tools ready |
+| D1 | **Data session.** The owner swaps in the probe `ce-boot.kui` and runs as many WinCE games as possible with CD music Off, ending each with A+B+X+Y+Start. One file, `KUI/WCEDATA/WCEDATA.BIN`, collects a slot per launch. | nothing | done 19 Nov 2026: 17 games ([session 1](wince-data-session-1.md)) |
+| D2 | **Mine the data.** `tools/wce_probe_data.py` and `tools/wce_probe_mine.py` turn the file into a per-game table: boot, disc use, CD audio commands, ports and saves, modules and DirectSound attachment, memory. Results go into the scope evidence. | D1 | done for session 1 (miner corrected: 8-bit CE names, no false saves or low-water mark) |
+| D3 | **Timing session.** The probe with a request ring (`KUI_WCE_PROBE=2`, [data probe](wince-data-probe.md)): the latest 190 reads' begin and end to TMU0's tick and the reader's own time, for the movie freezes (Resident Evil 2, Sno-Cross, Super Producers), Maximum Pool's lag, Urban Chaos's lurches and Wild Metal's load. | D2 | done 20 Nov 2026: 8 launches ([timing session 1](wince-timing-session-1.md)) |
+| D4 | **Shorter slow window.** The timing build with the 6.25 MHz window after an overrun cut from 64 receptions to 16 (`KUI_CE_SLOW_WINDOW=16`), for the reader-limited streams the timing session found (Super Producers, Maximum Pool, RE2's catch-ups). One change, compared with D3's rings. | D3 | done 21 Nov 2026: Super Producers fixed, reads 12-17% faster, no read slower ([results](wince-slow-window-test.md)); the everyday candidate's Armada launches ran `ce-probe.kui`, not the candidate (Armada's legacy module takes CD music Off when installed), so 16 has no Armada result |
+| D5 | **Adaptive slow window.** The timing build with a window that starts at 16 receptions and doubles, up to 64, while overruns recur within 8 receptions of its end (`KUI_CE_SLOW_WINDOW=16 KUI_CE_SLOW_ADAPT=2`), for Armada's intro echo under the 16-reception window ([record](wince-adaptive-window-test.md)). One change, compared with D3's and D4's rings. | D4 | done 21 Nov 2026: Armada on the generic reader for the first time (with `ce-probe.kui` aside), at most a trace of echo and gameplay "great"; Super Producers and RE2 ran near 16, Super Runabout near 64; Maximum Pool still read-limited ([results](wince-adaptive-window-test.md#result-21-nov-2026)); everyday candidate `91b0540103f0` (with the PVR pieces) delivered |
+| D6 | **The RAM pool alone.** The adaptive timing build with 64 KiB taken below CE's RAM end on every kernel whose ROM header has CE's layout (`KUI_WCE_PROBE=2 KUI_CE_SLOW_WINDOW=16 KUI_CE_SLOW_ADAPT=2 KUI_CE_POOL_KIB=64`), unused: whether any game minds 64 KiB less, and the reads unchanged from D5 ([design](wince-unified-runtime.md), [tests](wince-pool-readahead-test.md)). | D5 | done 21 Nov 2026: 7 launches on 7 kernels (CE 2 and CE 3, one not surveyed before); reserved on all, untouched by CE, reads unchanged ([result](wince-pool-readahead-test.md#result-of-test-1-21-nov-2026)) |
+| D7 | **Read-ahead.** The candidate `91b0540103f0`'s reader with the pool and read-ahead (`KUI_CE_POOL_KIB=64 KUI_CE_READAHEAD=1`): after two sequential reads the card streams into the pool while no request is active, for the read-limited streams (Maximum Pool, Armada's intro, Worms' intro, Super Producers, RE2). Owner's report, no timings (the probe has no room for it). | D6 | done 21 Nov 2026: Maximum Pool and RE2 the same, Super Producers about the same; not adopted, stays off by default ([result](wince-pool-readahead-test.md#result-of-test-2-21-nov-2026)) |
 | G0 | **Thursday's console tests:** GUI `069d612cadea` (four tests) and the `7b216f2e1136` reports. Restore the accepted `ce-boot.kui` first. | D1 finished (the probe is swapped out) | ready |
 | B2 | **CHD to GDI import** for the PAL and JPN CHD images (43 images, 19 kernels exist only as CHD). Owner-side, on a PC. | nothing | owner task |
 
@@ -40,14 +46,16 @@ scope; it adds the order and the prerequisites.
 | F4 | WinCE map larger than 64 slots in the VMU and CD music readers and their stage admission. | G0 | NC2 US/PAL VMU and CD music |
 | F5 | Memory layout measured from RAM end: CE2 (RAM end 0x8cef0000) and the 9 kernels with other ends. | D2 (heap room) | S16, S18 |
 | F6 | Relocated `maple.dll` text bridge on the standalone stage (as Swirl's helper does), and a pool plan with 32 KiB for it. | S1 | S17, WWP x family 2 |
-| F7 | Optional: one CD music module per sound group carrying several exact-kernel records, instead of one module per kernel. | S3 or S4 | fewer modules for S3, S4, S11 |
+| F7 | Optional: one CD music module per sound group carrying several exact-kernel records, instead of one module per kernel. S4 keeps one module per kernel: the pinned startup bodies embed each kernel's addresses as literal words, and the GUI finds a kernel's module by its SHA-256 with no table to update. | S3 or S4 | fewer modules for S3, S4, S11 |
+| F8 | One RAM pool for every WinCE service, found by the ROM header's structure instead of one exact header per kernel (`include/kui/ce_ram_pool.h`; 19 surveyed kernels, three RAM ends). Built for the generic module (`c6745ab2`); the CD music and VMU parts move into it one module per change ([design](wince-unified-runtime.md)). | D6 | F5, S18v, S18c without per-kernel pool records |
 
 ## Boot (generic reader)
 
 | ID | Step | Depends on | Unlocks (images) | Console test |
 |---|---|---|---|---|
-| B0 | Boot evidence on the generic reader for CD-driver lines 1, 3, 5 and 6, which have no generic-route result. | D1, D2 | lines 1, 3, 5, 6 (scope step 0) | from D1; confirmed on the accepted module at G0 |
-| B1 | Reader fix for any refused command the data shows a game issuing (command 26 open tray is the known one; a refused command stops the reader). | D2 | per finding | the affected game, against D1 |
+| B0 | Boot evidence on the generic reader for CD-driver lines 1, 3, 5 and 6, which have no generic-route result. | D1, D2 | lines 1, 3, 5, 6 (scope step 0) | done in session 1: every line reached a running game (line 3's KISS then stopped, B3) |
+| B1 | Reader fix for any refused command the data shows a game issuing (command 26 open tray is the known one; a refused command stops the reader). | D2 | per finding | none seen in session 1 |
+| B3 | DMA stream pieces into PVR video memory ([record](wince-vram-stream.md)): KISS Psycho Circus and Virtua Cop 2 stopped on them. Generic module only; the CD music modules follow after its console test and a space audit. Test build `a660354d804c` delivered 20 Nov 2026. | D2 | KISS, Virtua Cop 2 (CD music Off) | passed 20 Nov 2026: both get past where they stopped (owner) |
 
 ## Virtual VMU (one family or helper per step)
 
@@ -69,8 +77,12 @@ scope; it adds the order and the prerequisites.
 
 | ID | Step | Depends on | Unlocks | Console test |
 |---|---|---|---|---|
-| S3 | BAM4 adapter on its 10 other kernels | G0, F2, D2 (DirectSound attached; Super Runabout loads it from disc) | 12 | Caesars Palace 2000 US; Super Runabout US; Virtua Cop 2 JPN |
-| S4 | WWP adapter on its 8 other kernels with the usual RAM end | G0, F2, D2 (CD audio commands and polling) | 12 | Railroad Tycoon II US, Ducati World US, Net de Para JPN |
+| S0 | **The adaptive slow window in the five CD music modules** (`KUI_CE_SLOW_WINDOW=16 KUI_CE_SLOW_ADAPT=2`, source `52a94612`), the reader half of CD music On matching CD music Off ([record](wince-cdda-adaptive-test.md)) | D5 | the five CD music routes | Armada (VMU Off and On), BAM4, Worms, WWP with CD music On: console-tested 21 Nov 2026, gameplay still a tiny bit worse than CD music Off; not at parity ([result](wince-cdda-adaptive-test.md#result-21-nov-2026)) |
+| S0t | **Where CD music On costs gameplay**: Armada's gameplay timing diagnostic, run with the music and with the music never queued (source `32b3bbb3`, [record](wince-cdda-play-timing-test.md)) | S0 | the fix for CD music On's gameplay lag, then CD music On for every CD music game | Armada (US), CD music On, VMU Off, two runs: console-tested 21 Nov 2026, the lag is the worker's programmed receptions while the music is urgent ([result](wince-cdda-play-timing-test.md#result-21-nov-2026)) |
+| S0f | **The fix, part 1**: the worker's programmed receptions as an emergency only (`KUI_CE_CDDA_EMERGENCY_PIO`, source `06341c5a`, [record](wince-cdda-emergency-pio-test.md)) | S0t | S0c | console-tested 21 Nov 2026: smooth gameplay; Armada's music repeated, Worms fine ([result](wince-cdda-emergency-pio-test.md#result-21-nov-2026)) |
+| S0c | **The fix, part 2**: the music's card stream restarts where it stops (`KUI_CE_CDDA_CHAIN`, source `1ba2fa7e`, [record](wince-cdda-chain-test.md)) | S0f | CD music On by default, game by game; S3, S4, S11 on the accepted recipe | accepted 21 Nov 2026: smooth gameplay in every CD music game, the music's reserve at least 566 ms; the makefiles' default ([result](wince-cdda-chain-test.md#measured-run-21-nov-2026)) |
+| S3 | BAM4 adapter on its other kernels: records derived from each kernel (`tools/wince_cdda_bam4_kernels.py`, `include/kui/wince_cdda_bam4_kernels.h`), one module per kernel with a `KUICDK01` record of sound profile 2, admitted by GUI `1c71ba3afa17` unchanged ([record](wince-cdda-bam4-group-test.md)) | G0, F2, D2 | 7 kernels: Puzzle Bobble 4, Virtua Cop 2 JPN, Caesars Palace 2000 US and PAL, Get!! Colonies, Marionette Company 2, Hello Kitty: Magical Block. Super Runabout plays its sound through `MANATEE.DRV` without DirectSound, so it moves to the MANATEE class | Puzzle Bobble 4, Virtua Cop 2 JPN: test build `9e89e778370f` delivered 21 Nov 2026, console test pending |
+| S4 | WWP adapter on its other kernels with the usual RAM end: per-kernel records derived from each kernel (`tools/wince_cdda_wwp_kernels.py`, `include/kui/wince_cdda_wwp_kernels.h`), one module per kernel with a `KUICDK01` record, and a GUI route that admits any such module by its record ([record](wince-cdda-wwp-group-test.md)) | G0, F2, D2 (CD audio commands and polling) | 11 kernels (Net de Para's `sndcore` differs: later) | Railroad Tycoon II US plays and 4x4 Evolution US runs with CD music On (`1c71ba3afa17`, 21 Nov 2026). Ducati World US plays its first race with `d7fd810eb837`, which saturates its repeat count of 1,000 ([record](wince-cdda-ducati-repeat-test.md)). Its later races, each a new process, would need a player rebind, not pursued for now |
 | S11 | Worms adapter, then Armada adapter, on their other kernels | G0, F2, D2 (does Wild Metal attach DirectSound?) | 4 + 3 | Sega Rally 2 US; Wild Metal US |
 | S13 | NC2-PAL contract, then Sno-Cross (both WWP variants) | S4, F4 (NC2), B2 (NC2 PAL) | 7 + 2 | Spirit of Speed 1937 US, Urban Chaos US; NC2 PAL |
 | S14 | NC2-US contract | F4, D2 | 5 | GAH 2 US, NC2 US |

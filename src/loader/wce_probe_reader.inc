@@ -11,6 +11,14 @@
  * only: the Maple list through P2 (uncached), MDSTAR, and the AICA clock at a
  * few marked moments.
  *
+ * The timing session (KUI_WCE_PROBE=2) leaves Maple sampling, the AICA
+ * clock and the CD audio log out and keeps a ring of the latest read
+ * requests instead (include/kui/wce_probe.h): when each began and ended, by
+ * CE's millisecond count and TMU0's count, and the TMU0 ticks the reader
+ * spent in GD calls and in its interrupt meanwhile. Reads only: CE's count,
+ * TMU0's count, reload, prescaler and underflow flag, MMUCR, VBR, the
+ * caller's stack pointer and the reader's own counters.
+ *
  * At the end (the game's BIOS menu call on A+B+X+Y+Start, or a reader fault
  * that stops it): with interrupts masked and the game no longer running, the
  * card stream is stopped and the terminal report and every non-zero 4 KiB
@@ -40,6 +48,18 @@
 #ifndef WCE_PROBE_REBOOT
 #define WCE_PROBE_REBOOT() ((void (*)(void))(uintptr_t)0xa0000000u)()
 #endif
+#if KUI_WCE_PROBE == 2
+#ifndef WCE_PROBE_REG16
+#define WCE_PROBE_REG16(address) (*(volatile const uint16_t *)(uintptr_t)(address))
+#endif
+#ifndef WCE_PROBE_TIMING
+#define WCE_PROBE_TIMING ((struct kui_wce_probe_timing *)(uintptr_t)KUI_WCE_PROBE_TIMING_ADDRESS)
+#endif
+#ifndef WCE_PROBE_VBR
+#define WCE_PROBE_VBR() probe_vbr()
+static inline uint32_t probe_vbr(void) {uint32_t v;__asm__ __volatile__("stc vbr,%0":"=r"(v));return v;}
+#endif
+#endif
 
 extern volatile uint32_t kui_retail_hook_fault;
 
@@ -47,7 +67,9 @@ extern volatile uint32_t kui_retail_hook_fault;
  * (which follows _start's BSS clear). It is BSS, outside the image bytes the
  * stage checks again after bootstrap 2. */
 struct kui_wce_probe_seed kui_wce_probe_seed;
+#if KUI_WCE_PROBE == 1
 static struct kui_wce_probe_counters probe;
+#endif
 
 static void probe_sat16(uint16_t *c) {if(*c!=UINT16_MAX)++*c;}
 static void probe_sat32(uint32_t *c) {if(*c!=UINT32_MAX)++*c;}
@@ -55,6 +77,7 @@ static void probe_sat32(uint32_t *c) {if(*c!=UINT32_MAX)++*c;}
 /* The AICA clock, in seconds, read only as K-UI's other masked readers do
  * (src/core/smash_phase_clock.c): with no G2 FIFO entry queued and no G2
  * DMA channel armed or running. Otherwise 0: unknown. */
+#if KUI_WCE_PROBE == 1
 static uint32_t __attribute__((noinline)) probe_rtc(void) {
     if(WCE_PROBE_REG(0xa05f688cu)&0x31u) return 0u;
     for(unsigned i=0;i<4u;i++) {
@@ -64,7 +87,12 @@ static uint32_t __attribute__((noinline)) probe_rtc(void) {
     uint32_t high=WCE_PROBE_REG(0xa0710000u)&0xffffu,low=WCE_PROBE_REG(0xa0710004u)&0xffffu;
     return high==(WCE_PROBE_REG(0xa0710000u)&0xffffu)?high<<16|low:0u;
 }
+#else
+/* The timing session times by CE's millisecond count (its ring) instead. */
+#define probe_rtc() 0u
+#endif
 
+#if KUI_WCE_PROBE == 1
 static void probe_maple(void) {
     struct kui_wce_probe_counters *p=&probe;
     probe_sat32(&p->maple_samples);
@@ -99,9 +127,129 @@ static void probe_maple(void) {
         at+=12u+4u*length;
     }
 }
+#endif
+
+#if KUI_WCE_PROBE == 2
+extern volatile uint32_t kui_retail_hook_caller[2]; /* the GD caller's PR and stack pointer */
+static uint32_t probe_timing_on; /* the ring is the reader's from here on */
+#define PROBE_TCOR0 0xffd80008u
+#define PROBE_TCNT0 0xffd8000cu
+#define PROBE_TCR0 0xffd80010u
+#define PROBE_TCR0_UNF 0x100u
+#define PROBE_IN_RING_AREA(address) \
+    (((address)&0x1fffffffu)-(KUI_WCE_PROBE_TIMING_ADDRESS&0x1fffffffu)<KUI_WCE_PROBE_TIMING_BYTES)
+/* CE's millisecond count: the word after the reschedule flag in KData. */
+static uint32_t probe_ms(void) {
+    uint32_t at=kui_retail_ce_kernel[2];
+    return at?*(volatile const uint32_t *)WCE_PROBE_RAM(at+4u):0u;
+}
+/* With the flag set, a reload between the two reads leaves the count after
+ * it, which agrees with the flag. */
+uint32_t kui_wce_probe_tmu(uint32_t count) {
+    if(!(WCE_PROBE_REG16(PROBE_TCR0)&PROBE_TCR0_UNF)) return count;
+    uint32_t again=WCE_PROBE_REG(PROBE_TCNT0);
+    return KUI_WCE_PROBE_TMU_PENDING|(again>count?again:count);
+}
+/* CE's count and TMU0's, with no tick of CE's between them. */
+static uint32_t probe_now(uint32_t *tmu) {
+    uint32_t ms;
+    do {ms=probe_ms();*tmu=kui_wce_probe_tmu(WCE_PROBE_REG(PROBE_TCNT0));} while(ms!=probe_ms());
+    return ms;
+}
+/* The ring, once CE runs, for a session the stage prepared (nothing else is
+ * saved): with CE's MMU on and neither its VBR nor the calling stack in
+ * this area. Bootstrap 2 and its VBR use the area until then, and some
+ * kernels make their first GD calls on a boot stack in it. */
+static struct kui_wce_probe_timing *probe_timing(void) {
+    struct kui_wce_probe_timing *t=WCE_PROBE_TIMING;
+    if(probe_timing_on) return t;
+    if(kui_wce_probe_seed.magic!=KUI_WCE_PROBE_SEED_MAGIC || !(WCE_PROBE_REG(0xff000010u)&1u) ||
+       PROBE_IN_RING_AREA(WCE_PROBE_VBR()) || PROBE_IN_RING_AREA(kui_retail_hook_caller[1])) return NULL;
+    memset(t,0,sizeof(*t));
+    t->magic=KUI_WCE_PROBE_TIMING_MAGIC;t->capacity=KUI_WCE_PROBE_TIMING_REQUESTS;
+    t->tcr0=WCE_PROBE_REG16(PROBE_TCR0);t->tcor0=WCE_PROBE_REG(PROBE_TCOR0);t->first_ms=probe_ms();
+    probe_timing_on=1u;
+    return t;
+}
+/* TMU0 ticks since `started` (both counts in KUI_WCE_PROBE_TMU_PENDING
+ * form). TMU0 counts down and reloads from TCOR0: a later count, or an
+ * underflow pending now but not then, is one reload (CE's tick may have
+ * counted it meanwhile). A call or interrupt is far shorter than two
+ * periods. */
+static uint32_t probe_ticks(const struct kui_wce_probe_timing *t,uint32_t started) {
+    uint32_t ended=kui_wce_probe_tmu(WCE_PROBE_REG(PROBE_TCNT0));
+    uint32_t from=started&~KUI_WCE_PROBE_TMU_PENDING,to=ended&~KUI_WCE_PROBE_TMU_PENDING;
+    return to>from || (ended&~started&KUI_WCE_PROBE_TMU_PENDING)?from+t->tcor0+1u-to:from-to;
+}
+static void probe_add(uint32_t *total,uint32_t *wraps,uint32_t ticks) {
+    *total+=ticks;
+    if(*total<ticks) ++*wraps;
+}
+static void probe_time_end(struct kui_wce_probe_timing *t,uint32_t flags) {
+    struct kui_wce_probe_request_time *q=&t->ring[t->current];
+    uint32_t ms=probe_now(&q->ended_tmu)-q->issued_ms;
+    q->latency_ms=(uint16_t)(ms>UINT16_MAX?UINT16_MAX:ms);
+    q->call_ticks=t->call_ticks-t->snap[0];q->irq_ticks=t->irq_ticks-t->snap[1];
+    q->overruns=(uint16_t)(R.shared.stream.stats.overruns-t->snap[2]);
+#if KUI_CE_SCI_SLOW_AFTER_OVERRUN
+    q->slow_blocks=(uint16_t)(R.shared.stream.stats.slow_blocks-t->snap[3]);
+#endif
+    q->flags|=(uint8_t)flags;t->open=0u;
+}
+/* The open request has ended once the service no longer runs it; it failed
+ * unless it completed (an abort included). */
+static void probe_time_check(struct kui_wce_probe_timing *t) {
+    if(!t->open || (R.shared.service.pending && R.shared.service.token==t->token)) return;
+    probe_time_end(t,KUI_WCE_PROBE_TIME_ENDED|(R.shared.service.token!=t->token?KUI_WCE_PROBE_TIME_REPLACED:
+        R.shared.service.status!=KUI_GD_COMPLETED?KUI_WCE_PROBE_TIME_FAILED:0u));
+}
+static void probe_time_begin(uint32_t command) {
+    struct kui_wce_probe_timing *t=probe_timing();
+    if(!t) return;
+    if(t->open) probe_time_end(t,KUI_WCE_PROBE_TIME_REPLACED);
+    uint32_t i=t->count?t->current+1u:0u;
+    if(i>=KUI_WCE_PROBE_TIMING_REQUESTS) i=0u;
+    struct kui_wce_probe_request_time *q=&t->ring[i];
+    memset(q,0,sizeof(*q));
+    uint32_t sectors=R.shared.service.count;
+    q->issued_ms=probe_now(&q->issued_tmu);q->lba=R.shared.service.lba;
+    q->sectors=(uint16_t)(sectors>UINT16_MAX?UINT16_MAX:sectors);q->command=(uint8_t)command;
+    t->snap[0]=t->call_ticks;t->snap[1]=t->irq_ticks;t->snap[2]=R.shared.stream.stats.overruns;
+#if KUI_CE_SCI_SLOW_AFTER_OVERRUN
+    t->snap[3]=R.shared.stream.stats.slow_blocks;
+#endif
+    t->token=R.shared.service.token;t->current=i;t->open=1u;probe_sat32(&t->count);
+}
+void kui_wce_probe_time_call(uint32_t started) {
+    struct kui_wce_probe_timing *t=probe_timing();
+    if(!t) return;
+    uint32_t ticks=probe_ticks(t,started);
+    probe_add(&t->call_ticks,&t->call_wraps,ticks);
+    if(t->open) {
+        struct kui_wce_probe_request_time *q=&t->ring[t->current];
+        probe_sat16(&q->calls);
+        if(ticks>q->longest_call) q->longest_call=ticks;
+    }
+    probe_time_check(t);
+}
+/* In the interrupt: only after a GD call has taken the ring. */
+void kui_wce_probe_time_irq(uint32_t started) {
+    if(!probe_timing_on) return;
+    struct kui_wce_probe_timing *t=WCE_PROBE_TIMING;
+    probe_add(&t->irq_ticks,&t->irq_wraps,probe_ticks(t,started));
+    probe_time_check(t);
+}
+#endif
 
 void kui_wce_probe_record(uint32_t function,uint32_t command,int32_t result) {
+#if KUI_WCE_PROBE == 1
     struct kui_wce_probe_counters *p=&probe;
+#else
+    /* The timing session's counters live in its ring area. */
+    struct kui_wce_probe_timing *timing=probe_timing();
+    if(!timing) return;
+    struct kui_wce_probe_counters *p=&timing->counters;
+#endif
     if(!p->calls) {
         p->magic=KUI_WCE_PROBE_COUNTERS_MAGIC;p->version=KUI_WCE_PROBE_VERSION;p->bytes=sizeof(*p);
         p->rtc_first=probe_rtc();
@@ -124,7 +272,12 @@ void kui_wce_probe_record(uint32_t function,uint32_t command,int32_t result) {
             p->read_sectors=total<p->read_sectors?UINT32_MAX:total;
             if(sectors>p->largest_read) p->largest_read=sectors;
             if(!p->rtc_first_read) p->rtc_first_read=probe_rtc();
+#if KUI_WCE_PROBE == 2
+            probe_time_begin(command);
+#endif
         }
+#if KUI_WCE_PROBE == 1
+        /* The CD audio log (the timing session counts the commands only). */
         if(command==KUI_RETAIL_GD_PLAY || command==KUI_RETAIL_GD_PLAY2 || command==KUI_RETAIL_GD_PAUSE ||
            command==KUI_RETAIL_GD_RELEASE || command==KUI_GD_STOP) {
             uint32_t n=p->audio_count;
@@ -137,8 +290,11 @@ void kui_wce_probe_record(uint32_t function,uint32_t command,int32_t result) {
             if(!n) p->rtc_first_audio=probe_rtc();
             probe_sat32(&p->audio_count);
         }
+#endif
     }
+#if KUI_WCE_PROBE == 1
     probe_maple();
+#endif
 }
 
 /* Sector `sector` counts from the slot's terminal report, where runs[0]
@@ -204,6 +360,10 @@ void kui_wce_probe_terminal(const struct retail_display_state *display,uint32_t 
     __asm__ __volatile__("stc vbr,%0":"=r"(values[1]));
 #endif
     for(unsigned i=0;i<KUI_WCE_PROBE_REGISTERS_READ-2u;i++) values[i+2u]=WCE_PROBE_REG(registers[i]);
+#if KUI_WCE_PROBE == 2
+    /* The ring's end, before the cache write-back below saves it. */
+    if(probe_timing_on) WCE_PROBE_TIMING->end_ms=probe_ms();
+#endif
     const struct kui_wce_probe_seed *s=&kui_wce_probe_seed;
     uint16_t color=PROBE_YELLOW; /* no data file or free slot at launch, or no read yet */
     if(!probe_seed_ok(s) || !e.opened) goto done;
@@ -225,7 +385,13 @@ void kui_wce_probe_terminal(const struct retail_display_state *display,uint32_t 
     t->menu_command=command;t->caller=caller;t->stack=stack;t->rtc=probe_rtc();
     t->hook_fault=kui_retail_hook_fault;
     memcpy(t->registers,values,sizeof(values));
-    t->seed=*s;t->counters=probe;t->counters.rtc_last=t->rtc;
+    t->seed=*s;
+#if KUI_WCE_PROBE == 1
+    t->counters=probe;
+#else
+    if(probe_timing_on) t->counters=WCE_PROBE_TIMING->counters;
+#endif
+    t->counters.rtc_last=t->rtc;
     /* CE runs the operand cache copy-back and maps the game's pages at other
      * cache indexes than their P1 alias: write back every dirty line before
      * reading RAM through P1. A non-associative write of 0 to each entry of

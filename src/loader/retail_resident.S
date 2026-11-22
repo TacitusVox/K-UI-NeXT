@@ -108,6 +108,14 @@ C_SYMBOL(kui_wce_probe_seed_entry): .long C_SYMBOL(kui_wce_probe_seed)
     .global __kui_wce_probe_resident
     .set __kui_wce_probe_resident,1
 #endif
+#if KUI_RETAIL_CE_READAHEAD && defined(KUI_RETAIL_ASYNC)
+/* The read-ahead reader: where the stage's relay writes the pool record, at
+ * KUI_RETAIL_CE_POOL_ENTRY, after its checks (include/kui/ce_ram_pool.h). */
+    .global C_SYMBOL(kui_retail_ce_pool_entry)
+C_SYMBOL(kui_retail_ce_pool_entry): .long C_SYMBOL(kui_retail_ce_pool)
+    .global __kui_ce_readahead_resident
+    .set __kui_ce_readahead_resident,1
+#endif
 #if KUI_ARMADA_CE_STREAM
 /* Stage verifies the complete immutable resident before following this word.
  * High stream state remains dormant throughout owner bootstrap 2. */

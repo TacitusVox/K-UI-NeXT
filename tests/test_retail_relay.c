@@ -14,6 +14,12 @@
 #ifdef KUI_RETAIL_CE
 const uint8_t __retail_ce_vbr[1]={0};
 #endif
+#if KUI_RETAIL_CE_POOL_KIB
+/* The universal pool the relay re-checks, read through its P2 alias. */
+#define POOL_BEGIN UINT32_C(0x8cfc0000)
+#define POOL_P2 (POOL_BEGIN|0x20000000u)
+const uint8_t __retail_stage_bss_end[1]={0};
+#endif
 
 #define RAM_ADDRESS 0x8c000000u
 #define RAM_BYTES 0x20000u
@@ -111,6 +117,11 @@ static uint32_t *fixture(void) {
     memcpy((void *)(uintptr_t)KUI_RETAIL_CE_KERNEL,ce_kernel,sizeof(ce_kernel));
 #endif
     memset(&manifest,0,sizeof(manifest));strcpy(manifest.title,"Generated relay fixture");
+#if KUI_RETAIL_CE_POOL_KIB
+    memset((void *)(uintptr_t)POOL_P2,0,KUI_RETAIL_CE_POOL_BYTES);
+    ce_pool.pool_begin=POOL_BEGIN;ce_pool.pool_end=POOL_BEGIN+KUI_RETAIL_CE_POOL_BYTES;
+    ce_pool_reserved=1u;
+#endif
     uint32_t *frame=(uint32_t *)(uintptr_t)FRAME_ADDRESS;
     for(unsigned i=0;i<21;i++) frame[i]=0x7b000000u+i*0x10101u;
     frame[3]=KUI_RETAIL_BOOT_VBR;frame[4]=0x400000f0u;
@@ -169,6 +180,9 @@ enum fault {BAD_EXEC,BAD_RESIDENT_FIRST,BAD_RESIDENT_LAST,BAD_STACK_LOW,
 #ifdef KUI_RETAIL_CE
     BAD_KERNEL,
 #endif
+#if KUI_RETAIL_CE_POOL_KIB
+    BAD_POOL_FIRST,BAD_POOL_LAST,
+#endif
 };
 static void failure(enum fault fault) {
     uint32_t *frame=fixture();
@@ -207,6 +221,12 @@ static void failure(enum fault fault) {
             detail=KUI_RETAIL_CE_KERNEL-KUI_RETAIL_RESIDENT_ADDRESS;
             ((uint8_t *)(uintptr_t)KUI_RETAIL_CE_KERNEL)[0]^=0x40u;
             message="BOOTSTRAP ALTERED RESIDENT";restored_entry=true;break;
+#endif
+#if KUI_RETAIL_CE_POOL_KIB
+        case BAD_POOL_FIRST:case BAD_POOL_LAST:
+            detail=fault==BAD_POOL_FIRST?0u:KUI_RETAIL_CE_POOL_BYTES/4u-1u;
+            ((volatile uint32_t *)(uintptr_t)POOL_P2)[detail]=0x00000100u;
+            message="BOOTSTRAP ALTERED CE RAM POOL";restored_entry=true;break;
 #endif
     }
     if(!message) {message="UNSUPPORTED BOOT STACK";detail=(uint32_t)(uintptr_t)entered_frame;}
@@ -276,6 +296,11 @@ int main(void) {
         MAP_PRIVATE|MAP_ANONYMOUS|MAP_FIXED_NOREPLACE,-1,0);
     if(ram==MAP_FAILED) {perror("map Dreamcast RAM for relay test");return 1;}
     assert(ram==(void *)(uintptr_t)RAM_ADDRESS);
+#if KUI_RETAIL_CE_POOL_KIB
+    void *pool=mmap((void *)(uintptr_t)POOL_P2,KUI_RETAIL_CE_POOL_BYTES,PROT_READ|PROT_WRITE,
+        MAP_PRIVATE|MAP_ANONYMOUS|MAP_FIXED_NOREPLACE,-1,0);
+    if(pool==MAP_FAILED) {perror("map the CE pool for relay test");return 1;}
+#endif
     success(false);
 #ifdef KUI_RETAIL_CE
     success(true);
@@ -287,6 +312,19 @@ int main(void) {
 #endif
 #ifdef KUI_RETAIL_CE
     failure(BAD_KERNEL);
+#if KUI_RETAIL_CE_POOL_KIB
+    failure(BAD_POOL_FIRST);failure(BAD_POOL_LAST);
+    /* A launch that reserved no pool never reads one. */
+    ce_pool_reserved=0u;ce_pool.pool_begin=UINT32_C(0x8c000000);
+    {
+        uint32_t *frame=fixture();
+        ce_pool_reserved=0u;
+        ((volatile uint32_t *)(uintptr_t)POOL_P2)[7]=1u;
+        kui_retail_stage_relay(frame,CCR_VALUE);
+        ++cases;
+    }
+    printf("PASS CE relay with the universal pool: %u executed cases; a changed pool word stops the launch\n",cases);
+#endif
     printf("PASS CE relay: %u executed cases; status writes and VBR repair preserved, faults visible\n",cases);
 #else
     printf("PASS native relay: %u executed cases; success preserves owner video/frame, faults visible\n",cases);

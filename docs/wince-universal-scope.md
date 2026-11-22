@@ -108,7 +108,7 @@ In practice that means one test game per family and per group (section 4), not o
 | Unit | Status | Images with CD music (GDI) | Titles |
 |---|---|---|---|
 | 4 profiled kernels | adapters exist | 7 (4) | Armada; BAM4, Worms Armageddon, WWP (US and PAL) |
-| BAM4 group, other kernels | placement only | 12 (9) | Puzzle Bobble 4, Caesars Palace 2000 x2, Get Colony, Marionette Company 2, Virtua Cop 2 JPN, Super Runabout x6 (5 load DirectSound from disc) |
+| BAM4 group, other kernels | placement only | 6 (5) | Puzzle Bobble 4, Caesars Palace 2000 x2, Get Colony, Marionette Company 2, Virtua Cop 2 JPN; also Hello Kitty: Magical Block (one track). Corrected 21 Nov 2026 ([round 2](wince-cdda-bam4-group-test.md)): Super Runabout x6 plays its sound through `MANATEE.DRV` without DirectSound and belongs to the MANATEE class |
 | WWP group, other kernels | placement only | 17 (8) | 4x4 Evolution, Championship Surfer, Ducati World, Railroad Tycoon II, Next Tetris Online, Net de Para, Hidden and Dangerous PAL, Starlancer PAL; other RAM end: Q*bert, Tomb Raider Chronicles, Rainbow Six PAL x3 |
 | Worms group, other kernels | placement only | 4 (2) | Sega Rally 2 US and PAL x2, Space Griffon VF-9 |
 | Armada group, other kernels | placement only | 3 (2) | Wild Metal US/PAL, Hello Kitty Lovely Fruit Park |
@@ -260,7 +260,7 @@ Memory is the constraint. The accepted combined layout leaves about 9 KiB free i
 | **Tier 1: existing code moved by placement** | | | |
 | 1 | Family 7 VMU-only route for Wild Metal's kernel | 2 | Wild Metal US, VMU On against step 0: save, power cycle, load; intro and FMV; which slot it opens |
 | 2 | Admit HK Lovely Fruit Park, then Biohazard 2 VP (one kernel per change) | 3 | each: save, power cycle, load; boot each BH2VP disc separately |
-| 3 | BAM4 adapter for its 10 other kernels | 12 | Caesars Palace 2000 US; Super Runabout US (DirectSound from disc, no static import); Virtua Cop 2 JPN (DirectSound through a DLL) |
+| 3 | BAM4 adapter for its other kernels (done 21 Nov 2026 as 7 kernels, [round 2](wince-cdda-bam4-group-test.md); Super Runabout is not DirectSound) | 7 | Puzzle Bobble 4; Virtua Cop 2 JPN (DirectSound through a DLL); Caesars Palace 2000 US |
 | 4 | WWP adapter for its 8 other kernels with the usual RAM end | 12 | Railroad Tycoon II US, Ducati World US, Net de Para JPN (new `sndcore` constants) |
 | **Tier 2: new hook profiles and the Smash helpers on CE3 kernels** | | | |
 | 5 | Family 2 profile | 17 | Railroad Tycoon II US, Championship Surfer US |
