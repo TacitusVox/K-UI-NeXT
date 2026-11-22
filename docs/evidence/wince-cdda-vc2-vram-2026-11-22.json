@@ -1,0 +1,76 @@
+{
+ "subject": "Virtua Cop 2 (JPN, HDR-0061), CD music On: its CD music module takes stream pieces into video memory",
+ "date": "2026-11-22",
+ "record": "docs/wince-cdda-bam4-group-test.md#test-build-949be40865cf-virtua-cop-2-stream-pieces-into-video-memory",
+ "derived_metadata_only": "No disc, kernel, bootstrap or game bytes. The stop is read from the owner's photo of K-UI's reader fault page; sizes, pins and counts come from host builds of this repository.",
+ "stop": {
+  "module": "1ac7e667c0d3",
+  "console": "owner, 21 Nov 2026, CD music On, after the game's memory-card check; the reader page does not show the running K-UI",
+  "page": {"build": "1AC7E667C0D3", "fault": "GD FUNCTION UNSUPPORTED", "gd_function": "6 (DMA transfer)",
+           "command": "0x26 (DMAREAD_STREAM_EX)", "lba": "0x858FA", "sectors": 257,
+           "piece_destination": "0x04575600 (PVR video memory, 64-bit view)", "card_block": "0x0C4C931E"},
+  "reading": "the generic module's stop before KUI_CE_VRAM_DMA (docs/wince-vram-stream.md): the same request, piece shape and destination after the memory-card check. That fix passed the owner's console test with CD music Off on 20 Nov 2026."
+ },
+ "background_reader": {
+  "image": "resident-scia of KUI/apps/games/ce-cdda-6c09543a5680.kui",
+  "1ac7e667c0d3": {"memory_end": "0x8c00d800", "payload_bytes": 16674, "stack": "2 KiB guarded, 0x8c00d800..0x8c00e000",
+                   "call_graph_worst_bytes": 512, "available_bytes": 2000},
+  "0414c2d08b02_layout_only": {"memory_end": "0x8c00d800", "payload_bytes": 16674, "stack": "1 KiB guarded, 0x8c00dc00..0x8c00e000",
+                               "call_graph_worst_bytes": 512, "available_bytes": 976},
+  "949be40865cf": {"memory_end": "0x8c00d880", "payload_bytes": 16802, "stack": "1 KiB guarded, 0x8c00dc00..0x8c00e000",
+                   "call_graph_worst_bytes": 512, "available_bytes": 976},
+  "video_memory_cost_bytes": 156,
+  "room_below_d800_before_bytes": 28,
+  "same_layout_on_console": "ce-armada-all-on (retail_resident_ce_async_vmu_write.ld), on the owner's console since 9 Nov 2026; its call-graph worst case is 504 bytes of 976",
+  "code_and_read_only_data_bound": "0x8c00d800, where the stream controller checks the reader's entry points and bus (armada_ce_stream_transport.c low_code, bus_valid)",
+  "live_data_above_d800": "the map's last slots and the CE ISR's stack-pointer word, up to 0x8c00d880; the first CD music reader with live data there (the all-on reader's ends at 0x8c00d7e0)"
+ },
+ "change": {
+  "sources": {"0414c2d0": "KUI_CE_CDDA_SMALL_STACK: the 1 KiB stack, Virtua Cop 2's module only",
+              "949be408": "KUI_CE_CDDA_VRAM_DMA: KUI_RETAIL_CE_VRAM_DMA in that reader, Virtua Cop 2's module only; needs the small stack",
+              "1ac6f424": "review follow-up: checks and tests only; the module rebuilds byte-identical"},
+  "reader_config": ["READER_FIXES=1", "SLOW_WINDOW=16", "SLOW_ADAPT=2", "EMERGENCY_PIO=1", "CHAIN=1",
+                    "BAM4_KERNEL=VIRTUA_COP_2", "BOOT2_SCRATCH=1", "SMALL_STACK=1", "VRAM_DMA=1"],
+  "markers": {"__kui_ce_cdda_small_stack_resident": "untyped ABS 1, background reader only",
+              "__kui_retail_ce_vram_dma": "untyped ABS 1, background reader only"},
+  "unchanged": "the stage, the stream controller and every other module"
+ },
+ "linked_pins": {
+  "map_guest": {"bytes": 240, "sha256": "d2f266e144ab284ec6bc900d853d0560c28ccf97fdbda2b5e2248dfd84fd590a",
+                "note": "the music pool guard is kept after a new branch sending a P1/P2 address outside RAM to the span helper"},
+  "vram_dma_span": {"bytes": 76, "sha256": "8a7c0cba40c771f05a03e6ab15dcd2dc1d4d26624b7d0e5807d77e11ace21321",
+                    "note": "pinned from 1ac6f424; byte-identical to the console-tested generic reader's (source a660354d, Makefile.dc KUI_CE_VRAM_DMA)"},
+  "stack_guard_literals": "_kui_retail_resident_init+0x25a 0x8c00d800 -> 0x8c00dc00 and +0x26a 0x8c00d804 -> 0x8c00dc04, admitted only with SMALL_STACK=1",
+  "purge_relocation": "_kui_retail_resident_init+0x26e to _purge.lto_priv.0, admitted only with VRAM_DMA=1 (or World Party's profile)",
+  "halfword_width_check": "tools/check_ce_virtual_vram_width.py on the linked reader, 150 cases, run by the module's build"
+ },
+ "modules": [
+  {"role": "changed", "path": "KUI/apps/games/ce-cdda-6c09543a5680.kui", "build": "949be40865cf", "bytes": 135864,
+   "payload_crc32": "C1FEC7A6", "sha256": "8847122364c7518cb65f0f50d313c76407073695d65f208b32e40dc12e9c8d01"},
+  {"role": "IF-NEEDED control, layout only, built from 0414c2d0", "path": "IF-NEEDED/control-layout-only-0414c2d08b02/KUI/apps/games/ce-cdda-6c09543a5680.kui",
+   "build": "0414c2d08b02", "bytes": 135736, "payload_crc32": "8F4DF9A0",
+   "sha256": "23e3124f9748c6eea2c5463653c217d597abef3177297b4d51f81b3e95eb122c"},
+  {"role": "IF-NEEDED previous", "path": "IF-NEEDED/previous-1ac7e667c0d3/KUI/apps/games/ce-cdda-6c09543a5680.kui",
+   "build": "1ac7e667c0d3", "bytes": 135736, "payload_crc32": "1A985F40",
+   "sha256": "0f714fed2832ab3a02543be76644220f1daf510150460022e4d3ebd880b98539"}
+ ],
+ "delivery": {"zip": "KUI-WinCE-CD-Music-Virtua-Cop-2-Video-Memory-22NOV2026-0004-CST-949be40.zip", "bytes": 257902,
+              "sha256": "d5748ccad4c79a6be18361ada2d1de777bfddd51815bb8554a4585d984636055",
+              "also": ["INVENTORY.json", "LICENSE.txt", "README-FIRST.txt"],
+              "gui": "no GUI in the ZIP; K-UI 1c71ba3afa17 and the combined K-UI 64ae07435de5 both admit it"},
+ "evidence_kinds": {
+  "byte_identity": "rebuilt from 1ac6f424 with the same build IDs: 949be40865cf (defaults), 0414c2d08b02 (KUI_CE_CDDA_VRAM_DMA=0), 1ac7e667c0d3 (both new switches 0), 9e89e778370f (every switch 0); the five accepted CD music modules, round 1's ten, Ducati World's and round 2's other six byte-identical",
+  "independent_rebuild": "the regular games session built 949be40865cf from its merge of this line and reported the same bytes (that session's result)",
+  "linked_admission": "test-wince-packaged-prepare --bam4-kernel with the owner's Virtua Cop 2 kernel, raw and 2048-byte DATA: the module 920,757 checks and the control 920,053, under this line's GUI source (949be408) and the combined K-UI's (64ae0743). A GUI built from 1ac6f424 with build ID 1c71ba3afa17 is byte-identical to the installed 1c71ba3afa17.",
+  "host_execution": "test-ce-cdda-vram at 1ac6f424: the CD music reader with the production music transport, 164,233 checks without and 211,893 with the transfers (231,328 at beeef062, before both video-memory views were checked whole); five passes over three piece shapes with music pending (as accepted, below the emergency PIO floor, chained token searches, faults, urgent music). Authored card, drive and video-memory models; the G1 bus, PVR timing and the music worker's CE thread are not modelled.",
+  "static_review": "CE's exception vectors, identical in Virtua Cop 2's, Armada's and 4x4 Evolution's kernels, take TLB misses on banked registers and move to CE's kernel stack for other exceptions at thread level; only a nested exception builds a frame of about 320 bytes on the current stack. Every GD call site in the kernel is in wsegacd.dll, in thread context.",
+  "console": "pending"
+ },
+ "limits": [
+  "No console run yet.",
+  "wsegacd aborts a request after 15 s without a drive interrupt (GD ABORT), and the reader's ABORT raises no interrupt. The 512 KiB piece is estimated to take seconds; the console test asks for the time.",
+  "The hook and ISR guard literals are not pinned by a linked audit; they come from the same macro as the stack, which the reader's marker and linker script tie together.",
+  "Other piece shapes (an ordinary DMAREAD into video memory, the TA path) stay refused.",
+  "The other CD music modules keep the refusal."
+ ]
+}

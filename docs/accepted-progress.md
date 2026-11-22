@@ -57,7 +57,7 @@ Delivered: `KUI-WinCE-GUI-Routes-16NOV2026-1928-CST-069d612.zip`, GUI build
 `retail-boot.kui` `9e3295bcfaec`, as `00d8ed67d9ad` does. `00d8ed67d9ad`
 remains the reference until the owner reports the package's four tests.
 
-## WinCE CD music for Bust-A-Move 4's group: Puzzle Bobble 4 console-tested, Virtua Cop 2 reaches its memory-card check, 9e89e778370f and 1ac7e667c0d3, 2026-11-21
+## WinCE CD music for Bust-A-Move 4's group: Puzzle Bobble 4 console-tested, Virtua Cop 2 reaches its memory-card check, 9e89e778370f, 1ac7e667c0d3 and 949be40865cf, 2026-11-22
 
 **Result (21 Nov 2026, [record](wince-cdda-bam4-group-test.md#result-21-nov-2026)):**
 - **Puzzle Bobble 4:** works with CD music On.
@@ -77,6 +77,16 @@ remains the reference until the owner reports the package's four tests.
     the game passes its memory-card check. The reader then stops on GD
     function 6, a stream piece into video memory, which only the generic
     module takes (`KUI_CE_VRAM_DMA`).
+  - Test build `949be40865cf` (source `0414c2d0` and `949be408`; review
+    follow-up `1ac6f424`, no module change): Virtua Cop 2's CD music reader
+    takes those pieces, with the Armada all-on reader's 1 KiB stack for room.
+    - Every other module is byte-identical.
+    - The GUI sources of K-UI `1c71ba3afa17` and `64ae07435de5` admit it
+      with the owner's kernel.
+    - Delivered:
+      `KUI-WinCE-CD-Music-Virtua-Cop-2-Video-Memory-22NOV2026-0004-CST-949be40.zip`,
+      with the previous module and a layout-only control under
+      `IF-NEEDED/`. Console test pending.
 - **Not tested:** the other five games.
 
 CD music On for seven more WinCE kernels that carry Bust-A-Move 4's sound
