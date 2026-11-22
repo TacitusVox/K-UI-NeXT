@@ -465,6 +465,7 @@ build/test-armada-ce-excerpt: tests/test_armada_ce_excerpt.c src/loader/armada_c
 	@mkdir -p $(@D)
 	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) -fno-pie -no-pie $< -o $@
 test: build/test-drive-controls build/test-drive-speed-probe build/test-g1-mode-probe build/test-g1-mode-probe-native build/test-salvage-display
+test: build/cover-rows-host build/test-internet-preview
 test: build/test-vmu-lcd build/test-vmu-save-format
 test: build/test-recovery-manifest build/scan-fixtures/.stamp build/test-music-ogg-seek build/music-asset-check
 test: build/test-games-selection build/test-zso build/test-lzo1x build/test-retail-zso build/test-retail-lzo build/test-game-launch-settings build/test-game-launch-settings-file build/test-game-ram-patches build/test-game-launch-report build/test-retail-relay-patches

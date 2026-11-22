@@ -269,6 +269,22 @@ class ThemePackingTests(unittest.TestCase):
                     prepared = pack.prepare(folder / "source.json")
                     self.assertEqual({p.name: p.read_bytes() for p in (staged / name).iterdir()}, prepared)
 
+    def test_managed_staging_can_use_an_archive_of_prepared_packs(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            base = Path(temporary)
+            collection = base / "source"
+            source = ROOT / "resources/themes/midnight-forge"
+            prepared = collection / source.name
+            prepared.mkdir(parents=True)
+            for name in ("header.kuiimg", "header.kuiimg.thumb", "theme.ini"):
+                (prepared / name).write_bytes((source / name).read_bytes())
+            staged = base / "staged"
+            pack.stage_all(staged, managed=True, collection=collection)
+            self.assertEqual((staged / "index.txt").read_bytes(), b"midnight-forge\n")
+            self.assertEqual({p.name for p in staged.iterdir()}, {source.name, "index.txt"})
+            for asset in prepared.iterdir():
+                self.assertEqual((staged / source.name / asset.name).read_bytes(), asset.read_bytes())
+
     def test_actual_pack_passes_production_c_consumer(self):
         with tempfile.TemporaryDirectory() as temporary:
             directory = Path(temporary)

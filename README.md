@@ -1,4 +1,10 @@
-# K-UI 2.0.0 “Tyrfing”
+# K-UI for Dreamcast
+
+**3.0 RC1** brings the native and Windows CE loader work into one testing distribution. The full KUP installs the GUI, matching game readers, helpers and factory assets together. The SD ZIP installs the same software on the physical card and includes the optional v3 boot disc. Existing games, saves and preferences stay on the card.
+
+[3.0 RC1 installation](docs/release-v3.0.0.md) · [RC1 loader coverage](docs/release-v3.0.0-notes.md) · [Nightly downloads](https://github.com/TacitusVox/K-UI-NeXT/tree/nightly-channel)
+
+## Stable release · 2.0.0 “Tyrfing”
 
 An independent Dreamcast shell built directly on upstream KallistiOS, retaining
 the original GD-ROM and using exFAT/FAT32 storage.

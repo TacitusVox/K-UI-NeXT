@@ -321,6 +321,7 @@ static void fixture_alignment_tests(void) {
     }
     puts("Authored heap alignment: offsets 0..7, both instruction halfword positions and all RAM aliases preserve exact metadata and reject body damage");
 }
+#ifndef KUI_HEAP_SCAN_SHARED_CORPUS
 /* Relocated caller/leaf/arena and negative controls for tail initializer
  * admission. An older stage cannot use the inherited return PC. */
 static void tail_wrapper_tests(void) {
@@ -370,8 +371,11 @@ static void tail_wrapper_tests(void) {
         CHECK(!kui_vmu_native_heap_call_discover(image,sizeof(image),&h,&call));put32(words[i].at,before);
     }
 }
+#endif
 int main(int argc,char **argv) {
+#ifndef KUI_HEAP_SCAN_SHARED_CORPUS
     tail_wrapper_tests();
+#endif
     fixture_alignment_tests();
     const uint32_t aliases[]={0u,0x80000000u,0xa0000000u};
     for(unsigned a=0;a<3u;a++) for(unsigned half=0;half<2u;half++) {

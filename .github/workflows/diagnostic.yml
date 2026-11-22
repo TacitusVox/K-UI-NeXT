@@ -258,7 +258,11 @@ jobs:
           python3 tests/test_workflow_hygiene.py
       - name: Install filesystem test utilities
         if: steps.scope.outputs.console_only != 'true' || steps.scope.outputs.maintenance_only == 'true'
-        run: sudo apt-get update && sudo apt-get install -y dosfstools exfatprogs mtools e2fsprogs mame-tools liblzo2-2 python3-yaml
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y dosfstools exfatprogs mtools e2fsprogs mame-tools liblzo2-2 python3-yaml python3-pil python3-venv
+          /usr/bin/python3 -m venv --system-site-packages "$RUNNER_TEMP/kui-host-python"
+          echo "$RUNNER_TEMP/kui-host-python/bin" >> "$GITHUB_PATH"
       - name: Validate workflow YAML with the installed parser
         if: steps.scope.outputs.console_only != 'true' || steps.scope.outputs.maintenance_only == 'true'
         env:

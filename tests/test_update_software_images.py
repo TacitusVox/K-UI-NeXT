@@ -24,6 +24,7 @@ def main():
             "src/core/update_boot.c", "src/core/update_software_file.c", "src/core/update_handoff.c",
             "src/core/runtime_image.c", "src/core/runtime_file.c", "src/core/storage_policy.c",
             "src/core/hash.c", "src/core/data.c", "src/core/diskio.c",
+            "src/core/theme.c", "src/apps/theme_file.c",
             str(source / "ff.c"), str(source / "ffunicode.c"),
             "-Wl,--wrap=f_open,--wrap=f_stat,--wrap=f_read", "-o", str(binary))
         formatter = private_formatter(base)

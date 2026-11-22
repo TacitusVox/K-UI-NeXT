@@ -15,7 +15,7 @@ Addresses below are the GUI's own.
 | Launch | Installed GUI `00d8ed67d9ad` and the repository GUI since 17 Nov 2026 |
 | --- | --- |
 | Windows CE, CD music Off | `ce-boot.kui`, with the map record rule below |
-| Armada, CD music Off, `ce-probe.kui` installed | `ce-probe.kui`, Armada's legacy virtual VMU module |
+| Armada, CD music Off, writable A2 reader installed as `ce-probe.kui` | `ce-probe.kui`, Armada's legacy virtual VMU module |
 | Armada, CD music On, VMU Off | `ce-cdda-armada.kui` |
 | Armada, CD music On, VMU On, `ce-armada-all-on.kui` installed | `ce-armada-all-on.kui`, with its own test card |
 | BAM4, Worms Armageddon, Worms World Party, CD music On | their own modules |
@@ -61,9 +61,10 @@ fragmented track or the capacity.
 ### Armada's legacy module: `ce-probe.kui`
 
 CD music Off, the background reader, Armada's IP.BIN (CRC32 `0x684f8040`),
-Armada's disc layout and Armada's kernel SHA: if `ce-probe.kui` is installed
-(present, or in the GUI's bundle), it is the launch module. Absent, the
-generic module is used. Any other state ("cannot inspect installed Armada
+Armada's disc layout and Armada's kernel SHA select its installed writable
+A2 module when its verified envelope contains the non-stream resident's SD
+loan descriptor. An absent module or the older generic reader installed at
+`ce-probe.kui` selects `ce-boot.kui`. Any other state ("cannot inspect installed Armada
 legacy virtual VMU module") refuses: a directory, an unresolvable path, or a
 file missing from a selected bank. The VMU setting is not consulted.
 

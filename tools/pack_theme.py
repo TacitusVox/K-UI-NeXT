@@ -472,9 +472,10 @@ def build(source: Path, output: Path, check: bool = False) -> dict:
     return verify_folder(output)
 
 
-def stage_all(output: Path) -> dict:
+def stage_all(output: Path, managed: bool = False, collection: Path | None = None) -> dict:
     """Assemble every shipped pack into a new manual-install staging directory."""
-    collection = Path(__file__).resolve().parents[1] / "resources" / "themes"
+    if collection is None:
+        collection = Path(__file__).resolve().parents[1] / "resources" / "themes"
     packs = sorted({p.parent for name in ("source.json", "theme.ini") for p in collection.glob("*/" + name)})
     if not packs:
         raise ValueError("No bundled theme packs found")
@@ -494,6 +495,12 @@ def stage_all(output: Path) -> dict:
                     thumb = pack / (name + ".thumb")
                     if thumb.is_file():
                         shutil.copyfile(thumb, destination / thumb.name)
+        if managed:
+            names = [pack.name for pack in packs]
+            if len(names) > 23 or any(not re.fullmatch(r"[a-z0-9][a-z0-9_-]{0,30}", n) or
+                                      n in {"default", "none"} for n in names):
+                raise ValueError("Managed catalog exceeds the theme ID or entry limit")
+            (staged / "index.txt").write_bytes(("\n".join(names) + "\n").encode("ascii"))
         staged.rename(output)
     return {"packs": [p.name for p in packs]}
 
@@ -509,10 +516,11 @@ def main(argv=None) -> int:
     verify.add_argument("folder", type=Path)
     stage = commands.add_parser("stage-all", help="stage every bundled pack in a new KUI/themes directory")
     stage.add_argument("output", type=Path)
+    stage.add_argument("--managed", action="store_true", help="include the bounded index for KUI/assets/themes")
     args = parser.parse_args(argv)
     try:
         if args.command == "stage-all":
-            result = stage_all(args.output)
+            result = stage_all(args.output, args.managed)
         elif args.command == "build":
             result = build(args.source, args.output, args.check)
         else:

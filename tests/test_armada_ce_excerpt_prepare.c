@@ -1171,7 +1171,27 @@ static void kernel_read_reuse(void) {
     }
     puts("PASS shared CE kernel source reuse: four profiles x raw/cooked GUI launches, exact byte/CRC reporting, single full read, source failure/cancel refusal, changed image/LBA/length/epoch and one-shot invalidation");
 }
+static void legacy_vmu_identity(void) {
+    uint8_t data[KUI_RETAIL_STAGE_BLOB_OFFSET+256u]={0};
+    struct kui_runtime_image reader={.data=data,.info.payload_bytes=sizeof(data)};
+    uint8_t *desc=data+KUI_RETAIL_STAGE_BLOB_OFFSET+52u;
+    CHECK(!armada_legacy_vmu(&reader));
+    put32(desc-28u,KUI_RETAIL_LEGACY_RESIDENT_ADDRESS+224u);
+    put32(desc,KUI_ARMADA_CE_VMU_LOAN_DESCRIPTOR_MAGIC);
+    put32(desc+4u,KUI_ARMADA_CE_VMU_LOAN_DESCRIPTOR_VERSION);
+    put32(desc+8u,KUI_ARMADA_CE_VMU_LOAN_DESCRIPTOR_BYTES);
+    put32(desc+12u,KUI_RETAIL_LEGACY_RESIDENT_ADDRESS+80u);
+    put32(desc+16u,KUI_RETAIL_LEGACY_RESIDENT_ADDRESS+144u);
+    CHECK(armada_legacy_vmu(&reader));
+    put32(desc-4u,KUI_RETAIL_LEGACY_RESIDENT_ADDRESS+100u);
+    CHECK(!armada_legacy_vmu(&reader)); /* Separate CD music stream entry. */
+    put32(desc-4u,0u);put32(desc+16u,KUI_RETAIL_LEGACY_RESIDENT_ADDRESS+300u);
+    CHECK(!armada_legacy_vmu(&reader));
+    reader.info.payload_bytes=KUI_RETAIL_STAGE_BLOB_OFFSET+53u;
+    CHECK(!armada_legacy_vmu(&reader));
+}
 int main(void) {
+    legacy_vmu_identity();
     profile_admission();bam4_profile_admission();runtime_profile_admission();
     complete_kernel_hashing();seed_success();seed_rejections();
     bam4_manifest_seed();

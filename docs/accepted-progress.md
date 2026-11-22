@@ -1,5 +1,11 @@
 # K-UI accepted progress
 
+## K-UI 3.0 RC1 generic WinCE reader · 22 November 2026
+
+The owner promoted the everyday generic reader `ce-boot.kui` build `91b0540103f0` for RC1 and subsequent full nightlies. It supersedes the previous generic acceptance at `7b216f2e1136`. This build enables video-memory transfers and uses the adaptive 16-reception slow window with two doublings. RAM pooling and read-ahead are disabled. The file is 85,300 bytes with payload CRC32 `6829D405` and SHA-256 `a75e0ce9010708953b707aad5db975bb83f9ee20f5657ddf4fdea8cf014acabd`.
+
+The five original CD music roles retain their accepted `1ba2fa7e7040` payloads. Ducati World and Virtua Cop 2 Japan keep their own fixes. The distribution manifest pins each component at its individual build.
+
 ## Standing delivery rule — 2026-11-06
 
 The owner uses manual-copy ZIPs as the default delivery workflow. This persists

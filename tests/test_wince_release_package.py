@@ -163,7 +163,10 @@ class DefaultMusicBuild(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temporary:
             kos = Path(temporary)
             (kos / "Makefile.rules").write_text("")
-            result = subprocess.run(["make", "--no-print-directory", "-n", "-f", "Makefile.dc", target,
+            # The check covers the top-level reader dependencies. GUI and CD
+            # bootstrap compilation use the real SDK in the native build job.
+            gui_outputs = ["-o", "build/kui-runtime.elf", "-o", "build/kui-diagnostic.elf"]
+            result = subprocess.run(["make", "--no-print-directory", "-n", *gui_outputs, "-f", "Makefile.dc", target,
                                      "KOS_BASE=" + str(kos), "BUILD_ID=0123456789ab", *settings],
                                     cwd=ROOT, capture_output=True, text=True)
         self.assertEqual(result.returncode, 0, result.stderr)
@@ -179,6 +182,20 @@ class DefaultMusicBuild(unittest.TestCase):
         self.assertIn("-DKUI_WINCE_CDDA_WWP=1", text)
         self.assertIn("--stream --wwp", text)
         self.assertIn("python3 tools/build_native_cdda_compat.py", text)
+
+    def test_generic_slow_window_does_not_change_cd_music(self):
+        settings = ("KUI_CE_SLOW_WINDOW=8", "KUI_CE_SLOW_ADAPT=1")
+        generic = self.dry_run("build/retail-ce/entry.elf", *settings)
+        self.assertIn("-DKUI_SCI_STREAM_SLOW_BLOCKS=8u -DKUI_SCI_STREAM_SLOW_ADAPT=1", generic)
+        music = self.dry_run("wince-cdda", *settings)
+        for name in ("armada", "bam4", "worms", "wwp"):
+            window_lines = [line for line in music.splitlines() if " -c " in line and
+                            "build/" + name + "-ce-stream/" in line and
+                            "-DKUI_SCI_STREAM_SLOW_BLOCKS=" in line]
+            self.assertTrue(window_lines, name)
+            for line in window_lines:
+                self.assertIn("-DKUI_SCI_STREAM_SLOW_BLOCKS=16u -DKUI_SCI_STREAM_SLOW_ADAPT=2",
+                              line, name)
 
     def test_native_diagnostics_do_not_enter_music_modules_or_audio_off_fallback(self):
         for target in ("wince-cdda", "build/retail-ce/entry.elf"):

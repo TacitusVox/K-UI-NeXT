@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: GPL-3.0-only */
 #include "kui/bba_sockets.h"
+#include "kui/target.h"
 #include <errno.h>
 #include <fcntl.h>
 #include <netinet/in.h>
@@ -196,7 +197,7 @@ static bool peer(void *ctx, unsigned id, uint8_t ip[4], uint16_t *port) {
     return true;
 }
 
-#ifndef __DREAMCAST__
+#ifndef KUI_ON_CONSOLE
 static bool keepalive(void *ctx, unsigned id, unsigned seconds) {
     if(id >= SLOT_COUNT) return false;
     struct slot *s = &((struct table *)ctx)->slots[id];
@@ -273,7 +274,7 @@ bool kui_bba_sockets_init(struct kui_net_sockets *out) {
     for(unsigned i = 0; i < SLOT_COUNT; ++i) t->slots[i].fd = -1;
     *out = (struct kui_net_sockets){t, SLOT_COUNT, listen_slot, connect_slot, disconnect_slot,
         close_slot, state, peer,
-#ifdef __DREAMCAST__
+#ifdef KUI_ON_CONSOLE
         NULL, /* Pinned KOS does not implement TCP keepalive. */
 #else
         keepalive,

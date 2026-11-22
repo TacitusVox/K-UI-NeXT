@@ -6,6 +6,7 @@
 #include "kui/update_software_file.h"
 #include "kui/storage_policy.h"
 #include "kui/media.h"
+#include "kui/theme.h"
 #include <stdio.h>
 
 #define GUI_BUILD "111111111111"
@@ -122,8 +123,15 @@ static void seed_bank_flags(const char *bank,uint64_t sequence,const uint8_t gui
     strcpy(p.entries[3u].path,"apps/games/optional.kui");p.entries[3u].policy=KUI_UPDATE_REMOVE;
     pin(p.entries+4u,"assets/ui/nested/font.bin",raw,raw_bytes,NULL);
     pin(p.entries+5u,"redump.db",raw,raw_bytes,NULL);
+    static const char factory_index[]="bank-theme\n";
+    static const char factory_manifest[]="[theme]\nversion=1\nname=Factory theme\n";
+    const void *files[]={gui,module,raw,NULL,raw,raw,factory_index,factory_manifest};
+    if(flags & KUI_UPDATE_FULL) {
+        pin(&p.entries[p.count++],"assets/themes/index.txt",factory_index,sizeof(factory_index)-1u,NULL);
+        pin(&p.entries[p.count++],"assets/themes/bank-theme/theme.ini",factory_manifest,sizeof(factory_manifest)-1u,NULL);
+    }
     CHECK(kui_update_package_seal(&p)==KUI_UPDATE_OK);
-    char path[192];const void *files[]={gui,module,raw,NULL,raw,raw};
+    char path[192];
     for(unsigned i=0;i<p.count;i++)if(files[i]) {
         bank_path(bank,p.entries[i].path,path);write_file(path,files[i],(size_t)p.entries[i].bytes);
     }
@@ -272,6 +280,19 @@ static void production_context(const uint8_t gui[UF_FILE_BYTES],const uint8_t mo
     seed_bank_flags("777777777777",22u,gui,module,raw,raw_bytes,KUI_UPDATE_FULL);
     chain_and_adopt("777777777777",&context);
     shared_launch_data("FULL");
+    /* The card has a different factory index at root. In a FULL bank the
+     * picker must enumerate the pinned index, then prefer a matching personal pack. */
+    static const char old_index[]="wrong-theme\n";
+    write_file(KUI_THEME_MANAGED_ROOT "/index.txt",old_index,sizeof(old_index)-1u);
+    struct kui_theme_catalog catalog;
+    CHECK(kui_theme_catalog_scan(&catalog,logger,cancel) && catalog.count==2u);
+    CHECK(catalog.themes[1].managed && !strcmp(catalog.themes[1].id,"bank-theme"));
+    CHECK(!strcmp(catalog.themes[1].name,"Factory theme"));
+    static const char personal[]="[theme]\nversion=1\nname=User pack\n";
+    write_file(KUI_THEME_ROOT "/bank-theme/theme.ini",personal,sizeof(personal)-1u);
+    CHECK(kui_theme_catalog_scan(&catalog,logger,cancel) && catalog.count==2u);
+    CHECK(!catalog.themes[1].managed && !strcmp(catalog.themes[1].name,"User pack"));
+    expect_file(KUI_THEME_ROOT "/bank-theme/theme.ini",personal,sizeof(personal)-1u);
     FIL file;FILINFO info;
     for(unsigned i=0;i<sizeof(omitted)/sizeof(omitted[0]);i++) {
         CHECK(kui_update_runtime_absent(omitted[i]));

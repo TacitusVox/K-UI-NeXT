@@ -3,60 +3,38 @@
 Open the Main or Nightly channel to choose a package before downloading it.
 Each channel lists up to ten builds by GitHub publication time, newest first.
 The picker identifies the exact version or source build, download size, scope,
-and declared changes to the GUI, readers and other managed software. The
-default nightly contains the GUI. A maintainer can also publish a reader-only
-update, a mix of components, or a complete release. Each component retains
-its own build ID.
+and declared changes to the GUI, readers and other managed software. New nightlies include the complete software for their main commit.
+Each component retains its build ID. The release page supplies three assets.
 
-The Main channel offers published, verified full stable KUPs. A release contains the exact GUI, game readers and other
-managed software from its installation ZIP. The console compares their
-hashes against the installed files. Save data and user settings live outside
-the package. The separately distributed boot CD, physical GUI aliases and
-any installation-only bootstrap steps are described in the release's SD
-installation instructions.
+| Asset | Use |
+| --- | --- |
+| `K-UI.kup` | Choose the nightly in Settings → Updates on an installation with the current software updater. |
+| `K-UI-SD.zip` | For a clean card or an older GUI, including stock K-UI 1.7, follow the included instructions and merge the supplied KUI folder onto the card. Use the compatible independent boot CD. Both boot paths start the supplied GUI. |
+| `SHA256SUMS.txt` | Check the two downloads on a computer with `sha256sum -c SHA256SUMS.txt`. |
 
-## Select the contents of a nightly
+Nightlies are prereleases. The Main channel offers verified full stable KUPs.
+Games, cards, settings and personal themes remain outside managed software.
 
-With no `config/nightly-package.json`, the workflow builds the GUI from
-`main` as usual. To include other software, place already tested files under
-`resources/nightly-software/`, preserving their paths relative to `KUI/`.
-Commit both the files and their reviewed SHA-256 values in
-`config/nightly-package.json`. Obtain a file's value with `sha256sum`.
-For example, a partial update of the GUI and the generic WinCE reader uses
-the following recipe after filling in the reader's hash.
+## Build the complete nightly
 
-```json
-{
-  "gui": true,
-  "full": false,
-  "files": {
-    "apps/games/ce-boot.kui": "replace with the 64-character SHA-256 of the tested reader"
-  },
-  "remove": []
-}
-```
+Each push to `main` checks for changed software inputs and can publish a fresh
+testing build immediately. The scheduled daily run retries an unpublished
+revision. A documentation-only change keeps the existing nightly.
 
-Set `gui` to `false` for a partial containing only the selected readers or
-assets. The job then skips the GUI compiler. With `gui` set to `true`,
-the GUI comes from the verified native build of this commit. Reader binaries
-come directly from the named Git blobs and retain their embedded identities.
-List obsolete managed paths in `remove` to make them unavailable in the
-selected installation. With `full` set to `false`, all unlisted components
-carry forward.
+The workflow uses `config/distribution.json` for the reviewed file paths and
+SHA-256 hashes and `tools/stage_distribution.py` to prepare them. It links
+the main commit's GUI with the declared Smash bundle and matching Standard
+VMU reader binding. Staging checks the reader inputs, and the publisher
+verifies the same managed software in the KUP and SD ZIP, including their
+GUI identity. A reader source or build recipe change needs a matching review
+of the distribution inventory. A missing reader, checksum mismatch, stale
+input record or absent distribution manifest stops that night's publication.
 
-For a complete nightly, use a recipe containing just
-`{"full_release": "vMAJOR.MINOR.PATCH"}`. Commit it on the source revision
-intended for that release. Publish the matching stable KUP, installation ZIP
-and SHA-256 manifest, then run the nightly workflow for the same commit. The
-publisher compares the stable KUP with the checked installation ZIP, verifies
-the GUI build and tag, and places those exact software bytes into a testing
-package. A missing or mismatched complete release stops publication. Use a
-partial recipe while only individual components are qualified.
-
-The recipe remains active until changed or removed on `main`. The packaging
-and publishing jobs validate the inventory against that source revision and
-check the final KUP with the console decoder. GitHub's publication receipt
-ties each package, including a reader-only one, to its SHA-256 and commit.
+A verified run publishes the KUP and manual installer on the same nightly
+prerelease, then advances the testing feed. Existing tagged nightlies keep
+their original bytes and recorded scope. Clients that only understand the
+old GUI-only feed keep their last compatible choice. Use the SD installer
+to bring an older GUI directly to the current software updater.
 
 ## Publish a stable update
 

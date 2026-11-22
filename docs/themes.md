@@ -6,7 +6,7 @@ The collection also includes **Chrome Muramasa**, **Neon Eclipse**, **Indigo Wav
 
 ## Installation and saved choices
 
-Each prepared theme has its own folder under `KUI/themes/` on the card. Moonlight Muramasa uses these three files.
+Personal themes have their own folders under `KUI/themes/` on the card. Moonlight Muramasa uses these three files.
 
 ```text
 KUI/themes/moonlit-muramasa/theme.ini
@@ -180,7 +180,14 @@ python3 tools/pack_theme.py build my-theme.json staging/KUI/themes/my-theme
 python3 tools/pack_theme.py verify staging/KUI/themes/my-theme
 ```
 
-To stage the complete bundled collection for an SD installation, run `python3 tools/pack_theme.py stage-all staging/KUI/themes`. This verifies each prepared pack and copies its manifest and runtime images.
+To stage the seven factory themes and three banners for a full release, run
+`python3 tools/pack_theme.py stage-all --managed staging/KUI/assets/themes`.
+The SD ZIP and full KUP use the same files. The command verifies the tracked
+prepared packs and writes their manifests, runtime artwork, previews and a
+bounded `index.txt`. The selected software bank resolves each file. Personal
+packs in `KUI/themes` take precedence when their IDs match a factory pack.
+The manifest, artwork and previews all follow the same source. Saved choices
+continue to use the theme IDs and the existing settings records.
 
 Source PNG paths are relative to the JSON file. Each image supports these options.
 

@@ -9,6 +9,7 @@
 #include "kui/ce_load_plan.h"
 #include "kui/armada_ce_excerpt_pool.h"
 #include "kui/armada_ce_stream_seed.h"
+#include "kui/armada_ce_vmu_sd_loan.h"
 #include "kui/games.h"
 #include "kui/game_metadata.h"
 #include "kui/smash_native_child.h"
@@ -192,6 +193,44 @@ static unsigned native_background_map_slots(const struct kui_runtime_image *pack
         if(session)slots=KUI_NATIVE_MAP_LEGACY_SLOTS;
     }
     return slots;
+}
+/* The writable Armada A2 resident in retail_resident.S has four empty CE
+ * kernel slots followed by its two callable SD loan services. The CD music
+ * resident inserts a stream service between those slots and the descriptor.
+ * These public fields survive personalizing the card profile. */
+static bool armada_legacy_vmu(const struct kui_runtime_image *image) {
+    const uint8_t *data=image->data;
+    const size_t bytes=image->info.payload_bytes;
+    static const uint8_t empty_kernel[16];
+    for(size_t at=KUI_RETAIL_STAGE_BLOB_OFFSET+52u;
+        at+KUI_ARMADA_CE_VMU_LOAN_DESCRIPTOR_BYTES<=bytes;at+=4u) {
+        const uint8_t *desc=data+at;
+        if(le32(desc)!=KUI_ARMADA_CE_VMU_LOAN_DESCRIPTOR_MAGIC ||
+           le32(desc+4)!=KUI_ARMADA_CE_VMU_LOAN_DESCRIPTOR_VERSION ||
+           le32(desc+8)!=KUI_ARMADA_CE_VMU_LOAN_DESCRIPTOR_BYTES ||
+           memcmp(desc-16u,empty_kernel,sizeof(empty_kernel)))continue;
+        /* In this non-stream entry the resident begins 52 bytes before the
+         * descriptor. Its BSS start follows its code. */
+        uint32_t code_end=le32(desc-28u),begin=le32(desc+12u),end=le32(desc+16u);
+        uint32_t first=KUI_RETAIL_LEGACY_RESIDENT_ADDRESS+52u+KUI_ARMADA_CE_VMU_LOAN_DESCRIPTOR_BYTES;
+        if(begin>=first && begin<code_end && end>=first && end<code_end &&
+           begin!=end && !((begin|end)&1u) && code_end<=KUI_RETAIL_CE_ASYNC_HOOK_STACK &&
+           code_end-KUI_RETAIL_LEGACY_RESIDENT_ADDRESS<=bytes-(at-52u))return true;
+    }
+    return false;
+}
+static enum kui_runtime_result read_ordinary_ce(const char **path,struct kui_runtime_image *package,
+    kui_log_fn log,kui_cancel_fn cancel) {
+    enum kui_runtime_result result=kui_runtime_read(*path,package,log,cancel);
+    if(result==KUI_RUNTIME_OK && !strcmp(*path,KUI_GAMES_RETAIL_CE_ARMADA_LEGACY_PACKAGE) &&
+       (!layout(package,true) || !armada_legacy_vmu(package))) {
+        /* Old public cards installed the ordinary CE reader at ce-probe.kui. */
+        kui_runtime_free(package);
+        *path=KUI_GAMES_RETAIL_CE_PACKAGE;
+        log("Using ordinary Windows CE reader for Armada");
+        result=kui_runtime_read(*path,package,log,cancel);
+    }
+    return result;
 }
 static bool zso_path(const char *path) {
     if(!path) return false;
@@ -1352,7 +1391,7 @@ static bool prepare_launch(const char *path,uint32_t reader,const struct kui_gam
         }
         if(!close_reader(&files)) {problem="cannot close metadata reader";goto done;}
         kui_smash_launch_timing_phase(KUI_SMASH_UI_MODULE_LOAD);
-        rr=kui_runtime_read(launch_package,package,log,cancel);
+        rr=read_ordinary_ce(&launch_package,package,log,cancel);
         if(rr!=KUI_RUNTIME_OK) {problem=kui_runtime_result_name(rr);goto done;}
         kui_smash_launch_timing_phase(KUI_SMASH_UI_MODULE_VERIFY);
         kui_smash_launch_timing_metric(KUI_SMASH_UI_MODULE_CRC32,package->info.crc32);

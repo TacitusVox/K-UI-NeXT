@@ -14,8 +14,8 @@ spec.loader.exec_module(module)
 class StartupAssets(unittest.TestCase):
     def blob(self,data):
         return hashlib.sha1(b"blob "+str(len(data)).encode()+b"\0"+data).hexdigest()
-    def exact_rgb565(self,data):
-        """Every pixel is already an RGB565 value, so encoding loses nothing."""
+    def check_rgb565(self,data,*,already_quantized):
+        """Compare the emitted frame to an independent RGB-to-RGB565 conversion."""
         from PIL import Image
         import io
         image=Image.open(io.BytesIO(data))
@@ -23,7 +23,11 @@ class StartupAssets(unittest.TestCase):
         pixels=module.decode_png(data)
         expanded=[(((v>>11)<<3)|((v>>11)>>2),(((v>>5)&63)<<2)|(((v>>5)&63)>>4),((v&31)<<3)|((v&31)>>2))
             for v in pixels]
-        self.assertEqual(expanded,list(image.getdata()))
+        original=list(image.getdata())
+        self.assertTrue(all(pixel == ((r >> 3) << 11 | (g >> 2) << 5 | b >> 3)
+                            for pixel,(r,g,b) in zip(pixels,original)))
+        if already_quantized:
+            self.assertTrue(expanded == original, "Runtime artwork changed when encoded to RGB565")
         return pixels
     def test_separate_boot_and_runtime_art(self):
         """The runtime shows the Muramasa splash; the boot disc keeps its own,
@@ -34,7 +38,7 @@ class StartupAssets(unittest.TestCase):
         self.assertEqual(self.blob(boot),module.BOOT_PNG_BLOB)
         self.assertNotEqual(startup,boot)
         for data in (startup,boot):
-            pixels=self.exact_rgb565(data)
+            pixels=self.check_rgb565(data,already_quantized=data == startup)
             self.assertEqual(len(pixels),640*480)
             self.assertGreater(len(set(pixels)),256)
     def test_decoder_rejects_damage(self):

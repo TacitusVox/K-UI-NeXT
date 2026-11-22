@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: GPL-3.0-only */
 #include "kui/shell_font.h"
+#include "kui/target.h"
 #include <limits.h>
 #include <stddef.h>
 
@@ -8,7 +9,7 @@ struct glyph { uint16_t offset;uint8_t width,height,stride,advance,y; };
 
 /* The bootstrap and freestanding game helpers keep their original ASCII
  * object. The GUI and its host renderer also have fixed Japanese masks. */
-#if !defined(__sh__) || defined(KUI_GUI_JAPANESE)
+#if !defined(KUI_SH_COMPILER) || defined(KUI_GUI_JAPANESE)
 #define WITH_JAPANESE_GLYPHS 1
 #include "kui/japanese_text.h"
 #include "shell_font_ja_data.inc"

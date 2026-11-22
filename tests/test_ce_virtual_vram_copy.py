@@ -51,6 +51,7 @@ LATER_HUNKS={'src/loader/retail_async.c':(
     ('#if KUI_WCE_PROBE && defined(KUI_RETAIL_CE)\n/* The Windows CE data probe (test ce-boot.kui only). */\n'
      '#include "wce_probe_reader.inc"\n#endif\n','')),
     'src/core/retail_image.c':(
+    ('#if KUI_RETAIL_MANIFEST_CAPACITY\n#include "kui/native_map_capacity.h"\n#endif\n',''),
     ('#if KUI_RETAIL_MANIFEST_CAPACITY\n'
      "/* The GUI encodes the generic Windows CE module's map with that module's\n"
      ' * capacity (64 or 96 background slots). Without this switch, as in every\n'
@@ -69,7 +70,8 @@ LATER_HUNKS={'src/loader/retail_async.c':(
      '    return validate_capacity(m, KUI_RETAIL_ASYNC_SLOTS);\n}\n'
      'enum kui_game_result kui_retail_manifest_encode_capacity(const struct kui_retail_manifest *m,\n'
      '    uint8_t out[KUI_RETAIL_IMAGE_WIRE_BYTES], uint32_t async_slots) {\n'
-     '    if(!out || (async_slots != KUI_RETAIL_ASYNC_SLOTS && async_slots != KUI_RETAIL_CE_MAP_SLOTS))\n'
+     '    if(!out || (async_slots != KUI_RETAIL_ASYNC_SLOTS && async_slots != KUI_RETAIL_CE_MAP_SLOTS &&\n'
+     '                async_slots != KUI_NATIVE_MAP_STANDALONE_SLOTS && async_slots != KUI_NATIVE_MAP_CAP_SLOTS))\n'
      '        return KUI_GAME_INVALID;\n'
      '    enum kui_game_result r = validate_capacity(m, async_slots);\n#else\n'
      'enum kui_game_result kui_retail_manifest_encode(const struct kui_retail_manifest *m,\n'
