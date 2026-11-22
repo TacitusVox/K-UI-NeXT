@@ -1,0 +1,41 @@
+name: Preserve tested RC1 source
+on:
+  push:
+    branches: [codex/rc1-tested-source-import]
+
+permissions:
+  contents: write
+
+jobs:
+  import:
+    if: github.repository == 'TacitusVox/K-UI-NeXT'
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          fetch-depth: 2
+
+      - name: Verify the original four commits and publish their exact head
+        shell: bash
+        run: |
+          set -euo pipefail
+          base=8cf4bc7cc0704630b81b43b1ff236c5963f1795b
+          tested=93f13e84d9893d149d2202c90417c3ec6b5aa940
+          branch=refs/heads/codex/rc1-tested-source-93f13e84d989
+          test "$(git rev-parse HEAD^)" = "$base"
+          echo '2c59249bcf37985dad49ef757da014837aed4e45e329e4374d065f1591320bc5  tested-commits.pack' | sha256sum --check
+          git index-pack --stdin --fix-thin --strict <tested-commits.pack
+          git fsck --connectivity-only --no-reflogs "$tested"
+          test "$(git rev-parse "$tested^{tree}")" = b7d87324462eefd8bd915bf184d5dcafb27d5072
+          test "$(git rev-parse "$tested~4")" = "$base"
+          test "$(git rev-list --count "$base..$tested")" = 4
+          git log --format= --name-only "$base..$tested" | sed '/^$/d' | LC_ALL=C sort -u > "$RUNNER_TEMP/actual-paths"
+          printf '%s\n' include/kui/update.h src/core/update_file.c src/dreamcast/main.c tests/update_gui_flow.c tests/update_v2_image.c > "$RUNNER_TEMP/expected-paths"
+          diff -u "$RUNNER_TEMP/expected-paths" "$RUNNER_TEMP/actual-paths"
+          existing=$(git ls-remote --heads origin "$branch" | cut -f1)
+          if [[ -z "$existing" ]]; then
+            git push origin "$tested:$branch"
+          else
+            test "$existing" = "$tested"
+          fi
+          test "$(git ls-remote --heads origin "$branch" | cut -f1)" = "$tested"
