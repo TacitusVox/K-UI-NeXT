@@ -1,0 +1,216 @@
+K-UI V2.0.0 SD runtime 64ae07435de5
+Log truncated: no
+Report trigger: manual
+Operation result: see operation log
+DMA failure latch: not observed this boot
+Running K-UI V2.0.0 SD runtime build 64ae07435de5
+Clock: 2026-11-22 00:23:59 local (RTC); new file dates follow it
+Video: 640x480 NTSC interlaced, buffered
+Diagnostic code and fonts are loaded entirely in RAM.
+Replace boot CD with a known-good retail GD-ROM; close lid.
+Diagnostics page: A disc samples; X SD test; Y save log.
+Use a spare test card for write tests. No formatting; existing files preserv
+ed.
+K-UI launcher: Disc Ripper, VMU, Memory, Network, Settings, Diagnostics, GD 
+Play and Music.
+B skips the startup splash/chime. Home Y cycles menu music volume/off.
+Ripper: A new dump (confirm), X resume latest matching disc, Y verify.
+B returns home while idle; during work it stops and checkpoints.
+New dumps use game-named folders in /Games; duplicates get a number.
+Home/Ripper L/R: previous/next song. Ripper Start: Advanced, destination and
+ settings.
+Newly inserted GD-ROM titles appear while idle; the drive stays ready for 45
+ seconds.
+The boot disc stays stopped; disc apps start the drive when requested.
+System Settings: video, memory display and menu music. Hold Y on runtime sta
+rt for safe video.
+Reports say if a dump matches Redump/TOSEC (copy data/known-dumps/*.db to KU
+I/).
+Capture defaults: CRC32, no automatic readback. Y Verify rereads saved files
+.
+Saved preferences apply first; explicit /KUI/bench.cfg keys override them.
+Capture/Resume/Verify auto-save a report after ending. Wait for READY.
+Diagnostics R trigger: isolated benchmarks from /KUI/bench.cfg.
+The screen redraws 2x a second while working, which frees CPU (ui_hz=full: o
+ff).
+Storage: SCI SD (12.5 MHz, bounded sector DMA with PIO fallback, CRC checked
+)
+SCI filesystem reads: CMD17 for one block; CMD18 for multiple blocks
+SD exFAT, 249997312 sectors, cluster=131072 bytes
+Volume start=2048 (partition)
+Loaded /KUI/settings-b.bin sequence=2
+Loaded destination /Games sequence=3
+Settings load: complete
+Disc stopped; idle checks do not initialize or read it.
+mstats [runtime ready] (bytes; main RAM excludes VRAM/audio)
+RAM total=16777216 used/reserved~=9070408 available~=7706808
+RAM sampled peak used/reserved=9070408
+Image+BSS=8201924 firmware reserve=65536 main stack reserve=65536
+Heap max system bytes=739644
+Heap system bytes=739644 in use bytes=737412 free bytes=2232
+Unclaimed main RAM=7704576; worker stacks included in heap
+Video framebuffers=7987200 bytes in separate VRAM
+SD exFAT, 249997312 sectors, cluster=131072 bytes
+Volume start=2048 (partition)
+Storage: SCI SD (12.5 MHz, bounded sector DMA with PIO fallback, CRC checked
+)
+SCI filesystem reads: CMD17 for one block; CMD18 for multiple blocks
+SD exFAT, 249997312 sectors, cluster=131072 bytes
+Volume start=2048 (partition)
+Previous Games scan report:
+build=1c71ba3afa17
+phase=complete
+last_work_phase=commit-readback
+root=/Games/Tests
+entry_index=26
+entry_count=26
+page_offset=24
+image_path=
+transport=1
+stack_pointer=8c88dc0c
+Loaded /KUI/apps/system/settings-a.bin sequence=37
+System settings load: complete
+SD exFAT, 249997312 sectors, cluster=131072 bytes
+Volume start=2048 (partition)
+Storage: SCI SD (12.5 MHz, bounded sector DMA with PIO fallback, CRC checked
+)
+SCI filesystem reads: CMD17 for one block; CMD18 for multiple blocks
+SD exFAT, 249997312 sectors, cluster=131072 bytes
+Volume start=2048 (partition)
+Disc insertion: CD inserted - insert a retail GD-ROM; BIOS result=0 status=2
+ type=32
+SD exFAT, 249997312 sectors, cluster=131072 bytes
+Volume start=2048 (partition)
+Storage: SCI SD (12.5 MHz, bounded sector DMA with PIO fallback, CRC checked
+)
+SCI filesystem reads: CMD17 for one block; CMD18 for multiple blocks
+SD exFAT, 249997312 sectors, cluster=131072 bytes
+Volume start=2048 (partition)
+SD exFAT, 249997312 sectors, cluster=131072 bytes
+Volume start=2048 (partition)
+Storage: SCI SD (12.5 MHz, bounded sector DMA with PIO fallback, CRC checked
+)
+SCI filesystem reads: CMD17 for one block; CMD18 for multiple blocks
+SD exFAT, 249997312 sectors, cluster=131072 bytes
+Volume start=2048 (partition)
+Games list: 80 ms, 8/26 rows /Games/Tests
+Operation ended. Diagnostics page: Y saves the log to SD.
+Music: Load cancelled; previous song retained
+Games inspect: /Games/Tests/POD - Speedzone (USA)/POD - Speedzone (USA).gdi
+Games result: Image inspected; optional CD music uses checked experimental a
+dapters
+Games format: GDI; boot=plain
+Games title: POD SPEEDZONE; product=T-17713N region=U
+Games tracks=11 data=3 audio=8 bytes=1215125520
+Games audio: playback candidates=7 low-density tracks=1; inventory=represent
+ed by descriptor
+Games boot: 1ST_READ.BIN LBA=548141 bytes=1758340
+Games inspection bytes read=7581; tested audio status=0; no complete-disc ve
+rification or launch
+Operation ended. Diagnostics page: Y saves the log to SD.
+SD exFAT, 249997312 sectors, cluster=131072 bytes
+Volume start=2048 (partition)
+Storage: SCI SD (12.5 MHz, bounded sector DMA with PIO fallback, CRC checked
+)
+SCI filesystem reads: CMD17 for one block; CMD18 for multiple blocks
+SD exFAT, 249997312 sectors, cluster=131072 bytes
+Volume start=2048 (partition)
+SD exFAT, 249997312 sectors, cluster=131072 bytes
+Volume start=2048 (partition)
+Storage: SCI SD (12.5 MHz, bounded sector DMA with PIO fallback, CRC checked
+)
+SCI filesystem reads: CMD17 for one block; CMD18 for multiple blocks
+SD exFAT, 249997312 sectors, cluster=131072 bytes
+Volume start=2048 (partition)
+SD exFAT, 249997312 sectors, cluster=131072 bytes
+Volume start=2048 (partition)
+Storage: SCI SD (12.5 MHz, bounded sector DMA with PIO fallback, CRC checked
+)
+SCI filesystem reads: CMD17 for one block; CMD18 for multiple blocks
+SD exFAT, 249997312 sectors, cluster=131072 bytes
+Volume start=2048 (partition)
+Native VMU emulation: Off; background reader selection is unchanged
+Retail boot storage: SCI microSD
+Retail image: GDI, session LBA 45000
+Loading /KUI/apps/games/retail-native-dual.kui
+Package 4abc63b0cc58 (315680 bytes)
+Retail boot: POD SPEEDZONE; product=T-17713N version=V1.002 region=U
+Retail warning: CD audio playback is unsupported (7 candidate tracks); comma
+nds are acknowledged silently, so music using them is absent
+Retail boot: mapping 11 tracks
+Retail map T01: 2352-byte sectors, 1 extents
+Retail map T02: 2352-byte sectors, 1 extents
+Retail map T03: 2352-byte sectors, 1 extents
+Retail map T04: 2352-byte sectors, 1 extents
+Retail map T05: 2352-byte sectors, 1 extents
+Retail map T06: 2352-byte sectors, 1 extents
+Retail map T07: 2352-byte sectors, 1 extents
+Retail map T08: 2352-byte sectors, 1 extents
+Retail map T09: 2352-byte sectors, 1 extents
+Retail map T10: 2352-byte sectors, 1 extents
+Retail map T11: 2352-byte sectors, 1 extents
+Retail boot reader: New background (X) with virtual A2; SDK families are che
+cked at startup
+Native VMU mapping: reading 1758340 executable bytes
+Virtual A2 Off: physical VMUs pass through; the full reader cache remains re
+served
+Retail boot: checking exact executable CRC after native preflight skipped
+Retail boot: executable sector LBA 548141, track 11 POD - Speedzone (USA)11.
+bin: 2352-byte data sectors, mode 1
+Retail boot: its first 24 raw bytes 0000000000000000000000000000000000000000
+00000000
+Retail boot: Invalid or unsupported data sector
+Native UI action-to-ready: 2027 ms (failed); diagnostic I/O excluded
+UI early ms: setup=135 meta=541 menu=0 map=383
+UI loader ms: module=0 read/hash=101 extent=0 proof=0
+UI tail ms: card=0 caps=0 report=0 activity=0 audio=0
+SD exFAT, 249997312 sectors, cluster=131072 bytes
+Volume start=2048 (partition)
+Storage: SCI SD (12.5 MHz, bounded sector DMA with PIO fallback, CRC checked
+)
+SCI filesystem reads: CMD17 for one block; CMD18 for multiple blocks
+SD exFAT, 249997312 sectors, cluster=131072 bytes
+Volume start=2048 (partition)
+Launch UI timing saved: /KUI/apps/games/launch-timing.txt
+UI diagnostic report I/O: 42 ms (outside action-to-ready)
+Operation ended. Diagnostics page: Y saves the log to SD.
+SD exFAT, 249997312 sectors, cluster=131072 bytes
+Volume start=2048 (partition)
+Storage: SCI SD (12.5 MHz, bounded sector DMA with PIO fallback, CRC checked
+)
+SCI filesystem reads: CMD17 for one block; CMD18 for multiple blocks
+SD exFAT, 249997312 sectors, cluster=131072 bytes
+Volume start=2048 (partition)
+SD exFAT, 249997312 sectors, cluster=131072 bytes
+Volume start=2048 (partition)
+Storage: SCI SD (12.5 MHz, bounded sector DMA with PIO fallback, CRC checked
+)
+SCI filesystem reads: CMD17 for one block; CMD18 for multiple blocks
+SD exFAT, 249997312 sectors, cluster=131072 bytes
+Volume start=2048 (partition)
+Theme operation 133: complete, 159 ms
+Operation ended. Diagnostics page: Y saves the log to SD.
+SD exFAT, 249997312 sectors, cluster=131072 bytes
+Volume start=2048 (partition)
+Storage: SCI SD (12.5 MHz, bounded sector DMA with PIO fallback, CRC checked
+)
+SCI filesystem reads: CMD17 for one block; CMD18 for multiple blocks
+SD exFAT, 249997312 sectors, cluster=131072 bytes
+Volume start=2048 (partition)
+mstats [save log] (bytes; main RAM excludes VRAM/audio)
+RAM total=16777216 used/reserved~=10731120 available~=6046096
+RAM sampled peak used/reserved=11813336
+Image+BSS=8201924 firmware reserve=65536 main stack reserve=65536
+Heap max system bytes=4856124
+Heap system bytes=3713340 in use bytes=2398124 free bytes=1315216
+Unclaimed main RAM=4730880; worker stacks included in heap
+Video framebuffers=7987200 bytes in separate VRAM
+Music RAM [save log]: cached=1111209 (decoder 393231) loading=0 peak files=1
+504440 budget=8388608 bytes
+Music file allocations=12 frees=5 cached mask=0x3f missing mask=0x0; Stop/mu
+te retains cache
+SD exFAT, 249997312 sectors, cluster=131072 bytes
+Volume start=2048 (partition)
+Storage: SCI SD (12.5 MHz, bounded sector DMA with PIO fallback, CRC checked
+)
+SCI filesystem reads: CMD17 for one block; CMD18 for multiple blocks

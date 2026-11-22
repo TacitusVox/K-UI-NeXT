@@ -1,0 +1,722 @@
+{
+ "id": "B5829D27CAF13A94DEAFD593D1FDC00A",
+ "slots": 100,
+ "entries": [
+  {
+   "slot": 0,
+   "launch": {
+    "survey": 83,
+    "build": "4abc63b0cc58",
+    "product": "MK-51049",
+    "title": "CHUCHU ROCKET",
+    "bootfile": "1ST_READ.BIN",
+    "region": "U",
+    "ip_crc32": 3588297609,
+    "gdi_crc32": 3084472095,
+    "boot_crc32": 2212678210,
+    "boot_bytes": 1532256,
+    "exec_crc32": 2212678210,
+    "exec_bytes": 1532256,
+    "reader": 1,
+    "transport": 1,
+    "flags": 4,
+    "source": 1,
+    "tracks": 19,
+    "raw": 3,
+    "cooked": 0,
+    "audio": 16,
+    "audio_high": 15,
+    "audio_mapped": 16,
+    "other": 0,
+    "extents": 20,
+    "session_lba": 45000,
+    "boot_lba": 548251
+   },
+   "state": "launched, no report saved"
+  },
+  {
+   "slot": 1,
+   "launch": {
+    "survey": 83,
+    "build": "4abc63b0cc58",
+    "product": "MK-51049",
+    "title": "CHUCHU ROCKET",
+    "bootfile": "1ST_READ.BIN",
+    "region": "U",
+    "ip_crc32": 3588297609,
+    "gdi_crc32": 3084472095,
+    "boot_crc32": 2212678210,
+    "boot_bytes": 1532256,
+    "exec_crc32": 2212678210,
+    "exec_bytes": 1532256,
+    "reader": 1,
+    "transport": 1,
+    "flags": 4,
+    "source": 1,
+    "tracks": 19,
+    "raw": 3,
+    "cooked": 0,
+    "audio": 16,
+    "audio_high": 15,
+    "audio_mapped": 16,
+    "other": 0,
+    "extents": 20,
+    "session_lba": 45000,
+    "boot_lba": 548251
+   },
+   "state": "report saved",
+   "report": "K-UI TOY COMMANDER REPORT\nTEST 84\nBUILD 4abc63b0cc58\nHEX / 781250 HZ\nPIPE B I CALLS IRQ STAY PT\n0 0 1E92 63 1E 1FBD\nAHEAD B I HIT EDC STOP OS\n0 0 1E 164 0 122\nX OW E I C W O\n9 0 0 1 0 8\nSD BLK PIO OVR CRC DECL\n2D65 3 EC 0 0\nXC KEPT LO HI\n0 100000 0\nCD P P2 PA RE END LAP\nC 0 12 0 1 0\nCD ST RD KEEP REF LOST PJ\n50F0D01 2 15 0 0 1C\nCD SV DT B N WIN SKIP\n90002 1045C46D 0 A500000 0 0\nV SCI TMR GAME N TICKS\n63 3 1E92 242B 9 1E085\nVMAX SCI TMR GAME D\n1EE 3 617 175C\nD N T SEEK\n4D30 34B591 1580\nW START SEG CUT WAIT FULL\nC 70 2A 3 1\nW BYTES WTICK TMR ERR DET\nDAB0D 183 1 0 0\nW BLK FIX UNFIX HOLED NOCRC SEEK\n676 86 2 6 1 4\nS C S F LF AM BC\n9 0 3 3 0 0\nW FILL REF BAD\n2 0 0\n                                                                                                                                                                                                                                                                                                                                                        \nEND REPORT\n"
+  },
+  {
+   "slot": 2,
+   "launch": {
+    "survey": 83,
+    "build": "4abc63b0cc58",
+    "product": "MK-57020",
+    "title": "TOY COMMANDER",
+    "bootfile": "1GUTH.BIN",
+    "region": "U",
+    "ip_crc32": 951724136,
+    "gdi_crc32": 3797234129,
+    "boot_crc32": 3452212147,
+    "boot_bytes": 748444,
+    "exec_crc32": 3452212147,
+    "exec_bytes": 748444,
+    "reader": 1,
+    "transport": 1,
+    "flags": 4,
+    "source": 1,
+    "tracks": 15,
+    "raw": 3,
+    "cooked": 0,
+    "audio": 12,
+    "audio_high": 11,
+    "audio_mapped": 12,
+    "other": 0,
+    "extents": 29,
+    "session_lba": 45000,
+    "boot_lba": 548634
+   },
+   "state": "report saved",
+   "report": "K-UI TOY COMMANDER REPORT\nTEST 84\nBUILD 4abc63b0cc58\nHEX / 781250 HZ\nPIPE B I CALLS IRQ STAY PT\n3 3 BB26 20A3 49 1FBD\nAHEAD B I HIT EDC STOP OS\nD5D 1437 30E 2970 0 627\nX OW E I C W O\nE 0 0 2 0 11\nSD BLK PIO OVR CRC DECL\nF73 101 51 0 0\nXC KEPT LO HI\n3EE 400000 4\nCD P P2 PA RE END LAP\n0 0 2 0 0 0\nCD ST RD KEEP REF LOST PJ\n0 0 0 0 0 0\nCD SV DT B N WIN SKIP\n0 0 0 0 0 0\nI SUBMIT CADENCE MAX AT\n15D 15A CA02 A6\nI FIRST LAST SKIP EXIT SF\n98C8E 160 3 7DC A9\nB SUBMIT CADENCE MAX AT\n14B 14A 914A 11D\nIP ON OT OC OI SN ST\n15C 8A362A 8A3ED9 7FE3F 2 C71\nV SCI TMR GAME N TICKS\n20A3 880 BB26 F7918 1EA1 1B6483\nVMAX SCI TMR GAME D\n3D1 B A75 17A6\nD N T SEEK\nB42D 30F7B1 56EB6\nW START SEG CUT WAIT FULL\nF1 A23 192C A7D 17F\nW BYTES WTICK TMR ERR DET\n18D91EE 118D3C 1 0 0\nW BLK FIX UNFIX HOLED NOCRC SEEK\nC005 13E4 11 3F4 14 107\nS C S F LF AM BC\n13 9 D4 D2 0 2\nW FILL REF BAD\n28C 0 9\nBP ON OT OC OI SN ST\n14A 58FBFC 595B51 4EC8F 0 0\n                                                                                              \nEND REPORT\n"
+  },
+  {
+   "slot": 3,
+   "launch": {
+    "survey": 83,
+    "build": "4abc63b0cc58",
+    "product": "MK-57020",
+    "title": "TOY COMMANDER",
+    "bootfile": "1GUTH.BIN",
+    "region": "U",
+    "ip_crc32": 951724136,
+    "gdi_crc32": 3797234129,
+    "boot_crc32": 3452212147,
+    "boot_bytes": 748444,
+    "exec_crc32": 3452212147,
+    "exec_bytes": 748444,
+    "reader": 1,
+    "transport": 1,
+    "flags": 4,
+    "source": 1,
+    "tracks": 15,
+    "raw": 3,
+    "cooked": 0,
+    "audio": 12,
+    "audio_high": 11,
+    "audio_mapped": 12,
+    "other": 0,
+    "extents": 29,
+    "session_lba": 45000,
+    "boot_lba": 548634
+   },
+   "state": "report saved",
+   "report": "K-UI TOY COMMANDER REPORT\nTEST 84\nBUILD 4abc63b0cc58\nHEX / 781250 HZ\nPIPE B I CALLS IRQ STAY PT\n3 3 11A51 666A 56 1FBD\nAHEAD B I HIT EDC STOP OS\nD5D 64E0 993 7D2B 0 8C1\nX OW E I C W O\n15 0 0 4 0 17\nSD BLK PIO OVR CRC DECL\nF9B 2C7 50 0 0\nXC KEPT LO HI\n1 500000 4\nCD P P2 PA RE END LAP\n1 0 4 0 0 0\nCD ST RD KEEP REF LOST PJ\nE000101 0 0 0 0 C3\nCD SV DT B N WIN SKIP\n645001 5000A9FF 0 C40000 10000 0\nI SUBMIT CADENCE MAX AT\n786 77A B6F5E 47A\nI FIRST LAST SKIP EXIT SF\n98FC7 7B0 2A 7DC 42B\nB SUBMIT CADENCE MAX AT\n14B 14A 91F5 11D\nIP ON OT OC OI SN ST\n785 2C16BD0 2C1E56E 28E86B 4 472B\nV SCI TMR GAME N TICKS\n666A 1A36 11A51 3285C6 59F5 45BBD4\nVMAX SCI TMR GAME D\n400 B A71 1757\nD N T SEEK\n10410 5D76BB F374D\nW START SEG CUT WAIT FULL\n295 1E2D 4E63 203E 5CF\nW BYTES WTICK TMR ERR DET\n4B31B36 3C3BC9 1 0 0\nW BLK FIX UNFIX HOLED NOCRC SEEK\n2435B 3EA5 3B B05 43 2D2\nS C S F LF AM BC\n1B 13 267 266 0 1\nW FILL REF BAD\n721 1 12\nBP ON OT OC OI SN ST\n14A 58B9E2 58F71B 4E651 0 0\n                                              \nEND REPORT\n"
+  },
+  {
+   "slot": 4,
+   "launch": {
+    "survey": 83,
+    "build": "4abc63b0cc58",
+    "product": "T3101N",
+    "title": "THE KING OF FIGHTERS DREAM MATCH 1999",
+    "bootfile": "1ST_READ.BIN",
+    "region": "U",
+    "ip_crc32": 1808544597,
+    "gdi_crc32": 2153705665,
+    "boot_crc32": 2518310885,
+    "boot_bytes": 2369764,
+    "exec_crc32": 2518310885,
+    "exec_bytes": 2369764,
+    "reader": 1,
+    "transport": 1,
+    "flags": 4,
+    "source": 1,
+    "tracks": 43,
+    "raw": 3,
+    "cooked": 0,
+    "audio": 40,
+    "audio_high": 39,
+    "audio_mapped": 0,
+    "other": 0,
+    "extents": 7,
+    "session_lba": 45000,
+    "boot_lba": 547842
+   },
+   "state": "report saved",
+   "report": "K-UI TOY COMMANDER REPORT\nTEST 84\nBUILD 4abc63b0cc58\nHEX / 781250 HZ\nPIPE B I CALLS IRQ STAY PT\n0 0 2BEEB 5045 396 1FBD\nAHEAD B I HIT EDC STOP OS\n0 0 D2F BDE5 0 BD71\nX OW E I C W O\n21 0 0 3 0 1E\nSD BLK PIO OVR CRC DECL\n5454 9A 1DA 0 0\nXC KEPT LO HI\n0 400000 0\nCD P P2 PA RE END LAP\n7 0 10 0 0 0\nCD ST RD KEEP REF LOST PJ\n6000701 0 0 0 0 D5C\nCD SV DT B N WIN SKIP\n3B0101 20531C1F 0 27640000 0 0\nV SCI TMR GAME N TICKS\n5045 1356 2BEEB 273F75 3862 8638BB\nVMAX SCI TMR GAME D\n445 9 78C 18BC\nD N T SEEK\n39C16 EF05D7 2D81C\nW START SEG CUT WAIT FULL\n9B 3682 2B3E 13BA BF8\nW BYTES WTICK TMR ERR DET\n6E2BA79 18D178 1 0 0\nW BLK FIX UNFIX HOLED NOCRC SEEK\n36968 4219 58 947 3C 8D\nS C S F LF AM BC\n21 1 79 78 0 1\nW FILL REF BAD\n882 0 1\n                                                                                                                                                                                                                                                                                                \nEND REPORT\n"
+  },
+  {
+   "slot": 5,
+   "launch": {
+    "survey": 83,
+    "build": "4abc63b0cc58",
+    "product": "T1711N",
+    "title": "EVOLUTION2",
+    "bootfile": "1ST_READ.BIN",
+    "region": "U",
+    "ip_crc32": 629158628,
+    "gdi_crc32": 1152151026,
+    "boot_crc32": 4246476770,
+    "boot_bytes": 4057056,
+    "exec_crc32": 4246476770,
+    "exec_bytes": 4057056,
+    "reader": 1,
+    "transport": 1,
+    "flags": 4,
+    "source": 1,
+    "tracks": 3,
+    "raw": 2,
+    "cooked": 0,
+    "audio": 1,
+    "audio_high": 0,
+    "audio_mapped": 1,
+    "other": 0,
+    "extents": 15,
+    "session_lba": 45000,
+    "boot_lba": 547019
+   },
+   "state": "report saved",
+   "report": "K-UI TOY COMMANDER REPORT\nTEST 84\nBUILD 4abc63b0cc58\nHEX / 781250 HZ\nPIPE B I CALLS IRQ STAY PT\n0 0 187D 163C 27 1FBD\nAHEAD B I HIT EDC STOP OS\n0 0 4F5 2F86 0 2CEB\nX OW E I C W O\nE 0 0 0 0 D\nSD BLK PIO OVR CRC DECL\n4231 9A 173 0 0\nXC KEPT LO HI\n82F 0 4\nCD P P2 PA RE END LAP\n0 0 0 0 0 0\nCD ST RD KEEP REF LOST PJ\n0 0 0 0 0 0\nCD SV DT B N WIN SKIP\n0 0 0 0 0 0\nV SCI TMR GAME N TICKS\n163C 66 187D DCC75 128 1B7751\nVMAX SCI TMR GAME D\n424 5 A78 1B67\nD N T SEEK\n35D8 490306 33756\nW START SEG CUT WAIT FULL\n93 E44 8C7 6E 4AB\nW BYTES WTICK TMR ERR DET\n1DD0E7A 28DF 1 0 0\nW BLK FIX UNFIX HOLED NOCRC SEEK\nDB6E 143D 31 B3 C 96\nS C S F LF AM BC\nD 3 82 7F 0 3\nW FILL REF BAD\n67 0 3\n                                                                                                                                                                                                                                                                                                                                                    \nEND REPORT\n"
+  },
+  {
+   "slot": 6,
+   "launch": {
+    "survey": 83,
+    "build": "4abc63b0cc58",
+    "product": "T40217N",
+    "title": "BANGAI-O",
+    "bootfile": "1ST_READ.BIN",
+    "region": "U",
+    "ip_crc32": 3024813708,
+    "gdi_crc32": 1727952938,
+    "boot_crc32": 2600214065,
+    "boot_bytes": 564160,
+    "exec_crc32": 2600214065,
+    "exec_bytes": 564160,
+    "reader": 1,
+    "transport": 1,
+    "flags": 4,
+    "source": 1,
+    "tracks": 37,
+    "raw": 3,
+    "cooked": 0,
+    "audio": 34,
+    "audio_high": 33,
+    "audio_mapped": 34,
+    "other": 0,
+    "extents": 111,
+    "session_lba": 45000,
+    "boot_lba": 546054
+   },
+   "state": "report saved",
+   "report": "K-UI TOY COMMANDER REPORT\nTEST 84\nBUILD 4abc63b0cc58\nHEX / 781250 HZ\nPIPE B I CALLS IRQ STAY PT\n0 0 6239 47D 3AE 1FBD\nAHEAD B I HIT EDC STOP OS\n0 0 3B7 48B 0 3BA\nX OW E I C W O\nD 0 0 0 0 D\nSD BLK PIO OVR CRC DECL\n1ABD EC 83 0 0\nXC KEPT LO HI\n0 0 0\nCD P P2 PA RE END LAP\n9 0 6 0 0 0\nCD ST RD KEEP REF LOST PJ\n1C0F0901 3 C 0 0 F\nCD SV DT B N WIN SKIP\n90002 1045C46D 0 0 0 0\nV SCI TMR GAME N TICKS\n47D 5 6239 BF3F F B9C39\nVMAX SCI TMR GAME D\n1FA 4 6FA 1756\nD N T SEEK\nB091 2E17AC 54B90\nW START SEG CUT WAIT FULL\nEC 83 435 29 1\nW BYTES WTICK TMR ERR DET\n2D8F2A C1F 1 0 0\nW BLK FIX UNFIX HOLED NOCRC SEEK\n160A 37B D2 FF 4 EA\nS C S F LF AM BC\nD 1 DE DD 0 1\nW FILL REF BAD\n1F 0 1\n                                                                                                                                                                                                                                                                                                                                                   \nEND REPORT\n"
+  },
+  {
+   "slot": 7,
+   "launch": {
+    "survey": 83,
+    "build": "4abc63b0cc58",
+    "product": "T12502N",
+    "title": "MDK2",
+    "bootfile": "1ST_READ.BIN",
+    "region": "U",
+    "ip_crc32": 873603145,
+    "gdi_crc32": 387242394,
+    "boot_crc32": 1747816675,
+    "boot_bytes": 750804,
+    "exec_crc32": 1747816675,
+    "exec_bytes": 750804,
+    "reader": 1,
+    "transport": 1,
+    "flags": 4,
+    "source": 1,
+    "tracks": 31,
+    "raw": 3,
+    "cooked": 0,
+    "audio": 28,
+    "audio_high": 27,
+    "audio_mapped": 0,
+    "other": 0,
+    "extents": 39,
+    "session_lba": 45000,
+    "boot_lba": 548633
+   },
+   "state": "report saved",
+   "report": "K-UI TOY COMMANDER REPORT\nTEST 84\nBUILD 4abc63b0cc58\nHEX / 781250 HZ\nPIPE B I CALLS IRQ STAY PT\n0 0 9E4 3B1 70 1FBD\nAHEAD B I HIT EDC STOP OS\n0 0 AC 991 0 8A3\nX OW E I C W O\n1B 0 0 0 0 1B\nSD BLK PIO OVR CRC DECL\n9971 1C 2C0 0 0\nXC KEPT LO HI\n0 0 0\nCD P P2 PA RE END LAP\n3 0 6 0 0 0\nCD ST RD KEEP REF LOST PJ\n110F0302 0 0 0 0 6F2\nCD SV DT B N WIN SKIP\n625A01 50001880 39004A 5610000 70000 0\nV SCI TMR GAME N TICKS\n3B1 26 9E4 51E95 53 24488\nVMAX SCI TMR GAME D\n3F1 3 5C5 1750\nD N T SEEK\n4616 645067 18B0\nW START SEG CUT WAIT FULL\n1D 304 124 26 3\nW BYTES WTICK TMR ERR DET\n59B4DD 12D8 1 0 0\nW BLK FIX UNFIX HOLED NOCRC SEEK\n2C2C 3B5 0 1C 1 F\nS C S F LF AM BC\n1B 0 2 2 0 0\nW FILL REF BAD\n19 0 0\n                                                                                                                                                                                                                                                                                                                                 \nEND REPORT\n"
+  },
+  {
+   "slot": 8,
+   "launch": {
+    "survey": 83,
+    "build": "4abc63b0cc58",
+    "product": "T1207N",
+    "title": "PLASMA SWORD",
+    "bootfile": "1ST_READ.BIN",
+    "region": "U",
+    "ip_crc32": 3147189376,
+    "gdi_crc32": 3983408834,
+    "boot_crc32": 194762524,
+    "boot_bytes": 9514104,
+    "exec_crc32": 194762524,
+    "exec_bytes": 9514104,
+    "reader": 1,
+    "transport": 1,
+    "flags": 4,
+    "source": 1,
+    "tracks": 66,
+    "raw": 3,
+    "cooked": 0,
+    "audio": 63,
+    "audio_high": 62,
+    "audio_mapped": 63,
+    "other": 0,
+    "extents": 66,
+    "session_lba": 45000,
+    "boot_lba": 544354
+   },
+   "state": "launched, no report saved"
+  },
+  {
+   "slot": 9,
+   "launch": {
+    "survey": 83,
+    "build": "4abc63b0cc58",
+    "product": "T36807N",
+    "title": "OMIKRON THE NOMAD SOUL",
+    "bootfile": "1ST_READ.BIN",
+    "region": "U",
+    "ip_crc32": 435425528,
+    "gdi_crc32": 2026973335,
+    "boot_crc32": 3626608246,
+    "boot_bytes": 1063844,
+    "exec_crc32": 3626608246,
+    "exec_bytes": 1063844,
+    "reader": 1,
+    "transport": 1,
+    "flags": 4,
+    "source": 1,
+    "tracks": 5,
+    "raw": 3,
+    "cooked": 0,
+    "audio": 2,
+    "audio_high": 1,
+    "audio_mapped": 2,
+    "other": 0,
+    "extents": 32,
+    "session_lba": 45000,
+    "boot_lba": 548480
+   },
+   "state": "report saved",
+   "report": "K-UI TOY COMMANDER REPORT\nTEST 84\nBUILD 4abc63b0cc58\nHEX / 781250 HZ\nPIPE B I CALLS IRQ STAY PT\n0 0 3F56 478 5F 1FBD\nAHEAD B I HIT EDC STOP OS\n0 0 147 C77 0 9E3\nX OW E I C W O\n23 0 0 0 0 22\nSD BLK PIO OVR CRC DECL\n6EB9 2E 1BB 0 0\nXC KEPT LO HI\n0 0 0\nCD P P2 PA RE END LAP\n0 0 0 0 0 0\nCD ST RD KEEP REF LOST PJ\n0 0 0 0 0 0\nCD SV DT B N WIN SKIP\n0 0 0 0 0 0\nV SCI TMR GAME N TICKS\n478 8B 3F56 4D280 15A 7E7B8\nVMAX SCI TMR GAME D\n412 4 A9F 1CD0\nD N T SEEK\n5EC0 7B8823 12251\nW START SEG CUT WAIT FULL\n51 3E0 286 A0 95\nW BYTES WTICK TMR ERR DET\n818683 3A38 1 0 0\nW BLK FIX UNFIX HOLED NOCRC SEEK\n39D7 482 17 98 1 3B\nS C S F LF AM BC\n22 0 2E 2E 0 0\nW FILL REF BAD\n79 0 0\n                                                                                                                                                                                                                                                                                                                                                           \nEND REPORT\n"
+  },
+  {
+   "slot": 10,
+   "launch": {
+    "survey": 83,
+    "build": "4abc63b0cc58",
+    "product": "T40202N",
+    "title": "TOKYO XTREME RACER",
+    "bootfile": "1ST_READ.BIN",
+    "region": "U",
+    "ip_crc32": 3053567665,
+    "gdi_crc32": 1582721669,
+    "boot_crc32": 4046055227,
+    "boot_bytes": 1066880,
+    "exec_crc32": 4046055227,
+    "exec_bytes": 1066880,
+    "reader": 1,
+    "transport": 1,
+    "flags": 4,
+    "source": 1,
+    "tracks": 21,
+    "raw": 3,
+    "cooked": 0,
+    "audio": 18,
+    "audio_high": 17,
+    "audio_mapped": 18,
+    "other": 0,
+    "extents": 22,
+    "session_lba": 45000,
+    "boot_lba": 548479
+   },
+   "state": "launched, no report saved"
+  },
+  {
+   "slot": 11,
+   "state": "empty"
+  },
+  {
+   "slot": 12,
+   "state": "empty"
+  },
+  {
+   "slot": 13,
+   "state": "empty"
+  },
+  {
+   "slot": 14,
+   "state": "empty"
+  },
+  {
+   "slot": 15,
+   "state": "empty"
+  },
+  {
+   "slot": 16,
+   "state": "empty"
+  },
+  {
+   "slot": 17,
+   "state": "empty"
+  },
+  {
+   "slot": 18,
+   "state": "empty"
+  },
+  {
+   "slot": 19,
+   "state": "empty"
+  },
+  {
+   "slot": 20,
+   "state": "empty"
+  },
+  {
+   "slot": 21,
+   "state": "empty"
+  },
+  {
+   "slot": 22,
+   "state": "empty"
+  },
+  {
+   "slot": 23,
+   "state": "empty"
+  },
+  {
+   "slot": 24,
+   "state": "empty"
+  },
+  {
+   "slot": 25,
+   "state": "empty"
+  },
+  {
+   "slot": 26,
+   "state": "empty"
+  },
+  {
+   "slot": 27,
+   "state": "empty"
+  },
+  {
+   "slot": 28,
+   "state": "empty"
+  },
+  {
+   "slot": 29,
+   "state": "empty"
+  },
+  {
+   "slot": 30,
+   "state": "empty"
+  },
+  {
+   "slot": 31,
+   "state": "empty"
+  },
+  {
+   "slot": 32,
+   "state": "empty"
+  },
+  {
+   "slot": 33,
+   "state": "empty"
+  },
+  {
+   "slot": 34,
+   "state": "empty"
+  },
+  {
+   "slot": 35,
+   "state": "empty"
+  },
+  {
+   "slot": 36,
+   "state": "empty"
+  },
+  {
+   "slot": 37,
+   "state": "empty"
+  },
+  {
+   "slot": 38,
+   "state": "empty"
+  },
+  {
+   "slot": 39,
+   "state": "empty"
+  },
+  {
+   "slot": 40,
+   "state": "empty"
+  },
+  {
+   "slot": 41,
+   "state": "empty"
+  },
+  {
+   "slot": 42,
+   "state": "empty"
+  },
+  {
+   "slot": 43,
+   "state": "empty"
+  },
+  {
+   "slot": 44,
+   "state": "empty"
+  },
+  {
+   "slot": 45,
+   "state": "empty"
+  },
+  {
+   "slot": 46,
+   "state": "empty"
+  },
+  {
+   "slot": 47,
+   "state": "empty"
+  },
+  {
+   "slot": 48,
+   "state": "empty"
+  },
+  {
+   "slot": 49,
+   "state": "empty"
+  },
+  {
+   "slot": 50,
+   "state": "empty"
+  },
+  {
+   "slot": 51,
+   "state": "empty"
+  },
+  {
+   "slot": 52,
+   "state": "empty"
+  },
+  {
+   "slot": 53,
+   "state": "empty"
+  },
+  {
+   "slot": 54,
+   "state": "empty"
+  },
+  {
+   "slot": 55,
+   "state": "empty"
+  },
+  {
+   "slot": 56,
+   "state": "empty"
+  },
+  {
+   "slot": 57,
+   "state": "empty"
+  },
+  {
+   "slot": 58,
+   "state": "empty"
+  },
+  {
+   "slot": 59,
+   "state": "empty"
+  },
+  {
+   "slot": 60,
+   "state": "empty"
+  },
+  {
+   "slot": 61,
+   "state": "empty"
+  },
+  {
+   "slot": 62,
+   "state": "empty"
+  },
+  {
+   "slot": 63,
+   "state": "empty"
+  },
+  {
+   "slot": 64,
+   "state": "empty"
+  },
+  {
+   "slot": 65,
+   "state": "empty"
+  },
+  {
+   "slot": 66,
+   "state": "empty"
+  },
+  {
+   "slot": 67,
+   "state": "empty"
+  },
+  {
+   "slot": 68,
+   "state": "empty"
+  },
+  {
+   "slot": 69,
+   "state": "empty"
+  },
+  {
+   "slot": 70,
+   "state": "empty"
+  },
+  {
+   "slot": 71,
+   "state": "empty"
+  },
+  {
+   "slot": 72,
+   "state": "empty"
+  },
+  {
+   "slot": 73,
+   "state": "empty"
+  },
+  {
+   "slot": 74,
+   "state": "empty"
+  },
+  {
+   "slot": 75,
+   "state": "empty"
+  },
+  {
+   "slot": 76,
+   "state": "empty"
+  },
+  {
+   "slot": 77,
+   "state": "empty"
+  },
+  {
+   "slot": 78,
+   "state": "empty"
+  },
+  {
+   "slot": 79,
+   "state": "empty"
+  },
+  {
+   "slot": 80,
+   "state": "empty"
+  },
+  {
+   "slot": 81,
+   "state": "empty"
+  },
+  {
+   "slot": 82,
+   "state": "empty"
+  },
+  {
+   "slot": 83,
+   "state": "empty"
+  },
+  {
+   "slot": 84,
+   "state": "empty"
+  },
+  {
+   "slot": 85,
+   "state": "empty"
+  },
+  {
+   "slot": 86,
+   "state": "empty"
+  },
+  {
+   "slot": 87,
+   "state": "empty"
+  },
+  {
+   "slot": 88,
+   "state": "empty"
+  },
+  {
+   "slot": 89,
+   "state": "empty"
+  },
+  {
+   "slot": 90,
+   "state": "empty"
+  },
+  {
+   "slot": 91,
+   "state": "empty"
+  },
+  {
+   "slot": 92,
+   "state": "empty"
+  },
+  {
+   "slot": 93,
+   "state": "empty"
+  },
+  {
+   "slot": 94,
+   "state": "empty"
+  },
+  {
+   "slot": 95,
+   "state": "empty"
+  },
+  {
+   "slot": 96,
+   "state": "empty"
+  },
+  {
+   "slot": 97,
+   "state": "empty"
+  },
+  {
+   "slot": 98,
+   "state": "empty"
+  },
+  {
+   "slot": 99,
+   "state": "empty"
+  }
+ ]
+}
