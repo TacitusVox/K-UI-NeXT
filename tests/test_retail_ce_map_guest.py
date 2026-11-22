@@ -39,6 +39,9 @@ HARNESS = r'''
 #include "kui/retail_gd.h"
 #include "kui/retail_loader_layout.h"
 #include "kui/retail_vram_dma.h"
+#if KUI_ARMADA_CE_EXCERPT
+#include "kui/armada_ce_excerpt_pool.h"
+#endif
 
 static unsigned checks, purges;
 static uint32_t host_mmucr;
@@ -96,6 +99,18 @@ int main(void) {
             CHECK(map(0x8c010000u, 0x800u, w) == 0xac010000u);
             CHECK(purges == before + (w != KUI_RETAIL_MAP_VALIDATE));
             CHECK(!map(KUI_RETAIL_RESIDENT_ADDRESS, 0x20u, w));
+#if KUI_ARMADA_CE_EXCERPT
+            /* The CD music modules' resident: the music pool stays refused
+             * through either RAM alias, and RAM next to it still maps. */
+            before = purges;
+            CHECK(!map(KUI_ARMADA_CE_EXCERPT_POOL_BEGIN, 0x20u, w));
+            CHECK(!map((KUI_ARMADA_CE_EXCERPT_POOL_END - 0x20u) | 0x20000000u, 0x20u, w));
+            CHECK(!map(KUI_ARMADA_CE_EXCERPT_POOL_BEGIN - 0x20u, 0x40u, w));
+            CHECK(purges == before);
+            CHECK(map(KUI_ARMADA_CE_EXCERPT_POOL_BEGIN - 0x20u, 0x20u, w) ==
+                  ((KUI_ARMADA_CE_EXCERPT_POOL_BEGIN - 0x20u) | 0x20000000u));
+            CHECK(map(KUI_ARMADA_CE_EXCERPT_POOL_END, 0x20u, w) == (KUI_ARMADA_CE_EXCERPT_POOL_END | 0x20000000u));
+#endif
         }
     printf("CE guest mapper: %u checks passed\n", checks);
     return 0;
@@ -112,7 +127,7 @@ class CeGuestMapper(unittest.TestCase):
         map_guest = map_guest.replace(MMUCR, "host_mmucr")
         return HARNESS.replace("/* RAM_ALIAS */", ram_alias).replace("/* MAP_GUEST */", map_guest)
 
-    def run_variant(self, vram):
+    def run_variant(self, vram, extra=()):
         with tempfile.TemporaryDirectory(prefix="kui-ce-map-guest-") as temp:
             generated = Path(temp) / "harness.c"
             binary = Path(temp) / "harness"
@@ -123,6 +138,7 @@ class CeGuestMapper(unittest.TestCase):
                 "-I", str(ROOT / "include"), "-DKUI_RETAIL_CE=1", "-DKUI_RETAIL_ASYNC=1"]
             if vram:
                 command.append("-DKUI_RETAIL_CE_VRAM_DMA=1")
+            command += list(extra)
             subprocess.run(command + [str(generated), "-o", str(binary)], check=True)
             result = subprocess.run([str(binary)], capture_output=True, text=True, check=True)
             self.assertRegex(result.stdout, r"CE guest mapper: \d+ checks passed")
@@ -132,6 +148,17 @@ class CeGuestMapper(unittest.TestCase):
 
     def test_installed_mapper_refuses_pvr(self):
         self.run_variant(False)
+
+    # The CD music modules' resident mapper (Makefile.armada-audio scia: the
+    # music pool reservation of KUI_ARMADA_CE_EXCERPT), with and without PVR.
+    CD_MUSIC = ("-DKUI_ARMADA_CE_AUDIO_OBSERVE=1", "-DKUI_ARMADA_CE_EXCERPT=1", "-DKUI_ARMADA_CE_STREAM=1",
+                "-DKUI_WINCE_CDDA_BAM4=1", "-DKUI_WINCE_CDDA_BAM4_KERNEL=KUI_WINCE_CDDA_BAM4_KERNEL_VIRTUA_COP_2")
+
+    def test_cd_music_mapper_pvr_stream_pieces(self):
+        self.run_variant(True, self.CD_MUSIC)
+
+    def test_cd_music_mapper_refuses_pvr(self):
+        self.run_variant(False, self.CD_MUSIC)
 
 
 if __name__ == "__main__":

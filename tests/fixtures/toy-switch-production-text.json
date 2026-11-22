@@ -1,6 +1,6 @@
 {
   "schema": "kui.toy-switch-production-text.v1",
-  "source": "The merge of the two lines of 22 Nov 2026: this branch (Main 4441e92 with the owner's Test 83 reader and GUI lines, recorded as: Main 776c9259 (origin/main on 16 Nov 2026), the production text before the Toy test sources were merged; include/kui/retail_loader_layout.h, src/loader/retail_async.c, retail_display.c, retail_resident.S, retail_resident.c, retail_stage.c and sci_sd_bus.c as Main 4441e92 has them (20 Nov 2026), with the Windows CE data probe's text of a257f13 and c25e9f5; src/core/wce_probe_fat.c as Main 4441e92 has it) and claude/great-darwin-yjmgfi at b616e2db (Main 776c9259 (origin/main on 16 Nov 2026), the production text before the Toy test sources were merged; then the reviewed WinCE data probe hunks (KUI_WCE_PROBE, a257f13e and c25e9f5e); then the reviewed CE VRAM stream admission (KUI_RETAIL_CE_VRAM_DMA); then the reviewed generic WinCE reader switches (KUI_CE_SLOW_WINDOW, KUI_CE_SLOW_ADAPT, KUI_CE_POOL_KIB, KUI_CE_READAHEAD)). Four sources were changed in production by both lines (include/kui/retail_loader_layout.h, src/loader/retail_resident.S, retail_resident.c, retail_stage.c); their production text is the clean three-way union of both lines' changes. Then the Windows CE line to 83becb53 (22 Nov 2026): src/loader/retail_stage.c gains its KUI_ARMADA_CE_BOOT2_SCRATCH block, the clean union again. Then the Windows CE line to b7c92e0c (22 Nov 2026), which records the same retail_stage.c changes (9e89e778's kernel records and KUI_ARMADA_CE_BOOT2_SCRATCH) for that line alone; no shared source changes, so the union's fingerprints stand.",
+  "source": "The merge of the two lines of 22 Nov 2026: this branch (Main 4441e92 with the owner's Test 83 reader and GUI lines, recorded as: Main 776c9259 (origin/main on 16 Nov 2026), the production text before the Toy test sources were merged; include/kui/retail_loader_layout.h, src/loader/retail_async.c, retail_display.c, retail_resident.S, retail_resident.c, retail_stage.c and sci_sd_bus.c as Main 4441e92 has them (20 Nov 2026), with the Windows CE data probe's text of a257f13 and c25e9f5; src/core/wce_probe_fat.c as Main 4441e92 has it) and claude/great-darwin-yjmgfi at b616e2db (Main 776c9259 (origin/main on 16 Nov 2026), the production text before the Toy test sources were merged; then the reviewed WinCE data probe hunks (KUI_WCE_PROBE, a257f13e and c25e9f5e); then the reviewed CE VRAM stream admission (KUI_RETAIL_CE_VRAM_DMA); then the reviewed generic WinCE reader switches (KUI_CE_SLOW_WINDOW, KUI_CE_SLOW_ADAPT, KUI_CE_POOL_KIB, KUI_CE_READAHEAD)). Four sources were changed in production by both lines (include/kui/retail_loader_layout.h, src/loader/retail_resident.S, retail_resident.c, retail_stage.c); their production text is the clean three-way union of both lines' changes. Then the Windows CE line to 83becb53 (22 Nov 2026): src/loader/retail_stage.c gains its KUI_ARMADA_CE_BOOT2_SCRATCH block, the clean union again. Then the Windows CE line to b7c92e0c (22 Nov 2026), which records the same retail_stage.c changes (9e89e778's kernel records and KUI_ARMADA_CE_BOOT2_SCRATCH) for that line alone; no shared source changes, so the union's fingerprints stand. Then the Windows CE line to 949be408 (22 Nov 2026): Virtua Cop 2's CD music reader keeps a 1 KiB stack (KUI_ARMADA_CE_STREAM_SMALL_STACK in include/kui/retail_loader_layout.h, a marker in src/loader/retail_resident.S, 0414c2d0) and takes video-memory stream pieces (949be408); both sources are the clean union again, recorded with --write.",
   "files": {
     "include/kui/hash.h": {
       "mode": "code",
@@ -20,7 +20,7 @@
     },
     "include/kui/retail_loader_layout.h": {
       "mode": "code",
-      "sha256": "7808a5687834c40157be53baf649af4471f05e536d70b80495dd214806926897"
+      "sha256": "61d979ee893f9e19b8588bc454cc206fba8342995aea0517717c384ba340e86e"
     },
     "include/kui/vmu_native_passive.h": {
       "mode": "code",
@@ -72,7 +72,7 @@
     },
     "src/loader/retail_resident.S": {
       "mode": "code",
-      "sha256": "9cd97a67b6e821f6a19c7b02b14c1100e958416cc76ee5c4dbba17e15359ad5a"
+      "sha256": "01d2cfa28486ef783cb0d8f7090fdd73b401fff602b359c0262d27bb3ae76782"
     },
     "src/loader/retail_resident.c": {
       "mode": "code",

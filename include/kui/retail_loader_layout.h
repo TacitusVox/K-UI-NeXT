@@ -144,6 +144,20 @@
  * tools/check_retail_loader_layout.py, and uses the rest for its counters
  * and end-of-game writer. */
 #define KUI_RETAIL_CE_ASYNC_LIMIT 0x8c00ddc0
+#elif KUI_ARMADA_CE_STREAM_SMALL_STACK
+/* A CD music module's background reader whose data needs more than D800
+ * (Virtua Cop 2's, which also takes stream pieces into video memory) keeps
+ * the 1 KiB guarded stack of the accepted Armada CD music and VMU reader
+ * (retail_resident_ce_async_vmu_write.ld), against the call-graph worst case
+ * checked by tools/check_retail_loader_layout.py. Its code and read-only data
+ * still end below D800, where the stream controller checks the reader's entry
+ * points and bus (armada_ce_stream_transport.c); the stage keeps D800 as the
+ * bound of the image it installs. */
+#if !defined(KUI_RETAIL_CE) || !defined(KUI_RETAIL_ASYNC) || !KUI_ARMADA_CE_STREAM || \
+    KUI_ARMADA_CE_CDDA_VMU || KUI_ARMADA_CE_VMU_WRITE_RUNTIME || KUI_WCE_PROBE
+#error "The small-stack layout is a CD music module's background reader"
+#endif
+#define KUI_RETAIL_CE_ASYNC_LIMIT 0x8c00dc00
 #else
 #define KUI_RETAIL_CE_ASYNC_LIMIT 0x8c00d800
 #endif
