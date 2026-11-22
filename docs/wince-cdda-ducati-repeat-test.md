@@ -144,6 +144,44 @@ recording, as the owner judged.
 Not reported: the end of the race, a second race (expected silent), and
 whether any sound kept playing after the race.
 
+## Later races: a rebind design, not implemented
+
+The owner asked not to pursue Ducati World further. This records what a
+rebind would need, from a static analysis of Ducati's kernel (its `nk.exe`,
+`coredll`, `dsound` and `sndcore` are World Party's builds). Nothing here
+has run on a console.
+
+- **How a race's process ends.** Coredll's ExitThread first kills every
+  other thread of the process, K-UI's worker included, and only then
+  detaches the DLLs. dsound's detach does nothing, and sndcore's stops no
+  sound port. The kernel's reaper later clears the process's DLL use bits and
+  its slot word (+12). The handle word (+8) is written only when a process
+  is created. `DUCATIDC.EXE` never closes its handles, so the next race's
+  process gets a new handle even when it reuses the same process slot.
+- **The design.** At a new PLAY, only after proof that the bound process is
+  gone:
+  - the proof: its +8 or +12 word changed, and the worker's heartbeat is
+    more than 2 s old;
+  - the reset: forget the binding, the worker, the buffer and the model's
+    lease (a new model call), with no call into any process and with the
+    model's ids kept increasing;
+  - then a fresh discovery binds the next process.
+
+  It would be on only in Ducati's module, behind its own switch, as one
+  behaviour change after this test.
+- **Precondition: the end of race 1 on the console.** The game must return
+  to its menus with no hang and no sound left playing. Two risks apply to
+  this test build too, and neither is shown:
+  - **A short sound left looping.** If the process ends before the worker
+    has stopped the music's sound ports, the sound driver may keep looping
+    their last ~70 ms.
+  - **A delayed or hung exit.** K-UI's reference on the game's DirectSound
+    keeps sndcore's threads alive into ExitThread. If the kernel cannot kill
+    a thread that waits without a timeout, the exit never completes. Even
+    without a hang, killing the worker in its sleep may add about 2 s.
+- Diagnostics, closing the stop window at GD 33, and stopping a stale port
+  in the next process would each be a separate change.
+
 ## Questions for the console test
 
 - **Ducati World, CD music On, first race:**
