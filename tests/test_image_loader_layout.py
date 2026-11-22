@@ -22,7 +22,14 @@ def executable(base, payload, memory, symbols):
     for label, value in {"_start": base, **symbols}.items():
         name = len(strings)
         strings += label.encode("ascii") + b"\0"
-        syms += SYM.pack(name, value, 0, 0x12, 0, 0xFFF1)
+        info = 0x12
+        if isinstance(value, tuple):
+            # ("abs", value): an untyped ABS symbol, as a profile marker's
+            # ".set name,1" links (check_retail_loader_layout.exact_profile_marker).
+            kind, value = value
+            assert kind == "abs"
+            info = 0x10
+        syms += SYM.pack(name, value, 0, info, 0, 0xFFF1)
     section_at = (0x100 + len(payload) + 15) & ~15
     strings_at = section_at + SH.size * 3
     symbols_at = (strings_at + len(strings) + 3) & ~3

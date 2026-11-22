@@ -139,6 +139,33 @@ class RetailPackage(unittest.TestCase):
         self.assertIn(f"__retail_hook_stack = 0x{layout.CE_ASYNC_HOOK_STACK:08x};", script)
         self.assertIn(f"__retail_resident_bss_end <= 0x{layout.CE_ASYNC_RESIDENT_LIMIT:08x},", script)
         self.assertIn("ASSERT(_kui_retail_ce_kernel == 0x8c008324", script)
+        # Virtua Cop 2's CD music background reader (KUI_ARMADA_CE_STREAM_SMALL_STACK):
+        # the 1 KiB stack the layout checker and its linker script use, and no
+        # other profile, transport or module.
+        import check_retail_loader_layout as checker
+        small = ['-DKUI_RETAIL_CE=1', '-DKUI_RETAIL_ASYNC=1', '-DKUI_ARMADA_CE_STREAM=1',
+                 '-DKUI_ARMADA_CE_STREAM_SMALL_STACK=1']
+        small_defines = subprocess.check_output(['cc', '-E', '-dM', '-x', 'c', *small, '-'],
+                                                input=source, text=True)
+        found = re.search(r'^#define KUI_RETAIL_CE_ASYNC_LIMIT\s+(\w+)\s*$', small_defines, re.M)
+        self.assertEqual(int(found.group(1), 0), checker.CE_CDDA_SMALL_STACK_BOTTOM)
+        script = (ROOT / "src/loader/retail_resident_ce_async_small_stack.ld").read_text()
+        self.assertIn(f"__retail_hook_stack_bottom = 0x{checker.CE_CDDA_SMALL_STACK_BOTTOM:08x};", script)
+        self.assertIn(f"__retail_resident_binary_end <= 0x{layout.CE_ASYNC_RESIDENT_LIMIT:08x},", script)
+        self.assertIn(f"__retail_resident_bss_end <= 0x{checker.CE_CDDA_SMALL_STACK_BOTTOM:08x},", script)
+        self.assertIn(f"DEFINED({checker.CDDA_SMALL_STACK_MARKER})", script)
+        for label, flags in (("without the background reader", [f for f in small if 'ASYNC' not in f]),
+                             ("without Windows CE", [f for f in small if 'RETAIL_CE=' not in f]),
+                             ("without CD music", [f for f in small if 'STREAM=' not in f]),
+                             ("with the CD music and VMU reader", small + ['-DKUI_ARMADA_CE_CDDA_VMU=1']),
+                             ("with the writable VMU reader", small + ['-DKUI_ARMADA_CE_VMU_WRITE_RUNTIME=1']),
+                             ("with the data probe", small + ['-DKUI_WCE_PROBE=1']),
+                             ("with read-ahead", small + ['-DKUI_RETAIL_CE_READAHEAD=1'])):
+            with self.subTest(label):
+                refused = subprocess.run(['cc', '-E', '-x', 'c', *flags, '-'], input=source, text=True,
+                                         capture_output=True)
+                self.assertNotEqual(refused.returncode, 0)
+                self.assertIn("small-stack layout is a CD music module's background reader", refused.stderr)
         # Both packages' headers record the standard reader limit.
         entry = (ROOT / "src/loader/retail_entry.S").read_text()
         self.assertIn(".long KUI_RETAIL_STANDARD_LIMIT", entry)
@@ -610,6 +637,71 @@ class RetailLinkedLayout(unittest.TestCase):
         self.assertEqual(result["stage"]["payload_bytes"], len(self.payload["stage"]))
         with self.assertRaises(ValueError):
             check_directory(self.directory)
+
+    def ce_layout(self):
+        """The CE package state test_ce_probe_stage_is_checked_at_its_own_address reaches."""
+        shift = layout.CE_STAGE_ADDRESS - layout.STAGE_ADDRESS
+        self.bases["stage"] += shift
+        ss = self.symbols["stage"]
+        for name in ss:
+            ss[name] += shift
+        struct.pack_into("<I", self.payload["stage"], 240, ss["_kui_retail_game_resume"] | 0x20000000)
+        self.payload["entry"][layout.STAGE_BLOB_OFFSET:] = self.payload["stage"]
+        self.payload["entry"][0x100:0x140] = layout.relocation_header(len(self.payload["stage"]), ce=True)
+        self.symbols["resident-sci"].update({"__retail_hook_stack": layout.CE_HOOK_STACK,
+                                             "__retail_hook_stack_bottom": layout.CE_RESIDENT_LIMIT})
+        rs = self.symbols["resident-scia"]
+        for index, symbol in enumerate(("kui_retail_ce_isr", "kui_retail_ce_irq",
+                                        "kui_retail_async_read_part")):
+            rs["_" + symbol] = layout.RESIDENT_ADDRESS + 64 + index * 4
+        rs.update({"__retail_hook_stack": layout.CE_ASYNC_HOOK_STACK,
+                   "__retail_hook_stack_bottom": layout.CE_ASYNC_RESIDENT_LIMIT})
+        report = self.directory / "scia/lto/resident-scia.elf.ltrans0.ltrans.ci"
+        report.write_text(CallGraphStack.graph(*CallGraphStack.ce_graph()))
+        self.write()
+
+    def test_cd_music_small_stack_reader_is_selected_by_its_marker_only(self):
+        """Virtua Cop 2's CD music background reader: the 1 KiB stack from dc00
+        (KUI_ARMADA_CE_STREAM_SMALL_STACK) only with its source marker, only in
+        the background reader, and with its code still below d800."""
+        import check_retail_loader_layout as checker
+        self.ce_layout()
+        result = check_directory(self.directory, ce=True)
+        self.assertEqual(result["resident_stacks"]["scia"]["available_bytes"], 2000)
+        rs = self.symbols["resident-scia"]
+        # The smaller stack without the marker is outside its reservation.
+        rs["__retail_hook_stack_bottom"] = checker.CE_CDDA_SMALL_STACK_BOTTOM
+        self.write()
+        with self.assertRaisesRegex(ValueError, "resident-scia hook stack"):
+            check_directory(self.directory, ce=True)
+        # With the marker it is the reader's stack: 976 bytes for the call graph.
+        rs[checker.CDDA_SMALL_STACK_MARKER] = ("abs", 1)
+        self.write()
+        result = check_directory(self.directory, ce=True)
+        self.assertEqual(result["resident_stacks"]["scia"]["available_bytes"], 976)
+        # The marker with the 2 KiB stack's symbols is refused too.
+        rs["__retail_hook_stack_bottom"] = layout.CE_ASYNC_RESIDENT_LIMIT
+        self.write()
+        with self.assertRaisesRegex(ValueError, "resident-scia hook stack"):
+            check_directory(self.directory, ce=True)
+        rs["__retail_hook_stack_bottom"] = checker.CE_CDDA_SMALL_STACK_BOTTOM
+        # Only the background reader may carry it.
+        self.symbols["resident-sci"][checker.CDDA_SMALL_STACK_MARKER] = ("abs", 1)
+        self.write()
+        with self.assertRaisesRegex(ValueError, "background reader only"):
+            check_directory(self.directory, ce=True)
+        del self.symbols["resident-sci"][checker.CDDA_SMALL_STACK_MARKER]
+        # Its code and read-only data stay below d800, for the stream controller.
+        rs["__retail_resident_binary_end"] = layout.CE_ASYNC_RESIDENT_LIMIT + 4
+        self.write()
+        with self.assertRaisesRegex(ValueError, "stream controller bounds"):
+            check_directory(self.directory, ce=True)
+        # A marker that is not an untyped ABS one is refused.
+        rs["__retail_resident_binary_end"] = layout.RESIDENT_ADDRESS + len(self.payload["resident-scia"])
+        rs[checker.CDDA_SMALL_STACK_MARKER] = 1
+        self.write()
+        with self.assertRaisesRegex(ValueError, "untyped ABS-one"):
+            check_directory(self.directory, ce=True)
 
     def test_background_reader_stack_region_and_symbols(self):
         rs = self.symbols["resident-scia"]

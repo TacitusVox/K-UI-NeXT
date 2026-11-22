@@ -8,8 +8,9 @@
  * Cop 2's PVR pieces. Part 1: the transport detached, as before the relay.
  * VRAM builds also run part 1b, the refused pieces through the background
  * service, and part 2, the transport attached and a music read pending while
- * each PVR piece is filled. The video memory is a host array; the G1 bus,
- * PVR timing and the music worker's CE thread are not modelled. */
+ * each PVR piece is filled. The video memory is a host array, checked whole
+ * after each stream; the G1 bus, PVR timing and the music worker's CE thread
+ * are not modelled. */
 #define _GNU_SOURCE
 #include "kui/armada_ce_stream_transport.h"
 #include "kui/armada_ce_excerpt_entry.h"
@@ -50,6 +51,11 @@ static void bus_counts(const char *label) {
 void kui_retail_ce_stream_wake(void) {++stream_wakes; take_events();}
 
 #if KUI_RETAIL_CE_VRAM_DMA
+/* The first byte of view[begin,end) the stream wrote over the fill, or end. */
+static uint32_t first_written(const uint8_t *view, uint32_t begin, uint32_t end) {
+    for(uint32_t i = begin; i < end; ++i) if(view[i] != 0x3c) return i;
+    return end;
+}
 /* ---- Part 1b: refused pieces through the background service ---- */
 /* The GD service test (test_retail_gd.c) refuses these only in the
  * synchronous build. Through the background reader: each is refused at
@@ -85,8 +91,11 @@ static void refused_vram_pieces(void) {
         if(!interrupts(4)) elapse();
     }
     CHECK(status(token) == KUI_GD_COMPLETED && get(STATUS + 8) == 2048u);
-    CHECK(!memcmp(pvr32 + 0x20u, expected, 2048u) && pvr32[0x1fu] == 0x3c && pvr32[0x20u + 2048u] == 0x3c);
-    for(uint32_t i = 0; i < sizeof(pvr); i += 4093u) CHECK(pvr[i] == 0x3c);
+    CHECK(!memcmp(pvr32 + 0x20u, expected, 2048u));
+    /* Both views whole: the admitted piece only, nothing of the refused ones. */
+    CHECK(first_written(pvr32, 0, 0x20u) == 0x20u);
+    CHECK(first_written(pvr32, 0x20u + 2048u, sizeof(pvr32)) == sizeof(pvr32));
+    CHECK(first_written(pvr, 0, sizeof(pvr)) == sizeof(pvr));
     untouched(ram + OUTPUT - BEGIN, 4096u);
 }
 /* ---- Part 2: the music read pending while the PVR pieces are filled ---- */
@@ -125,13 +134,17 @@ static void music_worker(void) {
  * pass 2 with a slow card token after every CMD18, so the music's restart
  * searches in the pump that needs it (KUI_ARMADA_CE_STREAM_CHAIN slices);
  * pass 3 with overruns, CRC errors and DMA1 taken by the game (the slow
- * window, the resume fix and the retries under the shared bus). */
+ * window, the resume fix and the retries under the shared bus); pass 4 with
+ * the music urgent (at most one second of fresh PCM, as the player reports
+ * it), so each music grant lasts a whole source job (AUDIO_URGENT_QUANTUM)
+ * before the game's stream has the bus again. */
+#define ATTACHED_PASSES 5u
 static void attached_vram_pieces(void) {
     static const struct { uint32_t sectors, vram, body; } shapes[] = {
         {10, 0x044c0360u, 0x4800u}, {257, 0x04575600u, 0x80000u}, {10, 0x054c0360u, 0x4800u}};
     unsigned audio_blocks = 0, preemptions = 0;
     srand(4242);
-    for(unsigned run = 0; run < 12; ++run) {
+    for(unsigned run = 0; run < ATTACHED_PASSES * 3u; ++run) {
         const unsigned k = run % 3u, pass = run / 3u;
         kui_armada_ce_stream_transport_test_reset();
         setup(48, true);
@@ -146,6 +159,8 @@ static void attached_vram_pieces(void) {
         CHECK(kui_armada_ce_stream_transport_init(&manifest, (uintptr_t)music, (uintptr_t)music + sizeof(music)));
         kui_armada_ce_stream_transport_pio_floor(pass == 1 ? 0u : 1000000u, true);
         CHECK(kui_armada_ce_stream_transport_pio() == (pass == 1));
+        kui_armada_ce_stream_transport_priority(pass == 4 ? 0u : 1000000u, true);
+        CHECK(kui_armada_ce_stream_transport_urgent() == (pass == 4));
         CHECK(kui_retail_image_read(&reference, 3u, 2u, KUI_GAME_SECTOR_RAW,
                                     music_expected, sizeof(music_expected)) == KUI_GAME_OK);
         music_submit();
@@ -201,8 +216,10 @@ static void attached_vram_pieces(void) {
         CHECK(music_jobs >= 1u && during.data_blocks >= shapes[k].sectors * 4u);
         CHECK(!memcmp(ram + OUTPUT - BEGIN, big, 0x20u) && ram[OUTPUT - BEGIN + 0x20u] == 0xa5);
         CHECK(!memcmp(view + offset, big + 0x20u, body));
-        CHECK(view[offset - 1u] == 0x3c && view[offset + body] == 0x3c);
-        for(uint32_t i = 0; i < sizeof(pvr); i += 4093u) CHECK(other[i] == 0x3c);
+        /* Both views whole: the piece's bytes and nothing else. */
+        CHECK(first_written(view, 0, offset) == offset);
+        CHECK(first_written(view, offset + body, sizeof(pvr)) == sizeof(pvr));
+        CHECK(first_written(other, 0, sizeof(pvr)) == sizeof(pvr));
         CHECK(!memcmp(ram + OUTPUT + 0x40u - BEGIN, big + 0x20u + body, 0x7e0u));
         CHECK(ram[OUTPUT - BEGIN + 0x40u + 0x7e0u] == 0xa5);
         CHECK(hw.pvr_writes && !hw.virtual_writes && !R.engine.spill_bytes);
@@ -216,6 +233,7 @@ static void attached_vram_pieces(void) {
         struct kui_armada_ce_stream_transport_snapshot snap;
         CHECK(kui_armada_ce_stream_transport_snapshot(epoch, &snap) == KUI_ARMADA_CE_STREAM_TRANSPORT_DONE);
         CHECK(!memcmp(music, music_expected, sizeof(music)));
+        CHECK(kui_armada_ce_stream_transport_urgent() == (pass == 4));
         audio_blocks += snap.audio_blocks; preemptions += snap.preemptions;
         const struct kui_sci_stream_stats *ss = kui_sci_stream_stats();
         printf("pass %u (stream: %u polled, %u overruns, %u repaired, %u slow blocks, %u CRC errors, %u retries): ",

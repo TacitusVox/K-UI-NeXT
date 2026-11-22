@@ -20,7 +20,7 @@
     },
     "include/kui/retail_loader_layout.h": {
       "mode": "code",
-      "sha256": "6c2ed03e35efcf0b5cb97be5195476e84b76fdca1a58dc4a087a636d9c964d09"
+      "sha256": "fac4c38f4ed89776e16d5eaf834c93d7a7ffce1c70a5d3350fb6d255a5e0a9a9"
     },
     "include/kui/vmu_native_passive.h": {
       "mode": "code",
