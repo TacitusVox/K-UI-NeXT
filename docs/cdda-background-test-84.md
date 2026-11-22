@@ -208,6 +208,63 @@ Questions:
 | SKIP shows every survey refused for SR.BL | The heartbeat runs with SR.BL set in that game: the survey, and Test 85's output, need another place |
 | N counts unproved surveys for a family | Its records are not where the static reading put them in that build |
 
+## Console result
+
+The owner's runs of 21 November 2026 (evening, America/Chicago), from the
+Games menu, with the file from the card, `KUI/SURVEY/STREAM.TXT` (ID
+B5829D27CAF13A94DEAFD593D1FDC00A, six of its hundred slots used, SHA-256
+`a38ad034...07f5`), and three diagnostics logs. The file, the tool's
+listing, the reports with their CD rows decoded, and the logs are in
+`docs/evidence/cdda-background-test-84/console/`. No page was photographed.
+
+The final reader in every launch that reached it was this module: the
+logs load `/KUI/apps/games/retail-native-dual.kui`, package `4abc63b0cc58`,
+315,680 payload bytes, and every slot's launch record names that build.
+The K-UI that launched it was not the one it was built and admitted for:
+the logs name build `1c71ba3afa17`, the Windows CE line's GUI of 21
+November (`claude/great-darwin-yjmgfi`). That line contains Main
+`4441e92` but neither the owner's Test 83 GUI line `4d4dcff77494` nor its
+reader line `1d80f771f081` (`git merge-base --is-ancestor`), so it has
+Main's 64-slot Background map, not the 160-slot map this module's
+admission declares, and none of that GUI line's routing changes.
+
+| | Game | The owner | In the files |
+|---|---|---|---|
+| 1 | ChuChu Rocket | "Worked fine" | Slots 0 (no report) and 1. 12 PLAY, 18 PAUSE, no RELEASE, 1 play ended; at the save track 5 playing, repeat 15 (for ever); 2 data reads during a play, 21 read steps kept at 3; 28 positions from the play. MANATEE 2.00.09, the one original image of that version and date (`11c89eaa2b20`); both candidate stream ports free in all 2,640 surveys; none unproved; no survey skipped |
+| 2 | Bangai-O | Failed to launch | Refused by the GUI: "track 3 is in 49 pieces"; "Background map exceeds 64 slots" |
+| 3 | MDK2 | Failed to launch | Refused by the GUI: "track 1 is in 28 pieces"; "Background map exceeds 64 slots" |
+| 4 | Omikron / The Nomad Soul | "Fine"; its song (David Bowie) "plays halfway through the game" | No slot: it did not pass through this module's report stage. How the GUI routed it is not in the logs |
+| 5 | Toy Commander | "Worked fine", but "dropped about 5 frames in the intro movie, again" | Slots 2 and 3. The first: 2 PAUSE, no PLAY. The second: 1 PLAY of track 14, once, and 4 PAUSE; 195 positions from the play. AUDIO64, the one original image of that version and date (`477ede3766c2`); channels 62 and 63 free in all 196 surveys; the top 48 KiB of sound memory all zero over the first full pass; none unproved; no survey skipped |
+| 6 | King of Fighters Dream Match 1999 | "Worked fine" | Slot 4. 7 PLAY, 16 PAUSE; at the save track 6 playing, once; 3,420 positions from the play. MANATEE 1.01.3b, the one original image of that version and date (`906e3b8a1336`); pool entries 13 and 14 free in all 10,084 surveys; none unproved; no survey skipped |
+| 7 | Tokyo Xtreme Racer | Failed to inspect: "Invalid track length" ("may be my mistake") | The image: a track file is empty or not a whole number of sectors (`KUI_GAME_FILE_SIZE`, `src/core/game_image.c`) |
+| 8 | POD SpeedZone | Failed to launch | The module loaded and the map held (11 tracks, one piece each), then the GUI's check of the executable's first sector (LBA 548141, track 11) read 24 zero bytes where a sector's sync belongs: "Invalid or unsupported data sector" |
+| 9 | Plasma Sword | Failed to launch | Refused by the GUI: 66 tracks, more than its 64 slots |
+| 10 | Evolution 2 | "Worked fine I guess" | Slot 5. Every CD row 0, as expected |
+
+What it shows:
+
+1. The drive's answers were taken by the three games that played music.
+   No game hung or refused a play; no play lost its clock; the data reads
+   ChuChu Rocket made during music kept status 3. Whether the answers are
+   right for each game's music is Test 85's question: there is no sound.
+2. The survey ran on hardware in three driver families and never had to
+   hold back: no survey skipped for SR.BL, the timer, the bus's budget or
+   G2 DMA. Each driver is the one original image the host check named for
+   that version and build date, and its records proved their layout in
+   every survey. That confirms on the console, for these three builds, the
+   start-up stores the host check could only author: MANATEE 2's EXEC mark
+   (the state byte `45`) and stream split, MANATEE 1's pool and its
+   register bases, AUDIO64's port base (family 5, not the hybrid).
+3. The two channels a sounding test would take were free in every survey
+   of all three games.
+4. Four launches failed before the game: three by the running GUI's
+   64-slot map (with the 160-slot map of the Test 83 GUI line, Bangai-O
+   launched in Test 83 and MDK2 did too), one by an executable sector the
+   GUI read as zeros (POD). Tokyo Xtreme Racer's image did not open.
+   Omikron did not run through this module.
+5. Not this test's: Toy Commander's intro movie still drops frames; the
+   movie path is Test 83's.
+
 ## Known limits
 
 1. No sound. The survey writes nothing; Test 85 is to write the chip.
