@@ -462,7 +462,7 @@ int main(int argc,char **argv) {
     strcpy(read_failure,"0:/KUI/apps/games/test-helper.bin");
     CHECK(kui_update_plan_review_diagnose(&full.package,NULL,&reviewed,&review_needed,&review_free,cancel,&changes,&issue)==KUI_UPDATE_IO);
     CHECK(!strcmp(issue.operation,"read free space") && issue.fatfs==FR_DISK_ERR);
-    CHECK(!issue.comparison_operation[0] && !changes.known);
+    CHECK(!issue.comparison_operation && !changes.known);
     space_read_error=false;
     CHECK(kui_update_plan_review_diagnose(&full.package,NULL,&reviewed,&review_needed,&review_free,cancel,&changes,&issue)==KUI_UPDATE_OK);
     CHECK(!changes.known && !strcmp(issue.comparison_operation,"open file") &&
