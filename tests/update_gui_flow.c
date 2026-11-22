@@ -31,6 +31,7 @@
 #define OLD_BANK "222222333333"
 static uint8_t *disk;static size_t disk_bytes;
 static FATFS fs;static bool mounted,paused;
+static LBA_t fail_read_sector;
 static unsigned checks,writes,update_tokens,generation,pauses,resumes;
 static struct kui_shell_update_view update_reviewed;
 static struct kui_update_boot_view update_boot_view;
@@ -39,6 +40,9 @@ static struct kui_games_selection last_selection;
 static uint64_t blocks(void *unused) {(void)unused;return disk_bytes/512u;}
 static int read_blocks(void *unused,uint32_t lba,size_t count,uint8_t *out) {
     (void)unused;if((uint64_t)lba+count>blocks(NULL))return -1;
+    if(fail_read_sector && fail_read_sector>=lba && fail_read_sector-lba<count) {
+        fail_read_sector=0;return -1;
+    }
     memcpy(out,disk+(size_t)lba*512u,count*512u);return 0;
 }
 static int write_blocks(void *unused,uint32_t lba,size_t count,const uint8_t *in) {
@@ -61,6 +65,7 @@ static void kui_sd_set_params(unsigned transport,bool checked) {CHECK(transport=
 static unsigned kui_storage_selected(void) {return KUI_STORAGE_SCI;}
 enum kui_games_storage_result kui_games_storage_open(kui_log_fn log) {
     CHECK(log==kui_log && !mounted);
+    kui_media_set(&media); /* A new SD connection resets the failed-media latch. */
     if(f_mount(&fs,"0:",1)!=FR_OK)return KUI_GAMES_STORAGE_NO_MOUNT;
     mounted=true;return KUI_GAMES_STORAGE_OK;
 }
@@ -136,6 +141,12 @@ static void copy_host(const char *source,const char *destination) {
     FILE *in=fopen(source,"rb");CHECK(in && !fseek(in,0,SEEK_END));long size=ftell(in);
     CHECK(size>0 && !fseek(in,0,SEEK_SET));uint8_t *data=malloc((size_t)size);CHECK(data);
     CHECK(fread(data,1u,(size_t)size,in)==(size_t)size && !fclose(in));file_write(destination,data,(size_t)size);free(data);
+}
+static LBA_t first_sector(const char *path) {
+    FIL file;uint8_t byte;UINT got=0;
+    CHECK(kui_update_physical_open(&file,path,FA_READ)==FR_OK);
+    CHECK(f_read(&file,&byte,1,&got)==FR_OK && got==1 && file.sect);
+    LBA_t sector=file.sect;CHECK(f_close(&file)==FR_OK);return sector;
 }
 static struct kui_update_activation activation(void) {
     struct kui_update_activation value;unsigned slot=0u;
@@ -454,6 +465,7 @@ int main(int argc,char **argv) {
     copy_host(argv[2],KUI_RUNTIME_PATH);copy_host(argv[3],"0:/KUI/old-gui.kui");
     copy_host(argv[4],FULL_PATH);copy_host(argv[5],A_PATH);copy_host(argv[6],B_PATH);
     file_write(HELPER,"root helper",11u);corrupt_selection();
+    LBA_t old_helper_sector=first_sector(HELPER),package_sector=first_sector(FULL_PATH);
     struct kui_game_launch_settings settings;kui_game_launch_settings_default(&settings);settings.reader=KUI_GAME_READER_BACKGROUND;
     CHECK(kui_game_launch_settings_save("/Games/Original/disc.gdi",&settings,kui_log));
     kui_games_selection_default(&last_selection);strcpy(last_selection.name,"Original");CHECK(kui_games_selection_save(&last_selection,kui_log));
@@ -469,13 +481,24 @@ int main(int argc,char **argv) {
     kui_update_boot_block();browse_without_selection();mount_volume();before=writes;
     CHECK(kui_update_boot_read(KUI_BUILD_ID,KUI_STORAGE_SCI,&image,&update_boot_view,kui_log,kui_cancelled)==KUI_UPDATE_BOOT_BASELINE);
     CHECK(!image.data && writes==before);release_volume();
-    struct kui_shell_update_view review=check_package(FULL_PATH);CHECK(writes==before);
+    /* An unreadable old helper is optional for a FULL replacement. Fail an
+     * actual adapter read so production diskio marks this session unusable.
+     * Confirmation reconnects and must still refuse an unreadable package. */
+    fail_read_sector=old_helper_sector;
+    struct kui_shell_update_view review=check_package(FULL_PATH);
+    CHECK(!fail_read_sector && review.space_known && review.changes && !review.changes->known && writes==before);
+    fail_read_sector=package_sector;
+    input=review.reviewed;input.generation=++generation;update_work(&input,&view);
+    CHECK(!fail_read_sector && !mounted && view.status.errors && !view.ready && !view.status.passed && writes==before);
+    review=check_package(FULL_PATH);CHECK(writes==before);
     /* Change the real saved selection between review and confirmation. */
     mount_volume();struct kui_update_activation changed={.sequence=17u};activation_write(0u,&changed);release_volume();
     input=review.reviewed;input.generation=++generation;before=writes;update_work(&input,&view);
     CHECK(view.status.complete && !view.status.passed && !view.ready && strstr(view.status.message,"review changed") && writes==before);
     official_channels(argv[4],argv[5],argv[9],argv[10]);
-    mount_volume();corrupt_selection();release_volume();review=fetch_review(argv[4]);view=install_review(&review);
+    mount_volume();corrupt_selection();release_volume();fail_read_sector=old_helper_sector;
+    review=fetch_review(argv[4]);CHECK(!fail_read_sector && review.changes && !review.changes->known);
+    view=install_review(&review);
     CHECK(strcmp(view.selected,review.reviewed.package.build));char full_bank[13];strcpy(full_bank,view.selected);
     mount_volume();CHECK(!strcmp(activation().selected,view.selected));release_volume();
     check_repeat(FULL_PATH,true);restart_selected();check_repeat(FULL_PATH,false);

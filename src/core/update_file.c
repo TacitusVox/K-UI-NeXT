@@ -20,9 +20,14 @@ static FRESULT physical_open(FIL *file,const char *path,BYTE flags) {
 struct snapshot_source {bool package;char path[160];uint64_t offset;};
 static enum kui_update_result snapshot_prepare(const struct kui_update_package *,
     const struct kui_update_activation *,struct kui_update_package *,struct snapshot_source *,
-    struct kui_app_status *,kui_cancel_fn,kui_app_progress_fn);
-static enum kui_update_result baseline_verify(struct kui_app_status *,kui_cancel_fn,kui_app_progress_fn,unsigned *);
+    struct kui_app_status *,kui_cancel_fn,kui_app_progress_fn,struct kui_update_review_problem *);
+static enum kui_update_result baseline_verify(struct kui_app_status *,kui_cancel_fn,kui_app_progress_fn,unsigned *,struct kui_update_review_problem *);
 static enum kui_update_result activation_for_update(struct kui_update_activation *,unsigned *,kui_cancel_fn,bool *);
+static void review_problem(struct kui_update_review_problem *issue,const char *operation,const char *path,int fatfs) {
+    if(!issue)return;
+    issue->operation=operation;issue->fatfs=fatfs;
+    snprintf(issue->path,sizeof(issue->path),"%.*s",(int)sizeof(issue->path)-1,path?path:"");
+}
 static uint32_t get32(const uint8_t *p) {
     return (uint32_t)p[0]|(uint32_t)p[1]<<8|(uint32_t)p[2]<<16|(uint32_t)p[3]<<24;
 }
@@ -50,6 +55,14 @@ static enum kui_update_result read_exact(FIL *f,void *data,UINT bytes,kui_cancel
     if(stopped(cancel))return KUI_UPDATE_CANCELLED;
     UINT got=0;
     return f_read(f,data,bytes,&got)==FR_OK && got==bytes?KUI_UPDATE_OK:KUI_UPDATE_IO;
+}
+static enum kui_update_result read_baseline(FIL *file,void *data,UINT bytes,kui_cancel_fn cancel,
+    struct kui_update_review_problem *issue) {
+    if(stopped(cancel))return KUI_UPDATE_CANCELLED;
+    UINT got=0;FRESULT result=f_read(file,data,bytes,&got);
+    if(result==FR_OK && got==bytes)return KUI_UPDATE_OK;
+    review_problem(issue,result==FR_OK?"short physical runtime read":"read physical runtime",KUI_RUNTIME_PATH,result);
+    return KUI_UPDATE_IO;
 }
 static enum kui_update_result write_exact(FIL *f,const void *data,UINT bytes) {
     UINT done=0;
@@ -170,16 +183,25 @@ enum kui_update_result kui_update_inspect(const char *path,struct kui_update_pac
     if(r)memset(out,0,sizeof(*out));
     return finish(r,s,log,progress,"Offline update package verified.");
 }
-enum kui_update_result kui_update_activation_read(unsigned slot,struct kui_update_activation *out,kui_cancel_fn cancel) {
+static enum kui_update_result activation_read_diagnose(unsigned slot,struct kui_update_activation *out,kui_cancel_fn cancel,
+    struct kui_update_review_problem *issue) {
     if(!out || slot>1u)return KUI_UPDATE_ARGUMENT;
     memset(out,0,sizeof(*out));if(stopped(cancel))return KUI_UPDATE_CANCELLED;
-    FIL file;FRESULT f=f_open(&file,slot?KUI_UPDATE_ACTIVE1:KUI_UPDATE_ACTIVE0,FA_READ);
-    if(f!=FR_OK)return f==FR_NO_FILE || f==FR_NO_PATH?KUI_UPDATE_NOT_FOUND:KUI_UPDATE_IO;
+    const char *path=slot?KUI_UPDATE_ACTIVE1:KUI_UPDATE_ACTIVE0;
+    FIL file;FRESULT f=f_open(&file,path,FA_READ);
+    if(f!=FR_OK) {
+        review_problem(issue,"open activation",path,f);return f==FR_NO_FILE || f==FR_NO_PATH?KUI_UPDATE_NOT_FOUND:KUI_UPDATE_IO;
+    }
+    review_problem(issue,"read activation",path,-1);
     uint8_t wire[128];enum kui_update_result r=f_size(&file)==sizeof(wire)?read_exact(&file,wire,sizeof(wire),cancel):KUI_UPDATE_FORMAT;
     if(!r && !kui_update_activation_decode(wire,out))r=KUI_UPDATE_FORMAT;
-    if(f_close(&file)!=FR_OK)r=KUI_UPDATE_IO;
+    FRESULT closed=f_close(&file);
+    if(closed!=FR_OK) {review_problem(issue,"close activation",path,closed);r=KUI_UPDATE_IO;}
     if(r)memset(out,0,sizeof(*out));
     return r;
+}
+enum kui_update_result kui_update_activation_read(unsigned slot,struct kui_update_activation *out,kui_cancel_fn cancel) {
+    return activation_read_diagnose(slot,out,cancel,NULL);
 }
 static bool activation_equal(const struct kui_update_activation *a,const struct kui_update_activation *b) {
     return a->sequence==b->sequence && !memcmp(a->selected,b->selected,13u) &&
@@ -198,14 +220,18 @@ enum kui_update_result kui_update_activation_latest(struct kui_update_activation
     }
     return ar==KUI_UPDATE_NOT_FOUND && br==KUI_UPDATE_NOT_FOUND?KUI_UPDATE_NOT_FOUND:KUI_UPDATE_FORMAT;
 }
-enum kui_update_result kui_update_bank_receipt_read(const char *build,struct kui_update_package *out,kui_cancel_fn cancel) {
+static enum kui_update_result receipt_read_diagnose(const char *build,struct kui_update_package *out,kui_cancel_fn cancel,
+    struct kui_update_review_problem *issue) {
     if(out)memset(out,0,sizeof(*out));
     if(!out || !kui_update_build_valid(build))return KUI_UPDATE_ARGUMENT;
     char path[160];int n=snprintf(path,sizeof(path),KUI_UPDATE_SYSTEM "/%s/package.bin",build);
     if(n<0 || (size_t)n>=sizeof(path))return KUI_UPDATE_ARGUMENT;
     if(stopped(cancel))return KUI_UPDATE_CANCELLED;
     FIL file;FRESULT f=f_open(&file,path,FA_READ);
-    if(f!=FR_OK)return f==FR_NO_FILE || f==FR_NO_PATH?KUI_UPDATE_NOT_FOUND:KUI_UPDATE_IO;
+    if(f!=FR_OK) {
+        review_problem(issue,"open bank receipt",path,f);return f==FR_NO_FILE || f==FR_NO_PATH?KUI_UPDATE_NOT_FOUND:KUI_UPDATE_IO;
+    }
+    review_problem(issue,"read bank receipt",path,-1);
     enum kui_update_result r=package_read(&file,true,out,cancel);
     if(!r && strcmp(build,out->build))r=KUI_UPDATE_STALE;
     /* Incoming v2 deliveries may omit the GUI. A completed installed receipt
@@ -214,9 +240,13 @@ enum kui_update_result kui_update_bank_receipt_read(const char *build,struct kui
         if(strcmp(out->entries[0].path,"runtime.kui") || out->entries[0].policy!=KUI_UPDATE_SELF_KUI)r=KUI_UPDATE_FORMAT;
         for(uint32_t i=0;!r && i<out->count;i++)if(out->entries[i].policy==KUI_UPDATE_KEEP)r=KUI_UPDATE_FORMAT;
     }
-    if(f_close(&file)!=FR_OK && !r)r=KUI_UPDATE_IO;
+    FRESULT closed=f_close(&file);
+    if(closed!=FR_OK && !r) {review_problem(issue,"close bank receipt",path,closed);r=KUI_UPDATE_IO;}
     if(r)memset(out,0,sizeof(*out));
     return r;
+}
+enum kui_update_result kui_update_bank_receipt_read(const char *build,struct kui_update_package *out,kui_cancel_fn cancel) {
+    return receipt_read_diagnose(build,out,cancel,NULL);
 }
 static enum kui_update_result bank_withdrawn(const char *build,bool *withdrawn,kui_cancel_fn cancel) {
     *withdrawn=false;
@@ -276,20 +306,22 @@ static bool recoverable_bank_error(enum kui_update_result r) {
  * next free instance and reuses any already verified matching completion. */
 static enum kui_update_result snapshot_target(struct kui_update_package *snapshot,
     const struct kui_update_activation *active,struct kui_update_package *other,bool allow_repair,bool *complete,
-    struct kui_app_status *s,kui_log_fn log,kui_cancel_fn cancel,kui_app_progress_fn progress) {
+    struct kui_app_status *s,kui_log_fn log,kui_cancel_fn cancel,kui_app_progress_fn progress,
+    struct kui_update_review_problem *issue) {
     char canonical[13],effective[13]={0};uint8_t effective_hash[32]={0};memcpy(canonical,snapshot->build,13u);
     int known=kui_update_effective_snapshot?kui_update_effective_snapshot(effective,effective_hash):0;
     if(!known)memcpy(effective,active->selected,sizeof(effective));
     struct kui_update_activation retained[2];bool retained_valid[2]={false,false};
     for(unsigned i=0;i<2u;i++) {
-        enum kui_update_result record=kui_update_activation_read(i,retained+i,cancel);
+        enum kui_update_result record=activation_read_diagnose(i,retained+i,cancel,issue);
         if(record==KUI_UPDATE_IO || record==KUI_UPDATE_CANCELLED)return record;
         retained_valid[i]=record==KUI_UPDATE_OK;
     }
     bool full=allow_repair;*complete=false;
     if(!full && effective[0] && strcmp(effective,canonical)) {
-        enum kui_update_result found=kui_update_bank_receipt_read(effective,other,cancel);
+        enum kui_update_result found=receipt_read_diagnose(effective,other,cancel,issue);
         if(!found && snapshot_same(snapshot,other)) {
+            review_problem(issue,"verify effective bank",effective,-1);
             enum kui_update_result verified=kui_update_bank_verify(effective,other,s,log,cancel,progress);
             if(verified)return verified;
             memcpy(snapshot->build,effective,13u);*complete=true;return KUI_UPDATE_OK;
@@ -306,9 +338,10 @@ static enum kui_update_result snapshot_target(struct kui_update_package *snapsho
             kui_sha256_update(&hash,index,sizeof(index));kui_sha256_digest(&hash,identity);kui_hex(identity,32u,hex);
             memcpy(snapshot->build,hex,12u);snapshot->build[12]=0;
         }
-        enum kui_update_result found=kui_update_bank_receipt_read(snapshot->build,other,cancel);
+        enum kui_update_result found=receipt_read_diagnose(snapshot->build,other,cancel,issue);
         if(!found) {
             if(!snapshot_same(snapshot,other)) {if(full)continue;return KUI_UPDATE_STALE;}
+            review_problem(issue,"verify target bank",snapshot->build,-1);
             enum kui_update_result verified=kui_update_bank_verify(snapshot->build,other,s,log,cancel,progress);
             if(!verified) {*complete=true;return KUI_UPDATE_OK;}
             if(!full || !recoverable_bank_error(verified))return verified;
@@ -324,15 +357,19 @@ static enum kui_update_result snapshot_target(struct kui_update_package *snapsho
         snprintf(directory_path,sizeof(directory_path),KUI_UPDATE_SYSTEM "/%s",snapshot->build);
         FRESULT stat=f_stat(directory_path,&info);
         if(stat==FR_OK && !(info.fattrib&AM_DIR)) {if(full)continue;return KUI_UPDATE_PROTECTED;}
-        if(stat!=FR_OK && stat!=FR_NO_FILE && stat!=FR_NO_PATH)return KUI_UPDATE_IO;
+        if(stat!=FR_OK && stat!=FR_NO_FILE && stat!=FR_NO_PATH) {review_problem(issue,"stat target directory",directory_path,stat);return KUI_UPDATE_IO;}
         if(full && stat==FR_OK) {
             /* Missing/bad receipts cannot prove that an old bank was never
              * complete. Preserve every nonempty candidate, including failed
              * repair instances. An empty directory is safe to reuse. */
             DIR directory;FILINFO member;
-            if(f_opendir(&directory,directory_path)!=FR_OK)return KUI_UPDATE_IO;
+            FRESULT opened=f_opendir(&directory,directory_path);
+            if(opened!=FR_OK) {review_problem(issue,"open target directory",directory_path,opened);return KUI_UPDATE_IO;}
             FRESULT read=f_readdir(&directory,&member),closed=f_closedir(&directory);
-            if(read!=FR_OK || closed!=FR_OK)return KUI_UPDATE_IO;
+            if(read!=FR_OK || closed!=FR_OK) {
+                review_problem(issue,read!=FR_OK?"read target directory":"close target directory",directory_path,read!=FR_OK?read:closed);
+                return KUI_UPDATE_IO;
+            }
             if(member.fname[0])continue;
         }
         if(attempt && log)log("Offline update: recovery %u/%u bank %s; original %s retained",attempt,REPAIR_BANKS,snapshot->build,canonical);
@@ -365,15 +402,18 @@ static enum kui_update_result directories(const struct kui_update_package *p) {
     }
     return r;
 }
-static enum kui_update_result quota_directory(const char *path,uint64_t cluster,uint64_t *required) {
+static enum kui_update_result quota_directory(const char *path,uint64_t cluster,uint64_t *required,struct kui_update_review_problem *issue) {
     FILINFO info;FRESULT f=f_stat(path,&info);
     if(f==FR_OK)return info.fattrib&AM_DIR?KUI_UPDATE_OK:KUI_UPDATE_PROTECTED;
-    if(f!=FR_NO_FILE && f!=FR_NO_PATH)return KUI_UPDATE_IO;
+    if(f!=FR_NO_FILE && f!=FR_NO_PATH) {review_problem(issue,"stat bank directory",path,f);return KUI_UPDATE_IO;}
     *required+=cluster;return KUI_UPDATE_OK;
 }
-static enum kui_update_result quota(const struct kui_update_package *p,uint64_t *needed,uint64_t *available) {
+static enum kui_update_result quota(const struct kui_update_package *p,uint64_t *needed,uint64_t *available,struct kui_update_review_problem *issue) {
     FATFS *fs=NULL;DWORD clusters=0;
-    if(f_getfree("0:",&clusters,&fs)!=FR_OK || !fs || !fs->csize)return KUI_UPDATE_IO;
+    FRESULT space=f_getfree("0:",&clusters,&fs);
+    if(space!=FR_OK || !fs || !fs->csize) {
+        review_problem(issue,"read free space","0:",space);return KUI_UPDATE_IO;
+    }
     /* Retain the metadata margin used by v1. In addition to parent clusters,
      * directory growth and the inactive activation record can allocate space
      * while the already written payload clusters are still live. */
@@ -382,10 +422,10 @@ static enum kui_update_result quota(const struct kui_update_package *p,uint64_t 
         required+=((p->entries[i].bytes+cluster-1u)/cluster)*cluster;
     required+=((128u+(uint64_t)p->count*kui_update_entry_bytes(p)+cluster-1u)/cluster)*cluster;
     char path[160];FILINFO info;
-    enum kui_update_result r=quota_directory("0:/KUI",cluster,&required);
-    if(!r)r=quota_directory(KUI_UPDATE_SYSTEM,cluster,&required);
+    enum kui_update_result r=quota_directory("0:/KUI",cluster,&required,issue);
+    if(!r)r=quota_directory(KUI_UPDATE_SYSTEM,cluster,&required,issue);
     snprintf(path,sizeof(path),KUI_UPDATE_SYSTEM "/%s",p->build);
-    if(!r)r=quota_directory(path,cluster,&required);
+    if(!r)r=quota_directory(path,cluster,&required,issue);
     /* Count each distinct parent once, including future asset subdirectories.
      * Existing parents reduce required allocation without claiming to reclaim
      * storage occupied by another bank or by undeclared files. */
@@ -398,7 +438,7 @@ static enum kui_update_result quota(const struct kui_update_package *p,uint64_t 
             if(seen)continue;
             if(!kui_update_bank_path(p->build,relative,path,sizeof(path)))return KUI_UPDATE_ARGUMENT;
             path[strlen(KUI_UPDATE_SYSTEM)+1u+strlen(p->build)+1u+end]=0;
-            r=quota_directory(path,cluster,&required);
+            r=quota_directory(path,cluster,&required,issue);
         }
     }
     if(r)return r;
@@ -409,7 +449,7 @@ static enum kui_update_result quota(const struct kui_update_package *p,uint64_t 
         FRESULT f=f_stat(path,&info);
         if(f==FR_OK) {if(info.fattrib&AM_DIR)return KUI_UPDATE_PROTECTED;
             reclaim+=((info.fsize+cluster-1u)/cluster)*cluster;}
-        else if(f!=FR_NO_FILE && f!=FR_NO_PATH)return KUI_UPDATE_IO;
+        else if(f!=FR_NO_FILE && f!=FR_NO_PATH) {review_problem(issue,"stat bank file",path,f);return KUI_UPDATE_IO;}
     }
     *needed=required>reclaim?required-reclaim:0u;*available=(uint64_t)clusters*cluster;
     return *available>=*needed?KUI_UPDATE_OK:KUI_UPDATE_SPACE;
@@ -427,7 +467,16 @@ struct review_diff {
     const struct snapshot_source *sources;
     uint8_t *buffer;
     kui_cancel_fn cancel;
+    struct kui_update_review_problem *issue;
 };
+static enum kui_update_result comparison_io(struct kui_update_review_problem *issue,
+    const char *operation,const char *path,int fatfs) {
+    if(issue && !issue->comparison_operation) {
+        issue->comparison_operation=operation;issue->comparison_fatfs=fatfs;
+        snprintf(issue->comparison_path,sizeof(issue->comparison_path),"%.*s",(int)sizeof(issue->comparison_path)-1,path);
+    }
+    return KUI_UPDATE_IO;
+}
 struct review_content { bool present; uint64_t bytes; uint8_t sha256[32]; };
 static int review_policy(const struct kui_update_package *p,const struct kui_update_entry *entry) {
     if(entry)return entry->policy;
@@ -437,7 +486,7 @@ static enum kui_update_result review_read(const char *path,struct review_content
     bool hash,uint64_t compare_size,struct review_diff *d) {
     FIL f;FRESULT open=physical_open(&f,path,FA_READ);
     if(open==FR_NO_PATH || open==FR_NO_FILE)return KUI_UPDATE_OK;
-    if(open!=FR_OK)return KUI_UPDATE_IO;
+    if(open!=FR_OK)return comparison_io(d->issue,"open file",path,open);
     file->present=true;file->bytes=f_size(&f);
     enum kui_update_result r=KUI_UPDATE_OK;
     if(hash && (compare_size==UINT64_MAX || file->bytes==compare_size)) {
@@ -445,12 +494,15 @@ static enum kui_update_result review_read(const char *path,struct review_content
         uint64_t left=file->bytes;
         while(left && !r) {
             UINT size=left>CHUNK?CHUNK:(UINT)left;
-            r=read_exact(&f,d->buffer,size,d->cancel);
+            if(stopped(d->cancel)) {r=KUI_UPDATE_CANCELLED;break;}
+            UINT got=0;FRESULT read=f_read(&f,d->buffer,size,&got);
+            if(read!=FR_OK || got!=size)r=comparison_io(d->issue,read==FR_OK?"short file read":"read file",path,read);
             if(!r) {kui_sha256_update(&sha,d->buffer,size);left-=size;}
         }
         if(!r)kui_sha256_digest(&sha,file->sha256);
     }
-    if(f_close(&f)!=FR_OK && !r)r=KUI_UPDATE_IO;
+    FRESULT closed=f_close(&f);
+    if(closed!=FR_OK && !r)r=comparison_io(d->issue,"close file",path,closed);
     return r;
 }
 static void review_record(struct kui_update_changes *changes,enum kui_update_change_kind kind,const char *path) {
@@ -519,12 +571,13 @@ static enum kui_update_result review_root(struct review_diff *d,const char *fold
     snprintf(physical,sizeof(physical),"0:/KUI%s%s",folder[0]?"/":"",folder);
     DIR directory;FRESULT open=f_opendir(&directory,physical);
     if(open==FR_NO_PATH || open==FR_NO_FILE)return KUI_UPDATE_OK;
-    if(open!=FR_OK)return KUI_UPDATE_IO;
+    if(open!=FR_OK)return comparison_io(d->issue,"open directory",physical,open);
     enum kui_update_result result=KUI_UPDATE_OK;
     FILINFO info;
     while(!result) {
         if(stopped(d->cancel)) {result=KUI_UPDATE_CANCELLED;break;}
-        if(f_readdir(&directory,&info)!=FR_OK) {result=KUI_UPDATE_IO;break;}
+        FRESULT read=f_readdir(&directory,&info);
+        if(read!=FR_OK) {result=comparison_io(d->issue,"read directory",physical,read);break;}
         if(!info.fname[0])break;
         char path[KUI_UPDATE_PATH_BYTES];
         int n=snprintf(path,sizeof(path),"%s%s%s",folder,folder[0]?"/":"",info.fname);
@@ -540,7 +593,8 @@ static enum kui_update_result review_root(struct review_diff *d,const char *fold
             review_record(d->changes,kind,path);
         }
     }
-    if(f_closedir(&directory)!=FR_OK && !result)result=KUI_UPDATE_IO;
+    FRESULT closed=f_closedir(&directory);
+    if(closed!=FR_OK && !result)result=comparison_io(d->issue,"close directory",physical,closed);
     return result;
 }
 static enum kui_update_result review_changes(struct review_diff *d) {
@@ -576,23 +630,72 @@ static enum kui_update_result review_changes(struct review_diff *d) {
 static enum kui_update_result review_contents(const struct kui_update_package *incoming,
     const struct kui_update_package *target,const struct kui_update_activation *active,
     struct kui_update_package *scratch,const struct snapshot_source *sources,
-    struct kui_update_changes *changes,kui_cancel_fn cancel) {
+    struct kui_update_changes *changes,kui_cancel_fn cancel,struct kui_update_review_problem *issue) {
     const struct kui_update_package *before=NULL;
     if(active->selected[0]) {
-        enum kui_update_result r=kui_update_bank_receipt_read(active->selected,scratch,cancel);
+        struct kui_update_review_problem receipt={0};
+        enum kui_update_result r=receipt_read_diagnose(active->selected,scratch,cancel,issue?&receipt:NULL);
+        if(r==KUI_UPDATE_IO && issue && receipt.operation)
+            comparison_io(issue,receipt.operation,receipt.path,receipt.fatfs);
         if(r)return r;
         if(memcmp(scratch->manifest_sha256,active->manifest_sha256,32u))return KUI_UPDATE_STALE;
         before=scratch;
     }
-    struct review_diff d={incoming,before,target,changes,sources,malloc(CHUNK),cancel};
+    struct review_diff d={incoming,before,target,changes,sources,malloc(CHUNK),cancel,issue};
     if(!d.buffer)return KUI_UPDATE_MEMORY;
     enum kui_update_result r=review_changes(&d);
     free(d.buffer);changes->known=r==KUI_UPDATE_OK;
     return r;
 }
-enum kui_update_result kui_update_plan_review_details(const struct kui_update_package *p,
+static enum kui_update_result review_bank_plan(const struct kui_update_package *p,
+    struct kui_update_package *snapshot,struct kui_update_package *bank,const struct kui_update_activation *active,
+    bool allow_repair,bool *already_selected,uint64_t *needed,uint64_t *available,kui_cancel_fn cancel,
+    struct kui_update_review_problem *issue) {
+    enum kui_update_result r;
+    if(snapshot) {
+        review_problem(issue,"inspect target bank",snapshot->build,-1);
+        bool complete=false;r=snapshot_target(snapshot,active,bank,allow_repair,&complete,NULL,NULL,cancel,NULL,issue);
+        if(!r && !complete)r=quota(snapshot,needed,available,issue);
+        if(r || !complete)return r;
+        if(!snapshot_same(snapshot,bank))r=KUI_UPDATE_STALE;
+    } else {
+        review_problem(issue,"inspect bank receipt",p->build,-1);
+        r=kui_update_bank_receipt_read(p->build,bank,cancel);
+        if(!r) {
+            struct kui_update_pin pin;kui_update_package_pin(p,&pin);
+            if(!kui_update_pin_matches(&pin,bank))r=KUI_UPDATE_STALE;
+            /* Legacy quota alone needs just a receipt. Re-read the selected
+             * bank's files before reporting a successful duplicate check. */
+            else if(already_selected && !strcmp(active->selected,p->build)) {
+                r=kui_update_bank_verify(p->build,bank,NULL,NULL,cancel,NULL);
+                if(!r && !kui_update_pin_matches(&pin,bank))r=KUI_UPDATE_STALE;
+            }
+        } else if(r==KUI_UPDATE_NOT_FOUND || r==KUI_UPDATE_FORMAT || r==KUI_UPDATE_CHECKSUM ||
+                  r==KUI_UPDATE_COHORT || r==KUI_UPDATE_STALE) {
+            if(!strcmp(active->selected,p->build) || !strcmp(active->previous,p->build))r=KUI_UPDATE_PROTECTED;
+            else if(stopped(cancel))r=KUI_UPDATE_CANCELLED;
+            else r=quota(p,needed,available,issue);
+            return r;
+        }
+    }
+    if(!r) {
+        FATFS *fs=NULL;DWORD free_clusters=0u;
+        FRESULT space=f_getfree("0:",&free_clusters,&fs);
+        if(space!=FR_OK || !fs) {review_problem(issue,"read free space","0:",space);r=KUI_UPDATE_IO;}
+        else {
+            *available=(uint64_t)free_clusters*fs->csize*512u;
+            if(already_selected)*already_selected=!strcmp(active->selected,p->build) &&
+                !memcmp(active->manifest_sha256,bank->manifest_sha256,32u);
+        }
+    }
+    return r;
+}
+enum kui_update_result kui_update_plan_review_diagnose(const struct kui_update_package *p,
     const struct kui_update_activation *expected,bool *already_selected,
-    uint64_t *needed,uint64_t *available,kui_cancel_fn cancel,struct kui_update_changes *changes) {
+    uint64_t *needed,uint64_t *available,kui_cancel_fn cancel,struct kui_update_changes *changes,
+    struct kui_update_review_problem *issue) {
+    if(issue)memset(issue,0,sizeof(*issue));
+    review_problem(issue,"read activation",KUI_UPDATE_SYSTEM,-1);
     if(changes)memset(changes,0,sizeof(*changes));
     const struct kui_update_package *incoming=p;
     if(already_selected)*already_selected=false;
@@ -609,61 +712,35 @@ enum kui_update_result kui_update_plan_review_details(const struct kui_update_pa
     unsigned root_engine=0u;
     struct snapshot_source *sources=NULL;
     if(kui_update_package_version(p)==1u) {
-        r=baseline_verify(NULL,cancel,NULL,&root_engine);
+        r=baseline_verify(NULL,cancel,NULL,&root_engine,issue);
         if(r==KUI_UPDATE_NOT_FOUND)r=KUI_UPDATE_OK;
         if(r) {free(bank);return r;}
     }
     if(kui_update_package_version(p)==2u || root_engine>=2u) {
         snapshot=malloc(sizeof(*snapshot));
         sources=calloc(KUI_UPDATE_MAX_ENTRIES,sizeof(*sources));
-        r=snapshot && sources?snapshot_prepare(p,&a,snapshot,sources,NULL,cancel,NULL):KUI_UPDATE_MEMORY;
+        r=snapshot && sources?snapshot_prepare(p,&a,snapshot,sources,NULL,cancel,NULL,issue):KUI_UPDATE_MEMORY;
         if(r) {free(sources);free(snapshot);free(bank);return r;}
         p=snapshot;
     }
-    if(changes) {
-        enum kui_update_result compared=review_contents(incoming,p,&a,bank,sources,changes,cancel);
+    r=review_bank_plan(p,snapshot,bank,&a,allow_repair,already_selected,needed,available,cancel,issue);
+    /* Comparing old software is for the display only. A read error invalidates the
+     * current media session. Finish all required reads before the
+     * comparison; the GUI disconnects after review and checks the card,
+     * activation and package again on the next (confirmed) request. */
+    if(changes && (r==KUI_UPDATE_OK || r==KUI_UPDATE_SPACE)) {
+        enum kui_update_result compared=review_contents(incoming,p,&a,bank,sources,changes,cancel,issue);
         if(compared) {
             memset(changes,0,sizeof(*changes));
-            if(compared==KUI_UPDATE_CANCELLED) {free(sources);free(snapshot);free(bank);return compared;}
-            /* A broken previous bank or unavailable inventory does not remove
-             * the ability to repair it with a verified full package. */
+            if(compared==KUI_UPDATE_CANCELLED)r=compared;
         }
     }
-    free(sources);
-    if(snapshot) {
-        bool complete=false;r=snapshot_target(snapshot,&a,bank,allow_repair,&complete,NULL,NULL,cancel,NULL);
-        if(!r && !complete)r=quota(snapshot,needed,available);
-        if(r || !complete) {free(snapshot);free(bank);return r;}
-        if(!snapshot_same(snapshot,bank))r=KUI_UPDATE_STALE;
-    } else {
-        r=kui_update_bank_receipt_read(p->build,bank,cancel);
-        if(!r) {
-            struct kui_update_pin pin;kui_update_package_pin(p,&pin);
-            if(!kui_update_pin_matches(&pin,bank))r=KUI_UPDATE_STALE;
-            /* Legacy quota alone needs just a receipt. Re-read the selected
-             * bank's files before reporting a successful duplicate check. */
-            else if(already_selected && !strcmp(a.selected,p->build)) {
-                r=kui_update_bank_verify(p->build,bank,NULL,NULL,cancel,NULL);
-                if(!r && !kui_update_pin_matches(&pin,bank))r=KUI_UPDATE_STALE;
-            }
-        } else if(r==KUI_UPDATE_NOT_FOUND || r==KUI_UPDATE_FORMAT || r==KUI_UPDATE_CHECKSUM ||
-                  r==KUI_UPDATE_COHORT || r==KUI_UPDATE_STALE) {
-            if(!strcmp(a.selected,p->build) || !strcmp(a.previous,p->build))r=KUI_UPDATE_PROTECTED;
-            else if(stopped(cancel))r=KUI_UPDATE_CANCELLED;
-            else r=quota(p,needed,available);
-            free(bank);return r;
-        }
-    }
-    if(!r) {
-        FATFS *fs=NULL;DWORD free_clusters=0u;
-        if(f_getfree("0:",&free_clusters,&fs)!=FR_OK || !fs)r=KUI_UPDATE_IO;
-        else {
-            *available=(uint64_t)free_clusters*fs->csize*512u;
-            if(already_selected)*already_selected=!strcmp(a.selected,p->build) &&
-                !memcmp(a.manifest_sha256,bank->manifest_sha256,32u);
-        }
-    }
-    free(snapshot);free(bank);return r;
+    free(sources);free(snapshot);free(bank);return r;
+}
+enum kui_update_result kui_update_plan_review_details(const struct kui_update_package *p,
+    const struct kui_update_activation *expected,bool *already_selected,
+    uint64_t *needed,uint64_t *available,kui_cancel_fn cancel,struct kui_update_changes *changes) {
+    return kui_update_plan_review_diagnose(p,expected,already_selected,needed,available,cancel,changes,NULL);
 }
 enum kui_update_result kui_update_plan_review(const struct kui_update_package *p,
     const struct kui_update_activation *expected,bool *already_selected,
@@ -761,7 +838,7 @@ static enum kui_update_result activation_for_update(struct kui_update_activation
             uint64_t sequence=conflict?first.sequence:0u;
             unsigned keep=conflict && first.selected[0]?1u:0u;
             unsigned engine=0u;
-            r=baseline_verify(NULL,cancel,NULL,&engine);
+            r=baseline_verify(NULL,cancel,NULL,&engine,NULL);
             unsigned required=kui_update_boot_engine_minimum?kui_update_boot_engine_minimum():0u;
             if(!r && (engine<2u || engine<required))r=KUI_UPDATE_ENGINE;
             if(!r) {
@@ -775,14 +852,18 @@ enum kui_update_result kui_update_activation_for_update(struct kui_update_activa
     return activation_for_update(a,slot,cancel,NULL);
 }
 static enum kui_update_result baseline_verify(struct kui_app_status *s,kui_cancel_fn cancel,
-    kui_app_progress_fn progress,unsigned *engine_level) {
+    kui_app_progress_fn progress,unsigned *engine_level,struct kui_update_review_problem *issue) {
     if(engine_level)*engine_level=0u;
     phase(s,"Verifying immutable baseline runtime...",0u,progress);
     if(stopped(cancel))return KUI_UPDATE_CANCELLED;
     FIL file;FRESULT opened=physical_open(&file,KUI_RUNTIME_PATH,FA_READ);
-    if(opened!=FR_OK)return opened==FR_NO_FILE || opened==FR_NO_PATH?KUI_UPDATE_NOT_FOUND:KUI_UPDATE_IO;
+    if(opened!=FR_OK) {
+        review_problem(issue,"open physical runtime",KUI_RUNTIME_PATH,opened);
+        return opened==FR_NO_FILE || opened==FR_NO_PATH?KUI_UPDATE_NOT_FOUND:KUI_UPDATE_IO;
+    }
     uint8_t header[64],buffer[4096];struct kui_runtime_info info;
-    enum kui_update_result r=read_exact(&file,header,sizeof(header),cancel);
+    review_problem(issue,"read physical runtime",KUI_RUNTIME_PATH,-1);
+    enum kui_update_result r=f_size(&file)<sizeof(header)?KUI_UPDATE_RUNTIME:read_baseline(&file,header,sizeof(header),cancel,issue);
     if(!r && (kui_runtime_header(header,f_size(&file),&info)!=KUI_RUNTIME_OK ||
        kui_update_build_withdrawn(info.build)))r=KUI_UPDATE_RUNTIME;
     struct capability capability={0},engine2={0},engine3={0};struct kui_update_handoff_scan handoff={0};
@@ -790,7 +871,7 @@ static enum kui_update_result baseline_verify(struct kui_app_status *s,kui_cance
     if(!r && s)s->total=info.payload_bytes;
     while(!r && done<info.payload_bytes) {
         UINT n=info.payload_bytes-done;if(n>sizeof(buffer))n=sizeof(buffer);
-        r=read_exact(&file,buffer,n,cancel);
+        r=read_baseline(&file,buffer,n,cancel,issue);
         if(!r) {
             crc=kui_crc32(crc,buffer,n);capability_update(&capability,buffer,n);
             marker_update(&engine2,buffer,n,2u);marker_update(&engine3,buffer,n,3u);
@@ -799,7 +880,8 @@ static enum kui_update_result baseline_verify(struct kui_app_status *s,kui_cance
         }
     }
     if(!r && (crc!=info.crc32 || capability.count!=1u || !kui_update_handoff_scan_valid(&handoff)))r=KUI_UPDATE_CHECKSUM;
-    if(f_close(&file)!=FR_OK && !r)r=KUI_UPDATE_IO;
+    FRESULT closed=f_close(&file);
+    if(closed!=FR_OK && !r) {review_problem(issue,"close physical runtime",KUI_RUNTIME_PATH,closed);r=KUI_UPDATE_IO;}
     if(!r && stopped(cancel))r=KUI_UPDATE_CANCELLED;
     if(!r && engine_level)*engine_level=engine_marker_level(&engine2,&engine3);
     return r;
@@ -864,7 +946,8 @@ static enum kui_update_result snapshot_sources_verify(const struct kui_update_pa
 }
 static enum kui_update_result snapshot_prepare(const struct kui_update_package *incoming,
     const struct kui_update_activation *active,struct kui_update_package *snapshot,
-    struct snapshot_source *sources,struct kui_app_status *s,kui_cancel_fn cancel,kui_app_progress_fn progress) {
+    struct snapshot_source *sources,struct kui_app_status *s,kui_cancel_fn cancel,kui_app_progress_fn progress,
+    struct kui_update_review_problem *issue) {
     uint8_t *metadata=malloc(KUI_UPDATE_RECEIPT_MAX);size_t metadata_bytes=0u;
     if(!metadata)return KUI_UPDATE_MEMORY;
     enum kui_update_result r=kui_update_receipt_encode(incoming,metadata,KUI_UPDATE_RECEIPT_MAX,&metadata_bytes);
@@ -884,12 +967,13 @@ static enum kui_update_result snapshot_prepare(const struct kui_update_package *
         }
     }
     unsigned engine=0u;
-    r=baseline_verify(s,cancel,progress,&engine);
+    r=baseline_verify(s,cancel,progress,&engine,issue);
     unsigned required=kui_update_engine_minimum(incoming);if(required<2u)required=2u;
     unsigned running_required=kui_update_boot_engine_minimum?kui_update_boot_engine_minimum():0u;
     if(required<running_required)required=running_required;
     if(!r && engine<required)r=KUI_UPDATE_ENGINE;
     if(r)return r;
+    review_problem(issue,"read snapshot sources",base.selected,-1);
     memset(snapshot,0,sizeof(*snapshot));snapshot->version=2u;snapshot->flags=incoming->flags;
     /* A snapshot names applied software, independent of the incoming package's
      * delivery channel, build label, ordering, or source configuration. */
@@ -983,7 +1067,7 @@ enum kui_update_result kui_update_target_verify(const char *build,struct kui_upd
     if(!build || (build[0] && (!kui_update_build_valid(build) || !out)))
         return finish(KUI_UPDATE_ARGUMENT,s,log,progress,"");
     unsigned root_engine=0u;
-    enum kui_update_result r=baseline_verify(NULL,cancel,NULL,&root_engine);
+    enum kui_update_result r=baseline_verify(NULL,cancel,NULL,&root_engine,NULL);
     unsigned minimum=kui_update_boot_engine_minimum?kui_update_boot_engine_minimum():0u;
     if(minimum<root_engine)minimum=root_engine;
     if(!r && root_engine<minimum)r=KUI_UPDATE_ENGINE;
@@ -1029,7 +1113,7 @@ static enum kui_update_result install_snapshot(const char *path,const struct kui
     struct snapshot_source *sources=calloc(KUI_UPDATE_MAX_ENTRIES,sizeof(*sources));
     uint8_t *buffer=NULL,*receipt=NULL;FIL package;bool package_open=false;
     enum kui_update_result r=snapshot && other && sources?KUI_UPDATE_OK:KUI_UPDATE_MEMORY;
-    if(!r)r=snapshot_prepare(incoming,active,snapshot,sources,s,cancel,progress);
+    if(!r)r=snapshot_prepare(incoming,active,snapshot,sources,s,cancel,progress,NULL);
     if(!r && kui_update_engine_minimum(snapshot)>kui_update_engine_minimum(incoming)) {
         const struct kui_update_entry *gui=kui_update_package_find(incoming,"runtime.kui");
         if(gui && has_payload(gui)) {
@@ -1046,11 +1130,11 @@ static enum kui_update_result install_snapshot(const char *path,const struct kui
         }
     }
     bool complete=false;
-    if(!r)r=snapshot_target(snapshot,active,other,(incoming->flags&KUI_UPDATE_FULL)!=0u,&complete,s,log,cancel,progress);
+    if(!r)r=snapshot_target(snapshot,active,other,(incoming->flags&KUI_UPDATE_FULL)!=0u,&complete,s,log,cancel,progress,NULL);
     struct kui_update_pin snapshot_pin;
     if(!r)kui_update_package_pin(snapshot,&snapshot_pin);
     uint64_t required=0u,available=0u;
-    if(!r && !complete)r=quota(snapshot,&required,&available);
+    if(!r && !complete)r=quota(snapshot,&required,&available,NULL);
     if(!r && !complete)r=directories(snapshot);
     if(!r && !complete)r=clear_partial(snapshot,cancel);
     if(!r && !complete) {
@@ -1128,7 +1212,7 @@ enum kui_update_result kui_update_install(const char *path,const struct kui_upda
      * banks remain readable for verification and explicit rollback. */
     unsigned root_engine=0u;
     if(!r) {
-        enum kui_update_result root=baseline_verify(NULL,cancel,NULL,&root_engine);
+        enum kui_update_result root=baseline_verify(NULL,cancel,NULL,&root_engine,NULL);
         if(root!=KUI_UPDATE_NOT_FOUND && root!=KUI_UPDATE_OK)r=root;
     }
     if(!r && root_engine>=2u) {
@@ -1150,7 +1234,7 @@ enum kui_update_result kui_update_install(const char *path,const struct kui_upda
         else if(!strcmp(active.selected,p->build) || !strcmp(active.previous,p->build))r=KUI_UPDATE_PROTECTED;
     }
     uint64_t required=0u,available=0u;
-    if(!r && !complete)r=quota(p,&required,&available);
+    if(!r && !complete)r=quota(p,&required,&available,NULL);
     if(!r && !complete)r=directories(p);
     char path_buffer[160];
     if(!r && !complete)r=clear_partial(p,cancel);

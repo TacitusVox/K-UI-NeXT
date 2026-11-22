@@ -183,6 +183,19 @@ struct kui_update_changes {
 enum kui_update_result kui_update_plan_review_details(const struct kui_update_package *,
     const struct kui_update_activation *expected,bool *already_selected,
     uint64_t *required,uint64_t *available,kui_cancel_fn,struct kui_update_changes *);
+/* Read-only review diagnostics. fatfs is -1 for a stage without a FatFs status. */
+struct kui_update_review_problem {
+    const char *operation;
+    char path[160];
+    int fatfs;
+    const char *comparison_operation;
+    char comparison_path[160];
+    int comparison_fatfs;
+};
+enum kui_update_result kui_update_plan_review_diagnose(const struct kui_update_package *,
+    const struct kui_update_activation *expected,bool *already_selected,
+    uint64_t *required,uint64_t *available,kui_cancel_fn,struct kui_update_changes *,
+    struct kui_update_review_problem *);
 /* select and rollback verify the entire target bank before publishing. Empty
  * build means the immutable root baseline, whose GUI header, payload CRC and
  * updater capability are freshly checked. NULL expected_manifest is allowed
