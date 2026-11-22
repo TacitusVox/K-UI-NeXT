@@ -276,11 +276,20 @@ host checks, not console runs):
   `tests/test_games_retail.py` (408 PASS lines, line for line as before) pass
   with identical output.
 
-Not run here: the delivered K-UI's admission of the actual new Virtua Cop 2
-reader with the owner's kernel (`test-wince-packaged-prepare --bam4-kernel`
-needs that private kernel; the Windows CE session runs it with its test of
-that reader). The line ledger records `89a241cd` under `installed`/`equivalent`,
-so `--installed-has` counts the Windows CE line's commits up to `949be408`.
+The delivered K-UI's admission of the actual new Virtua Cop 2 reader needs
+the owner's private kernel, so it was not run here. **The Windows CE session
+ran it** (its report of 22 Nov 2026, attributed to it):
+`test-wince-packaged-prepare --bam4-kernel` with the owner's Virtua Cop 2
+kernel, raw and 2048-byte DATA, from the K-UI source `64ae0743`, passes for the
+new reader `949be40865cf` (920,757 checks) and the layout-only control
+`0414c2d08b02` (920,053), with the same counts from its own tree; `64ae0743`
+also admits all 21 earlier CD music modules with counts identical to
+`86214640`'s. Its independent build of `949be40865cf` matches the one here
+byte for byte. It then delivered that reader to the owner as a module-only test
+(`KUI-WinCE-CD-Music-Virtua-Cop-2-Video-Memory-22NOV2026-0004-CST-949be40.zip`,
+for the installed K-UI). The line ledger records `89a241cd` under
+`installed`/`equivalent`, so `--installed-has` counts the Windows CE line's
+commits up to `949be408`.
 
 ## Console result
 
