@@ -221,7 +221,7 @@ LWEXT4_HOST_OBJECTS := $(patsubst %.c,build/host/%.o,$(LWEXT4_SOURCES))
 .PHONY: test test-recovery test-images deps diagnostic clean test-recovery-dashboard
 .PHONY: test-armada-ce-excerpt
 .PHONY: test-armada-ce-stream
-test-armada-ce-stream: build/test-armada-ce-stream-model build/test-armada-ce-stream-native build/test-armada-ce-stream-api build/test-armada-ce-stream-transport build/test-armada-ce-stream-transport-emergency-pio build/test-armada-ce-stream-transport-chain build/test-armada-ce-stream-player-emergency-pio build/test-armada-ce-stream-boot build/test-armada-ce-stream-entry build/test-armada-ce-stream-player build/test-armada-ce-stream-owner-word build/test-armada-ce-stream-initial-word build/test-armada-ce-stream-discover-owner build/test-armada-ce-excerpt-prepare
+test-armada-ce-stream: build/test-armada-ce-stream-model build/test-armada-ce-stream-native build/test-armada-ce-stream-api build/test-armada-ce-stream-transport build/test-armada-ce-stream-transport-emergency-pio build/test-armada-ce-stream-transport-chain build/test-armada-ce-stream-player-emergency-pio build/test-armada-ce-stream-model-repeat-clamp build/test-armada-ce-stream-player-repeat-clamp build/test-armada-ce-stream-boot build/test-armada-ce-stream-entry build/test-armada-ce-stream-player build/test-armada-ce-stream-owner-word build/test-armada-ce-stream-initial-word build/test-armada-ce-stream-discover-owner build/test-armada-ce-excerpt-prepare
 	ASAN_OPTIONS=detect_leaks=0 ./build/test-armada-ce-stream-model
 	ASAN_OPTIONS=detect_leaks=0 ./build/test-armada-ce-stream-native
 	ASAN_OPTIONS=detect_leaks=0 ./build/test-armada-ce-stream-api
@@ -232,6 +232,8 @@ test-armada-ce-stream: build/test-armada-ce-stream-model build/test-armada-ce-st
 	./build/test-armada-ce-stream-entry
 	./build/test-armada-ce-stream-player
 	./build/test-armada-ce-stream-player-emergency-pio
+	ASAN_OPTIONS=detect_leaks=0 ./build/test-armada-ce-stream-model-repeat-clamp
+	./build/test-armada-ce-stream-player-repeat-clamp
 	ASAN_OPTIONS=detect_leaks=0 ./build/test-armada-ce-stream-owner-word
 	ASAN_OPTIONS=detect_leaks=0 ./build/test-armada-ce-stream-initial-word
 	ASAN_OPTIONS=detect_leaks=0 ./build/test-armada-ce-stream-discover-owner
@@ -263,6 +265,15 @@ build/test-armada-ce-stream-discover-owner: tests/test_armada_ce_stream_discover
 build/test-armada-ce-stream-model: tests/test_armada_ce_stream_model.c src/loader/armada_ce_stream_model.c include/kui/armada_ce_stream_model.h
 	@mkdir -p $(@D)
 	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) tests/test_armada_ce_stream_model.c src/loader/armada_ce_stream_model.c -o $@
+# The model and player with a PLAY repeat count above 15 saturated to 15
+# (KUI_CE_CDDA_REPEAT_CLAMP; Ducati World's module), with the accepted
+# emergency-only programmed receptions.
+build/test-armada-ce-stream-model-repeat-clamp: tests/test_armada_ce_stream_model.c src/loader/armada_ce_stream_model.c include/kui/armada_ce_stream_model.h
+	@mkdir -p $(@D)
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) -DKUI_ARMADA_CE_STREAM_REPEAT_CLAMP=1 tests/test_armada_ce_stream_model.c src/loader/armada_ce_stream_model.c -o $@
+build/test-armada-ce-stream-player-repeat-clamp: tests/test_armada_ce_stream_player.c src/loader/armada_ce_stream_player.c src/loader/armada_ce_stream_model.c src/loader/armada_ce_stream_trace.c include/kui/armada_ce_stream_trace.h include/kui/armada_ce_stream_model.h include/kui/armada_ce_stream_native.h include/kui/armada_ce_stream_transport.h
+	@mkdir -p $(@D)
+	$(CC) $(HOST_FLAGS) -fsanitize=undefined -fno-omit-frame-pointer -fno-pie -no-pie $(INCLUDES) -Isrc/loader -DKUI_ARMADA_CE_STREAM_REPEAT_CLAMP=1 -DKUI_ARMADA_CE_STREAM_EMERGENCY_PIO=1 tests/test_armada_ce_stream_player.c src/loader/armada_ce_stream_model.c src/loader/armada_ce_stream_trace.c -o $@
 build/test-armada-ce-stream-native: tests/test_armada_ce_stream_native.c src/loader/armada_ce_stream_native.c include/kui/armada_ce_stream_native.h include/kui/armada_ce_live_sound.h
 	@mkdir -p $(@D)
 	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) -DKUI_RETAIL_CE=1 -DKUI_ARMADA_CE_STREAM=1 tests/test_armada_ce_stream_native.c src/loader/armada_ce_stream_native.c -o $@

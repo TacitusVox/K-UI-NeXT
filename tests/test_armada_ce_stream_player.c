@@ -752,6 +752,37 @@ static void ram_copy_boundaries(void) {
     }
     ++cases;
 }
+/* Ducati World's only CD-audio request, GD20 {t,t,1000}, queued while the
+ * player already plays a reviewed {1,1,15} selection. */
+static void long_repeat_play(void) {
+    reset(true,128u);prime();
+    uint32_t refused=player.stats.refused,plays=bus.plays,selection=player.model.selection;
+    (void)kui_armada_ce_excerpt_queue(NULL,20u,1u,1u,1000u);
+    CHECK(player.stats.repeat==1000u && player.stats.status==KUI_ARMADA_CE_EXCERPT_QUEUED);
+    visit();
+#if KUI_ARMADA_CE_STREAM_REPEAT_CLAMP
+    for(unsigned i=0;i<1000u && bus.plays==plays && !player.disabled;i++) visit();
+    CHECK(!player.disabled && player.stats.refused==refused && player.applied_play_epoch==player.mail.play_epoch &&
+        player.model.repeats==15u && player.model.infinite && player.model.selection!=selection &&
+        bus.plays==plays+1u && player.model.state==KUI_ARMADA_CE_STREAM_PLAYING);
+    /* PAUSE and RELEASE now apply to the accepted selection. */
+    selection=player.model.selection;
+    (void)kui_armada_ce_excerpt_queue(NULL,22u,0,0,0);visit();
+    CHECK(player.model.state==KUI_ARMADA_CE_STREAM_PAUSED && player.model.selection==selection);
+    (void)kui_armada_ce_excerpt_queue(NULL,23u,0,0,0);visit();
+    CHECK(player.model.selection==selection && player.model.infinite &&
+        (player.model.state==KUI_ARMADA_CE_STREAM_PREFILL || player.model.state==KUI_ARMADA_CE_STREAM_PLAYING));
+    (void)kui_armada_ce_excerpt_queue(NULL,33u,0,0,0);visit();
+    CHECK(player.model.state==KUI_ARMADA_CE_STREAM_STOPPED && !player.model.selection);
+#else
+    /* Refused and counted; the earlier selection keeps playing, and the
+     * unapplied PLAY epoch is retried (and refused again) on later controls. */
+    CHECK(player.stats.refused==refused+1u && player.model.selection==selection &&
+        player.model.repeats==15u && bus.plays==plays &&
+        player.applied_play_epoch!=player.mail.play_epoch && !player.disabled);
+#endif
+    ++cases;
+}
 int main(int argc,char **argv) {
     void *source_mapping=mmap((void *)(uintptr_t)KUI_ARMADA_CE_EXCERPT_POOL_BEGIN,512u*1024u,
         PROT_READ|PROT_WRITE,MAP_PRIVATE|MAP_ANONYMOUS|MAP_FIXED_NOREPLACE,-1,0);
@@ -1143,6 +1174,7 @@ int main(int argc,char **argv) {
     ++cases;
     /* Half a percent of clock mismatch for two minutes: no false stops. */
     CHECK(drifting_clock(5000u,120u)==0u);++cases;
+    long_repeat_play();
     CHECK(munmap(source_mapping,512u*1024u)==0 && munmap(host,0x60000u)==0);
     printf("armada stream player: %u cases, %u checks\n",cases,checks);return 0;
 }

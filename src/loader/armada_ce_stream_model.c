@@ -5,6 +5,20 @@
 #define R KUI_ARMADA_CE_STREAM_RING_BYTES
 #define S KUI_ARMADA_CE_STREAM_SECTOR_BYTES
 #define G KUI_ARMADA_CE_STREAM_GUARD_BYTES
+/* The drive's PLAY repeat field holds 0..15, and 15 repeats indefinitely.
+ * KUI_ARMADA_CE_STREAM_REPEAT_CLAMP saturates a larger PLAY20/PLAY21 count
+ * to 15 instead of refusing it (Ducati World asks for {t,t,1000}, which its
+ * CD driver passes on unchanged); 0..15 keep their meaning. Whether the
+ * BIOS clamps or keeps the low four bits (1000 would then repeat 8 times)
+ * is not established; the game never polls for the end of the track.
+ * 0 keeps the refusal. */
+#if KUI_ARMADA_CE_STREAM_REPEAT_CLAMP
+#define REPEAT_REFUSED(r) false
+#define REPEAT_STORED(r) ((r)>15u?15u:(r))
+#else
+#define REPEAT_REFUSED(r) ((r)>15u)
+#define REPEAT_STORED(r) (r)
+#endif
 static bool valid(const struct kui_armada_ce_stream_model *m) {return m && m->initialized;}
 static void cancel(struct kui_armada_ce_stream_model *m) {
     m->read=(struct kui_armada_ce_stream_read){0};
@@ -62,11 +76,11 @@ enum kui_armada_ce_stream_result kui_armada_ce_stream_request(
     struct kui_armada_ce_stream_model *m,uint32_t cmd,uint32_t first,uint32_t end,uint32_t repeat) {
     if(!valid(m)) return KUI_ARMADA_CE_STREAM_ARGUMENT;
     if(cmd==20u) {
-        if(!first || first>end || end>m->track_count || repeat>15u)
+        if(!first || first>end || end>m->track_count || REPEAT_REFUSED(repeat))
             return KUI_ARMADA_CE_STREAM_ARGUMENT;
         first=m->tracks[first-1u].first_lba;end=m->tracks[end-1u].end_lba;
     } else if(cmd==21u) {
-        if(first<150u || end<150u || repeat>15u) return KUI_ARMADA_CE_STREAM_ARGUMENT;
+        if(first<150u || end<150u || REPEAT_REFUSED(repeat)) return KUI_ARMADA_CE_STREAM_ARGUMENT;
         first-=150u;end-=150u;
     } else if(cmd!=22u && cmd!=23u && cmd!=33u) return KUI_ARMADA_CE_STREAM_ARGUMENT;
     if((cmd==20u || cmd==21u) && !audio_range(m,first,end)) return KUI_ARMADA_CE_STREAM_ARGUMENT;
@@ -80,7 +94,7 @@ enum kui_armada_ce_stream_result kui_armada_ce_stream_request(
     if(m->epoch==UINT32_MAX) return KUI_ARMADA_CE_STREAM_OVERFLOW;
     ++m->epoch;cancel(m);
     if(cmd==20u || cmd==21u) {
-        m->next_first_lba=first;m->next_end_lba=end;m->next_repeats=repeat;
+        m->next_first_lba=first;m->next_end_lba=end;m->next_repeats=REPEAT_STORED(repeat);
         m->next_selection=m->epoch;m->pending_play=true;
         m->after_stop=KUI_ARMADA_CE_STREAM_PREFILL;
     } else if(cmd==33u) {
