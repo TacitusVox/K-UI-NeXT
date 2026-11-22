@@ -293,4 +293,19 @@ commits up to `949be408`.
 
 ## Console result
 
-Pending.
+**Partial (22 Nov 2026, owner).** The owner's log names K-UI `64ae07435de5`
+(its first line), so the card runs this K-UI. Test 84 again, with Test 84's
+module (`cdda-background-test-84.md`, Re-run under the one K-UI):
+
+- Bangai-O and MDK2, refused by `1c71ba3afa17`'s 64-slot map, now launch
+  through the module and save their reports; so does Omikron, which never
+  reached the module under `1c71ba3afa17`. That is the 160-slot map and the
+  regular line's routing working on the console.
+- Plasma Sword reaches the module and stops at the reader's discovery (its
+  pd 1.09 libraries); the 64-slot map used to refuse it before that.
+- Tokyo Xtreme Racer shows a black screen after the bootstrap (on the host:
+  the reader's lease leaves its graphics library too little of its small
+  pool); POD SpeedZone's card copy holds zeros at its executable.
+
+Not reported yet: the Windows CE CD music games and a Smash Pack game under
+this K-UI.

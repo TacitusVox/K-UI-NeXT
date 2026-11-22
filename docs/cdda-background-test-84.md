@@ -156,7 +156,10 @@ the 20 essential rows are written. No row is ever cut
 
 With GUI `4d4dcff77494` and Virtual VMU Off, 150 of the corpus's 426 CD
 audio games take the Background reader (89 with the mapping proved, 61
-with the stage's discovery), and with it this module's player. 271 take
+unseeded, left to the stage's discovery), and with it this module's player.
+On the host none of the 61 passes the stage's first steps (re-run of 22
+November, `console-rerun-2026-11-22/investigation.md`): they stop at the
+reader's stop screen, as Plasma Sword did. 271 take
 the standalone New reader, which has no lease, auxiliary or worker and is
 not changed here; 5 are refused (`docs/cd-audio-corpus.md`, Routing).
 
@@ -266,6 +269,48 @@ What it shows:
    Omikron did not run through this module.
 5. Not this test's: Toy Commander's intro movie still drops frames; the
    movie path is Test 83's.
+
+### Re-run under the one K-UI `64ae07435de5` (22 November 2026)
+
+The owner's runs of 22 November 2026 (after midnight, America/Chicago) with
+K-UI `64ae07435de5` (the log's first line; `one-kui-both-threads.md`) and this
+module, New (X), virtual VMU Off, CD music Off: the same `STREAM.TXT`, now 11
+of 100 slots (slots 6 to 10 new; SHA-256 `1d7d04d3...e144`), the K-UI log of
+POD SpeedZone's launch attempt and a photograph of Plasma Sword's stop screen
+(transcribed). Everything is in `docs/evidence/cdda-background-test-84/console-rerun-2026-11-22/`.
+The owner's words: "Plasma Sword hit an issue after boot, that's the picture.
+Pod Speed Zone is still failing to boot, and Tokyo Xtreme Racer I re-converted
+and it gets past the bootstrap and just hangs on a black screen. I got a few
+more from that list."
+
+The causes were worked out on the host by four independent investigations
+and a cross-check, from the games' own programs and drivers in the owner's
+CD-audio archive (whose executables match the launch records' CRCs) and from
+the K-UI and module sources (`console-rerun-2026-11-22/investigation.md`).
+They are host results; no console run has confirmed them.
+
+| Slot | Game | On the console | Cause (host) |
+|---|---|---|---|
+| 6 | Bangai-O | Report saved. 9 PLAY, 6 PAUSE; track 28 playing (repeat 15) at the save; 3 data reads during a play, 12 kept at 3; 15 positions from the play. MANATEE 2.00.09 (ChuChu Rocket's driver); the candidates read in 0 surveys | The game sets its driver's split to 0 MIDI voices, 64 one-shot ports and 0 stream ports. With fewer than two stream ports there is no candidate pair, by design (`8894be0`); the survey run over its own driver with that split reproduces the console's row exactly |
+| 7 | MDK2 | Report saved. 3 PLAY, 6 PAUSE; paused on track 17 at the save; 1,778 positions from the play. AUDIO64 1.90b.1; channel 62 in use in 57 and 63 in 74 of 1,377 surveys. MAPPED 0 | The game's own code puts its stream on channel 63 and hands its effects out round robin over 0 to 62. Its 28 audio files are in more than 90 pieces on the card |
+| 8 | Plasma Sword | The reader's stop screen: allocator probe, PHASE 2, DETAIL 0xA, every SDK field 0 | Built with the first Katana libraries (Maple library pd 1.09, December 1998); the reader recognises pd 1.46 and later, and the first recognition step fails. The K-UI launches a game whose discovery fails unseeded (Main since 1 and 5 November, `34e0ddce`, `eddbb01f`); the 64-slot map used to refuse it before that |
+| 9 | Omikron | Report saved; no CD command | Its program holds no play reference; its song may be streamed from data files |
+| 10 | Tokyo Xtreme Racer | Black screen after the bootstrap; launch record only | Memory, not the drive (likely). The reader's 284 KiB lease is taken from the bottom of the game's 448 KiB SDK pool; the game's graphics library then asks that pool for 458,480 bytes, 167,872 remain, and the allocation fails unchecked, so no frame can be built (that last step is inferred). The installed New reader and Test 83's module take the same lease. The game sends no CD play before its logos. Its re-converted image is checked only as far as its executable |
+| — | POD SpeedZone | Refused by K-UI: the executable's first sector (LBA 548141, track 11) reads 24 zero bytes, as on 21 November | The card's copy of the track 11 file holds zeros there. K-UI reads the right file at the right offset (64-bit, through FatFs); MDK2, Toy Commander and KOF read their executables at the same or larger offsets on the same card |
+
+What it settles:
+
+1. With the 160-slot map, Bangai-O, MDK2 and Omikron launch through this
+   module (Omikron for the first time) and save their reports.
+2. Plasma Sword and Tokyo Xtreme Racer need the Standard reader (Background
+   loading Off) until the Background reader recognises the early libraries
+   (Plasma Sword) or leaves the game room (Tokyo Xtreme Racer).
+3. POD needs a good copy on the card; nothing in K-UI.
+4. For Test 85: Bangai-O has no channel under the planned rule (every
+   channel is a one-shot port, which its driver stops at a loop's end);
+   MDK2 leaves no fixed pair free without a patch of the game, as the
+   existing MDK2 adapter makes; ChuChu Rocket (MANATEE 2) and KOF Dream Match
+   1999 (MANATEE 1) remain the titles whose channels were always free.
 
 ## Known limits
 

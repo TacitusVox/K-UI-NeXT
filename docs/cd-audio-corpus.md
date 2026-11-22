@@ -51,6 +51,15 @@ Of the 89, 59 carry only MANATEE-lineage drivers, 14 only AUDIO64, 15 both and
 one all three. A CD-music player in the Background reader reaches these games;
 the standalone reader has no lease, auxiliary or worker.
 
+Correction of 22 November 2026: the stage cannot discover what the GUI could
+not. It runs the same predicates on the same bytes, and on the host none of
+the 61 passes its first steps (58 stop at the Maple step, 3 at the program
+extent): each launch ends at the reader's stop screen, as Plasma Sword's did
+in the Test 84 re-run (`evidence/cdda-background-test-84/console-rerun-2026-11-22/investigation.md`).
+Of the 89, the Tokyo Xtreme Racer discs (448 KiB pools) and four Buzz 2000
+discs (pools smaller than the lease) are admitted to a lease their pools
+cannot hold.
+
 ## How the games ask for CD music
 
 - 423 programs reach the drive only through Sega's gdFs library; the other
