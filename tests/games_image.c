@@ -702,7 +702,10 @@ static void check_variants(void) {
     }
     if(!strcmp(test.fault,"variant-nested")) {
         assert(kui_games_list("/Games",0,&page,log_line,cancel));
-        assert(page.count==1 && page.entries[0].directory && !page.entries[0].variant_2048_path[0]);
+        assert(page.count==1 && !page.entries[0].directory && !page.entries[0].disabled);
+        assert(!strcmp(page.entries[0].name,"Reader Test"));
+        assert(!strcmp(page.entries[0].path,"/Games/Reader Test/extracted/disc.gdi"));
+        assert(!strcmp(page.entries[0].variant_2048_path,"/Games/Reader Test/extracted-2048/disc.gdi"));
         assert(kui_games_list("/Games/Reader Test",0,&page,log_line,cancel));
         assert(page.count==1 && !page.entries[0].directory && !strcmp(page.entries[0].name,"extracted"));
         assert(!strcmp(page.entries[0].path,"/Games/Reader Test/extracted/disc.gdi"));
