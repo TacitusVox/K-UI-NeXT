@@ -6,9 +6,10 @@ Virtua Cop 2's fix, test build `1ac7e667c0d3`, console result 21 Nov 2026:
 the bootstrap repair works and the game reaches its memory-card check, then
 the reader refuses a stream transfer into video memory
 ([result](#console-result-of-1ac7e667c0d3-21-nov-2026)). Test build
-`949be40865cf`, Virtua Cop 2's module taking such transfers, delivered
-22 Nov 2026; console test pending
-([record](#test-build-949be40865cf-virtua-cop-2-stream-pieces-into-video-memory)).** Roadmap step S3 ([roadmap](wince-roadmap.md)): Bust-A-Move
+`949be40865cf`, Virtua Cop 2's module taking such transfers
+([record](#test-build-949be40865cf-virtua-cop-2-stream-pieces-into-video-memory)),
+console result 22 Nov 2026: Virtua Cop 2 runs perfectly with CD music On
+([result](#console-result-of-949be40865cf-22-nov-2026)).** Roadmap step S3 ([roadmap](wince-roadmap.md)): Bust-A-Move
 4's CD music adapter on its other kernels, in round 1's pattern
 ([World Party's group](wince-cdda-wwp-group-test.md)).
 
@@ -465,7 +466,8 @@ Gates, from the committed tree, repeated from `1ac6f424`
   - `test_splash_assets` checks K-UI's startup art and chime, which this
     work does not touch. It is slow and CPU-bound in this container: an
     earlier attempt had not finished after 16 minutes, and its run on
-    `1ac6f424` was still going when this record was written.
+    `1ac6f424` reached its 90-minute limit with two of its four tests
+    passed and the third still decoding the startup art.
 - **Not run:** the console; the G1/PVR bus timing of the CPU's halfword
   stores into video memory alongside the music.
 
@@ -490,10 +492,24 @@ Questions for the console test, with CD music On:
 - Does a second cold boot behave the same?
 - Which K-UI was running (the Diagnostics page's first line)?
 
+## Console result of `949be40865cf` (22 Nov 2026)
+
+The owner ran Virtua Cop 2 (JPN) with CD music On and reported: "Virtua Cop
+2 ran perfectly." The game now runs past the stop of `1ac7e667c0d3`, with its
+stream pieces into video memory. Virtua Cop 2's CD music module
+`ce-cdda-6c09543a5680.kui` `949be40865cf` (payload CRC `C1FEC7A6`) is
+accepted with its three switches on: `KUI_CE_CDDA_BOOT2_SCRATCH`,
+`KUI_CE_CDDA_SMALL_STACK` and `KUI_CE_CDDA_VRAM_DMA`, already that module's
+build defaults.
+
+Not reported separately: how long the screen after the memory-card check
+took, a second cold boot, and which K-UI was running.
+
 ## Not answered by this test
 
 - Later scenes of Virtua Cop 2 that send other piece shapes (an ordinary
-  DMAREAD into video memory, the TA path): those stay refused.
+  DMAREAD into video memory, the TA path): those stay refused. The owner's
+  run of 22 Nov 2026 reported no stop.
 - The single-track discs: whether they play their track at all.
 - Caesars Palace: whether the disc's DirectSound with the ROM's sndcore binds
   on the console.

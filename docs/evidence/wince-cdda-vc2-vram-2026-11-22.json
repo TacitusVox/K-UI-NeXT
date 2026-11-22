@@ -64,10 +64,10 @@
   "linked_admission": "test-wince-packaged-prepare --bam4-kernel with the owner's Virtua Cop 2 kernel, raw and 2048-byte DATA: the module 920,757 checks and the control 920,053, under this line's GUI source (949be408) and the combined K-UI's (64ae0743). A GUI built from 1ac6f424 with build ID 1c71ba3afa17 is byte-identical to the installed 1c71ba3afa17.",
   "host_execution": "test-ce-cdda-vram at 1ac6f424: the CD music reader with the production music transport, 164,233 checks without and 211,893 with the transfers (231,328 at beeef062, before both video-memory views were checked whole); five passes over three piece shapes with music pending (as accepted, below the emergency PIO floor, chained token searches, faults, urgent music). Authored card, drive and video-memory models; the G1 bus, PVR timing and the music worker's CE thread are not modelled.",
   "static_review": "CE's exception vectors, identical in Virtua Cop 2's, Armada's and 4x4 Evolution's kernels, take TLB misses on banked registers and move to CE's kernel stack for other exceptions at thread level; only a nested exception builds a frame of about 320 bytes on the current stack. Every GD call site in the kernel is in wsegacd.dll, in thread context.",
-  "console": "pending"
+  "console": "owner, 22 Nov 2026, CD music On: \"Virtua Cop 2 ran perfectly.\" Not reported separately: the time to the screen after the memory-card check, a second cold boot, the running K-UI."
  },
  "limits": [
-  "No console run yet.",
+  "One console run reported (22 Nov 2026), with no stop.",
   "wsegacd aborts a request after 15 s without a drive interrupt (GD ABORT), and the reader's ABORT raises no interrupt. The 512 KiB piece is estimated to take seconds; the console test asks for the time.",
   "The hook and ISR guard literals are not pinned by a linked audit; they come from the same macro as the stack, which the reader's marker and linker script tie together.",
   "Other piece shapes (an ordinary DMAREAD into video memory, the TA path) stay refused.",

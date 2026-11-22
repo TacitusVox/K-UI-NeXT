@@ -18,7 +18,7 @@
   "static_comparison": "IP 0x300..0x6000 matches Bust-A-Move 4's except the area-protection text at 0x3704..0x3737; the bootstrap 2 header and opening match the standard; its high-RAM literals in 0x6000..0x7fff are 0xacfc0000 (twice), 0xacfd0000, 0xacfe0000 and 0xacff0000.",
   "stage_crc": "The stage's own CRC routine (src/loader/stage_fast_crc32.h, host build) gives 0x3f7f1c3d on the IP.BIN, equal to zlib CRC32.",
   "linked_admission": "test-wince-packaged-prepare --bam4-kernel with this kernel and module build 1ac7e667c0d3, raw and 2048-byte DATA: pass.",
-  "console": "Module 9e89e778370f, GUI 1c71ba3afa17, CD music On (owner, 21 Nov 2026): BOOTSTRAP ALTERED STREAM SOURCE MAP, DETAIL 0. Module 1ac7e667c0d3, CD music On (owner, 21 Nov 2026): the repair works; Windows CE starts and the game passes its memory-card check, then the reader stops on GD function 6, a stream piece into video memory (docs/evidence/wince-cdda-vc2-vram-2026-11-22.json)."
+  "console": "Module 9e89e778370f, GUI 1c71ba3afa17, CD music On (owner, 21 Nov 2026): BOOTSTRAP ALTERED STREAM SOURCE MAP, DETAIL 0. Module 1ac7e667c0d3, CD music On (owner, 21 Nov 2026): the repair works; Windows CE starts and the game passes its memory-card check, then the reader stops on GD function 6, a stream piece into video memory (docs/evidence/wince-cdda-vc2-vram-2026-11-22.json). Module 949be40865cf, which keeps this repair, CD music On (owner, 22 Nov 2026): ran perfectly."
  },
  "bootstrap": {
   "entered_at": "IP+0x6000 (P2 0xac00e000); the lower IP code is not run",
