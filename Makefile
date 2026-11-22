@@ -128,6 +128,17 @@ test-toy-test-switches:
 	python3 tests/test_toy_test_switches.py
 test: test-toy-test-switches
 
+# One K-UI for every thread (docs/gui-lines.md): a K-UI build must contain
+# every active line's head. check-gui-lines fetches them; run it before
+# building a K-UI for delivery. test-check-gui-lines holds the check to its
+# cases on a repository of its own.
+.PHONY: check-gui-lines test-check-gui-lines
+check-gui-lines:
+	python3 tools/check_gui_lines.py
+test-check-gui-lines:
+	python3 tests/test_check_gui_lines.py
+test: test-check-gui-lines
+
 .PHONY: test-wince-family7-profiles
 test-wince-family7-profiles:
 	python3 tests/test_wince_family7_profiles.py
