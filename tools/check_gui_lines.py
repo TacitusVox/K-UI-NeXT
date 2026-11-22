@@ -21,7 +21,10 @@ Run it from the clean checkout a K-UI is built from, before building it.
 checks that the K-UI the owner runs (docs/gui-lines.json, "installed")
 contains REV: for a module-only delivery, REV is the commit of the K-UI
 change the module needs (for example the 160-slot map). If it does not, the
-delivery must bring a K-UI that has it, or the module is refused.
+delivery must bring a K-UI that has it, or the module is refused. A later
+source whose K-UI was proven identical to the installed one (built with the
+installed recipe, equal apart from its build-ID text) is listed under
+"installed"/"equivalent" with its evidence; its commits count as contained.
 
     python3 tools/check_gui_lines.py --installed
 
@@ -134,6 +137,18 @@ def installed_has(repo, commit):
     if is_ancestor(repo, want, source):
         print('PASS the installed K-UI %s contains %s' % (installed.get('build', source[:12]), want[:12]))
         return 0
+    for same in installed.get('equivalent') or []:
+        other = same.get('source') if isinstance(same, dict) else None
+        if not other or not same.get('evidence'):
+            print('FAIL %s: an equivalent source needs its commit and its evidence' % LEDGER)
+            return 1
+        if git(repo, 'cat-file', '-e', other + '^{commit}', check=False).returncode:
+            print('FAIL the equivalent source %s is not in this repository; fetch its line' % other[:12])
+            return 1
+        if is_ancestor(repo, want, other):
+            print('PASS the installed K-UI %s contains %s: its K-UI equals the one built from %s (%s)' % (
+                installed.get('build', source[:12]), want[:12], other[:12], same['evidence']))
+            return 0
     print('FAIL the installed K-UI %s lacks %s: deliver a K-UI that has it, or the module that needs it is '
           'refused' % (installed.get('build', source[:12]), want[:12]))
     return 1

@@ -3,7 +3,8 @@
 """tools/check_gui_lines.py on a small repository of its own: a build that has
 every line passes; a line's docs-only commits warn; a line's code commit, a
 merge that brings code, and a line that cannot be found fail; the installed
-K-UI check answers for an ancestor and refuses a commit it lacks."""
+K-UI check answers for an ancestor, for the commits of a source recorded as
+an equivalent K-UI (with evidence), and refuses a commit it lacks."""
 import contextlib
 import io
 import json
@@ -94,9 +95,28 @@ def main():
         assert code == 0, out
         code, out = run(repo, '--installed-has', ce_gui)
         assert code == 0, out
+        # A later line commit: refused until a source containing it is recorded as an
+        # equivalent K-UI, with its evidence; without evidence the record is refused.
+        sh(repo, 'checkout', '-q', 'ce')
+        later = commit(repo, 'src/loader/reader.c', 'int reader;\n', 'CE: a module-only change')
+        sh(repo, 'checkout', '-q', '-b', 'merged2', merged)
+        sh(repo, '-c', 'user.name=t', '-c', 'user.email=t@localhost', 'merge', '-q', '--no-edit', 'ce')
+        merged2 = sh(repo, 'rev-parse', 'HEAD')
+        code, out = run(repo, '--installed-has', later)
+        assert code == 1 and 'lacks' in out, out
+        ledger['installed']['equivalent'] = [{'source': merged2}]
+        (repo / 'docs/gui-lines.json').write_text(json.dumps(ledger))
+        code, out = run(repo, '--installed-has', later)
+        assert code == 1 and 'needs its commit and its evidence' in out, out
+        ledger['installed']['equivalent'] = [{'source': merged2, 'evidence': 'docs/x.txt'}]
+        (repo / 'docs/gui-lines.json').write_text(json.dumps(ledger))
+        code, out = run(repo, '--installed-has', later)
+        assert code == 0 and 'equals the one built from' in out, out
+        code, out = run(repo, '--installed-has', commit(repo, 'src/apps/z.c', 'int z;\n', 'not merged'))
+        assert code == 1, out
     print('PASS check_gui_lines: a build lacking a line\'s code is refused and names the branch; merged it passes; '
           'docs-only commits warn; code inside a merge counts; a missing line fails; the installed K-UI check '
-          'answers for its ancestors and refuses what it lacks')
+          'answers for its ancestors and a proven-equivalent source\'s, and refuses what it lacks')
 
 
 if __name__ == '__main__':
