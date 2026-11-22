@@ -2792,6 +2792,14 @@ static bool update_space(struct kui_shell_update_view *out,const struct kui_upda
                 snprintf(out->status.lines[0],KUI_APP_LINE_CAP,"FatFs %d  %.60s",issue.fatfs,issue.path);
             else snprintf(out->status.lines[0],KUI_APP_LINE_CAP,"%.72s",issue.path);
             out->status.line_count=1u;
+            if(issue.comparison_operation) {
+                snprintf(out->status.lines[1],KUI_APP_LINE_CAP,"Earlier comparison: %s, FatFs %d",
+                    issue.comparison_operation,issue.comparison_fatfs);
+                snprintf(out->status.lines[2],KUI_APP_LINE_CAP,"%.78s",issue.comparison_path);
+                out->status.line_count=3u;
+                kui_log("Update comparison: %s, FatFs %d, path %s",issue.comparison_operation,
+                    issue.comparison_fatfs,issue.comparison_path);
+            }
             kui_log("Update review: %s, FatFs %d, path %s",issue.operation,issue.fatfs,issue.path);
         } else snprintf(out->status.message,sizeof(out->status.message),"Cannot prepare this bank: %s",kui_update_result_name(result));
     }

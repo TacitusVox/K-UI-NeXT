@@ -26,7 +26,7 @@ static enum kui_update_result activation_for_update(struct kui_update_activation
 static void review_problem(struct kui_update_review_problem *issue,const char *operation,const char *path,int fatfs) {
     if(!issue)return;
     issue->operation=operation;issue->fatfs=fatfs;
-    snprintf(issue->path,sizeof(issue->path),"%s",path?path:"");
+    snprintf(issue->path,sizeof(issue->path),"%.*s",(int)sizeof(issue->path)-1,path?path:"");
 }
 static uint32_t get32(const uint8_t *p) {
     return (uint32_t)p[0]|(uint32_t)p[1]<<8|(uint32_t)p[2]<<16|(uint32_t)p[3]<<24;
@@ -467,7 +467,16 @@ struct review_diff {
     const struct snapshot_source *sources;
     uint8_t *buffer;
     kui_cancel_fn cancel;
+    struct kui_update_review_problem *issue;
 };
+static enum kui_update_result comparison_io(struct kui_update_review_problem *issue,
+    const char *operation,const char *path,int fatfs) {
+    if(issue && !issue->comparison_operation) {
+        issue->comparison_operation=operation;issue->comparison_fatfs=fatfs;
+        snprintf(issue->comparison_path,sizeof(issue->comparison_path),"%.*s",(int)sizeof(issue->comparison_path)-1,path);
+    }
+    return KUI_UPDATE_IO;
+}
 struct review_content { bool present; uint64_t bytes; uint8_t sha256[32]; };
 static int review_policy(const struct kui_update_package *p,const struct kui_update_entry *entry) {
     if(entry)return entry->policy;
@@ -477,7 +486,7 @@ static enum kui_update_result review_read(const char *path,struct review_content
     bool hash,uint64_t compare_size,struct review_diff *d) {
     FIL f;FRESULT open=physical_open(&f,path,FA_READ);
     if(open==FR_NO_PATH || open==FR_NO_FILE)return KUI_UPDATE_OK;
-    if(open!=FR_OK)return KUI_UPDATE_IO;
+    if(open!=FR_OK)return comparison_io(d->issue,"open file",path,open);
     file->present=true;file->bytes=f_size(&f);
     enum kui_update_result r=KUI_UPDATE_OK;
     if(hash && (compare_size==UINT64_MAX || file->bytes==compare_size)) {
@@ -485,12 +494,15 @@ static enum kui_update_result review_read(const char *path,struct review_content
         uint64_t left=file->bytes;
         while(left && !r) {
             UINT size=left>CHUNK?CHUNK:(UINT)left;
-            r=read_exact(&f,d->buffer,size,d->cancel);
+            if(stopped(d->cancel)) {r=KUI_UPDATE_CANCELLED;break;}
+            UINT got=0;FRESULT read=f_read(&f,d->buffer,size,&got);
+            if(read!=FR_OK || got!=size)r=comparison_io(d->issue,read==FR_OK?"short file read":"read file",path,read);
             if(!r) {kui_sha256_update(&sha,d->buffer,size);left-=size;}
         }
         if(!r)kui_sha256_digest(&sha,file->sha256);
     }
-    if(f_close(&f)!=FR_OK && !r)r=KUI_UPDATE_IO;
+    FRESULT closed=f_close(&f);
+    if(closed!=FR_OK && !r)r=comparison_io(d->issue,"close file",path,closed);
     return r;
 }
 static void review_record(struct kui_update_changes *changes,enum kui_update_change_kind kind,const char *path) {
@@ -559,12 +571,13 @@ static enum kui_update_result review_root(struct review_diff *d,const char *fold
     snprintf(physical,sizeof(physical),"0:/KUI%s%s",folder[0]?"/":"",folder);
     DIR directory;FRESULT open=f_opendir(&directory,physical);
     if(open==FR_NO_PATH || open==FR_NO_FILE)return KUI_UPDATE_OK;
-    if(open!=FR_OK)return KUI_UPDATE_IO;
+    if(open!=FR_OK)return comparison_io(d->issue,"open directory",physical,open);
     enum kui_update_result result=KUI_UPDATE_OK;
     FILINFO info;
     while(!result) {
         if(stopped(d->cancel)) {result=KUI_UPDATE_CANCELLED;break;}
-        if(f_readdir(&directory,&info)!=FR_OK) {result=KUI_UPDATE_IO;break;}
+        FRESULT read=f_readdir(&directory,&info);
+        if(read!=FR_OK) {result=comparison_io(d->issue,"read directory",physical,read);break;}
         if(!info.fname[0])break;
         char path[KUI_UPDATE_PATH_BYTES];
         int n=snprintf(path,sizeof(path),"%s%s%s",folder,folder[0]?"/":"",info.fname);
@@ -580,7 +593,8 @@ static enum kui_update_result review_root(struct review_diff *d,const char *fold
             review_record(d->changes,kind,path);
         }
     }
-    if(f_closedir(&directory)!=FR_OK && !result)result=KUI_UPDATE_IO;
+    FRESULT closed=f_closedir(&directory);
+    if(closed!=FR_OK && !result)result=comparison_io(d->issue,"close directory",physical,closed);
     return result;
 }
 static enum kui_update_result review_changes(struct review_diff *d) {
@@ -616,15 +630,18 @@ static enum kui_update_result review_changes(struct review_diff *d) {
 static enum kui_update_result review_contents(const struct kui_update_package *incoming,
     const struct kui_update_package *target,const struct kui_update_activation *active,
     struct kui_update_package *scratch,const struct snapshot_source *sources,
-    struct kui_update_changes *changes,kui_cancel_fn cancel) {
+    struct kui_update_changes *changes,kui_cancel_fn cancel,struct kui_update_review_problem *issue) {
     const struct kui_update_package *before=NULL;
     if(active->selected[0]) {
-        enum kui_update_result r=kui_update_bank_receipt_read(active->selected,scratch,cancel);
+        struct kui_update_review_problem receipt={0};
+        enum kui_update_result r=receipt_read_diagnose(active->selected,scratch,cancel,issue?&receipt:NULL);
+        if(r==KUI_UPDATE_IO && issue && receipt.operation)
+            comparison_io(issue,receipt.operation,receipt.path,receipt.fatfs);
         if(r)return r;
         if(memcmp(scratch->manifest_sha256,active->manifest_sha256,32u))return KUI_UPDATE_STALE;
         before=scratch;
     }
-    struct review_diff d={incoming,before,target,changes,sources,malloc(CHUNK),cancel};
+    struct review_diff d={incoming,before,target,changes,sources,malloc(CHUNK),cancel,issue};
     if(!d.buffer)return KUI_UPDATE_MEMORY;
     enum kui_update_result r=review_changes(&d);
     free(d.buffer);changes->known=r==KUI_UPDATE_OK;
@@ -634,7 +651,8 @@ enum kui_update_result kui_update_plan_review_diagnose(const struct kui_update_p
     const struct kui_update_activation *expected,bool *already_selected,
     uint64_t *needed,uint64_t *available,kui_cancel_fn cancel,struct kui_update_changes *changes,
     struct kui_update_review_problem *issue) {
-    review_problem(issue,"read activation","0:/KUI/system",-1);
+    if(issue)memset(issue,0,sizeof(*issue));
+    review_problem(issue,"read activation",KUI_UPDATE_SYSTEM,-1);
     if(changes)memset(changes,0,sizeof(*changes));
     const struct kui_update_package *incoming=p;
     if(already_selected)*already_selected=false;
@@ -663,7 +681,7 @@ enum kui_update_result kui_update_plan_review_diagnose(const struct kui_update_p
         p=snapshot;
     }
     if(changes) {
-        enum kui_update_result compared=review_contents(incoming,p,&a,bank,sources,changes,cancel);
+        enum kui_update_result compared=review_contents(incoming,p,&a,bank,sources,changes,cancel,issue);
         if(compared) {
             memset(changes,0,sizeof(*changes));
             if(compared==KUI_UPDATE_CANCELLED) {free(sources);free(snapshot);free(bank);return compared;}

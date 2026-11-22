@@ -459,6 +459,11 @@ int main(int argc,char **argv) {
     read_failure[0]=0;space_read_error=true;
     CHECK(kui_update_plan_review_diagnose(&full.package,NULL,&reviewed,&review_needed,&review_free,cancel,&changes,&issue)==KUI_UPDATE_IO);
     CHECK(!strcmp(issue.operation,"read free space") && !strcmp(issue.path,"0:") && issue.fatfs==FR_DISK_ERR);
+    strcpy(read_failure,"0:/KUI/apps/games/test-helper.bin");
+    CHECK(kui_update_plan_review_diagnose(&full.package,NULL,&reviewed,&review_needed,&review_free,cancel,&changes,&issue)==KUI_UPDATE_IO);
+    CHECK(!strcmp(issue.operation,"read free space") && issue.fatfs==FR_DISK_ERR);
+    CHECK(!strcmp(issue.comparison_operation,"open file") && !strcmp(issue.comparison_path,read_failure) &&
+        issue.comparison_fatfs==FR_DISK_ERR);
     CHECK(!writes && !syncs);space_read_error=false;active=false;reset(saved);
     file_write(KUI_RUNTIME_PATH,"tiny",4u);
     CHECK(kui_update_plan_review_diagnose(&full.package,NULL,&reviewed,&review_needed,&review_free,cancel,&changes,&issue)==KUI_UPDATE_RUNTIME);
