@@ -260,7 +260,7 @@ jobs:
         if: steps.scope.outputs.console_only != 'true' || steps.scope.outputs.maintenance_only == 'true'
         run: |
           sudo apt-get update
-          sudo apt-get install -y dosfstools exfatprogs mtools e2fsprogs mame-tools liblzo2-2 ffmpeg python3-yaml python3-venv
+          sudo apt-get install -y dosfstools exfatprogs mtools e2fsprogs mame-tools liblzo2-2 python3-yaml python3-venv ffmpeg
           /usr/bin/python3 -m venv --system-site-packages "$RUNNER_TEMP/kui-host-python"
           "$RUNNER_TEMP/kui-host-python/bin/python" -m pip install --only-binary=:all: --no-deps --require-hashes -r tools/requirements-theme-render.txt
           echo "$RUNNER_TEMP/kui-host-python/bin" >> "$GITHUB_PATH"
