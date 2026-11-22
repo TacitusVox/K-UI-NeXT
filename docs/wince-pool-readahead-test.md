@@ -139,6 +139,42 @@ CD music Off, 4x4 Evolution crashed on it after its intro was skipped
 On it, the skip runs (owner, 21 Nov 2026), so the crash belongs to the
 read-ahead build, which stays off.
 
+What the analysis of that crash found (static, plus host models; no
+console or emulator run):
+
+- **The page.** GAME RETURN means a game program called the firmware's
+  return (menu command 1). In 4x4's files only `DC.EXE` imports
+  `ResetToFirmware`, next to its fatal-error strings, so `DC.EXE` (the game,
+  past the movie) ended itself: either a fatal error or the reset buttons
+  handled by the game. A fault K-UI's reader detects shows its own page and
+  halts.
+- **The skip sends no disc command.** `DCMOVIE.EXE` stops its DirectShow
+  graph, starts `DC.EXE` and exits. The CD driver `wsegacd.dll` sends no
+  abort or reset for this; its only ABORT follows a 15-second stall.
+- **The counters show a clean card link.** GUARD 0, TOKENERR 0, FOREIGN 0,
+  and CRC ERRS 29 against REPAIRED 30: every repaired block is refused and
+  read again, so the card returned no bad data.
+- **No defect found in the host models.** The reader of `1a5f4677` is
+  unchanged at the time of writing. With and without read-ahead, the models
+  ran about 26,000 cut movie streams followed by scattered page-in reads,
+  with injected CRC errors, overruns, busy channels, aborts and resets. Every
+  byte was right, and nothing was written outside the destination or after
+  completion.
+- **What only this build does.** Read-ahead often completes a whole request
+  inside CE's REQUEST call. It also keeps the card streaming while no
+  request is active, as during the switch from `DCMOVIE.EXE` to `DC.EXE`.
+  The build also has a resident layout shifted by the pool's entry word and
+  a 1 KiB stack instead of 2 KiB. The host models cannot represent the first
+  two, so the mechanism stays unproven, with one crash on this build and one
+  clean skip on the candidate.
+- **If read-ahead or the generic pool is ever revived,** 4x4 Evolution's
+  intro skip must be one of its console checks.
+- **A latent defect of the shared reader, not this crash.** The GD ABORT
+  completes the command without raising the drive or DMA-end interrupt, so a
+  driver that aborts after a stall, as `wsegacd` does after 15 s, would wait
+  forever. Nothing showed such a stall, and the candidate, which shares this
+  code, survives the skip. A fix would be its own behaviour change.
+
 ## Not answered by these tests
 
 - Read-ahead's timings, and so whether it ran at all: no measurement build
