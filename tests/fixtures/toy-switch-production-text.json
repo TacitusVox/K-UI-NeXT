@@ -1,6 +1,6 @@
 {
   "schema": "kui.toy-switch-production-text.v1",
-  "source": "The merge of the two lines of 22 Nov 2026: this branch (Main 4441e92 with the owner's Test 83 reader and GUI lines, recorded as: Main 776c9259 (origin/main on 16 Nov 2026), the production text before the Toy test sources were merged; include/kui/retail_loader_layout.h, src/loader/retail_async.c, retail_display.c, retail_resident.S, retail_resident.c, retail_stage.c and sci_sd_bus.c as Main 4441e92 has them (20 Nov 2026), with the Windows CE data probe's text of a257f13 and c25e9f5; src/core/wce_probe_fat.c as Main 4441e92 has it) and claude/great-darwin-yjmgfi at b616e2db (Main 776c9259 (origin/main on 16 Nov 2026), the production text before the Toy test sources were merged; then the reviewed WinCE data probe hunks (KUI_WCE_PROBE, a257f13e and c25e9f5e); then the reviewed CE VRAM stream admission (KUI_RETAIL_CE_VRAM_DMA); then the reviewed generic WinCE reader switches (KUI_CE_SLOW_WINDOW, KUI_CE_SLOW_ADAPT, KUI_CE_POOL_KIB, KUI_CE_READAHEAD)). Four sources were changed in production by both lines (include/kui/retail_loader_layout.h, src/loader/retail_resident.S, retail_resident.c, retail_stage.c); their production text is the clean three-way union of both lines' changes.",
+  "source": "The merge of the two lines of 22 Nov 2026: this branch (Main 4441e92 with the owner's Test 83 reader and GUI lines, recorded as: Main 776c9259 (origin/main on 16 Nov 2026), the production text before the Toy test sources were merged; include/kui/retail_loader_layout.h, src/loader/retail_async.c, retail_display.c, retail_resident.S, retail_resident.c, retail_stage.c and sci_sd_bus.c as Main 4441e92 has them (20 Nov 2026), with the Windows CE data probe's text of a257f13 and c25e9f5; src/core/wce_probe_fat.c as Main 4441e92 has it) and claude/great-darwin-yjmgfi at b616e2db (Main 776c9259 (origin/main on 16 Nov 2026), the production text before the Toy test sources were merged; then the reviewed WinCE data probe hunks (KUI_WCE_PROBE, a257f13e and c25e9f5e); then the reviewed CE VRAM stream admission (KUI_RETAIL_CE_VRAM_DMA); then the reviewed generic WinCE reader switches (KUI_CE_SLOW_WINDOW, KUI_CE_SLOW_ADAPT, KUI_CE_POOL_KIB, KUI_CE_READAHEAD)). Four sources were changed in production by both lines (include/kui/retail_loader_layout.h, src/loader/retail_resident.S, retail_resident.c, retail_stage.c); their production text is the clean three-way union of both lines' changes. Then the Windows CE line to 83becb53 (22 Nov 2026): src/loader/retail_stage.c gains its KUI_ARMADA_CE_BOOT2_SCRATCH block, the clean union again.",
   "files": {
     "include/kui/hash.h": {
       "mode": "code",
@@ -80,7 +80,7 @@
     },
     "src/loader/retail_stage.c": {
       "mode": "code",
-      "sha256": "4d8f66a48550a58cce97239a1f04d7eedda142c70df1f2cb5f093ea816065112"
+      "sha256": "15fca54eb4a216a96fb3abcf9cdca276685bdb04825d8e22277c06118dd1bcae"
     },
     "src/loader/sci_sd_bus.c": {
       "mode": "code",

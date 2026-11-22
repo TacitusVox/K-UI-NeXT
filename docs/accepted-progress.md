@@ -57,7 +57,24 @@ Delivered: `KUI-WinCE-GUI-Routes-16NOV2026-1928-CST-069d612.zip`, GUI build
 `retail-boot.kui` `9e3295bcfaec`, as `00d8ed67d9ad` does. `00d8ed67d9ad`
 remains the reference until the owner reports the package's four tests.
 
-## WinCE CD music for Bust-A-Move 4's group: console test pending, 9e89e778370f, 2026-11-21
+## WinCE CD music for Bust-A-Move 4's group: Puzzle Bobble 4 console-tested, Virtua Cop 2 fix pending, 9e89e778370f and 1ac7e667c0d3, 2026-11-21
+
+**Result (21 Nov 2026, [record](wince-cdda-bam4-group-test.md#result-21-nov-2026)):**
+- **Puzzle Bobble 4:** works with CD music On.
+- **Virtua Cop 2 (JPN):** stopped in bootstrap 2 with BOOTSTRAP ALTERED
+  STREAM SOURCE MAP.
+  - Cause: its IP.BIN runs Sega's play-history recorder with its stack at
+    the stream map's end.
+  - Fix: test build `1ac7e667c0d3` (source `e8b3f744` and `1ac7e667`)
+    reinstalls the map and work pages after that bootstrap, for that
+    IP.BIN only.
+  - A stage copy that fails its proof stops on BOOTSTRAP 2 SCRATCH COPY
+    REFUSED.
+  - Every other module is byte-identical. Virtua Cop 2's, with the switch
+    off, rebuilds as `9e89e778370f`.
+  - Delivered: `KUI-WinCE-CD-Music-Virtua-Cop-2-Fix-21NOV2026-2154-CST-1ac7e66.zip`.
+    Console test pending.
+- **Not tested:** the other five games.
 
 CD music On for seven more WinCE kernels that carry Bust-A-Move 4's sound
 system unchanged ([record](wince-cdda-bam4-group-test.md)):

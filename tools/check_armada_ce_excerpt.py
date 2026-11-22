@@ -1315,6 +1315,90 @@ def recorded_reader_fixes(directory):
     return fields['READER_FIXES'] == '1'
 
 
+# Virtua Cop 2 (JPN)'s bootstrap 2 uses the map and work pages at the top of
+# the pool as scratch (include/kui/armada_ce_boot2_scratch.h). Only its module
+# carries the stage's repair, and its resume path calls it exactly once: after
+# the cache switch and immediately before the relay. Every other module's
+# resume path calls the relay alone.
+BOOT2_SCRATCH_KERNEL = 'VIRTUA_COP_2'
+BOOT2_SCRATCH_SYMBOL = '_kui_retail_stage_boot2_scratch'
+RESUME_SYMBOL, RELAY_SYMBOL = '_kui_retail_game_resume', '_kui_retail_stage_relay'
+SH_NOP, SH_JSR_R0, SH_JMP_R0, SH_OCBP_R0 = 0x0009, 0x400b, 0x402b, 0x00a3
+# The CCR write (mov.l r1,@r0) and the eight nops that follow it; the relay's
+# arguments (mov r8,r4; mov r9,r5).
+RESUME_CACHE_SWITCH = (0x2012,) + (SH_NOP,) * 8
+RESUME_RELAY_ARGUMENTS = (0x6483, 0x6593)
+
+
+def recorded_boot2_scratch(directory):
+    """Whether a stream build recorded the bootstrap-2 scratch repair (its reader-config)."""
+    path = Path(directory) / 'reader-config'
+    if not path.exists():
+        return False
+    value = dict(token.split('=', 1) for token in path.read_text().split()).get('BOOT2_SCRATCH', '0')
+    if value not in ('0', '1'):
+        raise ValueError('Stream build has an invalid bootstrap-2 scratch record: ' + str(directory))
+    return value == '1'
+
+
+def audit_boot2_scratch(stage, *, expected):
+    """Pin the resume path's calls: the relay alone, or Virtua Cop 2's repair and then the relay."""
+    symbols, payload, end = stage['symbols'], stage['payload'], stage['memory_end']
+    repair = symbols.get(BOOT2_SCRATCH_SYMBOL)
+    carried = sorted(name for name in symbols if 'boot2_scratch' in name)
+    if not expected and carried:
+        raise ValueError('Stream module carries the bootstrap-2 scratch repair without its record: ' +
+                         ', '.join(carried))
+    if expected and (repair is None or repair % 2 or not STAGE <= repair < end):
+        raise ValueError('Missing bootstrap-2 scratch repair')
+    resume, relay = symbols.get(RESUME_SYMBOL), symbols.get(RELAY_SYMBOL)
+    if resume is None or relay is None or resume % 2 or not STAGE <= resume < end:
+        raise ValueError('Missing stage resume path or relay')
+
+    def word(at, count=2):
+        data = region(payload, at - STAGE, count, 'stage resume path')
+        return struct.unpack('<H' if count == 2 else '<I', data)[0]
+
+    code, at = [], resume
+    while not code or code[-1][1] != SH_JMP_R0:
+        if len(code) >= 256:
+            raise ValueError('Stage resume path has no final game jump')
+        code.append((at, word(at)))
+        at += 2
+    code.append((at, word(at)))  # the final jump's delay slot
+    calls, branches = [], []
+    for index, (at, op) in enumerate(code):
+        if op == SH_JSR_R0:
+            if not index or code[index - 1][1] >> 8 != 0xd0 or code[index + 1][1] != SH_NOP:
+                raise ValueError('Stage resume call is not a literal jsr @r0 with a nop delay slot')
+            load_at, load = code[index - 1]
+            calls.append((index - 1, word((load_at & ~3) + 4 + (load & 0xff) * 4, 4)))
+        elif op >> 8 in (0x89, 0x8b, 0x8d, 0x8f):
+            branches.append((index, op))
+        elif ((op & 0xf0ff) in (0x400b, 0x402b, 0x0003, 0x0023) and index != len(code) - 2 or
+              op >> 12 in (0xa, 0xb) or op in (0x000b, 0x002b) or op >> 8 == 0xc3):
+            raise ValueError('Stage resume path has an unreviewed call, branch or return')
+    # The one conditional branch is the purge loop, back to its ocbp.
+    loop = branches[0][0] + 2 + (branches[0][1] & 0xff) - 0x100 if len(branches) == 1 else -1
+    if (branches and branches[0][1] >> 8 != 0x8b or branches and branches[0][1] & 0x80 == 0 or
+            not 0 <= loop < branches[0][0] or code[loop][1] != SH_OCBP_R0):
+        raise ValueError('Stage resume path branches other than its cache purge')
+    targets = ([repair] if expected else []) + [relay]
+    if [target for _, target in calls] != targets:
+        raise ValueError('Stage resume calls differ from the reviewed relay path')
+    # Immediately before the relay's literal load: the cache switch, the
+    # repair's call (its module only) and the relay's arguments.
+    last = calls[-1][0]
+    run = (RESUME_CACHE_SWITCH + ((code[calls[0][0]][1], SH_JSR_R0, SH_NOP) if expected else ()) +
+           RESUME_RELAY_ARGUMENTS)
+    if (last < len(run) or tuple(op for _, op in code[last - len(run):last]) != run or
+            expected and calls[0][0] != last - len(RESUME_RELAY_ARGUMENTS) - 3):
+        raise ValueError('Stage resume calls are not between the cache switch and the relay')
+    return {'record': expected, 'repair': hex(repair) if expected else None,
+            'resume_calls': [hex(target) for target in targets],
+            'after_cache_switch_before_relay': True}
+
+
 def check(directory, *, stream=False, bam4=False, worms=False, wwp=False, cdda_vmu=False,
           reader_fixes=False):
     if cdda_vmu and (not stream or bam4 or worms or wwp):
@@ -1383,6 +1467,11 @@ def check(directory, *, stream=False, bam4=False, worms=False, wwp=False, cdda_v
             stage["payload"], start - STAGE, end - start, "embedded excerpt controller") != controller["payload"]:
         raise ValueError("Embedded controller is missing, misaligned or different")
     seed_address = audit_seed(stage,stream=stream, worms=worms)
+    boot2_scratch = recorded_boot2_scratch(directory)
+    if boot2_scratch and not (stream and bam4 and not cdda_vmu and BAM4_KERNEL and
+                              BAM4_KERNEL['name'] == BOOT2_SCRATCH_KERNEL):
+        raise ValueError("The bootstrap-2 scratch repair belongs only to Virtua Cop 2's kernel module")
+    boot2_scratch = audit_boot2_scratch(stage, expected=boot2_scratch)
     if not any(base(n) == "_ce_load" for n in function_sizes(stage_elf)):
         raise ValueError("Missing pre-boot admitted CE loader")
 
@@ -1460,7 +1549,8 @@ def check(directory, *, stream=False, bam4=False, worms=False, wwp=False, cdda_v
             "controller_bss_bytes": controller["memory_end"] - controller["symbols"]["__armada_bind_bss_begin"],
             "embedded_controller_matches": True, "resident_target_matches": True,
             "gd_direct_ram_pool_exclusion_pinned": True,
-            "seed_address": hex(seed_address), "distributed_pcm_bytes": 0 if stream else PCM_BYTES,
+            "seed_address": hex(seed_address), "boot2_scratch": boot2_scratch,
+            "distributed_pcm_bytes": 0 if stream else PCM_BYTES,
             "distributed_pcm_is_zero": True,
             "distributed_audio_map_bytes": 4096 if stream else 0,
             "preboot_pool_begin": hex(POOL_BEGIN), "preboot_pool_end": hex(POOL_END),
@@ -2200,6 +2290,65 @@ def self_test():
             checks += 1
         else:
             raise AssertionError("Stream native worker path admitted on masked GD stack")
+    return checks + boot2_scratch_self_test()
+
+
+def boot2_resume_fixture(items, *, repair_symbol=True):
+    """A synthetic stage resume path; ('call', name) is a literal jsr @r0 with its nop."""
+    targets = {'repair': STAGE + 0x1000, 'relay': STAGE + 0x2000}
+    words = []
+    for item in items:
+        words.extend([('load', item[1]), SH_JSR_R0, SH_NOP] if isinstance(item, tuple) else [item])
+    pool = (STAGE + 2 * len(words) + 3) & ~3
+    loads = [item[1] for item in words if isinstance(item, tuple)]
+    payload = bytearray(0x3000)
+    for index, item in enumerate(words):
+        if isinstance(item, tuple):
+            pc, literal = STAGE + 2 * index, pool + 4 * sum(1 for w in words[:index] if isinstance(w, tuple))
+            item = 0xd000 | (literal - ((pc & ~3) + 4)) // 4
+        struct.pack_into('<H', payload, 2 * index, item)
+    for k, name in enumerate(loads):
+        struct.pack_into('<I', payload, pool - STAGE + 4 * k, targets[name])
+    symbols = {RESUME_SYMBOL: STAGE, RELAY_SYMBOL: targets['relay']}
+    if repair_symbol:
+        symbols[BOOT2_SCRATCH_SYMBOL] = targets['repair']
+    return {'payload': bytes(payload), 'symbols': symbols, 'memory_end': STAGE + 0x3000}
+
+
+def boot2_scratch_self_test():
+    """The resume path's calls: the relay alone, or the repair right before it."""
+    prefix = [0x68f3, 0xdf00, 0xd000, 0x6902, 0xd000, 0xd100, SH_OCBP_R0, 0x7020, 0x3012, 0x8bfb,
+              0xd000, 0xd100]
+    switch, arguments = list(RESUME_CACHE_SWITCH), list(RESUME_RELAY_ARGUMENTS)
+    tail = [0x6f83, 0xd000, SH_JMP_R0, 0x60f6]
+    relay, repair = [('call', 'relay')], [('call', 'repair')]
+    good = prefix + switch + repair + arguments + relay + tail
+    plain = prefix + switch + arguments + relay + tail
+    result = audit_boot2_scratch(boot2_resume_fixture(good), expected=True)
+    if result['resume_calls'] != [hex(STAGE + 0x1000), hex(STAGE + 0x2000)]:
+        raise AssertionError('Bootstrap-2 scratch fixture calls misread')
+    audit_boot2_scratch(boot2_resume_fixture(plain, repair_symbol=False), expected=False)
+    checks = 2
+    refused = (
+        ('repair without its record', boot2_resume_fixture(good), False),
+        ('record without its call', boot2_resume_fixture(plain), True),
+        ('repair after the relay', boot2_resume_fixture(prefix + switch + arguments + relay + repair + tail), True),
+        ('repair twice', boot2_resume_fixture(prefix + switch + repair + repair + arguments + relay + tail), True),
+        ('repair before the cache switch', boot2_resume_fixture(prefix + repair + switch + arguments + relay + tail), True),
+        ('code between repair and relay', boot2_resume_fixture(prefix + switch + repair + [SH_NOP] + arguments + relay + tail), True),
+        ('a bsr', boot2_resume_fixture(prefix + switch + repair + arguments + relay + [0xb000] + tail), True),
+        ('a jsr through another register', boot2_resume_fixture(prefix + switch + repair + arguments + relay + [0x410b, SH_NOP] + tail), True),
+        ('an rts', boot2_resume_fixture(prefix + switch + repair + arguments + relay + [0x000b, SH_NOP] + tail), True),
+        ('no purge loop', boot2_resume_fixture([SH_NOP if w == 0x8bfb else w for w in prefix] + switch + repair + arguments + relay + tail), True),
+        ('a second branch', boot2_resume_fixture(prefix + [0x8bfe] + switch + repair + arguments + relay + tail), True),
+    )
+    for label, image, expected in refused:
+        try:
+            audit_boot2_scratch(image, expected=expected)
+        except ValueError:
+            checks += 1
+        else:
+            raise AssertionError('Bootstrap-2 scratch resume path admitted: ' + label)
     return checks
 
 
