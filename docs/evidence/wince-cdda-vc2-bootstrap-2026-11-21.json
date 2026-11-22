@@ -1,0 +1,82 @@
+{
+ "subject": "Virtua Cop 2 (JPN, HDR-0061): its IP.BIN bootstrap 2 and K-UI's CD music pool",
+ "date": "2026-11-21",
+ "record": "docs/wince-cdda-bam4-group-test.md#virtua-cop-2s-bootstrap-2-uses-the-pools-top-as-scratch",
+ "derived_metadata_only": "No disc, kernel or bootstrap bytes. Addresses are P1 unless marked P2.",
+ "inputs": {
+  "ip_bin": {"bytes": 32768, "crc32": "0x3f7f1c3d",
+             "sha256": "59c2687610728ec5829181168086d03c70746cf4027e52d71ac795a395f1ca7e",
+             "source": "the owner's GDI image (private, not distributed)"},
+  "kernel_0winceos_bin": {"bytes": 1632256,
+                          "sha256": "6c09543a5680d8255e64011ef44aff73816793674806ceb64cb0cd10e323e807",
+                          "ram_end": "0x8cfd0000", "driver_globals": "0x8cfd0000, 0x30000 bytes"},
+  "reference_bootstrap": "Bust-A-Move 4 (US, T-8117N) IP.BIN, the standard bootstrap"
+ },
+ "evidence_kinds": {
+  "original_backed_host_execution": "The disc's bootstrap 2 run from K-UI's entry state (PC 0xac00e000, r15 0x8c00f400, SR 0x600000f0) to the game entry 0xac010000 by a scratch SH-4 integer interpreter (not committed). The same interpreter on Bust-A-Move 4's IP.BIN writes only the standard 0x8c00fc00..0x8c010000 clear.",
+  "authored_model": "The BIOS FLASHROM syscall (0x8c0000b8) on a 128 KiB flash with KOS partition geometry; flash states: blank, headers present, repeat boots on the flash the previous boot left, and a synthesized near-full partition 3. The BIOS routines' own stack frames are not modelled.",
+  "static_comparison": "IP 0x300..0x6000 matches Bust-A-Move 4's except the area-protection text at 0x3704..0x3737; the bootstrap 2 header and opening match the standard; its high-RAM literals in 0x6000..0x7fff are 0xacfc0000 (twice), 0xacfd0000, 0xacfe0000 and 0xacff0000.",
+  "stage_crc": "The stage's own CRC routine (src/loader/stage_fast_crc32.h, host build) gives 0x3f7f1c3d on the IP.BIN, equal to zlib CRC32.",
+  "linked_admission": "test-wince-packaged-prepare --bam4-kernel with this kernel and module build 1ac7e667c0d3, raw and 2048-byte DATA: pass.",
+  "console": "Module 9e89e778370f, GUI 1c71ba3afa17, CD music On (owner, 21 Nov 2026): BOOTSTRAP ALTERED STREAM SOURCE MAP, DETAIL 0. Module 1ac7e667c0d3: pending."
+ },
+ "bootstrap": {
+  "entered_at": "IP+0x6000 (P2 0xac00e000); the lower IP code is not run",
+  "program": "Sega play-history recorder AIPf 1.07 over the Katana flash manager fmMng 1.04",
+  "changes_from_standard": [
+   "r15 = P2 0xacfc0000 (standard: 0x8c00f400 region)",
+   "after the cache is disabled: a check call, then the recorder, with r4 0xacfd0000, r5 0xacfc0000, r6 0xacfe0000, r7 0xacff0000",
+   "final FPSCR 0x00040000 (standard 0x00040001)"
+  ],
+  "flash": "partition 2 header check; partition 4 state marker (SEGA_FH01 two-phase update); partition 3 product, title and counter/RTC blocks, compacted when full",
+  "registers_to_game": "standard apart from FPSCR; nothing passed in registers"
+ },
+ "ram_writes": [
+  {"range": "0x8c00fc00..0x8c010000", "what": "fmMng block buffer (0x8c00fce0) and variables; zeroed by the standard tail before the game entry"},
+  {"range": "0x8cfbfd44..0x8cfc0000", "what": "stack, normal boot (700 bytes), every modelled flash state"},
+  {"range": "0x8cfbfd08..0x8cfc0000", "what": "stack, partition-full compaction path (760 bytes)"},
+  {"range": "below the lowest caller SP (about 0x8cfbfd4c, or 0x8cfbfd10 on compaction)", "what": "BIOS FLASHROM frames, not modelled"},
+  {"range": "0x8cfc0000..0x8cfc003c", "what": "60 bytes of the recorder's work data (r5)"},
+  {"range": "0x8cfd0000..0x8cfe0000", "what": "r4 buffer, cleared whole and filled every boot"},
+  {"range": "0x8cfe0000..0x8cfeef10", "what": "r6 buffer, compaction path only (could reach 0x8cff0000)"},
+  {"range": "0x8cff0000..0x8cff6360", "what": "r7 record table, every boot"}
+ ],
+ "not_written": ["0x8c010000.. (the CE kernel's load area)", "0x8cf50000..0x8cfbfd00", "0x8cfc003c..0x8cfd0000"],
+ "kui_regions_9e89e778370f": {
+  "seed_words": {"range": "0x8cf50000..0x8cf50040", "overlap": false},
+  "audio_source_bank": {"range": "0x8cf50040..0x8cfa6260", "overlap": false},
+  "controller_and_zero_tail": {"range": "0x8cfa7000..0x8cfbf000", "overlap": false,
+                               "note": "BIOS frames would need more than about 3.3 KiB below the recorder's lowest frame to reach it; the relay's check of it passed on the console"},
+  "stream_map": {"range": "0x8cfbf000..0x8cfc0000", "overlap": true,
+                 "map_offsets": "0xd44..0xfff (normal), 0xd08..0xfff (compaction), plus the BIOS frames"},
+  "work_page": {"range": "0x8cfc0000..0x8cfcf000", "overlap": true, "bytes": "0x00..0x3c",
+                "note": "not checked by the non-VMU relay; a transport destination only"},
+  "guard": {"range": "0x8cfcf000..0x8cfd0000", "overlap": false},
+  "stage": {"range": "0x8ce10000..0x8cf50000", "overlap": false},
+  "resident": {"range": "0x8c008300..0x8c00d800", "overlap": false},
+  "stage_stack": {"range": "0x8cfe0000..0x8cff0000", "overlap": "compaction path only",
+                  "note": "dead during bootstrap 2; the resume path reloads 0x8cff0000"}
+ },
+ "other_layouts_inside_the_window": [
+  "the combined CD music and VMU spill at 0x8cfc0000 (2 KiB), checked as BOOTSTRAP ALTERED CE DATA SPILL",
+  "a unified pool of 64 KiB or more below RAM end 0x8cfd0000 (roadmap F8)",
+  "the VMU worker and lease area at 0x8cfd0000 in other modules"
+ ],
+ "fix": {
+  "sources": ["e8b3f744", "1ac7e667"],
+  "header": "include/kui/armada_ce_boot2_scratch.h",
+  "gate": "IP CRC32 0x3f7f1c3d, already checked by the stage against the loaded IP.BIN",
+  "action": "after bootstrap 2, before the relay: reinstall the 4 KiB map from the stage's proven copy and zero the 64 KiB work and guard pages",
+  "refusal": "BOOTSTRAP 2 SCRATCH COPY REFUSED, DETAIL 3..8 (seed header, map CRC word, decode, runtime policy, map mismatch, copy readback)",
+  "module": {"path": "KUI/apps/games/ce-cdda-6c09543a5680.kui", "build": "1ac7e667c0d3", "bytes": 135736,
+             "payload_crc32": "1A985F40",
+             "sha256": "0f714fed2832ab3a02543be76644220f1daf510150460022e4d3ebd880b98539"},
+  "switch_off_rebuild": "byte-identical to 9e89e778370f"
+ },
+ "limits": [
+  "The BIOS FLASHROM frames were not modelled; a frame below 0x8cfbf000 would still stop the launch at the controller check.",
+  "Another pressing or region of Virtua Cop 2 (another IP.BIN) keeps round 2's stop until examined.",
+  "No survey of every WinCE disc's bootstrap 2 for top-of-RAM use exists.",
+  "No console run of the fix yet."
+ ]
+}
