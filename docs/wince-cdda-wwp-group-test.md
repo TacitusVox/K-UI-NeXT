@@ -10,6 +10,8 @@ music adapter on its other kernels with the usual RAM end. The owner asked to
 "allow all WinCE games to run CDDA that have it", after the accepted CD music
 set `1ba2fa7e7040` ([record](wince-cdda-chain-test.md)).
 
+**RC1 follow-up, 22 November 2026.** The owner confirmed that 4x4 Evolution plays CD music with GUI `93f13e84d989`. The 21 November observations below are retained as the earlier test record. [RC1 hardware checklist](accepted-progress.md)
+
 ## The group
 
 These kernels carry World Party's `nk.exe` build and its `coredll.dll`,

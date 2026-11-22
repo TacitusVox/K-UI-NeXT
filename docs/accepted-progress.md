@@ -1,5 +1,11 @@
 # K-UI accepted progress
 
+## RC1 updater and console checklist · 22 November 2026
+
+The owner reported that the repaired RC1 GUI `93f13e84d989` passed the full Dreamcast hardware checklist. The checklist covered installing the complete update and restarting K-UI, cold booting the matching physical SD install, and checking native games, WinCE CD music, virtual saves and Sega Smash Pack handoffs. The repaired full package carries the GUI and the same 103 other managed files as the first RC1 candidate.
+
+The owner specifically confirmed that **4x4 Evolution CD music works** on this build. The earlier report had established that the game launched and its menu WAV audio played. This adds a CD music result for the tested game. Other kernel variants retain their individual evidence in the [World Party group](wince-cdda-wwp-group-test.md) and [Bust-A-Move 4 group](wince-cdda-bam4-group-test.md) records.
+
 ## K-UI 3.0 RC1 generic WinCE reader · 22 November 2026
 
 The owner promoted the everyday generic reader `ce-boot.kui` build `91b0540103f0` for RC1 and subsequent full nightlies. It supersedes the previous generic acceptance at `7b216f2e1136`. This build enables video-memory transfers and uses the adaptive 16-reception slow window with two doublings. RAM pooling and read-ahead are disabled. The file is 85,300 bytes with payload CRC32 `6829D405` and SHA-256 `a75e0ce9010708953b707aad5db975bb83f9ee20f5657ddf4fdea8cf014acabd`.
