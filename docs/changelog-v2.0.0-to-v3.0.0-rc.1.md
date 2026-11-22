@@ -6,6 +6,8 @@ RC1 brings native games, Windows CE and Sega Smash Pack into one launcher with m
 
 This comparison starts at the released Tyrfing source `533e2906255d` and ends at the exact RC1 installer source `93f13e84d989`. It spans **728 commits** and **3,699 changed file paths**. Console observations below identify the game and feature that were exercised. Development diagnostics, experimental readers and unfinished compatibility work are identified where they affect what an RC1 owner can expect. [Tyrfing release](https://github.com/TacitusVox/K-UI-NeXT/releases/tag/v2.0.0) · [RC1 source](https://github.com/TacitusVox/K-UI-NeXT/tree/93f13e84d9893d149d2202c90417c3ec6b5aa940)
 
+[Download the PDF](releases/3.0.0-rc.1/K-UI-3.0-RC1-Changelog.pdf) · [Complete commit index](releases/3.0.0-rc.1/Commit-index.md) · [Changed files](releases/3.0.0-rc.1/Changed-files.tsv) · [Dreamcast test checklist](releases/3.0.0-rc.1/Hardware-testing.md)
+
 ## Universal Loader, game compatibility and virtual memory cards
 
 K-UI 2.0.0 already loaded native and Windows CE images, offered optional SCI CD music and included tools for backing up physical VMUs. RC1 brings the native and Windows CE work together in one Games menu, adds persistent virtual-card routes and integrates Sega Smash Pack. The full package supplies the GUI's matching readers. “Universal Loader” describes that common launcher. Each optional service still checks the game, image, storage interface and available memory before running. [2.0.0 baseline](https://github.com/TacitusVox/K-UI-NeXT/blob/533e2906255deb2aa1c58f77744c0de2be648936/docs/release-v2.0-notes.md) · [RC1 component inventory](https://github.com/TacitusVox/K-UI-NeXT/blob/93f13e84d9893d149d2202c90417c3ec6b5aa940/docs/distribution-maintenance.md)
