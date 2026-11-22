@@ -2,8 +2,11 @@
 
 **Status: test build `9e89e778370f` delivered 21 Nov 2026. Console result,
 21 Nov 2026: Puzzle Bobble 4 works; Virtua Cop 2 stopped in its bootstrap 2.
-Virtua Cop 2's fix, test build `1ac7e667c0d3`, delivered 21 Nov 2026; console
-test pending.** Roadmap step S3 ([roadmap](wince-roadmap.md)): Bust-A-Move
+Virtua Cop 2's fix, test build `1ac7e667c0d3`, console result 21 Nov 2026:
+the bootstrap repair works and the game reaches its memory-card check, then
+the reader refuses a stream transfer into video memory, which the CD music
+modules do not yet take
+([result](#console-result-of-1ac7e667c0d3-21-nov-2026)).** Roadmap step S3 ([roadmap](wince-roadmap.md)): Bust-A-Move
 4's CD music adapter on its other kernels, in round 1's pattern
 ([World Party's group](wince-cdda-wwp-group-test.md)).
 
@@ -318,6 +321,32 @@ Questions for the console test, with CD music On:
   - BOOTSTRAP 2 SCRATCH COPY REFUSED: the stage copy failed its proof.
   - BOOTSTRAP ALTERED STREAM SOURCE MAP: the repair did not apply.
   - Any other message: the bootstrap changed something else.
+
+## Console result of `1ac7e667c0d3` (21 Nov 2026)
+
+The owner ran Virtua Cop 2 (JPN) with CD music On:
+- **The bootstrap repair works.** Windows CE started and the game ran
+  through its memory-card check, past the stop of round 2.
+- **Then the reader stopped.** The game stopped on the resident reader's
+  fault page:
+
+| Field | Value |
+|---|---|
+| Build | `1AC7E667C0D3` |
+| Fault | GD FUNCTION UNSUPPORTED, GD FUNCTION `6` (DMA transfer) |
+| Command | `0x26` (`DMAREAD_STREAM_EX`), LBA `0x858FA`, `0x101` (257) sectors, destination `0x04575600` |
+| Card block | `0x0C4C931E` |
+| DMA blocks, polled, starts, kept, overruns | `0x4DA0`, 0, `0x73`, 4, `0x23` |
+| CRC errors, token errors, foreign, repaired, ahead | 7, 0, 0, 7, 0 |
+| Left 0, 128, 384, 513, channel 2 late | 0, 0, 3, `0x27`, `0x730` |
+| DMA OR bad, token bytes, token max, stops, token yields | 0, `0xE88B`, `0xB98`, `0x72`, `0x56` |
+
+This is the stop the generic module had before `KUI_CE_VRAM_DMA`: the same
+request, piece shape and destination in the PowerVR video memory window,
+after the memory-card check ([record](wince-vram-stream.md)). That fix
+passed the owner's console test with CD music Off on 20 Nov 2026, and its
+record leaves the CD music modules with the refusal until their reader
+space is audited. All seven card CRC errors were repaired by re-reading.
 
 ## Not answered by this test
 
