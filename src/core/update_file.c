@@ -647,6 +647,49 @@ static enum kui_update_result review_contents(const struct kui_update_package *i
     free(d.buffer);changes->known=r==KUI_UPDATE_OK;
     return r;
 }
+static enum kui_update_result review_bank_plan(const struct kui_update_package *p,
+    struct kui_update_package *snapshot,struct kui_update_package *bank,const struct kui_update_activation *active,
+    bool allow_repair,bool *already_selected,uint64_t *needed,uint64_t *available,kui_cancel_fn cancel,
+    struct kui_update_review_problem *issue) {
+    enum kui_update_result r;
+    if(snapshot) {
+        review_problem(issue,"inspect target bank",snapshot->build,-1);
+        bool complete=false;r=snapshot_target(snapshot,active,bank,allow_repair,&complete,NULL,NULL,cancel,NULL,issue);
+        if(!r && !complete)r=quota(snapshot,needed,available,issue);
+        if(r || !complete)return r;
+        if(!snapshot_same(snapshot,bank))r=KUI_UPDATE_STALE;
+    } else {
+        review_problem(issue,"inspect bank receipt",p->build,-1);
+        r=kui_update_bank_receipt_read(p->build,bank,cancel);
+        if(!r) {
+            struct kui_update_pin pin;kui_update_package_pin(p,&pin);
+            if(!kui_update_pin_matches(&pin,bank))r=KUI_UPDATE_STALE;
+            /* Legacy quota alone needs just a receipt. Re-read the selected
+             * bank's files before reporting a successful duplicate check. */
+            else if(already_selected && !strcmp(active->selected,p->build)) {
+                r=kui_update_bank_verify(p->build,bank,NULL,NULL,cancel,NULL);
+                if(!r && !kui_update_pin_matches(&pin,bank))r=KUI_UPDATE_STALE;
+            }
+        } else if(r==KUI_UPDATE_NOT_FOUND || r==KUI_UPDATE_FORMAT || r==KUI_UPDATE_CHECKSUM ||
+                  r==KUI_UPDATE_COHORT || r==KUI_UPDATE_STALE) {
+            if(!strcmp(active->selected,p->build) || !strcmp(active->previous,p->build))r=KUI_UPDATE_PROTECTED;
+            else if(stopped(cancel))r=KUI_UPDATE_CANCELLED;
+            else r=quota(p,needed,available,issue);
+            return r;
+        }
+    }
+    if(!r) {
+        FATFS *fs=NULL;DWORD free_clusters=0u;
+        FRESULT space=f_getfree("0:",&free_clusters,&fs);
+        if(space!=FR_OK || !fs) {review_problem(issue,"read free space","0:",space);r=KUI_UPDATE_IO;}
+        else {
+            *available=(uint64_t)free_clusters*fs->csize*512u;
+            if(already_selected)*already_selected=!strcmp(active->selected,p->build) &&
+                !memcmp(active->manifest_sha256,bank->manifest_sha256,32u);
+        }
+    }
+    return r;
+}
 enum kui_update_result kui_update_plan_review_diagnose(const struct kui_update_package *p,
     const struct kui_update_activation *expected,bool *already_selected,
     uint64_t *needed,uint64_t *available,kui_cancel_fn cancel,struct kui_update_changes *changes,
@@ -680,53 +723,19 @@ enum kui_update_result kui_update_plan_review_diagnose(const struct kui_update_p
         if(r) {free(sources);free(snapshot);free(bank);return r;}
         p=snapshot;
     }
-    if(changes) {
+    r=review_bank_plan(p,snapshot,bank,&a,allow_repair,already_selected,needed,available,cancel,issue);
+    /* Comparing old software is for the display only. A read error invalidates the
+     * current media session. Finish all required reads before the
+     * comparison; the GUI disconnects after review and checks the card,
+     * activation and package again on the next (confirmed) request. */
+    if(changes && (r==KUI_UPDATE_OK || r==KUI_UPDATE_SPACE)) {
         enum kui_update_result compared=review_contents(incoming,p,&a,bank,sources,changes,cancel,issue);
         if(compared) {
             memset(changes,0,sizeof(*changes));
-            if(compared==KUI_UPDATE_CANCELLED) {free(sources);free(snapshot);free(bank);return compared;}
-            /* A broken previous bank or unavailable inventory does not remove
-             * the ability to repair it with a verified full package. */
+            if(compared==KUI_UPDATE_CANCELLED)r=compared;
         }
     }
-    free(sources);
-    if(snapshot) {
-        review_problem(issue,"inspect target bank",snapshot->build,-1);
-        bool complete=false;r=snapshot_target(snapshot,&a,bank,allow_repair,&complete,NULL,NULL,cancel,NULL,issue);
-        if(!r && !complete)r=quota(snapshot,needed,available,issue);
-        if(r || !complete) {free(snapshot);free(bank);return r;}
-        if(!snapshot_same(snapshot,bank))r=KUI_UPDATE_STALE;
-    } else {
-        review_problem(issue,"inspect bank receipt",p->build,-1);
-        r=kui_update_bank_receipt_read(p->build,bank,cancel);
-        if(!r) {
-            struct kui_update_pin pin;kui_update_package_pin(p,&pin);
-            if(!kui_update_pin_matches(&pin,bank))r=KUI_UPDATE_STALE;
-            /* Legacy quota alone needs just a receipt. Re-read the selected
-             * bank's files before reporting a successful duplicate check. */
-            else if(already_selected && !strcmp(a.selected,p->build)) {
-                r=kui_update_bank_verify(p->build,bank,NULL,NULL,cancel,NULL);
-                if(!r && !kui_update_pin_matches(&pin,bank))r=KUI_UPDATE_STALE;
-            }
-        } else if(r==KUI_UPDATE_NOT_FOUND || r==KUI_UPDATE_FORMAT || r==KUI_UPDATE_CHECKSUM ||
-                  r==KUI_UPDATE_COHORT || r==KUI_UPDATE_STALE) {
-            if(!strcmp(a.selected,p->build) || !strcmp(a.previous,p->build))r=KUI_UPDATE_PROTECTED;
-            else if(stopped(cancel))r=KUI_UPDATE_CANCELLED;
-            else r=quota(p,needed,available,issue);
-            free(bank);return r;
-        }
-    }
-    if(!r) {
-        FATFS *fs=NULL;DWORD free_clusters=0u;
-        FRESULT space=f_getfree("0:",&free_clusters,&fs);
-        if(space!=FR_OK || !fs) {review_problem(issue,"read free space","0:",space);r=KUI_UPDATE_IO;}
-        else {
-            *available=(uint64_t)free_clusters*fs->csize*512u;
-            if(already_selected)*already_selected=!strcmp(a.selected,p->build) &&
-                !memcmp(a.manifest_sha256,bank->manifest_sha256,32u);
-        }
-    }
-    free(snapshot);free(bank);return r;
+    free(sources);free(snapshot);free(bank);return r;
 }
 enum kui_update_result kui_update_plan_review_details(const struct kui_update_package *p,
     const struct kui_update_activation *expected,bool *already_selected,
