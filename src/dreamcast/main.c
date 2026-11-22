@@ -2778,13 +2778,22 @@ static bool update_packages_list(const char *directory,unsigned page,struct kui_
 }
 static bool update_space(struct kui_shell_update_view *out,const struct kui_update_package *package,
                          struct kui_update_changes *changes) {
-    enum kui_update_result result=kui_update_plan_review_details(package,&out->reviewed.activation,
-        &out->already_installed,&out->required_bytes,&out->free_bytes,kui_cancelled,changes);
+    struct kui_update_review_problem issue;
+    enum kui_update_result result=kui_update_plan_review_diagnose(package,&out->reviewed.activation,
+        &out->already_installed,&out->required_bytes,&out->free_bytes,kui_cancelled,changes,&issue);
     out->changes=changes;
     out->space_known=result==KUI_UPDATE_OK || result==KUI_UPDATE_SPACE;
     if(!out->space_known && result!=KUI_UPDATE_CANCELLED) {
         out->status.errors=1u;
-        snprintf(out->status.message,sizeof(out->status.message),"Cannot prepare this bank: %s",kui_update_result_name(result));
+        if(result==KUI_UPDATE_IO && issue.operation) {
+            out->stage=KUI_SHELL_UPDATE_RESULT;
+            snprintf(out->status.message,sizeof(out->status.message),"Bank check: %s",issue.operation);
+            if(issue.fatfs>=0)
+                snprintf(out->status.lines[0],KUI_APP_LINE_CAP,"FatFs %d  %.60s",issue.fatfs,issue.path);
+            else snprintf(out->status.lines[0],KUI_APP_LINE_CAP,"%.72s",issue.path);
+            out->status.line_count=1u;
+            kui_log("Update review: %s, FatFs %d, path %s",issue.operation,issue.fatfs,issue.path);
+        } else snprintf(out->status.message,sizeof(out->status.message),"Cannot prepare this bank: %s",kui_update_result_name(result));
     }
     return result==KUI_UPDATE_OK;
 }

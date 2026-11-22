@@ -13,6 +13,7 @@
 static uint8_t *disk;static size_t disk_bytes;static FATFS fs;static bool mounted,active,low_space;
 static unsigned checks,writes,syncs;static int fail_write=-1,fail_sync=-1,cancel_after=-1;
 static int effective_mode;static char effective_bank[13];static uint8_t effective_hash[32];
+static bool space_read_error;
 static unsigned boot_minimum;static bool activation_io,tear_activation;static char read_failure[160];
 unsigned kui_update_boot_engine_minimum(void) {return boot_minimum;}
 int kui_update_effective_snapshot(char bank[13],uint8_t hash[32]) {
@@ -54,6 +55,7 @@ FRESULT __wrap_f_write(FIL *file,const void *data,UINT bytes,UINT *put) {
 }
 FRESULT __real_f_getfree(const TCHAR *,DWORD *,FATFS **);
 FRESULT __wrap_f_getfree(const TCHAR *path,DWORD *clusters,FATFS **volume) {
+    if(active && space_read_error)return FR_DISK_ERR;
     FRESULT r=__real_f_getfree(path,clusters,volume);if(active && low_space && r==FR_OK)*clusters=0u;return r;
 }
 static void clear_faults(void) {
@@ -450,6 +452,17 @@ int main(int argc,char **argv) {
     strcpy(read_failure,"0:/KUI/apps/games/test-helper.bin");uint64_t review_needed,review_free;bool reviewed=false;active=true;
     CHECK(kui_update_plan_review_details(&full.package,NULL,&reviewed,&review_needed,&review_free,cancel,&changes)==KUI_UPDATE_OK);
     CHECK(!changes.known && !changes.count && !writes && !syncs);active=false;reset(saved);
+    struct kui_update_review_problem issue;
+    clear_faults();active=true;strcpy(read_failure,KUI_RUNTIME_PATH);
+    CHECK(kui_update_plan_review_diagnose(&full.package,NULL,&reviewed,&review_needed,&review_free,cancel,&changes,&issue)==KUI_UPDATE_IO);
+    CHECK(!strcmp(issue.operation,"open physical runtime") && !strcmp(issue.path,KUI_RUNTIME_PATH) && issue.fatfs==FR_DISK_ERR);
+    read_failure[0]=0;space_read_error=true;
+    CHECK(kui_update_plan_review_diagnose(&full.package,NULL,&reviewed,&review_needed,&review_free,cancel,&changes,&issue)==KUI_UPDATE_IO);
+    CHECK(!strcmp(issue.operation,"read free space") && !strcmp(issue.path,"0:") && issue.fatfs==FR_DISK_ERR);
+    CHECK(!writes && !syncs);space_read_error=false;active=false;reset(saved);
+    file_write(KUI_RUNTIME_PATH,"tiny",4u);
+    CHECK(kui_update_plan_review_diagnose(&full.package,NULL,&reviewed,&review_needed,&review_free,cancel,&changes,&issue)==KUI_UPDATE_RUNTIME);
+    reset(saved);
     for(unsigned i=0;i<KUI_UPDATE_CHANGE_ROWS;i++) {
         char path[80];snprintf(path,sizeof(path),"0:/KUI/assets/many/file%04u.bin",i);file_write(path,"",0u);
     }
