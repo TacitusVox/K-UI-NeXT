@@ -163,7 +163,12 @@ Nothing else reads it.
    refused, but `include/kui/native_standalone_foreground.h` has defined 3 as
    `KUI_NATIVE_FOREGROUND_CAP_VC2_PERSIST` since `eddbb01f` (5 Nov 2026); and
    `test_game_reader_provenance.py` compares against commit `2aac9af8`, which
-   a shallow clone lacks (fetched, it runs). Neither is changed here.
+   a shallow clone lacks (fetched, it runs). Neither is changed here. A
+   third, reported by the Windows CE session and confirmed here on Main
+   `4441e92c` and on this branch alike: `tests/test_wince_release_package.py`
+   fails because its dry-run `make all` needs KallistiOS's
+   `hardware/network/broadband_adapter.c` (Makefile.dc since Main `870f00bb`,
+   17 Nov) and the test's stand-in KallistiOS folder has no such file.
 
 Known differences from the parent K-UIs:
 
