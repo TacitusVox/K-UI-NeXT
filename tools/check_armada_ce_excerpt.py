@@ -556,6 +556,8 @@ for _key, _targets in STREAM_BOOT_RELOCS.items():
 # Adding WWP's scalar leaf moves the original first-text purge helper by
 # twelve bytes. Its complete body is unchanged from the booting b579 build;
 # admit only that exact named helper, never an arbitrary low-image address.
+# Virtua Cop 2's video-memory reader (VRAM_DMA record) moves it the same way:
+# the span helper (kui_retail_vram_dma_span) is linked ahead of it.
 WWP_INIT_PURGE_BYTES = bytes.fromhex('e0e14c3519245234018b0b000900a304f9af2074')
 
 
@@ -602,9 +604,9 @@ def stream_stage_linked_targets(*, photo_hold):
         if photo_hold or offset != 0x38c)
 
 
-def stream_boot_relocs(*, wwp=False, photo_hold=True):
+def stream_boot_relocs(*, wwp=False, photo_hold=True, vram=False):
     relocations = dict(STREAM_BOOT_RELOCS)
-    if wwp:
+    if wwp or vram:
         key = ('resident', '_kui_retail_resident_init')
         relocations[key] += ((0x26e, '_purge.lto_priv.0', 0),)
     if not photo_hold:
@@ -684,7 +686,8 @@ BAM4_STAGE_LINKED_TARGETS = (
 )
 
 
-def stream_boot_bodies(*, bam4=False, worms=False, wwp=False, photo_hold=True, small_stack=False):
+def stream_boot_bodies(*, bam4=False, worms=False, wwp=False, photo_hold=True, small_stack=False,
+                       vram=False):
     """Keep the complete startup proof, selecting the admitted ROM header."""
     if sum((bam4, worms, wwp)) > 1:
         raise ValueError('Select only one WinCE title profile')
@@ -697,11 +700,11 @@ def stream_boot_bodies(*, bam4=False, worms=False, wwp=False, photo_hold=True, s
                 raise ValueError('Reader stack-guard pin differs from the reviewed literal')
             body[at:at + 4] = struct.pack('<I', moved)
         bodies[key] = bytes(body)
-    if wwp:
+    if wwp or vram:
         key = ('resident', '_kui_retail_resident_init')
         body = bytearray(bodies[key])
         if body[0x26e:0x272] != struct.pack('<I', 0x8c008338):
-            raise ValueError('WWP initializer purge pin differs from the booting reference')
+            raise ValueError('Initializer purge pin differs from the booting reference')
         body[0x26e:0x272] = bytes(4)
         bodies[key] = bytes(body)
         bodies[('resident', '_purge.lto_priv.0')] = WWP_INIT_PURGE_BYTES
@@ -767,6 +770,13 @@ MAP_SHA256 = "d0c40ff2abc2a371a56ab0e801f3b41ba83c6ef3e475b710e11adf2d651f5349"
 # reservation. Byte-identical (all 224 bytes, same address) to the guard in
 # the delivered 67b0df9469cc all-on reader that booted on the owner's console.
 MAP_SHA256_CDDA_VMU = "8047a79311fc7571667543102554c8e772e3a1d09a131951384c82aac3fee852"
+# Virtua Cop 2's CD music reader with video-memory stream pieces (VRAM_DMA
+# record): the same pool guard after a branch that sends a P1/P2 address
+# outside RAM to the PVR span helper (only a stream piece reaches it; guest()
+# refuses CPU pointers there). The whole body, literal pool included.
+VRAM_MARKER = '__kui_retail_ce_vram_dma'
+MAP_BYTES_VRAM = 240
+MAP_SHA256_VRAM = "d2f266e144ab284ec6bc900d853d0560c28ccf97fdbda2b5e2248dfd84fd590a"
 SEED_HEADER = struct.pack("<16I", 0x31584543, 1, PCM_BYTES, 0,
                           SECTORS, START_LBA, *([0] * 10))
 STREAM_SEED_HEADER = struct.pack("<16I", 0x32584543, 2, 0x8cf50040,
@@ -988,12 +998,15 @@ def audit_stream_contract(image, *, worms=False):
             "pcm_code_ranges_disjoint": True}
 
 
-def audit_map_guard(image, sizes, *, worms=False, cdda_vmu=False):
+def audit_map_guard(image, sizes, *, worms=False, cdda_vmu=False, vram=False):
     start = image["symbols"].get("_map_guest", 0)
     span = sizes.get("_map_guest") or (0, 0)
-    if span[0] != start or span[1] < MAP_BYTES:
+    pinned = MAP_BYTES_VRAM if vram else MAP_BYTES
+    if vram and (worms or cdda_vmu):
+        raise ValueError("The video-memory pool guard is pinned for the Bust-A-Move 4 profile only")
+    if span[0] != start or not pinned or span[1] < pinned:
         raise ValueError("Missing direct-RAM destination admission")
-    code = region(image["payload"], start - 0x8c008300, MAP_BYTES, "pool destination guard")
+    code = region(image["payload"], start - 0x8c008300, pinned, "pool destination guard")
     if worms:
         # Keep the complete original body pinned after canonicalizing only
         # its reviewed physical pool endpoint/begin literals.
@@ -1003,7 +1016,8 @@ def audit_map_guard(image, sizes, *, worms=False, cdda_vmu=False):
             if code[offset:offset + 4] != struct.pack('<I', expected):
                 raise ValueError('Worms direct-RAM pool guard literal changed')
             code[offset:offset + 4] = struct.pack('<I', original)
-    if hashlib.sha256(code).hexdigest() != (MAP_SHA256_CDDA_VMU if cdda_vmu else MAP_SHA256):
+    if hashlib.sha256(code).hexdigest() != (MAP_SHA256_VRAM if vram else
+                                            MAP_SHA256_CDDA_VMU if cdda_vmu else MAP_SHA256):
         raise ValueError("Linked direct-RAM pool exclusion has changed; review required")
 
 
@@ -1253,7 +1267,7 @@ def audit_stream_terminal_snapshot(image, locals_, *, worms=False):
 
 
 def audit_stream_boot_arm(controller, controller_spans, resident, resident_spans, stage, stage_spans,
-                          *, bam4=False, worms=False, wwp=False, small_stack=False):
+                          *, bam4=False, worms=False, wwp=False, small_stack=False, vram=False):
     """Pin startup quiescence and the exact post-verification arming path.
 
     This intentionally checks complete compiled bodies, not a source-text
@@ -1279,11 +1293,13 @@ def audit_stream_boot_arm(controller, controller_spans, resident, resident_spans
     if photo_frames not in (0, 120):
         raise ValueError('Stream bootstrap declares an unreviewed photo hold')
     photo_hold = photo_frames == 120
+    if vram and not small_stack:
+        raise ValueError('The video-memory reader needs the small-stack layout')
     bodies = stream_boot_bodies(bam4=bam4, worms=worms, wwp=wwp, photo_hold=photo_hold,
-                                small_stack=small_stack)
-    relocations = stream_boot_relocs(wwp=wwp, photo_hold=photo_hold)
+                                small_stack=small_stack, vram=vram)
+    relocations = stream_boot_relocs(wwp=wwp, photo_hold=photo_hold, vram=vram)
     reservation_end = CE_CDDA_SMALL_STACK_BOTTOM if small_stack else LOW_LIMIT
-    required = STREAM_BOOT_REQUIRED | ({('resident', '_purge.lto_priv.0')} if wwp else set())
+    required = STREAM_BOOT_REQUIRED | ({('resident', '_purge.lto_priv.0')} if wwp or vram else set())
     if set(bodies) != required:
         raise ValueError("Missing stream bootstrap complete-body proof")
     pinned = []
@@ -1349,6 +1365,17 @@ SH_NOP, SH_JSR_R0, SH_JMP_R0, SH_OCBP_R0 = 0x0009, 0x400b, 0x402b, 0x00a3
 # arguments (mov r8,r4; mov r9,r5).
 RESUME_CACHE_SWITCH = (0x2012,) + (SH_NOP,) * 8
 RESUME_RELAY_ARGUMENTS = (0x6483, 0x6593)
+
+
+def recorded_vram_dma(directory):
+    """Whether a stream build recorded the reader's video-memory stream pieces (its reader-config)."""
+    path = Path(directory) / 'reader-config'
+    if not path.exists():
+        return False
+    value = dict(token.split('=', 1) for token in path.read_text().split()).get('VRAM_DMA', '0')
+    if value not in ('0', '1'):
+        raise ValueError('Stream build has an invalid video-memory record: ' + str(directory))
+    return value == '1'
 
 
 def recorded_small_stack(directory):
@@ -1508,12 +1535,20 @@ def check(directory, *, stream=False, bam4=False, worms=False, wwp=False, cdda_v
     if small_stack and not (stream and bam4 and not cdda_vmu and BAM4_KERNEL and
                             BAM4_KERNEL['name'] == SMALL_STACK_KERNEL):
         raise ValueError("The CD music small-stack reader belongs only to Virtua Cop 2's kernel module")
+    vram = recorded_vram_dma(directory)
+    if vram and not small_stack:
+        raise ValueError("The CD music reader's video-memory pieces need its small-stack layout")
     if not any(base(n) == "_ce_load" for n in function_sizes(stage_elf)):
         raise ValueError("Missing pre-boot admitted CE loader")
 
     resident_elf = (directory / "resident-scia.elf").read_bytes()
     if exact_profile_marker(resident_elf, CDDA_SMALL_STACK_MARKER) != small_stack:
         raise ValueError("The background reader's small-stack marker differs from the build's record")
+    # Only the background reader takes video-memory pieces; the synchronous
+    # one cannot run in a CD music module and keeps the installed code.
+    if (exact_profile_marker(resident_elf, VRAM_MARKER) != vram or
+            exact_profile_marker((directory / "resident-sci.elf").read_bytes(), VRAM_MARKER)):
+        raise ValueError("The readers' video-memory markers differ from the build's record")
     resident = inspect_elf(resident_elf, 0x8c008300,
                            CE_CDDA_SMALL_STACK_BOTTOM if small_stack else low_limit)
     stream_bus = audit_stream_bus(controller, controller_locals, resident,
@@ -1526,11 +1561,11 @@ def check(directory, *, stream=False, bam4=False, worms=False, wwp=False, cdda_v
     stream_boot_arm = audit_stream_boot_arm(controller, controller_sizes, resident,
                           function_sizes(resident_elf, kinds=(1, 2)), stage,
                           function_sizes(stage_elf, kinds=(1, 2)), bam4=bam4, worms=worms,
-                          wwp=wwp, small_stack=small_stack) if stream and not cdda_vmu else (
+                          wwp=wwp, small_stack=small_stack, vram=vram) if stream and not cdda_vmu else (
                           "not established for the combined CD music and virtual A2 build" if cdda_vmu else None)
     if resident["symbols"].get("_kui_armada_ce_bind_probe") != controller_base:
         raise ValueError("Resident controller call target moved")
-    audit_map_guard(resident, function_sizes(resident_elf), worms=worms, cdda_vmu=cdda_vmu)
+    audit_map_guard(resident, function_sizes(resident_elf), worms=worms, cdda_vmu=cdda_vmu, vram=vram)
     _, calls = load(sorted((directory / "scia/lto").glob("*.ci")), qualified=wwp)
     sources = {base(source) for source, edges in calls.items()
                if any(base(target) == "kui_armada_ce_bind_probe" for target, _ in edges)}
@@ -1589,6 +1624,7 @@ def check(directory, *, stream=False, bam4=False, worms=False, wwp=False, cdda_v
             "embedded_controller_matches": True, "resident_target_matches": True,
             "gd_direct_ram_pool_exclusion_pinned": True,
             "seed_address": hex(seed_address), "boot2_scratch": boot2_scratch,
+            "reader_video_memory_pieces": vram,
             "reader_stack": {"small_stack_record": small_stack,
                              "stack_bottom": hex(CE_CDDA_SMALL_STACK_BOTTOM if small_stack else low_limit)},
             "distributed_pcm_bytes": 0 if stream else PCM_BYTES,
@@ -1608,12 +1644,13 @@ def check(directory, *, stream=False, bam4=False, worms=False, wwp=False, cdda_v
             "linked_direct_calls": direct_calls}
 
 
-def stream_boot_self_test(*, bam4=False, worms=False, wwp=False, photo_hold=False, small_stack=False):
+def stream_boot_self_test(*, bam4=False, worms=False, wwp=False, photo_hold=False, small_stack=False,
+                          vram=False):
     """Reject entry-slot, gate, every compiled guard and ordering bit."""
     STREAM_BASE, _, _, _ = stream_layout(worms=worms)
     bodies = stream_boot_bodies(bam4=bam4, worms=worms, wwp=wwp, photo_hold=photo_hold,
-                                small_stack=small_stack)
-    relocations = stream_boot_relocs(wwp=wwp, photo_hold=photo_hold)
+                                small_stack=small_stack, vram=vram)
+    relocations = stream_boot_relocs(wwp=wwp, photo_hold=photo_hold, vram=vram)
     fixtures = {}
     for image_name, image_base in (("controller", STREAM_BASE),
                                    ("resident", 0x8c008300), ("stage", STAGE)):
@@ -1681,7 +1718,8 @@ def stream_boot_self_test(*, bam4=False, worms=False, wwp=False, photo_hold=Fals
             fixture, spans = fixtures[owner]
             args.extend((changed_image if changed_name == owner and changed_image is not None else fixture,
                          changed_spans if changed_name == owner and changed_spans is not None else spans))
-        return audit_stream_boot_arm(*args, bam4=bam4, worms=worms, wwp=wwp, small_stack=small_stack)
+        return audit_stream_boot_arm(*args, bam4=bam4, worms=worms, wwp=wwp, small_stack=small_stack,
+                                     vram=vram)
     proof = check_boot()
     assert proof["entry_slot"] == 52 and proof["preserves_controller_zero_check"]
     assert proof["attach_only_after_relay"] and proof["bootstrap_audio_and_bus_gated"]
@@ -1690,11 +1728,20 @@ def stream_boot_self_test(*, bam4=False, worms=False, wwp=False, photo_hold=Fals
         # The moved stack-guard literal is admitted only with the record.
         args = [part for owner in ("controller", "resident", "stage") for part in fixtures[owner]]
         try:
-            audit_stream_boot_arm(*args, bam4=bam4, worms=worms, wwp=wwp)
+            audit_stream_boot_arm(*args, bam4=bam4, worms=worms, wwp=wwp, vram=vram)
         except ValueError:
             checks += 1
         else:
             raise AssertionError("Small-stack guard literal admitted without its record")
+    if vram:
+        # The relocated purge literal is admitted only with the record.
+        args = [part for owner in ("controller", "resident", "stage") for part in fixtures[owner]]
+        try:
+            audit_stream_boot_arm(*args, bam4=bam4, worms=worms, wwp=wwp, small_stack=small_stack)
+        except ValueError:
+            checks += 1
+        else:
+            raise AssertionError("Video-memory reader's purge relocation admitted without its record")
     for owner, (fixture, spans) in fixtures.items():
         positions = [n for (im, name), code in bodies.items() if im == owner
                      for n in range(spans[name][0] - (STREAM_BASE if owner == "controller" else
@@ -2246,6 +2293,7 @@ def self_test():
         checks += stream_boot_self_test(**profile)
         checks += stream_boot_self_test(**profile, photo_hold=True)
     checks += stream_boot_self_test(bam4=True, small_stack=True)
+    checks += stream_boot_self_test(bam4=True, small_stack=True, vram=True)
     for profile in ({"bam4": True}, {"worms": True}, {"wwp": True}):
         try:
             check(Path('/nonexistent-cdda-profile-audit'), **profile)

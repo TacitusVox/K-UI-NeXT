@@ -258,6 +258,27 @@ else ifneq ($(KUI_CE_CDDA_SMALL_STACK),0)
 $(error KUI_CE_CDDA_SMALL_STACK must be 0 or 1)
 endif
 override ARMADA_AUDIO_EXTRA_CHECK := python3 tools/check_armada_ce_excerpt.py --stream $(WINCE_CDDA_PROFILE_CHECK) $(if $(filter 1,$(KUI_CE_READER_FIXES)),$(if $(filter 1,$(KUI_ARMADA_CE_MOVIE_TIMING)),,--reader-fixes)) $(ARMADA_AUDIO_DIR)
+# Virtua Cop 2 (JPN) streams pieces of a DMAREAD_STREAM_EX straight into video
+# memory after its memory-card check: its CD music reader takes them as the
+# generic module has since a660354d804c (KUI_RETAIL_CE_VRAM_DMA, docs/
+# wince-vram-stream.md, console-proven with CD music Off on 20 Nov 2026), and
+# the module's build also runs the halfword-width check of that path on the
+# linked reader. Background reader only; it needs the small stack's room. On by
+# default only in Virtua Cop 2's module, so every other module stays
+# byte-identical; 0 rebuilds that module without it.
+KUI_CE_CDDA_VRAM_DMA ?= $(if $(filter VIRTUA_COP_2,$(KUI_WINCE_CDDA_BAM4_KERNEL)),1,0)
+ifeq ($(KUI_CE_CDDA_VRAM_DMA),1)
+ifneq ($(KUI_WINCE_CDDA_BAM4_KERNEL),VIRTUA_COP_2)
+$(error KUI_CE_CDDA_VRAM_DMA=1 belongs only to Virtua Cop 2's module (KUI_WINCE_CDDA_PROFILE=bam4 KUI_WINCE_CDDA_BAM4_KERNEL=VIRTUA_COP_2))
+endif
+ifneq ($(KUI_CE_CDDA_SMALL_STACK),1)
+$(error KUI_CE_CDDA_VRAM_DMA=1 needs KUI_CE_CDDA_SMALL_STACK=1: the reader has no room for it otherwise)
+endif
+override ARMADA_AUDIO_EXTRA_FLAGS += -DKUI_RETAIL_CE_VRAM_DMA=1
+override ARMADA_AUDIO_EXTRA_CHECK += && python3 tools/check_ce_virtual_vram_width.py $(ARMADA_AUDIO_DIR)/resident-scia.elf
+else ifneq ($(KUI_CE_CDDA_VRAM_DMA),0)
+$(error KUI_CE_CDDA_VRAM_DMA must be 0 or 1)
+endif
 ifeq ($(KUI_WINCE_CDDA_PROFILE),wwp)
 # The controller is linked first. Export only its checked scalar object;
 # importing the whole controller symbol table would collide with low helpers.
@@ -314,6 +335,9 @@ ifeq ($(KUI_CE_CDDA_BOOT2_SCRATCH),1)
 endif
 ifeq ($(KUI_CE_CDDA_SMALL_STACK),1)
 	@printf '%s\n' 'SMALL_STACK=1' >> $@.tmp
+endif
+ifeq ($(KUI_CE_CDDA_VRAM_DMA),1)
+	@printf '%s\n' 'VRAM_DMA=1' >> $@.tmp
 endif
 	@cmp -s $@.tmp $@ || cp $@.tmp $@
 	@rm -f $@.tmp
