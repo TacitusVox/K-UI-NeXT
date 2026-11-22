@@ -1,6 +1,6 @@
 {
   "schema": "kui.toy-switch-production-text.v1",
-  "source": "Main 776c9259 (origin/main on 16 Nov 2026), the production text before the Toy test sources were merged; then the reviewed WinCE data probe hunks (KUI_WCE_PROBE, a257f13e and c25e9f5e); then the reviewed CE VRAM stream admission (KUI_RETAIL_CE_VRAM_DMA); then the reviewed generic WinCE reader switches (KUI_CE_SLOW_WINDOW, KUI_CE_SLOW_ADAPT, KUI_CE_POOL_KIB, KUI_CE_READAHEAD)",
+  "source": "Main 776c9259 (origin/main on 16 Nov 2026), the production text before the Toy test sources were merged; then the reviewed WinCE data probe hunks (KUI_WCE_PROBE, a257f13e and c25e9f5e); then the reviewed CE VRAM stream admission (KUI_RETAIL_CE_VRAM_DMA); then the reviewed generic WinCE reader switches (KUI_CE_SLOW_WINDOW, KUI_CE_SLOW_ADAPT, KUI_CE_POOL_KIB, KUI_CE_READAHEAD); then the reviewed WinCE CD music changes to retail_stage.c: the Bust-A-Move 4 group's kernel records for its interrupt words (9e89e778) and Virtua Cop 2's bootstrap-2 scratch repair (KUI_ARMADA_CE_BOOT2_SCRATCH, e8b3f744 and 1ac7e667)",
   "files": {
     "include/kui/hash.h": {
       "mode": "code",
@@ -76,7 +76,7 @@
     },
     "src/loader/retail_stage.c": {
       "mode": "code",
-      "sha256": "acf90c7951d8721d2d836134c3b135d7f61fd5eef2231b29fa637e40593b9641"
+      "sha256": "816fb3b05fa35f912fde06f8180282281002f38dff4bfaa4858438e51d7db7b2"
     },
     "src/loader/sci_sd_bus.c": {
       "mode": "code",
