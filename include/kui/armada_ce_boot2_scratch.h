@@ -9,8 +9,8 @@
  * Virtua Cop 2 (JPN, HDR-0061) runs Sega's play-history recorder ("AIPf" over
  * the flash manager "fmMng") in its IP.BIN bootstrap 2, the code K-UI runs
  * before the game entry. The recorder sets its stack to 0x8cfc0000, the end
- * of the stream map (pool+0x6f000..pool+0x70000), and keeps a 64-byte flash
- * block at 0x8cfc0000, the start of the work page. Its other buffers lie above
+ * of the stream map (pool+0x6f000..pool+0x70000), and writes 60 bytes of its
+ * work data at 0x8cfc0000, the start of the work page. Its other buffers lie above
  * the pool, in CE's driver globals, which the kernel sets up itself. Its only
  * lasting effect is in the console's flash.
  *

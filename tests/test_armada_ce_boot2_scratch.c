@@ -63,8 +63,8 @@ static void reset_with(void (*change)(struct kui_retail_manifest *)) {
         (uint32_t)seed.wire[18]<<16|(uint32_t)seed.wire[19]<<24;
     stage=data_map(&full);
     /* The stage's installation, then the bootstrap's scratch use: its stack
-     * below the map's end (700 bytes; 760 on its compaction path) and its
-     * 64-byte flash block at the start of the work page. */
+     * below the map's end (700 bytes; 760 on its compaction path) and the
+     * 60 bytes of work data it writes at the start of the work page. */
     memcpy(original,seed.wire,sizeof(original));
     memcpy(map,seed.wire,sizeof(map));memset(work,0,sizeof(work));
     for(unsigned i=0xd08u;i<sizeof(map);i++) map[i]=(uint8_t)(0x5au+i);
