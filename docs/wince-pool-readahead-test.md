@@ -166,7 +166,12 @@ console or emulator run):
   The build also has a resident layout shifted by the pool's entry word and
   a 1 KiB stack instead of 2 KiB. The host models cannot represent the first
   two, so the mechanism stays unproven, with one crash on this build and one
-  clean skip on the candidate.
+  clean skip on the candidate. (A review of 22 Nov 2026 found that CE's
+  exception vectors, identical in the 4x4 Evolution, Armada and Virtua Cop 2
+  kernels, take TLB misses on banked registers and move to CE's own stack
+  for other exceptions at thread level, which makes the 1 KiB stack the
+  least likely of these
+  ([record](wince-cdda-bam4-group-test.md#test-build-949be40865cf-virtua-cop-2-stream-pieces-into-video-memory)).)
 - **If read-ahead or the generic pool is ever revived,** 4x4 Evolution's
   intro skip must be one of its console checks.
 - **A latent defect of the shared reader, not this crash.** The GD ABORT

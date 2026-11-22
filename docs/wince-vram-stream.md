@@ -124,5 +124,9 @@ Virtual VMU Off, cold boot from the K-UI CD:
 
 - CD music On: those launches use the `ce-cdda-*` modules, which keep the
   refusal. Their resident space has to be audited before they take it.
+  Virtua Cop 2's takes such pieces since `949be408`, with the Armada all-on
+  reader's 1 KiB stack for room (test build `949be40865cf`,
+  [record](wince-cdda-bam4-group-test.md#test-build-949be40865cf-virtua-cop-2-stream-pieces-into-video-memory)),
+  passed 22 Nov 2026: Virtua Cop 2 runs perfectly with CD music On (owner).
 - Later scenes of the other titles, and any unrelated later stop in KISS or
   Virtua Cop 2.

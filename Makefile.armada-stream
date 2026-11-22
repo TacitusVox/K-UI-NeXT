@@ -228,8 +228,9 @@ override ARMADA_AUDIO_EXTRA_LINK_FLAGS := -Wl,--defsym,_kui_armada_ce_bind_probe
 # top of the pool as scratch (include/kui/armada_ce_boot2_scratch.h): after it
 # has finished, the stage reinstalls them from its proven copy, for that exact
 # IP.BIN, before the relay checks the pool. Stage only. On by default only in
-# Virtua Cop 2's kernel module, so every other module stays byte-identical; 0
-# rebuilds that module as test build 9e89e778370f.
+# Virtua Cop 2's kernel module, so every other module stays byte-identical; 0,
+# with KUI_CE_CDDA_SMALL_STACK=0 and KUI_CE_CDDA_VRAM_DMA=0, rebuilds that module
+# as test build 9e89e778370f.
 KUI_CE_CDDA_BOOT2_SCRATCH ?= $(if $(filter VIRTUA_COP_2,$(KUI_WINCE_CDDA_BAM4_KERNEL)),1,0)
 ifeq ($(KUI_CE_CDDA_BOOT2_SCRATCH),1)
 ifneq ($(KUI_WINCE_CDDA_BAM4_KERNEL),VIRTUA_COP_2)
@@ -246,7 +247,8 @@ endif
 # (ce-armada-all-on), retail_resident_ce_async_small_stack.ld, and its code and
 # read-only data stay below d800 for the stream controller. Reader only. On by
 # default only in Virtua Cop 2's module, so every other module stays
-# byte-identical; 0 builds that module with the 2 KiB stack.
+# byte-identical; 0, with KUI_CE_CDDA_VRAM_DMA=0 (which needs this room), builds
+# that module with the 2 KiB stack, as test build 1ac7e667c0d3.
 KUI_CE_CDDA_SMALL_STACK ?= $(if $(filter VIRTUA_COP_2,$(KUI_WINCE_CDDA_BAM4_KERNEL)),1,0)
 ifeq ($(KUI_CE_CDDA_SMALL_STACK),1)
 ifneq ($(KUI_WINCE_CDDA_BAM4_KERNEL),VIRTUA_COP_2)
@@ -265,7 +267,8 @@ override ARMADA_AUDIO_EXTRA_CHECK := python3 tools/check_armada_ce_excerpt.py --
 # the module's build also runs the halfword-width check of that path on the
 # linked reader. Background reader only; it needs the small stack's room. On by
 # default only in Virtua Cop 2's module, so every other module stays
-# byte-identical; 0 rebuilds that module without it.
+# byte-identical; 0 rebuilds that module without it, as the layout-only control
+# 0414c2d08b02.
 KUI_CE_CDDA_VRAM_DMA ?= $(if $(filter VIRTUA_COP_2,$(KUI_WINCE_CDDA_BAM4_KERNEL)),1,0)
 ifeq ($(KUI_CE_CDDA_VRAM_DMA),1)
 ifneq ($(KUI_WINCE_CDDA_BAM4_KERNEL),VIRTUA_COP_2)

@@ -4,9 +4,12 @@
 21 Nov 2026: Puzzle Bobble 4 works; Virtua Cop 2 stopped in its bootstrap 2.
 Virtua Cop 2's fix, test build `1ac7e667c0d3`, console result 21 Nov 2026:
 the bootstrap repair works and the game reaches its memory-card check, then
-the reader refuses a stream transfer into video memory, which the CD music
-modules do not yet take
-([result](#console-result-of-1ac7e667c0d3-21-nov-2026)).** Roadmap step S3 ([roadmap](wince-roadmap.md)): Bust-A-Move
+the reader refuses a stream transfer into video memory
+([result](#console-result-of-1ac7e667c0d3-21-nov-2026)). Test build
+`949be40865cf`, Virtua Cop 2's module taking such transfers
+([record](#test-build-949be40865cf-virtua-cop-2-stream-pieces-into-video-memory)),
+console result 22 Nov 2026: Virtua Cop 2 runs perfectly with CD music On
+([result](#console-result-of-949be40865cf-22-nov-2026)).** Roadmap step S3 ([roadmap](wince-roadmap.md)): Bust-A-Move
 4's CD music adapter on its other kernels, in round 1's pattern
 ([World Party's group](wince-cdda-wwp-group-test.md)).
 
@@ -338,8 +341,8 @@ The owner ran Virtua Cop 2 (JPN) with CD music On:
 | Card block | `0x0C4C931E` |
 | DMA blocks, polled, starts, kept, overruns | `0x4DA0`, 0, `0x73`, 4, `0x23` |
 | CRC errors, token errors, foreign, repaired, ahead | 7, 0, 0, 7, 0 |
-| Left 0, 128, 384, 513, channel 2 late | 0, 0, 3, `0x27`, `0x730` |
-| DMA OR bad, token bytes, token max, stops, token yields | 0, `0xE88B`, `0xB98`, `0x72`, `0x56` |
+| Left 0, 128, 384, 513, slow-clock receptions | 0, 0, 3, `0x27`, `0x730` |
+| Slow-clock overruns, token bytes, token max, stops, token yields | 0, `0xE88B`, `0xB98`, `0x72`, `0x56` |
 
 This is the stop the generic module had before `KUI_CE_VRAM_DMA`: the same
 request, piece shape and destination in the PowerVR video memory window,
@@ -348,8 +351,165 @@ passed the owner's console test with CD music Off on 20 Nov 2026, and its
 record leaves the CD music modules with the refusal until their reader
 space is audited. All seven card CRC errors were repaired by re-reading.
 
+The page labels the two counters in the table's fifth column "CH2 LATE" and
+"DMAORBAD". In every reader built with the slow window
+(`KUI_CE_SCI_SLOW_AFTER_OVERRUN`, every CD music module) those words count
+receptions at the slower card clock and overruns at that clock
+(`src/loader/sci_stream.h`). `0x730` is 1,840 slow-clock receptions, about
+9% of the `0x4DA0` blocks, none overrun; the page holds no channel-2 data.
+Relabelling the resident's text would be its own change.
+
+## Test build `949be40865cf` (Virtua Cop 2: stream pieces into video memory)
+
+**Room.** Virtua Cop 2's CD music background reader ended exactly at its
+`0x8c00d800` limit, with 28 bytes of code room. The video-memory transfers
+cost 156 bytes, which would push its data to `0x8c00d880`, into its 2 KiB
+guarded stack.
+
+**The reader's layout (source `0414c2d0`).** `KUI_CE_CDDA_SMALL_STACK`, on
+by default only in Virtua Cop 2's module, gives that reader the 1 KiB guarded
+stack from `0x8c00dc00`:
+- The accepted Armada CD music and VMU reader (`ce-armada-all-on`) has run
+  this layout on the console since 9 Nov 2026. Its call-graph worst case is
+  504 bytes of 976; Virtua Cop 2's is 512.
+- Its code and read-only data stay below `0x8c00d800`, where the stream
+  controller checks the reader's entry points and bus. The stage and the
+  controller are unchanged.
+- In the linked reader exactly four words change, all stack-guard addresses.
+- Its data now runs to `0x8c00d880` (the map's last slots and the CE ISR's
+  stack-pointer word). It is the first CD music reader with live data above
+  `0x8c00d800`; the all-on reader's ends at `0x8c00d7e0`.
+
+**The video-memory transfers (source `949be408`).** `KUI_CE_CDDA_VRAM_DMA`,
+Virtua Cop 2's module only, compiles that reader with the generic module's
+`KUI_RETAIL_CE_VRAM_DMA` ([record](wince-vram-stream.md)):
+- The span helper, `guest()` and the halfword sink are byte-identical to the
+  generic module's reader, which passed the owner's console test with
+  Virtua Cop 2 and KISS, CD music Off.
+- The address mapper keeps the music pool guard after a new branch that sends
+  a P1/P2 address outside RAM to the span helper. The stream checker pins its
+  whole 240-byte body, admits the moved guard and purge literals only with
+  the build's records, and refuses the records outside Virtua Cop 2's module.
+  The module's build also runs the halfword-width check (150 cases).
+- Host tests (`beeef062`, `test-ce-cdda-vram`): the CD music reader with the
+  production music transport, the pieces filled while music is pending.
+  164,233 checks without the transfers (the commit message says 164,229) and
+  231,328 with them. After the review (`1ac6f424`) the second prints
+  211,893. It is lower because each check of a whole video-memory view is
+  now one CHECK, where the old sample made about 2,050.
+
+**Review.** Two independent reviews (linked mechanics; semantics and
+safety) said ship:
+- CE's exception vectors, identical in Virtua Cop 2's, Armada's and 4x4
+  Evolution's kernels, take TLB misses on banked registers and move to CE's
+  own kernel stack for other exceptions at thread level. Nothing outside the
+  static audit therefore runs on the reader's stack; only a nested
+  exception would build a frame of about 320 bytes there, and every GD call
+  site in the kernel is in `wsegacd.dll`, in thread context.
+- `wsegacd` aborts a request after 15 s without a drive interrupt (GD
+  ABORT), and the reader's ABORT raises no interrupt (the latent defect in
+  [the read-ahead record](wince-pool-readahead-test.md)). With music On,
+  audio releases raise drive interrupts while data is active, and the
+  512 KiB piece is estimated to take seconds; the console test asks for the
+  time.
+- Taken after delivery in `1ac6f424`, with no module change (the module
+  rebuilds byte-identical):
+  - a pin of the span helper;
+  - the small-stack `#error` checked ahead of the profile chain, so
+    read-ahead and every other invalid combination stop;
+  - the Makefile's rebuild notes, each rebuilt;
+  - a layout-checker test of the marker rules;
+  - in the host test, whole-view checks of video memory (a stray byte that
+    the old sample missed now fails) and an urgent-music pass (the
+    257-sector piece shares the bus with 69 music jobs instead of 34, still
+    exact);
+  - a self-test case that could pass by refusing for the wrong reason.
+- Recorded, not changed: the hook and ISR guard literals are not pinned by
+  any linked audit; they come from the same macro as the stack, which the
+  reader's marker and the linker script tie together.
+
+| Module | Build | Bytes | Payload CRC | SHA-256 |
+|---|---|---|---|---|
+| `ce-cdda-6c09543a5680.kui` | `949be40865cf` | 135,864 | `C1FEC7A6` | `8847122364c7518c...` |
+| control, layout only | `0414c2d08b02` | 135,736 | `8F4DF9A0` | `23e3124f9748c6ee...` |
+
+Gates, from the committed tree, repeated from `1ac6f424`
+([evidence](evidence/wince-cdda-vc2-vram-2026-11-22.json)):
+- **Accepted bytes.** The five accepted CD music modules, the ten round-1
+  modules, Ducati World's and round 2's other six rebuild byte-identical.
+  Virtua Cop 2's module with the video-memory switch off rebuilds the
+  control `0414c2d08b02`; with both new switches off, `1ac7e667c0d3`; with
+  every switch off, `9e89e778370f`.
+- **Independent rebuild.** The regular games thread built `949be40865cf`
+  from its merge of this line and got the same bytes.
+- **GUI admission.** `test-wince-packaged-prepare --bam4-kernel`, with the
+  owner's Virtua Cop 2 kernel, raw and 2048-byte DATA, passes for the module
+  (920,757 checks) and the control (920,053), under this line's GUI source
+  and the combined K-UI `64ae07435de5`'s (`64ae0743`). That K-UI's source
+  also admits every earlier CD music module. This line's GUI, rebuilt from
+  `1ac6f424` with build ID `1c71ba3afa17`, is byte-identical to the
+  installed K-UI `1c71ba3afa17`.
+- **Host.** At `949be408`, `make test`'s compiled prerequisites all pass
+  (the theme test once disk space was freed). Its Python discovery reached
+  the run's one-hour limit in `test_splash_assets`. Before that module it
+  shows three failures this change did not cause:
+  - `test_asm_audit`, on two files last changed in `1c868565`;
+  - two tests that need host binaries `make test` does not build.
+
+  The other 177 modules ran one at a time on `1ac6f424`, with
+  `test_splash_assets` last:
+  - Of the first 176, 74 of the 75 with unittest cases pass.
+  - `test_wince_release_package` fails as it has since `870f00bb`: its
+    dry-run `make all` needs a KOS source file that its stand-in KOS
+    directory does not have.
+  - The other 101 hold no unittest cases; `make test` runs them as scripts.
+  - `test_splash_assets` checks K-UI's startup art and chime, which this
+    work does not touch. It is slow and CPU-bound in this container: an
+    earlier attempt had not finished after 16 minutes, and its run on
+    `1ac6f424` reached its 90-minute limit with two of its four tests
+    passed and the third still decoding the startup art.
+- **Not run:** the console; the G1/PVR bus timing of the CPU's halfword
+  stores into video memory alongside the music.
+
+Delivered: `KUI-WinCE-CD-Music-Virtua-Cop-2-Video-Memory-22NOV2026-0004-CST-949be40.zip`
+(257,902 bytes, SHA256
+`d5748ccad4c79a6be18361ada2d1de777bfddd51815bb8554a4585d984636055`):
+- the module;
+- under `IF-NEEDED/`, the previous `1ac7e667c0d3` and the layout-only
+  control `0414c2d08b02`, built from `0414c2d0` itself.
+
+The control is for telling the two changes apart if the new module stops
+earlier than `1ac7e667c0d3` did; it should stop exactly where that build
+stopped. The module needs no K-UI change: K-UI `1c71ba3afa17` and
+`64ae07435de5` both contain the CD music record admission (`1c71ba3a`).
+
+Questions for the console test, with CD music On:
+- Does Virtua Cop 2 get past the memory-card check, to its title or demo?
+- How long does the screen after the check take to appear?
+- Do the screens look right?
+- Does the music play?
+- Do the controls work?
+- Does a second cold boot behave the same?
+- Which K-UI was running (the Diagnostics page's first line)?
+
+## Console result of `949be40865cf` (22 Nov 2026)
+
+The owner ran Virtua Cop 2 (JPN) with CD music On and reported: "Virtua Cop
+2 ran perfectly." The game now runs past the stop of `1ac7e667c0d3`, with its
+stream pieces into video memory. Virtua Cop 2's CD music module
+`ce-cdda-6c09543a5680.kui` `949be40865cf` (payload CRC `C1FEC7A6`) is
+accepted with its three switches on: `KUI_CE_CDDA_BOOT2_SCRATCH`,
+`KUI_CE_CDDA_SMALL_STACK` and `KUI_CE_CDDA_VRAM_DMA`, already that module's
+build defaults.
+
+Not reported separately: how long the screen after the memory-card check
+took, a second cold boot, and which K-UI was running.
+
 ## Not answered by this test
 
+- Later scenes of Virtua Cop 2 that send other piece shapes (an ordinary
+  DMAREAD into video memory, the TA path): those stay refused. The owner's
+  run of 22 Nov 2026 reported no stop.
 - The single-track discs: whether they play their track at all.
 - Caesars Palace: whether the disc's DirectSound with the ROM's sndcore binds
   on the console.

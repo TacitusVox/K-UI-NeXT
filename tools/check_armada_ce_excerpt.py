@@ -775,6 +775,13 @@ MAP_SHA256_CDDA_VMU = "8047a79311fc7571667543102554c8e772e3a1d09a131951384c82aac
 # outside RAM to the PVR span helper (only a stream piece reaches it; guest()
 # refuses CPU pointers there). The whole body, literal pool included.
 VRAM_MARKER = '__kui_retail_ce_vram_dma'
+# Its PVR span helper (kui_retail_vram_dma_span), the one bra target of that
+# body: which video-memory pieces the reader writes. Its 76 bytes run up to the
+# pinned purge helper and are byte-identical to the console-tested generic
+# reader's (a660354d804c's source, Makefile.dc KUI_CE_VRAM_DMA).
+MAP_SPAN_BRA_VRAM = 0x22
+SPAN_BYTES_VRAM = 76
+SPAN_SHA256_VRAM = "8a7c0cba40c771f05a03e6ab15dcd2dc1d4d26624b7d0e5807d77e11ace21321"
 MAP_BYTES_VRAM = 240
 MAP_SHA256_VRAM = "d2f266e144ab284ec6bc900d853d0560c28ccf97fdbda2b5e2248dfd84fd590a"
 SEED_HEADER = struct.pack("<16I", 0x31584543, 1, PCM_BYTES, 0,
@@ -1019,6 +1026,15 @@ def audit_map_guard(image, sizes, *, worms=False, cdda_vmu=False, vram=False):
     if hashlib.sha256(code).hexdigest() != (MAP_SHA256_VRAM if vram else
                                             MAP_SHA256_CDDA_VMU if cdda_vmu else MAP_SHA256):
         raise ValueError("Linked direct-RAM pool exclusion has changed; review required")
+    if vram:
+        op = struct.unpack_from("<H", code, MAP_SPAN_BRA_VRAM)[0]
+        displacement = (op & 0xfff) - (0x1000 if op & 0x800 else 0)
+        helper = start + MAP_SPAN_BRA_VRAM + 4 + 2 * displacement
+        if (op >> 12 != 0xa or helper % 2 or
+                image["symbols"].get("_purge.lto_priv.0") != helper + SPAN_BYTES_VRAM or
+                hashlib.sha256(region(image["payload"], helper - 0x8c008300, SPAN_BYTES_VRAM,
+                                      "PVR span helper")).hexdigest() != SPAN_SHA256_VRAM):
+            raise ValueError("Linked video-memory span helper has changed; review required")
 
 
 def audit_cache_reader(image, sizes, *, base_address=BASE, limit=LIMIT,
@@ -1724,24 +1740,24 @@ def stream_boot_self_test(*, bam4=False, worms=False, wwp=False, photo_hold=Fals
     assert proof["entry_slot"] == 52 and proof["preserves_controller_zero_check"]
     assert proof["attach_only_after_relay"] and proof["bootstrap_audio_and_bus_gated"]
     checks = 1
+    # The moved stack-guard literals and the relocated purge literal are
+    # admitted only with their records: without them the initializer's
+    # compared literals differ (not a precondition that refuses first).
+    args = [part for owner in ("controller", "resident", "stage") for part in fixtures[owner]]
+    cases = []
     if small_stack:
-        # The moved stack-guard literal is admitted only with the record.
-        args = [part for owner in ("controller", "resident", "stage") for part in fixtures[owner]]
-        try:
-            audit_stream_boot_arm(*args, bam4=bam4, worms=worms, wwp=wwp, vram=vram)
-        except ValueError:
-            checks += 1
-        else:
-            raise AssertionError("Small-stack guard literal admitted without its record")
+        cases.append(("Small-stack guard literal", {"small_stack": False, "vram": False}))
     if vram:
-        # The relocated purge literal is admitted only with the record.
-        args = [part for owner in ("controller", "resident", "stage") for part in fixtures[owner]]
+        cases.append(("Video-memory reader's purge relocation", {"small_stack": small_stack, "vram": False}))
+    for label, without in cases:
         try:
-            audit_stream_boot_arm(*args, bam4=bam4, worms=worms, wwp=wwp, small_stack=small_stack)
-        except ValueError:
+            audit_stream_boot_arm(*args, bam4=bam4, worms=worms, wwp=wwp, **without)
+        except ValueError as error:
+            if "_kui_retail_resident_init" not in str(error):
+                raise
             checks += 1
         else:
-            raise AssertionError("Video-memory reader's purge relocation admitted without its record")
+            raise AssertionError(label + " admitted without its record")
     for owner, (fixture, spans) in fixtures.items():
         positions = [n for (im, name), code in bodies.items() if im == owner
                      for n in range(spans[name][0] - (STREAM_BASE if owner == "controller" else

@@ -125,6 +125,14 @@
  * Once booted, CE uses nothing below its kernel image at 0x8c010000 (its RAM
  * lies above that), so this reader may fill everything below D800 and keep a
  * 2 KiB guarded stack above it, ending where bootstrap 2 begins. */
+/* Virtua Cop 2's CD music background reader (KUI_ARMADA_CE_STREAM_SMALL_STACK,
+ * below) only: checked ahead of the chain, whose earlier profiles would
+ * otherwise take precedence silently. */
+#if KUI_ARMADA_CE_STREAM_SMALL_STACK && (!defined(KUI_RETAIL_CE) || !defined(KUI_RETAIL_ASYNC) || \
+    !KUI_ARMADA_CE_STREAM || KUI_ARMADA_CE_CDDA_VMU || KUI_ARMADA_CE_VMU_WRITE_RUNTIME || \
+    KUI_WCE_PROBE || KUI_RETAIL_CE_READAHEAD)
+#error "The small-stack layout is a CD music module's background reader"
+#endif
 #if KUI_RETAIL_CE_READAHEAD
 /* The generic module's read-ahead reader keeps a 1 KiB guarded stack, as
  * the writable VMU reader does, against a call-graph worst case checked by
@@ -153,10 +161,6 @@
  * still end below D800, where the stream controller checks the reader's entry
  * points and bus (armada_ce_stream_transport.c); the stage keeps D800 as the
  * bound of the image it installs. */
-#if !defined(KUI_RETAIL_CE) || !defined(KUI_RETAIL_ASYNC) || !KUI_ARMADA_CE_STREAM || \
-    KUI_ARMADA_CE_CDDA_VMU || KUI_ARMADA_CE_VMU_WRITE_RUNTIME || KUI_WCE_PROBE
-#error "The small-stack layout is a CD music module's background reader"
-#endif
 #define KUI_RETAIL_CE_ASYNC_LIMIT 0x8c00dc00
 #else
 #define KUI_RETAIL_CE_ASYNC_LIMIT 0x8c00d800
