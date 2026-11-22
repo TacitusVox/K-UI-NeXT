@@ -1,7 +1,10 @@
 # WinCE CD music round 1: World Party's group on eleven more kernels (21 Nov 2026)
 
-**Status: test build `1c71ba3afa17` delivered 21 Nov 2026; console test
-pending.** Roadmap step S4 ([roadmap](wince-roadmap.md)): World Party's CD
+**Status: test build `1c71ba3afa17` delivered 21 Nov 2026; first console
+result 21 Nov 2026 ([result](#result-21-nov-2026)): Railroad Tycoon II
+plays; Ducati World was silent (its repeat count was refused:
+[test](wince-cdda-ducati-repeat-test.md)); 4x4 Evolution's race music is not
+yet observed.** Roadmap step S4 ([roadmap](wince-roadmap.md)): World Party's CD
 music adapter on its other kernels with the usual RAM end. The owner asked to
 "allow all WinCE games to run CDDA that have it", after the accepted CD music
 set `1ba2fa7e7040` ([record](wince-cdda-chain-test.md)).
@@ -164,6 +167,51 @@ banks, settings, cards and user data.
   cases with the accepted `ce-boot.kui` on FAT32 and exFAT.
 - **Not run:** the games' own executables (no host emulation of these
   titles). The console test is the first run of these modules.
+
+## Result (21 Nov 2026)
+
+The owner's report, CD music On, GUI `1c71ba3afa17`. The other games and the
+four GUI checks were not reported.
+
+- **Railroad Tycoon II (US): plays.**
+- **4x4 Evolution (US):** the owner heard music, with minor, infrequent lag
+  during the full-motion videos. The report's first page, photographed during
+  play, counted no PLAY. It showed only the two STOPs counted at start-up:
+  `wsegacd`'s INIT and REQUEST(24), which the audio observer counts as STOP.
+
+  From the game's files (static analysis):
+  - **Music.** The menus play the game's own WAV files through DirectSound.
+    CD tracks 4 to 10 play from a race's start, the attract demo, replays
+    and restarts (IOCTL `0x25020` {t, t, 15}). The music heard was not CD
+    music, and whether a race plays its track is still open.
+  - **Video.** The intro video (`DCMOVIE.EXE` through DirectShow,
+    `\CD-ROM\4x4.mpg` on the data track) plays before any CD audio
+    request, so its lag is a question for the reader, to compare with
+    CD music Off.
+  - **Processes.** `DCMOVIE.EXE` starts `DC.EXE` and exits before the first
+    PLAY, so the player binds `DC.EXE`, which lives until reset.
+- **Ducati World (US): silent.** Its only CD audio request asks for 1,000
+  repeats, which the stream model refused. Each race also runs in a new
+  process ([test of the repeat change](wince-cdda-ducati-repeat-test.md)).
+  The owner was unsure which US image they had chosen. With CD music On,
+  though, the GUI refuses a kernel that has no module, so the image that ran
+  used this module, and its request is the same.
+- **With CD music Off, 4x4 Evolution crashed after its intro was skipped.**
+  The report page reads GAME RETURN, build `1a5f46776c0c`. That build is the
+  read-ahead test, which was not adopted
+  ([test 2](wince-pool-readahead-test.md)); the owner's card still held it
+  as `ce-boot.kui`. The timing probe of the same build never shows this page.
+  - **Counters:** GUARD 0; 2,255 sectors in 6,136 steps; CRC ERRS 29 against
+    REPAIRED 30; OVERRUNS 20; TOKENERR and FOREIGN 0.
+  - **Analysis so far:** a host model of the skip cut a sequential stream at
+    random points and then read elsewhere, with injected CRC errors and
+    overruns. It found no defect that the skip reaches in the shared reader
+    of 1a5f4677, the everyday candidate `91b0540103f0`'s, with or without
+    read-ahead.
+  - **The CD driver on a skip.** 4x4's `wsegacd.dll` sends no abort or reset
+    when the video is skipped. Its only ABORT follows a 15-second stall.
+  - **Next:** the retest on the candidate is part of the
+    [repeat test](wince-cdda-ducati-repeat-test.md).
 
 ## Questions for the console test
 

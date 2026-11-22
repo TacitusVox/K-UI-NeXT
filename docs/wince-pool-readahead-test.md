@@ -129,6 +129,14 @@ Decision: read-ahead is not adopted. It stays in the source, off by default
 stays: test 1 proved it, and it is what CD music and the VMU will share. The
 everyday candidate remains `91b0540103f0`.
 
+## After test 2 (21 Nov 2026)
+
+The owner's card kept the read-ahead build as `ce-boot.kui`. With
+CD music Off, 4x4 Evolution crashed on it after its intro was skipped
+([report](wince-cdda-wwp-group-test.md#result-21-nov-2026)). The candidate
+`91b0540103f0` went back on the card in
+`KUI-WinCE-Ducati-Music-Test-21NOV2026-1929-CST-d7fd810.zip`, for the retest.
+
 ## Not answered by these tests
 
 - Read-ahead's timings, and so whether it ran at all: no measurement build

@@ -57,7 +57,39 @@ Delivered: `KUI-WinCE-GUI-Routes-16NOV2026-1928-CST-069d612.zip`, GUI build
 `retail-boot.kui` `9e3295bcfaec`, as `00d8ed67d9ad` does. `00d8ed67d9ad`
 remains the reference until the owner reports the package's four tests.
 
-## WinCE CD music for World Party's group: console test pending, 1c71ba3afa17, 2026-11-21
+## WinCE CD music: Ducati World's repeat count, console test pending, d7fd810eb837, 2026-11-21
+
+Ducati World asks for 1,000 repeats of its race track. The stream model
+refused any count above 15, so the game was silent in round 1. Source
+`d7fd810e` saturates such a count to 15 (endless), only in Ducati World's
+module ([record](wince-cdda-ducati-repeat-test.md)). Rebuilt from that tree:
+- the five accepted CD music modules are byte-identical to `1ba2fa7e7040`;
+- the ten other round-1 modules are byte-identical to `1c71ba3afa17`;
+- Ducati's module with the switch off is byte-identical to `1c71ba3afa17`.
+
+Known limit: the player binds one process per console session, and Ducati
+runs each race in a new process, so only the first race can play.
+
+Delivered: `KUI-WinCE-Ducati-Music-Test-21NOV2026-1929-CST-d7fd810.zip`, with:
+- Ducati's module `d7fd810eb837` (payload CRC `3FB89B1C`);
+- the everyday candidate `ce-boot.kui` `91b0540103f0`, in place of the
+  read-ahead test build still on the owner's card;
+- round 1's module in `IF-NEEDED/`.
+
+The GUI stays `1c71ba3afa17`.
+
+## WinCE CD music for World Party's group: first console result, 1c71ba3afa17, 2026-11-21
+
+**Result (21 Nov 2026,
+[record](wince-cdda-wwp-group-test.md#result-21-nov-2026)):**
+- Railroad Tycoon II plays.
+- 4x4 Evolution's menus play the game's own WAV files, and its race music is
+  not yet observed.
+- Ducati World was silent: the model refused its repeat count of 1,000
+  ([test](wince-cdda-ducati-repeat-test.md)).
+- With CD music Off, 4x4 Evolution crashed after its intro was skipped, on
+  the read-ahead test build `1a5f46776c0c` still installed as `ce-boot.kui`.
+  The retest is on the candidate `91b0540103f0`.
 
 CD music On for eleven more WinCE kernels that carry World Party's sound
 system unchanged ([record](wince-cdda-wwp-group-test.md)): Ducati World,
