@@ -1125,6 +1125,24 @@ static void armada_excerpt_relay_check(void) {
         relay_stopped("BOOTSTRAP ALTERED EXCERPT PCM",armada_excerpt_crc);
 #endif
 }
+#if KUI_ARMADA_CE_BOOT2_SCRATCH
+#if !KUI_ARMADA_CE_STREAM || KUI_ARMADA_CE_CDDA_VMU
+#error "The bootstrap-2 scratch repair belongs to a CD music stream module without the VMU"
+#endif
+#include "kui/armada_ce_boot2_scratch.h"
+/* kui_retail_game_resume calls this after the disc's bootstrap 2 has
+ * finished and before the relay: for the one IP.BIN whose bootstrap uses the
+ * map and work pages as scratch (kui/armada_ce_boot2_scratch.h), reinstall
+ * them from the stage's proven copy. Otherwise nothing changes, and the relay
+ * stops on any altered byte as before. */
+void kui_retail_stage_boot2_scratch(void) {
+    (void)kui_armada_ce_boot2_scratch_repair(
+        (uint8_t *)(uintptr_t)(KUI_ARMADA_CE_STREAM_MAP_BEGIN|0x20000000u),
+        (uint8_t *)(uintptr_t)(KUI_ARMADA_CE_STREAM_WORK_BEGIN|0x20000000u),
+        KUI_ARMADA_CE_STREAM_GUARD_END-KUI_ARMADA_CE_STREAM_WORK_BEGIN,
+        &armada_excerpt_seed,&manifest,manifest.ip_crc32);
+}
+#endif
 #endif
 #if KUI_WCE_PROBE
 #include "wce_probe_stage.inc"

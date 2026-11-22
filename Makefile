@@ -1818,11 +1818,17 @@ build/wwp-group/native-%: tests/test_wwp_ce_stream_native.c tests/test_armada_ce
 BAM4_GROUP_KERNELS := $(shell sed -n 's/^\#define KUI_WINCE_CDDA_BAM4_KERNEL_\([A-Z0-9_]*\) [0-9]\{1,2\}$$/\1/p' include/kui/wince_cdda_bam4_kernels.h)
 BAM4_GROUP_TESTS := $(foreach k,$(BAM4_GROUP_KERNELS),build/bam4-group/runtime-$(k) build/bam4-group/sound-$(k) build/bam4-group/native-$(k))
 .PHONY: test-wince-cdda-bam4-group
-test-wince-cdda-bam4-group: $(BAM4_GROUP_TESTS)
+test-wince-cdda-bam4-group: $(BAM4_GROUP_TESTS) build/test-armada-ce-boot2-scratch
 	@test $(words $(BAM4_GROUP_KERNELS)) -ge 8
 	@for t in $(BAM4_GROUP_TESTS); do ASAN_OPTIONS=detect_leaks=0 ./$$t >/dev/null || { echo "FAIL $$t"; exit 1; }; done
+	ASAN_OPTIONS=detect_leaks=0 ./build/test-armada-ce-boot2-scratch
 	python3 -c "import sys; sys.path.insert(0, 'tools'); import wince_cdda_bam4_kernels as w; r = w.header_values(); assert list(r) == list(w.NAMES); assert r['BUST_A_MOVE_4']['kernel_sha256'] == w.REFERENCE_SHA256 and r['BUST_A_MOVE_4']['data_shift'] == 0"
 	@echo "PASS Bust-A-Move 4 CD music group: $(words $(BAM4_GROUP_KERNELS)) kernels, runtime admission, sound binder and native lease"
+# Virtua Cop 2's module: the map and work pages its disc's bootstrap 2 uses as
+# scratch, reinstalled from the stage's proven copy (KUI_CE_CDDA_BOOT2_SCRATCH).
+build/test-armada-ce-boot2-scratch: tests/test_armada_ce_boot2_scratch.c src/core/retail_image.c include/kui/armada_ce_boot2_scratch.h include/kui/armada_ce_stream_seed.h include/kui/wince_cdda_bam4_kernels.h
+	@mkdir -p $(@D)
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) -DKUI_RETAIL_EXTENDED_MAP=1 -DKUI_WINCE_CDDA_BAM4=1 -DKUI_WINCE_CDDA_BAM4_KERNEL=KUI_WINCE_CDDA_BAM4_KERNEL_VIRTUA_COP_2 tests/test_armada_ce_boot2_scratch.c src/core/retail_image.c -o $@
 build/bam4-group/runtime-%: tests/test_wince_runtime_profiles.c src/core/retail_image.c include/kui/wince_cdda_profiles.h include/kui/wince_cdda_bam4_kernels.h include/kui/armada_ce_audio_admission.h include/kui/armada_ce_stream_seed.h
 	@mkdir -p $(@D)
 	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) -DKUI_RETAIL_EXTENDED_MAP=1 -DKUI_WINCE_CDDA_BAM4=1 -DKUI_WINCE_CDDA_BAM4_KERNEL=KUI_WINCE_CDDA_BAM4_KERNEL_$* tests/test_wince_runtime_profiles.c src/core/retail_image.c -o $@

@@ -362,6 +362,13 @@ C(kui_retail_game_resume):
     nop
     nop
     nop
+#if KUI_ARMADA_CE_BOOT2_SCRATCH
+    /* Before the relay checks the pool: reinstall the map and work pages a
+     * known disc bootstrap used as scratch (kui_retail_stage_boot2_scratch). */
+    mov.l .Lboot2scratch,r0
+    jsr @r0
+    nop
+#endif
     mov r8,r4
     mov r9,r5
     mov.l .Lrelaymain,r0
@@ -419,6 +426,9 @@ C(kui_retail_game_resume):
 .Loff: .long 0x00000808
 .Lscan_ccr: .long 0x00000908
 .Lrelaymain: .long C(kui_retail_stage_relay)
+#if KUI_ARMADA_CE_BOOT2_SCRATCH
+.Lboot2scratch: .long C(kui_retail_stage_boot2_scratch)
+#endif
 /* Owner bootstrap2 calls the uncached executable alias. Resume that same
  * alias while the original entry performs its own cache setup. */
 .Lgame: .long KUI_RETAIL_EXEC_ADDRESS+0x20000000
