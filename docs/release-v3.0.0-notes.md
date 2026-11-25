@@ -8,18 +8,23 @@ Muramasa brings native Dreamcast games, Windows CE and Sega Smash Pack into one 
 
 ## Release previews
 
-These four screens were captured in Flycast from the published RC1 GUI. Select an image for the full 640 × 480 view.
+**Browse your games by their covers.** Gallery shows five titles here, with *Crazy Taxi* selected. In Flow, moving to *Jet Grind Radio* brings its case to the front.
 
-| Home launcher | Games library options |
-| --- | --- |
-| ![RC1 home screen with Games selected](https://raw.githubusercontent.com/TacitusVox/K-UI-NeXT/772a009343620a9440e161f5f57cdf843d6197a9/docs/releases/3.0.0-rc.1/images/02-home-launcher.png) | ![Games library options for browsing, scanning box art and choosing a layout](https://raw.githubusercontent.com/TacitusVox/K-UI-NeXT/772a009343620a9440e161f5f57cdf843d6197a9/docs/releases/3.0.0-rc.1/images/03-game-library-options.png) |
+[![Gallery view on Dreamcast with covers for Armada, Crazy Taxi, Jet Grind Radio, Sonic Adventure and Toy Commander](https://raw.githubusercontent.com/TacitusVox/K-UI-NeXT/f8a5491c3697e4811f5f9a0d185423b2f9c574c1/docs/releases/3.0.0-rc.1/images/10-game-library-gallery.png)](https://raw.githubusercontent.com/TacitusVox/K-UI-NeXT/f8a5491c3697e4811f5f9a0d185423b2f9c574c1/docs/releases/3.0.0-rc.1/images/10-game-library-gallery.png)
 
-| Disc tools | Virtual VMU import |
+| Flow with *Jet Grind Radio* selected | GD Play options for original discs |
 | --- | --- |
-| ![Disc tools menu for copying, recovering, verifying and playing discs](https://raw.githubusercontent.com/TacitusVox/K-UI-NeXT/772a009343620a9440e161f5f57cdf843d6197a9/docs/releases/3.0.0-rc.1/images/04-disc-tools.png) | ![VMU import wizard selecting a physical memory card as the save source](https://raw.githubusercontent.com/TacitusVox/K-UI-NeXT/772a009343620a9440e161f5f57cdf843d6197a9/docs/releases/3.0.0-rc.1/images/05-vmu-save-import.png) |
+| [![Flow view showing the enlarged Jet Grind Radio cover beside the game list](https://raw.githubusercontent.com/TacitusVox/K-UI-NeXT/f8a5491c3697e4811f5f9a0d185423b2f9c574c1/docs/releases/3.0.0-rc.1/images/11-game-library-flow.png)](https://raw.githubusercontent.com/TacitusVox/K-UI-NeXT/f8a5491c3697e4811f5f9a0d185423b2f9c574c1/docs/releases/3.0.0-rc.1/images/11-game-library-flow.png) | [![GD Play options with Region-free On, Virtual VMU On and slot A2 selected for the virtual card](https://raw.githubusercontent.com/TacitusVox/K-UI-NeXT/f8a5491c3697e4811f5f9a0d185423b2f9c574c1/docs/releases/3.0.0-rc.1/images/08-gd-play-options.png)](https://raw.githubusercontent.com/TacitusVox/K-UI-NeXT/f8a5491c3697e4811f5f9a0d185423b2f9c574c1/docs/releases/3.0.0-rc.1/images/08-gd-play-options.png) |
+
+**Pick up a scratched-disc recovery where you left off.** The recovery screen lets you continue a saved job and retry the sectors the drive missed.
+
+[![Damaged-disc recovery screen with Continue recovery highlighted and options for starting a job or viewing diagnostics](https://raw.githubusercontent.com/TacitusVox/K-UI-NeXT/f8a5491c3697e4811f5f9a0d185423b2f9c574c1/docs/releases/3.0.0-rc.1/images/09-recovery-dashboard.png)](https://raw.githubusercontent.com/TacitusVox/K-UI-NeXT/f8a5491c3697e4811f5f9a0d185423b2f9c574c1/docs/releases/3.0.0-rc.1/images/09-recovery-dashboard.png)
+
+All four are 640 × 480 captures from the published RC1 GUI running in Flycast. The two library views use a five-title demonstration catalogue. [Retail cover artwork](https://github.com/libretro-thumbnails/Sega_-_Dreamcast/tree/28b140d16f188301ad697e5935c6dbb412a4ceda/Named_Boxarts)
 
 ## Games, saves and CD music
 
+- **Play an import or save from an original disc.** GD Play’s region-free option booted PAL *Shenmue II* Disc 1 on an NTSC Dreamcast. On supported native discs, a virtual VMU can hold saves on an SCI SD card. In a separate hardware test, *Power Stone 2* saved to virtual slot A2 and loaded the save after relaunching from disc.
 - **Native games and Smash Pack.** Native games can use the Background reader and per-game virtual VMUs. The Standard VMU reader and all four Smash Pack readers ship with their matching GUI. Favorites, Recently played, search, Flow view and multi-disc grouping make larger libraries easier to browse.
 - **Windows CE.** The generic reader gains video-memory transfers and adaptive SCI reads. Dedicated CD-music readers cover 18 additional kernels in the Worms World Party and Bust-A-Move 4 families. **4x4 Evolution plays CD music on Dreamcast.** RC1 also fixes Ducati World’s music repeat count and video-memory reads in the standalone Japanese Virtua Cop 2.
 - **Around the console.** K-UI adds themes, menu screenshots and a gallery, virtual-card import and recovery, network media downloads, and damaged-disc recovery.
