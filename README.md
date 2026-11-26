@@ -1,343 +1,151 @@
 # K-UI for Dreamcast
 
-**3.0 RC1** brings the native and Windows CE loader work into one testing distribution. The full KUP installs the GUI, matching game readers, helpers and factory assets together. The SD ZIP installs the same software on the physical card and includes the optional v3 boot disc. Existing games, saves and preferences stay on the card.
+**K-UI is a free, open-source menu and toolkit that runs on a Sega Dreamcast.**
+Use it to play compatible games from SD, launch original game discs, manage
+memory-card saves, and copy or recover your own discs. Its game browser adds
+cover art, search, favorites, manuals and optional video previews.
 
-[3.0 RC1 installation](docs/release-v3.0.0.md) · [RC1 loader coverage](docs/release-v3.0.0-notes.md) · [Nightly downloads](https://github.com/TacitusVox/K-UI-NeXT/tree/nightly-channel)
+The main supported setup keeps the **original disc drive (GD-ROM)** and adds a
+**compatible SD adapter**. A K-UI boot CD starts the console and loads the menu
+from that SD card. Normal installation does not require flashing the BIOS.
 
-## Stable release · 2.0.0 “Tyrfing”
+**[Start here: install and use K-UI](docs/getting-started.md)** ·
+**[Download 3.0 RC1](https://github.com/TacitusVox/K-UI-NeXT/releases/tag/v3.0.0-rc.1)** ·
+**[Hardware, GDEMU and VMU questions](docs/hardware-and-compatibility.md)**
 
-An independent Dreamcast shell built directly on upstream KallistiOS, retaining
-the original GD-ROM and using exFAT/FAT32 storage.
+This page describes **3.0 RC1 “Muramasa,” a release candidate**. The previous
+stable release is [2.0.0 “Tyrfing”](https://github.com/TacitusVox/K-UI-NeXT/releases/tag/v2.0.0).
+New users should download **`kui-3.0.0-rc.1-sd.zip`** from the RC1 release's
+**Assets** section. It contains the ready-to-use software and boot-disc image.
 
-**Tyrfing is the cumulative update since 1.7.5**, including the intervening
-1.8.5 work: native compatibility/FMV improvements, alphabetical cached Games
-browsing, Original/2048 selection, saved per-image options, optional checked
-SCI CD music, more ripper formats/recovery tools and expanded VMU workflows.
-New orange pixel artwork refreshes the runtime and optional matching boot CD;
-all ten Home apps now have original icons, and the startup VMU shows K-UI's
-version.
+## What can I do with it?
 
-The owner accepted the priority RC15 console retest on October 15, 2026
-(America/Chicago) and authorized final **2.0.0** preparation. Final packages are
-staged through the release build/publishing workflow; source preparation alone
-does not imply a public download is already published. Individual optional
-features retain their documented hardware-test limits.
-
-[2.0.0 downloads](https://github.com/TacitusVox/K-UI-NeXT/releases/tag/v2.0.0) ·
-[Installation](docs/release-v2.0.md) ·
-[Changelog since 1.7.5](docs/release-v2.0-notes.md) ·
-[Screenshots/press images](docs/release-v2.0-image-index.md) ·
-[Reddit/forum drafts](docs/release-v2.0-announcements.md)
-
-VMU additions include verified 128 KiB VMD backups, read-only image browsing
-and save extraction, supported external VMS/VMI/DCI import into verified SD
-bundles, and previewed Copy all between VMUs. System Tools compares existing
-BIOS/settings-flash images without programming. The new maintenance paths have
-host/fault/filesystem checks, without a blanket console-acceptance claim.
-
-Wireless changes add adaptive SCI pacing, band-change reconnects, bounded FTP
-service and compatible card-supplied adapter updates. Firmware is a separate
-ESP32 build; newer timing/update paths retain their own acceptance limits.
-See the [integration record](docs/release-v2.0-integration.md) and
-[comparison with DS-based K-UI 1.0.1](docs/release-v2.0-ds-comparison.md).
-The separate custom G1 board is a development preview; getting that hardware
-working is the intended version 3 milestone, not a 2.0.0 requirement.
-
-Optional WinCE CD music uses four checked kernel/sound adapters established
-from US **Armada, Bust-A-Move 4, Worms Armageddon and Worms World Party**.
-Other images can attempt a matching checked runtime contract; unknown kernels
-are refused. Music defaults to Off, requires SCI microSD and raw AUDIO tracks,
-and accepts supported original raw or converted 2048-byte DATA. The latest
-Worms Armageddon console report describes almost imperceptible gameplay lag
-after the worker-budget and RAM-copy improvements. World Party has a scoped
-successful owner report and remains Experimental, as do unfamiliar matching
-images. A CD music toggle does not establish another title's compatibility.
-See [admission and evidence limits](docs/experimental-cdda.md).
-
-Install the complete matching package: runtime and Games payloads belong together.
-Keep your existing exFAT card, game dumps and compatible independent K-UI boot
-CD. No reformat, reripping or 2048 conversion is required. DreamShell-based
-K-UI 1.0 requires an independent K-UI bootstrap CD.
-
-Native Sonic Adventure, Grandia II and Skies of Arcadia have scoped console
-confirmation from 1.8.5. Later accepted native fixes for Skies, Time Stalkers
-and Evolution 1/2 were omitted from RC14 and restored in the accepted RC15
-baseline retained for 2.0.0; see the
-[accepted-fix audit](docs/release-v2.0-accepted-fix-audit.md).
-Toy Commander FMV stalls are not fixed by the WinCE work. Native SCI Standard
-has experimental direct LZ4/LZO1X ZSO readers with explicit codec selection;
-console acceptance is pending. CSO and CHD require PC import.
-IDE/CF remains untested synchronous PIO;
-ATA DMA and CE on IDE/SCIF remain future work. ext4 is available only to the
-read-only bootstrap, not runtime apps or Games.
-
-The historical [1.8.5 notes](docs/release-v1.8.5-notes.md),
-[1.7 notes](docs/release-v1.7-notes.md) and
-[1.5.1 notes](docs/release-v1.5.1-notes.md) remain available.
-
-## Online updates
-
-Open **System settings → Updates** and press **L** to choose a channel.
-
-| Channel | Builds offered |
+| I want to… | What K-UI provides |
 | --- | --- |
-| **Main releases** | Published stable versions with a complete, verified update package, up to ten versions in publication order. |
-| **Nightly builds** | Up to ten published testing builds from `main`, newest first. |
+| **Keep playing my original discs** | **GD Play** launches supported original-disc games, with optional region-free boot. Supported native games can also save to a virtual VMU on SCI storage while the game runs from the disc. |
+| **Play compatible games from SD** | The **Games** launcher opens supported disc-image formats. Native Dreamcast, Windows CE and Sega Smash Pack paths are included; compatibility and optional features depend on the game and storage hardware. |
+| **Manage or back up my saves** | Back up physical VMUs, browse and restore supported save backups, import saves, and keep separate software virtual cards for supported games or playthroughs. |
+| **Browse a larger collection comfortably** | Cover-art Gallery and Flow views, search, Favorites, Recently played and grouped multi-disc entries. With supported networking, download covers, manuals and optional gameplay clips directly on the console. |
+| **Copy or recover my discs** | Rip to SD, verify saved data, resume interrupted jobs, and retry unreadable sectors using the damaged-disc recovery tools. |
+| **Use the Dreamcast's other tools** | Manage files, play music, transfer files over supported networking, change themes and colors, capture menu screenshots, and install K-UI software updates. |
 
-Choose a channel to read its list. Each build shows its publication time, source
-ID and download size. Check the package contents for the selected build, then
-press **A** to download it for review. Press **X** on the review screen to see
-change notes and the files affected on your installation. Confirm installation
-and choose **Restart K-UI**. The running GUI build is shown in the header.
+Virtual VMU support, CD music and smooth movie playback are still
+game-dependent. “Universal Loader” is the project's common-launcher effort,
+not a promise that every game and every option already work.
+[RC1 changes and tested results](docs/changelog-v2.0.0-to-v3.0.0-rc.1.md).
 
-The nightly workflow checks `main` daily at 08:23 UTC (2:23 a.m. CST or
-3:23 a.m. CDT). It checks for changed package inputs and catches up after a
-missed day. The default package updates the GUI. Maintainers can publish a
-reader-only, mixed, or complete nightly when those components are qualified. To run it immediately, choose **Run workflow** on
-**main**. GitHub publishes the checked KUP as a prerelease and updates the
-console feed. [Nightly workflow](https://github.com/TacitusVox/K-UI-NeXT/actions/workflows/nightly.yml)
+## Will it work with my setup?
 
-Earlier network-enabled GUIs display **L GitHub nightly** and offer the latest
-build. If the source reads **Hardware test**, press **Y** for **Official
-nightly**. Install the first compatible update containing the chooser, then
-choose **Restart K-UI** to open the new menu. Stock Tyrfing requires an SD
-upgrade first. [Publishing update channels](docs/online-update-channels.md) ·
-[Upgrading older installations](docs/updater.md#updating-an-older-installation)
+**The location of the SD card matters.** These devices are not the same storage
+connection:
 
-## Foundation and capture evidence
-
-The independent SD runtime established **raw-track GDI capture, saved-file
-verification and controlled resume** on top of the independently booting
-hardware diagnostic. It stays in RAM after disc swaps and uses FAT32/exFAT.
-Later SCI and Games work builds on that foundation; update the complete
-matching package as described above.
-
-**Disc reading is done and verified. For the full state, read
-[docs/HANDOFF-disc-reader.md](docs/HANDOFF-disc-reader.md) first.** A whole GD-ROM now rips in
-about 20 minutes (it was over 100 with the original settings) and has been proven byte-exact
-against the TOSEC catalogue on two discs: Sword of the Berserk (3 tracks) and MDK2 (31 tracks,
-27 of them audio), on the console and again on a PC. MDK2 was also interrupted twice mid-disc and
-resumed to a verified finish.
-The capture engine also passes host-image tests. Earlier SD runtime launch and
-disc/exFAT probes passed on a physical console. The user also
-confirms B selects CD fallback and reports successful cold boots; the boot count
-was not specified. Missing-file detection, checksum rejection and restoring the
-good runtime have now passed by user report; see the
-[hardware evidence](docs/hardware-evidence.md) for remaining coverage.
-New K-UI shell code uses GPLv3; the Wi-Fi firmware/link library is MIT, and
-dependencies retain their own licenses. There is no
-separate contribution or commercial-relicensing agreement.
-
-## The ten-app shell
-
-The SD runtime opens ten apps, in this order on Home: **Games**, **Disc Ripper**,
-**VMU Manager**, **File Manager** (new since 1.5.1), **Music Player**, **GD Play**,
-**Memory Test**, **Network**, **Diagnostics** and **Settings**. New captures use a selectable
-parent folder, defaulting to `/Games`, with title-based folders and GDI filenames.
-The established raw acquisition engine remains in place; new format exports
-have separate host validation and still need console acceptance.
-
-Coming from DreamShell-based K-UI 1.0? Use the independent K-UI bootstrap CDI;
-that older CD cannot boot this runtime. For an existing independent K-UI
-installation, use its compatible bootstrap CD and merge the complete package's
-`KUI` folder onto the SD card as described in the
-[installation guide](docs/release-v2.0.md).
-Update the runtime and Games payload together; optional original menu music
-is included.
-See [the current app acceptance round](docs/apps-round-five.md) and
-[app boundaries and the later executable-loader plan](docs/app-architecture.md).
-These new app paths still need physical-console acceptance.
-
-- Select with D-pad or stick and open with A. B returns home while idle.
-- The startup splash is capped at three seconds; B skips the shortened startup cue.
-  Home Y cycles volume/off; L/R on Home and Ripper select songs. The header names the current song.
-- GD Play exits through normal KOS shutdown to the stock BIOS. Music Player
-  caches PCM16 WAV or Ogg Vorbis songs up to 6 MiB for background playback across apps.
-  The developer `sd-update` includes an original one-minute WAV/Ogg sample.
-  Music Player supports custom-song cycling, explicit cache clearing and a separate audio-CD player.
-  Since 1.5 the menu songs ship as Ogg Vorbis and share one decoder, and Harbor
-  Lights joins the rotation as a sixth song. All six cached use 1.06 MiB of RAM,
-  against 4.46 MiB for the five 1.5 WAVs, which cards without the Oggs still play.
-  The startup chime is embedded as Ogg too ([details](docs/music-round-five.md#bundled-menu-songs-as-ogg)).
-- Ripper: A confirms a new dump, X resumes the newest matching job, Y verifies.
-  Start opens Advanced, **Destination folder** and **Capture settings**.
-  Output choices are GDI, GDI 2048, BIN/CUE, CSO, historical LZO1X ZSO and CHDv4; compressed
-  exports retain the verified raw capture for resume and verification.
-  Advanced also offers explicitly confirmed Quick resume (sizes only), preserving
-  full Resume and its saved-byte checks. During work, B requests Stop. Reports still save automatically. Idle insertion
-  detection shows the disc title; moving capture/verification phases show percentage and ETA.
-  Current retry attempts and the cumulative job total are labelled separately.
-- System Settings: 640x480 TV timing with reversible preview, memory display,
-  music enabled and volume, startup chime/app, local clock, TV safe area, menu sounds
-  and restore-defaults. System Tools adds inventory, verified flash/visible BIOS
-  backups, read-only comparisons with card files and Restart.
-  Capture hashes/readback remain inside the ripper. New file dates follow the RTC.
-- VMU Manager: read saves, make verified SD backups, and preview/confirm restore
-  into a free filename with readback. Managed copy/delete require confirmation and
-  a verified restorable SD backup. Copy all preflights the complete batch;
-  The SD backups page imports external VMS/VMI/DCI files into new verified bundles.
-  Actions also backs up a whole formatted
-  card as VMD; Backups browses VMD images and extracts selected/all saves into
-  verified bundles without a connected VMU. No overwrite or format. Memory Test
-  checks only its allocated RAM.
-- Ripper Advanced CRC scans completed saved jobs and reports hash/Mode 1 sector
-  errors separately. Already-read track sizes and CRCs are compared with the
-  Redump/TOSEC catalogues, including GDI-only folders without a manifest. Only a
-  full reference match establishes all-track agreement; unavailable/partial
-  references retain the limited structural result.
-  Separate Salvage jobs add durable bad-sector queues, optional zero filling and
-  bounded repair passes; unresolved holes never receive a complete-dump claim.
-- File Manager browses every folder and file on SD and opens games, music and
-  pictures. Copy, move, rename and delete are checked and confirmed first;
-  copies are read back and compared before they take their name, nothing is
-  replaced, and the files K-UI needs to start are protected
-  ([details](docs/files.md)). It has not yet been tried on a console.
-- Network includes a temporary DHCP/address-conflict/gateway-ping test; it
-  does not claim Internet reachability or change saved network settings. With a
-  W5500 wired to the SCI port (a modification), Network also finds that adapter
-  and runs an FTP server for the SD card: uploads take their name only once
-  complete, and K-UI's start-up files are protected
-  ([details](docs/ftp.md)). Earlier overlapping-transfer builds reached about
-  0.8 MiB/s uploads and 0.5 MiB/s downloads in the tested W5500/SCIF setup;
-  these are historical results, not new 2.0.0 measurements.
-  A XIAO ESP32-C5/C6 with the separate K-UI firmware provides SCI Wi-Fi;
-  Network Start opens scan/join and band selection. Storage remains on SCIF
-  while networking owns SCI. Firmware can be flashed by USB from a computer;
-  the Wi-Fi page also checks and installs a compatible card-supplied update
-  after confirmation ([setup](docs/wifi.md), [console updates](docs/wifi-console-update.md)).
-  Diagnostics retains disc/SD probes, log export,
-  mstats and benchmarks. RAM remains visible in the ripper.
-- Music keeps playing from RAM during menu actions and capture; uncached song
-  changes wait until the storage worker is idle. Console continuity still needs checking.
-- Repeated drive failures can retain PIO until reboot. The ripper now keeps that
-  warning visible; the accepted DMA stop/lid policy is unchanged.
-
-Defaults now select **CRC32, automatic end readback Off, DMA and 2 Hz busy redraws**:
-these are the policy choices used by the accepted fast captures. Explicit
-`bench.cfg` keys override saved preferences, and the log prints the effective
-options. Resume keeps the existing job's hash mode. **Y Verify always rereads saved
-files**. Only an independent **FULL TRACK MATCH** gives the stream CRC badge a
-green result; partial matches and saved-file verification remain separate.
-
-A title such as MDK2 produces `/Games/MDK2/MDK2.gdi`; another New uses
-`/Games/MDK2 (2)/MDK2.gdi` without overwriting the first. Resume/Verify select the
-greatest numbered matching-disc checkpoint in the chosen parent, with legacy
-`/KUI/dumps` fallback. Existing jobs keep their format. See
-[ripper controls](docs/ripper-controls.md) and [the capture format](docs/capture-format.md).
-
-The reusable CD's built-in diagnostics remain available by holding B during
-startup. Missing or invalid runtime packages fall back automatically. Keep using
-the working CD; this UI update needs no new burn. See [SD bootstrap](docs/sd-bootstrap.md)
-and [hardware evidence](docs/hardware-evidence.md) for the established boot checks.
-
-## Build and test
-
-On Ubuntu 24.04 / a compatible Linux or WSL installation:
-
-```sh
-sudo apt-get install build-essential git curl wget patch python3 bison flex \
-  texinfo gettext libgmp-dev libmpfr-dev libmpc-dev libisl-dev \
-  meson ninja-build pkg-config libisofs-dev libpng-dev libjpeg-dev \
-  dosfstools exfatprogs mtools ffmpeg
-python3 tools/fetch_deps.py --fatfs-only
-make test test-images
-bash tools/setup_kos.sh
-source .deps/kos/environ.sh
-make diagnostic
-python3 tools/package.py
-```
-
-Packaging requires a clean committed source tree, so the source archive matches
-the executable. The initial compiler build is substantial; subsequent builds
-reuse it. Dependencies are pinned in [dependencies.json](dependencies.json).
-The scripts use upstream KOS's stable SH-4 compiler profile: GCC 15.2.0,
-Binutils 2.45.1 and Newlib 4.6.0.20260123. No DreamShell checkout is needed.
-
-Host tests run the same portable C command, TOC, block-device and filesystem code
-as the console app. Filesystem tests use disposable regular image files and
-independent `mkfs`/`fsck` tools. They do not operate on physical disks.
-
-## Milestone 1
-
-The complete goal remains: boot independently, use FAT32/exFAT serial SD storage,
-capture every supported retail GD-ROM track, and verify and resume saved dumps.
-
-| Stage | Status |
+| Your setup | What to expect |
 | --- | --- |
-| M1.0: source/build foundation and visible boot diagnostic | **Done.** Diagnostic runs and display fix confirmed; dozens of cold boots with no controller problems |
-| M1.1: raw-disc and FAT32/exFAT capability probes | **Done.** Disc probes (Sword of the Berserk, MDK2) verified; exFAT and FAT32 both verified end to end. On FAT32 the runtime loads, the storage test passes and a whole disc rips byte-exact, about 2.4% slower than exFAT ([evidence](docs/evidence/fat32-sword-dma-2026-09-20.json)) |
-| M1.2: validated runtime loading from SD | **Done.** exFAT handoff, B-selected fallback, missing-file rejection and good-runtime restoration confirmed; all five malformed fixtures rejected on hardware, each with its own reason, with a usable fallback ([evidence](docs/evidence/m12-runtime-rejection-2026-09-20.json)) |
-| M1.3: full-track GDI capture | **Done.** Sword of the Berserk and MDK2 (31 tracks, 27 audio) captured and verified against TOSEC on the console and on a PC; Sword ripped three ways, identical by SHA-256 ([handoff](docs/HANDOFF-disc-reader.md)) |
-| M1.4: SHA-256 capture verification and controlled stop/resume | **Done.** MDK2 stopped twice mid-disc and resumed to a finish verified on the console and against TOSEC; Sword track 3 PC-verified. The lid opened mid-capture stopped cleanly and resumed to a TOSEC-verified finish on hardware (Omikron). A scratched disc retried a fixed 10 times, named the bad sector and stopped with the partial job kept. A B stop and a lid-open in the same boot both resume on DMA ([evidence](docs/evidence/dma-stop-fix-confirmed-2026-09-20.json)). **Open:** a card that fills mid-capture, host-tested only |
-| M1.5: hardware acceptance and minimal UI refinement | Launcher and non-Games app round five implemented: named dumps, salvage, VMU copy/delete/restore, Ogg/CD audio, settings/tools and network diagnostics; latest app hardware acceptance pending. Full-card failure remains host-tested only |
+| **Original drive + an SD adapter in the rear serial port** | This is **SCIF** storage. It supports the K-UI menu, disc and save tools, and supported native Standard game loading. It does not enable all SCI-only game features. |
+| **Original drive + an internally wired SCI microSD adapter** | This is **SCI** storage. It is the required connection for the current Background, Windows CE and software virtual-VMU routes. It requires a hardware modification. Individual game support still varies. |
+| **GDEMU or another optical-drive emulator** | **Not officially supported.** K-UI currently has no integration to browse or switch GDEMU's game-image slots. The SD inside an ODE is not mounted as K-UI's SD storage. Booting K-UI through an ODE would be a separate, unvalidated setup. |
+| **An original or replacement controller-slot memory card** | Physical memory cards and K-UI's software virtual VMU are separate. K-UI uses normal Dreamcast memory-card operations, but **VM2, VMUPro and other third-party devices do not have a validated compatibility claim here**, including automatic card switching. |
+| **IDE/CF storage modification** | Experimental implementation; hardware validation remains outstanding. |
 
-See [the research scope](docs/milestone-1-research.md),
-[the implementation decisions](docs/diagnostic-design.md), and
-[dependency provenance](THIRD_PARTY.md).
+**A K-UI virtual VMU is a save file on K-UI's SD card, presented to a supported
+game as a memory card.** It does not require a VM2 or VMUPro. Normal virtual
+cards have 200 user blocks; multiple cards can be kept. A physical card can
+still be used with K-UI's Virtual VMU option off.
 
-Direct PC capture writes to an authenticated FAT32/exFAT volume image through
-the bundled `tools/network_rip_server.py`, with no temporary local-card dump.
-Local storage remains the default. Console adapter acceptance is pending; see
-[PC destination setup and limits](docs/network-rip.md).
+[Read the hardware and compatibility FAQ](docs/hardware-and-compatibility.md)
+for the GDEMU distinction, replacement VMUs, A1/A2 slots and networking choices.
+
+## See the interface
+
+| Browse a collection | Play a disc with optional services |
+| --- | --- |
+| ![K-UI Gallery showing game covers, Favorites and Recently played](resources/Share-1280/01-games-gallery.png) | ![GD Play options for region-free boot and virtual VMU slot selection](resources/Share-1280/03-gd-play-options.png) |
+
+These are **RC1 UI previews rendered by the released interface code with sample
+data**, using the shipped Muramasa theme. They illustrate the interface, not
+game compatibility test results.
+[More feature images](resources/Share-1280/Feature-Contact-Sheet.jpg).
+
+## How do I get started?
+
+For the supported original-drive setup:
+
+1. Download and extract **`kui-3.0.0-rc.1-sd.zip`** from the
+   [RC1 release](https://github.com/TacitusVox/K-UI-NeXT/releases/tag/v3.0.0-rc.1).
+2. Copy the entire **`KUI` folder to the root of a FAT32 or exFAT SD card** in
+   your supported adapter. You should have `KUI/boot.kui` and `KUI/runtime.kui`.
+3. Use your existing compatible independent K-UI boot CD, or burn the ZIP's
+   **`boot-cd/kui-bootloader-v3.cdi` as a disc image to a CD-R**. Your Dreamcast
+   must be able to boot this type of burned disc.
+4. Connect the adapter/card with the console off, insert the boot CD and power
+   on. Let the countdown finish or press **A** to start K-UI.
+5. At Home, choose **Disc tools** to use an original disc, **VMU tools** to back
+   up a memory card, or **Games** to browse images on your SD card.
+
+The [step-by-step guide](docs/getting-started.md) covers card layout, first boot,
+controller buttons and your first disc, game and save tasks. Existing users can
+follow the [RC1 upgrade instructions](docs/release-v3.0.0.md).
 
 ## Games
 
-Games directly launches supported GDI, ISO, BIN/CUE, CDI v2/v3/v3.5 and
-standalone BIN/IMG layouts. Standard LZ4 and explicitly selected historical
-LZO1X ZSO have separate experimental native SCI Standard readers; console
-acceptance is pending. CSO and CHD use the supplied PC importer. See [ZSO limits](docs/games-zso.md) and
-[format and import limits](docs/games-formats.md).
+Put each complete game image and its referenced track files together in its
+own folder under **`/Games`** on K-UI's SD card. Open **Games → START → Scan for
+changes**, select a title, then use **A Launch** on its launch screen.
+Use **Y Options** there for that game's saved launch settings.
 
-Matching `Game` and `Game-2048` folders collapse into one Games entry. Choose
-**Original** or **2048-byte copy** after selecting it. The
-[batch converter](docs/gdi-2048-test.md) creates separate copies, preserves
-originals and reports each conversion, skip or failure. Conversion does not
-guarantee compatibility or replace an archival raw dump.
+GDI, supported BIN/CUE and CDI layouts, and qualifying ISO/BIN/IMG images have
+direct-loading paths. **CHD and CSO require PC-side import**; compressed-image
+support is not interchangeable with the ripper's export options. See the
+[Games walkthrough](docs/getting-started.md#play-a-game-from-sd) for a simple
+starting point and format references.
 
-Games preparation now includes two saved one-time native boot patches, a
-per-image **Restore defaults** action, and verified pre-handoff launch reports.
-See [Games launch options](docs/games-launch-options.md) for controls and scope.
+In the library, **X** favorites a game, **Y** changes tabs, and **START** opens
+scanning, layout, search and media-download options.
 
-Recent lists remain in RAM. Rows appear before artwork, and only the selected
-game's cover loads. The owner reports the first Games entry takes about
-5–7 seconds on the tested collection and navigation afterward is fluid.
-**X Refresh** rebuilds the cache after library/card changes. See
-[covers and views](docs/games-covers.md).
+## Online updates
 
-Launch uses saved options for the selected image. Press **Y Options** to change
-**Background loading** and optional **CD music**; **Advanced** contains boot
-encoding, background speed, image information and developer tests. Options save
-per image, so Original and 2048 copies can keep separate choices. Windows CE
-requires the background SCI reader. New CD music choices default to Off; turn
-it Off to use the ordinary CE loader when an image has no admitted music profile.
-See the [2.0 launch guide](docs/release-v2.0.md#launch-games).
+Once you have a current installation, **Settings → Updates** handles local
+packages and online release/nightly channels. A **KUP** is a K-UI update
+package; it is not the first-install SD ZIP or a boot-disc image.
 
-The native reader stays below the IP image, clearing startup-stack collisions
-without changing game code. The owner confirms Sonic Adventure, Grandia II and
-Skies of Arcadia working on the tested layout. Power Stone 1/2 worked after
-earlier GD command fixes. These are scoped console results, not full
-playthroughs or an all-games claim.
+The **SD ZIP updates the files used at power-on**. Installing a KUP and choosing
+**Restart K-UI** selects an installed software version on the card. These are
+distinct startup paths; the [upgrade guide](docs/release-v3.0.0.md) explains how
+to put both on RC1. Full updates preserve games, saves and preferences.
+[Online update guide](docs/online-update-channels.md).
 
-The accepted RC15 baseline restores the native configuration for Skies,
-Time Stalkers and Evolution 1/2 and is retained for final 2.0.0.
-Toy Commander and other documented FMV limitations remain. Optional WinCE CD music requires one of the admitted
-kernel/sound contracts above; universal CDDA, Mode 2 Form 2 and subchannel
-emulation are not provided. See the [2.0 release notes](docs/release-v2.0-notes.md),
-[native placement evidence](docs/evidence/native-low-resident-2026-10-06.md),
-and [CD music admission](docs/experimental-cdda.md).
+## Help and project status
+
+- [Getting started and common setup problems](docs/getting-started.md)
+- [Hardware compatibility, GDEMU and replacement VMUs](docs/hardware-and-compatibility.md)
+- [Documentation index](docs/README.md)
+- [What changed since 2.0 Tyrfing](docs/changelog-v2.0.0-to-v3.0.0-rc.1.md)
+- [Report a problem](https://github.com/TacitusVox/K-UI-NeXT/issues) — include the
+  build, game/region, storage connection and relevant VMU/music settings.
+  **Diagnostics → START → Create problem report** can collect useful details.
+
+Many older files in `docs/` record individual experiments and test packages.
+Start with the guides above for current installation and menu instructions.
+
+## Build and test
+
+You can use the published downloads without compiling anything. Developers
+should start with the [build guide](docs/building.md), [AGENTS.md](AGENTS.md),
+[accepted progress](docs/accepted-progress.md) and
+[Universal Loader roadmap](docs/universal-loader-roadmap.md).
 
 ## License and contribution policy
 
-New K-UI shell code is **GPL-3.0-only**, unless a file states otherwise.
-The separate Wi-Fi firmware and shared kwlink library are **MIT**; source
-headers and [THIRD_PARTY.md](THIRD_PARTY.md) identify the applicable licenses. Contributions
-use the applicable existing file license. Contributors retain their copyrights;
-there is no separate CLA or grant of proprietary relicensing rights.
+K-UI is independently built on upstream **KallistiOS**. This repository is not
+a DreamShell fork and does not require a DreamShell installation.
 
-This is a fresh repository, not a DreamShell fork. Requirements and hardware
-observations can inform new implementations. Do not import upstream-derived DreamShell source or binaries by changing their names.
-Independently authored additions from our earlier fork can be reused after checking
-their origins, dependencies and intended license; see [the reuse inventory](docs/prior-work-reuse.md).
-Original project artwork and the five original synthesized music loops are reused with recorded provenance; inherited assets keep their own terms.
-Independently licensed upstream KOS contributions remain attributed and usable,
-including contributions by people who also work on other projects.
+New K-UI shell code is **GPL-3.0-only**, unless a file states otherwise. The
+separate Wi-Fi firmware and shared kwlink library are **MIT**. Dependencies and
+assets retain their own terms; see [LICENSE](LICENSE),
+[THIRD_PARTY.md](THIRD_PARTY.md) and [LICENSES](LICENSES).
+Contributors retain their copyrights and use the applicable existing file
+license; there is no separate CLA or proprietary relicensing grant.
+
+Do not import DreamShell-derived source or binaries by changing their names.
+Independently authored earlier work requires an origin, dependency and license
+check; see the [reuse inventory](docs/prior-work-reuse.md).

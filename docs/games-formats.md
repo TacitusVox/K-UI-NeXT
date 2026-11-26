@@ -1,5 +1,11 @@
 # Games image and ripper formats — K-UI 1.8.5
 
+> **Historical format and implementation reference.** The installation and
+> navigation instructions below describe earlier builds. For the current RC1
+> download, Games buttons and scanning route, use
+> [Getting started](getting-started.md#play-a-game-from-sd). Current loader and
+> CD-music results are in the [RC1 notes](release-v3.0.0-notes.md).
+
 **2.0 preparation update:** current source adds experimental direct
 [LZ4/LZO1X ZSO readers with explicit codec selection](games-zso.md) for native SCI Standard launches.
 Console acceptance is pending. The 1.8.5 boundaries recorded below remain

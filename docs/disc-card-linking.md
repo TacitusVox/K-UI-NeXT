@@ -1,5 +1,11 @@
 # Cards for an inserted disc
 
+> **Current users:** install the [complete RC1 package](release-v3.0.0.md).
+> The single-runtime installation paragraph below records the original
+> development package. The current menu route is **Disc tools → Play inserted
+> disc → START Save cards**; see the
+> [disc virtual-VMU walkthrough](getting-started.md#use-a-virtual-vmu-for-a-supported-disc-game).
+
 Copy only `KUI/runtime.kui` from this ZIP onto your SD card with the console
 powered off. Keep the previous runtime on the PC to revert the GUI. The update
 includes the black-VMU backup recovery, improved labels, Save details and
