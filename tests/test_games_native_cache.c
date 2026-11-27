@@ -546,31 +546,31 @@ static void unsupported_tests(void) {
     puts("PASS native unsupported executable: unproved extent or unrecognized SDK answers for the combined module; Standard, seedless and unread launches keep theirs");
 }
 /* The launcher's answer for every result, Virtual VMU setting, reader-only
- * choice and installed state. A pool refusal speaks unless Virtual VMU is
- * Off and the reader-only module can run the game. An executable the SDK
- * check does not recognize speaks unless the reader-only module can run it,
- * which it does with Virtual VMU On too. Every other result is silent. */
+ * choice and installed state. Each refusal names one whole setting that
+ * starts the game: with Virtual VMU On a small pool asks for Virtual VMU Off
+ * only where the reader-only module then runs it, and otherwise for both
+ * options Off; the module to install is offered only with Virtual VMU Off,
+ * where installing it is enough. An executable the SDK check does not
+ * recognize runs with the reader-only module under either setting. Every
+ * other result is silent. */
 static void refusal_tests(void) {
     static const char pool[]="This game's memory pool is too small for the Background worker.";
     static const char sdk[]="Background loading cannot recognize this game's system library.";
+    static const char both[]=" Set Background loading Off and Virtual VMU Off; saves then need a real VMU";
+    static const char vmu_off[]=" Set Virtual VMU Off; saves then need a real VMU";
+    static const char background[]=" Set Background loading Off";
+    static const char install[]=" Install the standalone New reader, or set Background loading Off";
     unsigned spoken=0u,silent=0u;
     for(int result=NATIVE_CACHE_SKIPPED;result<=NATIVE_CACHE_UNSUPPORTED;++result)
         for(unsigned vmu=0u;vmu<2u;++vmu)for(unsigned reader_only=0u;reader_only<2u;++reader_only)
-            for(int installed=-1;installed<=1;++installed) {
+            for(unsigned installed=0u;installed<2u;++installed) {
                 const char *said=native_cache_refusal((enum native_cache_result)result,vmu,reader_only,installed);
+                const bool runs=reader_only && installed;
                 const char *expected=NULL;
-                if(result==NATIVE_CACHE_POOL_SMALL) {
-                    if(vmu)expected=reader_only?" Set Virtual VMU Off; saves then need a real VMU":
-                        " Set Background loading Off and Virtual VMU Off; saves then need a real VMU";
-                    else if(!reader_only)expected=" Set Background loading Off";
-                    else if(!installed)expected=" Install the standalone New reader, or set Background loading Off";
-                }
-                if(result==NATIVE_CACHE_UNSUPPORTED) {
-                    if(!reader_only)expected=vmu?
-                        " Set Background loading Off and Virtual VMU Off; saves then need a real VMU":
-                        " Set Background loading Off";
-                    else if(!installed)expected=" Install the standalone New reader, or set Background loading Off";
-                }
+                if(result==NATIVE_CACHE_POOL_SMALL)
+                    expected=vmu?(runs?vmu_off:both):runs?NULL:reader_only?install:background;
+                if(result==NATIVE_CACHE_UNSUPPORTED)
+                    expected=runs?NULL:vmu?both:reader_only?install:background;
                 if(!expected) {CHECK(!said);++silent;continue;}
                 /* "Retail boot: " and the first sentence fill a 76-column line. */
                 const char *first=result==NATIVE_CACHE_POOL_SMALL?pool:sdk;
@@ -578,8 +578,8 @@ static void refusal_tests(void) {
                 CHECK(!strcmp(said+strlen(first),expected) && strlen(expected)<=76u);
                 ++spoken;
             }
-    CHECK(spoken==18u && silent==66u);
-    puts("PASS native refusal text: a pool or SDK refusal names the setting that starts the game for each Virtual VMU and reader-only state; every other result is silent");
+    CHECK(spoken==13u && silent==43u);
+    puts("PASS native refusal text: a pool or SDK refusal names one whole setting that starts the game for each Virtual VMU, reader-only and installed state; every other result is silent");
 }
 /* Exercise a new launch with the disk left intact but fresh package and RAM.
  * Both the source proof returned to the GUI and the seed validated by the

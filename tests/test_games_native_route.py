@@ -29,7 +29,7 @@ OFF_VMU = " Set Virtual VMU Off; saves then need a real VMU"
 # (fixture case, SDK answer) -> the refusal's two log lines.
 ROWS = (
     (X, "small", POOL + OFF_VMU),
-    (X_ABSENT, "small", POOL + OFF_VMU),
+    (X_ABSENT, "small", POOL + OFF_BOTH),
     (X_NOFAMILY, "small", POOL + OFF_BOTH),
     (Y, "small", POOL + OFF_BOTH),
 )
@@ -91,7 +91,7 @@ def audit():
                 assert said == expected, (case, answer, said)
                 assert digest(card) == before, "a refused launch changed the card"
                 assert "using standalone New" not in ran.stdout
-                assert "the combined reader's 284 KiB lease would leave the game too little" in ran.stdout
+                assert "Native reader: SDK pool 448 KiB cannot spare the 284 KiB lease" in ran.stdout
                 rows.append(dict(filesystem=kind, installed=case, sdk_answer=answer, virtual_vmu="on",
                                  prepared=bool(prepared), refusal=said, card_unchanged=True))
     return dict(schema="kui.gui.native-route.v1", result="PASS", cases=rows,

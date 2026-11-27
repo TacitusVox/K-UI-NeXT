@@ -84,7 +84,7 @@ NATIVE_DUAL_UNSUPPORTED = {
     "native-dual-unsupported-y": SDK + " Set Background loading Off and Virtual VMU Off; saves then need a real VMU",
     "native-dual-standalone-y": SDK + " Set Background loading Off and Virtual VMU Off; saves then need a real VMU",
     "native-dual-standalone-nofamily": SDK + " Set Background loading Off and Virtual VMU Off; saves then need a real VMU",
-    "native-dual-standalone-absent": SDK + " Install the standalone New reader, or set Background loading Off"}
+    "native-dual-standalone-absent": SDK + " Set Background loading Off and Virtual VMU Off; saves then need a real VMU"}
 NATIVE_STANDARD_CASES = ("native-standard-report", "native-standard-cooked-report",
     "native-standard-retry-report", "native-standard-short-report", "native-standard-cancel-source",
     "native-standard-crc-fail", "native-standard-seed-absent-report",
@@ -626,7 +626,7 @@ def main():
                             said = NATIVE_DUAL_UNSUPPORTED[case]
                             assert "Retail boot: " + said in output
                             assert said[63] == " " and len(said) - 63 <= 76
-                            assert "the combined reader would stop after the bootstrap" in output
+                            assert "Native reader: SDK not recognized; the stage would stop" in output
                             assert "Native dual prepared" not in output
                         else:
                             assert SDK not in output

@@ -126,20 +126,17 @@ static uint32_t native_cache_dual_lease(const struct kui_runtime_image *package)
  * 448 KiB pool for 458,480 bytes and stays black once a 284 KiB lease is
  * gone. A lease that would take more than a quarter of the pool is not
  * offered. A reviewed fixed arena and an arena lease are no SDK pool. */
-static bool native_cache_pool_small(const struct kui_runtime_image *package,
-    const struct kui_vmu_native_resolution *r) {
-    const uint32_t lease=native_cache_dual_lease(package);
+static bool native_cache_pool_small(uint32_t lease,const struct kui_vmu_native_resolution *r) {
     return r->heap.family!=KUI_VMU_NATIVE_HEAP_ARENA && r->heap.initializer_slot &&
         lease && lease<=UINT32_MAX-32u && r->call.entry_bytes/4u<lease+32u;
 }
 /* What the launcher says when the combined module is not offered, or NULL to
- * go on. The reader-only module takes nothing from the game's pool: it runs
- * New (X) with Virtual VMU Off where the game has the SDK SCI family
- * (reader_only) and the module is installed (installed: 1 yes, 0 no, negative
- * not looked at yet). Otherwise the Standard reader with Virtual VMU Off is
- * the route that takes nothing. Each refusal names the whole setting that
- * starts the game. Its first sentence fills one 76-column log line after
- * "Retail boot: "; the setting is the next line. */
+ * go on. The reader-only module takes nothing from the game's pool and needs
+ * no SDK check: it runs New (X) where the game has the SDK SCI family
+ * (reader_only) and the module is installed. Otherwise the Standard reader
+ * with Virtual VMU Off is the route that takes nothing. Each refusal names
+ * one whole setting that starts the game. Its first sentence fills one
+ * 76-column log line after "Retail boot: "; the setting is the next line. */
 #define NATIVE_CACHE_SAYS_POOL "This game's memory pool is too small for the Background worker."
 #define NATIVE_CACHE_SAYS_SDK "Background loading cannot recognize this game's system library."
 #define NATIVE_CACHE_SET_BOTH " Set Background loading Off and Virtual VMU Off; saves then need a real VMU"
@@ -147,19 +144,23 @@ static bool native_cache_pool_small(const struct kui_runtime_image *package,
 #define NATIVE_CACHE_SET_BACKGROUND " Set Background loading Off"
 #define NATIVE_CACHE_SET_INSTALL " Install the standalone New reader, or set Background loading Off"
 static const char *native_cache_refusal(enum native_cache_result result,bool vmu_on,bool reader_only,
-    int installed) {
+    bool installed) {
+    const bool runs=reader_only && installed;
+    /* A small pool with Virtual VMU On: the reader-only module has no
+     * virtual card, so the player turns Virtual VMU Off first. */
     if(result==NATIVE_CACHE_POOL_SMALL) {
-        if(vmu_on)return reader_only?NATIVE_CACHE_SAYS_POOL NATIVE_CACHE_SET_VMU:
+        if(vmu_on)return runs?NATIVE_CACHE_SAYS_POOL NATIVE_CACHE_SET_VMU:
             NATIVE_CACHE_SAYS_POOL NATIVE_CACHE_SET_BOTH;
-        if(!reader_only)return NATIVE_CACHE_SAYS_POOL NATIVE_CACHE_SET_BACKGROUND;
-        if(!installed)return NATIVE_CACHE_SAYS_POOL NATIVE_CACHE_SET_INSTALL;
+        if(!runs)return reader_only?NATIVE_CACHE_SAYS_POOL NATIVE_CACHE_SET_INSTALL:
+            NATIVE_CACHE_SAYS_POOL NATIVE_CACHE_SET_BACKGROUND;
     }
-    /* The reader-only module needs no SDK check and runs with Virtual VMU On
-     * too, without a virtual card, as before. */
-    if(result==NATIVE_CACHE_UNSUPPORTED) {
-        if(!reader_only)return vmu_on?NATIVE_CACHE_SAYS_SDK NATIVE_CACHE_SET_BOTH:
+    /* An executable the SDK check does not recognize runs with the
+     * reader-only module under Virtual VMU On too, without a virtual card,
+     * as before. */
+    if(result==NATIVE_CACHE_UNSUPPORTED && !runs) {
+        if(vmu_on)return NATIVE_CACHE_SAYS_SDK NATIVE_CACHE_SET_BOTH;
+        return reader_only?NATIVE_CACHE_SAYS_SDK NATIVE_CACHE_SET_INSTALL:
             NATIVE_CACHE_SAYS_SDK NATIVE_CACHE_SET_BACKGROUND;
-        if(!installed)return NATIVE_CACHE_SAYS_SDK NATIVE_CACHE_SET_INSTALL;
     }
     return NULL;
 }
@@ -184,10 +185,13 @@ static enum native_cache_result native_cache_prepare_repeat(const struct kui_gam
     if(pending)*pending=NULL;
     if(source_proof)*source_proof=(struct native_cache_source_proof){0};
     if(standalone)*standalone=false;
+    size_t dual_at=0u;
     const bool dual=map && package && package->data &&
         kui_native_dual_reader_valid(map->reader,map->storage_transport) &&
         options==map->reader &&
-        kui_native_dual_descriptor_find(package->data,package->info.payload_bytes,NULL)==1;
+        kui_native_dual_descriptor_find(package->data,package->info.payload_bytes,&dual_at)==1;
+    /* The lease the combined module's stage takes, from its descriptor. */
+    const uint32_t dual_lease=dual?kui_native_dual_u32((const uint8_t *)package->data+dual_at+24u):0u;
     if(!native_cache_source_eligible(image,map,native,options,patched,package,dual))
         return NATIVE_CACHE_SKIPPED;
     size_t slot=kui_vmu_native_cache_seed_find(package->data,package->info.payload_bytes);
@@ -261,7 +265,7 @@ static enum native_cache_result native_cache_prepare_repeat(const struct kui_gam
      * and still leaves the decision to the stage. */
     if(!extent_valid) {
         if(dual) {
-            if(log)log("Native reader: the executable's extent is not proved; the combined reader would stop after the bootstrap");
+            if(log)log("Native reader: executable extent not proved; the stage would stop");
             result=NATIVE_CACHE_UNSUPPORTED;
         }
         goto finished;
@@ -296,7 +300,7 @@ static enum native_cache_result native_cache_prepare_repeat(const struct kui_gam
         if(!resolved) {
             native_cache_standalone(boot,map,standalone);
             if(dual) {
-                if(log)log("Native reader: the SDK check does not recognize this executable; the combined reader would stop after the bootstrap");
+                if(log)log("Native reader: SDK not recognized; the stage would stop");
                 result=NATIVE_CACHE_UNSUPPORTED;
             }
             goto finished;
@@ -304,7 +308,7 @@ static enum native_cache_result native_cache_prepare_repeat(const struct kui_gam
         if(native_cache_cancelled(cancel)) {result=NATIVE_CACHE_CANCELLED;goto finished;}
         /* A launch this preflight refuses leaves no record on the card. */
         if(disk && (!dual || (!kui_vmu_native_pool_overlaps_program(&work->resolution) &&
-                              !native_cache_pool_small(package,&work->resolution))) &&
+                              !native_cache_pool_small(dual_lease,&work->resolution))) &&
            kui_native_reader_admits_sdk_proof(package->data,package->info.payload_bytes,dual,&work->resolution) &&
            !native_cache_file_publish(path,work->wire,work->compare,cancel)) {
             if(native_cache_cancelled(cancel)) {result=NATIVE_CACHE_CANCELLED;goto finished;}
@@ -334,9 +338,9 @@ admit:
         result=NATIVE_CACHE_POOL_OVERLAP;
         goto finished;
     }
-    if(dual && native_cache_pool_small(package,&work->resolution)) {
-        if(log)log("Native reader: the SDK pool is %u KiB; the combined reader's %u KiB lease would leave the game too little",
-            work->resolution.call.entry_bytes/1024u,native_cache_dual_lease(package)/1024u);
+    if(dual && native_cache_pool_small(dual_lease,&work->resolution)) {
+        if(log)log("Native reader: SDK pool %u KiB cannot spare the %u KiB lease",
+            work->resolution.call.entry_bytes/1024u,dual_lease/1024u);
         native_cache_standalone(boot,map,standalone);
         result=NATIVE_CACHE_POOL_SMALL;
         goto finished;

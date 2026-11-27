@@ -1792,11 +1792,14 @@ static bool prepare_launch(const char *path,uint32_t reader,const struct kui_gam
             problem="SDK pool overlaps the game and the standalone New reader cannot admit this executable";goto done;
         }
     }
-    const char *refused=native_cache_refusal(cache,emulation_enabled,standalone_candidate,-1);
+    /* The combined module is not offered and the reader-only module cannot
+     * take the launch: the refusal names the setting that starts the game. */
+    const char *refused=standalone_candidate?NULL:native_cache_refusal(cache,emulation_enabled,false,false);
     if(refused) {problem=refused;goto done;}
     /* New only: the combined module would refuse this executable, which has
      * the SDK SCI family. An installed reader-only module runs it instead;
-     * without one the launcher says what to install or set. */
+     * without one the launcher says what to install or set. (An arena that
+     * needs the compact module is still left to the stage.) */
     bool native_standalone=false;
     if(standalone_candidate) {
         FILINFO optional;

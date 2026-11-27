@@ -46,9 +46,8 @@ static uint32_t native_cache_dual_lease(const struct kui_runtime_image *runtime)
 static struct kui_runtime_image package;
 /* The launcher owns the size rule (test_games_native_cache.c); exercise its
  * result for the selected module and the candidate record. */
-static bool native_cache_pool_small(const struct kui_runtime_image *runtime,
-    const struct kui_vmu_native_resolution *r) {
-    CHECK(runtime==&package && r);++io.pool_checks;return io.pool_small;
+static bool native_cache_pool_small(uint32_t lease,const struct kui_vmu_native_resolution *r) {
+    CHECK(lease==native_cache_dual_lease(&package) && lease && r);++io.pool_checks;return io.pool_small;
 }
 static FRESULT f_opendir(DIR *dir,const char *path) {
     CHECK(!strcmp(path,"0:/KUI/VMU/native-cache/v8"));++io.opens;
