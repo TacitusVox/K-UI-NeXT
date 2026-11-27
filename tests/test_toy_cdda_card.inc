@@ -581,13 +581,37 @@ static void cd_reads(uint32_t mean, unsigned dense) {
     const uint32_t halts = mail->data_halts, streams = mail->wire.starts, polled = mail->seek_blocks;
     CHECK(halts >= 2u);
     bytes = cap.bytes;
+#if KUI_TOY_CDDA_YIELD
+    /* Test 85 (YIELD): the window stands while the consumer holds enough,
+     * the audio waiting with no card work of its own. When the consumer says
+     * that it runs low the window is given up for the audio, by its own way
+     * out: its stream ended, and no window's drop counted. */
+    const uint32_t closes = report()->stops[KUI_TOY_WIRE_STOP_CLOSE], windows = report()->other_windows;
+    unsigned waited = 0u;
+    while(c->movie_ahead.variant == OTHER_WINDOW) {
+        CHECK(++waited < 40u && cap.bytes == bytes && !mail->yields && mail->seek_blocks == polled);
+        cd_frames(1u, 3u);
+        if(c->movie_ahead.variant == OTHER_WINDOW) CHECK(!cd_beat_ticks || !mail->yield_ok);
+    }
+    CHECK(waited > 5u && mail->yields == 1u && mail->yield_ok && mail->data_halts == halts);
+    CHECK(report()->stops[KUI_TOY_WIRE_STOP_CLOSE] == closes + 1u && report()->other_windows == windows);
+    no_drops(report());
+    cd_frames(10u, 3u);
+    CHECK(cap.bytes > bytes && stream_on() && mail->wire.starts == streams + 1u && mail->yields == 1u);
+    /* The read that follows on ends the audio's stream and has a window
+     * again; one elsewhere ends that. */
+    cd_read(45050u, 20u, true);
+    CHECK(c->movie_ahead.variant == OTHER_WINDOW && c->stats.hit_requests == 2u && mail->data_halts == halts + 1u);
+    CHECK(report()->other_windows == windows + 1u);
+#else
     cd_frames(40u, 3u);
     /* The window stands: the audio has waited, with no card work of its own. */
     CHECK(c->movie_ahead.variant == OTHER_WINDOW && cap.bytes == bytes && mail->card == KUI_TOY_CDDA_CARD_IDLE);
-    CHECK(mail->wire.starts == streams && mail->seek_blocks == polled && mail->data_halts == halts);
+    CHECK(mail->wire.starts == streams && mail->seek_blocks == polled && mail->data_halts == halts && !mail->yields);
     /* A read from the window, then one elsewhere that ends it. */
     cd_read(45050u, 20u, true);
     CHECK(c->movie_ahead.variant == OTHER_WINDOW && c->stats.hit_requests == 2u && mail->data_halts == halts);
+#endif
     cd_read(45020u, 10u, true);
     CHECK(!c->movie_ahead.variant);
     cd_frames(60u, 3u);
@@ -946,6 +970,78 @@ static void cd_guards(void) {
     plain_read(45100u, 20u);
     cd_close();
 }
+#if KUI_TOY_CDDA_YIELD
+/* Test 85 (YIELD): an idle window is given up for the audio only when the
+ * consumer says that it runs low, with a segment wanted and no request of
+ * the game's in any state; and then by its own way out, which counts no
+ * window's drop. */
+static void cd_yield(void) {
+    cd_open();
+    const struct kui_toy_cdda_mail *mail = &kui_toy_cdda_mail;
+    const struct kui_native_readahead_aux_context *c = &kui_native_readahead_aux_context;
+    const struct kui_toy_wire_report *w = report();
+    struct kui_retail_gd *s = &R.shared.service;
+    const uint32_t first = cd_tracks[cd_a - 1u].start;
+    /* Reads one behind the other: a window, which stands. */
+    plain_read(45040u, 5u);
+    plain_read(45045u, 5u);
+    CHECK(c->movie_ahead.variant == OTHER_WINDOW && stream_on() && w->other_windows == 1u);
+    const uint32_t closes = w->stops[KUI_TOY_WIRE_STOP_CLOSE];
+    const unsigned cmd12 = card.cmd12, cmd18 = card.cmd18;
+    struct kui_toy_cdda_want want = {1u, cd_a, first, first + 6u, false};
+    /* The consumer holds enough: the audio waits. */
+    for(unsigned n = 0u; n < 3u; ++n) CHECK(cd_ask(&want, 4096u, cd_no_take) == KUI_TOY_CDDA_CARD_IDLE);
+    CHECK(c->movie_ahead.variant == OTHER_WINDOW && !mail->yields && mail->have_generation == 1u);
+    /* It runs low, and a command of the game's that is no read stands. */
+    want.yield_ok = true;
+    s->pending = 1u; s->command = KUI_RETAIL_GD_REQ_STAT;
+    CHECK(cd_ask_only(&want, 4096u, cd_no_take) == KUI_TOY_CDDA_CARD_IDLE);
+    s->pending = 0u; s->command = 0u;
+    CHECK(c->movie_ahead.variant == OTHER_WINDOW && !mail->yields && stream_on());
+    /* A read of the game's stands, in each of its states. */
+    for(unsigned what = 0u; what < 3u; ++what) {
+        if(what == 0u) R.engine.active = 1u;
+        else if(what == 1u) s->executing = 1u;
+        else {s->pending = 1u; s->command = KUI_GD_PIOREAD;}
+        CHECK(cd_ask_only(&want, 4096u, cd_no_take) == KUI_TOY_CDDA_CARD_IDLE);
+        R.engine.active = 0u; s->executing = 0u; s->pending = 0u; s->command = 0u;
+        CHECK(c->movie_ahead.variant == OTHER_WINDOW && !mail->yields && stream_on());
+    }
+    /* Nothing wanted: the window is not the audio's to end. */
+    const struct kui_toy_cdda_want none = {0u, 0u, 0u, 0u, true};
+    CHECK(cd_ask(&none, 0u, cd_no_take) == KUI_TOY_CDDA_CARD_IDLE && !mail->have_generation);
+    CHECK(c->movie_ahead.variant == OTHER_WINDOW && !mail->yields && stream_on());
+    CHECK(card.cmd12 == cmd12 && card.cmd18 == cmd18 && w->stops[KUI_TOY_WIRE_STOP_CLOSE] == closes);
+    /* Wanted, the consumer low, nothing of the game's standing; but the
+     * card does not take the stop command the window's way out sends. The
+     * window's stream is ended, the window is not yet given up, and the
+     * audio does nothing with the card in that visit. */
+    want.generation = 2u;
+    R.shared.card.device.sd.bus.transfer = bad_stop_transfer;
+    bad_stop = card.cmd12 + 1u; bad_stop_done = false;
+    CHECK(cd_ask_only(&want, 4096u, cd_no_take) == KUI_TOY_CDDA_CARD_IDLE);
+    R.shared.card.device.sd.bus.transfer = bus_transfer;
+    CHECK(bad_stop_done && card.cmd12 == cmd12 + 1u && card.cmd18 == cmd18 && !mail->yields && !stream_on());
+    CHECK(c->movie_ahead.variant == OTHER_WINDOW && !mail->seek_blocks && !mail->seek_waits);
+    /* The next heartbeat: the window is given up, and in the same visit the
+     * audio brings the card to its block. */
+    cd_direct_bytes = 0u; cd_direct_next = 0u;
+    (void)cd_ask(&want, 4096u, cd_direct_take);
+    CHECK(mail->yields == 1u && !c->movie_ahead.variant && w->stops[KUI_TOY_WIRE_STOP_CLOSE] == closes + 1u);
+    CHECK(w->other_windows == 1u && card.cmd12 == cmd12 + 2u && mail->seek_blocks + mail->seek_waits == 1u);
+    no_drops(w);
+    for(unsigned n = 0u; n < 30u && cd_ask(&want, 4096u, cd_direct_take) != KUI_TOY_CDDA_CARD_DONE; ++n)
+        for(unsigned k = 0u; k < 8u && hardware(); ++k) {}
+    CHECK(cd_direct_bytes == 6u * 2352u && mail->card == KUI_TOY_CDDA_CARD_DONE && mail->yields == 1u);
+    /* The game reads on where it was, and has a window again. */
+    plain_read(45050u, 5u);
+    CHECK(c->movie_ahead.variant == OTHER_WINDOW && w->other_windows == 2u);
+    no_drops(w);
+    (void)cd_ask(&none, 0u, cd_no_take);
+    plain_read(45100u, 20u);
+    cd_close();
+}
+#endif
 /* The card's wait in the seek is the low reader's slices: a heartbeat's
  * visit clocks one slice of it and leaves, and a later one takes it up. A
  * read of the game's that comes while it waits is served as always, with its
@@ -991,7 +1087,13 @@ static void cd_slices(void) {
     cd_read(45045u, 5u, true);
     CHECK(mail->data_halts == halts + 1u && c->movie_ahead.variant == OTHER_WINDOW && c->stats.hit_requests == 1u);
     cd_frames(5u, 3u);
+#if KUI_TOY_CDDA_YIELD
+    /* (Test 85's YIELD: the consumer, begun afresh, holds nothing and says
+     * so, and the window is given up for it at once.) */
+    CHECK(!c->movie_ahead.variant && mail->yields == 1u);
+#else
     CHECK(cap.bytes == bytes && c->movie_ahead.variant == OTHER_WINDOW);
+#endif
     /* A read elsewhere ends the window; the audio goes on. */
     cd_read(45100u, 12u, true);
     cd_frames(25u, 3u);
@@ -1588,6 +1690,11 @@ static void cd_scenarios(void) {
     cd_refused();
     cd_sink();
     cd_guards();
+#if KUI_TOY_CDDA_YIELD
+    cd_yield();
+    printf("  Test 85's YIELD: an idle window given up for the audio only with a segment wanted, the consumer low and "
+           "no request of the game's in any state; by the window's own way out, no drop counted\n");
+#endif
     cd_stop_failed(false);
     cd_stop_failed(true);
     printf("  segments refused each with its reason and no byte to the card; the card not taken with a read of the "

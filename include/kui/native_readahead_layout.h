@@ -62,6 +62,15 @@
 #if KUI_TOY_CDDA_CARD != 0 && KUI_TOY_CDDA_CARD != 1
 #error "KUI_TOY_CDDA_CARD must be zero or one"
 #endif
+#ifndef KUI_TOY_CDDA_YIELD
+#define KUI_TOY_CDDA_YIELD 0
+#endif
+#if KUI_TOY_CDDA_YIELD != 0 && KUI_TOY_CDDA_YIELD != 1
+#error "KUI_TOY_CDDA_YIELD must be zero or one"
+#endif
+#if KUI_TOY_CDDA_YIELD && !KUI_TOY_CDDA_CARD
+#error "Test 85's YIELD gives a window up for its CARD's audio"
+#endif
 #if KUI_TOY_WIRE_STREAM
 /* Test 68 is Test 66 with the continuous card stream: the same lease, with
  * two more pages of it given to auxiliary code. */

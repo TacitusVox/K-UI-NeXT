@@ -2,7 +2,8 @@
 # SPDX-License-Identifier: GPL-3.0-only
 """Test 84 changes the auxiliary, the worker and the cold stage; the low residents keep their bytes.
 
-usage: test_toy_cdda_parts.py <Test 84 build> <Test 83's recipe, same BUILD_ID> [--card <Test 84's recipe>] [nm]
+usage: test_toy_cdda_parts.py <Test 84 build> <Test 83's recipe, same BUILD_ID> [--card <Test 84's recipe>]
+                              [--yield <Test 85's recipe without YIELD>] [nm]
 
 Both are built with one BUILD_ID (Makefile.vmu-native-toy-suite, toy-cdda-parts-check).
 
@@ -14,6 +15,10 @@ and the observing worker are Test 83's and Test 84's byte for byte. The
 worker's player descriptor has its second form: four words, the last naming
 the shared block, which lies in the worker's cleared state on whole cache
 lines at its uncached address (include/kui/toy_cdda_mail.h).
+
+Test 85 (YIELD) changes the auxiliary alone: held against the same recipe
+without it, the worker keeps its bytes as well, and the stage differs only as
+the part that carries the auxiliary.
 """
 import re
 import struct
@@ -61,7 +66,7 @@ def sizes(elf, nm):
 MAIL_BYTES = 1312
 
 
-def main(test84, test83, nm="sh-elf-nm", card=None):
+def main(test84, test83, nm="sh-elf-nm", card=None, yielding=None):
     for name in SAME:
         a, b = (test84 / name).read_bytes(), (test83 / name).read_bytes()
         if a != b:
@@ -124,6 +129,20 @@ def main(test84, test83, nm="sh-elf-nm", card=None):
         hook += "; against Test 84's own build the same three parts differ and the stack is where it was, " \
                 "%d bytes of the auxiliary's room used by the audio" % (
                     s84["__native_ra_image_end"] - c["__native_ra_image_end"])
+    if yielding is not None:
+        # YIELD against CARD's own build: the auxiliary, and the stage that carries it.
+        for name in SAME + ("native-worker.bin",):
+            if (test84 / name).read_bytes() != (yielding / name).read_bytes():
+                sys.exit(f"FAIL {name} is not Test 85's without YIELD")
+        for name in ("native-ra-aux.bin", "stage.bin"):
+            if (test84 / name).read_bytes() == (yielding / name).read_bytes():
+                sys.exit(f"FAIL {name} is Test 85's without YIELD: YIELD is not in it")
+        y = symbols(yielding / "native-ra-aux.elf", nm)
+        if (s84["__native_ra_stack_top"], s84["__native_ra_stack_bottom"], s84["__native_ra_memory_end"]) != \
+           (y["__native_ra_stack_top"], y["__native_ra_stack_bottom"], y["__native_ra_memory_end"]):
+            sys.exit("FAIL the auxiliary's stack or span is not Test 85's without YIELD")
+        hook += "; against this recipe without YIELD the worker keeps its bytes and the auxiliary differs, " \
+                "by %d bytes of its room" % (s84["__native_ra_image_end"] - y["__native_ra_image_end"])
     print("PASS Test 84's parts: both low residents and the observing worker are Test 83's; "
           "the auxiliary, the worker and the stage are its own; the auxiliary keeps its span and "
           "stack top, its code ends at %#x below the stack at %#x" %
@@ -132,13 +151,14 @@ def main(test84, test83, nm="sh-elf-nm", card=None):
 
 if __name__ == "__main__":
     arguments = sys.argv[1:]
-    card = None
-    if "--card" in arguments:
-        at = arguments.index("--card")
-        if at + 1 >= len(arguments):
-            sys.exit(__doc__)
-        card = Path(arguments[at + 1])
-        del arguments[at:at + 2]
+    named = {}
+    for option in ("--card", "--yield"):
+        if option in arguments:
+            at = arguments.index(option)
+            if at + 1 >= len(arguments):
+                sys.exit(__doc__)
+            named[option] = Path(arguments[at + 1])
+            del arguments[at:at + 2]
     if len(arguments) not in (2, 3):
         sys.exit(__doc__)
-    main(Path(arguments[0]), Path(arguments[1]), *arguments[2:], card=card)
+    main(Path(arguments[0]), Path(arguments[1]), *arguments[2:], card=named.get("--card"), yielding=named.get("--yield"))

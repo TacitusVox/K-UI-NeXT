@@ -11,7 +11,8 @@ the dispatcher), the worker's (src/loader/toy_cdda_card.c) and the shared
 block's place (include/kui/toy_cdda_mail.h) are held against the audio's
 scenarios on the integration model (toy-cdda-card-host-test); the consumer's
 two calls in the worker's completion (src/loader/vmu_native_passive.c) against
-the gesture test (toy-survey-mixed-pad-host-test). Every mutation must still
+the gesture test (toy-survey-mixed-pad-host-test). Test 85's YIELD is held
+against the audio's scenarios built with it. Every mutation must still
 compile and must make its test fail (Makefile.vmu-native-toy-suite,
 toy-cdda-card-mutation-check).
 
@@ -82,6 +83,14 @@ COMPLETE = "        if(!controller_complete(f)) return;"
 
 def aux(name, old, new):
     return (name, CARD, [(AUX, old, new)])
+
+
+YIELD = ["TOY_CDDA_YIELD=1"]
+GIVEN = "            if(!m->yield_ok || r->shared.service.pending || !toy_ahead_clear(r))return;"
+
+
+def yielding(name, old, new):
+    return (name, CARD, [(AUX, old, new)], YIELD)
 
 
 def worker(name, old, new):
@@ -272,6 +281,17 @@ MUTATIONS = [
     aux("a stream the reader ended not noticed at a delivery",
         "    struct kui_toy_cdda_mail *m=C.config.cdda_mail;\n    toy_cdda_seen(m);\n    if(toy_cdda_wanted(r)) {",
         "    struct kui_toy_cdda_mail *m=C.config.cdda_mail;\n    if(toy_cdda_wanted(r)) {"),
+    # ---- Test 85's YIELD ----
+    yielding("a window given up without the consumer's word", GIVEN,
+             "            if(r->shared.service.pending || !toy_ahead_clear(r))return;"),
+    yielding("a window given up with a command of the game's standing", GIVEN,
+             "            if(!m->yield_ok || !toy_ahead_clear(r))return;"),
+    yielding("a window never given up", GIVEN, "            if(1)return;"),
+    yielding("a window dropped without its own way out", GIVEN,
+             "            if(!m->yield_ok || r->shared.service.pending)return;\n            KUI_TOY_AHEAD.variant=0u;"),
+    yielding("a window that could not be ended taken for given up", GIVEN,
+             "            if(!m->yield_ok || r->shared.service.pending)return;\n            (void)toy_ahead_clear(r);"),
+    yielding("a window given up not counted", "            ++m->yields;\n", ""),
     # ---- the dispatcher ----
     ("every visit claimed for the audio's stream", CARD,
      [(DISPATCH, "    if(event==KUI_NATIVE_RA_DELIVER && toy_cdda.busy && toy_cdda_claim(r))return 1u;",
@@ -403,7 +423,8 @@ def copy_tree(work):
 
 
 def run(index, base, env, timeout):
-    name, (target, binary), edits = MUTATIONS[index]
+    name, (target, binary), edits = MUTATIONS[index][:3]
+    recipe = RECIPE + (MUTATIONS[index][3] if len(MUTATIONS[index]) > 3 else [])
     work = base / ("m%03d" % index)
     if work.exists():
         shutil.rmtree(work)
@@ -420,7 +441,7 @@ def run(index, base, env, timeout):
     for path, text in texts.items():
         (work / path).write_text(text)
     try:
-        done = subprocess.run(["make", "-f", "Makefile.vmu-native-toy-suite", *RECIPE,
+        done = subprocess.run(["make", "-f", "Makefile.vmu-native-toy-suite", *recipe,
                                "HOST_CC=" + env.get("HOST_CC", "cc"), "BUILD_ID=000000000000",
                                "BUILD=" + str(work / "build"), target], cwd=work, env=env, capture_output=True,
                               text=True, errors="replace", timeout=timeout)

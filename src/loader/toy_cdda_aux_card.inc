@@ -12,7 +12,8 @@
  *
  * - The audio takes the card only in a TICK visit, which the worker's
  *   heartbeat makes for it, and only while no read of the game's stands in
- *   any state and no window is open. It brings the card to the segment's
+ *   any state and no window is open (Test 85's YIELD gives an idle window up
+ *   for a consumer that runs low). It brings the card to the segment's
  *   next block with the low reader, one checked block by programmed
  *   transfers a heartbeat at most, the card's wait for it cut into slices
  *   that later heartbeats take up; then the stream takes over.
@@ -248,8 +249,20 @@ static void __attribute__((__noinline__)) toy_cdda_fill(kui_retail_async_region_
        !r->shared.port.acquired || r->shared.stream.toy_suite_active)return;
     unsigned blocks=0u;
     if(!(CD.busy&TOY_CDDA_OWNS)) {
+#if KUI_TOY_CDDA_YIELD
+        /* Test 85 (YIELD): a window is the game's read-ahead, and the audio
+         * waits for it to end. One that stands idle, with no request of the
+         * game's in any state, is given up when the consumer says that it
+         * runs low: by the window's own way out, which stops its stream and
+         * ends the card's command, and counts no drop of a window. */
+        if(KUI_TOY_AHEAD.variant) {
+            if(!m->yield_ok || r->shared.service.pending || !toy_ahead_clear(r))return;
+            ++m->yields;
+        }
+#else
         /* A window is the game's read-ahead: the audio waits for it to end. */
         if(KUI_TOY_AHEAD.variant)return;
+#endif
         /* Nor is a reception of the low reader's own, or a wait of its own
          * that a read the game ended left standing, the audio's to go on
          * with. */
