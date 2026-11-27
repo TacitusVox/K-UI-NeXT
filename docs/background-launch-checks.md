@@ -1,14 +1,18 @@
-# Checks before a Background launch: K-UI 53a33ec708ab
+# Checks before a Background launch: K-UI aaaba0ea3640
 
-Status: K-UI `53a33ec708ab` (commit `53a33ec7`) packaged 27 November 2026,
-02:52 CST. It is K-UI `d41a04f40f23` (packaged 26 November 2026, 23:56 CST;
-the first four commits below) with a check for a program too large for K-UI
-to hold. `d41a04f40f23` ran on the owner's console on 27 November: its pool
-check works for Tokyo Xtreme Racer, and its SDK check did not reach Plasma
-Sword ("Console result" below). The large-program check has host checks
-only. Each build replaces K-UI itself (`KUI/boot.kui` and `KUI/runtime.kui`,
-identical) and nothing else: no reader module, no updater package, no user
-data.
+Status: K-UI `aaaba0ea3640` (commit `aaaba0ea`) packaged 27 November 2026,
+09:18 CST. It is K-UI `53a33ec708ab` (packaged 27 November, 02:52 CST) with
+two changes: a large program K-UI cannot check is refused for the Background
+reader instead of started unchecked, and a refused launch's reason is logged
+again at the end of the log. Those two have host checks only.
+
+Console results so far, both of 27 November 2026: `d41a04f40f23` (packaged
+26 November, 23:56 CST; the first four commits below) keeps Tokyo Xtreme
+Racer off the combined worker, and its SDK check did not reach Plasma Sword
+("Console result" below); `53a33ec708ab` refused Plasma Sword by its
+large-program check ("Console test" in its section). Each build replaces
+K-UI itself (`KUI/boot.kui` and `KUI/runtime.kui`, identical) and nothing
+else: no reader module, no updater package, no user data.
 
 The sections up to "Console result" are the record of `d41a04f40f23` as it
 was delivered. Where the console showed one of its statements to hold less
@@ -327,11 +331,111 @@ the review; it was not sent.
 
 ### Console test
 
-Pending. The README asks for: the Diagnostics line; Plasma Sword with
-Background loading on (the refusal, no stop screen) and on Standard; Tokyo
-Xtreme Racer and ChuChu Rocket as they run now; and the diagnostics log
-saved after the Plasma Sword launch, which names the K-UI and shows the
-pass.
+27 November 2026, the owner: "The Background reader did reject Plasma Sword.
+Couldn't really read what it said so I saved the diagnostics." The saved log
+names K-UI `53a33ec708ab` and module `4abc63b0cc58`
+(`docs/evidence/kui-large-games-aaaba0e/console-2026-11-27-53a33ec708ab.md`):
+
+    Native reader: 9514104-byte program is too large to hold; reading in pieces
+    Native reader: the SDK's Maple code is not in it; the stage would stop
+    Retail boot: Background loading cannot recognize this game's system library.
+     Set Background loading Off
+
+- The check works on the console: no stop screen, the launch refused with
+  the setting, Virtual VMU Off. The one read in pieces took 12.3 s of the
+  launch's 19.4 s.
+- K-UI had 7,700,480 bytes unclaimed at startup and 4,530,176 when the log
+  was saved; the two limits of the host run are within 4,096 and 200,704
+  bytes of these.
+- The reason was not readable on the screen: thirteen lines of launch
+  timing followed it. That is the second change of the next build.
+- Tokyo Xtreme Racer, ChuChu Rocket and the Standard launch of the README
+  were not reported.
+
+## Large programs K-UI cannot check are refused: K-UI aaaba0ea3640
+
+The owner, 27 November 2026, with that result: "We can come back to the big
+games later [...] Please make it so they don't launch with background reader
+on until we figure that out."
+
+### What changed
+
+Two commits on `53a33ec7`, K-UI sources only (`src/apps/games_native_cache.inc`,
+`src/apps/games_retail.c`, the new `include/kui/games_retail_refusal.h`,
+`src/dreamcast/main.c`). No reader input changed: the distribution
+fingerprint is still `2c9b59c3...`.
+
+7. `ab7fbaa3`: a program read in pieces in which the Maple witness is found
+   had no answer, and the combined module was started unchecked (limit 8 as
+   it stood). It now has the answer "unchecked", and the launch is refused
+   before anything is written to the card:
+   "This game's program is too large for the Background reader yet." with
+   "Set Background loading Off", or with Virtual VMU On "Set Background
+   loading Off and Virtual VMU Off; saves then need a real VMU". The
+   reader-only module is not offered (limit 10). A program K-UI holds is
+   checked exactly as before.
+8. `17f33afc`: the launcher keeps the reason of a refused launch, and K-UI's
+   main program logs it again after the launch timing, for the three Games
+   launch actions. Only `Operation ended. Diagnostics page: Y saves the log
+   to SD.` follows it.
+
+The K-UI's source is `aaaba0ea`, one commit later, which adds
+`include/kui/toy_cdda_card.h` for Test 85; no K-UI source includes it. The
+line check reads the pushed branch, so the K-UI was built from its head. It
+equals the build of `17f33afc` in everything but its build ID.
+
+### Checks
+
+Evidence: `docs/evidence/kui-large-games-aaaba0e/`. Host checks only.
+
+- **Launcher suites** (`host-checks.txt`), clean checkout of `17f33afc`:
+  all pass; unit test 149,278 checks; route test 38 launches on FAT32 and
+  exFAT, the large rows now refusals with their exact text.
+- **Mutations** (`host-checks.txt`): 8 on the two commits; 7 fail a test.
+  The eighth, the reason not cleared at the launcher's entry, passed: no
+  test ran two launches in one process. Commit `72efef94` adds that to the
+  route test, which now fails with it. `src/dreamcast/main.c` is not built
+  for the host; its part is read, not run.
+- **Original programs** (`corpus-large.txt`): the preflight of `aaaba0ea`
+  on the 426 boot programs, 1,704 launches a run, against `53a33ec7`
+  launch by launch. With the console's startup memory 24 launches change
+  (6 programs: Evil Dead - Hail to the King, Incoming, NBA Hoopz, two
+  versions each), from started unchecked to refused as too large; with
+  the low-memory limit 64 launches (16 programs, adding Mortal Kombat
+  Gold, Mat Hoffman's Pro BMX, Aero Dancing i, L.O.L., Expendable and
+  Millennium Soldier). Every other launch answers exactly as before:
+  result, route, both messages, saved record, reads and CRC.
+- **The file** (`delivery-check.txt`, `objects.txt`): engine 3, the Smash
+  bundle and the Standard binding of the owner's K-UI; of 888 objects two
+  differ from `53a33ec708ab` (`games_retail.o`, `main-runtime.o`) and none
+  from the build of `17f33afc` but for the build ID.
+- **Reader admission** (`admission.txt`): the launcher's helpers on the
+  owner's module `4abc63b0cc58` and the release's modules, line for line
+  as recorded for `53a33ec708ab`; `--verify-gui` 1,418 checks.
+- **Lines** (`objects.txt`): `tools/check_gui_lines.py` from the clean
+  checkout before the build: Main, the Windows CE line and this line
+  contained.
+
+### Package
+
+`KUI-Background-Large-Games-27NOV2026-0918-CST-aaaba0e.zip` (manual copy,
+11,321,169 bytes, SHA-256 `ae4f29b2...8fbd`): `KUI/boot.kui` and
+`KUI/runtime.kui` (identical, 3,837,028 bytes, payload CRC32 `DA47C74C`,
+SHA-256 `b79f53ab...42ed`), `IF-NEEDED/KUI/` with the owner's current K-UI
+`53a33ec708ab` to go back, `README.txt`, `INVENTORY.json`, `SHA256SUMS.txt`.
+
+Its README says the log on the screen "ends with the reason". The closing
+line `Operation ended. Diagnostics page: Y saves the log to SD.` comes after
+it; the owner was told so with the delivery.
+
+A build of `17f33afc`, `17f33afc5e1f`, was made first and not sent.
+
+### Console test
+
+Pending. The README asks for the Diagnostics line, Plasma Sword with
+Background loading on (the refusal, now readable at the end of the log)
+and, only if one is at hand, Evil Dead - Hail to the King, Incoming or NBA
+Hoopz with Background loading on (refused as too large).
 
 ## Known limits
 
@@ -366,10 +470,11 @@ pass.
    it 7.7 million bytes at startup and less after use, so of the 426
    programs 10 are never held and 15 more may not be. For those K-UI can
    only rule a program out, where the Maple witness is missing. With the
-   witness it gives no answer and starts the combined module unchecked, as
-   every K-UI before did: 6 to 16 programs of the 426, all of which the
-   whole-program check refuses for that module. With Virtual VMU Off the
-   stage then runs its own check (and, by the host check, stops).
+   witness it could give no answer and, up to `53a33ec708ab`, started the
+   combined module unchecked: 6 to 16 programs of the 426, all of which
+   the whole-program check refuses for that module. Since `aaaba0ea3640`
+   it refuses these launches as too large. It still cannot check them:
+   a large game the Background worker could run is refused with them.
 9. With Virtual VMU On, a launch without K-UI's answer cannot start at all.
    K-UI prepares a virtual card only for a game it has checked, so the
    combined module carries its build's template profile and its stage
@@ -380,6 +485,8 @@ pass.
    reading and by a host run of the stage's admission on the template
    profile (`review.md`, F1); not seen on a console. K-UI could refuse
    these launches with a message; that is a change of its own, not made.
+   Since `aaaba0ea3640` a large program is refused before this point; the
+   limit stands for every other launch without an answer.
 10. A program K-UI cannot hold never gets the reader-only module: its SCI
     family is not looked for. The refusal names the Standard reader.
     `d41a04f40f23`'s count of 243 programs that keep the reader-only route

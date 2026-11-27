@@ -362,8 +362,9 @@ The two K-UI checks were delivered on 26 November 2026 as K-UI
 Tokyo Xtreme Racer boots with Background loading on (through the reader-only
 module, which records no survey); Plasma Sword still reached this module's
 stop screen, because K-UI cannot hold its 9.07 MiB program to check it. K-UI
-`53a33ec708ab` of 27 November checks such a program while it reads it; its
-console run is pending. The audible build is Test 85.
+`53a33ec708ab` of 27 November checks such a program while it reads it, and
+refused Plasma Sword on the console the same day. K-UI `aaaba0ea3640`
+refuses every large program it cannot check. The audible build is Test 85.
 
 ## Known limits
 

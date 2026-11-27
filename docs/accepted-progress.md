@@ -56,7 +56,37 @@ may select a stale bank, while cold ROOT boot bypasses selectors. The physical
 card is unavailable, so existing banks are not assumed present or absent.
 Claude's original-backed SA1 result is recorded as an external report only.
 
-## A program too large for K-UI to hold: console test pending, 53a33ec708ab, 2026-11-27
+## Large programs K-UI cannot check are refused: console test pending, aaaba0ea3640, 2026-11-27
+
+Delivered: `KUI-Background-Large-Games-27NOV2026-0918-CST-aaaba0e.zip`, GUI build `aaaba0ea3640` (commit `aaaba0ea`), GUI only
+([record](background-launch-checks.md)). It is `53a33ec708ab` with two
+launcher changes the owner asked for on 27 November: a large program K-UI
+cannot hold, and so cannot check, is no longer started with the Background
+reader on (refused as "too large for the Background reader yet", with the
+setting that starts it), and a refused launch's reason is logged again
+after the launch timing, where it can be read.
+
+Built with the release script; of 888 objects `games_retail.o` and
+`main-runtime.o` differ from `53a33ec708ab`. No reader module changed and no
+reader input. Host checks only: the launcher suites, 8 mutations, and the
+production preflight on the 426 originals against `53a33ec708ab` launch by
+launch: with the console's startup memory only Evil Dead - Hail to the
+King, Incoming and NBA Hoopz answer differently (refused instead of started
+unchecked); with little memory free also Mortal Kombat Gold, Mat Hoffman's
+Pro BMX, Aero Dancing i, L.O.L., Expendable and Millennium Soldier.
+
+Not accepted by this delivery: nothing of it has run on a console. The
+large games themselves are deferred by the owner ("We can come back to the
+big games later"); they start with Background loading Off.
+
+## A program too large for K-UI to hold: console-confirmed for Plasma Sword, 53a33ec708ab, 2026-11-27
+
+Console result of `53a33ec708ab`, 27 November 2026 (the owner's saved
+diagnostics log, which names the build): Plasma Sword with Background
+loading on is refused by the large-program check, with the setting, and
+does not reach the reader's stop screen. The one read in pieces took 12.3 s.
+Tokyo Xtreme Racer and ChuChu Rocket were not reported under this build.
+
 
 Delivered: `KUI-Background-Large-Programs-27NOV2026-0252-CST-53a33ec.zip`, GUI build `53a33ec708ab` (commit `53a33ec7`), GUI only
 ([record](background-launch-checks.md)). It is `d41a04f40f23` with one

@@ -1,0 +1,78 @@
+The launcher's preflight on original boot programs, with K-UI's memory limit: K-UI aaaba0ea3640 against 53a33ec708ab
+====================================================================================================================
+
+Production code: native_cache_prepare_repeat (src/apps/games_native_cache.inc) of commit aaaba0ea, through the
+repository's fixture I/O, on the 426 boot programs of the owner's CD-audio archives (kept outside the repository;
+no game byte is recorded here). Module: the owner's New reader module of 26 November 2026 (Test 84's
+retail-native-dual.kui, build 4abc63b0cc58, payload CRC32 BAFAAF7C). Both Background readers and both Virtual VMU
+settings: 1,704 launches a run. The whole-program allocation is refused above a byte limit (the launcher's
+KUI_NATIVE_CACHE_BOOT_ALLOC stand-in), as the console refuses it.
+
+Each launch is compared with the same launch under commit 53a33ec7 (docs/evidence/kui-large-program-53a33ec/
+corpus-large.txt): size, how the program was held, the number of reads and the CRC result must be equal. A launch
+53a33ec7 read in pieces and left without an answer ("skipped": started unchecked) must now be "unchecked", with
+the refusal "This game's program is too large for the Background reader yet." and the setting for its Virtual VMU
+state, the same words whether or not the reader-only module is installed, no reader-only route and no saved
+record. Every other launch must answer exactly as before: result, route, both messages, saved record.
+
+Host decisions only. Nothing here ran on a console.
+
+1. Limit 7,704,576 bytes: K-UI's unclaimed memory at startup (the owner's log of 22 November 2026; 7,700,480 in the log of 27 November)
+---------------------------------------------------------------------------------------------------------------------------------------
+module build=4abc63b0cc58 payload=315680 crc=BAFAAF7C lease=0x47000 seed=yes
+whole-program allocation refused above 7704576 bytes
+1704 launches of 426 original boot programs
+held   answer of 53a33ec708ab -> answer now: launches
+  pieces skipped      -> unchecked    24
+  pieces unsupported  -> unsupported  16
+  whole  pool-overlap -> pool-overlap 116
+  whole  pool-small   -> pool-small   36
+  whole  ready        -> ready        320
+  whole  unsupported  -> unsupported  1192
+6 programs now refused as too large (each in all four settings); every other launch answers as before
+    8653540 415-T10003N-EVIL-DEAD-HAIL-TO-THE-KING
+    8653732 413-T10005D-05-EVILDEAD-HAIL-TO-THE-KING
+   11448614 581-T40701D-50-INCOMING
+   11454022 582-T12503N-INCOMING
+   11634177 779-T9709N-NBA-HOOPZ
+   11683073 778-T9713D-NBA-HOOPZ
+
+2. Limit 4,730,880 bytes: K-UI's unclaimed memory when the log of 22 November was saved, after launches (4,530,176 in the log of 27 November)
+---------------------------------------------------------------------------------------------------------------------------------------------
+module build=4abc63b0cc58 payload=315680 crc=BAFAAF7C lease=0x47000 seed=yes
+whole-program allocation refused above 4730880 bytes
+1704 launches of 426 original boot programs
+held   answer of 53a33ec708ab -> answer now: launches
+  pieces skipped      -> unchecked    64
+  pieces unsupported  -> unsupported  36
+  whole  pool-overlap -> pool-overlap 108
+  whole  pool-small   -> pool-small   36
+  whole  ready        -> ready        320
+  whole  unsupported  -> unsupported  1140
+16 programs now refused as too large (each in all four settings); every other launch answers as before
+    4932582 1098-T15003M-EXPENDABLE
+    4936198 742-T15101D-50-MILLENNIUM-SOLDIER
+    4936230 424-T15104N-EXPENDABLE
+    5502328 662-T2106M-L-O-L
+    6290273 759-T-9701N-MORTAL-KOMBAT-GOLD
+    6326337 758-T-9701N-MORTAL-KOMBAT-GOLD
+    6327873 757-T9701D-MORTAL-KOMBAT-GOLD
+    6975588 726-T13005N-MAT-HOFFMANS-PRO-BMX
+    7191794 022-T6807M-AERO-DANCING-I
+    7254546 023-T6809M-AERO-DANCING-I-JIKAI-SAKU-MADE-MATEMASEN
+    8653540 415-T10003N-EVIL-DEAD-HAIL-TO-THE-KING
+    8653732 413-T10005D-05-EVILDEAD-HAIL-TO-THE-KING
+   11448614 581-T40701D-50-INCOMING
+   11454022 582-T12503N-INCOMING
+   11634177 779-T9709N-NBA-HOOPZ
+   11683073 778-T9713D-NBA-HOOPZ
+
+3. Limit 0: every program read in pieces
+----------------------------------------
+module build=4abc63b0cc58 payload=315680 crc=BAFAAF7C lease=0x47000 seed=yes
+whole-program allocation refused above 0 bytes
+1704 launches of 426 original boot programs
+held   answer of 53a33ec708ab -> answer now: launches
+  pieces skipped      -> unchecked    1412
+  pieces unsupported  -> unsupported  292
+353 programs now refused as too large (each in all four settings); every other launch answers as before

@@ -16,28 +16,35 @@
     }
   ],
   "installed": {
-    "build": "53a33ec708ab",
-    "source": "53a33ec708ab758386f4d6b5a799a92865337336",
-    "delivered": "KUI-Background-Large-Programs-27NOV2026-0252-CST-53a33ec.zip (27 November 2026, 02:52 CST), docs/background-launch-checks.md",
+    "build": "aaaba0ea3640",
+    "source": "aaaba0ea364027e35d2b309db51541ea62180498",
+    "delivered": "KUI-Background-Large-Games-27NOV2026-0918-CST-aaaba0e.zip (27 November 2026, 09:18 CST), docs/background-launch-checks.md",
     "recipe": "docs/gui-lines.md, Building the owner's K-UI: tools/build_distribution_gui.sh --candidate (launch timing, the Smash bundle cc81e63ca4d2, the Standard binding 9e3295bcfaec, nightly off), then tools/runtime_package.py",
-    "seen": "not yet: no owner's log names 53a33ec708ab. Until one does, a console result may still come from 'previous'",
+    "seen": "not yet: no owner's log names aaaba0ea3640. Until one does, a console result may still come from 'previous'",
     "line": "claude/hopeful-dijkstra-r2g7c4",
     "contains": [
       "main 3f757bc2ac0a (the 3.0 RC1 source: no K-UI source changed on Main since its build commit 93f13e84)",
       "claude/great-darwin-yjmgfi 3f757bc2ac0a (the branch is at Main)",
-      "the launch checks 6a3aecb1, 6bed5c43, 71efce2d and d41a04f4, and the large-program check 0c7a9db7 with its review corrections 53a33ec7 (docs/background-launch-checks.md)"
+      "the launch checks 6a3aecb1, 6bed5c43, 71efce2d and d41a04f4, the large-program check 0c7a9db7 with its review corrections 53a33ec7, the refusal of a large program K-UI cannot check ab7fbaa3 and the repeated reason 17f33afc (docs/background-launch-checks.md); aaaba0ea adds a reader header no K-UI source includes"
     ],
     "previous": {
-      "build": "d41a04f40f23",
-      "source": "d41a04f40f23e18fb65cde9bb487a39bf194bbd6",
-      "delivered": "KUI-Background-Launch-Checks-26NOV2026-2356-CST-d41a04f.zip (26 November 2026, 23:56 CST), docs/background-launch-checks.md",
+      "build": "53a33ec708ab",
+      "source": "53a33ec708ab758386f4d6b5a799a92865337336",
+      "delivered": "KUI-Background-Large-Programs-27NOV2026-0252-CST-53a33ec.zip (27 November 2026, 02:52 CST), docs/background-launch-checks.md",
       "line": "claude/hopeful-dijkstra-r2g7c4",
-      "seen": "by its behaviour, not by a log: the owner's console result of 27 November 2026 (Tokyo Xtreme Racer boots with Background loading on, which 64ae07435de5 does not do; docs/evidence/kui-large-program-53a33ec/console-2026-11-27.md)",
+      "seen": "the owner's diagnostics log of 27 November 2026, whose first line names 53a33ec708ab (docs/evidence/kui-large-games-aaaba0e/console-2026-11-27-53a33ec708ab.md)",
       "before": {
-        "build": "64ae07435de5",
-        "source": "64ae07435de5aefa212d1fdfe21742bbf0c94b13",
-        "seen": "the owner's launch reports of 26 November 2026 (sequences 651 to 654) and diagnostics log of 22 November 2026",
-        "record": "docs/one-kui-both-threads.md; its equivalence with the merge 89a241cd is docs/evidence/one-kui-64ae074/merge-89a241cd.txt"
+        "build": "d41a04f40f23",
+        "source": "d41a04f40f23e18fb65cde9bb487a39bf194bbd6",
+        "delivered": "KUI-Background-Launch-Checks-26NOV2026-2356-CST-d41a04f.zip (26 November 2026, 23:56 CST), docs/background-launch-checks.md",
+        "line": "claude/hopeful-dijkstra-r2g7c4",
+        "seen": "by its behaviour, not by a log: the owner's console result of 27 November 2026 (Tokyo Xtreme Racer boots with Background loading on, which 64ae07435de5 does not do; docs/evidence/kui-large-program-53a33ec/console-2026-11-27.md)",
+        "before": {
+          "build": "64ae07435de5",
+          "source": "64ae07435de5aefa212d1fdfe21742bbf0c94b13",
+          "seen": "the owner's launch reports of 26 November 2026 (sequences 651 to 654) and diagnostics log of 22 November 2026",
+          "record": "docs/one-kui-both-threads.md; its equivalence with the merge 89a241cd is docs/evidence/one-kui-64ae074/merge-89a241cd.txt"
+        }
       }
     }
   }

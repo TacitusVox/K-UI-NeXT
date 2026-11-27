@@ -1,0 +1,27 @@
+Objects of K-UI builds made with tools/build_distribution_gui.sh --candidate, debug sections removed.
+
+Against the K-UI on the owner's card: base 53a33ec708ab, new aaaba0ea3640.
+888 objects without debug sections; 885 identical; 1 differ only in the build ID text; 2 differ otherwise
+  build ID only: build/dc/src/apps/games_library.o
+  DIFFERENT   : build/dc/main-runtime.o 334540 -> 335052 bytes
+  DIFFERENT   : build/dc/src/apps/games_retail.o 151992 -> 152888 bytes
+
+Against the build of commit 17f33afc, on whose checkout the host suites ran (17f33afc5e1f; not sent):
+base 17f33afc5e1f, new aaaba0ea3640.
+888 objects without debug sections; 885 identical; 3 differ only in the build ID text; 0 differ otherwise
+  build ID only: build/dc/main-runtime.o
+  build ID only: build/dc/src/apps/games_library.o
+  build ID only: build/dc/src/apps/games_retail.o
+
+The two packaged files, 17f33afc5e1f and aaaba0ea3640, are both 3,837,028 bytes and differ in 80 bytes in 6
+runs: the envelope's payload CRC, build ID and header check, and the build ID's text in five places of the
+payload. Commit aaaba0ea adds include/kui/toy_cdda_card.h, which no source includes at that commit
+(git diff --stat 17f33afc aaaba0ea: that one file).
+
+K-UI was built from aaaba0ea and not sent as 17f33afc5e1f because the line check
+(tools/check_gui_lines.py) reads the branch as it is: with aaaba0ea pushed, a build of 17f33afc lacks one
+commit of its own line. From the clean checkout of aaaba0ea, before the build:
+ok    main                                 3f757bc2ac0a contained
+ok    claude/hopeful-dijkstra-r2g7c4       aaaba0ea3640 contained
+ok    claude/great-darwin-yjmgfi           3f757bc2ac0a contained
+PASS K-UI build aaaba0ea3640 contains every active line of docs/gui-lines.json

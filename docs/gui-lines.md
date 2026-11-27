@@ -52,6 +52,9 @@ Plasma Sword (`cdda-background-test-84.md`, Console result).
    check in some mode or takes a longer program changes that copy in the
    same commit and brings its K-UI; `tests/test_games_native_witness.py`
    fails until it does.
+   Since K-UI `aaaba0ea3640` a program too large to hold that has the
+   table's words is refused as well: a reader that can run such a game
+   brings a K-UI that can check it.
 4. **Before reading a console result**, compare the K-UI build in the owner's
    logs with `installed`. A result from another K-UI is that K-UI's result.
 5. **A new thread** that changes K-UI on its own branch adds its branch to

@@ -1,0 +1,72 @@
+Host checks of K-UI aaaba0ea3640
+================================
+
+Nothing here ran on a console.
+
+1. The launcher's suites, on a clean checkout of commit 17f33afc (K-UI's sources; aaaba0ea adds one header no
+   source includes). The first line is the checkout, the last two the distribution fingerprint of the reader
+   inputs and the number of files changed after the run.
+
+commit 17f33afc5e1fdb33e79313428d6be4a99028ac7e; changes: 0
+PASS native-cache
+PASS native-cache-hint
+PASS native-owner-cache
+PASS native-route
+PASS retail-harness-build
+PASS retail-harness
+PASS alias-crc
+PASS cooked-hint
+PASS checksum-batch
+PASS wince-packaged-build
+PASS armada-prepare
+PASS gui-lines
+suite done
+PASS test_games_native_witness
+PASS test_cold_handoff_policy
+PASS test_disc_stage_launch_policy
+PASS test_frontend_job_fences
+PASS test_game_reader_provenance
+PASS test_native_cold_discovery
+PASS test_native_gui_fast_scan
+PASS test_native_sdk_coherence_reuse
+PASS test_smash_launch_timing
+PASS test_wince_kernel_read_reuse
+PASS test_global_launch_performance_policy
+PASS test_native_background_route
+PASS test_package_games_manual_test
+PASS test_retail_low_resident
+PASS test_update_addon
+PASS make test-shared-game-launch
+2c9b59c34652c8a9b6bb42ab1c174da4e500cd8b088573369f58119397f7d9cf
+changes after: 0
+suite4 done
+
+   make test-games-native-cache: Native launcher cache: 149278 checks passed.
+   tests/test_games_native_route.py: 38 launches on FAT32 and exFAT.
+
+2. Mutations of the two commits (ab7fbaa3, 17f33afc), each applied alone on that checkout, with the three tests
+   that hold the launcher's check: make test-games-native-cache (unit), tests/test_games_native_witness.py
+   (guard), tests/test_games_native_route.py (route). A row names every test that fails with the mutation.
+
+killed    answer: a program with the witness is started unchecked, as before  [unit, route]
+killed    answer: a program with the witness is called unsupported  [unit, route]
+killed    refusal: an unchecked program has no message  [unit, route]
+killed    refusal: the two Virtual VMU settings are exchanged  [unit, route]
+killed    refusal: one word of the message differs  [unit, route]
+killed    launcher: the reason is not kept  [route]
+SURVIVED  launcher: an earlier launch's reason is not cleared
+killed    launcher: the reason is cut short  [route]
+8 mutations: 7 killed, 1 survived
+unmutated tree afterwards: all three pass
+
+   The one that passed all three: without the clear at the launcher's entry, a refused launch's reason would be
+   repeated after a later launch that fails without a reason of its own. No test ran two launches in one
+   process. Commit 72efef94 adds that to the route test (a refused launch, then one that ends at once: the
+   reason must be gone); with the clear removed the route test now fails. By reading, every Games launch
+   action (58, 121, 122) calls the launcher's preparation, which clears the reason first.
+
+3. src/dreamcast/main.c, which repeats the reason after the timing lines, is not built for the host. Its part
+   is read, not run: the failure branch of the launch actions, after kui_smash_launch_timing_finish, for
+   actions 58, 121 and 122, only when the reason is not empty. One line follows it in the log: "Operation
+   ended. Diagnostics page: Y saves the log to SD." (main.c). The packaged README says the log "ends with
+   the reason"; that closing line comes after it.
