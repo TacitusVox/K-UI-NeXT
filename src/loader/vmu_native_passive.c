@@ -62,6 +62,9 @@ extern uint32_t kui_vmu_native_readonly_release_resume;
 #if KUI_TOY_CDDA_CARD
 #include "kui/toy_cdda_player.h"
 #endif
+#if KUI_TOY_CDDA_OUTPUT
+#include "kui/toy_cdda_output.h"
+#endif
 #if KUI_VMU_NATIVE_VIRTUAL_ADDRESS == 1u
 __asm__(".global __kui_native_virtual_slot_worker\n.set __kui_native_virtual_slot_worker,1\n");
 #else
@@ -407,6 +410,16 @@ static uint32_t active_stack_low(void) {
     return STACK_LOW;
 #endif
 }
+#if KUI_TOY_CDDA_OUTPUT
+/* Test 85 (OUTPUT): how much of the private stack lies below the caller, or
+ * 0 on any other stack. stack_valid admits a completion with as little as
+ * 256 bytes; the sound output goes deeper, asks, and runs only with
+ * KUI_TOY_CDDA_OUTPUT_STACK (include/kui/toy_cdda_output.h). */
+__attribute__((noinline)) uint32_t kui_vmu_native_passive_stack_room(void) {
+    const uint32_t sp=current_sp(),low=active_stack_low();
+    return sp>=low && sp<low+KUI_VMU_NATIVE_PASSIVE_STACK_BYTES?sp-low:0u;
+}
+#endif
 /* Call only after admitting SP against its exact active-alias bounds. Canary
  * loads follow that same alias, so a dirty cached overflow cannot be hidden
  * by sampling the old P2 backing bytes. The bottom256B remain a guard border. */
@@ -1420,6 +1433,11 @@ static void toy_storage_page(const struct kui_native_ra_public *ra,
 #endif
 #endif
 static void report(void) {
+#if KUI_TOY_CDDA_OUTPUT
+    /* Test 85 (OUTPUT): nothing of the CD music sounds on behind the
+     * report, its pages or its loan of the card. */
+    kui_toy_cdda_output_terminal();
+#endif
 #if KUI_SMASH_NATIVE_CHILD
     smash_vmu_probe_report();
 #else

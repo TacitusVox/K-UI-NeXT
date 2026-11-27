@@ -20,7 +20,16 @@ readings of them:
   before it changes to the auxiliary's own (read from AUX_ELF: the pushes
   before the gate loads its stack pointer). In kui_toy_cdda_card_heartbeat it
   is the consumer's take(): charged the deepest of the functions whose
-  address the consumer's own code loads without calling them.
+  address the consumer's own code loads without calling them, with all they
+  call in turn.
+- A worker built with the sound output (TOY_CDDA_OUTPUT) has a consumer that
+  goes deeper than the completion's check leaves room for. Its consumer is
+  then a gate of its own: it asks the worker how much of the private stack
+  lies below it (kui_vmu_native_passive_stack_room) before anything else and
+  calls the output only with KUI_TOY_CDDA_OUTPUT_STACK bytes
+  (include/kui/toy_cdda_output.h). The gate and the question are held to the
+  completion's 256 bytes, the output and all below it to the room it asked
+  for, by the same rule; the output is called from the gate alone.
 - The completion alone calls the consumer, as often linked as compiled, each
   time after stack_valid on every path, and behind a call of the survey where
   the worker is built with one (TOY_CDDA_SURVEY); the consumer's address is in
@@ -50,6 +59,10 @@ HEARTBEAT = 'kui_toy_cdda_card_heartbeat'
 TICK = 'kui_toy_cdda_card_tick'
 GATE = '_kui_native_readahead_aux_visit'
 INDIRECT = '__indirect_call'
+OUTPUT = 'kui_toy_cdda_output_heartbeat'
+ROOM = 'kui_vmu_native_passive_stack_room'
+OUTPUT_HEADER = 'include/kui/toy_cdda_output.h'
+OUTPUT_SOURCE = 'src/loader/toy_cdda_output.c'
 MARGIN = 1.5
 
 
@@ -90,18 +103,32 @@ def readings(worker_elf, build, aux_elf):
     calls = {}
     for source, target, _ in graph['edges']:
         calls.setdefault(source, []).append(target)
-    reached, todo = [], [CONSUMER]
-    while todo:
-        title = todo.pop()
-        if title in reached or title == INDIRECT:
-            continue
-        reached.append(title)
-        todo.extend(calls.get(title, ()))
-    frames = {t: walk(t)['frame'] for t in reached}
-    # The functions whose address the consumer's code loads and does not call.
+    reached = []
+
+    def reach(todo):
+        while todo:
+            title = todo.pop()
+            if title in reached or title == INDIRECT:
+                continue
+            reached.append(title)
+            todo.extend(calls.get(title, ()))
+    reach([CONSUMER])
+    # The functions whose address the consumer's code loads and does not call,
+    # and what the compiler has those reach.
     called = {linked_name(t) for t in reached}
-    handed = sorted(l for t in reached if t not in (HEARTBEAT, TICK) for l in walk(t)['literals']
-                    if sym.get(l, (0, ''))[1] in ('t', 'T') and l not in called)
+    # (A routine the linked code calls that the compiler's graph does not
+    # name, as it calls memset for a run of cleared words, is not handed on:
+    # it is held to using no stack, below.)
+    jumped = {'_' + n for t in reached for _, _, _, targets, _ in walk(t)['calls'] for n in targets}
+    handed = sorted({l for t in reached if t not in (HEARTBEAT, TICK) for l in walk(t)['literals']
+                     if sym.get(l, (0, ''))[1] in ('t', 'T') and l not in called and l not in jumped})
+    takes = sorted(t for t in graph['nodes'] if linked_name(t) in handed)
+    assert len(takes) == len(handed), 'a function handed on is not in the compiler\'s graph: %s' % handed
+    reach(list(takes))
+    frames = {t: walk(t)['frame'] for t in reached}
+    called = {linked_name(t) for t in reached}
+    outside = sorted({'_' + n for t in reached for _, _, _, targets, _ in walk(t)['calls'] for n in targets
+                      if '_' + n in code} - called)
     complete = survey.walk('_' + survey.COMPLETE, code, names)
     ordered = sorted(names)
     start = sym['_' + survey.COMPLETE][0]
@@ -112,8 +139,11 @@ def readings(worker_elf, build, aux_elf):
              if (struct.unpack_from('<I', blob, k)[0] ^ address) & 0x1fffffff == 0]
     return {'graph': graph, 'reached': reached, 'frames': frames, 'handed': handed, 'complete': complete,
             'complete_range': (start, end), 'words': words, 'gate': gate_pushes(aux_elf),
-            'survey': '_' + survey.HEARTBEAT in sym,
-            'handed_frames': {h: survey.walk(h, code, names) for h in handed}}
+            'survey': '_' + survey.HEARTBEAT in sym, 'takes': takes,
+            'output': '_' + OUTPUT in sym,
+            'outside': {l: {'frame': w['frame'], 'calls': len(w['calls'])} for l, w in
+                        ((l, survey.walk(l, code, names)) for l in outside)},
+            'consumer_calls': [targets for _, _, _, targets, _ in sorted(walk(CONSUMER)['calls'])]}
 
 
 def verify(r, sources):
@@ -127,9 +157,10 @@ def verify(r, sources):
         size, kind = nodes[t]
         assert kind == 'static', '%s has a %s frame, not a fixed one' % (t, kind)
         assert r['frames'][t] == size, '%s: linked frame %d, the compiler\'s %d' % (t, r['frames'][t], size)
-    for h, w in r['handed_frames'].items():
-        assert not w['calls'], 'the consumer\'s take %s calls on (%d calls)' % (h, len(w['calls']))
-    take = max((w['frame'] for w in r['handed_frames'].values()), default=0)
+    for l, w in r['outside'].items():
+        assert not w['frame'] and not w['calls'], \
+            '%s, which the compiler\'s graph does not name, uses the stack (frame %d, %d calls)' % (
+                l, w['frame'], w['calls'])
     memo = {}
 
     def depth(t, path=()):
@@ -140,16 +171,42 @@ def verify(r, sources):
         for c in calls.get(t, ()):
             if c == INDIRECT:
                 assert t in (TICK, HEARTBEAT), '%s calls through a pointer' % t
-                d, chain = (r['gate'], 'the gate\'s registers %d' % r['gate']) if t == TICK else (take, 'take %d' % take)
+                if t == TICK:
+                    d, chain = r['gate'], 'the gate\'s registers %d' % r['gate']
+                else:
+                    d, chain = max([depth(k, path + (t,)) for k in r['takes']], default=(0, 'no take'))
             else:
                 d, chain = depth(c, path + (t,))
             if d > best:
                 best, via = d, chain
         memo[t] = (nodes[t][0] + best, '%s %d' % (t.rsplit(':', 1)[-1], nodes[t][0]) + (' -> ' + via if via else ''))
         return memo[t]
-    deepest, chain = depth(CONSUMER)
+    whole, chain = depth(CONSUMER)
+    take = max([depth(k)[0] for k in r['takes']], default=0)
     assert TICK in r['reached'] and INDIRECT in calls.get(TICK, ()), 'the consumer makes no visit to the auxiliary'
     lines.append('  ' + chain)
+    guard_words = sources['guard']
+    output = None
+    if r['output']:
+        # The consumer is the output's gate: the question first, then the output, nothing else.
+        assert sorted(calls.get(CONSUMER, ())) == sorted([ROOM, OUTPUT]), 'the output\'s gate calls %s' % sorted(
+            calls.get(CONSUMER, ()))
+        assert r['consumer_calls'] and r['consumer_calls'][0] == frozenset([ROOM]) and \
+            r['consumer_calls'][1:] == [frozenset([OUTPUT])], 'the gate does not ask for its room first: %s' % [
+                sorted(c) for c in r['consumer_calls']]
+        assert {s_ for s_, t_, _ in edges if t_ == OUTPUT} == {CONSUMER}, 'the output is called past its gate'
+        below, below_chain = depth(OUTPUT)
+        room = sources['output_room']
+        assert room - guard_words >= MARGIN * below, \
+            'with the %d bytes the output asks for, %d clear of the guard for an output of %d (needs %.1f x)' % (
+                room, room - guard_words, below, MARGIN)
+        lines.append('  behind its gate, with %d bytes asked for: %s' % (room, below_chain))
+        output = {'depth': below, 'room': room}
+        # What stands on the completion's own 256 bytes: the gate and its question.
+        deepest = nodes[CONSUMER][0] + depth(ROOM)[0]
+    else:
+        assert OUTPUT not in nodes or OUTPUT not in r['reached'], 'an output in a worker built without one'
+        deepest = whole
     callers = [(s, w) for s, t, w in edges if t == CONSUMER]
     assert callers and all(s == survey.COMPLETE for s, _ in callers), 'the consumer is called by %s' % sorted(
         {s for s, _ in callers})
@@ -188,7 +245,7 @@ def verify(r, sources):
         usable, deepest, MARGIN)
     below = memo[HEARTBEAT][0]
     return lines, {'depth': deepest, 'worst': worst, 'usable': usable, 'sites': len(sites), 'gate': r['gate'],
-                   'survey': r['survey'],
+                   'survey': r['survey'], 'output': output, 'whole': whole,
                    'take': take, 'below': below, 'left': int(usable / MARGIN) - below, 'room': room, 'guard': guard}
 
 
@@ -211,20 +268,28 @@ def self_test(r, sources):
             if linked:
                 a['frames'][title] = size
         return change
-    case('a larger heartbeat frame, linked and compiled', frame(HEARTBEAT, 120))
+    # (Behind the output's gate there is more room to use up: larger numbers.)
+    case('a larger heartbeat frame, linked and compiled', frame(HEARTBEAT, 600 if r['output'] else 120))
     case('a frame the linked code does not have', frame(HEARTBEAT, 60, linked=False))
     case('a frame of no fixed size', frame(CONSUMER, 44, 'dynamic'))
 
-    def deeper_take(a, s):
-        for w in a['handed_frames'].values():
-            w['frame'] = 100
-    case('a take that goes deep', deeper_take)
+    for k in r['takes']:
+        case('a take that goes deep', frame(k, 2000))
 
-    def calling_take(a, s):
-        for w in a['handed_frames'].values():
-            w['calls'] = [(0, 'jsr', 0, frozenset(['memcpy']), True)]
-    case('a take that calls on', calling_take)
-    case('a gate that saves more', lambda a, s: a.__setitem__('gate', 96))
+        def calling_take(a, s, k=k):
+            a['graph']['nodes']['a deep callee'] = (2000, 'static')
+            a['graph']['edges'].append((k, 'a deep callee', 'x'))
+        case('a take that calls on, deep', calling_take)
+        case('a take through a pointer', lambda a, s, k=k: a['graph']['edges'].append((k, INDIRECT, 'x')))
+    for l in r['outside']:
+        case('a routine outside the graph with a frame', lambda a, s, l=l: a['outside'][l].__setitem__('frame', 16))
+    if r['output']:
+        case('less room asked for the output', lambda a, s: s.__setitem__('output_room', 256))
+        case('the output ahead of the gate\'s question', lambda a, s: a.__setitem__(
+            'consumer_calls', list(reversed(a['consumer_calls']))))
+        case('the output called past its gate', lambda a, s: a['graph']['edges'].append((HEARTBEAT, OUTPUT, 'x')))
+        case('a gate that calls on', lambda a, s: a['graph']['edges'].append((CONSUMER, TICK, 'x')))
+    case('a gate that saves more', lambda a, s: a.__setitem__('gate', 600 if r['output'] else 96))
     case('another caller', lambda a, s: a['graph']['edges'].append(('reader_cooperative_service', CONSUMER, 'x')))
     case('a call through a pointer elsewhere', lambda a, s: a['graph']['edges'].append((CONSUMER, INDIRECT, 'x')))
     case('a call before stack_valid', lambda a, s: a['complete'].__setitem__(
@@ -234,7 +299,7 @@ def self_test(r, sources):
             'calls', [(x - 0x10000 if CONSUMER in tg else x, op, sp, tg, chk)
                       for x, op, sp, tg, chk in a['complete']['calls']]))
     case('the consumer\'s address in a table', lambda a, s: a['words'].append(0x8c000000))
-    case('less room in stack_valid', lambda a, s: s.__setitem__('room', 200))
+    case('less room in stack_valid', lambda a, s: s.__setitem__('room', 64 if r['output'] else 200))
     case('recursion', lambda a, s: a['graph']['edges'].append((HEARTBEAT, CONSUMER, 'x')))
     return cases
 
@@ -248,6 +313,21 @@ def main():
     args = parser.parse_args()
     passive = (ROOT / survey.PASSIVE_SOURCE).read_text()
     sources = survey.source_facts((ROOT / survey.SURVEY_SOURCE).read_text(), passive)
+    # The output's gate and the worker's answer to it, in their reviewed form.
+    header = ROOT / OUTPUT_HEADER
+    if header.exists():
+        asked = re.search(r'#define KUI_TOY_CDDA_OUTPUT_STACK (\d+)u\n', header.read_text())
+        assert asked, 'the room the output asks for is not in ' + OUTPUT_HEADER
+        sources['output_room'] = int(asked.group(1))
+        assert ('void kui_toy_cdda_consumer_heartbeat(void) {\n'
+                '    if(kui_vmu_native_passive_stack_room() < KUI_TOY_CDDA_OUTPUT_STACK) {\n'
+                '        ++O.skipped_stack;\n        return;\n    }\n'
+                '    kui_toy_cdda_output_heartbeat();\n}\n') in (ROOT / OUTPUT_SOURCE).read_text(), \
+            'the output\'s gate is not in its reviewed form'
+        assert ('uint32_t kui_vmu_native_passive_stack_room(void) {\n'
+                '    const uint32_t sp=current_sp(),low=active_stack_low();\n'
+                '    return sp>=low && sp<low+KUI_VMU_NATIVE_PASSIVE_STACK_BYTES?sp-low:0u;\n}\n') in passive, \
+            'the worker\'s answer to the output\'s gate is not in its reviewed form'
     r = readings(args.worker_elf, args.worker_build, args.aux_elf)
     lines, facts = verify(r, sources)
     if args.self_test:
@@ -268,6 +348,13 @@ def main():
               facts['depth'], facts['gate'], facts['take'], facts['sites'],
               'behind the survey and ' if facts['survey'] else '', facts['room'], facts['guard'],
               facts['worst'], facts['usable'], facts['usable'] / facts['depth'], facts['below'], facts['left']))
+    if facts['output']:
+        o = facts['output']
+        print('PASS Test 85 output linked: the consumer is the output\'s gate (the %d bytes above are the gate and '
+              'its question); the output behind it is %d bytes deep, the card\'s heartbeat, the visit gate and its '
+              'take among them, and is called only with %d bytes of the private stack below the gate: %d clear of '
+              'the guard words (%.2f x)' % (facts['depth'], o['depth'], o['room'], o['room'] - facts['guard'],
+                                             (o['room'] - facts['guard']) / o['depth']))
 
 
 if __name__ == '__main__':

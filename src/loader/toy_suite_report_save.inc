@@ -26,6 +26,14 @@ static void toy_report_row(char **at,const char *label,const uint32_t *values,un
 #endif
 #if KUI_TOY_CDDA_SURVEY
 #include "kui/toy_cdda_survey.h"
+#endif
+#if KUI_TOY_CDDA_CARD
+#include "kui/toy_cdda_mail.h"
+#endif
+#if KUI_TOY_CDDA_OUTPUT
+#include "kui/toy_cdda_output.h"
+#endif
+#if KUI_TOY_CDDA_SURVEY || KUI_TOY_CDDA_CARD
 static uint32_t toy_cdda_cap(uint32_t value,uint32_t most) {
     return value>most?most:value;
 }
@@ -189,6 +197,80 @@ static void toy_report_wire(char **at,const char *end,const struct kui_native_ra
                     toy_cdda_cap(sv->timeouts,255u)<<8|toy_cdda_cap(sv->skipped_dma,255u)},6u);
     }
 #endif
+#if KUI_TOY_CDDA_OUTPUT
+    /* Test 85 (OUTPUT), the CD music's sound. O ST: the phase (0 off, 1
+     * priming, 2 playing, 3 silent), the first reason a play is silent <<4
+     * (1 no admitted driver, 2 the sound CPU held, 3 another driver came,
+     * 4 its records prove nothing, 5 the ring, 6 a channel taken, 7 a key
+     * dropped too often, 8 the timer), the driver's family <<8, keys
+     * dropped in this play <<12, the reason's detail <<16. V: the version
+     * word of the driver last looked at. ID: its date hash, the left
+     * plane's channel <<16, the right's <<24. RING: the ring's place in
+     * sound memory. N: a plane's frames, places taken <<16.
+     * KEY: key-ons. RST: rings begun again. UND: of those, for a ring run
+     * dry. ANC: for the clocks' margin. DRP: keys the driver dropped, and
+     * channels found keyed on before a key-on <<16. TK: channels taken,
+     * and registers put back <<16.
+     * HB: heartbeats that used the bus. LONG: the longest in ticks, the
+     * card's time in it. TICK: all of them. KB: KiB written to the ring.
+     * SKIP: heartbeats not made for SR.BL <<24 and a G2 transfer <<16, bus
+     * waits that ran out <<8, stores refused. LV: the levels last written,
+     * the left plane's and the right's <<16.
+     * MX: the CD mixers as last read, left and right <<16. FB: MANATEE 2's
+     * own level bytes (left, right <<8) and heartbeats they stood in <<16.
+     * PRIME: ticks from the last ring's beginning to its key-on. SIL:
+     * frames of silence written (gaps, refused tracks, behind an end).
+     * LOST: rings lost to a pair of the table, segments the card refused
+     * <<8, rings lost to a guard <<16, heartbeats not made for want of
+     * stack <<24. */
+    {
+        const struct kui_toy_cdda_output *o=&kui_toy_cdda_output;
+        toy_report_short(at,end,"CD O ST V ID RING N",
+            (uint32_t[]){o->phase|o->why<<4|o->family<<8|toy_cdda_cap(o->rearms,15u)<<12|(o->why_detail&0xffffu)<<16,
+                o->seen_version,o->seen_hash|o->channel[0]<<16|o->channel[1]<<24,o->ring,
+                o->frames|toy_cdda_cap(o->places,255u)<<16},5u);
+        toy_report_short(at,end,"CD O KEY RST UND ANC DRP TK",
+            (uint32_t[]){o->keys,o->restarts,o->underruns,o->anchors,
+                toy_cdda_cap(o->drops,0xffffu)|toy_cdda_cap(o->rekeys,0xffffu)<<16,
+                toy_cdda_cap(o->takes,0xffffu)|toy_cdda_cap(o->fixes,0xffffu)<<16},6u);
+        toy_report_short(at,end,"CD O HB LONG TICK KB SKIP LV",
+            (uint32_t[]){o->heartbeats,o->longest,o->bus_ticks,o->bytes>>10,
+                toy_cdda_cap(o->skipped_bl,255u)<<24|toy_cdda_cap(o->skipped_dma,255u)<<16|
+                    toy_cdda_cap(o->timeouts,255u)<<8|toy_cdda_cap(o->faults,255u),
+                o->level_set[0]|o->level_set[1]<<16},6u);
+        toy_report_short(at,end,"CD O MX FB PRIME SIL LOST",
+            (uint32_t[]){o->mixer[0]|o->mixer[1]<<16,
+                (o->shadow&255u)|(o->shadow>>16&255u)<<8|toy_cdda_cap(o->fallbacks,0xffffu)<<16,
+                o->prime_ticks,o->silence_frames,
+                toy_cdda_cap(o->lost_table,255u)|toy_cdda_cap(o->refusals,255u)<<8|
+                    toy_cdda_cap(o->lost_guard,255u)<<16|toy_cdda_cap(o->skipped_stack,255u)<<24},5u);
+    }
+#endif
+#if KUI_TOY_CDDA_CARD
+    /* Test 85 (CARD), the audio from the card (include/kui/toy_cdda_mail.h).
+     * BLK: card blocks of the stream handed on. RB: of those, rebuilt from
+     * their CRC. RR: blocks read again. PIO: blocks read by programmed
+     * transfers. WAIT: visits that left such a read waiting. YLD: idle
+     * read-ahead windows given up.
+     * HD: streams and waiting reads ended for a read of the game's. HO: by
+     * the audio itself. HX: found ended by the reader. REF: segments
+     * refused, the last one's reason <<16. DCL: streams that could not be
+     * begun. ERR: the first such stream's error, its detail <<16.
+     * VIS: visits for the audio. TICK: their ticks. HB: heartbeats that
+     * made one. LONG: the longest in ticks. RND: the longest visit that
+     * only read the stream. SEEK: ticks in programmed reads. */
+    {
+        const struct kui_toy_cdda_mail *m=&kui_toy_cdda_mail;
+        toy_report_short(at,end,"CD C BLK RB RR PIO WAIT YLD",
+            (uint32_t[]){m->blocks,m->rebuilt,m->rereads,m->seek_blocks,m->seek_waits,m->yields},6u);
+        toy_report_short(at,end,"CD C HD HO HX REF DCL ERR",
+            (uint32_t[]){m->data_halts,m->other_halts,m->external_halts,
+                toy_cdda_cap(m->refused,0xffffu)|(m->why&0xffffu)<<16,m->declined,
+                (m->first_error&0xffffu)|(m->first_detail&0xffffu)<<16},6u);
+        toy_report_short(at,end,"CD C VIS TICK HB LONG RND SEEK",
+            (uint32_t[]){m->visits,m->visit_ticks,m->heartbeats,m->longest,m->round_longest,m->seek_ticks},6u);
+    }
+#endif
 #else
     toy_report_short(at,end,"BIG N S BACK",
         (uint32_t[]){w->large_requests,w->large_sectors,w->large_returned},3u);
@@ -229,6 +311,9 @@ static void toy_report_wire(char **at,const char *end,const struct kui_native_ra
     toy_report_short(at,end,"K LIGHT EDC MEND MB LB ORD",
         (uint32_t[]){w->light,w->edc,w->mends,w->mend_bad,w->light_bad,w->n.order},6u);
 #endif
+#if !KUI_TOY_CDDA_CARD
+    /* Test 85 (CARD): the window stream's rows, from V to W FILL, have
+     * served and make room for the audio's. */
     toy_report_short(at,end,"V SCI TMR GAME N TICKS",
         (uint32_t[]){w->visit_calls[0],w->visit_calls[1],w->visit_calls[2],
             w->visit_ticks[0],w->visit_ticks[1],w->visit_ticks[2]},6u);
@@ -282,6 +367,7 @@ static void toy_report_wire(char **at,const char *end,const struct kui_native_ra
             w->stops[KUI_TOY_WIRE_STOP_FRAME],w->n.lost_frame,w->n.ambiguous,w->n.bad_crc},6u);
     toy_report_short(at,end,"W FILL REF BAD",
         (uint32_t[]){w->filled,w->refused,w->check_bad},3u);
+#endif
 #if !KUI_TOY_WIRE_ANY
     /* The reader's pumps by piece, interrupt visits and the game's calls
      * together. */

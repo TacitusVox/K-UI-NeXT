@@ -32,6 +32,13 @@
 #ifndef KUI_TOY_CDDA_SURVEY
 #define KUI_TOY_CDDA_SURVEY 0
 #endif
+/* And Test 85's. */
+#ifndef KUI_TOY_CDDA_CARD
+#define KUI_TOY_CDDA_CARD 0
+#endif
+#ifndef KUI_TOY_CDDA_OUTPUT
+#define KUI_TOY_CDDA_OUTPUT 0
+#endif
 
 #include "kui/native_readahead.h"
 #include "kui/toy_suite_report_wire.h"
@@ -93,6 +100,16 @@ struct kui_toy_cdda_drive kui_toy_cdda_drive;
 #include "kui/toy_cdda_survey.h"
 struct kui_toy_cdda_survey kui_toy_cdda_survey;
 #endif
+#if KUI_TOY_CDDA_CARD
+/* Test 85: the block the audio's two parts share, whose counters the report
+ * writes; and with the sound output, its state. */
+#include "kui/toy_cdda_mail.h"
+struct kui_toy_cdda_mail kui_toy_cdda_mail;
+#endif
+#if KUI_TOY_CDDA_OUTPUT
+#include "kui/toy_cdda_output.h"
+struct kui_toy_cdda_output kui_toy_cdda_output;
+#endif
 #include "toy_suite_report_save.inc"
 
 #if KUI_TOY_WIRE_ANY
@@ -133,6 +150,16 @@ static const char *const labels[] = {
 #if KUI_TOY_CDDA_SURVEY
     "CD SV DT B N WIN SKIP",
 #endif
+#if KUI_TOY_CDDA_OUTPUT
+    /* Test 85: the sound output, */
+    "CD O ST V ID RING N", "CD O KEY RST UND ANC DRP TK", "CD O HB LONG TICK KB SKIP LV",
+    "CD O MX FB PRIME SIL LOST",
+#endif
+#if KUI_TOY_CDDA_CARD
+    /* and the audio from the card, in the place of the window stream's
+     * rows from V to W FILL. */
+    "CD C BLK RB RR PIO WAIT YLD", "CD C HD HO HX REF DCL ERR", "CD C VIS TICK HB LONG RND SEEK",
+#endif
 #endif
 #else
     "BIG N S BACK",
@@ -142,6 +169,7 @@ static const char *const labels[] = {
 #if !KUI_TOY_CDDA_DRIVE
     "K LIGHT EDC MEND MB LB ORD",
 #endif
+#if !KUI_TOY_CDDA_CARD
     "V SCI TMR GAME N TICKS",
 #if KUI_TOY_WIRE_QUERY
     /* Test 80: the longest single visits. */
@@ -153,11 +181,14 @@ static const char *const labels[] = {
     "D N T SEEK",
     "W START SEG CUT WAIT FULL", "W BYTES WTICK TMR ERR DET", "W BLK FIX UNFIX HOLED NOCRC SEEK",
     "S C S F LF AM BC", "W FILL REF BAD",
+#endif
     "BP ON OT OC OI SN ST",
 };
 enum { LABELS = sizeof(labels) / sizeof(labels[0]),
+    /* (Test 85: eight rows of the window's stream out, three of the audio's
+     * in, and four more with the sound output.) */
     ESSENTIAL = (KUI_TOY_WIRE_QUERY ? 20 : KUI_TOY_WIRE_TITLES ? 18 : 17) - (KUI_TOY_CDDA_DRIVE ? 1 : 0) +
-        (KUI_TOY_CDDA_SURVEY ? 1 : 0),
+        (KUI_TOY_CDDA_SURVEY ? 1 : 0) - (KUI_TOY_CDDA_CARD ? 5 : 0) + (KUI_TOY_CDDA_OUTPUT ? 4 : 0),
     /* Test 80 leaves the movie player's rows out for a title that is not
      * Toy Commander: the second movie's two, the first movie's, and the
      * two players'. */
@@ -444,7 +475,115 @@ static void pages(const char *text, size_t body, unsigned lines) {
 }
 #endif
 
+#if KUI_TOY_CDDA_CARD
+/* Test 85: the audio's rows. They stand behind the drive's, the sound
+ * output's first; the window stream's rows from V to W FILL are not written.
+ * What the rest of this file says of those rows holds for the builds that
+ * write them, so a build that reads the audio is checked here alone: with
+ * nothing counted, with each field of the new rows at a value that shows its
+ * place and its cap, and with every value of the report at eight digits. */
+static int card_report(void) {
+    static kui_retail_async_region_type region;
+    static struct kui_native_ra_public ra;
+    char text[KUI_TOY_REPORT_FILE_BYTES + 1u];
+    unsigned rows;
+    size_t body = format(&ra, &region, text, &rows);
+    const size_t empty = body;
+    static const char *const gone[] = {"V SCI", "VMAX", "D N T", "W START", "W BYTES", "W BLK", "S C S F", "W FILL",
+        "SUBMIT", "IP ON", "BP ON", "BIG N", "K LIGHT", "P RING"};
+    for(unsigned i = 0; i < sizeof(gone) / sizeof(gone[0]); ++i) assert(!strstr(text, gone[i]));
+    assert(strstr(text, "X OW E I C W O\n0 0 0 0 0 0\nSD BLK PIO OVR CRC DECL\n0 0 0 0 0\nXC KEPT LO HI\n0 0 0\n"
+                        "CD P P2 PA RE END LAP\n0 0 0 0 0 0\nCD ST RD KEEP REF LOST PJ\n0 0 0 0 0 0\n"
+#if KUI_TOY_CDDA_SURVEY
+                        "CD SV DT B N WIN SKIP\n0 0 0 0 0 0\n"
+#endif
+#if KUI_TOY_CDDA_OUTPUT
+                        "CD O ST V ID RING N\n0 0 0 0 0\nCD O KEY RST UND ANC DRP TK\n0 0 0 0 0 0\n"
+                        "CD O HB LONG TICK KB SKIP LV\n0 0 0 0 0 0\nCD O MX FB PRIME SIL LOST\n0 0 0 0 0\n"
+#endif
+                        "CD C BLK RB RR PIO WAIT YLD\n0 0 0 0 0 0\nCD C HD HO HX REF DCL ERR\n0 0 0 0 0 0\n"
+                        "CD C VIS TICK HB LONG RND SEEK\n0 0 0 0 0 0\n"));
+    /* A title that is not Toy Commander: no movie rows, and the report is
+     * at most three pages on the screen. */
+    assert(essential_rows == ESSENTIAL - 4u && rows == LABELS - MOVIE_ROWS);
+    assert(rows == 10u + KUI_TOY_CDDA_SURVEY + 4u * KUI_TOY_CDDA_OUTPUT && 4u + 2u * rows <= 3u * TOY_PAGE_LINES);
+    const unsigned lines = screen(text, body);
+    assert(lines == 4u + 2u * rows && !screen_cut);
+    pages(text, body, lines);
+
+    /* Each field where it belongs, and held at its cap. */
+    kui_toy_cdda_mail = (struct kui_toy_cdda_mail){.blocks = 0x123456, .rebuilt = 0x12, .rereads = 0x34,
+        .seek_blocks = 0x56, .seek_waits = 0x78, .yields = 0x9a, .data_halts = 0x11, .other_halts = 0x22,
+        .external_halts = 0x33, .refused = 0x10004, .why = 5u, .declined = 0x44, .first_error = 0x12345,
+        .first_detail = 0x6789, .visits = 0xabcde, .visit_ticks = 0x1234567, .heartbeats = 0x54321,
+        .longest = 0x8ac, .round_longest = 0x123, .seek_ticks = 0x45678};
+#if KUI_TOY_CDDA_OUTPUT
+    kui_toy_cdda_output = (struct kui_toy_cdda_output){.phase = 3u, .why = 8u, .why_detail = 0x12345, .family = 2u,
+        .rearms = 40u, .seen_version = 0xffffffffu, .seen_hash = 0xffffu, .channel = {62u, 63u}, .ring = 0x1effa0,
+        .frames = 16384u, .places = 300u, .keys = 0x1234, .restarts = 0x56, .underruns = 0x12, .anchors = 0x34,
+        .drops = 0x10005, .rekeys = 7u, .takes = 3u, .fixes = 0x20000, .heartbeats = 0x54321, .longest = 0x999,
+        .bus_ticks = 0x7654321, .bytes = 0x12345678, .skipped_bl = 300u, .skipped_dma = 2u, .timeouts = 256u,
+        .faults = 1u, .level_set = {0x0f1f, 0x0f0f}, .mixer = {0x0a1f, 0x0a0f}, .shadow = 0x00400030,
+        .fallbacks = 70000u, .prime_ticks = 0x13579, .silence_frames = 0x2468a, .lost_table = 2u,
+        .refusals = 300u, .lost_guard = 1u, .skipped_stack = 3u};
+#endif
+    body = format(&ra, &region, text, &rows);
+#if KUI_TOY_CDDA_OUTPUT
+    assert(strstr(text, "CD O ST V ID RING N\n2345F283 FFFFFFFF 3F3EFFFF 1EFFA0 FF4000\n"
+                        "CD O KEY RST UND ANC DRP TK\n1234 56 12 34 7FFFF FFFF0003\n"
+                        "CD O HB LONG TICK KB SKIP LV\n54321 999 7654321 48D15 FF02FF01 F0F0F1F\n"
+                        "CD O MX FB PRIME SIL LOST\nA0F0A1F FFFF4030 13579 2468A 301FF02\n"
+                        "CD C BLK"));
+#endif
+    assert(strstr(text, "CD C BLK RB RR PIO WAIT YLD\n123456 12 34 56 78 9A\n"
+                        "CD C HD HO HX REF DCL ERR\n11 22 33 5FFFF 44 67892345\n"
+                        "CD C VIS TICK HB LONG RND SEEK\nABCDE 1234567 54321 8AC 123 45678\n"));
+    const size_t full = body;
+
+    /* A long session: every other row's values at eight digits, the
+     * audio's as above. Every row of the audio is still written. (A build
+     * with the survey's row and the output's four would have no such room;
+     * none is made.) */
+    memset(&kui_toy_cdda_drive, 0xff, sizeof(kui_toy_cdda_drive));
+#if KUI_TOY_CDDA_SURVEY
+    memset(&kui_toy_cdda_survey, 0xff, sizeof(kui_toy_cdda_survey));
+#endif
+    memset(&wire, 0xff, sizeof(wire));
+    memset(&ra, 0xff, sizeof(ra));
+    memset(&region, 0xff, sizeof(region));
+    body = format(&ra, &region, text, &rows);
+    const size_t wide = body;
+#if !(KUI_TOY_CDDA_SURVEY && KUI_TOY_CDDA_OUTPUT)
+    assert(strstr(text, "CD C VIS TICK HB LONG RND SEEK\nABCDE 1234567 54321 8AC 123 45678\n"));
+#endif
+    /* Every value of the report at eight digits: rows are left out whole,
+     * from the end, and none is cut (format() holds every row found to its
+     * label and its order). The sound output's rows are all written. */
+    memset(&kui_toy_cdda_mail, 0xff, sizeof(kui_toy_cdda_mail));
+#if KUI_TOY_CDDA_OUTPUT
+    memset(&kui_toy_cdda_output, 0xff, sizeof(kui_toy_cdda_output));
+#endif
+    body = format(&ra, &region, text, &rows);
+    assert(body <= KUI_TOY_REPORT_FILE_BYTES - 12u && rows <= LABELS);
+#if KUI_TOY_CDDA_OUTPUT && !KUI_TOY_CDDA_SURVEY
+    assert(strstr(text, "CD O MX FB PRIME SIL LOST\nFFFFFFFF FFFFFFFF FFFFFFFF FFFFFFFF FFFFFFFF\n"));
+#endif
+    printf("PASS Test " TEST_NUMBER " report (the audio's rows%s): %zu body bytes with nothing counted, %zu with the "
+           "audio's fields set, %zu of 1012 with every other row at eight digits a value and the audio's rows all "
+           "written; three pages on the screen for a title that is not Toy Commander\n",
+        KUI_TOY_CDDA_OUTPUT ? " and the sound output's" : "", empty, full, wide);
+    return 0;
+}
+#endif
+
 int main(int argc, char **argv) {
+#if KUI_TOY_CDDA_CARD
+    /* (The save to the card is the same code in every build, and is
+     * checked with the builds whose rows the scenarios below name.) */
+    (void)argc; (void)argv; (void)lease_stub; (void)toy_suite_save_report;
+    screen_lines();
+    return card_report();
+#else
     static kui_retail_async_region_type region;
     static struct kui_native_ra_public ra;
     char text[KUI_TOY_REPORT_FILE_BYTES + 1u];
@@ -1093,4 +1232,5 @@ int main(int argc, char **argv) {
         bumper_fits ? "still fits" : "is the one row left out", movies_alone);
 #endif
     return 0;
+#endif
 }

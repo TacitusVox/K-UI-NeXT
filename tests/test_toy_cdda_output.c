@@ -1,0 +1,1010 @@
+/* SPDX-License-Identifier: GPL-3.0-only */
+/* Test 85 (OUTPUT): the CD-music output (src/loader/toy_cdda_output.c)
+ * on a model of the sound chip, its bus and the card.
+ *
+ * The model answers only the addresses the output may read and takes only
+ * the stores it may make: the placed ring with its guards, at or above
+ * 0x18000 and clear of every pair of the bank table as the table stands at
+ * that store, and registers +0x00..+0x44 of the scripted driver's two
+ * channels while the driver's records call them free. Every access of the
+ * chip must come with the interrupt mask at 15, SR.BL clear, every G2 DMA
+ * channel off, the sound CPU out of reset for a store, and at most eight
+ * accesses since the FIFO was last seen empty.
+ *
+ * The model's chip plays: an execute strobe keys on the channels whose key
+ * bit is set and that are off, and keys off those whose bit is clear. A
+ * channel goes back to its loop's start when its position reaches the loop
+ * end register (one scenario has it play the frame there first). The two
+ * channels' position runs on the chip's own clock, a set number of parts
+ * in a million from TMU0. Every frame the pair plays is taken from
+ * sound memory at the moment it is played and held against the play's audio
+ * as the test reckons it by itself: the drive's position at the heartbeat
+ * that began the ring, the disc's tracks and gaps, the card's pattern.
+ *
+ * The drivers' headers and records are authored from the static readings
+ * (docs/cd-audio-corpus.md): the version bytes and the date's hash are those
+ * the original images and the console gave (docs/evidence/
+ * cdda-background-test-84/driver-check.log); the date's text is not the
+ * image's but one found here with the same hash. Host model only; nothing
+ * here ran on a console. */
+#include <stdbool.h>
+#include <stdint.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include "kui/toy_cdda_card.h"
+#include "kui/toy_cdda_output.h"
+#include "kui/toy_cdda_player.h"
+#include "kui/toy_cdda_survey.h"
+
+struct kui_toy_cdda_drive kui_toy_cdda_drive;
+#define D kui_toy_cdda_drive
+#define O kui_toy_cdda_output
+static unsigned long checks;
+#define CHECK(x) do { ++checks; if(!(x)) { \
+    fprintf(stderr, "test_toy_cdda_output.c:%d: %s\n", __LINE__, #x); exit(1); } } while(0)
+
+#define SOUND UINT32_C(0xa0800000)
+#define CHANNELS UINT32_C(0xa0700000)
+#define BYTES 0x200000u
+#define BL UINT32_C(0x10000000)
+#define EXEC UINT32_C(0x43455845)
+#define SEGA UINT32_C(0x41474553)
+#define GEN2 KUI_TOY_CDDA_FAMILY_GEN2
+#define GEN1 KUI_TOY_CDDA_FAMILY_GEN1
+#define REST UINT32_C(0x40000000) /* SR between heartbeats: the game's, mask 0 */
+#define TCNT_START UINT32_C(0xf0000000)
+#define SECOND 781250u
+#define RING16 (64u + 4u * 16384u + 8u)   /* the largest ring: guards, two planes, their repeats */
+
+static uint8_t ram[BYTES];
+static uint32_t reg[64][18], sr = REST, arm_reset, dma_enable[4], dma_start[4];
+static uint32_t frqcr = 0x0e0au, tcor = UINT32_MAX, tcr = 2u, tstr = 1u;
+static uint64_t now;                 /* TMU0 ticks since the model began */
+static uint32_t access_ticks = 1u;   /* what one access of the bus costs */
+static bool fifo_stuck;
+static unsigned since_empty = 8u;
+static unsigned long stores, ring_stores, register_stores, chip_reads, g2_reads, fifo_polls;
+static uint64_t timer_stopped_at;    /* TMU0 stands still from here while TSTR's bit is clear */
+static bool frozen;                  /* no store may be made at all */
+static unsigned family, pair[2];
+
+static uint32_t tcnt(void) { return TCNT_START - (uint32_t)(tstr & 1u ? now : timer_stopped_at); }
+static bool masked(void) { return (sr & 0xf0u) == 0xf0u && !(sr & BL); }
+static bool dma_idle(void) {
+    for(unsigned c = 0; c < 4u; ++c)if((dma_enable[c] | dma_start[c]) & 1u)return false;
+    return true;
+}
+static void put32(uint32_t at, uint32_t value) { memcpy(ram + at, &value, 4u); }
+static uint32_t get32(uint32_t at) { uint32_t value; memcpy(&value, ram + at, 4u); return value; }
+
+/* ---- the disc and the card ---- */
+static const struct { uint32_t number, start, end; } toc[] = {
+    {2u, 1000u, 4000u}, {3u, 4151u, 7000u}, {4u, 7000u, 9000u}};
+static uint32_t refuse_track;        /* a track the card does not hold */
+uint32_t kui_toy_cdda_track_of(uint32_t lba, uint32_t *start, uint32_t *end) {
+    for(unsigned i = 0; i < sizeof(toc) / sizeof(toc[0]); ++i)
+        if(lba >= toc[i].start && lba < toc[i].end) {
+            *start = toc[i].start;
+            *end = toc[i].end;
+            return toc[i].number;
+        }
+    return 0u;
+}
+/* The disc's audio: frame i of sector lba. */
+static void pattern(uint32_t lba, uint32_t i, int16_t *l, int16_t *r) {
+    const uint32_t g = lba * 588u + i;
+    *l = (int16_t)(uint16_t)(g * 7u + 3u);
+    *r = (int16_t)(uint16_t)(g * 13u + 5u);
+}
+static struct { uint32_t generation, track, lba, end, offset; } card;
+static uint32_t card_most = 8192u, card_chunk = 1024u, card_ticks = 40u;
+static bool card_idle;               /* the card is the game's: nothing is handed on */
+static bool card_skips;              /* once, the card leaves a frame out and says so by its offset */
+static unsigned card_calls_now;
+static unsigned long card_calls, card_nones, card_segments, card_bytes, card_low;
+uint32_t kui_toy_cdda_card_heartbeat(const struct kui_toy_cdda_want *want, uint32_t room,
+    kui_toy_cdda_take take, void *context) {
+    CHECK(masked());
+    CHECK(++card_calls_now == 1u);
+    ++card_calls;
+    if(!want->generation) {
+        ++card_nones;
+        card.generation = 0u;
+        return KUI_TOY_CDDA_CARD_IDLE;
+    }
+    uint32_t start, end;
+    CHECK(D.state == KUI_TOY_CDDA_PLAYING);       /* audio is asked for only while the drive plays */
+    CHECK(want->track && kui_toy_cdda_track_of(want->lba, &start, &end) == want->track);
+    CHECK(want->lba < want->end && want->end <= end && want->end <= D.end && want->lba >= D.first);
+    if(want->generation != card.generation) {
+        card.generation = want->generation;
+        card.track = want->track;
+        card.lba = want->lba;
+        card.end = want->end;
+        card.offset = 0u;
+        ++card_segments;
+    } else CHECK(want->track == card.track && want->lba == card.lba && want->end == card.end);
+    card_low += want->yield_ok;
+    if(want->track == refuse_track)return KUI_TOY_CDDA_CARD_REFUSED;
+    if(card_idle)return KUI_TOY_CDDA_CARD_IDLE;
+    /* The card hands on what whole card blocks hold of the segment, and
+     * none without room for a block (src/loader/toy_cdda_card.c). */
+    const uint32_t total = (card.end - card.lba) * 2352u;
+    uint32_t give = total - card.offset;
+    if(give > room / 512u * 512u)give = room / 512u * 512u;
+    if(give > card_most)give = card_most;
+    if(card_skips && card.offset + 4u < total) {
+        card.offset += 4u;
+        card_skips = false;
+    }
+    while(give) {
+        uint8_t bytes[2048];
+        const uint32_t count = give < card_chunk ? give : card_chunk;
+        for(uint32_t i = 0; i < count; ++i) {
+            const uint32_t at = card.offset + i;
+            int16_t l, r;
+            pattern(card.lba + at / 2352u, at % 2352u / 4u, &l, &r);
+            const uint16_t sample = (uint16_t)(at & 2u ? r : l);
+            bytes[i] = (uint8_t)(at & 1u ? sample >> 8 : sample);
+        }
+        now += card_ticks;
+        take(context, bytes, count, card.offset);
+        card.offset += count;
+        card_bytes += count;
+        give -= count;
+    }
+    return card.offset == total ? KUI_TOY_CDDA_CARD_DONE : KUI_TOY_CDDA_CARD_STREAMING;
+}
+
+/* ---- the play as the test reckons it ---- */
+static struct { uint32_t first, end, base, passes; } heard_play;
+/* Where the drive stands at TMU0 count tc; false: its last pass is over. */
+static bool oracle(uint32_t tc, uint32_t *sector, uint32_t *passes) {
+    const uint64_t ticks = (uint32_t)(D.base_counter - tc), length = D.end - D.first;
+    int64_t offset = D.base_offset + (int64_t)(ticks * 3u / 31250u);
+    if(offset < 0)offset = 0;
+    const uint64_t laps = (uint64_t)offset / length;
+    if(D.passes && D.done + laps >= D.passes)return false;
+    *sector = D.first + (uint32_t)((uint64_t)offset % length);
+    *passes = D.passes ? (uint32_t)(D.passes - D.done - laps) : 0u;
+    return true;
+}
+/* Frame k of the ring that began at heard_play. */
+static void expected(uint64_t k, int16_t *l, int16_t *r) {
+    const uint64_t length = heard_play.end - heard_play.first, at = heard_play.base - heard_play.first + k / 588u;
+    const uint32_t lba = heard_play.first + (uint32_t)(at % length);
+    uint32_t start, end;
+    *l = *r = 0;
+    if(heard_play.passes && at / length >= heard_play.passes)return;
+    const uint32_t track = kui_toy_cdda_track_of(lba, &start, &end);
+    if(track && track != refuse_track)pattern(lba, (uint32_t)(k % 588u), l, r);
+}
+
+/* ---- the chip ---- */
+static struct voice { bool active; uint64_t keyed_at, consumed; } voice[64];
+static int ppm;                      /* the chip's clock against TMU0 */
+static bool inclusive;               /* the chip plays the frame at its loop end too */
+static bool strict = true;           /* every frame played is the play's */
+static unsigned long heard_frames, wrong_frames, wrong_loud, wrong_nonzero, cut_frames, loud_frames, key_ons, key_offs, lonely;
+static uint64_t last_heard;
+static int16_t sample_of(unsigned c, uint64_t k) {
+    const uint32_t address = (reg[c][0] & 0x7fu) << 16 | reg[c][1], lsa = reg[c][2], lea = reg[c][3];
+    const uint32_t lap = lea + (inclusive ? 1u : 0u) - lsa;
+    CHECK(lap);
+    const uint64_t pos = k < lsa ? k : lsa + (k - lsa) % lap;
+    CHECK(address + 2u * pos + 1u < BYTES);
+    return (int16_t)(uint16_t)(ram[address + 2u * pos] | ram[address + 2u * pos + 1u] << 8);
+}
+static void chip_run(void) {
+    struct voice *l = &voice[pair[0]], *r = &voice[pair[1]];
+    if(!l->active || !r->active) {
+        lonely += l->active != r->active;
+        return;
+    }
+    CHECK(l->keyed_at == r->keyed_at);
+    const uint64_t frames = (now - l->keyed_at) * 882u * (uint64_t)(1000000 + ppm) / (15625u * UINT64_C(1000000));
+    for(; l->consumed < frames; ++l->consumed) {
+        const uint64_t k = l->consumed;
+        int16_t el, er;
+        const int16_t sl = sample_of(pair[0], k), sr16 = sample_of(pair[1], k);
+        const bool loud = ((reg[pair[0]][9] | reg[pair[1]][9]) & 0x0f00u) != 0u;
+        /* A chip that plays the frame at the loop end hears the plane's
+         * first frame twice a lap. */
+        expected(inclusive ? k - k / (reg[pair[0]][3] + 1u) : k, &el, &er);
+        ++heard_frames;
+        loud_frames += loud;
+        last_heard = k;
+        if(sl == el && sr16 == er)continue;
+        /* Once the drive's play has ended, silence in the place of what
+         * the output had not yet read is the play's end, a little early. */
+        if(D.state != KUI_TOY_CDDA_PLAYING && !sl && !sr16) {
+            ++cut_frames;
+            continue;
+        }
+        ++wrong_frames;
+        wrong_loud += loud;
+        wrong_nonzero += sl || sr16;
+        if(strict) {
+            fprintf(stderr, "frame %llu of the ring: played %d %d, the play has %d %d\n",
+                (unsigned long long)k, sl, sr16, el, er);
+            CHECK(!"a frame that is not the play's");
+        }
+    }
+}
+static void strobe(void) {
+    for(unsigned c = 0; c < 64u; ++c) {
+        const bool on = (reg[c][0] & 0x4000u) != 0u;
+        if(on && !voice[c].active) {
+            voice[c] = (struct voice){true, now, 0u};
+            ++key_ons;
+        } else if(!on && voice[c].active) {
+            voice[c].active = false;
+            ++key_offs;
+        }
+    }
+}
+static bool record_busy(unsigned side) {
+    if(family == GEN2)return ram[0x13800u + 0x40u * (ram[0x12062u] - 2u + side)] & 1u;
+    return get32(0x12080u + 12u * (13u + side) + 4u) != 0u;
+}
+static void access(void) {
+    CHECK(masked() && dma_idle());
+    CHECK(since_empty < 8u);
+    ++since_empty;
+    now += access_ticks;
+    chip_run();
+}
+/* The worker's private stack below the consumer's caller. */
+static uint32_t stack_room = 2048u;
+uint32_t kui_vmu_native_passive_stack_room(void) { return stack_room; }
+void kui_toy_cdda_consumer_heartbeat(void);
+uint32_t kui_toy_cdda_output_test_sr(void) { return sr; }
+void kui_toy_cdda_output_test_set_sr(uint32_t value) { sr = value; }
+/* A word the sound CPU keeps writing: reads of it differ while torn_left. */
+static uint32_t torn_address, torn_left;
+uint32_t kui_toy_cdda_output_test_read(uint32_t address, unsigned width) {
+    switch(address) {
+    case UINT32_C(0xffc00000): CHECK(width == 2u); return frqcr;
+    case UINT32_C(0xffd80004): CHECK(width == 1u); return tstr;
+    case UINT32_C(0xffd80008): CHECK(width == 4u); return tcor;
+    case UINT32_C(0xffd80010): CHECK(width == 2u); return tcr;
+    case UINT32_C(0xffd8000c): CHECK(width == 4u); return tcnt();
+    default: break;
+    }
+    CHECK(width == 4u && masked());
+    if(address == UINT32_C(0xa05f688c)) {
+        now += access_ticks;
+        ++g2_reads;
+        ++fifo_polls;
+        if(fifo_stuck)return 0x20u;
+        since_empty = 0u;
+        return 0u;
+    }
+    if(address - UINT32_C(0xa05f7800) < 0x80u) {
+        const uint32_t channel = (address - UINT32_C(0xa05f7800)) / 0x20u, at = (address - UINT32_C(0xa05f7800)) % 0x20u;
+        CHECK(at == 0x14u || at == 0x18u);
+        ++g2_reads;
+        return at == 0x14u ? dma_enable[channel] : dma_start[channel];
+    }
+    access();
+    ++chip_reads;
+    if(address == torn_address && torn_left) {
+        --torn_left;
+        return UINT32_C(0xdead0000) + torn_left;
+    }
+    if(address == UINT32_C(0xa0702c00))return arm_reset;
+    if(address - SOUND < BYTES) {
+        CHECK(!(address & 3u));
+        return get32(address - SOUND);
+    }
+    const uint32_t c = (address - CHANNELS) / 0x80u, at = (address - CHANNELS) % 0x80u;
+    CHECK(address - CHANNELS < 64u * 0x80u && at <= 0x44u && !(at & 3u));
+    CHECK(family && (c == pair[0] || c == pair[1]));
+    return reg[c][at / 4u];
+}
+void kui_toy_cdda_output_test_write(uint32_t address, uint32_t value) {
+    CHECK(!frozen);
+    CHECK(!(arm_reset & 1u));
+    access();
+    ++stores;
+    if(address - SOUND < BYTES) {
+        const uint32_t at = address - SOUND;
+        CHECK(!(at & 3u) && at >= 0x18000u && O.placed && at - O.ring < 64u + 4u * O.frames + 8u);
+        for(unsigned i = 0; i < 84u; ++i) {
+            const uint32_t start = get32(0x14000u + 8u * i), size = get32(0x14000u + 8u * i + 4u);
+            if(size && at + 4u > start && at < start + size)CHECK(!"a store into a pair of the bank table");
+        }
+        put32(at, value);
+        ++ring_stores;
+        return;
+    }
+    const uint32_t c = (address - CHANNELS) / 0x80u, at = (address - CHANNELS) % 0x80u;
+    CHECK(address - CHANNELS < 64u * 0x80u && at <= 0x44u && !(at & 3u));
+    CHECK(family && (c == pair[0] || c == pair[1]));
+    CHECK(!record_busy(c == pair[1]));
+    reg[c][at / 4u] = value & (at ? 0xffffu : 0x7fffu);   /* the execute bit reads back clear */
+    ++register_stores;
+    if(!at && (value & 0x8000u))strobe();
+}
+
+/* ---- the drivers ---- */
+static uint32_t hash12(const uint8_t *text) {
+    uint32_t hash = UINT32_C(0x811c9dc5);
+    for(unsigned i = 0; i < 12u; ++i)hash = (hash ^ text[i]) * UINT32_C(0x01000193);
+    return (hash ^ hash >> 16) & 0xffffu;
+}
+/* A driver's header: version bytes, a date text of the given hash (the date
+ * with three more characters), the state word. */
+static void header(uint32_t version, uint32_t state, const char *date, uint32_t hash) {
+    uint8_t text[12];
+    memset(ram, 0, 0x18000u);
+    put32(0x20u, version);
+    put32(0xf8u, state);
+    memcpy(text, date, 9u);
+    for(uint32_t tail = 0; ; ++tail) {
+        CHECK(tail < UINT32_C(0x1000000));
+        text[9] = (uint8_t)tail;
+        text[10] = (uint8_t)(tail >> 8);
+        text[11] = (uint8_t)(tail >> 16);
+        if(hash12(text) == hash)break;
+    }
+    memcpy(ram + 0x50u, text, 12u);
+}
+static void manatee2(void) {
+    header(UINT32_C(0x00090002), EXEC, "1999.06.1", 0xc46du);
+    ram[0x12060u] = 48u;
+    ram[0x12061u] = 8u;
+    ram[0x12062u] = 8u;
+    put32(0x12068u, UINT32_C(0x00801c00));
+    family = GEN2;
+    pair[0] = 62u;
+    pair[1] = 63u;
+}
+static void manatee1(bool pod) {
+    header(pod ? UINT32_C(0x00370101) : UINT32_C(0x003b0101), SEGA, pod ? "1998.11.0" : "1998.12.0",
+        pod ? 0xe50fu : 0x1c1fu);
+    for(uint32_t entry = 0; entry < 16u; ++entry)put32(0x12080u + 12u * entry + 8u, UINT32_C(0x00801800) + 0x80u * entry);
+    family = GEN1;
+    pair[0] = 61u;
+    pair[1] = 62u;
+}
+static void bank(unsigned index, uint32_t address, uint32_t size) {
+    put32(0x14000u + 8u * index, address);
+    put32(0x14000u + 8u * index + 4u, size);
+}
+static unsigned long starts;
+static void fresh(void) {
+    starts = 0u;
+    memset(ram, 0x5a, sizeof(ram));   /* what lay in sound memory: not silence */
+    memset(ram, 0, 0x18000u);
+    memset(reg, 0, sizeof(reg));
+    memset(voice, 0, sizeof(voice));
+    memset(&O, 0, sizeof(O));
+    memset(&D, 0, sizeof(D));
+    memset(&card, 0, sizeof(card));
+    memset(dma_enable, 0, sizeof(dma_enable));
+    memset(dma_start, 0, sizeof(dma_start));
+    sr = REST;
+    arm_reset = 0u;
+    frqcr = 0x0e0au;
+    tcor = UINT32_MAX;
+    tcr = 2u;
+    tstr = 1u;
+    access_ticks = 1u;
+    fifo_stuck = frozen = card_idle = card_skips = inclusive = false;
+    strict = true;
+    ppm = 0;
+    refuse_track = 0u;
+    card_most = 8192u;
+    card_chunk = 1024u;
+    card_ticks = 40u;
+    stores = ring_stores = register_stores = chip_reads = g2_reads = fifo_polls = 0u;
+    card_calls = card_nones = card_segments = card_bytes = card_low = 0u;
+    heard_frames = wrong_frames = wrong_loud = wrong_nonzero = cut_frames = loud_frames = key_ons = key_offs = lonely = 0u;
+    torn_left = 0u;
+    family = 0u;
+}
+/* One heartbeat of the worker, `ticks` after the last ended. */
+static uint64_t beat_began;
+static void beat(uint32_t ticks) {
+    now += ticks;
+    beat_began = now;
+    chip_run();
+    card_calls_now = 0u;
+    since_empty = 8u;
+    const uint32_t before = O.phase, rest = sr;
+    uint32_t sector = 0u, passes = 0u;
+    const bool live = D.state == KUI_TOY_CDDA_PLAYING && oracle(tcnt(), &sector, &passes);
+    /* As the worker's heartbeat calls it. */
+    kui_toy_cdda_consumer_heartbeat();
+    CHECK(sr == rest);
+    if(before == KUI_TOY_CDDA_OUT_OFF && (O.phase == KUI_TOY_CDDA_OUT_PRIME || O.phase == KUI_TOY_CDDA_OUT_RUN)) {
+        CHECK(live);
+        heard_play.first = D.first;
+        heard_play.end = D.end;
+        heard_play.base = sector;
+        heard_play.passes = passes;
+        ++starts;
+    }
+}
+/* The game's heartbeats for a while: 5.5 ms apart, now and then closer or
+ * later, as a game's polls come. */
+static void run(uint32_t milliseconds) {
+    static uint32_t seed = 12345u;
+    for(uint64_t until = now + (uint64_t)milliseconds * SECOND / 1000u; now < until;) {
+        seed = seed * 1103515245u + 12345u;
+        const uint32_t pick = seed >> 16 & 15u;
+        beat(pick == 0u ? 300u : pick == 1u ? 9000u : 4000u + (seed >> 20 & 1023u));
+    }
+}
+static void play(uint32_t first, uint32_t end, uint32_t passes, int32_t offset) {
+    D.first = first;
+    D.end = end;
+    D.passes = passes;
+    D.done = 0u;
+    D.base_counter = tcnt();
+    D.base_offset = offset;
+    D.state = KUI_TOY_CDDA_PLAYING;
+    ++D.generation;
+}
+static bool sounding(void) { return voice[pair[0]].active && voice[pair[1]].active; }
+static bool silent(void) { return !voice[pair[0]].active && !voice[pair[1]].active; }
+
+/* ---- the scenarios ---- */
+/* A play from its start to its end on each of the three builds. */
+static void plays_through(unsigned build) {
+    fresh();
+    if(build == 0u)manatee2();
+    else manatee1(build == 2u);
+    /* The game's banks from the driver's end up, and one in the middle. */
+    bank(0u, 0x18000u, 0x100000u);
+    bank(17u, 0x150000u, 0x20000u);
+    bank(40u, 0x4000u, 0x800u);       /* a default table inside the driver */
+    beat(1000u);
+    CHECK(!stores && !chip_reads && !g2_reads);    /* no play: nothing is touched */
+    card_most = 1024u;
+    play(1000u, 4000u, 1u, 0);
+    /* The ring is being primed and wants all it can get: all the same no
+     * two heartbeats use the bus that begin less than 2 ms apart. */
+    for(unsigned beats = 0; O.phase != KUI_TOY_CDDA_OUT_PRIME; ++beats) {
+        CHECK(beats < 100u);
+        beat(5000u);
+    }
+    beat(5000u);
+    const unsigned long first = stores + chip_reads + g2_reads;
+    const uint32_t spent = (uint32_t)(now - beat_began);
+    CHECK(O.phase == KUI_TOY_CDDA_OUT_PRIME && spent < 1000u);
+    beat(1500u - spent);
+    CHECK(stores + chip_reads + g2_reads == first);
+    beat(200u);
+    CHECK(stores + chip_reads + g2_reads > first);
+    card_most = 8192u;
+    run(2000u);
+    CHECK(O.phase == KUI_TOY_CDDA_OUT_RUN && sounding() && O.keys == 1u && key_ons == 2u && starts == 1u);
+    CHECK(O.family == family && O.channel[0] == pair[0] && O.channel[1] == pair[1]);
+    /* The largest ring below CRI's slots, clear of the banks. */
+    CHECK(O.frames == 16384u && O.ring + RING16 <= 0x1dfe00u && O.ring >= 0x170000u && !(O.ring & 31u));
+    CHECK(get32(O.ring) == UINT32_C(0x4b434452) && get32(O.ring + RING16 - 4u) == UINT32_C(0x4b434452));
+    CHECK(heard_frames > 80000u && !wrong_frames && !O.underruns && !O.restarts && !O.faults && !O.timeouts);
+    /* Two heartbeats less than 2 ms apart: the second does nothing. */
+    beat(14000u);
+    const unsigned long work = stores + chip_reads + g2_reads;
+    CHECK(work);
+    beat(300u);
+    CHECK(stores + chip_reads + g2_reads == work);
+    /* The channels as the adapters' driver keyed them. */
+    for(unsigned side = 0; side < 2u; ++side) {
+        const uint32_t *r = reg[pair[side]], plane = O.ring + 32u + side * (2u * O.frames + 4u);
+        static const uint32_t rest[] = {0x1fu, 0x1fu, 0u, 0x4210u, 0u};
+        CHECK(r[0] == (0x4200u | plane >> 16) && r[1] == (plane & 0xffffu) && !r[2] && r[3] == O.frames);
+        /* Behind the plane, its first two frames once more. */
+        CHECK(!memcmp(ram + plane, ram + plane + 2u * O.frames, 4u));
+        CHECK(!memcmp(r + 4, rest, sizeof(rest)) && r[10] == 4u && !r[16] && !r[17]);
+        for(unsigned i = 11; i < 16u; ++i)CHECK(r[i] == 0x1fffu);
+        CHECK(r[9] == (side ? 0x0f0fu : 0x0f1fu));
+    }
+    /* Paused: keyed off, and the card is told so. Released: on from where
+     * the drive stands. */
+    D.state = KUI_TOY_CDDA_PAUSED;
+    run(100u);
+    CHECK(silent() && O.phase == KUI_TOY_CDDA_OUT_OFF && card_nones == 1u && !card.generation);
+    const unsigned long quiet_stores = stores, quiet_reads = chip_reads;
+    run(300u);
+    CHECK(stores == quiet_stores && chip_reads == quiet_reads);
+    D.base_counter = tcnt();
+    D.base_offset = 400;
+    D.state = KUI_TOY_CDDA_PLAYING;
+    run(1000u);
+    CHECK(sounding() && starts == 2u && heard_play.base == 1400u && !wrong_frames);
+    /* To the end of its one pass: the last frames are played, then nothing. */
+    run(40000u);
+    CHECK(silent() && O.phase == KUI_TOY_CDDA_OUT_SILENT && !O.why && !wrong_frames && !O.underruns);
+    CHECK(last_heard >= 2600u * 588u && last_heard < 2600u * 588u + 4096u);
+    D.state = KUI_TOY_CDDA_ENDED;
+    ++D.generation;
+    run(100u);
+    CHECK(O.phase == KUI_TOY_CDDA_OUT_OFF && silent() && !O.asked);
+    printf("PASS a play on %s: placed at 0x%06x, %lu frames played, every one the play's; pause, release and the end\n",
+        build == 0u ? "MANATEE 2.00.09" : build == 1u ? "MANATEE 1.01.3b" : "MANATEE 1.01.37", (unsigned)O.ring, heard_frames);
+}
+/* Tracks, a gap between them, a track the card does not hold, laps. */
+static void pieces(void) {
+    fresh();
+    manatee2();
+    play(3900u, 4300u, 0u, 0);        /* the end of track 2, the gap, the start of track 3, for ever */
+    run(20000u);
+    CHECK(sounding() && !wrong_frames && O.silence_frames >= 151u * 588u && card_segments >= 4u && !O.underruns);
+    D.state = KUI_TOY_CDDA_IDLE;
+    ++D.generation;
+    run(100u);
+    CHECK(silent());
+    refuse_track = 4u;
+    play(6900u, 7200u, 2u, 0);        /* into a track the card does not hold: silence in its place */
+    run(9000u);
+    CHECK(O.phase == KUI_TOY_CDDA_OUT_SILENT && !O.why && !wrong_frames && O.refusals >= 2u && silent());
+    printf("PASS tracks, a gap, a track the card refuses and laps: %lu frames, every one the play's or silence\n", heard_frames);
+}
+/* The chip's clock off TMU0's by 150 parts in a million, each way. */
+static void drifting(int parts) {
+    fresh();
+    manatee1(false);
+    ppm = parts;
+    play(1000u, 9000u, 0u, 0);
+    run(300000u);
+    CHECK(sounding() && !wrong_frames && !O.underruns && O.anchors == 1u && O.restarts == 1u && starts == 2u);
+    /* A chip that plays the frame at its loop end as well: a frame twice a
+     * lap, and never one that is not the play's. */
+    if(parts > 0) {
+        fresh();
+        manatee2();
+        inclusive = true;
+        play(1000u, 9000u, 0u, 0);
+        run(300000u);
+        CHECK(sounding() && !wrong_frames && !O.underruns && heard_frames > 13000000u);
+    }
+    /* A play of nearly two minutes to its end on a chip that slow or fast:
+     * its last frame is played before the key-off. */
+    fresh();
+    manatee2();
+    ppm = parts * 6 / 5;
+    play(1000u, 9000u, 1u, 0);
+    run(109000u);
+    CHECK(silent() && !wrong_frames && last_heard + 1u >= (9000u - heard_play.base) * 588u && !O.restarts);
+    printf("PASS the chip's clock %+d ppm from TMU0 over five minutes: every frame the play's, the ring begun again once; a play's last frame at %+d ppm\n", parts, parts * 6 / 5);
+}
+/* Whatever is not proved leaves the chip alone. */
+static void refused(void) {
+    /* Another build of the driver; an admitted build that is not running. */
+    for(unsigned kind = 0; kind < 4u; ++kind) {
+        fresh();
+        manatee2();
+        if(kind == 0u)put32(0x20u, UINT32_C(0x00080002));
+        if(kind == 1u)put32(0xf8u, 0u);
+        if(kind == 2u)ram[0x50u] ^= 1u;
+        if(kind == 3u)arm_reset = 1u;
+        play(1000u, 4000u, 1u, 0);
+        run(500u);
+        CHECK(!stores && O.phase == KUI_TOY_CDDA_OUT_SILENT && !card_calls &&
+            O.why == (kind == 3u ? KUI_TOY_CDDA_OUT_WHY_ARM : KUI_TOY_CDDA_OUT_WHY_DRIVER));
+    }
+    /* Records that do not prove the two channels. */
+    for(unsigned kind = 0; kind < 4u; ++kind) {
+        fresh();
+        if(kind < 3u)manatee2();
+        else manatee1(false);
+        if(kind == 0u)ram[0x12062u] = 1u, ram[0x12061u] = 15u, put32(0x12068u, UINT32_C(0x00801f80));
+        if(kind == 1u)ram[0x12060u] = 47u;
+        if(kind == 2u)put32(0x12068u, UINT32_C(0x00801800));
+        if(kind == 3u)put32(0x12080u + 12u * 14u + 8u, UINT32_C(0x00801f80));
+        play(1000u, 4000u, 1u, 0);
+        run(500u);
+        CHECK(!stores && O.phase == KUI_TOY_CDDA_OUT_SILENT && O.why == KUI_TOY_CDDA_OUT_WHY_PROOF);
+    }
+    /* A channel the game uses at the start. */
+    for(unsigned side = 0; side < 2u; ++side) {
+        fresh();
+        manatee1(true);
+        put32(0x12080u + 12u * (13u + side) + 4u, 0x1234u);
+        play(1000u, 4000u, 1u, 0);
+        run(500u);
+        CHECK(!stores && O.why == KUI_TOY_CDDA_OUT_WHY_TAKE && O.why_detail == 1u << side);
+    }
+    /* No room: the banks leave less than the smallest ring anywhere. */
+    fresh();
+    manatee2();
+    bank(0u, 0x18000u, 0x1e8000u - 0x3000u);
+    play(1000u, 4000u, 1u, 0);
+    run(500u);
+    CHECK(!stores && O.why == KUI_TOY_CDDA_OUT_WHY_RING && O.why_detail == KUI_TOY_CDDA_OUT_RING_NONE);
+    /* A pair the reading does not explain. */
+    fresh();
+    manatee2();
+    bank(33u, 0x00800000u, 16u);
+    play(1000u, 4000u, 1u, 0);
+    run(500u);
+    CHECK(!stores && O.why == KUI_TOY_CDDA_OUT_WHY_RING && O.why_detail == KUI_TOY_CDDA_OUT_RING_PAIR + 33u);
+    /* The timer out of its profile; SR.BL; a G2 DMA channel. */
+    fresh();
+    manatee2();
+    tcr = 3u;
+    play(1000u, 4000u, 1u, 0);
+    run(300u);
+    CHECK(!stores && !chip_reads && O.why == KUI_TOY_CDDA_OUT_WHY_CLOCK);
+    for(unsigned kind = 0; kind < 2u; ++kind) {
+        fresh();
+        manatee2();
+        play(1000u, 4000u, 1u, 0);
+        if(kind)dma_start[3] = 1u;
+        else dma_enable[1] = 1u;
+        run(300u);
+        CHECK(!stores && !chip_reads && O.skipped_dma > 10u);
+    }
+    fresh();
+    manatee2();
+    play(1000u, 4000u, 1u, 0);
+    sr = REST | BL;
+    run(300u);
+    CHECK(!stores && !chip_reads && !g2_reads && O.skipped_bl > 10u);
+    printf("PASS nothing is written for another driver, one not running, a held sound CPU, unproved records, a used channel, no room, no clock, a G2 transfer, SR.BL\n");
+}
+/* Where the ring goes. */
+static void placing(void) {
+    /* Banks up to CRI's slots: the ring in the slots' place while the table
+     * names none of them. */
+    fresh();
+    manatee2();
+    bank(0u, 0x18000u, 0x1dfe00u - 0x18000u);
+    play(1000u, 4000u, 1u, 0);
+    run(1000u);
+    CHECK(sounding() && O.frames == 16384u && O.ring == ((0x200000u - RING16) & ~31u) && !wrong_frames);
+    /* CRI opens its first slot, which lies in it: no store after the table
+     * names it. */
+    bank(48u + 15u, 0x1fbfc0u, 0x4000u);
+    const unsigned long before = ring_stores;
+    run(200u);
+    CHECK(silent() && ring_stores == before && O.why == KUI_TOY_CDDA_OUT_WHY_RING &&
+        O.why_detail == KUI_TOY_CDDA_OUT_RING_TABLE && O.lost_table == 1u && !O.placed);
+    /* The next play looks again, and finds a place below the slot. */
+    D.state = KUI_TOY_CDDA_IDLE;
+    ++D.generation;
+    run(100u);
+    strict = true;
+    play(1000u, 4000u, 1u, 0);
+    run(1000u);
+    CHECK(sounding() && O.frames == 16384u && O.ring == ((0x1fbfc0u - RING16) & ~31u) && !wrong_frames);
+    /* Less room: the smaller rings. */
+    for(unsigned size = 1; size < 3u; ++size) {
+        fresh();
+        manatee1(false);
+        const uint32_t room = size == 1u ? 40000u : 20000u;
+        bank(0u, 0x18000u, 0x200000u - 0x18000u - room);
+        play(1000u, 4000u, 1u, 0);
+        run(3000u);
+        CHECK(sounding() && O.frames == (size == 1u ? 8192u : 4096u) && O.ring >= 0x200000u - room && !wrong_frames && !O.underruns);
+    }
+    /* A guard line overwritten: what lies there is no longer ours. */
+    fresh();
+    manatee2();
+    play(1000u, 4000u, 1u, 0);
+    run(1000u);
+    CHECK(sounding());
+    put32(O.ring + 28u, 0u);
+    const unsigned long ring_before = ring_stores;
+    run(100u);
+    CHECK(silent() && ring_stores == ring_before && O.lost_guard == 1u && O.why_detail == KUI_TOY_CDDA_OUT_RING_GUARD);
+    printf("PASS the ring's place: below CRI's slots first, among them when the table names none, smaller where room is short; given up when a pair or a guard says so\n");
+}
+/* The driver takes a channel, keys one off, changes its registers, changes itself. */
+static void contested(void) {
+    for(unsigned side = 0; side < 2u; ++side) {
+        fresh();
+        manatee2();
+        play(1000u, 4000u, 1u, 0);
+        run(1000u);
+        CHECK(sounding());
+        /* The game starts a stream on the port: its record says so first. */
+        ram[0x13800u + 0x40u * (6u + side)] |= 1u;
+        const unsigned long before = ring_stores;
+        run(100u);
+        /* Nothing more to that channel (the model refuses it), the other
+         * keyed off, no more audio written. */
+        CHECK(!voice[pair[!side]].active && ring_stores == before && O.takes == 1u &&
+            O.phase == KUI_TOY_CDDA_OUT_SILENT && O.why == KUI_TOY_CDDA_OUT_WHY_TAKE && O.why_detail == 1u << side);
+        CHECK(reg[pair[side]][0] & 0x4000u);
+        /* A silent play is looked at every sixtieth of a second, no more. */
+        beat(14000u);
+        const unsigned long looked = chip_reads;
+        beat(6000u);
+        CHECK(chip_reads == looked);
+        beat(7100u);
+        CHECK(chip_reads > looked);
+    }
+    /* Another address on a channel with its record still free: the driver's. */
+    fresh();
+    manatee1(false);
+    play(1000u, 4000u, 1u, 0);
+    run(1000u);
+    reg[pair[1]][0] = 0x4203u;
+    strict = false;
+    run(100u);
+    CHECK(O.why == KUI_TOY_CDDA_OUT_WHY_TAKE && O.why_detail == 8u && !voice[pair[0]].active && reg[pair[1]][0] == 0x4203u);
+    /* A stop-all keys our channel off: the ring begins again; nine times in
+     * one play is given up. */
+    fresh();
+    manatee2();
+    play(1000u, 9000u, 0u, 0);
+    run(1000u);
+    for(unsigned times = 1; times <= 9u; ++times) {
+        CHECK(sounding());
+        reg[63][0] &= ~0x4000u;
+        strict = false;                /* the right plane has stopped: the pair is no longer whole */
+        strobe();
+        run(60u);
+        strict = true;
+        run(1000u);
+        CHECK(O.drops == times && !wrong_loud);
+    }
+    CHECK(silent() && O.why == KUI_TOY_CDDA_OUT_WHY_FLAP && O.restarts == 8u && starts == 9u);
+    /* A command for the idle port rewrites its pitch and level: put back. */
+    fresh();
+    manatee2();
+    play(1000u, 9000u, 0u, 0);
+    run(1000u);
+    reg[62][6] = 0x0800u;
+    reg[62][9] = 0x0000u;
+    reg[63][3] = 0x1000u;
+    strict = false;
+    run(40u);
+    strict = true;
+    CHECK(!reg[62][6] && reg[62][9] == 0x0f1fu && reg[63][3] == 16384u && O.fixes == 3u && sounding());
+    /* The driver is loaded again under the play: not one store more. */
+    fresh();
+    manatee2();
+    play(1000u, 9000u, 0u, 0);
+    run(1000u);
+    CHECK(sounding());
+    put32(0xf8u, 0u);
+    frozen = true;
+    strict = false;
+    run(500u);
+    CHECK(O.phase == KUI_TOY_CDDA_OUT_SILENT && O.why == KUI_TOY_CDDA_OUT_WHY_ID && !O.family && !O.placed);
+    /* Another admitted build in its place is another driver all the same. */
+    fresh();
+    manatee1(false);
+    play(1000u, 9000u, 0u, 0);
+    run(1000u);
+    CHECK(sounding());
+    manatee1(true);
+    frozen = true;
+    strict = false;
+    run(500u);
+    CHECK(O.phase == KUI_TOY_CDDA_OUT_SILENT && O.why == KUI_TOY_CDDA_OUT_WHY_ID);
+    /* A channel the driver left keyed on, its port free: keyed off before
+     * the ring's key-on, so that both planes start together. */
+    fresh();
+    manatee2();
+    reg[63][0] = 0x4012u;
+    voice[63] = (struct voice){true, now, 0u};
+    play(1000u, 9000u, 0u, 0);
+    run(1000u);
+    CHECK(sounding() && O.rekeys == 1u && !wrong_frames && O.keys == 1u);
+    printf("PASS the driver's part: a taken channel is left alone, a dropped key begins the ring again (given up at the ninth), changed registers are put back, a new driver ends every store\n");
+}
+/* The card does not keep up; the bus does not answer. */
+static void starved(void) {
+    fresh();
+    manatee2();
+    play(1000u, 9000u, 0u, 0);
+    run(1000u);
+    CHECK(sounding() && !O.underruns);
+    /* The game reads: the card hands nothing on for half a second. */
+    card_idle = true;
+    strict = false;
+    run(500u);
+    CHECK(O.underruns >= 1u && !sounding());
+    /* What was played past the audio was the ring's last lap or silence,
+     * and the play begins again when the card is back. */
+    card_idle = false;
+    run(300u);
+    strict = true;
+    const unsigned long wrong_before = wrong_frames;
+    run(2000u);
+    CHECK(sounding() && wrong_frames == wrong_before && O.restarts >= 1u);
+    /* Bytes that do not follow on from the last: not one of them is
+     * played, and the ring begins again. */
+    fresh();
+    manatee1(false);
+    play(1000u, 9000u, 0u, 0);
+    run(1000u);
+    card_skips = true;
+    run(1000u);
+    CHECK(sounding() && !card_skips && O.restarts == 1u && !O.underruns && !wrong_frames);
+    /* Dry in the ring's first lap: what is played past the audio is the
+     * cleared ring, not what lay in sound memory. */
+    fresh();
+    manatee2();
+    card_most = 2048u;
+    play(1000u, 9000u, 0u, 0);
+    for(unsigned beats = 0; O.phase != KUI_TOY_CDDA_OUT_RUN; ++beats) {
+        CHECK(beats < 200u);
+        beat(4500u);
+    }
+    /* The card hands nothing on, and the next heartbeat comes a fifth of a
+     * second later: the chip has run past the audio by then. */
+    card_idle = true;
+    strict = false;
+    beat(200u * (SECOND / 1000u));
+    run(200u);
+    CHECK(O.underruns == 1u && wrong_frames > 1000u && !wrong_nonzero && silent());
+    /* A card slower than the music: begun again and again, never wrong
+     * audio at the start of a ring. */
+    fresh();
+    manatee1(true);
+    card_most = 512u;
+    strict = false;
+    play(1000u, 9000u, 0u, 0);
+    run(5000u);
+    CHECK(O.underruns >= 3u && card_low > 100u);
+    /* The FIFO never empties: nothing is read or written, and it ends. */
+    fresh();
+    manatee2();
+    fifo_stuck = true;
+    play(1000u, 4000u, 1u, 0);
+    run(200u);
+    CHECK(!stores && !chip_reads && O.timeouts > 5u);
+    /* One heartbeat waits 3 ms of TMU0 for it and no longer; with TMU0
+     * standing still, 40,000 polls. */
+    uint64_t began = now;
+    beat(14000u);
+    CHECK(now - began - 14000u <= 2344u + 8u && now - began - 14000u >= 2344u);
+    fresh();
+    manatee2();
+    play(1000u, 9000u, 0u, 0);
+    run(1000u);
+    CHECK(sounding());
+    fifo_stuck = true;
+    timer_stopped_at = now;
+    tstr = 0u;
+    const unsigned long polled = fifo_polls;
+    beat(14000u);
+    CHECK(fifo_polls - polled == 40000u && O.why == KUI_TOY_CDDA_OUT_WHY_CLOCK);
+    tstr = 1u;
+    /* A torn word is read until two reads agree. */
+    fresh();
+    manatee2();
+    torn_address = SOUND + 0x20u;
+    torn_left = 5u;
+    play(1000u, 4000u, 1u, 0);
+    run(1000u);
+    CHECK(sounding() && !torn_left && !wrong_frames);
+    torn_address = 0u;
+    printf("PASS a card that hands nothing on, a slow card, a bus that does not answer, a word being written\n");
+}
+/* The levels: full, hard left and right. */
+static void level(void) {
+    fresh();
+    manatee2();
+    play(1000u, 9000u, 0u, 0);
+    run(1000u);
+    CHECK(reg[62][9] == 0x0f1fu && reg[63][9] == 0x0f0fu);
+    printf("PASS full level, hard left and right\n");
+}
+/* The terminal report, another play, the clock lost in play. */
+static void endings(void) {
+    fresh();
+    manatee2();
+    play(1000u, 9000u, 0u, 0);
+    run(1000u);
+    CHECK(sounding());
+    const unsigned long calls = card_calls;
+    since_empty = 8u;
+    kui_toy_cdda_output_terminal();
+    CHECK(silent() && !O.keyed && sr == REST && card_calls == calls && !reg[62][9] && !reg[63][9]);
+    /* A channel that names another address by then is the driver's: it is
+     * left as it is, and the other keyed off. */
+    fresh();
+    manatee2();
+    play(1000u, 9000u, 0u, 0);
+    run(1000u);
+    reg[63][0] = 0x4203u;
+    reg[63][9] = 0x0a05u;
+    strict = false;
+    since_empty = 8u;
+    kui_toy_cdda_output_terminal();
+    CHECK(!voice[62].active && voice[63].active && reg[63][0] == 0x4203u && reg[63][9] == 0x0a05u && !reg[62][9] && !O.keyed);
+    /* Less of the worker's stack below the caller than the output needs:
+     * nothing is done, at a heartbeat or at the terminal, and it is counted. */
+    fresh();
+    manatee2();
+    play(1000u, 9000u, 0u, 0);
+    run(1000u);
+    CHECK(sounding() && !O.skipped_stack);
+    stack_room = KUI_TOY_CDDA_OUTPUT_STACK - 4u;
+    const unsigned long held_stores = stores, held_reads = chip_reads + g2_reads;
+    beat(14000u);
+    since_empty = 8u;
+    kui_toy_cdda_output_terminal();
+    CHECK(sounding() && stores == held_stores && chip_reads + g2_reads == held_reads && O.skipped_stack == 1u);
+    stack_room = KUI_TOY_CDDA_OUTPUT_STACK;
+    beat(14000u);
+    CHECK(chip_reads + g2_reads > held_reads && O.skipped_stack == 1u);
+    stack_room = 2048u;
+    /* With SR.BL set there, nothing is touched. */
+    fresh();
+    manatee2();
+    play(1000u, 9000u, 0u, 0);
+    run(1000u);
+    sr = REST | BL;
+    const unsigned long before = stores, reads = chip_reads, beats = O.heartbeats;
+    kui_toy_cdda_output_terminal();
+    CHECK(sounding() && stores == before && chip_reads == reads && O.skipped_bl == 1u && O.heartbeats == beats);
+    sr = REST;
+    /* Another play begins: the first one's ring ends, the new one's begins
+     * at its own place. */
+    play(4151u, 7000u, 1u, 20);
+    run(1000u);
+    CHECK(sounding() && starts >= 2u && heard_play.base >= 4171u && heard_play.base < 4260u && !wrong_frames);
+    /* The timer leaves its profile: keyed off, and no play followed. */
+    tstr = 0u;
+    run(100u);
+    CHECK(silent() && O.why == KUI_TOY_CDDA_OUT_WHY_CLOCK);
+    tstr = 1u;
+    /* The drive's play ends (the game asks, and the player sees its last
+     * sector passed) while the ring still holds its last frames: they are
+     * played to the end, then nothing. */
+    fresh();
+    manatee2();
+    play(1000u, 1300u, 1u, 0);
+    run(4010u);
+    CHECK(sounding() && O.finished);
+    D.state = KUI_TOY_CDDA_ENDED;
+    ++D.generation;
+    run(1000u);
+    CHECK(silent() && !wrong_frames && !cut_frames && last_heard + 1u >= (1300u - heard_play.base) * 588u &&
+        heard_play.base < 1020u && O.phase == KUI_TOY_CDDA_OUT_OFF);
+    /* The same where the ring began late and is small, so that the drive
+     * ends before the last sectors are asked for: what is in the ring is
+     * the play's last, and the card is not asked again. */
+    fresh();
+    manatee2();
+    bank(0u, 0x18000u, 0x200000u - 0x18000u - 40000u);
+    card_most = 300u;
+    play(1000u, 1300u, 1u, 0);
+    for(unsigned beats = 0; O.phase != KUI_TOY_CDDA_OUT_RUN; ++beats) {
+        CHECK(beats < 400u);
+        beat(4500u);
+    }
+    card_most = 8192u;
+    CHECK(O.frames == 8192u && heard_play.base < 1010u);
+    while(tcnt() != D.base_counter - 4010u * (SECOND / 1000u) && (uint32_t)(D.base_counter - tcnt()) < 4010u * (SECOND / 1000u))beat(4500u);
+    CHECK(sounding() && !O.finished && !O.underruns);
+    D.state = KUI_TOY_CDDA_ENDED;
+    ++D.generation;
+    const unsigned long asked = card_calls - card_nones;
+    run(1000u);
+    CHECK(silent() && !wrong_frames && cut_frames && card_calls - card_nones == asked && O.phase == KUI_TOY_CDDA_OUT_OFF);
+    /* A play that is over by the drive's clock before the output looks. */
+    fresh();
+    manatee2();
+    play(1000u, 1100u, 1u, 0);
+    now += 3u * SECOND;
+    run(300u);
+    CHECK(!key_ons && O.phase == KUI_TOY_CDDA_OUT_SILENT && !O.why && !ring_stores);
+    printf("PASS the terminal key-off, a new play over an old one, a lost clock, a play already over\n");
+}
+
+int main(void) {
+    for(unsigned build = 0; build < 3u; ++build)plays_through(build);
+    pieces();
+    drifting(150);
+    drifting(-150);
+    refused();
+    placing();
+    contested();
+    starved();
+    level();
+    endings();
+    printf("CD-music output: %lu checks passed; host model only\n", checks);
+    return 0;
+}
