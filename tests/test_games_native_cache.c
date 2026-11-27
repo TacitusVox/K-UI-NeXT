@@ -30,7 +30,7 @@ static struct {
     size_t forced_program_bytes;
     uint32_t forced_pool,forced_pool_bytes;
     unsigned source_sha_calls,extent_calls,vmu_path_lookups;
-    bool authored_resolution;
+    bool authored_resolution,fail_extent;
 } io;
 void __real_kui_sha256_update(struct kui_sha256 *,const void *,size_t);
 void __wrap_kui_sha256_update(struct kui_sha256 *sha,const void *data,size_t bytes) {
@@ -128,6 +128,7 @@ static bool fixture_replay_hashed(const void *image,size_t bytes,uint32_t addres
 }
 static bool fixture_extent(const void *image,size_t bytes,uint32_t address,size_t *program_bytes) {
     ++io.extent_calls;
+    if(io.fail_extent)return false;
     if(io.forced_program_bytes) {
         CHECK(io.forced_program_bytes<bytes);*program_bytes=io.forced_program_bytes;return true;
     }
@@ -312,7 +313,10 @@ static void dual_gates_and_hits(void) {
     uint8_t tail[4097];for(unsigned i=0;i<sizeof(tail);i++)tail[i]=(uint8_t)(i*43u+3u);
     setup(tail,sizeof(tail));map.reader=KUI_RETAIL_READER_ASYNC;
     memcpy(module+3072u,&cap,sizeof(cap));memcpy(before,module,sizeof(module));
-    CHECK(prepare(true,KUI_RETAIL_READER_ASYNC,false,"/Games/Unknown")==NATIVE_CACHE_SKIPPED);
+    /* The combined module's stage would stop on this executable after the
+     * bootstrap: the preflight says so. The complete source read still
+     * proves the bytes, and nothing is seeded or saved. */
+    CHECK(prepare(true,KUI_RETAIL_READER_ASYNC,false,"/Games/Unknown")==NATIVE_CACHE_UNSUPPORTED);
     CHECK(source_proof.complete && io.reads==1u && io.builds==1u && !io.writes);
 }
 /* A fixed-arena record (kind 2) needs the combined module's trampoline. A
@@ -504,13 +508,53 @@ static void pool_size_tests(void) {
         }
     puts("PASS native pool size: a lease over a quarter of the SDK pool is refused for the combined module at three lease sizes; edge, fixed arena, Standard module and saved records keep their answers");
 }
+/* The combined module's stage repeats this complete check on the loaded
+ * executable and stops after the bootstrap where it fails. An unproved extent
+ * or an unrecognized SDK is therefore the preflight's answer for either
+ * Background reader and Virtual VMU setting: one source read, the module
+ * unchanged, nothing saved. The Standard module's launch is not refused. */
+static void unsupported_tests(void) {
+    uint8_t boot[4097];for(unsigned i=0;i<sizeof(boot);i++)boot[i]=(uint8_t)(i*43u+3u);
+    const struct kui_native_dual_capability cap={KUI_NATIVE_DUAL_MAGIC0,KUI_NATIVE_DUAL_MAGIC1,
+        1u,KUI_NATIVE_DUAL_CAPABILITY_BYTES,KUI_RETAIL_READER_ASYNC,KUI_RETAIL_READER_ASYNC_EAGER,
+        KUI_NATIVE_DUAL_COMPACT_LEASE_BYTES,0u};
+    unsigned refused=0u;
+    for(unsigned extent=0u;extent<2u;++extent)
+        for(unsigned reader=KUI_RETAIL_READER_STANDARD;reader<=KUI_RETAIL_READER_ASYNC_EAGER;++reader)
+            for(unsigned vmu=0u;vmu<2u;++vmu) {
+                const bool dual=reader!=KUI_RETAIL_READER_STANDARD;
+                setup(boot,sizeof(boot));map.reader=reader;allow_persistent_cache=vmu;
+                if(dual)memcpy(module+3072u,&cap,sizeof(cap));
+                memcpy(before,module,sizeof(module));io.fail_extent=extent;
+                CHECK(prepare(true,dual?reader:0u,false,"/Games/Unknown")==
+                    (dual?NATIVE_CACHE_UNSUPPORTED:NATIVE_CACHE_SKIPPED));
+                CHECK(source_proof.complete && io.reads==1u && io.extent_calls==1u &&
+                      io.builds==(extent?0u:1u) && !io.writes && !io.renames && !io.replays);
+                CHECK(!memcmp(before,module,sizeof(module)));
+                refused+=dual;
+            }
+    CHECK(refused==8u);
+    /* No answer: a module without a seed is never asked, and a source that
+     * could not be read leaves the decision to the stage as before. */
+    setup(boot,sizeof(boot));map.reader=KUI_RETAIL_READER_ASYNC;
+    memset(module,0x59,sizeof(module));memcpy(module+3072u,&cap,sizeof(cap));memcpy(before,module,sizeof(module));
+    CHECK(prepare(true,KUI_RETAIL_READER_ASYNC,false,"/Games/Unknown")==NATIVE_CACHE_SKIPPED && !io.reads);
+    setup(boot,sizeof(boot));map.reader=KUI_RETAIL_READER_ASYNC;
+    memcpy(module+3072u,&cap,sizeof(cap));memcpy(before,module,sizeof(module));io.fail=FAIL_BOOT_READ;
+    CHECK(prepare(true,KUI_RETAIL_READER_ASYNC,false,"/Games/Unknown")==NATIVE_CACHE_SKIPPED);
+    CHECK(io.reads==1u && !io.builds && !source_proof.complete);
+    puts("PASS native unsupported executable: unproved extent or unrecognized SDK answers for the combined module; Standard, seedless and unread launches keep theirs");
+}
 /* The launcher's answer for every result, Virtual VMU setting, reader-only
- * choice and installed state. Only a pool refusal speaks; with Virtual VMU
- * Off, the SDK SCI family and the reader-only module installed it goes on. */
+ * choice and installed state. A pool refusal speaks unless Virtual VMU is
+ * Off and the reader-only module can run the game. An executable the SDK
+ * check does not recognize speaks unless the reader-only module can run it,
+ * which it does with Virtual VMU On too. Every other result is silent. */
 static void refusal_tests(void) {
     static const char pool[]="This game's memory pool is too small for the Background worker.";
+    static const char sdk[]="Background loading cannot recognize this game's system library.";
     unsigned spoken=0u,silent=0u;
-    for(int result=NATIVE_CACHE_SKIPPED;result<=NATIVE_CACHE_POOL_SMALL;++result)
+    for(int result=NATIVE_CACHE_SKIPPED;result<=NATIVE_CACHE_UNSUPPORTED;++result)
         for(unsigned vmu=0u;vmu<2u;++vmu)for(unsigned reader_only=0u;reader_only<2u;++reader_only)
             for(int installed=-1;installed<=1;++installed) {
                 const char *said=native_cache_refusal((enum native_cache_result)result,vmu,reader_only,installed);
@@ -521,14 +565,21 @@ static void refusal_tests(void) {
                     else if(!reader_only)expected=" Set Background loading Off";
                     else if(!installed)expected=" Install the standalone New reader, or set Background loading Off";
                 }
+                if(result==NATIVE_CACHE_UNSUPPORTED) {
+                    if(!reader_only)expected=vmu?
+                        " Set Background loading Off and Virtual VMU Off; saves then need a real VMU":
+                        " Set Background loading Off";
+                    else if(!installed)expected=" Install the standalone New reader, or set Background loading Off";
+                }
                 if(!expected) {CHECK(!said);++silent;continue;}
                 /* "Retail boot: " and the first sentence fill a 76-column line. */
-                CHECK(said && strlen(pool)==76u-13u && !strncmp(said,pool,strlen(pool)));
-                CHECK(!strcmp(said+strlen(pool),expected) && strlen(expected)<=76u);
+                const char *first=result==NATIVE_CACHE_POOL_SMALL?pool:sdk;
+                CHECK(said && strlen(first)==76u-13u && !strncmp(said,first,strlen(first)));
+                CHECK(!strcmp(said+strlen(first),expected) && strlen(expected)<=76u);
                 ++spoken;
             }
-    CHECK(spoken==10u && silent==62u);
-    puts("PASS native refusal text: a pool refusal names the setting that starts the game for each Virtual VMU and reader-only state; every other result is silent");
+    CHECK(spoken==18u && silent==66u);
+    puts("PASS native refusal text: a pool or SDK refusal names the setting that starts the game for each Virtual VMU and reader-only state; every other result is silent");
 }
 /* Exercise a new launch with the disk left intact but fresh package and RAM.
  * Both the source proof returned to the GUI and the seed validated by the
@@ -542,7 +593,9 @@ static unsigned repeat_launch(const uint8_t *boot,size_t bytes,const char *root,
     struct native_cache_source_proof proof={0};
     enum native_cache_result result=native_cache_prepare_repeat(&game,&map,true,map.reader,false,
         &package,root,vmu_on,logger,cancelled,&proof,&standalone,&pending);
-    CHECK(result==(accepted?NATIVE_CACHE_READY:NATIVE_CACHE_SKIPPED));
+    /* The combined module is selected throughout: an executable its check
+     * does not recognize is unsupported, never a silent unseeded launch. */
+    CHECK(result==(accepted?NATIVE_CACHE_READY:NATIVE_CACHE_UNSUPPORTED));
     CHECK(io.reads==1u && io.extent_calls==expected_scans && io.builds==expected_scans);
     CHECK(proof.complete && proof.crc32==kui_crc32(0,boot,bytes));
     uint8_t expected[32];digest(boot,bytes,expected);CHECK(!memcmp(proof.sha256,expected,32u));
@@ -742,7 +795,7 @@ static void advisory_alias_publication_faults(void) {
 }
 int KUI_GAMES_NATIVE_CACHE_TEST_MAIN(int argc,char **argv) {
     CHECK(argc>=1 && argc<=4);codec_and_trust_tests();gates_and_hits();dual_gates_and_hits();
-    fixed_arena_needs_dual();arena_needs_compact_dual();pool_placement_tests();pool_size_tests();refusal_tests();
+    fixed_arena_needs_dual();arena_needs_compact_dual();pool_placement_tests();pool_size_tests();unsupported_tests();refusal_tests();
     advisory_alias_publication_faults();
     uint8_t authored[1024];
     for(unsigned i=0;i<sizeof(authored);i++)authored[i]=(uint8_t)(i*17u+1u);

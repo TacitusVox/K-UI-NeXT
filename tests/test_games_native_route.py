@@ -19,9 +19,9 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 X = "native-dual-standalone-report"                # New (X), SCI family, reader-only module installed
-X_ABSENT = "native-dual-standalone-absent-report"  # New (X), SCI family, reader-only module not installed
-X_NOFAMILY = "native-dual-standalone-nofamily-report"  # New (X), no SCI family
-Y = "native-dual-standalone-y-report"              # Legacy (Y)
+X_ABSENT = "native-dual-standalone-absent"         # New (X), SCI family, reader-only module not installed
+X_NOFAMILY = "native-dual-standalone-nofamily"     # New (X), no SCI family
+Y = "native-dual-standalone-y"                     # Legacy (Y)
 
 POOL = "This game's memory pool is too small for the Background worker."
 OFF_BOTH = " Set Background loading Off and Virtual VMU Off; saves then need a real VMU"

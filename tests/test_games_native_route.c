@@ -16,7 +16,7 @@ bool __real_kui_vmu_native_resolution_cache_build_prefixed(const void *,size_t,u
     struct kui_vmu_native_resolution *,const struct kui_sha256_prefix *);
 bool __wrap_kui_vmu_native_resolution_cache_build_prefixed(const void *source,size_t bytes,uint32_t address,
     void *wire,size_t wire_bytes,struct kui_vmu_native_resolution *out,const struct kui_sha256_prefix *marks) {
-    assert(test.active && bytes==3001u && address==load && wire_bytes==1024u && out);
+    assert(test.active && (bytes==3001u || bytes==4096u) && address==load && wire_bytes==1024u && out);
     assert(marks && marks->source==source && marks->bytes==bytes);
     ++builds;
     assert(!__real_kui_vmu_native_resolution_cache_build_prefixed(source,bytes,address,wire,wire_bytes,out,marks));
@@ -32,7 +32,7 @@ int main(int argc,char **argv) {
     assert(argc==6);pool=argv[5];
     struct stat st;assert(!lstat(argv[1],&st));test.image=fopen(argv[1],"r+b");assert(test.image);
     test.blocks=(uint64_t)st.st_size/512u;test.fault=argv[4];
-    assert(native_dual_report() && native_standalone_case());
+    assert(native_standalone_case());
     if(!strcmp(argv[3],"seed")) {
         kui_media_set(&media);assert(kui_mount(&fs,log_line));seed(argv[2]);
         /* The host launcher has no virtual-card code and refuses a Background

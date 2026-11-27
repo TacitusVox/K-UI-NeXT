@@ -174,7 +174,10 @@ def audit(real=None):
             else:
                 raise AssertionError("pre-fix production source unexpectedly passed final fallback identity")
             if real:
-                for case in (FALLBACK, "native-dual-standalone-y-report"):
+                # Linked modules carry a seed, so the launcher's own SDK check
+                # refuses the synthetic executable unless the reader-only
+                # module runs it: the fallback is the one launch left here.
+                for case in (FALLBACK,):
                     fixture, timing, report = prepare(binary, clean, directory, case, real)
                     rows.append(dict(filesystem=kind, modules="unchanged linked inputs",
                                      **expect_final(fixture, timing, report, case)))

@@ -1796,7 +1796,7 @@ static bool prepare_launch(const char *path,uint32_t reader,const struct kui_gam
     if(refused) {problem=refused;goto done;}
     /* New only: the combined module would refuse this executable, which has
      * the SDK SCI family. An installed reader-only module runs it instead;
-     * without one the combined module reports its refusal as before. */
+     * without one the launcher says what to install or set. */
     bool native_standalone=false;
     if(standalone_candidate) {
         FILINFO optional;

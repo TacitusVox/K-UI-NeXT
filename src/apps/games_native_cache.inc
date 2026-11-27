@@ -14,7 +14,8 @@
 #include "kui/smash_launch_timing.h"
 
 enum native_cache_result {NATIVE_CACHE_SKIPPED,NATIVE_CACHE_READY,NATIVE_CACHE_CANCELLED,
-    NATIVE_CACHE_POOL_OVERLAP,NATIVE_CACHE_READER_TOO_OLD,NATIVE_CACHE_POOL_SMALL};
+    NATIVE_CACHE_POOL_OVERLAP,NATIVE_CACHE_READER_TOO_OLD,NATIVE_CACHE_POOL_SMALL,
+    NATIVE_CACHE_UNSUPPORTED};
 /* This reports only a completed source read, independently of whether an
  * optional SDK mapping can be built. It never grants cache/live ownership. */
 struct native_cache_source_proof {bool complete;uint32_t crc32;uint8_t sha256[32];};
@@ -140,6 +141,7 @@ static bool native_cache_pool_small(const struct kui_runtime_image *package,
  * starts the game. Its first sentence fills one 76-column log line after
  * "Retail boot: "; the setting is the next line. */
 #define NATIVE_CACHE_SAYS_POOL "This game's memory pool is too small for the Background worker."
+#define NATIVE_CACHE_SAYS_SDK "Background loading cannot recognize this game's system library."
 #define NATIVE_CACHE_SET_BOTH " Set Background loading Off and Virtual VMU Off; saves then need a real VMU"
 #define NATIVE_CACHE_SET_VMU " Set Virtual VMU Off; saves then need a real VMU"
 #define NATIVE_CACHE_SET_BACKGROUND " Set Background loading Off"
@@ -151,6 +153,13 @@ static const char *native_cache_refusal(enum native_cache_result result,bool vmu
             NATIVE_CACHE_SAYS_POOL NATIVE_CACHE_SET_BOTH;
         if(!reader_only)return NATIVE_CACHE_SAYS_POOL NATIVE_CACHE_SET_BACKGROUND;
         if(!installed)return NATIVE_CACHE_SAYS_POOL NATIVE_CACHE_SET_INSTALL;
+    }
+    /* The reader-only module needs no SDK check and runs with Virtual VMU On
+     * too, without a virtual card, as before. */
+    if(result==NATIVE_CACHE_UNSUPPORTED) {
+        if(!reader_only)return vmu_on?NATIVE_CACHE_SAYS_SDK NATIVE_CACHE_SET_BOTH:
+            NATIVE_CACHE_SAYS_SDK NATIVE_CACHE_SET_BACKGROUND;
+        if(!installed)return NATIVE_CACHE_SAYS_SDK NATIVE_CACHE_SET_INSTALL;
     }
     return NULL;
 }
@@ -245,7 +254,18 @@ static enum native_cache_result native_cache_prepare_repeat(const struct kui_gam
     KUI_SMASH_TIME_SPAN(program_extent,KUI_SMASH_UI_PROGRAM_EXTENT);
     bool extent_valid=kui_vmu_native_program_extent(boot,map->boot_bytes,KUI_RETAIL_EXEC_ADDRESS,&program_bytes);
     KUI_SMASH_TIME_END(program_extent);
-    if(!extent_valid)goto finished;
+    /* The combined module's stage runs this same complete check on the
+     * loaded executable and stops after the bootstrap where it fails. The
+     * launcher says so before the launch instead. A read that failed, a
+     * module without a seed or a launch that is not eligible gave no answer
+     * and still leaves the decision to the stage. */
+    if(!extent_valid) {
+        if(dual) {
+            if(log)log("Native reader: the executable's extent is not proved; the combined reader would stop after the bootstrap");
+            result=NATIVE_CACHE_UNSUPPORTED;
+        }
+        goto finished;
+    }
     kui_smash_launch_timing_metric(KUI_SMASH_UI_PROGRAM_BYTES,program_bytes);
     kui_smash_launch_timing_phase(KUI_SMASH_UI_MDE_PROOF);
     char path[120],hex[65];
@@ -275,6 +295,10 @@ static enum native_cache_result native_cache_prepare_repeat(const struct kui_gam
         KUI_SMASH_TIME_END(discover_time);
         if(!resolved) {
             native_cache_standalone(boot,map,standalone);
+            if(dual) {
+                if(log)log("Native reader: the SDK check does not recognize this executable; the combined reader would stop after the bootstrap");
+                result=NATIVE_CACHE_UNSUPPORTED;
+            }
             goto finished;
         }
         if(native_cache_cancelled(cancel)) {result=NATIVE_CACHE_CANCELLED;goto finished;}

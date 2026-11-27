@@ -1035,12 +1035,19 @@ static void check_native_dual(const char *directory) {
     if(native_standalone_case() && !fault("native-dual-standalone-badcap"))
         assert(test.family_calls==(reader==KUI_RETAIL_READER_ASYNC?1u:0u));
     if(reader!=KUI_RETAIL_READER_ASYNC)assert(!test.family_calls);
+    /* The launcher's own SDK check refuses a synthetic executable before the
+     * launch. A New launch asked once for the family first; no module was
+     * replaced, nothing was written and the reader-only module stayed shut. */
+    if(strstr(test.fault,"native-dual-unsupported"))
+        assert(!result && test.family_calls==(reader==KUI_RETAIL_READER_ASYNC?1u:0u));
+    if(fault("native-dual-standalone-y") || fault("native-dual-standalone-nofamily") ||
+       fault("native-dual-standalone-absent"))assert(!result);
     /* Both readers use the exact selected compact dual path. A stale112 KiB
      * session sidecar is present, and neither reader may even open it. */
     assert(!test.session_package_opens && !test.session_a1_package_opens);
     if(a1) {
-        assert(test.dual_a1_package_opens==1u && !test.dual_package_opens);
-        assert(test.family_calls==(reader==KUI_RETAIL_READER_ASYNC?1u:0u));
+        /* The A1 fixtures' module carries no seed: the launcher never asks. */
+        assert(test.dual_a1_package_opens==1u && !test.dual_package_opens && !test.family_calls);
     } else assert(!test.dual_a1_package_opens);
     assert(test.standalone_package_opens==(standalone || fault("native-dual-standalone-badcap") || fault("native-dual-standalone-99")?1u:0u));
     if(result && standalone) {

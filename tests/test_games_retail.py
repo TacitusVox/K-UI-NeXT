@@ -47,8 +47,9 @@ NATIVE_DUAL_CASES = ("native-dual-x", "native-dual-y", "native-dual-x-report", "
     "native-dual-cap-malformed", "native-dual-cap-unrelated", "native-dual-cap-truncated",
     "native-dual-scif", "native-dual-too-many", "native-dual-patches",
     "native-dual-fallback-report", "native-dual-retry-report", "native-dual-x-cooked-report", "native-dual-cancel-source",
-    "native-dual-standalone-report", "native-dual-standalone-y-report", "native-dual-standalone-absent-report",
-    "native-dual-standalone-nofamily-report", "native-dual-standalone-remap-report",
+    "native-dual-standalone-report", "native-dual-standalone-y-report", "native-dual-standalone-absent",
+    "native-dual-standalone-nofamily", "native-dual-standalone-y", "native-dual-unsupported",
+    "native-dual-unsupported-y", "native-dual-standalone-remap-report",
     "native-dual-standalone-99", "native-dual-standalone-badcap", "native-dual-x-a1-report",
     "native-dual-y-a1-report", "native-dual-y-runtime-absent",
     "native-dual-session-absent", "native-dual-session-duplicate", "native-dual-session-malformed",
@@ -60,12 +61,30 @@ NATIVE_DUAL_CASES = ("native-dual-x", "native-dual-y", "native-dual-x-report", "
 # These New launches reach an installed, eligible standalone reader.
 NATIVE_STANDALONE_SELECTED = ("native-dual-standalone-report", "native-dual-standalone-remap-report")
 NATIVE_DUAL_SUCCESS = NATIVE_DUAL_CASES[:4] + ("native-dual-fallback-report", "native-dual-retry-report", "native-dual-x-cooked-report",
-    "native-dual-standalone-report", "native-dual-standalone-y-report", "native-dual-standalone-absent-report",
-    "native-dual-standalone-nofamily-report", "native-dual-standalone-remap-report", "native-dual-x-a1-report", "native-dual-y-a1-report",
+    "native-dual-standalone-report", "native-dual-standalone-y-report",
+    "native-dual-standalone-remap-report", "native-dual-x-a1-report", "native-dual-y-a1-report",
     "native-dual-y-runtime-absent", "native-dual-session-absent",
     "native-dual-session-report", "native-dual-session-a1-report",
     "native-dual-stale-session-report", "native-dual-y-stale-session-report",
     "native-dual-stale-session-a1-report", "native-dual-y-stale-session-a1-report")
+# K-UI's own SDK check runs only for a module that carries a seed, and it
+# refuses every synthetic executable: such a launch no longer goes on through
+# the combined module. From a seeded module only the reader-only route, a
+# source read that failed and a cancel go on or stop as before; the refusals
+# are cases of their own. Every other case models a module without a seed,
+# which K-UI never asks and whose stage decides, as fallback-report always did.
+NATIVE_DUAL_SEEDED = ("native-dual-retry-report", "native-dual-cancel-source",
+    "native-dual-standalone-report", "native-dual-standalone-remap-report",
+    "native-dual-standalone-99", "native-dual-standalone-badcap",
+    "native-dual-standalone-absent", "native-dual-standalone-nofamily", "native-dual-standalone-y",
+    "native-dual-unsupported", "native-dual-unsupported-y")
+SDK = "Background loading cannot recognize this game's system library."
+NATIVE_DUAL_UNSUPPORTED = {
+    "native-dual-unsupported": SDK + " Set Background loading Off and Virtual VMU Off; saves then need a real VMU",
+    "native-dual-unsupported-y": SDK + " Set Background loading Off and Virtual VMU Off; saves then need a real VMU",
+    "native-dual-standalone-y": SDK + " Set Background loading Off and Virtual VMU Off; saves then need a real VMU",
+    "native-dual-standalone-nofamily": SDK + " Set Background loading Off and Virtual VMU Off; saves then need a real VMU",
+    "native-dual-standalone-absent": SDK + " Install the standalone New reader, or set Background loading Off"}
 NATIVE_STANDARD_CASES = ("native-standard-report", "native-standard-cooked-report",
     "native-standard-retry-report", "native-standard-short-report", "native-standard-cancel-source",
     "native-standard-crc-fail", "native-standard-seed-absent-report",
@@ -222,7 +241,7 @@ def dual_package(case, lease_bytes=0x47000, session=False):
     if case == "native-dual-cap-malformed": cap = cap[:8] + struct.pack("<I", 2) + cap[12:]
     if case == "native-dual-cap-unrelated": cap = b"Unrelated stage data".ljust(32, b"x")
     if case == "native-dual-cap-truncated": cap = cap[:16]
-    if (case in NATIVE_DUAL_SUCCESS and case != "native-dual-fallback-report") or case == "native-dual-cancel-source" or "-standalone" in case:
+    if case in NATIVE_DUAL_SEEDED:
         from vmu_native_cache_seed import template_seed
         cap += template_seed()
     if session and case != "native-dual-session-absent":
@@ -602,6 +621,15 @@ def main():
                             "native-dual-runtime-marker-duplicate": "return runtime changed"}
                         if "-cap-" in case: assert "module capability missing or ambiguous" in output
                         if case in reasons: assert reasons[case] in output
+                        if case in NATIVE_DUAL_UNSUPPORTED:
+                            # One source read answered; the refusal is two 76-column log lines.
+                            said = NATIVE_DUAL_UNSUPPORTED[case]
+                            assert "Retail boot: " + said in output
+                            assert said[63] == " " and len(said) - 63 <= 76
+                            assert "the combined reader would stop after the bootstrap" in output
+                            assert "Native dual prepared" not in output
+                        else:
+                            assert SDK not in output
                         selected = case in NATIVE_STANDALONE_SELECTED
                         if case == "native-dual-standalone-remap-report":
                             assert "Standalone New map: kept all track numbers with audio sectors unmapped" in output
