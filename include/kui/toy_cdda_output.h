@@ -21,7 +21,7 @@ enum kui_toy_cdda_output_why {
     KUI_TOY_CDDA_OUT_WHY_RING = 5u,    /* no free place for the ring, or it was lost (detail) */
     KUI_TOY_CDDA_OUT_WHY_TAKE = 6u,    /* the driver took a channel (detail: which) */
     KUI_TOY_CDDA_OUT_WHY_FLAP = 7u,    /* keyed off behind our back too often in one play */
-    KUI_TOY_CDDA_OUT_WHY_CLOCK = 8u    /* the timer left the Toy profile */
+    KUI_TOY_CDDA_OUT_WHY_CLOCK = 8u    /* the timer left the Toy profile; detail 2: the driver's count is no clock */
 };
 /* RING's detail: no place among the table's pairs; a pair the reading does
  * not explain (0x100 + its index); a pair came to lie in the ring; a guard
@@ -55,10 +55,12 @@ struct kui_toy_cdda_output {
      * broken: bytes were lost on the way into the ring. */
     uint32_t sector, piece_end, passes, finished, audio_end, segment, track, got, card, asked, broken;
     /* Frames written into the ring since its first frame and where in the
-     * ring the next go, TMU0 at key-on, frames played when last looked, and
-     * the bytes of a unit of frames not yet whole (16-bit samples: two
-     * frames; ADPCM: eight, with each plane's coder). */
-    uint32_t written, at, key_tick, played, carried;
+     * ring the next go, TMU0 and the driver's count at key-on, frames
+     * played when last looked and TMU0 at that look, the same for the look
+     * that last saw the count move, and the bytes of a unit of frames not
+     * yet whole (16-bit samples: two frames; ADPCM: eight, with each
+     * plane's coder). */
+    uint32_t written, at, key_tick, key_count, played, played_tick, moved, moved_tick, carried;
     uint8_t carry[32];
     struct kui_toy_cdda_coder coder[2];
     /* What each channel's level and pan word should be now, what was last
@@ -73,10 +75,11 @@ struct kui_toy_cdda_output {
     uint32_t last_tick, keyed, rearms;
     /* Counted for the report: heartbeats that used the bus, the longest and
      * all of their TMU0 ticks (the card's time included), bytes written to
-     * the ring, key-ons, starts over (after an underrun, a lost byte, the
-     * clocks' margin or a key dropped), and the reasons one by one. */
+     * the ring, key-ons, starts over (after an underrun, a lost byte, a
+     * count TMU0 does not bear out or a key dropped), and the reasons one
+     * by one. */
     uint32_t heartbeats, longest, bus_ticks, bytes, keys, restarts;
-    uint32_t takes, drops, fixes, underruns, anchors, rekeys, fallbacks;
+    uint32_t takes, drops, fixes, underruns, clock_faults, rekeys, fallbacks;
     uint32_t skipped_bl, skipped_dma, skipped_stack, timeouts, places, silence_frames, refusals;
     uint32_t faults, lost_guard, lost_table, prime_ticks;
 };

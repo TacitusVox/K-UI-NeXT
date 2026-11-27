@@ -160,7 +160,7 @@ static const char *const labels[] = {
 #endif
 #if KUI_TOY_CDDA_OUTPUT
     /* Test 85: the sound output, */
-    "CD O ST V ID RING N", "CD O KEY RST UND ANC DRP TK", "CD O HB LONG TICK KB SKIP LV",
+    "CD O ST V ID RING N", "CD O KEY RST UND CLK DRP TK", "CD O HB LONG TICK KB SKIP LV",
     "CD O MX M1 FB AT TM LOST",
 #endif
 #if KUI_TOY_CDDA_CARD
@@ -506,7 +506,7 @@ static int card_report(void) {
                         "CD SV DT B N WIN SKIP\n0 0 0 0 0 0\n"
 #endif
 #if KUI_TOY_CDDA_OUTPUT
-                        "CD O ST V ID RING N\n0 0 0 0 " RING_NONE "\nCD O KEY RST UND ANC DRP TK\n0 0 0 0 0 0\n"
+                        "CD O ST V ID RING N\n0 0 0 0 " RING_NONE "\nCD O KEY RST UND CLK DRP TK\n0 0 0 0 0 0\n"
                         "CD O HB LONG TICK KB SKIP LV\n0 0 0 0 0 0\nCD O MX M1 FB AT TM LOST\n0 0 0 0 0 0\n"
 #endif
                         "CD C BLK RB RR PIO WAIT YLD\n0 0 0 0 0 0\nCD C HD HO HX REF DCL ERR\n0 0 0 0 0 0\n"
@@ -528,7 +528,7 @@ static int card_report(void) {
 #if KUI_TOY_CDDA_OUTPUT
     kui_toy_cdda_output = (struct kui_toy_cdda_output){.phase = 3u, .why = 8u, .why_detail = 0x12345, .family = 2u,
         .rearms = 40u, .seen_version = 0xffffffffu, .seen_hash = 0xffffu, .channel = {62u, 63u}, .ring = 0x1effa0,
-        .frames = 16384u, .places = 300u, .keys = 0x1234, .restarts = 0x56, .underruns = 0x12, .anchors = 0x34,
+        .frames = 16384u, .places = 300u, .keys = 0x1234, .restarts = 0x56, .underruns = 0x12, .clock_faults = 0x34,
         .drops = 0x10005, .rekeys = 7u, .takes = 3u, .fixes = 0x20000, .heartbeats = 0x54321, .longest = 0x999,
         .bus_ticks = 0x7654321, .bytes = 0x12345678, .skipped_bl = 300u, .skipped_dma = 2u, .timeouts = 256u,
         .faults = 1u, .level_last = {0x0f1f, 0x0f0f}, .mixer = {0x0a1f, 0x0a0f}, .mixer_first = {0x0a00, 0x0500},
@@ -538,7 +538,7 @@ static int card_report(void) {
     body = format(&ra, &region, text, &rows);
 #if KUI_TOY_CDDA_OUTPUT
     assert(strstr(text, "CD O ST V ID RING N\n2345F283 FFFFFFFF 3F3EFFFF 1EFFA0 " RING_KIND "FF4000\n"
-                        "CD O KEY RST UND ANC DRP TK\n1234 56 12 34 7FFFF FFFF0003\n"
+                        "CD O KEY RST UND CLK DRP TK\n1234 56 12 34 7FFFF FFFF0003\n"
                         "CD O HB LONG TICK KB SKIP LV\n54321 999 7654321 48D15 FF02FF01 F0F0F1F\n"
                         "CD O MX M1 FB AT TM LOST\nA0F0A1F 5000A00 FFFF4030 13579 E9AC1C3 301FF02\n"
                         "CD C BLK"));

@@ -238,6 +238,11 @@ static int ppm;                      /* the chip's clock against TMU0 */
  * keeps it; tick_base: what it stood at when the driver last started. */
 static uint32_t tick_base;
 static uint32_t driver_ticks(void);
+/* A count that stands still at count_frozen; a count that runs this many
+ * parts in a million off the chip's own time (a driver's never does). */
+static bool count_stuck;
+static uint32_t count_frozen;
+static int count_ppm;
 static bool inclusive;               /* the chip plays the frame at its loop end too */
 static bool strict = true;           /* every frame played is the play's */
 static unsigned long heard_frames, wrong_frames, wrong_loud, wrong_nonzero, cut_frames, loud_frames, key_ons, key_offs, lonely;
@@ -361,7 +366,9 @@ static void strobe(void) {
     }
 }
 static uint32_t driver_ticks(void) {
-    return (uint32_t)(now * (uint64_t)(1000000 + ppm) / (3125u * UINT64_C(1000000))) - tick_base;
+    if(count_stuck)return count_frozen;
+    const uint64_t chip = now * (uint64_t)(1000000 + ppm) / UINT64_C(1000000);
+    return (uint32_t)(chip * (uint64_t)(1000000 + count_ppm) / (3125u * UINT64_C(1000000))) - tick_base;
 }
 static bool record_busy(unsigned side) {
     if(family == GEN2)return ram[0x13800u + 0x40u * (ram[0x12062u] - 2u + side)] & 1u;
@@ -548,6 +555,8 @@ static void fresh(void) {
     far_frames = 0u;
     cut = false;
     tick_base = 0u;
+    count_stuck = false;
+    count_ppm = 0;
     torn_left = 0u;
     family = 0u;
 }
@@ -703,7 +712,9 @@ static void pieces(void) {
     CHECK(O.phase == KUI_TOY_CDDA_OUT_SILENT && !O.why && !wrong_frames && O.refusals >= 2u && silent());
     printf("PASS tracks, a gap, a track the card refuses and laps: %lu frames, every one the play's or silence\n", heard_frames);
 }
-/* The chip's clock off TMU0's by 150 parts in a million, each way. */
+/* The chip's clock off TMU0's: the console's quarter of a percent (Test 86)
+ * and more, each way. The driver's count is the chip's own time, and the
+ * ring's clock. */
 static void drifting(int parts) {
     fresh();
     manatee1(false);
@@ -715,51 +726,117 @@ static void drifting(int parts) {
      * true to one of the driver's ticks at either end. */
     CHECK(O.chip_ticks > 70000u && llabs((long long)O.tmu_ticks -
         (long long)O.chip_ticks * 3125 * 1000000 / (1000000 + parts)) < 2 * 3125 + 200);
+    /* Five minutes, and the ring never begun again. */
+    CHECK(sounding() && !wrong_frames && !O.underruns && !O.clock_faults && !O.restarts && starts == 1u);
 #if KUI_TOY_CDDA_ADPCM
-    /* The largest ADPCM ring holds the two clocks' margin for half an hour. */
-    CHECK(sounding() && !wrong_frames && !O.underruns && !O.anchors && !O.restarts && starts == 1u);
 #if KUI_TOY_CDDA_SPARE
-    /* The ring in MANATEE 2's spare memory begins again once in five. */
+    /* The same in MANATEE 2's spare memory, the smallest ring there is. */
     fresh();
     manatee2();
     bank(0u, 0x18000u, 0x1e8000u);
     ppm = parts;
     play(1000u, 9000u, 0u, 0);
     run(300000u);
-    CHECK(sounding() && O.spare && !wrong_frames && !O.underruns && O.anchors == 1u && O.restarts == 1u && starts == 2u);
+    CHECK(sounding() && O.spare && !wrong_frames && !O.underruns && !O.clock_faults && !O.restarts && starts == 1u);
 #else
-    /* The smallest begins again once in eight minutes. */
+    /* And in the smallest ring of the table's, for eight minutes. */
     fresh();
     manatee1(false);
     bank(0u, 0x18000u, 0x200000u - 0x18000u - 20000u);
     ppm = parts;
     play(1000u, 9000u, 0u, 0);
     run(480000u);
-    CHECK(sounding() && O.frames == sizes[2] && !wrong_frames && !O.underruns && O.anchors == 1u && O.restarts == 1u && starts == 2u);
+    CHECK(sounding() && O.frames == sizes[2] && !wrong_frames && !O.underruns && !O.clock_faults && !O.restarts && starts == 1u);
 #endif
-#else
-    CHECK(sounding() && !wrong_frames && !O.underruns && O.anchors == 1u && O.restarts == 1u && starts == 2u);
 #endif
     /* A chip that plays the frame at its loop end as well: a frame twice a
-     * lap, and never one that is not the play's. (16-bit samples only: an
-     * ADPCM decoder would take a code twice.) */
+     * lap, and never one that is not the play's, for a minute. (16-bit
+     * samples only: an ADPCM decoder would take a code twice, and the
+     * console's chip plays the compressed ring as reckoned, Test 86. Such
+     * a chip falls a frame a lap behind the count: the margin holds it for
+     * about two minutes of the largest ring.) */
     if(parts > 0 && !KUI_TOY_CDDA_ADPCM) {
         fresh();
         manatee2();
         inclusive = true;
         play(1000u, 9000u, 0u, 0);
-        run(300000u);
-        CHECK(sounding() && !wrong_frames && !O.underruns && heard_frames > 13000000u);
+        run(60000u);
+        CHECK(sounding() && !wrong_frames && !O.underruns && heard_frames > 2600000u);
     }
-    /* A play of nearly two minutes to its end on a chip that slow or fast:
-     * its last frame is played before the key-off. */
+    /* A play of nearly two minutes to its end: its last frame is played
+     * before the key-off. (A chip faster than the drive's clock, which is
+     * TMU0's, comes to the play's end ahead of the drive. One slower by
+     * more than what the ring holds would have its end cut by the drive's:
+     * 180 parts in a million is held here.) */
     fresh();
     manatee2();
-    ppm = parts * 6 / 5;
+    ppm = parts < -180 ? -180 : parts;
     play(1000u, 9000u, 1u, 0);
     run(109000u);
     CHECK(silent() && !wrong_frames && last_heard + 1u >= (9000u - heard_play.base) * 588u && !O.restarts);
-    printf("PASS the chip's clock %+d ppm from TMU0 over five minutes: every frame the play's, the ring begun again once; a play's last frame at %+d ppm\n", parts, parts * 6 / 5);
+    printf("PASS the chip's clock %+d ppm from TMU0 over five minutes: every frame the play's and the ring never begun again; a play's last frame at %+d ppm\n",
+        parts, parts < -180 ? -180 : parts);
+}
+/* The ring's clock is the driver's count, and TMU0 its witness. */
+static void clocked(void) {
+    /* A count that stands still is seen at the next look or the one after,
+     * before the ring has run out: the ring begins again. Still standing,
+     * each new ring is given up some ten milliseconds in, and the play at
+     * the ninth. Nothing but the play is heard. */
+    fresh();
+    manatee2();
+    bank(0u, 0x18000u, 0x100000u);
+    ppm = 2450;
+    play(1000u, 9000u, 0u, 0);
+    run(20000u);
+    CHECK(sounding() && !O.clock_faults && !O.restarts);
+    count_frozen = driver_ticks();
+    count_stuck = true;
+    beat(4500u);
+    beat(4500u);
+    beat(4500u);
+    CHECK(O.clock_faults == 1u && O.restarts == 1u && !O.underruns && !wrong_frames);
+    run(3000u);
+    CHECK(silent() && O.phase == KUI_TOY_CDDA_OUT_SILENT && O.why == KUI_TOY_CDDA_OUT_WHY_CLOCK && O.why_detail == 2u);
+    CHECK(O.clock_faults == 9u && O.restarts == 8u && !O.underruns && !wrong_frames);
+    /* The next play, with the count running again, plays. */
+    count_stuck = false;
+    play(2000u, 9000u, 0u, 0);
+    run(5000u);
+    CHECK(sounding() && O.clock_faults == 9u && !wrong_frames);
+    /* A count that fell under a play (the driver began it again, and
+     * everything else of the driver is as it was): the ring begins again,
+     * once, and plays on. */
+    const unsigned long begun = starts;
+    tick_base += driver_ticks() / 2u;
+    run(5000u);
+    CHECK(sounding() && O.clock_faults == 10u && starts == begun + 1u && !O.underruns && !wrong_frames);
+    /* A count that jumped ahead: the same. */
+    tick_base -= 1000u;
+    run(5000u);
+    CHECK(sounding() && O.clock_faults == 11u && starts == begun + 2u && !O.underruns && !wrong_frames);
+    /* And one that jumps two seconds ahead five minutes into a ring, where
+     * that is less than a sixty-fourth of the ring's time: it is the time
+     * since the count last moved that does not bear it out. */
+    run(310000u);
+    CHECK(sounding() && O.clock_faults == 11u && starts == begun + 2u && !O.underruns && !wrong_frames);
+    tick_base -= 500u;
+    run(5000u);
+    CHECK(sounding() && O.clock_faults == 12u && starts == begun + 3u && !O.underruns && !wrong_frames);
+    /* A count that is no count of the chip's time, a twentieth fast or
+     * slow: TMU0 does not bear it out, and the play is given up. (What is
+     * heard on the way is not held to the play.) */
+    for(int way = -1; way <= 1; way += 2) {
+        fresh();
+        manatee1(false);
+        strict = false;
+        count_ppm = 50000 * way;
+        play(1000u, 9000u, 0u, 0);
+        run(30000u);
+        CHECK(silent() && O.phase == KUI_TOY_CDDA_OUT_SILENT && O.why == KUI_TOY_CDDA_OUT_WHY_CLOCK && O.why_detail == 2u &&
+            O.clock_faults == 9u);
+    }
+    printf("PASS the ring's clock: a count that stands still, fell or jumped begins the ring again before anything else is heard; one that is no clock is given up\n");
 }
 /* Whatever is not proved leaves the chip alone. */
 static void refused(void) {
@@ -1333,8 +1410,9 @@ int main(void) {
     if(KUI_TOY_CDDA_SPARE)
         for(unsigned build = 0; build < 3u; ++build)plays_through(build, true);
     pieces();
-    drifting(150);
-    drifting(-150);
+    drifting(2450);
+    drifting(-6000);
+    clocked();
     refused();
     placing();
     contested();

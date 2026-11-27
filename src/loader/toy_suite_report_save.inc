@@ -214,7 +214,8 @@ static void toy_report_wire(char **at,const char *end,const struct kui_native_ra
      * sound memory. N: a plane's frames, places taken <<16, and <<24 the
      * ring's kind: 1 ADPCM, 2 in the driver's spare memory.
      * KEY: key-ons. RST: rings begun again. UND: of those, for a ring run
-     * dry. ANC: for the clocks' margin. DRP: keys the driver dropped, and
+     * dry. CLK: for a count of the driver's that TMU0 did not bear out
+     * (the ring's clock is that count). DRP: keys the driver dropped, and
      * channels found keyed on before a key-on <<16. TK: channels taken,
      * and registers put back <<16.
      * HB: heartbeats that used the bus. LONG: the longest in ticks, the
@@ -237,8 +238,8 @@ static void toy_report_wire(char **at,const char *end,const struct kui_native_ra
             (uint32_t[]){o->phase|o->why<<4|o->family<<8|toy_cdda_cap(o->rearms,15u)<<12|(o->why_detail&0xffffu)<<16,
                 o->seen_version,o->seen_hash|o->channel[0]<<16|o->channel[1]<<24,o->ring,
                 o->frames|toy_cdda_cap(o->places,255u)<<16|(TOY_CDDA_RING_ADPCM|(o->spare?2u:0u))<<24},5u);
-        toy_report_short(at,end,"CD O KEY RST UND ANC DRP TK",
-            (uint32_t[]){o->keys,o->restarts,o->underruns,o->anchors,
+        toy_report_short(at,end,"CD O KEY RST UND CLK DRP TK",
+            (uint32_t[]){o->keys,o->restarts,o->underruns,o->clock_faults,
                 toy_cdda_cap(o->drops,0xffffu)|toy_cdda_cap(o->rekeys,0xffffu)<<16,
                 toy_cdda_cap(o->takes,0xffffu)|toy_cdda_cap(o->fixes,0xffffu)<<16},6u);
         toy_report_short(at,end,"CD O HB LONG TICK KB SKIP LV",

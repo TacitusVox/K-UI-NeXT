@@ -50,12 +50,19 @@
  * frame at N as well, it finds the plane's first frame there once more: each
  * plane is followed by two frames that repeat its first two.
  *
- * The clock is TMU0: the chip's own position belongs to the driver. The ring
- * starts at its first frame at key-on; what has been played since is counted
- * from TMU0, with a margin for the two clocks' drift, and the play starts
- * over from the drive's position when the margin has grown to an eighth of
- * the ring, when the driver keyed a channel off, or when the card did not
- * keep up.
+ * The clock is the sound chip's own, as the driver counts it: the chip's
+ * position in the ring belongs to the driver, but its timer interrupt counts
+ * 4 ms of the chip's time, 176.4 frames, in a word of its own (0x12418 under
+ * MANATEE 2, 0x13418 under MANATEE 1; 250 to a second of 44,100 frames,
+ * exactly: it reloads its timer for 44 frames, leaves out every 441st and
+ * counts every fourth). The count is read at key-on and at every heartbeat:
+ * the chip has played their difference, a count more or less. TMU0 is not
+ * that clock: on the console it runs a quarter of a percent slow against the
+ * chip (Test 86), 108 frames a second. It is kept beside the count as a
+ * witness: a count that stands still or runs away from TMU0 begins the ring
+ * again, as a key dropped does. The play starts over from the drive's
+ * position when the driver keyed a channel off or when the card did not keep
+ * up.
  *
  * ADPCM (Test 86): the ring holds the chip's 4-bit ADPCM, which the worker
  * makes of the card's samples: a quarter of the memory and of the bus
@@ -147,13 +154,11 @@ struct kui_toy_cdda_output kui_toy_cdda_output;
 #define PLANE_REPEAT 0u
 #define KEY_FORMAT 0x0180u
 #define WIPE UINT32_C(0x80808080) /* a step up, a step down: silence at any step */
-#define ANCHOR 4u                 /* the ring starts over when the clocks' margin is this share of it */
 #else
 #define UNIT 2u
 #define PLANE_REPEAT 4u           /* bytes after a plane that repeat its first two frames */
 #define KEY_FORMAT 0u
 #define WIPE 0u
-#define ANCHOR 8u
 #endif
 #define GUARD UINT32_C(0x4b434452)
 #define SECTOR_BYTES 2352u
@@ -163,6 +168,11 @@ struct kui_toy_cdda_output kui_toy_cdda_output;
 #define FILL_FRAMES 2048u         /* frames of the card's a heartbeat writes at most */
 #define QUIET_FRAMES 512u         /* frames of silence a heartbeat writes at most: a third of its 3 ms */
 #define EDGE 64u
+/* The driver's count of the chip's time: 4 ms, 882 frames in five counts;
+ * COUNT_FRAMES is one count's frames, rounded up. */
+#define COUNT_GEN2 UINT32_C(0x12418)
+#define COUNT_GEN1 UINT32_C(0x13418)
+#define COUNT_FRAMES 177u
 #define REARMS 8u
 #define KEY_ON 0x4200u            /* KYONB, loop */
 #define KEY_BIT 0x4000u
@@ -298,9 +308,21 @@ static bool put(struct bus *b, uint32_t address, uint32_t value) {
 static uint32_t frames_of(uint32_t ticks) {
     return ticks / 15625u * 882u + ticks % 15625u * 882u / 15625u;
 }
-/* How far the chip's clock may have run from TMU0 over that many frames. */
-static uint32_t drift(uint32_t frames) {
-    return frames / 5000u + EDGE;
+/* The frames of that many of the driver's counts: 882 in five. */
+static uint32_t frames_counted(uint32_t counts) {
+    return counts / 5u * 882u + counts % 5u * 882u / 5u;
+}
+/* The chip is within a count of what the driver's counts say, either way,
+ * and the edge is for what a heartbeat itself takes. */
+#define MARGIN (COUNT_FRAMES + EDGE)
+/* And as far as the count and TMU0 may differ, beside a sixty-fourth of
+ * the time: a count at either end. */
+#define SLACK (2u * COUNT_FRAMES + EDGE)
+static uint32_t apart(uint32_t a, uint32_t b) {
+    return a > b ? a - b : b - a;
+}
+static uint32_t count_at(void) {
+    return O.family == KUI_TOY_CDDA_FAMILY_GEN2 ? COUNT_GEN2 : COUNT_GEN1;
 }
 
 /* The driver running now: 1 the admitted one (with none admitted yet: any
@@ -893,8 +915,15 @@ static void work(struct bus *b, bool wanted, bool tail, uint32_t now) {
             (void)off(b, both);
             return;
         }
+        /* The driver's count as the two channels start: the ring's clock
+         * from here on. */
+        uint32_t count;
+        if(!sound(b, count_at(), &count))return;
         key_on(b);
         if(!b->ok)return;
+        O.key_count = count;
+        O.played = O.moved = 0u;
+        O.played_tick = O.moved_tick = O.key_tick;
         O.prime_ticks -= O.key_tick;
         O.phase = KUI_TOY_CDDA_OUT_RUN;
         return;
@@ -943,12 +972,11 @@ static void work(struct bus *b, bool wanted, bool tail, uint32_t now) {
         else restart(b, busy);
         return;
     }
-    /* The driver's own clock, 250 ticks a second of the sound chip's time
-     * (its timer interrupt counts them at 0x12418, MANATEE 1 at 0x13418),
-     * beside TMU0 from the first look on: what the two clocks differ by,
-     * for the report. A count that fell is the driver started again. */
+    /* The driver's count of the sound chip's time, and TMU0 beside it from
+     * the first look on: what the two clocks differ by, for the report. A
+     * count that fell is the driver started again. */
     uint32_t chip;
-    if(!sound(b, O.family == KUI_TOY_CDDA_FAMILY_GEN2 ? 0x12418u : 0x13418u, &chip))return;
+    if(!sound(b, count_at(), &chip))return;
     const uint32_t tmu = read32(TCNT0);
     if(!O.clocked || (int32_t)(chip - O.chip_first - O.chip_ticks) < 0) {
         O.clocked = 1u;
@@ -957,8 +985,31 @@ static void work(struct bus *b, bool wanted, bool tail, uint32_t now) {
     }
     O.chip_ticks = chip - O.chip_first;
     O.tmu_ticks = O.tmu_first - tmu;
-    O.played = frames_of(O.key_tick - now);
-    const uint32_t margin = drift(O.played);
+    /* What the chip has played since key-on, by the driver's count: a
+     * count more or less. TMU0's account of the same time is the witness,
+     * since key-on and since the count was last seen to move: a
+     * sixty-fourth of it and two counts is as far as the two may differ
+     * (the console's quarter of a percent is a sixth of that), and a count
+     * moves every 4 ms. */
+    const uint32_t margin = MARGIN, counted = frames_counted(chip - O.key_count);
+    const uint32_t timed = frames_of(O.key_tick - tmu), lately = frames_of(O.moved_tick - tmu);
+    bool borne = apart(counted, timed) <= timed / 64u + SLACK;
+    if(counted == O.moved)borne = borne && lately <= SLACK;
+    else {
+        borne = borne && apart(counted - O.moved, lately) <= lately / 64u + SLACK;
+        O.moved = counted;
+        O.moved_tick = tmu;
+    }
+    O.played = counted;
+    O.played_tick = tmu;
+    if(!borne) {
+        /* The count stands still, fell, or is no count of this play's
+         * time: the ring begins again with the count as it is then. */
+        ++O.clock_faults;
+        if(++O.rearms > REARMS)stop(b, busy, KUI_TOY_CDDA_OUT_SILENT, KUI_TOY_CDDA_OUT_WHY_CLOCK, 2u);
+        else restart(b, busy);
+        return;
+    }
     if(O.finished) {
         if(O.played >= O.audio_end + margin) {
             stop(b, busy, KUI_TOY_CDDA_OUT_SILENT, 0u, 0u);
@@ -966,11 +1017,6 @@ static void work(struct bus *b, bool wanted, bool tail, uint32_t now) {
         }
     } else if(O.written < O.played + margin) {
         ++O.underruns;
-        restart(b, busy);
-        return;
-    } else if(margin > O.frames / ANCHOR) {
-        /* The two clocks may have run this far apart: the ring starts over. */
-        ++O.anchors;
         restart(b, busy);
         return;
     }
@@ -1036,10 +1082,12 @@ __attribute__((noinline)) void kui_toy_cdda_output_heartbeat(void) {
         const uint32_t since = O.last_tick - now;
         bool due = since >= CADENCE;
         if(!due && since >= SPACING && wanted) {
-            const uint32_t played = frames_of(O.key_tick - now);
+            /* (What the chip has played by now: as counted at the last
+             * look, and TMU0's time since.) */
+            const uint32_t played = O.played + frames_of(O.played_tick - now);
             due = O.phase == KUI_TOY_CDDA_OUT_OFF || O.phase == KUI_TOY_CDDA_OUT_PRIME ||
                 (O.phase == KUI_TOY_CDDA_OUT_RUN && !O.finished &&
-                 (int32_t)(O.written - played + drift(played) + EDGE + PIECE_FRAMES - O.frames) <= 0);
+                 (int32_t)(O.written - played + MARGIN + EDGE + PIECE_FRAMES - O.frames) <= 0);
         }
         if(!due)return;
     }
