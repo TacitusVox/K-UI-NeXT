@@ -1,8 +1,12 @@
 # Test 86: CD music in the Background reader, part 3: music where sound memory is full
 
 Status: packaged 27 November 2026, 16:06 CST (build `0af5d9ce889c`, commit
-`0af5d9c`). Not yet run on a console. A test module in the place of the
-installed New reader, like Tests 79 to 85, not an accepted component.
+`0af5d9c`), and run on the console the same day (Console result):
+ChuChu Rocket played its music; KOF Dream Match 1999 played it in pieces,
+its ring running dry twice a second; and the two reports show TMU0 a
+quarter of a percent slow against the sound chip's clock. Test 87
+(`cdda-background-test-87.md`) answers both. A test module in the place of
+the installed New reader, like Tests 79 to 85, not an accepted component.
 
 It answers the owner's console result of 27 November 2026 for Test 85:
 "Didn't work for either King of Fighters nor Chuchu rocket. POD seemed to
@@ -246,6 +250,92 @@ Questions:
 | A game's own sounds wrong, a hang or a crash | The second if-needed module (the card's reading without the sound) says whether the reading or the output is the cause |
 | TM / AT within 200 parts in a million of 3,125, steadily | The driver's count can be the ring's clock |
 
+## Console result
+
+The owner's runs of 27 November 2026, with the file from the card,
+`KUI/SURVEY/STREAM.TXT` (ID A7E2DEC4944B4B399F8B3C119C906300, two of its
+hundred slots used, SHA-256 `70891b39...47e7`). The file, the tool's
+listing and the reports with their CD rows spelled out
+(`tools/toy_cdda_report.py`) are in
+`docs/evidence/cdda-background-test-86/console-2026-11-27/`. The owner's
+words: "ChuChu seemed okay, but KOF was rapidly going normal volume soft
+volume every ~0.5 seconds." POD SpeedZone was not run.
+
+Both launch records name this build, `0af5d9ce889c`, and both reports the
+ring's kind 3 (ADPCM in the driver's spare memory): the main module. No
+log of these runs names the K-UI.
+
+| Slot | Game | In the report |
+|---|---|---|
+| 0 | ChuChu Rocket | 9 PLAY, 15 PAUSE; playing at the save. The ring at 0x16000, 8,128 frames. 9 key-ons; the ring began again once, for a ring run dry. No key dropped, no channel taken, no register put back, no guard lost. 60.0 s of music taken. 3,584 heartbeats, 1.77 ms each on average, the longest 3.50 ms; 3.05 visits and 2,955 bytes a heartbeat. Levels 0F1F and 0F0F; the mixers 0F0F and 0F1F (first 000F and 001F). AT 16,054, TM 50,041,901 |
+| 1 | KOF Dream Match 1999 | 3 PLAY, 7 PAUSE; playing at the save; 3,765 positions asked of the play. The ring at 0x15000, 12,224 frames. **165 key-ons; the ring began again 162 times, each for a ring run dry.** Nothing else lost or taken. 45.6 s of music taken. 4,181 heartbeats, 1.43 ms each, the longest 2.10 ms; 2.27 visits and 1,924 bytes a heartbeat. The mixers 0F08 and 0F17. AT 20,825, TM 64,921,781. The card: 15,270 blocks, 452 read again, 513 by programmed transfers |
+
+What it shows:
+
+1. **The compressed ring in the driver's spare memory plays.** ChuChu
+   Rocket had music for a minute with one start over, "okay" to the
+   owner's ear: the chip decodes the codes and loops where the coder
+   reckons (a loop a code long or short would click five times a second).
+   Neither game lost a guard line: the spare memory stayed the ring's.
+2. **KOF's ring starves, by the reader's own rule.** KOF's SDK is of the
+   early family, for which the audio's card work has half the reader's
+   soft window, 1.5 ms a heartbeat (`kui_toy_cdda_card_window`, after the
+   Background reader's rule for its optional work under those drivers). A
+   visit hands on a kilobyte at most and took 0.46 ms, so two fitted, at
+   times three: 1,924 bytes a heartbeat, where a sixtieth of a second
+   plays 2,940. The tenth of a second primed at key-on lasts a third of a
+   second; the ring runs dry and begins again: a seek on the card, the
+   priming, the key-on. Twice a second, as the owner heard it. ChuChu
+   Rocket's family has the whole window, and took 3.05 visits a heartbeat:
+   exactly what it played.
+3. **What a kilobyte costs: 0.41 ms in ChuChu Rocket, 0.46 ms in KOF**, a
+   visit with the bytes' way into the ring. Most of that is not the card
+   and not the sound chip. The worker's data, its cleared state and its
+   stack are linked at uncached addresses (0xAC10BDA0 to 0xAC112000 in
+   this module), and the path of the frames into the ring (`feed`,
+   `store`, `put`, `turn`, `drain`, as compiled) lives on them. Run as
+   linked on the repository's SH-4 interpreter (`tests/sh4_mini.py`), a
+   kilobyte of frames takes 57,710 instructions and 4,879 reads and
+   writes of uncached memory, each a cycle on the memory bus: 2,862 of
+   the stack, 993 of the output's state, 1,024 of the bytes themselves,
+   for 64 words stored in sound memory.
+4. **TMU0 runs a quarter of a percent slow against the sound chip.** The
+   drivers' count of 4 ms of the chip's time against TMU0's ticks: 2,528
+   parts in a million fast in ChuChu Rocket over 64 s (give or take 125),
+   2,402 in KOF over 83 s (give or take 96); together 2,449, give or take
+   76. The count is exact by the drivers' code: the timer interrupt
+   reloads its counter for 44 samples, leaves out every 441st and counts
+   every fourth, 250 to a second of 44,100 samples, and nothing else of
+   the driver's holds that interrupt off but its start. (A processor clock
+   of 199.5 MHz where 200 is reckoned would be 2,500.) The ring's margin
+   allowed 200. A play reckoned from TMU0 falls behind the chip by 108
+   frames a second, so the chip passes the writer when a play has run
+   unbroken for about as many seconds as the lead has hundreds of frames:
+   a minute at the most here. ChuChu Rocket's plays were shorter (9
+   key-ons in 64 s); Test 85's in POD too.
+5. **A stream newly begun wastes its first heartbeats.** Blocks read again
+   for each stream begun: 1.7 in ChuChu Rocket, 2.8 in KOF (3.5 in POD
+   under Test 85). Each ends the stream and costs a programmed read and a
+   new start. In steady play it is rare (17 in 20,665 blocks); behind
+   every start over it lengthens the gap.
+6. **The mixers read back under MANATEE 2 too**: 0F0F and 0F1F in ChuChu
+   Rocket, the driver's full level, the first register to the right and
+   the second to the left. KOF gives 0F08 and 0F17: full level, each side
+   half way out. The output plays both planes hard left and right.
+7. **The heartbeat's fixed part**, the reads that prove the driver, the
+   channels and the guards: 0.51 ms in ChuChu Rocket and 0.43 ms in KOF
+   (the heartbeats' time less the visits'), where Test 85 had 0.9 ms with
+   the table's reads.
+
+Decided with it (Test 87): the ring's clock is the driver's count; the
+audio's way into the ring is one loop that keeps its state in registers;
+the audio has the whole window while its ring runs low.
+
+Also read for this record, in the three admitted builds: the start again
+on the game's command keys every channel off before it clears memory, as
+the start-up does (image 0x83A4 in MANATEE 2.00.09, 0x601C in 1.01.3b), so
+a cleared ring is not heard there either (Known limits, 7).
+
 ## Known limits
 
 1. Not run on a console. Everything about the chip here is a reading of
@@ -273,8 +363,8 @@ Questions:
 7. The driver's start clears the spare memory to zeros, which as ADPCM
    decode to a ramp. Its start-up keys all 64 channels off before it
    clears (read in the three builds: image 0x73C, MANATEE 1 0x650), so
-   the cleared ring is not heard there. Whether its start again on the
-   game's command keeps that order was not followed.
+   the cleared ring is not heard there. Its start again on the game's
+   command keeps that order (Console result).
 8. Which mixer register is the disc's left is not known: the planes are
    on fixed sides, at one level.
 9. Three driver builds only. The standalone New reader's games (271 of

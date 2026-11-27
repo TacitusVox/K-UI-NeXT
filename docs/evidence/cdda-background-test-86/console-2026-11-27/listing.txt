@@ -1,0 +1,3 @@
+STREAM.TXT: ID A7E2DEC4944B4B399F8B3C119C906300, 2 of 100 slots used
+slot 000: report saved: MK-51049 CHUCHU ROCKET (build 0af5d9ce889c; source 1; tracks 19, CD music tracks 15)
+slot 001: report saved: T3101N THE KING OF FIGHTERS DREAM MATCH 1999 (build 0af5d9ce889c; source 1; tracks 43, CD music tracks 39)
