@@ -160,7 +160,7 @@ MUTATIONS = [
      "{unit[0] | unit[1] << 8 | unit[0] << 16 | (uint32_t)unit[1] << 24,", {"ADPCM": 0}),
     ("a frame lost behind each unit", "            taken += 4u * UNIT;\n            continue;", "            taken += 4u * UNIT + 4u;\n            continue;"),
     ("a byte gathered twice", "        O.carry[O.carried++] = bytes ? bytes[taken] : 0u;\n        ++taken;",
-     "        O.carry[O.carried++] = bytes ? bytes[taken] : 0u;\n        if(O.carried & 15u)++taken;"),
+     "        O.carry[O.carried++] = bytes ? bytes[taken] : 0u;\n        if(O.carried & 3u)++taken;"),
     ("a unit that waits is forgotten", "            if(!store(b, O.carry))return taken;\n            O.carried = 0u;",
      "            O.carried = 0u;"),
     ("the unit gathered not stored at the end", "    if(O.carried == 4u * UNIT && store(b, O.carry))O.carried = 0u;\n    return taken;",
