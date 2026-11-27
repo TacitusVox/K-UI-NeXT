@@ -92,7 +92,7 @@ test-gui-launch-preparation:
 	python3 tests/test_smash_launch_timing.py
 
 .PHONY: test-shared-game-launch
-test-shared-game-launch: test-games-native-cache-hint
+test-shared-game-launch: test-games-native-cache-hint test-games-native-route
 	python3 tests/test_wince_kernel_read_reuse.py
 	python3 tests/test_game_reader_provenance.py
 	python3 tests/test_native_cold_discovery.py
@@ -425,6 +425,9 @@ build/test-games-native-cache: tests/test_games_native_cache.c tests/test_vmu_na
 build/test-games-native-cache-hint: tests/test_games_native_cache_hint.c tests/test_vmu_native_resolution_cache.c src/apps/games_native_cache_hint.inc src/apps/games_native_cache_alias.inc $(NATIVE_CACHE_SOURCES) src/core/hash.c src/core/data.c src/core/game_launch_settings.c src/core/game_ram_patches.c
 	@mkdir -p $(@D)
 	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) tests/test_games_native_cache_hint.c $(NATIVE_CACHE_SOURCES) src/core/hash.c src/core/data.c src/core/game_launch_settings.c src/core/game_ram_patches.c -o $@
+.PHONY: test-games-native-route
+test-games-native-route:
+	python3 tests/test_games_native_route.py
 .PHONY: test-games-native-cache-hint
 test-games-native-cache-hint: build/test-games-native-cache-hint
 	ASAN_OPTIONS=detect_leaks=0 ./build/test-games-native-cache-hint $(if $(STARTUP),'$(STARTUP)',)

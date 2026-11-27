@@ -14,7 +14,7 @@
 #include "kui/smash_launch_timing.h"
 
 enum native_cache_result {NATIVE_CACHE_SKIPPED,NATIVE_CACHE_READY,NATIVE_CACHE_CANCELLED,
-    NATIVE_CACHE_POOL_OVERLAP,NATIVE_CACHE_READER_TOO_OLD};
+    NATIVE_CACHE_POOL_OVERLAP,NATIVE_CACHE_READER_TOO_OLD,NATIVE_CACHE_POOL_SMALL};
 /* This reports only a completed source read, independently of whether an
  * optional SDK mapping can be built. It never grants cache/live ownership. */
 struct native_cache_source_proof {bool complete;uint32_t crc32;uint8_t sha256[32];};
@@ -118,6 +118,41 @@ static uint32_t native_cache_dual_lease(const struct kui_runtime_image *package)
     size_t at=0u;
     if(kui_native_dual_descriptor_find(package->data,package->info.payload_bytes,&at)!=1) return 0u;
     return kui_native_dual_u32((const uint8_t *)package->data+at+24u);
+}
+/* The combined module's stage takes its lease, with a 32-byte header, from
+ * the bottom of the game's own SDK pool. The pools seen are 4 MiB or more, or
+ * 512 KiB or less and sized for the game alone: Tokyo Xtreme Racer asks its
+ * 448 KiB pool for 458,480 bytes and stays black once a 284 KiB lease is
+ * gone. A lease that would take more than a quarter of the pool is not
+ * offered. A reviewed fixed arena and an arena lease are no SDK pool. */
+static bool native_cache_pool_small(const struct kui_runtime_image *package,
+    const struct kui_vmu_native_resolution *r) {
+    const uint32_t lease=native_cache_dual_lease(package);
+    return r->heap.family!=KUI_VMU_NATIVE_HEAP_ARENA && r->heap.initializer_slot &&
+        lease && lease<=UINT32_MAX-32u && r->call.entry_bytes/4u<lease+32u;
+}
+/* What the launcher says when the combined module is not offered, or NULL to
+ * go on. The reader-only module takes nothing from the game's pool: it runs
+ * New (X) with Virtual VMU Off where the game has the SDK SCI family
+ * (reader_only) and the module is installed (installed: 1 yes, 0 no, negative
+ * not looked at yet). Otherwise the Standard reader with Virtual VMU Off is
+ * the route that takes nothing. Each refusal names the whole setting that
+ * starts the game. Its first sentence fills one 76-column log line after
+ * "Retail boot: "; the setting is the next line. */
+#define NATIVE_CACHE_SAYS_POOL "This game's memory pool is too small for the Background worker."
+#define NATIVE_CACHE_SET_BOTH " Set Background loading Off and Virtual VMU Off; saves then need a real VMU"
+#define NATIVE_CACHE_SET_VMU " Set Virtual VMU Off; saves then need a real VMU"
+#define NATIVE_CACHE_SET_BACKGROUND " Set Background loading Off"
+#define NATIVE_CACHE_SET_INSTALL " Install the standalone New reader, or set Background loading Off"
+static const char *native_cache_refusal(enum native_cache_result result,bool vmu_on,bool reader_only,
+    int installed) {
+    if(result==NATIVE_CACHE_POOL_SMALL) {
+        if(vmu_on)return reader_only?NATIVE_CACHE_SAYS_POOL NATIVE_CACHE_SET_VMU:
+            NATIVE_CACHE_SAYS_POOL NATIVE_CACHE_SET_BOTH;
+        if(!reader_only)return NATIVE_CACHE_SAYS_POOL NATIVE_CACHE_SET_BACKGROUND;
+        if(!installed)return NATIVE_CACHE_SAYS_POOL NATIVE_CACHE_SET_INSTALL;
+    }
+    return NULL;
 }
 /* A completed source read proves bytes/CRC only. Keep its eligibility shared
  * with checksum reuse; SDK resolution and live ownership stay independent. */
@@ -243,7 +278,9 @@ static enum native_cache_result native_cache_prepare_repeat(const struct kui_gam
             goto finished;
         }
         if(native_cache_cancelled(cancel)) {result=NATIVE_CACHE_CANCELLED;goto finished;}
-        if(disk && (!dual || !kui_vmu_native_pool_overlaps_program(&work->resolution)) &&
+        /* A launch this preflight refuses leaves no record on the card. */
+        if(disk && (!dual || (!kui_vmu_native_pool_overlaps_program(&work->resolution) &&
+                              !native_cache_pool_small(package,&work->resolution))) &&
            kui_native_reader_admits_sdk_proof(package->data,package->info.payload_bytes,dual,&work->resolution) &&
            !native_cache_file_publish(path,work->wire,work->compare,cancel)) {
             if(native_cache_cancelled(cancel)) {result=NATIVE_CACHE_CANCELLED;goto finished;}
@@ -271,6 +308,13 @@ admit:
         if(log)log("Native reader: the SDK pool overlaps the live executable; the combined reader cannot reserve its lease");
         native_cache_standalone(boot,map,standalone);
         result=NATIVE_CACHE_POOL_OVERLAP;
+        goto finished;
+    }
+    if(dual && native_cache_pool_small(package,&work->resolution)) {
+        if(log)log("Native reader: the SDK pool is %u KiB; the combined reader's %u KiB lease would leave the game too little",
+            work->resolution.call.entry_bytes/1024u,native_cache_dual_lease(package)/1024u);
+        native_cache_standalone(boot,map,standalone);
+        result=NATIVE_CACHE_POOL_SMALL;
         goto finished;
     }
     const bool arena=work->resolution.heap.family==KUI_VMU_NATIVE_HEAP_ARENA;

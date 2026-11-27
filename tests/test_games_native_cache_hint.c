@@ -25,10 +25,10 @@ static struct {
     bool fail_open,fail_read_directory,fail_close,fail_read_file,fail_malloc;
     unsigned alias_reads,canonical_reads,publishes;
     bool alias_present,fail_alias_read,fail_publish,fail_directories;
+    bool pool_small;unsigned pool_checks;
     char alias_path[128];uint8_t alias_wire[1024];
 } io;
 static uint8_t module[4096],before[4096];
-static struct kui_runtime_image package;
 static struct kui_retail_manifest map;
 static uint8_t image[1024];
 static bool last_indexed;
@@ -42,6 +42,13 @@ static uint32_t native_cache_dual_lease(const struct kui_runtime_image *runtime)
     size_t at=0u;
     return kui_native_dual_descriptor_find(runtime->data,runtime->info.payload_bytes,&at)==1?
         kui_native_dual_u32((const uint8_t *)runtime->data+at+24u):0u;
+}
+static struct kui_runtime_image package;
+/* The launcher owns the size rule (test_games_native_cache.c); exercise its
+ * result for the selected module and the candidate record. */
+static bool native_cache_pool_small(const struct kui_runtime_image *runtime,
+    const struct kui_vmu_native_resolution *r) {
+    CHECK(runtime==&package && r);++io.pool_checks;return io.pool_small;
 }
 static FRESULT f_opendir(DIR *dir,const char *path) {
     CHECK(!strcmp(path,"0:/KUI/VMU/native-cache/v8"));++io.opens;
@@ -183,6 +190,28 @@ static void overlapping_hint(void) {
     r.call.entry_begin=0xac010000u+sizeof(image)-32u;r.call.entry_bytes=0x100000u;
     add(&r,'a');CHECK(prepare(true)==NATIVE_CACHE_SKIPPED);
     CHECK(!io.publishes && !memcmp(module,before,sizeof(module)));
+}
+/* A record whose pool cannot spare the combined module's lease is no hint
+ * for that module: the launcher then runs its own preflight, which reports
+ * the pool. The Standard module is not asked. */
+static void small_pool_hint(void) {
+    for(unsigned small=0u;small<2u;++small) {
+        setup();dual_module(KUI_NATIVE_DUAL_COMPACT_LEASE_BYTES);io.pool_small=small;
+        add_regular('a');
+        CHECK(prepare(true)==(small?NATIVE_CACHE_SKIPPED:NATIVE_CACHE_READY));
+        CHECK(io.pool_checks==1u && !io.publishes);
+        if(small)CHECK(!memcmp(module,before,sizeof(module)));
+        setup();io.pool_small=small;add_regular('a');
+        CHECK(prepare(false)==NATIVE_CACHE_READY && !io.pool_checks);
+    }
+    /* The indexed alias is held to the same rule as a scanned record. */
+    setup();dual_module(KUI_NATIVE_DUAL_COMPACT_LEASE_BYTES);
+    struct kui_vmu_native_resolution r;mock(image,sizeof(image),&r);
+    CHECK(native_cache_hint_admitted(&map,true,&package,&r) && io.pool_checks==1u);
+    io.pool_small=true;
+    CHECK(!native_cache_hint_admitted(&map,true,&package,&r) && io.pool_checks==2u);
+    CHECK(native_cache_hint_admitted(&map,false,&package,&r)==
+          kui_native_reader_admits_sdk_proof(module,sizeof(module),false,&r) && io.pool_checks==2u);
 }
 static void inspect_tests(void) {
     setup();add_regular('a');struct kui_vmu_native_resolution out,expected;
@@ -440,7 +469,7 @@ static void actual_module_slot(const char *path) {
     free(original);free(envelope);
 }
 int main(int argc,char **argv) {
-    inspect_tests();tail_reader_capability();extended_reader_capability();overlapping_hint();selection_tests();module_tests();failure_tests();stale_hint_tests();indexed_hint_tests();prefix_candidate_tests();
+    inspect_tests();tail_reader_capability();extended_reader_capability();overlapping_hint();small_pool_hint();selection_tests();module_tests();failure_tests();stale_hint_tests();indexed_hint_tests();prefix_candidate_tests();
     bool modules=argc>1 && !strcmp(argv[1],"--modules");
     if(modules) {CHECK(argc>2);for(int i=2;i<argc;i++)actual_module_slot(argv[i]);}
     else if(argc>1)actual_rediscovery(argv[1]);

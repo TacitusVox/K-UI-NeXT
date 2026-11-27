@@ -28,7 +28,7 @@ static struct {
     unsigned fail,cancel_when;bool cancelled;
     const uint8_t *runtime_boot;size_t runtime_bytes,source_sha_bytes;
     size_t forced_program_bytes;
-    uint32_t forced_pool;
+    uint32_t forced_pool,forced_pool_bytes;
     unsigned source_sha_calls,extent_calls,vmu_path_lookups;
     bool authored_resolution;
 } io;
@@ -142,7 +142,7 @@ static bool fixture_build_prefixed(const void *image,size_t bytes,uint32_t addre
         mock(image,bytes,out);
         if(io.forced_pool) {
             out->call.entry_begin=io.forced_pool;
-            out->call.entry_bytes=0x100000u;
+            out->call.entry_bytes=io.forced_pool_bytes?io.forced_pool_bytes:0x100000u;
         }
         return kui_vmu_native_resolution_cache_encode(out,wire,wire_bytes);
     }
@@ -416,6 +416,8 @@ static void pool_placement_tests(void) {
             map.reader=KUI_RETAIL_READER_ASYNC;
             memcpy(module+3072u,&cap,sizeof(cap));memcpy(before,module,sizeof(module));
             io.forced_program_bytes=live;io.forced_pool=aliases[i]+live-(overlap?8192u:0u);
+            /* 4 MiB, the smallest general pool seen: placement alone decides. */
+            io.forced_pool_bytes=0x400000u;
             io.authored_resolution=true;
             CHECK(prepare(true,map.reader,false,"/Games/Placement")==
                 (overlap?NATIVE_CACHE_POOL_OVERLAP:NATIVE_CACHE_READY));
@@ -424,6 +426,109 @@ static void pool_placement_tests(void) {
         }
     }
     puts("PASS native pool placement: 8 KiB live overlap refuses every RAM alias; adjacent pool in reclaimed tail admits; single source read");
+}
+/* Tokyo Xtreme Racer's SDK pool is 448 KiB and its startup asks it for
+ * 458,480 bytes: a combined module's lease is not offered where it would take
+ * more than a quarter of the pool. The refusal changes no module byte and
+ * costs one source read. Overlap is still reported first. */
+static void pool_size_tests(void) {
+    uint8_t boot[0x9000]={0};
+    const uint32_t live=0x8000u,begin=0x8cdb0000u;
+    const uint32_t leases[]={KUI_NATIVE_DUAL_COMPACT_LEASE_BYTES,KUI_NATIVE_DUAL_GENERAL_LEASE_BYTES,
+        KUI_NATIVE_DUAL_DIAGNOSTIC_LEASE_BYTES};
+    unsigned small=0u,ready=0u;
+    for(unsigned lease=0u;lease<sizeof(leases)/sizeof(leases[0]);++lease) {
+        const struct kui_native_dual_capability cap={KUI_NATIVE_DUAL_MAGIC0,KUI_NATIVE_DUAL_MAGIC1,
+            1u,KUI_NATIVE_DUAL_CAPABILITY_BYTES,KUI_RETAIL_READER_ASYNC,KUI_RETAIL_READER_ASYNC_EAGER,
+            leases[lease],0u};
+        const uint32_t edge=4u*(leases[lease]+32u);
+        /* Buzz 2000, Tokyo Xtreme Racer, Pro Yakyu; the edge; 4 MiB and 11 MiB. */
+        const uint32_t pools[]={0x31ec0u,0x70000u,0x80000u,edge-32u,edge-1u,edge,edge+32u,0x400000u,0xb00000u};
+        for(unsigned pool=0u;pool<sizeof(pools)/sizeof(pools[0]);++pool)
+            for(unsigned reader=KUI_RETAIL_READER_ASYNC;reader<=KUI_RETAIL_READER_ASYNC_EAGER;++reader) {
+                setup(boot,sizeof(boot));allow_persistent_cache=false;map.reader=reader;
+                memcpy(module+3072u,&cap,sizeof(cap));memcpy(before,module,sizeof(module));
+                io.forced_program_bytes=live;io.forced_pool=begin;io.forced_pool_bytes=pools[pool];
+                io.authored_resolution=true;
+                const bool expected=pools[pool]<edge;
+                CHECK(prepare(true,reader,false,"/Games/Pool")==
+                    (expected?NATIVE_CACHE_POOL_SMALL:NATIVE_CACHE_READY));
+                CHECK(io.reads==1u && io.builds==1u && !io.writes && !io.vmu_path_lookups);
+                if(expected)CHECK(!memcmp(before,module,sizeof(module)));
+                small+=expected;ready+=!expected;
+            }
+    }
+    CHECK(small==30u && ready==24u);
+    /* A small pool that also overlaps the program keeps the overlap answer. */
+    const struct kui_native_dual_capability compact={KUI_NATIVE_DUAL_MAGIC0,KUI_NATIVE_DUAL_MAGIC1,
+        1u,KUI_NATIVE_DUAL_CAPABILITY_BYTES,KUI_RETAIL_READER_ASYNC,KUI_RETAIL_READER_ASYNC_EAGER,
+        KUI_NATIVE_DUAL_COMPACT_LEASE_BYTES,0u};
+    setup(boot,sizeof(boot));allow_persistent_cache=false;map.reader=KUI_RETAIL_READER_ASYNC;
+    memcpy(module+3072u,&compact,sizeof(compact));memcpy(before,module,sizeof(module));
+    io.forced_program_bytes=live;io.forced_pool=0x8c010000u+live-8192u;io.forced_pool_bytes=0x70000u;
+    io.authored_resolution=true;
+    CHECK(prepare(true,map.reader,false,"/Games/Pool")==NATIVE_CACHE_POOL_OVERLAP);
+    /* With Virtual VMU On a refusal for the pool saves no record, like a
+     * refusal for overlap; a 4 MiB pool saves its record as before. */
+    for(unsigned general=0u;general<2u;++general) {
+        setup(boot,sizeof(boot));map.reader=KUI_RETAIL_READER_ASYNC;
+        memcpy(module+3072u,&compact,sizeof(compact));memcpy(before,module,sizeof(module));
+        io.forced_program_bytes=live;io.forced_pool=begin;io.forced_pool_bytes=general?0x400000u:0x70000u;
+        io.authored_resolution=true;
+        CHECK(prepare(true,map.reader,false,"/Games/Pool")==(general?NATIVE_CACHE_READY:NATIVE_CACHE_POOL_SMALL));
+        CHECK(io.reads==1u && io.builds==1u && io.renames==general && (io.writes!=0u)==general);
+    }
+    /* A record saved earlier (by the Standard module's launch) answers the
+     * same way. The Standard module has its own lease and is not held to the
+     * combined module's; a reviewed fixed arena is no pool. */
+    uint8_t image[1024];for(unsigned i=0;i<sizeof(image);i++)image[i]=(uint8_t)(i*37u+5u);
+    for(unsigned fixed=0u;fixed<2u;++fixed)
+        for(unsigned reader=KUI_RETAIL_READER_STANDARD;reader<=KUI_RETAIL_READER_ASYNC_EAGER;++reader) {
+            setup(image,sizeof(image));map.reader=reader;
+            if(reader!=KUI_RETAIL_READER_STANDARD)memcpy(module+3072u,&compact,sizeof(compact));
+            memcpy(before,module,sizeof(module));
+            char path[120];cache_path(path,image,sizeof(image));unsigned n=node_add(path,false);
+            struct kui_vmu_native_resolution source;mock(image,sizeof(image),&source);
+            source.call.entry_begin=begin;source.call.entry_bytes=0x70000u;
+            if(fixed) {
+                source.heap.initializer_slot=0u;source.heap.initializer_target=0u;
+                source.call.return_pr=source.call.call+4u;
+            }
+            CHECK(kui_vmu_native_resolution_cache_encode(&source,disk[n].data,1024u));
+            CHECK(get32(disk[n].data+20u)==(fixed?2u:1u));disk[n].size=1024u;
+            const bool dual=reader!=KUI_RETAIL_READER_STANDARD;
+            CHECK(prepare(true,reader,false,"/Games/Pool")==
+                (fixed?(dual?NATIVE_CACHE_READY:NATIVE_CACHE_SKIPPED):
+                 (dual?NATIVE_CACHE_POOL_SMALL:NATIVE_CACHE_READY)));
+            CHECK(io.reads==1u && io.replays==1u && !io.builds && !io.writes && !io.renames);
+        }
+    puts("PASS native pool size: a lease over a quarter of the SDK pool is refused for the combined module at three lease sizes; edge, fixed arena, Standard module and saved records keep their answers");
+}
+/* The launcher's answer for every result, Virtual VMU setting, reader-only
+ * choice and installed state. Only a pool refusal speaks; with Virtual VMU
+ * Off, the SDK SCI family and the reader-only module installed it goes on. */
+static void refusal_tests(void) {
+    static const char pool[]="This game's memory pool is too small for the Background worker.";
+    unsigned spoken=0u,silent=0u;
+    for(int result=NATIVE_CACHE_SKIPPED;result<=NATIVE_CACHE_POOL_SMALL;++result)
+        for(unsigned vmu=0u;vmu<2u;++vmu)for(unsigned reader_only=0u;reader_only<2u;++reader_only)
+            for(int installed=-1;installed<=1;++installed) {
+                const char *said=native_cache_refusal((enum native_cache_result)result,vmu,reader_only,installed);
+                const char *expected=NULL;
+                if(result==NATIVE_CACHE_POOL_SMALL) {
+                    if(vmu)expected=reader_only?" Set Virtual VMU Off; saves then need a real VMU":
+                        " Set Background loading Off and Virtual VMU Off; saves then need a real VMU";
+                    else if(!reader_only)expected=" Set Background loading Off";
+                    else if(!installed)expected=" Install the standalone New reader, or set Background loading Off";
+                }
+                if(!expected) {CHECK(!said);++silent;continue;}
+                /* "Retail boot: " and the first sentence fill a 76-column line. */
+                CHECK(said && strlen(pool)==76u-13u && !strncmp(said,pool,strlen(pool)));
+                CHECK(!strcmp(said+strlen(pool),expected) && strlen(expected)<=76u);
+                ++spoken;
+            }
+    CHECK(spoken==10u && silent==62u);
+    puts("PASS native refusal text: a pool refusal names the setting that starts the game for each Virtual VMU and reader-only state; every other result is silent");
 }
 /* Exercise a new launch with the disk left intact but fresh package and RAM.
  * Both the source proof returned to the GUI and the seed validated by the
@@ -637,7 +742,7 @@ static void advisory_alias_publication_faults(void) {
 }
 int KUI_GAMES_NATIVE_CACHE_TEST_MAIN(int argc,char **argv) {
     CHECK(argc>=1 && argc<=4);codec_and_trust_tests();gates_and_hits();dual_gates_and_hits();
-    fixed_arena_needs_dual();arena_needs_compact_dual();pool_placement_tests();
+    fixed_arena_needs_dual();arena_needs_compact_dual();pool_placement_tests();pool_size_tests();refusal_tests();
     advisory_alias_publication_faults();
     uint8_t authored[1024];
     for(unsigned i=0;i<sizeof(authored);i++)authored[i]=(uint8_t)(i*17u+1u);

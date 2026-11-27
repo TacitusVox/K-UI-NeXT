@@ -1792,6 +1792,8 @@ static bool prepare_launch(const char *path,uint32_t reader,const struct kui_gam
             problem="SDK pool overlaps the game and the standalone New reader cannot admit this executable";goto done;
         }
     }
+    const char *refused=native_cache_refusal(cache,emulation_enabled,standalone_candidate,-1);
+    if(refused) {problem=refused;goto done;}
     /* New only: the combined module would refuse this executable, which has
      * the SDK SCI family. An installed reader-only module runs it instead;
      * without one the combined module reports its refusal as before. */
@@ -1810,6 +1812,8 @@ static bool prepare_launch(const char *path,uint32_t reader,const struct kui_gam
         if(present!=FR_OK && cache==NATIVE_CACHE_READER_TOO_OLD) {
             problem="Install the updated Background or standalone New reader for this game";goto done;
         }
+        refused=native_cache_refusal(cache,emulation_enabled,true,present==FR_OK);
+        if(refused) {problem=refused;goto done;}
         if(present==FR_OK) {
             struct kui_runtime_image candidate={0};
             rr=(optional.fattrib&AM_DIR)?KUI_RUNTIME_IO:

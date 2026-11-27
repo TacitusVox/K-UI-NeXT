@@ -25,7 +25,7 @@ static bool native_cache_hint_admitted(const struct kui_retail_manifest *map,boo
      * full source lifetime, then requires exact program length and fresh SHA. */
     return r->driver.image_bytes<=map->boot_bytes &&
         r->driver.load_address==KUI_RETAIL_EXEC_ADDRESS &&
-        (!dual || !kui_vmu_native_pool_overlaps_program(r)) &&
+        (!dual || (!kui_vmu_native_pool_overlaps_program(r) && !native_cache_pool_small(package,r))) &&
         kui_native_reader_admits_sdk_proof(package->data,package->info.payload_bytes,dual,r) &&
         (dual || (!arena && r->heap.initializer_slot)) &&
         (!arena || native_cache_dual_lease(package)==r->call.entry_bytes);
