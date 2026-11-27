@@ -6,7 +6,9 @@ its own with tests/test_toy_cdda_output.c.
 
 usage: test_toy_cdda_output_mutations.py [--jobs N] [--work DIR]
 
-Every mutation must still compile and must make the test fail. Run from the repository root
+Every mutation must still compile and must make the test fail. A mutation
+of the VOLUME code runs with VOLUME, one of the code without it without;
+the others with VOLUME. Run from the repository root
 (Makefile.vmu-native-toy-suite, toy-cdda-output-mutation-check).
 """
 import argparse
@@ -22,7 +24,7 @@ OUTPUT = ROOT / "src/loader/toy_cdda_output.c"
 TEST = ROOT / "tests/test_toy_cdda_output.c"
 FLAGS = ["-std=c11", "-O1", "-g", "-Wall", "-Wextra", "-Werror", "-Wpedantic", "-fsanitize=address,undefined",
          "-I" + str(ROOT / "include"), "-DKUI_TOY_CDDA_OUTPUT=1", "-DKUI_TOY_CDDA_OUTPUT_HOST_TEST=1"]
-# (name, old, new)
+# (name, old, new) or (name, old, new, volume)
 MUTATIONS = [
     # The bus
     ("SR.BL not refused", "    if(*sr & SR_BL) {\n", "    if(0) {\n"),
@@ -122,8 +124,14 @@ MUTATIONS = [
     ("changed registers left", "            if(!put(b, channel(side) + at[i], want[i]))return;", ""),
     ("the level register not watched", "static const uint8_t at[] = {0x04u, 0x0cu, 0x18u, 0x20u, 0x24u};",
      "static const uint8_t at[] = {0x04u, 0x0cu, 0x18u, 0x20u, 0x20u};"),
-    ("both hard left", "    (void)b;\n    O.level[0] = LEVEL_LEFT;\n    O.level[1] = LEVEL_RIGHT;",
-     "    (void)b;\n    O.level[0] = LEVEL_LEFT;\n    O.level[1] = LEVEL_LEFT;"),
+    ("the mixers' other bits copied", "        O.level[side] = value[side] & 0x0f1fu;", "        O.level[side] = value[side] & 0xffffu;"),
+    ("the left mixer for both", "!stable(b, MIXER + 4u, &value[1]))return;", "!stable(b, MIXER, &value[1]))return;"),
+    ("MANATEE 2's level bytes at once", "++O.mixer_zero < 8u)return;", "++O.mixer_zero < 1u)return;"),
+    ("MANATEE 1 read for level bytes", "    if(O.family != KUI_TOY_CDDA_FAMILY_GEN2 || ++O.mixer_zero < 8u)return;",
+     "    if(++O.mixer_zero < 8u)return;"),
+    ("the right level byte not read", "    if(value[0] >> 16 & 255u)O.level[1] = LEVEL_RIGHT;", "    if(value[0] & 255u)O.level[1] = LEVEL_RIGHT;"),
+    ("without VOLUME, both hard left", "    (void)b;\n    O.level[0] = LEVEL_LEFT;\n    O.level[1] = LEVEL_RIGHT;",
+     "    (void)b;\n    O.level[0] = LEVEL_LEFT;\n    O.level[1] = LEVEL_LEFT;", 0),
     # The audio
     ("left and right exchanged", "{pair[0] | pair[1] << 8 | pair[4] << 16 | (uint32_t)pair[5] << 24,",
      "{pair[2] | pair[3] << 8 | pair[6] << 16 | (uint32_t)pair[7] << 24,"),
@@ -180,7 +188,8 @@ MUTATIONS = [
 
 def run(index, work):
     mutation = MUTATIONS[index]
-    name, old, new = mutation
+    name, old, new = mutation[:3]
+    volume = mutation[3] if len(mutation) > 3 else 1
     text = OUTPUT.read_text()
     if text.count(old) != 1:
         return index, "not applied (%d matches)" % text.count(old)
@@ -189,8 +198,8 @@ def run(index, work):
     mutated = directory / "toy_cdda_output.c"
     mutated.write_text(text.replace(old, new))
     binary = directory / "test"
-    built = subprocess.run([os.environ.get("HOST_CC", "cc")] + FLAGS + [str(TEST), str(mutated), "-o", str(binary)],
-                           cwd=ROOT, capture_output=True, text=True)
+    built = subprocess.run([os.environ.get("HOST_CC", "cc")] + FLAGS + ["-DKUI_TOY_CDDA_VOLUME=%d" % volume,
+                           str(TEST), str(mutated), "-o", str(binary)], cwd=ROOT, capture_output=True, text=True)
     if built.returncode:
         (directory / "log.txt").write_text(built.stdout + built.stderr)
         return index, "did not build"

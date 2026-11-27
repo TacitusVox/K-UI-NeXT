@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: GPL-3.0-only */
 #ifndef KUI_TOY_CDDA_OUTPUT_H
 #define KUI_TOY_CDDA_OUTPUT_H
-/* Test 85 (OUTPUT): the CD music of Test 84's drive, heard
+/* Test 85 (OUTPUT, VOLUME): the CD music of Test 84's drive, heard
  * (src/loader/toy_cdda_output.c, docs/cdda-background-test-85.md). */
 #include <stdint.h>
 
@@ -52,10 +52,9 @@ struct kui_toy_cdda_output {
      * frames played when last looked, bytes of a frame pair not yet whole. */
     uint32_t written, key_tick, played, carried;
     uint8_t carry[8];
-    /* What each channel's level and pan word should be now and what was
-     * last written; and, for a build that takes them from the CD's mixers
-     * (VOLUME), those as last read, heartbeats they read nothing, and
-     * MANATEE 2's own level bytes when they stood in for them. */
+    /* What each channel's level and pan word should be now, what was last
+     * written, the CD mixers as last read, heartbeats they read nothing,
+     * and MANATEE 2's own level bytes when they stood in for them. */
     uint32_t level[2], level_set[2], mixer[2], mixer_zero, shadow;
     uint32_t last_tick, keyed, rearms;
     /* Counted for the report: heartbeats that used the bus, the longest and

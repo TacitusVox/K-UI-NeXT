@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: GPL-3.0-only */
-/* Test 85 (OUTPUT): the CD music of Test 84's drive, heard
+/* Test 85 (OUTPUT, VOLUME): the CD music of Test 84's drive, heard
  * (docs/cdda-background-test-85.md).
  *
  * While the drive plays, the worker's heartbeat asks the card for the play's
@@ -55,8 +55,10 @@
  * the ring, when the driver keyed a channel off, or when the card did not
  * keep up.
  *
- * The two channels play at full level, hard left and right, as the two
- * CD-music adapters do.
+ * VOLUME: the two channels' level and pan follow the CD input's mixers
+ * (0xa0702040 left input, 0xa0702044 right), which the game's driver sets and
+ * the loader only reads. Without VOLUME they play at full level, hard left
+ * and right, as the two CD-music adapters do.
  *
  * The driver facts are static readings of the drivers
  * (docs/cd-audio-corpus.md); that these two channels and these three builds
@@ -72,6 +74,9 @@
 #if !KUI_TOY_CDDA_OUTPUT
 #error "The CD-music output is Test 85's (KUI_TOY_CDDA_OUTPUT)"
 #endif
+#ifndef KUI_TOY_CDDA_VOLUME
+#define KUI_TOY_CDDA_VOLUME 0
+#endif
 
 struct kui_toy_cdda_output kui_toy_cdda_output;
 #define O kui_toy_cdda_output
@@ -79,6 +84,7 @@ struct kui_toy_cdda_output kui_toy_cdda_output;
 
 #define SOUND UINT32_C(0xa0800000)
 #define CHANNELS UINT32_C(0xa0700000)
+#define MIXER UINT32_C(0xa0702040)
 #define ARM_RESET UINT32_C(0xa0702c00)
 #define FIFO UINT32_C(0xa05f688c)
 #define FIFO_MASK 0x31u
@@ -431,11 +437,35 @@ static void key_on(struct bus *b) {
     O.key_tick = read32(TCNT0);
     ++O.keys;
 }
-/* The levels the two channels have: full level, hard left and right. */
+/* The levels the two channels should have: the CD input's mixers as the
+ * game's driver set them, or full level, hard left and right. */
 static void levels(struct bus *b) {
+#if KUI_TOY_CDDA_VOLUME
+    uint32_t value[2];
+    if(!stable(b, MIXER, &value[0]) || !stable(b, MIXER + 4u, &value[1]))return;
+    for(unsigned side = 0; side < 2u; ++side) {
+        O.mixer[side] = value[side] & 0xffffu;
+        O.level[side] = value[side] & 0x0f1fu;
+    }
+    if(O.mixer[0] | O.mixer[1]) {
+        O.mixer_zero = 0u;
+        return;
+    }
+    /* MANATEE 2 keeps the game's CD level and pan bytes beside the
+     * registers. Mixers that read nothing for eight heartbeats while those
+     * say a level stand for registers that do not read back. */
+    if(O.family != KUI_TOY_CDDA_FAMILY_GEN2 || ++O.mixer_zero < 8u)return;
+    O.mixer_zero = 8u;
+    if(!sound(b, 0x12470u, &value[0]))return;
+    O.shadow = value[0];
+    if(value[0] & 255u)O.level[0] = LEVEL_LEFT;
+    if(value[0] >> 16 & 255u)O.level[1] = LEVEL_RIGHT;
+    if(O.level[0] | O.level[1])++O.fallbacks;
+#else
     (void)b;
     O.level[0] = LEVEL_LEFT;
     O.level[1] = LEVEL_RIGHT;
+#endif
 }
 
 /* Two frames into the ring at its write position, a word a plane; a

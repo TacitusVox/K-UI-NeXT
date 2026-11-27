@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: GPL-3.0-only */
-/* Test 85 (OUTPUT): the CD-music output (src/loader/toy_cdda_output.c)
+/* Test 85 (OUTPUT, VOLUME): the CD-music output (src/loader/toy_cdda_output.c)
  * on a model of the sound chip, its bus and the card.
  *
  * The model answers only the addresses the output may read and takes only
@@ -58,7 +58,7 @@ static unsigned long checks;
 #define RING16 (64u + 4u * 16384u + 8u)   /* the largest ring: guards, two planes, their repeats */
 
 static uint8_t ram[BYTES];
-static uint32_t reg[64][18], sr = REST, arm_reset, dma_enable[4], dma_start[4];
+static uint32_t reg[64][18], mixer[2], sr = REST, arm_reset, dma_enable[4], dma_start[4];
 static uint32_t frqcr = 0x0e0au, tcor = UINT32_MAX, tcr = 2u, tstr = 1u;
 static uint64_t now;                 /* TMU0 ticks since the model began */
 static uint32_t access_ticks = 1u;   /* what one access of the bus costs */
@@ -68,6 +68,7 @@ static unsigned long stores, ring_stores, register_stores, chip_reads, g2_reads,
 static uint64_t timer_stopped_at;    /* TMU0 stands still from here while TSTR's bit is clear */
 static bool frozen;                  /* no store may be made at all */
 static unsigned family, pair[2];
+static bool mute_readback;           /* the CD mixers read nothing */
 
 static uint32_t tcnt(void) { return TCNT_START - (uint32_t)(tstr & 1u ? now : timer_stopped_at); }
 static bool masked(void) { return (sr & 0xf0u) == 0xf0u && !(sr & BL); }
@@ -294,6 +295,8 @@ uint32_t kui_toy_cdda_output_test_read(uint32_t address, unsigned width) {
         return UINT32_C(0xdead0000) + torn_left;
     }
     if(address == UINT32_C(0xa0702c00))return arm_reset;
+    if(address == UINT32_C(0xa0702040) || address == UINT32_C(0xa0702044))
+        return mute_readback ? 0u : mixer[(address - UINT32_C(0xa0702040)) / 4u];
     if(address - SOUND < BYTES) {
         CHECK(!(address & 3u));
         return get32(address - SOUND);
@@ -392,13 +395,15 @@ static void fresh(void) {
     tcr = 2u;
     tstr = 1u;
     access_ticks = 1u;
-    fifo_stuck = frozen = card_idle = card_skips = inclusive = false;
+    fifo_stuck = frozen = mute_readback = card_idle = card_skips = inclusive = false;
     strict = true;
     ppm = 0;
     refuse_track = 0u;
     card_most = 8192u;
     card_chunk = 1024u;
     card_ticks = 40u;
+    mixer[0] = 0x0f1fu;
+    mixer[1] = 0x0f0fu;
     stores = ring_stores = register_stores = chip_reads = g2_reads = fifo_polls = 0u;
     card_calls = card_nones = card_segments = card_bytes = card_low = 0u;
     heard_frames = wrong_frames = wrong_loud = wrong_nonzero = cut_frames = loud_frames = key_ons = key_offs = lonely = 0u;
@@ -881,14 +886,47 @@ static void starved(void) {
     torn_address = 0u;
     printf("PASS a card that hands nothing on, a slow card, a bus that does not answer, a word being written\n");
 }
-/* The levels: full, hard left and right. */
-static void level(void) {
+/* VOLUME: the levels follow the CD mixers; without it, full level. */
+static void volume(void) {
     fresh();
     manatee2();
+    mixer[0] = 0x0a1fu;
+    mixer[1] = 0x0a0fu;
     play(1000u, 9000u, 0u, 0);
     run(1000u);
+#if KUI_TOY_CDDA_VOLUME
+    CHECK(reg[62][9] == 0x0a1fu && reg[63][9] == 0x0a0fu);
+    mixer[0] = 0xf305u;                /* other bits of the register are not ours */
+    mixer[1] = 0u;
+    run(100u);
+    CHECK(reg[62][9] == 0x0305u && reg[63][9] == 0u && !O.fixes);
+    /* Mixers that read nothing: MANATEE 2's own level bytes after eight
+     * heartbeats, silence until then and where they are zero. */
+    mute_readback = true;
+    put32(0x12470u, UINT32_C(0x00400040));
+    beat(14000u);
+    CHECK(!reg[62][9] && !reg[63][9]);
+    run(300u);
+    CHECK(reg[62][9] == 0x0f1fu && reg[63][9] == 0x0f0fu && O.fallbacks && O.shadow == UINT32_C(0x00400040));
+    put32(0x12470u, UINT32_C(0x00000040));
+    run(100u);
+    CHECK(reg[62][9] == 0x0f1fu && !reg[63][9]);
+    /* MANATEE 1 keeps no such bytes: silence. */
+    fresh();
+    manatee1(false);
+    put32(0x12470u, UINT32_C(0x00400040));
+    mute_readback = true;
+    play(1000u, 9000u, 0u, 0);
+    run(1000u);
+    CHECK(sounding() && !reg[61][9] && !reg[62][9] && !loud_frames);
+    printf("PASS VOLUME: the two levels follow the CD mixers; MANATEE 2's level bytes where the mixers read nothing\n");
+#else
     CHECK(reg[62][9] == 0x0f1fu && reg[63][9] == 0x0f0fu);
-    printf("PASS full level, hard left and right\n");
+    mixer[0] = mixer[1] = 0u;
+    run(100u);
+    CHECK(reg[62][9] == 0x0f1fu && reg[63][9] == 0x0f0fu);
+    printf("PASS without VOLUME: full level, hard left and right, whatever the mixers say\n");
+#endif
 }
 /* The terminal report, another play, the clock lost in play. */
 static void endings(void) {
@@ -1003,8 +1041,8 @@ int main(void) {
     placing();
     contested();
     starved();
-    level();
+    volume();
     endings();
-    printf("CD-music output: %lu checks passed; host model only\n", checks);
+    printf("CD-music output: %lu checks passed (VOLUME %d); host model only\n", checks, KUI_TOY_CDDA_VOLUME);
     return 0;
 }
