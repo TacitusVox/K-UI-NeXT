@@ -1,0 +1,6 @@
+4efdef0a65694ade5075bd9d7ebaf02c0f737329e95dcf03b3326c3a2147ea06  README.txt
+680b2714ea66cb5ffc96fa3da06c1c45740298ea1ac7a0be10a76d1d374bde2e  INVENTORY.json
+59739533dd95e0fe1faedd0b2eda9037b1d8d1fc1bf29b21fc26701eccea1f2a  KUI/apps/games/retail-native-dual.kui
+3466c3902faa33385456227667d52aa5fa3223d86e1d467585e22b37929a83ef  KUI/SURVEY/STREAM.TXT
+111ff0d0c9a1d5a1596b5f64042ebefda9da3d790cf6d944af9b7e78d1806522  IF-NEEDED/1-full-volume/KUI/apps/games/retail-native-dual.kui
+1bd6e044b3c42a2f8a55cc36759492b48ee3229da5421a8d5b0494d81cfab411  IF-NEEDED/2-no-sound/KUI/apps/games/retail-native-dual.kui

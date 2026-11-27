@@ -1,0 +1,340 @@
+== main-toy-cdda-mutation-check (Test 84's drive)
+caught    status 1 while playing
+caught    no status written
+caught    no position projected
+caught    projection not brought up to date
+caught    data position not restored
+caught    restored while still pending
+caught    the catalogue projected too
+caught    one pass too many
+caught    repeat 15 not endless
+caught    the end a pass late
+caught    two sectors a group
+caught    a group's part left out
+caught    a lap within a group counted twice
+caught    PAUSE ignored
+caught    RELEASE from the start
+caught    a data track plays
+caught    PLAY2 in a gap refused
+caught    a range through data
+caught    PLAY of a data track
+caught    SEEK keeps the play
+caught    an ended play leaves its 3
+caught    RESET ignored
+caught    ABORT ignored
+caught    interrupt visits answer
+caught    a command seen again
+caught    the clock always trusted
+caught    a refused play keeps the last one
+caught    written with no play
+caught    a lost play still plays
+caught    KEEP keeps nothing
+caught    KEEP writes 1
+caught    KEEP in an interrupt's visit
+caught    KEEP while paused or ended
+caught    KEEP of a failed read
+caught    KEEP of another read's engine
+caught    KEEP's raw sectors as 2,048 bytes
+caught    KEEP's position one on
+caught    KEEP's sectors not counted
+caught    KEEP's step not counted
+caught    KEEP publishes no new sector
+caught    KEEP's bytes of one sector less
+PASS Test 84 drive mutations: all 41 caught by the drive test
+== tests/test_toy_cdda_output_mutations.py
+caught    SR.BL not refused
+caught    the mask not raised
+caught    SR not given back
+caught    SR not given back before a G2 transfer
+caught    a DMA channel enabled not refused
+caught    a DMA channel running not refused
+caught    three DMA channels
+caught    bursts of sixteen
+caught    no FIFO wait before a burst
+caught    one read believed
+caught    ten times the polls
+caught    ten times the time
+caught    heartbeats a tenth of 2 ms apart
+caught    a silent play looked at ten times as often
+caught    a silent play looked at a tenth as often
+caught    the bus used with no play
+caught    the clock's profile not checked
+caught    TCR0 read as a word
+caught    the right plane beyond the ring
+caught    the reset bit ignored
+caught    any version of a date admitted
+caught    any date of a version admitted
+caught    a driver that is not running admitted
+caught    another admitted build taken for the same driver
+caught    MANATEE 2 on MANATEE 1's channels
+caught    MANATEE 1 on channel 63
+caught    a split with one stream port taken
+caught    the split's sum not checked
+caught    the stream ports' base not checked
+caught    the wrong port records
+caught    a playing port taken for free
+caught    the pool's entries 14 and 15
+caught    a pool entry's base not checked
+caught    an owned pool entry taken for free
+caught    unproved records written to all the same
+caught    a used channel written to at the start
+caught    the table not asked
+caught    a pair that begins below the ring not seen
+caught    an unexplained pair passed over
+caught    83 pairs
+caught    CRI's slots first
+caught    below the driver's end
+caught    the smallest ring first
+caught    no guard lines written
+caught    the guards not looked at
+caught    the table not read again before a store
+caught    a lost ring kept for the next play
+caught    the ring not cleared
+caught    no execute strobe at key-on
+caught    no loop
+caught    the loop's end one frame early
+caught    the loop's end one frame late
+caught    no repeat of a plane's first frames
+caught    the planes' addresses exchanged
+caught    a channel left keyed on keyed on again
+caught    the level left at a stop
+caught    the key left at a stop
+caught    no execute strobe at a stop
+caught    a taken channel keyed off
+caught    a channel with another address keyed off
+caught    another address not seen in play
+caught    a dropped key not seen
+caught    a dropped key begun again for ever
+caught    changed registers left
+caught    the level register not watched
+caught    the mixers' other bits copied
+caught    the left mixer for both
+caught    MANATEE 2's level bytes at once
+caught    MANATEE 1 read for level bytes
+caught    the right level byte not read
+caught    without VOLUME, both hard left
+caught    left and right exchanged
+caught    the second frame of a pair lost
+caught    a byte lost on the way
+caught    bytes out of their order taken
+caught    a gap's sectors two at a time
+caught    a track read past the play's end
+caught    one pass more
+caught    a refused track asked for again and again
+caught    the card asked twice a heartbeat
+caught    more taken than there is room
+caught    no more asked for than the piece has left
+caught    the card not given back
+caught    the drive's place a sector off
+caught    a play that is over begun
+caught    883 frames in 15,625 ticks
+caught    no margin for the clocks' drift
+caught    the ring never begun again for drift
+caught    a dry ring not seen
+caught    written over what is not yet played
+caught    silence over what is not yet played
+caught    no silence behind the last frame
+caught    stopped at the last frame by TMU0 alone
+caught    keyed on before the ring is primed
+caught    a paused play sounds on
+caught    a new play not begun
+caught    the last frames cut when the drive ends
+caught    an ended play read on from the card
+caught    the output on any stack
+caught    the terminal on any stack
+caught    a short stack not counted
+caught    nothing at the terminal report
+caught    the terminal with SR.BL set
+caught    another driver's channels keyed off
+PASS Test 85 output mutations: all 104 caught by the output test
+== tests/test_toy_cdda_card_mutations.py
+caught    a read the engine has begun does not end the audio
+caught    a read being executed does not
+caught    a read the service has accepted does not
+caught    a DMA read is no read
+caught    a PIO read is no read
+caught    any pending command holds the audio back
+caught    a stream the reader ended goes unnoticed
+caught    an ended stream noticed, and still said to stream
+caught    an ended stream not counted
+caught    halt: the stream is left running
+caught    halt: a stream that does not stop is no fault
+caught    halt: the low reader is not told the card's place is lost
+caught    halt: the stream's flag is left set
+caught    halt: a search left waiting stands in the read's way
+caught    halt: still said to stream
+caught    halt: not counted
+caught    halt: the audio still thinks the card its own
+caught    bytes written past the sink's end
+caught    a sink that says it is over-full written to
+caught    bytes that do not follow on written
+caught    a write refused, and the segment goes on
+caught    a block the map does not hold, and the segment goes on
+caught    a segment refused in its course gives no reason
+caught    a segment refused in its course is not counted
+caught    a segment never done
+caught    a track number beyond the map
+caught    a map with more slots than there are
+caught    a data track's sectors
+caught    sectors of 2,048 bytes
+caught    sectors of 2,336 bytes
+caught    mode 2 sectors
+caught    a track without its file
+caught    pieces among the tracks' slots
+caught    pieces behind the map's own
+caught    more pieces than the map has
+caught    sectors before the track
+caught    sectors behind the track
+caught    no sectors
+caught    a cursor that could not be begun
+caught    a stream begun without the reader's interrupt route
+caught    a declined stream's error not kept
+caught    a declined stream not counted
+caught    the resident not told that the stream receives
+caught    the stream's flag not set
+caught    the audio does not know the stream its own
+caught    the card not said to stream
+caught    a block by programmed transfers the worker did not allow
+caught    the allowance not spent
+caught    the card's wait not cut into slices
+caught    a slice four times as long
+caught    the low reader's bound not put back
+caught    the low reader's budget not put back
+caught    a block received by the channel, not by programmed transfers
+caught    the audio forgets that its read waits
+caught    a read that waits counted as failed
+caught    a wait not counted
+caught    given up at the first failed read
+caught    given up one failed read late
+caught    failed reads never forgotten
+caught    a block given up gives no reason
+caught    a block given up, and the segment not refused
+caught    a block read by programmed transfers not counted
+caught    the time of a programmed read not counted
+caught    the stream takes over wherever the card stands
+caught    the stream takes over whatever the low reader does
+caught    the stream takes over behind a block the file does not go on from
+caught    a stream begun behind the segment's last block
+caught    the shared block taken on trust
+caught    another segment, and the stream goes on
+caught    the sink not emptied for another segment
+caught    a segment not answered for
+caught    a refused segment not counted
+caught    a refused segment read all the same
+caught    a finished or refused segment worked on
+caught    the state of a finished segment not answered
+caught    card work with no block to hand on
+caught    card work with a read of the game's standing
+caught    card work in an interrupt's visit
+caught    card work with the bus not opened
+caught    card work on a bus at fault
+caught    card work on a port that is not the reader's
+caught    card work behind a movie request of the low reader's
+caught    a window is no hindrance
+caught    a reception of the low reader's in flight taken for nothing
+caught    a wait of the low reader's own gone on with
+caught    the audio's own wait taken for the low reader's
+caught    the interrupt's level not looked after
+caught    a run that ended not answered between blocks
+caught    a stream at fault read on
+caught    a stream's fault not kept
+caught    more blocks than asked for
+caught    a block for a sink with no room
+caught    a block the stream did not check handed on
+caught    a rebuilt block read again
+caught    a clean block read again
+caught    a block read again not counted
+caught    a block to read again, and the stream goes on
+caught    the stream goes on where the file does not
+caught    the stream goes on behind the segment's end
+caught    blocks handed on not counted
+caught    rebuilt blocks not counted
+caught    the card's state not answered
+caught    data first: a read does not end the audio's stream
+caught    the stream's interrupt not answered in its delivery
+caught    a delivery of the audio's stream passed on to the low reader
+caught    a stream the reader ended not noticed at a delivery
+caught    a window given up without the consumer's word
+caught    a window given up with a command of the game's standing
+caught    a window never given up
+caught    a window dropped without its own way out
+caught    a window that could not be ended taken for given up
+caught    a window given up not counted
+caught    every visit claimed for the audio's stream
+caught    no delivery claimed
+caught    the audio's work at any heartbeat argument
+caught    the audio's state kept across a new binding
+caught    a shared block off the cache lines
+caught    a shared block that begins before the span
+caught    a shared block that begins behind the span
+caught    a shared block that ends behind the span
+caught    asked with no auxiliary bound
+caught    nothing wanted, and a visit every heartbeat
+caught    nothing wanted, and the auxiliary not told
+caught    the timer's profile not asked
+caught    the shared block not claimed
+caught    the track not passed on
+caught    the first sector not passed on
+caught    the end not passed on
+caught    what the consumer says of itself not passed on
+caught    no block by programmed transfers allowed
+caught    another segment's answer believed before a visit
+caught    more blocks asked for than the sink holds
+caught    a visit with room for no block
+caught    a seeking visit's time reckoned as a reading one's
+caught    a visit's time counted from the heartbeat's start
+caught    another segment's answer believed after a visit
+caught    more handed on than there is room for
+caught    a visit behind one that handed nothing on
+caught    the room not counted down
+caught    the sink's place not moved on
+caught    the sink not emptied
+caught    a visit behind one that did not stream
+caught    visits without end of time
+caught    the longest visit not reckoned with
+caught    visits not counted
+caught    the visits' time not counted
+caught    heartbeats not counted
+caught    the longest heartbeat not kept
+caught    a data track named
+caught    the sector behind a track its own
+caught    a track's first sector not its own
+caught    a heartbeat with SR.BL set
+caught    asked while the drive does not play
+caught    the play's place without its passes
+caught    a part of three sectors left out of the play's place
+caught    another play not begun at
+caught    a release not begun at
+caught    a play picked up where it was left
+caught    begun in the pass the player has counted
+caught    begun at a sector behind the play's end
+caught    what was held before a start counted on
+caught    the old segment kept across a start
+caught    the last pass asked for again
+caught    the audio not told to leave the card
+caught    no end to the consumer's reach
+caught    a pass not begun at the play's first sector
+caught    a pass too many
+caught    silence not counted as held
+caught    silent sectors not counted
+caught    silence behind the play's end
+caught    silence with no room for it
+caught    the segment that asks for nothing given out
+caught    a segment beyond the play's end
+caught    a segment's bytes counted on from the last one's
+caught    never said to run low
+caught    always said to run low
+caught    a refused segment asked for again
+caught    a finished segment asked for again
+caught    what is left of a refused segment not passed over
+caught    the next segment begun where the last one began
+caught    bytes out of their place not noticed
+caught    bytes taken not counted as held
+caught    the fast path calls the consumer on early discovery batches
+caught    the mixed path calls the consumer on batches without the controller
+caught    the fast path calls the consumer before the controller's completion
+caught    no consumer on the fast path
+caught    no consumer on the mixed path
+caught    the consumer before the survey on the fast path
+caught    the consumer before the survey on the mixed path
+PASS Test 85 card mutations: all 189 caught, 182 by the audio's scenarios and 7 by the gesture test

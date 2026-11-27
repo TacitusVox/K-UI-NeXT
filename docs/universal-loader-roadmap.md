@@ -267,6 +267,32 @@ Next, after its console round: Test 85, the sound (the track's audio read
 from the card, two channels, the game's CD volume), in the games whose
 survey shows those channels left alone.
 
+### Test 85 (27 November 2026): the music is heard
+
+Step 4 as built (`cdda-background-test-85.md`, build `b9cff7086258`), on Test
+84's recipe, one switch each. Delivered; no console result yet.
+
+- The audio from the card. The worker's heartbeat asks for a play's
+  sectors a segment at a time; the auxiliary reads them with the
+  Background reader's own stream while no read of the game is asked for,
+  gives the card back at once when one is, and hands on only blocks whose
+  CRC was checked. An idle read-ahead window is given up for audio that
+  runs low.
+- The sound. A ring in sound memory, clear of everything the driver's bank
+  table names, looped by two channels the driver leaves free; the clock is
+  TMU0; the level is read from the CD input's mixers. Before every write
+  the driver's identity, the channels' records, the table and the ring's
+  guards are read again.
+- Three driver builds, the ones Test 84's survey covered on the console:
+  MANATEE 2.00.09 (ChuChu Rocket), 1.01.3b (KOF Dream Match 1999) and
+  1.01.37 (POD SpeedZone). Every other game stays silent with its reason
+  in the report.
+
+Next, by its console round: what a second of audio costs beside the game's
+reads, whether the mixers read back, and whether the drivers put up with
+the two channels. Then the other MANATEE builds by survey, AUDIO64, and
+the standalone New reader's games.
+
 ## 1. Shared correctness and reproducible deployment — active
 
 Shared GUI preparation is also an immediate integration requirement. The

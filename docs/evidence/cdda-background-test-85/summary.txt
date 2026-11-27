@@ -1,0 +1,56 @@
+commit b9cff708 Test 85 (VOLUME): the CD music at the level the game gives the CD; build b9cff7086258; worktree changes: 0
+ok   build-main
+build/t85-main: 324164 bytes; worker free 1088; auxiliary free 288
+ok   main-toy-wire-linked-check
+ok   main-toy-cdda-parts-check
+ok   main-toy-wire-package-test
+ok   main-toy-wire-save-host-test
+ok   main-toy-wire-host-tests
+ok   main-toy-wire-integration-host-test
+ok   main-toy-cdda-drive-host-test
+ok   main-toy-survey-mixed-pad-host-test
+ok   main-toy-cdda-card-host-test
+ok   main-toy-cdda-card-quiet-check
+ok   main-toy-cdda-output-host-test
+ok   main-toy-cdda-mutation-check
+ok   switches
+ok   asm-audit
+ok   admission-main
+ok   build-main-again
+ok   build-level
+build/t85-level: 323972 bytes; worker free 1248; auxiliary free 288
+ok   level-toy-wire-linked-check
+ok   level-toy-cdda-parts-check
+ok   level-toy-wire-package-test
+ok   level-toy-wire-host-tests
+ok   level-toy-survey-mixed-pad-host-test
+ok   admission-level
+ok   build-read
+build/t85-read: 319396 bytes; worker free 5152; auxiliary free 288
+ok   read-toy-wire-linked-check
+ok   read-toy-cdda-parts-check
+ok   read-toy-wire-package-test
+ok   read-toy-wire-host-tests
+ok   read-toy-survey-mixed-pad-host-test
+ok   read-toy-cdda-survey-host-test
+ok   read-toy-cdda-card-host-test
+ok   admission-read
+main:        59739533dd95e0fe1faedd0b2eda9037b1d8d1fc1bf29b21fc26701eccea1f2a
+main again:  59739533dd95e0fe1faedd0b2eda9037b1d8d1fc1bf29b21fc26701eccea1f2a
+level:       111ff0d0c9a1d5a1596b5f64042ebefda9da3d790cf6d944af9b7e78d1806522
+read:        1bd6e044b3c42a2f8a55cc36759492b48ee3229da5421a8d5b0494d81cfab411
+level native-ra-aux.bin = main native-ra-aux.bin
+level resident-sci.bin = main resident-sci.bin
+level resident-legacy.bin = main resident-legacy.bin
+ok   old-test84-here
+ok   old-test84-before
+same test84: 68f9f3de57f87439fa2fffe3fdc12812c39c9b866dc231707e1f32a54fdff22d (315748 bytes)
+ok   old-test83-here
+ok   old-test83-before
+same test83: 30cac0f816f309997c43515f9a08d2dd55c4e7d7864193b8baeb6499d3ca507a (311940 bytes)
+ok   old-installed-here
+ok   old-installed-before
+same installed: e69a6fefb77584c2757ee2f725e8e63c0e9e40024ce2ee43b9867ec74d2a93ac (294468 bytes)
+reader inputs here: 3b4308b00a3d6949f4820053e3c822856972b55974943384d0d8168cb33fc8b9; recorded: 2c9b59c34652c8a9b6bb42ab1c174da4e500cd8b088573369f58119397f7d9cf
+ok   mutations-output
+ok   mutations-card

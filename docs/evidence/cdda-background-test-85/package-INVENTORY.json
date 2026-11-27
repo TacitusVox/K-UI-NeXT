@@ -1,0 +1,71 @@
+{
+  "schema": "kui.manual-copy-inventory.v1",
+  "package": "KUI-CD-Music-Test-85-27NOV2026-1313-CST-b9cff70.zip",
+  "prepared": "2026-11-27 13:13 CST (America/Chicago)",
+  "test": 85,
+  "source_commit": "b9cff7086258776fbbaffcbca689a3172477cf04",
+  "changed": [
+    {
+      "path": "KUI/apps/games/retail-native-dual.kui",
+      "bytes": 324164,
+      "sha256": "59739533dd95e0fe1faedd0b2eda9037b1d8d1fc1bf29b21fc26701eccea1f2a",
+      "runtime": {
+        "format": 1,
+        "build": "b9cff7086258",
+        "payload_bytes": 324100,
+        "memory_bytes": 324100,
+        "crc32": "a96c75cf"
+      },
+      "status": "changed for the test only: Test 85 (CARD, YIELD, OUTPUT, VOLUME) in the place of the New reader module on the card (Test 84's 4abc63b0cc58); the owner puts their own module back afterwards",
+      "recipe": "make -f Makefile.vmu-native-toy-suite TOY_SUITE_MODE=66 TOY_WIRE_STREAM=1 TOY_WIRE_CACHED=1 TOY_WIRE_WORDS=1 TOY_WIRE_PACE=1 TOY_WIRE_IDLE=1 TOY_WIRE_LEAN=1 TOY_WIRE_STEADY=1 TOY_WIRE_FLUID=1 TOY_WIRE_SEQ=1 TOY_WIRE_ANY=1 TOY_WIRE_TITLES=1 TOY_WIRE_QUERY=1 TOY_WIRE_TIMER=1 TOY_WIRE_SAVE=1 KUI_NATIVE_BACKGROUND_MAP160=1 TOY_SURVEY_MIXED_PAD=1 TOY_CDDA_ROOM=1 TOY_CDDA_HOOK=1 TOY_CDDA_DRIVE=1 TOY_CDDA_KEEP=1 TOY_CDDA_SURVEY=0 TOY_CDDA_CARD=1 TOY_CDDA_YIELD=1 TOY_CDDA_OUTPUT=1 TOY_CDDA_VOLUME=1 BUILD_ID=b9cff7086258"
+    },
+    {
+      "path": "KUI/SURVEY/STREAM.TXT",
+      "bytes": 154112,
+      "sha256": "3466c3902faa33385456227667d52aa5fa3223d86e1d467585e22b37929a83ef",
+      "status": "replaced: a new blank report file of this test, 100 slots, ID AC0C9D85004568C20442C57C37EBABA3; no software"
+    }
+  ],
+  "if_needed": [
+    {
+      "path": "IF-NEEDED/1-full-volume/KUI/apps/games/retail-native-dual.kui",
+      "bytes": 323972,
+      "sha256": "111ff0d0c9a1d5a1596b5f64042ebefda9da3d790cf6d944af9b7e78d1806522",
+      "runtime": {
+        "format": 1,
+        "build": "b9cff7086258",
+        "payload_bytes": 323908,
+        "memory_bytes": 323908,
+        "crc32": "7efccf72"
+      },
+      "status": "not copied: the same build without VOLUME (full level, the CD mixers not read); for a game that runs but stays silent with the main module",
+      "recipe": "the main recipe with TOY_CDDA_VOLUME=0"
+    },
+    {
+      "path": "IF-NEEDED/2-no-sound/KUI/apps/games/retail-native-dual.kui",
+      "bytes": 319396,
+      "sha256": "1bd6e044b3c42a2f8a55cc36759492b48ee3229da5421a8d5b0494d81cfab411",
+      "runtime": {
+        "format": 1,
+        "build": "b9cff7086258",
+        "payload_bytes": 319332,
+        "memory_bytes": 319332,
+        "crc32": "1ea9590e"
+      },
+      "status": "not copied: the same build without OUTPUT and with Test 84's read-only survey (the audio read from the card and dropped, nothing written to the sound chip); for a game that hangs, crashes or whose own sounds go wrong with the main module",
+      "recipe": "the main recipe with TOY_CDDA_SURVEY=1 TOY_CDDA_OUTPUT=0 TOY_CDDA_VOLUME=0"
+    }
+  ],
+  "retained": "every other file on the card: K-UI (KUI/boot.kui and KUI/runtime.kui, aaaba0ea3640 or 53a33ec708ab), every other reader module and helper under KUI/apps, the Windows CE modules, banks and their selection records, settings, virtual VMU cards, saves and the games",
+  "excluded": "K-UI itself, updater packages, activation records, banks, other reader modules, game data and user data",
+  "needs_gui": {
+    "change": "4d4dcff77494 (the 160-place Background map and the routes of the owner's Test 83 GUI line)",
+    "check": "python3 tools/check_gui_lines.py --installed-has 4d4dcff77494: the installed K-UI aaaba0ea3640 contains it; so does 53a33ec708ab, the K-UI the owner's log of 27 November 2026 names",
+    "owner_checks": "the first line of Settings, Diagnostics before the first launch"
+  },
+  "report_file": {
+    "id": "AC0C9D85004568C20442C57C37EBABA3",
+    "slots": 100
+  },
+  "console": "not run on a console"
+}
