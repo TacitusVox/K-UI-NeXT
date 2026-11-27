@@ -1,0 +1,101 @@
+The launcher's preflight on original boot programs, with K-UI's memory limit
+===========================================================================
+
+Production code: native_cache_prepare_repeat (src/apps/games_native_cache.inc) of commit 53a33ec7
+(run at 0c7a9db7 first; the three result tables are byte for byte the same),
+through the repository's fixture I/O, on the 426 boot programs of the owner's CD-audio archives
+(kept outside the repository; no game byte is recorded here). Module: the owner's New reader module of
+26 November 2026 (Test 84's retail-native-dual.kui, build 4abc63b0cc58, payload CRC32 BAFAAF7C).
+Both Background readers and both Virtual VMU settings: 1,704 launches a run.
+
+The whole-program allocation is refused above a byte limit (the launcher's KUI_NATIVE_CACHE_BOOT_ALLOC
+stand-in), as the console refuses it. 'whole-program answer' is the same launch without a limit
+(docs/evidence/kui-launch-checks-d41a04f/corpus.txt). For every launch the CRC the launch would use
+was compared with an independent CRC of the file; every piecewise read took one read per 16 sectors.
+The independent probe includes src/core/vmu_native_discovery.c as it is and counts, with the
+discovery's own table, loop bounds and sdk_at, the sites of each program.
+
+Host decisions only. Nothing here ran on a console.
+
+1. Every program read in pieces (limit 0): the search against the whole-program check
+-------------------------------------------------------------------------------------
+module build=4abc63b0cc58 payload=315680 crc=BAFAAF7C lease=0x47000 seed=yes
+whole-program allocation refused above 0 bytes
+1704 launches of 426 original boot programs
+held  whole-program answer -> answer here: launches
+  pieces pool-overlap   -> skipped      132
+  pieces pool-small     -> skipped      36
+  pieces ready          -> skipped      320
+  pieces unsupported    -> skipped      924
+  pieces unsupported    -> unsupported  292
+426 programs read in pieces; 73 of them refused (no Maple witness); none of those is admitted by the whole-program check
+independent probe (426 programs): refused here == no site with all 32 words there (73); sdk_at fails for each
+
+2. Limit 7,704,576 bytes: K-UI's unclaimed memory at startup in the owner's log of 22 November 2026 (K-UI 64ae07435de5; 7,706,808 available)
+--------------------------------------------------------------------------------------------------------------------------------------------
+module build=4abc63b0cc58 payload=315680 crc=BAFAAF7C lease=0x47000 seed=yes
+whole-program allocation refused above 7704576 bytes
+1704 launches of 426 original boot programs
+held  whole-program answer -> answer here: launches
+  pieces pool-overlap   -> skipped      16
+  pieces unsupported    -> skipped      8
+  pieces unsupported    -> unsupported  16
+  whole  pool-overlap   -> pool-overlap 116
+  whole  pool-small     -> pool-small   36
+  whole  ready          -> ready        320
+  whole  unsupported    -> unsupported  1192
+10 programs read in pieces; 4 of them refused (no Maple witness); none of those is admitted by the whole-program check
+independent probe (10 programs): refused here == no site with all 32 words there (4); sdk_at fails for each
+read in pieces here:
+    8653540 415-T10003N-EVIL-DEAD-HAIL-TO-THE-KING         stage decides (whole-program check: pool-overlap, reader-only route under New (X))
+    8653732 413-T10005D-05-EVILDEAD-HAIL-TO-THE-KING       stage decides (whole-program check: pool-overlap, reader-only route under New (X))
+    9513816 1230-6107181-STAR-GLADIATOR-2                  REFUSED      (whole-program check: unsupported)
+    9514072 1231-T1204M-STAR-GLADIATOR-2                   REFUSED      (whole-program check: unsupported)
+    9514104 891-T1207N-PLASMA-SWORD                        REFUSED      (whole-program check: unsupported)
+    9518936 890-T7005D-50-PLASMA-SWORD                     REFUSED      (whole-program check: unsupported)
+   11448614 581-T40701D-50-INCOMING                        stage decides (whole-program check: pool-overlap, reader-only route under New (X))
+   11454022 582-T12503N-INCOMING                           stage decides (whole-program check: pool-overlap, reader-only route under New (X))
+   11634177 779-T9709N-NBA-HOOPZ                           stage decides (whole-program check: unsupported, reader-only route under New (X))
+   11683073 778-T9713D-NBA-HOOPZ                           stage decides (whole-program check: unsupported, reader-only route under New (X))
+
+3. Limit 4,730,880 bytes: K-UI's unclaimed memory when that log was saved, after launches (6,046,096 available with the heap's free blocks)
+-------------------------------------------------------------------------------------------------------------------------------------------
+module build=4abc63b0cc58 payload=315680 crc=BAFAAF7C lease=0x47000 seed=yes
+whole-program allocation refused above 4730880 bytes
+1704 launches of 426 original boot programs
+held  whole-program answer -> answer here: launches
+  pieces pool-overlap   -> skipped      24
+  pieces unsupported    -> skipped      40
+  pieces unsupported    -> unsupported  36
+  whole  pool-overlap   -> pool-overlap 108
+  whole  pool-small     -> pool-small   36
+  whole  ready          -> ready        320
+  whole  unsupported    -> unsupported  1140
+25 programs read in pieces; 9 of them refused (no Maple witness); none of those is admitted by the whole-program check
+independent probe (25 programs): refused here == no site with all 32 words there (9); sdk_at fails for each
+read in pieces here:
+    4932582 1098-T15003M-EXPENDABLE                        stage decides (whole-program check: pool-overlap, reader-only route under New (X))
+    4936198 742-T15101D-50-MILLENNIUM-SOLDIER              stage decides (whole-program check: pool-overlap, reader-only route under New (X))
+    4936230 424-T15104N-EXPENDABLE                         stage decides (whole-program check: unsupported, reader-only route under New (X))
+    5054464 1117-MK-5105950-SHENMUE                        REFUSED      (whole-program check: unsupported)
+    5054464 1121-MK-51059-SHENMUE                          REFUSED      (whole-program check: unsupported)
+    5054464 1125-HDR-0016-SHENMUE                          REFUSED      (whole-program check: unsupported)
+    5054464 1126-HDR-0016-SHENMUE                          REFUSED      (whole-program check: unsupported)
+    5054464 1379-HDR-0156-US-SHENMUE                       REFUSED      (whole-program check: unsupported)
+    5502328 662-T2106M-L-O-L                               stage decides (whole-program check: unsupported, reader-only route under New (X))
+    6290273 759-T-9701N-MORTAL-KOMBAT-GOLD                 stage decides (whole-program check: unsupported, reader-only route under New (X))
+    6326337 758-T-9701N-MORTAL-KOMBAT-GOLD                 stage decides (whole-program check: unsupported, reader-only route under New (X))
+    6327873 757-T9701D-MORTAL-KOMBAT-GOLD                  stage decides (whole-program check: unsupported, reader-only route under New (X))
+    6975588 726-T13005N-MAT-HOFFMANS-PRO-BMX               stage decides (whole-program check: unsupported, reader-only route under New (X))
+    7191794 022-T6807M-AERO-DANCING-I                      stage decides (whole-program check: unsupported, reader-only route under New (X))
+    7254546 023-T6809M-AERO-DANCING-I-JIKAI-SAKU-MADE-MATEMASEN stage decides (whole-program check: unsupported, reader-only route under New (X))
+    8653540 415-T10003N-EVIL-DEAD-HAIL-TO-THE-KING         stage decides (whole-program check: pool-overlap, reader-only route under New (X))
+    8653732 413-T10005D-05-EVILDEAD-HAIL-TO-THE-KING       stage decides (whole-program check: pool-overlap, reader-only route under New (X))
+    9513816 1230-6107181-STAR-GLADIATOR-2                  REFUSED      (whole-program check: unsupported)
+    9514072 1231-T1204M-STAR-GLADIATOR-2                   REFUSED      (whole-program check: unsupported)
+    9514104 891-T1207N-PLASMA-SWORD                        REFUSED      (whole-program check: unsupported)
+    9518936 890-T7005D-50-PLASMA-SWORD                     REFUSED      (whole-program check: unsupported)
+   11448614 581-T40701D-50-INCOMING                        stage decides (whole-program check: pool-overlap, reader-only route under New (X))
+   11454022 582-T12503N-INCOMING                           stage decides (whole-program check: pool-overlap, reader-only route under New (X))
+   11634177 779-T9709N-NBA-HOOPZ                           stage decides (whole-program check: unsupported, reader-only route under New (X))
+   11683073 778-T9713D-NBA-HOOPZ                           stage decides (whole-program check: unsupported, reader-only route under New (X))

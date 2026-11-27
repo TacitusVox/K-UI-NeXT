@@ -46,6 +46,12 @@ Plasma Sword (`cdda-background-test-84.md`, Console result).
    K-UI's own SDK check is such a case: K-UI refuses a Background launch its
    check does not admit, before the module's stage is asked
    (`background-launch-checks.md`). That module brings its K-UI.
+   Since K-UI `53a33ec708ab` this also holds for a program too large for
+   K-UI to hold: there K-UI refuses by its own copy of the Maple discovery's
+   32-word table. A reader whose discovery accepts another family, skips its
+   check in some mode or takes a longer program changes that copy in the
+   same commit and brings its K-UI; `tests/test_games_native_witness.py`
+   fails until it does.
 4. **Before reading a console result**, compare the K-UI build in the owner's
    logs with `installed`. A result from another K-UI is that K-UI's result.
 5. **A new thread** that changes K-UI on its own branch adds its branch to

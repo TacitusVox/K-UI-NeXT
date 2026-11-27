@@ -1,0 +1,84 @@
+{
+  "schema": "kui.manual-copy-inventory.v1",
+  "package": "KUI-Background-Large-Programs-27NOV2026-0252-CST-53a33ec.zip",
+  "prepared": "2026-11-27 02:52 CST (America/Chicago)",
+  "source_commit": "53a33ec708ab758386f4d6b5a799a92865337336",
+  "changed": [
+    {
+      "path": "KUI/boot.kui",
+      "bytes": 3836804,
+      "sha256": "aca70820449746a83c625615a2dd7e09ee1c1f904b7657002a1445798dcb2060",
+      "runtime": {
+        "format": 1,
+        "build": "53a33ec708ab",
+        "payload_bytes": 3836740,
+        "memory_bytes": 8204324,
+        "crc32": "f8b6923c"
+      },
+      "status": "replaced: K-UI 53a33ec708ab; boot.kui and runtime.kui identical"
+    },
+    {
+      "path": "KUI/runtime.kui",
+      "bytes": 3836804,
+      "sha256": "aca70820449746a83c625615a2dd7e09ee1c1f904b7657002a1445798dcb2060",
+      "runtime": {
+        "format": 1,
+        "build": "53a33ec708ab",
+        "payload_bytes": 3836740,
+        "memory_bytes": 8204324,
+        "crc32": "f8b6923c"
+      },
+      "status": "replaced: K-UI 53a33ec708ab; boot.kui and runtime.kui identical"
+    }
+  ],
+  "if_needed": [
+    {
+      "path": "IF-NEEDED/KUI/boot.kui",
+      "bytes": 3836452,
+      "sha256": "7f638682cf437f990cc554f4864f9b3ee5a1834b22cabd79857a362afaac03d4",
+      "runtime": {
+        "format": 1,
+        "build": "d41a04f40f23",
+        "payload_bytes": 3836388,
+        "memory_bytes": 8203972,
+        "crc32": "ae58ada7"
+      },
+      "status": "not copied: the owner's current K-UI d41a04f40f23, the same bytes as delivered on 26 November 2026; copied over KUI/ only to go back"
+    },
+    {
+      "path": "IF-NEEDED/KUI/runtime.kui",
+      "bytes": 3836452,
+      "sha256": "7f638682cf437f990cc554f4864f9b3ee5a1834b22cabd79857a362afaac03d4",
+      "runtime": {
+        "format": 1,
+        "build": "d41a04f40f23",
+        "payload_bytes": 3836388,
+        "memory_bytes": 8203972,
+        "crc32": "ae58ada7"
+      },
+      "status": "not copied: the owner's current K-UI d41a04f40f23, the same bytes as delivered on 26 November 2026; copied over KUI/ only to go back"
+    }
+  ],
+  "retained": "every other file on the card: the reader modules and helpers under KUI/apps/games (the New reader module the owner has there, Test 84's 4abc63b0cc58 or the owner's own; the reader-only New module if installed), the Windows CE CD music modules, ce-boot.kui and ce-probe.kui, banks and their selection records, settings, virtual VMU cards, saves, KUI/SURVEY/STREAM.TXT and the games",
+  "excluded": "updater packages, activation records, banks, reader modules and user data",
+  "gui": {
+    "build": "53a33ec708ab",
+    "updater_engine": 3,
+    "smash_bundle": "cc81e63ca4d2, the four Smash Pack modules, identical to d41a04f40f23's",
+    "standard_binding": "9e3295bcfaec (the owner's retail-boot.kui)",
+    "launch_timing": true,
+    "github_nightly": false,
+    "recipe": "tools/build_distribution_gui.sh --candidate, then tools/runtime_package.py",
+    "contains": [
+      "Main 3f757bc2 (the 3.0 RC1 source; no K-UI source changed on Main since its build commit 93f13e84)",
+      "Windows CE line to 3f757bc2 (its branch is at Main)",
+      "regular games line to 53a33ec7"
+    ],
+    "changes_since_d41a04f40f23": [
+      "0c7a9db7: a program too large for K-UI to hold is searched, while it is read once for its CRC, for the code the Background reader's SDK check needs; where that code is absent the Background launch is refused before the launch with the setting that starts the game",
+      "53a33ec7: review corrections (one log line, a compile-time check, tests); no launch decides differently"
+    ]
+  },
+  "reader_admission": "checked on the host with the owner's New reader module of 26 November 2026 (retail-native-dual.kui 4abc63b0cc58, payload CRC32 BAFAAF7C) and with the release's modules (retail-native-dual.kui f8807cb16561, retail-native-dual-a1.kui 9e3295bcfaec, retail-native-standalone.kui e5af01888606, retail-boot.kui through the Standard binding)",
+  "console": "not run on a console"
+}

@@ -358,8 +358,12 @@ saves; and for the first audible build keep ChuChu Rocket and KOF Dream Match
 1999 as the two driver cases, with POD as a further MANATEE 1 case.
 
 The two K-UI checks were delivered on 26 November 2026 as K-UI
-`d41a04f40f23` (`background-launch-checks.md`); their console run is
-pending. The audible build is Test 85.
+`d41a04f40f23` (`background-launch-checks.md`). On the console, 27 November:
+Tokyo Xtreme Racer boots with Background loading on (through the reader-only
+module, which records no survey); Plasma Sword still reached this module's
+stop screen, because K-UI cannot hold its 9.07 MiB program to check it. K-UI
+`53a33ec708ab` of 27 November checks such a program while it reads it; its
+console run is pending. The audible build is Test 85.
 
 ## Known limits
 

@@ -1,0 +1,102 @@
+Host checks at commit 53a33ec7 (27 November 2026 UTC). None of this ran on a console.
+
+In a clean checkout of 53a33ec7 (no change before or after):
+make test-games-native-cache                PASS (149,262 checks)
+make test-games-native-cache-hint           PASS (1,688 checks; 1,794 with --modules on four actual packaged modules)
+make test-games-native-owner-cache          PASS
+make test-games-native-route                PASS (34 launches, FAT32 and exFAT)
+python3 tests/test_games_native_witness.py  PASS (the table, the bounds and five pinned pieces of the SDK-check code)
+make build/games-retail                     builds
+python3 tests/test_games_retail.py          PASS
+python3 tests/test_games_native_alias_crc.py        PASS
+python3 tests/test_games_cooked_native_hint.py      PASS
+python3 tests/test_games_retail_checksum_batch.py   PASS
+build/test-wince-packaged-prepare           builds
+build/test-armada-ce-excerpt-prepare        PASS
+python3 tests/test_check_gui_lines.py       PASS
+python3 tests/test_cold_handoff_policy.py   PASS
+python3 tests/test_disc_stage_launch_policy.py      PASS
+python3 tests/test_frontend_job_fences.py   PASS
+python3 tests/test_game_reader_provenance.py        PASS
+python3 tests/test_native_cold_discovery.py PASS
+python3 tests/test_native_gui_fast_scan.py  PASS
+python3 tests/test_native_sdk_coherence_reuse.py    PASS
+python3 tests/test_smash_launch_timing.py   PASS
+python3 tests/test_wince_kernel_read_reuse.py       PASS
+python3 tests/test_global_launch_performance_policy.py  PASS
+python3 tests/test_native_background_route.py       PASS
+python3 tests/test_package_games_manual_test.py     PASS
+python3 tests/test_retail_low_resident.py   PASS
+python3 tests/test_update_addon.py          PASS
+make test-shared-game-launch                PASS (exit 0)
+python3 tools/check_gui_lines.py            PASS at 53a33ec708ab: main 3f757bc2ac0a, claude/hopeful-dijkstra-r2g7c4
+                                            53a33ec708ab, claude/great-darwin-yjmgfi 3f757bc2ac0a contained
+python3 tools/stage_distribution.py --print-reader-inputs
+                                            2c9b59c34652c8a9b6bb42ab1c174da4e500cd8b088573369f58119397f7d9cf
+                                            (config/distribution.json's value: no reader input changed)
+
+Mutations, each applied alone to a clean checkout of 53a33ec7, all three tests run, the source restored.
+"unit" is make test-games-native-cache, "guard" is tests/test_games_native_witness.py, "route" is
+tests/test_games_native_route.py. A row names every test that fails with the mutation.
+The first group changes the launcher's search (src/apps/games_native_witness.inc), the second the pass and
+its gate (games_native_cache.inc), then its use in the launcher (games_retail.c), then the Maple discovery
+and the stage themselves (reader sources: there the guard must fail, so that the launcher's copy is revisited).
+
+  killed  unit, guard, route  witness: one word of the launcher's table differs
+  killed  unit, guard, route  witness: one offset of the launcher's table differs
+  killed  unit, guard         witness: one word of the launcher's table is missing
+  killed  unit, guard         witness: the first site is one later
+  killed  unit, guard         witness: the last site is one earlier
+  killed  unit, guard         witness: a site after the discovery's last is tested
+  killed  guard               witness: the reach before a site is too short
+  killed  unit, guard         witness: the reach after a site is too short
+  killed  unit, route         witness: words read big-endian
+  killed  unit                witness: every other site skipped
+  killed  unit                witness: a site before the held bytes is ruled out
+  killed  unit                witness: a site whose earlier words are not held is tested anyway
+  killed  unit                witness: the search restarts at the first site each piece
+  killed  unit                pieces: 8 sectors instead of 16
+  killed  unit                pieces: the kept bytes are not moved
+  killed  unit                pieces: the base is not advanced
+  passes  -                   pieces: a later piece forgets an earlier witness
+  killed  unit                CRC: each piece starts from zero
+  killed  unit, route         CRC: the last sector's padding is included
+  killed  unit, route         CRC: proved but not marked
+  killed  unit, route         answer: never refuses
+  killed  unit, route         answer: refuses with a witness too
+  killed  unit                buffer: its allocation is not checked
+  killed  unit                failure: a piece that cannot be read still gives an answer and a CRC
+  killed  unit                cancel: a cancelled read is no cancel
+  killed  unit                cancel: not seen before a piece
+  killed  unit                cancel: not seen after the last piece
+  killed  unit, guard         gate: the Standard module is read in pieces too
+  killed  unit, guard, route  gate: a failed workspace allocation reads in pieces
+  killed  unit, guard         gate: a launch that needs no CRC is read in pieces
+  killed  unit, guard, route  gate: never read in pieces
+  killed  route               launcher: the CRC of the pieces is not used
+  killed  route               launcher: the CRC of the pieces is used changed
+  killed  unit, guard, route  discovery: one word of its table changes
+  killed  guard               discovery: its loop starts earlier
+  killed  guard               discovery: a second family table appears
+  killed  unit, guard         discovery: sdk_at accepts a site without the table
+  killed  unit, guard         discovery: a second way to accept a driver, after its loop
+  killed  guard               discovery: a driver accepted before the prefilter
+  killed  unit, guard, route  layout step: goes on without a resolved driver
+  killed  guard               extent: longer than the file
+  killed  guard               stage: returns before its check in reader-only mode
+  killed  guard               stage: discovers over a sector-rounded length
+  killed  guard               stage: goes on where the discovery fails
+  killed  guard               stage: its program is longer than the boot file
+
+45 mutations: 44 fail at least one test. One passes all three, and is no change in behaviour: without the
+"if(!found)" guard a later piece searches again from the site already found, which is either still held
+and matches again, or lies before the held bytes and cannot be ruled out; the answer stays "found".
+The unmutated tree passes all three afterwards.
+
+An earlier run of 38 of these at 0c7a9db7, before the review corrections, had the same one pass. There the
+unit tests did not notice a changed word of the launcher's table (they planted the launcher's own table);
+since 53a33ec7 they plant the discovery's source and run the real discovery beside the search.
+The reviewer's mutants that the guard of 0c7a9db7 let pass are the five rows "a second way to accept a
+driver, after its loop", "a driver accepted before the prefilter", "extent: longer than the file",
+"stage: returns before its check in reader-only mode" and "stage: discovers over a sector-rounded
+length"; its scan mutant is "buffer: its allocation is not checked".

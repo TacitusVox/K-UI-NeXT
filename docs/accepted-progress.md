@@ -56,7 +56,45 @@ may select a stale bank, while cold ROOT boot bypasses selectors. The physical
 card is unavailable, so existing banks are not assumed present or absent.
 Claude's original-backed SA1 result is recorded as an external report only.
 
-## Two checks before a Background launch: console test pending, d41a04f40f23, 2026-11-26
+## A program too large for K-UI to hold: console test pending, 53a33ec708ab, 2026-11-27
+
+Delivered: `KUI-Background-Large-Programs-27NOV2026-0252-CST-53a33ec.zip`, GUI build `53a33ec708ab` (commit `53a33ec7`), GUI only
+([record](background-launch-checks.md)). It is `d41a04f40f23` with one
+launcher change and its review corrections: a program K-UI cannot hold in
+memory is searched, while it is read once for its CRC, for the code the
+Background reader's SDK check needs, and the launch is refused where that
+code is absent (Plasma Sword, Star Gladiator 2 and, when it cannot be held,
+Shenmue, of the 426 programs).
+
+Console result of `d41a04f40f23`, 27 November 2026 (one photograph, no log):
+
+- Tokyo Xtreme Racer boots with Background loading on. First console result
+  for the pool rule; the route (the reader-only module, Virtual VMU Off) is
+  inferred, and only the boot was reported. That module records no survey.
+- Plasma Sword still ended on the reader's stop screen. K-UI could not hold
+  its 9.07 MiB program (it has under 8 MiB free on the console), gave no
+  answer and started the module. The host checks of `d41a04f40f23` had no
+  memory limit and reported a refusal the console does not give.
+
+Built with the release script; of 888 objects only `games_retail.o` differs
+from `d41a04f40f23` and from a build of Main. No reader module changed and no
+reader input. Host checks only: unit and launcher tests with the allocation
+refused, the production preflight on the 426 originals under the console's
+two logged memory limits, 45 mutations, an independent review.
+
+Not accepted by this delivery, and not changed by it:
+
+- A large program that has the reader's code still gets no answer and is
+  started unchecked (6 to 16 of the 426, among them Evil Dead, Incoming and
+  NBA Hoopz). With Virtual VMU Off the reader runs its own check; by the
+  host check it refuses all of them.
+- With Virtual VMU On every launch without K-UI's answer stops in the reader
+  at storage start, for want of a prepared card. By reading and a host run
+  of the stage's admission; not seen on a console. Whether K-UI should
+  refuse these launches is the owner's decision.
+- A program K-UI cannot hold never gets the reader-only module.
+
+## Two checks before a Background launch: on the console 27 November (one of two confirmed), d41a04f40f23, 2026-11-26
 
 Delivered: `KUI-Background-Launch-Checks-26NOV2026-2356-CST-d41a04f.zip`, GUI build `d41a04f40f23` (commit `d41a04f4`), GUI only
 ([record](background-launch-checks.md)). Its source is Main `3f757bc2` (the

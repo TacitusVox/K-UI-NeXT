@@ -1,0 +1,19 @@
+Objects of K-UI builds made with tools/build_distribution_gui.sh --candidate, debug sections removed.
+
+Against the K-UI on the owner's card: base d41a04f40f23, new 53a33ec708ab.
+888 objects without debug sections; 885 identical; 2 differ only in the build ID text; 1 differ otherwise
+  build ID only: build/dc/main-runtime.o
+  build ID only: build/dc/src/apps/games_library.o
+  DIFFERENT   : build/dc/src/apps/games_retail.o 150852 -> 151992 bytes
+
+Against Main's K-UI: base f41f974419e1 (Main 3f757bc2 with one documentation commit), new 53a33ec708ab.
+888 objects without debug sections; 885 identical; 2 differ only in the build ID text; 1 differ otherwise
+  build ID only: build/dc/main-runtime.o
+  build ID only: build/dc/src/apps/games_library.o
+  DIFFERENT   : build/dc/src/apps/games_retail.o 148416 -> 151992 bytes
+
+Against the first build of this check (0c7a9db755c1, before the review corrections; not sent): base 0c7a9db755c1, new 53a33ec708ab.
+888 objects without debug sections; 885 identical; 2 differ only in the build ID text; 1 differ otherwise
+  build ID only: build/dc/main-runtime.o
+  build ID only: build/dc/src/apps/games_library.o
+  DIFFERENT   : build/dc/src/apps/games_retail.o 151988 -> 151992 bytes
