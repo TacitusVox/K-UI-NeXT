@@ -103,6 +103,10 @@ int main(int argc,char **argv) {
             /* The reason the console's worker repeats after the timing lines. */
             assert(strlen(kui_games_retail_last_refusal())>76u-13u);
             printf("REFUSAL %s\n",kui_games_retail_last_refusal());
+            /* The next launch starts without it: one that ends before it
+             * has a reason of its own must not show this one's. */
+            assert(!kui_games_retail_prepare_launch(selected,reader,&patches,NULL,log_line,cancel));
+            assert(!kui_games_retail_last_refusal()[0]);
         }
         printf("ROUTE prepared=%u standalone=%u seeded=%u family=%u standalone-opens=%u writes=%u\n",prepared,standalone,
             seeded,test.family_calls,test.standalone_package_opens,test.writes?1u:0u);
