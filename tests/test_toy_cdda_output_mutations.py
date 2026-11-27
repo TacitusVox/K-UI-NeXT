@@ -101,8 +101,12 @@ MUTATIONS = [
     ("the guards not looked at", "    if(clear != 1 || !guards(b, false)) {", "    if(clear != 1) {"),
     ("the table not read again before a store", "    const int clear = table(b, O.ring, ring_bytes(), &detail);",
      "    const int clear = 1;", {"SPARE": 0}),
-    ("a lost ring kept for the next play", "        O.placed = O.place_try = O.place_at = O.spare = 0u;\n        return;\n    }\n    if(O.phase",
+    ("a lost ring kept", "        O.placed = O.place_try = O.place_at = O.spare = 0u;\n        return;\n    }\n    if(O.phase",
      "        return;\n    }\n    if(O.phase"),
+    ("a lost ring ends the play", "        else restart(b, busy);\n        O.placed = O.place_try",
+     "        else stop(b, busy, KUI_TOY_CDDA_OUT_SILENT, KUI_TOY_CDDA_OUT_WHY_RING, 0u);\n        O.placed = O.place_try"),
+    ("a ring lost again and again never given up", "        if(++O.rearms > REARMS)\n            stop(b, busy, KUI_TOY_CDDA_OUT_SILENT, KUI_TOY_CDDA_OUT_WHY_RING,",
+     "        if(0)\n            stop(b, busy, KUI_TOY_CDDA_OUT_SILENT, KUI_TOY_CDDA_OUT_WHY_RING,"),
     ("the ring not cleared", "        if(!wipe(b))return;\n", "        (void)wipe;\n"),
     # Keys, registers, levels
     ("no execute strobe at key-on", "!put(b, channel(1), key_word(1) | KEY_EXECUTE))return;",

@@ -32,7 +32,9 @@
  * heartbeat writes anything, the driver, the channels' records, the whole
  * table and the guards are read again; whatever no longer holds silences the
  * play, with its reason kept for the report, and what is no longer ours is
- * not written again.
+ * not written again. A ring that is lost alone (a pair of the table came to
+ * lie in it, a guard line was overwritten) is given up, and the play takes
+ * a place again and begins there.
  *
  * What is written: the ring and its guards, and registers +0x00 to +0x44 of
  * the two channels. Nothing else: no mixer, no monitor select (the driver's),
@@ -845,8 +847,13 @@ static void work(struct bus *b, bool wanted, bool tail, uint32_t now) {
         if(!b->ok)return;
         if(clear != 1)++O.lost_table;
         else ++O.lost_guard;
-        stop(b, busy, KUI_TOY_CDDA_OUT_SILENT, KUI_TOY_CDDA_OUT_WHY_RING,
-            clear != 1 ? KUI_TOY_CDDA_OUT_RING_TABLE : KUI_TOY_CDDA_OUT_RING_GUARD);
+        /* What lies there is no longer the ring. The play takes a place
+         * again and begins there; one that loses its ring again and again
+         * is given up, as with a key dropped. */
+        if(++O.rearms > REARMS)
+            stop(b, busy, KUI_TOY_CDDA_OUT_SILENT, KUI_TOY_CDDA_OUT_WHY_RING,
+                clear != 1 ? KUI_TOY_CDDA_OUT_RING_TABLE : KUI_TOY_CDDA_OUT_RING_GUARD);
+        else restart(b, busy);
         O.placed = O.place_try = O.place_at = O.spare = 0u;
         return;
     }

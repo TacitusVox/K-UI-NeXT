@@ -836,7 +836,8 @@ static void placing(void) {
 #if KUI_TOY_CDDA_SPARE
     /* The driver's spare memory, whatever the table says. The game has the
      * driver start again, which clears its work memory: what lies there is
-     * no longer the ring. The next play takes the place again. */
+     * no longer the ring. The play takes the place again and begins there;
+     * the ninth time in one play it is given up. */
     for(unsigned kind = 0; kind < 2u; ++kind) {
         fresh();
         if(kind)manatee2();
@@ -849,21 +850,33 @@ static void placing(void) {
          * and with it its split, which the game sets again.) */
         memset(ram + (kind ? 0x12000u : 0x13000u), 0, 0x5000u);
         if(kind)manatee2();
-        const unsigned long spare_before = ring_stores;
         strict = false;
-        run(100u);
-        CHECK(silent() && ring_stores == spare_before && O.lost_guard == 1u && O.why_detail == KUI_TOY_CDDA_OUT_RING_GUARD &&
+        run(40u);
+        CHECK(O.lost_guard == 1u && O.restarts == 1u);
+        strict = true;
+        const unsigned long wrong_spare = wrong_frames;
+        run(1000u);
+        CHECK(sounding() && O.spare && O.ring == SPARE_AT && O.places == 2u && starts == 2u && wrong_frames == wrong_spare);
+        for(unsigned times = 2; times <= 9u; ++times) {
+            CHECK(sounding());
+            put32(O.ring + (times & 1u ? 0u : RING(O.frames) - 4u), 0u);
+            strict = false;
+            run(40u);
+            strict = true;
+            run(1000u);
+            CHECK(O.lost_guard == times);
+        }
+        CHECK(silent() && O.why == KUI_TOY_CDDA_OUT_WHY_RING && O.why_detail == KUI_TOY_CDDA_OUT_RING_GUARD && O.restarts == 8u &&
             !O.placed);
+        /* The next play takes the place again. */
         D.state = KUI_TOY_CDDA_IDLE;
         ++D.generation;
         run(100u);
-        strict = true;
-        const unsigned long wrong_spare = wrong_frames;
         play(1000u, 4000u, 1u, 0);
         run(1000u);
-        CHECK(sounding() && O.spare && O.ring == SPARE_AT && O.places == 2u && wrong_frames == wrong_spare);
+        CHECK(sounding() && O.spare && O.ring == SPARE_AT && O.places == 10u);
     }
-    printf("PASS the ring's place: the driver's spare memory; given up when a guard says so, and taken again\n");
+    printf("PASS the ring's place: the driver's spare memory; given up when a guard says so and taken again in the same play, eight times\n");
 #else
     /* Banks up to CRI's slots: the ring in the slots' place while the table
      * names none of them. */
@@ -873,21 +886,18 @@ static void placing(void) {
     play(1000u, 4000u, 1u, 0);
     run(1000u);
     CHECK(sounding() && O.frames == LARGEST && O.ring == ((0x200000u - RING(LARGEST)) & ~31u) && !wrong_frames);
-    /* CRI opens its first slot, which lies in it: no store after the table
-     * names it. */
+    /* CRI opens its first slot, which lies in it: no store there after the
+     * table names it (the model refuses one), and the play begins again in
+     * a place below the slot. */
     bank(48u + 15u, 0x1fbfc0u, 0x4000u);
-    const unsigned long before = ring_stores;
-    run(200u);
-    CHECK(silent() && ring_stores == before && O.why == KUI_TOY_CDDA_OUT_WHY_RING &&
-        O.why_detail == KUI_TOY_CDDA_OUT_RING_TABLE && O.lost_table == 1u && !O.placed);
-    /* The next play looks again, and finds a place below the slot. */
-    D.state = KUI_TOY_CDDA_IDLE;
-    ++D.generation;
-    run(100u);
+    strict = false;
+    run(40u);
+    CHECK(O.lost_table == 1u && O.restarts == 1u);
     strict = true;
-    play(1000u, 4000u, 1u, 0);
+    const unsigned long wrong_slot = wrong_frames;
     run(1000u);
-    CHECK(sounding() && O.frames == LARGEST && O.ring == ((0x1fbfc0u - RING(LARGEST)) & ~31u) && !wrong_frames);
+    CHECK(sounding() && O.frames == LARGEST && O.ring == ((0x1fbfc0u - RING(LARGEST)) & ~31u) && starts == 2u &&
+        O.places == 2u && wrong_frames == wrong_slot);
     /* Less room: the smaller rings. */
     for(unsigned size = 1; size < 3u; ++size) {
         fresh();
@@ -905,9 +915,24 @@ static void placing(void) {
     run(1000u);
     CHECK(sounding());
     put32(O.ring + 28u, 0u);
-    const unsigned long ring_before = ring_stores;
-    run(100u);
-    CHECK(silent() && ring_stores == ring_before && O.lost_guard == 1u && O.why_detail == KUI_TOY_CDDA_OUT_RING_GUARD);
+    strict = false;
+    run(40u);
+    CHECK(O.lost_guard == 1u && O.restarts == 1u);
+    strict = true;
+    const unsigned long wrong_guard = wrong_frames;
+    run(1000u);
+    CHECK(sounding() && O.places == 2u && get32(O.ring + 28u) == UINT32_C(0x4b434452) && wrong_frames == wrong_guard);
+    /* The ninth time in one play it is given up. */
+    for(unsigned times = 2; times <= 9u; ++times) {
+        CHECK(sounding());
+        put32(O.ring + (times & 1u ? 0u : RING(O.frames) - 4u), 0u);
+        strict = false;
+        run(40u);
+        strict = true;
+        run(1000u);
+        CHECK(O.lost_guard == times);
+    }
+    CHECK(silent() && O.why == KUI_TOY_CDDA_OUT_WHY_RING && O.why_detail == KUI_TOY_CDDA_OUT_RING_GUARD && O.restarts == 8u && !O.placed);
     printf("PASS the ring's place: below CRI's slots first, among them when the table names none, smaller where room is short; given up when a pair or a guard says so\n");
 #endif
 }
