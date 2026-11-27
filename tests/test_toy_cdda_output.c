@@ -13,10 +13,12 @@
  *
  * The model's chip plays: an execute strobe keys on the channels whose key
  * bit is set and that are off, and keys off those whose bit is clear. A
- * channel goes back to its loop's start when its position reaches the loop
- * end register (one scenario has it play the frame there first). The two
- * channels' position runs on the chip's own clock, a set number of parts
- * in a million from TMU0. Every frame the pair plays is taken from
+ * channel keeps its own position from its key-on: it steps a frame at a
+ * time and goes back to its loop's start when it reaches the loop end
+ * register as that register stands then (one scenario has it play the
+ * frame there first), so a register changed under a play moves the play
+ * for good. The two channels step on the chip's own clock, a set number of
+ * parts in a million from TMU0. Every frame the pair plays is taken from
  * sound memory at the moment it is played and held against the play's audio
  * as the test reckons it by itself: the drive's position at the heartbeat
  * that began the ring, the disc's tracks and gaps, the card's pattern.
@@ -183,19 +185,20 @@ static void expected(uint64_t k, int16_t *l, int16_t *r) {
 }
 
 /* ---- the chip ---- */
-static struct voice { bool active; uint64_t keyed_at, consumed; } voice[64];
+static struct voice { bool active; uint64_t keyed_at, consumed; uint32_t pos; } voice[64];
 static int ppm;                      /* the chip's clock against TMU0 */
 static bool inclusive;               /* the chip plays the frame at its loop end too */
 static bool strict = true;           /* every frame played is the play's */
 static unsigned long heard_frames, wrong_frames, wrong_loud, wrong_nonzero, cut_frames, loud_frames, key_ons, key_offs, lonely;
 static uint64_t last_heard;
-static int16_t sample_of(unsigned c, uint64_t k) {
-    const uint32_t address = (reg[c][0] & 0x7fu) << 16 | reg[c][1], lsa = reg[c][2], lea = reg[c][3];
-    const uint32_t lap = lea + (inclusive ? 1u : 0u) - lsa;
-    CHECK(lap);
-    const uint64_t pos = k < lsa ? k : lsa + (k - lsa) % lap;
+/* The frame a channel stands at, and its step on from there. */
+static int16_t sample_of(unsigned c) {
+    const uint32_t address = (reg[c][0] & 0x7fu) << 16 | reg[c][1], pos = voice[c].pos;
     CHECK(address + 2u * pos + 1u < BYTES);
     return (int16_t)(uint16_t)(ram[address + 2u * pos] | ram[address + 2u * pos + 1u] << 8);
+}
+static void step_on(unsigned c) {
+    if(++voice[c].pos >= reg[c][3] + (inclusive ? 1u : 0u))voice[c].pos = reg[c][2];
 }
 static void chip_run(void) {
     struct voice *l = &voice[pair[0]], *r = &voice[pair[1]];
@@ -208,7 +211,9 @@ static void chip_run(void) {
     for(; l->consumed < frames; ++l->consumed) {
         const uint64_t k = l->consumed;
         int16_t el, er;
-        const int16_t sl = sample_of(pair[0], k), sr16 = sample_of(pair[1], k);
+        const int16_t sl = sample_of(pair[0]), sr16 = sample_of(pair[1]);
+        step_on(pair[0]);
+        step_on(pair[1]);
         const bool loud = ((reg[pair[0]][9] | reg[pair[1]][9]) & 0x0f00u) != 0u;
         /* A chip that plays the frame at the loop end hears the plane's
          * first frame twice a lap. */
@@ -237,7 +242,7 @@ static void strobe(void) {
     for(unsigned c = 0; c < 64u; ++c) {
         const bool on = (reg[c][0] & 0x4000u) != 0u;
         if(on && !voice[c].active) {
-            voice[c] = (struct voice){true, now, 0u};
+            voice[c] = (struct voice){true, now, 0u, 0u};
             ++key_ons;
         } else if(!on && voice[c].active) {
             voice[c].active = false;
@@ -751,18 +756,32 @@ static void contested(void) {
         CHECK(O.drops == times && !wrong_loud);
     }
     CHECK(silent() && O.why == KUI_TOY_CDDA_OUT_WHY_FLAP && O.restarts == 8u && starts == 9u);
-    /* A command for the idle port rewrites its pitch and level: put back. */
+    /* A command for the idle port rewrites its level: put back, and the
+     * play goes on. */
     fresh();
     manatee2();
     play(1000u, 9000u, 0u, 0);
     run(1000u);
-    reg[62][6] = 0x0800u;
     reg[62][9] = 0x0000u;
-    reg[63][3] = 0x1000u;
-    strict = false;
+    reg[63][8] = 0x1234u;
     run(40u);
-    strict = true;
-    CHECK(!reg[62][6] && reg[62][9] == 0x0f1fu && reg[63][3] == 16384u && O.fixes == 3u && sounding());
+    CHECK(reg[62][9] == 0x0f1fu && !reg[63][8] && O.fixes == 2u && sounding() && !O.restarts && !wrong_frames);
+    /* Its pitch, or its loop's end: put back too, but the chip has moved
+     * by then (here the right plane went back to its start early), so the
+     * ring begins again; nine times in one play is given up. */
+    for(unsigned times = 1; times <= 9u; ++times) {
+        CHECK(sounding());
+        if(times & 1u)reg[63][3] = 0x1000u;
+        else reg[62][6] = 0x0800u;
+        strict = false;
+        run(40u);
+        strict = true;
+        CHECK(!reg[62][6] && reg[63][3] == 16384u && O.fixes == 2u + times && O.restarts == (times < 9u ? times : 8u));
+        run(1000u);
+    }
+    /* (What the chip played between the driver's write and that heartbeat
+     * was not the play's, and was heard.) */
+    CHECK(silent() && O.why == KUI_TOY_CDDA_OUT_WHY_FLAP && O.restarts == 8u && starts == 9u);
     /* The driver is loaded again under the play: not one store more. */
     fresh();
     manatee2();
@@ -790,11 +809,11 @@ static void contested(void) {
     fresh();
     manatee2();
     reg[63][0] = 0x4012u;
-    voice[63] = (struct voice){true, now, 0u};
+    voice[63] = (struct voice){true, now, 0u, 0u};
     play(1000u, 9000u, 0u, 0);
     run(1000u);
     CHECK(sounding() && O.rekeys == 1u && !wrong_frames && O.keys == 1u);
-    printf("PASS the driver's part: a taken channel is left alone, a dropped key begins the ring again (given up at the ninth), changed registers are put back, a new driver ends every store\n");
+    printf("PASS the driver's part: a taken channel is left alone, a dropped key begins the ring again (given up at the ninth), changed registers are put back and the ring begun again where the play was moved, a new driver ends every store\n");
 }
 /* The card does not keep up; the bus does not answer. */
 static void starved(void) {

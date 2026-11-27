@@ -731,6 +731,7 @@ static void work(struct bus *b, bool wanted, bool tail, uint32_t now) {
         return;
     }
     /* Running: both channels still name the ring and are keyed on. */
+    bool moved = false;
     for(unsigned side = 0; side < 2u; ++side) {
         bool on;
         const int holds = held(b, side, &on);
@@ -750,7 +751,9 @@ static void work(struct bus *b, bool wanted, bool tail, uint32_t now) {
             return;
         }
         /* What a command of the driver's for an idle port may have changed
-         * is written again. */
+         * is written again. The plane's address, the loop's end and the
+         * pitch move the place the chip plays at: with one of those
+         * changed, the ring begins again. */
         static const uint8_t at[] = {0x04u, 0x0cu, 0x18u, 0x20u, 0x24u};
         const uint32_t want[] = {plane(side) & 0xffffu, O.frames, 0u, 0u, O.level[side]};
         for(unsigned i = 0; i < sizeof(at); ++i) {
@@ -760,7 +763,13 @@ static void work(struct bus *b, bool wanted, bool tail, uint32_t now) {
             if(i < 4u || (value & 0xffffu) != O.level_set[side])++O.fixes;
             if(!put(b, channel(side) + at[i], want[i]))return;
             if(i == 4u)O.level_set[side] = want[i];
+            if(i < 3u)moved = true;
         }
+    }
+    if(moved) {
+        if(++O.rearms > REARMS)stop(b, busy, KUI_TOY_CDDA_OUT_SILENT, KUI_TOY_CDDA_OUT_WHY_FLAP, O.rearms);
+        else restart(b, busy);
+        return;
     }
     O.played = frames_of(O.key_tick - now);
     const uint32_t margin = drift(O.played);
