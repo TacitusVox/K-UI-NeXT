@@ -44,8 +44,9 @@ struct kui_toy_cdda_output {
     uint32_t generation, started, version, family, seen_version, seen_hash;
     /* The two channels (the left plane's, the right plane's), the ring's
      * place in sound memory (its first guard line), a plane's frames, and
-     * the search for a place: its step, its candidate, the bytes cleared. */
-    uint32_t channel[2], ring, frames, placed, place_try, place_at, wiped;
+     * the search for a place: its step, its candidate, the bytes cleared;
+     * spare: the place is the driver's spare memory, not one of the table's. */
+    uint32_t channel[2], ring, frames, placed, place_try, place_at, wiped, spare;
     /* The audio still to come: the next sector to ask the card for, the end
      * of the piece being read, passes left (0: for ever), whether the last
      * pass's end is written and at which frame. segment names the piece to

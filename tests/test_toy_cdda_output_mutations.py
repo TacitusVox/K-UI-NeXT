@@ -7,10 +7,10 @@ its own with tests/test_toy_cdda_output.c.
 usage: test_toy_cdda_output_mutations.py [--jobs N] [--work DIR] [--only TEXT] [--adpcm]
 
 Every mutation must still compile and must make the test fail. The test is
-built with VOLUME and with 16-bit samples, or with --adpcm with ADPCM;
-a mutation of code only one build has names that build ({"VOLUME": 0},
-{"ADPCM": 1}, {"ADPCM": 0}), and is passed over where the other is asked
-for. Run from the repository root
+built with VOLUME and with 16-bit samples, or with --adpcm with ADPCM and
+SPARE (Test 86's build); a mutation of code only one build has names that
+build ({"VOLUME": 0}, {"ADPCM": 1}, {"ADPCM": 0}), and is passed over where
+the other is asked for. Run from the repository root
 (Makefile.vmu-native-toy-suite, toy-cdda-output-mutation-check).
 """
 import argparse
@@ -155,6 +155,15 @@ MUTATIONS = [
      "    O.got = O.carried = 0u;\n    O.card = KUI_TOY_CDDA_CARD_IDLE;", {"ADPCM": 1}),
     ("the write position not begun again with the ring", "O.broken = O.at = O.carried = 0u;", "O.broken = O.carried = 0u;"),
     ("the ring written past its end", "    if(O.at >= O.frames)O.at = 0u;", "    if(O.at > O.frames)O.at = 0u;"),
+    # SPARE
+    ("the spare ring longer than its place", "#define SPARE_FRAMES 8128u", "#define SPARE_FRAMES 8192u", {"ADPCM": 1}),
+    ("the spare ring a page lower", "#define SPARE UINT32_C(0x16000)", "#define SPARE UINT32_C(0x15000)", {"ADPCM": 1}),
+    ("no spare place taken", "            (void)detail;\n            O.spare = 1u;\n            return settle(b, SPARE, SPARE_FRAMES);",
+     "            *detail = KUI_TOY_CDDA_OUT_RING_NONE;\n            return -1;", {"ADPCM": 1}),
+    ("the spare place still claimed behind a lost ring", "        O.placed = O.place_try = O.place_at = O.spare = 0u;\n        return;",
+     "        O.placed = O.place_try = O.place_at = 0u;\n        return;", {"ADPCM": 1}),
+    ("a table that cannot be read ends the search", "            O.place_try = 2u * sizeof(plane_frames) / sizeof(plane_frames[0]);\n            continue;",
+     "            *detail = KUI_TOY_CDDA_OUT_RING_PAIR + below;\n            return -1;", {"ADPCM": 1}),
     # ADPCM
     ("the codes of a word in the other order", "        word |= code << shift;", "        word |= code << (28u - shift);", {"ADPCM": 1}),
     ("a step of the coder's table", "{230u, 230u, 230u, 230u, 307u, 409u, 512u, 614u}", "{230u, 230u, 230u, 230u, 307u, 409u, 512u, 615u}", {"ADPCM": 1}),
@@ -214,8 +223,8 @@ MUTATIONS = [
      "    if(0 && O.family && owned(&b, busy, &why) == 1)quiet(&b, busy);"),
     ("the terminal with SR.BL set", "    if(!bus_begin(&b, read32(TCNT0), &sr))return;\n    if(O.family && owned",
      "    (void)bus_begin(&b, read32(TCNT0), &sr);\n    if(O.family && owned"),
-    ("another driver's channels keyed off", "            O.keyed = O.family = O.placed = O.place_try = O.place_at = 0u;",
-     "            O.family = O.placed = O.place_try = O.place_at = 0u;busy[0] = busy[1] = false;"),
+    ("another driver's channels keyed off", "            O.keyed = O.family = O.placed = O.place_try = O.place_at = O.spare = 0u;",
+     "            O.family = O.placed = O.place_try = O.place_at = O.spare = 0u;busy[0] = busy[1] = false;"),
 ]
 
 
@@ -226,6 +235,7 @@ def run(index, work):
     mutation = MUTATIONS[index]
     name, old, new = mutation[:3]
     switches = dict({"VOLUME": 1, "ADPCM": ADPCM}, **(mutation[3] if len(mutation) > 3 else {}))
+    switches["SPARE"] = switches["ADPCM"]
     text = OUTPUT.read_text()
     if text.count(old) != 1:
         return index, "not applied (%d matches)" % text.count(old)
@@ -258,7 +268,7 @@ def main():
     parser.add_argument("--jobs", type=int, default=4)
     parser.add_argument("--work")
     parser.add_argument("--only", help="run the mutations whose name holds this text")
-    parser.add_argument("--adpcm", action="store_true", help="build the test with ADPCM")
+    parser.add_argument("--adpcm", action="store_true", help="build the test with ADPCM and SPARE")
     args = parser.parse_args()
     global ADPCM
     ADPCM = int(args.adpcm)

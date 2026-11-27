@@ -32,6 +32,10 @@
  * decodes against the play's audio itself: it may be far from it only for
  * a few frames in a hundred.
  *
+ * With SPARE the ring may also lie at 0x16000..0x17FFF, the whole of it and
+ * nothing else there, when the output says it took the driver's spare
+ * memory.
+ *
  * The drivers' headers and records are authored from the static readings
  * (docs/cd-audio-corpus.md): the version bytes and the date's hash are those
  * the original images and the console gave (docs/evidence/
@@ -69,6 +73,12 @@ static unsigned long checks;
 #ifndef KUI_TOY_CDDA_ADPCM
 #define KUI_TOY_CDDA_ADPCM 0
 #endif
+#ifndef KUI_TOY_CDDA_SPARE
+#define KUI_TOY_CDDA_SPARE 0
+#endif
+/* The driver's spare memory and the ring it holds (SPARE). */
+#define SPARE_AT 0x16000u
+#define SPARE_FRAMES 8128u
 /* The ring as the test reckons it: a plane's bytes, what follows a plane,
  * the format bits of a channel's first register, the sizes in their order. */
 #if KUI_TOY_CDDA_ADPCM
@@ -413,7 +423,9 @@ void kui_toy_cdda_output_test_write(uint32_t address, uint32_t value) {
     ++stores;
     if(address - SOUND < BYTES) {
         const uint32_t at = address - SOUND;
-        CHECK(!(at & 3u) && at >= 0x18000u && O.placed && at - O.ring < RING(O.frames));
+        CHECK(!(at & 3u) && O.placed && at - O.ring < RING(O.frames));
+        if(KUI_TOY_CDDA_SPARE && O.spare)CHECK(O.ring == SPARE_AT && O.frames == SPARE_FRAMES && RING(O.frames) == 0x2000u);
+        else CHECK(at >= 0x18000u && !O.spare);
         for(unsigned i = 0; i < 84u; ++i) {
             const uint32_t start = get32(0x14000u + 8u * i), size = get32(0x14000u + 8u * i + 4u);
             if(size && at + 4u > start && at < start + size)CHECK(!"a store into a pair of the bank table");
@@ -577,13 +589,18 @@ static bool silent(void) { return !voice[pair[0]].active && !voice[pair[1]].acti
 
 /* ---- the scenarios ---- */
 /* A play from its start to its end on each of the three builds. */
-static void plays_through(unsigned build) {
+static void plays_through(unsigned build, bool full) {
     fresh();
     if(build == 0u)manatee2();
     else manatee1(build == 2u);
-    /* The game's banks from the driver's end up, and one in the middle. */
-    bank(0u, 0x18000u, 0x100000u);
-    bank(17u, 0x150000u, 0x20000u);
+    if(full) {
+        /* The game's data fills sound memory. */
+        bank(0u, 0x18000u, 0x1e8000u);
+    } else {
+        /* The game's banks from the driver's end up, and one in the middle. */
+        bank(0u, 0x18000u, 0x100000u);
+        bank(17u, 0x150000u, 0x20000u);
+    }
     bank(40u, 0x4000u, 0x800u);       /* a default table inside the driver */
     beat(1000u);
     CHECK(!stores && !chip_reads && !g2_reads);    /* no play: nothing is touched */
@@ -607,9 +624,11 @@ static void plays_through(unsigned build) {
     run(2000u);
     CHECK(O.phase == KUI_TOY_CDDA_OUT_RUN && sounding() && O.keys == 1u && key_ons == 2u && starts == 1u);
     CHECK(O.family == family && O.channel[0] == pair[0] && O.channel[1] == pair[1]);
-    /* The largest ring below CRI's slots, clear of the banks. */
-    CHECK(O.frames == LARGEST && O.ring + RING(LARGEST) <= 0x1dfe00u && O.ring >= 0x170000u && !(O.ring & 31u));
-    CHECK(get32(O.ring) == UINT32_C(0x4b434452) && get32(O.ring + RING(LARGEST) - 4u) == UINT32_C(0x4b434452));
+    /* The largest ring below CRI's slots, clear of the banks; or, with no
+     * place among them, the driver's spare memory. */
+    if(full)CHECK(O.spare && O.frames == SPARE_FRAMES && O.ring == SPARE_AT);
+    else CHECK(!O.spare && O.frames == LARGEST && O.ring + RING(LARGEST) <= 0x1dfe00u && O.ring >= 0x170000u && !(O.ring & 31u));
+    CHECK(get32(O.ring) == UINT32_C(0x4b434452) && get32(O.ring + RING(O.frames) - 4u) == UINT32_C(0x4b434452));
     CHECK(heard_frames > 80000u && !wrong_frames && !O.underruns && !O.restarts && !O.faults && !O.timeouts);
     /* (ADPCM: what the chip decodes is the play's audio, but for the frames
      * behind a leap of the test's pattern.) */
@@ -684,6 +703,16 @@ static void drifting(int parts) {
 #if KUI_TOY_CDDA_ADPCM
     /* The largest ADPCM ring holds the two clocks' margin for half an hour. */
     CHECK(sounding() && !wrong_frames && !O.underruns && !O.anchors && !O.restarts && starts == 1u);
+#if KUI_TOY_CDDA_SPARE
+    /* The ring in the driver's spare memory begins again once in five. */
+    fresh();
+    manatee1(false);
+    bank(0u, 0x18000u, 0x1e8000u);
+    ppm = parts;
+    play(1000u, 9000u, 0u, 0);
+    run(300000u);
+    CHECK(sounding() && O.spare && !wrong_frames && !O.underruns && O.anchors == 1u && O.restarts == 1u && starts == 2u);
+#else
     /* The smallest begins again once in eight minutes. */
     fresh();
     manatee1(false);
@@ -692,6 +721,7 @@ static void drifting(int parts) {
     play(1000u, 9000u, 0u, 0);
     run(480000u);
     CHECK(sounding() && O.frames == sizes[2] && !wrong_frames && !O.underruns && O.anchors == 1u && O.restarts == 1u && starts == 2u);
+#endif
 #else
     CHECK(sounding() && !wrong_frames && !O.underruns && O.anchors == 1u && O.restarts == 1u && starts == 2u);
 #endif
@@ -759,14 +789,23 @@ static void refused(void) {
     bank(0u, 0x18000u, 0x1e8000u - 0x3000u);
     play(1000u, 4000u, 1u, 0);
     run(500u);
+#if KUI_TOY_CDDA_SPARE
+    /* (With SPARE that is no refusal: the driver's spare memory.) */
+    CHECK(sounding() && O.spare && O.ring == SPARE_AT && !wrong_frames);
+#else
     CHECK(!stores && O.why == KUI_TOY_CDDA_OUT_WHY_RING && O.why_detail == KUI_TOY_CDDA_OUT_RING_NONE);
+#endif
     /* A pair the reading does not explain. */
     fresh();
     manatee2();
     bank(33u, 0x00800000u, 16u);
     play(1000u, 4000u, 1u, 0);
     run(500u);
+#if KUI_TOY_CDDA_SPARE
+    CHECK(sounding() && O.spare && O.ring == SPARE_AT && !wrong_frames);
+#else
     CHECK(!stores && O.why == KUI_TOY_CDDA_OUT_WHY_RING && O.why_detail == KUI_TOY_CDDA_OUT_RING_PAIR + 33u);
+#endif
     /* The timer out of its profile; SR.BL; a G2 DMA channel. */
     fresh();
     manatee2();
@@ -836,7 +875,42 @@ static void placing(void) {
     const unsigned long ring_before = ring_stores;
     run(100u);
     CHECK(silent() && ring_stores == ring_before && O.lost_guard == 1u && O.why_detail == KUI_TOY_CDDA_OUT_RING_GUARD);
-    printf("PASS the ring's place: below CRI's slots first, among them when the table names none, smaller where room is short; given up when a pair or a guard says so\n");
+#if KUI_TOY_CDDA_SPARE
+    /* No place among the game's: the driver's spare memory. The game has
+     * the driver start again, which clears its work memory to 0x17FFF:
+     * what lies there is no longer the ring. */
+    fresh();
+    manatee1(false);
+    bank(0u, 0x18000u, 0x1e8000u);
+    play(1000u, 4000u, 1u, 0);
+    run(1000u);
+    CHECK(sounding() && O.spare && O.ring == SPARE_AT && O.frames == SPARE_FRAMES && !wrong_frames);
+    memset(ram + 0x13000u, 0, 0x5000u);
+    const unsigned long spare_before = ring_stores;
+    strict = false;
+    run(100u);
+    CHECK(silent() && ring_stores == spare_before && O.lost_guard == 1u && O.why_detail == KUI_TOY_CDDA_OUT_RING_GUARD &&
+        !O.placed && !O.spare);
+    /* The game names its banks again and leaves the top free: the next
+     * play has a place of the table's, and a pair that comes to lie in it
+     * is seen as before. */
+    bank(0u, 0x18000u, 0x1e8000u - 0x10000u);
+    D.state = KUI_TOY_CDDA_IDLE;
+    ++D.generation;
+    run(100u);
+    strict = true;
+    const unsigned long wrong_spare = wrong_frames;
+    play(1000u, 4000u, 1u, 0);
+    run(1000u);
+    CHECK(sounding() && !O.spare && O.ring == 0x1f0000u && O.frames == LARGEST && wrong_frames == wrong_spare);
+    bank(48u, 0x1f8000u, 0x4000u);
+    const unsigned long table_before = ring_stores;
+    strict = false;
+    run(100u);
+    CHECK(ring_stores == table_before && O.lost_table == 1u && !O.placed);
+#endif
+    printf("PASS the ring's place: below CRI's slots first, among them when the table names none, smaller where room is short%s; given up when a pair or a guard says so\n",
+        KUI_TOY_CDDA_SPARE ? ", the driver's spare memory where there is none" : "");
 }
 /* The driver takes a channel, keys one off, changes its registers, changes itself. */
 static void contested(void) {
@@ -1190,7 +1264,9 @@ static void endings(void) {
 }
 
 int main(void) {
-    for(unsigned build = 0; build < 3u; ++build)plays_through(build);
+    for(unsigned build = 0; build < 3u; ++build)plays_through(build, false);
+    if(KUI_TOY_CDDA_SPARE)
+        for(unsigned build = 0; build < 3u; ++build)plays_through(build, true);
     pieces();
     drifting(150);
     drifting(-150);
@@ -1200,7 +1276,7 @@ int main(void) {
     starved();
     volume();
     endings();
-    printf("CD-music output: %lu checks passed (VOLUME %d, ADPCM %d); host model only\n", checks, KUI_TOY_CDDA_VOLUME,
-        KUI_TOY_CDDA_ADPCM);
+    printf("CD-music output: %lu checks passed (VOLUME %d, ADPCM %d, SPARE %d); host model only\n", checks, KUI_TOY_CDDA_VOLUME,
+        KUI_TOY_CDDA_ADPCM, KUI_TOY_CDDA_SPARE);
     return 0;
 }

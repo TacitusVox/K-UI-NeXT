@@ -62,6 +62,13 @@
  * signal 0 and step 127; the coder keeps each plane's decoder as the chip's
  * will stand behind the codes written, and begins with the ring.
  *
+ * SPARE (Test 86): where the bank table leaves no place for the ring, it
+ * goes into the driver's own memory at 0x16000..0x17FFF. No build of the
+ * driver has an address there (its work areas end at 0x15FFF or lower, and
+ * it tells the game that free memory begins at 0x18000); its start-up, and
+ * its start again on the game's command, clear part or all of it, which the
+ * guard lines show. It holds 8,128 frames a plane of ADPCM.
+ *
  * VOLUME: the two channels' level and pan follow the CD input's mixers
  * (0xa0702040 left input, 0xa0702044 right), which the game's driver sets and
  * the loader only reads. Without VOLUME they play at full level, hard left
@@ -86,6 +93,12 @@
 #endif
 #ifndef KUI_TOY_CDDA_ADPCM
 #define KUI_TOY_CDDA_ADPCM 0
+#endif
+#ifndef KUI_TOY_CDDA_SPARE
+#define KUI_TOY_CDDA_SPARE 0
+#endif
+#if KUI_TOY_CDDA_SPARE && !KUI_TOY_CDDA_ADPCM
+#error "The driver's spare memory holds a ring of ADPCM only (KUI_TOY_CDDA_ADPCM)"
 #endif
 
 struct kui_toy_cdda_output kui_toy_cdda_output;
@@ -116,6 +129,10 @@ struct kui_toy_cdda_output kui_toy_cdda_output;
 #define TABLE_PAIRS 84u
 #define MEMORY UINT32_C(0x200000)
 #define LOWEST UINT32_C(0x18000)  /* the driver's own memory ends here */
+/* Test 86 (SPARE): the last 8 KiB of the driver's own memory, which no build
+ * of it uses: a ring of 8,128 frames a plane with its guard lines. */
+#define SPARE UINT32_C(0x16000)
+#define SPARE_FRAMES 8128u
 #define CRI UINT32_C(0x1dfe00)    /* CRI's stream slots begin here */
 #define GUARD_BYTES 32u
 #if KUI_TOY_CDDA_ADPCM
@@ -376,14 +393,33 @@ static bool guards(struct bus *b, bool store) {
     }
     return true;
 }
+/* The ring takes a place: its guard lines are written. */
+static int settle(struct bus *b, uint32_t at, uint32_t frames) {
+    O.ring = at;
+    O.frames = frames;
+    O.placed = 1u;
+    O.wiped = 0u;
+    ++O.places;
+    if(guards(b, true))return 1;
+    O.placed = 0u;
+    return 0;
+}
 /* A place for the ring, the largest size first, and for each size first
  * below CRI's slots, then anywhere: the highest the table leaves free.
- * 1 placed, 0 still looking, -1 none (the reason's detail in *detail). */
+ * With SPARE, where the table leaves none or cannot be read: the driver's
+ * spare memory. 1 placed, 0 still looking, -1 none (the reason's detail in
+ * *detail). */
 static int place(struct bus *b, uint32_t *detail) {
     for(unsigned scans = 0; scans < 4u; ++scans) {
         if(O.place_try >= 2u * sizeof(plane_frames) / sizeof(plane_frames[0])) {
+#if KUI_TOY_CDDA_SPARE
+            (void)detail;
+            O.spare = 1u;
+            return settle(b, SPARE, SPARE_FRAMES);
+#else
             *detail = KUI_TOY_CDDA_OUT_RING_NONE;
             return -1;
+#endif
         }
         const uint32_t frames = plane_frames[O.place_try >> 1];
         const uint32_t bytes = ring_size(frames);
@@ -392,19 +428,15 @@ static int place(struct bus *b, uint32_t *detail) {
         const int clear = table(b, O.place_at, bytes, &below);
         if(clear == -1)return 0;
         if(clear == -2) {
+#if KUI_TOY_CDDA_SPARE
+            O.place_try = 2u * sizeof(plane_frames) / sizeof(plane_frames[0]);
+            continue;
+#else
             *detail = KUI_TOY_CDDA_OUT_RING_PAIR + below;
             return -1;
+#endif
         }
-        if(clear) {
-            O.ring = O.place_at;
-            O.frames = frames;
-            O.placed = 1u;
-            O.wiped = 0u;
-            ++O.places;
-            if(guards(b, true))return 1;
-            O.placed = 0u;
-            return 0;
-        }
+        if(clear)return settle(b, O.place_at, frames);
         if(below < LOWEST + bytes) {
             ++O.place_try;
             O.place_at = 0u;
@@ -732,7 +764,7 @@ static void work(struct bus *b, bool wanted, bool tail, uint32_t now) {
         if(!state) {
             /* Another driver, or this one being started again: the channels
              * and the memory are its own, and nothing more is written. */
-            O.keyed = O.family = O.placed = O.place_try = O.place_at = 0u;
+            O.keyed = O.family = O.placed = O.place_try = O.place_at = O.spare = 0u;
         }
     }
     if((!wanted && !tail) || O.phase == KUI_TOY_CDDA_OUT_SILENT || (O.started && !state)) {
@@ -785,7 +817,8 @@ static void work(struct bus *b, bool wanted, bool tail, uint32_t now) {
         if(placed < 0)stop(b, busy, KUI_TOY_CDDA_OUT_SILENT, KUI_TOY_CDDA_OUT_WHY_RING, detail);
         if(placed <= 0)return;
     }
-    const int clear = table(b, O.ring, ring_bytes(), &detail);
+    /* (The driver's spare memory is no place of the table's.) */
+    const int clear = O.spare ? 1 : table(b, O.ring, ring_bytes(), &detail);
     if(clear == -1)return;
     if(clear != 1 || !guards(b, false)) {
         if(!b->ok)return;
@@ -793,7 +826,7 @@ static void work(struct bus *b, bool wanted, bool tail, uint32_t now) {
         else ++O.lost_guard;
         stop(b, busy, KUI_TOY_CDDA_OUT_SILENT, KUI_TOY_CDDA_OUT_WHY_RING,
             clear != 1 ? KUI_TOY_CDDA_OUT_RING_TABLE : KUI_TOY_CDDA_OUT_RING_GUARD);
-        O.placed = O.place_try = O.place_at = 0u;
+        O.placed = O.place_try = O.place_at = O.spare = 0u;
         return;
     }
     if(O.phase == KUI_TOY_CDDA_OUT_OFF) {
