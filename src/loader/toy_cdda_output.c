@@ -472,8 +472,12 @@ static int held(struct bus *b, unsigned side, bool *on) {
     *on = (word & KEY_BIT) != 0u;
     return ((word ^ key_word(side)) & 0x07ffu) == 0u;
 }
+/* (The last level written that was one is kept for the report: the terminal
+ * key-off writes none.) */
 static void level_write(struct bus *b, unsigned side, uint32_t value) {
-    if(put(b, channel(side) + 0x24u, value))O.level_set[side] = value;
+    if(!put(b, channel(side) + 0x24u, value))return;
+    O.level_set[side] = value;
+    if(value)O.level_last[side] = value;
 }
 /* Nothing sounds on the channels named: the level first, then the key, with
  * one execute strobe for both. */
@@ -503,6 +507,7 @@ static void key_on(struct bus *b) {
         for(unsigned i = 0; i < sizeof(image) / sizeof(image[0]); ++i)
             if(!put(b, at + 0x10u + 4u * i, i == 5u ? O.level[side] : image[i]))return;
         O.level_set[side] = O.level[side];
+        if(O.level[side])O.level_last[side] = O.level[side];
     }
     O.keyed = 1u;
     if(!put(b, channel(0), key_word(0)) || !put(b, channel(1), key_word(1) | KEY_EXECUTE))return;
@@ -926,7 +931,10 @@ static void work(struct bus *b, bool wanted, bool tail, uint32_t now) {
             if((value & 0xffffu) == want[i])continue;
             if(i < 4u || (value & 0xffffu) != O.level_set[side])++O.fixes;
             if(!put(b, channel(side) + at[i], want[i]))return;
-            if(i == 4u)O.level_set[side] = want[i];
+            if(i == 4u) {
+                O.level_set[side] = want[i];
+                if(want[i])O.level_last[side] = want[i];
+            }
             if(i < 3u)moved = true;
         }
     }
@@ -935,6 +943,20 @@ static void work(struct bus *b, bool wanted, bool tail, uint32_t now) {
         else restart(b, busy);
         return;
     }
+    /* The driver's own clock, 250 ticks a second of the sound chip's time
+     * (its timer interrupt counts them at 0x12418, MANATEE 1 at 0x13418),
+     * beside TMU0 from the first look on: what the two clocks differ by,
+     * for the report. A count that fell is the driver started again. */
+    uint32_t chip;
+    if(!sound(b, O.family == KUI_TOY_CDDA_FAMILY_GEN2 ? 0x12418u : 0x13418u, &chip))return;
+    const uint32_t tmu = read32(TCNT0);
+    if(!O.clocked || (int32_t)(chip - O.chip_first - O.chip_ticks) < 0) {
+        O.clocked = 1u;
+        O.chip_first = chip;
+        O.tmu_first = tmu;
+    }
+    O.chip_ticks = chip - O.chip_first;
+    O.tmu_ticks = O.tmu_first - tmu;
     O.played = frames_of(O.key_tick - now);
     const uint32_t margin = drift(O.played);
     if(O.finished) {

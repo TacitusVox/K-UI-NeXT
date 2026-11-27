@@ -234,6 +234,10 @@ static uint32_t wrote_at[2];
 static bool cut;
 static unsigned long far_frames;
 static int ppm;                      /* the chip's clock against TMU0 */
+/* The driver's count of 4 ms of the chip's time, as its timer interrupt
+ * keeps it; tick_base: what it stood at when the driver last started. */
+static uint32_t tick_base;
+static uint32_t driver_ticks(void);
 static bool inclusive;               /* the chip plays the frame at its loop end too */
 static bool strict = true;           /* every frame played is the play's */
 static unsigned long heard_frames, wrong_frames, wrong_loud, wrong_nonzero, cut_frames, loud_frames, key_ons, key_offs, lonely;
@@ -356,6 +360,9 @@ static void strobe(void) {
         }
     }
 }
+static uint32_t driver_ticks(void) {
+    return (uint32_t)(now * (uint64_t)(1000000 + ppm) / (3125u * UINT64_C(1000000))) - tick_base;
+}
 static bool record_busy(unsigned side) {
     if(family == GEN2)return ram[0x13800u + 0x40u * (ram[0x12062u] - 2u + side)] & 1u;
     return get32(0x12080u + 12u * (13u + side) + 4u) != 0u;
@@ -408,6 +415,7 @@ uint32_t kui_toy_cdda_output_test_read(uint32_t address, unsigned width) {
     if(address == UINT32_C(0xa0702c00))return arm_reset;
     if(address == UINT32_C(0xa0702040) || address == UINT32_C(0xa0702044))
         return mute_readback ? 0u : mixer[(address - UINT32_C(0xa0702040)) / 4u];
+    if(family && address == SOUND + (family == GEN2 ? 0x12418u : 0x13418u))return driver_ticks();
     if(address - SOUND < BYTES) {
         CHECK(!(address & 3u));
         return get32(address - SOUND);
@@ -539,6 +547,7 @@ static void fresh(void) {
     heard_frames = wrong_frames = wrong_loud = wrong_nonzero = cut_frames = loud_frames = key_ons = key_offs = lonely = 0u;
     far_frames = 0u;
     cut = false;
+    tick_base = 0u;
     torn_left = 0u;
     family = 0u;
 }
@@ -701,6 +710,11 @@ static void drifting(int parts) {
     ppm = parts;
     play(1000u, 9000u, 0u, 0);
     run(300000u);
+    /* The two clocks as the output read them, for the report: the driver's
+     * count of 4 ms of the chip's time, and TMU0's ticks beside it, each
+     * true to one of the driver's ticks at either end. */
+    CHECK(O.chip_ticks > 70000u && llabs((long long)O.tmu_ticks -
+        (long long)O.chip_ticks * 3125 * 1000000 / (1000000 + parts)) < 2 * 3125 + 200);
 #if KUI_TOY_CDDA_ADPCM
     /* The largest ADPCM ring holds the two clocks' margin for half an hour. */
     CHECK(sounding() && !wrong_frames && !O.underruns && !O.anchors && !O.restarts && starts == 1u);
@@ -850,6 +864,7 @@ static void placing(void) {
          * and with it its split, which the game sets again.) */
         memset(ram + (kind ? 0x12000u : 0x13000u), 0, 0x5000u);
         if(kind)manatee2();
+        tick_base += driver_ticks();
         strict = false;
         run(40u);
         CHECK(O.lost_guard == 1u && O.restarts == 1u);
@@ -857,6 +872,9 @@ static void placing(void) {
         const unsigned long wrong_spare = wrong_frames;
         run(1000u);
         CHECK(sounding() && O.spare && O.ring == SPARE_AT && O.places == 2u && starts == 2u && wrong_frames == wrong_spare);
+        /* (The driver's count began again with it, and the output's look
+         * at the two clocks with the count.) */
+        CHECK(O.chip_ticks > 200u && O.chip_ticks < 400u && llabs((long long)O.tmu_ticks - (long long)O.chip_ticks * 3125) < 2 * 3125 + 200);
         for(unsigned times = 2; times <= 9u; ++times) {
             CHECK(sounding());
             put32(O.ring + (times & 1u ? 0u : RING(O.frames) - 4u), 0u);
@@ -1211,6 +1229,8 @@ static void endings(void) {
     since_empty = 8u;
     kui_toy_cdda_output_terminal();
     CHECK(silent() && !O.keyed && sr == REST && card_calls == calls && !reg[62][9] && !reg[63][9]);
+    /* (The levels the planes played at are kept for the report.) */
+    CHECK(O.level_last[0] == 0x0f1fu && O.level_last[1] == 0x0f0fu && !O.level_set[0] && !O.level_set[1]);
     /* A channel that names another address by then is the driver's: it is
      * left as it is, and the other keyed off. */
     fresh();

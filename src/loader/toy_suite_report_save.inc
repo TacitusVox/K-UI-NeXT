@@ -32,6 +32,11 @@ static void toy_report_row(char **at,const char *label,const uint32_t *values,un
 #endif
 #if KUI_TOY_CDDA_OUTPUT
 #include "kui/toy_cdda_output.h"
+#if defined(KUI_TOY_CDDA_ADPCM) && KUI_TOY_CDDA_ADPCM
+#define TOY_CDDA_RING_ADPCM 1u
+#else
+#define TOY_CDDA_RING_ADPCM 0u
+#endif
 #endif
 #if KUI_TOY_CDDA_SURVEY || KUI_TOY_CDDA_CARD
 static uint32_t toy_cdda_cap(uint32_t value,uint32_t most) {
@@ -206,7 +211,8 @@ static void toy_report_wire(char **at,const char *end,const struct kui_native_ra
      * dropped in this play <<12, the reason's detail <<16. V: the version
      * word of the driver last looked at. ID: its date hash, the left
      * plane's channel <<16, the right's <<24. RING: the ring's place in
-     * sound memory. N: a plane's frames, places taken <<16.
+     * sound memory. N: a plane's frames, places taken <<16, and <<24 the
+     * ring's kind: 1 ADPCM, 2 in the driver's spare memory.
      * KEY: key-ons. RST: rings begun again. UND: of those, for a ring run
      * dry. ANC: for the clocks' margin. DRP: keys the driver dropped, and
      * channels found keyed on before a key-on <<16. TK: channels taken,
@@ -214,12 +220,14 @@ static void toy_report_wire(char **at,const char *end,const struct kui_native_ra
      * HB: heartbeats that used the bus. LONG: the longest in ticks, the
      * card's time in it. TICK: all of them. KB: KiB written to the ring.
      * SKIP: heartbeats not made for SR.BL <<24 and a G2 transfer <<16, bus
-     * waits that ran out <<8, stores refused. LV: the levels last written,
-     * the left plane's and the right's <<16.
-     * MX: the CD mixers as last read, left and right <<16. FB: MANATEE 2's
-     * own level bytes (left, right <<8) and heartbeats they stood in <<16.
-     * PRIME: ticks from the last ring's beginning to its key-on. SIL:
-     * frames of silence written (gaps, refused tracks, behind an end).
+     * waits that ran out <<8, stores refused. LV: the last levels written
+     * that were levels, the left plane's and the right's <<16.
+     * MX: the CD mixers as last read, the first and the second <<16. M1:
+     * as first read with something in them. FB: MANATEE 2's own level
+     * bytes (the first, the second <<8) and heartbeats they stood in <<16.
+     * AT: the driver's count of 4 ms of the sound chip's time since it was
+     * first looked at in a play that ran. TM: TMU0's ticks in that time
+     * (3,125 to one of the driver's where the two clocks agree).
      * LOST: rings lost to a pair of the table, segments the card refused
      * <<8, rings lost to a guard <<16, heartbeats not made for want of
      * stack <<24. */
@@ -228,7 +236,7 @@ static void toy_report_wire(char **at,const char *end,const struct kui_native_ra
         toy_report_short(at,end,"CD O ST V ID RING N",
             (uint32_t[]){o->phase|o->why<<4|o->family<<8|toy_cdda_cap(o->rearms,15u)<<12|(o->why_detail&0xffffu)<<16,
                 o->seen_version,o->seen_hash|o->channel[0]<<16|o->channel[1]<<24,o->ring,
-                o->frames|toy_cdda_cap(o->places,255u)<<16},5u);
+                o->frames|toy_cdda_cap(o->places,255u)<<16|(TOY_CDDA_RING_ADPCM|(o->spare?2u:0u))<<24},5u);
         toy_report_short(at,end,"CD O KEY RST UND ANC DRP TK",
             (uint32_t[]){o->keys,o->restarts,o->underruns,o->anchors,
                 toy_cdda_cap(o->drops,0xffffu)|toy_cdda_cap(o->rekeys,0xffffu)<<16,
@@ -237,13 +245,13 @@ static void toy_report_wire(char **at,const char *end,const struct kui_native_ra
             (uint32_t[]){o->heartbeats,o->longest,o->bus_ticks,o->bytes>>10,
                 toy_cdda_cap(o->skipped_bl,255u)<<24|toy_cdda_cap(o->skipped_dma,255u)<<16|
                     toy_cdda_cap(o->timeouts,255u)<<8|toy_cdda_cap(o->faults,255u),
-                o->level_set[0]|o->level_set[1]<<16},6u);
-        toy_report_short(at,end,"CD O MX FB PRIME SIL LOST",
-            (uint32_t[]){o->mixer[0]|o->mixer[1]<<16,
+                o->level_last[0]|o->level_last[1]<<16},6u);
+        toy_report_short(at,end,"CD O MX M1 FB AT TM LOST",
+            (uint32_t[]){o->mixer[0]|o->mixer[1]<<16,o->mixer_first[0]|o->mixer_first[1]<<16,
                 (o->shadow&255u)|(o->shadow>>16&255u)<<8|toy_cdda_cap(o->fallbacks,0xffffu)<<16,
-                o->prime_ticks,o->silence_frames,
+                o->chip_ticks,o->tmu_ticks,
                 toy_cdda_cap(o->lost_table,255u)|toy_cdda_cap(o->refusals,255u)<<8|
-                    toy_cdda_cap(o->lost_guard,255u)<<16|toy_cdda_cap(o->skipped_stack,255u)<<24},5u);
+                    toy_cdda_cap(o->lost_guard,255u)<<16|toy_cdda_cap(o->skipped_stack,255u)<<24},6u);
     }
 #endif
 #if KUI_TOY_CDDA_CARD

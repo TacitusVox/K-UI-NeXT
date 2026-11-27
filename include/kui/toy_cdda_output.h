@@ -66,6 +66,10 @@ struct kui_toy_cdda_output {
      * in them, heartbeats they read nothing, and MANATEE 2's own level
      * bytes when they stood in for them. */
     uint32_t level[2], level_set[2], mixer[2], mixer_first[2], mixer_zero, shadow;
+    /* For the report: the last level written that was one; and the two
+     * clocks: the driver's count of 4 ms of the chip's time and TMU0 when
+     * first looked at in a play that ran, and how far each has gone since. */
+    uint32_t level_last[2], clocked, chip_first, tmu_first, chip_ticks, tmu_ticks;
     uint32_t last_tick, keyed, rearms;
     /* Counted for the report: heartbeats that used the bus, the longest and
      * all of their TMU0 ticks (the card's time included), bytes written to

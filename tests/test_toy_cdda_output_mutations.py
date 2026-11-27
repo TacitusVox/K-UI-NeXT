@@ -221,6 +221,14 @@ MUTATIONS = [
      "        if(O.finished) {\n            return;"),
     ("stopped at the last frame by TMU0 alone", "        if(O.played >= O.audio_end + margin) {", "        if(O.played >= O.audio_end) {"),
     ("keyed on before the ring is primed", "        if(!b->ok || (O.written < prime && !O.finished))return;", "        if(!b->ok)return;"),
+    # For the report
+    ("the driver's clock not begun again when the driver is", "    if(!O.clocked || (int32_t)(chip - O.chip_first - O.chip_ticks) < 0) {",
+     "    if(!O.clocked) {", {"SPARE": 1}),
+    ("MANATEE 2's count read under MANATEE 1", "? 0x12418u : 0x13418u", "? 0x12418u : 0x12418u"),
+    ("TMU0's ticks counted the other way", "    O.tmu_ticks = O.tmu_first - tmu;", "    O.tmu_ticks = tmu - O.tmu_first;"),
+    ("the two clocks looked at once only", "    O.chip_ticks = chip - O.chip_first;", "    if(!O.chip_ticks)O.chip_ticks = chip - O.chip_first + 1u;"),
+    ("no level kept behind the key-off", "    if(value)O.level_last[side] = value;", "    O.level_last[side] = value;"),
+    ("the level at the key-on not kept", "        if(O.level[side])O.level_last[side] = O.level[side];\n", ""),
     # The play
     ("a paused play sounds on", "    bool wanted = D.state == KUI_TOY_CDDA_PLAYING &&", "    bool wanted = D.state != KUI_TOY_CDDA_IDLE &&"),
     ("a new play not begun", "(O.phase == KUI_TOY_CDDA_OUT_OFF || D.generation == O.generation);", "1;"),
