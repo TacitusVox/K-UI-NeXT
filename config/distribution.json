@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "reader_inputs_sha256": "2c9b59c34652c8a9b6bb42ab1c174da4e500cd8b088573369f58119397f7d9cf",
+  "reader_inputs_sha256": "3b4308b00a3d6949f4820053e3c822856972b55974943384d0d8168cb33fc8b9",
   "files": {
     "apps/disc/native-disc-vmu-a1.kui": "caa1134214f56ebc94e60d72a6af5d0cb69604dbc2789e31e076364b2c7b77e5",
     "apps/disc/native-disc-vmu.kui": "d7cb11a70ec63b2e301cf67474575dd10445959a23ca1f9a37ad2e1c569ed903",
