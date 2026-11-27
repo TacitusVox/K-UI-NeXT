@@ -181,6 +181,8 @@ def audit():
                 else:
                     assert (prepared, standalone, seeded_module, opens, writes) == (0, 0, 0, 0, 0), (case, answer, saved, ran.stdout)
                     assert said == expected, (case, answer, saved, said)
+                    # The same words are kept for the console's worker to say again at the log's end.
+                    assert f"REFUSAL {expected}\n" in ran.stdout, (case, ran.stdout)
                     assert digest(card) == before, "a refused launch changed the card"
                     assert "using standalone New" not in ran.stdout
                 rows.append(dict(filesystem=kind, installed=case, sdk_answer=answer, card=saved, virtual_vmu="on",

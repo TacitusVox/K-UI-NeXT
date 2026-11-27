@@ -15,6 +15,7 @@
 #include "test_vmu_native_resolution_cache.c"
 #undef main
 #include "kui/vmu_native_cache_seed.h"
+#include "kui/games_retail_refusal.h"
 static const char *pool;
 static unsigned builds,refused_allocations;
 static bool large;
@@ -95,7 +96,14 @@ int main(int argc,char **argv) {
             const uint8_t *wire,*pin;
             seeded=slot!=SIZE_MAX && kui_vmu_native_cache_seed_read((uint8_t *)staged.data+slot,
                 KUI_VMU_NATIVE_CACHE_SEED_BYTES,&wire,&pin);
-        } else assert(!staged.data && !staged.info.payload_bytes && !test.writes);
+            /* A prepared launch leaves no reason behind. */
+            assert(!kui_games_retail_last_refusal()[0]);
+        } else {
+            assert(!staged.data && !staged.info.payload_bytes && !test.writes);
+            /* The reason the console's worker repeats after the timing lines. */
+            assert(strlen(kui_games_retail_last_refusal())>76u-13u);
+            printf("REFUSAL %s\n",kui_games_retail_last_refusal());
+        }
         printf("ROUTE prepared=%u standalone=%u seeded=%u family=%u standalone-opens=%u writes=%u\n",prepared,standalone,
             seeded,test.family_calls,test.standalone_package_opens,test.writes?1u:0u);
         kui_runtime_free(&staged);

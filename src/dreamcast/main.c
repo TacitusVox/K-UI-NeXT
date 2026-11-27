@@ -55,6 +55,7 @@ static volatile uint8_t kui_update_ram_handoff[KUI_UPDATE_HANDOFF_BYTES]
 #include "kui/media_view.h"
 #include "kui/games_probe.h"
 #include "kui/games_image_probe.h"
+#include "kui/games_retail_refusal.h"
 #include "kui/games_retail.h"
 #include "kui/smash_native_child.h"
 #include "kui/games_covers.h"
@@ -4702,6 +4703,13 @@ static void *worker(void *unused) {
                     }
                 } else {
                     kui_smash_launch_timing_finish(false,kui_log,kui_cancelled);
+                    /* The timing lines above follow the launcher's reason in
+                     * the log. Say it again, so that the log page this
+                     * failure opens ends on it. */
+                    if(action==58 || action==121 || action==122) {
+                        const char *why=kui_games_retail_last_refusal();
+                        if(why[0])kui_log("Retail boot: %s",why);
+                    }
                     mutex_lock(&lock);probe_launch_failed=true;mutex_unlock(&lock);
                     if(action==104) disc_launch_failure_report("auto GD Play boot failure",&disc_result);
                 }

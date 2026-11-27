@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: GPL-3.0-only */
 #include "kui/games_retail.h"
+#include "kui/games_retail_refusal.h"
 #include "kui/game_launch_report.h"
 #include "kui/game_launch_settings.h"
 #include "kui/version.h"
@@ -992,9 +993,12 @@ static bool native_repeat_session_safe(const struct kui_native_session_request *
     }
     return true;
 }
+static char last_refusal[192];
+const char *kui_games_retail_last_refusal(void) {return last_refusal;}
 static bool prepare_launch(const char *path,uint32_t reader,const struct kui_game_ram_patches *patches,
     const struct kui_vmu_game_selection *selection,const struct kui_native_session_request *session,
     bool reporting,struct kui_runtime_image *package,kui_log_fn log,kui_cancel_fn cancel,unsigned smash_child) {
+    last_refusal[0]=0;
     if(!package) return false;
     *package=(struct kui_runtime_image){0};
     if(!log || !cancel) return false;
@@ -1987,7 +1991,10 @@ done:
     if(f_mount(NULL,"0:",0)!=FR_OK) {ok=false;problem="cannot release filesystem";}
     kui_sd_disconnect();free(zso_map);free(gdi);free(image);free(map);
     if(stopped(&files)) {ok=false;problem="cancelled before retail handoff";}
-    if(!ok) {kui_runtime_free(package);log("Retail boot: %s",problem);}
+    if(!ok) {
+        kui_runtime_free(package);log("Retail boot: %s",problem);
+        snprintf(last_refusal,sizeof(last_refusal),"%s",problem);
+    }
     return ok;
 }
 
