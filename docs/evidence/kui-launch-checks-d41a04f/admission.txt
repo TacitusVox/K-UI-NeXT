@@ -1,0 +1,75 @@
+The launcher's admission helpers (static copies in a scratch harness, compiled against commit d41a04f4) on actual packaged modules.
+
+== retail-native-dual.kui, the owner's New reader module of 26 November 2026 (Test 84); SHA-256 597d8eac96b0238045e7bde9c642653a0bb5e138d6763993cabd0c156c210260
+kui_runtime_header: OK payload=0x4d120 memory=0x4d120 crc=bafaaf7c build=4abc63b0cc58
+payload crc matches: 1
+layout_codec(native): 1
+  stage bytes=0x4b120 resident=0x8c004000 limit=0x8c007800
+dual descriptor find: 1 at payload+0x3815c lease=0x47000 new=1 legacy=2 flags=0
+kui_native_map_capacity: 160 ; native_background_map_slots: 160
+session descriptor find: 0
+background module matches New(1): 1 Legacy(2): 1
+vmu toggle find: 1 at payload+0x3813c off_mode=7 lease=0x47000 cache=0x30000 flags=1
+mode records seen: 2
+cache seed find: payload+0x362e0 filled=0
+heap tail capability: 1
+sdk proof capability at 0x1f0: 1
+standalone descriptor find: 0
+
+== retail-native-dual.kui, the release's; SHA-256 09c1480c6c470166b3e584f54218d98679ef4a34a8765d47bde4d2187889481a
+kui_runtime_header: OK payload=0x46cf8 memory=0x46cf8 crc=9b37b199 build=f8807cb16561
+payload crc matches: 1
+layout_codec(native): 1
+  stage bytes=0x44cf8 resident=0x8c004000 limit=0x8c007800
+dual descriptor find: 1 at payload+0x32a24 lease=0x47000 new=1 legacy=2 flags=0
+kui_native_map_capacity: 64 ; native_background_map_slots: 64
+session descriptor find: 0
+background module matches New(1): 1 Legacy(2): 1
+vmu toggle find: 1 at payload+0x32a04 off_mode=7 lease=0x47000 cache=0x30000 flags=1
+mode records seen: 2
+cache seed find: payload+0x31020 filled=0
+heap tail capability: 0
+sdk proof capability at 0x1f0: 0
+standalone descriptor find: 0
+
+== retail-native-dual-a1.kui, the release's; SHA-256 a352b5fcee68fc092d898504e43d19853aa1b4786296c60e54a2506da400a766
+kui_runtime_header: OK payload=0x46d18 memory=0x46d18 crc=7888d13c build=9e3295bcfaec
+payload crc matches: 1
+layout_codec(native): 1
+  stage bytes=0x44d18 resident=0x8c004000 limit=0x8c007800
+dual descriptor find: 1 at payload+0x32a44 lease=0x47000 new=1 legacy=2 flags=0
+kui_native_map_capacity: 64 ; native_background_map_slots: 64
+session descriptor find: 0
+background module matches New(1): 1 Legacy(2): 1
+vmu toggle find: 1 at payload+0x32a24 off_mode=7 lease=0x47000 cache=0x30000 flags=1
+mode records seen: 2
+cache seed find: payload+0x31040 filled=0
+heap tail capability: 0
+sdk proof capability at 0x1f0: 0
+standalone descriptor find: 0
+
+== retail-native-standalone.kui, the release's; SHA-256 a80bddb8eae8570bed635117fe9aa5dde4bbea3b5b7446db3675c015ec1a3776
+kui_runtime_header: OK payload=0xc024 memory=0xc024 crc=cbf929ae build=e5af01888606
+payload crc matches: 1
+layout_codec(native): 1
+  stage bytes=0xa024 resident=0x8c004000 limit=0x8c007800
+dual descriptor find: 0
+kui_native_map_capacity: 128 ; native_background_map_slots: 128
+session descriptor find: 0
+background module matches New(1): 0 Legacy(2): 0
+vmu toggle find: 0
+mode records seen: 0
+cache seed find: none or ambiguous
+heap tail capability: 0
+sdk proof capability at 0x1f0: 0
+standalone descriptor find: 1
+
+tools/stage_distribution.py --verify-gui <runtime.kui d41a04f40f23> --stage <the release's staged readers, 103 files>:
+Standard build manifest: 1418 checks passed; current cohort only, code immutable, valid profile mutable
+
+build/test-games-native-cache-hint --modules (the launcher's seed slot and own-record alias on actual packaged modules):
+PASS actual native module 4abc63b0cc58 advisory slot: the owner's module of 26 November, retail-native-dual.kui; only its existing seed changed in RAM, indexed hit one read/no writes
+PASS actual native module f8807cb16561 advisory slot: resources/distribution/apps/games/retail-native-dual.kui; only its existing seed changed in RAM, indexed hit one read/no writes
+PASS actual native module 9e3295bcfaec advisory slot: resources/distribution/apps/games/retail-native-dual-a1.kui; only its existing seed changed in RAM, indexed hit one read/no writes
+PASS actual native module 9e3295bcfaec advisory slot: resources/distribution/apps/games/retail-boot.kui; only its existing seed changed in RAM, indexed hit one read/no writes
+Native mapping hints: 1794 checks passed including actual packaged module slots

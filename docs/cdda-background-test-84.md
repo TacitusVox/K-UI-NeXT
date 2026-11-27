@@ -357,6 +357,10 @@ Standard reader, and say what that means for a player who asked for virtual
 saves; and for the first audible build keep ChuChu Rocket and KOF Dream Match
 1999 as the two driver cases, with POD as a further MANATEE 1 case.
 
+The two K-UI checks were delivered on 26 November 2026 as K-UI
+`d41a04f40f23` (`background-launch-checks.md`); their console run is
+pending. The audible build is Test 85.
+
 ## Known limits
 
 1. No sound. The survey writes nothing; Test 85 is to write the chip.

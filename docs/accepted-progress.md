@@ -56,7 +56,40 @@ may select a stale bank, while cold ROOT boot bypasses selectors. The physical
 card is unavailable, so existing banks are not assumed present or absent.
 Claude's original-backed SA1 result is recorded as an external report only.
 
-## One K-UI for both threads: console test pending, 64ae07435de5, 2026-11-21
+## Two checks before a Background launch: console test pending, d41a04f40f23, 2026-11-26
+
+Delivered: `KUI-Background-Launch-Checks-26NOV2026-2356-CST-d41a04f.zip`, GUI build `d41a04f40f23` (commit `d41a04f4`), GUI only
+([record](background-launch-checks.md)). Its source is Main `3f757bc2` (the
+3.0 RC1 source; no K-UI source changed on Main since the RC1 build commit
+`93f13e84`) with four launcher commits. Two are the changes the owner's
+handoff of 26 November decided:
+
+- the combined Background module is not offered where its lease would take
+  more than a quarter of the game's SDK pool (Tokyo Xtreme Racer and eight
+  other programs of the 426);
+- a Background launch whose executable K-UI's own SDK check does not
+  recognize is refused before the launch, with the setting that starts the
+  game (Plasma Sword and 60 others; under Legacy (Y) 243 more, which New (X)
+  runs with the reader-only module as before).
+
+Two are corrections from an independent review: every refusal names one
+whole setting that starts the game, and a combined module is seeded only
+with the image's own saved mapping, so that neither check can be passed by
+through another game's record.
+
+Built with the release script; of 888 objects only `games_retail.o` differs
+from a build of Main. No reader module changed and no reader input: the
+distribution fingerprint is unchanged. Host checks only. Until the owner
+reports, `64ae07435de5` stays the reference for the regular games on the
+test card, and the 3.0 RC1 K-UI `93f13e84d989` for everything this K-UI
+shares with it.
+
+Not accepted by this delivery: Tokyo Xtreme Racer through the reader-only
+New module (untested), the Standard reader's virtual card for the nine
+small-pool programs (unchanged, not examined, untested), and the cost of
+the first checked launch of each image with Virtual VMU On (not measured).
+
+## One K-UI for both threads: on the owner's test card since 22 November, 64ae07435de5, 2026-11-21
 
 Delivered: `KUI-One-KUI-Both-Threads-21NOV2026-2308-CST-64ae074.zip`, GUI build `64ae07435de5` (commit `64ae0743`), GUI only
 ([record](one-kui-both-threads.md)). Its source merges Main `4441e92c`, the
@@ -81,10 +114,13 @@ State of the regular games' line: the owner's reader `1d80f771f081`
 Test 83 (20 Nov 2026), a test configuration, not accepted components
 ([Test 83](toy-wire-stream-test-83.md)). Test 84's module `4abc63b0cc58`
 (`597d8eac...`) ran on 21 Nov under `1c71ba3afa17`, whose 64-slot map
-refused three games ([Test 84](cdda-background-test-84.md)); its re-run
-under this K-UI is pending. Native results taken under `1c71ba3afa17` are
-their own baseline. Until the owner's report, `1c71ba3afa17` stays the
-reference for the Windows CE and Smash Pack games.
+refused three games ([Test 84](cdda-background-test-84.md)). Its re-run
+under this K-UI came on 22 November and the controls on 26 November (the
+same document, Console result): the owner's logs name `64ae07435de5`, the
+160-slot map admits Bangai-O, MDK2 and Omikron, and the launches decide as
+recorded there. The owner has reported no Windows CE or Smash Pack run
+under it; for those `1c71ba3afa17` and the 3.0 RC1 K-UI `93f13e84d989`
+remain the references.
 
 ## Repository GUI with the installed WinCE routes: console test pending, 069d612cadea, 2026-11-17
 

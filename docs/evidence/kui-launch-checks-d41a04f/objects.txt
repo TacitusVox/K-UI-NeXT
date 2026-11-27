@@ -1,0 +1,21 @@
+Objects of two K-UI builds made with tools/build_distribution_gui.sh --candidate, debug sections removed:
+base f41f974419e1 (Main 3f757bc2 with one documentation commit), new d41a04f40f23.
+888 objects without debug sections; 885 identical; 2 differ only in the build ID text; 1 differ otherwise
+  build ID only: build/dc/main-runtime.o
+  build ID only: build/dc/src/apps/games_library.o
+  DIFFERENT   : build/dc/src/apps/games_retail.o 148416 -> 150852 bytes
+
+Source changes f41f9744..d41a04f4:
+ Makefile                              |   5 +-
+ src/apps/games_native_cache.inc       |  80 +++++++++++++++-
+ src/apps/games_native_cache_alias.inc |   7 +-
+ src/apps/games_native_cache_hint.inc  |   9 +-
+ src/apps/games_retail.c               |   9 +-
+ tests/games_retail.c                  |  11 ++-
+ tests/test_game_reader_provenance.py  |   5 +-
+ tests/test_games_native_cache.c       | 170 ++++++++++++++++++++++++++++++++--
+ tests/test_games_native_cache_hint.c  | 120 +++++++++++++++++++++++-
+ tests/test_games_native_route.c       |  88 ++++++++++++++++++
+ tests/test_games_native_route.py      | 132 ++++++++++++++++++++++++++
+ tests/test_games_retail.py            |  38 +++++++-
+ 12 files changed, 647 insertions(+), 27 deletions(-)

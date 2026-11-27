@@ -1,0 +1,16 @@
+ok    envelope KUIRUN1 format 1, 3836452 bytes, payload 3836388
+ok    build d41a04f40f23
+ok    payload CRC32 ae58ada7
+      load 0x8c010000 entry 0x8c010000 memory 8203972
+ok    producer verify_runtime: build d41a04f40f23
+ok    producer member check (engine 3, bank capability, empty handoff, not withdrawn): 3
+ok    KUIENG3! once, KUIENG2! absent
+ok    embedded module bundle identical to the owner's (413045 bytes, build cc81e63ca4d2)
+ok      apps/games/retail-smash-menu.kui           e6d0bef744f007a6
+ok      apps/games/retail-smash-native-menu.kui    b2d633f5254e5db8
+ok      apps/games/retail-smash-swirl.kui          5b8f7f1c36983ad4
+ok      apps/games/retail-smash-vc2.kui            a36421a22e4e3d1d
+ok    KallistiOS banner as in the owner's K-UI: b'KallistiOS v2.3.0 [dreamcast/pristine]\n  Git revision: fcfa7d8\n  Tue Oct 27 15:07:25 UTC 2'
+ok    Diagnostics line text present ("SD runtime")
+sha256 7f638682cf437f990cc554f4864f9b3ee5a1834b22cabd79857a362afaac03d4
+PASS

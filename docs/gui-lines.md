@@ -42,6 +42,10 @@ Plasma Sword (`cdda-background-test-84.md`, Console result).
    to be the installed one apart from its build-ID text, the merge is
    recorded under `installed`/`equivalent` with its evidence, and its commits
    count as contained (64ae07435de5 and the merge `89a241cd`).
+   Since K-UI `d41a04f40f23` a reader module that recognizes more games than
+   K-UI's own SDK check is such a case: K-UI refuses a Background launch its
+   check does not admit, before the module's stage is asked
+   (`background-launch-checks.md`). That module brings its K-UI.
 4. **Before reading a console result**, compare the K-UI build in the owner's
    logs with `installed`. A result from another K-UI is that K-UI's result.
 5. **A new thread** that changes K-UI on its own branch adds its branch to

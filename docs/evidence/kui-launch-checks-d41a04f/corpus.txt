@@ -1,0 +1,186 @@
+The production preflight (src/apps/games_native_cache.inc at d41a04f4, through the fixture I/O of
+tests/test_games_native_cache.c) on 426 original boot programs of the owner's CD-audio archives, with two
+actual packaged combined modules. Before: f41f9744 (Main 3f757bc2). Decisions only; no game bytes.
+The last column is the refusal's second log line, or 'goes on' where the launch continues.
+
+module build=4abc63b0cc58 payload=315680 crc=BAFAAF7C lease=0x47000 seed=yes
+1704 launches of 426 original boot programs: readers New (X) and Legacy (Y), Virtual VMU Off and On
+answers before: {'pool-overlap': 132, 'ready': 356, 'skipped': 1216}
+answers after:  {'pool-overlap': 132, 'pool-small': 36, 'ready': 320, 'unsupported': 1216}
+452 launches answer as before; 1252 change:
+  answer        reader VMU  reader-only route  programs  with the reader-only module installed -> without it
+  pool-small    X      off  yes                9         goes on -> Install the standalone New reader, or set Background loading Off
+  pool-small    X      on   yes                9         Set Virtual VMU Off; saves then need a real VMU -> Set Background loading Off and Virtual VMU Off; saves then need a real VMU
+  pool-small    Y      off  no                 9         Set Background loading Off -> Set Background loading Off
+  pool-small    Y      on   no                 9         Set Background loading Off and Virtual VMU Off; saves then need a real VMU -> Set Background loading Off and Virtual VMU Off; saves then need a real VMU
+  unsupported   X      off  no                 61        Set Background loading Off -> Set Background loading Off
+  unsupported   X      off  yes                243       goes on -> Install the standalone New reader, or set Background loading Off
+  unsupported   X      on   no                 61        Set Background loading Off and Virtual VMU Off; saves then need a real VMU -> Set Background loading Off and Virtual VMU Off; saves then need a real VMU
+  unsupported   X      on   yes                243       goes on -> Set Background loading Off and Virtual VMU Off; saves then need a real VMU
+  unsupported   Y      off  no                 304       Set Background loading Off -> Set Background loading Off
+  unsupported   Y      on   no                 304       Set Background loading Off and Virtual VMU Off; saves then need a real VMU -> Set Background loading Off and Virtual VMU Off; saves then need a real VMU
+9 programs answer pool-small:
+    1147-T30801M-SHUTOKOU-BATTLE
+    1322-T40201D-50-TOKYO-HIGHWAY-CHALLENGE
+    1324-T40202N-TOKYO-XTREME-RACER
+    257-T13005D-05-BUZZ-2000
+    258-T13007N-BUZZ-2000
+    259-T13005D-18-BUZZ-2000
+    260-T13005D-09-BUZZ-2000
+    921-HDR-0091-PROYAKYU-TEAM-DE-ASOBOU-NET
+    926-HDR-0173-PUROYAKYUU-TIMU-WO-TUKUROU-AND-ASOBOU
+304 programs answer unsupported:
+    61 of them have no reader-only route (refused under either Background reader):
+      007-T-9706D-50-4WHEELTHUNDER
+      008-T-9708N-4WHEELTHUNDER
+      032-T9502M-AIRFORCE-DELTA
+      033-T9501N-AIRFORCE-DELTA
+      1107-T38802M-SEVENTH-CROSS
+      1114-MK-5105950-SHENMUE
+      1117-MK-5105950-SHENMUE
+      1118-MK-51059-SHENMUE
+      1121-MK-51059-SHENMUE
+      1122-HDR-0016-SHENMUE
+      1125-HDR-0016-SHENMUE
+      1126-HDR-0016-SHENMUE
+      1127-MK-5118450-SHENMUE2-EU
+      1131-HDR-0164-SHENMUE2
+      1146-6107134-SHUTOKOU-BATTLE
+      1230-6107181-STAR-GLADIATOR-2
+      1231-T1204M-STAR-GLADIATOR-2
+      1280-HDR-0013-SUPER-SPEED-RACING
+      1289-T36808D-03-SYDNEY-2000-THE-OFFICIAL-VIDEO-GAME-OF-THE-OL
+      1290-T36808D-05-SYDNEY-2000-THE-OFFICIAL-VIDEO-GAME-OF-THE-OL
+      1291-T36808D-09-SYDNEY-2000-THE-OFFICIAL-VIDEO-GAME-OF-THE-OL
+      1292-T36808D-18-SYDNEY-2000-THE-OFFICIAL-VIDEO-GAME-OF-THE-OL
+      1293-T36808D-13-SYDNEY-2000-THE-OFFICIAL-VIDEO-GAME-OF-THE-OL
+      1294-T1237M-SYDNEY2000
+      1295-T36808D-06-SYDNEY-2000-THE-OFFICIAL-VIDEO-GAME-OF-THE-OL
+      1296-T36808N-SYDNEY-2000
+      1315-T20801M-TETRIS-4D
+      1376-HDR-0156-US-SHENMUE
+      1379-HDR-0156-US-SHENMUE
+      1436-MK-51027A-SEGA-DREAMCAST-BROWSER
+      1437-MK-51027-SEGA-DREAMCAST-BROWSER
+      1443-T40504D-50-WETRIXPLUS
+      1444-T8111N-WETRIXPLUS
+      1445-6107179-WHATS-SHENMUE
+      1469-6108099-YS-GAME-WORKS-VOL-1
+      220-T9501N-50-DEADLY-SKIES
+      235-T15112N-DEMOLITION-RACER-NO-EXIT-INFOGRAMES-FREE-DEMO
+      243-T37001M-MY-TRACKMAN
+      292-6107055-Dream-Passport
+      455-MK-51007-CART-RACING
+      458-MK-51114-FLOIGAN-BROS-EPISODE-1-MOIGLE-S-SECRET-PROJECT
+      459-MK-51114-FLOIGAN-BROS-EPISODE-1-MOIGLE-S-SECTRET-PROJECT
+      502-HDR-0004-GODZILLA-GENERATIONS
+      573-T-9702N-HYDRO-THUNDER
+      583-T15001M-INCOMING
+      731-T19708M-MEMORIES-OFF-2ND-MAKING-DISC
+      753-T17701M-MONACO-GRAND-PRIX-RACING-SIMULATION-2
+      850-MK-51140-OOGA-BOOGA
+      868-T17001M-PENPEN-TRIICELON
+      869-6107102-PENPEN-TRIAL-VERSION
+      870-T17001M-PENPEN-TRIICELON
+      890-T7005D-50-PLASMA-SWORD
+      891-T1207N-PLASMA-SWORD
+      922-6107385-PROYAKYUU-TEAM-DE-ASOBOU-TAIKENBAN
+      923-6107350-PUROYAKYUU-TEAM-DE-ASOBOU-TOKUBETSUBAN
+      924-HDR-0027-PROYAKYUU-TEAM-DE-ASOBOU
+      927-HDR-0022-PUROYAKYUU-TEAM-WO-TSUKUROU
+      928-HDR-0022-PUROYAKYUU-TEAM-WO-TSUKUROU
+      940-6107109-PUYO4
+      941-HDR-0014-PUYOPUYO4
+      987-T15002M-REDLINE-RACER
+
+----
+
+module build=f8807cb16561 payload=290040 crc=9B37B199 lease=0x47000 seed=yes
+1704 launches of 426 original boot programs: readers New (X) and Legacy (Y), Virtual VMU Off and On
+answers before: {'pool-overlap': 132, 'reader-too-old': 12, 'ready': 344, 'skipped': 1216}
+answers after:  {'pool-overlap': 132, 'pool-small': 36, 'reader-too-old': 12, 'ready': 308, 'unsupported': 1216}
+452 launches answer as before; 1252 change:
+  answer        reader VMU  reader-only route  programs  with the reader-only module installed -> without it
+  pool-small    X      off  yes                9         goes on -> Install the standalone New reader, or set Background loading Off
+  pool-small    X      on   yes                9         Set Virtual VMU Off; saves then need a real VMU -> Set Background loading Off and Virtual VMU Off; saves then need a real VMU
+  pool-small    Y      off  no                 9         Set Background loading Off -> Set Background loading Off
+  pool-small    Y      on   no                 9         Set Background loading Off and Virtual VMU Off; saves then need a real VMU -> Set Background loading Off and Virtual VMU Off; saves then need a real VMU
+  unsupported   X      off  no                 61        Set Background loading Off -> Set Background loading Off
+  unsupported   X      off  yes                243       goes on -> Install the standalone New reader, or set Background loading Off
+  unsupported   X      on   no                 61        Set Background loading Off and Virtual VMU Off; saves then need a real VMU -> Set Background loading Off and Virtual VMU Off; saves then need a real VMU
+  unsupported   X      on   yes                243       goes on -> Set Background loading Off and Virtual VMU Off; saves then need a real VMU
+  unsupported   Y      off  no                 304       Set Background loading Off -> Set Background loading Off
+  unsupported   Y      on   no                 304       Set Background loading Off and Virtual VMU Off; saves then need a real VMU -> Set Background loading Off and Virtual VMU Off; saves then need a real VMU
+9 programs answer pool-small:
+    1147-T30801M-SHUTOKOU-BATTLE
+    1322-T40201D-50-TOKYO-HIGHWAY-CHALLENGE
+    1324-T40202N-TOKYO-XTREME-RACER
+    257-T13005D-05-BUZZ-2000
+    258-T13007N-BUZZ-2000
+    259-T13005D-18-BUZZ-2000
+    260-T13005D-09-BUZZ-2000
+    921-HDR-0091-PROYAKYU-TEAM-DE-ASOBOU-NET
+    926-HDR-0173-PUROYAKYUU-TIMU-WO-TUKUROU-AND-ASOBOU
+304 programs answer unsupported:
+    61 of them have no reader-only route (refused under either Background reader):
+      007-T-9706D-50-4WHEELTHUNDER
+      008-T-9708N-4WHEELTHUNDER
+      032-T9502M-AIRFORCE-DELTA
+      033-T9501N-AIRFORCE-DELTA
+      1107-T38802M-SEVENTH-CROSS
+      1114-MK-5105950-SHENMUE
+      1117-MK-5105950-SHENMUE
+      1118-MK-51059-SHENMUE
+      1121-MK-51059-SHENMUE
+      1122-HDR-0016-SHENMUE
+      1125-HDR-0016-SHENMUE
+      1126-HDR-0016-SHENMUE
+      1127-MK-5118450-SHENMUE2-EU
+      1131-HDR-0164-SHENMUE2
+      1146-6107134-SHUTOKOU-BATTLE
+      1230-6107181-STAR-GLADIATOR-2
+      1231-T1204M-STAR-GLADIATOR-2
+      1280-HDR-0013-SUPER-SPEED-RACING
+      1289-T36808D-03-SYDNEY-2000-THE-OFFICIAL-VIDEO-GAME-OF-THE-OL
+      1290-T36808D-05-SYDNEY-2000-THE-OFFICIAL-VIDEO-GAME-OF-THE-OL
+      1291-T36808D-09-SYDNEY-2000-THE-OFFICIAL-VIDEO-GAME-OF-THE-OL
+      1292-T36808D-18-SYDNEY-2000-THE-OFFICIAL-VIDEO-GAME-OF-THE-OL
+      1293-T36808D-13-SYDNEY-2000-THE-OFFICIAL-VIDEO-GAME-OF-THE-OL
+      1294-T1237M-SYDNEY2000
+      1295-T36808D-06-SYDNEY-2000-THE-OFFICIAL-VIDEO-GAME-OF-THE-OL
+      1296-T36808N-SYDNEY-2000
+      1315-T20801M-TETRIS-4D
+      1376-HDR-0156-US-SHENMUE
+      1379-HDR-0156-US-SHENMUE
+      1436-MK-51027A-SEGA-DREAMCAST-BROWSER
+      1437-MK-51027-SEGA-DREAMCAST-BROWSER
+      1443-T40504D-50-WETRIXPLUS
+      1444-T8111N-WETRIXPLUS
+      1445-6107179-WHATS-SHENMUE
+      1469-6108099-YS-GAME-WORKS-VOL-1
+      220-T9501N-50-DEADLY-SKIES
+      235-T15112N-DEMOLITION-RACER-NO-EXIT-INFOGRAMES-FREE-DEMO
+      243-T37001M-MY-TRACKMAN
+      292-6107055-Dream-Passport
+      455-MK-51007-CART-RACING
+      458-MK-51114-FLOIGAN-BROS-EPISODE-1-MOIGLE-S-SECRET-PROJECT
+      459-MK-51114-FLOIGAN-BROS-EPISODE-1-MOIGLE-S-SECTRET-PROJECT
+      502-HDR-0004-GODZILLA-GENERATIONS
+      573-T-9702N-HYDRO-THUNDER
+      583-T15001M-INCOMING
+      731-T19708M-MEMORIES-OFF-2ND-MAKING-DISC
+      753-T17701M-MONACO-GRAND-PRIX-RACING-SIMULATION-2
+      850-MK-51140-OOGA-BOOGA
+      868-T17001M-PENPEN-TRIICELON
+      869-6107102-PENPEN-TRIAL-VERSION
+      870-T17001M-PENPEN-TRIICELON
+      890-T7005D-50-PLASMA-SWORD
+      891-T1207N-PLASMA-SWORD
+      922-6107385-PROYAKYUU-TEAM-DE-ASOBOU-TAIKENBAN
+      923-6107350-PUROYAKYUU-TEAM-DE-ASOBOU-TOKUBETSUBAN
+      924-HDR-0027-PROYAKYUU-TEAM-DE-ASOBOU
+      927-HDR-0022-PUROYAKYUU-TEAM-WO-TSUKUROU
+      928-HDR-0022-PUROYAKYUU-TEAM-WO-TSUKUROU
+      940-6107109-PUYO4
+      941-HDR-0014-PUYOPUYO4
+      987-T15002M-REDLINE-RACER

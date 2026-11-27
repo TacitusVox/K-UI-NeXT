@@ -1,0 +1,86 @@
+{
+  "schema": "kui.manual-copy-inventory.v1",
+  "package": "KUI-Background-Launch-Checks-26NOV2026-2356-CST-d41a04f.zip",
+  "prepared": "2026-11-26 23:56 CST (America/Chicago)",
+  "source_commit": "d41a04f40f23e18fb65cde9bb487a39bf194bbd6",
+  "changed": [
+    {
+      "path": "KUI/boot.kui",
+      "bytes": 3836452,
+      "sha256": "7f638682cf437f990cc554f4864f9b3ee5a1834b22cabd79857a362afaac03d4",
+      "runtime": {
+        "format": 1,
+        "build": "d41a04f40f23",
+        "payload_bytes": 3836388,
+        "memory_bytes": 8203972,
+        "crc32": "ae58ada7"
+      },
+      "status": "replaced: K-UI d41a04f40f23; boot.kui and runtime.kui identical"
+    },
+    {
+      "path": "KUI/runtime.kui",
+      "bytes": 3836452,
+      "sha256": "7f638682cf437f990cc554f4864f9b3ee5a1834b22cabd79857a362afaac03d4",
+      "runtime": {
+        "format": 1,
+        "build": "d41a04f40f23",
+        "payload_bytes": 3836388,
+        "memory_bytes": 8203972,
+        "crc32": "ae58ada7"
+      },
+      "status": "replaced: K-UI d41a04f40f23; boot.kui and runtime.kui identical"
+    }
+  ],
+  "if_needed": [
+    {
+      "path": "IF-NEEDED/KUI/boot.kui",
+      "bytes": 3834412,
+      "sha256": "d572510ce3d5804ee8ad5c04096197f8f4cd9b0724342ea76bda5dfdbcd84f2d",
+      "runtime": {
+        "format": 1,
+        "build": "64ae07435de5",
+        "payload_bytes": 3834348,
+        "memory_bytes": 8201924,
+        "crc32": "1431624f"
+      },
+      "status": "not copied: the owner's current K-UI 64ae07435de5, the same bytes as delivered on 21 November 2026; copied over KUI/ only to go back"
+    },
+    {
+      "path": "IF-NEEDED/KUI/runtime.kui",
+      "bytes": 3834412,
+      "sha256": "d572510ce3d5804ee8ad5c04096197f8f4cd9b0724342ea76bda5dfdbcd84f2d",
+      "runtime": {
+        "format": 1,
+        "build": "64ae07435de5",
+        "payload_bytes": 3834348,
+        "memory_bytes": 8201924,
+        "crc32": "1431624f"
+      },
+      "status": "not copied: the owner's current K-UI 64ae07435de5, the same bytes as delivered on 21 November 2026; copied over KUI/ only to go back"
+    }
+  ],
+  "retained": "every other file on the card: the reader modules and helpers under KUI/apps/games (the New reader module the owner has there, Test 84's 4abc63b0cc58 or the owner's own; the reader-only New module if installed), the Windows CE CD music modules, ce-boot.kui and ce-probe.kui, banks and their selection records, settings, virtual VMU cards, saves, KUI/SURVEY/STREAM.TXT and the games",
+  "excluded": "updater packages, activation records, banks, reader modules and user data",
+  "gui": {
+    "build": "d41a04f40f23",
+    "updater_engine": 3,
+    "smash_bundle": "cc81e63ca4d2, the four Smash Pack modules, identical to 64ae07435de5's",
+    "standard_binding": "9e3295bcfaec (the owner's retail-boot.kui)",
+    "launch_timing": true,
+    "github_nightly": false,
+    "recipe": "tools/build_distribution_gui.sh --candidate, then tools/runtime_package.py",
+    "contains": [
+      "Main 3f757bc2 (the 3.0 RC1 source; no K-UI source changed on Main since its build commit 93f13e84)",
+      "Windows CE line to 603c53e9",
+      "regular games line to d41a04f4"
+    ],
+    "changes": [
+      "6a3aecb1: the combined Background worker is not offered where its lease would take more than a quarter of the game's SDK pool",
+      "6bed5c43: a Background launch whose executable K-UI's SDK check does not recognize is refused before the launch with the setting that starts the game",
+      "71efce2d: every refusal names one whole setting that starts the game (review correction)",
+      "d41a04f4: a combined module is seeded only with the image's own saved mapping, so the two checks cannot be skipped (review correction)"
+    ]
+  },
+  "reader_admission": "checked on the host with the owner's New reader module of 26 November 2026 (retail-native-dual.kui 4abc63b0cc58, payload CRC32 BAFAAF7C) and with the release's modules (retail-native-dual.kui f8807cb16561, retail-native-dual-a1.kui 9e3295bcfaec, retail-native-standalone.kui e5af01888606, retail-boot.kui through the Standard binding)",
+  "console": "not run on a console"
+}

@@ -1,0 +1,65 @@
+Host checks at commit d41a04f4 (27 November 2026 UTC). None of this ran on a console.
+
+In the working tree at d41a04f4:
+make test-games-native-cache                PASS (41,777 checks)
+make test-games-native-cache-hint           PASS (1,688 checks; 1,794 with --modules on four actual packaged modules)
+make test-games-native-owner-cache          PASS
+make test-games-native-route                PASS (22 launches, FAT32 and exFAT)
+python3 tests/test_games_retail.py          PASS (414 case lines)
+python3 tests/test_games_native_alias_crc.py        PASS
+python3 tests/test_games_cooked_native_hint.py      PASS
+python3 tests/test_games_retail_checksum_batch.py   PASS
+python3 tests/test_game_reader_provenance.py        PASS
+python3 tests/test_native_cold_discovery.py         PASS
+python3 tests/test_native_sdk_coherence_reuse.py    PASS
+python3 tests/test_cold_handoff_policy.py           PASS
+python3 tests/test_native_gui_fast_scan.py          PASS
+build/test-armada-ce-excerpt-prepare        PASS
+build/test-wince-packaged-prepare           builds
+python3 tests/test_check_gui_lines.py       PASS
+
+In a clean checkout of d41a04f4:
+make test-shared-game-launch                PASS (exit 0)
+make test-games-native-cache                PASS (41,777 checks)
+python3 tests/test_games_retail.py          PASS (414 case lines)
+python3 tools/check_gui_lines.py            PASS at d41a04f40f23: main 3f757bc2ac0a, claude/hopeful-dijkstra-r2g7c4
+                                            d41a04f40f23, claude/great-darwin-yjmgfi 603c53e97de2 contained
+python3 tools/stage_distribution.py --print-reader-inputs
+                                            2c9b59c34652c8a9b6bb42ab1c174da4e500cd8b088573369f58119397f7d9cf
+                                            (config/distribution.json's value: no reader input changed)
+
+Mutations, each applied alone to a clean checkout of d41a04f4, its test run, the source restored.
+"unit" is make test-games-native-cache and test-games-native-cache-hint; "route" is
+tests/test_games_native_route.py; "card images" is tests/test_games_retail.py.
+
+  killed    unit         pool rule: a quarter becomes a half
+  killed    unit         pool rule: a quarter becomes an eighth
+  killed    unit         pool rule: "<" becomes "<="
+  killed    unit         pool rule: the 32-byte header is left out
+  killed    unit         pool rule: an arena lease is no longer excluded
+  killed    unit         pool rule: a reviewed fixed arena is no longer excluded
+  killed    unit         pool rule: never true
+  killed    unit         pool rule: the preflight uses a zero lease
+  killed    unit         pool rule: the result is reported as overlap
+  killed    unit         pool rule: the size answer comes before the overlap answer
+  killed    unit         pool rule: a refused small pool still saves its mapping record
+  killed    unit         hint: a starved pool's own alias is still taken
+  killed    unit         SDK rule: an unproved extent is silent
+  killed    unit         SDK rule: an unrecognized SDK is silent
+  killed    unit         SDK rule: an unproved extent also refuses the Standard module
+  killed    unit         SDK rule: an unrecognized SDK also refuses the Standard module
+  killed    unit         answer: small pool, Virtual VMU On, module absent asks only for Virtual VMU Off
+  killed    unit         answer: small pool, Virtual VMU Off, reader-only route is refused
+  killed    unit         answer: unrecognized SDK refuses the reader-only route too
+  killed    unit         answer: unrecognized SDK, Virtual VMU On, module absent offers the install
+  killed    unit         answer: the SDK refusal uses the pool sentence
+  killed    unit         hint: a combined module still takes a scanned record
+  killed    unit         hint: the Standard module loses its scan
+  killed    unit         alias: the combined module keeps the earlier name
+  killed    unit         alias: the Standard module takes the new name
+  killed    route        launcher: no answer where the reader-only module cannot take the launch
+  killed    route        launcher: no answer for a game with the SCI family
+  killed    route        launcher: another game's scanned record is taken (route)
+  killed    card images  launcher: silent on an unrecognized executable (card images)
+
+29 mutations: 29 killed, 0 survived
