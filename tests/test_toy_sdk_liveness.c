@@ -151,6 +151,10 @@ static void setup_movie_card(unsigned first_token_delay, unsigned extent_blocks)
  * a test that sets it has every configuration below carry it. */
 static kui_toy_cdda_player toy_cdda_test_player;
 #endif
+#if KUI_TOY_CDDA_CARD
+/* Test 85 (CARD): and the block the worker's heartbeat shares with it. */
+static struct kui_toy_cdda_mail *toy_cdda_test_mail;
+#endif
 static struct kui_native_ra_config movie_configuration(void) {
     struct kui_native_ra_config configuration = {
         .version = KUI_NATIVE_RA_VERSION,
@@ -166,6 +170,9 @@ static struct kui_native_ra_config movie_configuration(void) {
 #endif
 #if KUI_TOY_CDDA_HOOK
         .cdda_player = toy_cdda_test_player,
+#endif
+#if KUI_TOY_CDDA_CARD
+        .cdda_mail = toy_cdda_test_mail,
 #endif
     };
     return configuration;

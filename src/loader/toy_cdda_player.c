@@ -310,6 +310,10 @@ uint32_t kui_toy_cdda_player_visit(uint32_t event,uint32_t arg,
     }
     if(event!=KUI_NATIVE_RA_DELIVER || r->engine.in_irq)return 0u;
     /* A visit before the disc service answers one of the game's calls. */
+#if KUI_TOY_CDDA_CARD
+    /* Test 85 (CARD): the table the heartbeat's segments are taken from. */
+    D.tracks=s->tracks;D.track_count=s->track_count;
+#endif
     if(D.projected && (s->token!=D.projected_token || !s->pending)) {
         s->position_lba=D.saved_position;D.projected=0u;
     }

@@ -50,10 +50,16 @@ static uint8_t data_at(uint32_t lba, unsigned i) {
 static uint8_t (*card_content)(uint32_t lba, unsigned i) = data_at;
 
 /* ---- Card ---- */
+/* The card's answers waiting to be clocked out, the busy bytes behind a stop
+ * command among them. A test that wants a longer busy time than this holds
+ * says so before it includes the model. */
+#ifndef SCI_MODEL_QUEUE_BYTES
+#define SCI_MODEL_QUEUE_BYTES 64
+#endif
 static struct {
     bool streaming, start_after_queue, high_capacity;
     uint32_t lba, frame, gap, nac, nac_first, busy, blocks;
-    uint8_t cmd[6], queue[64];
+    uint8_t cmd[6], queue[SCI_MODEL_QUEUE_BYTES];
     unsigned cmd_len, qhead, qlen;
     uint32_t corrupt_lba, corrupt_count, bad_token_lba, bad_token_count;
     unsigned cmd18, cmd12, idle_cmd12, clocks;

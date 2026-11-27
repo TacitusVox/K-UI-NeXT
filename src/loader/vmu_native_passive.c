@@ -59,6 +59,9 @@ extern uint32_t kui_vmu_native_readonly_release_resume;
 #if KUI_TOY_CDDA_SURVEY
 #include "kui/toy_cdda_survey.h"
 #endif
+#if KUI_TOY_CDDA_CARD
+#include "kui/toy_cdda_player.h"
+#endif
 #if KUI_VMU_NATIVE_VIRTUAL_ADDRESS == 1u
 __asm__(".global __kui_native_virtual_slot_worker\n.set __kui_native_virtual_slot_worker,1\n");
 #else
@@ -2564,6 +2567,13 @@ void kui_vmu_native_passive_complete(const struct kui_vmu_native_passive_frame *
            (controller_pair.frames[controller_pair.parent].header&255u)==9u)
             kui_toy_cdda_survey_heartbeat();
 #endif
+#if KUI_TOY_CDDA_CARD
+        /* Test 85 (CARD): then the audio's consumer, under the same rule: it
+         * asks the auxiliary for the play's sectors (src/loader/toy_cdda_card.c). */
+        if(!kui_vmu_native_early_server(NATIVE_HOT_CONFIG.driver.family) ||
+           (controller_pair.frames[controller_pair.parent].header&255u)==9u)
+            kui_toy_cdda_consumer_heartbeat();
+#endif
 #if KUI_NATIVE_E1_WAIT_CAPTURE
         native_wait_capture_observe(f);
 #endif
@@ -2621,6 +2631,10 @@ void kui_vmu_native_passive_complete(const struct kui_vmu_native_passive_frame *
         /* Test 84 (SURVEY): after the gesture's sample of a batch with the
          * controller, the sound chip's survey. */
         if(pad_sample>=0) kui_toy_cdda_survey_heartbeat();
+#endif
+#if KUI_TOY_CDDA_CARD
+        /* Test 85 (CARD): and the audio's consumer behind it. */
+        if(pad_sample>=0) kui_toy_cdda_consumer_heartbeat();
 #endif
 #endif
         return;

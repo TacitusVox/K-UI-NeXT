@@ -25,6 +25,11 @@ static uint32_t wire_vbr = WIRE_TOY_VBR;
 #undef KUI_NATIVE_SDK_SCI_OWNER_VBR
 #define KUI_NATIVE_SDK_SCI_OWNER_VBR wire_vbr
 #define KUI_TOY_SDK_LIVENESS_MAIN toy_retained_sdk_tests
+#if defined(KUI_TOY_CDDA_CARD) && KUI_TOY_CDDA_CARD
+/* Test 85 (CARD): the card's busy time behind a stop command, longer than
+ * one of the low reader's slices of a wait (tests/test_toy_cdda_card.inc). */
+#define SCI_MODEL_QUEUE_BYTES 512
+#endif
 #include "test_toy_sdk_liveness.c"
 /* A command of the game's that gives a window up, where a scenario only
  * needs one: since Test 80 a command that only asks does not. */
@@ -200,6 +205,21 @@ void kui_wire_test_drop(const uint8_t *line) {
     ++ring_drops;
 }
 #endif
+#if KUI_TOY_CDDA_HOOK
+/* Test 85 holds the reader without music against Test 84's: one number for
+ * everything the card was sent and every visit the auxiliary was paid, in
+ * their order (toy-cdda-card-quiet-check compares it between the builds). */
+static uint32_t traffic;
+static void traffic_fold(uint32_t value) { traffic = (traffic ^ value) * UINT32_C(16777619); }
+#endif
+#if KUI_TOY_CDDA_CARD
+/* Test 85 (CARD): in the audio's scenarios, what a visit clocked to the card
+ * by programmed transfers, and that an interrupt's visit with no read of the
+ * game's clocked nothing. */
+static bool cd_watch;
+static unsigned cd_visit_bytes;
+static unsigned long cd_interrupt_visits, cd_timer_visits;
+#endif
 /* The auxiliary's gate: masked for the whole visit and never re-entered. */
 uint32_t kui_native_readahead_aux_visit(uint32_t event, uint32_t arg,
     kui_retail_async_region_type *r, uint32_t reserved) {
@@ -209,7 +229,22 @@ uint32_t kui_native_readahead_aux_visit(uint32_t event, uint32_t arg,
     ++gate_visits;
     const uint32_t sr = hw.sr;
     hw.sr |= UINT32_C(0x100000f0);
+#if KUI_TOY_CDDA_CARD
+    const unsigned bytes_before = bus_bytes;
+    const bool interrupt = r->engine.in_irq || event == KUI_NATIVE_RA_WIRE_TIMER, idle = !r->engine.active;
+#endif
     const uint32_t result = kui_native_readahead_aux_dispatch(event, arg, r, reserved);
+#if KUI_TOY_CDDA_CARD
+    cd_visit_bytes = bus_bytes - bytes_before;
+    if(cd_watch && interrupt) {
+        if(idle) CHECK(!cd_visit_bytes);
+        if(event == KUI_NATIVE_RA_WIRE_TIMER) ++cd_timer_visits;
+        else ++cd_interrupt_visits;
+    }
+#endif
+#if KUI_TOY_CDDA_HOOK
+    traffic_fold(event | arg << 8 | result << 24 | (uint32_t)(r->engine.in_irq & 3u) << 28);
+#endif
     hw.sr = sr;
     --depth;
     return result;
@@ -225,6 +260,8 @@ static uint32_t stall_random(void) { stall_seed = stall_seed * 1664525u + 101390
  * held in the receiver and the byte itself overruns. */
 static uint32_t cut_lba;
 static unsigned cut_index;
+/* And one more data byte of that block behind it (nought: none). */
+static unsigned cut_again;
 /* This many streams lose their second byte: the first is held in the
  * receiver and the next overruns, ahead of the stream's first token. */
 static unsigned first_cuts;
@@ -252,7 +289,11 @@ static bool stall(void) {
         /* The byte just clocked out is this data index of the block. */
         const unsigned at = card.frame - card.gap - 2u;
         if(at + 1u == cut_index) return true;
-        if(at == cut_index) {cut_lba = 0u; return true;}
+        if(at == cut_index) {
+            if(cut_again) {cut_index = cut_again; cut_again = 0u;}
+            else cut_lba = 0u;
+            return true;
+        }
     }
     if(!stall_mean) return false;
     /* A stall that matters lasts past the next byte: the receiver holds
@@ -273,7 +314,12 @@ static bool stall(void) {
 }
 /* No programmed bus byte may be clocked while the stream owns the SCI, nor
  * with the receiver's bit order changed. */
-static void bus_check(void) { CHECK(!stream_on() && !m.scmr); }
+static void bus_check(void) {
+    CHECK(!stream_on() && !m.scmr);
+#if KUI_TOY_CDDA_HOOK
+    traffic_fold(card.clocks + 31u * card.cmd18 + 131u * card.cmd12 + 977u * card.lba + 7919u * card.frame);
+#endif
+}
 
 /* ---- raw sectors with address, EDC and real P/Q parity ---- */
 static uint8_t ecc_f[256], ecc_b[256];
@@ -436,6 +482,7 @@ static void open_card(unsigned extent_blocks, bool scattered, bool with_parity,
     m.delay = 0u;
     stall_mean = 0u; stall_dense = 0u; stall_left = 0u; burst_left = 0u; stall_seed = 4242u;
     cut_lba = 0u; first_cuts = 0u; early_cut = false;
+    cut_again = 0u;
     eris = timers = polls = 0;
 #if KUI_TOY_WIRE_IDLE
     /* A megabyte of buffer, three quarters full. */
@@ -477,6 +524,13 @@ static void invariants(void) {
     /* The lighter sector check has never passed a sector its EDC refuses,
      * but where a test stores wrong data on the card to see it found. */
     CHECK(report()->light_bad <= light_bad_expected);
+#endif
+#if KUI_TOY_CDDA_HOOK
+    /* What the game is answered from, and where the card stands. */
+    const struct kui_retail_gd *s = &R.shared.service;
+    traffic_fold(s->token + 3u * s->status + 5u * s->position_lba + 7u * s->drive_status + 11u * s->completed_bytes +
+        13u * s->error + 17u * s->pending + 19u * s->command + 23u * R.shared.stream.state +
+        29u * R.shared.stream.position + 31u * card.clocks + 37u * m.dma_starts);
 #endif
 }
 static bool timer_running(unsigned *channel) {
@@ -4257,6 +4311,8 @@ static uint32_t hook_player(uint32_t event, uint32_t arg, kui_retail_async_regio
     if(hook.open) ++hook.unkept;
     hook.open = false;
     ++hook.calls;
+    /* Every visit the auxiliary admits, in its order (toy-cdda-card-quiet-check). */
+    traffic_fold(event | arg << 8 | (uint32_t)(R.engine.in_irq & 3u) << 28);
     if(event == KUI_NATIVE_RA_DELIVER && !R.engine.in_irq) {
         ++hook.deliver_game;
         hook.open = true;
@@ -4286,6 +4342,9 @@ static void player_hook_counts(void) {
            "%lu refused by the guard reached no player\n", hook.calls, hook.deliver_game, hook.deliver_irq,
            hook.other, hook.keeps, hook.unkept, hook.guarded);
 }
+#endif
+#if KUI_TOY_CDDA_CARD
+#include "test_toy_cdda_card.inc"
 #endif
 #if KUI_TOY_CDDA_DRIVE
 #include "kui/toy_cdda_player.h"
@@ -4352,12 +4411,23 @@ int main(void) {
 #if KUI_TOY_CDDA_HOOK
     toy_cdda_test_player = hook_player;
 #endif
+#if KUI_TOY_CDDA_CARD
+    /* Test 85 (CARD): every scenario of this file runs with the shared
+     * block bound; none before the audio's own makes a heartbeat. */
+    toy_cdda_test_mail = &kui_toy_cdda_mail;
+#endif
     for(unsigned i = 0; i < 256u; ++i) {
         unsigned j = i << 1;
         if(j & 0x100u) j ^= 0x11du;
         ecc_f[i] = (uint8_t)j;
         ecc_b[i ^ j] = (uint8_t)i;
     }
+#if KUI_TOY_CDDA_CARD && defined(KUI_TOY_CDDA_CARD_ONLY)
+    /* The audio's scenarios by themselves (toy-cdda-card-host-test). */
+    cd_scenarios();
+    printf("PASS Test 85 audio from the card, by itself: %u checks\n", checks);
+    return 0;
+#endif
 #if KUI_TOY_WIRE_STEADY
     /* Test 75 prints nothing of the chunk observer and has it do nothing:
      * no read of the game's memory, no count, whatever the hook hands it. */
@@ -4573,7 +4643,13 @@ int main(void) {
 #endif
 #if KUI_TOY_CDDA_HOOK
     player_hook_counts();
+    /* Everything above made no heartbeat: with Test 85's switch on or off
+     * the card was sent the same and every visit answered the same. */
+    printf("  without the audio's heartbeat: traffic %08x\n", (unsigned)traffic);
 #endif
-    printf("PASS Test %u reader integration: %u checks\n", KUI_TOY_CDDA_ROOM ? 84u : KUI_TOY_WIRE_TICK ? 69u : KUI_TOY_WIRE_TIMER ? 81u : KUI_TOY_WIRE_QUERY ? 80u : KUI_TOY_WIRE_TITLES ? 79u : KUI_TOY_WIRE_ANY ? 78u : KUI_TOY_WIRE_SEQ ? 77u : KUI_TOY_WIRE_FLUID ? 76u : KUI_TOY_WIRE_STEADY ? 75u : KUI_TOY_WIRE_LEAN ? 74u : KUI_TOY_WIRE_IDLE ? 73u : KUI_TOY_WIRE_PACE ? 72u : KUI_TOY_WIRE_WORDS ? 71u : KUI_TOY_WIRE_CACHED ? 70u : 68u, checks);
+#if KUI_TOY_CDDA_CARD
+    cd_scenarios();
+#endif
+    printf("PASS Test %u reader integration: %u checks\n", KUI_TOY_CDDA_CARD ? 85u : KUI_TOY_CDDA_ROOM ? 84u : KUI_TOY_WIRE_TICK ? 69u : KUI_TOY_WIRE_TIMER ? 81u : KUI_TOY_WIRE_QUERY ? 80u : KUI_TOY_WIRE_TITLES ? 79u : KUI_TOY_WIRE_ANY ? 78u : KUI_TOY_WIRE_SEQ ? 77u : KUI_TOY_WIRE_FLUID ? 76u : KUI_TOY_WIRE_STEADY ? 75u : KUI_TOY_WIRE_LEAN ? 74u : KUI_TOY_WIRE_IDLE ? 73u : KUI_TOY_WIRE_PACE ? 72u : KUI_TOY_WIRE_WORDS ? 71u : KUI_TOY_WIRE_CACHED ? 70u : 68u, checks);
     return 0;
 }

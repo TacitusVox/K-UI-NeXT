@@ -195,7 +195,14 @@ C(kui_native_loader_timeline_exports):
     .global C(kui_toy_cdda_player_exports)
     .type C(kui_toy_cdda_player_exports),@object
 C(kui_toy_cdda_player_exports):
+#if KUI_TOY_CDDA_CARD
+    /* Test 85 (CARD): its second form names the block the heartbeat and the
+     * auxiliary share for the audio, in the worker's cleared state
+     * (include/kui/toy_cdda_mail.h). */
+    .long 0x4b434431,2,C(kui_toy_cdda_player_visit),C(kui_toy_cdda_mail)
+#else
     .long 0x4b434431,1,C(kui_toy_cdda_player_visit)
+#endif
     .size C(kui_toy_cdda_player_exports),.-C(kui_toy_cdda_player_exports)
 #endif
 #endif

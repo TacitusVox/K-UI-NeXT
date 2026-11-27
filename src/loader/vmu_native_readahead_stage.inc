@@ -188,6 +188,9 @@ static void __attribute__((noipa)) native_readahead_bind(uint32_t payload) {
 #if KUI_TOY_CDDA_HOOK
         ,0
 #endif
+#if KUI_TOY_CDDA_CARD
+        ,0
+#endif
     };
 #else
         KUI_NATIVE_RA_DATA_BYTES,lease&UINT32_C(0x1fffffff),KUI_NATIVE_RA_LEASE_BYTES};
@@ -201,6 +204,10 @@ static void __attribute__((noipa)) native_readahead_bind(uint32_t payload) {
 #if KUI_TOY_CDDA_HOOK
     /* Test 84 (HOOK): proved with the timeline's descriptor, which is bound first. */
     cfg.cdda_player=(kui_toy_cdda_player)(uintptr_t)toy_cdda_player_entry;
+#endif
+#if KUI_TOY_CDDA_CARD
+    /* Test 85 (CARD): proved with the player's descriptor. */
+    cfg.cdda_mail=(struct kui_toy_cdda_mail *)(uintptr_t)toy_cdda_mail_address;
 #endif
 #if KUI_TOY_SUITE_MOVIE_POLL
     /* The SDK call frames below are specific to this complete 1GUTH.BIN. */

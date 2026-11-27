@@ -32,6 +32,9 @@ TOY_CDDA_HOOK ?= 0
 TOY_CDDA_DRIVE ?= 0
 TOY_CDDA_KEEP ?= 0
 TOY_CDDA_SURVEY ?= 0
+# Test 85: the music's audio from the card, one switch a behaviour
+# (include/kui/toy_cdda_card.h).
+TOY_CDDA_CARD ?= 0
 TOY_WIRE_STAY ?= $(TOY_WIRE_STEADY)
 # Test 76 leaves LATER out unless a build asks for it.
 TOY_WIRE_LATER ?= $(if $(filter 1,$(TOY_WIRE_FLUID)),0,$(TOY_WIRE_STEADY))
@@ -54,6 +57,8 @@ endif
 ifeq ($(TOY_WIRE_STREAM),1)
 ifeq ($(TOY_WIRE_TICK),1)
 TOY_WIRE_TEST := 69
+else ifeq ($(TOY_CDDA_CARD),1)
+TOY_WIRE_TEST := 85
 else ifeq ($(TOY_CDDA_ROOM),1)
 TOY_WIRE_TEST := 84
 else ifeq ($(TOY_WIRE_CACHED)$(TOY_WIRE_WORDS)$(TOY_WIRE_PACE)$(TOY_WIRE_IDLE)$(TOY_WIRE_LEAN)$(TOY_WIRE_STEADY)$(TOY_WIRE_FLUID)$(TOY_WIRE_SEQ)$(TOY_WIRE_ANY)$(TOY_WIRE_TITLES)$(TOY_WIRE_QUERY)$(TOY_WIRE_TIMER)$(TOY_WIRE_VMU)$(TOY_WIRE_SAVE),11111111111101)
@@ -557,6 +562,33 @@ NATIVE_SRC += src/loader/toy_cdda_survey.c
 else ifneq ($(TOY_CDDA_SURVEY),0)
 $(error TOY_CDDA_SURVEY must be 0 or 1)
 endif
+ifeq ($(TOY_CDDA_CARD),1)
+# Test 85 (CARD): a CD-music track's audio read from the card between the
+# game's own reads. The auxiliary reads it with the window's own stream while
+# no read of the game's stands and gives the card back at once when one does;
+# the worker's heartbeat asks for it and hands it to a consumer, which with no
+# sound output drops it. The stage proves the block the two share. Auxiliary,
+# worker and stage; the low residents keep their bytes. It follows the drive
+# (KEEP and what that builds on) and is called at the worker's two heartbeats;
+# it does not need the sound chip's survey, behind which it is called where
+# that is built.
+ifneq ($(TOY_CDDA_KEEP),1)
+$(error TOY_CDDA_CARD builds on Test 84's KEEP: use TOY_CDDA_KEEP=1)
+endif
+ifneq ($(TOY_SURVEY_MIXED_PAD),1)
+$(error TOY_CDDA_CARD follows Test 83's mixed heartbeat: use TOY_SURVEY_MIXED_PAD=1)
+endif
+TOY_CDDA_CARD_FLAGS := -DKUI_TOY_CDDA_CARD=1
+FLAGS += $(TOY_CDDA_CARD_FLAGS)
+NATIVE_FLAGS += $(TOY_CDDA_CARD_FLAGS)
+TOY_MOVIE_TEST_FLAGS += $(TOY_CDDA_CARD_FLAGS)
+TOY_WIRE_TICK_FLAG += $(TOY_CDDA_CARD_FLAGS)
+NATIVE_SRC += src/loader/toy_cdda_card.c
+$(BUILD)/ra/src/loader/native_readahead_aux.o: src/loader/toy_cdda_aux_card.inc include/kui/toy_cdda_mail.h \
+ include/kui/toy_cdda_card.h
+else ifneq ($(TOY_CDDA_CARD),0)
+$(error TOY_CDDA_CARD must be 0 or 1)
+endif
 ifeq ($(TOY_WIRE_SAVE),1)
 # The stage alone is told, and it alone gains sources: the survey's file
 # format and the read-only lookup of its file. No other part's compilation
@@ -578,7 +610,7 @@ $(BUILD)/native-worker.elf: $(NATIVE_OBJ)
 
 $(BUILD)/toy-suite-config: force-mode-config
 	@mkdir -p $(BUILD)
-	@printf '%s\n' 'TOY_SUITE_MODE=$(TOY_SUITE_MODE)' 'TOY_FMV_COMPARE=$(TOY_FMV_COMPARE)' 'TOY_WIRE_STREAM=$(TOY_WIRE_STREAM)' $(if $(filter 1,$(TOY_WIRE_TICK)),'TOY_WIRE_TICK=1') $(if $(filter 1,$(TOY_WIRE_CACHED)),'TOY_WIRE_CACHED=1') $(if $(filter 1,$(TOY_WIRE_WORDS)),'TOY_WIRE_WORDS=1') $(if $(filter 1,$(TOY_WIRE_PACE)),'TOY_WIRE_PACE=1') $(if $(filter 1,$(TOY_WIRE_IDLE)),'TOY_WIRE_IDLE=1') $(if $(filter 1,$(TOY_WIRE_LEAN)),'TOY_WIRE_LEAN=1 OPEN=$(TOY_WIRE_OPEN) CLEAN=$(TOY_WIRE_CLEAN) MSB=$(TOY_WIRE_MSB) QUICK=$(TOY_WIRE_QUICK) SWIFT=$(TOY_WIRE_SWIFT)') $(if $(filter 1,$(TOY_WIRE_STEADY)),'TOY_WIRE_STEADY=1 STAY=$(TOY_WIRE_STAY) LATER=$(TOY_WIRE_LATER) RING=$(TOY_WIRE_RING)') $(if $(filter 1,$(TOY_WIRE_FLUID)),'TOY_WIRE_FLUID=1 QUIT=$(TOY_WIRE_QUIT) HOT=$(TOY_WIRE_HOT) COPY=$(TOY_WIRE_COPY) GAP=$(TOY_WIRE_GAP) APART=$(TOY_WIRE_APART)') $(if $(filter 1,$(TOY_WIRE_SEQ)),'TOY_WIRE_SEQ=1') $(if $(filter 1,$(TOY_WIRE_ANY)),'TOY_WIRE_ANY=1') $(if $(filter 1,$(TOY_WIRE_TITLES)),'TOY_WIRE_TITLES=1') $(if $(filter 1,$(TOY_WIRE_QUERY)),'TOY_WIRE_QUERY=1') $(if $(filter 1,$(TOY_WIRE_TIMER)),'TOY_WIRE_TIMER=1') $(if $(filter 1,$(TOY_WIRE_VMU)),'TOY_WIRE_VMU=1') $(if $(filter 1,$(TOY_WIRE_SAVE)),'TOY_WIRE_SAVE=1') $(if $(filter 1,$(TOY_SURVEY_MIXED_PAD)),'TOY_SURVEY_MIXED_PAD=1') $(if $(filter 1,$(TOY_CDDA_ROOM)),'TOY_CDDA_ROOM=1') $(if $(filter 1,$(TOY_CDDA_HOOK)),'TOY_CDDA_HOOK=1') $(if $(filter 1,$(TOY_CDDA_DRIVE)),'TOY_CDDA_DRIVE=1') $(if $(filter 1,$(TOY_CDDA_KEEP)),'TOY_CDDA_KEEP=1') $(if $(filter 1,$(TOY_CDDA_SURVEY)),'TOY_CDDA_SURVEY=1') > $@.tmp
+	@printf '%s\n' 'TOY_SUITE_MODE=$(TOY_SUITE_MODE)' 'TOY_FMV_COMPARE=$(TOY_FMV_COMPARE)' 'TOY_WIRE_STREAM=$(TOY_WIRE_STREAM)' $(if $(filter 1,$(TOY_WIRE_TICK)),'TOY_WIRE_TICK=1') $(if $(filter 1,$(TOY_WIRE_CACHED)),'TOY_WIRE_CACHED=1') $(if $(filter 1,$(TOY_WIRE_WORDS)),'TOY_WIRE_WORDS=1') $(if $(filter 1,$(TOY_WIRE_PACE)),'TOY_WIRE_PACE=1') $(if $(filter 1,$(TOY_WIRE_IDLE)),'TOY_WIRE_IDLE=1') $(if $(filter 1,$(TOY_WIRE_LEAN)),'TOY_WIRE_LEAN=1 OPEN=$(TOY_WIRE_OPEN) CLEAN=$(TOY_WIRE_CLEAN) MSB=$(TOY_WIRE_MSB) QUICK=$(TOY_WIRE_QUICK) SWIFT=$(TOY_WIRE_SWIFT)') $(if $(filter 1,$(TOY_WIRE_STEADY)),'TOY_WIRE_STEADY=1 STAY=$(TOY_WIRE_STAY) LATER=$(TOY_WIRE_LATER) RING=$(TOY_WIRE_RING)') $(if $(filter 1,$(TOY_WIRE_FLUID)),'TOY_WIRE_FLUID=1 QUIT=$(TOY_WIRE_QUIT) HOT=$(TOY_WIRE_HOT) COPY=$(TOY_WIRE_COPY) GAP=$(TOY_WIRE_GAP) APART=$(TOY_WIRE_APART)') $(if $(filter 1,$(TOY_WIRE_SEQ)),'TOY_WIRE_SEQ=1') $(if $(filter 1,$(TOY_WIRE_ANY)),'TOY_WIRE_ANY=1') $(if $(filter 1,$(TOY_WIRE_TITLES)),'TOY_WIRE_TITLES=1') $(if $(filter 1,$(TOY_WIRE_QUERY)),'TOY_WIRE_QUERY=1') $(if $(filter 1,$(TOY_WIRE_TIMER)),'TOY_WIRE_TIMER=1') $(if $(filter 1,$(TOY_WIRE_VMU)),'TOY_WIRE_VMU=1') $(if $(filter 1,$(TOY_WIRE_SAVE)),'TOY_WIRE_SAVE=1') $(if $(filter 1,$(TOY_SURVEY_MIXED_PAD)),'TOY_SURVEY_MIXED_PAD=1') $(if $(filter 1,$(TOY_CDDA_ROOM)),'TOY_CDDA_ROOM=1') $(if $(filter 1,$(TOY_CDDA_HOOK)),'TOY_CDDA_HOOK=1') $(if $(filter 1,$(TOY_CDDA_DRIVE)),'TOY_CDDA_DRIVE=1') $(if $(filter 1,$(TOY_CDDA_KEEP)),'TOY_CDDA_KEEP=1') $(if $(filter 1,$(TOY_CDDA_SURVEY)),'TOY_CDDA_SURVEY=1') $(if $(filter 1,$(TOY_CDDA_CARD)),'TOY_CDDA_CARD=1') > $@.tmp
 	@cmp -s $@.tmp $@ || cp $@.tmp $@
 	@rm -f $@.tmp
 
@@ -666,6 +698,13 @@ ifeq ($(TOY_CDDA_SURVEY),1)
 	python3 tests/test_toy_cdda_survey_linked.py $(BUILD)/native-worker.elf $(BUILD)/native
 	python3 tests/test_toy_cdda_survey_linked.py --self-test $(BUILD)/native-worker.elf $(BUILD)/native
 endif
+ifeq ($(TOY_CDDA_CARD),1)
+# Test 85 (CARD) in the linked worker: the consumer's depth on the stack the
+# completion admits, the visit gate's registers among it, and its callers;
+# then the same check refusing altered readings.
+	python3 tests/test_toy_cdda_card_linked.py $(BUILD)/native-worker.elf $(BUILD)/native $(BUILD)/native-ra-aux.elf
+	python3 tests/test_toy_cdda_card_linked.py --self-test $(BUILD)/native-worker.elf $(BUILD)/native $(BUILD)/native-ra-aux.elf
+endif
 ifeq ($(TOY_WIRE_SWIFT),1)
 	python3 tests/test_toy_wire_linked_loops.py $(if $(filter 0,$(TOY_WIRE_MSB)),--no-as-sent) $(BUILD)/native-ra-aux.elf $(TOY_WIRE_LOOP_REFERENCE)
 else ifeq ($(TOY_WIRE_WORDS),1)
@@ -722,8 +761,39 @@ toy-wire-integration-host-test:
 	 src/loader/toy_wire_stream.c src/core/mode1_erasure.c \
 	 src/core/hash.c src/core/data.c tests/test_toy_wire_integration.c \
 	 $(if $(filter 1,$(TOY_CDDA_HOOK)),src/loader/toy_cdda_player.c) \
-	 -Wl,--gc-sections -o $(BUILD)/test-toy-wire-integration
-	ASAN_OPTIONS=detect_leaks=0 $(BUILD)/test-toy-wire-integration
+	 $(if $(filter 1,$(TOY_CDDA_CARD)),src/loader/toy_cdda_card.c) \
+	 $(TOY_CDDA_CARD_ONLY) -Wl,--gc-sections -o $(BUILD)/test-toy-wire-integration$(if $(TOY_CDDA_CARD_ONLY),-card)
+	ASAN_OPTIONS=detect_leaks=0 $(BUILD)/test-toy-wire-integration$(if $(TOY_CDDA_CARD_ONLY),-card)
+# Test 85 (CARD): the audio's scenarios of that test by themselves, on the same
+# sources and switches (tests/test_toy_cdda_card.inc). The whole test above
+# runs them too, behind everything else.
+.PHONY: toy-cdda-card-host-test
+toy-cdda-card-host-test: TOY_CDDA_CARD_ONLY := -DKUI_TOY_CDDA_CARD_ONLY=1
+toy-cdda-card-host-test: toy-wire-integration-host-test
+ifneq ($(TOY_CDDA_CARD),1)
+	$(error toy-cdda-card-host-test is Test 85's CARD: use TOY_CDDA_CARD=1)
+endif
+# Whether the audio's scenarios and the gesture test notice a defect in the
+# audio's card work: each of a list, in a copy of the sources.
+.PHONY: toy-cdda-card-mutation-check toy-cdda-card-quiet-check
+toy-cdda-card-mutation-check:
+	HOST_CC="$(HOST_CC)" python3 tests/test_toy_cdda_card_mutations.py
+# Test 85 (CARD) asked for nothing: the integration test ahead of the audio's
+# scenarios sends the card the same, and answers every visit the same, with
+# the audio's card work built in and without it.
+TOY_CDDA_CARD_QUIET = TOY_WIRE_VMU=0 TOY_WIRE_SAVE=$(TOY_WIRE_SAVE) TOY_SURVEY_MIXED_PAD=$(TOY_SURVEY_MIXED_PAD) \
+ TOY_CDDA_ROOM=$(TOY_CDDA_ROOM) TOY_CDDA_HOOK=$(TOY_CDDA_HOOK) TOY_CDDA_DRIVE=$(TOY_CDDA_DRIVE) \
+ TOY_CDDA_KEEP=$(TOY_CDDA_KEEP) TOY_CDDA_SURVEY=$(TOY_CDDA_SURVEY) HOST_CC="$(HOST_CC)" BUILD_ID=$(BUILD_ID)
+toy-cdda-card-quiet-check:
+ifneq ($(TOY_CDDA_CARD),1)
+	$(error toy-cdda-card-quiet-check is Test 85's CARD: use TOY_CDDA_CARD=1)
+endif
+	@mkdir -p $(BUILD)/quiet-test84 $(BUILD)/quiet-test85
+	env -u MAKEFLAGS -u MFLAGS $(MAKE) -f Makefile.vmu-native-toy-suite $(TOY_WIRE_EVERY_SWITCH) $(TOY_CDDA_CARD_QUIET) \
+	 TOY_CDDA_CARD=0 BUILD=$(BUILD)/quiet-test84 toy-wire-integration-host-test > $(BUILD)/quiet-test84/log.txt
+	env -u MAKEFLAGS -u MFLAGS $(MAKE) -f Makefile.vmu-native-toy-suite $(TOY_WIRE_EVERY_SWITCH) $(TOY_CDDA_CARD_QUIET) \
+	 TOY_CDDA_CARD=1 BUILD=$(BUILD)/quiet-test85 toy-wire-integration-host-test > $(BUILD)/quiet-test85/log.txt
+	python3 tests/test_toy_cdda_card_quiet.py $(BUILD)/quiet-test84/log.txt $(BUILD)/quiet-test85/log.txt
 # Card Tools' own admission of the packaged module bytes.
 toy-wire-package-test: $(BUILD)/retail-toy-test-$(TOY_WIRE_TEST).kui
 	$(HOST_CC) $(filter-out -Wpedantic,$(TOY_WIRE_HOST_FLAGS)) -Ifatfs/source tests/test_toy_reader_package.c \
@@ -775,7 +845,9 @@ endif
 TOY_CDDA_PARTS_READER = $(BUILD)/parts-test83
 # Command-line switches reach a sub-make through its environment: each is
 # said off.
-TOY_CDDA_OFF = TOY_CDDA_ROOM=0 TOY_CDDA_HOOK=0 TOY_CDDA_DRIVE=0 TOY_CDDA_KEEP=0 TOY_CDDA_SURVEY=0
+TOY_CDDA_CARD_OFF = TOY_CDDA_CARD=0
+TOY_CDDA_OFF = TOY_CDDA_ROOM=0 TOY_CDDA_HOOK=0 TOY_CDDA_DRIVE=0 TOY_CDDA_KEEP=0 TOY_CDDA_SURVEY=0 $(TOY_CDDA_CARD_OFF)
+TOY_CDDA_PARTS_CARD = $(BUILD)/parts-test84
 .PHONY: toy-cdda-parts-check
 toy-cdda-parts-check: $(BUILD)/retail-toy-test-$(TOY_WIRE_TEST).kui
 ifneq ($(TOY_CDDA_ROOM),1)
@@ -783,7 +855,17 @@ ifneq ($(TOY_CDDA_ROOM),1)
 endif
 	env -u MAKEFLAGS -u MFLAGS $(MAKE) -f Makefile.vmu-native-toy-suite $(TOY_WIRE_EVERY_SWITCH) TOY_WIRE_VMU=0 TOY_WIRE_SAVE=1 \
 	 TOY_SURVEY_MIXED_PAD=1 $(TOY_CDDA_OFF) BUILD_ID=$(BUILD_ID) BUILD=$(TOY_CDDA_PARTS_READER) $(TOY_CDDA_PARTS_READER)/retail-native-dual.kui
+ifeq ($(TOY_CDDA_CARD),1)
+# Test 85 (CARD) is held against Test 84's own build as well: this recipe
+# with the audio's card work off, one build label.
+	env -u MAKEFLAGS -u MFLAGS $(MAKE) -f Makefile.vmu-native-toy-suite $(TOY_WIRE_EVERY_SWITCH) TOY_WIRE_VMU=0 TOY_WIRE_SAVE=1 \
+	 TOY_SURVEY_MIXED_PAD=1 TOY_CDDA_ROOM=$(TOY_CDDA_ROOM) TOY_CDDA_HOOK=$(TOY_CDDA_HOOK) TOY_CDDA_DRIVE=$(TOY_CDDA_DRIVE) \
+	 TOY_CDDA_KEEP=$(TOY_CDDA_KEEP) TOY_CDDA_SURVEY=$(TOY_CDDA_SURVEY) $(TOY_CDDA_CARD_OFF) BUILD_ID=$(BUILD_ID) \
+	 BUILD=$(TOY_CDDA_PARTS_CARD) $(TOY_CDDA_PARTS_CARD)/retail-native-dual.kui
+	python3 tests/test_toy_cdda_parts.py $(BUILD) $(TOY_CDDA_PARTS_READER) --card $(TOY_CDDA_PARTS_CARD)
+else
 	python3 tests/test_toy_cdda_parts.py $(BUILD) $(TOY_CDDA_PARTS_READER)
+endif
 # Test 84 (DRIVE): the real disc service and the real player in the low
 # resident's order, with a twin service without a player. The player's source
 # can be named (tests/test_toy_cdda_mutations.py).
@@ -862,6 +944,20 @@ ifeq ($(TOY_CDDA_SURVEY),1)
 	 tests/test_toy_survey_mixed_pad.c $(COMPAT_WORKER_HOST_SRC) src/loader/toy_cdda_survey.c \
 	 -Wl,--gc-sections -o $(BUILD)/test-survey-mixed-pad-cdda
 	ASAN_OPTIONS=detect_leaks=0 $(BUILD)/test-survey-mixed-pad-cdda
+endif
+ifeq ($(TOY_CDDA_CARD),1)
+# Test 85 (CARD): and with the audio's consumer called at both heartbeats
+# under the survey's rule, behind the survey where the worker has one, and
+# by itself where it has none; the consumer here only counts.
+	$(HOST_CC) $(TOY_SURVEY_MIXED_PAD_HOST_FLAGS) -DKUI_NATIVE_COOP_PUMP=1 -DKUI_NATIVE_IRQ_REARM=1 \
+	 -DKUI_TOY_CDDA_SURVEY=1 -DKUI_TOY_CDDA_SURVEY_HOST_TEST=1 -DKUI_TOY_CDDA_CARD=1 \
+	 tests/test_toy_survey_mixed_pad.c $(COMPAT_WORKER_HOST_SRC) src/loader/toy_cdda_survey.c \
+	 -Wl,--gc-sections -o $(BUILD)/test-survey-mixed-pad-card
+	ASAN_OPTIONS=detect_leaks=0 $(BUILD)/test-survey-mixed-pad-card
+	$(HOST_CC) $(TOY_SURVEY_MIXED_PAD_HOST_FLAGS) -DKUI_NATIVE_COOP_PUMP=1 -DKUI_NATIVE_IRQ_REARM=1 \
+	 -DKUI_TOY_CDDA_CARD=1 tests/test_toy_survey_mixed_pad.c $(COMPAT_WORKER_HOST_SRC) \
+	 -Wl,--gc-sections -o $(BUILD)/test-survey-mixed-pad-card-alone
+	ASAN_OPTIONS=detect_leaks=0 $(BUILD)/test-survey-mixed-pad-card-alone
 endif
 ifeq ($(TOY_SURVEY_MIXED_PAD),1)
 toy-wire-save-host-test: toy-survey-mixed-pad-host-test

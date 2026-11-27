@@ -71,6 +71,12 @@ static bool passive_entry(uint32_t entry,uint32_t begin,uint32_t bytes) {
 /* Test 84 (HOOK): the worker's CD-music player, proved with the loader
  * timeline's descriptor and handed to the auxiliary (src/loader/toy_cdda_player.c). */
 static uint32_t toy_cdda_player_entry;
+#if KUI_TOY_CDDA_CARD
+/* Test 85 (CARD): and the block the worker's heartbeat and the auxiliary
+ * share for the audio, proved in the worker's cleared state. */
+#include "kui/toy_cdda_mail.h"
+static uint32_t toy_cdda_mail_address;
+#endif
 #endif
 #if KUI_NATIVE_READAHEAD
 #include "vmu_native_readahead_stage.inc"
@@ -96,8 +102,19 @@ static void __attribute__((noipa)) native_loader_timeline_bind(const struct kui_
      * inside this worker's image. */
     if(bytes<64u || physical-begin>bytes-64u)native_report(8u,0x58u);
     const uint32_t *player=(const void *)(uintptr_t)(table+52u);
+#if KUI_TOY_CDDA_CARD
+    /* Test 85 (CARD): the descriptor's second form, 16 bytes: its last word
+     * names the shared block, all of it in the state this stage has cleared
+     * behind the worker's image, on whole cache lines. */
+    if(bytes<68u || physical-begin>bytes-68u)native_report(8u,0x5au);
+    if(player[0]!=UINT32_C(0x4b434431) || player[1]!=2u ||
+       !passive_entry(player[2],dest,bytes)) native_report(8u,0x59u);
+    if(!kui_toy_cdda_mail_address(player[3],e->bss_begin,e->bss_end)) native_report(8u,0x5bu);
+    toy_cdda_mail_address=player[3];
+#else
     if(player[0]!=UINT32_C(0x4b434431) || player[1]!=1u ||
        !passive_entry(player[2],dest,bytes)) native_report(8u,0x59u);
+#endif
     toy_cdda_player_entry=player[2];
 #endif
     uint32_t region=(payload&UINT32_C(0x1fffffff))|UINT32_C(0x80000000);

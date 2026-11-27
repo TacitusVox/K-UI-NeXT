@@ -76,6 +76,25 @@ static void reader_readahead_visit(uint32_t event,uint32_t arg) {
     const struct kui_native_ra_exports *a=reader_readahead_exports(r);
     if(a)(void)a->visit(event,arg,r,0u);
 }
+#if KUI_TOY_CDDA_CARD
+/* Test 85 (CARD): the heartbeat's way to the auxiliary for a CD-music track's
+ * audio (include/kui/toy_cdda_player.h). The audio's card work is a TICK
+ * visit's, with the argument the visit has always admitted; its soft window
+ * is the reader's own for optional work at a heartbeat, half of it under the
+ * early SDK's drivers, whose completion inherits the game caller's schedule. */
+uint32_t kui_toy_cdda_card_window(void) {
+    if(!reader_readahead_exports(reader_capture_region()))return 0u;
+    return kui_vmu_native_early_server(config.driver.family)?
+        KUI_NATIVE_RA_PIO_WINDOW_TICKS/2u:KUI_NATIVE_RA_PIO_WINDOW_TICKS;
+}
+/* (The visit is this function's last act: it leaves nothing of its own on
+ * the worker's stack under the gate's six registers.) */
+void kui_toy_cdda_card_tick(void) {
+    kui_retail_async_region_type *r=reader_capture_region();
+    const struct kui_native_ra_exports *a=reader_readahead_exports(r);
+    if(a)(void)a->visit(KUI_NATIVE_RA_TICK,KUI_NATIVE_RA_TICK_DEFAULT,r,0u);
+}
+#endif
 #ifndef KUI_VMU_NATIVE_PASSIVE_HOST_TEST
 /* Eight label/value pairs fit the sixteen body rows. The immutable field
  * map keeps every raw word while sharing one formatter and argument buffer. */

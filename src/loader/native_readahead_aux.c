@@ -6,6 +6,9 @@
 #include "native_readahead_aux_internal.h"
 #include "kui/vmu_native_background.h"
 #include "kui/toy_pilot_clock.h"
+#if KUI_TOY_CDDA_CARD
+#include "kui/toy_cdda_mail.h"
+#endif
 #if KUI_TOY_TEST_BUILD
 #include <string.h>
 #if KUI_TOY_SUITE_WIDE_EDC
@@ -167,6 +170,14 @@ static bool config_valid(const struct kui_native_ra_config *c) {
     if(player && ((player&1u) || player<(p|UINT32_C(0x80000000))+64u ||
        player>=(p|UINT32_C(0x80000000))+KUI_VMU_NATIVE_BACKGROUND_WORKER_BYTES))return false;
 #endif
+#if KUI_TOY_CDDA_CARD
+    /* Test 85 (CARD): the block shared with the worker's heartbeat is the
+     * worker's state in this same lease, on whole cache lines behind its
+     * export header, at its uncached address. */
+    if(c->cdda_mail && !kui_toy_cdda_mail_address((uint32_t)(uintptr_t)c->cdda_mail,
+       (p|UINT32_C(0xa0000000))+64u,(p|UINT32_C(0xa0000000))+KUI_VMU_NATIVE_BACKGROUND_WORKER_BYTES))
+        return false;
+#endif
 #endif
     const struct kui_native_ra_low_ops *o=c->ops;
     return o->magic==KUI_NATIVE_RA_OPS_MAGIC && o->version==KUI_NATIVE_RA_VERSION &&
@@ -204,6 +215,9 @@ static struct kui_cd_edc_table *toy_edc_table(const struct kui_native_ra_config 
 #endif
 #if KUI_TOY_WIRE_STREAM
 static void toy_wire_reset(bool all);
+#endif
+#if KUI_TOY_CDDA_CARD
+static void toy_cdda_reset(void);
 #endif
 int kui_native_readahead_aux_init(const struct kui_native_ra_config *c) {
     if(C.busy || C.initialized || !config_valid(c))return -1;
@@ -243,6 +257,10 @@ int kui_native_readahead_aux_init(const struct kui_native_ra_config *c) {
 #endif
 #if KUI_TOY_WIRE_STREAM
     toy_wire_reset(true);
+#endif
+#if KUI_TOY_CDDA_CARD
+    /* Test 85 (CARD): the audio has nothing of the card. */
+    toy_cdda_reset();
 #endif
     return 0;
 }
@@ -548,6 +566,9 @@ static inline bool toy_refill_time_left(struct ra_clock start) {
 #endif
 #if KUI_TOY_SUITE_MODE >= 62
 #include "toy_movie_ahead.inc"
+#if KUI_TOY_CDDA_CARD
+#include "toy_cdda_aux_card.inc"
+#endif
 extern uint32_t kui_native_readahead_aux_visit(uint32_t,uint32_t,
     kui_retail_async_region_type *,uint32_t);
 
@@ -1644,6 +1665,12 @@ uint32_t kui_native_readahead_aux_dispatch(uint32_t event,uint32_t arg,
     if(C.config.cdda_player)
         (void)C.config.cdda_player(event,arg,r,C.config.ops);
 #endif
+#if KUI_TOY_CDDA_CARD
+    /* Test 85 (CARD): while the audio has the card, or waits for it, a
+     * delivery visit is the audio stream's unless a read of the game's ends
+     * it (toy_cdda_aux_card.inc). With no audio this is one test. */
+    if(event==KUI_NATIVE_RA_DELIVER && toy_cdda.busy && toy_cdda_claim(r))return 1u;
+#endif
 #if KUI_TOY_SUITE_MODE == 27 || KUI_TOY_SUITE_MODE == 28
     if(event==KUI_NATIVE_RA_CALIBRATE) return arg ? 0u : burst_quiet_calibrate(r);
 #endif
@@ -1858,6 +1885,11 @@ uint32_t kui_native_readahead_aux_dispatch(uint32_t event,uint32_t arg,
 #endif
     case KUI_NATIVE_RA_TICK:
         ++C.stats.heartbeat_visits;
+#if KUI_TOY_CDDA_CARD
+        /* Test 85 (CARD): the worker's heartbeat asks for the audio's card
+         * work with the argument the visit has always admitted. */
+        if(arg==KUI_NATIVE_RA_TICK_DEFAULT)toy_cdda_fill(r);
+#endif
 #if KUI_TOY_SUITE_MODE == 26 || KUI_TOY_SUITE_MODE == 27 || KUI_TOY_SUITE_MODE == 28
         burst_service(0,r);break;
 #elif KUI_TOY_SUITE_ASYNC_DEMAND

@@ -673,7 +673,12 @@ static void toy_report_format(char *text,const struct kui_native_ra_public *ra,
     toy_report_string(&at,"K-UI TOY COMMANDER REPORT\nTEST ");
 #if KUI_TOY_WIRE_STREAM
     /* Card Tools starts this reader from its Test 66 entry. */
+#if KUI_TOY_CDDA_CARD
+    /* Test 85 (CARD): the audio is read from the card. */
+    test=85u;
+#else
     test=KUI_TOY_CDDA_ROOM?84u:KUI_TOY_WIRE_TICK?69u:KUI_TOY_WIRE_TIMER?81u:KUI_TOY_WIRE_QUERY?80u:KUI_TOY_WIRE_TITLES?79u:KUI_TOY_WIRE_ANY?78u:KUI_TOY_WIRE_SEQ?77u:KUI_TOY_WIRE_FLUID?76u:KUI_TOY_WIRE_STEADY?75u:KUI_TOY_WIRE_LEAN?74u:KUI_TOY_WIRE_IDLE?73u:KUI_TOY_WIRE_PACE?72u:KUI_TOY_WIRE_WORDS?71u:KUI_TOY_WIRE_CACHED?70u:68u;
+#endif
 #endif
     if(test>=10u)*at++=(char)('0'+test/10u);
     *at++=(char)('0'+test%10u);

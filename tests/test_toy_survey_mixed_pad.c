@@ -9,15 +9,32 @@ void *kui_vmu_native_reader_test_region(uint32_t address) {
     (void)address;
     return &region;
 }
+/* Test 84's switch and Test 85's, off where the recipe does not set them (an
+ * undefined name is 0 in #if, but not in C). */
+#ifndef KUI_TOY_CDDA_SURVEY
+#define KUI_TOY_CDDA_SURVEY 0
+#endif
+#ifndef KUI_TOY_CDDA_CARD
+#define KUI_TOY_CDDA_CARD 0
+#endif
+#if KUI_TOY_CDDA_SURVEY || KUI_TOY_CDDA_CARD
+/* The drive, and what both tests count: the completions of each path. */
+#include "kui/toy_cdda_player.h"
+struct kui_toy_cdda_drive kui_toy_cdda_drive;
+static unsigned long surveys,fast_polls,mixed_polls;
+#if KUI_NATIVE_COOP_PUMP
+/* The worker's cooperative service, built as the worker has it: with no read
+ * active in this region it returns before its visit. */
+int kui_native_cooperative_test_visit(void) { CHECK(false); return 0; }
+#endif
+#endif
 #if KUI_TOY_CDDA_SURVEY
 /* Test 84 (SURVEY): the same with the drive playing, every completion with
  * the controller then surveying the sound chip. Here an idle bus and a sound
  * memory of zeros; each poll a sixtieth of a second after the last. */
-#include "kui/toy_cdda_player.h"
 #include "kui/toy_cdda_survey.h"
-struct kui_toy_cdda_drive kui_toy_cdda_drive;
 static uint32_t survey_sr=UINT32_C(0x40000000),survey_clock=UINT32_C(0x70000000);
-static unsigned long reset_reads,surveys,fast_polls,fast_surveys,mixed_polls,mixed_surveys;
+static unsigned long reset_reads,fast_surveys,mixed_surveys;
 uint32_t kui_toy_cdda_survey_test_read(uint32_t address,unsigned width) {
     (void)width;
     /* TMU0 in the Toy profile. */
@@ -33,13 +50,34 @@ uint32_t kui_toy_cdda_survey_test_read(uint32_t address,unsigned width) {
 }
 uint32_t kui_toy_cdda_survey_test_sr(void) { return survey_sr; }
 void kui_toy_cdda_survey_test_set_sr(uint32_t value) { survey_sr=value; }
-#if KUI_NATIVE_COOP_PUMP
-/* The worker's cooperative service, built as the worker has it: with no read
- * active in this region it returns before its visit. */
-int kui_native_cooperative_test_visit(void) { CHECK(false); return 0; }
+#define SURVEY_TIME() (survey_clock-=13021u)
+#define SURVEY_COUNT(kind,before) (kind##_surveys+=surveys-(before))
+#else
+#define SURVEY_TIME() ((void)0)
+#define SURVEY_COUNT(kind,before) ((void)(before))
 #endif
-#define SURVEY_POLL(kind,call) do { const unsigned long before_=surveys; survey_clock-=13021u; call; \
-    ++kind##_polls; kind##_surveys+=surveys-before_; } while(0)
+#if KUI_TOY_CDDA_CARD
+/* Test 85 (CARD): the audio's consumer is called where the survey is, under
+ * the same rule, and behind it where the worker has a survey. Here it counts
+ * its calls and looks whether the completion's survey has been made
+ * (src/loader/toy_cdda_card.c has the real one, tests/test_toy_cdda_card.inc
+ * its test). */
+static unsigned long consumers,fast_consumers,mixed_consumers,consumer_surveys;
+void kui_toy_cdda_consumer_heartbeat(void) {
+    ++consumers;
+    if(KUI_TOY_CDDA_SURVEY && kui_toy_cdda_drive.state==KUI_TOY_CDDA_PLAYING) CHECK(surveys==consumer_surveys+1u);
+}
+#define CONSUMERS consumers
+#define CONSUMER_MARK() (consumer_surveys=surveys)
+#define CONSUMER_COUNT(kind,before) (kind##_consumers+=consumers-(before))
+#else
+#define CONSUMERS 0ul
+#define CONSUMER_MARK() ((void)0)
+#define CONSUMER_COUNT(kind,before) ((void)(before))
+#endif
+#if KUI_TOY_CDDA_SURVEY || KUI_TOY_CDDA_CARD
+#define SURVEY_POLL(kind,call) do { const unsigned long before_=surveys,consumers_=CONSUMERS; CONSUMER_MARK(); \
+    SURVEY_TIME(); call; ++kind##_polls; SURVEY_COUNT(kind,before_); CONSUMER_COUNT(kind,consumers_); } while(0)
 #else
 #define SURVEY_POLL(kind,call) call
 #endif
@@ -96,20 +134,22 @@ static void other_port_poll(void) {
     put(rx_at(12u)+8u,4u,held);put(rx_at(VIRTUAL),4u,UINT32_MAX);
     finish_poll(false);
 }
-#if KUI_TOY_CDDA_SURVEY
+#if KUI_TOY_CDDA_SURVEY || KUI_TOY_CDDA_CARD
 /* The early SDK's drivers: the survey follows the reader's rule on the fast
  * path, a GETCOND parent's completion only, never an INFO or ALLINFO
- * discovery batch's. */
+ * discovery batch's. And so does the audio's consumer. */
 static void early_family_survey(void) {
     split_early_setup_mode(1u,1u,KUI_VMU_NATIVE_DIAGNOSTICS_READER_ONLY);
     submit_sr=complete_sr=0x60000101u;
     unsigned long before=surveys;
-    survey_clock-=13021u;
+    const unsigned long consumers_before=CONSUMERS;
+    CONSUMER_MARK();
+    SURVEY_TIME();
     split_batch(0u,15u,0u);split_submit_ok();split_done(0u,15u,controller_fn);complete_return();
-    CHECK(surveys==before);
-    survey_clock-=13021u;
+    CHECK(surveys==before && CONSUMERS==consumers_before);
+    SURVEY_TIME();
     split_batch(1u,0u,0u);split_submit_ok();split_done(1u,0u,controller_fn);complete_return();
-    CHECK(surveys==before+1u);
+    CHECK(surveys==before+(KUI_TOY_CDDA_SURVEY?1u:0u) && CONSUMERS==consumers_before+(KUI_TOY_CDDA_CARD?1u:0u));
     held_report=0u;
 }
 /* The fast path's survey comes after the controller's completion: the
@@ -119,10 +159,10 @@ static void fast_terminal_survey(void) {
     setup_survey();
     for(unsigned i=0;i<HELD_REPORT_FRAMES-1u;i++) fast_poll(held,UINT32_MAX,false);
     CHECK(held_report==HELD_REPORT_FRAMES-1u);
-    const unsigned long before=surveys;
-    survey_clock-=13021u;
+    const unsigned long before=surveys,consumers_before=CONSUMERS;
+    SURVEY_TIME();
     fast_poll_once(held,UINT32_MAX,true);
-    CHECK(surveys==before);
+    CHECK(surveys==before && CONSUMERS==consumers_before);
     held_report=0u;
 }
 #endif
@@ -134,30 +174,43 @@ int main(void) {
     reject_submit();CHECK(!held_report);
 
     setup_survey();
-#if KUI_TOY_CDDA_SURVEY
+#if KUI_TOY_CDDA_SURVEY || KUI_TOY_CDDA_CARD
     /* Paused, no survey on either path; then the drive plays for the rest. */
     kui_toy_cdda_drive.state=KUI_TOY_CDDA_PAUSED;
     fast_poll(UINT32_MAX,UINT32_MAX,false);
     mixed_poll(condition_reply,controller_fn,UINT32_MAX,false);
     CHECK(!surveys && !held_report);
+#if KUI_TOY_CDDA_CARD
+    /* The audio's consumer is called all the same: whether a play stands is
+     * its own to ask. */
+    CHECK(consumers==2u && fast_consumers==1u && mixed_consumers==1u);
+#endif
     kui_toy_cdda_drive.state=KUI_TOY_CDDA_PLAYING;
     early_family_survey();
     fast_terminal_survey();
     setup_survey();
-    surveys=reset_reads=0u;
-    fast_polls=mixed_polls=fast_surveys=mixed_surveys=0u;
+    surveys=0u;
+    fast_polls=mixed_polls=0u;
+#if KUI_TOY_CDDA_SURVEY
+    reset_reads=0u;
+    fast_surveys=mixed_surveys=0u;
+#endif
+#if KUI_TOY_CDDA_CARD
+    consumers=fast_consumers=mixed_consumers=0u;
+#endif
 #endif
     for(unsigned i=0;i<185u;i++)fast_poll(UINT32_MAX,held,false);
     CHECK(!held_report);
     for(unsigned i=0;i<179u;i++)mixed_poll(condition_reply,controller_fn,held,false);
     CHECK(held_report==179u);
-#if KUI_TOY_CDDA_SURVEY
-    /* A batch without the port-A controller: no survey, its time due or not. */
+#if KUI_TOY_CDDA_SURVEY || KUI_TOY_CDDA_CARD
+    /* A batch without the port-A controller: no survey, its time due or not;
+     * and no call of the audio's consumer. */
     {
-        const unsigned long before=surveys;
-        survey_clock-=13021u;
+        const unsigned long before=surveys,consumers_before=CONSUMERS;
+        SURVEY_TIME();
         other_port_poll();
-        CHECK(surveys==before);
+        CHECK(surveys==before && CONSUMERS==consumers_before);
     }
 #else
     other_port_poll();
@@ -188,7 +241,19 @@ int main(void) {
     printf("PASS mixed and fast Test 83 controller hold, unchanged game input and retired terminal handoff, "
            "with the drive playing: %lu fast and %lu mixed completions each surveyed the sound chip\n",
            fast_surveys,mixed_surveys);
-#else
+#endif
+#if KUI_TOY_CDDA_CARD
+    /* Every fast completion and every mixed one with the controller called
+     * the audio's consumer once, the last before its terminal handoff
+     * excepted, and no other completion did; with a survey, behind it (the
+     * consumer has looked each time). */
+    CHECK(fast_polls && fast_consumers==fast_polls && mixed_consumers==mixed_polls-1u &&
+          consumers==fast_consumers+mixed_consumers);
+    printf("PASS the same with Test 85's consumer%s: %lu fast and %lu mixed completions each called it once%s\n",
+           KUI_TOY_CDDA_SURVEY?"":" and no survey",fast_consumers,mixed_consumers,
+           KUI_TOY_CDDA_SURVEY?", behind the survey":"");
+#endif
+#if !KUI_TOY_CDDA_SURVEY && !KUI_TOY_CDDA_CARD
     puts("PASS mixed and fast Test 83 controller hold, unchanged game input and retired terminal handoff");
 #endif
     return 0;

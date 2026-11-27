@@ -96,7 +96,10 @@ struct kui_toy_cdda_survey kui_toy_cdda_survey;
 #include "toy_suite_report_save.inc"
 
 #if KUI_TOY_WIRE_ANY
-#if KUI_TOY_CDDA_ROOM
+#if defined(KUI_TOY_CDDA_CARD) && KUI_TOY_CDDA_CARD
+/* Test 85 (CARD): Test 84's rows under its own number. */
+#define TEST_NUMBER "85"
+#elif KUI_TOY_CDDA_ROOM
 #define TEST_NUMBER "84"
 #elif KUI_TOY_WIRE_TIMER
 #define TEST_NUMBER "81"
