@@ -596,9 +596,9 @@ static enum native_cache_result large_launch(const uint8_t *boot,size_t bytes,un
 }
 /* A program the launcher cannot hold whole (the console leaves K-UI under
  * 8 MiB; Plasma Sword is 9.07 MiB) is read once in pieces. That read proves
- * the CRC the launch needs, and finds or rules out the Maple discovery's
- * witness: without one the stage would stop, and that is the answer. With
- * one there is no answer, as before. */
+ * its CRC, and finds or rules out the Maple discovery's witness: without one
+ * the stage would stop, and that is the answer. With one the program stays
+ * unchecked, which the launcher refuses for a Background reader too. */
 static void large_program_tests(void) {
     enum {PIECE=16*2048};
     static uint8_t boot[5*PIECE+1235];
@@ -630,7 +630,7 @@ static void large_program_tests(void) {
         static uint8_t planted[sizeof(boot)];
         memcpy(planted,boot,sizeof(boot));witness_plant(planted,sites[k]);
         CHECK(witness_anywhere(planted,sizeof(planted)));
-        CHECK(large_launch(planted,sizeof(planted),KUI_RETAIL_READER_ASYNC,false,&proof,true)==NATIVE_CACHE_SKIPPED);
+        CHECK(large_launch(planted,sizeof(planted),KUI_RETAIL_READER_ASYNC,false,&proof,true)==NATIVE_CACHE_UNCHECKED);
         CHECK(io.reads==6u && proof.crc_known && !proof.complete &&
               proof.crc32==kui_crc32(0u,planted,sizeof(planted)));
         ++undecided;
@@ -667,7 +667,7 @@ static void large_program_tests(void) {
         const size_t site=(lengths[k]-0x1b8u)&~(size_t)1u;
         witness_plant(planted,site);
         CHECK(witness_anywhere(planted,lengths[k]));
-        CHECK(large_launch(planted,lengths[k],KUI_RETAIL_READER_ASYNC,false,&proof,true)==NATIVE_CACHE_SKIPPED);
+        CHECK(large_launch(planted,lengths[k],KUI_RETAIL_READER_ASYNC,false,&proof,true)==NATIVE_CACHE_UNCHECKED);
         CHECK(proof.crc_known && proof.crc32==kui_crc32(0u,planted,lengths[k]));
     }
     /* No answer and no read: the Standard module, and a launch that needs no
@@ -742,7 +742,7 @@ static void large_program_tests(void) {
     }
     CHECK(refused==4u);
     printf("PASS native large program: read once in pieces for its CRC; no witness answers for the combined module, "
-        "%u witness places and %u lengths leave it to the stage or answer as the whole-program loop does\n",
+        "%u witness places and %u lengths are unchecked or answer as the whole-program loop does\n",
         undecided,(unsigned)(sizeof(lengths)/sizeof(lengths[0])));
 }
 /* The real discovery against the launcher's search. A site written to pass
@@ -793,12 +793,12 @@ static void large_program_discovery_tests(void) {
         sdk_site_plant(image,site,(site>sizeof(boot)/2u?4096u:sizeof(boot)-4096u)&~(size_t)3u);
         const enum kui_vmu_native_discovery_result real=
             kui_vmu_native_discover(image,sizeof(image),KUI_RETAIL_EXEC_ADDRESS,&found);
-        /* Every site holds the 32 words: no answer from the launcher. At a
+        /* Every site holds the 32 words: unchecked for the launcher. At a
          * site that is 2 mod 4 the initializer's two loads decode to one
          * slot and sdk_at cannot accept it; at every other the discovery
          * counts the body. */
         CHECK(real==(site%4u?KUI_VMU_NATIVE_NOT_FOUND:KUI_VMU_NATIVE_INCOMPLETE));
-        CHECK(large_launch(image,sizeof(image),KUI_RETAIL_READER_ASYNC,false,&proof,true)==NATIVE_CACHE_SKIPPED);
+        CHECK(large_launch(image,sizeof(image),KUI_RETAIL_READER_ASYNC,false,&proof,true)==NATIVE_CACHE_UNCHECKED);
         CHECK(proof.crc_known && proof.crc32==kui_crc32(0u,image,sizeof(image)));
         if(site%4u)++same_slot;else ++accepted;
         /* One of the 32 words changed, a different one from site to site. */
@@ -829,8 +829,9 @@ static void refusal_tests(void) {
     static const char vmu_off[]=" Set Virtual VMU Off; saves then need a real VMU";
     static const char background[]=" Set Background loading Off";
     static const char install[]=" Install the standalone New reader, or set Background loading Off";
+    static const char large[]="This game's program is too large for the Background reader yet.";
     unsigned spoken=0u,silent=0u;
-    for(int result=NATIVE_CACHE_SKIPPED;result<=NATIVE_CACHE_UNSUPPORTED;++result)
+    for(int result=NATIVE_CACHE_SKIPPED;result<=NATIVE_CACHE_UNCHECKED;++result)
         for(unsigned vmu=0u;vmu<2u;++vmu)for(unsigned reader_only=0u;reader_only<2u;++reader_only)
             for(unsigned installed=0u;installed<2u;++installed) {
                 const char *said=native_cache_refusal((enum native_cache_result)result,vmu,reader_only,installed);
@@ -840,15 +841,18 @@ static void refusal_tests(void) {
                     expected=vmu?(runs?vmu_off:both):runs?NULL:reader_only?install:background;
                 if(result==NATIVE_CACHE_UNSUPPORTED)
                     expected=runs?NULL:vmu?both:reader_only?install:background;
+                /* A program that could not be checked starts with no
+                 * Background reader, whatever is installed. */
+                if(result==NATIVE_CACHE_UNCHECKED)expected=vmu?both:background;
                 if(!expected) {CHECK(!said);++silent;continue;}
                 /* "Retail boot: " and the first sentence fill a 76-column line. */
-                const char *first=result==NATIVE_CACHE_POOL_SMALL?pool:sdk;
+                const char *first=result==NATIVE_CACHE_POOL_SMALL?pool:result==NATIVE_CACHE_UNCHECKED?large:sdk;
                 CHECK(said && strlen(first)==76u-13u && !strncmp(said,first,strlen(first)));
                 CHECK(!strcmp(said+strlen(first),expected) && strlen(expected)<=76u);
                 ++spoken;
             }
-    CHECK(spoken==13u && silent==43u);
-    puts("PASS native refusal text: a pool or SDK refusal names one whole setting that starts the game for each Virtual VMU, reader-only and installed state; every other result is silent");
+    CHECK(spoken==21u && silent==43u);
+    puts("PASS native refusal text: a pool, SDK or unchecked-program refusal names one whole setting that starts the game for each Virtual VMU, reader-only and installed state; every other result is silent");
 }
 /* Exercise a new launch with the disk left intact but fresh package and RAM.
  * Both the source proof returned to the GUI and the seed validated by the

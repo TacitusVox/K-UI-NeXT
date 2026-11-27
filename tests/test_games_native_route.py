@@ -17,21 +17,18 @@ never be asked.
 A "large" launch is refused the memory for the whole program, as the console
 refuses it for a program larger than K-UI's free memory (Plasma Sword, 9.07
 MiB, 27 November 2026). The launcher then reads the program once in pieces:
-without the Maple discovery's witness in it the combined module is refused,
-whatever else is installed, and the reader-only module is not asked; with the
-witness, planted here in the fixture's program across its two sectors, there
-is no answer and the combined module starts unseeded with the CRC of that one
-read. That start is the host launcher's, which has no virtual-card code. On
-the console it is what a Virtual VMU Off launch does; with Virtual VMU On the
-combined module gets no prepared card without the launcher's answer, and its
-stage stops at storage start (a known limit, docs/background-launch-checks.md).
+without the Maple discovery's witness in it the combined module is refused
+with the SDK message; with the witness, planted here in the fixture's program
+across its two sectors, the program stays unchecked and the launch is refused
+with the "too large" message. Either way no Background reader is started,
+whatever else is installed, and the reader-only module is not asked.
 
 Virtual VMU is On in every row: the host launcher is built without the
 virtual-card code, and that build refuses a Background launch with Virtual VMU
 Off before any of this. The Off answers, with the reader-only module's own
 launch, are held by native_cache_refusal's table in test_games_native_cache.c.
 """
-import json, os, re, shlex, shutil, subprocess, tempfile, zlib
+import json, os, re, shlex, shutil, subprocess, tempfile
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -44,10 +41,10 @@ POOL = "This game's memory pool is too small for the Background worker."
 OFF_BOTH = " Set Background loading Off and Virtual VMU Off; saves then need a real VMU"
 OFF_VMU = " Set Virtual VMU Off; saves then need a real VMU"
 SDK = "Background loading cannot recognize this game's system library."
+LARGE = "This game's program is too large for the Background reader yet."
 READER_ONLY = "reader-only"   # prepared with the reader-only module, nothing seeded
-UNSEEDED = "combined-unseeded"  # prepared with the combined module, nothing seeded: its stage decides
 
-# (fixture case, SDK answer, card, program) -> the refusal's two log lines, READER_ONLY or UNSEEDED.
+# (fixture case, SDK answer, card, program) -> the refusal's two log lines, or READER_ONLY.
 # program: "whole" is held and checked; "large" and "large-witness" are refused the
 # memory and read in pieces, without and with the Maple witness.
 ROWS = (
@@ -66,8 +63,10 @@ ROWS = (
     (X_ABSENT, "unresolved", "other-game", "large", SDK + OFF_BOTH),
     (X_NOFAMILY, "unresolved", "empty", "large", SDK + OFF_BOTH),
     (Y, "unresolved", "other-game", "large", SDK + OFF_BOTH),
-    (X, "unresolved", "other-game", "large-witness", UNSEEDED),
-    (X, "unresolved", "empty", "large-witness", UNSEEDED),
+    (X, "unresolved", "other-game", "large-witness", LARGE + OFF_BOTH),
+    (X_ABSENT, "unresolved", "empty", "large-witness", LARGE + OFF_BOTH),
+    (X_NOFAMILY, "unresolved", "other-game", "large-witness", LARGE + OFF_BOTH),
+    (Y, "unresolved", "empty", "large-witness", LARGE + OFF_BOTH),
 )
 FIRST_LINE = 76 - len("Retail boot: ")
 WITNESS_SITE = 2040   # its 32 words lie in both sectors of the fixture's program
@@ -118,7 +117,7 @@ def audit():
     assert len(commands) == 1
     env = {**os.environ, "ASAN_OPTIONS": "detect_leaks=0", "UBSAN_OPTIONS": "halt_on_error=1"}
     rows = []
-    for text in {row[4] for row in ROWS} - {READER_ONLY, UNSEEDED}:
+    for text in {row[4] for row in ROWS} - {READER_ONLY}:
         # The first sentence fills the 76-column log line; the setting is the next line.
         assert text[FIRST_LINE] == " " and text[FIRST_LINE - 1] == "." and len(text) - FIRST_LINE <= 76, text
     with tempfile.TemporaryDirectory(prefix="kui-native-route-") as folder:
@@ -161,7 +160,7 @@ def audit():
                 pieces = f"Native reader: {len(executable)}-byte program is too large to hold; reading in pieces"
                 if memory == "large":
                     # Read once in pieces; the whole-program check and the reader-only module's family are never asked.
-                    assert family == 0 and pieces in ran.stdout, (case, program, ran.stdout)
+                    assert family == 0 and pieces in ran.stdout and not prepared, (case, program, ran.stdout)
                     assert "Native VMU mapping: reading" not in ran.stdout and "scanning SDK families" not in ran.stdout
                     assert "checking exact executable CRC" not in ran.stdout, "the program was read a second time"
                     assert ("Native reader: the SDK's Maple code is not in it; the stage would stop" in ran.stdout) == \
@@ -179,11 +178,6 @@ def audit():
                     assert (prepared, standalone, seeded_module, opens) == (1, 1, 0, 1), (case, answer, saved, ran.stdout)
                     assert "using standalone New without virtual VMU" in ran.stdout
                     assert POOL not in ran.stdout and SDK not in ran.stdout
-                elif expected == UNSEEDED:
-                    assert (prepared, standalone, seeded_module, opens) == (1, 0, 0, 0), (case, program, saved, ran.stdout)
-                    # The launch's CRC is that of the one read in pieces, independently recomputed here.
-                    assert f"Retail boot: executable CRC32={zlib.crc32(executable):08x}" in ran.stdout, (case, ran.stdout)
-                    assert POOL not in ran.stdout and SDK not in ran.stdout and "using standalone New" not in ran.stdout
                 else:
                     assert (prepared, standalone, seeded_module, opens, writes) == (0, 0, 0, 0, 0), (case, answer, saved, ran.stdout)
                     assert said == expected, (case, answer, saved, said)
@@ -204,4 +198,5 @@ if __name__ == "__main__":
     print(json.dumps(report, indent=2))
     print(f"PASS native Background routes: {len(report['cases'])} launches on FAT32 and exFAT; "
           "each refusal names its setting and leaves the card unchanged; another game's saved record is never taken; "
-          "a program too large to hold is read once in pieces and refused where the SDK's Maple code is not in it")
+          "a program too large to hold is read once in pieces and refused, with the SDK message where the Maple "
+          "code is not in it and as too large where it is")

@@ -15,7 +15,7 @@
 
 enum native_cache_result {NATIVE_CACHE_SKIPPED,NATIVE_CACHE_READY,NATIVE_CACHE_CANCELLED,
     NATIVE_CACHE_POOL_OVERLAP,NATIVE_CACHE_READER_TOO_OLD,NATIVE_CACHE_POOL_SMALL,
-    NATIVE_CACHE_UNSUPPORTED};
+    NATIVE_CACHE_UNSUPPORTED,NATIVE_CACHE_UNCHECKED};
 /* This reports only a completed source read, independently of whether an
  * optional SDK mapping can be built. It never grants cache/live ownership.
  * crc_known alone is a program read in pieces because it could not be held
@@ -141,6 +141,7 @@ static bool native_cache_pool_small(uint32_t lease,const struct kui_vmu_native_r
  * 76-column log line after "Retail boot: "; the setting is the next line. */
 #define NATIVE_CACHE_SAYS_POOL "This game's memory pool is too small for the Background worker."
 #define NATIVE_CACHE_SAYS_SDK "Background loading cannot recognize this game's system library."
+#define NATIVE_CACHE_SAYS_LARGE "This game's program is too large for the Background reader yet."
 #define NATIVE_CACHE_SET_BOTH " Set Background loading Off and Virtual VMU Off; saves then need a real VMU"
 #define NATIVE_CACHE_SET_VMU " Set Virtual VMU Off; saves then need a real VMU"
 #define NATIVE_CACHE_SET_BACKGROUND " Set Background loading Off"
@@ -164,6 +165,15 @@ static const char *native_cache_refusal(enum native_cache_result result,bool vmu
         return reader_only?NATIVE_CACHE_SAYS_SDK NATIVE_CACHE_SET_INSTALL:
             NATIVE_CACHE_SAYS_SDK NATIVE_CACHE_SET_BACKGROUND;
     }
+    /* A program the launcher could not hold, and so could not check, is not
+     * started with a Background reader (the owner, 27 November 2026): with
+     * Virtual VMU On the combined module has no card and its stage stops;
+     * with it Off the stage's own check refused every such program seen.
+     * The reader-only module is not offered: its SCI family was not looked
+     * for either. */
+    if(result==NATIVE_CACHE_UNCHECKED)
+        return vmu_on?NATIVE_CACHE_SAYS_LARGE NATIVE_CACHE_SET_BOTH:
+            NATIVE_CACHE_SAYS_LARGE NATIVE_CACHE_SET_BACKGROUND;
     return NULL;
 }
 /* A completed source read proves bytes/CRC only. Keep its eligibility shared
@@ -191,13 +201,13 @@ void *KUI_NATIVE_CACHE_BOOT_ALLOC(size_t);
 /* A program K-UI cannot hold whole is read once, in pieces, as the launch
  * reads it for its CRC anyway. That pass proves the CRC and looks for the
  * Maple discovery's witness. Without one the combined module's stage would
- * stop, and the preflight says so. With one there is no answer, as before:
- * the rest of the check needs the whole program. (The module is then
- * started unchecked, as for every launch without an answer. With Virtual
- * VMU Off its stage runs the check. With Virtual VMU On the launcher gave
- * it no card, and its stage stops at storage start on the build's template
- * profile: vmu_native_persist_stage.inc.) A piece that cannot be read gives
- * no answer and no CRC either; the launch's own CRC pass then reports the
+ * stop, and the preflight says so. With one the rest of the check needs the
+ * whole program: the answer is "unchecked", and the launcher does not start
+ * a Background reader for it. (Started unchecked, as it was until K-UI
+ * 53a33ec708ab, the module's stage ran the check with Virtual VMU Off and
+ * stopped at storage start with it On, for want of a prepared card:
+ * vmu_native_persist_stage.inc.) A piece that cannot be read gives no
+ * answer and no CRC either; the launch's own CRC pass then reports the
  * sector. */
 static enum native_cache_result native_cache_scan_large(const struct kui_game_image *image,
     const struct kui_retail_manifest *map,kui_log_fn log,kui_cancel_fn cancel,
@@ -236,6 +246,7 @@ static enum native_cache_result native_cache_scan_large(const struct kui_game_im
     source_proof->crc_known=true;source_proof->crc32=crc;
     if(found) {
         if(log)log("Native reader: the SDK's Maple code is in it; the full check needs it whole");
+        result=NATIVE_CACHE_UNCHECKED;
     } else {
         if(log)log("Native reader: the SDK's Maple code is not in it; the stage would stop");
         result=NATIVE_CACHE_UNSUPPORTED;

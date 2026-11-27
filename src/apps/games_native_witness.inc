@@ -12,8 +12,8 @@
  * src/core/vmu_native_discovery.c. The words lie from 258 bytes before the
  * site to 368 after it, so they can be searched for as the program is read
  * in pieces. No such site anywhere in the file: that step fails for every
- * program extent, and the stage stops. A site: no answer here, because the
- * rest of the check needs the whole program.
+ * program extent, and the stage stops. A site: the program stays unchecked,
+ * because the rest of the check needs the whole program.
  *
  * The table and the four bounds below are the discovery's own, value for
  * value. tests/test_games_native_witness.py holds them to its source. */
