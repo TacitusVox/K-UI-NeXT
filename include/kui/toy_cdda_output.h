@@ -62,9 +62,10 @@ struct kui_toy_cdda_output {
     uint8_t carry[32];
     struct kui_toy_cdda_coder coder[2];
     /* What each channel's level and pan word should be now, what was last
-     * written, the CD mixers as last read, heartbeats they read nothing,
-     * and MANATEE 2's own level bytes when they stood in for them. */
-    uint32_t level[2], level_set[2], mixer[2], mixer_zero, shadow;
+     * written, the CD mixers as last read and as first read with something
+     * in them, heartbeats they read nothing, and MANATEE 2's own level
+     * bytes when they stood in for them. */
+    uint32_t level[2], level_set[2], mixer[2], mixer_first[2], mixer_zero, shadow;
     uint32_t last_tick, keyed, rearms;
     /* Counted for the report: heartbeats that used the bus, the longest and
      * all of their TMU0 ticks (the card's time included), bytes written to

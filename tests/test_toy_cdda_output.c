@@ -1123,11 +1123,23 @@ static void volume(void) {
     play(1000u, 9000u, 0u, 0);
     run(1000u);
 #if KUI_TOY_CDDA_VOLUME
-    CHECK(reg[62][9] == 0x0a1fu && reg[63][9] == 0x0a0fu);
-    mixer[0] = 0xf305u;                /* other bits of the register are not ours */
+    CHECK(reg[62][9] == 0x0a1fu && reg[63][9] == 0x0a0fu && O.mixer_first[0] == 0x0a1fu && O.mixer_first[1] == 0x0a0fu);
+    /* One level for both planes, the larger of the two; the registers'
+     * pans and other bits are not the planes'. As POD SpeedZone had them
+     * on the console: */
+    mixer[0] = 0x0a00u;
     mixer[1] = 0u;
     run(100u);
-    CHECK(reg[62][9] == 0x0305u && reg[63][9] == 0u && !O.fixes);
+    CHECK(reg[62][9] == 0x0a1fu && reg[63][9] == 0x0a0fu && !O.fixes);
+    mixer[0] = 0xf005u;
+    mixer[1] = 0x030fu;
+    run(100u);
+    CHECK(reg[62][9] == 0x031fu && reg[63][9] == 0x030fu && !O.fixes && O.mixer[0] == 0xf005u && O.mixer_first[0] == 0x0a1fu);
+    /* No level in either: silence. */
+    mixer[0] = 0x001fu;
+    mixer[1] = 0x000fu;
+    run(100u);
+    CHECK(!reg[62][9] && !reg[63][9]);
     /* Mixers that read nothing: MANATEE 2's own level bytes after eight
      * heartbeats, silence until then and where they are zero. */
     mute_readback = true;
@@ -1136,9 +1148,16 @@ static void volume(void) {
     CHECK(!reg[62][9] && !reg[63][9]);
     run(300u);
     CHECK(reg[62][9] == 0x0f1fu && reg[63][9] == 0x0f0fu && O.fallbacks && O.shadow == UINT32_C(0x00400040));
+    /* One of the two bytes is enough; none is silence. */
+    put32(0x12470u, UINT32_C(0x00400000));
+    run(100u);
+    CHECK(reg[62][9] == 0x0f1fu && reg[63][9] == 0x0f0fu);
     put32(0x12470u, UINT32_C(0x00000040));
     run(100u);
-    CHECK(reg[62][9] == 0x0f1fu && !reg[63][9]);
+    CHECK(reg[62][9] == 0x0f1fu && reg[63][9] == 0x0f0fu);
+    put32(0x12470u, UINT32_C(0x1f001f00));
+    run(100u);
+    CHECK(!reg[62][9] && !reg[63][9]);
     /* MANATEE 1 keeps no such bytes: silence. */
     fresh();
     manatee1(false);
@@ -1147,7 +1166,7 @@ static void volume(void) {
     play(1000u, 9000u, 0u, 0);
     run(1000u);
     CHECK(sounding() && !reg[61][9] && !reg[62][9] && !loud_frames);
-    printf("PASS VOLUME: the two levels follow the CD mixers; MANATEE 2's level bytes where the mixers read nothing\n");
+    printf("PASS VOLUME: both planes at the larger of the CD mixers' two levels, each on its side; MANATEE 2's level bytes where the mixers read nothing\n");
 #else
     CHECK(reg[62][9] == 0x0f1fu && reg[63][9] == 0x0f0fu);
     mixer[0] = mixer[1] = 0u;

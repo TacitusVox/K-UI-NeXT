@@ -69,10 +69,11 @@
  * its start again on the game's command, clear part or all of it, which the
  * guard lines show. It holds 8,128 frames a plane of ADPCM.
  *
- * VOLUME: the two channels' level and pan follow the CD input's mixers
- * (0xa0702040 left input, 0xa0702044 right), which the game's driver sets and
- * the loader only reads. Without VOLUME they play at full level, hard left
- * and right, as the two CD-music adapters do.
+ * VOLUME: the two channels play at the level the game's driver gave the CD
+ * input's mixers (0xa0702040 and 0xa0702044, which the loader only reads):
+ * the larger of the two, the left plane hard left and the right plane hard
+ * right. Without VOLUME they play at full level, as the two CD-music
+ * adapters do.
  *
  * The driver facts are static readings of the drivers
  * (docs/cd-audio-corpus.md); that these two channels and these three builds
@@ -501,16 +502,26 @@ static void key_on(struct bus *b) {
     O.key_tick = read32(TCNT0);
     ++O.keys;
 }
-/* The levels the two channels should have: the CD input's mixers as the
- * game's driver set them, or full level, hard left and right. */
+/* The levels the two channels should have: the level the game's driver
+ * gave the CD input's mixers, or full level; hard left and right. */
 static void levels(struct bus *b) {
 #if KUI_TOY_CDDA_VOLUME
     uint32_t value[2];
     if(!stable(b, MIXER, &value[0]) || !stable(b, MIXER + 4u, &value[1]))return;
     for(unsigned side = 0; side < 2u; ++side) {
         O.mixer[side] = value[side] & 0xffffu;
-        O.level[side] = value[side] & 0x0f1fu;
+        if(O.mixer[side] && !O.mixer_first[side])O.mixer_first[side] = O.mixer[side];
     }
+    /* One level for both planes, the larger of the two inputs', and each
+     * plane on its own side. Which of the two registers is the disc's left
+     * is not known (the drivers' own full-level words pan the first right
+     * and the second left), and POD SpeedZone on the console gave the first
+     * level 10 and the middle and the second none: a plane given its
+     * register's word could come out on the wrong side, or not at all. */
+    uint32_t level = value[0] & 0x0f00u;
+    if((value[1] & 0x0f00u) > level)level = value[1] & 0x0f00u;
+    O.level[0] = level ? level | (LEVEL_LEFT & 0x1fu) : 0u;
+    O.level[1] = level ? level | (LEVEL_RIGHT & 0x1fu) : 0u;
     if(O.mixer[0] | O.mixer[1]) {
         O.mixer_zero = 0u;
         return;
@@ -522,9 +533,10 @@ static void levels(struct bus *b) {
     O.mixer_zero = 8u;
     if(!sound(b, 0x12470u, &value[0]))return;
     O.shadow = value[0];
-    if(value[0] & 255u)O.level[0] = LEVEL_LEFT;
-    if(value[0] >> 16 & 255u)O.level[1] = LEVEL_RIGHT;
-    if(O.level[0] | O.level[1])++O.fallbacks;
+    if(!(value[0] & UINT32_C(0x00ff00ff)))return;
+    O.level[0] = LEVEL_LEFT;
+    O.level[1] = LEVEL_RIGHT;
+    ++O.fallbacks;
 #else
     (void)b;
     O.level[0] = LEVEL_LEFT;
