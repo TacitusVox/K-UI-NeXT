@@ -115,7 +115,11 @@ struct kui_toy_cdda_output kui_toy_cdda_output;
 #if KUI_TOY_WIRE_ANY
 #if defined(KUI_TOY_CDDA_CARD) && KUI_TOY_CDDA_CARD
 /* Test 85 (CARD): Test 84's rows under its own number. */
+#if defined(KUI_TOY_CDDA_ADPCM) && KUI_TOY_CDDA_ADPCM
+#define TEST_NUMBER "86"
+#else
 #define TEST_NUMBER "85"
+#endif
 #elif KUI_TOY_CDDA_ROOM
 #define TEST_NUMBER "84"
 #elif KUI_TOY_WIRE_TIMER

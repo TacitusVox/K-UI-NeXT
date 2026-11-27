@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: GPL-3.0-only */
-/* Test 85 (OUTPUT, VOLUME): the CD-music output (src/loader/toy_cdda_output.c)
- * on a model of the sound chip, its bus and the card.
+/* Tests 85 and 86 (OUTPUT, VOLUME, ADPCM): the CD-music output
+ * (src/loader/toy_cdda_output.c) on a model of the sound chip, its bus and
+ * the card.
  *
  * The model answers only the addresses the output may read and takes only
  * the stores it may make: the placed ring with its guards, at or above
@@ -22,6 +23,14 @@
  * sound memory at the moment it is played and held against the play's audio
  * as the test reckons it by itself: the drive's position at the heartbeat
  * that began the ring, the disc's tracks and gaps, the card's pattern.
+ *
+ * With ADPCM the chip decodes: each channel's decoder begins at its key-on
+ * from signal 0 and step 127 and takes one 4-bit code a frame, the low four
+ * bits of a byte first, without beginning again at the loop (the format
+ * with PCMS 3). A code is held against the one the test's own coder gives
+ * the play's frame from the play's first frame on, and what the chip
+ * decodes against the play's audio itself: it may be far from it only for
+ * a few frames in a hundred.
  *
  * The drivers' headers and records are authored from the static readings
  * (docs/cd-audio-corpus.md): the version bytes and the date's hash are those
@@ -57,7 +66,24 @@ static unsigned long checks;
 #define REST UINT32_C(0x40000000) /* SR between heartbeats: the game's, mask 0 */
 #define TCNT_START UINT32_C(0xf0000000)
 #define SECOND 781250u
-#define RING16 (64u + 4u * 16384u + 8u)   /* the largest ring: guards, two planes, their repeats */
+#ifndef KUI_TOY_CDDA_ADPCM
+#define KUI_TOY_CDDA_ADPCM 0
+#endif
+/* The ring as the test reckons it: a plane's bytes, what follows a plane,
+ * the format bits of a channel's first register, the sizes in their order. */
+#if KUI_TOY_CDDA_ADPCM
+#define PLANE(frames) ((frames) / 2u)
+#define REPEAT 0u
+#define FORMAT 0x0180u
+static const uint32_t sizes[3] = {65472u, 32768u, 16384u};
+#else
+#define PLANE(frames) (2u * (frames))
+#define REPEAT 4u
+#define FORMAT 0u
+static const uint32_t sizes[3] = {16384u, 8192u, 4096u};
+#endif
+#define RING(frames) (64u + 2u * (PLANE(frames) + REPEAT))   /* guards, two planes, their repeats */
+#define LARGEST (sizes[0])
 
 static uint8_t ram[BYTES];
 static uint32_t reg[64][18], mixer[2], sr = REST, arm_reset, dma_enable[4], dma_start[4];
@@ -185,18 +211,65 @@ static void expected(uint64_t k, int16_t *l, int16_t *r) {
 }
 
 /* ---- the chip ---- */
-static struct voice { bool active; uint64_t keyed_at, consumed; uint32_t pos; } voice[64];
+static struct voice { bool active; uint64_t keyed_at, consumed; uint32_t pos, step; int32_t signal; } voice[64];
+/* ADPCM: the play as the test's own coder gives it to a chip, a decoder a
+ * side from the pair's key-on; cut: silence has taken the play's place. */
+static struct coder { int32_t signal; uint32_t step; } told[2];
+#if KUI_TOY_CDDA_ADPCM
+/* And the codes the output has written, decoded as they are stored. */
+static struct coder wrote[2], wrote_before[2];
+static uint32_t wrote_at[2];
+#endif
+static bool cut;
+static unsigned long far_frames;
 static int ppm;                      /* the chip's clock against TMU0 */
 static bool inclusive;               /* the chip plays the frame at its loop end too */
 static bool strict = true;           /* every frame played is the play's */
 static unsigned long heard_frames, wrong_frames, wrong_loud, wrong_nonzero, cut_frames, loud_frames, key_ons, key_offs, lonely;
 static uint64_t last_heard;
 /* The frame a channel stands at, and its step on from there. */
+#if KUI_TOY_CDDA_ADPCM
+static unsigned code_of(unsigned c) {
+    const uint32_t address = (reg[c][0] & 0x7fu) << 16 | reg[c][1], pos = voice[c].pos;
+    /* (A channel the driver has taken plays what the driver gave it.) */
+    CHECK(((reg[c][0] & 0x0180u) == 0x0180u || !strict) && address + pos / 2u < BYTES);
+    return ram[address + pos / 2u] >> 4u * (pos & 1u) & 15u;
+}
+/* The chip's decoder. The accounts of the chip differ on a move of more
+ * than 32,767: the play's audio never asks for one. */
+static int32_t decode(int32_t *signal, uint32_t *step, unsigned code) {
+    static const uint32_t scale[8] = {230u, 230u, 230u, 230u, 307u, 409u, 512u, 614u};
+    int32_t move = (int32_t)(*step * (2u * (code & 7u) + 1u) / 8u);
+    if(strict)CHECK(move <= 32767);
+    if(move > 32767)move = 32767;
+    *signal += code & 8u ? -move : move;
+    if(*signal > 32767)*signal = 32767;
+    if(*signal < -32768)*signal = -32768;
+    *step = *step * scale[code & 7u] / 256u;
+    if(*step < 127u)*step = 127u;
+    if(*step > 24576u)*step = 24576u;
+    return *signal;
+}
+/* The code the test's coder gives a sample where a decoder stands: the
+ * largest of the eight sizes within the difference, by the step, its half
+ * and its quarter, and none that moves more than 32,767. */
+static unsigned code_for(int32_t signal, uint32_t step, int32_t sample) {
+    const uint32_t far = (uint32_t)(sample < signal ? signal - sample : sample - signal);
+    unsigned size = 0u;
+    uint32_t reach = 0u;
+    if(far >= step)size = 4u, reach = step;
+    if(far - reach >= step / 2u)size += 2u, reach += step / 2u;
+    if(far - reach >= step / 4u)size += 1u;
+    while(step * (2u * size + 1u) / 8u > 32767u)--size;
+    return size | (sample < signal ? 8u : 0u);
+}
+#else
 static int16_t sample_of(unsigned c) {
     const uint32_t address = (reg[c][0] & 0x7fu) << 16 | reg[c][1], pos = voice[c].pos;
     CHECK(address + 2u * pos + 1u < BYTES);
     return (int16_t)(uint16_t)(ram[address + 2u * pos] | ram[address + 2u * pos + 1u] << 8);
 }
+#endif
 static void step_on(unsigned c) {
     if(++voice[c].pos >= reg[c][3] + (inclusive ? 1u : 0u))voice[c].pos = reg[c][2];
 }
@@ -211,29 +284,46 @@ static void chip_run(void) {
     for(; l->consumed < frames; ++l->consumed) {
         const uint64_t k = l->consumed;
         int16_t el, er;
-        const int16_t sl = sample_of(pair[0]), sr16 = sample_of(pair[1]);
-        step_on(pair[0]);
-        step_on(pair[1]);
         const bool loud = ((reg[pair[0]][9] | reg[pair[1]][9]) & 0x0f00u) != 0u;
         /* A chip that plays the frame at the loop end hears the plane's
          * first frame twice a lap. */
         expected(inclusive ? k - k / (reg[pair[0]][3] + 1u) : k, &el, &er);
+#if KUI_TOY_CDDA_ADPCM
+        /* The codes the chip takes; the codes of the play's frame; the
+         * codes of silence where the chip's decoders stand; the codes of a
+         * ring that was cleared and not written. */
+        const unsigned cl = code_of(pair[0]), cr = code_of(pair[1]);
+        const unsigned tl = code_for(told[0].signal, told[0].step, el), tr = code_for(told[1].signal, told[1].step, er);
+        const bool same = !cut && cl == tl && cr == tr;
+        const bool quiet = cl == code_for(l->signal, l->step, 0) && cr == code_for(r->signal, r->step, 0);
+        const bool blank = cl == (l->pos & 1u ? 8u : 0u) && cr == (r->pos & 1u ? 8u : 0u);
+        (void)decode(&told[0].signal, &told[0].step, tl);
+        (void)decode(&told[1].signal, &told[1].step, tr);
+        const int32_t sl = decode(&l->signal, &l->step, cl), sr16 = decode(&r->signal, &r->step, cr);
+        if(same)far_frames += labs(sl - el) > 2048 || labs(sr16 - er) > 2048;
+#else
+        const int16_t sl = sample_of(pair[0]), sr16 = sample_of(pair[1]);
+        const bool same = sl == el && sr16 == er, quiet = !sl && !sr16, blank = quiet;
+#endif
+        step_on(pair[0]);
+        step_on(pair[1]);
         ++heard_frames;
         loud_frames += loud;
         last_heard = k;
-        if(sl == el && sr16 == er)continue;
+        if(same)continue;
         /* Once the drive's play has ended, silence in the place of what
          * the output had not yet read is the play's end, a little early. */
-        if(D.state != KUI_TOY_CDDA_PLAYING && !sl && !sr16) {
+        if(D.state != KUI_TOY_CDDA_PLAYING && quiet) {
             ++cut_frames;
+            cut = true;
             continue;
         }
         ++wrong_frames;
         wrong_loud += loud;
-        wrong_nonzero += sl || sr16;
+        wrong_nonzero += !blank;
         if(strict) {
             fprintf(stderr, "frame %llu of the ring: played %d %d, the play has %d %d\n",
-                (unsigned long long)k, sl, sr16, el, er);
+                (unsigned long long)k, (int)sl, (int)sr16, el, er);
             CHECK(!"a frame that is not the play's");
         }
     }
@@ -242,7 +332,12 @@ static void strobe(void) {
     for(unsigned c = 0; c < 64u; ++c) {
         const bool on = (reg[c][0] & 0x4000u) != 0u;
         if(on && !voice[c].active) {
-            voice[c] = (struct voice){true, now, 0u, 0u};
+            voice[c] = (struct voice){true, now, 0u, 0u, 127u, 0};
+            if(c == pair[0] || c == pair[1]) {
+                told[0].signal = told[1].signal = 0;
+                told[0].step = told[1].step = 127u;
+                cut = false;
+            }
             ++key_ons;
         } else if(!on && voice[c].active) {
             voice[c].active = false;
@@ -318,11 +413,28 @@ void kui_toy_cdda_output_test_write(uint32_t address, uint32_t value) {
     ++stores;
     if(address - SOUND < BYTES) {
         const uint32_t at = address - SOUND;
-        CHECK(!(at & 3u) && at >= 0x18000u && O.placed && at - O.ring < 64u + 4u * O.frames + 8u);
+        CHECK(!(at & 3u) && at >= 0x18000u && O.placed && at - O.ring < RING(O.frames));
         for(unsigned i = 0; i < 84u; ++i) {
             const uint32_t start = get32(0x14000u + 8u * i), size = get32(0x14000u + 8u * i + 4u);
             if(size && at + 4u > start && at < start + size)CHECK(!"a store into a pair of the bank table");
         }
+#if KUI_TOY_CDDA_ADPCM
+        /* A word of codes into a plane, where the output's writing stands:
+         * the output's coder for that plane stands where a chip's decoder
+         * stands behind every code written before it. (A unit whose second
+         * word could not be stored comes again whole.) */
+        for(unsigned side = 0; side < 2u && O.phase != KUI_TOY_CDDA_OUT_OFF; ++side) {
+            const uint32_t begin = O.ring + 32u + side * PLANE(O.frames);
+            if(at - begin >= PLANE(O.frames))continue;
+            CHECK(at - begin == O.at / 2u);
+            if(!O.written)wrote[side].signal = 0, wrote[side].step = 127u;
+            else if(O.written == wrote_at[side])wrote[side] = wrote_before[side];
+            wrote_before[side] = wrote[side];
+            wrote_at[side] = O.written;
+            CHECK(O.coder[side].signal == wrote[side].signal && O.coder[side].step == wrote[side].step);
+            for(unsigned shift = 0; shift < 32u; shift += 4u)(void)decode(&wrote[side].signal, &wrote[side].step, value >> shift & 15u);
+        }
+#endif
         put32(at, value);
         ++ring_stores;
         return;
@@ -412,6 +524,8 @@ static void fresh(void) {
     stores = ring_stores = register_stores = chip_reads = g2_reads = fifo_polls = 0u;
     card_calls = card_nones = card_segments = card_bytes = card_low = 0u;
     heard_frames = wrong_frames = wrong_loud = wrong_nonzero = cut_frames = loud_frames = key_ons = key_offs = lonely = 0u;
+    far_frames = 0u;
+    cut = false;
     torn_left = 0u;
     family = 0u;
 }
@@ -494,9 +608,12 @@ static void plays_through(unsigned build) {
     CHECK(O.phase == KUI_TOY_CDDA_OUT_RUN && sounding() && O.keys == 1u && key_ons == 2u && starts == 1u);
     CHECK(O.family == family && O.channel[0] == pair[0] && O.channel[1] == pair[1]);
     /* The largest ring below CRI's slots, clear of the banks. */
-    CHECK(O.frames == 16384u && O.ring + RING16 <= 0x1dfe00u && O.ring >= 0x170000u && !(O.ring & 31u));
-    CHECK(get32(O.ring) == UINT32_C(0x4b434452) && get32(O.ring + RING16 - 4u) == UINT32_C(0x4b434452));
+    CHECK(O.frames == LARGEST && O.ring + RING(LARGEST) <= 0x1dfe00u && O.ring >= 0x170000u && !(O.ring & 31u));
+    CHECK(get32(O.ring) == UINT32_C(0x4b434452) && get32(O.ring + RING(LARGEST) - 4u) == UINT32_C(0x4b434452));
     CHECK(heard_frames > 80000u && !wrong_frames && !O.underruns && !O.restarts && !O.faults && !O.timeouts);
+    /* (ADPCM: what the chip decodes is the play's audio, but for the frames
+     * behind a leap of the test's pattern.) */
+    CHECK(far_frames * 50u < heard_frames);
     /* Two heartbeats less than 2 ms apart: the second does nothing. */
     beat(14000u);
     const unsigned long work = stores + chip_reads + g2_reads;
@@ -505,11 +622,13 @@ static void plays_through(unsigned build) {
     CHECK(stores + chip_reads + g2_reads == work);
     /* The channels as the adapters' driver keyed them. */
     for(unsigned side = 0; side < 2u; ++side) {
-        const uint32_t *r = reg[pair[side]], plane = O.ring + 32u + side * (2u * O.frames + 4u);
+        const uint32_t *r = reg[pair[side]], plane = O.ring + 32u + side * (PLANE(O.frames) + REPEAT);
         static const uint32_t rest[] = {0x1fu, 0x1fu, 0u, 0x4210u, 0u};
-        CHECK(r[0] == (0x4200u | plane >> 16) && r[1] == (plane & 0xffffu) && !r[2] && r[3] == O.frames);
+        CHECK(r[0] == (0x4200u | FORMAT | plane >> 16) && r[1] == (plane & 0xffffu) && !r[2] && r[3] == O.frames);
+#if !KUI_TOY_CDDA_ADPCM
         /* Behind the plane, its first two frames once more. */
         CHECK(!memcmp(ram + plane, ram + plane + 2u * O.frames, 4u));
+#endif
         CHECK(!memcmp(r + 4, rest, sizeof(rest)) && r[10] == 4u && !r[16] && !r[17]);
         for(unsigned i = 11; i < 16u; ++i)CHECK(r[i] == 0x1fffu);
         CHECK(r[9] == (side ? 0x0f0fu : 0x0f1fu));
@@ -562,10 +681,24 @@ static void drifting(int parts) {
     ppm = parts;
     play(1000u, 9000u, 0u, 0);
     run(300000u);
+#if KUI_TOY_CDDA_ADPCM
+    /* The largest ADPCM ring holds the two clocks' margin for half an hour. */
+    CHECK(sounding() && !wrong_frames && !O.underruns && !O.anchors && !O.restarts && starts == 1u);
+    /* The smallest begins again once in eight minutes. */
+    fresh();
+    manatee1(false);
+    bank(0u, 0x18000u, 0x200000u - 0x18000u - 20000u);
+    ppm = parts;
+    play(1000u, 9000u, 0u, 0);
+    run(480000u);
+    CHECK(sounding() && O.frames == sizes[2] && !wrong_frames && !O.underruns && O.anchors == 1u && O.restarts == 1u && starts == 2u);
+#else
     CHECK(sounding() && !wrong_frames && !O.underruns && O.anchors == 1u && O.restarts == 1u && starts == 2u);
+#endif
     /* A chip that plays the frame at its loop end as well: a frame twice a
-     * lap, and never one that is not the play's. */
-    if(parts > 0) {
+     * lap, and never one that is not the play's. (16-bit samples only: an
+     * ADPCM decoder would take a code twice.) */
+    if(parts > 0 && !KUI_TOY_CDDA_ADPCM) {
         fresh();
         manatee2();
         inclusive = true;
@@ -667,7 +800,7 @@ static void placing(void) {
     bank(0u, 0x18000u, 0x1dfe00u - 0x18000u);
     play(1000u, 4000u, 1u, 0);
     run(1000u);
-    CHECK(sounding() && O.frames == 16384u && O.ring == ((0x200000u - RING16) & ~31u) && !wrong_frames);
+    CHECK(sounding() && O.frames == LARGEST && O.ring == ((0x200000u - RING(LARGEST)) & ~31u) && !wrong_frames);
     /* CRI opens its first slot, which lies in it: no store after the table
      * names it. */
     bank(48u + 15u, 0x1fbfc0u, 0x4000u);
@@ -682,7 +815,7 @@ static void placing(void) {
     strict = true;
     play(1000u, 4000u, 1u, 0);
     run(1000u);
-    CHECK(sounding() && O.frames == 16384u && O.ring == ((0x1fbfc0u - RING16) & ~31u) && !wrong_frames);
+    CHECK(sounding() && O.frames == LARGEST && O.ring == ((0x1fbfc0u - RING(LARGEST)) & ~31u) && !wrong_frames);
     /* Less room: the smaller rings. */
     for(unsigned size = 1; size < 3u; ++size) {
         fresh();
@@ -691,7 +824,7 @@ static void placing(void) {
         bank(0u, 0x18000u, 0x200000u - 0x18000u - room);
         play(1000u, 4000u, 1u, 0);
         run(3000u);
-        CHECK(sounding() && O.frames == (size == 1u ? 8192u : 4096u) && O.ring >= 0x200000u - room && !wrong_frames && !O.underruns);
+        CHECK(sounding() && O.frames == sizes[size] && O.ring >= 0x200000u - room && !wrong_frames && !O.underruns);
     }
     /* A guard line overwritten: what lies there is no longer ours. */
     fresh();
@@ -776,7 +909,7 @@ static void contested(void) {
         strict = false;
         run(40u);
         strict = true;
-        CHECK(!reg[62][6] && reg[63][3] == 16384u && O.fixes == 2u + times && O.restarts == (times < 9u ? times : 8u));
+        CHECK(!reg[62][6] && reg[63][3] == LARGEST && O.fixes == 2u + times && O.restarts == (times < 9u ? times : 8u));
         run(1000u);
     }
     /* (What the chip played between the driver's write and that heartbeat
@@ -809,7 +942,7 @@ static void contested(void) {
     fresh();
     manatee2();
     reg[63][0] = 0x4012u;
-    voice[63] = (struct voice){true, now, 0u, 0u};
+    voice[63] = (struct voice){true, now, 0u, 0u, 127u, 0};
     play(1000u, 9000u, 0u, 0);
     run(1000u);
     CHECK(sounding() && O.rekeys == 1u && !wrong_frames && O.keys == 1u);
@@ -822,10 +955,12 @@ static void starved(void) {
     play(1000u, 9000u, 0u, 0);
     run(1000u);
     CHECK(sounding() && !O.underruns);
-    /* The game reads: the card hands nothing on for half a second. */
+    /* The game reads: the card hands nothing on for longer than the ring
+     * holds (the largest of 16-bit samples a third of a second, of ADPCM a
+     * second and a half). */
     card_idle = true;
     strict = false;
-    run(500u);
+    run(KUI_TOY_CDDA_ADPCM ? 2500u : 500u);
     CHECK(O.underruns >= 1u && !sounding());
     /* What was played past the audio was the ring's last lap or silence,
      * and the play begins again when the card is back. */
@@ -1025,15 +1160,18 @@ static void endings(void) {
      * the play's last, and the card is not asked again. */
     fresh();
     manatee2();
-    bank(0u, 0x18000u, 0x200000u - 0x18000u - 40000u);
-    card_most = 300u;
+    /* (A ring of less than a fifth of a second of 16-bit samples, begun a
+     * quarter of a second late; of ADPCM, a third of a second and four
+     * fifths.) */
+    bank(0u, 0x18000u, 0x200000u - 0x18000u - (KUI_TOY_CDDA_ADPCM ? 20000u : 40000u));
+    card_most = KUI_TOY_CDDA_ADPCM ? 100u : 300u;
     play(1000u, 1300u, 1u, 0);
     for(unsigned beats = 0; O.phase != KUI_TOY_CDDA_OUT_RUN; ++beats) {
         CHECK(beats < 400u);
         beat(4500u);
     }
     card_most = 8192u;
-    CHECK(O.frames == 8192u && heard_play.base < 1010u);
+    CHECK(O.frames == sizes[KUI_TOY_CDDA_ADPCM ? 2 : 1] && heard_play.base < 1010u);
     while(tcnt() != D.base_counter - 4010u * (SECOND / 1000u) && (uint32_t)(D.base_counter - tcnt()) < 4010u * (SECOND / 1000u))beat(4500u);
     CHECK(sounding() && !O.finished && !O.underruns);
     D.state = KUI_TOY_CDDA_ENDED;
@@ -1062,6 +1200,7 @@ int main(void) {
     starved();
     volume();
     endings();
-    printf("CD-music output: %lu checks passed (VOLUME %d); host model only\n", checks, KUI_TOY_CDDA_VOLUME);
+    printf("CD-music output: %lu checks passed (VOLUME %d, ADPCM %d); host model only\n", checks, KUI_TOY_CDDA_VOLUME,
+        KUI_TOY_CDDA_ADPCM);
     return 0;
 }

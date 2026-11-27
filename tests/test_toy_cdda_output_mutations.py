@@ -4,11 +4,13 @@
 each of a list, in a copy of src/loader/toy_cdda_output.c, built and run on
 its own with tests/test_toy_cdda_output.c.
 
-usage: test_toy_cdda_output_mutations.py [--jobs N] [--work DIR]
+usage: test_toy_cdda_output_mutations.py [--jobs N] [--work DIR] [--only TEXT] [--adpcm]
 
-Every mutation must still compile and must make the test fail. A mutation
-of the VOLUME code runs with VOLUME, one of the code without it without;
-the others with VOLUME. Run from the repository root
+Every mutation must still compile and must make the test fail. The test is
+built with VOLUME and with 16-bit samples, or with --adpcm with ADPCM;
+a mutation of code only one build has names that build ({"VOLUME": 0},
+{"ADPCM": 1}, {"ADPCM": 0}), and is passed over where the other is asked
+for. Run from the repository root
 (Makefile.vmu-native-toy-suite, toy-cdda-output-mutation-check).
 """
 import argparse
@@ -24,7 +26,7 @@ OUTPUT = ROOT / "src/loader/toy_cdda_output.c"
 TEST = ROOT / "tests/test_toy_cdda_output.c"
 FLAGS = ["-std=c11", "-O1", "-g", "-Wall", "-Wextra", "-Werror", "-Wpedantic", "-fsanitize=address,undefined",
          "-I" + str(ROOT / "include"), "-DKUI_TOY_CDDA_OUTPUT=1", "-DKUI_TOY_CDDA_OUTPUT_HOST_TEST=1"]
-# (name, old, new) or (name, old, new, volume)
+# (name, old, new) or (name, old, new, the switches it needs)
 MUTATIONS = [
     # The bus
     ("SR.BL not refused", "    if(*sr & SR_BL) {\n", "    if(0) {\n"),
@@ -54,8 +56,8 @@ MUTATIONS = [
     ("TCR0 read as a word", "tcr = read16(TCR0)", "tcr = read32(TCR0)"),
     # The store guard stops what no other line of the file would make: it is
     # held by a defect it stops, not by its own removal.
-    ("the right plane beyond the ring", "    return O.ring + GUARD_BYTES + side * (2u * O.frames + PLANE_REPEAT);",
-     "    return O.ring + GUARD_BYTES + side * (4u * O.frames + PLANE_REPEAT);"),
+    ("the right plane beyond the ring", "    return O.ring + GUARD_BYTES + side * (plane_bytes(O.frames) + PLANE_REPEAT);",
+     "    return O.ring + GUARD_BYTES + side * (2u * plane_bytes(O.frames) + PLANE_REPEAT);"),
     # The driver
     ("the reset bit ignored", "    if(reset & 1u) {\n        *why = KUI_TOY_CDDA_OUT_WHY_ARM;", "    if(0) {\n        *why = KUI_TOY_CDDA_OUT_WHY_ARM;"),
     ("any version of a date admitted", "        if(version != p->version || hash != p->date_hash ||",
@@ -91,7 +93,8 @@ MUTATIONS = [
     ("83 pairs", "#define TABLE_PAIRS 84u", "#define TABLE_PAIRS 63u"),
     ("CRI's slots first", "(O.place_try & 1u ? MEMORY : CRI)", "(O.place_try & 1u ? CRI : MEMORY)"),
     ("below the driver's end", "        if(below < LOWEST + bytes) {", "        if(below < bytes) {"),
-    ("the smallest ring first", "plane_frames[] = {16384u, 8192u, 4096u};", "plane_frames[] = {4096u, 8192u, 16384u};"),
+    ("the smallest ring first", "plane_frames[] = {16384u, 8192u, 4096u};", "plane_frames[] = {4096u, 8192u, 16384u};", {"ADPCM": 0}),
+    ("the smallest ADPCM ring first", "plane_frames[] = {65472u, 32768u, 16384u};", "plane_frames[] = {16384u, 32768u, 65472u};", {"ADPCM": 1}),
     ("no guard lines written", "            if(guards(b, true))return 1;", "            return 1;"),
     ("the guards not looked at", "    if(clear != 1 || !guards(b, false)) {", "    if(clear != 1) {"),
     ("the table not read again before a store", "    const int clear = table(b, O.ring, ring_bytes(), &detail);",
@@ -106,7 +109,7 @@ MUTATIONS = [
     ("the loop's end one frame early", "           !put(b, at + 0x0cu, O.frames))return;", "           !put(b, at + 0x0cu, O.frames - 1u))return;"),
     ("the loop's end one frame late", "           !put(b, at + 0x0cu, O.frames))return;", "           !put(b, at + 0x0cu, O.frames + 1u))return;"),
     ("no repeat of a plane's first frames", "           (!at && !put(b, SOUND + plane(side) + 2u * O.frames, word[side])))return false;",
-     "           0)return false;"),
+     "           0)return false;", {"ADPCM": 0}),
     ("the planes' addresses exchanged", "        if(!put(b, at + 4u, plane(side) & 0xffffu) ||", "        if(!put(b, at + 4u, plane(!side) & 0xffffu) ||"),
     ("a channel left keyed on keyed on again", "        if(on[0] || on[1]) {", "        if(0) {"),
     ("the level left at a stop", "        if(ours[side])level_write(b, side, 0u);", "        if(0 && ours[side])level_write(b, side, 0u);"),
@@ -135,13 +138,39 @@ MUTATIONS = [
      "    if(++O.mixer_zero < 8u)return;"),
     ("the right level byte not read", "    if(value[0] >> 16 & 255u)O.level[1] = LEVEL_RIGHT;", "    if(value[0] & 255u)O.level[1] = LEVEL_RIGHT;"),
     ("without VOLUME, both hard left", "    (void)b;\n    O.level[0] = LEVEL_LEFT;\n    O.level[1] = LEVEL_RIGHT;",
-     "    (void)b;\n    O.level[0] = LEVEL_LEFT;\n    O.level[1] = LEVEL_LEFT;", 0),
+     "    (void)b;\n    O.level[0] = LEVEL_LEFT;\n    O.level[1] = LEVEL_LEFT;", {"VOLUME": 0}),
     # The audio
-    ("left and right exchanged", "{pair[0] | pair[1] << 8 | pair[4] << 16 | (uint32_t)pair[5] << 24,",
-     "{pair[2] | pair[3] << 8 | pair[6] << 16 | (uint32_t)pair[7] << 24,"),
-    ("the second frame of a pair lost", "{pair[0] | pair[1] << 8 | pair[4] << 16 | (uint32_t)pair[5] << 24,",
-     "{pair[0] | pair[1] << 8 | pair[0] << 16 | (uint32_t)pair[1] << 24,"),
-    ("a byte lost on the way", "    O.got += count;\n    for(; count; --count) {", "    O.got += count;\n    for(--count; count; --count) {"),
+    ("left and right exchanged", "{unit[0] | unit[1] << 8 | unit[4] << 16 | (uint32_t)unit[5] << 24,",
+     "{unit[2] | unit[3] << 8 | unit[6] << 16 | (uint32_t)unit[7] << 24,", {"ADPCM": 0}),
+    ("the second frame of a pair lost", "{unit[0] | unit[1] << 8 | unit[4] << 16 | (uint32_t)unit[5] << 24,",
+     "{unit[0] | unit[1] << 8 | unit[0] << 16 | (uint32_t)unit[1] << 24,", {"ADPCM": 0}),
+    ("a frame lost behind each unit", "            taken += 4u * UNIT;\n            continue;", "            taken += 4u * UNIT + 4u;\n            continue;"),
+    ("a byte gathered twice", "        O.carry[O.carried++] = bytes ? bytes[taken] : 0u;\n        ++taken;",
+     "        O.carry[O.carried++] = bytes ? bytes[taken] : 0u;\n        if(O.carried & 15u)++taken;"),
+    ("a unit that waits is forgotten", "            if(!store(b, O.carry))return taken;\n            O.carried = 0u;",
+     "            O.carried = 0u;"),
+    ("the unit gathered not stored at the end", "    if(O.carried == 4u * UNIT && store(b, O.carry))O.carried = 0u;\n    return taken;",
+     "    if(O.carried == 4u * UNIT)O.carried = 0u;\n    return taken;"),
+    ("the frames gathered dropped at each piece", "    O.got = 0u;\n    O.card = KUI_TOY_CDDA_CARD_IDLE;",
+     "    O.got = O.carried = 0u;\n    O.card = KUI_TOY_CDDA_CARD_IDLE;", {"ADPCM": 1}),
+    ("the write position not begun again with the ring", "O.broken = O.at = O.carried = 0u;", "O.broken = O.carried = 0u;"),
+    ("the ring written past its end", "    if(O.at >= O.frames)O.at = 0u;", "    if(O.at > O.frames)O.at = 0u;"),
+    # ADPCM
+    ("the codes of a word in the other order", "        word |= code << shift;", "        word |= code << (28u - shift);", {"ADPCM": 1}),
+    ("a step of the coder's table", "{230u, 230u, 230u, 230u, 307u, 409u, 512u, 614u}", "{230u, 230u, 230u, 230u, 307u, 409u, 512u, 615u}", {"ADPCM": 1}),
+    ("a move by sixteenths", "        uint32_t move = step * (2u * (code & 7u) + 1u) >> 3;", "        uint32_t move = step * (2u * (code & 7u) + 1u) >> 4;", {"ADPCM": 1}),
+    ("a move the chip's accounts differ on", "        while(move > 0x7fffu) {", "        while(0) {", {"ADPCM": 1}),
+    ("the least step not kept", "        if(step < 127u)step = 127u;", "        if(step < 126u)step = 126u;", {"ADPCM": 1}),
+    ("the largest step not kept", "        if(step > 24576u)step = 24576u;", "        if(step > 24577u)step = 24577u;", {"ADPCM": 1}),
+    ("the signal not held to 16 bits", "        if(signal > 32767)signal = 32767;", "", {"ADPCM": 1}),
+    ("a fall coded as a rise", "            code = 8u;\n            delta = -delta;", "            code = 0u;\n            delta = -delta;", {"ADPCM": 1}),
+    ("the half step not tried", "        for(uint32_t bit = 4u; bit; bit >>= 1, part >>= 1)", "        for(uint32_t bit = 4u; bit; bit >>= 2, part >>= 2)", {"ADPCM": 1}),
+    ("the left side's codes for both planes", "encode(&next[side], unit + 2u * side)", "encode(&next[side], unit)", {"ADPCM": 1}),
+    ("the coders move on with a word not stored", "        next[side] = O.coder[side];\n", "", {"ADPCM": 1}),
+    ("the coders not begun again with the ring", "        O.coder[0] = O.coder[1] = (struct kui_toy_cdda_coder){0, 127u};", "", {"ADPCM": 1}),
+    ("ADPCM that begins again at the loop", "#define KEY_FORMAT 0x0180u", "#define KEY_FORMAT 0x0100u", {"ADPCM": 1}),
+    ("a cleared ring that is not silence", "#define WIPE UINT32_C(0x80808080)", "#define WIPE UINT32_C(0x08080808)", {"ADPCM": 1}),
+    ("eight frames a word, a quarter of a plane", "#define UNIT 8u                   /* frames a word of a plane holds */", "#define UNIT 4u", {"ADPCM": 1}),
     ("bytes out of their order taken", "    if(O.broken || offset != O.got) {", "    if(O.broken || (0 && offset != O.got)) {"),
     ("a gap's sectors two at a time", "    O.piece_end = O.track ? (end < D.end ? end : D.end) : O.sector + 1u;",
      "    O.piece_end = O.track ? (end < D.end ? end : D.end) : O.sector + 2u;"),
@@ -161,7 +190,7 @@ MUTATIONS = [
     ("883 frames in 15,625 ticks", "    return ticks / 15625u * 882u + ticks % 15625u * 882u / 15625u;",
      "    return ticks / 15625u * 883u + ticks % 15625u * 883u / 15625u;"),
     ("no margin for the clocks' drift", "    return frames / 5000u + EDGE;", "    return frames * 0u + EDGE;"),
-    ("the ring never begun again for drift", "    } else if(margin > O.frames / 8u) {", "    } else if(0) {"),
+    ("the ring never begun again for drift", "    } else if(margin > O.frames / ANCHOR) {", "    } else if(0) {"),
     ("a dry ring not seen", "    } else if(O.written < O.played + margin) {", "    } else if(0) {"),
     ("written over what is not yet played", "most = O.frames - margin - EDGE;", "most = O.frames + margin + EDGE;"),
     ("silence over what is not yet played", "        const uint32_t quiet = room < QUIET_FRAMES ? room : QUIET_FRAMES;",
@@ -190,10 +219,13 @@ MUTATIONS = [
 ]
 
 
+ADPCM = 0
+
+
 def run(index, work):
     mutation = MUTATIONS[index]
     name, old, new = mutation[:3]
-    volume = mutation[3] if len(mutation) > 3 else 1
+    switches = dict({"VOLUME": 1, "ADPCM": ADPCM}, **(mutation[3] if len(mutation) > 3 else {}))
     text = OUTPUT.read_text()
     if text.count(old) != 1:
         return index, "not applied (%d matches)" % text.count(old)
@@ -202,8 +234,8 @@ def run(index, work):
     mutated = directory / "toy_cdda_output.c"
     mutated.write_text(text.replace(old, new))
     binary = directory / "test"
-    built = subprocess.run([os.environ.get("HOST_CC", "cc")] + FLAGS + ["-DKUI_TOY_CDDA_VOLUME=%d" % volume,
-                           str(TEST), str(mutated), "-o", str(binary)], cwd=ROOT, capture_output=True, text=True)
+    built = subprocess.run([os.environ.get("HOST_CC", "cc")] + FLAGS +
+                           ["-DKUI_TOY_CDDA_%s=%d" % item for item in sorted(switches.items())] + [str(TEST), str(mutated), "-o", str(binary)], cwd=ROOT, capture_output=True, text=True)
     if built.returncode:
         (directory / "log.txt").write_text(built.stdout + built.stderr)
         return index, "did not build"
@@ -226,11 +258,15 @@ def main():
     parser.add_argument("--jobs", type=int, default=4)
     parser.add_argument("--work")
     parser.add_argument("--only", help="run the mutations whose name holds this text")
+    parser.add_argument("--adpcm", action="store_true", help="build the test with ADPCM")
     args = parser.parse_args()
+    global ADPCM
+    ADPCM = int(args.adpcm)
     work = args.work or tempfile.mkdtemp(prefix="toy-cdda-output-mutations-")
     print("mutations in", work)
     with concurrent.futures.ThreadPoolExecutor(args.jobs) as pool:
-        chosen = [i for i in range(len(MUTATIONS)) if not args.only or args.only in MUTATIONS[i][0]]
+        chosen = [i for i in range(len(MUTATIONS)) if (not args.only or args.only in MUTATIONS[i][0]) and
+                  (len(MUTATIONS[i]) < 4 or MUTATIONS[i][3].get("ADPCM", ADPCM) == ADPCM)]
         results = sorted(pool.map(lambda i: run(i, work), chosen))
     bad = [(i, r) for i, r in results if r != "caught"]
     for i, r in results:

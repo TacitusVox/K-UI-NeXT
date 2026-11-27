@@ -31,6 +31,11 @@ enum kui_toy_cdda_output_why {
 #define KUI_TOY_CDDA_OUT_RING_GUARD 3u
 #define KUI_TOY_CDDA_OUT_RING_PAIR 0x100u
 
+/* One plane's ADPCM decoder as the chip's stands behind the frames written. */
+struct kui_toy_cdda_coder {
+    int32_t signal;
+    uint32_t step;
+};
 struct kui_toy_cdda_output {
     uint32_t phase, why, why_detail;
     /* The drive's play this output follows (started: it follows one), the
@@ -48,10 +53,13 @@ struct kui_toy_cdda_output {
      * card's last answer for it; asked: the card holds a wish of ours;
      * broken: bytes were lost on the way into the ring. */
     uint32_t sector, piece_end, passes, finished, audio_end, segment, track, got, card, asked, broken;
-    /* Frames written into the ring since its first frame, TMU0 at key-on,
-     * frames played when last looked, bytes of a frame pair not yet whole. */
-    uint32_t written, key_tick, played, carried;
-    uint8_t carry[8];
+    /* Frames written into the ring since its first frame and where in the
+     * ring the next go, TMU0 at key-on, frames played when last looked, and
+     * the bytes of a unit of frames not yet whole (16-bit samples: two
+     * frames; ADPCM: eight, with each plane's coder). */
+    uint32_t written, at, key_tick, played, carried;
+    uint8_t carry[32];
+    struct kui_toy_cdda_coder coder[2];
     /* What each channel's level and pan word should be now, what was last
      * written, the CD mixers as last read, heartbeats they read nothing,
      * and MANATEE 2's own level bytes when they stood in for them. */

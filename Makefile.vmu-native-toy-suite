@@ -40,6 +40,7 @@ TOY_CDDA_YIELD ?= 0
 # at the level the game's driver gives the CD (src/loader/toy_cdda_output.c).
 TOY_CDDA_OUTPUT ?= 0
 TOY_CDDA_VOLUME ?= 0
+TOY_CDDA_ADPCM ?= 0
 TOY_WIRE_STAY ?= $(TOY_WIRE_STEADY)
 # Test 76 leaves LATER out unless a build asks for it.
 TOY_WIRE_LATER ?= $(if $(filter 1,$(TOY_WIRE_FLUID)),0,$(TOY_WIRE_STEADY))
@@ -62,6 +63,8 @@ endif
 ifeq ($(TOY_WIRE_STREAM),1)
 ifeq ($(TOY_WIRE_TICK),1)
 TOY_WIRE_TEST := 69
+else ifeq ($(TOY_CDDA_ADPCM),1)
+TOY_WIRE_TEST := 86
 else ifeq ($(TOY_CDDA_CARD),1)
 TOY_WIRE_TEST := 85
 else ifeq ($(TOY_CDDA_ROOM),1)
@@ -639,6 +642,19 @@ NATIVE_FLAGS += -DKUI_TOY_CDDA_VOLUME=1
 else ifneq ($(TOY_CDDA_VOLUME),0)
 $(error TOY_CDDA_VOLUME must be 0 or 1)
 endif
+ifeq ($(TOY_CDDA_ADPCM),1)
+# Test 86 (ADPCM): the ring holds the sound chip's 4-bit ADPCM, which the
+# worker makes of the card's audio: a quarter of the memory and of the bus
+# traffic of 16-bit samples, in the format whose decoder runs on across the
+# loop. The ring's sizes are 65,472, 32,768 and 16,384 frames a plane.
+ifneq ($(TOY_CDDA_OUTPUT),1)
+$(error TOY_CDDA_ADPCM builds on TOY_CDDA_OUTPUT: use TOY_CDDA_OUTPUT=1)
+endif
+TOY_CDDA_OUTPUT_FLAGS += -DKUI_TOY_CDDA_ADPCM=1
+NATIVE_FLAGS += -DKUI_TOY_CDDA_ADPCM=1
+else ifneq ($(TOY_CDDA_ADPCM),0)
+$(error TOY_CDDA_ADPCM must be 0 or 1)
+endif
 ifeq ($(TOY_WIRE_SAVE),1)
 # The stage alone is told, and it alone gains sources: the survey's file
 # format and the read-only lookup of its file. No other part's compilation
@@ -660,7 +676,7 @@ $(BUILD)/native-worker.elf: $(NATIVE_OBJ)
 
 $(BUILD)/toy-suite-config: force-mode-config
 	@mkdir -p $(BUILD)
-	@printf '%s\n' 'TOY_SUITE_MODE=$(TOY_SUITE_MODE)' 'TOY_FMV_COMPARE=$(TOY_FMV_COMPARE)' 'TOY_WIRE_STREAM=$(TOY_WIRE_STREAM)' $(if $(filter 1,$(TOY_WIRE_TICK)),'TOY_WIRE_TICK=1') $(if $(filter 1,$(TOY_WIRE_CACHED)),'TOY_WIRE_CACHED=1') $(if $(filter 1,$(TOY_WIRE_WORDS)),'TOY_WIRE_WORDS=1') $(if $(filter 1,$(TOY_WIRE_PACE)),'TOY_WIRE_PACE=1') $(if $(filter 1,$(TOY_WIRE_IDLE)),'TOY_WIRE_IDLE=1') $(if $(filter 1,$(TOY_WIRE_LEAN)),'TOY_WIRE_LEAN=1 OPEN=$(TOY_WIRE_OPEN) CLEAN=$(TOY_WIRE_CLEAN) MSB=$(TOY_WIRE_MSB) QUICK=$(TOY_WIRE_QUICK) SWIFT=$(TOY_WIRE_SWIFT)') $(if $(filter 1,$(TOY_WIRE_STEADY)),'TOY_WIRE_STEADY=1 STAY=$(TOY_WIRE_STAY) LATER=$(TOY_WIRE_LATER) RING=$(TOY_WIRE_RING)') $(if $(filter 1,$(TOY_WIRE_FLUID)),'TOY_WIRE_FLUID=1 QUIT=$(TOY_WIRE_QUIT) HOT=$(TOY_WIRE_HOT) COPY=$(TOY_WIRE_COPY) GAP=$(TOY_WIRE_GAP) APART=$(TOY_WIRE_APART)') $(if $(filter 1,$(TOY_WIRE_SEQ)),'TOY_WIRE_SEQ=1') $(if $(filter 1,$(TOY_WIRE_ANY)),'TOY_WIRE_ANY=1') $(if $(filter 1,$(TOY_WIRE_TITLES)),'TOY_WIRE_TITLES=1') $(if $(filter 1,$(TOY_WIRE_QUERY)),'TOY_WIRE_QUERY=1') $(if $(filter 1,$(TOY_WIRE_TIMER)),'TOY_WIRE_TIMER=1') $(if $(filter 1,$(TOY_WIRE_VMU)),'TOY_WIRE_VMU=1') $(if $(filter 1,$(TOY_WIRE_SAVE)),'TOY_WIRE_SAVE=1') $(if $(filter 1,$(TOY_SURVEY_MIXED_PAD)),'TOY_SURVEY_MIXED_PAD=1') $(if $(filter 1,$(TOY_CDDA_ROOM)),'TOY_CDDA_ROOM=1') $(if $(filter 1,$(TOY_CDDA_HOOK)),'TOY_CDDA_HOOK=1') $(if $(filter 1,$(TOY_CDDA_DRIVE)),'TOY_CDDA_DRIVE=1') $(if $(filter 1,$(TOY_CDDA_KEEP)),'TOY_CDDA_KEEP=1') $(if $(filter 1,$(TOY_CDDA_SURVEY)),'TOY_CDDA_SURVEY=1') $(if $(filter 1,$(TOY_CDDA_CARD)),'TOY_CDDA_CARD=1') $(if $(filter 1,$(TOY_CDDA_YIELD)),'TOY_CDDA_YIELD=1') $(if $(filter 1,$(TOY_CDDA_OUTPUT)),'TOY_CDDA_OUTPUT=1') $(if $(filter 1,$(TOY_CDDA_VOLUME)),'TOY_CDDA_VOLUME=1') > $@.tmp
+	@printf '%s\n' 'TOY_SUITE_MODE=$(TOY_SUITE_MODE)' 'TOY_FMV_COMPARE=$(TOY_FMV_COMPARE)' 'TOY_WIRE_STREAM=$(TOY_WIRE_STREAM)' $(if $(filter 1,$(TOY_WIRE_TICK)),'TOY_WIRE_TICK=1') $(if $(filter 1,$(TOY_WIRE_CACHED)),'TOY_WIRE_CACHED=1') $(if $(filter 1,$(TOY_WIRE_WORDS)),'TOY_WIRE_WORDS=1') $(if $(filter 1,$(TOY_WIRE_PACE)),'TOY_WIRE_PACE=1') $(if $(filter 1,$(TOY_WIRE_IDLE)),'TOY_WIRE_IDLE=1') $(if $(filter 1,$(TOY_WIRE_LEAN)),'TOY_WIRE_LEAN=1 OPEN=$(TOY_WIRE_OPEN) CLEAN=$(TOY_WIRE_CLEAN) MSB=$(TOY_WIRE_MSB) QUICK=$(TOY_WIRE_QUICK) SWIFT=$(TOY_WIRE_SWIFT)') $(if $(filter 1,$(TOY_WIRE_STEADY)),'TOY_WIRE_STEADY=1 STAY=$(TOY_WIRE_STAY) LATER=$(TOY_WIRE_LATER) RING=$(TOY_WIRE_RING)') $(if $(filter 1,$(TOY_WIRE_FLUID)),'TOY_WIRE_FLUID=1 QUIT=$(TOY_WIRE_QUIT) HOT=$(TOY_WIRE_HOT) COPY=$(TOY_WIRE_COPY) GAP=$(TOY_WIRE_GAP) APART=$(TOY_WIRE_APART)') $(if $(filter 1,$(TOY_WIRE_SEQ)),'TOY_WIRE_SEQ=1') $(if $(filter 1,$(TOY_WIRE_ANY)),'TOY_WIRE_ANY=1') $(if $(filter 1,$(TOY_WIRE_TITLES)),'TOY_WIRE_TITLES=1') $(if $(filter 1,$(TOY_WIRE_QUERY)),'TOY_WIRE_QUERY=1') $(if $(filter 1,$(TOY_WIRE_TIMER)),'TOY_WIRE_TIMER=1') $(if $(filter 1,$(TOY_WIRE_VMU)),'TOY_WIRE_VMU=1') $(if $(filter 1,$(TOY_WIRE_SAVE)),'TOY_WIRE_SAVE=1') $(if $(filter 1,$(TOY_SURVEY_MIXED_PAD)),'TOY_SURVEY_MIXED_PAD=1') $(if $(filter 1,$(TOY_CDDA_ROOM)),'TOY_CDDA_ROOM=1') $(if $(filter 1,$(TOY_CDDA_HOOK)),'TOY_CDDA_HOOK=1') $(if $(filter 1,$(TOY_CDDA_DRIVE)),'TOY_CDDA_DRIVE=1') $(if $(filter 1,$(TOY_CDDA_KEEP)),'TOY_CDDA_KEEP=1') $(if $(filter 1,$(TOY_CDDA_SURVEY)),'TOY_CDDA_SURVEY=1') $(if $(filter 1,$(TOY_CDDA_CARD)),'TOY_CDDA_CARD=1') $(if $(filter 1,$(TOY_CDDA_YIELD)),'TOY_CDDA_YIELD=1') $(if $(filter 1,$(TOY_CDDA_OUTPUT)),'TOY_CDDA_OUTPUT=1') $(if $(filter 1,$(TOY_CDDA_VOLUME)),'TOY_CDDA_VOLUME=1') $(if $(filter 1,$(TOY_CDDA_ADPCM)),'TOY_CDDA_ADPCM=1') > $@.tmp
 	@cmp -s $@.tmp $@ || cp $@.tmp $@
 	@rm -f $@.tmp
 
@@ -833,7 +849,7 @@ toy-cdda-card-mutation-check:
 # the audio's card work built in and without it.
 TOY_CDDA_CARD_QUIET = TOY_WIRE_VMU=0 TOY_WIRE_SAVE=$(TOY_WIRE_SAVE) TOY_SURVEY_MIXED_PAD=$(TOY_SURVEY_MIXED_PAD) \
  TOY_CDDA_ROOM=$(TOY_CDDA_ROOM) TOY_CDDA_HOOK=$(TOY_CDDA_HOOK) TOY_CDDA_DRIVE=$(TOY_CDDA_DRIVE) \
- TOY_CDDA_KEEP=$(TOY_CDDA_KEEP) TOY_CDDA_SURVEY=$(TOY_CDDA_SURVEY) TOY_CDDA_OUTPUT=0 TOY_CDDA_VOLUME=0 \
+ TOY_CDDA_KEEP=$(TOY_CDDA_KEEP) TOY_CDDA_SURVEY=$(TOY_CDDA_SURVEY) TOY_CDDA_OUTPUT=0 TOY_CDDA_VOLUME=0 TOY_CDDA_ADPCM=0 \
  HOST_CC="$(HOST_CC)" BUILD_ID=$(BUILD_ID)
 toy-cdda-card-quiet-check:
 ifneq ($(TOY_CDDA_CARD),1)
@@ -896,7 +912,7 @@ endif
 TOY_CDDA_PARTS_READER = $(BUILD)/parts-test83
 # Command-line switches reach a sub-make through its environment: each is
 # said off.
-TOY_CDDA_CARD_OFF = TOY_CDDA_CARD=0 TOY_CDDA_YIELD=0 TOY_CDDA_OUTPUT=0 TOY_CDDA_VOLUME=0
+TOY_CDDA_CARD_OFF = TOY_CDDA_CARD=0 TOY_CDDA_YIELD=0 TOY_CDDA_OUTPUT=0 TOY_CDDA_VOLUME=0 TOY_CDDA_ADPCM=0
 TOY_CDDA_PARTS_YIELD = $(BUILD)/parts-test85-card
 TOY_CDDA_OFF = TOY_CDDA_ROOM=0 TOY_CDDA_HOOK=0 TOY_CDDA_DRIVE=0 TOY_CDDA_KEEP=0 TOY_CDDA_SURVEY=0 $(TOY_CDDA_CARD_OFF)
 TOY_CDDA_PARTS_CARD = $(BUILD)/parts-test84
@@ -955,22 +971,23 @@ endif
 .PHONY: toy-cdda-mutation-check
 toy-cdda-mutation-check:
 	HOST_CC="$(HOST_CC)" python3 tests/test_toy_cdda_mutations.py
-# Test 85 (OUTPUT, VOLUME): the output on a model of the sound chip, its bus
-# and the card, with VOLUME and without. The model takes only the stores the
-# output may make and plays what was written, frame by frame. Its source can
-# be named (tests/test_toy_cdda_output_mutations.py compiles it itself).
+# Tests 85 and 86 (OUTPUT, VOLUME, ADPCM): the output on a model of the
+# sound chip, its bus and the card, built each way (11 01 10 00). The model takes only
+# the stores the output may make and plays what was written, frame by frame.
+# Its source can be named (tests/test_toy_cdda_output_mutations.py compiles
+# it itself).
 TOY_CDDA_OUTPUT_SRC ?= src/loader/toy_cdda_output.c
+TOY_CDDA_OUTPUT_WAYS ?= 11 01 10 00
 .PHONY: toy-cdda-output-host-test toy-cdda-output-mutation-check
 toy-cdda-output-host-test:
 	@mkdir -p $(BUILD)
-	$(HOST_CC) $(TOY_WIRE_HOST_FLAGS) -DKUI_TOY_CDDA_OUTPUT=1 -DKUI_TOY_CDDA_VOLUME=1 -DKUI_TOY_CDDA_OUTPUT_HOST_TEST=1 \
-	 tests/test_toy_cdda_output.c $(TOY_CDDA_OUTPUT_SRC) -o $(BUILD)/test-toy-cdda-output
-	ASAN_OPTIONS=detect_leaks=0 $(BUILD)/test-toy-cdda-output
-	$(HOST_CC) $(TOY_WIRE_HOST_FLAGS) -DKUI_TOY_CDDA_OUTPUT=1 -DKUI_TOY_CDDA_VOLUME=0 -DKUI_TOY_CDDA_OUTPUT_HOST_TEST=1 \
-	 tests/test_toy_cdda_output.c $(TOY_CDDA_OUTPUT_SRC) -o $(BUILD)/test-toy-cdda-output-level
-	ASAN_OPTIONS=detect_leaks=0 $(BUILD)/test-toy-cdda-output-level
+	set -e; for way in $(TOY_CDDA_OUTPUT_WAYS); do \
+	 $(HOST_CC) $(TOY_WIRE_HOST_FLAGS) -DKUI_TOY_CDDA_OUTPUT=1 -DKUI_TOY_CDDA_VOLUME=$$(echo $$way | cut -c1) -DKUI_TOY_CDDA_ADPCM=$$(echo $$way | cut -c2) \
+	  -DKUI_TOY_CDDA_OUTPUT_HOST_TEST=1 tests/test_toy_cdda_output.c $(TOY_CDDA_OUTPUT_SRC) -o $(BUILD)/test-toy-cdda-output-$$way; \
+	 ASAN_OPTIONS=detect_leaks=0 $(BUILD)/test-toy-cdda-output-$$way; done
 toy-cdda-output-mutation-check:
 	HOST_CC="$(HOST_CC)" python3 tests/test_toy_cdda_output_mutations.py
+	HOST_CC="$(HOST_CC)" python3 tests/test_toy_cdda_output_mutations.py --adpcm
 # Test 84 (SURVEY): the survey on a model of the bus that answers only what it
 # may read. Its source can be named (tests/test_toy_cdda_survey_mutations.py).
 TOY_CDDA_SURVEY_SRC ?= src/loader/toy_cdda_survey.c

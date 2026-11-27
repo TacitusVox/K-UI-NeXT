@@ -760,8 +760,13 @@ static void toy_report_format(char *text,const struct kui_native_ra_public *ra,
 #if KUI_TOY_WIRE_STREAM
     /* Card Tools starts this reader from its Test 66 entry. */
 #if KUI_TOY_CDDA_CARD
-    /* Test 85 (CARD): the audio is read from the card. */
+    /* Test 85 (CARD): the audio is read from the card. Test 86 (ADPCM): and
+     * kept in the sound chip's own 4-bit format. */
+#if defined(KUI_TOY_CDDA_ADPCM) && KUI_TOY_CDDA_ADPCM
+    test=86u;
+#else
     test=85u;
+#endif
 #else
     test=KUI_TOY_CDDA_ROOM?84u:KUI_TOY_WIRE_TICK?69u:KUI_TOY_WIRE_TIMER?81u:KUI_TOY_WIRE_QUERY?80u:KUI_TOY_WIRE_TITLES?79u:KUI_TOY_WIRE_ANY?78u:KUI_TOY_WIRE_SEQ?77u:KUI_TOY_WIRE_FLUID?76u:KUI_TOY_WIRE_STEADY?75u:KUI_TOY_WIRE_LEAN?74u:KUI_TOY_WIRE_IDLE?73u:KUI_TOY_WIRE_PACE?72u:KUI_TOY_WIRE_WORDS?71u:KUI_TOY_WIRE_CACHED?70u:68u;
 #endif

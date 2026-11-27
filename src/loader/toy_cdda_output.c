@@ -55,6 +55,13 @@
  * the ring, when the driver keyed a channel off, or when the card did not
  * keep up.
  *
+ * ADPCM (Test 86): the ring holds the chip's 4-bit ADPCM, which the worker
+ * makes of the card's samples: a quarter of the memory and of the bus
+ * traffic of 16-bit samples, eight frames a word. It is keyed in the format
+ * whose decoder runs on across the loop (PCMS 3) and begins at key-on from
+ * signal 0 and step 127; the coder keeps each plane's decoder as the chip's
+ * will stand behind the codes written, and begins with the ring.
+ *
  * VOLUME: the two channels' level and pan follow the CD input's mixers
  * (0xa0702040 left input, 0xa0702044 right), which the game's driver sets and
  * the loader only reads. Without VOLUME they play at full level, hard left
@@ -76,6 +83,9 @@
 #endif
 #ifndef KUI_TOY_CDDA_VOLUME
 #define KUI_TOY_CDDA_VOLUME 0
+#endif
+#ifndef KUI_TOY_CDDA_ADPCM
+#define KUI_TOY_CDDA_ADPCM 0
 #endif
 
 struct kui_toy_cdda_output kui_toy_cdda_output;
@@ -108,7 +118,21 @@ struct kui_toy_cdda_output kui_toy_cdda_output;
 #define LOWEST UINT32_C(0x18000)  /* the driver's own memory ends here */
 #define CRI UINT32_C(0x1dfe00)    /* CRI's stream slots begin here */
 #define GUARD_BYTES 32u
+#if KUI_TOY_CDDA_ADPCM
+/* Test 86 (ADPCM): a plane holds the chip's 4-bit ADPCM, eight frames a
+ * word, in the format whose decoder runs on across the loop (PCMS 3). */
+#define UNIT 8u                   /* frames a word of a plane holds */
+#define PLANE_REPEAT 0u
+#define KEY_FORMAT 0x0180u
+#define WIPE UINT32_C(0x80808080) /* a step up, a step down: silence at any step */
+#define ANCHOR 4u                 /* the ring starts over when the clocks' margin is this share of it */
+#else
+#define UNIT 2u
 #define PLANE_REPEAT 4u           /* bytes after a plane that repeat its first two frames */
+#define KEY_FORMAT 0u
+#define WIPE 0u
+#define ANCHOR 8u
+#endif
 #define GUARD UINT32_C(0x4b434452)
 #define SECTOR_BYTES 2352u
 #define PRIME_FRAMES 4410u        /* a tenth of a second */
@@ -165,7 +189,11 @@ static const struct profile { uint32_t version; uint16_t date_hash; uint8_t fami
     {UINT32_C(0x003b0101), 0x1c1fu, KUI_TOY_CDDA_FAMILY_GEN1}, /* MANATEE 1.01.3b, 1998.12.08 */
     {UINT32_C(0x00370101), 0xe50fu, KUI_TOY_CDDA_FAMILY_GEN1}  /* MANATEE 1.01.37, 1998.11.02 */
 };
+#if KUI_TOY_CDDA_ADPCM
+static const uint16_t plane_frames[] = {65472u, 32768u, 16384u};
+#else
 static const uint16_t plane_frames[] = {16384u, 8192u, 4096u};
+#endif
 
 /* One heartbeat's use of the bus: when it began, the start of the stretch
  * being timed (TMU0 counts down: ~TCNT0 grows), its polls, its accesses in
@@ -210,15 +238,19 @@ static bool sound(struct bus *b, uint32_t offset, uint32_t *value) {
     return stable(b, SOUND + offset, value);
 }
 /* The ring: a guard line, the left plane and its repeat, the right plane and
- * its repeat, a guard line. */
+ * its repeat, a guard line. A plane's bytes: two a frame as 16-bit samples,
+ * half a byte as ADPCM. */
+static uint32_t plane_bytes(uint32_t frames) {
+    return frames * 4u / UNIT;
+}
 static uint32_t ring_size(uint32_t frames) {
-    return 2u * GUARD_BYTES + 2u * (2u * frames + PLANE_REPEAT);
+    return 2u * GUARD_BYTES + 2u * (plane_bytes(frames) + PLANE_REPEAT);
 }
 static uint32_t ring_bytes(void) {
     return ring_size(O.frames);
 }
 static uint32_t plane(unsigned side) {
-    return O.ring + GUARD_BYTES + side * (2u * O.frames + PLANE_REPEAT);
+    return O.ring + GUARD_BYTES + side * (plane_bytes(O.frames) + PLANE_REPEAT);
 }
 static uint32_t channel(unsigned side) {
     return CHANNELS + 0x80u * O.channel[side];
@@ -384,13 +416,13 @@ static int place(struct bus *b, uint32_t *detail) {
  * use, so that a play the card lets run dry falls silent. */
 static bool wipe(struct bus *b) {
     for(uint32_t words = 0; O.wiped < ring_bytes() - 2u * GUARD_BYTES; O.wiped += 4u, ++words)
-        if(words == 2u * QUIET_FRAMES || !put(b, SOUND + O.ring + GUARD_BYTES + O.wiped, 0u))return false;
+        if(words == 2u * QUIET_FRAMES || !put(b, SOUND + O.ring + GUARD_BYTES + O.wiped, WIPE))return false;
     return true;
 }
 
 /* A channel's first register as it stands keyed on. */
 static uint32_t key_word(unsigned side) {
-    return KEY_ON | (plane(side) >> 16 & 0x7fu);
+    return KEY_ON | KEY_FORMAT | (plane(side) >> 16 & 0x7fu);
 }
 /* A channel's first register: whether it still names the ring's plane (1;
  * 0 another address or no loop: the driver's), and its key bit. -1 the bus. */
@@ -468,24 +500,102 @@ static void levels(struct bus *b) {
 #endif
 }
 
-/* Two frames into the ring at its write position, a word a plane; a
- * plane's first two once more behind its last. */
-static bool store(struct bus *b, const uint8_t pair[8]) {
-    const uint32_t at = (O.written & (O.frames - 1u)) * 2u;
-    const uint32_t word[2] = {pair[0] | pair[1] << 8 | pair[4] << 16 | (uint32_t)pair[5] << 24,
-        pair[2] | pair[3] << 8 | pair[6] << 16 | (uint32_t)pair[7] << 24};
+#if KUI_TOY_CDDA_ADPCM
+/* The chip's ADPCM: each code multiplies the step by these 256ths, between
+ * 127 and 24,576. */
+static const uint16_t scale[8] = {230u, 230u, 230u, 230u, 307u, 409u, 512u, 614u};
+/* Eight frames of one side as eight codes, the first in the word's lowest
+ * four bits, and the decoder as the chip's will stand behind them. The
+ * chip's starts at key-on from signal 0 and step 127; a code moves the
+ * signal by (twice its low three bits and one) eighths of the step, down
+ * with its top bit set. A move of more than 32,767, which the largest steps
+ * allow, is not asked for: there the accounts of the chip differ. */
+static uint32_t encode(struct kui_toy_cdda_coder *c, const uint8_t *frame) {
+    int32_t signal = c->signal;
+    uint32_t step = c->step, word = 0u;
+    for(unsigned shift = 0; shift < 32u; shift += 4u, frame += 4u) {
+        int32_t delta = (int16_t)(frame[0] | frame[1] << 8) - signal;
+        uint32_t code = 0u;
+        if(delta < 0) {
+            code = 8u;
+            delta = -delta;
+        }
+        uint32_t rest = (uint32_t)delta, part = step;
+        for(uint32_t bit = 4u; bit; bit >>= 1, part >>= 1)
+            if(rest >= part) {
+                code |= bit;
+                rest -= part;
+            }
+        uint32_t move = step * (2u * (code & 7u) + 1u) >> 3;
+        while(move > 0x7fffu) {
+            --code;
+            move = step * (2u * (code & 7u) + 1u) >> 3;
+        }
+        signal += code & 8u ? -(int32_t)move : (int32_t)move;
+        if(signal > 32767)signal = 32767;
+        if(signal < -32768)signal = -32768;
+        step = step * scale[code & 7u] >> 8;
+        if(step < 127u)step = 127u;
+        if(step > 24576u)step = 24576u;
+        word |= code << shift;
+    }
+    c->signal = signal;
+    c->step = step;
+    return word;
+}
+#endif
+/* A unit of frames into the ring at its write position, a word a plane: two
+ * frames of 16-bit samples, with a plane's first two once more behind its
+ * last; or eight as ADPCM, whose coders move on only when both words are
+ * stored. False: nothing is counted, and the same unit may come again. */
+static bool store(struct bus *b, const uint8_t unit[4u * UNIT]) {
+    const uint32_t at = O.at * 4u / UNIT;
+#if KUI_TOY_CDDA_ADPCM
+    struct kui_toy_cdda_coder next[2];
+    for(unsigned side = 0; side < 2u; ++side) {
+        next[side] = O.coder[side];
+        if(!put(b, SOUND + plane(side) + at, encode(&next[side], unit + 2u * side)))return false;
+    }
+    O.coder[0] = next[0];
+    O.coder[1] = next[1];
+#else
+    const uint32_t word[2] = {unit[0] | unit[1] << 8 | unit[4] << 16 | (uint32_t)unit[5] << 24,
+        unit[2] | unit[3] << 8 | unit[6] << 16 | (uint32_t)unit[7] << 24};
     for(unsigned side = 0; side < 2u; ++side)
         if(!put(b, SOUND + plane(side) + at, word[side]) ||
            (!at && !put(b, SOUND + plane(side) + 2u * O.frames, word[side])))return false;
-    O.written += 2u;
-    O.bytes += 8u;
+#endif
+    O.at += UNIT;
+    if(O.at >= O.frames)O.at = 0u;
+    O.written += UNIT;
+    O.bytes += 4u * UNIT;
     return true;
 }
-static uint32_t silence(struct bus *b, uint32_t frames) {
-    static const uint8_t nothing[8];
-    uint32_t done = 0u;
-    for(; done + 2u <= frames && store(b, nothing); done += 2u) {
+/* Bytes of frames on their way into the ring, the card's or (no bytes
+ * named) silence: whole units are stored, straight from where they lie
+ * when none is begun; the rest of one waits for its other bytes. Returns
+ * the bytes taken; a unit that could not be stored waits whole. */
+static uint32_t feed(struct bus *b, const uint8_t *bytes, uint32_t count) {
+    static const uint8_t nothing[4u * UNIT];
+    uint32_t taken = 0u;
+    while(taken < count) {
+        if(O.carried == 4u * UNIT) {
+            if(!store(b, O.carry))return taken;
+            O.carried = 0u;
+        }
+        if(!O.carried && count - taken >= 4u * UNIT) {
+            if(!store(b, bytes ? bytes + taken : nothing))return taken;
+            taken += 4u * UNIT;
+            continue;
+        }
+        O.carry[O.carried++] = bytes ? bytes[taken] : 0u;
+        ++taken;
     }
+    if(O.carried == 4u * UNIT && store(b, O.carry))O.carried = 0u;
+    return taken;
+}
+static uint32_t silence(struct bus *b, uint32_t frames) {
+    const uint32_t done = feed(b, 0, 4u * frames) / 4u;
     O.silence_frames += done;
     return done;
 }
@@ -501,15 +611,7 @@ static void take(void *context, const uint8_t *bytes, uint32_t count, uint32_t o
     b->start = ~read32(TCNT0);
     b->polls = 0u;
     O.got += count;
-    for(; count; --count) {
-        O.carry[O.carried++] = *bytes++;
-        if(O.carried < 8u)continue;
-        O.carried = 0u;
-        if(!store(b, O.carry)) {
-            O.broken = 1u;
-            return;
-        }
-    }
+    if(feed(b, bytes, count) != count)O.broken = 1u;
 }
 /* The piece of the play that starts at O.sector: one track's sectors to its
  * end or the range's, a sector of a gap between tracks, or nothing more
@@ -526,7 +628,7 @@ static void piece(void) {
     uint32_t start, end;
     O.track = kui_toy_cdda_track_of(O.sector, &start, &end);
     O.piece_end = O.track ? (end < D.end ? end : D.end) : O.sector + 1u;
-    O.got = O.carried = 0u;
+    O.got = 0u;
     O.card = KUI_TOY_CDDA_CARD_IDLE;
     if(!++O.segment)O.segment = 1u;
 }
@@ -568,7 +670,7 @@ static void restart(struct bus *b, const bool busy[2]) {
 static void fill(struct bus *b, uint32_t room, bool low) {
     bool asked = false;
     if(room > FILL_FRAMES)room = FILL_FRAMES;
-    while(room >= 2u && b->ok && !O.broken) {
+    while(room >= UNIT && b->ok && !O.broken) {
         const uint32_t quiet = room < QUIET_FRAMES ? room : QUIET_FRAMES;
         if(O.finished) {
             (void)silence(b, quiet);
@@ -581,9 +683,9 @@ static void fill(struct bus *b, uint32_t room, bool low) {
         const uint32_t bytes = (O.piece_end - O.sector) * SECTOR_BYTES;
         if(!O.track || O.card == KUI_TOY_CDDA_CARD_REFUSED) {
             /* A gap, or a track the card does not hold: silence in its
-             * place, from the next whole pair of frames on. */
-            O.got &= ~UINT32_C(7);
-            O.carried = 0u;
+             * place, from the next whole frame on. */
+            O.got &= ~UINT32_C(3);
+            O.carried &= ~UINT32_C(3);
             /* One stretch of silence a heartbeat: the rest waits. */
             const uint32_t left = (bytes - O.got) / 4u, done = silence(b, left < quiet ? left : quiet);
             O.got += 4u * done;
@@ -698,7 +800,8 @@ static void work(struct bus *b, bool wanted, bool tail, uint32_t now) {
         /* The play is taken up where the drive stands. */
         if(!wipe(b))return;
         O.piece_end = O.sector;
-        O.finished = O.written = O.played = O.broken = 0u;
+        O.finished = O.written = O.played = O.broken = O.at = O.carried = 0u;
+        O.coder[0] = O.coder[1] = (struct kui_toy_cdda_coder){0, 127u};
         O.phase = KUI_TOY_CDDA_OUT_PRIME;
         O.prime_ticks = now;
     }
@@ -782,7 +885,7 @@ static void work(struct bus *b, bool wanted, bool tail, uint32_t now) {
         ++O.underruns;
         restart(b, busy);
         return;
-    } else if(margin > O.frames / 8u) {
+    } else if(margin > O.frames / ANCHOR) {
         /* The two clocks may have run this far apart: the ring starts over. */
         ++O.anchors;
         restart(b, busy);
