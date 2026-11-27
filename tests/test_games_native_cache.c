@@ -24,7 +24,7 @@ struct fake_node {char path[128];uint8_t data[KUI_VMU_NATIVE_RESOLUTION_CACHE_BY
 static struct fake_node disk[20];
 static struct {
     const uint8_t *boot;size_t bytes;unsigned reads,opens,closed,writes,syncs,renames,unlinks,builds,replays,logs;
-    unsigned cancel_checks,cancel_at,allocation_at,allocations,stats,mkdirs;
+    unsigned cancel_checks,cancel_at,allocation_at,allocation_also,allocations,stats,mkdirs;
     unsigned fail,cancel_when;bool cancelled;
     const uint8_t *runtime_boot;size_t runtime_bytes,source_sha_bytes;
     size_t forced_program_bytes;
@@ -164,7 +164,8 @@ static bool fixture_build_prefixed(const void *image,size_t bytes,uint32_t addre
     return kui_vmu_native_resolution_cache_build_prefixed(image,bytes,address,wire,wire_bytes,out,marks);
 }
 static void *fixture_malloc(size_t bytes) {
-    if(++io.allocations==io.allocation_at) return NULL;
+    ++io.allocations;
+    if(io.allocations==io.allocation_at || io.allocations==io.allocation_also) return NULL;
     return malloc(bytes);
 }
 #define kui_vmu_native_resolution_cache_build_prefixed fixture_build_prefixed
@@ -723,23 +724,95 @@ static void large_program_tests(void) {
             next==NATIVE_WITNESS_FIRST+2u);
         free(held);
     }
-    /* The piece buffer itself cannot be allocated: no answer, no read. */
-    setup(boot,sizeof(boot));
-    {
+    /* No memory for the pieces either, or for the workspace of a program
+     * that was held: no answer, no read, no CRC. The allocations are the
+     * program (1), the workspace (2) and the piece buffer (3). */
+    for(unsigned failing=0u;failing<2u;++failing) {
         const struct kui_native_dual_capability cap={KUI_NATIVE_DUAL_MAGIC0,KUI_NATIVE_DUAL_MAGIC1,
             1u,KUI_NATIVE_DUAL_CAPABILITY_BYTES,KUI_RETAIL_READER_ASYNC,KUI_RETAIL_READER_ASYNC_EAGER,
             KUI_NATIVE_DUAL_COMPACT_LEASE_BYTES,0u};
+        setup(boot,sizeof(boot));
         map.reader=KUI_RETAIL_READER_ASYNC;memcpy(module+3072u,&cap,sizeof(cap));memcpy(before,module,sizeof(module));
         bool standalone=false;
-        /* The second allocation is the workspace: the program was held. */
-        io.allocation_at=2u;
+        if(failing) {io.allocation_at=1u;io.allocation_also=3u;}
+        else io.allocation_at=2u;
         CHECK(native_cache_prepare(&game,&map,true,KUI_RETAIL_READER_ASYNC,false,&package,"/Games/Large",
-            false,logger,cancelled,&proof,&standalone)==NATIVE_CACHE_SKIPPED && !io.reads);
+            false,logger,cancelled,&proof,&standalone)==NATIVE_CACHE_SKIPPED);
+        CHECK(!io.reads && io.allocations==(failing?3u:2u) && !proof.crc_known && !proof.complete && !proof.crc32);
     }
     CHECK(refused==4u);
     printf("PASS native large program: read once in pieces for its CRC; no witness answers for the combined module, "
         "%u witness places and %u lengths leave it to the stage or answer as the whole-program loop does\n",
         undecided,(unsigned)(sizeof(lengths)/sizeof(lengths[0])));
+}
+/* The real discovery against the launcher's search. A site written to pass
+ * all of sdk_at (its 32 words, the initializer's first words, its two
+ * literals and the lock cell: the discovery's source, written out here on
+ * its own, not the launcher's table) is a driver body the discovery counts;
+ * with no wrapper it answers INCOMPLETE. Wherever the discovery finds one,
+ * the launcher must have found a witness. One word changed: the discovery
+ * finds nothing and the launcher refuses. */
+static void site_put32(uint8_t *p,uint32_t value) {
+    for(unsigned i=0u;i<4u;i++)p[i]=(uint8_t)(value>>(8u*i));
+}
+static void sdk_site_plant(uint8_t *p,size_t site,size_t lock_at) {
+    static const struct {int16_t offset;uint16_t value;} words[32]={
+        {0,0x9028},{2,0x63e2},{4,0x023e},{6,0x12c6},{8,0x9029},{10,0x63e2},
+        {84,0x10f4},{94,0x0fd8},{-192,0x401b},{-258,0x60e2},{-256,0x001e},
+        {-254,0x8801},{-252,0x8d02},{-248,0xa0d3},{-246,0xe0fd},
+        {266,0x0316},{272,0x2320},{22,0x22ca},{24,0x0326},{58,0x22ca},
+        {60,0x0326},{170,0x03d6},{176,0x23d0},{198,0x024e},{200,0x2228},
+        {214,0x5036},{216,0xc801},{230,0x401b},{232,0x8906},{248,0xe000},
+        {328,0x420b},{366,0x430b}};
+    static const uint16_t begin[5]={0x2fe6,0xde3e,0xd33e,0x9071,0x6233};
+    const uint32_t load=KUI_RETAIL_EXEC_ADDRESS;
+    const size_t init=site-0x53cu;
+    for(unsigned i=0u;i<32u;i++) {
+        p[site+words[i].offset]=(uint8_t)words[i].value;p[site+words[i].offset+1]=(uint8_t)(words[i].value>>8);
+    }
+    for(unsigned i=0u;i<5u;i++) {p[init+2u*i]=(uint8_t)begin[i];p[init+2u*i+1u]=(uint8_t)(begin[i]>>8);}
+    const uint32_t manager=0x8c800000u,manager_cell=manager+0x10fcu,lock_cell=load+(uint32_t)lock_at;
+    const size_t cell=((load+(uint32_t)init+6u)&~3u)-load+4u*0x3eu,object=((load+(uint32_t)init+8u)&~3u)-load+4u*0x3eu;
+    site_put32(p+site+0x1a4u,manager_cell);site_put32(p+site+0x1a0u,lock_cell);
+    site_put32(p+cell,manager_cell);site_put32(p+object,manager);site_put32(p+lock_at,lock_cell+4u);
+}
+static void large_program_discovery_tests(void) {
+    enum {PIECE=16*2048};
+    static uint8_t boot[5*PIECE+1235],image[sizeof(boot)];
+    struct native_cache_source_proof proof;struct kui_vmu_native_discovery found;
+    unsigned accepted=0u,same_slot=0u,broken=0u;
+    for(size_t i=0;i<sizeof(boot);i++)boot[i]=(uint8_t)(i*37u+(i>>9)+5u);
+    CHECK(kui_vmu_native_discover(boot,sizeof(boot),KUI_RETAIL_EXEC_ADDRESS,&found)==KUI_VMU_NATIVE_NOT_FOUND);
+    for(size_t site=0x53cu;site+0x1b8u<=sizeof(boot);site+=2u) {
+        /* Both ends, every site whose 32 words span a piece's edge, and a
+         * sample of the rest. */
+        const size_t in=site%PIECE;
+        const bool near=in<=260u || in>=PIECE-370u || site<0x53cu+48u || site+0x1b8u+48u>sizeof(boot);
+        if(!near && site%1021u)continue;
+        memcpy(image,boot,sizeof(boot));
+        sdk_site_plant(image,site,(site>sizeof(boot)/2u?4096u:sizeof(boot)-4096u)&~(size_t)3u);
+        const enum kui_vmu_native_discovery_result real=
+            kui_vmu_native_discover(image,sizeof(image),KUI_RETAIL_EXEC_ADDRESS,&found);
+        /* Every site holds the 32 words: no answer from the launcher. At a
+         * site that is 2 mod 4 the initializer's two loads decode to one
+         * slot and sdk_at cannot accept it; at every other the discovery
+         * counts the body. */
+        CHECK(real==(site%4u?KUI_VMU_NATIVE_NOT_FOUND:KUI_VMU_NATIVE_INCOMPLETE));
+        CHECK(large_launch(image,sizeof(image),KUI_RETAIL_READER_ASYNC,false,&proof,true)==NATIVE_CACHE_SKIPPED);
+        CHECK(proof.crc_known && proof.crc32==kui_crc32(0u,image,sizeof(image)));
+        if(site%4u)++same_slot;else ++accepted;
+        /* One of the 32 words changed, a different one from site to site. */
+        static const int16_t offsets[32]={0,2,4,6,8,10,84,94,-192,-258,-256,-254,-252,-248,-246,266,272,22,24,58,
+            60,170,176,198,200,214,216,230,232,248,328,366};
+        image[site+offsets[site/2u%32u]]^=0x04u;
+        CHECK(kui_vmu_native_discover(image,sizeof(image),KUI_RETAIL_EXEC_ADDRESS,&found)==KUI_VMU_NATIVE_NOT_FOUND);
+        CHECK(large_launch(image,sizeof(image),KUI_RETAIL_READER_ASYNC,false,&proof,true)==NATIVE_CACHE_UNSUPPORTED);
+        ++broken;
+    }
+    CHECK(accepted>=700u && same_slot>=700u && broken==accepted+same_slot);
+    printf("PASS native large program against the real discovery: %u driver bodies the discovery counts are all "
+        "found in pieces, %u more hold the 32 words where it cannot accept, %u with one word changed are refused by both\n",
+        accepted,same_slot,broken);
 }
 /* The launcher's answer for every result, Virtual VMU setting, reader-only
  * choice and installed state. Each refusal names one whole setting that
@@ -991,7 +1064,8 @@ static void advisory_alias_publication_faults(void) {
 }
 int KUI_GAMES_NATIVE_CACHE_TEST_MAIN(int argc,char **argv) {
     CHECK(argc>=1 && argc<=4);codec_and_trust_tests();gates_and_hits();dual_gates_and_hits();
-    fixed_arena_needs_dual();arena_needs_compact_dual();pool_placement_tests();pool_size_tests();unsupported_tests();large_program_tests();refusal_tests();
+    fixed_arena_needs_dual();arena_needs_compact_dual();pool_placement_tests();pool_size_tests();unsupported_tests();large_program_tests();
+    large_program_discovery_tests();refusal_tests();
     advisory_alias_publication_faults();
     uint8_t authored[1024];
     for(unsigned i=0;i<sizeof(authored);i++)authored[i]=(uint8_t)(i*17u+1u);

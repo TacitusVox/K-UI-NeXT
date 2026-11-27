@@ -192,15 +192,24 @@ void *KUI_NATIVE_CACHE_BOOT_ALLOC(size_t);
  * reads it for its CRC anyway. That pass proves the CRC and looks for the
  * Maple discovery's witness. Without one the combined module's stage would
  * stop, and the preflight says so. With one there is no answer, as before:
- * the rest of the check needs the whole program, and the stage decides. A
- * piece that cannot be read gives no answer and no CRC either; the launch's
- * own CRC pass then reports the sector. */
+ * the rest of the check needs the whole program. (The module is then
+ * started unchecked, as for every launch without an answer. With Virtual
+ * VMU Off its stage runs the check. With Virtual VMU On the launcher gave
+ * it no card, and its stage stops at storage start on the build's template
+ * profile: vmu_native_persist_stage.inc.) A piece that cannot be read gives
+ * no answer and no CRC either; the launch's own CRC pass then reports the
+ * sector. */
 static enum native_cache_result native_cache_scan_large(const struct kui_game_image *image,
     const struct kui_retail_manifest *map,kui_log_fn log,kui_cancel_fn cancel,
     struct native_cache_source_proof *source_proof) {
     enum {PIECE_SECTORS=16,KEEP=1024};
     _Static_assert(KEEP>=NATIVE_WITNESS_BEFORE+NATIVE_WITNESS_AFTER+2u && !(KEEP&1),
         "a site at a piece's edge keeps its whole reach");
+    /* A piece is read to data+KEEP. The SD reader's direct block reads go
+     * by the destination's 32-byte alignment; a kept span that is a whole
+     * number of 512-byte blocks leaves it as the allocation's own, as in
+     * the launch's CRC pass this read stands for. */
+    _Static_assert(!(KEEP%512),"a piece's destination keeps the allocation's alignment");
     uint8_t *data=malloc((size_t)KEEP+PIECE_SECTORS*2048u);
     if(!data)return NATIVE_CACHE_SKIPPED;
     if(log)log("Native reader: %u-byte program is too large to hold; reading in pieces",map->boot_bytes);
@@ -226,7 +235,7 @@ static enum native_cache_result native_cache_scan_large(const struct kui_game_im
     if(native_cache_cancelled(cancel)) {result=NATIVE_CACHE_CANCELLED;goto finished;}
     source_proof->crc_known=true;source_proof->crc32=crc;
     if(found) {
-        if(log)log("Native reader: the SDK check needs the whole program; the stage decides");
+        if(log)log("Native reader: the SDK's Maple code is in it; the full check needs it whole");
     } else {
         if(log)log("Native reader: the SDK's Maple code is not in it; the stage would stop");
         result=NATIVE_CACHE_UNSUPPORTED;

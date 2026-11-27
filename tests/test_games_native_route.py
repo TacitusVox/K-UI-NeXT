@@ -21,7 +21,10 @@ without the Maple discovery's witness in it the combined module is refused,
 whatever else is installed, and the reader-only module is not asked; with the
 witness, planted here in the fixture's program across its two sectors, there
 is no answer and the combined module starts unseeded with the CRC of that one
-read.
+read. That start is the host launcher's, which has no virtual-card code. On
+the console it is what a Virtual VMU Off launch does; with Virtual VMU On the
+combined module gets no prepared card without the launcher's answer, and its
+stage stops at storage start (a known limit, docs/background-launch-checks.md).
 
 Virtual VMU is On in every row: the host launcher is built without the
 virtual-card code, and that build refuses a Background launch with Virtual VMU
@@ -163,7 +166,7 @@ def audit():
                     assert "checking exact executable CRC" not in ran.stdout, "the program was read a second time"
                     assert ("Native reader: the SDK's Maple code is not in it; the stage would stop" in ran.stdout) == \
                         (program == "large"), (case, program, ran.stdout)
-                    assert ("Native reader: the SDK check needs the whole program; the stage decides" in ran.stdout) == \
+                    assert ("Native reader: the SDK's Maple code is in it; the full check needs it whole" in ran.stdout) == \
                         (program == "large-witness"), (case, program, ran.stdout)
                 else:
                     assert family == (0 if case == Y else 1), (case, answer, family)

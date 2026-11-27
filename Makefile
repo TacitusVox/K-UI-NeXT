@@ -92,7 +92,7 @@ test-gui-launch-preparation:
 	python3 tests/test_smash_launch_timing.py
 
 .PHONY: test-shared-game-launch
-test-shared-game-launch: test-games-native-cache-hint test-games-native-route test-games-native-witness
+test-shared-game-launch: test-games-native-cache test-games-native-cache-hint test-games-native-route test-games-native-witness
 	python3 tests/test_wince_kernel_read_reuse.py
 	python3 tests/test_game_reader_provenance.py
 	python3 tests/test_native_cold_discovery.py
@@ -419,7 +419,7 @@ ARMADA_PREPARE_TEST_SOURCES += src/apps/native_session_prepare.c src/core/native
 build/test-sha256-prefix: tests/test_sha256_prefix.c include/kui/sha256_prefix.h include/kui/hash.h src/core/hash.c src/core/data.c
 	@mkdir -p $(@D)
 	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) tests/test_sha256_prefix.c src/core/hash.c src/core/data.c -o $@
-build/test-games-native-cache: tests/test_games_native_cache.c tests/test_vmu_native_resolution_cache.c src/apps/games_native_cache.inc include/kui/sha256_prefix.h $(NATIVE_CACHE_SOURCES) src/core/hash.c src/core/data.c
+build/test-games-native-cache: tests/test_games_native_cache.c tests/test_vmu_native_resolution_cache.c src/apps/games_native_cache.inc src/apps/games_native_witness.inc include/kui/sha256_prefix.h $(NATIVE_CACHE_SOURCES) src/core/hash.c src/core/data.c
 	@mkdir -p $(@D)
 	$(CC) $(HOST_FLAGS) $(SANITIZERS) -fno-pie -no-pie -Wl,--wrap=kui_sha256_update -Iinclude tests/test_games_native_cache.c $(NATIVE_CACHE_SOURCES) src/core/hash.c src/core/data.c -o $@
 build/test-games-native-cache-hint: tests/test_games_native_cache_hint.c tests/test_vmu_native_resolution_cache.c src/apps/games_native_cache_hint.inc src/apps/games_native_cache_alias.inc $(NATIVE_CACHE_SOURCES) src/core/hash.c src/core/data.c src/core/game_launch_settings.c src/core/game_ram_patches.c
@@ -460,7 +460,7 @@ build/test-vmu-launch-package: tests/test_vmu_launch_package.c src/core/vmu_laun
 	@mkdir -p $(@D)
 	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) -ffunction-sections -fdata-sections tests/test_vmu_launch_package.c src/core/vmu_launch_package.c src/core/retail_image.c src/core/hash.c -Wl,--gc-sections -o $@
 build/test-armada-ce-excerpt-prepare: tests/test_armada_ce_excerpt_prepare.c src/apps/games_retail.c $(ARMADA_PREPARE_TEST_SOURCES) include/kui/armada_ce_excerpt_pool.h include/kui/game_ram_patches.h include/kui/retail_zso.h include/kui/zso.h include/kui/wince_cdda_profiles.h include/kui/armada_ce_stream_seed.h include/kui/games_retail.h include/kui/wince_cdda_wwp_kernel.h
-build/test-armada-ce-excerpt-prepare: src/apps/games_native_cache.inc
+build/test-armada-ce-excerpt-prepare: src/apps/games_native_cache.inc src/apps/games_native_witness.inc
 
 	@mkdir -p $(@D)
 	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) -Isrc/dreamcast -DKUI_RETAIL_MANIFEST_CAPACITY=1 -ffunction-sections -fdata-sections tests/test_armada_ce_excerpt_prepare.c $(ARMADA_PREPARE_TEST_SOURCES) -Wl,--gc-sections -o $@
@@ -1046,7 +1046,7 @@ build/test-retail-gd-disc-async: tests/test_retail_gd_disc.c src/core/retail_gd.
 	@mkdir -p $(@D)
 	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) -DKUI_NATIVE_SESSION_CONTROLS=1 -DKUI_RETAIL_GD_ASYNC=1 $^ -o $@
 build/games-retail: tests/games_retail.c $(GAMES_RETAIL) $(CORE) $(FATFS) include/kui/games_retail.h include/kui/ce_load_plan.h include/kui/retail_image.h include/kui/retail_loader_layout.h include/kui/game_image.h include/kui/game_metadata.h include/kui/runtime.h include/kui/destination.h include/kui/media.h src/dreamcast/platform.h config/ffconf.h .deps/fatfs/source/ff.h include/kui/game_ram_patches.h include/kui/game_launch_settings.h include/kui/game_launch_report.h include/kui/retail_zso.h include/kui/zso.h
-build/games-retail: src/apps/games_native_cache.inc include/kui/native_standalone_capability.h include/kui/native_sdk_sci_family.h
+build/games-retail: src/apps/games_native_cache.inc src/apps/games_native_witness.inc include/kui/native_standalone_capability.h include/kui/native_sdk_sci_family.h
 	@mkdir -p $(@D)
 	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) -Isrc/dreamcast -DKUI_RETAIL_MANIFEST_CAPACITY=1 tests/games_retail.c $(GAMES_RETAIL) $(CORE) $(FATFS) $(GAMES_IMAGE_PROBE_WRAP) -Wl,--wrap=kui_native_sdk_sci_family_find -o $@
 
@@ -1967,7 +1967,7 @@ build/test-armada-ce-play-timing: tests/test_armada_ce_play_timing.c include/kui
 test-check-relaxed-calls:
 	python3 tests/test_check_relaxed_calls.py
 build/test-wince-packaged-prepare: tests/test_wince_packaged_prepare.c tests/test_armada_ce_excerpt_prepare.c src/apps/games_retail.c $(ARMADA_PREPARE_TEST_SOURCES) include/kui/wince_cdda_profiles.h include/kui/armada_ce_stream_seed.h include/kui/games_retail.h include/kui/wince_cdda_wwp_kernel.h
-build/test-wince-packaged-prepare: src/apps/games_native_cache.inc
+build/test-wince-packaged-prepare: src/apps/games_native_cache.inc src/apps/games_native_witness.inc
 	@mkdir -p $(@D)
 	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) -Isrc/dreamcast -DKUI_RETAIL_MANIFEST_CAPACITY=1 -ffunction-sections -fdata-sections tests/test_wince_packaged_prepare.c $(ARMADA_PREPARE_TEST_SOURCES) -Wl,--gc-sections -o $@
 
