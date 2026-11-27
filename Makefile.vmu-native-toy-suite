@@ -1001,7 +1001,8 @@ toy-cdda-output-host-test:
 	 ASAN_OPTIONS=detect_leaks=0 $(BUILD)/test-toy-cdda-output-$$way; done
 toy-cdda-output-mutation-check:
 	HOST_CC="$(HOST_CC)" python3 tests/test_toy_cdda_output_mutations.py
-	HOST_CC="$(HOST_CC)" python3 tests/test_toy_cdda_output_mutations.py --adpcm
+	HOST_CC="$(HOST_CC)" python3 tests/test_toy_cdda_output_mutations.py --way 110
+	HOST_CC="$(HOST_CC)" python3 tests/test_toy_cdda_output_mutations.py --way 111
 # Test 84 (SURVEY): the survey on a model of the bus that answers only what it
 # may read. Its source can be named (tests/test_toy_cdda_survey_mutations.py).
 TOY_CDDA_SURVEY_SRC ?= src/loader/toy_cdda_survey.c

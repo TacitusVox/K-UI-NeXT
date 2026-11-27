@@ -62,12 +62,13 @@
  * signal 0 and step 127; the coder keeps each plane's decoder as the chip's
  * will stand behind the codes written, and begins with the ring.
  *
- * SPARE (Test 86): where the bank table leaves no place for the ring, it
- * goes into the driver's own memory at 0x16000..0x17FFF. No build of the
- * driver has an address there (its work areas end at 0x15FFF or lower, and
- * it tells the game that free memory begins at 0x18000); its start-up, and
- * its start again on the game's command, clear part or all of it, which the
- * guard lines show. It holds 8,128 frames a plane of ADPCM.
+ * SPARE (Test 86): the ring lies in the driver's own memory, in the end of
+ * it that no build of the driver uses, and the bank table is not asked:
+ * 0x16000..0x17FFF under MANATEE 2 (8,128 frames a plane of ADPCM),
+ * 0x15000..0x17FFF under MANATEE 1 (12,224). The driver's work areas end
+ * below it, and it tells the game that free memory begins at 0x18000; its
+ * start-up, and its start again on the game's command, clear part or all
+ * of it, which the guard lines show.
  *
  * VOLUME: the two channels play at the level the game's driver gave the CD
  * input's mixers (0xa0702040 and 0xa0702044, which the loader only reads):
@@ -130,10 +131,11 @@ struct kui_toy_cdda_output kui_toy_cdda_output;
 #define TABLE_PAIRS 84u
 #define MEMORY UINT32_C(0x200000)
 #define LOWEST UINT32_C(0x18000)  /* the driver's own memory ends here */
-/* Test 86 (SPARE): the last 8 KiB of the driver's own memory, which no build
- * of it uses: a ring of 8,128 frames a plane with its guard lines. */
-#define SPARE UINT32_C(0x16000)
-#define SPARE_FRAMES 8128u
+/* Test 86 (SPARE): the end of the driver's own memory, which no build of it
+ * uses: under MANATEE 2 from 0x16000 (the host's MIDI ring ends below it),
+ * under MANATEE 1 from 0x15000 (the command history ends below it). */
+#define SPARE_GEN2 UINT32_C(0x16000)
+#define SPARE_GEN1 UINT32_C(0x15000)
 #define CRI UINT32_C(0x1dfe00)    /* CRI's stream slots begin here */
 #define GUARD_BYTES 32u
 #if KUI_TOY_CDDA_ADPCM
@@ -207,7 +209,8 @@ static const struct profile { uint32_t version; uint16_t date_hash; uint8_t fami
     {UINT32_C(0x003b0101), 0x1c1fu, KUI_TOY_CDDA_FAMILY_GEN1}, /* MANATEE 1.01.3b, 1998.12.08 */
     {UINT32_C(0x00370101), 0xe50fu, KUI_TOY_CDDA_FAMILY_GEN1}  /* MANATEE 1.01.37, 1998.11.02 */
 };
-#if KUI_TOY_CDDA_ADPCM
+#if KUI_TOY_CDDA_SPARE
+#elif KUI_TOY_CDDA_ADPCM
 static const uint16_t plane_frames[] = {65472u, 32768u, 16384u};
 #else
 static const uint16_t plane_frames[] = {16384u, 8192u, 4096u};
@@ -361,6 +364,7 @@ static int records(struct bus *b, bool busy[2]) {
     busy[1] = used[1];
     return 1;
 }
+#if !KUI_TOY_CDDA_SPARE
 /* The driver's bank table against [at, at + bytes): 1 no pair reaches into
  * it; 0 one does, which begins at *below; -2 a pair this reading does not
  * explain, *below its index; -1 the bus. */
@@ -382,6 +386,7 @@ static int table(struct bus *b, uint32_t at, uint32_t bytes, uint32_t *below) {
     }
     return 1;
 }
+#endif
 static bool guards(struct bus *b, bool store) {
     for(unsigned line = 0; line < 2u; ++line) {
         const uint32_t at = SOUND + O.ring + line * (ring_bytes() - GUARD_BYTES);
@@ -405,22 +410,26 @@ static int settle(struct bus *b, uint32_t at, uint32_t frames) {
     O.placed = 0u;
     return 0;
 }
+#if KUI_TOY_CDDA_SPARE
+/* The ring's place: the driver's spare memory, the whole of it. The game's
+ * own memory is not looked at: what its table leaves free at one moment is
+ * where the game may load its next sound data, and the table names that
+ * only after it has been loaded. */
+static int place(struct bus *b, uint32_t *detail) {
+    const uint32_t at = O.family == KUI_TOY_CDDA_FAMILY_GEN2 ? SPARE_GEN2 : SPARE_GEN1;
+    (void)detail;
+    O.spare = 1u;
+    return settle(b, at, LOWEST - at - 2u * GUARD_BYTES);
+}
+#else
 /* A place for the ring, the largest size first, and for each size first
  * below CRI's slots, then anywhere: the highest the table leaves free.
- * With SPARE, where the table leaves none or cannot be read: the driver's
- * spare memory. 1 placed, 0 still looking, -1 none (the reason's detail in
- * *detail). */
+ * 1 placed, 0 still looking, -1 none (the reason's detail in *detail). */
 static int place(struct bus *b, uint32_t *detail) {
     for(unsigned scans = 0; scans < 4u; ++scans) {
         if(O.place_try >= 2u * sizeof(plane_frames) / sizeof(plane_frames[0])) {
-#if KUI_TOY_CDDA_SPARE
-            (void)detail;
-            O.spare = 1u;
-            return settle(b, SPARE, SPARE_FRAMES);
-#else
             *detail = KUI_TOY_CDDA_OUT_RING_NONE;
             return -1;
-#endif
         }
         const uint32_t frames = plane_frames[O.place_try >> 1];
         const uint32_t bytes = ring_size(frames);
@@ -429,13 +438,8 @@ static int place(struct bus *b, uint32_t *detail) {
         const int clear = table(b, O.place_at, bytes, &below);
         if(clear == -1)return 0;
         if(clear == -2) {
-#if KUI_TOY_CDDA_SPARE
-            O.place_try = 2u * sizeof(plane_frames) / sizeof(plane_frames[0]);
-            continue;
-#else
             *detail = KUI_TOY_CDDA_OUT_RING_PAIR + below;
             return -1;
-#endif
         }
         if(clear)return settle(b, O.place_at, frames);
         if(below < LOWEST + bytes) {
@@ -445,6 +449,7 @@ static int place(struct bus *b, uint32_t *detail) {
     }
     return 0;
 }
+#endif
 /* A ring newly placed holds what lay there. It is cleared before its first
  * use, so that a play the card lets run dry falls silent. */
 static bool wipe(struct bus *b) {
@@ -829,9 +834,13 @@ static void work(struct bus *b, bool wanted, bool tail, uint32_t now) {
         if(placed < 0)stop(b, busy, KUI_TOY_CDDA_OUT_SILENT, KUI_TOY_CDDA_OUT_WHY_RING, detail);
         if(placed <= 0)return;
     }
+#if KUI_TOY_CDDA_SPARE
     /* (The driver's spare memory is no place of the table's.) */
-    const int clear = O.spare ? 1 : table(b, O.ring, ring_bytes(), &detail);
+    const int clear = 1;
+#else
+    const int clear = table(b, O.ring, ring_bytes(), &detail);
     if(clear == -1)return;
+#endif
     if(clear != 1 || !guards(b, false)) {
         if(!b->ok)return;
         if(clear != 1)++O.lost_table;

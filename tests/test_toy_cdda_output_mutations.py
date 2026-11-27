@@ -4,13 +4,14 @@
 each of a list, in a copy of src/loader/toy_cdda_output.c, built and run on
 its own with tests/test_toy_cdda_output.c.
 
-usage: test_toy_cdda_output_mutations.py [--jobs N] [--work DIR] [--only TEXT] [--adpcm]
+usage: test_toy_cdda_output_mutations.py [--jobs N] [--work DIR] [--only TEXT] [--way 100|110|111]
 
 Every mutation must still compile and must make the test fail. The test is
-built with VOLUME and with 16-bit samples, or with --adpcm with ADPCM and
-SPARE (Test 86's build); a mutation of code only one build has names that
-build ({"VOLUME": 0}, {"ADPCM": 1}, {"ADPCM": 0}), and is passed over where
-the other is asked for. Run from the repository root
+built with VOLUME and one of three ways: 16-bit samples in a place of the
+table's (the default), ADPCM in one (--way 110), ADPCM in the driver's
+spare memory (--way 111, Test 86's build). A mutation of code only some
+builds have names them ({"VOLUME": 0}, {"ADPCM": 1}, {"SPARE": 0} ...) and
+is passed over where another is asked for. Run from the repository root
 (Makefile.vmu-native-toy-suite, toy-cdda-output-mutation-check).
 """
 import argparse
@@ -86,20 +87,21 @@ MUTATIONS = [
      "    if(busy[0] || busy[1]) {\n        ++O.takes;\n        stop(b, busy, KUI_TOY_CDDA_OUT_SILENT, KUI_TOY_CDDA_OUT_WHY_TAKE, busy[0] | busy[1] << 1);",
      "    if(0) {\n        ++O.takes;\n        stop(b, busy, KUI_TOY_CDDA_OUT_SILENT, KUI_TOY_CDDA_OUT_WHY_TAKE, busy[0] | busy[1] << 1);"),
     # The ring's place
-    ("the table not asked", "        if(address < at + bytes && address + size > at) {", "        if(0 && address < at + bytes) {"),
+    ("the table not asked", "        if(address < at + bytes && address + size > at) {", "        if(0 && address < at + bytes) {",
+     {"SPARE": 0}),
     ("a pair that begins below the ring not seen", "        if(address < at + bytes && address + size > at) {",
-     "        if(address < at + bytes && address >= at) {"),
-    ("an unexplained pair passed over", "        if(address >= MEMORY) {\n            *below = pair;", "        if(0) {\n            *below = pair;"),
-    ("83 pairs", "#define TABLE_PAIRS 84u", "#define TABLE_PAIRS 63u"),
-    ("CRI's slots first", "(O.place_try & 1u ? MEMORY : CRI)", "(O.place_try & 1u ? CRI : MEMORY)"),
-    ("below the driver's end", "        if(below < LOWEST + bytes) {", "        if(below < bytes) {"),
+     "        if(address < at + bytes && address >= at) {", {"SPARE": 0}),
+    ("an unexplained pair passed over", "        if(address >= MEMORY) {\n            *below = pair;", "        if(0) {\n            *below = pair;", {"SPARE": 0}),
+    ("83 pairs", "#define TABLE_PAIRS 84u", "#define TABLE_PAIRS 63u", {"SPARE": 0}),
+    ("CRI's slots first", "(O.place_try & 1u ? MEMORY : CRI)", "(O.place_try & 1u ? CRI : MEMORY)", {"SPARE": 0}),
+    ("below the driver's end", "        if(below < LOWEST + bytes) {", "        if(below < bytes) {", {"SPARE": 0}),
     ("the smallest ring first", "plane_frames[] = {16384u, 8192u, 4096u};", "plane_frames[] = {4096u, 8192u, 16384u};", {"ADPCM": 0}),
-    ("the smallest ADPCM ring first", "plane_frames[] = {65472u, 32768u, 16384u};", "plane_frames[] = {16384u, 32768u, 65472u};", {"ADPCM": 1}),
-    ("no guard lines written", "            if(guards(b, true))return 1;", "            return 1;"),
+    ("the smallest ADPCM ring first", "plane_frames[] = {65472u, 32768u, 16384u};", "plane_frames[] = {16384u, 32768u, 65472u};", {"ADPCM": 1, "SPARE": 0}),
+    ("no guard lines written", "    if(guards(b, true))return 1;\n    O.placed = 0u;\n    return 0;", "    (void)b;\n    return 1;"),
     ("the guards not looked at", "    if(clear != 1 || !guards(b, false)) {", "    if(clear != 1) {"),
     ("the table not read again before a store", "    const int clear = table(b, O.ring, ring_bytes(), &detail);",
-     "    const int clear = 1;"),
-    ("a lost ring kept for the next play", "        O.placed = O.place_try = O.place_at = 0u;\n        return;\n    }\n    if(O.phase",
+     "    const int clear = 1;", {"SPARE": 0}),
+    ("a lost ring kept for the next play", "        O.placed = O.place_try = O.place_at = O.spare = 0u;\n        return;\n    }\n    if(O.phase",
      "        return;\n    }\n    if(O.phase"),
     ("the ring not cleared", "        if(!wipe(b))return;\n", "        (void)wipe;\n"),
     # Keys, registers, levels
@@ -164,14 +166,13 @@ MUTATIONS = [
     ("the write position not begun again with the ring", "O.broken = O.at = O.carried = 0u;", "O.broken = O.carried = 0u;"),
     ("the ring written past its end", "    if(O.at >= O.frames)O.at = 0u;", "    if(O.at > O.frames)O.at = 0u;"),
     # SPARE
-    ("the spare ring longer than its place", "#define SPARE_FRAMES 8128u", "#define SPARE_FRAMES 8192u", {"ADPCM": 1}),
-    ("the spare ring a page lower", "#define SPARE UINT32_C(0x16000)", "#define SPARE UINT32_C(0x15000)", {"ADPCM": 1}),
-    ("no spare place taken", "            (void)detail;\n            O.spare = 1u;\n            return settle(b, SPARE, SPARE_FRAMES);",
-     "            *detail = KUI_TOY_CDDA_OUT_RING_NONE;\n            return -1;", {"ADPCM": 1}),
-    ("the spare place still claimed behind a lost ring", "        O.placed = O.place_try = O.place_at = O.spare = 0u;\n        return;",
-     "        O.placed = O.place_try = O.place_at = 0u;\n        return;", {"ADPCM": 1}),
-    ("a table that cannot be read ends the search", "            O.place_try = 2u * sizeof(plane_frames) / sizeof(plane_frames[0]);\n            continue;",
-     "            *detail = KUI_TOY_CDDA_OUT_RING_PAIR + below;\n            return -1;", {"ADPCM": 1}),
+    ("the spare ring longer than its place", "    return settle(b, at, LOWEST - at - 2u * GUARD_BYTES);",
+     "    return settle(b, at, LOWEST - at);", {"SPARE": 1}),
+    ("MANATEE 2's spare ring a page lower", "#define SPARE_GEN2 UINT32_C(0x16000)", "#define SPARE_GEN2 UINT32_C(0x15000)", {"SPARE": 1}),
+    ("MANATEE 1's spare ring a page lower", "#define SPARE_GEN1 UINT32_C(0x15000)", "#define SPARE_GEN1 UINT32_C(0x14000)", {"SPARE": 1}),
+    ("MANATEE 1's spare memory under MANATEE 2", "O.family == KUI_TOY_CDDA_FAMILY_GEN2 ? SPARE_GEN2 : SPARE_GEN1",
+     "O.family != KUI_TOY_CDDA_FAMILY_GEN2 ? SPARE_GEN2 : SPARE_GEN1", {"SPARE": 1}),
+    ("the spare ring not said to be one", "    (void)detail;\n    O.spare = 1u;", "    (void)detail;", {"SPARE": 1}),
     # ADPCM
     ("the codes of a word in the other order", "        word |= code << shift;", "        word |= code << (28u - shift);", {"ADPCM": 1}),
     ("a step of the coder's table", "{230u, 230u, 230u, 230u, 307u, 409u, 512u, 614u}", "{230u, 230u, 230u, 230u, 307u, 409u, 512u, 615u}", {"ADPCM": 1}),
@@ -236,14 +237,13 @@ MUTATIONS = [
 ]
 
 
-ADPCM = 0
+WAY = {"VOLUME": 1, "ADPCM": 0, "SPARE": 0}
 
 
 def run(index, work):
     mutation = MUTATIONS[index]
     name, old, new = mutation[:3]
-    switches = dict({"VOLUME": 1, "ADPCM": ADPCM}, **(mutation[3] if len(mutation) > 3 else {}))
-    switches["SPARE"] = switches["ADPCM"]
+    switches = dict(WAY, **(mutation[3] if len(mutation) > 3 else {}))
     text = OUTPUT.read_text()
     if text.count(old) != 1:
         return index, "not applied (%d matches)" % text.count(old)
@@ -276,15 +276,14 @@ def main():
     parser.add_argument("--jobs", type=int, default=4)
     parser.add_argument("--work")
     parser.add_argument("--only", help="run the mutations whose name holds this text")
-    parser.add_argument("--adpcm", action="store_true", help="build the test with ADPCM and SPARE")
+    parser.add_argument("--way", default="100", choices=("100", "110", "111"), help="VOLUME, ADPCM, SPARE")
     args = parser.parse_args()
-    global ADPCM
-    ADPCM = int(args.adpcm)
+    WAY.update(VOLUME=int(args.way[0]), ADPCM=int(args.way[1]), SPARE=int(args.way[2]))
     work = args.work or tempfile.mkdtemp(prefix="toy-cdda-output-mutations-")
     print("mutations in", work)
     with concurrent.futures.ThreadPoolExecutor(args.jobs) as pool:
         chosen = [i for i in range(len(MUTATIONS)) if (not args.only or args.only in MUTATIONS[i][0]) and
-                  (len(MUTATIONS[i]) < 4 or MUTATIONS[i][3].get("ADPCM", ADPCM) == ADPCM)]
+                  all(WAY[k] == v for k, v in (MUTATIONS[i][3] if len(MUTATIONS[i]) > 3 else {}).items() if k != "VOLUME")]
         results = sorted(pool.map(lambda i: run(i, work), chosen))
     bad = [(i, r) for i, r in results if r != "caught"]
     for i, r in results:
