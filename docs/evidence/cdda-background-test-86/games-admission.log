@@ -1,0 +1,62 @@
+The launcher's admission helpers (static copies in a scratch harness, compiled against commit 17f33afc, whose K-UI
+sources are those of the owner's K-UI aaaba0ea3640) on the packaged bytes of the three modules.
+== KUI/apps/games/retail-native-dual.kui 4c5cf34c3f29675c2932a33b2819f9abdc32cefa8d6e66a061a9d59f0ef89e23
+kui_runtime_header: OK payload=0x4f304 memory=0x4f304 crc=789692c6 build=0af5d9ce889c
+payload crc matches: 1
+layout_codec(native): 1
+  stage bytes=0x4d304 resident=0x8c004000 limit=0x8c007800
+dual descriptor find: 1 at payload+0x3a33c lease=0x47000 new=1 legacy=2 flags=0
+kui_native_map_capacity: 160 ; native_background_map_slots: 160
+session descriptor find: 0
+background module matches New(1): 1 Legacy(2): 1
+vmu toggle find: 1 at payload+0x3a31c off_mode=7 lease=0x47000 cache=0x30000 flags=1
+  KUINVM01 at payload+0x22c20 version=1 bytes=32 mode=0 reserved_nonzero=0
+  KUINVM01 at payload+0x3b9c8 version=0 bytes=12059004 mode=12583100 reserved_nonzero=1
+mode records seen: 2
+cache seed find: payload+0x384c0 filled=0
+heap tail capability: 1
+sdk proof capability at 0x1f0: 1
+standalone descriptor find: 0
+  KUIVMUP2 magic at payload+0x22c80
+  KUIVMUP2 magic at payload+0x39b84
+KUIVMUP2 4-aligned magics: 2
+== IF-NEEDED/1-full-volume/KUI/apps/games/retail-native-dual.kui 9b0467c494a650bf47184aa0b92bbf682966407ec47c58535a647abebacdb0bc
+kui_runtime_header: OK payload=0x4f204 memory=0x4f204 crc=f6205516 build=0af5d9ce889c
+payload crc matches: 1
+layout_codec(native): 1
+  stage bytes=0x4d204 resident=0x8c004000 limit=0x8c007800
+dual descriptor find: 1 at payload+0x3a23c lease=0x47000 new=1 legacy=2 flags=0
+kui_native_map_capacity: 160 ; native_background_map_slots: 160
+session descriptor find: 0
+background module matches New(1): 1 Legacy(2): 1
+vmu toggle find: 1 at payload+0x3a21c off_mode=7 lease=0x47000 cache=0x30000 flags=1
+  KUINVM01 at payload+0x22c20 version=1 bytes=32 mode=0 reserved_nonzero=0
+  KUINVM01 at payload+0x3b8c8 version=0 bytes=12059004 mode=12583100 reserved_nonzero=1
+mode records seen: 2
+cache seed find: payload+0x383c0 filled=0
+heap tail capability: 1
+sdk proof capability at 0x1f0: 1
+standalone descriptor find: 0
+  KUIVMUP2 magic at payload+0x22c80
+  KUIVMUP2 magic at payload+0x39a84
+KUIVMUP2 4-aligned magics: 2
+== IF-NEEDED/2-no-sound/KUI/apps/games/retail-native-dual.kui cb4c31e89c9a7d2f96569921b0625d6f236b210037d4b9b7c613a8039e8cc74e
+kui_runtime_header: OK payload=0x4df64 memory=0x4df64 crc=b8cfb1a1 build=0af5d9ce889c
+payload crc matches: 1
+layout_codec(native): 1
+  stage bytes=0x4bf64 resident=0x8c004000 limit=0x8c007800
+dual descriptor find: 1 at payload+0x38f9c lease=0x47000 new=1 legacy=2 flags=0
+kui_native_map_capacity: 160 ; native_background_map_slots: 160
+session descriptor find: 0
+background module matches New(1): 1 Legacy(2): 1
+vmu toggle find: 1 at payload+0x38f7c off_mode=7 lease=0x47000 cache=0x30000 flags=1
+  KUINVM01 at payload+0x22c20 version=1 bytes=32 mode=0 reserved_nonzero=0
+  KUINVM01 at payload+0x3a628 version=0 bytes=12059004 mode=12583100 reserved_nonzero=1
+mode records seen: 2
+cache seed find: payload+0x37120 filled=0
+heap tail capability: 1
+sdk proof capability at 0x1f0: 1
+standalone descriptor find: 0
+  KUIVMUP2 magic at payload+0x22c80
+  KUIVMUP2 magic at payload+0x387e4
+KUIVMUP2 4-aligned magics: 2

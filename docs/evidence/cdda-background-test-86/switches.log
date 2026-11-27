@@ -1,0 +1,5 @@
+== make test-toy-test-switches
+PASS toy test switches: 11 resolver cases; 30 shared sources keep their production text
+== tests/test_asm_audit.py
+Ran 10 tests in 0.889s
+OK

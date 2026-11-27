@@ -1,0 +1,71 @@
+{
+  "schema": "kui.manual-copy-inventory.v1",
+  "package": "KUI-CD-Music-Test-86-27NOV2026-1606-CST-0af5d9c.zip",
+  "prepared": "2026-11-27 16:06 CST (America/Chicago)",
+  "test": 86,
+  "source_commit": "0af5d9ce889ca449640ec8e5873840767ac91cc2",
+  "changed": [
+    {
+      "path": "KUI/apps/games/retail-native-dual.kui",
+      "bytes": 324420,
+      "sha256": "4c5cf34c3f29675c2932a33b2819f9abdc32cefa8d6e66a061a9d59f0ef89e23",
+      "runtime": {
+        "format": 1,
+        "build": "0af5d9ce889c",
+        "payload_bytes": 324356,
+        "memory_bytes": 324356,
+        "crc32": "789692c6"
+      },
+      "status": "changed for the test only: Test 86 (Test 85 with ADPCM and SPARE, the level rule and the report fields of its seven commits) in the place of the New reader module on the card (Test 85's b9cff7086258); the owner puts their own module back afterwards",
+      "recipe": "make -f Makefile.vmu-native-toy-suite TOY_SUITE_MODE=66 TOY_WIRE_STREAM=1 TOY_WIRE_CACHED=1 TOY_WIRE_WORDS=1 TOY_WIRE_PACE=1 TOY_WIRE_IDLE=1 TOY_WIRE_LEAN=1 TOY_WIRE_STEADY=1 TOY_WIRE_FLUID=1 TOY_WIRE_SEQ=1 TOY_WIRE_ANY=1 TOY_WIRE_TITLES=1 TOY_WIRE_QUERY=1 TOY_WIRE_TIMER=1 TOY_WIRE_SAVE=1 KUI_NATIVE_BACKGROUND_MAP160=1 TOY_SURVEY_MIXED_PAD=1 TOY_CDDA_ROOM=1 TOY_CDDA_HOOK=1 TOY_CDDA_DRIVE=1 TOY_CDDA_KEEP=1 TOY_CDDA_CARD=1 TOY_CDDA_YIELD=1 TOY_CDDA_SURVEY=0 TOY_CDDA_OUTPUT=1 TOY_CDDA_VOLUME=1 TOY_CDDA_ADPCM=1 TOY_CDDA_SPARE=1 BUILD_ID=0af5d9ce889c"
+    },
+    {
+      "path": "KUI/SURVEY/STREAM.TXT",
+      "bytes": 154112,
+      "sha256": "49cc8f7cbfe1b94c5572b281d6843fcf79cdfda65becc1c9d3661f0065ae4e3b",
+      "status": "replaced: a new blank report file of this test, 100 slots, ID A7E2DEC4944B4B399F8B3C119C906300; no software"
+    }
+  ],
+  "if_needed": [
+    {
+      "path": "IF-NEEDED/1-full-volume/KUI/apps/games/retail-native-dual.kui",
+      "bytes": 324164,
+      "sha256": "9b0467c494a650bf47184aa0b92bbf682966407ec47c58535a647abebacdb0bc",
+      "runtime": {
+        "format": 1,
+        "build": "0af5d9ce889c",
+        "payload_bytes": 324100,
+        "memory_bytes": 324100,
+        "crc32": "f6205516"
+      },
+      "status": "not copied: the same build without VOLUME (full level, the CD mixers not read); for a game that runs but stays silent with the main module",
+      "recipe": "the main recipe with TOY_CDDA_VOLUME=0"
+    },
+    {
+      "path": "IF-NEEDED/2-no-sound/KUI/apps/games/retail-native-dual.kui",
+      "bytes": 319396,
+      "sha256": "cb4c31e89c9a7d2f96569921b0625d6f236b210037d4b9b7c613a8039e8cc74e",
+      "runtime": {
+        "format": 1,
+        "build": "0af5d9ce889c",
+        "payload_bytes": 319332,
+        "memory_bytes": 319332,
+        "crc32": "b8cfb1a1"
+      },
+      "status": "not copied: the same build without OUTPUT, ADPCM and SPARE and with Test 84's read-only survey (the audio read from the card and dropped, nothing written to the sound chip; its report says TEST 85); for a game that hangs, crashes or whose own sounds go wrong with the main module",
+      "recipe": "the main recipe with TOY_CDDA_SURVEY=1 TOY_CDDA_OUTPUT=0 TOY_CDDA_VOLUME=0 TOY_CDDA_ADPCM=0 TOY_CDDA_SPARE=0"
+    }
+  ],
+  "retained": "every other file on the card: K-UI (KUI/boot.kui and KUI/runtime.kui, aaaba0ea3640 or 53a33ec708ab), every other reader module and helper under KUI/apps, the Windows CE modules, banks and their selection records, settings, virtual VMU cards, saves and the games",
+  "excluded": "K-UI itself, updater packages, activation records, banks, other reader modules, game data and user data",
+  "needs_gui": {
+    "change": "4d4dcff77494 (the 160-place Background map and the routes of the owner's Test 83 GUI line)",
+    "check": "python3 tools/check_gui_lines.py --installed-has 4d4dcff77494: the installed K-UI aaaba0ea3640 contains it; so does 53a33ec708ab, the K-UI the owner's log of 27 November 2026 names",
+    "owner_checks": "the first line of Settings, Diagnostics before the first launch"
+  },
+  "report_file": {
+    "id": "A7E2DEC4944B4B399F8B3C119C906300",
+    "slots": 100
+  },
+  "console": "not run on a console"
+}

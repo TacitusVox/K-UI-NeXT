@@ -1,0 +1,460 @@
+== main-toy-cdda-mutation-check (Test 84's drive)
+caught    status 1 while playing
+caught    no status written
+caught    no position projected
+caught    projection not brought up to date
+caught    data position not restored
+caught    restored while still pending
+caught    the catalogue projected too
+caught    one pass too many
+caught    repeat 15 not endless
+caught    the end a pass late
+caught    two sectors a group
+caught    a group's part left out
+caught    a lap within a group counted twice
+caught    PAUSE ignored
+caught    RELEASE from the start
+caught    a data track plays
+caught    PLAY2 in a gap refused
+caught    a range through data
+caught    PLAY of a data track
+caught    SEEK keeps the play
+caught    an ended play leaves its 3
+caught    RESET ignored
+caught    ABORT ignored
+caught    interrupt visits answer
+caught    a command seen again
+caught    the clock always trusted
+caught    a refused play keeps the last one
+caught    written with no play
+caught    a lost play still plays
+caught    KEEP keeps nothing
+caught    KEEP writes 1
+caught    KEEP in an interrupt's visit
+caught    KEEP while paused or ended
+caught    KEEP of a failed read
+caught    KEEP of another read's engine
+caught    KEEP's raw sectors as 2,048 bytes
+caught    KEEP's position one on
+caught    KEEP's sectors not counted
+caught    KEEP's step not counted
+caught    KEEP publishes no new sector
+caught    KEEP's bytes of one sector less
+PASS Test 84 drive mutations: all 41 caught by the drive test
+== tests/test_toy_cdda_output_mutations.py --way 111 (VOLUME, ADPCM, SPARE)
+caught    SR.BL not refused
+caught    the mask not raised
+caught    SR not given back
+caught    SR not given back before a G2 transfer
+caught    a DMA channel enabled not refused
+caught    a DMA channel running not refused
+caught    three DMA channels
+caught    bursts of sixteen
+caught    no FIFO wait before a burst
+caught    one read believed
+caught    ten times the polls
+caught    ten times the time
+caught    heartbeats a tenth of 2 ms apart
+caught    a silent play looked at ten times as often
+caught    a silent play looked at a tenth as often
+caught    the bus used with no play
+caught    the clock's profile not checked
+caught    TCR0 read as a word
+caught    the right plane beyond the ring
+caught    the reset bit ignored
+caught    any version of a date admitted
+caught    any date of a version admitted
+caught    a driver that is not running admitted
+caught    another admitted build taken for the same driver
+caught    MANATEE 2 on MANATEE 1's channels
+caught    MANATEE 1 on channel 63
+caught    a split with one stream port taken
+caught    the split's sum not checked
+caught    the stream ports' base not checked
+caught    the wrong port records
+caught    a playing port taken for free
+caught    the pool's entries 14 and 15
+caught    a pool entry's base not checked
+caught    an owned pool entry taken for free
+caught    unproved records written to all the same
+caught    a used channel written to at the start
+caught    no guard lines written
+caught    the guards not looked at
+caught    a lost ring kept
+caught    a lost ring ends the play
+caught    a ring lost again and again never given up
+caught    the ring not cleared
+caught    no execute strobe at key-on
+caught    no loop
+caught    the loop's end one frame early
+caught    the loop's end one frame late
+caught    the planes' addresses exchanged
+caught    a channel left keyed on keyed on again
+caught    the level left at a stop
+caught    the key left at a stop
+caught    no execute strobe at a stop
+caught    a taken channel keyed off
+caught    a channel with another address keyed off
+caught    another address not seen in play
+caught    a dropped key not seen
+caught    a dropped key begun again for ever
+caught    changed registers left
+caught    the level register not watched
+caught    a moved play goes on where it was
+caught    a pitch put back goes on
+caught    the ring begun again for a level put back
+caught    a play moved again and again never given up
+caught    the mixers' pans copied
+caught    the smaller of the two levels
+caught    the first mixer's level alone
+caught    a pan with no level
+caught    both planes on the left
+caught    the mixers' first words not kept
+caught    the left mixer for both
+caught    MANATEE 2's level bytes at once
+caught    MANATEE 1 read for level bytes
+caught    the right level byte not read
+caught    the pan bytes read for a level
+caught    without VOLUME, both hard left
+caught    a frame lost behind each unit
+caught    a byte gathered twice
+caught    a unit that waits is forgotten
+caught    the unit gathered not stored at the end
+caught    the frames gathered dropped at each piece
+caught    the write position not begun again with the ring
+caught    the ring written past its end
+caught    the spare ring longer than its place
+caught    MANATEE 2's spare ring a page lower
+caught    MANATEE 1's spare ring a page lower
+caught    MANATEE 1's spare memory under MANATEE 2
+caught    the spare ring not said to be one
+caught    the codes of a word in the other order
+caught    a step of the coder's table
+caught    a move by sixteenths
+caught    a move the chip's accounts differ on
+caught    the least step not kept
+caught    the largest step not kept
+caught    the signal not held to 16 bits
+caught    a fall coded as a rise
+caught    the half step not tried
+caught    the left side's codes for both planes
+caught    the coders move on with a word not stored
+caught    the coders not begun again with the ring
+caught    ADPCM that begins again at the loop
+caught    a cleared ring that is not silence
+caught    eight frames a word, a quarter of a plane
+caught    bytes out of their order taken
+caught    a gap's sectors two at a time
+caught    a track read past the play's end
+caught    one pass more
+caught    a refused track asked for again and again
+caught    the card asked twice a heartbeat
+caught    more taken than there is room
+caught    no more asked for than the piece has left
+caught    the card not given back
+caught    the drive's place a sector off
+caught    a play that is over begun
+caught    883 frames in 15,625 ticks
+caught    no margin for the clocks' drift
+caught    the ring never begun again for drift
+caught    a dry ring not seen
+caught    written over what is not yet played
+caught    silence over what is not yet played
+caught    no silence behind the last frame
+caught    stopped at the last frame by TMU0 alone
+caught    keyed on before the ring is primed
+caught    the driver's clock not begun again when the driver is
+caught    MANATEE 2's count read under MANATEE 1
+caught    TMU0's ticks counted the other way
+caught    the two clocks looked at once only
+caught    no level kept behind the key-off
+caught    the level at the key-on not kept
+caught    a paused play sounds on
+caught    a new play not begun
+caught    the last frames cut when the drive ends
+caught    an ended play read on from the card
+caught    the output on any stack
+caught    the terminal on any stack
+caught    a short stack not counted
+caught    nothing at the terminal report
+caught    the terminal with SR.BL set
+caught    another driver's channels keyed off
+PASS Test 85 output mutations: all 137 caught by the output test
+== tests/test_toy_cdda_output_mutations.py --way 110 (VOLUME, ADPCM, SPARE)
+caught    SR.BL not refused
+caught    the mask not raised
+caught    SR not given back
+caught    SR not given back before a G2 transfer
+caught    a DMA channel enabled not refused
+caught    a DMA channel running not refused
+caught    three DMA channels
+caught    bursts of sixteen
+caught    no FIFO wait before a burst
+caught    one read believed
+caught    ten times the polls
+caught    ten times the time
+caught    heartbeats a tenth of 2 ms apart
+caught    a silent play looked at ten times as often
+caught    a silent play looked at a tenth as often
+caught    the bus used with no play
+caught    the clock's profile not checked
+caught    TCR0 read as a word
+caught    the right plane beyond the ring
+caught    the reset bit ignored
+caught    any version of a date admitted
+caught    any date of a version admitted
+caught    a driver that is not running admitted
+caught    another admitted build taken for the same driver
+caught    MANATEE 2 on MANATEE 1's channels
+caught    MANATEE 1 on channel 63
+caught    a split with one stream port taken
+caught    the split's sum not checked
+caught    the stream ports' base not checked
+caught    the wrong port records
+caught    a playing port taken for free
+caught    the pool's entries 14 and 15
+caught    a pool entry's base not checked
+caught    an owned pool entry taken for free
+caught    unproved records written to all the same
+caught    a used channel written to at the start
+caught    the table not asked
+caught    a pair that begins below the ring not seen
+caught    an unexplained pair passed over
+caught    83 pairs
+caught    CRI's slots first
+caught    below the driver's end
+caught    the smallest ADPCM ring first
+caught    no guard lines written
+caught    the guards not looked at
+caught    the table not read again before a store
+caught    a lost ring kept
+caught    a lost ring ends the play
+caught    a ring lost again and again never given up
+caught    the ring not cleared
+caught    no execute strobe at key-on
+caught    no loop
+caught    the loop's end one frame early
+caught    the loop's end one frame late
+caught    the planes' addresses exchanged
+caught    a channel left keyed on keyed on again
+caught    the level left at a stop
+caught    the key left at a stop
+caught    no execute strobe at a stop
+caught    a taken channel keyed off
+caught    a channel with another address keyed off
+caught    another address not seen in play
+caught    a dropped key not seen
+caught    a dropped key begun again for ever
+caught    changed registers left
+caught    the level register not watched
+caught    a moved play goes on where it was
+caught    a pitch put back goes on
+caught    the ring begun again for a level put back
+caught    a play moved again and again never given up
+caught    the mixers' pans copied
+caught    the smaller of the two levels
+caught    the first mixer's level alone
+caught    a pan with no level
+caught    both planes on the left
+caught    the mixers' first words not kept
+caught    the left mixer for both
+caught    MANATEE 2's level bytes at once
+caught    MANATEE 1 read for level bytes
+caught    the right level byte not read
+caught    the pan bytes read for a level
+caught    without VOLUME, both hard left
+caught    a frame lost behind each unit
+caught    a byte gathered twice
+caught    a unit that waits is forgotten
+caught    the unit gathered not stored at the end
+caught    the frames gathered dropped at each piece
+caught    the write position not begun again with the ring
+caught    the ring written past its end
+caught    the codes of a word in the other order
+caught    a step of the coder's table
+caught    a move by sixteenths
+caught    a move the chip's accounts differ on
+caught    the least step not kept
+caught    the largest step not kept
+caught    the signal not held to 16 bits
+caught    a fall coded as a rise
+caught    the half step not tried
+caught    the left side's codes for both planes
+caught    the coders move on with a word not stored
+caught    the coders not begun again with the ring
+caught    ADPCM that begins again at the loop
+caught    a cleared ring that is not silence
+caught    eight frames a word, a quarter of a plane
+caught    bytes out of their order taken
+caught    a gap's sectors two at a time
+caught    a track read past the play's end
+caught    one pass more
+caught    a refused track asked for again and again
+caught    the card asked twice a heartbeat
+caught    more taken than there is room
+caught    no more asked for than the piece has left
+caught    the card not given back
+caught    the drive's place a sector off
+caught    a play that is over begun
+caught    883 frames in 15,625 ticks
+caught    no margin for the clocks' drift
+caught    the ring never begun again for drift
+caught    a dry ring not seen
+caught    written over what is not yet played
+caught    silence over what is not yet played
+caught    no silence behind the last frame
+caught    stopped at the last frame by TMU0 alone
+caught    keyed on before the ring is primed
+caught    MANATEE 2's count read under MANATEE 1
+caught    TMU0's ticks counted the other way
+caught    the two clocks looked at once only
+caught    no level kept behind the key-off
+caught    the level at the key-on not kept
+caught    a paused play sounds on
+caught    a new play not begun
+caught    the last frames cut when the drive ends
+caught    an ended play read on from the card
+caught    the output on any stack
+caught    the terminal on any stack
+caught    a short stack not counted
+caught    nothing at the terminal report
+caught    the terminal with SR.BL set
+caught    another driver's channels keyed off
+PASS Test 85 output mutations: all 139 caught by the output test
+== tests/test_toy_cdda_output_mutations.py --way 100 (VOLUME, ADPCM, SPARE)
+caught    SR.BL not refused
+caught    the mask not raised
+caught    SR not given back
+caught    SR not given back before a G2 transfer
+caught    a DMA channel enabled not refused
+caught    a DMA channel running not refused
+caught    three DMA channels
+caught    bursts of sixteen
+caught    no FIFO wait before a burst
+caught    one read believed
+caught    ten times the polls
+caught    ten times the time
+caught    heartbeats a tenth of 2 ms apart
+caught    a silent play looked at ten times as often
+caught    a silent play looked at a tenth as often
+caught    the bus used with no play
+caught    the clock's profile not checked
+caught    TCR0 read as a word
+caught    the right plane beyond the ring
+caught    the reset bit ignored
+caught    any version of a date admitted
+caught    any date of a version admitted
+caught    a driver that is not running admitted
+caught    another admitted build taken for the same driver
+caught    MANATEE 2 on MANATEE 1's channels
+caught    MANATEE 1 on channel 63
+caught    a split with one stream port taken
+caught    the split's sum not checked
+caught    the stream ports' base not checked
+caught    the wrong port records
+caught    a playing port taken for free
+caught    the pool's entries 14 and 15
+caught    a pool entry's base not checked
+caught    an owned pool entry taken for free
+caught    unproved records written to all the same
+caught    a used channel written to at the start
+caught    the table not asked
+caught    a pair that begins below the ring not seen
+caught    an unexplained pair passed over
+caught    83 pairs
+caught    CRI's slots first
+caught    below the driver's end
+caught    the smallest ring first
+caught    no guard lines written
+caught    the guards not looked at
+caught    the table not read again before a store
+caught    a lost ring kept
+caught    a lost ring ends the play
+caught    a ring lost again and again never given up
+caught    the ring not cleared
+caught    no execute strobe at key-on
+caught    no loop
+caught    the loop's end one frame early
+caught    the loop's end one frame late
+caught    no repeat of a plane's first frames
+caught    the planes' addresses exchanged
+caught    a channel left keyed on keyed on again
+caught    the level left at a stop
+caught    the key left at a stop
+caught    no execute strobe at a stop
+caught    a taken channel keyed off
+caught    a channel with another address keyed off
+caught    another address not seen in play
+caught    a dropped key not seen
+caught    a dropped key begun again for ever
+caught    changed registers left
+caught    the level register not watched
+caught    a moved play goes on where it was
+caught    a pitch put back goes on
+caught    the ring begun again for a level put back
+caught    a play moved again and again never given up
+caught    the mixers' pans copied
+caught    the smaller of the two levels
+caught    the first mixer's level alone
+caught    a pan with no level
+caught    both planes on the left
+caught    the mixers' first words not kept
+caught    the left mixer for both
+caught    MANATEE 2's level bytes at once
+caught    MANATEE 1 read for level bytes
+caught    the right level byte not read
+caught    the pan bytes read for a level
+caught    without VOLUME, both hard left
+caught    left and right exchanged
+caught    the second frame of a pair lost
+caught    a frame lost behind each unit
+SURVIVED  a byte gathered twice
+caught    a unit that waits is forgotten
+caught    the unit gathered not stored at the end
+caught    the write position not begun again with the ring
+caught    the ring written past its end
+caught    bytes out of their order taken
+caught    a gap's sectors two at a time
+caught    a track read past the play's end
+caught    one pass more
+caught    a refused track asked for again and again
+caught    the card asked twice a heartbeat
+caught    more taken than there is room
+caught    no more asked for than the piece has left
+caught    the card not given back
+caught    the drive's place a sector off
+caught    a play that is over begun
+caught    883 frames in 15,625 ticks
+caught    no margin for the clocks' drift
+caught    the ring never begun again for drift
+caught    a dry ring not seen
+caught    written over what is not yet played
+caught    silence over what is not yet played
+caught    no silence behind the last frame
+caught    stopped at the last frame by TMU0 alone
+caught    keyed on before the ring is primed
+caught    MANATEE 2's count read under MANATEE 1
+caught    TMU0's ticks counted the other way
+caught    the two clocks looked at once only
+caught    no level kept behind the key-off
+caught    the level at the key-on not kept
+caught    a paused play sounds on
+caught    a new play not begun
+caught    the last frames cut when the drive ends
+caught    an ended play read on from the card
+caught    the output on any stack
+caught    the terminal on any stack
+caught    a short stack not counted
+caught    nothing at the terminal report
+caught    the terminal with SR.BL set
+caught    another driver's channels keyed off
+FAIL 1 of 126 mutations not caught: a byte gathered twice (SURVIVED)
+== tests/test_toy_cdda_output_mutations.py --way 100 --only "a byte gathered twice" (the mutation as corrected after the full runs)
+caught    a byte gathered twice
+PASS Test 85 output mutations: all 1 caught by the output test
+== tests/test_toy_cdda_output_mutations.py --way 110 --only "a byte gathered twice" (the mutation as corrected after the full runs)
+caught    a byte gathered twice
+PASS Test 85 output mutations: all 1 caught by the output test
+== tests/test_toy_cdda_output_mutations.py --way 111 --only "a byte gathered twice" (the mutation as corrected after the full runs)
+caught    a byte gathered twice
+PASS Test 85 output mutations: all 1 caught by the output test

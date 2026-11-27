@@ -186,10 +186,15 @@ refused three games ([Test 84](cdda-background-test-84.md)). Its re-run
 under this K-UI came on 22 November and the controls on 26 November (the
 same document, Console result): the owner's logs name `64ae07435de5`, the
 160-slot map admits Bangai-O, MDK2 and Omikron, and the launches decide as
-recorded there. Test 85's module `b9cff7086258` (the CD music heard in ChuChu
-Rocket, KOF Dream Match 1999 and POD SpeedZone) was delivered on 27
-November 2026: host- and linked-qualified, a test configuration, with no
-console result yet ([Test 85](cdda-background-test-85.md)). The owner has reported no Windows CE or Smash Pack run
+recorded there. Test 85's module `b9cff7086258` (the CD music heard) ran
+on the console on 27 November 2026: POD SpeedZone played its music, ChuChu
+Rocket and KOF Dream Match 1999 stayed silent for want of a place for the
+ring in sound memory ([Test 85](cdda-background-test-85.md), Console
+result). Test 86's module `0af5d9ce889c` (the ring as ADPCM in the sound
+driver's own spare memory) was delivered the same day: host- and
+linked-qualified, a test configuration, with no console result yet
+([Test 86](cdda-background-test-86.md)). Neither is an accepted
+component. The owner has reported no Windows CE or Smash Pack run
 under it; for those `1c71ba3afa17` and the 3.0 RC1 K-UI `93f13e84d989`
 remain the references.
 

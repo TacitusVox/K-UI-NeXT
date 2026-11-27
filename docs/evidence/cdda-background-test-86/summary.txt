@@ -1,0 +1,72 @@
+commit 0af5d9ce CD-music report: the levels as played, the mixers' first words, the two clocks; build 0af5d9ce889c; worktree changes: 0
+ok   build-main
+build/t86-main: 324420 bytes; worker free 800; auxiliary free 288
+ok   main-toy-wire-linked-check
+ok   main-toy-cdda-parts-check
+ok   main-toy-wire-package-test
+ok   main-toy-wire-save-host-test
+ok   main-toy-wire-host-tests
+ok   main-toy-wire-integration-host-test
+ok   main-toy-cdda-drive-host-test
+ok   main-toy-survey-mixed-pad-host-test
+ok   main-toy-cdda-card-host-test
+ok   main-toy-cdda-card-quiet-check
+ok   main-toy-cdda-output-host-test
+ok   main-toy-cdda-mutation-check
+ok   switches
+ok   asm-audit
+ok   admission-main
+ok   build-main-again
+ok   build-level
+build/t86-level: 324164 bytes; worker free 1024; auxiliary free 288
+ok   level-toy-wire-linked-check
+ok   level-toy-cdda-parts-check
+ok   level-toy-wire-package-test
+ok   level-toy-wire-host-tests
+ok   level-toy-survey-mixed-pad-host-test
+ok   admission-level
+ok   build-read
+build/t86-read: 319396 bytes; worker free 5152; auxiliary free 288
+ok   read-toy-wire-linked-check
+ok   read-toy-cdda-parts-check
+ok   read-toy-wire-package-test
+ok   read-toy-wire-host-tests
+ok   read-toy-survey-mixed-pad-host-test
+ok   read-toy-cdda-survey-host-test
+ok   read-toy-cdda-card-host-test
+ok   admission-read
+ok   build-samples
+build/t86-pcm: 324676 bytes; worker free 576; auxiliary free 288
+ok   samples-toy-wire-linked-check
+ok   samples-toy-wire-host-tests
+main:        4c5cf34c3f29675c2932a33b2819f9abdc32cefa8d6e66a061a9d59f0ef89e23
+main again:  4c5cf34c3f29675c2932a33b2819f9abdc32cefa8d6e66a061a9d59f0ef89e23
+level:       9b0467c494a650bf47184aa0b92bbf682966407ec47c58535a647abebacdb0bc
+read:        cb4c31e89c9a7d2f96569921b0625d6f236b210037d4b9b7c613a8039e8cc74e
+level native-ra-aux.bin = main native-ra-aux.bin
+level resident-sci.bin = main resident-sci.bin
+level resident-legacy.bin = main resident-legacy.bin
+read native-ra-aux.bin = main native-ra-aux.bin
+read resident-sci.bin = main resident-sci.bin
+read resident-legacy.bin = main resident-legacy.bin
+before: f4cc67dd Record K-UI aaaba0ea3640 and the console result of 
+ok   old-test84-here
+same test84: 68f9f3de57f87439fa2fffe3fdc12812c39c9b866dc231707e1f32a54fdff22d (315748 bytes)
+ok   old-test83-here
+same test83: 30cac0f816f309997c43515f9a08d2dd55c4e7d7864193b8baeb6499d3ca507a (311940 bytes)
+ok   old-installed-here
+same installed: e69a6fefb77584c2757ee2f725e8e63c0e9e40024ce2ee43b9867ec74d2a93ac (294468 bytes)
+reader inputs here: c1b08df635ea59bb1b9b2b377d8b24b572e5f037977cc3acb56e71e7514c47d5; recorded: 3b4308b00a3d6949f4820053e3c822856972b55974943384d0d8168cb33fc8b9
+ok   mutations-output-111
+ok   mutations-output-110
+FAIL mutations-output-100 (exit 1)
+caught    a short stack not counted
+caught    nothing at the terminal report
+caught    the terminal with SR.BL set
+caught    another driver's channels keyed off
+FAIL 1 of 126 mutations not caught: a byte gathered twice (SURVIVED)
+ok   old-test85-no-sound-here (Test 85's recipe without the output, BUILD_ID=b9cff7086258, at this commit)
+same test85-no-sound: 1bd6e044b3c42a2f8a55cc36759492b48ee3229da5421a8d5b0494d81cfab411 (319396 bytes), the delivered file of Test 85
+PASS the installed K-UI aaaba0ea3640 contains 4d4dcff77494 (python3 tools/check_gui_lines.py --installed-has 4d4dcff77494)
+note mutations-output-100: 125 of 126 caught in the full run. The one left, "a byte gathered twice", could not change the samples build as written; corrected in 1c581014 and run by itself it is caught in all three ways (mutation-check.log)
+note reader inputs: recorded as c1b08df6... in 6771d9d7, after this run

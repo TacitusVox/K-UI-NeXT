@@ -1,9 +1,12 @@
 # Test 85: CD music in the Background reader, part 2: the music is heard
 
 Status: packaged 27 November 2026, 13:13 CST (build `b9cff7086258`, commit
-`b9cff70`). Not yet run on a console. A test module in the place of the
-installed New reader, like Tests 79 to 84, not an accepted component. It is
-the first build of this line that writes to the sound chip.
+`b9cff70`), and run on the console the same day (Console result): POD
+SpeedZone played its music; ChuChu Rocket and KOF Dream Match 1999 stayed
+silent, because their sound data leaves no place for the ring. Test 86
+(`cdda-background-test-86.md`) answers that. A test module in the place of
+the installed New reader, like Tests 79 to 84, not an accepted component.
+It is the first build of this line that writes to the sound chip.
 
 It answers the owner's request of 27 November 2026: "I guess make the next
 test/zip for CD music." The games are the ones the owner's handoff of 26
@@ -265,6 +268,77 @@ Questions:
 | A game's own sounds wrong, a hang or a crash | The second if-needed module (the card's reading without the sound) says whether the reading or the output is the cause |
 | LOST's top byte counts | The completion ran with less than 768 bytes of stack: the output never ran |
 
+## Console result
+
+The owner's runs of 27 November 2026, with the file from the card,
+`KUI/SURVEY/STREAM.TXT` (ID AC0C9D85004568C20442C57C37EBABA3, four of its
+hundred slots used, SHA-256 `09b51fbc...c097`). The file, the tool's
+listing and the reports with their CD rows spelled out
+(`tools/toy_cdda_report.py`) are in
+`docs/evidence/cdda-background-test-85/console-2026-11-27/`. The owner's
+words: "Didn't work for either King of Fighters nor Chuchu rocket. POD
+seemed to work, however."
+
+Every slot's launch record names this module, build `b9cff7086258`. No log
+of these runs names the K-UI. The launch records show a 160-place map (KOF's
+43 tracks and 49 pieces need 92 places), which `53a33ec708ab` and
+`aaaba0ea3640` have.
+
+| Slot | Game | In the report |
+|---|---|---|
+| 0 | ChuChu Rocket | 15 PLAY, 21 PAUSE; track 10 playing at the save. The driver is the admitted MANATEE 2.00.09 (`00090002`, `C46D`), channels 62 and 63, their records free. **Silent: reason 5, detail 1: no place for the ring among the table's pairs.** No key-on, nothing written, the card not asked. 2,922 heartbeats looked, 0.05 ms each |
+| 1 | KOF Dream Match 1999 | 3 PLAY, 7 PAUSE; track 15 playing at the save; no data read during a play. MANATEE 1.01.3b (`003B0101`, `1C1F`), channels 61 and 62 free. **Silent: reason 5, detail 1**, as ChuChu Rocket. Its audio is mapped: `AUDIO 40 ... MAPPED 40 ... EXTENTS 49` |
+| 2 | POD SpeedZone | 3 PLAY, endless; 596 data reads during a play. MANATEE 1.01.37 (`00370101`, `E50F`), channels 61 and 62. **Playing at the save.** The ring at 0x1E7F20, 16,384 frames, its second place: one ring was lost to a pair of the table. 11 key-ons; the ring began again 9 times, each for a ring run dry; none for the clocks, no key dropped, no channel taken, no register put back. 10,883 KiB of audio written: 63 s of music |
+| 3 | KOF Dream Match 1999 | A launch record only |
+
+What it shows:
+
+1. **A ring of 16-bit samples does not fit where a game's sound data fills
+   sound memory.** In ChuChu Rocket and KOF the table left no 16,456 bytes
+   free anywhere from 0x18000 up, so the smallest ring found no place.
+   Everything before that held: the driver admitted by its version, date
+   and running mark, the two channels' records proving their layout and
+   free. By the owner's archive (file names and sizes only), ChuChu
+   Rocket's sound data for the game is one file of 1,891,104 bytes, and
+   1,998,848 bytes lie between the driver and the end of sound memory.
+2. **The path holds end to end in POD.** The card's audio reached the ring
+   and two channels of the game's driver played it: no key dropped, no
+   channel taken, no store refused, no bus wait run out, no heartbeat
+   skipped for SR.BL or a G2 transfer. The owner heard music.
+3. **The card keeps up, but not through the game's reading.** A heartbeat
+   wrote 2,279 bytes on average, 77 heartbeats to a second of music: what
+   plays, no more. 53 streams were ended for a read of the game's, and 9
+   times the ring ran dry (a third of a second of music in it at most):
+   the music stopped and came back at the drive's position.
+4. **What a heartbeat costs.** 2.48 ms on average with the card's time in
+   it, the longest 4.39 ms: 19% of the time with interrupts masked. 12,446
+   visits to the auxiliary in 4,735 heartbeats, 1.74 card blocks a visit,
+   0.61 ms a visit with the bytes' way into the ring; the longest reading
+   visit 1.17 ms, the longest heartbeat's card work 3.00 ms (the window).
+   About 0.9 ms a heartbeat is not card work: the reads that prove the
+   driver, the channels, the whole table and the guards before each store.
+5. **The CD mixers read back, and POD gives them unlike words.** 0x0A00
+   and 0x0000: level 10 in the middle for the first, nothing for the
+   second. VOLUME gave each plane its register's word, so the left plane
+   played in the middle at level 10 and the right plane was silent. In
+   POD's driver (MANATEE 1.01.37, image 0x5854..0x58D4) the game's CD
+   volume command stores its two bytes, shifted down four bits, to 0x2041
+   and 0x2045, the pan command alone stores 0x2040 and 0x2044, and the
+   reset command clears all four: POD set a level for one input and never
+   a pan. The report's LV says 0 for both planes because the terminal
+   report keys the channels off before it is written.
+6. **One ring was lost to the table in POD**, and the play it was lost in
+   stayed silent to its end. The second place lies right below two pairs
+   at the top of sound memory.
+7. 6.5% of the card's blocks were rebuilt from their CRC, 69 read again,
+   none refused: as the stream reader's own tests had it.
+
+Decided with it (Test 86): the ring as the sound chip's 4-bit ADPCM, a
+quarter of the memory, in the end of the driver's own memory that no build
+of the driver uses, so that it needs no place of the game's; one level for
+both planes, each on its side; a lost ring taken again within the play;
+the report's levels kept before the key-off.
+
 ## Known limits
 
 1. Three driver builds. Every other game stays silent.
@@ -290,7 +364,8 @@ Questions:
    heard: the ring is cleared once (17 heartbeats for the largest) and primed, and
    the play begins where the drive stands by then.
 9. The bank table's contents in the three games are known only from the
-   static reading. A ring that finds no place is silent with reason 5.
+   static reading. A ring that finds no place is silent with reason 5: on
+   the console, ChuChu Rocket and KOF Dream Match 1999 (Console result).
 10. With mixers that do not read back, VOLUME leaves MANATEE 1 silent.
 11. The driver facts are static readings confirmed by Test 84's survey
     for identity and free channels only. That a driver puts up with

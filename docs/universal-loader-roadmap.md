@@ -270,7 +270,10 @@ survey shows those channels left alone.
 ### Test 85 (27 November 2026): the music is heard
 
 Step 4 as built (`cdda-background-test-85.md`, build `b9cff7086258`), on Test
-84's recipe, one switch each. Delivered; no console result yet.
+84's recipe, one switch each. Delivered, and run on the console the same
+day: POD SpeedZone played its music; ChuChu Rocket and KOF Dream Match
+1999 stayed silent, because their sound data leaves no place in sound
+memory for a ring of samples.
 
 - The audio from the card. The worker's heartbeat asks for a play's
   sectors a segment at a time; the auxiliary reads them with the
@@ -288,10 +291,36 @@ Step 4 as built (`cdda-background-test-85.md`, build `b9cff7086258`), on Test
   1.01.37 (POD SpeedZone). Every other game stays silent with its reason
   in the report.
 
-Next, by its console round: what a second of audio costs beside the game's
-reads, whether the mixers read back, and whether the drivers put up with
-the two channels. Then the other MANATEE builds by survey, AUDIO64, and
-the standalone New reader's games.
+What its console round said: the path holds end to end in POD (no key
+dropped, no channel taken, no store refused); the card keeps up except
+behind the game's own reads (9 rings run dry in 63 s of music); the CD
+mixers read back, and POD gives them unlike words; a heartbeat cost
+2.48 ms, 0.9 ms of it the reads that prove the driver, the table and the
+guards.
+
+### Test 86 (27 November 2026): music where sound memory is full
+
+`cdda-background-test-86.md`, build `0af5d9ce889c`, on Test 85's recipe.
+Delivered; no console result yet.
+
+- The ring holds the sound chip's own 4-bit ADPCM, made of the card's
+  samples as they pass and keyed in the format whose decoder runs on
+  across the loop: a quarter of the memory and of the bus traffic.
+- The ring lies in the end of the driver's own memory that no MANATEE
+  build uses (8 KiB under MANATEE 2, 12 KiB under MANATEE 1), and the bank
+  table is not asked: a place the table leaves free is where a game may
+  load its next sound data.
+- Both planes at the larger of the two CD mixers' levels, each on its own
+  side; a lost ring taken again within the play; the ring begun again
+  where the driver moved the play.
+- The report measures the sound chip's clock, as the driver counts it,
+  beside TMU0.
+
+Next, by its console round: whether the chip plays the compressed ring
+cleanly round its end, whether the spare memory stays the ring's, and how
+often the small ring runs dry. Then the driver's count as the ring's
+clock (no starting over, the whole ring as lead), the other MANATEE
+builds by survey, AUDIO64, and the standalone New reader's games.
 
 ## 1. Shared correctness and reproducible deployment — active
 

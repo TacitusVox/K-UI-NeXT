@@ -1,0 +1,174 @@
+== main-toy-cdda-card-host-test
+PASS Test 85 audio from the card, by itself: 90240164 checks
+== main-toy-cdda-drive-host-test
+PASS Test 84 drive: 12 scenarios, 11704 checks; with no play every answer and every service word is the twin service's without a player; through a play's reads (KEEP) status 3 and every other word the twin's
+== main-toy-cdda-output-host-test
+PASS a play on MANATEE 2.00.09: placed at 0x016000, 1618552 frames played, every one the play's; pause, release and the end
+PASS a play on MANATEE 1.01.3b: placed at 0x015000, 1618562 frames played, every one the play's; pause, release and the end
+PASS a play on MANATEE 1.01.37: placed at 0x015000, 1618895 frames played, every one the play's; pause, release and the end
+PASS a play on MANATEE 2.00.09: placed at 0x016000, 1618717 frames played, every one the play's; pause, release and the end
+PASS a play on MANATEE 1.01.3b: placed at 0x015000, 1618269 frames played, every one the play's; pause, release and the end
+PASS a play on MANATEE 1.01.37: placed at 0x015000, 1618477 frames played, every one the play's; pause, release and the end
+PASS tracks, a gap, a track the card refuses and laps: 1234911 frames, every one the play's or silence
+PASS the chip's clock +150 ppm from TMU0 over five minutes: every frame the play's, the ring begun again once; a play's last frame at +180 ppm
+PASS the chip's clock -150 ppm from TMU0 over five minutes: every frame the play's, the ring begun again once; a play's last frame at -180 ppm
+PASS nothing is written for another driver, one not running, a held sound CPU, unproved records, a used channel, no room, no clock, a G2 transfer, SR.BL
+PASS the ring's place: the driver's spare memory; given up when a guard says so and taken again in the same play, eight times
+PASS the driver's part: a taken channel is left alone, a dropped key begins the ring again (given up at the ninth), changed registers are put back and the ring begun again where the play was moved, a new driver ends every store
+PASS a card that hands nothing on, a slow card, a bus that does not answer, a word being written
+PASS VOLUME: both planes at the larger of the CD mixers' two levels, each on its side; MANATEE 2's level bytes where the mixers read nothing
+PASS the terminal key-off, a new play over an old one, a lost clock, a play already over
+CD-music output: 891655900 checks passed (VOLUME 1, ADPCM 1, SPARE 1); host model only
+PASS a play on MANATEE 2.00.09: placed at 0x016000, 1618489 frames played, every one the play's; pause, release and the end
+PASS a play on MANATEE 1.01.3b: placed at 0x015000, 1618747 frames played, every one the play's; pause, release and the end
+PASS a play on MANATEE 1.01.37: placed at 0x015000, 1618830 frames played, every one the play's; pause, release and the end
+PASS a play on MANATEE 2.00.09: placed at 0x016000, 1618595 frames played, every one the play's; pause, release and the end
+PASS a play on MANATEE 1.01.3b: placed at 0x015000, 1618503 frames played, every one the play's; pause, release and the end
+PASS a play on MANATEE 1.01.37: placed at 0x015000, 1618428 frames played, every one the play's; pause, release and the end
+PASS tracks, a gap, a track the card refuses and laps: 1235298 frames, every one the play's or silence
+PASS the chip's clock +150 ppm from TMU0 over five minutes: every frame the play's, the ring begun again once; a play's last frame at +180 ppm
+PASS the chip's clock -150 ppm from TMU0 over five minutes: every frame the play's, the ring begun again once; a play's last frame at -180 ppm
+PASS nothing is written for another driver, one not running, a held sound CPU, unproved records, a used channel, no room, no clock, a G2 transfer, SR.BL
+PASS the ring's place: the driver's spare memory; given up when a guard says so and taken again in the same play, eight times
+PASS the driver's part: a taken channel is left alone, a dropped key begins the ring again (given up at the ninth), changed registers are put back and the ring begun again where the play was moved, a new driver ends every store
+PASS a card that hands nothing on, a slow card, a bus that does not answer, a word being written
+PASS without VOLUME: full level, hard left and right, whatever the mixers say
+PASS the terminal key-off, a new play over an old one, a lost clock, a play already over
+CD-music output: 885383321 checks passed (VOLUME 0, ADPCM 1, SPARE 1); host model only
+PASS a play on MANATEE 2.00.09: placed at 0x1cfe00, 1618749 frames played, every one the play's; pause, release and the end
+PASS a play on MANATEE 1.01.3b: placed at 0x1cfe00, 1618333 frames played, every one the play's; pause, release and the end
+PASS a play on MANATEE 1.01.37: placed at 0x1cfe00, 1618738 frames played, every one the play's; pause, release and the end
+PASS tracks, a gap, a track the card refuses and laps: 1231770 frames, every one the play's or silence
+PASS the chip's clock +150 ppm from TMU0 over five minutes: every frame the play's, the ring begun again once; a play's last frame at +180 ppm
+PASS the chip's clock -150 ppm from TMU0 over five minutes: every frame the play's, the ring begun again once; a play's last frame at -180 ppm
+PASS nothing is written for another driver, one not running, a held sound CPU, unproved records, a used channel, no room, no clock, a G2 transfer, SR.BL
+PASS the ring's place: below CRI's slots first, among them when the table names none, smaller where room is short; given up when a pair or a guard says so
+PASS the driver's part: a taken channel is left alone, a dropped key begins the ring again (given up at the ninth), changed registers are put back and the ring begun again where the play was moved, a new driver ends every store
+PASS a card that hands nothing on, a slow card, a bus that does not answer, a word being written
+PASS VOLUME: both planes at the larger of the CD mixers' two levels, each on its side; MANATEE 2's level bytes where the mixers read nothing
+PASS the terminal key-off, a new play over an old one, a lost clock, a play already over
+CD-music output: 1288831802 checks passed (VOLUME 1, ADPCM 1, SPARE 0); host model only
+PASS a play on MANATEE 2.00.09: placed at 0x1cfda0, 1618435 frames played, every one the play's; pause, release and the end
+PASS a play on MANATEE 1.01.3b: placed at 0x1cfda0, 1618523 frames played, every one the play's; pause, release and the end
+PASS a play on MANATEE 1.01.37: placed at 0x1cfda0, 1618619 frames played, every one the play's; pause, release and the end
+PASS tracks, a gap, a track the card refuses and laps: 1230532 frames, every one the play's or silence
+PASS the chip's clock +150 ppm from TMU0 over five minutes: every frame the play's, the ring begun again once; a play's last frame at +180 ppm
+PASS the chip's clock -150 ppm from TMU0 over five minutes: every frame the play's, the ring begun again once; a play's last frame at -180 ppm
+PASS nothing is written for another driver, one not running, a held sound CPU, unproved records, a used channel, no room, no clock, a G2 transfer, SR.BL
+PASS the ring's place: below CRI's slots first, among them when the table names none, smaller where room is short; given up when a pair or a guard says so
+PASS the driver's part: a taken channel is left alone, a dropped key begins the ring again (given up at the ninth), changed registers are put back and the ring begun again where the play was moved, a new driver ends every store
+PASS a card that hands nothing on, a slow card, a bus that does not answer, a word being written
+PASS VOLUME: both planes at the larger of the CD mixers' two levels, each on its side; MANATEE 2's level bytes where the mixers read nothing
+PASS the terminal key-off, a new play over an old one, a lost clock, a play already over
+CD-music output: 784700908 checks passed (VOLUME 1, ADPCM 0, SPARE 0); host model only
+PASS a play on MANATEE 2.00.09: placed at 0x1cfda0, 1619098 frames played, every one the play's; pause, release and the end
+PASS a play on MANATEE 1.01.3b: placed at 0x1cfda0, 1618603 frames played, every one the play's; pause, release and the end
+PASS a play on MANATEE 1.01.37: placed at 0x1cfda0, 1619243 frames played, every one the play's; pause, release and the end
+PASS tracks, a gap, a track the card refuses and laps: 1229568 frames, every one the play's or silence
+PASS the chip's clock +150 ppm from TMU0 over five minutes: every frame the play's, the ring begun again once; a play's last frame at +180 ppm
+PASS the chip's clock -150 ppm from TMU0 over five minutes: every frame the play's, the ring begun again once; a play's last frame at -180 ppm
+PASS nothing is written for another driver, one not running, a held sound CPU, unproved records, a used channel, no room, no clock, a G2 transfer, SR.BL
+PASS the ring's place: below CRI's slots first, among them when the table names none, smaller where room is short; given up when a pair or a guard says so
+PASS the driver's part: a taken channel is left alone, a dropped key begins the ring again (given up at the ninth), changed registers are put back and the ring begun again where the play was moved, a new driver ends every store
+PASS a card that hands nothing on, a slow card, a bus that does not answer, a word being written
+PASS without VOLUME: full level, hard left and right, whatever the mixers say
+PASS the terminal key-off, a new play over an old one, a lost clock, a play already over
+CD-music output: 779987287 checks passed (VOLUME 0, ADPCM 0, SPARE 0); host model only
+== main-toy-survey-mixed-pad-host-test
+PASS mixed and fast Test 83 controller hold, unchanged game input and retired terminal handoff
+PASS mixed and fast Test 83 controller hold, unchanged game input and retired terminal handoff, with the drive playing: 274 fast and 277 mixed completions each surveyed the sound chip
+PASS the same with Test 85's consumer: 274 fast and 277 mixed completions each called it once, behind the survey
+PASS the same with Test 85's consumer and no survey: 274 fast and 277 mixed completions each called it once
+== main-toy-wire-host-tests
+PASS Mode 1 lost-byte fill: 27329 patterns filled exactly, 11 refused; 1 of 8000 clustered patterns knotted
+PASS Test 81 card stream: 179994 blocks checked against the card over 527204 overruns; 2598 streams restarted (clean block failing CRC16 31, too many lost bytes 2226); 341 blocks handed on from beside their place, each behind a byte lost between blocks and none after a whole CRC16: 341 with lost bytes listed, 0 with a byte of the CRC16 lost, 0 rebuilt from a CRC16 that fitted (0 of them equal to the card in every byte not listed all the same); all left to the sector check
+PASS Test 86 report (the audio's rows and the sound output's): 577 body bytes with nothing counted, 731 with the audio's fields set, 999 of 1012 with every other row at eight digits a value and the audio's rows all written; three pages on the screen for a title that is not Toy Commander
+PASS the stage's source for the window: another title on the New reader with the virtual VMU off, by a raw Mode 1 track on the SCI card and nothing else; Toy Commander by its own files as before, with the virtual VMU off only
+PASS sector address successor: 719849 addresses, 9597 second carries, 159 minute carries, one past 99 minutes
+== main-toy-wire-integration-host-test
+PASS Test 84 play beside 5 reads (270 sectors) through the real reader: function 4 answered 3 15 times and 1 0 times, the player keeping the reads' progress
+PASS Test 84 player hook: 3325746 visits handed on first (1271122 deliveries from the game's calls, 125055 from interrupts, 1929569 others), 1257722 ended with KEEP and 13400 returned before it; 2 refused by the guard reached no player
+PASS Test 85 reader integration: 460586482 checks
+== main-toy-wire-save-host-test
+PASS mixed and fast Test 83 controller hold, unchanged game input and retired terminal handoff
+PASS mixed and fast Test 83 controller hold, unchanged game input and retired terminal handoff, with the drive playing: 274 fast and 277 mixed completions each surveyed the sound chip
+PASS the same with Test 85's consumer: 274 fast and 277 mixed completions each called it once, behind the survey
+PASS the same with Test 85's consumer and no survey: 274 fast and 277 mixed completions each called it once
+PASS survey file text: 20 slots, 31232 bytes
+PASS FAT32 cluster 512 fragment 0, volume at sector 0: 1 runs; 20 launches, 16 reports, 52 sectors written, no other changed
+PASS FAT32 cluster 512 fragment 9, volume at sector 0: 8 runs; 20 launches, 16 reports, 52 sectors written, no other changed
+PASS FAT32 cluster 1024 fragment 5, volume at sector 0: 4 runs; 20 launches, 16 reports, 52 sectors written, no other changed
+PASS exFAT cluster 4096 fragment 0, volume at sector 0: 1 runs; 20 launches, 16 reports, 52 sectors written, no other changed
+PASS exFAT cluster 4096 fragment 7, volume at sector 0: 4 runs; 20 launches, 16 reports, 52 sectors written, no other changed
+PASS exFAT cluster 32768 fragment 0, volume at sector 0: 1 runs; 20 launches, 16 reports, 52 sectors written, no other changed
+PASS exFAT cluster 1024 fragment 6, volume at sector 0: 4 runs; 20 launches, 16 reports, 52 sectors written, no other changed
+PASS FAT32 refusals, volume at sector 0
+PASS exFAT refusals, volume at sector 0
+PASS FAT32 cluster 512 fragment 0, volume at sector 63: 1 runs; 20 launches, 16 reports, 52 sectors written, no other changed
+PASS FAT32 cluster 512 fragment 9, volume at sector 63: 8 runs; 20 launches, 16 reports, 52 sectors written, no other changed
+PASS FAT32 cluster 1024 fragment 5, volume at sector 63: 4 runs; 20 launches, 16 reports, 52 sectors written, no other changed
+PASS exFAT cluster 4096 fragment 0, volume at sector 63: 1 runs; 20 launches, 16 reports, 52 sectors written, no other changed
+PASS exFAT cluster 4096 fragment 7, volume at sector 63: 4 runs; 20 launches, 16 reports, 52 sectors written, no other changed
+PASS exFAT cluster 32768 fragment 0, volume at sector 63: 1 runs; 20 launches, 16 reports, 52 sectors written, no other changed
+PASS exFAT cluster 1024 fragment 6, volume at sector 63: 4 runs; 20 launches, 16 reports, 52 sectors written, no other changed
+PASS FAT32 refusals, volume at sector 63
+PASS exFAT refusals, volume at sector 63
+PASS stream survey report file
+PASS the stage's survey text on FAT32, volume at sector 0: a slot for a source and for a disc that is none; one sector written per launch, read back; every refusal leaves the card as it was
+PASS the stage's survey text on exFAT, volume at sector 0: a slot for a source and for a disc that is none; one sector written per launch, read back; every refusal leaves the card as it was
+PASS the stage's survey text on FAT32, volume at sector 63: a slot for a source and for a disc that is none; one sector written per launch, read back; every refusal leaves the card as it was
+PASS the stage's survey text on exFAT, volume at sector 63: a slot for a source and for a disc that is none; one sector written per launch, read back; every refusal leaves the card as it was
+PASS the stage's survey text
+PASS started from Card Tools on FAT32, volume at sector 0: Test 81's seed without the survey's file, the survey's slot with it
+PASS started from Card Tools on exFAT, volume at sector 0: Test 81's seed without the survey's file, the survey's slot with it
+PASS started from Card Tools on FAT32, volume at sector 63: Test 81's seed without the survey's file, the survey's slot with it
+PASS started from Card Tools on exFAT, volume at sector 63: Test 81's seed without the survey's file, the survey's slot with it
+PASS the stage's survey text, started from Card Tools
+PASS tools/toy_survey.py: its blank file is the stage's; 20 launches played and 12 the stage wrote read back; every state and both commands
+== main-toy-cdda-card-quiet-check
+PASS Test 85 asked for nothing: the integration test ahead of the audio's scenarios folds to f8565e87 with the audio's card work built in and without it
+== main-toy-wire-package-test
+layout_codec: ok
+dual descriptor: 1 at 0x3a33c lease=0x47000
+RESULT: admitted by Card Tools' module checks, report seed bound
+== level-toy-survey-mixed-pad-host-test
+PASS mixed and fast Test 83 controller hold, unchanged game input and retired terminal handoff
+PASS mixed and fast Test 83 controller hold, unchanged game input and retired terminal handoff, with the drive playing: 274 fast and 277 mixed completions each surveyed the sound chip
+PASS the same with Test 85's consumer: 274 fast and 277 mixed completions each called it once, behind the survey
+PASS the same with Test 85's consumer and no survey: 274 fast and 277 mixed completions each called it once
+== level-toy-wire-host-tests
+PASS Mode 1 lost-byte fill: 27329 patterns filled exactly, 11 refused; 1 of 8000 clustered patterns knotted
+PASS Test 81 card stream: 179994 blocks checked against the card over 527204 overruns; 2598 streams restarted (clean block failing CRC16 31, too many lost bytes 2226); 341 blocks handed on from beside their place, each behind a byte lost between blocks and none after a whole CRC16: 341 with lost bytes listed, 0 with a byte of the CRC16 lost, 0 rebuilt from a CRC16 that fitted (0 of them equal to the card in every byte not listed all the same); all left to the sector check
+PASS Test 86 report (the audio's rows and the sound output's): 577 body bytes with nothing counted, 731 with the audio's fields set, 999 of 1012 with every other row at eight digits a value and the audio's rows all written; three pages on the screen for a title that is not Toy Commander
+PASS the stage's source for the window: another title on the New reader with the virtual VMU off, by a raw Mode 1 track on the SCI card and nothing else; Toy Commander by its own files as before, with the virtual VMU off only
+PASS sector address successor: 719849 addresses, 9597 second carries, 159 minute carries, one past 99 minutes
+== level-toy-wire-package-test
+layout_codec: ok
+dual descriptor: 1 at 0x3a23c lease=0x47000
+RESULT: admitted by Card Tools' module checks, report seed bound
+== read-toy-cdda-card-host-test
+PASS Test 85 audio from the card, by itself: 90240164 checks
+== read-toy-cdda-survey-host-test
+PASS Test 84 sound chip survey: 12 scenarios, 448548 checks; 109034 reads of the chip, none outside the admitted addresses, none unmasked, none with G2 DMA on, none more than eight after the FIFO was empty; the survey has no writer
+== read-toy-survey-mixed-pad-host-test
+PASS mixed and fast Test 83 controller hold, unchanged game input and retired terminal handoff
+PASS mixed and fast Test 83 controller hold, unchanged game input and retired terminal handoff, with the drive playing: 274 fast and 277 mixed completions each surveyed the sound chip
+PASS mixed and fast Test 83 controller hold, unchanged game input and retired terminal handoff, with the drive playing: 274 fast and 277 mixed completions each surveyed the sound chip
+PASS the same with Test 85's consumer: 274 fast and 277 mixed completions each called it once, behind the survey
+PASS the same with Test 85's consumer and no survey: 274 fast and 277 mixed completions each called it once
+== read-toy-wire-host-tests
+PASS Mode 1 lost-byte fill: 27329 patterns filled exactly, 11 refused; 1 of 8000 clustered patterns knotted
+PASS Test 81 card stream: 179994 blocks checked against the card over 527204 overruns; 2598 streams restarted (clean block failing CRC16 31, too many lost bytes 2226); 341 blocks handed on from beside their place, each behind a byte lost between blocks and none after a whole CRC16: 341 with lost bytes listed, 0 with a byte of the CRC16 lost, 0 rebuilt from a CRC16 that fitted (0 of them equal to the card in every byte not listed all the same); all left to the sector check
+PASS Test 85 report (the audio's rows): 457 body bytes with nothing counted, 504 with the audio's fields set, 971 of 1012 with every other row at eight digits a value and the audio's rows all written; three pages on the screen for a title that is not Toy Commander
+PASS the stage's source for the window: another title on the New reader with the virtual VMU off, by a raw Mode 1 track on the SCI card and nothing else; Toy Commander by its own files as before, with the virtual VMU off only
+PASS sector address successor: 719849 addresses, 9597 second carries, 159 minute carries, one past 99 minutes
+== read-toy-wire-package-test
+layout_codec: ok
+dual descriptor: 1 at 0x38f9c lease=0x47000
+RESULT: admitted by Card Tools' module checks, report seed bound
+== samples-toy-wire-host-tests
+PASS Mode 1 lost-byte fill: 27329 patterns filled exactly, 11 refused; 1 of 8000 clustered patterns knotted
+PASS Test 81 card stream: 179994 blocks checked against the card over 527204 overruns; 2598 streams restarted (clean block failing CRC16 31, too many lost bytes 2226); 341 blocks handed on from beside their place, each behind a byte lost between blocks and none after a whole CRC16: 341 with lost bytes listed, 0 with a byte of the CRC16 lost, 0 rebuilt from a CRC16 that fitted (0 of them equal to the card in every byte not listed all the same); all left to the sector check
+PASS Test 85 report (the audio's rows and the sound output's): 571 body bytes with nothing counted, 731 with the audio's fields set, 999 of 1012 with every other row at eight digits a value and the audio's rows all written; three pages on the screen for a title that is not Toy Commander
+PASS the stage's source for the window: another title on the New reader with the virtual VMU off, by a raw Mode 1 track on the SCI card and nothing else; Toy Commander by its own files as before, with the virtual VMU off only
+PASS sector address successor: 719849 addresses, 9597 second carries, 159 minute carries, one past 99 minutes
