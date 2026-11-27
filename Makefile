@@ -92,7 +92,7 @@ test-gui-launch-preparation:
 	python3 tests/test_smash_launch_timing.py
 
 .PHONY: test-shared-game-launch
-test-shared-game-launch: test-games-native-cache-hint test-games-native-route
+test-shared-game-launch: test-games-native-cache-hint test-games-native-route test-games-native-witness
 	python3 tests/test_wince_kernel_read_reuse.py
 	python3 tests/test_game_reader_provenance.py
 	python3 tests/test_native_cold_discovery.py
@@ -428,6 +428,9 @@ build/test-games-native-cache-hint: tests/test_games_native_cache_hint.c tests/t
 .PHONY: test-games-native-route
 test-games-native-route:
 	python3 tests/test_games_native_route.py
+.PHONY: test-games-native-witness
+test-games-native-witness:
+	python3 tests/test_games_native_witness.py
 .PHONY: test-games-native-cache-hint
 test-games-native-cache-hint: build/test-games-native-cache-hint
 	ASAN_OPTIONS=detect_leaks=0 ./build/test-games-native-cache-hint $(if $(STARTUP),'$(STARTUP)',)

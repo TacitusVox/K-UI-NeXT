@@ -3,8 +3,11 @@
  * never passes the real SDK check, so that check's answer is the one explicit
  * adversary here: an authored record whose SDK pool is 448 KiB, or the real
  * refusal. The card can also hold one saved record of another game, the one
- * state in which a scan would offer it as this game's. This decides routes
- * and their messages. It makes no claim about a console or a game. */
+ * state in which a scan would offer it as this game's. A "large" launch is
+ * refused the memory for the whole program, as the console refuses it for a
+ * program larger than K-UI's free memory; the launcher then reads the
+ * program in pieces. This decides routes and their messages. It makes no
+ * claim about a console or a game. */
 #define main retail_fixture_main
 #include "games_retail.c"
 #undef main
@@ -13,7 +16,15 @@
 #undef main
 #include "kui/vmu_native_cache_seed.h"
 static const char *pool;
-static unsigned builds;
+static unsigned builds,refused_allocations;
+static bool large;
+/* The launcher is built with -DKUI_NATIVE_CACHE_BOOT_ALLOC=route_boot_alloc:
+ * its one allocation for the whole program comes here. */
+void *route_boot_alloc(size_t bytes) {
+    assert(test.active && bytes==4096u);
+    if(!large)return malloc(bytes);
+    ++refused_allocations;return NULL;
+}
 bool __real_kui_vmu_native_resolution_cache_build_prefixed(const void *,size_t,uint32_t,void *,size_t,
     struct kui_vmu_native_resolution *,const struct kui_sha256_prefix *);
 bool __wrap_kui_vmu_native_resolution_cache_build_prefixed(const void *source,size_t bytes,uint32_t address,
@@ -48,7 +59,8 @@ static void save_other_game(void) {
     write_file(path,wire,sizeof(wire));
 }
 int main(int argc,char **argv) {
-    assert(argc==7);pool=argv[5];
+    assert(argc==8);pool=argv[5];
+    large=!strcmp(argv[7],"large");assert(large || !strcmp(argv[7],"whole"));
     const bool other_game=!strcmp(argv[6],"other-game");assert(other_game || !strcmp(argv[6],"empty"));
     struct stat st;assert(!lstat(argv[1],&st));test.image=fopen(argv[1],"r+b");assert(test.image);
     test.blocks=(uint64_t)st.st_size/512u;test.fault=argv[4];
@@ -68,8 +80,12 @@ int main(int argc,char **argv) {
         struct kui_runtime_image staged={0};struct kui_game_ram_patches patches={0};
         const bool prepared=kui_games_retail_prepare_launch(selected,reader,&patches,&staged,log_line,cancel);
         assert(!test.files && !test.connected && test.connects==test.disconnects);
-        /* One source read answers the SDK check; a refusal reads no more. */
-        assert(test.native_source_passes==1u && builds==1u && test.hash_reads[1]==1u && !test.direct_crc_passes);
+        /* One source read answers the SDK check; a refusal reads no more.
+         * A program that cannot be held is read once all the same, never
+         * reaches the SDK check, and its CRC needs no second pass. */
+        assert(test.hash_reads[1]==1u && !test.direct_crc_passes && refused_allocations==(large?1u:0u));
+        if(large)assert(test.native_piece_passes==1u && !test.native_source_passes && !builds && !test.family_calls);
+        else assert(test.native_source_passes==1u && !test.native_piece_passes && builds==1u);
         bool standalone=false,seeded=false;
         if(prepared) {
             assert(staged.data && staged.info.payload_bytes);

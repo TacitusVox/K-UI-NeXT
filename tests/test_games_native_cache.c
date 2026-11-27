@@ -31,6 +31,9 @@ static struct {
     uint32_t forced_pool,forced_pool_bytes;
     unsigned source_sha_calls,extent_calls,vmu_path_lookups;
     bool authored_resolution,fail_extent;
+    /* A program read in pieces: the piece (from 1) whose read fails or is
+     * cancelled, and the largest piece seen. */
+    unsigned fail_piece,cancel_piece,largest_piece;
 } io;
 void __real_kui_sha256_update(struct kui_sha256 *,const void *,size_t);
 void __wrap_kui_sha256_update(struct kui_sha256 *sha,const void *data,size_t bytes) {
@@ -112,13 +115,24 @@ static FRESULT f_rename(const char *from,const char *to) {
 }
 enum kui_game_result kui_game_image_read(const struct kui_game_image *image,uint32_t lba,
     unsigned count,enum kui_game_sector_format format,void *out,size_t capacity) {
-    (void)image;CHECK(lba==100u && count==(io.bytes+2047u)/2048u &&
-        format==KUI_GAME_SECTOR_MODE1 && capacity==(size_t)count*2048u);
+    (void)image;CHECK(lba>=100u && count && format==KUI_GAME_SECTOR_MODE1 && capacity==(size_t)count*2048u);
     size_t at=(size_t)(lba-100u)*2048u;CHECK(at<io.bytes);++io.reads;
-    io.runtime_boot=out;io.runtime_bytes=io.bytes;
-    if(io.fail==FAIL_BOOT_READ)return KUI_GAME_IO;
-    if(io.fail==FAIL_BOOT_CANCEL)return KUI_GAME_CANCELLED;
-    size_t n=io.bytes-at;CHECK(n<=capacity);memset(out,0,capacity);memcpy(out,io.boot+at,n);
+    if(count!=(io.bytes+2047u)/2048u || lba!=100u) {
+        /* Pieces, in order and without a gap: every one but the last is 16
+         * sectors, and the last ends with the program. */
+        CHECK(at==(size_t)(io.reads-1u)*16u*2048u && count<=16u);
+        CHECK(count==16u || at+(size_t)count*2048u>=io.bytes);
+        if(count>io.largest_piece)io.largest_piece=count;
+        if(io.reads==io.fail_piece)return KUI_GAME_IO;
+        if(io.reads==io.cancel_piece)return KUI_GAME_CANCELLED;
+    } else {
+        io.runtime_boot=out;io.runtime_bytes=io.bytes;
+        if(io.fail==FAIL_BOOT_READ)return KUI_GAME_IO;
+        if(io.fail==FAIL_BOOT_CANCEL)return KUI_GAME_CANCELLED;
+    }
+    /* A piece's last sector is padded with bytes that are not the program's. */
+    size_t n=io.bytes-at;if(n>capacity)n=capacity;
+    memset(out,io.largest_piece?0xee:0,capacity);memcpy(out,io.boot+at,n);
     return KUI_GAME_OK;
 }
 static bool fixture_replay_hashed(const void *image,size_t bytes,uint32_t address,const void *wire,size_t wire_bytes,
@@ -545,6 +559,188 @@ static void unsupported_tests(void) {
     CHECK(io.reads==1u && !io.builds && !source_proof.complete);
     puts("PASS native unsupported executable: unproved extent or unrecognized SDK answers for the combined module; Standard, seedless and unread launches keep theirs");
 }
+/* The discovery's own loop over a whole program, with the launcher's table. */
+static bool witness_anywhere(const uint8_t *p,size_t n) {
+    for(size_t site=0x53cu;site<n && n-site>=0x1b8u;site+=2u)
+        if(native_witness_at(p+site))return true;
+    return false;
+}
+static void witness_plant(uint8_t *p,size_t site) {
+    for(unsigned i=0u;i<sizeof(native_witness_words)/sizeof(native_witness_words[0]);i++) {
+        p[site+native_witness_words[i].offset]=(uint8_t)native_witness_words[i].value;
+        p[site+native_witness_words[i].offset+1]=(uint8_t)(native_witness_words[i].value>>8);
+    }
+}
+/* One launch of a program the launcher cannot hold: the first allocation,
+ * the program's, is refused. large_cancel_at is the cancel visit (from 1)
+ * at which the player cancels, or none. */
+static unsigned large_cancel_at;
+static enum native_cache_result large_launch(const uint8_t *boot,size_t bytes,unsigned reader,bool vmu_on,
+    struct native_cache_source_proof *proof,bool want_proof) {
+    const struct kui_native_dual_capability cap={KUI_NATIVE_DUAL_MAGIC0,KUI_NATIVE_DUAL_MAGIC1,
+        1u,KUI_NATIVE_DUAL_CAPABILITY_BYTES,KUI_RETAIL_READER_ASYNC,KUI_RETAIL_READER_ASYNC_EAGER,
+        KUI_NATIVE_DUAL_COMPACT_LEASE_BYTES,0u};
+    setup(boot,bytes);map.reader=reader;
+    if(reader!=KUI_RETAIL_READER_STANDARD)memcpy(module+3072u,&cap,sizeof(cap));
+    memcpy(before,module,sizeof(module));io.allocation_at=1u;io.cancel_at=large_cancel_at;
+    bool standalone=true;*proof=(struct native_cache_source_proof){.complete=true,.crc_known=true,.crc32=1u};
+    enum native_cache_result result=native_cache_prepare(&game,&map,true,
+        reader==KUI_RETAIL_READER_STANDARD?0u:reader,false,&package,"/Games/Large",vmu_on,logger,cancelled,
+        want_proof?proof:NULL,&standalone);
+    /* Never seeded, never saved, never the reader-only route: the SCI family
+     * cannot be looked for in a program that is not held. */
+    CHECK(!standalone && !memcmp(module,before,sizeof(module)) && io.opens==io.closed);
+    CHECK(!io.writes && !io.renames && !io.builds && !io.replays && !io.extent_calls && !io.source_sha_calls);
+    return result;
+}
+/* A program the launcher cannot hold whole (the console leaves K-UI under
+ * 8 MiB; Plasma Sword is 9.07 MiB) is read once in pieces. That read proves
+ * the CRC the launch needs, and finds or rules out the Maple discovery's
+ * witness: without one the stage would stop, and that is the answer. With
+ * one there is no answer, as before. */
+static void large_program_tests(void) {
+    enum {PIECE=16*2048};
+    static uint8_t boot[5*PIECE+1235];
+    struct native_cache_source_proof proof;
+    unsigned refused=0u,undecided=0u;
+    for(size_t i=0;i<sizeof(boot);i++)boot[i]=(uint8_t)(i*37u+(i>>9)+5u);
+    CHECK(!witness_anywhere(boot,sizeof(boot)));
+    const uint32_t crc=kui_crc32(0u,boot,sizeof(boot));
+    /* No witness: the answer for either Background reader and Virtual VMU
+     * setting, in six pieces and one pass. */
+    for(unsigned reader=KUI_RETAIL_READER_ASYNC;reader<=KUI_RETAIL_READER_ASYNC_EAGER;++reader)
+        for(unsigned vmu=0u;vmu<2u;++vmu) {
+            CHECK(large_launch(boot,sizeof(boot),reader,vmu,&proof,true)==NATIVE_CACHE_UNSUPPORTED);
+            CHECK(io.reads==6u && io.largest_piece==16u && !io.vmu_path_lookups);
+            CHECK(proof.crc_known && !proof.complete && proof.crc32==crc);
+            ++refused;
+        }
+    /* A witness at every kind of place: the first and last site the
+     * discovery tests, and around each piece's edge, where its reach
+     * spans two pieces. */
+    const size_t last=(sizeof(boot)-0x1b8u)&~(size_t)1u;
+    size_t sites[4*14+4];unsigned count=0u;
+    sites[count++]=0x53cu;sites[count++]=0x53eu;sites[count++]=last-2u;sites[count++]=last;
+    for(unsigned piece=1u;piece<=4u;++piece) {
+        static const int around[14]={-1026,-1024,-628,-370,-368,-366,-260,-258,-256,-2,0,2,258,368};
+        for(unsigned k=0u;k<14u;++k)sites[count++]=(size_t)((long)piece*PIECE+around[k]);
+    }
+    for(unsigned k=0u;k<count;++k) {
+        static uint8_t planted[sizeof(boot)];
+        memcpy(planted,boot,sizeof(boot));witness_plant(planted,sites[k]);
+        CHECK(witness_anywhere(planted,sizeof(planted)));
+        CHECK(large_launch(planted,sizeof(planted),KUI_RETAIL_READER_ASYNC,false,&proof,true)==NATIVE_CACHE_SKIPPED);
+        CHECK(io.reads==6u && proof.crc_known && !proof.complete &&
+              proof.crc32==kui_crc32(0u,planted,sizeof(planted)));
+        ++undecided;
+    }
+    CHECK(undecided==60u);
+    /* Places the discovery never tests are no witness: before its first
+     * site, after its last, and an odd offset. */
+    const size_t never[3]={0x53au,last+2u,0x4001u};
+    for(unsigned k=0u;k<3u;++k) {
+        static uint8_t planted[sizeof(boot)];
+        memcpy(planted,boot,sizeof(boot));witness_plant(planted,never[k]);
+        CHECK(!witness_anywhere(planted,sizeof(planted)));
+        CHECK(large_launch(planted,sizeof(planted),KUI_RETAIL_READER_ASYNC,true,&proof,true)==NATIVE_CACHE_UNSUPPORTED);
+        CHECK(proof.crc_known && proof.crc32==kui_crc32(0u,planted,sizeof(planted)));
+    }
+    /* One word of the table changed is no witness, for each of its words. */
+    for(unsigned word=0u;word<sizeof(native_witness_words)/sizeof(native_witness_words[0]);++word) {
+        static uint8_t planted[sizeof(boot)];
+        memcpy(planted,boot,sizeof(boot));witness_plant(planted,2u*PIECE-200u);
+        planted[2u*PIECE-200u+native_witness_words[word].offset]^=0x10u;
+        CHECK(!witness_anywhere(planted,sizeof(planted)));
+        CHECK(large_launch(planted,sizeof(planted),KUI_RETAIL_READER_ASYNC,false,&proof,true)==NATIVE_CACHE_UNSUPPORTED);
+    }
+    /* Lengths around a piece and a sector, and a program too short to hold
+     * a site at all. */
+    const size_t lengths[]={0x53cu+0x1b8u-2u,0x53cu+0x1b8u,2048u,PIECE-1u,PIECE,PIECE+1u,PIECE+2049u,2u*PIECE+1023u};
+    for(unsigned k=0u;k<sizeof(lengths)/sizeof(lengths[0]);++k) {
+        static uint8_t planted[sizeof(boot)];
+        memcpy(planted,boot,sizeof(boot));
+        CHECK(large_launch(planted,lengths[k],KUI_RETAIL_READER_ASYNC,false,&proof,true)==NATIVE_CACHE_UNSUPPORTED);
+        CHECK(proof.crc_known && proof.crc32==kui_crc32(0u,planted,lengths[k]));
+        CHECK(io.reads==(lengths[k]+PIECE-1u)/PIECE);
+        if(lengths[k]<0x53cu+0x1b8u)continue;
+        const size_t site=(lengths[k]-0x1b8u)&~(size_t)1u;
+        witness_plant(planted,site);
+        CHECK(witness_anywhere(planted,lengths[k]));
+        CHECK(large_launch(planted,lengths[k],KUI_RETAIL_READER_ASYNC,false,&proof,true)==NATIVE_CACHE_SKIPPED);
+        CHECK(proof.crc_known && proof.crc32==kui_crc32(0u,planted,lengths[k]));
+    }
+    /* No answer and no read: the Standard module, and a launch that needs no
+     * CRC. A piece that cannot be read gives no answer and no CRC; a cancel
+     * stops the launch. */
+    CHECK(large_launch(boot,sizeof(boot),KUI_RETAIL_READER_STANDARD,true,&proof,true)==NATIVE_CACHE_SKIPPED);
+    CHECK(!io.reads && !proof.crc_known && !proof.complete && !proof.crc32);
+    CHECK(large_launch(boot,sizeof(boot),KUI_RETAIL_READER_ASYNC,true,&proof,false)==NATIVE_CACHE_SKIPPED);
+    CHECK(!io.reads);
+    for(unsigned piece=1u;piece<=6u;++piece) {
+        setup(boot,sizeof(boot));
+        io.fail_piece=piece;
+        const struct kui_native_dual_capability cap={KUI_NATIVE_DUAL_MAGIC0,KUI_NATIVE_DUAL_MAGIC1,
+            1u,KUI_NATIVE_DUAL_CAPABILITY_BYTES,KUI_RETAIL_READER_ASYNC,KUI_RETAIL_READER_ASYNC_EAGER,
+            KUI_NATIVE_DUAL_COMPACT_LEASE_BYTES,0u};
+        map.reader=KUI_RETAIL_READER_ASYNC;memcpy(module+3072u,&cap,sizeof(cap));memcpy(before,module,sizeof(module));
+        io.allocation_at=1u;bool standalone=false;
+        for(unsigned cancel=0u;cancel<2u;++cancel) {
+            io.reads=0u;io.allocations=0u;io.fail_piece=cancel?0u:piece;io.cancel_piece=cancel?piece:0u;
+            CHECK(native_cache_prepare(&game,&map,true,KUI_RETAIL_READER_ASYNC,false,&package,"/Games/Large",
+                false,logger,cancelled,&proof,&standalone)==(cancel?NATIVE_CACHE_CANCELLED:NATIVE_CACHE_SKIPPED));
+            CHECK(io.reads==piece && !proof.crc_known && !proof.complete && !proof.crc32 && !standalone);
+        }
+    }
+    /* The player cancels: seen before each of the six pieces and after the
+     * last, the launch stops there without a CRC. */
+    unsigned stopped_after=0u,cancel_visits=0u;
+    for(large_cancel_at=1u;;++large_cancel_at) {
+        const enum native_cache_result result=large_launch(boot,sizeof(boot),KUI_RETAIL_READER_ASYNC,false,&proof,true);
+        if(result!=NATIVE_CACHE_CANCELLED) {
+            CHECK(result==NATIVE_CACHE_UNSUPPORTED && proof.crc_known && proof.crc32==crc && io.reads==6u);
+            break;
+        }
+        CHECK(!proof.crc_known && !proof.complete && !proof.crc32);
+        CHECK(io.reads==stopped_after || io.reads==stopped_after+1u);
+        stopped_after=io.reads;++cancel_visits;
+    }
+    large_cancel_at=0u;
+    CHECK(stopped_after==6u && cancel_visits>=7u);
+    /* The search never passes over a site whose reach it does not hold: a
+     * site before the held bytes, or one whose earlier words are not held,
+     * cannot be ruled out. */
+    {
+        uint8_t *held=malloc(2048u);CHECK(held);memset(held,0,2048u);
+        uint32_t next=2000u;
+        CHECK(native_witness_search(held,4096u,2048u,1u<<20,&next) && next==2000u);
+        next=4096u+NATIVE_WITNESS_BEFORE-2u;
+        CHECK(native_witness_search(held,4096u,2048u,1u<<20,&next) && next==4096u+NATIVE_WITNESS_BEFORE-2u);
+        next=4096u+NATIVE_WITNESS_BEFORE;
+        CHECK(!native_witness_search(held,4096u,2048u,1u<<20,&next) && next==4096u+2048u-NATIVE_WITNESS_AFTER+2u);
+        /* Nothing is tested in a file too short for a site, or past its last one. */
+        next=0u;CHECK(!native_witness_search(held,0u,2048u,NATIVE_WITNESS_FIRST+NATIVE_WITNESS_TAIL-1u,&next) && !next);
+        next=0u;CHECK(!native_witness_search(held,0u,2048u,NATIVE_WITNESS_FIRST+NATIVE_WITNESS_TAIL,&next) &&
+            next==NATIVE_WITNESS_FIRST+2u);
+        free(held);
+    }
+    /* The piece buffer itself cannot be allocated: no answer, no read. */
+    setup(boot,sizeof(boot));
+    {
+        const struct kui_native_dual_capability cap={KUI_NATIVE_DUAL_MAGIC0,KUI_NATIVE_DUAL_MAGIC1,
+            1u,KUI_NATIVE_DUAL_CAPABILITY_BYTES,KUI_RETAIL_READER_ASYNC,KUI_RETAIL_READER_ASYNC_EAGER,
+            KUI_NATIVE_DUAL_COMPACT_LEASE_BYTES,0u};
+        map.reader=KUI_RETAIL_READER_ASYNC;memcpy(module+3072u,&cap,sizeof(cap));memcpy(before,module,sizeof(module));
+        bool standalone=false;
+        /* The second allocation is the workspace: the program was held. */
+        io.allocation_at=2u;
+        CHECK(native_cache_prepare(&game,&map,true,KUI_RETAIL_READER_ASYNC,false,&package,"/Games/Large",
+            false,logger,cancelled,&proof,&standalone)==NATIVE_CACHE_SKIPPED && !io.reads);
+    }
+    CHECK(refused==4u);
+    printf("PASS native large program: read once in pieces for its CRC; no witness answers for the combined module, "
+        "%u witness places and %u lengths leave it to the stage or answer as the whole-program loop does\n",
+        undecided,(unsigned)(sizeof(lengths)/sizeof(lengths[0])));
+}
 /* The launcher's answer for every result, Virtual VMU setting, reader-only
  * choice and installed state. Each refusal names one whole setting that
  * starts the game: with Virtual VMU On a small pool asks for Virtual VMU Off
@@ -795,7 +991,7 @@ static void advisory_alias_publication_faults(void) {
 }
 int KUI_GAMES_NATIVE_CACHE_TEST_MAIN(int argc,char **argv) {
     CHECK(argc>=1 && argc<=4);codec_and_trust_tests();gates_and_hits();dual_gates_and_hits();
-    fixed_arena_needs_dual();arena_needs_compact_dual();pool_placement_tests();pool_size_tests();unsupported_tests();refusal_tests();
+    fixed_arena_needs_dual();arena_needs_compact_dual();pool_placement_tests();pool_size_tests();unsupported_tests();large_program_tests();refusal_tests();
     advisory_alias_publication_faults();
     uint8_t authored[1024];
     for(unsigned i=0;i<sizeof(authored);i++)authored[i]=(uint8_t)(i*17u+1u);

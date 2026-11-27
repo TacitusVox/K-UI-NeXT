@@ -1909,7 +1909,7 @@ static bool prepare_launch(const char *path,uint32_t reader,const struct kui_gam
         log(mapping_hint?"Native mapping hint: executable identity will be freshly checked by the detached stage":
             "Native mapping index published: optional executable identity will be freshly checked by the detached stage");
     } else if(defer_boot_crc) {
-        if(source_proof.complete)map->boot_crc32=source_proof.crc32;
+        if(source_proof.complete || source_proof.crc_known)map->boot_crc32=source_proof.crc32;
         else {
             log("Retail boot: checking exact executable CRC after native preflight skipped");
             uint32_t failed=map->boot_lba;

@@ -40,7 +40,7 @@ static struct {
     FIL *track, *report_write;
     unsigned writes, connects, disconnects, files, read_calls, physical_reads;
     unsigned hash_phase,hash_reads[2],hash_max[2],between_read_cancel_checks;
-    unsigned native_source_passes,direct_crc_passes;
+    unsigned native_source_passes,native_piece_passes,direct_crc_passes;
     unsigned vmu_package_opens,dual_package_opens,ordinary_package_opens;
     unsigned standalone_package_opens,family_calls,dual_a1_package_opens;
     unsigned session_package_opens,session_a1_package_opens;
@@ -159,7 +159,10 @@ static void log_line(const char *format, ...) {
     if(!strcmp(format,"Retail boot: %.100s; product=%s version=%s region=%s")) test.hash_phase=1;
     if(strstr(format,"checking exact executable"))++test.direct_crc_passes;
     if(strstr(format,"Native VMU mapping: reading"))++test.native_source_passes;
-    if(strstr(format,"checking exact executable") || strstr(format,"Native VMU mapping: reading")) test.hash_phase=2;
+    /* A program the launcher cannot hold whole: the same source, read in pieces. */
+    if(strstr(format,"too large to hold; reading in pieces"))++test.native_piece_passes;
+    if(strstr(format,"checking exact executable") || strstr(format,"Native VMU mapping: reading") ||
+       strstr(format,"too large to hold; reading in pieces")) test.hash_phase=2;
     if(strstr(format,"mapping %u tracks")) test.hash_phase=0;
     if(strstr(format,"Launch report unavailable; continuing")) test.report_warning=true;
     if(strstr(format,"Launch report skipped: selected image shares")) test.report_skipped=true;

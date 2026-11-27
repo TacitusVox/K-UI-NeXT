@@ -17,8 +17,10 @@ enum native_cache_result {NATIVE_CACHE_SKIPPED,NATIVE_CACHE_READY,NATIVE_CACHE_C
     NATIVE_CACHE_POOL_OVERLAP,NATIVE_CACHE_READER_TOO_OLD,NATIVE_CACHE_POOL_SMALL,
     NATIVE_CACHE_UNSUPPORTED};
 /* This reports only a completed source read, independently of whether an
- * optional SDK mapping can be built. It never grants cache/live ownership. */
-struct native_cache_source_proof {bool complete;uint32_t crc32;uint8_t sha256[32];};
+ * optional SDK mapping can be built. It never grants cache/live ownership.
+ * crc_known alone is a program read in pieces because it could not be held
+ * whole: its CRC is proved, its SHA-256 was not computed. */
+struct native_cache_source_proof {bool complete,crc_known;uint32_t crc32;uint8_t sha256[32];};
 struct native_cache_workspace {
     uint8_t wire[KUI_VMU_NATIVE_RESOLUTION_CACHE_BYTES];
     uint8_t compare[KUI_VMU_NATIVE_RESOLUTION_CACHE_BYTES];
@@ -178,6 +180,60 @@ static bool native_cache_source_eligible(const struct kui_game_image *image,
         (map->boot_bytes+2047u)/2048u<=KUI_GAME_LBA_LIMIT-map->boot_lba;
 }
 #include "games_native_repeat.inc"
+#include "games_native_witness.inc"
+/* The console leaves K-UI under 8 MiB, so a larger program is never held
+ * whole. A host test names a stand-in that refuses the allocation there. */
+#ifdef KUI_NATIVE_CACHE_BOOT_ALLOC
+void *KUI_NATIVE_CACHE_BOOT_ALLOC(size_t);
+#else
+#define KUI_NATIVE_CACHE_BOOT_ALLOC malloc
+#endif
+/* A program K-UI cannot hold whole is read once, in pieces, as the launch
+ * reads it for its CRC anyway. That pass proves the CRC and looks for the
+ * Maple discovery's witness. Without one the combined module's stage would
+ * stop, and the preflight says so. With one there is no answer, as before:
+ * the rest of the check needs the whole program, and the stage decides. A
+ * piece that cannot be read gives no answer and no CRC either; the launch's
+ * own CRC pass then reports the sector. */
+static enum native_cache_result native_cache_scan_large(const struct kui_game_image *image,
+    const struct kui_retail_manifest *map,kui_log_fn log,kui_cancel_fn cancel,
+    struct native_cache_source_proof *source_proof) {
+    enum {PIECE_SECTORS=16,KEEP=1024};
+    _Static_assert(KEEP>=NATIVE_WITNESS_BEFORE+NATIVE_WITNESS_AFTER+2u && !(KEEP&1),
+        "a site at a piece's edge keeps its whole reach");
+    uint8_t *data=malloc((size_t)KEEP+PIECE_SECTORS*2048u);
+    if(!data)return NATIVE_CACHE_SKIPPED;
+    if(log)log("Native reader: %u-byte program is too large to hold; reading in pieces",map->boot_bytes);
+    enum native_cache_result result=NATIVE_CACHE_SKIPPED;
+    uint32_t crc=0u,base=0u,have=0u,next=0u,done=0u,lba=map->boot_lba;
+    bool found=false;
+    while(done<map->boot_bytes) {
+        if(native_cache_cancelled(cancel)) {result=NATIVE_CACHE_CANCELLED;goto finished;}
+        uint32_t take=map->boot_bytes-done;
+        if(take>PIECE_SECTORS*2048u)take=PIECE_SECTORS*2048u;
+        const uint32_t count=(take+2047u)/2048u;
+        enum kui_game_result read=kui_game_image_read(image,lba,count,KUI_GAME_SECTOR_MODE1,
+            data+have,(size_t)count*2048u);
+        if(read!=KUI_GAME_OK) {
+            if(read==KUI_GAME_CANCELLED || native_cache_cancelled(cancel))result=NATIVE_CACHE_CANCELLED;
+            goto finished;
+        }
+        crc=kui_crc32(crc,data+have,take);
+        have+=take;done+=take;lba+=count;
+        if(!found)found=native_witness_search(data,base,have,map->boot_bytes,&next);
+        if(have>KEEP) {memmove(data,data+have-KEEP,KEEP);base+=have-KEEP;have=KEEP;}
+    }
+    if(native_cache_cancelled(cancel)) {result=NATIVE_CACHE_CANCELLED;goto finished;}
+    source_proof->crc_known=true;source_proof->crc32=crc;
+    if(found) {
+        if(log)log("Native reader: the SDK check needs the whole program; the stage decides");
+    } else {
+        if(log)log("Native reader: the SDK's Maple code is not in it; the stage would stop");
+        result=NATIVE_CACHE_UNSUPPORTED;
+    }
+finished:
+    free(data);return result;
+}
 static enum native_cache_result native_cache_prepare_repeat(const struct kui_game_image *image,
     const struct kui_retail_manifest *map,bool native,uint32_t options,bool patched,
     struct kui_runtime_image *package,const char *source_root,bool allow_persistent_cache,kui_log_fn log,kui_cancel_fn cancel,
@@ -201,9 +257,16 @@ static enum native_cache_result native_cache_prepare_repeat(const struct kui_gam
     if(native_cache_cancelled(cancel)) return NATIVE_CACHE_CANCELLED;
     const uint32_t boot_sectors=(map->boot_bytes+2047u)/2048u;
     const size_t boot_capacity=(size_t)boot_sectors*2048u;
-    uint8_t *boot=malloc(boot_capacity);
+    uint8_t *boot=KUI_NATIVE_CACHE_BOOT_ALLOC(boot_capacity);
     struct native_cache_workspace *work=malloc(sizeof(*work));
-    if(!boot || !work) {free(work);free(boot);return NATIVE_CACHE_SKIPPED;}
+    if(!boot || !work) {
+        const bool too_large=!boot;
+        free(work);free(boot);
+        /* Only for a combined module, and only where the launch reads the
+         * program for its CRC in any case. */
+        return too_large && dual && source_proof?
+            native_cache_scan_large(image,map,log,cancel,source_proof):NATIVE_CACHE_SKIPPED;
+    }
     enum native_cache_result result=NATIVE_CACHE_SKIPPED;
     struct native_repeat_record *repeat=NULL;
     uint8_t repeat_key[32];
