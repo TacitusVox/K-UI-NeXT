@@ -1,0 +1,25 @@
+KUI launch report v1
+sequence: 00000000000000000654
+state: prepared before handoff; game start unconfirmed
+version: 2.0.0
+build: 64ae07435de5
+image: /games/tests/plasma sword - nightmare of bilstein (usa)/plasma sword - nightmare of bilstein (usa).gdi
+reader: Standard
+storage: SCI microSD
+encoding: Plain
+cd music: off
+profile: Off
+package: /kui/apps/games/retail-physical.kui
+source module build: f8807cb16561
+source module payload bytes: 76272
+source module crc32: 6A85A797
+product: T1207N
+title: PLASMA SWORD
+bootfile: 1ST_READ.BIN
+ip bytes: 32768
+ip crc32: BB964C80
+source executable bytes: 9514104
+source executable crc32: 0B9BD71C
+patch 1: off address=0x00000000 value=0x00000000
+patch 2: off address=0x00000000 value=0x00000000
+crc32: 799AF04A

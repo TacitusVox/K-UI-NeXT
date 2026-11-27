@@ -2,9 +2,9 @@
 
 Status: packaged 21 November 2026, 01:13 CST (build `4abc63b0cc58`,
 commit `4abc63b`). Run on the console on 21 November under the Windows CE
-line's K-UI `1c71ba3afa17`, which refused three games (Console result); its
-re-run under the one K-UI `64ae07435de5` is pending
-(`one-kui-both-threads.md`). A test module in the place of the installed New
+line's K-UI `1c71ba3afa17`, which refused three games, and again on 22 and
+26 November under the one K-UI `64ae07435de5` (Console result). A test
+module in the place of the installed New
 reader, like Tests 79 to 83, not an accepted component. It makes no sound:
 the drive answers as a drive that plays the game's audio tracks, and the
 worker looks at the sound chip without writing to it. Test 85 is to add the
@@ -311,6 +311,51 @@ What it settles:
    MDK2 leaves no fixed pair free without a patch of the game, as the
    existing MDK2 adapter makes; ChuChu Rocket (MANATEE 2) and KOF Dream Match
    1999 (MANATEE 1) remain the titles whose channels were always free.
+
+### Controls and POD SpeedZone (26 November 2026)
+
+The owner's runs of 26 November 2026, K-UI `64ae07435de5` (each launch
+report's `build`), brought as a handoff with the survey file (13 of 100
+slots, slots 11 and 12 new; SHA-256 `4baa5e4d...1699`) and four launch
+reports, sequences 651 to 654
+(`docs/evidence/cdda-background-test-84/console-2026-11-26/`). They are the
+two Background-Off controls the host reading asked for, and POD on a good
+copy.
+
+| Seq. | Game | Reader and module (launch report) | On the console (the owner) | In the files |
+|---|---|---|---|---|
+| 651 | POD SpeedZone | Background New (X), `retail-native-dual.kui` `4abc63b0cc58`, CRC `BAFAAF7C` | Works. The owner found the card copy differed from the PC reference, recopied it and reported a full match | Slot 11, report saved. Executable CRC `E41C2053` (the archive's). 8 of 8 audio tracks mapped. 3 PLAY, none refused or lost; track 7 playing, repeat endless, at the save; 596 data reads during a play, 1,567 kept at 3. MANATEE 1.01.37; pool entries 13 and 14 free in all 3,684 surveys; none unproved or skipped |
+| 652 | Tokyo Xtreme Racer | the same | Black screen after the bootstrap, no visible card activity; every track matches the PC reference | Slot 12, launch record only; IP `B601BEB1` and executable `F129E73B` as slot 10 |
+| 653 | Tokyo Xtreme Racer | Standard, `retail-physical.kui` `f8807cb16561`, CRC `6A85A797` | Boots | The same image, IP and executable CRCs as 652 |
+| 654 | Plasma Sword | Standard, the same module | Boots | IP `BB964C80`, executable `0B9BD71C` (slot 8's) |
+
+The launch reports record the preparation up to the handoff; that the two
+games booted on Standard is the owner's observation, and gameplay and saves
+were not part of it. CD music was Off and RAM patches off in all four.
+
+What it settles:
+
+1. POD's zero sector was the card's copy, as read on the host. On a good
+   copy POD launches through this module, and it is a second MANATEE 1 title
+   (1.01.37, KOF's is 1.01.3b) whose two pool entries stayed free. It is
+   also the first title seen to read data all through a play (596 reads):
+   the hard case for Test 85's card sharing, where ChuChu Rocket made 2 such
+   reads and KOF none.
+2. Tokyo Xtreme Racer boots on Standard and stays black under the
+   Background reader on an image that matches the PC reference. That is the
+   difference the host reading predicted (the reader's 284 KiB lease leaves
+   the game 167,872 bytes of the 458,480 its graphics library asks its 448
+   KiB pool for). The failed allocation itself was not traced on the
+   console.
+3. Plasma Sword boots on Standard. Its Background stop is the reader's SDK
+   discovery, not the image.
+
+Decided with these results (the handoff's last section): before K-UI offers
+the combined Background worker, check that the game keeps enough of its pool;
+when the reader's SDK check fails, say so before the launch and point to the
+Standard reader, and say what that means for a player who asked for virtual
+saves; and for the first audible build keep ChuChu Rocket and KOF Dream Match
+1999 as the two driver cases, with POD as a further MANATEE 1 case.
 
 ## Known limits
 

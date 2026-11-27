@@ -1,0 +1,25 @@
+KUI launch report v1
+sequence: 00000000000000000651
+state: prepared before handoff; game start unconfirmed
+version: 2.0.0
+build: 64ae07435de5
+image: /games/tests/pod - speedzone (usa)/pod speedzone (usa).gdi
+reader: Background New (X)
+storage: SCI microSD
+encoding: Plain
+cd music: off
+profile: Off
+package: /kui/apps/games/retail-native-dual.kui
+source module build: 4abc63b0cc58
+source module payload bytes: 315680
+source module crc32: BAFAAF7C
+product: T-17713N
+title: POD SPEEDZONE
+bootfile: 1ST_READ.BIN
+ip bytes: 32768
+ip crc32: 03BD916E
+source executable bytes: 1758340
+source executable crc32: E41C2053
+patch 1: off address=0x00000000 value=0x00000000
+patch 2: off address=0x00000000 value=0x00000000
+crc32: FC33FA8A

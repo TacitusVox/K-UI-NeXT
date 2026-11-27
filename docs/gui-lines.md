@@ -49,24 +49,32 @@ Plasma Sword (`cdda-background-test-84.md`, Console result).
 
 ## Building the owner's K-UI
 
-The owner's K-UI carries the launch timing, the four Smash Pack modules in
-its embedded bundle and the owner's Standard binding. This recipe rebuilds
-`1c71ba3afa17` byte for byte and built `64ae07435de5`
-(`one-kui-both-threads.md`):
+Since the 3.0 RC1 release (Main `9c380d74`, 22 November 2026) the recipe is a
+script, the same one the release and the nightlies use:
 
-    make -f Makefile.dc build/kui-runtime.elf BUILD_ID=<HEAD, 12 hex> KUI_SMASH_LAUNCH_TIMING=1 \
-      RUNTIME_MODULE_BUNDLE=<directory with the Smash bundle, build cc81e63ca4d2> \
-      NATIVE_STANDARD_MANIFEST=resources/updater-bindings/installed-standard-9e3295bcfaec.h
-    python3 tools/runtime_package.py build build/kui-runtime.elf runtime.kui --build-id <same>
+    bash tools/build_distribution_gui.sh --candidate
+    python3 tools/runtime_package.py build build/kui-runtime.elf runtime.kui --build-id <HEAD, 12 hex>
 
-Build from a clean checkout (keep the bundle outside it, so the compile
-receipt says `source_dirty: false`); `KUI/boot.kui` is the same file. The
-nightly settings stay off. If no copy of the four Smash modules is at hand,
-take them from the running K-UI's bundle
-(`tools/build_runtime_module_bundle.py`: `locate`, `decode`); re-encoding
-them must give the embedded bundle byte for byte. KallistiOS is `fcfa7d8`;
-its banner carries the date its library was built (27 October 2026 in the
-owner's K-UIs).
+run from a clean checkout of the commit to deliver (`--nightly` only for
+Main's own nightlies). It links the four Smash Pack stages of
+`resources/distribution` (staged by `tools/stage_distribution.py --gui-inputs`),
+the owner's Standard binding `installed-standard-9e3295bcfaec.h` and the launch
+timing, with `BUILD_ID` the commit's first 12 hex digits. `KUI/boot.kui` is the
+same file as `KUI/runtime.kui`.
+
+These are the settings that rebuilt `1c71ba3afa17` byte for byte and built
+`64ae07435de5` (`one-kui-both-threads.md`): the script only fixes them in one
+place. The bundle it stages is the one those K-UIs carry (build
+`cc81e63ca4d2`). KallistiOS is `fcfa7d8`; its banner carries the date its
+library was built (27 October 2026 in the K-UIs built here; the release's
+own build has its builder's date).
+
+Main's nightlies and release candidates are built this way from Main, and
+Main holds every line since 22 November, so they are the owner's K-UI too:
+the 3.0 RC1 K-UI `93f13e84d989` passed the owner's hardware checklist. A
+nightly installed as an update goes into a bank that Restart K-UI selects;
+a manual-copy ZIP replaces the files a cold boot reads. Which K-UI a result
+came from is still read from its logs (rule 4).
 
 ## Why every commit, not only K-UI files
 

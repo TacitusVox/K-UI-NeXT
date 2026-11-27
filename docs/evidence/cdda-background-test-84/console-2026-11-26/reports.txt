@@ -1,0 +1,83 @@
+# Test 84 under K-UI 64ae07435de5, 26 November 2026: slots 11 and 12 (the owner's runs, sequences 651 and 652)
+# Read from STREAM.TXT as returned (ID B5829D27CAF13A94DEAFD593D1FDC00A, SHA-256 4baa5e4d00e6f1ea340e7adf04da1ae393d5ed83581d1d835296aee9c8931699) with tools/toy_survey.py and the CD row layout of src/loader/toy_suite_report_save.inc; every value is hexadecimal in the file.
+
+## slot 011
+  CD P: 3 PLAY, 0 PLAY2, 0 PAUSE, 0 RELEASE; 0 plays ended; 0 laps
+  CD ST: playing, generation 3, repeat 255, first track 7; 596 data reads in a play; 1567 progress kept at 3; 0 refused; 0 lost; 3 positions from the play
+  CD SV: version bytes 01 01 37; family 2 (MANATEE 1 from 1.01.37), identity changes 0, state byte 53, date hash e50f
+         candidates in use: first 0, second 0 surveys; surveys that read the candidates 3684, unproved 0
+         AUDIO64 window: non-zero in the first pass no, passes 0, KiB changed 0; skipped for SR.BL 0, timer 0, budget 0, G2 DMA 0
+
+## slot 012: T40202N TOKYO XTREME RACER (launched, no report saved): black screen after the bootstrap, no visible SD activity (the owner)
+
+# The launch records and reports of slots 11 and 12 as text
+
+==================== slot 011
+-- launch record
+==== SLOT 011 PART 0 ==== ID B5829D27CAF13A94DEAFD593D1FDC00A ==== LAUNCH ====
+SURVEY 83 BUILD 4abc63b0cc58
+PRODUCT T-17713N
+TITLE POD SPEEDZONE
+BOOT 1ST_READ.BIN REGION U
+IPCRC 03BD916E GDICRC 32104403 BOOTCRC E41C2053 BOOTBYTES 001AD484
+EXECCRC E41C2053 EXECBYTES 001AD484
+READER 1 TRANSPORT 1 FLAGS 00000004 SOURCE 1
+TRACKS 11 RAW 3 COOKED 0 AUDIO 8 HDAUDIO 7 MAPPED 8 OTHER 0 EXTENTS 12
+SESSION 0000AFC8 BOOTLBA 00085D2D
+-- report 1
+K-UI TOY COMMANDER REPORT
+TEST 84
+BUILD 4abc63b0cc58
+HEX / 781250 HZ
+PIPE B I CALLS IRQ STAY PT
+0 0 10995 1B25 1BF 1FBD
+AHEAD B I HIT EDC STOP OS
+0 0 339 3C39 0 380B
+X OW E I C W O
+3F 0 0 2 5 38
+SD BLK PIO OVR CRC DECL
+2500 D3 C1 0 0
+XC KEPT LO HI
+0 100000 0
+CD P P2 PA RE END LAP
+3 0 0 0 0 0
+CD ST RD KEEP REF LOST PJ
+7FF0301 254 61F 0 0 3
+CD SV DT B N WIN SKIP
+370101 2053E50F 0 E640000 0 0
+V SCI TMR GAME N TICKS
+1B25 0 10995 1C09A0 0 1C4CAB
+VMAX SCI TMR GAME D
+3E6 0 73E 1753
+D N T SEEK
+142D3 491FEF 3EFA5
+W
+-- report 2
+START SEG CUT WAIT FULL
+B4 125E CA0 3B8 90
+W BYTES WTICK TMR ERR DET
+237427D A90DB5 0 0 0
+W BLK FIX UNFIX HOLED NOCRC SEEK
+1159A 18BB 4B 18B B F3
+S C S F LF AM BC
+3F 15 60 5F 0 1
+W FILL REF BAD
+EA F 6
+                                                                                                                                                                                                                                                                                                           
+END REPORT
+==================== slot 012
+-- launch record
+==== SLOT 012 PART 0 ==== ID B5829D27CAF13A94DEAFD593D1FDC00A ==== LAUNCH ====
+SURVEY 83 BUILD 4abc63b0cc58
+PRODUCT T40202N
+TITLE TOKYO XTREME RACER
+BOOT 1ST_READ.BIN REGION U
+IPCRC B601BEB1 GDICRC 5E566A85 BOOTCRC F129E73B BOOTBYTES 00104780
+EXECCRC F129E73B EXECBYTES 00104780
+READER 1 TRANSPORT 1 FLAGS 00000004 SOURCE 1
+TRACKS 21 RAW 3 COOKED 0 AUDIO 18 HDAUDIO 17 MAPPED 18 OTHER 0 EXTENTS 22
+SESSION 0000AFC8 BOOTLBA 00085E7F
+-- report 1
+==== SLOT 012 PART 1 ==== ID B5829D27CAF13A94DEAFD593D1FDC00A ==== EMPTY ====
+-- report 2
+==== SLOT 012 PART 2 ==== ID B5829D27CAF13A94DEAFD593D1FDC00A ==== EMPTY ====
