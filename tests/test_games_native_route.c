@@ -1,8 +1,10 @@
 /* SPDX-License-Identifier: GPL-3.0-only */
 /* The actual Games launcher and FatFs on a card image. A synthetic executable
  * never passes the real SDK check, so that check's answer is the one explicit
- * adversary here: an authored record whose SDK pool is 448 KiB. This decides
- * routes and their messages. It makes no claim about a console or a game. */
+ * adversary here: an authored record whose SDK pool is 448 KiB, or the real
+ * refusal. The card can also hold one saved record of another game, the one
+ * state in which a scan would offer it as this game's. This decides routes
+ * and their messages. It makes no claim about a console or a game. */
 #define main retail_fixture_main
 #include "games_retail.c"
 #undef main
@@ -20,6 +22,7 @@ bool __wrap_kui_vmu_native_resolution_cache_build_prefixed(const void *source,si
     assert(marks && marks->source==source && marks->bytes==bytes);
     ++builds;
     assert(!__real_kui_vmu_native_resolution_cache_build_prefixed(source,bytes,address,wire,wire_bytes,out,marks));
+    if(!strcmp(pool,"unresolved"))return false;
     assert(!strcmp(pool,"small"));
     struct kui_vmu_native_resolution record;mock(source,bytes,&record);
     record.heap.initializer_slot=0x8c010100u;
@@ -28,8 +31,25 @@ bool __wrap_kui_vmu_native_resolution_cache_build_prefixed(const void *source,si
     assert(!kui_vmu_native_pool_overlaps_program(&record));
     assert(kui_vmu_native_resolution_cache_encode(&record,wire,wire_bytes));*out=record;return true;
 }
+/* Another game's record, as a launch of it with Virtual VMU On saved it: a
+ * smaller program with an ordinary pool, alone in the cache directory. */
+static void save_other_game(void) {
+    static uint8_t other[1024],wire[1024];
+    for(unsigned i=0u;i<sizeof(other);i++)other[i]=(uint8_t)(i*53u+9u);
+    struct kui_vmu_native_resolution record;mock(other,sizeof(other),&record);
+    record.heap.initializer_slot=0x8c010100u;
+    record.call.entry_begin=0x8c800000u;record.call.entry_bytes=0x400000u;
+    assert(kui_vmu_native_resolution_cache_encode(&record,wire,sizeof(wire)));
+    const char *const folders[]={"0:/KUI/VMU","0:/KUI/VMU/native-cache","0:/KUI/VMU/native-cache/v8"};
+    for(unsigned i=0u;i<3u;i++) {FRESULT made=f_mkdir(folders[i]);assert(made==FR_OK || made==FR_EXIST);}
+    char path[128]="0:/KUI/VMU/native-cache/v8/";size_t at=strlen(path);
+    for(unsigned i=0u;i<32u;i++)snprintf(path+at+2u*i,3u,"%02x",record.driver.image_sha256[i]);
+    strcpy(path+at+64u,".nvr");
+    write_file(path,wire,sizeof(wire));
+}
 int main(int argc,char **argv) {
-    assert(argc==6);pool=argv[5];
+    assert(argc==7);pool=argv[5];
+    const bool other_game=!strcmp(argv[6],"other-game");assert(other_game || !strcmp(argv[6],"empty"));
     struct stat st;assert(!lstat(argv[1],&st));test.image=fopen(argv[1],"r+b");assert(test.image);
     test.blocks=(uint64_t)st.st_size/512u;test.fault=argv[4];
     assert(native_standalone_case());
@@ -38,6 +58,7 @@ int main(int argc,char **argv) {
         /* The host launcher has no virtual-card code and refuses a Background
          * launch with Virtual VMU Off before the SDK check: On throughout. */
         assert(kui_vmu_emulation_settings_save(true,log_line));
+        if(other_game)save_other_game();
         assert(f_mount(NULL,"0:",0)==FR_OK);kui_media_set(NULL);
     } else {
         assert(!strcmp(argv[3],"check"));

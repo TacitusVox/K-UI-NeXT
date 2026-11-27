@@ -190,27 +190,98 @@ static void overlapping_hint(void) {
     add(&r,'a');CHECK(prepare(true)==NATIVE_CACHE_SKIPPED);
     CHECK(!io.publishes && !memcmp(module,before,sizeof(module)));
 }
-/* A record whose pool cannot spare the combined module's lease is no hint
- * for that module: the launcher then runs its own preflight, which reports
- * the pool. The Standard module is not asked. */
-static void small_pool_hint(void) {
-    for(unsigned small=0u;small<2u;++small) {
-        setup();dual_module(KUI_NATIVE_DUAL_COMPACT_LEASE_BYTES);io.pool_small=small;
-        add_regular('a');
-        CHECK(prepare(true)==(small?NATIVE_CACHE_SKIPPED:NATIVE_CACHE_READY));
-        CHECK(io.pool_checks==1u && !io.publishes);
-        if(small)CHECK(!memcmp(module,before,sizeof(module)));
-        setup();io.pool_small=small;add_regular('a');
-        CHECK(prepare(false)==NATIVE_CACHE_READY && !io.pool_checks);
+/* The launcher's fresh check of an image seeds the module with that image's
+ * record and publishes it under the image's own alias. */
+static const char *const selected_image="/Games/Test/Test.gdi";
+static bool own_alias(unsigned node) {
+    CHECK(kui_vmu_native_cache_seed_fill(module+128u,KUI_VMU_NATIVE_CACHE_SEED_BYTES,nodes[node].wire,1024u));
+    bool published=native_cache_alias_publish(selected_image,&map,true,&package,"/Games/Test",cancelled);
+    memcpy(module,before,sizeof(module));
+    io.opens=io.reads=io.closes=io.publishes=io.alias_reads=io.canonical_reads=io.pool_checks=0u;
+    return published;
+}
+/* The combined module's alias name before it was this image's own record:
+ * the earlier domain, kept here as written then. */
+static void earlier_alias_path(char out[128],uint32_t lease) {
+    char normalized[KUI_GAME_LAUNCH_SETTINGS_PATH_CAP];
+    CHECK(kui_game_launch_settings_normalize(normalized,selected_image));
+    const uint32_t words[]={KUI_VMU_NATIVE_RESOLUTION_DETECTOR_EPOCH,map.boot_lba,map.boot_bytes,
+        KUI_RETAIL_EXEC_ADDRESS,map.storage_transport,map.reader,1u,lease,map.gdi_crc32};
+    struct kui_sha256 hash;kui_sha256_init(&hash);
+    static const char domain[]="K-UI native mapping advisory alias v1";
+    kui_sha256_update(&hash,domain,sizeof(domain));
+    kui_sha256_update(&hash,normalized,strlen(normalized)+1u);
+    for(unsigned i=0u;i<sizeof(words)/sizeof(words[0]);i++) {
+        uint8_t word[4];for(unsigned k=0u;k<4u;k++)word[k]=(uint8_t)(words[i]>>(8u*k));
+        kui_sha256_update(&hash,word,sizeof(word));
     }
-    /* The indexed alias is held to the same rule as a scanned record. */
-    setup();dual_module(KUI_NATIVE_DUAL_COMPACT_LEASE_BYTES);
-    struct kui_vmu_native_resolution r;mock(image,sizeof(image),&r);
-    CHECK(native_cache_hint_admitted(&map,true,&package,&r) && io.pool_checks==1u);
-    io.pool_small=true;
-    CHECK(!native_cache_hint_admitted(&map,true,&package,&r) && io.pool_checks==2u);
-    CHECK(native_cache_hint_admitted(&map,false,&package,&r)==
-          kui_native_reader_admits_sdk_proof(module,sizeof(module),false,&r) && io.pool_checks==2u);
+    uint8_t value[32];char hex[65];kui_sha256_digest(&hash,value);
+    for(unsigned i=0u;i<32u;i++)snprintf(hex+2u*i,3u,"%02x",value[i]);
+    CHECK(snprintf(out,128,"0:/KUI/VMU/native-cache/v%u/hints/%s.nvr",KUI_VMU_NATIVE_RESOLUTION_DETECTOR_EPOCH,hex)<128);
+}
+/* A combined module is seeded only with this image's own indexed record. A
+ * record found by scanning can be another game's: the stage would reject it
+ * and rediscover, but the launcher's own answer for this game would never be
+ * asked. The own record is no hint either where its pool cannot spare the
+ * lease. The Standard module keeps the scan and is not asked about a pool. */
+static void combined_hint_tests(void) {
+    /* One scanned record: the Standard module's hint, not the combined one's. */
+    setup();dual_module(KUI_NATIVE_DUAL_COMPACT_LEASE_BYTES);add_regular('a');
+    CHECK(prepare(true)==NATIVE_CACHE_SKIPPED && io.alias_reads==1u);
+    CHECK(!io.opens && !io.reads && !io.canonical_reads && !io.publishes && !io.pool_checks);
+    setup();add_regular('a');
+    CHECK(prepare(false)==NATIVE_CACHE_READY && !last_indexed && io.opens==1u && !io.pool_checks);
+    for(unsigned small=0u;small<2u;++small) {
+        setup();dual_module(KUI_NATIVE_DUAL_COMPACT_LEASE_BYTES);add_regular('a');io.pool_small=small;
+        /* No alias is written for a pool the lease would starve. */
+        CHECK(kui_vmu_native_cache_seed_fill(module+128u,KUI_VMU_NATIVE_CACHE_SEED_BYTES,nodes[0].wire,1024u));
+        CHECK(native_cache_alias_publish(selected_image,&map,true,&package,"/Games/Test",cancelled)==!small);
+        CHECK(io.alias_present==!small && io.publishes==(small?0u:1u) && io.pool_checks==1u);
+        memcpy(module,before,sizeof(module));
+        if(small) {
+            /* The image's own alias from before the rule is not taken. */
+            CHECK(native_cache_alias_path(io.alias_path,selected_image,&map,true,&package));
+            memcpy(io.alias_wire,nodes[0].wire,1024u);io.alias_present=true;
+        }
+        io.opens=io.reads=io.closes=io.publishes=io.alias_reads=io.canonical_reads=io.pool_checks=0u;
+        CHECK(prepare(true)==(small?NATIVE_CACHE_SKIPPED:NATIVE_CACHE_READY) && last_indexed==!small);
+        CHECK(io.alias_reads==1u && io.pool_checks==1u && !io.opens && !io.reads && !io.publishes);
+        if(small)CHECK(!memcmp(module,before,sizeof(module)));
+    }
+    /* An alias under the earlier name could repeat a scanned record of
+     * another game: the combined module's names differ and it is not read. */
+    char key[128],earlier[128];
+    setup();dual_module(KUI_NATIVE_DUAL_COMPACT_LEASE_BYTES);add_regular('a');
+    CHECK(native_cache_alias_path(key,selected_image,&map,true,&package));
+    earlier_alias_path(earlier,KUI_NATIVE_DUAL_COMPACT_LEASE_BYTES);CHECK(strcmp(key,earlier));
+    strcpy(io.alias_path,earlier);memcpy(io.alias_wire,nodes[0].wire,1024u);io.alias_present=true;
+    CHECK(prepare(true)==NATIVE_CACHE_SKIPPED && io.alias_reads==1u && !io.opens && !io.publishes);
+    /* The same record under the image's own name is the hint. */
+    strcpy(io.alias_path,key);io.alias_reads=0u;
+    CHECK(prepare(true)==NATIVE_CACHE_READY && last_indexed && io.alias_reads==1u && !io.opens);
+    /* The Standard module's names are the earlier ones, unchanged. */
+    setup();
+    {
+        char standard[128],normalized[KUI_GAME_LAUNCH_SETTINGS_PATH_CAP];
+        CHECK(native_cache_alias_path(standard,selected_image,&map,false,&package));
+        CHECK(kui_game_launch_settings_normalize(normalized,selected_image));
+        const uint32_t words[]={KUI_VMU_NATIVE_RESOLUTION_DETECTOR_EPOCH,map.boot_lba,map.boot_bytes,
+            KUI_RETAIL_EXEC_ADDRESS,map.storage_transport,map.reader,0u,0u,map.gdi_crc32};
+        struct kui_sha256 hash;kui_sha256_init(&hash);
+        static const char domain[]="K-UI native mapping advisory alias v1";
+        kui_sha256_update(&hash,domain,sizeof(domain));
+        kui_sha256_update(&hash,normalized,strlen(normalized)+1u);
+        for(unsigned i=0u;i<sizeof(words)/sizeof(words[0]);i++) {
+            uint8_t word[4];for(unsigned k=0u;k<4u;k++)word[k]=(uint8_t)(words[i]>>(8u*k));
+            kui_sha256_update(&hash,word,sizeof(word));
+        }
+        uint8_t value[32];char hex[65],expected[128];kui_sha256_digest(&hash,value);
+        for(unsigned i=0u;i<32u;i++)snprintf(hex+2u*i,3u,"%02x",value[i]);
+        CHECK(snprintf(expected,sizeof(expected),"0:/KUI/VMU/native-cache/v%u/hints/%s.nvr",
+            KUI_VMU_NATIVE_RESOLUTION_DETECTOR_EPOCH,hex)<(int)sizeof(expected));
+        CHECK(!strcmp(standard,expected));
+    }
+    puts("PASS combined-module hints: only the image's own indexed record seeds a combined module; a scanned record, an alias under the earlier name and a record whose pool cannot spare the lease do not; the Standard module's scan and names are unchanged");
 }
 static void inspect_tests(void) {
     setup();add_regular('a');struct kui_vmu_native_resolution out,expected;
@@ -266,9 +337,11 @@ static void module_tests(void) {
     setup();mock(image,sizeof(image),&record);arena_record(&record);record.call.entry_bytes=KUI_NATIVE_DUAL_COMPACT_LEASE_BYTES;
     add(&record,'a');CHECK(prepare(false)==NATIVE_CACHE_SKIPPED);
     setup();mock(image,sizeof(image),&record);arena_record(&record);record.call.entry_bytes=KUI_NATIVE_DUAL_COMPACT_LEASE_BYTES;
-    add(&record,'a');dual_module(KUI_NATIVE_DUAL_COMPACT_LEASE_BYTES);CHECK(prepare(true)==NATIVE_CACHE_READY);
+    add(&record,'a');dual_module(KUI_NATIVE_DUAL_COMPACT_LEASE_BYTES);CHECK(prepare(true)==NATIVE_CACHE_SKIPPED);
+    CHECK(own_alias(0u) && prepare(true)==NATIVE_CACHE_READY && last_indexed);
     setup();mock(image,sizeof(image),&record);arena_record(&record);record.call.entry_bytes=KUI_NATIVE_DUAL_COMPACT_LEASE_BYTES;
     add(&record,'a');dual_module(KUI_NATIVE_DUAL_GENERAL_LEASE_BYTES);CHECK(prepare(true)==NATIVE_CACHE_SKIPPED);
+    CHECK(!own_alias(0u) && prepare(true)==NATIVE_CACHE_SKIPPED);
     setup();add_regular('a');map.reader=KUI_RETAIL_READER_ASYNC;CHECK(prepare(true)==NATIVE_CACHE_SKIPPED);
     setup();add_regular('a');dual_module(KUI_NATIVE_DUAL_GENERAL_LEASE_BYTES);CHECK(prepare(false)==NATIVE_CACHE_SKIPPED);
     setup();add_regular('a');module[128u]^=1u;memcpy(before,module,sizeof(module));CHECK(prepare(false)==NATIVE_CACHE_SKIPPED);
@@ -428,7 +501,11 @@ static void actual_rediscovery(const char *path) {
     record.driver.image_sha256[0]^=1u;add(&record,'a');
     if(!record.heap.initializer_slot || record.heap.family==KUI_VMU_NATIVE_HEAP_ARENA) {
         dual_module(record.heap.family==KUI_VMU_NATIVE_HEAP_ARENA?record.call.entry_bytes:KUI_NATIVE_DUAL_GENERAL_LEASE_BYTES);
-        CHECK(prepare(true)==NATIVE_CACHE_READY);
+        /* A combined module's hint is the image's alias: here one that holds
+         * a record of other bytes, which the stage must reject below. */
+        CHECK(native_cache_alias_path(io.alias_path,selected_image,&map,true,&package));
+        memcpy(io.alias_wire,nodes[0].wire,1024u);io.alias_present=true;
+        CHECK(prepare(true)==NATIVE_CACHE_READY && last_indexed);
     } else CHECK(prepare(false)==NATIVE_CACHE_READY);
     const uint8_t *wire,*pin;CHECK(kui_vmu_native_cache_seed_read(module+128u,1120u,&wire,&pin));
     size_t fresh_bytes=0u;CHECK(kui_vmu_native_program_extent(boot,(size_t)length,load,&fresh_bytes) && fresh_bytes==bytes);
@@ -452,7 +529,12 @@ static void actual_module_slot(const char *path) {
     setup();add_regular('a');package=(struct kui_runtime_image){.data=payload,.info={.payload_bytes=(uint32_t)bytes}};
     map.reader=dual?KUI_RETAIL_READER_ASYNC:KUI_RETAIL_READER_STANDARD;
     bool indexed=false;
-    CHECK(native_cache_hint_prepare(&map,dual,&package,"/Games/Test","/Games/Test/Test.gdi",
+    if(dual) {
+        /* No scan for a combined module: the launcher's fresh check seeds it. */
+        CHECK(native_cache_hint_prepare(&map,dual,&package,"/Games/Test","/Games/Test/Test.gdi",
+            &indexed,logger,cancelled)==NATIVE_CACHE_SKIPPED && !indexed && !memcmp(payload,original,bytes));
+        CHECK(kui_vmu_native_cache_seed_fill(payload+slot,KUI_VMU_NATIVE_CACHE_SEED_BYTES,nodes[0].wire,1024u));
+    } else CHECK(native_cache_hint_prepare(&map,dual,&package,"/Games/Test","/Games/Test/Test.gdi",
         &indexed,logger,cancelled)==NATIVE_CACHE_READY && !indexed);
     CHECK(native_cache_alias_publish("/Games/Test/Test.gdi",&map,dual,&package,"/Games/Test",cancelled));
     memcpy(payload+slot,original+slot,KUI_VMU_NATIVE_CACHE_SEED_BYTES);
@@ -468,7 +550,7 @@ static void actual_module_slot(const char *path) {
     free(original);free(envelope);
 }
 int main(int argc,char **argv) {
-    inspect_tests();tail_reader_capability();extended_reader_capability();overlapping_hint();small_pool_hint();selection_tests();module_tests();failure_tests();stale_hint_tests();indexed_hint_tests();prefix_candidate_tests();
+    inspect_tests();tail_reader_capability();extended_reader_capability();overlapping_hint();combined_hint_tests();selection_tests();module_tests();failure_tests();stale_hint_tests();indexed_hint_tests();prefix_candidate_tests();
     bool modules=argc>1 && !strcmp(argv[1],"--modules");
     if(modules) {CHECK(argc>2);for(int i=2;i<argc;i++)actual_module_slot(argv[i]);}
     else if(argc>1)actual_rediscovery(argv[1]);

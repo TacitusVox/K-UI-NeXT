@@ -60,6 +60,12 @@ static enum native_cache_result native_cache_hint_prepare(const struct kui_retai
         if(log)log("Native VMU mapping: indexed advisory hint selected; detached image SHA and live ownership remain checked");
         free(work);return NATIVE_CACHE_READY;
     }
+    /* A combined module takes only this image's own indexed record, which
+     * the launcher wrote after its own check of the image. A record found by
+     * scanning can be another game's: the stage would reject it and
+     * rediscover, but the launcher's answer for this game (a pool it must
+     * not take, an SDK it does not recognize) would never be asked. */
+    if(dual) {free(work);return NATIVE_CACHE_SKIPPED;}
     char directory[64],path[136];
     int length=snprintf(directory,sizeof(directory),"0:/KUI/VMU/native-cache/v%u",
         KUI_VMU_NATIVE_RESOLUTION_DETECTOR_EPOCH);

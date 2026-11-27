@@ -13,7 +13,12 @@ static bool native_cache_alias_path(char out[128],const char *selected,
         KUI_RETAIL_EXEC_ADDRESS,map->storage_transport,map->reader,dual?1u:0u,lease,map->gdi_crc32};
     struct kui_sha256 hash;kui_sha256_init(&hash);
     static const char domain[]="K-UI native mapping advisory alias v1";
-    kui_sha256_update(&hash,domain,sizeof(domain));
+    /* A combined module's alias is written only after the launcher's fresh
+     * check of this image. An earlier alias could repeat a scanned record of
+     * another game, so those names are not read again. */
+    static const char own[]="K-UI native mapping own-image alias v2";
+    if(dual)kui_sha256_update(&hash,own,sizeof(own));
+    else kui_sha256_update(&hash,domain,sizeof(domain));
     kui_sha256_update(&hash,normalized,strlen(normalized)+1u);
     for(unsigned i=0u;i<sizeof(words)/sizeof(words[0]);i++) {
         uint8_t word[4];for(unsigned j=0u;j<4u;j++)word[j]=(uint8_t)(words[i]>>(8u*j));
