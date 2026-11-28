@@ -774,9 +774,9 @@ static void toy_report_format(char *text,const struct kui_native_ra_public *ra,
 #if KUI_TOY_CDDA_CARD
     /* Test 85 (CARD): the audio is read from the card. Test 86 (ADPCM): and
      * kept in the sound chip's own 4-bit format; Test 87: by the sound
-     * chip's own clock. */
+     * chip's own clock; Test 88: under every MANATEE build. */
 #if defined(KUI_TOY_CDDA_ADPCM) && KUI_TOY_CDDA_ADPCM
-    test=87u;
+    test=88u;
 #else
     test=85u;
 #endif

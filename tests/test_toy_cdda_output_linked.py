@@ -220,7 +220,7 @@ def feed_check(elf, bound_accesses, bound_instructions):
     m.classes = [('the bytes', p(sink), p(sink) + 1024), ('stack', p(stack_lo), p(stack_hi)), ('state', p(state_lo), p(bss_end)),
                  ('sound memory', 0x00800000, 0x00A00000)]
     # The output's state as the header lays it out (include/kui/toy_cdda_output.h): all 32-bit words up to the unit's own room.
-    names = ('phase why why_detail generation started version family seen_version seen_hash channel0 channel1 ring frames '
+    names = ('phase why why_detail generation started version hash family seen_version seen_hash channel0 channel1 ring frames '
              'placed place_try place_at wiped spare sector piece_end passes finished audio_end segment track got card asked '
              'broken written at key_tick key_count played played_tick moved moved_tick carried').split()
     field = {name: O + 4 * i for i, name in enumerate(names)}
