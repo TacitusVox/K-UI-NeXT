@@ -89,7 +89,14 @@ def read(rows, v):
         print('   the least a look found the ring ahead of the chip: %s frames (%.0f ms; under 241 the ring has run dry); '
               'the longest wait between two looks at a running ring: %.1f ms' %
               ('65535 or more' if lead == 0xffff else str(lead), lead / 44.1, gap * 64 * 1000.0 / TICK))
-    if 'CD O MX LD L2 AT TM LOST' in v:       # Test 89
+    # (Test 89's L2 and TB say something only of a ring that was keyed on.)
+    keys = None
+    for row in ('CD O KEY RST UND CLK DRP TK', 'CD O KEY RST UND ANC DRP TK'):
+        if row in v:
+            keys = v[row][0]
+    if 'CD O MX LD L2 AT TM LOST' in v and not keys:
+        print('   the CD mixers as last read: %04X and %04X; no ring was keyed on: no lead to give' % (m[0] & 0xffff, m[0] >> 16))
+    elif 'CD O MX LD L2 AT TM LOST' in v:     # Test 89
         lead, gap, run = m[1] & 0xffff, m[1] >> 16, m[2] & 0xffff
         print('   the CD mixers as last read: %04X and %04X; MANATEE 2\'s level bytes stood in %d times' %
               (m[0] & 0xffff, m[0] >> 16, m[2] >> 16))
@@ -102,11 +109,14 @@ def read(rows, v):
         print('   why the audio\'s stream ended at a block: a CRC16 that fails %d, a lost start token %d, two readings %d, '
               'lost bytes the CRC16 does not mend %d; overruns inside a run %d, runs not started again for want of room %d' %
               (w[0] & 0xffff, w[0] >> 16, w[1] & 0xffff, w[1] >> 16, w[2] & 0xffff, w[2] >> 16))
-        if len(w) > 3:
+        if len(w) > 3 and not keys:
+            print('   the sound chip\'s timers B and C: not read (no ring was keyed on)')
+        elif len(w) > 3:
             first, vary = (w[3] >> 24, w[3] >> 8 & 255), (w[3] >> 16 & 255, w[3] & 255)
             print('   the sound chip\'s timers B and C, read only: B first read %02X, bits seen to change %02X; C first read '
                   '%02X, bits seen to change %02X (%s)' % (first[0], vary[0], first[1], vary[1],
-                  'neither read as a count' if not (vary[0] | vary[1]) else 'a count reads back'))
+                  'neither was seen to change, over the looks of the ring\'s heartbeats' if not (vary[0] | vary[1])
+                  else 'a count reads back'))
     if m is not None:
         if m[3]:
             # (A count is 176.4 frames; in MANATEE 1.01 before build 0x32, 176.)

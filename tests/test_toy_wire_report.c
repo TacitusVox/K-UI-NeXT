@@ -556,6 +556,16 @@ static int card_report(void) {
                         "CD C BLK"));
     /* Test 89: the audio stream's own reasons, 16 bits each and capped. */
     assert(strstr(text, "CD W BL AH CU TB\nFFFF0012 450003 7890006 5AFF1200\n"));
+    /* Each of the six counts held at 16 bits, and the run's least lead as
+     * it stands before any look a second into a ring: FFFF, beside the
+     * level bytes' count. */
+    kui_toy_cdda_mail.wire = (struct kui_wire_counters){.bad_crc = 0x10001, .lost_frame = 0x10002, .ambiguous = 0x10003,
+        .holed = 0x10004, .cuts = 0x10005, .fulls = 0x10006};
+    kui_toy_cdda_output.lead_run = UINT32_MAX;
+    kui_toy_cdda_output.fallbacks = 3u;
+    (void)format(&ra, &region, text, &rows);
+    assert(strstr(text, "CD W BL AH CU TB\nFFFFFFFF FFFFFFFF FFFFFFFF 5AFF1200\n"));
+    assert(strstr(text, "CD O MX LD L2 AT TM LOST\nA0F0A1F 5000A00 3FFFF 13579 "));
 #endif
     assert(strstr(text, "CD C BLK RB RR PIO WAIT YLD\n123456 12 34 56 78 9A\n"
                         "CD C HD HO HX REF DCL ERR\n11 22 33 5FFFF 44 67892345\n"
@@ -589,6 +599,26 @@ static int card_report(void) {
     assert(body <= KUI_TOY_REPORT_FILE_BYTES - 12u && rows <= LABELS);
 #if KUI_TOY_CDDA_OUTPUT && !KUI_TOY_CDDA_SURVEY
     assert(strstr(text, "CD O MX LD L2 AT TM LOST\nFFFFFFFF FFFFFFFF FFFFFFFF FFFFFFFF FFFFFFFF FFFFFFFF\n"));
+#endif
+#if KUI_TOY_CDDA_OUTPUT
+    /* Test 89: a block that is not the stream's reads as zeros. Where the
+     * sound output is built the zeros are made in the shared block's sink,
+     * whatever the audio left there; a block that is the stream's is read
+     * as it stands. (STAY, the fifth value of PIPE's row, is the block's.) */
+    for(unsigned mine = 0; mine < 2u; ++mine) {
+        unsigned value[6] = {0};
+        memset(kui_toy_cdda_mail.sink, 0xa5, sizeof(kui_toy_cdda_mail.sink));
+        memset(&wire, 0, sizeof(wire));
+        wire.magic = mine ? KUI_TOY_WIRE_REPORT_MAGIC : 0x12345678u;
+        wire.stays = 0x77u;
+        (void)format(&ra, &region, text, &rows);
+        const char *row = strstr(text, "PIPE B I CALLS IRQ STAY PT\n");
+        assert(row && sscanf(row + 27, "%x %x %x %x %x %x", &value[0], &value[1], &value[2], &value[3], &value[4],
+            &value[5]) == 6);
+        assert(value[4] == (mine ? 0x77u : 0u));
+        for(unsigned i = 0; i < sizeof(wire); ++i)
+            assert(mine ? kui_toy_cdda_mail.sink[i] == 0xa5 : !kui_toy_cdda_mail.sink[i]);
+    }
 #endif
     printf("PASS Test " TEST_NUMBER " report (the audio's rows%s): %zu body bytes with nothing counted, %zu with the "
            "audio's fields set, %zu of 1012 with every other row at eight digits a value and the audio's rows all "
