@@ -988,8 +988,11 @@ static void families(void) {
         if(!KUI_TOY_CDDA_SPARE)bank(0u, 0x18000u, 0x100000u);
         play(1000u, 9000u, 0u, 0);
         /* (A count taken by the wrong measure is a quarter of a percent
-         * out: the chip and the writer meet within seconds.) */
-        run(b->family == OLD || b->family == NAMIHEI ? 30000u : 1500u);
+         * out. Taken for more frames than it is, the chip and the writer
+         * meet within seconds; taken for fewer, as a later build's by the
+         * first builds' measure, the chip gains on the writer by a ring
+         * in two minutes.) */
+        run(b->family == NAMIHEI ? 150000u : b->family == OLD ? 30000u : 1500u);
         CHECK(O.phase == KUI_TOY_CDDA_OUT_RUN && sounding() && O.keys == 1u && starts == 1u);
         CHECK(O.family == b->family && O.version == b->version && O.hash == b->hash);
         CHECK(O.channel[0] == pair[0] && O.channel[1] == pair[1]);
@@ -1000,7 +1003,7 @@ static void families(void) {
     fresh();
     manatee1(false);
     play(1000u, 9000u, 0u, 0);
-    run(30000u);
+    run(150000u);
     CHECK(sounding() && O.keys == 1u && !wrong_frames && !O.restarts);
     /* MANATEE 1 before 1.01.37 by its last two entries: one in use, the
      * play silent; the entry before them is the game's to use. */
