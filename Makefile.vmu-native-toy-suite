@@ -858,8 +858,9 @@ toy-cdda-card-host-test: toy-wire-integration-host-test
 ifneq ($(TOY_CDDA_CARD),1)
 	$(error toy-cdda-card-host-test is Test 85's CARD: use TOY_CDDA_CARD=1)
 endif
-# Whether the audio's scenarios and the gesture test notice a defect in the
-# audio's card work: each of a list, in a copy of the sources.
+# Whether the audio's scenarios, the gesture test and the sound output's
+# window test notice a defect in the audio's card work: each of a list, in a
+# copy of the sources.
 .PHONY: toy-cdda-card-mutation-check toy-cdda-card-quiet-check
 toy-cdda-card-mutation-check:
 	HOST_CC="$(HOST_CC)" python3 tests/test_toy_cdda_card_mutations.py

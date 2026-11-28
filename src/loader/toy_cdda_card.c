@@ -8,8 +8,8 @@
  * optional work has always been, by a soft window of TMU0 time: the first
  * visit is always made; another one only for a stream that has just handed
  * bytes on, and only if the longest such visit seen still fits the window.
- * (The window is the family's share of the reader's; a sound output that
- * runs low has the whole of it.)
+ * (The window is the family's share of the reader's; a sound output has the
+ * whole of it.)
  * One visit a heartbeat at most reads a block by programmed transfers
  * (src/loader/toy_cdda_aux_card.inc). The consumer's take() is handed the
  * sink itself and returns before the next visit; it leaves the shared block
@@ -95,13 +95,16 @@ uint32_t kui_toy_cdda_card_heartbeat(const struct kui_toy_cdda_want *want,uint32
     B.window=kui_toy_cdda_card_window();
     if(!B.window)return KUI_TOY_CDDA_CARD_IDLE;
 #if KUI_TOY_CDDA_OUTPUT
-    /* Test 87: a sound output that runs low has the reader's whole soft
-     * window, whatever share of it the family's optional work has. Music is
-     * not optional work once it sounds: what its ring does not get in time
-     * is not heard, and the ring begins again (KOF Dream Match 1999 under
-     * Test 86, on half the window: 162 times in 83 s). A ring that holds
-     * enough keeps to the family's share. */
-    if(want->yield_ok)B.window=KUI_TOY_CDDA_CARD_WINDOW_TICKS;
+    /* Test 87: a sound output has the reader's whole soft window, whatever
+     * share of it the family's optional work has. Music is not optional
+     * work once it sounds: what its ring does not get in time is not heard,
+     * and the ring begins again (KOF Dream Match 1999 under Test 86, on half
+     * the window: 162 times in 83 s). The window bounds a heartbeat's
+     * visits; how many it makes is the ring's room, and what a second of
+     * music takes is the same however it is shared out among them. (Only
+     * while the ring runs low, the ring would hover about that mark: a
+     * third of it, where the whole of it can stand ahead of a stall.) */
+    B.window=KUI_TOY_CDDA_CARD_WINDOW_TICKS;
 #endif
     if(!want->generation) {
         /* Nothing is wanted: the audio leaves the card, told until it has. */

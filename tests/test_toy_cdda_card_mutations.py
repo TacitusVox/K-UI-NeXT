@@ -12,9 +12,10 @@ block's place (include/kui/toy_cdda_mail.h) are held against the audio's
 scenarios on the integration model (toy-cdda-card-host-test); the consumer's
 two calls in the worker's completion (src/loader/vmu_native_passive.c) against
 the gesture test (toy-survey-mixed-pad-host-test). Test 85's YIELD is held
-against the audio's scenarios built with it. Every mutation must still
-compile and must make its test fail (Makefile.vmu-native-toy-suite,
-toy-cdda-card-mutation-check).
+against the audio's scenarios built with it; Test 87's window for a sound
+output against the window test built with one (toy-cdda-window-host-test).
+Every mutation must still compile and must make its test fail
+(Makefile.vmu-native-toy-suite, toy-cdda-card-mutation-check).
 
 Left out as equivalent, or as no rule of this test's:
 - take-over without the test of the resident's hook (hooked): in this reader
@@ -58,6 +59,7 @@ MAIL = "include/kui/toy_cdda_mail.h"
 PASSIVE = "src/loader/vmu_native_passive.c"
 CARD = ("toy-cdda-card-host-test", "test-toy-wire-integration-card")
 SITES = ("toy-survey-mixed-pad-host-test", "test-survey-mixed-pad-card")
+WINDOW = ("toy-cdda-window-host-test", "test-toy-cdda-card-window")
 
 WANTED = "(s->pending && (s->command==KUI_GD_PIOREAD || s->command==KUI_GD_DMAREAD))"
 KIND = "if(t->control&(4u|KUI_RETAIL_TRACK_COOKED|KUI_RETAIL_TRACK_2336|KUI_RETAIL_TRACK_MODE2))"
@@ -95,6 +97,15 @@ def yielding(name, old, new):
 
 def worker(name, old, new):
     return (name, CARD, [(WORKER, old, new)])
+
+
+SOUND = ["TOY_CDDA_YIELD=1", "TOY_CDDA_SURVEY=0", "TOY_CDDA_OUTPUT=1", "TOY_CDDA_VOLUME=1", "TOY_CDDA_ADPCM=1",
+         "TOY_CDDA_SPARE=1"]
+WHOLE = "    B.window=KUI_TOY_CDDA_CARD_WINDOW_TICKS;"
+
+
+def sounding(name, old, new):
+    return (name, WINDOW, [(WORKER, old, new)], SOUND)
 
 
 MUTATIONS = [
@@ -398,6 +409,17 @@ MUTATIONS = [
     worker("the next segment begun where the last one began", "        L.sector=L.want.end;\n", ""),
     worker("bytes out of their place not noticed", "    if(offset!=L.taken)++L.wrong;\n", ""),
     worker("bytes taken not counted as held", "    L.taken+=count;\n    L.ahead+=count;", "    L.taken+=count;"),
+    # ---- Test 87: the window with a sound output ----
+    sounding("the whole window only for a ring that runs low", WHOLE,
+             "    if(want->yield_ok)B.window=KUI_TOY_CDDA_CARD_WINDOW_TICKS;"),
+    sounding("the family's share kept with a sound output", WHOLE, ""),
+    sounding("twice the reader's window for a sound output", WHOLE, "    B.window=2u*KUI_TOY_CDDA_CARD_WINDOW_TICKS;"),
+    sounding("a sound output asked with no auxiliary bound", "    if(!B.window)return KUI_TOY_CDDA_CARD_IDLE;\n", ""),
+    sounding("the longest visit not reckoned with in the whole window", MORE,
+             "        if(B.state!=KUI_TOY_CDDA_CARD_STREAMING || B.elapsed>B.window)break;"),
+    sounding("a visit behind the segment's last bytes", MORE, "        if(B.elapsed+M.round_longest>B.window)break;"),
+    sounding("the ring's word not passed on to the auxiliary", "    M.yield_ok=want->yield_ok;", "    M.yield_ok=1u;"),
+    sounding("more asked of a visit than the ring's room", "        if(!blocks)break;\n", ""),
     # ---- the consumer's two calls ----
     ("the fast path calls the consumer on early discovery batches", SITES,
      [(PASSIVE, FAST, "        kui_toy_cdda_consumer_heartbeat();")]),
@@ -486,9 +508,11 @@ def main():
     if bad:
         sys.exit("FAIL %d of %d mutations not caught: %s" % (len(bad), len(results),
                  "; ".join("%s (%s)" % (MUTATIONS[i][0], r) for i, r in bad)))
-    print("PASS Test 85 card mutations: all %d caught, %d by the audio's scenarios and %d by the gesture test" % (
-        len(results), sum(1 for i, _ in results if MUTATIONS[i][1] is CARD),
-        sum(1 for i, _ in results if MUTATIONS[i][1] is SITES)))
+    print("PASS Test 85 card mutations: all %d caught, %d by the audio's scenarios, %d by the gesture test and %d by "
+          "the sound output's window test" % (
+              len(results), sum(1 for i, _ in results if MUTATIONS[i][1] is CARD),
+              sum(1 for i, _ in results if MUTATIONS[i][1] is SITES),
+              sum(1 for i, _ in results if MUTATIONS[i][1] is WINDOW)))
 
 
 if __name__ == "__main__":

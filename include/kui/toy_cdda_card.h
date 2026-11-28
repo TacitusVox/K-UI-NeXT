@@ -35,7 +35,7 @@ enum kui_toy_cdda_card {
 /* The reader's whole soft window for optional work at a heartbeat, in TMU0
  * ticks: 3 ms (KUI_NATIVE_RA_PIO_WINDOW_TICKS, include/kui/native_readahead.h;
  * tests/test_toy_cdda_card_window.c holds the two to each other). A sound
- * output that runs low has all of it. */
+ * output has all of it, whatever the family's share. */
 #define KUI_TOY_CDDA_CARD_WINDOW_TICKS 2344u
 /* The consumer takes count bytes that continue the segment at byte offset
  * from its first sector's first byte. Offsets follow on without a gap and
