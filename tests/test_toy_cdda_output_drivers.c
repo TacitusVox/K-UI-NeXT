@@ -117,6 +117,17 @@ void kui_toy_cdda_output_test_write(uint32_t address, uint32_t value) {
             keyed[side] = on;
         }
 }
+/* The player's hold (Test 89), as src/loader/toy_cdda_player.c keeps it. */
+void kui_toy_cdda_player_hold(uint32_t hold) {
+    if(D.state != KUI_TOY_CDDA_PLAYING || !D.hold == !hold)return;
+    if(hold) {
+        D.held = D.base_counter - (TCNT_START - (uint32_t)now);
+        D.hold = 1u;
+    } else {
+        D.hold = 0u;
+        D.base_counter = TCNT_START - (uint32_t)now + D.held;
+    }
+}
 /* One track that does not end within the test, and a card that has it. */
 uint32_t kui_toy_cdda_track_of(uint32_t lba, uint32_t *start, uint32_t *end) {
     if(lba < 1000u || lba >= 500000u)return 0u;

@@ -157,6 +157,9 @@ static void play_start(uint32_t first,uint32_t end,uint32_t repeat,uint32_t toke
     /* 15 repeats for ever; otherwise the track plays repeat+1 times. */
     D.passes=(repeat&15u)==15u?0u:(repeat&15u)+1u;
     D.base_offset=D.frozen=D.done=0u;
+#if defined(KUI_TOY_CDDA_OUTPUT) && KUI_TOY_CDDA_OUTPUT
+    D.hold=0u;
+#endif
     ++D.generation;
     if(clock_now(&now)) {
         D.base_counter=now;D.state=KUI_TOY_CDDA_PLAYING;
@@ -176,7 +179,8 @@ static bool lap(void) {
     return true;
 }
 /* Where the play stands now. The base moves on by whole groups of three
- * sectors, which are whole ticks (31,250), so nothing is lost to rounding,
+ * sectors, which are whole ticks (KUI_TOY_CDDA_TICKS_3_SECTORS), so nothing
+ * is lost to rounding,
  * and passes wrap by subtraction: no division by a play's length. The 0 to 2
  * sectors of a group not yet whole are added for the answer; when they cross
  * into the next pass, that lap is counted now and the base stands up to two
@@ -187,6 +191,10 @@ static void advance(void) {
         D.state=KUI_TOY_CDDA_LOST;++D.lost;++D.generation;return;
     }
     const int32_t length=(int32_t)(D.end-D.first);
+#if defined(KUI_TOY_CDDA_OUTPUT) && KUI_TOY_CDDA_OUTPUT
+    /* Test 89: a play that is held stands where it stood. */
+    if(D.hold)D.base_counter=now+D.held;
+#endif
     uint32_t ticks=D.base_counter-now;
     const uint32_t groups=ticks/KUI_TOY_CDDA_TICKS_3_SECTORS;
     D.base_counter-=groups*KUI_TOY_CDDA_TICKS_3_SECTORS;
@@ -209,6 +217,25 @@ static void advance(void) {
     }
     D.frozen=(uint32_t)offset;
 }
+#if defined(KUI_TOY_CDDA_OUTPUT) && KUI_TOY_CDDA_OUTPUT
+/* Test 89: the sound output holds the play while it primes a ring, and
+ * lets it go on when the ring is keyed on or given up. A hold begins where
+ * the play stands now, to the tick: the play is brought up to now first,
+ * and the ticks its base then lies behind now are kept. */
+void kui_toy_cdda_player_hold(uint32_t hold) {
+    uint32_t now;
+    if(D.state!=KUI_TOY_CDDA_PLAYING || !D.hold==!hold)return;
+    if(hold) {
+        advance();
+        if(D.state!=KUI_TOY_CDDA_PLAYING || !clock_now(&now))return;
+        D.held=D.base_counter-now;
+        D.hold=1u;
+    } else {
+        D.hold=0u;
+        if(clock_now(&now))D.base_counter=now+D.held;
+    }
+}
+#endif
 /* The sector the play stands at. */
 static uint32_t play_sector(void) {
     return D.first+D.frozen;
@@ -243,6 +270,9 @@ static void command(struct kui_retail_gd *s) {
         if(D.state==KUI_TOY_CDDA_PAUSED) {
             uint32_t now;
             if(clock_now(&now)) {
+#if defined(KUI_TOY_CDDA_OUTPUT) && KUI_TOY_CDDA_OUTPUT
+                D.hold=0u;
+#endif
                 D.base_counter=now;D.base_offset=(int32_t)D.frozen;D.state=KUI_TOY_CDDA_PLAYING;
             } else {
                 D.state=KUI_TOY_CDDA_LOST;++D.lost;++D.generation;

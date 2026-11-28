@@ -54,6 +54,14 @@ struct kui_toy_cdda_drive {
     /* Counted for the report. */
     uint32_t plays, play2s, pauses, releases, ends, laps, refused, lost;
     uint32_t reads_in_play, projections, stops, keeps;
+#if defined(KUI_TOY_CDDA_OUTPUT) && KUI_TOY_CDDA_OUTPUT
+    /* Test 89: the play stands still while the sound output primes a ring
+     * (hold), held TMU0 ticks behind base_counter, as a drive stands while
+     * it seeks: the music begins at the sector the play stands at, and what
+     * the game reads moves on from there with the music, not a tenth of a
+     * second ahead of it (kui_toy_cdda_player_hold). */
+    uint32_t hold, held;
+#endif
 #if KUI_TOY_CDDA_CARD
     /* Test 85 (CARD): the disc's table as the service held it at the game's
      * last disc call, for the audio's segments (include/kui/toy_cdda_card.h). */
@@ -62,6 +70,13 @@ struct kui_toy_cdda_drive {
 #endif
 };
 extern struct kui_toy_cdda_drive kui_toy_cdda_drive;
+#if defined(KUI_TOY_CDDA_OUTPUT) && KUI_TOY_CDDA_OUTPUT
+/* Test 89, for the sound output: the play stands still from now (hold not
+ * 0), or goes on from where it stood (0). Only a play that is playing is
+ * held; a new play, a pause and a release end a hold by themselves. Called
+ * from the worker's heartbeat, as the player's visits are. */
+void kui_toy_cdda_player_hold(uint32_t hold);
+#endif
 #if KUI_TOY_CDDA_CARD
 /* Test 85 (CARD): the audio's consumer, called from the worker's heartbeat
  * behind the sound chip's survey and under its rule

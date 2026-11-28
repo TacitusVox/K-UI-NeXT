@@ -963,7 +963,8 @@ static void piece(void) {
  * and the passes it has still to play (0: for ever). False: by its clock
  * the play is over. */
 static bool drive_now(uint32_t now) {
-    const uint32_t length = D.end - D.first, ticks = D.base_counter - now;
+    /* (A play that is held stands where it stood: Test 89.) */
+    const uint32_t length = D.end - D.first, ticks = D.hold ? D.held : D.base_counter - now;
     uint32_t done = D.done;
     int32_t offset = D.base_offset + (int32_t)(ticks / KUI_TOY_CDDA_TICKS_3_SECTORS * 3u +
         ticks % KUI_TOY_CDDA_TICKS_3_SECTORS * 3u / KUI_TOY_CDDA_TICKS_3_SECTORS);
@@ -980,6 +981,8 @@ static bool drive_now(uint32_t now) {
 }
 
 static void stop(struct bus *b, const bool busy[2], uint32_t phase, uint32_t why, uint32_t detail) {
+    /* (A play held for a ring that is given up goes on.) */
+    kui_toy_cdda_player_hold(0u);
     quiet(b, busy);
     if(why && !O.why) {
         O.why = why;
@@ -1150,6 +1153,17 @@ static void work(struct bus *b, bool wanted, bool tail, uint32_t now) {
         }
         /* The play is taken up where the drive stands. */
         if(!wipe(b))return;
+        /* Test 89: and there the drive stands until the ring is keyed on,
+         * as a drive stands while it seeks. The ring is primed with a
+         * tenth of a second and more before it sounds: a play that ran on
+         * meanwhile was that far ahead of its music for good, and since
+         * the drive keeps the chip's time a play that is not repeated
+         * ended for the game with that much of it still to sound. */
+        kui_toy_cdda_player_hold(1u);
+        if(D.state != KUI_TOY_CDDA_PLAYING || !drive_now(now)) {
+            stop(b, busy, KUI_TOY_CDDA_OUT_SILENT, 0u, 0u);
+            return;
+        }
         O.piece_end = O.sector;
         O.finished = O.written = O.played = O.broken = O.at = O.carried = 0u;
         O.coder[0] = O.coder[1] = (struct kui_toy_cdda_coder){0, 127u};
@@ -1185,6 +1199,8 @@ static void work(struct bus *b, bool wanted, bool tail, uint32_t now) {
         if(!O.keys)O.lead_least = O.lead_run = UINT32_MAX;
         key_on(b);
         if(!b->ok)return;
+        /* The music has begun: the play goes on with it. */
+        kui_toy_cdda_player_hold(0u);
         O.key_count = count;
         O.played = O.moved = 0u;
         O.played_tick = O.moved_tick = O.key_tick;

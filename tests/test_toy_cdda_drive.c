@@ -730,6 +730,65 @@ static void status_through_reads(void) {
 }
 #endif
 
+#if defined(KUI_TOY_CDDA_OUTPUT) && KUI_TOY_CDDA_OUTPUT
+/* Test 89: the sound output holds the play while it primes a ring
+ * (kui_toy_cdda_player_hold). A held play stands where it stood, to the
+ * tick, answers as a play that plays, and goes on from there when it is let
+ * go; a pause and a release, and a new play, end a hold by themselves. */
+static void held(void) {
+    fresh();
+    twin_on = false;
+    /* Nothing plays: nothing is held. */
+    kui_toy_cdda_player_hold(1u);
+    CHECK(!kui_toy_cdda_drive.hold);
+    finish(request(KUI_RETAIL_GD_PLAY, 5u, 5u, 0u, 0u));
+    ticks(ticks_for(100u) + 1234u);
+    const uint32_t stood = req_stat(NULL, NULL);
+    CHECK(stood == 70150u + 150u + 100u);
+    kui_toy_cdda_player_hold(1u);
+    CHECK(kui_toy_cdda_drive.hold);
+    ticks(ticks_for(40u));
+    CHECK(req_stat(NULL, NULL) == stood && drive() == 3u);
+    kui_toy_cdda_player_hold(1u);
+    ticks(ticks_for(300u));
+    CHECK(req_stat(NULL, NULL) == stood && drive() == 3u && kui_toy_cdda_drive.state == KUI_TOY_CDDA_PLAYING);
+    /* Let go: the part of a sector that had passed is not lost. */
+    kui_toy_cdda_player_hold(0u);
+    CHECK(!kui_toy_cdda_drive.hold && req_stat(NULL, NULL) == stood);
+    ticks(ticks_for(1u) - 1234u - 2u);
+    CHECK(req_stat(NULL, NULL) == stood);
+    ticks(3u);
+    CHECK(req_stat(NULL, NULL) == stood + 1u);
+    kui_toy_cdda_player_hold(0u);
+    ticks(ticks_for(700u));
+    CHECK(req_stat(NULL, NULL) == stood + 701u && drive() == 3u);
+    /* A play that was held ends as late as it was held: 48 sectors more. */
+    ticks(ticks_for(47u));
+    CHECK(drive() == 3u);
+    ticks(ticks_for(2u));
+    CHECK(drive() == 1u && kui_toy_cdda_drive.state == KUI_TOY_CDDA_ENDED);
+    /* A pause under a hold stands where the hold stood, and the release
+     * ends the hold. */
+    finish(request(KUI_RETAIL_GD_PLAY, 5u, 5u, 15u, 0u));
+    ticks(ticks_for(10u));
+    kui_toy_cdda_player_hold(1u);
+    ticks(ticks_for(20u));
+    finish(request(KUI_RETAIL_GD_PAUSE, 0u, 0u, 0u, 0u));
+    CHECK(req_stat(NULL, NULL) == 70150u + 150u + 10u);
+    ticks(ticks_for(20u));
+    finish(request(KUI_RETAIL_GD_RELEASE, 0u, 0u, 0u, 0u));
+    CHECK(!kui_toy_cdda_drive.hold);
+    ticks(ticks_for(5u));
+    CHECK(req_stat(NULL, NULL) == 70150u + 150u + 15u);
+    /* And so does a new play. */
+    kui_toy_cdda_player_hold(1u);
+    CHECK(kui_toy_cdda_drive.hold);
+    finish(request(KUI_RETAIL_GD_PLAY, 6u, 6u, 15u, 0u));
+    CHECK(!kui_toy_cdda_drive.hold);
+    ticks(ticks_for(7u));
+    CHECK(req_stat(NULL, NULL) == 71000u + 150u + 7u);
+}
+#endif
 int main(void) {
     no_play();
     catalogue_and_partial_lap();
@@ -747,6 +806,9 @@ int main(void) {
     ends();
     library_order();
     clock();
+#if defined(KUI_TOY_CDDA_OUTPUT) && KUI_TOY_CDDA_OUTPUT
+    held();
+#endif
     printf("PASS Test 84 drive: %u scenarios, %lu checks; with no play every answer and every service word "
            "is the twin service's without a player%s\n", scenarios, checks,
            KUI_TOY_CDDA_KEEP ? "; through a play's reads (KEEP) status 3 and every other word the twin's" :

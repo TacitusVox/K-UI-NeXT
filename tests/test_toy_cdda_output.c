@@ -117,6 +117,14 @@ static bool frozen;                  /* no store may be made at all */
 static unsigned family, pair[2];
 static bool mute_readback;           /* the CD mixers read nothing */
 static bool timers_rest;             /* the chip's timer B reads the same at every look */
+static bool timer_c_counts;          /* timer C counts in its two lowest bits */
+/* A ring that runs reads the driver's count and then TMU0, which the count
+ * is held against. No access of the bus may stand between the two (each
+ * takes the model's time, and on the console can wait for the G2 FIFO):
+ * the TMU0 count the output keeps for the look is the one that stood when
+ * the driver's count was read. */
+static bool count_was_read;
+static uint32_t count_read_at;
 
 static uint32_t tcnt(void) { return TCNT_START - (uint32_t)(tstr & 1u ? now : timer_stopped_at); }
 static bool masked(void) { return (sr & 0xf0u) == 0xf0u && !(sr & BL); }
@@ -211,7 +219,8 @@ uint32_t kui_toy_cdda_card_heartbeat(const struct kui_toy_cdda_want *want, uint3
 static struct { uint32_t first, end, base, passes; } heard_play;
 /* Where the drive stands at TMU0 count tc; false: its last pass is over. */
 static bool oracle(uint32_t tc, uint32_t *sector, uint32_t *passes) {
-    const uint64_t ticks = (uint32_t)(D.base_counter - tc), length = D.end - D.first;
+    /* (A play that is held stands where it stood.) */
+    const uint64_t ticks = D.hold ? D.held : (uint32_t)(D.base_counter - tc), length = D.end - D.first;
     int64_t offset = D.base_offset + (int64_t)(ticks * 3u / KUI_TOY_CDDA_TICKS_3_SECTORS);
     if(offset < 0)offset = 0;
     const uint64_t laps = (uint64_t)offset / length;
@@ -219,6 +228,23 @@ static bool oracle(uint32_t tc, uint32_t *sector, uint32_t *passes) {
     *sector = D.first + (uint32_t)((uint64_t)offset % length);
     *passes = D.passes ? (uint32_t)(D.passes - D.done - laps) : 0u;
     return true;
+}
+/* Test 89: the player's hold, as src/loader/toy_cdda_player.c keeps it. */
+static unsigned long holds, releases;
+static uint32_t held_sector, held_passes;   /* where the play stood at its last hold */
+static bool oracle(uint32_t tc, uint32_t *sector, uint32_t *passes);
+void kui_toy_cdda_player_hold(uint32_t hold) {
+    if(D.state != KUI_TOY_CDDA_PLAYING || !D.hold == !hold)return;
+    if(hold) {
+        D.held = D.base_counter - tcnt();
+        D.hold = 1u;
+        CHECK(oracle(tcnt(), &held_sector, &held_passes));
+        ++holds;
+    } else {
+        D.hold = 0u;
+        D.base_counter = tcnt() + D.held;
+        ++releases;
+    }
 }
 /* Frame k of the ring that began at heard_play. */
 static void expected(uint64_t k, int16_t *l, int16_t *r) {
@@ -441,10 +467,17 @@ uint32_t kui_toy_cdda_output_test_read(uint32_t address, unsigned width) {
      * above it, C at rest (or both at rest). The output only reads them. */
     if(address == UINT32_C(0xa0702894))
         return timers_rest ? 0x0100u : 0x0100u | (uint32_t)(now * 882u / 15625u & 255u);
-    if(address == UINT32_C(0xa0702898))return 0x0033u;
+    if(address == UINT32_C(0xa0702898))
+        return timer_c_counts ? 0x0700u | 0x30u | (uint32_t)(now * 882u / 15625u / 64u & 3u) : 0x0733u;
     if(address == UINT32_C(0xa0702040) || address == UINT32_C(0xa0702044))
         return mute_readback ? 0u : mixer[(address - UINT32_C(0xa0702040)) / 4u];
-    if(family && address == SOUND + (family == GEN2 ? 0x12418u : 0x13418u))return driver_ticks();
+    if(family && address == SOUND + (family == GEN2 ? 0x12418u : 0x13418u)) {
+        if(O.phase == KUI_TOY_CDDA_OUT_RUN) {
+            count_was_read = true;
+            count_read_at = tcnt();
+        }
+        return driver_ticks();
+    }
     if(address - SOUND < BYTES) {
         CHECK(!(address & 3u));
         return get32(address - SOUND);
@@ -630,6 +663,7 @@ static void fresh(void) {
     access_ticks = 1u;
     store_ticks = 0u;
     fifo_stuck = frozen = mute_readback = card_idle = card_skips = inclusive = timers_rest = false;
+    timer_c_counts = count_was_read = false;
     strict = true;
     /* The console's: TMU0 a quarter of a percent slow against the chip. */
     ppm = 2500;
@@ -648,6 +682,7 @@ static void fresh(void) {
     cut = false;
     tick_base = 0u;
     count_stuck = count_slow = false;
+    holds = releases = 0u;
     count_ppm = 0;
     torn_left = 0u;
     family = 0u;
@@ -662,12 +697,15 @@ static void beat(uint32_t ticks) {
     card_calls_now = 0u;
     since_empty = 8u;
     const uint32_t before = O.phase, rest = sr;
+    const unsigned long holds_before = holds;
+    count_was_read = false;
     uint32_t sector = 0u, passes = 0u;
     const bool live = D.state == KUI_TOY_CDDA_PLAYING && oracle(tcnt(), &sector, &passes);
     /* As the worker's heartbeat calls it. */
     kui_toy_cdda_consumer_heartbeat();
     stretch_live = false;
     CHECK(sr == rest);
+    if(count_was_read && before == KUI_TOY_CDDA_OUT_RUN && O.phase == KUI_TOY_CDDA_OUT_RUN)CHECK(O.played_tick == count_read_at);
 #if KUI_TOY_CDDA_ADPCM
     /* What the output holds of its writing is what it stored: both planes
      * as far as each other, the write position behind the last unit, and
@@ -679,7 +717,14 @@ static void beat(uint32_t ticks) {
     }
 #endif
     if(before == KUI_TOY_CDDA_OUT_OFF && (O.phase == KUI_TOY_CDDA_OUT_PRIME || O.phase == KUI_TOY_CDDA_OUT_RUN)) {
-        CHECK(live);
+        /* The ring begins where the play is held: at the heartbeat's own
+         * moment, not the beat's. */
+        /* The ring begins where the play was held for it, at the
+         * heartbeat's own moment (a ring that could be primed at once is
+         * keyed on, and its play let go, in the same heartbeat). */
+        CHECK(live && holds == holds_before + 1u && (D.hold || O.phase == KUI_TOY_CDDA_OUT_RUN));
+        sector = held_sector;
+        passes = held_passes;
         heard_play.first = D.first;
         heard_play.end = D.end;
         heard_play.base = sector;
@@ -704,6 +749,7 @@ static void play(uint32_t first, uint32_t end, uint32_t passes, int32_t offset) 
     D.done = 0u;
     D.base_counter = tcnt();
     D.base_offset = offset;
+    D.hold = 0u;
     D.state = KUI_TOY_CDDA_PLAYING;
     ++D.generation;
 }
@@ -1727,7 +1773,11 @@ static void endings(void) {
     }
     card_most = 8192u;
     CHECK(O.frames == (KUI_TOY_CDDA_SPARE ? SPARE_FRAMES : sizes[KUI_TOY_CDDA_ADPCM ? 2 : 1]) && heard_play.base < 1010u);
-    while(tcnt() != D.base_counter - 4010u * (SECOND / 1000u) && (uint32_t)(D.base_counter - tcnt()) < 4010u * (SECOND / 1000u))beat(4500u);
+    /* (Since Test 89 the play is held while its ring primes, and ends with
+     * its music: the game is given the end by hand half a second before
+     * that, with the last sectors not yet asked for.) */
+    CHECK(!D.hold);
+    while((uint32_t)(D.base_counter - tcnt()) < 3500u * (SECOND / 1000u))beat(4500u);
     CHECK(sounding() && !O.finished && !O.underruns);
     D.state = KUI_TOY_CDDA_ENDED;
     ++D.generation;
@@ -1778,8 +1828,8 @@ static void last_frames(void) {
 
 /* Test 89: the drive keeps the sound chip's time. How far the drive's
  * position, as the game would read it, stands from the frame the chip
- * plays: a play begins behind the drive by the time its ring took to prime,
- * and from then on the two keep their distance. By
+ * plays: the play is held while its ring primes, so the two begin
+ * together, to a sector, and from then on they keep their distance. By
  * TMU0's own measure of a sector the drive fell behind the music by a
  * quarter of a percent: 6,600 frames in a minute. */
 static int64_t drive_ahead(void) {
@@ -1793,16 +1843,19 @@ static void aligned(void) {
         if(build)manatee1(false);
         else manatee2();
         timers_rest = build != 0u;
+        timer_c_counts = !build;
         play(1000u, 9000u, 0u, 0);
         run(2000u);
         const int64_t early = drive_ahead();
-        CHECK(early > 0 && early < 12000);
-        /* Timers B and C as read: C's count 0x33 at every look; B's seen
-         * to change in every bit by now, or (the second build here) at
-         * rest. Nothing was stored for either: the model takes no store
-         * outside the ring and the two channels. */
-        CHECK(O.timed && (O.timers >> 8 & 255u) == 0x33u && !(O.timers & 255u));
-        CHECK((O.timers >> 16 & 255u) == (build ? 0u : 255u));
+        CHECK(early > -1200 && early < 1200);
+        /* Timers B and C as read, each with control bits above its count
+         * that are not the count's: B's count seen to change in every bit
+         * by now and C's in its lowest two, or (the second build here)
+         * both at rest, C at 0x33. Nothing was stored for either: the model
+         * takes no store outside the ring and the two channels. */
+        CHECK(O.timed && (O.timers >> 8 & 0xfcu) == 0x30u && (O.timers & 255u) == (build ? 0u : 3u));
+        CHECK(!build || (O.timers >> 8 & 255u) == 0x33u);
+        CHECK((O.timers >> 16 & 255u) == (build ? 0u : 255u) && (!build || !(O.timers >> 24)));
         /* (The least lead: of the whole play, and of the looks a second
          * and more into the ring, which a play's start does not reach.) */
         CHECK(O.lead_least < 6000u && O.lead_run > O.lead_least + 2000u && O.lead_run < O.frames);
@@ -1813,6 +1866,108 @@ static void aligned(void) {
         CHECK(late - early < 900 && early - late < 900);
     }
     printf("PASS the drive on the chip's clock: a minute into a play its position stands where it stood from the music two seconds in, to a sector\n");
+}
+/* Test 89: a play that is not repeated ends for the game when its music
+ * does. The model ends the play as the player's lap() does, by the drive's
+ * own clock, and the game plays another track at its next call: the ring
+ * of the first is keyed off there. The card hands nothing on for the
+ * play's first fifth of a second, as behind a load: without the hold the
+ * drive ran on through it, and that much of the play's end was never
+ * heard. */
+static void ends_together(void) {
+    /* A ring given up while its play is held (the driver is gone) lets the
+     * play go on. */
+    fresh();
+    manatee2();
+    play(1000u, 9000u, 0u, 0);
+    card_idle = true;
+    /* (A large ring in a place of the table's takes a while to clear.) */
+    for(unsigned beats = 0; O.phase != KUI_TOY_CDDA_OUT_PRIME; ++beats) {
+        CHECK(beats < 400u);
+        beat(5000u);
+    }
+    run(100u);
+    CHECK(D.hold && O.phase == KUI_TOY_CDDA_OUT_PRIME);
+    put32(0xf8u, 0u);
+    run(100u);
+    CHECK(!D.hold && O.phase == KUI_TOY_CDDA_OUT_SILENT && O.why == KUI_TOY_CDDA_OUT_WHY_ID && releases == 1u);
+    for(unsigned build = 0; build < 2u; ++build) {
+        fresh();
+        if(build)manatee1(false);
+        else manatee2();
+        play(1000u, 1000u + 75u * 40u, 1u, 0);
+        card_idle = true;
+        for(unsigned beats = 0; O.phase != KUI_TOY_CDDA_OUT_PRIME; ++beats) {
+            CHECK(beats < 400u);
+            beat(5000u);
+        }
+        run(200u);
+        card_idle = false;
+        CHECK(D.hold && holds == 1u && !releases && !sounding());
+        uint32_t sector = 0u, passes = 0u;
+        for(unsigned beats = 0; oracle(tcnt(), &sector, &passes); ++beats) {
+            CHECK(beats < 20000u);
+            beat(4000u);
+        }
+        CHECK(sounding() && !D.hold && releases == 1u && O.keys == 1u && !O.restarts && !wrong_frames);
+        const uint64_t frames = (uint64_t)(1000u + 75u * 40u - heard_play.base) * 588u;
+        D.state = KUI_TOY_CDDA_ENDED;
+        ++D.generation;
+        beat(4000u);
+        play(4151u, 7000u, 0u, 0);
+        for(unsigned beats = 0; key_offs < 2u; ++beats) {
+            CHECK(beats < 100u);
+            beat(4000u);
+        }
+        /* Of the first play: every frame but the last heartbeats' worth,
+         * and none beyond its end but that. */
+        const uint64_t heard = voice[pair[0]].consumed;
+        /* (The play runs on while a ring takes its place and is cleared: a few sectors where the ring is large.) */
+        CHECK(heard_play.base < 1040u && heard + 1500u > frames && heard < frames + 1500u && !wrong_frames);
+    }
+    printf("PASS a play held while its ring primes: 40 s played once end for the game and for the ear together, to 1,500 frames, behind a card that held the start back a fifth of a second\n");
+}
+/* Test 89: L2, the least lead of the looks a second and more into their
+ * ring. A dip before that is LD's alone; one after it is kept as the
+ * least through what follows, through a ring begun again too; and a play
+ * that ends by itself, whose ring runs out as it should, leaves it be. */
+static void leads(void) {
+    fresh();
+    manatee1(false);
+    play(1000u, 9000u, 0u, 0);
+    run(500u);
+    card_idle = true;
+    run(150u);
+    card_idle = false;
+    run(1500u);
+    const uint32_t early = O.lead_least;
+    CHECK(early < 7000u && O.lead_run > early + 2000u && !O.underruns);
+    card_idle = true;
+    run(200u);
+    card_idle = false;
+    run(300u);
+    const uint32_t dip = O.lead_run;
+    CHECK(dip < early && dip > 400u && O.lead_least == dip && !O.underruns);
+    run(2000u);
+    CHECK(O.lead_run == dip && O.keys == 1u);
+    /* The driver keys a channel off: the ring begins again, L2 does not. */
+    reg[pair[1]][0] &= ~0x4000u;
+    strict = false;
+    strobe();
+    run(60u);
+    strict = true;
+    run(2500u);
+    CHECK(O.drops == 1u && O.keys == 2u && sounding() && O.lead_run == dip && !wrong_loud);
+    /* A play that ends by itself. */
+    fresh();
+    manatee2();
+    play(1000u, 1000u + 75u * 3u, 1u, 0);
+    for(unsigned beats = 0; O.phase != KUI_TOY_CDDA_OUT_SILENT; ++beats) {
+        CHECK(beats < 2000u);
+        beat(4000u);
+    }
+    CHECK(silent() && !O.underruns && !wrong_frames && O.lead_run > 3000u && O.lead_run != UINT32_MAX);
+    printf("PASS L2: the least lead of the looks a second into their ring, kept through a ring begun again, and not a play's start or its end\n");
 }
 int main(void) {
     (void)sizes;
@@ -1833,6 +1988,9 @@ int main(void) {
     endings();
     last_frames();
     aligned();
+    ends_together();
+    /* (L2's scenario is the spare ring's: its dips are measured against a ring of a fifth of a second.) */
+    if(KUI_TOY_CDDA_SPARE)leads();
     printf("CD-music output: %lu checks passed (VOLUME %d, ADPCM %d, SPARE %d); host model only\n", checks, KUI_TOY_CDDA_VOLUME,
         KUI_TOY_CDDA_ADPCM, KUI_TOY_CDDA_SPARE);
     return 0;
