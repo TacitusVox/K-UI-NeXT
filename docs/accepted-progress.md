@@ -196,10 +196,11 @@ music, KOF Dream Match 1999 played it in pieces, its ring running dry
 twice a second ([Test 86](cdda-background-test-86.md), Console result).
 Test 87's module `a54a75c8645b` (the sound driver's count as the ring's
 clock, the whole soft window for a sound output, a cheaper way of the
-frames into the ring) ran that evening: KOF played its music steadily in
-two launches, 146 s with no ring begun again; ChuChu Rocket and POD
-SpeedZone are not yet run under it ([Test 87](cdda-background-test-87.md),
-Console result). None of the three is an accepted component: each is a
+frames into the ring) ran that evening in all three games: KOF played its
+music steadily, 146 s with no ring begun again; ChuChu Rocket played 26
+minutes, a piece of over seven among them, with three short breaks beside
+the game's own reads; POD SpeedZone broke six times in 102 s, reading
+through its race ([Test 87](cdda-background-test-87.md), Console result). None of the three is an accepted component: each is a
 test module in the New reader's place, with the virtual VMU off. What is
 left of CD music in regular games is laid out in
 `universal-loader-roadmap.md` (CD music in regular games: what is left). The owner has reported no Windows CE or Smash Pack run

@@ -356,8 +356,12 @@ was 0.46, the music 8 percent of the console's time. Two things it showed
 beside: KOF's card stream breaks eight times a second (a block neither
 clean nor rebuilt, read again by programmed transfers: an eighth of the
 music's time), and the lead is least, 56 ms, just behind a key-on.
-ChuChu Rocket, POD SpeedZone and a play of minutes are still to run under
-it.
+The later runs of the same evening: ChuChu Rocket played 26 minutes of
+music, a piece of over seven minutes among them, with no ring begun again
+for the clock and three run dry beside the game's own reads; POD
+SpeedZone, reading through its race, ran dry six times in 102 s of music
+(Test 85: nine in 63 s). TMU0 runs 2,483 parts in a million slow against
+the chip, give or take 5.
 
 ### CD music in regular games: what is left (27 November 2026)
 
@@ -398,7 +402,9 @@ reader). And the player's own rough edges.
 The steps, in the order proposed:
 
 1. Close Test 87, no build: ChuChu Rocket and POD SpeedZone under it, and
-   one piece left to play for several minutes.
+   one piece left to play for several minutes. Done the same evening
+   (`cdda-background-test-87.md`, The later runs): all three games play,
+   and the count held as the clock through 26 minutes.
 2. Test 88, the player's rough edges, one build and one round, a commit
    each: why KOF's stream breaks eight times a second (the stream's own
    reasons in the report) and a stream kept through a key-on; the drive's

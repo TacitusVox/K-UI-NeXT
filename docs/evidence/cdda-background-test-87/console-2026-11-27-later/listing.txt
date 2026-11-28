@@ -1,0 +1,7 @@
+STREAM.TXT: ID 9C05737ABA3BD4DF58FDFE369A06868C, 6 of 100 slots used
+slot 000: report saved: T3101N THE KING OF FIGHTERS DREAM MATCH 1999 (build a54a75c8645b; source 1; tracks 43, CD music tracks 39)
+slot 001: report saved: T3101N THE KING OF FIGHTERS DREAM MATCH 1999 (build a54a75c8645b; source 1; tracks 43, CD music tracks 39)
+slot 002: launched, no report saved: T-17713N POD SPEEDZONE (build a54a75c8645b; source 1; tracks 11, CD music tracks 7)
+slot 003: report saved: MK-51049 CHUCHU ROCKET (build a54a75c8645b; source 1; tracks 19, CD music tracks 15)
+slot 004: report saved: T-17713N POD SPEEDZONE (build a54a75c8645b; source 1; tracks 11, CD music tracks 7)
+slot 005: report saved: MK-51049 CHUCHU ROCKET (build a54a75c8645b; source 1; tracks 19, CD music tracks 15)

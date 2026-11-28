@@ -1,11 +1,14 @@
 # Test 87: CD music in the Background reader, part 4: a ring that keeps up
 
 Status: packaged 27 November 2026, 19:47 CST (build `a54a75c8645b`, commit
-`a54a75c`), and run on the console the same evening (Console result): KOF
-Dream Match 1999 played its music steadily in two launches, no ring begun
-again in 146 s of music. ChuChu Rocket and POD SpeedZone have not been run
-under it. A test module in the place of the installed New reader, like
-Tests 79 to 86, not an accepted component. What is left of CD music in
+`a54a75c`), and run on the console the same evening in all three games
+(Console result): KOF Dream Match 1999 played its music steadily, no ring
+begun again in 146 s of music; ChuChu Rocket played 26 minutes of it, a
+piece of over seven minutes among them, with three rings run dry beside
+the game's own reads; POD SpeedZone ran dry six times in 102 s of music,
+reading through its race. No count went unborne out in any of them. A test
+module in the place of the installed New reader, like Tests 79 to 86, not
+an accepted component. What is left of CD music in
 regular games is laid out in `universal-loader-roadmap.md` (CD music in
 regular games: what is left).
 
@@ -301,13 +304,61 @@ What it shows:
    why KOF's stream loses bytes so often is not known.
 7. Not answered by these runs: ChuChu Rocket and POD SpeedZone under this
    build; a play of minutes; whether the game keeps its speed, beyond the
-   owner's "worked".
+   owner's "worked". (The later runs below answer the first two.)
+
+### The later runs: ChuChu Rocket and POD SpeedZone
+
+The owner's second file of the same evening, the same card file with four
+more slots used (SHA-256 `7fa9ddd0...dbdd`; its first two slots are the
+first file's, byte for byte), in
+`docs/evidence/cdda-background-test-87/console-2026-11-27-later/`. The
+owner's words: "Got those game reports for you. Also got the 7 minutes+ of
+music in the main menu of ChuChu rocket." All four launch records name
+build `a54a75c8645b`.
+
+| Slot | Game | In the report |
+|---|---|---|
+| 2 | POD SpeedZone | Launched, no report saved. Nothing says why: the owner reported no fault |
+| 3 | ChuChu Rocket | 11 PLAY, 17 PAUSE. 12 key-ons, **1 ring begun again, for a ring run dry**; no count unborne out. 128.3 s of music. 7,646 heartbeats, 1.25 ms each, the longest 3.23 ms; 3.19 visits and 2,960 bytes a heartbeat. The longest wait between two looks 33.3 ms. AT 33,062, TM 103,061,028. The card: 44,100 blocks, 36 read again, 47 by programmed transfers; 2 streams ended for a read of the game's |
+| 4 | POD SpeedZone | 3 PLAY. 9 key-ons, **6 rings begun again, each for a ring run dry**; no count unborne out. 101.6 s of music. 594 data reads of the game's during a play; 73 streams ended for them, 41 read-ahead windows given up for the audio. 7,122 heartbeats, 1.07 ms each, the longest 3.41 ms; 2.87 visits a heartbeat. The mixers 0A00 and 0000, the planes at 0A1F and 0A0F. AT 29,738, TM 92,699,654 |
+| 5 | ChuChu Rocket | 38 PLAY, 83 PAUSE, 7 plays ended, 10 laps. 40 key-ons, **3 rings begun again, each for a ring run dry**; no count unborne out. **1,556.1 s of music** in a session of 1,595 s by the driver's count. 93,115 heartbeats, 1.24 ms each, the longest 3.21 ms; 3.17 visits and 2,948 bytes a heartbeat. AT 398,754, TM 1,243,012,349. The card: 535,301 blocks, 379 read again, 426 by programmed transfers; 4 streams ended for a read of the game's |
+
+What they show:
+
+8. **The count is a clock for minutes on end.** 26 minutes of music in one
+   session, a piece of over seven minutes in the menu among them by the
+   owner's account (10 laps counted), and no ring begun again for the
+   clock in any game. By Test 86's reckoning from TMU0 the chip would have
+   passed the writer within a minute of each such play. POD's build
+   (1.01.37) keeps its count where KOF's does.
+9. **The two clocks, to five parts in a million**: over ChuChu Rocket's
+   1,595 s TMU0 runs 2,483 slow against the chip, give or take 5; the six
+   other measurements agree with it (2,402 to 2,528, each give or take 60
+   to 125). A console's constant, and near the 2,500 of a processor clock
+   of 199.5 MHz reckoned as 200.
+10. **Like for like, the frames' way into the ring is three tenths
+    cheaper.** ChuChu Rocket under Test 86 and here: a visit 0.41 ms and
+    0.29 ms, a heartbeat 1.77 ms and 1.24 ms, for the same 3 kilobytes.
+    (KOF's 0.46 and 0.38 of finding 4 compare a play in pieces with a
+    whole one.) The music takes 7.2 percent of the console's time in
+    ChuChu Rocket and 6.4 in POD.
+11. **What still runs a ring dry is the game's own reading.** ChuChu
+    Rocket: 4 rings run dry in 28 minutes of music, with 6 streams ended
+    for a read of the game's; KOF, which reads nothing while it plays,
+    none. POD reads through its race, 594 reads in two minutes: 6 rings
+    run dry in 102 s of music, one in 17 s, where Test 85's larger ring of
+    samples ran dry once in 7 s. A read that holds the card longer than
+    the ring's 0.18 s or 0.28 s is heard as a short break.
+12. **KOF's broken streams are KOF's.** Blocks read again for a second of
+    music: about 10 in KOF, 0.24 in ChuChu Rocket, 0.55 in POD.
+13. POD's first launch saved no report (slot 2). Nothing in the file says
+    whether the game was left without the gesture or stopped.
 
 ## Known limits
 
-1. Run on a console in one game of the three (Console result). The
-   hand-written coder agrees with the interpreter there in what is heard;
-   ChuChu Rocket and POD SpeedZone are not yet run under this build.
+1. Run on a console in the three games (Console result), by one owner on
+   one console. The hand-written coder agrees with the interpreter there
+   in what is heard.
 2. The count is true to one count, 4 ms, either way: that is the margin,
    and it does not shrink.
 3. The drive's own clock is still TMU0. The play's position as the game

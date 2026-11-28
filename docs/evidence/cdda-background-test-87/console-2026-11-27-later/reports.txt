@@ -1,0 +1,317 @@
+==============================================================================
+==== SLOT 000 PART 0 ==== ID 9C05737ABA3BD4DF58FDFE369A06868C ==== LAUNCH ====
+SURVEY 83 BUILD a54a75c8645b
+PRODUCT T3101N
+TITLE THE KING OF FIGHTERS DREAM MATCH 1999
+BOOT 1ST_READ.BIN REGION U
+IPCRC 6BCC3355 GDICRC 805EF0C1 BOOTCRC 961A5FE5 BOOTBYTES 002428E4
+EXECCRC 961A5FE5 EXECBYTES 002428E4
+READER 1 TRANSPORT 1 FLAGS 00000004 SOURCE 1
+TRACKS 43 RAW 3 COOKED 0 AUDIO 40 HDAUDIO 39 MAPPED 40 OTHER 0 EXTENTS 49
+SESSION 0000AFC8 BOOTLBA 00085C02
+K-UI TOY COMMANDER REPORT
+TEST 87
+BUILD a54a75c8645b
+HEX / 781250 HZ
+PIPE B I CALLS IRQ STAY PT
+0 0 1935B 520 232 1FBD
+AHEAD B I HIT EDC STOP OS
+0 0 239 134F 0 1319
+X OW E I C W O
+15 0 0 3 0 12
+SD BLK PIO OVR CRC DECL
+2A3F 319 D8 0 0
+XC KEPT LO HI
+1 400000 4
+CD P P2 PA RE END LAP
+3 0 8 0 0 0
+CD ST RD KEEP REF LOST PJ
+140F0301 0 0 0 0 62D
+CD O ST V ID RING N
+202 3B0101 3E3D1C1F 15000 3012FC0
+CD O KEY RST UND CLK DRP TK
+3 0 0 0 0 0
+CD O HB LONG TICK KB SKIP LV
+1127 9DD 52A418 31AE 0 F0F0F1F
+CD O MX LD FB AT TM LOST
+F170F08 CC09BB 0 5420 4006AB2 0
+CD C BLK RB RR PIO WAIT YLD
+6093 552 2C8 2CB 2CB 0
+CD C HD HO HX REF DCL ERR
+0 2CA 0 0 0 0
+CD C VIS TICK HB LONG RND SEEK
+3C5B 451AAE 1122 887 167 A6383
+END REPORT
+-- read:
+   the game: 3 PLAY, 0 PLAY2, 8 PAUSE, 0 RELEASE; 0 plays ended, 0 laps
+   the drive at the save: playing, first track 20, repeat byte 0F, generation byte 03; 0 data reads during a play, 0 read steps kept at 3; 0 plays refused, 0 lost; 1581 positions from the play
+   the output: playing; reason: none; family MANATEE 1 from 1.01.37; keys dropped in the play 0
+   the driver seen: version word 003B0101, date hash 1C1F; channels 61 and 62
+   the ring: at 0x015000, 12224 frames a plane (277 ms); places taken 1; ADPCM in the driver's spare memory
+   3 key-ons; 0 rings begun again (0 for a ring run dry, 0 for a count TMU0 did not bear out); 0 keys dropped by the driver, 0 channels found keyed on; 0 channels taken, 0 registers put back
+   4391 heartbeats used the bus: 6932.43 ms in all, 1.58 ms each on average, the longest 3.23 ms; 12718 KiB of audio taken (73.8 s of music)
+   so 2966 bytes of audio a heartbeat, and 59.5 heartbeats a second of music
+   heartbeats not made for SR.BL 0, for a G2 transfer 0; bus waits run out 0; stores refused 0; levels 0F1F and 0F0F
+   the CD mixers as last read: 0F08 and 0F17; MANATEE 2's level bytes 00 00, stood in 0 times
+   the least a look found the ring ahead of the chip: 2491 frames (56 ms; under 241 the ring has run dry); the longest wait between two looks at a running ring: 16.7 ms
+   the two clocks: 21536 counts of the driver's (86.1 s) in 67136178 of TMU0's ticks: TMU0 runs -2434 parts in a million against the sound chip's clock, give or take 93
+   rings lost to a pair of the table 0, to a guard 0; segments the card refused 0; heartbeats without the stack 0
+   the card: 24723 blocks handed on (1362 rebuilt from their CRC, 5.5%), 712 read again, 715 by programmed transfers, 715 visits left one waiting, 0 windows given up
+   streams ended for a read of the game's 0, by the audio 714, found ended 0; segments refused 0 (reason 0); streams not begun 0; first error 0000 detail 0000
+   15451 visits for the audio in 4386 heartbeats (3.52 each): 5796.88 ms in all, 0.38 ms a visit with the bytes' way into the ring, the longest heartbeat 2.79 ms, the longest reading visit 0.46 ms; programmed reads 871.47 ms
+==============================================================================
+==== SLOT 001 PART 0 ==== ID 9C05737ABA3BD4DF58FDFE369A06868C ==== LAUNCH ====
+SURVEY 83 BUILD a54a75c8645b
+PRODUCT T3101N
+TITLE THE KING OF FIGHTERS DREAM MATCH 1999
+BOOT 1ST_READ.BIN REGION U
+IPCRC 6BCC3355 GDICRC 805EF0C1 BOOTCRC 961A5FE5 BOOTBYTES 002428E4
+EXECCRC 961A5FE5 EXECBYTES 002428E4
+READER 1 TRANSPORT 1 FLAGS 00000004 SOURCE 1
+TRACKS 43 RAW 3 COOKED 0 AUDIO 40 HDAUDIO 39 MAPPED 40 OTHER 0 EXTENTS 49
+SESSION 0000AFC8 BOOTLBA 00085C02
+K-UI TOY COMMANDER REPORT
+TEST 87
+BUILD a54a75c8645b
+HEX / 781250 HZ
+PIPE B I CALLS IRQ STAY PT
+0 0 19FA9 56F 209 1FBD
+AHEAD B I HIT EDC STOP OS
+0 0 20E 1403 0 13B0
+X OW E I C W O
+15 0 0 2 0 13
+SD BLK PIO OVR CRC DECL
+2C3B 32F E4 0 0
+XC KEPT LO HI
+4 400000 4
+CD P P2 PA RE END LAP
+5 0 8 0 0 0
+CD ST RD KEEP REF LOST PJ
+6000501 0 0 0 0 A79
+CD O ST V ID RING N
+202 3B0101 3E3D1C1F 15000 3012FC0
+CD O KEY RST UND CLK DRP TK
+5 0 0 0 0 0
+CD O HB LONG TICK KB SKIP LV
+10D9 9DB 52381B 30F6 0 F0F0F1F
+CD O MX LD FB AT TM LOST
+F170F08 CC09F3 0 538A 3F942E9 0
+CD C BLK RB RR PIO WAIT YLD
+5F0A 5AE 2E0 2E4 2E5 0
+CD C HD HO HX REF DCL ERR
+0 2E4 0 0 0 0
+CD C VIS TICK HB LONG RND SEEK
+3BC2 4524BE 10D2 888 174 AC127
+END REPORT
+-- read:
+   the game: 5 PLAY, 0 PLAY2, 8 PAUSE, 0 RELEASE; 0 plays ended, 0 laps
+   the drive at the save: playing, first track 6, repeat byte 00, generation byte 05; 0 data reads during a play, 0 read steps kept at 3; 0 plays refused, 0 lost; 2681 positions from the play
+   the output: playing; reason: none; family MANATEE 1 from 1.01.37; keys dropped in the play 0
+   the driver seen: version word 003B0101, date hash 1C1F; channels 61 and 62
+   the ring: at 0x015000, 12224 frames a plane (277 ms); places taken 1; ADPCM in the driver's spare memory
+   5 key-ons; 0 rings begun again (0 for a ring run dry, 0 for a count TMU0 did not bear out); 0 keys dropped by the driver, 0 channels found keyed on; 0 channels taken, 0 registers put back
+   4313 heartbeats used the bus: 6897.04 ms in all, 1.60 ms each on average, the longest 3.23 ms; 12534 KiB of audio taken (72.8 s of music)
+   so 2976 bytes of audio a heartbeat, and 59.3 heartbeats a second of music
+   heartbeats not made for SR.BL 0, for a G2 transfer 0; bus waits run out 0; stores refused 0; levels 0F1F and 0F0F
+   the CD mixers as last read: 0F08 and 0F17; MANATEE 2's level bytes 00 00, stood in 0 times
+   the least a look found the ring ahead of the chip: 2547 frames (58 ms; under 241 the ring has run dry); the longest wait between two looks at a running ring: 16.7 ms
+   the two clocks: 21386 counts of the driver's (85.5 s) in 66667241 of TMU0's ticks: TMU0 runs -2454 parts in a million against the sound chip's clock, give or take 94
+   rings lost to a pair of the table 0, to a guard 0; segments the card refused 0; heartbeats without the stack 0
+   the card: 24330 blocks handed on (1454 rebuilt from their CRC, 6.0%), 736 read again, 740 by programmed transfers, 741 visits left one waiting, 0 windows given up
+   streams ended for a read of the game's 0, by the audio 740, found ended 0; segments refused 0 (reason 0); streams not begun 0; first error 0000 detail 0000
+   15298 visits for the audio in 4306 heartbeats (3.55 each): 5800.18 ms in all, 0.38 ms a visit with the bytes' way into the ring, the longest heartbeat 2.80 ms, the longest reading visit 0.48 ms; programmed reads 902.15 ms
+==============================================================================
+==== SLOT 002 PART 0 ==== ID 9C05737ABA3BD4DF58FDFE369A06868C ==== LAUNCH ====
+SURVEY 83 BUILD a54a75c8645b
+PRODUCT T-17713N
+TITLE POD SPEEDZONE
+BOOT 1ST_READ.BIN REGION U
+IPCRC 03BD916E GDICRC 32104403 BOOTCRC E41C2053 BOOTBYTES 001AD484
+EXECCRC E41C2053 EXECBYTES 001AD484
+READER 1 TRANSPORT 1 FLAGS 00000004 SOURCE 1
+TRACKS 11 RAW 3 COOKED 0 AUDIO 8 HDAUDIO 7 MAPPED 8 OTHER 0 EXTENTS 12
+SESSION 0000AFC8 BOOTLBA 00085D2D
+(no report saved)
+==============================================================================
+==== SLOT 003 PART 0 ==== ID 9C05737ABA3BD4DF58FDFE369A06868C ==== LAUNCH ====
+SURVEY 83 BUILD a54a75c8645b
+PRODUCT MK-51049
+TITLE CHUCHU ROCKET
+BOOT 1ST_READ.BIN REGION U
+IPCRC D5E11389 GDICRC B7D94F1F BOOTCRC 83E2CA42 BOOTBYTES 00176160
+EXECCRC 83E2CA42 EXECBYTES 00176160
+READER 1 TRANSPORT 1 FLAGS 00000004 SOURCE 1
+TRACKS 19 RAW 3 COOKED 0 AUDIO 16 HDAUDIO 15 MAPPED 16 OTHER 0 EXTENTS 20
+SESSION 0000AFC8 BOOTLBA 00085D9B
+K-UI TOY COMMANDER REPORT
+TEST 87
+BUILD a54a75c8645b
+HEX / 781250 HZ
+PIPE B I CALLS IRQ STAY PT
+0 0 1E6F 67 1E 1FBD
+AHEAD B I HIT EDC STOP OS
+0 0 1E 165 0 122
+X OW E I C W O
+9 0 0 1 0 8
+SD BLK PIO OVR CRC DECL
+2D65 31 F5 0 0
+XC KEPT LO HI
+0 100000 0
+CD P P2 PA RE END LAP
+B 0 11 0 1 0
+CD ST RD KEEP REF LOST PJ
+50F0C01 2 15 0 0 1A
+CD O ST V ID RING N
+102 90002 3F3EC46D 16000 3011FC0
+CD O KEY RST UND CLK DRP TK
+C 1 1 0 0 0
+CD O HB LONG TICK KB SKIP LV
+1DDE 9DE 71F00E 5653 0 F0F0F1F
+CD O MX LD FB AT TM LOST
+F1F0F0F 19600A4 0 8126 6249624 0
+CD C BLK RB RR PIO WAIT YLD
+AC44 B69 24 2F 30 0
+CD C HD HO HX REF DCL ERR
+2 2D 0 0 0 0
+CD C VIS TICK HB LONG RND SEEK
+5EE9 54C5C3 1DCB 896 16E AF4E
+END REPORT
+-- read:
+   the game: 11 PLAY, 0 PLAY2, 17 PAUSE, 0 RELEASE; 1 plays ended, 0 laps
+   the drive at the save: playing, first track 5, repeat byte 0F, generation byte 0C; 2 data reads during a play, 21 read steps kept at 3; 0 plays refused, 0 lost; 26 positions from the play
+   the output: playing; reason: none; family MANATEE 2; keys dropped in the play 0
+   the driver seen: version word 00090002, date hash C46D; channels 62 and 63
+   the ring: at 0x016000, 8128 frames a plane (184 ms); places taken 1; ADPCM in the driver's spare memory
+   12 key-ons; 1 rings begun again (1 for a ring run dry, 0 for a count TMU0 did not bear out); 0 keys dropped by the driver, 0 channels found keyed on; 0 channels taken, 0 registers put back
+   7646 heartbeats used the bus: 9557.79 ms in all, 1.25 ms each on average, the longest 3.23 ms; 22099 KiB of audio taken (128.3 s of music)
+   so 2960 bytes of audio a heartbeat, and 59.6 heartbeats a second of music
+   heartbeats not made for SR.BL 0, for a G2 transfer 0; bus waits run out 0; stores refused 0; levels 0F1F and 0F0F
+   the CD mixers as last read: 0F0F and 0F1F; MANATEE 2's level bytes 00 00, stood in 0 times
+   the least a look found the ring ahead of the chip: 164 frames (4 ms; under 241 the ring has run dry); the longest wait between two looks at a running ring: 33.3 ms
+   the two clocks: 33062 counts of the driver's (132.2 s) in 103061028 of TMU0's ticks: TMU0 runs -2494 parts in a million against the sound chip's clock, give or take 60
+   rings lost to a pair of the table 0, to a guard 0; segments the card refused 0; heartbeats without the stack 0
+   the card: 44100 blocks handed on (2921 rebuilt from their CRC, 6.6%), 36 read again, 47 by programmed transfers, 48 visits left one waiting, 0 windows given up
+   streams ended for a read of the game's 2, by the audio 45, found ended 0; segments refused 0 (reason 0); streams not begun 0; first error 0000 detail 0000
+   24297 visits for the audio in 7627 heartbeats (3.19 each): 7111.23 ms in all, 0.29 ms a visit with the bytes' way into the ring, the longest heartbeat 2.81 ms, the longest reading visit 0.47 ms; programmed reads 57.44 ms
+==============================================================================
+==== SLOT 004 PART 0 ==== ID 9C05737ABA3BD4DF58FDFE369A06868C ==== LAUNCH ====
+SURVEY 83 BUILD a54a75c8645b
+PRODUCT T-17713N
+TITLE POD SPEEDZONE
+BOOT 1ST_READ.BIN REGION U
+IPCRC 03BD916E GDICRC 32104403 BOOTCRC E41C2053 BOOTBYTES 001AD484
+EXECCRC E41C2053 EXECBYTES 001AD484
+READER 1 TRANSPORT 1 FLAGS 00000004 SOURCE 1
+TRACKS 11 RAW 3 COOKED 0 AUDIO 8 HDAUDIO 7 MAPPED 8 OTHER 0 EXTENTS 12
+SESSION 0000AFC8 BOOTLBA 00085D2D
+K-UI TOY COMMANDER REPORT
+TEST 87
+BUILD a54a75c8645b
+HEX / 781250 HZ
+PIPE B I CALLS IRQ STAY PT
+0 0 1054E 1A0D 1E2 1FBD
+AHEAD B I HIT EDC STOP OS
+0 0 2D6 3497 0 32C6
+X OW E I C W O
+55 0 0 1 3 28
+SD BLK PIO OVR CRC DECL
+246E 14A D1 0 0
+XC KEPT LO HI
+0 100000 0
+CD P P2 PA RE END LAP
+3 0 0 0 0 0
+CD ST RD KEEP REF LOST PJ
+6FF0301 252 61D 0 0 3
+CD O ST V ID RING N
+202 370101 3E3DE50F 15000 3012FC0
+CD O KEY RST UND CLK DRP TK
+9 6 6 0 0 0
+CD O HB LONG TICK KB SKIP LV
+1BD2 A66 5AE45C 445E 0 A0F0A1F
+CD O MX LD FB AT TM LOST
+A00 1710000 0 742A 5867C06 0
+CD C BLK RB RR PIO WAIT YLD
+8877 8CF 38 49 84 29
+CD C HD HO HX REF DCL ERR
+49 3A 0 0 0 0
+CD C VIS TICK HB LONG RND SEEK
+4FC4 4379DB 1BC7 923 167 12B10
+END REPORT
+-- read:
+   the game: 3 PLAY, 0 PLAY2, 0 PAUSE, 0 RELEASE; 0 plays ended, 0 laps
+   the drive at the save: playing, first track 6, repeat byte FF, generation byte 03; 594 data reads during a play, 1565 read steps kept at 3; 0 plays refused, 0 lost; 3 positions from the play
+   the output: playing; reason: none; family MANATEE 1 from 1.01.37; keys dropped in the play 0
+   the driver seen: version word 00370101, date hash E50F; channels 61 and 62
+   the ring: at 0x015000, 12224 frames a plane (277 ms); places taken 1; ADPCM in the driver's spare memory
+   9 key-ons; 6 rings begun again (6 for a ring run dry, 0 for a count TMU0 did not bear out); 0 keys dropped by the driver, 0 channels found keyed on; 0 channels taken, 0 registers put back
+   7122 heartbeats used the bus: 7624.58 ms in all, 1.07 ms each on average, the longest 3.41 ms; 17502 KiB of audio taken (101.6 s of music)
+   so 2516 bytes of audio a heartbeat, and 70.1 heartbeats a second of music
+   heartbeats not made for SR.BL 0, for a G2 transfer 0; bus waits run out 0; stores refused 0; levels 0A1F and 0A0F
+   the CD mixers as last read: 0A00 and 0000; MANATEE 2's level bytes 00 00, stood in 0 times
+   the least a look found the ring ahead of the chip: 0 frames (0 ms; under 241 the ring has run dry); the longest wait between two looks at a running ring: 30.2 ms
+   the two clocks: 29738 counts of the driver's (119.0 s) in 92699654 of TMU0's ticks: TMU0 runs -2492 parts in a million against the sound chip's clock, give or take 67
+   rings lost to a pair of the table 0, to a guard 0; segments the card refused 0; heartbeats without the stack 0
+   the card: 34935 blocks handed on (2255 rebuilt from their CRC, 6.5%), 56 read again, 73 by programmed transfers, 132 visits left one waiting, 41 windows given up
+   streams ended for a read of the game's 73, by the audio 58, found ended 0; segments refused 0 (reason 0); streams not begun 0; first error 0000 detail 0000
+   20420 visits for the audio in 7111 heartbeats (2.87 each): 5660.30 ms in all, 0.28 ms a visit with the bytes' way into the ring, the longest heartbeat 2.99 ms, the longest reading visit 0.46 ms; programmed reads 98.00 ms
+==============================================================================
+==== SLOT 005 PART 0 ==== ID 9C05737ABA3BD4DF58FDFE369A06868C ==== LAUNCH ====
+SURVEY 83 BUILD a54a75c8645b
+PRODUCT MK-51049
+TITLE CHUCHU ROCKET
+BOOT 1ST_READ.BIN REGION U
+IPCRC D5E11389 GDICRC B7D94F1F BOOTCRC 83E2CA42 BOOTBYTES 00176160
+EXECCRC 83E2CA42 EXECBYTES 00176160
+READER 1 TRANSPORT 1 FLAGS 00000004 SOURCE 1
+TRACKS 19 RAW 3 COOKED 0 AUDIO 16 HDAUDIO 15 MAPPED 16 OTHER 0 EXTENTS 20
+SESSION 0000AFC8 BOOTLBA 00085D9B
+K-UI TOY COMMANDER REPORT
+TEST 87
+BUILD a54a75c8645b
+HEX / 781250 HZ
+PIPE B I CALLS IRQ STAY PT
+0 0 8471 303 6C 1FBD
+AHEAD B I HIT EDC STOP OS
+0 0 6F 7F9 0 56D
+X OW E I C W O
+24 0 0 B 0 19
+SD BLK PIO OVR CRC DECL
+7BB5 1D3 28E 0 0
+XC KEPT LO HI
+0 100000 0
+CD P P2 PA RE END LAP
+26 0 53 0 7 A
+CD ST RD KEEP REF LOST PJ
+40F2D01 6 3F 0 0 77
+CD O ST V ID RING N
+102 90002 3F3EC46D 16000 3011FC0
+CD O KEY RST UND CLK DRP TK
+28 3 3 0 0 0
+CD O HB LONG TICK KB SKIP LV
+16BBB 9CC 560BECE 4171A 0 F0F0F1F
+CD O MX LD FB AT TM LOST
+F1F0F0F 1960000 0 615A2 4A16DCFD 0
+CD C BLK RB RR PIO WAIT YLD
+82B05 85C7 17B 1AA 1AF 0
+CD C HD HO HX REF DCL ERR
+4 1AA 0 0 0 0
+CD C VIS TICK HB LONG RND SEEK
+47F0C 3FE3923 16B67 881 176 635A1
+END REPORT
+-- read:
+   the game: 38 PLAY, 0 PLAY2, 83 PAUSE, 0 RELEASE; 7 plays ended, 10 laps
+   the drive at the save: playing, first track 4, repeat byte 0F, generation byte 2D; 6 data reads during a play, 63 read steps kept at 3; 0 plays refused, 0 lost; 119 positions from the play
+   the output: playing; reason: none; family MANATEE 2; keys dropped in the play 0
+   the driver seen: version word 00090002, date hash C46D; channels 62 and 63
+   the ring: at 0x016000, 8128 frames a plane (184 ms); places taken 1; ADPCM in the driver's spare memory
+   40 key-ons; 3 rings begun again (3 for a ring run dry, 0 for a count TMU0 did not bear out); 0 keys dropped by the driver, 0 channels found keyed on; 0 channels taken, 0 registers put back
+   93115 heartbeats used the bus: 115489.77 ms in all, 1.24 ms each on average, the longest 3.21 ms; 268058 KiB of audio taken (1556.1 s of music)
+   so 2948 bytes of audio a heartbeat, and 59.8 heartbeats a second of music
+   heartbeats not made for SR.BL 0, for a G2 transfer 0; bus waits run out 0; stores refused 0; levels 0F1F and 0F0F
+   the CD mixers as last read: 0F0F and 0F1F; MANATEE 2's level bytes 00 00, stood in 0 times
+   the least a look found the ring ahead of the chip: 0 frames (0 ms; under 241 the ring has run dry); the longest wait between two looks at a running ring: 33.3 ms
+   the two clocks: 398754 counts of the driver's (1595.0 s) in 1243012349 of TMU0's ticks: TMU0 runs -2483 parts in a million against the sound chip's clock, give or take 5
+   rings lost to a pair of the table 0, to a guard 0; segments the card refused 0; heartbeats without the stack 0
+   the card: 535301 blocks handed on (34247 rebuilt from their CRC, 6.4%), 379 read again, 426 by programmed transfers, 431 visits left one waiting, 0 windows given up
+   streams ended for a read of the game's 4, by the audio 426, found ended 0; segments refused 0 (reason 0); streams not begun 0; first error 0000 detail 0000
+   294668 visits for the audio in 93031 heartbeats (3.17 each): 85750.30 ms in all, 0.29 ms a visit with the bytes' way into the ring, the longest heartbeat 2.79 ms, the longest reading visit 0.48 ms; programmed reads 520.89 ms
