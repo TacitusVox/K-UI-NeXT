@@ -92,9 +92,10 @@
  *
  * VOLUME: the two channels play at the level the game's driver gave the CD
  * input's mixers (0xa0702040 and 0xa0702044, which the loader only reads):
- * the larger of the two, the left plane hard left and the right plane hard
- * right. Without VOLUME they play at full level, as the two CD-music
- * adapters do.
+ * the larger of the two. The left plane is hard left and the right plane
+ * hard right, but where the game pans the two inputs to opposite sides:
+ * there each plane has its input's pan (Test 89). Without VOLUME they play
+ * at full level, as the two CD-music adapters do.
  *
  * The driver facts are readings of the drivers (docs/cd-audio-corpus.md;
  * tools/manatee_read.py runs each build's start-up and timer interrupt);
@@ -599,16 +600,31 @@ static void levels(struct bus *b) {
     for(unsigned side = 0; side < 2u; ++side) {
         O.mixer[side] = value[side] & 0xffffu;
     }
-    /* One level for both planes, the larger of the two inputs', and each
-     * plane on its own side. Which of the two registers is the disc's left
-     * is not known (the drivers' own full-level words pan the first right
-     * and the second left), and POD SpeedZone on the console gave the first
-     * level 10 and the middle and the second none: a plane given its
-     * register's word could come out on the wrong side, or not at all. */
+    /* One level for both planes, the larger of the two inputs': POD
+     * SpeedZone on the console gave the first level 10 and the second
+     * none, and a plane given its register's level could not be heard at
+     * all. */
     uint32_t level = value[0] & 0x0f00u;
     if((value[1] & 0x0f00u) > level)level = value[1] & 0x0f00u;
-    O.level[0] = level ? level | (LEVEL_LEFT & 0x1fu) : 0u;
-    O.level[1] = level ? level | (LEVEL_RIGHT & 0x1fu) : 0u;
+    /* Test 89: the sides the game gives the disc. A mixer's low five bits
+     * pan its input as a channel's pan its channel: bit 4 the side (set:
+     * left), the other four how far out. The drivers' own words, and the
+     * games' on the console (ChuChu Rocket: 0F0F and 0F1F), have the first
+     * input on the right and the second on the left: the first is the
+     * disc's right. Where the game has the two inputs on opposite sides,
+     * each plane takes its input's pan: KOF Dream Match 1999 has them half
+     * way out (0F08 and 0F17), Tetsuman Menkyokaiden the same and
+     * crossed. Where it has not (both in the middle: Mr. Driller, POD
+     * SpeedZone, Nasubi no Heya; whether a disc then plays as one channel
+     * is not known), the planes keep their own sides, hard left and
+     * right. */
+    uint32_t pan[2] = {LEVEL_LEFT & 0x1fu, LEVEL_RIGHT & 0x1fu};
+    if(((value[0] ^ value[1]) & 0x10u) && (value[0] & 0x0fu) && (value[1] & 0x0fu)) {
+        pan[0] = value[1] & 0x1fu;
+        pan[1] = value[0] & 0x1fu;
+    }
+    O.level[0] = level ? level | pan[0] : 0u;
+    O.level[1] = level ? level | pan[1] : 0u;
     if(O.mixer[0] | O.mixer[1]) {
         O.mixer_zero = 0u;
         return;

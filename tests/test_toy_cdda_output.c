@@ -637,8 +637,10 @@ static void fresh(void) {
     card_most = 8192u;
     card_chunk = 1024u;
     card_ticks = 40u;
-    mixer[0] = 0x0f1fu;
-    mixer[1] = 0x0f0fu;
+    /* The CD mixers as the drivers leave them, and as ChuChu Rocket's read
+     * on the console: the first input hard right, the second hard left. */
+    mixer[0] = 0x0f0fu;
+    mixer[1] = 0x0f1fu;
     stores = ring_stores = register_stores = chip_reads = g2_reads = fifo_polls = 0u;
     card_calls = card_nones = card_segments = card_bytes = card_low = 0u;
     heard_frames = wrong_frames = wrong_loud = wrong_nonzero = cut_frames = loud_frames = key_ons = key_offs = lonely = 0u;
@@ -1551,12 +1553,37 @@ static void starved(void) {
 static void volume(void) {
     fresh();
     manatee2();
-    mixer[0] = 0x0a1fu;
-    mixer[1] = 0x0a0fu;
+    /* (The drivers' own pans: the first input hard right, the second hard
+     * left.) */
+    mixer[0] = 0x0a0fu;
+    mixer[1] = 0x0a1fu;
     play(1000u, 9000u, 0u, 0);
     run(1000u);
 #if KUI_TOY_CDDA_VOLUME
     CHECK(reg[62][9] == 0x0a1fu && reg[63][9] == 0x0a0fu);
+    /* Test 89: where the game has the two inputs on opposite sides, each
+     * plane takes its input's pan (the first input is the disc's right).
+     * KOF Dream Match 1999's, half way out; Tetsuman Menkyokaiden's, the
+     * same and crossed; and one side nearly in the middle. */
+    static const uint16_t sided[][4] = {{0x0f08u, 0x0f17u, 0x0f17u, 0x0f08u}, {0x0f17u, 0x0f08u, 0x0f08u, 0x0f17u},
+        {0x0911u, 0x0c0eu, 0x0c0eu, 0x0c11u}};
+    for(unsigned i = 0; i < 3u; ++i) {
+        mixer[0] = sided[i][0];
+        mixer[1] = sided[i][1];
+        run(100u);
+        CHECK(reg[62][9] == sided[i][2] && reg[63][9] == sided[i][3] && !O.fixes && sounding() && !wrong_frames);
+    }
+    /* Not on opposite sides: both in the middle (Mr. Driller's 0F00 and
+     * 0F00), one in the middle of either kind, both on one side. The
+     * planes keep their own sides. */
+    static const uint16_t unsided[][2] = {{0x0f00u, 0x0f00u}, {0x0f10u, 0x0f0cu}, {0x0f14u, 0x0f00u}, {0x0f10u, 0x0f00u},
+        {0x0f18u, 0x0f1cu}, {0x0f03u, 0x0f0fu}};
+    for(unsigned i = 0; i < 6u; ++i) {
+        mixer[0] = unsided[i][0];
+        mixer[1] = unsided[i][1];
+        run(100u);
+        CHECK(reg[62][9] == 0x0f1fu && reg[63][9] == 0x0f0fu && !O.fixes);
+    }
     /* One level for both planes, the larger of the two; the registers'
      * pans and other bits are not the planes'. As POD SpeedZone had them
      * on the console: */
@@ -1599,7 +1626,7 @@ static void volume(void) {
     play(1000u, 9000u, 0u, 0);
     run(1000u);
     CHECK(sounding() && !reg[61][9] && !reg[62][9] && !loud_frames);
-    printf("PASS VOLUME: both planes at the larger of the CD mixers' two levels, each on its side; MANATEE 2's level bytes where the mixers read nothing\n");
+    printf("PASS VOLUME: both planes at the larger of the CD mixers' two levels; each with its input's pan where the game has the inputs on opposite sides, on its own side where not; MANATEE 2's level bytes where the mixers read nothing\n");
 #else
     CHECK(reg[62][9] == 0x0f1fu && reg[63][9] == 0x0f0fu);
     mixer[0] = mixer[1] = 0u;
