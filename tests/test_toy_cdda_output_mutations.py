@@ -178,7 +178,8 @@ MUTATIONS = [
     ("the frames gathered dropped at each piece", "    O.got = 0u;\n    O.card = KUI_TOY_CDDA_CARD_IDLE;",
      "    O.got = O.carried = 0u;\n    O.card = KUI_TOY_CDDA_CARD_IDLE;", {"ADPCM": 1}),
     ("the write position not begun again with the ring", "O.broken = O.at = O.carried = 0u;", "O.broken = O.carried = 0u;"),
-    ("the ring written past its end", "    if(O.at >= O.frames)O.at = 0u;", "    if(O.at > O.frames)O.at = 0u;"),
+    ("the ring written past its end", "        if(O.at >= O.frames)O.at = 0u;", "        if(O.at > O.frames)O.at = 0u;", {"ADPCM": 0}),
+    ("the ring of ADPCM written past its end", "        if(at >= frames)at = 0u;", "        if(at > frames)at = 0u;", {"ADPCM": 1}),
     # SPARE
     ("the spare ring longer than its place", "    return settle(b, at, LOWEST - at - 2u * GUARD_BYTES);",
      "    return settle(b, at, LOWEST - at);", {"SPARE": 1}),
@@ -229,8 +230,9 @@ MUTATIONS = [
     ("the drive's place a sector off", "    O.sector = D.first + (uint32_t)offset;", "    O.sector = D.first + (uint32_t)offset + 1u;"),
     ("a play that is over begun", "    if(D.passes && done >= D.passes)return false;", ""),
     # The clock
-    ("883 frames in 15,625 ticks", "    return ticks / 15625u * 882u + ticks % 15625u * 882u / 15625u;",
-     "    return ticks / 15625u * 883u + ticks % 15625u * 883u / 15625u;"),
+    # (TMU0 is the witness now, true to a sixty-fourth: a frame in 882 more is no defect.)
+    ("TMU0's frames a tenth long", "    return ticks / 15625u * 882u + ticks % 15625u * 882u / 15625u;",
+     "    return ticks / 15625u * 970u + ticks % 15625u * 970u / 15625u;"),
     ("the ring's clock TMU0 again", "    O.played = counted;", "    O.played = timed;"),
     ("no margin for the count's own step", "#define MARGIN (COUNT_FRAMES + EDGE)", "#define MARGIN EDGE"),
     ("a count's frames a tenth short", "    return counts / 5u * 882u + counts % 5u * 882u / 5u;",
@@ -254,7 +256,9 @@ MUTATIONS = [
      "        const uint32_t quiet = QUIET_FRAMES;"),
     ("no silence behind the last frame", "        if(O.finished) {\n            (void)silence(b, quiet);\n            return;",
      "        if(O.finished) {\n            return;"),
-    ("stopped at the last frame by TMU0 alone", "        if(O.played >= O.audio_end + margin) {", "        if(O.played >= O.audio_end) {"),
+    ("stopped at the last frame by the count alone", "        if(O.played >= O.audio_end + margin) {", "        if(O.played >= O.audio_end) {"),
+    ("stopped a ring behind the last frame", "        if(O.played >= O.audio_end + margin) {",
+     "        if(O.played >= O.audio_end + O.frames) {"),
     ("keyed on before the ring is primed", "        if(!b->ok || (O.written < prime && !O.finished))return;", "        if(!b->ok)return;"),
     # For the report
     ("the driver's clock not begun again when the driver is", "    if(!O.clocked || (int32_t)(chip - O.chip_first - O.chip_ticks) < 0) {",
@@ -269,7 +273,7 @@ MUTATIONS = [
     ("a new play not begun", "(O.phase == KUI_TOY_CDDA_OUT_OFF || D.generation == O.generation);", "1;"),
     ("the last frames cut when the drive ends", "    bool tail = D.state == KUI_TOY_CDDA_ENDED && O.phase == KUI_TOY_CDDA_OUT_RUN &&\n        D.generation == O.generation + 1u;",
      "    bool tail = false;"),
-    ("an ended play read on from the card", "        O.finished = 1u;\n        O.audio_end = O.written;\n    }\n    const uint32_t ahead", "    }\n    const uint32_t ahead"),
+    ("an ended play read on from the card", "        O.finished = 1u;\n        O.audio_end = O.written;\n    }\n    const uint32_t most", "    }\n    const uint32_t most"),
     ("the output on any stack", "    if(kui_vmu_native_passive_stack_room() < KUI_TOY_CDDA_OUTPUT_STACK) {\n        ++O.skipped_stack;",
      "    if(0) {\n        ++O.skipped_stack;"),
     ("the terminal on any stack", "    if(!O.keyed || kui_vmu_native_passive_stack_room() < KUI_TOY_CDDA_OUTPUT_STACK)return;",

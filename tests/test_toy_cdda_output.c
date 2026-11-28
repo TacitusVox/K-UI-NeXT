@@ -1517,6 +1517,38 @@ static void endings(void) {
     CHECK(!key_ons && O.phase == KUI_TOY_CDDA_OUT_SILENT && !O.why && !ring_stores);
     printf("PASS the terminal key-off, a new play over an old one, a lost clock, a play already over\n");
 }
+/* A play's last frames, whatever the driver's count stands at when the
+ * channels are keyed on and when the play ends. The count is true to one
+ * count either way, so the chip may be a count short of what it says: a
+ * play is keyed off only when the count stands a count and the edge beyond
+ * its last frame. Short plays, each begun a third of a millisecond later
+ * than the one before: every phase of a count at key-on, and of a
+ * heartbeat's look at the end. */
+static void last_frames(void) {
+    unsigned long least = ~0ul, most = 0ul;
+    for(unsigned shift = 0; shift < 150u; ++shift) {
+        fresh();
+        if(shift & 1u)manatee1(false);
+        else manatee2();
+        now += 261u * shift;
+        play(1000u, 1040u, 1u, 0);
+        for(unsigned beats = 0; O.phase != KUI_TOY_CDDA_OUT_SILENT; ++beats) {
+            CHECK(beats < 1000u);
+            beat(2000u + 7u * shift);
+        }
+        const uint64_t frames = (uint64_t)(1040u - heard_play.base) * 588u;
+        CHECK(silent() && !O.why && !wrong_frames && !cut_frames && !O.underruns && !O.clock_faults && key_ons == 2u &&
+            heard_play.base < 1010u);
+        /* Every frame of the play, and no more than the margin, a count and
+         * a look's wait of silence behind it. */
+        CHECK(last_heard + 1u >= frames && last_heard + 1u < frames + 1500u);
+        const unsigned long over = (unsigned long)(last_heard + 1u - frames);
+        if(over < least)least = over;
+        if(over > most)most = over;
+    }
+    printf("PASS a play's last frames at 150 phases of the driver's count and of the heartbeats: every one played, and "
+        "%lu to %lu frames of silence behind them before the key-off\n", least, most);
+}
 
 int main(void) {
     (void)sizes;
@@ -1534,6 +1566,7 @@ int main(void) {
     starved();
     volume();
     endings();
+    last_frames();
     printf("CD-music output: %lu checks passed (VOLUME %d, ADPCM %d, SPARE %d); host model only\n", checks, KUI_TOY_CDDA_VOLUME,
         KUI_TOY_CDDA_ADPCM, KUI_TOY_CDDA_SPARE);
     return 0;
