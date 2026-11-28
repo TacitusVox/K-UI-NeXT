@@ -60,6 +60,15 @@ Of the 89, the Tokyo Xtreme Racer discs (448 KiB pools) and four Buzz 2000
 discs (pools smaller than the lease) are admitted to a lease their pools
 cannot hold.
 
+Added 27 November 2026: the bundle run's structural gates for each game are
+in [gates.json](evidence/cd-audio-corpus-2026-11-20/gates.json). 82 of the
+426 pass every gate of the combined worker; 215 pass the gates a lease for
+CD music alone would need (an SDK SCI family, the SDK heap family and its
+initializer); of the other 211, 46 have no SCI family, 95 no heap family
+resolved and 70 no heap initializer proved (`universal-loader-roadmap.md`,
+CD music in regular games: what is left). Host readings, necessary and not
+sufficient.
+
 ## How the games ask for CD music
 
 - 423 programs reach the drive only through Sega's gdFs library; the other

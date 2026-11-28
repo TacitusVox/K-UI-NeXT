@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: GPL-3.0-only
-"""The saved reports of a CD-music test's STREAM.TXT (Tests 84 to 86), each
+"""The saved reports of a CD-music test's STREAM.TXT (Tests 84 to 87), each
 with its CD rows spelled out.
 
 usage: python3 -I tools/toy_cdda_report.py STREAM.TXT
@@ -8,8 +8,8 @@ usage: python3 -I tools/toy_cdda_report.py STREAM.TXT
 The file is the survey file of tools/toy_survey.py: a header sector and
 three sectors a slot (the launch record and two of report text). Every
 slot that was launched is printed as it stands, and under it what the rows
-CD P, CD ST, CD O and CD C say (docs/cdda-background-test-85.md and
-docs/cdda-background-test-86.md, The report). Nothing is written."""
+CD P, CD ST, CD O and CD C say (docs/cdda-background-test-85.md to
+docs/cdda-background-test-87.md, The report). Nothing is written."""
 import sys
 
 TICK = 781250.0
@@ -51,11 +51,13 @@ def read(rows, v):
                   (o[3], frames, frames / 44.1, o[4] >> 16 & 255, KIND.get(o[4] >> 24, 'kind %d' % (o[4] >> 24))))
         else:
             print('   the ring: none placed; places taken %d' % (o[4] >> 16 & 255))
-    if 'CD O KEY RST UND ANC DRP TK' in v:
-        k = v['CD O KEY RST UND ANC DRP TK']
-        print('   %d key-ons; %d rings begun again (%d for a ring run dry, %d for the clocks\' margin); %d keys dropped by the '
-              'driver, %d channels found keyed on; %d channels taken, %d registers put back' %
-              (k[0], k[1], k[2], k[3], k[4] & 0xffff, k[4] >> 16, k[5] & 0xffff, k[5] >> 16))
+    for row, fourth in (('CD O KEY RST UND ANC DRP TK', 'for the clocks\' margin'),             # Tests 85 and 86
+                        ('CD O KEY RST UND CLK DRP TK', 'for a count TMU0 did not bear out')):    # Test 87
+        if row in v:
+            k = v[row]
+            print('   %d key-ons; %d rings begun again (%d for a ring run dry, %d %s); %d keys dropped by the '
+                  'driver, %d channels found keyed on; %d channels taken, %d registers put back' %
+                  (k[0], k[1], k[2], k[3], fourth, k[4] & 0xffff, k[4] >> 16, k[5] & 0xffff, k[5] >> 16))
     if 'CD O HB LONG TICK KB SKIP LV' in v:
         h = v['CD O HB LONG TICK KB SKIP LV']
         music = h[3] * 1024 / 176400.0
@@ -72,11 +74,19 @@ def read(rows, v):
         print('   the CD mixers as last read: %04X and %04X; MANATEE 2\'s level bytes %02X %02X, stood in %d times; priming '
               '%s; %d frames of silence' % (m[0] & 0xffff, m[0] >> 16, m[1] & 255, m[1] >> 8 & 255, m[1] >> 16, ms(m[2]), m[3]))
         lost = m[4]
+    m = v.get('CD O MX M1 FB AT TM LOST') or v.get('CD O MX LD FB AT TM LOST')
     if 'CD O MX M1 FB AT TM LOST' in v:       # Test 86
-        m = v['CD O MX M1 FB AT TM LOST']
         print('   the CD mixers as last read: %04X and %04X; as first read with something in them: %04X and %04X; MANATEE '
               '2\'s level bytes %02X %02X, stood in %d times' %
               (m[0] & 0xffff, m[0] >> 16, m[1] & 0xffff, m[1] >> 16, m[2] & 255, m[2] >> 8 & 255, m[2] >> 16))
+    if 'CD O MX LD FB AT TM LOST' in v:       # Test 87
+        lead, gap = m[1] & 0xffff, m[1] >> 16
+        print('   the CD mixers as last read: %04X and %04X; MANATEE 2\'s level bytes %02X %02X, stood in %d times' %
+              (m[0] & 0xffff, m[0] >> 16, m[2] & 255, m[2] >> 8 & 255, m[2] >> 16))
+        print('   the least a look found the ring ahead of the chip: %s frames (%.0f ms; under 241 the ring has run dry); '
+              'the longest wait between two looks at a running ring: %.1f ms' %
+              ('65535 or more' if lead == 0xffff else str(lead), lead / 44.1, gap * 64 * 1000.0 / TICK))
+    if m is not None:
         if m[3]:
             ratio = m[4] / (m[3] * 3125.0)
             print('   the two clocks: %d counts of the driver\'s (%.1f s) in %d of TMU0\'s ticks: TMU0 runs %+.0f parts in '

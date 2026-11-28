@@ -1,0 +1,82 @@
+commit a54a75c8 CD-music card: a sound output has the reader's whole window, low or not; build a54a75c8645b; worktree changes: 0
+ok   build-main
+build/t87-main: 324900 bytes; worker free 352; auxiliary free 288
+ok   main-toy-wire-linked-check
+ok   main-toy-cdda-parts-check
+ok   main-toy-wire-package-test
+ok   main-toy-wire-save-host-test
+ok   main-toy-wire-host-tests
+ok   main-toy-wire-integration-host-test
+ok   main-toy-cdda-drive-host-test
+ok   main-toy-survey-mixed-pad-host-test
+ok   main-toy-cdda-card-host-test
+ok   main-toy-cdda-card-quiet-check
+ok   main-toy-cdda-output-host-test
+ok   main-toy-cdda-window-host-test
+ok   main-toy-cdda-mutation-check
+ok   switches
+ok   asm-audit
+ok   admission-main
+ok   build-main-again
+ok   build-read
+build/t87-read: 319396 bytes; worker free 5152; auxiliary free 288
+ok   read-toy-wire-linked-check
+ok   read-toy-cdda-parts-check
+ok   read-toy-wire-package-test
+ok   read-toy-wire-host-tests
+ok   read-toy-survey-mixed-pad-host-test
+ok   read-toy-cdda-survey-host-test
+ok   read-toy-cdda-card-host-test
+ok   admission-read
+ok   build-samples
+build/t87-pcm: 325092 bytes; worker free 192; auxiliary free 288
+ok   samples-toy-wire-linked-check
+ok   samples-toy-wire-host-tests
+main:        0ccfaa602486bcf8b91541c739cd7af83099553f81c1e208b9e916c2b1462094
+main again:  0ccfaa602486bcf8b91541c739cd7af83099553f81c1e208b9e916c2b1462094
+read:        2106e4185b37891496c53943169c608bf192e26b53cdd9f6b380efa4a8c10445
+read native-ra-aux.bin = main native-ra-aux.bin
+read resident-sci.bin = main resident-sci.bin
+read resident-legacy.bin = main resident-legacy.bin
+before: f4cc67dd Record K-UI aaaba0ea3640 and the console result of 
+ok   old-test84-here
+same test84: 68f9f3de57f87439fa2fffe3fdc12812c39c9b866dc231707e1f32a54fdff22d (315748 bytes)
+ok   old-test83-here
+same test83: 30cac0f816f309997c43515f9a08d2dd55c4e7d7864193b8baeb6499d3ca507a (311940 bytes)
+ok   old-installed-here
+same installed: e69a6fefb77584c2757ee2f725e8e63c0e9e40024ce2ee43b9867ec74d2a93ac (294468 bytes)
+ok   old-test85-no-sound-here
+same test85-no-sound: 1bd6e044b3c42a2f8a55cc36759492b48ee3229da5421a8d5b0494d81cfab411 (319396 bytes)
+ok   old-test86-no-sound-here
+same test86-no-sound: cb4c31e89c9a7d2f96569921b0625d6f236b210037d4b9b7c613a8039e8cc74e (319396 bytes)
+reader inputs here: 715257dfb4dec9114f3bc5cd125481d2c05952b96f0bc02b10fb42d05408ac6c; recorded: c1b08df635ea59bb1b9b2b377d8b24b572e5f037977cc3acb56e71e7514c47d5
+FAIL mutations-output-111 (exit 1)
+caught    a short stack not counted
+caught    nothing at the terminal report
+caught    the terminal with SR.BL set
+caught    another driver's channels keyed off
+FAIL 4 of 162 mutations not caught: the ring written past its end (SURVIVED); 883 frames in 15,625 ticks (SURVIVED); stopped at the last frame by TMU0 alone (SURVIVED); an ended play read on from the card (not applied (0 matches))
+Terminated
+FAIL mutations-output-110 (exit 143)
+mutations in t87/final-mut-110-a54a75c8645b
+Terminated
+FAIL mutations-output-100 (exit 143)
+mutations in t87/final-mut-100-a54a75c8645b
+ok   mutations-card
+(Above: the mutation runs at a54a75c8. --way 111 showed the list behind the source, three alive and one not applied; the runs of --way 110 and 100 were then stopped, exit 143, and the list and the model corrected in 7fc140c3, tests only. Below: the corrected runs.)
+The output's tests as corrected in 7fc140c3 CD-music output tests: a play's last frames at every phase of the count (tests only), on a clean worktree of that commit.
+Files that differ from the module's commit a54a75c8: tests/test_toy_cdda_output.c tests/test_toy_cdda_output_mutations.py 
+ok   corrected-toy-cdda-output-host-test
+ok   mutations-output-111-corrected
+PASS Test 85 output mutations: all 163 caught by the output test
+FAIL mutations-output-110-corrected (exit 1)
+caught    a short stack not counted
+caught    nothing at the terminal report
+caught    the terminal with SR.BL set
+caught    another driver's channels keyed off
+FAIL 2 of 165 mutations not caught: silence slower than the chip plays (SURVIVED); a gap a sector a heartbeat and a little (SURVIVED)
+ok   mutations-output-100-corrected (run beside the others on the same clean worktree)
+PASS Test 85 output mutations: all 143 caught by the output test
+The two left alive with ADPCM in a place of the table's (--way 110) cannot be seen in that build: its ring of a second and a half holds through a gap's two seconds at either measure of silence. Since 7a4eaf05 (tests only) they are asked of the spare ring, where both are caught: --way 110 then asks 163, the 163 this run caught.
+PASS the installed K-UI aaaba0ea3640 contains 4d4dcff77494 (python3 tools/check_gui_lines.py --installed-has 4d4dcff77494, from the clean worktree of a54a75c8)
+main and claude/great-darwin-yjmgfi fetched before packaging: both at 3f757bc2, contained in a54a75c8

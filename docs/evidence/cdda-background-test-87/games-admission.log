@@ -1,0 +1,42 @@
+The launcher's admission helpers (static copies in a scratch harness, compiled against commit 17f33afc, whose K-UI
+sources are those of the owner's K-UI aaaba0ea3640) on the packaged bytes of the two modules.
+== KUI/apps/games/retail-native-dual.kui 0ccfaa602486bcf8b91541c739cd7af83099553f81c1e208b9e916c2b1462094
+kui_runtime_header: OK payload=0x4f4e4 memory=0x4f4e4 crc=0b47edee build=a54a75c8645b
+payload crc matches: 1
+layout_codec(native): 1
+  stage bytes=0x4d4e4 resident=0x8c004000 limit=0x8c007800
+dual descriptor find: 1 at payload+0x3a51c lease=0x47000 new=1 legacy=2 flags=0
+kui_native_map_capacity: 160 ; native_background_map_slots: 160
+session descriptor find: 0
+background module matches New(1): 1 Legacy(2): 1
+vmu toggle find: 1 at payload+0x3a4fc off_mode=7 lease=0x47000 cache=0x30000 flags=1
+  KUINVM01 at payload+0x22c20 version=1 bytes=32 mode=0 reserved_nonzero=0
+  KUINVM01 at payload+0x3bba8 version=0 bytes=12059004 mode=12583100 reserved_nonzero=1
+mode records seen: 2
+cache seed find: payload+0x386a0 filled=0
+heap tail capability: 1
+sdk proof capability at 0x1f0: 1
+standalone descriptor find: 0
+  KUIVMUP2 magic at payload+0x22c80
+  KUIVMUP2 magic at payload+0x39d64
+KUIVMUP2 4-aligned magics: 2
+== IF-NEEDED/no-sound/KUI/apps/games/retail-native-dual.kui 2106e4185b37891496c53943169c608bf192e26b53cdd9f6b380efa4a8c10445
+kui_runtime_header: OK payload=0x4df64 memory=0x4df64 crc=6ce6e39d build=a54a75c8645b
+payload crc matches: 1
+layout_codec(native): 1
+  stage bytes=0x4bf64 resident=0x8c004000 limit=0x8c007800
+dual descriptor find: 1 at payload+0x38f9c lease=0x47000 new=1 legacy=2 flags=0
+kui_native_map_capacity: 160 ; native_background_map_slots: 160
+session descriptor find: 0
+background module matches New(1): 1 Legacy(2): 1
+vmu toggle find: 1 at payload+0x38f7c off_mode=7 lease=0x47000 cache=0x30000 flags=1
+  KUINVM01 at payload+0x22c20 version=1 bytes=32 mode=0 reserved_nonzero=0
+  KUINVM01 at payload+0x3a628 version=0 bytes=12059004 mode=12583100 reserved_nonzero=1
+mode records seen: 2
+cache seed find: payload+0x37120 filled=0
+heap tail capability: 1
+sdk proof capability at 0x1f0: 1
+standalone descriptor find: 0
+  KUIVMUP2 magic at payload+0x22c80
+  KUIVMUP2 magic at payload+0x387e4
+KUIVMUP2 4-aligned magics: 2

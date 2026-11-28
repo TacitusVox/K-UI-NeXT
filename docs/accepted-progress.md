@@ -191,10 +191,18 @@ on the console on 27 November 2026: POD SpeedZone played its music, ChuChu
 Rocket and KOF Dream Match 1999 stayed silent for want of a place for the
 ring in sound memory ([Test 85](cdda-background-test-85.md), Console
 result). Test 86's module `0af5d9ce889c` (the ring as ADPCM in the sound
-driver's own spare memory) was delivered the same day: host- and
-linked-qualified, a test configuration, with no console result yet
-([Test 86](cdda-background-test-86.md)). Neither is an accepted
-component. The owner has reported no Windows CE or Smash Pack run
+driver's own spare memory) ran the same day: ChuChu Rocket played its
+music, KOF Dream Match 1999 played it in pieces, its ring running dry
+twice a second ([Test 86](cdda-background-test-86.md), Console result).
+Test 87's module `a54a75c8645b` (the sound driver's count as the ring's
+clock, the whole soft window for a sound output, a cheaper way of the
+frames into the ring) ran that evening: KOF played its music steadily in
+two launches, 146 s with no ring begun again; ChuChu Rocket and POD
+SpeedZone are not yet run under it ([Test 87](cdda-background-test-87.md),
+Console result). None of the three is an accepted component: each is a
+test module in the New reader's place, with the virtual VMU off. What is
+left of CD music in regular games is laid out in
+`universal-loader-roadmap.md` (CD music in regular games: what is left). The owner has reported no Windows CE or Smash Pack run
 under it; for those `1c71ba3afa17` and the 3.0 RC1 K-UI `93f13e84d989`
 remain the references.
 

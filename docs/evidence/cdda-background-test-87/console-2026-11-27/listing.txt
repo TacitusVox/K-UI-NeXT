@@ -1,0 +1,3 @@
+STREAM.TXT: ID 9C05737ABA3BD4DF58FDFE369A06868C, 2 of 100 slots used
+slot 000: report saved: T3101N THE KING OF FIGHTERS DREAM MATCH 1999 (build a54a75c8645b; source 1; tracks 43, CD music tracks 39)
+slot 001: report saved: T3101N THE KING OF FIGHTERS DREAM MATCH 1999 (build a54a75c8645b; source 1; tracks 43, CD music tracks 39)

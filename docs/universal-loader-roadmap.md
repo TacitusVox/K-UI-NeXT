@@ -301,7 +301,9 @@ guards.
 ### Test 86 (27 November 2026): music where sound memory is full
 
 `cdda-background-test-86.md`, build `0af5d9ce889c`, on Test 85's recipe.
-Delivered; no console result yet.
+Delivered, and run on the console the same day: ChuChu Rocket played its
+music; KOF Dream Match 1999 played it in pieces, its ring running dry
+twice a second.
 
 - The ring holds the sound chip's own 4-bit ADPCM, made of the card's
   samples as they pass and keyed in the format whose decoder runs on
@@ -316,11 +318,144 @@ Delivered; no console result yet.
 - The report measures the sound chip's clock, as the driver counts it,
   beside TMU0.
 
-Next, by its console round: whether the chip plays the compressed ring
-cleanly round its end, whether the spare memory stays the ring's, and how
-often the small ring runs dry. Then the driver's count as the ring's
-clock (no starting over, the whole ring as lead), the other MANATEE
-builds by survey, AUDIO64, and the standalone New reader's games.
+What its console round said: the chip plays the compressed ring cleanly
+round its end, and the spare memory stayed the ring's in both games. KOF's
+ring starved by the reader's own rule, half the soft window for the
+audio's card work under the early SDK's drivers (1,924 bytes a heartbeat
+where the game plays about 3,500). TMU0 runs a quarter of a percent slow
+against the sound chip, so a ring reckoned from it is passed by the chip
+within about a minute. And most of a kilobyte's 0.41 to 0.46 ms went on
+the worker's uncached stack and state.
+
+### Test 87 (27 November 2026): a ring that keeps up
+
+`cdda-background-test-87.md`, build `a54a75c8645b`, Test 86's recipe.
+Delivered, and run on the console the same evening: KOF Dream Match 1999
+played its music steadily in two launches.
+
+- The ring's clock is the sound driver's own count of the chip's time
+  (250 to a second, exact by the drivers' code), read at key-on and at
+  every running heartbeat; TMU0 stays beside it as a witness. No ring
+  starts over for the clocks, and the lead no longer shrinks through a
+  play.
+- The frames' way into the ring is one run that keeps its state in
+  registers, with the ADPCM coder written by hand: a kilobyte takes 39,065
+  instructions and 1,145 uses of uncached memory where it took 57,703 and
+  4,879 (as linked, on the repository's interpreter).
+- A sound output has the reader's whole soft window at a heartbeat,
+  whatever the SDK family's share.
+- Silence is written as fast as music; a ring that begins again keys its
+  channels off first; the report gives the least lead and the longest
+  wait between two looks.
+
+What its console round said: eight plays and 146 s of music in KOF with
+no ring begun again (Test 86: 162 in 83 s); 3.5 visits and 2,970 bytes a
+heartbeat, a frame of video apart; no count unborne out, TMU0 2,447 parts
+in a million slow over the four measurements; a visit 0.38 ms where it
+was 0.46, the music 8 percent of the console's time. Two things it showed
+beside: KOF's card stream breaks eight times a second (a block neither
+clean nor rebuilt, read again by programmed transfers: an eighth of the
+music's time), and the lead is least, 56 ms, just behind a key-on.
+ChuChu Rocket, POD SpeedZone and a play of minutes are still to run under
+it.
+
+### CD music in regular games: what is left (27 November 2026)
+
+The owner, 27 November, after Test 87: "Shall we lay out the rest of the
+work to finalize CDDA on native DC games?"
+
+Where it stands. The player works end to end on the console in three
+games: POD SpeedZone (Test 85), ChuChu Rocket (Test 86) and KOF Dream
+Match 1999 (Test 87). The drive answers as one that plays; the audio comes
+from the card beside the game's reads; a ring of ADPCM lies in the sound
+driver's own spare memory, on two channels the driver leaves alone, timed
+by the driver's count, at the game's CD level. It is a test module in the
+New reader's place: three sound-driver builds, the virtual VMU off, a
+report file in the place of normal use, the menu's CD music setting not
+involved.
+
+How far that is from the library. Counts over the 426 regular games with
+CD music of the owner's bundle run of 20 November: structural readings on
+the host, upper bounds, not console results (`cd-audio-corpus.md`; the
+bundle tool's gates for each game are in
+`evidence/cd-audio-corpus-2026-11-20/gates.json`).
+
+| | Games of 426 |
+| --- | ---: |
+| Music can sound today: the Background worker takes the game and it carries an admitted MANATEE build (14 that build alone, 9 beside another) | 23 |
+| The Background worker takes the game (its structural gates pass): 56 with MANATEE alone, 10 with AUDIO64 alone, 16 with both | 82 |
+| A lease for music alone would fit (the card's SCI family, the SDK heap family and its initializer; no controller hook, no exit hooks, no 384 KiB): 142 with MANATEE alone, 29 with AUDIO64 alone, 39 with both, 5 with AICADRV | 215 |
+| Neither: no SCI family 46, no heap family resolved 95, no heap initializer proved 70 | 211 |
+
+By sound driver, all 426: MANATEE alone 229 (27 builds; the three admitted
+ones are in 75 of them), AUDIO64 alone 91, both 82, AICADRV 21, Visual
+Concepts' own 3.
+
+So three gaps, of unlike size: the sound drivers (23 to 82), the reader's
+reach (82 to 215, and beyond), and use (a test module to the installed
+reader). And the player's own rough edges.
+
+The steps, in the order proposed:
+
+1. Close Test 87, no build: ChuChu Rocket and POD SpeedZone under it, and
+   one piece left to play for several minutes.
+2. Test 88, the player's rough edges, one build and one round, a commit
+   each: why KOF's stream breaks eight times a second (the stream's own
+   reasons in the report) and a stream kept through a key-on; the drive's
+   position by the chip's clock, not TMU0's; the planes' pan from the
+   mixers (KOF: 0F08 and 0F17); the least lead of a play's run apart from
+   its start. And read only: whether the sound chip's timers B and C,
+   which no driver read so far uses, read back as a clock. That would be a
+   clock no driver has to keep.
+3. Every MANATEE build: the family's rules in the place of three builds'
+   (the count's word, the spare memory, the port records or pool entries,
+   read in each of the 27), the older MANATEE 1 builds and NAMIHEI by
+   their own records, and a stream-port split that leaves no pair (Bangai-O)
+   silent with its reason. One console round over a game of each
+   generation. Reach on today's routes: 23 to 56, and the 16 with both
+   drivers where MANATEE is the one that runs.
+4. AUDIO64: the ring in the driver's own unused memory (0xD000 to 0xFFFF,
+   12 KiB, read in three builds; the other fifteen to read), channels 62
+   and 63 by the driver's playing bytes, the clock by the chip's timers
+   or by TMU0 corrected. A game whose own code hands every channel out in
+   turn (MDK2) cannot be served so and keeps its adapter. Two rounds.
+   Reach on today's routes: to the 82.
+5. Into the installed reader: the player out of the Toy test module and
+   into the Background module that ships, beside the virtual VMU and the
+   read-ahead, on the memory contract of section 2; the menu's CD music
+   setting choosing it where the game's route and driver allow, and the
+   reason shown where not; the report's place taken by a line in
+   Diagnostics. Room has to be made: the test worker has 352 bytes left.
+   Acceptance as section 3 has it: launch, music through loading, a save,
+   a power cycle, the reload. Two or three rounds, and a K-UI with it.
+6. Reach beyond the Background worker, the largest step, its design first
+   and on the host: a lease for music alone. Music needs neither the
+   controller's hook nor the exits' nor the read-ahead's cache; its
+   heartbeat can come from the game's own disc calls, which every reader
+   sees already, and it needs a fraction of the combined worker's room.
+   The 215 above are the games whose gates such a lease would pass. First
+   a study over the 426 programs, no console time: what a music-only
+   worker weighs and which pools can spare it. The 211 beyond it wait for
+   the shared reader work of section 3 (SCI families, heap families).
+7. Last, by their size: AICADRV (21 games, 5 within a lease's reach; it
+   hands all 64 channels out in turn); Visual Concepts' driver (3); games
+   that read through their music (POD: a deeper buffer needs room the
+   spare memory does not have); audio files in too many pieces on the
+   card (MDK2: a recopy); the disc's 16 bits where a game leaves the room.
+
+What is the owner's to decide:
+
+- The order of 3 to 6. Drivers first: more games sound soonest, still as a
+  test module. The installed reader first: the three games in normal use,
+  with saves. Reach first: the most games, and the longest way.
+- ADPCM everywhere, as now, or 16-bit samples where a game leaves room:
+  two ways to keep.
+- Whether music may be prepared ahead (the tracks compressed once, on the
+  PC or by K-UI): a quarter of the card's traffic and no coding in play,
+  for a preparation step and files beside the image. Not proposed now.
+
+Proposed: 1 and 2 at once, then 3, with 6's study beside it, because what
+it finds decides how 5 is built; then 5, then 4.
 
 ## 1. Shared correctness and reproducible deployment — active
 
