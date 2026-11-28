@@ -15,15 +15,20 @@
  *
  * Whose channels and whose memory. Nothing here is the loader's by right: the
  * game's sound driver owns the chip. Output is given only where the driver
- * running is one of the builds whose records were read and whose two
- * candidate channels a console survey found free all through play (Test 84):
- * - MANATEE 2.00.09 (ChuChu Rocket): the top two stream ports, channels 62
- *   and 63, free while their port records' playing bits are clear;
- * - MANATEE 1.01.3b (The King of Fighters Dream Match 1999) and 1.01.37 (POD
- *   SpeedZone): the channel pool's entries 13 and 14, channels 61 and 62,
- *   free while their owner words are zero.
- * The build is known by its version bytes, its build date's text and its
- * running mark, read again at every heartbeat. The ring lies at or above
+ * running is of a family whose every build in the CD-audio corpus was read
+ * and run for what is taken from it (tools/manatee_read.py), and whose two
+ * candidate channels a console survey found free all through play in a
+ * build of it (Test 84):
+ * - MANATEE 2 (2.x; on the console 2.00.09, ChuChu Rocket): the top two
+ *   stream ports, channels 62 and 63, free while their port records'
+ *   playing bits are clear;
+ * - MANATEE 1 from 1.01.37 (on the console 1.01.3b, The King of Fighters
+ *   Dream Match 1999, and 1.01.37, POD SpeedZone): the channel pool's
+ *   entries 13 and 14, channels 61 and 62, free while their owner words
+ *   are zero.
+ * The family is known by the driver's version bytes and its running mark,
+ * the build admitted by those and its build date's text: all read again at
+ * every heartbeat. The ring lies at or above
  * 0x18000, where the driver's own memory ends, clear of every address and
  * size pair of the driver's bank table (0x14000..0x1429F: the game's banks,
  * stream rings and effect memory), with a guard line before and after it.
@@ -85,9 +90,10 @@
  * right. Without VOLUME they play at full level, as the two CD-music
  * adapters do.
  *
- * The driver facts are static readings of the drivers
- * (docs/cd-audio-corpus.md); that these two channels and these three builds
- * leave them alone in play is Test 84's console survey. */
+ * The driver facts are readings of the drivers (docs/cd-audio-corpus.md;
+ * tools/manatee_read.py runs each build's start-up and timer interrupt);
+ * that a build leaves these two channels alone in play is Test 84's console
+ * survey, made in three builds. */
 #include <stdbool.h>
 #include <stdint.h>
 #include "kui/toy_cdda_card.h"
@@ -224,13 +230,19 @@ static void sr_write(uint32_t value) {
 }
 #endif
 
-/* The builds given output: the version word (sound memory 0x20), the
- * 16-bit hash of the build date's text as the survey takes it, the family. */
-static const struct profile { uint32_t version; uint16_t date_hash; uint8_t family; } profiles[] = {
-    {UINT32_C(0x00090002), 0xc46du, KUI_TOY_CDDA_FAMILY_GEN2}, /* MANATEE 2.00.09, 1999.06.16 */
-    {UINT32_C(0x003b0101), 0x1c1fu, KUI_TOY_CDDA_FAMILY_GEN1}, /* MANATEE 1.01.3b, 1998.12.08 */
-    {UINT32_C(0x00370101), 0xe50fu, KUI_TOY_CDDA_FAMILY_GEN1}  /* MANATEE 1.01.37, 1998.11.02 */
-};
+/* The families given output, by the driver's version bytes (sound memory
+ * 0x20: major, minor, build) and the running mark its start-up leaves at
+ * 0xF8: MANATEE 2 (2.x, 'EXEC') and MANATEE 1 from 1.01.37 ('SEGA'). 0: no
+ * family given output. What the output takes from a family was read, and
+ * run, in every build of it the CD-audio corpus holds
+ * (tools/manatee_read.py, docs/cdda-background-test-88.md). */
+static uint32_t family_of(uint32_t version, uint32_t state) {
+    const uint32_t major = version & 255u, minor = version >> 8 & 255u, build = version >> 16 & 255u;
+    if(version >> 24)return 0u;
+    if(major == 2u)return state == EXEC ? KUI_TOY_CDDA_FAMILY_GEN2 : 0u;
+    if(major != 1u || minor != 1u || build < 0x37u)return 0u;
+    return state == SEGA ? KUI_TOY_CDDA_FAMILY_GEN1 : 0u;
+}
 #if KUI_TOY_CDDA_SPARE
 #elif KUI_TOY_CDDA_ADPCM
 static const uint16_t plane_frames[] = {65472u, 32768u, 16384u};
@@ -335,9 +347,9 @@ static uint32_t count_at(void) {
     return O.family == KUI_TOY_CDDA_FAMILY_GEN2 ? COUNT_GEN2 : COUNT_GEN1;
 }
 
-/* The driver running now: 1 the admitted one (with none admitted yet: any
- * of the builds, which is then admitted), 0 another, or none running, with
- * the reason; -1 the bus. */
+/* The driver running now: 1 the admitted one (with none admitted yet: one
+ * of a family given output, which is then admitted), 0 another, or none
+ * running, with the reason; -1 the bus. */
 static int driver(struct bus *b, uint32_t *why) {
     uint32_t reset, version, state, date, hash = UINT32_C(0x811c9dc5);
     if(!stable(b, ARM_RESET, &reset))return -1;
@@ -355,19 +367,18 @@ static int driver(struct bus *b, uint32_t *why) {
     O.seen_version = version;
     O.seen_hash = hash;
     *why = O.family ? KUI_TOY_CDDA_OUT_WHY_ID : KUI_TOY_CDDA_OUT_WHY_DRIVER;
-    for(unsigned i = 0; i < sizeof(profiles) / sizeof(profiles[0]); ++i) {
-        const struct profile *p = &profiles[i];
-        if(version != p->version || hash != p->date_hash ||
-           state != (p->family == KUI_TOY_CDDA_FAMILY_GEN2 ? EXEC : SEGA))continue;
-        if(O.family)return version == O.version;
-        O.version = version;
-        O.family = p->family;
-        const bool top = p->family == KUI_TOY_CDDA_FAMILY_GEN2;
-        O.channel[0] = top ? 62u : 61u;
-        O.channel[1] = top ? 63u : 62u;
-        return 1;
-    }
-    return 0;
+    const uint32_t family = family_of(version, state);
+    if(!family)return 0;
+    /* Two builds of a family can share their version bytes: the build
+     * admitted is the one of that version and that date. */
+    if(O.family)return version == O.version && hash == O.hash && family == O.family;
+    O.version = version;
+    O.hash = hash;
+    O.family = family;
+    const bool top = family == KUI_TOY_CDDA_FAMILY_GEN2;
+    O.channel[0] = top ? 62u : 61u;
+    O.channel[1] = top ? 63u : 62u;
+    return 1;
 }
 /* The two channels by the driver's own records: 1 read, with whether the
  * game uses each; 0 the records do not prove them; -1 the bus. */

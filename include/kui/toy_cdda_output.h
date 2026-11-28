@@ -39,9 +39,10 @@ struct kui_toy_cdda_coder {
 struct kui_toy_cdda_output {
     uint32_t phase, why, why_detail;
     /* The drive's play this output follows (started: it follows one), the
-     * driver it was admitted for, and the version word and date hash of the
-     * driver last looked at, admitted or not. */
-    uint32_t generation, started, version, family, seen_version, seen_hash;
+     * driver it was admitted for (its version word, its build date's hash,
+     * its family), and the version word and date hash of the driver last
+     * looked at, admitted or not. */
+    uint32_t generation, started, version, hash, family, seen_version, seen_hash;
     /* The two channels (the left plane's, the right plane's), the ring's
      * place in sound memory (its first guard line), a plane's frames, and
      * the search for a place: its step, its candidate, the bytes cleared;
