@@ -50,6 +50,9 @@ jobs:
         shell: bash
         run: |
           python3 tools/fetch_deps.py --fatfs-only
+          make test-game-vga build/games-retail
+          python3 tests/test_games_vga_companion.py
+          python3 tests/test_prepare_vga_companion.py
           python3 tests/test_update_package_v2.py
           python3 tests/test_update_v2_images.py
           python3 tests/test_update_software_images.py

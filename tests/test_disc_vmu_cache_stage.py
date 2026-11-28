@@ -20,6 +20,13 @@ def function(source,name):
 # live admission before publishing its allocator hook. Linked ELF tests
 # independently pin the owner-frame ABI and controlling calls.
 stage=(ROOT/'src/loader/disc_vmu_stage.c').read_text()
+prepare=stage[stage.index('void kui_disc_vmu_stage_main(void) {'):stage.index('static void __attribute__((noipa)) native_disc_mapping_prepare')]
+# Capture a candidate's video-patch guard from the intact file before the
+# entry trampoline replaces its first 128 bytes. The relay rechecks CRC and SHA.
+ordered=('kui_disc_launch_validate(', 'if(kui_game_vga_connected())', 'vga_profile=kui_game_vga_candidate(',
+         'vga_guard=kui_game_vga_capture(', '__disc_vmu_trampoline_start,sizeof(original_entry));')
+positions=[prepare.index(item) for item in ordered]
+assert positions==sorted(positions)
 relay=stage[stage.index('void kui_disc_vmu_stage_relay('):stage.index('void kui_disc_vmu_stage_returned(')]
 assert 'exec_bytes=plan.exec_bytes;' in stage[:stage.index('void kui_disc_vmu_stage_relay(')]
 assert 'KUI_DISC_LAUNCH_EXEC_ADDRESS,exec_bytes)!=plan.exec_crc32)' in relay

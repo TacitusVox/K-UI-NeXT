@@ -1,0 +1,171 @@
+{
+  "publisher": "japanese-cake",
+  "archive_url": "https://consolemods.org/wiki/File:Japanese-Cake_Dreamcast_VGA_Patches.zip",
+  "archive_snapshot": "https://archive.org/details/wiki-consolemods.org_wiki-20260423",
+  "stock_executable_hash": null,
+  "checks": [
+    "Compare every executable PPF record with the corresponding bytes in its independently bundled reference executable.",
+    "Replace every destination byte in the reference executable with a different value, select the release through the production IP.BIN matcher, and verify that the production boot patch reproduces the complete reference executable.",
+    "Changing one byte outside the patch rejected the projected hash. Changing the last target after capture rejected the entire write set without a partial edit."
+  ],
+  "release_notes": {
+    "Dino Crisis": "PAL English (05), Spanish (06), French (09), German (18) and Italian (13) executable PPFs. Internal product has two spaces before the edition code.",
+    "Resident Evil Code: Veronica": "The author specifies the same executable for both discs of each of the four regional releases. The PPFs listed below apply only to the boot executable.",
+    "Skies of Arcadia": "The publisher specifies the same executable for discs 1 and 2. Both pass a shared target SHA-256. The animated/cutscene/audio and walking-speed fixes in Riggles’ Perfect 60Hz patch are separate.",
+    "Skies of Arcadia original disc metadata": {
+      "RetroAchievements": "https://retroachievements.org/forums/topic/14579",
+      "IP_first_256_and_stock_executable_MD5": [
+        "276661ab8bea50afcc1b7a1e48d25ff8",
+        "6e18b7264826413e55df3161cc13000e"
+      ],
+      "usage": "Independent disc identifiers for reference. The launcher verifies the complete projected executable."
+    },
+    "WWF Attitude": "PAL v1.010 uses the exact boot filename 1WWFTUDE.BIN from the publisher’s readme, size and region, with full projected executable SHA-256. The German v1.000 edition is distinct.",
+    "Hydro Thunder May 1999 prototype": "The publisher identifies the May 20 alpha’s 1ST_READ.BIN. The exact file length and complete projected SHA-256 authenticate the executable across different IP.BIN versions and regions. The original product, version field and area field are unconfirmed. The July prototype and the retail builds use different executables."
+  },
+  "profiles": [
+    {
+      "archive": "jc-dinoce-en-60hz-vga.zip",
+      "product": "T7019D  05",
+      "version": "V1.000",
+      "area": "E",
+      "size": 1737060,
+      "ppf_sha256": "b45cd6c852d9a7d172734bd58927944a63482697ee6f53f91157ecc3dd5c8d4b",
+      "target_sha256": "290cc9f3352a9b0a4d265224ff359ba86d85562a1533eac8ef680846a1b23fdf",
+      "spans": 30,
+      "bytes_written": 150,
+      "archive_sha256": "effe66918ce89d2938dade694b1752948292276723fa835ed6acb343b89ae31f"
+    },
+    {
+      "archive": "jc-dinoce-es-60hz-vga.zip",
+      "product": "T7019D  06",
+      "version": "V1.000",
+      "area": "E",
+      "size": 1747236,
+      "ppf_sha256": "a99c288213c4d29128095766cc74bcf3e92fb8241724bbdeb5ab3a861b0647b3",
+      "target_sha256": "6613ef42fa7b4e73ef368128e51633d3dfe0b15f7dc7c4eb8630d19d34536105",
+      "spans": 47,
+      "bytes_written": 192,
+      "archive_sha256": "1e525f852f8ab0b78ecf4836205f91671adf73b0f6f194e5af7e9bda544644bf"
+    },
+    {
+      "archive": "jc-dinoce-fr-60hz-vga.zip",
+      "product": "T7019D  09",
+      "version": "V1.000",
+      "area": "E",
+      "size": 1747748,
+      "ppf_sha256": "6615072dd084221d496f0d7b6d314e20d68607842cb9ba8a251a4d589d175354",
+      "target_sha256": "fd1c61d27dfe186b9f089cddabafe531948ab4b6a09d2a1693b37cb29103aa05",
+      "spans": 47,
+      "bytes_written": 192,
+      "archive_sha256": "ab28f5f88ee865f6890e4450d5df6698e0d50f9b9399ad55008a7896c17317b3"
+    },
+    {
+      "archive": "jc-dinoce-ge-60hz-vga.zip",
+      "product": "T7019D  18",
+      "version": "V1.000",
+      "area": "E",
+      "size": 1747076,
+      "ppf_sha256": "5ca7052dcdc339153041f29d1d986161bd2354d830927cc3a2efa14e6e732388",
+      "target_sha256": "5f74ca172f0673ea8271c939024f023cef3f6bde404eb438cd0dee385ea8e68d",
+      "spans": 47,
+      "bytes_written": 192,
+      "archive_sha256": "5e80fc318173df4662c5d5d121fe3532eba1aac35e32ce821b61e46ae8d26642"
+    },
+    {
+      "archive": "jc-dinoce-it-60hz-vga.zip",
+      "product": "T7019D  13",
+      "version": "V1.000",
+      "area": "E",
+      "size": 1745124,
+      "ppf_sha256": "566b57f13b4354cd911343ddbe791cfa40b565cf6b150a8f72c3f62f68d77fbb",
+      "target_sha256": "ede8b8b5f942e47ec63a86bb94b791804cbcecd31d451e6f162bb70ddf5eadae",
+      "spans": 47,
+      "bytes_written": 192,
+      "archive_sha256": "e8347d50d7c03f7cf5700d8979a616fd0a5cbda9e3e70460e3a92a70e2eaf8a2"
+    },
+    {
+      "archive": "jc-recve-de-60hz-vga-patch-v1.1.zip",
+      "product": "T36806D 18",
+      "version": "V1.000",
+      "area": "E",
+      "size": 3916486,
+      "ppf_sha256": "7985de3bac6940925fc32bdcac1d3a5f3a276b5e44eee2bbf3b5d61179b880a5",
+      "target_sha256": "bdf164b2c9bcce9a0d8ccc8efec2e6ad92653cccb6fa7ea9e5d1898cd6c2a897",
+      "spans": 8,
+      "bytes_written": 73,
+      "archive_sha256": "a9393176f71571adb5c812df4832acfc47686cd7e6a30fa487df0098de697485"
+    },
+    {
+      "archive": "jc-recve-en-60hz-vga-patch-v1.1.zip",
+      "product": "T36806D 05",
+      "version": "V1.000",
+      "area": "E",
+      "size": 3916454,
+      "ppf_sha256": "b86530c131fd8a98ab84c3d7d33cb77eb836673324959b095472bc7965644e9a",
+      "target_sha256": "a11db3a3ad8a42d53e86db3ec9af054495b3b77165b835be6e323cab8b0b8302",
+      "spans": 8,
+      "bytes_written": 73,
+      "archive_sha256": "d7349fe472fa59f8ecaae0fd04c7ef5ac42356a649320c099c12a3e430ed304b"
+    },
+    {
+      "archive": "jc-recve-es-60hz-vga-patch-v1.1.zip",
+      "product": "T36806D 06",
+      "version": "V1.000",
+      "area": "E",
+      "size": 3916518,
+      "ppf_sha256": "aae759f20c2a7d35e7c138762d2178665d3691621ed744cca4cc9e9b7793dbc0",
+      "target_sha256": "8cd54ca943a3db85daed1ce8fb5b3e9d71b91da3579d8ebfdfd923ec00774e60",
+      "spans": 8,
+      "bytes_written": 73,
+      "archive_sha256": "63daffec574b120eaa4d42f12e83f2247ec6a258add031c1a506f8b272bdaf59"
+    },
+    {
+      "archive": "jc-recve-fr-60hz-vga-patch-v1.1.zip",
+      "product": "T36806D 09",
+      "version": "V1.000",
+      "area": "E",
+      "size": 3916486,
+      "ppf_sha256": "81da22996a6a06d40e5a35ace93b6d70b6db2bbcb5eb224ef247addd9fdba8d4",
+      "target_sha256": "417aa2a5c19a820001c66a71d3215c657b7b2304fbb2b793ee5a14973d861da3",
+      "spans": 8,
+      "bytes_written": 73,
+      "archive_sha256": "5f2061476cbe22ad34d10a48ff2770a75a93249f876ad5d9fb8c17c16f7b54e6"
+    },
+    {
+      "archive": "jc-soae-60hz-vga-v2.zip",
+      "product": "MK-51052",
+      "version": "V1.000",
+      "area": "E",
+      "size": 4855536,
+      "ppf_sha256": "98577e820799960fe61c7a4b125f3104638a3e3ba3919f8550c599e519a1499c",
+      "target_sha256": "56726d623c6f3fa8d4bf605bbb77bf7b16e063079906ec93a0da475974c744f9",
+      "spans": 9,
+      "bytes_written": 41,
+      "archive_sha256": "cd8e6d59dd241d574150a0333701573e6983bb04a6e1dfd4a1d75b8e2b88c4ea"
+    },
+    {
+      "archive": "jc-wwfa-60hz-vga.zip",
+      "version": "V1.010",
+      "area": "E",
+      "size": 3030956,
+      "ppf_sha256": "95c63e4ffeb9292bc75c5125b46aa6bbf1c6f4581641b06f67d339222291a219",
+      "target_sha256": "b034de1e7690a3cf3f7731a0b82896c0403761754e06833e8a44f7846b586c9f",
+      "spans": 10,
+      "bytes_written": 56,
+      "ip_boot_filename": "1WWFTUDE.BIN",
+      "archive_sha256": "9a16459995b3ba631ebb5ff7c2ca0dd9694a6716dce3ffd94dc3ab755d2c655d"
+    },
+    {
+      "archive": "jc-hydroa-rgb-vga.zip",
+      "size": 1871350,
+      "ppf_sha256": "844ca9235247346de21481c89643f9982cd207c9241450d0c3ce74aa595dd4ad",
+      "target_sha256": "1baeb266ebdb876f19303c641c0a803062e7006648d98bf1ab10efe5d731991a",
+      "spans": 3,
+      "bytes_written": 42,
+      "ip_boot_filename": "1ST_READ.BIN",
+      "archive_sha256": "dd59ece007970e9685aa38280288a9f8dfa972de5c3a75739519821ad16a567b",
+      "original_ip_metadata": null
+    }
+  ]
+}

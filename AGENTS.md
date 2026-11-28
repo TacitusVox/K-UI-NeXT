@@ -84,6 +84,16 @@ build label, host instruction count or compile success is not a console timing.
 If the combined candidate regresses, isolate or revert against the measured
 baseline instead of adding another combined optimization.
 
+## VGA in native reader tests
+
+Merge current Main into the test branch before building a native reader. The
+Games and GD Play readers embed their VGA code in their boot stage. A test
+that substitutes a reader built on an older branch can drop VGA even with a
+current GUI. Prefer the production reader for roles outside the test. For a
+changed native reader, use the shared stage in the applicable recipe, run
+`make test-game-vga`, and verify the linked catalog and the handoff in the
+module the GUI actually selects. [Catalog and hardware status](docs/automatic-vga.md)
+
 ## Original executable evidence
 
 For a changed SDK/game family, run the relevant production/linked tests against

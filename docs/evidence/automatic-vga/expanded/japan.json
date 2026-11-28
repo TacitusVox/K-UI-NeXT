@@ -1,0 +1,445 @@
+{
+  "schema": "kui.vga.regional-executable-verification.v1",
+  "date": "2026-11-28",
+  "profiles": [
+    {
+      "title": "DESPIRIA",
+      "product": "T14402M",
+      "version": "V1.001",
+      "region": "J",
+      "boot": "1ST_READ.BIN",
+      "program_bytes": 1484260,
+      "publisher_url": "https://drive.google.com/uc?export=download&id=1d01vJSCD5SZXolb1lrGsw1xojmnuOJjv",
+      "dcp_sha256": [
+        "17106af557d92b35d74472a2930093b995605b20e25be691b2f539bb644d34a9"
+      ],
+      "reference_target_sha256": "abd88249ad21683508118e317fd9a436c11c659114451b7ac3c7f6f01def29f6",
+      "proof": "source_sha256_despiria",
+      "source_sha256": "172a25b9761b3cea8149beb011b2301e1c7a5e1bc988ad95b7337c1157417aad",
+      "recommendation_url": "https://consolemods.org/wiki/Dreamcast:List_of_VGA_Games_and_Patches",
+      "earlier_target_url": "https://segasky.itch.io/despiria-vga-patch",
+      "earlier_publisher_archive_sha256": "d4c07d9e45bdac201db5056cf1782e71ac9f36258e8b0756f1eccb9997fc1e10",
+      "independent_retail_ra_md5": "f62c7829ee12acf9586aba1b910275d7",
+      "retail_fingerprint_url": "https://retroachievements.org/game/4624/hashes",
+      "details": "Only the two executable writes from the October 2026 corrected retail DCP are applied. The original Rolly retail and trial patches are separate."
+    },
+    {
+      "title": "BLACK MATRIX AD",
+      "product": "T20101M",
+      "version": "V1.002",
+      "region": "J",
+      "boot": "1ST_READ.BIN",
+      "program_bytes": 947300,
+      "publisher_url": "https://segasky.itch.io/black-matrix-ad-vga-patch-for-sega-dreamcast",
+      "publisher_archive_sha256": "0eaa3059bc5f57640e93c3cb1a8c32566ebc62514dce9ee1de92b8d5cf008a33",
+      "dcp_sha256": [
+        "d0e854fbbf626dc5f6c6e62b3cb4db807b53b68ed4da6a3d63627194009a2f71",
+        "bfb635911799a4574920a558a9df95f90cc9d345ae355f74645484c4c16ffe87"
+      ],
+      "reference_target_sha256": "5952f8a2a3a881c6b34e2f0eb1bc5ff01239ddb87371048a5f25f5ec3ad2d920",
+      "proof": "projected_target_sha256",
+      "details": "Both disc DCPs independently reproduce the same complete target. The K-UI profile uses the union of their write ranges."
+    },
+    {
+      "title": "CHOUHATSUMEIBOY KANIPAN BOUSOUROBOTO NO NAZO",
+      "product": "HDR-0021",
+      "version": "V1.005",
+      "region": "J",
+      "boot": "1ST_READ.BIN",
+      "program_bytes": 1419652,
+      "publisher_url": "https://segasky.itch.io/cho-hatsumei-boy-kanipan-vga-patch-for-sega-dreamcast",
+      "publisher_archive_sha256": "76d1ff74dae2070191dc5544857edd5032c1b6aee7e697e70c10069b4041454a",
+      "dcp_sha256": [
+        "57f7b047c8e819eae437704da7cb0154f0689b5d14131ad1b7fa0ea3350b0081"
+      ],
+      "reference_target_sha256": "546c88d9e393d9d07d864092fd8c35f2104ab5ac51a61127aabb20db0957837b",
+      "proof": "projected_target_sha256"
+    },
+    {
+      "title": "DANCE DANCE REVOLUTION 2NDMIX DREAMCAST EDITION",
+      "product": "T9506M",
+      "version": "V1.003",
+      "region": "J",
+      "boot": "1ST_READ.BIN",
+      "program_bytes": 1406052,
+      "publisher_url": "https://segasky.itch.io/dance-dance-revolution-vga-patch-for-sega-dreamcast",
+      "publisher_archive_sha256": "42abd00e5cb9c68f2f6d6b72d7669ce62ad14d71fac54dd4cef50ffb277b9163",
+      "dcp_sha256": [
+        "25ca06348a229d251b53ccd6498f78deec74543c36439b986246d3b6d2116a5b"
+      ],
+      "reference_target_sha256": "1120ae4f04ceffb8e2f5649c57fd3d8cd949676bdd197a45c93e61396dca613f",
+      "proof": "projected_target_sha256"
+    },
+    {
+      "title": "DDR CLUB VER 1000",
+      "product": "T9508M",
+      "version": "V1.000",
+      "region": "J",
+      "boot": "1ST_READ.BIN",
+      "program_bytes": 1455524,
+      "publisher_url": "https://segasky.itch.io/dance-dance-revolution-vga-patch-for-sega-dreamcast",
+      "publisher_archive_sha256": "42abd00e5cb9c68f2f6d6b72d7669ce62ad14d71fac54dd4cef50ffb277b9163",
+      "dcp_sha256": [
+        "a944935b5848772924f415a0c7ebedcfee4f149f034693f310c47e24b768a696"
+      ],
+      "reference_target_sha256": "42e258e1870b133e51474672934fef2d8241dfdc96290be33831bc7dcf269781",
+      "proof": "projected_target_sha256"
+    },
+    {
+      "title": "DVINE LUV",
+      "product": "T46501M",
+      "version": "V1.002",
+      "region": "J",
+      "boot": "1ST_READ.BIN",
+      "program_bytes": 1056740,
+      "publisher_url": "https://segasky.itch.io/dvine-luv-vga-patch-for-sega-dreamcast",
+      "publisher_archive_sha256": "628edaed7d3945e8c7096cc0e83f694c6a9c3d299f335a8974073d96c11b518b",
+      "dcp_sha256": [
+        "8c9d0ae5e3413501223bcc2007f3eb4fe86dd36ba7ade3a6b145b3d1249cebc7"
+      ],
+      "reference_target_sha256": "6aafe456b2a3fdaa84d22aebee799cdcd7ef0a00198e6539e52786323cf63795",
+      "proof": "projected_target_sha256"
+    },
+    {
+      "title": "JOJO",
+      "product": "6107357",
+      "version": "V1.002",
+      "region": "J",
+      "boot": "1ST_READ.BIN",
+      "program_bytes": 231456,
+      "publisher_url": "https://segasky.itch.io/jojos-bizarre-adventure-vga-patch-for-sega-dreamcast",
+      "publisher_archive_sha256": "b04943680aab3608773fc03c676a24df77b3084ada759bc83f50fabf5708c579",
+      "dcp_sha256": [
+        "90bc52716c4200af4590e5fb76949f8bc7a01e8a73ab1072cdfc3d175cac27d6"
+      ],
+      "reference_target_sha256": "1a2f6977048dc9cf89316e18cfd0aabd69bfcac776c3ac40cc06f7aa032b5b32",
+      "proof": "projected_target_sha256"
+    },
+    {
+      "title": "JOJO",
+      "product": "T1205M",
+      "version": "V1.001",
+      "region": "J",
+      "boot": "1ST_READ.BIN",
+      "program_bytes": 239648,
+      "publisher_url": "https://segasky.itch.io/jojos-bizarre-adventure-vga-patch-for-sega-dreamcast",
+      "publisher_archive_sha256": "b04943680aab3608773fc03c676a24df77b3084ada759bc83f50fabf5708c579",
+      "dcp_sha256": [
+        "2813d4d1f146a75e4d6311b214d4c4086e42f6135ba99b5494a6a428eb6eed10"
+      ],
+      "reference_target_sha256": "bc6548c161a2c2fad65be5ccd8c22184f031cfacb4a0987f262299be41572aa5",
+      "proof": "projected_target_sha256"
+    },
+    {
+      "title": "JOJO S BIZARRE ADVENTURE",
+      "product": "T1206N",
+      "version": "V1.001",
+      "region": "U",
+      "boot": "1ST_READ.BIN",
+      "program_bytes": 234752,
+      "publisher_url": "https://segasky.itch.io/jojos-bizarre-adventure-vga-patch-for-sega-dreamcast",
+      "publisher_archive_sha256": "b04943680aab3608773fc03c676a24df77b3084ada759bc83f50fabf5708c579",
+      "dcp_sha256": [
+        "50c073e4dd17f83efcb8bf6d6167561c5073ff01b44bf44b32b73e21318e76c9"
+      ],
+      "reference_target_sha256": "781763abffb9b0b58327fd0299f858fd2cd777117e5d9ad004a719488f9336d3",
+      "proof": "source_sha256_us_jojo",
+      "source_sha256": "02ead9c68aacf5e9153fedff30c4a141ba6e7842b6535c1d96d79485b30a622d"
+    },
+    {
+      "title": "JOJO S BIZARRE ADVENTURE",
+      "product": "T7007D  50",
+      "version": "V1.001",
+      "region": "E",
+      "boot": "1ST_READ.BIN",
+      "program_bytes": 234752,
+      "publisher_url": "https://segasky.itch.io/jojos-bizarre-adventure-vga-patch-for-sega-dreamcast",
+      "publisher_archive_sha256": "b04943680aab3608773fc03c676a24df77b3084ada759bc83f50fabf5708c579",
+      "dcp_sha256": [
+        "592346b2975a86bd646519d0ad17b33bdbd24599e3f4de78ee2596e494db2826"
+      ],
+      "reference_target_sha256": "781763abffb9b0b58327fd0299f858fd2cd777117e5d9ad004a719488f9336d3",
+      "proof": "projected_target_sha256",
+      "publisher_target_sha256": "0c5e2f112fa92a3cd8accda74b40267079c7f80f893e8fbf15bda900e7892652",
+      "details": "The PAL publisher target differs from the US target by one additional byte outside the five shared VGA ranges. K-UI preserves the release check at executable offset 0xa08. The prospective complete output must match the published US target. A source whose retained byte differs will decline."
+    },
+    {
+      "title": "GEKKA NO KENSHI2 FINAL EDITION",
+      "product": "T3107M",
+      "version": "V1.003",
+      "region": "J",
+      "boot": "1ST_READ.BIN",
+      "program_bytes": 1455396,
+      "publisher_url": "https://segasky.itch.io/the-last-blade-2-vga-patch-for-sega-dreamcast",
+      "publisher_archive_sha256": "f86278da3527263dcd6b13a68f64bbdd15933f2988a4e26a4e70b78c172f747f",
+      "dcp_sha256": [
+        "82c104950e86b194d28eb060184da6008d16e97c0268c082f050b5b0127d52cb"
+      ],
+      "reference_target_sha256": "926377a696856e8410a3f9daed34f7a431a1d115dbb261b5e445b33095c0a6bc",
+      "proof": "projected_target_sha256",
+      "details": "Publisher reports a possible Japanese menu black screen which can clear with a controller soft reset from the menu."
+    },
+    {
+      "title": "MAHJONG TAIKAI 2 SPECIAL",
+      "product": "T7601M",
+      "version": "V1.003",
+      "region": "J",
+      "boot": "1ST_READ.BIN",
+      "program_bytes": 791744,
+      "publisher_url": "https://segasky.itch.io/mahjong-taikai-ii-special-vga-patch",
+      "publisher_archive_sha256": "c44fc2b41a5f1c55cc6c3a55fd5819be6fbb9df057c9bbc4cb6c079dfe8f790d",
+      "dcp_sha256": [
+        "7c1168b0f10adb4b7362132a869a8f060c79d531132bab17ecf6985b0bcd1302"
+      ],
+      "reference_target_sha256": "afc8c9c3777a533fe8b038fa5cd6f8c5b3d04cc7b7834943d964b8eaf1cce13e",
+      "proof": "projected_target_sha256"
+    },
+    {
+      "title": "NIJYUEI",
+      "product": "T46505M",
+      "version": "V1.001",
+      "region": "J",
+      "boot": "1ST_READ.BIN",
+      "program_bytes": 855556,
+      "publisher_url": "https://segasky.itch.io/nijyuei-vga-patch-for-sega-dreamcast",
+      "publisher_archive_sha256": "20b49facabcf966db1536a8fe66233f8628543ea6c3a29b1298bda4d98e3b4ad",
+      "dcp_sha256": [
+        "fa0cd8a527754e273c6ea69dc3f554452280ae53ddc08212ed65c581ebd9ebed"
+      ],
+      "reference_target_sha256": "4105c677794fdc706fd039ca091d5927c95c04d50a50983d961afaa4621ce0d7",
+      "proof": "projected_target_sha256"
+    },
+    {
+      "title": "PSYCHIC FORCE 2012",
+      "product": "T1101M",
+      "version": "V1.002",
+      "region": "J",
+      "boot": "1ST_READ.BIN",
+      "program_bytes": 4706080,
+      "publisher_url": "https://segasky.itch.io/psychic-force-2012-vga-patch-for-sega-dreamcast",
+      "publisher_archive_sha256": "dbd5808cc62035ea587ba14d2744012fadcf8241438de252e90ed9937c249099",
+      "dcp_sha256": [
+        "16df9d5d4fdbb7078662d0920e5705c27337c592fa85d2e37083e406f01e2fb3"
+      ],
+      "reference_target_sha256": "9f3c319c59245e481f0816e676aea89f873260fa87059b9f88d2594a85968882",
+      "proof": "projected_target_sha256"
+    },
+    {
+      "title": "PSYCHIC FORCE 2012",
+      "product": "T-8106D-50",
+      "version": "V1.000",
+      "region": "E",
+      "boot": "1ST_READ.BIN",
+      "program_bytes": 4721056,
+      "publisher_url": "https://segasky.itch.io/psychic-force-2012-vga-patch-for-sega-dreamcast",
+      "publisher_archive_sha256": "dbd5808cc62035ea587ba14d2744012fadcf8241438de252e90ed9937c249099",
+      "dcp_sha256": [
+        "6582d10cbd42f0436db0d0abfbd12b55b57e8b9e69aff2ed2b0d74ac6a2a2c0f"
+      ],
+      "reference_target_sha256": "782916095848ee5e6d20cc56fedd9aec88ac41c4a27d6d75fbe367116fba1803",
+      "proof": "projected_target_sha256"
+    },
+    {
+      "title": "RUNE CASTER",
+      "product": "T40001M",
+      "version": "V1.007",
+      "region": "J",
+      "boot": "1ST_READ.BIN",
+      "program_bytes": 975748,
+      "publisher_url": "https://segasky.itch.io/rune-caster-vga-patch",
+      "publisher_archive_sha256": "a38e7dba8a4ed796f54d1140e2b9db9e442a68c0f24b5f62de8dba795428ca74",
+      "dcp_sha256": [
+        "44967e43eff2b0b97ee600f466a31072f0193ab2feebd5c718448f9be066dffb"
+      ],
+      "reference_target_sha256": "02f4091a290ffbf611229ee2a1d6939d2afbca0712d8b028411189bdd1110568",
+      "proof": "projected_target_sha256"
+    },
+    {
+      "title": "NOBUNAGA NO YABOU SHOUSEIROKU with PowerUpKit",
+      "product": "T7602M",
+      "version": "V1.000",
+      "region": "J",
+      "boot": "1ST_READ.BIN",
+      "program_bytes": 1874400,
+      "publisher_url": "https://segasky.itch.io/sangokushi-nobunga-vga",
+      "publisher_archive_sha256": "39c70d358b677288794539ea21077b79c376916103769c1460fa2b1f3fc150e3",
+      "dcp_sha256": [
+        "6c8aef0aecc97ede33edbf2b86c6e7a410333d0c644e508f4793fc904e3944d8"
+      ],
+      "reference_target_sha256": "82848e2827b64a9187df172b7cc9d2297618d4d36eff954d141b058a96593540",
+      "proof": "source_crc32_reverse_delta",
+      "source_crc32": "4204b11e",
+      "source_sha256": "64f21c9bcf821d128ec773aa1935399325cc4e643d3ce1dcb8ca48ee5ed84aca"
+    },
+    {
+      "title": "NOBUNAGA NO YABOU REPPUUDEN",
+      "product": "T7605M",
+      "version": "V1.001",
+      "region": "J",
+      "boot": "0NOBU8.BIN",
+      "program_bytes": 2814960,
+      "publisher_url": "https://segasky.itch.io/sangokushi-nobunga-vga",
+      "publisher_archive_sha256": "4eb8c3b5e8d10c89cfe1c1b512d53ec0f698a3ef5c97f46b3e4caaf1d7e2c6d3",
+      "dcp_sha256": [
+        "31569f9a750f6dd3e49c36b9b2f8c8fa7a8e395bfad7f3bbc977a599212df482"
+      ],
+      "reference_target_sha256": "a8ca531b9d5e8c3ad7db2924f494f2b0a713c7f65a83af0524a0ff5bbcb16a43",
+      "proof": "source_crc32_reverse_delta",
+      "source_crc32": "a8574e3d",
+      "source_sha256": "1579b966c5ac5b836c26fe81ddd45fe06d76aa38e74d3aef831029a39927d791"
+    },
+    {
+      "title": "SANGOKUSHI6WITHPK",
+      "product": "T7607M",
+      "version": "V1.000",
+      "region": "J",
+      "boot": "1ST_READ.BIN",
+      "program_bytes": 3287816,
+      "publisher_url": "https://segasky.itch.io/sangokushi-nobunga-vga",
+      "publisher_archive_sha256": "16b9f96d899bc3a39e530146eb6b774810259f3f670ce0112a765bddd911b674",
+      "dcp_sha256": [
+        "dd79e8d6c2d31a86628f2da168cbf712bc38ed85ad267bbbae73534ce73ccd59"
+      ],
+      "reference_target_sha256": "a9ef68dc5714ead04ca68cf22cef48831fbf59533e86c0476e6928c36490d0fb",
+      "proof": "source_crc32_reverse_delta",
+      "source_crc32": "bcb8eb40",
+      "source_sha256": "9d840eff755b052411b99b5bcd9ca7e64f1772bcac6fa5848dd54bb3eaacb596"
+    },
+    {
+      "title": "SANGOKUSHI 6",
+      "product": "T7603M",
+      "version": "V1.000",
+      "region": "J",
+      "boot": "1ST_READ.BIN",
+      "program_bytes": 5422272,
+      "publisher_url": "https://segasky.itch.io/sangokushi-nobunga-vga",
+      "publisher_archive_sha256": "46c0a45e4a1f30bafd0c0aa88634172ff0bfe5147d4be35149ffcb8006711c55",
+      "dcp_sha256": [
+        "89ff6417ca5f0f75b98e13d4046c5fe8c4c531073e59b73f59de274e423e230c"
+      ],
+      "reference_target_sha256": "f71058097a28390060b60ad05b97c7290df72ae931e9e1054fa8353962599662",
+      "proof": "projected_target_sha256"
+    },
+    {
+      "title": "SHINRI GAME DC EDITION",
+      "product": "T43403M",
+      "version": "V1.004",
+      "region": "J",
+      "boot": "1ST_READ.BIN",
+      "program_bytes": 1309956,
+      "publisher_url": "https://segasky.itch.io/the-shinri-game-vga-patch",
+      "publisher_archive_sha256": "fd732806752f1fd59318fc9e5b32733a83235fade9d72fc94901d0bd8910c73e",
+      "dcp_sha256": [
+        "5919261bc4d58a03aca96c78dd9a66b5a3357c680c4673ed212bbc4c95a70c2d"
+      ],
+      "reference_target_sha256": "b990c0f0c37ae45a04681da6cee1eaabee057c1ddf7bc4bb5d9b5fcc7d8a6f6a",
+      "proof": "projected_target_sha256"
+    },
+    {
+      "title": "SUNRISE EIYUUTAN",
+      "product": "T41101M",
+      "version": "V1.000",
+      "region": "J",
+      "boot": "1ST_READ.BIN",
+      "program_bytes": 1424004,
+      "publisher_url": "https://segasky.itch.io/sunrise-eiyuutan-vga-patch",
+      "publisher_archive_sha256": "17e046628d899c5c0468aafa6a7177f02675b049c7e3c6261a868ab7d07174b5",
+      "dcp_sha256": [
+        "89916f57064687315544d69b84ac6f12508e3c9b534ca7d305e4040fd81c7fd4"
+      ],
+      "reference_target_sha256": "9b9bf1f29dc1ce8339ea0a11a64c4a99a5f8c39bed79245c1dfbdebd4ce5d854",
+      "proof": "projected_target_sha256"
+    },
+    {
+      "title": "TANAKATORAHIKO NO URUTORARYUUSYOUGI IBISYAANAGUMAHEN",
+      "product": "T22001M",
+      "version": "V1.006",
+      "region": "J",
+      "boot": "1ST_READ.BIN",
+      "program_bytes": 908448,
+      "publisher_url": "https://segasky.itch.io/tanaka-torahiko-no-uru-toraryuu-shougi-ibisha-vga-patch",
+      "publisher_archive_sha256": "41c5efd29ae0a08ea67ba407a944724cb6fd2093441139106c8c7aace50cfdf0",
+      "dcp_sha256": [
+        "06fd53c5ef2107b0ab8fd5f849bd43e16f03367575463ebfd164b0f8da2984d4"
+      ],
+      "reference_target_sha256": "c96d5e5a2cf49a01b5716f8d15a03d4ce2c31d02268ff3e3341654b71429f646",
+      "proof": "projected_target_sha256"
+    },
+    {
+      "title": "TREASURE STRIKE",
+      "product": "T19701M",
+      "version": "V1.006",
+      "region": "J",
+      "boot": "1ST_READ.BIN",
+      "program_bytes": 2177440,
+      "publisher_url": "https://segasky.itch.io/treasure-strike-vga-patch-for-sega-dreamcast",
+      "publisher_archive_sha256": "f81b410793a7d0206028abc6ba9e186640464e43c576e7f3cf9e2f65ad9d29b3",
+      "dcp_sha256": [
+        "42ffe7faeee614223389057a160cc1f11b865a6945fec4079251f027e25e960d"
+      ],
+      "reference_target_sha256": "d91b817d62bc3683555c95229e2ff5930269845348901e876a816b6599d73beb",
+      "proof": "projected_target_sha256"
+    },
+    {
+      "title": "WORLD NEVERLAND2 THE WAKTIC REPUBLIC OF PLUTO STORIES",
+      "product": "T5303M",
+      "version": "V1.001",
+      "region": "J",
+      "boot": "1ST_READ.BIN",
+      "program_bytes": 2248560,
+      "publisher_url": "https://segasky.itch.io/world-neverland-2-plus-vga-patch-for-sega-dreamcast",
+      "publisher_archive_sha256": "0b22909eb4d2bbd4dd4fed2701d7b368f24969be11ce814a0e0f7df986f86e78",
+      "dcp_sha256": [
+        "cd517e03336583102181ca5ca7f7c18d6f8f71512ea15381531a334f09c20fa7"
+      ],
+      "reference_target_sha256": "d26f2bc45930fe0f96aa928ea7e9c8d7d634e9ec544ea4370c56b8eec2092c6a",
+      "proof": "projected_target_sha256"
+    },
+    {
+      "title": "PERPETUAL BLUE",
+      "product": "T27801M",
+      "version": "V1.003",
+      "region": "J",
+      "boot": "1ST_READ.BIN",
+      "program_bytes": 948228,
+      "publisher_url": "https://segasky.itch.io/yukyu-gensokyoku-3-perpetual-blue-vga",
+      "publisher_archive_sha256": "7cf5bba33e63bb9f8fcc07f6a13166d72c77a690fd65aa7142d03e328341677f",
+      "dcp_sha256": [
+        "667be77420a5ac7beb10140cd3a0837e98d65aa7eeaae76729a3d451364d1a11"
+      ],
+      "reference_target_sha256": "43e5058fad3a76bc04084e7e223aa34d86f5d4ffeb4971eaa211b222e10a9e24",
+      "proof": "projected_target_sha256"
+    }
+  ],
+  "verification": {
+    "coverage": "26 product/version/region/size profiles. Black/Matrix AD has two source packages and one resulting boot executable.",
+    "scope": "Every listed DCP changes the Dreamcast IP header and a single native boot executable. All executable offsets are relative to the decoded program. The Reppuuden executable is 0NOBU8.BIN. This evidence covers the executable overlay on a host. Display behavior, gameplay, disc swaps and K-UI handoff on a Dreamcast still require console tests.",
+    "projected_target_sha256": "With intact bytes outside the declared write ranges, K-UI hashes the prospective full executable and compares it to its known target before writing. A full-target identity can match if a source differs only within bytes that the overlay replaces. At handoff the previously observed original ranges are rechecked.",
+    "reference_test": "Unpack the listed DCP and publisher boot program. Inspect VCDIFF COPY, ADD and RUN operations with xdelta3 3.0.11. For each forward DCP with an included target, change all bytes in non-identity ranges in a disposable copy of that target, then decode the actual DCP with its window checksum enabled. The full output must equal the publisher target. In an independent host program linked with the actual K-UI catalog and SHA/CRC implementation, run release capture and apply, then compare the entire output with the reference. The rows below describe exceptions and how the input reached the host test.",
+    "source_crc32_reverse_delta": "For three KOEI titles the publisher supplies a VGA executable and a reverse delta. Decode the delta against that executable with its Adler checksum enabled to recover both original SDK mode-load instructions. Run production capture/apply on that entire reconstructed source with its real CRC and compare the output with the original publisher-supplied VGA executable.",
+    "source_sha256_us_jojo": "The catalog records the SHA-256 of the original US executable. K-UI rejected a synthetic input with its actual hash. A separate test supplied the catalogued identity with the fixture and compared the complete output against the publisher target. This test used a fixture because the US retail executable was unavailable.",
+    "source_sha256_despiria": "Undo the two edits in the earlier bundled deSPIRIA program by comparing its video SDK instructions with the checksummed Sangokushi VI with Power-Up Kit reference. The unchanged surroundings matched for 87 bytes before and 96 after the first instruction, and 197 before and 58 after the second. The resulting executable with the release header (Japan, peripheral 0799800) reproduces the independent Redump RetroAchievements ID. Apply the corrected DCP with xdelta3, then run the production K-UI engine from the fingerprinted retail executable and compare the complete outputs."
+  },
+  "held": [
+    {
+      "title": "Berserk Trial Version R",
+      "product": "6107370",
+      "version": "V1.001",
+      "publisher_url": "https://segasky.itch.io/berserk-trial-version-r-vga-patch",
+      "dcp_sha256": "a7c5711f50fec2b355d2df899ea6eb36692cdfe5ce9b294fd234b12e74ac5944",
+      "publisher_target_sha256": "1535a2fe95ff6b1dd3cec875e6ecd0dcd9fc4d70ddeff97f647d8ce923768bc9",
+      "reconstructed_candidate_source_sha256": "4d34be23975a8f5a48813b826a6c597038e1d684bbb9943f95cc591da48c03ac",
+      "finding": "Both the DCP and the bundled target encode a byte store at offsets 0x8d79a and 0x8da48 on the VGA/default branch before the video routine call. GNU sh-elf-objdump in little-endian SH-4 mode decodes both as MOV.B R14,@(R0,R0). Given cable result zero, this path attempts to store a byte at address zero. It does not explicitly set video-mode argument R4. The corresponding mode-load instructions in the reconstructed source select mode 0x300. In other verified SDK patches, the replacement loads the VGA mode argument zero into R4.",
+      "source_reconstruction": "The publisher target and Nobunaga no Yabou Reppuuden reverse delta contain matching SDK blocks: 87 bytes before and 96 after the first word, 193 before and 58 after the second. Restoring the two original loads gives a candidate whose xdelta3 output passes the DCP checksum and is identical to the complete bundled target. The target checksum authenticates the patched output. No independent digest for the original trial was found. The RetroAchievements entry lists three retail editions, and none is this trial.",
+      "retail_ra_url": "https://retroachievements.org/game/17366/hashes",
+      "decision": "Hold the published executable edit. No corrected trial reference or separate Dreamcast validation of a replacement was available."
+    },
+    {
+      "title": "deSPIRIA Taikenban",
+      "product": "6107925",
+      "version": "V1.000",
+      "publisher_url": "https://segasky.itch.io/despiria-vga-patch",
+      "decision": "The known display correction targets retail T14402M V1.001. The trial has a different executable and no verified corrected reference."
+    }
+  ]
+}

@@ -29,6 +29,9 @@ class NightlyTests(unittest.TestCase):
         self.root = Path(work.name)
         self.repo = self.root / "source"
         self.repo.mkdir()
+        sources = mock.patch("software_distribution.ROOT", self.repo)
+        sources.start()
+        self.addCleanup(sources.stop)
         cwd = contextlib.chdir(self.repo)
         cwd.__enter__()
         self.addCleanup(cwd.__exit__, None, None, None)

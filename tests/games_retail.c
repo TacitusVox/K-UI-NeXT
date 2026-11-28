@@ -5,6 +5,7 @@
 #include "kui/media.h"
 #include "kui/retail_image.h"
 #include "kui/retail_cursor.h"
+#include "kui/retail_loader_layout.h"
 #include "kui/game_launch_report.h"
 #include "kui/smash_launch_timing.h"
 #include "kui/retail_zso.h"
@@ -38,6 +39,7 @@ static struct {
     uint64_t blocks;
     const char *fault;
     FIL *track, *report_write;
+    unsigned companion_opens;
     unsigned writes, connects, disconnects, files, read_calls, physical_reads;
     unsigned hash_phase,hash_reads[2],hash_max[2],between_read_cancel_checks;
     unsigned native_source_passes,native_piece_passes,direct_crc_passes;
@@ -58,6 +60,10 @@ static const char *const package = "0:/KUI/apps/games/retail-boot.kui";
 static const char *const dual_package = "0:/KUI/apps/games/retail-native-dual.kui";
 static const char *const session_package = "0:/KUI/apps/games/retail-native-session.kui";
 static const char *const session_a1_package = "0:/KUI/apps/games/retail-native-session-a1.kui";
+static bool vga_case(void) {return !strncmp(test.fault,"launch-vga-",11);}
+bool kui_games_host_vga_cable(void) {
+    return vga_case() && strcmp(test.fault,"launch-vga-tv");
+}
 static bool native_dual_case(void) {return !strncmp(test.fault,"native-dual-",12);}
 static bool native_optional_session_case(void) {
     return (!strncmp(test.fault,"native-dual-session-",strlen("native-dual-session-")) &&
@@ -186,7 +192,7 @@ static int sync_image(void *ctx) {
 static const struct kui_media_ops media = {NULL, blocks, read_image, write_image, sync_image};
 unsigned kui_storage_active(void) {
     /* The CE boot test needs SCI; ce-probe-scif checks the refusal. */
-    return (native_standard_case() && strcmp(test.fault,"native-standard-scif-report")) ||
+    return !strcmp(test.fault,"launch-vga-peer") || !strcmp(test.fault,"launch-vga-ce-valid") || (native_standard_case() && strcmp(test.fault,"native-standard-scif-report")) ||
         (native_dual_case() && strcmp(test.fault,"native-dual-scif")) || !strcmp(test.fault, "vmu-present-corrupt") || !strcmp(test.fault, "async-on-sci") || !strcmp(test.fault, "async-cooked-2048") ||
         (zso_case() && strcmp(test.fault,"zso-scif")) ||
         !strncmp(test.fault, "async-tracks", 12) ||
@@ -217,6 +223,10 @@ FRESULT __wrap_f_open(FIL *file, const TCHAR *path, BYTE flags) {
     if(test.active && writes) {
         assert((launch_case() || zso_case() || native_dual_report() || native_standard_case()) && report_path(path));
         if(fault("launch-report-readonly")) {test.injected=true;return FR_WRITE_PROTECTED;}
+    }
+    if(test.active && strstr(path,"/.kui-vga/")) {
+        ++test.companion_opens;
+        if(fault("launch-vga-cancel"))test.cancelled=true;
     }
     FRESULT result = __real_f_open(file, path, flags);
     if(test.active && result == FR_OK) {
@@ -417,10 +427,31 @@ static void seed_zso(const char *directory) {
     } else write_file(path,data,bytes);
     free(data);
 }
+static void seed_vga_companion(const char *directory) {
+    if(!strcmp(test.fault,"launch-vga-missing"))return;
+    const char *parent="0:/Games/Reader Test/.kui-vga";
+    const bool cue=!strcmp(test.fault,"launch-vga-cue");
+    const char *root=cue?"0:/Games/Reader Test/.kui-vga/title.cue":"0:/Games/Reader Test/.kui-vga/disc.gdi";
+    if(cue) {
+        size_t n;uint8_t *data=host_file(directory,"title.cue",&n);
+        write_file("0:/Games/Reader Test/title.cue",data,n);free(data);
+    }
+    assert(f_mkdir(parent)==FR_OK && f_mkdir(root)==FR_OK);
+    const char *parts[]={"disc.gdi","track01.bin","music track02.raw","track03.bin"};
+    for(unsigned i=0;i<4;i++) {
+        if(!strcmp(test.fault,"launch-vga-incomplete") && i==2u)continue;
+        char path[256],host[64];size_t bytes;
+        assert(snprintf(host,sizeof(host),"vga-%s",parts[i])<(int)sizeof(host));
+        assert(snprintf(path,sizeof(path),"%s/%s",root,parts[i])<(int)sizeof(path));
+        uint8_t *data=host_file(directory,host,&bytes);
+        write_file(path,data,bytes);free(data);
+    }
+}
 static void seed(const char *directory) {
     assert(f_mkdir("0:/KUI") == FR_OK && f_mkdir("0:/KUI/apps") == FR_OK);
     assert(f_mkdir("0:/KUI/apps/games") == FR_OK && f_mkdir("0:/Games") == FR_OK);
     assert(f_mkdir("0:/Games/Reader Test") == FR_OK);
+    if(vga_case())seed_vga_companion(directory);
     if(native_standard_case())assert(kui_vmu_emulation_settings_save(false,log_line));
     size_t size; uint8_t *data = host_file(directory, "retail-boot.kui", &size);
     if(!strcmp(test.fault, "layout-manifest")) {
@@ -1150,7 +1181,51 @@ static void check_session_mapping(const char *directory) {
     assert(block==(bytes+511u)/512u);free(expected);free(map);
     puts("Session map PASS: native GDI IP/boot CRCs and runtime-file physical extents match source bytes after all FatFs files close");
 }
+static void check_vga_launch(const char *directory) {
+    const bool peer=fault("launch-vga-peer");
+    bool ce=fault("launch-vga-ce-valid"),cue=fault("launch-vga-cue");
+    bool use_companion=peer || ce || cue || fault("launch-vga-valid");
+    struct kui_runtime_image package={0};
+    struct kui_retail_manifest *map=malloc(sizeof(*map));assert(map);
+    if(peer) {
+        assert(kui_sd_connect() && kui_mount(&fs,log_line));
+        const struct kui_volume volume=*kui_media_volume();
+        const char *problem=NULL;char version[7];
+        assert(kui_native_session_map_gdi(&fs,&volume,selected,KUI_RETAIL_READER_ASYNC,
+            map,version,&problem,log_line,cancel) && !strcmp(version,"V1.000"));
+        assert(f_mount(NULL,"0:",0)==FR_OK);kui_sd_disconnect();
+    } else {
+        bool ok=kui_games_retail_prepare_launch(cue?"/Games/Reader Test/title.cue":selected,
+            ce?KUI_GAMES_RETAIL_CE_PROBE:KUI_RETAIL_READER_STANDARD,NULL,&package,log_line,cancel);
+        if(fault("launch-vga-cancel")) {
+            assert(!ok && test.cancelled && test.connects==1u && !package.data);free(map);return;
+        }
+        assert(ok && package.data);
+        assert(kui_retail_manifest_decode((uint8_t *)package.data+KUI_RETAIL_MAP_OFFSET,map)==KUI_GAME_OK);
+    }
+    assert(!strcmp(map->product,"KUI-TEST") && !strcmp(map->region,"U") &&
+        !strcmp(map->title,"DEAD OR ALIVE 2"));
+    size_t n;uint8_t *expected=host_file(directory,use_companion?"vga-track03.bin":"track03.bin",&n);
+    struct kui_retail_image image;
+    assert(kui_retail_image_init(&image,map,detached_block,NULL)==KUI_GAME_OK);
+    /* Compare IP, boot and asset sectors after closing all filesystem handles. */
+    const unsigned sectors[]={0u,21u,40u};uint8_t block[2048];
+    for(unsigned i=0;i<3u;i++) {
+        assert((size_t)sectors[i]*2352u+2064u<=n);
+        assert(kui_retail_image_read(&image,45000u+sectors[i],1u,KUI_GAME_SECTOR_MODE1,block,sizeof(block))==KUI_GAME_OK);
+        assert(!memcmp(block,expected+sectors[i]*2352u+16u,sizeof(block)));
+    }
+    free(expected);
+    expected=host_file(directory,use_companion?"vga-disc.gdi":"disc.gdi",&n);
+    assert(kui_crc32(0,expected,n)==map->gdi_crc32);free(expected);
+    if(fault("launch-vga-tv") || fault("launch-vga-missing"))assert(!test.companion_opens);
+    else assert(test.companion_opens);
+    assert(test.connects==(fault("launch-vga-late")?2u:1u));
+    free(map);kui_runtime_free(&package);
+    if(!peer)export_launch_files(directory);
+}
 static void check(const char *directory) {
+    if(vga_case()) {check_vga_launch(directory);return;}
     struct kui_runtime_image image = {0};
     if(native_dual_case()) {check_native_dual(directory);return;}
     if(native_standard_case()) {check_native_standard(directory);return;}

@@ -1791,6 +1791,16 @@ build/test-game-launch-settings-file: tests/test_game_launch_settings_file.c src
 	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) src/core/data.c src/core/game_launch_settings.c src/core/game_ram_patches.c src/apps/game_launch_settings_file.c tests/test_game_launch_settings_file.c -o $@
 
 # One-time high-stage patch bounds and durable pre-handoff diagnostics.
+build/test-game-vga: tests/test_game_vga.c include/kui/game_vga.h $(wildcard include/kui/game_vga_*.inc) src/core/data.c src/core/hash.c include/kui/core.h include/kui/hash.h
+	@mkdir -p $(@D)
+	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) src/core/data.c src/core/hash.c tests/test_game_vga.c -o $@
+
+.PHONY: test-game-vga
+test-game-vga: build/test-game-vga
+	ASAN_OPTIONS=detect_leaks=0 ./build/test-game-vga
+
+test: test-game-vga
+
 build/test-game-ram-patches: tests/test_game_ram_patches.c src/core/game_ram_patches.c include/kui/game_ram_patches.h
 	@mkdir -p $(@D)
 	$(CC) $(HOST_FLAGS) $(SANITIZERS) $(INCLUDES) src/core/game_ram_patches.c tests/test_game_ram_patches.c -o $@

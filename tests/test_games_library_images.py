@@ -78,6 +78,7 @@ def fixture(base, enhanced=False, capture_case=None):
         (wrapped / "Extracted/._Armada.gdi").write_bytes(b"HIDDEN SIDECAR")
         make_fixture(games / "Only raw/extracted", b"ONLY RAW")
         make_fixture(games / "Direct", b"DIRECT")
+        make_fixture(games / "Direct/.kui-vga/disc.gdi", b"DIRECT")
         (games / "Direct/extracted").mkdir()
         (games / "Direct/extracted-2048").mkdir()
         (games / "Direct/extracted-2048/README.txt").write_text("Sidecar folder")

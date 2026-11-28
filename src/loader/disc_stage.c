@@ -1,6 +1,8 @@
 /* SPDX-License-Identifier: GPL-3.0-only */
 #include "kui/disc_launch.h"
+#include "kui/game_vga.h"
 #include "kui/hash.h"
+#include "game_vga_cable.h"
 #include "retail_display.h"
 #include "stage_fast_crc32.h"
 #include <string.h>
@@ -62,14 +64,23 @@ void kui_disc_stage_main(void) {
      * appended payload. Capture every plan field before moving game bytes. */
     const uint8_t *source_ip=payload+plan.ip_offset,*source_exec=payload+plan.exec_offset;
     uint32_t executable_bytes=plan.exec_bytes;
-    memmove((void *)(uintptr_t)KUI_DISC_LAUNCH_IP_ADDRESS,source_ip,KUI_DISC_LAUNCH_IP_BYTES);
-    memmove((void *)(uintptr_t)KUI_DISC_LAUNCH_EXEC_ADDRESS,source_exec,executable_bytes);
+    uint8_t *ip=(uint8_t *)(uintptr_t)KUI_DISC_LAUNCH_IP_ADDRESS;
+    uint8_t *executable=(uint8_t *)(uintptr_t)KUI_DISC_LAUNCH_EXEC_ADDRESS;
+    memmove(ip,source_ip,KUI_DISC_LAUNCH_IP_BYTES);
+    memmove(executable,source_exec,executable_bytes);
     if(*(volatile const uint32_t *)(uintptr_t)UINT32_C(0xac0000bc)!=gd ||
        kui_stage_crc32(0u,(const void *)(uintptr_t)UINT32_C(0x8c000000),0x8000u)!=low_crc)
         stopped("LOW FIRMWARE RAM CHANGED",3u);
+    if(kui_game_vga_connected()) {
+        const struct kui_game_vga_profile *profile=kui_game_vga_candidate(ip,executable_bytes);
+        if(profile) {
+            uint32_t guard=kui_game_vga_capture(profile,executable,executable_bytes,plan.exec_crc32,plan.exec_sha256);
+            kui_game_vga_apply_profile(profile,executable,executable_bytes,plan.exec_crc32,plan.exec_sha256,guard);
+        }
+    }
     /* Existing K-UI native bootstrap handoff clears this one RAM boot flag.
      * Disc bytes and the checked source fingerprints remain unchanged. */
-    ((uint8_t *)(uintptr_t)KUI_DISC_LAUNCH_IP_ADDRESS)[0xfcu]&=(uint8_t)~0x20u;
+    ip[0xfcu]&=(uint8_t)~0x20u;
 #if KUI_DISC_TOY_TRACE
     toy_trace_prepare(gd);
 #endif

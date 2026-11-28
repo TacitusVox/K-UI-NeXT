@@ -5,6 +5,7 @@
 #include "kui/vmu_native_cache_seed.h"
 #include "kui/vmu_native_resolution_cache.h"
 #include "kui/retail_loader_layout.h"
+#include "kui/disc_launch.h"
 #include <assert.h>
 #include <setjmp.h>
 #include <stdio.h>
@@ -22,7 +23,12 @@ static struct kui_vmu_native_heap native_heap;
 static struct kui_vmu_native_heap_call native_call;
 static struct kui_vmu_native_exit native_exits;
 static unsigned exec_bytes=0x1000u;
-static struct {unsigned exec_bytes;} plan={0x1000u};
+static const struct kui_disc_launch_plan plan={.exec_bytes=0x1040u,.exec_crc32=0x31415926u};
+struct kui_game_vga_profile { uint32_t marker; };
+static const struct kui_game_vga_profile matched_profile={1u};
+static const struct kui_game_vga_profile *vga_profile;
+static const uint32_t vga_guard=0x12345678u;
+static unsigned vga_calls;
 static unsigned display,native_probe;
 static bool seed_ok,replay_ok,release_ok,allocation_ok,coherence_ok,driver_ok,heap_ok,call_ok;
 static bool first_allocation_fails;
@@ -36,6 +42,7 @@ static void reset(void) {
     seed_ok=replay_ok=release_ok=allocation_ok=coherence_ok=driver_ok=heap_ok=call_ok=true;
     releases=allocations=coherences=captures=drivers=heaps=calls=prepares=probes=reports=0;
     preclears=0;preclear_result=0;first_allocation_fails=false;
+    vga_calls=0;vga_profile=&matched_profile;
     last_detail=0;
     memset(&record,0,sizeof(record));record.heap.family=KUI_VMU_NATIVE_HEAP_TAIL32;
     record.heap.layout=KUI_VMU_NATIVE_HEAP_DISPATCH2;
@@ -110,6 +117,15 @@ int kui_vmu_native_heap_preclear_plan(const void *image,size_t bytes,const uint8
 static void native_report(uint32_t phase,uint32_t detail) {
     CHECK(phase==2u);last_detail=detail;++reports;longjmp(refusal,1);
 }
+static bool kui_game_vga_apply_profile(const struct kui_game_vga_profile *profile,uint8_t *executable,
+    uint32_t bytes,uint32_t crc,const uint8_t *sha,uint32_t guard) {
+    CHECK(!vga_calls && preclears==1u && !preclear_result);
+    CHECK(profile==&matched_profile && (uintptr_t)executable==KUI_DISC_LAUNCH_EXEC_ADDRESS);
+    CHECK(bytes==plan.exec_bytes && bytes!=exec_bytes && crc==plan.exec_crc32);
+    CHECK(sha==plan.exec_sha256 && guard==vga_guard);
+    ++vga_calls;
+    return true;
+}
 #include "disc-vmu-cache-stage-fixture.h"
 static void mapping_refuses(void) {
     if(!setjmp(refusal)) {native_disc_mapping_prepare();CHECK(false);}
@@ -129,6 +145,8 @@ int main(void) {
     reset();record.heap.initializer=3u;CHECK(!native_resolution_replay());CHECK(!releases && !allocations && !captures);
     reset();record.heap.release=3u;CHECK(!native_resolution_replay());CHECK(!releases && !allocations && !captures);
     reset();native_disc_mapping_prepare();CHECK(!drivers && !heaps && !calls && !prepares && captures==1 && preclears==1);
+    CHECK(vga_calls==1);
+    reset();vga_profile=NULL;native_disc_mapping_prepare();CHECK(vga_calls==0 && preclears==1u);
     for(unsigned late=0;late<7;late++) {
         reset();
         if(late==0)seed_ok=false;else if(late==1)replay_ok=false;
@@ -142,7 +160,7 @@ int main(void) {
     for(unsigned cached=0;cached<2u;cached++) for(int hazard=-1;hazard<=1;hazard+=2) {
         reset();seed_ok=cached!=0u;preclear_result=hazard;
         mapping_refuses();
-        CHECK(reports==1 && preclears==1u);
+        CHECK(reports==1 && preclears==1u && vga_calls==0);
         CHECK(last_detail==0x75u);
         CHECK(captures==(cached?1u:0u) && prepares==(cached?0u:1u));
         CHECK(drivers==(cached?0u:1u) && heaps==(cached?0u:1u));

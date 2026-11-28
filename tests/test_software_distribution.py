@@ -3,6 +3,7 @@
 import gzip
 import hashlib
 from pathlib import Path
+import subprocess
 import sys
 import tempfile
 import unittest
@@ -23,7 +24,8 @@ class SoftwareDistributionTests(unittest.TestCase):
         self.stage = work / "KUI"
         readers = self.stage / "apps/games"
         readers.mkdir(parents=True)
-        self.revision = "0123456789abcdef0123456789abcdef01234567"
+        self.revision = subprocess.check_output(["git", "rev-parse", "HEAD"],
+                                                cwd=distribution.ROOT, text=True).strip()
         gui = CAPABILITY + ENGINE + HANDOFF_HEADER + bytes(180)
         (self.stage / "runtime.kui").write_bytes(envelope(gui, len(gui), self.revision[:12]))
         (readers / "reader.kui").write_bytes(envelope(bytes(16), 16, "222222222222"))
@@ -45,9 +47,37 @@ class SoftwareDistributionTests(unittest.TestCase):
         self.assertEqual([r["build"] for r in report["members"]], [self.revision[:12], "222222222222"])
         with zipfile.ZipFile(self.sd) as z:
             self.assertEqual(z.read("KUI/boot.kui"), z.read("KUI/runtime.kui"))
+            for name, expected in distribution.vga_files(self.revision).items():
+                self.assertEqual(z.read(name), expected)
         first = distribution.digest(self.sd)
         self.produce()
         self.assertEqual(distribution.digest(self.sd), first)
+
+    def test_vga_files_follow_the_requested_revision(self):
+        repo = self.stage.parent / "source"
+        subprocess.run(["git", "init", "-q", str(repo)], check=True)
+        def commit():
+            subprocess.run(["git", "add", "."], cwd=repo, check=True)
+            subprocess.run(["git", "-c", "user.name=Test", "-c", "user.email=test@example.invalid",
+                            "commit", "-qm", "fixture", "--allow-empty"], cwd=repo, check=True)
+            return subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=repo, text=True).strip()
+        historical = commit()
+        for name in (*distribution.VGA_GUIDES, *distribution.VGA_TOOLS):
+            path = repo / name
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text(name)
+        qualified = commit()
+        (repo / distribution.VGA_GUIDES[0]).unlink()
+        incomplete = commit()
+        with patch.object(distribution, "ROOT", repo):
+            self.assertEqual(distribution.vga_files(historical), {})
+            contents = distribution.vga_files(qualified)
+            for name in distribution.VGA_GUIDES:
+                self.assertEqual(contents[name], name.encode())
+            for name in distribution.VGA_TOOLS:
+                self.assertEqual(contents["PC/" + name], name.encode())
+            with self.assertRaisesRegex(ValueError, "Missing VGA distribution files"):
+                distribution.vga_files(incomplete)
 
     def test_alias_omission_cannot_pass_even_with_valid_kup(self):
         self.produce()

@@ -8,6 +8,7 @@ from io import BytesIO
 import json
 from pathlib import Path
 import shutil
+import subprocess
 import tempfile
 import zipfile
 
@@ -20,6 +21,14 @@ BOOT_FILE = ROOT / "resources/boot-disc/v3-0e4ab5a.cdi.gz"
 BOOT_PATH = "boot-cd/kui-bootloader-v3.cdi"
 BOOT_BYTES = 156085481
 BOOT_SHA = "9cc3b808fef4a2bdc7f8c446d3a21ab34ce9ed127a12014ef25b89eddb5a1b0a"
+VGA_GUIDES = ("docs/automatic-vga.md", "docs/vga-prescriptions.md",
+              "docs/evidence/automatic-vga/boot-admission.md",
+              "docs/evidence/automatic-vga/expanded/community-index.md",
+              "docs/evidence/automatic-vga/expanded/japan.json",
+              "docs/evidence/automatic-vga/expanded/pal-executable-ppf.json",
+              "docs/evidence/automatic-vga/expanded/seven-mansions.json",
+              "docs/evidence/automatic-vga/regional-surveys.csv")
+VGA_TOOLS = ("tools/prepare_vga_companion.py", "tools/gdi_optimize.py")
 
 
 def digest(path):
@@ -31,6 +40,27 @@ def auxiliary_files():
     return {p.relative_to(ROOT).as_posix(): p for p in
             [ROOT / "LICENSE", ROOT / "THIRD_PARTY.md", *sorted((ROOT / "LICENSES").glob("*"))]
             if p.is_file()}
+
+
+def vga_files(revision):
+    """Pin PC tools and guides to the packaged source, including historical RCs."""
+    paths = (*VGA_GUIDES, *VGA_TOOLS)
+    entries = subprocess.check_output(["git", "ls-tree", "-z", revision, "--", *paths], cwd=ROOT)
+    objects = {}
+    for entry in entries.decode("utf-8").split("\0"):
+        if entry:
+            meta, name = entry.split("\t")
+            mode, kind, oid = meta.split()
+            if mode not in ("100644", "100755") or kind != "blob" or name not in paths:
+                raise ValueError("Invalid VGA distribution input: " + name)
+            objects[name] = oid
+    if VGA_TOOLS[0] not in objects:
+        return {}
+    if set(objects) != set(paths):
+        raise ValueError("Missing VGA distribution files: " + ", ".join(sorted(set(paths) - set(objects))))
+    return {("PC/" + name if name in VGA_TOOLS else name):
+            subprocess.check_output(["git", "cat-file", "blob", oid], cwd=ROOT)
+            for name, oid in objects.items()}
 
 
 def require_software(report, revision):
@@ -47,8 +77,8 @@ def require_software(report, revision):
     return members
 
 
-def install_guide(label, revision):
-    return f"""# {label}
+def install_guide(label, revision, *, vga=False):
+    guide = f"""# {label}
 
 For an SD card installation, power down and merge the supplied KUI folder into
 the card root. Replace the supplied files. Keep your games, virtual memory cards,
@@ -64,6 +94,11 @@ full KUP from the new GUI.
 Diagnostics shows build {revision[:12]}. The managed software inventory and the
 individual component builds are in build.json.
 """
+    if vga:
+        guide += ("\nSee [Automatic VGA compatibility](docs/automatic-vga.md) for supported releases. "
+                  "The [VGA companion guide](docs/vga-prescriptions.md) explains how to prepare "
+                  "full-disc fixes on your computer.\n")
+    return guide
 
 
 def record(label, revision, report):
@@ -89,9 +124,11 @@ def verify_distribution(package_path, sd_zip_path, *, revision):
     members = require_software(report, revision)
     current_consumer_check(package_path)
     notices = auxiliary_files()
+    vga = vga_files(revision)
     owned = {"KUI/" + name: (item["bytes"], item["sha256"]) for name, item in members.items()}
     owned["KUI/boot.kui"] = owned["KUI/runtime.kui"]
     expected = dict(owned)
+    expected.update({name: (len(data), hashlib.sha256(data).hexdigest()) for name, data in vga.items()})
     expected[BOOT_PATH] = BOOT_BYTES, BOOT_SHA
     expected.update({name: (path.stat().st_size, digest(path)) for name, path in notices.items()})
     with zipfile.ZipFile(sd_zip_path) as archive:
@@ -111,7 +148,7 @@ def verify_distribution(package_path, sd_zip_path, *, revision):
         label = actual["label"]
         if not isinstance(label, str) or not label.isprintable() or not 1 <= len(label) <= 120 or \
                 actual != record(label, revision, report) or \
-                archive.read("START-HERE.md") != install_guide(label, revision).encode():
+                archive.read("START-HERE.md") != install_guide(label, revision, vga=bool(vga)).encode():
             raise ValueError("SD ZIP metadata differs from the checked KUP")
     return report
 
@@ -133,13 +170,16 @@ def write_distribution(stage, package_path, sd_zip_path, *, revision, label, boo
         sources = {"KUI/" + name: stage / name for name in members}
         sources["KUI/boot.kui"] = stage / "runtime.kui"
         sources.update(auxiliary_files())
+        vga = vga_files(revision)
         with zipfile.ZipFile(sd_zip, "x", compression=zipfile.ZIP_DEFLATED) as archive:
             for name, path in sorted(sources.items()):
                 with path.open("rb") as stream:
                     put(archive, name, stream)
+            for name, data in sorted(vga.items()):
+                put(archive, name, BytesIO(data))
             with (Path(boot_cdi).open("rb") if boot_cdi else gzip.open(BOOT_FILE)) as stream:
                 put(archive, BOOT_PATH, stream)
-            put(archive, "START-HERE.md", BytesIO(install_guide(label, revision).encode()))
+            put(archive, "START-HERE.md", BytesIO(install_guide(label, revision, vga=bool(vga)).encode()))
             put(archive, "build.json", BytesIO((json.dumps(record(label, revision, report), indent=2) + "\n").encode()))
         verify_distribution(kup, sd_zip, revision=revision)
         kup.replace(package_path)

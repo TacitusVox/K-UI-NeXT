@@ -44,6 +44,11 @@ extern bool kui_update_runtime_absent(const char *logical) __attribute__((weak))
 #include "kui/media.h"
 #include "../core/games_cdda_profile.h"
 #include "platform.h"
+#ifdef __sh__
+#include <dc/video.h>
+#else
+extern bool kui_games_host_vga_cable(void) __attribute__((weak));
+#endif
 #include <limits.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -51,7 +56,7 @@ extern bool kui_update_runtime_absent(const char *logical) __attribute__((weak))
 
 _Static_assert(KUI_GAME_TRACK_MAX <= KUI_RETAIL_IMAGE_TRACKS, "a launch map holds every GDI's tracks");
 struct files {
-    char root[KUI_DEST_ROOT_CAP], open_name[KUI_GAME_NAME_CAP];
+    char root[KUI_GAMES_FILE_CAP], open_name[KUI_GAME_NAME_CAP];
     kui_cancel_fn cancel;
     FIL reader;
     bool reader_open;
@@ -71,7 +76,7 @@ static bool join(const struct files *f,const char *name,char out[KUI_GAMES_FILE_
 static bool split(const char *path,struct files *files,char name[KUI_GAME_NAME_CAP]) {
     if(!path || path[0]!='/' || strlen(path)>=KUI_GAMES_FILE_CAP) return false;
     const char *slash=strrchr(path,'/');size_t n=(size_t)(slash-path),len=strlen(slash+1);
-    if(n>=sizeof(files->root) || len<=4 || len>=KUI_GAME_NAME_CAP) return false;
+    if(n>=KUI_DEST_ROOT_CAP || len<=4 || len>=KUI_GAME_NAME_CAP) return false;
     if(!kui_game_image_name_supported(slash+1)) return false;
     char root[KUI_DEST_ROOT_CAP];
     if(!n) strcpy(root,"/");else {memcpy(root,path,n);root[n]=0;}
@@ -122,6 +127,93 @@ static enum kui_game_metadata_io_result metadata_read(void *ctx,uint32_t lba,uin
 }
 static bool metadata_range(void *ctx,uint32_t lba,uint32_t count) {
     return kui_game_image_check(ctx,lba,count,KUI_GAME_SECTOR_MODE1)==KUI_GAME_OK;
+}
+/* A prepared full-image VGA patch is its own GDI with its own tracks.
+ * Game options and disc-set membership continue to use the original selection. */
+static bool vga_connected(void) {
+#ifdef __sh__
+    return vid_check_cable()==CT_VGA;
+#else
+    return kui_games_host_vga_cable && kui_games_host_vga_cable();
+#endif
+}
+static unsigned vga_regions(const char *s) {
+    unsigned mask=0;
+    for(;*s;s++) {
+        switch(*s) {
+        case 'J': mask|=1u;break;
+        case 'U': mask|=2u;break;
+        case 'E': mask|=4u;break;
+        case ' ': break;
+        default: return 0;
+        }
+    }
+    return mask;
+}
+static bool vga_same_release(const struct kui_game_metadata *original,
+    const struct kui_game_metadata *candidate) {
+    unsigned regions=vga_regions(original->region);
+    return original->product[0] && !strcmp(original->product,candidate->product) &&
+        original->version[0] && !strcmp(original->version,candidate->version) &&
+        !strcmp(original->bootfile,candidate->bootfile) &&
+        original->disc_number && original->disc_number==candidate->disc_number &&
+        original->disc_total==candidate->disc_total &&
+        original->native_gd==candidate->native_gd && original->windows_ce==candidate->windows_ce &&
+        regions && (vga_regions(candidate->region)&regions)==regions;
+}
+static bool select_vga_companion(const char *name,struct files *files,
+    struct kui_game_image *image,struct kui_game_metadata *metadata,uint32_t *descriptor_crc,
+    char actual[KUI_GAMES_FILE_CAP+3],kui_log_fn log) {
+    if(image->compressed || (!metadata->native_gd && !metadata->windows_ce) || !vga_connected())
+        return false;
+    struct files source={.cancel=files->cancel};
+    int length=snprintf(source.root,sizeof(source.root),"%s%s.kui-vga/%s",
+        files->root,strcmp(files->root,"/")?"/":"",name);
+    if(length<0 || (size_t)length>=sizeof(source.root) || !join(&source,"disc.gdi",actual))
+        return false;
+    uint64_t size=0;
+    enum kui_game_result result=stat_file(&source,"disc.gdi",&size);
+    if(result==KUI_GAME_NOT_FOUND || result==KUI_GAME_CANCELLED)return false;
+    uint8_t *descriptor=NULL,*sector=NULL;
+    struct kui_game_image *candidate=NULL;
+    struct kui_game_metadata alternate;
+    const char *problem="invalid or unreadable GDI";
+    bool accepted=false;
+    if(result!=KUI_GAME_OK || !size || size>KUI_GAME_GDI_LIMIT)goto done;
+    descriptor=malloc((size_t)size);candidate=malloc(sizeof(*candidate));sector=malloc(2048u);
+    if(!descriptor || !candidate || !sector) {problem="insufficient memory";goto done;}
+    const struct kui_game_file_ops ops={&source,stat_file,read_file};
+    if(read_file(&source,"disc.gdi",0u,descriptor,(size_t)size)!=KUI_GAME_OK ||
+       kui_game_image_open(descriptor,(size_t)size,&ops,candidate)!=KUI_GAME_OK)goto done;
+    const struct kui_game_metadata_ops metadata_ops={candidate,metadata_read,metadata_range};
+    if(kui_game_metadata_read(&metadata_ops,candidate->data_lba,&alternate)!=KUI_GAME_METADATA_OK ||
+       !alternate.boot_valid || candidate->cd_image)goto done;
+    problem="release identity differs";
+    if(!vga_same_release(metadata,&alternate))goto done;
+    uint8_t release_date[8];
+    if(metadata_read(image,image->data_lba,sector)!=KUI_GAME_METADATA_IO_OK)goto done;
+    memcpy(release_date,sector+0x50,sizeof(release_date));
+    for(size_t i=0;i<sizeof(release_date);i++)if(release_date[i]<'0' || release_date[i]>'9')goto done;
+    if(metadata_read(candidate,candidate->data_lba,sector)!=KUI_GAME_METADATA_IO_OK ||
+       memcmp(release_date,sector+0x50,sizeof(release_date)))goto done;
+    problem="cannot finish reading image";
+    if(!close_reader(&source) || !close_reader(files) || stopped(files))goto done;
+    /* Some patches broaden the target IP's area flags. Keep the selected
+     * release's catalogue identity while using the new ISO's boot extents. */
+    memcpy(alternate.region,metadata->region,sizeof(alternate.region));
+    memcpy(alternate.title,metadata->title,sizeof(alternate.title));
+    memcpy(alternate.japanese_title,metadata->japanese_title,sizeof(alternate.japanese_title));
+    *metadata=alternate;
+    strcpy(files->root,source.root);
+    *image=*candidate;image->files.ctx=files;
+    *descriptor_crc=kui_retail_crc32(0,descriptor,(size_t)size);
+    accepted=true;
+done:
+    close_reader(&source);
+    free(sector);free(candidate);free(descriptor);
+    if(accepted)log("VGA companion: %s",actual+2);
+    else if(!stopped(files))log("VGA companion: %s; using selected image",problem);
+    return accepted;
 }
 static uint32_t le32(const uint8_t *p) {
     return (uint32_t)p[0]|(uint32_t)p[1]<<8|(uint32_t)p[2]<<16|(uint32_t)p[3]<<24;
@@ -713,9 +805,9 @@ static bool fill_ram_patches(struct kui_runtime_image *package,
 #include "smash_native_child_prepare.inc"
 #endif
 
-bool kui_native_session_map_gdi(FATFS *fs,const struct kui_volume *volume,
+static bool map_session_source(FATFS *fs,const struct kui_volume *volume,
     const char *path,uint32_t reader,struct kui_retail_manifest *out,
-    char version[7],const char **problem,kui_log_fn log,kui_cancel_fn cancel) {
+    char version[7],const char **problem,kui_log_fn log,kui_cancel_fn cancel,bool allow_vga,bool *selected_vga) {
     if(out)memset(out,0,sizeof(*out));
     if(version)version[0]=0;
     if(problem)*problem="invalid disc-set preparation request";
@@ -746,6 +838,9 @@ bool kui_native_session_map_gdi(FATFS *fs,const struct kui_volume *volume,
     const struct kui_game_metadata_ops metadata_ops={image,metadata_read,metadata_range};
     enum kui_game_metadata_status ms=kui_game_metadata_read(&metadata_ops,image->data_lba,&metadata);
     if(ms!=KUI_GAME_METADATA_OK) {*problem=kui_game_metadata_status_text(ms);goto done_session_map;}
+    map->gdi_crc32=kui_retail_crc32(0,gdi,(size_t)bytes);
+    char actual[KUI_GAMES_FILE_CAP+3];
+    if(allow_vga)*selected_vga=select_vga_companion(name,&files,image,&metadata,&map->gdi_crc32,actual,log);
     struct kui_game_audio_info audio;
     if(!metadata.native_gd || metadata.windows_ce || !metadata.boot_valid ||
        kui_game_image_audio_info(image,&audio)!=KUI_GAME_OK || audio.candidate_tracks) {
@@ -762,7 +857,6 @@ bool kui_native_session_map_gdi(FATFS *fs,const struct kui_volume *volume,
     map->boot_lba=metadata.boot_lba;map->boot_bytes=metadata.boot_bytes;
     map->storage_transport=KUI_STORAGE_SCI;map->reader=reader;
     map->flags=KUI_RETAIL_IMAGE_BOOT_CRC;
-    map->gdi_crc32=kui_retail_crc32(0,gdi,(size_t)bytes);
     snprintf(map->title,sizeof(map->title),"%.127s",metadata.title);
     snprintf(map->product,sizeof(map->product),"%s",metadata.product);
     snprintf(map->region,sizeof(map->region),"%s",metadata.region);
@@ -778,11 +872,21 @@ bool kui_native_session_map_gdi(FATFS *fs,const struct kui_volume *volume,
     }
     if(stopped(&files)) {*problem="disc-set preparation cancelled";goto done_session_map;}
     *out=*map;snprintf(version,7,"%s",metadata.version);ok=true;
+    *selected_vga=false; /* A close failure must not restart an accepted map. */
 done_session_map:
     if(!close_reader(&files)) {ok=false;*problem="cannot close disc-set reader";}
     free(gdi);free(image);free(map);
     if(!ok) {memset(out,0,sizeof(*out));version[0]=0;}
     return ok;
+}
+bool kui_native_session_map_gdi(FATFS *fs,const struct kui_volume *volume,
+    const char *path,uint32_t reader,struct kui_retail_manifest *out,
+    char version[7],const char **problem,kui_log_fn log,kui_cancel_fn cancel) {
+    bool used=false;
+    if(map_session_source(fs,volume,path,reader,out,version,problem,log,cancel,true,&used))return true;
+    if(!used || cancel())return false;
+    log("VGA companion disc could not be prepared; using selected disc");
+    return map_session_source(fs,volume,path,reader,out,version,problem,log,cancel,false,&used);
 }
 bool kui_native_session_map_file(FATFS *fs,const struct kui_volume *volume,
     const char *path,struct kui_retail_extent *extents,unsigned capacity,
@@ -995,9 +1099,9 @@ static bool native_repeat_session_safe(const struct kui_native_session_request *
 }
 static char last_refusal[192];
 const char *kui_games_retail_last_refusal(void) {return last_refusal;}
-static bool prepare_launch(const char *path,uint32_t reader,const struct kui_game_ram_patches *patches,
+static bool prepare_source(const char *path,uint32_t reader,const struct kui_game_ram_patches *patches,
     const struct kui_vmu_game_selection *selection,const struct kui_native_session_request *session,
-    bool reporting,struct kui_runtime_image *package,kui_log_fn log,kui_cancel_fn cancel,unsigned smash_child) {
+    bool reporting,struct kui_runtime_image *package,kui_log_fn log,kui_cancel_fn cancel,unsigned smash_child,bool allow_vga,bool *selected_vga) {
     last_refusal[0]=0;
     if(!package) return false;
     *package=(struct kui_runtime_image){0};
@@ -1122,16 +1226,18 @@ static bool prepare_launch(const char *path,uint32_t reader,const struct kui_gam
     }
     log("Retail boot storage: %s",map->storage_transport==KUI_STORAGE_SCIF?"SCIF microSD":
         map->storage_transport==KUI_STORAGE_SCI?"SCI microSD":"IDE / CF");
-    map->track_count=image->count;map->gdi_crc32=kui_retail_crc32(0,gdi,fingerprint_bytes);
-    map->session_lba=image->data_lba;
-    if(image->cd_image)
-        map->flags|=KUI_RETAIL_IMAGE_CD;
-    log("Retail image: %s, session LBA %u",kui_game_image_format_name(image->format),map->session_lba);
     struct kui_game_metadata metadata;struct kui_game_metadata_ops metadata_ops={image,metadata_read,metadata_range};
-    enum kui_game_metadata_status ms=kui_game_metadata_read(&metadata_ops,map->session_lba,&metadata);
+    enum kui_game_metadata_status ms=kui_game_metadata_read(&metadata_ops,image->data_lba,&metadata);
     if(ms!=KUI_GAME_METADATA_OK) {problem=kui_game_metadata_status_text(ms);goto done;}
+    map->gdi_crc32=kui_retail_crc32(0,gdi,fingerprint_bytes);
+    char companion_path[KUI_GAMES_FILE_CAP+3];
+    if(allow_vga)*selected_vga=select_vga_companion(name,&files,image,&metadata,&map->gdi_crc32,companion_path,log);
+    const char *source_path=allow_vga && *selected_vga?companion_path+2:path;
+    map->track_count=image->count;map->session_lba=image->data_lba;
+    if(image->cd_image)map->flags|=KUI_RETAIL_IMAGE_CD;
+    log("Retail image: %s, session LBA %u",kui_game_image_format_name(image->format),map->session_lba);
     if((native_standard || native_dual) && metadata.native_gd)
-        kui_smash_launch_timing_native(path,KUI_BUILD_ID,metadata.product,native_dual?
+        kui_smash_launch_timing_native(source_path,KUI_BUILD_ID,metadata.product,native_dual?
             (reader==KUI_RETAIL_READER_ASYNC?"Background New":"Background Legacy"):"Standard",
             emulation_enabled,0u,0u);
     enum kui_wince_cdda_profile music_profile=KUI_WINCE_CDDA_NONE;
@@ -1158,7 +1264,7 @@ static bool prepare_launch(const char *path,uint32_t reader,const struct kui_gam
         native_standard,patched,emulation_enabled,smash_child,requested_options};
     if(!smash_collection_select(&request,package,&smash_collection,&smash_native_menu,&smash_menu_crc,
         &launch_package,&problem,log,cancel,smash_collection_source_proof))goto done;
-    if(smash_native_menu)kui_smash_launch_timing_native(path,KUI_BUILD_ID,metadata.product,
+    if(smash_native_menu)kui_smash_launch_timing_native(source_path,KUI_BUILD_ID,metadata.product,
         "Smash Pack / Standard",emulation_enabled,package->info.crc32,package->info.payload_bytes);
 #endif
     if(!cdda && !ce_excerpt && !ce) {
@@ -1457,7 +1563,7 @@ static bool prepare_launch(const char *path,uint32_t reader,const struct kui_gam
                 problem="Armada all-on module capability is missing or invalid";goto done;
             }
         }
-        kui_smash_launch_timing_wince(path,KUI_BUILD_ID,metadata.product,all_on,
+        kui_smash_launch_timing_wince(source_path,KUI_BUILD_ID,metadata.product,all_on,
             package->info.crc32,package->info.payload_bytes);
         kui_smash_launch_timing_phase(KUI_SMASH_UI_PREPARE_OTHER);
     }
@@ -1761,7 +1867,7 @@ static bool prepare_launch(const char *path,uint32_t reader,const struct kui_gam
             requested_options,patched,package,native_dual);
     bool indexed_hint=false;
     enum native_cache_result cache=hint_allowed?
-        native_cache_hint_prepare(map,native_dual,package,files.root,path,&indexed_hint,log,cancel):NATIVE_CACHE_SKIPPED;
+        native_cache_hint_prepare(map,native_dual,package,files.root,source_path,&indexed_hint,log,cancel):NATIVE_CACHE_SKIPPED;
     const bool mapping_hint=cache==NATIVE_CACHE_READY;
     bool optional_crc_to_stage=false;
     if(mapping_hint) {
@@ -1859,7 +1965,7 @@ static bool prepare_launch(const char *path,uint32_t reader,const struct kui_gam
     if(cache==NATIVE_CACHE_READY && hint_allowed && !indexed_hint &&
        (!required_boot_crc || mapping_hint)) {
         uint64_t alias_epoch=kui_media_mutation_epoch();
-        bool published=native_cache_alias_publish(path,map,native_dual,package,files.root,cancel);
+        bool published=native_cache_alias_publish(source_path,map,native_dual,package,files.root,cancel);
         if(alias_epoch!=kui_media_mutation_epoch()) {
             /* A successful advisory index write cannot preserve a GUI source
              * receipt. Raw report-only CRC has the same stage authority as
@@ -1873,7 +1979,7 @@ static bool prepare_launch(const char *path,uint32_t reader,const struct kui_gam
      * envelope identity before card, map and session bytes are personalized;
      * the final launch report must not describe the discarded dual reader. */
     const struct kui_runtime_info source_module=package->info;
-    if(native_standalone)kui_smash_launch_timing_native(path,KUI_BUILD_ID,metadata.product,
+    if(native_standalone)kui_smash_launch_timing_native(source_path,KUI_BUILD_ID,metadata.product,
         "Background New (X), no virtual VMU",false,source_module.crc32,source_module.payload_bytes);
     kui_smash_launch_timing_source_module(launch_package,source_module.build,
         source_module.crc32,source_module.payload_bytes);
@@ -1956,7 +2062,7 @@ static bool prepare_launch(const char *path,uint32_t reader,const struct kui_gam
         log("Launch report skipped: selected image shares the reserved report directory");
     if(reporting && report_safe && !stopped(&files)) {
         struct kui_game_launch_report report={
-            .version=KUI_VERSION,.build_id=KUI_BUILD_ID,.image_path=path,
+            .version=KUI_VERSION,.build_id=KUI_BUILD_ID,.image_path=source_path,
             .reader=native_standalone?"Background New (X), no virtual VMU":
                 native_dual?(map->reader==KUI_RETAIL_READER_ASYNC?"Background New (X)":"Background Legacy (Y)"):
                 map->reader==KUI_RETAIL_READER_ASYNC?"Background":
@@ -1978,6 +2084,7 @@ static bool prepare_launch(const char *path,uint32_t reader,const struct kui_gam
     log("%s prepared: %u tracks, %u extents; IP CRC32=%08x, %s=%u bytes checked at load",
         ce_excerpt?(all_on?"Armada all-on":"Windows CE CD music"):ce?"Windows CE boot test":"Retail boot",
         map->track_count,map->extent_count,map->ip_crc32,map->bootfile,map->boot_bytes);
+    *selected_vga=false; /* Never retry a published preparation on cleanup failure. */
     ok=true;
 done:
     kui_smash_launch_timing_phase(KUI_SMASH_UI_FILE_CLEANUP);
@@ -1996,6 +2103,17 @@ done:
         snprintf(last_refusal,sizeof(last_refusal),"%s",problem);
     }
     return ok;
+}
+
+static bool prepare_launch(const char *path,uint32_t reader,const struct kui_game_ram_patches *patches,
+    const struct kui_vmu_game_selection *selection,const struct kui_native_session_request *session,
+    bool reporting,struct kui_runtime_image *package,kui_log_fn log,kui_cancel_fn cancel,unsigned smash_child) {
+    bool used=false;
+    if(prepare_source(path,reader,patches,selection,session,reporting,package,log,cancel,smash_child,true,&used))
+        return true;
+    if(!used || cancel())return false;
+    log("VGA companion could not be prepared; starting the selected image");
+    return prepare_source(path,reader,patches,selection,session,reporting,package,log,cancel,smash_child,false,&used);
 }
 
 bool kui_games_retail_prepare_reader(const char *path,uint32_t reader,

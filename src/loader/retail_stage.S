@@ -91,6 +91,7 @@ __vc2_vmu_blob_end:
 #define KUI_RETAIL_CE_IDE_BIN "build/retail-ce/resident-ide.bin"
 #define KUI_RETAIL_CE_SCIA_BIN "build/retail-ce/resident-scia.bin"
 #endif
+#include "native_game_vga_policy.h"
 #define JOIN_(a,b) a##b
 #define JOIN(a,b) JOIN_(a,b)
 #define C(name) JOIN(__USER_LABEL_PREFIX__,name)
@@ -374,6 +375,13 @@ C(kui_retail_game_resume):
     mov.l .Lrelaymain,r0
     jsr @r0
     nop
+#if KUI_NATIVE_GAME_VGA_STAGE
+    /* VMU/CD-audio owners have now validated and installed their own hooks.
+     * Verify the VGA edit sites before the existing cache publication. */
+    mov.l .Lvgahandoff,r0
+    jsr @r0
+    nop
+#endif
 /* C returns only after exact executable restoration and resident installation.
  * Invalidate before restoring the owner's cache enable/mode bits through P2. */
     mov.l .Loff,r0
@@ -425,7 +433,11 @@ C(kui_retail_game_resume):
 .Lramend: .long KUI_RETAIL_RAM_END
 .Loff: .long 0x00000808
 .Lscan_ccr: .long 0x00000908
-.Lrelaymain: .long C(kui_retail_stage_relay)
+.Lrelaymain:
+    .long C(kui_retail_stage_relay)
+#if KUI_NATIVE_GAME_VGA_STAGE
+.Lvgahandoff: .long C(kui_native_vga_handoff)
+#endif
 #if KUI_ARMADA_CE_BOOT2_SCRATCH
 .Lboot2scratch: .long C(kui_retail_stage_boot2_scratch)
 #endif

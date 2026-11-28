@@ -209,7 +209,7 @@ $(BUILD)/stage/%.o: %.c $(BUILD)/vmu_maple_observe_symbols.h $(BUILD)/worker.bin
 	$(CC) $(FLAGS) -DKUI_VMU_OBSERVE_WORKER_BIN='"$(BUILD)/worker.bin"' \
 	 -MMD -MP -c $< -o $@
 $(BUILD)/stage_asm.o: src/loader/retail_stage.S $(BUILD)/resident-sci.bin
-	$(CC) $(FLAGS) -E -P -x assembler-with-cpp $< -o $(BUILD)/stage_asm.s.original
+	$(CC) $(FLAGS) -E -P -MMD -MP -MF $(BUILD)/stage_asm.d -MT $@ -x assembler-with-cpp $< -o $(BUILD)/stage_asm.s.original
 	sed 's@build/retail/resident-[^"]*\.bin@$(BUILD)/resident-sci.bin@g' \
 	 $(BUILD)/stage_asm.s.original > $(BUILD)/stage_asm.s
 	$(CC) $(FLAGS) -c $(BUILD)/stage_asm.s -o $@

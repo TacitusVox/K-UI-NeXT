@@ -1,0 +1,30 @@
+{
+  "game": "Airforce Delta",
+  "product": "T9501N",
+  "region": "U",
+  "version": "V1.000",
+  "executable": "0.000",
+  "size": 1639040,
+  "original_sha256": "edfd6a069157e57a71966da014e6d2749257a26d160580d3d17773aa5acbdd74",
+  "original_crc32": "ae3d4807",
+  "original_adler32": "35d557a3",
+  "original_identity_source": "Recorded SHA-256 of the decoded US V1.000 boot executable",
+  "patch_author": "TapamN",
+  "release": "10 May 2023, corrected aspect ratio",
+  "release_post": "https://www.dreamcast-talk.com/forum/viewtopic.php?p=175767",
+  "reference": "ateam's May build, linked on 6 January 2024 in the same thread",
+  "reference_post": "https://dreamcast-talk.com/forum/viewtopic.php?start=230&t=16508",
+  "community_test": "On 6 January 2024 Retrofan21 reported that the May build worked and posted gameplay footage.",
+  "community_footage": "https://www.youtube.com/watch?v=lg5bHj0O75c",
+  "reference_sha256": "776cb51033e1065631fa8e2b89aa93130e48c8deeb0c12bb2ace36bcfdf580d3",
+  "reference_crc32": "6ccb648f",
+  "input_recovery": "The corrected file's three edit sites were restored using a matching SDK routine in US Power Stone V1.001. Seven address slots in the original routine were recovered from matching pointer pools nearby in Airforce Delta. Reverting the remaining mode instruction reproduced the full original SHA-256. The older April DCP independently reproduced the expected original Adler-32 after its three published edits were reversed.",
+  "edited_regions": [
+    {"offset": "0x1198c4", "length": 2},
+    {"offset": "0x139780", "length": 12},
+    {"offset": "0x170424", "length": 397}
+  ],
+  "changed_bytes": 401,
+  "local_verification": "The production catalog and patcher selected the US release, accepted the recomputed input CRC-32 and SHA-256, rejected an incorrect CRC-32, and produced a byte-for-byte match across all 1639040 bytes of the corrected May reference.",
+  "kui_hardware_verification": "Pending"
+}

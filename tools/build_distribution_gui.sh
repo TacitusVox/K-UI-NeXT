@@ -14,5 +14,5 @@ python3 tools/stage_distribution.py --gui-inputs "$bundle_dir"
 revision=$(git rev-parse HEAD)
 make -j2 -f Makefile.dc build/kui-runtime.elf BUILD_ID="${revision:0:12}" \
     RUNTIME_MODULE_BUNDLE="$bundle_dir" \
-    NATIVE_STANDARD_MANIFEST=resources/updater-bindings/installed-standard-9e3295bcfaec.h \
+    NATIVE_STANDARD_MANIFEST=resources/updater-bindings/vga-standard.h \
     KUI_SMASH_LAUNCH_TIMING=1 KUI_GITHUB_NIGHTLY="$nightly" KUI_UPDATE_REVIEW_FEED=0

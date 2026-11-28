@@ -151,7 +151,8 @@ These new app paths still need physical-console acceptance.
 - Select with D-pad or stick and open with A. B returns home while idle.
 - The startup splash is capped at three seconds; B skips the shortened startup cue.
   Home Y cycles volume/off; L/R on Home and Ripper select songs. The header names the current song.
-- GD Play exits through normal KOS shutdown to the stock BIOS. Music Player
+- With a VGA cable connected, Games and GD Play’s **A / K-UI boot** apply a matching fix in RAM for 64 native boot-program profiles. **X / Stock boot** in GD Play uses the console BIOS. [Release list and hardware test status](docs/automatic-vga.md)
+- Music Player
   caches PCM16 WAV or Ogg Vorbis songs up to 6 MiB for background playback across apps.
   The developer `sd-update` includes an original one-minute WAV/Ogg sample.
   Music Player supports custom-song cycling, explicit cache clearing and a separate audio-CD player.

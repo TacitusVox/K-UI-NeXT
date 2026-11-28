@@ -25,26 +25,42 @@ static const uint8_t payload_hashes[2][32]={
      0x94,0x6a,0x3f,0x7b,0x5a,0x72,0xd2,0x7f,0xef,0x6f,0x29,0x03,0x83,0xc7,0x46,0x4d}
 };
 #ifdef KUI_NATIVE_STANDARD_MANIFEST
-static bool recognize_manifest(const struct kui_runtime_image *package,size_t *profile_slot) {
-    const size_t bytes=KUI_NATIVE_STANDARD_MANIFEST_PAYLOAD_BYTES;
-    const size_t slot=KUI_NATIVE_STANDARD_MANIFEST_PROFILE_OFFSET;
+static bool recognize_manifest(const struct kui_runtime_image *package,size_t *profile_slot,
+        size_t bytes,size_t slot,const char *build,const uint8_t expected[32]) {
     if(!package || !package->data || bytes<4096u || slot>bytes-4096u ||
        package->info.payload_bytes!=bytes || package->info.memory_bytes!=bytes ||
-       memcmp(package->info.build,KUI_NATIVE_STANDARD_MANIFEST_BUILD,13u) ||
+       memcmp(package->info.build,build,13u) ||
        kui_vmu_game_card_profile_slot(package->data,bytes)!=slot)return false;
     const uint8_t *data=package->data;
     static const uint8_t zero[64]={0};struct kui_sha256 hash;uint8_t digest[32];
     kui_sha256_init(&hash);kui_sha256_update(&hash,data,slot);
     for(unsigned i=0u;i<4096u/sizeof(zero);i++)kui_sha256_update(&hash,zero,sizeof(zero));
     kui_sha256_update(&hash,data+slot+4096u,bytes-slot-4096u);kui_sha256_digest(&hash,digest);
-    if(memcmp(digest,kui_native_standard_manifest_sha256,32u))return false;
+    if(memcmp(digest,expected,32u))return false;
     if(profile_slot)*profile_slot=slot;
     return true;
 }
 #endif
 bool kui_native_vmu_standard_recognize(const struct kui_runtime_image *package,size_t *profile_slot) {
 #ifdef KUI_NATIVE_STANDARD_MANIFEST
-    if(recognize_manifest(package,profile_slot))return true;
+    if(recognize_manifest(package,profile_slot,KUI_NATIVE_STANDARD_MANIFEST_PAYLOAD_BYTES,
+            KUI_NATIVE_STANDARD_MANIFEST_PROFILE_OFFSET,KUI_NATIVE_STANDARD_MANIFEST_BUILD,
+            kui_native_standard_manifest_sha256))return true;
+#ifdef KUI_NATIVE_STANDARD_PREVIOUS_BUILD
+    if(recognize_manifest(package,profile_slot,KUI_NATIVE_STANDARD_PREVIOUS_PAYLOAD_BYTES,
+            KUI_NATIVE_STANDARD_PREVIOUS_PROFILE_OFFSET,KUI_NATIVE_STANDARD_PREVIOUS_BUILD,
+            kui_native_standard_previous_sha256))return true;
+#endif
+#ifdef KUI_NATIVE_STANDARD_PRIOR_VGA_BUILD
+    if(recognize_manifest(package,profile_slot,KUI_NATIVE_STANDARD_PRIOR_VGA_PAYLOAD_BYTES,
+            KUI_NATIVE_STANDARD_PRIOR_VGA_PROFILE_OFFSET,KUI_NATIVE_STANDARD_PRIOR_VGA_BUILD,
+            kui_native_standard_prior_vga_sha256))return true;
+#endif
+#ifdef KUI_NATIVE_STANDARD_PRESERVED_BUILD
+    if(recognize_manifest(package,profile_slot,KUI_NATIVE_STANDARD_PRESERVED_PAYLOAD_BYTES,
+            KUI_NATIVE_STANDARD_PRESERVED_PROFILE_OFFSET,KUI_NATIVE_STANDARD_PRESERVED_BUILD,
+            kui_native_standard_preserved_sha256))return true;
+#endif
 #endif
     if(!package || !package->data || package->info.payload_bytes!=STANDARD_PAYLOAD_BYTES ||
        package->info.memory_bytes!=STANDARD_PAYLOAD_BYTES || package->info.build[12]) return false;

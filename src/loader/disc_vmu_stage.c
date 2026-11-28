@@ -5,7 +5,9 @@
 #include "kui/disc_vmu_layout.h"
 #include "kui/disc_vmu_probe.h"
 #include "kui/disc_vmu_support.h"
+#include "kui/game_vga.h"
 #include "kui/hash.h"
+#include "game_vga_cable.h"
 #include "stage_fast_crc32.h"
 #include "kui/storage.h"
 #include "kui/vmu_native_discovery.h"
@@ -44,6 +46,8 @@ static struct retail_display_state display;
 static struct kui_disc_launch_plan plan;
 static uint32_t exec_bytes,original_gd;
 static uint8_t original_entry[128];
+static const struct kui_game_vga_profile *vga_profile;
+static uint32_t vga_guard;
 static struct kui_vmu_native_discovery native_driver;
 static struct kui_disc_vmu_probe native_probe;
 static struct kui_vmu_native_heap native_heap;
@@ -371,6 +375,11 @@ void kui_disc_vmu_stage_main(void) {
     if(native_word(UINT32_C(0xac0000bc))!=original_gd ||
        kui_stage_crc32(0u,(const void *)(uintptr_t)UINT32_C(0x8c000000),0x8000u)!=low_crc)
         stopped("LOW FIRMWARE RAM CHANGED",3u);
+    if(kui_game_vga_connected())
+        vga_profile=kui_game_vga_candidate((const uint8_t *)(uintptr_t)KUI_DISC_LAUNCH_IP_ADDRESS,plan.exec_bytes);
+    if(vga_profile)
+        vga_guard=kui_game_vga_capture(vga_profile,
+            (const uint8_t *)(uintptr_t)KUI_DISC_LAUNCH_EXEC_ADDRESS,plan.exec_bytes,plan.exec_crc32,plan.exec_sha256);
     exec_bytes=plan.exec_bytes;
     memcpy(original_entry,(const void *)(uintptr_t)KUI_DISC_LAUNCH_EXEC_ADDRESS,sizeof(original_entry));
     if(__disc_vmu_trampoline_end-__disc_vmu_trampoline_start!=(ptrdiff_t)sizeof(original_entry))
@@ -412,6 +421,12 @@ static void __attribute__((noipa)) native_disc_mapping_prepare(void) {
     if(kui_vmu_native_heap_preclear_plan((const void *)(uintptr_t)KUI_RETAIL_EXEC_ADDRESS,
        exec_bytes,native_driver.image_sha256,&native_heap,&native_call,&clear)!=0)
         native_report(2u,0x75u);
+    /* The relay hashed the restored original executable and resolved its VMU
+     * hooks before changing any game instructions. Its extent may exclude
+     * file padding, so identify the revision by the original file length. */
+    if(vga_profile)
+        kui_game_vga_apply_profile(vga_profile,(uint8_t *)(uintptr_t)KUI_DISC_LAUNCH_EXEC_ADDRESS,
+            plan.exec_bytes,plan.exec_crc32,plan.exec_sha256,vga_guard);
 }
 void kui_disc_vmu_stage_relay(const uint32_t *frame,uint32_t ccr) {
     (void)ccr;uint32_t sr;__asm__ volatile("stc sr,%0":"=r"(sr));

@@ -346,6 +346,10 @@ static uint8_t scramble_seen[KUI_RETAIL_SCRAMBLE_SLICES/8u];
 /* Bytes of the executable at KUI_RETAIL_EXEC_ADDRESS: the boot file, or for
  * Windows CE its body (the file less its 2048-byte load prefix). */
 static uint32_t exec_bytes;
+#include "native_game_vga_policy.h"
+#if KUI_NATIVE_GAME_VGA_STAGE
+#include "native_game_vga_stage.inc"
+#endif
 static const uint8_t *resident_blob;
 static size_t resident_bytes;
 static uint32_t resident_limit;
@@ -1693,7 +1697,10 @@ void kui_retail_stage_main(const uint8_t *wire) {
 #if KUI_SMASH_MENU_LOADER && KUI_SMASH_CARD_SESSION && KUI_SMASH_PHASE_DIAGNOSTIC
     smash_outer_return_mark(UINT32_C(0x114));
 #endif
-    boot_crc=kui_retail_crc32(0,boot,exec_bytes);
+    boot_crc = kui_retail_crc32(0, boot, exec_bytes);
+#if KUI_NATIVE_GAME_VGA_STAGE
+    native_vga_identify(ip,boot);
+#endif
 #if KUI_WCE_PROBE && defined(KUI_RETAIL_CE)
     probe_stage_prepare(ip);
 #endif

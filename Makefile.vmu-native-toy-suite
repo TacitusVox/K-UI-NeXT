@@ -121,6 +121,14 @@ $(error TOY_WIRE_SAVE extends the Test 68 reader: use TOY_WIRE_STREAM=1 and Test
 endif
 BUILD ?= build/toy-suite-$(TOY_SUITE_MODE)
 include Makefile.vmu-native-toy-playback
+
+# The Toy/CD music suite publishes this Background reader directly or as a
+# numbered copy. Check the actual cold stage before either target is delivered.
+$(BUILD)/retail-native-dual.kui: | $(BUILD)/native-vga-checked
+$(BUILD)/native-vga-checked: $(BUILD)/retail-maple-observe.kui tools/check_native_test_vga.py
+	python3 tools/check_native_test_vga.py $(BUILD)
+	@touch $@
+
 FLAGS += -DKUI_TOY_SUITE_MODE=$(TOY_SUITE_MODE)
 NATIVE_FLAGS += -DKUI_TOY_SUITE_MODE=$(TOY_SUITE_MODE)
 TOY_MOVIE_TEST_FLAGS += -DKUI_TOY_SUITE_MODE=$(TOY_SUITE_MODE)

@@ -97,6 +97,9 @@ jobs:
         run: |
           python3 tools/check_gui_lines.py
           python3 tools/fetch_deps.py --fatfs-only
+          make test-game-vga build/games-retail
+          python3 tests/test_games_vga_companion.py
+          python3 tests/test_prepare_vga_companion.py
           python3 tests/test_software_distribution.py
           python3 tests/test_release_candidate_publication.py
       - name: Build a new candidate

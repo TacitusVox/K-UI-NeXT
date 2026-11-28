@@ -1,0 +1,54 @@
+{
+  "sources": [
+    "https://github.com/Eight-Mansions/SevenMansionsDC/releases/tag/release",
+    "https://dreamcast-talk.com/forum/viewtopic.php?start=160&t=16508",
+    "https://dreamcast-talk.com/forum/viewtopic.php?p=175741"
+  ],
+  "source_disc_executable": "Decoded 1ST_READ.BIN from the published translation v1.3",
+  "gdi_complete_patch_entries": 77,
+  "gdi_complete_patch_executable_xdelta_sha256": "ce5791baea7b42d239d041055a925010e535b04af3d3c827a7ac5ef986c458e2",
+  "delta_spans": [
+    {
+      "offset": "0x102b96",
+      "bytes": 2
+    },
+    {
+      "offset": "0x1375a0",
+      "bytes": 12
+    },
+    {
+      "offset": "0x152a84",
+      "bytes": 396
+    }
+  ],
+  "builds": [
+    {
+      "build": "Published v1.3 boot program (both compressed and uncompressed cutscene packages)",
+      "product": "T38801M",
+      "version": "V1.002",
+      "region": "JUE",
+      "source_sha256": "ca53b67f5c1fbf3cfc9b4da00316afd01cb58e99ab6c77566c0d6413137c8388",
+      "source_md5": "dfbbd494cbfc98abb46bcb18c3ffb89e",
+      "target_sha256": "78f48e78ae02dc9dd9e6c12bf81d2d1c41cbf776e94b669557a6dbb06c8878f2",
+      "target_adler32": "575d441b",
+      "bytes": 1499108,
+      "changed_bytes": 394,
+      "evidence": "v1.4 compressed cutscene release contains full target executable"
+    },
+    {
+      "build": "v1.3 CDI rebuilt with LBA 11702",
+      "product": "T38801M",
+      "version": "V1.002",
+      "region": "JUE",
+      "source_sha256": "6b215dbd144968173a6d9b41a3c2f45d26a087b066bc12d6205b8ec517c837d5",
+      "source_md5": "f4d7309557a4a99daaa935eae9df8976",
+      "target_sha256": "888795d823281930f46640dd1b4a400b7475794b8baceab6c130d9f054ace63e",
+      "target_adler32": "4aa343ff",
+      "bytes": 1499108,
+      "changed_bytes": 394,
+      "evidence": "Published source MD5 confirmed independently by Derek Pascarella; LBA 11702 field retained in output."
+    }
+  ],
+  "note": "The original retail Japanese executable has MD5 3d47fd5d172d12d5629d833689ad540f and differs from all translated builds.",
+  "validation": "The two published v1.3 archives have identical complete boot programs and headers. The second v1.3 MD5 matches the independent 2023 report for the rebuilt CD. The CD layout changes its existing sector field at offset 0x159660 from 166 to 11702+166. Both variants receive the same three VGA spans, retaining their respective sector fields."
+}

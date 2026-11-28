@@ -1,0 +1,162 @@
+region,title,disc title aliases,candidate product numbers,reported observation,subsequent evidence,source
+PAL,AeroWings,,T40202D 50,incompatible when tested,,https://dreamcast-talk.com/forum/viewtopic.php?start=10&t=494
+PAL,AeroWings 2,,T40209D 50,incompatible when tested,Rolly reported in September 2026 that setting the VGA bit works. See guide.,https://dreamcast-talk.com/forum/viewtopic.php?start=10&t=494
+PAL,Bangai-O,,T7011D  50,incompatible when tested,,https://dreamcast-talk.com/forum/viewtopic.php?start=10&t=494
+PAL,Caesars Palace 2000,,12502D-50,incompatible when tested,Windows CE. No verified public fix located.,https://dreamcast-talk.com/forum/viewtopic.php?start=10&t=494
+PAL,Capcom vs. SNK,,T7017D  50,incompatible when tested,,https://dreamcast-talk.com/forum/viewtopic.php?start=10&t=494
+PAL,Deadly Skies,,T9501N-50,incompatible when tested,Corrected PAL patch by pitito. Included in original K-UI test.,https://dreamcast-talk.com/forum/viewtopic.php?start=10&t=494
+PAL,Disney's Dinosaur,,T17718D,incompatible when tested,,https://dreamcast-talk.com/forum/viewtopic.php?start=10&t=494
+PAL,ECW Anarchy Rulz,,T8119D  50,incompatible when tested,,https://dreamcast-talk.com/forum/viewtopic.php?start=10&t=494
+PAL,ECW Hardcore Revolution,,T-8111D-50 / T-8111D-58,incompatible when tested,,https://dreamcast-talk.com/forum/viewtopic.php?start=10&t=494
+PAL,Heavy Metal Geomatrix,,T46602D 50,incompatible when tested,,https://dreamcast-talk.com/forum/viewtopic.php?start=10&t=494
+PAL,Hidden & Dangerous,,T40503D 50,incompatible when tested,Conflicting report. PAL owner had success by selecting 60 Hz. See guide.,https://dreamcast-talk.com/forum/viewtopic.php?start=10&t=494
+PAL,Iron Aces,,T44904D,incompatible when tested,,https://dreamcast-talk.com/forum/viewtopic.php?start=10&t=494
+PAL,KISS Psycho Circus,,T40506D 50,incompatible when tested,,https://dreamcast-talk.com/forum/viewtopic.php?start=10&t=494
+PAL,MTV Sports Skateboarding,,T10001D 50,incompatible when tested,,https://dreamcast-talk.com/forum/viewtopic.php?start=10&t=494
+PAL,PenPen,,T15103D 50,incompatible when tested,,https://dreamcast-talk.com/forum/viewtopic.php?start=10&t=494
+PAL,Psychic Force 2012,,T-8106D-50,incompatible when tested,Rolly's multi-region DCP includes a PAL release.,https://dreamcast-talk.com/forum/viewtopic.php?start=10&t=494
+PAL,Railroad Tycoon II,,T40505D 50,incompatible when tested,,https://dreamcast-talk.com/forum/viewtopic.php?start=10&t=494
+PAL,Resident Evil – Code: Veronica,,T36806D 05 / T36806D 09 / T36806D 18 / T36806D 06,incompatible when tested,"Four PAL localizations have subsequent fixes, with a later correction for a scripted first-person sequence.",https://dreamcast-talk.com/forum/viewtopic.php?start=10&t=494
+PAL,Skies of Arcadia,,,incompatible when tested,Later Japanese Cake and Riggles patches exist. Disc metadata requires individual verification.,https://dreamcast-talk.com/forum/viewtopic.php?start=10&t=494
+PAL,Snow Surfers,,MK-5101050,incompatible when tested,,https://dreamcast-talk.com/forum/viewtopic.php?start=10&t=494
+PAL,Soul Fighter,,T41401D 50,incompatible when tested,,https://dreamcast-talk.com/forum/viewtopic.php?start=10&t=494
+PAL,The Next Tetris,,T17717D 50,incompatible when tested,,https://dreamcast-talk.com/forum/viewtopic.php?start=10&t=494
+PAL,WWF Attitude,,T-8103N-50 / T-8103N-18,incompatible when tested,,https://dreamcast-talk.com/forum/viewtopic.php?start=10&t=494
+PAL,Aqua GT,,T40509D 50,booted via Xploder when tested,,https://dreamcast-talk.com/forum/viewtopic.php?start=10&t=494
+PAL,Army Men: Sarge's Heroes,,T9708D  50,booted via Xploder when tested,,https://dreamcast-talk.com/forum/viewtopic.php?start=10&t=494
+PAL,Buggy Heat,,MK-5104050,booted via Xploder when tested,,https://dreamcast-talk.com/forum/viewtopic.php?start=10&t=494
+PAL,Bust-A-Move 4,,T-8109D-50,booted via Xploder when tested,,https://dreamcast-talk.com/forum/viewtopic.php?start=10&t=494
+PAL,Cannon Spike,,T46601D 05,booted via Xploder when tested,,https://dreamcast-talk.com/forum/viewtopic.php?start=10&t=494
+PAL,Conflict Zone,,T46604D,booted via Xploder when tested,,https://dreamcast-talk.com/forum/viewtopic.php?start=10&t=494
+PAL,Dino Crisis,,T7019D  05 / T7019D  09 / T7019D  18 / T7019D  13 / T7019D  06,booted via Xploder when tested,FMV playback failed with Xploder. Later per-language PAL video fixes exist.,https://dreamcast-talk.com/forum/viewtopic.php?start=10&t=494
+PAL,Dragon's Blood,,T12503D-50,booted via Xploder when tested,,https://dreamcast-talk.com/forum/viewtopic.php?start=10&t=494
+PAL,Evil Dead: Hail to the King,,T10005D 05,booted via Xploder when tested,,https://dreamcast-talk.com/forum/viewtopic.php?start=10&t=494
+PAL,Evolution: The World of Sacred Device,,T17705D 05,booted via Xploder when tested,,https://dreamcast-talk.com/forum/viewtopic.php?start=10&t=494
+PAL,Giant Killers,,T45401D 50,booted via Xploder when tested,,https://dreamcast-talk.com/forum/viewtopic.php?start=10&t=494
+PAL,Gunbird 2,,T7018D  50,booted via Xploder when tested,Derek Pascarella's November 2026 DCP targets the US. Xploder status here is PAL.,https://dreamcast-talk.com/forum/viewtopic.php?start=10&t=494
+PAL,Hydro Thunder,,T-9702D-50,booted via Xploder when tested,Original K-UI test targets US 1.020. This Xploder result is PAL.,https://dreamcast-talk.com/forum/viewtopic.php?start=10&t=494
+PAL,Jimmy White's 2: Cueball,,T7001D  50,booted via Xploder when tested,,https://dreamcast-talk.com/forum/viewtopic.php?start=10&t=494
+PAL,JoJo's Bizarre Adventure,,T7007D,booted via Xploder when tested,Xploder produced a vertically compressed image. Rolly published a PAL patch.,https://dreamcast-talk.com/forum/viewtopic.php?start=10&t=494
+PAL,Midway's Greatest Arcade Hits Vol. 1,,T-9710D-50,booted via Xploder when tested,,https://dreamcast-talk.com/forum/viewtopic.php?start=10&t=494
+PAL,NBA Showtime: NBA on NBC,,,booted via Xploder when tested,,https://dreamcast-talk.com/forum/viewtopic.php?start=10&t=494
+PAL,NFL Blitz 2000,,T-9703D-50,booted via Xploder when tested,,https://dreamcast-talk.com/forum/viewtopic.php?start=10&t=494
+PAL,Plasma Sword,,T7005D  50,booted via Xploder when tested,Xploder produced a vertically compressed image. Rolly published a PAL patch.,https://dreamcast-talk.com/forum/viewtopic.php?start=10&t=494
+PAL,Resident Evil 3: Nemesis,,T7021D  05 / T7021D  18 / T7021D  72,booted via Xploder when tested,,https://dreamcast-talk.com/forum/viewtopic.php?start=10&t=494
+PAL,Roadsters,,T22901D 50,booted via Xploder when tested,,https://dreamcast-talk.com/forum/viewtopic.php?start=10&t=494
+PAL,Sega Worldwide Soccer 2000,,51031-50,booted via Xploder when tested,,https://dreamcast-talk.com/forum/viewtopic.php?start=10&t=494
+PAL,SnoCross: Championship Racing,,T17722D 50,booted via Xploder when tested,,https://dreamcast-talk.com/forum/viewtopic.php?start=10&t=494
+PAL,South Park: Chef's Luv Shack,,T-8105D-50,booted via Xploder when tested,,https://dreamcast-talk.com/forum/viewtopic.php?start=10&t=494
+PAL,Spawn: In the Demon's Hand,,T36816D 50,booted via Xploder when tested,,https://dreamcast-talk.com/forum/viewtopic.php?start=10&t=494
+PAL,Sydney 2000,,T36808D 03 / T36808D 05 / T36808D 09 / T36808D 18 / T36808D 13 / T36808D 06,booted via Xploder when tested,,https://dreamcast-talk.com/forum/viewtopic.php?start=10&t=494
+PAL,Tee Off,,T8108D  50,booted via Xploder when tested,,https://dreamcast-talk.com/forum/viewtopic.php?start=10&t=494
+PAL,Tokyo Highway Challenge,,T40201D 50,booted via Xploder when tested,,https://dreamcast-talk.com/forum/viewtopic.php?start=10&t=494
+PAL,Tom Clancy's Rainbow Six,,T-45001D05 / T-45001D09 / T-45001D18,booted via Xploder when tested,,https://dreamcast-talk.com/forum/viewtopic.php?start=10&t=494
+JP,神機世界エヴォリューション,EVOLUTION,T-38701M,Sega VGA-box column －,,https://www.sega.jp/history/hard/dreamcast/software.html
+JP,湯川元専務のお宝さがし,Mr.Yukawa's Search The Treasure,HDR-0024,Sega VGA-box column －,,https://www.sega.jp/history/hard/dreamcast/software.html
+JP,超発明ＢＯＹカニパン ～暴走ロボトの謎!?～,CHOUHATSUMEIBOY KANIPAN BOUSOUROBOTO NO NAZO,HDR-0021,Sega VGA-box column －,,https://www.sega.jp/history/hard/dreamcast/software.html
+JP,花組対戦コラムス２,HANAGUMI TAISEN COLUMNS 2,HDR-0046,Sega VGA-box column －,,https://www.sega.jp/history/hard/dreamcast/software.html
+JP,大神一郎奮闘記 サクラ大戦歌謡ショウ「紅蜥蜴」より,OHGAMI ICHIRO FUNTOUKI,HDR-0057,Sega VGA-box column －,,https://www.sega.jp/history/hard/dreamcast/software.html
+JP,サクラ大戦,SAKURA WARS,HDR-0072,Sega VGA-box column －,,https://www.sega.jp/history/hard/dreamcast/software.html
+JP,サクラ大戦２ ～君、死にたもうことなかれ～,SAKURA WARS 2 / SAKURA WARS2 / SAKURA WARS3 PREVIEWDISC,HDR-0082,Sega VGA-box column －,,https://www.sega.jp/history/hard/dreamcast/software.html
+JP,セガテトリス,SEGA TETRIS,HDR-0073,Sega VGA-box column －,,https://www.sega.jp/history/hard/dreamcast/software.html
+JP,サクラ大戦３ ～巴里は燃えているか～,SAKURA WARS3,HDR-0152,Sega VGA-box column －,,https://www.sega.jp/history/hard/dreamcast/software.html
+JP,サクラ大戦オンライン 帝都の長い日々,SAKURA TAISEN ONLINE TEITO NO NAGAI HIBI / SAKURA WARS 4 PREVIEW DISC,HDR-0184,Sega VGA-box column －,,https://www.sega.jp/history/hard/dreamcast/software.html
+JP,サクラ大戦オンライン 巴里の優雅な日々,SAKURA TAISEN ONLINE PARI NO YUUGANA HIBI,HDR-0185,Sega VGA-box column －,,https://www.sega.jp/history/hard/dreamcast/software.html
+JP,サクラ大戦 メモリアルパック,,HDR-0192,Sega VGA-box column －,,https://www.sega.jp/history/hard/dreamcast/software.html
+JP,サクラ大戦２ ～君、死にたもうことなかれ～ メモリアルパック,,HDR-0193,Sega VGA-box column －,,https://www.sega.jp/history/hard/dreamcast/software.html
+JP,不思議のダンジョン 風来のシレン外伝 女剣士アスカ見参！,FUSIGINODANZYON FUURAINOSIRENGAIDEN ONNAKENSIASUKAKENZAN,HDR-0187,Sega VGA-box column －,,https://www.sega.jp/history/hard/dreamcast/software.html
+JP,サクラ大戦３ ～巴里は燃えているか～ メモリアルパック,,HDR-0194,Sega VGA-box column －,,https://www.sega.jp/history/hard/dreamcast/software.html
+JP,サクラ大戦４ ～恋せよ乙女～,SAKURA WARS 3 DRAMA DOWNLOAD DISC / SAKURA WARS 4,HDR-0191,Sega VGA-box column －,,https://www.sega.jp/history/hard/dreamcast/software.html
+JP,サクラ大戦 COMPLETE BOX,,HDR-0201,Sega VGA-box column －,,https://www.sega.jp/history/hard/dreamcast/software.html
+JP,ＮＦＬ２Ｋ２,NFL2K2,HDR-0196,Sega VGA-box column －,,https://www.sega.jp/history/hard/dreamcast/software.html
+JP,World Series Baseball 2K2,WORLD SERIES BASEBALL 2K2,HDR-0198,Sega VGA-box column －,,https://www.sega.jp/history/hard/dreamcast/software.html
+JP,ＮＢＡ２Ｋ２,NBA2K2,HDR-0197,Sega VGA-box column －,,https://www.sega.jp/history/hard/dreamcast/software.html
+JP,ＮＨＬ２Ｋ２,,HDR-0199,Sega VGA-box column －,,https://www.sega.jp/history/hard/dreamcast/software.html
+JP,July,July,T-35401M,Sega VGA-box column ×,,https://www.sega.jp/history/hard/dreamcast/software_l.html
+JP,インカミング 人類最終決戦,INCOMING,T-15001M,Sega VGA-box column ×,,https://www.sega.jp/history/hard/dreamcast/software_l.html
+JP,ポップンミュージック,POPNMUSIC,T-9501M,Sega VGA-box column ×,,https://www.sega.jp/history/hard/dreamcast/software_l.html
+JP,麻雀大会 Ⅱ Special,MAHJONG TAIKAI 2 SPECIAL,T-7601M,Sega VGA-box column ×,,https://www.sega.jp/history/hard/dreamcast/software_l.html
+JP,サイキックフォース2012,PSYCHIC FORCE 2012 / PSYCHICFORCE2012,T-1101M,Sega VGA-box column ×,,https://www.sega.jp/history/hard/dreamcast/software_l.html
+JP,北へ。 White Illumination,KITAE WHITE ILLUMINATION,T-14301M,Sega VGA-box column ×,,https://www.sega.jp/history/hard/dreamcast/software_l.html
+JP,三國志 Ⅵ,SANGOKUSHI 6,T-7603M,Sega VGA-box column ×,,https://www.sega.jp/history/hard/dreamcast/software_l.html
+JP,信長の野望将星録 with パワーアップキット,,T-7502M,Sega VGA-box column ×,,https://www.sega.jp/history/hard/dreamcast/software_l.html
+JP,ザ・キング・オブ・ファイターズ DREAM MATCH 1999,THE KING OF FIGHTERS DREAM MATCH 1999,T-3101M,Sega VGA-box column ×,,https://www.sega.jp/history/hard/dreamcast/software_l.html
+JP,永世名人 Ⅲ ～ゲームクリエイター吉村信弘の頭脳～,EISEIMEIJIN3 GAME CREATOR YOSIMURA NOBUHIRO NO ZUNOU,T-9503M,Sega VGA-box column ×,,https://www.sega.jp/history/hard/dreamcast/software_l.html
+JP,ワールド・ネバーランドプラス ～オルルド王国物語～,WORLD NEVERLAND PLUS - OLERUD KINGDOM STORY -,T-5301M,Sega VGA-box column ×,,https://www.sega.jp/history/hard/dreamcast/software_l.html
+JP,エアフォースデルタ,AIRFORCE DELTA,T-9502M,Sega VGA-box column ×,,https://www.sega.jp/history/hard/dreamcast/software_l.html
+JP,北へ。 Photo Memories,KITAHE PHOTO MEMORIES,T-14306M,Sega VGA-box column ×,,https://www.sega.jp/history/hard/dreamcast/software_l.html
+JP,dancing blade かってに桃天使！ 完全版,DANCINGBLADE KATTENI MOMO TENSI / NIGHTMARE CREATURES II,T-9504M,Sega VGA-box column ×,,https://www.sega.jp/history/hard/dreamcast/software_l.html
+JP,ポップンミュージック２,POPN MUSIC 2,T-9590M,Sega VGA-box column ×,,https://www.sega.jp/history/hard/dreamcast/software_l.html
+JP,アイドル雀士をつくっちゃおう,IDOL JANSHI WO TSUKUTTYAOU,T-5703M,Sega VGA-box column ×,,https://www.sega.jp/history/hard/dreamcast/software_l.html
+JP,ブラックマトリクス アドヴァンスト,BLACK MATRIX AD,T-20101M,Sega VGA-box column ×,,https://www.sega.jp/history/hard/dreamcast/software_l.html
+JP,dancing blade かってに桃天使 Ⅱ ～Tears of Eden～ 完全版,MOMOTENSHI2 DISC1,T-9505M,Sega VGA-box column ×,,https://www.sega.jp/history/hard/dreamcast/software_l.html
+JP,ぷらすぷらむ,PLUS PLUMB,T-37901M,Sega VGA-box column ×,,https://www.sega.jp/history/hard/dreamcast/software_l.html
+JP,マリオネットカンパニー,MARIONETTE COMPANY,T-5202M,Sega VGA-box column ×,,https://www.sega.jp/history/hard/dreamcast/software_l.html
+JP,夢馬券1999インターネット,YUMEBAKEN99INTERNET,T-40101M,Sega VGA-box column ×,,https://www.sega.jp/history/hard/dreamcast/software_l.html
+JP,ラングリッサーミレニアム,LANGRISSER MILLENNIUM,T-2501M,Sega VGA-box column ×,,https://www.sega.jp/history/hard/dreamcast/software_l.html
+JP,田中寅彦のウル寅流将棋居飛車穴熊編,TANAKATORAHIKO NO URUTORARYUUSYOUGI IBISYAANAGUMAHEN,T-22001M,Sega VGA-box column ×,,https://www.sega.jp/history/hard/dreamcast/software_l.html
+JP,ジョジョの奇妙な冒険 未来への遺産,JOJO,T-1205M,Sega VGA-box column ×,,https://www.sega.jp/history/hard/dreamcast/software_l.html
+JP,電幻天使対戦麻雀 シャングリラ,SHANGRI-LA,T-40801M,Sega VGA-box column ×,,https://www.sega.jp/history/hard/dreamcast/software_l.html
+JP,サンライズ英雄譚,SUNRISE EIYUUTAN,T-41101M,Sega VGA-box column ×,,https://www.sega.jp/history/hard/dreamcast/software_l.html
+JP,スターグラディエイター２ ナイトメアオブビルシュタイン,STAR GLADIATOR 2,T-1204M,Sega VGA-box column ×,,https://www.sega.jp/history/hard/dreamcast/software_l.html
+JP,爆裂無敵バンガイオー,,T-32902M,Sega VGA-box column ×,,https://www.sega.jp/history/hard/dreamcast/software_l.html
+JP,ゴルフしようよ,GOLF SHIYOUYO / GOLF_SHIYOUYO,T-40901M,Sega VGA-box column ×,,https://www.sega.jp/history/hard/dreamcast/software_l.html
+JP,信長の野望 烈風伝,NOBUNAGA NO YABOU REPPUUDEN,T-7605M,Sega VGA-box column ×,,https://www.sega.jp/history/hard/dreamcast/software_l.html
+JP,悠久幻想曲３ Perpetual Blue,PERPETUAL BLUE,T-27801M,Sega VGA-box column ×,,https://www.sega.jp/history/hard/dreamcast/software_l.html
+JP,七つの秘館 戦慄の微笑,NANATSU NO HIKAN SENRITSU NO BISYOU,T-7604M,Sega VGA-box column ×,,https://www.sega.jp/history/hard/dreamcast/software_l.html
+JP,ポップンミュージック３ アペンドディスク,POPN MUSIC 3 APPEND DISC,T-9591M,Sega VGA-box column ×,,https://www.sega.jp/history/hard/dreamcast/software_l.html
+JP,トレジャーストライク,TREASURE STRIKE,T-19701M,Sega VGA-box column ×,,https://www.sega.jp/history/hard/dreamcast/software_l.html
+JP,ダンスダンスレボリューション ２nd MIX Dreamcast Edition,DANCE DANCE REVOLUTION 2NDMIX DREAMCAST EDITION,T-9506M,Sega VGA-box column ×,,https://www.sega.jp/history/hard/dreamcast/software_l.html
+JP,リング,THE RING,T-27902M,Sega VGA-box column ×,,https://www.sega.jp/history/hard/dreamcast/software_l.html
+JP,ガンバード２,GUNBIRD2,T-1213M,Sega VGA-box column ×,,https://www.sega.jp/history/hard/dreamcast/software_l.html
+JP,上海ダイナスティ,SHANGHAI DYNASTY,T-9902M,Sega VGA-box column ×,,https://www.sega.jp/history/hard/dreamcast/software_l.html
+JP,ティンクルスタースプライツ,TWINKLESTAR SPRITES,T-3103M,Sega VGA-box column ×,,https://www.sega.jp/history/hard/dreamcast/software_l.html
+JP,ヴィジランテ８ ～セカンドバトル～,VIGILANTE8 SECOND BATTLE,T-36501M,Sega VGA-box column ×,,https://www.sega.jp/history/hard/dreamcast/software_l.html
+JP,ザ・キング・オブ・ファイターズ'99 EVOLUTION,THE KING OF FIGHTERS 99 EVOLUTION,T-3102M,Sega VGA-box column ×,,https://www.sega.jp/history/hard/dreamcast/software_l.html
+JP,ウイニングポスト４ プログラム2000,WINNING POST 4 PROGRAM2000 FOR DREAMCAST,T-7606M,Sega VGA-box column ×,,https://www.sega.jp/history/hard/dreamcast/software_l.html
+JP,実況パワフルプロ野球 Dreamcast Edition,JIKKYO PAWAFURU PUROYAKYU DREAMCAST EDITION,T-9507M,Sega VGA-box column ×,,https://www.sega.jp/history/hard/dreamcast/software_l.html
+JP,ワールド・ネバーランド２プラス ～プルト共和国物語～,WORLD NEVERLAND2 THE WAKTIC REPUBLIC OF PLUTO STORIES,T-5303M,Sega VGA-box column ×,,https://www.sega.jp/history/hard/dreamcast/software_l.html
+JP,三國志 Ⅵ with パワーアップキット,SANGOKUSHI6WITHPK,T-7607M,Sega VGA-box column ×,,https://www.sega.jp/history/hard/dreamcast/software_l.html
+JP,ダンスダンスレボリューション CLUB VERSION Dreamcast Edition,DDR CLUB VER 1000,T-9508M,Sega VGA-box column ×,,https://www.sega.jp/history/hard/dreamcast/software_l.html
+JP,人生ゲーム for Dreamcast,JINSEIGAME FOR DREAMCAST,T-10301M,Sega VGA-box column ×,,https://www.sega.jp/history/hard/dreamcast/software_l.html
+JP,インペリアルの鷹 FIGHTER OF ZERO,FIGHTER OF ZERO,T-43501M,Sega VGA-box column ×,,https://www.sega.jp/history/hard/dreamcast/software_l.html
+JP,ルームメイトノベル ～佐藤由香～,ROOMMATENOVEL - YUKA SATO -,T-19502M,Sega VGA-box column ×,,https://www.sega.jp/history/hard/dreamcast/software_l.html
+JP,トゥームレイダー４：ラストレベレーョン,TOMB RAIDER IV,T-1233M,Sega VGA-box column ×,,https://www.sega.jp/history/hard/dreamcast/software_l.html
+JP,グランディア Ⅱ,GRANDIA2,T-4503M,Sega VGA-box column ×,,https://www.sega.jp/history/hard/dreamcast/software_l.html
+JP,ゴルフしようよ コースデータ集 アドベンチャー編,GOLF SHIYOUYO - COURSES DATA - ADVENTURE EDITION,T-40904M,Sega VGA-box column ×,,https://www.sega.jp/history/hard/dreamcast/software_l.html
+JP,ドグウ戦紀 覇王,DOGU SENKI -HAOH-,T-9101M,Sega VGA-box column ×,,https://www.sega.jp/history/hard/dreamcast/software_l.html
+JP,ルーンキャスター,RUNE CASTER,T-40001M,Sega VGA-box column ×,,https://www.sega.jp/history/hard/dreamcast/software_l.html
+JP,ジャーマン,JAH-MONG,T-43401M,Sega VGA-box column ×,,https://www.sega.jp/history/hard/dreamcast/software_l.html
+JP,ディノクライシス,DINO CRISIS,T-1220M,Sega VGA-box column ×,,https://www.sega.jp/history/hard/dreamcast/software_l.html
+JP,deSPIRIA（デスピリア）,DESPIRIA,T-14402M,Sega VGA-box column ×,,https://www.sega.jp/history/hard/dreamcast/software_l.html
+JP,実戦パチスロ必勝法！ ＠ VPACHI ～コングダム～,JISSEN PACHISLOT HISSYOUHOU VPACHI KONGDOM,T-18802M,Sega VGA-box column ×,,https://www.sega.jp/history/hard/dreamcast/software_l.html
+JP,聖霊機ライブレード,RAYBLADE,T-42201M,Sega VGA-box column ×,,https://www.sega.jp/history/hard/dreamcast/software_l.html
+JP,ねっとｄｅテニス,NET DE TENNIS,T-1234M,Sega VGA-box column ×,,https://www.sega.jp/history/hard/dreamcast/software_l.html
+JP,ポップンミュージック４ アペンドディスク,POPN MUSIC 4 APPEND DISC,T-9592M,Sega VGA-box column ×,,https://www.sega.jp/history/hard/dreamcast/software_l.html
+JP,L.O.L. ～LACK OF LOVE～,L.O.L.,T-2106M,Sega VGA-box column ×,,https://www.sega.jp/history/hard/dreamcast/software_l.html
+JP,幕末浪漫第二幕月華の剣士 Final edition,GEKKA NO KENSHI2 FINAL EDITION,T-3107M,Sega VGA-box column ×,,https://www.sega.jp/history/hard/dreamcast/software_l.html
+JP,ザ・心理ゲーム,SHINRI GAME DC EDITION,T-43403M,Sega VGA-box column ×,,https://www.sega.jp/history/hard/dreamcast/software_l.html
+JP,ネッパチ Ⅵ ＠ VPACHI ～ＣＲお宝探検隊～,NEPPACHI6,T-41007M,Sega VGA-box column ×,,https://www.sega.jp/history/hard/dreamcast/software_l.html
+JP,FISH EYES｜Wild,FISHEYESWILD,T-9105M,Sega VGA-box column ×,,https://www.sega.jp/history/hard/dreamcast/software_l.html
+JP,ｅｓ（エス）,ES,T-45501M,Sega VGA-box column ×,,https://www.sega.jp/history/hard/dreamcast/software_l.html
+JP,KONOHANA：True Report,KONOHANA TRUEREPORT,T-9905M,Sega VGA-box column ×,,https://www.sega.jp/history/hard/dreamcast/software_l.html
+JP,Piaキャロットへようこそ!! 2.5,WELCOME TO PIACARROT2.5,T-20109M,Sega VGA-box column ×,,https://www.sega.jp/history/hard/dreamcast/software_l.html
+JP,ミス・ムーンライト,MISS MOONLIGHT,T-18702M,Sega VGA-box column ×,,https://www.sega.jp/history/hard/dreamcast/software_l.html
+JP,カルドセプト セカンド,CULDCEPT SECOND,T-43903M,Sega VGA-box column ×,,https://www.sega.jp/history/hard/dreamcast/software_l.html
+JP,パチスロ帝王 ドリームスロット HEIWA SP,PACHI-SLOT TEIO DREAM SLOT HEIWA SP,T-20501M,Sega VGA-box column ×,,https://www.sega.jp/history/hard/dreamcast/software_l.html
+JP,パチスロ帝王 ドリームスロット OLYMPIA SP,PACHI-SLOT TEIO DREAM SLOT OLYMPIA SP,T-20502M,Sega VGA-box column ×,,https://www.sega.jp/history/hard/dreamcast/software_l.html
+JP,D+VINE [LUV]（ディヴァイン ラヴ）,,T-46502M,Sega VGA-box column ×,,https://www.sega.jp/history/hard/dreamcast/software_l.html
+JP,２１ -TwoOne-,,T-46504M,Sega VGA-box column ×,,https://www.sega.jp/history/hard/dreamcast/software_l.html
+JP,二重影,NIJYUEI,T-46505M,Sega VGA-box column ×,,https://www.sega.jp/history/hard/dreamcast/software_l.html
+JP,シスター・プリンセス プレミアム・エディション,SISTER PRINCESS PREMIUM EDITION,T-27802M,Sega VGA-box column ×,,https://www.sega.jp/history/hard/dreamcast/software_l.html
+JP,メタルウルフ,METALWOLF,T-46507M,Sega VGA-box column ×,,https://www.sega.jp/history/hard/dreamcast/software_l.html
+JP,水夏 ～SUIKA～,SUIKA,T-46509M,Sega VGA-box column ×,,https://www.sega.jp/history/hard/dreamcast/software_l.html
+JP,めい☆ぷる,MAPLE,T-46510M,Sega VGA-box column ×,,https://www.sega.jp/history/hard/dreamcast/software_l.html
+JP,Piaキャロットへ ようこそ!! ２,,T-20121M,Sega VGA-box column ×,,https://www.sega.jp/history/hard/dreamcast/software_l.html
+JP,はっぴーぶりーでぃんぐ,HAPPY BREEDING,T-46512M,Sega VGA-box column ×,,https://www.sega.jp/history/hard/dreamcast/software_l.html
+JP,カフェ・リトルウィッシュ,CAFE LITTLEWISH,T-46513M,Sega VGA-box column ×,,https://www.sega.jp/history/hard/dreamcast/software_l.html
+JP,マージ ～MARGINAL～,MARGE,T-46514M,Sega VGA-box column ×,,https://www.sega.jp/history/hard/dreamcast/software_l.html
+JP,あいかぎ ～ひだまりと彼女の部屋着～,AIKAGI,T-20130M,Sega VGA-box column ×,,https://www.sega.jp/history/hard/dreamcast/software_l.html
+JP,モエかん,MOEKAN,T-46515M,Sega VGA-box column ×,,https://www.sega.jp/history/hard/dreamcast/software_l.html
+JP,ＩＺＵＭＯ,IZUMO,T-46902M,Sega VGA-box column ×,,https://www.sega.jp/history/hard/dreamcast/software_l.html
+JP,てのひらを、たいように,TENOHIRA,T-46516M,Sega VGA-box column ×,,https://www.sega.jp/history/hard/dreamcast/software_l.html

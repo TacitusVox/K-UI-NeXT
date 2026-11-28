@@ -36,7 +36,7 @@
     },
     "src/loader/disc_stage.c": {
       "mode": "code",
-      "sha256": "6f4250ed062cb48885b5959b0d93e042d24eda9800cd5b7605651d76575b25f8"
+      "sha256": "4ff16e0ea81a9cc125c27177425f8a4e27fb04598563c0c801373c35245703b0"
     },
     "src/loader/native_readahead_aux.c": {
       "mode": "code",
@@ -80,7 +80,7 @@
     },
     "src/loader/retail_stage.c": {
       "mode": "code",
-      "sha256": "15fca54eb4a216a96fb3abcf9cdca276685bdb04825d8e22277c06118dd1bcae"
+      "sha256": "6971afbf014494302670f8ee8e6fa852cb628864996ef5cac1554b467c04953f"
     },
     "src/loader/sci_sd_bus.c": {
       "mode": "code",

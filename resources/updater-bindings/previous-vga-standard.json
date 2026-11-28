@@ -1,0 +1,9 @@
+{
+  "build": "a9b5e77aa222",
+  "module": "KUI/apps/games/retail-boot.kui",
+  "module_bytes": 261440,
+  "module_sha256": "746d8e32e916c5f1b7558e5c2b324f9dede81eebf8a27818561d701fb15d546b",
+  "payload_bytes": 261376,
+  "profile_payload_offset": 120416,
+  "normalized_payload_sha256": "8e915492b882df5460956c6b30392b941330732decd954b3194a3d55e0e18aff"
+}

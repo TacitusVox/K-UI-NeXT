@@ -22,7 +22,7 @@ ROOT = Path(__file__).resolve().parents[1]
 CONFIG = "config/distribution.json"
 SOFTWARE = "resources/distribution"
 STANDARD = "apps/games/retail-boot.kui"
-STANDARD_BINDING = "resources/updater-bindings/installed-standard-9e3295bcfaec"
+STANDARD_BINDING = "resources/updater-bindings/vga-standard"
 SMASH = tuple("apps/games/retail-smash-" + name + ".kui" for name in
               ("menu", "native-menu", "swirl", "vc2"))
 SMASH_HELPERS = tuple("apps/games/smash-" + name + "-vmu-helper.bin" for name in ("swirl", "vc2"))
@@ -57,7 +57,7 @@ def reader_input_paths(root=ROOT):
     inputs.update(p for p in tracked if p.startswith(("src/bootstage/", "src/loader/")))
     inputs.update({"dependencies.json", "tools/setup_kos.sh", "tools/runtime_package.py",
                    "tools/retail_package.py", "tools/loader_package.py",
-                   "tools/rebuild_distribution_wince.py"} & tracked)
+                   "tools/rebuild_distribution_wince.py", "tools/build_vga_disc.py", "tools/build_vga_sd.py"} & tracked)
     inputs.update(p for p in tracked if p.startswith("tools/patches/"))
     # Reader recipes name their linked common code and generated inputs. Makefile.dc
     # also builds the GUI in its prologue; GUI objects are outside the freestanding build.

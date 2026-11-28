@@ -6,9 +6,9 @@ endif
 TARGET := build/kui-diagnostic.elf
 RUNTIME := build/kui-runtime.elf
 .DEFAULT_GOAL := all
-# Keep admission for separately verified installed readers in GUI-only updates.
-# These options do not build or install a reader.
-NATIVE_STANDARD_MANIFEST ?= resources/updater-bindings/preserved-standard-manifest.h
+# GUI builds admit the distributed Standard reader. Set NATIVE_STANDARD_MANIFEST
+# on the make command line to reproduce a GUI using a historical binding.
+NATIVE_STANDARD_MANIFEST ?= resources/updater-bindings/vga-standard.h
 NATIVE_CDDA_MANIFEST ?= resources/updater-bindings/native-cdda-manifest.h
 .PHONY: native-cdda-manifest-config-force
 native-cdda-manifest-config-force:
@@ -593,8 +593,8 @@ RETAIL_SCIA := $(patsubst %.c,build/retail/scia/%.o,$(RETAIL_SCIA_SRC)) build/re
 RETAIL_RESIDENT_BINS := build/retail/resident-scif.bin build/retail/resident-sci.bin build/retail/resident-ide.bin \
     build/retail/resident-scia.bin
 RETAIL_STAGE := build/retail/src/loader/retail_stage_asm.o \
-    build/retail/src/loader/retail_stage.o build/retail/src/core/game_ram_patches.o $(RETAIL_COMMON)
-RETAIL_BENCH_STAGE := build/retail/src/loader/retail_stage_asm.o \
+    build/retail/src/loader/retail_stage.o build/retail/src/core/game_ram_patches.o build/retail/src/core/hash.o $(RETAIL_COMMON)
+RETAIL_BENCH_STAGE := build/retail-bench/retail_stage_asm.o \
     build/retail-bench/retail_stage.o build/retail/src/loader/retail_sd_bench.o $(RETAIL_COMMON)
 # The Windows CE placement probe: the same stage built with KUI_RETAIL_CE and
 # its CE load planner, linked at KUI_RETAIL_CE_STAGE_ADDRESS.
@@ -605,9 +605,12 @@ RETAIL_CE_STAGE := build/retail-ce/retail_stage_asm.o build/retail-ce/retail_sta
 build/retail/%.o: %.c
 	@mkdir -p $(@D)
 	sh-elf-gcc $(RETAIL_FLAGS) -MMD -MP -c $< -o $@
+RETAIL_ORDINARY_GAME_PATCHES := $(if $(filter-out 0,$(KUI_RETAIL_STARTUP_TRACE) $(KUI_RETAIL_SONIC_STACK_TEST) $(KUI_RETAIL_RETURN_TRACE)),0,1)
+build/retail/src/loader/retail_stage.o build/retail/src/loader/retail_stage_asm.o: private RETAIL_FLAGS += -DKUI_NATIVE_GAME_VGA_ORDINARY=$(RETAIL_ORDINARY_GAME_PATCHES)
+build/retail/src/loader/retail_stage.o build/retail/src/loader/retail_stage_asm.o: Makefile.dc
 build/retail/src/loader/retail_stage.o: src/loader/retail_stage.c
 	@mkdir -p $(@D)
-	sh-elf-gcc $(RETAIL_FLAGS) $(RETAIL_SKIES_DEFS) -DKUI_GAME_RAM_PATCHES_STAGE=$(if $(filter-out 0,$(KUI_RETAIL_STARTUP_TRACE) $(KUI_RETAIL_SONIC_STACK_TEST) $(KUI_RETAIL_RETURN_TRACE)),0,1) -MMD -MP -c $< -o $@
+	sh-elf-gcc $(RETAIL_FLAGS) $(RETAIL_SKIES_DEFS) -DKUI_GAME_RAM_PATCHES_STAGE=$(RETAIL_ORDINARY_GAME_PATCHES) -MMD -MP -c $< -o $@
 build/retail/%_asm.o: %.S
 	@mkdir -p $(@D)
 	sh-elf-gcc $(RETAIL_FLAGS) -MMD -MP -c $< -o $@
@@ -674,9 +677,11 @@ build/retail/entry.elf: build/retail/src/loader/retail_entry_asm.o src/loader/re
 	python3 tools/check_retail_loader_layout.py
 	python3 tools/record_build.py $@
 
-# The separate SD benchmark runs in the high stage. Share the exact ordinary
-# resident and its assembly wrapper; the normal retail entry remains a game
-# launcher. Top-level variant objects cannot be overwritten by the report copy.
+# The SD benchmark shares the resident binaries and uses its own C and assembly
+# stages so that both compilation units select its diagnostic entry.
+build/retail-bench/retail_stage_asm.o: src/loader/retail_stage.S $(RETAIL_RESIDENT_BINS)
+	@mkdir -p $(@D)
+	sh-elf-gcc $(RETAIL_FLAGS) -DKUI_RETAIL_SD_BENCH=1 -MMD -MP -c $< -o $@
 build/retail-bench/retail_stage.o: src/loader/retail_stage.c
 	@mkdir -p $(@D)
 	sh-elf-gcc $(RETAIL_FLAGS) -DKUI_RETAIL_SD_BENCH=1 -MMD -MP -c $< -o $@
@@ -802,7 +807,7 @@ ZSO_RESIDENT_SRC := $(filter-out src/core/retail_image.c,$(RETAIL_SCI_SRC)) src/
 ZSO_RESIDENT := $(patsubst %.c,$(ZSO_DIR)/resident/%.o,$(ZSO_RESIDENT_SRC)) $(ZSO_DIR)/resident/retail_resident_asm.o
 ZSO_STAGE_SRC := src/loader/retail_stage.c src/loader/sd_reader.c src/loader/retail_sd.c \
     src/loader/sci_sd_bus.c src/loader/minic.c src/loader/retail_display.c \
-    src/core/retail_image.c src/core/retail_zso.c src/core/zso.c
+    src/core/hash.c src/core/retail_image.c src/core/retail_zso.c src/core/zso.c
 ZSO_STAGE := $(patsubst %.c,$(ZSO_DIR)/stage/%.o,$(ZSO_STAGE_SRC)) $(ZSO_DIR)/stage/retail_stage_asm.o
 .PHONY: native-zso
 native-zso: $(ZSO_DIR)/entry.elf
@@ -853,7 +858,7 @@ LZO_RESIDENT_SRC := $(filter-out src/core/retail_image.c,$(RETAIL_SCI_SRC)) src/
 LZO_RESIDENT := $(patsubst %.c,$(LZO_DIR)/resident/%.o,$(LZO_RESIDENT_SRC)) $(LZO_DIR)/resident/retail_resident_asm.o
 LZO_STAGE_SRC := src/loader/retail_stage.c src/loader/sd_reader.c src/loader/retail_sd.c \
     src/loader/sci_sd_bus.c src/loader/minic.c src/loader/retail_display.c \
-    src/core/retail_image.c src/core/retail_zso.c src/core/zso.c src/core/lzo1x.c
+    src/core/hash.c src/core/retail_image.c src/core/retail_zso.c src/core/zso.c src/core/lzo1x.c
 LZO_STAGE := $(patsubst %.c,$(LZO_DIR)/stage/%.o,$(LZO_STAGE_SRC)) $(LZO_DIR)/stage/retail_stage_asm.o
 .PHONY: native-lzo
 native-lzo: $(LZO_DIR)/entry.elf
@@ -899,15 +904,15 @@ $(LZO_RESIDENT) $(LZO_STAGE) $(LZO_DIR)/retail_entry_asm.o: $(LZO_DIR)/layout-co
 # images, and never replaces retail-boot.kui or a native VMU module.
 RETAIL_PHYSICAL_DIR := build/retail-physical
 RETAIL_PHYSICAL_STAGE := $(RETAIL_PHYSICAL_DIR)/retail_stage.o \
-    $(RETAIL_PHYSICAL_DIR)/retail_stage_asm.o build/retail/src/core/game_ram_patches.o $(RETAIL_COMMON)
+    $(RETAIL_PHYSICAL_DIR)/retail_stage_asm.o build/retail/src/core/game_ram_patches.o build/retail/src/core/hash.o $(RETAIL_COMMON)
 .PHONY: retail-physical
 retail-physical: $(RETAIL_PHYSICAL_DIR)/retail-physical.kui
 $(RETAIL_PHYSICAL_DIR)/retail_stage.o: src/loader/retail_stage.c include/kui/native_physical_capability.h build/retail/layout-config
 	@mkdir -p $(@D)
-	sh-elf-gcc $(RETAIL_FLAGS) $(RETAIL_SKIES_DEFS) -DKUI_GAME_RAM_PATCHES_STAGE=$(if $(filter-out 0,$(KUI_RETAIL_STARTUP_TRACE) $(KUI_RETAIL_SONIC_STACK_TEST) $(KUI_RETAIL_RETURN_TRACE)),0,1) -DKUI_RETAIL_PHYSICAL_CAPABILITY=1 -fcallgraph-info=su -MMD -MP -c $< -o $@
+	sh-elf-gcc $(RETAIL_FLAGS) -DKUI_NATIVE_GAME_VGA_ORDINARY=1 $(RETAIL_SKIES_DEFS) -DKUI_GAME_RAM_PATCHES_STAGE=$(if $(filter-out 0,$(KUI_RETAIL_STARTUP_TRACE) $(KUI_RETAIL_SONIC_STACK_TEST) $(KUI_RETAIL_RETURN_TRACE)),0,1) -DKUI_RETAIL_PHYSICAL_CAPABILITY=1 -fcallgraph-info=su -MMD -MP -c $< -o $@
 $(RETAIL_PHYSICAL_DIR)/retail_stage_asm.o: src/loader/retail_stage.S $(RETAIL_RESIDENT_BINS) build/retail/layout-config
 	@mkdir -p $(@D)
-	sh-elf-gcc $(RETAIL_FLAGS) -MMD -MP -c $< -o $@
+	sh-elf-gcc $(RETAIL_FLAGS) -DKUI_NATIVE_GAME_VGA_ORDINARY=1 -MMD -MP -c $< -o $@
 $(RETAIL_PHYSICAL_DIR)/stage.elf: $(RETAIL_PHYSICAL_STAGE) src/loader/retail_stage.ld
 	sh-elf-gcc $(RETAIL_LINK) -Wl,-u,_kui_native_physical_capability -Tsrc/loader/retail_stage.ld -Wl,-Map,$(RETAIL_PHYSICAL_DIR)/stage.map -o $@ $(RETAIL_PHYSICAL_STAGE) -lgcc
 	python3 tools/record_build.py $@

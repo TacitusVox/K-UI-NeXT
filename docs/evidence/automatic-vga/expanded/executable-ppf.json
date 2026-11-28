@@ -1,0 +1,50 @@
+[
+  {
+    "archive": "jc-es-vga-patch-v1.0.zip",
+    "archive_sha256": "021aefc6e3abe22ced43711cfe9044dca440be0a9b26df464d673d450fa97886",
+    "ppf_sha256": "f8469609495e3221d093e6ef9f913757be6f70c17229c0c6ee09fd1b07d53a75",
+    "product": "T45501M",
+    "version": "V1.001",
+    "published_output_sha256": "789a8c92564214b1af6c32a8af40fd8dd8301c68d977a09ef23fb0cefa790bb0",
+    "original_sha256": null,
+    "program_bytes": 1078692,
+    "edits": 5,
+    "changed_span_bytes": 57
+  },
+  {
+    "archive": "jc-lol-vga.zip",
+    "archive_sha256": "afdf8f451dca21dec5ded161598d6f26c0844ae3a6003b923c4aceb1ed56b9f3",
+    "ppf_sha256": "ff85f91ab4d145765f29ebbbcf309b1a648966cd42739083a170f6e54c1282c6",
+    "product": "T2106M",
+    "version": "V1.001",
+    "published_output_sha256": "f9f4d8a8c5937bea5e0260db3686b39f96c2353a22ac32a9b1fb1165dd3c8f76",
+    "original_sha256": "2e8586ea3d5a97ba9157d4104c943a25a42cab41a85744074365b58374d6645d",
+    "program_bytes": 5502328,
+    "edits": 5,
+    "changed_span_bytes": 57
+  },
+  {
+    "archive": "jc-mtvam-60hz-vga.zip",
+    "archive_sha256": "edeab3224ff82c30d86e8c5493eb39e5dbb466691713e85edf1d160b6d22530b",
+    "ppf_sha256": "fa23e11dd8da3596ad138b51727fd6914cc6ef2bf83496a6e9b4e2102c3b5c04",
+    "product": "T10001D 50",
+    "version": "V1.002",
+    "published_output_sha256": "89ef82b778f0655d99518786a81d6225fc65d5efa8d692a4cdec3f46bda80124",
+    "original_sha256": "c98a5731275d7c7718094518ed8401b60413e07bdd6be53bcc6cd94907a498b6",
+    "program_bytes": 922532,
+    "edits": 3,
+    "changed_span_bytes": 55
+  },
+  {
+    "archive": "jc-snows-60hz-vga.zip",
+    "archive_sha256": "bca8b6b94b5821ad9b3eda061c19cf67f7dc6063dcc4dc2e04117ed15c7d169e",
+    "ppf_sha256": "caa0cc1e549196f88d5f3c971de80a917239dc0887da8a3d5eba89eef5c81acf",
+    "product": "MK-5101050",
+    "version": "V1.001",
+    "published_output_sha256": "11ef3b74872353a765d07a7c831c1e11867a70c880f72cdb9cc1f31f25e48d70",
+    "original_sha256": "96b6c7987f1b4db3dcbc842240b295324324a2644a53821b8f3175e8e13b6155",
+    "program_bytes": 1396352,
+    "edits": 4,
+    "changed_span_bytes": 4
+  }
+]

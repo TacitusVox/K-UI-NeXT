@@ -15,6 +15,7 @@ import tempfile
 
 from make_update import make_update
 from runtime_package import envelope, flatten_elf
+from software_distribution import VGA_GUIDES
 from update_package import CONSUMER_INPUTS, current_consumer_check, verify
 
 CHANNEL = "refs/heads/nightly-channel"
@@ -28,7 +29,7 @@ DISTRIBUTION_INPUTS = ("Makefile*", "src", "include", "config", "tools", "resour
                        "toolchain-checkpoint", ".github/workflows/nightly.yml", "tests",
                        "LICENSE", "LICENSES", "THIRD_PARTY.md",
                        "docs/evidence/reader-corrections/delivery.json",
-                       "docs/evidence/wince-cdda-*-kernels-*.json")
+                       "docs/evidence/wince-cdda-*-kernels-*.json", *VGA_GUIDES)
 
 # Only inputs to the GUI, its dependencies and the nightly recipe. In
 # particular a new standalone game reader or card theme is not a GUI update.

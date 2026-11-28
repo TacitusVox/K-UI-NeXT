@@ -1,0 +1,50 @@
+[
+  {
+    "product": "T45501M",
+    "comparison": "Complete output equals the published patched executable from an input with all edit sites poisoned; stock digest modeled where required.",
+    "target_sha256": "789a8c92564214b1af6c32a8af40fd8dd8301c68d977a09ef23fb0cefa790bb0",
+    "bytes": 1078692
+  },
+  {
+    "product": "T2106M",
+    "comparison": "Complete output equals the published patched executable from an input with all edit sites poisoned; stock digest modeled where required.",
+    "target_sha256": "f9f4d8a8c5937bea5e0260db3686b39f96c2353a22ac32a9b1fb1165dd3c8f76",
+    "bytes": 5502328
+  },
+  {
+    "product": "T10001D 50",
+    "comparison": "Complete output equals the published patched executable from an input with all edit sites poisoned; stock digest modeled where required.",
+    "target_sha256": "89ef82b778f0655d99518786a81d6225fc65d5efa8d692a4cdec3f46bda80124",
+    "bytes": 922532
+  },
+  {
+    "product": "MK-5101050",
+    "comparison": "Complete output equals the published patched executable from an input with all edit sites poisoned; stock digest modeled where required.",
+    "target_sha256": "11ef3b74872353a765d07a7c831c1e11867a70c880f72cdb9cc1f31f25e48d70",
+    "bytes": 1396352
+  },
+  {
+    "product": "T1214N",
+    "comparison": "Full production application vs publisher VCDIFF using xdelta3 on a patterned input and modeled original hash. Seed 741",
+    "target_sha256": "6ffc7ec6d14b20d2dd5a0ef15ba860fe6357ef5bb2fa3d8aa589aa10b50b20ff",
+    "bytes": 1149252
+  },
+  {
+    "product": "T1214N",
+    "comparison": "Full production application vs publisher VCDIFF using xdelta3 on a patterned input and modeled original hash. Seed 316",
+    "target_sha256": "6c68a46d27e99c96c96df6bc97d9a31ec487e7f941e287ce74001cbb6aae0246",
+    "bytes": 1149252
+  },
+  {
+    "product": "T15122N",
+    "comparison": "Full production application vs publisher VCDIFF using xdelta3 on a patterned input and modeled original hash. Seed 741",
+    "target_sha256": "aa0a83097e1446d4ed76e3474581b07557f33accae37c8247b77cc59f7d95df3",
+    "bytes": 1754180
+  },
+  {
+    "product": "T15122N",
+    "comparison": "Full production application vs publisher VCDIFF using xdelta3 on a patterned input and modeled original hash. Seed 316",
+    "target_sha256": "25576eedeebcb3f91ecf6953c00779ccf9c493132f6c4dd38405c5df91045d18",
+    "bytes": 1754180
+  }
+]
