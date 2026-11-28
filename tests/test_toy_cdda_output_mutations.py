@@ -163,9 +163,11 @@ MUTATIONS = [
     ("a frame lost behind each run", "            taken += 4u * UNIT * done;", "            taken += 4u * UNIT * done + 4u * (done != 0u);"),
     ("a run at an odd address read as 16-bit words", "            else if(!((uintptr_t)(bytes + taken) & 1u))from = bytes + taken;", "            else if(1)from = bytes + taken;", {"ADPCM": 1}),
     ("silence that walks off its one unit", "            if(!bytes)advance = 0u;\n            else if(", "            if("),
-    ("silence slower than the chip plays", "#define QUIET_FRAMES FILL_FRAMES", "#define QUIET_FRAMES 512u", {"ADPCM": 1}),
+    # (Asked of the spare ring, a fifth of a second: a ring of a second and a half in a place of the table's
+    # holds through a gap's two seconds at either measure.)
+    ("silence slower than the chip plays", "#define QUIET_FRAMES FILL_FRAMES", "#define QUIET_FRAMES 512u", {"ADPCM": 1, "SPARE": 1}),
     ("a gap a sector a heartbeat and a little", "            room -= done;\n",
-     "            room = room - done < 2u * PIECE_FRAMES ? room - done : 2u * PIECE_FRAMES;\n", {"ADPCM": 1}),
+     "            room = room - done < 2u * PIECE_FRAMES ? room - done : 2u * PIECE_FRAMES;\n", {"ADPCM": 1, "SPARE": 1}),
     ("the look sooner reckoned without the time since the last", "            const uint32_t played = O.played + frames_of(O.played_tick - now);",
      "            const uint32_t played = O.played;"),
     ("a run at an odd address taken from the wrong place", "O.carry[i] = bytes[taken + i];", "O.carry[i] = bytes[i];"),
