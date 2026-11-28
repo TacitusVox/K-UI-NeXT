@@ -1062,6 +1062,13 @@ static void work(struct bus *b, bool wanted, bool tail, uint32_t now) {
         return;
     }
     if(O.phase == KUI_TOY_CDDA_OUT_OFF) {
+        /* A ring that began again when the bus's stretch had run out left
+         * its channels keyed on: they would loop what lies in the ring.
+         * They are keyed off before the new ring is primed. */
+        if(O.keyed) {
+            quiet(b, busy);
+            if(O.keyed)return;
+        }
         /* The play is taken up where the drive stands. */
         if(!wipe(b))return;
         O.piece_end = O.sector;

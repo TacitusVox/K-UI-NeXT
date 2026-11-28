@@ -1253,7 +1253,9 @@ static void starved(void) {
      * out in the middle of a kilobyte's stores: the stores end there (no
      * access of the bus comes later than a burst behind the stretch's
      * time), the bytes that did not reach the ring start the play over,
-     * and it is not keyed on again. */
+     * and it is not keyed on again. The ring that began again could not
+     * key its channels off in the same heartbeat, the stretch being over:
+     * the next one does, before it primes anything. */
     fresh();
     manatee2();
     play(1000u, 9000u, 0u, 0);
@@ -1261,8 +1263,12 @@ static void starved(void) {
     CHECK(sounding() && !O.timeouts && O.keys == 1u);
     store_ticks = 300u;
     strict = false;
+    beat(4500u);
+    CHECK(O.timeouts == 1u && O.restarts == 1u && O.keyed && sounding());
+    beat(4500u);
+    CHECK(!O.keyed && silent());
     run(2000u);
-    CHECK(O.timeouts >= 3u && O.restarts >= 3u && O.keys == 1u);
+    CHECK(O.timeouts >= 3u && O.restarts >= 3u && O.keys == 1u && silent());
     /* The FIFO never empties: nothing is read or written, and it ends. */
     fresh();
     manatee2();

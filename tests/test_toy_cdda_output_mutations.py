@@ -235,6 +235,7 @@ MUTATIONS = [
     ("a count that stands still not seen", "    if(counted == O.moved)borne = borne && lately <= SLACK;", "    if(counted == O.moved);"),
     ("a count that jumped not seen", "        borne = borne && apart(counted - O.moved, lately) <= lately / 64u + SLACK;\n", ""),
     ("the count's last move not kept", "        O.moved = counted;\n        O.moved_tick = tmu;", "        O.moved = counted;"),
+    ("a ring begun again primed over channels left keyed on", "        if(O.keyed) {\n            quiet(b, busy);\n            if(O.keyed)return;\n        }\n", ""),
     ("a count not borne out plays on", "    if(!borne) {", "    if(0) {"),
     ("a count not borne out never given up", "        if(++O.rearms > REARMS)stop(b, busy, KUI_TOY_CDDA_OUT_SILENT, KUI_TOY_CDDA_OUT_WHY_CLOCK, 2u);\n        else restart(b, busy);",
      "        restart(b, busy);"),
