@@ -199,6 +199,12 @@ static void advance(void) {
     const uint32_t groups=ticks/KUI_TOY_CDDA_TICKS_3_SECTORS;
     D.base_counter-=groups*KUI_TOY_CDDA_TICKS_3_SECTORS;
     ticks-=groups*KUI_TOY_CDDA_TICKS_3_SECTORS;
+#if defined(KUI_TOY_CDDA_OUTPUT) && KUI_TOY_CDDA_OUTPUT
+    /* (A hold is taken a tick or more after the play was brought up to
+     * now: a group that became whole between the two is the base's from
+     * here on, not the hold's at every visit.) */
+    if(D.hold)D.held=ticks;
+#endif
     uint32_t step=groups*3u;
     while(step>=(uint32_t)length) {
         step-=(uint32_t)length;

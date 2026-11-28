@@ -113,12 +113,13 @@ static bool started;
 
 /* TMU0 under the Toy profile, counting down. */
 static uint32_t tcnt = UINT32_C(0x12345678), frqcr = 0x0e0au, tcor = UINT32_MAX, tcr = 0x0002u, tstr = 1u;
+static uint32_t tcnt_falls;   /* the ticks TCNT0 falls behind each read of it */
 uint32_t kui_native_readahead_aux_test_read(uint32_t address, unsigned width) {
     switch(address) {
     case UINT32_C(0xffc00000): CHECK(width == 2u); return frqcr;
     case UINT32_C(0xffd80004): CHECK(width == 1u); return tstr;
     case UINT32_C(0xffd80008): CHECK(width == 4u); return tcor;
-    case UINT32_C(0xffd8000c): CHECK(width == 4u); return tcnt;
+    case UINT32_C(0xffd8000c): CHECK(width == 4u); tcnt -= tcnt_falls; return tcnt + tcnt_falls;
     case UINT32_C(0xffd80010): CHECK(width == 2u); return tcr;
     default: CHECK(!"a register the player does not read"); return 0u;
     }
@@ -767,6 +768,22 @@ static void held(void) {
     CHECK(drive() == 3u);
     ticks(ticks_for(2u));
     CHECK(drive() == 1u && kui_toy_cdda_drive.state == KUI_TOY_CDDA_ENDED);
+    /* A hold is taken a tick after the play was brought up to now. Where
+     * a group of three sectors became whole in that tick, the held play
+     * has it once and stands: it does not take it again at every visit. */
+    finish(request(KUI_RETAIL_GD_PLAY, 5u, 5u, 0u, 0u));
+    ticks(ticks_for(99u) - 1u);
+    CHECK(req_stat(NULL, NULL) == 70150u + 150u + 98u);
+    tcnt_falls = 1u;
+    kui_toy_cdda_player_hold(1u);
+    tcnt_falls = 0u;
+    CHECK(kui_toy_cdda_drive.hold);
+    for(unsigned i = 0; i < 6u; ++i)CHECK(req_stat(NULL, NULL) == 70150u + 150u + 99u && drive() == 3u);
+    CHECK(kui_toy_cdda_drive.held < ticks_for(3u));
+    kui_toy_cdda_player_hold(0u);
+    CHECK(req_stat(NULL, NULL) == 70150u + 150u + 99u);
+    ticks(ticks_for(1u));
+    CHECK(req_stat(NULL, NULL) == 70150u + 150u + 100u);
     /* A pause under a hold stands where the hold stood, and the release
      * ends the hold. */
     finish(request(KUI_RETAIL_GD_PLAY, 5u, 5u, 15u, 0u));
