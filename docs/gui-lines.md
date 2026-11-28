@@ -71,8 +71,8 @@ script, the same one the release and the nightlies use:
 run from a clean checkout of the commit to deliver (`--nightly` only for
 Main's own nightlies). It links the four Smash Pack stages of
 `resources/distribution` (staged by `tools/stage_distribution.py --gui-inputs`),
-the owner's Standard binding `installed-standard-9e3295bcfaec.h` and the launch
-timing, with `BUILD_ID` the commit's first 12 hex digits. `KUI/boot.kui` is the
+the Standard binding `resources/updater-bindings/vga-standard.h` (including
+the RC1 reader) and launch timing, with `BUILD_ID` the commit's first 12 hex digits. `KUI/boot.kui` is the
 same file as `KUI/runtime.kui`.
 
 These are the settings that rebuilt `1c71ba3afa17` byte for byte and built

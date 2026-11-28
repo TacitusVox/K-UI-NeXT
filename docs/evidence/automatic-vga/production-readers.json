@@ -1,0 +1,133 @@
+{
+  "source": "5032d31d211d56389ed2c845f7a8663cf79aae63",
+  "previous_release": "3f757bc2ac0aa8cbb6e5e104afe8a2df83201c8e",
+  "profiles": 64,
+  "verification": "Rebuilt the released readers from their recorded source. Compared their resident components with the VGA versions and verified the complete compiled profile table and patch data in all ten production modules.",
+  "roles": {
+    "apps/disc/native-disc-vmu-a1.kui": {
+      "bytes": 200588,
+      "sha256": "e2dbd2ed4d77b9e9d3ff9377882772a6db2657209631a06d1cf2f9a1d599d868",
+      "crc32": "968593f2",
+      "baseline_source": "ec04bb0be564015650d79b61fad85f914ad502b0",
+      "baseline_sha256": "caa1134214f56ebc94e60d72a6af5d0cb69604dbc2789e31e076364b2c7b77e5",
+      "preserved_gameplay_components": {
+        "native-worker.bin": "95d2f6b0e4e25445c3b553fe42f50e2920f5d4534f3f0ddc165d5fa8cad68557",
+        "native-worker.reloc": "c6c5f90217244c1735fa97bd14f07c67971bd171b031f98010738bbd920bc5bf",
+        "support/support.bin": "1ba41870e223aea750f66733d2e817c835dc832f011061fc3f2d79c1e0cdc7e2",
+        "support/support.reloc": "03f8b33053c7fceaee7fc815f38484136ea8d883348c63f3cf51e6b23bf2240c"
+      }
+    },
+    "apps/disc/native-disc-vmu.kui": {
+      "bytes": 200588,
+      "sha256": "3e0c1eada5a43c3fb3c8b42210b3c10bfdfe4e21148e605265430a188faa65a8",
+      "crc32": "d83dbab6",
+      "baseline_source": "ec04bb0be564015650d79b61fad85f914ad502b0",
+      "baseline_sha256": "d7cb11a70ec63b2e301cf67474575dd10445959a23ca1f9a37ad2e1c569ed903",
+      "preserved_gameplay_components": {
+        "native-worker.bin": "ea69accfa3924cf54e9dbf490b64309c337db0f267cc30c150f62eb5a5ed623d",
+        "native-worker.reloc": "fa87333852467befa0038190075f52b7fdbe406b00567f93aa9b36c76ef13fa9",
+        "support/support.bin": "1ba41870e223aea750f66733d2e817c835dc832f011061fc3f2d79c1e0cdc7e2",
+        "support/support.reloc": "03f8b33053c7fceaee7fc815f38484136ea8d883348c63f3cf51e6b23bf2240c"
+      }
+    },
+    "apps/disc/native-disc.kui": {
+      "bytes": 39152,
+      "sha256": "f632c30336e52b8a7a2091aba6d9e4958afe5754260559225b07bac6377d2fe0",
+      "crc32": "dc3f1b4e",
+      "baseline_source": "eeed38bd540e7a1085ca53aabf832e5d7a835efa",
+      "baseline_sha256": "2d58e931996c9ec679643746a90260f4f294ddc792504b39e7442b67e08adeca",
+      "preserved_gameplay_components": {}
+    },
+    "apps/games/lzo-boot.kui": {
+      "bytes": 63012,
+      "sha256": "c78853690920569f52b47e0487cae89e0ea0de9c0353f79835aeca99e2812fed",
+      "crc32": "02febd3d",
+      "baseline_source": "e79da8cee44d95cda518721df7a97a83965ee2c3",
+      "baseline_sha256": "471b38e454a1dc6acc78e94c9009e4d398b57ecbdff145800b469c9f0a0bd1ab",
+      "preserved_gameplay_components": {
+        "resident-sci.bin": "5a94e5d76d96d1b22929494520db917c273871ff7c69a904527fbf1dce807558"
+      }
+    },
+    "apps/games/retail-boot.kui": {
+      "bytes": 261440,
+      "sha256": "d9490ec629cf2d649e5aff91f3a9830afa01e3973934028e50a1b1b20a015f06",
+      "crc32": "86b04402",
+      "baseline_source": "ec04bb0be564015650d79b61fad85f914ad502b0",
+      "baseline_sha256": "13791d32f34d65978f489ffd1fdb16a40fb9f6df8da52a2dc8d1f0ba3b1465a8",
+      "preserved_gameplay_components": {
+        "native-worker.bin": "52c8d5a8a05a945db99334d22905f95e3a4e32e653b50a11492ea4a5ed339ab4",
+        "native-worker.reloc": "9fec97822de94e19a79a653d613692fa9175a54edcedbc94564067dded8d79c7",
+        "resident-sci.bin": "cfb7e6549ee0dc73687561d19e95819dc069e6395e237e4bc1ea957f33c8bb08",
+        "vmu-sd-profile.bin": "147eb84a549e91b8121f363980f601bd2d80212c880f24ffeaa4fb180b6e9860",
+        "worker.bin": "7896b88bb4a264cb2538379d9b6eb4d869c8dd500eba6ca2f28020063ef5283b"
+      }
+    },
+    "apps/games/retail-native-dual-a1.kui": {
+      "bytes": 313728,
+      "sha256": "ce1e2bbc899fcd498fbb8ac259a053d6fb31f59ec514c9d802ce0ef4365cc0ce",
+      "crc32": "3bdae0a6",
+      "baseline_source": "ec04bb0be564015650d79b61fad85f914ad502b0",
+      "baseline_sha256": "a352b5fcee68fc092d898504e43d19853aa1b4786296c60e54a2506da400a766",
+      "preserved_gameplay_components": {
+        "native-ra-aux.bin": "bcd2d79ec6c60962e5a89d7492750231b8a554e0f3a5b7935cf98732bebac073",
+        "native-ra-aux.reloc": "a07740a1138ae855939308a41c541faf09879344e4da5129d2966f738794909e",
+        "native-worker.bin": "e7e2cd6ac81c069b39b2eecd852c7a3e8c00a627ed9e8d0a1995a0c7f69a2521",
+        "native-worker.reloc": "db6b7b5ef209c320a305fb43cb62af7b3cbe89a939ba8699d7d65049498ae74c",
+        "resident-legacy.bin": "0be696412c177c89209c9eb6b40749f19e2d4bf0493a8a17d03bb179feeae820",
+        "resident-sci.bin": "39db0ec311f7237b6d5ab6c05f389e55f49df320dd9dabf39941453b55bdf63d",
+        "vmu-sd-profile.bin": "147eb84a549e91b8121f363980f601bd2d80212c880f24ffeaa4fb180b6e9860",
+        "worker.bin": "118d3853b44f5282359c87643fe8286672f7f470d19a02c20d253b6ffedb424d"
+      }
+    },
+    "apps/games/retail-native-dual.kui": {
+      "bytes": 313696,
+      "sha256": "8afd7790c74ca47de4ca2e776bd42b2fc0634b648640c9c735e66709b3575f85",
+      "crc32": "7874ce5d",
+      "baseline_source": "e79da8cee44d95cda518721df7a97a83965ee2c3",
+      "baseline_sha256": "09c1480c6c470166b3e584f54218d98679ef4a34a8765d47bde4d2187889481a",
+      "preserved_gameplay_components": {
+        "native-ra-aux.bin": "bcd2d79ec6c60962e5a89d7492750231b8a554e0f3a5b7935cf98732bebac073",
+        "native-ra-aux.reloc": "a07740a1138ae855939308a41c541faf09879344e4da5129d2966f738794909e",
+        "native-worker.bin": "2279920728e94c48821035bb4a6bbbfac87258aa8084a8747dad6f8227d8a693",
+        "native-worker.reloc": "aa7a1dda78bb0cb70ec0bb9740dcc8ad2072a2ff85226f41203bf4a1738836d0",
+        "resident-legacy.bin": "ed50975b93354452ad2c1b8e7c3fdc47869885e173739040b1219d2c1b53b722",
+        "resident-sci.bin": "1a9dc592fc6fe92629f48080ecd531519c2903c94c453e193eee290e454b65b0",
+        "vmu-sd-profile.bin": "147eb84a549e91b8121f363980f601bd2d80212c880f24ffeaa4fb180b6e9860",
+        "worker.bin": "5af51f11805f5418c2849988c4e62a924862fd4b89dc7d93883bbaddd7cbe668"
+      }
+    },
+    "apps/games/retail-native-standalone.kui": {
+      "bytes": 72848,
+      "sha256": "0b657f029ae7e95a0747eeee3c86748d4c9072b5cf804ba2c13881f0adfa8ffb",
+      "crc32": "c3e5a00e",
+      "baseline_source": "bcbd183be2f94b56ae257b0b2b3e0175cc39a9c2",
+      "baseline_sha256": "a80bddb8eae8570bed635117fe9aa5dde4bbea3b5b7446db3675c015ec1a3776",
+      "preserved_gameplay_components": {
+        "resident-sci.bin": "240fdcbdab1edcad9e17bf0e525399d9d910629d25e6032ca3e24078e204d7ab"
+      }
+    },
+    "apps/games/retail-physical.kui": {
+      "bytes": 101072,
+      "sha256": "fa0ef2183584baba718a3910cb1a712fae907be8adc19dd7963f70a6e21d76f6",
+      "crc32": "e6ec7b4d",
+      "baseline_source": "e79da8cee44d95cda518721df7a97a83965ee2c3",
+      "baseline_sha256": "2791f9052bc89fb87103eff71608f3c8e7ab9d04ab470154a43d1b3f21af199f",
+      "preserved_gameplay_components": {
+        "resident-ide.bin": "8f6a542fc1ab98b2b69f08c7f337d8a94bf7b2b04bc3e337c6ea481c2448cf19",
+        "resident-sci.bin": "7f3228be6790fb56821df711c87b630e478ed1ba1be40463d6069a30ead120d5",
+        "resident-scia.bin": "fe758a9f0449b46249dbe18c31d3bf2e41dc633d3cb9a6ed306e883144d5812b",
+        "resident-scif.bin": "f0e778a04725531cb17e58b24d67890e83d207f21b090c8c289e19bc1e16b854"
+      }
+    },
+    "apps/games/zso-boot.kui": {
+      "bytes": 62240,
+      "sha256": "da5822834b84f109e4d0731e456d3f61c4a1536bb7da48f6d09f9fb9d5b4223a",
+      "crc32": "916ecad0",
+      "baseline_source": "e79da8cee44d95cda518721df7a97a83965ee2c3",
+      "baseline_sha256": "25c288ab713ea31bfb3a72d1d858da26de3b50bd1cecfd2943f16b67ae8460ba",
+      "preserved_gameplay_components": {
+        "resident-sci.bin": "406306544657f7e84f4065b4ead7e4ec61dfbb597bf7cd3dc56299fa06afd352"
+      }
+    }
+  }
+}

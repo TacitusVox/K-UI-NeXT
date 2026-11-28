@@ -1,0 +1,16 @@
+{
+  "schema": "kui.native.standard-binding-record.v1",
+  "build": "5032d31d211d",
+  "module": "KUI/apps/games/retail-boot.kui",
+  "module_sha256": "d9490ec629cf2d649e5aff91f3a9830afa01e3973934028e50a1b1b20a015f06",
+  "module_bytes": 261440,
+  "payload_bytes": 261376,
+  "payload_crc32": "86b04402",
+  "profile_payload_offset": 120416,
+  "profile_bytes": 4096,
+  "normalized_payload_sha256": "8e915492b882df5460956c6b30392b941330732decd954b3194a3d55e0e18aff",
+  "source": "5032d31d211d56389ed2c845f7a8663cf79aae63",
+  "previous_build": "9e3295bcfaec",
+  "prior_vga_build": "a9b5e77aa222",
+  "preserved_build": "f8807cb16561"
+}
