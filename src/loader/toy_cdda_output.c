@@ -27,7 +27,10 @@
  *   entries 13 and 14, channels 61 and 62, free while their owner words
  *   are zero;
  * - MANATEE 1 before 1.01.37 (no build of it surveyed on the console): the
- *   pool's entries 14 and 15, channels 62 and 63, by the same records.
+ *   pool's entries 14 and 15, channels 62 and 63, by the same records;
+ * - NAMIHEI (1.00; none surveyed on the console): stream ports 6 and 7,
+ *   channels 62 and 63, free while their records' playing bits are clear.
+ *   Its count and its spare memory are where MANATEE 1's are.
  * The family is known by the driver's version bytes and its running mark,
  * the build admitted by those and its build date's text: all read again at
  * every heartbeat. The ring lies at or above
@@ -236,10 +239,10 @@ static void sr_write(uint32_t value) {
 
 /* The families given output, by the driver's version bytes (sound memory
  * 0x20: major, minor, build) and the running mark its start-up leaves at
- * 0xF8: MANATEE 2 (2.x, 'EXEC'), MANATEE 1 from 1.01.37 ('SEGA') and
- * MANATEE 1 before it ('SEGA' from 1.01.28 on; the first build read,
- * 1.01.1d, leaves no mark, and its pool's register bases are what shows it
- * running). 0: no family given output. What the output takes from a family
+ * 0xF8: MANATEE 2 (2.x, 'EXEC'), MANATEE 1 from 1.01.37 ('SEGA'), MANATEE 1
+ * before it ('SEGA' from 1.01.28 on; the first build read, 1.01.1d, leaves
+ * no mark, and its pool's register bases are what shows it running) and
+ * NAMIHEI (1.00, 'SEGA'). 0: no family given output. What the output takes from a family
  * was read, and run, in every build of it the CD-audio corpus holds
  * (tools/manatee_read.py, docs/cdda-background-test-88.md). The corpus has
  * no build from 1.01.29 to 1.01.31: between them the count changed its
@@ -248,7 +251,8 @@ static uint32_t family_of(uint32_t version, uint32_t state) {
     const uint32_t major = version & 255u, minor = version >> 8 & 255u, build = version >> 16 & 255u;
     if(version >> 24)return 0u;
     if(major == 2u)return state == EXEC ? KUI_TOY_CDDA_FAMILY_GEN2 : 0u;
-    if(major != 1u || minor != 1u)return 0u;
+    if(major != 1u || minor > 1u)return 0u;
+    if(!minor)return state == SEGA ? KUI_TOY_CDDA_FAMILY_NAMIHEI : 0u;
     if(build >= 0x37u)return state == SEGA ? KUI_TOY_CDDA_FAMILY_GEN1 : 0u;
     if(build > 0x28u && build < SLOW_BUILD)return 0u;
     return state == SEGA || (build < 0x28u && !state) ? KUI_TOY_CDDA_FAMILY_GEN1_OLD : 0u;
@@ -416,13 +420,16 @@ static int records(struct bus *b, bool busy[2]) {
         return 1;
     }
     /* MANATEE 1's pool: 16 entries for channels 48 to 63, each with its
-     * owner and its channel's register base. */
+     * owner. NAMIHEI's stream ports: eight records for channels 56 to 63,
+     * bit 0 of the first word playing. Either record names its channel's
+     * register base in its third word, which the start-up writes. */
+    const bool ports = O.family == KUI_TOY_CDDA_FAMILY_NAMIHEI;
     bool used[2];
     for(unsigned side = 0; side < 2u; ++side) {
-        const uint32_t entry = O.channel[side] - 48u, at = 0x12080u + 12u * entry;
-        if(!sound(b, at + 8u, &word) || !sound(b, at + 4u, &other))return -1;
-        if(word != UINT32_C(0x00801800) + 0x80u * entry)return 0;
-        used[side] = other != 0u;
+        const uint32_t at = ports ? 0x11200u + 0x40u * (O.channel[side] - 56u) : 0x12080u + 12u * (O.channel[side] - 48u);
+        if(!sound(b, at + 8u, &word) || !sound(b, at + (ports ? 0u : 4u), &other))return -1;
+        if(word != UINT32_C(0x00800000) + 0x80u * O.channel[side])return 0;
+        used[side] = ports ? other & 1u : other != 0u;
     }
     busy[0] = used[0];
     busy[1] = used[1];

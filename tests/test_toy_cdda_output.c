@@ -68,6 +68,7 @@ static unsigned long checks;
 #define GEN2 KUI_TOY_CDDA_FAMILY_GEN2
 #define GEN1 KUI_TOY_CDDA_FAMILY_GEN1
 #define OLD KUI_TOY_CDDA_FAMILY_GEN1_OLD
+#define NAMIHEI KUI_TOY_CDDA_FAMILY_NAMIHEI
 #define REST UINT32_C(0x40000000) /* SR between heartbeats: the game's, mask 0 */
 #define TCNT_START UINT32_C(0xf0000000)
 #define SECOND 781250u
@@ -385,6 +386,7 @@ static uint32_t driver_ticks(void) {
 }
 static bool record_busy(unsigned side) {
     if(family == GEN2)return ram[0x13800u + 0x40u * (ram[0x12062u] - 2u + side)] & 1u;
+    if(family == NAMIHEI)return ram[0x11200u + 0x40u * (6u + side)] & 1u;
     return get32(0x12080u + 12u * (pair[side] - 48u) + 4u) != 0u;
 }
 static void access(void) {
@@ -563,6 +565,18 @@ static void manatee1_old(uint32_t version, const char *date, uint32_t hash) {
     pair[0] = 62u;
     pair[1] = 63u;
 }
+/* A NAMIHEI build: sixteen port records of 0x40 bytes from 0x11000, the
+ * last eight the stream ports', each with its channel's register base. */
+static void namihei(uint32_t version, const char *date, uint32_t hash) {
+    header(version, SEGA, date, hash);
+    for(uint32_t port = 0; port < 16u; ++port) {
+        put32(0x11000u + 0x40u * port + 4u, 0x13a00u + 0x40u * port);
+        put32(0x11000u + 0x40u * port + 8u, UINT32_C(0x00801800) + 0x80u * port);
+    }
+    family = NAMIHEI;
+    pair[0] = 62u;
+    pair[1] = 63u;
+}
 /* The builds of the CD-audio corpus beside the three run on the console:
  * version bytes, the date as far as its day's tens, the date's hash
  * (docs/evidence/cdda-background-test-88/manatee-read.log). */
@@ -577,10 +591,12 @@ static const struct build { uint32_t version; const char *date; uint16_t hash; u
     {UINT32_C(0x00380101), "1998.11.0", 0x6edeu, GEN1}, {UINT32_C(0x00380101), "1998.11.2", 0xa0c1u, GEN1},
     {UINT32_C(0x003f0101), "1999.03.1", 0xfe7fu, GEN1}, {UINT32_C(0x00400101), "1999.05.2", 0x2cf9u, GEN1},
     {UINT32_C(0x001d0101), "1998.08.3", 0xd25du, OLD}, {UINT32_C(0x00280101), "1998.09.2", 0x768du, OLD},
-    {UINT32_C(0x00320101), "1998.10.1", 0x1c18u, OLD}, {UINT32_C(0x00360101), "1998.10.2", 0xbd17u, OLD}};
+    {UINT32_C(0x00320101), "1998.10.1", 0x1c18u, OLD}, {UINT32_C(0x00360101), "1998.10.2", 0xbd17u, OLD},
+    {UINT32_C(0x000d0001), "1998.12.1", 0x0378u, NAMIHEI}, {UINT32_C(0x00120001), "1999.06.0", 0x4902u, NAMIHEI}};
 static void driver_of(const struct build *b) {
     if(b->family == GEN2)manatee2_build(b->version, b->date, b->hash);
     else if(b->family == OLD)manatee1_old(b->version, b->date, b->hash);
+    else if(b->family == NAMIHEI)namihei(b->version, b->date, b->hash);
     else manatee1_build(b->version, b->date, b->hash);
 }
 static void bank(unsigned index, uint32_t address, uint32_t size) {
@@ -973,7 +989,7 @@ static void families(void) {
         play(1000u, 9000u, 0u, 0);
         /* (A count taken by the wrong measure is a quarter of a percent
          * out: the chip and the writer meet within seconds.) */
-        run(b->family == OLD ? 30000u : 1500u);
+        run(b->family == OLD || b->family == NAMIHEI ? 30000u : 1500u);
         CHECK(O.phase == KUI_TOY_CDDA_OUT_RUN && sounding() && O.keys == 1u && starts == 1u);
         CHECK(O.family == b->family && O.version == b->version && O.hash == b->hash);
         CHECK(O.channel[0] == pair[0] && O.channel[1] == pair[1]);
@@ -1000,7 +1016,23 @@ static void families(void) {
         if(kind == 2u)CHECK(!stores && O.why == KUI_TOY_CDDA_OUT_WHY_PROOF);
         if(kind == 3u)CHECK(sounding() && !wrong_frames && O.channel[0] == 62u && O.channel[1] == 63u);
     }
-    printf("PASS every build of the three families plays: %u builds beside the three of the console, each known by its version bytes and its date; the first builds of MANATEE 1 by their count of 176 frames\n",
+    /* NAMIHEI by its stream ports 6 and 7: one playing, the play silent;
+     * a record that does not name its channel proves nothing; port 5 is
+     * the game's to use; and MANATEE 1's pool is not asked. */
+    for(unsigned kind = 0; kind < 5u; ++kind) {
+        fresh();
+        driver_of(&builds[23]);
+        if(kind < 2u)ram[0x11200u + 0x40u * (6u + kind)] = 1u;
+        if(kind == 2u)put32(0x11200u + 0x40u * 7u + 8u, UINT32_C(0x00801f00));
+        if(kind == 3u)ram[0x11200u + 0x40u * 5u] = 1u;
+        if(kind == 4u)put32(0x12080u + 12u * 14u + 4u, 0x1234u), put32(0x12080u + 12u * 15u + 4u, 0x1234u);
+        play(1000u, 4000u, 1u, 0);
+        run(500u);
+        if(kind < 2u)CHECK(!stores && O.why == KUI_TOY_CDDA_OUT_WHY_TAKE && O.why_detail == 1u << kind);
+        if(kind == 2u)CHECK(!stores && O.why == KUI_TOY_CDDA_OUT_WHY_PROOF);
+        if(kind > 2u)CHECK(sounding() && !wrong_frames && O.channel[0] == 62u && O.channel[1] == 63u && (!KUI_TOY_CDDA_SPARE || O.ring == 0x15000u));
+    }
+    printf("PASS every build of the four families plays: %u builds beside the three of the console, each known by its version bytes and its date; the first builds of MANATEE 1 by their count of 176 frames\n",
         (unsigned)(sizeof(builds) / sizeof(builds[0])));
 }
 /* Whatever is not proved leaves the chip alone. */
@@ -1032,7 +1064,8 @@ static void refused(void) {
         {UINT32_C(0x00290101), SEGA},
         {UINT32_C(0x00280101), 0u},       /* from 1.01.28 on a driver that runs has its mark */
         {UINT32_C(0x00360101), 0u},
-        {UINT32_C(0x00120001), SEGA}};    /* NAMIHEI */
+        {UINT32_C(0x00120001), 0u},       /* NAMIHEI without its mark, and under MANATEE 2's */
+        {UINT32_C(0x00120001), EXEC}};
     for(unsigned kind = 0; kind < sizeof(none) / sizeof(none[0]); ++kind) {
         fresh();
         if(none[kind].version & 1u)manatee1(false);
