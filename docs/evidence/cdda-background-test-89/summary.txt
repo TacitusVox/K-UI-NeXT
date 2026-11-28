@@ -1,0 +1,49 @@
+commit d4d58718 CD-music output: the drive is reckoned from a count read behind the player's visits; build d4d5871818df; worktree changes: 0
+ok   build-main
+build/t89-main: 325092 bytes; worker free 256
+ok   main-toy-wire-linked-check
+ok   main-toy-cdda-parts-check
+ok   main-toy-wire-package-test
+ok   main-toy-wire-save-host-test
+ok   main-toy-wire-host-tests
+ok   main-toy-wire-integration-host-test
+ok   main-toy-cdda-drive-host-test
+ok   main-toy-survey-mixed-pad-host-test
+ok   main-toy-cdda-card-host-test
+ok   main-toy-cdda-card-quiet-check
+ok   main-toy-cdda-output-host-test
+ok   main-toy-cdda-window-host-test
+ok   main-toy-cdda-output-driver-check
+ok   main-toy-cdda-manatee-read
+ok   main-toy-cdda-survey-driver-check
+ok   switches
+ok   asm-audit
+ok   build-main-again
+ok   build-read
+build/t89-read: 319396 bytes; worker free 5152
+ok   read-toy-wire-linked-check
+ok   read-toy-cdda-parts-check
+ok   read-toy-wire-package-test
+ok   read-toy-wire-host-tests
+ok   read-toy-survey-mixed-pad-host-test
+ok   read-toy-cdda-survey-host-test
+ok   read-toy-cdda-card-host-test
+ok   build-samples
+build/t89-pcm: 325284 bytes; worker free 96
+ok   samples-toy-wire-linked-check
+ok   samples-toy-wire-host-tests
+ok   old-test88-no-sound
+ok   old-test84
+ok   old-test83
+ok   old-installed
+test83 here:          30cac0f816f309997c43515f9a08d2dd55c4e7d7864193b8baeb6499d3ca507a (delivered: 30cac0f816f309997c43515f9a08d2dd55c4e7d7864193b8baeb6499d3ca507a)
+installed here:       e69a6fefb77584c2757ee2f725e8e63c0e9e40024ce2ee43b9867ec74d2a93ac (recorded: e69a6fefb77584c2757ee2f725e8e63c0e9e40024ce2ee43b9867ec74d2a93ac)
+main:        8c6991612741e423bf58280cc0ccec0efff22b85d39477378df7a434c01d696e
+main again:  8c6991612741e423bf58280cc0ccec0efff22b85d39477378df7a434c01d696e
+read:        c58a87fab9caa153b22677f3aabcba2f916e79f583bdead42b64fc7aad50f9d0
+read native-ra-aux.bin = main native-ra-aux.bin
+read resident-sci.bin = main resident-sci.bin
+read resident-legacy.bin = main resident-legacy.bin
+test88-no-sound here: 30650218d3ab6ea84ef1fa4d4c1aed96e8f61aaf0cd9736e4496d29e26a337c9 (delivered: 30650218d3ab6ea84ef1fa4d4c1aed96e8f61aaf0cd9736e4496d29e26a337c9)
+test84 here:          68f9f3de57f87439fa2fffe3fdc12812c39c9b866dc231707e1f32a54fdff22d (delivered: 68f9f3de57f87439fa2fffe3fdc12812c39c9b866dc231707e1f32a54fdff22d)
+done

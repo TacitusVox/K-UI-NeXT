@@ -212,7 +212,13 @@ slowly, by the owner's account, with 1.5 s of music and nothing counted
 against the output, its cause open; Maken X asked for no CD music and a
 Pro Yakyu disc left no launch record. No build of MANATEE 1 before
 1.01.37 and no NAMIHEI build has run ([Test 88](cdda-background-test-88.md),
-Console result). None of the four is an accepted component: each is a
+Console result). Test 89's module `d4d5871818df` (the drive on the sound
+chip's clock and held, a second at most, while its ring primes; the
+planes' pans from the game's mixers where it pans the two inputs apart;
+the stream's reasons, the run's least lead and the chip's timers B and C
+in the report, read only) was delivered on 28 November 2026 and has not
+run on a console ([Test 89](cdda-background-test-89.md)). None of the five
+is an accepted component: each is a
 test module in the New reader's place, with the virtual VMU off. What is
 left of CD music in regular games is laid out in
 `universal-loader-roadmap.md` (CD music in regular games: what is left). The owner has reported no Windows CE or Smash Pack run

@@ -405,6 +405,35 @@ Next: Nasubi no Heya with the if-needed module and with the owner's own
 New reader, to say whether the reader, the drive that plays or the sound
 is what slows it; then step 2, the player's rough edges.
 
+### Test 89 (28 November 2026): the player's rough edges
+
+`cdda-background-test-89.md`, build `d4d5871818df`, Test 88's recipe.
+Step 2 of the list below, at the owner's word ("Start on the next in the
+roadmap"); Nasubi no Heya's slowness parked by the owner ("Not going to
+worry about the slow right now"). Packaged and delivered; not run on a
+console.
+
+- The drive keeps the sound chip's time: three sectors are 31,172 of
+  TMU0's ticks (the nominal ratio of the two clocks, 2,500 parts in a
+  million; measured 2,483).
+- The play stands while its ring is primed, a second at most, so the
+  position the game reads begins and ends with the music. Found by
+  review; the hold itself took three corrections from three further
+  rounds of review before a fourth found nothing.
+- Each plane takes its input's pan where the game pans the two CD inputs
+  apart (KOF, Tetsuman); elsewhere the planes keep their sides.
+- Report only: the audio stream's own reasons for a break (row `CD W`),
+  the least lead a second and more into a ring (`L2`), and two reads of
+  the chip's timers B and C (`TB`), which nothing writes.
+- "A stream kept through a key-on" is left out: nothing ends the stream
+  at a key-on, and `L2` and `CD W` are what will say where the lead goes.
+
+The worker has 256 bytes left.
+
+Next: its console round (KOF, Tetsuman, ChuChu Rocket, Mr. Driller, POD
+SpeedZone). `TB` decides step 4's clock; `CD W` says whether KOF's breaks
+are the card's or the reader's.
+
 ### CD music in regular games: what is left (27 November 2026)
 
 The owner, 27 November, after Test 87: "Shall we lay out the rest of the
@@ -454,7 +483,11 @@ The steps, in the order proposed:
    mixers (KOF: 0F08 and 0F17); the least lead of a play's run apart from
    its start. And read only: whether the sound chip's timers B and C,
    which no driver read so far uses, read back as a clock. That would be a
-   clock no driver has to keep.
+   clock no driver has to keep. Built as Test 89
+   (`cdda-background-test-89.md`, above), 28 November 2026, without the
+   stream kept through a key-on; with a hold of the drive while its ring
+   primes, which review showed the chip's clock needs. Not yet run on the
+   console.
 3. Every MANATEE build: the family's rules in the place of three builds'
    (the count's word, the spare memory, the port records or pool entries,
    read in each of the 27), the older MANATEE 1 builds and NAMIHEI by

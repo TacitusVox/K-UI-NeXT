@@ -1,0 +1,120 @@
+make toy-wire-linked-check, at d4d58718 on a clean worktree, BUILD_ID=d4d5871818df
+== main (the delivered module)
+PASS cached gate at 0x8c427250: with the MMU off the stack is used at 0x0c427fe0 and the guards read at 0x0c427900 and 0x0c427ff0; with it on at 0xac427fe0, 0xac427900 and 0xac427ff0 as before
+  _kui_native_readahead_aux_dispatch         996  _kui_native_readahead_aux_dispatch 176 -> _toy_movie_ahead 88 -> _toy_ahead_pump 140 -> indirect(592)
+  _kui_native_readahead_aux_init             112  _kui_native_readahead_aux_init 96 -> _kui_native_ra_cache_init 16
+PASS auxiliary stack bound: 996 bytes deepest with every indirect call charged 352 or the player 88, 1052 with the gate; 1776 usable of 1792 (1.69 x)
+  kui_toy_cdda_consumer_heartbeat 4 -> kui_toy_cdda_output_heartbeat 112 -> fill 56 -> kui_toy_cdda_card_heartbeat 28 -> take 12 -> feed 32 -> pour 52 -> drain 8
+  behind its gate, with 768 bytes asked for: kui_toy_cdda_output_heartbeat 112 -> fill 56 -> kui_toy_cdda_card_heartbeat 28 -> take 12 -> feed 32 -> pour 52 -> drain 8
+  call at 0x8c104588 (stack offset 0): lowest point 376 above the low end, 312 clear of the guard
+  call at 0x8c104616 (stack offset -124): lowest point 252 above the low end, 188 clear of the guard
+PASS Test 85 consumer linked: 4 bytes deep on the worker's stack, fixed frames throughout, the gate's 24 bytes and a take of 104 among them; called from the completion only (2 sites, each after stack_valid); on the least stack stack_valid admits (256 bytes above the low end, 64 of guard) it stays 188 bytes clear of the guard words (192 usable, 48.00 x). Below a consumer's own frame the card's heartbeat takes 132 bytes: by the same rule a consumer's frame may be -4
+PASS Test 85 output linked: the consumer is the output's gate (the 4 bytes above are the gate and its question); the output behind it is 300 bytes deep, the card's heartbeat, the visit gate and its take among them, and is called only with 768 bytes of the private stack below the gate: 704 clear of the guard words (2.35 x)
+  refused  a larger heartbeat frame, linked and compiled: with the 768 bytes the output asks for, 704 clear of the guard for an output of 872 (needs
+  refused  a frame the linked code does not have: kui_toy_cdda_card_heartbeat: linked frame 28, the compiler's 60
+  refused  a frame of no fixed size: kui_toy_cdda_consumer_heartbeat has a dynamic frame, not a fixed one
+  refused  a take that goes deep: with the 768 bytes the output asks for, 704 clear of the guard for an output of 2288 (need
+  refused  a take that calls on, deep: with the 768 bytes the output asks for, 704 clear of the guard for an output of 2208 (need
+  refused  a take through a pointer: src/loader/toy_cdda_output.c:take calls through a pointer
+  refused  a routine outside the graph with a frame: _kui_toy_cdda_squeeze, which the compiler's graph does not name, uses the stack (frame 16,
+  refused  a routine outside the graph with a frame: _memset, which the compiler's graph does not name, uses the stack (frame 16, 0 calls)
+  refused  less room asked for the output: with the 256 bytes the output asks for, 192 clear of the guard for an output of 300 (needs
+  refused  the output ahead of the gate's question: the gate does not ask for its room first: [['kui_toy_cdda_output_heartbeat'], ['kui_vmu_na
+  refused  the output called past its gate: recursion through kui_toy_cdda_consumer_heartbeat -> kui_toy_cdda_output_heartbeat -> kui_
+  refused  a gate that calls on: the output's gate calls ['kui_toy_cdda_card_tick', 'kui_toy_cdda_output_heartbeat', 'kui_v
+  refused  a gate that saves more: with the 768 bytes the output asks for, 704 clear of the guard for an output of 804 (needs
+  refused  another caller: the consumer is called by ['kui_vmu_native_passive_complete', 'reader_cooperative_service'
+  refused  a call through a pointer elsewhere: kui_toy_cdda_consumer_heartbeat calls through a pointer
+  refused  a call before stack_valid: a call of the consumer not after stack_valid on every path
+  refused  the consumer's address in a table: the consumer's address is in the linked image outside the completion's literals
+  refused  less room in stack_valid: on the least stack admitted, 0 bytes for a consumer of 4 (needs 1.5 x)
+  refused  recursion: recursion through kui_toy_cdda_consumer_heartbeat -> kui_toy_cdda_output_heartbeat -> kui_
+PASS Test 85 consumer linked, self-test: all 19 altered readings refused
+PASS kui_toy_cdda_squeeze as linked: 20000 words of eight samples equal to the test's own coder, every code, both ends of the signal and of the step and the moves it must not ask for among them; 776 instructions for eight samples at the most; no stack, no register and nothing beside its samples and its coder touched
+PASS the frames' way into the ring as linked: the words stored are the coder's, in their planes and round the ring's end, the write position and both coders in step, the G2 FIFO asked before each eight stores, a stretch out of time stopped between units; a kilobyte of frames takes 32947 instructions and 1145 uses of the worker's uncached memory (365 of the stack, 268 of its state, 512 of the bytes themselves) for 64 words stored
+PASS kui_wire_words_lsb as linked: 400 runs equal to the byte steps, a block's CRC16 taken to zero and a damaged block's not; 41 instructions, 9 loads and 4 stores for four bytes; registers, stack and everything around the destination left alone
+PASS kui_wire_words_true as linked: 400 runs equal to the byte steps, a block's CRC16 taken to zero and a damaged block's not; 34 instructions, 5 loads and 4 stores for four bytes; registers, stack and everything around the destination left alone
+PASS linked cache view: 6096 runs, every line of a run dropped once and nothing else (242409 lines); short runs left uncached; no memory but the stack touched
+PASS the window's state, the context's last three cache lines at 0xac421720, is used at its cached address 0x8c421720 only: 23 constants in the linked code, none at the uncached address
+PASS kui_wire_copy as linked: 3302 copies exact, destinations and sources at every word of a line, nothing outside the destination written; 18797 lines claimed by MOVCA.L, each wholly inside its destination and wholly stored, its eight words loaded first; 20 instructions a line, 338 for a block of 512
+== the module without the sound
+PASS cached gate at 0x8c427250: with the MMU off the stack is used at 0x0c427fe0 and the guards read at 0x0c427900 and 0x0c427ff0; with it on at 0xac427fe0, 0xac427900 and 0xac427ff0 as before
+  _kui_native_readahead_aux_dispatch         996  _kui_native_readahead_aux_dispatch 176 -> _toy_movie_ahead 88 -> _toy_ahead_pump 140 -> indirect(592)
+  _kui_native_readahead_aux_init             112  _kui_native_readahead_aux_init 96 -> _kui_native_ra_cache_init 16
+PASS auxiliary stack bound: 996 bytes deepest with every indirect call charged 352 or the player 92, 1052 with the gate; 1776 usable of 1792 (1.69 x)
+  kui_toy_cdda_survey_heartbeat                 frame  88, calls src/loader/toy_cdda_survey.c:drain, src/loader/toy_cdda_survey.c:stable
+  call at 0x8c1043c4 (call, stack offset -124): lowest point 144 above the low end, 80 clear of the guard
+  call at 0x8c104480 (call, stack offset -124): lowest point 144 above the low end, 80 clear of the guard
+PASS Test 84 survey linked: three fixed frames calling only each other, 112 bytes deep; called from the completion only (2 sites, each after stack_valid, the survey's address loaded for them only; 3 of the completion's 40 calls through registers the walk does not follow); on the least stack stack_valid admits (256 bytes above the low end at its call, 64 of guard) the survey stays 80 bytes clear of the guard words (192 usable, 1.71 x); entered at the top of the 3072-byte stack, its deepest point is 236 bytes down; its source reads the hardware and writes only SR
+  refused   a call out of the survey: kui_toy_cdda_survey_heartbeat calls memcpy (x), outside the survey
+  refused   a call through a pointer: src/loader/toy_cdda_survey.c:stable calls __indirect_call (x), outside the survey
+  refused   a frame the linked code does not have: kui_toy_cdda_survey_heartbeat: linked frame 88, the compiler's 200
+  refused   a larger frame, linked and compiled: on the least stack admitted, 192 bytes for a survey of 224 (needs 1.5 x)
+  refused   a frame of no fixed size: src/loader/toy_cdda_survey.c:drain has a dynamic frame, not a fixed one
+  refused   another caller: reader_cooperative_service calls kui_toy_cdda_survey_heartbeat (x)
+  refused   the survey's address in a table: the survey's address is in the linked image outside the completion's literals: ['0x8c00000
+  refused   a linked call the compiler did not make: kui_toy_cdda_survey_heartbeat calls ['?'] at 0x0, not one of the survey's own functions
+  refused   the survey's address loaded for a call not found: the completion loads the survey's address 3 times for 2 calls
+  refused   a call into the survey before stack_valid: a call into the survey not after stack_valid on every path
+  refused   a write in the source: a volatile access or asm statement besides the three reads and SR
+  refused   less room in stack_valid: on the least stack admitted, 96 bytes for a survey of 112 (needs 1.5 x)
+PASS Test 84 survey linked check refuses all 12 altered readings
+  kui_toy_cdda_consumer_heartbeat 44 -> kui_toy_cdda_card_heartbeat 28 -> kui_toy_cdda_card_tick 8 -> the gate's registers 24
+  call at 0x8c1043f2 (stack offset 0): lowest point 276 above the low end, 212 clear of the guard
+  call at 0x8c104486 (stack offset -124): lowest point 152 above the low end, 88 clear of the guard
+PASS Test 85 consumer linked: 104 bytes deep on the worker's stack, fixed frames throughout, the gate's 24 bytes and a take of 0 among them; called from the completion only (2 sites, each behind the survey and after stack_valid); on the least stack stack_valid admits (256 bytes above the low end, 64 of guard) it stays 88 bytes clear of the guard words (192 usable, 1.85 x). Below a consumer's own frame the card's heartbeat takes 60 bytes: by the same rule a consumer's frame may be 68
+  refused  a larger heartbeat frame, linked and compiled: on the least stack admitted, 192 bytes for a consumer of 196 (needs 1.5 x)
+  refused  a frame the linked code does not have: kui_toy_cdda_card_heartbeat: linked frame 28, the compiler's 60
+  refused  a frame of no fixed size: kui_toy_cdda_consumer_heartbeat has a dynamic frame, not a fixed one
+  refused  a take that goes deep: on the least stack admitted, 192 bytes for a consumer of 2072 (needs 1.5 x)
+  refused  a take that calls on, deep: on the least stack admitted, 192 bytes for a consumer of 2072 (needs 1.5 x)
+  refused  a take through a pointer: src/loader/toy_cdda_card.c:listener_take calls through a pointer
+  refused  a gate that saves more: on the least stack admitted, 192 bytes for a consumer of 176 (needs 1.5 x)
+  refused  another caller: the consumer is called by ['kui_vmu_native_passive_complete', 'reader_cooperative_service'
+  refused  a call through a pointer elsewhere: kui_toy_cdda_consumer_heartbeat calls through a pointer
+  refused  a call before stack_valid: a call of the consumer not after stack_valid on every path
+  refused  a call ahead of the survey: the consumer's call at 0x8c0f43f2 is not behind the survey's at 0x8c1043c4
+  refused  the consumer's address in a table: the consumer's address is in the linked image outside the completion's literals
+  refused  less room in stack_valid: on the least stack admitted, 136 bytes for a consumer of 104 (needs 1.5 x)
+  refused  recursion: recursion through kui_toy_cdda_consumer_heartbeat -> kui_toy_cdda_card_heartbeat -> kui_to
+PASS Test 85 consumer linked, self-test: all 14 altered readings refused
+PASS kui_wire_words_lsb as linked: 400 runs equal to the byte steps, a block's CRC16 taken to zero and a damaged block's not; 41 instructions, 9 loads and 4 stores for four bytes; registers, stack and everything around the destination left alone
+PASS kui_wire_words_true as linked: 400 runs equal to the byte steps, a block's CRC16 taken to zero and a damaged block's not; 34 instructions, 5 loads and 4 stores for four bytes; registers, stack and everything around the destination left alone
+PASS linked cache view: 6096 runs, every line of a run dropped once and nothing else (242409 lines); short runs left uncached; no memory but the stack touched
+PASS the window's state, the context's last three cache lines at 0xac421720, is used at its cached address 0x8c421720 only: 23 constants in the linked code, none at the uncached address
+PASS kui_wire_copy as linked: 3302 copies exact, destinations and sources at every word of a line, nothing outside the destination written; 18797 lines claimed by MOVCA.L, each wholly inside its destination and wholly stored, its eight words loaded first; 20 instructions a line, 338 for a block of 512
+== Test 85's way (samples, a place of the table's)
+PASS cached gate at 0x8c427250: with the MMU off the stack is used at 0x0c427fe0 and the guards read at 0x0c427900 and 0x0c427ff0; with it on at 0xac427fe0, 0xac427900 and 0xac427ff0 as before
+  _kui_native_readahead_aux_dispatch         996  _kui_native_readahead_aux_dispatch 176 -> _toy_movie_ahead 88 -> _toy_ahead_pump 140 -> indirect(592)
+  _kui_native_readahead_aux_init             112  _kui_native_readahead_aux_init 96 -> _kui_native_ra_cache_init 16
+PASS auxiliary stack bound: 996 bytes deepest with every indirect call charged 352 or the player 88, 1052 with the gate; 1776 usable of 1792 (1.69 x)
+  kui_toy_cdda_consumer_heartbeat 4 -> kui_toy_cdda_output_heartbeat 124 -> fill 56 -> kui_toy_cdda_card_heartbeat 28 -> take 12 -> feed 32 -> pour 60 -> put 24 -> turn 12 -> drain 8
+  behind its gate, with 768 bytes asked for: kui_toy_cdda_output_heartbeat 124 -> fill 56 -> kui_toy_cdda_card_heartbeat 28 -> take 12 -> feed 32 -> pour 60 -> put 24 -> turn 12 -> drain 8
+  call at 0x8c10457c (stack offset 0): lowest point 376 above the low end, 312 clear of the guard
+  call at 0x8c10460a (stack offset -124): lowest point 252 above the low end, 188 clear of the guard
+PASS Test 85 consumer linked: 4 bytes deep on the worker's stack, fixed frames throughout, the gate's 24 bytes and a take of 148 among them; called from the completion only (2 sites, each after stack_valid); on the least stack stack_valid admits (256 bytes above the low end, 64 of guard) it stays 188 bytes clear of the guard words (192 usable, 48.00 x). Below a consumer's own frame the card's heartbeat takes 176 bytes: by the same rule a consumer's frame may be -48
+PASS Test 85 output linked: the consumer is the output's gate (the 4 bytes above are the gate and its question); the output behind it is 356 bytes deep, the card's heartbeat, the visit gate and its take among them, and is called only with 768 bytes of the private stack below the gate: 704 clear of the guard words (1.98 x)
+  refused  a larger heartbeat frame, linked and compiled: with the 768 bytes the output asks for, 704 clear of the guard for an output of 928 (needs
+  refused  a frame the linked code does not have: kui_toy_cdda_card_heartbeat: linked frame 28, the compiler's 60
+  refused  a frame of no fixed size: kui_toy_cdda_consumer_heartbeat has a dynamic frame, not a fixed one
+  refused  a take that goes deep: with the 768 bytes the output asks for, 704 clear of the guard for an output of 2344 (need
+  refused  a take that calls on, deep: with the 768 bytes the output asks for, 704 clear of the guard for an output of 2220 (need
+  refused  a take through a pointer: src/loader/toy_cdda_output.c:take calls through a pointer
+  refused  a routine outside the graph with a frame: _memset, which the compiler's graph does not name, uses the stack (frame 16, 0 calls)
+  refused  less room asked for the output: with the 256 bytes the output asks for, 192 clear of the guard for an output of 356 (needs
+  refused  the output ahead of the gate's question: the gate does not ask for its room first: [['kui_toy_cdda_output_heartbeat'], ['kui_vmu_na
+  refused  the output called past its gate: recursion through kui_toy_cdda_consumer_heartbeat -> kui_toy_cdda_output_heartbeat -> kui_
+  refused  a gate that calls on: the output's gate calls ['kui_toy_cdda_card_tick', 'kui_toy_cdda_output_heartbeat', 'kui_v
+  refused  a gate that saves more: with the 768 bytes the output asks for, 704 clear of the guard for an output of 816 (needs
+  refused  another caller: the consumer is called by ['kui_vmu_native_passive_complete', 'reader_cooperative_service'
+  refused  a call through a pointer elsewhere: kui_toy_cdda_consumer_heartbeat calls through a pointer
+  refused  a call before stack_valid: a call of the consumer not after stack_valid on every path
+  refused  the consumer's address in a table: the consumer's address is in the linked image outside the completion's literals
+  refused  less room in stack_valid: on the least stack admitted, 0 bytes for a consumer of 4 (needs 1.5 x)
+  refused  recursion: recursion through kui_toy_cdda_consumer_heartbeat -> kui_toy_cdda_output_heartbeat -> kui_
+PASS Test 85 consumer linked, self-test: all 18 altered readings refused
+PASS kui_wire_words_lsb as linked: 400 runs equal to the byte steps, a block's CRC16 taken to zero and a damaged block's not; 41 instructions, 9 loads and 4 stores for four bytes; registers, stack and everything around the destination left alone
+PASS kui_wire_words_true as linked: 400 runs equal to the byte steps, a block's CRC16 taken to zero and a damaged block's not; 34 instructions, 5 loads and 4 stores for four bytes; registers, stack and everything around the destination left alone
+PASS linked cache view: 6096 runs, every line of a run dropped once and nothing else (242409 lines); short runs left uncached; no memory but the stack touched
+PASS the window's state, the context's last three cache lines at 0xac421720, is used at its cached address 0x8c421720 only: 23 constants in the linked code, none at the uncached address
+PASS kui_wire_copy as linked: 3302 copies exact, destinations and sources at every word of a line, nothing outside the destination written; 18797 lines claimed by MOVCA.L, each wholly inside its destination and wholly stored, its eight words loaded first; 20 instructions a line, 338 for a block of 512

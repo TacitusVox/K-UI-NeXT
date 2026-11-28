@@ -1,0 +1,69 @@
+The launcher's module checks on the packaged bytes of the two modules: Card Tools' admission as the tree has it
+(tests/test_toy_reader_package.c, built by make toy-wire-package-test at d4d58718: the envelope, the payload's CRC32, the
+layout, the dual descriptor and its lease, the New reader's match, the toggle, the mode record, the cache and report
+seeds), and the header-only capability readers of include/kui (the map's capacity, the heap-tail capability, the
+SDK-proof record). Beside them, the same on Test 88's delivered modules, which the owner's K-UI started on the console.
+== Test 89 main 8c6991612741e423bf58280cc0ccec0efff22b85d39477378df7a434c01d696e
+envelope: OK build=d4d5871818df payload=325028 memory=325028 crc=2c7e0d17
+payload CRC32: ok
+layout_codec: ok
+dual descriptor: 1 at 0x3a5dc lease=0x47000
+session descriptor: 0
+background_module_matches(ASYNC): ok
+toggle capability: 1 at 0x3a5bc
+emulation Off: ok, mode slot at 0x22c20 (GUI writes 7 at +16)
+native cache seed: blank slot at 0x38760
+toy report seed: blank slot at 0x22c40
+handoff staging limit 0x112000: ok
+RESULT: admitted by Card Tools' module checks, report seed bound
+kui_native_map_capacity: 160
+kui_native_heap_tail_supported: 1
+sdk proof capability record at 0x1f0: 1
+== Test 89 no sound c58a87fab9caa153b22677f3aabcba2f916e79f583bdead42b64fc7aad50f9d0
+envelope: OK build=d4d5871818df payload=319332 memory=319332 crc=870a02d7
+payload CRC32: ok
+layout_codec: ok
+dual descriptor: 1 at 0x38f9c lease=0x47000
+session descriptor: 0
+background_module_matches(ASYNC): ok
+toggle capability: 1 at 0x38f7c
+emulation Off: ok, mode slot at 0x22c20 (GUI writes 7 at +16)
+native cache seed: blank slot at 0x37120
+toy report seed: blank slot at 0x22c40
+handoff staging limit 0x112000: ok
+RESULT: admitted by Card Tools' module checks, report seed bound
+kui_native_map_capacity: 160
+kui_native_heap_tail_supported: 1
+sdk proof capability record at 0x1f0: 1
+== Test 88 main (delivered) 7f14af334f73a03e8cf1ee622792f91301fb5ceff96cfd5b94e52dea5b217cb8
+envelope: OK build=9e105c4e8d25 payload=324996 memory=324996 crc=49aeaae1
+payload CRC32: ok
+layout_codec: ok
+dual descriptor: 1 at 0x3a5bc lease=0x47000
+session descriptor: 0
+background_module_matches(ASYNC): ok
+toggle capability: 1 at 0x3a59c
+emulation Off: ok, mode slot at 0x22c20 (GUI writes 7 at +16)
+native cache seed: blank slot at 0x38740
+toy report seed: blank slot at 0x22c40
+handoff staging limit 0x112000: ok
+RESULT: admitted by Card Tools' module checks, report seed bound
+kui_native_map_capacity: 160
+kui_native_heap_tail_supported: 1
+sdk proof capability record at 0x1f0: 1
+== Test 88 no sound (delivered) 30650218d3ab6ea84ef1fa4d4c1aed96e8f61aaf0cd9736e4496d29e26a337c9
+envelope: OK build=9e105c4e8d25 payload=319332 memory=319332 crc=aa84d60f
+payload CRC32: ok
+layout_codec: ok
+dual descriptor: 1 at 0x38f9c lease=0x47000
+session descriptor: 0
+background_module_matches(ASYNC): ok
+toggle capability: 1 at 0x38f7c
+emulation Off: ok, mode slot at 0x22c20 (GUI writes 7 at +16)
+native cache seed: blank slot at 0x37120
+toy report seed: blank slot at 0x22c40
+handoff staging limit 0x112000: ok
+RESULT: admitted by Card Tools' module checks, report seed bound
+kui_native_map_capacity: 160
+kui_native_heap_tail_supported: 1
+sdk proof capability record at 0x1f0: 1

@@ -1,0 +1,282 @@
+tests/test_toy_cdda_output_mutations.py --way 111 (VOLUME, ADPCM, SPARE: the delivered build), on a clean worktree of d4d58718:
+caught    SR.BL not refused
+caught    the mask not raised
+caught    SR not given back
+caught    SR not given back before a G2 transfer
+caught    a DMA channel enabled not refused
+caught    a DMA channel running not refused
+caught    three DMA channels
+caught    bursts of sixteen
+caught    no FIFO wait before a burst
+caught    one read believed
+caught    ten times the polls
+caught    ten times the time
+caught    heartbeats a tenth of 2 ms apart
+caught    a silent play looked at ten times as often
+caught    a silent play looked at a tenth as often
+caught    the bus used with no play
+caught    the clock's profile not checked
+caught    TCR0 read as a word
+caught    the right plane beyond the ring
+caught    the reset bit ignored
+caught    a fourth version byte not looked at
+caught    MANATEE 2 without its mark
+caught    any major version taken for MANATEE 1
+caught    any minor version taken for MANATEE 1
+caught    NAMIHEI without its mark
+caught    NAMIHEI taken for MANATEE 1
+caught    MANATEE 1 from 1.01.37 without its mark
+caught    1.01.36 taken for the later family
+caught    1.01.37 taken for the older family
+caught    the builds that were not read admitted
+caught    1.01.29 admitted
+caught    1.01.31 admitted
+caught    an older MANATEE 1 without its mark
+caught    1.01.28 without its mark
+caught    the first build asked for a mark
+caught    another build of the version taken for the same driver
+caught    another version of the family taken for the same driver
+caught    another driver taken for the same
+caught    the admitted build's date not kept
+caught    MANATEE 2 on MANATEE 1's channels
+caught    MANATEE 1 from 1.01.37 on channel 63
+caught    the older MANATEE 1 and NAMIHEI on channel 61
+caught    the first builds' count by the later measure
+caught    1.01.28's count by the later measure
+caught    1.01.32's count by the first measure
+caught    NAMIHEI's count by the first measure
+caught    a count of the first measure a frame long
+caught    a split with one stream port taken
+caught    a split with no stream port taken for unproved
+caught    a split of two stream ports refused
+caught    no pair's reason lost
+caught    unproved records taken for no pair
+caught    the split's sum not checked
+caught    seventeen stream ports
+caught    the stream ports' base not checked
+caught    the wrong port records
+caught    a playing port taken for free
+caught    the pool asked under NAMIHEI
+caught    NAMIHEI's ports asked under MANATEE 1
+caught    NAMIHEI's records a port lower
+caught    the pool's entries one lower
+caught    a record's register base not checked
+caught    a playing port of NAMIHEI's taken for free
+caught    an owned pool entry taken for free
+caught    NAMIHEI's owner word asked for its playing bit
+caught    unproved records written to all the same
+caught    a split with no pair written to all the same
+caught    a used channel written to at the start
+caught    no guard lines written
+caught    the guards not looked at
+caught    a lost ring kept
+caught    a lost ring ends the play
+caught    a ring lost again and again never given up
+caught    the ring not cleared
+caught    no execute strobe at key-on
+caught    no loop
+caught    the loop's end one frame early
+caught    the loop's end one frame late
+caught    the planes' addresses exchanged
+caught    a channel left keyed on keyed on again
+caught    the level left at a stop
+caught    the key left at a stop
+caught    no execute strobe at a stop
+caught    a taken channel keyed off
+caught    a channel with another address keyed off
+caught    another address not seen in play
+caught    a dropped key not seen
+caught    a dropped key begun again for ever
+caught    changed registers left
+caught    the level register not watched
+caught    a moved play goes on where it was
+caught    a pitch put back goes on
+caught    the ring begun again for a level put back
+caught    a play moved again and again never given up
+caught    the mixers' pans copied
+caught    the smaller of the two levels
+caught    the first mixer's level alone
+caught    a pan with no level
+caught    both planes on the left
+caught    the run's least lead counted from a play's start
+caught    the run's least lead not kept
+caught    the run's least lead not begun with the first key
+caught    the run's greatest lead kept
+caught    the run's least lead begun again at every key-on
+caught    half a second taken for a ring's run
+caught    the play not held while its ring primes
+caught    a held play not let go at the key-on
+caught    a play held for a ring that is given up stays held
+caught    a ring keyed on told to the player as one given up
+caught    a ring given up told to the player as one keyed on
+caught    a play that its hold finds over begun all the same
+caught    the drive reckoned from a count older than the player's last visit, as a heartbeat's own is
+caught    a read of the bus between the count and its clock
+caught    timer C's control bits taken for its count
+caught    timer C's changes not kept
+caught    timer B's later looks not kept
+caught    timer C read where B is
+caught    the timers' first counts not kept
+caught    the timers' first counts taken again at every look
+caught    the planes' pans not crossed
+caught    the pans of inputs on one side taken
+caught    a first input in the middle taken for a side
+caught    a second input in the middle taken for a side
+caught    the game's pans never taken
+caught    a pan's side bit dropped
+caught    the least lead not kept
+caught    the least lead counted from nothing
+caught    the longest wait between looks not kept
+caught    the left mixer for both
+caught    MANATEE 2's level bytes at once
+caught    MANATEE 1 read for level bytes
+caught    the right level byte not read
+caught    the pan bytes read for a level
+caught    without VOLUME, both hard left
+caught    a frame lost behind each run
+caught    a run at an odd address read as 16-bit words
+caught    silence that walks off its one unit
+caught    silence slower than the chip plays
+caught    a gap a sector a heartbeat and a little
+caught    the look sooner reckoned without the time since the last
+caught    a run at an odd address taken from the wrong place
+caught    a byte gathered twice
+caught    a unit that waits is forgotten
+caught    the unit gathered not stored at the end
+caught    the frames gathered dropped at each piece
+caught    the write position not begun again with the ring
+caught    the ring of ADPCM written past its end
+caught    the spare ring longer than its place
+caught    MANATEE 2's spare ring a page lower
+caught    MANATEE 1's spare ring a page lower
+caught    MANATEE 1's spare memory under MANATEE 2
+caught    the spare ring not said to be one
+caught    the codes of a word in the other order
+caught    a step of the coder's table
+caught    a move by sixteenths
+caught    a move the chip's accounts differ on
+caught    the least step not kept
+caught    the largest step not kept
+caught    the signal not held to 16 bits
+caught    a fall coded as a rise
+caught    the half step not tried
+caught    the quarter step not tried
+caught    the left side's codes for both planes
+caught    one coder for both planes
+caught    the right plane's word a word on
+caught    the FIFO asked before each sixteen stores
+caught    a stretch out of time stores on
+caught    the write position not carried round the ring
+caught    the write position not kept
+caught    the coders not begun again with the ring
+caught    ADPCM that begins again at the loop
+caught    a cleared ring that is not silence
+caught    eight frames a word, a quarter of a plane
+caught    bytes out of their order taken
+caught    a gap's sectors two at a time
+caught    a track read past the play's end
+caught    one pass more
+caught    a refused track asked for again and again
+caught    the card asked twice a heartbeat
+caught    more taken than there is room
+caught    no more asked for than the piece has left
+caught    the card not given back
+caught    the drive's place a sector off
+caught    a play that is over begun
+caught    TMU0's frames a tenth long
+caught    the ring's clock TMU0 again
+caught    no margin for the count's own step
+caught    a count's frames a tenth short
+caught    the count at key-on not kept
+caught    no witness since key-on
+caught    a count that stands still not seen
+caught    a count that jumped not seen
+caught    the count's last move not kept
+caught    a ring begun again primed over channels left keyed on
+caught    a count not borne out plays on
+caught    a count not borne out never given up
+caught    the witness too strict for the console's clocks
+caught    a dry ring not seen
+caught    the look that found the ring dry not in the least lead
+caught    written over what is not yet played
+caught    silence over what is not yet played
+caught    no silence behind the last frame
+caught    stopped at the last frame by the count alone
+caught    stopped a ring behind the last frame
+caught    keyed on before the ring is primed
+caught    the driver's clock not begun again when the driver is
+caught    MANATEE 2's count read under MANATEE 1
+caught    TMU0's ticks counted the other way
+caught    the two clocks looked at once only
+caught    no level kept behind the key-off
+caught    the level at the key-on not kept
+caught    a paused play sounds on
+caught    a new play not begun
+caught    the last frames cut when the drive ends
+caught    an ended play read on from the card
+caught    the output on any stack
+caught    the terminal on any stack
+caught    a short stack not counted
+caught    nothing at the terminal report
+caught    the terminal with SR.BL set
+caught    another driver's channels keyed off
+PASS Test 85 output mutations: all 221 caught by the output test
+
+tests/test_toy_cdda_mutations.py (the player, toy-cdda-drive-host-test), at the player and drive test of 9d64a048, which d4d58718 leaves unchanged; each line from that mutation's own log:
+caught    status 1 while playing
+caught    no status written
+caught    no position projected
+caught    projection not brought up to date
+caught    data position not restored
+caught    restored while still pending
+caught    the catalogue projected too
+caught    one pass too many
+caught    repeat 15 not endless
+caught    the end a pass late
+caught    two sectors a group
+caught    a group's part left out
+caught    a lap within a group counted twice
+caught    PAUSE ignored
+caught    RELEASE from the start
+caught    a data track plays
+caught    PLAY2 in a gap refused
+caught    a range through data
+caught    PLAY of a data track
+caught    SEEK keeps the play
+caught    an ended play leaves its 3
+caught    RESET ignored
+caught    ABORT ignored
+caught    interrupt visits answer
+caught    a command seen again
+caught    the clock always trusted
+caught    a refused play keeps the last one
+caught    written with no play
+caught    a lost play still plays
+caught    KEEP keeps nothing
+caught    KEEP writes 1
+caught    KEEP in an interrupt's visit
+caught    KEEP while paused or ended
+caught    KEEP of a failed read
+caught    KEEP of another read's engine
+caught    KEEP's raw sectors as 2,048 bytes
+caught    KEEP's position one on
+caught    KEEP's sectors not counted
+caught    KEEP's step not counted
+caught    KEEP publishes no new sector
+caught    KEEP's bytes of one sector less
+caught    a held play not standing [built with the output's switches]
+caught    a hold with no end [built with the output's switches]
+caught    a hold over at the visit that finds it, not at the second's end [built with the output's switches]
+caught    a group whole between the hold's two reads of the clock taken at every visit [built with the output's switches]
+caught    a play let go not brought up to now [built with the output's switches]
+caught    a ring given up ends the second [built with the output's switches]
+caught    a ring keyed on does not end the second [built with the output's switches]
+caught    a play whose second is spent held again [built with the output's switches]
+caught    a second begun at every hold [built with the output's switches]
+caught    the ticks of a held play's sector lost [built with the output's switches]
+caught    a second hold taken over the first [built with the output's switches]
+caught    a new play keeps a hold [built with the output's switches]
+caught    a new play keeps a spent second [built with the output's switches]
+caught    a release keeps a hold [built with the output's switches]
+caught    a release keeps a spent second [built with the output's switches]
+PASS Test 84 drive mutations: all 56 caught by the drive test
