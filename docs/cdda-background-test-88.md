@@ -292,7 +292,18 @@ What it shows:
    Driller), 0F17 and 0F08 (Tetsuman, the mirror of KOF's), 0D00 and 0D00
    (Nasubi no Heya). For the roadmap's step 2.
 
-Next, for Nasubi no Heya, two launches that tell the three apart: with
+The owner, afterwards: the Pro Yakyu disc was "Pro Yakyuu Team de Asobou
+Net! (Japan) (Rev A)" (HDR-0091, one of the two with a proved mapping:
+why it left no launch record stays open); Maken X was played "for a
+while" with no music asked for ("perhaps it's like Omikron and only plays
+music during key parts of the story?"); Nasubi no Heya's slowness is set
+aside for now ("Not going to worry about the slow right now"). No other
+game the Background worker takes carries Maken X's build, 2.00.0b.
+Suggested in its place, for the MANATEE 2 builds still unrun: Quake III
+Arena (2.02.04, beside AUDIO64), Sega GT Homologation Special (2.00.08)
+and Jet Coaster Dream 2 (2.02.05, beside 2.00.09).
+
+For Nasubi no Heya, when it is taken up, two launches that tell the three apart: with
 the if-needed module (the drive that plays and the card's reading, no
 sound), and with the owner's own New reader file (neither). Slow with
 both: the Background reader and this game. Slow with the first only: the
