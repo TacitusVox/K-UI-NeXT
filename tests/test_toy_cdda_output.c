@@ -218,8 +218,10 @@ uint32_t kui_toy_cdda_card_heartbeat(const struct kui_toy_cdda_want *want, uint3
 /* ---- the play as the test reckons it ---- */
 static struct { uint32_t first, end, base, passes; } heard_play;
 /* Where the drive stands at TMU0 count tc; false: its last pass is over. */
+static void hold_over(uint32_t tc);
 static bool oracle(uint32_t tc, uint32_t *sector, uint32_t *passes) {
-    /* (A play that is held stands where it stood.) */
+    /* (A play that is held stands where it stood, a second at most.) */
+    hold_over(tc);
     const uint64_t ticks = D.hold ? D.held : (uint32_t)(D.base_counter - tc), length = D.end - D.first;
     int64_t offset = D.base_offset + (int64_t)(ticks * 3u / KUI_TOY_CDDA_TICKS_3_SECTORS);
     if(offset < 0)offset = 0;
@@ -230,21 +232,50 @@ static bool oracle(uint32_t tc, uint32_t *sector, uint32_t *passes) {
     return true;
 }
 /* Test 89: the player's hold, as src/loader/toy_cdda_player.c keeps it. */
-static unsigned long holds, releases;
+static unsigned long holds, releases, holds_over, holds_refused;
+static bool over_at_hold;            /* once, the visit a hold begins with finds the play over */
 static uint32_t held_sector, held_passes;   /* where the play stood at its last hold */
-static bool oracle(uint32_t tc, uint32_t *sector, uint32_t *passes);
+/* A play stands a second at most from the first hold since a ring was last
+ * keyed on: at the second's end it went on by itself, whenever that is
+ * looked at, and it is not held again until a ring is keyed on. */
+static void hold_over(uint32_t tc) {
+    if(!D.hold || D.held_at - tc <= KUI_TOY_CDDA_HOLD_TICKS)return;
+    D.hold = 0u;
+    D.base_counter = D.held_at - KUI_TOY_CDDA_HOLD_TICKS + D.held;
+    ++holds_over;
+}
 void kui_toy_cdda_player_hold(uint32_t hold) {
-    if(D.state != KUI_TOY_CDDA_PLAYING || !D.hold == !hold)return;
-    if(hold) {
-        D.held = D.base_counter - tcnt();
-        D.hold = 1u;
-        CHECK(oracle(tcnt(), &held_sector, &held_passes));
-        ++holds;
-    } else {
-        D.hold = 0u;
-        D.base_counter = tcnt() + D.held;
-        ++releases;
+    CHECK(hold == KUI_TOY_CDDA_LET_GO || hold == KUI_TOY_CDDA_HOLD || hold == KUI_TOY_CDDA_SOUNDS);
+    if(D.state != KUI_TOY_CDDA_PLAYING)return;
+    hold_over(tcnt());
+    if(hold != KUI_TOY_CDDA_HOLD) {
+        if(D.hold) {
+            D.hold = 0u;
+            D.base_counter = tcnt() + D.held;
+            ++releases;
+        }
+        if(hold == KUI_TOY_CDDA_SOUNDS)D.held_open = 0u;
+        return;
     }
+    if(D.hold)return;
+    if(over_at_hold) {
+        /* (As lap() ends a play at the visit that finds its last pass over.) */
+        over_at_hold = false;
+        D.state = KUI_TOY_CDDA_ENDED;
+        ++D.generation;
+        return;
+    }
+    if(!D.held_open) {
+        D.held_open = 1u;
+        D.held_at = tcnt();
+    } else if(D.held_at - tcnt() > KUI_TOY_CDDA_HOLD_TICKS) {
+        ++holds_refused;
+        return;
+    }
+    D.held = D.base_counter - tcnt();
+    D.hold = 1u;
+    CHECK(oracle(tcnt(), &held_sector, &held_passes));
+    ++holds;
 }
 /* Frame k of the ring that began at heard_play. */
 static void expected(uint64_t k, int16_t *l, int16_t *r) {
@@ -682,7 +713,8 @@ static void fresh(void) {
     cut = false;
     tick_base = 0u;
     count_stuck = count_slow = false;
-    holds = releases = 0u;
+    holds = releases = holds_over = holds_refused = 0u;
+    over_at_hold = false;
     count_ppm = 0;
     torn_left = 0u;
     family = 0u;
@@ -697,7 +729,7 @@ static void beat(uint32_t ticks) {
     card_calls_now = 0u;
     since_empty = 8u;
     const uint32_t before = O.phase, rest = sr;
-    const unsigned long holds_before = holds;
+    const unsigned long holds_before = holds, refused_before = holds_refused;
     count_was_read = false;
     uint32_t sector = 0u, passes = 0u;
     const bool live = D.state == KUI_TOY_CDDA_PLAYING && oracle(tcnt(), &sector, &passes);
@@ -722,9 +754,14 @@ static void beat(uint32_t ticks) {
         /* The ring begins where the play was held for it, at the
          * heartbeat's own moment (a ring that could be primed at once is
          * keyed on, and its play let go, in the same heartbeat). */
-        CHECK(live && holds == holds_before + 1u && (D.hold || O.phase == KUI_TOY_CDDA_OUT_RUN));
-        sector = held_sector;
-        passes = held_passes;
+        CHECK(live && holds + holds_refused == holds_before + refused_before + 1u);
+        /* (A play that is not held again, its second spent, has its ring
+         * where the heartbeat found it: the beat's.) */
+        if(holds != holds_before) {
+            CHECK(D.hold || O.phase == KUI_TOY_CDDA_OUT_RUN);
+            sector = held_sector;
+            passes = held_passes;
+        }
         heard_play.first = D.first;
         heard_play.end = D.end;
         heard_play.base = sector;
@@ -749,7 +786,7 @@ static void play(uint32_t first, uint32_t end, uint32_t passes, int32_t offset) 
     D.done = 0u;
     D.base_counter = tcnt();
     D.base_offset = offset;
-    D.hold = 0u;
+    D.hold = D.held_open = 0u;
     D.state = KUI_TOY_CDDA_PLAYING;
     ++D.generation;
 }
@@ -1891,6 +1928,96 @@ static void ends_together(void) {
     put32(0xf8u, 0u);
     run(100u);
     CHECK(!D.hold && O.phase == KUI_TOY_CDDA_OUT_SILENT && O.why == KUI_TOY_CDDA_OUT_WHY_ID && releases == 1u);
+    /* A play stands a second at most. Behind a card that hands nothing on
+     * for three seconds (a load), the play goes on at its second's end by
+     * itself; the ring is keyed on where the play was held, two seconds
+     * behind it, as a ring was before there was a hold. */
+    fresh();
+    manatee2();
+    play(1000u, 9000u, 0u, 0);
+    card_idle = true;
+    for(unsigned beats = 0; O.phase != KUI_TOY_CDDA_OUT_PRIME; ++beats) {
+        CHECK(beats < 400u);
+        beat(5000u);
+    }
+    const uint32_t stood = held_sector, held_tick = tcnt();
+    uint32_t sector = 0u, passes = 0u;
+    while(held_tick - tcnt() < SECOND - 20000u)beat(5000u);
+    CHECK(D.hold && oracle(tcnt(), &sector, &passes) && sector == stood && !holds_over);
+    while(held_tick - tcnt() < 3u * SECOND)beat(5000u);
+    CHECK(!D.hold && holds_over == 1u && !releases && O.phase == KUI_TOY_CDDA_OUT_PRIME && !O.why);
+    CHECK(oracle(tcnt(), &sector, &passes) && sector >= stood + 148u && sector <= stood + 152u);
+    card_idle = false;
+    run(2000u);
+    CHECK(sounding() && O.keys == 1u && !O.restarts && !wrong_frames && holds == 1u && !releases && !D.held_open);
+    CHECK(heard_play.base == stood);
+    const int64_t behind = drive_ahead();
+    CHECK(behind > 2 * 44100 - 3000 && behind < 2 * 44100 + 3000);
+    /* A play of five seconds, played once, is over for the game six
+     * seconds on though nothing was ever handed on (by the drive's own
+     * measure of a second, a quarter of a percent short of TMU0's). */
+    fresh();
+    manatee2();
+    play(1000u, 1000u + 75u * 5u, 1u, 0);
+    card_idle = true;
+    for(unsigned beats = 0; O.phase != KUI_TOY_CDDA_OUT_PRIME; ++beats) {
+        CHECK(beats < 400u);
+        beat(5000u);
+    }
+    const uint32_t from = tcnt();
+    while(from - tcnt() < 6u * SECOND + SECOND / 20u) {
+        beat(5000u);
+        CHECK(oracle(tcnt(), &sector, &passes) || from - tcnt() > 5u * SECOND + SECOND / 2u);
+    }
+    CHECK(!oracle(tcnt(), &sector, &passes) && !D.hold && holds_over == 1u);
+    /* A ring given up before it sounded (the card left a frame out) and
+     * taken up again is the same second's: the play is held again within
+     * it, and not once it is spent. */
+    for(unsigned spent = 0; spent < 2u; ++spent) {
+        fresh();
+        manatee2();
+        play(1000u, 9000u, 0u, 0);
+        card_idle = true;
+        for(unsigned beats = 0; O.phase != KUI_TOY_CDDA_OUT_PRIME; ++beats) {
+            CHECK(beats < 400u);
+            beat(5000u);
+        }
+        const uint32_t opened = D.held_at, first = held_sector;
+        CHECK(D.hold && D.held_open && holds == 1u);
+        while(opened - tcnt() < (spent ? SECOND + SECOND / 5u : SECOND / 3u))beat(5000u);
+        CHECK(O.phase == KUI_TOY_CDDA_OUT_PRIME && !D.hold == (spent != 0u) && holds_over == spent);
+        card_idle = false;
+        card_skips = true;
+        for(unsigned beats = 0; !O.restarts; ++beats) {
+            CHECK(beats < 400u);
+            beat(5000u);
+        }
+        CHECK(!card_skips && O.restarts == 1u && !O.keys && D.held_open && D.held_at == opened);
+        for(unsigned beats = 0; O.phase != KUI_TOY_CDDA_OUT_PRIME && O.phase != KUI_TOY_CDDA_OUT_RUN; ++beats) {
+            CHECK(beats < 400u);
+            beat(5000u);
+        }
+        CHECK(holds == (spent ? 1u : 2u) && holds_refused == spent && D.held_at == opened);
+        run(2000u);
+        CHECK(sounding() && O.keys == 1u && O.restarts == 1u && !wrong_frames && !D.hold && !D.held_open);
+        const int64_t ahead = drive_ahead();
+        /* (Held again, the play began with its ring; not held, it runs on
+         * while the ring is primed, as before there was a hold: here the
+         * card hands on at once.) */
+        if(spent)CHECK(heard_play.base > first + 10u && heard_play.base < first + 40u && ahead > -1200 && ahead < 22050);
+        else CHECK(heard_play.base >= first && heard_play.base < first + 6u && ahead > -1200 && ahead < 1200);
+    }
+    /* A play that its hold finds over (the player brings it up to now
+     * first) is not begun. */
+    fresh();
+    manatee2();
+    play(1000u, 9000u, 0u, 0);
+    over_at_hold = true;
+    for(unsigned beats = 0; beats < 400u; ++beats) {
+        CHECK(O.phase != KUI_TOY_CDDA_OUT_PRIME && O.phase != KUI_TOY_CDDA_OUT_RUN && !sounding());
+        beat(5000u);
+    }
+    CHECK(!over_at_hold && D.state == KUI_TOY_CDDA_ENDED && !O.keys && !O.why && !holds);
     for(unsigned build = 0; build < 2u; ++build) {
         fresh();
         if(build)manatee1(false);
@@ -1904,7 +2031,6 @@ static void ends_together(void) {
         run(200u);
         card_idle = false;
         CHECK(D.hold && holds == 1u && !releases && !sounding());
-        uint32_t sector = 0u, passes = 0u;
         for(unsigned beats = 0; oracle(tcnt(), &sector, &passes); ++beats) {
             CHECK(beats < 20000u);
             beat(4000u);

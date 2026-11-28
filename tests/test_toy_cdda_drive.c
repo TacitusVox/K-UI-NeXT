@@ -751,7 +751,7 @@ static void held(void) {
     ticks(ticks_for(40u));
     CHECK(req_stat(NULL, NULL) == stood && drive() == 3u);
     kui_toy_cdda_player_hold(1u);
-    ticks(ticks_for(300u));
+    ticks(ticks_for(30u));
     CHECK(req_stat(NULL, NULL) == stood && drive() == 3u && kui_toy_cdda_drive.state == KUI_TOY_CDDA_PLAYING);
     /* Let go: the part of a sector that had passed is not lost. */
     kui_toy_cdda_player_hold(0u);
@@ -780,10 +780,96 @@ static void held(void) {
     CHECK(kui_toy_cdda_drive.hold);
     for(unsigned i = 0; i < 6u; ++i)CHECK(req_stat(NULL, NULL) == 70150u + 150u + 99u && drive() == 3u);
     CHECK(kui_toy_cdda_drive.held < ticks_for(3u));
+    /* (A play that is held is not held anew: its ticks are the first
+     * hold's, whatever the clock has counted since.) */
+    const uint32_t kept = kui_toy_cdda_drive.held;
+    tcnt_falls = 1u;
+    kui_toy_cdda_player_hold(KUI_TOY_CDDA_HOLD);
+    tcnt_falls = 0u;
+    CHECK(kui_toy_cdda_drive.hold && kui_toy_cdda_drive.held == kept);
     kui_toy_cdda_player_hold(0u);
     CHECK(req_stat(NULL, NULL) == 70150u + 150u + 99u);
     ticks(ticks_for(1u));
     CHECK(req_stat(NULL, NULL) == 70150u + 150u + 100u);
+    /* A play stands a second at most: whatever keeps its ring from being
+     * keyed on, it has gone on from the second's end, at whichever visit
+     * that is looked at, and a play that is not repeated ends a second
+     * late at most. */
+    const uint32_t track5 = 70150u + 150u, second = KUI_TOY_CDDA_HOLD_TICKS;
+    finish(request(KUI_RETAIL_GD_PLAY, 5u, 5u, 0u, 0u));
+    ticks(ticks_for(10u) + 5u);
+    kui_toy_cdda_player_hold(KUI_TOY_CDDA_HOLD);
+    ticks(second - 1000u);
+    CHECK(req_stat(NULL, NULL) == track5 + 10u && kui_toy_cdda_drive.hold);
+    ticks(1000u + ticks_for(30u));
+    CHECK(req_stat(NULL, NULL) == track5 + 40u && !kui_toy_cdda_drive.hold && kui_toy_cdda_drive.held_open);
+    /* (The ring is keyed on late: nothing moves.) */
+    kui_toy_cdda_player_hold(KUI_TOY_CDDA_SOUNDS);
+    CHECK(req_stat(NULL, NULL) == track5 + 40u && !kui_toy_cdda_drive.held_open);
+    ticks(ticks_for(800u));
+    CHECK(drive() == 3u);
+    ticks(ticks_for(10u));
+    CHECK(drive() == 1u && kui_toy_cdda_drive.state == KUI_TOY_CDDA_ENDED);
+    /* With no visit between: the ring's key-on finds the second over, and
+     * the play has gone on from its end, not from the key-on. */
+    finish(request(KUI_RETAIL_GD_PLAY, 5u, 5u, 0u, 0u));
+    ticks(ticks_for(10u) + 5u);
+    kui_toy_cdda_player_hold(KUI_TOY_CDDA_HOLD);
+    ticks(second + ticks_for(30u));
+    kui_toy_cdda_player_hold(KUI_TOY_CDDA_SOUNDS);
+    CHECK(!kui_toy_cdda_drive.hold && req_stat(NULL, NULL) == track5 + 40u);
+    /* And a play held and never let go ends by itself. */
+    kui_toy_cdda_player_hold(KUI_TOY_CDDA_HOLD);
+    CHECK(kui_toy_cdda_drive.hold);
+    ticks(second + ticks_for(809u));
+    CHECK(drive() == 3u);
+    ticks(ticks_for(2u));
+    CHECK(drive() == 1u && kui_toy_cdda_drive.state == KUI_TOY_CDDA_ENDED);
+    /* The second is one from the first hold since a ring was keyed on: a
+     * ring given up and taken up again has what is left of it, and a play
+     * whose second is spent is not held until a ring is keyed on. */
+    finish(request(KUI_RETAIL_GD_PLAY, 5u, 5u, 0u, 0u));
+    ticks(ticks_for(10u) + 5u);
+    kui_toy_cdda_player_hold(KUI_TOY_CDDA_HOLD);
+    ticks(ticks_for(15u));
+    kui_toy_cdda_player_hold(KUI_TOY_CDDA_LET_GO);
+    CHECK(!kui_toy_cdda_drive.hold && kui_toy_cdda_drive.held_open);
+    ticks(ticks_for(6u));
+    CHECK(req_stat(NULL, NULL) == track5 + 16u);
+    kui_toy_cdda_player_hold(KUI_TOY_CDDA_HOLD);
+    CHECK(kui_toy_cdda_drive.hold);
+    ticks(second - ticks_for(21u) - 1000u);
+    CHECK(req_stat(NULL, NULL) == track5 + 16u && kui_toy_cdda_drive.hold);
+    ticks(1000u + ticks_for(21u));
+    CHECK(req_stat(NULL, NULL) == track5 + 37u && !kui_toy_cdda_drive.hold);
+    kui_toy_cdda_player_hold(KUI_TOY_CDDA_HOLD);
+    CHECK(!kui_toy_cdda_drive.hold);
+    ticks(ticks_for(3u));
+    CHECK(req_stat(NULL, NULL) == track5 + 40u);
+    kui_toy_cdda_player_hold(KUI_TOY_CDDA_LET_GO);
+    kui_toy_cdda_player_hold(KUI_TOY_CDDA_HOLD);
+    CHECK(!kui_toy_cdda_drive.hold);
+    kui_toy_cdda_player_hold(KUI_TOY_CDDA_SOUNDS);
+    kui_toy_cdda_player_hold(KUI_TOY_CDDA_HOLD);
+    CHECK(kui_toy_cdda_drive.hold);
+    ticks(second - 1000u);
+    CHECK(req_stat(NULL, NULL) == track5 + 40u && kui_toy_cdda_drive.hold);
+    /* A given-up hold whose second ran out while the play went on: the
+     * next is refused all the same. */
+    finish(request(KUI_RETAIL_GD_PLAY, 5u, 5u, 0u, 0u));
+    kui_toy_cdda_player_hold(KUI_TOY_CDDA_HOLD);
+    kui_toy_cdda_player_hold(KUI_TOY_CDDA_LET_GO);
+    ticks(second + 10u);
+    kui_toy_cdda_player_hold(KUI_TOY_CDDA_HOLD);
+    CHECK(!kui_toy_cdda_drive.hold);
+    /* A new play, and a release, begin a second of their own. */
+    finish(request(KUI_RETAIL_GD_PLAY, 5u, 5u, 0u, 0u));
+    CHECK(!kui_toy_cdda_drive.held_open);
+    kui_toy_cdda_player_hold(KUI_TOY_CDDA_HOLD);
+    CHECK(kui_toy_cdda_drive.hold);
+    finish(request(KUI_RETAIL_GD_PAUSE, 0u, 0u, 0u, 0u));
+    finish(request(KUI_RETAIL_GD_RELEASE, 0u, 0u, 0u, 0u));
+    CHECK(!kui_toy_cdda_drive.hold && !kui_toy_cdda_drive.held_open);
     /* A pause under a hold stands where the hold stood, and the release
      * ends the hold. */
     finish(request(KUI_RETAIL_GD_PLAY, 5u, 5u, 15u, 0u));

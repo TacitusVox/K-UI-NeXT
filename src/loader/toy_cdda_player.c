@@ -158,7 +158,7 @@ static void play_start(uint32_t first,uint32_t end,uint32_t repeat,uint32_t toke
     D.passes=(repeat&15u)==15u?0u:(repeat&15u)+1u;
     D.base_offset=D.frozen=D.done=0u;
 #if defined(KUI_TOY_CDDA_OUTPUT) && KUI_TOY_CDDA_OUTPUT
-    D.hold=0u;
+    D.hold=D.held_open=0u;
 #endif
     ++D.generation;
     if(clock_now(&now)) {
@@ -192,8 +192,14 @@ static void advance(void) {
     }
     const int32_t length=(int32_t)(D.end-D.first);
 #if defined(KUI_TOY_CDDA_OUTPUT) && KUI_TOY_CDDA_OUTPUT
-    /* Test 89: a play that is held stands where it stood. */
-    if(D.hold)D.base_counter=now+D.held;
+    /* Test 89: a play that is held stands where it stood, a second at
+     * most: then it has gone on from the second's end. */
+    if(D.hold) {
+        if(D.held_at-now>KUI_TOY_CDDA_HOLD_TICKS) {
+            D.hold=0u;
+            D.base_counter=D.held_at-KUI_TOY_CDDA_HOLD_TICKS+D.held;
+        } else D.base_counter=now+D.held;
+    }
 #endif
     uint32_t ticks=D.base_counter-now;
     const uint32_t groups=ticks/KUI_TOY_CDDA_TICKS_3_SECTORS;
@@ -230,16 +236,25 @@ static void advance(void) {
  * and the ticks its base then lies behind now are kept. */
 void kui_toy_cdda_player_hold(uint32_t hold) {
     uint32_t now;
-    if(D.state!=KUI_TOY_CDDA_PLAYING || !D.hold==!hold)return;
-    if(hold) {
-        advance();
-        if(D.state!=KUI_TOY_CDDA_PLAYING || !clock_now(&now))return;
-        D.held=D.base_counter-now;
-        D.hold=1u;
-    } else {
+    if(D.state!=KUI_TOY_CDDA_PLAYING)return;
+    if(hold!=KUI_TOY_CDDA_HOLD) {
+        /* (Brought up to now, a held play's base is where a play that
+         * goes on from here has it; one whose second is over went on
+         * there.) */
+        if(D.hold)advance();
         D.hold=0u;
-        if(clock_now(&now))D.base_counter=now+D.held;
+        if(hold==KUI_TOY_CDDA_SOUNDS)D.held_open=0u;
+        return;
     }
+    if(D.hold)return;
+    advance();
+    if(D.state!=KUI_TOY_CDDA_PLAYING || !clock_now(&now))return;
+    if(!D.held_open) {
+        D.held_open=1u;
+        D.held_at=now;
+    } else if(D.held_at-now>KUI_TOY_CDDA_HOLD_TICKS)return;
+    D.held=D.base_counter-now;
+    D.hold=1u;
 }
 #endif
 /* The sector the play stands at. */
@@ -277,7 +292,7 @@ static void command(struct kui_retail_gd *s) {
             uint32_t now;
             if(clock_now(&now)) {
 #if defined(KUI_TOY_CDDA_OUTPUT) && KUI_TOY_CDDA_OUTPUT
-                D.hold=0u;
+                D.hold=D.held_open=0u;
 #endif
                 D.base_counter=now;D.base_offset=(int32_t)D.frozen;D.state=KUI_TOY_CDDA_PLAYING;
             } else {

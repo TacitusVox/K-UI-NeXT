@@ -10,7 +10,12 @@ fail. Left out as equivalent: dropping PLAY2's test of a start below FAD 150,
 which the search for its track refuses as well; and in KEEP, dropping the test
 of the command (only a read's token is the engine's), of the sector size (the
 service admits 2,048 and 2,352 bytes alone) and the bound to the request's
-sectors (the engine's cursor never passes it). Run from the repository root
+sectors (the engine's cursor never passes it); and of Test 89's hold, dropping
+the visit that brings a play up to now before it is held (the ticks kept are
+the base's behind now either way, and the output looks at where the play
+stands itself), and dropping the test that something plays (a hold of
+nothing does not come back from the visit: the test would not end). Run from
+the repository root
 (Makefile.vmu-native-toy-suite, toy-cdda-mutation-check); the recipe's switches
 are this file's own.
 """
@@ -28,6 +33,10 @@ RECIPE = ("TOY_SUITE_MODE=66 TOY_WIRE_STREAM=1 TOY_WIRE_CACHED=1 TOY_WIRE_WORDS=
           "TOY_WIRE_LEAN=1 TOY_WIRE_STEADY=1 TOY_WIRE_FLUID=1 TOY_WIRE_SEQ=1 TOY_WIRE_ANY=1 TOY_WIRE_TITLES=1 "
           "TOY_WIRE_QUERY=1 TOY_WIRE_TIMER=1 TOY_WIRE_SAVE=1 KUI_NATIVE_BACKGROUND_MAP160=1 TOY_SURVEY_MIXED_PAD=1 "
           "TOY_CDDA_ROOM=1 TOY_CDDA_HOOK=1 TOY_CDDA_DRIVE=1 TOY_CDDA_KEEP=1").split()
+# Test 89's hold is the sound output's: its mutations (a fourth element) are
+# built with the output's switches as delivered.
+OUTPUT = ("TOY_CDDA_SURVEY=0 TOY_CDDA_CARD=1 TOY_CDDA_YIELD=1 TOY_CDDA_OUTPUT=1 TOY_CDDA_VOLUME=1 TOY_CDDA_ADPCM=1 "
+          "TOY_CDDA_SPARE=1").split()
 MUTATIONS = [
     ("status 1 while playing", "s->drive_status=D.state==KUI_TOY_CDDA_PLAYING?3u:1u;",
      "s->drive_status=D.state==KUI_TOY_CDDA_PLAYING?1u:1u;"),
@@ -89,11 +98,33 @@ MUTATIONS = [
     ("KEEP publishes no new sector", "    if(sectors<=done)return;\n", "    if(sectors<done)return;\n"),
     ("KEEP's bytes of one sector less", "    s->completed_bytes=sectors*s->sector_bytes;\n",
      "    s->completed_bytes=(sectors-1u)*s->sector_bytes;\n"),
+    ("a held play not standing", "        } else D.base_counter=now+D.held;\n", "        }\n", OUTPUT),
+    ("a hold with no end", "        if(D.held_at-now>KUI_TOY_CDDA_HOLD_TICKS) {", "        if(0) {", OUTPUT),
+    ("a hold over at the visit that finds it, not at the second's end",
+     "D.base_counter=D.held_at-KUI_TOY_CDDA_HOLD_TICKS+D.held;", "D.base_counter=now+D.held;", OUTPUT),
+    ("a group whole between the hold's two reads of the clock taken at every visit", "    if(D.hold)D.held=ticks;\n", "",
+     OUTPUT),
+    ("a play let go not brought up to now", "        if(D.hold)advance();\n", "", OUTPUT),
+    ("a ring given up ends the second", "        if(hold==KUI_TOY_CDDA_SOUNDS)D.held_open=0u;", "        D.held_open=0u;",
+     OUTPUT),
+    ("a ring keyed on does not end the second", "        if(hold==KUI_TOY_CDDA_SOUNDS)D.held_open=0u;", "        (void)0;",
+     OUTPUT),
+    ("a play whose second is spent held again", "    } else if(D.held_at-now>KUI_TOY_CDDA_HOLD_TICKS)return;", "    }",
+     OUTPUT),
+    ("a second begun at every hold", "    if(!D.held_open) {", "    if(1) {", OUTPUT),
+    ("the ticks of a held play's sector lost", "    D.held=D.base_counter-now;\n    D.hold=1u;",
+     "    D.held=0u;\n    D.hold=1u;", OUTPUT),
+    ("a second hold taken over the first", "    if(D.hold)return;\n    advance();", "    advance();", OUTPUT),
+    ("a new play keeps a hold", "\n    D.hold=D.held_open=0u;", "\n    D.held_open=0u;", OUTPUT),
+    ("a new play keeps a spent second", "\n    D.hold=D.held_open=0u;", "\n    D.hold=0u;", OUTPUT),
+    ("a release keeps a hold", "\n                D.hold=D.held_open=0u;", "\n                D.held_open=0u;", OUTPUT),
+    ("a release keeps a spent second", "\n                D.hold=D.held_open=0u;", "\n                D.hold=0u;", OUTPUT),
 ]
 
 
 def run(index, work):
-    name, old, new = MUTATIONS[index]
+    name, old, new = MUTATIONS[index][:3]
+    recipe = RECIPE + (OUTPUT if len(MUTATIONS[index]) > 3 else [])
     text = PLAYER.read_text()
     if text.count(old) != 1:
         return index, "not applied (%d matches)" % text.count(old)
@@ -104,7 +135,7 @@ def run(index, work):
     env = dict(os.environ)
     env.pop("MAKEFLAGS", None)
     env.pop("MFLAGS", None)
-    result = subprocess.run(["make", "-f", "Makefile.vmu-native-toy-suite", *RECIPE,
+    result = subprocess.run(["make", "-f", "Makefile.vmu-native-toy-suite", *recipe,
                              "HOST_CC=" + env.get("HOST_CC", "cc"), "BUILD_ID=000000000000",
                              "BUILD=" + str(directory / "build"), "TOY_CDDA_PLAYER_SRC=" + str(mutated),
                              "toy-cdda-drive-host-test"], cwd=ROOT, env=env, capture_output=True, text=True)

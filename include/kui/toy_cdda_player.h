@@ -59,8 +59,11 @@ struct kui_toy_cdda_drive {
      * (hold), held TMU0 ticks behind base_counter, as a drive stands while
      * it seeks: the music begins at the sector the play stands at, and what
      * the game reads moves on from there with the music, not a tenth of a
-     * second ahead of it (kui_toy_cdda_player_hold). */
-    uint32_t hold, held;
+     * second ahead of it (kui_toy_cdda_player_hold). A play stands a
+     * second at most between two rings keyed on: from the first hold
+     * since a ring was last keyed on, or the play began (held_open,
+     * held_at: TMU0's count then). */
+    uint32_t hold, held, held_open, held_at;
 #endif
 #if KUI_TOY_CDDA_CARD
     /* Test 85 (CARD): the disc's table as the service held it at the game's
@@ -71,10 +74,24 @@ struct kui_toy_cdda_drive {
 };
 extern struct kui_toy_cdda_drive kui_toy_cdda_drive;
 #if defined(KUI_TOY_CDDA_OUTPUT) && KUI_TOY_CDDA_OUTPUT
-/* Test 89, for the sound output: the play stands still from now (hold not
- * 0), or goes on from where it stood (0). Only a play that is playing is
- * held; a new play, a pause and a release end a hold by themselves. Called
- * from the worker's heartbeat, as the player's visits are. */
+/* Test 89, for the sound output: the play stands still from now
+ * (KUI_TOY_CDDA_HOLD), or goes on from where it stood: the ring it was
+ * held for was given up (KUI_TOY_CDDA_LET_GO) or is keyed on
+ * (KUI_TOY_CDDA_SOUNDS). Only a play that is playing is held; a new play,
+ * a pause and a release end a hold by themselves.
+ *
+ * A hold is bounded here, not by the output: whatever keeps a ring from
+ * being keyed on (the card the game's, a heartbeat not made) would
+ * otherwise stand the play the game reads for as long as it lasts, and a
+ * play that is not repeated would not end. From the first hold since a
+ * ring was last keyed on, a play stands KUI_TOY_CDDA_HOLD_TICKS at most: it
+ * then goes on from that moment by itself, as a play did before there was
+ * a hold, and is not held again until a ring is keyed on. Called from the
+ * worker's heartbeat, as the player's visits are. */
+#define KUI_TOY_CDDA_LET_GO 0u
+#define KUI_TOY_CDDA_HOLD 1u
+#define KUI_TOY_CDDA_SOUNDS 2u
+#define KUI_TOY_CDDA_HOLD_TICKS 781250u   /* a second of TMU0 */
 void kui_toy_cdda_player_hold(uint32_t hold);
 #endif
 #if KUI_TOY_CDDA_CARD

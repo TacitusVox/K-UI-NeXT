@@ -982,7 +982,7 @@ static bool drive_now(uint32_t now) {
 
 static void stop(struct bus *b, const bool busy[2], uint32_t phase, uint32_t why, uint32_t detail) {
     /* (A play held for a ring that is given up goes on.) */
-    kui_toy_cdda_player_hold(0u);
+    kui_toy_cdda_player_hold(KUI_TOY_CDDA_LET_GO);
     quiet(b, busy);
     if(why && !O.why) {
         O.why = why;
@@ -1158,8 +1158,10 @@ static void work(struct bus *b, bool wanted, bool tail, uint32_t now) {
          * tenth of a second and more before it sounds: a play that ran on
          * meanwhile was that far ahead of its music for good, and since
          * the drive keeps the chip's time a play that is not repeated
-         * ended for the game with that much of it still to sound. */
-        kui_toy_cdda_player_hold(1u);
+         * ended for the game with that much of it still to sound. (The
+         * player bounds the hold: a ring not keyed on within a second has
+         * its play going on without it, as before there was a hold.) */
+        kui_toy_cdda_player_hold(KUI_TOY_CDDA_HOLD);
         if(D.state != KUI_TOY_CDDA_PLAYING || !drive_now(now)) {
             stop(b, busy, KUI_TOY_CDDA_OUT_SILENT, 0u, 0u);
             return;
@@ -1200,7 +1202,7 @@ static void work(struct bus *b, bool wanted, bool tail, uint32_t now) {
         key_on(b);
         if(!b->ok)return;
         /* The music has begun: the play goes on with it. */
-        kui_toy_cdda_player_hold(0u);
+        kui_toy_cdda_player_hold(KUI_TOY_CDDA_SOUNDS);
         O.key_count = count;
         O.played = O.moved = 0u;
         O.played_tick = O.moved_tick = O.key_tick;

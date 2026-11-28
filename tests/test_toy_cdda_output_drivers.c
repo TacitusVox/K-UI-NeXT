@@ -117,8 +117,10 @@ void kui_toy_cdda_output_test_write(uint32_t address, uint32_t value) {
             keyed[side] = on;
         }
 }
-/* The player's hold (Test 89), as src/loader/toy_cdda_player.c keeps it. */
+/* The player's hold (Test 89), as src/loader/toy_cdda_player.c keeps it
+ * for a ring that is primed within its second, as this model's is. */
 void kui_toy_cdda_player_hold(uint32_t hold) {
+    hold = hold == KUI_TOY_CDDA_HOLD;
     if(D.state != KUI_TOY_CDDA_PLAYING || !D.hold == !hold)return;
     if(hold) {
         D.held = D.base_counter - (TCNT_START - (uint32_t)now);
