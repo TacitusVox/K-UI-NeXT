@@ -76,6 +76,8 @@ uint32_t kui_toy_cdda_output_test_read(uint32_t address, unsigned width) {
     case UINT32_C(0xa0702c00): return 0u;
     case UINT32_C(0xa0702040): return 0x0f1fu;
     case UINT32_C(0xa0702044): return 0x0f0fu;
+    /* The chip's timers B and C, which the output only reads (Test 89). */
+    case UINT32_C(0xa0702894): case UINT32_C(0xa0702898): return 0u;
     default: break;
     }
     if(address - UINT32_C(0xa05f7800) < 0x80u)return 0u;

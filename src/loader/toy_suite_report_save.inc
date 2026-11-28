@@ -171,13 +171,15 @@ static void toy_report_wire(char **at,const char *end,const struct kui_native_ra
      * a lost start token, AH: for a block two readings fit, and blocks that
      * came with lost bytes the CRC16 does not mend; CU: overruns inside a
      * run, and runs not started again for want of room. 16 bits each, the
-     * second of a pair above the first. */
+     * second of a pair above the first. TB: the sound chip's timers B and
+     * C as the output read them (include/kui/toy_cdda_output.h, timers). */
     {
         const struct kui_wire_counters *n=&kui_toy_cdda_mail.wire;
-        toy_report_short(at,end,"CD W BL AH CU",(uint32_t[]){
+        toy_report_short(at,end,"CD W BL AH CU TB",(uint32_t[]){
             toy_cdda_cap(n->bad_crc,0xffffu)|toy_cdda_cap(n->lost_frame,0xffffu)<<16,
             toy_cdda_cap(n->ambiguous,0xffffu)|toy_cdda_cap(n->holed,0xffffu)<<16,
-            toy_cdda_cap(n->cuts,0xffffu)|toy_cdda_cap(n->fulls,0xffffu)<<16},3u);
+            toy_cdda_cap(n->cuts,0xffffu)|toy_cdda_cap(n->fulls,0xffffu)<<16,
+            kui_toy_cdda_output.timers},4u);
     }
 #else
     toy_report_short(at,end,"XC KEPT LO HI",

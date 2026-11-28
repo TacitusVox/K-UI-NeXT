@@ -116,6 +116,7 @@ static uint64_t timer_stopped_at;    /* TMU0 stands still from here while TSTR's
 static bool frozen;                  /* no store may be made at all */
 static unsigned family, pair[2];
 static bool mute_readback;           /* the CD mixers read nothing */
+static bool timers_rest;             /* the chip's timer B reads the same at every look */
 
 static uint32_t tcnt(void) { return TCNT_START - (uint32_t)(tstr & 1u ? now : timer_stopped_at); }
 static bool masked(void) { return (sr & 0xf0u) == 0xf0u && !(sr & BL); }
@@ -436,6 +437,11 @@ uint32_t kui_toy_cdda_output_test_read(uint32_t address, unsigned width) {
         return UINT32_C(0xdead0000) + torn_left;
     }
     if(address == UINT32_C(0xa0702c00))return arm_reset;
+    /* The chip's timers B and C: B a count of frames with its control bits
+     * above it, C at rest (or both at rest). The output only reads them. */
+    if(address == UINT32_C(0xa0702894))
+        return timers_rest ? 0x0100u : 0x0100u | (uint32_t)(now * 882u / 15625u & 255u);
+    if(address == UINT32_C(0xa0702898))return 0x0033u;
     if(address == UINT32_C(0xa0702040) || address == UINT32_C(0xa0702044))
         return mute_readback ? 0u : mixer[(address - UINT32_C(0xa0702040)) / 4u];
     if(family && address == SOUND + (family == GEN2 ? 0x12418u : 0x13418u))return driver_ticks();
@@ -623,7 +629,7 @@ static void fresh(void) {
     tstr = 1u;
     access_ticks = 1u;
     store_ticks = 0u;
-    fifo_stuck = frozen = mute_readback = card_idle = card_skips = inclusive = false;
+    fifo_stuck = frozen = mute_readback = card_idle = card_skips = inclusive = timers_rest = false;
     strict = true;
     /* The console's: TMU0 a quarter of a percent slow against the chip. */
     ppm = 2500;
@@ -1759,10 +1765,17 @@ static void aligned(void) {
         fresh();
         if(build)manatee1(false);
         else manatee2();
+        timers_rest = build != 0u;
         play(1000u, 9000u, 0u, 0);
         run(2000u);
         const int64_t early = drive_ahead();
         CHECK(early > 0 && early < 12000);
+        /* Timers B and C as read: C's count 0x33 at every look; B's seen
+         * to change in every bit by now, or (the second build here) at
+         * rest. Nothing was stored for either: the model takes no store
+         * outside the ring and the two channels. */
+        CHECK(O.timed && (O.timers >> 8 & 255u) == 0x33u && !(O.timers & 255u));
+        CHECK((O.timers >> 16 & 255u) == (build ? 0u : 255u));
         /* (The least lead: of the whole play, and of the looks a second
          * and more into the ring, which a play's start does not reach.) */
         CHECK(O.lead_least < 6000u && O.lead_run >= O.lead_least && O.lead_run < O.frames);

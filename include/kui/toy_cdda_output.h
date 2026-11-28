@@ -79,6 +79,11 @@ struct kui_toy_cdda_output {
      * second written and fills from there: lead_least is mostly a play's
      * start, this one its run. */
     uint32_t lead_run;
+    /* Test 89, read only, for the report: the sound chip's timers B and C
+     * as this side of the bus reads them. Their counts as first read in
+     * bytes 3 and 1, and in bytes 2 and 0 the bits of each seen to differ
+     * from that at a later look (timed: one look has been made). */
+    uint32_t timed, timers;
     /* For the report: the last level written that was one; and the two
      * clocks: the driver's count of 4 ms of the chip's time and TMU0 when
      * first looked at in a play that ran, and how far each has gone since. */

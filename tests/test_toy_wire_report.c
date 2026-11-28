@@ -141,7 +141,7 @@ struct kui_toy_cdda_output kui_toy_cdda_output;
  * build does not keep. The first movie's player is still last. */
 /* The row in XC's place where the sound output is built (Test 89). */
 #if defined(KUI_TOY_CDDA_OUTPUT) && KUI_TOY_CDDA_OUTPUT
-#define XC_ROW_ZERO "CD W BL AH CU\n0 0 0\n"
+#define XC_ROW_ZERO "CD W BL AH CU TB\n0 0 0 0\n"
 #else
 #define XC_ROW_ZERO "XC KEPT LO HI\n0 0 0\n"
 #endif
@@ -158,7 +158,7 @@ static const char *const labels[] = {
      * which such commands a window met. */
 #if defined(KUI_TOY_CDDA_OUTPUT) && KUI_TOY_CDDA_OUTPUT
     /* Test 89: in its place, why the audio's stream ended at a block. */
-    "CD W BL AH CU",
+    "CD W BL AH CU TB",
 #else
     "XC KEPT LO HI",
 #endif
@@ -544,7 +544,7 @@ static int card_report(void) {
         .drops = 0x10005, .rekeys = 7u, .takes = 3u, .fixes = 0x20000, .heartbeats = 0x54321, .longest = 0x999,
         .bus_ticks = 0x7654321, .bytes = 0x12345678, .skipped_bl = 300u, .skipped_dma = 2u, .timeouts = 256u,
         .faults = 1u, .level_last = {0x0f1f, 0x0f0f}, .mixer = {0x0a1f, 0x0a0f}, .lead_least = 0x0a00, .gap_longest = 0x0500 << 6,
-        .lead_run = 0x0b00, .shadow = 0x00400030, .fallbacks = 70000u, .chip_ticks = 0x13579, .tmu_ticks = 0xe9ac1c3, .spare = 7u,
+        .lead_run = 0x0b00, .timed = 1u, .timers = 0x5aff1200, .shadow = 0x00400030, .fallbacks = 70000u, .chip_ticks = 0x13579, .tmu_ticks = 0xe9ac1c3, .spare = 7u,
         .lost_table = 2u, .refusals = 300u, .lost_guard = 1u, .skipped_stack = 3u};
 #endif
     body = format(&ra, &region, text, &rows);
@@ -555,7 +555,7 @@ static int card_report(void) {
                         "CD O MX LD L2 AT TM LOST\nA0F0A1F 5000A00 FFFF0B00 13579 E9AC1C3 301FF02\n"
                         "CD C BLK"));
     /* Test 89: the audio stream's own reasons, 16 bits each and capped. */
-    assert(strstr(text, "CD W BL AH CU\nFFFF0012 450003 7890006\n"));
+    assert(strstr(text, "CD W BL AH CU TB\nFFFF0012 450003 7890006 5AFF1200\n"));
 #endif
     assert(strstr(text, "CD C BLK RB RR PIO WAIT YLD\n123456 12 34 56 78 9A\n"
                         "CD C HD HO HX REF DCL ERR\n11 22 33 5FFFF 44 67892345\n"
