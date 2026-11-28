@@ -785,6 +785,11 @@ ifeq ($(TOY_CDDA_CARD),1)
 	python3 tests/test_toy_cdda_card_linked.py $(BUILD)/native-worker.elf $(BUILD)/native $(BUILD)/native-ra-aux.elf
 	python3 tests/test_toy_cdda_card_linked.py --self-test $(BUILD)/native-worker.elf $(BUILD)/native $(BUILD)/native-ra-aux.elf
 endif
+ifeq ($(TOY_CDDA_ADPCM),1)
+# Test 87: the output's coder of eight frames, written by hand, run as linked
+# against a coder of the test's own, and the frames' way into the ring.
+	python3 tests/test_toy_cdda_output_linked.py $(BUILD)/native-worker.elf
+endif
 ifeq ($(TOY_WIRE_SWIFT),1)
 	python3 tests/test_toy_wire_linked_loops.py $(if $(filter 0,$(TOY_WIRE_MSB)),--no-as-sent) $(BUILD)/native-ra-aux.elf $(TOY_WIRE_LOOP_REFERENCE)
 else ifeq ($(TOY_WIRE_WORDS),1)

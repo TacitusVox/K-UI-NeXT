@@ -101,6 +101,12 @@ static uint32_t reg[64][18], mixer[2], sr = REST, arm_reset, dma_enable[4], dma_
 static uint32_t frqcr = 0x0e0au, tcor = UINT32_MAX, tcr = 2u, tstr = 1u;
 static uint64_t now;                 /* TMU0 ticks since the model began */
 static uint32_t access_ticks = 1u;   /* what one access of the bus costs */
+/* When the stretch of bus work that is running began: a heartbeat's start,
+ * or the card handing bytes on. No access comes later than 3 ms of TMU0 and
+ * a burst behind it. */
+static uint64_t stretch_began;
+static bool stretch_live;
+static uint32_t store_ticks;         /* what a store to sound memory costs on top */
 static bool fifo_stuck;
 static unsigned since_empty = 8u;
 static unsigned long stores, ring_stores, register_stores, chip_reads, g2_reads, fifo_polls;
@@ -189,6 +195,7 @@ uint32_t kui_toy_cdda_card_heartbeat(const struct kui_toy_cdda_want *want, uint3
             bytes[i] = (uint8_t)(at & 1u ? sample >> 8 : sample);
         }
         now += card_ticks;
+        stretch_began = now;
         take(context, bytes, count, card.offset);
         card.offset += count;
         card_bytes += count;
@@ -227,8 +234,10 @@ static struct voice { bool active; uint64_t keyed_at, consumed; uint32_t pos, st
  * side from the pair's key-on; cut: silence has taken the play's place. */
 static struct coder { int32_t signal; uint32_t step; } told[2];
 #if KUI_TOY_CDDA_ADPCM
-/* And the codes the output has written, decoded as they are stored. */
-static struct coder wrote[2], wrote_before[2];
+/* And the codes the output has written, decoded as they are stored, and
+ * where in its plane each side's next word belongs: the test's own account,
+ * begun with each ring. */
+static struct coder wrote[2];
 static uint32_t wrote_at[2];
 #endif
 static bool cut;
@@ -377,6 +386,7 @@ static bool record_busy(unsigned side) {
 static void access(void) {
     CHECK(masked() && dma_idle());
     CHECK(since_empty < 8u);
+    if(stretch_live && tstr)CHECK(now - stretch_began <= 2344u + 10u * access_ticks + 8u * store_ticks);
     ++since_empty;
     now += access_ticks;
     chip_run();
@@ -432,6 +442,14 @@ uint32_t kui_toy_cdda_output_test_read(uint32_t address, unsigned width) {
     CHECK(family && (c == pair[0] || c == pair[1]));
     return reg[c][at / 4u];
 }
+#if KUI_TOY_CDDA_ADPCM
+/* The coder reads its samples as 16-bit words: at an odd address the SH-4
+ * faults. */
+void kui_toy_cdda_output_test_even(const void *address);
+void kui_toy_cdda_output_test_even(const void *address) {
+    CHECK(!((uintptr_t)address & 1u));
+}
+#endif
 void kui_toy_cdda_output_test_write(uint32_t address, uint32_t value) {
     CHECK(!frozen);
     CHECK(!(arm_reset & 1u));
@@ -439,6 +457,7 @@ void kui_toy_cdda_output_test_write(uint32_t address, uint32_t value) {
     ++stores;
     if(address - SOUND < BYTES) {
         const uint32_t at = address - SOUND;
+        now += store_ticks;
         CHECK(!(at & 3u) && O.placed && at - O.ring < RING(O.frames));
         if(KUI_TOY_CDDA_SPARE)CHECK(O.spare && O.ring == SPARE_AT && O.frames == SPARE_FRAMES && O.ring + RING(O.frames) == 0x18000u);
         else CHECK(at >= 0x18000u && !O.spare);
@@ -447,19 +466,22 @@ void kui_toy_cdda_output_test_write(uint32_t address, uint32_t value) {
             if(size && at + 4u > start && at < start + size)CHECK(!"a store into a pair of the bank table");
         }
 #if KUI_TOY_CDDA_ADPCM
-        /* A word of codes into a plane, where the output's writing stands:
-         * the output's coder for that plane stands where a chip's decoder
-         * stands behind every code written before it. (A unit whose second
-         * word could not be stored comes again whole.) */
+        /* A word of codes into a plane: each plane's words follow on from
+         * its first, round the plane, one after the other and never one
+         * twice; a ring's first word is the one the output stores with
+         * nothing written yet. The codes are decoded as a chip would decode
+         * them behind every code before: where the output's own coders
+         * must stand when its heartbeat is over (beat()). */
         for(unsigned side = 0; side < 2u && O.phase != KUI_TOY_CDDA_OUT_OFF; ++side) {
             const uint32_t begin = O.ring + 32u + side * PLANE(O.frames);
             if(at - begin >= PLANE(O.frames))continue;
-            CHECK(at - begin == O.at / 2u);
-            if(!O.written)wrote[side].signal = 0, wrote[side].step = 127u;
-            else if(O.written == wrote_at[side])wrote[side] = wrote_before[side];
-            wrote_before[side] = wrote[side];
-            wrote_at[side] = O.written;
-            CHECK(O.coder[side].signal == wrote[side].signal && O.coder[side].step == wrote[side].step);
+            if(at == begin && !O.written) {
+                wrote[side].signal = 0;
+                wrote[side].step = 127u;
+                wrote_at[side] = 0u;
+            }
+            CHECK(at - begin == wrote_at[side]);
+            wrote_at[side] = wrote_at[side] + 4u < PLANE(O.frames) ? wrote_at[side] + 4u : 0u;
             for(unsigned shift = 0; shift < 32u; shift += 4u)(void)decode(&wrote[side].signal, &wrote[side].step, value >> shift & 15u);
         }
 #endif
@@ -540,6 +562,7 @@ static void fresh(void) {
     tcr = 2u;
     tstr = 1u;
     access_ticks = 1u;
+    store_ticks = 0u;
     fifo_stuck = frozen = mute_readback = card_idle = card_skips = inclusive = false;
     strict = true;
     ppm = 0;
@@ -564,7 +587,8 @@ static void fresh(void) {
 static uint64_t beat_began;
 static void beat(uint32_t ticks) {
     now += ticks;
-    beat_began = now;
+    beat_began = stretch_began = now;
+    stretch_live = true;
     chip_run();
     card_calls_now = 0u;
     since_empty = 8u;
@@ -573,7 +597,18 @@ static void beat(uint32_t ticks) {
     const bool live = D.state == KUI_TOY_CDDA_PLAYING && oracle(tcnt(), &sector, &passes);
     /* As the worker's heartbeat calls it. */
     kui_toy_cdda_consumer_heartbeat();
+    stretch_live = false;
     CHECK(sr == rest);
+#if KUI_TOY_CDDA_ADPCM
+    /* What the output holds of its writing is what it stored: both planes
+     * as far as each other, the write position behind the last unit, and
+     * each plane's coder where a chip's decoder stands behind the codes. */
+    if((O.phase == KUI_TOY_CDDA_OUT_PRIME || O.phase == KUI_TOY_CDDA_OUT_RUN) && O.written) {
+        CHECK(wrote_at[0] == wrote_at[1] && O.at / 2u == wrote_at[0]);
+        for(unsigned side = 0; side < 2u; ++side)
+            CHECK(O.coder[side].signal == wrote[side].signal && O.coder[side].step == wrote[side].step);
+    }
+#endif
     if(before == KUI_TOY_CDDA_OUT_OFF && (O.phase == KUI_TOY_CDDA_OUT_PRIME || O.phase == KUI_TOY_CDDA_OUT_RUN)) {
         CHECK(live);
         heard_play.first = D.first;
@@ -1199,6 +1234,35 @@ static void starved(void) {
     play(1000u, 9000u, 0u, 0);
     run(5000u);
     CHECK(O.underruns >= 3u && card_low > 100u);
+    /* A card that hands its bytes on in odd counts, a frame and a unit cut
+     * anywhere and the next bytes at an odd address: every frame is the
+     * play's all the same. */
+    fresh();
+    manatee1(false);
+    card_chunk = 999u;
+    play(1000u, 9000u, 0u, 0);
+    run(20000u);
+    CHECK(sounding() && !wrong_frames && !O.restarts && heard_frames > 800000u);
+    /* And three bytes at a time, so that a unit is made whole by a count's
+     * last byte. */
+    card_chunk = 3u;
+    card_ticks = 0u;
+    run(3000u);
+    CHECK(sounding() && !wrong_frames && !O.restarts && heard_frames > 930000u);
+    /* Sound memory turns so slow under a play that a stretch's 3 ms run
+     * out in the middle of a kilobyte's stores: the stores end there (no
+     * access of the bus comes later than a burst behind the stretch's
+     * time), the bytes that did not reach the ring start the play over,
+     * and it is not keyed on again. */
+    fresh();
+    manatee2();
+    play(1000u, 9000u, 0u, 0);
+    run(1000u);
+    CHECK(sounding() && !O.timeouts && O.keys == 1u);
+    store_ticks = 300u;
+    strict = false;
+    run(2000u);
+    CHECK(O.timeouts >= 3u && O.restarts >= 3u && O.keys == 1u);
     /* The FIFO never empties: nothing is read or written, and it ends. */
     fresh();
     manatee2();
@@ -1363,7 +1427,7 @@ static void endings(void) {
     fresh();
     manatee2();
     play(1000u, 1300u, 1u, 0);
-    run(4010u);
+    run(3950u);
     CHECK(sounding() && O.finished);
     D.state = KUI_TOY_CDDA_ENDED;
     ++D.generation;

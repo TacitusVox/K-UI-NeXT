@@ -104,11 +104,19 @@ def readings(worker_elf, build, aux_elf):
     for source, target, _ in graph['edges']:
         calls.setdefault(source, []).append(target)
     reached = []
+    # A routine written by hand (the output's coder of eight frames,
+    # src/loader/toy_cdda_output.c) is called by name and has no frame of
+    # the compiler's: it is held, with the routines the compiler calls on
+    # its own, to using no stack and calling nothing (below).
+    bare = set()
 
     def reach(todo):
         while todo:
             title = todo.pop()
             if title in reached or title == INDIRECT:
+                continue
+            if graph['nodes'].get(title) is None and linked_name(title) in code and calls.get(title) is None:
+                bare.add(title)
                 continue
             reached.append(title)
             todo.extend(calls.get(title, ()))
@@ -127,8 +135,10 @@ def readings(worker_elf, build, aux_elf):
     reach(list(takes))
     frames = {t: walk(t)['frame'] for t in reached}
     called = {linked_name(t) for t in reached}
-    outside = sorted({'_' + n for t in reached for _, _, _, targets, _ in walk(t)['calls'] for n in targets
-                      if '_' + n in code} - called)
+    for t in bare:
+        assert linked_name(t) in code, '%s, called by name, is not in the linked worker' % t
+    outside = sorted(({'_' + n for t in reached for _, _, _, targets, _ in walk(t)['calls'] for n in targets
+                       if '_' + n in code} | {linked_name(t) for t in bare}) - called)
     complete = survey.walk('_' + survey.COMPLETE, code, names)
     ordered = sorted(names)
     start = sym['_' + survey.COMPLETE][0]
@@ -175,6 +185,9 @@ def verify(r, sources):
                     d, chain = r['gate'], 'the gate\'s registers %d' % r['gate']
                 else:
                     d, chain = max([depth(k, path + (t,)) for k in r['takes']], default=(0, 'no take'))
+            elif nodes.get(c) is None and linked_name(c) in r['outside']:
+                # (By hand, and held above to no stack and no call.)
+                d, chain = 0, ''
             else:
                 d, chain = depth(c, path + (t,))
             if d > best:

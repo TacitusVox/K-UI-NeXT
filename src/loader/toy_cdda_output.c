@@ -579,97 +579,274 @@ static void levels(struct bus *b) {
 }
 
 #if KUI_TOY_CDDA_ADPCM
-/* The chip's ADPCM: each code multiplies the step by these 256ths, between
- * 127 and 24,576. */
+/* Eight frames of one side as a plane's word: eight codes, the first in
+ * the word's lowest four bits, and the side's coder as the chip's decoder
+ * will stand behind them. The chip's starts at key-on from signal 0 and
+ * step 127; a code moves the signal by (twice its low three bits and one)
+ * eighths of the step, down with its top bit set, and multiplies the step
+ * by its size's 256ths below. A move of more than 32,767, which the largest
+ * steps allow, is not asked for: there the accounts of the chip differ.
+ * sample: the side's first, a 16-bit word; the next is two on.
+ *
+ * Every frame of a play goes through this twice, and the worker's stack and
+ * state lie at uncached addresses, each use of them a cycle on the memory
+ * bus. The compiler's code for the loop below keeps a dozen values on the
+ * stack; written out by hand it takes R0 to R7 and no stack at all, and
+ * reads the coder once and writes it once. What the two compute is the
+ * same: the host model runs the C, and tests/test_toy_cdda_output_linked.py
+ * runs the routine as linked against a coder of its own. */
+#ifdef KUI_TOY_CDDA_OUTPUT_HOST_TEST
+extern void kui_toy_cdda_output_test_even(const void *address);
 static const uint16_t scale[8] = {230u, 230u, 230u, 230u, 307u, 409u, 512u, 614u};
-/* Eight frames of one side as eight codes, the first in the word's lowest
- * four bits, and the decoder as the chip's will stand behind them. The
- * chip's starts at key-on from signal 0 and step 127; a code moves the
- * signal by (twice its low three bits and one) eighths of the step, down
- * with its top bit set. A move of more than 32,767, which the largest steps
- * allow, is not asked for: there the accounts of the chip differ. */
-static uint32_t encode(struct kui_toy_cdda_coder *c, const uint8_t *frame) {
+static uint32_t kui_toy_cdda_squeeze(const int16_t *sample, struct kui_toy_cdda_coder *c) {
+    kui_toy_cdda_output_test_even(sample);
     int32_t signal = c->signal;
     uint32_t step = c->step, word = 0u;
-    for(unsigned shift = 0; shift < 32u; shift += 4u, frame += 4u) {
-        int32_t delta = (int16_t)(frame[0] | frame[1] << 8) - signal;
-        uint32_t code = 0u;
+    for(unsigned shift = 0; shift < 32u; shift += 4u, sample += 2) {
+        int32_t delta = *sample - signal;
+        uint32_t code = 0u, sign = 0u;
         if(delta < 0) {
-            code = 8u;
+            sign = 8u;
             delta = -delta;
         }
         uint32_t rest = (uint32_t)delta, part = step;
-        for(uint32_t bit = 4u; bit; bit >>= 1, part >>= 1)
-            if(rest >= part) {
-                code |= bit;
-                rest -= part;
-            }
-        uint32_t move = step * (2u * (code & 7u) + 1u) >> 3;
+        if(rest >= part) {
+            code = 4u;
+            rest -= part;
+        }
+        part >>= 1;
+        if(rest >= part) {
+            code |= 2u;
+            rest -= part;
+        }
+        part >>= 1;
+        if(rest >= part)code |= 1u;
+        uint32_t move = step * (2u * code + 1u) >> 3;
         while(move > 0x7fffu) {
             --code;
-            move = step * (2u * (code & 7u) + 1u) >> 3;
+            move = step * (2u * code + 1u) >> 3;
         }
-        signal += code & 8u ? -(int32_t)move : (int32_t)move;
+        signal += sign ? -(int32_t)move : (int32_t)move;
         if(signal > 32767)signal = 32767;
         if(signal < -32768)signal = -32768;
-        step = step * scale[code & 7u] >> 8;
+        step = step * scale[code] >> 8;
         if(step < 127u)step = 127u;
         if(step > 24576u)step = 24576u;
-        word |= code << shift;
+        word |= (code | sign) << shift;
     }
     c->signal = signal;
     c->step = step;
     return word;
 }
-#endif
-/* A unit of frames into the ring at its write position, a word a plane: two
- * frames of 16-bit samples, with a plane's first two once more behind its
- * last; or eight as ADPCM, whose coders move on only when both words are
- * stored. False: nothing is counted, and the same unit may come again. */
-static bool store(struct bus *b, const uint8_t unit[4u * UNIT]) {
-    const uint32_t at = O.at * 4u / UNIT;
-#if KUI_TOY_CDDA_ADPCM
-    struct kui_toy_cdda_coder next[2];
-    for(unsigned side = 0; side < 2u; ++side) {
-        next[side] = O.coder[side];
-        if(!put(b, SOUND + plane(side) + at, encode(&next[side], unit + 2u * side)))return false;
-    }
-    O.coder[0] = next[0];
-    O.coder[1] = next[1];
 #else
-    const uint32_t word[2] = {unit[0] | unit[1] << 8 | unit[4] << 16 | (uint32_t)unit[5] << 24,
-        unit[2] | unit[3] << 8 | unit[6] << 16 | (uint32_t)unit[7] << 24};
-    for(unsigned side = 0; side < 2u; ++side)
-        if(!put(b, SOUND + plane(side) + at, word[side]) ||
-           (!at && !put(b, SOUND + plane(side) + 2u * O.frames, word[side])))return false;
+uint32_t kui_toy_cdda_squeeze(const int16_t *sample, struct kui_toy_cdda_coder *c);
+#define OUT_TEXT2(x) #x
+#define OUT_TEXT(x) OUT_TEXT2(x)
+#define OUT_NAME(name) OUT_TEXT(__USER_LABEL_PREFIX__) #name
+/* R1 the signal, R2 the step, R3 the word (it begins as one bit, which
+ * falls out at the top when the eighth code is in), R4 the samples, R5 the
+ * coder, R6 the difference and then the code, R7 and R0 at hand. The codes
+ * go in at the word's low end, so the first comes to lie at the top: the
+ * word's sixteen half-bytes are turned round at the end. */
+__asm__(
+"    .section .text.kui_toy_cdda_squeeze,\"ax\"\n"
+"    .balign 4\n"
+"    .global " OUT_NAME(kui_toy_cdda_squeeze) "\n"
+"    .type " OUT_NAME(kui_toy_cdda_squeeze) ",@function\n"
+OUT_NAME(kui_toy_cdda_squeeze) ":\n"
+"    mov.l   @r5,r1\n"
+"    mov.l   @(4,r5),r2\n"
+"    mov     #1,r3\n"
+"1:  mov.w   @r4+,r6\n"          /* the side's next sample */
+"    add     #2,r4\n"            /* (the other side's lies between) */
+"    sub     r1,r6\n"            /* how far from the signal, and which way */
+"    cmp/pz  r6\n"
+"    bt.s    2f\n"
+"    mov     #0,r0\n"
+"    neg     r6,r6\n"
+"    mov     #8,r0\n"
+"2:  cmp/hs  r2,r6\n"            /* the step, */
+"    bf.s    3f\n"
+"    mov     r2,r7\n"
+"    sub     r2,r6\n"
+"    or      #4,r0\n"
+"3:  shlr    r7\n"               /* its half, */
+"    cmp/hs  r7,r6\n"
+"    bf      4f\n"
+"    sub     r7,r6\n"
+"    or      #2,r0\n"
+"4:  shlr    r7\n"               /* its quarter */
+"    cmp/hs  r7,r6\n"
+"    bf      5f\n"
+"    or      #1,r0\n"
+"5:  mov     r0,r6\n"            /* the code, kept */
+"    and     #7,r0\n"
+"6:  mov     r0,r7\n"            /* the move: (twice the size and one) eighths of the step */
+"    add     r7,r7\n"
+"    add     #1,r7\n"
+"    mul.l   r2,r7\n"
+"    sts     macl,r7\n"
+"    shlr2   r7\n"
+"    shlr    r7\n"
+"    mov.w   8f,r0\n"            /* none beyond 32,767: a size less */
+"    cmp/hi  r0,r7\n"
+"    bf      7f\n"
+"    add     #-1,r6\n"
+"    mov     r6,r0\n"
+"    bra     6b\n"
+"    and     #7,r0\n"
+"7:  mov     r6,r0\n"
+"    tst     #8,r0\n"
+"    bt      9f\n"
+"    neg     r7,r7\n"
+"9:  add     r7,r1\n"            /* the signal moves, and stays within 16 bits */
+"    exts.w  r1,r7\n"
+"    cmp/eq  r7,r1\n"
+"    bt      11f\n"
+"    mov.w   8f,r7\n"            /* beyond them: the nearest end */
+"    cmp/pz  r1\n"
+"    bt      10f\n"
+"    not     r7,r7\n"
+"10: mov     r7,r1\n"
+"11: shll2   r3\n"               /* the code into the word; T: that was the eighth */
+"    shll    r3\n"
+"    shll    r3\n"
+"    or      r6,r3\n"
+"    mov     r6,r0\n"
+"    and     #7,r0\n"
+"    add     r0,r0\n"
+"    movt    r6\n"
+"    mov     r0,r7\n"            /* the step by its size's 256ths, between 127 and 24,576 */
+"    mova    14f,r0\n"
+"    mov.w   @(r0,r7),r7\n"
+"    mul.l   r2,r7\n"
+"    sts     macl,r2\n"
+"    shlr8   r2\n"
+"    mov     #127,r7\n"
+"    cmp/hs  r7,r2\n"
+"    bt      12f\n"
+"    mov     r7,r2\n"
+"12: mov.w   15f,r7\n"
+"    cmp/hi  r7,r2\n"
+"    bf      13f\n"
+"    mov     r7,r2\n"
+"13: tst     r6,r6\n"
+"    bt      1b\n"
+"    mov.l   r1,@r5\n"           /* the decoder stands here now */
+"    mov.l   r2,@(4,r5)\n"
+"    swap.b  r3,r0\n"            /* first code lowest: the bytes turned round, */
+"    swap.w  r0,r0\n"
+"    swap.b  r0,r0\n"
+"    mov.l   16f,r7\n"           /* and the two halves of each */
+"    mov     r0,r6\n"
+"    and     r7,r6\n"
+"    shll2   r6\n"
+"    shll2   r6\n"
+"    shlr2   r0\n"
+"    shlr2   r0\n"
+"    and     r7,r0\n"
+"    rts\n"
+"    or      r6,r0\n"
+"    .balign 4\n"
+"16: .long   0x0f0f0f0f\n"
+"14: .word   230, 230, 230, 230, 307, 409, 512, 614\n"
+"8:  .word   32767\n"
+"15: .word   24576\n"
+"    .size " OUT_NAME(kui_toy_cdda_squeeze) ",.-" OUT_NAME(kui_toy_cdda_squeeze) "\n"
+"    .text\n");
 #endif
-    O.at += UNIT;
-    if(O.at >= O.frames)O.at = 0u;
-    O.written += UNIT;
-    O.bytes += 4u * UNIT;
-    return true;
+/* Whole units of eight frames from where they lie, at an even address,
+ * into the ring at its write position: a word a plane a unit, as many of
+ * `units` as the bus's stretch lets through. Returns the units stored; the
+ * write position and the counts move on by exactly those, and each side's
+ * coder with its words. The bus's rule is kept as put() keeps it: the G2
+ * FIFO empty, and the stretch's time not run out, before each eight
+ * stores, which are four units; and the stores go to the two planes of the
+ * placed ring at the write position, nowhere else. A unit's two words are
+ * stored together or not at all. */
+static __attribute__((noinline)) uint32_t pour(struct bus *b, const uint8_t *from, uint32_t units) {
+    const int16_t *unit = __builtin_assume_aligned(from, 2);
+    const uint32_t frames = O.frames, span = plane_bytes(frames), base = SOUND + plane(0u);
+    uint32_t at = O.at, done = 0u;
+    if(!O.placed || at >= frames || (at & (UNIT - 1u))) {
+        ++O.faults;
+        b->ok = false;
+        return 0u;
+    }
+    for(; done < units; ++done, unit += 2u * UNIT) {
+        if(!(done & 3u)) {
+            b->burst = 0u;
+            if(!drain(b))break;
+        }
+        const uint32_t to = base + at / 2u;
+        write32(to, kui_toy_cdda_squeeze(unit, &O.coder[0]));
+        write32(to + span, kui_toy_cdda_squeeze(unit + 1, &O.coder[1]));
+        at += UNIT;
+        if(at >= frames)at = 0u;
+    }
+    /* (Stores since the FIFO was last seen empty: two a unit.) */
+    b->burst = done ? 2u * (((done - 1u) & 3u) + 1u) : 0u;
+    O.at = at;
+    O.written += UNIT * done;
+    O.bytes += 4u * UNIT * done;
+    return done;
 }
+#else
+/* Units of two frames of 16-bit samples from where they lie into the ring
+ * at its write position, a word a plane a unit, with a plane's first two
+ * once more behind its last. Returns the units stored: nothing is counted
+ * for one that is not, and it may come again. */
+static uint32_t pour(struct bus *b, const uint8_t *from, uint32_t units) {
+    uint32_t done = 0u;
+    for(; done < units; ++done, from += 4u * UNIT) {
+        const uint32_t at = O.at * 4u / UNIT;
+        const uint32_t word[2] = {from[0] | from[1] << 8 | from[4] << 16 | (uint32_t)from[5] << 24,
+            from[2] | from[3] << 8 | from[6] << 16 | (uint32_t)from[7] << 24};
+        for(unsigned side = 0; side < 2u; ++side)
+            if(!put(b, SOUND + plane(side) + at, word[side]) ||
+               (!at && !put(b, SOUND + plane(side) + 2u * O.frames, word[side])))return done;
+        O.at += UNIT;
+        if(O.at >= O.frames)O.at = 0u;
+        O.written += UNIT;
+        O.bytes += 4u * UNIT;
+    }
+    return done;
+}
+#endif
 /* Bytes of frames on their way into the ring, the card's or (no bytes
  * named) silence: whole units are stored, straight from where they lie
- * when none is begun; the rest of one waits for its other bytes. Returns
- * the bytes taken; a unit that could not be stored waits whole. */
+ * when none is begun, in one run where they lie at an even address (the
+ * card's always do: a sector is 2,352 bytes, a block 512); the rest of one
+ * waits for its other bytes. Returns the bytes taken; a unit that could not
+ * be stored waits whole. */
 static uint32_t feed(struct bus *b, const uint8_t *bytes, uint32_t count) {
-    static const uint8_t nothing[4u * UNIT];
+    static const _Alignas(4) uint8_t nothing[4u * UNIT];
     uint32_t taken = 0u;
     while(taken < count) {
         if(O.carried == 4u * UNIT) {
-            if(!store(b, O.carry))return taken;
+            if(!pour(b, O.carry, 1u))return taken;
             O.carried = 0u;
         }
         if(!O.carried && count - taken >= 4u * UNIT) {
-            if(!store(b, bytes ? bytes + taken : nothing))return taken;
-            taken += 4u * UNIT;
+            uint32_t units = 1u;
+            const uint8_t *from = nothing;
+            if(bytes && !((uintptr_t)(bytes + taken) & 1u)) {
+                from = bytes + taken;
+                units = (count - taken) / (4u * UNIT);
+            } else if(bytes) {
+                /* (At an odd address: by way of the unit's own room.) */
+                for(unsigned i = 0; i < 4u * UNIT; ++i)O.carry[i] = bytes[taken + i];
+                from = O.carry;
+            }
+            const uint32_t done = pour(b, from, units);
+            taken += 4u * UNIT * done;
+            if(done < units)return taken;
             continue;
         }
         O.carry[O.carried++] = bytes ? bytes[taken] : 0u;
         ++taken;
     }
-    if(O.carried == 4u * UNIT && store(b, O.carry))O.carried = 0u;
+    if(O.carried == 4u * UNIT && pour(b, O.carry, 1u))O.carried = 0u;
     return taken;
 }
 static uint32_t silence(struct bus *b, uint32_t frames) {
