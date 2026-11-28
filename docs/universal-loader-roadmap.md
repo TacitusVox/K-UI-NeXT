@@ -410,8 +410,8 @@ is what slows it; then step 2, the player's rough edges.
 `cdda-background-test-89.md`, build `d4d5871818df`, Test 88's recipe.
 Step 2 of the list below, at the owner's word ("Start on the next in the
 roadmap"); Nasubi no Heya's slowness parked by the owner ("Not going to
-worry about the slow right now"). Packaged and delivered; not run on a
-console.
+worry about the slow right now"). Packaged, and run on the console the
+same day in eight games.
 
 - The drive keeps the sound chip's time: three sectors are 31,172 of
   TMU0's ticks (the nominal ratio of the two clocks, 2,500 parts in a
@@ -430,9 +430,19 @@ console.
 
 The worker has 256 bytes left.
 
-Next: its console round (KOF, Tetsuman, ChuChu Rocket, Mr. Driller, POD
-SpeedZone). `TB` decides step 4's clock; `CD W` says whether KOF's breaks
-are the card's or the reader's.
+What its console round said: every game played as under Test 88, the
+planes with the pans KOF and Tetsuman set (by the report; by ear not yet
+said). KOF's breaks are blocks with bytes lost inside a run, some 60
+overruns a second where the other games have one to three. The chip's
+timer C moves as read from the processor's side; B moves in every bit
+under MANATEE 2 but not as a count under MANATEE 1; every first read of
+both was 00. Jet Coaster Dream 2 is silent with Bangai-O's reason. Quake
+III's PAL disc restarted the console: its loader's program overwrites the
+Background reader (known since October; suggested for this round in
+error).
+
+Next: for step 4's clock, a read-only look at timer C's successive values
+and their rate; for KOF, what makes the reader fall behind inside a run.
 
 ### CD music in regular games: what is left (27 November 2026)
 

@@ -1,0 +1,722 @@
+{
+ "id": "6C8B10FDC948CC69DD63E48214F2CDBA",
+ "slots": 100,
+ "entries": [
+  {
+   "slot": 0,
+   "launch": {
+    "survey": 83,
+    "build": "d4d5871818df",
+    "product": "T3101N",
+    "title": "THE KING OF FIGHTERS DREAM MATCH 1999",
+    "bootfile": "1ST_READ.BIN",
+    "region": "U",
+    "ip_crc32": 1808544597,
+    "gdi_crc32": 2153705665,
+    "boot_crc32": 2518310885,
+    "boot_bytes": 2369764,
+    "exec_crc32": 2518310885,
+    "exec_bytes": 2369764,
+    "reader": 1,
+    "transport": 1,
+    "flags": 4,
+    "source": 1,
+    "tracks": 43,
+    "raw": 3,
+    "cooked": 0,
+    "audio": 40,
+    "audio_high": 39,
+    "audio_mapped": 40,
+    "other": 0,
+    "extents": 49,
+    "session_lba": 45000,
+    "boot_lba": 547842
+   },
+   "state": "launched, no report saved"
+  },
+  {
+   "slot": 1,
+   "launch": {
+    "survey": 83,
+    "build": "d4d5871818df",
+    "product": "T3101N",
+    "title": "THE KING OF FIGHTERS DREAM MATCH 1999",
+    "bootfile": "1ST_READ.BIN",
+    "region": "U",
+    "ip_crc32": 1808544597,
+    "gdi_crc32": 2153705665,
+    "boot_crc32": 2518310885,
+    "boot_bytes": 2369764,
+    "exec_crc32": 2518310885,
+    "exec_bytes": 2369764,
+    "reader": 1,
+    "transport": 1,
+    "flags": 4,
+    "source": 1,
+    "tracks": 43,
+    "raw": 3,
+    "cooked": 0,
+    "audio": 40,
+    "audio_high": 39,
+    "audio_mapped": 40,
+    "other": 0,
+    "extents": 49,
+    "session_lba": 45000,
+    "boot_lba": 547842
+   },
+   "state": "report saved",
+   "report": "K-UI TOY COMMANDER REPORT\nTEST 89\nBUILD d4d5871818df\nHEX / 781250 HZ\nPIPE B I CALLS IRQ STAY PT\n0 0 19ABA 575 218 1FBD\nAHEAD B I HIT EDC STOP OS\n0 0 222 1367 0 130A\nX OW E I C W O\n11 0 0 2 0 F\nSD BLK PIO OVR CRC DECL\n288F 287 D5 0 0\nCD W BL AH CU TB\n0 2290000 5611005 1F00FF\nCD P P2 PA RE END LAP\n3 0 7 0 0 0\nCD ST RD KEEP REF LOST PJ\n110F0301 0 0 0 0 4DB\nCD O ST V ID RING N\n202 3B0101 3E3D1C1F 15000 3012FC0\nCD O KEY RST UND CLK DRP TK\n3 0 0 0 0 0\nCD O HB LONG TICK KB SKIP LV\nCC4 9A9 3E163B 24EE 0 F080F17\nCD O MX LD L2 AT TM LOST\nF170F08 CB0AA4 1A08 40C6 314C615 0\nCD C BLK RB RR PIO WAIT YLD\n47B2 44D 229 22B 22C 0\nCD C HD HO HX REF DCL ERR\n0 22B 0 0 0 0\nCD C VIS TICK HB LONG RND SEEK\n2D0F 340215 CBF 861 176 810A4\n                                                                                                                                                                                                                                                                                                   \nEND REPORT\n"
+  },
+  {
+   "slot": 2,
+   "launch": {
+    "survey": 83,
+    "build": "d4d5871818df",
+    "product": "T3101N",
+    "title": "THE KING OF FIGHTERS DREAM MATCH 1999",
+    "bootfile": "1ST_READ.BIN",
+    "region": "U",
+    "ip_crc32": 1808544597,
+    "gdi_crc32": 2153705665,
+    "boot_crc32": 2518310885,
+    "boot_bytes": 2369764,
+    "exec_crc32": 2518310885,
+    "exec_bytes": 2369764,
+    "reader": 1,
+    "transport": 1,
+    "flags": 4,
+    "source": 1,
+    "tracks": 43,
+    "raw": 3,
+    "cooked": 0,
+    "audio": 40,
+    "audio_high": 39,
+    "audio_mapped": 40,
+    "other": 0,
+    "extents": 49,
+    "session_lba": 45000,
+    "boot_lba": 547842
+   },
+   "state": "report saved",
+   "report": "K-UI TOY COMMANDER REPORT\nTEST 89\nBUILD d4d5871818df\nHEX / 781250 HZ\nPIPE B I CALLS IRQ STAY PT\n0 0 18E86 514 225 1FBD\nAHEAD B I HIT EDC STOP OS\n0 0 22A 12B0 0 1278\nX OW E I C W O\n11 0 0 2 0 F\nSD BLK PIO OVR CRC DECL\n2B02 243 E4 0 0\nCD W BL AH CU TB\n0 1EF0000 4C70E62 D400FF\nCD P P2 PA RE END LAP\n3 0 7 0 0 0\nCD ST RD KEEP REF LOST PJ\n120F0301 0 0 0 0 A21\nCD O ST V ID RING N\n202 3B0101 3E3D1C1F 15000 3012FC0\nCD O KEY RST UND CLK DRP TK\n3 0 0 0 0 0\nCD O HB LONG TICK KB SKIP LV\nB5E 996 37549C 20EF 0 F080F17\nCD O MX LD L2 AT TM LOST\nF170F08 CB064E 164D 3B33 2D0ED13 0\nCD C BLK RB RR PIO WAIT YLD\n3FEF 3E6 1EF 1F1 1F2 0\nCD C HD HO HX REF DCL ERR\n0 1F1 0 0 0 0\nCD C VIS TICK HB LONG RND SEEK\n2836 2E60A7 B59 84D 16E 738DF\n                                                                                                                                                                                                                                                                                                   \nEND REPORT\n"
+  },
+  {
+   "slot": 3,
+   "launch": {
+    "survey": 83,
+    "build": "d4d5871818df",
+    "product": "T18701M",
+    "title": "TETSUMAN MENKYOKAIDEN",
+    "bootfile": "1ST_READ.BIN",
+    "region": "J",
+    "ip_crc32": 2665547514,
+    "gdi_crc32": 2293264609,
+    "boot_crc32": 2017172268,
+    "boot_bytes": 391680,
+    "exec_crc32": 2017172268,
+    "exec_bytes": 391680,
+    "reader": 1,
+    "transport": 1,
+    "flags": 4,
+    "source": 1,
+    "tracks": 29,
+    "raw": 3,
+    "cooked": 0,
+    "audio": 26,
+    "audio_high": 25,
+    "audio_mapped": 26,
+    "other": 0,
+    "extents": 30,
+    "session_lba": 45000,
+    "boot_lba": 548808
+   },
+   "state": "launched, no report saved"
+  },
+  {
+   "slot": 4,
+   "launch": {
+    "survey": 83,
+    "build": "d4d5871818df",
+    "product": "T18701M",
+    "title": "TETSUMAN MENKYOKAIDEN",
+    "bootfile": "1ST_READ.BIN",
+    "region": "J",
+    "ip_crc32": 2665547514,
+    "gdi_crc32": 2293264609,
+    "boot_crc32": 2017172268,
+    "boot_bytes": 391680,
+    "exec_crc32": 2017172268,
+    "exec_bytes": 391680,
+    "reader": 1,
+    "transport": 1,
+    "flags": 4,
+    "source": 1,
+    "tracks": 29,
+    "raw": 3,
+    "cooked": 0,
+    "audio": 26,
+    "audio_high": 25,
+    "audio_mapped": 26,
+    "other": 0,
+    "extents": 30,
+    "session_lba": 45000,
+    "boot_lba": 548808
+   },
+   "state": "report saved",
+   "report": "K-UI TOY COMMANDER REPORT\nTEST 89\nBUILD d4d5871818df\nHEX / 781250 HZ\nPIPE B I CALLS IRQ STAY PT\n0 0 182 18E 6 1FBD\nAHEAD B I HIT EDC STOP OS\n0 0 12 45F 0 3E5\nX OW E I C W O\n4 0 0 1 0 3\nSD BLK PIO OVR CRC DECL\nD2A A 47 0 0\nCD W BL AH CU TB\n0 80000 3BE0014 2B00FF\nCD P P2 PA RE END LAP\n1 0 0 0 0 0\nCD ST RD KEEP REF LOST PJ\n4000101 0 0 0 0 1B8\nCD O ST V ID RING N\n202 400101 3E3D2CF9 15000 3012FC0\nCD O KEY RST UND CLK DRP TK\n1 0 0 0 0 0\nCD O HB LONG TICK KB SKIP LV\nA4D A56 268D6D 1DB1 0 F170F08\nCD O MX LD L2 AT TM LOST\nF080F17 CB1457 23B0 2AD1 2095A1A 0\nCD C BLK RB RR PIO WAIT YLD\n3B5A 3C8 8 9 9 0\nCD C HD HO HX REF DCL ERR\n0 8 0 0 0 0\nCD C VIS TICK HB LONG RND SEEK\n209E 1C8867 A4A 90D 153 2187\n                                                                                                                                                                                                                                                                                                                          \nEND REPORT\n"
+  },
+  {
+   "slot": 5,
+   "launch": {
+    "survey": 83,
+    "build": "d4d5871818df",
+    "product": "MK-51049",
+    "title": "CHUCHU ROCKET",
+    "bootfile": "1ST_READ.BIN",
+    "region": "U",
+    "ip_crc32": 3588297609,
+    "gdi_crc32": 3084472095,
+    "boot_crc32": 2212678210,
+    "boot_bytes": 1532256,
+    "exec_crc32": 2212678210,
+    "exec_bytes": 1532256,
+    "reader": 1,
+    "transport": 1,
+    "flags": 4,
+    "source": 1,
+    "tracks": 19,
+    "raw": 3,
+    "cooked": 0,
+    "audio": 16,
+    "audio_high": 15,
+    "audio_mapped": 16,
+    "other": 0,
+    "extents": 20,
+    "session_lba": 45000,
+    "boot_lba": 548251
+   },
+   "state": "report saved",
+   "report": "K-UI TOY COMMANDER REPORT\nTEST 89\nBUILD d4d5871818df\nHEX / 781250 HZ\nPIPE B I CALLS IRQ STAY PT\n0 0 1F35 67 1E 1FBD\nAHEAD B I HIT EDC STOP OS\n0 0 1E 165 0 122\nX OW E I C W O\n9 0 0 1 0 8\nSD BLK PIO OVR CRC DECL\n2D65 19 F5 0 0\nCD W BL AH CU TB\n0 110000 4C1009A FF007F\nCD P P2 PA RE END LAP\n9 0 F 0 0 0\nCD ST RD KEEP REF LOST PJ\n70F0901 2 15 0 0 16\nCD O ST V ID RING N\n102 90002 3F3EC46D 16000 3011FC0\nCD O KEY RST UND CLK DRP TK\nA 1 1 0 0 0\nCD O HB LONG TICK KB SKIP LV\nCB3 9B5 30D220 24D2 0 D0F0D1F\nCD O MX LD L2 AT TM LOST\nD1F0D0F 11500E2 E2 3949 2B9844C 0\nCD C BLK RB RR PIO WAIT YLD\n498F 4F5 11 18 1A 0\nCD C HD HO HX REF DCL ERR\n2 17 0 0 0 0\nCD C VIS TICK HB LONG RND SEEK\n288E 2455D1 CA8 887 171 5A44\n                                                                                                                                                                                                                                                                                                                    \nEND REPORT\n"
+  },
+  {
+   "slot": 6,
+   "launch": {
+    "survey": 83,
+    "build": "d4d5871818df",
+    "product": "T1402N",
+    "title": "MR.DRILLER",
+    "bootfile": "1ST_READ.BIN",
+    "region": "U",
+    "ip_crc32": 514088677,
+    "gdi_crc32": 3216952761,
+    "boot_crc32": 922686378,
+    "boot_bytes": 939488,
+    "exec_crc32": 922686378,
+    "exec_bytes": 939488,
+    "reader": 1,
+    "transport": 1,
+    "flags": 4,
+    "source": 1,
+    "tracks": 29,
+    "raw": 3,
+    "cooked": 0,
+    "audio": 26,
+    "audio_high": 25,
+    "audio_mapped": 26,
+    "other": 0,
+    "extents": 30,
+    "session_lba": 45000,
+    "boot_lba": 548541
+   },
+   "state": "report saved",
+   "report": "K-UI TOY COMMANDER REPORT\nTEST 89\nBUILD d4d5871818df\nHEX / 781250 HZ\nPIPE B I CALLS IRQ STAY PT\n0 0 51F 66C F 1FBD\nAHEAD B I HIT EDC STOP OS\n0 0 27 1228 0 10CD\nX OW E I C W O\n13 0 0 1 0 12\nSD BLK PIO OVR CRC DECL\nCB 19 2 0 0\nCD W BL AH CU TB\n0 140000 980003D FF00FF\nCD P P2 PA RE END LAP\n4 0 4 0 0 0\nCD ST RD KEEP REF LOST PJ\n90F0401 0 0 0 0 5\nCD O ST V ID RING N\n102 20202 3F3E8AF6 16000 3011FC0\nCD O KEY RST UND CLK DRP TK\n4 0 0 0 0 0\nCD O HB LONG TICK KB SKIP LV\n1A24 9BF 63A285 4B4F 0 F0F0F1F\nCD O MX LD L2 AT TM LOST\nF000F00 CB1257 1300 6D1C 5309339 0\nCD C BLK RB RR PIO WAIT YLD\n9689 99B 14 18 18 0\nCD C HD HO HX REF DCL ERR\n0 17 0 0 0 0\nCD C VIS TICK HB LONG RND SEEK\n52C7 49AB57 1A1F 89F 169 593C\n                                                                                                                                                                                                                                                                                                                   \nEND REPORT\n"
+  },
+  {
+   "slot": 7,
+   "launch": {
+    "survey": 83,
+    "build": "d4d5871818df",
+    "product": "T-17713N",
+    "title": "POD SPEEDZONE",
+    "bootfile": "1ST_READ.BIN",
+    "region": "U",
+    "ip_crc32": 62755182,
+    "gdi_crc32": 839926787,
+    "boot_crc32": 3827048531,
+    "boot_bytes": 1758340,
+    "exec_crc32": 3827048531,
+    "exec_bytes": 1758340,
+    "reader": 1,
+    "transport": 1,
+    "flags": 4,
+    "source": 1,
+    "tracks": 11,
+    "raw": 3,
+    "cooked": 0,
+    "audio": 8,
+    "audio_high": 7,
+    "audio_mapped": 8,
+    "other": 0,
+    "extents": 12,
+    "session_lba": 45000,
+    "boot_lba": 548141
+   },
+   "state": "report saved",
+   "report": "K-UI TOY COMMANDER REPORT\nTEST 89\nBUILD d4d5871818df\nHEX / 781250 HZ\nPIPE B I CALLS IRQ STAY PT\n0 0 10912 1A87 1DB 1FBD\nAHEAD B I HIT EDC STOP OS\n0 0 2E5 360A 0 33D8\nX OW E I C W O\n57 0 0 1 5 28\nSD BLK PIO OVR CRC DECL\n2502 14A D1 0 0\nCD W BL AH CU TB\n0 3E0000 857010C FF00FF\nCD P P2 PA RE END LAP\n3 0 0 0 0 0\nCD ST RD KEEP REF LOST PJ\n8FF0301 254 61F 0 0 3\nCD O ST V ID RING N\n202 370101 3E3DE50F 15000 3012FC0\nCD O KEY RST UND CLK DRP TK\n9 6 6 0 0 0\nCD O HB LONG TICK KB SKIP LV\n1AE8 A5D 576F79 4147 0 A0F0A1F\nCD O MX LD L2 AT TM LOST\nA00 1750000 0 706F 5590BA4 0\nCD C BLK RB RR PIO WAIT YLD\n8243 865 3E 51 8B 29\nCD C HD HO HX REF DCL ERR\n4A 40 0 0 0 0\nCD C VIS TICK HB LONG RND SEEK\n4CA1 40BDA8 1ADD 913 166 14851\n                                                                                                                                                                                                                                                                                                       \nEND REPORT\n"
+  },
+  {
+   "slot": 8,
+   "launch": {
+    "survey": 83,
+    "build": "d4d5871818df",
+    "product": "MK-5106150",
+    "title": "QUAKE 3 ARENA",
+    "bootfile": "1ST_READ.BIN",
+    "region": "E",
+    "ip_crc32": 1598118564,
+    "gdi_crc32": 3310264490,
+    "boot_crc32": 490117439,
+    "boot_bytes": 98692,
+    "exec_crc32": 490117439,
+    "exec_bytes": 98692,
+    "reader": 1,
+    "transport": 1,
+    "flags": 4,
+    "source": 1,
+    "tracks": 20,
+    "raw": 3,
+    "cooked": 0,
+    "audio": 17,
+    "audio_high": 16,
+    "audio_mapped": 17,
+    "other": 0,
+    "extents": 27,
+    "session_lba": 45000,
+    "boot_lba": 548951
+   },
+   "state": "launched, no report saved"
+  },
+  {
+   "slot": 9,
+   "launch": {
+    "survey": 83,
+    "build": "d4d5871818df",
+    "product": "HDR-0054",
+    "title": "SEGAGT HOMOLOGATION SPECIAL",
+    "bootfile": "1ST_READ.BIN",
+    "region": "J",
+    "ip_crc32": 1234494780,
+    "gdi_crc32": 1640436235,
+    "boot_crc32": 2541815209,
+    "boot_bytes": 1779840,
+    "exec_crc32": 2541815209,
+    "exec_bytes": 1779840,
+    "reader": 1,
+    "transport": 1,
+    "flags": 4,
+    "source": 1,
+    "tracks": 15,
+    "raw": 3,
+    "cooked": 0,
+    "audio": 12,
+    "audio_high": 11,
+    "audio_mapped": 12,
+    "other": 0,
+    "extents": 15,
+    "session_lba": 45000,
+    "boot_lba": 548130
+   },
+   "state": "report saved",
+   "report": "K-UI TOY COMMANDER REPORT\nTEST 89\nBUILD d4d5871818df\nHEX / 781250 HZ\nPIPE B I CALLS IRQ STAY PT\n0 0 2B4A 182 C 1FBD\nAHEAD B I HIT EDC STOP OS\n0 0 C 4CB 0 480\nX OW E I C W O\nA 0 0 0 0 A\nSD BLK PIO OVR CRC DECL\n6E69 52 2A8 0 0\nCD W BL AH CU TB\n0 0 7C0006 FF00FF\nCD P P2 PA RE END LAP\n2 0 2 0 0 0\nCD ST RD KEEP REF LOST PJ\nB000202 0 0 0 0 4\nCD O ST V ID RING N\n100 90002 3F3EC46D 16000 3011FC0\nCD O KEY RST UND CLK DRP TK\n2 0 0 0 0 0\nCD O HB LONG TICK KB SKIP LV\n14A A41 4FB64 3CA 0 F1F0F0F\nCD O MX LD L2 AT TM LOST\nF0F0F1F CB126F 1AA0 8F1 6CE996 0\nCD C BLK RB RR PIO WAIT YLD\n793 80 0 2 2 0\nCD C HD HO HX REF DCL ERR\n0 2 0 0 0 0\nCD C VIS TICK HB LONG RND SEEK\n42A 3ACFD 147 8FB 164 770\n                                                                                                                                                                                                                                                                                                                                        \nEND REPORT\n"
+  },
+  {
+   "slot": 10,
+   "launch": {
+    "survey": 83,
+    "build": "d4d5871818df",
+    "product": "T41201M",
+    "title": "JETCOASTER DREAM2",
+    "bootfile": "1ST_READ.BIN",
+    "region": "J",
+    "ip_crc32": 213443703,
+    "gdi_crc32": 3561573326,
+    "boot_crc32": 2628671834,
+    "boot_bytes": 2162400,
+    "exec_crc32": 2628671834,
+    "exec_bytes": 2162400,
+    "reader": 1,
+    "transport": 1,
+    "flags": 4,
+    "source": 1,
+    "tracks": 46,
+    "raw": 3,
+    "cooked": 0,
+    "audio": 43,
+    "audio_high": 42,
+    "audio_mapped": 43,
+    "other": 0,
+    "extents": 47,
+    "session_lba": 45000,
+    "boot_lba": 547944
+   },
+   "state": "report saved",
+   "report": "K-UI TOY COMMANDER REPORT\nTEST 89\nBUILD d4d5871818df\nHEX / 781250 HZ\nPIPE B I CALLS IRQ STAY PT\n0 0 1CDBF 76C 61B 1FBD\nAHEAD B I HIT EDC STOP OS\n0 0 61B 10E1 0 1026\nX OW E I C W O\n113 0 0 1 0 112\nSD BLK PIO OVR CRC DECL\n989 11F 0 0 0\nCD W BL AH CU TB\n0 0 0 0\nCD P P2 PA RE END LAP\n3 0 5 0 0 0\nCD ST RD KEEP REF LOST PJ\n280F0301 0 0 0 0 A\nCD O ST V ID RING N\n10143 90002 3F3EC46D 0 1000000\nCD O KEY RST UND CLK DRP TK\n0 0 0 0 0 0\nCD O HB LONG TICK KB SKIP LV\n462 22 7F84 0 0 0\nCD O MX LD L2 AT TM LOST\n0 0 0 0 0 0\nCD C BLK RB RR PIO WAIT YLD\n0 0 0 0 0 0\nCD C HD HO HX REF DCL ERR\n0 0 0 0 0 0\nCD C VIS TICK HB LONG RND SEEK\n0 0 0 0 0 0\n                                                                                                                                                                                                                                                                                                                                                                                          \nEND REPORT\n"
+  },
+  {
+   "slot": 11,
+   "state": "empty"
+  },
+  {
+   "slot": 12,
+   "state": "empty"
+  },
+  {
+   "slot": 13,
+   "state": "empty"
+  },
+  {
+   "slot": 14,
+   "state": "empty"
+  },
+  {
+   "slot": 15,
+   "state": "empty"
+  },
+  {
+   "slot": 16,
+   "state": "empty"
+  },
+  {
+   "slot": 17,
+   "state": "empty"
+  },
+  {
+   "slot": 18,
+   "state": "empty"
+  },
+  {
+   "slot": 19,
+   "state": "empty"
+  },
+  {
+   "slot": 20,
+   "state": "empty"
+  },
+  {
+   "slot": 21,
+   "state": "empty"
+  },
+  {
+   "slot": 22,
+   "state": "empty"
+  },
+  {
+   "slot": 23,
+   "state": "empty"
+  },
+  {
+   "slot": 24,
+   "state": "empty"
+  },
+  {
+   "slot": 25,
+   "state": "empty"
+  },
+  {
+   "slot": 26,
+   "state": "empty"
+  },
+  {
+   "slot": 27,
+   "state": "empty"
+  },
+  {
+   "slot": 28,
+   "state": "empty"
+  },
+  {
+   "slot": 29,
+   "state": "empty"
+  },
+  {
+   "slot": 30,
+   "state": "empty"
+  },
+  {
+   "slot": 31,
+   "state": "empty"
+  },
+  {
+   "slot": 32,
+   "state": "empty"
+  },
+  {
+   "slot": 33,
+   "state": "empty"
+  },
+  {
+   "slot": 34,
+   "state": "empty"
+  },
+  {
+   "slot": 35,
+   "state": "empty"
+  },
+  {
+   "slot": 36,
+   "state": "empty"
+  },
+  {
+   "slot": 37,
+   "state": "empty"
+  },
+  {
+   "slot": 38,
+   "state": "empty"
+  },
+  {
+   "slot": 39,
+   "state": "empty"
+  },
+  {
+   "slot": 40,
+   "state": "empty"
+  },
+  {
+   "slot": 41,
+   "state": "empty"
+  },
+  {
+   "slot": 42,
+   "state": "empty"
+  },
+  {
+   "slot": 43,
+   "state": "empty"
+  },
+  {
+   "slot": 44,
+   "state": "empty"
+  },
+  {
+   "slot": 45,
+   "state": "empty"
+  },
+  {
+   "slot": 46,
+   "state": "empty"
+  },
+  {
+   "slot": 47,
+   "state": "empty"
+  },
+  {
+   "slot": 48,
+   "state": "empty"
+  },
+  {
+   "slot": 49,
+   "state": "empty"
+  },
+  {
+   "slot": 50,
+   "state": "empty"
+  },
+  {
+   "slot": 51,
+   "state": "empty"
+  },
+  {
+   "slot": 52,
+   "state": "empty"
+  },
+  {
+   "slot": 53,
+   "state": "empty"
+  },
+  {
+   "slot": 54,
+   "state": "empty"
+  },
+  {
+   "slot": 55,
+   "state": "empty"
+  },
+  {
+   "slot": 56,
+   "state": "empty"
+  },
+  {
+   "slot": 57,
+   "state": "empty"
+  },
+  {
+   "slot": 58,
+   "state": "empty"
+  },
+  {
+   "slot": 59,
+   "state": "empty"
+  },
+  {
+   "slot": 60,
+   "state": "empty"
+  },
+  {
+   "slot": 61,
+   "state": "empty"
+  },
+  {
+   "slot": 62,
+   "state": "empty"
+  },
+  {
+   "slot": 63,
+   "state": "empty"
+  },
+  {
+   "slot": 64,
+   "state": "empty"
+  },
+  {
+   "slot": 65,
+   "state": "empty"
+  },
+  {
+   "slot": 66,
+   "state": "empty"
+  },
+  {
+   "slot": 67,
+   "state": "empty"
+  },
+  {
+   "slot": 68,
+   "state": "empty"
+  },
+  {
+   "slot": 69,
+   "state": "empty"
+  },
+  {
+   "slot": 70,
+   "state": "empty"
+  },
+  {
+   "slot": 71,
+   "state": "empty"
+  },
+  {
+   "slot": 72,
+   "state": "empty"
+  },
+  {
+   "slot": 73,
+   "state": "empty"
+  },
+  {
+   "slot": 74,
+   "state": "empty"
+  },
+  {
+   "slot": 75,
+   "state": "empty"
+  },
+  {
+   "slot": 76,
+   "state": "empty"
+  },
+  {
+   "slot": 77,
+   "state": "empty"
+  },
+  {
+   "slot": 78,
+   "state": "empty"
+  },
+  {
+   "slot": 79,
+   "state": "empty"
+  },
+  {
+   "slot": 80,
+   "state": "empty"
+  },
+  {
+   "slot": 81,
+   "state": "empty"
+  },
+  {
+   "slot": 82,
+   "state": "empty"
+  },
+  {
+   "slot": 83,
+   "state": "empty"
+  },
+  {
+   "slot": 84,
+   "state": "empty"
+  },
+  {
+   "slot": 85,
+   "state": "empty"
+  },
+  {
+   "slot": 86,
+   "state": "empty"
+  },
+  {
+   "slot": 87,
+   "state": "empty"
+  },
+  {
+   "slot": 88,
+   "state": "empty"
+  },
+  {
+   "slot": 89,
+   "state": "empty"
+  },
+  {
+   "slot": 90,
+   "state": "empty"
+  },
+  {
+   "slot": 91,
+   "state": "empty"
+  },
+  {
+   "slot": 92,
+   "state": "empty"
+  },
+  {
+   "slot": 93,
+   "state": "empty"
+  },
+  {
+   "slot": 94,
+   "state": "empty"
+  },
+  {
+   "slot": 95,
+   "state": "empty"
+  },
+  {
+   "slot": 96,
+   "state": "empty"
+  },
+  {
+   "slot": 97,
+   "state": "empty"
+  },
+  {
+   "slot": 98,
+   "state": "empty"
+  },
+  {
+   "slot": 99,
+   "state": "empty"
+  }
+ ]
+}

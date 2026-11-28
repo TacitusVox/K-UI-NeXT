@@ -216,8 +216,13 @@ Console result). Test 89's module `d4d5871818df` (the drive on the sound
 chip's clock and held, a second at most, while its ring primes; the
 planes' pans from the game's mixers where it pans the two inputs apart;
 the stream's reasons, the run's least lead and the chip's timers B and C
-in the report, read only) was delivered on 28 November 2026 and has not
-run on a console ([Test 89](cdda-background-test-89.md)). None of the five
+in the report, read only) ran on the console on 28 November 2026 in eight
+games: every MANATEE game played as under Test 88, the planes with the
+pans KOF Dream Match 1999 and Tetsuman Menkyokaiden set; Jet Coaster Dream
+2 was silent with Bangai-O's reason; Quake III Arena's PAL disc restarted
+the console, its loader's program overwriting the Background reader, a
+known limit of that game on Background ([Test 89](cdda-background-test-89.md),
+Console result). None of the five
 is an accepted component: each is a
 test module in the New reader's place, with the virtual VMU off. What is
 left of CD music in regular games is laid out in

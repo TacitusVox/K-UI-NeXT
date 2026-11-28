@@ -1,7 +1,8 @@
 # Test 89: CD music in the Background reader, part 6: the player's rough edges
 
 Status: packaged 28 November 2026 07:27 CST and delivered to the owner the
-same day; not run on a console. Build `d4d5871818df`. A test module in the place of the installed New reader,
+same day; run on the console that day in eight games (Console result).
+Build `d4d5871818df`. A test module in the place of the installed New reader,
 like Tests 79 to 88, not an accepted component.
 
 It is step 2 of `universal-loader-roadmap.md` (CD music in regular games:
@@ -229,6 +230,82 @@ Questions:
 | TB's changing bits zero | They do not read back, or do not run unloaded: AUDIO64's clock is TMU0 corrected by the ratio |
 | CLK counting, UND up against Test 88 | The drive's new measure moved a play's position in a way the ring's clock does not bear: AT and TM say by how much |
 | A game's own sounds wrong, a hang or a crash | The if-needed module says whether the reading or the output is the cause |
+
+## Console result
+
+The owner's runs of 28 November 2026, with the file from the card,
+`KUI/SURVEY/STREAM.TXT` (ID 6C8B10FDC948CC69DD63E48214F2CDBA, 11 of its
+hundred slots used, SHA-256 `5d970d1c...23e4`). The file, the tool's
+listing and the reports with their CD rows spelled out
+(`tools/toy_cdda_report.py`) are in
+`docs/evidence/cdda-background-test-89/console-2026-11-28/`. The owner's
+words: "The PAL version of Quake 3 arena rebooted the console. Not sure
+what's up there." Nothing yet on how the music sounded.
+
+All eleven launch records name this build, `d4d5871818df`, and all eight
+reports say TEST 89. Slots 0 and 3 are launches of KOF and Tetsuman with
+no report; the next slot of each is the same game with one.
+
+| Slot | Game | The driver the report names | In the report |
+|---|---|---|---|
+| 1, 2 | KOF Dream Match 1999 (T3101N) | MANATEE 1.01.3b (`1C1F`), channels 61 and 62 | 3 PLAY each, 7 PAUSE; playing at the save. **3 key-ons, no ring begun again**, nothing dropped or taken. 54.9 s and 48.9 s of music. Mixers 0F08, 0F17; **planes 0F17 (left) and 0F08 (right)**, as built. LD 62 and 37 ms, L2 151 and 129 ms. CD W: no CRC16 failure, no lost token, no ambiguous block; **553 and 495 blocks with lost bytes the CRC16 does not mend**; **4,101 and 3,682 overruns inside a run** |
+| 4 | Tetsuman Menkyokaiden (T18701M) | MANATEE 1.01.40 (`2CF9`), channels 61 and 62 | 1 PLAY; playing. 1 key-on, no ring begun again. 44.1 s. Mixers 0F17, 0F08; **planes 0F08 (left) and 0F17 (right)**. LD 118 ms, L2 207 ms. 8 holed blocks, 20 overruns |
+| 5 | ChuChu Rocket (MK-51049) | MANATEE 2.00.09 (`C46D`), channels 62 and 63 | 9 PLAY, 10 key-ons, **one ring run dry**; 54.7 s. Mixers 0D0F, 0D1F: planes on their own sides. LD and L2 5 ms: the dip came in the run. 17 holed, 154 overruns |
+| 6 | Mr. Driller (T1402N) | MANATEE 2.02.02 (`8AF6`) | 4 PLAY, 4 key-ons, no ring begun again; 111.9 s. LD 106 ms, L2 110 ms. 20 holed, 61 overruns |
+| 7 | POD SpeedZone (T-17713N) | MANATEE 1.01.37 (`E50F`) | 3 PLAY, 9 key-ons, **six rings run dry** in 97.0 s, reading through its race (596 data reads during the play): as under Test 87 (six in 102 s). 62 holed, 268 overruns |
+| 8 | **Quake III Arena, PAL (MK-5106150)** | | **Launch record only: the console restarted** (the owner) |
+| 9 | Sega GT Homologation Special (HDR-0054) | **MANATEE 2.00.09** (`C46D`) | 2 PLAY, 2 key-ons, no ring begun again; 5.6 s of music, paused at the save. LD 107 ms, L2 155 ms |
+| 10 | Jet Coaster Dream 2 (T41201M) | MANATEE 2.00.09 (`C46D`) | 3 PLAY, 5 PAUSE. **Silent with reason 4, detail 1**: the split leaves no two stream ports, as Bangai-O. No ring placed |
+
+What it shows:
+
+1. **Quake III's restart is the game's own loader, not this test.** Its
+   boot file is a small loader whose program, once copied into place,
+   overwrites the Background reader's memory (`experimental-cdda.md`,
+   `native-foreground-control.md`, `library-compat-table.md`, since
+   October). The launcher admits it on Background because the loader
+   passes every gate. Only the low foreground control, with Background,
+   VMU and CD audio off, has run it (the owner, 2 November). The game was
+   suggested for this round, wrongly: from the drivers' table, without
+   its launch notes. The corpus's counts of games the Background worker
+   takes include such loaders and are upper bounds for that reason too.
+2. **The planes have the pans the game sets**, in KOF and in Tetsuman,
+   crossed in Tetsuman as its mixers have them; everywhere else they kept
+   their sides. Whether that sounds right is for the owner's ear.
+3. **Why KOF's stream breaks: bytes lost inside a run.** None of KOF's
+   breaks is a CRC16 that fails, a lost token or a block two readings fit.
+   Each is a block with lost bytes the CRC16 cannot mend (553 of 555
+   streams ended), and behind them some 60 overruns a second inside a run,
+   where the other games have half of one to three. Every game has 6% of its blocks
+   rebuilt from their CRC; KOF alone loses bytes past mending, ten times a
+   second. What in KOF's session makes the reader fall behind the card
+   inside a run is the next question for that game; the music did not run
+   dry.
+4. **The least lead.** In KOF and Tetsuman the least comes at a ring's
+   start (LD under L2 by 80 to 90 ms); in ChuChu Rocket the one ring that
+   ran dry did so in the run; POD runs dry as it did.
+5. **The chip's timers move as read from the processor's side.** Timer
+   C's byte changed in every bit in six reports and in all but its top
+   bit in ChuChu Rocket's. Timer B's changed in every bit under MANATEE 2
+   and in POD, but in KOF and Tetsuman only in some bits (1F, D4, 2B), in
+   patterns a count read at random does not make. Every first read of
+   both was 00. So C reads back as something that moves; its rate, and
+   why every first read was 00, are not known. A clock for AUDIO64 from
+   it needs a read-only look at successive values first.
+6. **Everything else is as under Test 88.** KOF's cost: 3.54 visits and
+   2,962 bytes a heartbeat, 1.59 ms each (Test 88: 3.52, 2,965, 1.58). No
+   count TMU0 did not bear out, no key dropped, no channel taken. TMU0
+   ran 2,381 to 2,524 parts in a million slow against the chip in the six
+   longer reports (2,483 measured before), so the drive's correction of
+   2,500 stands.
+7. **The two extra games run 2.00.09**, a build already run. The corpus
+   lists 2.00.08 for Sega GT's Japanese disc and 2.02.05 beside 2.00.09
+   for Jet Coaster Dream 2: the build that runs is not always the one a
+   disc's files suggest. MANATEE 2.00.0b, 2.02.04 and 2.02.05 are still
+   unrun.
+8. **Nothing in the reports says whether the hold showed.** No game is
+   known to time anything to its music's end; no report holds a play
+   that ended (0 plays ended in all eight).
 
 ## Known limits
 

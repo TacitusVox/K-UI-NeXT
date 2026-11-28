@@ -1,0 +1,12 @@
+STREAM.TXT: ID 6C8B10FDC948CC69DD63E48214F2CDBA, 11 of 100 slots used
+slot 000: launched, no report saved: T3101N THE KING OF FIGHTERS DREAM MATCH 1999 (build d4d5871818df; source 1; tracks 43, CD music tracks 39)
+slot 001: report saved: T3101N THE KING OF FIGHTERS DREAM MATCH 1999 (build d4d5871818df; source 1; tracks 43, CD music tracks 39)
+slot 002: report saved: T3101N THE KING OF FIGHTERS DREAM MATCH 1999 (build d4d5871818df; source 1; tracks 43, CD music tracks 39)
+slot 003: launched, no report saved: T18701M TETSUMAN MENKYOKAIDEN (build d4d5871818df; source 1; tracks 29, CD music tracks 25)
+slot 004: report saved: T18701M TETSUMAN MENKYOKAIDEN (build d4d5871818df; source 1; tracks 29, CD music tracks 25)
+slot 005: report saved: MK-51049 CHUCHU ROCKET (build d4d5871818df; source 1; tracks 19, CD music tracks 15)
+slot 006: report saved: T1402N MR.DRILLER (build d4d5871818df; source 1; tracks 29, CD music tracks 25)
+slot 007: report saved: T-17713N POD SPEEDZONE (build d4d5871818df; source 1; tracks 11, CD music tracks 7)
+slot 008: launched, no report saved: MK-5106150 QUAKE 3 ARENA (build d4d5871818df; source 1; tracks 20, CD music tracks 16)
+slot 009: report saved: HDR-0054 SEGAGT HOMOLOGATION SPECIAL (build d4d5871818df; source 1; tracks 15, CD music tracks 11)
+slot 010: report saved: T41201M JETCOASTER DREAM2 (build d4d5871818df; source 1; tracks 46, CD music tracks 42)
