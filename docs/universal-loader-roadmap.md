@@ -367,8 +367,8 @@ the chip, give or take 5.
 
 `cdda-background-test-88.md`, build `9e105c4e8d25`, Test 87's recipe.
 Step 3 of the list below, taken before step 2 at the owner's word
-("carry our work further and do an ALL MANATEE build"). Packaged; not run
-on a console.
+("carry our work further and do an ALL MANATEE build"). Packaged, and run
+on the console the same night in six games.
 
 - All 27 MANATEE-lineage builds of the corpus were read, and each run: its
   start-up and 3,528 timer interrupts on an ARM7 model
@@ -392,7 +392,18 @@ before). The two older families are on four of the 82, each beside a
 later build; the 17 games that carry only one of them are not games the
 worker takes.
 
-Next, after its console round: step 2, the player's rough edges.
+What its console round said: MANATEE 2.02.02 (Mr. Driller, a disc the
+corpus had no driver file for) and 1.01.40 (Tetsuman Menkyokaiden) play
+with no ring begun again, no key dropped and no channel taken; KOF as
+under Test 87; Bangai-O silent with its reason. Open: Nasubi no Heya (it
+runs 1.01.38, not 1.01.28) was slow by the owner's account, with 1.5 s of
+music and nothing against the output in its report; a Pro Yakyu disc left
+no launch record; Maken X asked for no CD music. The two older families
+are still unrun.
+
+Next: Nasubi no Heya with the if-needed module and with the owner's own
+New reader, to say whether the reader, the drive that plays or the sound
+is what slows it; then step 2, the player's rough edges.
 
 ### CD music in regular games: what is left (27 November 2026)
 
@@ -452,7 +463,9 @@ The steps, in the order proposed:
    generation. Reach on today's routes: 23 to 56, and the 16 with both
    drivers where MANATEE is the one that runs. Built as Test 88
    (`cdda-background-test-88.md`, above), 27 November 2026, before step 2
-   at the owner's word; its console round is open.
+   at the owner's word. Its console round: two builds new to the console
+   play; the two older families are unrun, and Nasubi no Heya's slowness
+   is open.
 4. AUDIO64: the ring in the driver's own unused memory (0xD000 to 0xFFFF,
    12 KiB, read in three builds; the other fifteen to read), channels 62
    and 63 by the driver's playing bytes, the clock by the chip's timers

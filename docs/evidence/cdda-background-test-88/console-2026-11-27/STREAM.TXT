@@ -1,0 +1,840 @@
+K-UI STREAM SURVEY FILE 1
+ID B0D310936D1B8EE970AA887B0B79452F
+SLOTS 100
+EACH LAUNCH OF A GAME WITH THE SURVEY MODULE FILLS ONE SLOT BELOW.
+SEND THIS FILE BACK AS IT IS.
+                                                                                                                                                                                                                                                                                                                                                      
+==== SLOT 000 PART 0 ==== ID B0D310936D1B8EE970AA887B0B79452F ==== LAUNCH ====
+SURVEY 83 BUILD 9e105c4e8d25
+PRODUCT T3101N
+TITLE THE KING OF FIGHTERS DREAM MATCH 1999
+BOOT 1ST_READ.BIN REGION U
+IPCRC 6BCC3355 GDICRC 805EF0C1 BOOTCRC 961A5FE5 BOOTBYTES 002428E4
+EXECCRC 961A5FE5 EXECBYTES 002428E4
+READER 1 TRANSPORT 1 FLAGS 00000004 SOURCE 1
+TRACKS 43 RAW 3 COOKED 0 AUDIO 40 HDAUDIO 39 MAPPED 40 OTHER 0 EXTENTS 49
+SESSION 0000AFC8 BOOTLBA 00085C02
+                                                             
+K-UI TOY COMMANDER REPORT
+TEST 88
+BUILD 9e105c4e8d25
+HEX / 781250 HZ
+PIPE B I CALLS IRQ STAY PT
+0 0 1ACA5 56D 230 1FBD
+AHEAD B I HIT EDC STOP OS
+0 0 237 14A6 0 144B
+X OW E I C W O
+15 0 0 2 0 13
+SD BLK PIO OVR CRC DECL
+2B0E 496 E5 0 0
+XC KEPT LO HI
+9 400000 4
+CD P P2 PA RE END LAP
+4 0 8 0 0 0
+CD ST RD KEEP REF LOST PJ
+6000401 0 0 0 0 17C0
+CD O ST V ID RING N
+202 3B0101 3E3D1C1F 15000 3012FC0
+CD O KEY RST UND CLK DRP TK
+4 0 0 0 0 0
+CD O HB LONG TICK KB SKIP LV
+19B8 9D4 7C1C03 4A75 0 F0F0F1F
+CD O MX LD FB AT TM LOST
+F170F08 CC0A6C 0 78D6 5BF6E70 0
+CD C BLK RB RR PIO WAIT YLD
+90B3 7F5 436 438 439 0
+CD C HD HO HX REF DCL ERR
+0 439 0 0 0 0
+CD C VIS TICK HB LONG RND SEEK
+5A7E 677CED 19B2 87D 177 FB245
+                                                                                                                                                                                                                                                                                                                    
+END REPORT
+==== SLOT 001 PART 0 ==== ID B0D310936D1B8EE970AA887B0B79452F ==== LAUNCH ====
+SURVEY 83 BUILD 9e105c4e8d25
+PRODUCT MK-51050
+TITLE MAKEN X
+BOOT 1ST_READ.BIN REGION U
+IPCRC 179BC26D GDICRC D96B9D3C BOOTCRC 85041DE9 BOOTBYTES 001C8540
+EXECCRC 85041DE9 EXECBYTES 001C8540
+READER 1 TRANSPORT 1 FLAGS 00000004 SOURCE 1
+TRACKS 9 RAW 3 COOKED 0 AUDIO 6 HDAUDIO 5 MAPPED 6 OTHER 0 EXTENTS 10
+SESSION 0000AFC8 BOOTLBA 00085CF7
+                                                                                             
+K-UI TOY COMMANDER REPORT
+TEST 88
+BUILD 9e105c4e8d25
+HEX / 781250 HZ
+PIPE B I CALLS IRQ STAY PT
+0 0 99E6 A1C 39 1FBD
+AHEAD B I HIT EDC STOP OS
+0 0 72 13A5 0 943
+X OW E I C W O
+30 0 0 0 0 30
+SD BLK PIO OVR CRC DECL
+150B4 C8 763 0 0
+XC KEPT LO HI
+0 0 0
+CD P P2 PA RE END LAP
+0 0 0 0 0 0
+CD ST RD KEEP REF LOST PJ
+0 0 0 0 0 0
+CD O ST V ID RING N
+0 0 0 0 1000000
+CD O KEY RST UND CLK DRP TK
+0 0 0 0 0 0
+CD O HB LONG TICK KB SKIP LV
+0 0 0 0 0 0
+CD O MX LD FB AT TM LOST
+0 0 0 0 0 0
+CD C BLK RB RR PIO WAIT YLD
+0 0 0 0 0 0
+CD C HD HO HX REF DCL ERR
+0 0 0 0 0 0
+CD C VIS TICK HB LONG RND SEEK
+0 0 0 0 0 0
+                                                                                                                                                                                                                                                                                                                                                                                                                              
+END REPORT
+==== SLOT 002 PART 0 ==== ID B0D310936D1B8EE970AA887B0B79452F ==== LAUNCH ====
+SURVEY 83 BUILD 9e105c4e8d25
+PRODUCT T1402N
+TITLE MR.DRILLER
+BOOT 1ST_READ.BIN REGION U
+IPCRC 1EA45EE5 GDICRC BFBECDB9 BOOTCRC 36FF13AA BOOTBYTES 000E55E0
+EXECCRC 36FF13AA EXECBYTES 000E55E0
+READER 1 TRANSPORT 1 FLAGS 00000004 SOURCE 1
+TRACKS 29 RAW 3 COOKED 0 AUDIO 26 HDAUDIO 25 MAPPED 26 OTHER 0 EXTENTS 30
+SESSION 0000AFC8 BOOTLBA 00085EBD
+                                                                                        
+K-UI TOY COMMANDER REPORT
+TEST 88
+BUILD 9e105c4e8d25
+HEX / 781250 HZ
+PIPE B I CALLS IRQ STAY PT
+0 0 528 673 F 1FBD
+AHEAD B I HIT EDC STOP OS
+0 0 27 1224 0 10CD
+X OW E I C W O
+13 0 0 1 0 12
+SD BLK PIO OVR CRC DECL
+CB 23 2 0 0
+XC KEPT LO HI
+0 400000 0
+CD P P2 PA RE END LAP
+6 0 6 0 0 0
+CD ST RD KEEP REF LOST PJ
+19000601 0 0 0 0 9
+CD O ST V ID RING N
+102 20202 3F3E8AF6 16000 3011FC0
+CD O KEY RST UND CLK DRP TK
+6 0 0 0 0 0
+CD O HB LONG TICK KB SKIP LV
+1F74 9BB 79FDF7 5A97 0 F0F0F1F
+CD O MX LD FB AT TM LOST
+F000F00 CC1257 0 832F 63D628E 0
+CD C BLK RB RR PIO WAIT YLD
+B512 B90 19 1F 1F 0
+CD C HD HO HX REF DCL ERR
+0 1E 0 0 0 0
+CD C VIS TICK HB LONG RND SEEK
+6395 59F37C 1F6D 88C 169 734C
+                                                                                                                                                                                                                                                                                                                                     
+END REPORT
+==== SLOT 003 PART 0 ==== ID B0D310936D1B8EE970AA887B0B79452F ==== LAUNCH ====
+SURVEY 83 BUILD 9e105c4e8d25
+PRODUCT T18701M
+TITLE TETSUMAN MENKYOKAIDEN
+BOOT 1ST_READ.BIN REGION J
+IPCRC 9EE106FA GDICRC 88B070E1 BOOTCRC 783B9B2C BOOTBYTES 0005FA00
+EXECCRC 783B9B2C EXECBYTES 0005FA00
+READER 1 TRANSPORT 1 FLAGS 00000004 SOURCE 1
+TRACKS 29 RAW 3 COOKED 0 AUDIO 26 HDAUDIO 25 MAPPED 26 OTHER 0 EXTENTS 30
+SESSION 0000AFC8 BOOTLBA 00085FC8
+                                                                            
+K-UI TOY COMMANDER REPORT
+TEST 88
+BUILD 9e105c4e8d25
+HEX / 781250 HZ
+PIPE B I CALLS IRQ STAY PT
+0 0 26F 2CD C 1FBD
+AHEAD B I HIT EDC STOP OS
+0 0 1A 7F8 0 71F
+X OW E I C W O
+7 0 0 2 0 5
+SD BLK PIO OVR CRC DECL
+23B2 B C5 0 0
+XC KEPT LO HI
+14 100000 4
+CD P P2 PA RE END LAP
+2 0 1 0 0 0
+CD ST RD KEEP REF LOST PJ
+5000201 0 0 0 0 16C
+CD O ST V ID RING N
+202 400101 3E3D2CF9 15000 3012FC0
+CD O KEY RST UND CLK DRP TK
+2 0 0 0 0 0
+CD O HB LONG TICK KB SKIP LV
+842 A5F 1EFE17 17E6 0 F0F0F1F
+CD O MX LD FB AT TM LOST
+F080F17 CC1457 0 2631 1D102E1 0
+CD C BLK RB RR PIO WAIT YLD
+2FC3 315 8 A A 0
+CD C HD HO HX REF DCL ERR
+0 9 0 0 0 0
+CD C VIS TICK HB LONG RND SEEK
+1A42 16FDFF 83E 91A 14D 252A
+                                                                                                                                                                                                                                                                                                                                          
+END REPORT
+==== SLOT 004 PART 0 ==== ID B0D310936D1B8EE970AA887B0B79452F ==== LAUNCH ====
+SURVEY 83 BUILD 9e105c4e8d25
+PRODUCT T40217N
+TITLE BANGAI-O
+BOOT 1ST_READ.BIN REGION U
+IPCRC B44AFE8C GDICRC 66FE782A BOOTCRC 9AFC1E31 BOOTBYTES 00089BC0
+EXECCRC 9AFC1E31 EXECBYTES 00089BC0
+READER 1 TRANSPORT 1 FLAGS 00000004 SOURCE 1
+TRACKS 37 RAW 3 COOKED 0 AUDIO 34 HDAUDIO 33 MAPPED 34 OTHER 0 EXTENTS 111
+SESSION 0000AFC8 BOOTLBA 00085506
+                                                                                        
+K-UI TOY COMMANDER REPORT
+TEST 88
+BUILD 9e105c4e8d25
+HEX / 781250 HZ
+PIPE B I CALLS IRQ STAY PT
+0 0 5F0F 478 3AE 1FBD
+AHEAD B I HIT EDC STOP OS
+0 0 3B7 48C 0 3BA
+X OW E I C W O
+D 0 0 0 0 D
+SD BLK PIO OVR CRC DECL
+16B0 E6 6E 0 0
+XC KEPT LO HI
+0 0 0
+CD P P2 PA RE END LAP
+7 0 6 1 0 0
+CD ST RD KEEP REF LOST PJ
+40F0702 3 C 0 0 D
+CD O ST V ID RING N
+10140 90002 3F3EC46D 0 1000000
+CD O KEY RST UND CLK DRP TK
+0 0 0 0 0 0
+CD O HB LONG TICK KB SKIP LV
+EFA 26 1D117 0 0 0
+CD O MX LD FB AT TM LOST
+0 0 0 0 0 0
+CD C BLK RB RR PIO WAIT YLD
+0 0 0 0 0 0
+CD C HD HO HX REF DCL ERR
+0 0 0 0 0 0
+CD C VIS TICK HB LONG RND SEEK
+0 0 0 0 0 0
+                                                                                                                                                                                                                                                                                                                                                                                                     
+END REPORT
+==== SLOT 005 PART 0 ==== ID B0D310936D1B8EE970AA887B0B79452F ==== LAUNCH ====
+SURVEY 83 BUILD 9e105c4e8d25
+PRODUCT T14305M
+TITLE NASUBI NO HEYA
+BOOT 0.BIN REGION J
+IPCRC A7A9B203 GDICRC 4EA0D6DE BOOTCRC 92927296 BOOTBYTES 00153C44
+EXECCRC 92927296 EXECBYTES 00153C44
+READER 1 TRANSPORT 1 FLAGS 00000004 SOURCE 1
+TRACKS 6 RAW 3 COOKED 0 AUDIO 3 HDAUDIO 2 MAPPED 3 OTHER 0 EXTENTS 13
+SESSION 0000AFC8 BOOTLBA 00085DE0
+                                                                                              
+K-UI TOY COMMANDER REPORT
+TEST 88
+BUILD 9e105c4e8d25
+HEX / 781250 HZ
+PIPE B I CALLS IRQ STAY PT
+0 0 2704D 7D7 D9 1FBD
+AHEAD B I HIT EDC STOP OS
+0 0 194 1FD9 0 1E39
+X OW E I C W O
+1D 0 0 2 0 1B
+SD BLK PIO OVR CRC DECL
+28DE B D3 0 0
+XC KEPT LO HI
+14A 500000 4
+CD P P2 PA RE END LAP
+1 0 2 0 0 0
+CD ST RD KEEP REF LOST PJ
+40F0102 0 0 0 0 1EF
+CD O ST V ID RING N
+200 380101 3E3D6EDE 15000 3012FC0
+CD O KEY RST UND CLK DRP TK
+1 0 0 0 0 0
+CD O HB LONG TICK KB SKIP LV
+53 A59 1610C 105 0 D0F0D1F
+CD O MX LD FB AT TM LOST
+D000D00 CB1457 0 135 EAE2D 0
+CD C BLK RB RR PIO WAIT YLD
+20A 23 0 1 1 0
+CD C HD HO HX REF DCL ERR
+0 1 0 0 0 0
+CD C VIS TICK HB LONG RND SEEK
+11B 1036C 50 912 14E 3A9
+                                                                                                                                                                                                                                                                                                                                             
+END REPORT
+==== SLOT 006 PART 0 ==== ID B0D310936D1B8EE970AA887B0B79452F ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 006 PART 1 ==== ID B0D310936D1B8EE970AA887B0B79452F ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 006 PART 2 ==== ID B0D310936D1B8EE970AA887B0B79452F ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 007 PART 0 ==== ID B0D310936D1B8EE970AA887B0B79452F ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 007 PART 1 ==== ID B0D310936D1B8EE970AA887B0B79452F ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 007 PART 2 ==== ID B0D310936D1B8EE970AA887B0B79452F ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 008 PART 0 ==== ID B0D310936D1B8EE970AA887B0B79452F ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 008 PART 1 ==== ID B0D310936D1B8EE970AA887B0B79452F ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 008 PART 2 ==== ID B0D310936D1B8EE970AA887B0B79452F ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 009 PART 0 ==== ID B0D310936D1B8EE970AA887B0B79452F ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 009 PART 1 ==== ID B0D310936D1B8EE970AA887B0B79452F ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 009 PART 2 ==== ID B0D310936D1B8EE970AA887B0B79452F ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 010 PART 0 ==== ID B0D310936D1B8EE970AA887B0B79452F ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 010 PART 1 ==== ID B0D310936D1B8EE970AA887B0B79452F ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 010 PART 2 ==== ID B0D310936D1B8EE970AA887B0B79452F ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 011 PART 0 ==== ID B0D310936D1B8EE970AA887B0B79452F ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 011 PART 1 ==== ID B0D310936D1B8EE970AA887B0B79452F ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 011 PART 2 ==== ID B0D310936D1B8EE970AA887B0B79452F ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 012 PART 0 ==== ID B0D310936D1B8EE970AA887B0B79452F ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 012 PART 1 ==== ID B0D310936D1B8EE970AA887B0B79452F ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 012 PART 2 ==== ID B0D310936D1B8EE970AA887B0B79452F ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 013 PART 0 ==== ID B0D310936D1B8EE970AA887B0B79452F ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 013 PART 1 ==== ID B0D310936D1B8EE970AA887B0B79452F ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 013 PART 2 ==== ID B0D310936D1B8EE970AA887B0B79452F ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 014 PART 0 ==== ID B0D310936D1B8EE970AA887B0B79452F ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 014 PART 1 ==== ID B0D310936D1B8EE970AA887B0B79452F ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 014 PART 2 ==== ID B0D310936D1B8EE970AA887B0B79452F ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 015 PART 0 ==== ID B0D310936D1B8EE970AA887B0B79452F ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 015 PART 1 ==== ID B0D310936D1B8EE970AA887B0B79452F ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 015 PART 2 ==== ID B0D310936D1B8EE970AA887B0B79452F ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 016 PART 0 ==== ID B0D310936D1B8EE970AA887B0B79452F ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 016 PART 1 ==== ID B0D310936D1B8EE970AA887B0B79452F ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 016 PART 2 ==== ID B0D310936D1B8EE970AA887B0B79452F ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 017 PART 0 ==== ID B0D310936D1B8EE970AA887B0B79452F ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 017 PART 1 ==== ID B0D310936D1B8EE970AA887B0B79452F ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 017 PART 2 ==== ID B0D310936D1B8EE970AA887B0B79452F ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 018 PART 0 ==== ID B0D310936D1B8EE970AA887B0B79452F ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 018 PART 1 ==== ID B0D310936D1B8EE970AA887B0B79452F ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 018 PART 2 ==== ID B0D310936D1B8EE970AA887B0B79452F ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 019 PART 0 ==== ID B0D310936D1B8EE970AA887B0B79452F ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 019 PART 1 ==== ID B0D310936D1B8EE970AA887B0B79452F ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 019 PART 2 ==== ID B0D310936D1B8EE970AA887B0B79452F ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 020 PART 0 ==== ID B0D310936D1B8EE970AA887B0B79452F ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 020 PART 1 ==== ID B0D310936D1B8EE970AA887B0B79452F ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 020 PART 2 ==== ID B0D310936D1B8EE970AA887B0B79452F ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 021 PART 0 ==== ID B0D310936D1B8EE970AA887B0B79452F ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 021 PART 1 ==== ID B0D310936D1B8EE970AA887B0B79452F ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 021 PART 2 ==== ID B0D310936D1B8EE970AA887B0B79452F ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 022 PART 0 ==== ID B0D310936D1B8EE970AA887B0B79452F ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 022 PART 1 ==== ID B0D310936D1B8EE970AA887B0B79452F ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 022 PART 2 ==== ID B0D310936D1B8EE970AA887B0B79452F ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 023 PART 0 ==== ID B0D310936D1B8EE970AA887B0B79452F ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 023 PART 1 ==== ID B0D310936D1B8EE970AA887B0B79452F ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 023 PART 2 ==== ID B0D310936D1B8EE970AA887B0B79452F ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 024 PART 0 ==== ID B0D310936D1B8EE970AA887B0B79452F ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 024 PART 1 ==== ID B0D310936D1B8EE970AA887B0B79452F ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 024 PART 2 ==== ID B0D310936D1B8EE970AA887B0B79452F ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 025 PART 0 ==== ID B0D310936D1B8EE970AA887B0B79452F ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 025 PART 1 ==== ID B0D310936D1B8EE970AA887B0B79452F ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 025 PART 2 ==== ID B0D310936D1B8EE970AA887B0B79452F ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 026 PART 0 ==== ID B0D310936D1B8EE970AA887B0B79452F ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 026 PART 1 ==== ID B0D310936D1B8EE970AA887B0B79452F ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 026 PART 2 ==== ID B0D310936D1B8EE970AA887B0B79452F ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 027 PART 0 ==== ID B0D310936D1B8EE970AA887B0B79452F ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 027 PART 1 ==== ID B0D310936D1B8EE970AA887B0B79452F ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 027 PART 2 ==== ID B0D310936D1B8EE970AA887B0B79452F ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 028 PART 0 ==== ID B0D310936D1B8EE970AA887B0B79452F ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 028 PART 1 ==== ID B0D310936D1B8EE970AA887B0B79452F ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 028 PART 2 ==== ID B0D310936D1B8EE970AA887B0B79452F ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 029 PART 0 ==== ID B0D310936D1B8EE970AA887B0B79452F ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 029 PART 1 ==== ID B0D310936D1B8EE970AA887B0B79452F ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 029 PART 2 ==== ID B0D310936D1B8EE970AA887B0B79452F ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 030 PART 0 ==== ID B0D310936D1B8EE970AA887B0B79452F ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 030 PART 1 ==== ID B0D310936D1B8EE970AA887B0B79452F ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 030 PART 2 ==== ID B0D310936D1B8EE970AA887B0B79452F ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 031 PART 0 ==== ID B0D310936D1B8EE970AA887B0B79452F ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 031 PART 1 ==== ID B0D310936D1B8EE970AA887B0B79452F ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 031 PART 2 ==== ID B0D310936D1B8EE970AA887B0B79452F ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 032 PART 0 ==== ID B0D310936D1B8EE970AA887B0B79452F ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 032 PART 1 ==== ID B0D310936D1B8EE970AA887B0B79452F ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 032 PART 2 ==== ID B0D310936D1B8EE970AA887B0B79452F ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 033 PART 0 ==== ID B0D310936D1B8EE970AA887B0B79452F ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 033 PART 1 ==== ID B0D310936D1B8EE970AA887B0B79452F ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 033 PART 2 ==== ID B0D310936D1B8EE970AA887B0B79452F ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 034 PART 0 ==== ID B0D310936D1B8EE970AA887B0B79452F ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 034 PART 1 ==== ID B0D310936D1B8EE970AA887B0B79452F ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 034 PART 2 ==== ID B0D310936D1B8EE970AA887B0B79452F ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 035 PART 0 ==== ID B0D310936D1B8EE970AA887B0B79452F ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 035 PART 1 ==== ID B0D310936D1B8EE970AA887B0B79452F ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 035 PART 2 ==== ID B0D310936D1B8EE970AA887B0B79452F ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 036 PART 0 ==== ID B0D310936D1B8EE970AA887B0B79452F ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 036 PART 1 ==== ID B0D310936D1B8EE970AA887B0B79452F ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 036 PART 2 ==== ID B0D310936D1B8EE970AA887B0B79452F ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 037 PART 0 ==== ID B0D310936D1B8EE970AA887B0B79452F ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 037 PART 1 ==== ID B0D310936D1B8EE970AA887B0B79452F ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 037 PART 2 ==== ID B0D310936D1B8EE970AA887B0B79452F ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 038 PART 0 ==== ID B0D310936D1B8EE970AA887B0B79452F ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 038 PART 1 ==== ID B0D310936D1B8EE970AA887B0B79452F ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 038 PART 2 ==== ID B0D310936D1B8EE970AA887B0B79452F ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 039 PART 0 ==== ID B0D310936D1B8EE970AA887B0B79452F ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 039 PART 1 ==== ID B0D310936D1B8EE970AA887B0B79452F ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 039 PART 2 ==== ID B0D310936D1B8EE970AA887B0B79452F ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 040 PART 0 ==== ID B0D310936D1B8EE970AA887B0B79452F ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 040 PART 1 ==== ID B0D310936D1B8EE970AA887B0B79452F ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 040 PART 2 ==== ID B0D310936D1B8EE970AA887B0B79452F ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 041 PART 0 ==== ID B0D310936D1B8EE970AA887B0B79452F ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 041 PART 1 ==== ID B0D310936D1B8EE970AA887B0B79452F ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 041 PART 2 ==== ID B0D310936D1B8EE970AA887B0B79452F ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 042 PART 0 ==== ID B0D310936D1B8EE970AA887B0B79452F ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 042 PART 1 ==== ID B0D310936D1B8EE970AA887B0B79452F ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 042 PART 2 ==== ID B0D310936D1B8EE970AA887B0B79452F ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 043 PART 0 ==== ID B0D310936D1B8EE970AA887B0B79452F ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 043 PART 1 ==== ID B0D310936D1B8EE970AA887B0B79452F ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 043 PART 2 ==== ID B0D310936D1B8EE970AA887B0B79452F ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 044 PART 0 ==== ID B0D310936D1B8EE970AA887B0B79452F ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 044 PART 1 ==== ID B0D310936D1B8EE970AA887B0B79452F ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 044 PART 2 ==== ID B0D310936D1B8EE970AA887B0B79452F ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 045 PART 0 ==== ID B0D310936D1B8EE970AA887B0B79452F ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 045 PART 1 ==== ID B0D310936D1B8EE970AA887B0B79452F ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 045 PART 2 ==== ID B0D310936D1B8EE970AA887B0B79452F ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 046 PART 0 ==== ID B0D310936D1B8EE970AA887B0B79452F ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 046 PART 1 ==== ID B0D310936D1B8EE970AA887B0B79452F ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 046 PART 2 ==== ID B0D310936D1B8EE970AA887B0B79452F ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 047 PART 0 ==== ID B0D310936D1B8EE970AA887B0B79452F ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 047 PART 1 ==== ID B0D310936D1B8EE970AA887B0B79452F ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 047 PART 2 ==== ID B0D310936D1B8EE970AA887B0B79452F ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 048 PART 0 ==== ID B0D310936D1B8EE970AA887B0B79452F ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 048 PART 1 ==== ID B0D310936D1B8EE970AA887B0B79452F ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 048 PART 2 ==== ID B0D310936D1B8EE970AA887B0B79452F ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 049 PART 0 ==== ID B0D310936D1B8EE970AA887B0B79452F ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 049 PART 1 ==== ID B0D310936D1B8EE970AA887B0B79452F ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 049 PART 2 ==== ID B0D310936D1B8EE970AA887B0B79452F ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 050 PART 0 ==== ID B0D310936D1B8EE970AA887B0B79452F ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 050 PART 1 ==== ID B0D310936D1B8EE970AA887B0B79452F ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 050 PART 2 ==== ID B0D310936D1B8EE970AA887B0B79452F ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 051 PART 0 ==== ID B0D310936D1B8EE970AA887B0B79452F ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 051 PART 1 ==== ID B0D310936D1B8EE970AA887B0B79452F ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 051 PART 2 ==== ID B0D310936D1B8EE970AA887B0B79452F ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 052 PART 0 ==== ID B0D310936D1B8EE970AA887B0B79452F ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 052 PART 1 ==== ID B0D310936D1B8EE970AA887B0B79452F ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 052 PART 2 ==== ID B0D310936D1B8EE970AA887B0B79452F ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 053 PART 0 ==== ID B0D310936D1B8EE970AA887B0B79452F ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 053 PART 1 ==== ID B0D310936D1B8EE970AA887B0B79452F ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 053 PART 2 ==== ID B0D310936D1B8EE970AA887B0B79452F ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 054 PART 0 ==== ID B0D310936D1B8EE970AA887B0B79452F ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 054 PART 1 ==== ID B0D310936D1B8EE970AA887B0B79452F ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 054 PART 2 ==== ID B0D310936D1B8EE970AA887B0B79452F ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 055 PART 0 ==== ID B0D310936D1B8EE970AA887B0B79452F ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 055 PART 1 ==== ID B0D310936D1B8EE970AA887B0B79452F ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 055 PART 2 ==== ID B0D310936D1B8EE970AA887B0B79452F ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 056 PART 0 ==== ID B0D310936D1B8EE970AA887B0B79452F ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 056 PART 1 ==== ID B0D310936D1B8EE970AA887B0B79452F ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 056 PART 2 ==== ID B0D310936D1B8EE970AA887B0B79452F ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 057 PART 0 ==== ID B0D310936D1B8EE970AA887B0B79452F ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 057 PART 1 ==== ID B0D310936D1B8EE970AA887B0B79452F ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 057 PART 2 ==== ID B0D310936D1B8EE970AA887B0B79452F ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 058 PART 0 ==== ID B0D310936D1B8EE970AA887B0B79452F ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 058 PART 1 ==== ID B0D310936D1B8EE970AA887B0B79452F ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 058 PART 2 ==== ID B0D310936D1B8EE970AA887B0B79452F ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 059 PART 0 ==== ID B0D310936D1B8EE970AA887B0B79452F ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 059 PART 1 ==== ID B0D310936D1B8EE970AA887B0B79452F ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 059 PART 2 ==== ID B0D310936D1B8EE970AA887B0B79452F ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 060 PART 0 ==== ID B0D310936D1B8EE970AA887B0B79452F ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 060 PART 1 ==== ID B0D310936D1B8EE970AA887B0B79452F ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 060 PART 2 ==== ID B0D310936D1B8EE970AA887B0B79452F ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 061 PART 0 ==== ID B0D310936D1B8EE970AA887B0B79452F ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 061 PART 1 ==== ID B0D310936D1B8EE970AA887B0B79452F ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 061 PART 2 ==== ID B0D310936D1B8EE970AA887B0B79452F ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 062 PART 0 ==== ID B0D310936D1B8EE970AA887B0B79452F ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 062 PART 1 ==== ID B0D310936D1B8EE970AA887B0B79452F ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 062 PART 2 ==== ID B0D310936D1B8EE970AA887B0B79452F ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 063 PART 0 ==== ID B0D310936D1B8EE970AA887B0B79452F ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 063 PART 1 ==== ID B0D310936D1B8EE970AA887B0B79452F ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 063 PART 2 ==== ID B0D310936D1B8EE970AA887B0B79452F ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 064 PART 0 ==== ID B0D310936D1B8EE970AA887B0B79452F ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 064 PART 1 ==== ID B0D310936D1B8EE970AA887B0B79452F ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 064 PART 2 ==== ID B0D310936D1B8EE970AA887B0B79452F ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 065 PART 0 ==== ID B0D310936D1B8EE970AA887B0B79452F ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 065 PART 1 ==== ID B0D310936D1B8EE970AA887B0B79452F ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 065 PART 2 ==== ID B0D310936D1B8EE970AA887B0B79452F ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 066 PART 0 ==== ID B0D310936D1B8EE970AA887B0B79452F ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 066 PART 1 ==== ID B0D310936D1B8EE970AA887B0B79452F ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 066 PART 2 ==== ID B0D310936D1B8EE970AA887B0B79452F ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 067 PART 0 ==== ID B0D310936D1B8EE970AA887B0B79452F ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 067 PART 1 ==== ID B0D310936D1B8EE970AA887B0B79452F ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 067 PART 2 ==== ID B0D310936D1B8EE970AA887B0B79452F ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 068 PART 0 ==== ID B0D310936D1B8EE970AA887B0B79452F ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 068 PART 1 ==== ID B0D310936D1B8EE970AA887B0B79452F ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 068 PART 2 ==== ID B0D310936D1B8EE970AA887B0B79452F ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 069 PART 0 ==== ID B0D310936D1B8EE970AA887B0B79452F ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 069 PART 1 ==== ID B0D310936D1B8EE970AA887B0B79452F ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 069 PART 2 ==== ID B0D310936D1B8EE970AA887B0B79452F ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 070 PART 0 ==== ID B0D310936D1B8EE970AA887B0B79452F ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 070 PART 1 ==== ID B0D310936D1B8EE970AA887B0B79452F ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 070 PART 2 ==== ID B0D310936D1B8EE970AA887B0B79452F ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 071 PART 0 ==== ID B0D310936D1B8EE970AA887B0B79452F ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 071 PART 1 ==== ID B0D310936D1B8EE970AA887B0B79452F ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 071 PART 2 ==== ID B0D310936D1B8EE970AA887B0B79452F ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 072 PART 0 ==== ID B0D310936D1B8EE970AA887B0B79452F ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 072 PART 1 ==== ID B0D310936D1B8EE970AA887B0B79452F ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 072 PART 2 ==== ID B0D310936D1B8EE970AA887B0B79452F ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 073 PART 0 ==== ID B0D310936D1B8EE970AA887B0B79452F ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 073 PART 1 ==== ID B0D310936D1B8EE970AA887B0B79452F ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 073 PART 2 ==== ID B0D310936D1B8EE970AA887B0B79452F ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 074 PART 0 ==== ID B0D310936D1B8EE970AA887B0B79452F ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 074 PART 1 ==== ID B0D310936D1B8EE970AA887B0B79452F ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 074 PART 2 ==== ID B0D310936D1B8EE970AA887B0B79452F ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 075 PART 0 ==== ID B0D310936D1B8EE970AA887B0B79452F ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 075 PART 1 ==== ID B0D310936D1B8EE970AA887B0B79452F ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 075 PART 2 ==== ID B0D310936D1B8EE970AA887B0B79452F ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 076 PART 0 ==== ID B0D310936D1B8EE970AA887B0B79452F ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 076 PART 1 ==== ID B0D310936D1B8EE970AA887B0B79452F ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 076 PART 2 ==== ID B0D310936D1B8EE970AA887B0B79452F ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 077 PART 0 ==== ID B0D310936D1B8EE970AA887B0B79452F ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 077 PART 1 ==== ID B0D310936D1B8EE970AA887B0B79452F ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 077 PART 2 ==== ID B0D310936D1B8EE970AA887B0B79452F ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 078 PART 0 ==== ID B0D310936D1B8EE970AA887B0B79452F ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 078 PART 1 ==== ID B0D310936D1B8EE970AA887B0B79452F ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 078 PART 2 ==== ID B0D310936D1B8EE970AA887B0B79452F ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 079 PART 0 ==== ID B0D310936D1B8EE970AA887B0B79452F ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 079 PART 1 ==== ID B0D310936D1B8EE970AA887B0B79452F ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 079 PART 2 ==== ID B0D310936D1B8EE970AA887B0B79452F ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 080 PART 0 ==== ID B0D310936D1B8EE970AA887B0B79452F ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 080 PART 1 ==== ID B0D310936D1B8EE970AA887B0B79452F ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 080 PART 2 ==== ID B0D310936D1B8EE970AA887B0B79452F ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 081 PART 0 ==== ID B0D310936D1B8EE970AA887B0B79452F ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 081 PART 1 ==== ID B0D310936D1B8EE970AA887B0B79452F ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 081 PART 2 ==== ID B0D310936D1B8EE970AA887B0B79452F ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 082 PART 0 ==== ID B0D310936D1B8EE970AA887B0B79452F ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 082 PART 1 ==== ID B0D310936D1B8EE970AA887B0B79452F ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 082 PART 2 ==== ID B0D310936D1B8EE970AA887B0B79452F ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 083 PART 0 ==== ID B0D310936D1B8EE970AA887B0B79452F ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 083 PART 1 ==== ID B0D310936D1B8EE970AA887B0B79452F ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 083 PART 2 ==== ID B0D310936D1B8EE970AA887B0B79452F ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 084 PART 0 ==== ID B0D310936D1B8EE970AA887B0B79452F ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 084 PART 1 ==== ID B0D310936D1B8EE970AA887B0B79452F ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 084 PART 2 ==== ID B0D310936D1B8EE970AA887B0B79452F ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 085 PART 0 ==== ID B0D310936D1B8EE970AA887B0B79452F ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 085 PART 1 ==== ID B0D310936D1B8EE970AA887B0B79452F ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 085 PART 2 ==== ID B0D310936D1B8EE970AA887B0B79452F ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 086 PART 0 ==== ID B0D310936D1B8EE970AA887B0B79452F ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 086 PART 1 ==== ID B0D310936D1B8EE970AA887B0B79452F ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 086 PART 2 ==== ID B0D310936D1B8EE970AA887B0B79452F ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 087 PART 0 ==== ID B0D310936D1B8EE970AA887B0B79452F ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 087 PART 1 ==== ID B0D310936D1B8EE970AA887B0B79452F ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 087 PART 2 ==== ID B0D310936D1B8EE970AA887B0B79452F ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 088 PART 0 ==== ID B0D310936D1B8EE970AA887B0B79452F ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 088 PART 1 ==== ID B0D310936D1B8EE970AA887B0B79452F ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 088 PART 2 ==== ID B0D310936D1B8EE970AA887B0B79452F ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 089 PART 0 ==== ID B0D310936D1B8EE970AA887B0B79452F ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 089 PART 1 ==== ID B0D310936D1B8EE970AA887B0B79452F ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 089 PART 2 ==== ID B0D310936D1B8EE970AA887B0B79452F ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 090 PART 0 ==== ID B0D310936D1B8EE970AA887B0B79452F ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 090 PART 1 ==== ID B0D310936D1B8EE970AA887B0B79452F ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 090 PART 2 ==== ID B0D310936D1B8EE970AA887B0B79452F ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 091 PART 0 ==== ID B0D310936D1B8EE970AA887B0B79452F ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 091 PART 1 ==== ID B0D310936D1B8EE970AA887B0B79452F ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 091 PART 2 ==== ID B0D310936D1B8EE970AA887B0B79452F ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 092 PART 0 ==== ID B0D310936D1B8EE970AA887B0B79452F ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 092 PART 1 ==== ID B0D310936D1B8EE970AA887B0B79452F ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 092 PART 2 ==== ID B0D310936D1B8EE970AA887B0B79452F ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 093 PART 0 ==== ID B0D310936D1B8EE970AA887B0B79452F ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 093 PART 1 ==== ID B0D310936D1B8EE970AA887B0B79452F ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 093 PART 2 ==== ID B0D310936D1B8EE970AA887B0B79452F ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 094 PART 0 ==== ID B0D310936D1B8EE970AA887B0B79452F ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 094 PART 1 ==== ID B0D310936D1B8EE970AA887B0B79452F ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 094 PART 2 ==== ID B0D310936D1B8EE970AA887B0B79452F ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 095 PART 0 ==== ID B0D310936D1B8EE970AA887B0B79452F ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 095 PART 1 ==== ID B0D310936D1B8EE970AA887B0B79452F ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 095 PART 2 ==== ID B0D310936D1B8EE970AA887B0B79452F ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 096 PART 0 ==== ID B0D310936D1B8EE970AA887B0B79452F ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 096 PART 1 ==== ID B0D310936D1B8EE970AA887B0B79452F ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 096 PART 2 ==== ID B0D310936D1B8EE970AA887B0B79452F ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 097 PART 0 ==== ID B0D310936D1B8EE970AA887B0B79452F ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 097 PART 1 ==== ID B0D310936D1B8EE970AA887B0B79452F ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 097 PART 2 ==== ID B0D310936D1B8EE970AA887B0B79452F ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 098 PART 0 ==== ID B0D310936D1B8EE970AA887B0B79452F ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 098 PART 1 ==== ID B0D310936D1B8EE970AA887B0B79452F ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 098 PART 2 ==== ID B0D310936D1B8EE970AA887B0B79452F ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 099 PART 0 ==== ID B0D310936D1B8EE970AA887B0B79452F ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 099 PART 1 ==== ID B0D310936D1B8EE970AA887B0B79452F ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+==== SLOT 099 PART 2 ==== ID B0D310936D1B8EE970AA887B0B79452F ==== EMPTY ====
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 

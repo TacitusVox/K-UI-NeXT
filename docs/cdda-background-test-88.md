@@ -1,8 +1,14 @@
 # Test 88: CD music in the Background reader, part 5: every MANATEE build
 
-Status: packaged 27 November 2026, 22:49 CST (build `9e105c4e8d25`, commit `9e105c4e`).
-Host and linked checks, and the output run on the 27 original driver
-images; not run on a console. A test module in the place of the installed
+Status: packaged 27 November 2026, 22:49 CST (build `9e105c4e8d25`, commit `9e105c4e`),
+and run on the console the same night in six games (Console result).
+Music played without a ring begun again in two builds new to the console,
+MANATEE 2.02.02 (Mr. Driller) and 1.01.40 (Tetsuman Menkyokaiden), and in
+the control (KOF Dream Match 1999, 1.01.3b); Bangai-O was silent with
+reason 4, detail 1, as built. Nasubi no Heya ran slowly, by the owner's
+account, with 1.5 s of music in its report and nothing counted against
+the output: its cause is open. No build of the two older families has run
+yet. A test module in the place of the installed
 New reader, like Tests 79 to 87, not an accepted component.
 
 It is step 3 of `universal-loader-roadmap.md` (CD music in regular games:
@@ -220,16 +226,89 @@ Questions:
 | Music that drifts into crackle within seconds, UND counting (1.01.28) | The measure of its count is not 176 frames |
 | A hang, a crash | The if-needed module (the card's reading without the sound) says whether the reading or the output is the cause |
 
+## Console result
+
+The owner's runs of 27 November 2026, with the file from the card,
+`KUI/SURVEY/STREAM.TXT` (ID B0D310936D1B8EE970AA887B0B79452F, six of its
+hundred slots used, SHA-256 `54725be0...7ee0`). The file, the tool's
+listing and the reports with their CD rows spelled out
+(`tools/toy_cdda_report.py`) are in
+`docs/evidence/cdda-background-test-88/console-2026-11-27/`. The owner's
+words: "So Nasubi no Heya ran really badly, was pretty slow. Pro Yakyu I
+couldn't trigger the report. It showed a memory address on the top and
+constantly changing numbers. Was strange", and then: "Other games ran
+smoothly, though."
+
+All six launch records name this build, `9e105c4e8d25`, and all six
+reports say TEST 88. No log of these runs names the K-UI.
+
+| Slot | Game | The driver the report names | In the report |
+|---|---|---|---|
+| 0 | KOF Dream Match 1999 (T3101N) | MANATEE 1.01.3b (`1C1F`), channels 61 and 62 | 4 PLAY, 8 PAUSE; playing at the save. **4 key-ons, no ring begun again**; no key dropped, no channel taken, no guard lost. 110.6 s of music. 6,584 heartbeats, 1.58 ms each, the longest 3.22 ms; 3.52 visits and 2,965 bytes a heartbeat. The least lead 60 ms. The mixers 0F08 and 0F17. The card: 37,043 blocks, 1,078 read again |
+| 1 | Maken X (MK-51050) | none looked at | **0 PLAY**: the game asked for no CD music in this session. The drive idle, the output never begun, no bus used. Nothing learned of MANATEE 2.00.0b |
+| 2 | Mr. Driller (T1402N) | **MANATEE 2.02.02** (`8AF6`), channels 62 and 63 | 6 PLAY, 6 PAUSE; playing at the save. **6 key-ons, no ring begun again**; no key dropped, no channel found keyed on or taken, no register put back, no guard lost. The ring at 0x16000. **134.6 s of music.** 8,052 heartbeats, 1.27 ms each, the longest 3.19 ms; 3.17 visits and 2,949 bytes a heartbeat. The least lead 106 ms. The mixers 0F00 and 0F00. AT 33,583, TM 104,686,222: TMU0 2,484 parts in a million slow, give or take 60. The card: 46,354 blocks, 25 read again |
+| 3 | Tetsuman Menkyokaiden (T18701M) | **MANATEE 1.01.40** (`2CF9`), channels 61 and 62 | 2 PLAY, 1 PAUSE; playing at the save. **2 key-ons, no ring begun again**; nothing dropped, taken or lost. The ring at 0x15000. 35.5 s of music. 2,114 heartbeats, 1.23 ms each, the longest 3.40 ms. The mixers 0F17 and 0F08. TMU0 2,558 slow, give or take 205. The card: 12,227 blocks, 8 read again |
+| 4 | Bangai-O (T40217N) | MANATEE 2.00.09 (`C46D`) | 7 PLAY, 6 PAUSE, 1 RELEASE. **Silent with reason 4, detail 1**: the split leaves no two stream ports. No ring placed, no store; 3,834 heartbeats of 0.04 ms each read the driver and its split |
+| 5 | Nasubi no Heya (T14305M) | **MANATEE 1.01.38** of 1998.11.06 (`6EDE`), channels 61 and 62 | 1 PLAY (track 4, repeat for ever), 2 PAUSE; paused at the save. 1 key-on, no ring begun again; nothing dropped, taken or lost. **1.5 s of music**, 83 heartbeats a frame of video apart (the longest wait between two looks 16.6 ms), 1.39 ms each. The mixers 0D00 and 0D00. The reader: 159,821 calls, 10,462 blocks; 330 commands that are no reads met by a window |
+| | A Pro Yakyu disc | | No slot: the file holds no launch record of it |
+
+What it shows:
+
+1. **Two builds new to the console play, each as its family's rule has
+   it.** MANATEE 2.02.02 for 135 s over six plays and MANATEE 1.01.40 for
+   36 s over two: no ring begun again for any reason, no key dropped, no
+   channel taken, no guard lost, the count borne out by TMU0 throughout.
+   The owner: the games ran smoothly.
+2. **Mr. Driller's driver is one the corpus had no file for.** Its US disc
+   is one of the 12 games that name MANATEE by their sound library alone;
+   the report names the build that runs, 2.02.02 of 1999.11.24, by its
+   version bytes and its date's hash.
+3. **The control is Test 87's.** KOF: 3.52 visits and 2,965 bytes a
+   heartbeat, 1.58 ms each, as under Test 87 (3.52, 2,966, 1.58).
+4. **Bangai-O is silent as built**, with the reason that says why.
+5. **Nasubi no Heya runs the later of its two drivers**, 1.01.38, not
+   1.01.28: the older family and the count of 176 frames were not run.
+   Its one play was keyed on and paused after 1.5 s with nothing counted
+   against the output, and its heartbeats came a frame of video apart
+   while the music ran. The report holds nothing that says why the game
+   was slow: the sound output worked for a second and a half of the
+   session, and after the pause it touches nothing. What ran for the
+   whole session is the test module's drive that plays (Test 84's), the
+   audio's card work while a play is on, and the Background reader
+   itself; this game was run under none of the earlier tests. Open.
+6. **Maken X asked for no CD music** where the owner played: 2.00.0b is
+   still unrun.
+7. **Pro Yakyu left no launch record.** The stage writes the record
+   before the game starts, with the line SURVEY ON / REPORT SAVES TO
+   SLOT; a launch through this module would have used slot 6. Eight
+   entries of the owner's library carry that name: by the corpus's host
+   reading K-UI gives two of them a Background reader with a proved
+   mapping (HDR-0091, HDR-0173), one the standalone New reader, and
+   could check the program of the other five for none. Which disc was
+   launched, whether that line
+   was shown, and what the screen with an address and changing numbers
+   was, the file does not say.
+8. The CD mixers once more unlike from game to game: 0F00 and 0F00 (Mr.
+   Driller), 0F17 and 0F08 (Tetsuman, the mirror of KOF's), 0D00 and 0D00
+   (Nasubi no Heya). For the roadmap's step 2.
+
+Next, for Nasubi no Heya, two launches that tell the three apart: with
+the if-needed module (the drive that plays and the card's reading, no
+sound), and with the owner's own New reader file (neither). Slow with
+both: the Background reader and this game. Slow with the first only: the
+drive that plays, or the audio's reading. Slow with neither: the sound
+output.
+
 ## Known limits
 
-1. Not run on a console. The three builds of Test 87 are unchanged by
-   reading and by the host model, not by a console run of this build.
+1. Run on a console in six games by one owner (Console result); two
+   builds new to it played. The other 22 builds are unrun.
 2. The readings are of each driver's start-up, idle loop and timer
    interrupt on a model. No build was read under a game's commands beyond
    what Tests 84 to 87 did by hand in three.
 3. No build of MANATEE 1 before 1.01.37 and no NAMIHEI build was surveyed
-   on a console. Their two channels are the ones Test 84's survey reads,
-   chosen by the static reading.
+   or run on a console. Their two channels are the ones Test 84's survey
+   reads, chosen by the static reading.
 4. A rule admits builds that were not read: a MANATEE 2 build after
    2.50.04, a MANATEE 1 build after 1.01.40. None is in the owner's
    corpus. Builds 1.01.29 to 1.01.31 are refused.

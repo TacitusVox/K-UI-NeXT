@@ -1,0 +1,7 @@
+STREAM.TXT: ID B0D310936D1B8EE970AA887B0B79452F, 6 of 100 slots used
+slot 000: report saved: T3101N THE KING OF FIGHTERS DREAM MATCH 1999 (build 9e105c4e8d25; source 1; tracks 43, CD music tracks 39)
+slot 001: report saved: MK-51050 MAKEN X (build 9e105c4e8d25; source 1; tracks 9, CD music tracks 5)
+slot 002: report saved: T1402N MR.DRILLER (build 9e105c4e8d25; source 1; tracks 29, CD music tracks 25)
+slot 003: report saved: T18701M TETSUMAN MENKYOKAIDEN (build 9e105c4e8d25; source 1; tracks 29, CD music tracks 25)
+slot 004: report saved: T40217N BANGAI-O (build 9e105c4e8d25; source 1; tracks 37, CD music tracks 33)
+slot 005: report saved: T14305M NASUBI NO HEYA (build 9e105c4e8d25; source 1; tracks 6, CD music tracks 2)

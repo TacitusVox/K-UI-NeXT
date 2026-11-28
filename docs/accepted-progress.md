@@ -203,10 +203,16 @@ the game's own reads; POD SpeedZone broke six times in 102 s, reading
 through its race ([Test 87](cdda-background-test-87.md), Console result).
 Test 88's module `9e105c4e8d25` (the output given to every MANATEE build:
 four families by their version bytes and running mark, after each of the
-corpus's 27 builds was read and run on an ARM7 model) is packaged and has
-not run on a console ([Test 88](cdda-background-test-88.md)); for the
-three builds Test 87 played it decides and writes as Test 87 does, by the
-host model. None of the four is an accepted component: each is a
+corpus's 27 builds was read and run on an ARM7 model) ran on the console
+the same night in six games: two builds new to it played their music with
+no ring begun again, MANATEE 2.02.02 (Mr. Driller, 135 s) and 1.01.40
+(Tetsuman Menkyokaiden, 36 s); KOF Dream Match 1999 played as under Test
+87; Bangai-O was silent with its reason, as built; Nasubi no Heya ran
+slowly, by the owner's account, with 1.5 s of music and nothing counted
+against the output, its cause open; Maken X asked for no CD music and a
+Pro Yakyu disc left no launch record. No build of MANATEE 1 before
+1.01.37 and no NAMIHEI build has run ([Test 88](cdda-background-test-88.md),
+Console result). None of the four is an accepted component: each is a
 test module in the New reader's place, with the virtual VMU off. What is
 left of CD music in regular games is laid out in
 `universal-loader-roadmap.md` (CD music in regular games: what is left). The owner has reported no Windows CE or Smash Pack run
