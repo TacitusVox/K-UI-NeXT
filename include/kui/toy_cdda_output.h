@@ -17,7 +17,7 @@ enum kui_toy_cdda_output_why {
     KUI_TOY_CDDA_OUT_WHY_DRIVER = 1u,  /* no admitted sound driver runs */
     KUI_TOY_CDDA_OUT_WHY_ARM = 2u,     /* the sound CPU is held in reset */
     KUI_TOY_CDDA_OUT_WHY_ID = 3u,      /* the driver's identity changed under the play */
-    KUI_TOY_CDDA_OUT_WHY_PROOF = 4u,   /* the driver's records do not prove the two channels */
+    KUI_TOY_CDDA_OUT_WHY_PROOF = 4u,   /* the driver's records do not prove the two channels (detail 1: they leave none) */
     KUI_TOY_CDDA_OUT_WHY_RING = 5u,    /* no free place for the ring, or it was lost (detail) */
     KUI_TOY_CDDA_OUT_WHY_TAKE = 6u,    /* the driver took a channel (detail: which) */
     KUI_TOY_CDDA_OUT_WHY_FLAP = 7u,    /* keyed off behind our back too often in one play */
@@ -26,6 +26,9 @@ enum kui_toy_cdda_output_why {
 /* RING's detail: no place among the table's pairs; a pair the reading does
  * not explain (0x100 + its index); a pair came to lie in the ring; a guard
  * line was overwritten. */
+/* PROOF's detail: MANATEE 2's split of the 64 channels, as the game set it,
+ * has fewer than two stream ports. */
+#define KUI_TOY_CDDA_OUT_PROOF_SPLIT 1u
 #define KUI_TOY_CDDA_OUT_RING_NONE 1u
 #define KUI_TOY_CDDA_OUT_RING_TABLE 2u
 #define KUI_TOY_CDDA_OUT_RING_GUARD 3u

@@ -402,7 +402,8 @@ static int driver(struct bus *b, uint32_t *why) {
     return 1;
 }
 /* The two channels by the driver's own records: 1 read, with whether the
- * game uses each; 0 the records do not prove them; -1 the bus. */
+ * game uses each; 0 the records do not prove them; 2 they are proved and
+ * leave no two channels (KUI_TOY_CDDA_OUT_PROOF_SPLIT); -1 the bus. */
 static int records(struct bus *b, bool busy[2]) {
     uint32_t word, other;
     busy[0] = busy[1] = true;
@@ -411,8 +412,12 @@ static int records(struct bus *b, bool busy[2]) {
          * all, the stream ports the top channels from the base word on. */
         if(!sound(b, 0x12060u, &word) || !sound(b, 0x12068u, &other))return -1;
         const uint32_t streams = word >> 16 & 255u;
-        if(streams < 2u || streams > 16u || (word & 255u) + (word >> 8 & 255u) + streams != 64u ||
-           other != UINT32_C(0x00800000) + 0x80u * (64u - streams))return 0;
+        if(streams > 16u || (word & 255u) + (word >> 8 & 255u) + streams != 64u)return 0;
+        /* A split the driver takes with fewer than two stream ports (a
+         * game that gives every channel to one-shots, as Bangai-O does):
+         * there is no pair to take. */
+        if(streams < 2u)return 2;
+        if(other != UINT32_C(0x00800000) + 0x80u * (64u - streams))return 0;
         for(unsigned side = 0; side < 2u; ++side) {
             if(!sound(b, 0x13800u + 0x40u * (streams - 2u + side), &word))return -1;
             busy[side] = word & 1u;
@@ -1024,14 +1029,14 @@ static void fill(struct bus *b, uint32_t room, bool low) {
 }
 
 /* The driver and the two channels by its records: 1 read, and busy says
- * which the game uses; 2 the records do not prove them (both busy); 0
- * another driver, or none (why); -1 the bus. */
+ * which the game uses; 2 the records do not prove them, 3 they leave no
+ * two channels (both busy); 0 another driver, or none (why); -1 the bus. */
 static int owned(struct bus *b, bool busy[2], uint32_t *why) {
     const int known = driver(b, why);
     if(known <= 0)return known;
     const int read = records(b, busy);
     if(read < 0)return -1;
-    return read ? 1 : 2;
+    return read == 1 ? 1 : read ? 3 : 2;
 }
 static void work(struct bus *b, bool wanted, bool tail, uint32_t now) {
     bool busy[2] = {true, true};
@@ -1082,8 +1087,8 @@ static void work(struct bus *b, bool wanted, bool tail, uint32_t now) {
     }
     /* Before anything is written: the channels are free by the driver's
      * records, the table leaves the ring alone and its guards stand. */
-    if(state == 2) {
-        stop(b, busy, KUI_TOY_CDDA_OUT_SILENT, KUI_TOY_CDDA_OUT_WHY_PROOF, 0u);
+    if(state >= 2) {
+        stop(b, busy, KUI_TOY_CDDA_OUT_SILENT, KUI_TOY_CDDA_OUT_WHY_PROOF, (uint32_t)state - 2u);
         return;
     }
     if(busy[0] || busy[1]) {

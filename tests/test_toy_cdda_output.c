@@ -1077,19 +1077,34 @@ static void refused(void) {
         CHECK(!stores && O.phase == KUI_TOY_CDDA_OUT_SILENT && !card_calls && !O.family &&
             O.why == KUI_TOY_CDDA_OUT_WHY_DRIVER && O.seen_version == none[kind].version);
     }
-    /* Records that do not prove the two channels. */
-    for(unsigned kind = 0; kind < 4u; ++kind) {
+    /* Records that do not prove the two channels; and a split of
+     * MANATEE 2's that is proved and leaves no pair: one stream port, or
+     * none (Bangai-O gives all 64 channels to one-shots; the stream ports'
+     * base word is then not asked). */
+    for(unsigned kind = 0; kind < 7u; ++kind) {
         fresh();
-        if(kind < 3u)manatee2();
+        if(kind != 3u)manatee2();
         else manatee1(false);
         if(kind == 0u)ram[0x12062u] = 1u, ram[0x12061u] = 15u, put32(0x12068u, UINT32_C(0x00801f80));
         if(kind == 1u)ram[0x12060u] = 47u;
         if(kind == 2u)put32(0x12068u, UINT32_C(0x00801800));
         if(kind == 3u)put32(0x12080u + 12u * 14u + 8u, UINT32_C(0x00801f80));
+        if(kind == 4u)ram[0x12060u] = 0u, ram[0x12061u] = 64u, ram[0x12062u] = 0u, put32(0x12068u, 0u);
+        if(kind == 5u)ram[0x12060u] = 0u, ram[0x12061u] = 63u, ram[0x12062u] = 0u;
+        if(kind == 6u)ram[0x12060u] = 31u, ram[0x12061u] = 16u, ram[0x12062u] = 17u, put32(0x12068u, UINT32_C(0x00801780));
         play(1000u, 4000u, 1u, 0);
         run(500u);
         CHECK(!stores && O.phase == KUI_TOY_CDDA_OUT_SILENT && O.why == KUI_TOY_CDDA_OUT_WHY_PROOF);
+        CHECK(O.why_detail == (kind == 0u || kind == 4u ? KUI_TOY_CDDA_OUT_PROOF_SPLIT : 0u));
     }
+    /* A split with two stream ports is a pair: the top two channels. */
+    fresh();
+    manatee2();
+    ram[0x12060u] = 0u, ram[0x12061u] = 62u, ram[0x12062u] = 2u;
+    put32(0x12068u, UINT32_C(0x00801f00));
+    play(1000u, 4000u, 1u, 0);
+    run(500u);
+    CHECK(sounding() && !wrong_frames && O.channel[0] == 62u && O.channel[1] == 63u);
     /* A channel the game uses at the start. */
     for(unsigned side = 0; side < 2u; ++side) {
         fresh();
