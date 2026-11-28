@@ -1241,18 +1241,6 @@ static void work(struct bus *b, bool wanted, bool tail, uint32_t now) {
      * count that fell is the driver started again. */
     uint32_t chip;
     if(!sound(b, count_at(), &chip))return;
-    /* Test 89, read only: the sound chip's timers B and C, which no MANATEE
-     * build loads or asks an interrupt of. Whether they read back as a
-     * count from this side of the bus is asked for a clock no driver has
-     * to keep (AUDIO64 keeps none of the chip's time). What is read goes
-     * to the report and into nothing else. */
-    uint32_t timer[2];
-    if(!once(b, TIMERS, &timer[0]) || !once(b, TIMERS + 4u, &timer[1]))return;
-    const uint32_t both = (timer[0] & 255u) << 24 | (timer[1] & 255u) << 8;
-    if(!O.timed) {
-        O.timed = 1u;
-        O.timers = both;
-    } else O.timers |= ((both ^ O.timers) & UINT32_C(0xff00ff00)) >> 8;
     const uint32_t tmu = read32(TCNT0);
     if(!O.clocked || (int32_t)(chip - O.chip_first - O.chip_ticks) < 0) {
         O.clocked = 1u;
@@ -1309,6 +1297,20 @@ static void work(struct bus *b, bool wanted, bool tail, uint32_t now) {
          * what is written is the play's last. */
         O.finished = 1u;
         O.audio_end = O.written;
+    }
+    /* Test 89, read only: the sound chip's timers B and C, which no MANATEE
+     * build loads or asks an interrupt of. Whether they read back as a
+     * count from this side of the bus is asked for a clock no driver has
+     * to keep (AUDIO64 keeps none of the chip's time). What is read goes
+     * to the report and into nothing else; the reads come behind the
+     * clock's own, which nothing may stand between. */
+    uint32_t timer[2];
+    if(once(b, TIMERS, &timer[0]) && once(b, TIMERS + 4u, &timer[1])) {
+        const uint32_t both = (timer[0] & 255u) << 24 | (timer[1] & 255u) << 8;
+        if(!O.timed) {
+            O.timed = 1u;
+            O.timers = both;
+        } else O.timers |= ((both ^ O.timers) & UINT32_C(0xff00ff00)) >> 8;
     }
     const uint32_t most = O.frames - margin - EDGE;
     if(ahead < most) {

@@ -1805,7 +1805,7 @@ static void aligned(void) {
         CHECK((O.timers >> 16 & 255u) == (build ? 0u : 255u));
         /* (The least lead: of the whole play, and of the looks a second
          * and more into the ring, which a play's start does not reach.) */
-        CHECK(O.lead_least < 6000u && O.lead_run >= O.lead_least && O.lead_run < O.frames);
+        CHECK(O.lead_least < 6000u && O.lead_run > O.lead_least + 2000u && O.lead_run < O.frames);
         run(60000u);
         const int64_t late = drive_ahead();
         CHECK(O.keys == 1u && !O.restarts && !wrong_frames);
