@@ -67,6 +67,7 @@ static unsigned long checks;
 #define SEGA UINT32_C(0x41474553)
 #define GEN2 KUI_TOY_CDDA_FAMILY_GEN2
 #define GEN1 KUI_TOY_CDDA_FAMILY_GEN1
+#define OLD KUI_TOY_CDDA_FAMILY_GEN1_OLD
 #define REST UINT32_C(0x40000000) /* SR between heartbeats: the game's, mask 0 */
 #define TCNT_START UINT32_C(0xf0000000)
 #define SECOND 781250u
@@ -252,6 +253,8 @@ static uint32_t driver_ticks(void);
 static bool count_stuck;
 static uint32_t count_frozen;
 static int count_ppm;
+/* The first builds of MANATEE 1: a count every 176 frames, none left out. */
+static bool count_slow;
 static bool inclusive;               /* the chip plays the frame at its loop end too */
 static bool strict = true;           /* every frame played is the play's */
 static unsigned long heard_frames, wrong_frames, wrong_loud, wrong_nonzero, cut_frames, loud_frames, key_ons, key_offs, lonely;
@@ -377,11 +380,12 @@ static void strobe(void) {
 static uint32_t driver_ticks(void) {
     if(count_stuck)return count_frozen;
     const uint64_t chip = now * (uint64_t)(1000000 + ppm) / UINT64_C(1000000);
+    if(count_slow)return (uint32_t)(chip * 882u / (15625u * UINT64_C(176))) - tick_base;
     return (uint32_t)(chip * (uint64_t)(1000000 + count_ppm) / (3125u * UINT64_C(1000000))) - tick_base;
 }
 static bool record_busy(unsigned side) {
     if(family == GEN2)return ram[0x13800u + 0x40u * (ram[0x12062u] - 2u + side)] & 1u;
-    return get32(0x12080u + 12u * (13u + side) + 4u) != 0u;
+    return get32(0x12080u + 12u * (pair[side] - 48u) + 4u) != 0u;
 }
 static void access(void) {
     CHECK(masked() && dma_idle());
@@ -548,6 +552,17 @@ static void manatee1(bool pod) {
     if(pod)manatee1_build(UINT32_C(0x00370101), "1998.11.0", 0xe50fu);
     else manatee1_build(UINT32_C(0x003b0101), "1998.12.0", 0x1c1fu);
 }
+/* A MANATEE 1 build before 1.01.37: the same pool, its last two entries;
+ * before 1.01.32 the slower count; the first build leaves no mark. */
+static void manatee1_old(uint32_t version, const char *date, uint32_t hash) {
+    const uint32_t build = version >> 16 & 255u;
+    manatee1_build(version, date, hash);
+    if(build < 0x28u)put32(0xf8u, 0u);
+    count_slow = build < 0x32u;
+    family = OLD;
+    pair[0] = 62u;
+    pair[1] = 63u;
+}
 /* The builds of the CD-audio corpus beside the three run on the console:
  * version bytes, the date as far as its day's tens, the date's hash
  * (docs/evidence/cdda-background-test-88/manatee-read.log). */
@@ -560,9 +575,12 @@ static const struct build { uint32_t version; const char *date; uint16_t hash; u
     {UINT32_C(0x00070202), "2000.05.2", 0xfca8u, GEN2}, {UINT32_C(0x00080202), "2000.07.1", 0xf73eu, GEN2},
     {UINT32_C(0x00015002), "2000.03.1", 0xcb0cu, GEN2}, {UINT32_C(0x00045002), "2000.07.1", 0xd369u, GEN2},
     {UINT32_C(0x00380101), "1998.11.0", 0x6edeu, GEN1}, {UINT32_C(0x00380101), "1998.11.2", 0xa0c1u, GEN1},
-    {UINT32_C(0x003f0101), "1999.03.1", 0xfe7fu, GEN1}, {UINT32_C(0x00400101), "1999.05.2", 0x2cf9u, GEN1}};
+    {UINT32_C(0x003f0101), "1999.03.1", 0xfe7fu, GEN1}, {UINT32_C(0x00400101), "1999.05.2", 0x2cf9u, GEN1},
+    {UINT32_C(0x001d0101), "1998.08.3", 0xd25du, OLD}, {UINT32_C(0x00280101), "1998.09.2", 0x768du, OLD},
+    {UINT32_C(0x00320101), "1998.10.1", 0x1c18u, OLD}, {UINT32_C(0x00360101), "1998.10.2", 0xbd17u, OLD}};
 static void driver_of(const struct build *b) {
     if(b->family == GEN2)manatee2_build(b->version, b->date, b->hash);
+    else if(b->family == OLD)manatee1_old(b->version, b->date, b->hash);
     else manatee1_build(b->version, b->date, b->hash);
 }
 static void bank(unsigned index, uint32_t address, uint32_t size) {
@@ -604,7 +622,7 @@ static void fresh(void) {
     far_frames = 0u;
     cut = false;
     tick_base = 0u;
-    count_stuck = false;
+    count_stuck = count_slow = false;
     count_ppm = 0;
     torn_left = 0u;
     family = 0u;
@@ -953,14 +971,36 @@ static void families(void) {
         driver_of(b);
         if(!KUI_TOY_CDDA_SPARE)bank(0u, 0x18000u, 0x100000u);
         play(1000u, 9000u, 0u, 0);
-        run(1500u);
+        /* (A count taken by the wrong measure is a quarter of a percent
+         * out: the chip and the writer meet within seconds.) */
+        run(b->family == OLD ? 30000u : 1500u);
         CHECK(O.phase == KUI_TOY_CDDA_OUT_RUN && sounding() && O.keys == 1u && starts == 1u);
         CHECK(O.family == b->family && O.version == b->version && O.hash == b->hash);
         CHECK(O.channel[0] == pair[0] && O.channel[1] == pair[1]);
         if(KUI_TOY_CDDA_SPARE)CHECK(O.spare && O.frames == SPARE_FRAMES && O.ring == SPARE_AT);
         CHECK(heard_frames > 50000u && !wrong_frames && !O.underruns && !O.restarts && !O.faults && !O.timeouts && !O.clock_faults);
     }
-    printf("PASS every build of the two families plays: %u builds beside the three of the console, each known by its version bytes and its date\n",
+    /* A build of the later measure is not taken by the first builds'. */
+    fresh();
+    manatee1(false);
+    play(1000u, 9000u, 0u, 0);
+    run(30000u);
+    CHECK(sounding() && O.keys == 1u && !wrong_frames && !O.restarts);
+    /* MANATEE 1 before 1.01.37 by its last two entries: one in use, the
+     * play silent; the entry before them is the game's to use. */
+    for(unsigned kind = 0; kind < 4u; ++kind) {
+        fresh();
+        driver_of(&builds[21]);
+        if(kind < 2u)put32(0x12080u + 12u * (14u + kind) + 4u, 0x1234u);
+        if(kind == 2u)put32(0x12080u + 12u * 15u + 8u, UINT32_C(0x00801f00));
+        if(kind == 3u)put32(0x12080u + 12u * 13u + 4u, 0x1234u);
+        play(1000u, 4000u, 1u, 0);
+        run(500u);
+        if(kind < 2u)CHECK(!stores && O.why == KUI_TOY_CDDA_OUT_WHY_TAKE && O.why_detail == 1u << kind);
+        if(kind == 2u)CHECK(!stores && O.why == KUI_TOY_CDDA_OUT_WHY_PROOF);
+        if(kind == 3u)CHECK(sounding() && !wrong_frames && O.channel[0] == 62u && O.channel[1] == 63u);
+    }
+    printf("PASS every build of the three families plays: %u builds beside the three of the console, each known by its version bytes and its date; the first builds of MANATEE 1 by their count of 176 frames\n",
         (unsigned)(sizeof(builds) / sizeof(builds[0])));
 }
 /* Whatever is not proved leaves the chip alone. */
@@ -987,7 +1027,11 @@ static void refused(void) {
         {UINT32_C(0x003b0101), 0u},
         {UINT32_C(0x003b0201), SEGA},     /* 1.02 */
         {UINT32_C(0x00365001), SEGA},     /* AUDIO64's 1.50 */
-        {UINT32_C(0x00360101), SEGA},     /* MANATEE 1 before 1.01.37 */
+        {UINT32_C(0x002d0101), SEGA},     /* between 1.01.28 and 1.01.32: no such build was read */
+        {UINT32_C(0x00310101), SEGA},
+        {UINT32_C(0x00290101), SEGA},
+        {UINT32_C(0x00280101), 0u},       /* from 1.01.28 on a driver that runs has its mark */
+        {UINT32_C(0x00360101), 0u},
         {UINT32_C(0x00120001), SEGA}};    /* NAMIHEI */
     for(unsigned kind = 0; kind < sizeof(none) / sizeof(none[0]); ++kind) {
         fresh();

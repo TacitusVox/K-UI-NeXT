@@ -25,7 +25,9 @@
  * - MANATEE 1 from 1.01.37 (on the console 1.01.3b, The King of Fighters
  *   Dream Match 1999, and 1.01.37, POD SpeedZone): the channel pool's
  *   entries 13 and 14, channels 61 and 62, free while their owner words
- *   are zero.
+ *   are zero;
+ * - MANATEE 1 before 1.01.37 (no build of it surveyed on the console): the
+ *   pool's entries 14 and 15, channels 62 and 63, by the same records.
  * The family is known by the driver's version bytes and its running mark,
  * the build admitted by those and its build date's text: all read again at
  * every heartbeat. The ring lies at or above
@@ -60,7 +62,8 @@
  * 4 ms of the chip's time, 176.4 frames, in a word of its own (0x12418 under
  * MANATEE 2, 0x13418 under MANATEE 1; 250 to a second of 44,100 frames,
  * exactly: it reloads its timer for 44 frames, leaves out every 441st and
- * counts every fourth). The count is read at key-on and at every heartbeat:
+ * counts every fourth; the first two builds of MANATEE 1 leave none out
+ * and count 176 frames). The count is read at key-on and at every heartbeat:
  * the chip has played their difference, a count more or less. TMU0 is not
  * that clock: on the console it runs a quarter of a percent slow against the
  * chip (Test 86), 108 frames a second. It is kept beside the count as a
@@ -189,6 +192,7 @@ struct kui_toy_cdda_output kui_toy_cdda_output;
 #define COUNT_GEN2 UINT32_C(0x12418)
 #define COUNT_GEN1 UINT32_C(0x13418)
 #define COUNT_FRAMES 177u
+#define SLOW_BUILD 0x32u         /* MANATEE 1.01 before this build: 176 frames a count */
 #define REARMS 8u
 #define KEY_ON 0x4200u            /* KYONB, loop */
 #define KEY_BIT 0x4000u
@@ -232,16 +236,22 @@ static void sr_write(uint32_t value) {
 
 /* The families given output, by the driver's version bytes (sound memory
  * 0x20: major, minor, build) and the running mark its start-up leaves at
- * 0xF8: MANATEE 2 (2.x, 'EXEC') and MANATEE 1 from 1.01.37 ('SEGA'). 0: no
- * family given output. What the output takes from a family was read, and
- * run, in every build of it the CD-audio corpus holds
- * (tools/manatee_read.py, docs/cdda-background-test-88.md). */
+ * 0xF8: MANATEE 2 (2.x, 'EXEC'), MANATEE 1 from 1.01.37 ('SEGA') and
+ * MANATEE 1 before it ('SEGA' from 1.01.28 on; the first build read,
+ * 1.01.1d, leaves no mark, and its pool's register bases are what shows it
+ * running). 0: no family given output. What the output takes from a family
+ * was read, and run, in every build of it the CD-audio corpus holds
+ * (tools/manatee_read.py, docs/cdda-background-test-88.md). The corpus has
+ * no build from 1.01.29 to 1.01.31: between them the count changed its
+ * measure (SLOW_BUILD), and such a build is given none. */
 static uint32_t family_of(uint32_t version, uint32_t state) {
     const uint32_t major = version & 255u, minor = version >> 8 & 255u, build = version >> 16 & 255u;
     if(version >> 24)return 0u;
     if(major == 2u)return state == EXEC ? KUI_TOY_CDDA_FAMILY_GEN2 : 0u;
-    if(major != 1u || minor != 1u || build < 0x37u)return 0u;
-    return state == SEGA ? KUI_TOY_CDDA_FAMILY_GEN1 : 0u;
+    if(major != 1u || minor != 1u)return 0u;
+    if(build >= 0x37u)return state == SEGA ? KUI_TOY_CDDA_FAMILY_GEN1 : 0u;
+    if(build > 0x28u && build < SLOW_BUILD)return 0u;
+    return state == SEGA || (build < 0x28u && !state) ? KUI_TOY_CDDA_FAMILY_GEN1_OLD : 0u;
 }
 #if KUI_TOY_CDDA_SPARE
 #elif KUI_TOY_CDDA_ADPCM
@@ -330,8 +340,12 @@ static bool put(struct bus *b, uint32_t address, uint32_t value) {
 static uint32_t frames_of(uint32_t ticks) {
     return ticks / 15625u * 882u + ticks % 15625u * 882u / 15625u;
 }
-/* The frames of that many of the driver's counts: 882 in five. */
+/* The frames of that many of the driver's counts: 882 in five. The first
+ * builds of MANATEE 1 (1.01.1d and 1.01.28; from 1.01.32 on no more) count
+ * every fourth of all their timer's interrupts and leave none out: 176
+ * frames a count. */
 static uint32_t frames_counted(uint32_t counts) {
+    if((O.version & 0xffffu) == 0x0101u && (O.version >> 16 & 255u) < SLOW_BUILD)return counts * 176u;
     return counts / 5u * 882u + counts % 5u * 882u / 5u;
 }
 /* The chip is within a count of what the driver's counts say, either way,
@@ -375,7 +389,10 @@ static int driver(struct bus *b, uint32_t *why) {
     O.version = version;
     O.hash = hash;
     O.family = family;
-    const bool top = family == KUI_TOY_CDDA_FAMILY_GEN2;
+    /* The pool of MANATEE 1 hands its entries out from the first: the last
+     * two are the last it comes to. From 1.01.37 on every stop of all
+     * sounds strobes the last entry's channel, 63: there the two before. */
+    const bool top = family != KUI_TOY_CDDA_FAMILY_GEN1;
     O.channel[0] = top ? 62u : 61u;
     O.channel[1] = top ? 63u : 62u;
     return 1;
@@ -398,9 +415,11 @@ static int records(struct bus *b, bool busy[2]) {
         }
         return 1;
     }
+    /* MANATEE 1's pool: 16 entries for channels 48 to 63, each with its
+     * owner and its channel's register base. */
     bool used[2];
     for(unsigned side = 0; side < 2u; ++side) {
-        const uint32_t entry = 13u + side, at = 0x12080u + 12u * entry;
+        const uint32_t entry = O.channel[side] - 48u, at = 0x12080u + 12u * entry;
         if(!sound(b, at + 8u, &word) || !sound(b, at + 4u, &other))return -1;
         if(word != UINT32_C(0x00801800) + 0x80u * entry)return 0;
         used[side] = other != 0u;
