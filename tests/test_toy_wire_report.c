@@ -139,6 +139,12 @@ struct kui_toy_cdda_output kui_toy_cdda_output;
  * their sectors and the requests that went back to the low reader; and
  * without the five rows by piece of the second movie's course, which this
  * build does not keep. The first movie's player is still last. */
+/* The row in XC's place where the sound output is built (Test 89). */
+#if defined(KUI_TOY_CDDA_OUTPUT) && KUI_TOY_CDDA_OUTPUT
+#define XC_ROW_ZERO "CD W BL AH CU\n0 0 0\n"
+#else
+#define XC_ROW_ZERO "XC KEPT LO HI\n0 0 0\n"
+#endif
 static const char *const labels[] = {
     "PIPE B I CALLS IRQ STAY PT", "AHEAD B I HIT EDC STOP OS", "X OW E I C W O",
 #if KUI_TOY_WIRE_TITLES
@@ -150,7 +156,12 @@ static const char *const labels[] = {
 #if KUI_TOY_WIRE_QUERY
     /* Test 80: the commands that are no reads a window stood through, and
      * which such commands a window met. */
+#if defined(KUI_TOY_CDDA_OUTPUT) && KUI_TOY_CDDA_OUTPUT
+    /* Test 89: in its place, why the audio's stream ended at a block. */
+    "CD W BL AH CU",
+#else
     "XC KEPT LO HI",
+#endif
 #endif
 #if KUI_TOY_CDDA_DRIVE
     /* Test 84: the drive's audio, in BIG's, K's and P's place. */
@@ -161,7 +172,7 @@ static const char *const labels[] = {
 #if KUI_TOY_CDDA_OUTPUT
     /* Test 85: the sound output, */
     "CD O ST V ID RING N", "CD O KEY RST UND CLK DRP TK", "CD O HB LONG TICK KB SKIP LV",
-    "CD O MX LD FB AT TM LOST",
+    "CD O MX LD L2 AT TM LOST",
 #endif
 #if KUI_TOY_CDDA_CARD
     /* and the audio from the card, in the place of the window stream's
@@ -500,14 +511,14 @@ static int card_report(void) {
     static const char *const gone[] = {"V SCI", "VMAX", "D N T", "W START", "W BYTES", "W BLK", "S C S F", "W FILL",
         "SUBMIT", "IP ON", "BP ON", "BIG N", "K LIGHT", "P RING"};
     for(unsigned i = 0; i < sizeof(gone) / sizeof(gone[0]); ++i) assert(!strstr(text, gone[i]));
-    assert(strstr(text, "X OW E I C W O\n0 0 0 0 0 0\nSD BLK PIO OVR CRC DECL\n0 0 0 0 0\nXC KEPT LO HI\n0 0 0\n"
+    assert(strstr(text, "X OW E I C W O\n0 0 0 0 0 0\nSD BLK PIO OVR CRC DECL\n0 0 0 0 0\n" XC_ROW_ZERO ""
                         "CD P P2 PA RE END LAP\n0 0 0 0 0 0\nCD ST RD KEEP REF LOST PJ\n0 0 0 0 0 0\n"
 #if KUI_TOY_CDDA_SURVEY
                         "CD SV DT B N WIN SKIP\n0 0 0 0 0 0\n"
 #endif
 #if KUI_TOY_CDDA_OUTPUT
                         "CD O ST V ID RING N\n0 0 0 0 " RING_NONE "\nCD O KEY RST UND CLK DRP TK\n0 0 0 0 0 0\n"
-                        "CD O HB LONG TICK KB SKIP LV\n0 0 0 0 0 0\nCD O MX LD FB AT TM LOST\n0 0 0 0 0 0\n"
+                        "CD O HB LONG TICK KB SKIP LV\n0 0 0 0 0 0\nCD O MX LD L2 AT TM LOST\n0 0 0 0 0 0\n"
 #endif
                         "CD C BLK RB RR PIO WAIT YLD\n0 0 0 0 0 0\nCD C HD HO HX REF DCL ERR\n0 0 0 0 0 0\n"
                         "CD C VIS TICK HB LONG RND SEEK\n0 0 0 0 0 0\n"));
@@ -524,7 +535,8 @@ static int card_report(void) {
         .seek_blocks = 0x56, .seek_waits = 0x78, .yields = 0x9a, .data_halts = 0x11, .other_halts = 0x22,
         .external_halts = 0x33, .refused = 0x10004, .why = 5u, .declined = 0x44, .first_error = 0x12345,
         .first_detail = 0x6789, .visits = 0xabcde, .visit_ticks = 0x1234567, .heartbeats = 0x54321,
-        .longest = 0x8ac, .round_longest = 0x123, .seek_ticks = 0x45678};
+        .longest = 0x8ac, .round_longest = 0x123, .seek_ticks = 0x45678,
+        .wire = {.bad_crc = 0x12, .lost_frame = 0x70000, .ambiguous = 3u, .holed = 0x45, .cuts = 6u, .fulls = 0x789}};
 #if KUI_TOY_CDDA_OUTPUT
     kui_toy_cdda_output = (struct kui_toy_cdda_output){.phase = 3u, .why = 8u, .why_detail = 0x12345, .family = 2u,
         .rearms = 40u, .seen_version = 0xffffffffu, .seen_hash = 0xffffu, .channel = {62u, 63u}, .ring = 0x1effa0,
@@ -532,7 +544,7 @@ static int card_report(void) {
         .drops = 0x10005, .rekeys = 7u, .takes = 3u, .fixes = 0x20000, .heartbeats = 0x54321, .longest = 0x999,
         .bus_ticks = 0x7654321, .bytes = 0x12345678, .skipped_bl = 300u, .skipped_dma = 2u, .timeouts = 256u,
         .faults = 1u, .level_last = {0x0f1f, 0x0f0f}, .mixer = {0x0a1f, 0x0a0f}, .lead_least = 0x0a00, .gap_longest = 0x0500 << 6,
-        .shadow = 0x00400030, .fallbacks = 70000u, .chip_ticks = 0x13579, .tmu_ticks = 0xe9ac1c3, .spare = 7u,
+        .lead_run = 0x0b00, .shadow = 0x00400030, .fallbacks = 70000u, .chip_ticks = 0x13579, .tmu_ticks = 0xe9ac1c3, .spare = 7u,
         .lost_table = 2u, .refusals = 300u, .lost_guard = 1u, .skipped_stack = 3u};
 #endif
     body = format(&ra, &region, text, &rows);
@@ -540,8 +552,10 @@ static int card_report(void) {
     assert(strstr(text, "CD O ST V ID RING N\n2345F283 FFFFFFFF 3F3EFFFF 1EFFA0 " RING_KIND "FF4000\n"
                         "CD O KEY RST UND CLK DRP TK\n1234 56 12 34 7FFFF FFFF0003\n"
                         "CD O HB LONG TICK KB SKIP LV\n54321 999 7654321 48D15 FF02FF01 F0F0F1F\n"
-                        "CD O MX LD FB AT TM LOST\nA0F0A1F 5000A00 FFFF4030 13579 E9AC1C3 301FF02\n"
+                        "CD O MX LD L2 AT TM LOST\nA0F0A1F 5000A00 FFFF0B00 13579 E9AC1C3 301FF02\n"
                         "CD C BLK"));
+    /* Test 89: the audio stream's own reasons, 16 bits each and capped. */
+    assert(strstr(text, "CD W BL AH CU\nFFFF0012 450003 7890006\n"));
 #endif
     assert(strstr(text, "CD C BLK RB RR PIO WAIT YLD\n123456 12 34 56 78 9A\n"
                         "CD C HD HO HX REF DCL ERR\n11 22 33 5FFFF 44 67892345\n"
@@ -574,7 +588,7 @@ static int card_report(void) {
     body = format(&ra, &region, text, &rows);
     assert(body <= KUI_TOY_REPORT_FILE_BYTES - 12u && rows <= LABELS);
 #if KUI_TOY_CDDA_OUTPUT && !KUI_TOY_CDDA_SURVEY
-    assert(strstr(text, "CD O MX LD FB AT TM LOST\nFFFFFFFF FFFFFFFF FFFFFFFF FFFFFFFF FFFFFFFF FFFFFFFF\n"));
+    assert(strstr(text, "CD O MX LD L2 AT TM LOST\nFFFFFFFF FFFFFFFF FFFFFFFF FFFFFFFF FFFFFFFF FFFFFFFF\n"));
 #endif
     printf("PASS Test " TEST_NUMBER " report (the audio's rows%s): %zu body bytes with nothing counted, %zu with the "
            "audio's fields set, %zu of 1012 with every other row at eight digits a value and the audio's rows all "
@@ -610,7 +624,7 @@ int main(int argc, char **argv) {
 #if KUI_TOY_WIRE_TITLES && KUI_TOY_CDDA_DRIVE
     /* Test 84: the drive's audio behind the commands a window met, with no
      * play: and BIG, K and P have made room. Fifteen rows. */
-    assert(strstr(text, "X OW E I C W O\n0 0 0 0 0 0\nSD BLK PIO OVR CRC DECL\n0 0 0 0 0\nXC KEPT LO HI\n0 0 0\n"
+    assert(strstr(text, "X OW E I C W O\n0 0 0 0 0 0\nSD BLK PIO OVR CRC DECL\n0 0 0 0 0\n" XC_ROW_ZERO ""
                         "CD P P2 PA RE END LAP\n0 0 0 0 0 0\nCD ST RD KEEP REF LOST PJ\n0 0 0 0 0 0\n"
 #if KUI_TOY_CDDA_SURVEY
                         "CD SV DT B N WIN SKIP\n0 0 0 0 0 0\n"
@@ -626,7 +640,7 @@ int main(int argc, char **argv) {
     /* Test 80: no row of Toy Commander's movie player for it, and the
      * longest visits behind the visits. Sixteen rows: three pages on the
      * screen, where Test 79's report took four. */
-    assert(strstr(text, "SD BLK PIO OVR CRC DECL\n0 0 0 0 0\nXC KEPT LO HI\n0 0 0\nK LIGHT EDC MEND MB LB ORD\n"));
+    assert(strstr(text, "SD BLK PIO OVR CRC DECL\n0 0 0 0 0\n" XC_ROW_ZERO "K LIGHT EDC MEND MB LB ORD\n"));
     assert(!strstr(text, "SUBMIT") && !strstr(text, "I FIRST") && !strstr(text, "IP ON") && !strstr(text, "BP ON"));
     assert(strstr(text, "V SCI TMR GAME N TICKS\n0 0 0 0 0 0\nVMAX SCI TMR GAME D\n0 0 0 0\nP RING"));
     assert(rows == 16u && 4u + 2u * rows == 3u * TOY_PAGE_LINES);

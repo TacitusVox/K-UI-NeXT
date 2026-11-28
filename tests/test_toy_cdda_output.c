@@ -739,6 +739,7 @@ static void plays_through(unsigned build, bool full) {
     run(2000u);
     CHECK(O.phase == KUI_TOY_CDDA_OUT_RUN && sounding() && O.keys == 1u && key_ons == 2u && starts == 1u);
     CHECK(O.family == family && O.channel[0] == pair[0] && O.channel[1] == pair[1]);
+    CHECK(O.lead_run != UINT32_MAX && O.lead_run >= O.lead_least && O.lead_run > 3000u);
     /* The largest ring below CRI's slots, clear of the banks; or, with
      * SPARE, the driver's spare memory whatever the banks leave. */
     if(KUI_TOY_CDDA_SPARE)CHECK(O.spare && O.frames == SPARE_FRAMES && O.ring == SPARE_AT);
@@ -1762,6 +1763,9 @@ static void aligned(void) {
         run(2000u);
         const int64_t early = drive_ahead();
         CHECK(early > 0 && early < 12000);
+        /* (The least lead: of the whole play, and of the looks a second
+         * and more into the ring, which a play's start does not reach.) */
+        CHECK(O.lead_least < 6000u && O.lead_run >= O.lead_least && O.lead_run < O.frames);
         run(60000u);
         const int64_t late = drive_ahead();
         CHECK(O.keys == 1u && !O.restarts && !wrong_frames);

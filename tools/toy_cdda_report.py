@@ -77,7 +77,7 @@ def read(rows, v):
         print('   the CD mixers as last read: %04X and %04X; MANATEE 2\'s level bytes %02X %02X, stood in %d times; priming '
               '%s; %d frames of silence' % (m[0] & 0xffff, m[0] >> 16, m[1] & 255, m[1] >> 8 & 255, m[1] >> 16, ms(m[2]), m[3]))
         lost = m[4]
-    m = v.get('CD O MX M1 FB AT TM LOST') or v.get('CD O MX LD FB AT TM LOST')
+    m = v.get('CD O MX M1 FB AT TM LOST') or v.get('CD O MX LD FB AT TM LOST') or v.get('CD O MX LD L2 AT TM LOST')
     if 'CD O MX M1 FB AT TM LOST' in v:       # Test 86
         print('   the CD mixers as last read: %04X and %04X; as first read with something in them: %04X and %04X; MANATEE '
               '2\'s level bytes %02X %02X, stood in %d times' %
@@ -89,9 +89,30 @@ def read(rows, v):
         print('   the least a look found the ring ahead of the chip: %s frames (%.0f ms; under 241 the ring has run dry); '
               'the longest wait between two looks at a running ring: %.1f ms' %
               ('65535 or more' if lead == 0xffff else str(lead), lead / 44.1, gap * 64 * 1000.0 / TICK))
+    if 'CD O MX LD L2 AT TM LOST' in v:       # Test 89
+        lead, gap, run = m[1] & 0xffff, m[1] >> 16, m[2] & 0xffff
+        print('   the CD mixers as last read: %04X and %04X; MANATEE 2\'s level bytes stood in %d times' %
+              (m[0] & 0xffff, m[0] >> 16, m[2] >> 16))
+        print('   the least a look found the ring ahead of the chip: %s frames (%.0f ms; under 241 the ring has run dry); '
+              'a second and more into its ring: %s; the longest wait between two looks at a running ring: %.1f ms' %
+              ('65535 or more' if lead == 0xffff else str(lead), lead / 44.1,
+               'no such look' if run == 0xffff else '%d frames (%.0f ms)' % (run, run / 44.1), gap * 64 * 1000.0 / TICK))
+    if 'CD W BL AH CU' in v or 'CD W BL AH CU TB' in v:   # Test 89
+        w = v.get('CD W BL AH CU') or v.get('CD W BL AH CU TB')
+        print('   why the audio\'s stream ended at a block: a CRC16 that fails %d, a lost start token %d, two readings %d, '
+              'lost bytes the CRC16 does not mend %d; overruns inside a run %d, runs not started again for want of room %d' %
+              (w[0] & 0xffff, w[0] >> 16, w[1] & 0xffff, w[1] >> 16, w[2] & 0xffff, w[2] >> 16))
+        if len(w) > 3:
+            first, vary = (w[3] >> 24, w[3] >> 8 & 255), (w[3] >> 16 & 255, w[3] & 255)
+            print('   the sound chip\'s timers B and C, read only: B first read %02X, bits seen to change %02X; C first read '
+                  '%02X, bits seen to change %02X (%s)' % (first[0], vary[0], first[1], vary[1],
+                  'neither read as a count' if not (vary[0] | vary[1]) else 'a count reads back'))
     if m is not None:
         if m[3]:
-            ratio = m[4] / (m[3] * 3125.0)
+            # (A count is 176.4 frames; in MANATEE 1.01 before build 0x32, 176.)
+            o = v.get('CD O ST V ID RING N')
+            slow = o is not None and (o[1] & 0xffff) == 0x0101 and (o[1] >> 16 & 255) < 0x32
+            ratio = m[4] / (m[3] * 3125.0 * (176.0 / 176.4 if slow else 1.0))
             print('   the two clocks: %d counts of the driver\'s (%.1f s) in %d of TMU0\'s ticks: TMU0 runs %+.0f parts in '
                   'a million against the sound chip\'s clock, give or take %.0f' %
                   (m[3], m[3] / 250.0, m[4], (ratio - 1.0) * 1e6, 2e6 / m[3]))

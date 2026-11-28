@@ -164,8 +164,25 @@ static void toy_report_wire(char **at,const char *end,const struct kui_native_ra
      * through, each counted once, and every such command a window met,
      * a bit to a command number: LO for 0 to 31, HI for 32 to 63. (C of
      * the row X counts the windows given up for one.) */
+#if defined(KUI_TOY_CDDA_OUTPUT) && KUI_TOY_CDDA_OUTPUT
+    /* Test 89, in XC's place (it has served): why the audio's own stream
+     * ended at a block, as the stream counts it (kui_wire_counters, the
+     * shared block's). BL: parse stops for a block whose CRC16 fails and for
+     * a lost start token, AH: for a block two readings fit, and blocks that
+     * came with lost bytes the CRC16 does not mend; CU: overruns inside a
+     * run, and runs not started again for want of room. 16 bits each, the
+     * second of a pair above the first. */
+    {
+        const struct kui_wire_counters *n=&kui_toy_cdda_mail.wire;
+        toy_report_short(at,end,"CD W BL AH CU",(uint32_t[]){
+            toy_cdda_cap(n->bad_crc,0xffffu)|toy_cdda_cap(n->lost_frame,0xffffu)<<16,
+            toy_cdda_cap(n->ambiguous,0xffffu)|toy_cdda_cap(n->holed,0xffffu)<<16,
+            toy_cdda_cap(n->cuts,0xffffu)|toy_cdda_cap(n->fulls,0xffffu)<<16},3u);
+    }
+#else
     toy_report_short(at,end,"XC KEPT LO HI",
         (uint32_t[]){w->queries,w->command_seen[0],w->command_seen[1]},3u);
+#endif
 #endif
 #if KUI_TOY_CDDA_DRIVE
     /* Test 84 (DRIVE), the drive's audio. What the game asked: PLAYs, PLAY2s,
@@ -262,10 +279,14 @@ static void toy_report_wire(char **at,const char *end,const struct kui_native_ra
                 toy_cdda_cap(o->skipped_bl,255u)<<24|toy_cdda_cap(o->skipped_dma,255u)<<16|
                     toy_cdda_cap(o->timeouts,255u)<<8|toy_cdda_cap(o->faults,255u),
                 o->level_last[0]|o->level_last[1]<<16},6u);
-        toy_report_short(at,end,"CD O MX LD FB AT TM LOST",
+        /* Test 89: L2 in FB's place. Its low half: the least lead of the
+         * looks a second and more into their ring (LD's low half counts a
+         * play's start too). Its high half: FB's count, the times MANATEE
+         * 2's level bytes stood in for mixers that read nothing. */
+        toy_report_short(at,end,"CD O MX LD L2 AT TM LOST",
             (uint32_t[]){o->mixer[0]|o->mixer[1]<<16,
                 toy_cdda_cap(o->lead_least,0xffffu)|toy_cdda_cap(o->gap_longest>>6,0xffffu)<<16,
-                (o->shadow&255u)|(o->shadow>>16&255u)<<8|toy_cdda_cap(o->fallbacks,0xffffu)<<16,
+                toy_cdda_cap(o->lead_run,0xffffu)|toy_cdda_cap(o->fallbacks,0xffffu)<<16,
                 o->chip_ticks,o->tmu_ticks,
                 toy_cdda_cap(o->lost_table,255u)|toy_cdda_cap(o->refusals,255u)<<8|
                     toy_cdda_cap(o->lost_guard,255u)<<16|toy_cdda_cap(o->skipped_stack,255u)<<24},6u);

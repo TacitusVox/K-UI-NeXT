@@ -195,6 +195,7 @@ struct kui_toy_cdda_output kui_toy_cdda_output;
 #define COUNT_GEN2 UINT32_C(0x12418)
 #define COUNT_GEN1 UINT32_C(0x13418)
 #define COUNT_FRAMES 177u
+#define RUN_FRAMES 44100u          /* a second into a ring: its start is behind it */
 #define SLOW_BUILD 0x32u         /* MANATEE 1.01 before this build: 176 frames a count */
 #define REARMS 8u
 #define KEY_ON 0x4200u            /* KYONB, loop */
@@ -1164,7 +1165,7 @@ static void work(struct bus *b, bool wanted, bool tail, uint32_t now) {
          * from here on. */
         uint32_t count;
         if(!sound(b, count_at(), &count))return;
-        if(!O.keys)O.lead_least = UINT32_MAX;
+        if(!O.keys)O.lead_least = O.lead_run = UINT32_MAX;
         key_on(b);
         if(!b->ok)return;
         O.key_count = count;
@@ -1263,6 +1264,7 @@ static void work(struct bus *b, bool wanted, bool tail, uint32_t now) {
      * the look that found it dry among them.) */
     const uint32_t ahead = O.written > O.played ? O.written - O.played : 0u;
     if(!O.finished && ahead < O.lead_least)O.lead_least = ahead;
+    if(!O.finished && O.played >= RUN_FRAMES && ahead < O.lead_run)O.lead_run = ahead;
     if(O.finished) {
         if(O.played >= O.audio_end + margin) {
             stop(b, busy, KUI_TOY_CDDA_OUT_SILENT, 0u, 0u);

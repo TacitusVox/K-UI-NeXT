@@ -74,6 +74,11 @@ struct kui_toy_cdda_output {
      * (from the first key-on), and the longest TMU0 time between two looks
      * at a ring that runs. */
     uint32_t level[2], level_set[2], mixer[2], mixer_zero, shadow, lead_least, gap_longest;
+    /* Test 89, for the report: the same least, of the looks a second and
+     * more into their ring alone. A ring is keyed on with a tenth of a
+     * second written and fills from there: lead_least is mostly a play's
+     * start, this one its run. */
+    uint32_t lead_run;
     /* For the report: the last level written that was one; and the two
      * clocks: the driver's count of 4 ms of the chip's time and TMU0 when
      * first looked at in a play that ran, and how far each has gone since. */
