@@ -763,6 +763,12 @@ static void drifting(int parts) {
         (long long)O.chip_ticks * 3125 * 1000000 / (1000000 + parts)) < 2 * 3125 + 200);
     /* Five minutes, and the ring never begun again. */
     CHECK(sounding() && !wrong_frames && !O.underruns && !O.clock_faults && !O.restarts && starts == 1u);
+    /* For the report: the least a look found the ring ahead of the chip
+     * (never less than the margin: it did not run dry; and well below the
+     * full ring it ends with: the least, not the last), and the longest
+     * wait between two looks, which is how far the game's calls came
+     * apart. */
+    CHECK(O.lead_least >= 241u && O.lead_least < O.frames * 2u / 3u && O.gap_longest >= 9000u && O.gap_longest < 20000u);
 #if KUI_TOY_CDDA_ADPCM
 #if KUI_TOY_CDDA_SPARE
     /* The same in MANATEE 2's spare memory, the smallest ring there is. */
@@ -1313,7 +1319,7 @@ static void volume(void) {
     play(1000u, 9000u, 0u, 0);
     run(1000u);
 #if KUI_TOY_CDDA_VOLUME
-    CHECK(reg[62][9] == 0x0a1fu && reg[63][9] == 0x0a0fu && O.mixer_first[0] == 0x0a1fu && O.mixer_first[1] == 0x0a0fu);
+    CHECK(reg[62][9] == 0x0a1fu && reg[63][9] == 0x0a0fu);
     /* One level for both planes, the larger of the two; the registers'
      * pans and other bits are not the planes'. As POD SpeedZone had them
      * on the console: */
@@ -1324,7 +1330,7 @@ static void volume(void) {
     mixer[0] = 0xf005u;
     mixer[1] = 0x030fu;
     run(100u);
-    CHECK(reg[62][9] == 0x031fu && reg[63][9] == 0x030fu && !O.fixes && O.mixer[0] == 0xf005u && O.mixer_first[0] == 0x0a1fu);
+    CHECK(reg[62][9] == 0x031fu && reg[63][9] == 0x030fu && !O.fixes && O.mixer[0] == 0xf005u);
     /* No level in either: silence. */
     mixer[0] = 0x001fu;
     mixer[1] = 0x000fu;

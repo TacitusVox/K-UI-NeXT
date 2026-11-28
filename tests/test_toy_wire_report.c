@@ -116,7 +116,7 @@ struct kui_toy_cdda_output kui_toy_cdda_output;
 #if defined(KUI_TOY_CDDA_CARD) && KUI_TOY_CDDA_CARD
 /* Test 85 (CARD): Test 84's rows under its own number. */
 #if defined(KUI_TOY_CDDA_ADPCM) && KUI_TOY_CDDA_ADPCM
-#define TEST_NUMBER "86"
+#define TEST_NUMBER "87"
 #define RING_KIND "3"
 #define RING_NONE "1000000"
 #else
@@ -161,7 +161,7 @@ static const char *const labels[] = {
 #if KUI_TOY_CDDA_OUTPUT
     /* Test 85: the sound output, */
     "CD O ST V ID RING N", "CD O KEY RST UND CLK DRP TK", "CD O HB LONG TICK KB SKIP LV",
-    "CD O MX M1 FB AT TM LOST",
+    "CD O MX LD FB AT TM LOST",
 #endif
 #if KUI_TOY_CDDA_CARD
     /* and the audio from the card, in the place of the window stream's
@@ -507,7 +507,7 @@ static int card_report(void) {
 #endif
 #if KUI_TOY_CDDA_OUTPUT
                         "CD O ST V ID RING N\n0 0 0 0 " RING_NONE "\nCD O KEY RST UND CLK DRP TK\n0 0 0 0 0 0\n"
-                        "CD O HB LONG TICK KB SKIP LV\n0 0 0 0 0 0\nCD O MX M1 FB AT TM LOST\n0 0 0 0 0 0\n"
+                        "CD O HB LONG TICK KB SKIP LV\n0 0 0 0 0 0\nCD O MX LD FB AT TM LOST\n0 0 0 0 0 0\n"
 #endif
                         "CD C BLK RB RR PIO WAIT YLD\n0 0 0 0 0 0\nCD C HD HO HX REF DCL ERR\n0 0 0 0 0 0\n"
                         "CD C VIS TICK HB LONG RND SEEK\n0 0 0 0 0 0\n"));
@@ -531,7 +531,7 @@ static int card_report(void) {
         .frames = 16384u, .places = 300u, .keys = 0x1234, .restarts = 0x56, .underruns = 0x12, .clock_faults = 0x34,
         .drops = 0x10005, .rekeys = 7u, .takes = 3u, .fixes = 0x20000, .heartbeats = 0x54321, .longest = 0x999,
         .bus_ticks = 0x7654321, .bytes = 0x12345678, .skipped_bl = 300u, .skipped_dma = 2u, .timeouts = 256u,
-        .faults = 1u, .level_last = {0x0f1f, 0x0f0f}, .mixer = {0x0a1f, 0x0a0f}, .mixer_first = {0x0a00, 0x0500},
+        .faults = 1u, .level_last = {0x0f1f, 0x0f0f}, .mixer = {0x0a1f, 0x0a0f}, .lead_least = 0x0a00, .gap_longest = 0x0500 << 6,
         .shadow = 0x00400030, .fallbacks = 70000u, .chip_ticks = 0x13579, .tmu_ticks = 0xe9ac1c3, .spare = 7u,
         .lost_table = 2u, .refusals = 300u, .lost_guard = 1u, .skipped_stack = 3u};
 #endif
@@ -540,7 +540,7 @@ static int card_report(void) {
     assert(strstr(text, "CD O ST V ID RING N\n2345F283 FFFFFFFF 3F3EFFFF 1EFFA0 " RING_KIND "FF4000\n"
                         "CD O KEY RST UND CLK DRP TK\n1234 56 12 34 7FFFF FFFF0003\n"
                         "CD O HB LONG TICK KB SKIP LV\n54321 999 7654321 48D15 FF02FF01 F0F0F1F\n"
-                        "CD O MX M1 FB AT TM LOST\nA0F0A1F 5000A00 FFFF4030 13579 E9AC1C3 301FF02\n"
+                        "CD O MX LD FB AT TM LOST\nA0F0A1F 5000A00 FFFF4030 13579 E9AC1C3 301FF02\n"
                         "CD C BLK"));
 #endif
     assert(strstr(text, "CD C BLK RB RR PIO WAIT YLD\n123456 12 34 56 78 9A\n"
@@ -574,7 +574,7 @@ static int card_report(void) {
     body = format(&ra, &region, text, &rows);
     assert(body <= KUI_TOY_REPORT_FILE_BYTES - 12u && rows <= LABELS);
 #if KUI_TOY_CDDA_OUTPUT && !KUI_TOY_CDDA_SURVEY
-    assert(strstr(text, "CD O MX M1 FB AT TM LOST\nFFFFFFFF FFFFFFFF FFFFFFFF FFFFFFFF FFFFFFFF FFFFFFFF\n"));
+    assert(strstr(text, "CD O MX LD FB AT TM LOST\nFFFFFFFF FFFFFFFF FFFFFFFF FFFFFFFF FFFFFFFF FFFFFFFF\n"));
 #endif
     printf("PASS Test " TEST_NUMBER " report (the audio's rows%s): %zu body bytes with nothing counted, %zu with the "
            "audio's fields set, %zu of 1012 with every other row at eight digits a value and the audio's rows all "

@@ -65,7 +65,7 @@ ifeq ($(TOY_WIRE_STREAM),1)
 ifeq ($(TOY_WIRE_TICK),1)
 TOY_WIRE_TEST := 69
 else ifeq ($(TOY_CDDA_ADPCM),1)
-TOY_WIRE_TEST := 86
+TOY_WIRE_TEST := 87
 else ifeq ($(TOY_CDDA_CARD),1)
 TOY_WIRE_TEST := 85
 else ifeq ($(TOY_CDDA_ROOM),1)

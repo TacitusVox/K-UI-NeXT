@@ -223,8 +223,10 @@ static void toy_report_wire(char **at,const char *end,const struct kui_native_ra
      * SKIP: heartbeats not made for SR.BL <<24 and a G2 transfer <<16, bus
      * waits that ran out <<8, stores refused. LV: the last levels written
      * that were levels, the left plane's and the right's <<16.
-     * MX: the CD mixers as last read, the first and the second <<16. M1:
-     * as first read with something in them. FB: MANATEE 2's own level
+     * MX: the CD mixers as last read, the first and the second <<16. LD:
+     * the least frames a look found the ring ahead of the chip (the ring
+     * has run dry under 241), and <<16 the longest time between two looks
+     * at a ring that runs, in 64 ticks. FB: MANATEE 2's own level
      * bytes (the first, the second <<8) and heartbeats they stood in <<16.
      * AT: the driver's count of 4 ms of the sound chip's time since it was
      * first looked at in a play that ran. TM: TMU0's ticks in that time
@@ -247,8 +249,9 @@ static void toy_report_wire(char **at,const char *end,const struct kui_native_ra
                 toy_cdda_cap(o->skipped_bl,255u)<<24|toy_cdda_cap(o->skipped_dma,255u)<<16|
                     toy_cdda_cap(o->timeouts,255u)<<8|toy_cdda_cap(o->faults,255u),
                 o->level_last[0]|o->level_last[1]<<16},6u);
-        toy_report_short(at,end,"CD O MX M1 FB AT TM LOST",
-            (uint32_t[]){o->mixer[0]|o->mixer[1]<<16,o->mixer_first[0]|o->mixer_first[1]<<16,
+        toy_report_short(at,end,"CD O MX LD FB AT TM LOST",
+            (uint32_t[]){o->mixer[0]|o->mixer[1]<<16,
+                toy_cdda_cap(o->lead_least,0xffffu)|toy_cdda_cap(o->gap_longest>>6,0xffffu)<<16,
                 (o->shadow&255u)|(o->shadow>>16&255u)<<8|toy_cdda_cap(o->fallbacks,0xffffu)<<16,
                 o->chip_ticks,o->tmu_ticks,
                 toy_cdda_cap(o->lost_table,255u)|toy_cdda_cap(o->refusals,255u)<<8|
@@ -770,9 +773,10 @@ static void toy_report_format(char *text,const struct kui_native_ra_public *ra,
     /* Card Tools starts this reader from its Test 66 entry. */
 #if KUI_TOY_CDDA_CARD
     /* Test 85 (CARD): the audio is read from the card. Test 86 (ADPCM): and
-     * kept in the sound chip's own 4-bit format. */
+     * kept in the sound chip's own 4-bit format; Test 87: by the sound
+     * chip's own clock. */
 #if defined(KUI_TOY_CDDA_ADPCM) && KUI_TOY_CDDA_ADPCM
-    test=86u;
+    test=87u;
 #else
     test=85u;
 #endif

@@ -544,7 +544,6 @@ static void levels(struct bus *b) {
     if(!stable(b, MIXER, &value[0]) || !stable(b, MIXER + 4u, &value[1]))return;
     for(unsigned side = 0; side < 2u; ++side) {
         O.mixer[side] = value[side] & 0xffffu;
-        if(O.mixer[side] && !O.mixer_first[side])O.mixer_first[side] = O.mixer[side];
     }
     /* One level for both planes, the larger of the two inputs', and each
      * plane on its own side. Which of the two registers is the disc's left
@@ -1103,6 +1102,7 @@ static void work(struct bus *b, bool wanted, bool tail, uint32_t now) {
          * from here on. */
         uint32_t count;
         if(!sound(b, count_at(), &count))return;
+        if(!O.keys)O.lead_least = UINT32_MAX;
         key_on(b);
         if(!b->ok)return;
         O.key_count = count;
@@ -1184,6 +1184,9 @@ static void work(struct bus *b, bool wanted, bool tail, uint32_t now) {
         O.moved = counted;
         O.moved_tick = tmu;
     }
+    /* (For the report: the longest wait between two looks at a ring that
+     * runs.) */
+    if(O.played_tick - tmu > O.gap_longest)O.gap_longest = O.played_tick - tmu;
     O.played = counted;
     O.played_tick = tmu;
     if(!borne) {
@@ -1211,6 +1214,8 @@ static void work(struct bus *b, bool wanted, bool tail, uint32_t now) {
         O.audio_end = O.written;
     }
     const uint32_t ahead = O.written - O.played, most = O.frames - margin - EDGE;
+    /* (For the report: the least a look found the ring ahead of the chip.) */
+    if(!O.finished && ahead < O.lead_least)O.lead_least = ahead;
     if(ahead < most) {
         fill(b, most - ahead, ahead < (O.frames / 3u > WATER_FRAMES ? O.frames / 3u : WATER_FRAMES));
         if(O.broken)restart(b, busy);

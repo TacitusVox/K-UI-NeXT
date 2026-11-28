@@ -64,10 +64,12 @@ struct kui_toy_cdda_output {
     uint8_t carry[32];
     struct kui_toy_cdda_coder coder[2];
     /* What each channel's level and pan word should be now, what was last
-     * written, the CD mixers as last read and as first read with something
-     * in them, heartbeats they read nothing, and MANATEE 2's own level
-     * bytes when they stood in for them. */
-    uint32_t level[2], level_set[2], mixer[2], mixer_first[2], mixer_zero, shadow;
+     * written, the CD mixers as last read, heartbeats they read nothing,
+     * and MANATEE 2's own level bytes when they stood in for them. For the
+     * report: the least frames a look found the ring ahead of the chip
+     * (from the first key-on), and the longest TMU0 time between two looks
+     * at a ring that runs. */
+    uint32_t level[2], level_set[2], mixer[2], mixer_zero, shadow, lead_least, gap_longest;
     /* For the report: the last level written that was one; and the two
      * clocks: the driver's count of 4 ms of the chip's time and TMU0 when
      * first looked at in a play that ran, and how far each has gone since. */
