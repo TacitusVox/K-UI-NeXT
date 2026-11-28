@@ -879,6 +879,44 @@ static void clocked(void) {
     }
     printf("PASS the ring's clock: a count that stands still, fell or jumped begins the ring again before anything else is heard; one that is no clock is given up\n");
 }
+/* A game that calls once a frame of video, as the console's games do: 13,000
+ * of TMU0's ticks from one call to the next, the chip a quarter of a percent
+ * ahead of TMU0. The chip plays 2,947 bytes of the card's a frame. */
+static void frames_of_video(unsigned count) {
+    for(unsigned frame = 0; frame < count; ++frame)beat(13000u - (uint32_t)(now - beat_began));
+}
+static void framed(void) {
+    /* The card hands on three kilobytes a heartbeat, and four: the ring
+     * holds for a minute, every frame of video a heartbeat that uses the
+     * bus, and never less ahead than the margin. The minute takes the play
+     * out of one track, through the two seconds between tracks and into
+     * the next: silence comes as fast as the chip plays it. (As ADPCM. The
+     * build of 16-bit samples, which is not the one delivered, keeps its
+     * slower silence and is held within the first track here.) */
+    for(uint32_t most = 3072u; most <= 4096u; most += 1024u) {
+        fresh();
+        manatee1(false);
+        ppm = 2450;
+        card_most = most;
+        play(1000u, 9000u, 0u, 0);
+        frames_of_video(KUI_TOY_CDDA_ADPCM ? 3600u : 2000u);
+        CHECK(sounding() && !wrong_frames && !O.underruns && !O.restarts && starts == 1u);
+        CHECK(O.heartbeats >= (KUI_TOY_CDDA_ADPCM ? 3590u : 1990u) && O.lead_least >= 241u && O.gap_longest < 13100u);
+    }
+    /* Two kilobytes a heartbeat, which was all KOF Dream Match 1999's
+     * window let through under Test 86: the ring runs dry twice a second,
+     * as it did on the console. */
+    fresh();
+    manatee1(false);
+    ppm = 2450;
+    card_most = 2048u;
+    strict = false;
+    play(1000u, 9000u, 0u, 0);
+    frames_of_video(3600u);
+    CHECK(O.underruns >= 100u && O.underruns <= 140u && O.restarts == O.underruns);
+    printf("PASS a game that calls once a frame: three kilobytes a heartbeat hold the ring for a minute, two run it dry %u times\n",
+        (unsigned)O.underruns);
+}
 /* Whatever is not proved leaves the chip alone. */
 static void refused(void) {
     /* Another build of the driver; an admitted build that is not running. */
@@ -1489,6 +1527,7 @@ int main(void) {
     drifting(2450);
     drifting(-6000);
     clocked();
+    framed();
     refused();
     placing();
     contested();

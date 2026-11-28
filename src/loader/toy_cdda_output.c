@@ -166,7 +166,17 @@ struct kui_toy_cdda_output kui_toy_cdda_output;
 #define WATER_FRAMES 2646u        /* 60 ms */
 #define PIECE_FRAMES 256u         /* room worth a heartbeat of its own: a kilobyte */
 #define FILL_FRAMES 2048u         /* frames of the card's a heartbeat writes at most */
-#define QUIET_FRAMES 512u         /* frames of silence a heartbeat writes at most: a third of its 3 ms */
+/* Frames of silence a heartbeat writes at most. As ADPCM silence costs
+ * what the card's frames cost, and a heartbeat writes as much of it: a gap
+ * between two tracks is two seconds, and a game's heartbeats come a frame
+ * of video apart, 737 frames of sound. Of 16-bit samples, a store a frame:
+ * a third of a heartbeat's 3 ms. */
+#if KUI_TOY_CDDA_ADPCM
+#define QUIET_FRAMES FILL_FRAMES
+#else
+#define QUIET_FRAMES 512u
+#endif
+#define WIPE_WORDS 1024u          /* words of a new ring cleared a heartbeat */
 #define EDGE 64u
 /* The driver's count of the chip's time: 4 ms, 882 frames in five counts;
  * COUNT_FRAMES is one count's frames, rounded up. */
@@ -478,7 +488,7 @@ static int place(struct bus *b, uint32_t *detail) {
  * use, so that a play the card lets run dry falls silent. */
 static bool wipe(struct bus *b) {
     for(uint32_t words = 0; O.wiped < ring_bytes() - 2u * GUARD_BYTES; O.wiped += 4u, ++words)
-        if(words == 2u * QUIET_FRAMES || !put(b, SOUND + O.ring + GUARD_BYTES + O.wiped, WIPE))return false;
+        if(words == WIPE_WORDS || !put(b, SOUND + O.ring + GUARD_BYTES + O.wiped, WIPE))return false;
     return true;
 }
 
@@ -756,15 +766,15 @@ OUT_NAME(kui_toy_cdda_squeeze) ":\n"
 #endif
 /* Whole units of eight frames from where they lie, at an even address,
  * into the ring at its write position: a word a plane a unit, as many of
- * `units` as the bus's stretch lets through. Returns the units stored; the
- * write position and the counts move on by exactly those, and each side's
- * coder with its words. The bus's rule is kept as put() keeps it: the G2
+ * `units` as the bus's stretch lets through, each `advance` bytes behind
+ * the last (none: the same unit again, which is how silence comes). Returns
+ * the units stored; the write position and the counts move on by exactly
+ * those, and each side's coder with its words. The bus's rule is kept as put() keeps it: the G2
  * FIFO empty, and the stretch's time not run out, before each eight
  * stores, which are four units; and the stores go to the two planes of the
  * placed ring at the write position, nowhere else. A unit's two words are
  * stored together or not at all. */
-static __attribute__((noinline)) uint32_t pour(struct bus *b, const uint8_t *from, uint32_t units) {
-    const int16_t *unit = __builtin_assume_aligned(from, 2);
+static __attribute__((noinline)) uint32_t pour(struct bus *b, const uint8_t *from, uint32_t units, uint32_t advance) {
     const uint32_t frames = O.frames, span = plane_bytes(frames), base = SOUND + plane(0u);
     uint32_t at = O.at, done = 0u;
     if(!O.placed || at >= frames || (at & (UNIT - 1u))) {
@@ -772,11 +782,12 @@ static __attribute__((noinline)) uint32_t pour(struct bus *b, const uint8_t *fro
         b->ok = false;
         return 0u;
     }
-    for(; done < units; ++done, unit += 2u * UNIT) {
+    for(; done < units; ++done, from += advance) {
         if(!(done & 3u)) {
             b->burst = 0u;
             if(!drain(b))break;
         }
+        const int16_t *unit = __builtin_assume_aligned(from, 2);
         const uint32_t to = base + at / 2u;
         write32(to, kui_toy_cdda_squeeze(unit, &O.coder[0]));
         write32(to + span, kui_toy_cdda_squeeze(unit + 1, &O.coder[1]));
@@ -793,11 +804,12 @@ static __attribute__((noinline)) uint32_t pour(struct bus *b, const uint8_t *fro
 #else
 /* Units of two frames of 16-bit samples from where they lie into the ring
  * at its write position, a word a plane a unit, with a plane's first two
- * once more behind its last. Returns the units stored: nothing is counted
- * for one that is not, and it may come again. */
-static uint32_t pour(struct bus *b, const uint8_t *from, uint32_t units) {
+ * once more behind its last; each `advance` bytes behind the last. Returns
+ * the units stored: nothing is counted for one that is not, and it may come
+ * again. */
+static uint32_t pour(struct bus *b, const uint8_t *from, uint32_t units, uint32_t advance) {
     uint32_t done = 0u;
-    for(; done < units; ++done, from += 4u * UNIT) {
+    for(; done < units; ++done, from += advance) {
         const uint32_t at = O.at * 4u / UNIT;
         const uint32_t word[2] = {from[0] | from[1] << 8 | from[4] << 16 | (uint32_t)from[5] << 24,
             from[2] | from[3] << 8 | from[6] << 16 | (uint32_t)from[7] << 24};
@@ -823,21 +835,22 @@ static uint32_t feed(struct bus *b, const uint8_t *bytes, uint32_t count) {
     uint32_t taken = 0u;
     while(taken < count) {
         if(O.carried == 4u * UNIT) {
-            if(!pour(b, O.carry, 1u))return taken;
+            if(!pour(b, O.carry, 1u, 0u))return taken;
             O.carried = 0u;
         }
         if(!O.carried && count - taken >= 4u * UNIT) {
-            uint32_t units = 1u;
+            uint32_t units = (count - taken) / (4u * UNIT), advance = 4u * UNIT;
             const uint8_t *from = nothing;
-            if(bytes && !((uintptr_t)(bytes + taken) & 1u)) {
-                from = bytes + taken;
-                units = (count - taken) / (4u * UNIT);
-            } else if(bytes) {
+            /* (Silence: the one unit of it, as often as asked.) */
+            if(!bytes)advance = 0u;
+            else if(!((uintptr_t)(bytes + taken) & 1u))from = bytes + taken;
+            else {
                 /* (At an odd address: by way of the unit's own room.) */
                 for(unsigned i = 0; i < 4u * UNIT; ++i)O.carry[i] = bytes[taken + i];
                 from = O.carry;
+                units = 1u;
             }
-            const uint32_t done = pour(b, from, units);
+            const uint32_t done = pour(b, from, units, advance);
             taken += 4u * UNIT * done;
             if(done < units)return taken;
             continue;
@@ -845,7 +858,7 @@ static uint32_t feed(struct bus *b, const uint8_t *bytes, uint32_t count) {
         O.carry[O.carried++] = bytes ? bytes[taken] : 0u;
         ++taken;
     }
-    if(O.carried == 4u * UNIT && pour(b, O.carry, 1u))O.carried = 0u;
+    if(O.carried == 4u * UNIT && pour(b, O.carry, 1u, 0u))O.carried = 0u;
     return taken;
 }
 static uint32_t silence(struct bus *b, uint32_t frames) {
@@ -940,11 +953,18 @@ static void fill(struct bus *b, uint32_t room, bool low) {
              * place, from the next whole frame on. */
             O.got &= ~UINT32_C(3);
             O.carried &= ~UINT32_C(3);
-            /* One stretch of silence a heartbeat: the rest waits. */
+            /* A stretch of silence, and what it leaves waits for the
+             * next heartbeat. */
             const uint32_t left = (bytes - O.got) / 4u, done = silence(b, left < quiet ? left : quiet);
             O.got += 4u * done;
             if(done < left)return;
+#if KUI_TOY_CDDA_ADPCM
+            /* (A gap goes by a sector a piece: on to the next, as far as
+             * the heartbeat's room goes.) */
+            room -= done;
+#else
             room = room - done < 2u * PIECE_FRAMES ? room - done : 2u * PIECE_FRAMES;
+#endif
         } else {
             if(asked)return;
             asked = true;
