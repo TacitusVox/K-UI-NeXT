@@ -90,9 +90,22 @@ static void toy_report_course(char **at,const char *end,const char *label,
 #endif
 static void toy_report_wire(char **at,const char *end,const struct kui_native_ra_public *ra,
     const struct kui_sci_stream_stats *sd) {
-    static const struct kui_toy_wire_report none;
     const struct kui_toy_wire_report *w=toy_wire_report_block();
+#if defined(KUI_TOY_CDDA_OUTPUT) && KUI_TOY_CDDA_OUTPUT
+    /* Test 89: a block that is not the stream's reads as zeros, as before,
+     * but the zeros are no longer 768 bytes of the worker's own image, which
+     * the sound output needs. They are made where the audio's bytes passed:
+     * the shared block's sink, which nothing reads once the report is being
+     * written (the worker's heartbeat, the sink's only reader, has ended). */
+    if(w->magic!=KUI_TOY_WIRE_REPORT_MAGIC) {
+        _Static_assert(sizeof(*w)<=sizeof(kui_toy_cdda_mail.sink),"the sink holds a stream report of zeros");
+        memset(kui_toy_cdda_mail.sink,0,sizeof(*w));
+        w=(const void *)kui_toy_cdda_mail.sink;
+    }
+#else
+    static const struct kui_toy_wire_report none;
     if(w->magic!=KUI_TOY_WIRE_REPORT_MAGIC)w=&none;
+#endif
     const uint32_t *ahead=ra->diagnostics.stage_result[KUI_NATIVE_RA_STAGE_NONE];
 #if KUI_TOY_WIRE_MEASURE
 #if KUI_TOY_WIRE_FLUID
