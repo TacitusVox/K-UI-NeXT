@@ -32,6 +32,11 @@ enum kui_toy_cdda_card {
     KUI_TOY_CDDA_CARD_DONE = 3u,      /* the segment's last sector has been handed on */
     KUI_TOY_CDDA_CARD_REFUSED = 4u    /* no mapped audio track of 2,352-byte sectors, or outside it */
 };
+/* The reader's whole soft window for optional work at a heartbeat, in TMU0
+ * ticks: 3 ms (KUI_NATIVE_RA_PIO_WINDOW_TICKS, include/kui/native_readahead.h;
+ * tests/test_toy_cdda_card_window.c holds the two to each other). A sound
+ * output that runs low has all of it. */
+#define KUI_TOY_CDDA_CARD_WINDOW_TICKS 2344u
 /* The consumer takes count bytes that continue the segment at byte offset
  * from its first sector's first byte. Offsets follow on without a gap and
  * without a repeat within one generation, from 0. The bytes are the
