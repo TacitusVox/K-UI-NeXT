@@ -1053,6 +1053,9 @@ static void refused(void) {
      * another's running mark or none. */
     static const struct { uint32_t version, state; } none[] = {
         {UINT32_C(0x00090003), EXEC},     /* 3.00.09 */
+        {UINT32_C(0x003b0103), SEGA},     /* 3.01.3b and 0.01.3b: MANATEE 1's but for the first byte */
+        {UINT32_C(0x003b0100), SEGA},
+        {UINT32_C(0x00120003), SEGA},     /* and NAMIHEI's */
         {UINT32_C(0x01090002), EXEC},     /* a fourth byte */
         {UINT32_C(0x00090002), SEGA},     /* MANATEE 2 under MANATEE 1's mark */
         {UINT32_C(0x003b0101), EXEC},     /* and the other way */
@@ -1382,6 +1385,18 @@ static void contested(void) {
     run(500u);
     CHECK(O.phase == KUI_TOY_CDDA_OUT_SILENT && O.why == KUI_TOY_CDDA_OUT_WHY_ID && !O.family && !O.placed);
     CHECK(O.seen_hash == builds[15].hash);
+    /* And one of the same date and other version bytes (no two builds of
+     * the corpus are so: the date is authored). */
+    fresh();
+    manatee1(false);
+    play(1000u, 9000u, 0u, 0);
+    run(1000u);
+    CHECK(sounding() && O.hash == 0x1c1fu);
+    manatee1_build(UINT32_C(0x003f0101), "1998.12.0", 0x1c1fu);
+    frozen = true;
+    strict = false;
+    run(500u);
+    CHECK(O.phase == KUI_TOY_CDDA_OUT_SILENT && O.why == KUI_TOY_CDDA_OUT_WHY_ID && O.seen_hash == 0x1c1fu);
     /* A channel the driver left keyed on, its port free: keyed off before
      * the ring's key-on, so that both planes start together. */
     fresh();
