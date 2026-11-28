@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: GPL-3.0-only
-"""The saved reports of a CD-music test's STREAM.TXT (Tests 84 to 87), each
+"""The saved reports of a CD-music test's STREAM.TXT (Tests 84 to 88), each
 with its CD rows spelled out.
 
 usage: python3 -I tools/toy_cdda_report.py STREAM.TXT
@@ -9,7 +9,7 @@ The file is the survey file of tools/toy_survey.py: a header sector and
 three sectors a slot (the launch record and two of report text). Every
 slot that was launched is printed as it stands, and under it what the rows
 CD P, CD ST, CD O and CD C say (docs/cdda-background-test-85.md to
-docs/cdda-background-test-87.md, The report). Nothing is written."""
+docs/cdda-background-test-88.md, The report). Nothing is written."""
 import sys
 
 TICK = 781250.0
@@ -18,6 +18,8 @@ WHY = {0: 'none', 1: 'no admitted driver', 2: 'the sound CPU held', 3: 'another 
        5: 'the ring', 6: 'a channel taken', 7: 'a key dropped too often', 8: 'the timer'}
 RING = {1: 'no place among the table\'s pairs', 2: 'a pair came to lie in it', 3: 'a guard line overwritten'}
 FAMILY = {0: 'none', 1: 'MANATEE 2', 2: 'MANATEE 1 from 1.01.37', 3: 'older MANATEE 1', 4: 'NAMIHEI', 5: 'AUDIO64'}
+# Reason 4's detail (Test 88): the records are proved and leave no pair.
+PROOF = {1: 'the split leaves no two stream ports'}
 STATE = {0: 'idle', 1: 'playing', 2: 'paused', 3: 'ended', 4: 'clock lost'}
 KIND = {0: '16-bit samples in a place of the table\'s', 1: 'ADPCM in a place of the table\'s',
         2: '16-bit samples in the driver\'s spare memory', 3: 'ADPCM in the driver\'s spare memory'}
@@ -41,10 +43,11 @@ def read(rows, v):
         why, detail = o[0] >> 4 & 15, o[0] >> 16
         print('   the output: %s; reason: %s%s; family %s; keys dropped in the play %d' %
               (PHASE.get(o[0] & 15, '?'), WHY.get(why, '?'),
-               (' (%s)' % RING.get(detail, 'detail 0x%X' % detail)) if why == 5 else (' (detail 0x%X)' % detail if detail else ''),
+               (' (%s)' % RING.get(detail, 'detail 0x%X' % detail)) if why == 5 else
+               (' (%s)' % PROOF[detail]) if why == 4 and detail in PROOF else (' (detail 0x%X)' % detail if detail else ''),
                FAMILY.get(o[0] >> 8 & 15, '?'), o[0] >> 12 & 15))
-        print('   the driver seen: version word %08X, date hash %04X; channels %d and %d' %
-              (o[1], o[2] & 0xffff, o[2] >> 16 & 255, o[2] >> 24))
+        print('   the driver seen: version word %08X (%d.%02X.%02X), date hash %04X; channels %d and %d' %
+              (o[1], o[1] & 255, o[1] >> 8 & 255, o[1] >> 16 & 255, o[2] & 0xffff, o[2] >> 16 & 255, o[2] >> 24))
         frames = o[4] & 0xffff
         if frames:
             print('   the ring: at 0x%06X, %d frames a plane (%.0f ms); places taken %d; %s' %
@@ -52,7 +55,7 @@ def read(rows, v):
         else:
             print('   the ring: none placed; places taken %d' % (o[4] >> 16 & 255))
     for row, fourth in (('CD O KEY RST UND ANC DRP TK', 'for the clocks\' margin'),             # Tests 85 and 86
-                        ('CD O KEY RST UND CLK DRP TK', 'for a count TMU0 did not bear out')):    # Test 87
+                        ('CD O KEY RST UND CLK DRP TK', 'for a count TMU0 did not bear out')):    # Tests 87 and 88
         if row in v:
             k = v[row]
             print('   %d key-ons; %d rings begun again (%d for a ring run dry, %d %s); %d keys dropped by the '
@@ -79,7 +82,7 @@ def read(rows, v):
         print('   the CD mixers as last read: %04X and %04X; as first read with something in them: %04X and %04X; MANATEE '
               '2\'s level bytes %02X %02X, stood in %d times' %
               (m[0] & 0xffff, m[0] >> 16, m[1] & 0xffff, m[1] >> 16, m[2] & 255, m[2] >> 8 & 255, m[2] >> 16))
-    if 'CD O MX LD FB AT TM LOST' in v:       # Test 87
+    if 'CD O MX LD FB AT TM LOST' in v:       # Tests 87 and 88
         lead, gap = m[1] & 0xffff, m[1] >> 16
         print('   the CD mixers as last read: %04X and %04X; MANATEE 2\'s level bytes %02X %02X, stood in %d times' %
               (m[0] & 0xffff, m[0] >> 16, m[2] & 255, m[2] >> 8 & 255, m[2] >> 16))
