@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: GPL-3.0-only
-"""The saved reports of a CD-music test's STREAM.TXT (Tests 84 to 88), each
+"""The saved reports of a CD-music test's STREAM.TXT (Tests 84 to 89), each
 with its CD rows spelled out.
 
 usage: python3 -I tools/toy_cdda_report.py STREAM.TXT
@@ -9,7 +9,7 @@ The file is the survey file of tools/toy_survey.py: a header sector and
 three sectors a slot (the launch record and two of report text). Every
 slot that was launched is printed as it stands, and under it what the rows
 CD P, CD ST, CD O and CD C say (docs/cdda-background-test-85.md to
-docs/cdda-background-test-88.md, The report). Nothing is written."""
+docs/cdda-background-test-89.md, The report). Nothing is written."""
 import sys
 
 TICK = 781250.0

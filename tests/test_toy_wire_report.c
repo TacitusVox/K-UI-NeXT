@@ -116,7 +116,7 @@ struct kui_toy_cdda_output kui_toy_cdda_output;
 #if defined(KUI_TOY_CDDA_CARD) && KUI_TOY_CDDA_CARD
 /* Test 85 (CARD): Test 84's rows under its own number. */
 #if defined(KUI_TOY_CDDA_ADPCM) && KUI_TOY_CDDA_ADPCM
-#define TEST_NUMBER "88"
+#define TEST_NUMBER "89"
 #define RING_KIND "3"
 #define RING_NONE "1000000"
 #else
