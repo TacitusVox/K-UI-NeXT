@@ -962,9 +962,14 @@ static void piece(void) {
 /* Where the drive stands now, by its clock, without moving it: the sector,
  * and the passes it has still to play (0: for ever). False: by its clock
  * the play is over. */
-static bool drive_now(uint32_t now) {
-    /* (A play that is held stands where it stood: Test 89.) */
-    const uint32_t length = D.end - D.first, ticks = D.hold ? D.held : D.base_counter - now;
+static bool drive_now(void) {
+    /* (A play that is held stands where it stood: Test 89. One that is
+     * not is reckoned from its base and TMU0's count as read here, behind
+     * every visit of the player's. The heartbeat's own count will not do:
+     * a visit made for a hold brings the base up to a later count, and a
+     * base beyond the count it is taken from is a play far from where it
+     * stands.) */
+    const uint32_t length = D.end - D.first, ticks = D.hold ? D.held : D.base_counter - read32(TCNT0);
     uint32_t done = D.done;
     int32_t offset = D.base_offset + (int32_t)(ticks / KUI_TOY_CDDA_TICKS_3_SECTORS * 3u +
         ticks % KUI_TOY_CDDA_TICKS_3_SECTORS * 3u / KUI_TOY_CDDA_TICKS_3_SECTORS);
@@ -1101,7 +1106,7 @@ static void work(struct bus *b, bool wanted, bool tail, uint32_t now) {
             }
         }
         /* A play that is over by the drive's clock is not begun. */
-        if(!drive_now(now)) {
+        if(!drive_now()) {
             stop(b, busy, KUI_TOY_CDDA_OUT_SILENT, 0u, 0u);
             return;
         }
@@ -1162,7 +1167,7 @@ static void work(struct bus *b, bool wanted, bool tail, uint32_t now) {
          * player bounds the hold: a ring not keyed on within a second has
          * its play going on without it, as before there was a hold.) */
         kui_toy_cdda_player_hold(KUI_TOY_CDDA_HOLD);
-        if(D.state != KUI_TOY_CDDA_PLAYING || !drive_now(now)) {
+        if(D.state != KUI_TOY_CDDA_PLAYING || !drive_now()) {
             stop(b, busy, KUI_TOY_CDDA_OUT_SILENT, 0u, 0u);
             return;
         }

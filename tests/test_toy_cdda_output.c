@@ -234,6 +234,7 @@ static bool oracle(uint32_t tc, uint32_t *sector, uint32_t *passes) {
 /* Test 89: the player's hold, as src/loader/toy_cdda_player.c keeps it. */
 static unsigned long holds, releases, holds_over, holds_refused;
 static bool over_at_hold;            /* once, the visit a hold begins with finds the play over */
+static bool edge_soon;               /* once: see the read of TCNT0 */
 static uint32_t held_sector, held_passes;   /* where the play stood at its last hold */
 /* A play stands a second at most from the first hold since a ring was last
  * keyed on: at the second's end it went on by itself, whenever that is
@@ -258,6 +259,19 @@ void kui_toy_cdda_player_hold(uint32_t hold) {
         return;
     }
     if(D.hold)return;
+    /* (The player brings the play up to now first: the base moves on by
+     * whole groups of three sectors to within one of this count, which is
+     * later than the heartbeat's own.) */
+    {
+        const uint32_t groups = (uint32_t)(D.base_counter - tcnt()) / KUI_TOY_CDDA_TICKS_3_SECTORS;
+        D.base_counter -= groups * KUI_TOY_CDDA_TICKS_3_SECTORS;
+        D.base_offset += (int32_t)(groups * 3u);
+        const int32_t length = (int32_t)(D.end - D.first);
+        while(D.base_offset >= length && (!D.passes || D.done + 1u < D.passes)) {
+            D.base_offset -= length;
+            ++D.done;
+        }
+    }
     if(over_at_hold) {
         /* (As lap() ends a play at the visit that finds its last pass over.) */
         over_at_hold = false;
@@ -269,6 +283,8 @@ void kui_toy_cdda_player_hold(uint32_t hold) {
         D.held_open = 1u;
         D.held_at = tcnt();
     } else if(D.held_at - tcnt() > KUI_TOY_CDDA_HOLD_TICKS) {
+        /* (Not held: its ring begins where it stands now.) */
+        CHECK(oracle(tcnt(), &held_sector, &held_passes));
         ++holds_refused;
         return;
     }
@@ -469,7 +485,16 @@ uint32_t kui_toy_cdda_output_test_read(uint32_t address, unsigned width) {
     case UINT32_C(0xffd80004): CHECK(width == 1u); return tstr;
     case UINT32_C(0xffd80008): CHECK(width == 4u); return tcor;
     case UINT32_C(0xffd80010): CHECK(width == 2u); return tcr;
-    case UINT32_C(0xffd8000c): CHECK(width == 4u); return tcnt();
+    case UINT32_C(0xffd8000c):
+        CHECK(width == 4u);
+        if(edge_soon) {
+            /* A group of three sectors of the play becomes whole a few
+             * ticks behind this read: between a heartbeat's own count
+             * and the visit its hold begins with. */
+            edge_soon = false;
+            D.base_counter -= (uint32_t)(D.base_counter - tcnt()) % KUI_TOY_CDDA_TICKS_3_SECTORS + 8u;
+        }
+        return tcnt();
     default: break;
     }
     CHECK(width == 4u && masked());
@@ -714,7 +739,7 @@ static void fresh(void) {
     tick_base = 0u;
     count_stuck = count_slow = false;
     holds = releases = holds_over = holds_refused = 0u;
-    over_at_hold = false;
+    over_at_hold = edge_soon = false;
     count_ppm = 0;
     torn_left = 0u;
     family = 0u;
@@ -756,12 +781,10 @@ static void beat(uint32_t ticks) {
          * keyed on, and its play let go, in the same heartbeat). */
         CHECK(live && holds + holds_refused == holds_before + refused_before + 1u);
         /* (A play that is not held again, its second spent, has its ring
-         * where the heartbeat found it: the beat's.) */
-        if(holds != holds_before) {
-            CHECK(D.hold || O.phase == KUI_TOY_CDDA_OUT_RUN);
-            sector = held_sector;
-            passes = held_passes;
-        }
+         * where it stood when the hold was asked.) */
+        if(holds != holds_before)CHECK(D.hold || O.phase == KUI_TOY_CDDA_OUT_RUN);
+        sector = held_sector;
+        passes = held_passes;
         heard_play.first = D.first;
         heard_play.end = D.end;
         heard_play.base = sector;
@@ -1970,6 +1993,15 @@ static void ends_together(void) {
         CHECK(oracle(tcnt(), &sector, &passes) || from - tcnt() > 5u * SECOND + SECOND / 2u);
     }
     CHECK(!oracle(tcnt(), &sector, &passes) && !D.hold && holds_over == 1u);
+    /* The player ends it at its next visit, and the output gives up the
+     * ring it was still priming: nothing is keyed on for a play that is
+     * over. */
+    CHECK(O.phase == KUI_TOY_CDDA_OUT_PRIME && holds == 1u);
+    D.state = KUI_TOY_CDDA_ENDED;
+    ++D.generation;
+    card_idle = false;
+    run(500u);
+    CHECK(O.phase == KUI_TOY_CDDA_OUT_OFF && !O.keys && !sounding() && !O.why && holds == 1u);
     /* A ring given up before it sounded (the card left a frame out) and
      * taken up again is the same second's: the play is held again within
      * it, and not once it is spent. */
@@ -1993,10 +2025,16 @@ static void ends_together(void) {
             beat(5000u);
         }
         CHECK(!card_skips && O.restarts == 1u && !O.keys && D.held_open && D.held_at == opened);
+        /* (At every heartbeat on the way a group of the play's becomes
+         * whole just behind the heartbeat's own count: the player's visit
+         * for the hold then leaves the base beyond that count, and a play
+         * that is not held must not be reckoned from the two.) */
         for(unsigned beats = 0; O.phase != KUI_TOY_CDDA_OUT_PRIME && O.phase != KUI_TOY_CDDA_OUT_RUN; ++beats) {
             CHECK(beats < 400u);
+            edge_soon = true;
             beat(5000u);
         }
+        edge_soon = false;
         CHECK(holds == (spent ? 1u : 2u) && holds_refused == spent && D.held_at == opened);
         run(2000u);
         CHECK(sounding() && O.keys == 1u && O.restarts == 1u && !wrong_frames && !D.hold && !D.held_open);
@@ -2004,8 +2042,10 @@ static void ends_together(void) {
         /* (Held again, the play began with its ring; not held, it runs on
          * while the ring is primed, as before there was a hold: here the
          * card hands on at once.) */
-        if(spent)CHECK(heard_play.base > first + 10u && heard_play.base < first + 40u && ahead > -1200 && ahead < 22050);
-        else CHECK(heard_play.base >= first && heard_play.base < first + 6u && ahead > -1200 && ahead < 1200);
+        /* (The groups made whole on the way set the play back up to three
+         * sectors a heartbeat.) */
+        if(spent)CHECK(heard_play.base + 60u > first && heard_play.base < first + 40u && ahead > -1200 && ahead < 22050);
+        else CHECK(heard_play.base + 60u > first && heard_play.base < first + 6u && ahead > -1200 && ahead < 1200);
     }
     /* A play that its hold finds over (the player brings it up to now
      * first) is not begun. */

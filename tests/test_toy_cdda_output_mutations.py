@@ -211,8 +211,10 @@ MUTATIONS = [
     ("a ring given up told to the player as one keyed on", "    kui_toy_cdda_player_hold(KUI_TOY_CDDA_LET_GO);\n    quiet(b, busy);",
      "    kui_toy_cdda_player_hold(KUI_TOY_CDDA_SOUNDS);\n    quiet(b, busy);"),
     ("a play that its hold finds over begun all the same",
-     "        if(D.state != KUI_TOY_CDDA_PLAYING || !drive_now(now)) {\n            stop(b, busy, KUI_TOY_CDDA_OUT_SILENT, 0u, 0u);\n"
-     "            return;\n        }\n        O.piece_end = O.sector;", "        (void)drive_now(now);\n        O.piece_end = O.sector;"),
+     "        if(D.state != KUI_TOY_CDDA_PLAYING || !drive_now()) {\n            stop(b, busy, KUI_TOY_CDDA_OUT_SILENT, 0u, 0u);\n"
+     "            return;\n        }\n        O.piece_end = O.sector;", "        (void)drive_now();\n        O.piece_end = O.sector;"),
+    ("the drive reckoned from a count older than the player's last visit, as a heartbeat's own is",
+     "ticks = D.hold ? D.held : D.base_counter - read32(TCNT0);", "ticks = D.hold ? D.held : D.base_counter - (read32(TCNT0) + 40u);"),
     ("a read of the bus between the count and its clock", "    if(!sound(b, count_at(), &chip))return;\n    const uint32_t tmu = read32(TCNT0);",
      "    if(!sound(b, count_at(), &chip))return;\n    {\n        uint32_t early;\n        if(!once(b, TIMERS, &early))return;\n    }\n    const uint32_t tmu = read32(TCNT0);"),
     ("timer C's control bits taken for its count", "(timer[1] & 255u) << 8", "timer[1] << 8"),
