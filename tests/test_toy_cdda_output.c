@@ -913,7 +913,7 @@ static void framed(void) {
     strict = false;
     play(1000u, 9000u, 0u, 0);
     frames_of_video(3600u);
-    CHECK(O.underruns >= 100u && O.underruns <= 140u && O.restarts == O.underruns);
+    CHECK(O.underruns >= 100u && O.underruns <= 140u && O.restarts == O.underruns && O.lead_least < 241u);
     printf("PASS a game that calls once a frame: three kilobytes a heartbeat hold the ring for a minute, two run it dry %u times\n",
         (unsigned)O.underruns);
 }

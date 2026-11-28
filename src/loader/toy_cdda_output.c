@@ -1217,12 +1217,16 @@ static void work(struct bus *b, bool wanted, bool tail, uint32_t now) {
         else restart(b, busy);
         return;
     }
+    /* (For the report: the least a look found the ring ahead of the chip,
+     * the look that found it dry among them.) */
+    const uint32_t ahead = O.written > O.played ? O.written - O.played : 0u;
+    if(!O.finished && ahead < O.lead_least)O.lead_least = ahead;
     if(O.finished) {
         if(O.played >= O.audio_end + margin) {
             stop(b, busy, KUI_TOY_CDDA_OUT_SILENT, 0u, 0u);
             return;
         }
-    } else if(O.written < O.played + margin) {
+    } else if(ahead < margin) {
         ++O.underruns;
         restart(b, busy);
         return;
@@ -1233,9 +1237,7 @@ static void work(struct bus *b, bool wanted, bool tail, uint32_t now) {
         O.finished = 1u;
         O.audio_end = O.written;
     }
-    const uint32_t ahead = O.written - O.played, most = O.frames - margin - EDGE;
-    /* (For the report: the least a look found the ring ahead of the chip.) */
-    if(!O.finished && ahead < O.lead_least)O.lead_least = ahead;
+    const uint32_t most = O.frames - margin - EDGE;
     if(ahead < most) {
         fill(b, most - ahead, ahead < (O.frames / 3u > WATER_FRAMES ? O.frames / 3u : WATER_FRAMES));
         if(O.broken)restart(b, busy);
