@@ -69,6 +69,20 @@ resolved and 70 no heap initializer proved (`universal-loader-roadmap.md`,
 CD music in regular games: what is left). Host readings, necessary and not
 sufficient.
 
+Added 27 November 2026, later: every MANATEE-lineage build was read again
+and run for Test 88 (`cdda-background-test-88.md`, The reading;
+`tools/manatee_read.py`; `evidence/cdda-background-test-88/manatee-read.log`):
+each image's start-up and 3,528 of its timer interrupts on an ARM7 model.
+All 27 count 4 ms of the chip's time in one word (0x12418 in the 15 builds
+of MANATEE 2, 0x13418 in the 12 others, NAMIHEI among them), but 1.01.1d
+and 1.01.28, which count every fourth of all their timer's interrupts: 176
+frames a count, where the 25 others leave every 441st out and count 176.4.
+No build names an address from 0x16000 (MANATEE 2) or 0x15000 (the others)
+to below 0x18000. Of the 82 games the Background worker takes, 44 carry
+MANATEE alone with every driver file one of the builds read, 12 name it by
+their sound library with no driver file in the bundle run, 16 carry it
+beside AUDIO64 and 10 carry AUDIO64 alone.
+
 ## How the games ask for CD music
 
 - 423 programs reach the drive only through Sega's gdFs library; the other

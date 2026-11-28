@@ -1,0 +1,104 @@
+The sound output's host model, the five ways (VOLUME, ADPCM, SPARE), at 6948da60 (tests/test_toy_cdda_output.c as the tests' last commit has it; src/loader/toy_cdda_output.c as 9e105c4e has it).
+== way 111
+PASS a play on MANATEE 2.00.09: placed at 0x016000, 1619378 frames played, every one the play's; pause, release and the end
+PASS a play on MANATEE 1.01.3b: placed at 0x015000, 1618834 frames played, every one the play's; pause, release and the end
+PASS a play on MANATEE 1.01.37: placed at 0x015000, 1619088 frames played, every one the play's; pause, release and the end
+PASS a play on MANATEE 2.00.09: placed at 0x016000, 1618635 frames played, every one the play's; pause, release and the end
+PASS a play on MANATEE 1.01.3b: placed at 0x015000, 1618983 frames played, every one the play's; pause, release and the end
+PASS a play on MANATEE 1.01.37: placed at 0x015000, 1618633 frames played, every one the play's; pause, release and the end
+PASS tracks, a gap, a track the card refuses and laps: 1235310 frames, every one the play's or silence
+PASS the chip's clock +2450 ppm from TMU0 over five minutes: every frame the play's and the ring never begun again; a play's last frame at +2450 ppm
+PASS the chip's clock -6000 ppm from TMU0 over five minutes: every frame the play's and the ring never begun again; a play's last frame at -180 ppm
+PASS the ring's clock: a count that stands still, fell or jumped begins the ring again before anything else is heard; one that is no clock is given up
+PASS a game that calls once a frame: three kilobytes a heartbeat hold the ring for a minute, two run it dry 128 times
+PASS every build of the four families plays: 24 builds beside the three of the console, each known by its version bytes and its date; the first builds of MANATEE 1 by their count of 176 frames
+PASS nothing is written for another driver, one not running, a held sound CPU, unproved records, a used channel, no room, no clock, a G2 transfer, SR.BL
+PASS the ring's place: the driver's spare memory; given up when a guard says so and taken again in the same play, eight times
+PASS the driver's part: a taken channel is left alone, a dropped key begins the ring again (given up at the ninth), changed registers are put back and the ring begun again where the play was moved, a new driver ends every store
+PASS a card that hands nothing on, a slow card, a bus that does not answer, a word being written
+PASS VOLUME: both planes at the larger of the CD mixers' two levels, each on its side; MANATEE 2's level bytes where the mixers read nothing
+PASS the terminal key-off, a new play over an old one, a lost clock, a play already over
+PASS a play's last frames at 150 phases of the driver's count and of the heartbeats: every one played, and 141 to 1083 frames of silence behind them before the key-off
+CD-music output: 1575830144 checks passed (VOLUME 1, ADPCM 1, SPARE 1); host model only
+== way 011
+PASS a play on MANATEE 2.00.09: placed at 0x016000, 1619231 frames played, every one the play's; pause, release and the end
+PASS a play on MANATEE 1.01.3b: placed at 0x015000, 1619705 frames played, every one the play's; pause, release and the end
+PASS a play on MANATEE 1.01.37: placed at 0x015000, 1618489 frames played, every one the play's; pause, release and the end
+PASS a play on MANATEE 2.00.09: placed at 0x016000, 1619038 frames played, every one the play's; pause, release and the end
+PASS a play on MANATEE 1.01.3b: placed at 0x015000, 1618791 frames played, every one the play's; pause, release and the end
+PASS a play on MANATEE 1.01.37: placed at 0x015000, 1619012 frames played, every one the play's; pause, release and the end
+PASS tracks, a gap, a track the card refuses and laps: 1235447 frames, every one the play's or silence
+PASS the chip's clock +2450 ppm from TMU0 over five minutes: every frame the play's and the ring never begun again; a play's last frame at +2450 ppm
+PASS the chip's clock -6000 ppm from TMU0 over five minutes: every frame the play's and the ring never begun again; a play's last frame at -180 ppm
+PASS the ring's clock: a count that stands still, fell or jumped begins the ring again before anything else is heard; one that is no clock is given up
+PASS a game that calls once a frame: three kilobytes a heartbeat hold the ring for a minute, two run it dry 128 times
+PASS every build of the four families plays: 24 builds beside the three of the console, each known by its version bytes and its date; the first builds of MANATEE 1 by their count of 176 frames
+PASS nothing is written for another driver, one not running, a held sound CPU, unproved records, a used channel, no room, no clock, a G2 transfer, SR.BL
+PASS the ring's place: the driver's spare memory; given up when a guard says so and taken again in the same play, eight times
+PASS the driver's part: a taken channel is left alone, a dropped key begins the ring again (given up at the ninth), changed registers are put back and the ring begun again where the play was moved, a new driver ends every store
+PASS a card that hands nothing on, a slow card, a bus that does not answer, a word being written
+PASS without VOLUME: full level, hard left and right, whatever the mixers say
+PASS the terminal key-off, a new play over an old one, a lost clock, a play already over
+PASS a play's last frames at 150 phases of the driver's count and of the heartbeats: every one played, and 131 to 1096 frames of silence behind them before the key-off
+CD-music output: 1564586800 checks passed (VOLUME 0, ADPCM 1, SPARE 1); host model only
+== way 110
+PASS a play on MANATEE 2.00.09: placed at 0x1cfe00, 1618735 frames played, every one the play's; pause, release and the end
+PASS a play on MANATEE 1.01.3b: placed at 0x1cfe00, 1618632 frames played, every one the play's; pause, release and the end
+PASS a play on MANATEE 1.01.37: placed at 0x1cfe00, 1618784 frames played, every one the play's; pause, release and the end
+PASS tracks, a gap, a track the card refuses and laps: 1230233 frames, every one the play's or silence
+PASS the chip's clock +2450 ppm from TMU0 over five minutes: every frame the play's and the ring never begun again; a play's last frame at +2450 ppm
+PASS the chip's clock -6000 ppm from TMU0 over five minutes: every frame the play's and the ring never begun again; a play's last frame at -180 ppm
+PASS the ring's clock: a count that stands still, fell or jumped begins the ring again before anything else is heard; one that is no clock is given up
+PASS a game that calls once a frame: three kilobytes a heartbeat hold the ring for a minute, two run it dry 121 times
+PASS every build of the four families plays: 24 builds beside the three of the console, each known by its version bytes and its date; the first builds of MANATEE 1 by their count of 176 frames
+PASS nothing is written for another driver, one not running, a held sound CPU, unproved records, a used channel, no room, no clock, a G2 transfer, SR.BL
+PASS the ring's place: below CRI's slots first, among them when the table names none, smaller where room is short; given up when a pair or a guard says so
+PASS the driver's part: a taken channel is left alone, a dropped key begins the ring again (given up at the ninth), changed registers are put back and the ring begun again where the play was moved, a new driver ends every store
+PASS a card that hands nothing on, a slow card, a bus that does not answer, a word being written
+PASS VOLUME: both planes at the larger of the CD mixers' two levels, each on its side; MANATEE 2's level bytes where the mixers read nothing
+PASS the terminal key-off, a new play over an old one, a lost clock, a play already over
+PASS a play's last frames at 150 phases of the driver's count and of the heartbeats: every one played, and 126 to 1209 frames of silence behind them before the key-off
+CD-music output: 2234176441 checks passed (VOLUME 1, ADPCM 1, SPARE 0); host model only
+== way 100
+PASS a play on MANATEE 2.00.09: placed at 0x1cfda0, 1618689 frames played, every one the play's; pause, release and the end
+PASS a play on MANATEE 1.01.3b: placed at 0x1cfda0, 1619111 frames played, every one the play's; pause, release and the end
+PASS a play on MANATEE 1.01.37: placed at 0x1cfda0, 1618513 frames played, every one the play's; pause, release and the end
+PASS tracks, a gap, a track the card refuses and laps: 1230142 frames, every one the play's or silence
+PASS the chip's clock +2450 ppm from TMU0 over five minutes: every frame the play's and the ring never begun again; a play's last frame at +2450 ppm
+PASS the chip's clock -6000 ppm from TMU0 over five minutes: every frame the play's and the ring never begun again; a play's last frame at -180 ppm
+PASS the ring's clock: a count that stands still, fell or jumped begins the ring again before anything else is heard; one that is no clock is given up
+PASS a game that calls once a frame: three kilobytes a heartbeat hold the ring for a minute, two run it dry 131 times
+PASS every build of the four families plays: 24 builds beside the three of the console, each known by its version bytes and its date; the first builds of MANATEE 1 by their count of 176 frames
+PASS nothing is written for another driver, one not running, a held sound CPU, unproved records, a used channel, no room, no clock, a G2 transfer, SR.BL
+PASS the ring's place: below CRI's slots first, among them when the table names none, smaller where room is short; given up when a pair or a guard says so
+PASS the driver's part: a taken channel is left alone, a dropped key begins the ring again (given up at the ninth), changed registers are put back and the ring begun again where the play was moved, a new driver ends every store
+PASS a card that hands nothing on, a slow card, a bus that does not answer, a word being written
+PASS VOLUME: both planes at the larger of the CD mixers' two levels, each on its side; MANATEE 2's level bytes where the mixers read nothing
+PASS the terminal key-off, a new play over an old one, a lost clock, a play already over
+PASS a play's last frames at 150 phases of the driver's count and of the heartbeats: every one played, and 155 to 1196 frames of silence behind them before the key-off
+CD-music output: 1521896050 checks passed (VOLUME 1, ADPCM 0, SPARE 0); host model only
+== way 000
+PASS a play on MANATEE 2.00.09: placed at 0x1cfda0, 1618454 frames played, every one the play's; pause, release and the end
+PASS a play on MANATEE 1.01.3b: placed at 0x1cfda0, 1618497 frames played, every one the play's; pause, release and the end
+PASS a play on MANATEE 1.01.37: placed at 0x1cfda0, 1618449 frames played, every one the play's; pause, release and the end
+PASS tracks, a gap, a track the card refuses and laps: 1230021 frames, every one the play's or silence
+PASS the chip's clock +2450 ppm from TMU0 over five minutes: every frame the play's and the ring never begun again; a play's last frame at +2450 ppm
+PASS the chip's clock -6000 ppm from TMU0 over five minutes: every frame the play's and the ring never begun again; a play's last frame at -180 ppm
+PASS the ring's clock: a count that stands still, fell or jumped begins the ring again before anything else is heard; one that is no clock is given up
+PASS a game that calls once a frame: three kilobytes a heartbeat hold the ring for a minute, two run it dry 131 times
+PASS every build of the four families plays: 24 builds beside the three of the console, each known by its version bytes and its date; the first builds of MANATEE 1 by their count of 176 frames
+PASS nothing is written for another driver, one not running, a held sound CPU, unproved records, a used channel, no room, no clock, a G2 transfer, SR.BL
+PASS the ring's place: below CRI's slots first, among them when the table names none, smaller where room is short; given up when a pair or a guard says so
+PASS the driver's part: a taken channel is left alone, a dropped key begins the ring again (given up at the ninth), changed registers are put back and the ring begun again where the play was moved, a new driver ends every store
+PASS a card that hands nothing on, a slow card, a bus that does not answer, a word being written
+PASS without VOLUME: full level, hard left and right, whatever the mixers say
+PASS the terminal key-off, a new play over an old one, a lost clock, a play already over
+PASS a play's last frames at 150 phases of the driver's count and of the heartbeats: every one played, and 232 to 1195 frames of silence behind them before the key-off
+CD-music output: 1513952549 checks passed (VOLUME 0, ADPCM 0, SPARE 0); host model only
+
+And at 6740125c, on the clean worktree (make toy-cdda-output-host-test), before the later-measure scenarios were lengthened:
+CD-music output: 1384780089 checks passed (VOLUME 1, ADPCM 1, SPARE 1); host model only
+CD-music output: 1374802068 checks passed (VOLUME 0, ADPCM 1, SPARE 1); host model only
+CD-music output: 1989116247 checks passed (VOLUME 1, ADPCM 1, SPARE 0); host model only
+CD-music output: 1283990562 checks passed (VOLUME 1, ADPCM 0, SPARE 0); host model only
+CD-music output: 1277184643 checks passed (VOLUME 0, ADPCM 0, SPARE 0); host model only

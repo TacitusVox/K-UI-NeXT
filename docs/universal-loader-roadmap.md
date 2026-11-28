@@ -363,6 +363,37 @@ SpeedZone, reading through its race, ran dry six times in 102 s of music
 (Test 85: nine in 63 s). TMU0 runs 2,483 parts in a million slow against
 the chip, give or take 5.
 
+### Test 88 (27 November 2026): every MANATEE build
+
+`cdda-background-test-88.md`, build `9e105c4e8d25`, Test 87's recipe.
+Step 3 of the list below, taken before step 2 at the owner's word
+("carry our work further and do an ALL MANATEE build"). Packaged; not run
+on a console.
+
+- All 27 MANATEE-lineage builds of the corpus were read, and each run: its
+  start-up and 3,528 timer interrupts on an ARM7 model
+  (`tools/manatee_read.py`). Each keeps its count, its spare memory and
+  its channel records where its family does. Two builds, 1.01.1d and
+  1.01.28, count 176 frames where every other counts 176.4.
+- Output is given to four families by their version bytes and running
+  mark: MANATEE 2, MANATEE 1 from 1.01.37, MANATEE 1 before it (the pool's
+  entries 14 and 15) and NAMIHEI (stream ports 6 and 7). The build that
+  runs is still known by its date, and named in the report.
+- A split of MANATEE 2's channels that leaves no two stream ports
+  (Bangai-O) is silent with its own reason.
+- The output as built was run over the memory each original image leaves
+  after its own start-up (`tests/test_toy_cdda_output_drivers.py`).
+
+Reach on today's routes, by the corpus's structural readings: of the 82
+games the Background worker takes, 44 carry MANATEE alone with every
+driver file one of the builds read, 12 more name MANATEE by their sound
+library with no driver file on record, and 16 carry it beside AUDIO64 (23
+before). The two older families are on four of the 82, each beside a
+later build; the 17 games that carry only one of them are not games the
+worker takes.
+
+Next, after its console round: step 2, the player's rough edges.
+
 ### CD music in regular games: what is left (27 November 2026)
 
 The owner, 27 November, after Test 87: "Shall we lay out the rest of the
@@ -419,7 +450,9 @@ The steps, in the order proposed:
    their own records, and a stream-port split that leaves no pair (Bangai-O)
    silent with its reason. One console round over a game of each
    generation. Reach on today's routes: 23 to 56, and the 16 with both
-   drivers where MANATEE is the one that runs.
+   drivers where MANATEE is the one that runs. Built as Test 88
+   (`cdda-background-test-88.md`, above), 27 November 2026, before step 2
+   at the owner's word; its console round is open.
 4. AUDIO64: the ring in the driver's own unused memory (0xD000 to 0xFFFF,
    12 KiB, read in three builds; the other fifteen to read), channels 62
    and 63 by the driver's playing bytes, the clock by the chip's timers

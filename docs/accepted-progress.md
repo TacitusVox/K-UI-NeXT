@@ -200,7 +200,13 @@ frames into the ring) ran that evening in all three games: KOF played its
 music steadily, 146 s with no ring begun again; ChuChu Rocket played 26
 minutes, a piece of over seven among them, with three short breaks beside
 the game's own reads; POD SpeedZone broke six times in 102 s, reading
-through its race ([Test 87](cdda-background-test-87.md), Console result). None of the three is an accepted component: each is a
+through its race ([Test 87](cdda-background-test-87.md), Console result).
+Test 88's module `9e105c4e8d25` (the output given to every MANATEE build:
+four families by their version bytes and running mark, after each of the
+corpus's 27 builds was read and run on an ARM7 model) is packaged and has
+not run on a console ([Test 88](cdda-background-test-88.md)); for the
+three builds Test 87 played it decides and writes as Test 87 does, by the
+host model. None of the four is an accepted component: each is a
 test module in the New reader's place, with the virtual VMU off. What is
 left of CD music in regular games is laid out in
 `universal-loader-roadmap.md` (CD music in regular games: what is left). The owner has reported no Windows CE or Smash Pack run
