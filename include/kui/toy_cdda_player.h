@@ -21,8 +21,21 @@ enum kui_toy_cdda_state {
     KUI_TOY_CDDA_ENDED = 3u,   /* a play's last pass reached its range's end */
     KUI_TOY_CDDA_LOST = 4u     /* the clock's profile stopped holding: today's answers */
 };
-/* A sector of CD audio is 1/75 s: 781,250/75 = 31,250/3 TMU0 ticks. */
+/* A sector of CD audio is 1/75 s: 781,250/75 = 31,250/3 TMU0 ticks by
+ * TMU0's name. Where the music sounds (Test 89), the drive keeps the sound
+ * chip's time, as the music does: TMU0 runs a quarter of a percent slow
+ * against the chip (2,483 parts in a million on the console, give or take
+ * 5, over 26 minutes of Test 87; the processor's clock is 199.5 MHz where
+ * TMU0's 781,250 Hz reckons with 200), and three sectors of the chip's
+ * time are 31,250 x 0.9975 = 31,172 of TMU0's ticks. With TMU0's own
+ * measure the play's position, as the game reads it and as a play that
+ * begins again takes the music up, fell 2.5 ms behind the music for every
+ * second played. */
+#if defined(KUI_TOY_CDDA_OUTPUT) && KUI_TOY_CDDA_OUTPUT
+#define KUI_TOY_CDDA_TICKS_3_SECTORS 31172u
+#else
 #define KUI_TOY_CDDA_TICKS_3_SECTORS 31250u
+#endif
 
 struct kui_toy_cdda_drive {
     uint32_t state, generation, seen_token;

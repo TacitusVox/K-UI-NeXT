@@ -125,9 +125,9 @@ uint32_t kui_native_readahead_aux_test_read(uint32_t address, unsigned width) {
 }
 static void ticks(uint32_t n) { tcnt -= n; }
 /* What the player's clock makes of n ticks. */
-static uint32_t sectors_of(uint32_t n) { return n / 31250u * 3u + n % 31250u * 3u / 31250u; }
+static uint32_t sectors_of(uint32_t n) { return n / KUI_TOY_CDDA_TICKS_3_SECTORS * 3u + n % KUI_TOY_CDDA_TICKS_3_SECTORS * 3u / KUI_TOY_CDDA_TICKS_3_SECTORS; }
 /* Ticks for exactly n sectors to have passed (at least n, fewer than n+1). */
-static uint32_t ticks_for(uint32_t n) { return n / 3u * 31250u + (n % 3u * 31250u + 2u) / 3u; }
+static uint32_t ticks_for(uint32_t n) { return n / 3u * KUI_TOY_CDDA_TICKS_3_SECTORS + (n % 3u * KUI_TOY_CDDA_TICKS_3_SECTORS + 2u) / 3u; }
 
 static void fresh(void) {
     memset(&R, 0, sizeof(R));
@@ -524,7 +524,7 @@ static void clock(void) {
         total += n;
         CHECK(drive() == 3u);
     }
-    const uint64_t sectors = total / 31250u * 3u + total % 31250u * 3u / 31250u;
+    const uint64_t sectors = total / KUI_TOY_CDDA_TICKS_3_SECTORS * 3u + total % KUI_TOY_CDDA_TICKS_3_SECTORS * 3u / KUI_TOY_CDDA_TICKS_3_SECTORS;
     CHECK(req_stat(NULL, NULL) == 60150u + (uint32_t)(sectors % 10000u));
     CHECK(kui_toy_cdda_drive.laps == (uint32_t)(sectors / 10000u));
     (void)sectors_of;

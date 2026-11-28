@@ -211,7 +211,7 @@ static struct { uint32_t first, end, base, passes; } heard_play;
 /* Where the drive stands at TMU0 count tc; false: its last pass is over. */
 static bool oracle(uint32_t tc, uint32_t *sector, uint32_t *passes) {
     const uint64_t ticks = (uint32_t)(D.base_counter - tc), length = D.end - D.first;
-    int64_t offset = D.base_offset + (int64_t)(ticks * 3u / 31250u);
+    int64_t offset = D.base_offset + (int64_t)(ticks * 3u / KUI_TOY_CDDA_TICKS_3_SECTORS);
     if(offset < 0)offset = 0;
     const uint64_t laps = (uint64_t)offset / length;
     if(D.passes && D.done + laps >= D.passes)return false;
@@ -625,7 +625,8 @@ static void fresh(void) {
     store_ticks = 0u;
     fifo_stuck = frozen = mute_readback = card_idle = card_skips = inclusive = false;
     strict = true;
-    ppm = 0;
+    /* The console's: TMU0 a quarter of a percent slow against the chip. */
+    ppm = 2500;
     refuse_track = 0u;
     card_most = 8192u;
     card_chunk = 1024u;
@@ -1741,6 +1742,34 @@ static void last_frames(void) {
         "%lu to %lu frames of silence behind them before the key-off\n", least, most);
 }
 
+/* Test 89: the drive keeps the sound chip's time. How far the drive's
+ * position, as the game would read it, stands from the frame the chip
+ * plays: a play begins behind the drive by the time its ring took to prime,
+ * and from then on the two keep their distance. By
+ * TMU0's own measure of a sector the drive fell behind the music by a
+ * quarter of a percent: 6,600 frames in a minute. */
+static int64_t drive_ahead(void) {
+    uint32_t sector = 0u, passes = 0u;
+    CHECK(oracle(tcnt(), &sector, &passes) && sounding());
+    return (int64_t)(sector - heard_play.base) * 588 - (int64_t)voice[pair[0]].consumed;
+}
+static void aligned(void) {
+    for(unsigned build = 0; build < 2u; ++build) {
+        fresh();
+        if(build)manatee1(false);
+        else manatee2();
+        play(1000u, 9000u, 0u, 0);
+        run(2000u);
+        const int64_t early = drive_ahead();
+        CHECK(early > 0 && early < 12000);
+        run(60000u);
+        const int64_t late = drive_ahead();
+        CHECK(O.keys == 1u && !O.restarts && !wrong_frames);
+        /* (A sector is 588 frames, and the drive's position a whole one.) */
+        CHECK(late - early < 900 && early - late < 900);
+    }
+    printf("PASS the drive on the chip's clock: a minute into a play its position stands where it stood from the music two seconds in, to a sector\n");
+}
 int main(void) {
     (void)sizes;
     for(unsigned build = 0; build < 3u; ++build)plays_through(build, false);
@@ -1759,6 +1788,7 @@ int main(void) {
     volume();
     endings();
     last_frames();
+    aligned();
     printf("CD-music output: %lu checks passed (VOLUME %d, ADPCM %d, SPARE %d); host model only\n", checks, KUI_TOY_CDDA_VOLUME,
         KUI_TOY_CDDA_ADPCM, KUI_TOY_CDDA_SPARE);
     return 0;
